@@ -17,13 +17,11 @@ import {
 import { uiText } from '../app/i18n';
 import { userFacingError } from '../app/user-facing-errors';
 import type { InterfaceLanguage, ReaderSettings } from '../app/types';
-import {
-    type ImportSummary,
-    type YomitanDictionaryStore,
-} from '../dictionaries/yomitan';
+import type { LocalDictionaryStore } from '../dictionaries/local-store';
+import type { ImportSummary } from '../dictionaries/yomitan';
 
 interface ReaderSettingsRestorePort {
-    readonly dictionaries: Pick<YomitanDictionaryStore, 'exportJson' | 'importFile' | 'summary'>;
+    readonly dictionaries: Pick<LocalDictionaryStore, 'exportJson' | 'importFile' | 'summary'>;
     readonly setStatus: (message: string) => void;
     readonly persistSettings: (settings: ReaderSettings, options: SaveSettingsOptions) => Promise<void>;
     readonly adoptSettings: (settings: ReaderSettings) => void;
@@ -116,7 +114,7 @@ class BundledDictionaryRestore {
 
 async function dictionaryRestoreFiles(
     dictionaryExport: unknown,
-    dictionaries: Pick<YomitanDictionaryStore, 'exportJson'>,
+    dictionaries: Pick<LocalDictionaryStore, 'exportJson'>,
 ): Promise<ReaderDictionaryRestore | null> {
     if (!readerDictionaryExportHasData(dictionaryExport)) return null;
     return {
@@ -135,7 +133,7 @@ function jsonFile(value: unknown, filename: string): File {
 
 async function mergeImportedDictionaryPreferences(
     settings: ReaderSettings,
-    dictionaries: Pick<YomitanDictionaryStore, 'summary'>,
+    dictionaries: Pick<LocalDictionaryStore, 'summary'>,
 ): Promise<ReaderSettings> {
     const importedSummary = await dictionaries.summary().catch(() => ({ dictionaries: [] }));
     const importedNames = importedSummary.dictionaries.map(item => item.title);

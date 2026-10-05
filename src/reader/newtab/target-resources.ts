@@ -1,7 +1,8 @@
 import { gmStorageGet, gmStorageSet } from '../app/storage';
 import type { JPDBCard, ReaderSettings } from '../app/types';
 import { BoundedMap } from '../core/bounded-map';
-import type { YomitanDictionaryStore, YomitanTermEntry } from '../dictionaries/yomitan';
+import type { LocalDictionaryStore } from '../dictionaries/local-store';
+import type { YomitanTermEntry } from '../dictionaries/yomitan';
 import type { JpdbPublicPitchClient } from '../jpdb/jpdb-public-pitch';
 import { usesJapaneseProviders } from '../languages/character-lookup';
 import { localPitchPatternsFromMetaLookup } from '../lookup/pitch-meta';
@@ -35,7 +36,7 @@ interface TargetResourceDependencies {
     readonly getSettings: () => ReaderSettings;
     readonly providerContexts: () => NewTabProviderContexts;
     readonly parser: Pick<ReaderParser, 'fallbackCardFromText' | 'localCardFromEntry'>;
-    readonly dictionaries: Pick<YomitanDictionaryStore, 'lookup' | 'lookupTermMeta'>;
+    readonly dictionaries: Pick<LocalDictionaryStore, 'lookup' | 'lookupTermMeta'>;
     readonly jpdbPublicPitch?: Pick<JpdbPublicPitchClient, 'lookup'>;
     readonly localSearchWithTimeout: <T>(promise: Promise<T>, fallback: T) => Promise<T>;
 }

@@ -2,7 +2,7 @@ import { cardKey } from '../cards/utils';
 import type { JPDBCard, ReaderSettings } from '../app/types';
 import type { JitenApiClient } from '../dictionaries/jiten';
 import type { JitenPublicVocabularyClient } from '../dictionaries/jiten-public-vocabulary';
-import type { YomitanDictionaryStore } from '../dictionaries/yomitan';
+import type { LocalDictionaryStore } from '../dictionaries/local-store';
 import type { JpdbVocabularyClient } from '../jpdb/jpdb-vocabulary';
 import { usesJapaneseProviders } from '../languages/character-lookup';
 import { jpdbFirstParseOptions, type ReaderParser } from '../lookup/parser';
@@ -12,7 +12,7 @@ import type { LookupTargetSnapshot, NewTabLookupTargetScope } from './target-sco
 
 interface NewTabTargetLookupDependencies {
     readonly getSettings: () => ReaderSettings;
-    readonly getDictionaries: () => Pick<YomitanDictionaryStore, 'lookup'>;
+    readonly getDictionaries: () => Pick<LocalDictionaryStore, 'lookup'>;
     readonly getParser: () => Pick<ReaderParser, 'fallbackCardFromText' | 'localCardFromEntry' | 'parse'>;
     readonly getJpdbVocabulary: () => Pick<JpdbVocabularyClient, 'search'>;
     readonly getJiten: () => Pick<JitenApiClient, 'parse'>;

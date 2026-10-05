@@ -9,7 +9,8 @@ import {
     recommendedDictionaryImportOptions,
     type RecommendedDictionary,
 } from '../dictionaries/recommended';
-import type { ImportSummary, YomitanDictionaryStore } from '../dictionaries/yomitan';
+import type { LocalDictionaryStore } from '../dictionaries/local-store';
+import type { ImportSummary } from '../dictionaries/yomitan';
 import { getUserscriptHttpRequest } from '../userscript/index';
 import { recommendedDictionaryFilename } from './file-io';
 
@@ -103,7 +104,7 @@ function syncRecommendedDictionaryStatus(button: HTMLButtonElement, operation: R
 }
 
 export async function importRecommendedDictionary(
-    dictionaries: Pick<YomitanDictionaryStore, 'importFromUrl'>,
+    dictionaries: Pick<LocalDictionaryStore, 'importFromUrl'>,
     card: RecommendedDictionary,
     setStatus: (message: string) => void,
 ): Promise<ImportSummary> {

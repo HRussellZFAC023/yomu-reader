@@ -22,8 +22,9 @@ import { extensionDictionaryStoreProxy } from './extension-store-client';
  * Engine answers it (ADR-0022). Declared rather than derived from an engine
  * class: the engine `implements` it and the inert store `satisfies` it, so a
  * method either one lacks is a typecheck failure, and callers hold this
- * interface, never an engine's own class. The extension Proxy forwards exactly
- * these calls to the background store (ADR-0010).
+ * interface, never an engine's own class. In an extension content script the
+ * Proxy forwards calls to the background store by method name (ADR-0010): the
+ * types, not the transport, keep callers to these methods.
  */
 export interface LocalDictionaryStore {
     lookup(expression: string, reading: string, limit: number, preferences?: DictionaryPreference[]): Promise<YomitanTermEntry[]>;

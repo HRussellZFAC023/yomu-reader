@@ -3,7 +3,7 @@ import { formatUiText, uiText } from '../app/i18n';
 import { setInnerHtml } from '../dom/index';
 import { isLearningTargetRosterId, type LearningTargetRosterId } from '../languages';
 import { isLearnerLanguageId, type LearnerLanguageId } from '../locales';
-import type { YomitanDictionaryStore } from '../dictionaries/yomitan';
+import type { LocalDictionaryStore } from '../dictionaries/local-store';
 import {
     activeLearnerLanguageId,
     activeTargetLanguageId,
@@ -14,7 +14,7 @@ import {
     renderRecommendedDictionaries,
 } from './form';
 
-export type DictionaryStatusSummary = Awaited<ReturnType<YomitanDictionaryStore['summary']>>;
+export type DictionaryStatusSummary = Awaited<ReturnType<LocalDictionaryStore['summary']>>;
 
 export interface DictionaryStatusElements {
     status: HTMLElement | null;

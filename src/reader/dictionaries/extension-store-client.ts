@@ -65,8 +65,12 @@ interface DictionaryRpcResponse {
 const CAPABILITY_RETRY_MS = 1_000;
 
 /**
- * One Proxy over the derived store facade. Adding a public Yomitan method adds
- * a callable remote method automatically; there is no second method inventory.
+ * One Proxy over the realm's own store, with no method list of its own: it
+ * forwards any method that store has, by name, to the background store, so a
+ * method added to LocalDictionaryStore needs no transport change. Only the
+ * interface's methods are typed. Neither this Proxy nor the background host
+ * restricts calls to them; the host invokes any well-formed method name its
+ * store has.
  */
 export function extensionDictionaryStoreProxy(
     directStore: LocalDictionaryStore,
