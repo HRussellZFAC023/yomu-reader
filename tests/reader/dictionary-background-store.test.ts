@@ -9,7 +9,7 @@ import type { InterfaceLanguage } from '../../src/reader/app/types';
 import { resetActiveLearningTargetLanguage, setActiveLearningTargetLanguage } from '../../src/reader/languages/target-runtime';
 import { userFacingErrorText } from '../../src/reader/app/user-facing-errors';
 import { isStaleManagedStateEpochError, managedStateEpochSessionForRealm, StaleManagedStateEpochError } from '../../src/reader/app/managed-state-epoch';
-import { createReaderDictionaryStore, type LocalDictionaryStore } from '../../src/reader/dictionaries/local-store';
+import { createReaderDictionaryStore, dictionaryReadConcurrency, type LocalDictionaryStore } from '../../src/reader/dictionaries/local-store';
 import {
     installExtensionDictionaryBackgroundHost,
     type ExtensionDictionaryBackgroundHostOptions,
@@ -848,13 +848,13 @@ describe('extension background dictionary store', () => {
         expect(directLookup).toHaveBeenCalledTimes(1);
     });
 
-    it('gives a Reader the Shared Dictionary Host only in the extension build', () => {
+    it('gives a Reader the Shared Dictionary Host, and unlimited reads, only in the extension build', () => {
         vi.stubGlobal('chrome', { runtime: { id: 'fixture-extension', sendMessage: vi.fn(), connect: vi.fn() } });
         try {
             vi.stubGlobal('__YOMU_EXTENSION_BUILD__', false);
-            expect(createReaderDictionaryStore(() => '', () => 'en')).not.toHaveProperty('coalescesReads');
+            expect(dictionaryReadConcurrency(createReaderDictionaryStore(() => '', () => 'en'), 8)).toBe(8);
             vi.stubGlobal('__YOMU_EXTENSION_BUILD__', true);
-            expect(createReaderDictionaryStore(() => '', () => 'en')).toHaveProperty('coalescesReads', true);
+            expect(dictionaryReadConcurrency(createReaderDictionaryStore(() => '', () => 'en'), 8)).toBe(Infinity);
         } finally {
             vi.unstubAllGlobals();
         }

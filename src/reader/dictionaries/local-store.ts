@@ -89,6 +89,17 @@ export function createReaderDictionaryStore(
         : direct;
 }
 
+/**
+ * How many reads a caller keeps in flight against a store. The extension
+ * store client marks itself `coalescesReads`: it sends a macrotask's reads as
+ * one Read Batch and bounds their IndexedDB fan-out in its host (ADR-0023), so
+ * a caller's own lane would only split one page into many round trips. A
+ * store in the caller's realm keeps the caller's limit.
+ */
+export function dictionaryReadConcurrency(store: LocalDictionaryStore, ownRealmLimit: number): number {
+    return (store as { coalescesReads?: unknown }).coalescesReads === true ? Infinity : ownRealmLimit;
+}
+
 function inertLocalDictionaryStore(): LocalDictionaryStore {
     return {
         lookup: async () => [],

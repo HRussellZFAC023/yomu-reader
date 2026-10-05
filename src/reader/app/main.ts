@@ -397,7 +397,7 @@ import type {
     YomitanMetaEntry,
     YomitanTermEntry,
 } from '../dictionaries/yomitan';
-import { createReaderDictionaryStore, type LocalDictionaryStore } from '../dictionaries/local-store';
+import { createReaderDictionaryStore, dictionaryReadConcurrency, type LocalDictionaryStore } from '../dictionaries/local-store';
 import { honorDictionaryReplicaPurge } from '../dictionaries/replica-purge';
 import {
     cardHasContextPitch,
@@ -587,6 +587,9 @@ export class ReaderApp {
         this.rtkInstance = value;
     }
     private dictionaries = createReaderDictionaryStore(() => this.settings.corsProxyUrl, () => this.settings.interfaceLanguage);
+    // Local pitch reads are IndexedDB reads: 8 in flight here, all at once
+    // through the extension's Read Batches (ADR-0023).
+    private readonly localPitchConcurrency = dictionaryReadConcurrency(this.dictionaries, LOCAL_PITCH_ENRICHMENT_CONCURRENCY);
     private cardRenderData = new CardRenderDataLoader({
         getSettings: () => this.settings,
         dictionaries: this.dictionaries,
@@ -8336,7 +8339,7 @@ export class ReaderApp {
             const localOnlyRetryTokens = [...deferredPublicTokens, ...localOnlyTokens];
             const localOnly = runLimited(
                 localOnlyRetryTokens,
-                LOCAL_PITCH_ENRICHMENT_CONCURRENCY,
+                this.localPitchConcurrency,
                 token => this.enrichPitchToken(token, { publicLookup: false }),
             );
             if (!publicTokens.length) {
@@ -8406,7 +8409,7 @@ export class ReaderApp {
             cacheCards: cards => this.parser.cacheCards?.(cards),
             enrichLocalPitch: localTokens => runLimited(
                 localTokens,
-                LOCAL_PITCH_ENRICHMENT_CONCURRENCY,
+                this.localPitchConcurrency,
                 token => this.enrichPitchToken(token, { publicLookup: false }),
             ).then(() => undefined),
         });
@@ -8631,7 +8634,7 @@ export class ReaderApp {
             if (this.isDestroyed || !this.shouldRunPitchOrReadingEnrichment()) return;
             const chunk = tokens.slice(index, index + PITCH_ENRICHMENT_LIMIT);
             await this.waitForBackgroundEnrichmentTurn();
-            await runLimited(chunk, LOCAL_PITCH_ENRICHMENT_CONCURRENCY, token => this.enrichPitchToken(token, options));
+            await runLimited(chunk, this.localPitchConcurrency, token => this.enrichPitchToken(token, options));
             if (index + PITCH_ENRICHMENT_LIMIT < tokens.length) await this.waitForIdle();
         }
     }

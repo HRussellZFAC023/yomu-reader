@@ -27,7 +27,7 @@ import { chosenWordGradingService, hasJitenApiCredential, hasJpdbApiCredential }
 import type { JitenApiClient } from '../dictionaries/jiten';
 import type { JPDBCard, JPDBToken, ReaderSettings } from '../app/types';
 import { glossaryToText, type YomitanMetaEntry, type YomitanTermEntry, type YomitanTermMatch } from '../dictionaries/yomitan';
-import type { LocalDictionaryStore } from '../dictionaries/local-store';
+import { dictionaryReadConcurrency, type LocalDictionaryStore } from '../dictionaries/local-store';
 import { hydrateYomuLocalSrsCardStates } from '../srs/local-yomu-state';
 import type { YomuSrsAdapter } from '../srs/types';
 import {
@@ -135,13 +135,8 @@ export class ReaderParser {
     private kanjiReadingCache = new Map<string, Promise<string[]>>();
 
     constructor(private dependencies: ReaderParserDependencies) {
-        // The extension store client sends every read of a macrotask as one
-        // round trip and bounds IndexedDB fan-out in its host, where the
-        // database lives; gating it here would split one page into dozens of
-        // round trips. A realm's store transport is fixed when it is created.
-        this.enrichmentGate = new ConcurrencyGate((dependencies.dictionaries as { coalescesReads?: unknown }).coalescesReads === true
-            ? Infinity
-            : LOCAL_ENRICHMENT_CONCURRENCY);
+        // A realm's store transport is fixed when it is created.
+        this.enrichmentGate = new ConcurrencyGate(dictionaryReadConcurrency(dependencies.dictionaries, LOCAL_ENRICHMENT_CONCURRENCY));
     }
 
     async parse(paragraphs: string[], options: ReaderParserParseOptions = {}): Promise<JPDBToken[][]> {
