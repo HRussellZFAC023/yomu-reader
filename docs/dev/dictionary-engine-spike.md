@@ -4,7 +4,7 @@ Branch `spike/hoshidicts-ts-engine`, never merged as is. Written 4 October 2026;
 
 > **Copied for the record.** This report is copied unchanged, apart from this note, from the branch `spike/hoshidicts-ts-engine` at 967c5aad8. That branch is not published, so the spike's engine and the benchmark scripts this report names (`scripts/engine-spike/`, `src/reader/dictionaries/engine/`) are not in this repository.
 >
-> Its "Decision pending" verdict below is superseded. [ADR-0022](../../adr/0022-one-readable-dictionary-engine.md) was accepted later on 5 October 2026 by the release lead, under the owner's delegation. The load that left M1 Chromium, M2, M3 and M4 provisional came from the benchmark's own fresh-profile imports: a second run, started below load 10, rose the same way. Every provisional row passes by a wide margin. The absolute import time and memory figures are still to be re-confirmed on another machine.
+> Its "Decision pending" verdict below is superseded. ADR-0022 (`adr/0022-one-readable-dictionary-engine.md`) was accepted later on 5 October 2026 by the release lead, under the owner's delegation. The load that left M1 Chromium, M2, M3 and M4 provisional came from the benchmark's own fresh-profile imports: a second run, started below load 10, rose the same way. Every provisional row passes by a wide margin. The absolute import time and memory figures are still to be re-confirmed on another machine.
 
 ## Verdict
 
