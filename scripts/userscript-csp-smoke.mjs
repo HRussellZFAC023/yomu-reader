@@ -1,7 +1,9 @@
 #!/usr/bin/env node
 // Yomu boots and answers local dictionary lookups on pages whose Content
 // Security Policy forbids evaluating code: `script-src 'self'`, a nonce-only
-// policy shaped like Reddit's, and, as the control, no policy at all.
+// policy shaped like Reddit's, and, as the control, no policy at all. It runs
+// Yomu in two manager shapes: with unsafeWindow, as Tampermonkey runs it, and
+// without, as the Userscripts app on iPhone and iPad does.
 //
 // A userscript manager injects Yomu into the page's own world, where the page's
 // policy still governs whatever that code does next: eval, new Function,
@@ -12,15 +14,23 @@
 // there. No context is created with bypassCSP, and the addScriptTag path other
 // smokes use is avoided, since its fallback is a CDP evaluation the policy does
 // not govern. The userscript graph runs from an init script at document start,
-// in the page world, as a manager runs it.
+// in the page world, as a manager runs it. The no-unsafeWindow shape runs there
+// too: it covers Yomu's own fallbacks for a missing unsafeWindow, not the
+// isolated world the Userscripts app itself provides.
 //
-// Per browser and policy it asserts that:
+// Chromium applies the page's policy to that world only after document start,
+// so its leg cannot see code that evaluates while Yomu loads. Only the Firefox
+// and WebKit legs cover code that runs at document start; run all three.
+//
+// Per browser, manager shape and policy it asserts that:
 //   - the policy is live in the world Yomu runs in (eval is refused there) and
 //     on the page (an inline script without the nonce never runs);
 //   - Yomu reaches runtime health "ready" with every companion service;
 //   - the local parser annotates the sentence, and a click opens a popup whose
 //     local-dictionary card shows the seeded dictionary's gloss;
-//   - Yomu itself caused no script-src or worker-src violation.
+//   - Yomu itself caused no script-src or worker-src violation, apart from the
+//     one known refusal listed at SHADOW_BRIDGE_REFUSAL for the no-unsafeWindow
+//     shape, which the report records under knownRefusals.
 //
 // The dictionary is seeded as a page-local store first, on the same origin
 // without a policy, exactly as the lookup-perf gate seeds it.
@@ -50,12 +60,36 @@ const LOOKUP_GLOSS = 'kanji';
 const NONCE = 'csp-fixture-nonce';
 const REQUEST_BRIDGE_NAME = '__yomuCspSmokeRequest';
 const BROWSERS = [['chromium', chromium], ['firefox', firefox], ['webkit', webkit]];
+// 'report-sample' changes nothing the policy allows. It makes a violation carry
+// the first 40 characters of the refused inline script, so each refusal can be
+// told apart by what was refused rather than only counted.
 const POLICIES = {
-    strict: "script-src 'self'",
+    strict: "script-src 'self' 'report-sample'",
     // Reddit's shape: nothing by default, scripts only by nonce, inline styles.
-    nonce: `default-src 'none'; script-src 'nonce-${NONCE}'; style-src 'unsafe-inline'`,
+    nonce: `default-src 'none'; script-src 'nonce-${NONCE}' 'report-sample'; style-src 'unsafe-inline'`,
     none: null,
 };
+// How the manager hands Yomu the page. Tampermonkey runs Yomu in the page's own
+// realm and passes that window as unsafeWindow. The Userscripts app on iPhone
+// and iPad, the documented iOS shape, passes none, and Yomu then falls back to
+// page-world inline scripts that a policy refuses.
+const SHAPES = {
+    tampermonkey: { unsafeWindow: true },
+    'no-unsafeWindow': { unsafeWindow: false },
+};
+// The refusals a run may contain under an enforced policy, each at most once and
+// matched by what was refused and the start of its sample. Every browser here
+// reports samples, so a refusal without one is unexpected.
+//   - The fixture's own: the eval canary and the inline script without a nonce.
+//   - Without unsafeWindow, the open-shadow-root discovery bridge's page-realm
+//     <script> (installPageOpenShadowRootDiscoveryBridge). Where the page has no
+//     nonce to lend it, the policy refuses it and discovery falls back to
+//     bounded polling of likely hosts, as that bridge intends.
+const FIXTURE_REFUSALS = [
+    { name: 'eval canary', blocked: 'eval', sample: '0' },
+    { name: 'fixture inline script', blocked: 'inline', sample: 'document.documentElement.dataset.forbid' },
+];
+const SHADOW_BRIDGE_REFUSAL = { name: 'shadow-root discovery bridge', blocked: 'inline', sample: ';(function pageOpenShadowRootDiscovery' };
 
 const settings = {
     onboardingSeen: true,
@@ -73,21 +107,22 @@ const settings = {
     enableLogging: Boolean(process.env.SMOKE_DEBUG),
 };
 
-// First in the init program, so it sees every violation Yomu could cause.
-// Tampermonkey runs Yomu in the page's own realm and hands it that window as
-// unsafeWindow; without one, Yomu falls back to page-world inline scripts that
-// a policy refuses. Under a policy, the eval canary is the one eval violation a
-// run may contain. It waits for the parsed document because Chromium applies
-// the page's policy to this world only after document start; from then on,
-// which is when Yomu annotates and looks words up, eval is refused there.
-const PREAMBLE = `(() => {
+// First in the init program, so it sees every violation Yomu could cause, and
+// the only place the shape differs: it hands Yomu the page window as
+// unsafeWindow or leaves it out. Under a policy, the eval canary is the one eval
+// violation a run may contain. It waits for the parsed document because
+// Chromium applies the page's policy to this world only after document start;
+// from then on, which is when Yomu annotates and looks words up, eval is refused
+// there.
+const preamble = shape => `(() => {
     const state = { violations: [], evalInYomuWorld: 'unchecked' };
     globalThis.__yomuCspSmoke = state;
-    globalThis.unsafeWindow = window;
+    ${SHAPES[shape].unsafeWindow ? 'globalThis.unsafeWindow = window;' : ''}
     document.addEventListener('securitypolicyviolation', event => {
         state.violations.push({
             directive: event.effectiveDirective || event.violatedDirective,
             blocked: String(event.blockedURI || '').slice(0, 80),
+            sample: String(event.sample || '').slice(0, 80),
             source: String(event.sourceFile || '').slice(0, 80),
             line: event.lineNumber,
         });
@@ -137,9 +172,11 @@ try {
     for (const [browserName, browserType] of BROWSERS) {
         const browser = await launchSmokeBrowser(browserType, browserName, { headless: true });
         try {
-            for (const policyName of Object.keys(POLICIES)) {
-                reports.push(await runScenario(browser, browserName, policyName));
-                console.log(`[csp-smoke] ${browserName} ${policyName}: PASS`);
+            for (const shape of Object.keys(SHAPES)) {
+                for (const policyName of Object.keys(POLICIES)) {
+                    reports.push(await runScenario(browser, browserName, shape, policyName));
+                    console.log(`[csp-smoke] ${browserName} ${shape} ${policyName}: PASS`);
+                }
             }
         } finally {
             await browser.close().catch(() => undefined);
@@ -164,8 +201,8 @@ ${pageScript}
 </head><body><main style="max-width:720px;margin:48px auto;font:20px/2.4 system-ui,sans-serif"><p data-csp-sentence>${SENTENCE}</p></main></body></html>`;
 }
 
-async function runScenario(browser, browserName, policyName) {
-    const label = `${browserName} ${policyName}`;
+async function runScenario(browser, browserName, shape, policyName) {
+    const label = `${browserName} ${shape} ${policyName}`;
     const context = await browser.newContext({ viewport: { width: 1024, height: 768 } });
     try {
         const seeder = await context.newPage();
@@ -184,7 +221,7 @@ async function runScenario(browser, browserName, policyName) {
         // One program, in order: violation recorder and canary, the GM bridge a
         // manager provides, then the @require graph and core.
         await addUserscriptGraphInitScripts(page, SCRIPT_PATH, {
-            prefixContent: `${PREAMBLE}\n;\n${gmStorageBridgeInitProgram({
+            prefixContent: `${preamble(shape)}\n;\n${gmStorageBridgeInitProgram({
                 key: YOMU_SETTINGS_KEY,
                 value: settings,
                 css: CSS,
@@ -218,9 +255,11 @@ async function runScenario(browser, browserName, policyName) {
         const state = await bootState(page, errors);
         const report = {
             browser: browserName,
+            shape,
             policy: policyName,
             csp: POLICIES[policyName],
             ...state,
+            ...classifiedRefusals(shape, policyName, state.violations),
             gloss: (await gloss.textContent())?.replace(/\s+/g, ' ').trim() ?? '',
         };
         assertScenario(label, policyName, report);
@@ -257,15 +296,28 @@ function assertScenario(label, policyName, report) {
     assert(report.runtimeHealth === 'ready' && report.missingServices === '', `${label}: the runtime is missing companion services`, report);
     assert(report.gloss.includes(LOOKUP_GLOSS), `${label}: the local-dictionary card did not show the seeded gloss`, report);
     assert(report.errors.length === 0, `${label}: Yomu reported errors`, report);
-    // Only the fixture's own two refusals are expected: the canary's eval and
-    // the inline script without a nonce. Anything else under script-src or
-    // worker-src was Yomu asking the page for code it may not run.
-    const scriptViolations = report.violations.filter(violation => /^(script-src|worker-src)/.test(violation.directive));
-    const expected = enforced ? ['eval', 'inline'] : [];
-    const unexpected = [...scriptViolations];
-    for (const blocked of expected) {
-        const index = unexpected.findIndex(violation => violation.blocked === blocked);
-        if (index >= 0) unexpected.splice(index, 1);
+    assert(report.unexpectedRefusals.length === 0, `${label}: Yomu caused a script-src or worker-src violation`, report);
+}
+
+// Splits the script-src and worker-src refusals into the allowed ones, by name,
+// and the rest. Anything in the rest was Yomu asking the page for code it may
+// not run.
+function classifiedRefusals(shape, policyName, violations) {
+    const allowed = POLICIES[policyName] === null ? [] : [
+        ...FIXTURE_REFUSALS,
+        ...(SHAPES[shape].unsafeWindow ? [] : [SHADOW_BRIDGE_REFUSAL]),
+    ];
+    const knownRefusals = [];
+    const unexpectedRefusals = [];
+    for (const violation of violations) {
+        if (!/^(script-src|worker-src)/.test(violation.directive)) continue;
+        const index = allowed.findIndex(refusal => violation.blocked === refusal.blocked && violation.sample.startsWith(refusal.sample));
+        if (index < 0) {
+            unexpectedRefusals.push(violation);
+            continue;
+        }
+        knownRefusals.push(allowed[index].name);
+        allowed.splice(index, 1);
     }
-    assert(unexpected.length === 0, `${label}: Yomu caused a script-src or worker-src violation`, { unexpected, report });
+    return { knownRefusals, unexpectedRefusals };
 }
