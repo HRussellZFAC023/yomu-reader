@@ -92,7 +92,7 @@ export function extensionDictionaryStoreProxy(
     const extension = extensionRuntime(root);
     if (!extension) return directStore;
 
-    // Constructing ReaderApp/NewTabRuntime also constructs this proxy, before a
+    // Constructing ReaderApp/NewTabRuntime also constructs this client, before a
     // fresh learner has chosen a target. Keep transport discovery lazy so that
     // construction/dismissal sends no extension message; the first dictionary
     // operation owns discovery. A failed probe never changes the storage owner.

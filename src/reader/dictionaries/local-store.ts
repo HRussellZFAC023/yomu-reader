@@ -82,7 +82,7 @@ export function createReaderDictionaryStore(
         : inertLocalDictionaryStore();
     // Only the extension build has a Shared Dictionary Host (ADR-0010), so the
     // userscript build keeps its origin store and drops the transport. The
-    // proxy itself is transport-inert; capability discovery begins only when
+    // client itself is transport-inert; capability discovery begins only when
     // target-owned runtime work invokes a dictionary operation.
     return typeof __YOMU_EXTENSION_BUILD__ === 'boolean' && __YOMU_EXTENSION_BUILD__
         ? extensionDictionaryStoreProxy(direct)
