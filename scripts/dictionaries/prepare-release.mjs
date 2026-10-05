@@ -211,7 +211,10 @@ export async function prepareDictionaryRelease({
   for (const entry of catalog.entries) {
     const artifact = artifactBySource.get(entry.source.acquisitionId);
     if (!artifact || entry.license.redistribution !== 'allowed' || artifact.redistributionReview !== 'allowed') continue;
-    entry.distribution = { state: 'published', object: artifact.object };
+    // acquire.mjs read the archive's own index.json; keep its revision with the
+    // object, so a seed card can tell an install's newer build from this copy.
+    const revision = artifact.dictionary?.revision;
+    entry.distribution = { state: 'published', object: { ...artifact.object, ...(revision ? { revision } : {}) } };
     promoted += 1;
   }
   catalog.revision = stagedCatalog.revision;

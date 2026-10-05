@@ -124,8 +124,9 @@ export interface DictionaryCatalogEntry {
     format: 'yomitan';
     version: string;
     /**
-     * A version that orders like the archive's own index.json revision, where
-     * the runtime projection knows one (scripts/dictionaries/build-runtime-catalog.mjs).
+     * The published archive's own index.json revision, which the runtime
+     * projection carries only where a seed card may compare it with an install
+     * (scripts/dictionaries/build-runtime-catalog.mjs).
      */
     revision?: string;
     categories: DictionaryCategory[];

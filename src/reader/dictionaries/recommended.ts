@@ -111,14 +111,16 @@ export function recommendedDictionaryBuild(dictionary: RecommendedDictionary, re
  * Whether an install already holds this build or a newer one, so installing it
  * would gain nothing or go backwards. Only a known revision compares, number by
  * number: "2026.07.09.0" is older than "2026.10.03.0". A project's latest build
- * has none, and an install recorded without one predates every mirror copy.
+ * has none, and an install recorded without one predates every mirror copy. An
+ * install whose numbers run out first is older too: Yomichan's KANJIDIC says
+ * only "kanjidic2", which is not "kanjidic2.2026-204".
  */
 export function recommendedDictionaryInstallIsCurrent(build: RecommendedDictionary, installedRevision: string | undefined): boolean {
     const installed = installedRevision?.match(/\d+/gu)?.map(Number);
     const offered = build.revision?.match(/\d+/gu)?.map(Number);
     if (!installed || !offered) return false;
-    const index = installed.findIndex((value, at) => value !== offered[at]);
-    return index < 0 || index >= offered.length || installed[index]! > offered[index]!;
+    const index = offered.findIndex((value, at) => value !== installed[at]);
+    return index < 0 || (installed[index] ?? -1) > offered[index]!;
 }
 
 /** The mirror archives the hand-picked cards install, so the browse below them skips those. */

@@ -3663,7 +3663,7 @@
         "24ab5777cb003c068237449ae63174843be309d0ef78ff88e3fa47315a4e8c0d",
         6341873
       ],
-      "2026-07-23"
+      "JMdict.2026-07-23"
     ],
     [
       "jmdict-en",
@@ -3685,7 +3685,7 @@
         "5a413fc1bb5cd9250088dd27180df436bd518c6541cd82a597a62e2f1bd4bbe9",
         15509389
       ],
-      "2026-07-23"
+      "JMdict.2026-07-23"
     ],
     [
       "jmdict-en-legacy",
@@ -3784,7 +3784,7 @@
         "0da1dcd493ac8144e7573031b9e4fd670147f5bdd30b560ccf1d8b7a2879aaa5",
         1332886
       ],
-      "2026-07-23"
+      "JMdict.2026-07-23"
     ],
     [
       "jmdict-forms",
@@ -3825,7 +3825,7 @@
         "c53ee70b65f69b0f0917322929f09b83aa1d25473cd71168da5c7c4ea03e4f20",
         576727
       ],
-      "2026-07-23"
+      "JMdict.2026-07-23"
     ],
     [
       "jmdict-hu",
@@ -3847,7 +3847,7 @@
         "9b89004b50b868ec02ec4c973c5ee59968758221055fd0c1bb2f5615b6ecd7db",
         1814012
       ],
-      "2026-07-23"
+      "JMdict.2026-07-23"
     ],
     [
       "jmdict-nl",
@@ -3869,7 +3869,7 @@
         "5579d462db56cd24075d37fe763f6f208bd8122778136d65e9447d68a4a7c54d",
         3107202
       ],
-      "2026-07-23"
+      "JMdict.2026-07-23"
     ],
     [
       "jmdict-ru",
@@ -3891,7 +3891,7 @@
         "e88ac22d79fecd596120eb9c007c73ac35a5501cc44aa61b5d19b48787e95d08",
         3452083
       ],
-      "2026-07-23"
+      "JMdict.2026-07-23"
     ],
     [
       "jmdict-sl",
@@ -3932,7 +3932,7 @@
         "f3e39e9497eaf1a8007eeba627bb6663f4ffd11e62203ddd32a03dda1f2491a3",
         398940
       ],
-      "2026-07-23"
+      "JMdict.2026-07-23"
     ],
     [
       "jmnedict",
@@ -3954,7 +3954,7 @@
         "bd3c687afc4dca42b6c6cd374d87c7f29242effef161f2b122ed2221b56e743f",
         11423324
       ],
-      "2026-07-23"
+      "JMnedict.2026-07-23"
     ],
     [
       "kanjidic-en",
@@ -3975,7 +3975,8 @@
         "published",
         "d163fb13c86240cde1afa44646fe2fccb1258527fc5e78a126f76f2e5dc2e114",
         721025
-      ]
+      ],
+      "kanjidic2.2026-204"
     ],
     [
       "kanjidic-es",
@@ -3996,7 +3997,8 @@
         "published",
         "7c87f672b5d6a2bd87cab05f6010bba3c764d99e25090da31b4f3a157cf702d6",
         339023
-      ]
+      ],
+      "kanjidic2.2026-204"
     ],
     [
       "kanjidic-fr",
@@ -4017,7 +4019,8 @@
         "published",
         "df7aaf8a2ec337c03659b09d0a49a7c7155f18798da302b0748b95e30cf1e93b",
         301439
-      ]
+      ],
+      "kanjidic2.2026-204"
     ],
     [
       "kanjidic-pt",
@@ -4038,7 +4041,8 @@
         "published",
         "2b62f1ee5d3c96b4511fece96e1105429d429de02f6510e5c0d5fdbac719a277",
         283592
-      ]
+      ],
+      "kanjidic2.2026-204"
     ],
     [
       "marvnc-ja-freq-innocent-corpus",

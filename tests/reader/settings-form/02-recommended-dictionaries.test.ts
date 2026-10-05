@@ -260,14 +260,15 @@ describe('the newest Jitendex and Jiten a page can reach', () => {
 
 // The seed's JMdict card installs the mirror's July copy. Without a revision it
 // read "Update" over 2.0.10's newer upstream install, and pressing it replaced
-// JMdict [2026-10-04] with JMdict [2026-07-23]. A seed card carries a revision
-// only where the catalogue's version orders like the archive's own.
+// JMdict [2026-10-04] with JMdict [2026-07-23]; KANJIDIC did the same until 2.0.12.
+// A seed card carries the archive's own index.json revision only where it
+// matches installs by exact identity.
 describe('catalogue seed cards over an install of the same dictionary', () => {
     const installed = (title: string, revision: string): YomitanDictionaryInfo => ({ title, alias: title, enabled: true, priority: 0, revision });
-    const seedButton = (dictionaryId: string, install: YomitanDictionaryInfo, targetLanguage: 'ja' | 'fr' = 'ja') => {
+    const seedButton = (dictionaryId: string, install: YomitanDictionaryInfo, targetLanguage: 'ja' | 'fr' = 'ja', learnerLanguage: 'en' | 'fr' = 'en') => {
         const host = document.createElement('div');
-        host.innerHTML = renderRecommendedDictionaries([install], 'en', false, targetLanguage);
-        const id = catalogRecommendedDictionaryId('en', targetLanguage, dictionaryId);
+        host.innerHTML = renderRecommendedDictionaries([install], learnerLanguage, false, targetLanguage);
+        const id = catalogRecommendedDictionaryId(learnerLanguage, targetLanguage, dictionaryId);
         const button = host.querySelector<HTMLButtonElement>(`[data-dictionary-id="${id}"]`)!;
         return [button.textContent?.trim(), button.disabled];
     };
@@ -276,25 +277,40 @@ describe('catalogue seed cards over an install of the same dictionary', () => {
         expect(seedButton('jmdict-en', installed('JMdict [2026-10-04]', 'JMdict.2026-10-04'))).toEqual(['Installed', true]);
         expect(seedButton('jmdict-en', installed('JMdict [2026-07-23]', 'JMdict.2026-07-23'))).toEqual(['Installed', true]);
         expect(seedButton('jmnedict', installed('JMnedict [2026-10-04]', 'JMnedict.2026-10-04'))).toEqual(['Installed', true]);
+        // The mirror's KANJIDIC is "kanjidic2.2026-204" (day 204); upstream moved on to day 277.
+        expect(findRecommendedDictionary(catalogRecommendedDictionaryId('en', 'ja', 'kanjidic-en'))?.revision).toBe('kanjidic2.2026-204');
+        expect(seedButton('kanjidic-en', installed('KANJIDIC [2026-277]', 'kanjidic2.2026-277'))).toEqual(['Installed', true]);
+        expect(seedButton('kanjidic-en', installed('KANJIDIC [2026-204]', 'kanjidic2.2026-204'))).toEqual(['Installed', true]);
+        expect(seedButton('kanjidic-fr', installed('KANJIDIC (French) [2026-277]', 'kanjidic2.2026-277'), 'ja', 'fr')).toEqual(['Installed', true]);
     });
 
     it('updates an older build', () => {
         expect(seedButton('jmdict-en', installed('JMdict [2026-05-01]', 'JMdict.2026-05-01'))).toEqual(['Update', false]);
+        // The Drive collection's KANJIDIC is a day older than the mirror's own.
+        expect(seedButton('kanjidic-en', installed('KANJIDIC [2026-203]', 'kanjidic2.2026-203'))).toEqual(['Update', false]);
+        expect(seedButton('kanjidic-en', installed('KANJIDIC [2025-300]', 'kanjidic2.2025-300'))).toEqual(['Update', false]);
+        // Yomichan's KANJIDIC records only "kanjidic2": its numbers run out first.
+        expect(seedButton('kanjidic-en', installed('KANJIDIC', 'kanjidic2'))).toEqual(['Update', false]);
     });
 
-    it('keeps offering Update where the catalogue version does not order like the archive revision', () => {
-        // KANJIDIC numbers the days of a year, and WTY's catalogue version is a
-        // dataset commit whose digits would outrank every dated revision.
-        expect(findRecommendedDictionary(catalogRecommendedDictionaryId('en', 'ja', 'kanjidic-en'))?.revision).toBeUndefined();
-        expect(seedButton('kanjidic-en', installed('KANJIDIC [2026-204]', 'kanjidic2.2026-204'))).toEqual(['Update', false]);
-        expect(seedButton('kanjidic-en', installed('KANJIDIC [2026-277]', 'kanjidic2.2026-277'))).toEqual(['Update', false]);
-        expect(seedButton('wty-fr-en', installed('wty-fr-en', '2026.03.05'), 'fr')).toEqual(['Update', false]);
+    it('keeps offering Update where the card carries no archive revision', () => {
+        expect(seedButton('wty-fr-en', installed('wty-fr-en', '2026.08.29'), 'fr')).toEqual(['Update', false]);
+        expect(findRecommendedDictionary(catalogRecommendedDictionaryId('en', 'fr', 'wty-fr-en'))).toBeDefined();
+        expect(findRecommendedDictionary(catalogRecommendedDictionaryId('en', 'fr', 'wty-fr-en'))?.revision).toBeUndefined();
+    });
+
+    // The JPDB Kana lesson, enforced: a newer revision on a title that only
+    // shares the card's name tokens must not call the card Installed.
+    it('matches a card that compares revisions only by its URL or exact identity', () => {
+        expect(seedButton('kanjidic-en', installed('kanjidic_en', 'kanjidic2.2027-001'))).toEqual(['Install', false]);
+        expect(seedButton('jmdict-en', installed('JMdict (en) Forms', 'JMdict.2026-10-04'))).toEqual(['Install', false]);
     });
 
     it('still installs the JPDB Kana card over a different JPDB v2.2 build', () => {
         // The card counts any "jpdbv2" title as its own, so a revision would
         // have called the plain frequency build Installed and hidden the Kana one.
         const jpdb = 'drive-japanese-ja-freq-jpdb-v2-2-frequency-kana-2024-10-13-p5yytox4s0';
+        expect(findRecommendedDictionary(catalogRecommendedDictionaryId('en', 'ja', jpdb))?.revision).toBeUndefined();
         expect(seedButton(jpdb, installed('JPDB v2.2 Frequency 2024-10-13', 'JPDB v2.2 Frequency 2024-10-13'))).toEqual(['Update', false]);
     });
 });

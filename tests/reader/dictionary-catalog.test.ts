@@ -51,22 +51,30 @@ describe('dictionary catalogue manifests', () => {
         expect(runtimeBytes).toBeLessThan(publishedBytes / 2);
     });
 
-    // Audited 2026-10-04 against every mirrored archive's index.json revision.
-    it('projects a revision only where the catalogue version orders like the archive revision', async () => {
-        const published = await json(resolve(PUBLISHED_ROOT, 'catalog.json')) as { entries: Array<{ id: string; version: string }> };
+    // Recorded from each mirrored archive's own index.json (audited 2026-10-04).
+    it('projects the archive revision only for the seed-card families that compare it', async () => {
+        const published = await json(resolve(PUBLISHED_ROOT, 'catalog.json')) as {
+            entries: Array<{ id: string; distribution: { state: string; object?: { revision?: string } } }>;
+        };
         const runtime = await json(resolve(PUBLISHED_ROOT, 'runtime-catalog.json')) as { entries: unknown[][] };
-        const versions = new Map(published.entries.map(entry => [entry.id, entry.version]));
+        const recorded = new Map(published.entries.map(entry => [entry.id, entry.distribution.object?.revision]));
         const revisions = new Map(runtime.entries.filter(entry => entry.length > 9).map(entry => [entry[0] as string, entry[9]]));
+        const projected = /^(jmdict-|jmnedict$|kanjidic-)/u;
 
-        for (const [id, revision] of revisions) expect(revision, id).toBe(versions.get(id));
-        expect(revisions.get('jmdict-en')).toBe('2026-07-23');
-        expect(revisions.get('jmnedict')).toBe('2026-07-23');
-        // A day-count (KANJIDIC), a commit (WTY), and Drive copies, whose seed
-        // cards match installs too loosely for a revision to be safe.
-        for (const id of ['kanjidic-en', 'wty-fr-en', 'drive-japanese-ja-ja-ukmi3vhk6', 'drive-japanese-ja-freq-jpdb-v2-2-frequency-kana-2024-10-13-p5yytox4s0']) {
+        // An index.json may declare no revision; these families' archives all do.
+        expect(published.entries.filter(entry =>
+            projected.test(entry.id) && entry.distribution.state === 'published' && !recorded.get(entry.id))).toEqual([]);
+        for (const [id, revision] of revisions) expect(revision, id).toBe(recorded.get(id));
+        expect(revisions.get('jmdict-en')).toBe('JMdict.2026-07-23');
+        expect(revisions.get('jmnedict')).toBe('JMnedict.2026-07-23');
+        // Not the catalogue's "2026-07-23": KANJIDIC numbers the days of a year.
+        expect(revisions.get('kanjidic-en')).toBe('kanjidic2.2026-204');
+        // Drive copies record theirs too, but their seed cards rely on title tokens.
+        for (const id of ['drive-japanese-ja-ja-ukmi3vhk6', 'drive-japanese-ja-freq-jpdb-v2-2-frequency-kana-2024-10-13-p5yytox4s0']) {
+            expect(recorded.get(id), id).toBeTruthy();
             expect(revisions.has(id), id).toBe(false);
         }
-        expect([...revisions.keys()].filter(id => !/^(jmdict-|jmnedict$)/u.test(id))).toEqual([]);
+        expect([...revisions.keys()].filter(id => !projected.test(id))).toEqual([]);
     });
 
     it('ships one valid, catalogue-linked recommendation manifest per learner-target pair', async () => {

@@ -36,19 +36,20 @@ if (process.argv.includes('--check')) {
 }
 
 /**
- * The catalogue `version` a card may compare installs against, number by number,
- * where it orders like the archive's own index.json `revision`. Audited on
- * 2026-10-04 against every mirrored archive: the frozen JMdict/JMnedict date
- * has the same numbers as "JMdict.2026-07-23", and those seed cards match
- * installs by exact identity. A Drive copy's version is its revision too, but
- * its seed card matches loosely (any "jpdbv2" title is the JPDB Kana card), so
- * a revision there could call a different build Installed and hide the card.
- * KANJIDIC's revision counts days ("kanjidic2.2026-204") and WTY's version is a
- * dataset commit, so those stay unknown.
+ * The published archive's own index.json revision, for the seed-card families
+ * that compare it with an install: JMdict, JMnedict and KANJIDIC. A card
+ * compares it number by number with the revision the install recorded from its
+ * own index.json ("kanjidic2.2026-204" against an upstream "kanjidic2.2026-277"),
+ * which a catalogue version cannot do: KANJIDIC's "2026-07-23" is a release
+ * date. A card that carries a revision matches installs only by URL or exact
+ * identity (dictionary-recommendations-view.ts). Drive copies stay out: their
+ * seed cards rely on title tokens, and the JPDB Kana card's hand-listed ones
+ * count any "jpdbv2" title as its own, so a revision there could call a
+ * different build Installed.
  */
-function comparableRevision({ id, version, distribution }) {
-    return distribution.state === 'published' && /^(jmdict-|jmnedict$)/u.test(id)
-        && /(?<!\d-)\d{4}/u.test(version) ? [version] : [];
+function comparableRevision({ id, distribution }) {
+    const revision = distribution.state === 'published' ? distribution.object.revision : undefined;
+    return revision && /^(jmdict-|jmnedict$|kanjidic-)/u.test(id) ? [revision] : [];
 }
 
 function compactDistribution(distribution) {

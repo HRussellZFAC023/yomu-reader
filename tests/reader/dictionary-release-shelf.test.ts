@@ -140,7 +140,7 @@ describe('regenerating the dictionary release keeps the wide recommendation shel
 interface CatalogEntryJson {
     id: string;
     headwordLanguages?: string[];
-    distribution: { state: string; object?: unknown };
+    distribution: { state: string; object?: { revision?: string; [key: string]: unknown } };
     [key: string]: unknown;
 }
 interface CatalogJson {
@@ -153,6 +153,7 @@ type ShelfSummary = Awaited<ReturnType<typeof prepareDictionaryRelease>>;
 async function regenerate(options: {
     catalog?: (catalog: CatalogJson) => void;
     recommendations?: (directory: string) => Promise<void>;
+    artifacts?: unknown[];
     write?: boolean;
 } = {}): Promise<{ summary: () => Promise<ShelfSummary>; releaseRoot: string }> {
     const manifestRoot = await mkdtemp(join(tmpdir(), 'yomu-dict-durability-m-'));
@@ -169,7 +170,7 @@ async function regenerate(options: {
     await options.recommendations?.(join(manifestRoot, 'recommendations'));
     await writeFile(
         join(stagingRoot, 'acquisition-ledger.v1.json'),
-        JSON.stringify({ schemaVersion: 1, artifacts: [], failures: [] }),
+        JSON.stringify({ schemaVersion: 1, artifacts: options.artifacts ?? [], failures: [] }),
         'utf8',
     );
 
@@ -298,4 +299,56 @@ describe('a regeneration cannot narrow the recommendation shelf by any path', ()
         }
         expect(parseRecommendationShelf(policy)).toHaveLength(SHELF_ROLES.length);
     });
+});
+
+// A seed card compares an install with the mirror copy by the revision the
+// archive's own index.json declares, so promotion has to carry the revision
+// acquire.mjs read; the catalogue version ("2026-07-23") is not that number.
+describe('a regeneration records each promoted archive\'s index.json revision', () => {
+    const promoted = /^(jmdict-|jmnedict$|kanjidic-)/u;
+    const ledgerArtifact = (entry: CatalogEntryJson, revision: string) => {
+        const { revision: _recorded, ...object } = entry.distribution.object!;
+        return { sourceId: entry.id, redistributionReview: 'allowed', dictionary: { title: entry.id, revision, format: 3 }, object };
+    };
+
+    it('reproduces the published catalogue, revisions included, from the acquisition ledger', async () => {
+        const published = JSON.parse(await readFile(join(PUBLISHED_ROOT, 'catalog.json'), 'utf8')) as CatalogJson;
+        const artifacts = published.entries
+            .filter(entry => promoted.test(entry.id) && entry.distribution.state === 'published')
+            .map(entry => ledgerArtifact(entry, entry.distribution.object!.revision!));
+        const run = await regenerate({
+            artifacts,
+            catalog: catalog => {
+                for (const entry of catalog.entries) if (promoted.test(entry.id)) entry.distribution = { state: 'source-only' };
+            },
+        });
+        const summary = await run.summary();
+        const written = await readFile(join(run.releaseRoot, 'v1/catalog.json'), 'utf8');
+        const distributions = (catalog: CatalogJson) => catalog.entries
+            .filter(entry => promoted.test(entry.id))
+            .map(entry => [entry.id, entry.distribution]);
+
+        expect(artifacts.length).toBe(13);
+        expect(summary.promotedObjects).toBe(13);
+        expect(distributions(JSON.parse(written) as CatalogJson)).toEqual(distributions(published));
+        // Byte for byte, so the checked-in catalogue is exactly what the pipeline writes.
+        expect(written === await readFile(join(PUBLISHED_ROOT, 'catalog.json'), 'utf8')).toBe(true);
+    }, 30_000);
+
+    it('records no revision for an archive whose index.json declares none', async () => {
+        const published = JSON.parse(await readFile(join(PUBLISHED_ROOT, 'catalog.json'), 'utf8')) as CatalogJson;
+        const kanjidic = published.entries.find(entry => entry.id === 'kanjidic-en')!;
+        const run = await regenerate({
+            artifacts: [ledgerArtifact(kanjidic, '')],
+            catalog: catalog => {
+                catalog.entries.find(entry => entry.id === 'kanjidic-en')!.distribution = { state: 'source-only' };
+            },
+        });
+        await run.summary();
+        const written = JSON.parse(await readFile(join(run.releaseRoot, 'v1/catalog.json'), 'utf8')) as CatalogJson;
+        const object = written.entries.find(entry => entry.id === 'kanjidic-en')!.distribution.object!;
+
+        expect(object.sha256).toBe(kanjidic.distribution.object!.sha256);
+        expect('revision' in object).toBe(false);
+    }, 30_000);
 });

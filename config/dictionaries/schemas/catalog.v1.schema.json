@@ -190,7 +190,12 @@
         },
         "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
         "bytes": { "type": "integer", "minimum": 1 },
-        "contentType": { "const": "application/zip" }
+        "contentType": { "const": "application/zip" },
+        "revision": {
+          "type": "string",
+          "minLength": 1,
+          "description": "The revision the archive's own index.json declares, read when the object was acquired. Absent when the index declares none."
+        }
       }
     }
   }

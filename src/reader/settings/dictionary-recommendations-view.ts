@@ -461,7 +461,8 @@ function recommendedDictionaryInstallState(dictionary: RecommendedDictionary, in
 /**
  * The same archive can arrive under another URL: a card that moved to the
  * mirror, or a seed card that replaced a hand-picked upstream one. So an
- * install also counts by its dictionary identity, and by the card's title tokens.
+ * install also counts by its dictionary identity, and by the card's title
+ * tokens unless the card compares an Archive Revision (see the token sets).
  */
 function recommendedDictionaryMatchesInstalled(dictionary: RecommendedDictionary, installed: YomitanDictionaryInfo): boolean {
     if (dictionary.downloadUrl && installed.downloadUrl === dictionary.downloadUrl) return true;
@@ -485,9 +486,14 @@ const RECOMMENDED_DICTIONARY_MATCH_TOKENS: Record<string, string[][]> = {
     'drive-japanese-ja-freq-jpdb-v2-2-frequency-kana-2024-10-13-p5yytox4s0': [['jpdb', 'v2'], ['jpdbv2']],
 };
 
+/**
+ * A seed card that compares an Archive Revision never falls back to its own
+ * name's tokens: a different "kanjidic_en" at a newer revision would read
+ * Installed and hide the KANJIDIC card. Listed sets are audited by hand.
+ */
 function recommendedDictionaryMatchTokenSets(dictionary: RecommendedDictionary): string[][] {
     return RECOMMENDED_DICTIONARY_MATCH_TOKENS[dictionary.catalogDictionaryId ?? dictionary.id]
-        ?? [Array.from(dictionaryTitleTokens(dictionary.name))];
+        ?? (dictionary.revision ? [] : [Array.from(dictionaryTitleTokens(dictionary.name))]);
 }
 
 function dictionaryTitleTokens(value: string): Set<string> {
