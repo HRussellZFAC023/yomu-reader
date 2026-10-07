@@ -1,23 +1,18 @@
 # よむ (Yomu)
 
-> よむ is a free, open-source pop-up dictionary for learning Japanese. Press a word on a web page, in a YouTube subtitle, in a manga panel, in a PDF, or on your desktop screen to see its reading, meaning, pitch accent, audio, and example sentences, then save it with its sentence and review it.
+> よむ is a free, open-source pop-up dictionary for learning Japanese. Hover a word on a web page, a YouTube subtitle, a manga page, a PDF or your desktop screen to see its reading, meaning, pitch accent and audio, then save it with its sentence and review it.
 
 ## Primary Links
 
-- [Homepage](https://yomureader.com/): Product overview and install entry point.
-- [Start here](https://yomureader.com/learn/): Install guide for Chrome, Edge, Brave, Vivaldi, Opera, Firefox, Safari, iPhone and iPad, then a first lookup.
-- [Desktop app](https://yomureader.com/desktop): Download for Windows, macOS and Linux to read Japanese anywhere on screen, including games.
-- [FAQ](https://yomureader.com/faq): Plain answers about cost, reviews, apps, and data.
+- [Homepage](https://yomureader.com/): What よむ is, and the install button for your browser.
+- [Install](https://yomureader.com/install): Chrome, Edge, Brave, Vivaldi, Opera, Firefox (desktop and Android), Safari, iPhone and iPad.
+- [How to learn](https://yomureader.com/learn/): The daily method in one page.
+- [よむ Desktop](https://yomureader.com/desktop): Download for Windows, macOS and Linux to read Japanese anywhere on screen, including games.
+- [FAQ](https://yomureader.com/faq): Short answers to common questions.
+- [Privacy](https://yomureader.com/privacy/): What stays on your device and what each service receives.
+- [Credits](https://yomureader.com/credits): Dictionaries, data and their licences.
 - [Install userscript](https://yomureader.com/yomu.user.js): Current production userscript.
 - [Source code](https://github.com/HRussellZFAC023/yomu-reader): MIT-licensed project repository.
-
-## Guide
-
-- [Reading](https://yomureader.com/learn/reading): Popup lookup, furigana, pitch accent, kanji drilldown, and PDFs.
-- [Watching](https://yomureader.com/learn/watching): Subtitle lookup, transcript, shadowing, batch mining, and YouTube filtering.
-- [Manga and games](https://yomureader.com/learn/manga-and-games): Manga and image OCR.
-- [Save and review](https://yomureader.com/learn/keeping-words): Saving words with their sentences and reviewing them in Study.
-- [Optional setup](https://yomureader.com/learn/your-own-setup): Dictionaries, audio, Anki, Jiten, Bunpro, JPDB, WaniKani, and device sync.
 
 ## Apps
 

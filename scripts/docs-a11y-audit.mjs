@@ -19,6 +19,7 @@ const pages = [
     { name: 'faq', path: '/faq' },
     { name: 'membership', path: '/membership' },
     { name: 'privacy', path: '/privacy/' },
+    { name: 'credits', path: '/credits' },
     { name: 'changelog', path: '/changelog' },
     { name: 'newtab-fallback', path: '/newtab/' },
     { name: 'video-player', path: '/video-player/' },

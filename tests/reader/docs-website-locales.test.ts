@@ -54,8 +54,8 @@ describe('reviewed website locale contract', () => {
 
     it('publishes every English route but only body-reviewed Japanese routes', () => {
         expect(WEBSITE_ROUTE_CATALOG.map(definition => definition.route)).toEqual(PUBLISHED_WEBSITE_ROUTES);
-        expect(publishedWebsiteRouteDefinitions('en')).toHaveLength(10);
-        expect(publishedWebsiteRouteDefinitions('ja')).toHaveLength(7);
+        expect(publishedWebsiteRouteDefinitions('en')).toHaveLength(11);
+        expect(publishedWebsiteRouteDefinitions('ja')).toHaveLength(9);
 
         const japaneseBlockers = WEBSITE_ROUTE_CATALOG
             .filter(definition => !websiteRoutePublication(definition, 'ja'))
@@ -63,7 +63,6 @@ describe('reviewed website locale contract', () => {
         expect(japaneseBlockers).toEqual([
             ['api/', 'api-reference-native-review-pending'],
             ['library/', 'library-native-review-pending'],
-            ['privacy/', 'privacy-native-review-pending'],
         ]);
     });
 

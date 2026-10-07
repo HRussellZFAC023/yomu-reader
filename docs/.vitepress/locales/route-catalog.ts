@@ -29,6 +29,9 @@ export const WEBSITE_ROUTE_CATALOG: readonly WebsiteRouteDefinition[] = Object.f
     route('changelog', 'changelog.md',
         ['Changelog', '変更履歴'],
         ['Release history for Yomu.', 'よむのリリース履歴です。']),
+    route('credits', 'credits.md',
+        ['Credits', 'クレジット'],
+        ['The dictionaries, data and projects よむ builds on, and their licences.', 'よむが使っている辞書、データ、プロジェクトと、そのライセンスです。']),
     route('desktop', 'desktop.md',
         ['よむ Desktop', 'よむ Desktop'],
         ['Read the Japanese in games and apps on Windows, macOS and Linux. Press one shortcut, then hover a word. Free.', 'Windows、macOS、Linuxのゲームやアプリの日本語を読めます。ショートカットを押して、単語にカーソルを合わせるだけ。無料です。']),
@@ -47,11 +50,10 @@ export const WEBSITE_ROUTE_CATALOG: readonly WebsiteRouteDefinition[] = Object.f
         'library-native-review-pending'),
     route('membership', 'membership.md',
         ['Donate', '寄付'],
-        ['Yomu is free. Donations help pay its running costs and do not unlock anything.', 'よむは無料です。寄付は運営費に充てられ、寄付によって使えるようになる機能はありません。']),
-    englishOnlyRoute('privacy/', 'privacy/index.md',
-        'Privacy',
-        'What Yomu keeps on your device, which services it talks to and when, and what the browser extension asks for.',
-        'privacy-native-review-pending'),
+        ['よむ is free. Donations pay its running costs and unlock nothing.', 'よむは無料です。寄付は運営費に使われ、寄付で使えるようになる機能はありません。']),
+    route('privacy/', 'privacy/index.md',
+        ['Privacy', 'プライバシー'],
+        ['What よむ keeps on your device, which services it talks to and when, and what the browser extension asks for.', 'よむが端末に保存するもの、いつどのサービスと通信するか、ブラウザ拡張機能が求める権限です。']),
 ]);
 
 const ROUTE_BY_ROUTE = new Map(WEBSITE_ROUTE_CATALOG.map(definition => [definition.route, definition]));

@@ -114,8 +114,8 @@ function checkJapaneseChrome(
 
 function checkJapaneseRouteLinks(source: string, file: string): void {
     assert.ok(source.includes('href="/ja/learn/"'), `${file}: localized reviewed internal links`);
-    assert.ok(source.includes('href="/privacy"'), `${file}: unreviewed Japanese links fall back to English`);
-    assert.equal(source.includes('href="/ja/privacy/"'), false, `${file}: unreviewed Japanese link leaked`);
+    assert.ok(source.includes('href="/library/"'), `${file}: unreviewed Japanese links fall back to English`);
+    assert.equal(source.includes('href="/ja/library/"'), false, `${file}: unreviewed Japanese link leaked`);
 }
 
 function renderedFile(route: string, locale: 'en' | 'ja'): string {

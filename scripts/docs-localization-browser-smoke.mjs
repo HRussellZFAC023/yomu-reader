@@ -111,8 +111,8 @@ try {
     await assertRouteMetadata(page, '/ja/learn/', 'ja');
     await assertJapaneseThemeAccessibility(page);
 
-    await navigateLocaleProof(page, '/privacy/', 'English privacy route');
-    await assertRoute(page, '/privacy/', 'en');
+    await navigateLocaleProof(page, '/library/', 'English library route');
+    await assertRoute(page, '/library/', 'en');
     await assertLocaleHref(page, '日本語', '/ja/');
     await chooseLocale(page, 'Change language', '/ja/');
     await assertHomepage(page, '/ja/', 'ja');

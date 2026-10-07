@@ -287,6 +287,7 @@ const siteSidebar: WebsiteNavigationItem[] = [
         text: 'About',
         items: [
             { text: 'Privacy', link: '/privacy/' },
+            { text: 'Credits', link: '/credits' },
             { text: 'Changelog', link: '/changelog' },
             { text: 'API', link: '/api/', target: '_self' },
             { text: 'Donate', link: '/membership' },

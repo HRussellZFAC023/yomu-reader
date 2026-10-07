@@ -150,7 +150,7 @@ describe('docs localization browser smoke readiness', () => {
             "await navigateLocaleProof(page, '/learn/', 'English learning route');",
         );
         expect(SMOKE_SOURCE).toContain(
-            "await navigateLocaleProof(page, '/privacy/', 'English privacy route');",
+            "await navigateLocaleProof(page, '/library/', 'English library route');",
         );
     });
 
