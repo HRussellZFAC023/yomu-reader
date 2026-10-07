@@ -654,7 +654,9 @@ describe('reader helpers', () => {
 
         const headerWord = document.querySelector<HTMLElement>('ytd-comments-header-renderer .jpdb-reader-word')!;
         expect(readerWordSurfaceText(headerWord)).toBe('件');
-        expect(headerWord.querySelector('rt, .jpdb-reader-detached-furi')?.textContent).toBe('けん');
+        // A standalone counter beside a number remains lookupable without an
+        // inferred context-free reading; prioritization and pitch still apply.
+        expect(headerWord.querySelector('rt, .jpdb-reader-detached-furi')).toBeNull();
         expectRenderedPitchWord(headerWord, 'heiban');
     });
 

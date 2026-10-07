@@ -142,7 +142,9 @@ describe('BookWalker site scan boundaries', () => {
             expect(targets.length).toBeGreaterThanOrEqual(expectedText.length);
 
             for (const target of targets) {
-                const token = firstJapaneseToken(target.text);
+                const token = target.text.includes('先生')
+                    ? firstJapaneseToken(target.text, '先生', 'せんせい')
+                    : firstJapaneseToken(target.text);
                 if (!token) continue;
                 applyTokensToScanTarget(target, [token], { ...DEFAULT_SETTINGS, furiganaMode: 'all' });
             }
@@ -156,8 +158,9 @@ describe('BookWalker site scan boundaries', () => {
             expect(document.querySelector('.jpdb-reader-text-mirror')).toBeNull();
             expect(Array.from(document.querySelectorAll<HTMLElement>('[style]'))
                 .filter(element => element.style.getPropertyValue('visibility') === 'hidden')).toEqual([]);
-            // Content prose (title/lead) now keeps its furigana on product pages.
-            expect(document.querySelector('.m-bookDetailLead rt,.m-bookDetailTitle rt')).not.toBeNull();
+            // Normal words retain readings; the numeric date counter intentionally does not.
+            expect(document.querySelector('.m-bookDetailTitle rt')?.textContent).toBe('せんせい');
+            expect(document.querySelector('.m-bookDetailLead rt')).toBeNull();
             expect(document.querySelectorAll('.jpdb-reader-passive-word').length).toBeGreaterThan(0);
         } finally {
             restoreRects();
@@ -535,8 +538,8 @@ function normalizedRenderedText(text: string): string {
     return text.split(WORD_JOINER).join('');
 }
 
-function firstJapaneseToken(sentence: string): JPDBToken | null {
-    const match = /[一-龯ぁ-んァ-ヶー]{1,}/u.exec(sentence);
+function firstJapaneseToken(sentence: string, surface?: string, reading = 'よむ'): JPDBToken | null {
+    const match = surface ? { 0: surface, index: sentence.indexOf(surface) } : /[一-龯ぁ-んァ-ヶー]{1,}/u.exec(sentence);
     if (!match || match.index === undefined) return null;
     const spelling = match[0].slice(0, Math.min(3, match[0].length));
     return {
@@ -545,7 +548,7 @@ function firstJapaneseToken(sentence: string): JPDBToken | null {
             sid: match.index + 1,
             rid: 0,
             spelling,
-            reading: 'よむ',
+            reading,
             frequencyRank: null,
             partOfSpeech: [],
             meanings: [],
@@ -557,7 +560,7 @@ function firstJapaneseToken(sentence: string): JPDBToken | null {
         start: match.index,
         end: match.index + spelling.length,
         length: spelling.length,
-        rubies: [{ text: 'よむ', start: match.index, end: match.index + spelling.length, length: spelling.length }],
+        rubies: [{ text: reading, start: match.index, end: match.index + spelling.length, length: spelling.length }],
         pitchClass: 'heiban',
         sentence,
     };
