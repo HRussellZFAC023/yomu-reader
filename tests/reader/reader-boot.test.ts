@@ -65,14 +65,8 @@ async function importReplacementRuntimeRealm(): Promise<BootModule> {
     return realm;
 }
 
-function settingsForStoredTarget(targetLanguage: string | null) {
-    return {
-        ...DEFAULT_SETTINGS,
-        learningTargetChosen: targetLanguage !== null,
-        languageProfiles: DEFAULT_SETTINGS.languageProfiles.map((profile, index) => index === 0 && targetLanguage
-            ? { ...profile, targetLanguage }
-            : { ...profile }),
-    };
+function packagedSettingsFixture() {
+    return { ...DEFAULT_SETTINGS, theme: 'dark' as const };
 }
 
 function testReaderSettingsSurface() {
@@ -98,14 +92,14 @@ function reinjectAfterRuntimeMarkerMutation(
 
 async function startDormantEmbeddedFrame(): Promise<void> {
     bootReaderApp();
-    await vi.waitFor(() => expect(settingsMocks.loadSettings).toHaveBeenCalledOnce());
+    await Promise.resolve();
     expect(appMocks.init).not.toHaveBeenCalled();
 }
 
 async function bootEmbeddedFrameAndWait(): Promise<void> {
     bootReaderApp();
     await vi.waitFor(() => {
-        expect(appMocks.init).toHaveBeenCalledWith({ embeddedFrame: true, showWelcome: true });
+        expect(appMocks.init).toHaveBeenCalledWith({ embeddedFrame: true });
     });
 }
 
@@ -117,7 +111,7 @@ describe('reader boot', () => {
         appMocks.init.mockReset();
         appMocks.init.mockResolvedValue(undefined);
         settingsMocks.loadSettings.mockReset();
-        settingsMocks.loadSettings.mockResolvedValue(settingsForStoredTarget(null));
+        settingsMocks.loadSettings.mockResolvedValue(DEFAULT_SETTINGS);
         settingsMocks.onSettingsChange = undefined;
         settingsMocks.subscribeToSettingsStorageChanges.mockReset();
         settingsMocks.subscribeToSettingsStorageChanges.mockImplementation((listener: (settings: unknown) => void) => {
@@ -142,19 +136,18 @@ describe('reader boot', () => {
             expect(() => bootReaderApp()).not.toThrow();
         });
 
-        expect(appMocks.init).toHaveBeenCalledWith({ embeddedFrame: false, showWelcome: true });
+        expect(appMocks.init).toHaveBeenCalledWith({ embeddedFrame: false });
         expect(document.getElementById('jpdb-reader-runtime-owner')?.dataset.yomuRuntimeKind).toBe('userscript');
     });
 
     it('passes a first-party packaged settings snapshot into Reader startup', async () => {
-        const startupSettings = settingsForStoredTarget('ja');
+        const startupSettings = packagedSettingsFixture();
         const settingsSurface = testReaderSettingsSurface();
 
         await expect(bootReaderAppWithStartupSettings(startupSettings, { settingsSurface })).resolves.toBe(true);
 
         expect(appMocks.init).toHaveBeenCalledWith({
             embeddedFrame: false,
-            showWelcome: true,
             startupSettings,
             settingsSurface,
         });
@@ -166,14 +159,13 @@ describe('reader boot', () => {
         const ordinaryBoot = new Promise<void>(resolve => { resolveOrdinaryBoot = resolve; });
         appMocks.init.mockReturnValueOnce(ordinaryBoot).mockResolvedValueOnce(undefined);
         bootReaderApp();
-        const startupSettings = settingsForStoredTarget('ja');
+        const startupSettings = packagedSettingsFixture();
 
         await expect(bootReaderAppWithStartupSettings(startupSettings)).resolves.toBe(true);
 
         expect(appMocks.destroy).toHaveBeenCalledWith({ preservePageWords: true });
         expect(appMocks.init).toHaveBeenNthCalledWith(2, {
             embeddedFrame: false,
-            showWelcome: true,
             startupSettings,
         });
         resolveOrdinaryBoot();
@@ -181,7 +173,7 @@ describe('reader boot', () => {
     });
 
     it('retains packaged settings for a later Reader retry in the same document', async () => {
-        const startupSettings = settingsForStoredTarget('ja');
+        const startupSettings = packagedSettingsFixture();
         const settingsSurface = testReaderSettingsSurface();
         await expect(bootReaderAppWithStartupSettings(startupSettings, { settingsSurface })).resolves.toBe(true);
         document.getElementById('jpdb-reader-runtime-owner')?.remove();
@@ -192,14 +184,13 @@ describe('reader boot', () => {
         expect(appMocks.destroy).toHaveBeenCalled();
         expect(appMocks.init).toHaveBeenCalledWith({
             embeddedFrame: false,
-            showWelcome: true,
             startupSettings,
             settingsSurface,
         });
     });
 
     it('reuses the same packaged settings surface and replaces a different one', async () => {
-        const startupSettings = settingsForStoredTarget('ja');
+        const startupSettings = packagedSettingsFixture();
         const firstSurface = testReaderSettingsSurface();
         const replacementSurface = testReaderSettingsSurface();
 
@@ -212,14 +203,13 @@ describe('reader boot', () => {
         expect(appMocks.destroy).toHaveBeenCalledWith({ preservePageWords: true });
         expect(appMocks.init).toHaveBeenCalledWith({
             embeddedFrame: false,
-            showWelcome: true,
             startupSettings,
             settingsSurface: replacementSurface,
         });
     });
 
     it('reports packaged Reader initialization failure and permits a retry', async () => {
-        const startupSettings = settingsForStoredTarget('ja');
+        const startupSettings = packagedSettingsFixture();
         const settingsSurface = testReaderSettingsSurface();
         const consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined);
         appMocks.init.mockRejectedValueOnce(new Error('packaged boot failed')).mockResolvedValueOnce(undefined);
@@ -230,7 +220,6 @@ describe('reader boot', () => {
         expect(appMocks.init).toHaveBeenCalledTimes(2);
         expect(appMocks.init).toHaveBeenLastCalledWith({
             embeddedFrame: false,
-            showWelcome: true,
             startupSettings,
             settingsSurface,
         });
@@ -241,7 +230,7 @@ describe('reader boot', () => {
         let resolveInitialization!: () => void;
         appMocks.init.mockReturnValueOnce(new Promise<void>(resolve => { resolveInitialization = resolve; }))
             .mockResolvedValueOnce(undefined);
-        const startupSettings = settingsForStoredTarget('ja');
+        const startupSettings = packagedSettingsFixture();
         const firstBoot = bootReaderAppWithStartupSettings(startupSettings);
         document.getElementById('jpdb-reader-runtime-owner')?.remove();
 
@@ -328,7 +317,7 @@ describe('reader boot', () => {
 
         bootReaderApp();
 
-        expect(appMocks.init).toHaveBeenCalledWith({ embeddedFrame: false, showWelcome: true });
+        expect(appMocks.init).toHaveBeenCalledWith({ embeddedFrame: false });
         expect(document.getElementById('jpdb-reader-runtime-owner')?.dataset.yomuRuntimeKind).toBe('extension');
     });
 
@@ -338,7 +327,7 @@ describe('reader boot', () => {
 
         bootReaderApp();
 
-        await vi.waitFor(() => expect(appMocks.init).toHaveBeenCalledWith({ embeddedFrame: false, showWelcome: true }));
+        await vi.waitFor(() => expect(appMocks.init).toHaveBeenCalledWith({ embeddedFrame: false }));
         expect(document.getElementById('jpdb-reader-runtime-owner')?.dataset.yomuRuntimeKind).toBe('userscript');
     });
 
@@ -351,34 +340,27 @@ describe('reader boot', () => {
         expect(document.getElementById('jpdb-reader-runtime-owner')).toBeNull();
     });
 
-    it('does not probe or watch target text in a fresh embedded frame', async () => {
+    it('boots Japanese text in a fresh frame without a setup or settings gate', async () => {
         document.body.textContent = 'Google で続ける';
-
         await withWindowPropertyAsync('top', {} as Window, async () => {
-            await startDormantEmbeddedFrame();
-
-            document.body.textContent = '日本語に変わりました';
-            await new Promise(resolve => window.setTimeout(resolve, 0));
-            expect(appMocks.init).not.toHaveBeenCalled();
+            await bootEmbeddedFrameAndWait();
+            expect(settingsMocks.loadSettings).not.toHaveBeenCalled();
+            expect(settingsMocks.subscribeToSettingsStorageChanges).not.toHaveBeenCalled();
         });
     });
 
-    it('wakes an existing Korean frame when another frame persists the first target choice', async () => {
+    it('wakes a dormant Korean frame only when Japanese text arrives', async () => {
         document.body.textContent = '한국어로 계속';
-
         await withWindowPropertyAsync('top', {} as Window, async () => {
             await startDormantEmbeddedFrame();
-
-            settingsMocks.onSettingsChange?.(settingsForStoredTarget('ko'));
-
-            await vi.waitFor(() => {
-                expect(appMocks.init).toHaveBeenCalledWith({ embeddedFrame: true, showWelcome: true });
-            });
+            expect(settingsMocks.subscribeToSettingsStorageChanges).not.toHaveBeenCalled();
+            document.body.append(document.createTextNode('日本語に変わりました'));
+            await vi.waitFor(() => expect(appMocks.init).toHaveBeenCalledWith({ embeddedFrame: true }));
         });
     });
 
-    it('boots embedded frames that already contain the stored Japanese target in restricted mode', async () => {
-        settingsMocks.loadSettings.mockResolvedValue(settingsForStoredTarget('ja'));
+    it('boots existing Japanese controls in an embedded frame in restricted mode', async () => {
+        settingsMocks.loadSettings.mockResolvedValue(packagedSettingsFixture());
         document.body.textContent = 'Google で続ける';
 
         await withWindowPropertyAsync('top', {} as Window, async () => {
@@ -387,7 +369,7 @@ describe('reader boot', () => {
     });
 
     it('boots an embedded frame when a Latin control localises to Japanese', async () => {
-        settingsMocks.loadSettings.mockResolvedValue(settingsForStoredTarget('ja'));
+        settingsMocks.loadSettings.mockResolvedValue(packagedSettingsFixture());
         await withWindowPropertyAsync('top', {} as Window, async () => {
             const button = document.createElement('button');
             button.textContent = 'Continue with Google';
@@ -397,17 +379,18 @@ describe('reader boot', () => {
 
             button.textContent = 'Google で続ける';
             await vi.waitFor(() => {
-                expect(appMocks.init).toHaveBeenCalledWith({ embeddedFrame: true, showWelcome: true });
+                expect(appMocks.init).toHaveBeenCalledWith({ embeddedFrame: true });
             });
         });
     });
 
-    it('boots a Korean-only embedded frame for a stored Korean target', async () => {
-        settingsMocks.loadSettings.mockResolvedValue(settingsForStoredTarget('ko'));
+    it('leaves a Korean-only embedded frame dormant', async () => {
         document.body.textContent = '한국어로 계속';
-
         await withWindowPropertyAsync('top', {} as Window, async () => {
-            await bootEmbeddedFrameAndWait();
+            await startDormantEmbeddedFrame();
+            document.body.append(document.createTextNode('계속 읽기'));
+            await new Promise(resolve => window.setTimeout(resolve, 0));
+            expect(appMocks.init).not.toHaveBeenCalled();
         });
     });
 
@@ -418,21 +401,19 @@ describe('reader boot', () => {
             bootReaderApp();
         });
 
-        expect(appMocks.init).toHaveBeenCalledWith({ embeddedFrame: true, showWelcome: true });
+        expect(appMocks.init).toHaveBeenCalledWith({ embeddedFrame: true });
     });
 
-    it('restarts an already-open fresh video frame when the first target choice is persisted', async () => {
+    it('keeps an already-open fresh video frame without a target-choice restart', async () => {
         document.body.append(document.createElement('video'));
-
         await withWindowPropertyAsync('top', {} as Window, async () => {
             bootReaderApp();
             expect(appMocks.init).toHaveBeenCalledTimes(1);
-            await vi.waitFor(() => expect(settingsMocks.loadSettings).toHaveBeenCalledOnce());
-
-            settingsMocks.onSettingsChange?.(settingsForStoredTarget('ko'));
-
-            await vi.waitFor(() => expect(appMocks.init).toHaveBeenCalledTimes(2));
-            expect(appMocks.destroy).toHaveBeenCalledWith({ preservePageWords: true });
+            expect(settingsMocks.loadSettings).not.toHaveBeenCalled();
+            expect(settingsMocks.subscribeToSettingsStorageChanges).not.toHaveBeenCalled();
+            bootReaderApp();
+            expect(appMocks.init).toHaveBeenCalledTimes(1);
+            expect(appMocks.destroy).not.toHaveBeenCalled();
         });
     });
 
@@ -443,7 +424,7 @@ describe('reader boot', () => {
 
             document.body.append(document.createElement('video'));
             await vi.waitFor(() => {
-                expect(appMocks.init).toHaveBeenCalledWith({ embeddedFrame: true, showWelcome: true });
+                expect(appMocks.init).toHaveBeenCalledWith({ embeddedFrame: true });
             });
         });
     });
@@ -455,7 +436,7 @@ describe('reader boot', () => {
             });
         });
 
-        expect(appMocks.init).toHaveBeenCalledWith({ embeddedFrame: true, showWelcome: true });
+        expect(appMocks.init).toHaveBeenCalledWith({ embeddedFrame: true });
         expect(document.getElementById('jpdb-reader-runtime-owner')?.dataset.yomuRuntimeKind).toBe('userscript');
     });
 
@@ -466,7 +447,7 @@ describe('reader boot', () => {
             });
         });
 
-        expect(appMocks.init).toHaveBeenCalledWith({ embeddedFrame: true, showWelcome: true });
+        expect(appMocks.init).toHaveBeenCalledWith({ embeddedFrame: true });
         expect(document.getElementById('jpdb-reader-runtime-owner')?.dataset.yomuRuntimeKind).toBe('userscript');
     });
 
@@ -477,7 +458,7 @@ describe('reader boot', () => {
             });
         });
 
-        expect(appMocks.init).toHaveBeenCalledWith({ embeddedFrame: true, showWelcome: true });
+        expect(appMocks.init).toHaveBeenCalledWith({ embeddedFrame: true });
         expect(document.getElementById('jpdb-reader-runtime-owner')?.dataset.yomuRuntimeKind).toBe('userscript');
     });
 
@@ -488,7 +469,7 @@ describe('reader boot', () => {
             });
         });
 
-        expect(appMocks.init).toHaveBeenCalledWith({ embeddedFrame: true, showWelcome: true });
+        expect(appMocks.init).toHaveBeenCalledWith({ embeddedFrame: true });
         expect(document.getElementById('jpdb-reader-runtime-owner')?.dataset.yomuRuntimeKind).toBe('userscript');
     });
 
@@ -535,8 +516,8 @@ describe('reader boot', () => {
         (await importReplacementRuntimeRealm()).bootReaderApp();
 
         expect(appMocks.init).toHaveBeenCalledTimes(2);
-        expect(appMocks.init).toHaveBeenCalledWith({ embeddedFrame: false, showWelcome: false });
-        expect(appMocks.init).toHaveBeenCalledWith({ embeddedFrame: false, showWelcome: true });
+        expect(appMocks.init).toHaveBeenNthCalledWith(1, { embeddedFrame: false });
+        expect(appMocks.init).toHaveBeenNthCalledWith(2, { embeddedFrame: false });
         expect(appMocks.destroy).toHaveBeenCalledWith({ preservePageWords: true });
         expect(document.getElementById('jpdb-reader-runtime-owner')?.dataset.yomuRuntimeKind).toBe('userscript');
     });
@@ -550,7 +531,7 @@ describe('reader boot', () => {
 
         expect(appMocks.destroy).toHaveBeenCalledWith({ preservePageWords: true });
         expect(appMocks.init).toHaveBeenCalledTimes(2);
-        expect(appMocks.init).toHaveBeenCalledWith({ embeddedFrame: false, showWelcome: true });
+        expect(appMocks.init).toHaveBeenCalledWith({ embeddedFrame: false });
         expect(document.getElementById('jpdb-reader-runtime-owner')?.dataset.yomuRuntimeKind).toBe('extension');
     });
 
@@ -582,7 +563,7 @@ describe('reader boot', () => {
         bootReaderApp();
 
         expect(appMocks.destroy).toHaveBeenCalledWith({ preservePageWords: true });
-        expect(appMocks.init).toHaveBeenCalledWith({ embeddedFrame: false, showWelcome: false });
+        expect(appMocks.init).toHaveBeenCalledWith({ embeddedFrame: false });
         expect(document.getElementById('jpdb-reader-runtime-owner')?.dataset.yomuRuntimeKind).toBe('dev');
     });
 
@@ -596,7 +577,7 @@ describe('reader boot', () => {
 
         bootReaderApp();
 
-        expect(appMocks.init).toHaveBeenCalledWith({ embeddedFrame: false, showWelcome: false });
+        expect(appMocks.init).toHaveBeenCalledWith({ embeddedFrame: false });
         expect(document.getElementById('jpdb-reader-runtime-owner')?.dataset.yomuRuntimeOwner).not.toBe('dev-stale');
     });
 
@@ -610,7 +591,7 @@ describe('reader boot', () => {
         bootReaderApp();
 
         expect(appMocks.destroy).toHaveBeenCalledWith({ preservePageWords: true });
-        expect(appMocks.init).toHaveBeenCalledWith({ embeddedFrame: false, showWelcome: false });
+        expect(appMocks.init).toHaveBeenCalledWith({ embeddedFrame: false });
         expect(document.getElementById('jpdb-reader-runtime-owner')?.dataset.yomuRuntimeKind).toBe('dev');
     });
 

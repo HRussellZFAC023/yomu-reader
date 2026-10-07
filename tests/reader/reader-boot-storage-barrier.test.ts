@@ -60,7 +60,7 @@ describe('reader boot managed web-storage barrier', () => {
         installFreshManagedStateEpochSessionForTests();
         const { DEFAULT_SETTINGS } = await import('../../src/reader/settings/index');
         const { bootReaderApp, bootReaderAppWithStartupSettings } = await import('../../src/reader/app/boot');
-        const startupSettings = { ...DEFAULT_SETTINGS, learningTargetChosen: true };
+        const startupSettings = { ...DEFAULT_SETTINGS, theme: 'dark' as const };
         bootReaderApp();
         const packagedBoot = bootReaderAppWithStartupSettings(startupSettings);
         await Promise.resolve();
@@ -72,7 +72,6 @@ describe('reader boot managed web-storage barrier', () => {
         await expect(packagedBoot).resolves.toBe(true);
         expect(initOptionsSeen).toEqual([{
             embeddedFrame: false,
-            showWelcome: true,
             startupSettings,
         }]);
 
