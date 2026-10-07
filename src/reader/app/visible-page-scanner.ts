@@ -1036,9 +1036,13 @@ export class VisiblePageScanner {
         if (!root) return;
         const settings = this.dependencies.getSettings();
         this.syncClampedRowReadingsMode(settings, root);
-        if (settings.showFurigana && settings.furiganaMode === 'all') {
-            if (root.getAttribute(FORCE_FURIGANA_MODE_ATTRIBUTE) !== 'all') {
-                root.setAttribute(FORCE_FURIGANA_MODE_ATTRIBUTE, 'all');
+        // Both modes that show readings at rest stamp the page, so readings on
+        // prose with links take the same in-flow lane under either; only
+        // 'all' also overrides which words get one (dom/index.ts).
+        const mode = effectiveFuriganaMode(settings);
+        if (mode === 'all' || mode === 'known-status') {
+            if (root.getAttribute(FORCE_FURIGANA_MODE_ATTRIBUTE) !== mode) {
+                root.setAttribute(FORCE_FURIGANA_MODE_ATTRIBUTE, mode);
             }
             return;
         }
@@ -1064,7 +1068,7 @@ export class VisiblePageScanner {
         if (typeof document === 'undefined') return;
         const root = document.documentElement;
         if (!root) return;
-        if (root.getAttribute(FORCE_FURIGANA_MODE_ATTRIBUTE) === 'all') {
+        if (root.hasAttribute(FORCE_FURIGANA_MODE_ATTRIBUTE)) {
             root.removeAttribute(FORCE_FURIGANA_MODE_ATTRIBUTE);
         }
     }

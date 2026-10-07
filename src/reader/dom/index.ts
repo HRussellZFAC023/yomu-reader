@@ -4947,12 +4947,21 @@ function scanTargetSuppressesRuby(
         const clipRow = closestRubyFragileConstrainedRow(parent);
         if (clipRow && !clampRowKeepsInFlowRestRuby(decoration ?? decorationStateForWord(parent) ?? undefined, clipRow)) return true;
     }
-    if (targetForcesAllFurigana(parent)) return false;
+    if (targetKeepsInFlowReadings(parent)) return false;
     return Boolean(suppressRuby);
 }
 
+// 'all' overrides which words get a reading; it is also what Yomu-owned
+// example rows stamp.
 function targetForcesAllFurigana(parent: HTMLElement): boolean {
     return Boolean(parent.closest('[data-yomu-furigana-mode="all"]'));
+}
+
+// Either mode that shows readings at rest puts them back in flow on content
+// whose collector suppressed them (prose with links), so the reading lane
+// does not change with which words are hidden.
+function targetKeepsInFlowReadings(parent: HTMLElement): boolean {
+    return Boolean(parent.closest('[data-yomu-furigana-mode="all"],[data-yomu-furigana-mode="known-status"]'));
 }
 
 // Class Q (2026-07-10): constrained-row protection is engine-UNCONDITIONAL —
@@ -6067,7 +6076,7 @@ function applyTokensToFragmentTarget(target: FragmentTextTarget, tokens: JPDBTok
     // an owner call on mirror-vs-suppress for non-bare fragile content.
     const renderTarget = target.decoration === 'interactive-passive' && interactivePassiveControl(target.parent)
         ? { ...target, suppressRuby: true }
-        : (targetForcesAllFurigana(target.parent) ? { ...target, suppressRuby: false } : target);
+        : (targetKeepsInFlowReadings(target.parent) ? { ...target, suppressRuby: false } : target);
     // Class Q for the in-place fragment channel: readings stay in the DOM
     // (owner-pinned compact-content behaviors keep their annotations) but the
     // clip row is stamped so CSS hides rt at rest — in-place ruby in a

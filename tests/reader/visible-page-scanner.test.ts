@@ -615,7 +615,10 @@ describe('VisiblePageScanner', () => {
         }
     });
 
-    it('preserves furigana across Bloomee product chrome, drawers, and review links', async () => {
+    // known-status is the default: readings on chrome and prose links must take
+    // the same in-flow lane as under 'all', or the default page reads with two
+    // kinds of furigana.
+    it.each(['all', 'known-status'] as const)('preserves furigana across Bloomee product chrome, drawers, and review links (%s)', async (furiganaMode) => {
         const restoreRects = mockVisibleElementRects();
         const originalLocation = window.location;
         Object.defineProperty(window, 'location', {
@@ -658,14 +661,14 @@ describe('VisiblePageScanner', () => {
         `;
         const parseJapanese = vi.fn(async (paragraphs: string[]) => paragraphs.map(tokensForBloomeeProductText));
         const scanner = createVisiblePageScanner({
-            getSettings: () => ({ ...DEFAULT_SETTINGS, furiganaMode: 'all' }),
+            getSettings: () => ({ ...DEFAULT_SETTINGS, furiganaMode }),
             parseJapanese,
         });
 
         try {
             await scanner.scanVisiblePage({ silent: true });
 
-            expect(document.documentElement.getAttribute('data-yomu-furigana-mode')).toBe('all');
+            expect(document.documentElement.getAttribute('data-yomu-furigana-mode')).toBe(furiganaMode);
             const parsedTexts = parseJapanese.mock.calls.flatMap(call => call[0]);
             expect(parsedTexts.some(text => text.includes('【花瓶不要】 バラのみ 季節のお花アレンジメント'))).toBe(true);
             expect(parsedTexts.some(text => text.includes('お花の定期便'))).toBe(true);
