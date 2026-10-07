@@ -580,7 +580,7 @@ function visibleTextNodeFilter(node: Node, visibilityCache: WeakMap<HTMLElement,
 
 function canInspectTextNode(node: Node, visibilityCache: WeakMap<HTMLElement, boolean>): boolean {
     const parent = node.parentElement;
-    if (!parent || parent.closest(READER_ROOT_SELECTOR)) return false;
+    if (!parent || isInsideExcludedReaderRoot(parent, {})) return false;
     if (!hasVisibleComposedTextAncestors(parent, visibilityCache)) return false;
     const blocked = parent.closest(SKIP_SELECTOR);
     if (!blocked) return true;
@@ -692,7 +692,10 @@ function isCompactControlDescendantTextTarget(parent: HTMLElement, text: string)
 
 function isInsideExcludedReaderRoot(parent: HTMLElement, options: TextTargetCollectionOptions): boolean {
     if (options.includeReaderRoot) return false;
-    return Boolean(parent.closest(READER_ROOT_SELECTOR));
+    for (let current: Element | null = parent; current; current = composedParentElement(current)) {
+        if (current.matches(READER_ROOT_SELECTOR)) return true;
+    }
+    return false;
 }
 
 function shouldRejectTextTargetPresentation(parent: HTMLElement, visibleOnly: boolean): boolean {
@@ -816,7 +819,7 @@ function isCollectableFormControlTextElement(
     options: FormControlTextTargetCollectionOptions,
 ): boolean {
     if (control.closest(READER_CONTROL_TEXT_MIRROR_SELECTOR)) return false;
-    if (!options.includeReaderRoot && control.closest(READER_ROOT_SELECTOR)) return false;
+    if (isInsideExcludedReaderRoot(control, options)) return false;
     if (visibleOnly && !options.includeReaderRoot && isTextEntryFormControl(control)) return false;
     if (options.excludeSelector && (safeElementMatches(control, options.excludeSelector) || control.closest(options.excludeSelector))) return false;
     if (isDisabledFormControl(control) || isUnlookupableFormControl(control)) return false;
@@ -1307,7 +1310,7 @@ function isExcludedReaderRootElement(
     element: HTMLElement,
     options: FragmentTextTargetCollectionOptions,
 ): boolean {
-    return !options.includeReaderRoot && Boolean(element.closest(READER_ROOT_SELECTOR));
+    return isInsideExcludedReaderRoot(element, options);
 }
 
 function shouldFlushAndSkipFragmentElement(

@@ -58,7 +58,6 @@ describe('aggregate runtime Settings launcher boundary', () => {
             'src/reader/dictionaries/offline-starters-projection.ts',
             'src/reader/dictionaries/yomitan/index.ts',
             'src/reader/lookup/nested-text-parse.ts',
-            'src/reader/lookup/settings-parse-render.ts',
             'src/reader/popup/modal-accessibility-impl.ts',
             'src/reader/sources/definition-translation.ts',
             'src/reader/srs/account-sync.ts',

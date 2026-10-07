@@ -7,11 +7,10 @@ import {
     JPDB_DEFINITION_SOURCE_ID,
     activateSettingsPanel,
     ankiFieldRoleValue,
-    applyNestedParsePlan,
     expectFontFamilyOptions,
     labelForControl,
     localizeSettingsForm,
-    nestedSettingsTextParsePlan,
+
     normalizeReaderSettings,
     optionText,
     orderedDefinitionSourceIds,
@@ -22,13 +21,9 @@ import {
     renderSettingsForm,
     savedAnkiFieldMappings,
     settingsText,
-    settingsToken,
     sharedJapaneseSettingsTestForm,
     topLevelLegendForControl,
     YOUR_OWN_SETUP_DOCS,
-} from './fixtures';
-import type {
-    JPDBToken,
 } from './fixtures';
 
 describe('settings form localization', () => {
@@ -441,18 +436,6 @@ describe('settings form localization', () => {
         expect(form.querySelector('[data-help-glossary-title]')).toBeNull();
     });
 
-    it('includes Help headings and prose in the active Japanese settings annotation plan', () => {
-        const form = sharedJapaneseSettingsTestForm();
-        activateSettingsPanel(form, 'help');
-
-        const texts = nestedSettingsTextParsePlan(form, 640)?.targets.map(target => target.text) ?? [];
-
-        expect(texts).toContain('便利なページ');
-        expect(texts).not.toContain('リーダーツールとドキュメントをここから開けます。');
-        expect(texts).toContain('よむは検索、OCR、字幕、辞書、学習、Ankiをまとめた無料ユーザースクリプトです。');
-        expect(form.querySelector('.jpdb-reader-help-links-card')?.hasAttribute('data-jpdb-reader-surface-ignore')).toBe(false);
-    });
-
     it('does not leave stale English or fallback copy in Japanese settings', () => {
         const form = sharedJapaneseSettingsTestForm();
         const text = form.textContent ?? '';
@@ -529,8 +512,6 @@ describe('settings form localization', () => {
         expect(selectedText).toMatch(/[\u3040-\u30ff\u3400-\u9fff]/u);
         expect(sourceChoice.querySelector('[data-settings-select-options-meta]')).toBeNull();
 
-        const plan = nestedSettingsTextParsePlan(form, 640)!;
-        expect(plan.targets.some(target => target.parent === select && target.text === selectedText)).toBe(false);
         expect(sourceChoice.querySelector<HTMLElement>('.jpdb-reader-control-text-mirror')).toBeNull();
         expect(sourceChoice.querySelector<HTMLElement>('.jpdb-reader-icon-mini')?.nextElementSibling).toBeNull();
     });
@@ -588,28 +569,5 @@ describe('settings form localization', () => {
 
         expect(label.querySelector('.jpdb-reader-word')).toBeNull();
         expect(label.textContent).toBe('検索後も開く');
-    });
-
-    it('keeps parsed Japanese inline labels inside one grid item', () => {
-        const form = document.createElement('form');
-        form.innerHTML = renderSettingsForm(DEFAULT_SETTINGS, 'https://jpdb.io/settings');
-        document.body.append(form);
-        localizeSettingsForm(form, 'ja');
-        activateSettingsPanel(form, 'api');
-        const label = form.querySelector<HTMLInputElement>('input[name="jpdbMiningEnabled"]')!.closest('label')!;
-        const labelText = label.querySelector<HTMLElement>(':scope > .jpdb-reader-settings-label-text');
-
-        expect(labelText?.textContent).toBe('APIの復習・デッキ変更を許可');
-
-        const plan = nestedSettingsTextParsePlan(form, 640)!;
-        const targetIndex = plan.targets.findIndex(target => target.text === 'APIの復習・デッキ変更を許可');
-        expect(targetIndex).toBeGreaterThanOrEqual(0);
-        const parsed = plan.targets.map(() => [] as JPDBToken[]);
-        parsed[targetIndex] = [settingsToken('APIの', 0)];
-
-        applyNestedParsePlan(plan, parsed, DEFAULT_SETTINGS);
-
-        expect(Array.from(label.children).filter(child => child.classList.contains('jpdb-reader-word'))).toHaveLength(0);
-        expect(label.querySelector(':scope > .jpdb-reader-settings-label-text .jpdb-reader-word')?.textContent).toBe('APIの');
     });
 });

@@ -3,84 +3,12 @@ import { isTargetLanguageText } from './target-text';
 import type { JPDBToken, ReaderSettings } from '../app/types';
 
 const PARSEABLE_SELECTOR = '.jpdb-reader-parseable';
-const POPOVER_SUMMARY_PARSE_SELECTOR = '.jpdb-reader-popover summary.jpdb-reader-example-summary';
-// Source-card titles (イマージョンキット, dictionary names, …) keep their
-// data-jpdb-reader-surface-ignore marker so page scans and card sentence
-// extraction never absorb them, but as explicit popover parse roots they are
-// annotated like every other Japanese UI label.
-const POPOVER_SOURCE_TITLE_PARSE_SELECTOR = '.jpdb-reader-popover summary.jpdb-reader-local-title';
 const NESTED_PARSE_ROOT_SELECTOR = [
     PARSEABLE_SELECTOR,
-    POPOVER_SUMMARY_PARSE_SELECTOR,
-    POPOVER_SOURCE_TITLE_PARSE_SELECTOR,
 ].join(',');
 const READER_WORD_SELECTOR = '.jpdb-reader-word';
 const EXAMPLE_TARGET_SELECTOR = '.jpdb-reader-example-target';
 const NESTED_PARSE_EXCLUDE_SELECTOR = '.gloss-image-link';
-// One pass should cover a whole settings panel: at 48 the larger panels
-// (Appearance) needed several interaction-triggered refreshes before every
-// label carried furigana, which read as "annotation only appears on click".
-// The per-pass parse work is bounded by the settings surface itself.
-export const SETTINGS_PARSE_TARGET_LIMIT = 120;
-const SETTINGS_PARSE_EXCLUDE_SELECTOR = [
-    '.jpdb-reader-settings-actions',
-    '.jpdb-reader-settings-drag-handle',
-    '[data-settings-preview-lookup]',
-    '[hidden]:not([data-settings-panel])',
-    '[aria-hidden="true"]',
-    '[data-anki-setup-help]',
-    '.jpdb-reader-audio-source-choice',
-    '[data-settings-select-options-meta]',
-    'a[href]',
-    'button',
-    'input',
-    'option',
-    'select',
-    'svg',
-    'textarea',
-    'use',
-    '.jpdb-reader-order-toggle',
-    '.footer',
-].join(',');
-const SETTINGS_FORM_CONTROL_PARSE_EXCLUDE_SELECTOR = [
-    '.jpdb-reader-settings-actions',
-    '.jpdb-reader-settings-drag-handle',
-    '[data-settings-preview-lookup]',
-    '[hidden]:not([data-settings-panel])',
-    '[aria-hidden="true"]',
-    '[data-anki-setup-help]',
-    '.jpdb-reader-audio-source-choice',
-    'svg',
-    'use',
-    '.jpdb-reader-order-toggle',
-    '.footer',
-].join(',');
-const SETTINGS_CHROME_PARSE_ROOT_SELECTOR = [
-    '.jpdb-reader-theme-title',
-    '[role="tab"]',
-    '.jpdb-reader-settings-actions .jpdb-reader-btn',
-    '.jpdb-reader-help-actions .jpdb-reader-btn',
-    '.footer button',
-].join(',');
-const SETTINGS_CHROME_PARSE_CHILD_EXCLUDE_SELECTOR = [
-    '[hidden]',
-    '[aria-hidden="true"]',
-    'input',
-    'option',
-    'select',
-    'svg',
-    'textarea',
-    'use',
-    '.jpdb-reader-word',
-].join(',');
-const SETTINGS_PARSE_CHILD_EXCLUDE_SELECTOR = SETTINGS_PARSE_EXCLUDE_SELECTOR;
-const SETTINGS_PARSE_ROOT_SELECTOR = [
-    'h2',
-    '.jpdb-reader-settings-search>label',
-    '[data-settings-search-empty]',
-    '[data-settings-panel]',
-    SETTINGS_CHROME_PARSE_ROOT_SELECTOR,
-].join(',');
 
 type FragmentParseOptions = Parameters<typeof collectFragmentTextTargetsIn>;
 type NestedParseTargetOptions = (FragmentParseOptions[4]) & {
@@ -99,9 +27,10 @@ export function nestedTextParsePlan(
     limit: number,
     options: { excludeProviderExamples?: boolean } = {},
 ): NestedParsePlan | null {
-    const discoveredRoots = root.matches(NESTED_PARSE_ROOT_SELECTOR)
+    const discoveredRoots = (root.matches(NESTED_PARSE_ROOT_SELECTOR)
         ? [root]
-        : Array.from(root.querySelectorAll<HTMLElement>(NESTED_PARSE_ROOT_SELECTOR));
+        : Array.from(root.querySelectorAll<HTMLElement>(NESTED_PARSE_ROOT_SELECTOR)))
+        .filter(parseRoot => !parseRoot.closest('.jpdb-reader-settings'));
     const parseRoots = options.excludeProviderExamples
         ? discoveredRoots.filter(parseRoot => !parseRoot.matches('[data-provider-example-sentence]'))
         : discoveredRoots;
@@ -151,46 +80,6 @@ export function providerExampleTextParsePlan(root: HTMLElement, limit: number): 
     return targets.length ? { targets, parseKey: nestedParseKey(targets) } : null;
 }
 
-export function nestedSettingsTextParsePlan(root: HTMLElement, limit: number): NestedParsePlan | null {
-    const parseRoots = root.matches(SETTINGS_PARSE_ROOT_SELECTOR)
-        ? [root]
-        : Array.from(root.querySelectorAll<HTMLElement>(SETTINGS_PARSE_ROOT_SELECTOR));
-    const targets = parseRoots
-        .sort((left, right) => settingsParseRootPriority(left) - settingsParseRootPriority(right))
-        .filter(parseRoot => !isExcludedSettingsParseRoot(parseRoot))
-        .filter(parseRoot => !parseRoot.closest('[aria-hidden="true"]'))
-        .flatMap(parseRoot => {
-            const settingsChrome = isSettingsChromeParseRoot(parseRoot);
-            return nestedParseTargetsIn(
-                parseRoot,
-                limit,
-                false,
-                settingsParseExcludeSelector(parseRoot),
-                {
-                    includeReaderRoot: true,
-                    includeFormChrome: true,
-                    allowUiText: true,
-                    heading: true,
-                    minLength: 2,
-                    readerRootPassiveInteractions: true,
-                    forceInlineRender: settingsChrome,
-                    suppressRepaintLoopMirror: settingsChrome,
-                    formControlExcludeSelector: settingsFormControlExcludeSelector(),
-                    formControlSelectTextMode: 'selected',
-                },
-            );
-        })
-        .slice(0, limit);
-    return targets.length ? { targets, parseKey: nestedParseKey(targets) } : null;
-}
-
-export function nestedSettingsParseAlreadyRendered(root: HTMLElement): boolean {
-    if (!root.dataset.jpdbReaderParseKey) return false;
-    const activePanels = Array.from(root.querySelectorAll<HTMLElement>('[data-settings-panel]:not([hidden])'));
-    return activePanels.length > 0
-        && activePanels.every(panel => !hasUnparsedJapaneseText(panel, SETTINGS_PARSE_EXCLUDE_SELECTOR));
-}
-
 function nestedParseTargetsIn(
     parseRoot: HTMLElement,
     limit: number,
@@ -207,30 +96,6 @@ function nestedParseTargetsIn(
         selectTextMode: options?.formControlSelectTextMode,
     });
     return [...fragmentTargets, ...controlTargets];
-}
-
-function settingsParseRootPriority(parseRoot: HTMLElement): number {
-    return isSettingsChromeParseRoot(parseRoot) || !parseRoot.closest('[data-settings-panel]') ? 0 : 1;
-}
-
-function isExcludedSettingsParseRoot(parseRoot: HTMLElement): boolean {
-    if (parseRoot.closest('[data-jpdb-reader-surface-ignore]')) return true;
-    if (parseRoot.matches('[data-settings-panel][hidden]')) return true;
-    return !isSettingsChromeParseRoot(parseRoot)
-        && Boolean(parseRoot.closest(SETTINGS_PARSE_EXCLUDE_SELECTOR));
-}
-
-function settingsParseExcludeSelector(parseRoot: HTMLElement): string {
-    if (isSettingsChromeParseRoot(parseRoot)) return SETTINGS_CHROME_PARSE_CHILD_EXCLUDE_SELECTOR;
-    return SETTINGS_PARSE_CHILD_EXCLUDE_SELECTOR;
-}
-
-function settingsFormControlExcludeSelector(): string {
-    return SETTINGS_FORM_CONTROL_PARSE_EXCLUDE_SELECTOR;
-}
-
-function isSettingsChromeParseRoot(parseRoot: HTMLElement): boolean {
-    return parseRoot.matches(SETTINGS_CHROME_PARSE_ROOT_SELECTOR);
 }
 
 export function nestedParseAlreadyScheduled(root: HTMLElement, parseKey: string): boolean {

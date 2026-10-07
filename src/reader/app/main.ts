@@ -7620,93 +7620,6 @@ export class ReaderApp {
         return Boolean(root.isConnected && root.matches('[data-yomu-jpdb-addon]'));
     }
 
-    private async parseSettingsJapanese(form: HTMLFormElement): Promise<void> {
-        if (!this.isCurrentSettingsRoot(form)) return;
-        const enhancement = yomuSettingsSurfaceCompanion()?.selfEnhancement;
-        if (!enhancement || enhancement.nestedSettingsParseAlreadyRendered(form)) return;
-        if (form.dataset.yomuSettingsSelfEnhancing === 'true') {
-            form.dataset.yomuSettingsSelfEnhancePending = 'true';
-            return;
-        }
-        form.dataset.yomuSettingsSelfEnhancing = 'true';
-        let plan: NestedParsePlan | null = null;
-        let parseLoadingId = '';
-        try {
-            plan = this.settingsJapaneseParsePlan(form);
-            if (!plan) return;
-            parseLoadingId = `${Date.now()}:${Math.random()}`;
-            form.dataset.jpdbReaderParseLoadingKey = plan.parseKey;
-            form.dataset.jpdbReaderParseLoadingId = parseLoadingId;
-            const parsed = await this.loadSettingsParsedJapaneseContent(plan);
-            if (!this.isCurrentSettingsJapaneseParse(form, plan.parseKey, parseLoadingId)) return;
-            const currentPlan = enhancement.nestedSettingsTextParsePlan(
-                form,
-                enhancement.SETTINGS_PARSE_TARGET_LIMIT,
-            );
-            if (!currentPlan) return;
-            const currentParsed = enhancement.supplementSettingsFallbackTokens(
-                currentPlan.targets,
-                enhancement.parsedSettingsTargetsForCurrentPlan(plan, parsed, currentPlan),
-            );
-            this.applySettingsJapaneseParse(form, currentPlan, currentParsed);
-            if (currentPlan.targets.length >= enhancement.SETTINGS_PARSE_TARGET_LIMIT) {
-                window.setTimeout(() => void this.parseSettingsJapanese(form), 0);
-            }
-        } catch {
-        } finally {
-            if (plan) clearNestedParseLoadingKey(form, plan.parseKey, parseLoadingId);
-            delete form.dataset.yomuSettingsSelfEnhancing;
-            if (form.dataset.yomuSettingsSelfEnhancePending === 'true') {
-                delete form.dataset.yomuSettingsSelfEnhancePending;
-                void this.parseSettingsJapanese(form);
-            }
-        }
-    }
-
-    private settingsJapaneseParsePlan(form: HTMLFormElement): NestedParsePlan | null {
-        if (!this.isCurrentSettingsRoot(form)) return null;
-        if (resolveUiLanguage(this.settings.interfaceLanguage) !== 'ja' || !this.canParseJapanese()) return null;
-        const enhancement = yomuSettingsSurfaceCompanion()?.selfEnhancement;
-        if (!enhancement) return null;
-        const plan = enhancement.nestedSettingsTextParsePlan(
-            form,
-            enhancement.SETTINGS_PARSE_TARGET_LIMIT,
-        );
-        return plan && !nestedParseAlreadyScheduled(form, plan.parseKey) ? plan : null;
-    }
-
-    private loadSettingsParsedJapaneseContent(plan: NestedParsePlan): Promise<JPDBToken[][]> {
-        return this.loadParsedNestedJapaneseContent(plan.targets.map(target => target.text), {
-            allowJpdbTimeoutFallback: true,
-            allowSegmentedFallback: true,
-            includeLocalPitch: false,
-            jpdbTimeoutMs: 1_200,
-            requireJpdb: false,
-            skipJpdb: true,
-        });
-    }
-
-    private isCurrentSettingsJapaneseParse(form: HTMLFormElement, parseKey: string, parseLoadingId: string): boolean {
-        return this.isCurrentSettingsRoot(form)
-            && form.dataset.jpdbReaderParseLoadingKey === parseKey
-            && form.dataset.jpdbReaderParseLoadingId === parseLoadingId;
-    }
-
-    private applySettingsJapaneseParse(form: HTMLFormElement, plan: NestedParsePlan, parsed: JPDBToken[][]): void {
-        const enhancement = yomuSettingsSurfaceCompanion()?.selfEnhancement;
-        if (!enhancement) return;
-        const renderSettings = enhancement.settingsForSettingsFormParse(form, this.settings);
-        applyNestedParsePlan(plan, parsed, renderSettings);
-        enhancement.addSettingsRubyFromRenderedReadings(form, renderSettings);
-        highlightCardTargetScopes(form);
-        refreshReaderWordContrast(form);
-        form.dataset.jpdbReaderParseKey = plan.parseKey;
-        form.dataset.yomuSettingsSelfEnhanced = 'true';
-        const tokens = parsed.flat();
-        void this.enrichPitchWords(tokens, this.backgroundPitchEnrichmentOptions());
-        this.queueAnkiWordEnrichment(tokens, [form]);
-    }
-
     /** Resolves false when a re-render took the plan's loading ticket. */
     private async parseNestedJapaneseContent(
         root: HTMLElement,
@@ -9451,7 +9364,6 @@ export class ReaderApp {
             applyAccentColor: color => this.applyAccentColor(color),
             applyWordColors: settings => this.applyWordColors(settings),
             lookupText: (text, sentence, anchor) => this.lookupText(text, sentence || text, { anchor, stackOverSettings: true }),
-            parseSettingsJapanese: form => this.parseSettingsJapanese(form),
             installFab: () => this.installFab(),
             refreshDictionaryStyles: () => this.refreshDictionaryStyles(),
             scheduleDictionaryRescan: () => this.scheduleDictionaryRescan(),

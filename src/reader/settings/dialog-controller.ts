@@ -155,7 +155,6 @@ interface SettingsDialogDependencies {
     applyAccentColor: (color: string) => void;
     applyWordColors: (settings?: ReaderSettings) => void;
     lookupText?: (text: string, sentence: string, anchor: HTMLElement) => void | Promise<void>;
-    parseSettingsJapanese?: (form: HTMLFormElement) => void | Promise<void>;
     installFab: () => void;
     refreshDictionaryStyles: () => Promise<void>;
     scheduleDictionaryRescan: () => void;
@@ -385,8 +384,6 @@ export class SettingsDialogController {
     private readonly restoreCoordinator: SettingsRestoreCoordinator;
     private readonly cloudSettings: SettingsCloudSyncCoordinator;
     private readonly actionRouter: SettingsActionRouter;
-    private settingsJapaneseParseRefreshFrame: number | undefined;
-    private settingsJapaneseParseRefreshTimer: number | undefined;
 
     constructor(private readonly dependencies: SettingsDialogDependencies) {
         this.previewBaseline = new SettingsPreviewBaseline(dependencies, () => this.currentForm);
@@ -466,7 +463,6 @@ export class SettingsDialogController {
         void this.refreshDictionaryStatus(form);
         runCredentialDependentSettingsRefreshes(firefoxAuthenticationInfoRequiresExtensionPage(), [() => void this.refreshDeckControls(form)]);
         if (panel === 'help') void this.refreshYomuUpdateStatus(form);
-        this.refreshSettingsJapaneseParse(form);
     }
 
     private onCatalogBrowseRendered(form: HTMLFormElement): void {
@@ -484,7 +480,6 @@ export class SettingsDialogController {
         void this.academyAccountSync.refresh(form, language);
         void this.refreshAnkiConnectionStatus(form);
         syncSubtitlePreview(form);
-        this.refreshSettingsJapaneseParse(form);
     }
 
     async resumePendingCloudSettingsSync(): Promise<boolean> {
@@ -688,14 +683,6 @@ export class SettingsDialogController {
 
     private dismissSettings(): void {
         this.settingsSyncAbort?.abort();
-        if (this.settingsJapaneseParseRefreshFrame !== undefined) {
-            cancelCancelableFrame(this.settingsJapaneseParseRefreshFrame);
-            this.settingsJapaneseParseRefreshFrame = undefined;
-        }
-        if (this.settingsJapaneseParseRefreshTimer !== undefined) {
-            window.clearTimeout(this.settingsJapaneseParseRefreshTimer);
-            this.settingsJapaneseParseRefreshTimer = undefined;
-        }
         this.previewBaseline.restoreInterfaceLanguagePreview();
         this.modal.release();
         this.currentForm = undefined;
@@ -738,7 +725,6 @@ export class SettingsDialogController {
             const panel = tabs[nextIndex]?.dataset.panel ?? 'api';
             activateSettingsPanel(form, panel);
             this.onSettingsPanelActivated(form, panel);
-            this.refreshSettingsJapaneseParse(form);
         });
     }
 
@@ -1190,7 +1176,6 @@ export class SettingsDialogController {
         if (!apiKey) {
             setInnerHtml(container, renderDeckControls(formSettings, [], false, getFormInterfaceLanguage(form, this.settings.interfaceLanguage)));
             localizeSettingsForm(form, getFormInterfaceLanguage(form, this.settings.interfaceLanguage));
-            this.refreshSettingsJapaneseParse(form);
             return;
         }
 
@@ -1204,7 +1189,6 @@ export class SettingsDialogController {
         } finally {
             this.restoreTransientSettings(previous);
             localizeSettingsForm(form, getFormInterfaceLanguage(form, this.settings.interfaceLanguage));
-            this.refreshSettingsJapaneseParse(form);
         }
     }
 
@@ -1229,7 +1213,6 @@ export class SettingsDialogController {
             wanikaniStatus.dataset.statusTone = line.tone;
             wanikaniStatus.textContent = formatSettingsStatusLine(line, language);
         }
-        this.refreshSettingsJapaneseParse(form);
     }
 
     // fallow-ignore-next-line complexity
@@ -1265,7 +1248,6 @@ export class SettingsDialogController {
             status.dataset.statusTone = line.tone;
             status.textContent = formatSettingsStatusLine(line, language);
         }
-        this.refreshSettingsJapaneseParse(form);
     }
 
     // Live probe via jpdb /ping: upgrades the static "key set" line to a real
@@ -1276,7 +1258,6 @@ export class SettingsDialogController {
         const connected = await this.runJpdbConnectionProbe(probe.apiKey);
         if (!this.jpdbConnectionProbeIsCurrent(form, probe.requestId)) return;
         this.renderJpdbConnectionProbe(form, probe, connected);
-        this.refreshSettingsJapaneseParse(form);
     }
 
     private prepareJpdbConnectionProbe(form: HTMLFormElement): JpdbConnectionProbe | null {
@@ -1470,7 +1451,6 @@ export class SettingsDialogController {
         if (line.state) status.dataset.ankiAdapterState = line.state;
         else delete status.dataset.ankiAdapterState;
         setInnerHtml(status, renderAnkiStatusHtml(line, getFormInterfaceLanguage(form, this.settings.interfaceLanguage)));
-        this.refreshSettingsJapaneseParse(form);
     }
 
     private setAnkiStatus(form: HTMLFormElement, message: string, tone: 'pending' | 'success' | 'error', action?: SettingsStatusAction, state?: AnkiAdapterState, details?: SettingsStatusLine['details']): void {
@@ -1503,7 +1483,6 @@ export class SettingsDialogController {
         status.dataset.statusTone = 'pending';
         status.dataset.updateChecked = 'true';
         status.textContent = formatUiText(language, 'updateStatusChecking', { current: CURRENT_YOMU_VERSION });
-        this.refreshSettingsJapaneseParse(form);
         try {
             const version = await requestJson(`${NEW_TAB_VERSION_URL}?t=${Date.now()}`, {
                 allowDirectCrossOrigin: true,
@@ -1524,7 +1503,6 @@ export class SettingsDialogController {
             if (comparison === null) {
                 status.dataset.statusTone = 'pending';
                 status.textContent = formatUiText(language, 'updateStatusIncomparable', { current: CURRENT_YOMU_VERSION, latest });
-                this.refreshSettingsJapaneseParse(form);
                 return;
             }
             const updateAvailable = comparison < 0;
@@ -1533,13 +1511,11 @@ export class SettingsDialogController {
                 current: CURRENT_YOMU_VERSION,
                 latest,
             });
-            this.refreshSettingsJapaneseParse(form);
         } catch (error) {
             log.warn('Yomu update status unavailable', error);
             if (this.currentForm !== form || !form.isConnected || this.yomuUpdateCheckId !== requestId) return;
             status.dataset.statusTone = 'pending';
             status.textContent = formatUiText(language, 'updateStatusUnknown', { current: CURRENT_YOMU_VERSION });
-            this.refreshSettingsJapaneseParse(form);
         }
     }
 
@@ -1548,19 +1524,6 @@ export class SettingsDialogController {
         installCatalogBrowseFilter(form);
         this.syncRecommendedDictionaryInstallControls(form);
         this.restoreCoordinator.sync(form);
-        this.refreshSettingsJapaneseParse(form);
-    }
-
-    private refreshSettingsJapaneseParse(form: HTMLFormElement): void {
-        if (this.settingsJapaneseParseRefreshFrame !== undefined) cancelCancelableFrame(this.settingsJapaneseParseRefreshFrame);
-        if (this.settingsJapaneseParseRefreshTimer !== undefined) window.clearTimeout(this.settingsJapaneseParseRefreshTimer);
-        this.settingsJapaneseParseRefreshFrame = requestCancelableFrame(() => {
-            this.settingsJapaneseParseRefreshFrame = undefined;
-            this.settingsJapaneseParseRefreshTimer = window.setTimeout(() => {
-                this.settingsJapaneseParseRefreshTimer = undefined;
-                if (this.currentForm === form && form.isConnected) void this.dependencies.parseSettingsJapanese?.(form);
-            }, 0);
-        });
     }
 
     private async mergeDictionaryPreferencesFromSummary(
@@ -1653,7 +1616,6 @@ export class SettingsDialogController {
             const panel = selectedSettingsPanel(control);
             activateSettingsPanel(form, panel);
             this.onSettingsPanelActivated(form, panel);
-            this.refreshSettingsJapaneseParse(form);
             return true;
         }
         if (!this.applySettingsEditorAction(form, action, control)) return false;
@@ -2383,7 +2345,7 @@ export class SettingsDialogController {
                 summary = await importRecommendedDictionary(this.dependencies.dictionaries, dictionary, message => {
                     setStatus(message);
                     this.setRecommendedDictionaryInstallState(form, dictionary.id, 'installing', `${dictionary.name}: ${message}`);
-                });
+                }, { firstInstall: control?.dataset.installed !== 'true' });
                 await this.persistDictionaryImport(summary);
             } catch (error) {
                 // The card keeps the reason until its next click; the toast fades.

@@ -36,14 +36,12 @@ import {
     jpdbJsonResponse,
     jpdbParseResultToTokens,
     jpdbVocabularyToCards,
-    newTabSettingsJapaneseParserFixture,
     renderPitch,
     renderSettingsForm,
     renderTokensToHtml,
     renderedWordPrivateValue,
     restoreWindowDescriptor,
     setInnerHtml,
-    settingsJapaneseParserFixture,
     shouldUseSheet,
     waitForExpect,
     withViewport,
@@ -1915,80 +1913,6 @@ describe('reader helpers', () => {
         expect(SETTINGS_CSS).toContain('.jpdb-reader-settings-drag-handle');
         expect(SETTINGS_CSS).toContain('.jpdb-reader-settings-drag-handle:hover::before');
         expect(SUBTITLES_YOUTUBE_CSS).toContain('.jpdb-subtitle-transcript-bottom .jpdb-subtitle-resize:hover::before');
-    });
-
-    it('parses Japanese settings labels in the main reader runtime using current form display settings', async () => {
-        const { app, form, parseJapanese, internals } = settingsJapaneseParserFixture({
-            spelling: '設定',
-            reading: 'せってい',
-            vid: 2468,
-            settings: {
-                showFurigana: false,
-                furiganaMode: 'off',
-                showPitchAccent: false,
-            },
-        });
-        form.querySelector<HTMLSelectElement>('select[name="furiganaMode"]')!.value = 'all';
-        form.querySelector<HTMLInputElement>('input[name="showPitchAccent"]')!.checked = true;
-
-        try {
-            await internals.parseSettingsJapanese(form);
-
-            expect(parseJapanese).toHaveBeenCalledWith(
-                expect.arrayContaining(['よむ 設定']),
-                expect.objectContaining({
-                    allowApiTimeoutFallback: true,
-                    allowJpdbTimeoutFallback: true,
-                    allowSegmentedFallback: true,
-                    apiTimeoutMs: 1_200,
-                    includeLocalPitch: false,
-                    jpdbTimeoutMs: 1_200,
-                    requireApi: false,
-                    requireJpdb: false,
-                    skipApi: true,
-                    skipJpdb: true,
-                }),
-            );
-            const parsedWord = form.querySelector<HTMLElement>('h2 .jpdb-reader-word[data-expression="設定"]');
-            expect(parsedWord).toBeTruthy();
-            expect(parsedWord?.classList.contains('jpdb-reader-has-furi')).toBe(true);
-            expect(parsedWord?.classList.contains('jpdb-pitch-heiban')).toBe(true);
-            expect(parsedWord?.querySelector('.jpdb-reader-furi')?.textContent).toBe('せってい');
-        } finally {
-            app.destroy();
-            document.body.replaceChildren();
-        }
-    });
-
-    it('parses Japanese settings labels in the hosted newtab runtime with segmented fallback enabled', async () => {
-        const { form, parse, internals } = newTabSettingsJapaneseParserFixture({
-            spelling: '設定',
-            reading: 'せってい',
-            vid: 3579,
-        });
-
-        try {
-            await internals.parseSettingsJapanese(form);
-
-            expect(parse).toHaveBeenCalledWith(
-                expect.arrayContaining(['よむ 設定']),
-                expect.objectContaining({
-                    allowJpdbTimeoutFallback: true,
-                    allowSegmentedFallback: true,
-                    includeLocalPitch: false,
-                    jpdbTimeoutMs: 10_000,
-                }),
-            );
-            const parsedWord = form.querySelector<HTMLElement>('h2 .jpdb-reader-word[data-expression="設定"]');
-            expect(parsedWord).toBeTruthy();
-            expect(parsedWord?.classList.contains('jpdb-reader-has-furi')).toBe(true);
-            expect(parsedWord?.classList.contains('jpdb-pitch-heiban')).toBe(true);
-            expect(parsedWord?.querySelector('.jpdb-reader-furi')?.textContent).toBe('せってい');
-            expect(internals.hydrateSettingsFallbackTokens).toHaveBeenCalled();
-            expect(internals.enrichPitchWords).toHaveBeenCalledWith(expect.any(Array), 192);
-        } finally {
-            document.body.replaceChildren();
-        }
     });
 
 });

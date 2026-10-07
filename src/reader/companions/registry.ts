@@ -2,15 +2,6 @@ export type SettingsDialogControllerClass = typeof import('../settings/dialog-co
 export type SettingsDialogControllerInstance = InstanceType<SettingsDialogControllerClass>;
 export type LookupModalAccessibilityClass = typeof import('../popup/modal-accessibility-impl').LookupModalAccessibility;
 export type LookupModalAccessibilityInstance = InstanceType<LookupModalAccessibilityClass>;
-interface SettingsSelfEnhancementCompanion {
-    SETTINGS_PARSE_TARGET_LIMIT: typeof import('../lookup/nested-text-parse').SETTINGS_PARSE_TARGET_LIMIT;
-    nestedSettingsParseAlreadyRendered: typeof import('../lookup/nested-text-parse').nestedSettingsParseAlreadyRendered;
-    nestedSettingsTextParsePlan: typeof import('../lookup/nested-text-parse').nestedSettingsTextParsePlan;
-    parsedSettingsTargetsForCurrentPlan: typeof import('../lookup/settings-fallback-tokens').parsedSettingsTargetsForCurrentPlan;
-    supplementSettingsFallbackTokens: typeof import('../lookup/settings-fallback-tokens').supplementSettingsFallbackTokens;
-    addSettingsRubyFromRenderedReadings: typeof import('../lookup/settings-parse-render').addSettingsRubyFromRenderedReadings;
-    settingsForSettingsFormParse: typeof import('../lookup/settings-parse-render').settingsForSettingsFormParse;
-}
 export type AudioPlayerClass = typeof import('../audio/player').AudioPlayer;
 export type AudioPlayerInstance = InstanceType<AudioPlayerClass>;
 export type ReaderAudioActionsClass = typeof import('../audio/actions').ReaderAudioActions;
@@ -186,7 +177,6 @@ interface YomuCompanionRegistry {
         // Academy account pairing/device sync is an account-surface feature and
         // rides with the settings companion that owns the account panel.
         installAcademyReaderSrsSync?: typeof import('../srs/account-sync').installAcademyReaderSrsSync;
-        selfEnhancement: SettingsSelfEnhancementCompanion;
     };
     video?: {
         SubtitlePlayerController: SubtitlePlayerControllerClass;

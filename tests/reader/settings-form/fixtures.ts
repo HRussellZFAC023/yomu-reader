@@ -5,7 +5,7 @@ import { uiText } from '../../../src/reader/app/i18n';
 import { ANKI_SOURCE_ID, JITEN_DEFINITION_SOURCE_ID, JPDB_DEFINITION_SOURCE_ID } from '../../../src/reader/app/constants';
 import { INSTALL_GUIDE_URL } from '../../../src/reader/app/userscript-update';
 import { CURRENT_YOMU_VERSION } from '../../../src/reader/app/version';
-import { applyNestedParsePlan, nestedSettingsTextParsePlan } from '../../../src/reader/lookup/nested-text-parse';
+import { applyNestedParsePlan } from '../../../src/reader/lookup/nested-text-parse';
 import { findRecommendedDictionary } from '../../../src/reader/dictionaries/recommended';
 import { accentToRgba, accessibleOcrBackgroundColor, accessibleOcrBackgroundOpacity, DEFAULT_SETTINGS as BASE_DEFAULT_SETTINGS, effectiveFuriganaMode, effectiveReaderTextColorSource, normalizeReaderSettings, shouldLookupAnkiStatus } from '../../../src/reader/settings/index';
 import { blendRgba, contrastRatio, cssColorToRgba, rgbaToHex } from '../../../src/reader/theme/color-utils';
@@ -244,7 +244,7 @@ export {
     INSTALL_GUIDE_URL,
     CURRENT_YOMU_VERSION,
     applyNestedParsePlan,
-    nestedSettingsTextParsePlan,
+
     findRecommendedDictionary,
     accentToRgba,
     accessibleOcrBackgroundColor,

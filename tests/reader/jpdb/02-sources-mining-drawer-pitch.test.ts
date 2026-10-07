@@ -25,7 +25,6 @@ import {
     readingTestCard,
     renderModalCard,
     renderWordPills,
-    settingsJapaneseParserFixture,
     sourceSummaryClickFixture,
     testAnkiExistingNote,
     testAnkiLookup,
@@ -86,25 +85,6 @@ function expectAnkiGradeButtons(cardId: string): void {
 }
 
 describe('reader helpers', () => {
-    it('does not parse settings help and status rows as reading text', async () => {
-        const { app, form, parseJapanese, internals } = settingsJapaneseParserFixture({
-            spelling: '公開',
-            reading: 'こうかい',
-            vid: 8642,
-        });
-
-        try {
-            await internals.parseSettingsJapanese(form);
-
-            const parsedTexts = parseJapanese.mock.calls[0]?.[0] ?? [];
-            expect(parsedTexts.join('\n')).not.toContain('公開検索は使えます');
-            expect(form.querySelector('[data-jpdb-status] .jpdb-reader-word')).toBeNull();
-            expect(form.querySelector('[data-jpdb-status] rt')).toBeNull();
-        } finally {
-            app.destroy();
-            document.body.replaceChildren();
-        }
-    });
 
     it('leaves source summary clicks to native details toggling even when tracking is installed twice', () => {
         const { click } = sourceSummaryClickFixture(`
