@@ -97,6 +97,7 @@ describe('the page side of the extension popup', () => {
 
         const list = await send({ channel: EXTENSION_POPUP_ACTIONS_CHANNEL, type: 'list' }) as ExtensionPopupActionList;
 
+        expect(list.language).toBe('en');
         expect(list.heading).toBe('On this page');
         expect(list.settingsLabel).toBe('Settings');
         expect(list.actions).toEqual([
@@ -122,7 +123,7 @@ describe('the page side of the extension popup', () => {
         const { send } = fakeRuntime();
         installExtensionPopupActions({ ...puck().source, language: () => 'ja' }, new AbortController().signal);
         const list = await send({ channel: EXTENSION_POPUP_ACTIONS_CHANNEL, type: 'list' }) as ExtensionPopupActionList;
-        expect([list.heading, list.studyLabel, list.settingsLabel]).toEqual(['このページ', '学習', '設定']);
+        expect([list.language, list.heading, list.studyLabel, list.settingsLabel]).toEqual(['ja', 'このページ', '学習', '設定']);
     });
 
     it('answers only this extension\'s own pages, and stops when the reader is torn down', async () => {
@@ -216,10 +217,72 @@ describe('the toolbar popup', () => {
         expect(buttons()[0]!.textContent).toBe('Resume annotations');
     });
 
+    it.each([
+        ['en', 'Mute auto-play audio', 'Mute auto-play', 'Open Japanese versions of sites', 'Japanese sites', 'Study', 'Settings'],
+        ['ja', '音声の自動再生をミュート', '自動再生をミュート', '日本語版のサイトを開く', '日本語版サイト', '学習', '設定'],
+    ])('keeps compact %s rows accessible with aligned decorative icons', async (_locale, audio, shortAudio, sites, shortSites, study, settings) => {
+        mountPopup(() => ({
+            language: _locale, studyLabel: study, settingsLabel: settings,
+            actions: [
+                { id: 'audio', label: audio, tone: 'on' },
+                { id: 'japanese-site', label: sites, tone: 'off', pressed: false },
+                { id: 'ocr', label: 'OCR: Auto', tone: 'on' },
+            ],
+        }));
+        await settle();
+
+        expect(document.documentElement.lang).toBe(_locale);
+        expect(buttons().map(button => button.textContent)).toEqual([shortAudio, shortSites, 'OCR: Auto', study, settings]);
+        expect(buttons()[0]!.getAttribute('aria-label')).toBe(audio);
+        expect(buttons()[1]!.getAttribute('aria-label')).toBe(sites);
+        expect(buttons()[1]!.getAttribute('aria-pressed')).toBe('false');
+        for (const button of buttons()) {
+            expect(button.querySelector('svg[aria-hidden="true"][focusable="false"]')).not.toBeNull();
+            expect(button.querySelector('button,a,input,select')).toBeNull();
+        }
+        const separator = document.querySelector('main hr')!;
+        expect(document.querySelectorAll('main hr')).toHaveLength(1);
+        expect((separator.nextElementSibling as HTMLElement).dataset.yomuAction).toBe('study');
+        expect(document.querySelector('header,h1')).toBeNull();
+    });
+
+    it('preserves all three power actions and restores focus after an icon click', async () => {
+        const states = [
+            { label: 'Hide furigana', tone: 'on' },
+            { label: 'Pause annotations', tone: 'partial' },
+            { label: 'Resume annotations', tone: 'off' },
+        ];
+        let index = 0;
+        const { sendMessage } = mountPopup(message => {
+            if (message.type === 'run') index = (index + 1) % states.length;
+            return { actions: [{ id: 'power', ...states[index] }] };
+        });
+        await settle();
+        for (let step = 0; step < states.length; step++) {
+            expect(buttons()[0]!.textContent).toBe(states[step]!.label);
+            expect(buttons()[0]!.getAttribute('aria-label')).toBe(states[step]!.label);
+            expect(buttons()[0]!.querySelector('svg')!.dataset.tone).toBe(states[step]!.tone);
+            buttons()[0]!.querySelector('path')!.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+            await settle();
+            expect(document.activeElement).toBe(buttons()[0]);
+        }
+        expect(sendMessage).toHaveBeenLastCalledWith(7, { channel: EXTENSION_POPUP_ACTIONS_CHANNEL, type: 'run', id: 'power' }, { frameId: 0 });
+    });
+
+    it('keeps unknown translated labels and OCR mode wording intact', async () => {
+        mountPopup(() => ({ actions: [
+            { id: 'audio', label: 'Custom audio wording', tone: 'off' },
+            { id: 'ocr', label: 'OCR: タップ/ホバー', tone: 'partial' },
+        ] }));
+        await settle();
+        expect(buttons().slice(0, 2).map(button => button.textContent)).toEqual(['Custom audio wording', 'OCR: タップ/ホバー']);
+    });
+
     it('offers packaged Study and Settings on a tab without Yomu', async () => {
         mountPopup(() => { throw new Error('Could not establish connection. Receiving end does not exist.'); });
         await settle();
         expect(buttons().map(button => button.textContent)).toEqual(['Study', 'Settings']);
+        expect(document.querySelector('main hr')).toBeNull();
     });
 
     it('removes stale page actions if the active page no longer answers', async () => {
@@ -231,5 +294,6 @@ describe('the toolbar popup', () => {
         buttons()[0]!.click();
         await settle();
         expect(buttons().map(button => button.textContent)).toEqual(['Study', 'Settings']);
+        expect(document.querySelector('main hr')).toBeNull();
     });
 });

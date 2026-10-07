@@ -5,7 +5,7 @@
 // background, whose MV3 worker forgets in-memory state when it idles: that is
 // how the compiler's GM menu commands vanished from the popup. Only the
 // extension build installs this; userscript managers keep the GM menu.
-import { uiText } from './i18n';
+import { resolveUiLanguage, uiText } from './i18n';
 import { extensionRuntimeMayBeYomu } from './runtime-env';
 import type { InterfaceLanguage } from './types';
 import type { RadialAction } from '../ui/radial-menu';
@@ -26,6 +26,7 @@ export interface ExtensionPopupAction {
 }
 
 export interface ExtensionPopupActionList {
+    language: 'en' | 'ja';
     heading: string;
     studyLabel: string;
     settingsLabel: string;
@@ -71,6 +72,7 @@ async function answerPopup(source: ExtensionPopupActionSource, request: { type: 
     }
     const language = source.language();
     return {
+        language: resolveUiLanguage(language),
         heading: uiText(language, 'extensionPopupPageActions'),
         studyLabel: uiText(language, 'newTab'),
         settingsLabel: uiText(language, 'settings'),
