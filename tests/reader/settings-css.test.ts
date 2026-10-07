@@ -17,6 +17,12 @@ function normalizedRuleBlock(css: string, selector: string): string {
     return normalizeCss(match?.[1] ?? '');
 }
 
+function lastNormalizedRuleBlock(css: string, selector: string): string {
+    const escapedSelector = selector.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const matches = [...css.matchAll(new RegExp(`(?:^|\\n)${escapedSelector}\\s*\\{([^}]*)\\}`, 'g'))];
+    return normalizeCss(matches.at(-1)?.[1] ?? '');
+}
+
 describe('settings CSS', () => {
     it('imports the shared interaction state layer into both reader CSS bundles', () => {
         const readerEntryCss = readFileSync('src/reader/styles-reader.css', 'utf8');
@@ -31,6 +37,19 @@ describe('settings CSS', () => {
         expect(normalizedInteractionsCss).toContain('@media (prefers-reduced-motion: reduce)');
     });
 
+
+    it('splits a wrapped Settings section nav into balanced rows rather than stranding one tab', () => {
+        const settingsCss = readFileSync('src/reader/styles/settings.css', 'utf8');
+        const tabs = lastNormalizedRuleBlock(settingsCss, '.jpdb-reader-settings-tabs');
+        const tab = lastNormalizedRuleBlock(settingsCss, '.jpdb-reader-settings-tab');
+
+        // text-wrap balances line boxes only, so the tabs are inline in a block.
+        expect(tabs).toContain('display: block;');
+        expect(tabs).toContain('text-wrap: balance;');
+        expect(tab).toContain('display: inline-flex !important;');
+        // The keyboard-open sheet keeps its one scrolling row.
+        expect(normalizeCss(settingsCss)).toContain('.jpdb-reader-settings.jpdb-reader-settings-keyboard-open .jpdb-reader-settings-tabs { white-space: nowrap; }');
+    });
 
     it('keeps the settings puck clickable when it overlaps the transcript side panel', () => {
         const puckRule = normalizedRuleBlock(READER_WORDS_OCR_CSS, '.jpdb-reader-fab');

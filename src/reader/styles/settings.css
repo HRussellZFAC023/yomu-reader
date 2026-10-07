@@ -2498,9 +2498,9 @@
    One grid for every surface (hosted Study, packaged Study, the userscript
    dialog and the desktop window): the title leads the title row with a quiet
    close at its trailing edge, the section nav is a compact row of text tabs
-   that wraps instead of running off the edge, and title, tabs, search and
-   panels share one gutter. Last in the file so it settles the earlier
-   per-breakpoint paddings. */
+   that wraps into balanced rows instead of running off the edge, and title,
+   tabs, search and panels share one gutter. Last in the file so it settles
+   the earlier per-breakpoint paddings. */
 .jpdb-reader-settings {
   --jpdb-reader-settings-gutter: 18px;
 }
@@ -2566,14 +2566,25 @@
   outline: 2px solid var(--jpdb-reader-accent) !important;
   outline-offset: 1px !important;
 }
+/* The tabs sit inline in a balanced block, so a nav that needs two rows splits
+   them evenly instead of stranding one tab on a row of its own. */
 .jpdb-reader-settings-tabs {
-  flex-wrap: wrap;
-  gap: 2px;
+  display: block;
+  text-wrap: balance;
+  font-size: 0;
+  line-height: 0;
   margin: 0 var(--jpdb-reader-settings-gutter) 10px;
-  padding: 0 0 8px;
+  padding: 0 0 6px;
   border-bottom: 1px solid var(--jpdb-reader-border);
 }
+.jpdb-reader-settings.jpdb-reader-settings-keyboard-open .jpdb-reader-settings-tabs {
+  white-space: nowrap;
+}
 .jpdb-reader-settings-tab {
+  display: inline-flex !important;
+  align-items: center !important;
+  vertical-align: top;
+  margin: 0 2px 2px 0 !important;
   min-height: 30px !important;
   padding: 0 9px !important;
   border: 0 !important;
@@ -2607,6 +2618,13 @@
 @media (pointer: coarse) {
   .jpdb-reader-settings-tab {
     min-height: 36px !important;
+  }
+}
+/* Narrow windows (the desktop window's minimum among them) keep all nine
+   sections on one row while they fit. */
+@media (max-width: 699px) {
+  .jpdb-reader-settings-tab {
+    padding: 0 7px !important;
   }
 }
 .jpdb-reader-settings-search {
