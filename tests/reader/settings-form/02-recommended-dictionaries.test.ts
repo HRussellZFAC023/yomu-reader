@@ -6,6 +6,7 @@ import {
     catalogBrowseLanguageSectionsForLearnerLanguage,
     catalogRecommendedDictionaryId,
     recommendedDictionaryImportOptions,
+    recommendedDictionaryInstallIsCurrent,
 } from '../../../src/reader/dictionaries/recommended';
 import type { ImportSummary, YomitanDictionaryInfo } from '../../../src/reader/dictionaries/yomitan';
 import { renderRecommendedDictionaries } from '../../../src/reader/settings/dictionary-recommendations-view';
@@ -331,16 +332,12 @@ describe('catalogue seed cards over an install of the same dictionary', () => {
         expect(seedButton('kanjidic-en', installed('KANJIDIC', 'kanjidic2'))).toEqual(['Update', false]);
     });
 
-    // WTY cards match only the archive's own title, "wty-fr-en", and every
-    // wty build stamps its build day; the catalogue's dataset commit is no date.
-    it('compares a WTY card by the build day its archive records', () => {
-        expect(seedButton('wty-fr-en', installed('wty-fr-en', '2026.08.29'), 'fr')).toEqual(['Installed', true]);
-        expect(findRecommendedDictionary(catalogRecommendedDictionaryId('en', 'fr', 'wty-fr-en'))?.revision).toBe('2026.07.15');
-        expect(seedButton('wty-fr-en', installed('wty-fr-en', '2026.07.15'), 'fr')).toEqual(['Installed', true]);
-        expect(seedButton('wty-fr-en', installed('wty-fr-en', '2026.03.05'), 'fr')).toEqual(['Update', false]);
-        expect(seedButton('wty-fr-en-ipa', installed('wty-fr-en-ipa', '2026.09.01'), 'fr')).toEqual(['Installed', true]);
-        // Another pair's newer build is not this card's install.
-        expect(seedButton('wty-fr-en', installed('wty-fr-fr', '2026.09.01'), 'fr')).toEqual(['Install', false]);
+    it('compares dotted build days numerically without offering a downgrade', () => {
+        const build = { ...RECOMMENDED_JAPANESE_DICTIONARIES[0]!, revision: '2026.07.15' };
+        expect(recommendedDictionaryInstallIsCurrent(build, '2026.08.29')).toBe(true);
+        expect(recommendedDictionaryInstallIsCurrent(build, '2026.07.15')).toBe(true);
+        expect(recommendedDictionaryInstallIsCurrent(build, '2026.03.05')).toBe(false);
+        expect(recommendedDictionaryInstallIsCurrent(build, undefined)).toBe(false);
     });
 
     // The JPDB Kana lesson, enforced: a newer revision on a title that only
@@ -348,7 +345,6 @@ describe('catalogue seed cards over an install of the same dictionary', () => {
     it('matches a card that compares revisions only by its URL or exact identity', () => {
         expect(seedButton('kanjidic-en', installed('kanjidic_en', 'kanjidic2.2027-001'))).toEqual(['Install', false]);
         expect(seedButton('jmdict-en', installed('JMdict (en) Forms', 'JMdict.2026-10-04'))).toEqual(['Install', false]);
-        expect(seedButton('wty-fr-en', installed('Wiktionary FR-EN terms', '2026.09.01'), 'fr')).toEqual(['Install', false]);
     });
 
     it('still installs the JPDB Kana card over a different JPDB v2.2 build', () => {

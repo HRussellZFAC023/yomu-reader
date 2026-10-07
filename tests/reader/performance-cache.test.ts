@@ -12,7 +12,6 @@ import type { AnkiConnectClient } from '../../src/reader/anki/index';
 import type { JpdbClient } from '../../src/reader/jpdb/jpdb';
 import type { JpdbPublicPitchClient } from '../../src/reader/jpdb/jpdb-public-pitch';
 import type { JpdbVocabularyClient } from '../../src/reader/jpdb/jpdb-vocabulary';
-import { renderPronunciation } from '../../src/reader/popup/pronunciation';
 import { readerWordSurfaceText } from '../../src/reader/dom/reader-word';
 
 type CardRenderDataLoaderDependencies = ConstructorParameters<typeof CardRenderDataLoader>[0];

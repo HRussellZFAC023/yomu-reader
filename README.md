@@ -115,11 +115,7 @@ npm ci
 npm run check
 ```
 
-`npm ci` rather than `npm install`, deliberately: `package-lock.json` is hashed into the
-multilingual-parity lookup contract, and `npm install` rewrites the lockfile whenever its own npm
-version normalizes it differently. That rewrite makes the release gate reject the recorded parity
-evidence, so the documented setup step would break the very check on the next line.
-`npm ci` installs the locked tree without writing to it, which is what every CI workflow uses.
+`npm ci` installs the committed dependency versions without rewriting the lockfile, as CI does.
 
 Common commands:
 

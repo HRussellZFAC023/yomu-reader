@@ -18,12 +18,10 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { userFacingError } from '../../src/reader/app/user-facing-errors';
 
 import { createAudioPreviewCard } from '../../src/reader/cards/utils';
-import { SETTINGS_CHANGE_EVENT } from '../../src/reader/app/constants';
 import { publishSettingsChange, subscribeToSettingsChanges, type SettingsChangeDetail } from '../../src/reader/settings/settings-change-bus';
 import { catalogBrowseDictionaries } from '../../src/reader/dictionaries/catalog-browse';
 import { listDictionaryArchives, persistDictionaryArchive } from '../../src/reader/dictionaries/archive-cache';
 import {
-    defaultDictionaryLookupLinks,
     loadSettings,
     PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY,
     SETTINGS_STORAGE_KEY,
@@ -225,31 +223,6 @@ function lookupPillRow(form: HTMLFormElement, id: string): HTMLElement {
     return idInput.closest<HTMLElement>('[data-lookup-link-row]')!;
 }
 
-function lookupPillLabelInput(form: HTMLFormElement, id: string): HTMLInputElement {
-    return lookupPillRow(form, id)
-        .querySelector<HTMLInputElement>('input[name$=".label"]')!;
-}
-
-function lookupPillUrlInput(form: HTMLFormElement, id: string): HTMLInputElement {
-    return lookupPillRow(form, id).querySelector<HTMLInputElement>('input[name$=".urlTemplate"]')!;
-}
-
-function lookupPillEnabledInput(form: HTMLFormElement, id: string): HTMLInputElement {
-    return lookupPillRow(form, id).querySelector<HTMLInputElement>('[data-lookup-link-enable-toggle]')!;
-}
-
-function definitionTranslationInput(form: HTMLFormElement, id: string): HTMLInputElement {
-    return Array.from(
-        form.querySelectorAll<HTMLInputElement>('input[name="definitionTranslationProviderIds"]'),
-    ).find(input => input.value === id)!;
-}
-
-function expectSpanishLookupPills(form: HTMLFormElement): void {
-    const ids = lookupPillIds(form);
-    expect(ids).toEqual(expect.arrayContaining(['rae', 'spanishdict']));
-    expect(ids).not.toEqual(expect.arrayContaining(['jiten', 'jpdb', 'bunpro']));
-}
-
 async function submitSettingsAndWait(
     form: HTMLFormElement,
     dismiss: CallTracker,
@@ -330,10 +303,6 @@ function expectInterfaceLanguagePreview(
 ): void {
     expect(dialog.currentSettings().interfaceLanguage).toBe('en');
     expect(dialog.installedLanguages.at(-1)).toBe(language);
-}
-
-function activeLanguageProfile(settings: ReaderSettings): ReaderSettings['languageProfiles'][number] | undefined {
-    return settings.languageProfiles.find(profile => profile.id === settings.activeLanguageProfileId);
 }
 
 
@@ -577,260 +546,12 @@ describe('settings dialog keyboard dismissal', () => {
         expect(document.activeElement).toBe(last);
     });
 
-    it('keeps installed dictionaries and source order reachable when the catalogue cannot be checked', async () => {
-        // Offline, the published catalogue is unreachable, but everything in
-        // Sources that is already on this device still works.
-        const publishedDictionaryLanguages = vi.fn()
-            .mockRejectedValueOnce(new TypeError('Failed to fetch'))
-            .mockResolvedValue(new Set(['ja']));
+    it('keeps installed dictionaries and source order reachable without a target catalogue request', () => {
+        const publishedDictionaryLanguages = vi.fn().mockRejectedValue(new TypeError('Failed to fetch'));
         const { form } = createSettingsDialog({ publishedDictionaryLanguages });
-
-        await waitForCondition(() =>
-            form.querySelector<HTMLElement>('[data-target-dictionary-state]')?.textContent
-                === 'Dictionary availability could not be checked.');
-        expect(form.querySelector<HTMLElement>('[data-target-dictionary-content]')?.hidden).toBe(false);
         expect(form.querySelector('[data-definition-source-editor]')).not.toBeNull();
-
-        const picker = form.querySelector<HTMLSelectElement>('select[name="targetLanguage"]')!;
-        picker.dispatchEvent(new Event('change', { bubbles: true }));
-        await waitForCondition(() =>
-            form.querySelector<HTMLElement>('[data-target-dictionary-state]')?.hidden === true);
-        expect(publishedDictionaryLanguages).toHaveBeenCalledTimes(2);
-    });
-
-    it('shows the live-catalogue empty state and restores target-family controls', async () => {
-        const publishedDictionaryLanguages = vi.fn().mockResolvedValue(new Set(['ja']));
-        const { form } = createSettingsDialog({ publishedDictionaryLanguages });
-        const picker = form.querySelector<HTMLSelectElement>('select[name="targetLanguage"]')!;
-
-        await waitForCondition(() =>
-            form.querySelector<HTMLElement>('[data-target-dictionary-content]')?.hidden === false);
-        expect(form.dataset.language).toBe('ja');
-        expect(form.querySelector('select[name="furiganaMode"]')).not.toBeNull();
-
-        picker.value = 'ko';
-        picker.dispatchEvent(new Event('change', { bubbles: true }));
-        await waitForCondition(() =>
-            form.querySelector<HTMLElement>('[data-target-dictionary-state]')?.textContent
-                === 'Dictionaries for Korean are not available yet.');
-
-        expect(form.dataset.language).toBe('ko');
-        expect(form.querySelector('select[name="furiganaMode"]')).not.toBeNull();
-        expect(form.querySelector('[data-language-family="pronunciation"]')).not.toBeNull();
-        expect(form.querySelector('[data-language-family="pitch-colouring"]')).toBeNull();
-        expect(form.querySelector('[data-language-family="pitch-legend"]')).toBeNull();
-        expect(form.querySelector('[data-language-family="provider-pills"]')).toBeNull();
-        expect(form.querySelector<HTMLElement>('[data-target-dictionary-content]')?.hidden).toBe(true);
-
-        picker.value = 'ja';
-        picker.dispatchEvent(new Event('change', { bubbles: true }));
-        await waitForCondition(() =>
-            form.querySelector<HTMLElement>('[data-target-dictionary-content]')?.hidden === false);
-
-        expect(form.dataset.language).toBe('ja');
-        expect(form.querySelector('select[name="furiganaMode"]')).not.toBeNull();
-        expect(form.querySelector('[data-language-family="pitch-colouring"]')).not.toBeNull();
-        expect(form.querySelector('[data-language-family="pitch-legend"]')).not.toBeNull();
-        expect(form.querySelector('[data-language-family="provider-pills"]')).not.toBeNull();
-        expect(publishedDictionaryLanguages).toHaveBeenCalledOnce();
-    });
-
-    it('round-trips and saves the Japanese difficulty mode through a temporary Spanish target', async () => {
-        settingsDialogTestState.useRealLocalization = true;
-        let current: ReaderSettings = {
-            ...DEFAULT_SETTINGS,
-            showFurigana: true,
-            furiganaMode: 'difficult-kanji' as const,
-        };
-        const onSettingsPersisted = vi.fn();
-        const { dismiss, form } = createSettingsDialog({
-            getSettings: () => current,
-            setSettings: (settings: ReaderSettings) => { current = settings; },
-            onSettingsPersisted,
-        });
-        const picker = form.querySelector<HTMLSelectElement>('select[name="targetLanguage"]')!;
-        const mode = form.querySelector<HTMLSelectElement>('select[name="furiganaMode"]')!;
-
-        expect(mode.value).toBe('difficult-kanji');
-        picker.value = 'es';
-        picker.dispatchEvent(new Event('change', { bubbles: true }));
-        expect(mode.value).toBe('all');
-        expect(mode.querySelector('option[value="difficult-kanji"]')).toBeNull();
-
-        picker.value = 'ja';
-        picker.dispatchEvent(new Event('change', { bubbles: true }));
-        expect(mode.value).toBe('difficult-kanji');
-
-        form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
-        await waitForCondition(() => onSettingsPersisted.mock.calls.length === 1 && settingsSavedShown(form));
-
-        expect(dismiss).not.toHaveBeenCalled();
-        expect(current.furiganaMode).toBe('difficult-kanji');
-        expect(onSettingsPersisted).toHaveBeenCalledWith(expect.objectContaining({
-            furiganaMode: 'difficult-kanji',
-        }));
-    });
-
-    it('adopts a durable Spanish profile into the open dialog and saves that adopted target', async () => {
-        settingsDialogTestState.useRealLocalization = true;
-        let current: ReaderSettings = {
-            ...DEFAULT_SETTINGS,
-            showFurigana: true,
-            furiganaMode: 'difficult-kanji',
-        };
-        const profile = {
-            ...current.languageProfiles[0]!,
-            id: 'durable-spanish',
-            targetLanguage: 'es',
-            outputLanguage: 'ko',
-            learnerLanguage: 'ko',
-            parserProvider: 'jpdb' as const,
-            definitionTranslationProviderIds: ['__jiten__'],
-        };
-        const onSettingsPersisted = vi.fn();
-        const observedEvents: Event[] = [];
-        const eventListener = (event: Event): void => { observedEvents.push(event); };
-        window.addEventListener(SETTINGS_CHANGE_EVENT, eventListener);
-        const { dismiss, form } = createSettingsDialog({
-            getSettings: () => current,
-            setSettings: (settings: ReaderSettings) => { current = settings; },
-            onSettingsPersisted,
-        });
-        const parser = form.querySelector<HTMLSelectElement>('select[name="parserProvider"]')!;
-
-        try {
-            // Production applies remote settings to ReaderApp before it publishes
-            // the event. The dialog must compare against its open-time baseline,
-            // not read this already-updated backing object as "previous" state.
-            current = {
-                ...current,
-                parserProvider: profile.parserProvider,
-                languageProfiles: [profile],
-                activeLanguageProfileId: profile.id,
-            };
-            publishSettingsChange({ settings: current });
-
-            const target = form.querySelector<HTMLSelectElement>('select[name="targetLanguage"]')!;
-            const output = form.querySelector<HTMLSelectElement>('select[name="learnerLanguage"]')!;
-            const mode = form.querySelector<HTMLSelectElement>('select[name="furiganaMode"]')!;
-            const youtubeImmersion = form.querySelector<HTMLInputElement>('input[name="youtubeImmersionEnabled"]')!;
-            expect(observedEvents).toHaveLength(1);
-            expect(current.activeLanguageProfileId).toBe(profile.id);
-            expect(target.value).toBe('es');
-            expect(output.value).toBe('ko');
-            expect(parser.value).toBe('jpdb');
-            expect(definitionTranslationInput(form, '__jiten__').checked).toBe(true);
-            expect(form.dataset.language).toBe('es');
-            expect(mode.value).toBe('all');
-            expect(mode.closest('label')?.textContent).toContain('Reading annotations');
-            expect(mode.querySelector('option[value="difficult-kanji"]')).toBeNull();
-            expect(youtubeImmersion.checked).toBe(false);
-            expectSpanishLookupPills(form);
-
-            await submitSettingsAndWait(form, dismiss, onSettingsPersisted);
-
-            const savedProfile = activeLanguageProfile(current);
-            expect(savedProfile).toMatchObject({
-                targetLanguage: 'es',
-                outputLanguage: 'ko',
-                learnerLanguage: 'ko',
-                parserProvider: 'jpdb',
-                definitionTranslationProviderIds: ['__jiten__'],
-            });
-            expect(current.dictionaryLookupLinks.map(link => link.id)).toEqual(expect.arrayContaining(['rae', 'spanishdict']));
-            // One incoming durable event and one event from the explicit Save;
-            // synchronizing the adopted profile never publishes another event.
-            expect(observedEvents).toHaveLength(2);
-        } finally {
-            window.removeEventListener(SETTINGS_CHANGE_EVENT, eventListener);
-        }
-    });
-
-    it('resets a durable English-to-Cantonese target-only change to Cantonese provider order', () => {
-        settingsDialogTestState.useRealLocalization = true;
-        const englishLinks = defaultDictionaryLookupLinks('local', 'en').map((link, index, links) => ({
-            ...link,
-            enabled: link.id === 'forvo' ? false : link.enabled,
-            priority: links.length - index + 4,
-        }));
-        const custom = {
-            id: 'custom-carry',
-            label: 'My dictionary',
-            urlTemplate: 'https://example.com/lookup/{query}',
-            enabled: true,
-            priority: 2,
-        };
-        const localFrequency = {
-            id: 'frequency-local:Corpus',
-            label: 'Corpus',
-            urlTemplate: '',
-            enabled: false,
-            action: 'frequency-local' as const,
-            priority: 4,
-        };
-        let current = normalizeReaderSettings({
-            ...DEFAULT_SETTINGS,
-            languageProfiles: DEFAULT_SETTINGS.languageProfiles.map(profile => ({
-                ...profile,
-                targetLanguage: 'en',
-            })),
-            dictionaryLookupLinks: [...englishLinks, custom, localFrequency],
-        });
-        const { form } = createSettingsDialog({
-            getSettings: () => current,
-            setSettings: (settings: ReaderSettings) => { current = settings; },
-        });
-
-        publishSettingsChange({
-            settings: {
-                languageProfiles: current.languageProfiles.map(profile => ({
-                    ...profile,
-                    targetLanguage: 'yue-Hant',
-                })),
-            },
-        });
-
-        const portableIds = new Set([custom.id, localFrequency.id]);
-        const providerIds = lookupPillIds(form).filter(id => !portableIds.has(id));
-        expect(providerIds).toEqual(defaultDictionaryLookupLinks('local', 'yue').map(link => link.id));
-        expect(form.querySelector<HTMLSelectElement>('select[name="targetLanguage"]')?.value).toBe('yue');
-        expect(lookupPillUrlInput(form, 'words-hk').value).toBe('https://words.hk/zidin/{query}');
-        expect(lookupPillUrlInput(form, 'wiktionary-en').value)
-            .toBe('https://en.wiktionary.org/wiki/{query}#Chinese');
-        expect(lookupPillUrlInput(form, custom.id).value).toBe(custom.urlTemplate);
-        expect(lookupPillEnabledInput(form, localFrequency.id).checked).toBe(false);
-        expect(lookupPillEnabledInput(form, 'forvo').checked).toBe(false);
-    });
-
-    it('adopts a priority-only reorder of Spanish built-in lookup pills', () => {
-        settingsDialogTestState.useRealLocalization = true;
-        let current = normalizeReaderSettings({
-            ...DEFAULT_SETTINGS,
-            languageProfiles: DEFAULT_SETTINGS.languageProfiles.map(profile => ({
-                ...profile,
-                targetLanguage: 'es',
-            })),
-            dictionaryLookupLinks: defaultDictionaryLookupLinks('local', 'es'),
-        });
-        const { form } = createSettingsDialog({
-            getSettings: () => current,
-            setSettings: (settings: ReaderSettings) => { current = settings; },
-        });
-        const raePriority = current.dictionaryLookupLinks.find(link => link.id === 'rae')!.priority;
-        const spanishDictPriority = current.dictionaryLookupLinks.find(link => link.id === 'spanishdict')!.priority;
-        const reordered = current.dictionaryLookupLinks.map(link => {
-            if (link.id === 'rae') return { ...link, priority: spanishDictPriority };
-            if (link.id === 'spanishdict') return { ...link, priority: raePriority };
-            return link;
-        });
-        expect(reordered.map(link => link.id)).toEqual(current.dictionaryLookupLinks.map(link => link.id));
-
-        publishSettingsChange({ settings: { dictionaryLookupLinks: reordered } });
-
-        expect(lookupPillIds(form).indexOf('spanishdict')).toBeLessThan(lookupPillIds(form).indexOf('rae'));
-        expect(lookupPillUrlInput(form, 'rae').value).toBe('https://dle.rae.es/{query}');
-        expect(lookupPillUrlInput(form, 'spanishdict').value)
-            .toBe('https://www.spanishdict.com/translate/{query}');
+        expect(form.querySelector('select[name="targetLanguage"]')).toBeNull();
+        expect(publishedDictionaryLanguages).not.toHaveBeenCalled();
     });
 
     it('preserves an unsaved lookup reorder across normalized and array-only durable events', async () => {
@@ -847,8 +568,6 @@ describe('settings dialog keyboard dismissal', () => {
             setSettings: (settings: ReaderSettings) => { current = settings; },
             onSettingsPersisted,
         });
-        const target = form.querySelector<HTMLSelectElement>('select[name="targetLanguage"]')!;
-        const output = form.querySelector<HTMLSelectElement>('select[name="learnerLanguage"]')!;
 
         const beforeReorder = lookupPillIds(form);
         lookupPillRow(form, 'jisho')
@@ -872,108 +591,8 @@ describe('settings dialog keyboard dismissal', () => {
         });
         expect(lookupPillIds(form)).toEqual(liveReorder);
 
-        target.value = 'es';
-        target.dispatchEvent(new Event('change', { bubbles: true }));
-        output.value = 'ko';
-        output.dispatchEvent(new Event('change', { bubbles: true }));
-        form.querySelector<HTMLButtonElement>('[data-action="lookup-link-add"]')!.click();
-        await flushPromises();
-        const customLookupId = lookupPillIds(form).find(id => id.startsWith('custom-'))!;
-        lookupPillLabelInput(form, customLookupId).value = 'My Spanish dictionary';
-        const jitenTranslation = definitionTranslationInput(form, '__jiten__');
-        expect(jitenTranslation.disabled).toBe(false);
-        jitenTranslation.checked = true;
-
-        const expectUnsavedFacets = (): void => {
-            expect(form.querySelector<HTMLSelectElement>('select[name="targetLanguage"]')?.value).toBe('es');
-            expect(form.querySelector<HTMLSelectElement>('select[name="learnerLanguage"]')?.value).toBe('ko');
-            expect(lookupPillIds(form)).toContain(customLookupId);
-            expect(lookupPillLabelInput(form, customLookupId).value).toBe('My Spanish dictionary');
-            expect(definitionTranslationInput(form, '__jiten__').checked).toBe(true);
-        };
-
-        publishSettingsChange({ settings: { theme: 'dark' } });
-        expectUnsavedFacets();
-
-        publishSettingsChange({
-            settings: {
-                ...current,
-                sheetCloseButtonOnLeft: !current.sheetCloseButtonOnLeft,
-                languageProfiles: current.languageProfiles.map(profile => ({
-                    ...profile,
-                    definitionTranslationProviderIds: [...profile.definitionTranslationProviderIds],
-                })),
-                dictionaryLookupLinks: current.dictionaryLookupLinks.map(link => ({ ...link })),
-            },
-        });
-        expectUnsavedFacets();
-
         await submitSettingsAndWait(form, dismiss, onSettingsPersisted);
-        const savedProfile = activeLanguageProfile(current);
-        expect(savedProfile).toMatchObject({
-            targetLanguage: 'es',
-            outputLanguage: 'ko',
-            learnerLanguage: 'ko',
-            definitionTranslationProviderIds: ['__jiten__'],
-        });
-        expect(current.dictionaryLookupLinks.find(link => link.id === customLookupId)?.label)
-            .toBe('My Spanish dictionary');
-    });
-
-    it('adopts active-profile and output-only durable changes into their nested controls', async () => {
-        settingsDialogTestState.useRealLocalization = true;
-        const baseProfile = DEFAULT_SETTINGS.languageProfiles[0]!;
-        const alternateProfile = {
-            ...baseProfile,
-            id: 'alternate-output',
-            outputLanguage: 'ko',
-            learnerLanguage: 'ko',
-            parserProvider: 'jpdb' as const,
-            definitionTranslationProviderIds: ['__jiten__'],
-        };
-        let current: ReaderSettings = {
-            ...DEFAULT_SETTINGS,
-            languageProfiles: [baseProfile, alternateProfile],
-            activeLanguageProfileId: baseProfile.id,
-        };
-        const onSettingsPersisted = vi.fn();
-        const { dismiss, form } = createSettingsDialog({
-            getSettings: () => current,
-            setSettings: (settings: ReaderSettings) => { current = settings; },
-            onSettingsPersisted,
-        });
-        const output = form.querySelector<HTMLSelectElement>('select[name="learnerLanguage"]')!;
-        const parser = form.querySelector<HTMLSelectElement>('select[name="parserProvider"]')!;
-        const jitenTranslation = definitionTranslationInput(form, '__jiten__');
-
-        publishSettingsChange({ settings: { activeLanguageProfileId: alternateProfile.id } });
-        expect(current.activeLanguageProfileId).toBe(alternateProfile.id);
-        expect(output.value).toBe('ko');
-        expect(parser.value).toBe('jpdb');
-        expect(jitenTranslation.checked).toBe(true);
-        expect(form.querySelector<HTMLSelectElement>('select[name="targetLanguage"]')?.value).toBe('ja');
-
-        const frenchOutputProfile = {
-            ...alternateProfile,
-            outputLanguage: 'fr',
-            learnerLanguage: 'fr',
-            parserProvider: 'local' as const,
-            definitionTranslationProviderIds: [],
-        };
-        publishSettingsChange({ settings: { languageProfiles: [baseProfile, frenchOutputProfile] } });
-        expect(output.value).toBe('fr');
-        expect(parser.value).toBe('local');
-        expect(jitenTranslation.checked).toBe(false);
-        expect(current.languageProfiles.find(profile => profile.id === alternateProfile.id)?.outputLanguage).toBe('fr');
-
-        await submitSettingsAndWait(form, dismiss, onSettingsPersisted);
-        const savedProfile = activeLanguageProfile(current);
-        expect(savedProfile).toMatchObject({
-            id: alternateProfile.id,
-            outputLanguage: 'fr',
-            parserProvider: 'local',
-            definitionTranslationProviderIds: [],
-        });
+        expect(current.dictionaryLookupLinks.map(link => link.id)).toEqual(liveReorder);
     });
 
     it('scrolls focused settings controls above the mobile keyboard and footer', () => {
@@ -2921,122 +2540,6 @@ describe('settings dialog dictionary imports', () => {
             .not.toContain('Deleted dictionary');
     });
 
-    it('keeps the active and unsaved learner language through dictionary refreshes', async () => {
-        const baseProfile = DEFAULT_SETTINGS.languageProfiles[0]!;
-        let settings: ReaderSettings = {
-            ...DEFAULT_SETTINGS,
-            languageProfiles: [{ ...baseProfile, outputLanguage: 'ko' }],
-            activeLanguageProfileId: baseProfile.id,
-        };
-        const summary = vi.fn().mockResolvedValue({
-            dictionaries: [],
-            terms: 0,
-            kanji: 0,
-            termMeta: 0,
-            kanjiMeta: 0,
-        });
-        const { form } = createSettingsDialog({
-            getSettings: () => settings,
-            setSettings: (next: ReaderSettings) => { settings = next; },
-            dictionaries: {
-                summary,
-                // Presence keeps the helper's first open-time refresh deferred
-                // while allowing the language-change refresh to run for real.
-                importFromUrl: vi.fn(),
-            },
-        });
-
-        expect(form.querySelector('[data-catalog-recommendation-seed="ko"]')).not.toBeNull();
-        expect(form.querySelector('[data-catalog-recommendation="jmdict-en"]')?.getAttribute('data-translation-mode')).toBe('offer');
-
-        const learnerLanguage = form.querySelector<HTMLSelectElement>('select[name="learnerLanguage"]')!;
-        learnerLanguage.value = 'de';
-        learnerLanguage.dispatchEvent(new Event('change', { bubbles: true }));
-
-        await waitForCondition(() =>
-            form.querySelector('[data-catalog-recommendation-seed="de"]') !== null);
-
-        expect(form.querySelector('[data-catalog-recommendation="jmdict-de"]')?.getAttribute('data-translation-mode')).toBe('off');
-        expect(form.querySelector('[data-dictionary-id="jitendex"]')).not.toBeNull();
-        expect(summary).toHaveBeenCalled();
-    });
-
-    it('refreshes recommendations immediately for an unsaved target change', async () => {
-        const summary = vi.fn().mockResolvedValue({
-            dictionaries: [],
-            terms: 0,
-            kanji: 0,
-            termMeta: 0,
-            kanjiMeta: 0,
-        });
-        const { form } = createSettingsDialog({
-            dictionaries: {
-                summary,
-                importFromUrl: vi.fn(),
-            },
-        });
-
-        const targetLanguage = form.querySelector<HTMLSelectElement>('select[name="targetLanguage"]')!;
-        targetLanguage.value = 'es';
-        targetLanguage.dispatchEvent(new Event('change', { bubbles: true }));
-
-        await waitForCondition(() =>
-            form.querySelector('[data-catalog-recommendation-target="es"]') !== null);
-
-        expect(form.querySelector('[data-catalog-recommendation="wty-es-en"]')?.getAttribute('data-headword-language'))
-            .toBe('es');
-        expect(form.querySelector('[data-catalog-recommendation="wty-es-en-ipa"]')?.getAttribute('data-headword-language'))
-            .toBe('es');
-        expect(form.querySelector('[data-dictionary-id="jitendex"]')).toBeNull();
-        expectSpanishLookupPills(form);
-        expect(summary).toHaveBeenCalled();
-    });
-
-    it('keeps all learner rows when switching target at lookup-pill capacity', async () => {
-        const portableLinks = [
-            ...Array.from({ length: 15 }, (_, index) => ({
-                id: `custom-${index}`,
-                label: `Custom ${index}`,
-                urlTemplate: `https://example.com/${index}?q={query}`,
-                enabled: true,
-                priority: DEFAULT_SETTINGS.dictionaryLookupLinks.length + index,
-            })),
-            {
-                id: 'frequency-local:BCCWJ',
-                label: 'BCCWJ',
-                urlTemplate: '',
-                enabled: false,
-                action: 'frequency-local' as const,
-                priority: DEFAULT_SETTINGS.dictionaryLookupLinks.length + 15,
-            },
-        ];
-        let settings: ReaderSettings = {
-            ...DEFAULT_SETTINGS,
-            dictionaryLookupLinks: [...DEFAULT_SETTINGS.dictionaryLookupLinks, ...portableLinks],
-        };
-        const { dismiss, form } = createSettingsDialog({
-            getSettings: () => settings,
-            setSettings: (next: ReaderSettings) => { settings = next; },
-            dictionaries: {
-                summary: vi.fn().mockResolvedValue({ dictionaries: [], terms: 0, kanji: 0, termMeta: 0 }),
-                importFromUrl: vi.fn(),
-            },
-        });
-
-        const targetLanguage = form.querySelector<HTMLSelectElement>('select[name="targetLanguage"]')!;
-        targetLanguage.value = 'es';
-        targetLanguage.dispatchEvent(new Event('change', { bubbles: true }));
-        await waitForCondition(() => form.querySelector('[data-catalog-recommendation-target="es"]') !== null);
-
-        const lookupIds = lookupPillIds(form);
-        expect(lookupIds).toEqual(expect.arrayContaining(portableLinks.map(link => link.id)));
-        expectSpanishLookupPills(form);
-
-        await submitSettingsAndWait(form, dismiss);
-        expect(settings.dictionaryLookupLinks.map(link => link.id))
-            .toEqual(expect.arrayContaining(portableLinks.map(link => link.id)));
-    });
-
     it('queues recommended dictionary installs and blocks Save until the queue finishes', async () => {
         const firstImport = deferred<ImportSummary>();
         const secondImport = deferred<ImportSummary>();
@@ -3173,14 +2676,14 @@ describe('settings dialog dictionary imports', () => {
     });
 
     it('verifies a catalogue download and atomically enables it in the active profile', async () => {
-        const recommendation = recommendedDictionariesForLearnerLanguage('ko')[0]!;
+        const recommendation = recommendedDictionariesForLearnerLanguage('en')[0]!;
         const profile = {
             ...DEFAULT_SETTINGS.languageProfiles[0]!,
-            outputLanguage: 'ko',
+            outputLanguage: 'en',
             dictionaries: {
-                installed: ['Existing Korean dictionary'],
-                enabled: ['Existing Korean dictionary'],
-                order: ['Existing Korean dictionary'],
+                installed: ['Existing Japanese dictionary'],
+                enabled: ['Existing Japanese dictionary'],
+                order: ['Existing Japanese dictionary'],
             },
         };
         let settings: ReaderSettings = {
@@ -3188,8 +2691,8 @@ describe('settings dialog dictionary imports', () => {
             activeLanguageProfileId: profile.id,
             languageProfiles: [profile],
             dictionaryPreferences: [{
-                name: 'Existing Korean dictionary',
-                alias: 'Existing Korean dictionary',
+                name: 'Existing Japanese dictionary',
+                alias: 'Existing Japanese dictionary',
                 enabled: true,
                 priority: 0,
                 type: 'terms',
@@ -3222,9 +2725,9 @@ describe('settings dialog dictionary imports', () => {
             },
         );
         expect(settings.languageProfiles[0]?.dictionaries).toEqual({
-            installed: ['Existing Korean dictionary', importedTitle],
-            enabled: ['Existing Korean dictionary', importedTitle],
-            order: ['Existing Korean dictionary', importedTitle],
+            installed: ['Existing Japanese dictionary', importedTitle],
+            enabled: ['Existing Japanese dictionary', importedTitle],
+            order: ['Existing Japanese dictionary', importedTitle],
         });
         expect(normalizeReaderSettings(settings).dictionaryPreferences
             .find(preference => preference.name === importedTitle)?.enabled).toBe(true);

@@ -1,3 +1,4 @@
+import { JAPANESE_LEARNING_TARGET } from '../../../src/reader/languages/japanese';
 import { readFileSync } from 'node:fs';
 import { afterEach, beforeEach, expect, vi } from 'vitest';
 import 'fake-indexeddb/auto';
@@ -75,11 +76,7 @@ import { testEnSettings } from '../helpers/settings-fixture';
 export const DEFAULT_SETTINGS = testEnSettings();
 
 export function japaneseLearningTargetMatcher() {
-    return expect.objectContaining({
-        language: 'ja',
-        interfaceVersion: 10,
-        lookupSweepMode: 'global-ranked',
-    });
+    return JAPANESE_LEARNING_TARGET;
 }
 
 export function currentJapaneseLookupScopeMatcher() {

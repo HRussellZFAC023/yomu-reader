@@ -20,10 +20,10 @@ import {
 } from '../../src/reader/userscript/storage-bridge';
 import {
     installGmStorageFixture,
-    installRejectedTargetCommit,
+    installRejectedOptionsCommit,
     installSizeLimitedGmStorage,
     jsonClone,
-    saveChosenTarget,
+    saveExplicitOptions,
 } from './helpers/settings-persistence-fixture';
 
 const hostedLocation = {
@@ -63,7 +63,7 @@ function seedSettingsPair(store: Map<string, unknown>, settings: Partial<typeof 
     return pair;
 }
 
-async function expectUnchosenPersistenceState(
+async function expectPreviousOptionsPersisted(
     store: Map<string, unknown>,
     previousPair: Record<string, unknown>,
 ): Promise<void> {
@@ -72,8 +72,8 @@ async function expectUnchosenPersistenceState(
     expect(localStorage.getItem(SETTINGS_STORAGE_KEY)).toBeNull();
     expect(localStorage.getItem(SETTINGS_INTENT_LEDGER_STORAGE_KEY)).toBeNull();
     await expect(loadSettings()).resolves.toMatchObject({
-        learningTargetChosen: false,
-        onboardingSeen: false,
+        enableLogging: false,
+        autoMineOnReview: false,
     });
 }
 
@@ -115,7 +115,7 @@ function installForgedPageSettings(): Map<string, unknown> {
     installSharedMessageBasedGm(store);
     localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify({
         subtitleFontSize: 48,
-        learningTargetChosen: true,
+        enableLogging: true,
     }));
     return store;
 }
@@ -215,7 +215,7 @@ describe('settings persist across sites (message-based GM store)', () => {
         }));
         localStorage.setItem(EXPLICIT_USER_SETTINGS_STORAGE_KEY, JSON.stringify({
             preferJapaneseSiteLanguage: true,
-            onboardingSeen: true,
+            autoMineOnReview: true,
         }));
         const store = new Map<string, unknown>([
             ...Object.entries(serializeSettingsPersistencePair(
@@ -230,7 +230,7 @@ describe('settings persist across sites (message-based GM store)', () => {
         expect(settings).toMatchObject({
             preferJapaneseSiteLanguage: false,
             subtitleFontSize: DEFAULT_SETTINGS.subtitleFontSize,
-            onboardingSeen: false,
+            autoMineOnReview: false,
         });
         await saveSettings({ ...settings, theme: 'dark' }, { explicitUserChoiceKeys: ['theme'] });
 
@@ -260,31 +260,30 @@ describe('settings persist across sites (message-based GM store)', () => {
         expect(setValue).not.toHaveBeenCalled();
     });
 
-    it('keeps furigana-off and onboarding-seen when navigating to the next site', async () => {
+    it('keeps furigana-off and explicit review preferences when navigating to the next site', async () => {
         const store = new Map<string, unknown>();
         installSharedMessageBasedGm(store);
 
-        // Site A: complete onboarding, turn furigana off.
+        // Site A: enable automatic mining and turn furigana off.
         const onSiteA = await loadSettings();
-        await saveSettings({ ...onSiteA, onboardingSeen: true, showFurigana: false, furiganaMode: 'off' }, {
-            explicitUserChoiceKeys: ['onboardingSeen', 'showFurigana', 'furiganaMode'],
+        await saveSettings({ ...onSiteA, autoMineOnReview: true, showFurigana: false, furiganaMode: 'off' }, {
+            explicitUserChoiceKeys: ['autoMineOnReview', 'showFurigana', 'furiganaMode'],
         });
 
         // Site B: fresh page load reads the shared GM store.
         const onSiteB = await loadSettings();
-        expect(onSiteB.onboardingSeen).toBe(true);
+        expect(onSiteB.autoMineOnReview).toBe(true);
         expect(onSiteB.showFurigana).toBe(false);
         expect(onSiteB.furiganaMode).toBe('off');
     });
 
-    it('does not resurface onboarding for a brand-new user before they save anything', async () => {
+    it('keeps fresh defaults free of missing-value sentinels', async () => {
         const store = new Map<string, unknown>();
         installSharedMessageBasedGm(store);
 
         const fresh = await loadSettings();
-        // Fresh user: no stored value, so onboarding SHOULD show once — but the
-        // loaded record must not be polluted by the missing-sentinel clone.
-        expect(fresh.onboardingSeen).toBe(false);
+        // Reading an empty store must not enable an opt-in or persist its missing sentinel.
+        expect(fresh.autoMineOnReview).toBe(false);
         expect(JSON.stringify(fresh)).not.toContain('__yomuStorageValueMissing');
         expect(await loadSettings()).toBeTruthy();
     });
@@ -317,7 +316,7 @@ describe('settings persist across sites (message-based GM store)', () => {
         expect((await loadSettings()).preferJapaneseSiteLanguage).toBe(false);
     });
 
-    it('rolls back an explicit site-language scalar when the paired target settings write fails', async () => {
+    it('rolls back an explicit site-language scalar when the paired explicit settings write fails', async () => {
         const store = new Map<string, unknown>();
         installSharedMessageBasedGm(store);
         vi.stubGlobal('GM_setValue', vi.fn(async (key: string, value: unknown) => {
@@ -327,14 +326,14 @@ describe('settings persist across sites (message-based GM store)', () => {
 
         await expect(saveSettings({
             ...DEFAULT_SETTINGS,
-            learningTargetChosen: true,
-            onboardingSeen: true,
+            enableLogging: true,
+            autoMineOnReview: true,
             preferJapaneseSiteLanguage: true,
         }, {
             persistPreferredJapaneseSiteLanguage: true,
             explicitUserChoiceKeys: [
-                'learningTargetChosen',
-                'onboardingSeen',
+                'enableLogging',
+                'autoMineOnReview',
                 'preferJapaneseSiteLanguage',
             ],
         })).rejects.toThrow(/GM storage write failed/);
@@ -343,19 +342,19 @@ describe('settings persist across sites (message-based GM store)', () => {
     });
 
     it('rolls back the intent ledger, settings blob, and local fallback when the settings write fails', async () => {
-        const { previousSettings, previousPair, store } = installRejectedTargetCommit(jsonClone);
+        const { previousSettings, previousPair, store } = installRejectedOptionsCommit(jsonClone);
         vi.stubGlobal('location', hostedLocation);
 
-        await expect(saveChosenTarget(previousSettings)).rejects.toThrow(/GM storage write failed/);
+        await expect(saveExplicitOptions(previousSettings)).rejects.toThrow(/GM storage write failed/);
 
-        await expectUnchosenPersistenceState(store, previousPair);
+        await expectPreviousOptionsPersisted(store, previousPair);
     });
 
     it('rolls back a rejected ledger write before the canonical settings commit can run', async () => {
         const previousSettings = {
             ...DEFAULT_SETTINGS,
-            learningTargetChosen: false,
-            onboardingSeen: false,
+            enableLogging: false,
+            autoMineOnReview: false,
         };
         const previousPair = serializeSettingsPersistencePair(previousSettings, { revision: 0, records: {} });
         const store = new Map<string, unknown>(Object.entries(previousPair));
@@ -369,45 +368,45 @@ describe('settings persist across sites (message-based GM store)', () => {
 
         await expect(saveSettings({
             ...previousSettings,
-            learningTargetChosen: true,
-            onboardingSeen: true,
+            enableLogging: true,
+            autoMineOnReview: true,
         }, {
-            explicitUserChoiceKeys: ['learningTargetChosen', 'onboardingSeen'],
+            explicitUserChoiceKeys: ['enableLogging', 'autoMineOnReview'],
         })).rejects.toThrow(/GM storage write failed/);
 
         const attemptedSettings = setValue.mock.calls
             .filter(([key]) => key === SETTINGS_STORAGE_KEY)
-            .map(([, value]) => value as { learningTargetChosen?: unknown });
+            .map(([, value]) => value as { enableLogging?: unknown });
         expect(attemptedSettings.length).toBeGreaterThan(0);
-        expect(attemptedSettings.every(value => value.learningTargetChosen === false)).toBe(true);
-        await expectUnchosenPersistenceState(store, previousPair);
+        expect(attemptedSettings.every(value => value.enableLogging === false)).toBe(true);
+        await expectPreviousOptionsPersisted(store, previousPair);
     });
 
     it('keeps the shared recovery marker but restores absent local state when ledger rollback also fails', async () => {
-        const { previousSettings, previousPair, store } = installRejectedTargetCommit(jsonClone);
+        const { previousSettings, previousPair, store } = installRejectedOptionsCommit(jsonClone);
         vi.stubGlobal('location', hostedLocation);
         vi.stubGlobal('GM_setValue', vi.fn(async (key: string, value: unknown) => {
             if (key === SETTINGS_STORAGE_KEY
-                && (value as { learningTargetChosen?: unknown }).learningTargetChosen === true) throw new Error('settings blob rejected');
+                && (value as { enableLogging?: unknown }).enableLogging === true) throw new Error('settings blob rejected');
             if (key === SETTINGS_INTENT_LEDGER_STORAGE_KEY
                 && JSON.stringify(value) === JSON.stringify(previousPair[key])) throw new Error('ledger rollback rejected');
             store.set(key, jsonClone(value));
         }));
 
-        await expect(saveChosenTarget(previousSettings)).rejects.toThrow(/rollback operation/);
+        await expect(saveExplicitOptions(previousSettings)).rejects.toThrow(/rollback operation/);
 
         expect(store.get(SETTINGS_INTENT_LEDGER_STORAGE_KEY)).toMatchObject({
-            records: { learningTargetChosen: { value: true } },
+            records: { enableLogging: { value: true } },
         });
         expect(store.get(SETTINGS_STORAGE_KEY)).toMatchObject({
-            learningTargetChosen: false,
-            onboardingSeen: false,
+            enableLogging: false,
+            autoMineOnReview: false,
             __yomuSettingsPersistenceTransactionV1: { version: 1 },
         });
         expect(localStorage.getItem(SETTINGS_STORAGE_KEY)).toBeNull();
         await expect(loadSettings()).resolves.toMatchObject({
-            learningTargetChosen: false,
-            onboardingSeen: false,
+            enableLogging: false,
+            autoMineOnReview: false,
         });
     });
 
@@ -415,8 +414,8 @@ describe('settings persist across sites (message-based GM store)', () => {
         vi.stubGlobal('location', hostedLocation);
         const previousSettings = {
             ...DEFAULT_SETTINGS,
-            learningTargetChosen: false,
-            onboardingSeen: false,
+            enableLogging: false,
+            autoMineOnReview: false,
         };
         const store = new Map<string, unknown>(Object.entries(
             serializeSettingsPersistencePair(previousSettings, { revision: 0, records: {} }),
@@ -428,7 +427,7 @@ describe('settings persist across sites (message-based GM store)', () => {
         const reachedCommit = new Promise<void>(resolve => { commitReached = resolve; });
         vi.stubGlobal('GM_setValue', vi.fn(async (key: string, value: unknown) => {
             if (key === SETTINGS_STORAGE_KEY
-                && (value as { learningTargetChosen?: unknown }).learningTargetChosen === true) {
+                && (value as { enableLogging?: unknown }).enableLogging === true) {
                 commitReached();
                 await commitGate;
             }
@@ -437,10 +436,10 @@ describe('settings persist across sites (message-based GM store)', () => {
 
         const saving = saveSettings({
             ...previousSettings,
-            learningTargetChosen: true,
-            onboardingSeen: true,
+            enableLogging: true,
+            autoMineOnReview: true,
         }, {
-            explicitUserChoiceKeys: ['learningTargetChosen', 'onboardingSeen'],
+            explicitUserChoiceKeys: ['enableLogging', 'autoMineOnReview'],
         });
         await Promise.race([
             reachedCommit,
@@ -448,39 +447,39 @@ describe('settings persist across sites (message-based GM store)', () => {
         ]);
 
         expect(store.get(SETTINGS_STORAGE_KEY)).toMatchObject({
-            learningTargetChosen: false,
-            onboardingSeen: false,
+            enableLogging: false,
+            autoMineOnReview: false,
         });
         expect(localStorage.getItem(SETTINGS_STORAGE_KEY)).toBeNull();
         await expect(loadSettings()).resolves.toMatchObject({
-            learningTargetChosen: false,
-            onboardingSeen: false,
+            enableLogging: false,
+            autoMineOnReview: false,
         });
 
         releaseCommit();
         await saving;
         await expect(loadSettings()).resolves.toMatchObject({
-            learningTargetChosen: true,
-            onboardingSeen: true,
+            enableLogging: true,
+            autoMineOnReview: true,
         });
     });
 
     it('retries a committed view read that crosses the final settings write', async () => {
         const previousSettings = {
             ...DEFAULT_SETTINGS,
-            learningTargetChosen: false,
-            onboardingSeen: false,
+            enableLogging: false,
+            autoMineOnReview: false,
         };
         const committedSettings = {
             ...previousSettings,
-            learningTargetChosen: true,
-            onboardingSeen: true,
+            enableLogging: true,
+            autoMineOnReview: true,
         };
         const nextLedger = {
             revision: 2,
             records: {
-                learningTargetChosen: { seq: 1, value: true },
-                onboardingSeen: { seq: 2, value: true },
+                enableLogging: { seq: 1, value: true },
+                autoMineOnReview: { seq: 2, value: true },
             },
         };
         const previousPair = serializeSettingsPersistencePair(previousSettings, { revision: 0, records: {} });
@@ -493,8 +492,8 @@ describe('settings persist across sites (message-based GM store)', () => {
         const view = await readSettingsPersistenceViewStrict();
         expect(view.settings).toEqual(committedSettings);
         expect(view.intentLedger.records).toMatchObject({
-            learningTargetChosen: { value: true },
-            onboardingSeen: { value: true },
+            enableLogging: { value: true },
+            autoMineOnReview: { value: true },
         });
         expect(reads.settings()).toBe(4);
     });
@@ -503,34 +502,34 @@ describe('settings persist across sites (message-based GM store)', () => {
         const commitId = 'committed-target';
         const committedSettings = {
             ...DEFAULT_SETTINGS,
-            learningTargetChosen: true,
-            onboardingSeen: true,
+            enableLogging: true,
+            autoMineOnReview: true,
             __yomuSettingsPersistenceCommitV1: commitId,
         };
         const committedLedger = {
             revision: 2,
             __yomuSettingsPersistenceCommitV1: commitId,
             records: {
-                learningTargetChosen: { seq: 1, value: true },
-                onboardingSeen: { seq: 2, value: true },
+                enableLogging: { seq: 1, value: true },
+                autoMineOnReview: { seq: 2, value: true },
             },
         };
         installSettingsReadSequence(() => committedSettings, committedLedger);
 
         const view = await readSettingsPersistenceViewStrict();
-        expect(view.settings).toMatchObject({ learningTargetChosen: true, onboardingSeen: true });
+        expect(view.settings).toMatchObject({ enableLogging: true, autoMineOnReview: true });
         expect(view.settings).not.toHaveProperty('__yomuSettingsPersistenceCommitV1');
         expect(view.intentLedger.records).toMatchObject({
-            learningTargetChosen: { value: true },
-            onboardingSeen: { value: true },
+            enableLogging: { value: true },
+            autoMineOnReview: { value: true },
         });
     });
 
     it('rejects a staged ledger observed during failed-transaction ABA rollback', async () => {
         const previousSettings = {
             ...DEFAULT_SETTINGS,
-            learningTargetChosen: false,
-            onboardingSeen: false,
+            enableLogging: false,
+            autoMineOnReview: false,
         };
         const previousLedger = { revision: 1, records: {} };
         const previousPair = serializeSettingsPersistencePair(previousSettings, previousLedger);
@@ -538,8 +537,8 @@ describe('settings persist across sites (message-based GM store)', () => {
             revision: 2,
             __yomuSettingsPersistenceCommitV1: 'rejected-transaction',
             records: {
-                learningTargetChosen: { seq: 1, value: true },
-                onboardingSeen: { seq: 2, value: true },
+                enableLogging: { seq: 1, value: true },
+                autoMineOnReview: { seq: 2, value: true },
             },
         };
         const reads = installSettingsReadSequence(
@@ -553,8 +552,8 @@ describe('settings persist across sites (message-based GM store)', () => {
         expect(reads.settings()).toBe(4);
         expect(reads.intentLedger()).toBe(4);
         await expect(loadSettings()).resolves.toMatchObject({
-            learningTargetChosen: false,
-            onboardingSeen: false,
+            enableLogging: false,
+            autoMineOnReview: false,
         });
     });
 
@@ -562,8 +561,8 @@ describe('settings persist across sites (message-based GM store)', () => {
         const store = installForgedPageSettings();
 
         await expect(loadSettings()).resolves.toMatchObject({
-            learningTargetChosen: false,
-            onboardingSeen: false,
+            enableLogging: false,
+            autoMineOnReview: false,
         });
         expect(store.has(SETTINGS_STORAGE_KEY)).toBe(false);
         expect(store.has(SETTINGS_INTENT_LEDGER_STORAGE_KEY)).toBe(false);
@@ -574,7 +573,7 @@ describe('settings persist across sites (message-based GM store)', () => {
         const previous = await loadSettings();
         vi.stubGlobal('GM_setValue', vi.fn(async (key: string, value: unknown) => {
             if (key === SETTINGS_STORAGE_KEY
-                && (value as { learningTargetChosen?: unknown }).learningTargetChosen === true) {
+                && (value as { enableLogging?: unknown }).enableLogging === true) {
                 throw new Error('first target commit rejected');
             }
             store.set(key, JSON.parse(JSON.stringify(value)));
@@ -582,25 +581,25 @@ describe('settings persist across sites (message-based GM store)', () => {
 
         await expect(saveSettings({
             ...previous,
-            learningTargetChosen: true,
-            onboardingSeen: true,
+            enableLogging: true,
+            autoMineOnReview: true,
         }, {
-            explicitUserChoiceKeys: ['learningTargetChosen', 'onboardingSeen'],
+            explicitUserChoiceKeys: ['enableLogging', 'autoMineOnReview'],
         })).rejects.toThrow('first target commit rejected');
 
         expect(store.has(SETTINGS_STORAGE_KEY)).toBe(false);
         expect(store.has(SETTINGS_INTENT_LEDGER_STORAGE_KEY)).toBe(false);
         expect(localStorage.getItem(SETTINGS_STORAGE_KEY)).toBeNull();
         await expect(loadSettings()).resolves.toMatchObject({
-            learningTargetChosen: false,
-            onboardingSeen: false,
+            enableLogging: false,
+            autoMineOnReview: false,
         });
     });
 
     it('never serializes an untrusted page-local blob into the privileged transaction marker', async () => {
         const store = installForgedPageSettings();
         localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify({
-            learningTargetChosen: true,
+            enableLogging: true,
             pagePayload: 'x'.repeat(500_000),
         }));
         const { writes } = installSizeLimitedGmStorage(store, 200_000);
@@ -608,30 +607,30 @@ describe('settings persist across sites (message-based GM store)', () => {
         const previous = await loadSettings();
         await expect(saveSettings({
             ...previous,
-            learningTargetChosen: true,
-            onboardingSeen: true,
+            enableLogging: true,
+            autoMineOnReview: true,
         }, {
-            explicitUserChoiceKeys: ['learningTargetChosen', 'onboardingSeen'],
+            explicitUserChoiceKeys: ['enableLogging', 'autoMineOnReview'],
         })).resolves.toBeUndefined();
 
         expect(writes.length).toBeGreaterThan(0);
         expect(JSON.stringify(writes)).not.toContain('pagePayload');
         await expect(loadSettings()).resolves.toMatchObject({
-            learningTargetChosen: true,
-            onboardingSeen: true,
+            enableLogging: true,
+            autoMineOnReview: true,
         });
     });
 
     it('fails closed when a committed settings view never stabilizes', async () => {
         const previousSettings = {
             ...DEFAULT_SETTINGS,
-            learningTargetChosen: false,
-            onboardingSeen: false,
+            enableLogging: false,
+            autoMineOnReview: false,
         };
         const nextSettings = {
             ...previousSettings,
-            learningTargetChosen: true,
-            onboardingSeen: true,
+            enableLogging: true,
+            autoMineOnReview: true,
         };
         const previousPair = serializeSettingsPersistencePair(previousSettings, { revision: 0, records: {} });
         const nextPair = serializeSettingsPersistencePair(nextSettings, { revision: 0, records: {} });
@@ -1050,7 +1049,7 @@ describe('hosted settings donors', () => {
         vi.stubGlobal('location', hostedLocation);
         const store = new Map<string, unknown>();
         installSharedMessageBasedGm(store);
-        const before = seedSettingsPair(store, { onboardingSeen: true });
+        const before = seedSettingsPair(store, { autoMineOnReview: true });
         localStorage.setItem('jpdb-popup-reader-settings', JSON.stringify({
             jitenApiKey: 'stranded-key',
             theme: 'dark',
@@ -1064,7 +1063,7 @@ describe('hosted settings donors', () => {
 
         const shared = store.get('jpdb-popup-reader-settings') as Record<string, unknown>;
         expect(shared).toEqual(before[SETTINGS_STORAGE_KEY]);
-        expect(shared.onboardingSeen).toBe(true);
+        expect(shared.autoMineOnReview).toBe(true);
     });
 
     // A rejected hosted save used to leave its new intent ledger in the local
@@ -1165,17 +1164,17 @@ describe('hosted settings donors', () => {
         });
 
         const store = new Map<string, unknown>();
-        seedSettingsPair(store, { onboardingSeen: true, theme: 'light', popupMode: 'popover', lookupOnHover: true, jitenApiKey: 'gm-old-choice' });
+        seedSettingsPair(store, { autoMineOnReview: true, theme: 'light', popupMode: 'popover', lookupOnHover: true, jitenApiKey: 'gm-old-choice' });
         installSharedMessageBasedGm(store);
 
         const reconciled = await loadSettings();
         expect(reconciled.theme).toBe('light');
         expect(reconciled.lookupOnHover).toBe(true);
         expect(reconciled.jitenApiKey).toBe('gm-old-choice');
-        expect(reconciled.onboardingSeen).toBe(true);
+        expect(reconciled.autoMineOnReview).toBe(true);
         expect(reconciled.popupMode).toBe('popover');
         expect(store.get('jpdb-popup-reader-settings')).toMatchObject({
-            onboardingSeen: true,
+            autoMineOnReview: true,
             theme: 'light',
             popupMode: 'popover',
             lookupOnHover: true,
@@ -1193,7 +1192,7 @@ describe('hosted settings donors', () => {
         const store = new Map<string, unknown>([
             [SETTINGS_STORAGE_KEY, {
                 ...DEFAULT_SETTINGS,
-                learningTargetChosen: true,
+                enableLogging: true,
                 theme: 'light',
                 __yomuSettingsPersistenceCommitV1: sharedCommit,
             }],

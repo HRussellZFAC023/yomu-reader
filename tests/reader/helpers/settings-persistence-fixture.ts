@@ -67,7 +67,7 @@ export function installSizeLimitedGmStorage(
     });
 }
 
-export function installRejectedTargetCommit(
+export function installRejectedOptionsCommit(
     clone: ValueClone = structuredCloneValue,
 ): {
     previousSettings: ReaderSettings;
@@ -77,8 +77,8 @@ export function installRejectedTargetCommit(
 } {
     const previousSettings = {
         ...DEFAULT_SETTINGS,
-        learningTargetChosen: false,
-        onboardingSeen: false,
+        enableLogging: false,
+        autoMineOnReview: false,
     };
     const previousPair = serializeSettingsPersistencePair(previousSettings, { revision: 0, records: {} });
     const values = new Map<string, unknown>(Object.entries(previousPair));
@@ -89,13 +89,13 @@ export function installRejectedTargetCommit(
     return { previousSettings, previousPair, store: values, storage };
 }
 
-export function saveChosenTarget(previousSettings: ReaderSettings): Promise<void> {
+export function saveExplicitOptions(previousSettings: ReaderSettings): Promise<void> {
     return saveSettings({
         ...previousSettings,
-        learningTargetChosen: true,
-        onboardingSeen: true,
+        enableLogging: true,
+        autoMineOnReview: true,
     }, {
-        explicitUserChoiceKeys: ['learningTargetChosen', 'onboardingSeen'],
+        explicitUserChoiceKeys: ['enableLogging', 'autoMineOnReview'],
     });
 }
 
@@ -120,7 +120,7 @@ function rejectChosenSettingsCommit(key: string, value: unknown): void {
 
 function isChosenSettingsCommit(key: string, value: unknown): boolean {
     if (key !== SETTINGS_STORAGE_KEY) return false;
-    return (value as { learningTargetChosen?: unknown }).learningTargetChosen === true;
+    return (value as { enableLogging?: unknown }).enableLogging === true;
 }
 
 function structuredCloneValue<T>(value: T): T {

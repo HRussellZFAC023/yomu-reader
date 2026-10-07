@@ -18,7 +18,6 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { ReaderSettings } from '../../src/reader/app/types';
 import { loadSettings, normalizeReaderSettings, saveSettings } from '../../src/reader/settings';
 import { loadReaderStartupSettings } from '../../src/reader/app/startup';
-import { OnboardingController } from '../../src/reader/app/onboarding';
 import { resetManagedStateEpochSessionsForTests } from '../../src/reader/app/managed-state-epoch';
 import { resetManagedWebStorageForTests } from '../../src/reader/app/managed-web-storage';
 import { ensureExtensionStudySettingsAuthority } from '../../src/reader/newtab/extension-settings-recovery-guard';
@@ -118,7 +117,9 @@ function corpus<T>(relative: string): T {
 const HOSTED_STUDY_URL = 'https://yomureader.com/study/';
 const EXTENSION_ID = 'yomu@yomureader.com';
 // The settings fields every fixture recorded from v1.9.3's own reload.
-const VISIBLE_KEYS = Object.keys(corpus<UserscriptFixture>('a-userscript-explicit-save.json').expected.settings);
+// Retain the captured historical bytes; compare only options still shown by 2.1.
+const VISIBLE_KEYS = Object.keys(corpus<UserscriptFixture>('a-userscript-explicit-save.json').expected.settings)
+    .filter(key => key !== 'learningTargetChosen' && key !== 'onboardingSeen');
 
 // ---------------------------------------------------------------------------
 // Realms: the same channels the corpus was captured in, now running v2.
@@ -250,7 +251,7 @@ afterEach(() => {
 // What the learner sees
 // ---------------------------------------------------------------------------
 
-function visibleSettings(settings: ReaderSettings): Record<string, unknown> {
+function visibleSettings(settings: ReaderSettings | Record<string, unknown>): Record<string, unknown> {
     const record = settings as unknown as Record<string, unknown>;
     return Object.fromEntries(VISIBLE_KEYS.map(key => [key, record[key]]));
 }
@@ -260,25 +261,13 @@ function targetLanguage(settings: ReaderSettings): string | null {
     return profiles.find(profile => profile.id === settings.activeLanguageProfileId)?.targetLanguage ?? null;
 }
 
-async function firstRunSetupShown(settings: ReaderSettings): Promise<boolean> {
-    const controller = new OnboardingController({
-        getSettings: () => settings,
-        setSettings: () => undefined,
-        showSettings: () => undefined,
-        parseJapanese: () => undefined,
-        installOfflineDictionaries: () => undefined,
-    });
-    const shown = await controller.showIfNeeded();
-    document.body.replaceChildren();
-    return shown;
-}
-
 /** Loads settings the way v2 boots and compares with what v1.9.3 showed. */
 async function expectSameAsV193(expected: Visible): Promise<ReaderSettings> {
     const settings = await loadSettings();
-    expect(visibleSettings(settings)).toEqual(expected.settings);
+    expect(visibleSettings(settings)).toEqual(visibleSettings(expected.settings));
     expect(targetLanguage(settings)).toBe(expected.targetLanguage);
-    expect(await firstRunSetupShown(settings)).toBe(expected.onboardingShown);
+    // Setup was removed in 2.1; retained startup tests exercise fresh and upgraded rendering.
+    expect(settings).not.toHaveProperty('onboardingSeen');
     return settings;
 }
 
@@ -293,7 +282,7 @@ async function expectSaveStillWorks(expected: Visible): Promise<void> {
     await saveSettings({ ...current, subtitleFontSize: 44 }, { explicitUserChoiceKeys: ['subtitleFontSize'] });
     resetManagedStateEpochSessionsForTests();
     const reloaded = await loadSettings();
-    expect(visibleSettings(reloaded)).toEqual({ ...expected.settings, subtitleFontSize: 44 });
+    expect(visibleSettings(reloaded)).toEqual({ ...visibleSettings(expected.settings), subtitleFontSize: 44 });
 }
 
 // ---------------------------------------------------------------------------
@@ -314,7 +303,7 @@ describe.each(USERSCRIPT_SCENARIOS)('userscript store left by v1.9.3: $scenario'
         const gm = createStore(fixture.gm);
         enterUserscriptSite(gm, fixture.location, fixture.webStorage);
         const startup = await loadReaderStartupSettings();
-        expect(startup.settings.learningTargetChosen).toBe(fixture.expected.settings.learningTargetChosen);
+        expect(startup.settings).not.toHaveProperty('learningTargetChosen');
         await expectSameAsV193(fixture.expected);
         expectNothingErased(fixture.gm, gm);
     });

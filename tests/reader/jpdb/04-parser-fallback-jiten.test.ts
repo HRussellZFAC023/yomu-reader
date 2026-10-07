@@ -64,7 +64,7 @@ async function withHostedReaderSettings(assertSettings: (settings: ReaderSetting
     document.body.innerHTML = '<main>Hosted docs</main>';
     vi.stubGlobal('location', new URL('https://hrussellzfac023.github.io/yomu-reader/'));
     try {
-        await app.init({ showWelcome: false });
+        await app.init({});
         assertSettings((app as unknown as { settings: ReaderSettings }).settings);
     } finally {
         app.destroy();
@@ -536,7 +536,7 @@ describe('reader helpers', () => {
         try {
             expect(isYomuHostedPassivePage(location.href)).toBe(true);
 
-            await app.init({ showWelcome: false });
+            await app.init({});
 
             await waitForExpect(() => {
                 expect(document.querySelector('.jpdb-ocr-layer')).not.toBeNull();
@@ -572,7 +572,7 @@ describe('reader helpers', () => {
         });
 
         try {
-            await app.init({ showWelcome: false });
+            await app.init({});
 
             await waitForExpect(() => {
                 expect(scanVisiblePage).toHaveBeenCalledWith({ silent: true });
@@ -591,7 +591,7 @@ describe('reader helpers', () => {
         let resolved = false;
 
         try {
-            const initPromise = app.init({ showWelcome: false }).then(() => {
+            const initPromise = app.init({}).then(() => {
                 resolved = true;
             });
 
@@ -628,7 +628,7 @@ describe('reader helpers', () => {
         });
 
         try {
-            await app.init({ showWelcome: false });
+            await app.init({});
 
             await waitForExpect(() => {
                 expect(scanVisiblePage).toHaveBeenCalledWith({ silent: true });
@@ -665,7 +665,7 @@ describe('reader helpers', () => {
         });
 
         try {
-            await app.init({ showWelcome: false });
+            await app.init({});
 
             await waitForExpect(() => {
                 expect(scanVisiblePage).toHaveBeenCalledWith({ silent: true });
@@ -713,7 +713,7 @@ describe('reader helpers', () => {
         stubLocalHostedReaderLocation('/yomu-reader/features/');
 
         try {
-            await app.init({ showWelcome: false });
+            await app.init({});
             expect(scanVisiblePage).not.toHaveBeenCalled();
 
             document.body.innerHTML = '<main><div class="vp-doc"><div class="hosted-text-fixture" data-yomu-runtime-surface>青空の下で本を読む</div></div></main>';
@@ -731,7 +731,7 @@ describe('reader helpers', () => {
         stubLocalHostedReaderLocation();
 
         try {
-            await app.init({ showWelcome: false });
+            await app.init({});
             expect(scanVisiblePage).not.toHaveBeenCalled();
 
             document.body.innerHTML = `
@@ -755,7 +755,7 @@ describe('reader helpers', () => {
         stubLocalHostedReaderLocation();
 
         try {
-            await app.init({ showWelcome: false });
+            await app.init({});
             await new Promise(resolve => window.setTimeout(resolve, 20));
             expect(scanVisiblePage).not.toHaveBeenCalled();
 
@@ -788,7 +788,7 @@ describe('reader helpers', () => {
         const root = document.querySelector<HTMLElement>('#late-shadow')!.attachShadow({ mode: 'open' });
 
         try {
-            await app.init({ showWelcome: false });
+            await app.init({});
             await new Promise(resolve => window.setTimeout(resolve, 30));
             expect(scanVisiblePage).not.toHaveBeenCalled();
 
@@ -817,7 +817,7 @@ describe('reader helpers', () => {
         const root = document.querySelector<HTMLElement>('#outside-shadow')!.attachShadow({ mode: 'open' });
 
         try {
-            await app.init({ showWelcome: false });
+            await app.init({});
             await new Promise(resolve => window.setTimeout(resolve, 30));
             expect(scanVisiblePage).not.toHaveBeenCalled();
 
@@ -851,7 +851,7 @@ describe('reader helpers', () => {
         const root = document.querySelector<HTMLElement>('#surface-shadow')!.attachShadow({ mode: 'open' });
 
         try {
-            await app.init({ showWelcome: false });
+            await app.init({});
             await new Promise(resolve => window.setTimeout(resolve, 30));
             expect(scanVisiblePage).not.toHaveBeenCalled();
 
@@ -883,7 +883,7 @@ describe('reader helpers', () => {
         stubLocalHostedReaderLocation();
 
         try {
-            await app.init({ showWelcome: false });
+            await app.init({});
 
             await expectSilentPageScan(scanVisiblePage);
             const { settings } = app as unknown as { settings: Record<string, unknown> };
@@ -1086,7 +1086,7 @@ describe('reader helpers', () => {
         stubInstantIntersectionObserver();
 
         try {
-            await app.init({ showWelcome: false });
+            await app.init({});
             await waitForExpect(() => {
                 expect(document.querySelector('.jpdb-ocr-line')?.getAttribute('aria-label')).toBe('日本語を読む');
             });

@@ -55,16 +55,15 @@ describe('hosted interface-language adoption at startup', () => {
 
     it('accepts an explicit packaged settings snapshot without consulting off-host page storage', async () => {
         setLocation('file:///Applications/Yomu Gaming/renderer/index.html');
-        localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify({ learningTargetChosen: false }));
+        localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify({}));
         const startupSettings = {
             ...DEFAULT_SETTINGS,
-            learningTargetChosen: true,
             interfaceLanguage: 'ja' as const,
         };
 
         const startup = await loadReaderStartupSettings({ startupSettings });
 
-        expect(startup.settings.learningTargetChosen).toBe(true);
+        expect(startup.settings).not.toHaveProperty('learningTargetChosen');
         expect(startup.settings.interfaceLanguage).toBe('ja');
     });
 });

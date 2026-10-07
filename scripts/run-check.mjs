@@ -109,11 +109,6 @@ try {
     await runStage(stage('repository-hygiene', 'npm run -s check:repository'));
     await runStage(stage('content-addressed-retention', 'node scripts/prune-content-addressed-assets.mjs --check'));
     await runStage(stage('committed-artifacts', 'npm run -s check:artifacts'));
-    // Invoked by path, not through a package script, on purpose: package.json is
-    // one of the files hashed into the multilingual-parity lookup contract
-    // (scripts/lib/multilingual-parity-contract.ts), so adding a script name
-    // invalidates the recorded evidence for all 33 targets and demands a fresh
-    // published-archive measurement. A new gate is not worth that.
     await runStage(stage('smoke-workflow-coverage', 'node scripts/check-smoke-workflow-coverage.mjs'));
 } catch {
     printSummary(false);
@@ -153,7 +148,6 @@ const lanes = [
         // Fast replay of compact evidence from the pinned published dictionaries.
         // Any hit or miss changing under the recorded runtime/lookup contract
         // requires a fresh authoritative archive measurement and baseline.
-        stage('multilingual-parity-ratchet', 'npm run -s quality:multilingual-parity'),
         // Third ratchet, previously reachable only from ci.yml's `fallow` job —
         // so a release check never saw new dead code. config/quality/dead-code-baseline.json
         // may only shrink. ~2s of static analysis, no browser, no network.

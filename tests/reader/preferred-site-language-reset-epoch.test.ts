@@ -43,7 +43,7 @@ describe('preferred-site-language cache reset epoch', () => {
         const values = new Map<string, unknown>([
             [PREFERENCE_KEY, true],
             ...Object.entries(serializeSettingsPersistencePair({
-                ...DEFAULT_SETTINGS, learningTargetChosen: true, preferJapaneseSiteLanguage: true,
+                ...DEFAULT_SETTINGS, preferJapaneseSiteLanguage: true,
             }, { revision: 0, records: {} })),
         ]);
         installGmStore(values);
