@@ -42,6 +42,7 @@ import type {
     JPDBCard,
 } from './fixtures';
 import { setInnerHtml } from '../../../src/reader/dom';
+import { readCardUiCommandCapability } from '../../../src/reader/dom/private-command-capabilities';
 
 registerReaderHelpersCleanup();
 
@@ -265,7 +266,7 @@ describe('reader helpers', () => {
         const html = renderModalCard(renderer, card, '食べる。');
 
         expect(html).toContain('jpdb-reader-mining-drawer-handle');
-        expect(html).toContain('aria-label="Show mining actions"');
+        expect(html).toContain('aria-label="More actions"');
         expect(html).not.toContain('>+</button>');
         expect(KANJI_CSS).toContain('.jpdb-reader-mining-collapse::before');
         const normalizedKanjiCss = KANJI_CSS.replace(/\s+/g, ' ');
@@ -665,7 +666,10 @@ describe('reader helpers', () => {
         });
         const html = renderModalCard(renderer, jitenTestCard({ source: 'bunpro', jitenWordId: undefined, jitenReadingIndex: undefined, bunproReviewId: '77', bunproReviewableType: 'vocabulary' }), '読む。');
         expect(html).toContain('data-action="deck-picker"');
-        expect(html).toContain('data-deck-source="bunpro"');
+        setInnerHtml(document.body, html);
+        const collect = document.querySelector('[data-action="deck-picker"]')!;
+        expect(readCardUiCommandCapability(collect)?.choices).toContainEqual({ source: 'bunpro', id: 'bunpro', label: 'Bunpro' });
+        expect(document.querySelector('[data-deck-source], [data-deck-id], [data-add-deck-select]')).toBeNull();
         expect(html).not.toContain('data-action="neverforget"');
         expect(html).not.toContain('data-action="blacklist"');
     });
@@ -683,7 +687,10 @@ describe('reader helpers', () => {
         });
 
         const html = renderModalCard(renderer, { ...card, source: 'local', cardState: ['not-in-deck'] }, '食べる。');
-        expect(html).toContain('data-deck-source="bunpro"');
+        setInnerHtml(document.body, html);
+        const collect = document.querySelector('[data-action="deck-picker"]')!;
+        expect(readCardUiCommandCapability(collect)?.choices).toContainEqual({ source: 'bunpro', id: 'bunpro', label: 'Bunpro' });
+        expect(document.querySelector('[data-deck-source], [data-deck-id], [data-add-deck-select]')).toBeNull();
         expect(html).not.toContain('data-action="grade"');
     });
 
@@ -701,11 +708,11 @@ describe('reader helpers', () => {
         expect(jpdbOnly).toContain('jpdb-reader-actions-has-mining');
         expect(jpdbOnly).toContain('jpdb-reader-actions-mining-collapsed');
         expect(jpdbOnly).toContain('aria-expanded="false"');
-        expect(jpdbOnly).toContain('Show mining actions');
+        expect(jpdbOnly).toContain('More actions');
         expect(jpdbOnly).toContain('data-action="deck-picker"');
         expect(jpdbOnly).not.toContain('This JPDB card is locked');
         const container = document.createElement('div');
-        container.innerHTML = jpdbOnly;
+        setInnerHtml(container, jpdbOnly);
         document.body.innerHTML = jpdbOnly;
         expect(popoverGradeButtons()).toHaveLength(5);
         expect(popoverGradeButtons().every(button => button.dataset.reviewTarget === 'jpdb')).toBe(true);
@@ -716,7 +723,9 @@ describe('reader helpers', () => {
         expect(document.querySelector('.jpdb-reader-popover-grade-target-selector')).toBeNull();
         expect(document.querySelector('[data-review-target-gutter]')).not.toBeNull();
         expect(document.querySelector<HTMLButtonElement>('[data-review-target-gutter] [data-action="mining-collapse"]')?.getAttribute('aria-expanded')).toBe('false');
-        expect(container.querySelector<HTMLSelectElement>('[data-add-deck-select]')?.hidden).toBe(true);
+        expect(container.querySelector('[data-add-deck-select]')).toBeNull();
+        expect(readCardUiCommandCapability(container.querySelector('[data-action="deck-picker"]')!)?.choices)
+            .toContainEqual({ source: 'jpdb', id: DEFAULT_SETTINGS.miningDeck, label: 'JPDB: FORQ' });
 
         const ankiBacked = renderModalCard(renderer, { ...card, cardState: ['locked'] }, '食べる。', {
             ankiLookup: testAnkiLookup({

@@ -1100,7 +1100,7 @@ describe('reader helpers', () => {
             expect(puck.classList.contains('jpdb-reader-fab--on')).toBe(true);
             expect(puck.classList.contains('jpdb-reader-fab--no-furigana')).toBe(false);
             expect(puck.classList.contains('jpdb-reader-fab--paused')).toBe(false);
-            expect(puck.getAttribute('aria-label')).toBe('よむ — learning target: Japanese');
+            expect(puck.getAttribute('aria-label')).toBe('よむ');
             expect(powerButton().getAttribute('aria-label')).toBe('Hide furigana');
             expect(powerButton().querySelector<HTMLElement>('.jpdb-reader-fab-radial-icon')?.innerHTML).toBe(onIcon);
         } finally {
@@ -1243,7 +1243,7 @@ describe('reader helpers', () => {
             }));
 
             const subtitlesButton = () => document.querySelector<HTMLButtonElement>('.jpdb-reader-fab-radial-item[data-radial-id="subtitles"]');
-            expect(subtitlesButton()?.getAttribute('aria-label')).toBe('Auto-detect Japanese subtitles');
+            expect(subtitlesButton()?.getAttribute('aria-label')).toBe('Auto-detect subtitles');
             expect(subtitlesButton()?.classList.contains('is-on')).toBe(true);
             expect(subtitlesButton()?.querySelector('svg')).not.toBeNull();
             expect(subtitlesButton()?.textContent).not.toContain('字');
@@ -1251,7 +1251,7 @@ describe('reader helpers', () => {
             subtitlesButton()?.click();
 
             expect(toggleAutoSubtitles).toHaveBeenCalledTimes(1);
-            expect(subtitlesButton()?.getAttribute('aria-label')).toBe('Auto-detect Japanese subtitles');
+            expect(subtitlesButton()?.getAttribute('aria-label')).toBe('Auto-detect subtitles');
             expect(subtitlesButton()?.classList.contains('is-off')).toBe(true);
             expect(document.querySelector('.jpdb-reader-fab-radial.is-open')).not.toBeNull();
         } finally {
