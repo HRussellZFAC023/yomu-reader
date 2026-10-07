@@ -1389,15 +1389,6 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
   pointer-events: none !important;
 }
 
-/* The status dot sets its own opacity:1, which (equal specificity, later in
-   source) would otherwise beat the pending gate above; this compound selector
-   raises specificity so a gated status spinner stays hidden during OCR. The
-   image and resume controls have no competing opacity, so the plain rule gates
-   them. */
-.jpdb-ocr-video-frame-status.jpdb-ocr-video-frame-pending {
-  opacity: 0.001;
-}
-
 /* Canvas-reader snapshot (e.g. BookWalker). The real <canvas> already shows the
    page, so this capture anchor stays invisible — it only provides pixels for OCR
    and a rect for overlay alignment. pointer-events:none lets the host viewer's
@@ -1426,167 +1417,174 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
   stroke: none;
 }
 
+/* OCR Status Indicator (ocr/controller.ts): a 16px mark just inside the top-left
+   corner of the image, paused video frame or reader page that OCR is reading. It
+   has no surface or text of its own; screen readers hear the status from one
+   shared live region (ocr/ocr-status-announcer.ts). A dark rim keeps the mark
+   visible on white pages and a faint light halo on black ones, whatever the
+   accent. It never takes pointer input, except as a reader page's retry button. */
 .jpdb-ocr-video-frame-status {
-  --jpdb-ocr-status-surface: color-mix(
-    in srgb,
-    var(--jpdb-reader-surface, var(--jpdb-reader-theme-dark-surface, #20242b)) 78%,
-    transparent
-  );
-  --jpdb-ocr-status-text: var(--jpdb-reader-text, var(--jpdb-reader-theme-dark-text, #f2f4f8));
-  --jpdb-ocr-status-muted: var(--jpdb-reader-muted, var(--jpdb-reader-theme-dark-muted, #aab2c0));
+  --jpdb-ocr-status-ink: var(--jpdb-reader-accent, #5ea780);
   position: fixed;
   z-index: 2147483644;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  min-width: 24px;
-  max-width: 320px !important;
-  min-height: 24px;
-  padding: 4px 9px;
-  border: 1px solid var(--jpdb-reader-border, rgba(37, 52, 73, 0.18));
-  border-radius: 999px;
-  background: var(--jpdb-ocr-status-surface);
-  color: var(--jpdb-ocr-status-text);
-  font: 600 12px/1.15 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  display: grid;
+  place-items: center;
+  width: 16px;
+  height: 16px;
+  color: var(--jpdb-ocr-status-ink);
   pointer-events: none;
-  overflow: hidden;
-  opacity: 1;
-  white-space: nowrap;
-  box-shadow:
-    0 6px 16px rgba(15, 23, 42, 0.12),
-    inset 0 1px 0 rgba(255, 255, 255, 0.22);
+  filter: drop-shadow(0 0 1px rgba(0, 0, 0, 0.8)) drop-shadow(0 0 1px rgba(255, 255, 255, 0.45));
   transition: opacity 360ms ease;
 }
 
-:is(.jpdb-reader-theme-light, .yomu-page-theme-light) .jpdb-ocr-video-frame-status {
-  --jpdb-ocr-status-surface: color-mix(
-    in srgb,
-    var(--jpdb-reader-theme-light-surface, #f4f7fa) 86%,
-    transparent
-  );
-  --jpdb-ocr-status-text: var(--jpdb-reader-theme-light-text, #17202a);
-  --jpdb-ocr-status-muted: var(--jpdb-reader-theme-light-muted, #4f5968);
-}
-
-:is(.jpdb-reader-theme-dark, .yomu-page-theme-dark) .jpdb-ocr-video-frame-status {
-  --jpdb-ocr-status-surface: color-mix(
-    in srgb,
-    var(--jpdb-reader-theme-dark-surface, #20242b) 78%,
-    transparent
-  );
-  --jpdb-ocr-status-text: var(--jpdb-reader-theme-dark-text, #f2f4f8);
-  --jpdb-ocr-status-muted: var(--jpdb-reader-theme-dark-muted, #aab2c0);
-}
-
-/* "ready" dot flashes briefly then fades out (see OCR_STATUS_FADE_MS). */
-.jpdb-ocr-video-frame-status-fade-out {
-  opacity: 0;
+/* The indicator is itself a reader root, which the shared [hidden] contract
+   (interactions.css) only covers for descendants. */
+.jpdb-ocr-video-frame-status[hidden] {
+  display: none !important;
 }
 
 .jpdb-ocr-video-frame-status::before {
   content: "";
-  flex: 0 0 auto;
   width: 8px;
   height: 8px;
-  border-radius: 999px;
-  background: var(--jpdb-reader-accent, #7c9cff);
+  border-radius: 50%;
+  background: currentColor;
 }
 
+/* Reading: a thin arc turning on a faint track. */
 .jpdb-ocr-video-frame-status-loading::before {
-  width: 12px;
-  height: 12px;
-  border: 2px solid color-mix(in srgb, var(--jpdb-reader-accent, #7c9cff) 28%, transparent);
-  border-top-color: var(--jpdb-reader-accent, #7c9cff);
+  width: 14px;
+  height: 14px;
+  border: 2px solid color-mix(in srgb, currentColor 30%, transparent);
+  border-top-color: currentColor;
   background: transparent;
-  animation: jpdb-ocr-video-frame-status-spin 850ms linear infinite;
+  animation: jpdb-ocr-video-frame-status-spin 1s linear infinite;
 }
 
-.jpdb-ocr-video-frame-status-ready::before {
-  background: var(--jpdb-reader-state-known, #31c48d);
-}
-
-.jpdb-ocr-video-frame-status-empty,
-.jpdb-ocr-video-frame-status-failed {
-  color: var(--jpdb-ocr-status-muted);
+.jpdb-ocr-video-frame-status-empty {
+  --jpdb-ocr-status-ink: var(--jpdb-reader-theme-dark-muted, #aab2c0);
 }
 
 .jpdb-ocr-video-frame-status-empty::before {
-  background: var(--jpdb-ocr-status-muted);
+  border: 2px solid currentColor;
+  background: transparent;
 }
 
-.jpdb-ocr-video-frame-status-failed::before {
-  background: var(--jpdb-reader-state-failed, #f87171);
+.jpdb-ocr-video-frame-status-failed {
+  --jpdb-ocr-status-ink: var(--jpdb-reader-state-failed, #ff6b6b);
 }
 
-/* The label text is for the full-page canvas variant only; the compact corner
-   dot used for inline images and video frames hides it. */
-.jpdb-ocr-video-frame-status-label {
-  display: none;
+/* Every outcome shows briefly, then fades (OCR_STATUS_FADE_MS). */
+.jpdb-ocr-video-frame-status-fade-out {
+  opacity: 0;
 }
 
-/* Full-page canvas readers (BookWalker/ComicWalker): a labeled pill instead of a
-   12px corner ring, so a multi-second Lens scan reads as "working", not frozen.
-   Stays in the top-left corner (positioned by positionOcrImageStatus) and never
-   intercepts taps so page-turn and word taps pass straight through to the page. */
-.jpdb-ocr-video-frame-status.jpdb-ocr-canvas-status {
-  width: auto;
-  min-width: 0;
-  max-width: 260px !important;
-  height: auto;
-  min-height: 28px;
+/* A reader page that found nothing or failed: a "Scan again" glyph in the status
+   colour, on a 24px target (36px for a finger). */
+.jpdb-ocr-video-frame-status[data-yomu-ocr-retry="true"] {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  pointer-events: auto;
+  cursor: pointer;
+}
+
+.jpdb-ocr-video-frame-status[data-yomu-ocr-retry="true"]::before {
+  content: none;
+}
+
+.jpdb-ocr-video-frame-status svg {
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.jpdb-ocr-video-frame-status[data-yomu-ocr-retry="true"]:focus-visible {
+  outline: 2px solid var(--jpdb-reader-accent, #5ea780);
+}
+
+@media (pointer: coarse) {
+  .jpdb-ocr-video-frame-status[data-yomu-ocr-retry="true"] {
+    width: 36px;
+    height: 36px;
+  }
+}
+
+@keyframes jpdb-ocr-video-frame-status-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes jpdb-ocr-video-frame-status-fade {
+  to {
+    opacity: 0.35;
+  }
+}
+
+/* No turning: the arc stands still and slowly fades in and out. */
+@media (prefers-reduced-motion: reduce) {
+  .jpdb-ocr-video-frame-status-loading::before {
+    animation: jpdb-ocr-video-frame-status-fade 1.6s ease-in-out infinite alternate;
+  }
+
+  .jpdb-ocr-video-frame-status {
+    transition: none;
+  }
+}
+
+/* One-time "Tap or click the page to read it" hint
+   (ocr/reader-canvas-tap-hint.ts): a dark labelled pill, pass-through so a tap on
+   it reads the page beneath. Only its dismiss button takes pointer input. It is
+   appended to <body>, outside the reader's themed scope, so it carries its own
+   ink. It is wide enough for the whole Japanese label (HINT_WIDTH_PX), but never
+   wider than a phone screen, where the dismiss button must stay in reach. */
+.jpdb-ocr-canvas-tap-hint {
+  position: fixed;
+  z-index: 2147483644;
+  display: inline-flex;
+  align-items: center;
   gap: 8px;
+  max-width: min(340px, calc(100vw - 24px)) !important;
+  min-height: 28px;
   padding: 6px 12px;
+  border: 1px solid var(--jpdb-reader-border, rgba(37, 52, 73, 0.18));
   border-radius: 999px;
-  /* Self-contained dark "toast" — the status pill is appended to <body>, outside the
-     reader's themed scope, so --jpdb-reader-bg/-fg are unreliable here and resolved
-     to white-on-white in light mode. A fixed dark, semi-opaque chip stays legible over
-     any page background in both light and dark mode. */
   background: rgba(17, 19, 26, 0.68) !important;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.24);
   color: #f5f7ff !important;
   font: 600 13px/1.2 system-ui, -apple-system, "Segoe UI", sans-serif;
   white-space: nowrap;
-  overflow: hidden;
+  pointer-events: none;
 }
 
-/* The pill's own colour loses to the reader root's theme text colour
-   (`[data-jpdb-reader-root]`), which is dark in the light theme, so everything
-   legible inside the pill carries the light ink itself: the label, and the
-   tap hint's dismiss "×". */
-.jpdb-ocr-video-frame-status.jpdb-ocr-canvas-status :is(.jpdb-ocr-video-frame-status-label, .jpdb-ocr-canvas-tap-hint-dismiss) {
+.jpdb-ocr-canvas-tap-hint[hidden] {
+  display: none !important;
+}
+
+.jpdb-ocr-canvas-tap-hint::before {
+  content: "";
+  flex: 0 0 auto;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--jpdb-reader-accent, #5ea780);
+}
+
+/* The reader root's theme text colour (dark in the light theme) would beat the
+   pill's own colour, so the label and the dismiss "×" carry the light ink. */
+.jpdb-ocr-canvas-tap-hint :is(.jpdb-ocr-canvas-tap-hint-label, .jpdb-ocr-canvas-tap-hint-dismiss) {
   color: #f5f7ff !important;
   -webkit-text-fill-color: #f5f7ff !important;
 }
 
-.jpdb-ocr-video-frame-status.jpdb-ocr-canvas-status .jpdb-ocr-video-frame-status-label {
-  display: inline;
-  text-overflow: ellipsis;
+.jpdb-ocr-canvas-tap-hint-label {
   overflow: hidden;
-}
-
-.jpdb-ocr-video-frame-status.jpdb-ocr-canvas-status[data-yomu-ocr-retry="true"] {
-  cursor: pointer;
-}
-
-.jpdb-ocr-video-frame-status.jpdb-ocr-canvas-status[data-yomu-ocr-retry="true"]:focus-visible {
-  outline: 2px solid var(--jpdb-reader-accent, #6aa4ff);
-  outline-offset: 3px;
-}
-
-/* One-time "Tap or click the page to read it" hint
-   (ocr/reader-canvas-tap-hint.ts): the canvas pill, pass-through like it, so a
-   tap on it reads the page beneath. Only its dismiss button takes pointer input.
-   It is wider than the scan pill so the whole Japanese label shows
-   (HINT_WIDTH_PX), but never wider than a phone screen, where the dismiss button
-   must stay in reach. */
-.jpdb-ocr-video-frame-status.jpdb-ocr-canvas-tap-hint[hidden] {
-  display: none !important;
-}
-
-.jpdb-ocr-video-frame-status.jpdb-ocr-canvas-tap-hint {
-  max-width: min(340px, calc(100vw - 24px)) !important;
-  overflow: visible;
+  text-overflow: ellipsis;
 }
 
 .jpdb-ocr-canvas-tap-hint .jpdb-ocr-canvas-tap-hint-dismiss {
@@ -1619,22 +1617,6 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
 @media (pointer: coarse) {
   .jpdb-ocr-canvas-tap-hint .jpdb-ocr-canvas-tap-hint-dismiss::before {
     inset: -12px;
-  }
-}
-
-@keyframes jpdb-ocr-video-frame-status-spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .jpdb-ocr-video-frame-status-loading::before {
-    animation: none;
-  }
-
-  .jpdb-ocr-video-frame-status {
-    transition: none;
   }
 }
 

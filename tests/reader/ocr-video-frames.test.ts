@@ -73,6 +73,11 @@ describe('paused-video OCR frames', () => {
         return image;
     }
 
+    // Screen readers hear OCR status from one shared live region; the indicator itself has no text.
+    function announcement(): string | null | undefined {
+        return document.querySelector('.jpdb-ocr-status-announcer')?.textContent;
+    }
+
     function recognizePausedFrame(lines: readonly OcrLine[]): {
         frame: HTMLImageElement;
         status: HTMLElement;
@@ -158,7 +163,13 @@ describe('paused-video OCR frames', () => {
         expect(status).not.toBeNull();
         expect(status!.dataset.status).toBe('loading');
         expect(status!.textContent).toBe('');
-        expect(status!.getAttribute('aria-label')).toBe('Scanning...');
+        expect(status!.getAttribute('role')).toBeNull();
+        expect(status!.getAttribute('aria-label')).toBeNull();
+        await waitForExpect(() => expect(announcement()).toBe('Scanning...'));
+        const announcer = document.querySelector<HTMLElement>('.jpdb-ocr-status-announcer')!;
+        expect(announcer.getAttribute('role')).toBe('status');
+        expect(announcer.getAttribute('aria-live')).toBe('polite');
+        expect(announcer.classList.contains('jpdb-reader-sr-only')).toBe(true);
 
         Object.defineProperty(frame, 'naturalWidth', { value: 640, configurable: true });
         Object.defineProperty(frame, 'naturalHeight', { value: 360, configurable: true });
@@ -175,8 +186,11 @@ describe('paused-video OCR frames', () => {
             expect(frame.dataset.ocrPending).toBeUndefined();
             expect(status!.dataset.status).toBe('ready');
             expect(status!.textContent).toBe('');
-            expect(status!.getAttribute('aria-label')).toBe('Text ready');
         });
+        await waitForExpect(() => expect(announcement()).toBe('Text ready'), 3000);
+        // The outcome shows briefly, then the indicator fades and goes away.
+        await waitForExpect(() => expect(status!.isConnected).toBe(false), 3000);
+        expect(document.querySelectorAll('.jpdb-ocr-status-announcer')).toHaveLength(1);
     });
 
     it('shows the resume/play control immediately on pause while keeping the frame image and status gated', () => {
@@ -615,8 +629,8 @@ describe('paused-video OCR frames', () => {
             expect(document.querySelector('.jpdb-ocr-line')).toBeNull();
             expect(document.querySelector('.jpdb-reader-word')).toBeNull();
             expect(status.dataset.status).toBe('empty');
-            expect(status.getAttribute('aria-label')).toBe('No text found');
         });
+        await waitForExpect(() => expect(announcement()).toBe('No text found'), 3000);
         expect(status.dataset.status).not.toBe('ready');
     });
 
@@ -628,7 +642,6 @@ describe('paused-video OCR frames', () => {
             expect(document.querySelector('.jpdb-ocr-line')).toBeNull();
             expect(status.dataset.status).toBe('empty');
             expect(status.textContent).toBe('');
-            expect(status.getAttribute('aria-label')).toBe('No text found');
             // On a no-text frame the status un-gates (feedback), the resume/play
             // control was already visible from pause, but the captured frame
             // image stays hidden so it never covers the player when there is

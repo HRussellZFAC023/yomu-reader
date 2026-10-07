@@ -135,8 +135,10 @@ import {
     positionVideoFrameStatus,
     removeOcrArtifact,
     removeVideoFrameResumeControl,
+    retryScanIcon,
     videoFrameArtifactRoot,
 } from './ocr-artifact-surface';
+import { OcrStatusAnnouncer } from './ocr-status-announcer';
 type OcrVideoFrameStatus = 'loading' | 'ready' | 'empty' | 'failed';
 function isTerminalOcrStatus(status: string | undefined): status is 'empty' | 'failed' {
     return status === 'empty' || status === 'failed';
@@ -200,9 +202,10 @@ interface OcrLookupLineLease {
 
 const MAX_CACHE_ITEMS = 36;
 const LOCAL_OCR_UNAVAILABLE_RETRY_MS = 15000;
-// Flash the "ready" dot briefly so the user sees the scan finished, then fade
-// it away rather than leaving a solid dot lingering on a finished page.
+// Every outcome shows briefly, then fades, rather than leaving a mark lingering
+// on a finished page. A miss or failure stays a little longer than success.
 const OCR_STATUS_READY_DWELL_MS = 1000;
+const OCR_STATUS_MISS_DWELL_MS = 2400;
 const OCR_STATUS_FADE_MS = 360; // keep in sync with the CSS opacity transition
 // A canvas capture can fail transiently — the DRM engine hasn't painted yet, or
 // the mirror recorder hasn't recorded the new page's draw ops when the poll races
@@ -385,6 +388,7 @@ export class ImageOcrController {
     private videoFrameStatuses = new Map<HTMLVideoElement, HTMLElement>();
     private imageStatuses = new Map<HTMLImageElement, HTMLElement>();
     private imageStatusTimers = new Map<HTMLImageElement, number>();
+    private readonly statusAnnouncer = new OcrStatusAnnouncer();
     // Reader surfaces map to the invisible images OCR actually scans.
     private canvasFrames = new Map<HTMLCanvasElement, HTMLImageElement>();
     private canvasFrameSources = new Map<HTMLImageElement, HTMLCanvasElement>();
@@ -757,7 +761,7 @@ export class ImageOcrController {
     private canScanInlineImages(userRequested: boolean): boolean {
         // A full-page raster capture is the authoritative reader image. BookWalker
         // also keeps decoded source <img>s mounted behind its canvas; auto-scanning
-        // those starts a second OCR job, flashes a terminal pill for the hidden image,
+        // those starts a second OCR job, flashes a terminal indicator for the hidden image,
         // and competes with the mirror capture that actually owns hit testing.
         // Keep explicit/manual inline-image OCR available for mixed-content pages.
         if (!userRequested && this.hasActiveReaderRasterOwnership()) return false;
@@ -1856,7 +1860,7 @@ export class ImageOcrController {
         this.videoFrameVideos.set(frame, video);
         const status = this.createVideoFrameStatus('loading');
         // Keep the native player fully visible/usable until OCR actually has text
-        // to show: the status spinner and the captured frame image stay gated
+        // to show: the status indicator and the captured frame image stay gated
         // (hidden, not tappable), so the viewer can reach the player's
         // comment/like/scrubber controls while OCR runs.
         status.classList.add('jpdb-ocr-video-frame-pending');
@@ -1879,7 +1883,7 @@ export class ImageOcrController {
     }
 
     // Reveal the rest of the overlay once OCR has produced text: the frame image
-    // and status dot un-gate (the resume/play control is already visible from the
+    // and status indicator un-gate (the resume/play control is already visible from the
     // moment the video paused), so the readable text appears with its status.
     private revealVideoFrameOverlay(image: HTMLImageElement): void {
         if (!this.videoFrameVideos.has(image)) return;
@@ -1889,7 +1893,7 @@ export class ImageOcrController {
         this.revealVideoFrameStatusAndResume(image);
     }
 
-    // Reveal the status dot (the resume/play control is already visible from the
+    // Reveal the status indicator (the resume/play control is already visible from the
     // moment of pause), leaving the captured frame image gated. Used on
     // empty/failed terminal states: the viewer gets feedback without the
     // (text-less) frame covering the player. During loading the status stays
@@ -1925,31 +1929,24 @@ export class ImageOcrController {
         return button;
     }
 
+    // An OCR Status Indicator: a small mark at the top-left corner of what OCR is
+    // reading, with no surface or text of its own. Screen readers hear the status
+    // from one shared live region instead (ocr-status-announcer.ts).
     private createVideoFrameStatus(status: OcrVideoFrameStatus): HTMLElement {
         const element = document.createElement('div');
         element.className = 'jpdb-ocr-video-frame-status';
         element.dataset.jpdbReaderRoot = 'true';
         element.dataset.jpdbReaderSurfaceIgnore = 'true';
-        element.setAttribute('role', 'status');
-        element.setAttribute('aria-live', 'polite');
-        // Visible label text, shown only in the full-page canvas variant (a corner
-        // spinner is easy to miss on a full-bleed manga reader, so a labeled pill
-        // makes the multi-second Lens scan feel responsive rather than frozen).
-        const label = document.createElement('span');
-        label.className = 'jpdb-ocr-video-frame-status-label';
-        element.append(label);
         this.setVideoFrameStatus(element, status);
         appendOcrArtifactToRoot(element, document.body);
         return element;
     }
 
     private setVideoFrameStatus(element: HTMLElement, status: OcrVideoFrameStatus): void {
-        const language = this.options.getSettings().interfaceLanguage;
-        const label = uiText(language, videoFrameStatusTextKey(status));
         element.dataset.status = status;
         // Toggle status classes individually instead of reassigning className, so
         // the gating class (jpdb-ocr-video-frame-pending) survives a 'loading'
-        // status update — otherwise the spinner would un-gate over the player
+        // status update — otherwise the indicator would un-gate over the player
         // mid-scan, defeating the keep-native-player-reachable behavior.
         element.classList.remove(
             'jpdb-ocr-video-frame-status-loading',
@@ -1958,19 +1955,29 @@ export class ImageOcrController {
             'jpdb-ocr-video-frame-status-failed',
             'jpdb-ocr-video-frame-status-fade-out',
         );
-        element.classList.add('jpdb-ocr-video-frame-status', `jpdb-ocr-video-frame-status-${status}`);
-        element.setAttribute('aria-label', label);
+        element.classList.add(`jpdb-ocr-video-frame-status-${status}`);
+        this.statusAnnouncer.announce(this.statusText(status), status !== 'loading');
+    }
+
+    private statusText(status: OcrVideoFrameStatus): string {
+        return uiText(this.options.getSettings().interfaceLanguage, videoFrameStatusTextKey(status));
     }
 
     private updateVideoFrameStatusForImage(image: HTMLImageElement, status: OcrVideoFrameStatus): void {
         const video = this.videoFrameVideos.get(image);
-        if (!video) return;
-        const element = this.videoFrameStatuses.get(video);
-        if (element) this.setVideoFrameStatus(element, status);
+        const element = video && this.videoFrameStatuses.get(video);
+        if (!video || !element) return;
+        this.clearImageStatusTimer(image);
+        this.setVideoFrameStatus(element, status);
+        if (status === 'loading') return;
+        this.fadeStatusLater(image, element, status, () => {
+            removeOcrArtifact(element);
+            if (this.videoFrameStatuses.get(video) === element) this.videoFrameStatuses.delete(video);
+        });
     }
 
-    // Drive both status surfaces: paused-video frames keep their card over the
-    // player; every other OCR'd image gets its own card over the image.
+    // Drive both status surfaces: paused-video frames keep their indicator over the
+    // player; every other OCR'd image gets its own indicator over the image.
     private updateOcrStatus(image: HTMLImageElement, status: OcrVideoFrameStatus): void {
         if (this.videoFrameVideos.has(image)) {
             this.applyVideoFrameStatusTransition(image, status);
@@ -1998,42 +2005,28 @@ export class ImageOcrController {
         if (this.videoFrameVideos.has(image)) return; // already shown over its video
         if (!ocrRuntimeActive(this.options.getSettings())) return;
         const existing = this.imageStatuses.get(image);
-        const isCanvasFrame = this.canvasFrameSources.has(image);
-        const isReaderRasterFrame = isCanvasFrame || this.backgroundFrameSources.has(image);
-        // Status changed — cancel any pending "ready" fade so a re-scan starts clean.
+        const isReaderRasterFrame = this.isReaderRasterFrame(image);
+        // Status changed — cancel any pending fade so a re-scan starts clean.
         this.clearImageStatusTimer(image);
         if (isReaderRasterFrame && isTerminalOcrStatus(status) && this.hasReadyReaderRasterSibling(image)) {
             this.releaseReaderRasterFrameForImage(image);
             return;
         }
-        // No recognizable text on an incidental inline image: drop the loader.
-        // Full-page reader-raster frames keep an explicit "no text" pill so the
-        // reader never looks like scanning vanished mid-page.
+        // No recognizable text on an incidental inline image: drop the indicator quietly.
         if (status === 'empty' && !isReaderRasterFrame) {
-            if (existing) removeOcrArtifact(existing);
-            this.imageStatuses.delete(image);
+            this.removeImageStatusCard(image);
             return;
         }
         const card = existing ?? this.createVideoFrameStatus(status);
-        // setVideoFrameStatus rewrites the class list, clearing any fade-out class.
         if (existing) this.setVideoFrameStatus(card, status);
         else this.imageStatuses.set(image, card);
-        // Full-page canvas/background readers (BookWalker/ComicWalker/Mokuro scanned
-        // pages) get the prominent labeled pill; ordinary inline images keep the
-        // unobtrusive corner dot (and the label span stays empty so their textContent
-        // is unchanged).
-        card.classList.toggle('jpdb-ocr-canvas-status', isReaderRasterFrame);
-        this.configureReaderRasterStatusRetry(card, isReaderRasterFrame);
-        const labelNode = card.querySelector('.jpdb-ocr-video-frame-status-label');
-        if (labelNode) labelNode.textContent = isReaderRasterFrame ? this.readerRasterStatusLabel(status) : '';
-        if (isReaderRasterFrame) this.updateReaderRasterRetryLabel(card, status);
+        const retryable = isReaderRasterFrame && isTerminalOcrStatus(status);
+        this.setStatusRetry(card, status, retryable);
         this.positionImageStatusCard(image, card);
-        // "ready" is terminal for incidental inline images: flash the dot, then
-        // remove it. Reader-raster pages keep a persistent page-level pill while
-        // the captured frame is alive; otherwise BookWalker looks like scanning
-        // randomly disappears even though the OCR layer is still current.
         if (status === 'ready' && isReaderRasterFrame) this.releaseTerminalReaderRasterSiblings(image);
-        if (status === 'ready' && !isReaderRasterFrame) this.scheduleImageStatusFade(image, card);
+        if (status === 'loading' || retryable) return;
+        // A reader page keeps its faded indicator: spread-sibling checks read its status.
+        this.fadeStatusLater(image, card, status, isReaderRasterFrame ? undefined : () => this.removeImageStatusCard(image));
     }
 
     private hasReadyReaderRasterSibling(image: HTMLImageElement): boolean {
@@ -2077,12 +2070,14 @@ export class ImageOcrController {
         this.removeImageStatusCard(image);
     }
 
-    private scheduleImageStatusFade(image: HTMLImageElement, card: HTMLElement): void {
+    // Show an outcome briefly, then fade it; `release` then drops the faded indicator.
+    private fadeStatusLater(image: HTMLImageElement, card: HTMLElement, status: OcrVideoFrameStatus, release?: () => void): void {
+        this.clearImageStatusTimer(image);
         const dwell = window.setTimeout(() => {
             card.classList.add('jpdb-ocr-video-frame-status-fade-out');
-            const remove = window.setTimeout(() => this.removeImageStatusCard(image), OCR_STATUS_FADE_MS);
-            this.imageStatusTimers.set(image, remove);
-        }, OCR_STATUS_READY_DWELL_MS);
+            this.imageStatusTimers.delete(image);
+            if (release) this.imageStatusTimers.set(image, window.setTimeout(release, OCR_STATUS_FADE_MS));
+        }, status === 'ready' ? OCR_STATUS_READY_DWELL_MS : OCR_STATUS_MISS_DWELL_MS);
         this.imageStatusTimers.set(image, dwell);
     }
 
@@ -2107,56 +2102,45 @@ export class ImageOcrController {
         this.imageStatuses.delete(image);
     }
 
-    private configureReaderRasterStatusRetry(card: HTMLElement, enabled: boolean): void {
+    // A reader page that found nothing or failed keeps its indicator as a small
+    // "Scan again" button: in auto mode it is the only way to re-read a page by touch.
+    private setStatusRetry(card: HTMLElement, status: OcrVideoFrameStatus, enabled: boolean): void {
         if (!enabled) {
-            if (card.dataset.yomuOcrRetry === 'true') {
-                delete card.dataset.yomuOcrRetry;
-                card.removeAttribute('role');
-                card.removeAttribute('tabindex');
-                card.removeAttribute('title');
-            }
+            if (card.dataset.yomuOcrRetry !== 'true') return;
+            delete card.dataset.yomuOcrRetry;
+            for (const name of ['role', 'tabindex', 'title', 'aria-label']) card.removeAttribute(name);
+            card.replaceChildren();
             return;
         }
+        const retry = uiText(this.options.getSettings().interfaceLanguage, 'ocrRetryScan');
         card.dataset.yomuOcrRetry = 'true';
         card.setAttribute('role', 'button');
         card.tabIndex = 0;
+        card.title = retry;
+        card.setAttribute('aria-label', `${this.statusText(status)}. ${retry}`);
+        if (!card.firstChild) setInnerHtml(card, retryScanIcon());
         if (card.dataset.yomuOcrRetryListener === 'true') return;
         card.dataset.yomuOcrRetryListener = 'true';
-        card.addEventListener('click', event => {
+        const retryFrom = (event: Event): void => {
             event.preventDefault();
             event.stopPropagation();
-            this.retryReaderRasterStatusCard(card);
-        });
+            this.retryStatusCard(card);
+        };
+        card.addEventListener('click', retryFrom);
         card.addEventListener('keydown', event => {
-            if (event.key !== 'Enter' && event.key !== ' ') return;
-            event.preventDefault();
-            event.stopPropagation();
-            this.retryReaderRasterStatusCard(card);
+            if (event.key === 'Enter' || event.key === ' ') retryFrom(event);
         });
     }
 
-    // Empty/failed pills read as a dead end without a visible cue that a click
-    // re-runs OCR (title/aria alone were invisible on touch readers like
-    // BookWalker), so terminal non-ready statuses carry the retry hint inline.
-    private readerRasterStatusLabel(status: OcrVideoFrameStatus): string {
-        const language = this.options.getSettings().interfaceLanguage;
-        const statusLabel = uiText(language, videoFrameStatusTextKey(status));
-        if (status !== 'empty' && status !== 'failed') return statusLabel;
-        return `${statusLabel} · ${uiText(language, 'ocrRetryScan')}`;
-    }
-
-    private updateReaderRasterRetryLabel(card: HTMLElement, status: OcrVideoFrameStatus): void {
-        const language = this.options.getSettings().interfaceLanguage;
-        const statusLabel = uiText(language, videoFrameStatusTextKey(status));
-        const retryLabel = uiText(language, 'ocrRetryScan');
-        card.setAttribute('aria-label', `${statusLabel}. ${retryLabel}`);
-        card.setAttribute('title', retryLabel);
-    }
-
-    private retryReaderRasterStatusCard(card: HTMLElement): void {
+    private retryStatusCard(card: HTMLElement): void {
+        if (card.dataset.yomuOcrRetry !== 'true') return;
+        const canvas = [...this.canvasPendingStatuses].find(([, candidate]) => candidate === card)?.[0];
+        if (canvas) {
+            this.retryCanvasPendingCapture(canvas);
+            return;
+        }
         const image = [...this.imageStatuses].find(([, candidate]) => candidate === card)?.[0];
-        if (!image) return;
-        this.retryReaderRasterImage(image);
+        if (image) this.retryReaderRasterImage(image);
     }
 
     private refreshVideoFrameAfterSeek(target: EventTarget | null): void {
@@ -2962,11 +2946,7 @@ export class ImageOcrController {
         const card = existing ?? this.createVideoFrameStatus(status);
         if (existing) this.setVideoFrameStatus(card, status);
         else this.canvasPendingStatuses.set(canvas, card);
-        card.classList.add('jpdb-ocr-canvas-status');
-        this.configureCanvasPendingStatusRetry(card);
-        this.updateReaderRasterRetryLabel(card, status);
-        const labelNode = card.querySelector('.jpdb-ocr-video-frame-status-label');
-        if (labelNode) labelNode.textContent = uiText(this.options.getSettings().interfaceLanguage, videoFrameStatusTextKey(status));
+        this.setStatusRetry(card, status, isTerminalOcrStatus(status));
         card.hidden = false;
         this.canvasPendingStatusKeys.set(canvas, canvasSurfaceSnapshotKey(canvas));
         positionOcrImageStatus(card, visibleViewportIntersection(rect) ?? rect);
@@ -2980,33 +2960,7 @@ export class ImageOcrController {
         this.canvasPendingStatusKeys.delete(canvas);
     }
 
-    private isTerminalCanvasPendingStatus(card: HTMLElement): boolean {
-        const status = card.dataset.status;
-        return status === 'empty' || status === 'failed';
-    }
-
-    private configureCanvasPendingStatusRetry(card: HTMLElement): void {
-        card.dataset.yomuOcrRetry = 'true';
-        card.setAttribute('role', 'button');
-        card.tabIndex = 0;
-        if (card.dataset.yomuOcrRetryListener === 'true') return;
-        card.dataset.yomuOcrRetryListener = 'true';
-        card.addEventListener('click', event => {
-            event.preventDefault();
-            event.stopPropagation();
-            this.retryCanvasPendingStatusCard(card);
-        });
-        card.addEventListener('keydown', event => {
-            if (event.key !== 'Enter' && event.key !== ' ') return;
-            event.preventDefault();
-            event.stopPropagation();
-            this.retryCanvasPendingStatusCard(card);
-        });
-    }
-
-    private retryCanvasPendingStatusCard(card: HTMLElement): void {
-        const canvas = [...this.canvasPendingStatuses].find(([, candidate]) => candidate === card)?.[0];
-        if (!canvas) return;
+    private retryCanvasPendingCapture(canvas: HTMLCanvasElement): void {
         this.cancelCanvasSnapshot(canvas);
         this.removeCanvasPendingStatus(canvas);
         this.clearCanvasCaptureRetry(canvas);
@@ -3098,7 +3052,7 @@ export class ImageOcrController {
     }
 
     private hideUnavailableCanvasPendingStatus(canvas: HTMLCanvasElement, status: HTMLElement): void {
-        if (this.isTerminalCanvasPendingStatus(status)) this.removeCanvasPendingStatus(canvas);
+        if (isTerminalOcrStatus(status.dataset.status)) this.removeCanvasPendingStatus(canvas);
         else status.hidden = true;
     }
 
@@ -3186,7 +3140,7 @@ export class ImageOcrController {
         // A manual retry may OCR only the visible crop of a tall canvas. If that crop
         // changes, its pixels no longer represent the newly visible source region and
         // must be rebuilt. Full-page frames never enter this branch and can scale in
-        // place. Use the parsed result as the durable signal because the status pill
+        // place. Use the parsed result as the durable signal because the status indicator
         // can be removed independently from the OCR layer.
         return status === 'ready' || Boolean(this.states.get(frame)?.result?.lines.length);
     }
@@ -3531,6 +3485,7 @@ export class ImageOcrController {
         this.imageStatusTimers.clear();
         for (const card of this.imageStatuses.values()) removeOcrArtifact(card);
         this.imageStatuses.clear();
+        this.statusAnnouncer.remove();
     }
 
     // Drop only the overlays the reader auto-painted, keeping panels the user
