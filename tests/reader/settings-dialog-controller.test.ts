@@ -1106,7 +1106,10 @@ describe('settings dialog keyboard dismissal', () => {
         choosePreset('no-colors');
 
         expect(selectValue('wordColorStates')).toBe('all');
-        expect(selectValue('furiganaMode')).toBe('off');
+        // Furigana shown or hidden is the puck and toolbar's state, so a preset
+        // keeps the chosen furigana style and the select offers no "off".
+        expect(selectValue('furiganaMode')).toBe('hover');
+        expect(form.querySelector('select[name="furiganaMode"] option[value="off"]')).toBeNull();
         expect(selectValue('wordHighlightColorSource')).toBe('off');
         expect(selectValue('wordUnderlineColorSource')).toBe('off');
         expect(selectValue('wordTextColorSource')).toBe('off');
@@ -1217,7 +1220,9 @@ describe('settings dialog keyboard dismissal', () => {
     });
 
 
-    it('persists a Japanese-sites opt-out before reporting the settings saved', async () => {
+    // Request Japanese sites is toggled from the puck and toolbar; a Settings
+    // save that no longer renders it must keep the saved choice.
+    it('keeps a saved Request Japanese sites choice through a Settings save', async () => {
         let settings: ReaderSettings = {
             ...DEFAULT_SETTINGS,
             apiKey: '',
@@ -1229,21 +1234,16 @@ describe('settings dialog keyboard dismissal', () => {
             setSettings: (next: ReaderSettings) => { settings = next; },
             onSettingsPersisted,
         });
-        const preferJapaneseSites = form.querySelector<HTMLInputElement>(
-            'input[name="preferJapaneseSiteLanguage"]',
-        )!;
-        expect(preferJapaneseSites.checked).toBe(true);
-        preferJapaneseSites.checked = false;
+        expect(form.querySelector('[name="preferJapaneseSiteLanguage"]')).toBeNull();
 
         form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
         await waitForCondition(() => settingsSavedShown(form));
         expect(dismiss).not.toHaveBeenCalled();
 
-        expect(JSON.parse(
-            localStorage.getItem(PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY) ?? 'null',
-        )).toBe(false);
+        // Unchanged, so its storage mirror is not rewritten either.
+        expect(localStorage.getItem(PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY)).toBeNull();
         expect(onSettingsPersisted).toHaveBeenCalledWith(expect.objectContaining({
-            preferJapaneseSiteLanguage: false,
+            preferJapaneseSiteLanguage: true,
         }));
     });
 

@@ -2,18 +2,18 @@ import type { ReaderSettings } from '../app/types';
 import { escapeHtml } from '../dom/index';
 import { SETTINGS_LABEL_TEXT_CLASS, select } from './form-controls';
 import { renderReadingHiddenStateGroupControls } from './hide-state-groups';
-import { effectiveFuriganaMode, furiganaModeNeedsDifficultyExplanation } from './index';
+import { furiganaModeNeedsDifficultyExplanation, furiganaStyle } from './index';
 import { settingsText, type SettingsText } from './settings-text';
 
 type SettingsTextKey = Parameters<SettingsText>[0];
-type ReadingMode = Exclude<ReaderSettings['furiganaMode'], 'auto'>;
+// No "off": hiding furigana is the puck and toolbar's job, not a Settings default.
+type ReadingMode = Exclude<ReaderSettings['furiganaMode'], 'auto' | 'off'>;
 
 const READING_MODE_OPTIONS = [
     ['known-status', 'furiganaHideKnown'],
     ['difficult-kanji', 'furiganaDifficultKanji'],
     ['hover', 'furiganaHoverOnly'],
     ['all', 'furiganaAllParsed'],
-    ['off', 'off'],
 ] as const satisfies readonly (readonly [ReadingMode, SettingsTextKey])[];
 
 const CLAMPED_ROW_OPTIONS = [
@@ -25,7 +25,7 @@ const CLAMPED_ROW_OPTIONS = [
 export function renderReadingAnnotationControls(settings: ReaderSettings): string {
     const text = settingsText(settings.interfaceLanguage);
     return `<div data-reading-annotation-controls>
-        ${select('furiganaMode', text('furiganaMode'), effectiveFuriganaMode(settings), localizedOptions(text, READING_MODE_OPTIONS))}
+        ${select('furiganaMode', text('furiganaMode'), furiganaStyle(settings), localizedOptions(text, READING_MODE_OPTIONS))}
         ${difficultyNoteHtml(settings, text)}
         ${select('clampedRowReadings', text('clampedRowReadings'), settings.clampedRowReadings, localizedOptions(text, CLAMPED_ROW_OPTIONS))}
         ${renderReadingHiddenStateGroupControls(settings)}

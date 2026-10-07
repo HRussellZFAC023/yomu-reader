@@ -1094,12 +1094,26 @@ export function effectiveFuriganaMode(settings: ReaderSettings): Exclude<Furigan
 }
 
 /**
+ * Which readings furigana shows while it is shown. Whether it is shown at all
+ * is the puck and toolbar's "Yomu on · furigana shown / hidden" state; while
+ * hidden this is the style those controls bring back.
+ */
+export function furiganaStyle(settings: ReaderSettings): Exclude<FuriganaMode, 'auto' | 'off'> {
+    const effective = effectiveFuriganaMode(settings);
+    if (effective !== 'off') return effective;
+    for (const candidate of [settings.puckFuriganaModeBeforeHide, settings.furiganaMode, DEFAULT_SETTINGS.furiganaMode]) {
+        if (candidate && isExplicitFuriganaMode(candidate)) return candidate;
+    }
+    return 'all';
+}
+
+/**
  * A11: difficulty hiding drops readings by a fixed easy-kanji list, which the
  * learner has no way to read off the page. The settings form shows the
- * explanation whenever this is the chosen mode.
+ * explanation whenever this is the chosen style.
  */
 export function furiganaModeNeedsDifficultyExplanation(settings: ReaderSettings): boolean {
-    return effectiveFuriganaMode(settings) === 'difficult-kanji';
+    return furiganaStyle(settings) === 'difficult-kanji';
 }
 
 function isExplicitFuriganaMode(value: FuriganaMode): value is Exclude<FuriganaMode, 'auto' | 'off'> {

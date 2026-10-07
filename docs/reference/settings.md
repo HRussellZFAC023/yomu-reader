@@ -148,7 +148,7 @@ Set a hover key. Blank means plain hover.
 | Hover close delay (ms) | — | `80` | `hoverCloseDelayMs` |
 | Show Yomu lookup popup | — | `hover` | `popupActivationMode` |
 | Show settings puck | — | on | `showFloatingButton` |
-| Pause page annotations | — | off | `annotationsPaused` |
+| Japanese text on webpages | — | off | `manualScanEnabled` |
 | Furigana | — | All parsed words (`all`) | `furiganaMode` |
 | Readings on clamped rows | — | Show (row grows) (`show`) | `clampedRowReadings` |
 | Not yet described | — | 3 entries | `furiganaHiddenStateGroups` |
@@ -279,7 +279,6 @@ Filter YouTube for Japanese. Japanese-site navigation is optional.
 | Show hidden-video notice | — | on | `youtubeShowFilterNotice` |
 | Show Japanese channel suggestions | — | on | `youtubeShowChannelRecommendations` |
 | Not yet described | — | off | `youtubeShowChannelRecommendationsChosen` |
-| Request Japanese sites | — | off | `preferJapaneseSiteLanguage` |
 
 ## Anki (Mining tab)
 
@@ -351,7 +350,7 @@ Yomu stores these the same way, and a settings export carries them. Some are wri
 | Not yet described | — | `keyboard` | `newTabTypeWordInputMode` |
 | Not yet described | — | unset | `puckPositionX` |
 | Not yet described | — | unset | `puckPositionY` |
-| Manual page scanning | — | off | `manualScanEnabled` |
+| Pause page annotations | — | off | `annotationsPaused` |
 | Enable furigana annotations | — | on | `showFurigana` |
 | Not yet described | — | empty | `puckFuriganaModeBeforeHide` |
 | Hide furigana for known cards only | — | on | `hideKnownFurigana` |
@@ -359,3 +358,4 @@ Yomu stores these the same way, and a settings export carries them. Some are wri
 | Dictionary result limit | — | `12` | `localDictionaryMaxResults` |
 | Not yet described | — | empty list | `dictionaryPreferences` |
 | Transcript panel position | — | `right` | `subtitleTranscriptPlacement` |
+| Request Japanese sites | — | off | `preferJapaneseSiteLanguage` |

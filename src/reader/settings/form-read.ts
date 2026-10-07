@@ -1,4 +1,4 @@
-import { COPY_LOOKUP_LINK, DEFAULT_AUDIO_SOURCES, DEFAULT_SETTINGS, MAX_LOOKUP_LINK_ROWS, normalizeAudioSource, normalizeDictionaryLookupLinks, normalizeOcrProvider, normalizeReaderSettings, sanitizeAccentColor } from './index';
+import { COPY_LOOKUP_LINK, DEFAULT_AUDIO_SOURCES, DEFAULT_SETTINGS, MAX_LOOKUP_LINK_ROWS, effectiveFuriganaMode, furiganaStyle, normalizeAudioSource, normalizeDictionaryLookupLinks, normalizeOcrProvider, normalizeReaderSettings, sanitizeAccentColor } from './index';
 import { normalizeAnkiFieldMappings } from './anki-field-mappings';
 import { readApiCredentialsFromFormData } from './api-credential';
 import { createSettingsFormReader, type SettingsFormReader } from './form-data';
@@ -30,7 +30,7 @@ export type ColorSourceSettingName =
     | 'subtitleTextColorSource';
 
 export const COLOR_SOURCE_VALUES: readonly SelectableReaderColorSource[] = ['status', 'jpdb', 'anki', 'pitch', 'off'];
-type PageScanMode = 'off' | 'auto' | 'manual';
+type PageScanMode = 'auto' | 'manual';
 const DEFAULT_COLOR_SOURCE_VALUES: Record<ColorSourceSettingName, SelectableReaderColorSource> = {
     wordHighlightColorSource: 'jpdb',
     wordUnderlineColorSource: 'pitch',
@@ -114,7 +114,7 @@ export function readFormSettings(data: FormData, current: ReaderSettings): Reade
     const reader = createSettingsFormReader(data, colorSource);
     const { get, has } = reader;
     const audioSources = readAudioSources(data);
-    const furiganaMode = readOption(get('furiganaMode'), ['all', 'difficult-kanji', 'known-status', 'hover', 'off'] as const, current.furiganaMode === 'auto' ? DEFAULT_SETTINGS.furiganaMode : current.furiganaMode);
+    const furiganaMode = readOption(get('furiganaMode'), ['all', 'difficult-kanji', 'known-status', 'hover'] as const, furiganaStyle(current));
     const apiDefinitionRowsPresent = {
         jpdb: hasSourceRow(has, 'jpdbDefinitions'),
         jiten: hasSourceRow(has, 'jitenDefinitions'),
@@ -322,7 +322,7 @@ function readColorSourceSettings(reader: SettingsFormReader, current: ReaderSett
 
 function readLookupBehaviorFormSettings(reader: SettingsFormReader, current: ReaderSettings): Partial<ReaderSettings> {
     const { get, has, clamped } = reader;
-    const pageScanMode = readOption(get('pageScanMode'), ['off', 'auto', 'manual'] as const, pageScanModeFromSettings(current));
+    const pageScanMode = readOption(get('pageScanMode'), ['auto', 'manual'] as const, pageScanModeFromSettings(current));
     return {
         lookupOnClick: has('lookupOnClick'),
         lookupOnHover: has('lookupOnHover'),
@@ -334,13 +334,13 @@ function readLookupBehaviorFormSettings(reader: SettingsFormReader, current: Rea
             : 'off',
         scanModifierKey: current.scanModifierKey,
         showFloatingButton: has('showFloatingButton'),
-        annotationsPaused: pageScanMode === 'off',
+        // Yomu on/off belongs to the puck and toolbar; Settings keeps it as saved.
+        annotationsPaused: current.annotationsPaused,
         manualScanEnabled: pageScanMode === 'manual',
     };
 }
 
 function pageScanModeFromSettings(settings: ReaderSettings): PageScanMode {
-    if (settings.annotationsPaused) return 'off';
     return settings.manualScanEnabled ? 'manual' : 'auto';
 }
 
@@ -368,16 +368,36 @@ function readNewTabFormSettings(reader: SettingsFormReader, current: ReaderSetti
 }
 
 
+/**
+ * The furigana select chooses a style, never "off": shown or hidden is the
+ * puck and toolbar's state. While hidden, a new style becomes the one those
+ * controls bring back, and furigana stays hidden.
+ */
+function readFuriganaFormSettings(
+    current: ReaderSettings,
+    style: ReturnType<typeof furiganaStyle>,
+): Pick<ReaderSettings, 'showFurigana' | 'furiganaMode' | 'puckFuriganaModeBeforeHide'> {
+    if (effectiveFuriganaMode(current) !== 'off') {
+        return { showFurigana: true, furiganaMode: style, puckFuriganaModeBeforeHide: current.puckFuriganaModeBeforeHide };
+    }
+    return {
+        showFurigana: current.showFurigana,
+        furiganaMode: current.furiganaMode,
+        puckFuriganaModeBeforeHide: style === furiganaStyle(current) ? current.puckFuriganaModeBeforeHide : style,
+    };
+}
+
 function readReadingDisplayFormSettings(
     reader: SettingsFormReader,
     current: ReaderSettings,
-    furiganaMode: ReaderSettings['furiganaMode'],
+    style: ReturnType<typeof furiganaStyle>,
 ): Partial<ReaderSettings> {
     const { has } = reader;
     const { get } = reader;
+    const furigana = readFuriganaFormSettings(current, style);
+    const furiganaMode = furigana.furiganaMode;
     return {
-        showFurigana: furiganaMode !== 'off',
-        furiganaMode,
+        ...furigana,
         furiganaHiddenStateGroups: FURIGANA_HIDE_STATE_GROUPS.filter(group => has(`furiganaHide-${group}`)),
         wordColorStates: readOption(get('wordColorStates'), ['all', 'new-only'] as const, 'all'),
         clampedRowReadings: readOption(get('clampedRowReadings'), ['show', 'hover'] as const, 'show'),
@@ -650,16 +670,11 @@ function readYoutubeFormSettings(reader: SettingsFormReader, current: ReaderSett
     const channelRecommendations = channelControlsPresent
         ? has('youtubeShowChannelRecommendations')
         : current.youtubeShowChannelRecommendations;
-    const siteLanguageSettingPresent = has('preferJapaneseSiteLanguageSettingPresent');
     return {
-        // Site-language navigation is opt-in. The checkbox renders the effective
-        // state, so an unchanged save preserves it while a real toggle records
-        // the submitted value as an explicit choice.
         youtubeImmersionEnabled: immersionChanged ? immersionEnabled : current.youtubeImmersionEnabled,
         youtubeImmersionEnabledChosen: current.youtubeImmersionEnabledChosen || immersionChanged,
-        preferJapaneseSiteLanguage: siteLanguageSettingPresent
-            ? has('preferJapaneseSiteLanguage')
-            : current.preferJapaneseSiteLanguage,
+        // Request Japanese sites is toggled from the puck and toolbar; Settings keeps it as saved.
+        preferJapaneseSiteLanguage: current.preferJapaneseSiteLanguage,
         youtubeShowChannelRecommendations: channelRecommendations,
         youtubeShowChannelRecommendationsChosen: current.youtubeShowChannelRecommendationsChosen
             || (channelControlsPresent && channelRecommendations !== current.youtubeShowChannelRecommendations),

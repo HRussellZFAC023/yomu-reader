@@ -299,18 +299,16 @@ describe('settings form localization', () => {
 
         expect(topLevelLegendForControl(form, 'subtitlePlayerEnabled')).toBe('Video');
         expect(topLevelLegendForControl(form, 'youtubeImmersionEnabled')).toBe('YouTube');
-        expect(topLevelLegendForControl(form, 'preferJapaneseSiteLanguage')).toBe('YouTube');
         expect(topLevelLegendForControl(form, 'ankiEnabled')).toBe('Anki');
         expect(topLevelLegendForControl(form, 'jpdbDefinitionsEnabled')).toBe('');
         expect(topLevelLegendForControl(form, 'shortcuts.openSettings')).toBe('Shortcuts');
         expect(topLevelLegendForControl(form, 'immersionKitLimit')).toBe('Immersion Kit');
     });
 
-    it('keeps YouTube controls while site-language navigation stays opt-in', () => {
+    it('keeps YouTube controls and leaves Request Japanese sites to the puck and toolbar', () => {
         const form = document.createElement('form');
         form.innerHTML = renderSettingsForm(DEFAULT_SETTINGS, 'https://jpdb.io/settings');
         const filter = form.querySelector<HTMLInputElement>('input[name="youtubeImmersionEnabled"]')!;
-        const siteLanguage = form.querySelector<HTMLInputElement>('input[name="preferJapaneseSiteLanguage"]')!;
         const channelSuggestions = form.querySelector<HTMLInputElement>('input[name="youtubeShowChannelRecommendations"]')!;
         const notice = form.querySelector<HTMLInputElement>('input[name="youtubeShowFilterNotice"]')!;
         const shortcut = form.querySelector<HTMLInputElement>('input[name="shortcuts.toggleYoutubeImmersion"]')!;
@@ -321,13 +319,12 @@ describe('settings form localization', () => {
         expect(DEFAULT_SETTINGS.youtubeShowFilterNotice).toBe(true);
         expect(DEFAULT_SETTINGS.shortcuts.toggleYoutubeImmersion).toBe('Shift+Y');
         expect(filter.checked).toBe(true);
-        expect(siteLanguage.checked).toBe(false);
+        expect(form.querySelector('[name="preferJapaneseSiteLanguage"]')).toBeNull();
         expect(channelSuggestions.checked).toBe(true);
         expect(notice.checked).toBe(true);
         expect(shortcut.value).toBe('Shift+Y');
 
         filter.checked = false;
-        siteLanguage.checked = true;
         channelSuggestions.checked = false;
         notice.checked = false;
         shortcut.value = 'Ctrl+Y';
@@ -336,7 +333,8 @@ describe('settings form localization', () => {
 
         expect(saved.youtubeImmersionEnabled).toBe(false);
         expect(saved.youtubeImmersionEnabledChosen).toBe(true);
-        expect(saved.preferJapaneseSiteLanguage).toBe(true);
+        expect(saved.preferJapaneseSiteLanguage).toBe(false);
+        expect(readFormSettings(new FormData(form), { ...DEFAULT_SETTINGS, preferJapaneseSiteLanguage: true }).preferJapaneseSiteLanguage).toBe(true);
         expect(saved.youtubeShowChannelRecommendations).toBe(false);
         expect(saved.youtubeShowChannelRecommendationsChosen).toBe(true);
         expect(saved.youtubeShowFilterNotice).toBe(false);
@@ -361,7 +359,6 @@ describe('settings form localization', () => {
         expect(optionText(form, 'newTabKanjiKeywordSource', 'auto')).toBe('自動');
         expect(optionText(form, 'newTabKanjiKeywordSource', 'jpdb')).toBe('JPDB漢字情報（Jiten / JPDB）');
         expect(labelForControl(form, 'newTabParsingEnabled')).toContain('学習の文解析を有効');
-        expect(labelForControl(form, 'preferJapaneseSiteLanguage')).toContain('日本語版サイトをリクエスト');
         expect(optionText(form, 'audioAutoPlayMode', 'all')).toBe('ホバーとタップ/クリック');
         expect(labelForControl(form, 'readerFontFamily')).toContain('リーダーUIフォント');
         // Not "日本語フォント": the setting styles the WHOLE popover typeface, so it

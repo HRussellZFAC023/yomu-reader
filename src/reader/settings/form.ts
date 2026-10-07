@@ -68,7 +68,7 @@ type StringReaderSettingName = {
     [K in keyof ReaderSettings & string]: ReaderSettings[K] extends string ? K : never;
 }[keyof ReaderSettings & string];
 type ColorInputField = readonly [StringReaderSettingName, SettingsTextKey];
-type PageScanMode = 'off' | 'auto' | 'manual';
+type PageScanMode = 'auto' | 'manual';
 type SettingsOptionTable<V extends string = string> = readonly (readonly [V, SettingsTextKey])[];
 
 // Turn a value→i18n-key option table into localized [value, label] pairs. Shared
@@ -798,7 +798,6 @@ function renderReaderSettingsPanel(settings: ReaderSettings): string {
                     ${checkbox('lookupOnMiddleMouse', text('lookupOnMiddleMouse'), settings.lookupOnMiddleMouse)}
                     ${checkbox('showFloatingButton', text('showFloatingButton'), settings.showFloatingButton)}
                     ${radioGroup('pageScanMode', text('pageScanMode'), pageScanMode, [
-                        ['off', text('pageScanModeOff')],
                         ['auto', text('pageScanModeAuto')],
                         ['manual', text('pageScanModeManual')],
                     ])}
@@ -822,8 +821,9 @@ function renderReaderSettingsPanel(settings: ReaderSettings): string {
     `;
 }
 
+// "Yomu off" is the puck's and toolbar's three-state control, not a Settings
+// default, so the scan choice here is only how Yomu reads a page while on.
 function pageScanModeFromSettings(settings: ReaderSettings): PageScanMode {
-    if (settings.annotationsPaused) return 'off';
     return settings.manualScanEnabled ? 'manual' : 'auto';
 }
 
@@ -1508,7 +1508,6 @@ function localizeSettingsShortcuts(form: HTMLFormElement, text: SettingsText): v
         ?.closest<HTMLFieldSetElement>('.jpdb-reader-radio-group')
         ?.querySelector('legend');
     pageScanLegend?.replaceChildren(text('pageScanMode'));
-    setRadioLabel(form, 'pageScanMode', 'off', text('pageScanModeOff'));
     setRadioLabel(form, 'pageScanMode', 'auto', text('pageScanModeAuto'));
     setRadioLabel(form, 'pageScanMode', 'manual', text('pageScanModeManual'));
     const manualPageScanShortcutLabel = form.querySelector<HTMLLabelElement>('[data-manual-page-scan-shortcut-label] label');
@@ -1831,7 +1830,7 @@ const DIRECT_SETTINGS_CONTROL_LABEL_KEYS = [
     'subtitleBackgroundColor', 'subtitleBackgroundOpacity', 'subtitleFontFamily', 'subtitleFontWeight', 'subtitleSeekPadding',
     'ankiEnabled', 'ankiMineWithJpdb', 'ankiCaptureScreenshot', 'ankiConnectUrl', 'ankiDeck',
     'ankiModel', 'ankiTemplateMode', 'ankiFrontReading', 'ankiFrontSentence', 'ankiFrontImage',
-    'ankiTags', 'youtubeImmersionEnabled', 'preferJapaneseSiteLanguage', 'youtubeShowChannelRecommendations', 'youtubeShowFilterNotice',
+    'ankiTags', 'youtubeImmersionEnabled', 'youtubeShowChannelRecommendations', 'youtubeShowFilterNotice',
     'hoverOpenDelayMs', 'hoverCloseDelayMs',
 ] as const satisfies readonly SettingsTextKey[];
 

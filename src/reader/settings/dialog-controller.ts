@@ -1109,7 +1109,6 @@ export class SettingsDialogController {
                 setColorSources('jpdb', 'pitch', 'anki');
             } else if (value === 'no-colors') {
                 setSelect('wordColorStates', 'all');
-                setSelect('furiganaMode', 'off');
                 setColorSources('off', 'off', 'off');
             } else if (value === 'new-only') {
                 setSelect('wordColorStates', 'new-only');
@@ -1127,8 +1126,6 @@ export class SettingsDialogController {
                 setGroups(['known', 'due', 'failed']);
             } else if (value === 'furi-hover') {
                 setSelect('furiganaMode', 'hover');
-            } else if (value === 'furi-off') {
-                setSelect('furiganaMode', 'off');
             }
             syncGroupVisibility();
             applyThemePreview();

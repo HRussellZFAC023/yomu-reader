@@ -218,7 +218,6 @@ const COPY = {
         lookupOnMiddleMouse: 'Look up with middle-mouse hold',
         showFloatingButton: 'Show settings puck',
         pageScanMode: 'Japanese text on webpages',
-        pageScanModeOff: 'Leave pages unchanged',
         pageScanModeAuto: 'Scan Japanese automatically',
         pageScanModeManual: 'Scan only when I ask',
         manualScanEnabled: 'Manual page scanning',
@@ -1765,7 +1764,6 @@ lookupOnHover	ホバーで検索
 lookupOnMiddleMouse	中央ボタン長押しで検索
 showFloatingButton	設定ボタンを表示
 pageScanMode	ウェブページの日本語
-pageScanModeOff	ページを変更しない
 pageScanModeAuto	日本語を自動で検出
 pageScanModeManual	指示したときだけ日本語を検出
 manualPageScanShortcut	手動ページスキャンのショートカット

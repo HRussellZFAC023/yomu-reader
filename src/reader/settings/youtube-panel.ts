@@ -29,10 +29,6 @@ export function renderYoutubeSettingsPanel(settings: ReaderSettings): string {
                         <input type="hidden" name="youtubeChannelSuggestionSettingsPresent" value="on">
                         ${checkbox('youtubeShowChannelRecommendations', text('youtubeShowChannelRecommendations'), settings.youtubeShowChannelRecommendations)}
                     </div>
-                    <div data-language-family="preferred-target-sites">
-                        <input type="hidden" name="preferJapaneseSiteLanguageSettingPresent" value="on">
-                        ${checkbox('preferJapaneseSiteLanguage', text('preferJapaneseSiteLanguage'), settings.preferJapaneseSiteLanguage)}
-                    </div>
                 </div>
                 <div id="settings-help-youtube" class="jpdb-reader-help" data-youtube-help>${text('youtubeHelp')}</div>
             </fieldset>

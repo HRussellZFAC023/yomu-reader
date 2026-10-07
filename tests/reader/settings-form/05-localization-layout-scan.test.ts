@@ -684,12 +684,12 @@ describe('settings form localization', () => {
         expect(saved.shortcuts.scanImages).toBe('Ctrl+I');
     });
 
-    it('round-trips explicit page scanning modes', () => {
+    it('round-trips explicit page scanning modes and leaves Yomu off to the puck and toolbar', () => {
         const form = document.createElement('form');
         form.innerHTML = renderSettingsForm(DEFAULT_SETTINGS, 'https://jpdb.io/settings');
 
         expect(radioValue(form, 'pageScanMode')).toBe('auto');
-        expect(labelForControl(form, 'pageScanMode')).toContain('Leave pages unchanged');
+        expect([...form.querySelectorAll<HTMLInputElement>('input[name="pageScanMode"]')].map(input => input.value)).toEqual(['auto', 'manual']);
         expect(form.querySelector<HTMLElement>('[data-page-scan-manual-shortcut]')?.hidden).toBe(true);
 
         form.querySelector<HTMLInputElement>('input[name="pageScanMode"][value="manual"]')!.checked = true;
@@ -697,10 +697,14 @@ describe('settings form localization', () => {
         expect(manual.annotationsPaused).toBe(false);
         expect(manual.manualScanEnabled).toBe(true);
 
-        form.querySelector<HTMLInputElement>('input[name="pageScanMode"][value="off"]')!.checked = true;
-        const off = readFormSettings(new FormData(form), DEFAULT_SETTINGS);
-        expect(off.annotationsPaused).toBe(true);
-        expect(off.manualScanEnabled).toBe(false);
+        const off = { ...DEFAULT_SETTINGS, annotationsPaused: true, manualScanEnabled: true };
+        const offForm = document.createElement('form');
+        offForm.innerHTML = renderSettingsForm(off, 'https://jpdb.io/settings');
+        expect(radioValue(offForm, 'pageScanMode')).toBe('manual');
+        offForm.querySelector<HTMLInputElement>('input[name="pageScanMode"][value="auto"]')!.checked = true;
+        const stillOff = readFormSettings(new FormData(offForm), off);
+        expect(stillOff.annotationsPaused).toBe(true);
+        expect(stillOff.manualScanEnabled).toBe(false);
     });
 
     it('round-trips explicit OCR scanning modes', () => {

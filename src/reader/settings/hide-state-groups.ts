@@ -2,7 +2,7 @@ import { CARD_STATE_LABEL_KEYS, uiText } from '../app/i18n';
 import { FURIGANA_HIDE_STATE_GROUPS, WORD_COLOR_HIDE_STATE_GROUPS } from '../app/constants';
 import { escapeHtml } from '../dom/html';
 import { checkbox } from './form-controls';
-import { effectiveFuriganaMode } from './index';
+import { furiganaStyle } from './index';
 import type { InterfaceLanguage, ReaderSettings } from '../app/types';
 
 // Same local alias the other settings modules use; there is no shared export.
@@ -27,7 +27,7 @@ export function renderReadingHiddenStateGroupControls(settings: ReaderSettings):
     const boxes = FURIGANA_HIDE_STATE_GROUPS
         .map(group => checkbox(`furiganaHide-${group}`, uiText(language, CARD_STATE_LABEL_KEYS[group]), selected.has(group)))
         .join('');
-    const hidden = effectiveFuriganaMode(settings) === 'known-status' ? '' : ' hidden';
+    const hidden = furiganaStyle(settings) === 'known-status' ? '' : ' hidden';
     return `<fieldset class="jpdb-reader-radio-group" data-furigana-hide-groups${hidden}><legend>${escapedUiText(language, 'hideFuriganaFor')}</legend>${boxes}</fieldset>`;
 }
 

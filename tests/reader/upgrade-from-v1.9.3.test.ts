@@ -26,6 +26,9 @@ import {
     uninstallUserscriptGmStorageBridge,
 } from '../../src/reader/userscript/storage-bridge';
 import { parseReaderSettingsBackup } from '../../src/reader/settings/file-io';
+import { renderSettingsForm } from '../../src/reader/settings/form';
+import { readFormSettings } from '../../src/reader/settings/form-read';
+import { annotationPowerState } from '../../src/reader/app/annotation-power-policy';
 import { restoreReaderSettingsBackup } from '../../src/reader/settings/reader-settings-restore-adapter';
 import { validateCloudSettingsEnvelope } from '../../src/reader/settings/cloud-settings-envelope';
 import {
@@ -430,6 +433,47 @@ describe('settings backup file exported by v1.9.3: f-backup-file-v1.9.3', () => 
         await expectSameAsV193(fixture.expected);
         const summary = await dictionaries.summary();
         expect(summary.dictionaries.map(entry => entry.title)).toEqual(fixture.expected.dictionaries);
+    });
+
+    // 2.1 moved "Yomu on/off", "furigana shown/hidden" and Request Japanese
+    // sites out of Settings into the puck and toolbar. The choices this backup
+    // carries (furigana hidden, Japanese sites requested) must survive both the
+    // import and a later Settings Save that no longer renders those controls.
+    it('keeps its reading state through import and a later Settings Save', async () => {
+        enterUserscriptSite(createStore(), 'https://www.example.com/articles/yomu-upgrade');
+        await restoreReaderSettingsBackup(
+            new File([fileText], fixture.file.split('/').pop()!, { type: 'application/json' }),
+            await loadSettings(),
+            {
+                dictionaries: freshDictionaries(),
+                setStatus: () => undefined,
+                persistSettings: saveSettings,
+                adoptSettings: () => undefined,
+                dictionaryStateChanged: () => undefined,
+            },
+        );
+        resetManagedStateEpochSessionsForTests();
+        const restored = await loadSettings();
+        expect(annotationPowerState(restored, true)).toBe('no-furigana');
+        expect(restored.preferJapaneseSiteLanguage).toBe(true);
+
+        const form = document.createElement('form');
+        form.innerHTML = renderSettingsForm(restored, 'https://jpdb.io/settings');
+        expect(form.querySelector('[name="preferJapaneseSiteLanguage"]')).toBeNull();
+        expect(form.querySelector('input[name="pageScanMode"][value="off"]')).toBeNull();
+        expect(form.querySelector('select[name="furiganaMode"] option[value="off"]')).toBeNull();
+        expect(form.querySelector<HTMLSelectElement>('select[name="furiganaMode"]')!.value).toBe('all');
+
+        const untouched = readFormSettings(new FormData(form), restored);
+        expect(annotationPowerState(untouched, true)).toBe('no-furigana');
+        expect([untouched.showFurigana, untouched.furiganaMode, untouched.preferJapaneseSiteLanguage, untouched.annotationsPaused])
+            .toEqual([false, 'all', true, false]);
+
+        // A new style while furigana is hidden is the style the puck brings back.
+        form.querySelector<HTMLSelectElement>('select[name="furiganaMode"]')!.value = 'known-status';
+        const restyled = readFormSettings(new FormData(form), restored);
+        expect(annotationPowerState(restyled, true)).toBe('no-furigana');
+        expect(restyled.puckFuriganaModeBeforeHide).toBe('known-status');
     });
 });
 
