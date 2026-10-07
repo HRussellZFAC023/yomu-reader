@@ -28,6 +28,7 @@ function parityFixtureFiles(target: string): Record<string, Uint8Array> {
         'manifest.json': strToU8(JSON.stringify({ version: '1.9.3' })),
         'background.js': strToU8(`${target} background`),
         'content.js': strToU8(`${target} content`),
+        ...(target !== 'safari' ? { 'popup.js': strToU8(`${target} toolbar actions`) } : {}),
         [PACKAGED_STUDY_STORAGE_RUNTIME_FILE]: strToU8(`${target} storage runtime`),
         'newtab/index.html': strToU8(`<script src="./study-storage-runtime.js"></script>${target}`),
         ...(target === 'firefox' ? {
@@ -123,7 +124,7 @@ ${gatedContent}`;
 }
 
 describe('extension package parity', () => {
-    it('requires nested Study runtime and HTML parity in Chrome, Firefox, and Safari releases', async () => {
+    it('requires Study runtime, HTML and supported toolbar parity across release packages', async () => {
         const fixtureRoot = await mkdtemp(path.join(tmpdir(), 'yomu-extension-parity-'));
         try {
             const targets = {
@@ -151,16 +152,16 @@ describe('extension package parity', () => {
 
             await expect(assertExtensionReleasePackageParity(fixtureRoot)).resolves.toBeUndefined();
 
-            await writeFile(
-                path.join(fixtureRoot, 'release', 'chrome', 'yomureader.com-chrome.zip'),
-                zipSync({
-                    ...targets.chrome,
-                    [PACKAGED_STUDY_STORAGE_RUNTIME_FILE]: strToU8('wrong runtime'),
-                }),
-            );
-            await expect(assertExtensionReleasePackageParity(fixtureRoot)).rejects.toThrow(
-                'chrome newtab/study-storage-runtime.js differs',
-            );
+            for (const [target, file, archiveName] of [
+                ['chrome', PACKAGED_STUDY_STORAGE_RUNTIME_FILE, 'yomureader.com-chrome.zip'],
+                ['chrome', 'popup.js', 'yomureader.com-chrome.zip'],
+                ['firefox', 'popup.js', 'yomureader.com-firefox.xpi'],
+            ] as const) {
+                const archivePath = path.join(fixtureRoot, 'release', target, archiveName);
+                await writeFile(archivePath, zipSync({ ...targets[target], [file]: strToU8('stale release bytes') }));
+                await expect(assertExtensionReleasePackageParity(fixtureRoot)).rejects.toThrow(`${target} ${file} differs`);
+                await writeFile(archivePath, zipSync(targets[target]));
+            }
         } finally {
             await rm(fixtureRoot, { recursive: true, force: true });
         }

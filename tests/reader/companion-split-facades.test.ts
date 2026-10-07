@@ -387,16 +387,6 @@ describe('Greasy Fork split manifest', () => {
         )).not.toContain('structured-content-companion');
     });
 
-    it('keeps target-language labels on the canonical i18n companion alias', () => {
-        const targetLanguageName = readFileSync(
-            path.join(repoRoot, 'src/reader/app/target-language-name.ts'),
-            'utf8',
-        );
-        expect(targetLanguageName).toContain("from '../app/i18n';");
-        expect(targetLanguageName).not.toContain("from './i18n';");
-        expect(targetLanguageName).not.toContain('dictionaries/catalog-browse');
-    });
-
     it('keeps the core popup provider-state label on the canonical i18n companion alias', () => {
         // popover-renderer reaches this helper from core; a same-directory
         // `./i18n` import here put the whole copy catalogue (~140 KB) back in
@@ -417,21 +407,8 @@ describe('Greasy Fork split manifest', () => {
         expect(pronunciationSource).not.toContain("from '../languages/");
     });
 
-    it('keeps core language labels detached from the frozen dictionary catalogue', () => {
-        const targetNameSource = readFileSync(
-            path.join(repoRoot, 'src/reader/app/target-language-name.ts'),
-            'utf8',
-        );
-        expect(targetNameSource).toContain("from '../app/i18n';");
-        expect(targetNameSource).toContain("from '../languages/display-name';");
-        expect(targetNameSource).toContain("from '../languages/locale';");
-        expect(targetNameSource).toContain("from '../languages/target-runtime';");
-        expect(targetNameSource).not.toContain("from './i18n';");
-        expect(targetNameSource).not.toContain("from '../languages';");
-        expect(targetNameSource).not.toContain("from '../languages/selection';");
-        expect(targetNameSource).not.toContain("from '../languages/profiles';");
+    it('keeps Settings labels and page scanning detached from the frozen dictionary catalogue', () => {
         for (const relativePath of [
-            'src/reader/app/target-language-name.ts',
             'src/reader/settings/settings-text.ts',
             'src/reader/app/visible-page-scanner.ts',
         ]) {

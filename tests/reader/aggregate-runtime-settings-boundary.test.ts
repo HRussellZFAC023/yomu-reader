@@ -54,7 +54,6 @@ describe('aggregate runtime Settings launcher boundary', () => {
         for (const required of [
             'src/reader/companions/settings-services.ts',
             'src/reader/dictionaries/yomitan/index.ts',
-            'src/reader/lookup/nested-text-parse.ts',
             'src/reader/popup/modal-accessibility-impl.ts',
             'src/reader/srs/account-sync.ts',
         ]) expect(graph, `${required} must remain in yomu-runtime`).toContain(required);

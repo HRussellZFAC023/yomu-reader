@@ -89,7 +89,9 @@ describe('Reader Study UI contract', () => {
 
     it('uses native-style bottom navigation and a single-line step rail on phones', () => {
         expect(newTabCss).toContain('.jpdb-reader-newtab-app-nav { display: none; }');
-        expect(newTabCss).toContain('grid-template-columns: repeat(4, minmax(0, 1fr));');
+        // Study, Practice, Library, Stats and Connect each need a phone column.
+        // new-tab-session-progress.test.ts checks the rendered navigation actions.
+        expect(newTabCss).toContain('grid-template-columns: repeat(5, minmax(0, 1fr));');
         expect(newTabCss).toContain('min-height: calc(64px + env(safe-area-inset-bottom));');
         expect(newTabCss).toContain('.jpdb-reader-newtab-controls.jpdb-reader-newtab-grade-controls { bottom: calc(72px + env(safe-area-inset-bottom));');
         expect(newTabCss).toContain('.jpdb-reader-newtab-study-steps { width: min(100%, calc(100vw - 16px)); flex-wrap: nowrap; justify-content: flex-start; overflow-x: auto;');
