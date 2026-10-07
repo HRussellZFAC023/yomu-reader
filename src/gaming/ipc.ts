@@ -7,6 +7,8 @@ export const YOMU_GAMING_CHANNELS = {
     showOverlay: 'yomu-gaming:show-overlay',
     hideOverlay: 'yomu-gaming:hide-overlay',
     setLayerRegions: 'yomu-gaming:set-layer-regions',
+    setLayerShortcuts: 'yomu-gaming:set-layer-shortcuts',
+    layerShortcut: 'yomu-gaming:layer-shortcut',
     showApp: 'yomu-gaming:show-app',
     hideApp: 'yomu-gaming:hide-app',
     openExternal: 'yomu-gaming:open-external',
@@ -82,6 +84,8 @@ export interface YomuGamingBridge {
     showOverlay(): Promise<void>;
     hideOverlay(): Promise<void>;
     setLayerRegions?(regions: YomuGamingSelectionRect[]): Promise<void>;
+    setLayerShortcuts?(keys: string[]): Promise<string[]>;
+    onLayerShortcut?(listener: (key: string) => void): () => void;
     showApp(): Promise<void>;
     hideApp(): Promise<void>;
     openExternal(url: string): Promise<void>;

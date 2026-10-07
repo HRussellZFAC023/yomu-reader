@@ -88,7 +88,7 @@ export function overlayNormalizedOcrLayerHtml(lines: NormalizedGamingOcrLine[]):
 // the shared layout pass reads both surfaces the same way.
 function overlayOcrLineHtml(line: NormalizedGamingOcrLine): string {
     const box = line.box;
-    return `<div class="jpdb-ocr-line jpdb-ocr-line-visible" data-ocr-line data-vertical="${line.vertical}"`
+    return `<div class="jpdb-ocr-line" data-ocr-line data-vertical="${line.vertical}"`
         + ` data-ocr-text="${escapeHtml(line.text)}" data-provider-words="${escapeHtml(JSON.stringify(line.words ?? []))}"`
         + ` data-box-left="${box.left}" data-box-top="${box.top}"`
         + ` data-box-width="${box.width}" data-box-height="${box.height}"`
@@ -111,6 +111,7 @@ export function layoutOverlayOcrLines(root: ParentNode, frame: OcrOverlayFrame, 
     layoutOcrOverlayLines(root, frame, fontScale);
     fitOverlayOcrTracking(root, frame, fontScale);
     placeProviderWords(root, frame);
+    suppressDesktopLinePaint(root);
 }
 
 // The shared fit takes the font SIZE from the OCR ink-box thickness, then uses the
@@ -388,6 +389,19 @@ function placeProviderWords(root: ParentNode, frame: OcrOverlayFrame): void {
                 top: `${frame.imageTop + box.top * frame.imageHeight - origin.top}px`,
                 width: `${box.width * frame.imageWidth}px`, height: `${box.height * frame.imageHeight}px`,
                 minWidth: '0', minHeight: '0', padding: '0', margin: '0', transform: 'none' });
+        }
+    }
+}
+
+/** Reader contrast updates can write inline !important paint; the desktop owns a hit layer. */
+export function suppressDesktopLinePaint(root: ParentNode): void {
+    for (const line of root.querySelectorAll<HTMLElement>('.overlay-inline-layer, .overlay-inline-layer *')) {
+        for (const [property, value] of Object.entries({ color: 'transparent', '-webkit-text-fill-color': 'transparent',
+            'background-color': 'transparent', 'background-image': 'none', 'border-color': 'transparent',
+            '-webkit-text-stroke': '0px transparent', 'text-shadow': 'none', 'box-shadow': 'none' })) {
+            if (line.style.getPropertyValue(property) !== value || line.style.getPropertyPriority(property) !== 'important') {
+                line.style.setProperty(property, value, 'important');
+            }
         }
     }
 }

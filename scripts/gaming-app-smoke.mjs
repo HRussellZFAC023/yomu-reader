@@ -138,7 +138,7 @@ try {
     await overlay.waitForSelector('[data-yomu-gaming-overlay-ready="true"][data-capture-mode="instant"][data-overlay-mode="result"]', { timeout: 10_000 });
     await assertNonActivatingLayer(overlay);
     await assertInlineOcrResult(overlay, 'instant capture', instantResultScreenshotPath);
-    await assertInlineReaderShortcutStaysPrivate(overlay);
+    await assertLegacyReaderSettingsCopyAbsent(overlay, 'inline reader boot');
     const fullScreenRequest = fixtureOcr.requests.at(-1);
     if (!fullScreenRequest) throw new Error('Fixture OCR endpoint did not receive an instant full-screen capture.');
     if (fullScreenRequest.png.width < 900 || fullScreenRequest.png.height < 500) {
@@ -606,28 +606,69 @@ function isTransparentPaint(value) {
 }
 
 async function assertInlineOcrResult(overlay, label, paintScreenshotPath) {
-    const horizontalLine = await assertInlineOcrSurface(overlay, label);
-    const annotatedTerm = await assertInlineOcrWord(overlay, label);
-    const readingPaint = await assertDeferredOcrReadingPaint(overlay, annotatedTerm, label);
-    // Capture the proof while the in-place annotation is visible and before a
-    // lookup popover can cover it.
+    await assertInlineOcrSurface(overlay, label);
+    const word = await ocrWordForVisualText(overlay, '冒険');
+    await assertInvisibleProviderTargets(overlay, label);
+    await word.hover();
+    await overlay.locator('.jpdb-reader-popover').first().waitFor({ state: 'visible', timeout: 15000 });
+    await assertPassFailGradeRow(overlay, label);
+    const popupBounds = await overlay.locator('.jpdb-reader-popover').first().evaluate(node => {
+        const box = node.getBoundingClientRect();
+        return { left: box.left, top: box.top, right: box.right, bottom: box.bottom, width: innerWidth, height: innerHeight };
+    });
+    assertSmoke(popupBounds.left >= 0 && popupBounds.top >= 0 && popupBounds.right <= popupBounds.width + 1 && popupBounds.bottom <= popupBounds.height + 1,
+        `Desktop popup exceeds viewport: ${JSON.stringify(popupBounds)}`);
+    await assertInvisibleProviderTargets(overlay, `${label} while hovered`);
     await overlay.screenshot({ path: paintScreenshotPath });
-    await activateInlineOcrLookup(overlay, annotatedTerm, readingPaint, label);
-    await assertInlineOcrGeometry(overlay, horizontalLine, label);
 }
 
-async function assertInlineReaderShortcutStaysPrivate(overlay) {
-    const popover = overlay.locator('.jpdb-reader-popover').first();
-    if (await popover.count()) {
-        await overlay.keyboard.press('Escape');
-        await popover.waitFor({ state: 'detached', timeout: 10_000 });
-    }
-    await overlay.keyboard.press('Shift+H');
-    await overlay.locator('.jpdb-reader-toast')
-        .filter({ hasText: /Subtitle overlay (?:enabled|hidden)\./ })
-        .first()
-        .waitFor({ state: 'visible', timeout: 10_000 });
-    await assertLegacyReaderSettingsCopyAbsent(overlay, 'inline Reader shortcut save');
+async function assertInvisibleProviderTargets(overlay, label) {
+    const measured = await overlay.evaluate(() => {
+        const line = document.querySelector('[data-ocr-line]:not([data-vertical="true"])');
+        const source = line.dataset.ocrText;
+        const provider = JSON.parse(line.dataset.providerWords);
+        const backdrop = document.querySelector('.overlay-backdrop');
+        const rect = backdrop.getBoundingClientRect();
+        const scale = Math.min(rect.width / backdrop.naturalWidth, rect.height / backdrop.naturalHeight);
+        const imageWidth = backdrop.naturalWidth * scale, imageHeight = backdrop.naturalHeight * scale;
+        const originX = rect.left + (rect.width - imageWidth) / 2, originY = rect.top + (rect.height - imageHeight) / 2;
+        let providerCursor = 0;
+        const providerSpans = provider.map(item => {
+            const start = source.indexOf(item.text, providerCursor);
+            providerCursor = start + item.text.length;
+            return { ...item, start, end: providerCursor };
+        });
+        let offset = 0;
+        const boxes = [...line.querySelectorAll('.jpdb-reader-word')].map(word => {
+            const text = [...word.querySelectorAll('[data-yomu-ocr-visual-text]')].filter(node => !node.closest('.jpdb-ocr-furi')).map(node => node.dataset.yomuOcrVisualText).join('');
+            const start = source.indexOf(text, offset); offset = start + text.length;
+            // Fixture provider supplies one character per box, so no font metrics enter expected geometry.
+            const members = providerSpans.filter(item => item.start < offset && item.end > start);
+            const actual = word.getBoundingClientRect();
+            const left = Math.min(...members.map(item => item.box.left));
+            const top = Math.min(...members.map(item => item.box.top));
+            const right = Math.max(...members.map(item => item.box.left + item.box.width));
+            const bottom = Math.max(...members.map(item => item.box.top + item.box.height));
+            const misses = [0.15, 0.5, 0.85].flatMap(x => [0.15, 0.5, 0.85].map(y => {
+                const hit = document.elementFromPoint(originX + (left + (right - left) * x) * imageWidth,
+                    originY + (top + (bottom - top) * y) * imageHeight);
+                return hit && (word === hit || word.contains(hit) || hit.closest('.jpdb-reader-popover')) ? 0 : 1;
+            })).reduce((a, b) => a + b, 0);
+            return { text, misses, error: Math.max(Math.abs(actual.left - (originX + left * imageWidth)),
+                Math.abs(actual.top - (originY + top * imageHeight)), Math.abs(actual.width - (right - left) * imageWidth),
+                Math.abs(actual.height - (bottom - top) * imageHeight)) };
+        });
+        const leaks = [...document.querySelectorAll('.overlay-inline-layer, .overlay-inline-layer *')].filter(node => {
+            const style = getComputedStyle(node);
+            const transparent = value => value === 'transparent' || /rgba\([^)]*,\s*0\)$/.test(value);
+            return !transparent(style.webkitTextFillColor) || style.textShadow !== 'none' || !transparent(style.backgroundColor) || style.backgroundImage !== 'none'
+                || getComputedStyle(node, '::before').content !== 'none' || getComputedStyle(node, '::after').content !== 'none';
+        }).map(node => node.className);
+        return { boxes, leaks };
+    });
+    assertSmoke(measured.boxes.length > 0 && measured.boxes.every(box => box.error <= 2 && box.misses === 0), `Desktop ${label} provider geometry drift: ${JSON.stringify(measured.boxes)}`);
+    assertSmoke(measured.leaks.length === 0, `Desktop ${label} painted reconstructed OCR glyphs: ${JSON.stringify(measured.leaks)}`);
+    console.log(`[desktop-layer] ${label}: ${measured.boxes.length} provider-aligned targets, no reconstructed glyph paint.`);
 }
 
 async function assertLegacyReaderSettingsCopyAbsent(page, label) {

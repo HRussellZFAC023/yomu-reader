@@ -663,9 +663,26 @@ textarea {
 .overlay-shell[data-capture-mode="instant"] .jpdb-ocr-line {
     background: transparent !important; border-color: transparent !important; box-shadow: none !important;
 }
-.overlay-shell[data-capture-mode="instant"] .jpdb-reader-word { opacity: 0; }
-.overlay-shell[data-capture-mode="instant"] .jpdb-ocr-line:hover .jpdb-reader-word,
-.overlay-shell[data-capture-mode="instant"] .jpdb-ocr-line:focus-within .jpdb-reader-word { opacity: 1; }
+/* This is a hit-test surface, never a replacement typesetting surface. Keep opacity
+   for scanner eligibility, but suppress every base glyph, ruby and pseudo glyph. */
+body.yomu-gaming-overlay-document .overlay-inline-layer,
+body.yomu-gaming-overlay-document .overlay-inline-layer * {
+    color: transparent !important;
+    -webkit-text-fill-color: transparent !important;
+    text-shadow: none !important;
+    text-decoration: none !important;
+    background: transparent !important;
+    border-color: transparent !important;
+    box-shadow: none !important;
+    outline-color: transparent !important;
+}
+body.yomu-gaming-overlay-document .overlay-inline-layer *::before,
+body.yomu-gaming-overlay-document .overlay-inline-layer *::after {
+    content: none !important;
+    background: transparent !important;
+    border-color: transparent !important;
+    box-shadow: none !important;
+}
 .overlay-toolbar { border-radius: 6px; box-shadow: none; font-weight: 500; padding: 4px; gap: 2px; }
 .overlay-toolbar button { border: 0; border-radius: 3px; font-weight: 500; background: transparent; }
 .overlay-shell[data-capture-mode="instant"] .overlay-toolbar { opacity: 0; transition: opacity 100ms; }

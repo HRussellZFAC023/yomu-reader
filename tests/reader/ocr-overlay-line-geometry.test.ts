@@ -389,7 +389,8 @@ describe('Yomu Gaming renders OCR lines with the reader’s overlay geometry', (
     it('carries the reader’s line markup, so the reader’s stylesheet dresses it', () => {
         const html = overlayOcrLayerHtml([{ text: LINE_TEXT, box: LINE_BOX, vertical: true }], FRAME);
         expect(html).toContain('class="jpdb-ocr-layer');
-        expect(html).toContain('class="jpdb-ocr-line jpdb-ocr-line-visible"');
+        expect(html).toContain('class="jpdb-ocr-line"');
+        expect(html).not.toContain('jpdb-ocr-line-visible');
         expect(html).toContain('class="jpdb-ocr-line-text"');
         expect(html).toContain('writing-mode:vertical-rl');
         // The reader scans these nodes in place; the gaming gamepad driver finds the

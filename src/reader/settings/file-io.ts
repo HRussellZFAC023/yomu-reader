@@ -27,12 +27,18 @@ export interface ReaderSettingsBackup {
     readonly dictionaries?: unknown;
 }
 
-const BACKUP_FIELDS = new Set(['formatName', 'formatVersion', 'exportedAt', 'settings', 'storage', 'dictionaries']);
+const BACKUP_FIELDS = new Set(['formatName', 'formatVersion', 'exportedAt', 'settings', 'storage', 'dictionaries', 'desktop']);
 
 export function parseReaderSettingsBackup(value: unknown): ReaderSettingsBackup | null {
     if (!isRecord(value) || value.formatName !== READER_SETTINGS_BACKUP_FORMAT
         || value.formatVersion !== READER_SETTINGS_BACKUP_VERSION || !isRecord(value.settings)) return null;
     if (Object.keys(value).some(key => !BACKUP_FIELDS.has(key))) return null;
+    // Desktop's native shortcut is not a browser ReaderSetting. Accept its explicit
+    // metadata envelope for portable backups without writing it to browser storage.
+    if (value.desktop !== undefined && (!isRecord(value.desktop)
+        || Object.keys(value.desktop).some(key => key !== 'captureShortcut')
+        || (value.desktop.captureShortcut !== undefined && (typeof value.desktop.captureShortcut !== 'string'
+            || value.desktop.captureShortcut.length > 128)))) return null;
     const storage = value.storage;
     if (storage !== undefined && !isRecord(storage)) return null;
     if (value.dictionaries !== undefined && !isReaderDictionaryExport(value.dictionaries)) return null;

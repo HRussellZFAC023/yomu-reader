@@ -1,3 +1,4 @@
+import { LayerShortcuts } from './layer-shortcuts';
 import { pointInLayerRegions, layerInputRegions } from './layer-input';
 import { withHiddenCaptureWindows } from './capture-windows';
 import { app, BrowserWindow, desktopCapturer, dialog, globalShortcut, ipcMain, Menu, nativeImage, screen, shell, systemPreferences, Tray, type BrowserWindowConstructorOptions } from 'electron';
@@ -195,7 +196,6 @@ async function ensureOverlayWindow(target: GamingCaptureTarget): Promise<Browser
         transparent: true,
         fullscreenable: true,
         focusable: false,
-        ...(process.platform === 'darwin' ? { type: 'panel' as const } : {}),
         resizable: false,
         skipTaskbar: true,
         show: false,
@@ -210,12 +210,20 @@ async function ensureOverlayWindow(target: GamingCaptureTarget): Promise<Browser
     overlayWindow.setContentProtection(true);
     overlayWindow.setAlwaysOnTop(true, 'screen-saver');
     overlayWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
+    overlayWindow.on('show', () => layerShortcuts.update(true, []));
+    overlayWindow.on('hide', () => layerShortcuts.clear());
     overlayWindow.on('closed', () => {
+        layerShortcuts.clear();
         overlayWindow = null;
     });
     await overlayWindow.loadURL(rendererUrl(hash));
     return overlayWindow;
 }
+
+const layerShortcuts = new LayerShortcuts(globalShortcut, key => {
+    if (!overlayWindow?.isVisible()) return;
+    overlayWindow.webContents.send(YOMU_GAMING_CHANNELS.layerShortcut, key);
+});
 
 let layerRegions: ReturnType<typeof layerInputRegions> = [];
 let layerInputTimer: ReturnType<typeof setInterval> | null = null;
@@ -387,6 +395,7 @@ function reportOverlayFailure(error: unknown): void {
 }
 
 function hideOverlay(): void {
+    layerShortcuts.clear();
     overlayWindow?.hide();
     frozenCapture = null;
     activeCaptureTarget = null;
@@ -488,6 +497,11 @@ function registerIpcHandlers(): void {
     ipcMain.handle(YOMU_GAMING_CHANNELS.openScreenSettings, () => openScreenRecordingSettings());
     ipcMain.handle(YOMU_GAMING_CHANNELS.showOverlay, () => requestOverlay());
     ipcMain.handle(YOMU_GAMING_CHANNELS.hideOverlay, () => hideOverlay());
+    ipcMain.handle(YOMU_GAMING_CHANNELS.setLayerShortcuts, (event, keys: unknown) => {
+        if (event.sender.id !== overlayWindow?.webContents.id) return [];
+        return layerShortcuts.update(Boolean(overlayWindow?.isVisible()), Array.isArray(keys)
+            ? keys.filter((key): key is string => typeof key === 'string' && key !== registeredHotkey) : []);
+    });
     ipcMain.handle(YOMU_GAMING_CHANNELS.setLayerRegions, (event, regions: unknown) => {
         if (event.sender.id === overlayWindow?.webContents.id) layerRegions = layerInputRegions(regions);
     });
@@ -774,6 +788,7 @@ app.on('activate', () => {
 
 app.on('before-quit', () => {
     quitting = true;
+    layerShortcuts.clear();
     globalShortcut.unregisterAll();
     registeredHotkey = null;
     tray?.destroy();

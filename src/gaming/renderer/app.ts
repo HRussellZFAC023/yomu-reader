@@ -1,3 +1,4 @@
+import { dispatchAuthorizedReaderControlClick } from '../../reader/ui/trusted-interaction';
 import '../../reader/styles/base.css';
 import '../../reader/styles/settings.css';
 // The overlay's recognized lines are the reader's OCR overlay, so they are styled by
@@ -43,9 +44,10 @@ import { captureShortcutLabel } from '../capture-shortcut';
 import { activateWordWithPointer, GamepadOverlayController, gamingOcrWordTargets } from './gamepad-overlay';
 import { removeLegacyGamingReaderSettingsCopy } from './legacy-reader-settings-cleanup';
 import { installGamingHttpTransport } from './http-transport';
-import { gamingSettingsFromBrowserExport, desktopSettingsExport } from './settings-import';
+import { gamingSettingsFromBrowserExport, desktopSettingsExport, desktopCaptureShortcutFromExport } from './settings-import';
 import {
     layoutOverlayOcrLines,
+    suppressDesktopLinePaint,
     normalizeCaptureOcrBox,
     overlayNormalizedOcrLayerHtml,
     overlayOcrFrame,
@@ -492,7 +494,7 @@ function bindSettingsForm(form: HTMLFormElement): void {
         if (action === 'export-reader-settings') {
             event.preventDefault();
             persistSettingsFromForm(form);
-            downloadBlob(new Blob([desktopSettingsExport(shellState.settings)], { type: 'application/json' }), `yomu-desktop-settings-${dateStamp()}.json`);
+            downloadBlob(new Blob([desktopSettingsExport(shellState.settings, shellState.environment?.hotkey)], { type: 'application/json' }), `yomu-desktop-settings-${dateStamp()}.json`);
             return;
         }
         if (action === 'import-reader-settings') {
@@ -657,10 +659,20 @@ async function importBrowserSettings(form: HTMLFormElement, button: HTMLButtonEl
     if (!file) return;
     button?.setAttribute('disabled', 'true');
     try {
-        const imported = gamingSettingsFromBrowserExport(await file.text(), shellState.settings);
+        const serialized = await file.text();
+        const imported = gamingSettingsFromBrowserExport(serialized, shellState.settings);
         if (!imported) {
             setShellStatus(uiText(shellState.settings.interfaceLanguage, 'settingsImportUnsupportedFormat'), 'error');
             return;
+        }
+        const captureShortcut = desktopCaptureShortcutFromExport(serialized);
+        if (captureShortcut) {
+            const environment = await bridge.updateCaptureShortcut(captureShortcut);
+            if (!environment.hotkeyRegistered || environment.hotkeyError) {
+                setShellStatus(environment.hotkeyError || 'Could not restore the capture shortcut.', 'error');
+                return;
+            }
+            shellState.environment = environment;
         }
         shellState.settings = imported;
         persistGamingSettings(imported);
@@ -845,7 +857,18 @@ class OverlayController {
         installOverlayEscapeHandler(() => this.gamingBridge.hideOverlay());
         this.gamepad.start();
         this.watchOcrLineLayout();
+        new MutationObserver(() => suppressDesktopLinePaint(this.root))
+            .observe(this.root, { attributes: true, attributeFilter: ['style'], subtree: true });
         this.watchLayerInput();
+        this.gamingBridge.onLayerShortcut?.(key => {
+            if (key === 'Escape') {
+                if (document.querySelector('.jpdb-reader-popover')) document.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true }));
+                else void this.gamingBridge.hideOverlay();
+                return;
+            }
+            const button = this.gradeButtons().find(button => button.getAttribute('aria-keyshortcuts') === key);
+            if (button) dispatchAuthorizedReaderControlClick(button);
+        });
         // The overlay window is hidden and reused, not destroyed — without
         // this the gamepad rAF poller would keep running after dismissal.
         document.addEventListener('visibilitychange', () => {
@@ -854,14 +877,37 @@ class OverlayController {
         });
     }
 
+    private gradeButtons(): HTMLButtonElement[] {
+        return [...document.querySelectorAll<HTMLButtonElement>('.jpdb-reader-popover button[data-action="grade"][aria-keyshortcuts]')]
+            .filter(button => {
+                const popup = button.closest<HTMLElement>('.jpdb-reader-popover');
+                if (!popup || button.disabled || button.getBoundingClientRect().width <= 0) return false;
+                const style = getComputedStyle(popup);
+                return style.visibility !== 'hidden' && Number(style.opacity) > 0;
+            });
+    }
+
     private watchLayerInput(): void {
         if (!this.gamingBridge.setLayerRegions) return;
+        let lastGradeKeys = '';
         const update = () => {
             const regions = [...document.querySelectorAll<HTMLElement>(
                 '.jpdb-reader-word, .jpdb-reader-popover, .overlay-toolbar, .overlay-result, .jpdb-reader-settings-modal')]
                 .map(node => node.getBoundingClientRect()).filter(rect => rect.width > 0 && rect.height > 0)
                 .map(({ left, top, width, height }) => ({ left, top, width, height }));
             void this.gamingBridge.setLayerRegions?.(regions);
+            const gradeKeys = this.gradeButtons().map(button => button.getAttribute('aria-keyshortcuts') ?? '');
+            const keySignature = JSON.stringify(gradeKeys);
+            if (keySignature !== lastGradeKeys) {
+                lastGradeKeys = keySignature;
+                void this.gamingBridge.setLayerShortcuts?.(gradeKeys).then(registered => {
+                    for (const button of this.gradeButtons()) {
+                        if (registered.includes(button.getAttribute('aria-keyshortcuts') ?? '')) continue;
+                        button.removeAttribute('aria-keyshortcuts');
+                        button.removeAttribute('data-grade-key');
+                    }
+                }).catch(() => undefined);
+            }
         };
         // Includes reader popups rendered outside the overlay root. Layout changes occur
         // after annotation, so sample settled geometry rather than a pre-paint mutation.
@@ -1097,10 +1143,8 @@ function ensureOverlayReader(): void {
 }
 
 function overlayReaderSettings(gaming: ReaderSettings): ReaderSettings {
-    // Over a game the cursor moves constantly, so default to click-to-read ("invisible
-    // till clicked"). Hover lookup only turns on if the player set a hold-key modifier in
-    // the gaming onboarding, in which case hover requires that key (never bare hover).
-    const hoverModifier = gaming.shortcuts.hoverLookup.trim();
+    // The capture layer already limits lookup to recognized text: ordinary hover works
+    // without borrowing a browser page-scanning modifier.
     return normalizeReaderSettings({
         ...gaming,
         ocrEnabled: false,
@@ -1109,7 +1153,8 @@ function overlayReaderSettings(gaming: ReaderSettings): ReaderSettings {
         annotationsPaused: false,
         manualScanEnabled: false,
         lookupOnClick: true,
-        lookupOnHover: Boolean(hoverModifier),
+        lookupOnHover: true,
+        shortcuts: { ...gaming.shortcuts, hoverLookup: '' },
         corsProxyUrl: gaming.corsProxyUrl.trim(),
     });
 }

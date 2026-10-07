@@ -1,6 +1,6 @@
 import type { ReaderSettings } from '../../reader/app/types';
 import { normalizeReaderSettings } from '../../reader/settings';
-import { parseReaderSettingsBackup } from '../../reader/settings/file-io';
+import { parseReaderSettingsBackup, READER_SETTINGS_BACKUP_FORMAT, READER_SETTINGS_BACKUP_VERSION } from '../../reader/settings/file-io';
 
 // Yomu Gaming keeps its own copy of the reader settings, so a choice made in the browser —
 // Pass/Fail grading, the Jiten key, colours — never reached the popup over a game: the
@@ -24,19 +24,12 @@ const GAMING_OWNED_SETTINGS = [
  */
 export function gamingSettingsFromBrowserExport(text: string, current: ReaderSettings): ReaderSettings | null {
     const value = parsedJson(text);
-    // Desktop exports restore capture choices too; browser exports deliberately preserve
-    // them because website OCR settings describe a different capture environment.
-    if (value && typeof value === 'object' && !Array.isArray(value)) {
-        const record = value as Record<string, unknown>;
-        if (record.formatName === 'yomu-desktop-settings' && record.formatVersion === 1
-            && record.settings && typeof record.settings === 'object' && !Array.isArray(record.settings)) {
-            return normalizeReaderSettings({ ...current, ...record.settings });
-        }
-    }
     const backup = parseReaderSettingsBackup(value);
     if (!backup) return null;
     const imported = backup.settings as Partial<ReaderSettings>;
-    const owned = Object.fromEntries(GAMING_OWNED_SETTINGS.map(key => [key, current[key]])) as Partial<ReaderSettings>;
+    const desktop = value && typeof value === 'object' && !Array.isArray(value)
+        && Object.hasOwn(value, 'desktop');
+    const owned = desktop ? {} : Object.fromEntries(GAMING_OWNED_SETTINGS.map(key => [key, current[key]])) as Partial<ReaderSettings>;
     return normalizeReaderSettings({
         ...current,
         ...imported,
@@ -54,7 +47,18 @@ function parsedJson(text: string): unknown {
 }
 
 /** A portable desktop backup; the existing browser export remains accepted by Import. */
-export function desktopSettingsExport(settings: ReaderSettings): string {
-    return JSON.stringify({ formatName: 'yomu-desktop-settings', formatVersion: 1,
-        exportedAt: new Date().toISOString(), settings }, null, 2);
+export function desktopSettingsExport(settings: ReaderSettings, captureShortcut?: string): string {
+    return JSON.stringify({ formatName: READER_SETTINGS_BACKUP_FORMAT, formatVersion: READER_SETTINGS_BACKUP_VERSION,
+        exportedAt: new Date().toISOString(), settings, desktop: captureShortcut ? { captureShortcut } : {} }, null, 2);
+}
+
+/** Browser exports and older desktop files never change the native capture shortcut. */
+export function desktopCaptureShortcutFromExport(text: string): string | null {
+    const value = parsedJson(text);
+    if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+    const record = value as Record<string, unknown>;
+    const metadata = parseReaderSettingsBackup(value) ? record.desktop : null;
+    if (!metadata || typeof metadata !== 'object' || Array.isArray(metadata)) return null;
+    const shortcut = (metadata as Record<string, unknown>).captureShortcut;
+    return typeof shortcut === 'string' && shortcut.trim() ? shortcut.trim() : null;
 }
