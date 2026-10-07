@@ -438,7 +438,10 @@ function publicJitenCardFromDetail(payload: unknown, requestedTerm: string, fall
     if (!isRecord(payload)) return null;
     const wordId = finiteInteger(payload.wordId) ?? fallback.wordId;
     const mainReading = isRecord(payload.mainReading) ? payload.mainReading : {};
-    const annotatedReading = stringValue(mainReading.text) || requestedTerm;
+    // A missing lexical form is not evidence for the requested spelling or
+    // reading. Leave the sparse card unresolved instead of inventing either.
+    const annotatedReading = stringValue(mainReading.text).trim();
+    if (!annotatedReading) return null;
     const spelling = cleanAnnotatedJitenText(annotatedReading) || requestedTerm;
     const reading = cleanJitenAnnotatedReading(annotatedReading) || spelling;
     const pitchComponents = publicJitenPitchComponents(payload.composedOf);

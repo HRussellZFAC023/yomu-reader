@@ -1,0 +1,226 @@
+{
+  "source": "https://api.jiten.moe/api/vocabulary/",
+  "observed": "2026-10-07",
+  "note": "Observed parse/id/reading/POS metadata; definitions and unrelated detail fields omitted.",
+  "requests": {
+    "https://api.jiten.moe/api/vocabulary/parse?text=%E3%81%9D%E3%81%99%E3%82%8B%E3%80%82%E3%81%AA%E3%81%86%E3%80%82%E3%81%9D%E3%81%97%E3%81%A4%E3%80%82%E3%81%AA%E3%81%A4%E3%80%82%E3%81%9D%E3%81%97%E3%82%8B%E3%80%82%E3%81%AA%E3%82%8B": [
+      {
+        "wordId": 0,
+        "originalText": "そ",
+        "readingIndex": 0,
+        "conjugations": []
+      },
+      {
+        "wordId": 1157170,
+        "originalText": "する",
+        "readingIndex": 1,
+        "conjugations": []
+      },
+      {
+        "wordId": 0,
+        "originalText": "。",
+        "readingIndex": 0,
+        "conjugations": []
+      },
+      {
+        "wordId": 1089950,
+        "originalText": "なう",
+        "readingIndex": 1,
+        "conjugations": []
+      },
+      {
+        "wordId": 0,
+        "originalText": "。そ",
+        "readingIndex": 0,
+        "conjugations": []
+      },
+      {
+        "wordId": 1320640,
+        "originalText": "しつ",
+        "readingIndex": 1,
+        "conjugations": []
+      },
+      {
+        "wordId": 0,
+        "originalText": "。",
+        "readingIndex": 0,
+        "conjugations": []
+      },
+      {
+        "wordId": 1191320,
+        "originalText": "なつ",
+        "readingIndex": 1,
+        "conjugations": []
+      },
+      {
+        "wordId": 0,
+        "originalText": "。",
+        "readingIndex": 0,
+        "conjugations": []
+      },
+      {
+        "wordId": 1634550,
+        "originalText": "そしる",
+        "readingIndex": 3,
+        "conjugations": []
+      },
+      {
+        "wordId": 0,
+        "originalText": "。",
+        "readingIndex": 0,
+        "conjugations": []
+      },
+      {
+        "wordId": 1375610,
+        "originalText": "なる",
+        "readingIndex": 2,
+        "conjugations": []
+      }
+    ],
+    "https://api.jiten.moe/api/vocabulary/1157170/1/info": {
+      "wordId": 1157170,
+      "mainReading": {
+        "text": "する",
+        "readingIndex": 1,
+        "frequencyRank": 10
+      },
+      "partsOfSpeech": [
+        "vs-i",
+        "uk",
+        "vi",
+        "vt",
+        "suf",
+        "aux-v"
+      ],
+      "definitions": [],
+      "pitchAccents": [
+        0
+      ]
+    },
+    "https://api.jiten.moe/api/vocabulary/1089950/1/info": {
+      "wordId": 1089950,
+      "mainReading": {
+        "text": "なう",
+        "readingIndex": 1,
+        "frequencyRank": 35082
+      },
+      "partsOfSpeech": [
+        "adj-na",
+        "suf",
+        "net-sl"
+      ],
+      "definitions": [],
+      "pitchAccents": [
+        1
+      ]
+    },
+    "https://api.jiten.moe/api/vocabulary/parse?text=%E3%81%9D%E3%81%97%E3%81%A6%E3%80%82%E3%81%AA%E3%81%A3%E3%81%A6%E3%81%84%E3%82%8B%E3%80%82%E3%81%9D%E3%81%99%E3%82%8B%E3%80%82%E3%81%AA%E3%81%86%E3%80%82%E3%81%9D%E3%81%97%E3%81%A4%E3%80%82%E3%81%AA%E3%81%A4": [
+      {
+        "wordId": 1006730,
+        "originalText": "そして",
+        "readingIndex": 2,
+        "conjugations": []
+      },
+      {
+        "wordId": 0,
+        "originalText": "。",
+        "readingIndex": 0,
+        "conjugations": []
+      },
+      {
+        "wordId": 1375610,
+        "originalText": "なっている",
+        "readingIndex": 2,
+        "conjugations": [
+          "teiru",
+          "",
+          "(te form)",
+          "(unstressed infinitive)"
+        ]
+      },
+      {
+        "wordId": 0,
+        "originalText": "。そ",
+        "readingIndex": 0,
+        "conjugations": []
+      },
+      {
+        "wordId": 1157170,
+        "originalText": "する",
+        "readingIndex": 1,
+        "conjugations": []
+      },
+      {
+        "wordId": 0,
+        "originalText": "。",
+        "readingIndex": 0,
+        "conjugations": []
+      },
+      {
+        "wordId": 1089950,
+        "originalText": "なう",
+        "readingIndex": 1,
+        "conjugations": []
+      },
+      {
+        "wordId": 0,
+        "originalText": "。そ",
+        "readingIndex": 0,
+        "conjugations": []
+      },
+      {
+        "wordId": 1320640,
+        "originalText": "しつ",
+        "readingIndex": 1,
+        "conjugations": []
+      },
+      {
+        "wordId": 0,
+        "originalText": "。",
+        "readingIndex": 0,
+        "conjugations": []
+      },
+      {
+        "wordId": 1191320,
+        "originalText": "なつ",
+        "readingIndex": 1,
+        "conjugations": []
+      }
+    ],
+    "https://api.jiten.moe/api/vocabulary/1006730/2/info": {
+      "wordId": 1006730,
+      "mainReading": {
+        "text": "そして",
+        "readingIndex": 2,
+        "frequencyRank": 135
+      },
+      "partsOfSpeech": [
+        "conj",
+        "uk"
+      ],
+      "definitions": [],
+      "pitchAccents": [
+        2
+      ]
+    },
+    "https://api.jiten.moe/api/vocabulary/1375610/2/info": {
+      "wordId": 1375610,
+      "mainReading": {
+        "text": "なる",
+        "readingIndex": 2,
+        "frequencyRank": 19
+      },
+      "partsOfSpeech": [
+        "v5r",
+        "vi",
+        "uk",
+        "aux-v",
+        "hon"
+      ],
+      "definitions": [],
+      "pitchAccents": [
+        1
+      ]
+    }
+  }
+}

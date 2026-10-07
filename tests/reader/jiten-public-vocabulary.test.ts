@@ -34,6 +34,13 @@ describe('JitenPublicVocabularyClient', () => {
         localStorage.removeItem('yomu:jiten-public-cache:v2');
     });
 
+    it('does not invent a lexical form when detail metadata is missing', async () => {
+        const client = new JitenPublicVocabularyClient({ requestJsonImpl: async url => url.includes('/parse?')
+            ? [{ wordId: 1006730, readingIndex: 2, originalText: 'そして' }]
+            : { wordId: 1006730, mainReading: {}, partsOfSpeech: ['conj'] } });
+        await expect(client.lookup('そして')).resolves.toBeNull();
+    });
+
     it('hydrates keyless vocabulary details with reading and pitch accents', async () => {
         const requestJson = vi.fn(async (url: string) => {
             if (url.includes('/vocabulary/parse?')) {

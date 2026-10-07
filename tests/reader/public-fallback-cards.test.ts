@@ -1,8 +1,11 @@
 import { describe, expect, it, vi } from 'vitest';
 
 import type { JPDBCard, JPDBToken } from '../../src/reader/app/types';
+import observedPublicFallback from './fixtures/public-jiten-fallback-20261007.json';
+import { JitenPublicVocabularyClient, resetJitenPublicVocabularyBackoffForTests } from '../../src/reader/dictionaries/jiten-public-vocabulary';
+import { ensureManagedWebStorageCurrent } from '../../src/reader/app/storage';
 import { cardKey } from '../../src/reader/cards/utils';
-import { fallbackLookupTermsForCard } from '../../src/reader/lookup/japanese-segments';
+import { bareFallbackCardFromText, fallbackLookupTermsForCard } from '../../src/reader/lookup/japanese-segments';
 import {
     batchJitenFallbackCards,
     normalizedJitenLookupKey,
@@ -52,6 +55,52 @@ function noPublicSweep(): (term: string) => Promise<JPDBCard | undefined> {
 }
 
 describe('publicLookupFallbackCards', () => {
+    it('replays observed public responses without replacing そして or なっている with guessed lemmas', async () => {
+        resetJitenPublicVocabularyBackoffForTests();
+        localStorage.removeItem('yomu:jiten-public-cache:v2');
+        await ensureManagedWebStorageCurrent();
+        const requests: string[] = [];
+        const client = new JitenPublicVocabularyClient({ requestJsonImpl: async url => {
+            requests.push(url);
+            const body = (observedPublicFallback.requests as Record<string, unknown>)[url];
+            if (!body) throw new Error(`Unrecorded public request: ${url}`);
+            return body;
+        } });
+        const cards = ['そして', 'なっている'].map(text => bareFallbackCardFromText(text, 'ja'));
+        const result = await publicLookupFallbackCards(cards, keylessDeps({ lookupMany: (terms, options) => client.lookupMany(terms, options) }), { concurrency: 2, termLimit: 3, detailLimit: count => count, jpdbPublicLookup: false });
+        expect(result.get(cardKey(cards[0]))).toMatchObject({ spelling: 'そして', reading: 'そして', jitenWordId: 1006730, partOfSpeech: ['conj', 'uk'] });
+        expect(result.get(cardKey(cards[1]))).toMatchObject({ spelling: 'なる', reading: 'なる', jitenWordId: 1375610 });
+        expect(requests.filter(url => url.endsWith('/info'))).toHaveLength(2);
+        expect(requests.every(url => Object.hasOwn(observedPublicFallback.requests, url))).toBe(true);
+        localStorage.removeItem('yomu:jiten-public-cache:v2');
+        await ensureManagedWebStorageCurrent();
+    });
+
+    it('prefers source analyses over speculative lemmas with incompatible POS', async () => {
+        // Real public Jiten facts observed 2026-10-07: 1006730/2 is the
+        // conjunction そして; 1375610/2 is なる (v5r); 1089950/1 なう is
+        // Internet slang, not a verb that can produce なっている.
+        const cards = ['そして', 'なっている'].map(text => bareFallbackCardFromText(text, 'ja'));
+        const conjunction = jitenCard({ vid: 1006730, spelling: 'そして', reading: 'そして', partOfSpeech: ['conj'] });
+        const become = jitenCard({ vid: 1375610, spelling: 'なる', reading: 'なる', partOfSpeech: ['v5r', 'vi'] });
+        const slang = jitenCard({ vid: 1089950, spelling: 'なう', reading: 'なう', partOfSpeech: ['exp', 'sl'] });
+        const lookupMany = vi.fn(async (terms: string[]) => new Map(terms.flatMap(term => {
+            const card = new Map([['そして', conjunction], ['なっている', become], ['なう', slang]]).get(term);
+            return card ? [[term, card] as const] : [];
+        })));
+        const result = await publicLookupFallbackCards(cards, keylessDeps({ lookupMany }), { concurrency: 2, termLimit: 3, jpdbPublicLookup: false });
+        expect(lookupMany.mock.calls[0][0].slice(0, 2)).toEqual(['そして', 'なっている']);
+        expect(result.get(cardKey(cards[0]))).toBe(conjunction);
+        expect(result.get(cardKey(cards[1]))).toBe(become);
+    });
+
+    it('leaves uncertain inflections unresolved when only a homographic non-verb answers', async () => {
+        const card = bareFallbackCardFromText('なっている', 'ja');
+        const slang = jitenCard({ vid: 1089950, spelling: 'なう', reading: 'なう', partOfSpeech: ['exp'] });
+        const result = await publicLookupFallbackCards([card], keylessDeps({ lookupMany: async () => new Map([['なう', slang]]) }), { concurrency: 2, jpdbPublicLookup: false });
+        expect(result.size).toBe(0);
+    });
+
     it('routes keyed users through ONE batched parse and never touches the public jiten lookup', async () => {
         const spellings = ['青空', '読む', '会話'];
         const cards = spellings.map((spelling, index) => fallbackCard({ vid: -(index + 1), sid: -(index + 1), spelling }));
@@ -127,10 +176,10 @@ describe('publicLookupFallbackCards', () => {
         });
         const sky = fallbackCard({ vid: -2, sid: -2, spelling: '青空' });
         const badmouth = fallbackCard({ vid: -3, sid: -3, spelling: '悪口' });
-        const inflectedTerms = fallbackLookupTermsForCard(inflected);
+        const inflectedTerms = ['食べました', '食う', '食べる'];
         expect(inflectedTerms).toHaveLength(3);
         const resolved = new Map<string, JPDBCard>([
-            [inflectedTerms[0], jitenCard({ vid: 100, spelling: inflectedTerms[0], reading: 'たべる' })],
+            [inflectedTerms[0], jitenCard({ vid: 100, spelling: '食べる', reading: 'たべる' })],
             ['青空', jitenCard({ vid: 101, spelling: '青空', reading: 'あおぞら' })],
             ['悪口', jitenCard({ vid: 102, spelling: '悪口', reading: 'わるぐち' })],
         ]);
@@ -178,7 +227,7 @@ describe('publicLookupFallbackCards', () => {
             // Jiten parses the whole inflected surface, then its detail endpoint
             // returns the dictionary card. The lemma is a validated fallback
             // candidate, but is later than the three-term subtitle lookup cap.
-            ['言いたくない', jitenCard({ vid: 1587040, spelling: '言う', reading: 'いう' })],
+            ['言いたくない', jitenCard({ vid: 1587040, spelling: '言う', reading: 'いう', partOfSpeech: ['v5u'] })],
         ]);
         const lookupMany = vi.fn(async (terms: string[], options?: { detailLimit?: number }) => new Map(
             terms.slice(0, options?.detailLimit).flatMap(term => {
@@ -212,7 +261,7 @@ describe('publicLookupFallbackCards', () => {
         const listening = fallbackCard({ vid: -2, sid: -2, spelling: '聞き', fallbackLookupTerms: ['聞く'] });
         const movementNoun = jitenCard({ vid: 10, spelling: '動き', reading: 'うごき' });
         const movementVerb = jitenCard({ vid: 11, spelling: '動く', reading: 'うごく' });
-        const listeningVerb = jitenCard({ vid: 12, spelling: '聞く', reading: 'きく' });
+        const listeningVerb = jitenCard({ vid: 12, spelling: '聞く', reading: 'きく', partOfSpeech: ['v5k'] });
         const lookupMany = vi.fn(async (terms: string[]) => new Map<string, JPDBCard>(terms.flatMap(term => {
             if (term === '動き') return [[term, movementNoun]];
             if (term === '動く') return [[term, movementVerb]];
@@ -235,24 +284,24 @@ describe('publicLookupFallbackCards', () => {
         const card = fallbackCard({
             vid: -1,
             sid: -1,
-            spelling: '対象',
-            fallbackLookupTerms: ['先候補', '本命'],
+            spelling: 'なっている',
+            fallbackLookupTerms: ['なつ', 'なる'],
         });
         const inferredFromEarlierCandidate = jitenCard({
             vid: 10,
-            spelling: '本命',
-            reading: 'ほんめい',
+            spelling: 'なる',
+            reading: 'なる', partOfSpeech: ['v5r'],
             meanings: [{ glosses: ['inferred'], partOfSpeech: [] }],
         });
         const exactLaterCandidate = jitenCard({
             vid: 11,
-            spelling: '本命',
-            reading: 'ほんめい',
+            spelling: 'なる',
+            reading: 'なる', partOfSpeech: ['v5r'],
             meanings: [{ glosses: ['exact'], partOfSpeech: [] }],
         });
         const lookupMany = vi.fn(async () => new Map<string, JPDBCard>([
-            ['先候補', inferredFromEarlierCandidate],
-            ['本命', exactLaterCandidate],
+            ['なつ', inferredFromEarlierCandidate],
+            ['なる', exactLaterCandidate],
         ]));
 
         const result = await publicLookupFallbackCards(
@@ -261,7 +310,7 @@ describe('publicLookupFallbackCards', () => {
             { concurrency: 2, termLimit: 3, jpdbPublicLookup: false },
         );
 
-        expect(lookupMany).toHaveBeenCalledWith(['先候補', '本命', '対象'], undefined);
+        expect(lookupMany).toHaveBeenCalledWith(['なっている', 'なつ', 'なる'], undefined);
         expect(result.get(cardKey(card))).toBe(exactLaterCandidate);
     });
 
@@ -330,21 +379,21 @@ describe('publicLookupFallbackCards', () => {
 
         await publicLookupFallbackCards([card], keylessDeps({ lookupMany, publicSpellingCard }), { concurrency: 2, termLimit: 1 });
 
-        expect(lookupMany).toHaveBeenCalledWith([allTerms[0]], undefined);
+        expect(lookupMany).toHaveBeenCalledWith([card.spelling], undefined);
         expect(publicSpellingCard).toHaveBeenCalledTimes(1);
         expect(publicSpellingCard).toHaveBeenCalledWith(allTerms[0]);
     });
 
-    it('keeps both ながら lemma candidates when background lookup is capped to one term', async () => {
+    it('uses the provider analysis of ながら without widening the background term budget', async () => {
         const card = fallbackCard({
             vid: -1,
             sid: -1,
             spelling: '聞きながら',
             fallbackLookupTerms: ['聞きる', '聞く'],
         });
-        const listeningVerb = jitenCard({ vid: 12, spelling: '聞く', reading: 'きく' });
+        const listeningVerb = jitenCard({ vid: 12, spelling: '聞く', reading: 'きく', partOfSpeech: ['v5k'] });
         const lookupMany = vi.fn(async (terms: string[]) => new Map(
-            terms.includes('聞く') ? [['聞く', listeningVerb]] : [],
+            terms.includes('聞きながら') ? [['聞きながら', listeningVerb]] : [],
         ));
 
         const result = await publicLookupFallbackCards(
@@ -353,7 +402,7 @@ describe('publicLookupFallbackCards', () => {
             { concurrency: 2, termLimit: 1, jpdbPublicLookup: false },
         );
 
-        expect(lookupMany).toHaveBeenCalledWith(['聞きる', '聞く'], undefined);
+        expect(lookupMany).toHaveBeenCalledWith(['聞きながら', '聞きる'], undefined);
         expect(result.get(cardKey(card))).toBe(listeningVerb);
     });
 
