@@ -47,12 +47,37 @@ function jitenFallbackCardMatchesTerm(term: string, card: JPDBCard): boolean {
         || normalizedJitenLookupKey(card.reading) === normalizedTerm;
 }
 
+// Jiten details carry JMdict codes (v5r, exp), but JPDB's public pages render
+// prose labels ("Godan verb", "Verb (する)"). Translate the prose conjugation
+// classes so both sources face the same POS check; a prose verb label with no
+// recognised class is conjugable-but-unclassified, not proof of a mismatch.
+const JMDICT_CODE_RE = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+const PROSE_VERB_RE = /\bverb|動詞/i;
+const PROSE_CONJUGATION_RULES: ReadonlyArray<readonly [RegExp, string]> = [
+    [/godan/i, 'v5'],
+    [/ichidan/i, 'v1'],
+    [/\bsuru\b|する/i, 'vs'],
+    [/\bkuru\b|来る/i, 'vk'],
+    [/\bi-adjective|形容詞/i, 'adj-i'],
+];
+
+function cardConjugationRules(card: JPDBCard): { rules: string; classUnknown: boolean } {
+    const labels = [...card.partOfSpeech, ...card.meanings.flatMap(meaning => meaning.partOfSpeech)];
+    const codes = labels.filter(label => JMDICT_CODE_RE.test(label));
+    const prose = labels.filter(label => !JMDICT_CODE_RE.test(label));
+    const translated = prose.flatMap(label => PROSE_CONJUGATION_RULES
+        .filter(([pattern]) => pattern.test(label))
+        .map(([, rule]) => rule));
+    const rules = [...codes, ...translated];
+    return { rules: rules.join(' '), classUnknown: !rules.length && prose.some(label => PROSE_VERB_RE.test(label)) };
+}
+
 function cardCanAnalyzeSurface(surface: string, card: JPDBCard): boolean {
     if (jitenFallbackCardMatchesTerm(surface, card)) return true;
-    const rules = [...card.partOfSpeech, ...card.meanings.flatMap(meaning => meaning.partOfSpeech)].join(' ');
+    const { rules, classUnknown } = cardConjugationRules(card);
     return deinflectJapaneseTerm(surface).some(candidate => candidate.depth > 0
         && jitenFallbackCardMatchesTerm(candidate.term, card)
-        && termRulesMatch(rules, candidate.rules));
+        && (classUnknown || termRulesMatch(rules, candidate.rules)));
 }
 
 function uniqueFallbackLookupEntries(cards: readonly JPDBCard[], termLimit?: number): FallbackLookupEntry[] {

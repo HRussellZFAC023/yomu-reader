@@ -358,6 +358,26 @@ describe('publicLookupFallbackCards', () => {
         expect(publicSpellingCard).not.toHaveBeenCalledWith('青空');
     });
 
+    it('validates public JPDB lemmas whose POS is prose rather than JMdict codes', async () => {
+        // jpdb.io pages render labels such as "Godan verb" / "Verb (する)"
+        // (see the 07-source-drag-proxy HTML fixture); Jiten sends v5m.
+        const missed = fallbackCard({ vid: -3, sid: -3, spelling: '読みました', fallbackLookupTerms: ['読む'] });
+        const sweep = async (partOfSpeech: string[]) => publicLookupFallbackCards([missed], keylessDeps({
+            publicSpellingCard: async term => term === '読む'
+                ? jitenCard({ vid: 1556420, spelling: '読む', reading: 'よむ', source: 'jpdb', partOfSpeech })
+                : undefined,
+        }), { concurrency: 1 });
+
+        expect((await sweep(['Godan verb', 'Transitive verb'])).get(cardKey(missed))?.vid).toBe(1556420);
+        expect((await sweep(["Godan verb with 'mu' ending"])).get(cardKey(missed))?.vid).toBe(1556420);
+        expect((await sweep(['Transitive verb'])).get(cardKey(missed))?.vid).toBe(1556420);
+        // A recognised but contradicting class, or a non-verb, is still rejected.
+        expect((await sweep(['Ichidan verb'])).size).toBe(0);
+        expect((await sweep(['v1'])).size).toBe(0);
+        expect((await sweep(['Noun'])).size).toBe(0);
+        expect((await sweep(['Adverb'])).size).toBe(0);
+    });
+
     it('skips the public sweep entirely when jpdbPublicLookup is false', async () => {
         const card = fallbackCard({ vid: -1, sid: -1, spelling: '会話' });
         const lookupMany = vi.fn(async () => new Map<string, JPDBCard>());
