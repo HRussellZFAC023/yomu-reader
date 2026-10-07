@@ -5,6 +5,7 @@ import { PreparedBatchActions } from './prepared-batch-actions';
 import { findWordsOnService } from './grading-service-word';
 import { retireGradeKeyHints } from './grade-key-hints';
 import { Logger } from '../app/logger';
+import type { CardActionControl } from './action-operation';
 import { normalizeCardStates } from './state';
 import { readerWordSurfaceText } from '../dom/index';
 import { JpdbClient } from '../jpdb/jpdb';
@@ -130,8 +131,10 @@ export class CardActionController {
         });
     }
 
-    async perform(command: CardCommandCapability | undefined, button: HTMLButtonElement, card: JPDBCard, sentence?: string, context: CardActionContext = {}): Promise<boolean> {
-        const studyAction = this.performStudyAction(command, button, sentence);
+    async perform(command: CardCommandCapability | undefined, control: CardActionControl, card: JPDBCard, sentence?: string, context: CardActionContext = {}): Promise<boolean> {
+        // Only a button carries the study, merge and grade actions; the deck dropdown only adds.
+        const button = control.localName === 'button' ? control as HTMLButtonElement : null;
+        const studyAction = button ? this.performStudyAction(command, button, sentence) : undefined;
         if (studyAction !== undefined) return await studyAction;
 
         const readerAction = this.performReaderAction(cardCommandAction(command), card);
@@ -279,7 +282,7 @@ export class CardActionController {
         return false;
     }
 
-    private async performMiningAction(command: CardCommandCapability | undefined, button: HTMLButtonElement, card: JPDBCard, sentence: string | undefined, context: CardActionContext): Promise<boolean | undefined> {
+    private async performMiningAction(command: CardCommandCapability | undefined, button: HTMLButtonElement | null, card: JPDBCard, sentence: string | undefined, context: CardActionContext): Promise<boolean | undefined> {
         if (!command) return undefined;
         if (command.action === 'grade-provider-toggle') {
             await this.toggleGradingProvider(card, sentence);
@@ -290,13 +293,13 @@ export class CardActionController {
         return this.performApiDeckStateAction(command.action, card);
     }
 
-    private miningActionHandler(command: CardCommandCapability, button: HTMLButtonElement, card: JPDBCard, sentence: string | undefined, context: CardActionContext): MiningActionHandler | undefined {
-        const handlers: Record<string, MiningActionHandler> = {
+    private miningActionHandler(command: CardCommandCapability, button: HTMLButtonElement | null, card: JPDBCard, sentence: string | undefined, context: CardActionContext): MiningActionHandler | undefined {
+        const handlers: Record<string, MiningActionHandler | undefined> = {
             add: () => this.collect(context, collectContext => this.addToSelectedDeck(command, card, sentence, collectContext)),
             anki: () => this.addToAnki(card, sentence, undefined, context),
             'anki-edit': () => this.openAnkiNote(command),
-            'anki-merge': () => this.mergeExistingAnkiCard(command, button, card, sentence, context),
-            grade: () => this.gradeCard(command, button, card, sentence),
+            'anki-merge': button ? () => this.mergeExistingAnkiCard(command, button, card, sentence, context) : undefined,
+            grade: button ? () => this.gradeCard(command, button, card, sentence) : undefined,
         };
         return handlers[command.action];
     }

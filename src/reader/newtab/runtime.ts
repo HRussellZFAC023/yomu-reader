@@ -8,7 +8,7 @@ import { newTabAnkiClient } from '../anki/new-tab';
 import { runLimited } from '../core/async-utils';
 import { copyText, positionPopover } from '../ui/browser';
 import { CardActionController } from '../cards/action-controller';
-import { refreshAfterCardAction, runCardActionOperation } from '../cards/action-operation';
+import { refreshAfterCardAction, runCardActionOperation, type CardActionControl } from '../cards/action-operation';
 import { CardPopoverRenderer, togglePopoverReviewTargetSelection, updatePopoverReviewTargetSelection, type PopoverReviewControls } from '../cards/popover-renderer';
 import { CardRenderDataLoader, loadingCardRenderData, type CardRenderData, type CardRenderDataLoad } from '../cards/render-data';
 import { highlightCardTargetScopes } from '../cards/highlight';
@@ -72,7 +72,7 @@ import {
     type MiningContext,
 } from '../study/mining-context';
 import {
-    openDeckPickerForCardAdd,
+    mountDeckSelects,
     setMiningControlsExpanded as setMiningControlsExpandedState,
     toggleMiningControls as toggleMiningControlsState,
 } from '../study/mining-controls';
@@ -1004,6 +1004,7 @@ export class NewTabRuntime {
         data: CardRenderData & { loading: boolean },
     ): void {
         setInnerHtml(popover, this.lookupPopoverRenderer.render(card, sentence, 'modal', data));
+        mountDeckSelects(popover, card, sentence, (control, actionCard, actionSentence, command) => this.handleCardAction(control, actionCard, actionSentence, undefined, command));
         this.wanikaniSources.installDefinitionMounts(popover, card);
         this.refreshNewTabLookupHeader(popover, card, data);
     }
@@ -1606,15 +1607,14 @@ export class NewTabRuntime {
         }
         dispatchPrivateCommand(button, {
             'kanji-lookup': command => { void this.showKanjiLookupCard(card, command.kanji, sentence, button, { reuseActivePopover: true }); },
-            'card-ui': command => this.handleLookupCardUiCommand(button, command.action, card, sentence),
+            'card-ui': command => this.handleLookupCardUiCommand(button, command.action),
             'card-action': command => this.handleLookupCardCommand(button, command, card, sentence, anchor),
         });
     }
 
-    private handleLookupCardUiCommand(button: HTMLButtonElement, action: 'deck-picker' | 'mining-collapse' | 'review-target-toggle', card: JPDBCard, sentence: string | undefined): void {
+    private handleLookupCardUiCommand(button: HTMLButtonElement, action: 'deck-picker' | 'mining-collapse' | 'review-target-toggle'): void {
         if (action === 'mining-collapse') return this.toggleMiningControls(button);
-        if (action === 'review-target-toggle') return togglePopoverReviewTargetSelection(button);
-        this.openDeckPickerForAdd(button, card, sentence);
+        if (action === 'review-target-toggle') togglePopoverReviewTargetSelection(button);
     }
 
     private handleLookupCardCommand(button: HTMLButtonElement, command: CardCommandCapability, card: JPDBCard, sentence: string | undefined, anchor?: HTMLElement): void {
@@ -1719,13 +1719,7 @@ export class NewTabRuntime {
         return this.text(expanded ? 'hideMiningActions' : 'showMiningActions');
     }
 
-    private openDeckPickerForAdd(button: HTMLButtonElement, card: JPDBCard, sentence: string | undefined): boolean {
-        return openDeckPickerForCardAdd(button, card, sentence, async (actionButton, actionCard, actionSentence, command) => {
-            await this.handleCardAction(actionButton, actionCard, actionSentence, undefined, command);
-        });
-    }
-
-    private async handleCardAction(button: HTMLButtonElement, card: JPDBCard, sentence?: string, anchor?: HTMLElement, suppliedCommand?: CardCommandCapability): Promise<void> {
+    private async handleCardAction(button: CardActionControl, card: JPDBCard, sentence?: string, anchor?: HTMLElement, suppliedCommand?: CardCommandCapability): Promise<void> {
         if (button.disabled) return;
         const command = runtimeCardCommand(button, suppliedCommand);
         if (!command) return;
@@ -2234,7 +2228,7 @@ function kanjiLookupActionsClass(hasReviewTargetGutter: boolean): string {
     return hasReviewTargetGutter ? ' jpdb-reader-actions-has-mining jpdb-reader-actions-mining-collapsed' : '';
 }
 
-function runtimeCardCommand(button: HTMLButtonElement, supplied: CardCommandCapability | undefined): CardCommandCapability | undefined {
+function runtimeCardCommand(button: CardActionControl, supplied: CardCommandCapability | undefined): CardCommandCapability | undefined {
     return supplied ?? readCardCommandCapability(button);
 }
 

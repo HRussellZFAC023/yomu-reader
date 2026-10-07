@@ -241,7 +241,8 @@ interface YomuCompanionRegistry {
         handleStudyGrammarAction?: typeof import('../study/render-impl').handleStudyGrammarAction;
         toggleMiningControls?: typeof import('../study/mining-controls-impl').toggleMiningControls;
         setMiningControlsExpanded?: typeof import('../study/mining-controls-impl').setMiningControlsExpanded;
-        openDeckPickerForCardAdd?: typeof import('../study/mining-controls-impl').openDeckPickerForCardAdd;
+        mountDeckSelects?: typeof import('../study/mining-controls-impl').mountDeckSelects;
+        deckSelectInUse?: typeof import('../study/mining-controls-impl').deckSelectInUse;
         preserveMiningControls?: typeof import('../study/mining-controls-impl').preserveMiningControls;
         updateKanjiMiningControlsMount?: typeof import('../kanji/mining-controls-impl').updateKanjiMiningControlsMount;
         normalizeMiningSentence?: NormalizeMiningSentenceFn;

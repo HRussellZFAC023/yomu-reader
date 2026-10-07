@@ -9,13 +9,13 @@ import { runCardActionOperation } from '../../src/reader/cards/action-operation'
 import { userFacingErrorText } from '../../src/reader/app/user-facing-errors';
 import { readCardCommandCapability, readCardUiCommandCapability, type CardCommandCapability } from '../../src/reader/dom/private-command-capabilities';
 import { setInnerHtml } from '../../src/reader/dom';
-import { openDeckPickerForCardAdd } from '../../src/reader/study/mining-controls';
+import { mountDeckSelects } from '../../src/reader/study/mining-controls';
+import { isEditableTarget } from '../../src/reader/ui/browser';
 import { reviewGradeScale } from '../../src/reader/cards/grade-scale';
 import { renderNewTabLookupReviewControls } from '../../src/reader/newtab/lookup-dom';
 import type { NewTabLookupReviewTarget } from '../../src/reader/newtab/review-controls';
 import {
     allowSyntheticReaderInteractionsForTests,
-    dispatchAuthorizedReaderControlClick,
     dispatchAuthorizedReaderControlEvent,
     installTrustedReaderRootBoundary,
 } from '../../src/reader/ui/trusted-interaction';
@@ -32,6 +32,8 @@ import type { JPDBCard, ReaderSettings } from './jpdb/fixtures';
 import { NewTabRuntime, newTabLookupRenderData, newTabTestCard, setupNewTabLookupRuntime } from './new-tab-review/fixtures';
 
 const SENTENCE = '毎日ご飯を食べる。';
+// "Add to deck…": one dropdown, mounted into this placeholder after a render.
+const DECK_SELECT = '.jpdb-reader-deck-select';
 const WORD: JPDBCard = { ...card, meanings: [{ glosses: ['to eat'], partOfSpeech: ['v1'] }] };
 // What kanji.css hides while the actions are .jpdb-reader-actions-mining-collapsed.
 const COLLAPSED_DRAWER = '.jpdb-reader-mining-panel, .jpdb-reader-mining-details';
@@ -73,7 +75,7 @@ beforeEach(() => {
     const attach = Element.prototype.attachShadow;
     vi.spyOn(Element.prototype, 'attachShadow').mockImplementation(function (this: Element, init) {
         const root = attach.call(this, init);
-        if (this.classList.contains('jpdb-reader-deck-picker')) pickerRoot = root;
+        if (this.classList.contains('jpdb-reader-deck-select')) pickerRoot = root;
         return root;
     });
 });
@@ -85,6 +87,11 @@ function choices(button: Element) {
 function chosenCommand(button: Element): CardCommandCapability {
     const choice = choices(button)[0]!;
     return { kind: 'card-action', action: 'add', deckSource: choice.source, deckId: choice.id };
+}
+// The dropdown a learner operates for this placeholder.
+function dropdown(host: Element): HTMLSelectElement {
+    mountDeckSelects(host.parentElement!, WORD, SENTENCE, () => undefined);
+    return picker();
 }
 function picker(): HTMLSelectElement {
     return pickerRoot!.querySelector('select')!;
@@ -103,7 +110,7 @@ function expectCollectActionInOverflow(actions: HTMLElement, collect: HTMLElemen
 describe('popup collect action', () => {
     it('puts the dictionary-only save in the overflow without grades or account data in the page DOM', () => {
         const actions = renderActions(KEYLESS, ORDINARY_PAGE);
-        const collect = actions.querySelector<HTMLButtonElement>('[data-action="deck-picker"]')!;
+        const collect = actions.querySelector<HTMLElement>(DECK_SELECT)!;
         expectCollectActionInOverflow(actions, collect);
         expect(actions.querySelector('[data-action="grade"]')).toBeNull();
         expect(actions.querySelector('[data-deck-source], [data-deck-id], select')).toBeNull();
@@ -114,29 +121,44 @@ describe('popup collect action', () => {
         const actions = renderActions({ interfaceLanguage: 'en', apiKey: 'jpdb-key', jpdbMiningEnabled: true, ankiEnabled: true, enableReviews: true }, {}, emptyCardRenderData({
             ankiLookup: testAnkiLookup({ state: 'not-in-deck', notes: [], primary: null }),
         }));
-        expectCollectActionInOverflow(actions, actions.querySelector('[data-action="deck-picker"]')!);
+        expectCollectActionInOverflow(actions, actions.querySelector(DECK_SELECT)!);
         for (const action of ['neverforget', 'blacklist', 'anki']) {
             expect(actions.querySelector(`[data-action="${action}"]`)?.closest('.jpdb-reader-mining-panel')).not.toBeNull();
         }
     });
 
-    it('opens a private picker beside the button and offers only enabled destinations', () => {
+    it('is one private dropdown of only the enabled destinations, and saves only when a deck is chosen', () => {
         const actions = renderActions({ interfaceLanguage: 'en', apiKey: 'jpdb-key', jpdbMiningEnabled: false, yomuLocalSrsEnabled: true, ankiEnabled: true, enableReviews: true });
-        const collect = actions.querySelector<HTMLButtonElement>('[data-action="deck-picker"]')!;
+        const collect = actions.querySelector<HTMLElement>(DECK_SELECT)!;
         expect(choices(collect).map(choice => choice.source)).toEqual(['anki', 'yomu-local']);
         const perform = vi.fn();
-        expect(openDeckPickerForCardAdd(collect, WORD, SENTENCE, perform)).toBe(true);
-        expect(actions.querySelector('.jpdb-reader-deck-picker')?.shadowRoot).toBeNull();
-        expect(pickerRoot?.activeElement).toBe(picker());
-        expect(collect.getAttribute('aria-expanded')).toBe('true');
+        mountDeckSelects(actions, WORD, SENTENCE, perform);
+        // No button opens it and no deck name reaches the page DOM.
+        expect(actions.querySelector('button.add, [aria-haspopup]')).toBeNull();
+        expect(collect.shadowRoot).toBeNull();
+        expect(collect.textContent).toBe('');
+        expect(picker().getAttribute('aria-label')).toBe('Add to deck…');
+        expect([...picker().options].map(option => [option.textContent, option.disabled])).toEqual([
+            ['Add to deck…', true], [expect.stringContaining('Anki'), false], [expect.stringContaining('Academy'), false],
+        ]);
+        expect(picker().selectedIndex).toBe(0);
+        expect(perform).not.toHaveBeenCalled();
+        // Typing a deck's name picks it, so page shortcuts leave those keys alone.
+        expect(isEditableTarget(collect)).toBe(true);
+
         chooseLocalDeck();
-        expect(perform).toHaveBeenCalledWith(collect, WORD, SENTENCE, { kind: 'card-action', action: 'add', deckSource: 'yomu-local', deckId: 'yomu-local' });
-        expect(document.activeElement).toBe(collect);
+        expect(perform).toHaveBeenCalledTimes(1);
+        expect(perform).toHaveBeenCalledWith(picker(), WORD, SENTENCE, { kind: 'card-action', action: 'add', deckSource: 'yomu-local', deckId: 'yomu-local' });
+        // Ready for another choice: the dropdown shows its label again.
+        expect(picker().selectedIndex).toBe(0);
+        // Mounting again (a later render pass) does not stack a second dropdown.
+        mountDeckSelects(actions, WORD, SENTENCE, perform);
+        expect(actions.querySelectorAll(DECK_SELECT)).toHaveLength(1);
     });
 
     it('offers a Bunpro-only learner the save for a JPDB-parsed word and adds it to Bunpro as vocabulary', async () => {
         const actions = renderActions(BUNPRO_ONLY, ORDINARY_PAGE);
-        const collect = actions.querySelector<HTMLButtonElement>('[data-action="deck-picker"]')!;
+        const collect = actions.querySelector<HTMLElement>(DECK_SELECT)!;
         expect(collect).not.toBeNull();
         expect(actions.outerHTML).not.toContain('Bunpro');
 
@@ -155,7 +177,7 @@ describe('popup collect action', () => {
             toast,
         });
 
-        await expect(controller.perform(chosenCommand(collect), collect, { ...WORD }, SENTENCE)).resolves.toBe(true);
+        await expect(controller.perform(chosenCommand(collect), dropdown(collect), { ...WORD }, SENTENCE)).resolves.toBe(true);
 
         const adds = request.mock.calls.filter(([url]) => url.endsWith('/reviews/update_via_action_type'));
         expect(adds).toHaveLength(1);
@@ -169,7 +191,7 @@ describe('popup collect action', () => {
         // JPDB parses the word but JPDB mining is off; the learner opted into Anki
         // and never switched the Yomu deck off.
         const settings = { ...DEFAULT_SETTINGS, interfaceLanguage: 'en' as const, apiKey: 'jpdb-lookup-key', jpdbMiningEnabled: false, ankiEnabled: true, yomuLocalSrsEnabled: true, localDictionariesEnabled: false, audioEnabled: false };
-        const collect = renderActions(settings, ORDINARY_PAGE).querySelector<HTMLButtonElement>('[data-action="deck-picker"]')!;
+        const collect = renderActions(settings, ORDINARY_PAGE).querySelector<HTMLElement>(DECK_SELECT)!;
         const addCard = vi.fn(async () => 1001);
         const mine = vi.fn(async () => ({}));
         const controller = testCardActionController({
@@ -179,7 +201,7 @@ describe('popup collect action', () => {
             resolveMiningContext: async (word, sentence) => ({ term: word.spelling, sentence: sentence ?? '', sourceKind: 'page', sourceTitle: 'Fixture', sourceUrl: 'https://example.test', updatedAt: 0 }),
         });
 
-        await controller.perform(chosenCommand(collect), collect, { ...WORD }, SENTENCE);
+        await controller.perform(chosenCommand(collect), dropdown(collect), { ...WORD }, SENTENCE);
 
         expect(addCard).toHaveBeenCalledTimes(1);
         expect(addCard).toHaveBeenCalledWith(expect.objectContaining({ spelling: '食べる' }), SENTENCE, expect.objectContaining({ deckName: settings.ankiDeck }));
@@ -196,7 +218,7 @@ describe('popup collect action', () => {
             }
             return toast.mock.calls.map(([message]) => String(message));
         };
-        const collect = renderActions(BUNPRO_ONLY, ORDINARY_PAGE).querySelector<HTMLButtonElement>('[data-action="deck-picker"]')!;
+        const collect = renderActions(BUNPRO_ONLY, ORDINARY_PAGE).querySelector<HTMLElement>(DECK_SELECT)!;
         // Bunpro's catalogue has no vocabulary item for this word.
         const request = vi.fn(async (url: string) => url.endsWith('/search/reviewables_v1_1') ? { vocabs: { data: [] } } : { ok: true });
         const bunproOnlyServices = {
@@ -204,20 +226,20 @@ describe('popup collect action', () => {
             srsAdapters: { bunpro: createBunproSrsAdapter(new BunproClient({ getFrontendToken: () => 'bunpro-token', requestImpl: request })) },
         };
         const bunproOnly = testCardActionController(bunproOnlyServices);
-        const notInBunpro = await bunproOnly.perform(chosenCommand(collect), collect, { ...WORD }, SENTENCE).catch((error: unknown) => error);
+        const notInBunpro = await bunproOnly.perform(chosenCommand(collect), dropdown(collect), { ...WORD }, SENTENCE).catch((error: unknown) => error);
         // On an ordinary page the reason names no service; Study says Bunpro has no entry.
         expect(await toasts(notInBunpro)).toEqual([
             'This word was not saved. Try again, or open Study for details.',
             'この単語は保存されませんでした。もう一度お試しいただくか、Studyで詳細を確認してください。',
         ]);
         const onStudy = testCardActionController({ ...bunproOnlyServices, accountDataSurfaceTrusted: () => true });
-        expect(await toasts(await onStudy.perform(chosenCommand(collect), collect, { ...WORD }, SENTENCE).catch((error: unknown) => error)))
+        expect(await toasts(await onStudy.perform(chosenCommand(collect), dropdown(collect), { ...WORD }, SENTENCE).catch((error: unknown) => error)))
             .toEqual(['Bunpro has no entry for this word.', 'この単語はBunproに見つかりませんでした。']);
         expect(request.mock.calls.filter(([url]) => url.endsWith('/reviews/update_via_action_type'))).toHaveLength(0);
 
         // Bunpro was switched off after the popup offered the save.
         const switchedOff = testCardActionController({ getSettings: () => ({ ...DEFAULT_SETTINGS, ...BUNPRO_ONLY, bunproMiningEnabled: false }) });
-        const noDestination = await switchedOff.perform(chosenCommand(collect), collect, { ...WORD }, SENTENCE).catch((error: unknown) => error);
+        const noDestination = await switchedOff.perform(chosenCommand(collect), dropdown(collect), { ...WORD }, SENTENCE).catch((error: unknown) => error);
         expect(await toasts(noDestination)).toEqual([
             'This word was not saved. Try again, or open Study for details.',
             'この単語は保存されませんでした。もう一度お試しいただくか、Studyで詳細を確認してください。',
@@ -245,16 +267,16 @@ describe('popup collect action', () => {
             return { controller, ...services, settings };
         }
 
-        function saveFromOrdinaryPage(grading: 'jpdb' | 'jiten', word: JPDBCard): HTMLButtonElement {
+        function saveFromOrdinaryPage(grading: 'jpdb' | 'jiten', word: JPDBCard): HTMLElement {
             return renderActions({ ...DUAL_KEY, apiGradingProvider: grading }, { ...ORDINARY_PAGE, isJpdbBackedCard }, emptyCardRenderData({ jitenDecks: [{ id: '12', name: 'Mining' }] }), word)
-                .querySelector<HTMLButtonElement>('[data-action="deck-picker"]')!;
+                .querySelector<HTMLElement>(DECK_SELECT)!;
         }
 
         it('saves a JPDB-parsed word to Jiten, the service its grades go to', async () => {
             const collect = saveFromOrdinaryPage('jiten', JPDB_WORD);
             const f = dualKeyController('jiten', { jiten: JITEN_WORD });
 
-            await f.controller.perform(chosenCommand(collect), collect, { ...JPDB_WORD }, SENTENCE);
+            await f.controller.perform(chosenCommand(collect), dropdown(collect), { ...JPDB_WORD }, SENTENCE);
 
             expect(f.jiten.parse.mock.calls).toEqual([[['食べる']]]);
             expect(f.jiten.addToStudyDeck).toHaveBeenCalledTimes(1);
@@ -266,7 +288,7 @@ describe('popup collect action', () => {
             const collect = saveFromOrdinaryPage('jiten', JPDB_WORD);
             const f = dualKeyController('jiten');
 
-            const refused = await f.controller.perform(chosenCommand(collect), collect, { ...JPDB_WORD }, SENTENCE).catch((error: unknown) => error);
+            const refused = await f.controller.perform(chosenCommand(collect), dropdown(collect), { ...JPDB_WORD }, SENTENCE).catch((error: unknown) => error);
 
             expect(userFacingErrorText('en', 'actionFailed', refused)).toBe('Not saved: this word was not found in your preferred grading service.');
             expect(userFacingErrorText('ja', 'actionFailed', refused)).toBe('優先採点サービスでこの単語が見つからなかったため、保存していません。');
@@ -278,7 +300,7 @@ describe('popup collect action', () => {
             const collect = saveFromOrdinaryPage('jpdb', JITEN_WORD);
             const f = dualKeyController('jpdb', { jpdb: JPDB_WORD });
 
-            await f.controller.perform(chosenCommand(collect), collect, { ...JITEN_WORD }, SENTENCE);
+            await f.controller.perform(chosenCommand(collect), dropdown(collect), { ...JITEN_WORD }, SENTENCE);
 
             expect(f.jpdb.parse.mock.calls).toEqual([[['食べる']]]);
             expect(f.jpdb.addToDeck).toHaveBeenCalledWith(DEFAULT_SETTINGS.miningDeck, expect.objectContaining({ vid: 777, source: 'jpdb' }), SENTENCE);
@@ -291,7 +313,7 @@ describe('popup collect action', () => {
                 jitenDecks: [{ id: '12', name: 'Mining' }],
             });
             const offered = (word: JPDBCard): string[] => choices(renderActions({ ...DUAL_KEY, apiGradingProvider: 'jiten' }, { isJpdbBackedCard }, decks, word)
-                .querySelector('[data-action="deck-picker"]')!).map(choice => choice.source);
+                .querySelector(DECK_SELECT)!).map(choice => choice.source);
             const grades = (): string[] => [...document.querySelectorAll<HTMLButtonElement>('.jpdb-reader-actions [data-action="grade"]')]
                 .map(button => readCardCommandCapability(button)?.reviewTarget ?? '');
 
@@ -303,10 +325,10 @@ describe('popup collect action', () => {
             expect(new Set(grades())).toEqual(new Set(['jpdb']));
 
             // The chosen Jiten deck receives the word found on Jiten.
-            const picker = document.querySelector<HTMLButtonElement>('[data-action="deck-picker"]');
-            expect(picker).not.toBeNull();
+            const host = document.querySelector<HTMLElement>(DECK_SELECT);
+            expect(host).not.toBeNull();
             const f = dualKeyController('jiten', { jiten: JITEN_WORD });
-            await f.controller.perform({ kind: 'card-action', action: 'add', deckSource: 'jiten', deckId: '12' }, picker!, { ...JPDB_WORD }, SENTENCE);
+            await f.controller.perform({ kind: 'card-action', action: 'add', deckSource: 'jiten', deckId: '12' }, dropdown(host!), { ...JPDB_WORD }, SENTENCE);
             expect(f.jiten.addToStudyDeck).toHaveBeenCalledWith('12', expect.objectContaining({ jitenWordId: 9001 }), SENTENCE, expect.anything());
             expect(f.jpdb.addToDeck).not.toHaveBeenCalled();
         });
@@ -315,31 +337,31 @@ describe('popup collect action', () => {
     it('offers no save when the only destination cannot take the word', () => {
         const expired = { ...BUNPRO_ONLY, bunproFrontendApiTokenExpiresAt: '2020-01-01T00:00:00Z' };
         renderActions(expired, ORDINARY_PAGE);
-        expect(document.querySelector('[data-action="deck-picker"]')).toBeNull();
+        expect(document.querySelector(DECK_SELECT)).toBeNull();
         const sentenceCard = { ...WORD, bunproReviewableType: 'sentence' as const };
         const html = testCardPopoverRenderer(BUNPRO_ONLY, ORDINARY_PAGE).render(sentenceCard, SENTENCE, 'modal', emptyCardRenderData());
-        expect(html).not.toContain('data-action="deck-picker"');
+        expect(html).not.toContain('jpdb-reader-deck-select');
     });
 
     it('offers no save on a trusted surface when no enabled destination can take the word', () => {
         // WaniKani grades its own due assignments but has no API to add a word.
         const wanikaniOnly: Partial<ReaderSettings> = { interfaceLanguage: 'en', apiKey: '', jitenApiKey: '', yomuLocalSrsEnabled: false, ankiEnabled: false, bunproMiningEnabled: false, wanikaniReviewEnabled: true, wanikaniApiToken: 'wanikani-token', enableReviews: true };
         const assignment: JPDBCard = { ...WORD, source: 'wanikani', wanikaniSubjectId: 1, wanikaniAssignmentId: 7 };
-        expect(renderActions(wanikaniOnly, {}, emptyCardRenderData(), assignment).querySelector('[data-action="deck-picker"]')).toBeNull();
+        expect(renderActions(wanikaniOnly, {}, emptyCardRenderData(), assignment).querySelector(DECK_SELECT)).toBeNull();
 
         // A Jiten-only learner saves into a Jiten word list, so the save waits until there is one
         // (jiten-word-list-mining.test.ts covers the note that says so).
         const jitenOnly: Partial<ReaderSettings> = { interfaceLanguage: 'en', apiKey: '', jitenApiKey: 'jiten-key', jpdbMiningEnabled: true, yomuLocalSrsEnabled: false, ankiEnabled: false, enableReviews: true };
         const jitenWord: JPDBCard = { ...WORD, source: 'jiten', jitenWordId: 9, jitenReadingIndex: 0 };
-        expect(renderActions(jitenOnly, {}, emptyCardRenderData({ jitenDecks: [] }), jitenWord).querySelector('[data-action="deck-picker"]')).toBeNull();
+        expect(renderActions(jitenOnly, {}, emptyCardRenderData({ jitenDecks: [] }), jitenWord).querySelector(DECK_SELECT)).toBeNull();
         const withDeck = renderActions(jitenOnly, {}, emptyCardRenderData({ jitenDecks: [{ id: 'study', name: 'Mining' }] }), jitenWord);
-        expect(choices(withDeck.querySelector('[data-action="deck-picker"]')!).map(choice => choice.source)).toEqual(['jiten']);
+        expect(choices(withDeck.querySelector(DECK_SELECT)!).map(choice => choice.source)).toEqual(['jiten']);
     });
 
     it('requires an explicit deck choice even when only one destination exists', () => {
         for (const [settings, source] of [[KEYLESS, 'yomu-local'], [BUNPRO_ONLY, 'bunpro']] as const) {
             const actions = renderActions(settings);
-            const button = actions.querySelector('[data-action="deck-picker"]')!;
+            const button = actions.querySelector(DECK_SELECT)!;
             expect(choices(button).map(choice => choice.source)).toEqual([source]);
             expect(actions.querySelector('[data-action="add"]')).toBeNull();
         }
@@ -362,7 +384,7 @@ describe('popup collect action', () => {
         // The collapsed drawer leaves room for the bar and hides the target selector.
         expect(actions.classList.contains('jpdb-reader-actions-has-mining')).toBe(true);
         expect(actions.classList.contains('jpdb-reader-actions-mining-collapsed')).toBe(true);
-        expectCollectActionInOverflow(actions, actions.querySelector<HTMLElement>('[data-action="deck-picker"]')!);
+        expectCollectActionInOverflow(actions, actions.querySelector<HTMLElement>(DECK_SELECT)!);
     });
 
     // A screen reader names the ⇄ bar's controls in the learner's language,
@@ -391,9 +413,8 @@ describe('popup collect action', () => {
         }) as ReturnType<typeof setupNewTabLookupRuntime> & { activeLookupPopover?: HTMLElement };
         try {
             await internals.showLookupCard(newTabTestCard({ spelling: '読む', reading: 'よむ', sentence: '本を読む。' }), '本を読む。');
-            const save = internals.activeLookupPopover!.querySelector<HTMLButtonElement>('[data-action="deck-picker"]')!;
+            const save = internals.activeLookupPopover!.querySelector<HTMLElement>(DECK_SELECT)!;
             expect(choices(save)[0]?.source).toBe('yomu-local');
-            save.click();
             chooseLocalDeck();
 
             await vi.waitFor(async () => expect(Object.values((await new LocalYomuSrsRepository().snapshot()).cards)).toHaveLength(1));
@@ -405,27 +426,27 @@ describe('popup collect action', () => {
         }
     });
 
-    // The deck picker takes focus while it is open and closes when a deck is
-    // chosen: a keyboard learner lands back on "Add to deck…", not on the popup.
-    it('returns keyboard focus to "Add to deck…" after a save chosen in the Study deck picker', async () => {
+    // A save refreshes the popup: a keyboard learner lands back on its ⋯ toggle, not on the popup.
+    it('keeps keyboard focus in the actions after a save chosen in the Study dropdown', async () => {
         vi.stubGlobal('location', new URL('https://yomureader.com/study/'));
         const runtime = new NewTabRuntime();
         const internals = setupNewTabLookupRuntime(runtime, newTabLookupRenderData(), {
             settings: { ...KEYLESS, ankiEnabled: true },
             isJpdbBackedCard: () => false,
         }) as ReturnType<typeof setupNewTabLookupRuntime> & { activeLookupPopover?: HTMLElement };
-        const collect = (): HTMLButtonElement | null => internals.activeLookupPopover!.querySelector('[data-action="deck-picker"]');
+        const collect = (): HTMLElement | null => internals.activeLookupPopover!.querySelector(DECK_SELECT);
         try {
             await internals.showLookupCard(newTabTestCard({ spelling: '読む', reading: 'よむ', sentence: '本を読む。' }), '本を読む。');
             const opened = collect()!;
-            opened.focus();
-            opened.click();
-            expect(pickerRoot?.activeElement).toBe(picker());
+            picker().focus();
+            expect(document.activeElement).toBe(opened);
             chooseLocalDeck();
 
-            // The save refreshes the popup, replacing the button.
+            // The save refreshes the popup, replacing the dropdown.
             await vi.waitFor(() => expect(collect()).not.toBe(opened));
-            await vi.waitFor(() => expect(document.activeElement).toBe(collect()));
+            // The refreshed popup opens with ⋯ closed, so the learner lands on its toggle.
+            const toggle = (): Element | null => internals.activeLookupPopover!.querySelector('[data-action="mining-collapse"]');
+            await vi.waitFor(() => expect(document.activeElement).toBe(toggle()));
             expect([...document.querySelectorAll('.jpdb-reader-toast')].map(toast => toast.textContent)).toEqual(['Added to Academy.']);
         } finally {
             runtime.destroy();
@@ -445,6 +466,7 @@ describe('popup collect action', () => {
             showCard: () => Promise<void>;
             toast: (message: string) => void;
             installCardPopoverHandlers(popover: HTMLElement, card: JPDBCard, sentence: string | undefined, anchor: HTMLElement | undefined, trigger: 'modal' | 'hover'): void;
+            mountDeckSelects(popover: HTMLElement, card: JPDBCard, sentence: string | undefined): void;
         };
         internals.settings = { ...DEFAULT_SETTINGS, ...KEYLESS };
         const toast = vi.fn();
@@ -454,9 +476,12 @@ describe('popup collect action', () => {
         const popover = document.createElement('div');
         popover.className = 'jpdb-reader-popover';
         popover.dataset.jpdbReaderRoot = 'true';
-        const renderPopover = (): void => setInnerHtml(popover, internals.cardPopoverRenderer.render(WORD, SENTENCE, 'modal', emptyCardRenderData()));
+        const renderPopover = (): void => {
+            setInnerHtml(popover, internals.cardPopoverRenderer.render(WORD, SENTENCE, 'modal', emptyCardRenderData()));
+            internals.mountDeckSelects(popover, WORD, SENTENCE);
+        };
         // Like the real refresh after a save, this re-renders the popup, replacing
-        // the save button, and focuses the popup itself.
+        // the dropdown, and focuses the popup itself.
         popover.tabIndex = -1;
         internals.showCard = vi.fn(async () => {
             renderPopover();
@@ -465,23 +490,25 @@ describe('popup collect action', () => {
         renderPopover();
         document.body.append(popover);
         internals.installCardPopoverHandlers(popover, WORD, SENTENCE, undefined, 'modal');
-        const collect = popover.querySelector<HTMLButtonElement>('[data-action="deck-picker"]')!;
+        const collect = popover.querySelector<HTMLElement>(DECK_SELECT)!;
         try {
             collect.click();
             await new Promise(resolve => setTimeout(resolve, 20));
             expect(mine).not.toHaveBeenCalled();
 
-            collect.focus();
-            dispatchAuthorizedReaderControlClick(collect);
+            picker().focus();
+            // A page script's synthetic choice saves nothing.
             picker().selectedIndex = 1;
             picker().dispatchEvent(new Event('change'));
+            await new Promise(resolve => setTimeout(resolve, 20));
             expect(mine).not.toHaveBeenCalled();
             chooseLocalDeck();
             await vi.waitFor(() => expect(toast).toHaveBeenCalledWith('Added to deck.'));
-            // A keyboard learner keeps their place on the refreshed save.
-            const refreshed = popover.querySelector('[data-action="deck-picker"]');
+            // A keyboard learner keeps their place: the refreshed popup opens with ⋯
+            // closed, so that is its toggle, one step from the dropdown.
+            const refreshed = popover.querySelector(DECK_SELECT);
             expect(refreshed).not.toBe(collect);
-            await vi.waitFor(() => expect(document.activeElement).toBe(refreshed));
+            await vi.waitFor(() => expect(document.activeElement).toBe(popover.querySelector('[data-action="mining-collapse"]')));
 
             expect(mine).toHaveBeenCalledTimes(1);
             expect(review).not.toHaveBeenCalled();

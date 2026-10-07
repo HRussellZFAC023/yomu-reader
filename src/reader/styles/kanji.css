@@ -1201,27 +1201,6 @@ html.jpdb-reader-doodle-active * {
   font-size: 12px;
   line-height: 1.4;
 }
-.jpdb-reader-add-deck-select {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  opacity: 0;
-  pointer-events: none;
-}
-.jpdb-reader-add-deck-select-open {
-  position: static;
-  width: 100%;
-  min-width: 0;
-  height: 34px;
-  margin-top: 6px;
-  border: 1px solid var(--jpdb-reader-border);
-  border-radius: 7px;
-  background: var(--jpdb-reader-surface);
-  color: var(--jpdb-reader-text);
-  opacity: 1;
-  pointer-events: auto;
-  font: 750 12px/1 var(--jpdb-reader-font);
-}
 /* No grade column is narrower than its label: on a phone-width popup
    "Something" widens its own button instead of spilling out of it. */
 .jpdb-reader-grades {

@@ -2,6 +2,9 @@ import type { InterfaceLanguage } from '../app/types';
 import { userFacingErrorText } from '../app/user-facing-errors';
 import { withSaveWaitStatus } from '../ui/save-wait-status';
 
+/** What a learner operated to start a card action: a button, or the "Add to deck…" dropdown. */
+export type CardActionControl = HTMLButtonElement | HTMLSelectElement;
+
 /** How a card-action surface tells the learner what happened. */
 export interface CardActionFeedback {
     logger: { warn(message: string, ...args: unknown[]): void };
@@ -17,7 +20,7 @@ export interface CardActionFeedback {
  * including the status shown while a save waits for another Yomu tab.
  */
 export async function runCardActionOperation(
-    button: HTMLButtonElement,
+    button: CardActionControl,
     run: () => Promise<void>,
     feedback: CardActionFeedback,
     finish: () => void,
@@ -39,7 +42,7 @@ export async function runCardActionOperation(
 // popup replaces the button and focuses the new popup itself. Either way a
 // keyboard learner would lose their place, so focus returns to the same action
 // unless the learner has moved on to another control meanwhile.
-function keepKeyboardFocus(button: HTMLButtonElement): () => void {
+function keepKeyboardFocus(button: CardActionControl): () => void {
     const document = button.ownerDocument;
     const action = button.dataset.action;
     if (!action || document.activeElement !== button) return () => undefined;

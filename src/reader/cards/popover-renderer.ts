@@ -842,10 +842,11 @@ function hasNoJitenWordList(data: CardRenderData): boolean {
     return data.jitenDecks?.length === 0;
 }
 
-// The decks travel in the button's private capability; the picker shows them
-// in a closed shadow root (study/mining-controls-impl.ts).
+// One dropdown, no button in front of it: the decks travel in this placeholder's
+// private capability and the dropdown that lists them is mounted in a closed shadow
+// root after the render (study/mining-controls-impl.ts). Its text is the label.
 function renderAddToDeck(choices: DeckChoice[], language: InterfaceLanguage): string {
-    return `<button class="jpdb-reader-btn add" data-action="deck-picker"${privateCommandAttributes({ kind: 'card-ui', action: 'deck-picker', choices })} aria-haspopup="listbox" aria-expanded="false">${escapeHtml(uiText(language, 'addToDeck'))}</button>`;
+    return `<div class="jpdb-reader-deck-select"${privateCommandAttributes({ kind: 'card-ui', action: 'deck-picker', choices })}>${escapeHtml(uiText(language, 'addToDeck'))}</div>`;
 }
 
 // Mirrors changeProviderDeckState's resolution: Never forget / Blacklist land

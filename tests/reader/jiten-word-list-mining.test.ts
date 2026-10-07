@@ -42,10 +42,10 @@ function renderPopup(settings: ReaderSettings, word: JPDBCard, data: CardRenderD
 
 function ordinaryPageSave(settings: ReaderSettings, word: JPDBCard, decks = DECKS): HTMLButtonElement {
     const jitenDecks = decks.filter(deck => deck.deckType === 2).map(deck => ({ id: String(deck.userStudyDeckId), name: deck.name }));
-    return renderPopup(settings, word, emptyCardRenderData({ jitenDecks }), false).querySelector<HTMLButtonElement>('[data-action="deck-picker"]')!;
+    return renderPopup(settings, word, emptyCardRenderData({ jitenDecks }), false).querySelector<HTMLButtonElement>('.jpdb-reader-deck-select')!;
 }
 function choices(actions: HTMLElement) {
-    const button = actions.querySelector('[data-action="deck-picker"]');
+    const button = actions.querySelector('.jpdb-reader-deck-select');
     return button ? readCardUiCommandCapability(button)?.choices ?? [] : [];
 }
 function selectedCommand(button: Element): CardCommandCapability {
@@ -219,7 +219,7 @@ describe('saving to Jiten', () => {
         it('with no word list and nowhere else to go, shows only the note', async () => {
             const data = await loader(JITEN_ONLY, NO_WORD_LIST).load({ ...JITEN_WORD }).all;
             const actions = renderPopup(JITEN_ONLY, JITEN_WORD, { ...data, loading: false }, true);
-            expect(actions.querySelector('[data-action="deck-picker"]')).toBeNull();
+            expect(actions.querySelector('.jpdb-reader-deck-select')).toBeNull();
             expect(note(actions)).toBe('To save words to Jiten, create a word list on jiten.moe.');
         });
 
@@ -289,12 +289,12 @@ describe('saving to Jiten', () => {
         it('an ordinary page offers the next destination but never mentions Jiten', async () => {
             const withYomuDeck = await loader(WITH_YOMU_DECK, NO_WORD_LIST).load({ ...JITEN_WORD }).all;
             const page = renderPopup(WITH_YOMU_DECK, JITEN_WORD, { ...withYomuDeck, loading: false }, false);
-            expect(page.querySelector('[data-action="deck-picker"]')).not.toBeNull();
+            expect(page.querySelector('.jpdb-reader-deck-select')).not.toBeNull();
             expect(page.textContent).not.toMatch(/jiten/i);
 
             const jitenOnly = await loader(JITEN_ONLY, NO_WORD_LIST).load({ ...JITEN_WORD }).all;
             const nowhere = renderPopup(JITEN_ONLY, JITEN_WORD, { ...jitenOnly, loading: false }, false);
-            expect(nowhere.querySelector('[data-action="deck-picker"]')).toBeNull();
+            expect(nowhere.querySelector('.jpdb-reader-deck-select')).toBeNull();
         });
     });
 });

@@ -3,9 +3,10 @@
 import { yomuKanjiStudyCompanion } from '../companions/registry';
 import type { JPDBCard } from '../app/types';
 import type { CardCommandCapability } from '../dom/private-command-capabilities';
+import type { CardActionControl } from '../cards/action-operation';
 
 type MiningControlLabel = (expanded: boolean) => string;
-type MiningCardAction = (button: HTMLButtonElement, card: JPDBCard, sentence: string | undefined, command: CardCommandCapability) => Promise<void> | void;
+type MiningCardAction = (control: CardActionControl, card: JPDBCard, sentence: string | undefined, command: CardCommandCapability) => Promise<void> | void;
 
 export function toggleMiningControls(button: HTMLButtonElement, label: MiningControlLabel): void {
     yomuKanjiStudyCompanion()?.toggleMiningControls?.(button, label);
@@ -15,16 +16,17 @@ export function setMiningControlsExpanded(button: HTMLButtonElement, expanded: b
     yomuKanjiStudyCompanion()?.setMiningControlsExpanded?.(button, expanded, label);
 }
 
-/** Call before a popup re-render; the returned function restores open overflows, pickers and focus. */
+/** Call before a popup re-render; the returned function restores open overflows and focus. */
 export function preserveMiningControls(root: ParentNode, label: MiningControlLabel): (root: ParentNode) => void {
     return yomuKanjiStudyCompanion()?.preserveMiningControls?.(root, label) ?? (() => undefined);
 }
 
-export function openDeckPickerForCardAdd(
-    button: HTMLButtonElement,
-    card: JPDBCard,
-    sentence: string | undefined,
-    performAction: MiningCardAction,
-): boolean {
-    return yomuKanjiStudyCompanion()?.openDeckPickerForCardAdd?.(button, card, sentence, performAction) ?? false;
+/** Mounts the "Add to deck…" dropdowns a popup render placed in `root`. */
+export function mountDeckSelects(root: ParentNode, card: JPDBCard, sentence: string | undefined, performAction: MiningCardAction): void {
+    yomuKanjiStudyCompanion()?.mountDeckSelects?.(root, card, sentence, performAction);
+}
+
+/** The "Add to deck…" dropdown in use in `root`, if any. */
+export function deckSelectInUse(root: ParentNode): HTMLElement | null {
+    return yomuKanjiStudyCompanion()?.deckSelectInUse?.(root) ?? null;
 }

@@ -12,9 +12,9 @@ import { dispatchAuthorizedReaderControlEvent } from '../../src/reader/ui/truste
 
 /**
  * "A first Add click detached during enrichment": the learner opens the ⋯ overflow
- * and "Add to deck…" while the popup is still loading, then a provider lands and the
- * popup re-renders its HTML. The overflow, the private picker and focus must still be
- * where the learner left them, on the controls the re-render put in place.
+ * and the "Add to deck…" dropdown while the popup is still loading, then a provider
+ * lands and the popup re-renders its HTML. The open dropdown must not be rebuilt
+ * under the learner, and the overflow and focus must survive the renders that do run.
  */
 
 registerReaderHelpersCleanup();
@@ -35,9 +35,8 @@ type Internals = {
     activePopover: HTMLElement;
     settings: typeof SETTINGS;
     parsePopoverJapanese: () => Promise<void>;
-    handleCardAction: (button: HTMLButtonElement, card: JPDBCard, sentence: string | undefined, command: CardCommandCapability) => Promise<void>;
+    handleCardAction: (control: HTMLSelectElement, card: JPDBCard, sentence: string | undefined, command: CardCommandCapability) => Promise<void>;
     toggleMiningControls(button: HTMLButtonElement): void;
-    openDeckPickerForAdd(button: HTMLButtonElement, card: JPDBCard, sentence: string | undefined): boolean;
     renderDeferredCardLocalEntries(
         popover: HTMLElement,
         card: JPDBCard,
@@ -64,7 +63,7 @@ beforeEach(() => {
     const attach = Element.prototype.attachShadow;
     vi.spyOn(Element.prototype, 'attachShadow').mockImplementation(function (this: Element, init) {
         const root = attach.call(this, init);
-        if (this.classList.contains('jpdb-reader-deck-picker')) pickerRoot = root;
+        if (this.classList.contains('jpdb-reader-deck-select')) pickerRoot = root;
         return root;
     });
 });
@@ -100,7 +99,7 @@ function completedData(): CardRenderData {
 }
 
 describe.each(['modal', 'hover'] as const)('%s popup actions while enrichment re-renders the card', trigger => {
-    it('keeps the open overflow, the open deck picker and its focus, and saves through the live button', async () => {
+    it('does not rebuild under the open "Add to deck…" dropdown, saves the chosen deck, then catches up', async () => {
         const app = new ReaderApp();
         const internals = app as unknown as Internals;
         const card = testAozoraCard();
@@ -116,8 +115,9 @@ describe.each(['modal', 'hover'] as const)('%s popup actions while enrichment re
         const localEntries = deferred<YomitanTermEntry[]>();
         const jpdbVocabularyInfo = deferred<null>();
         holdFrames();
-        const add = () => popover.querySelector<HTMLButtonElement>('[data-action="deck-picker"]');
+        const host = () => popover.querySelector<HTMLElement>('.jpdb-reader-deck-select');
         const overflow = () => popover.querySelector<HTMLButtonElement>('[data-action="mining-collapse"]');
+        const loading = () => popover.querySelector('[data-card-details-loading]');
 
         try {
             internals.renderDeferredCardLocalEntries(
@@ -128,52 +128,69 @@ describe.each(['modal', 'hover'] as const)('%s popup actions while enrichment re
             localEntries.resolve([]);
             await settle();
             flushFrames();
-            expect(popover.querySelector('[data-card-details-loading]')).not.toBeNull();
+            expect(loading()).not.toBeNull();
 
-            // The learner, still during loading: ⋯, then "Add to deck…".
+            // The learner, still during loading: ⋯, then into the dropdown.
             internals.toggleMiningControls(overflow()!);
-            expect(internals.openDeckPickerForAdd(add()!, card, SENTENCE)).toBe(true);
-            const host = add()!.nextElementSibling as HTMLElement;
-            expect(host.matches('.jpdb-reader-deck-picker')).toBe(true);
-            const picker = pickerRoot!.querySelector('select')!;
-            const expectStillOpen = (label: string) => {
-                const button = add()!;
-                expect(button.closest('.jpdb-reader-actions')!.classList.contains('jpdb-reader-actions-mining-collapsed'), label).toBe(false);
-                expect(overflow()!.getAttribute('aria-expanded'), label).toBe('true');
-                expect(button.getAttribute('aria-expanded'), label).toBe('true');
-                expect(button.nextElementSibling, label).toBe(host);
-                expect(popover.querySelectorAll('.jpdb-reader-deck-picker'), label).toHaveLength(1);
-                expect(document.activeElement, label).toBe(host);
-                expect(pickerRoot!.activeElement, label).toBe(picker);
-            };
-            expectStillOpen('picker opened');
+            const opened = host()!;
+            const dropdown = pickerRoot!.querySelector('select')!;
+            dropdown.focus();
+            expect(document.activeElement).toBe(opened);
 
-            // A provider lands: the loading card re-renders.
-            const loadingAdd = add();
+            // Providers land, then enrichment completes: nothing rebuilds under the choice.
             jpdbVocabularyInfo.resolve(null);
             await settle();
             flushFrames();
-            expect(add(), 'the loading re-render replaced the row').not.toBe(loadingAdd);
-            expectStillOpen('after a loading re-render');
-
-            // Enrichment completes.
             internals.renderCompletedCardPopover(popover, card, SENTENCE, trigger, completedData());
             flushFrames();
-            expect(popover.querySelector('[data-card-details-loading]')).toBeNull();
-            expectStillOpen('after the completed render');
+            expect(host()).toBe(opened);
+            expect(opened.isConnected).toBe(true);
+            expect(pickerRoot!.activeElement).toBe(dropdown);
+            expect(loading()).not.toBeNull();
 
-            // The picker the learner kept open still saves, through the button now on screen.
-            await new Promise(resolve => setTimeout(resolve, 250));
-            expect(add()!.nextElementSibling, 'the carried picker survived its blur check').toBe(host);
-            picker.selectedIndex = 1;
-            dispatchAuthorizedReaderControlEvent(picker, new Event('change'));
+            // Choosing a deck saves the word there, through the dropdown on screen.
+            dropdown.selectedIndex = 1;
+            dispatchAuthorizedReaderControlEvent(dropdown, new Event('change'));
             expect(handleCardAction).toHaveBeenCalledTimes(1);
-            const [savedFrom, , , command] = handleCardAction.mock.calls[0] as unknown as Parameters<Internals['handleCardAction']>;
-            expect(savedFrom).toBe(add());
-            expect(savedFrom.isConnected).toBe(true);
-            expect(command).toMatchObject({ kind: 'card-action', action: 'add', deckSource: 'yomu-local' });
-            expect(add()!.getAttribute('aria-expanded')).toBe('false');
-            expect(popover.querySelector('.jpdb-reader-deck-picker')).toBeNull();
+            expect(handleCardAction).toHaveBeenCalledWith(dropdown, card, SENTENCE, { kind: 'card-action', action: 'add', deckSource: 'yomu-local', deckId: 'yomu-local' });
+
+            // Leaving the dropdown lets the newest render in, with the overflow still open.
+            dropdown.blur();
+            flushFrames();
+            expect(loading()).toBeNull();
+            expect(host()).not.toBe(opened);
+            expect(overflow()!.getAttribute('aria-expanded')).toBe('true');
+            expect(host()!.closest('.jpdb-reader-actions-mining-collapsed')).toBeNull();
+            expect(pickerRoot!.querySelector('select')!.options).toHaveLength(dropdown.options.length);
+        } finally {
+            popover.remove();
+            app.destroy();
+        }
+    });
+
+    it('keeps an open overflow across a re-render while the learner is not in the dropdown', async () => {
+        const app = new ReaderApp();
+        const internals = app as unknown as Internals;
+        const card = testAozoraCard();
+        const popover = document.createElement('div');
+        popover.className = 'jpdb-reader-popover';
+        popover.dataset.jpdbReaderRoot = 'true';
+        document.body.append(popover);
+        internals.activePopover = popover;
+        internals.settings = SETTINGS;
+        internals.parsePopoverJapanese = vi.fn(async () => undefined);
+
+        try {
+            internals.renderCompletedCardPopover(popover, card, SENTENCE, trigger, completedData());
+            const before = popover.querySelector('.jpdb-reader-deck-select');
+            internals.toggleMiningControls(popover.querySelector<HTMLButtonElement>('[data-action="mining-collapse"]')!);
+
+            internals.renderCompletedCardPopover(popover, card, SENTENCE, trigger, completedData());
+
+            const after = popover.querySelector<HTMLElement>('.jpdb-reader-deck-select')!;
+            expect(after).not.toBe(before);
+            expect(after.closest('.jpdb-reader-actions-mining-collapsed')).toBeNull();
+            expect(pickerRoot!.querySelector('select')).not.toBeNull();
         } finally {
             popover.remove();
             app.destroy();
@@ -246,7 +263,7 @@ describe('a hover popup pinned by a press while it is still loading', () => {
 
             expect(internals.activePopover).toBe(popover);
             expect(popover.querySelector('[data-card-details-loading]')).toBeNull();
-            expect(popover.querySelector('[data-action="deck-picker"]')).not.toBeNull();
+            expect(popover.querySelector('.jpdb-reader-deck-select')).not.toBeNull();
         } finally {
             word.remove();
             app.destroy();

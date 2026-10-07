@@ -14,7 +14,7 @@ import {
 import { installLocalTapActivation as installControlPointerActivation } from '../ui/pointer-activation';
 import { dispatchAuthorizedReaderControlClick, installTrustedReaderRootBoundary, isTrustedReaderInteraction, trustedReaderEventHandler } from '../ui/trusted-interaction';
 import { CardActionController } from '../cards/action-controller';
-import { refreshAfterCardAction, runCardActionOperation } from '../cards/action-operation';
+import { refreshAfterCardAction, runCardActionOperation, type CardActionControl } from '../cards/action-operation';
 import { CardPopoverRenderer, togglePopoverReviewTargetSelection, updatePopoverReviewTargetSelection } from '../cards/popover-renderer';
 import { reviewShortcutButton } from '../dom/review-shortcuts';
 import { CardRenderDataLoader, loadingCardRenderData, type CardRenderData, type CardRenderDataLoad } from '../cards/render-data';
@@ -255,7 +255,8 @@ import {
     type MiningContext,
 } from '../study/mining-context';
 import {
-    openDeckPickerForCardAdd,
+    deckSelectInUse,
+    mountDeckSelects,
     preserveMiningControls,
     setMiningControlsExpanded as setMiningControlsExpandedState,
     toggleMiningControls as toggleMiningControlsState,
@@ -824,6 +825,7 @@ export class ReaderApp {
     private activeHoverWord?: HTMLElement;
     private activeHoverLookupKey = '';
     private pinnedHoverPopover?: HTMLElement;
+    private readonly rendersAwaitingDeckChoice = new WeakMap<HTMLElement, () => void>();
     private releaseActiveOcrLookupLine?: () => void;
     private ownedModalOcrPin?: HTMLElement;
     private activePointerTextLookup?: ActivePointerTextLookup;
@@ -6341,6 +6343,7 @@ export class ReaderApp {
             context.trigger,
             loadingCardRenderData([], context.fallbackAnkiLookup),
         ));
+        this.mountDeckSelects(popover, card, sentence);
         this.installCardPopoverHandlers(popover, card, sentence, anchor, context.trigger);
         this.mountPopover(popover, anchor, {
             mode: context.trigger,
@@ -6537,9 +6540,12 @@ export class ReaderApp {
         const canRenderLoading = () => !renderState.fullRenderCompleted && isCurrentRender();
         const runLoadingRender = () => {
             loadingRenderFrame = undefined;
+            this.renderUnlessChoosingDeck(popover, renderLoadingNow);
+        };
+        const renderLoadingNow = () => {
             if (!canRenderLoading()) return;
             renderedPitchKey = card.pitchAccent.join('|');
-            this.rerenderCardPopoverHtml(popover, this.cardPopoverRenderer.render(
+            this.rerenderCardPopoverHtml(popover, card, sentence, this.cardPopoverRenderer.render(
                 card,
                 sentence,
                 trigger,
@@ -6678,26 +6684,48 @@ export class ReaderApp {
             roots: renderedRoots,
         });
         this.applyPitchAccentToRenderedWords(card, undefined, renderedRoots);
-        this.rerenderCardPopoverHtml(popover, this.cardPopoverRenderer.render(card, sentence, trigger, { ...data, loading: false }));
-        this.wanikaniSources.installDefinitionMounts(popover, card);
-        refreshForcedReaderPopoverSurface(popover, this.settings);
-
-        this.updateCardPopoverPosition(trigger);
-        this.installCardPostRenderBehaviors(popover, card, sentence, trigger, {
-            relatedQueries: this.immersionRelatedQueries(data.jpdbVocabularyInfo),
+        this.renderUnlessChoosingDeck(popover, () => {
+            if (!this.isActivePopoverRender(popover)) return;
+            this.rerenderCardPopoverHtml(popover, card, sentence, this.cardPopoverRenderer.render(card, sentence, trigger, { ...data, loading: false }));
+            this.wanikaniSources.installDefinitionMounts(popover, card);
+            refreshForcedReaderPopoverSurface(popover, this.settings);
+            this.updateCardPopoverPosition(trigger);
+            this.installCardPostRenderBehaviors(popover, card, sentence, trigger, {
+                relatedQueries: this.immersionRelatedQueries(data.jpdbVocabularyInfo),
+            });
         });
+    }
+
+    // A popup does not rebuild under a learner choosing a deck: the dropdown's list
+    // would close mid-choice. The newest render waits until focus leaves the dropdown.
+    private renderUnlessChoosingDeck(popover: HTMLElement, render: () => void): void {
+        const choosing = deckSelectInUse(popover);
+        if (!choosing) {
+            this.rendersAwaitingDeckChoice.delete(popover);
+            render();
+            return;
+        }
+        const waiting = this.rendersAwaitingDeckChoice.has(popover);
+        this.rendersAwaitingDeckChoice.set(popover, render);
+        if (waiting) return;
+        choosing.addEventListener('focusout', () => {
+            const next = this.rendersAwaitingDeckChoice.get(popover);
+            this.rendersAwaitingDeckChoice.delete(popover);
+            if (next && this.isActivePopoverRender(popover)) this.renderUnlessChoosingDeck(popover, next);
+        }, { once: true });
     }
 
     // Late providers re-enter on the same, still-active popover. Whatever the learner
     // has there survives the new HTML: loaded Immersion examples, their scroll (a
-    // non-zero offset is the learner's), an open ⋯ overflow or deck picker and focus.
-    private rerenderCardPopoverHtml(popover: HTMLElement, html: string): void {
+    // non-zero offset is the learner's), an open ⋯ overflow, focus, and the deck dropdown.
+    private rerenderCardPopoverHtml(popover: HTMLElement, card: JPDBCard, sentence: string | undefined, html: string): void {
         const preservedImmersion = this.preserveImmersionMountForRerender(popover);
         const scrollOffset = capturePopoverScrollOffset(popover);
         const restoreMiningControls = preserveMiningControls(popover, expanded => this.miningControlsToggleLabel(expanded));
         clearNestedParseState(popover);
         setInnerHtml(popover, html);
         this.restorePreservedImmersionMount(popover, preservedImmersion);
+        this.mountDeckSelects(popover, card, sentence);
         restoreMiningControls(popover);
         restorePopoverScrollOffsetSoon(scrollOffset);
     }
@@ -6951,7 +6979,6 @@ export class ReaderApp {
     private dispatchCardPopoverAction(button: HTMLButtonElement, card: JPDBCard, sentence: string | undefined, anchor: HTMLElement | undefined, trigger: 'modal' | 'hover'): void {
         if (this.handleCardPopoverNavigationAction(button, anchor, trigger)) return;
         if (this.handleCardPopoverMiningAction(button)) return;
-        if (this.handleCardPopoverDeckPickerAction(button, card, sentence)) return;
         this.performCardPopoverCommand(button, card, sentence);
     }
 
@@ -6982,10 +7009,6 @@ export class ReaderApp {
         return true;
     }
 
-    private handleCardPopoverDeckPickerAction(button: HTMLButtonElement, card: JPDBCard, sentence: string | undefined): boolean {
-        return cardPopoverDeckPickerCommand(button) && this.openDeckPickerForAdd(button, card, sentence);
-    }
-
     private toggleMiningControls(button: HTMLButtonElement): void {
         toggleMiningControlsState(button, expanded => this.miningControlsToggleLabel(expanded));
     }
@@ -6998,9 +7021,9 @@ export class ReaderApp {
         return uiText(this.settings.interfaceLanguage, expanded ? 'hideMiningActions' : 'showMiningActions');
     }
 
-    private openDeckPickerForAdd(button: HTMLButtonElement, card: JPDBCard, sentence: string | undefined): boolean {
-        return openDeckPickerForCardAdd(button, card, sentence, (actionButton, actionCard, actionSentence, command) => (
-            this.handleCardAction(actionButton, actionCard, actionSentence, command)
+    private mountDeckSelects(popover: HTMLElement, card: JPDBCard, sentence: string | undefined): void {
+        mountDeckSelects(popover, card, sentence, (control, actionCard, actionSentence, command) => (
+            this.handleCardAction(control, actionCard, actionSentence, command)
         ));
     }
 
@@ -9249,7 +9272,7 @@ export class ReaderApp {
         setRenderedWordPitchClass(word, pitchClass);
     }
 
-    private async handleCardAction(button: HTMLButtonElement, card: JPDBCard, sentence?: string, suppliedCommand?: privateCommands.CardCommandCapability): Promise<void> {
+    private async handleCardAction(button: CardActionControl, card: JPDBCard, sentence?: string, suppliedCommand?: privateCommands.CardCommandCapability): Promise<void> {
         if (button.disabled) return;
         const command = mainCardCommand(button, suppliedCommand);
         if (!command) return;
@@ -10034,10 +10057,6 @@ function jpdbPageAddonActionButton(event: MouseEvent, root: HTMLElement): HTMLBu
     return button && root.contains(button) ? button : null;
 }
 
-function cardPopoverDeckPickerCommand(button: HTMLButtonElement): boolean {
-    return privateCommands.readCardUiCommandCapability(button)?.action === 'deck-picker';
-}
-
-function mainCardCommand(button: HTMLButtonElement, supplied: privateCommands.CardCommandCapability | undefined): privateCommands.CardCommandCapability | undefined {
+function mainCardCommand(button: CardActionControl, supplied: privateCommands.CardCommandCapability | undefined): privateCommands.CardCommandCapability | undefined {
     return supplied ?? privateCommands.readCardCommandCapability(button);
 }

@@ -207,7 +207,7 @@ describe('offhost account-data privacy', () => {
         expectAccountSecretsAbsent(offhost);
         expect(offhost.querySelector('.jpdb-reader-provider-status')).toBeNull();
         // "Add to deck…" carries its decks privately; none reaches the page's DOM.
-        const addToDeck = offhost.querySelector<HTMLButtonElement>('[data-action="deck-picker"]');
+        const addToDeck = offhost.querySelector<HTMLButtonElement>('.jpdb-reader-deck-select');
         expect(addToDeck?.textContent).toBe('Add to deck…');
         expect(readCardUiCommandCapability(addToDeck)?.choices).toContainEqual({ source: 'anki', id: PRIVATE_DECK, label: `Anki: ${PRIVATE_DECK}` });
         expect(offhost.querySelector('[data-review-target-select]')).toBeNull();
@@ -221,7 +221,7 @@ describe('offhost account-data privacy', () => {
         const trusted = document.createElement('div');
         setInnerHtml(trusted, popupRenderer(true).render(card, '機密語を読む。', 'modal', richRenderData()));
         expect(trusted.querySelector('.jpdb-reader-provider-status')).not.toBeNull();
-        expect(readCardUiCommandCapability(trusted.querySelector('[data-action="deck-picker"]'))?.choices?.[0]).toEqual({ source: 'jpdb', id: 'private-jpdb-deck-id', label: 'JPDB: Private JPDB Deck Ω' });
+        expect(readCardUiCommandCapability(trusted.querySelector('.jpdb-reader-deck-select'))?.choices?.[0]).toEqual({ source: 'jpdb', id: 'private-jpdb-deck-id', label: 'JPDB: Private JPDB Deck Ω' });
         expect(trusted.querySelector('[data-review-target-select]')).not.toBeNull();
         expect(trusted.querySelector('[data-anki-card-id="808080"]')).not.toBeNull();
         expect(trusted.textContent).toContain(PRIVATE_DECK);
@@ -230,7 +230,7 @@ describe('offhost account-data privacy', () => {
     it('mines to the private default deck without reading deck authority from hostile DOM', async () => {
         const offhost = document.createElement('div');
         setInnerHtml(offhost, popupRenderer(false).render(card, '機密語を読む。', 'modal', richRenderData()));
-        const button = offhost.querySelector<HTMLButtonElement>('[data-action="deck-picker"]')!;
+        const button = offhost.querySelector<HTMLButtonElement>('.jpdb-reader-deck-select')!;
         // A page rewrites what it can see; the decks never were there.
         button.dataset.deckSource = 'anki';
         button.dataset.deckId = 'attacker';
@@ -291,7 +291,7 @@ describe('offhost account-data privacy', () => {
             const html = popupRenderer(false, chosen).render(word, '機密語を読む。', 'modal', richRenderData({ jitenDecks: wordLists }));
             const root = document.createElement('div');
             setInnerHtml(root, html);
-            const [first] = readCardUiCommandCapability(root.querySelector('[data-action="deck-picker"]'))?.choices ?? [];
+            const [first] = readCardUiCommandCapability(root.querySelector('.jpdb-reader-deck-select'))?.choices ?? [];
             return { kind: 'card-action', action: 'add', deckSource: first?.source ?? 'jiten', deckId: first?.id ?? '' };
         }
 

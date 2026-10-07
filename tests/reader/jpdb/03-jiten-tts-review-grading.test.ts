@@ -398,7 +398,7 @@ describe('reader helpers', () => {
         setInnerHtml(mount, html);
 
         expect(html).toContain('Jiten New');
-        const collect = mount.querySelector('[data-action="deck-picker"]')!;
+        const collect = mount.querySelector('.jpdb-reader-deck-select')!;
         expect(readCardUiCommandCapability(collect)?.choices).toContainEqual({ source: 'jiten', id: '12', label: 'Jiten: Mining' });
         expect(mount.querySelector('[data-deck-source], [data-deck-id], select')).toBeNull();
         expect(mount.textContent).not.toContain('Jiten: Mining');
@@ -440,7 +440,7 @@ describe('reader helpers', () => {
         expect(popoverGradeButtons().every(button => button.dataset.reviewTarget === 'bunpro')).toBe(true);
         expect(document.querySelector('[data-newtab-grade-target-text]')?.textContent).toBe('Grades Bunpro');
         expect(document.querySelector<HTMLButtonElement>('.jpdb-reader-mining-title[data-action="add"]')).toBeNull();
-        const collect = document.querySelector('[data-action="deck-picker"]')!;
+        const collect = document.querySelector('.jpdb-reader-deck-select')!;
         expect(collect.closest('.jpdb-reader-mining-panel')).not.toBeNull();
         expect(readCardUiCommandCapability(collect)?.choices).toContainEqual({ source: 'bunpro', id: 'bunpro', label: 'Bunpro' });
         expect(document.querySelector('[data-deck-source], [data-deck-id], [data-add-deck-select]')).toBeNull();
@@ -465,12 +465,12 @@ describe('reader helpers', () => {
 
         for (const kind of ['vocabulary', 'grammar'] as const) {
             setInnerHtml(document.body, renderType(kind));
-            const collect = document.querySelector('[data-action="deck-picker"]')!;
+            const collect = document.querySelector('.jpdb-reader-deck-select')!;
             expect(readCardUiCommandCapability(collect)?.choices).toEqual([{ source: 'bunpro', id: 'bunpro', label: 'Bunpro' }]);
             expect(document.querySelector('[data-deck-source], [data-deck-id], [data-add-deck-select]')).toBeNull();
         }
         setInnerHtml(document.body, renderType('sentence'));
-        expect(document.querySelector('[data-action="deck-picker"]')).toBeNull();
+        expect(document.querySelector('.jpdb-reader-deck-select')).toBeNull();
     });
 
     // Owner decision 2 (2026-10-07): with no connected review service the
@@ -495,7 +495,7 @@ describe('reader helpers', () => {
         expect(document.querySelector('[data-action="grade-provider-toggle"]')).toBeNull();
         expect(popoverGradeButtons()).toEqual([]);
         expect(document.querySelector('[data-newtab-grade-target-text]')).toBeNull();
-        const collect = document.querySelector('[data-action="deck-picker"]')!;
+        const collect = document.querySelector('.jpdb-reader-deck-select')!;
         expect(collect.closest('.jpdb-reader-mining-panel')).not.toBeNull();
         expect(readCardUiCommandCapability(collect)?.choices).toEqual([{ source: 'yomu-local', id: 'yomu-local', label: 'Academy' }]);
         expect(document.querySelector('[data-deck-source], [data-deck-id], [data-add-deck-select]')).toBeNull();

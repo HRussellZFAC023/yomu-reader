@@ -650,7 +650,7 @@ describe('reader helpers', () => {
             isJpdbBackedCard: testIsJpdbBackedCard,
         });
         const html = renderModalCard(renderer, jitenTestCard(), '読む。');
-        expect(html).toContain('data-action="deck-picker"');
+        expect(html).toContain('jpdb-reader-deck-select');
         expect(html).toContain('data-action="neverforget"');
         expect(html).toContain('data-action="blacklist"');
         expect(html).not.toContain('data-action="jiten-mining"');
@@ -665,9 +665,9 @@ describe('reader helpers', () => {
             isJpdbBackedCard: testIsJpdbBackedCard,
         });
         const html = renderModalCard(renderer, jitenTestCard({ source: 'bunpro', jitenWordId: undefined, jitenReadingIndex: undefined, bunproReviewId: '77', bunproReviewableType: 'vocabulary' }), '読む。');
-        expect(html).toContain('data-action="deck-picker"');
+        expect(html).toContain('jpdb-reader-deck-select');
         setInnerHtml(document.body, html);
-        const collect = document.querySelector('[data-action="deck-picker"]')!;
+        const collect = document.querySelector('.jpdb-reader-deck-select')!;
         expect(readCardUiCommandCapability(collect)?.choices).toContainEqual({ source: 'bunpro', id: 'bunpro', label: 'Bunpro' });
         expect(document.querySelector('[data-deck-source], [data-deck-id], [data-add-deck-select]')).toBeNull();
         expect(html).not.toContain('data-action="neverforget"');
@@ -688,7 +688,7 @@ describe('reader helpers', () => {
 
         const html = renderModalCard(renderer, { ...card, source: 'local', cardState: ['not-in-deck'] }, '食べる。');
         setInnerHtml(document.body, html);
-        const collect = document.querySelector('[data-action="deck-picker"]')!;
+        const collect = document.querySelector('.jpdb-reader-deck-select')!;
         expect(readCardUiCommandCapability(collect)?.choices).toContainEqual({ source: 'bunpro', id: 'bunpro', label: 'Bunpro' });
         expect(document.querySelector('[data-deck-source], [data-deck-id], [data-add-deck-select]')).toBeNull();
         expect(html).not.toContain('data-action="grade"');
@@ -709,7 +709,7 @@ describe('reader helpers', () => {
         expect(jpdbOnly).toContain('jpdb-reader-actions-mining-collapsed');
         expect(jpdbOnly).toContain('aria-expanded="false"');
         expect(jpdbOnly).toContain('More actions');
-        expect(jpdbOnly).toContain('data-action="deck-picker"');
+        expect(jpdbOnly).toContain('jpdb-reader-deck-select');
         expect(jpdbOnly).not.toContain('This JPDB card is locked');
         const container = document.createElement('div');
         setInnerHtml(container, jpdbOnly);
@@ -724,7 +724,7 @@ describe('reader helpers', () => {
         expect(document.querySelector('[data-review-target-gutter]')).not.toBeNull();
         expect(document.querySelector<HTMLButtonElement>('[data-review-target-gutter] [data-action="mining-collapse"]')?.getAttribute('aria-expanded')).toBe('false');
         expect(container.querySelector('[data-add-deck-select]')).toBeNull();
-        expect(readCardUiCommandCapability(container.querySelector('[data-action="deck-picker"]')!)?.choices)
+        expect(readCardUiCommandCapability(container.querySelector('.jpdb-reader-deck-select')!)?.choices)
             .toContainEqual({ source: 'jpdb', id: DEFAULT_SETTINGS.miningDeck, label: 'JPDB: FORQ' });
 
         const ankiBacked = renderModalCard(renderer, { ...card, cardState: ['locked'] }, '食べる。', {
