@@ -76,7 +76,7 @@ describe('interrupted settings persistence recovery', () => {
         await expect(loadSettings()).resolves.toMatchObject({
             theme: 'dark',
             enableLogging: false,
-            autoMineOnReview: false,
+            manualScanEnabled: false,
         });
     });
 
@@ -85,7 +85,7 @@ describe('interrupted settings persistence recovery', () => {
         const previousSettings = {
             ...DEFAULT_SETTINGS,
             enableLogging: false,
-            autoMineOnReview: false,
+            manualScanEnabled: false,
             accentColor: '#654321',
         };
         const concurrentSettings = { ...previousSettings, accentColor: '#abcdef' };
@@ -133,7 +133,7 @@ describe('interrupted settings persistence recovery', () => {
         const previousSettings = {
             ...DEFAULT_SETTINGS,
             enableLogging: false,
-            autoMineOnReview: false,
+            manualScanEnabled: false,
         };
         const pair = serializeSettingsPersistencePair(previousSettings, { revision: 0, records: {} });
         const store = new Map<string, unknown>(Object.entries(pair));

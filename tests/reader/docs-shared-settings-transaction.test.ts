@@ -87,11 +87,11 @@ it('persists a standalone hosted theme choice through the same control without a
     await expect(loadSettings()).resolves.toMatchObject({ theme: 'dark' });
 });
 
-it('starts standalone settings from an explicit appearance choice without choosing a learning target', async () => {
+it('starts standalone settings from an explicit appearance choice', async () => {
     vi.stubGlobal('location', new URL('https://yomureader.com/'));
     await docsSharedWriter()({ theme: 'dark' }, true);
     await expect(loadSettings()).resolves.toMatchObject({
-        theme: 'dark', learningTargetChosen: false, onboardingSeen: false,
+        theme: 'dark', annotationsPaused: false,
     });
     const stored = JSON.parse(localStorage.getItem(SETTINGS_STORAGE_KEY) ?? '{}');
     const ledger = JSON.parse(localStorage.getItem('yomu:settings-intent:v2') ?? '{}');

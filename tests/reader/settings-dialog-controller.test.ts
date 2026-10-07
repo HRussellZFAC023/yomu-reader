@@ -2435,8 +2435,8 @@ describe('settings dialog dictionary imports', () => {
             row => row.dataset.sourceId ?? '',
         );
         const jitenSource = dialog.form.querySelector<HTMLElement>('[data-definition-source-editor] [data-source-id="__jiten__"]')!;
-        const alias = jitenSource.querySelector<HTMLInputElement>('input[name="jitenDefinitions.alias"]')!;
-        alias.value = 'Jiten live edit';
+        const enabled = jitenSource.querySelector<HTMLInputElement>('input[name="jitenDefinitions.enabled"]')!;
+        enabled.checked = false;
         const jpdbSource = dialog.form.querySelector<HTMLElement>('[data-definition-source-editor] [data-source-id="__jpdb__"]')!;
         jpdbSource.querySelector<HTMLButtonElement>('[data-action="dictionary-source-down"]')!.click();
         const liveSourceOrder = sourceOrder(dialog.form);
@@ -2454,8 +2454,8 @@ describe('settings dialog dictionary imports', () => {
         summaryResult.resolve(summaryValue);
         await refresh;
 
-        expect(dialog.form.querySelector<HTMLInputElement>('input[name="jitenDefinitions.alias"]')?.value)
-            .toBe('Jiten live edit');
+        expect(dialog.form.querySelector<HTMLInputElement>('input[name="jitenDefinitions.enabled"]')?.checked)
+            .toBe(false);
         expect(sourceOrder(dialog.form)).toEqual(liveSourceOrder);
         expect(lookupOrder(dialog.form).indexOf(bccwjId)).toBeLessThan(lookupOrder(dialog.form).indexOf(jitenId));
         expect(dialog.form.querySelector<HTMLElement>('[data-dictionary-status]')?.textContent).toContain('terms 42');

@@ -23,7 +23,7 @@ export function installGamingHttpTransport(target: Window, fetchImpl: GamingFetc
     host.GM_xmlhttpRequest = gamingHttpRequest(fetchImpl);
 }
 
-export function gamingHttpRequest(fetchImpl: GamingFetch): UserscriptHttpRequest {
+function gamingHttpRequest(fetchImpl: GamingFetch): UserscriptHttpRequest {
     return details => {
         const controller = new AbortController();
         sendGamingRequest(fetchImpl, details, controller.signal).then(

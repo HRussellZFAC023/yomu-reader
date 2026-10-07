@@ -53,7 +53,7 @@ describe('standalone appearance transaction', () => {
             saveHostedAppearance({ key: 'interfaceLanguage', value: 'ja' }),
         ]);
         expect(await readBackupSettingsPersistenceView(Object.fromEntries(values))).toMatchObject({
-            settings: { theme: 'dark', interfaceLanguage: 'ja', learningTargetChosen: false },
+            settings: { theme: 'dark', interfaceLanguage: 'ja' },
             intentLedger: { revision: 2, records: {
                 theme: { value: 'dark' }, interfaceLanguage: { value: 'ja' },
             } },
