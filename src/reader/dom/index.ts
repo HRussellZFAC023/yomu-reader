@@ -1601,8 +1601,10 @@ function isAriaHiddenAccessibleNameDuplicate(element: HTMLElement): boolean {
     if (!hiddenRoot) return false;
     const labelled = element.closest<HTMLElement>('[aria-label]');
     const accessibleName = normalizedControlText(labelled?.getAttribute('aria-label') ?? '');
-    const paintedLabel = normalizedControlText(hiddenRoot.textContent ?? '');
-    if (accessibleName && accessibleName !== paintedLabel) return true;
+    // The painted label is the hidden root's whole text, so it is read only
+    // when there is a name to compare it with. A modal lookup hides the page's
+    // own siblings; reading the article once per text node froze the tab.
+    if (accessibleName && accessibleName !== normalizedControlText(hiddenRoot.textContent ?? '')) return true;
     const control = hiddenRoot.closest<HTMLElement>(
         `${PASSIVE_INTERACTION_SELECTOR},${COMPACT_PASSIVE_INTERACTION_SELECTOR}`,
     );
