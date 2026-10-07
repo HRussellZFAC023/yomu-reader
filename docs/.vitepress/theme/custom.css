@@ -1,86 +1,91 @@
 :root {
-  --vp-c-brand-1: #5ea780;
-  --vp-c-brand-2: #6fb28f;
-  --vp-c-brand-3: #5ea780;
-  --vp-c-brand-soft: rgba(94, 167, 128, 0.16);
+  /* The shared ink-and-paper palette (src/reader/styles/base.css) with the
+     brand red. These are the no-script values; the appearance boot and
+     syncHostedAccent stamp the same accent family from hosted-accent-css.ts. */
+  --vp-c-brand-1: #b8324e;
+  --vp-c-brand-2: #972940;
+  --vp-c-brand-3: #b8324e;
+  --vp-c-brand-soft: rgba(184, 50, 78, 0.16);
   --vp-c-bg: #ffffff;
-  --vp-c-bg-alt: #f7f8fa;
-  --vp-c-bg-soft: #eef1f4;
-  --vp-c-text-1: #171a1f;
-  --vp-c-text-2: #596272;
-  --vp-c-divider: rgba(20, 30, 45, 0.16);
+  --vp-c-bg-alt: #f8f9fb;
+  --vp-c-bg-soft: #f0f2f5;
+  --vp-c-text-1: #20242b;
+  --vp-c-text-2: #59616d;
+  --vp-c-text-3: #687384;
+  --vp-c-divider: #dfe3e8;
   --vp-font-family-base:
     system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  --vp-button-brand-border: #5ea780;
-  --vp-button-brand-text: #11161d;
-  --vp-button-brand-bg: #5ea780;
-  --vp-button-brand-hover-border: #6fb28f;
-  --vp-button-brand-hover-text: #11161d;
-  --vp-button-brand-hover-bg: #6fb28f;
-  --vp-button-brand-active-border: #549770;
-  --vp-button-brand-active-text: #11161d;
-  --vp-button-brand-active-bg: #549770;
-  --vp-button-alt-border: rgba(20, 30, 45, 0.18);
-  --vp-button-alt-bg: #eef1f4;
-  --vp-button-alt-hover-bg: #e3e8ed;
-  --vp-home-hero-name-color: var(--vp-c-brand-2);
-  --yomu-doc-icon-bg: #f7fbf8;
-  --yomu-doc-shadow: rgba(20, 30, 45, 0.18);
-  --yomu-doc-shadow-soft: rgba(20, 30, 45, 0.08);
-  --yomu-doc-panel-shadow: rgba(20, 30, 45, 0.07);
-  --yomu-doc-demo-surface: #fbfcfe;
-  --yomu-doc-demo-text: #1d2733;
-  --yomu-doc-shot-frame-bg: #f6f8fa;
-  --yomu-doc-shot-frame-border: rgba(20, 30, 45, 0.14);
+  --vp-button-brand-border: #b8324e;
+  --vp-button-brand-text: #ffffff;
+  --vp-button-brand-bg: #b8324e;
+  --vp-button-brand-hover-border: #a22c45;
+  --vp-button-brand-hover-text: #ffffff;
+  --vp-button-brand-hover-bg: #a22c45;
+  --vp-button-brand-active-border: #93283e;
+  --vp-button-brand-active-text: #ffffff;
+  --vp-button-brand-active-bg: #93283e;
+  --vp-button-alt-border: #dfe3e8;
+  --vp-button-alt-bg: #f0f2f5;
+  --vp-button-alt-hover-bg: #e6e9ee;
+  --vp-home-hero-name-color: var(--vp-c-brand-1);
+  --yomu-doc-icon-bg: #f8f9fb;
+  --yomu-doc-shadow: rgba(32, 36, 43, 0.16);
+  --yomu-doc-shadow-soft: rgba(32, 36, 43, 0.08);
+  --yomu-doc-panel-shadow: rgba(32, 36, 43, 0.07);
+  --yomu-doc-demo-surface: #ffffff;
+  --yomu-doc-demo-text: #20242b;
+  --yomu-doc-shot-frame-bg: #f8f9fb;
+  --yomu-doc-shot-frame-border: #dfe3e8;
   --yomu-doc-shot-image-bg: #ffffff;
-  --yomu-doc-shot-image-border: rgba(20, 30, 45, 0.16);
-  --yomu-doc-shot-shadow: rgba(20, 30, 45, 0.12);
+  --yomu-doc-shot-image-border: #dfe3e8;
+  --yomu-doc-shot-shadow: rgba(32, 36, 43, 0.12);
   --yomu-doc-shot-inset: rgba(255, 255, 255, 0.72);
+  --yomu-doc-success: #347a57;
   /* Match syncHostedAccent's readableTextOn(default accent) result before
-     hydration, so the native CTA and any early Reader mirror never traverse
-     an inaccessible white-to-ink colour transition. White ink belonged to the
-     old forest-green fallbacks; on the #5ea780 accent family the runtime
-     computes #11161d, and white measures 2.87:1 there. */
-  --yomu-doc-accent-ink: #11161d;
-  --yomu-doc-brand-ink: #11161d;
-  --yomu-doc-brand-hover-ink: #11161d;
+     hydration: white measures 5.83:1 on the brand red. */
+  --yomu-doc-accent-ink: #ffffff;
+  --yomu-doc-brand-ink: #ffffff;
+  --yomu-doc-brand-hover-ink: #ffffff;
 }
 
 .dark {
-  --vp-c-brand-1: #76bd99;
-  --vp-c-brand-2: #5ea780;
-  --vp-c-brand-3: #9cd8b8;
+  --vp-c-brand-1: #ff7892;
+  --vp-c-brand-2: #ff90a6;
+  --vp-c-brand-3: #b8324e;
+  --vp-c-brand-soft: rgba(184, 50, 78, 0.22);
   --vp-c-bg: #181b20;
   --vp-c-bg-alt: #20242b;
   --vp-c-bg-soft: #282e37;
   --vp-c-text-1: #f2f4f8;
-  --vp-c-text-2: #aab2c0;
+  --vp-c-text-2: #b0b8c4;
+  --vp-c-text-3: #8993a2;
   --vp-c-divider: rgba(255, 255, 255, 0.12);
-  --vp-button-brand-border: #5ea780;
-  --vp-button-brand-text: #11161d;
-  --vp-button-brand-bg: #5ea780;
-  --vp-button-brand-hover-border: #6fb28f;
-  --vp-button-brand-hover-text: #11161d;
-  --vp-button-brand-hover-bg: #6fb28f;
-  --vp-button-brand-active-border: #549770;
-  --vp-button-brand-active-text: #11161d;
-  --vp-button-brand-active-bg: #549770;
+  --vp-button-brand-border: #b8324e;
+  --vp-button-brand-text: #ffffff;
+  --vp-button-brand-bg: #b8324e;
+  --vp-button-brand-hover-border: #a22c45;
+  --vp-button-brand-hover-text: #ffffff;
+  --vp-button-brand-hover-bg: #a22c45;
+  --vp-button-brand-active-border: #93283e;
+  --vp-button-brand-active-text: #ffffff;
+  --vp-button-brand-active-bg: #93283e;
   --vp-button-alt-border: rgba(255, 255, 255, 0.14);
   --vp-button-alt-bg: #282e37;
   --vp-button-alt-hover-bg: #323946;
-  --yomu-doc-icon-bg: #f7fbf8;
+  --yomu-doc-icon-bg: #f8f9fb;
   --yomu-doc-shadow: rgba(0, 0, 0, 0.22);
   --yomu-doc-shadow-soft: rgba(0, 0, 0, 0.22);
   --yomu-doc-panel-shadow: rgba(0, 0, 0, 0.18);
   --yomu-doc-demo-surface: #181b20;
-  --yomu-doc-demo-text: #b7c0cc;
-  --yomu-doc-shot-frame-bg: #10161c;
+  --yomu-doc-demo-text: #b0b8c4;
+  --yomu-doc-shot-frame-bg: #20242b;
   --yomu-doc-shot-frame-border: rgba(255, 255, 255, 0.1);
-  --yomu-doc-shot-image-bg: #11171d;
+  --yomu-doc-shot-image-bg: #181b20;
   --yomu-doc-shot-image-border: rgba(255, 255, 255, 0.12);
   --yomu-doc-shot-shadow: rgba(0, 0, 0, 0.26);
   --yomu-doc-shot-inset: rgba(255, 255, 255, 0.04);
-  --yomu-doc-accent-ink: #11161d;
+  --yomu-doc-success: #80b99a;
+  --yomu-doc-accent-ink: #ffffff;
   --yomu-doc-brand-ink: #11161d;
   --yomu-doc-brand-hover-ink: #11161d;
 }
@@ -296,15 +301,15 @@
 }
 
 .VPButton.brand {
-  border-color: var(--yomu-accent-readable, #5ea780) !important;
-  background-color: var(--yomu-accent-readable, #5ea780) !important;
+  border-color: var(--yomu-accent-readable, #b8324e) !important;
+  background-color: var(--yomu-accent-readable, #b8324e) !important;
   color: #fff !important;
 }
 
 .VPButton.brand:hover,
 .VPButton.brand:focus-visible {
-  border-color: var(--vp-button-brand-hover-border, #6fb28f) !important;
-  background-color: var(--vp-button-brand-hover-bg, #6fb28f) !important;
+  border-color: var(--vp-button-brand-hover-border, #a22c45) !important;
+  background-color: var(--vp-button-brand-hover-bg, #a22c45) !important;
   color: #fff !important;
 }
 
@@ -384,8 +389,8 @@
 }
 
 .yomu-hosted-account-state-mark[data-state="signed-in"] {
-  background: #39b86b;
-  box-shadow: 0 0 0 3px color-mix(in srgb, #39b86b 18%, transparent);
+  background: var(--yomu-doc-success);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--yomu-doc-success) 18%, transparent);
 }
 
 .yomu-hosted-account-state-mark[data-state="error"] {
@@ -1246,15 +1251,16 @@
 }
 
 
-/* Homepage: a reading page with quiet rules and full, uncropped captures. */
+/* Homepage: a reading page with quiet rules and full, uncropped captures. It
+   takes the site's ink-and-paper palette; the serif headlines and spacing
+   carry its editorial voice, not a second colour scheme. */
 .yomu-home {
-  --home-page: #f8f5ef;
-  --home-surface: #fffdf8;
-  --home-text: #292824;
-  --home-muted: #66635a;
-  --home-line: #d9d4c9;
-  --home-action: #315944;
-  --home-on-action: #fffdf8;
+  --home-page: var(--vp-c-bg);
+  --home-surface: var(--vp-c-bg-alt);
+  --home-text: var(--vp-c-text-1);
+  --home-muted: var(--vp-c-text-2);
+  --home-line: var(--vp-c-divider);
+  --home-action: var(--vp-c-brand-1);
   --home-gutter: clamp(20px, 5vw, 80px);
   --home-space: clamp(56px, 8vw, 112px);
   --home-serif: Georgia, 'Yu Mincho', 'Hiragino Mincho ProN', serif;
@@ -1262,25 +1268,15 @@
   color: var(--home-text);
 }
 
-.dark .yomu-home {
-  --home-page: #20211e;
-  --home-surface: #292b26;
-  --home-text: #eeeae1;
-  --home-muted: #b9b8ae;
-  --home-line: #45483e;
-  --home-action: #b7d0b6;
-  --home-on-action: #20211e;
-}
-
+/* Without script the dark class never lands; follow the system instead. */
 @media (prefers-color-scheme: dark) {
   html:not(.yomu-theme-resolved) .yomu-home {
-    --home-page: #20211e;
-    --home-surface: #292b26;
-    --home-text: #eeeae1;
-    --home-muted: #b9b8ae;
-    --home-line: #45483e;
-    --home-action: #b7d0b6;
-    --home-on-action: #20211e;
+    --home-page: #181b20;
+    --home-surface: #20242b;
+    --home-text: #f2f4f8;
+    --home-muted: #b0b8c4;
+    --home-line: rgba(255, 255, 255, 0.12);
+    --home-action: #ff7892;
   }
 }
 
@@ -1432,10 +1428,10 @@
 ) {
   order: -3;
   padding: 13px 22px;
-  border: 1px solid var(--home-action);
-  border-radius: 4px;
-  background: var(--home-action);
-  color: var(--home-on-action);
+  border: 1px solid var(--vp-button-brand-border);
+  border-radius: 8px;
+  background: var(--vp-button-brand-bg);
+  color: var(--vp-button-brand-text);
   font-size: 16px;
   text-decoration: none;
 }
@@ -1598,7 +1594,7 @@ body:has(.yomu-home) .jpdb-reader-fab { bottom: max(72px, calc(env(safe-area-ins
    #f1ead9 paper over #e5dcc4 folded paper, pencil-grey secondary copy, 3-15px
    ASYMMETRIC corners, a slightly offset shadow, and exactly one folded corner
    plus one tape strip. Accent inherits the reader's own accent so a learner who
-   has set theirs sees it here, with the system's #5ea780 fallback.
+   has set theirs sees it here, with the system's brand-red fallback.
    Behaviour follows the W3C modal pattern the bible binds us to; see
    membership-popover.ts. Motion uses the bible's 150ms response step. */
 :root {
@@ -1607,7 +1603,7 @@ body:has(.yomu-home) .jpdb-reader-fab { bottom: max(72px, calc(env(safe-area-ins
   --paper-ink: #20242f;
   --paper-pencil: #4f566d;
   --world-ink: #141824;
-  --letter-accent: var(--jpdb-reader-accent, #5ea780);
+  --letter-accent: var(--jpdb-reader-accent, #b8324e);
 }
 
 .yomu-membership-backdrop {

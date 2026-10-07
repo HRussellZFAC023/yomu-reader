@@ -259,6 +259,13 @@ function visibleSettings(settings: ReaderSettings | Record<string, unknown>): Re
     return Object.fromEntries(VISIBLE_KEYS.map(key => [key, record[key]]));
 }
 
+// What 2.1 shows for a v1.9.3 record. The stored bytes are untouched, but 2.1
+// retired the green default accent, so a record still carrying it shows the brand red.
+function shownBy21(settings: Record<string, unknown>): Record<string, unknown> {
+    const shown = visibleSettings(settings);
+    return shown.accentColor === '#5ea780' ? { ...shown, accentColor: '#b8324e' } : shown;
+}
+
 function targetLanguage(settings: ReaderSettings): string | null {
     const profiles = (settings as { languageProfiles?: Array<{ id?: string; targetLanguage?: string }> }).languageProfiles ?? [];
     return profiles.find(profile => profile.id === settings.activeLanguageProfileId)?.targetLanguage ?? null;
@@ -267,7 +274,7 @@ function targetLanguage(settings: ReaderSettings): string | null {
 /** Loads settings the way v2 boots and compares with what v1.9.3 showed. */
 async function expectSameAsV193(expected: Visible): Promise<ReaderSettings> {
     const settings = await loadSettings();
-    expect(visibleSettings(settings)).toEqual(visibleSettings(expected.settings));
+    expect(visibleSettings(settings)).toEqual(shownBy21(expected.settings));
     expect(targetLanguage(settings)).toBe(expected.targetLanguage);
     // Setup was removed in 2.1; retained startup tests exercise fresh and upgraded rendering.
     expect(settings).not.toHaveProperty('onboardingSeen');
@@ -285,7 +292,7 @@ async function expectSaveStillWorks(expected: Visible): Promise<void> {
     await saveSettings({ ...current, subtitleFontSize: 44 }, { explicitUserChoiceKeys: ['subtitleFontSize'] });
     resetManagedStateEpochSessionsForTests();
     const reloaded = await loadSettings();
-    expect(visibleSettings(reloaded)).toEqual({ ...visibleSettings(expected.settings), subtitleFontSize: 44 });
+    expect(visibleSettings(reloaded)).toEqual({ ...shownBy21(expected.settings), subtitleFontSize: 44 });
 }
 
 // ---------------------------------------------------------------------------

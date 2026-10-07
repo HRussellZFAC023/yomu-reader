@@ -63,7 +63,8 @@ describe('hosted pre-paint appearance bootstrap', () => {
         for (const [name, value] of Object.entries(expected)) {
             expect(document.documentElement.style.getPropertyValue(name)).toBe(value);
         }
-        expect(document.querySelector('meta[name="theme-color"]')?.getAttribute('content')).toBe(ORANGE);
+        // The browser chrome takes the page's paper, never the accent.
+        expect(document.querySelector('meta[name="theme-color"]')?.getAttribute('content')).toBe('#ffffff');
     });
 
     it('derives dark-mode accent values from the stored theme preference', () => {
@@ -72,6 +73,7 @@ describe('hosted pre-paint appearance bootstrap', () => {
         expect(document.documentElement.classList.contains('dark')).toBe(true);
         expect(document.documentElement.style.getPropertyValue('--vp-c-brand-1'))
             .toBe(hostedAccentCssVariables(ORANGE, true)['--vp-c-brand-1']);
+        expect(document.querySelector('meta[name="theme-color"]')?.getAttribute('content')).toBe('#181b20');
         // VitePress' own inline script only ever ADDS `dark`; keeping its key in
         // sync stops a stale value from re-darkening a light page.
         expect(localStorage.getItem('vitepress-theme-appearance')).toBe('dark');
@@ -151,7 +153,7 @@ describe('stamped hosted surfaces', () => {
 
         // At most one theme block may match, so specificity never decides the shell.
         expect(matching.length).toBeLessThanOrEqual(1);
-        expect(matching.map(rule => rule.bg)).toEqual(expected === 'light' ? ['#ffffff'] : matching.length ? ['#181b20'] : []);
+        expect(matching.map(rule => rule.bg)).toEqual(expected === 'light' ? ['#f8f9fb'] : matching.length ? ['#181b20'] : []);
     });
 
     // The boot reads settings.theme BEFORE its own 'auto' fallback, so a stored

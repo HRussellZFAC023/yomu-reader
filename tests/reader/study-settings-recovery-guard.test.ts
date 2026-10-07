@@ -285,6 +285,13 @@ function visible(settings: ReaderSettings | Record<string, unknown>, expected: V
     return Object.fromEntries(Object.keys(expected.settings).filter(key => key !== 'learningTargetChosen' && key !== 'onboardingSeen').map(key => [key, record[key]]));
 }
 
+// What 2.1 shows for a v1.9.3 record: the stored bytes are untouched, but the
+// retired green default accent shows as the brand red.
+function shownBy21(expected: Visible): Record<string, unknown> {
+    const shown = visible(expected.settings, expected);
+    return shown.accentColor === '#5ea780' ? { ...shown, accentColor: '#b8324e' } : shown;
+}
+
 /** A pair whose commit ids never match: every strict read and retry rejects it. */
 const TORN_PAIR = {
     [SETTINGS_KEY]: { theme: 'light', [COMMIT]: 'settings-half' },
@@ -437,7 +444,7 @@ describe('Study over the stores v1.9.3 left', () => {
         await starting;
         expect(prepend).not.toHaveBeenCalled();
         expect(createRuntime).toHaveBeenCalledOnce();
-        expect(visible(loaded[0], expected)).toEqual(visible(expected.settings, expected));
+        expect(visible(loaded[0], expected)).toEqual(shownBy21(expected));
     }
 
     it.each(HOSTED)('%s: website-only hosted Study never sees the wall', async (_name, fixture) => {

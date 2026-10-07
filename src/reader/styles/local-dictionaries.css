@@ -214,7 +214,7 @@
 .yomu-wanikani-tag-reading,
 .yomu-wanikani-tag-meaning,
 .yomu-wanikani-tag-ja {
-  color: var(--jpdb-reader-accent);
+  color: var(--jpdb-reader-accent-readable);
   font-weight: 700;
 }
 .jpdb-reader-kanji > .jpdb-reader-local-entry + .jpdb-reader-local-entry {

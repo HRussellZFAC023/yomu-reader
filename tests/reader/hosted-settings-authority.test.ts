@@ -195,6 +195,9 @@ describe('yomureader.com after a v1.9.x factory reset', () => {
         const expected = { ...fixture.expected['https://yomureader.com/study/'].settings };
         delete expected.learningTargetChosen;
         delete expected.onboardingSeen;
+        // The stored bytes stay untouched, but 2.1 shows the retired green
+        // default accent as the brand red.
+        if (expected.accentColor === '#5ea780') expected.accentColor = '#b8324e';
         return {
             bytes: fixture.webStorage['https://yomureader.com'][SETTINGS_STORAGE_KEY],
             expected,

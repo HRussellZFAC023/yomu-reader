@@ -1167,7 +1167,10 @@ describe('reader theme', () => {
         expect(root.style.getPropertyValue('--jpdb-ocr-text-color')).toBe('#fafafa');
         expect(root.style.getPropertyValue('--jpdb-ocr-outline-color')).toBe('#010203');
         const ocrOpacity = accessibleOcrBackgroundOpacity(settings.ocrBackgroundOpacity);
-        const ocrBackground = accessibleOcrBackgroundColor(settings.accentColor, ocrOpacity);
+        const ocrBackground = accessibleOcrBackgroundColor(ocrOpacity);
+        // The text band over images is neutral overlay ink whatever the accent (#336699 here).
+        const [red, green, blue] = [1, 3, 5].map(index => parseInt(ocrBackground.slice(index, index + 2), 16));
+        expect(Math.max(red, green, blue) - Math.min(red, green, blue)).toBeLessThanOrEqual(12);
         const ocrBackgroundRgba = accentToRgba(ocrBackground, ocrOpacity);
         expect(contrastRatio(compositeOverWhiteHex(ocrBackgroundRgba), '#ffffff')).toBeGreaterThanOrEqual(4.5);
         expect(root.style.getPropertyValue('--jpdb-ocr-background-rgba')).toBe(ocrBackgroundRgba);
@@ -1268,6 +1271,27 @@ describe('reader theme', () => {
         applyReaderTheme({ ...DEFAULT_SETTINGS, theme: 'dark' });
 
         expect([...root.classList].some(className => className.startsWith('yomu-page-theme-'))).toBe(false);
+    });
+
+    // 2.1's palette is ink and paper with the icon's red. Every saved record
+    // carries its accent, so the retired green default must read as the new one.
+    it('reads the retired green default accent as the brand red and keeps chosen accents', () => {
+        expect(DEFAULT_SETTINGS.accentColor).toBe('#b8324e');
+        expect(normalizeReaderSettings({ accentColor: '#5ea780' }).accentColor).toBe('#b8324e');
+        expect(normalizeReaderSettings({ accentColor: '#336699' }).accentColor).toBe('#336699');
+    });
+
+    // Mixing the brand red toward white washes it pink-grey on dark surfaces; it
+    // pairs with its own light tint there instead, still at AA.
+    it('pairs the brand red with its light tint on dark surfaces', () => {
+        applyReaderTheme({ ...DEFAULT_SETTINGS, theme: 'dark' });
+        const readable = document.documentElement.style.getPropertyValue('--jpdb-reader-accent-readable');
+
+        expect(readable.slice(0, 3)).toBe('#ff');
+        for (const surface of [READER_THEME_COLOR_TOKENS.dark.surface, READER_THEME_COLOR_TOKENS.dark.surface2]) {
+            expect(contrastRatio(readable, surface)).toBeGreaterThanOrEqual(4.5);
+        }
+        expect(document.documentElement.style.getPropertyValue('--jpdb-reader-accent-text')).toBe('#ffffff');
     });
 
     // Dictionary tags (N5, noun, ...) paint the readable accent on an accent tint.

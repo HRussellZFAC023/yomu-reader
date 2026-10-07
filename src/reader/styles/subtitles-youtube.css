@@ -1773,7 +1773,7 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
 /* UT-68a: subtle copied confirmation */
 .jpdb-subtitle-copy-flash {
   position: relative;
-  color: var(--jpdb-reader-accent) !important;
+  color: var(--jpdb-reader-accent-readable) !important;
 }
 .jpdb-subtitle-copy-flash svg { opacity: 0; }
 .jpdb-subtitle-copy-flash::after {
@@ -1987,7 +1987,7 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
 }
 .jpdb-subtitle-shadow-action[aria-pressed="true"] {
   border-color: var(--jpdb-reader-accent);
-  color: var(--jpdb-reader-accent);
+  color: var(--jpdb-reader-accent-readable);
 }
 .jpdb-subtitle-batch-sticky {
   position: relative;

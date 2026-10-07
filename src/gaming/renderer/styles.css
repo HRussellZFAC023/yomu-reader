@@ -101,15 +101,15 @@ textarea {
 }
 
 .yomu-gaming-shell-status[data-status-tone="success"] {
-    color: #147947;
+    color: var(--jpdb-reader-success);
 }
 
 .yomu-gaming-shell-status[data-status-tone="warning"] {
-    color: #8a5a00;
+    color: var(--jpdb-reader-warning);
 }
 
 .yomu-gaming-shell-status[data-status-tone="error"] {
-    color: #b42318;
+    color: var(--jpdb-reader-danger-readable);
 }
 
 .yomu-gaming-settings.jpdb-reader-settings {
@@ -467,8 +467,9 @@ textarea {
 }
 
 .overlay-status strong {
-    color: var(--jpdb-reader-accent);
-    font-weight: 900;
+    /* The status pill is always ink, whatever the app theme. */
+    color: var(--jpdb-reader-theme-dark-accent-readable);
+    font-weight: 600;
 }
 
 .overlay-status span {

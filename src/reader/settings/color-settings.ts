@@ -34,14 +34,16 @@ export function accessibleOcrBackgroundOpacity(opacity: unknown): number {
     return Math.max(OCR_BACKGROUND_MIN_RENDERED_OPACITY, clampedOpacity);
 }
 
-export function accessibleOcrBackgroundColor(accentColor: unknown, opacity: unknown = DEFAULT_OCR_BACKGROUND_OPACITY): string {
-    const accent = sanitizeAccentColor(accentColor);
+// Text over an image sits on one restrained ink band, never on the accent: a
+// brand colour under every recognised line read as an alert, not as reading.
+export function accessibleOcrBackgroundColor(opacity: unknown = DEFAULT_OCR_BACKGROUND_OPACITY): string {
+    const ink = OVERLAY_COLOR_TOKENS.background;
     const renderedOpacity = accessibleOcrBackgroundOpacity(opacity);
-    if (ocrRenderedBackgroundContrast(accent, renderedOpacity) >= OCR_BACKGROUND_MIN_TEXT_CONTRAST) {
-        return accent;
+    if (ocrRenderedBackgroundContrast(ink, renderedOpacity) >= OCR_BACKGROUND_MIN_TEXT_CONTRAST) {
+        return ink;
     }
     for (let amount = 0.08; amount <= 1; amount += 0.04) {
-        const candidate = sharedMixHex(accent, '#000000', amount, sanitizeAccentColor);
+        const candidate = sharedMixHex(ink, '#000000', amount, sanitizeAccentColor);
         if (ocrRenderedBackgroundContrast(candidate, renderedOpacity) >= OCR_BACKGROUND_MIN_TEXT_CONTRAST) {
             return candidate;
         }
@@ -54,7 +56,4 @@ function ocrRenderedBackgroundContrast(color: string, opacity: number): number {
     return sharedContrastRatio(renderedOnWhite, DEFAULT_OCR_TEXT_COLOR, sanitizeAccentColor);
 }
 
-export const DEFAULT_OCR_BACKGROUND_COLOR = accessibleOcrBackgroundColor(
-    DEFAULT_ACCENT_COLOR,
-    DEFAULT_OCR_BACKGROUND_OPACITY,
-);
+export const DEFAULT_OCR_BACKGROUND_COLOR = accessibleOcrBackgroundColor(DEFAULT_OCR_BACKGROUND_OPACITY);

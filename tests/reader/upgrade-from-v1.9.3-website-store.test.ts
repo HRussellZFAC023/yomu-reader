@@ -101,8 +101,11 @@ async function cardExpressions(): Promise<string[]> {
     return Object.values((await new LocalYomuSrsStore().read()).cards).map(card => card.expression);
 }
 
+// What 2.1 loads for a v1.9.3 record: every retained key as stored, except the
+// retired green default accent, which reads as the brand red.
 function retainedExpectedSettings(settings: Record<string, unknown>): Record<string, unknown> {
-    return Object.fromEntries(Object.entries(settings).filter(([key]) => Object.hasOwn(DEFAULT_SETTINGS, key)));
+    const retained = Object.fromEntries(Object.entries(settings).filter(([key]) => Object.hasOwn(DEFAULT_SETTINGS, key)));
+    return retained.accentColor === '#5ea780' ? { ...retained, accentColor: '#b8324e' } : retained;
 }
 
 describe('website-only store when a Reader is installed after the update', () => {

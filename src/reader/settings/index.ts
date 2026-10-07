@@ -5,6 +5,7 @@ import { DEFAULT_PITCH_COLOR_TOKENS, DEFAULT_WORD_COLOR_TOKENS, OVERLAY_COLOR_TO
 import { normalizeAnkiFieldMappings } from './anki-field-mappings';
 import { combinedApiCredentialLabel, hasBunproFrontendCredential, hasJitenApiCredential, hasJpdbApiCredential, isBunproFrontendCredentialExpired } from './api-credential';
 import { accessibleOcrBackgroundColor, accessibleOcrBackgroundOpacity, DEFAULT_ACCENT_COLOR, DEFAULT_OCR_BACKGROUND_COLOR, DEFAULT_OCR_BACKGROUND_OPACITY, DEFAULT_OCR_OUTLINE_COLOR, DEFAULT_OCR_TEXT_COLOR, sanitizeAccentColor } from './color-settings';
+import { currentAccentColor } from '../core/hosted-accent-css';
 import { DEFAULT_DICTIONARY_LOOKUP_LINKS, normalizeDictionaryLookupLinkSettings, normalizeDictionaryPreferences } from './dictionary';
 import {
     applySettingsIntent,
@@ -605,7 +606,7 @@ function normalizeNewTabSettings(value: Partial<ReaderSettings> | null): Partial
 function normalizeReaderDisplaySettings(value: Partial<ReaderSettings> | null): Partial<ReaderSettings> {
     const settings = value ?? {};
     return {
-        accentColor: sanitizeAccentColor(settings.accentColor),
+        accentColor: currentAccentColor(settings.accentColor, DEFAULT_ACCENT_COLOR),
         ...normalizeAccentColorSettings(settings, READER_ACCENT_COLOR_SETTING_KEYS),
         ...normalizeReaderColorChannelSettings(value),
         puckPositionX: normalizeOptionalCoordinate(settings.puckPositionX),
@@ -724,7 +725,7 @@ function normalizeMediaSettings(value: Partial<ReaderSettings> | null): Partial<
         ocrCloudVisionApiKey: normalizeCloudVisionApiKey(settings.ocrCloudVisionApiKey),
         ocrTextColor: normalizeOcrTextColor(settings),
         ocrOutlineColor: normalizeOcrOutlineColor(settings),
-        ocrBackgroundColor: accessibleOcrBackgroundColor(settings.accentColor, ocrBackgroundOpacity),
+        ocrBackgroundColor: accessibleOcrBackgroundColor(ocrBackgroundOpacity),
         ocrBackgroundOpacity,
         ocrFontScale: clampNumber(settings.ocrFontScale, 0.7, 1.8, DEFAULT_SETTINGS.ocrFontScale),
     };

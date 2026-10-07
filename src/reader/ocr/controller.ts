@@ -3660,7 +3660,7 @@ function applyOcrOverlayStyle(overlay: HTMLElement, settings: ReaderSettings): v
     overlay.style.setProperty('--jpdb-ocr-text-color', settings.ocrTextColor);
     overlay.style.setProperty('--jpdb-ocr-outline-color', settings.ocrOutlineColor);
     const opacity = accessibleOcrBackgroundOpacity(settings.ocrBackgroundOpacity);
-    const background = accessibleOcrBackgroundColor(settings.accentColor, opacity);
+    const background = accessibleOcrBackgroundColor(opacity);
     overlay.style.setProperty('--jpdb-ocr-background-rgba', accentToRgba(background, opacity));
     overlay.style.setProperty('--jpdb-ocr-background-active-rgba', accentToRgba(background, Math.min(1, opacity + 0.12)));
 }

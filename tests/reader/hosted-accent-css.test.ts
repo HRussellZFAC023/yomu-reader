@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+    currentAccentColor,
     HOSTED_ACCENT_TOKENS,
     hostedAccentCssVariables,
+    hostedPageThemeColor,
     readableTextOnHostedAccent,
     sanitizeHostedAccentColor,
 } from '../../src/reader/core/hosted-accent-css';
@@ -30,11 +32,42 @@ describe('hosted accent CSS variables', () => {
     });
 
     it('keeps ink readable on the accent fill', () => {
-        for (const accent of [ORANGE, '#ffffff', '#000000', '#5ea780']) {
+        for (const accent of [ORANGE, '#ffffff', '#000000', HOSTED_ACCENT_TOKENS.accent]) {
             const ink = hostedAccentCssVariables(accent, false)['--yomu-accent-ink'];
             expect(sharedContrastRatio(ink, accent)).toBeGreaterThanOrEqual(4.5);
             expect(ink).toBe(readableTextOnHostedAccent(accent));
         }
+    });
+
+    it('reads the retired green default as the brand red, and keeps every chosen colour', () => {
+        expect(currentAccentColor('#5ea780')).toBe(HOSTED_ACCENT_TOKENS.accent);
+        expect(currentAccentColor('#5EA780')).toBe(HOSTED_ACCENT_TOKENS.accent);
+        expect(currentAccentColor('#5ea781')).toBe('#5ea781');
+        expect(currentAccentColor(ORANGE)).toBe(ORANGE);
+        expect(hostedAccentCssVariables('#5ea780', false)['--yomu-accent']).toBe(HOSTED_ACCENT_TOKENS.accent);
+    });
+
+    it('pairs the brand red with its own light tint on dark pages', () => {
+        const dark = hostedAccentCssVariables(undefined, true);
+        expect(dark['--vp-c-brand-1']).toBe('#ff7892');
+        expect(sharedContrastRatio(dark['--vp-c-brand-1'], HOSTED_ACCENT_TOKENS.pageBgDark)).toBeGreaterThanOrEqual(4.5);
+        expect(hostedAccentCssVariables(undefined, false)['--vp-c-brand-1']).toBe(HOSTED_ACCENT_TOKENS.accent);
+    });
+
+    it('keeps a filled button label readable when hovered and pressed, in both themes', () => {
+        for (const accent of [HOSTED_ACCENT_TOKENS.accent, ORANGE, '#ffd166']) {
+            for (const dark of [false, true]) {
+                const variables = hostedAccentCssVariables(accent, dark);
+                for (const state of ['', 'hover-', 'active-']) {
+                    expect(sharedContrastRatio(variables[`--vp-button-brand-${state}text`], variables[`--vp-button-brand-${state}bg`])).toBeGreaterThanOrEqual(4.5);
+                }
+            }
+        }
+    });
+
+    it('paints browser chrome in the page colour, not the accent', () => {
+        expect(hostedPageThemeColor(false)).toBe(HOSTED_ACCENT_TOKENS.pageBgLight);
+        expect(hostedPageThemeColor(true)).toBe(HOSTED_ACCENT_TOKENS.pageBgDark);
     });
 
     it('softens the accent more in dark mode', () => {

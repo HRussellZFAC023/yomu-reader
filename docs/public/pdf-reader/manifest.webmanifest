@@ -7,7 +7,7 @@
   "scope": "./",
   "display": "standalone",
   "background_color": "#101316",
-  "theme_color": "#5ea780",
+  "theme_color": "#101316",
   "icons": [
     {
       "src": "../yomu-icon.svg",

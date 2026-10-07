@@ -1520,7 +1520,7 @@ html.jpdb-reader-doodle-active * {
   white-space: nowrap;
 }
 .jpdb-reader-pitch-variant-primary .jpdb-reader-pitch-variant-badge {
-  color: var(--jpdb-reader-accent);
+  color: var(--jpdb-reader-text);
 }
 .jpdb-reader-pitch-component-label {
   max-width: 128px;

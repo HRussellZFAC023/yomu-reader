@@ -745,14 +745,11 @@ describe('settings form localization', () => {
         expect(saved.ocrOverlayTheme).toBe('dark');
     });
 
-    it('defaults OCR text to white on an accessible accent-derived highlight', () => {
+    it('defaults OCR text to white on an accessible ink highlight', () => {
         expect(BASE_DEFAULT_SETTINGS.ocrTextColor).toBe('#ffffff');
         expect(BASE_DEFAULT_SETTINGS.ocrOutlineColor).toBe('#000000');
         expect(BASE_DEFAULT_SETTINGS.ocrBackgroundOpacity).toBe(0.68);
-        expect(BASE_DEFAULT_SETTINGS.ocrBackgroundColor).toBe(accessibleOcrBackgroundColor(
-            BASE_DEFAULT_SETTINGS.accentColor,
-            BASE_DEFAULT_SETTINGS.ocrBackgroundOpacity,
-        ));
+        expect(BASE_DEFAULT_SETTINGS.ocrBackgroundColor).toBe(accessibleOcrBackgroundColor(BASE_DEFAULT_SETTINGS.ocrBackgroundOpacity));
         expect(contrastRatio(
             compositeOverWhiteHex(accentToRgba(BASE_DEFAULT_SETTINGS.ocrBackgroundColor, BASE_DEFAULT_SETTINGS.ocrBackgroundOpacity)),
             BASE_DEFAULT_SETTINGS.ocrTextColor,
@@ -760,7 +757,9 @@ describe('settings form localization', () => {
             .toBeGreaterThanOrEqual(4.5);
     });
 
-    it('normalizes the OCR background from the current accent color', () => {
+    // The band under recognised text is ink: an accent there (now the brand red)
+    // read as an alert under every line.
+    it('normalizes the OCR background to overlay ink, whatever the accent', () => {
         const settings = normalizeReaderSettings({
             accentColor: '#ffcc00',
             ocrTextColor: '#17202a',
@@ -773,7 +772,10 @@ describe('settings form localization', () => {
         expect(settings.ocrTextColor).toBe('#17202a');
         expect(settings.ocrOutlineColor).toBe('#ffffff');
         expect(settings.ocrBackgroundOpacity).toBe(opacity);
-        expect(settings.ocrBackgroundColor).toBe(accessibleOcrBackgroundColor('#ffcc00', opacity));
+        expect(settings.ocrBackgroundColor).toBe(accessibleOcrBackgroundColor(opacity));
+        expect(settings.ocrBackgroundColor).toBe(normalizeReaderSettings({ accentColor: '#336699', ocrBackgroundOpacity: 0.2 }).ocrBackgroundColor);
+        const [red, green, blue] = [1, 3, 5].map(index => parseInt(settings.ocrBackgroundColor.slice(index, index + 2), 16));
+        expect(Math.max(red, green, blue) - Math.min(red, green, blue)).toBeLessThanOrEqual(12);
     });
 
     it('omits the old paused-frame OCR status card setting', () => {

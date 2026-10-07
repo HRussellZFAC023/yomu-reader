@@ -14,7 +14,8 @@ import { FURIGANA_HIDE_STATE_GROUPS, WORD_COLOR_HIDE_STATE_GROUPS } from '../app
 import { contrastRatio, isHexColor, mixHex, readableOnAll } from './color-utils';
 import { colorSourceClassName } from './color-source-classes';
 import { setReviewLanePainted } from '../dom/review-lane';
-import { READER_THEME_COLOR_TOKENS } from './color-tokens';
+import { CORE_COLOR_TOKENS, READER_THEME_COLOR_TOKENS } from './color-tokens';
+import { readableAccentSeed } from '../core/hosted-accent-css';
 import type { ReaderColorSource, ReaderSettings } from '../app/types';
 
 const COLOR_SOURCE_CLASSES: Exclude<ReaderColorSource, 'auto'>[] = ['status', 'jpdb', 'anki', 'pitch', 'off'];
@@ -136,7 +137,7 @@ function applyPopupFontSettings(settings: ReaderSettings, root: HTMLElement): vo
 
 function applyReaderImageTextOverlaySettings(settings: ReaderSettings, root: HTMLElement): void {
     const opacity = accessibleOcrBackgroundOpacity(settings.ocrBackgroundOpacity);
-    const background = accessibleOcrBackgroundColor(settings.accentColor, opacity);
+    const background = accessibleOcrBackgroundColor(opacity);
     root.style.setProperty('--jpdb-ocr-text-color', sanitizeAccentColor(settings.ocrTextColor));
     root.style.setProperty('--jpdb-ocr-outline-color', sanitizeAccentColor(settings.ocrOutlineColor));
     root.style.setProperty('--jpdb-ocr-background-rgba', accentToRgba(background, opacity));
@@ -260,7 +261,9 @@ function applyReaderColorSourceClasses(root: HTMLElement, scope: 'word' | 'subti
 }
 
 function readableAccentOnSurface(accentColor: string, root: HTMLElement): string {
-    return readableThemeColorOnSurface(accentColor, root);
+    const surface = readerSurfaceColor(root);
+    const dark = contrastRatio(surface, CORE_COLOR_TOKENS.white) > contrastRatio(surface, CORE_COLOR_TOKENS.black);
+    return readableThemeColorOnSurface(readableAccentSeed(sanitizeAccentColor(accentColor), dark), root);
 }
 
 function readableThemeColorOnSurface(color: string, root: HTMLElement): string {

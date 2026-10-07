@@ -4,9 +4,12 @@ export const CORE_COLOR_TOKENS = {
     transparentBlack: 'rgba(0, 0, 0, 0)',
 } as const;
 
+// Ink and paper with one restrained red, taken from the よむ icon's pitch mark
+// (#fe4b74) and deepened until white text on it and it on white both pass AA.
 export const BRAND_COLOR_TOKENS = {
-    accent: '#5ea780',
-    consoleAccent: '#247a58',
+    accent: '#b8324e',
+    accentOnDark: '#ff7892',
+    consoleAccent: '#b8324e',
 } as const;
 
 export const READER_THEME_COLOR_TOKENS = {
@@ -15,16 +18,16 @@ export const READER_THEME_COLOR_TOKENS = {
         surface: '#20242b',
         surface2: '#282e37',
         text: '#f2f4f8',
-        muted: '#aab2c0',
-        faint: '#6f7a89',
+        muted: '#b0b8c4',
+        faint: '#8993a2',
         accentText: '#11161d',
     },
     light: {
-        bg: '#fbfcfe',
-        surface: '#f4f7fa',
-        surface2: '#e8edf3',
-        text: '#17202a',
-        muted: '#4f5968',
+        bg: '#f8f9fb',
+        surface: '#ffffff',
+        surface2: '#f0f2f5',
+        text: '#20242b',
+        muted: '#59616d',
         faint: '#687384',
         accentText: CORE_COLOR_TOKENS.white,
     },

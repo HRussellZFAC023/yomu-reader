@@ -229,8 +229,8 @@
 }
 
 .jpdb-reader-newtab-support-breakdown {
-  color: var(--jpdb-reader-accent);
-  font-weight: 700;
+  color: var(--jpdb-reader-accent-readable);
+  font-weight: 600;
   text-underline-offset: 2px;
 }
 
@@ -2558,7 +2558,7 @@ button.jpdb-reader-newtab-study-hint-btn:active {
 }
 
 .jpdb-reader-newtab-type-handwriting-cell[data-active="true"] {
-  color: var(--jpdb-reader-accent);
+  color: var(--jpdb-reader-accent-readable);
 }
 
 .jpdb-reader-newtab-type-handwriting-prompt {
@@ -5254,7 +5254,7 @@ button.jpdb-reader-newtab-study-hint-btn:active {
 }
 .jpdb-reader-newtab-listen-submodes button[data-active="true"] {
   border-color: var(--jpdb-reader-accent);
-  color: var(--jpdb-reader-accent);
+  color: var(--jpdb-reader-accent-readable);
   background: var(--jpdb-reader-accent-soft);
 }
 .jpdb-reader-newtab-listen-card {
@@ -5420,7 +5420,7 @@ button.jpdb-reader-newtab-study-hint-btn:active {
 .jpdb-reader-newtab-listen-score[data-speaking-score-state="close"] {
   border-color: var(--jpdb-reader-accent);
   background: var(--jpdb-reader-accent-soft);
-  color: var(--jpdb-reader-accent);
+  color: var(--jpdb-reader-accent-readable);
 }
 .jpdb-reader-newtab-listen-score[data-speaking-score-state="retry"] {
   border-color: color-mix(in srgb, var(--jpdb-reader-accent) 42%, var(--jpdb-reader-border));
@@ -5525,7 +5525,7 @@ button.jpdb-reader-newtab-study-hint-btn:active {
 }
 .jpdb-reader-connection-lost-primary {
   border-color: var(--jpdb-reader-accent) !important;
-  color: var(--jpdb-reader-accent) !important;
+  color: var(--jpdb-reader-accent-readable) !important;
   font-weight: 600;
 }
 

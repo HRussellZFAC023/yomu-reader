@@ -555,12 +555,12 @@ export default defineConfig({
         ['link', { rel: 'stylesheet', href: `${base}yomu.css` }],
         ['meta', { name: 'apple-mobile-web-app-title', content: 'よむ' }],
         ['meta', { name: 'mobile-web-app-capable', content: 'yes' }],
-        ['meta', { name: 'theme-color', content: '#5ea780' }],
+        ['meta', { name: 'theme-color', content: '#ffffff' }],
         // Runs while the head is still parsing, so the reader's accent and
         // theme are on <html> before the first paint. Without it the static
-        // brand green paints first and every page flashes green before the
+        // brand accent paints first and every page flashes it before the
         // hydrated bundle re-applies the chosen accent. Placed after the
-        // theme-color meta so the snippet can repoint it too.
+        // theme-color meta so the snippet can point it at the page's own paper.
         ['script', {}, hostedAppearanceBootSnippet('docs')],
         // Marks the theme as RESOLVED by script. The homepage palette is driven
         // by tokens declared twice: under `.dark` (authoritative whenever the

@@ -1505,7 +1505,7 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
    visible on white pages and a faint light halo on black ones, whatever the
    accent. It never takes pointer input, except as a reader page's retry button. */
 .jpdb-ocr-video-frame-status {
-  --jpdb-ocr-status-ink: var(--jpdb-reader-accent, #5ea780);
+  --jpdb-ocr-status-ink: var(--jpdb-reader-accent, #b8324e);
   position: fixed;
   z-index: 2147483644;
   display: grid;
@@ -1585,7 +1585,7 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
 }
 
 .jpdb-ocr-video-frame-status[data-yomu-ocr-retry="true"]:focus-visible {
-  outline: 2px solid var(--jpdb-reader-accent, #5ea780);
+  outline: 2px solid var(--jpdb-reader-accent, #b8324e);
 }
 
 @media (pointer: coarse) {
@@ -1653,7 +1653,7 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: var(--jpdb-reader-accent, #5ea780);
+  background: var(--jpdb-reader-accent, #b8324e);
 }
 
 /* The reader root's theme text colour (dark in the light theme) would beat the
@@ -1762,7 +1762,7 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
   --jpdb-ocr-auto-dark-surface: color-mix(
     in srgb,
     rgba(9, 13, 20, 0.64) 78%,
-    var(--jpdb-reader-accent, #5ea780) 22%
+    var(--jpdb-reader-accent, #b8324e) 22%
   );
   --jpdb-ocr-auto-dark-visible: color-mix(
     in srgb,
@@ -1776,7 +1776,7 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
   );
   --jpdb-ocr-auto-dark-border: color-mix(
     in srgb,
-    var(--jpdb-reader-accent, #5ea780) 58%,
+    var(--jpdb-reader-accent, #b8324e) 58%,
     rgba(255, 255, 255, 0.16)
   );
 }
@@ -1961,7 +1961,7 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
     inset 0 0 0 1px color-mix(in srgb, var(--jpdb-reader-white, #ffffff) 12%, transparent);
 }
 .jpdb-ocr-line:focus-visible {
-  outline: 2px solid var(--jpdb-reader-accent, #5ea780);
+  outline: 2px solid var(--jpdb-reader-accent, #b8324e);
   outline-offset: 2px;
 }
 .jpdb-ocr-layer[data-ocr-overlay-theme="dark"][data-ocr-overlay-variant="auto"]
@@ -2176,11 +2176,11 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
   background: color-mix(
     in srgb,
     var(--jpdb-reader-surface, #ffffff) 96%,
-    var(--jpdb-reader-accent, #5ea780) 4%
+    var(--jpdb-reader-accent, #b8324e) 4%
   ) !important;
   border-color: color-mix(
     in srgb,
-    var(--jpdb-reader-accent, #5ea780) 38%,
+    var(--jpdb-reader-accent, #b8324e) 38%,
     var(--jpdb-reader-border, rgba(20, 30, 45, 0.18))
   ) !important;
   box-shadow:
