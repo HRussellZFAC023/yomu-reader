@@ -1,5 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { userFacingError } from '../../../src/reader/app/user-facing-errors';
 import {
     RECOMMENDED_JAPANESE_DICTIONARIES,
     catalogBrowseLanguageSectionsForLearnerLanguage,
@@ -219,6 +220,43 @@ describe('the newest Jitendex and Jiten a page can reach', () => {
         studyWithReader();
         expect(await install('jitendex')).toEqual({ url: JITENDEX_LATEST, options: undefined });
         expect(await install('jiten')).toEqual({ url: JITEN_LATEST, options: undefined });
+    });
+
+    // Leia, 2026-10-05: "the jiten frequency badges one times out". With the
+    // Reader, the Jiten card fetched api.jiten.moe through it and, when that host
+    // answered slowly, ended on "Dictionary download timed out." with nothing
+    // installed, although the mirror holds a digest-checked copy.
+    it('installs the mirror copy when the newest build cannot be downloaded on a first install', async () => {
+        studyWithReader();
+        const timedOut = userFacingError('dictionaryDownloadTimedOut');
+        const importFromUrl = vi.fn(async (url: string, _filename?: string, _onProgress?: unknown, _options?: unknown): Promise<ImportSummary> => {
+            if (url === JITEN_LATEST) throw timedOut;
+            return { dictionaries: ['Jiten'], entries: 1, terms: 0, kanji: 0, termMeta: 1, kanjiMeta: 0 };
+        });
+        const jiten = findRecommendedDictionary('jiten')!;
+
+        await expect(importRecommendedDictionary({ importFromUrl }, jiten, () => undefined, { firstInstall: true }))
+            .resolves.toMatchObject({ dictionaries: ['Jiten'] });
+        expect(importFromUrl.mock.calls.map(([url, , , options]) => [url, options])).toEqual([
+            [JITEN_LATEST, undefined],
+            [`${MIRROR}${jiten.sha256}.zip`, { integrity: { sha256: jiten.sha256, bytes: jiten.bytes } }],
+        ]);
+    });
+
+    it('keeps the failure on an update, a cancel or a full disk', async () => {
+        studyWithReader();
+        const jiten = findRecommendedDictionary('jiten')!;
+        const fullDisk = Object.assign(new Error('Quota'), { name: 'QuotaExceededError' });
+        const cancelled = Object.assign(new Error('Aborted'), { name: 'AbortError' });
+        for (const [error, firstInstall] of [
+            [userFacingError('dictionaryDownloadTimedOut'), false],
+            [cancelled, true],
+            [fullDisk, true],
+        ] as const) {
+            const importFromUrl = vi.fn(async (): Promise<ImportSummary> => { throw error; });
+            await expect(importRecommendedDictionary({ importFromUrl }, jiten, () => undefined, { firstInstall })).rejects.toBe(error);
+            expect(importFromUrl).toHaveBeenCalledTimes(1);
+        }
     });
 
     it('installs the latest build from an extension page, which holds host permission', async () => {
