@@ -31,6 +31,7 @@ const PARSE_TEXT_LIMIT = 1900;
 // request URL (observed HTTP 414); bound the encoded query as well as text.
 const PARSE_ENCODED_TEXT_LIMIT = 6000;
 const PARSE_TERM_SEPARATOR = '。';
+const PARSE_SEPARATOR_ENCODED_LENGTH = encodeURIComponent(PARSE_TERM_SEPARATOR).length;
 const log = Logger.scope('JitenPublicVocabulary');
 const sharedParseGate = new ConcurrencyGate(1);
 let sharedRequestBackoffUntil = 0;
@@ -570,10 +571,13 @@ function publicParseChunks(paragraphs: readonly string[]): PublicParseChunk[] {
         for (const { text: part, offset } of publicParseTextSlices(paragraph)) {
             const partEncodedLength = encodeURIComponent(part).length;
             if (current.text && (current.text.length + 1 + part.length > PARSE_TEXT_LIMIT
-                || encodedLength + 3 + partEncodedLength > PARSE_ENCODED_TEXT_LIMIT)) flush();
-            encodedLength += partEncodedLength + (current.text ? 3 : 0);
+                || encodedLength + PARSE_SEPARATOR_ENCODED_LENGTH + partEncodedLength > PARSE_ENCODED_TEXT_LIMIT)) flush();
+            encodedLength += partEncodedLength + (current.text ? PARSE_SEPARATOR_ENCODED_LENGTH : 0);
             const chunkStart = current.text ? current.text.length + 1 : 0;
-            current.text += `${current.text ? '\n' : ''}${part}`;
+            // Independent targets need a hard boundary: the public endpoint's
+            // newline batch can return large unparsed gaps even for known words.
+            // The separator is transport-only and lies outside every source range.
+            current.text += `${current.text ? PARSE_TERM_SEPARATOR : ''}${part}`;
             current.ranges.push({
                 paragraphIndex,
                 paragraphStart: offset,
@@ -677,7 +681,7 @@ function chunkTermsForParse(terms: readonly string[]): string[][] {
     let encodedLength = 0;
     for (const term of terms) {
         const termEncodedLength = encodeURIComponent(term).length;
-        const nextEncodedLength = encodedLength + termEncodedLength + (current.length ? 9 : 0);
+        const nextEncodedLength = encodedLength + termEncodedLength + (current.length ? PARSE_SEPARATOR_ENCODED_LENGTH : 0);
         const nextLength = length + term.length + (current.length ? PARSE_TERM_SEPARATOR.length : 0);
         if (current.length && (nextLength > PARSE_TEXT_LIMIT || nextEncodedLength > PARSE_ENCODED_TEXT_LIMIT)) {
             chunks.push(current);
@@ -685,7 +689,7 @@ function chunkTermsForParse(terms: readonly string[]): string[][] {
             length = 0;
             encodedLength = 0;
         }
-        encodedLength += termEncodedLength + (current.length ? 9 : 0);
+        encodedLength += termEncodedLength + (current.length ? PARSE_SEPARATOR_ENCODED_LENGTH : 0);
         current.push(term);
         length += term.length + (current.length > 1 ? 1 : 0);
     }

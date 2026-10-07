@@ -1,0 +1,3785 @@
+{
+  "source": "https://ja.wikipedia.org/wiki/日本語",
+  "api": "https://api.jiten.moe/api/vocabulary/parse",
+  "observed": "2026-10-07",
+  "note": "Same80 inputs captured from installedChrome worker; before and after transport separators. Only parser-consumed response fields retained. Wikipedia source is CC BY-SA.",
+  "paragraphs": [
+    "日本語",
+    "この項目では、日本国内などで使用されている言語について説明しています。日本語の言語教育のための教科書については「にっぽんご」をご覧ください。",
+    "日",
+    "本",
+    "語",
+    "日本語の表記体系",
+    "に沿って日本語という語を記した例",
+    "発音",
+    "[nʲip̚po̞ŋːo̞]（まれ）",
+    "[nʲip̚po̞ŋɡo̞]（まれ）",
+    "話される国",
+    "日本",
+    "民族",
+    "日本人（大和民族、アイヌ、琉球民族を含む）",
+    "話者数",
+    "約1億2,400万人",
+    "、または",
+    "約1億2,600万人",
+    "[注釈 1]",
+    "言語系統",
+    "日琉語族",
+    "孤立した言語",
+    "で論争あり。詳細は",
+    "日本語の起源",
+    "を参照。）",
+    "初期形式",
+    "日琉祖語",
+    "上代日本語",
+    "中古日本語",
+    "中世日本語",
+    "近世日本語",
+    "日本語（にほんご、にっぽんご",
+    "[注釈 3]",
+    "）は、日本国内や、かつての日本領だった国、そして国外移民や移住者を含む日本人同士の間で使用されている言語。日本は法令によって公用語を規定していないが、法令その他の公用文は全て日本語で記述され、各種法令",
+    "[注釈 4]",
+    "において日本語を用いることが規定され、学校教育においては「国語」の教科として学習を行うなど、事実上日本国内において唯一の公用語となっている。",
+    "使用人口について正確な統計はないが、日本国内の人口、及び日本国外に住む日本人や日系人、日本がかつて統治した地域の一部住民など、約1億3,000万人以上と考えられている",
+    "。統計によって前後する場合もあるが、この数は世界の母語話者数で上位10位以内に入る人数である",
+    "特徴",
+    "編集",
+    "日本語の音韻は、「っ」「ん」を除いて母音で終わる開音節言語の性格が強く、また標準語（共通語）を含め多くの方言がモーラを持つ。アクセントは高低アクセントである。",
+    "なお元来の古い大和言葉では、原則として",
+    "「ら行」音が語頭に立たない（しりとりで『ら行』で始まる言葉が見つけにくいのはこのため。『らく（楽）』『らっぱ』『りんご』『れい（礼）』などは大和言葉でない）",
+    "コンテンツにスキップ",
+    "検索",
+    "寄付",
+    "アカウント作成",
+    "ログイン",
+    "非表示",
+    "ページ先頭",
+    "特徴",
+    "分布",
+    "系統",
+    "系統サブセクションを切り替えます",
+    "音韻",
+    "音韻サブセクションを切り替えます",
+    "文法",
+    "文法サブセクションを切り替えます",
+    "語彙",
+    "語彙サブセクションを切り替えます",
+    "表記",
+    "表記サブセクションを切り替えます",
+    "文体",
+    "文体サブセクションを切り替えます",
+    "待遇表現",
+    "待遇表現サブセクションを切り替えます",
+    "歴史",
+    "歴史サブセクションを切り替えます",
+    "方言",
+    "方言サブセクションを切り替えます",
+    "日本語話者の意識",
+    "日本語話者の意識サブセクションを切り替えます",
+    "辞書",
+    "辞書サブセクションを切り替えます",
+    "脚注",
+    "脚注サブセクションを切り替えます",
+    "参考文献",
+    "参考文献サブセクションを切り替えます",
+    "関連項目",
+    "外部リンク"
+  ],
+  "responses": [
+    {
+      "text": "日本語\nこの項目では、日本国内などで使用されている言語について説明しています。日本語の言語教育のための教科書については「にっぽんご」をご覧ください。\n日\n本\n語\n日本語の表記体系\nに沿って日本語という語を記した例\n発音\n[nʲip̚po̞ŋːo̞]（まれ）\n[nʲip̚po̞ŋɡo̞]（まれ）\n話される国\n日本\n民族\n日本人（大和民族、アイヌ、琉球民族を含む）\n話者数\n約1億2,400万人\n、または\n約1億2,600万人\n[注釈 1]\n言語系統\n日琉語族\n孤立した言語\nで論争あり。詳細は\n日本語の起源\nを参照。）\n初期形式\n日琉祖語\n上代日本語\n中古日本語\n中世日本語\n近世日本語\n日本語（にほんご、にっぽんご\n[注釈 3]\n）は、日本国内や、かつての日本領だった国、そして国外移民や移住者を含む日本人同士の間で使用されている言語。日本は法令によって公用語を規定していないが、法令その他の公用文は全て日本語で記述され、各種法令\n[注釈 4]\nにおいて日本語を用いることが規定され、学校教育においては「国語」の教科として学習を行うなど、事実上日本国内において唯一の公用語となっている。\n使用人口について正確な統計はないが、日本国内の人口、及び日本国外に住む日本人や日系人、日本がかつて統治した地域の一部住民など、約1億3,000万人以上と考えられている\n。統計によって前後する場合もあるが、この数は世界の母語話者数で上位10位以内に入る人数である\n特徴\n編集\n日本語の音韻は、「っ」「ん」を除いて母音で終わる開音節言語の性格が強く、また標準語（共通語）を含め多くの方言がモーラを持つ。アクセントは高低アクセントである。\nなお元来の古い大和言葉では、原則として",
+      "body": [
+        {
+          "wordId": 1464530,
+          "readingIndex": 0,
+          "originalText": "日本語"
+        },
+        {
+          "wordId": 0,
+          "readingIndex": 0,
+          "originalText": "\n"
+        },
+        {
+          "wordId": 1582920,
+          "readingIndex": 2,
+          "originalText": "この"
+        },
+        {
+          "wordId": 1283000,
+          "readingIndex": 0,
+          "originalText": "項目"
+        },
+        {
+          "wordId": 1008450,
+          "readingIndex": 0,
+          "originalText": "では"
+        },
+        {
+          "wordId": 0,
+          "readingIndex": 0,
+          "originalText": "、"
+        },
+        {
+          "wordId": 2426940,
+          "readingIndex": 0,
+          "originalText": "日本国"
+        },
+        {
+          "wordId": 2098290,
+          "readingIndex": 0,
+          "originalText": "内"
+        },
+        {
+          "wordId": 1582300,
+          "readingIndex": 2,
+          "originalText": "など"
+        },
+        {
+          "wordId": 2028980,
+          "readingIndex": 0,
+          "originalText": "で"
+        },
+        {
+          "wordId": 1306200,
+          "readingIndex": 0,
+          "originalText": "使用されている"
+        },
+        {
+          "wordId": 1264420,
+          "readingIndex": 0,
+          "originalText": "言語"
+        },
+        {
+          "wordId": 1009780,
+          "readingIndex": 2,
+          "originalText": "について"
+        },
+        {
+          "wordId": 1386460,
+          "readingIndex": 0,
+          "originalText": "説明しています"
+        },
+        {
+          "wordId": 0,
+          "readingIndex": 0,
+          "originalText": "。"
+        },
+        {
+          "wordId": 1464530,
+          "readingIndex": 0,
+          "originalText": "日本語"
+        },
+        {
+          "wordId": 1469800,
+          "readingIndex": 2,
+          "originalText": "の"
+        },
+        {
+          "wordId": 1934600,
+          "readingIndex": 0,
+          "originalText": "言語教育"
+        },
+        {
+          "wordId": 1469800,
+          "readingIndex": 2,
+          "originalText": "の"
+        },
+        {
+          "wordId": 1157080,
+          "readingIndex": 3,
+          "originalText": "ため"
+        },
+        {
+          "wordId": 1469800,
+          "readingIndex": 2,
+          "originalText": "の"
+        },
+        {
+          "wordId": 1237020,
+          "readingIndex": 0,
+          "originalText": "教科書"
+        },
+        {
+          "wordId": 1009780,
+          "readingIndex": 2,
+          "originalText": "について"
+        },
+        {
+          "wordId": 2028920,
+          "readingIndex": 0,
+          "originalText": "は"
+        },
+        {
+          "wordId": 0,
+          "readingIndex": 0,
+          "originalText": "「"
+        },
+        {
+          "wordId": 1464530,
+          "readingIndex": 2,
+          "originalText": "にっぽんご"
+        },
+        {
+          "wordId": 0,
+          "readingIndex": 0,
+          "originalText": "」"
+        },
+        {
+          "wordId": 2029010,
+          "readingIndex": 0,
+          "originalText": "を"
+        },
+        {
+          "wordId": 1005100,
+          "readingIndex": 0,
+          "originalText": "ご覧ください"
+        },
+        {
+          "wordId": 0,
+          "readingIndex": 0,
+          "originalText": "。\n日\n本\n語\n"
+        },
+        {
+          "wordId": 1464530,
+          "readingIndex": 0,
+          "originalText": "日本語"
+        },
+        {
+          "wordId": 0,
+          "readingIndex": 0,
+          "originalText": "の表記体系\nに沿って"
+        },
+        {
+          "wordId": 1464530,
+          "readingIndex": 0,
+          "originalText": "日本語"
+        },
+        {
+          "wordId": 0,
+          "readingIndex": 0,
+          "originalText": "という語を記した例\n発音\n[nʲip̚po̞ŋːo̞]（まれ）\n[nʲip̚po̞ŋɡo̞]（まれ）\n話される国\n日本\n民族\n日本人（大和民族、アイヌ、琉球民族を含む）\n話者数\n約1億2,400万人\n、または\n約1億2,600万人\n[注釈 1]\n言語系統\n日琉語族\n孤立した言語\nで論争あり。詳細は\n日本語"
+        },
+        {
+          "wordId": 1469800,
+          "readingIndex": 2,
+          "originalText": "の"
+        },
+        {
+          "wordId": 0,
+          "readingIndex": 0,
+          "originalText": "起源\nを参照。）\n初期形式\n日琉祖語\n上代"
+        },
+        {
+          "wordId": 1464530,
+          "readingIndex": 0,
+          "originalText": "日本語"
+        },
+        {
+          "wordId": 0,
+          "readingIndex": 0,
+          "originalText": "\n中古日本"
+        },
+        {
+          "wordId": 1270910,
+          "readingIndex": 0,
+          "originalText": "語"
+        },
+        {
+          "wordId": 0,
+          "readingIndex": 0,
+          "originalText": "\n中世日本語\n近世日本語\n日本語（にほんご、にっぽんご\n[注釈 3]\n）は、日本国内や、かつての日本領だった国、そして国外移民や移住者"
+        },
+        {
+          "wordId": 2029010,
+          "readingIndex": 0,
+          "originalText": "を"
+        },
+        {
+          "wordId": 0,
+          "readingIndex": 0,
+          "originalText": "含む日本人同士の間で使用されている言語。日本は法令によって公用語を規定していないが、法令その他の公用文は全て日本語で記述され、各種法令\n[注釈 4]\nにおいて日本語を用いることが規定され、学校教育においては「"
+        },
+        {
+          "wordId": 1592250,
+          "readingIndex": 0,
+          "originalText": "国"
+        },
+        {
+          "wordId": 0,
+          "readingIndex": 0,
+          "originalText": "語」の教科として学習を行うなど、事実上"
+        },
+        {
+          "wordId": 1582710,
+          "readingIndex": 0,
+          "originalText": "日本"
+        },
+        {
+          "wordId": 0,
+          "readingIndex": 0,
+          "originalText": "国内において唯一の公用語となっている。\n使用人口について正確な統計はないが、日本国内の人口、及び日本国外に住む"
+        },
+        {
+          "wordId": 1464700,
+          "readingIndex": 0,
+          "originalText": "日本人"
+        },
+        {
+          "wordId": 0,
+          "readingIndex": 0,
+          "originalText": "や日系人、日本がかつて統治した地域の一部住民など、約1億3,000万人以上と考えられている\n。統計によって前後する場合もあるが、この数は世界の母語話者数で上位10位以内に入る人数である\n特徴\n編集\n日本語の音韻は、「っ」「ん」"
+        },
+        {
+          "wordId": 2029010,
+          "readingIndex": 0,
+          "originalText": "を"
+        },
+        {
+          "wordId": 0,
+          "readingIndex": 0,
+          "originalText": "除いて母音で終わる開音節"
+        },
+        {
+          "wordId": 1264420,
+          "readingIndex": 0,
+          "originalText": "言語"
+        },
+        {
+          "wordId": 0,
+          "readingIndex": 0,
+          "originalText": "の性格が強く、また標準語（共通語）を含め多くの方言がモーラを持つ。アクセントは高低アクセント"
+        },
+        {
+          "wordId": 2028980,
+          "readingIndex": 0,
+          "originalText": "で"
+        },
+        {
+          "wordId": 0,
+          "readingIndex": 0,
+          "originalText": "ある。\nなお元来の古い大和言葉で"
+        },
+        {
+          "wordId": 2028920,
+          "readingIndex": 0,
+          "originalText": "は"
+        },
+        {
+          "wordId": 0,
+          "readingIndex": 0,
+          "originalText": "、原則"
+        },
+        {
+          "wordId": 1008590,
+          "readingIndex": 0,
+          "originalText": "として"
+        }
+      ]
+    },
+    {
+      "text": "「ら行」音が語頭に立たない（しりとりで『ら行』で始まる言葉が見つけにくいのはこのため。『らく（楽）』『らっぱ』『りんご』『れい（礼）』などは大和言葉でない）\nコンテンツにスキップ\n検索\n寄付\nアカウント作成\nログイン\n非表示\nページ先頭\n特徴\n分布\n系統\n系統サブセクションを切り替えます\n音韻\n音韻サブセクションを切り替えます\n文法\n文法サブセクションを切り替えます\n語彙\n語彙サブセクションを切り替えます\n表記\n表記サブセクションを切り替えます\n文体\n文体サブセクションを切り替えます\n待遇表現\n待遇表現サブセクションを切り替えます\n歴史\n歴史サブセクションを切り替えます\n方言\n方言サブセクションを切り替えます\n日本語話者の意識\n日本語話者の意識サブセクションを切り替えます\n辞書\n辞書サブセクションを切り替えます\n脚注\n脚注サブセクションを切り替えます\n参考文献\n参考文献サブセクションを切り替えます\n関連項目\n外部リンク",
+      "body": [
+        {
+          "wordId": 0,
+          "readingIndex": 0,
+          "originalText": "「"
+        },
+        {
+          "wordId": 1140420,
+          "readingIndex": 0,
+          "originalText": "ら行"
+        },
+        {
+          "wordId": 0,
+          "readingIndex": 0,
+          "originalText": "」"
+        },
+        {
+          "wordId": 1576900,
+          "readingIndex": 0,
+          "originalText": "音"
+        },
+        {
+          "wordId": 2028930,
+          "readingIndex": 0,
+          "originalText": "が"
+        },
+        {
+          "wordId": 1271170,
+          "readingIndex": 0,
+          "originalText": "語頭"
+        },
+        {
+          "wordId": 2028990,
+          "readingIndex": 0,
+          "originalText": "に"
+        },
+        {
+          "wordId": 1597040,
+          "readingIndex": 0,
+          "originalText": "立たない"
+        },
+        {
+          "wordId": 0,
+          "readingIndex": 0,
+          "originalText": "（"
+        },
+        {
+          "wordId": 1358780,
+          "readingIndex": 2,
+          "originalText": "しりとり"
+        },
+        {
+          "wordId": 2028980,
+          "readingIndex": 0,
+          "originalText": "で"
+        },
+        {
+          "wordId": 0,
+          "readingIndex": 0,
+          "originalText": "『"
+        },
+        {
+          "wordId": 1140420,
+          "readingIndex": 0,
+          "originalText": "ら行"
+        },
+        {
+          "wordId": 0,
+          "readingIndex": 0,
+          "originalText": "』"
+        },
+        {
+          "wordId": 2028980,
+          "readingIndex": 0,
+          "originalText": "で"
+        },
+        {
+          "wordId": 1307500,
+          "readingIndex": 0,
+          "originalText": "始まる"
+        },
+        {
+          "wordId": 1264540,
+          "readingIndex": 0,
+          "originalText": "言葉"
+        },
+        {
+          "wordId": 2028930,
+          "readingIndex": 0,
+          "originalText": "が"
+        },
+        {
+          "wordId": 1604570,
+          "readingIndex": 0,
+          "originalText": "見つけ"
+        },
+        {
+          "wordId": 2772730,
+          "readingIndex": 2,
+          "originalText": "にくい"
+        },
+        {
+          "wordId": 1469800,
+          "readingIndex": 2,
+          "originalText": "の"
+        },
+        {
+          "wordId": 2028920,
+          "readingIndex": 0,
+          "originalText": "は"
+        },
+        {
+          "wordId": 1004640,
+          "readingIndex": 0,
+          "originalText": "このため"
+        },
+        {
+          "wordId": 0,
+          "readingIndex": 0,
+          "originalText": "。『"
+        },
+        {
+          "wordId": 1207230,
+          "readingIndex": 1,
+          "originalText": "らく"
+        },
+        {
+          "wordId": 0,
+          "readingIndex": 0,
+          "originalText": "（"
+        },
+        {
+          "wordId": 1207230,
+          "readingIndex": 0,
+          "originalText": "楽"
+        },
+        {
+          "wordId": 0,
+          "readingIndex": 0,
+          "originalText": "）』『"
+        },
+        {
+          "wordId": 1565370,
+          "readingIndex": 1,
+          "originalText": "らっぱ"
+        },
+        {
+          "wordId": 0,
+          "readingIndex": 0,
+          "originalText": "』『"
+        },
+        {
+          "wordId": 1555480,
+          "readingIndex": 1,
+          "originalText": "りんご"
+        },
+        {
+          "wordId": 0,
+          "readingIndex": 0,
+          "originalText": "』『"
+        },
+        {
+          "wordId": 1585230,
+          "readingIndex": 1,
+          "originalText": "れい"
+        },
+        {
+          "wordId": 0,
+          "readingIndex": 0,
+          "originalText": "（"
+        },
+        {
+          "wordId": 1557450,
+          "readingIndex": 0,
+          "originalText": "礼"
+        },
+        {
+          "wordId": 0,
+          "readingIndex": 0,
+          "originalText": "）』"
+        },
+        {
+          "wordId": 1582300,
+          "readingIndex": 2,
+          "originalText": "など"
+        },
+        {
+          "wordId": 2028920,
+          "readingIndex": 0,
+          "originalText": "は"
+        },
+        {
+          "wordId": 1786050,
+          "readingIndex": 0,
+          "originalText": "大和言葉"
+        },
+        {
+          "wordId": 2028980,
+          "readingIndex": 0,
+          "originalText": "で"
+        },
+        {
+          "wordId": 1529520,
+          "readingIndex": 1,
+          "originalText": "ない"
+        },
+        {
+          "wordId": 0,
+          "readingIndex": 0,
+          "originalText": "）\n"
+        },
+        {
+          "wordId": 1052650,
+          "readingIndex": 0,
+          "originalText": "コンテンツ"
+        },
+        {
+          "wordId": 2028990,
+          "readingIndex": 0,
+          "originalText": "に"
+        },
+        {
+          "wordId": 1067920,
+          "readingIndex": 0,
+          "originalText": "スキップ"
+        },
+        {
+          "wordId": 0,
+          "readingIndex": 0,
+          "originalText": "\n"
+        },
+        {
+          "wordId": 1257900,
+          "readingIndex": 0,
+          "originalText": "検索"
+        },
+        {
+          "wordId": 0,
+          "readingIndex": 0,
+          "originalText": "\n"
+        },
+        {
+          "wordId": 1591400,
+          "readingIndex": 0,
+          "originalText": "寄付"
+        },
+        {
+          "wordId": 0,
+          "readingIndex": 0,
+          "originalText": "\n"
+        },
+        {
+          "wordId": 1014970,
+          "readingIndex": 0,
+          "originalText": "アカウント"
+        },
+        {
+          "wordId": 1297760,
+          "readingIndex": 0,
+          "originalText": "作成"
+        },
+        {
+          "wordId": 0,
+          "readingIndex": 0,
+          "originalText": "\n"
+        },
+        {
+          "wordId": 1147120,
+          "readingIndex": 0,
+          "originalText": "ログイン"
+        },
+        {
+          "wordId": 0,
+          "readingIndex": 0,
+          "originalText": "\n"
+        },
+        {
+          "wordId": 2809380,
+          "readingIndex": 0,
+          "originalText": "非表示"
+        },
+        {
+          "wordId": 0,
+          "readingIndex": 0,
+          "originalText": "\n"
+        },
+        {
+          "wordId": 1120410,
+          "readingIndex": 1,
+          "originalText": "ページ"
+        },
+        {
+          "wordId": 1596210,
+          "readingIndex": 0,
+          "originalText": "先頭"
+        },
+        {
+          "wordId": 0,
+          "readingIndex": 0,
+          "originalText": "\n"
+        },
+        {
+          "wordId": 1455170,
+          "readingIndex": 0,
+          "originalText": "特徴"
+        },
+        {
+          "wordId": 0,
+          "readingIndex": 0,
+          "originalText": "\n"
+        },
+        {
+          "wordId": 1504160,
+          "readingIndex": 0,
+          "originalText": "分布"
+        },
+        {
+          "wordId": 0,
+          "readingIndex": 0,
+          "originalText": "\n"
+        },
+        {
+          "wordId": 1251030,
+          "readingIndex": 0,
+          "originalText": "系統"
+        },
+        {
+          "wordId": 0,
+          "readingIndex": 0,
+          "originalText": "\n"
+        },
+        {
+          "wordId": 1251030,
+          "readingIndex": 0,
+          "originalText": "系統"
+        },
+        {
+          "wordId": 1057190,
+          "readingIndex": 0,
+          "originalText": "サブ"
+        },
+        {
+          "wordId": 1074490,
+          "readingIndex": 0,
+          "originalText": "セクション"
+        },
+        {
+          "wordId": 2029010,
+          "readingIndex": 0,
+          "originalText": "を"
+        },
+        {
+          "wordId": 1591780,
+          "readingIndex": 0,
+          "originalText": "切り替えます"
+        },
+        {
+          "wordId": 0,
+          "readingIndex": 0,
+          "originalText": "\n"
+        },
+        {
+          "wordId": 1183680,
+          "readingIndex": 0,
+          "originalText": "音韻"
+        },
+        {
+          "wordId": 0,
+          "readingIndex": 0,
+          "originalText": "\n"
+        },
+        {
+          "wordId": 1183680,
+          "readingIndex": 0,
+          "originalText": "音韻"
+        },
+        {
+          "wordId": 1057190,
+          "readingIndex": 0,
+          "originalText": "サブ"
+        },
+        {
+          "wordId": 1074490,
+          "readingIndex": 0,
+          "originalText": "セクション"
+        },
+        {
+          "wordId": 2029010,
+          "readingIndex": 0,
+          "originalText": "を"
+        },
+        {
+          "wordId": 1591780,
+          "readingIndex": 0,
+          "originalText": "切り替えます"
+        },
+        {
+          "wordId": 0,
+          "readingIndex": 0,
+          "originalText": "\n"
+        },
+        {
+          "wordId": 1505600,
+          "readingIndex": 0,
+          "originalText": "文法"
+        },
+        {
+          "wordId": 0,
+          "readingIndex": 0,
+          "originalText": "\n"
+        },
+        {
+          "wordId": 1505600,
+          "readingIndex": 0,
+          "originalText": "文法"
+        },
+        {
+          "wordId": 1057190,
+          "readingIndex": 0,
+          "originalText": "サブ"
+        },
+        {
+          "wordId": 1074490,
+          "readingIndex": 0,
+          "originalText": "セクション"
+        },
+        {
+          "wordId": 2029010,
+          "readingIndex": 0,
+          "originalText": "を"
+        },
+        {
+          "wordId": 1591780,
+          "readingIndex": 0,
+          "originalText": "切り替えます"
+        },
+        {
+          "wordId": 0,
+          "readingIndex": 0,
+          "originalText": "\n"
+        },
+        {
+          "wordId": 1271260,
+          "readingIndex": 0,
+          "originalText": "語彙"
+        },
+        {
+          "wordId": 0,
+          "readingIndex": 0,
+          "originalText": "\n"
+        },
+        {
+          "wordId": 1271260,
+          "readingIndex": 0,
+          "originalText": "語彙"
+        },
+        {
+          "wordId": 1057190,
+          "readingIndex": 0,
+          "originalText": "サブ"
+        },
+        {
+          "wordId": 1074490,
+          "readingIndex": 0,
+          "originalText": "セクション"
+        },
+        {
+          "wordId": 2029010,
+          "readingIndex": 0,
+          "originalText": "を"
+        },
+        {
+          "wordId": 1591780,
+          "readingIndex": 0,
+          "originalText": "切り替えます"
+        },
+        {
+          "wordId": 0,
+          "readingIndex": 0,
+          "originalText": "\n"
+        },
+        {
+          "wordId": 1489420,
+          "readingIndex": 0,
+          "originalText": "表記"
+        },
+        {
+          "wordId": 0,
+          "readingIndex": 0,
+          "originalText": "\n"
+        },
+        {
+          "wordId": 1489420,
+          "readingIndex": 0,
+          "originalText": "表記"
+        },
+        {
+          "wordId": 1057190,
+          "readingIndex": 0,
+          "originalText": "サブ"
+        },
+        {
+          "wordId": 1074490,
+          "readingIndex": 0,
+          "originalText": "セクション"
+        },
+        {
+          "wordId": 2029010,
+          "readingIndex": 0,
+          "originalText": "を"
+        },
+        {
+          "wordId": 1591780,
+          "readingIndex": 0,
+          "originalText": "切り替えます"
+        },
+        {
+          "wordId": 0,
+          "readingIndex": 0,
+          "originalText": "\n"
+        },
+        {
+          "wordId": 1505510,
+          "readingIndex": 0,
+          "originalText": "文体"
+        },
+        {
+          "wordId": 0,
+          "readingIndex": 0,
+          "originalText": "\n"
+        },
+        {
+          "wordId": 1505510,
+          "readingIndex": 0,
+          "originalText": "文体"
+        },
+        {
+          "wordId": 1057190,
+          "readingIndex": 0,
+          "originalText": "サブ"
+        },
+        {
+          "wordId": 1074490,
+          "readingIndex": 0,
+          "originalText": "セクション"
+        },
+        {
+          "wordId": 2029010,
+          "readingIndex": 0,
+          "originalText": "を"
+        },
+        {
+          "wordId": 1591780,
+          "readingIndex": 0,
+          "originalText": "切り替えます"
+        },
+        {
+          "wordId": 0,
+          "readingIndex": 0,
+          "originalText": "\n"
+        },
+        {
+          "wordId": 2217160,
+          "readingIndex": 0,
+          "originalText": "待遇表現"
+        },
+        {
+          "wordId": 0,
+          "readingIndex": 0,
+          "originalText": "\n"
+        },
+        {
+          "wordId": 2217160,
+          "readingIndex": 0,
+          "originalText": "待遇表現"
+        },
+        {
+          "wordId": 1057190,
+          "readingIndex": 0,
+          "originalText": "サブ"
+        },
+        {
+          "wordId": 1074490,
+          "readingIndex": 0,
+          "originalText": "セクション"
+        },
+        {
+          "wordId": 2029010,
+          "readingIndex": 0,
+          "originalText": "を"
+        },
+        {
+          "wordId": 1591780,
+          "readingIndex": 0,
+          "originalText": "切り替えます"
+        },
+        {
+          "wordId": 0,
+          "readingIndex": 0,
+          "originalText": "\n"
+        },
+        {
+          "wordId": 1558050,
+          "readingIndex": 0,
+          "originalText": "歴史"
+        },
+        {
+          "wordId": 0,
+          "readingIndex": 0,
+          "originalText": "\n"
+        },
+        {
+          "wordId": 1558050,
+          "readingIndex": 0,
+          "originalText": "歴史"
+        },
+        {
+          "wordId": 1057190,
+          "readingIndex": 0,
+          "originalText": "サブ"
+        },
+        {
+          "wordId": 1074490,
+          "readingIndex": 0,
+          "originalText": "セクション"
+        },
+        {
+          "wordId": 2029010,
+          "readingIndex": 0,
+          "originalText": "を"
+        },
+        {
+          "wordId": 1591780,
+          "readingIndex": 0,
+          "originalText": "切り替えます"
+        },
+        {
+          "wordId": 0,
+          "readingIndex": 0,
+          "originalText": "\n"
+        },
+        {
+          "wordId": 1516980,
+          "readingIndex": 0,
+          "originalText": "方言"
+        },
+        {
+          "wordId": 0,
+          "readingIndex": 0,
+          "originalText": "\n"
+        },
+        {
+          "wordId": 1516980,
+          "readingIndex": 0,
+          "originalText": "方言"
+        },
+        {
+          "wordId": 1057190,
+          "readingIndex": 0,
+          "originalText": "サブ"
+        },
+        {
+          "wordId": 1074490,
+          "readingIndex": 0,
+          "originalText": "セクション"
+        },
+        {
+          "wordId": 2029010,
+          "readingIndex": 0,
+          "originalText": "を"
+        },
+        {
+          "wordId": 1591780,
+          "readingIndex": 0,
+          "originalText": "切り替えます"
+        },
+        {
+          "wordId": 0,
+          "readingIndex": 0,
+          "originalText": "\n"
+        },
+        {
+          "wordId": 2240790,
+          "readingIndex": 0,
+          "originalText": "日本語話者"
+        },
+        {
+          "wordId": 1469800,
+          "readingIndex": 2,
+          "originalText": "の"
+        },
+        {
+          "wordId": 1156640,
+          "readingIndex": 0,
+          "originalText": "意識"
+        },
+        {
+          "wordId": 0,
+          "readingIndex": 0,
+          "originalText": "\n"
+        },
+        {
+          "wordId": 2240790,
+          "readingIndex": 0,
+          "originalText": "日本語話者"
+        },
+        {
+          "wordId": 1469800,
+          "readingIndex": 2,
+          "originalText": "の"
+        },
+        {
+          "wordId": 1156640,
+          "readingIndex": 0,
+          "originalText": "意識"
+        },
+        {
+          "wordId": 1057190,
+          "readingIndex": 0,
+          "originalText": "サブ"
+        },
+        {
+          "wordId": 1074490,
+          "readingIndex": 0,
+          "originalText": "セクション"
+        },
+        {
+          "wordId": 2029010,
+          "readingIndex": 0,
+          "originalText": "を"
+        },
+        {
+          "wordId": 1591780,
+          "readingIndex": 0,
+          "originalText": "切り替えます"
+        },
+        {
+          "wordId": 0,
+          "readingIndex": 0,
+          "originalText": "\n"
+        },
+        {
+          "wordId": 1318970,
+          "readingIndex": 0,
+          "originalText": "辞書"
+        },
+        {
+          "wordId": 0,
+          "readingIndex": 0,
+          "originalText": "\n"
+        },
+        {
+          "wordId": 1318970,
+          "readingIndex": 0,
+          "originalText": "辞書"
+        },
+        {
+          "wordId": 1057190,
+          "readingIndex": 0,
+          "originalText": "サブ"
+        },
+        {
+          "wordId": 1074490,
+          "readingIndex": 0,
+          "originalText": "セクション"
+        },
+        {
+          "wordId": 2029010,
+          "readingIndex": 0,
+          "originalText": "を"
+        },
+        {
+          "wordId": 1591780,
+          "readingIndex": 0,
+          "originalText": "切り替えます"
+        },
+        {
+          "wordId": 0,
+          "readingIndex": 0,
+          "originalText": "\n"
+        },
+        {
+          "wordId": 1226850,
+          "readingIndex": 0,
+          "originalText": "脚注"
+        },
+        {
+          "wordId": 0,
+          "readingIndex": 0,
+          "originalText": "\n"
+        },
+        {
+          "wordId": 1226850,
+          "readingIndex": 0,
+          "originalText": "脚注"
+        },
+        {
+          "wordId": 1057190,
+          "readingIndex": 0,
+          "originalText": "サブ"
+        },
+        {
+          "wordId": 1074490,
+          "readingIndex": 0,
+          "originalText": "セクション"
+        },
+        {
+          "wordId": 2029010,
+          "readingIndex": 0,
+          "originalText": "を"
+        },
+        {
+          "wordId": 1591780,
+          "readingIndex": 0,
+          "originalText": "切り替えます"
+        },
+        {
+          "wordId": 0,
+          "readingIndex": 0,
+          "originalText": "\n"
+        },
+        {
+          "wordId": 1302350,
+          "readingIndex": 0,
+          "originalText": "参考文献"
+        },
+        {
+          "wordId": 0,
+          "readingIndex": 0,
+          "originalText": "\n"
+        },
+        {
+          "wordId": 1302350,
+          "readingIndex": 0,
+          "originalText": "参考文献"
+        },
+        {
+          "wordId": 1057190,
+          "readingIndex": 0,
+          "originalText": "サブ"
+        },
+        {
+          "wordId": 1074490,
+          "readingIndex": 0,
+          "originalText": "セクション"
+        },
+        {
+          "wordId": 2029010,
+          "readingIndex": 0,
+          "originalText": "を"
+        },
+        {
+          "wordId": 1591780,
+          "readingIndex": 0,
+          "originalText": "切り替えます"
+        },
+        {
+          "wordId": 0,
+          "readingIndex": 0,
+          "originalText": "\n"
+        },
+        {
+          "wordId": 1216080,
+          "readingIndex": 0,
+          "originalText": "関連項目"
+        },
+        {
+          "wordId": 0,
+          "readingIndex": 0,
+          "originalText": "\n"
+        },
+        {
+          "wordId": 2692080,
+          "readingIndex": 0,
+          "originalText": "外部リンク"
+        }
+      ]
+    },
+    {
+      "text": "日本語。この項目では、日本国内などで使用されている言語について説明しています。日本語の言語教育のための教科書については「にっぽんご」をご覧ください。。日。本。語。日本語の表記体系。に沿って日本語という語を記した例。発音。[nʲip̚po̞ŋːo̞]（まれ）。[nʲip̚po̞ŋɡo̞]（まれ）。話される国。日本。民族。日本人（大和民族、アイヌ、琉球民族を含む）。話者数。約1億2,400万人。、または。約1億2,600万人。[注釈 1]。言語系統。日琉語族。孤立した言語。で論争あり。詳細は。日本語の起源。を参照。）。初期形式。日琉祖語。上代日本語。中古日本語。中世日本語。近世日本語。日本語（にほんご、にっぽんご。[注釈 3]。）は、日本国内や、かつての日本領だった国、そして国外移民や移住者を含む日本人同士の間で使用されている言語。日本は法令によって公用語を規定していないが、法令その他の公用文は全て日本語で記述され、各種法令。[注釈 4]。において日本語を用いることが規定され、学校教育においては「国語」の教科として学習を行うなど、事実上日本国内において唯一の公用語となっている。。使用人口について正確な統計はないが、日本国内の人口、及び日本国外に住む日本人や日系人、日本がかつて統治した地域の一部住民など、約1億3,000万人以上と考えられている。。統計によって前後する場合もあるが、この数は世界の母語話者数で上位10位以内に入る人数である。特徴。編集",
+      "body": [
+        {
+          "wordId": 1464530,
+          "readingIndex": 0,
+          "originalText": "日本語"
+        },
+        {
+          "wordId": 0,
+          "readingIndex": 0,
+          "originalText": "。"
+        },
+        {
+          "wordId": 1582920,
+          "readingIndex": 2,
+          "originalText": "この"
+        },
+        {
+          "wordId": 1283000,
+          "readingIndex": 0,
+          "originalText": "項目"
+        },
+        {
+          "wordId": 1008450,
+          "readingIndex": 0,
+          "originalText": "では"
+        },
+        {
+          "wordId": 0,
+          "readingIndex": 0,
+          "originalText": "、"
+        },
+        {
+          "wordId": 2426940,
+          "readingIndex": 0,
+          "originalText": "日本国"
+        },
+        {
+          "wordId": 2098290,
+          "readingIndex": 0,
+          "originalText": "内"
+        },
+        {
+          "wordId": 1582300,
+          "readingIndex": 2,
+          "originalText": "など"
+        },
+        {
+          "wordId": 2028980,
+          "readingIndex": 0,
+          "originalText": "で"
+        },
+        {
+          "wordId": 1306200,
+          "readingIndex": 0,
+          "originalText": "使用されている"
+        },
+        {
+          "wordId": 1264420,
+          "readingIndex": 0,
+          "originalText": "言語"
+        },
+        {
+          "wordId": 1009780,
+          "readingIndex": 2,
+          "originalText": "について"
+        },
+        {
+          "wordId": 1386460,
+          "readingIndex": 0,
+          "originalText": "説明しています"
+        },
+        {
+          "wordId": 0,
+          "readingIndex": 0,
+          "originalText": "。"
+        },
+        {
+          "wordId": 1464530,
+          "readingIndex": 0,
+          "originalText": "日本語"
+        },
+        {
+          "wordId": 1469800,
+          "readingIndex": 2,
+          "originalText": "の"
+        },
+        {
+          "wordId": 1934600,
+          "readingIndex": 0,
+          "originalText": "言語教育"
+        },
+        {
+          "wordId": 1469800,
+          "readingIndex": 2,
+          "originalText": "の"
+        },
+        {
+          "wordId": 1157080,
+          "readingIndex": 3,
+          "originalText": "ため"
+        },
+        {
+          "wordId": 1469800,
+          "readingIndex": 2,
+          "originalText": "の"
+        },
+        {
+          "wordId": 1237020,
+          "readingIndex": 0,
+          "originalText": "教科書"
+        },
+        {
+          "wordId": 1009780,
+          "readingIndex": 2,
+          "originalText": "について"
+        },
+        {
+          "wordId": 2028920,
+          "readingIndex": 0,
+          "originalText": "は"
+        },
+        {
+          "wordId": 0,
+          "readingIndex": 0,
+          "originalText": "「"
+        },
+        {
+          "wordId": 1464530,
+          "readingIndex": 2,
+          "originalText": "にっぽんご"
+        },
+        {
+          "wordId": 0,
+          "readingIndex": 0,
+          "originalText": "」"
+        },
+        {
+          "wordId": 2029010,
+          "readingIndex": 0,
+          "originalText": "を"
+        },
+        {
+          "wordId": 1005100,
+          "readingIndex": 0,
+          "originalText": "ご覧ください"
+        },
+        {
+          "wordId": 0,
+          "readingIndex": 0,
+          "originalText": "。。"
+        },
+        {
+          "wordId": 1463770,
+          "readingIndex": 0,
+          "originalText": "日"
+        },
+        {
+          "wordId": 0,
+          "readingIndex": 0,
+          "originalText": "。"
+        },
+        {
+          "wordId": 1522150,
+          "readingIndex": 0,
+          "originalText": "本"
+        },
+        {
+          "wordId": 0,
+          "readingIndex": 0,
+          "originalText": "。"
+        },
+        {
+          "wordId": 1270910,
+          "readingIndex": 0,
+          "originalText": "語"
+        },
+        {
+          "wordId": 0,
+          "readingIndex": 0,
+          "originalText": "。"
+        },
+        {
+          "wordId": 1464530,
+          "readingIndex": 0,
+          "originalText": "日本語"
+        },
+        {
+          "wordId": 1469800,
+          "readingIndex": 2,
+          "originalText": "の"
+        },
+        {
+          "wordId": 2383930,
+          "readingIndex": 0,
+          "originalText": "表記体系"
+        },
+        {
+          "wordId": 0,
+          "readingIndex": 0,
+          "originalText": "。"
+        },
+        {
+          "wordId": 2215300,
+          "readingIndex": 0,
+          "originalText": "に沿って"
+        },
+        {
+          "wordId": 1464530,
+          "readingIndex": 0,
+          "originalText": "日本語"
+        },
+        {
+          "wordId": 1922760,
+          "readingIndex": 1,
+          "originalText": "という"
+        },
+        {
+          "wordId": 1270910,
+          "readingIndex": 0,
+          "originalText": "語"
+        },
+        {
+          "wordId": 2029010,
+          "readingIndex": 0,
+          "originalText": "を"
+        },
+        {
+          "wordId": 1223140,
+          "readingIndex": 0,
+          "originalText": "記した"
+        },
+        {
+          "wordId": 1585230,
+          "readingIndex": 0,
+          "originalText": "例"
+        },
+        {
+          "wordId": 0,
+          "readingIndex": 0,
+          "originalText": "。"
+        },
+        {
+          "wordId": 1477170,
+          "readingIndex": 0,
+          "originalText": "発音"
+        },
+        {
+          "wordId": 0,
+          "readingIndex": 0,
+          "originalText": "。[nʲip̚po̞ŋːo̞]（"
+        },
+        {
+          "wordId": 1604280,
+          "readingIndex": 2,
+          "originalText": "まれ"
+        },
+        {
+          "wordId": 0,
+          "readingIndex": 0,
+          "originalText": "）。[nʲip̚po̞ŋɡo̞]（"
+        },
+        {
+          "wordId": 1604280,
+          "readingIndex": 2,
+          "originalText": "まれ"
+        },
+        {
+          "wordId": 0,
+          "readingIndex": 0,
+          "originalText": "）。"
+        },
+        {
+          "wordId": 1562350,
+          "readingIndex": 0,
+          "originalText": "話される"
+        },
+        {
+          "wordId": 1592250,
+          "readingIndex": 0,
+          "originalText": "国"
+        },
+        {
+          "wordId": 0,
+          "readingIndex": 0,
+          "originalText": "。"
+        },
+        {
+          "wordId": 1582710,
+          "readingIndex": 0,
+          "originalText": "日本"
+        },
+        {
+          "wordId": 0,
+          "readingIndex": 0,
+          "originalText": "。"
+        },
+        {
+          "wordId": 1604740,
+          "readingIndex": 0,
+          "originalText": "民族"
+        },
+        {
+          "wordId": 0,
+          "readingIndex": 0,
+          "originalText": "。"
+        },
+        {
+          "wordId": 1464700,
+          "readingIndex": 0,
+          "originalText": "日本人"
+        },
+        {
+          "wordId": 0,
+          "readingIndex": 0,
+          "originalText": "（"
+        },
+        {
+          "wordId": 1941970,
+          "readingIndex": 0,
+          "originalText": "大和民族"
+        },
+        {
+          "wordId": 0,
+          "readingIndex": 0,
+          "originalText": "、"
+        },
+        {
+          "wordId": 1014390,
+          "readingIndex": 0,
+          "originalText": "アイヌ"
+        },
+        {
+          "wordId": 0,
+          "readingIndex": 0,
+          "originalText": "、"
+        },
+        {
+          "wordId": 2731460,
+          "readingIndex": 0,
+          "originalText": "琉球"
+        },
+        {
+          "wordId": 1604740,
+          "readingIndex": 0,
+          "originalText": "民族"
+        },
+        {
+          "wordId": 2029010,
+          "readingIndex": 0,
+          "originalText": "を"
+        },
+        {
+          "wordId": 1216880,
+          "readingIndex": 0,
+          "originalText": "含む"
+        },
+        {
+          "wordId": 0,
+          "readingIndex": 0,
+          "originalText": "）。"
+        },
+        {
+          "wordId": 1562380,
+          "readingIndex": 0,
+          "originalText": "話者"
+        },
+        {
+          "wordId": 1580825,
+          "readingIndex": 0,
+          "originalText": "数"
+        },
+        {
+          "wordId": 0,
+          "readingIndex": 0,
+          "originalText": "。"
+        },
+        {
+          "wordId": 1538100,
+          "readingIndex": 0,
+          "originalText": "約"
+        },
+        {
+          "wordId": 0,
+          "readingIndex": 0,
+          "originalText": "1億2,400万"
+        },
+        {
+          "wordId": 2149890,
+          "readingIndex": 0,
+          "originalText": "人"
+        },
+        {
+          "wordId": 0,
+          "readingIndex": 0,
+          "originalText": "。、"
+        },
+        {
+          "wordId": 1524990,
+          "readingIndex": 1,
+          "originalText": "または"
+        },
+        {
+          "wordId": 0,
+          "readingIndex": 0,
+          "originalText": "。"
+        },
+        {
+          "wordId": 1538100,
+          "readingIndex": 0,
+          "originalText": "約"
+        },
+        {
+          "wordId": 0,
+          "readingIndex": 0,
+          "originalText": "1億2,600万"
+        },
+        {
+          "wordId": 2149890,
+          "readingIndex": 0,
+          "originalText": "人"
+        },
+        {
+          "wordId": 0,
+          "readingIndex": 0,
+          "originalText": "。["
+        },
+        {
+          "wordId": 1426610,
+          "readingIndex": 0,
+          "originalText": "注釈"
+        },
+        {
+          "wordId": 0,
+          "readingIndex": 0,
+          "originalText": " 1]。"
+        },
+        {
+          "wordId": 1264420,
+          "readingIndex": 0,
+          "originalText": "言語"
+        },
+        {
+          "wordId": 1251030,
+          "readingIndex": 0,
+          "originalText": "系統"
+        },
+        {
+          "wordId": 0,
+          "readingIndex": 0,
+          "originalText": "。"
+        },
+        {
+          "wordId": 2869155,
+          "readingIndex": 0,
+          "originalText": "日琉語族"
+        },
+        {
+          "wordId": 0,
+          "readingIndex": 0,
+          "originalText": "。"
+        },
+        {
+          "wordId": 2827107,
+          "readingIndex": 0,
+          "originalText": "孤立した言語"
+        },
+        {
+          "wordId": 0,
+          "readingIndex": 0,
+          "originalText": "。"
+        },
+        {
+          "wordId": 2028980,
+          "readingIndex": 0,
+          "originalText": "で"
+        },
+        {
+          "wordId": 1561760,
+          "readingIndex": 0,
+          "originalText": "論争"
+        },
+        {
+          "wordId": 1225940,
+          "readingIndex": 1,
+          "originalText": "あり"
+        },
+        {
+          "wordId": 0,
+          "readingIndex": 0,
+          "originalText": "。"
+        },
+        {
+          "wordId": 1351760,
+          "readingIndex": 0,
+          "originalText": "詳細"
+        },
+        {
+          "wordId": 2028920,
+          "readingIndex": 0,
+          "originalText": "は"
+        },
+        {
+          "wordId": 0,
+          "readingIndex": 0,
+          "originalText": "。"
+        },
+        {
+          "wordId": 1464530,
+          "readingIndex": 0,
+          "originalText": "日本語"
+        },
+        {
+          "wordId": 1469800,
+          "readingIndex": 2,
+          "originalText": "の"
+        },
+        {
+          "wordId": 1591140,
+          "readingIndex": 0,
+          "originalText": "起源"
+        },
+        {
+          "wordId": 0,
+          "readingIndex": 0,
+          "originalText": "。"
+        },
+        {
+          "wordId": 2029010,
+          "readingIndex": 0,
+          "originalText": "を"
+        },
+        {
+          "wordId": 1302410,
+          "readingIndex": 0,
+          "originalText": "参照"
+        },
+        {
+          "wordId": 0,
+          "readingIndex": 0,
+          "originalText": "。）。"
+        },
+        {
+          "wordId": 1342630,
+          "readingIndex": 0,
+          "originalText": "初期"
+        },
+        {
+          "wordId": 1250310,
+          "readingIndex": 0,
+          "originalText": "形式"
+        },
+        {
+          "wordId": 0,
+          "readingIndex": 0,
+          "originalText": "。"
+        },
+        {
+          "wordId": 2869164,
+          "readingIndex": 0,
+          "originalText": "日琉祖語"
+        },
+        {
+          "wordId": 0,
+          "readingIndex": 0,
+          "originalText": "。"
+        },
+        {
+          "wordId": 2846680,
+          "readingIndex": 0,
+          "originalText": "上代日本語"
+        },
+        {
+          "wordId": 0,
+          "readingIndex": 0,
+          "originalText": "。"
+        },
+        {
+          "wordId": 2846681,
+          "readingIndex": 0,
+          "originalText": "中古日本語"
+        },
+        {
+          "wordId": 0,
+          "readingIndex": 0,
+          "originalText": "。"
+        },
+        {
+          "wordId": 2846679,
+          "readingIndex": 0,
+          "originalText": "中世日本語"
+        },
+        {
+          "wordId": 0,
+          "readingIndex": 0,
+          "originalText": "。"
+        },
+        {
+          "wordId": 2846682,
+          "readingIndex": 0,
+          "originalText": "近世日本語"
+        },
+        {
+          "wordId": 0,
+          "readingIndex": 0,
+          "originalText": "。"
+        },
+        {
+          "wordId": 1464530,
+          "readingIndex": 0,
+          "originalText": "日本語"
+        },
+        {
+          "wordId": 0,
+          "readingIndex": 0,
+          "originalText": "（"
+        },
+        {
+          "wordId": 1464530,
+          "readingIndex": 1,
+          "originalText": "にほんご"
+        },
+        {
+          "wordId": 0,
+          "readingIndex": 0,
+          "originalText": "、"
+        },
+        {
+          "wordId": 1464530,
+          "readingIndex": 2,
+          "originalText": "にっぽんご"
+        },
+        {
+          "wordId": 0,
+          "readingIndex": 0,
+          "originalText": "。["
+        },
+        {
+          "wordId": 1426610,
+          "readingIndex": 0,
+          "originalText": "注釈"
+        },
+        {
+          "wordId": 0,
+          "readingIndex": 0,
+          "originalText": " 3]。）"
+        },
+        {
+          "wordId": 2028920,
+          "readingIndex": 0,
+          "originalText": "は"
+        },
+        {
+          "wordId": 0,
+          "readingIndex": 0,
+          "originalText": "、"
+        },
+        {
+          "wordId": 2426940,
+          "readingIndex": 0,
+          "originalText": "日本国"
+        },
+        {
+          "wordId": 2098290,
+          "readingIndex": 0,
+          "originalText": "内"
+        },
+        {
+          "wordId": 2028960,
+          "readingIndex": 0,
+          "originalText": "や"
+        },
+        {
+          "wordId": 0,
+          "readingIndex": 0,
+          "originalText": "、"
+        },
+        {
+          "wordId": 1581210,
+          "readingIndex": 4,
+          "originalText": "かつて"
+        },
+        {
+          "wordId": 1469800,
+          "readingIndex": 2,
+          "originalText": "の"
+        },
+        {
+          "wordId": 1900240,
+          "readingIndex": 0,
+          "originalText": "日本領"
+        },
+        {
+          "wordId": 2819970,
+          "readingIndex": 0,
+          "originalText": "だった"
+        },
+        {
+          "wordId": 1592250,
+          "readingIndex": 0,
+          "originalText": "国"
+        },
+        {
+          "wordId": 0,
+          "readingIndex": 0,
+          "originalText": "、"
+        },
+        {
+          "wordId": 1006730,
+          "readingIndex": 2,
+          "originalText": "そして"
+        },
+        {
+          "wordId": 1286270,
+          "readingIndex": 0,
+          "originalText": "国外"
+        },
+        {
+          "wordId": 1158440,
+          "readingIndex": 0,
+          "originalText": "移民"
+        },
+        {
+          "wordId": 2028960,
+          "readingIndex": 0,
+          "originalText": "や"
+        },
+        {
+          "wordId": 1753960,
+          "readingIndex": 0,
+          "originalText": "移住者"
+        },
+        {
+          "wordId": 2029010,
+          "readingIndex": 0,
+          "originalText": "を"
+        },
+        {
+          "wordId": 1216880,
+          "readingIndex": 0,
+          "originalText": "含む"
+        },
+        {
+          "wordId": 1464700,
+          "readingIndex": 0,
+          "originalText": "日本人"
+        },
+        {
+          "wordId": 1452400,
+          "readingIndex": 0,
+          "originalText": "同士"
+        },
+        {
+          "wordId": 1469800,
+          "readingIndex": 2,
+          "originalText": "の"
+        },
+        {
+          "wordId": 1215230,
+          "readingIndex": 0,
+          "originalText": "間"
+        },
+        {
+          "wordId": 2028980,
+          "readingIndex": 0,
+          "originalText": "で"
+        },
+        {
+          "wordId": 1306200,
+          "readingIndex": 0,
+          "originalText": "使用されている"
+        },
+        {
+          "wordId": 1264420,
+          "readingIndex": 0,
+          "originalText": "言語"
+        },
+        {
+          "wordId": 0,
+          "readingIndex": 0,
+          "originalText": "。"
+        },
+        {
+          "wordId": 1582710,
+          "readingIndex": 0,
+          "originalText": "日本"
+        },
+        {
+          "wordId": 2028920,
+          "readingIndex": 0,
+          "originalText": "は"
+        },
+        {
+          "wordId": 1517500,
+          "readingIndex": 0,
+          "originalText": "法令"
+        },
+        {
+          "wordId": 1009640,
+          "readingIndex": 2,
+          "originalText": "によって"
+        },
+        {
+          "wordId": 1274950,
+          "readingIndex": 0,
+          "originalText": "公用語"
+        },
+        {
+          "wordId": 2029010,
+          "readingIndex": 0,
+          "originalText": "を"
+        },
+        {
+          "wordId": 1223060,
+          "readingIndex": 0,
+          "originalText": "規定していない"
+        },
+        {
+          "wordId": 2028930,
+          "readingIndex": 0,
+          "originalText": "が"
+        },
+        {
+          "wordId": 0,
+          "readingIndex": 0,
+          "originalText": "、"
+        },
+        {
+          "wordId": 1517500,
+          "readingIndex": 0,
+          "originalText": "法令"
+        },
+        {
+          "wordId": 1006900,
+          "readingIndex": 0,
+          "originalText": "その他"
+        },
+        {
+          "wordId": 1469800,
+          "readingIndex": 2,
+          "originalText": "の"
+        },
+        {
+          "wordId": 1274970,
+          "readingIndex": 0,
+          "originalText": "公用文"
+        },
+        {
+          "wordId": 2028920,
+          "readingIndex": 0,
+          "originalText": "は"
+        },
+        {
+          "wordId": 1595730,
+          "readingIndex": 0,
+          "originalText": "全て"
+        },
+        {
+          "wordId": 1464530,
+          "readingIndex": 0,
+          "originalText": "日本語"
+        },
+        {
+          "wordId": 2028980,
+          "readingIndex": 0,
+          "originalText": "で"
+        },
+        {
+          "wordId": 1223280,
+          "readingIndex": 0,
+          "originalText": "記述され"
+        },
+        {
+          "wordId": 0,
+          "readingIndex": 0,
+          "originalText": "、"
+        },
+        {
+          "wordId": 1205040,
+          "readingIndex": 0,
+          "originalText": "各種"
+        },
+        {
+          "wordId": 1517500,
+          "readingIndex": 0,
+          "originalText": "法令"
+        },
+        {
+          "wordId": 0,
+          "readingIndex": 0,
+          "originalText": "。["
+        },
+        {
+          "wordId": 1426610,
+          "readingIndex": 0,
+          "originalText": "注釈"
+        },
+        {
+          "wordId": 0,
+          "readingIndex": 0,
+          "originalText": " 4]。"
+        },
+        {
+          "wordId": 1009550,
+          "readingIndex": 2,
+          "originalText": "において"
+        },
+        {
+          "wordId": 1464530,
+          "readingIndex": 0,
+          "originalText": "日本語"
+        },
+        {
+          "wordId": 2029010,
+          "readingIndex": 0,
+          "originalText": "を"
+        },
+        {
+          "wordId": 1546210,
+          "readingIndex": 0,
+          "originalText": "用いる"
+        },
+        {
+          "wordId": 1313580,
+          "readingIndex": 2,
+          "originalText": "こと"
+        },
+        {
+          "wordId": 2028930,
+          "readingIndex": 0,
+          "originalText": "が"
+        },
+        {
+          "wordId": 1223060,
+          "readingIndex": 0,
+          "originalText": "規定され"
+        },
+        {
+          "wordId": 0,
+          "readingIndex": 0,
+          "originalText": "、"
+        },
+        {
+          "wordId": 1761220,
+          "readingIndex": 0,
+          "originalText": "学校教育"
+        },
+        {
+          "wordId": 2028990,
+          "readingIndex": 0,
+          "originalText": "に"
+        },
+        {
+          "wordId": 1421850,
+          "readingIndex": 1,
+          "originalText": "おいて"
+        },
+        {
+          "wordId": 2028920,
+          "readingIndex": 0,
+          "originalText": "は"
+        },
+        {
+          "wordId": 0,
+          "readingIndex": 0,
+          "originalText": "「"
+        },
+        {
+          "wordId": 1286370,
+          "readingIndex": 0,
+          "originalText": "国語"
+        },
+        {
+          "wordId": 0,
+          "readingIndex": 0,
+          "originalText": "」"
+        },
+        {
+          "wordId": 1469800,
+          "readingIndex": 2,
+          "originalText": "の"
+        },
+        {
+          "wordId": 1237010,
+          "readingIndex": 0,
+          "originalText": "教科"
+        },
+        {
+          "wordId": 1008590,
+          "readingIndex": 0,
+          "originalText": "として"
+        },
+        {
+          "wordId": 1206820,
+          "readingIndex": 0,
+          "originalText": "学習"
+        },
+        {
+          "wordId": 2029010,
+          "readingIndex": 0,
+          "originalText": "を"
+        },
+        {
+          "wordId": 1589060,
+          "readingIndex": 0,
+          "originalText": "行う"
+        },
+        {
+          "wordId": 1582300,
+          "readingIndex": 2,
+          "originalText": "など"
+        },
+        {
+          "wordId": 0,
+          "readingIndex": 0,
+          "originalText": "、"
+        },
+        {
+          "wordId": 1313970,
+          "readingIndex": 0,
+          "originalText": "事実上"
+        },
+        {
+          "wordId": 1582710,
+          "readingIndex": 0,
+          "originalText": "日本"
+        },
+        {
+          "wordId": 1286930,
+          "readingIndex": 0,
+          "originalText": "国内"
+        },
+        {
+          "wordId": 2028990,
+          "readingIndex": 0,
+          "originalText": "に"
+        },
+        {
+          "wordId": 1421850,
+          "readingIndex": 1,
+          "originalText": "おいて"
+        },
+        {
+          "wordId": 1538920,
+          "readingIndex": 0,
+          "originalText": "唯一"
+        },
+        {
+          "wordId": 1469800,
+          "readingIndex": 2,
+          "originalText": "の"
+        },
+        {
+          "wordId": 1274950,
+          "readingIndex": 0,
+          "originalText": "公用語"
+        },
+        {
+          "wordId": 1008490,
+          "readingIndex": 0,
+          "originalText": "と"
+        },
+        {
+          "wordId": 1375610,
+          "readingIndex": 2,
+          "originalText": "なっている"
+        },
+        {
+          "wordId": 0,
+          "readingIndex": 0,
+          "originalText": "。。"
+        },
+        {
+          "wordId": 1306200,
+          "readingIndex": 0,
+          "originalText": "使用"
+        },
+        {
+          "wordId": 1367300,
+          "readingIndex": 0,
+          "originalText": "人口"
+        },
+        {
+          "wordId": 1009780,
+          "readingIndex": 2,
+          "originalText": "について"
+        },
+        {
+          "wordId": 1376760,
+          "readingIndex": 0,
+          "originalText": "正確な"
+        },
+        {
+          "wordId": 1449710,
+          "readingIndex": 0,
+          "originalText": "統計"
+        },
+        {
+          "wordId": 2028920,
+          "readingIndex": 0,
+          "originalText": "は"
+        },
+        {
+          "wordId": 1529520,
+          "readingIndex": 1,
+          "originalText": "ない"
+        },
+        {
+          "wordId": 2028930,
+          "readingIndex": 0,
+          "originalText": "が"
+        },
+        {
+          "wordId": 0,
+          "readingIndex": 0,
+          "originalText": "、"
+        },
+        {
+          "wordId": 1582710,
+          "readingIndex": 0,
+          "originalText": "日本"
+        },
+        {
+          "wordId": 1286930,
+          "readingIndex": 0,
+          "originalText": "国内"
+        },
+        {
+          "wordId": 1469800,
+          "readingIndex": 2,
+          "originalText": "の"
+        },
+        {
+          "wordId": 1367300,
+          "readingIndex": 0,
+          "originalText": "人口"
+        },
+        {
+          "wordId": 0,
+          "readingIndex": 0,
+          "originalText": "、"
+        },
+        {
+          "wordId": 1228140,
+          "readingIndex": 0,
+          "originalText": "及び"
+        },
+        {
+          "wordId": 2700560,
+          "readingIndex": 0,
+          "originalText": "日本国外"
+        },
+        {
+          "wordId": 2028990,
+          "readingIndex": 0,
+          "originalText": "に"
+        },
+        {
+          "wordId": 1334040,
+          "readingIndex": 0,
+          "originalText": "住む"
+        },
+        {
+          "wordId": 1464700,
+          "readingIndex": 0,
+          "originalText": "日本人"
+        },
+        {
+          "wordId": 2028960,
+          "readingIndex": 0,
+          "originalText": "や"
+        },
+        {
+          "wordId": 1463980,
+          "readingIndex": 0,
+          "originalText": "日系人"
+        },
+        {
+          "wordId": 0,
+          "readingIndex": 0,
+          "originalText": "、"
+        },
+        {
+          "wordId": 1582710,
+          "readingIndex": 0,
+          "originalText": "日本"
+        },
+        {
+          "wordId": 2028930,
+          "readingIndex": 0,
+          "originalText": "が"
+        },
+        {
+          "wordId": 1581210,
+          "readingIndex": 4,
+          "originalText": "かつて"
+        },
+        {
+          "wordId": 1449790,
+          "readingIndex": 0,
+          "originalText": "統治した"
+        },
+        {
+          "wordId": 1420800,
+          "readingIndex": 0,
+          "originalText": "地域"
+        },
+        {
+          "wordId": 1469800,
+          "readingIndex": 2,
+          "originalText": "の"
+        },
+        {
+          "wordId": 1166180,
+          "readingIndex": 0,
+          "originalText": "一部"
+        },
+        {
+          "wordId": 1334210,
+          "readingIndex": 0,
+          "originalText": "住民"
+        },
+        {
+          "wordId": 1582300,
+          "readingIndex": 2,
+          "originalText": "など"
+        },
+        {
+          "wordId": 0,
+          "readingIndex": 0,
+          "originalText": "、"
+        },
+        {
+          "wordId": 1538100,
+          "readingIndex": 0,
+          "originalText": "約"
+        },
+        {
+          "wordId": 0,
+          "readingIndex": 0,
+          "originalText": "1億3,000万"
+        },
+        {
+          "wordId": 2149890,
+          "readingIndex": 0,
+          "originalText": "人"
+        },
+        {
+          "wordId": 1155120,
+          "readingIndex": 0,
+          "originalText": "以上"
+        },
+        {
+          "wordId": 1008490,
+          "readingIndex": 0,
+          "originalText": "と"
+        },
+        {
+          "wordId": 1281020,
+          "readingIndex": 0,
+          "originalText": "考えられている"
+        },
+        {
+          "wordId": 0,
+          "readingIndex": 0,
+          "originalText": "。。"
+        },
+        {
+          "wordId": 1449710,
+          "readingIndex": 0,
+          "originalText": "統計"
+        },
+        {
+          "wordId": 1009640,
+          "readingIndex": 2,
+          "originalText": "によって"
+        },
+        {
+          "wordId": 1392910,
+          "readingIndex": 0,
+          "originalText": "前後する"
+        },
+        {
+          "wordId": 1355810,
+          "readingIndex": 0,
+          "originalText": "場合"
+        },
+        {
+          "wordId": 2028940,
+          "readingIndex": 0,
+          "originalText": "も"
+        },
+        {
+          "wordId": 1296400,
+          "readingIndex": 2,
+          "originalText": "ある"
+        },
+        {
+          "wordId": 2028930,
+          "readingIndex": 0,
+          "originalText": "が"
+        },
+        {
+          "wordId": 0,
+          "readingIndex": 0,
+          "originalText": "、"
+        },
+        {
+          "wordId": 1582920,
+          "readingIndex": 2,
+          "originalText": "この"
+        },
+        {
+          "wordId": 1580825,
+          "readingIndex": 0,
+          "originalText": "数"
+        },
+        {
+          "wordId": 2028920,
+          "readingIndex": 0,
+          "originalText": "は"
+        },
+        {
+          "wordId": 1373860,
+          "readingIndex": 0,
+          "originalText": "世界"
+        },
+        {
+          "wordId": 1469800,
+          "readingIndex": 2,
+          "originalText": "の"
+        },
+        {
+          "wordId": 1921830,
+          "readingIndex": 0,
+          "originalText": "母語話者"
+        },
+        {
+          "wordId": 1580825,
+          "readingIndex": 0,
+          "originalText": "数"
+        },
+        {
+          "wordId": 2028980,
+          "readingIndex": 0,
+          "originalText": "で"
+        },
+        {
+          "wordId": 1352590,
+          "readingIndex": 0,
+          "originalText": "上位"
+        },
+        {
+          "wordId": 0,
+          "readingIndex": 0,
+          "originalText": "10"
+        },
+        {
+          "wordId": 1154340,
+          "readingIndex": 2,
+          "originalText": "位"
+        },
+        {
+          "wordId": 1155180,
+          "readingIndex": 0,
+          "originalText": "以内"
+        },
+        {
+          "wordId": 2028990,
+          "readingIndex": 0,
+          "originalText": "に"
+        },
+        {
+          "wordId": 1465590,
+          "readingIndex": 0,
+          "originalText": "入る"
+        },
+        {
+          "wordId": 1580700,
+          "readingIndex": 0,
+          "originalText": "人数"
+        },
+        {
+          "wordId": 1008340,
+          "readingIndex": 0,
+          "originalText": "である"
+        },
+        {
+          "wordId": 0,
+          "readingIndex": 0,
+          "originalText": "。"
+        },
+        {
+          "wordId": 1455170,
+          "readingIndex": 0,
+          "originalText": "特徴"
+        },
+        {
+          "wordId": 0,
+          "readingIndex": 0,
+          "originalText": "。"
+        },
+        {
+          "wordId": 1603240,
+          "readingIndex": 0,
+          "originalText": "編集"
+        }
+      ]
+    },
+    {
+      "text": "日本語の音韻は、「っ」「ん」を除いて母音で終わる開音節言語の性格が強く、また標準語（共通語）を含め多くの方言がモーラを持つ。アクセントは高低アクセントである。。なお元来の古い大和言葉では、原則として。「ら行」音が語頭に立たない（しりとりで『ら行』で始まる言葉が見つけにくいのはこのため。『らく（楽）』『らっぱ』『りんご』『れい（礼）』などは大和言葉でない）。コンテンツにスキップ。検索。寄付。アカウント作成。ログイン。非表示。ページ先頭。特徴。分布。系統。系統サブセクションを切り替えます。音韻。音韻サブセクションを切り替えます。文法。文法サブセクションを切り替えます。語彙。語彙サブセクションを切り替えます。表記。表記サブセクションを切り替えます。文体。文体サブセクションを切り替えます。待遇表現。待遇表現サブセクションを切り替えます。歴史。歴史サブセクションを切り替えます。方言。方言サブセクションを切り替えます。日本語話者の意識。日本語話者の意識サブセクションを切り替えます。辞書。辞書サブセクションを切り替えます。脚注。脚注サブセクションを切り替えます。参考文献。参考文献サブセクションを切り替えます。関連項目。外部リンク",
+      "body": [
+        {
+          "wordId": 1464530,
+          "readingIndex": 0,
+          "originalText": "日本語"
+        },
+        {
+          "wordId": 1469800,
+          "readingIndex": 2,
+          "originalText": "の"
+        },
+        {
+          "wordId": 1183680,
+          "readingIndex": 0,
+          "originalText": "音韻"
+        },
+        {
+          "wordId": 2028920,
+          "readingIndex": 0,
+          "originalText": "は"
+        },
+        {
+          "wordId": 0,
+          "readingIndex": 0,
+          "originalText": "、「っ」「"
+        },
+        {
+          "wordId": 2139720,
+          "readingIndex": 0,
+          "originalText": "ん"
+        },
+        {
+          "wordId": 0,
+          "readingIndex": 0,
+          "originalText": "」"
+        },
+        {
+          "wordId": 2029010,
+          "readingIndex": 0,
+          "originalText": "を"
+        },
+        {
+          "wordId": 1345630,
+          "readingIndex": 0,
+          "originalText": "除いて"
+        },
+        {
+          "wordId": 1515020,
+          "readingIndex": 0,
+          "originalText": "母音"
+        },
+        {
+          "wordId": 2028980,
+          "readingIndex": 0,
+          "originalText": "で"
+        },
+        {
+          "wordId": 1589600,
+          "readingIndex": 0,
+          "originalText": "終わる"
+        },
+        {
+          "wordId": 2148070,
+          "readingIndex": 0,
+          "originalText": "開音節"
+        },
+        {
+          "wordId": 1264420,
+          "readingIndex": 0,
+          "originalText": "言語"
+        },
+        {
+          "wordId": 1469800,
+          "readingIndex": 2,
+          "originalText": "の"
+        },
+        {
+          "wordId": 1375290,
+          "readingIndex": 0,
+          "originalText": "性格"
+        },
+        {
+          "wordId": 2028930,
+          "readingIndex": 0,
+          "originalText": "が"
+        },
+        {
+          "wordId": 1236070,
+          "readingIndex": 0,
+          "originalText": "強く"
+        },
+        {
+          "wordId": 0,
+          "readingIndex": 0,
+          "originalText": "、"
+        },
+        {
+          "wordId": 1524930,
+          "readingIndex": 3,
+          "originalText": "また"
+        },
+        {
+          "wordId": 1488730,
+          "readingIndex": 0,
+          "originalText": "標準語"
+        },
+        {
+          "wordId": 0,
+          "readingIndex": 0,
+          "originalText": "（"
+        },
+        {
+          "wordId": 1234720,
+          "readingIndex": 0,
+          "originalText": "共通語"
+        },
+        {
+          "wordId": 0,
+          "readingIndex": 0,
+          "originalText": "）"
+        },
+        {
+          "wordId": 2029010,
+          "readingIndex": 0,
+          "originalText": "を"
+        },
+        {
+          "wordId": 1216890,
+          "readingIndex": 0,
+          "originalText": "含め"
+        },
+        {
+          "wordId": 1861770,
+          "readingIndex": 0,
+          "originalText": "多く"
+        },
+        {
+          "wordId": 1469800,
+          "readingIndex": 2,
+          "originalText": "の"
+        },
+        {
+          "wordId": 1516980,
+          "readingIndex": 0,
+          "originalText": "方言"
+        },
+        {
+          "wordId": 2028930,
+          "readingIndex": 0,
+          "originalText": "が"
+        },
+        {
+          "wordId": 2141680,
+          "readingIndex": 0,
+          "originalText": "モーラ"
+        },
+        {
+          "wordId": 2029010,
+          "readingIndex": 0,
+          "originalText": "を"
+        },
+        {
+          "wordId": 1315720,
+          "readingIndex": 0,
+          "originalText": "持つ"
+        },
+        {
+          "wordId": 0,
+          "readingIndex": 0,
+          "originalText": "。"
+        },
+        {
+          "wordId": 1015310,
+          "readingIndex": 0,
+          "originalText": "アクセント"
+        },
+        {
+          "wordId": 2028920,
+          "readingIndex": 0,
+          "originalText": "は"
+        },
+        {
+          "wordId": 2257820,
+          "readingIndex": 0,
+          "originalText": "高低アクセント"
+        },
+        {
+          "wordId": 1008340,
+          "readingIndex": 0,
+          "originalText": "である"
+        },
+        {
+          "wordId": 0,
+          "readingIndex": 0,
+          "originalText": "。。"
+        },
+        {
+          "wordId": 1349300,
+          "readingIndex": 4,
+          "originalText": "なお"
+        },
+        {
+          "wordId": 1261080,
+          "readingIndex": 0,
+          "originalText": "元来"
+        },
+        {
+          "wordId": 1469800,
+          "readingIndex": 2,
+          "originalText": "の"
+        },
+        {
+          "wordId": 1265070,
+          "readingIndex": 0,
+          "originalText": "古い"
+        },
+        {
+          "wordId": 1786050,
+          "readingIndex": 0,
+          "originalText": "大和言葉"
+        },
+        {
+          "wordId": 1008450,
+          "readingIndex": 0,
+          "originalText": "では"
+        },
+        {
+          "wordId": 0,
+          "readingIndex": 0,
+          "originalText": "、"
+        },
+        {
+          "wordId": 1262080,
+          "readingIndex": 0,
+          "originalText": "原則として"
+        },
+        {
+          "wordId": 0,
+          "readingIndex": 0,
+          "originalText": "。「"
+        },
+        {
+          "wordId": 1140420,
+          "readingIndex": 0,
+          "originalText": "ら行"
+        },
+        {
+          "wordId": 0,
+          "readingIndex": 0,
+          "originalText": "」"
+        },
+        {
+          "wordId": 1576900,
+          "readingIndex": 0,
+          "originalText": "音"
+        },
+        {
+          "wordId": 2028930,
+          "readingIndex": 0,
+          "originalText": "が"
+        },
+        {
+          "wordId": 1271170,
+          "readingIndex": 0,
+          "originalText": "語頭"
+        },
+        {
+          "wordId": 2028990,
+          "readingIndex": 0,
+          "originalText": "に"
+        },
+        {
+          "wordId": 1597040,
+          "readingIndex": 0,
+          "originalText": "立たない"
+        },
+        {
+          "wordId": 0,
+          "readingIndex": 0,
+          "originalText": "（"
+        },
+        {
+          "wordId": 1358780,
+          "readingIndex": 2,
+          "originalText": "しりとり"
+        },
+        {
+          "wordId": 2028980,
+          "readingIndex": 0,
+          "originalText": "で"
+        },
+        {
+          "wordId": 0,
+          "readingIndex": 0,
+          "originalText": "『"
+        },
+        {
+          "wordId": 1140420,
+          "readingIndex": 0,
+          "originalText": "ら行"
+        },
+        {
+          "wordId": 0,
+          "readingIndex": 0,
+          "originalText": "』"
+        },
+        {
+          "wordId": 2028980,
+          "readingIndex": 0,
+          "originalText": "で"
+        },
+        {
+          "wordId": 1307500,
+          "readingIndex": 0,
+          "originalText": "始まる"
+        },
+        {
+          "wordId": 1264540,
+          "readingIndex": 0,
+          "originalText": "言葉"
+        },
+        {
+          "wordId": 2028930,
+          "readingIndex": 0,
+          "originalText": "が"
+        },
+        {
+          "wordId": 1604570,
+          "readingIndex": 0,
+          "originalText": "見つけ"
+        },
+        {
+          "wordId": 2772730,
+          "readingIndex": 2,
+          "originalText": "にくい"
+        },
+        {
+          "wordId": 1469800,
+          "readingIndex": 2,
+          "originalText": "の"
+        },
+        {
+          "wordId": 2028920,
+          "readingIndex": 0,
+          "originalText": "は"
+        },
+        {
+          "wordId": 1004640,
+          "readingIndex": 0,
+          "originalText": "このため"
+        },
+        {
+          "wordId": 0,
+          "readingIndex": 0,
+          "originalText": "。『"
+        },
+        {
+          "wordId": 1207230,
+          "readingIndex": 1,
+          "originalText": "らく"
+        },
+        {
+          "wordId": 0,
+          "readingIndex": 0,
+          "originalText": "（"
+        },
+        {
+          "wordId": 1207230,
+          "readingIndex": 0,
+          "originalText": "楽"
+        },
+        {
+          "wordId": 0,
+          "readingIndex": 0,
+          "originalText": "）』『"
+        },
+        {
+          "wordId": 1565370,
+          "readingIndex": 1,
+          "originalText": "らっぱ"
+        },
+        {
+          "wordId": 0,
+          "readingIndex": 0,
+          "originalText": "』『"
+        },
+        {
+          "wordId": 1555480,
+          "readingIndex": 1,
+          "originalText": "りんご"
+        },
+        {
+          "wordId": 0,
+          "readingIndex": 0,
+          "originalText": "』『"
+        },
+        {
+          "wordId": 1585230,
+          "readingIndex": 1,
+          "originalText": "れい"
+        },
+        {
+          "wordId": 0,
+          "readingIndex": 0,
+          "originalText": "（"
+        },
+        {
+          "wordId": 1557450,
+          "readingIndex": 0,
+          "originalText": "礼"
+        },
+        {
+          "wordId": 0,
+          "readingIndex": 0,
+          "originalText": "）』"
+        },
+        {
+          "wordId": 1582300,
+          "readingIndex": 2,
+          "originalText": "など"
+        },
+        {
+          "wordId": 2028920,
+          "readingIndex": 0,
+          "originalText": "は"
+        },
+        {
+          "wordId": 1786050,
+          "readingIndex": 0,
+          "originalText": "大和言葉"
+        },
+        {
+          "wordId": 2028980,
+          "readingIndex": 0,
+          "originalText": "で"
+        },
+        {
+          "wordId": 1529520,
+          "readingIndex": 1,
+          "originalText": "ない"
+        },
+        {
+          "wordId": 0,
+          "readingIndex": 0,
+          "originalText": "）。"
+        },
+        {
+          "wordId": 1052650,
+          "readingIndex": 0,
+          "originalText": "コンテンツ"
+        },
+        {
+          "wordId": 2028990,
+          "readingIndex": 0,
+          "originalText": "に"
+        },
+        {
+          "wordId": 1067920,
+          "readingIndex": 0,
+          "originalText": "スキップ"
+        },
+        {
+          "wordId": 0,
+          "readingIndex": 0,
+          "originalText": "。"
+        },
+        {
+          "wordId": 1257900,
+          "readingIndex": 0,
+          "originalText": "検索"
+        },
+        {
+          "wordId": 0,
+          "readingIndex": 0,
+          "originalText": "。"
+        },
+        {
+          "wordId": 1591400,
+          "readingIndex": 0,
+          "originalText": "寄付"
+        },
+        {
+          "wordId": 0,
+          "readingIndex": 0,
+          "originalText": "。"
+        },
+        {
+          "wordId": 1014970,
+          "readingIndex": 0,
+          "originalText": "アカウント"
+        },
+        {
+          "wordId": 1297760,
+          "readingIndex": 0,
+          "originalText": "作成"
+        },
+        {
+          "wordId": 0,
+          "readingIndex": 0,
+          "originalText": "。"
+        },
+        {
+          "wordId": 1147120,
+          "readingIndex": 0,
+          "originalText": "ログイン"
+        },
+        {
+          "wordId": 0,
+          "readingIndex": 0,
+          "originalText": "。"
+        },
+        {
+          "wordId": 2809380,
+          "readingIndex": 0,
+          "originalText": "非表示"
+        },
+        {
+          "wordId": 0,
+          "readingIndex": 0,
+          "originalText": "。"
+        },
+        {
+          "wordId": 1120410,
+          "readingIndex": 1,
+          "originalText": "ページ"
+        },
+        {
+          "wordId": 1596210,
+          "readingIndex": 0,
+          "originalText": "先頭"
+        },
+        {
+          "wordId": 0,
+          "readingIndex": 0,
+          "originalText": "。"
+        },
+        {
+          "wordId": 1455170,
+          "readingIndex": 0,
+          "originalText": "特徴"
+        },
+        {
+          "wordId": 0,
+          "readingIndex": 0,
+          "originalText": "。"
+        },
+        {
+          "wordId": 1504160,
+          "readingIndex": 0,
+          "originalText": "分布"
+        },
+        {
+          "wordId": 0,
+          "readingIndex": 0,
+          "originalText": "。"
+        },
+        {
+          "wordId": 1251030,
+          "readingIndex": 0,
+          "originalText": "系統"
+        },
+        {
+          "wordId": 0,
+          "readingIndex": 0,
+          "originalText": "。"
+        },
+        {
+          "wordId": 1251030,
+          "readingIndex": 0,
+          "originalText": "系統"
+        },
+        {
+          "wordId": 1057190,
+          "readingIndex": 0,
+          "originalText": "サブ"
+        },
+        {
+          "wordId": 1074490,
+          "readingIndex": 0,
+          "originalText": "セクション"
+        },
+        {
+          "wordId": 2029010,
+          "readingIndex": 0,
+          "originalText": "を"
+        },
+        {
+          "wordId": 1591780,
+          "readingIndex": 0,
+          "originalText": "切り替えます"
+        },
+        {
+          "wordId": 0,
+          "readingIndex": 0,
+          "originalText": "。"
+        },
+        {
+          "wordId": 1183680,
+          "readingIndex": 0,
+          "originalText": "音韻"
+        },
+        {
+          "wordId": 0,
+          "readingIndex": 0,
+          "originalText": "。"
+        },
+        {
+          "wordId": 1183680,
+          "readingIndex": 0,
+          "originalText": "音韻"
+        },
+        {
+          "wordId": 1057190,
+          "readingIndex": 0,
+          "originalText": "サブ"
+        },
+        {
+          "wordId": 1074490,
+          "readingIndex": 0,
+          "originalText": "セクション"
+        },
+        {
+          "wordId": 2029010,
+          "readingIndex": 0,
+          "originalText": "を"
+        },
+        {
+          "wordId": 1591780,
+          "readingIndex": 0,
+          "originalText": "切り替えます"
+        },
+        {
+          "wordId": 0,
+          "readingIndex": 0,
+          "originalText": "。"
+        },
+        {
+          "wordId": 1505600,
+          "readingIndex": 0,
+          "originalText": "文法"
+        },
+        {
+          "wordId": 0,
+          "readingIndex": 0,
+          "originalText": "。"
+        },
+        {
+          "wordId": 1505600,
+          "readingIndex": 0,
+          "originalText": "文法"
+        },
+        {
+          "wordId": 1057190,
+          "readingIndex": 0,
+          "originalText": "サブ"
+        },
+        {
+          "wordId": 1074490,
+          "readingIndex": 0,
+          "originalText": "セクション"
+        },
+        {
+          "wordId": 2029010,
+          "readingIndex": 0,
+          "originalText": "を"
+        },
+        {
+          "wordId": 1591780,
+          "readingIndex": 0,
+          "originalText": "切り替えます"
+        },
+        {
+          "wordId": 0,
+          "readingIndex": 0,
+          "originalText": "。"
+        },
+        {
+          "wordId": 1271260,
+          "readingIndex": 0,
+          "originalText": "語彙"
+        },
+        {
+          "wordId": 0,
+          "readingIndex": 0,
+          "originalText": "。"
+        },
+        {
+          "wordId": 1271260,
+          "readingIndex": 0,
+          "originalText": "語彙"
+        },
+        {
+          "wordId": 1057190,
+          "readingIndex": 0,
+          "originalText": "サブ"
+        },
+        {
+          "wordId": 1074490,
+          "readingIndex": 0,
+          "originalText": "セクション"
+        },
+        {
+          "wordId": 2029010,
+          "readingIndex": 0,
+          "originalText": "を"
+        },
+        {
+          "wordId": 1591780,
+          "readingIndex": 0,
+          "originalText": "切り替えます"
+        },
+        {
+          "wordId": 0,
+          "readingIndex": 0,
+          "originalText": "。"
+        },
+        {
+          "wordId": 1489420,
+          "readingIndex": 0,
+          "originalText": "表記"
+        },
+        {
+          "wordId": 0,
+          "readingIndex": 0,
+          "originalText": "。"
+        },
+        {
+          "wordId": 1489420,
+          "readingIndex": 0,
+          "originalText": "表記"
+        },
+        {
+          "wordId": 1057190,
+          "readingIndex": 0,
+          "originalText": "サブ"
+        },
+        {
+          "wordId": 1074490,
+          "readingIndex": 0,
+          "originalText": "セクション"
+        },
+        {
+          "wordId": 2029010,
+          "readingIndex": 0,
+          "originalText": "を"
+        },
+        {
+          "wordId": 1591780,
+          "readingIndex": 0,
+          "originalText": "切り替えます"
+        },
+        {
+          "wordId": 0,
+          "readingIndex": 0,
+          "originalText": "。"
+        },
+        {
+          "wordId": 1505510,
+          "readingIndex": 0,
+          "originalText": "文体"
+        },
+        {
+          "wordId": 0,
+          "readingIndex": 0,
+          "originalText": "。"
+        },
+        {
+          "wordId": 1505510,
+          "readingIndex": 0,
+          "originalText": "文体"
+        },
+        {
+          "wordId": 1057190,
+          "readingIndex": 0,
+          "originalText": "サブ"
+        },
+        {
+          "wordId": 1074490,
+          "readingIndex": 0,
+          "originalText": "セクション"
+        },
+        {
+          "wordId": 2029010,
+          "readingIndex": 0,
+          "originalText": "を"
+        },
+        {
+          "wordId": 1591780,
+          "readingIndex": 0,
+          "originalText": "切り替えます"
+        },
+        {
+          "wordId": 0,
+          "readingIndex": 0,
+          "originalText": "。"
+        },
+        {
+          "wordId": 2217160,
+          "readingIndex": 0,
+          "originalText": "待遇表現"
+        },
+        {
+          "wordId": 0,
+          "readingIndex": 0,
+          "originalText": "。"
+        },
+        {
+          "wordId": 2217160,
+          "readingIndex": 0,
+          "originalText": "待遇表現"
+        },
+        {
+          "wordId": 1057190,
+          "readingIndex": 0,
+          "originalText": "サブ"
+        },
+        {
+          "wordId": 1074490,
+          "readingIndex": 0,
+          "originalText": "セクション"
+        },
+        {
+          "wordId": 2029010,
+          "readingIndex": 0,
+          "originalText": "を"
+        },
+        {
+          "wordId": 1591780,
+          "readingIndex": 0,
+          "originalText": "切り替えます"
+        },
+        {
+          "wordId": 0,
+          "readingIndex": 0,
+          "originalText": "。"
+        },
+        {
+          "wordId": 1558050,
+          "readingIndex": 0,
+          "originalText": "歴史"
+        },
+        {
+          "wordId": 0,
+          "readingIndex": 0,
+          "originalText": "。"
+        },
+        {
+          "wordId": 1558050,
+          "readingIndex": 0,
+          "originalText": "歴史"
+        },
+        {
+          "wordId": 1057190,
+          "readingIndex": 0,
+          "originalText": "サブ"
+        },
+        {
+          "wordId": 1074490,
+          "readingIndex": 0,
+          "originalText": "セクション"
+        },
+        {
+          "wordId": 2029010,
+          "readingIndex": 0,
+          "originalText": "を"
+        },
+        {
+          "wordId": 1591780,
+          "readingIndex": 0,
+          "originalText": "切り替えます"
+        },
+        {
+          "wordId": 0,
+          "readingIndex": 0,
+          "originalText": "。"
+        },
+        {
+          "wordId": 1516980,
+          "readingIndex": 0,
+          "originalText": "方言"
+        },
+        {
+          "wordId": 0,
+          "readingIndex": 0,
+          "originalText": "。"
+        },
+        {
+          "wordId": 1516980,
+          "readingIndex": 0,
+          "originalText": "方言"
+        },
+        {
+          "wordId": 1057190,
+          "readingIndex": 0,
+          "originalText": "サブ"
+        },
+        {
+          "wordId": 1074490,
+          "readingIndex": 0,
+          "originalText": "セクション"
+        },
+        {
+          "wordId": 2029010,
+          "readingIndex": 0,
+          "originalText": "を"
+        },
+        {
+          "wordId": 1591780,
+          "readingIndex": 0,
+          "originalText": "切り替えます"
+        },
+        {
+          "wordId": 0,
+          "readingIndex": 0,
+          "originalText": "。"
+        },
+        {
+          "wordId": 2240790,
+          "readingIndex": 0,
+          "originalText": "日本語話者"
+        },
+        {
+          "wordId": 1469800,
+          "readingIndex": 2,
+          "originalText": "の"
+        },
+        {
+          "wordId": 1156640,
+          "readingIndex": 0,
+          "originalText": "意識"
+        },
+        {
+          "wordId": 0,
+          "readingIndex": 0,
+          "originalText": "。"
+        },
+        {
+          "wordId": 2240790,
+          "readingIndex": 0,
+          "originalText": "日本語話者"
+        },
+        {
+          "wordId": 1469800,
+          "readingIndex": 2,
+          "originalText": "の"
+        },
+        {
+          "wordId": 1156640,
+          "readingIndex": 0,
+          "originalText": "意識"
+        },
+        {
+          "wordId": 1057190,
+          "readingIndex": 0,
+          "originalText": "サブ"
+        },
+        {
+          "wordId": 1074490,
+          "readingIndex": 0,
+          "originalText": "セクション"
+        },
+        {
+          "wordId": 2029010,
+          "readingIndex": 0,
+          "originalText": "を"
+        },
+        {
+          "wordId": 1591780,
+          "readingIndex": 0,
+          "originalText": "切り替えます"
+        },
+        {
+          "wordId": 0,
+          "readingIndex": 0,
+          "originalText": "。"
+        },
+        {
+          "wordId": 1318970,
+          "readingIndex": 0,
+          "originalText": "辞書"
+        },
+        {
+          "wordId": 0,
+          "readingIndex": 0,
+          "originalText": "。"
+        },
+        {
+          "wordId": 1318970,
+          "readingIndex": 0,
+          "originalText": "辞書"
+        },
+        {
+          "wordId": 1057190,
+          "readingIndex": 0,
+          "originalText": "サブ"
+        },
+        {
+          "wordId": 1074490,
+          "readingIndex": 0,
+          "originalText": "セクション"
+        },
+        {
+          "wordId": 2029010,
+          "readingIndex": 0,
+          "originalText": "を"
+        },
+        {
+          "wordId": 1591780,
+          "readingIndex": 0,
+          "originalText": "切り替えます"
+        },
+        {
+          "wordId": 0,
+          "readingIndex": 0,
+          "originalText": "。"
+        },
+        {
+          "wordId": 1226850,
+          "readingIndex": 0,
+          "originalText": "脚注"
+        },
+        {
+          "wordId": 0,
+          "readingIndex": 0,
+          "originalText": "。"
+        },
+        {
+          "wordId": 1226850,
+          "readingIndex": 0,
+          "originalText": "脚注"
+        },
+        {
+          "wordId": 1057190,
+          "readingIndex": 0,
+          "originalText": "サブ"
+        },
+        {
+          "wordId": 1074490,
+          "readingIndex": 0,
+          "originalText": "セクション"
+        },
+        {
+          "wordId": 2029010,
+          "readingIndex": 0,
+          "originalText": "を"
+        },
+        {
+          "wordId": 1591780,
+          "readingIndex": 0,
+          "originalText": "切り替えます"
+        },
+        {
+          "wordId": 0,
+          "readingIndex": 0,
+          "originalText": "。"
+        },
+        {
+          "wordId": 1302350,
+          "readingIndex": 0,
+          "originalText": "参考文献"
+        },
+        {
+          "wordId": 0,
+          "readingIndex": 0,
+          "originalText": "。"
+        },
+        {
+          "wordId": 1302350,
+          "readingIndex": 0,
+          "originalText": "参考文献"
+        },
+        {
+          "wordId": 1057190,
+          "readingIndex": 0,
+          "originalText": "サブ"
+        },
+        {
+          "wordId": 1074490,
+          "readingIndex": 0,
+          "originalText": "セクション"
+        },
+        {
+          "wordId": 2029010,
+          "readingIndex": 0,
+          "originalText": "を"
+        },
+        {
+          "wordId": 1591780,
+          "readingIndex": 0,
+          "originalText": "切り替えます"
+        },
+        {
+          "wordId": 0,
+          "readingIndex": 0,
+          "originalText": "。"
+        },
+        {
+          "wordId": 1216080,
+          "readingIndex": 0,
+          "originalText": "関連項目"
+        },
+        {
+          "wordId": 0,
+          "readingIndex": 0,
+          "originalText": "。"
+        },
+        {
+          "wordId": 2692080,
+          "readingIndex": 0,
+          "originalText": "外部リンク"
+        }
+      ]
+    }
+  ]
+}

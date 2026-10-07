@@ -1,3 +1,4 @@
+import recordedParagraphBatch from './fixtures/public-jiten-paragraph-batch-20261007.json';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ensureManagedWebStorageCurrent } from '../../src/reader/app/storage';
 import {
@@ -32,6 +33,58 @@ describe('JitenPublicVocabularyClient', () => {
     afterEach(() => {
         resetJitenPublicVocabularyBackoffForTests();
         localStorage.removeItem('yomu:jiten-public-cache:v2');
+    });
+
+    it('keeps recorded Wikipedia compounds whole across independent paragraph boundaries', async () => {
+        const requests: string[] = [];
+        const client = new JitenPublicVocabularyClient({ requestJsonImpl: async url => {
+            const text = new URL(url).searchParams.get('text')!;
+            requests.push(text);
+            const recorded = recordedParagraphBatch.responses.find(response => response.text === text);
+            if (!recorded) throw new Error('Request absent from recorded browser/API evidence.');
+            return recorded.body;
+        } });
+        const paragraphs = [...recordedParagraphBatch.paragraphs];
+        const original = [...paragraphs];
+        const parsed = await client.parse(paragraphs, { detailLimit: 0 });
+        expect(requests).toHaveLength(2);
+        expect(paragraphs).toEqual(original);
+        // The bad HTTP200 body had zero tokens for this heading occurrence,
+        // not just a missing reading; its source paragraph and offset matter.
+        const heading = paragraphs.indexOf('日本語（にほんご、にっぽんご');
+        expect(parsed[heading][0]).toMatchObject({ start: 0, end: 3, card: { spelling: '日本語', jitenWordId: 1464530 } });
+        for (const [surface, id] of [['日本人', 1464700], ['言語', 1264420], ['国語', 1286370]] as const) {
+            const paragraphIndex = paragraphs.findIndex(text => text.includes('そして国外') && text.includes(surface)
+                || text.includes('唯一の公用語') && text.includes(surface));
+            const start = paragraphs[paragraphIndex].indexOf(surface);
+            expect(parsed[paragraphIndex].find(token => token.start === start))
+                .toMatchObject({ start, end: start + surface.length, card: { spelling: surface, jitenWordId: id } });
+        }
+        parsed.forEach((tokens, index) => tokens.forEach(token => {
+            expect(token.sentence).toBe(original[index]);
+            expect(original[index].slice(token.start, token.end)).toBe(token.card.spelling);
+            expect(token.card.spelling).not.toBe('。');
+        }));
+    });
+
+    it('keeps authored intra-paragraph line breaks and excludes transport punctuation from tokens', async () => {
+        const paragraphs = ['日本語\n日本人', '言語'];
+        const client = new JitenPublicVocabularyClient({ requestJsonImpl: async url => {
+            expect(new URL(url).searchParams.get('text')).toBe('日本語\n日本人。言語');
+            return [
+                { wordId: 1464530, readingIndex: 0, originalText: '日本語' },
+                { wordId: 0, readingIndex: 0, originalText: '\n' },
+                { wordId: 1464700, readingIndex: 0, originalText: '日本人' },
+                // Even a provider erroneously assigning an id to our separator
+                // cannot project it into either original paragraph's range.
+                { wordId: 1, readingIndex: 0, originalText: '。' },
+                { wordId: 1264420, readingIndex: 0, originalText: '言語' },
+            ];
+        } });
+        const tokens = await client.parse(paragraphs, { detailLimit: 0 });
+        expect(tokens.map(group => group.map(token => [token.start, token.end, token.card.spelling])))
+            .toEqual([[[0, 3, '日本語'], [4, 7, '日本人']], [[0, 2, '言語']]]);
+        expect(tokens[0].every(token => token.sentence === paragraphs[0])).toBe(true);
     });
 
     it('does not invent a lexical form when detail metadata is missing', async () => {
@@ -328,7 +381,7 @@ describe('JitenPublicVocabularyClient', () => {
     it('hydrates bounded details for public parsed paragraphs', async () => {
         const requestJson = vi.fn(async (url: string, options?: ReaderHttpOptions) => {
             if (url.includes('/vocabulary/parse?')) {
-                expect(new URL(url).searchParams.get('text')).toBe('本を読む。\n猫を見る。');
+                expect(new URL(url).searchParams.get('text')).toBe('本を読む。。猫を見る。');
                 // Keyless allowlisted GETs must keep the built-in public proxy
                 // available: on hosted pages with no GM bridge and no configured
                 // proxy it is the only transport to api.jiten.moe (no CORS there).
@@ -389,7 +442,7 @@ describe('JitenPublicVocabularyClient', () => {
         const allTerms = [...prefixTerms, ...targetTerms];
         const requestJson = vi.fn(async (url: string) => {
             if (url.includes('/vocabulary/parse?')) {
-                expect(new URL(url).searchParams.get('text')).toBe(`${prefixTerms.join('\n')}\n並べ替え基準`);
+                expect(new URL(url).searchParams.get('text')).toBe(`${prefixTerms.join('。')}。並べ替え基準`);
                 return allTerms.map((term, index) => ({
                     wordId: index + 1,
                     readingIndex: 0,
@@ -488,7 +541,7 @@ describe('JitenPublicVocabularyClient', () => {
         const surfaceById = new Map(parsedWords.map(word => [word.wordId, word.originalText]));
         const requestJson = vi.fn(async (url: string) => {
             if (url.includes('/vocabulary/parse?')) {
-                expect(new URL(url).searchParams.get('text')).toBe(`${prefixWords.map(word => word.originalText).join('\n')}\n${title}\n${nextTitle}`);
+                expect(new URL(url).searchParams.get('text')).toBe(`${prefixWords.map(word => word.originalText).join('。')}。${title}。${nextTitle}`);
                 return parsedWords;
             }
             const match = url.match(/\/vocabulary\/(\d+)\/(\d+)\/info/u);
