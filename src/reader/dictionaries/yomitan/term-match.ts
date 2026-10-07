@@ -267,17 +267,6 @@ function retainBetterTermEntry(
     bestEntryByRules.set(rulesKey, entry);
 }
 
-export function termMatchesForEntries(
-    expression: string,
-    foundEntries: YomitanTermEntry[],
-    candidates: TermMatchCandidates,
-    rank: Map<string, DictionaryPreference>,
-): YomitanTermMatch[] {
-    const collector = createTermMatchEntryCollector(expression, candidates, rank);
-    for (const entry of foundEntries) collector.add(entry);
-    return collector.matches();
-}
-
 function distinctCandidateRules(
     positions: readonly TermMatchCandidatePosition[],
 ): Map<string, readonly string[]> {

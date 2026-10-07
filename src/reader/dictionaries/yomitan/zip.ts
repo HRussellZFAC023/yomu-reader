@@ -91,7 +91,7 @@ export async function readZipArchive(
 }
 
 /** Parse already-read ZIP bytes without another Blob/cross-realm copy. */
-export function readZipArchiveBytes(bytes: Uint8Array): ZipArchive {
+function readZipArchiveBytes(bytes: Uint8Array): ZipArchive {
     bytes = localBytesFromView(bytes);
     return new ZipArchive(bytes, readZipCentralDirectory(bytes));
 }

@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { YomitanDictionaryStore } from '../../src/reader/dictionaries/yomitan';
 import { ReaderParser } from '../../src/reader/lookup/parser';
 import { DEFAULT_SETTINGS } from '../../src/reader/settings';
+import { yomitanZipBlob } from './zip-fixture';
 
 // Headword/reading/POS facts transcribed from the locally archived EDRDG JMdict_e
 // (references-academy/open-corpora/edrdg-jmdict-kanjidic/JMdict_e.gz).
@@ -40,6 +41,32 @@ describe('reported Wikipedia dictionary parsing', () => {
         }
         const [writtenTooth] = await parser.parse(['歯'], { allowSegmentedFallback: true });
         expect(writtenTooth[0]?.card.spelling).toBe('歯');
+    });
+
+    it('preserves の from the exact installed JMdict archive while retaining noun reading search', async () => {
+        // Observed archive SHA256 5a413fc1bb5cd9250088dd27180df436bd518c6541cd82a597a62e2f1bd4bbe9:
+        // JMdict [2026-07-23], https://dictionaries.yomureader.com/objects/sha256/<SHA>.zip.
+        // The importer has already projected upstream 乃/之 (1469800) to の.
+        // Metadata is transcribed exactly; glossary prose is unnecessary here.
+        const rows = [
+            ['野', 'の', '1 n', '', 1999800, [], 1537250, '⭐ ichi news2k'],
+            ['の', 'の', '1 prt', '', 999800, [], 1469800, '⭐ spec'],
+        ];
+        await store.importFile(new File([yomitanZipBlob({
+            'index.json': { title: 'JMdict [2026-07-23]', format: 3, revision: 'JMdict.2026-07-23', sequenced: true },
+            'term_bank_1.json': rows,
+        })], 'observed-jmdict-metadata.zip', { type: 'application/zip' }));
+        const parser = new ReaderParser({ getSettings: () => ({ ...DEFAULT_SETTINGS, apiKey: '', jitenApiKey: '', parserProvider: 'local', localDictionariesEnabled: true, showPitchAccent: false }), jpdb: {} as never, dictionaries: store });
+        const sentence = '唯一の公用語。';
+        const [tokens] = await parser.parse([sentence], { allowSegmentedFallback: true });
+        expect(tokens.find(token => sentence.slice(token.start, token.end) === 'の')?.card).toMatchObject({ spelling: 'の', reading: 'の', source: 'local' });
+        const readings = await store.lookup('の', 'の', 10);
+        expect(readings).toEqual(expect.arrayContaining([
+            expect.objectContaining({ expression: 'の', definitionTags: '1 prt', sequence: 1469800 }),
+            expect.objectContaining({ expression: '野', definitionTags: '1 n', sequence: 1537250 }),
+        ]));
+        const [writtenNoun] = await parser.parse(['野'], { allowSegmentedFallback: true });
+        expect(writtenNoun[0]?.card.spelling).toBe('野');
     });
 
     it('keeps dictionary-confirmed compounds and chooses the common inflection', async () => {
