@@ -10,6 +10,7 @@ import {
 } from '../newtab/url';
 import type { LookupModalAccessibility } from '../popup/modal-accessibility-impl';
 import { openUrlInNewTab } from '../ui/browser';
+import { menuIcon } from '../ui/menu-icons';
 import { isDirectTrustedReaderInteraction } from '../ui/trusted-interaction';
 import { firefoxAuthenticationInfoSettingsPageUrl } from './firefox-data-consent';
 
@@ -97,7 +98,7 @@ function mountSettingsLauncher(
         if (!isDirectTrustedReaderInteraction(event)) return;
         await launchTrustedSettingsSurface(host, language, launcherUrl, event.currentTarget as HTMLButtonElement);
     });
-    surface.querySelector<HTMLElement>('[data-action="cancel"]')?.addEventListener('click', close);
+    surface.querySelector<HTMLElement>('[data-settings-close]')?.addEventListener('click', close);
     surface.addEventListener('keydown', event => {
         if (event.key !== 'Escape' || event.isComposing) return;
         event.preventDefault();
@@ -321,11 +322,20 @@ function createSensitiveSettingsLauncher(language: InterfaceLanguage): HTMLEleme
     root.setAttribute('aria-label', uiText(language, 'settingsTitle'));
     root.tabIndex = -1;
 
+    // The same title row as Settings: the title leads, one quiet close trails.
+    // The close is the only way out besides Escape, so there is no footer.
     const head = document.createElement('div');
     head.className = 'jpdb-reader-settings-head';
     const title = document.createElement('h2');
     title.textContent = uiText(language, 'accountSettingsTrustedSurfaceTitle');
-    head.append(title);
+    const close = document.createElement('button');
+    close.type = 'button';
+    close.className = 'jpdb-reader-settings-close';
+    close.dataset.settingsClose = '';
+    close.setAttribute('aria-label', uiText(language, 'closeSettings'));
+    close.title = uiText(language, 'closeSettings');
+    close.append(menuIcon('close'));
+    head.append(title, close);
 
     const content = document.createElement('div');
     content.className = 'jpdb-reader-settings-scroll';
@@ -339,15 +349,6 @@ function createSensitiveSettingsLauncher(language: InterfaceLanguage): HTMLEleme
     launcher.textContent = uiText(language, 'openAccountSettingsTrustedSurface');
     content.append(help, launcher);
 
-    const footer = document.createElement('div');
-    footer.className = 'footer';
-    const close = document.createElement('button');
-    close.className = 'jpdb-reader-btn';
-    close.dataset.action = 'cancel';
-    close.type = 'button';
-    close.textContent = uiText(language, 'cancel');
-    footer.append(close);
-
-    root.append(head, content, footer);
+    root.append(head, content);
     return root;
 }

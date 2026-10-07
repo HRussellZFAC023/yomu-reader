@@ -2530,10 +2530,16 @@
 .jpdb-reader-settings-head .jpdb-reader-settings-drag-handle {
   flex: 0 0 100%;
 }
+/* The face and rule are set here, not inherited: on a host page a bare h2 rule
+   (Wikipedia's serif with an underline) otherwise restyles the title. */
 .jpdb-reader-settings .jpdb-reader-settings-head h2 {
   flex: 1 1 auto;
   min-width: 0;
   margin: 0;
+  padding: 0;
+  border: 0;
+  font-family: var(--jpdb-reader-font);
+  font-weight: 700;
 }
 .jpdb-reader-settings-close {
   flex: 0 0 auto;
@@ -2635,4 +2641,8 @@
 }
 .jpdb-reader-settings-scroll {
   padding-inline: var(--jpdb-reader-settings-gutter);
+}
+/* The launcher has no footer to clear, only the phone's home indicator. */
+.jpdb-reader-settings-launcher .jpdb-reader-settings-scroll {
+  padding-bottom: calc(var(--jpdb-reader-settings-gutter) + env(safe-area-inset-bottom, 0px));
 }

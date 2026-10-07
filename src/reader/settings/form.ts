@@ -8,6 +8,7 @@ import { audioSourceLabel, formatUiText, resolveUiLanguage, uiText } from '../ap
 import { CURRENT_YOMU_VERSION } from '../app/version';
 import { detectYomuUpdateFlow, updateFlowNoteKey } from '../app/userscript-update';
 import { externalLinkIcon } from '../ui/icons';
+import { menuIconMarkup } from '../ui/menu-icons';
 import { dispatchAuthorizedReaderControlEvent } from '../ui/trusted-interaction';
 import { AUDIO_GUIDE_URL, formatShortcutEvent, hasStatusColorSource, isPopupLookupEnabled, sanitizeAccentColor } from './index';
 import { SETTINGS_LABEL_TEXT_CLASS, checkbox, input, radioGroup, select, settingsTabButton, shortcutInput } from './form-controls';
@@ -208,7 +209,7 @@ function escapedUiText(language: InterfaceLanguage, key: Parameters<typeof uiTex
  */
 function settingsCloseButton(language: InterfaceLanguage): string {
     const label = escapedUiText(language, 'closeSettings');
-    return `<button type="button" class="jpdb-reader-settings-close" data-settings-close aria-label="${label}" title="${label}"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true" focusable="false"><path d="M4 4l8 8M12 4l-8 8"/></svg></button>`;
+    return `<button type="button" class="jpdb-reader-settings-close" data-settings-close aria-label="${label}" title="${label}">${menuIconMarkup('close')}</button>`;
 }
 
 export function renderHelpLinksPanel(language: InterfaceLanguage = 'en'): string {

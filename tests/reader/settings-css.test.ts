@@ -51,6 +51,16 @@ describe('settings CSS', () => {
         expect(normalizeCss(settingsCss)).toContain('.jpdb-reader-settings.jpdb-reader-settings-keyboard-open .jpdb-reader-settings-tabs { white-space: nowrap; }');
     });
 
+    it('sets the Settings title face itself so a host page h2 rule cannot restyle it', () => {
+        const settingsCss = readFileSync('src/reader/styles/settings.css', 'utf8');
+        const title = lastNormalizedRuleBlock(settingsCss, '.jpdb-reader-settings .jpdb-reader-settings-head h2');
+
+        expect(title).toContain('border: 0;');
+        expect(title).toContain('font-family: var(--jpdb-reader-font);');
+        expect(lastNormalizedRuleBlock(settingsCss, '.jpdb-reader-settings-launcher .jpdb-reader-settings-scroll'))
+            .toContain('padding-bottom: calc(var(--jpdb-reader-settings-gutter) + env(safe-area-inset-bottom, 0px));');
+    });
+
     it('keeps the settings puck clickable when it overlaps the transcript side panel', () => {
         const puckRule = normalizedRuleBlock(READER_WORDS_OCR_CSS, '.jpdb-reader-fab');
 

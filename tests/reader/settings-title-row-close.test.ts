@@ -1,11 +1,16 @@
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { LookupModalAccessibility } from '../../src/reader/popup/modal-accessibility-impl';
+import { mountSettingsSurfaceLauncher } from '../../src/reader/settings/sensitive-settings-surface';
 import {
     createSettingsDialog,
     DEFAULT_SETTINGS,
     resetSettingsDialogTestEnvironment,
 } from './helpers/settings-dialog-controller-fixture';
 
-afterEach(() => resetSettingsDialogTestEnvironment());
+afterEach(() => {
+    resetSettingsDialogTestEnvironment();
+    document.body.replaceChildren();
+});
 
 // The title row's way out (owner, 2026-10-07: Back and Close sat too close and the
 // header read wrong): the title leads, one quiet close sits at the trailing edge.
@@ -25,5 +30,26 @@ describe('the Settings title row', () => {
         // Cancel still dismisses on its own; the title-row button did not take its listener.
         form.querySelector<HTMLButtonElement>('[data-action="cancel"]')!.click();
         expect(dismiss).toHaveBeenCalledTimes(2);
+    });
+
+    it('gives the userscript Settings launcher the same title row and no second way out', () => {
+        const dismiss = vi.fn();
+        const launcher = mountSettingsSurfaceLauncher({
+            createBackdrop: () => document.body.appendChild(document.createElement('div')),
+            mountDialog: (backdrop, surface) => backdrop.append(surface),
+            sensitiveSettingsSurface: () => ({ trusted: false, launcherUrl: 'https://yomureader.com/study/#settings=api' }),
+            dismiss,
+            toast: () => undefined,
+        }, new LookupModalAccessibility(), 'ja');
+        const head = launcher.querySelector<HTMLElement>('.jpdb-reader-settings-head')!;
+        expect([...head.children].map(child => child.tagName)).toEqual(['H2', 'BUTTON']);
+        const close = head.querySelector<HTMLButtonElement>('[data-settings-close]')!;
+        expect(close.getAttribute('aria-label')).toBe('設定を閉じる');
+        expect(close.querySelector('svg[data-icon="close"][aria-hidden="true"]')).not.toBeNull();
+        // One way out: the footer Cancel that duplicated it is gone.
+        expect(launcher.querySelector('[data-action="cancel"], .footer')).toBeNull();
+
+        close.click();
+        expect(dismiss).toHaveBeenCalledTimes(1);
     });
 });

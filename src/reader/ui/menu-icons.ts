@@ -19,15 +19,29 @@ const SVG_ATTRIBUTES: Readonly<Record<string, string>> = {
     focusable: 'false',
 };
 
+type IconShapes = readonly (readonly [string, Readonly<Record<string, string>>])[];
+
+function iconShapes(name: MenuIconName): IconShapes {
+    return (MENU_ICON_SHAPES[name] ?? MENU_ICON_SHAPES.fallback) as unknown as IconShapes;
+}
+
 export function menuIcon(name: MenuIconName, doc: Document = document): SVGSVGElement {
     const svg = doc.createElementNS(SVG_NS, 'svg');
     for (const [attribute, value] of Object.entries(SVG_ATTRIBUTES)) svg.setAttribute(attribute, value);
     svg.dataset.icon = name;
-    const shapes = (MENU_ICON_SHAPES[name] ?? MENU_ICON_SHAPES.fallback) as unknown as readonly (readonly [string, Readonly<Record<string, string>>])[];
-    for (const [tag, attributes] of shapes) {
+    for (const [tag, attributes] of iconShapes(name)) {
         const shape = doc.createElementNS(SVG_NS, tag);
         for (const [attribute, value] of Object.entries(attributes)) shape.setAttribute(attribute, value);
         svg.append(shape);
     }
     return svg;
+}
+
+/** The same icon as markup, for surfaces rendered from template strings. */
+export function menuIconMarkup(name: MenuIconName): string {
+    const attributes = (values: Readonly<Record<string, string>>): string => Object.entries(values)
+        .map(([attribute, value]) => ` ${attribute}="${value}"`)
+        .join('');
+    const shapes = iconShapes(name).map(([tag, values]) => `<${tag}${attributes(values)}/>`).join('');
+    return `<svg${attributes({ ...SVG_ATTRIBUTES, 'data-icon': name })}>${shapes}</svg>`;
 }
