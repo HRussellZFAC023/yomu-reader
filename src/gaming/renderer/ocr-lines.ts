@@ -16,6 +16,11 @@ export interface GamingOcrLine {
     vertical: boolean;
 }
 
+// Yomu's own standing chrome on the overlay: the toolbar with its "よむ" mark, always in the
+// same corner. The transient status pill and hint sit mid-screen, over the very text a player
+// reads; dropping OCR there would cost real game text.
+const OVERLAY_CHROME_SELECTOR = '.overlay-toolbar';
+
 // Stored OCR results use capture-relative fractions, not viewport pixels. The
 // native overlay can change height while an OCR request is in flight (Windows
 // moves it from the work area to the full display), so absolute viewport boxes
@@ -333,6 +338,38 @@ function normalizeOverlayOcrBox(box: YomuGamingSelectionRect, frame: OcrOverlayF
         width: fraction(box.width, frame.imageWidth),
         height: fraction(box.height, frame.imageHeight),
     };
+}
+
+/**
+ * Where Yomu's own overlay chrome sits on the screen, as fractions of it.
+ *
+ * Yomu hides its windows before it grabs the screen, but a window that has not left the
+ * compositor yet — a slow machine, a re-read over the overlay — is in the frame, and OCR
+ * reads the toolbar's "よむ" like any other Japanese on screen: it came back as a word in
+ * the top-right corner. The overlay window covers the display it captured, so its chrome's
+ * place in the window is its place in such a frame.
+ */
+export function overlayChromeScreenRects(root: ParentNode, viewport: YomuGamingImageSize = viewportSize()): YomuGamingSelectionRect[] {
+    return [...root.querySelectorAll<HTMLElement>(OVERLAY_CHROME_SELECTOR)]
+        .map(element => element.getBoundingClientRect())
+        .filter(rect => rect.width > 0 && rect.height > 0)
+        .map(rect => ({
+            left: fraction(rect.left, viewport.width),
+            top: fraction(rect.top, viewport.height),
+            width: fraction(rect.width, viewport.width),
+            height: fraction(rect.height, viewport.height),
+        }));
+}
+
+/**
+ * Whether an OCR box (fractions of the capture) lies on Yomu's own chrome. Text there is
+ * either Yomu itself or game text the chrome already covers, so it never becomes a word.
+ */
+export function onOverlayChrome(box: YomuGamingSelectionRect, chrome: readonly YomuGamingSelectionRect[]): boolean {
+    return chrome.some(rect => box.left < rect.left + rect.width
+        && rect.left < box.left + box.width
+        && box.top < rect.top + rect.height
+        && rect.top < box.top + box.height);
 }
 
 // Map a provider box from the submitted OCR image back into fractions of the

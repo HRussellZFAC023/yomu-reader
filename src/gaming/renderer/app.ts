@@ -49,6 +49,8 @@ import {
     captureSelectionFromViewport,
     layoutOverlayOcrLines,
     normalizeCaptureOcrBox,
+    onOverlayChrome,
+    overlayChromeScreenRects,
     overlayNormalizedOcrLayerHtml,
     overlayOcrFrame,
     type NormalizedGamingOcrLine,
@@ -1363,7 +1365,7 @@ class OverlaySelectionController {
                 return captureErrorResult(new Error(response.error ?? 'OCR failed. Check the OCR provider in Settings.'));
             }
             const result = normalizeGamingOcrResponse(response.body, crop.width, crop.height);
-            return overlayResultFromOcr(result, crop.sourceRect, crop.sourceSize);
+            return overlayResultFromOcr(result, crop.sourceRect, crop.sourceSize, overlayChromeScreenRects(this.root));
         } catch (error) {
             return captureErrorResult(error);
         }
@@ -1458,16 +1460,21 @@ function overlayResultFromOcr(
     result: GamingOcrResult | null,
     captureRegion: YomuGamingSelectionRect,
     captureSize: { width: number; height: number },
+    ownChrome: readonly YomuGamingSelectionRect[] = [],
 ): OverlayResult {
-    const text = result?.lines.map(line => line.text).join('\n') ?? '';
+    const placed = (result?.lines ?? []).map(line => ({
+        line,
+        box: line.hasGeometry && result ? normalizeCaptureOcrBox(line.box, result, captureRegion, captureSize) : null,
+    })).filter(({ box }) => !box || !onOverlayChrome(box, ownChrome));
+    const text = placed.map(({ line }) => line.text).join('\n');
     const terms = gamingLookupCandidates(text);
     const lines = hasOcrGeometry(result)
-        ? result.lines.filter(line => line.hasGeometry).map(line => ({
+        ? placed.flatMap(({ line, box }) => box ? [{
             text: line.text,
             terms: gamingLookupCandidates(line.text),
-            box: normalizeCaptureOcrBox(line.box, result, captureRegion, captureSize),
+            box,
             vertical: line.vertical,
-        })).filter(line => line.terms.length > 0)
+        }] : []).filter(line => line.terms.length > 0)
         : [];
     return terms.length
         ? { text, terms, lines: lines.length ? lines : undefined }

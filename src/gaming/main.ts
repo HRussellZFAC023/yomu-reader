@@ -216,6 +216,13 @@ async function ensureOverlayWindow(mode: YomuGamingCaptureMode, target: GamingCa
         webPreferences: gamingWebPreferences('overlay'),
     });
     hardenWebContents(overlayWindow);
+    // Keep the overlay out of every screen grab, Yomu's own included. Yomu hides it before
+    // capturing, but a window still on its way out of the compositor was being read back as
+    // game text (the toolbar's "よむ" came back as a word). Windows excludes a protected
+    // window from capture outright (WDA_EXCLUDEFROMCAPTURE); macOS honours it only on its
+    // older capture paths, so the hide stays, and the renderer drops any OCR that still lands
+    // on its own chrome (overlayChromeScreenRects).
+    overlayWindow.setContentProtection(true);
     overlayWindow.setAlwaysOnTop(true, 'screen-saver');
     overlayWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
     overlayWindow.on('closed', () => {
