@@ -486,6 +486,18 @@ describe('SubtitlePlayerController — styling & transcript panel', () => {
         expect(normalizedCss).toMatch(/\.jpdb-subtitle-primary \.jpdb-reader-furi \{[^}]*font-weight: 700;/);
     });
 
+    // The phone track sheet let YouTube thumbnails show through its controls,
+    // and the puck sat on its lower track choices.
+    it('paints the transcript sheet opaque and keeps the puck off a bottom sheet', () => {
+        const normalizedCss = SUBTITLES_YOUTUBE_CSS.replace(/\s+/g, ' ');
+        const panel = normalizedCss.match(/\.jpdb-subtitle-list \{ position: fixed;[^}]*\}/)?.[0] ?? '';
+        expect(panel).toContain('background: var(--jpdb-reader-surface);');
+        expect(panel).not.toContain('transparent');
+        expect(normalizedCss).toContain('body:has(.jpdb-subtitle-list.jpdb-subtitle-transcript-bottom:not([hidden])) .jpdb-reader-fab { display: none !important; }');
+        expect(normalizedCss).toContain('@media (max-width: 519px) {');
+        expect(normalizedCss).toContain('body:has(.jpdb-subtitle-list:not([hidden])) .jpdb-reader-fab { display: none !important; }');
+    });
+
     it('keeps plain overlay and transcript captions selectable while annotations are paused', () => {
         const normalizedCss = SUBTITLES_YOUTUBE_CSS.replace(/\s+/g, ' ');
         expect(normalizedCss).toMatch(/\.jpdb-subtitle-player \{[^}]*-webkit-user-select: none;[^}]*user-select: none;/);

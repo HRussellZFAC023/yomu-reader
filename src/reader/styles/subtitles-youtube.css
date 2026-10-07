@@ -1122,8 +1122,9 @@ html.jpdb-subtitle-yt-sheet-open .jpdb-subtitle-player:not(.jpdb-subtitle-fullsc
   grid-template-rows: auto minmax(0, 1fr);
   container-type: inline-size;
   border: 1px solid color-mix(in srgb, var(--jpdb-reader-border) 88%, var(--jpdb-reader-video-grid-line));
-  border-radius: 22px;
-  background: color-mix(in srgb, var(--jpdb-reader-bg) 94%, color-mix(in srgb, var(--jpdb-reader-white) 6%, transparent));
+  border-radius: 16px;
+  /* Opaque: page thumbnails and text must never show through the controls. */
+  background: var(--jpdb-reader-surface);
   color: var(--jpdb-reader-text);
   box-shadow: 0 24px 56px var(--jpdb-reader-shadow);
   pointer-events: auto;
@@ -2470,7 +2471,7 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
     border-right: 0;
     border-bottom: 0;
     border-left: 0;
-    border-radius: 20px 20px 0 0;
+    border-radius: 16px 16px 0 0;
   }
   .jpdb-subtitle-transcript-bottom .jpdb-subtitle-list-scroll {
     padding-bottom: calc(12px + env(safe-area-inset-bottom));
@@ -2485,6 +2486,17 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
     border-right: 0;
     border-bottom: 0;
     border-left: 0;
-    border-radius: 20px 20px 0 0;
+    border-radius: 16px 16px 0 0;
   }
+
+  /* A phone sheet owns the bottom of the screen, where the puck would sit on
+     its lower rows; the puck returns when the sheet closes. */
+  body:has(.jpdb-subtitle-list:not([hidden])) .jpdb-reader-fab {
+    display: none !important;
+  }
+}
+
+/* Any bottom sheet, at any width, spans the corner the puck rests in. */
+body:has(.jpdb-subtitle-list.jpdb-subtitle-transcript-bottom:not([hidden])) .jpdb-reader-fab {
+  display: none !important;
 }
