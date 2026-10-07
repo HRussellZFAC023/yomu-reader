@@ -143,3 +143,13 @@ node scripts/manual/youtube-performance-comparison-smoke.mjs
 ```
 
 `YOMU_PROFILE_SOAK_MS` replaces `YOMU_PROFILE_AMBIENT_MS`; the old ambient and hover-stress names remain compatibility aliases for the non-comparable soak only.
+
+## Public parser network profile
+
+Run `node_modules/.bin/vite-node scripts/manual/parser-network-profile.ts -- --text '冒険を始めよう。夜明けまでに港へ行くよ。'`.
+This measures the real ReaderParser source against live public Jiten with an empty
+simulated dictionary store, no account keys, and no DOM painting. `--stage public`
+measures only the public vocabulary client. It caps input at 6,000 characters,
+requests at 40, and each request at five seconds. Reports go to
+`artifacts/parser-performance/profile.json` by default. This does not measure an
+installed desktop app, local dictionary performance, or annotation paint timing.

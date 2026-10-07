@@ -27,6 +27,9 @@ const PARSE_DETAIL_LIMIT = LOOKUP_DETAIL_LIMIT;
 const REQUEST_BACKOFF_INITIAL_MS = 30_000;
 const REQUEST_BACKOFF_MAX_MS = 5 * 60_000;
 const PARSE_TEXT_LIMIT = 1900;
+// The public endpoint uses GET. 1,900 Japanese characters become a 17 KB
+// request URL (observed HTTP 414); bound the encoded query as well as text.
+const PARSE_ENCODED_TEXT_LIMIT = 6000;
 const PARSE_TERM_SEPARATOR = '。';
 const log = Logger.scope('JitenPublicVocabulary');
 const sharedParseGate = new ConcurrencyGate(1);
@@ -284,11 +287,23 @@ export class JitenPublicVocabularyClient {
     }
 
     private async parseTermGroups(terms: readonly string[]): Promise<PublicParseWord[][]> {
-        const records = await this.requestParseRecords(terms.join(PARSE_TERM_SEPARATOR));
-        return publicParseTermGroups(terms, records);
+        const chunks = chunkTermsForParse(terms);
+        const groups = await mapLimited(chunks, DETAIL_CONCURRENCY, async chunk => {
+            const records = await this.requestParseRecords(chunk.join(PARSE_TERM_SEPARATOR));
+            return publicParseTermGroups(chunk, records);
+        });
+        return groups.flat();
     }
 
     private async requestParseRecords(text: string): Promise<PublicParseWord[]> {
+        const records: PublicParseWord[] = [];
+        for (const part of publicParseTextSlices(text)) {
+            records.push(...await this.requestParseRecordChunk(part.text));
+        }
+        return records;
+    }
+
+    private requestParseRecordChunk(text: string): Promise<PublicParseWord[]> {
         return sharedParseGate.run(async () => {
             if (this.isBackoffActive()) return [];
             const payload = await this.requestJson(`vocabulary/parse?text=${encodeURIComponent(text)}`).catch(error => {
@@ -541,16 +556,19 @@ function bestParsedWordForTerm(term: string, parsed: PublicParseWord[]): PublicP
 function publicParseChunks(paragraphs: readonly string[]): PublicParseChunk[] {
     const chunks: PublicParseChunk[] = [];
     let current: PublicParseChunk = { text: '', ranges: [] };
+    let encodedLength = 0;
     const flush = (): void => {
         if (!current.text) return;
         chunks.push(current);
         current = { text: '', ranges: [] };
+        encodedLength = 0;
     };
     paragraphs.forEach((paragraph, paragraphIndex) => {
-        for (let offset = 0; offset < paragraph.length; offset += PARSE_TEXT_LIMIT) {
-            const part = paragraph.slice(offset, offset + PARSE_TEXT_LIMIT);
-            if (!part) continue;
-            if (current.text && current.text.length + 1 + part.length > PARSE_TEXT_LIMIT) flush();
+        for (const { text: part, offset } of publicParseTextSlices(paragraph)) {
+            const partEncodedLength = encodeURIComponent(part).length;
+            if (current.text && (current.text.length + 1 + part.length > PARSE_TEXT_LIMIT
+                || encodedLength + 3 + partEncodedLength > PARSE_ENCODED_TEXT_LIMIT)) flush();
+            encodedLength += partEncodedLength + (current.text ? 3 : 0);
             const chunkStart = current.text ? current.text.length + 1 : 0;
             current.text += `${current.text ? '\n' : ''}${part}`;
             current.ranges.push({
@@ -563,6 +581,22 @@ function publicParseChunks(paragraphs: readonly string[]): PublicParseChunk[] {
     });
     flush();
     return chunks;
+}
+
+function* publicParseTextSlices(text: string): Generator<{ text: string; offset: number }> {
+    let start = 0, end = 0, encodedLength = 0;
+    for (const character of text) {
+        const length = encodeURIComponent(character).length;
+        if (end > start && (end - start + character.length > PARSE_TEXT_LIMIT
+            || encodedLength + length > PARSE_ENCODED_TEXT_LIMIT)) {
+            yield { text: text.slice(start, end), offset: start };
+            start = end;
+            encodedLength = 0;
+        }
+        end += character.length;
+        encodedLength += length;
+    }
+    if (end > start) yield { text: text.slice(start, end), offset: start };
 }
 
 function applyPublicParseChunk(result: JPDBToken[][], chunk: PublicParseChunk, parsed: PublicParseWord[], paragraphs: readonly string[]): void {
@@ -637,13 +671,18 @@ function chunkTermsForParse(terms: readonly string[]): string[][] {
     const chunks: string[][] = [];
     let current: string[] = [];
     let length = 0;
+    let encodedLength = 0;
     for (const term of terms) {
+        const termEncodedLength = encodeURIComponent(term).length;
+        const nextEncodedLength = encodedLength + termEncodedLength + (current.length ? 9 : 0);
         const nextLength = length + term.length + (current.length ? PARSE_TERM_SEPARATOR.length : 0);
-        if (current.length && nextLength > PARSE_TEXT_LIMIT) {
+        if (current.length && (nextLength > PARSE_TEXT_LIMIT || nextEncodedLength > PARSE_ENCODED_TEXT_LIMIT)) {
             chunks.push(current);
             current = [];
             length = 0;
+            encodedLength = 0;
         }
+        encodedLength += termEncodedLength + (current.length ? 9 : 0);
         current.push(term);
         length += term.length + (current.length > 1 ? 1 : 0);
     }

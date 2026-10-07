@@ -166,6 +166,59 @@ describe('JitenPublicVocabularyClient', () => {
         expect(requestJson.mock.calls.filter(([url]) => String(url).includes('/vocabulary/1381470/0/info'))).toHaveLength(1);
     });
 
+    it('bounds encoded public parse requests and preserves candidate groups across chunks', async () => {
+        const terms = Array.from({ length: 250 }, (_, index) => `日本語${index}`);
+        const requestedGroups: string[][] = [];
+        const requestJson = vi.fn(async (url: string) => {
+            if (url.includes('/vocabulary/parse?')) {
+                const text = new URL(url).searchParams.get('text')!;
+                expect(encodeURIComponent(text).length).toBeLessThanOrEqual(6000);
+                const group = text.split('。');
+                requestedGroups.push(group);
+                return group.flatMap(term => [
+                    { wordId: terms.indexOf(term) + 1, readingIndex: 0, originalText: term },
+                    { wordId: 0, readingIndex: 0, originalText: '。' },
+                ]);
+            }
+            const id = Number(url.match(/vocabulary\/(\d+)\//)?.[1]);
+            return { wordId: id, mainReading: { text: terms[id - 1] }, definitions: [] };
+        });
+        const client = new JitenPublicVocabularyClient({ requestJsonImpl: requestJson });
+        const cards = await client.lookupMany(terms, { detailLimit: terms.length });
+        expect(requestedGroups.length).toBeGreaterThan(1);
+        expect(requestedGroups.flat()).toEqual(terms);
+        expect([...cards].map(([term, card]) => [term, card.jitenWordId])).toEqual(terms.map((term, index) => [term, index + 1]));
+    });
+
+    it('bounds even one oversized lookup term without dropping source text', async () => {
+        const term = 'あ'.repeat(1900);
+        const chunks: string[] = [];
+        const client = new JitenPublicVocabularyClient({ requestJsonImpl: async url => {
+            const text = new URL(url).searchParams.get('text')!;
+            expect(encodeURIComponent(text).length).toBeLessThanOrEqual(6000);
+            chunks.push(text);
+            return [{ wordId: 0, readingIndex: 0, originalText: text }];
+        } });
+        await expect(client.lookup(term)).resolves.toBeNull();
+        expect(chunks.join('')).toBe(term);
+        expect(chunks.length).toBeGreaterThan(1);
+    });
+
+    it('bounds encoded paragraph chunks while retaining source offsets', async () => {
+        const paragraph = '日本語'.repeat(634);
+        const requests: string[] = [];
+        const client = new JitenPublicVocabularyClient({ requestJsonImpl: async url => {
+            const text = new URL(url).searchParams.get('text')!;
+            expect(encodeURIComponent(text).length).toBeLessThanOrEqual(6000);
+            requests.push(text);
+            return [...text].map(originalText => ({ wordId: 1, readingIndex: 0, originalText }));
+        } });
+        const [tokens] = await client.parse([paragraph], { detailLimit: 0 });
+        expect(requests.join('')).toBe(paragraph);
+        expect(tokens.map(token => paragraph.slice(token.start, token.end)).join('')).toBe(paragraph);
+        expect(tokens.map(token => token.start)).toEqual(Array.from({ length: paragraph.length }, (_, index) => index));
+    });
+
     it('keeps decomposed words inside their own batched term boundary', async () => {
         const requestJson = vi.fn(async (url: string) => {
             if (url.includes('/vocabulary/parse?')) {
