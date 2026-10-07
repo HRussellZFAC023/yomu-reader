@@ -376,6 +376,13 @@ describe('settings form localization', () => {
         expect(settingsText(form, '.jpdb-reader-lookup-link-head span:nth-child(3)')).toBe('検索URLテンプレート');
     });
 
+    it('leaves empty Bunpro and WaniKani credential fields without untranslated technical placeholders', () => {
+        const form = sharedJapaneseSettingsTestForm();
+        for (const name of ['apiCredentialBunpro', 'apiCredentialWanikani']) {
+            expect(form.querySelector<HTMLInputElement>(`input[name="${name}"]`)?.placeholder).toBe('');
+        }
+    });
+
     it('localizes Japanese font family option metadata', () => {
         const form = sharedJapaneseSettingsTestForm();
 

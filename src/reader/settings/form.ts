@@ -140,14 +140,14 @@ function colorSourceSelectOptions(text: SettingsText): Array<[string, string, st
 const DISABLED_SETTINGS_CONTROL_DESCRIPTION_ID = 'jpdb-reader-disabled-control-description';
 const AUTOFILL_IGNORE_ATTRIBUTE_HTML = ' data-1p-ignore="true" data-lpignore="true" data-bwignore="true" data-protonpass-ignore="true" data-form-type="other"';
 function protectedCredentialInput(
-    name: string, label: string, storedValue: string, language: InterfaceLanguage, emptyPlaceholder = '',
+    name: string, label: string, storedValue: string, language: InterfaceLanguage,
     link?: { url: string; label: string },
 ): string {
     const configured = Boolean(storedValue.trim());
     const field = input(name, label, '', 'text', {
         ...PROTECTED_CREDENTIAL_INPUT_ATTRIBUTES,
         class: 'jpdb-reader-masked-input',
-        placeholder: configured ? uiText(language, 'storedCredentialPlaceholder') : emptyPlaceholder,
+        placeholder: configured ? uiText(language, 'storedCredentialPlaceholder') : '',
         ...(configured ? { 'data-stored-credential-placeholder': 'true' } : {}),
     });
     const help = link ? `<a href="${escapeHtml(link.url)}" target="_blank" rel="noopener">${escapeHtml(link.label)}</a>` : '';
@@ -362,11 +362,11 @@ function renderApiSettingsPanel(settings: ReaderSettings, jpdbSettingsUrl: strin
                 <div class="jpdb-reader-settings-subsection">
                     <div class="jpdb-reader-local-title">${escapedUiText(language, 'apiAccess')}</div>
                     <div class="grid">
-                        ${protectedCredentialInput('apiCredentialJiten', escapedUiText(language, 'apiCredentialJiten'), effectiveJitenApiKey(settings), language, '', { url: jitenSettingsUrl, label: uiText(language, 'jitenSettings') })}
-                        ${protectedCredentialInput('apiCredentialJpdb', escapedUiText(language, 'apiCredentialJpdb'), effectiveJpdbApiKey(settings), language, '', { url: jpdbSettingsUrl, label: uiText(language, 'jpdbSettings') })}
-                        ${protectedCredentialInput('apiCredentialBunpro', escapedUiText(language, 'apiCredentialBunpro'), settings.bunproFrontendApiToken, language, 'frontend_api_token', { url: DEFAULT_BUNPRO_SETTINGS_URL, label: uiText(language, 'bunproSettings') })}
+                        ${protectedCredentialInput('apiCredentialJiten', escapedUiText(language, 'apiCredentialJiten'), effectiveJitenApiKey(settings), language, { url: jitenSettingsUrl, label: uiText(language, 'jitenSettings') })}
+                        ${protectedCredentialInput('apiCredentialJpdb', escapedUiText(language, 'apiCredentialJpdb'), effectiveJpdbApiKey(settings), language, { url: jpdbSettingsUrl, label: uiText(language, 'jpdbSettings') })}
+                        ${protectedCredentialInput('apiCredentialBunpro', escapedUiText(language, 'apiCredentialBunpro'), settings.bunproFrontendApiToken, language, { url: DEFAULT_BUNPRO_SETTINGS_URL, label: uiText(language, 'bunproSettings') })}
                         <input type="hidden" name="bunproFrontendApiTokenExpiresAt" value="${escapeHtml(settings.bunproFrontendApiTokenExpiresAt)}">
-                        ${protectedCredentialInput('apiCredentialWanikani', escapedUiText(language, 'apiCredentialWanikani'), settings.wanikaniApiToken, language, 'wanikani personal access token', { url: WANIKANI_TOKEN_SETTINGS_URL, label: uiText(language, 'wanikaniSettings') })}
+                        ${protectedCredentialInput('apiCredentialWanikani', escapedUiText(language, 'apiCredentialWanikani'), settings.wanikaniApiToken, language, { url: WANIKANI_TOKEN_SETTINGS_URL, label: uiText(language, 'wanikaniSettings') })}
                     </div>
                     <div class="jpdb-reader-help" data-jpdb-api-key-help>${escapedUiText(language, 'apiAccessHelp')}</div>
                     <div class="jpdb-reader-help" data-wanikani-api-key-help>${escapedUiText(language, 'wanikaniTokenHelp')}</div>
@@ -770,7 +770,7 @@ function renderNadeshikoApiKeyField(settings: ReaderSettings): string {
     const language = settings.interfaceLanguage;
     return `
                     <div data-nadeshiko-api-key-field ${usesNadeshikoExamples(settings.immersionKitExampleSource) ? '' : 'hidden'}>
-                        ${protectedCredentialInput('nadeshikoApiKey', escapedUiText(language, 'nadeshikoApiKey'), settings.nadeshikoApiKey, language, '', { url: NADESHIKO_DEVELOPER_URL, label: uiText(language, 'getNadeshikoKey') })}
+                        ${protectedCredentialInput('nadeshikoApiKey', escapedUiText(language, 'nadeshikoApiKey'), settings.nadeshikoApiKey, language, { url: NADESHIKO_DEVELOPER_URL, label: uiText(language, 'getNadeshikoKey') })}
                     </div>`;
 }
 
