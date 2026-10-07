@@ -2090,7 +2090,7 @@ async function auditSettingsMobile(browser) {
     await page.locator('[data-action="settings-panel"][data-panel="media"]').click();
     snapshot = await page.evaluate(mobileAudioSourceToolsSnapshotFromDom);
     assertAudit(snapshot.tools.length > 0, 'mobile audio source tools are missing');
-    assertAudit(snapshot.tools.every(tool => tool.left >= 0 && tool.buttons.every(button => button.left >= 0 && button.width >= 34 && button.height >= 34)), 'mobile audio source controls are cramped or clipped');
+    assertAudit(snapshot.tools.every(tool => tool.left >= 0 && tool.buttons.length > 0 && tool.buttons.every(button => button.left >= 0 && button.right <= snapshot.viewportWidth && button.width >= 44 && button.height >= 44)), 'mobile audio source controls are cramped or clipped');
 
     await page.locator('[data-action="settings-panel"][data-panel="help"]').click();
     await assertAccessibleSurface(page, 'mobile settings help', '.jpdb-reader-settings');
@@ -2157,13 +2157,14 @@ function mobileAudioSourceToolsSnapshotFromDom() {
         const rect = row.getBoundingClientRect();
         return {
             left: rect.left,
-            buttons: [...row.querySelectorAll('button')].map(buttonRectSnapshot),
+            // Coarse-pointer layouts use the arrows and hide the drag handle.
+            buttons: [...row.querySelectorAll('button')].filter(button => button.getClientRects().length > 0).map(buttonRectSnapshot),
         };
     }
 
     function buttonRectSnapshot(button) {
         const rect = button.getBoundingClientRect();
-        return { width: rect.width, height: rect.height, left: rect.left };
+        return { width: rect.width, height: rect.height, left: rect.left, right: rect.right };
     }
 }
 

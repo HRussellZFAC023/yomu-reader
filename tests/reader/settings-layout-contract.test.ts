@@ -15,4 +15,10 @@ describe('Settings layout contract', () => {
         expect(settingsCss).toContain('.jpdb-reader-settings input::placeholder, .jpdb-reader-settings textarea::placeholder { color: var(--jpdb-reader-muted) !important; opacity: 1; }');
         expect(newTabCss).toContain('.jpdb-reader-newtab-searchbox input::placeholder { color: var(--jpdb-reader-muted); -webkit-text-fill-color: var(--jpdb-reader-muted); opacity: 1; }');
     });
+
+    it('stacks source rows only on narrow screens so touch tablets keep the denser row layout', () => {
+        expect(settingsCss).toContain('@media (max-width: 699px) { .jpdb-reader-order-head { display: none; }');
+        expect(settingsCss).toContain('@media (max-width: 699px), (hover: none), (pointer: coarse) { .jpdb-reader-study-step-head { display: none; }');
+        expect(settingsCss).not.toContain('@media (max-width: 699px), (hover: none), (pointer: coarse) { .jpdb-reader-order-head');
+    });
 });

@@ -554,7 +554,12 @@ async function settingsLayoutSnapshot(page, panel) {
                         if (overlap > 6) found.push({ type: 'source-action-rail-overlap', row: textOf(row), overlap });
                     }
                 }
-                if (rowRect.height > 180) {
+                // Custom audio URLs can expose several provider switches below
+                // the main controls. Check the fixed row chrome separately so
+                // readable, wrapping switches do not count as empty row space.
+                const subsources = row.querySelector('.jpdb-reader-audio-subsources');
+                const subsourceHeight = isVisible(subsources) ? subsources.getBoundingClientRect().height + 10 : 0;
+                if (rowRect.height - subsourceHeight > 180) {
                     found.push({ type: 'source-row-too-tall', row: textOf(row), rect: rectSnapshot(rowRect) });
                 }
             }

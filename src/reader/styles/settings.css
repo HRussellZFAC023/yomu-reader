@@ -1950,7 +1950,7 @@
   }
 }
 
-@media (max-width: 699px), (hover: none), (pointer: coarse) {
+@media (max-width: 699px) {
   .jpdb-reader-order-head {
     display: none;
   }
@@ -2020,6 +2020,9 @@
     grid-column: 2 / -1;
   }
 
+}
+
+@media (max-width: 699px), (hover: none), (pointer: coarse) {
   .jpdb-reader-study-step-head {
     display: none;
   }
