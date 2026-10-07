@@ -182,7 +182,7 @@ textarea {
     border-radius: 8px;
     background: var(--jpdb-reader-surface);
     color: var(--jpdb-reader-text);
-    font-weight: 800;
+    font-weight: 600;
 }
 
 .yomu-gaming-settings .jpdb-reader-settings-scroll {
@@ -275,33 +275,27 @@ textarea {
     z-index: 7;
     display: inline-flex;
     align-items: center;
-    gap: 7px;
+    gap: 2px;
     min-height: 32px;
-    padding: 4px 5px 4px 12px;
+    padding: 4px;
     border: 1px solid color-mix(in srgb, var(--jpdb-reader-white) 18%, transparent);
-    border-radius: 999px;
+    border-radius: 8px;
     background: color-mix(in srgb, var(--jpdb-reader-black) 62%, transparent);
     color: var(--jpdb-reader-white);
-    box-shadow: 0 10px 26px color-mix(in srgb, var(--jpdb-reader-black) 44%, transparent);
     cursor: default;
-    font: 850 12px/1 var(--jpdb-reader-font);
+    font: 500 12px/1 var(--jpdb-reader-font);
     backdrop-filter: blur(8px);
 }
 
-.overlay-toolbar strong {
-    color: var(--jpdb-reader-accent);
-    font-weight: 900;
-}
-
 .overlay-toolbar button {
-    min-height: 26px;
+    min-height: 28px;
     padding: 0 10px;
-    border: 1px solid color-mix(in srgb, var(--jpdb-reader-white) 22%, transparent);
-    border-radius: 999px;
-    background: color-mix(in srgb, var(--jpdb-reader-black) 48%, transparent);
+    border: 0;
+    border-radius: 6px;
+    background: transparent;
     color: var(--jpdb-reader-white);
     cursor: pointer;
-    font: 850 11px/1 var(--jpdb-reader-font);
+    font: 500 12px/1 var(--jpdb-reader-font);
 }
 
 .overlay-toolbar button:hover {
@@ -462,7 +456,7 @@ textarea {
     color: var(--jpdb-reader-white);
     box-shadow: 0 12px 28px color-mix(in srgb, var(--jpdb-reader-black) 42%, transparent);
     cursor: default;
-    font: 800 13px/1 var(--jpdb-reader-font);
+    font: 500 13px/1 var(--jpdb-reader-font);
     backdrop-filter: blur(8px);
 }
 
@@ -674,8 +668,6 @@ body.yomu-gaming-overlay-document .overlay-inline-layer *::after {
     border-color: transparent !important;
     box-shadow: none !important;
 }
-.overlay-toolbar { border-radius: 6px; box-shadow: none; font-weight: 500; padding: 4px; gap: 2px; }
-.overlay-toolbar button { border: 0; border-radius: 3px; font-weight: 500; background: transparent; }
 .overlay-shell[data-capture-mode="instant"] .overlay-toolbar { opacity: 0; transition: opacity 100ms; }
 .overlay-shell[data-capture-mode="instant"] .overlay-toolbar:hover,
 .overlay-shell[data-capture-mode="instant"] .overlay-toolbar:focus-within { opacity: 1; }

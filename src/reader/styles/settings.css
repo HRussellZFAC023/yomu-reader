@@ -56,7 +56,7 @@
   border: 1px solid var(--jpdb-reader-border);
   border-radius: 999px;
   font-size: 11px;
-  font-weight: 700;
+  font-weight: 600;
   letter-spacing: 0.04em;
   text-transform: uppercase;
   color: var(--jpdb-reader-muted);
@@ -221,7 +221,7 @@
   border-radius: 8px;
   color: var(--jpdb-reader-muted);
   background: var(--jpdb-reader-surface);
-  font: 700 12px/1.4 var(--jpdb-reader-font);
+  font: 500 12px/1.4 var(--jpdb-reader-font);
 }
 .jpdb-reader-settings-scroll {
   /* Grow to fill the dialog/drawer so the footer stays pinned to the bottom.
@@ -307,7 +307,7 @@
   max-width: 100%;
   margin-inline-start: 0;
   color: var(--jpdb-reader-muted);
-  font: 800 11px/1.35 var(--jpdb-reader-font);
+  font: 500 11px/1.35 var(--jpdb-reader-font);
   overflow-wrap: anywhere;
 }
 
@@ -333,7 +333,7 @@
   border: 1px solid var(--jpdb-reader-border) !important;
   background-color: var(--jpdb-reader-surface) !important;
   color: var(--jpdb-reader-text) !important;
-  font: 700 12px/1.2 var(--jpdb-reader-font) !important;
+  font: 500 12px/1.2 var(--jpdb-reader-font) !important;
   height: 38px;
   min-width: 0;
   padding: 8px;
@@ -375,7 +375,7 @@
   border-radius: 8px !important;
   background: var(--jpdb-reader-surface) !important;
   color: var(--jpdb-reader-text) !important;
-  font: 800 12px/1 var(--jpdb-reader-font) !important;
+  font: 600 12px/1 var(--jpdb-reader-font) !important;
   cursor: pointer !important;
   text-align: center !important;
   text-decoration: none !important;
@@ -478,7 +478,7 @@
   align-items: center;
   overflow-wrap: anywhere;
   color: var(--jpdb-reader-text);
-  font: 700 12px/1.25 var(--jpdb-reader-font);
+  font: 500 12px/1.25 var(--jpdb-reader-font);
 }
 .jpdb-reader-settings input.jpdb-reader-masked-input {
   -webkit-text-security: asterisk;
@@ -761,7 +761,7 @@
   border-radius: 7px;
   background: var(--jpdb-reader-surface-2);
   color: var(--jpdb-reader-text);
-  font-weight: 750;
+  font-weight: 600;
 }
 .jpdb-reader-settings .jpdb-reader-definition-translation-list {
   display: grid;
@@ -954,7 +954,7 @@
 .jpdb-reader-newtab-anki-decks-title {
   color: var(--jpdb-reader-text);
   font-size: 13px;
-  font-weight: 800;
+  font-weight: 600;
   line-height: 1.2;
 }
 .jpdb-reader-newtab-anki-decks-head .jpdb-reader-help {
@@ -980,7 +980,7 @@
   background: color-mix(in srgb, var(--jpdb-reader-surface) 76%, transparent);
   color: var(--jpdb-reader-muted) !important;
   font-size: 12px;
-  font-weight: 750;
+  font-weight: 600;
   line-height: 1.2;
 }
 .jpdb-reader-newtab-anki-deck-toggle[data-active="true"] {
@@ -1064,7 +1064,7 @@
   color: var(--jpdb-reader-muted);
   background: color-mix(in srgb, var(--jpdb-reader-surface-2) 90%, transparent);
   font-size: 10px;
-  font-weight: 800;
+  font-weight: 600;
   line-height: 1;
 }
 .jpdb-reader-anki-confidence[data-confidence="high"] {
@@ -1105,7 +1105,7 @@
 }
 .jpdb-reader-theme-title {
   min-width: 0;
-  font: 750 12px/1.2 var(--jpdb-reader-font);
+  font: 600 12px/1.2 var(--jpdb-reader-font);
 }
 .jpdb-reader-settings .jpdb-reader-theme-appearance {
   display: flex;
@@ -1206,7 +1206,7 @@
 .jpdb-reader-settings-save-status {
   flex: 1 1 100%;
   color: var(--jpdb-reader-accent-readable);
-  font: 760 11px/1.35 var(--jpdb-reader-font);
+  font: 500 11px/1.35 var(--jpdb-reader-font);
   text-align: end;
 }
 .jpdb-reader-settings-footer-version {
@@ -1397,7 +1397,7 @@
   max-width: 100%;
   padding: 6px 10px;
   font: inherit;
-  font-weight: 700;
+  font-weight: 600;
   cursor: pointer;
 }
 .jpdb-reader-settings .jpdb-reader-tag-chip:hover,
@@ -1447,7 +1447,7 @@
 }
 .jpdb-reader-recommended-title {
   color: var(--jpdb-reader-text);
-  font-weight: 800;
+  font-weight: 600;
   font-size: 13px;
 }
 .jpdb-reader-recommended-note {
@@ -1540,7 +1540,7 @@
 .jpdb-reader-recommended-group-title {
   color: var(--jpdb-reader-faint);
   font-size: 11px;
-  font-weight: 800;
+  font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.02em;
 }
@@ -1565,17 +1565,17 @@
   align-items: baseline;
   flex-wrap: wrap;
   color: var(--jpdb-reader-text);
-  font-weight: 800;
+  font-weight: 600;
   font-size: 13px;
 }
 .jpdb-reader-recommended-name a {
   font-size: 11px;
-  font-weight: 700;
+  font-weight: 600;
 }
 .jpdb-reader-recommended-status {
   margin-top: 7px;
   color: var(--jpdb-reader-accent-readable);
-  font: 760 11px/1.35 var(--jpdb-reader-font);
+  font: 500 11px/1.35 var(--jpdb-reader-font);
   overflow-wrap: anywhere;
 }
 .jpdb-reader-recommended-status[data-import-state="queued"] {
@@ -1626,7 +1626,7 @@
   padding: 0 10px;
   color: var(--jpdb-reader-faint);
   font-size: 11px;
-  font-weight: 700;
+  font-weight: 600;
   text-transform: uppercase;
 }
 .jpdb-reader-order-head > span:first-child {
@@ -1692,7 +1692,7 @@
 .jpdb-reader-settings-study-steps > .jpdb-reader-settings-label-text {
   color: var(--jpdb-reader-text);
   font-size: 14px;
-  font-weight: 850;
+  font-weight: 600;
 }
 .jpdb-reader-settings-study-steps > .jpdb-reader-help {
   max-width: 62ch;
@@ -1858,7 +1858,7 @@
   background: transparent;
   color: var(--jpdb-reader-text);
   cursor: pointer;
-  font: 800 13px/1 var(--jpdb-reader-font);
+  font: 600 13px/1 var(--jpdb-reader-font);
   transform: translateY(-0.01rem);
 }
 .jpdb-reader-icon-mini svg {

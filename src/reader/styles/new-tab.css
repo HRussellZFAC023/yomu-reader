@@ -172,7 +172,7 @@
   border-radius: 999px;
   background: color-mix(in srgb, var(--jpdb-reader-state-due) 10%, var(--jpdb-reader-surface));
   color: var(--jpdb-reader-text);
-  font: 760 10px/1 var(--jpdb-reader-font);
+  font: 500 10px/1 var(--jpdb-reader-font);
   white-space: nowrap;
 }
 
@@ -221,7 +221,7 @@
 }
 
 .jpdb-reader-newtab-support-copy strong {
-  font-weight: 700;
+  font-weight: 600;
 }
 
 .jpdb-reader-newtab-support-copy span {
@@ -253,7 +253,7 @@
   min-height: 28px;
   border: 1px solid var(--jpdb-reader-accent);
   border-radius: 8px;
-  font: 800 12px/1 var(--jpdb-reader-font);
+  font: 600 12px/1 var(--jpdb-reader-font);
 }
 
 .jpdb-reader-newtab-support-donate {
@@ -375,7 +375,7 @@
   height: 42px;
   color: var(--jpdb-reader-text);
   font-size: 16px;
-  font-weight: 760;
+  font-weight: 600;
   line-height: 1;
   text-decoration: none;
 }
@@ -398,7 +398,7 @@
 .jpdb-reader-newtab .jpdb-reader-newtab-overflow {
   padding: 0 0 4px;
   font-size: 18px;
-  font-weight: 900;
+  font-weight: 600;
   line-height: 1;
   cursor: pointer;
 }
@@ -510,7 +510,7 @@
   color: var(--jpdb-reader-muted);
   font-family: inherit;
   font-size: 11px;
-  font-weight: 820;
+  font-weight: 600;
   line-height: 1;
   text-align: center;
   cursor: pointer;
@@ -634,7 +634,7 @@
   );
   color: var(--jpdb-reader-text);
   font-size: 12px;
-  font-weight: 840;
+  font-weight: 600;
   line-height: 1.1;
   cursor: pointer;
 }
@@ -710,14 +710,14 @@
 .jpdb-reader-newtab-search-suggestion-term {
   color: var(--jpdb-reader-text);
   font-size: 14px;
-  font-weight: 850;
+  font-weight: 600;
   line-height: 1.1;
 }
 
 .jpdb-reader-newtab-search-suggestion-detail {
   color: var(--jpdb-reader-muted);
   font-size: 10.5px;
-  font-weight: 720;
+  font-weight: 500;
   line-height: 1.15;
 }
 
@@ -743,7 +743,7 @@
   );
   color: var(--jpdb-reader-muted);
   font-size: 11px;
-  font-weight: 820;
+  font-weight: 600;
   text-decoration: none;
   cursor: pointer;
 }
@@ -775,7 +775,7 @@
   padding: 0 12px;
   color: var(--jpdb-reader-muted);
   font-size: 11px;
-  font-weight: 860;
+  font-weight: 600;
   line-height: 1.1;
   text-transform: uppercase;
   cursor: pointer;
@@ -822,7 +822,7 @@
   );
   color: var(--jpdb-reader-text);
   font-size: 22px;
-  font-weight: 840;
+  font-weight: 600;
   line-height: 1;
   cursor: pointer;
 }
@@ -839,7 +839,7 @@
   .jpdb-reader-newtab-handwriting-manual-action {
   color: var(--jpdb-reader-accent-strong, var(--jpdb-reader-accent));
   font-size: 11px;
-  font-weight: 840;
+  font-weight: 600;
 }
 
 .jpdb-reader-newtab-search-section {
@@ -852,7 +852,7 @@
   margin: 0;
   color: var(--jpdb-reader-muted);
   font-size: 11px;
-  font-weight: 860;
+  font-weight: 600;
   line-height: 1.1;
   text-transform: uppercase;
 }
@@ -1012,7 +1012,7 @@
 .jpdb-reader-newtab-search-kanji-item-char {
   flex: 0 0 auto;
   font-size: 26px;
-  font-weight: 880;
+  font-weight: 600;
   line-height: 1;
 }
 
@@ -1020,7 +1020,7 @@
   min-width: 0;
   color: var(--jpdb-reader-muted);
   font-size: 12px;
-  font-weight: 780;
+  font-weight: 500;
   line-height: 1.2;
   overflow-wrap: anywhere;
 }
@@ -1034,7 +1034,7 @@
 .jpdb-reader-newtab-search-kanji-char {
   min-width: 0;
   color: var(--jpdb-reader-text);
-  font-weight: 880;
+  font-weight: 600;
   line-height: 1.1;
   overflow-wrap: anywhere;
 }
@@ -1068,7 +1068,7 @@
 
 .jpdb-reader-newtab-search-meta {
   font-size: 11px;
-  font-weight: 780;
+  font-weight: 500;
   line-height: 1.25;
 }
 
@@ -1299,7 +1299,7 @@
   color: var(--jpdb-reader-muted);
   font-size: 11px;
   line-height: 1.2;
-  font-weight: 780;
+  font-weight: 500;
   text-align: center;
 }
 
@@ -1452,7 +1452,7 @@
   color: color-mix(in srgb, var(--jpdb-reader-text) 78%, var(--jpdb-reader-muted));
   font: inherit;
   font-size: 11px;
-  font-weight: 800;
+  font-weight: 600;
   line-height: 1;
   white-space: nowrap;
   cursor: pointer;
@@ -1644,7 +1644,7 @@ button.jpdb-reader-newtab-status:disabled:empty {
   color: var(--jpdb-reader-text);
   font: inherit;
   font-size: 11px;
-  font-weight: 800;
+  font-weight: 600;
   line-height: 1.2;
   cursor: pointer;
 }
@@ -1763,7 +1763,7 @@ button.jpdb-reader-newtab-status:not(:disabled):hover {
   background: transparent;
   color: var(--jpdb-reader-newtab-study-text);
   font-size: clamp(2.25rem, 7vw, 5.2rem);
-  font-weight: 900;
+  font-weight: 600;
   line-height: 1.06;
   text-align: center;
   overflow-wrap: anywhere;
@@ -1794,14 +1794,14 @@ button.jpdb-reader-newtab-status:not(:disabled):hover {
 
 .jpdb-reader-newtab-prompt .jpdb-reader-newtab-listen-card {
   font-size: 14px;
-  font-weight: 700;
+  font-weight: 600;
   line-height: 1.25;
   text-shadow: none;
 }
 
 .jpdb-reader-newtab-prompt .jpdb-reader-newtab-listen-card button {
   font-size: 13px;
-  font-weight: 760;
+  font-weight: 600;
 }
 
 .jpdb-reader-newtab-prompt .jpdb-reader-word *,
@@ -1993,7 +1993,7 @@ button.jpdb-reader-newtab-status:not(:disabled):hover {
 
 .jpdb-reader-newtab-term rt {
   font-size: 0.24em;
-  font-weight: 760;
+  font-weight: 500;
   line-height: 1;
 }
 
@@ -2008,7 +2008,7 @@ button.jpdb-reader-newtab-status:not(:disabled):hover {
   color: var(--jpdb-reader-muted);
   font-family: var(--jpdb-reader-font);
   font-size: 12px;
-  font-weight: 780;
+  font-weight: 500;
   line-height: 1.2;
   text-align: start;
   text-shadow: none;
@@ -2119,7 +2119,7 @@ button.jpdb-reader-newtab-status:not(:disabled):hover {
 .jpdb-reader-newtab-recall-hint {
   color: var(--jpdb-reader-newtab-study-muted);
   font-size: clamp(0.95rem, 2.6vw, 1.25rem);
-  font-weight: 780;
+  font-weight: 500;
   line-height: 1.25;
 }
 
@@ -2145,7 +2145,7 @@ button.jpdb-reader-newtab-status:not(:disabled):hover {
 .jpdb-reader-newtab-kanji-front-keyword small {
   color: var(--jpdb-reader-muted);
   font-size: clamp(0.68rem, 1.7vw, 0.95rem);
-  font-weight: 860;
+  font-weight: 600;
   line-height: 1;
   letter-spacing: 0;
   text-transform: uppercase;
@@ -2160,7 +2160,7 @@ button.jpdb-reader-newtab-status:not(:disabled):hover {
   max-width: min(100%, 26em);
   color: var(--jpdb-reader-muted);
   font-size: clamp(0.95rem, 2vw, 1.2rem);
-  font-weight: 760;
+  font-weight: 600;
   line-height: 1.32;
   text-wrap: balance;
 }
@@ -2174,7 +2174,7 @@ button.jpdb-reader-newtab-status:not(:disabled):hover {
 }
 .jpdb-reader-newtab-kanji-front-cloze {
   font-size: clamp(1.35rem, 3.7vw, 2.4rem);
-  font-weight: 760;
+  font-weight: 600;
   letter-spacing: 0.04em;
 }
 
@@ -2205,7 +2205,7 @@ button.jpdb-reader-newtab-status:not(:disabled):hover {
 .jpdb-reader-newtab-study .jpdb-reader-newtab-study-hint-item small {
   color: var(--jpdb-reader-muted);
   font-size: clamp(0.62rem, 1.6vw, 0.8rem);
-  font-weight: 820;
+  font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.02em;
 }
@@ -2217,7 +2217,7 @@ button.jpdb-reader-newtab-study-hint-btn {
   background: color-mix(in srgb, var(--jpdb-reader-accent, currentColor) 8%, transparent);
   color: var(--jpdb-reader-accent-readable, var(--jpdb-reader-text, currentColor));
   font-size: clamp(0.8rem, 2vw, 0.95rem);
-  font-weight: 720;
+  font-weight: 600;
   line-height: 1.4;
   cursor: pointer;
   transition:
@@ -2253,7 +2253,7 @@ button.jpdb-reader-newtab-study-hint-btn:active {
   max-width: min(100%, 680px);
   color: var(--jpdb-reader-newtab-study-muted);
   font-size: clamp(1.05rem, 2.6vw, 1.8rem);
-  font-weight: 760;
+  font-weight: 500;
   line-height: 1.36;
   overflow-wrap: anywhere;
   text-wrap: balance;
@@ -2370,7 +2370,7 @@ button.jpdb-reader-newtab-study-hint-btn:active {
   color: var(--jpdb-reader-text);
   -webkit-text-fill-color: var(--jpdb-reader-text);
   caret-color: var(--jpdb-reader-accent);
-  font: 760 clamp(1.125rem, 2.3vw, 1.5rem) / 1.2 var(--jpdb-reader-font);
+  font: 600 clamp(1.125rem, 2.3vw, 1.5rem) / 1.2 var(--jpdb-reader-font);
   text-align: center;
   box-shadow: inset 0 1px 0 color-mix(in srgb, var(--jpdb-reader-white) 52%, transparent);
 }
@@ -2411,7 +2411,7 @@ button.jpdb-reader-newtab-study-hint-btn:active {
   padding: 0 14px;
   background: color-mix(in srgb, var(--jpdb-reader-accent-soft) 82%, var(--jpdb-reader-surface));
   color: var(--jpdb-reader-accent-readable, var(--jpdb-reader-text));
-  font: 820 14px / 1 var(--jpdb-reader-font);
+  font: 600 14px / 1 var(--jpdb-reader-font);
   white-space: nowrap;
 }
 
@@ -2419,7 +2419,7 @@ button.jpdb-reader-newtab-study-hint-btn:active {
   min-height: 24px;
   color: var(--jpdb-reader-muted);
   font-size: 13px;
-  font-weight: 820;
+  font-weight: 600;
   line-height: 1.25;
 }
 
@@ -2453,7 +2453,7 @@ button.jpdb-reader-newtab-study-hint-btn:active {
   border-radius: 999px;
   background: transparent;
   color: var(--jpdb-reader-muted);
-  font: 820 13px / 1 var(--jpdb-reader-font);
+  font: 600 13px / 1 var(--jpdb-reader-font);
   cursor: pointer;
 }
 
@@ -2495,7 +2495,7 @@ button.jpdb-reader-newtab-study-hint-btn:active {
   border-radius: 8px;
   background: transparent;
   color: var(--jpdb-reader-muted);
-  font: 820 13px / 1 var(--jpdb-reader-font);
+  font: 600 13px / 1 var(--jpdb-reader-font);
   cursor: pointer;
 }
 
@@ -2542,7 +2542,7 @@ button.jpdb-reader-newtab-study-hint-btn:active {
 .jpdb-reader-newtab-type-handwriting-track {
   display: inline-flex;
   gap: 6px;
-  font: 900 clamp(1.4rem, 4vw, 2rem) / 1 var(--jpdb-reader-font);
+  font: 600 clamp(1.4rem, 4vw, 2rem) / 1 var(--jpdb-reader-font);
 }
 
 .jpdb-reader-newtab-type-handwriting-cell {
@@ -2564,13 +2564,13 @@ button.jpdb-reader-newtab-study-hint-btn:active {
 .jpdb-reader-newtab-type-handwriting-prompt {
   color: var(--jpdb-reader-muted);
   font-size: 13px;
-  font-weight: 820;
+  font-weight: 600;
 }
 
 .jpdb-reader-newtab-type-self-check-answer {
   color: var(--jpdb-reader-newtab-study-text);
   font-size: clamp(2rem, 6vw, 4rem);
-  font-weight: 900;
+  font-weight: 600;
 }
 
 .jpdb-reader-newtab-type-self-check-actions,
@@ -2592,7 +2592,7 @@ button.jpdb-reader-newtab-study-hint-btn:active {
   padding: 0 16px;
   background: var(--jpdb-reader-surface);
   color: var(--jpdb-reader-text);
-  font: 820 13px / 1 var(--jpdb-reader-font);
+  font: 600 13px / 1 var(--jpdb-reader-font);
 }
 
 .jpdb-reader-newtab-recall-solution {
@@ -2601,7 +2601,7 @@ button.jpdb-reader-newtab-study-hint-btn:active {
   justify-items: center;
   color: var(--jpdb-reader-newtab-study-text);
   font-size: clamp(2.1rem, 6.2vw, 4.7rem);
-  font-weight: 900;
+  font-weight: 600;
   line-height: 1.06;
 }
 
@@ -2625,7 +2625,7 @@ button.jpdb-reader-newtab-study-hint-btn:active {
   width: 100%;
   color: var(--jpdb-reader-newtab-study-text);
   font-size: clamp(1.2rem, 3.2vw, 2rem);
-  font-weight: 780;
+  font-weight: 600;
   line-height: 1.12;
   text-align: center;
   overflow-wrap: anywhere;
@@ -2650,7 +2650,7 @@ button.jpdb-reader-newtab-study-hint-btn:active {
   gap: 12px;
   color: var(--jpdb-reader-newtab-study-text);
   font-size: clamp(14px, 2.1vw, 18px);
-  font-weight: 650;
+  font-weight: 500;
   line-height: 1.42;
   text-align: center;
   overflow-wrap: anywhere;
@@ -2811,7 +2811,7 @@ button.jpdb-reader-newtab-study-hint-btn:active {
   max-width: 100%;
   color: var(--jpdb-reader-muted);
   font-size: 11px;
-  font-weight: 720;
+  font-weight: 500;
   line-height: 1.25;
   text-align: center;
 }
@@ -2841,7 +2841,7 @@ button.jpdb-reader-newtab-study-hint-btn:active {
   max-width: none;
   color: var(--jpdb-reader-muted);
   font-size: 11px;
-  font-weight: 780;
+  font-weight: 600;
   line-height: 1.2;
   text-align: center;
   pointer-events: auto;
@@ -2913,7 +2913,7 @@ button.jpdb-reader-newtab-study-hint-btn:active {
   max-width: min(180px, 34vw);
   color: var(--jpdb-reader-muted);
   font-size: 10.5px;
-  font-weight: 760;
+  font-weight: 600;
   line-height: 1.2;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -2924,7 +2924,7 @@ button.jpdb-reader-newtab-study-hint-btn:active {
 .jpdb-reader-newtab-grade-target-selector-label {
   color: var(--jpdb-reader-muted);
   font-size: 10px;
-  font-weight: 780;
+  font-weight: 600;
   line-height: 1.2;
   text-align: start;
 }
@@ -2952,7 +2952,7 @@ button.jpdb-reader-newtab-study-hint-btn:active {
   color: var(--jpdb-reader-text);
   font: inherit;
   font-size: 12px;
-  font-weight: 780;
+  font-weight: 600;
   line-height: 1;
   padding: 0 28px 0 11px;
   overflow: hidden;
@@ -3101,7 +3101,7 @@ button.jpdb-reader-newtab-study-hint-btn:active {
   gap: 6px;
   color: var(--jpdb-reader-muted);
   font-size: clamp(1rem, 2.4vw, 1.25rem);
-  font-weight: 700;
+  font-weight: 600;
   line-height: 1.35;
   text-align: center;
 }
@@ -3155,7 +3155,7 @@ button.jpdb-reader-newtab-study-hint-btn:active {
 
 .jpdb-reader-newtab-kanji-backing-term rt {
   font-size: 0.34em;
-  font-weight: 760;
+  font-weight: 500;
   line-height: 1;
 }
 
@@ -3358,7 +3358,7 @@ button.jpdb-reader-newtab-study-hint-btn:active {
   );
   color: var(--jpdb-reader-text);
   font-size: 11px;
-  font-weight: 800;
+  font-weight: 600;
 }
 
 .jpdb-reader-newtab-doodle-result {
@@ -3370,7 +3370,7 @@ button.jpdb-reader-newtab-study-hint-btn:active {
   border-radius: 8px;
   color: var(--jpdb-reader-text);
   font-size: 11px;
-  font-weight: 820;
+  font-weight: 600;
 }
 
 .jpdb-reader-newtab-doodle-result:empty {
@@ -3466,7 +3466,7 @@ button.jpdb-reader-newtab-study-hint-btn:active {
   padding: 8px 0;
   color: var(--jpdb-reader-muted);
   font-size: 11px;
-  font-weight: 850;
+  font-weight: 600;
   letter-spacing: 0;
   text-transform: uppercase;
 }
@@ -3552,7 +3552,7 @@ button.jpdb-reader-newtab-study-hint-btn:active {
   display: inline;
   color: var(--jpdb-reader-muted);
   font-size: 9.5px;
-  font-weight: 850;
+  font-weight: 600;
   line-height: 1;
   text-transform: uppercase;
 }
@@ -3651,7 +3651,7 @@ button.jpdb-reader-newtab-study-hint-btn:active {
 .jpdb-reader-newtab-kanji-details .jpdb-reader-kanji-readings > button small {
   color: var(--jpdb-reader-faint);
   font-size: 10px;
-  font-weight: 800;
+  font-weight: 600;
 }
 .jpdb-reader-newtab-kanji-details .jpdb-reader-kanji-readings > button:hover,
 .jpdb-reader-newtab-kanji-details .jpdb-reader-kanji-readings > button:focus-visible {
@@ -3835,7 +3835,7 @@ button.jpdb-reader-newtab-study-hint-btn:active {
   background: transparent;
   color: var(--jpdb-reader-muted);
   font-size: 11px;
-  font-weight: 820;
+  font-weight: 600;
 }
 
 .jpdb-reader-newtab-mini-action.add,
@@ -3965,7 +3965,7 @@ button.jpdb-reader-newtab-study-hint-btn:active {
   min-width: 0;
   color: var(--jpdb-reader-text);
   font-size: 13px;
-  font-weight: 800;
+  font-weight: 600;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -3977,7 +3977,7 @@ button.jpdb-reader-newtab-study-hint-btn:active {
 
 .jpdb-reader-newtab-immersion .jpdb-reader-example-count {
   color: var(--jpdb-reader-muted);
-  font-weight: 850;
+  font-weight: 500;
 }
 
 .jpdb-reader-newtab-immersion .jpdb-reader-icon-mini {
@@ -4361,13 +4361,13 @@ button.jpdb-reader-newtab-study-hint-btn:active {
   }
 
   .jpdb-reader-newtab-app-nav-mark {
-    font: 820 16px/1 var(--jpdb-reader-font);
+    font: 600 16px/1 var(--jpdb-reader-font);
   }
 
   .jpdb-reader-newtab-app-nav-label {
     max-width: 100%;
     overflow: hidden;
-    font: 720 10px/1.1 var(--jpdb-reader-font);
+    font: 600 10px/1.1 var(--jpdb-reader-font);
     text-overflow: ellipsis;
     white-space: nowrap;
   }
@@ -5275,7 +5275,7 @@ button.jpdb-reader-newtab-study-hint-btn:active {
   border-radius: 10px;
   background: var(--jpdb-reader-surface);
   color: var(--jpdb-reader-text);
-  font: 700 13px/1 var(--jpdb-reader-font);
+  font: 600 13px/1 var(--jpdb-reader-font);
   cursor: pointer;
 }
 .jpdb-reader-newtab-listen-btn:hover {
@@ -5354,7 +5354,7 @@ button.jpdb-reader-newtab-study-hint-btn:active {
   background: color-mix(in srgb, var(--jpdb-reader-danger, #d9534f) 16%, transparent);
 }
 .jpdb-reader-newtab-listen-pos-num {
-  font: 800 15px/1 var(--jpdb-reader-font);
+  font: 600 15px/1 var(--jpdb-reader-font);
 }
 .jpdb-reader-newtab-listen-pos-name {
   color: var(--jpdb-reader-muted);
@@ -5363,11 +5363,11 @@ button.jpdb-reader-newtab-study-hint-btn:active {
 }
 .jpdb-reader-newtab-listen-word {
   font-size: 22px;
-  font-weight: 800;
+  font-weight: 600;
 }
 .jpdb-reader-newtab-listen-verdict {
   font-size: 15px;
-  font-weight: 800;
+  font-weight: 600;
 }
 .jpdb-reader-newtab-listen-feedback {
   display: grid;
@@ -5403,7 +5403,7 @@ button.jpdb-reader-newtab-study-hint-btn:active {
   border-radius: 999px;
   background: var(--jpdb-reader-surface);
   color: var(--jpdb-reader-muted);
-  font: 800 11px/1 var(--jpdb-reader-font);
+  font: 600 11px/1 var(--jpdb-reader-font);
   white-space: nowrap;
 }
 .jpdb-reader-newtab-listen-score-panel {
@@ -5429,7 +5429,7 @@ button.jpdb-reader-newtab-study-hint-btn:active {
 }
 .jpdb-reader-newtab-listen-score-tip {
   color: var(--jpdb-reader-muted);
-  font: 700 11px/1.2 var(--jpdb-reader-font);
+  font: 600 11px/1.2 var(--jpdb-reader-font);
 }
 .jpdb-reader-newtab-listen-score-contours {
   display: grid;
@@ -5437,7 +5437,7 @@ button.jpdb-reader-newtab-study-hint-btn:active {
   align-items: center;
   gap: 2px 8px;
   color: var(--jpdb-reader-muted);
-  font: 700 10px/1.1 var(--jpdb-reader-font);
+  font: 600 10px/1.1 var(--jpdb-reader-font);
 }
 .jpdb-reader-newtab-listen-score-graph svg {
   width: 96px;
@@ -5456,7 +5456,7 @@ button.jpdb-reader-newtab-study-hint-btn:active {
 .jpdb-reader-newtab-listen-prompt {
   color: var(--jpdb-reader-newtab-study-muted, var(--jpdb-reader-muted));
   font-size: clamp(0.9rem, 2.2vw, 1.05rem);
-  font-weight: 720;
+  font-weight: 600;
 }
 .jpdb-reader-newtab-listen-note {
   color: var(--jpdb-reader-muted);
