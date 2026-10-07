@@ -201,6 +201,16 @@ function escapedUiText(language: InterfaceLanguage, key: Parameters<typeof uiTex
     return escapeHtml(uiText(language, key));
 }
 
+/**
+ * The title row's way out: a quiet icon button at the trailing edge, the same
+ * dismissal as Cancel and Escape. The desktop window hides it in favour of its
+ * native window close.
+ */
+function settingsCloseButton(language: InterfaceLanguage): string {
+    const label = escapedUiText(language, 'closeSettings');
+    return `<button type="button" class="jpdb-reader-settings-close" data-settings-close aria-label="${label}" title="${label}"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true" focusable="false"><path d="M4 4l8 8M12 4l-8 8"/></svg></button>`;
+}
+
 export function renderHelpLinksPanel(language: InterfaceLanguage = 'en'): string {
     return `
         <div class="jpdb-reader-help-links-card">
@@ -274,6 +284,7 @@ export function renderSettingsForm(
             <div class="jpdb-reader-settings-head">
                 <div class="jpdb-reader-settings-drag-handle"></div>
                 <h2>${escapedUiText(settings.interfaceLanguage, 'settingsTitle')}</h2>
+                ${settingsCloseButton(settings.interfaceLanguage)}
             </div>
             ${renderSettingsTabs(settings.interfaceLanguage)}
             ${renderSettingsSearch(settings.interfaceLanguage)}
@@ -1340,6 +1351,9 @@ function localizeSettingsShell(form: HTMLFormElement, language: InterfaceLanguag
     form.lang = resolveUiLanguage(language);
     form.setAttribute('aria-label', text('settingsTitle'));
     form.querySelector('h2')?.replaceChildren(text('settingsTitle'));
+    const close = form.querySelector<HTMLButtonElement>('[data-settings-close]');
+    close?.setAttribute('aria-label', text('closeSettings'));
+    if (close) close.title = text('closeSettings');
     form.querySelector<HTMLElement>('.jpdb-reader-settings-tabs')?.setAttribute('aria-label', text('settingsSections'));
     form.querySelector<HTMLElement>('.jpdb-reader-settings-drag-handle')?.setAttribute('aria-label', text('resizeSettings'));
     localizeThemeSwitch(form, text);

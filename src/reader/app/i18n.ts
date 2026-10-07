@@ -40,6 +40,7 @@ const COPY = {
         accountSettingsTrustedSurfaceTitle: 'Open Settings in Study', accountSettingsTrustedSurfaceHelp: 'This page can read and change its own controls, so Yomu does not put settings, account details, imports, or recovery codes here. Open the Yomu-owned Study page to edit and save them safely.', openAccountSettingsTrustedSurface: 'Open Study settings',
         save: 'Save',
         cancel: 'Cancel',
+        closeSettings: 'Close settings',
         show: 'Show',
         hide: 'Hide',
         appearance: 'Appearance',
@@ -1595,6 +1596,7 @@ settingsSearchPlaceholder	設定を検索
 settingsSearchNoResults	一致なし。
 save	保存
 cancel	キャンセル
+closeSettings	設定を閉じる
 show	表示
 hide	隠す
 appearance	外観

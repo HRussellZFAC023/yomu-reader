@@ -369,7 +369,7 @@ export class SettingsRestoreCoordinator {
 }
 
 function controlStaysInteractive(control: SettingsControl, save: HTMLButtonElement | null): boolean {
-    return control === save || control.dataset.action === 'cancel';
+    return control === save || control.dataset.action === 'cancel' || control.hasAttribute('data-settings-close');
 }
 
 function settingsActionIsUnsafe(control: SettingsControl): boolean {

@@ -669,6 +669,7 @@ export class SettingsDialogController {
         form.addEventListener('input', event => this.noteSettingsEdited(form, event.target));
         form.addEventListener('change', event => this.noteSettingsEdited(form, event.target));
         form.querySelector('[data-action="cancel"]')?.addEventListener('click', () => this.dismissSettings());
+        form.querySelector('[data-settings-close]')?.addEventListener('click', () => this.dismissSettings());
         form.addEventListener('keydown', event => {
             if (event.key !== 'Escape' || event.isComposing) return;
             event.preventDefault();

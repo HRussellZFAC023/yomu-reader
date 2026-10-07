@@ -130,23 +130,10 @@ textarea {
     box-shadow: none;
 }
 
-/* One title row: the title leads, status and Close trail it, and the row keeps clear
-   of the section tabs below instead of a bordered Close touching them. */
+/* The shared title row (title, then status); the native window close is the way
+   out, so the shared close button is not drawn here. */
 .yomu-gaming-settings .jpdb-reader-settings-head {
-    display: flex;
-    align-items: center;
-    gap: 16px;
     padding-top: 16px;
-    padding-bottom: 14px;
-}
-
-.yomu-gaming-settings .jpdb-reader-settings-head h2 {
-    flex: 1 1 auto;
-    min-width: 0;
-    margin: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
 }
 
 .yomu-gaming-settings .jpdb-reader-settings-head .yomu-gaming-shell-status {
@@ -158,21 +145,8 @@ textarea {
     white-space: nowrap;
 }
 
-/* .jpdb-reader-btn sizes itself with !important, so the quiet variant must too. */
-.yomu-gaming-settings .jpdb-reader-settings-head .yomu-gaming-settings-close.jpdb-reader-btn {
-    flex: 0 0 auto;
-    min-height: 32px !important;
-    padding: 0 12px !important;
-    border-color: transparent !important;
-    background: transparent !important;
-    box-shadow: none !important;
-    color: var(--jpdb-reader-muted) !important;
-}
-
-.yomu-gaming-settings .jpdb-reader-settings-head .yomu-gaming-settings-close.jpdb-reader-btn:hover,
-.yomu-gaming-settings .jpdb-reader-settings-head .yomu-gaming-settings-close.jpdb-reader-btn:focus-visible {
-    background: color-mix(in srgb, var(--jpdb-reader-text) 8%, transparent) !important;
-    color: var(--jpdb-reader-text) !important;
+.yomu-gaming-settings .jpdb-reader-settings-close {
+    display: none !important;
 }
 
 .yomu-gaming-settings .jpdb-reader-settings-drag-handle {
@@ -663,14 +637,7 @@ textarea {
         border-radius: 0;
     }
 
-    .yomu-gaming-settings .jpdb-reader-settings-head {
-        flex-wrap: wrap;
-        gap: 4px 12px;
-        padding-bottom: 10px;
-    }
-
     .yomu-gaming-settings .jpdb-reader-settings-head .yomu-gaming-shell-status {
-        order: 3;
         flex-basis: 100%;
         text-align: left;
     }

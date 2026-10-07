@@ -1,4 +1,5 @@
 // Settings is the only ordinary desktop window. Native shortcuts and overlay requests share it.
+import { readFileSync } from 'node:fs';
 import { beforeAll, describe, expect, it, vi } from 'vitest';
 import type { YomuGamingBridge, YomuGamingEnvironment } from '../../src/gaming/ipc';
 
@@ -204,12 +205,14 @@ describe('Desktop settings without a home screen', () => {
         expect(settingsForm().querySelector<HTMLInputElement>('[data-capture-shortcut-input]')?.value).toBe('Ctrl+Shift+K');
     });
 
-    it('leads its title row with the title and keeps Close at the trailing edge', () => {
+    it('leads its title row with the title and leaves the way out to the window close', () => {
         const head = settingsForm().querySelector<HTMLElement>('.jpdb-reader-settings-head')!;
         const visible = Array.from(head.children).filter(child => !child.classList.contains('jpdb-reader-settings-drag-handle'));
-        expect(visible.map(child => child.tagName === 'H2' ? 'title' : (child as HTMLElement).dataset.action ?? (child as HTMLElement).className))
-            .toEqual(['title', 'yomu-gaming-shell-status', 'close-settings']);
-        expect(head.querySelector('[data-action="close-settings"]')?.textContent).toBe('Close');
+        expect(visible.map(child => child.tagName === 'H2' ? 'title' : child.hasAttribute('data-settings-close') ? 'shared-close' : (child as HTMLElement).className))
+            .toEqual(['title', 'shared-close', 'yomu-gaming-shell-status']);
+        // No second, desktop-only Close beside the native window close.
+        expect(head.querySelector('[data-action="close-settings"]')).toBeNull();
+        expect(readFileSync('src/gaming/renderer/styles.css', 'utf8')).toMatch(/\.yomu-gaming-settings \.jpdb-reader-settings-close \{\s*display: none !important;/u);
     });
 
     it('contains settings only, with no intro, capture choice or status prose', () => {

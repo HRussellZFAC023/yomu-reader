@@ -2493,3 +2493,126 @@
   -webkit-text-fill-color: currentColor !important;
   font-size: .43em;
 }
+
+/* ── Settings chrome ───────────────────────────────────────────────────────
+   One grid for every surface (hosted Study, packaged Study, the userscript
+   dialog and the desktop window): the title leads the title row with a quiet
+   close at its trailing edge, the section nav is a compact row of text tabs
+   that wraps instead of running off the edge, and title, tabs, search and
+   panels share one gutter. Last in the file so it settles the earlier
+   per-breakpoint paddings. */
+.jpdb-reader-settings {
+  --jpdb-reader-settings-gutter: 18px;
+}
+@media (min-width: 700px) and (max-width: 1180px) and (hover: hover) and (pointer: fine) {
+  .jpdb-reader-settings {
+    --jpdb-reader-settings-gutter: 22px;
+  }
+}
+@media (pointer: coarse) and (min-width: 700px) {
+  .jpdb-reader-settings {
+    --jpdb-reader-settings-gutter: 24px;
+  }
+}
+@media (max-width: 699px) {
+  .jpdb-reader-settings {
+    --jpdb-reader-settings-gutter: 14px;
+  }
+}
+.jpdb-reader-settings-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0 12px;
+  padding-inline: var(--jpdb-reader-settings-gutter);
+  padding-bottom: 10px;
+}
+.jpdb-reader-settings-head .jpdb-reader-settings-drag-handle {
+  flex: 0 0 100%;
+}
+.jpdb-reader-settings .jpdb-reader-settings-head h2 {
+  flex: 1 1 auto;
+  min-width: 0;
+  margin: 0;
+}
+.jpdb-reader-settings-close {
+  flex: 0 0 auto;
+  display: inline-grid !important;
+  place-items: center !important;
+  inline-size: 32px !important;
+  block-size: 32px !important;
+  min-width: 32px !important;
+  min-height: 32px !important;
+  margin: 0 -6px 0 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 8px !important;
+  background: transparent !important;
+  color: var(--jpdb-reader-muted) !important;
+  box-shadow: none !important;
+  cursor: pointer !important;
+}
+.jpdb-reader-settings-close svg {
+  display: block;
+  inline-size: 18px;
+  block-size: 18px;
+}
+.jpdb-reader-settings-close:hover,
+.jpdb-reader-settings-close:focus-visible {
+  background: color-mix(in srgb, var(--jpdb-reader-text) 8%, transparent) !important;
+  color: var(--jpdb-reader-text) !important;
+}
+.jpdb-reader-settings-close:focus-visible {
+  outline: 2px solid var(--jpdb-reader-accent) !important;
+  outline-offset: 1px !important;
+}
+.jpdb-reader-settings-tabs {
+  flex-wrap: wrap;
+  gap: 2px;
+  margin: 0 var(--jpdb-reader-settings-gutter) 10px;
+  padding: 0 0 8px;
+  border-bottom: 1px solid var(--jpdb-reader-border);
+}
+.jpdb-reader-settings-tab {
+  min-height: 30px !important;
+  padding: 0 9px !important;
+  border: 0 !important;
+  border-radius: 7px !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  color: var(--jpdb-reader-muted) !important;
+  font: 700 13px/1 var(--jpdb-reader-font) !important;
+  transform: none !important;
+}
+.jpdb-reader-settings-tab[aria-selected="true"] {
+  background: var(--jpdb-reader-accent-soft) !important;
+  color: var(--jpdb-reader-accent-readable) !important;
+}
+.jpdb-reader-settings-tab:focus-visible {
+  outline: 2px solid var(--jpdb-reader-accent) !important;
+  outline-offset: 1px !important;
+}
+@media (hover: hover) and (pointer: fine) {
+  .jpdb-reader-settings-tab:hover {
+    box-shadow: none !important;
+    transform: none !important;
+  }
+  .jpdb-reader-settings-tab:not([aria-selected="true"]):hover {
+    background: color-mix(in srgb, var(--jpdb-reader-text) 6%, transparent) !important;
+    color: var(--jpdb-reader-text) !important;
+  }
+}
+@media (pointer: coarse) {
+  .jpdb-reader-settings-tab {
+    min-height: 36px !important;
+  }
+}
+.jpdb-reader-settings-search {
+  padding-inline: var(--jpdb-reader-settings-gutter);
+}
+.jpdb-reader-settings-search-empty {
+  margin-inline: var(--jpdb-reader-settings-gutter);
+}
+.jpdb-reader-settings-scroll {
+  padding-inline: var(--jpdb-reader-settings-gutter);
+}

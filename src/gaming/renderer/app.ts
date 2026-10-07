@@ -387,18 +387,13 @@ function isShellView(value: unknown): value is ShellView {
     return value === 'settings';
 }
 
-// Settings is a place you go, so it gets its own way out and its own status line —
-// otherwise a save reported itself onto a surface you are not on. The title leads;
-// the status and a quiet Close sit at the trailing edge of the same row, the way a
-// window's own title bar reads, instead of a bordered button jammed against the title.
+// Settings is its own window, so its status line lives in its title row —
+// otherwise a save reported itself onto a surface you are not on. The way out is
+// the native window close (and Cancel); the shared title-row close is hidden here
+// rather than doubling the window's own control.
 function installGamingSettingsHeader(form: HTMLFormElement): void {
     const head = form.querySelector<HTMLElement>('.jpdb-reader-settings-head');
-    if (!head || head.querySelector('[data-action="close-settings"]')) return;
-    const close = document.createElement('button');
-    close.className = 'jpdb-reader-btn yomu-gaming-settings-close';
-    close.type = 'button';
-    close.dataset.action = 'close-settings';
-    close.textContent = shellState.settings.interfaceLanguage === 'ja' ? '閉じる' : 'Close';
+    if (!head || head.querySelector('[data-gaming-shell-status]')) return;
     const status = document.createElement('div');
     status.className = 'yomu-gaming-shell-status';
     status.dataset.gamingShellStatus = 'true';
@@ -406,7 +401,7 @@ function installGamingSettingsHeader(form: HTMLFormElement): void {
     status.setAttribute('role', 'status');
     status.setAttribute('aria-live', 'polite');
     status.hidden = true;
-    head.append(status, close);
+    head.append(status);
 }
 
 function installGamingCaptureShortcutSection(form: HTMLFormElement): void {
@@ -479,7 +474,7 @@ function bindSettingsForm(form: HTMLFormElement): void {
             showSettingsPanel(form, button.dataset.panel ?? DEFAULT_SETTINGS_PANEL);
             return;
         }
-        if (action === 'cancel' || action === 'close-settings') {
+        if (action === 'cancel') {
             event.preventDefault();
             void bridge.hideApp();
             return;

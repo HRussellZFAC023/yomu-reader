@@ -383,6 +383,12 @@ describe('settings form localization', () => {
         }
     });
 
+    it('names the title-row close in Japanese, rendered and after a live language switch', () => {
+        const rendered = renderSettingsTestForm({ ...DEFAULT_SETTINGS, interfaceLanguage: 'ja' });
+        expect(rendered.querySelector('[data-settings-close]')?.getAttribute('aria-label')).toBe('設定を閉じる');
+        expect(sharedJapaneseSettingsTestForm().querySelector('[data-settings-close]')?.getAttribute('aria-label')).toBe('設定を閉じる');
+    });
+
     it('names the Bunpro frontend API token in Japanese', () => {
         const form = sharedJapaneseSettingsTestForm();
         expect(labelForControl(form, 'apiCredentialBunpro')).toContain('BunproフロントエンドAPIトークン');
