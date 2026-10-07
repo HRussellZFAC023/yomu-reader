@@ -204,7 +204,9 @@ describe('interface language resolution', () => {
         const { entries, unparsed } = hostedDocsJaCopyEntries(themeSource);
 
         expect(unparsed).toEqual([]);
-        expect(entries.length).toBeGreaterThan(3000);
+        // About 1,250 since the 2026-10-07 rewrite pruned keys no page asks for;
+        // a sudden drop below this means the catalogue failed to parse.
+        expect(entries.length).toBeGreaterThan(1000);
 
         const untranslated = entries
             .filter(([english]) => !HOSTED_DOCS_JA_COPY_VERBATIM.has(english))
@@ -239,83 +241,23 @@ describe('interface language resolution', () => {
 // ranges so they cannot pass as translated copy.
 const JAPANESE_CHARACTER = /[\u3000-\u30ff\u3400-\u4dbf\u4e00-\u9fff\uff01-\uff20\uff3b-\uff40\uff5b-\uff9f]/u;
 
-// Keys whose Japanese value is deliberately not Japanese text: brand and
-// product names, hosts and URLs, literal menu paths and button labels the
-// Japanese interface also shows verbatim, and a few English function words
-// ('A', 'Open ') that the Japanese sentence carries in a neighbouring segment.
+// Keys whose Japanese value is deliberately not Japanese text: brand, product
+// and host names a published Japanese page shows as a text node of its own.
 const HOSTED_DOCS_JA_COPY_VERBATIM = new Set([
-    // FAQ: brand names, and the 'Okay' grade whose Japanese button label is
-    // literally 'OK' in the product (gradeOkayLabel in src/reader/app/i18n.ts).
     'Discord',
     'GitHub',
     'Ko-fi',
     'Patreon',
-    'Okay',
-    'https://yomureader.com/yomu.user.js',
-    'yomureader.com',
-    'yomureader.com/study/#settings=dictionaries',
-    'tampermonkey.net',
     'tadoku.org',
-    'nyaa.si/view/1957972',
-    'localhost:',
-    'Utilities → Install from URL',
-    '+ → Install from URL',
-    'Script list → Create → Install from URL',
-    'Reader -> Show Yomu lookup popup',
-    'Hard / Good',
-    'Again / Hard / Good / Easy',
-    'Fail / Pass',
-    'Kanji 1',
-    'wideScreen',
-    'AA',
-    '/',
-    'OCR',
-    'OCR:',
-    'PDF',
-    'PDFs',
-    'API',
-    'Anki',
-    'Anki / AnkiConnect:',
     'AnkiConnect',
-    'AnkiMobile',
-    'AnkiDroid',
     'Bunpro',
     'Jiten',
-    'Jiten:',
-    'Jiten/JPDB',
     'JPDB',
-    'JPDB:',
     'Kotu',
-    'Tailscale',
-    'oEmbed',
-    'MangaOCR',
-    'PaddleOCR',
-    'Apple Vision',
     'Ultimate Yomitan Audio',
-    'Ultimate Yomitan Audio Source',
-    'Yomu Gaming',
-    'Gaming Text Bridge',
-    'Chrome',
-    'Firefox',
-    'Safari',
     'Windows',
     'Linux',
-    'Intel Mac',
-    'Apple Silicon Mac',
-    'Tampermonkey',
-    'Userscripts',
-    'YouTube',
     'NHK News Web Easy',
-    'Satori Reader',
-    'Watanoc',
-    'MATCHA Easy Japanese',
-    'Ttsu Reader',
-    'Learn Natively',
-    'A',
-    'Open ',
-    '— install',
-    '— with',
-    '— open the',
 ]);
 
 function hostedDocsJaCopyEntries(themeSource: string): {

@@ -158,7 +158,7 @@ describe('reviewed website locale contract', () => {
             reviewStatus: 'native-reviewed',
             title: 'よくある質問',
         });
-        expect(REVIEWED_DOCS_MESSAGES.length).toBeGreaterThan(3_000);
+        expect(REVIEWED_DOCS_MESSAGES.length).toBeGreaterThan(1_000);
         expect(new Set(REVIEWED_DOCS_MESSAGES.map(message => message.id)).size)
             .toBe(REVIEWED_DOCS_MESSAGES.length);
         expect(hasReviewedDocsText('  Reading  ')).toBe(true);
