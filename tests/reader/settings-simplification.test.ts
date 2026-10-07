@@ -3,7 +3,8 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { DEFAULT_SETTINGS, loadSettings, normalizeReaderSettings, saveSettings } from '../../src/reader/settings';
 import { parseReaderSettingsBackup } from '../../src/reader/settings/file-io';
 import { exportSettingsBackupSnapshot } from '../../src/reader/settings/settings-backup';
-import { readBackupSettingsPersistenceView } from '../../src/reader/settings/settings-persistence-transaction';
+import { readBackupSettingsPersistenceView, readSettingsPersistenceViewStrict } from '../../src/reader/settings/settings-persistence-transaction';
+import { adoptCurrentDefaults, RETIRED_DEFAULT_SETTING_KEYS } from '../../src/reader/settings/retired-defaults';
 import { settingsRestoreSaveOptions, witnessedSettingsRestoreCandidate } from '../../src/reader/settings/settings-restore-transaction';
 import { definitionSourceLabel, kanjiSourceLabel } from '../../src/reader/sources/sections';
 import { installGmStorageFixture } from './helpers/settings-persistence-fixture';
@@ -52,7 +53,14 @@ describe('simplified settings model', () => {
         installGmStorageFixture(values);
         vi.stubGlobal('GM_listValues', vi.fn(async () => [...values.keys()]));
         await saveSettings(settings, settingsRestoreSaveOptions(previous, settings, view));
-        expect(await loadSettings()).toEqual(settings);
+        // The backup's 2.0 annotation defaults that nobody declared read as
+        // 2.1's (ADR-0025); every other value round-trips unchanged.
+        const loaded = await loadSettings();
+        const { intentLedger } = await readSettingsPersistenceViewStrict();
+        expect(loaded).toEqual(adoptCurrentDefaults(settings, intentLedger, DEFAULT_SETTINGS));
+        const retiredKeys = new Set<string>(RETIRED_DEFAULT_SETTING_KEYS);
+        const changed = Object.keys(loaded).filter(key => JSON.stringify(loaded[key as keyof ReaderSettings]) !== JSON.stringify(settings[key as keyof ReaderSettings]));
+        expect(changed.filter(key => !retiredKeys.has(key))).toEqual([]);
         const exported = await exportSettingsBackupSnapshot(settings);
         expect(exported.settings).toEqual(settings);
         const serialized = JSON.stringify(exported);

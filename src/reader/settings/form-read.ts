@@ -1,4 +1,4 @@
-import { COPY_LOOKUP_LINK, DEFAULT_AUDIO_SOURCES, DEFAULT_SETTINGS, MAX_LOOKUP_LINK_ROWS, effectiveFuriganaMode, furiganaStyle, normalizeAudioSource, normalizeDictionaryLookupLinks, normalizeOcrProvider, normalizeReaderSettings, sanitizeAccentColor } from './index';
+import { COPY_LOOKUP_LINK, DEFAULT_AUDIO_SOURCES, DEFAULT_COLOR_CHANNELS, DEFAULT_SETTINGS, MAX_LOOKUP_LINK_ROWS, effectiveFuriganaMode, furiganaStyle, normalizeAudioSource, normalizeDictionaryLookupLinks, normalizeOcrProvider, normalizeReaderSettings, sanitizeAccentColor } from './index';
 import { normalizeAnkiFieldMappings } from './anki-field-mappings';
 import { readApiCredentialsFromFormData } from './api-credential';
 import { createSettingsFormReader, type SettingsFormReader } from './form-data';
@@ -31,14 +31,7 @@ export type ColorSourceSettingName =
 
 export const COLOR_SOURCE_VALUES: readonly SelectableReaderColorSource[] = ['status', 'jpdb', 'anki', 'pitch', 'off'];
 type PageScanMode = 'auto' | 'manual';
-const DEFAULT_COLOR_SOURCE_VALUES: Record<ColorSourceSettingName, SelectableReaderColorSource> = {
-    wordHighlightColorSource: 'jpdb',
-    wordUnderlineColorSource: 'pitch',
-    wordTextColorSource: 'anki',
-    subtitleHighlightColorSource: 'jpdb',
-    subtitleUnderlineColorSource: 'pitch',
-    subtitleTextColorSource: 'anki',
-};
+const DEFAULT_COLOR_SOURCE_VALUES: Readonly<Record<ColorSourceSettingName, SelectableReaderColorSource>> = DEFAULT_COLOR_CHANNELS;
 const ACCENT_COLOR_SETTING_NAMES = [
     'accentColor',
     'wordColorNew',

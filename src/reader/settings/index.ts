@@ -15,6 +15,7 @@ import {
     SETTINGS_INTENT_LEDGER_STORAGE_KEY,
 } from './intent-ledger';
 import { createDefaultSubtitleSettings } from './subtitle-defaults';
+import { adoptCurrentDefaults } from './retired-defaults';
 import { hasOwn, stringValue, trimmedText } from './values';
 import { normalizeLanguageProfileSettings } from './language-profile-settings-normalization';
 import { EXPLICIT_USER_SETTINGS_STORAGE_KEY, persistSettingsStorageTransaction, readSettingsIntentLedgerForWrite, readSettingsPersistenceViewStrictFrom, SETTINGS_PERSISTENCE_LEASE_OPTIONS, SETTINGS_PERSISTENCE_STORAGE_LEASE, SETTINGS_STORAGE_KEY } from './settings-persistence-transaction';
@@ -80,13 +81,18 @@ type NumberSettingRange = { min: number; max: number };
 type ConcreteReaderColorSource = Exclude<ReaderColorSource, 'auto'>;
 type AccentColorSettingKey = Extract<keyof ReaderSettings, string>;
 
-const DEFAULT_COLOR_CHANNELS: Record<ReaderColorChannelKey, ConcreteReaderColorSource> = {
-    wordHighlightColorSource: 'jpdb',
-    wordUnderlineColorSource: 'pitch',
-    wordTextColorSource: 'anki',
-    subtitleHighlightColorSource: 'jpdb',
-    subtitleUnderlineColorSource: 'pitch',
-    subtitleTextColorSource: 'anki',
+// One colour channel at rest (ADR-0025): the underline carries what the
+// learner's own study source knows, and nothing when there is none. A per-word
+// fill and page-wide pitch colours had no evidence of helping a reader and
+// made prose look like a worksheet; both stay one choice away, and pitch is
+// always in the popup.
+export const DEFAULT_COLOR_CHANNELS: Readonly<Record<ReaderColorChannelKey, ConcreteReaderColorSource>> = {
+    wordHighlightColorSource: 'off',
+    wordUnderlineColorSource: 'status',
+    wordTextColorSource: 'off',
+    subtitleHighlightColorSource: 'off',
+    subtitleUnderlineColorSource: 'status',
+    subtitleTextColorSource: 'off',
 };
 const KANJI_BOOLEAN_SETTING_KEYS = [
     'jpdbKanjiEnabled',
@@ -286,14 +292,18 @@ export const DEFAULT_SETTINGS: ReaderSettings = {
     showFurigana: true,
     // A11: 'difficult-kanji' hides readings by a fixed easy-kanji list
     // (EASY_FURIGANA_KANJI), so a bare kanji told the learner nothing about
-    // their own knowledge and the page read as half-annotated. Every parsed
-    // word gets its reading until someone chooses otherwise.
-    furiganaMode: 'all',
+    // their own knowledge and the page read as half-annotated. ADR-0025:
+    // readings follow what the learner knows instead. A word their study
+    // source knows loses its reading; with no source, or a word not yet in
+    // it, every parsed word keeps its reading.
+    furiganaMode: 'known-status',
     clampedRowReadings: 'show',
     puckFuriganaModeBeforeHide: '',
     furiganaHiddenStateGroups: ['known', 'due', 'failed'],
     wordColorStates: 'all',
-    wordColorHiddenStateGroups: [],
+    // Known and ignored words are most of a page for anyone past the start;
+    // colouring them carries no news (ADR-0025).
+    wordColorHiddenStateGroups: ['known', 'ignored'],
     showPitchAccent: true,
     showLookupPillFrequency: true,
     suppressRedundantWordUi: false,
@@ -1088,7 +1098,7 @@ const COLOR_STATUS_CHANNEL_KEYS: ReaderColorChannelKey[] = [
 export function effectiveFuriganaMode(settings: ReaderSettings): Exclude<FuriganaMode, 'auto'> {
     if (!settings.showFurigana || settings.furiganaMode === 'off') return 'off';
     if (isExplicitFuriganaMode(settings.furiganaMode)) return settings.furiganaMode;
-    return 'all';
+    return 'known-status';
 }
 
 /**
@@ -1197,7 +1207,7 @@ async function loadSettingsFromStorage(): Promise<ReaderSettings> {
     const current = mergeSettings(settingsRecord(view.settings));
     const withSitePreference = applyStoredSitePreference(current, storedSitePreference);
     const settings = mergeSettings(applySettingsIntent(withSitePreference, view.intentLedger) as Partial<ReaderSettings>);
-    return settings;
+    return adoptCurrentDefaults(settings, view.intentLedger, DEFAULT_SETTINGS);
 }
 
 function applyStoredSitePreference(

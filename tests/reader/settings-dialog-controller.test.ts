@@ -1116,10 +1116,22 @@ describe('settings dialog keyboard dismissal', () => {
         expect(selectValue('subtitleHighlightColorSource')).toBe('off');
         expect(selectValue('subtitleUnderlineColorSource')).toBe('off');
         expect(selectValue('subtitleTextColorSource')).toBe('off');
+
+        // Balanced is the default look (ADR-0025).
+        choosePreset('balanced');
+
+        expect(selectValue('furiganaMode')).toBe('known-status');
+        expect(selectValue('wordHighlightColorSource')).toBe('off');
+        expect(selectValue('wordUnderlineColorSource')).toBe('status');
+        expect(selectValue('wordTextColorSource')).toBe('off');
+        expect(selectValue('subtitleHighlightColorSource')).toBe('off');
+        expect(selectValue('subtitleUnderlineColorSource')).toBe('status');
+        expect(selectValue('subtitleTextColorSource')).toBe('off');
         expect(dependencies.applyTheme).toHaveBeenCalled();
     });
 
-    it('keeps quick setup on all furigana regardless of available decks', () => {
+    // Balanced is the default look (ADR-0025); New only keeps every reading.
+    it('keeps quick setup furigana independent of the available decks', () => {
         for (const settings of [
             { ...DEFAULT_SETTINGS, apiKey: '', jitenApiKey: '', ankiEnabled: false, yomuLocalSrsEnabled: false },
             { ...DEFAULT_SETTINGS, apiKey: '', jitenApiKey: '', ankiEnabled: false, yomuLocalSrsEnabled: true },
@@ -1129,10 +1141,10 @@ describe('settings dialog keyboard dismissal', () => {
             const preset = form.querySelector<HTMLSelectElement>('select[name="appearancePreset"]')!;
             const mode = form.querySelector<HTMLSelectElement>('select[name="furiganaMode"]')!;
 
-            for (const value of ['balanced', 'new-only']) {
+            for (const [value, expected] of [['balanced', DEFAULT_SETTINGS.furiganaMode], ['new-only', 'all']] as const) {
                 preset.value = value;
                 preset.dispatchEvent(new Event('change', { bubbles: true }));
-                expect(mode.value).toBe('all');
+                expect(mode.value).toBe(expected);
             }
         }
     });

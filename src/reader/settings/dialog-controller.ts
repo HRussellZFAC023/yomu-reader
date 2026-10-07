@@ -16,7 +16,7 @@ import { requestJson } from '../network/http';
 import { compareYomuVersions, CURRENT_YOMU_VERSION, latestYomuVersionFromVersionJson } from '../app/version';
 import { installSettingsDrawerHandle } from '../popup/shell';
 import { LookupModalAccessibility } from '../popup/modal-accessibility-impl';
-import { changedSettingsKeys, mergeDictionaryPreferences, NO_EXPLICIT_USER_CHOICE, normalizeAudioSubSources, retireStaleDictionaryPreferences, type SaveSettingsOptions } from './index';
+import { changedSettingsKeys, DEFAULT_COLOR_CHANNELS, DEFAULT_SETTINGS, mergeDictionaryPreferences, NO_EXPLICIT_USER_CHOICE, normalizeAudioSubSources, retireStaleDictionaryPreferences, type SaveSettingsOptions } from './index';
 import { readAudioSources, readAudioSubSources } from './form-read';
 import { detectCustomJsonAudioSubSources, knownAudioSubSourceNames } from '../audio/candidates';
 import { captureActiveLanguageProfileDictionaries } from './dictionary';
@@ -1104,10 +1104,16 @@ export class SettingsDialogController {
             const value = preset.value;
             if (!value) return;
             if (value === 'balanced' || value === 'default') {
-                setSelect('wordColorStates', 'all');
-                setSelect('furiganaMode', 'all');
-                setGroups(['known', 'due', 'failed']);
-                setColorSources('jpdb', 'pitch', 'anki');
+                // Balanced is the default look (ADR-0025), so it reads from the
+                // defaults rather than restating them.
+                setSelect('wordColorStates', DEFAULT_SETTINGS.wordColorStates);
+                setSelect('furiganaMode', DEFAULT_SETTINGS.furiganaMode);
+                setGroups(DEFAULT_SETTINGS.furiganaHiddenStateGroups);
+                setColorSources(
+                    DEFAULT_COLOR_CHANNELS.wordHighlightColorSource,
+                    DEFAULT_COLOR_CHANNELS.wordUnderlineColorSource,
+                    DEFAULT_COLOR_CHANNELS.wordTextColorSource,
+                );
             } else if (value === 'no-colors') {
                 setSelect('wordColorStates', 'all');
                 setColorSources('off', 'off', 'off');

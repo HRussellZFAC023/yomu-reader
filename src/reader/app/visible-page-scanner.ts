@@ -27,6 +27,7 @@ import { userFacingErrorText } from './user-facing-errors';
 import { Logger } from './logger';
 import { collectScanTargetsInSteps, effectiveSiteScanCollectionLimit } from './site-parsers';
 import {
+    DEFAULT_COLOR_CHANNELS,
     effectiveFuriganaMode,
     effectiveReaderColorSource,
     effectiveReaderTextColorSource,
@@ -1076,9 +1077,9 @@ export class VisiblePageScanner {
 
 export function pageScanHasVisibleAnnotations(settings: ReaderSettings): boolean {
     if (effectiveFuriganaMode(settings) !== 'off') return true;
-    return effectiveReaderColorSource(settings, settings.wordHighlightColorSource, 'jpdb') !== 'off'
-        || effectiveReaderColorSource(settings, settings.wordUnderlineColorSource, 'pitch') !== 'off'
-        || effectiveReaderTextColorSource(settings, settings.wordTextColorSource, 'anki') !== 'off';
+    return effectiveReaderColorSource(settings, settings.wordHighlightColorSource, DEFAULT_COLOR_CHANNELS.wordHighlightColorSource) !== 'off'
+        || effectiveReaderColorSource(settings, settings.wordUnderlineColorSource, DEFAULT_COLOR_CHANNELS.wordUnderlineColorSource) !== 'off'
+        || effectiveReaderTextColorSource(settings, settings.wordTextColorSource, DEFAULT_COLOR_CHANNELS.wordTextColorSource) !== 'off';
 }
 
 function waitForVisibleScanTurn(): Promise<void> {

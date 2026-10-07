@@ -216,7 +216,7 @@ describe('settings form localization', () => {
 
     it('reads per-state colour opt-out (colorHide-*) checkboxes into wordColorHiddenStateGroups', () => {
         const form = document.createElement('form');
-        form.innerHTML = renderSettingsForm(DEFAULT_SETTINGS, 'https://jpdb.io/settings');
+        form.innerHTML = renderSettingsForm({ ...DEFAULT_SETTINGS, wordColorHiddenStateGroups: [] }, 'https://jpdb.io/settings');
         // The colour subsection renders a "Hide color for" fieldset of state checkboxes.
         expect(form.querySelector('fieldset[data-word-color-hide-groups]')).not.toBeNull();
         const knownBox = form.querySelector<HTMLInputElement>('input[name="colorHide-known"]')!;
@@ -240,7 +240,7 @@ describe('settings form localization', () => {
     // the normalizer would have dropped the value on load even if it had.
     it('offers one hide-color switch for the ignored, suspended and blacklisted family', () => {
         const form = document.createElement('form');
-        form.innerHTML = renderSettingsForm(DEFAULT_SETTINGS, 'https://jpdb.io/settings');
+        form.innerHTML = renderSettingsForm({ ...DEFAULT_SETTINGS, wordColorHiddenStateGroups: [] }, 'https://jpdb.io/settings');
         const ignoredBox = form.querySelector<HTMLInputElement>('input[name="colorHide-ignored"]');
         expect(ignoredBox).not.toBeNull();
         // One switch, not three: the three states share one colour and one picker, so
@@ -455,15 +455,16 @@ describe('settings form localization', () => {
         expect(DEFAULT_SETTINGS.ankiMobileHandoff).toBe(false);
         expect(DEFAULT_SETTINGS.ankiMineWithJpdb).toBe(false);
         expect(DEFAULT_SETTINGS.popupMode).toBe('auto');
-        expect(DEFAULT_SETTINGS.furiganaMode).toBe('all');
+        expect(DEFAULT_SETTINGS.furiganaMode).toBe('known-status');
         expect(DEFAULT_SETTINGS.furiganaHiddenStateGroups).toEqual(['known', 'due', 'failed']);
         expect(DEFAULT_SETTINGS.wordColorStates).toBe('all');
-        // Per-state colour opt-out defaults to empty (colour every state) so existing
-        // installs keep their colouring; normalize drops invalid/duplicate groups.
-        expect(DEFAULT_SETTINGS.wordColorHiddenStateGroups).toEqual([]);
-        expect(normalizeReaderSettings({}).wordColorHiddenStateGroups).toEqual([]);
+        // Known and ignored words stay plain by default (ADR-0025); normalize
+        // drops invalid/duplicate groups and keeps an explicit empty list.
+        expect(DEFAULT_SETTINGS.wordColorHiddenStateGroups).toEqual(['known', 'ignored']);
+        expect(normalizeReaderSettings({}).wordColorHiddenStateGroups).toEqual(['known', 'ignored']);
+        expect(normalizeReaderSettings({ wordColorHiddenStateGroups: [] }).wordColorHiddenStateGroups).toEqual([]);
         expect(normalizeReaderSettings({ wordColorHiddenStateGroups: ['known', 'known', 'bogus', 'due'] as never }).wordColorHiddenStateGroups).toEqual(['known', 'due']);
-        expect(effectiveFuriganaMode(DEFAULT_SETTINGS)).toBe('all');
+        expect(effectiveFuriganaMode(DEFAULT_SETTINGS)).toBe('known-status');
         expect(normalizeReaderSettings({ apiKey: '', jitenApiKey: 'ak_jiten-key', ankiEnabled: false, furiganaMode: 'auto' }).furiganaMode).toBe('auto');
         expect(normalizeReaderSettings({}).ankiEnabled).toBe(false);
         expect(normalizeReaderSettings({}).ankiSectionEnabled).toBe(false);
@@ -486,7 +487,9 @@ describe('settings form localization', () => {
         expect(shouldLookupAnkiStatus({ ...DEFAULT_SETTINGS, ankiEnabled: true })).toBe(true);
         expect(effectiveReaderTextColorSource(DEFAULT_SETTINGS, DEFAULT_SETTINGS.wordTextColorSource)).toBe('off');
         expect(effectiveReaderTextColorSource({ ...DEFAULT_SETTINGS, ankiSectionEnabled: true }, 'anki')).toBe('off');
-        expect(effectiveReaderTextColorSource({ ...DEFAULT_SETTINGS, ankiEnabled: true }, DEFAULT_SETTINGS.wordTextColorSource)).toBe('anki');
+        // Text colour is off by default (ADR-0025); a learner who picks Anki gets it once Anki is on.
+        expect(effectiveReaderTextColorSource({ ...DEFAULT_SETTINGS, ankiEnabled: true }, DEFAULT_SETTINGS.wordTextColorSource)).toBe('off');
+        expect(effectiveReaderTextColorSource({ ...DEFAULT_SETTINGS, ankiEnabled: true }, 'anki')).toBe('anki');
         expect(form.querySelector<HTMLInputElement>('input[name="ankiEnabled"]')?.checked).toBe(false);
         const appearancePreset = form.querySelector<HTMLSelectElement>('select[name="appearancePreset"]')!;
         expect(Array.from(appearancePreset.options).map(option => [option.value, option.textContent])).toEqual([

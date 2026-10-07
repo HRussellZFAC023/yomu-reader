@@ -962,10 +962,12 @@ describe('reader helpers', () => {
         };
 
         const first = appInternals(new ReaderApp());
-        first.settings = { ...DEFAULT_SETTINGS, showFurigana: true, furiganaMode: 'all' };
+        // The default reading mode, so the marker restores what a learner who never
+        // chose a mode had (known-status since 2.1, ADR-0025).
+        first.settings = { ...DEFAULT_SETTINGS, showFurigana: true, furiganaMode: 'known-status' };
         await first.cyclePowerState();
         expect(first.settings.furiganaMode).toBe('off');
-        expect(first.settings.puckFuriganaModeBeforeHide).toBe('all');
+        expect(first.settings.puckFuriganaModeBeforeHide).toBe('known-status');
         await first.cyclePowerState();
         expect(first.settings.annotationsPaused).toBe(true);
 
@@ -975,7 +977,7 @@ describe('reader helpers', () => {
         expect(second.puckPowerState()).toBe('paused');
         await second.cyclePowerState();
         expect(second.settings.annotationsPaused).toBe(false);
-        expect(second.settings.furiganaMode).toBe('all');
+        expect(second.settings.furiganaMode).toBe('known-status');
         expect(second.settings.showFurigana).toBe(true);
         expect(second.settings.puckFuriganaModeBeforeHide).toBe('');
         expect(second.puckPowerState()).toBe('on');
@@ -986,7 +988,7 @@ describe('reader helpers', () => {
         // values overlay the new blob and the next page sees the old state.
         const persisted = await loadSettings();
         expect(persisted.annotationsPaused).toBe(false);
-        expect(persisted.furiganaMode).toBe('all');
+        expect(persisted.furiganaMode).toBe('known-status');
         expect(persisted.showFurigana).toBe(true);
         expect(persisted.puckFuriganaModeBeforeHide).toBe('');
     });
@@ -1469,12 +1471,13 @@ describe('reader helpers', () => {
         try {
             const settings = await loadSettings();
 
-            expect(settings.wordHighlightColorSource).toBe('jpdb');
-            expect(settings.wordUnderlineColorSource).toBe('pitch');
-            expect(settings.wordTextColorSource).toBe('anki');
-            expect(settings.subtitleHighlightColorSource).toBe('jpdb');
-            expect(settings.subtitleUnderlineColorSource).toBe('pitch');
-            expect(settings.subtitleTextColorSource).toBe('anki');
+            // 2.1 defaults (ADR-0025); the undeclared 2.0 'pitch' reads as one too.
+            expect(settings.wordHighlightColorSource).toBe('off');
+            expect(settings.wordUnderlineColorSource).toBe('status');
+            expect(settings.wordTextColorSource).toBe('off');
+            expect(settings.subtitleHighlightColorSource).toBe('off');
+            expect(settings.subtitleUnderlineColorSource).toBe('status');
+            expect(settings.subtitleTextColorSource).toBe('off');
             expect('wordHighlightMode' in settings).toBe(false);
         } finally {
             if (previous === null) localStorage.removeItem(storageKey);

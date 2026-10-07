@@ -1,5 +1,5 @@
 import type { ReaderColorSource } from '../app/types';
-import { DEFAULT_OVERLAY_BACKGROUND_COLOR, DEFAULT_OVERLAY_OUTLINE_COLOR, DEFAULT_OVERLAY_TEXT_COLOR, DEFAULT_SETTINGS, accentToRgba, sanitizeAccentColor } from './index';
+import { DEFAULT_COLOR_CHANNELS, DEFAULT_OVERLAY_BACKGROUND_COLOR, DEFAULT_OVERLAY_OUTLINE_COLOR, DEFAULT_OVERLAY_TEXT_COLOR, DEFAULT_SETTINGS, accentToRgba, sanitizeAccentColor } from './index';
 import { COLOR_SOURCE_VALUES, CUSTOM_FONT_FAMILY_VALUE, readOption } from './form-read';
 import { colorSourceClassName } from '../theme/color-source-classes';
 
@@ -53,9 +53,9 @@ function formFontFamilyValue(form: HTMLFormElement, name: string, fallback: stri
 function syncSubtitlePreviewColorClasses(form: HTMLFormElement, preview: HTMLElement): void {
     const value = (name: string, fallback: string) => namedControl(form, name)?.value || fallback;
     const classes = {
-        highlight: readOption(value('subtitleHighlightColorSource', 'jpdb'), COLOR_SOURCE_VALUES, 'jpdb'),
-        underline: readOption(value('subtitleUnderlineColorSource', 'pitch'), COLOR_SOURCE_VALUES, 'pitch'),
-        text: readOption(value('subtitleTextColorSource', 'jpdb'), COLOR_SOURCE_VALUES, 'jpdb'),
+        highlight: readOption(value('subtitleHighlightColorSource', DEFAULT_COLOR_CHANNELS.subtitleHighlightColorSource), COLOR_SOURCE_VALUES, DEFAULT_COLOR_CHANNELS.subtitleHighlightColorSource),
+        underline: readOption(value('subtitleUnderlineColorSource', DEFAULT_COLOR_CHANNELS.subtitleUnderlineColorSource), COLOR_SOURCE_VALUES, DEFAULT_COLOR_CHANNELS.subtitleUnderlineColorSource),
+        text: readOption(value('subtitleTextColorSource', DEFAULT_COLOR_CHANNELS.subtitleTextColorSource), COLOR_SOURCE_VALUES, DEFAULT_COLOR_CHANNELS.subtitleTextColorSource),
     };
     (Object.keys(classes) as Array<keyof typeof classes>).forEach(channel => {
         COLOR_SOURCE_CLASS_VALUES.forEach(source => {

@@ -58,10 +58,12 @@ describe('Jiten token rendering', () => {
         expect(renderJitenToken('読む', 'young', { furiganaMode: 'known-status', furiganaHiddenStateGroups: ['learning'] })).not.toContain('<rt');
     });
 
-    it('keeps legacy auto transparent even when Jiten status is available', () => {
-        expect(renderJitenToken('読む', 'mature', { furiganaMode: 'auto' })).toContain('<rt');
-        expect(renderJitenToken('読む', 'mastered', { furiganaMode: 'auto' })).toContain('<rt');
-        expect(renderJitenToken('読む', 'mature', { furiganaMode: 'known-status' })).not.toContain('<rt');
+    // Legacy 'auto' follows the default, which is known-status since 2.1 (ADR-0025).
+    it('lets legacy auto follow the known-status default when Jiten status is available', () => {
+        expect(renderJitenToken('読む', 'mature', { furiganaMode: 'auto' })).not.toContain('<rt');
+        expect(renderJitenToken('読む', 'mastered', { furiganaMode: 'auto' })).not.toContain('<rt');
+        expect(renderJitenToken('読む', 'young', { furiganaMode: 'auto' })).toContain('<rt');
+        expect(renderJitenToken('読む', 'mature', { furiganaMode: 'all' })).toContain('<rt');
     });
 
     it('renders ruby for every word in hover mode (visibility is CSS-driven)', () => {

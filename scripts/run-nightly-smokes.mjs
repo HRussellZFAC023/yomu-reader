@@ -29,6 +29,7 @@ import path from 'node:path';
 export const NIGHTLY_SMOKES = [
     'smoke:anki',
     'smoke:anki-template',
+    'smoke:annotation-typography',
     'smoke:bookwalker-cty2-scroll',
     'smoke:bookwalker-tap-passthrough',
     'smoke:bookwalker-tap-retry',

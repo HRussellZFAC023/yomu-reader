@@ -24,18 +24,20 @@ function formHtml(settings: ReaderSettings): string {
 
 // A11: the shipped default used to hide furigana on every kanji from a fixed
 // beginner list, so a learner could not tell a "you know this" from a miss.
+// ADR-0025: readings follow what the learner's own study source knows, so a
+// missing reading always means "you know this", never a guess from a list.
 describe('A11 furigana default is explainable', () => {
-    it('ships furigana on every parsed word', () => {
-        expect(DEFAULT_SETTINGS.furiganaMode).toBe('all');
+    it('ships furigana that follows what the learner knows', () => {
+        expect(DEFAULT_SETTINGS.furiganaMode).toBe('known-status');
     });
 
-    it('preserves typed automatic mode and resolves it to every reading', () => {
+    it('preserves typed automatic mode and resolves it to the default', () => {
         for (const settings of [
             keyless({ yomuLocalSrsEnabled: false, furiganaMode: 'auto' }),
             keyless({ yomuLocalSrsEnabled: true, furiganaMode: 'auto' }),
             keyless({ apiKey: 'jpdb-key', ankiEnabled: true, furiganaMode: 'auto' }),
         ]) {
-            expect(effectiveFuriganaMode(settings)).toBe('all');
+            expect(effectiveFuriganaMode(settings)).toBe('known-status');
             expect(normalizeReaderSettings(settings).furiganaMode).toBe('auto');
         }
     });

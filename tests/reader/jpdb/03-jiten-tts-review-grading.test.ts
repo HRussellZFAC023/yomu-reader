@@ -1099,12 +1099,14 @@ describe('reader helpers', () => {
         expect(effectiveReaderColorSource(deckless, 'auto')).toBe('off');
         expect(effectiveReaderColorSource(deckless, 'auto', 'pitch')).toBe('pitch');
         expect(effectiveReaderColorSource({ ...deckless, wordHighlightMode: 'pitch' } as never, 'auto')).toBe('off');
-        expect(effectiveReaderColorSource({ ...DEFAULT_SETTINGS, apiKey: 'key', ankiEnabled: true, wordHighlightMode: 'status' } as never, 'auto')).toBe('jpdb');
+        // 'auto' is the default, and the default highlight is off (ADR-0025).
+        expect(effectiveReaderColorSource({ ...DEFAULT_SETTINGS, apiKey: 'key', ankiEnabled: true, wordHighlightMode: 'status' } as never, 'auto')).toBe('off');
+        expect(effectiveReaderColorSource({ ...DEFAULT_SETTINGS, apiKey: 'key' }, 'auto', 'jpdb')).toBe('jpdb');
         expect(effectiveReaderColorSource({ ...deckless, wordHighlightMode: 'status' } as never, 'auto')).toBe('off');
         expect(effectiveReaderColorSource({ ...deckless, wordHighlightMode: 'off' } as never, 'auto')).toBe('off');
         expect(effectiveReaderColorSource({ ...DEFAULT_SETTINGS, ankiEnabled: true }, 'anki')).toBe('anki');
         expect(effectiveReaderColorSource(deckless, 'anki')).toBe('off');
-        expect(effectiveSubtitleColorSource({ ...DEFAULT_SETTINGS, apiKey: 'key', wordHighlightMode: 'status' } as never, 'auto')).toBe('jpdb');
+        expect(effectiveSubtitleColorSource({ ...DEFAULT_SETTINGS, apiKey: 'key', wordHighlightMode: 'status' } as never, 'auto')).toBe('off');
         expect(effectiveSubtitleColorSource({ ...deckless, wordHighlightMode: 'pitch' } as never, 'auto')).toBe('off');
         expect(effectiveSubtitleColorSource(DEFAULT_SETTINGS, 'status')).toBe('status');
 
@@ -1119,12 +1121,12 @@ describe('reader helpers', () => {
         }], { ...DEFAULT_SETTINGS, apiKey: '', ankiEnabled: false, jpdbMiningEnabled: false });
 
         expect(html).toContain('jpdb-reader-word jpdb-not-in-deck jpdb-pitch-heiban');
-        expect(DEFAULT_SETTINGS.wordHighlightColorSource).toBe('jpdb');
-        expect(DEFAULT_SETTINGS.wordUnderlineColorSource).toBe('pitch');
-        expect(DEFAULT_SETTINGS.wordTextColorSource).toBe('anki');
-        expect(DEFAULT_SETTINGS.subtitleHighlightColorSource).toBe('jpdb');
-        expect(DEFAULT_SETTINGS.subtitleUnderlineColorSource).toBe('pitch');
-        expect(DEFAULT_SETTINGS.subtitleTextColorSource).toBe('anki');
+        expect(DEFAULT_SETTINGS.wordHighlightColorSource).toBe('off');
+        expect(DEFAULT_SETTINGS.wordUnderlineColorSource).toBe('status');
+        expect(DEFAULT_SETTINGS.wordTextColorSource).toBe('off');
+        expect(DEFAULT_SETTINGS.subtitleHighlightColorSource).toBe('off');
+        expect(DEFAULT_SETTINGS.subtitleUnderlineColorSource).toBe('status');
+        expect(DEFAULT_SETTINGS.subtitleTextColorSource).toBe('off');
         expect('wordHighlightMode' in DEFAULT_SETTINGS).toBe(false);
     });
 
@@ -1134,12 +1136,12 @@ describe('reader helpers', () => {
         // local deck instead and is covered in the settings-form suite.
         form.innerHTML = renderSettingsForm({ ...DEFAULT_SETTINGS, apiKey: 'jpdb-key' }, 'https://jpdb.io/settings');
         const expected = {
-            wordHighlightColorSource: 'jpdb',
-            wordUnderlineColorSource: 'pitch',
-            wordTextColorSource: 'anki',
-            subtitleHighlightColorSource: 'jpdb',
-            subtitleUnderlineColorSource: 'pitch',
-            subtitleTextColorSource: 'anki',
+            wordHighlightColorSource: 'off',
+            wordUnderlineColorSource: 'status',
+            wordTextColorSource: 'off',
+            subtitleHighlightColorSource: 'off',
+            subtitleUnderlineColorSource: 'status',
+            subtitleTextColorSource: 'off',
         } as const;
         const expectedLabels = [
             'All study statuses',
@@ -1162,11 +1164,12 @@ describe('reader helpers', () => {
         expect(saved).toMatchObject(expected);
     });
 
-    // A11: the shipped default reads every parsed word, and legacy 'auto' lands
-    // on a mode the surrounding UI can explain.
-    it('defaults furigana to every parsed word and preserves typed automatic mode', () => {
-        expect(DEFAULT_SETTINGS.furiganaMode).toBe('all');
-        expect(effectiveFuriganaMode(DEFAULT_SETTINGS)).toBe('all');
+    // A11 and ADR-0025: readings follow what the learner knows, and legacy
+    // 'auto' lands on that default, a mode the surrounding UI can explain.
+    it('defaults furigana to the known-status mode and preserves typed automatic mode', () => {
+        expect(DEFAULT_SETTINGS.furiganaMode).toBe('known-status');
+        expect(effectiveFuriganaMode(DEFAULT_SETTINGS)).toBe('known-status');
+        expect(effectiveFuriganaMode({ ...DEFAULT_SETTINGS, furiganaMode: 'auto' })).toBe('known-status');
         expect(normalizeReaderSettings({ apiKey: '', ankiEnabled: false, yomuLocalSrsEnabled: false, furiganaMode: 'auto' }).furiganaMode).toBe('auto');
         expect(normalizeReaderSettings({ apiKey: '', ankiEnabled: false, yomuLocalSrsEnabled: true, furiganaMode: 'auto' }).furiganaMode).toBe('auto');
         expect(normalizeReaderSettings({ apiKey: 'key', ankiEnabled: false, jpdbMiningEnabled: false, furiganaMode: 'auto' }).furiganaMode).toBe('auto');

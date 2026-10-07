@@ -2,6 +2,7 @@ import {
     accentToRgba,
     accessibleOcrBackgroundColor,
     accessibleOcrBackgroundOpacity,
+    DEFAULT_COLOR_CHANNELS,
     effectiveFuriganaMode,
     effectiveReaderColorSource,
     effectiveReaderTextColorSource,
@@ -192,14 +193,14 @@ export function applyReaderWordColors(settings: ReaderSettings, root = document.
 
 function appliedReaderTheme(settings: ReaderSettings): AppliedReaderTheme {
     const wordColorSources = normalizedAppliedColorSources(settings, {
-        highlight: effectiveReaderColorSource(settings, settings.wordHighlightColorSource, 'jpdb'),
-        underline: effectiveReaderColorSource(settings, settings.wordUnderlineColorSource, 'pitch'),
-        text: effectiveReaderTextColorSource(settings, settings.wordTextColorSource, 'anki'),
+        highlight: effectiveReaderColorSource(settings, settings.wordHighlightColorSource, DEFAULT_COLOR_CHANNELS.wordHighlightColorSource),
+        underline: effectiveReaderColorSource(settings, settings.wordUnderlineColorSource, DEFAULT_COLOR_CHANNELS.wordUnderlineColorSource),
+        text: effectiveReaderTextColorSource(settings, settings.wordTextColorSource, DEFAULT_COLOR_CHANNELS.wordTextColorSource),
     }, 'word');
     const subtitleColorSources = normalizedAppliedColorSources(settings, {
-        highlight: appliedSubtitleColorSource(settings, effectiveSubtitleColorSource(settings, settings.subtitleHighlightColorSource, 'jpdb')),
-        underline: appliedSubtitleColorSource(settings, effectiveSubtitleColorSource(settings, settings.subtitleUnderlineColorSource, 'pitch')),
-        text: appliedSubtitleColorSource(settings, effectiveSubtitleTextColorSource(settings, settings.subtitleTextColorSource, 'anki')),
+        highlight: appliedSubtitleColorSource(settings, effectiveSubtitleColorSource(settings, settings.subtitleHighlightColorSource, DEFAULT_COLOR_CHANNELS.subtitleHighlightColorSource)),
+        underline: appliedSubtitleColorSource(settings, effectiveSubtitleColorSource(settings, settings.subtitleUnderlineColorSource, DEFAULT_COLOR_CHANNELS.subtitleUnderlineColorSource)),
+        text: appliedSubtitleColorSource(settings, effectiveSubtitleTextColorSource(settings, settings.subtitleTextColorSource, DEFAULT_COLOR_CHANNELS.subtitleTextColorSource)),
     }, 'subtitle');
     return {
         furiganaMode: effectiveFuriganaMode(settings),
