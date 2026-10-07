@@ -56,9 +56,9 @@ On Steam Deck, switch to Desktop Mode first.
 
 ## Read your screen
 
-Press Ctrl+Shift+Y (Cmd+Shift+Y on a Mac) to read the whole screen, or choose Read part of the screen and drag around a dialogue box or subtitle. You can change the shortcut in the app's Settings.
+Press Ctrl+Shift+Y (Cmd+Shift+Y on a Mac) to read the screen. Press it again when the text changes. You can change the shortcut in Settings.
 
-The app finds the Japanese text in the picture, and every word opens the usual popup. Busy screens are easier when you read only the part with the text.
+Hover a Japanese word to open its meaning.
 
 To find text, the app sends the screenshot to Google Lens by default, so it needs a connection. In Settings you can switch to Google Cloud Vision with your own key, or to an OCR server on your own computer.
 
