@@ -15,7 +15,11 @@ describe('built standalone appearance module', () => {
             encoding: 'utf8', timeout: 15_000,
         });
         const { settings, ledger } = JSON.parse(output);
-        expect(settings).toMatchObject({ theme: 'dark', interfaceLanguage: 'ja', learningTargetChosen: false });
+        expect(settings).toMatchObject({ theme: 'dark', interfaceLanguage: 'ja' });
+        // 2.1.0 is Japanese-only with no setup gate (1a59f3fa0): an appearance save
+        // must not stamp the retired gate keys back onto a fresh install.
+        expect(settings).not.toHaveProperty('learningTargetChosen');
+        expect(settings).not.toHaveProperty('onboardingSeen');
         expect(ledger).toMatchObject({ revision: 2, records: { theme: { value: 'dark' }, interfaceLanguage: { value: 'ja' } } });
         expect(settings.__yomuSettingsPersistenceCommitV1).toEqual(expect.any(String));
         expect(ledger.__yomuSettingsPersistenceCommitV1).toBe(settings.__yomuSettingsPersistenceCommitV1);
