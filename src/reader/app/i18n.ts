@@ -227,8 +227,9 @@ const COPY = {
         ocrInteractionModeManual: 'Tap or hover',
         ocrInteractionModeOff: 'Off',
         puckMenuLabel: `${APP_NAME} menu`,
-        puckPauseAnnotations: 'Pause annotations',
-        puckResumeAnnotations: 'Resume annotations',
+        puckPowerOnFurigana: 'Yomu on · furigana shown',
+        puckPowerOnNoFurigana: 'Yomu on · furigana hidden',
+        puckPowerOff: 'Yomu off',
         puckOcrAuto: 'OCR: Auto',
         puckOcrManual: 'OCR: Tap/Hover',
         puckOcrOff: 'OCR: Off',
@@ -238,7 +239,6 @@ const COPY = {
         puckUnmuteAudio: 'Unmute auto-play audio',
         autoplayAudioOnToast: 'Auto-play audio on.',
         autoplayAudioOffToast: 'Auto-play audio muted.',
-        puckHideFurigana: 'Hide furigana',
         furiganaOffToast: 'Furigana off. Lookups stay active.',
         showFurigana: 'Enable furigana annotations',
         furiganaMode: 'Furigana',
@@ -407,7 +407,7 @@ const COPY = {
         alwaysVisible: 'Always visible',
         preview: 'Preview',
         youtubeImmersionEnabled: 'Japanese YouTube only',
-        preferJapaneseSiteLanguage: 'Open Japanese versions of sites',
+        preferJapaneseSiteLanguage: 'Request Japanese sites',
         youtubeShowChannelRecommendations: 'Show Japanese channel suggestions',
         youtubeShowFilterNotice: 'Show hidden-video notice',
         youtubeHelp: 'Filter YouTube for Japanese and open Japanese versions of sites.',
@@ -1775,8 +1775,9 @@ ocrInteractionModeAuto	自動
 ocrInteractionModeManual	タップ/ホバー
 ocrInteractionModeOff	オフ
 puckMenuLabel	よむ メニュー
-puckPauseAnnotations	注釈を一時停止
-puckResumeAnnotations	注釈を再開
+puckPowerOnFurigana	{APP_NAME} オン・ふりがな表示
+puckPowerOnNoFurigana	{APP_NAME} オン・ふりがな非表示
+puckPowerOff	{APP_NAME} オフ
 puckOcrAuto	OCR: 自動
 puckOcrManual	OCR: タップ/ホバー
 puckOcrOff	OCR: オフ
@@ -1784,7 +1785,6 @@ annotationsPausedToast	注釈を一時停止しました。
 annotationsResumedToast	注釈を再開しました。
 puckMuteAudio	音声の自動再生をミュート
 puckUnmuteAudio	音声の自動再生のミュートを解除
-puckHideFurigana	ふりがなを隠す
 furiganaOffToast	ふりがなを非表示にしました。単語の検索は引き続き使えます。
 autoplayAudioOnToast	音声の自動再生をオンにしました。
 autoplayAudioOffToast	音声の自動再生をミュートしました。
@@ -1936,7 +1936,7 @@ hideControls	コントロールを隠す
 alwaysVisible	常に表示
 preview	プレビュー
 youtubeImmersionEnabled	日本語のYouTubeのみ
-preferJapaneseSiteLanguage	日本語版のサイトを開く
+preferJapaneseSiteLanguage	日本語版サイトをリクエスト
 youtubeShowChannelRecommendations	日本語チャンネル候補を表示
 youtubeShowFilterNotice	非表示動画の通知を表示
 youtubeHelp	YouTubeを日本語向けに絞り、日本語版のサイトを開きます。

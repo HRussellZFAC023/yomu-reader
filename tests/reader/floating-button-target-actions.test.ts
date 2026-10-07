@@ -44,14 +44,14 @@ describe('floating button actions', () => {
         const mounted = openFloatingButton({ actions: { hasSubtitleVideo: () => true, isYouTube: () => true } });
         try {
             const puck = document.querySelector<HTMLButtonElement>('.jpdb-reader-fab');
-            expect(puck?.getAttribute('aria-label')).toBe('よむ');
+            expect(puck?.getAttribute('aria-label')).toBe('Yomu on · furigana shown');
             expect(puck?.dataset.targetLanguage).toBeUndefined();
             expect(document.querySelector('[data-radial-id="study"]')?.getAttribute('aria-label')).toBe('Study');
-            expect(document.querySelector('[data-radial-id="power"]')?.getAttribute('aria-label')).toBe('Hide furigana');
+            expect(document.querySelector('[data-radial-id="power"]')?.getAttribute('aria-label')).toBe('Yomu on · furigana shown');
             expect(document.querySelector('[data-radial-id="subtitles"]')?.getAttribute('aria-label')).toBe('Auto-detect subtitles');
             expect(document.querySelector('[data-radial-id="subtitles"] svg')).not.toBeNull();
             expect(document.querySelector('[data-radial-id="youtube"]')?.getAttribute('aria-label')).toBe('Japanese YouTube only');
-            expect(document.querySelector('[data-radial-id="japanese-site"]')?.getAttribute('aria-label')).toBe('Open Japanese versions of sites');
+            expect(document.querySelector('[data-radial-id="japanese-site"]')?.getAttribute('aria-label')).toBe('Request Japanese sites');
         } finally {
             mounted.dispose();
         }
@@ -66,7 +66,9 @@ describe('floating button actions', () => {
             expect(document.querySelector('[data-radial-id="study"]')?.getAttribute('aria-label')).toBe('学習');
             expect(document.querySelector('[data-radial-id="subtitles"]')?.getAttribute('aria-label')).toBe('字幕を自動検出');
             expect(document.querySelector('[data-radial-id="youtube"]')?.getAttribute('aria-label')).toBe('日本語のYouTubeのみ');
-            expect(document.querySelector('[data-radial-id="japanese-site"]')?.getAttribute('aria-label')).toBe('日本語版のサイトを開く');
+            expect(document.querySelector('[data-radial-id="japanese-site"]')?.getAttribute('aria-label')).toBe('日本語版サイトをリクエスト');
+            expect(document.querySelector('[data-radial-id="power"]')?.getAttribute('aria-label')).toBe('よむ オン・ふりがな表示');
+            expect(document.querySelector('.jpdb-reader-fab')?.getAttribute('aria-label')).toBe('よむ オン・ふりがな表示');
         } finally {
             mounted.dispose();
         }

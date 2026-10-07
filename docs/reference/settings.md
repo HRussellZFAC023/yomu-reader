@@ -279,7 +279,7 @@ Filter YouTube for Japanese. Japanese-site navigation is optional.
 | Show hidden-video notice | — | on | `youtubeShowFilterNotice` |
 | Show Japanese channel suggestions | — | on | `youtubeShowChannelRecommendations` |
 | Not yet described | — | off | `youtubeShowChannelRecommendationsChosen` |
-| Open Japanese versions of sites | — | off | `preferJapaneseSiteLanguage` |
+| Request Japanese sites | — | off | `preferJapaneseSiteLanguage` |
 
 ## Anki (Mining tab)
 

@@ -126,6 +126,38 @@ describe('the page side of the extension popup', () => {
         expect([list.language, list.heading, list.studyLabel, list.settingsLabel]).toEqual(['ja', 'このページ', '学習', '設定']);
     });
 
+    it.each([
+        ['en', 'Study', 'Settings', 'Request Japanese sites', ['Yomu on · furigana shown', 'Yomu on · furigana hidden', 'Yomu off']],
+        ['ja', '学習', '設定', '日本語版サイトをリクエスト', ['よむ オン・ふりがな表示', 'よむ オン・ふりがな非表示', 'よむ オフ']],
+    ] as const)('names the real puck\'s three reading states in %s and steps through them', async (language, study, settings, sites, powerStates) => {
+        const { send } = fakeRuntime();
+        const app = new ReaderApp();
+        const internals = app as unknown as {
+            installStyles(): void;
+            settings: { interfaceLanguage: 'en' | 'ja' };
+            installFab(): void;
+        };
+        internals.installStyles = vi.fn();
+        try {
+            await app.init();
+            internals.settings.interfaceLanguage = language;
+            internals.installFab();
+            let list = await send({ channel: EXTENSION_POPUP_ACTIONS_CHANNEL, type: 'list' }) as ExtensionPopupActionList;
+            expect([list.language, list.studyLabel, list.settingsLabel]).toEqual([language, study, settings]);
+            expect(list.actions.find(action => action.id === 'japanese-site')?.label).toBe(sites);
+            const seen: string[] = [];
+            for (let step = 0; step <= powerStates.length; step++) {
+                seen.push(list.actions.find(action => action.id === 'power')!.label);
+                list = await send({ channel: EXTENSION_POPUP_ACTIONS_CHANNEL, type: 'run', id: 'power' }) as ExtensionPopupActionList;
+            }
+            expect(seen).toEqual([...powerStates, powerStates[0]]);
+            const fab = document.querySelector('.jpdb-reader-fab');
+            expect(fab?.getAttribute('aria-label')).toBe(list.actions.find(action => action.id === 'power')!.label);
+        } finally {
+            app.destroy();
+        }
+    });
+
     it('answers only this extension\'s own pages, and stops when the reader is torn down', async () => {
         const { send, listeners } = fakeRuntime();
         const { state, source } = puck();
@@ -220,8 +252,8 @@ describe('the toolbar popup', () => {
     });
 
     it.each([
-        ['en', 'Mute auto-play audio', 'Mute auto-play', 'Open Japanese versions of sites', 'Japanese sites', 'Study', 'Settings'],
-        ['ja', '音声の自動再生をミュート', '自動再生をミュート', '日本語版のサイトを開く', '日本語版サイト', '学習', '設定'],
+        ['en', 'Mute auto-play audio', 'Mute auto-play', 'Request Japanese sites', 'Request Japanese sites', 'Study', 'Settings'],
+        ['ja', '音声の自動再生をミュート', '自動再生をミュート', '日本語版サイトをリクエスト', '日本語版サイトをリクエスト', '学習', '設定'],
     ])('keeps compact %s rows accessible with aligned decorative icons', async (_locale, audio, shortAudio, sites, shortSites, study, settings) => {
         mountPopup(() => ({
             language: _locale, studyLabel: study, settingsLabel: settings,
@@ -250,9 +282,9 @@ describe('the toolbar popup', () => {
 
     it('preserves all three power actions and restores focus after an icon click', async () => {
         const states = [
-            { label: 'Hide furigana', tone: 'on' },
-            { label: 'Pause annotations', tone: 'partial' },
-            { label: 'Resume annotations', tone: 'off' },
+            { label: 'Yomu on · furigana shown', tone: 'on' },
+            { label: 'Yomu on · furigana hidden', tone: 'partial' },
+            { label: 'Yomu off', tone: 'off' },
         ];
         let index = 0;
         const { sendMessage } = mountPopup(message => {

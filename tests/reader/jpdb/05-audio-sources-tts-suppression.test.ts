@@ -890,8 +890,8 @@ describe('reader helpers', () => {
 
             expect(offsets).toHaveLength(7);
             expect(labels).not.toContain('Scan page');
-            expect(labels).toContain('Open Japanese versions of sites');
-            expect(labels).toContain('Hide furigana');
+            expect(labels).toContain('Request Japanese sites');
+            expect(labels).toContain('Yomu on · furigana shown');
             expect(Math.min(...adjacentDistances)).toBeGreaterThanOrEqual(60);
         } finally {
             controller.destroy();
@@ -1063,7 +1063,7 @@ describe('reader helpers', () => {
             expect(puck.classList.contains('jpdb-reader-fab--on')).toBe(true);
             expect(puck.classList.contains('jpdb-reader-fab--no-furigana')).toBe(false);
             expect(puck.classList.contains('jpdb-reader-fab--paused')).toBe(false);
-            expect(powerButton().getAttribute('aria-label')).toBe('Hide furigana');
+            expect(powerButton().getAttribute('aria-label')).toBe('Yomu on · furigana shown');
             expect(powerButton().classList.contains('is-on')).toBe(true);
             const onIcon = powerButton().querySelector<HTMLElement>('.jpdb-reader-fab-radial-icon')?.innerHTML ?? '';
             expect(onIcon).toContain('M12 4v8');
@@ -1075,8 +1075,8 @@ describe('reader helpers', () => {
             expect(puck.classList.contains('jpdb-reader-fab--on')).toBe(false);
             expect(puck.classList.contains('jpdb-reader-fab--no-furigana')).toBe(true);
             expect(puck.classList.contains('jpdb-reader-fab--paused')).toBe(false);
-            expect(puck.getAttribute('aria-label')).toContain('Furigana off');
-            expect(powerButton().getAttribute('aria-label')).toBe('Pause annotations');
+            expect(puck.getAttribute('aria-label')).toBe('Yomu on · furigana hidden');
+            expect(powerButton().getAttribute('aria-label')).toBe('Yomu on · furigana hidden');
             expect(powerButton().classList.contains('is-partial')).toBe(true);
             const noFuriganaIcon = powerButton().querySelector<HTMLElement>('.jpdb-reader-fab-radial-icon')?.innerHTML ?? '';
             expect(noFuriganaIcon).toContain('>ふ<');
@@ -1087,8 +1087,8 @@ describe('reader helpers', () => {
             expect(puck.classList.contains('jpdb-reader-fab--on')).toBe(false);
             expect(puck.classList.contains('jpdb-reader-fab--no-furigana')).toBe(false);
             expect(puck.classList.contains('jpdb-reader-fab--paused')).toBe(true);
-            expect(puck.getAttribute('aria-label')).toContain('Annotations paused');
-            expect(powerButton().getAttribute('aria-label')).toBe('Resume annotations');
+            expect(puck.getAttribute('aria-label')).toBe('Yomu off');
+            expect(powerButton().getAttribute('aria-label')).toBe('Yomu off');
             expect(powerButton().classList.contains('is-off')).toBe(true);
             const pausedIcon = powerButton().querySelector<HTMLElement>('.jpdb-reader-fab-radial-icon')?.innerHTML ?? '';
             expect(pausedIcon).toContain('M9 5v14');
@@ -1100,8 +1100,8 @@ describe('reader helpers', () => {
             expect(puck.classList.contains('jpdb-reader-fab--on')).toBe(true);
             expect(puck.classList.contains('jpdb-reader-fab--no-furigana')).toBe(false);
             expect(puck.classList.contains('jpdb-reader-fab--paused')).toBe(false);
-            expect(puck.getAttribute('aria-label')).toBe('よむ');
-            expect(powerButton().getAttribute('aria-label')).toBe('Hide furigana');
+            expect(puck.getAttribute('aria-label')).toBe('Yomu on · furigana shown');
+            expect(powerButton().getAttribute('aria-label')).toBe('Yomu on · furigana shown');
             expect(powerButton().querySelector<HTMLElement>('.jpdb-reader-fab-radial-icon')?.innerHTML).toBe(onIcon);
         } finally {
             controller.destroy();
@@ -1199,13 +1199,13 @@ describe('reader helpers', () => {
             }));
 
             const siteButton = () => document.querySelector<HTMLButtonElement>('.jpdb-reader-fab-radial-item[data-radial-id="japanese-site"]');
-            expect(siteButton()?.getAttribute('aria-label')).toBe('Open Japanese versions of sites');
+            expect(siteButton()?.getAttribute('aria-label')).toBe('Request Japanese sites');
             expect(siteButton()?.classList.contains('is-off')).toBe(true);
 
             siteButton()?.click();
 
             expect(toggleJapaneseSiteLanguage).toHaveBeenCalledTimes(1);
-            expect(siteButton()?.getAttribute('aria-label')).toBe('Open Japanese versions of sites');
+            expect(siteButton()?.getAttribute('aria-label')).toBe('Request Japanese sites');
             expect(siteButton()?.classList.contains('is-on')).toBe(true);
             expect(document.querySelector('.jpdb-reader-fab-radial.is-open')).not.toBeNull();
 

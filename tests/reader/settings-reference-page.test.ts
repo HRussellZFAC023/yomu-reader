@@ -82,7 +82,7 @@ describe('generated settings reference', () => {
         expect(page).toContain('| Pause page annotations | — | off | `annotationsPaused` |');
         expect(page).toContain('| Japanese YouTube only | — | on | `youtubeImmersionEnabled` |');
         expect(page).toContain('| Show Japanese channel suggestions | — | on | `youtubeShowChannelRecommendations` |');
-        expect(page).toContain('| Open Japanese versions of sites | — | off | `preferJapaneseSiteLanguage` |');
+        expect(page).toContain('| Request Japanese sites | — | off | `preferJapaneseSiteLanguage` |');
         expect(page).not.toContain('learningTargetChosen');
         expect(page).not.toContain('inactive until');
     }, TIMEOUT_MS);

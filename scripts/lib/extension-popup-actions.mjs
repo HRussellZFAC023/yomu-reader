@@ -55,10 +55,8 @@ function extensionPopupActionsSource() {
   const compactLabels = {
     'Mute auto-play audio': 'Mute auto-play',
     'Unmute auto-play audio': 'Enable auto-play',
-    'Open Japanese versions of sites': 'Japanese sites',
     '音声の自動再生をミュート': '自動再生をミュート',
     '音声の自動再生のミュートを解除': '自動再生を有効に',
-    '日本語版のサイトを開く': '日本語版サイト',
   };
   const iconPaths = {
     power: [["path", {"d": "M8 1.5v6M4.1 3.6a5.5 5.5 0 1 0 7.8 0"}]],

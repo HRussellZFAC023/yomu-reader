@@ -361,7 +361,7 @@ describe('settings form localization', () => {
         expect(optionText(form, 'newTabKanjiKeywordSource', 'auto')).toBe('自動');
         expect(optionText(form, 'newTabKanjiKeywordSource', 'jpdb')).toBe('JPDB漢字情報（Jiten / JPDB）');
         expect(labelForControl(form, 'newTabParsingEnabled')).toContain('学習の文解析を有効');
-        expect(labelForControl(form, 'preferJapaneseSiteLanguage')).toContain('日本語版のサイトを開く');
+        expect(labelForControl(form, 'preferJapaneseSiteLanguage')).toContain('日本語版サイトをリクエスト');
         expect(optionText(form, 'audioAutoPlayMode', 'all')).toBe('ホバーとタップ/クリック');
         expect(labelForControl(form, 'readerFontFamily')).toContain('リーダーUIフォント');
         // Not "日本語フォント": the setting styles the WHOLE popover typeface, so it

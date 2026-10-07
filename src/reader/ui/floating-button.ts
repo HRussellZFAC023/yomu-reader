@@ -40,9 +40,7 @@ function hostHasBottomActionDock(): boolean {
 }
 
 function puckStateLabel(language: ReaderSettings['interfaceLanguage'], state: PuckPowerState): string {
-    if (state === 'no-furigana') return `${APP_NAME}: ${uiText(language, 'furiganaOffToast')}`;
-    if (state === 'paused') return `${APP_NAME}: ${uiText(language, 'annotationsPausedToast')}`;
-    return APP_NAME;
+    return uiText(language, POWER_ACTION[state].label);
 }
 
 /**
@@ -82,15 +80,16 @@ interface PuckPosition {
 }
 
 interface PowerActionPresentation {
-    label: 'puckHideFurigana' | 'puckPauseAnnotations' | 'puckResumeAnnotations';
+    /** Names the current state; pressing steps to the next one. */
+    label: 'puckPowerOnFurigana' | 'puckPowerOnNoFurigana' | 'puckPowerOff';
     icon: () => string;
     tone: 'on' | 'off' | 'partial';
 }
 
 const POWER_ACTION: Readonly<Record<PuckPowerState, PowerActionPresentation>> = Object.freeze({
-    on: { label: 'puckHideFurigana', icon: radialPowerIcon, tone: 'on' },
-    'no-furigana': { label: 'puckPauseAnnotations', icon: radialFuriganaHiddenIcon, tone: 'partial' },
-    paused: { label: 'puckResumeAnnotations', icon: radialPausedIcon, tone: 'off' },
+    on: { label: 'puckPowerOnFurigana', icon: radialPowerIcon, tone: 'on' },
+    'no-furigana': { label: 'puckPowerOnNoFurigana', icon: radialFuriganaHiddenIcon, tone: 'partial' },
+    paused: { label: 'puckPowerOff', icon: radialPausedIcon, tone: 'off' },
 });
 
 function floatingButtonRadialActions(
@@ -124,7 +123,7 @@ function powerRadialAction(
         tone: presentation.tone,
         primary: true,
         keepOpen: true,
-        run: () => void actions.cyclePowerState().finally(syncButtonState),
+        run: () => actions.cyclePowerState().finally(syncButtonState),
     };
 }
 

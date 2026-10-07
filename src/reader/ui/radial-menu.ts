@@ -17,7 +17,8 @@ export interface RadialAction {
     disabled?: boolean;
     /** Keep the menu open after activation (toggles re-render their state). */
     keepOpen?: boolean;
-    run: () => void;
+    /** A returned promise settles when the new state is in place. */
+    run: () => void | Promise<void>;
 }
 
 export interface RadialMenuHost {
@@ -204,9 +205,14 @@ export class RadialMenuController {
             event.preventDefault();
             event.stopPropagation();
             if (action.disabled) return;
-            action.run();
-            if (action.keepOpen) this.refresh();
-            else this.close();
+            const settled = action.run();
+            if (!action.keepOpen) {
+                this.close();
+                return;
+            }
+            this.refresh();
+            // Resuming from "off" lands only after its save; show that state, not the one before it.
+            if (settled) void settled.then(() => this.refresh(), () => this.refresh());
         });
         item.addEventListener('keydown', event => this.handleItemKeydown(event, index));
         return item;
