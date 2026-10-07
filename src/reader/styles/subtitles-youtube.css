@@ -235,8 +235,11 @@ html.jpdb-subtitle-yt-sheet-open .jpdb-subtitle-player:not(.jpdb-subtitle-fullsc
 ) {
   font-size: inherit !important;
 }
+/* Captions over footage keep their larger, bold reading; on-page readings
+   are half-size and regular (reader-words-ocr.css). */
 .jpdb-subtitle-primary .jpdb-reader-furi {
   font-size: .58em !important;
+  font-weight: 700;
 }
 .jpdb-subtitle-primary:empty {
   display: none;

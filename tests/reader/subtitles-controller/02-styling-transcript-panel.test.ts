@@ -482,6 +482,8 @@ describe('SubtitlePlayerController — styling & transcript panel', () => {
         expect(normalizedCss).toMatch(/\.jpdb-subtitle-primary \{[^}]*font-size: var\(--subtitle-font-size\) !important;/);
         expect(normalizedCss).toMatch(/\.jpdb-subtitle-primary :is\([^}]*\.jpdb-reader-word,[^}]*ruby,[^}]*\.jpdb-reader-ruby-base[^}]*\) \{[^}]*font-size: inherit !important;/);
         expect(normalizedCss).toMatch(/\.jpdb-subtitle-primary \.jpdb-reader-furi \{[^}]*font-size: \.58em !important;/);
+        // Page readings are regular weight; a caption's reading over footage stays bold.
+        expect(normalizedCss).toMatch(/\.jpdb-subtitle-primary \.jpdb-reader-furi \{[^}]*font-weight: 700;/);
     });
 
     it('keeps plain overlay and transcript captions selectable while annotations are paused', () => {
