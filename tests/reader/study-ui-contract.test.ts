@@ -97,6 +97,9 @@ describe('Reader Study UI contract', () => {
         // new-tab-session-progress.test.ts checks the rendered navigation actions.
         expect(newTabCss).toContain('grid-template-columns: repeat(5, minmax(0, 1fr));');
         expect(newTabCss).toContain('min-height: calc(64px + env(safe-area-inset-bottom));');
+        // Opaque, so reading text never shows through the fixed tab bar (WebKit).
+        expect(newTabCss).toContain('border-top: 1px solid color-mix(in srgb, var(--jpdb-reader-border) 86%, transparent); background: var(--jpdb-reader-bg); box-shadow: 0 -12px 32px');
+        expect(newTabCss).not.toContain('backdrop-filter: blur(18px) saturate(1.18);');
         expect(newTabCss).toContain('.jpdb-reader-newtab-controls.jpdb-reader-newtab-grade-controls { bottom: calc(72px + env(safe-area-inset-bottom));');
         expect(newTabCss).toContain('.jpdb-reader-newtab-study-steps { width: min(100%, calc(100vw - 16px)); flex-wrap: nowrap; justify-content: flex-start; overflow-x: auto;');
     });

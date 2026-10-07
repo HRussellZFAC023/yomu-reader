@@ -4336,9 +4336,8 @@ button.jpdb-reader-newtab-study-hint-btn:active {
     padding: 6px max(8px, env(safe-area-inset-right)) env(safe-area-inset-bottom)
       max(8px, env(safe-area-inset-left));
     border-top: 1px solid color-mix(in srgb, var(--jpdb-reader-border) 86%, transparent);
-    background: color-mix(in srgb, var(--jpdb-reader-bg) 92%, transparent);
+    background: var(--jpdb-reader-bg);
     box-shadow: 0 -12px 32px color-mix(in srgb, var(--jpdb-reader-black) 18%, transparent);
-    backdrop-filter: blur(18px) saturate(1.18);
   }
 
   .jpdb-reader-newtab-app-nav-item {
