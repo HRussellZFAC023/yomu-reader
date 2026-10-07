@@ -1116,9 +1116,16 @@ export const CARD_STATE_LABEL_KEYS: Record<string, UiCopyKey> = {
     unparsed: 'stateUnparsed',
 };
 
-function parseUiCopyTable(rows: string): Partial<Record<UiCopyKey, string>> {
+/**
+ * Parses a `key<TAB>text` copy table. Rows are read without their leading
+ * indentation: the extension compiler indents the whole userscript body, the
+ * text inside these template literals included, and a key that kept those
+ * spaces never matched, so the packaged extension fell back to English for
+ * every table-held Japanese string while still reporting language=ja.
+ */
+export function parseUiCopyTable(rows: string): Partial<Record<UiCopyKey, string>> {
     const copy: Partial<Record<UiCopyKey, string>> = {};
-    rows.trim().split('\n').forEach(row => {
+    rows.trim().split('\n').map(row => row.replace(/^ +/u, '')).forEach(row => {
         const tab = row.indexOf('\t');
         if (tab < 0) {
             const key = row.trim();

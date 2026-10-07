@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { nextExplicitUiLanguage, resolveUiLanguage } from '../../src/reader/app/i18n';
+import { nextExplicitUiLanguage, parseUiCopyTable, resolveUiLanguage } from '../../src/reader/app/i18n';
 import { publishedWebsiteRouteDefinitions } from '../../docs/.vitepress/locales/route-catalog';
 
 describe('interface language resolution', () => {
@@ -585,3 +585,20 @@ function uniqueEnglishCopy(values: string[]): string[] {
 function decodeMarkdownLinks(value: string): string {
     return value.replace(/\[([^\]]+)\]\([^)]+\)/g, '$1');
 }
+
+describe('copy tables survive the extension compiler', () => {
+    // UserScript Compiler indents the whole userscript body by four spaces,
+    // template-literal text included. The packaged toolbar reported
+    // language=ja yet labelled Study, Settings and every action in English
+    // because every table key after the first carried that indentation.
+    it('reads keys from rows indented the way the compiled content script indents them', () => {
+        const authored = '\nsettings\t設定\nnewTab\t学習\n';
+        const compiled = authored.split('\n').map(line => `    ${line}`).join('\n');
+        expect(parseUiCopyTable(compiled)).toEqual({ settings: '設定', newTab: '学習' });
+        expect(parseUiCopyTable(compiled)).toEqual(parseUiCopyTable(authored));
+    });
+
+    it('still ignores a row that starts with a tab', () => {
+        expect(parseUiCopyTable('settings\t設定\n\tstray')).toEqual({ settings: '設定' });
+    });
+});
