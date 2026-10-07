@@ -131,6 +131,8 @@ export interface TermSpanResolverOptions<TMatch, TFallback = never> {
     ) => boolean;
     /** Maximum original-source UTF-16 length considered from one start. */
     readonly maximumSourceLength?: number;
+    /** Dictionary evidence may break ties between analyses of the same source span. */
+    readonly compareMatches?: (a: ConfirmedTermSpan<TMatch>, b: ConfirmedTermSpan<TMatch>) => number;
 }
 
 interface SourceRange {
@@ -161,9 +163,11 @@ export class TermSpanResolver<TMatch, TFallback = never> {
     readonly #plan?: (candidate: TermSpanPreconfirmCandidate) => boolean;
     readonly #admit?: (candidate: TermSpanPreconfirmCandidate, match: TMatch, context: TermSpanAdmitContext) => boolean;
     readonly #maximumSourceLength: number;
+    readonly #compareMatches?: TermSpanResolverOptions<TMatch, TFallback>['compareMatches'];
 
     constructor(options: TermSpanResolverOptions<TMatch, TFallback>) {
         this.#target = options.target;
+        this.#compareMatches = options.compareMatches;
         this.#lookup = options.lookup;
         this.#fallback = options.fallback;
         this.#preconfirm = options.preconfirm;
@@ -187,6 +191,7 @@ export class TermSpanResolver<TMatch, TFallback = never> {
             confirmations,
             this.#admit,
             singleStartAdmitContext(planned, confirmations),
+            this.#compareMatches,
         );
     }
 
@@ -288,6 +293,7 @@ export class TermSpanResolver<TMatch, TFallback = never> {
                 confirmations,
                 this.#admit,
                 admitContext,
+                this.#compareMatches,
             );
             if (winner) {
                 confirmed.push(winner);
@@ -332,8 +338,13 @@ function firstConfirmedSpan<TMatch>(
     confirmations: ReadonlyMap<TermSpanLookupCandidate, TMatch>,
     admit?: (candidate: TermSpanPreconfirmCandidate, match: TMatch, context: TermSpanAdmitContext) => boolean,
     admitContext: TermSpanAdmitContext = { hasConfirmedSpanAt: () => false },
+    compareMatches?: (a: ConfirmedTermSpan<TMatch>, b: ConfirmedTermSpan<TMatch>) => number,
 ): ConfirmedTermSpan<TMatch> | null {
+    let winner: ConfirmedTermSpan<TMatch> | null = null;
     for (const item of planned) {
+        // Planning is longest-first. Evidence can choose a lemma, never shorten
+        // the winning span or replace an exact form with a deeper inflection.
+        if (winner && item.end < winner.end) break;
         if (!confirmations.has(item.request)) continue;
         // Map.get is present after Map.has; TMatch itself remains opaque and
         // may legitimately contain fields named start/end, which are never
@@ -346,7 +357,7 @@ function firstConfirmedSpan<TMatch>(
             surface,
             lookupCandidate: item.request.lookupCandidate,
         }, match, admitContext)) continue;
-        return {
+        const candidate: ConfirmedTermSpan<TMatch> = {
             kind: 'confirmed',
             start: item.start,
             end: item.end,
@@ -354,8 +365,11 @@ function firstConfirmedSpan<TMatch>(
             lookupCandidate: item.request.lookupCandidate,
             match,
         };
+        if (!winner || (candidate.lookupCandidate.depth === winner.lookupCandidate.depth
+            && compareMatches && compareMatches(candidate, winner) < 0)) winner = candidate;
+        if (!compareMatches) return winner;
     }
-    return null;
+    return winner;
 }
 
 async function fallbackSpansInGap<TFallback>(

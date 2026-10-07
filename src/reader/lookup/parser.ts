@@ -249,6 +249,9 @@ export class ReaderParser {
             // way (a provider echoing a whole clause back as one token).
             plan: candidate => !segmentsContainInternalParticle(text, fallbackSegments, candidate.start, candidate.end),
             admit: rejectUntrustworthySpanShapes(text, fallbackSegments, target),
+            compareMatches: (a, b) => a.match.dictionary && a.match.dictionary === b.match.dictionary
+                ? (b.match.score ?? 0) - (a.match.score ?? 0)
+                : 0,
         });
         const spans = (await Promise.all(target.pointerWordSegments(text).map(run => (
             resolver.resolveAll({ text, start: run.start, end: run.end })
@@ -327,7 +330,7 @@ export class ReaderParser {
                 const term = target.normalizeText(match.request.lookupCandidate.term);
                 if (cardMatchesLookupTerm(card, term, target)
                     && parserSpanRulesMatch(card, match.request, target)) {
-                    confirmed.set(match.request, { card });
+                    confirmed.set(match.request, { card, dictionary: match.entry.dictionary, score: match.entry.score });
                 }
             }
             return true;
@@ -1195,6 +1198,8 @@ type ParserSpanLookupSource = 'jpdb' | 'jiten' | 'local' | 'public-jiten';
 
 interface ParserSpanMatch {
     card: JPDBCard;
+    dictionary?: string;
+    score?: number;
 }
 
 interface PendingParserSpanLookup {
