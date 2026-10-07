@@ -300,6 +300,7 @@ import type { RtkInfo } from '../kanji/rtk';
 import { ReaderAudioActions } from '../audio/actions';
 import { canAttemptReaderAutoAudio } from '../audio/activation';
 import { registerReaderMenuCommands } from './menu-commands';
+import { installExtensionPopupActions } from './extension-popup-actions';
 import { bindReaderRuntimeEvents } from './runtime-events';
 import { detectReaderStartupJapaneseText, installReaderStartupBridge, loadReaderStartupSettings, type ReaderAppInitOptions, type ReaderSettingsSurface } from './startup';
 import { rejectAsReaderSettingsUnavailable } from './settings-unavailable-error';
@@ -1162,6 +1163,10 @@ export class ReaderApp {
     private installTopLevelCoreSurfaces(): void {
         this.registerMenuCommands();
         this.bindEvents();
+        installExtensionPopupActions({
+            language: () => this.settings.interfaceLanguage,
+            actions: () => this.floatingButton.pageActions(),
+        }, this.abortController.signal);
         this.disposeJpdbReviewBridge?.();
         this.disposeJpdbReviewBridge = installReaderStartupBridge();
     }

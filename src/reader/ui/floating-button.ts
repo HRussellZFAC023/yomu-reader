@@ -270,7 +270,7 @@ export class FloatingButtonController {
         this.syncButtonState();
         this.radial = new RadialMenuController({
             getButton: () => this.button,
-            buildActions: () => this.buildRadialActions(),
+            buildActions: () => this.pageActions(),
             menuLabel: () => uiText(this.settings?.interfaceLanguage ?? 'en', 'puckMenuLabel'),
         });
         this.installDragHandlers(button);
@@ -309,7 +309,7 @@ export class FloatingButtonController {
         button.setAttribute('aria-label', button.title);
     }
 
-    private buildRadialActions(): RadialAction[] {
+    pageActions(): RadialAction[] {
         const settings = this.settings;
         const actions = this.actions;
         if (!settings || !actions) return [];

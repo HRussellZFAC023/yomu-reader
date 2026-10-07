@@ -6,6 +6,7 @@
 // how the compiler's GM menu commands vanished from the popup. Only the
 // extension build installs this; userscript managers keep the GM menu.
 import { uiText } from './i18n';
+import { extensionRuntimeMayBeYomu } from './runtime-env';
 import type { InterfaceLanguage } from './types';
 import type { RadialAction } from '../ui/radial-menu';
 
@@ -47,9 +48,10 @@ interface ExtensionMessagingRuntime {
 
 /** Answers the toolbar popup until `signal` aborts. */
 export function installExtensionPopupActions(source: ExtensionPopupActionSource, signal: AbortSignal): void {
+    if (!extensionRuntimeMayBeYomu()) return;
     const runtime = extensionMessagingRuntime();
     const onMessage = runtime?.onMessage;
-    if (!onMessage || signal.aborted) return;
+    if (!runtime?.id || !onMessage || signal.aborted) return;
     const listener: PopupMessageListener = (message, sender, sendResponse) => {
         const request = popupActionsRequest(message);
         // Only this extension's own pages: a content script of another tab carries `tab`.

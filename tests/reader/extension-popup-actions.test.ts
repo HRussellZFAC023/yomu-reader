@@ -2,6 +2,7 @@
 // 2026-10-07): the page answers with the puck's actions and their state, and
 // the popup renders and runs them, with nothing kept in the background.
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { ReaderApp } from '../../src/reader/app/main';
 import {
     EXTENSION_POPUP_ACTIONS_CHANNEL,
     installExtensionPopupActions,
@@ -16,6 +17,7 @@ type Listener = (message: unknown, sender: { id?: string; tab?: unknown }, sendR
 const EXTENSION_ID = 'yomu-extension-id';
 
 function fakeRuntime() {
+    vi.stubGlobal('__YOMU_EXTENSION_BUILD__', true);
     const listeners = new Set<Listener>();
     const runtime = {
         id: EXTENSION_ID,
@@ -49,6 +51,43 @@ afterEach(() => {
 });
 
 describe('the page side of the extension popup', () => {
+    it('does not install in a userscript manager realm or an anonymous runtime', () => {
+        const { listeners } = fakeRuntime();
+        vi.stubGlobal('__YOMU_EXTENSION_BUILD__', false);
+        installExtensionPopupActions(puck().source, new AbortController().signal);
+        expect(listeners.size).toBe(0);
+
+        vi.stubGlobal('__YOMU_EXTENSION_BUILD__', true);
+        const addListener = vi.fn();
+        vi.stubGlobal('chrome', { runtime: { onMessage: { addListener, removeListener: vi.fn() } } });
+        installExtensionPopupActions(puck().source, new AbortController().signal);
+        expect(addListener).not.toHaveBeenCalled();
+    });
+
+    it('registers during real Reader startup even when the floating button is hidden', async () => {
+        const { send, listeners } = fakeRuntime();
+        const app = new ReaderApp();
+        const internals = app as unknown as {
+            installStyles(): void;
+            settings: { showFloatingButton: boolean; interfaceLanguage: 'en' };
+            installFab(): void;
+        };
+        // jsdom does not render stylesheet layers; this assertion exercises startup messaging.
+        internals.installStyles = vi.fn();
+        try {
+            await app.init();
+            internals.settings.showFloatingButton = false;
+            internals.settings.interfaceLanguage = 'en';
+            internals.installFab();
+            expect(document.querySelector('.jpdb-reader-fab')).toBeNull();
+            const list = await send({ channel: EXTENSION_POPUP_ACTIONS_CHANNEL, type: 'list' }) as ExtensionPopupActionList;
+            expect(list.actions.map(action => action.id)).toEqual(expect.arrayContaining(['power', 'audio', 'ocr']));
+        } finally {
+            app.destroy();
+        }
+        expect(listeners.size).toBe(0);
+    });
+
     it('lists the puck actions the popup cannot run itself, with their state', async () => {
         const { send } = fakeRuntime();
         const controller = new AbortController();
