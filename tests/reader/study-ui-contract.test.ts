@@ -117,6 +117,11 @@ describe('Reader Study UI contract', () => {
         expect(statsCss).toContain('.jpdb-reader-stats-panel-actions { flex-wrap: wrap; }');
     });
 
+    it('wraps the Stats actions below a heading instead of orphaning its last Japanese characters', () => {
+        expect(statsCss).toContain('.jpdb-reader-stats-panel-heading { min-width: 0; display: flex; flex-wrap: wrap;');
+        expect(statsCss).toContain('.jpdb-reader-stats-panel-heading h2 { flex: 1 0 auto; max-width: 100%; text-wrap: balance;');
+    });
+
     it('keeps the embedded Academy Study controls on one row in narrow hosts', () => {
         expect(academyShellCss).toContain('.academy-study-mount { position: relative; display: grid; gap: 12px; width: min(920px, 100%); max-width: 100%; min-width: 0;');
         expect(academyShellCss).toContain('overflow-x: clip;');

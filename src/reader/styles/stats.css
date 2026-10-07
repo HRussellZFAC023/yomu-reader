@@ -187,12 +187,16 @@
 .jpdb-reader-stats-panel-heading {
   min-width: 0;
   display: flex;
+  flex-wrap: wrap;
   align-items: baseline;
   justify-content: space-between;
   gap: 12px;
 }
 
 .jpdb-reader-stats-panel-heading h2 {
+  flex: 1 0 auto;
+  max-width: 100%;
+  text-wrap: balance;
   margin: 0;
   color: var(--jpdb-reader-text);
   font-size: 14px;
