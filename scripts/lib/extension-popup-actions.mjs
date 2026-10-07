@@ -1,6 +1,6 @@
 // Own the complete popup entry point. Appending to the compiler's popup leaves
 // its legacy menu and in-page settings injection active alongside our actions.
-export const EXTENSION_POPUP_ACTIONS_MARKER = 'yomu-extension-popup-actions:v2';
+const EXTENSION_POPUP_ACTIONS_MARKER = 'yomu-extension-popup-actions:v2';
 const CHANNEL = 'yomu-popup-actions';
 const SETTINGS_PATH = 'newtab/index.html#settings=appearance';
 

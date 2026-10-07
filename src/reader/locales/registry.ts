@@ -1,4 +1,4 @@
-import { ENGLISH_FALLBACK_MESSAGES, type LocaleMessageKey } from './catalog';
+import { ENGLISH_FALLBACK_MESSAGES } from './catalog';
 import { LOCALE_CATALOGS } from './catalogs';
 import { copyTierOf, type CopyTier } from './copy-tiers';
 import { JAPANESE_SETUP_MESSAGES } from './japanese-setup';
@@ -32,10 +32,6 @@ export interface RegisteredMessage {
 /** `setup.*` — the namespace the 32 machine-draft catalogues already fill. */
 export function setupMessageIds(): readonly MessageId[] {
     return Object.keys(ENGLISH_FALLBACK_MESSAGES).map((key) => `setup.${key}` as MessageId);
-}
-
-export function setupMessageIdFor(key: LocaleMessageKey): MessageId {
-    return `setup.${key}` as MessageId;
 }
 
 /**

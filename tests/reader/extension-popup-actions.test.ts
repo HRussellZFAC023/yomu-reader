@@ -145,8 +145,10 @@ describe('the page side of the extension popup', () => {
 describe('the toolbar popup', () => {
     // Copied from the actual compiler output before hardening on 2026-10-07.
     // The legacy listeners and complete HTML must be present in this regression.
+    // HTML is inert fixture text; its relative asset URLs belong to compiler output,
+    // not this fixture directory.
     const compilerPopup = readFileSync('tests/fixtures/extension/compiler-popup.js', 'utf8');
-    const compilerHtml = readFileSync('tests/fixtures/extension/compiler-popup.html', 'utf8');
+    const compilerHtml = readFileSync('tests/fixtures/extension/compiler-popup.html.txt', 'utf8');
 
     function mountPopup(answer: (message: { type: string; id: string }, tabId: number, options: unknown) => unknown) {
         document.body.innerHTML = compilerHtml;

@@ -14,7 +14,7 @@ export interface CatalogBrowseCopy {
 }
 
 /** Positional order of the `categories` tuple below. */
-export const CATALOG_BROWSE_CATEGORY_ORDER = [
+const CATALOG_BROWSE_CATEGORY_ORDER = [
     'terms',
     'names',
     'grammar',

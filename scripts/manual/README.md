@@ -153,3 +153,7 @@ measures only the public vocabulary client. It caps input at 6,000 characters,
 requests at 40, and each request at five seconds. Reports go to
 `artifacts/parser-performance/profile.json` by default. This does not measure an
 installed desktop app, local dictionary performance, or annotation paint timing.
+
+### Settings visual QA
+
+After building, run `YOMU_VISUAL_OUTPUT=/tmp/yomu-settings-visual node scripts/manual/settings-visual-qa.mjs` to capture the built Study and Settings screens in Chromium and WebKit. Screenshots and the manifest stay outside the repository. Optional `YOMU_VISUAL_ENGINES`, `YOMU_VISUAL_SIZES`, `YOMU_VISUAL_THEMES` and `YOMU_VISUAL_LANGUAGES` select the matrix.

@@ -16,7 +16,7 @@ import { credentialValueFromReader } from './credential-form';
 
 
 /** What may be stored as Yomu's own interface language. */
-export const SELECTABLE_INTERFACE_LANGUAGES = Object.freeze(['auto', 'en', 'ja']) as readonly ReaderSettings['interfaceLanguage'][];
+const SELECTABLE_INTERFACE_LANGUAGES = Object.freeze(['auto', 'en', 'ja']) as readonly ReaderSettings['interfaceLanguage'][];
 export const CUSTOM_FONT_FAMILY_VALUE = '__custom_font_family__';
 type FontFamilySettingName = 'readerFontFamily' | 'popupFontFamily' | 'subtitleFontFamily';
 type SourcePriorityFormRow = readonly [string, keyof ReaderSettings, keyof ReaderSettings];
@@ -784,7 +784,7 @@ export function readDictionaryLookupLinks(data: FormData): DictionaryLookupLink[
     return normalizeDictionaryLookupLinks(lookupLinkRows(data), false);
 }
 
-export function lookupLinkRows(data: FormData): DictionaryLookupLink[] {
+function lookupLinkRows(data: FormData): DictionaryLookupLink[] {
     const get = (key: string) => String(data.get(key) ?? '');
     const count = Math.max(0, Math.min(MAX_LOOKUP_LINK_ROWS, Number(get('dictionaryLookupLinkCount')) || 0));
     const links: DictionaryLookupLink[] = [];

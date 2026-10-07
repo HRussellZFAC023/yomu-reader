@@ -5,7 +5,6 @@ import { uiText } from '../../../src/reader/app/i18n';
 import { ANKI_SOURCE_ID, JITEN_DEFINITION_SOURCE_ID, JPDB_DEFINITION_SOURCE_ID } from '../../../src/reader/app/constants';
 import { INSTALL_GUIDE_URL } from '../../../src/reader/app/userscript-update';
 import { CURRENT_YOMU_VERSION } from '../../../src/reader/app/version';
-import { applyNestedParsePlan } from '../../../src/reader/lookup/nested-text-parse';
 import { findRecommendedDictionary } from '../../../src/reader/dictionaries/recommended';
 import { accentToRgba, accessibleOcrBackgroundColor, accessibleOcrBackgroundOpacity, DEFAULT_SETTINGS as BASE_DEFAULT_SETTINGS, effectiveFuriganaMode, effectiveReaderTextColorSource, normalizeReaderSettings, shouldLookupAnkiStatus } from '../../../src/reader/settings/index';
 import { blendRgba, contrastRatio, cssColorToRgba, rgbaToHex } from '../../../src/reader/theme/color-utils';
@@ -14,7 +13,7 @@ import { JAPANESE_ROUNDED_FONT_FAMILY } from '../../../src/reader/settings/font-
 import { CUSTOM_FONT_FAMILY_VALUE } from '../../../src/reader/settings/form-read';
 import { reconcileApiCredentialInputs } from '../../../src/reader/settings/dialog-controller';
 import { KANJI_SIMILAR_WORDS_SOURCE_ID, orderedDefinitionSourceIds, orderedKanjiSourceIds } from '../../../src/reader/sources/sections';
-import type { AnkiFieldMappingRole, AnkiFieldMappings, JPDBCard, JPDBToken, ReaderSettings } from '../../../src/reader/app/types';
+import type { AnkiFieldMappingRole, AnkiFieldMappings, ReaderSettings } from '../../../src/reader/app/types';
 import { testEnSettings } from '../helpers/settings-fixture';
 
 // These tests assert English UI copy; pin the interface language for
@@ -198,34 +197,6 @@ export function expectFontFamilyOptions(form: HTMLFormElement, controlName: 'rea
     expect(optionText(form, controlName, CUSTOM_FONT_FAMILY_VALUE)).toBe(labels.customLabel);
 }
 
-export function settingsToken(surface: string, start: number, reading = surface): JPDBToken {
-    return {
-        card: settingsCard(surface, reading),
-        start,
-        end: start + surface.length,
-        length: surface.length,
-        rubies: reading === surface ? [] : [{ text: reading, start, end: start + surface.length, length: surface.length }],
-        pitchClass: '',
-    };
-}
-
-function settingsCard(spelling: string, reading = spelling): JPDBCard {
-    return {
-        vid: 1464530,
-        sid: 0,
-        rid: 0,
-        spelling,
-        reading,
-        frequencyRank: null,
-        partOfSpeech: [],
-        meanings: [],
-        cardState: ['not-in-deck'],
-        pitchAccent: [],
-        wordWithReading: null,
-        source: 'fallback',
-    };
-}
-
 // The original settings-form.test.ts declared no module-level lifecycle hooks.
 // This registration mirrors the sibling split layout (subtitles-controller/) so
 // each topic file calls it once; it is intentionally a no-op.
@@ -243,7 +214,6 @@ export {
     JPDB_DEFINITION_SOURCE_ID,
     INSTALL_GUIDE_URL,
     CURRENT_YOMU_VERSION,
-    applyNestedParsePlan,
 
     findRecommendedDictionary,
     accentToRgba,
@@ -271,6 +241,5 @@ export {
 export type {
     AnkiFieldMappingRole,
     AnkiFieldMappings,
-    JPDBToken,
     ReaderSettings,
 };

@@ -78,25 +78,6 @@ export interface LanguageProfileV2 {
 
 export type LanguageProfile = LanguageProfileV2;
 
-/**
- * The three language axes, resolved and separately addressable.
- *
- * They are three answers to three different questions, and no code may derive
- * one from another:
- *
- *   TARGET    what am I reading?      -> parsing, morphology, audio, OCR, mining
- *   OUTPUT    what do I understand?   -> definitions, example translations
- *   INTERFACE what does Yomu speak?   -> buttons, settings, errors, onboarding
- *
- * The case that names the rule: a Korean speaker studying Japanese wants
- * Japanese parsing, Korean definitions, and — very possibly — an English UI.
- */
-export interface LanguageSelection {
-    targetLanguage: LanguageTag;
-    outputLanguage: LanguageTag;
-    interfaceLanguage: LocalePreference;
-}
-
 export type TextDirection = 'ltr' | 'rtl';
 
 export interface LanguageTextSegment {

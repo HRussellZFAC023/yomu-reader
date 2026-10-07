@@ -19,8 +19,8 @@ import type { LanguageTag } from './types';
 export const SLICE1_LEARNER_LANGUAGE_IDS = LEARNER_LANGUAGE_IDS;
 export type Slice1LearnerLanguageId = LearnerLanguageId;
 
-export const SLICE1_TARGET_LANGUAGE = 'ja' as const;
-export const DEFAULT_SLICE1_LEARNER_LANGUAGE = 'en' as const;
+const SLICE1_TARGET_LANGUAGE = 'ja' as const;
+const DEFAULT_SLICE1_LEARNER_LANGUAGE = 'en' as const;
 export type LearningTargetRosterId = typeof SLICE1_TARGET_LANGUAGE | LearnerLanguageId;
 export type StudyTargetReadiness = 'full' | 'reading-only' | 'planned';
 export type LearningTargetRosterEntry = Omit<LearnerLanguage, 'id'> & {
@@ -77,19 +77,6 @@ export const LEARNING_TARGET_ROSTER: readonly LearningTargetRosterEntry[] = Obje
     })),
 ]);
 
-export function learningTargetRosterEntry(id: LearningTargetRosterId): LearningTargetRosterEntry {
-    const target = LEARNING_TARGET_ROSTER.find(language => language.id === id);
-    if (!target) throw new Error(`Unknown learning target: ${id}`);
-    return target;
-}
-
-export function studyTargetReadinessMeets(
-    actual: StudyTargetReadiness,
-    claimed: Exclude<StudyTargetReadiness, 'planned'>,
-): boolean {
-    return actual === 'full' || actual === claimed;
-}
-
 export const SLICE1_LEARNER_LANGUAGE_TAGS: readonly LanguageTag[] = Object.freeze(
     LEARNER_LANGUAGES.map(language => canonicalLanguageTag(language.runtimeLocale) ?? language.runtimeLocale),
 );
@@ -97,12 +84,6 @@ export const SLICE1_LEARNER_LANGUAGE_TAGS: readonly LanguageTag[] = Object.freez
 export function canonicalTagForSlice1Language(id: Slice1LearnerLanguageId): LanguageTag {
     const runtimeLocale = learnerLanguageById(id).runtimeLocale;
     return canonicalLanguageTag(runtimeLocale) ?? runtimeLocale;
-}
-
-export function canonicalTagForLearningTarget(id: LearningTargetRosterId): LanguageTag {
-    return id === SLICE1_TARGET_LANGUAGE
-        ? SLICE1_TARGET_LANGUAGE
-        : canonicalTagForSlice1Language(id);
 }
 
 export function learningTargetRosterIdForTag(value: unknown): LearningTargetRosterId | null {

@@ -13,7 +13,7 @@ export function normalizedLookupText(text: string): string {
  * Detection capability, resolved through the active learning target rather
  * than against a Japanese script regex.
  */
-export function isLookupableTargetLanguageText(text: string): boolean {
+function isLookupableTargetLanguageText(text: string): boolean {
     return activeLearningTarget().isLookupableText(text);
 }
 

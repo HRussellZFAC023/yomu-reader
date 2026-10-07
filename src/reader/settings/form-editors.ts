@@ -433,7 +433,7 @@ function renderDictionaryLookupLinkRows(rows: DictionaryLookupLink[]): string {
     `;
 }
 
-export function lookupPillEditorRows(
+function lookupPillEditorRows(
     links: DictionaryLookupLink[],
     localFrequencyPreferences: DictionaryPreference[],
 ): DictionaryLookupLink[] {
