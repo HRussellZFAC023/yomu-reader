@@ -26,7 +26,7 @@ Some rows say Not yet described. That marks a real stored setting whose wording 
 | Bunpro frontend API token | — | empty | `bunproFrontendApiToken` |
 | Not yet described | — | empty | `bunproFrontendApiTokenExpiresAt` |
 | WaniKani personal access token | — | empty | `wanikaniApiToken` |
-| Enhance dictionary pages | — | on | `jpdbPageEnhancementsEnabled` |
+| Enhance JPDB and Jiten pages | — | on | `jpdbPageEnhancementsEnabled` |
 | Add sources to word/search pages | — | on | `jpdbPageWordEnhancementsEnabled` |
 | Add sources to kanji pages | — | on | `jpdbPageKanjiEnhancementsEnabled` |
 | New tab JPDB deck | — | All study decks (`all`) | `newTabJpdbDeck` |

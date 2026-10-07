@@ -108,7 +108,7 @@ const COPY = {
         gradeTargetYomuLocalAndAnki: `Grades ${ACADEMY_SRS_LABEL} + Anki card: {target}`,
         missingAnkiCardId: 'Missing Anki card id.',
         jpdbPageEnhancements: 'Dictionary site enhancements',
-        jpdbPageEnhancementsEnabled: 'Enhance dictionary pages',
+        jpdbPageEnhancementsEnabled: 'Enhance JPDB and Jiten pages',
         jpdbPageWordEnhancementsEnabled: 'Add sources to word/search pages',
         jpdbPageKanjiEnhancementsEnabled: 'Add sources to kanji pages',
         fivePoint: 'Provider default',
@@ -1653,7 +1653,7 @@ gradeTargetBunproAndAnki	Bunpro + Ankiカードを採点: {target}
 gradeTargetYomuLocalAndAnki	Academy + Ankiカードに記録: {target}
 missingAnkiCardId	AnkiカードIDがありません。
 jpdbPageEnhancements	辞書サイト拡張
-jpdbPageEnhancementsEnabled	辞書ページを拡張
+jpdbPageEnhancementsEnabled	JPDB・Jitenのページを拡張
 jpdbPageWordEnhancementsEnabled	単語・検索ページにソースを追加
 jpdbPageKanjiEnhancementsEnabled	漢字ページにソースを追加
 fivePoint	サービスの標準評価

@@ -34,6 +34,7 @@ describe('settings form localization', () => {
         const form = renderSettingsTestForm(DEFAULT_SETTINGS);
         expect(form.querySelector('.jpdb-reader-proxy-guide')).toBeNull();
         expect(form.querySelector('[name="corsProxyUrl"]')).not.toBeNull();
+        expect(labelForControl(form, 'jpdbPageEnhancementsEnabled')).toBe('Enhance JPDB and Jiten pages');
         const link = form.querySelector('[data-proxy-setup-link]')!;
         expect(link.getAttribute('href')).toMatch(/\/workers\/jpdb-public-proxy$/);
         expect(link.textContent).toBe('Proxy setup');
@@ -373,6 +374,8 @@ describe('settings form localization', () => {
         expect(labelForControl(form, 'shortcuts.studyReveal')).toContain('学習: カードを表示');
         expect(labelForControl(form, 'shortcuts.studyNext')).toContain('学習: 次のカード');
         expect(labelForControl(form, 'immersionKitLimit')).toBe('単語ごとの例文数（0 = すべて）');
+        // The label names the sites it changes now that the explanation is gone.
+        expect(labelForControl(form, 'jpdbPageEnhancementsEnabled')).toBe('JPDB・Jitenのページを拡張');
         expect(settingsText(form, '.jpdb-reader-lookup-link-head span:nth-child(3)')).toBe('検索URLテンプレート');
     });
 
