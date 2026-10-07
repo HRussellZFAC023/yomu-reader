@@ -9,6 +9,16 @@ export interface ReviewedDocsMessage {
 }
 
 const HOSTED_DOCS_JA_COPY: Record<string, string> = {
+    "Yomu reads Japanese immediately after installation, without a language picker or setup gate.": "よむは言語の選択や初期設定を待たず、インストール後すぐに日本語を読めます。",
+    "Popup actions are grouped under More actions. Saving lets you choose a deck; grading appears only with a connected review service.": "ポップアップの操作を「その他」にまとめました。保存時にデッキを選べ、評価ボタンは復習サービスとの連携時だけ表示されます。",
+    "Settings have fewer controls and repeated labels. Yomu no longer annotates its own settings or source headings.": "設定の項目と重複する説明を減らしました。設定や情報源の見出しに、よむ自身が注釈を付けることもなくなりました。",
+    "Desktop opens from the tray and captures the screen with one shortcut. The home screen and region selector are removed.": "Desktopはトレイから操作でき、ショートカット一つで画面を読み取ります。ホーム画面と範囲選択を削除しました。",
+    "Desktop uses the original screen text for hover lookup instead of drawing a second copy. Settings use the same portable backup format as the browser.": "Desktopは文字を重ねて描き直さず、元の画面の文字にマウスを合わせて検索できます。設定にはブラウザーと共通のバックアップ形式を使います。",
+    "Study starts untimed by default. Starter words work offline, and ordinary vocabulary no longer opens as a kanji-writing drill.": "学習は初期状態で時間を計りません。入門単語はオフラインでも練習でき、通常の単語が漢字の書き取りとして開く問題も修正しました。",
+    "Fixed dictionary lookups that preferred reading homophones or guessed conjugations over the original Japanese. Large public parsing requests are split before they exceed the server limit.": "元の日本語より同音語や推測した活用形が優先される検索を修正しました。公開解析への大きなリクエストは、サーバーの上限を超える前に分割します。",
+    "Subtitles stay within their cue times and do not use the playback clock of YouTube ads. Image OCR has a smaller accessible status indicator.": "字幕は指定された時刻だけ表示し、YouTube広告の再生時刻を使わなくなりました。画像OCRの状態表示も、アクセシビリティを保って小さくしました。",
+    "Safari Userscripts settings reach Study correctly. Dictionary downloads keep reporting progress and can use a checked mirror for a failed first download.": "SafariのUserscriptsで保存した設定が正しく学習ページに届くようになりました。辞書ダウンロードの進捗を引き継ぎ、初回ダウンロードが失敗した場合は検証済みのミラーを利用できます。",
+    "The extension toolbar now uses one working set of page actions and opens Settings in the packaged Study page.": "拡張機能のツールバーを重複のないページ操作にまとめ、設定は拡張機能内の学習ページで開くようにしました。",
     "Hosted Study now reconciles when the installed Reader's authoritative settings bridge arrives, so a provisional setup screen cannot remain stuck or overwrite those settings.": 'ホスト版Studyは、インストール済みReaderの正式な設定ブリッジが届くと設定を再調整し、暫定セットアップ画面が残り続けたり、その設定を上書きしたりしないようになりました。',
     "Firefox's packaged Study page and the Reader on ordinary websites now use one canonical extension settings store, propagate changes live in both directions, and remove stranded unprefixed managed settings during an explicit factory reset.": 'Firefoxのパッケージ版Studyページと通常のウェブサイト上のReaderは、拡張機能の1つの正式な設定ストアを共有し、変更を双方向へ即時反映するようになりました。明示的にファクトリーリセットした場合は、古い形式の接頭辞なし管理対象設定も削除します。',
     'Importing a settings backup now locks Save and competing actions in that settings surface while the restore runs, compensates storage or dictionary work that fails before final settings publication, and prevents a stale save from overwriting the imported settings.': '設定バックアップの復元中は、その設定画面の保存と競合する操作を無効にし、最終設定の公開前に失敗したストレージまたは辞書の処理を元に戻し、古い保存処理がインポート済み設定を上書きしないようになりました。',
