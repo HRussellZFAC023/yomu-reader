@@ -6,6 +6,7 @@ export const YOMU_GAMING_CHANNELS = {
     requestOcr: 'yomu-gaming:request-ocr',
     showOverlay: 'yomu-gaming:show-overlay',
     hideOverlay: 'yomu-gaming:hide-overlay',
+    setLayerRegions: 'yomu-gaming:set-layer-regions',
     showApp: 'yomu-gaming:show-app',
     hideApp: 'yomu-gaming:hide-app',
     openExternal: 'yomu-gaming:open-external',
@@ -51,7 +52,6 @@ export interface YomuGamingCaptureSource {
     displayId: string;
     thumbnailDataUrl: string;
     size: YomuGamingImageSize;
-    selection?: YomuGamingSelectionRect;
 }
 
 export type YomuGamingOcrProvider = 'google-lens' | 'cloud-vision' | 'local-service' | 'off';
@@ -75,8 +75,6 @@ export interface YomuGamingOcrResponse {
     error?: string;
 }
 
-export type YomuGamingCaptureMode = 'instant' | 'area';
-
 export interface YomuGamingSettingsSnapshot {
     version: 1;
     syncedAt: string;
@@ -94,8 +92,9 @@ export interface YomuGamingBridge {
     recaptureFrozenFrame(): Promise<YomuGamingCaptureSource>;
     openScreenSettings(): Promise<void>;
     requestOcr(request: YomuGamingOcrRequest): Promise<YomuGamingOcrResponse>;
-    showOverlay(mode?: YomuGamingCaptureMode): Promise<void>;
+    showOverlay(): Promise<void>;
     hideOverlay(): Promise<void>;
+    setLayerRegions?(regions: YomuGamingSelectionRect[]): Promise<void>;
     showApp(): Promise<void>;
     hideApp(): Promise<void>;
     openExternal(url: string): Promise<void>;

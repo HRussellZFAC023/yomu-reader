@@ -13,9 +13,7 @@ const mainPath = path.join(appRoot, 'dist-gaming', 'electron', 'main.cjs');
 const screenshotPath = path.join(appRoot, 'qa-artifacts', 'gaming-app-smoke.png');
 const settingsActionsScreenshotPath = path.join(appRoot, 'qa-artifacts', 'gaming-app-settings-actions-smoke.png');
 const settingsAccountScreenshotPath = path.join(appRoot, 'qa-artifacts', 'gaming-app-settings-account-smoke.png');
-const overlayScreenshotPath = path.join(appRoot, 'qa-artifacts', 'gaming-app-overlay-smoke.png');
 const instantResultScreenshotPath = path.join(appRoot, 'qa-artifacts', 'gaming-app-instant-result-smoke.png');
-const areaResultScreenshotPath = path.join(appRoot, 'qa-artifacts', 'gaming-app-area-result-smoke.png');
 const fixturePath = path.join(appRoot, 'tests', 'reader', 'fixtures', 'gaming-japanese-page.html');
 const fixtureCapturePath = path.join(appRoot, 'qa-artifacts', 'gaming-browser-fixture.png');
 const hardwareGapPath = path.join(appRoot, 'qa-artifacts', 'gaming-hardware-gap.txt');
@@ -64,7 +62,6 @@ const FIXTURE_TEXT_BAR = {
 // Which part of the capture an OCR request's image covers, as fractions of the capture.
 // Instant capture sends the whole screen; the area drag sends the dialogue box.
 const FULL_CAPTURE_REGION = { left: 0, top: 0, right: 1, bottom: 1 };
-const AREA_CAPTURE_REGION = { left: 0.1, top: 0.55, right: 0.92, bottom: 0.9 };
 
 if (!existsSync(mainPath)) {
     throw new Error('Missing dist-gaming/electron/main.cjs. Run npm run build:gaming first.');
@@ -74,7 +71,7 @@ mkdirSync(path.dirname(screenshotPath), { recursive: true });
 rmSync(userDataDir, { recursive: true, force: true });
 let app;
 let smokePassed = false;
-let fixtureOcr = { requests: [], url: '', setCaptureRegion: () => undefined, setExtraLines: () => undefined, close: async () => undefined };
+let fixtureOcr = { requests: [], url: '', setCaptureRegion: () => undefined, close: async () => undefined };
 const watchdog = setTimeout(() => {
     console.error(`[gaming-smoke] Timed out after ${SMOKE_TIMEOUT_MS}ms.`);
     try {
@@ -154,6 +151,7 @@ try {
     await page.locator('.yomu-gaming-home [data-action="instant-capture"]').click();
     const overlay = await waitForOverlayWindow(app, 'instant');
     await overlay.waitForSelector('[data-yomu-gaming-overlay-ready="true"][data-capture-mode="instant"][data-overlay-mode="result"]', { timeout: 10_000 });
+    await assertNonActivatingLayer(overlay);
     await assertInlineOcrResult(overlay, 'instant capture', instantResultScreenshotPath);
     await assertInlineReaderShortcutStaysPrivate(overlay);
     const fullScreenRequest = fixtureOcr.requests.at(-1);
@@ -166,45 +164,8 @@ try {
     step('open native settings from the inline Reader shortcut');
     await assertInlineReaderSettingsLandsOnSettings(page, overlay);
     await returnToHome(page);
-    step('open area capture overlay');
-    await homeCaptureButton(page).scrollIntoViewIfNeeded();
-    await homeCaptureButton(page).click();
-    const areaOverlay = await waitForOverlayWindow(app, 'area');
-    await areaOverlay.waitForSelector('[data-yomu-gaming-overlay-ready="true"][data-capture-mode="area"][data-overlay-mode="idle"]', { state: 'attached', timeout: 10_000 });
-    const overlayState = await areaOverlay.evaluate(() => {
-        const shell = document.querySelector('[data-yomu-gaming-overlay-ready="true"]');
-        const style = shell instanceof HTMLElement ? getComputedStyle(shell) : null;
-        return {
-            mode: shell?.getAttribute('data-overlay-mode') ?? '',
-            visibleChrome: document.querySelectorAll('.overlay-status,.overlay-result,.overlay-selection').length,
-            background: style?.backgroundColor ?? '',
-        };
-    });
-    if (overlayState.mode !== 'idle' || overlayState.visibleChrome !== 0) {
-        throw new Error(`Yomu Gaming overlay did not render as an idle minimal overlay: ${JSON.stringify(overlayState)}`);
-    }
-    await areaOverlay.screenshot({ path: overlayScreenshotPath });
-    step('drag OCR crop over the simulated screen’s dialogue box');
-    fixtureOcr.setCaptureRegion(AREA_CAPTURE_REGION);
-    await dragFixtureDialogueSelection(areaOverlay, AREA_CAPTURE_REGION);
-    await areaOverlay.waitForSelector('[data-yomu-gaming-overlay-ready="true"][data-capture-mode="area"][data-overlay-mode="result"]', { timeout: 10_000 });
-    await assertInlineOcrResult(areaOverlay, 'area capture', areaResultScreenshotPath);
-    const areaRequest = fixtureOcr.requests.at(-1);
-    if (!areaRequest) throw new Error('Fixture OCR endpoint did not receive an overlay crop.');
-    // The crop has to be the region that was dragged, or the box the fixture hands back for
-    // it is anchored to ink that is not in the picture and the register check below is
-    // measuring a coincidence.
-    const expectedCrop = {
-        width: Math.round((AREA_CAPTURE_REGION.right - AREA_CAPTURE_REGION.left) * fullScreenRequest.png.width),
-        height: Math.round((AREA_CAPTURE_REGION.bottom - AREA_CAPTURE_REGION.top) * fullScreenRequest.png.height),
-    };
-    if (Math.abs(areaRequest.png.width - expectedCrop.width) > 6 || Math.abs(areaRequest.png.height - expectedCrop.height) > 6) {
-        throw new Error(`Area capture cropped ${JSON.stringify(areaRequest.png)} of the capture, not the dragged ${JSON.stringify(expectedCrop)}.`);
-    }
-    step('open settings from the overlay toolbar');
-    await assertOverlaySettingsLandsOnSettings(page, areaOverlay);
-    console.log(`Yomu Gaming smoke screenshots: ${path.relative(appRoot, screenshotPath)}, ${path.relative(appRoot, settingsActionsScreenshotPath)}, ${path.relative(appRoot, settingsAccountScreenshotPath)}, ${path.relative(appRoot, instantResultScreenshotPath)}, ${path.relative(appRoot, overlayScreenshotPath)}, ${path.relative(appRoot, areaResultScreenshotPath)}`);
-    console.log(`Yomu Gaming fixture OCR captures: instant ${fullScreenRequest.png.width}x${fullScreenRequest.png.height}, area ${areaRequest.png.width}x${areaRequest.png.height}; hardware gap note: ${path.relative(appRoot, hardwareGapPath)}`);
+    assertSmoke(await page.locator('[data-action="area-capture"]').count() === 0, 'Removed region selector is still offered.');
+    console.log(`Desktop fixture OCR: ${fullScreenRequest.png.width}x${fullScreenRequest.png.height}; fresh recapture passed. Native hardware gaps: ${path.relative(appRoot, hardwareGapPath)}`);
     smokePassed = true;
 } finally {
     await closeElectronApp(app);
@@ -244,10 +205,6 @@ function electronLaunchEnv() {
         ...process.env,
         ELECTRON_DISABLE_SANDBOX: '1',
     };
-}
-
-function homeCaptureButton(page) {
-    return page.locator('.yomu-gaming-home [data-action="area-capture"]').first();
 }
 
 async function openSettingsPanel(page, panel) {
@@ -353,6 +310,16 @@ async function renderBrowserFixture() {
 
 // The scene the shortcut re-reads: the same frame with a hover tooltip open over the sky,
 // which is what a player presses the shortcut again for.
+async function assertNonActivatingLayer(overlay) {
+    const policy = await app.evaluate(({ BrowserWindow }) => {
+        const window = BrowserWindow.getAllWindows().find(window => window.webContents.getURL().includes('#overlay-instant'));
+        return { focused: window.isFocused(), focusable: window.isFocusable(), top: window.isAlwaysOnTop(), protected: window.isContentProtected() };
+    });
+    assertSmoke(!policy.focused && !policy.focusable && policy.top, `Desktop layer stole focus or lost its window policy: ${JSON.stringify(policy)}`);
+    const backdropOpacity = await overlay.locator('.overlay-backdrop').evaluate(node => getComputedStyle(node).opacity);
+    assertSmoke(backdropOpacity === '0', 'Instant lookup still obscures the live app with a frozen screenshot.');
+}
+
 async function assertShortcutRecapturesOverOverlay(overlay) {
     const before = await overlay.evaluate(() => {
         window.__yomuSmokePreviousOverlayDocument = true;
@@ -360,13 +327,6 @@ async function assertShortcutRecapturesOverOverlay(overlay) {
     });
     const requestCount = fixtureOcr.requests.length;
     writeGeneratedGameFixturePng(fixtureCapturePath, { tooltip: true });
-    // The frame also caught Yomu's own toolbar on its way off the screen, and OCR read its
-    // "よむ": the overlay must not hand that back as a word.
-    const toolbarOnScreen = await overlay.evaluate(() => {
-        const rect = document.querySelector('.overlay-toolbar').getBoundingClientRect();
-        return { left: rect.left / innerWidth, top: rect.top / innerHeight, width: rect.width / innerWidth, height: rect.height / innerHeight };
-    });
-    fixtureOcr.setExtraLines([{ text: 'よむ', box: toolbarOnScreen }]);
     try {
         await app.evaluate(() => globalThis.__yomuGamingPressCaptureShortcut());
         await overlay.waitForFunction(
@@ -377,10 +337,8 @@ async function assertShortcutRecapturesOverOverlay(overlay) {
         );
     } finally {
         writeGeneratedGameFixturePng(fixtureCapturePath);
-        fixtureOcr.setExtraLines([]);
     }
     const after = await overlay.evaluate(() => document.querySelector('img.overlay-backdrop')?.getAttribute('src') ?? '');
-    await assertNoWordsOnOwnChrome(overlay);
     const overlayVisible = await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()
         .some(window => window.webContents.getURL().includes('#overlay-') && window.isVisible()));
     assertSmoke(overlayVisible, 'The capture shortcut closed the overlay instead of reading the screen again.');
@@ -391,36 +349,6 @@ async function assertShortcutRecapturesOverOverlay(overlay) {
     );
     // The reader boots again on the new frame; later steps drive it.
     await ocrWordForVisualText(overlay, '冒険');
-}
-
-async function assertNoWordsOnOwnChrome(overlay) {
-    const reading = await overlay.evaluate(() => {
-        // Both sides as fractions of the screen the overlay covers: where the toolbar sits,
-        // and where each recognized line was read from.
-        const rect = document.querySelector('.overlay-toolbar').getBoundingClientRect();
-        const toolbar = { left: rect.left / innerWidth, right: rect.right / innerWidth, top: rect.top / innerHeight, bottom: rect.bottom / innerHeight };
-        const lines = [...document.querySelectorAll('[data-ocr-line]')];
-        const readFromToolbar = line => {
-            const left = Number(line.dataset.boxLeft);
-            const top = Number(line.dataset.boxTop);
-            return left < toolbar.right && toolbar.left < left + Number(line.dataset.boxWidth)
-                && top < toolbar.bottom && toolbar.top < top + Number(line.dataset.boxHeight);
-        };
-        return {
-            ownLines: lines.filter(line => (line.dataset.ocrText || '').includes('よむ')).length,
-            linesReadFromToolbar: lines.filter(readFromToolbar).length,
-            dialogueLines: lines.filter(line => (line.dataset.ocrText || '').includes('冒険')).length,
-        };
-    });
-    assertSmoke(reading.ownLines === 0 && reading.linesReadFromToolbar === 0, `Yomu Gaming read its own toolbar back as game text: ${JSON.stringify(reading)}`);
-    assertSmoke(reading.dialogueLines > 0, `Yomu Gaming dropped the game's dialogue along with its own toolbar: ${JSON.stringify(reading)}`);
-    // Windows and macOS keep a protected window out of screen grabs; Linux has no such switch.
-    if (process.platform === 'darwin' || process.platform === 'win32') {
-        const protectedOverlay = await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()
-            .filter(window => window.webContents.getURL().includes('#overlay-'))
-            .every(window => window.isContentProtected()));
-        assertSmoke(protectedOverlay, 'The Yomu Gaming overlay can be captured by screen grabs, its own included.');
-    }
 }
 
 function writeGeneratedGameFixturePng(filePath, { tooltip = false } = {}) {
@@ -514,7 +442,7 @@ async function assertNeutralFirstRunClarity(page) {
     assertSmoke(JSON.stringify(actionNames) === JSON.stringify(['choose-target', 'open-settings']), `Yomu Gaming neutral first run exposed capture actions: ${JSON.stringify(actionNames)}`);
     assertSmoke(shape.shortcuts === 0, `Yomu Gaming neutral first run advertised ${shape.shortcuts} capture shortcuts before target choice.`);
     const copy = await home.innerText();
-    const missing = ['Yomu Gaming', 'Choose the language you want to read', 'Choose a language']
+    const missing = ['よむ Desktop', 'Choose the language you want to read', 'Choose a language']
         .filter(expected => !copy.toLowerCase().includes(expected.toLowerCase()));
     assertSmoke(missing.length === 0, `Yomu Gaming neutral first run is missing ${JSON.stringify(missing)}: ${copy}`);
     const leaked = ['Japanese', 'Read my screen', 'Read part of the screen'].filter(forbidden => copy.includes(forbidden));
@@ -531,8 +459,8 @@ async function assertFirstRunClarity(page) {
     assertChosenHomeShape(shape);
     const copy = await home.innerText();
     // The wordmark is styled uppercase, so match it the way it reads, not the way it is cased.
-    assertSmoke(/yomu gaming/i.test(copy), `Yomu Gaming first run does not name the app: ${copy}`);
-    assertCopyIncludes(copy, ['Read Japanese anywhere on your screen', 'Read my screen', 'Read part of the screen', 'Settings']);
+    assertSmoke(/よむ Desktop/i.test(copy), `Yomu Gaming first run does not name the app: ${copy}`);
+    assertCopyIncludes(copy, ['Read Japanese anywhere on your screen', 'Read my screen', 'Settings']);
     assertCopyExcludes(copy, ['Google Lens', 'OCR', 'proxy', 'Try now', 'Choose area', 'Done', 'Japanese anywhere on your PC', 'Page scanning', 'Manual scan shortcut', 'Scan modifier key']);
     assertSmoke(!/endpoint|127\.0\.0\.1/i.test(copy), `Yomu Gaming first run still exposes advanced OCR setup: ${copy}`);
     assertSmoke(!ambiguousScanCopyPattern.test(copy), `Yomu Gaming first run still uses ambiguous scan copy: ${copy}`);
@@ -546,8 +474,8 @@ async function assertHomeSurfaceVisible(page) {
 function assertChosenHomeShape(shape) {
     assertSmoke(shape.headings === 1, `Yomu Gaming first run shows ${shape.headings} heroes; it must show exactly one.`);
     assertSmoke(
-        shape.actions.length === 3 && shape.primaries === 1,
-        `Yomu Gaming first run must offer three actions with one primary: ${JSON.stringify(shape.actions)}`,
+        shape.actions.length === 2 && shape.primaries === 1,
+        `Yomu Gaming first run must offer two actions with one primary: ${JSON.stringify(shape.actions)}`,
     );
     assertSmoke(shape.shortcuts === 1, `Yomu Gaming first run shows the capture shortcut ${shape.shortcuts} times; it must show it once.`);
 }
@@ -722,7 +650,7 @@ async function assertSettingsOpenOnCapture(page) {
 
 async function assertGamingWindowIdentity(page) {
     const title = await page.title();
-    if (title !== 'Yomu Gaming') {
+    if (title !== 'よむ Desktop') {
         throw new Error(`Yomu Gaming window title was not branded correctly: ${title}`);
     }
     await assertAppIconLoads();
@@ -1286,38 +1214,11 @@ async function closeElectronApp(app) {
 // capture's — which is the normal case, and is what this run gets — window fractions and
 // capture fractions are different regions. Dragging window fractions is how the crop ended
 // up covering a part of the screen nobody had chosen.
-async function dragFixtureDialogueSelection(overlay, region) {
-    const picture = await overlay.evaluate(() => {
-        const backdrop = document.querySelector('img.overlay-backdrop');
-        const rect = backdrop.getBoundingClientRect();
-        const scale = Math.min(rect.width / backdrop.naturalWidth, rect.height / backdrop.naturalHeight);
-        const width = backdrop.naturalWidth * scale;
-        const height = backdrop.naturalHeight * scale;
-        return {
-            left: rect.left + (rect.width - width) / 2,
-            top: rect.top + (rect.height - height) / 2,
-            width,
-            height,
-        };
-    });
-    const start = {
-        x: Math.round(picture.left + region.left * picture.width),
-        y: Math.round(picture.top + region.top * picture.height),
-    };
-    const end = {
-        x: Math.round(picture.left + region.right * picture.width),
-        y: Math.round(picture.top + region.bottom * picture.height),
-    };
-    await overlay.mouse.move(start.x, start.y);
-    await overlay.mouse.down();
-    await overlay.mouse.move(end.x, end.y, { steps: 8 });
-    await overlay.mouse.up();
-}
 
 function writeHardwareGapNote() {
     writeFileSync(hardwareGapPath, [
         'Yomu Gaming automated smoke uses a deterministic Japanese fixture image as a simulated primary-screen capture.',
-        'Covered: Electron settings shell, native settings snapshot save/restore, instant full-screen capture, secondary area capture, crop submission to OCR, and Japanese lookup rendering.',
+        'Covered: Electron settings shell, native settings snapshot save/restore, instant full-screen capture, fresh shortcut recapture, nonactivating transparent layer, and Japanese lookup rendering.',
         'Remaining hardware gap: true global desktop capture over an exclusive-fullscreen game and Steam Deck gamescope/Wayland capture must be validated on target hardware.',
     ].join('\n') + '\n');
 }
@@ -1328,9 +1229,6 @@ function startFixtureOcrServer() {
     // the smoke declares which part of the capture the next request's image covers, so
     // the box it hands back is the painted line's own ink box in that image's pixels.
     let captureRegion = FULL_CAPTURE_REGION;
-    // Lines the next responses also "read", given as fractions of the image — how the smoke
-    // stands in for OCR reading something that was on screen, such as Yomu's own toolbar.
-    let extraLines = [];
     const server = createServer(async (request, response) => {
         if (request.method !== 'POST' || request.url !== '/ocr') {
             response.writeHead(404).end();
@@ -1350,6 +1248,11 @@ function startFixtureOcrServer() {
                     {
                         text: FIXTURE_LINE_TEXT,
                         box: fixtureOcrLineBox(png, captureRegion),
+                        words: [...FIXTURE_LINE_TEXT].map((text, index) => ({ text, box: mapFixtureRect({
+                            left: FIXTURE_LINE_ORIGIN.left + index * FIXTURE_GLYPH_PITCH,
+                            top: FIXTURE_LINE_ORIGIN.top, width: FIXTURE_GLYPH_INK.width,
+                            height: FIXTURE_GLYPH_INK.height,
+                        }, captureRegion, png) })),
                     },
                     {
                         // Tall, narrow box -> vertical writing (the manga/VN/JRPG common case the
@@ -1358,15 +1261,6 @@ function startFixtureOcrServer() {
                         text: '読書の時間だ',
                         box: fixtureVerticalLineBox(png),
                     },
-                    ...extraLines.map(line => ({
-                        text: line.text,
-                        box: {
-                            left: Math.round(line.box.left * png.width),
-                            top: Math.round(line.box.top * png.height),
-                            width: Math.max(1, Math.round(line.box.width * png.width)),
-                            height: Math.max(1, Math.round(line.box.height * png.height)),
-                        },
-                    })),
                 ],
             }));
         } catch (error) {
@@ -1386,7 +1280,6 @@ function startFixtureOcrServer() {
             resolve({
                 requests,
                 setCaptureRegion: region => { captureRegion = region; },
-                setExtraLines: lines => { extraLines = lines; },
                 url: `http://127.0.0.1:${address.port}/ocr`,
                 close: () => new Promise((closeResolve, closeReject) => {
                     server.close(error => error ? closeReject(error) : closeResolve());
@@ -1400,12 +1293,11 @@ function startFixtureOcrServer() {
 // the fixture image paints no vertical text, and a bitmap generator has no business
 // pretending to. It exercises the vertical-rl rendering path, and it is kept clear of the
 // dialogue box in both the full screen and the area crop so it never sits on the
-// horizontal line the register check below measures, and below the corner Yomu's own
-// toolbar occupies, where recognized text is dropped as Yomu's own.
+// horizontal line the register check below measures.
 function fixtureVerticalLineBox(png) {
     const width = Math.max(24, Math.round(png.width * 0.045));
     const left = Math.min(Math.max(8, Math.round(png.width * 0.93)), Math.max(8, png.width - width - 4));
-    const top = Math.max(8, Math.round(png.height * 0.12));
+    const top = Math.max(8, Math.round(png.height * 0.05));
     return {
         left,
         top,
@@ -1478,7 +1370,7 @@ function pngDimensions(buffer) {
 }
 
 async function waitForOverlayWindow(app, mode = 'instant') {
-    const hash = mode === 'area' ? '#overlay-area' : '#overlay-instant';
+    const hash = '#overlay-instant';
     const deadline = Date.now() + 10_000;
     while (Date.now() < deadline) {
         const overlay = app.windows().find(window => window.url().includes(hash));

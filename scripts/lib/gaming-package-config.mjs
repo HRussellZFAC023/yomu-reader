@@ -1,4 +1,4 @@
-// What electron-builder is told to make of a built Yomu Gaming, kept apart from
+// What electron-builder is told to make of a built よむ Desktop, kept apart from
 // scripts/package-gaming-electron.mjs (which builds on import) so the packaging decisions
 // can be tested without running a package build.
 
@@ -9,9 +9,9 @@ const GAMING_ARTIFACT_NAME = 'yomu-gaming-${version}-${os}-${arch}.${ext}';
 export function gamingPackageManifest(rootPackageJson) {
     return {
         name: 'yomu-gaming',
-        productName: 'Yomu Gaming',
+        productName: 'よむ Desktop',
         version: rootPackageJson.version,
-        description: 'Yomu Gaming desktop reader.',
+        description: 'よむ Desktop desktop reader.',
         author: rootPackageJson.author || 'Yomu Reader contributors',
         private: true,
         main: 'electron/main.cjs',
@@ -22,11 +22,11 @@ export function gamingPackageManifest(rootPackageJson) {
     };
 }
 
-/** electron-builder's configuration for every Yomu Gaming target. */
+/** electron-builder's configuration for every よむ Desktop target. */
 export function gamingBuilderConfig({ electronVersion, iconPng, iconIcns, appDir, outputDir }) {
     return {
         appId: 'com.yomureader.gaming',
-        productName: 'Yomu Gaming',
+        productName: 'よむ Desktop',
         copyright: 'Copyright Yomu Reader contributors',
         electronVersion,
         icon: iconPng,

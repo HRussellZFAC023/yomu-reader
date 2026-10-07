@@ -11,7 +11,13 @@ export interface OcrRect {
     height: number;
 }
 
+export interface OcrWord {
+    text: string;
+    box: OcrRect;
+}
+
 export interface OcrLine {
+    words?: OcrWord[];
     text: string;
     box: OcrRect;
     vertical: boolean;

@@ -238,6 +238,8 @@ function googleLensLine(
         text,
         box,
         vertical: paragraphVertical || isVerticalOcrBox(box, text.length),
+        words: words.filter((word): word is LensWord & { box: OcrRect } => Boolean(word.box))
+            .map(word => ({ text: cleanOcrText(word.text), box: word.box })),
     };
 }
 

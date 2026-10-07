@@ -1,3 +1,5 @@
+import { pointInLayerRegions, layerInputRegions } from './layer-input';
+import { withHiddenCaptureWindows } from './capture-windows';
 import { app, BrowserWindow, desktopCapturer, dialog, globalShortcut, ipcMain, Menu, nativeImage, screen, shell, systemPreferences, Tray, type BrowserWindowConstructorOptions } from 'electron';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
@@ -24,7 +26,6 @@ import {
 } from './lifecycle';
 import {
     YOMU_GAMING_CHANNELS,
-    type YomuGamingCaptureMode,
     type YomuGamingCaptureSource,
     type YomuGamingEnvironment,
     type YomuGamingScreenAccess,
@@ -32,7 +33,7 @@ import {
     type YomuGamingSettingsSyncMetadata,
 } from './ipc';
 
-const APP_NAME = 'Yomu Gaming';
+const APP_NAME = 'よむ Desktop';
 // macOS hands back an EMPTY screen thumbnail on the first desktopCapturer call after
 // launch — ScreenCaptureKit has not warmed up yet. Measured on 5/5 cold starts, and
 // twice in a row on one of them. Without a retry the first hotkey press of every
@@ -85,16 +86,9 @@ let overlayDocumentCount = 0;
 function rendererUrl(hash = ''): string {
     const devUrl = process.env.YOMU_GAMING_RENDERER_URL;
     const url = devUrl ? new URL(devUrl) : pathToFileURL(path.join(__dirname, '..', 'renderer', 'index.html'));
-    const overlayMode = overlayModeFromHash(hash);
-    if (overlayMode) return overlayDocumentUrl(url, overlayMode, ++overlayDocumentCount);
+    if (hash === 'overlay-instant') return overlayDocumentUrl(url, ++overlayDocumentCount);
     url.hash = hash;
     return url.toString();
-}
-
-function overlayModeFromHash(hash: string): YomuGamingCaptureMode | '' {
-    if (hash === 'overlay-area') return 'area';
-    if (hash === 'overlay-instant') return 'instant';
-    return '';
 }
 
 async function createMainWindow(): Promise<void> {
@@ -188,8 +182,8 @@ function displayGeometry(display: Electron.Display): GamingDisplayGeometry {
     };
 }
 
-async function ensureOverlayWindow(mode: YomuGamingCaptureMode, target: GamingCaptureTarget): Promise<BrowserWindow> {
-    const hash = overlayHash(mode);
+async function ensureOverlayWindow(target: GamingCaptureTarget): Promise<BrowserWindow> {
+    const hash = 'overlay-instant';
     if (overlayWindow && !overlayWindow.isDestroyed()) {
         // Always a new document, even when the mode is unchanged. The renderer reads the
         // frozen frame exactly once per document (its controller is guarded by a `started`
@@ -207,6 +201,8 @@ async function ensureOverlayWindow(mode: YomuGamingCaptureMode, target: GamingCa
         frame: false,
         transparent: true,
         fullscreenable: true,
+        focusable: false,
+        ...(process.platform === 'darwin' ? { type: 'panel' as const } : {}),
         resizable: false,
         skipTaskbar: true,
         show: false,
@@ -216,12 +212,8 @@ async function ensureOverlayWindow(mode: YomuGamingCaptureMode, target: GamingCa
         webPreferences: gamingWebPreferences('overlay'),
     });
     hardenWebContents(overlayWindow);
-    // Keep the overlay out of every screen grab, Yomu's own included. Yomu hides it before
-    // capturing, but a window still on its way out of the compositor was being read back as
-    // game text (the toolbar's "よむ" came back as a word). Windows excludes a protected
-    // window from capture outright (WDA_EXCLUDEFROMCAPTURE); macOS honours it only on its
-    // older capture paths, so the hide stays, and the renderer drops any OCR that still lands
-    // on its own chrome (overlayChromeScreenRects).
+    // Defence in depth on Windows; macOS ScreenCaptureKit may ignore content protection.
+    // captureFrozenFrame hides every Yomu window before sampling on all platforms.
     overlayWindow.setContentProtection(true);
     overlayWindow.setAlwaysOnTop(true, 'screen-saver');
     overlayWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
@@ -230,6 +222,26 @@ async function ensureOverlayWindow(mode: YomuGamingCaptureMode, target: GamingCa
     });
     await overlayWindow.loadURL(rendererUrl(hash));
     return overlayWindow;
+}
+
+let layerRegions: ReturnType<typeof layerInputRegions> = [];
+let layerInputTimer: ReturnType<typeof setInterval> | null = null;
+function configureLayerInput(window: BrowserWindow): void {
+    if (layerInputTimer) clearInterval(layerInputTimer);
+    layerRegions = [];
+    window.setIgnoreMouseEvents(true, { forward: true });
+    let ignored = true;
+    // Playwright sends CDP pointer events without moving the OS cursor. Its fixture
+    // mode verifies DOM interactions separately from native pointer pass-through.
+    if (process.env.YOMU_GAMING_TEST_MODE === '1') { window.setIgnoreMouseEvents(false); return; }
+    layerInputTimer = setInterval(() => {
+        if (window.isDestroyed()) { if (layerInputTimer) clearInterval(layerInputTimer); return; }
+        if (!window.isVisible()) return;
+        const point = screen.getCursorScreenPoint(), bounds = window.getBounds();
+        const next = !pointInLayerRegions(point.x - bounds.x, point.y - bounds.y, layerRegions);
+        if (next !== ignored) { window.setIgnoreMouseEvents(next, { forward: true }); ignored = next; }
+    }, 40);
+    layerInputTimer.unref();
 }
 
 function appIconPath(): string {
@@ -289,6 +301,8 @@ function isOwnRendererUrl(url: string): boolean {
 }
 
 function configureNativeAppMetadata(): void {
+    // Preserve the existing profile, permission identity and shortcuts across the visible rename.
+    if (!process.env.YOMU_GAMING_USER_DATA_DIR) app.setPath('userData', path.join(app.getPath('appData'), 'Yomu Gaming'));
     app.setName(APP_NAME);
     if (process.platform === 'win32') {
         app.setAppUserModelId('com.yomureader.gaming');
@@ -311,14 +325,14 @@ function installBrokenPipeGuard(): void {
     }
 }
 
-async function requestOverlay(mode: YomuGamingCaptureMode = 'instant'): Promise<void> {
-    await showOverlay(mode);
+async function requestOverlay(): Promise<void> {
+    await showOverlay();
 }
 
-async function showOverlay(mode: YomuGamingCaptureMode): Promise<void> {
+async function showOverlay(): Promise<void> {
     const hidMainWindow = await hideMainWindowForCapture();
     try {
-        await openOverlayFromFrozenCapture(mode);
+        await openOverlayFromFrozenCapture();
     } catch (error) {
         restoreAfterOverlayFailure(hidMainWindow);
         reportOverlayFailure(error);
@@ -343,16 +357,16 @@ function visibleMainWindow(): BrowserWindow | null {
     return window;
 }
 
-async function openOverlayFromFrozenCapture(mode: YomuGamingCaptureMode): Promise<void> {
+async function openOverlayFromFrozenCapture(): Promise<void> {
     const target = resolveCaptureTarget();
     activeCaptureTarget = target;
     // An overlay that is already up is about to reload onto the new frame, so it stays
     // hidden until then instead of flashing the previous result back for a moment.
     frozenCapture = await captureFrozenFrame(target, { restoreOverlay: false });
-    const window = await ensureOverlayWindow(mode, target);
+    const window = await ensureOverlayWindow(target);
     window.setBounds(target.bounds);
-    window.show();
-    window.focus();
+    window.showInactive();
+    configureLayerInput(window);
 }
 
 function restoreAfterOverlayFailure(hidMainWindow: boolean): void {
@@ -389,19 +403,12 @@ async function captureFrozenFrame(
     target: GamingCaptureTarget,
     { restoreOverlay = true }: { restoreOverlay?: boolean } = {},
 ): Promise<YomuGamingCaptureSource> {
-    const wasOverlayVisible = Boolean(overlayWindow && !overlayWindow.isDestroyed() && overlayWindow.isVisible());
-    if (wasOverlayVisible) {
-        overlayWindow?.hide();
-        await waitForUncoveredScreen();
-    }
-    try {
-        return await captureTargetScreen(target);
-    } finally {
-        if (restoreOverlay && wasOverlayVisible && overlayWindow && !overlayWindow.isDestroyed()) {
-            overlayWindow.show();
-            overlayWindow.focus();
-        }
-    }
+    return withHiddenCaptureWindows(
+        BrowserWindow.getAllWindows(),
+        waitForUncoveredScreen,
+        () => captureTargetScreen(target),
+        restoreOverlay ? null : overlayWindow,
+    );
 }
 
 // Two animation frames is enough for the compositor to drop a just-hidden window
@@ -486,8 +493,11 @@ function registerIpcHandlers(): void {
     ipcMain.handle(YOMU_GAMING_CHANNELS.getFrozenCapture, event => captureForOverlay(event, getFrozenCapture));
     ipcMain.handle(YOMU_GAMING_CHANNELS.recaptureFrozenFrame, event => captureForOverlay(event, recaptureFrozenFrame));
     ipcMain.handle(YOMU_GAMING_CHANNELS.openScreenSettings, () => openScreenRecordingSettings());
-    ipcMain.handle(YOMU_GAMING_CHANNELS.showOverlay, (_event, mode: unknown) => requestOverlay(normalizeCaptureMode(mode)));
+    ipcMain.handle(YOMU_GAMING_CHANNELS.showOverlay, () => requestOverlay());
     ipcMain.handle(YOMU_GAMING_CHANNELS.hideOverlay, () => hideOverlay());
+    ipcMain.handle(YOMU_GAMING_CHANNELS.setLayerRegions, (event, regions: unknown) => {
+        if (event.sender.id === overlayWindow?.webContents.id) layerRegions = layerInputRegions(regions);
+    });
     ipcMain.handle(YOMU_GAMING_CHANNELS.showApp, () => showApp());
     ipcMain.handle(YOMU_GAMING_CHANNELS.hideApp, () => {
         mainWindow?.hide();
@@ -662,14 +672,6 @@ function simulatedCaptureSource(): YomuGamingCaptureSource | null {
     };
 }
 
-function overlayHash(mode: YomuGamingCaptureMode): string {
-    return mode === 'area' ? 'overlay-area' : 'overlay-instant';
-}
-
-function normalizeCaptureMode(value: unknown): YomuGamingCaptureMode {
-    return value === 'area' ? 'area' : 'instant';
-}
-
 async function openAllowedExternalUrl(value: string): Promise<void> {
     const url = new URL(value);
     if (url.protocol !== 'https:' || !ALLOWED_EXTERNAL_HOSTS.has(url.hostname)) {
@@ -793,7 +795,7 @@ function registerGlobalShortcuts(): void {
 // now the pointer stays where the game needs it. Escape, Close or the controller's B
 // dismiss the overlay. A press while a capture is still running joins that capture rather
 // than racing it for the same windows.
-const pressCaptureShortcut = singleFlight(() => requestOverlay('instant').catch(reportOverlayFailure));
+const pressCaptureShortcut = singleFlight(() => requestOverlay().catch(reportOverlayFailure));
 
 // The smoke test has no real global shortcut to press (test mode never registers one), so
 // it presses this instead — the same function the OS shortcut calls.

@@ -16,11 +16,11 @@ export const GAMING_OVERLAY_CAPTURE_REQUIRED = 'Screen capture is only available
  * later press, and only its own Re-capture button read the screen again. A per-capture value
  * in the query makes each capture a real load.
  */
-export function overlayDocumentUrl(base: URL, mode: 'instant' | 'area', capture: number): string {
+export function overlayDocumentUrl(base: URL, capture: number): string {
     const url = new URL(base.toString());
-    url.searchParams.set('captureMode', mode);
+    url.searchParams.set('captureMode', 'instant');
     url.searchParams.set('capture', String(capture));
-    url.hash = mode === 'area' ? 'overlay-area' : 'overlay-instant';
+    url.hash = 'overlay-instant';
     return url.toString();
 }
 

@@ -1,7 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import {
-    captureSelectionFromViewport,
     layoutOverlayOcrLines,
     normalizeCaptureOcrBox,
     overlayNormalizedOcrLayerHtml,
@@ -491,34 +490,6 @@ describe('Yomu Gaming anchors OCR lines to the capture, not to the window', () =
         ) / resultFrame.imageHeight;
         expect(staleTop).toBeCloseTo(0.680555, 5);
         expect(Number(line.dataset.boxTop)).not.toBeCloseTo(staleTop, 3);
-    });
-
-    it('clips an area drag to the painted capture on both edges', () => {
-        const capture = { width: 960, height: 540 };
-        const frame: OcrOverlayFrame = { imageLeft: 100, imageTop: 50, imageWidth: 800, imageHeight: 450 };
-        const clipped = captureSelectionFromViewport(
-            { left: 80, top: 40, width: 100, height: 100 },
-            capture,
-            frame,
-        );
-
-        // The drag begins in the left/top letterbox bars. Only its intersection
-        // with the picture is submitted, not a same-sized strip from source 0,0.
-        expect(clipped).toEqual({ left: 0, top: 0, width: 96, height: 108 });
-        expect(normalizeCaptureOcrBox(
-            { left: 0, top: 0, width: 96, height: 108 },
-            { width: 96, height: 108 },
-            clipped,
-            capture,
-        )).toEqual({ left: 0, top: 0, width: 0.1, height: 0.2 });
-
-        // A drag wholly inside the bars has no source pixels. The renderer
-        // rejects this zero-sized region instead of silently OCRing the screen.
-        expect(captureSelectionFromViewport(
-            { left: 10, top: 10, width: 50, height: 20 },
-            capture,
-            frame,
-        )).toEqual({ left: 0, top: 0, width: 0, height: 0 });
     });
 
     it('frames the lines with the letterboxed picture rather than the overlay window', () => {

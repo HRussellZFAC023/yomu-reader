@@ -275,3 +275,10 @@ If よむ helps you read more Japanese, a star makes it easier for other learner
 | [Bunpro](https://bunpro.jp/), [Jiten](https://jiten.moe/), [JPDB](https://jpdb.io/), and [WaniKani](https://www.wanikani.com/) | Optional account-authenticated runtime services; upstream content and terms remain theirs, and よむ bundles none of their corpora or recordings. WaniKani uses its documented API directly with the user's personal token, respects the account's granted level, and does not use よむ's proxy. Bunpro uses a private, unsupported frontend endpoint that may change. Its opt-in pronunciation recordings are fetched at runtime from Bunpro's public CDN; hosted/browser playback may use よむ's narrow public proxy. |
 
 </details>
+
+
+### よむ Desktop
+
+The desktop app (previously Yomu Gaming) reads Japanese in games and other apps. Instant capture now leaves the live app visible and does not take keyboard focus. Hover recognized words for lookup; the rest of the screen passes pointer input through. Move to the top-right corner for Read again, Settings and Close. Press the capture shortcut again to read a changed scene. The existing app identity, profile and download filenames are preserved.
+
+The live layer uses the last capture's text; it does not track moving text automatically. Exclusive fullscreen and native Wayland window/input behavior require device verification. OCR providers that return word boxes use those boxes for hit areas; line-only responses retain the fitted-line fallback.

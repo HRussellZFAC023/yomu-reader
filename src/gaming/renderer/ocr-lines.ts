@@ -1,3 +1,4 @@
+import { providerSpanBox } from './word-boxes';
 import { escapeHtml } from '../../reader/dom/index';
 import { targetContentLocale } from '../../reader/languages/resolve';
 import {
@@ -16,16 +17,12 @@ export interface GamingOcrLine {
     vertical: boolean;
 }
 
-// Yomu's own standing chrome on the overlay: the toolbar with its "よむ" mark, always in the
-// same corner. The transient status pill and hint sit mid-screen, over the very text a player
-// reads; dropping OCR there would cost real game text.
-const OVERLAY_CHROME_SELECTOR = '.overlay-toolbar';
-
 // Stored OCR results use capture-relative fractions, not viewport pixels. The
 // native overlay can change height while an OCR request is in flight (Windows
 // moves it from the work area to the full display), so absolute viewport boxes
 // become stale before the response is painted.
 export interface NormalizedGamingOcrLine {
+    words?: { text: string; box: YomuGamingSelectionRect }[];
     text: string;
     box: YomuGamingSelectionRect;
     vertical: boolean;
@@ -92,7 +89,7 @@ export function overlayNormalizedOcrLayerHtml(lines: NormalizedGamingOcrLine[]):
 function overlayOcrLineHtml(line: NormalizedGamingOcrLine): string {
     const box = line.box;
     return `<div class="jpdb-ocr-line jpdb-ocr-line-visible" data-ocr-line data-vertical="${line.vertical}"`
-        + ` data-ocr-text="${escapeHtml(line.text)}"`
+        + ` data-ocr-text="${escapeHtml(line.text)}" data-provider-words="${escapeHtml(JSON.stringify(line.words ?? []))}"`
         + ` data-box-left="${box.left}" data-box-top="${box.top}"`
         + ` data-box-width="${box.width}" data-box-height="${box.height}"`
         + ` style="writing-mode:${line.vertical ? 'vertical-rl' : 'horizontal-tb'}">`
@@ -113,6 +110,7 @@ export function layoutOverlayOcrLines(root: ParentNode, frame: OcrOverlayFrame, 
     clearOverlayOcrTracking(root);
     layoutOcrOverlayLines(root, frame, fontScale);
     fitOverlayOcrTracking(root, frame, fontScale);
+    placeProviderWords(root, frame);
 }
 
 // The shared fit takes the font SIZE from the OCR ink-box thickness, then uses the
@@ -340,38 +338,6 @@ function normalizeOverlayOcrBox(box: YomuGamingSelectionRect, frame: OcrOverlayF
     };
 }
 
-/**
- * Where Yomu's own overlay chrome sits on the screen, as fractions of it.
- *
- * Yomu hides its windows before it grabs the screen, but a window that has not left the
- * compositor yet — a slow machine, a re-read over the overlay — is in the frame, and OCR
- * reads the toolbar's "よむ" like any other Japanese on screen: it came back as a word in
- * the top-right corner. The overlay window covers the display it captured, so its chrome's
- * place in the window is its place in such a frame.
- */
-export function overlayChromeScreenRects(root: ParentNode, viewport: YomuGamingImageSize = viewportSize()): YomuGamingSelectionRect[] {
-    return [...root.querySelectorAll<HTMLElement>(OVERLAY_CHROME_SELECTOR)]
-        .map(element => element.getBoundingClientRect())
-        .filter(rect => rect.width > 0 && rect.height > 0)
-        .map(rect => ({
-            left: fraction(rect.left, viewport.width),
-            top: fraction(rect.top, viewport.height),
-            width: fraction(rect.width, viewport.width),
-            height: fraction(rect.height, viewport.height),
-        }));
-}
-
-/**
- * Whether an OCR box (fractions of the capture) lies on Yomu's own chrome. Text there is
- * either Yomu itself or game text the chrome already covers, so it never becomes a word.
- */
-export function onOverlayChrome(box: YomuGamingSelectionRect, chrome: readonly YomuGamingSelectionRect[]): boolean {
-    return chrome.some(rect => box.left < rect.left + rect.width
-        && rect.left < box.left + box.width
-        && box.top < rect.top + rect.height
-        && rect.top < box.top + box.height);
-}
-
 // Map a provider box from the submitted OCR image back into fractions of the
 // complete frozen capture. `captureRegion` is the exact, clipped source rect
 // drawn into that image—not the raw viewport drag, which may cross a letterbox
@@ -392,32 +358,6 @@ export function normalizeCaptureOcrBox(
     };
 }
 
-// Convert a viewport drag into the exact source pixels it intersects. Clamp
-// both endpoints: clamping only the origin while retaining the raw width turns
-// a drag across a letterbox bar into an unrelated strip at the capture edge.
-export function captureSelectionFromViewport(
-    selection: YomuGamingSelectionRect,
-    capture: YomuGamingImageSize,
-    frame: OcrOverlayFrame,
-): YomuGamingSelectionRect {
-    const scaleX = capture.width / Math.max(1, frame.imageWidth);
-    const scaleY = capture.height / Math.max(1, frame.imageHeight);
-    const rawLeft = (selection.left - frame.imageLeft) * scaleX;
-    const rawTop = (selection.top - frame.imageTop) * scaleY;
-    const rawRight = (selection.left + selection.width - frame.imageLeft) * scaleX;
-    const rawBottom = (selection.top + selection.height - frame.imageTop) * scaleY;
-    const left = clampNumber(Math.min(rawLeft, rawRight), 0, capture.width);
-    const top = clampNumber(Math.min(rawTop, rawBottom), 0, capture.height);
-    const right = clampNumber(Math.max(rawLeft, rawRight), 0, capture.width);
-    const bottom = clampNumber(Math.max(rawTop, rawBottom), 0, capture.height);
-    return {
-        left,
-        top,
-        width: Math.max(0, right - left),
-        height: Math.max(0, bottom - top),
-    };
-}
-
 // Full precision, exactly as the reader stores it. Rounding here would put the gaming
 // overlay a fraction of a pixel off the reader for the same box — the kind of drift
 // this convergence exists to remove.
@@ -425,6 +365,29 @@ function fraction(value: number, extent: number): number {
     return value / Math.max(1, extent);
 }
 
-function clampNumber(value: number, min: number, max: number): number {
-    return Math.min(max, Math.max(min, value));
+// Pin tokenizer words to provider geometry instead of the replacement font's advances.
+function placeProviderWords(root: ParentNode, frame: OcrOverlayFrame): void {
+    for (const line of root.querySelectorAll<HTMLElement>('[data-provider-words]')) {
+        const words = JSON.parse(line.dataset.providerWords || '[]') as { text: string; box: YomuGamingSelectionRect }[];
+        if (!words.length) continue;
+        const source = line.dataset.ocrText ?? '';
+        let offset = 0;
+        for (const word of line.querySelectorAll<HTMLElement>('.jpdb-reader-word')) {
+            const text = [...word.querySelectorAll<HTMLElement>('[data-yomu-ocr-visual-text]')]
+                .filter(node => !node.closest('.jpdb-ocr-furi')).map(node => node.dataset.yomuOcrVisualText ?? '').join('');
+            if (!text) continue;
+            const start = source.indexOf(text, offset);
+            if (start < 0) continue;
+            offset = start + text.length;
+            const box = providerSpanBox(source, words, start, offset, line.dataset.vertical === 'true');
+            if (!box) continue;
+            word.style.position = 'absolute';
+            const origin = (word.offsetParent ?? line).getBoundingClientRect();
+            Object.assign(word.style, {
+                left: `${frame.imageLeft + box.left * frame.imageWidth - origin.left}px`,
+                top: `${frame.imageTop + box.top * frame.imageHeight - origin.top}px`,
+                width: `${box.width * frame.imageWidth}px`, height: `${box.height * frame.imageHeight}px`,
+                minWidth: '0', minHeight: '0', padding: '0', margin: '0', transform: 'none' });
+        }
+    }
 }

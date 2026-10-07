@@ -194,7 +194,7 @@ describe('Yomu Gaming first run', () => {
         expect(headings[0]?.textContent).toBe('Read Japanese anywhere on your screen');
 
         const actions = Array.from(home().querySelectorAll<HTMLButtonElement>('button[data-action]'));
-        expect(actions.map(button => button.dataset.action)).toEqual(['instant-capture', 'area-capture', 'open-settings']);
+        expect(actions.map(button => button.dataset.action)).toEqual(['instant-capture', 'open-settings']);
         expect(actions.filter(button => button.classList.contains('add'))).toHaveLength(1);
         expect(appRoot.querySelectorAll('[data-hotkey]')).toHaveLength(1);
         expect(shortcutLine().querySelector('[data-hotkey]')?.textContent).toBe('Ctrl+Shift+Y');
@@ -261,7 +261,7 @@ describe('Yomu Gaming first run', () => {
         });
 
         try {
-            await expect(surface.open()).rejects.toThrow('Could not request Yomu Gaming Settings.');
+            await expect(surface.open()).rejects.toThrow('Could not request よむ Desktop Settings.');
             expect(showApp).not.toHaveBeenCalled();
             expect(hideOverlay).not.toHaveBeenCalled();
         } finally {

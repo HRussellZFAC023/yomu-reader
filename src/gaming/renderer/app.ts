@@ -46,16 +46,13 @@ import { removeLegacyGamingReaderSettingsCopy } from './legacy-reader-settings-c
 import { installGamingHttpTransport } from './http-transport';
 import { gamingSettingsFromBrowserExport } from './settings-import';
 import {
-    captureSelectionFromViewport,
     layoutOverlayOcrLines,
     normalizeCaptureOcrBox,
-    onOverlayChrome,
-    overlayChromeScreenRects,
     overlayNormalizedOcrLayerHtml,
     overlayOcrFrame,
     type NormalizedGamingOcrLine,
 } from './ocr-lines';
-import type { YomuGamingBridge, YomuGamingCaptureMode, YomuGamingCaptureSource, YomuGamingEnvironment, YomuGamingSelectionRect } from '../ipc';
+import type { YomuGamingBridge, YomuGamingCaptureSource, YomuGamingEnvironment, YomuGamingSelectionRect } from '../ipc';
 
 declare global {
     interface Window {
@@ -106,7 +103,6 @@ interface OverlayLineResult extends NormalizedGamingOcrLine {
 
 interface PreparedGamingCapture {
     capture: YomuGamingCaptureSource;
-    selection: YomuGamingSelectionRect | null;
 }
 
 const GAMING_SETTINGS_STORAGE_KEY = 'yomu-gaming-reader-settings-v1';
@@ -151,7 +147,6 @@ removeLegacyGamingReaderSettingsCopy();
 const bridge = window.yomuGaming ?? browserFallbackBridge();
 const gamingReaderSettingsSurface = createGamingReaderSettingsSurface(bridge);
 const appRoot = requireAppRoot();
-const overlayCaptureMode = currentOverlayCaptureMode();
 const isOverlay = location.hash.startsWith('#overlay');
 let persistTimer: number | undefined;
 let captureShortcutPersistToken = 0;
@@ -174,7 +169,7 @@ async function boot(): Promise<void> {
         installGamingHttpTransport(window);
         document.documentElement.classList.add('yomu-gaming-overlay-document');
         document.body.classList.add('yomu-gaming-overlay-document');
-        new OverlaySelectionController(appRoot, bridge, overlayCaptureMode).render();
+        new OverlayController(appRoot, bridge).render();
         return;
     }
     applyDocumentTheme(shellState.settings);
@@ -222,10 +217,10 @@ function renderShell(): void {
 // secondary row.
 function renderGamingHome(): string {
     return `
-        <section class="yomu-gaming-home" aria-label="Yomu Gaming" data-gaming-home>
+        <section class="yomu-gaming-home" aria-label="よむ Desktop" data-gaming-home>
             <div class="yomu-gaming-home-card">
                 <img class="yomu-gaming-home-icon" src="${escapeHtml(APP_ICON_URL)}" alt="" aria-hidden="true">
-                <p class="yomu-gaming-home-mark">Yomu Gaming</p>
+                <p class="yomu-gaming-home-mark">よむ Desktop</p>
                 <h1>Read Japanese anywhere on your screen</h1>
                 <p class="yomu-gaming-home-lede">Point at any word to see its reading and meaning.</p>
                 <button class="jpdb-reader-btn add yomu-gaming-home-primary" type="button" data-action="instant-capture">Read my screen</button>
@@ -233,7 +228,6 @@ function renderGamingHome(): string {
                 <div class="yomu-gaming-shell-status" data-gaming-shell-status data-status-tone="${shellState.statusTone}" role="status" aria-live="polite" hidden></div>
                 <div class="yomu-gaming-session-note" data-gaming-session-note hidden></div>
                 <div class="yomu-gaming-home-secondary">
-                    <button class="jpdb-reader-btn" type="button" data-action="area-capture">Read part of the screen</button>
                     <button class="jpdb-reader-btn" type="button" data-action="open-settings">Settings</button>
                 </div>
             </div>
@@ -328,7 +322,7 @@ function cancelRequestedView(request: RetainedShellViewRequest): void {
 async function waitForRequestedViewAcknowledgement(requestId: string): Promise<void> {
     const deadline = Date.now() + GAMING_PENDING_VIEW_ACK_TIMEOUT_MS;
     while (!takeRequestedViewAcknowledgement(requestId)) {
-        if (Date.now() >= deadline) throw new Error('Yomu Gaming Settings did not open.');
+        if (Date.now() >= deadline) throw new Error('よむ Desktop Settings did not open.');
         await new Promise(resolve => window.setTimeout(resolve, 25));
     }
 }
@@ -362,7 +356,7 @@ async function openGamingReaderSettings(
     settingsPanel?: string,
 ): Promise<void> {
     const request = requestView('settings', settingsPanel ?? DEFAULT_SETTINGS_PANEL);
-    if (!request) throw new Error('Could not request Yomu Gaming Settings.');
+    if (!request) throw new Error('Could not request よむ Desktop Settings.');
     try {
         await gamingBridge.showApp();
         await waitForRequestedViewAcknowledgement(request.requestId);
@@ -681,8 +675,7 @@ function handleGamingHomeClick(form: HTMLFormElement, event: MouseEvent): void {
     if (!action) return;
     event.preventDefault();
     const actions: Record<string, () => void> = {
-        'instant-capture': () => startCaptureOverlay(form, 'instant'),
-        'area-capture': () => startCaptureOverlay(form, 'area'),
+        'instant-capture': () => startCaptureOverlay(form),
         'open-settings': () => showView('settings', DEFAULT_SETTINGS_PANEL),
     };
     actions[action]?.();
@@ -763,11 +756,11 @@ function isModifierOnlyShortcut(shortcut: string): boolean {
     return shortcut.split('+').every(part => ['Alt', 'Ctrl', 'Meta', 'Shift'].includes(part));
 }
 
-function startCaptureOverlay(form: HTMLFormElement, mode: YomuGamingCaptureMode): void {
+function startCaptureOverlay(form: HTMLFormElement): void {
     persistSettingsFromForm(form);
-    setShellStatus(mode === 'instant' ? 'Reading your screen.' : 'Choose an area to read.', 'busy');
+    setShellStatus('Reading your screen.', 'busy');
     void bridge.hideApp()
-        .then(() => bridge.showOverlay(mode))
+        .then(() => bridge.showOverlay())
         .catch(error => setShellStatus(error instanceof Error ? error.message : 'Could not start capture.', 'error'));
 }
 
@@ -892,7 +885,7 @@ function applyGamingSettingsCopy(form: HTMLFormElement): void {
     }
     const ocrHelp = form.querySelector<HTMLElement>('#settings-help-ocr');
     if (ocrHelp) {
-        ocrHelp.textContent = 'Yomu Gaming reads captures with Google Lens by default. Advanced local OCR is optional when you want an offline endpoint.';
+        ocrHelp.textContent = 'よむ Desktop reads captures with Google Lens by default. Advanced local OCR is optional when you want an offline endpoint.';
     }
     const localHelp = form.querySelector<HTMLElement>('[data-local-ocr][data-help-key="ocrLocalHelp"]');
     if (localHelp) {
@@ -983,11 +976,6 @@ function windowParkingHintText(): string {
 }
 
 
-function currentOverlayCaptureMode(): YomuGamingCaptureMode {
-    if (new URLSearchParams(location.search).get('captureMode') === 'area') return 'area';
-    return location.hash === '#overlay-area' ? 'area' : 'instant';
-}
-
 function scrollToInitialSettingsSection(form: HTMLFormElement): void {
     window.requestAnimationFrame(() => {
         const scroller = form.querySelector<HTMLElement>('.jpdb-reader-settings-scroll');
@@ -1068,9 +1056,7 @@ function applyDocumentTheme(settings: ReaderSettings): void {
     document.body.classList.toggle('jpdb-reader-theme-light', !dark);
 }
 
-class OverlaySelectionController {
-    private start: { x: number; y: number } | null = null;
-    private selection: YomuGamingSelectionRect | null = null;
+class OverlayController {
     private busy = false;
     private result: OverlayResult | null = null;
     private settings = loadGamingSettings();
@@ -1087,16 +1073,32 @@ class OverlaySelectionController {
         settings: () => this.openSettings(),
     });
 
-    constructor(private root: HTMLElement, private gamingBridge: YomuGamingBridge, private captureMode: YomuGamingCaptureMode) {
+    constructor(private root: HTMLElement, private gamingBridge: YomuGamingBridge) {
         installOverlayEscapeHandler(() => this.gamingBridge.hideOverlay());
         this.gamepad.start();
         this.watchOcrLineLayout();
+        this.watchLayerInput();
         // The overlay window is hidden and reused, not destroyed — without
         // this the gamepad rAF poller would keep running after dismissal.
         document.addEventListener('visibilitychange', () => {
             if (document.hidden) this.gamepad.stop();
             else this.gamepad.start();
         });
+    }
+
+    private watchLayerInput(): void {
+        if (!this.gamingBridge.setLayerRegions) return;
+        const update = () => {
+            const regions = [...document.querySelectorAll<HTMLElement>(
+                '.jpdb-reader-word, .jpdb-reader-popover, .overlay-toolbar, .overlay-result, .jpdb-reader-settings-modal')]
+                .map(node => node.getBoundingClientRect()).filter(rect => rect.width > 0 && rect.height > 0)
+                .map(({ left, top, width, height }) => ({ left, top, width, height }));
+            void this.gamingBridge.setLayerRegions?.(regions);
+        };
+        // Includes reader popups rendered outside the overlay root. Layout changes occur
+        // after annotation, so sample settled geometry rather than a pre-paint mutation.
+        const timer = window.setInterval(update, 100);
+        window.addEventListener('pagehide', () => window.clearInterval(timer), { once: true });
     }
 
     // The reader may render words either anchored in place (geometry OCR) or inside
@@ -1118,7 +1120,7 @@ class OverlaySelectionController {
     // "Settings" here must land on Settings, not on the app's home screen.
     private openSettings(): void {
         void gamingReaderSettingsSurface.open().catch(error => {
-            console.warn('Yomu Gaming could not open Settings.', error);
+            console.warn('よむ Desktop could not open Settings.', error);
         });
     }
 
@@ -1132,12 +1134,10 @@ class OverlaySelectionController {
 
     private overlayShellHtml(): string {
         return `
-            <main class="overlay-shell" data-yomu-gaming-ready="true" data-yomu-gaming-overlay-ready="true" data-overlay-mode="${this.overlayMode()}" data-capture-mode="${this.captureMode}" data-overlay-busy="${this.busy}">
+            <main class="overlay-shell" data-yomu-gaming-ready="true" data-yomu-gaming-overlay-ready="true" data-overlay-mode="${this.overlayMode()}" data-capture-mode="instant" data-overlay-busy="${this.busy}">
                 ${overlayBackdropHtml(this.capture)}
-                ${overlayToolbarHtml(true)}
+                ${overlayToolbarHtml(true, this.settings.interfaceLanguage)}
                 ${this.overlayStatusFragment()}
-                ${this.overlayHintFragment()}
-                ${this.overlaySelectionFragment()}
                 ${this.overlayResultFragment()}
             </main>
         `;
@@ -1147,20 +1147,9 @@ class OverlaySelectionController {
         return this.busy ? overlayStatusHtml(this.overlayInstruction()) : '';
     }
 
-    private overlayHintFragment(): string {
-        if (this.captureMode !== 'area') return '';
-        return this.overlayMode() === 'idle' ? overlayHintHtml() : '';
-    }
-
-    private overlaySelectionFragment(): string {
-        if (!this.selection) return '';
-        if (this.result) return '';
-        return overlaySelectionHtml(this.selection);
-    }
-
     private overlayResultFragment(): string {
         if (!this.result) return '';
-        return overlayResultHtml(this.result, this.selection);
+        return overlayResultHtml(this.result, this.settings.interfaceLanguage);
     }
 
     private startOnce(): void {
@@ -1200,36 +1189,10 @@ class OverlaySelectionController {
             this.render();
             return;
         }
-        if (this.captureMode === 'instant') {
-            await this.readCapture(null);
-            return;
-        }
-        this.render();
+        await this.readCapture();
     }
 
     private bind(): void {
-        const shell = this.root.querySelector<HTMLElement>('.overlay-shell');
-        shell?.addEventListener('pointerdown', event => {
-            if (this.captureMode !== 'area' || this.busy) return;
-            if ((event.target as HTMLElement).closest('button, a, .overlay-status, .overlay-result, .overlay-inline-layer, .overlay-toolbar')) return;
-            this.start = { x: event.clientX, y: event.clientY };
-            this.selection = null;
-            this.result = null;
-            shell.setPointerCapture(event.pointerId);
-            this.root.querySelector('.overlay-hint')?.remove();
-            this.updateLiveSelection(shell, { left: event.clientX, top: event.clientY, width: 0, height: 0 });
-        });
-        shell?.addEventListener('pointermove', event => {
-            if (this.captureMode !== 'area' || !this.start) return;
-            this.selection = normalizedViewportSelection(this.start, { x: event.clientX, y: event.clientY });
-            this.updateLiveSelection(shell, this.selection);
-        });
-        shell?.addEventListener('pointerup', event => {
-            if (this.captureMode !== 'area' || !this.start) return;
-            this.selection = normalizedViewportSelection(this.start, { x: event.clientX, y: event.clientY });
-            this.start = null;
-            void this.readSelection();
-        });
         this.root.querySelectorAll<HTMLButtonElement>('[data-action="overlay-done"]').forEach(button => button.addEventListener('click', () => {
             void this.gamingBridge.hideOverlay();
         }));
@@ -1244,24 +1207,8 @@ class OverlaySelectionController {
         });
     }
 
-    // Direct style mutation during the drag avoids rebuilding the whole overlay DOM
-    // (and re-binding every listener) on every pointermove frame.
-    private updateLiveSelection(shell: HTMLElement, rect: YomuGamingSelectionRect): void {
-        let element = shell.querySelector<HTMLElement>('.overlay-selection');
-        if (!element) {
-            element = document.createElement('div');
-            element.className = 'overlay-selection';
-            shell.appendChild(element);
-        }
-        element.style.left = `${rect.left}px`;
-        element.style.top = `${rect.top}px`;
-        element.style.width = `${rect.width}px`;
-        element.style.height = `${rect.height}px`;
-    }
-
     private async recapture(): Promise<void> {
         this.settings = loadGamingSettings();
-        this.selection = null;
         this.result = null;
         this.busy = true;
         this.render();
@@ -1274,50 +1221,34 @@ class OverlaySelectionController {
             return;
         }
         this.busy = false;
-        if (this.captureMode === 'instant') {
-            await this.readCapture(null);
-            return;
-        }
-        this.render();
+        await this.readCapture();
     }
 
     private overlayInstruction(): string {
-        if (this.busy) return this.captureMode === 'instant' ? 'Reading screen' : 'Reading selection';
-        return this.captureMode === 'instant' ? 'Reading screen' : 'Drag to read';
+        return 'Reading screen';
     }
 
-    private overlayMode(): 'idle' | 'selecting' | 'busy' | 'result' | 'error' {
+    private overlayMode(): 'idle' | 'busy' | 'result' | 'error' {
         if (this.busy) return 'busy';
         if (this.result?.error) return 'error';
         if (this.result) return 'result';
-        if (this.selection) return 'selecting';
         return 'idle';
     }
 
-    private async readSelection(): Promise<void> {
-        if (!this.selection || this.selection.width < 8 || this.selection.height < 8) {
-            this.selection = null;
-            this.result = null;
-            this.render();
-            return;
-        }
-        await this.readCapture(this.selection);
-    }
-
-    private async readCapture(selection: YomuGamingSelectionRect | null): Promise<void> {
-        const prepared = await this.prepareCaptureRead(selection);
+    private async readCapture(): Promise<void> {
+        const prepared = await this.prepareCaptureRead();
         if (!prepared) return;
         this.beginCaptureRead();
         const result = await this.recognizeCapture(prepared);
         this.finishCaptureRead(result);
     }
 
-    private async prepareCaptureRead(selection: YomuGamingSelectionRect | null): Promise<PreparedGamingCapture | null> {
+    private async prepareCaptureRead(): Promise<PreparedGamingCapture | null> {
         this.settings = loadGamingSettings();
         if (!this.captureSettingsReady()) return null;
         const capture = await this.captureForRead();
         if (!capture) return null;
-        return { capture, selection: this.captureSelectionForRead(capture, selection) };
+        return { capture };
     }
 
     private captureSettingsReady(): boolean {
@@ -1340,17 +1271,6 @@ class OverlaySelectionController {
         }
     }
 
-    private captureSelectionForRead(
-        capture: YomuGamingCaptureSource,
-        selection: YomuGamingSelectionRect | null,
-    ): YomuGamingSelectionRect | null {
-        // Resolve the drag against the frame the player selected, before either
-        // rendering or awaiting can move the native window.
-        return selection
-            ? captureSelectionFromViewport(selection, capture.size, this.ocrFrame())
-            : null;
-    }
-
     private beginCaptureRead(): void {
         this.busy = true;
         this.result = null;
@@ -1359,13 +1279,13 @@ class OverlaySelectionController {
 
     private async recognizeCapture(prepared: PreparedGamingCapture): Promise<OverlayResult> {
         try {
-            const crop = await cropSelection(prepared.capture, prepared.selection);
+            const crop = fullCapture(prepared.capture);
             const response = await this.gamingBridge.requestOcr(gamingOcrRequest(this.settings, crop));
             if (!response.ok) {
                 return captureErrorResult(new Error(response.error ?? 'OCR failed. Check the OCR provider in Settings.'));
             }
             const result = normalizeGamingOcrResponse(response.body, crop.width, crop.height);
-            return overlayResultFromOcr(result, crop.sourceRect, crop.sourceSize, overlayChromeScreenRects(this.root));
+            return overlayResultFromOcr(result, crop.sourceRect, crop.sourceSize);
         } catch (error) {
             return captureErrorResult(error);
         }
@@ -1431,11 +1351,11 @@ function bootOverlayReader(settings: ReaderSettings): void {
         .then(() => bootReaderAppWithStartupSettings(settings, { settingsSurface: gamingReaderSettingsSurface }))
         .then(initialized => {
             overlayReaderBooted = initialized;
-            if (!initialized) console.warn('Yomu Gaming could not start the inline reader.');
+            if (!initialized) console.warn('よむ Desktop could not start the inline reader.');
         })
         .catch(error => {
             overlayReaderBooted = false;
-            console.warn('Yomu Gaming could not start the inline reader.', error);
+            console.warn('よむ Desktop could not start the inline reader.', error);
         })
         .finally(() => {
             overlayReaderBootInFlight = false;
@@ -1460,21 +1380,18 @@ function overlayResultFromOcr(
     result: GamingOcrResult | null,
     captureRegion: YomuGamingSelectionRect,
     captureSize: { width: number; height: number },
-    ownChrome: readonly YomuGamingSelectionRect[] = [],
 ): OverlayResult {
-    const placed = (result?.lines ?? []).map(line => ({
-        line,
-        box: line.hasGeometry && result ? normalizeCaptureOcrBox(line.box, result, captureRegion, captureSize) : null,
-    })).filter(({ box }) => !box || !onOverlayChrome(box, ownChrome));
-    const text = placed.map(({ line }) => line.text).join('\n');
+    const text = result?.lines.map(line => line.text).join('\n') ?? '';
     const terms = gamingLookupCandidates(text);
     const lines = hasOcrGeometry(result)
-        ? placed.flatMap(({ line, box }) => box ? [{
+        ? result.lines.filter(line => line.hasGeometry).map(line => ({
             text: line.text,
             terms: gamingLookupCandidates(line.text),
-            box,
+            box: normalizeCaptureOcrBox(line.box, result, captureRegion, captureSize),
             vertical: line.vertical,
-        }] : []).filter(line => line.terms.length > 0)
+            words: line.words?.map(word => ({ text: word.text,
+                box: normalizeCaptureOcrBox(word.box, result, captureRegion, captureSize) })),
+        })).filter(line => line.terms.length > 0)
         : [];
     return terms.length
         ? { text, terms, lines: lines.length ? lines : undefined }
@@ -1494,25 +1411,9 @@ interface GamingCaptureCrop {
     sourceSize: { width: number; height: number };
 }
 
-async function cropSelection(capture: YomuGamingCaptureSource, selection: YomuGamingSelectionRect | null): Promise<GamingCaptureCrop> {
-    const image = await loadImage(capture.thumbnailDataUrl);
-    if (selection && (selection.width <= 2 || selection.height <= 2)) {
-        throw new Error('Drag over the captured picture.');
-    }
-    const sourceRect = selection ?? { left: 0, top: 0, width: image.naturalWidth, height: image.naturalHeight };
-    const canvas = document.createElement('canvas');
-    canvas.width = Math.max(1, Math.round(sourceRect.width));
-    canvas.height = Math.max(1, Math.round(sourceRect.height));
-    const context = canvas.getContext('2d');
-    if (!context) throw new Error('Canvas unavailable');
-    context.drawImage(image, sourceRect.left, sourceRect.top, sourceRect.width, sourceRect.height, 0, 0, canvas.width, canvas.height);
-    return {
-        dataUrl: canvas.toDataURL('image/png'),
-        width: canvas.width,
-        height: canvas.height,
-        sourceRect,
-        sourceSize: { width: image.naturalWidth, height: image.naturalHeight },
-    };
+function fullCapture(capture: YomuGamingCaptureSource): GamingCaptureCrop {
+    return { dataUrl: capture.thumbnailDataUrl, width: capture.size.width, height: capture.size.height,
+        sourceRect: { left: 0, top: 0, width: capture.size.width, height: capture.size.height }, sourceSize: capture.size };
 }
 
 function overlayBackdropHtml(capture: YomuGamingCaptureSource | null): string {
@@ -1520,27 +1421,13 @@ function overlayBackdropHtml(capture: YomuGamingCaptureSource | null): string {
     return `<img class="overlay-backdrop" src="${escapeHtml(capture.thumbnailDataUrl)}" alt="" aria-hidden="true" draggable="false">`;
 }
 
-function overlayToolbarHtml(captureReady = true): string {
-    return `<div class="overlay-toolbar" role="toolbar" aria-label="Yomu Gaming overlay">
-        <strong>よむ</strong>
-        ${captureReady ? '<button type="button" data-action="overlay-recapture" title="Capture the screen again">Re-capture</button>' : ''}
-        <button type="button" data-action="overlay-settings" title="Open Yomu Gaming settings">Settings</button>
-        <button type="button" data-action="overlay-done" aria-label="Close overlay">Close</button>
+function overlayToolbarHtml(captureReady = true, language: InterfaceLanguage = 'en'): string {
+    const ja = language === 'ja';
+    return `<div class="overlay-toolbar" role="toolbar" aria-label="よむ Desktop">
+        ${captureReady ? `<button type="button" data-action="overlay-recapture">${ja ? '再読み取り' : 'Read again'}</button>` : ''}
+        <button type="button" data-action="overlay-settings">${ja ? '設定' : 'Settings'}</button>
+        <button type="button" data-action="overlay-done" aria-label="${ja ? '閉じる' : 'Close overlay'}">${ja ? '閉じる' : 'Close'}</button>
     </div>`;
-}
-
-function overlayHintHtml(): string {
-    return `<div class="overlay-hint" role="note">Drag a box over the text to read it.</div>`;
-}
-
-function overlaySelectionHtml(selection: YomuGamingSelectionRect): string {
-    const style = [
-        `left:${selection.left}px`,
-        `top:${selection.top}px`,
-        `width:${selection.width}px`,
-        `height:${selection.height}px`,
-    ].join(';');
-    return `<div class="overlay-selection" style="${style}"></div>`;
 }
 
 function overlayStatusHtml(label: string): string {
@@ -1549,10 +1436,10 @@ function overlayStatusHtml(label: string): string {
 
 function overlayResultHtml(
     result: OverlayResult,
-    selection: YomuGamingSelectionRect | null,
+    language: InterfaceLanguage,
 ): string {
     if (result.lines?.length) return overlayInlineResultHtml(result);
-    const style = overlayResultStyle(selection);
+    const style = 'left:50%;bottom:42px;transform:translateX(-50%);max-width:min(720px,calc(100vw - 28px))';
     if (result.error) {
         return `<section class="overlay-result" style="${style}" role="alert">
             <strong>${escapeHtml(result.error)}</strong>
@@ -1582,35 +1469,6 @@ function overlayErrorActionsHtml(action: OverlayResult['errorAction']): string {
 
 function overlayInlineResultHtml(result: OverlayResult): string {
     return overlayNormalizedOcrLayerHtml(result.lines ?? []);
-}
-
-function overlayResultStyle(selection: YomuGamingSelectionRect | null): string {
-    if (!selection) return 'left:50%;bottom:42px;transform:translateX(-50%);max-width:min(720px,calc(100vw - 28px))';
-    const width = Math.min(540, Math.max(280, selection.width));
-    const left = Math.max(12, Math.min(window.innerWidth - width - 12, selection.left));
-    const below = selection.top + selection.height + 12;
-    const top = below + 118 < window.innerHeight ? below : Math.max(12, selection.top - 128);
-    return `left:${left}px;top:${top}px;width:${width}px`;
-}
-
-function normalizedViewportSelection(start: { x: number; y: number }, end: { x: number; y: number }): YomuGamingSelectionRect {
-    const left = Math.min(start.x, end.x);
-    const top = Math.min(start.y, end.y);
-    return {
-        left,
-        top,
-        width: Math.abs(end.x - start.x),
-        height: Math.abs(end.y - start.y),
-    };
-}
-
-function loadImage(src: string): Promise<HTMLImageElement> {
-    return new Promise((resolve, reject) => {
-        const image = new Image();
-        image.onload = () => resolve(image);
-        image.onerror = () => reject(new Error('Could not load capture'));
-        image.src = src;
-    });
 }
 
 function requireAppRoot(): HTMLElement {
@@ -1658,7 +1516,7 @@ function browserFallbackBridge(): YomuGamingBridge {
             hotkey: shortcut,
             hotkeyRegistered: false,
             trayActive: false,
-            hotkeyError: 'Shortcuts work in the Yomu Gaming app.',
+            hotkeyError: 'Shortcuts work in the よむ Desktop app.',
             screenAccess: 'unsupported',
         }),
         syncSettingsSnapshot: async (settings: unknown) => {

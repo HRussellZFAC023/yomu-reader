@@ -362,7 +362,6 @@ textarea {
     user-select: none;
 }
 
-.overlay-shell[data-overlay-mode="selecting"],
 .overlay-shell[data-overlay-mode="busy"],
 .overlay-shell[data-overlay-mode="error"] {
     background: color-mix(in srgb, var(--jpdb-reader-black) 4%, transparent);
@@ -622,18 +621,6 @@ textarea {
     font-weight: 850;
 }
 
-.overlay-selection {
-    position: fixed;
-    z-index: 2;
-    border: 2px solid var(--jpdb-reader-accent);
-    border-radius: 7px;
-    background: color-mix(in srgb, var(--jpdb-reader-accent) 18%, transparent);
-    box-shadow:
-        0 0 0 9999px color-mix(in srgb, var(--jpdb-reader-black) 18%, transparent),
-        0 10px 28px color-mix(in srgb, var(--jpdb-reader-black) 36%, transparent);
-    pointer-events: none;
-}
-
 .overlay-result {
     position: fixed;
     z-index: 6;
@@ -809,3 +796,18 @@ textarea {
         max-width: min(100%, calc(100vw - 24px));
     }
 }
+
+/* Lookup is a transparent layer over the live app. */
+.overlay-shell[data-capture-mode="instant"] .overlay-backdrop { opacity: 0; }
+.overlay-shell[data-capture-mode="instant"] { cursor: default; background: transparent; }
+.overlay-shell[data-capture-mode="instant"] .jpdb-ocr-line {
+    background: transparent !important; border-color: transparent !important; box-shadow: none !important;
+}
+.overlay-shell[data-capture-mode="instant"] .jpdb-reader-word { opacity: 0; }
+.overlay-shell[data-capture-mode="instant"] .jpdb-ocr-line:hover .jpdb-reader-word,
+.overlay-shell[data-capture-mode="instant"] .jpdb-ocr-line:focus-within .jpdb-reader-word { opacity: 1; }
+.overlay-toolbar { border-radius: 6px; box-shadow: none; font-weight: 500; padding: 4px; gap: 2px; }
+.overlay-toolbar button { border: 0; border-radius: 3px; font-weight: 500; background: transparent; }
+.overlay-shell[data-capture-mode="instant"] .overlay-toolbar { opacity: 0; transition: opacity 100ms; }
+.overlay-shell[data-capture-mode="instant"] .overlay-toolbar:hover,
+.overlay-shell[data-capture-mode="instant"] .overlay-toolbar:focus-within { opacity: 1; }

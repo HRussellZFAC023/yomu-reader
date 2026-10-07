@@ -58,8 +58,8 @@ describe('gaming overlay documents', () => {
     // Loading the URL a window already shows is a same-document fragment navigation, which
     // kept the first capture's document — and its frame and words — on every later press.
     it('gives every capture of the same mode a URL that loads a new document', () => {
-        const first = new URL(overlayDocumentUrl(renderer, 'instant', 1));
-        const second = new URL(overlayDocumentUrl(renderer, 'instant', 2));
+        const first = new URL(overlayDocumentUrl(renderer, 1));
+        const second = new URL(overlayDocumentUrl(renderer, 2));
 
         expect(second.toString()).not.toBe(first.toString());
         expect(second.search).not.toBe(first.search);
@@ -67,15 +67,15 @@ describe('gaming overlay documents', () => {
     });
 
     it('keeps the capture mode where the renderer reads it', () => {
-        const area = new URL(overlayDocumentUrl(renderer, 'area', 3));
-        expect(area.searchParams.get('captureMode')).toBe('area');
-        expect(area.hash).toBe('#overlay-area');
-        expect(new URL(overlayDocumentUrl(renderer, 'instant', 4)).hash).toBe('#overlay-instant');
+        const area = new URL(overlayDocumentUrl(renderer, 3));
+        expect(area.searchParams.get('captureMode')).toBe('instant');
+        expect(area.hash).toBe('#overlay-instant');
+        expect(new URL(overlayDocumentUrl(renderer, 4)).hash).toBe('#overlay-instant');
     });
 
     it('keeps a development server URL and its own query', () => {
         const dev = new URL('http://127.0.0.1:5187/?debug=1');
-        const url = new URL(overlayDocumentUrl(dev, 'instant', 5));
+        const url = new URL(overlayDocumentUrl(dev, 5));
         expect(url.origin).toBe('http://127.0.0.1:5187');
         expect(url.searchParams.get('debug')).toBe('1');
         expect(dev.toString()).toBe('http://127.0.0.1:5187/?debug=1');

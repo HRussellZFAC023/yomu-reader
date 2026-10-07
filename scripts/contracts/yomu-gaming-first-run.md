@@ -43,7 +43,7 @@ Smoke selectors:
 - chosen `[data-gaming-home]` with a single `h1` and `[data-action="instant-capture"]`
 - `[data-gaming-home][data-target-choice-required="true"] [data-action="choose-target"]`
 - `select[name="targetLanguage"] [data-gaming-target-placeholder]` before choice
-- `[data-action="area-capture"]`, `[data-action="open-settings"]`, `[data-action="close-settings"]`
+- `[data-action="open-settings"]`, `[data-action="close-settings"]`
 - `[data-native-capture-shortcut] [data-capture-shortcut-input]`
 - `[data-gaming-shortcut-line][data-shortcut-ready]` — the one line the keyboard owns
 - `[data-action="overlay-settings"]` in the overlay window lands the app window on Settings
