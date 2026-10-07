@@ -977,7 +977,7 @@ function renderDictionariesSettingsPanel(
     return `
             <fieldset id="jpdb-reader-settings-panel-dictionaries" role="tabpanel" data-settings-panel="dictionaries" data-legend-key="sources" hidden>
                 <legend>${escapedUiText(language, 'sources')}</legend>
-                <div data-target-dictionary-content hidden>
+                <div data-target-dictionary-content>
                 <div class="jpdb-reader-settings-subsection">
                     <div class="jpdb-reader-local-title" data-help-key="popupOrderTitle">${escapedUiText(language, 'popupOrderTitle')}</div>
                     <div class="jpdb-reader-dictionary-priorities" data-source-editor data-definition-source-editor>

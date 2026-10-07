@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
     DEFAULT_SETTINGS,
+    activateSettingsPanel,
     applySettingsSearch,
     localizeSettingsForm,
     registerSettingsFormCleanup,
@@ -23,6 +24,15 @@ function sourcesFoundBy(form: HTMLFormElement, query: string): boolean {
 
 describe('the popup order in Settings → Sources', () => {
     registerSettingsFormCleanup();
+
+    it('exposes dictionary controls immediately without a retired language choice', () => {
+        const form = renderSettingsTestForm(DEFAULT_SETTINGS);
+        activateSettingsPanel(form, 'dictionaries');
+        expect(sourcesContent(form).hidden).toBe(false);
+        const parser = sourcesContent(form).querySelector('select[name="parserProvider"]');
+        expect(parser).not.toBeNull();
+        expect(parser?.closest('[hidden]')).toBeNull();
+    });
 
     it('opens the Sources tab, titled as the popup order, above storage and the parser', () => {
         const form = renderSettingsTestForm(DEFAULT_SETTINGS);
