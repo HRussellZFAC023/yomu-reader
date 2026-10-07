@@ -10,6 +10,7 @@ import {
     type WebsiteRouteDefinition,
 } from '../docs/.vitepress/locales/route-catalog.ts';
 import { unavailableWebsiteLocales } from '../docs/.vitepress/locales/site-locales.ts';
+import { LEGACY_DOC_REDIRECTS } from '../config/docs/legacy-redirects.ts';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const DIST = path.join(ROOT, 'docs', '.vitepress', 'dist');
@@ -21,7 +22,9 @@ const LOCALIZED_CHROME_EXPECTATIONS = {
 
 assert.ok(existsSync(DIST), 'docs build output is missing');
 const reviewedJapaneseRoutes = publishedWebsiteRouteDefinitions('ja');
-assert.equal(htmlFiles(path.join(DIST, 'ja')).length, reviewedJapaneseRoutes.length, 'Japanese rendered-route count');
+// Retired Japanese pages stay as redirect stubs (config/docs/legacy-redirects.ts).
+const japaneseRedirectStubs = Object.keys(LEGACY_DOC_REDIRECTS).filter(source => source.startsWith('ja/')).length;
+assert.equal(htmlFiles(path.join(DIST, 'ja')).length, reviewedJapaneseRoutes.length + japaneseRedirectStubs, 'Japanese rendered-route count');
 
 for (const definition of WEBSITE_ROUTE_CATALOG) checkRenderedRoute(definition, 'en');
 for (const definition of reviewedJapaneseRoutes) checkRenderedRoute(definition, 'ja');

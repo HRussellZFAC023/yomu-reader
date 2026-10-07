@@ -286,10 +286,8 @@ describe('one URL shape per app', () => {
             'README.md',
             'docs/faq.md',
             'docs/index.md',
-            'docs/support.md',
+            'docs/install.md',
             'docs/learn/index.md',
-            'docs/learn/reading.md',
-            'docs/learn/watching.md',
             'docs/public/manifest.webmanifest',
             'src/reader/app/constants.ts',
         ];

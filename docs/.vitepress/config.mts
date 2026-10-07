@@ -260,20 +260,17 @@ function jsonLdFor(pageData: PageDataLike, pageUrl: string, locale: WebsiteLocal
 // meaning anything.
 const siteNav = docsNav() as WebsiteNavigationItem[];
 
-// One short guide in reading order, then the apps, then help. The guide used
-// to be eleven numbered steps plus a twelve-entry reference group, which is
-// more navigation than a beginner can hold (owner decision, 2026-10-07).
+// Three groups a newcomer can take in at a glance: get started, the apps, and
+// the small print. The guide used to be six pages plus reference pages; it is
+// one page and the FAQ now, because nobody should need a manual (owner,
+// 2026-10-07).
 const siteSidebar: WebsiteNavigationItem[] = [
     {
         text: 'Guide',
         items: [
             { text: 'Install', link: '/install' },
-            { text: 'Start here', link: '/learn/' },
-            { text: 'Reading', link: '/learn/reading' },
-            { text: 'Watching', link: '/learn/watching' },
-            { text: 'Manga and games', link: '/learn/manga-and-games' },
-            { text: 'Save and review', link: '/learn/keeping-words' },
-            { text: 'Optional setup', link: '/learn/your-own-setup' },
+            { text: 'How to learn', link: '/learn/' },
+            { text: 'FAQ', link: '/faq' },
         ],
     },
     {
@@ -282,16 +279,13 @@ const siteSidebar: WebsiteNavigationItem[] = [
             { text: 'Study', link: newTabLink, target: '_self' },
             { text: 'Video Player', link: videoPlayerLink, target: '_self' },
             { text: 'PDF Reader', link: pdfReaderLink, target: '_self' },
-            { text: 'Desktop app', link: desktopAppLink },
+            { text: 'よむ Desktop', link: desktopAppLink },
             { text: 'Academy', link: '/academy/', target: '_self' },
         ],
     },
     {
-        text: 'Help',
+        text: 'About',
         items: [
-            { text: 'FAQ', link: '/faq' },
-            { text: 'Settings reference', link: '/reference/settings' },
-            { text: 'Local Audio', link: '/local-audio' },
             { text: 'Privacy', link: '/privacy/' },
             { text: 'Changelog', link: '/changelog' },
             { text: 'API', link: '/api/', target: '_self' },
@@ -438,11 +432,14 @@ function legacyRedirectHead(relativePath: string, redirect: string | undefined):
 function websiteRouteHead(pageData: PageDataLike): HeadConfig[] {
     const locale = websiteLocaleForRelativePath(pageData.relativePath);
     const definition = websiteRouteForSource(pageData.relativePath);
-    const pageUrl = canonicalUrl(pageData.relativePath, locale);
     const title = ogTitleFor(pageData, locale);
     const description = ogDescriptionFor(pageData, locale);
-    const legacyRedirect = locale === 'en' ? legacyDocsRedirect(pageData.relativePath) : undefined;
-    const canonicalPageUrl = legacyRedirect ? new URL(legacyRedirect, siteUrl).href : pageUrl;
+    // A retired page canonicalises to where it redirects; a retired Japanese
+    // page has no reviewed route of its own to name.
+    const legacyRedirect = legacyDocsRedirect(pageData.relativePath);
+    const canonicalPageUrl = legacyRedirect
+        ? new URL(legacyRedirect, siteUrl).href
+        : canonicalUrl(pageData.relativePath, locale);
     return markRouteHead([
         ...socialMetadataHead(locale, canonicalPageUrl, title, description),
         ...openGraphLocaleAlternateHead(definition, locale),

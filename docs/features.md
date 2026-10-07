@@ -1,10 +1,8 @@
 ---
-title: This guide moved
-description: Yomu's documentation now follows one ordered path from your first day to a power-user setup.
+title: This page moved
+description: This page moved.
 ---
 
-# This guide moved
+# This page moved
 
-Yomu's documentation now follows one ordered path from your first day to a power-user setup.
-
-[Continue in the learning path →](/learn/)
+[Continue →](/learn/)

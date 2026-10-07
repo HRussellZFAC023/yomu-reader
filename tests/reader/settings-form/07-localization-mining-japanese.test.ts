@@ -24,7 +24,7 @@ import {
     settingsText,
     sharedJapaneseSettingsTestForm,
     topLevelLegendForControl,
-    YOUR_OWN_SETUP_DOCS,
+    FAQ_DOCS,
 } from './fixtures';
 
 describe('settings form localization', () => {
@@ -280,15 +280,14 @@ describe('settings form localization', () => {
         expect(settingsCopy).not.toContain('Handoff alone cannot scan existing decks');
         expect(settingsCopy).not.toContain('AnkiMobile add-note links can carry');
         expect(settingsCopy).not.toContain('AnkiDroid handoff uses Android');
-        expect(YOUR_OWN_SETUP_DOCS).toContain('Mobile Anki handoff is one-way');
-        expect(YOUR_OWN_SETUP_DOCS).toContain('cannot scan existing decks');
-        expect(YOUR_OWN_SETUP_DOCS).toContain('review queues');
-        expect(YOUR_OWN_SETUP_DOCS).toContain('replace every `100.x.y.z`');
-        expect(YOUR_OWN_SETUP_DOCS).toContain('allowed-origins list');
-        expect(YOUR_OWN_SETUP_DOCS).not.toContain('"webCorsOriginList"');
-        // The heading text is the current settings deep link. The old
-        // /getting-started anchor remains a redirect for installed builds.
-        expect(YOUR_OWN_SETUP_DOCS).toContain('## Use desktop Anki from a phone, iPad, or Android');
+        // The settings help links the FAQ answer (through the old setup page's
+        // anchor, which redirects there), so the limits live in that answer.
+        const phoneAnki = FAQ_DOCS.slice(FAQ_DOCS.indexOf('{#anki-on-a-phone}'), FAQ_DOCS.indexOf('{#other-services}'));
+        expect(phoneAnki).toContain("can't see your decks or reviews");
+        expect(phoneAnki).toContain('AnkiMobile or AnkiDroid');
+        expect(phoneAnki).toContain('"webBindAddress": "100.x.y.z"');
+        expect(phoneAnki).toContain('"webCorsOriginList": ["http://localhost", "https://yomureader.com"]');
+        expect(phoneAnki).toContain('Never open port 8765 to the internet.');
     });
 
     it('keeps top-level section legends attached to their panels', () => {

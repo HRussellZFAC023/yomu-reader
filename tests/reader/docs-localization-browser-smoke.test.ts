@@ -147,7 +147,7 @@ describe('docs localization browser smoke readiness', () => {
         expect(navigation).toContain("waitUntil: 'domcontentloaded'");
         expect(navigation).toContain('assert.ok(response?.ok()');
         expect(SMOKE_SOURCE).toContain(
-            "await navigateLocaleProof(page, '/learn/reading', 'English reading route');",
+            "await navigateLocaleProof(page, '/learn/', 'English learning route');",
         );
         expect(SMOKE_SOURCE).toContain(
             "await navigateLocaleProof(page, '/privacy/', 'English privacy route');",

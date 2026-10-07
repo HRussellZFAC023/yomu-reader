@@ -1,6 +1,6 @@
 // The promise this file keeps: every stored setting stays documented.
 //
-// docs/reference/settings.md is generated from DEFAULT_SETTINGS and the settings
+// docs/dev/settings-reference.md is generated from DEFAULT_SETTINGS and the settings
 // dialog. Add, rename, or move a setting and the committed page stops matching what
 // the generator produces, and this test fails until `npm run docs:settings-reference`
 // runs. Without it the page would be a snapshot of one afternoon's source, and it
@@ -55,7 +55,7 @@ describe('generated settings reference', () => {
 
         expect(
             stale || report.stale,
-            `docs/reference/settings.md is out of date with the settings source. Run: ${GENERATE_COMMAND}`,
+            `docs/dev/settings-reference.md is out of date with the settings source. Run: ${GENERATE_COMMAND}`,
         ).toBe(false);
     }, TIMEOUT_MS);
 
@@ -76,7 +76,7 @@ describe('generated settings reference', () => {
 
     it('documents immediate Japanese reading and the actual stored defaults', () => {
         settingsReferenceReport();
-        const page = readFileSync(path.join(ROOT, 'docs', 'reference', 'settings.md'), 'utf8');
+        const page = readFileSync(path.join(ROOT, 'docs', 'dev', 'settings-reference.md'), 'utf8');
 
         expect(page).toContain('Yomu reads Japanese immediately after installation.');
         expect(page).toContain('| よむ off | — | off | `annotationsPaused` |');

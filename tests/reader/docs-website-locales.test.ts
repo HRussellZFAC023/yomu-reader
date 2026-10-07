@@ -54,36 +54,34 @@ describe('reviewed website locale contract', () => {
 
     it('publishes every English route but only body-reviewed Japanese routes', () => {
         expect(WEBSITE_ROUTE_CATALOG.map(definition => definition.route)).toEqual(PUBLISHED_WEBSITE_ROUTES);
-        expect(publishedWebsiteRouteDefinitions('en')).toHaveLength(17);
-        expect(publishedWebsiteRouteDefinitions('ja')).toHaveLength(12);
+        expect(publishedWebsiteRouteDefinitions('en')).toHaveLength(10);
+        expect(publishedWebsiteRouteDefinitions('ja')).toHaveLength(7);
 
         const japaneseBlockers = WEBSITE_ROUTE_CATALOG
             .filter(definition => !websiteRoutePublication(definition, 'ja'))
             .map(definition => [definition.route, definition.blockers.ja]);
         expect(japaneseBlockers).toEqual([
             ['api/', 'api-reference-native-review-pending'],
-            ['local-audio', 'local-audio-native-review-pending'],
             ['library/', 'library-native-review-pending'],
             ['privacy/', 'privacy-native-review-pending'],
-            ['reference/settings', 'generated-settings-native-review-pending'],
         ]);
     });
 
     it('localizes only links whose destination body is reviewed', () => {
-        expect(localizedWebsiteHref('/learn/reading#lookup', 'ja')).toBe('/ja/learn/reading#lookup');
-        expect(localizedWebsiteHref('/privacy/', 'ja')).toBe('/privacy/');
-        expect(localizedWebsiteHref('/reference/settings?from=menu', 'ja')).toBe('/reference/settings?from=menu');
+        expect(localizedWebsiteHref('/faq#manga', 'ja')).toBe('/ja/faq#manga');
+        expect(localizedWebsiteHref('/library/', 'ja')).toBe('/library/');
+        expect(localizedWebsiteHref('/api/?from=menu', 'ja')).toBe('/api/?from=menu');
         expect(localizedWebsiteHref('/study/', 'ja')).toBe('/study/');
         expect(localizedWebsiteHref('https://example.com/', 'ja')).toBe('https://example.com/');
-        expect(() => localizedWebsiteRoute('/privacy/', 'ja')).toThrow(/not reviewed/u);
-        expect(correspondingWebsiteLocaleHref('/learn/reading', 'ja')).toBe('/ja/learn/reading');
-        expect(correspondingWebsiteLocaleHref('/privacy/', 'ja')).toBe('/ja/');
-        expect(correspondingWebsiteLocaleHref('/ja/learn/reading', 'en')).toBe('/learn/reading');
+        expect(() => localizedWebsiteRoute('/library/', 'ja')).toThrow(/not reviewed/u);
+        expect(correspondingWebsiteLocaleHref('/faq', 'ja')).toBe('/ja/faq');
+        expect(correspondingWebsiteLocaleHref('/library/', 'ja')).toBe('/ja/');
+        expect(correspondingWebsiteLocaleHref('/ja/faq', 'en')).toBe('/faq');
     });
 
     it('reconciles SPA locale links, route metadata, and hardcoded theme labels', () => {
-        window.history.replaceState({}, '', '/ja/learn/reading');
-        document.head.innerHTML = '<link rel="canonical" href="https://yomureader.com/learn/reading" data-yomu-route-head>';
+        window.history.replaceState({}, '', '/ja/faq');
+        document.head.innerHTML = '<link rel="canonical" href="https://yomureader.com/faq" data-yomu-route-head>';
         document.body.innerHTML = `
             <nav class="VPNavBarMenu" aria-labelledby="main-nav-aria-label">
                 <span id="main-nav-aria-label">Main Navigation</span>
@@ -95,7 +93,7 @@ describe('reviewed website locale contract', () => {
         syncWebsiteRouteLocalization([
             ['link', {
                 rel: 'canonical',
-                href: 'https://yomureader.com/ja/learn/reading',
+                href: 'https://yomureader.com/ja/faq',
                 'data-yomu-route-head': '',
             }],
             ['meta', {
@@ -110,11 +108,11 @@ describe('reviewed website locale contract', () => {
         ]);
 
         expect(document.querySelector('.VPNavBarTranslations a')?.getAttribute('href'))
-            .toBe('/learn/reading');
+            .toBe('/faq');
         expect(document.documentElement.lang).toBe('ja');
         expect(document.documentElement.dir).toBe('ltr');
         expect(document.querySelector('link[rel="canonical"]')?.getAttribute('href'))
-            .toBe('https://yomureader.com/ja/learn/reading');
+            .toBe('https://yomureader.com/ja/faq');
         expect(document.querySelector('meta[property="og:locale"]')?.getAttribute('content')).toBe('ja_JP');
         expect(document.querySelector('script[type="application/ld+json"]')?.textContent)
             .toBe('{"inLanguage":"ja"}');
@@ -127,10 +125,10 @@ describe('reviewed website locale contract', () => {
     });
 
     it('keeps client locale navigation away from an unpublished corresponding route', () => {
-        window.history.replaceState({}, '', '/privacy/');
+        window.history.replaceState({}, '', '/library/');
         document.body.innerHTML = `
             <div class="VPNavBarTranslations">
-                <a href="/ja/privacy/">日本語</a>
+                <a href="/ja/library/">日本語</a>
             </div>
         `;
 
@@ -140,26 +138,26 @@ describe('reviewed website locale contract', () => {
     });
 
     it('leaves locale choices to browser document navigation instead of the VitePress router', () => {
-        window.history.replaceState({}, '', '/learn/reading');
+        window.history.replaceState({}, '', '/faq');
         document.body.innerHTML = `
             <div class="VPNavBarTranslations">
-                <a href="/ja/learn/reading"><span>日本語</span></a>
+                <a href="/ja/faq"><span>日本語</span></a>
             </div>
         `;
         syncWebsiteRouteLocalization(undefined);
         const link = document.querySelector<HTMLAnchorElement>('.VPNavBarTranslations a');
-        expect(link?.getAttribute('href')).toBe('/ja/learn/reading');
+        expect(link?.getAttribute('href')).toBe('/ja/faq');
         expect(link?.getAttribute('target')).toBe('_self');
     });
 
     it('uses stable semantic messages and route publications', () => {
         expect(websiteMessage('docs.nav.learningPath', 'ja')).toBe('ガイド');
-        expect(websiteLocaleForPathname('/ja/learn/reading')).toBe('ja');
-        expect(websiteLocaleForPathname('/learn/reading')).toBe('en');
-        const reading = websiteRouteDefinition('/learn/reading');
-        expect(reading && websiteRoutePublication(reading, 'ja')).toMatchObject({
+        expect(websiteLocaleForPathname('/ja/faq')).toBe('ja');
+        expect(websiteLocaleForPathname('/faq')).toBe('en');
+        const faq = websiteRouteDefinition('/faq');
+        expect(faq && websiteRoutePublication(faq, 'ja')).toMatchObject({
             reviewStatus: 'native-reviewed',
-            title: '読む',
+            title: 'よくある質問',
         });
         expect(REVIEWED_DOCS_MESSAGES.length).toBeGreaterThan(3_000);
         expect(new Set(REVIEWED_DOCS_MESSAGES.map(message => message.id)).size)
@@ -169,13 +167,13 @@ describe('reviewed website locale contract', () => {
 
     it('localizes HTML content and route-aware links before rendering', () => {
         const localized = localizeHtmlFragment(
-            '<a href="/learn/reading" aria-label="Reading">Reading</a><a href="/privacy/">Privacy</a>',
+            '<a href="/faq" aria-label="Reading">Reading</a><a href="/library/">Read</a>',
             'ja',
         );
-        expect(localized).toContain('href="/ja/learn/reading"');
+        expect(localized).toContain('href="/ja/faq"');
         expect(localized).toContain('aria-label="読む"');
         expect(localized).toContain('>読む</a>');
-        expect(localized).toContain('href="/privacy/"');
+        expect(localized).toContain('href="/library/"');
 
         const tokens = [{
             type: 'inline',
@@ -183,13 +181,13 @@ describe('reviewed website locale contract', () => {
             children: [{
                 type: 'text',
                 content: 'Reading',
-                attrs: [['title', 'Reading'], ['href', '/learn/reading']] as [string, string][],
+                attrs: [['title', 'Reading'], ['href', '/faq']] as [string, string][],
             }],
         }];
         localizeMarkdownTokens(tokens, 'ja');
         expect(tokens[0].children[0]).toMatchObject({
             content: '読む',
-            attrs: [['title', '読む'], ['href', '/ja/learn/reading']],
+            attrs: [['title', '読む'], ['href', '/ja/faq']],
         });
     });
 });

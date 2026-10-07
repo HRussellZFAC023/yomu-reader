@@ -63,6 +63,18 @@ function docsMarkdownFiles(directory = DOCS): string[] {
     });
 }
 
+// Whether a redirect target names a published page, and a heading on it when it
+// carries an anchor.
+function publishes(target: string): boolean {
+    const [route, anchor] = target.split('#');
+    const japanese = route.startsWith('/ja/');
+    const key = sitemapRouteKey(route.replace(/^\/ja\//, '/'));
+    const definition = publishedWebsiteRouteDefinitions(japanese ? 'ja' : 'en')
+        .find(candidate => sitemapRouteKey(candidate.route) === key);
+    if (!definition) return false;
+    return !anchor || readProjectFile(`docs/${definition.source}`).includes(`{#${anchor}}`);
+}
+
 function routeFor(relativePath: string): string {
     return relativePath.replace(/(^|\/)index\.md$/, '$1').replace(/\.md$/, '');
 }
@@ -144,15 +156,29 @@ describe('published docs pages', () => {
 
         for (const [file, target] of Object.entries(LEGACY_DOC_REDIRECTS)) {
             expect(existsSync(path.join(DOCS, file)), file).toBe(true);
-            expect(sitemapRouteKey(target)).toMatch(/^(?:learn(?:\/|$)|desktop$|faq$|install$)/);
-            expect(ACTIVE_PUBLIC_ROUTES.map(sitemapRouteKey)).toContain(sitemapRouteKey(target));
+            // A Japanese stub lands on the Japanese page, an English one on English.
+            const japanese = file.startsWith('ja/');
+            expect(target.startsWith('/ja/'), file).toBe(japanese);
+            const published = japanese ? JAPANESE_PUBLIC_ROUTES : ACTIVE_PUBLIC_ROUTES;
+            expect(sitemapRouteKey(target).replace(/^ja\//, '')).toMatch(/^(?:learn$|desktop$|faq$|install$)/);
+            expect(published.map(sitemapRouteKey)).toContain(sitemapRouteKey(target));
+            expect(publishes(target), target).toBe(true);
         }
+        for (const redirects of Object.values(LEGACY_DOC_HASH_REDIRECTS)) {
+            for (const target of Object.values(redirects)) {
+                expect(publishes(target), target).toBe(true);
+            }
+        }
+    });
 
-        expect(LEGACY_DOC_HASH_REDIRECTS['getting-started.md'])
-            .toHaveProperty(
-                '#use-desktop-anki-from-a-phone-ipad-or-android',
-                '/learn/your-own-setup#use-desktop-anki-from-a-phone-ipad-or-android',
-            );
+    it('keeps the reader\'s phone-Anki help link landing on its answer', () => {
+        // MOBILE_ANKI_SETUP_DOCS_URL in the reader, and every installed build,
+        // still links the old setup page's anchor.
+        const anchor = '#use-desktop-anki-from-a-phone-ipad-or-android';
+        expect(readProjectFile('src/reader/settings/status-lines.ts')).toContain(`learn/your-own-setup${anchor}`);
+        expect(LEGACY_DOC_HASH_REDIRECTS['learn/your-own-setup.md'][anchor]).toBe('/faq#anki-on-a-phone');
+        expect(LEGACY_DOC_HASH_REDIRECTS['getting-started.md'][anchor]).toBe('/faq#anki-on-a-phone');
+        expect(readProjectFile('docs/faq.md')).toContain('## Can I add to Anki from my phone? {#anki-on-a-phone}');
     });
 
     it('wires the exclusion list and the sitemap filter into the VitePress config', () => {
@@ -177,7 +203,7 @@ describe('published product claims', () => {
         expect(catalogue).toContain("'Read Japanese. Stay with the story.': '日本語を読む。物語の続きを楽しむ。'");
 
         const claims = docsMarkdownFiles()
-            .filter(file => !isInternalDocPath(file) && file !== 'reference/settings.md')
+            .filter(file => !isInternalDocPath(file))
             .flatMap(file => [...readProjectFile(`docs/${file}`)
                 .matchAll(/\b\d+\s+(?:learning\s+)?(?:languages?|targets?)\b|\blearning (?:languages?|targets?)\b/giu)]
                 .map(match => `${file}: ${match[0]}`));

@@ -1,11 +1,15 @@
 #!/usr/bin/env node
-// Generates docs/reference/settings.md: every key in DEFAULT_SETTINGS, grouped by
+// Generates docs/dev/settings-reference.md: every key in DEFAULT_SETTINGS, grouped by
 // the section of the settings dialog that owns it.
 //
 // Why generated. Yomu stores a few hundred settings. A hand-written reference goes
 // stale on the first rename, and a stale reference is worse than none, because it
 // sends a learner looking for a control that no longer exists. So this reads the
 // real source, and `--check` fails the build when the page and the source disagree.
+//
+// It is a contributor reference, not a public page. yomureader.com dropped it on
+// 2026-10-07 (settings label themselves, and a learner should not need a manual);
+// /reference/settings now redirects to the FAQ.
 //
 // How each row is derived, all of it from the reader's own code:
 //   * Section and tab come from the fieldset that renders the control, so the page
@@ -35,7 +39,7 @@ import * as esbuild from 'esbuild';
 import { JSDOM } from 'jsdom';
 
 const ROOT = path.resolve(fileURLToPath(new URL('..', import.meta.url)));
-export const SETTINGS_REFERENCE_PAGE = path.join(ROOT, 'docs', 'reference', 'settings.md');
+export const SETTINGS_REFERENCE_PAGE = path.join(ROOT, 'docs', 'dev', 'settings-reference.md');
 
 const NOT_DESCRIBED = 'Not yet described';
 const NO_DESCRIPTION = '—';
@@ -43,9 +47,8 @@ const UCHISEN_RETIREMENT_COPY = 'Uchisen is available only as an optional outbou
 const REFERENCE_SECTION_HELP = new Map([
     ['YouTube', 'Filter YouTube for Japanese.'],
 ]);
-// The page's own words, in one place. Each of these, plus the four column labels
-// and the marker above, has a Japanese entry keyed by the exact English string in
-// docs/.vitepress/locales/docs-prose-catalog.ts. Change one and add the matching entry.
+// The page's own words, in one place. The page is an English contributor
+// reference, so none of them needs a Japanese entry.
 const PAGE_COPY = Object.freeze({
     description: 'Every Yomu setting, its default, and the part of the settings dialog that holds it.',
     intro: 'Every setting Yomu stores is listed here, in the order the settings dialog presents them.',
@@ -561,14 +564,14 @@ async function main() {
             }
             return;
         }
-        process.stderr.write('docs/reference/settings.md no longer matches the settings source.\n');
+        process.stderr.write('docs/dev/settings-reference.md no longer matches the settings source.\n');
         process.stderr.write('Regenerate it with: npm run docs:settings-reference\n');
         process.exitCode = 1;
         return;
     }
     mkdirSync(path.dirname(SETTINGS_REFERENCE_PAGE), { recursive: true });
     writeFileSync(SETTINGS_REFERENCE_PAGE, markdown);
-    process.stdout.write(`wrote docs/reference/settings.md: ${rows.length} settings, ${described} described\n`);
+    process.stdout.write(`wrote docs/dev/settings-reference.md: ${rows.length} settings, ${described} described\n`);
 }
 
 function readCurrentPage() {

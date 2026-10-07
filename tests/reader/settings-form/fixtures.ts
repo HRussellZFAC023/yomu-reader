@@ -38,7 +38,7 @@ export const frequencySettings = {
 };
 
 export const SETTINGS_CSS = readFileSync('src/reader/styles/settings.css', 'utf8');
-export const YOUR_OWN_SETUP_DOCS = readFileSync('docs/learn/your-own-setup.md', 'utf8');
+export const FAQ_DOCS = readFileSync('docs/faq.md', 'utf8');
 const HISTORICAL_HIRAGINO_YU_GOTHIC_FONT = '"Hiragino Sans", "Hiragino Kaku Gothic ProN", "Yu Gothic", Meiryo, sans-serif';
 export const AMBIGUOUS_SCAN_COPY = ['Manual scan', 'only'].join(' ');
 export const IMPORTED_ANKI_FIELD_MAPPINGS: AnkiFieldMappings = {

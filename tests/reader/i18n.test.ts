@@ -81,39 +81,6 @@ describe('interface language resolution', () => {
         expect(supportCopy.filter(copy => !hasHostedDocsJaCopy(themeSource, copy))).toEqual([]);
     });
 
-    it('keeps Study source guidance covered by Japanese docs copy', () => {
-        const themeSource = readFileSync('docs/.vitepress/locales/docs-prose-catalog.ts', 'utf8');
-        const calloutCopy = ['Study reviews Anki when it is reachable, connected Japanese services when selected, and local dictionary words without an account. Library searches the words. Stats shows the work over time.'];
-
-        expect(calloutCopy.filter(copy => !hasHostedDocsJaCopy(themeSource, copy))).toEqual([]);
-    });
-
-    it('keeps Study setup and offline guidance covered by Japanese docs copy', () => {
-        const themeSource = readFileSync('docs/.vitepress/locales/docs-prose-catalog.ts', 'utf8');
-        const studySource = readFileSync('docs/learn/keeping-words.md', 'utf8');
-        const studySection = between(studySource, '## Open Study', '## Review by doing');
-        const studyCopy = [
-            ...markdownHeadings(studySection),
-            ...markdownParagraphs(studySection),
-            ...markdownListTextNodes(studySection),
-        ];
-
-        expect(studyCopy.filter(copy => !hasHostedDocsJaCopy(themeSource, copy))).toEqual([]);
-    });
-
-    it('keeps the hosted apps overview covered by Japanese docs copy', () => {
-        const themeSource = readFileSync('docs/.vitepress/locales/docs-prose-catalog.ts', 'utf8');
-        const startSource = readFileSync('docs/learn/index.md', 'utf8');
-        const appsSection = between(startSource, '## Try Yomu without installing {#try-yomu-without-installing}', 'Next:');
-        const appsCopy = [
-            ...markdownHeadings(appsSection),
-            ...markdownParagraphs(appsSection),
-            ...markdownListTextNodes(appsSection),
-        ];
-
-        expect(appsCopy.filter(copy => !hasHostedDocsJaCopy(themeSource, copy))).toEqual([]);
-    });
-
     it('keeps dynamic hosted docs attributes in the build-time locale pipeline', () => {
         const catalogue = readFileSync('docs/.vitepress/locales/site-locales.ts', 'utf8');
         const markdown = readFileSync('docs/.vitepress/locales/markdown-localization.ts', 'utf8');
@@ -500,15 +467,6 @@ function decodeMarkdownHtml(value: string): string {
 
 function markdownHeadings(source: string): string[] {
     return [...source.matchAll(/^#{1,6}\s+(.+)$/gm)].map(match => match[1].trim());
-}
-
-function markdownParagraphs(source: string): string[] {
-    return source
-        .split(/\n{2,}/)
-        .map(block => block.trim())
-        .filter(block => block && !block.startsWith('---') && !block.startsWith('#') && !block.startsWith('<') && !block.startsWith('- ') && !/^\d+\.\s+/.test(block))
-        .map(block => decodeMarkdownLinks(block).replace(/\*\*(.*?)\*\*/g, '$1'))
-        .filter(Boolean);
 }
 
 function markdownListTextNodes(source: string): string[] {
