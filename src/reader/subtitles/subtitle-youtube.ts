@@ -82,7 +82,9 @@ export async function discoverCurrentYouTubeCaptionTracks(
     if (!videoId) return null;
     options.onVideoId(videoId);
     const tracks = await discoverYouTubeCaptionTracks(options);
-    return currentYouTubeDiscoveryTracks(tracks, options);
+    // A navigation while the request was out (autoplay, the next video) makes
+    // these the previous video's tracks; its cues must never meet the new clock.
+    return getYouTubeVideoId() === videoId ? currentYouTubeDiscoveryTracks(tracks, options) : null;
 }
 
 function currentYouTubeDiscoveryTracks(
@@ -453,6 +455,13 @@ const YOUTUBE_PREVIEW_CONTAINER_SELECTOR = 'ytd-video-preview, #inline-preview-p
 
 export function isYouTubeFeedPreviewVideo(video: HTMLVideoElement | undefined): boolean {
     return Boolean(video?.closest(YOUTUBE_PREVIEW_CONTAINER_SELECTOR));
+}
+
+// YouTube plays ads in the watch player's own <video>. While the player carries
+// ad-showing, the element's currentTime and duration are the ad's, not the
+// timeline the loaded captions belong to.
+export function isYouTubeAdPlaying(video: HTMLVideoElement | undefined): boolean {
+    return Boolean(video?.closest(YOUTUBE_VIDEO_PLAYER_SELECTOR)?.matches('.ad-showing, .ad-interrupting'));
 }
 
 export function isYouTubeOwnedVideoElement(video: HTMLVideoElement | undefined): boolean {

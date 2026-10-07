@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { findInitialLeadInCue, normalizeCaptionText, normalizeSubtitleCues, parseSubtitleText } from '../../src/reader/subtitles/subtitle-cues';
+import { findActiveSubtitleCue, normalizeCaptionText, normalizeSubtitleCues, parseSubtitleText } from '../../src/reader/subtitles/subtitle-cues';
 
 // UT-67: auto-translated YouTube tracks ship literal HTML entities — a
 // `&nbsp;` cue passed the word-content check and rendered as a blank row
@@ -20,31 +20,32 @@ describe('caption entity decoding', () => {
         expect(cues[0]?.text).toBe('日本語です。');
     });
 });
-
-// R2: short-form clips can finish before the playhead crosses the first cue's
-// start, leaving the overlay blank for the whole clip. While the playhead is
-// still in the lead-in before the first cue, that first line is surfaced so the
-// reader sees subtitles instantly; mid-video gaps (after a seek) stay blank.
-describe('initial lead-in cue', () => {
+// A line is active only inside its own window. A "lead-in" lookup once
+// surfaced the first line for the whole stretch before it began, so a story
+// video showed おかえり。 long before it was spoken, even during the pre-roll ad.
+describe('active subtitle cue window', () => {
     const cues = [
-        { start: 1.5, end: 3, text: 'いちばん' },
-        { start: 3, end: 5, text: 'にばんめ' },
+        { start: 8, end: 10, text: 'おかえり。' },
+        { start: 11, end: 13, text: 'ただいま。' },
     ];
 
-    it('returns the first cue while the playhead is before it (instant short-form paint)', () => {
-        expect(findInitialLeadInCue(cues, 0)?.text).toBe('いちばん');
-        expect(findInitialLeadInCue(cues, 1.5)?.text).toBe('いちばん');
+    it('finds no line before the first line starts', () => {
+        for (const time of [0, 1.5, 7.9]) expect(findActiveSubtitleCue(cues, time)).toBeUndefined();
     });
 
-    it('returns nothing once the playhead has passed the first cue start (gaps stay blank)', () => {
-        expect(findInitialLeadInCue(cues, 1.6)).toBeUndefined();
-        expect(findInitialLeadInCue(cues, 4)).toBeUndefined();
+    it('finds a line from its start to its end, and none in the gaps', () => {
+        expect(findActiveSubtitleCue(cues, 8)?.text).toBe('おかえり。');
+        expect(findActiveSubtitleCue(cues, 9.9)?.text).toBe('おかえり。');
+        expect(findActiveSubtitleCue(cues, 10.5)).toBeUndefined();
+        expect(findActiveSubtitleCue(cues, 11)?.text).toBe('ただいま。');
+        expect(findActiveSubtitleCue(cues, 14)).toBeUndefined();
     });
 
-    it('returns nothing when there are no cues', () => {
-        expect(findInitialLeadInCue([], 0)).toBeUndefined();
+    it('finds no line without a content time (NaN, as during an ad)', () => {
+        expect(findActiveSubtitleCue(cues, Number.NaN)).toBeUndefined();
     });
 });
+
 
 describe('ASS subtitle parsing', () => {
     it('parses dialogue timing while stripping ASS styling tags', () => {

@@ -1622,6 +1622,40 @@ describe('SubtitlePlayerController — subtitle transport & track pairing', () =
         }
     });
 
+    it('restarts an in-flight YouTube discovery after the watch page moves to another video', async () => {
+        const originalLocation = window.location;
+        const watch = (videoId: string) => Object.defineProperty(window, 'location', {
+            configurable: true,
+            value: new URL(`https://www.youtube.com/watch?v=${videoId}`) as unknown as Location,
+        });
+        watch('abc123');
+        const firstDiscovery = deferred<void>();
+        const { controller } = createInstalledSubtitleController({ interfaceLanguage: 'en' as const });
+        const internals = controllerInternals<{
+            discoverYouTubeTracks: () => Promise<void>;
+            discoverYouTubeTracksThrottled: (force?: boolean) => Promise<void>;
+        }>(controller);
+        const discover = vi.fn()
+            .mockImplementationOnce(() => firstDiscovery.promise)
+            .mockResolvedValue(undefined);
+        internals.discoverYouTubeTracks = discover;
+
+        try {
+            const pending = internals.discoverYouTubeTracksThrottled(true);
+            // The navigation's own forced discovery is skipped while the
+            // previous video's run is still in flight.
+            watch('next456');
+            await internals.discoverYouTubeTracksThrottled(true);
+            expect(discover).toHaveBeenCalledTimes(1);
+
+            firstDiscovery.resolve();
+            await pending;
+            await vi.waitFor(() => expect(discover).toHaveBeenCalledTimes(2));
+        } finally {
+            Object.defineProperty(window, 'location', { configurable: true, value: originalLocation });
+        }
+    });
+
     it('keeps the synthetic translated option when the page subtitle listing is rediscovered', () => {
         const { controller } = createInstalledSubtitleController({ interfaceLanguage: 'en' as const });
         const internals = controllerInternals<{
