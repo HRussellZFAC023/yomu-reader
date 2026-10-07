@@ -744,9 +744,13 @@ function nullableInteger(value: unknown): number | null {
     return finiteInteger(value) ?? null;
 }
 
+// A host that stopped answering backs off like one that said 429. Matched by
+// type: the timeout labels are copy ("Jiten timeout."), and when one was
+// shortened from "...timed out." every timeout stopped counting, so a
+// throttled api.jiten.moe kept each popup queued behind 1.5 s waits.
 function isPublicJitenBackoffError(error: unknown): boolean {
     const name = errorName(error);
-    if (name === 'AbortError') return true;
+    if (name === 'AbortError' || name === 'RetryableTimeoutError') return true;
     const message = errorMessage(error);
     return /\b(?:429|5\d\d|too many requests|rate[- ]?limited|timed out|aborted|abort|upstream)\b|cloudflare/i.test(message);
 }

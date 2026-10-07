@@ -1,3 +1,4 @@
+import { RetryableTimeoutError } from '../core/errors';
 import { fetchWithCorsFallbacks } from './proxy-fetch';
 import { isKnownDirectCorsTarget, isProxySafeRequest, isSharedPublicProxySafeRequest, YOMU_SHARED_PUBLIC_PROXY_URL } from './proxy-fetch-rules';
 import type { ReaderHttpOptions } from './http-options';
@@ -75,7 +76,9 @@ function requestViaUserscript(
             return normalizeUserscriptResponse(response, options.responseType ?? 'text');
         },
         onError: error => error instanceof Error ? error : new Error(formatFailure(options)),
-        onTimeout: () => new Error(options.timeoutLabel ?? `${options.failureLabel ?? 'Request'} timed out.`),
+        // Typed like the page fetch's own timeout, so a caller can tell a host
+        // that stopped answering from one that refused, whatever the label says.
+        onTimeout: () => new RetryableTimeoutError(options.timeoutLabel ?? `${options.failureLabel ?? 'Request'} timed out.`),
     });
 }
 

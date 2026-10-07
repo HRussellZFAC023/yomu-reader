@@ -660,6 +660,47 @@ describe('JitenPublicVocabularyClient', () => {
         expect(requestJson).toHaveBeenCalledTimes(1);
     });
 
+    // Leia, 2026-10-05: "the jiten frequency badges one times out". When
+    // api.jiten.moe throttles a burst it stops answering, and every request
+    // ends on its transport's deadline. Those endings ("Jiten timeout.", a
+    // RetryableTimeoutError) matched nothing the backoff knew, so each queued
+    // lookup still waited its 1.5 s turn behind the one parse gate: on the
+    // real extension a hovered word waited 13 s for its popup and the Jiten
+    // badge never came. One timeout now backs off like a 429.
+    it.each([
+        ['a userscript manager', () => {
+            const manager = vi.fn(() => ({ abort: () => undefined }));
+            vi.stubGlobal('GM_xmlhttpRequest', manager);
+            return manager;
+        }],
+        ['the page fetch', () => {
+            const page = vi.fn((_url: string, init?: RequestInit) => new Promise<Response>((_resolve, reject) => {
+                init?.signal?.addEventListener('abort', () => reject(init.signal?.reason), { once: true });
+            }));
+            vi.stubGlobal('fetch', page);
+            return page;
+        }],
+    ])('stops queueing behind a Jiten that no longer answers %s', async (_transport, stall) => {
+        vi.useFakeTimers();
+        try {
+            const transport = stall();
+            const client = new JitenPublicVocabularyClient();
+
+            const first = client.lookupMany(['公用語']);
+            await vi.advanceTimersByTimeAsync(5_000);
+            await expect(first).resolves.toEqual(new Map());
+            const calls = transport.mock.calls.length;
+
+            const next = client.lookupMany(['言語']);
+            await vi.advanceTimersByTimeAsync(5_000);
+            await expect(next).resolves.toEqual(new Map());
+            expect(transport).toHaveBeenCalledTimes(calls);
+        } finally {
+            vi.useRealTimers();
+            vi.unstubAllGlobals();
+        }
+    });
+
     it('separates ambiguous short batch terms for Jiten parsing', async () => {
         const details = new Map([
             [1444810, { text: '登録[とうろく]', pitchAccents: [0] }],
