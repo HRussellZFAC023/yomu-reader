@@ -86,13 +86,14 @@ export class NewTabSessionProgressTracker {
 export function formatNewTabSessionProgressLabel(
     snapshot: NewTabSessionProgressSnapshot,
     labels: NewTabSessionProgressLabels = DEFAULT_SESSION_PROGRESS_LABELS,
+    showClock = true,
 ): string {
     return [
         `${labels.completed} ${snapshot.completedReviews}`,
         `${labels.left} ${snapshot.remainingCards}`,
         `${labels.due} ${snapshot.remainingDueCards}`,
-        snapshot.remainingSessionLabel,
-    ].join(' · ');
+        showClock ? snapshot.remainingSessionLabel : '',
+    ].filter(Boolean).join(' · ');
 }
 
 export function newTabSessionProgressRatio(progress: NewTabSessionProgressSnapshot): number {

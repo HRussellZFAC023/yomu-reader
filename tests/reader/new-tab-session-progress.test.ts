@@ -1,3 +1,4 @@
+import { normalizeReaderSettings } from '../../src/reader/settings';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { NewTabController } from '../../src/reader/newtab/controller';
 import {
@@ -152,7 +153,11 @@ describe('new-tab session progress', () => {
         vi.useFakeTimers();
         vi.setSystemTime(new Date('2026-06-06T12:00:00Z'));
         const reviewCard = vi.fn(async () => {});
-        const controller = progressController({ jpdb: { reviewCard } as never });
+        const controller = progressController({
+            jpdb: { reviewCard } as never,
+            getSettings: () => ({ ...DEFAULT_SETTINGS, apiKey: 'jpdb-key', enableReviews: true, jpdbMiningEnabled: true,
+                newTabAnkiEnabled: true, newTabSource: 'auto', newTabDailyGoalMinutes: 60 }),
+        });
         const root = renderProgressRoot(controller);
         const jpdb = progressCard({ vid: 10, sid: 1, spelling: 'ふくしゅう', source: 'jpdb', reviewSource: 'jpdb-api', cardState: ['due'] });
         const anki = progressCard({ vid: -3, sid: 0, rid: 404, spelling: 'あんき', source: 'anki', reviewSource: 'anki', ankiCardId: 404, cardState: ['learning'] });
@@ -262,13 +267,19 @@ describe('new-tab session progress', () => {
         expect(root?.querySelector('.jpdb-reader-newtab-overflow')).toBeNull();
         expect(root?.querySelector('[data-newtab-app-navigation]')).toBeNull();
         expect(document.body.firstElementChild).toBe(outside);
+        expect(clock.snapshot().state).toBe('running');
 
         controller.destroy();
         clock.dispose();
     });
 });
 
-describe('daily study goal (user-requested, default 1h)', () => {
+describe('opt-in daily study goal', () => {
+    it('keeps saved positive goals while leaving fresh profiles untimed', () => {
+        expect(normalizeReaderSettings({}).newTabDailyGoalMinutes).toBe(0);
+        expect(normalizeReaderSettings({ newTabDailyGoalMinutes: 60 }).newTabDailyGoalMinutes).toBe(60);
+    });
+
     it('formats goal progress and the reached state', async () => {
         const { formatNewTabDailyGoalLabel } = await import('../../src/reader/newtab/session-progress');
         const labels = { unit: 'min', reached: 'Goal reached' };

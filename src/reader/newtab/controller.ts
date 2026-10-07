@@ -948,6 +948,7 @@ export class NewTabController {
         });
         this.ownsSessionClock = startup.ownsSessionClock;
         this.sessionClock = startup.sessionClock;
+        if (this.ownsSessionClock && !this.hasTimedSession()) this.sessionClock.pause('settings');
         this.sessionProgress = new NewTabSessionProgressTracker({ clock: this.sessionClock });
         this.lastDailyGoalElapsedMs = this.sessionClock.snapshot().elapsedMs;
         this.state = startup.state;
@@ -1046,6 +1047,7 @@ export class NewTabController {
         this.sessionClockControl = undefined;
         delete root.dataset.standaloneNewtab;
         root.dataset.newtabLanguage = this.resolvedLanguage();
+        root.dataset.newtabTimedStudy = String(this.hasTimedSession());
         root.dataset.studySurface = this.options.surface ?? 'standalone';
         root.replaceChildren(this.renderEnabledContent());
         this.syncMode(root);
@@ -1097,6 +1099,7 @@ export class NewTabController {
         return isNew
             || !root.querySelector('[data-newtab-study]')
             || root.dataset.newtabLanguage !== this.resolvedLanguage()
+            || root.dataset.newtabTimedStudy !== String(this.hasTimedSession())
             || root.dataset.standaloneNewtab === 'true';
     }
 
@@ -1321,7 +1324,7 @@ export class NewTabController {
             language,
             overflowMenu: showChrome ? this.renderOverflowMenu(language) : null,
             appNavigation: showChrome ? this.renderAppNavigation(language) : null,
-            showSessionClockControl: this.options.showSessionClockControl !== false,
+            showSessionClockControl: this.hasTimedSession() && this.options.showSessionClockControl !== false,
         });
     }
 
@@ -4883,7 +4886,7 @@ export class NewTabController {
                 completed: this.text('sessionDone'),
                 left: this.text('sessionLeft'),
                 due: this.text('statsDue'),
-            }) : this.sessionProgress.snapshot([]).remainingSessionLabel,
+            }, this.hasTimedSession()) : this.hasTimedSession() ? this.sessionProgress.snapshot([]).remainingSessionLabel : '',
             snapshot ? this.offlineCacheSegment() : '',
             snapshot ? this.syncStatusSegment() : '',
             this.dailyGoalLabel(),
@@ -4992,6 +4995,10 @@ export class NewTabController {
         }, NEW_TAB_OFFLINE_WARM_RETRY_MS);
     }
 
+    private hasTimedSession(): boolean {
+        return Boolean(this.options.sessionClock) || this.dependencies.getSettings().newTabDailyGoalMinutes > 0;
+    }
+
     private dailyGoalLabel(): string {
         const goal = this.dependencies.getSettings().newTabDailyGoalMinutes;
         if (!(goal > 0)) return '';
@@ -5005,6 +5012,12 @@ export class NewTabController {
         // Async provider work may settle after its Study surface has unmounted.
         // A destroyed controller must never subscribe to its disposed owned clock.
         if (this.destroyed) return;
+        if (!this.hasTimedSession()) {
+            this.stopSessionClock();
+            if (this.ownsSessionClock) this.sessionClock.pause('settings');
+            return;
+        }
+        if (this.ownsSessionClock) this.sessionClock.resume('settings');
         if (this.sessionClockRoot !== root) {
             this.stopSessionClock();
             this.sessionClockRoot = root;

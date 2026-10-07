@@ -272,7 +272,7 @@ export const DEFAULT_SETTINGS: ReaderSettings = {
     newTabFrontSentenceEnabled: true,
     newTabOfflineEnabled: true,
     newTabOfflineLimit: 50,
-    newTabDailyGoalMinutes: 60,
+    newTabDailyGoalMinutes: 0,
     newTabKanjiUnlockEnabled: true,
     newTabStopAtBatchEnd: false,
     newTabSwipeReviews: true,

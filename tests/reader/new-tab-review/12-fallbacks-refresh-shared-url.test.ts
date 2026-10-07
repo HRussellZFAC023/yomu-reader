@@ -485,6 +485,41 @@ describe('new tab review — dictionary fallbacks, refresh & shared-URL history'
         }
     });
 
+    it('leaves timed study off for a fresh keyless default profile', async () => {
+        const { controller, fallbackCardFromText } = newTabBuiltInFallbackFixture('auto');
+        fallbackCardFromText.mockImplementation(text => bareFallbackCardFromText(text, 'ja'));
+        try {
+            await controller.renderPage();
+            expect(document.querySelector('[data-newtab-session-clock-host]')).toBeNull();
+            expect(document.querySelector('[data-study-clock="countdown"]')).toBeNull();
+            expect(document.querySelector('[data-newtab-count]')?.textContent).not.toMatch(/\d+:\d{2}|\d+\/60/);
+            expect((controller as unknown as { sessionClock: { snapshot(): { state: string } } }).sessionClock.snapshot().state).toBe('paused');
+        } finally { controller.destroy(); resetNewTabReviewStorage(); }
+    });
+
+    it('applies a chosen daily goal without overriding a manual clock pause', async () => {
+        const settings = { newTabDailyGoalMinutes: 0 };
+        const { controller, fallbackCardFromText } = newTabBuiltInFallbackFixture('auto', settings);
+        fallbackCardFromText.mockImplementation(text => bareFallbackCardFromText(text, 'ja'));
+        const clock = (controller as unknown as { sessionClock: import('../../../src/reader/newtab/session-clock').StudySessionClock }).sessionClock;
+        try {
+            await controller.renderPage();
+            expect(document.querySelector('[data-study-clock="countdown"]')).toBeNull();
+            settings.newTabDailyGoalMinutes = 30;
+            await controller.renderPage();
+            expect(document.querySelector('[data-study-clock="countdown"]')).not.toBeNull();
+            expect(clock.snapshot().state).toBe('running');
+            clock.pause();
+            settings.newTabDailyGoalMinutes = 0;
+            await controller.renderPage();
+            expect(document.querySelector('[data-study-clock="countdown"]')).toBeNull();
+            settings.newTabDailyGoalMinutes = 30;
+            await controller.renderPage();
+            expect(clock.snapshot()).toMatchObject({ state: 'paused', pausedByUser: true });
+            expect(document.querySelector('[data-study-clock-action="toggle"]')?.textContent).toBe('Resume');
+        } finally { controller.destroy(); resetNewTabReviewStorage(); }
+    });
+
     it('opens actual single-kanji starter vocabulary as a word, not a synthetic unlock exercise', async () => {
         const { controller, fallbackCardFromText } = newTabBuiltInFallbackFixture('auto');
         fallbackCardFromText.mockImplementation(text => bareFallbackCardFromText(text, 'ja'));
@@ -1223,7 +1258,7 @@ describe('new tab review — dictionary fallbacks, refresh & shared-URL history'
         // (user-requested session timer).
         // Yomu local SRS is now the default no-account path, so first-run
         // study stays unblocked without a provider-connection nudge.
-        expect(root.querySelector('[data-newtab-count]')?.textContent).toMatch(/^\d\d:\d\d · 0\/60 min/);
+        expect(root.querySelector('[data-newtab-count]')?.textContent).toBe('');
         expect(root.querySelector('[data-newtab-count] .jpdb-reader-newtab-connect-cta')).toBeNull();
         sessionStorage.removeItem('jpdb-reader-newtab-current-word');
     });
