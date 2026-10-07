@@ -1511,6 +1511,63 @@
 }
 .yomu-install-routes-note { order: -1; margin: 0; color: var(--home-muted); font-size: 13px; }
 
+/* よむ Desktop: one button that downloads this computer's file. The head
+   snippet (scripts/lib/hosted-install-route.cjs) stamps data-yomu-desktop; a
+   phone, or a page without JS, gets the link to /desktop instead. */
+.yomu-desktop-download {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 18px;
+  margin-top: 24px;
+}
+.vp-doc .yomu-desktop-download {
+  --home-action: var(--vp-c-brand-1);
+  --home-on-action: var(--vp-c-white);
+  --home-muted: var(--vp-c-text-2);
+}
+.vp-doc .yomu-desktop-download p { margin: 0; }
+.yomu-desktop-button {
+  display: none;
+  align-items: center;
+  min-height: 44px;
+  padding: 13px 22px;
+  border-radius: 4px;
+  background: var(--home-action);
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 1.5;
+}
+.yomu-desktop-download a.yomu-desktop-button { color: var(--home-on-action); text-decoration: none; }
+.yomu-desktop-hint {
+  display: none;
+  flex-basis: 100%;
+  margin: 0;
+  color: var(--home-muted);
+  font-size: 13px;
+  line-height: 1.6;
+}
+.yomu-desktop-other {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  color: var(--home-action);
+  font-size: 14px;
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+:root:not([data-yomu-desktop]) .yomu-desktop-fallback,
+:root[data-yomu-desktop='none'] .yomu-desktop-fallback,
+:root[data-yomu-desktop='mac-arm64'] [data-yomu-desktop-file='mac-arm64'],
+:root[data-yomu-desktop='mac-x64'] [data-yomu-desktop-file='mac-x64'],
+:root[data-yomu-desktop='win-x64'] [data-yomu-desktop-file='win-x64'],
+:root[data-yomu-desktop='linux-x86_64'] [data-yomu-desktop-file='linux-x86_64'] { display: inline-flex; }
+:root:is([data-yomu-desktop='mac-arm64'], [data-yomu-desktop='mac-x64']) [data-yomu-desktop-hint='mac'],
+:root[data-yomu-desktop='win-x64'] [data-yomu-desktop-hint='win'],
+:root[data-yomu-desktop='linux-x86_64'] [data-yomu-desktop-hint='linux'] { display: block; }
+:root:is(:not([data-yomu-desktop]), [data-yomu-desktop='none']) .yomu-home .yomu-desktop-other { display: none; }
+
 .yomu-band {
   display: grid;
   grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr);

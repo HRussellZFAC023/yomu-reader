@@ -41,6 +41,30 @@ const INSTALL_ROUTE_RULES = Object.freeze([
 
 const DEFAULT_INSTALL_ROUTE = 'userscript';
 
+// よむ Desktop downloads. The release workflow attaches version-less copies of
+// each package (release-gaming.yml, "Add stable download names"), so these
+// links always fetch the newest release's file directly.
+const DESKTOP_DOWNLOAD_BASE = 'https://github.com/HRussellZFAC023/yomu-reader/releases/latest/download/';
+const DESKTOP_DOWNLOAD_URLS = Object.freeze({
+    'mac-arm64': `${DESKTOP_DOWNLOAD_BASE}yomu-desktop-mac-arm64.zip`,
+    'mac-x64': `${DESKTOP_DOWNLOAD_BASE}yomu-desktop-mac-x64.zip`,
+    'win-x64': `${DESKTOP_DOWNLOAD_BASE}yomu-desktop-win-x64.exe`,
+    'linux-x86_64': `${DESKTOP_DOWNLOAD_BASE}yomu-desktop-linux-x86_64.AppImage`,
+});
+
+// Phones and tablets first: iPadOS Safari sends a Mac user agent, so a Mac with
+// a touch screen is an iPad (the snippet checks maxTouchPoints). Macs default to
+// Apple silicon, which every Mac sold since 2020 uses; Chromium can say "x86"
+// through userAgentData, and Intel stays one click away in the list.
+const DESKTOP_ROUTE_RULES = Object.freeze([
+    ['none', 'iPhone|iPad|iPod|Android|CrOS'],
+    ['win-x64', 'Windows'],
+    ['mac-arm64', 'Macintosh|Mac OS X'],
+    ['linux-x86_64', 'Linux|X11'],
+]);
+
+const DEFAULT_DESKTOP_ROUTE = 'none';
+
 /**
  * @param {string} userAgent
  * @returns {'chrome' | 'firefox' | 'userscript'}
@@ -54,27 +78,55 @@ function resolveHostedInstallRoute(userAgent) {
 }
 
 /**
+ * @param {string} userAgent
+ * @param {number} [maxTouchPoints]
+ * @returns {'mac-arm64' | 'mac-x64' | 'win-x64' | 'linux-x86_64' | 'none'}
+ */
+function resolveHostedDesktopRoute(userAgent, maxTouchPoints = 0) {
+    const ua = typeof userAgent === 'string' ? userAgent : '';
+    for (const [route, pattern] of DESKTOP_ROUTE_RULES) {
+        if (!new RegExp(pattern).test(ua)) continue;
+        return route === 'mac-arm64' && maxTouchPoints > 1 ? 'none' : route;
+    }
+    return DEFAULT_DESKTOP_ROUTE;
+}
+
+/**
  * Inline <head> snippet that stamps the resolved route on <html> before the
  * first paint, so the promoted button is already the right one when the fold
  * appears rather than swapping under the visitor's eyes. It builds its rules
  * from the same table as resolveHostedInstallRoute, so the shipped page and the
  * tested function can never disagree.
  *
+ * It also stamps data-yomu-desktop with the よむ Desktop file for this
+ * computer, so the download button fetches that file directly. Chromium on an
+ * Intel Mac reports "x86" through userAgentData a moment later; the attribute
+ * is corrected then, before anyone can reach the button.
+ *
  * The snippet never removes an attribute and never writes anything except
- * data-yomu-install; if it throws, the page keeps the no-JS default, which is
- * the userscript — the route that works everywhere.
+ * those two; if it throws, the page keeps the no-JS defaults: the userscript
+ * route, which works everywhere, and a link to the よむ Desktop page.
  *
  * @returns {string} minified IIFE, safe to inline inside a <script> element.
  */
 function hostedInstallRouteSnippet() {
     const rules = JSON.stringify(INSTALL_ROUTE_RULES);
     const fallback = JSON.stringify(DEFAULT_INSTALL_ROUTE);
+    const desktopRules = JSON.stringify(DESKTOP_ROUTE_RULES);
+    const desktopFallback = JSON.stringify(DEFAULT_DESKTOP_ROUTE);
     const code =
         '(function(){try{' +
-        'var u=(navigator&&navigator.userAgent)||"";' +
+        'var n=navigator||{},u=n.userAgent||"",h=document.documentElement;' +
         `var r=${rules},m=${fallback};` +
         'for(var i=0;i<r.length;i++){if(new RegExp(r[i][1]).test(u)){m=r[i][0];break}}' +
-        'document.documentElement.setAttribute("data-yomu-install",m)' +
+        'h.setAttribute("data-yomu-install",m);' +
+        `var q=${desktopRules},d=${desktopFallback};` +
+        'for(var j=0;j<q.length;j++){if(new RegExp(q[j][1]).test(u)){d=q[j][0];break}}' +
+        'if(d==="mac-arm64"&&(n.maxTouchPoints||0)>1)d="none";' +
+        'h.setAttribute("data-yomu-desktop",d);' +
+        'if(d==="mac-arm64"&&n.userAgentData&&n.userAgentData.getHighEntropyValues)' +
+        'n.userAgentData.getHighEntropyValues(["architecture"]).then(function(v){' +
+        'if(v&&v.architecture==="x86")h.setAttribute("data-yomu-desktop","mac-x64")},function(){})' +
         '}catch(e){}})()';
     // Inline scripts end at the first `</script>`; nothing here has any business
     // producing one, but never let a future URL or rule break every hosted page.
@@ -83,9 +135,13 @@ function hostedInstallRouteSnippet() {
 }
 
 module.exports = {
+    DEFAULT_DESKTOP_ROUTE,
     DEFAULT_INSTALL_ROUTE,
+    DESKTOP_DOWNLOAD_URLS,
+    DESKTOP_ROUTE_RULES,
     INSTALL_ROUTE_RULES,
     INSTALL_ROUTE_URLS,
     hostedInstallRouteSnippet,
+    resolveHostedDesktopRoute,
     resolveHostedInstallRoute,
 };
