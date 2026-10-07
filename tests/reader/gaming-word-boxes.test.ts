@@ -24,3 +24,15 @@ describe('provider geometry survives desktop parsing and tokenizer boundaries', 
         expect(pointInLayerRegions(15, 19, regions)).toBe(false);
     });
 });
+
+
+it('offsets nested provider words together with their enclosing OCR region', () => {
+    const result = normalizeGamingOcrResponse({ ocr_regions: [{
+        box: { left: 500, top: 300, width: 200, height: 100 },
+        lines: [{ text: '日本語', box: { left: 10, top: 20, width: 60, height: 30 }, vertical: false,
+            words: [{ text: '日本語', box: { left: 10, top: 20, width: 60, height: 30 } }] }],
+    }] }, 1000, 800);
+    expect(result?.lines[0].box).toEqual({ left: 510, top: 320, width: 60, height: 30 });
+    expect(result?.lines[0].words?.[0].box).toEqual({ left: 510, top: 320, width: 60, height: 30 });
+    expect(providerSpanBox('日本語', result!.lines[0].words!, 0, 3, false)).toEqual(result?.lines[0].box);
+});

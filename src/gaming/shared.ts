@@ -161,7 +161,13 @@ function offsetLineToRegion(line: GamingOcrLine, region: GamingOcrRect, width: n
         width: line.box.width,
         height: line.box.height,
     }, width, height);
-    return box ? { ...line, box, hasGeometry: true, vertical: line.vertical } : null;
+    if (!box) return null;
+    const words = line.words?.flatMap(word => {
+        const placed = clampBox({ ...word.box, left: region.left + word.box.left,
+            top: region.top + word.box.top }, width, height);
+        return placed ? [{ ...word, box: placed }] : [];
+    });
+    return { ...line, box, ...(words ? { words } : {}), hasGeometry: true, vertical: line.vertical };
 }
 
 function lineFromText(value: string, box: GamingOcrRect, hasGeometry: boolean): GamingOcrLine | null {
