@@ -10,9 +10,9 @@ Every setting Yomu stores is listed here, in the order the settings dialog prese
 
 Use the Yomu button on any page. On ordinary websites, Open settings launches the Yomu-owned Study page so the host cannot read or rewrite credentials, imports, recovery codes, or the values you save. The full dialog opens directly on Study and the extension's new-tab page.
 
-Fresh setup is language-neutral. Target-specific reading and Japanese-only preferences stay inactive until you explicitly choose a learning target. Some compatibility fields retain historical stored values; when one could look like a fresh Japanese default, the table states the effective gated behavior instead.
+Yomu reads Japanese immediately after installation. There is no language choice or setup gate; dictionaries and connections are optional.
 
-Each row gives the label the dialog shows, the explanation the dialog offers, the stored default or effective fresh-install gate, and the name the setting takes in an exported settings file.
+Each row names the setting, its description, stored default, and exported key.
 
 This page is generated from the reader source, so it stays in step with the version you have installed.
 
@@ -46,7 +46,6 @@ Some rows say Not yet described. That marks a real stored setting whose wording 
 | --- | --- | --- | --- |
 | Settings language | — | English (`en`) | `interfaceLanguage` |
 | Not yet described | — | 1 entry | `languageProfiles` |
-| Not yet described | — | `default-ja` | `activeLanguageProfileId` |
 | Accent color | — | `#5ea780` | `accentColor` |
 | New and in deck | — | `#ffffff` | `wordColorNew` |
 | Learning | — | `#ffd166` | `wordColorLearning` |
@@ -61,7 +60,6 @@ Some rows say Not yet described. That marks a real stored setting whose wording 
 | Subtitle underline color | — | Pitch accent (`pitch`) | `subtitleUnderlineColorSource` |
 | Subtitle text color | — | Anki status (`anki`) | `subtitleTextColorSource` |
 | Not yet described | — | `#223c2e` | `ocrBackgroundColor` |
-| Not yet described | — | 16 entries | `dictionaryLookupLinks` |
 | Theme | — | `auto` | `theme` |
 | Popup mode | — | Auto (`auto`) | `popupMode` |
 | Hover popup mode | — | Popover (`popover`) | `hoverPopupMode` |
@@ -87,7 +85,7 @@ Some rows say Not yet described. That marks a real stored setting whose wording 
 | Show sentence on word fronts | — | on | `newTabFrontSentenceEnabled` |
 | Cache Study for offline use | — | on | `newTabOfflineEnabled` |
 | Offline review cache limit | — | `50` | `newTabOfflineLimit` |
-| Daily study goal (minutes, 0 = off) | — | `60` | `newTabDailyGoalMinutes` |
+| Daily study goal (minutes, 0 = off) | — | `0` | `newTabDailyGoalMinutes` |
 | Study kanji before unlocking words | — | on | `newTabKanjiUnlockEnabled` |
 | Stop at the end of each batch | — | off | `newTabStopAtBatchEnd` |
 | Swipe cards to grade (left = fail, right = pass) | — | on | `newTabSwipeReviews` |
@@ -150,7 +148,7 @@ Set a hover key. Blank means plain hover.
 | Hover close delay (ms) | — | `80` | `hoverCloseDelayMs` |
 | Show Yomu lookup popup | — | `hover` | `popupActivationMode` |
 | Show settings puck | — | on | `showFloatingButton` |
-| Selected learning-language text on webpages | — | inactive until a learning target is explicitly chosen | `annotationsPaused` |
+| Pause page annotations | — | off | `annotationsPaused` |
 | Furigana | — | All parsed words (`all`) | `furiganaMode` |
 | Readings on clamped rows | — | Show (row grows) (`show`) | `clampedRowReadings` |
 | Not yet described | — | 3 entries | `furiganaHiddenStateGroups` |
@@ -178,6 +176,7 @@ Set a hover key. Blank means plain hover.
 | Show site frequency in pills | — | on | `showLookupPillFrequency` |
 | Show imported dictionary definitions | — | on | `localDictionariesEnabled` |
 | Parsing source | — | Local dictionaries (offline) (`local`) | `parserProvider` |
+| Not yet described | — | 16 entries | `dictionaryLookupLinks` |
 | Anki: shown in the popup | Matching Anki card content and status. | off | `ankiSectionEnabled` |
 | Anki: order in the popup | Matching Anki card content and status. | `90` | `ankiSectionPriority` |
 | Translation: shown in the popup | Sentence translation. | on | `studyTranslationEnabled` |
@@ -271,16 +270,16 @@ Reads nearby images. Google Lens needs no setup.
 
 ## YouTube (Media tab)
 
-Filter YouTube for the selected learning language. Japanese channel suggestions and Japanese-site navigation are available only after Japanese is explicitly chosen.
+Filter YouTube for Japanese. Japanese-site navigation is optional.
 
 | Setting | What it does | Default | Stored as |
 | --- | --- | --- | --- |
-| Filter YouTube to the selected learning language | — | stored on; inactive before target choice, then automatic for Japanese or opt-in for any other target | `youtubeImmersionEnabled` |
+| Japanese YouTube only | — | on | `youtubeImmersionEnabled` |
 | Not yet described | — | off | `youtubeImmersionEnabledChosen` |
 | Show hidden-video notice | — | on | `youtubeShowFilterNotice` |
-| Show Japanese channel suggestions | — | stored on; inactive until Japanese is explicitly chosen | `youtubeShowChannelRecommendations` |
+| Show Japanese channel suggestions | — | on | `youtubeShowChannelRecommendations` |
 | Not yet described | — | off | `youtubeShowChannelRecommendationsChosen` |
-| Open Japanese versions of sites | — | off; explicit opt-in after choosing Japanese | `preferJapaneseSiteLanguage` |
+| Open Japanese versions of sites | — | off | `preferJapaneseSiteLanguage` |
 
 ## Anki (Mining tab)
 
@@ -346,8 +345,7 @@ Yomu stores these the same way, and a settings export carries them. Some are wri
 | --- | --- | --- | --- |
 | Jiten API key | — | empty | `jitenApiKey` |
 | Not yet described | — | empty | `bunproApiKey` |
-| Not yet described | — | off | `onboardingSeen` |
-| Learning target selected | Records whether you chose a learning target. Until you do, target-specific reading, dictionary, OCR, and Study work stays off. | off | `learningTargetChosen` |
+| Not yet described | — | `default-ja` | `activeLanguageProfileId` |
 | Not yet described | — | on | `audioViaBlob` |
 | Not yet described | — | `shift` | `scanModifierKey` |
 | Not yet described | — | `keyboard` | `newTabTypeWordInputMode` |
