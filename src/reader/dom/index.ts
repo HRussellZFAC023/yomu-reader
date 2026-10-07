@@ -163,6 +163,12 @@ const EDITABLE_FRAGMENT_ROOT_SELECTOR = '[contenteditable="true"],textarea,input
 // contract; a bare combobox is a select-like listbox trigger whose label rides
 // the passive chip channel (see isNonEditableListboxTrigger in the policy).
 const EDITABLE_TEXT_SURFACE_SELECTOR = `[contenteditable],[role=textbox],[role=searchbox],[role=combobox][aria-autocomplete="list"],[role=combobox][aria-autocomplete="inline"],[role=combobox][aria-autocomplete="both"],[aria-multiline],[aria-placeholder],[data-placeholder],[data-slate-editor],[data-lexical-editor],[class*="placeholder" i],[class*="ProseMirror" i]`;
+// Footnote and citation markers ([1], [注釈 3]) are navigation, not prose:
+// annotating them put readings and underlines on page furniture. Wikipedia's
+// sup.reference, the DPUB-ARIA role, and the superscript in-page link that
+// Markdown footnotes emit. Checked by isFootnoteMarker in every collector,
+// before any rescue of short link or chip labels can admit them.
+const FOOTNOTE_MARKER_SELECTOR = 'sup.reference,[role="doc-noteref"],sup > a[href^="#"]';
 const BASE_SKIP_SELECTOR = `script,style,noscript,textarea,input,select,option,svg,use,[aria-hidden=true],${EDITABLE_TEXT_SURFACE_SELECTOR},[role=checkbox],[role=radio],[role=tab],[data-jpdb-reader-surface-ignore],[data-audio],[class*="audio" i],[class*="sound" i],[class*="speaker" i],[class*="voice" i],.jpdb-reader-text-mirror,.jpdb-reader-control-text-mirror,.jpdb-reader-canvas-text-layer,.jpdb-reader-word,.subsection-pitch-accent .subsection`;
 const BASE_SKIP_SELECTOR_WITHOUT_TAB = BASE_SKIP_SELECTOR.replace(',[role=tab]', '');
 const BASE_SKIP_SELECTOR_WITHOUT_ARIA_HIDDEN = BASE_SKIP_SELECTOR.replace(',[aria-hidden=true]', '');
@@ -582,6 +588,7 @@ function canInspectTextNode(node: Node, visibilityCache: WeakMap<HTMLElement, bo
     const parent = node.parentElement;
     if (!parent || isInsideExcludedReaderRoot(parent, {})) return false;
     if (!hasVisibleComposedTextAncestors(parent, visibilityCache)) return false;
+    if (isFootnoteMarker(parent)) return false;
     const blocked = parent.closest(SKIP_SELECTOR);
     if (!blocked) return true;
     return isAnnotatableChipControl(blocked);
@@ -672,6 +679,7 @@ function textTargetParentFilterResult(parent: HTMLElement, text: string, visible
 function shouldRejectTextTargetParent(parent: HTMLElement, text: string, visibleOnly: boolean, options: TextTargetCollectionOptions): boolean {
     const genericControl = parent.closest(GENERIC_CONTROL_TEXT_SKIP_SELECTOR);
     if (!options.includeFormChrome && genericControl && !isCompactControlDescendantTextTarget(parent, text)) return true;
+    if (isFootnoteMarker(parent)) return true;
     const blocked = parent.closest(SKIP_SELECTOR);
     if (blocked
         && !isAnnotatableChipControl(blocked)
@@ -1319,9 +1327,16 @@ function shouldFlushAndSkipFragmentElement(
     isRoot: boolean,
 ): boolean {
     if (fragmentElementMustRemainPageOwned(element, isRoot)) return true;
+    // A collector may re-root inside a marker (at its link or label), so a
+    // root checks its ancestors too; a child's ancestors were already visited.
+    if (isRoot ? isFootnoteMarker(element) : safeElementMatches(element, FOOTNOTE_MARKER_SELECTOR)) return true;
     if (matchesSkippedFragmentElement(element, state, isRoot)) return true;
     if (shouldSkipInvisibleFragmentElement(element, state.visibleOnly)) return true;
     return shouldSkipFragmentTextPresentation(element, state.options);
+}
+
+function isFootnoteMarker(element: Element): boolean {
+    return Boolean(element.closest(FOOTNOTE_MARKER_SELECTOR));
 }
 
 function fragmentElementMustRemainPageOwned(element: HTMLElement, isRoot: boolean): boolean {
