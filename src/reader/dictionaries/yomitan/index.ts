@@ -1473,18 +1473,25 @@ export class YomitanDictionaryStore implements LocalDictionaryStore {
         });
     }
 
-    private async getAllDictionaryInfo(db: IDBDatabase): Promise<YomitanDictionaryInfo[]> {
-        this.dictionaryInfoPromise ??= this.getAllFromStore<YomitanDictionaryInfo>(db, 'dictionaryInfo')
+    // Read fresh every time; only concurrent callers share one read. Another
+    // realm can change this database without telling this store: packaged
+    // Study imports beside the extension's background, and two hosted Study
+    // tabs share one origin. A list kept from before such an install told every
+    // page loaded afterwards that no term dictionary existed, so offline it had
+    // nothing to look words up in. The store holds a handful of rows.
+    private getAllDictionaryInfo(db: IDBDatabase): Promise<YomitanDictionaryInfo[]> {
+        if (this.dictionaryInfoPromise) return this.dictionaryInfoPromise;
+        const pending: Promise<YomitanDictionaryInfo[]> = this.getAllFromStore<YomitanDictionaryInfo>(db, 'dictionaryInfo')
             .then(items => items.sort((a, b) => a.priority - b.priority || a.title.localeCompare(b.title)))
             .then(items => {
                 this.reconcileDuplicateDictionaryIdentities(items);
                 return items;
             })
-            .catch(error => {
-                this.dictionaryInfoPromise = undefined;
-                throw error;
+            .finally(() => {
+                if (this.dictionaryInfoPromise === pending) this.dictionaryInfoPromise = undefined;
             });
-        return this.dictionaryInfoPromise;
+        this.dictionaryInfoPromise = pending;
+        return pending;
     }
 
     // Installs from before identity-keyed replacement can hold two revisions
