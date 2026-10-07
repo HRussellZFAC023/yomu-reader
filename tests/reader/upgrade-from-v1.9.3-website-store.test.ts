@@ -3,10 +3,10 @@
 // v1.9.3 promoted a yomureader.com visitor's page-local settings and progress
 // into a freshly installed Reader, and mirrored the installed store back into
 // the page. v2 keeps the first half only (ADR-0017): the website store is
-// adopted into an installed store whose settings are absent or explicitly
-// unchosen, into keys it lacks, and is never merged into any other store or
-// written back. These cases are v2 contract, so they live outside the corpus
-// self-check file.
+// adopted only into missing keys while the installed store has no explicit
+// settings intent. Settings and their ledger stay paired; existing records are
+// never overwritten, and nothing is written back into the website. These cases
+// are v2 contracts, so they live outside the corpus self-check file.
 import 'fake-indexeddb/auto';
 import { execFileSync } from 'node:child_process';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -14,7 +14,8 @@ import { markInstalledReaderRuntime } from '../../src/reader/app/runtime-presenc
 import { resetManagedStateEpochSessionsForTests } from '../../src/reader/app/managed-state-epoch';
 import { resetManagedWebStorageForTests } from '../../src/reader/app/managed-web-storage';
 import { clearManagedStoredValues, commitManagedStateResetEpoch, exportManagedStoredValues } from '../../src/reader/app/storage';
-import { loadSettings } from '../../src/reader/settings';
+import { DEFAULT_SETTINGS, loadSettings } from '../../src/reader/settings';
+import { serializeSettingsPersistencePair } from '../../src/reader/settings/settings-persistence-transaction';
 import { LocalYomuSrsStore } from '../../src/reader/srs/local-yomu-store';
 import type { StoredYomuSrsCard } from '../../src/reader/srs/local-yomu-deck';
 import {
@@ -30,7 +31,7 @@ const GM_API = ['GM_getValue', 'GM_setValue', 'GM_deleteValue', 'GM_listValues']
 const WEBSITE_ONLY = v193Corpus<{ webStorage: Record<string, WebStorage> }>('e4-hosted-study-website-only.json')
     .webStorage['https://yomureader.com'];
 const INSTALLED = v193Corpus<{ gm: Record<string, unknown>; expected: { settings: Record<string, unknown> } }>('a-userscript-explicit-save.json');
-const INSTALLED_CHOSEN = INSTALLED.gm;
+const INSTALLED_WITH_INTENT = INSTALLED.gm;
 const LEARNER_CARD: StoredYomuSrsCard = {
     id: '読む', expression: '読む', reading: 'よむ', meanings: ['to read'], dueAt: 9_000, lastReviewAt: 2_000,
     createdAt: 1_000, updatedAt: 2_000, reviews: 4, lapses: 0, intervalDays: 3, ease: 2.5,
@@ -100,6 +101,10 @@ async function cardExpressions(): Promise<string[]> {
     return Object.values((await new LocalYomuSrsStore().read()).cards).map(card => card.expression);
 }
 
+function retainedExpectedSettings(settings: Record<string, unknown>): Record<string, unknown> {
+    return Object.fromEntries(Object.entries(settings).filter(([key]) => Object.hasOwn(DEFAULT_SETTINGS, key)));
+}
+
 describe('website-only store when a Reader is installed after the update', () => {
     it('follows the learner into a freshly installed extension, including its backup', async () => {
         const website = await websiteOnlyLearner();
@@ -107,26 +112,26 @@ describe('website-only store when a Reader is installed after the update', () =>
         withInstalledReader('extension', new Map());
 
         await expect(loadSettings()).resolves.toMatchObject({
-            learningTargetChosen: true, onboardingSeen: true, apiKey: 'corpus0000000000000000000000jpdb', theme: 'dark',
+            apiKey: 'corpus0000000000000000000000jpdb', theme: 'dark',
         });
         expect(await cardExpressions()).toEqual(['読む']);
         await expect(exportManagedStoredValues()).resolves.toMatchObject({
             'yomu:srs-local:v2:index': { cardIds: [expect.any(String)] },
-            'jpdb-popup-reader-settings': { learningTargetChosen: true },
+            'jpdb-popup-reader-settings': { apiKey: 'corpus0000000000000000000000jpdb', theme: 'dark' },
         });
         expect(websiteRecords(pageStorage())).toEqual(websiteRecords(website));
     });
 
-    it('never replaces or merges what an installed Reader with a Chosen Learning Target holds', async () => {
+    it('never replaces or merges an installed Reader with explicit settings intent', async () => {
         const website = await websiteOnlyLearner();
         newStudyPageLoad(website);
-        const installed = new Map(Object.entries(jsonClone(INSTALLED_CHOSEN)));
+        const installed = new Map(Object.entries(jsonClone(INSTALLED_WITH_INTENT)));
         withInstalledReader('userscript', installed);
 
-        await expect(loadSettings()).resolves.toMatchObject(INSTALLED.expected.settings);
+        await expect(loadSettings()).resolves.toMatchObject(retainedExpectedSettings(INSTALLED.expected.settings));
         expect(await cardExpressions()).toEqual([]);
         expect(await exportManagedStoredValues()).not.toHaveProperty('yomu:srs-local:v2:index');
-        expect([...installed.keys()].sort()).toEqual(Object.keys(INSTALLED_CHOSEN).sort());
+        expect(Object.fromEntries(installed)).toEqual(INSTALLED_WITH_INTENT);
         expect(websiteRecords(pageStorage())).toEqual(websiteRecords(website));
     });
 
@@ -143,16 +148,33 @@ describe('website-only store when a Reader is installed after the update', () =>
         expect(websiteRecords(pageStorage())).toEqual(websiteRecords(website));
     });
 
-    it('leaves an installed settings record without the target flag alone', async () => {
+    it('keeps existing settings but adopts missing cards when no settings intent was recorded', async () => {
         const website = await websiteOnlyLearner();
         newStudyPageLoad(website);
         const preFlag = { theme: 'light', interfaceLanguage: 'ja' };
         const installed = new Map<string, unknown>([['jpdb-popup-reader-settings', preFlag]]);
         withInstalledReader('userscript', installed);
 
+        expect(await cardExpressions()).toEqual(['読む']);
+        expect(await exportManagedStoredValues()).toHaveProperty('yomu:srs-local:v2:index');
+        expect(installed.get('jpdb-popup-reader-settings')).toEqual(preFlag);
+        expect(installed.has('yomu:settings-intent:v2')).toBe(false);
+        expect(websiteRecords(pageStorage())).toEqual(websiteRecords(website));
+    });
+
+    it('protects current installed intent without relying on any retired target flag', async () => {
+        const website = await websiteOnlyLearner();
+        newStudyPageLoad(website);
+        const pair = serializeSettingsPersistencePair({ ...DEFAULT_SETTINGS, theme: 'light' }, {
+            revision: 1, records: { theme: { seq: 1, value: 'light' } },
+        });
+        const installed = new Map<string, unknown>(Object.entries(jsonClone(pair)));
+        withInstalledReader('userscript', installed);
+
         expect(await cardExpressions()).toEqual([]);
-        expect(await exportManagedStoredValues()).not.toHaveProperty('yomu:srs-local:v2:index');
-        expect([...installed.keys()]).toEqual(['jpdb-popup-reader-settings']);
+        await expect(loadSettings()).resolves.toMatchObject({ theme: 'light' });
+        expect(Object.fromEntries(installed)).toEqual(pair);
+        expect(websiteRecords(pageStorage())).toEqual(websiteRecords(website));
     });
 
     it('is erased by a factory reset from the installed Reader and does not return', async () => {
@@ -167,14 +189,17 @@ describe('website-only store when a Reader is installed after the update', () =>
         newStudyPageLoad(pageStorage());
         withInstalledReader('extension', installed);
         expect(Object.keys(pageStorage()).filter(key => /^(?:yomu|jpdb)/.test(key) && !key.startsWith('yomu:web-owner:v2:'))).toEqual([]);
-        await expect(loadSettings()).resolves.toMatchObject({ learningTargetChosen: false });
+        const resetSettings = await loadSettings();
+        expect(resetSettings).toMatchObject({ apiKey: DEFAULT_SETTINGS.apiKey, theme: DEFAULT_SETTINGS.theme });
+        expect(resetSettings).not.toHaveProperty('learningTargetChosen');
+        expect(resetSettings).not.toHaveProperty('onboardingSeen');
         expect(await cardExpressions()).toEqual([]);
     });
 });
 
 describe('pre-startup hosted appearance module', () => {
     // Adoption sits on the storage read path, which the appearance module bundles;
-    // judging the target flag must not pull the language registry in with it.
+    // resolving storage authority must not pull the removed target registry in with it.
     it('stays free of the language graph', () => {
         const source = execFileSync(process.execPath, ['-e',
             'process.stdout.write(require("./scripts/lib/hosted-appearance-settings.cjs").buildHostedAppearanceSettings(process.cwd()).source)',
