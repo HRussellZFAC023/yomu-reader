@@ -17,14 +17,14 @@ The desktop app is free for Windows, macOS and Linux. For now it is called Yomu 
 
 ## Download the app
 
-Go to the [latest release on GitHub](https://github.com/HRussellZFAC023/yomu-reader/releases/latest). Under Assets, download the file for your computer:
+Download version **2.0.12** for your computer. These links open the released files directly; see the [latest release on GitHub](https://github.com/HRussellZFAC023/yomu-reader/releases/latest) for release notes and newer versions.
 
 | Computer | File to download |
 | --- | --- |
-| Windows | the file ending in `win-x64.exe` |
-| Mac with Apple silicon (M1 or newer) | the file ending in `mac-arm64.zip` |
-| Mac with an Intel processor | the file ending in `mac-x64.zip` |
-| Linux or Steam Deck | the file ending in `linux-x86_64.AppImage` |
+| Windows | [Download for Windows](https://github.com/HRussellZFAC023/yomu-reader/releases/download/v2.0.12/yomu-gaming-2.0.12-win-x64.exe) |
+| Mac with Apple silicon (M1 or newer) | [Download for Apple silicon](https://github.com/HRussellZFAC023/yomu-reader/releases/download/v2.0.12/yomu-gaming-2.0.12-mac-arm64.zip) |
+| Mac with an Intel processor | [Download for Intel Mac](https://github.com/HRussellZFAC023/yomu-reader/releases/download/v2.0.12/yomu-gaming-2.0.12-mac-x64.zip) |
+| Linux or Steam Deck | [Download for Linux](https://github.com/HRussellZFAC023/yomu-reader/releases/download/v2.0.12/yomu-gaming-2.0.12-linux-x86_64.AppImage) |
 
 To check which Mac you have, open the Apple menu → About This Mac. The other files on that page are for the browser add-on and for developers.
 

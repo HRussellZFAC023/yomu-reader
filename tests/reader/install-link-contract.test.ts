@@ -19,6 +19,16 @@ const CANONICAL_USERSCRIPT_URL = 'https://yomureader.com/yomu.user.js';
 const RELEASE_ATTACHMENT_URL_RE = /https:\/\/github\.com\/[^\s"')]+\/releases\/download\/[^\s"')]+\/yomu\.user\.js/;
 
 describe('hosted userscript install links', () => {
+    it('offers each released desktop binary from the homepage destination', () => {
+        expect(readFileSync('docs/index.md', 'utf8')).toContain('href="/desktop"');
+        const desktop = readFileSync('docs/desktop.md', 'utf8');
+        for (const platform of ['win-x64.exe', 'mac-arm64.zip', 'mac-x64.zip', 'linux-x86_64.AppImage']) {
+            expect(desktop).toContain(`/releases/download/v2.0.12/yomu-gaming-2.0.12-${platform}`);
+        }
+        expect(desktop).toContain('Screen Recording');
+        expect(readFileSync('docs/learn/manga-and-games.md', 'utf8')).toContain('Settings → Media');
+    });
+
     it('keeps every homepage userscript CTA on the canonical install response', () => {
         const homepage = readFileSync('docs/index.md', 'utf8');
         const userscriptUrls = Array.from(homepage.matchAll(/https:\/\/[^\s"')]+\/yomu\.user\.js/g), match => match[0]);
