@@ -825,6 +825,19 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
 .jpdb-reader-word-underline-status .jpdb-reader-word {
   --jpdb-reader-word-decoration-source: var(--jpdb-reader-status-underline, transparent);
 }
+/* Colour is never the only cue (WCAG 1.4.1): a word still being learned draws
+   its state line dashed and a due word dotted, so neither depends on telling
+   hues apart. Simulated protan and deutan vision cannot separate the due teal
+   from the new grey on a light page. New and failed stay solid; the popup names
+   every state in words. */
+:is(.jpdb-reader-word-underline-status, .jpdb-reader-word-underline-jpdb, .jpdb-reader-word-underline-review)
+  .jpdb-reader-word:is(.jpdb-learning, .jpdb-young, .jiten-learning, .jiten-young, .anki-learning, .yomu-review-learning) {
+  --jpdb-reader-word-underline-style: dashed;
+}
+:is(.jpdb-reader-word-underline-status, .jpdb-reader-word-underline-jpdb, .jpdb-reader-word-underline-review)
+  .jpdb-reader-word:is(.jpdb-due, .jiten-due, .anki-due, .yomu-review-due) {
+  --jpdb-reader-word-underline-style: dotted;
+}
 .jpdb-reader-word-underline-jpdb .jpdb-reader-word {
   --jpdb-reader-word-decoration-source: var(--jpdb-reader-jpdb-underline, transparent);
 }

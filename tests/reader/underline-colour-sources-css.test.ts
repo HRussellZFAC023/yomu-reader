@@ -191,3 +191,26 @@ function selectorsWithoutWhere(list: string): string[] {
         .split(/,(?![^()]*\))/)
         .map(selector => selector.trim());
 }
+
+// WCAG 1.4.1: colour is never the only cue. Under a state underline a word
+// still being learned draws its line dashed and a due word dotted, so neither
+// depends on hue (simulated protan and deutan vision merges due teal with the
+// New grey on a light page).
+describe('state underline style', () => {
+    afterEach(() => {
+        document.body.replaceChildren();
+    });
+
+    it('dashes a learning word, dots a due one and keeps New and Failed solid', () => {
+        const style = (mode: string, classes: string) => winner(mount(`<p class="jpdb-reader-word-underline-${mode}">${wordMarkup(classes)}</p>`), '--jpdb-reader-word-underline-style');
+        for (const mode of ['status', 'jpdb']) {
+            expect(style(mode, 'jpdb-learning')).toBe('dashed');
+            expect(style(mode, 'jpdb-young')).toBe('dashed');
+            expect(style(mode, 'jpdb-due')).toBe('dotted');
+            for (const state of ['new', 'failed', 'known']) expect(style(mode, `jpdb-${state}`)).toBe('solid');
+        }
+        expect(style('review', 'anki-learning')).toBe('dashed');
+        expect(style('review', 'anki-due')).toBe('dotted');
+        expect(style('pitch', 'jpdb-learning')).toBe('solid');
+    });
+});
