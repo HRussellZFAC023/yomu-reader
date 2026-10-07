@@ -2,6 +2,7 @@ import type { UiCopyKey } from './i18n';
 import type { ExtensionStoreBrowser } from './constants';
 import { DOCS_BASE_URL, EXTENSION_STORE_URLS, USERSCRIPT_INSTALL_URL } from './constants';
 import { runningAsBrowserExtension } from './runtime-env';
+import { userscriptGmApi, userscriptGmInfo } from '../userscript/gm-api';
 
 // The getting-started page carries per-browser install/update instructions,
 // including the fix for the Chromium "Apps, extensions, and user scripts
@@ -39,13 +40,12 @@ function scriptHandlerName(info: unknown): string {
 }
 
 function readGmInfo(): unknown {
-    const g = globalThis as { GM_info?: unknown; GM?: { info?: unknown } };
-    return g.GM_info ?? g.GM?.info;
+    return userscriptGmInfo();
 }
 
 function hasCallableOpenInTab(): boolean {
-    const g = globalThis as { GM_openInTab?: unknown; GM?: { openInTab?: unknown } };
-    return typeof g.GM_openInTab === 'function' || typeof g.GM?.openInTab === 'function';
+    const g = globalThis as { GM_openInTab?: unknown };
+    return typeof g.GM_openInTab === 'function' || typeof userscriptGmApi()?.openInTab === 'function';
 }
 
 function readUserAgent(): string {

@@ -690,6 +690,7 @@ declare global {
         xmlhttpRequest?: UserscriptHttpRequest;
         openInTab?: (url: string, options?: { active?: boolean; insert?: boolean; setParent?: boolean } | boolean) => unknown;
         registerMenuCommand?: (name: string, fn: () => void) => void;
+        info?: Record<string, unknown>;
     };
     const GM_info: undefined | Record<string, unknown>;
     const GM_setValue: undefined | ((key: string, value: unknown) => void | Promise<void>);

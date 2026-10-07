@@ -7,6 +7,7 @@ import {
 } from './bridge-authority';
 import { isBridgeManagedStorageKey, isPrivateManagedStorageKey } from '../app/managed-storage-keys';
 import { bridgeEventDetail, normalizedBridgeEventDetail } from './bridge-detail';
+import { userscriptGmApi } from './gm-api';
 import { addWindowEventListener, createWindowCustomEvent, dispatchWindowEvent, removeWindowEventListener } from '../platform/window-events';
 import {
     clearLegacyExtensionManagedStorage,
@@ -394,26 +395,26 @@ function gmStorageAccessors(): GmStorageAccessors | null {
 }
 
 function directGmGetValue(): GmGetValue | null {
-    const modern = (globalThis as { GM?: { getValue?: GmGetValue } }).GM?.getValue;
-    if (typeof modern === 'function') return modern.bind((globalThis as { GM?: unknown }).GM);
+    const gm = userscriptGmApi();
+    if (typeof gm?.getValue === 'function') return gm.getValue.bind(gm) as GmGetValue;
     return typeof GM_getValue === 'function' ? GM_getValue as GmGetValue : null;
 }
 
 function directGmSetValue(): GmSetValue | null {
     if (typeof GM_setValue === 'function') return GM_setValue as GmSetValue;
-    const modern = (globalThis as { GM?: { setValue?: GmSetValue } }).GM?.setValue;
-    return typeof modern === 'function' ? modern.bind((globalThis as { GM?: unknown }).GM) : null;
+    const gm = userscriptGmApi();
+    return typeof gm?.setValue === 'function' ? gm.setValue.bind(gm) : null;
 }
 
 function directGmDeleteValue(): GmDeleteValue | null {
     if (typeof GM_deleteValue === 'function') return GM_deleteValue as GmDeleteValue;
-    const modern = (globalThis as { GM?: { deleteValue?: GmDeleteValue } }).GM?.deleteValue;
-    return typeof modern === 'function' ? modern.bind((globalThis as { GM?: unknown }).GM) : null;
+    const gm = userscriptGmApi();
+    return typeof gm?.deleteValue === 'function' ? gm.deleteValue.bind(gm) : null;
 }
 
 function directGmListValues(): GmListValues | null {
-    const modern = (globalThis as { GM?: { listValues?: GmListValues } }).GM?.listValues;
-    if (typeof modern === 'function') return modern.bind((globalThis as { GM?: unknown }).GM);
+    const gm = userscriptGmApi();
+    if (typeof gm?.listValues === 'function') return gm.listValues.bind(gm);
     if (typeof GM_listValues === 'function') return GM_listValues as GmListValues;
     const direct = (globalThis as { GM_listValues?: GmListValues }).GM_listValues;
     if (typeof direct === 'function') return direct;
