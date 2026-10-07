@@ -11,6 +11,7 @@ import { readCardCommandCapability, readCardUiCommandCapability, type CardComman
 import { setInnerHtml } from '../../src/reader/dom';
 import { mountDeckSelects } from '../../src/reader/study/mining-controls';
 import { isEditableTarget } from '../../src/reader/ui/browser';
+import { LookupModalAccessibility } from '../../src/reader/popup/modal-accessibility-impl';
 import { reviewGradeScale } from '../../src/reader/cards/grade-scale';
 import { renderNewTabLookupReviewControls } from '../../src/reader/newtab/lookup-dom';
 import type { NewTabLookupReviewTarget } from '../../src/reader/newtab/review-controls';
@@ -154,6 +155,33 @@ describe('popup collect action', () => {
         // Mounting again (a later render pass) does not stack a second dropdown.
         mountDeckSelects(actions, WORD, SENTENCE, perform);
         expect(actions.querySelectorAll(DECK_SELECT)).toHaveLength(1);
+    });
+
+    // A modal popup traps Tab at its edges. The dropdown's control is in a closed
+    // shadow root, so the trap counted ⋯ as the last stop and wrapped past the dropdown.
+    it('keeps the dropdown in a modal popup\'s Tab order', () => {
+        const actions = renderActions(KEYLESS);
+        const popover = actions.closest<HTMLElement>('.jpdb-reader-popover')!;
+        mountDeckSelects(actions, WORD, SENTENCE, vi.fn());
+        const modal = new LookupModalAccessibility();
+        modal.activate(popover);
+        const tab = (): KeyboardEvent => {
+            const event = new KeyboardEvent('keydown', { key: 'Tab', bubbles: true, cancelable: true });
+            document.activeElement!.dispatchEvent(event);
+            return event;
+        };
+        try {
+            const more = actions.querySelector<HTMLButtonElement>('[data-action="mining-collapse"]')!;
+            more.focus();
+            // ⋯ is no longer the edge: the browser moves on to the dropdown.
+            expect(tab().defaultPrevented).toBe(false);
+            picker().focus();
+            // The dropdown is the last stop, so Tab wraps to the first.
+            expect(tab().defaultPrevented).toBe(true);
+            expect(document.activeElement).not.toBe(actions.querySelector(DECK_SELECT));
+        } finally {
+            modal.release();
+        }
     });
 
     it('offers a Bunpro-only learner the save for a JPDB-parsed word and adds it to Bunpro as vocabulary', async () => {

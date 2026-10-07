@@ -50,7 +50,8 @@ export function mountDeckSelects(root: ParentNode, card: JPDBCard, sentence: str
 
 function mountDeckSelect(host: HTMLElement, choices: readonly DeckChoice[], card: JPDBCard, sentence: string | undefined, performAction: MiningCardAction): void {
     const label = host.textContent?.trim() ?? '';
-    const root = host.attachShadow({ mode: 'closed' });
+    // delegatesFocus: focusing the host (a modal's focus trap does) lands on the dropdown.
+    const root = host.attachShadow({ mode: 'closed', delegatesFocus: true });
     const style = document.createElement('style');
     style.textContent = DECK_SELECT_STYLE;
     const select = document.createElement('select');
