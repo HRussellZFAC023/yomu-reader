@@ -89,7 +89,6 @@
   --jpdb-reader-video-shadow: color-mix(in srgb, var(--jpdb-reader-black) 72%, transparent);
   --jpdb-reader-video-shadow-soft: color-mix(in srgb, var(--jpdb-reader-black) 58%, transparent);
   --jpdb-reader-video-shadow-faint: color-mix(in srgb, var(--jpdb-reader-black) 38%, transparent);
-  --jpdb-reader-video-shadow-subtle: color-mix(in srgb, var(--jpdb-reader-black) 30%, transparent);
   --jpdb-reader-ocr-line-bg: rgba(24, 27, 32, 0.14);
   --jpdb-reader-ocr-bg: rgba(24, 27, 32, 0.32);
   --jpdb-reader-ocr-active-bg: rgba(24, 27, 32, 0.44);
@@ -111,7 +110,6 @@
   --jpdb-reader-paper-inset-strong: color-mix(in srgb, var(--jpdb-reader-white) 78%, transparent);
   --jpdb-reader-surface-inset: color-mix(in srgb, var(--jpdb-reader-white) 5%, transparent);
   --jpdb-reader-surface-inset-soft: color-mix(in srgb, var(--jpdb-reader-white) 3%, transparent);
-  --jpdb-reader-shadow-soft: color-mix(in srgb, var(--jpdb-reader-shadow) 54%, transparent);
   --jpdb-reader-shadow-subtle: color-mix(in srgb, var(--jpdb-reader-shadow) 48%, transparent);
   --jpdb-reader-bg: var(--jpdb-reader-theme-dark-bg);
   --jpdb-reader-surface: var(--jpdb-reader-theme-dark-surface);

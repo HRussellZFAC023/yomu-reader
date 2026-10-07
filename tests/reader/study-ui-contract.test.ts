@@ -51,8 +51,10 @@ describe('Reader Study UI contract', () => {
     it('keeps the desktop learning flow compact and the answer action attached to its field', () => {
         expect(newTabCss).toContain('@media (min-width: 641px)');
         expect(newTabCss).toContain('.jpdb-reader-newtab-study-steps { flex-wrap: nowrap;');
-        expect(newTabCss).toContain('min-height: min(70dvh, 720px);');
-        expect(newTabCss).toContain('border-radius: 18px;');
+        // A word review is one column on the page: no frame, no shadow.
+        expect(newTabCss).toContain('.jpdb-reader-newtab-study { min-height: min(70dvh, 720px); padding: clamp(18px, 3vh, 30px) clamp(22px, 4vw, 54px) clamp(26px, 4vh, 42px); }');
+        // The fixed grade bar reaches the bottom edge, so no strip of the answer shows beneath it.
+        expect(newTabCss).toContain('.jpdb-reader-newtab-grade-controls:not(:has(.jpdb-reader-newtab-grade-target-context)) { bottom: 0; padding-bottom: max(20px, calc(8px + env(safe-area-inset-bottom))); border-radius: 12px 12px 0 0; }');
         expect(newTabCss).toContain('.jpdb-reader-newtab[data-study-surface="academy"]:not(.jpdb-reader-newtab-search-mode, .jpdb-reader-newtab-stats-mode) .jpdb-reader-newtab-shell { width: 100%; min-width: 0; max-width: 100%; grid-template-columns: minmax(0, 1fr); }');
         expect(newTabCss).toContain('.jpdb-reader-newtab-type-form { width: min(100%, 620px); grid-template-columns: 44px minmax(0, 1fr) auto;');
         expect(newTabCss).toContain('font: 600 clamp(1.125rem, 2.3vw, 1.5rem) / 1.2 var(--jpdb-reader-font);');
@@ -111,7 +113,8 @@ describe('Reader Study UI contract', () => {
         // Opaque, so reading text never shows through the fixed tab bar (WebKit).
         expect(newTabCss).toContain('border-top: 1px solid color-mix(in srgb, var(--jpdb-reader-border) 86%, transparent); background: var(--jpdb-reader-bg); box-shadow: 0 -12px 32px');
         expect(newTabCss).not.toContain('backdrop-filter: blur(18px) saturate(1.18);');
-        expect(newTabCss).toContain('.jpdb-reader-newtab-controls.jpdb-reader-newtab-grade-controls { bottom: calc(72px + env(safe-area-inset-bottom));');
+        // Flush on the dock, so no strip of the answer scrolls between the two bars.
+        expect(newTabCss).toContain('.jpdb-reader-newtab-controls.jpdb-reader-newtab-grade-controls { bottom: calc(64px + env(safe-area-inset-bottom)); border-radius: 0; }');
         expect(newTabCss).toContain('.jpdb-reader-newtab-study-steps { width: min(100%, calc(100vw - 16px)); flex-wrap: nowrap; justify-content: flex-start; overflow-x: auto;');
     });
 
@@ -141,5 +144,14 @@ describe('Reader Study UI contract', () => {
         expect(academyShellCss).toContain('overflow-x: clip;');
         expect(academyShellCss).toContain('.academy-study-chrome { flex-wrap: nowrap; gap: 6px; }');
         expect(academyShellCss).toContain('.academy-study-clock-host { flex: 0 0 auto; margin-left: auto; gap: 6px; }');
+    });
+});
+
+describe('Study on a phone', () => {
+    // The answer once ran under the grade bar on a notched phone: 148px of
+    // padding ignored the home indicator below a 128px stack of fixed bars.
+    it('pads the review clear of both fixed bars and the home indicator', () => {
+        expect(newTabCss).toContain('@media (max-width: 640px) { .jpdb-reader-newtab:not([data-study-surface="academy"]):not(.jpdb-reader-newtab-search-mode):not(.jpdb-reader-newtab-stats-mode) .jpdb-reader-newtab-shell { padding-bottom: calc(148px + env(safe-area-inset-bottom)); }');
+        expect(newTabCss).toContain(':has(.jpdb-reader-newtab-grade-target-context):not(.jpdb-reader-newtab-search-mode):not(.jpdb-reader-newtab-stats-mode) .jpdb-reader-newtab-shell { padding-bottom: calc(180px + env(safe-area-inset-bottom)); }');
     });
 });

@@ -33,7 +33,9 @@ describe('settings CSS', () => {
         expect(newTabEntryCss.trim().endsWith("@import './styles/interactions.css';")).toBe(true);
         expect(normalizedInteractionsCss).toContain('.jpdb-reader-popover :where( .jpdb-reader-source-card > summary.jpdb-reader-local-title,');
         expect(normalizedInteractionsCss).toContain('.jpdb-reader-newtab .jpdb-reader-newtab-more[open] .jpdb-reader-newtab-more-menu, .jpdb-reader-newtab .jpdb-reader-newtab-search-card-shell[data-newtab-search-expanded="true"] .jpdb-reader-newtab-search-detail, .jpdb-subtitle-style-popover:not([hidden]) { animation: jpdb-reader-interaction-enter 0.14s ease-out both; }');
-        expect(normalizedInteractionsCss).toContain('.jpdb-reader-newtab .jpdb-reader-newtab-study { transition: background-color 0.16s ease, filter 0.16s ease; }');
+        // The frameless Study card no longer tints on hover; only the press filter animates.
+        expect(normalizedInteractionsCss).toContain('.jpdb-reader-newtab .jpdb-reader-newtab-study { transition: filter 0.16s ease; }');
+        expect(normalizedInteractionsCss).not.toContain('.jpdb-reader-newtab-study:hover');
         expect(normalizedInteractionsCss).toContain('@media (prefers-reduced-motion: reduce)');
     });
 

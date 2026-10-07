@@ -310,19 +310,7 @@
 }
 
 .jpdb-reader-newtab .jpdb-reader-newtab-study {
-  transition:
-    background-color 0.16s ease,
-    filter 0.16s ease;
-}
-
-@media (hover: hover) and (pointer: fine) {
-  .jpdb-reader-newtab:not(
-    .jpdb-reader-newtab-search-mode,
-    .jpdb-reader-newtab-stats-mode,
-    .jpdb-reader-newtab-revealed
-  ) .jpdb-reader-newtab-study:hover {
-    background: color-mix(in srgb, var(--jpdb-reader-accent) 5%, transparent);
-  }
+  transition: filter 0.16s ease;
 }
 
 .jpdb-reader-newtab .jpdb-reader-newtab-study:active {
