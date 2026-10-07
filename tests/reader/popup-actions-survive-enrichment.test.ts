@@ -50,6 +50,12 @@ type Internals = {
         isCurrentHoverCard: () => boolean,
     ): void;
     renderCompletedCardPopover(popover: HTMLElement, card: JPDBCard, sentence: string | undefined, trigger: 'modal' | 'hover', data: CardRenderData): void;
+    cardRenderData: { load(card: JPDBCard): unknown; clear(): void };
+    hoverLookupGeneration: number;
+    activePopoverMode?: 'modal' | 'hover';
+    showCard(card: JPDBCard, sentence?: string, anchor?: HTMLElement, options?: Record<string, unknown>): Promise<void>;
+    cancelPendingHoverLookup(): void;
+    pinActiveHoverPopoverForPendingModalLookup(): void;
 };
 
 let pickerRoot: ShadowRoot | undefined;
@@ -61,9 +67,12 @@ beforeEach(() => {
         if (this.classList.contains('jpdb-reader-deck-picker')) pickerRoot = root;
         return root;
     });
+});
+
+function holdFrames(): void {
     frames = [];
     vi.spyOn(window, 'requestAnimationFrame').mockImplementation(callback => frames.push(callback));
-});
+}
 afterEach(() => {
     vi.restoreAllMocks();
     pickerRoot = undefined;
@@ -106,6 +115,7 @@ describe.each(['modal', 'hover'] as const)('%s popup actions while enrichment re
         internals.handleCardAction = handleCardAction;
         const localEntries = deferred<YomitanTermEntry[]>();
         const jpdbVocabularyInfo = deferred<null>();
+        holdFrames();
         const add = () => popover.querySelector<HTMLButtonElement>('[data-action="deck-picker"]');
         const overflow = () => popover.querySelector<HTMLButtonElement>('[data-action="mining-collapse"]');
 
@@ -196,6 +206,49 @@ describe.each(['modal', 'hover'] as const)('%s popup actions while enrichment re
             expect(rebuilt.getAttribute('aria-expanded')).toBe('true');
         } finally {
             popover.remove();
+            app.destroy();
+        }
+    });
+});
+
+// A press on a control inside a loading hover popup pins it (it must stop behaving as a
+// transient hover). That press also retired the hover lookup the popup's own render was
+// checked against, so the pinned popup stayed on "Loading dictionary details…" for good.
+describe('a hover popup pinned by a press while it is still loading', () => {
+    it('still receives its enrichment', async () => {
+        const app = new ReaderApp();
+        const internals = app as unknown as Internals;
+        const card = testAozoraCard();
+        const word = document.createElement('span');
+        word.className = 'jpdb-reader-word';
+        word.textContent = card.spelling;
+        document.body.append(word);
+        internals.settings = SETTINGS;
+        internals.parsePopoverJapanese = vi.fn(async () => undefined);
+        const all = deferred<CardRenderData>();
+        internals.cardRenderData = { load: () => ({ localEntries: new Promise(() => undefined), all: all.promise }), clear: () => undefined };
+        internals.hoverLookupGeneration = 4;
+
+        try {
+            const shown = internals.showCard(card, SENTENCE, word, {
+                trigger: 'hover', hoverLookupGeneration: 4, hoverLookupKey: 'word:1', autoPlay: false, skipInitialCardResolution: true,
+            });
+            await vi.waitFor(() => expect(internals.activePopover?.querySelector('[data-card-details-loading]')).not.toBeNull());
+            const popover = internals.activePopover;
+
+            // What a press on "Add to deck…" or any other control in the popup does.
+            internals.cancelPendingHoverLookup();
+            internals.pinActiveHoverPopoverForPendingModalLookup();
+            expect(internals.activePopoverMode).toBe('modal');
+
+            all.resolve(completedData());
+            await shown;
+
+            expect(internals.activePopover).toBe(popover);
+            expect(popover.querySelector('[data-card-details-loading]')).toBeNull();
+            expect(popover.querySelector('[data-action="deck-picker"]')).not.toBeNull();
+        } finally {
+            word.remove();
             app.destroy();
         }
     });

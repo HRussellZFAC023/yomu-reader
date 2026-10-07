@@ -823,6 +823,7 @@ export class ReaderApp {
     private hoverLookupGeneration = 0;
     private activeHoverWord?: HTMLElement;
     private activeHoverLookupKey = '';
+    private pinnedHoverPopover?: HTMLElement;
     private releaseActiveOcrLookupLine?: () => void;
     private ownedModalOcrPin?: HTMLElement;
     private activePointerTextLookup?: ActivePointerTextLookup;
@@ -3932,6 +3933,7 @@ export class ReaderApp {
         this.clearHoverPopoverResizeSticky();
         this.hoverPopoverPointerPosition = undefined;
         this.activePopoverMode = 'modal';
+        this.pinnedHoverPopover = this.activePopover;
         this.activeHoverWord = undefined;
         this.activeHoverLookupKey = '';
         this.activePointerTextLookup = undefined;
@@ -6109,8 +6111,10 @@ export class ReaderApp {
         const popover = this.createPopover(trigger);
         const navigation = options.navigation ?? 'reset';
         const hoverLookup = this.cardHoverLookupContext(trigger, options);
+        // A press inside a hover popup pins it in place; its own lookup is still the one
+        // on screen, so it keeps rendering instead of stalling on "Loading…" for good.
         const isCurrentHoverCard = () => scope.isCurrent()
-            && this.isCurrentCardHoverLookup(trigger, hoverLookup);
+            && (this.isCurrentCardHoverLookup(trigger, hoverLookup) || this.isPinnedHoverPopover(popover));
         this.navigation.updateWord(card, sentence, trigger, navigation, options.previousNavigationEntry);
         this.navigation.clearKanji();
         const done = log.time('showCard', { term: card.spelling, source: cardSourceLabel(card), trigger });
@@ -6253,6 +6257,10 @@ export class ReaderApp {
         return trigger === 'hover'
             ? { generation: options.hoverLookupGeneration, key: options.hoverLookupKey ?? '' }
             : { generation: undefined, key: '' };
+    }
+
+    private isPinnedHoverPopover(popover: HTMLElement): boolean {
+        return this.pinnedHoverPopover === popover && this.activePopover === popover;
     }
 
     private isCurrentCardHoverLookup(
@@ -9962,6 +9970,7 @@ export class ReaderApp {
         this.activePopoverAnchor = undefined;
         this.activeHoverWord = undefined;
         this.activeHoverLookupKey = '';
+        this.pinnedHoverPopover = undefined;
         this.activePointerTextLookup = undefined;
         if (!options.preserveKeyboardActive) this.clearKeyboardActiveWord();
     }
