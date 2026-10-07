@@ -7,7 +7,7 @@
  * disappears while search engines learn the new canonical destinations.
  */
 export const LEGACY_DOC_REDIRECTS = Object.freeze({
-    'getting-started.md': '/learn/#install-yomu',
+    'getting-started.md': '/install',
     'features.md': '/learn/',
     'guides/index.md': '/learn/',
     'guides/comprehensible-input-youtube.md': '/learn/watching#retune-youtube',
@@ -28,7 +28,7 @@ export const LEGACY_DOC_REDIRECTS = Object.freeze({
     'learn/building-a-core.md': '/learn/#how-to-learn-with-yomu',
     'learn/staying-with-it.md': '/learn/keeping-words#when-reviews-pile-up',
     'learn/reference.md': '/learn/',
-    'learn/week-one.md': '/learn/#install-yomu',
+    'learn/week-one.md': '/install',
     // Yomu is for learning Japanese, so the per-language coverage table went
     // with the other learning targets. Japanese grammar is described on Reading.
     'reference/grammar.md': '/learn/reading#let-the-page-help',

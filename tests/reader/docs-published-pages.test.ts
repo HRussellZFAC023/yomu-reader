@@ -144,7 +144,7 @@ describe('published docs pages', () => {
 
         for (const [file, target] of Object.entries(LEGACY_DOC_REDIRECTS)) {
             expect(existsSync(path.join(DOCS, file)), file).toBe(true);
-            expect(sitemapRouteKey(target)).toMatch(/^(?:learn(?:\/|$)|desktop$|faq$)/);
+            expect(sitemapRouteKey(target)).toMatch(/^(?:learn(?:\/|$)|desktop$|faq$|install$)/);
             expect(ACTIVE_PUBLIC_ROUTES.map(sitemapRouteKey)).toContain(sitemapRouteKey(target));
         }
 

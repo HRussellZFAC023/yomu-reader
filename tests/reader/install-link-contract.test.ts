@@ -25,11 +25,11 @@ const CANONICAL_USERSCRIPT_URL = 'https://yomureader.com/yomu.user.js';
 const RELEASE_ATTACHMENT_URL_RE = /https:\/\/github\.com\/[^\s"')]+\/releases\/download\/[^\s"')]+\/yomu\.user\.js/;
 
 describe('hosted userscript install links', () => {
-    it('downloads よむ Desktop directly from the desktop page', () => {
+    it('downloads よむ Desktop directly from the homepage and the desktop page', () => {
         // One click to the right file: the links are the version-less names the
         // desktop release attaches, so no release ever needs a docs edit, and a
         // visitor never lands on a GitHub asset table.
-        for (const page of ['docs/desktop.md']) {
+        for (const page of ['docs/index.md', 'docs/desktop.md']) {
             const source = readFileSync(page, 'utf8');
             for (const [route, url] of Object.entries(DESKTOP_DOWNLOAD_URLS)) {
                 expect(url).toMatch(/^https:\/\/github\.com\/HRussellZFAC023\/yomu-reader\/releases\/latest\/download\/yomu-desktop-/u);
@@ -37,6 +37,8 @@ describe('hosted userscript install links', () => {
             }
             expect(source).not.toMatch(/releases\/download\/v\d/u);
         }
+        // A phone, or a page without JS, gets the desktop page instead of a file.
+        expect(readFileSync('docs/index.md', 'utf8')).toContain('class="yomu-desktop-button yomu-desktop-fallback" href="/desktop"');
         expect(readFileSync('docs/desktop.md', 'utf8')).toContain('Screen Recording');
     });
 
@@ -52,13 +54,17 @@ describe('hosted userscript install links', () => {
         expect(resolveHostedDesktopRoute(userAgent, touchPoints)).toBe(route);
     });
 
-    it('keeps every homepage userscript CTA on the canonical install response', () => {
-        const homepage = readFileSync('docs/index.md', 'utf8');
-        const userscriptUrls = Array.from(homepage.matchAll(/https:\/\/[^\s"')]+\/yomu\.user\.js/g), match => match[0]);
-
-        expect(userscriptUrls.length).toBeGreaterThanOrEqual(2);
-        expect(new Set(userscriptUrls)).toEqual(new Set([CANONICAL_USERSCRIPT_URL]));
-        expect(homepage).not.toMatch(RELEASE_ATTACHMENT_URL_RE);
+    it('keeps every userscript link on the canonical install response', () => {
+        // The homepage's userscript route opens the Safari steps on the Install
+        // page, because the script itself does nothing until a manager exists.
+        for (const page of ['docs/index.md', 'docs/install.md']) {
+            const source = readFileSync(page, 'utf8');
+            const userscriptUrls = Array.from(source.matchAll(/https:\/\/[^\s"')]+\/yomu\.user\.js/g), match => match[0]);
+            expect(new Set(userscriptUrls).size).toBeLessThanOrEqual(1);
+            for (const url of userscriptUrls) expect(url).toBe(CANONICAL_USERSCRIPT_URL);
+            expect(source).not.toMatch(RELEASE_ATTACHMENT_URL_RE);
+        }
+        expect(readFileSync('docs/install.md', 'utf8')).toContain(CANONICAL_USERSCRIPT_URL);
     });
 });
 
@@ -69,10 +75,12 @@ describe('hosted store install routes', () => {
     // markup rather than one link a script rewrites.
     it('keeps all three install routes reachable in the homepage markup', () => {
         const homepage = readFileSync('docs/index.md', 'utf8');
-        for (const [route, url] of Object.entries(INSTALL_ROUTE_URLS)) {
+        for (const route of Object.keys(INSTALL_ROUTE_URLS)) {
             expect(homepage).toContain(`data-yomu-route="${route}"`);
-            expect(homepage).toContain(url);
         }
+        expect(homepage).toContain(INSTALL_ROUTE_URLS.chrome);
+        expect(homepage).toContain(INSTALL_ROUTE_URLS.firefox);
+        expect(homepage).toContain('data-yomu-route="userscript" href="/install#safari"');
     });
 
     it('keeps extension metadata Japanese-only and stable update routes on the stores', () => {
@@ -116,7 +124,7 @@ describe('hosted store install routes', () => {
     });
 
     it('leads the install page with both stores and keeps the userscript as the fallback', () => {
-        const weekOne = readFileSync('docs/learn/index.md', 'utf8');
+        const weekOne = readFileSync('docs/install.md', 'utf8');
         const chromeAt = weekOne.indexOf(INSTALL_ROUTE_URLS.chrome);
         const firefoxAt = weekOne.indexOf(INSTALL_ROUTE_URLS.firefox);
         const userscriptAt = weekOne.indexOf(CANONICAL_USERSCRIPT_URL);

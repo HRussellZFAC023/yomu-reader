@@ -1373,14 +1373,14 @@
   outline: 3px solid var(--home-action);
   outline-offset: 5px;
 }
-.yomu-home :is(.yomu-fold, .yomu-band, .yomu-story, .yomu-fits,
-  .yomu-install, .yomu-discord, .yomu-next, .yomu-home-more) {
+.yomu-home :is(.yomu-fold, .yomu-band, .yomu-story,
+  .yomu-install, .yomu-next, .yomu-home-more) {
   width: min(100%, 1280px);
   margin-inline: auto;
   padding-inline: var(--home-gutter);
   box-sizing: border-box;
 }
-.yomu-home :is(.yomu-band, .yomu-story, .yomu-fits, .yomu-install, .yomu-discord) {
+.yomu-home :is(.yomu-band, .yomu-story, .yomu-install) {
   padding-block: var(--home-space);
   border-top: 1px solid var(--home-line);
   scroll-margin-top: calc(var(--vp-nav-height) + 24px);
@@ -1501,7 +1501,23 @@
   text-decoration: none;
 }
 .yomu-install-route:hover { text-decoration-thickness: 2px; }
-.yomu-install-routes .yomu-fold-micro {
+/* The install routes also head the Install page, outside the homepage's tokens. */
+.vp-doc .yomu-install-routes {
+  --home-action: var(--vp-c-brand-1);
+  --home-on-action: var(--vp-c-white);
+  --home-muted: var(--vp-c-text-2);
+  margin-bottom: 8px;
+}
+.vp-doc .yomu-install-routes p { margin: 0; }
+.vp-doc a.yomu-install-route:is(
+  :root:not([data-yomu-install]) [data-yomu-route='userscript'],
+  :root[data-yomu-install='userscript'] [data-yomu-route='userscript'],
+  :root[data-yomu-install='chrome'] [data-yomu-route='chrome'],
+  :root[data-yomu-install='firefox'] [data-yomu-route='firefox']
+) { color: var(--home-on-action); }
+/* One short line under the promoted button, for the same route only. */
+.yomu-install-hint {
+  display: none;
   order: -2;
   flex-basis: 100%;
   margin: 0;
@@ -1509,7 +1525,12 @@
   font-size: 13px;
   line-height: 1.6;
 }
-.yomu-install-routes-note { order: -1; margin: 0; color: var(--home-muted); font-size: 13px; }
+.yomu-install-hint:is(
+  :root:not([data-yomu-install]) [data-yomu-hint='userscript'],
+  :root[data-yomu-install='userscript'] [data-yomu-hint='userscript'],
+  :root[data-yomu-install='chrome'] [data-yomu-hint='chrome'],
+  :root[data-yomu-install='firefox'] [data-yomu-hint='firefox']
+) { display: block; }
 
 /* よむ Desktop: one button that downloads this computer's file. The head
    snippet (scripts/lib/hosted-install-route.cjs) stamps data-yomu-desktop; a
@@ -1574,14 +1595,6 @@
   align-items: center;
   gap: clamp(28px, 5vw, 72px);
 }
-.yomu-band-kicker {
-  margin: 0 0 16px;
-  color: var(--home-muted);
-  font-size: 12px;
-  font-weight: 650;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-}
 .yomu-band-lead {
   max-width: 48ch;
   margin: 20px 0 0;
@@ -1589,7 +1602,7 @@
   font-size: 17px;
   line-height: 1.75;
 }
-.yomu-band-action, .yomu-discord a, .yomu-fits-list a {
+.yomu-band-action {
   display: inline-flex;
   align-items: center;
   min-height: 44px;
@@ -1615,24 +1628,9 @@
 .yomu-letter { max-width: 780px; margin: 0 auto; }
 .yomu-letter > p { margin: 24px 0 0; font-size: 18px; line-height: 1.8; color: var(--home-muted); }
 .yomu-letter .yomu-letter-sign { color: var(--home-text); font-family: var(--home-serif); font-style: italic; }
-.yomu-fits-inner {
-  display: grid;
-  grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr);
-  align-items: start;
-  gap: clamp(28px, 5vw, 72px);
-}
-.yomu-fits-list { margin: 0; padding: 0; list-style: none; }
-.yomu-fits-list li { margin: 0; padding: 20px 0; border-bottom: 1px solid var(--home-line); color: var(--home-muted); font-size: 17px; line-height: 1.75; }
-.yomu-fits-list li:first-child { padding-top: 0; }
-.yomu-fits-list strong { color: var(--home-text); font-weight: 600; }
-.yomu-fits-list a { margin: 0; }
 .yomu-home-more { display: grid; grid-template-columns: minmax(0, 1fr); gap: 48px; }
 .yomu-home .yomu-band-concept { display: block; padding-inline: 0; }
 .yomu-install-inner { max-width: 740px; }
-.yomu-install-lead, .yomu-discord p { margin: 24px 0 0; max-width: 55ch; color: var(--home-muted); font-size: 18px; line-height: 1.75; }
-.yomu-install-lead a, .yomu-install-note a { color: var(--home-action); text-decoration: underline; text-underline-offset: 4px; }
-.yomu-install-note { margin: 24px 0 0; color: var(--home-muted); font-size: 14px; line-height: 1.6; }
-.yomu-discord-inner { max-width: 740px; }
 .yomu-next { padding-block: 24px 48px; border-top: 1px solid var(--home-line); }
 .yomu-next-row { display: flex; flex-wrap: wrap; gap: 8px 28px; margin: 0; }
 .yomu-next-row a { display: inline-flex; align-items: center; min-height: 44px; color: var(--home-muted); font-size: 14px; text-decoration: underline; text-underline-offset: 4px; }
@@ -1642,7 +1640,7 @@ body:has(.yomu-home) .jpdb-reader-fab { bottom: max(72px, calc(env(safe-area-ins
   .yomu-fold { grid-template-columns: minmax(0, 1fr); }
   .yomu-home .yomu-fold-h1 { max-width: 19ch; }
   .yomu-fold-card { max-width: 360px; justify-self: start; }
-  .yomu-band, .yomu-fits-inner { grid-template-columns: minmax(0, 1fr); }
+  .yomu-band { grid-template-columns: minmax(0, 1fr); }
   .yomu-band-copy { max-width: 620px; }
   .yomu-manga-figure { justify-self: start; }
   .yomu-band-devices { max-width: 600px; }

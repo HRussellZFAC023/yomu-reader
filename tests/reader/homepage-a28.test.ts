@@ -76,13 +76,36 @@ describe('editorial homepage contract', () => {
         expect(homeCss).not.toMatch(/rotate\(|clip-path|@keyframes/);
     });
 
-    it('preserves the corrected learning advice and the existing captures', () => {
-        expect(homepage).toContain('You decide what to add to your deck.');
-        expect(homepage).toContain('Use definitions and grammar explanations when you need them.');
-        expect(homepage).toContain('Connect a review service you already use, or keep a local Yomu deck.');
+    it('says each section in one line and keeps the existing captures', () => {
+        // Owner, 2026-10-07: less is more, and no labels that state the
+        // obvious. One line of what よむ is, one install button, then one
+        // heading and one line per place it works. The method lives on /learn/,
+        // linked from the letter; the old essays, the kicker labels above each
+        // heading and the competitor comparison do not come back.
+        const page = new DOMParser().parseFromString(homepage.replace(/^---[\s\S]*?---/, ''), 'text/html');
+        for (const band of page.querySelectorAll('.yomu-band')) {
+            expect(band.querySelectorAll('.yomu-band-lead'), band.id).toHaveLength(1);
+            expect(band.querySelector('.yomu-band-lead')!.textContent!.split(/\s+/u).length, band.id).toBeLessThanOrEqual(25);
+        }
+        expect(homepage).not.toContain('yomu-band-kicker');
+        expect(homepage).not.toContain('yomu-fits');
+        expect(homepage).not.toContain('#how-yomu-compares-with-migaku-and-duolingo');
+        expect(page.querySelector('.yomu-letter a[href="/learn/"]')).not.toBeNull();
         for (const image of ['popover', 'wikipedia', 'youtube', 'keep-press', 'study', 'phone', 'ipad']) {
             expect(homepage).toContain(`/home/${image}.webp`);
         }
+    });
+
+    it('gives the promoted install button at most one short line of help', () => {
+        const page = new DOMParser().parseFromString(homepage.replace(/^---[\s\S]*?---/, ''), 'text/html');
+        for (const routes of page.querySelectorAll('.yomu-install-routes')) {
+            const hints = [...routes.querySelectorAll<HTMLElement>('.yomu-install-hint')];
+            expect(hints.map(hint => hint.dataset.yomuHint)).toEqual(['chrome', 'firefox', 'userscript']);
+            for (const hint of hints) expect(hint.textContent!.split(/\s+/u).length).toBeLessThanOrEqual(8);
+            expect(routes.querySelector('[data-yomu-route="userscript"]')?.getAttribute('href')).toBe('/install#safari');
+            expect(routes.querySelector('a[href="/desktop"]')).not.toBeNull();
+        }
+        expect(homepageStyles).toContain(":root[data-yomu-install='chrome'] [data-yomu-hint='chrome']");
     });
 
     it('drops the "nothing installed" duplicate CTA section', () => {
@@ -103,9 +126,9 @@ describe('editorial homepage contract', () => {
     });
 
     it('links the three retained proof bands to their hosted apps', () => {
-        expect(homepage).toContain('<a class="yomu-band-action" href="/pdf-reader/">Read</a>');
-        expect(homepage).toContain('<a class="yomu-band-action" href="/video-player/">Watch</a>');
-        expect(homepage).toContain('<a class="yomu-band-action" href="/study/">Study</a>');
+        expect(homepage).toContain('<a class="yomu-band-action" href="/pdf-reader/">Open a PDF</a>');
+        expect(homepage).toContain('<a class="yomu-band-action" href="/video-player/">Play your own video</a>');
+        expect(homepage).toContain('<a class="yomu-band-action" href="/study/">Open Study</a>');
     });
 
     it('uses one shared Apps category label', () => {

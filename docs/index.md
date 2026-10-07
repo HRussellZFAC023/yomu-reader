@@ -5,7 +5,7 @@ sidebar: false
 aside: false
 title: よむ | Read Japanese. Stay with the story.
 titleTemplate: false
-description: Read Japanese web pages, subtitles, manga and PDFs with a pop-up dictionary, save the words you meet, and review them with the sentences where you found them.
+description: Hover any Japanese word on a web page, a YouTube subtitle or a manga page to see its reading and meaning. Free for Chrome, Firefox, Safari and your desktop.
 ---
 
 <main class="yomu-home-content">
@@ -13,7 +13,7 @@ description: Read Japanese web pages, subtitles, manga and PDFs with a pop-up di
   <div class="yomu-fold-main">
     <p class="yomu-wordmark" aria-hidden="true"><span class="yomu-wordmark-ja" lang="ja" data-yomu-localize="off">よむ</span><span class="yomu-wordmark-en" data-yomu-localize="off">YOMU</span></p>
     <h1 class="yomu-fold-h1" id="yomu-home-title" data-jpdb-reader-surface-ignore="true">Read Japanese. Stay with the story.</h1>
-    <p class="yomu-fold-lead">Look up a word, hear it, and save the sentence. Keep reading the things you came for.</p>
+    <p class="yomu-fold-lead">Hover any Japanese word on a web page, a YouTube subtitle or a manga page to see its reading and meaning. Free.</p>
     <div class="yomu-fold-live">
       <p class="yomu-fold-prompt" data-yomu-fold-prompt data-jpdb-reader-surface-ignore="true"><span class="yomu-fold-prompt-live">Try me</span><a class="yomu-fold-prompt-fallback" href="#read">See it working below</a></p>
       <div class="yomu-try-me-text yomu-fold-try" data-yomu-furigana-mode="all" data-yomu-runtime-surface>
@@ -23,9 +23,11 @@ description: Read Japanese web pages, subtitles, manga and PDFs with a pop-up di
     <div class="yomu-install-routes">
       <a class="yomu-install-route" data-yomu-route="chrome" href="https://chromewebstore.google.com/detail/%E3%82%88%E3%82%80/bbaickgfdgnecdnkcplaoiopnfghlkna">Add よむ to Chrome</a>
       <a class="yomu-install-route" data-yomu-route="firefox" href="https://addons.mozilla.org/en-US/firefox/addon/yomu-reader/">Add よむ to Firefox</a>
-      <a class="yomu-install-route" data-yomu-route="userscript" href="https://yomureader.com/yomu.user.js">Install the よむ userscript</a>
-      <p class="yomu-fold-micro">Free, on your computer and your phone.</p>
-      <p class="yomu-install-routes-note">Also available:</p>
+      <a class="yomu-install-route" data-yomu-route="userscript" href="/install#safari">Install on Safari, iPhone or iPad</a>
+      <p class="yomu-install-hint" data-yomu-hint="chrome">Also Edge, Brave, Vivaldi and Opera.</p>
+      <p class="yomu-install-hint" data-yomu-hint="firefox">Desktop and Android.</p>
+      <p class="yomu-install-hint" data-yomu-hint="userscript">Uses the free Userscripts app.</p>
+      <a class="yomu-install-route" href="/desktop">よむ Desktop</a>
     </div>
   </div>
   <figure class="yomu-fold-card" data-yomu-ocr="ignore">
@@ -34,10 +36,9 @@ description: Read Japanese web pages, subtitles, manga and PDFs with a pop-up di
 </section>
 <section class="yomu-band" id="read" aria-labelledby="yomu-band-pages">
   <div class="yomu-band-copy">
-    <p class="yomu-band-kicker">Read</p>
-    <h2 id="yomu-band-pages">Look up a word. Keep your place.</h2>
-    <p class="yomu-band-lead">Furigana sits above the kanji and the lookup answers from dictionaries on your device. Open a PDF here, scanned pages included, or take the same reader to any web page.</p>
-    <a class="yomu-band-action" href="/pdf-reader/">Read</a>
+    <h2 id="yomu-band-pages">Any web page. Any PDF.</h2>
+    <p class="yomu-band-lead">Furigana over the kanji, the meaning under your cursor. Tap on a phone.</p>
+    <a class="yomu-band-action" href="/pdf-reader/">Open a PDF</a>
   </div>
   <figure class="yomu-band-frame" data-yomu-ocr="ignore">
     <img src="/home/wikipedia.webp" width="1600" height="1000" loading="lazy" decoding="async" alt="Japanese Wikipedia with furigana above the kanji, coloured underlines on every word, and the よむ popover open." />
@@ -45,10 +46,9 @@ description: Read Japanese web pages, subtitles, manga and PDFs with a pop-up di
 </section>
 <section class="yomu-band" id="watch" aria-labelledby="yomu-band-video">
   <div class="yomu-band-copy">
-    <p class="yomu-band-kicker">Watch</p>
-    <h2 id="yomu-band-video">Pause on one line.</h2>
-    <p class="yomu-band-lead">Press a word in the subtitle, hear it, save the sentence and carry on. Yomu draws over the player already on the site. The hosted player opens your own video and subtitle files too.</p>
-    <a class="yomu-band-action" href="/video-player/">Watch</a>
+    <h2 id="yomu-band-video">YouTube, one line at a time.</h2>
+    <p class="yomu-band-lead">Pause, hover the word, carry on. Try it on this clip.</p>
+    <a class="yomu-band-action" href="/video-player/">Play your own video</a>
     <figure class="yomu-band-player" data-yomu-video-frame data-yomu-runtime-surface data-yomu-demo-player aria-label="Captioned Peppa Pig Japanese sample video">
       <video class="yomu-band-video" controls playsinline preload="none" poster="/media/yomu-peppa-shopping-poster.jpg" aria-label="Captioned Peppa Pig Japanese shopping sample video">
         <source src="/media/yomu-peppa-shopping.webm" type="video/webm" />
@@ -61,100 +61,78 @@ description: Read Japanese web pages, subtitles, manga and PDFs with a pop-up di
     <img src="/home/youtube.webp" width="1280" height="900" loading="lazy" decoding="async" alt="A YouTube video with the Japanese subtitle annotated on the picture and the full subtitle list open beside it." />
   </figure>
 </section>
+<section class="yomu-band" id="manga" aria-labelledby="yomu-band-manga">
+  <div class="yomu-band-copy">
+    <h2 id="yomu-band-manga">Words inside pictures.</h2>
+    <p class="yomu-band-lead">This manga page is live. Hover a speech bubble.</p>
+  </div>
+  <figure class="yomu-band-frame yomu-manga-figure" id="yomu-live-ocr" data-yomu-runtime-surface>
+    <img src="/media/manga-ocr-sample.png" width="900" height="1280" loading="lazy" decoding="async" alt="Japanese manga page with text detected by よむ OCR" />
+  </figure>
+</section>
 <section class="yomu-band" id="study" aria-labelledby="yomu-band-keep">
   <div class="yomu-band-copy">
-    <p class="yomu-band-kicker">Study</p>
-    <h2 id="yomu-band-keep">Save the sentence around it.</h2>
-    <p class="yomu-band-lead">The word returns with the sentence where you found it. A saved show line can carry its audio and picture too. Review by reading, writing, listening and speaking, then choose the grade yourself.</p>
-    <a class="yomu-band-action" href="/study/">Study</a>
+    <h2 id="yomu-band-keep">Ten minutes of review a day.</h2>
+    <p class="yomu-band-lead">Save the words worth keeping. They come back with the sentence you found them in. Review here, or in Anki, JPDB or Jiten.</p>
+    <a class="yomu-band-action" href="/study/">Open Study</a>
   </div>
   <figure class="yomu-band-frame yomu-band-pair" data-yomu-ocr="ignore">
     <img class="yomu-pair-a" src="/home/keep-press.webp" width="1034" height="562" loading="lazy" decoding="async" alt="Example sentences with audio inside the よむ popover, above the grading buttons that keep the word." />
     <img class="yomu-pair-b" src="/home/study.webp" width="1300" height="813" loading="lazy" decoding="async" alt="The よむ Study page on the Type step, with the answer typed in and marked correct." />
   </figure>
 </section>
-<section class="yomu-story" aria-labelledby="yomu-letter-title">
-  <article class="yomu-letter">
-    <h2 id="yomu-letter-title">I studied how to study Japanese for far too long before I read anything</h2>
-    <p>The tools were scattered and each one wanted a different setup, so I built the one I wanted instead. Read, watch, look up a word and save its context. Connect a review service you already use, or keep a local Yomu deck.</p>
-    <p class="yomu-letter-sign" data-yomu-localize="off">Henry</p>
-  </article>
-</section>
-<section class="yomu-fits" aria-labelledby="yomu-method-title">
-  <div class="yomu-fits-inner">
-    <h2 id="yomu-method-title">Make room for reading and review</h2>
-    <ul class="yomu-fits-list">
-      <li><strong>Choose something you want to understand.</strong> Start with a short page or a few lines of audio. Use definitions and grammar explanations when you need them.</li>
-      <li><strong>Save words in context.</strong> Keep the words you want to practise with the sentences where you found them. You decide what to add to your deck.</li>
-      <li><strong>Come back to what you saved.</strong> Try to recall a word before revealing the answer. Keep reading and listening alongside review.</li>
-      <li><a href="/learn/">The whole approach, in order</a></li>
-    </ul>
-  </div>
-</section>
-<section class="yomu-band" id="manga" aria-labelledby="yomu-band-manga">
-  <div class="yomu-band-copy">
-    <p class="yomu-band-kicker">Manga</p>
-    <h2 id="yomu-band-manga">Press a word inside the picture.</h2>
-    <p class="yomu-band-lead">Tap a panel and よむ finds the Japanese in it, on a laptop or with a thumb on an iPad.</p>
-    <p class="yomu-band-lead">This panel is live. よむ is reading the words in it.</p>
-  </div>
-  <figure class="yomu-band-frame yomu-manga-figure" id="yomu-live-ocr" data-yomu-runtime-surface>
-    <img src="/media/manga-ocr-sample.png" width="900" height="1280" loading="lazy" decoding="async" alt="Japanese manga page with text detected by よむ OCR" />
-  </figure>
-</section>
 <section class="yomu-band yomu-band-plate" id="mobile" aria-labelledby="yomu-band-mobile">
   <div class="yomu-band-copy">
-    <p class="yomu-band-kicker">Mobile</p>
-    <h2 id="yomu-band-mobile">The same reader, on your phone.</h2>
-    <p class="yomu-band-lead">Press a word on your phone or tablet and everything comes with it: the furigana, the pitch colours, the popover and the grading buttons. On Android, よむ is one click from the Firefox store; on iPhone and iPad it runs in Safari through a free userscript manager.</p>
+    <h2 id="yomu-band-mobile">On your phone too.</h2>
+    <p class="yomu-band-lead">Firefox on Android. Safari on iPhone and iPad.</p>
   </div>
   <figure class="yomu-band-frame yomu-band-devices" data-yomu-ocr="ignore">
     <img class="yomu-device-phone" src="/home/phone.webp" width="390" height="844" loading="lazy" decoding="async" alt="よむ on a phone, showing Japanese Wikipedia with furigana above the kanji and the lookup popover open on コーヒー with its pitch accent, meaning and grading buttons." />
     <img class="yomu-device-tablet" src="/home/ipad.webp" width="820" height="1180" loading="lazy" decoding="async" alt="よむ on an iPad, showing a Japanese Wikipedia article with furigana and the 喫茶店 popover open with two pitch accent patterns, the dictionary meaning and example sentences." />
   </figure>
 </section>
-<section class="yomu-fits" aria-labelledby="yomu-fits-title">
-  <div class="yomu-fits-inner">
-    <h2 id="yomu-fits-title">It fits the deck you already review in</h2>
-    <ul class="yomu-fits-list">
-      <li><strong>Anki, jpdb, jiten, Bunpro.</strong> Yomu writes the word there and reads back what that service already knows.</li>
-      <li><strong>Or keep the words in Yomu.</strong> Its deck schedules on SM-2 and carries the sentence, the audio and the picture with each word.</li>
-      <li><strong>Coming from Migaku or Duolingo?</strong> <a href="/faq#how-yomu-compares-with-migaku-and-duolingo">The plain comparison, item by item</a></li>
-    </ul>
-  </div>
-</section>
 <div class="yomu-home-more">
 <section class="yomu-band yomu-band-concept" id="desktop" aria-labelledby="yomu-band-desktop">
   <div class="yomu-band-copy">
-    <p class="yomu-band-kicker">Desktop app</p>
-    <h2 id="yomu-band-desktop">Read Japanese anywhere on your computer.</h2>
-    <p class="yomu-band-lead">Press one shortcut in a game, an app or a video, and the Japanese on your screen becomes words you can press. Free for Windows, macOS and Linux.</p>
-    <a class="yomu-band-action" href="/desktop">Get the desktop app</a>
+    <h2 id="yomu-band-desktop">Games and apps.</h2>
+    <p class="yomu-band-lead">よむ Desktop reads your screen. Press one shortcut, then hover any Japanese.</p>
+    <div class="yomu-desktop-download">
+      <a class="yomu-desktop-button" data-yomu-desktop-file="mac-arm64" href="https://github.com/HRussellZFAC023/yomu-reader/releases/latest/download/yomu-desktop-mac-arm64.zip">Download よむ Desktop</a>
+      <a class="yomu-desktop-button" data-yomu-desktop-file="mac-x64" href="https://github.com/HRussellZFAC023/yomu-reader/releases/latest/download/yomu-desktop-mac-x64.zip">Download よむ Desktop</a>
+      <a class="yomu-desktop-button" data-yomu-desktop-file="win-x64" href="https://github.com/HRussellZFAC023/yomu-reader/releases/latest/download/yomu-desktop-win-x64.exe">Download よむ Desktop</a>
+      <a class="yomu-desktop-button" data-yomu-desktop-file="linux-x86_64" href="https://github.com/HRussellZFAC023/yomu-reader/releases/latest/download/yomu-desktop-linux-x86_64.AppImage">Download よむ Desktop</a>
+      <a class="yomu-desktop-button yomu-desktop-fallback" href="/desktop">Download よむ Desktop</a>
+      <p class="yomu-desktop-hint" data-yomu-desktop-hint="mac">For Mac. First launch: System Settings → Privacy &amp; Security → Open Anyway.</p>
+      <p class="yomu-desktop-hint" data-yomu-desktop-hint="win">For Windows. If Windows protects your PC: More info → Run anyway.</p>
+      <p class="yomu-desktop-hint" data-yomu-desktop-hint="linux">For Linux and Steam Deck. Make the file executable, then open it.</p>
+      <a class="yomu-desktop-other" href="/desktop">Other systems</a>
+    </div>
   </div>
 </section>
 </div>
+<section class="yomu-story" aria-labelledby="yomu-letter-title">
+  <article class="yomu-letter">
+    <h2 id="yomu-letter-title">I studied how to study Japanese for far too long before I read anything</h2>
+    <p>Every tool wanted its own setup, so I built one that doesn't. Install it, open something you like and start reading.</p>
+    <p class="yomu-letter-sign" data-yomu-localize="off">Henry</p>
+    <a class="yomu-band-action" href="/learn/">How to learn Japanese with よむ</a>
+  </article>
+</section>
 <section class="yomu-install" id="install" aria-labelledby="yomu-install-title">
   <div class="yomu-install-inner">
-    <h2 id="yomu-install-title">Take Yomu to the rest of the web.</h2>
-    <p class="yomu-install-lead"><a href="/learn/#install-yomu">Install Yomu</a>, open something you wanted to read anyway, and <a href="/learn/#press-your-first-word">press a word.</a></p>
+    <h2 id="yomu-install-title">Start reading.</h2>
     <div class="yomu-install-routes">
       <a class="yomu-install-route" data-yomu-route="chrome" href="https://chromewebstore.google.com/detail/%E3%82%88%E3%82%80/bbaickgfdgnecdnkcplaoiopnfghlkna">Add よむ to Chrome</a>
       <a class="yomu-install-route" data-yomu-route="firefox" href="https://addons.mozilla.org/en-US/firefox/addon/yomu-reader/">Add よむ to Firefox</a>
-      <a class="yomu-install-route" data-yomu-route="userscript" href="https://yomureader.com/yomu.user.js">Install the よむ userscript</a>
-      <p class="yomu-fold-micro">Free, on your computer and your phone.</p>
-      <p class="yomu-install-routes-note">Also available:</p>
+      <a class="yomu-install-route" data-yomu-route="userscript" href="/install#safari">Install on Safari, iPhone or iPad</a>
+      <p class="yomu-install-hint" data-yomu-hint="chrome">Also Edge, Brave, Vivaldi and Opera.</p>
+      <p class="yomu-install-hint" data-yomu-hint="firefox">Desktop and Android.</p>
+      <p class="yomu-install-hint" data-yomu-hint="userscript">Uses the free Userscripts app.</p>
+      <a class="yomu-install-route" href="/desktop">よむ Desktop</a>
     </div>
-    <p class="yomu-install-note">If the userscript downloads instead of installing, <a href="/learn/#install-yomu">your manager needs it from the URL</a></p>
-  </div>
-</section>
-<section class="yomu-discord" aria-labelledby="yomu-discord-title">
-  <div class="yomu-discord-inner">
-    <h2 id="yomu-discord-title">Come and say hello.</h2>
-    <p>Discord is where users compare setups, report rough edges and help shape what comes next. Bring a question or a screenshot. Do not be shy.</p>
-    <a href="https://discord.gg/jD6NPURewD">Join the Yomu Discord</a>
   </div>
 </section>
 <section class="yomu-next" aria-label="More from Yomu">
-  <p class="yomu-next-row"><a href="/learn/">Guide</a><a href="/desktop">Desktop app</a><a href="/faq">FAQ</a></p>
+  <p class="yomu-next-row"><a href="/install">Install</a><a href="/learn/">How to learn</a><a href="/faq">FAQ</a><a href="https://discord.gg/jD6NPURewD">Discord</a></p>
 </section>
 </main>

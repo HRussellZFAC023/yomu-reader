@@ -267,6 +267,7 @@ const siteSidebar: WebsiteNavigationItem[] = [
     {
         text: 'Guide',
         items: [
+            { text: 'Install', link: '/install' },
             { text: 'Start here', link: '/learn/' },
             { text: 'Reading', link: '/learn/reading' },
             { text: 'Watching', link: '/learn/watching' },
