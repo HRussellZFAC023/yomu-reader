@@ -183,7 +183,6 @@ const COPY = {
         newTabShortcutHintsEnabled: 'Show Study keyboard shortcut hints',
         newTabOfflineHelp: 'Caches due cards and queued grades.',
         newTabJpdbDeck: 'Study JPDB deck',
-        openNewTabPage: 'Open Study',
         wordColors: 'Word colors',
         wordColorNew: 'New and in deck',
         wordColorLearning: 'Learning',
@@ -281,8 +280,6 @@ const COPY = {
         audioEnableDefaultSources: 'Enable built-in audio sources',
         audioFallbackChimeEnabled: 'Enable fallback chime',
         audioPlayback: 'Audio playback',
-        firstAudio: 'First audio',
-        randomAudio: 'Shuffle audio',
         audioTtsMode: 'Text-to-speech handling',
         audioTtsFallback: 'Fallback after recorded audio',
         audioTtsSourceOrder: 'Follow source order / shuffle',
@@ -337,8 +334,6 @@ const COPY = {
         immersionKitPlayOnHover: 'Play example audio when hovering thumbnails',
         immersionKitPlayOnImageClick: 'Play example audio when clicking thumbnails',
         immersionKitLimitEnabled: 'Examples per word limit',
-        allExamples: 'All examples',
-        limitExamples: 'Limit examples',
         immersionKitLimit: 'Examples per word (0 = all)',
         immersionKitPlaybackRate: 'Example audio speed',
         immersionKitHelp: 'Examples appear in popups. Nadeshiko needs a key.',
@@ -363,12 +358,9 @@ const COPY = {
         previousExample: 'Previous example',
         nextExample: 'Next example',
         playExampleAudio: 'Play example audio',
-        allCategories: 'All',
         anime: 'Anime',
         drama: 'Drama',
         games: 'Games',
-        shortestFirst: 'Shortest first',
-        longestFirst: 'Longest first',
         ocrEnabled: 'Read text in images',
         ocrAutoScanImages: 'Read images automatically',
         ocrShowTextOverlay: 'Show recognized text areas',
@@ -937,7 +929,6 @@ const COPY = {
         ankiNewCard: 'New card',
         ankiMatches: 'Anki matches',
         gradeAnkiCardTarget: 'Grades Anki card: {target}',
-        gradeJpdbCardTarget: 'Grades API SRS card',
         ankiNoteNotFound: 'Anki note not found.',
         mergeYomu: 'Merge Yomu',
         mergeYomuTitle: 'Update matching fields and add Yomu media to this note',
@@ -1274,7 +1265,6 @@ stateUnparsed	未解析
 stateInDeck	デッキ内
 stateNotInDeck	デッキ外
 gradeAnkiCardTarget	Ankiカードを採点: {target}
-gradeJpdbCardTarget	API SRSカードを採点
 ankiReviewSingular	回復習
 ankiReviewPlural	回復習
 ankiLapseSingular	回失敗
@@ -1733,7 +1723,6 @@ newTabSwipeReviews	スワイプ採点（左=失敗、右=合格）
 newTabShortcutHintsEnabled	学習のキーボードショートカットヒントを表示
 newTabOfflineHelp	カードと未送信採点を保存。
 newTabJpdbDeck	学習のJPDBデッキ
-openNewTabPage	学習を開く
 wordColors	単語の色
 wordColorNew	新規・デッキ内
 wordColorLearning	学習中
@@ -1831,8 +1820,6 @@ audioAutoPlayMode	単語音声の自動再生
 audioEnableDefaultSources	内蔵音声ソースを有効
 audioFallbackChimeEnabled	フォールバック音を有効
 audioPlayback	音声再生
-firstAudio	最初の音声
-randomAudio	シャッフル音声
 audioTtsMode	読み上げの扱い
 audioTtsFallback	録音音声の後のフォールバック
 audioTtsSourceOrder	ソース順/シャッフルに含める
@@ -1886,17 +1873,12 @@ immersionKitAutoPlayAudio	表示後や移動時に音声再生
 immersionKitPlayOnHover	ホバーで例文音声を再生
 immersionKitPlayOnImageClick	クリックで例文音声を再生
 immersionKitLimitEnabled	単語ごとの例文数制限
-allExamples	すべての例文
-limitExamples	例文数を制限
 immersionKitLimit	単語ごとの例文数（0 = すべて）
 immersionKitPlaybackRate	例文音声速度
 immersionKitHelp	例文を表示。Nadeshikoはキー必須。
-allCategories	すべて
 anime	アニメ
 drama	ドラマ
 games	ゲーム
-shortestFirst	短い順
-longestFirst	長い順
 ocrEnabled	画像内テキストを読む
 ocrAutoScanImages	画像を自動で読む
 ocrShowTextOverlay	認識した画像テキスト領域を表示
