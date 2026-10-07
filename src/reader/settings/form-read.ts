@@ -707,14 +707,19 @@ function readDictionaryPreferences(data: FormData, current: DictionaryPreference
     const count = Math.max(0, Number(get('dictionaryPreferenceCount')) || 0);
     if (!count) return current;
 
-    return Array.from({ length: count }, (_, index) => ({
+    const submitted = Array.from({ length: count }, (_, index) => ({
         name: get(`dictionaryPreferences.${index}.name`).trim(),
         alias: get(`dictionaryPreferences.${index}.alias`).trim() || get(`dictionaryPreferences.${index}.name`).trim(),
         enabled: data.has(`dictionaryPreferences.${index}.enabled`),
         priority: reader.number(`dictionaryPreferences.${index}.priority`, index),
         type: readDictionaryType(get(`dictionaryPreferences.${index}.type`)),
     }))
-        .filter(item => item.name)
+        .filter(item => item.name);
+    // A dictionary installed after this form was drawn has no row in it yet
+    // (removing one deletes it at once, so a missing row is never a removal).
+    // Keep its stored preference, so a Save during an install cannot drop it.
+    const submittedNames = new Set(submitted.map(item => item.name));
+    return [...submitted, ...current.filter(preference => !submittedNames.has(preference.name))]
         .sort((a, b) => a.priority - b.priority || a.name.localeCompare(b.name));
 }
 

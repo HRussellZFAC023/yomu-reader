@@ -2540,7 +2540,7 @@ describe('settings dialog dictionary imports', () => {
             .not.toContain('Deleted dictionary');
     });
 
-    it('queues recommended dictionary installs and blocks Save until the queue finishes', async () => {
+    it('queues recommended dictionary installs and keeps Save available while they run', async () => {
         const firstImport = deferred<ImportSummary>();
         const secondImport = deferred<ImportSummary>();
         const importFromUrl = vi.fn()
@@ -2552,7 +2552,10 @@ describe('settings dialog dictionary imports', () => {
                 onProgress?.('Reading dictionary ZIP...');
                 return secondImport.promise;
             });
-        const { dependencies, dismiss, form } = createSettingsDialog({
+        const saved: ReaderSettings[] = [];
+        const saveSettings = vi.fn(async (next: ReaderSettings) => { saved.push(next); });
+        const { dismiss, form } = createSettingsDialog({
+            saveSettings,
             dictionaries: {
                 summary: vi.fn().mockResolvedValue({ dictionaries: [], terms: 0, kanji: 0, termMeta: 0 }),
                 importFromUrl,
@@ -2561,6 +2564,7 @@ describe('settings dialog dictionary imports', () => {
 
         const save = () => form.querySelector<HTMLButtonElement>('button[type="submit"]')!;
         const saveStatus = () => form.querySelector<HTMLElement>('[data-settings-save-status]')!;
+        const submit = () => form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
         recommendedButton(form, 'jitendex').click();
         recommendedButton(form, 'wty-ja-ja').click();
 
@@ -2572,28 +2576,37 @@ describe('settings dialog dictionary imports', () => {
         expect(recommendedStatus(form, 'jitendex').textContent).toContain('Reading dictionary ZIP');
         expect(recommendedButton(form, 'wty-ja-ja').dataset.importState).toBe('queued');
         expect(recommendedStatus(form, 'wty-ja-ja').textContent).toContain('queued');
-        expect(save().disabled).toBe(true);
-        expect(save().dataset.saveBlocked).toBe('dictionary-import');
-        expect(save().textContent).toBe('Save after install');
+        // YQ-11: an install no longer holds Save; the queue is reported beside it.
+        expect(save().disabled).toBe(false);
+        expect(save().dataset.saveBlocked).toBeUndefined();
+        expect(save().textContent).toBe('Save');
         expect(saveStatus().textContent).toContain('2 installs running');
 
-        form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
-
-        expect(dependencies.toast).toHaveBeenCalledWith('Import running. Save unlocks when done.');
+        const audio = form.querySelector<HTMLInputElement>('input[name="audioEnabled"]')!;
+        audio.checked = !audio.checked;
+        submit();
+        await waitForCondition(() => saved.length === 1);
+        expect(saved[0]!.audioEnabled).toBe(audio.checked);
         expect(dismiss).not.toHaveBeenCalled();
 
+        // The install's own write lands after that Save and keeps its change.
         firstImport.resolve(importSummary('Jitendex'));
-        await waitForCondition(() => importFromUrl.mock.calls.length === 2);
+        await waitForCondition(() => saved.length === 2);
+        expect(saved[1]!.dictionaryPreferences.map(preference => preference.name)).toContain('Jitendex');
+        expect(saved[1]!.audioEnabled).toBe(audio.checked);
 
-        expect(recommendedButton(form, 'wty-ja-ja').dataset.importState).toBe('installing');
-        expect(save().disabled).toBe(true);
-        expect(save().dataset.saveBlocked).toBe('dictionary-import');
+        // A Save before the form shows Jitendex's row keeps Jitendex.
+        await waitForCondition(() => importFromUrl.mock.calls.length === 2);
+        await waitForCondition(() => !save().disabled);
+        submit();
+        await waitForCondition(() => saved.length === 3);
+        expect(saved[2]!.dictionaryPreferences.map(preference => preference.name)).toContain('Jitendex');
 
         secondImport.resolve(importSummary('WTY JA-JA'));
-        await waitForCondition(() => save().dataset.saveBlocked == null);
+        await waitForCondition(() => saved.length === 4 && !saveStatus().textContent?.includes('running'));
 
+        expect(saved[3]!.dictionaryPreferences.map(preference => preference.name)).toEqual(expect.arrayContaining(['Jitendex', 'WTY JA-JA']));
         expect(save().disabled).toBe(false);
-        expect(saveStatus().hidden).toBe(true);
         expect(save().textContent).toBe('Save');
     }, 30_000);
 

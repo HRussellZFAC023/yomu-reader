@@ -595,6 +595,7 @@ const COPY = {
         dictionaryInstallQueued: '{dictionary} queued.',
         dictionaryInstallSaveBlocked: 'Import running. Save unlocks when done.',
         dictionaryImportQueueStatus: '{count} install{plural} running.',
+        dictionaryInstallRunning: '{count} install{plural} running.',
         dictionaryRemoveConfirm: 'Remove "{dictionary}"?',
         dictionaryRemoving: 'Removing {dictionary}...',
         dictionaryRemoved: 'Removed {dictionary}.',
@@ -1214,6 +1215,7 @@ dictionaryInstallQueueHelp	まず定義用の語句辞書をインストール�
 dictionaryInstallQueued	{dictionary}待機中。
 dictionaryInstallSaveBlocked	インポート中。完了後に保存できます。
 dictionaryImportQueueStatus	{count}件インストール中。完了後に保存。
+dictionaryInstallRunning	{count}件インストール中。
 dictionaryRemoveConfirm	「{dictionary}」を削除？
 dictionaryRemoving	{dictionary}を削除中...
 dictionaryRemoved	{dictionary}を削除しました。

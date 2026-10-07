@@ -2276,9 +2276,9 @@ export class SettingsDialogController {
         if (!files.length) return;
         const results = await Promise.allSettled(files.map(file => this.restoreCoordinator.enqueueDictionaryOperation(form, async () => {
             const summary = await this.dependencies.dictionaries.importFile(file, message => setStatus(message));
-            await this.persistDictionaryImport(summary);
+            await this.persistDictionaryImport(summary, form);
             return summary;
-        })));
+        }, { holdsSave: false })));
         const report = dictionaryImportReport(files, results);
         if (report.summaries.length) {
             await this.refreshDictionaryStatus(form);
@@ -2320,7 +2320,7 @@ export class SettingsDialogController {
                     setStatus(message);
                     this.setRecommendedDictionaryInstallState(form, dictionary.id, 'installing', `${dictionary.name}: ${message}`);
                 }, { firstInstall: control?.dataset.installed !== 'true' });
-                await this.persistDictionaryImport(summary);
+                await this.persistDictionaryImport(summary, form);
             } catch (error) {
                 // The card keeps the reason until its next click; the toast fades.
                 log.warn('Recommended dictionary install failed', { dictionary: dictionary.name }, error);
@@ -2337,23 +2337,27 @@ export class SettingsDialogController {
             }));
             await this.refreshDictionaryStatus(form);
             this.dependencies.refreshNewTabIfCurrent();
-        });
+        }, { holdsSave: false });
     }
 
-    private async persistDictionaryImport(summary: ImportSummary): Promise<void> {
+    private async persistDictionaryImport(summary: ImportSummary, form: HTMLFormElement): Promise<void> {
         this.dictionaryRefreshId++;
-        const previousSettings = this.stableSettings;
-        const dictionaryPreferences = mergeDictionaryPreferences(
-            previousSettings.dictionaryPreferences,
-            summary.dictionaries,
-            summary.dictionaryTypes ?? {},
-            summary.replacedDictionaries ?? [],
-        );
-        this.settings = captureActiveLanguageProfileDictionaries(
-            { ...previousSettings, localDictionariesEnabled: true },
-            dictionaryPreferences,
-        );
-        await this.persistCurrentSettings(previousSettings, { explicitUserChoiceKeys: ['dictionaryPreferences', 'localDictionariesEnabled'] });
+        // Save stays available during an install; this write lands after any
+        // Save in flight and merges into what it stored.
+        await this.restoreCoordinator.runDictionarySettingsWrite(form, async () => {
+            const previousSettings = this.stableSettings;
+            const dictionaryPreferences = mergeDictionaryPreferences(
+                previousSettings.dictionaryPreferences,
+                summary.dictionaries,
+                summary.dictionaryTypes ?? {},
+                summary.replacedDictionaries ?? [],
+            );
+            this.settings = captureActiveLanguageProfileDictionaries(
+                { ...previousSettings, localDictionariesEnabled: true },
+                dictionaryPreferences,
+            );
+            await this.persistCurrentSettings(previousSettings, { explicitUserChoiceKeys: ['dictionaryPreferences', 'localDictionariesEnabled'] });
+        });
         await this.dependencies.refreshDictionaryStyles();
         this.dependencies.scheduleDictionaryRescan();
     }
