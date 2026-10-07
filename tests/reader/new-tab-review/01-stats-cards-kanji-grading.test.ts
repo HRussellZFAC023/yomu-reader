@@ -104,7 +104,7 @@ describe('new tab review — stats, My Cards & kanji-doodle grading', () => {
     it('keeps generic new-tab accent surfaces on accent tokens', () => {
         const genericAccentRules = [
             newTabCssRule('.jpdb-reader-newtab-mode button[data-active="true"]'),
-            newTabCssRule('.jpdb-reader-newtab-searchbox button[type="submit"]'),
+            newTabCssRule('.jpdb-reader-newtab-searchbox:focus-within'),
             newTabCssRule('.jpdb-reader-newtab-count::before'),
         ];
 
@@ -113,8 +113,8 @@ describe('new tab review — stats, My Cards & kanji-doodle grading', () => {
             .toContain('var(--jpdb-reader-accent-soft)');
         expect(newTabCssRule('.jpdb-reader-newtab-mode button[data-active="true"]'))
             .toContain('var(--jpdb-reader-accent-readable, var(--jpdb-reader-text))');
-        expect(newTabCssRule('.jpdb-reader-newtab-searchbox button[type="submit"]'))
-            .toContain('var(--jpdb-reader-accent-readable, var(--jpdb-reader-text))');
+        expect(newTabCssRule('.jpdb-reader-newtab-search-icon.is-draw[aria-expanded="true"]'))
+            .toContain('var(--jpdb-reader-accent-readable)');
 
         for (const rule of genericAccentRules) {
             expect(rule).not.toContain('--jpdb-reader-state-known');

@@ -50,7 +50,6 @@ export const NEW_TAB_ACTIONS = [
     'listen-play-recording',
     'listen-record',
     // Library search.
-    'search-submit',
     'search-clear',
     'search-focus',
     'search-suggestion',

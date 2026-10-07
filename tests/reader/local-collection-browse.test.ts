@@ -113,3 +113,32 @@ it('returns to a Study queue rebuilt with the word just added to review', async 
         expect(reload).toHaveBeenCalledOnce();
     } finally { controller.destroy(); boundary.abort(); }
 });
+
+// Before any word is saved, Library once showed "All sources 0", "All 0", a sort
+// menu and Select over nothing. It now says how words arrive and offers practice.
+it('shows how words arrive, not empty filters, before any word is saved', async () => {
+    const controller = newTabPromptController(DEFAULT_SETTINGS, {});
+    const probe = controller as unknown as {
+        state: typeof DEFAULT_NEW_TAB_UI_STATE;
+        browsePool: JPDBCard[];
+        renderBrowseResults(root: HTMLElement): void;
+    };
+    try {
+        probe.state = { ...DEFAULT_NEW_TAB_UI_STATE, route: 'search', source: 'auto' };
+        probe.browsePool = [];
+        const root = renderEnabledNewTabRoot(controller, { appendToDocument: true });
+        const results = root.querySelector<HTMLElement>('[data-newtab-search-results]')!;
+        probe.renderBrowseResults(results);
+
+        expect(results.querySelector('.jpdb-reader-newtab-browse-empty p')?.textContent).toBe('Save a word while you read and it shows up here.');
+        expect(results.querySelector('.jpdb-reader-newtab-browse-empty [data-newtab-action="practice-sessions"]')?.textContent).toBe('Practice');
+        for (const machinery of ['.jpdb-reader-newtab-browse-chips', '.jpdb-reader-newtab-browse-controls', '[data-newtab-action="browse-select-mode"]']) {
+            expect(results.querySelector(machinery), machinery).toBeNull();
+        }
+
+        probe.browsePool = [newTabTestCard({ spelling: '読む', reading: 'よむ' })];
+        probe.renderBrowseResults(results);
+        expect(results.querySelector('.jpdb-reader-newtab-browse-empty')).toBeNull();
+        expect(results.querySelector('.jpdb-reader-newtab-browse-chips')).not.toBeNull();
+    } finally { controller.destroy(); }
+});

@@ -119,18 +119,26 @@ export function renderNewTabShell(options: NewTabShellOptions): DocumentFragment
                             'aria-controls': 'jpdb-reader-newtab-autocomplete',
                             'aria-expanded': 'false',
                         }),
-                        el('button', { class: 'jpdb-reader-parseable', type: 'submit', dataset: { newtabAction: newTabAction('search-submit') }, lang: contentLanguage }, uiText(language, 'search')),
+                        // Enter searches (the one field submits the form) and typing
+                        // already searches, so the box needs only two icon actions.
                         el('button', {
-                            class: 'jpdb-reader-parseable',
+                            class: 'jpdb-reader-newtab-search-icon is-clear',
+                            type: 'button',
+                            dataset: { newtabAction: newTabAction('search-clear') },
+                            'aria-label': newTabText(language, 'clearSearch'),
+                            title: newTabText(language, 'clearSearch'),
+                        }),
+                        el('button', {
+                            class: 'jpdb-reader-newtab-search-icon is-draw',
                             type: 'button',
                             dataset: { newtabAction: newTabAction('search-handwriting-toggle') },
-                            lang: contentLanguage,
                             'aria-controls': 'jpdb-reader-newtab-handwriting',
                             'aria-expanded': 'false',
+                            'aria-label': newTabText(language, 'drawKanji'),
+                            title: newTabText(language, 'drawKanji'),
                             hidden: !usesJapaneseCharacterStudy(),
                             disabled: !usesJapaneseCharacterStudy(),
-                        }, newTabText(language, 'draw')),
-                        el('button', { class: 'jpdb-reader-parseable', type: 'button', dataset: { newtabAction: newTabAction('search-clear') }, lang: contentLanguage, 'aria-label': newTabText(language, 'clearSearch') }, uiText(language, 'clear')),
+                        }),
                     ),
                     el('div', {
                         id: 'jpdb-reader-newtab-autocomplete',

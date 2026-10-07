@@ -388,7 +388,7 @@ export class NewTabSearchController {
         this.deps.syncThemeToggle(root);
 
         const slots = this.deps.studySlots(root);
-        this.deps.renderPromptSlot(slots.prompt, this.deps.text('search'), resolveUiLanguage(this.deps.language()) === 'ja' ? 'ja' : 'en');
+        this.deps.renderPromptSlot(slots.prompt, this.deps.text('library'), resolveUiLanguage(this.deps.language()) === 'ja' ? 'ja' : 'en');
         setOptionalText(slots.answer, '');
         setOptionalText(slots.meaning, '');
         this.deps.renderCount(slots.count, '');

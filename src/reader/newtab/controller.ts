@@ -4,6 +4,7 @@ import {
     filterBrowseCards,
     renderBrowseChips,
     renderBrowseControls,
+    renderBrowseEmpty,
     renderBrowseList,
     renderBrowseSourceChips,
     sortBrowseCards,
@@ -7789,6 +7790,10 @@ export class NewTabController {
 
     private renderBrowseResults(mount: HTMLElement): void {
         const cards = this.browsePool ?? [];
+        if (!cards.length) {
+            replaceChildrenWith(mount, renderBrowseEmpty(this.text('libraryEmpty'), this.text('practiceTitle')));
+            return;
+        }
         const language = this.language();
         const query = this.browseScopeActive() ? normalizeSearchQuery(this.searchController.query) : '';
         const filtered = sortBrowseCards(

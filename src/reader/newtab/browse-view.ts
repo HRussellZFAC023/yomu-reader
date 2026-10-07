@@ -136,6 +136,17 @@ export function renderBrowseSourceChips(
     );
 }
 
+/**
+ * Library before any word is saved: how words arrive and one way to start,
+ * instead of source chips, state chips, sorting and selection over nothing.
+ */
+export function renderBrowseEmpty(message: string, practice: string): HTMLElement {
+    return el('div', { class: 'jpdb-reader-newtab-browse-empty' },
+        el('p', {}, message),
+        el('button', { type: 'button', dataset: { newtabAction: newTabAction('practice-sessions') } }, practice),
+    );
+}
+
 // 2D reviews: 'queue' keeps the pool's SRS order (due_at ascending for jpdb
 // cards, provider order otherwise — the pool is loaded queue-first), 'alpha'
 // sorts by reading, 'frequency' by frequency rank, and 'history' mirrors

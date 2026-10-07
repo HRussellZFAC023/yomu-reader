@@ -21,6 +21,7 @@ const COPY = {
         manualPageScanShortcut: 'Manual page scan shortcut',
         scanPage: 'Scan page',
         noUnscannedJapaneseText: 'No unscanned Japanese text found.',
+        libraryEmpty: 'Save a word while you read and it shows up here.',
         contextOccurrences: 'In context ×{count}',
         puckAutoDetectSubtitles: 'Auto-detect subtitles',
         loadTargetSubtitles: 'Load Japanese subtitles',
@@ -1143,6 +1144,7 @@ english	英語
 japanese	日本語
 settings	設定
 settingsSaved	設定を保存しました。
+libraryEmpty	読みながら単語を保存すると、ここに表示されます。
 settingsSaveFailed	設定を保存できませんでした。
 settingsCompanionUnavailable	設定を開けませんでした。
 firefoxAuthenticationInfoDenied	Firefoxの許可がなかったため、アカウント情報は保存しませんでした。

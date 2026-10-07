@@ -32,7 +32,7 @@ describe('Reader Study UI contract', () => {
     });
 
     it('gives Study text fields explicit glyph, caret, placeholder, and selection paint', () => {
-        expect(newTabCss).toContain('.jpdb-reader-newtab-searchbox input { min-width: 0; min-height: 46px;');
+        expect(newTabCss).toContain('.jpdb-reader-newtab-searchbox input { min-width: 0; min-height: 48px;');
         expect(newTabCss).toContain('color: var(--jpdb-reader-text); -webkit-text-fill-color: var(--jpdb-reader-text); caret-color: var(--jpdb-reader-accent);');
         expect(newTabCss).toContain('.jpdb-reader-newtab-recall-input { width: 100%; min-width: 0;');
         expect(newTabCss).toContain('.jpdb-reader-newtab-recall-input::placeholder { color: var(--jpdb-reader-muted); -webkit-text-fill-color: var(--jpdb-reader-muted); opacity: 1; }');
@@ -144,6 +144,41 @@ describe('Reader Study UI contract', () => {
         expect(academyShellCss).toContain('overflow-x: clip;');
         expect(academyShellCss).toContain('.academy-study-chrome { flex-wrap: nowrap; gap: 6px; }');
         expect(academyShellCss).toContain('.academy-study-clock-host { flex: 0 0 auto; margin-left: auto; gap: 6px; }');
+    });
+});
+
+describe('Library search field', () => {
+    // One field: Enter and typing search, so the box carries no Search button,
+    // and clear and handwriting are named icons rather than three text buttons.
+    it('is one field with a named clear icon and a named handwriting icon', () => {
+        const shell = renderNewTabShell({ language: 'en', overflowMenu: document.createElement('div'), appNavigation: null, showSessionClockControl: false });
+        const box = shell.querySelector<HTMLElement>('.jpdb-reader-newtab-searchbox')!;
+
+        expect(box.querySelector('button[type="submit"]')).toBeNull();
+        expect(Array.from(box.querySelectorAll<HTMLButtonElement>('button')).map(button => [button.dataset.newtabAction, button.getAttribute('aria-label'), button.textContent]))
+            .toEqual([['search-clear', 'Clear search', ''], ['search-handwriting-toggle', 'Write by hand', '']]);
+        expect(box.querySelectorAll('input')).toHaveLength(1);
+        // The clear icon appears only once there is something to clear, and the
+        // handwriting pad exists only while its icon holds it open.
+        expect(newTabCss).toContain('.jpdb-reader-newtab-searchbox:has(input:placeholder-shown) .jpdb-reader-newtab-search-icon.is-clear { display: none; }');
+        expect(newTabCss).toContain('.jpdb-reader-newtab-handwriting:not([open]) { display: none; }');
+    });
+});
+
+describe('Library and Stats', () => {
+    // Library's title sat 60px below Stats' on the same shell: Study's
+    // top padding and its prompt margin still applied to the Library title.
+    it('puts the Library title where the Stats title sits', () => {
+        expect(newTabCss).toContain('.jpdb-reader-newtab-search-mode .jpdb-reader-newtab-study { grid-template-rows: auto auto; align-content: start; align-items: start; gap: clamp(14px, 2.2vh, 24px); padding-top: 4px;');
+        expect(statsCss).toContain('.jpdb-reader-newtab-stats-mode .jpdb-reader-newtab-study { align-content: start; align-items: start; justify-items: stretch; gap: 16px; padding: 4px 0 32px;');
+        expect(newTabCss).toContain('.jpdb-reader-newtab:not(.jpdb-reader-newtab-kanji-mode, .jpdb-reader-newtab-search-mode) .jpdb-reader-newtab-study > .jpdb-reader-newtab-prompt { margin-top: clamp(14px, 4vh, 44px); }');
+    });
+
+    // Two rules for the same element stacked 32px of margin and padding
+    // between the search field and the empty-Library line.
+    it('styles the Library empty state with one rule', () => {
+        expect(newTabCss.match(/\.jpdb-reader-newtab-browse-empty \{/gu)).toHaveLength(1);
+        expect(newTabCss).toContain('.jpdb-reader-newtab-browse-empty { display: grid; justify-items: start; gap: 16px; margin: 0; padding: 8px 0; color: var(--jpdb-reader-muted); }');
     });
 });
 
