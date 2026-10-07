@@ -164,6 +164,8 @@ describe('the toolbar popup', () => {
         });
         vi.spyOn(window, 'close').mockImplementation(() => undefined);
         const source = hardenExtensionPopupSource(compilerPopup, { target: 'chrome' }) as string;
+        // Firefox's store gate rejects executable HTML assignments, even for static icons.
+        expect(source).not.toMatch(/\b(?:innerHTML|outerHTML)\s*=/u);
         new Function(source)();
         return { opened, sendMessage, legacySend, executeScript };
     }
