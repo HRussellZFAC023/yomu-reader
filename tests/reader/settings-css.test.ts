@@ -36,7 +36,7 @@ describe('settings CSS', () => {
         const puckRule = normalizedRuleBlock(READER_WORDS_OCR_CSS, '.jpdb-reader-fab');
 
         expect(puckRule).toContain(`z-index: ${TRANSCRIPT_PANEL_Z_INDEX + 1} !important;`);
-        expect(puckRule).toContain('opacity: 0.72 !important;');
+        expect(puckRule).toContain('opacity: 0.9 !important;');
         expect(TRANSCRIPT_PANEL_Z_INDEX + 1).toBeLessThan(2147483647);
     });
 

@@ -1,3 +1,6 @@
+// The puck's radial menu draws the same shapes (src/reader/ui/menu-icons.ts).
+import MENU_ICON_SHAPES from '../../src/reader/ui/menu-icons.json' with { type: 'json' };
+
 // Own the complete popup entry point. Appending to the compiler's popup leaves
 // its legacy menu and in-page settings injection active alongside our actions.
 const EXTENSION_POPUP_ACTIONS_MARKER = 'yomu-extension-popup-actions:v2';
@@ -59,17 +62,8 @@ function extensionPopupActionsSource() {
     '音声の自動再生をミュート': '自動再生をミュート',
     '音声の自動再生のミュートを解除': '自動再生を有効に',
   };
-  const iconPaths = {
-    power: [["path", {"d": "M8 1.5v6M4.1 3.6a5.5 5.5 0 1 0 7.8 0"}]],
-    audio: [["path", {"d": "M2 6h3l3-3v10l-3-3H2zM10.5 5.5a4 4 0 0 1 0 5M12.5 3.5a7 7 0 0 1 0 9"}]],
-    ocr: [["path", {"d": "M5 2H2v3m9-3h3v3M2 11v3h3m9-3v3h-3M5 6h6M5 9h4"}]],
-    'japanese-site': [["circle", {"cx": "8", "cy": "8", "r": "6"}], ["path", {"d": "M2 8h12M8 2c-3 3-3 9 0 12 3-3 3-9 0-12"}]],
-    study: [["path", {"d": "M8 3v11M8 4C6 2.5 3.5 2.5 1.5 3v10c2-.5 4.5-.5 6.5 1 2-1.5 4.5-1.5 6.5-1V3c-2-.5-4.5-.5-6.5 1"}]],
-    settings: [["path", {"d": "M2 4h3m4 0h5M2 12h7m4 0h1"}], ["circle", {"cx": "7", "cy": "4", "r": "2"}], ["circle", {"cx": "11", "cy": "12", "r": "2"}]],
-    youtube: [["rect", {"x": "1.5", "y": "3", "width": "13", "height": "10", "rx": "2"}], ["path", {"d": "m6.5 5.5 4 2.5-4 2.5z"}]],
-    subtitles: [["rect", {"x": "1.5", "y": "3", "width": "13", "height": "10", "rx": "2"}], ["path", {"d": "M4 7h3m2 0h3M4 10h8"}]],
-    fallback: [["circle", {"cx": "8", "cy": "8", "r": "5.5"}], ["path", {"d": "M5 8h6"}]],
-  };
+  const iconPaths = ${JSON.stringify(MENU_ICON_SHAPES)};
+
   let pageTab;
 
   async function openPath(path) {
@@ -96,7 +90,8 @@ function extensionPopupActionsSource() {
     if (typeof action.pressed === 'boolean') button.setAttribute('aria-pressed', String(action.pressed));
     const icon = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
     for (const [name, value] of Object.entries({ viewBox: '0 0 16 16', fill: 'none', stroke: 'currentColor', 'stroke-width': '1.5', 'stroke-linecap': 'round', 'stroke-linejoin': 'round', 'aria-hidden': 'true', focusable: 'false' })) icon.setAttribute(name, value);
-    const shapes = Object.hasOwn(iconPaths, action.id) ? iconPaths[action.id] : iconPaths.fallback;
+    const iconName = action.icon || action.id;
+    const shapes = Object.hasOwn(iconPaths, iconName) ? iconPaths[iconName] : iconPaths.fallback;
     for (const [tag, attributes] of shapes) {
       const shape = document.createElementNS('http://www.w3.org/2000/svg', tag);
       for (const [name, value] of Object.entries(attributes)) shape.setAttribute(name, value);

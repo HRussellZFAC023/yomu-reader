@@ -1,20 +1,8 @@
 import { APP_NAME, APP_PUCK } from '../app/constants';
 import { uiText } from '../app/i18n';
 import type { ReaderSettings } from '../app/types';
-import {
-    RadialMenuController,
-    radialAudioMutedIcon,
-    radialAudioOnIcon,
-    radialCaptionsIcon,
-    radialFuriganaHiddenIcon,
-    radialOcrIcon,
-    radialOcrOnIcon,
-    radialPausedIcon,
-    radialPowerIcon,
-    radialSettingsIcon,
-    radialYoutubeIcon,
-    type RadialAction,
-} from './radial-menu';
+import { RadialMenuController, type RadialAction } from './radial-menu';
+import { menuIcon, type MenuIconName } from './menu-icons';
 import type { OcrInteractionMode } from '../ocr/mode';
 import { isTrustedReaderInteraction } from './trusted-interaction';
 import {
@@ -82,14 +70,14 @@ interface PuckPosition {
 interface PowerActionPresentation {
     /** Names the current state; pressing steps to the next one. */
     label: 'puckPowerOnFurigana' | 'puckPowerOnNoFurigana' | 'puckPowerOff';
-    icon: () => string;
+    icon: MenuIconName;
     tone: 'on' | 'off' | 'partial';
 }
 
 const POWER_ACTION: Readonly<Record<PuckPowerState, PowerActionPresentation>> = Object.freeze({
-    on: { label: 'puckPowerOnFurigana', icon: radialPowerIcon, tone: 'on' },
-    'no-furigana': { label: 'puckPowerOnNoFurigana', icon: radialFuriganaHiddenIcon, tone: 'partial' },
-    paused: { label: 'puckPowerOff', icon: radialPausedIcon, tone: 'off' },
+    on: { label: 'puckPowerOnFurigana', icon: 'power', tone: 'on' },
+    'no-furigana': { label: 'puckPowerOnNoFurigana', icon: 'furigana-hidden', tone: 'partial' },
+    paused: { label: 'puckPowerOff', icon: 'power', tone: 'off' },
 });
 
 function floatingButtonRadialActions(
@@ -119,7 +107,7 @@ function powerRadialAction(
     return {
         id: 'power',
         label: uiText(settings.interfaceLanguage, presentation.label),
-        icon: presentation.icon(),
+        icon: presentation.icon,
         tone: presentation.tone,
         primary: true,
         keepOpen: true,
@@ -132,7 +120,7 @@ function audioRadialAction(settings: ReaderSettings, actions: FloatingButtonActi
     return {
         id: 'audio',
         label: uiText(settings.interfaceLanguage, enabled ? 'puckMuteAudio' : 'puckUnmuteAudio'),
-        icon: enabled ? radialAudioOnIcon() : radialAudioMutedIcon(),
+        icon: enabled ? 'audio' : 'audio-muted',
         tone: enabled ? 'on' : 'off',
         keepOpen: true,
         run: () => actions.toggleAutoPlayAudio(),
@@ -144,7 +132,7 @@ function ocrRadialAction(settings: ReaderSettings, actions: FloatingButtonAction
     return {
         id: 'ocr',
         label: ocrModeLabel(settings.interfaceLanguage, mode),
-        icon: mode === 'manual' ? radialOcrOnIcon() : radialOcrIcon(),
+        icon: mode === 'manual' ? 'ocr-manual' : 'ocr',
         tone: ocrRadialTone(mode, actions.powerState()),
         keepOpen: true,
         run: () => actions.toggleOcrMode(),
@@ -160,8 +148,7 @@ function japaneseSiteRadialAction(settings: ReaderSettings, actions: FloatingBut
     return {
         id: 'japanese-site',
         label: uiText(settings.interfaceLanguage, 'preferJapaneseSiteLanguage'),
-        icon: '日',
-        glyph: true,
+        icon: 'japanese-site',
         tone: settings.preferJapaneseSiteLanguage ? 'on' : 'off',
         keepOpen: true,
         run: () => actions.toggleJapaneseSiteLanguage(),
@@ -172,7 +159,7 @@ function settingsRadialAction(settings: ReaderSettings, actions: FloatingButtonA
     return {
         id: 'settings',
         label: uiText(settings.interfaceLanguage, 'settings'),
-        icon: radialSettingsIcon(),
+        icon: 'settings',
         run: () => actions.openSettings(),
     };
 }
@@ -181,8 +168,7 @@ function studyRadialAction(settings: ReaderSettings, actions: FloatingButtonActi
     return {
         id: 'study',
         label: uiText(settings.interfaceLanguage, 'newTab'),
-        icon: 'よ',
-        glyph: true,
+        icon: 'study',
         run: () => actions.openStudyPage(),
     };
 }
@@ -192,7 +178,7 @@ function subtitleRadialAction(settings: ReaderSettings, actions: FloatingButtonA
     return {
         id: 'subtitles',
         label: uiText(settings.interfaceLanguage, 'puckAutoDetectSubtitles'),
-        icon: radialCaptionsIcon(),
+        icon: 'subtitles',
         tone: enabled ? 'on' : 'off',
         keepOpen: true,
         run: () => actions.toggleAutoSubtitles(),
@@ -204,7 +190,7 @@ function youtubeRadialAction(settings: ReaderSettings, actions: FloatingButtonAc
     return {
         id: 'youtube',
         label: uiText(settings.interfaceLanguage, 'youtubeImmersionEnabled'),
-        icon: radialYoutubeIcon(),
+        icon: 'youtube',
         tone: enabled ? 'on' : 'off',
         keepOpen: true,
         run: () => actions.toggleYoutubeFilter(),
@@ -263,7 +249,14 @@ export class FloatingButtonController {
         const button = document.createElement('button');
         button.className = 'jpdb-reader-fab';
         button.type = 'button';
-        button.textContent = APP_PUCK;
+        const mark = document.createElement('span');
+        mark.className = 'jpdb-reader-fab-mark';
+        mark.textContent = APP_PUCK;
+        // The state badge: an icon from the menu set, so the puck and its menu agree.
+        const badge = document.createElement('span');
+        badge.className = 'jpdb-reader-fab-state';
+        badge.setAttribute('aria-hidden', 'true');
+        button.append(mark, badge);
         button.title = APP_NAME;
         button.setAttribute('aria-haspopup', 'menu');
         button.dataset.jpdbReaderRoot = 'true';
@@ -307,6 +300,11 @@ export class FloatingButtonController {
         button.classList.toggle('jpdb-reader-fab--on', powerState === 'on');
         button.classList.toggle('jpdb-reader-fab--no-furigana', powerState === 'no-furigana');
         button.classList.toggle('jpdb-reader-fab--paused', powerState === 'paused');
+        const badge = button.querySelector<HTMLElement>('.jpdb-reader-fab-state');
+        if (badge && badge.dataset.state !== powerState) {
+            badge.dataset.state = powerState;
+            badge.replaceChildren(menuIcon(POWER_ACTION[powerState].icon));
+        }
         button.title = puckStateLabel(language, powerState);
         button.setAttribute('aria-label', button.title);
     }

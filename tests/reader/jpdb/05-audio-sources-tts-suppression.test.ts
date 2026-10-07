@@ -1066,8 +1066,8 @@ describe('reader helpers', () => {
             expect(powerButton().getAttribute('aria-label')).toBe('Yomu on · furigana shown');
             expect(powerButton().classList.contains('is-on')).toBe(true);
             const onIcon = powerButton().querySelector<HTMLElement>('.jpdb-reader-fab-radial-icon')?.innerHTML ?? '';
-            expect(onIcon).toContain('M12 4v8');
-            expect(onIcon).not.toContain('>ふ<');
+            expect(onIcon).toContain('data-icon="power"');
+            expect(puck.querySelector<HTMLElement>('.jpdb-reader-fab-state')?.dataset.state).toBe('on');
 
             powerButton().click();
             await waitForPowerCycle();
@@ -1079,8 +1079,9 @@ describe('reader helpers', () => {
             expect(powerButton().getAttribute('aria-label')).toBe('Yomu on · furigana hidden');
             expect(powerButton().classList.contains('is-partial')).toBe(true);
             const noFuriganaIcon = powerButton().querySelector<HTMLElement>('.jpdb-reader-fab-radial-icon')?.innerHTML ?? '';
-            expect(noFuriganaIcon).toContain('>ふ<');
+            expect(noFuriganaIcon).toContain('data-icon="furigana-hidden"');
             expect(noFuriganaIcon).not.toBe(onIcon);
+            expect(puck.querySelector('.jpdb-reader-fab-state svg')?.getAttribute('data-icon')).toBe('furigana-hidden');
 
             powerButton().click();
             await waitForPowerCycle();
@@ -1091,9 +1092,10 @@ describe('reader helpers', () => {
             expect(powerButton().getAttribute('aria-label')).toBe('Yomu off');
             expect(powerButton().classList.contains('is-off')).toBe(true);
             const pausedIcon = powerButton().querySelector<HTMLElement>('.jpdb-reader-fab-radial-icon')?.innerHTML ?? '';
-            expect(pausedIcon).toContain('M9 5v14');
-            expect(pausedIcon).not.toBe(onIcon);
+            // Off draws the power icon too; the receded tone and label carry the state.
+            expect(pausedIcon).toContain('data-icon="power"');
             expect(pausedIcon).not.toBe(noFuriganaIcon);
+            expect(puck.querySelector<HTMLElement>('.jpdb-reader-fab-state')?.dataset.state).toBe('paused');
 
             powerButton().click();
             await waitForPowerCycle();
@@ -1158,13 +1160,13 @@ describe('reader helpers', () => {
             const ocrButton = () => document.querySelector<HTMLButtonElement>('.jpdb-reader-fab-radial-item[data-radial-id="ocr"]');
             expect(ocrButton()?.getAttribute('aria-label')).toBe('OCR: Auto');
             const autoIcon = ocrButton()?.querySelector<HTMLElement>('.jpdb-reader-fab-radial-icon')?.innerHTML ?? '';
-            expect(autoIcon).toContain('<rect');
+            expect(autoIcon).toContain('data-icon="ocr"');
 
             ocrButton()?.click();
             expect(toggleOcrMode).toHaveBeenCalledTimes(1);
             expect(ocrButton()?.getAttribute('aria-label')).toBe('OCR: Tap/Hover');
             const manualIcon = ocrButton()?.querySelector<HTMLElement>('.jpdb-reader-fab-radial-icon')?.innerHTML ?? '';
-            expect(manualIcon).toContain('M8 3H5');
+            expect(manualIcon).toContain('data-icon="ocr-manual"');
             expect(manualIcon).not.toBe(autoIcon);
             expect(document.querySelector('.jpdb-reader-fab-radial.is-open')).not.toBeNull();
 

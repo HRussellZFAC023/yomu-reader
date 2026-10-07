@@ -21,6 +21,8 @@ const STATE_TOGGLES = new Set(['japanese-site', 'subtitles', 'youtube']);
 export interface ExtensionPopupAction {
     id: string;
     label: string;
+    /** The shared menu icon for the current state, drawn the same as on the puck. */
+    icon: RadialAction['icon'];
     tone?: RadialAction['tone'];
     pressed?: boolean;
 }
@@ -76,9 +78,10 @@ async function answerPopup(source: ExtensionPopupActionSource, request: { type: 
         heading: uiText(language, 'extensionPopupPageActions'),
         studyLabel: uiText(language, 'newTab'),
         settingsLabel: uiText(language, 'settings'),
-        actions: popupActions(source).map(({ id, label, tone }) => ({
+        actions: popupActions(source).map(({ id, label, icon, tone }) => ({
             id,
             label,
+            icon,
             tone,
             pressed: STATE_TOGGLES.has(id) ? tone === 'on' : undefined,
         })),

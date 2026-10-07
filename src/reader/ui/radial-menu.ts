@@ -1,4 +1,4 @@
-import { escapeHtml, setInnerHtml } from '../dom/index';
+import { menuIcon, type MenuIconName } from './menu-icons';
 import { applyOverlayPageScale, overlayViewport, sourceRectToOverlay } from './page-scale';
 import { isTrustedReaderInteraction } from './trusted-interaction';
 
@@ -7,9 +7,8 @@ export type RadialActionTone = 'on' | 'off' | 'partial' | 'neutral';
 export interface RadialAction {
     id: string;
     label: string;
-    /** SVG markup, or — when `glyph` is set — plain text rendered as the icon. */
-    icon: string;
-    glyph?: boolean;
+    /** A shape from the shared menu icon set (also drawn by the toolbar menu). */
+    icon: MenuIconName;
     tone?: RadialActionTone;
     /** Emphasise this action (slightly larger, accent ring). */
     primary?: boolean;
@@ -149,6 +148,10 @@ export class RadialMenuController {
         let hAngle = cx > vw / 2 ? PI : 0;
         while (hAngle - vAngle > PI) hAngle -= 2 * PI;
         while (hAngle - vAngle < -PI) hAngle += 2 * PI;
+        // The state label of the primary item stays visible; CSS anchors it on
+        // the side facing the open screen so it never runs off the edge.
+        backdrop.dataset.fanX = cx > vw / 2 ? 'left' : 'right';
+        backdrop.dataset.fanY = cy > vh / 2 ? 'up' : 'down';
 
         const count = actions.length;
         const pad = count >= 7 ? 0.01 : count >= 5 ? 0.08 : 0.12; // keep dense menus touch-spaced without throwing items off-screen
@@ -229,15 +232,13 @@ export class RadialMenuController {
         item.title = action.label;
         item.setAttribute('aria-label', action.label);
         item.setAttribute('aria-disabled', String(Boolean(action.disabled)));
-        const iconClass = action.glyph
-            ? 'jpdb-reader-fab-radial-icon is-glyph'
-            : 'jpdb-reader-fab-radial-icon';
-        const label = `<span class="jpdb-reader-fab-radial-label">${escapeHtml(action.label)}</span>`;
-        if (action.glyph) {
-            setInnerHtml(item, `<span class="${iconClass}">${escapeHtml(action.icon)}</span>${label}`);
-        } else {
-            setInnerHtml(item, `<span class="${iconClass}">${action.icon}</span>${label}`);
-        }
+        const icon = document.createElement('span');
+        icon.className = 'jpdb-reader-fab-radial-icon';
+        icon.append(menuIcon(action.icon));
+        const label = document.createElement('span');
+        label.className = 'jpdb-reader-fab-radial-label';
+        label.textContent = action.label;
+        item.replaceChildren(icon, label);
     }
 
     /** Re-derive tone/label/icon for toggles that kept the menu open. */
@@ -272,56 +273,4 @@ export class RadialMenuController {
         const wrapped = (index + order.length) % order.length;
         order[wrapped]?.focus();
     }
-}
-
-const SVG_OPEN = '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">';
-
-/** Power symbol — the on/off master toggle. */
-export function radialPowerIcon(): string {
-    return `${SVG_OPEN}<path d="M12 4v8"></path><path d="M7.5 7.5a7 7 0 1 0 9 0"></path></svg>`;
-}
-
-/** Furigana hidden — the master toggle is in colours/lookups-only mode. */
-export function radialFuriganaHiddenIcon(): string {
-    return `${SVG_OPEN}<text x="12" y="15.5" text-anchor="middle" font-size="12" font-weight="700" fill="currentColor" stroke="none">ふ</text><path d="M5 19 19 5"></path></svg>`;
-}
-
-/** Paused — all reader annotations are disabled. */
-export function radialPausedIcon(): string {
-    return `${SVG_OPEN}<path d="M9 5v14"></path><path d="M15 5v14"></path></svg>`;
-}
-
-/** Gear — open settings. */
-export function radialSettingsIcon(): string {
-    return `${SVG_OPEN}<path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"></path><circle cx="12" cy="12" r="3"></circle></svg>`;
-}
-
-/** Speaker with sound waves — auto-play audio is on. */
-export function radialAudioOnIcon(): string {
-    return `${SVG_OPEN}<path d="M11 5 6 9H3v6h3l5 4z" fill="currentColor"></path><path d="M15.5 8.5a4.5 4.5 0 0 1 0 7"></path><path d="M18.5 5.5a8.5 8.5 0 0 1 0 13"></path></svg>`;
-}
-
-/** Muted speaker — auto-play audio is off. */
-export function radialAudioMutedIcon(): string {
-    return `${SVG_OPEN}<path d="M11 5 6 9H3v6h3l5 4z" fill="currentColor"></path><path d="m23 9-6 6"></path><path d="m17 9 6 6"></path></svg>`;
-}
-
-/** Image/text scan — cycle OCR interaction mode. */
-export function radialOcrIcon(): string {
-    return `${SVG_OPEN}<rect x="3" y="4" width="18" height="16" rx="2.5"></rect><path d="M7 8h4"></path><path d="M7 12h10"></path><path d="M7 16h7"></path><path d="M15.5 7.5 17 6l1.5 1.5"></path><path d="M17 6v5"></path></svg>`;
-}
-
-/** Corner scan frame — OCR is in direct tap/hover mode. */
-export function radialOcrOnIcon(): string {
-    return `${SVG_OPEN}<path d="M8 3H5a2 2 0 0 0-2 2v3"></path><path d="M21 8V5a2 2 0 0 0-2-2h-3"></path><path d="M16 21h3a2 2 0 0 0 2-2v-3"></path><path d="M3 16v3a2 2 0 0 0 2 2h3"></path><path d="M7 12h10"></path></svg>`;
-}
-
-/** Language-neutral captions — discover subtitle tracks for the active target. */
-export function radialCaptionsIcon(): string {
-    return `${SVG_OPEN}<rect x="3" y="5" width="18" height="14" rx="2.5"></rect><path d="M7 10h3"></path><path d="M14 10h3"></path><path d="M7 14h4"></path><path d="M13 14h4"></path></svg>`;
-}
-
-/** Video filter — toggle YouTube immersion filtering (YouTube only). */
-export function radialYoutubeIcon(): string {
-    return `${SVG_OPEN}<rect x="3" y="6" width="18" height="12" rx="3"></rect><path d="M10.2 9.6 14.4 12l-4.2 2.4z" fill="currentColor" stroke="none"></path></svg>`;
 }

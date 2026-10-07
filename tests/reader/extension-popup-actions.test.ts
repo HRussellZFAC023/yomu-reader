@@ -10,6 +10,8 @@ import {
     type ExtensionPopupActionList,
 } from '../../src/reader/app/extension-popup-actions';
 import type { RadialAction } from '../../src/reader/ui/radial-menu';
+import { menuIcon } from '../../src/reader/ui/menu-icons';
+import MENU_ICON_SHAPES from '../../src/reader/ui/menu-icons.json';
 // @ts-expect-error The packaging hardener is a Node ESM script exercised directly by the build.
 import { hardenExtensionPopupSource } from '../../scripts/lib/extension-runtime-hardening.mjs';
 
@@ -37,11 +39,11 @@ function fakeRuntime() {
 function puck() {
     const state = { paused: false, audio: true, youtube: false };
     const actions = (): RadialAction[] => [
-        { id: 'power', label: state.paused ? 'Resume annotations' : 'Pause annotations', icon: '', tone: state.paused ? 'off' : 'on', run: async () => { await Promise.resolve(); state.paused = !state.paused; } },
-        { id: 'audio', label: state.audio ? 'Mute audio' : 'Unmute audio', icon: '', tone: state.audio ? 'on' : 'off', run: () => { state.audio = !state.audio; } },
-        { id: 'settings', label: 'Settings', icon: '', run: vi.fn() },
-        { id: 'study', label: 'Study Japanese', icon: '', run: vi.fn() },
-        { id: 'youtube', label: 'Filter YouTube to Japanese', icon: '', tone: state.youtube ? 'on' : 'off', run: () => { state.youtube = !state.youtube; } },
+        { id: 'power', label: state.paused ? 'Resume annotations' : 'Pause annotations', icon: 'fallback', tone: state.paused ? 'off' : 'on', run: async () => { await Promise.resolve(); state.paused = !state.paused; } },
+        { id: 'audio', label: state.audio ? 'Mute audio' : 'Unmute audio', icon: 'fallback', tone: state.audio ? 'on' : 'off', run: () => { state.audio = !state.audio; } },
+        { id: 'settings', label: 'Settings', icon: 'fallback', run: vi.fn() },
+        { id: 'study', label: 'Study Japanese', icon: 'fallback', run: vi.fn() },
+        { id: 'youtube', label: 'Filter YouTube to Japanese', icon: 'fallback', tone: state.youtube ? 'on' : 'off', run: () => { state.youtube = !state.youtube; } },
     ];
     return { state, source: { language: () => 'en' as const, actions } };
 }
@@ -101,9 +103,9 @@ describe('the page side of the extension popup', () => {
         expect(list.heading).toBe('On this page');
         expect(list.settingsLabel).toBe('Settings');
         expect(list.actions).toEqual([
-            { id: 'power', label: 'Pause annotations', tone: 'on', pressed: undefined },
-            { id: 'audio', label: 'Mute audio', tone: 'on', pressed: undefined },
-            { id: 'youtube', label: 'Filter YouTube to Japanese', tone: 'off', pressed: false },
+            { id: 'power', label: 'Pause annotations', icon: 'fallback', tone: 'on', pressed: undefined },
+            { id: 'audio', label: 'Mute audio', icon: 'fallback', tone: 'on', pressed: undefined },
+            { id: 'youtube', label: 'Filter YouTube to Japanese', icon: 'fallback', tone: 'off', pressed: false },
         ]);
         controller.abort();
     });
@@ -116,7 +118,7 @@ describe('the page side of the extension popup', () => {
         const list = await send({ channel: EXTENSION_POPUP_ACTIONS_CHANNEL, type: 'run', id: 'power' }) as ExtensionPopupActionList;
 
         expect(state.paused).toBe(true);
-        expect(list.actions[0]).toEqual({ id: 'power', label: 'Resume annotations', tone: 'off', pressed: undefined });
+        expect(list.actions[0]).toEqual({ id: 'power', label: 'Resume annotations', icon: 'fallback', tone: 'off', pressed: undefined });
     });
 
     it('answers in the learner\'s interface language', async () => {
@@ -146,11 +148,14 @@ describe('the page side of the extension popup', () => {
             expect([list.language, list.studyLabel, list.settingsLabel]).toEqual([language, study, settings]);
             expect(list.actions.find(action => action.id === 'japanese-site')?.label).toBe(sites);
             const seen: string[] = [];
+            const seenIcons: string[] = [];
             for (let step = 0; step <= powerStates.length; step++) {
                 seen.push(list.actions.find(action => action.id === 'power')!.label);
+                seenIcons.push(list.actions.find(action => action.id === 'power')!.icon);
                 list = await send({ channel: EXTENSION_POPUP_ACTIONS_CHANNEL, type: 'run', id: 'power' }) as ExtensionPopupActionList;
             }
             expect(seen).toEqual([...powerStates, powerStates[0]]);
+            expect(seenIcons).toEqual(['power', 'furigana-hidden', 'power', 'power']);
             const fab = document.querySelector('.jpdb-reader-fab');
             expect(fab?.getAttribute('aria-label')).toBe(list.actions.find(action => action.id === 'power')!.label);
         } finally {
@@ -278,6 +283,15 @@ describe('the toolbar popup', () => {
         expect(document.querySelectorAll('main hr')).toHaveLength(1);
         expect((separator.nextElementSibling as HTMLElement).dataset.yomuAction).toBe('study');
         expect(document.querySelector('header,h1')).toBeNull();
+    });
+
+    it('draws the state icon the page names with the puck\'s shapes', async () => {
+        mountPopup(() => ({ actions: [{ id: 'power', label: 'Yomu on · furigana hidden', icon: 'furigana-hidden', tone: 'partial' }] }));
+        await settle();
+        const drawn = [...buttons()[0]!.querySelectorAll('svg > *')].map(shape => shape.getAttribute('d'));
+        expect(drawn).toEqual(MENU_ICON_SHAPES['furigana-hidden'].map(([, attributes]) => (attributes as { d?: string }).d));
+        const puckIcon = [...menuIcon('furigana-hidden').children].map(shape => shape.getAttribute('d'));
+        expect(drawn).toEqual(puckIcon);
     });
 
     it('settles on the state the page lands in after a toggle echoes back', async () => {
