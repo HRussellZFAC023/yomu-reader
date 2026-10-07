@@ -5,9 +5,10 @@ const settingsCss = readFileSync('src/reader/styles/settings.css', 'utf8').repla
 const newTabCss = readFileSync('src/reader/styles/new-tab.css', 'utf8').replace(/\s+/gu, ' ');
 
 describe('Settings layout contract', () => {
-    it('keeps phone toasts off the Settings footer, the Study tab bar and the open radial menu', () => {
-        expect(settingsCss).toContain('@media (max-width: 699px) { body:has(.jpdb-reader-settings, .jpdb-reader-newtab-app-nav) .jpdb-reader-toast-stack { bottom: calc(84px + env(safe-area-inset-bottom)); }');
-        expect(settingsCss).toContain('body:has(.jpdb-reader-fab-radial.is-open) .jpdb-reader-toast-stack { top: calc(72px + env(safe-area-inset-top)); bottom: auto; } }');
+    it('keeps toasts off the open radial menu and lets toast.ts lift them above control bars', () => {
+        expect(settingsCss).toContain('bottom: max(18px, env(safe-area-inset-bottom), var(--jpdb-reader-toast-clearance, 0px));');
+        expect(settingsCss).not.toContain('bottom: calc(84px + env(safe-area-inset-bottom));');
+        expect(settingsCss).toContain('@media (max-width: 699px) { body:has(.jpdb-reader-fab-radial.is-open) .jpdb-reader-toast-stack { top: calc(72px + env(safe-area-inset-top)); bottom: auto; } }');
     });
 
     it('lines Quick setup, Furigana, Readings and Color words up on one row (YQ-13)', () => {

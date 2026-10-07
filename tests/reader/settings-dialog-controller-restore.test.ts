@@ -1073,7 +1073,8 @@ describe('settings dialog restore and save interlocks', () => {
         const status = settingsElement<HTMLElement>(reopened, '[data-settings-save-status]');
         expect(status.hidden).toBe(false);
         expect(status.textContent).toBe(endpoint.validationMessage);
-        expect(fixture.dependencies.toast).toHaveBeenCalledWith(endpoint.validationMessage);
+        // The status line beside Save says it once; no toast repeats it over the field.
+        expect(fixture.dependencies.toast).not.toHaveBeenCalled();
     });
 });
 

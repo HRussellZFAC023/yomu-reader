@@ -3,7 +3,8 @@
 .jpdb-reader-toast-stack {
   position: fixed;
   left: 50%;
-  bottom: max(18px, env(safe-area-inset-bottom));
+  /* The clearance lifts it above Yomu's own bottom control bars (toast.ts). */
+  bottom: max(18px, env(safe-area-inset-bottom), var(--jpdb-reader-toast-clearance, 0px));
   transform: translateX(-50%);
   z-index: 2147483647;
   display: flex;
@@ -33,10 +34,6 @@
 }
 
 @media (max-width: 699px) {
-  body:has(.jpdb-reader-settings, .jpdb-reader-newtab-app-nav) .jpdb-reader-toast-stack {
-    bottom: calc(84px + env(safe-area-inset-bottom));
-  }
-
   body:has(.jpdb-reader-fab-radial.is-open) .jpdb-reader-toast-stack {
     top: calc(72px + env(safe-area-inset-top));
     bottom: auto;

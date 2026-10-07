@@ -45,6 +45,23 @@ describe('appearance progressive disclosure', () => {
         reportInvalidSettingsForm(form, 'en', toast);
         expect(details.open).toBe(true);
         expect(document.activeElement).toBe(input);
-        expect(toast).toHaveBeenCalledOnce();
+        // The footer status beside Save carries the message; a toast would
+        // repeat it and, on a phone, cover the field being fixed.
+        const status = form.querySelector<HTMLElement>('[data-settings-save-status]')!;
+        expect(status.hidden).toBe(false);
+        expect(status.textContent).toBe(input.validationMessage);
+        expect(toast).not.toHaveBeenCalled();
+    });
+
+    it('falls back to a toast when the form has no visible status line', () => {
+        const form = renderSettingsTestForm(DEFAULT_SETTINGS);
+        document.body.append(form);
+        form.querySelector('[data-settings-save-status]')?.remove();
+        const input = form.querySelector<HTMLInputElement>('[name="popoverWidth"]')!;
+        input.value = '5';
+        const toast = vi.fn();
+        reportInvalidSettingsForm(form, 'en', toast);
+        expect(document.activeElement).toBe(input);
+        expect(toast).toHaveBeenCalledWith(input.validationMessage);
     });
 });
