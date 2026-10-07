@@ -1,15 +1,14 @@
 // Jiten takes a single saved word only into a word list (StudyDeckType 2,
 // StaticWordList); its media, frequency and smart study decks answer 400
-// "Words can only be added in static word list decks." "Add to deck +" and
+// "Words can only be added in static word list decks." "Add to deck…" and
 // subtitle "Add selected" save to the learner's first word list in their Jiten
 // deck order, and Study's deck picker offers only word lists. A learner with no
 // word list cannot save to Jiten, so the save goes to the next destination
 // (ADR-0016), and Study tells them to make one.
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { JitenApiClient } from '../../src/reader/dictionaries/jiten';
-import { readCardCommandCapability } from '../../src/reader/dom/private-command-capabilities';
+import { readCardUiCommandCapability, type CardCommandCapability } from '../../src/reader/dom/private-command-capabilities';
 import { setInnerHtml } from '../../src/reader/dom';
-import { userFacingErrorText } from '../../src/reader/app/user-facing-errors';
 import { DEFAULT_SETTINGS, card, emptyCardRenderData, testCardActionController, testCardPopoverRenderer, testCardRenderDataLoader } from './jpdb/fixtures';
 import type { JPDBCard, ReaderSettings } from './jpdb/fixtures';
 import type { CardRenderData, CardRenderDataLoaderDependencies } from '../../src/reader/cards/render-data';
@@ -41,8 +40,17 @@ function renderPopup(settings: ReaderSettings, word: JPDBCard, data: CardRenderD
     return document.querySelector<HTMLElement>('.jpdb-reader-actions')!;
 }
 
-function ordinaryPageSave(settings: ReaderSettings, word: JPDBCard): HTMLButtonElement {
-    return renderPopup(settings, word, emptyCardRenderData(), false).querySelector<HTMLButtonElement>('[data-action="add-default"]')!;
+function ordinaryPageSave(settings: ReaderSettings, word: JPDBCard, decks = DECKS): HTMLButtonElement {
+    const jitenDecks = decks.filter(deck => deck.deckType === 2).map(deck => ({ id: String(deck.userStudyDeckId), name: deck.name }));
+    return renderPopup(settings, word, emptyCardRenderData({ jitenDecks }), false).querySelector<HTMLButtonElement>('[data-action="deck-picker"]')!;
+}
+function choices(actions: HTMLElement) {
+    const button = actions.querySelector('[data-action="deck-picker"]');
+    return button ? readCardUiCommandCapability(button)?.choices ?? [] : [];
+}
+function selectedCommand(button: Element): CardCommandCapability {
+    const choice = readCardUiCommandCapability(button)!.choices![0]!;
+    return { kind: 'card-action', action: 'add', deckSource: choice.source, deckId: choice.id };
 }
 
 // An Error stands for srs/reader-study-decks failing.
@@ -77,11 +85,11 @@ describe('saving to Jiten', () => {
         ]);
     });
 
-    it('"Add to deck +" on a page saves to the first word list, past media, frequency and smart decks', async () => {
+    it('"Add to deck…" on a page saves to the first word list, past media, frequency and smart decks', async () => {
         const collect = ordinaryPageSave(JITEN_ONLY, JITEN_WORD);
         const f = jitenController(JITEN_ONLY, DECKS);
 
-        await f.controller.perform(readCardCommandCapability(collect), collect, { ...JITEN_WORD }, SENTENCE);
+        await f.controller.perform(selectedCommand(collect), collect, { ...JITEN_WORD }, SENTENCE);
 
         expect(f.addToStudyDeck).toHaveBeenCalledTimes(1);
         expect(f.addToStudyDeck).toHaveBeenCalledWith('9', expect.objectContaining({ jitenWordId: 9001 }), SENTENCE, expect.anything());
@@ -89,10 +97,10 @@ describe('saving to Jiten', () => {
     });
 
     it('with no word list, a page save goes to the next destination, the Yomu deck', async () => {
-        const collect = ordinaryPageSave(WITH_YOMU_DECK, JITEN_WORD);
+        const collect = ordinaryPageSave(WITH_YOMU_DECK, JITEN_WORD, NO_WORD_LIST);
         const f = jitenController(WITH_YOMU_DECK, NO_WORD_LIST);
 
-        await f.controller.perform(readCardCommandCapability(collect), collect, { ...JITEN_WORD }, SENTENCE);
+        await f.controller.perform(selectedCommand(collect), collect, { ...JITEN_WORD }, SENTENCE);
 
         expect(f.addToStudyDeck).not.toHaveBeenCalled();
         expect(f.mine.mock.calls.map(([request]) => request.expression)).toEqual(['食べる']);
@@ -101,37 +109,21 @@ describe('saving to Jiten', () => {
 
     it('with no word list, JPDB does not stand in for Jiten when Jiten grades', async () => {
         const f = jitenController(DUAL_KEY, NO_WORD_LIST);
-        const collect = renderPopup(DUAL_KEY, JPDB_WORD, emptyCardRenderData(), false).querySelector<HTMLButtonElement>('[data-action="add-default"]')!;
+        const collect = ordinaryPageSave(DUAL_KEY, JPDB_WORD, NO_WORD_LIST);
 
-        await f.controller.perform(readCardCommandCapability(collect), collect, { ...JPDB_WORD }, SENTENCE);
+        await f.controller.perform(selectedCommand(collect), collect, { ...JPDB_WORD }, SENTENCE);
 
         expect(f.jpdbAdd).not.toHaveBeenCalled();
         expect(f.mine).toHaveBeenCalledTimes(1);
     });
 
-    // A page offers the save while Jiten's decks are still unknown (loading, or
-    // the list timed out); "not saved, open Study" beats "turn a deck on" for a
-    // learner whose Jiten is on. Study shows its note instead ("Study deck picker").
-    it('with no word list and nowhere else to go, nothing is saved and the page hears only that', async () => {
-        const collect = ordinaryPageSave(JITEN_ONLY, JITEN_WORD);
-        const f = jitenController(JITEN_ONLY, NO_WORD_LIST);
-
-        const error = await f.controller.perform(readCardCommandCapability(collect), collect, { ...JITEN_WORD }, SENTENCE).catch((caught: unknown) => caught);
-
-        expect(f.addToStudyDeck).not.toHaveBeenCalled();
-        expect(userFacingErrorText('en', 'actionFailed', error)).toBe('This word was not saved. Try again, or open Study for details.');
+    it('with no word list and nowhere else to go, offers no save', () => {
+        expect(ordinaryPageSave(JITEN_ONLY, JITEN_WORD, NO_WORD_LIST)).toBeNull();
     });
 
-    // An unreadable deck list is not "no word list": the word may belong in one.
-    it('when Jiten cannot list its decks, a page save fails instead of going to the next destination', async () => {
-        const collect = ordinaryPageSave(WITH_YOMU_DECK, JITEN_WORD);
-        const f = jitenController(WITH_YOMU_DECK, new Error('offline'));
-
-        const error = await f.controller.perform(readCardCommandCapability(collect), collect, { ...JITEN_WORD }, SENTENCE).catch((caught: unknown) => caught);
-
-        expect(userFacingErrorText('en', 'actionFailed', error)).toBe('This word was not saved. Try again, or open Study for details.');
-        expect(f.addToStudyDeck).not.toHaveBeenCalled();
-        expect(f.mine).not.toHaveBeenCalled();
+    it('when Jiten decks are unknown, offers no Jiten destination but retains an explicit local choice', () => {
+        const actions = renderPopup(WITH_YOMU_DECK, JITEN_WORD, emptyCardRenderData(), false);
+        expect(choices(actions).map(choice => choice.source)).toEqual(['yomu-local']);
     });
 
     describe('subtitle "Add selected"', () => {
@@ -171,7 +163,7 @@ describe('saving to Jiten', () => {
         });
     });
 
-    // Study's "Add to deck +" opens a picker built from this render data.
+    // Study's "Add to deck…" opens a picker built from this render data.
     describe('Study deck picker', () => {
         function loader(settings: ReaderSettings, decks: typeof DECKS | Error = DECKS) {
             const listReaderStudyDecks = vi.fn(async () => {
@@ -180,9 +172,9 @@ describe('saving to Jiten', () => {
             });
             return testCardRenderDataLoader({ settings: { ...settings, localDictionariesEnabled: false, showPitchAccent: false }, jiten: { listReaderStudyDecks } as never, isJpdbBackedCard });
         }
-        const jitenOptions = (actions: HTMLElement): string[] => [...actions.querySelectorAll<HTMLOptionElement>('.jpdb-reader-collect option[data-deck-source="jiten"]')].map(option => option.textContent ?? '');
-        const offered = (actions: HTMLElement): string[] => [...actions.querySelectorAll<HTMLOptionElement>('.jpdb-reader-collect option[data-deck-source]')].map(option => option.dataset.deckSource ?? '');
-        const note = (actions: HTMLElement): string | undefined => actions.querySelector('.jpdb-reader-collect .jpdb-reader-help')?.textContent ?? undefined;
+        const jitenOptions = (actions: HTMLElement): string[] => choices(actions).filter(choice => choice.source === 'jiten').map(choice => choice.label);
+        const offered = (actions: HTMLElement): string[] => choices(actions).map(choice => choice.source);
+        const note = (actions: HTMLElement): string | undefined => actions.querySelector('.jpdb-reader-help')?.textContent ?? undefined;
 
         it('offers only Jiten word lists', async () => {
             const data = await loader(JITEN_ONLY).load({ ...JITEN_WORD }).all;
@@ -200,8 +192,8 @@ describe('saving to Jiten', () => {
             const data = await loader(WITH_YOMU_DECK, NO_WORD_LIST).load({ ...JITEN_WORD }).all;
             const actions = renderPopup(WITH_YOMU_DECK, JITEN_WORD, { ...data, loading: false }, true);
 
-            // The Yomu deck is now the only choice, so "Add to deck +" saves there straight away.
-            expect(actions.querySelector<HTMLButtonElement>('.jpdb-reader-collect [data-action="add"]')?.dataset.deckSource).toBe('yomu-local');
+            // The Yomu deck is now the only explicit picker choice.
+            expect(offered(actions)).toEqual(['yomu-local']);
             expect(note(actions)).toBe('To save words to Jiten, create a word list on jiten.moe.');
 
             const ja = renderPopup({ ...WITH_YOMU_DECK, interfaceLanguage: 'ja' }, JITEN_WORD, { ...data, loading: false }, true);
@@ -227,7 +219,7 @@ describe('saving to Jiten', () => {
         it('with no word list and nowhere else to go, shows only the note', async () => {
             const data = await loader(JITEN_ONLY, NO_WORD_LIST).load({ ...JITEN_WORD }).all;
             const actions = renderPopup(JITEN_ONLY, JITEN_WORD, { ...data, loading: false }, true);
-            expect(actions.querySelector('.jpdb-reader-collect button')).toBeNull();
+            expect(actions.querySelector('[data-action="deck-picker"]')).toBeNull();
             expect(note(actions)).toBe('To save words to Jiten, create a word list on jiten.moe.');
         });
 
@@ -297,12 +289,12 @@ describe('saving to Jiten', () => {
         it('an ordinary page offers the next destination but never mentions Jiten', async () => {
             const withYomuDeck = await loader(WITH_YOMU_DECK, NO_WORD_LIST).load({ ...JITEN_WORD }).all;
             const page = renderPopup(WITH_YOMU_DECK, JITEN_WORD, { ...withYomuDeck, loading: false }, false);
-            expect(page.querySelector('[data-action="add-default"]')).not.toBeNull();
+            expect(page.querySelector('[data-action="deck-picker"]')).not.toBeNull();
             expect(page.textContent).not.toMatch(/jiten/i);
 
             const jitenOnly = await loader(JITEN_ONLY, NO_WORD_LIST).load({ ...JITEN_WORD }).all;
             const nowhere = renderPopup(JITEN_ONLY, JITEN_WORD, { ...jitenOnly, loading: false }, false);
-            expect(nowhere.querySelector('.jpdb-reader-collect')).toBeNull();
+            expect(nowhere.querySelector('[data-action="deck-picker"]')).toBeNull();
         });
     });
 });

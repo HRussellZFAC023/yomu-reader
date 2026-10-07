@@ -15,7 +15,7 @@ import {
     waitForCondition,
 } from './helpers/settings-dialog-controller-fixture';
 
-// "Add to deck +" in the lookup popup (and in Study's) runs through the shared
+// "Add to deck…" in the lookup popup (and in Study's) runs through the shared
 // card-action lifecycle. While its save waits for another Yomu tab's storage
 // lease, the learner sees why, in the toast area where save feedback appears.
 function deferred(): { promise: Promise<void>; resolve: () => void } {
@@ -34,7 +34,7 @@ function addToDeck(language: InterfaceLanguage, save: () => Promise<void>) {
     const done = runCardActionOperation(button, save, {
         logger: { warn: () => undefined },
         warning: 'Card action failed',
-        action: 'add-default',
+        action: 'add',
         term: '読む',
         language,
         toast,
