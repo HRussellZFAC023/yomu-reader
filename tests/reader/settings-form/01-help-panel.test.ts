@@ -84,6 +84,31 @@ describe('settings help panel', () => {
         }
     });
 
+    it.each(['en', 'ja'] as const)('speaks about the browser extension, not scripts, when a page reaches the installed extension (%s)', language => {
+        const marker = document.createElement('meta');
+        marker.id = 'jpdb-reader-installed-runtime';
+        marker.dataset.yomuInstalledRuntimeKind = 'extension';
+        document.head.append(marker);
+        const form = document.createElement('form');
+        try {
+            form.innerHTML = renderSettingsForm(DEFAULT_SETTINGS, 'https://jpdb.io/settings');
+            localizeSettingsForm(form, language);
+
+            const strip = form.querySelector<HTMLElement>('[data-help-update-strip]')!;
+            const support = form.querySelector<HTMLElement>('[data-help-support-copy]')!;
+            const copy = `${strip.innerText ?? strip.textContent} ${support.textContent}`;
+            expect(copy).not.toMatch(/userscript|script|ユーザースクリプト|スクリプト/i);
+            // One line that says where updates come from, not that this is the extension.
+            expect(form.querySelector<HTMLElement>('[data-help-update-notes]')?.textContent?.trim()).toBe(language === 'en'
+                ? 'Updates come from the browser extension store.'
+                : '更新はブラウザの拡張機能ストアから届きます。');
+            expect(form.querySelector<HTMLAnchorElement>('[data-help-link="update-userscript"]')?.href).not.toBe(INSTALL_GUIDE_URL);
+            expect(form.querySelector<HTMLElement>('[data-yomu-duplicate-status]')?.hidden).toBe(true);
+        } finally {
+            marker.remove();
+        }
+    });
+
     it('shows a compact version and update strip at the top of Help', () => {
         const marker = document.createElement('meta');
         marker.id = 'jpdb-reader-runtime-owner';

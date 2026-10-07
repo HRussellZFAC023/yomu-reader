@@ -6,7 +6,7 @@ import { ANKI_CONNECT_ADDON_URL, DISCORD_INVITE_URL, DOCS_BASE_URL, DONATE_URL, 
 import { escapeHtml, setInnerHtml, unwrapReaderWords } from '../dom/index';
 import { audioSourceLabel, formatUiText, resolveUiLanguage, uiText } from '../app/i18n';
 import { CURRENT_YOMU_VERSION } from '../app/version';
-import { detectYomuUpdateFlow, updateFlowNoteKey } from '../app/userscript-update';
+import { detectYomuUpdateFlow, installedAsBrowserExtension, updateFlowNoteKey } from '../app/userscript-update';
 import { externalLinkIcon } from '../ui/icons';
 import { menuIconMarkup } from '../ui/menu-icons';
 import { dispatchAuthorizedReaderControlEvent } from '../ui/trusted-interaction';
@@ -225,7 +225,7 @@ export function renderHelpLinksPanel(language: InterfaceLanguage = 'en'): string
                 </div>
                 <div class="jpdb-reader-help-update-meta">
                     <div class="jpdb-reader-help jpdb-reader-help-update-status" data-yomu-update-status data-status-tone="pending" role="status" aria-live="polite" data-help-update-status>${escapeHtml(formatUiText('en', 'updateStatusIdle', { current: CURRENT_YOMU_VERSION }))}</div>
-                    <div class="jpdb-reader-help jpdb-reader-help-update-status" data-yomu-duplicate-status data-status-tone="success" role="status" data-help-duplicate-status>${escapeHtml(duplicateRuntimeStatusText('en'))}</div>
+                    <div class="jpdb-reader-help jpdb-reader-help-update-status" data-yomu-duplicate-status data-status-tone="success" role="status" data-help-duplicate-status${duplicateRuntimeStatusText('en') ? '' : ' hidden'}>${escapeHtml(duplicateRuntimeStatusText('en'))}</div>
                 </div>
                 <div class="jpdb-reader-help jpdb-reader-help-update-note" data-help-update-notes>${escapeHtml(uiText(language, updateFlowNoteKey(detectYomuUpdateFlow().kind)))}</div>
             </div>
@@ -2099,7 +2099,10 @@ function localizeHelpLinksPanel(form: HTMLFormElement, language: InterfaceLangua
         });
     }
     const duplicateStatus = panel.querySelector<HTMLElement>('[data-yomu-duplicate-status]');
-    if (duplicateStatus) duplicateStatus.textContent = duplicateRuntimeStatusText(language);
+    if (duplicateStatus) {
+        duplicateStatus.textContent = duplicateRuntimeStatusText(language);
+        duplicateStatus.hidden = !duplicateStatus.textContent;
+    }
     const updateFlow = detectYomuUpdateFlow();
     const updateNotes = panel.querySelector<HTMLElement>('[data-help-update-notes]');
     if (updateNotes) updateNotes.textContent = uiText(language, updateFlowNoteKey(updateFlow.kind));
@@ -2114,11 +2117,12 @@ function renderCurrentVersionElement(): HTMLElement {
     return element;
 }
 
+// The extension outranks any userscript on the same page, so "disable the
+// older script" is advice only for userscript installs.
 function duplicateRuntimeStatusText(language: InterfaceLanguage): string {
     const kind = currentYomuRuntimeKind();
-    return kind
-        ? formatUiText(language, 'duplicateStatusSingle', { kind })
-        : uiText(language, 'duplicateStatusUnknown');
+    if (kind) return formatUiText(language, 'duplicateStatusSingle', { kind });
+    return installedAsBrowserExtension() ? '' : uiText(language, 'duplicateStatusUnknown');
 }
 
 function currentYomuRuntimeKind(): string {

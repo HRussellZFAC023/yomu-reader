@@ -1792,7 +1792,7 @@ describe('reader helpers', () => {
         expect(form.querySelector<HTMLAnchorElement>('[data-help-link="support"]')).toBeNull();
         expect(form.querySelector<HTMLAnchorElement>('[data-help-link="issues"]')?.href).toContain('/issues');
         expect(form.querySelector<HTMLAnchorElement>('[data-help-link="donate"]')?.href).toBe('https://support.yomureader.com/donate');
-        expect(form.querySelector<HTMLElement>('[data-help-support-copy]')?.textContent).toContain('free userscript');
+        expect(form.querySelector<HTMLElement>('[data-help-support-copy]')?.textContent).toContain('よむ is free');
         expect(form.querySelector<HTMLElement>('[data-help-support-copy-extra]')?.textContent).toContain('Donations are optional');
         expect(form.querySelector<HTMLAnchorElement>('[data-help-link="discord"]')?.href).toBe('https://discord.gg/jD6NPURewD');
         expect(SETTINGS_CSS).toContain('.jpdb-reader-help-actions');

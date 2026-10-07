@@ -2,6 +2,7 @@ import type { UiCopyKey } from './i18n';
 import type { ExtensionStoreBrowser } from './constants';
 import { DOCS_BASE_URL, EXTENSION_STORE_URLS, USERSCRIPT_INSTALL_URL } from './constants';
 import { runningAsBrowserExtension } from './runtime-env';
+import { announcedInstalledReaderRuntime } from './runtime-presence';
 import { userscriptGmApi, userscriptGmInfo } from '../userscript/gm-api';
 
 // The getting-started page carries per-browser install/update instructions,
@@ -83,7 +84,7 @@ export function detectYomuUpdateFlow(
     info: unknown = readGmInfo(),
     openInTabAvailable: boolean = hasCallableOpenInTab(),
     userAgent: string = readUserAgent(),
-    isExtensionBuild: boolean = runningAsBrowserExtension(),
+    isExtensionBuild: boolean = installedAsBrowserExtension(),
 ): YomuUpdateFlow {
     if (isExtensionBuild) return { kind: 'extension-store', handler: '', url: EXTENSION_STORE_URLS[extensionStoreBrowser(userAgent)] };
     if (!info || typeof info !== 'object') return { kind: 'no-manager', handler: '', url: INSTALL_GUIDE_URL };
@@ -98,6 +99,16 @@ export function detectYomuUpdateFlow(
     // GM_openInTab: the click would fall back to window.open(.user.js) and
     // reproduce the Chromium blocked-install banner — degrade to the guide.
     return { kind: 'no-manager', handler, url: INSTALL_GUIDE_URL };
+}
+
+/**
+ * Whether the Yomu this page talks to is the browser extension: either this
+ * code runs inside it, or a hosted page (Study) reaches the extension the page
+ * announced. Help then speaks about the extension store, never about scripts.
+ */
+export function installedAsBrowserExtension(): boolean {
+    if (runningAsBrowserExtension()) return true;
+    return typeof document !== 'undefined' && announcedInstalledReaderRuntime() === 'extension';
 }
 
 export function updateFlowNoteKey(kind: YomuUpdateFlowKind): UiCopyKey {
