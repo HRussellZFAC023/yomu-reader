@@ -345,3 +345,19 @@ Final follow-up build passed. Combined byte changes from 2.0.12:
 - dist/yomu.user.js: 1842725 -> 1842132 (-593 bytes)
 - src/reader/styles/settings.css: 82920 -> 71000 (-11,920 bytes)
 - Study CSS: 660315 -> 648212 (-12,103 bytes)
+
+## Late settings work reconciled
+
+The settings session kept working after the takeover snapshot. Its final tree (`4733177a3`) was compared hunk by hunk with this branch, and only the missing fixes were ported, each with a test that fails without it:
+
+- Phone toasts sit above the Settings footer and the Study tab bar, and move to the top while the radial menu is open.
+- Review controls stay hidden on Stats even when a late card render clears their `hidden` property.
+- The Stats action group wraps below its heading, so a Japanese heading no longer leaves its last characters on a second line.
+- The phone tab bar is opaque, so reading text cannot show through it.
+- Settings and Study placeholders use the muted token. Dark mode measured 3.57:1 before the change and 7.3:1 after it.
+- The empty Bunpro and WaniKani credential fields no longer show English token-name placeholders.
+- Source rows stack only below 700 px. Touch tablets keep the denser row layout.
+- The page-enhancement switch is named "Enhance JPDB and Jiten pages" (「JPDB・Jitenのページを拡張」).
+- Dead source-row localization was removed, and the phone tab bar now renders from the shell view.
+
+Not ported: the auto-mining label (that setting is retired here), the removal of `settings-visual-qa.mjs` (this branch documents it as a manual tool), the package `typecheck` script revert, and the session's visual-evidence log, which describes the session's own tree. The settings layout, feedback and Study-flow smokes have the session's new checks. The Settings toast check places a toast in the product's own stack, because the Study-link copy action it clicked is gone.
