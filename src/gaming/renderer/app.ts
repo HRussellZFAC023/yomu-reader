@@ -924,11 +924,7 @@ class OverlayController {
     // B mirrors Escape: close the reader popover if one is open, otherwise close the
     // whole overlay. The reader owns Escape for its own popover, so dispatch that first.
     private handleGamepadBack(): void {
-        if (document.querySelector('.jpdb-reader-popover')) {
-            document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
-            return;
-        }
-        void this.gamingBridge.hideOverlay();
+        dismissDesktopLookup(document, () => this.gamingBridge.hideOverlay());
     }
 
     // Open the native Settings window from the layer.

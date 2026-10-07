@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { allowSyntheticReaderInteractionsForTests, trustedReaderEventHandler } from '../../src/reader/ui/trusted-interaction';
 import {
     activateWordWithPointer,
     GamepadOverlayController,
@@ -44,6 +45,25 @@ afterEach(() => {
 });
 
 describe('activateWordWithPointer', () => {
+    it('authorizes only the gamepad gesture when ordinary synthetic input is blocked', () => {
+        const word = makeWord('冒険', { left: 100, top: 200, width: 40, height: 20 });
+        const received: string[] = [];
+        for (const type of ['pointerdown', 'pointerup', 'click']) {
+            word.addEventListener(type, trustedReaderEventHandler(event => received.push(event.type)));
+        }
+        allowSyntheticReaderInteractionsForTests(false);
+        try {
+            word.dispatchEvent(new MouseEvent('click', { bubbles: true, detail: 1, clientX: 120, clientY: 210 }));
+            expect(received).toEqual([]);
+            activateWordWithPointer(word);
+            expect(received).toEqual(['pointerdown', 'pointerup', 'click']);
+            word.dispatchEvent(new MouseEvent('click', { bubbles: true, detail: 1, clientX: 120, clientY: 210 }));
+            expect(received).toHaveLength(3);
+        } finally {
+            allowSyntheticReaderInteractionsForTests(true);
+        }
+    });
+
     it('dispatches a real pointer gesture with non-zero coordinates the reader guard accepts', () => {
         const word = makeWord('冒険', { left: 100, top: 200, width: 40, height: 20 });
         const seen: { type: string; clientX: number; clientY: number; detail: number }[] = [];

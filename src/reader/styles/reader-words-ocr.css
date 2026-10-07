@@ -55,7 +55,13 @@
 
 /* Host controls often draw icons on every descendant span. Generated words
    must not repeat those icons. OCR's larger touch target overrides this below. */
-.jpdb-reader-word::before {
+.jpdb-reader-word::before,
+.jpdb-reader-ruby-base::before,
+.jpdb-reader-ruby-base::after,
+.jpdb-reader-detached-ruby::before,
+.jpdb-reader-detached-ruby::after,
+.jpdb-reader-furi::before,
+.jpdb-reader-furi::after {
   content: none;
 }
 

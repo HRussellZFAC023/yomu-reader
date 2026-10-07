@@ -18,6 +18,7 @@
 // user had clicked it.
 
 import { renderedWordsInRoot } from '../../reader/dom/index';
+import { dispatchAuthorizedReaderControlEvent } from '../../reader/ui/trusted-interaction';
 
 const AXIS_DEADZONE = 0.55;
 const REPEAT_INITIAL_MS = 360;
@@ -270,9 +271,9 @@ export function activateWordWithPointer(word: HTMLElement): void {
         button: 0,
         buttons: 1,
     };
-    word.dispatchEvent(pointerEvent('pointerdown', pointerInit));
-    word.dispatchEvent(pointerEvent('pointerup', { ...pointerInit, buttons: 0 }));
-    word.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, composed: true, clientX, clientY, button: 0, detail: 1 }));
+    dispatchAuthorizedReaderControlEvent(word, pointerEvent('pointerdown', pointerInit));
+    dispatchAuthorizedReaderControlEvent(word, pointerEvent('pointerup', { ...pointerInit, buttons: 0 }));
+    dispatchAuthorizedReaderControlEvent(word, new MouseEvent('click', { bubbles: true, cancelable: true, composed: true, clientX, clientY, button: 0, detail: 1 }));
 }
 
 // PointerEvent exists in every Chromium the app ships, but fall back to MouseEvent
