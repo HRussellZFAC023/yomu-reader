@@ -204,6 +204,14 @@ describe('Desktop settings without a home screen', () => {
         expect(settingsForm().querySelector<HTMLInputElement>('[data-capture-shortcut-input]')?.value).toBe('Ctrl+Shift+K');
     });
 
+    it('leads its title row with the title and keeps Close at the trailing edge', () => {
+        const head = settingsForm().querySelector<HTMLElement>('.jpdb-reader-settings-head')!;
+        const visible = Array.from(head.children).filter(child => !child.classList.contains('jpdb-reader-settings-drag-handle'));
+        expect(visible.map(child => child.tagName === 'H2' ? 'title' : (child as HTMLElement).dataset.action ?? (child as HTMLElement).className))
+            .toEqual(['title', 'yomu-gaming-shell-status', 'close-settings']);
+        expect(head.querySelector('[data-action="close-settings"]')?.textContent).toBe('Close');
+    });
+
     it('contains settings only, with no intro, capture choice or status prose', () => {
         expect(appRoot.querySelector('[data-gaming-home]')).toBeNull();
         expect(appRoot.querySelector('[data-action="area-capture"]')).toBeNull();

@@ -387,17 +387,18 @@ function isShellView(value: unknown): value is ShellView {
     return value === 'settings';
 }
 
-// Settings is a place you go, so it gets its own way back and its own status line —
-// otherwise a save reported itself onto a surface you are not on.
+// Settings is a place you go, so it gets its own way out and its own status line —
+// otherwise a save reported itself onto a surface you are not on. The title leads;
+// the status and a quiet Close sit at the trailing edge of the same row, the way a
+// window's own title bar reads, instead of a bordered button jammed against the title.
 function installGamingSettingsHeader(form: HTMLFormElement): void {
     const head = form.querySelector<HTMLElement>('.jpdb-reader-settings-head');
     if (!head || head.querySelector('[data-action="close-settings"]')) return;
-    const back = document.createElement('button');
-    back.className = 'jpdb-reader-btn yomu-gaming-settings-back';
-    back.type = 'button';
-    back.dataset.action = 'close-settings';
-    back.textContent = shellState.settings.interfaceLanguage === 'ja' ? '閉じる' : 'Close';
-    head.insertBefore(back, head.querySelector('h2'));
+    const close = document.createElement('button');
+    close.className = 'jpdb-reader-btn yomu-gaming-settings-close';
+    close.type = 'button';
+    close.dataset.action = 'close-settings';
+    close.textContent = shellState.settings.interfaceLanguage === 'ja' ? '閉じる' : 'Close';
     const status = document.createElement('div');
     status.className = 'yomu-gaming-shell-status';
     status.dataset.gamingShellStatus = 'true';
@@ -405,7 +406,7 @@ function installGamingSettingsHeader(form: HTMLFormElement): void {
     status.setAttribute('role', 'status');
     status.setAttribute('aria-live', 'polite');
     status.hidden = true;
-    head.appendChild(status);
+    head.append(status, close);
 }
 
 function installGamingCaptureShortcutSection(form: HTMLFormElement): void {
