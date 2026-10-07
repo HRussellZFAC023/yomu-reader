@@ -74,8 +74,8 @@ export const OVERFLOW_NAV: readonly NavRoute[] = Object.freeze([
     { text: 'PDF Reader', ja: 'PDFリーダー', link: '/pdf-reader/', target: '_self' },
     { text: 'Stats', ja: '統計', link: '/study/?mode=stats', target: '_self' },
     { text: 'Academy', ja: 'アカデミー', link: '/academy/', target: '_self' },
-    { text: 'FAQ', ja: 'よくある質問', link: '/faq' },
-    { text: 'Help', ja: 'ヘルプ', link: '/support' },
+    // Help is the FAQ: the separate Support page held only its two buttons.
+    { text: 'Help', ja: 'ヘルプ', link: '/faq' },
     { text: 'Changelog', ja: '変更履歴', link: '/changelog' },
     { text: 'Privacy', ja: 'プライバシー', link: '/privacy' },
 ]);

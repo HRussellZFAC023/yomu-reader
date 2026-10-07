@@ -10,7 +10,7 @@ const newTabSupportBanner = readFileSync(
   "utf8",
 );
 const newTabSupportSources = `${newTabController}\n${newTabSupportBanner}`;
-const supportDocs = readFileSync("docs/support.md", "utf8");
+const supportDocs = readFileSync("docs/membership.md", "utf8");
 const operatingForecast = JSON.parse(
   readFileSync("workers/yomu-support/operating-forecast.json", "utf8"),
 ) as {

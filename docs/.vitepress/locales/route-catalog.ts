@@ -62,8 +62,8 @@ export const WEBSITE_ROUTE_CATALOG: readonly WebsiteRouteDefinition[] = Object.f
         'Browse free Japanese books by level and interest, or open your own PDF.',
         'library-native-review-pending'),
     route('membership', 'membership.md',
-        ['Membership', 'メンバーシップ'],
-        ['Yomu is free and stays free. Chip in toward its small monthly bill through a verified support provider.', 'よむは無料で、これからも無料です。確認済みの支援サービスから、少額の月間運営費を支援できます。']),
+        ['Donate', '寄付'],
+        ['Yomu is free. Donations help pay its running costs and do not unlock anything.', 'よむは無料です。寄付は運営費に充てられ、寄付によって使えるようになる機能はありません。']),
     englishOnlyRoute('privacy/', 'privacy/index.md',
         'Privacy',
         'What Yomu keeps on your device, which services it talks to and when, and what the browser extension asks for.',
@@ -72,9 +72,6 @@ export const WEBSITE_ROUTE_CATALOG: readonly WebsiteRouteDefinition[] = Object.f
         'Settings reference',
         'Every Yomu setting, its default, and the part of the settings dialog that holds it.',
         'generated-settings-native-review-pending'),
-    route('support', 'support.md',
-        ['Support', 'サポート'],
-        ['Get help with Yomu, ask on Discord, report a bug, or open the apps used for reading and study.', 'よむのヘルプを探し、Discordで質問し、バグを報告し、読書と復習に使うアプリを開けます。']),
 ]);
 
 const ROUTE_BY_ROUTE = new Map(WEBSITE_ROUTE_CATALOG.map(definition => [definition.route, definition]));

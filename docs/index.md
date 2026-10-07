@@ -156,6 +156,6 @@ description: Read web pages, subtitles, manga and PDFs in any of 33 learning lan
   </div>
 </section>
 <section class="yomu-next" aria-label="More from Yomu">
-  <p class="yomu-next-row"><a href="/learn/">Guide</a><a href="/desktop">Desktop app</a><a href="/faq">FAQ</a><a href="/support">Help</a></p>
+  <p class="yomu-next-row"><a href="/learn/">Guide</a><a href="/desktop">Desktop app</a><a href="/faq">FAQ</a></p>
 </section>
 </main>

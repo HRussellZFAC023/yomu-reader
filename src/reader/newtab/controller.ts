@@ -2105,7 +2105,7 @@ export class NewTabController {
                 el('span', {}, newTabSupportMeta(status, this.language())),
                 el('a', {
                     class: 'jpdb-reader-newtab-support-breakdown',
-                    href: new URL('/support#monthly-running-costs', DOCS_BASE_URL).href,
+                    href: new URL('/membership#monthly-running-costs', DOCS_BASE_URL).href,
                 }, this.text('supportBannerBreakdown')),
             ),
             el('div', { class: 'jpdb-reader-newtab-support-actions' },

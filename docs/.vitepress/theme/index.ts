@@ -621,7 +621,7 @@ function renderHostedSupportBannerCopy(status: HostedSupportStatus, locale: Inte
     copy.append(meta);
     const breakdown = document.createElement('a');
     breakdown.className = 'yomu-support-banner-breakdown';
-    breakdown.href = localizedWebsiteHref('/support#monthly-running-costs', locale);
+    breakdown.href = localizedWebsiteHref('/membership#monthly-running-costs', locale);
     breakdown.textContent = locale === 'ja' ? '内訳' : 'What this covers';
     copy.append(breakdown);
     const progress = renderHostedSupportProgress(status);

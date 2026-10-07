@@ -4799,6 +4799,19 @@ const HOSTED_DOCS_JA_COPY: Record<string, string> = {
     'Permalink to "Press your first word {#press-your-first-word}"': '「最初の単語を押す」への固定リンク',
     'Leave furigana on {#leave-furigana-on}': 'ふりがなを表示したままにする {#leave-furigana-on}',
     'Permalink to "Leave furigana on {#leave-furigana-on}"': '「ふりがなを表示したままにする」への固定リンク',
+    'Yomu is free. Donations help pay its running costs and do not unlock anything.': 'よむは無料です。寄付は運営費に充てられ、寄付によって使えるようになる機能はありません。',
+    'Permalink to "Donate"': '「寄付」への固定リンク',
+    'よむ is free, and everything in it stays free.': 'よむは無料で、すべての機能がこれからも無料です。',
+    'There are no paid features, and a donation does not unlock anything. It helps pay for the servers, the audio storage, the domain and test devices.': '有料の機能はなく、寄付によって使えるようになるものもありません。寄付は、サーバー、音声の保存領域、ドメイン、テスト用端末の費用に充てられます。',
+    'Ko-fi takes one-off or monthly donations. Patreon is monthly. Card payments accept GBP, USD, EUR, CAD, AUD and JPY.': 'Ko-fiでは一回きりまたは毎月の寄付ができます。Patreonは毎月です。カード払いはGBP、USD、EUR、CAD、AUD、JPYに対応しています。',
+    'The status bar on this site rounds the total to £10.': 'このサイトのステータスバーでは、合計を£10に丸めて表示しています。',
+    'Get help with Yomu, ask on Discord, or report a bug.': 'よむのヘルプを探し、Discordで質問し、バグを報告できます。',
+    'Yes. It is a tool its maker uses every day, and it will stay free and open source. If it helps you, the best support is telling another learner about it.': 'はい。作者が毎日使っている道具で、これからも無料のオープンソースです。役に立ったら、ほかの学習者に教えてもらえるのがいちばんの応援です。',
+    'Do donations unlock anything?': '寄付すると何か使えるようになりますか？',
+    'Permalink to "Do donations unlock anything?"': '「寄付すると何か使えるようになりますか？」への固定リンク',
+    'No.': 'いいえ。',
+    'Donations': '寄付',
+    'help pay the running costs. Everything in よむ is free, and there is nothing to buy.': 'は運営費に充てられます。よむの機能はすべて無料で、購入するものはありません。',
 };
 
 const HOSTED_DOCS_EN_COPY: Readonly<Record<string, string>> = Object.freeze(Object.fromEntries(

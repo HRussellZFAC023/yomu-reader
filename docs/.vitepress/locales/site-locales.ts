@@ -42,7 +42,6 @@ export const PUBLISHED_WEBSITE_ROUTES = Object.freeze([
     'membership',
     'privacy/',
     'reference/settings',
-    'support',
 ] as const);
 
 /**
@@ -255,7 +254,6 @@ const WEBSITE_MESSAGES = Object.freeze({
     'docs.sidebar.mangaGames': { en: 'Manga and games', ja: '漫画とゲーム' },
     'docs.sidebar.keepingWords': { en: 'Save and review', ja: '保存と復習' },
     'docs.sidebar.setup': { en: 'Optional setup', ja: '追加の設定' },
-    'docs.nav.support': { en: 'Support', ja: 'サポート' },
     'docs.footer.message': {
         en: 'Free and open source. Install as a userscript, or as a Chrome or Firefox extension.',
         ja: '無料のオープンソースです。ユーザースクリプト、Chrome拡張機能、Firefox拡張機能としてインストールできます。',

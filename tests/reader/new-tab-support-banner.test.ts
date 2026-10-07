@@ -40,7 +40,7 @@ describe('new-tab support banner localization', () => {
         expect(banner.textContent).toContain('内訳');
         expect(banner.textContent).toContain('寄付');
         expect(banner.querySelector<HTMLAnchorElement>('.jpdb-reader-newtab-support-breakdown')?.href)
-            .toBe('https://yomureader.com/support#monthly-running-costs');
+            .toBe('https://yomureader.com/membership#monthly-running-costs');
         expect(banner.querySelector<HTMLAnchorElement>('[data-support-provider="stripe"]')?.href).toBe(
             'https://support.yomureader.com/donate',
         );

@@ -2255,7 +2255,7 @@ function donationAmountForm(request: Request, error = "", status = 200): Respons
 <body>
   <main>
     <h1>Support Yomu</h1>
-    <p>Choose your currency and amount. Every verified donation includes permanent Yomu Academy access.</p>
+    <p>Choose your currency and amount. Donations help pay Yomu's running costs. Yomu is free, and a donation does not unlock anything.</p>
     <form method="get" action="/donate">
       <label for="currency">Currency</label>
       <select id="currency" name="currency">${options}</select>

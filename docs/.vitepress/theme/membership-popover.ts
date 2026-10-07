@@ -1,5 +1,5 @@
 /**
- * The membership chooser, opened from the nav instead of navigating away.
+ * The donation chooser, opened from the nav instead of navigating away.
  *
  * Three payment providers used to sit in the navbar as separate icons, one of
  * them a payment processor's logo. A visitor had to guess which mark meant what
@@ -194,11 +194,13 @@ function buildDialog(): HTMLElement {
     const title = document.createElement('h2');
     title.id = `${DIALOG_ID}-title`;
     title.className = 'yomu-membership-title';
-    title.textContent = 'Membership';
+    title.textContent = 'Donate';
 
     const lead = document.createElement('p');
     lead.className = 'yomu-membership-lead';
-    lead.textContent = 'Yomu is free and the reader stays free. Membership pays for building it, and includes Academy when it opens.';
+    // A donation pays running costs and unlocks nothing (owner decision,
+    // 2026-10-07). This used to promise Academy to members.
+    lead.textContent = 'Yomu is free. Donations help pay its running costs and do not unlock anything.';
 
     const list = document.createElement('ul');
     list.className = 'yomu-membership-methods';
@@ -223,8 +225,8 @@ function buildDialog(): HTMLElement {
 
     const more = document.createElement('a');
     more.className = 'yomu-membership-more';
-    more.href = MEMBERSHIP_ROUTE;
-    more.textContent = 'What members get';
+    more.href = `${MEMBERSHIP_ROUTE}#monthly-running-costs`;
+    more.textContent = 'Where the money goes';
 
     const close = document.createElement('button');
     close.type = 'button';

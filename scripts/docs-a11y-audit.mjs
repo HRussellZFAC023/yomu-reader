@@ -21,7 +21,7 @@ const pages = [
     { name: 'learn-your-own-setup', path: '/learn/your-own-setup' },
     { name: 'settings-reference', path: '/reference/settings' },
     { name: 'local-audio', path: '/local-audio' },
-    { name: 'support', path: '/support' },
+    { name: 'faq', path: '/faq' },
     { name: 'membership', path: '/membership' },
     { name: 'changelog', path: '/changelog' },
     { name: 'newtab-fallback', path: '/newtab/' },

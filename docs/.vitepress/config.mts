@@ -289,7 +289,6 @@ const siteSidebar: WebsiteNavigationItem[] = [
         text: 'Help',
         items: [
             { text: 'FAQ', link: '/faq' },
-            { text: 'Support', link: '/support' },
             { text: 'Settings reference', link: '/reference/settings' },
             { text: 'Local Audio', link: '/local-audio' },
             { text: 'Privacy', link: '/privacy/' },

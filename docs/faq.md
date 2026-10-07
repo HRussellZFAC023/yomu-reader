@@ -7,6 +7,11 @@ description: What Yomu is, what it costs, how reviews work, which languages and 
 
 Plain answers, grouped by what you came here to find out. If yours is missing, [ask on Discord](https://discord.gg/jD6NPURewD) — real questions are how this page grows.
 
+<div class="yomu-cta-grid yomu-support-actions">
+  <a class="yomu-cta-button primary" href="https://discord.gg/jD6NPURewD">Ask on Discord</a>
+  <a class="yomu-cta-button" href="https://github.com/HRussellZFAC023/yomu-reader/issues">Report a bug</a>
+</div>
+
 ## What is Yomu?
 
 A reader that turns the Japanese you already read into study.
@@ -169,4 +174,8 @@ The code is open source on [GitHub](https://github.com/HRussellZFAC023/yomu-read
 
 ### Will Yomu stay free?
 
-Yes. It is a tool its maker uses every day, and the core will stay free and open source. If it helps you, the best support is telling another learner about it.
+Yes. It is a tool its maker uses every day, and it will stay free and open source. If it helps you, the best support is telling another learner about it.
+
+### Do donations unlock anything?
+
+No. [Donations](/membership) help pay the running costs. Everything in よむ is free, and there is nothing to buy.

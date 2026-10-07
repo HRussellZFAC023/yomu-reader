@@ -32,6 +32,8 @@ export const LEGACY_DOC_REDIRECTS = Object.freeze({
     // Yomu is for learning Japanese, so the per-language coverage table went
     // with the other learning targets. Japanese grammar is described on Reading.
     'reference/grammar.md': '/learn/reading#let-the-page-help',
+    // Its Discord and bug-report buttons now head the FAQ, which Help opens.
+    'support.md': '/faq',
 } as const);
 
 export const LEGACY_DOC_HASH_REDIRECTS = Object.freeze({

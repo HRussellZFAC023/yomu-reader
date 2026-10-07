@@ -70,7 +70,7 @@ describe('interface language resolution', () => {
 
     it('keeps hosted support actions covered by Japanese docs copy', () => {
         const themeSource = readFileSync('docs/.vitepress/locales/docs-prose-catalog.ts', 'utf8');
-        const supportSource = readFileSync('docs/support.md', 'utf8');
+        const supportSource = readFileSync('docs/faq.md', 'utf8');
         const supportCopy = uniqueEnglishCopy([
             ...frontmatterTextCopy(supportSource),
             ...markdownHeadings(supportSource),
