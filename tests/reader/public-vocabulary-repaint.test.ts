@@ -239,6 +239,44 @@ describe('public vocabulary repaint', () => {
         expect(readerWordSurfaceText(word)).toBe('読む');
     });
 
+    it('does not give a late isolated reading to a counter written after a number', () => {
+        const settings = { ...DEFAULT_SETTINGS, showFurigana: true, furiganaMode: 'all' as const };
+        const isolated: Record<string, string> = { 月: 'つき', 日: 'ひ', 時: 'とき', 分: 'ぶん', 人: 'ひと' };
+        for (const [text, sentenceStart] of [['2026年10月6日 20時10分', 0], ['見出し。今月は5人が来た。', 4]] as const) {
+            document.body.innerHTML = `<p id="date">${text}</p>`;
+            const host = document.querySelector<HTMLElement>('#date')!;
+            const sentence = text.slice(sentenceStart, text.indexOf('。', sentenceStart) + 1 || undefined);
+            const tokens = [...text.matchAll(/(?<=[0-9])[月日時分人]/gu)].map(match => ({
+                ...unresolvedToken(match[0]),
+                start: match.index,
+                end: match.index + 1,
+                sentence,
+                sentenceStart,
+            }));
+            applyTokensToTextNode({ text, node: host.firstChild as Text, parent: host }, tokens, settings);
+
+            const words = [...host.querySelectorAll<HTMLElement>('.jpdb-reader-word')];
+            expect(words).toHaveLength(tokens.length);
+            for (const word of words) {
+                const surface = readerWordSurfaceText(word);
+                applyPublicVocabularyFurigana(word, card({ spelling: surface, reading: isolated[surface]!, cardState: ['not-in-deck'] }), settings);
+                expect(word.querySelector('rt,.jpdb-reader-detached-furi')).toBeNull();
+            }
+            expect(host.textContent).toBe(text);
+        }
+    });
+
+    it('still gives a late reading to the same character used as an independent word', () => {
+        document.body.innerHTML = '<p id="moon">月を見る</p>';
+        const host = document.querySelector<HTMLElement>('#moon')!;
+        applyTokensToTextNode({ text: '月を見る', node: host.firstChild as Text, parent: host }, [{ ...unresolvedToken('月'), sentence: '月を見る' }], { ...DEFAULT_SETTINGS, showFurigana: true, furiganaMode: 'all' });
+        const word = host.querySelector<HTMLElement>('.jpdb-reader-word')!;
+
+        applyPublicVocabularyFurigana(word, card({ spelling: '月', reading: 'つき', cardState: ['not-in-deck'] }), { ...DEFAULT_SETTINGS, showFurigana: true, furiganaMode: 'all' });
+
+        expect(word.querySelector('rt')?.textContent).toBe('つき');
+    });
+
     it('clears the ruby when a whole-word reading enters a hidden state group', () => {
         document.body.innerHTML = '<span class="jpdb-reader-word jpdb-reader-has-furi" data-expression="本"><ruby><span class="jpdb-reader-ruby-base">本</span><rt class="jpdb-reader-furi">ほん</rt></ruby></span>';
         const word = document.querySelector<HTMLElement>('.jpdb-reader-word')!;

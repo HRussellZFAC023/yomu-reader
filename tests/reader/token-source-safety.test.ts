@@ -87,6 +87,20 @@ describe('token source-range safety', () => {
         }
     });
 
+    it('omits a counter reading after a number in a later sentence of the paragraph', () => {
+        const text = '見出しです。2026年10月6日に来た。';
+        const sentence = '2026年10月6日に来た。';
+        const tokens = [...text.matchAll(/[月日]/gu)].map(match => {
+            const t = token(sentence, match.index, match.index + 1, match[0]);
+            t.card.reading = match[0] === '月' ? 'つき' : 'ひ';
+            t.rubies = [{ ...t.rubies[0]!, text: t.card.reading }];
+            return t;
+        });
+        const host = rendered(text, tokens);
+        expect(host.querySelectorAll('.jpdb-reader-word')).toHaveLength(tokens.length);
+        expect(host.querySelector('rt')).toBeNull();
+    });
+
     it('keeps independent noun readings and whole numeric-phrase readings', () => {
         const noun = token('月を見る', 0, 1, '月');
         noun.card.reading = 'つき';

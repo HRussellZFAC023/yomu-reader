@@ -7,3 +7,16 @@ export function numericRangeImmediatelyBefore(sourceText: string, start: number)
     return NUMERIC_RANGE_BEFORE_RE.test(before);
 }
 
+
+/**
+ * True when `surface` is a counter written straight after a number at `start`
+ * of `sentence` (10月, 6日, 5人). The counter's dictionary reading on its own
+ * (つき, ひ, ひと) is not its reading there.
+ */
+export function isCounterAfterNumber(surface: string, sentence: string | undefined, start: number): boolean {
+    return NUMERIC_COUNTER_SUFFIX_SEGMENTS.has(surface)
+        && Boolean(sentence)
+        && start >= 0
+        && sentence!.slice(start, start + surface.length) === surface
+        && numericRangeImmediatelyBefore(sentence!, start);
+}

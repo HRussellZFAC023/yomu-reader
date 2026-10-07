@@ -21,6 +21,7 @@ import { cardPronunciationReading } from '../popup/pitch';
 import { getPitchClass } from '../jpdb/jpdb-parser-pitch';
 import { clearRenderedWordAnkiState, renderedWordHasAnkiState, renderedWordsInRoot, setRenderedWordPitchClass } from '../dom/rendered-word-state';
 import { renderedWordPrivateValue, updateRenderedWordPrivateState } from '../dom/rendered-word-private-state';
+import { renderedWordSentenceSpan } from '../dom/rendered-word-policy';
 import { currentAccountDataSurfaceIsTrusted } from './account-data-surface';
 import { syncWordReviewLane } from '../dom/review-lane';
 import { preserveAnkiContrastOnNextRefresh } from '../dom/word-contrast';
@@ -235,14 +236,18 @@ export function applyPublicVocabularyFurigana(word: HTMLElement, card: JPDBCard,
         return false;
     }
     const rubies = inferredInflectedSurfaceRubies(surface, card.spelling, card.reading);
+    // Place the word in its painted sentence so a late reading follows the
+    // same context rules as one known at paint (no つき on the 月 of 10月).
+    const span = renderedWordSentenceSpan(word, surface);
+    const offset = span?.start ?? 0;
     const token: JPDBToken = {
         card,
-        start: 0,
-        end: surface.length,
+        start: offset,
+        end: offset + surface.length,
         length: surface.length,
-        rubies,
+        rubies: rubies.map(ruby => ({ ...ruby, start: ruby.start + offset, end: ruby.end + offset })),
         pitchClass: word.dataset.pitchClass ?? '',
-        sentence: word.dataset.sentence,
+        sentence: span?.sentence ?? word.dataset.sentence,
     };
     if (!shouldApplyPublicVocabularyFurigana(card, surface, token, renderSettings, rubies)) return false;
     if (!replaceRenderedWordFurigana(word, surface, token)) return false;
