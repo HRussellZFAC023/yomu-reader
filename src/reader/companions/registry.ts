@@ -242,6 +242,7 @@ interface YomuCompanionRegistry {
         toggleMiningControls?: typeof import('../study/mining-controls-impl').toggleMiningControls;
         setMiningControlsExpanded?: typeof import('../study/mining-controls-impl').setMiningControlsExpanded;
         openDeckPickerForCardAdd?: typeof import('../study/mining-controls-impl').openDeckPickerForCardAdd;
+        preserveMiningControls?: typeof import('../study/mining-controls-impl').preserveMiningControls;
         updateKanjiMiningControlsMount?: typeof import('../kanji/mining-controls-impl').updateKanjiMiningControlsMount;
         normalizeMiningSentence?: NormalizeMiningSentenceFn;
         inferMiningSourceKind?: InferMiningSourceKindFn;

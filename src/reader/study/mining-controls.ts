@@ -15,6 +15,11 @@ export function setMiningControlsExpanded(button: HTMLButtonElement, expanded: b
     yomuKanjiStudyCompanion()?.setMiningControlsExpanded?.(button, expanded, label);
 }
 
+/** Call before a popup re-render; the returned function restores open overflows, pickers and focus. */
+export function preserveMiningControls(root: ParentNode, label: MiningControlLabel): (root: ParentNode) => void {
+    return yomuKanjiStudyCompanion()?.preserveMiningControls?.(root, label) ?? (() => undefined);
+}
+
 export function openDeckPickerForCardAdd(
     button: HTMLButtonElement,
     card: JPDBCard,

@@ -256,6 +256,7 @@ import {
 } from '../study/mining-context';
 import {
     openDeckPickerForCardAdd,
+    preserveMiningControls,
     setMiningControlsExpanded as setMiningControlsExpandedState,
     toggleMiningControls as toggleMiningControlsState,
 } from '../study/mining-controls';
@@ -6530,10 +6531,7 @@ export class ReaderApp {
             loadingRenderFrame = undefined;
             if (!canRenderLoading()) return;
             renderedPitchKey = card.pitchAccent.join('|');
-            const preservedImmersion = this.preserveImmersionMountForRerender(popover);
-            const scrollOffset = capturePopoverScrollOffset(popover);
-            clearNestedParseState(popover);
-            setInnerHtml(popover, this.cardPopoverRenderer.render(
+            this.rerenderCardPopoverHtml(popover, this.cardPopoverRenderer.render(
                 card,
                 sentence,
                 trigger,
@@ -6547,8 +6545,6 @@ export class ReaderApp {
                     frequencyRanksValue,
                 ),
             ));
-            this.restorePreservedImmersionMount(popover, preservedImmersion);
-            restorePopoverScrollOffsetSoon(scrollOffset);
             refreshForcedReaderPopoverSurface(popover, this.settings);
             this.updateCardPopoverPosition(trigger);
             this.installDeferredCardPostRenderBehaviors(popover, card, sentence, trigger);
@@ -6674,21 +6670,28 @@ export class ReaderApp {
             roots: renderedRoots,
         });
         this.applyPitchAccentToRenderedWords(card, undefined, renderedRoots);
-        const preservedImmersion = this.preserveImmersionMountForRerender(popover);
-        // Late providers re-enter on the same popover; a non-zero offset is the
-        // learner's scroll on that still-active entry.
-        const scrollOffset = capturePopoverScrollOffset(popover);
-        clearNestedParseState(popover);
-        setInnerHtml(popover, this.cardPopoverRenderer.render(card, sentence, trigger, { ...data, loading: false }));
+        this.rerenderCardPopoverHtml(popover, this.cardPopoverRenderer.render(card, sentence, trigger, { ...data, loading: false }));
         this.wanikaniSources.installDefinitionMounts(popover, card);
-        this.restorePreservedImmersionMount(popover, preservedImmersion);
-        restorePopoverScrollOffsetSoon(scrollOffset);
         refreshForcedReaderPopoverSurface(popover, this.settings);
 
         this.updateCardPopoverPosition(trigger);
         this.installCardPostRenderBehaviors(popover, card, sentence, trigger, {
             relatedQueries: this.immersionRelatedQueries(data.jpdbVocabularyInfo),
         });
+    }
+
+    // Late providers re-enter on the same, still-active popover. Whatever the learner
+    // has there survives the new HTML: loaded Immersion examples, their scroll (a
+    // non-zero offset is the learner's), an open ⋯ overflow or deck picker and focus.
+    private rerenderCardPopoverHtml(popover: HTMLElement, html: string): void {
+        const preservedImmersion = this.preserveImmersionMountForRerender(popover);
+        const scrollOffset = capturePopoverScrollOffset(popover);
+        const restoreMiningControls = preserveMiningControls(popover, expanded => this.miningControlsToggleLabel(expanded));
+        clearNestedParseState(popover);
+        setInnerHtml(popover, html);
+        this.restorePreservedImmersionMount(popover, preservedImmersion);
+        restoreMiningControls(popover);
+        restorePopoverScrollOffsetSoon(scrollOffset);
     }
 
     private applyCardEnrichmentToRenderedAnchor(card: JPDBCard, anchor?: HTMLElement): void {
