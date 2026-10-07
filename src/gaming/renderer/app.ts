@@ -664,7 +664,6 @@ async function importBrowserSettings(form: HTMLFormElement, button: HTMLButtonEl
         }
         shellState.settings = imported;
         persistGamingSettings(imported);
-        syncMainProcessTargetChoice(imported);
         setShellStatus(uiText(imported.interfaceLanguage, 'settingsImported'), 'success');
         renderShell();
     } catch {
@@ -918,7 +917,7 @@ class OverlayController {
 
     private overlayResultFragment(): string {
         if (!this.result) return '';
-        return overlayResultHtml(this.result, this.settings.interfaceLanguage);
+        return overlayResultHtml(this.result);
     }
 
     private startOnce(): void {
@@ -1203,10 +1202,7 @@ function overlayStatusHtml(label: string): string {
     return `<div class="overlay-status" role="status" aria-live="polite"><strong>よむ</strong><span>${escapeHtml(label)}</span></div>`;
 }
 
-function overlayResultHtml(
-    result: OverlayResult,
-    language: InterfaceLanguage,
-): string {
+function overlayResultHtml(result: OverlayResult): string {
     if (result.lines?.length) return overlayInlineResultHtml(result);
     const style = 'left:50%;bottom:42px;transform:translateX(-50%);max-width:min(720px,calc(100vw - 28px))';
     if (result.error) {

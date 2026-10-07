@@ -16,7 +16,6 @@ import {
     createGamingTray,
     overlayDocumentUrl,
     runOverlayCapture,
-    sendWhenLoaded,
     singleFlight,
     windowCloseIntent,
     type GamingTrayController,

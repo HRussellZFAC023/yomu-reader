@@ -34,7 +34,7 @@ import { createFactoryResetCoordinator, type FactoryResetCoordinator } from '../
 import { clearManagedBrowserCaches, ensureManagedWebStorageCurrent, unregisterManagedServiceWorkers } from '../app/storage';
 import { ImmersionKitClient } from '../immersion/kit';
 import { ImmersionPopoverController } from '../immersion/popover-controller';
-import { resolveUiLanguage, uiText, type UiCopyKey } from '../app/i18n';
+import { uiText, type UiCopyKey } from '../app/i18n';
 import { isNewTabCopyKey, newTabText, type NewTabCopyKey } from './i18n';
 import {
     consumeLookupPopoverButtonEvent,
@@ -76,7 +76,7 @@ import {
     setMiningControlsExpanded as setMiningControlsExpandedState,
     toggleMiningControls as toggleMiningControlsState,
 } from '../study/mining-controls';
-import { applyNestedParsePlan, clearNestedParseLoadingKey, clearNestedParseState, nestedParseAlreadyScheduled, nestedTextParsePlan, parseUnderNestedTicket, providerExampleTextParsePlan, type NestedParsePlan } from '../lookup/nested-text-parse';
+import { applyNestedParsePlan, clearNestedParseState, nestedParseAlreadyScheduled, nestedTextParsePlan, parseUnderNestedTicket, providerExampleTextParsePlan, type NestedParsePlan } from '../lookup/nested-text-parse';
 import { NestedParseCoordinator } from '../lookup/nested-parse-coordinator';
 import { isTargetLanguageText } from '../lookup/target-text';
 import { NewTabController, newTabKanjiSourceTitle, type NewTabLookupReviewTargetSelection } from './controller';
@@ -126,7 +126,6 @@ import {
 } from '../settings/api-credential';
 import { renderedWordCardKey, renderedWordElementKey, renderedWordsInRoot, setRenderedWordCardIdentity, setRenderedWordPitchClass } from '../dom/rendered-word-state';
 import { renderedWordPrivateValue } from '../dom/rendered-word-private-state';
-import { refreshReaderWordContrast } from '../dom/word-contrast';
 import { applyReaderAccentColor, applyReaderTheme, applyReaderWordColors } from '../theme/reader-theme';
 import { applyInterfaceLocaleToDocument, applyInterfaceLocaleToRoot } from '../locales/direction';
 import { resolveInterfaceLocale } from '../locales/resolve';
@@ -182,7 +181,6 @@ const NEW_TAB_STUDY_PARSE_TIMEOUT_MS = 15_000;
 const NEW_TAB_LOCAL_LOOKUP_TIMEOUT_MS = 450;
 const NEW_TAB_REMOTE_LOOKUP_TIMEOUT_MS = 8_000;
 const NEW_TAB_PITCH_ENRICHMENT_LIMIT = 12;
-const NEW_TAB_SETTINGS_ENRICHMENT_LIMIT = 192;
 const NEW_TAB_BACKGROUND_ENRICHMENT_CONCURRENCY = 4;
 const NEW_TAB_PARSE_CONTENT_CACHE_TTL_MS = 30_000;
 const NEW_TAB_PARSE_CONTENT_CACHE_LIMIT = 160;

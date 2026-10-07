@@ -263,9 +263,9 @@ import { AUTO_SCAN_OBSERVER_OPTIONS, clickMayRevealDynamicUiText, clickMayReveal
 import { NativeTitleGuard } from './native-title-guard';
 import { clearManagedBrowserCaches, managedLocalStorage, unregisterManagedServiceWorkers } from './storage';
 import { isNativePageLookupBlocked, nativeClickableAncestor, shouldIgnoreDocumentClickTarget } from './native-page-lookup-targets';
-import { applyNestedParsePlan, clearNestedParseLoadingKey, clearNestedParseState, nestedParseAlreadyScheduled, nestedTextParsePlan, parseUnderNestedTicket, providerExampleTextParsePlan, type NestedParsePlan } from '../lookup/nested-text-parse';
+import { applyNestedParsePlan, clearNestedParseState, nestedParseAlreadyScheduled, nestedTextParsePlan, parseUnderNestedTicket, providerExampleTextParsePlan, type NestedParsePlan } from '../lookup/nested-text-parse';
 import { NestedParseCoordinator } from '../lookup/nested-parse-coordinator';
-import { resolveUiLanguage, uiText } from '../app/i18n';
+import { uiText } from '../app/i18n';
 import { userFacingErrorText } from './user-facing-errors';
 import { translateJapaneseSentence } from '../study/tools';
 import { targetCanLookupCharacter, usesJapaneseCharacterStudy, usesJapaneseProviders } from '../languages/character-lookup';
@@ -7854,10 +7854,6 @@ export class ReaderApp {
 
     private isCurrentPopoverRoot(root: HTMLElement): boolean {
         return Boolean(root.isConnected && this.activePopover && (root === this.activePopover || this.activePopover.contains(root)));
-    }
-
-    private isCurrentSettingsRoot(root: HTMLElement): boolean {
-        return Boolean(root.isConnected && this.activePopover === root && root.classList.contains('jpdb-reader-settings'));
     }
 
     private queueAnkiWordEnrichment(tokens: JPDBToken[], roots: ParentNode[] = [document]): void {

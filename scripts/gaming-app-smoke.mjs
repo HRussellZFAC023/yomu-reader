@@ -97,10 +97,8 @@ try {
     await assertNativeWindowSize(page);
     assertSmoke(await page.locator('[data-gaming-home]').count() === 0, 'Desktop still opens an unnecessary home screen.');
     await assertDefaultOcrPath(page);
-    step('verify a pre-choice global capture does not sample the display and routes to the target setting');
-    await assertUnchosenCaptureRoutesToTarget(page, fixtureOcr);
-    step('choose Japanese explicitly for the Japanese OCR fixture');
-    await chooseJapaneseTarget(page);
+    assertSmoke(await page.locator('select[name="targetLanguage"]').count() === 0, 'Desktop still requires a language choice.');
+    assertSmoke(fixtureOcr.requests.length === 0, 'Desktop captured before a user requested it.');
     step('configure and persist capture shortcut');
     await configureCaptureShortcut(page, 'Ctrl+Shift+U');
     const savedShortcut = JSON.parse(readFileSync(captureShortcutPath, 'utf8'));
@@ -415,37 +413,8 @@ function crc32(buffer) {
     return (crc ^ 0xffffffff) >>> 0;
 }
 
-// A compatibility profile still contains Japanese defaults, but fresh Gaming has no
-// learner intent yet. It may name neither Japanese nor a capture path until selection.
 function assertSmoke(condition, message) {
     if (!condition) throw new Error(message);
-}
-
-async function assertUnchosenCaptureRoutesToTarget(page, fixtureOcr) {
-    const requestCount = fixtureOcr.requests.length;
-    const overlayCount = app.windows().filter(window => window.url().includes('#overlay-')).length;
-    await page.evaluate(() => window.yomuGaming?.showOverlay());
-    await page.bringToFront();
-    await page.waitForFunction(() => {
-        const shell = document.querySelector('.yomu-gaming-shell');
-        const tab = document.querySelector('[data-action="settings-panel"][aria-selected="true"]');
-        return shell?.getAttribute('data-shell-view') === 'settings'
-            && tab?.getAttribute('data-panel') === 'appearance';
-    }, undefined, { timeout: 10_000 });
-    const target = page.locator('select[name="targetLanguage"]');
-    await target.waitFor({ state: 'visible', timeout: 10_000 });
-    const targetValue = await target.inputValue();
-    assertSmoke(targetValue === '', `Yomu Gaming target route exposed an ambient target: ${targetValue}`);
-    const nextOverlayCount = app.windows().filter(window => window.url().includes('#overlay-')).length;
-    assertSmoke(nextOverlayCount === overlayCount, 'Yomu Gaming created an overlay, which means main sampled the display before target choice.');
-    assertSmoke(fixtureOcr.requests.length === requestCount, 'Yomu Gaming sent OCR before the player chose a learning target.');
-}
-
-async function chooseJapaneseTarget(page) {
-    const target = page.locator('select[name="targetLanguage"]');
-    await target.selectOption('ja');
-    await page.waitForFunction(() => JSON.parse(localStorage.getItem('yomu-gaming-reader-settings-v1') || '{}').learningTargetChosen === true);
-
 }
 
 // The overlay is a second window with its own web preferences, so "Settings" there

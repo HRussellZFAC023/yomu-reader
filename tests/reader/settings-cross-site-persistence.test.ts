@@ -73,7 +73,7 @@ async function expectPreviousOptionsPersisted(
     expect(localStorage.getItem(SETTINGS_INTENT_LEDGER_STORAGE_KEY)).toBeNull();
     await expect(loadSettings()).resolves.toMatchObject({
         enableLogging: false,
-        autoMineOnReview: false,
+        manualScanEnabled: false,
     });
 }
 
@@ -215,7 +215,7 @@ describe('settings persist across sites (message-based GM store)', () => {
         }));
         localStorage.setItem(EXPLICIT_USER_SETTINGS_STORAGE_KEY, JSON.stringify({
             preferJapaneseSiteLanguage: true,
-            autoMineOnReview: true,
+            manualScanEnabled: true,
         }));
         const store = new Map<string, unknown>([
             ...Object.entries(serializeSettingsPersistencePair(
@@ -230,7 +230,7 @@ describe('settings persist across sites (message-based GM store)', () => {
         expect(settings).toMatchObject({
             preferJapaneseSiteLanguage: false,
             subtitleFontSize: DEFAULT_SETTINGS.subtitleFontSize,
-            autoMineOnReview: false,
+            manualScanEnabled: false,
         });
         await saveSettings({ ...settings, theme: 'dark' }, { explicitUserChoiceKeys: ['theme'] });
 
@@ -266,13 +266,13 @@ describe('settings persist across sites (message-based GM store)', () => {
 
         // Site A: enable automatic mining and turn furigana off.
         const onSiteA = await loadSettings();
-        await saveSettings({ ...onSiteA, autoMineOnReview: true, showFurigana: false, furiganaMode: 'off' }, {
-            explicitUserChoiceKeys: ['autoMineOnReview', 'showFurigana', 'furiganaMode'],
+        await saveSettings({ ...onSiteA, manualScanEnabled: true, showFurigana: false, furiganaMode: 'off' }, {
+            explicitUserChoiceKeys: ['manualScanEnabled', 'showFurigana', 'furiganaMode'],
         });
 
         // Site B: fresh page load reads the shared GM store.
         const onSiteB = await loadSettings();
-        expect(onSiteB.autoMineOnReview).toBe(true);
+        expect(onSiteB.manualScanEnabled).toBe(true);
         expect(onSiteB.showFurigana).toBe(false);
         expect(onSiteB.furiganaMode).toBe('off');
     });
@@ -283,7 +283,7 @@ describe('settings persist across sites (message-based GM store)', () => {
 
         const fresh = await loadSettings();
         // Reading an empty store must not enable an opt-in or persist its missing sentinel.
-        expect(fresh.autoMineOnReview).toBe(false);
+        expect(fresh.manualScanEnabled).toBe(false);
         expect(JSON.stringify(fresh)).not.toContain('__yomuStorageValueMissing');
         expect(await loadSettings()).toBeTruthy();
     });
@@ -327,13 +327,13 @@ describe('settings persist across sites (message-based GM store)', () => {
         await expect(saveSettings({
             ...DEFAULT_SETTINGS,
             enableLogging: true,
-            autoMineOnReview: true,
+            manualScanEnabled: true,
             preferJapaneseSiteLanguage: true,
         }, {
             persistPreferredJapaneseSiteLanguage: true,
             explicitUserChoiceKeys: [
                 'enableLogging',
-                'autoMineOnReview',
+                'manualScanEnabled',
                 'preferJapaneseSiteLanguage',
             ],
         })).rejects.toThrow(/GM storage write failed/);
@@ -354,7 +354,7 @@ describe('settings persist across sites (message-based GM store)', () => {
         const previousSettings = {
             ...DEFAULT_SETTINGS,
             enableLogging: false,
-            autoMineOnReview: false,
+            manualScanEnabled: false,
         };
         const previousPair = serializeSettingsPersistencePair(previousSettings, { revision: 0, records: {} });
         const store = new Map<string, unknown>(Object.entries(previousPair));
@@ -369,9 +369,9 @@ describe('settings persist across sites (message-based GM store)', () => {
         await expect(saveSettings({
             ...previousSettings,
             enableLogging: true,
-            autoMineOnReview: true,
+            manualScanEnabled: true,
         }, {
-            explicitUserChoiceKeys: ['enableLogging', 'autoMineOnReview'],
+            explicitUserChoiceKeys: ['enableLogging', 'manualScanEnabled'],
         })).rejects.toThrow(/GM storage write failed/);
 
         const attemptedSettings = setValue.mock.calls
@@ -400,13 +400,13 @@ describe('settings persist across sites (message-based GM store)', () => {
         });
         expect(store.get(SETTINGS_STORAGE_KEY)).toMatchObject({
             enableLogging: false,
-            autoMineOnReview: false,
+            manualScanEnabled: false,
             __yomuSettingsPersistenceTransactionV1: { version: 1 },
         });
         expect(localStorage.getItem(SETTINGS_STORAGE_KEY)).toBeNull();
         await expect(loadSettings()).resolves.toMatchObject({
             enableLogging: false,
-            autoMineOnReview: false,
+            manualScanEnabled: false,
         });
     });
 
@@ -415,7 +415,7 @@ describe('settings persist across sites (message-based GM store)', () => {
         const previousSettings = {
             ...DEFAULT_SETTINGS,
             enableLogging: false,
-            autoMineOnReview: false,
+            manualScanEnabled: false,
         };
         const store = new Map<string, unknown>(Object.entries(
             serializeSettingsPersistencePair(previousSettings, { revision: 0, records: {} }),
@@ -437,9 +437,9 @@ describe('settings persist across sites (message-based GM store)', () => {
         const saving = saveSettings({
             ...previousSettings,
             enableLogging: true,
-            autoMineOnReview: true,
+            manualScanEnabled: true,
         }, {
-            explicitUserChoiceKeys: ['enableLogging', 'autoMineOnReview'],
+            explicitUserChoiceKeys: ['enableLogging', 'manualScanEnabled'],
         });
         await Promise.race([
             reachedCommit,
@@ -448,19 +448,19 @@ describe('settings persist across sites (message-based GM store)', () => {
 
         expect(store.get(SETTINGS_STORAGE_KEY)).toMatchObject({
             enableLogging: false,
-            autoMineOnReview: false,
+            manualScanEnabled: false,
         });
         expect(localStorage.getItem(SETTINGS_STORAGE_KEY)).toBeNull();
         await expect(loadSettings()).resolves.toMatchObject({
             enableLogging: false,
-            autoMineOnReview: false,
+            manualScanEnabled: false,
         });
 
         releaseCommit();
         await saving;
         await expect(loadSettings()).resolves.toMatchObject({
             enableLogging: true,
-            autoMineOnReview: true,
+            manualScanEnabled: true,
         });
     });
 
@@ -468,18 +468,18 @@ describe('settings persist across sites (message-based GM store)', () => {
         const previousSettings = {
             ...DEFAULT_SETTINGS,
             enableLogging: false,
-            autoMineOnReview: false,
+            manualScanEnabled: false,
         };
         const committedSettings = {
             ...previousSettings,
             enableLogging: true,
-            autoMineOnReview: true,
+            manualScanEnabled: true,
         };
         const nextLedger = {
             revision: 2,
             records: {
                 enableLogging: { seq: 1, value: true },
-                autoMineOnReview: { seq: 2, value: true },
+                manualScanEnabled: { seq: 2, value: true },
             },
         };
         const previousPair = serializeSettingsPersistencePair(previousSettings, { revision: 0, records: {} });
@@ -493,7 +493,7 @@ describe('settings persist across sites (message-based GM store)', () => {
         expect(view.settings).toEqual(committedSettings);
         expect(view.intentLedger.records).toMatchObject({
             enableLogging: { value: true },
-            autoMineOnReview: { value: true },
+            manualScanEnabled: { value: true },
         });
         expect(reads.settings()).toBe(4);
     });
@@ -503,7 +503,7 @@ describe('settings persist across sites (message-based GM store)', () => {
         const committedSettings = {
             ...DEFAULT_SETTINGS,
             enableLogging: true,
-            autoMineOnReview: true,
+            manualScanEnabled: true,
             __yomuSettingsPersistenceCommitV1: commitId,
         };
         const committedLedger = {
@@ -511,17 +511,17 @@ describe('settings persist across sites (message-based GM store)', () => {
             __yomuSettingsPersistenceCommitV1: commitId,
             records: {
                 enableLogging: { seq: 1, value: true },
-                autoMineOnReview: { seq: 2, value: true },
+                manualScanEnabled: { seq: 2, value: true },
             },
         };
         installSettingsReadSequence(() => committedSettings, committedLedger);
 
         const view = await readSettingsPersistenceViewStrict();
-        expect(view.settings).toMatchObject({ enableLogging: true, autoMineOnReview: true });
+        expect(view.settings).toMatchObject({ enableLogging: true, manualScanEnabled: true });
         expect(view.settings).not.toHaveProperty('__yomuSettingsPersistenceCommitV1');
         expect(view.intentLedger.records).toMatchObject({
             enableLogging: { value: true },
-            autoMineOnReview: { value: true },
+            manualScanEnabled: { value: true },
         });
     });
 
@@ -529,7 +529,7 @@ describe('settings persist across sites (message-based GM store)', () => {
         const previousSettings = {
             ...DEFAULT_SETTINGS,
             enableLogging: false,
-            autoMineOnReview: false,
+            manualScanEnabled: false,
         };
         const previousLedger = { revision: 1, records: {} };
         const previousPair = serializeSettingsPersistencePair(previousSettings, previousLedger);
@@ -538,7 +538,7 @@ describe('settings persist across sites (message-based GM store)', () => {
             __yomuSettingsPersistenceCommitV1: 'rejected-transaction',
             records: {
                 enableLogging: { seq: 1, value: true },
-                autoMineOnReview: { seq: 2, value: true },
+                manualScanEnabled: { seq: 2, value: true },
             },
         };
         const reads = installSettingsReadSequence(
@@ -553,7 +553,7 @@ describe('settings persist across sites (message-based GM store)', () => {
         expect(reads.intentLedger()).toBe(4);
         await expect(loadSettings()).resolves.toMatchObject({
             enableLogging: false,
-            autoMineOnReview: false,
+            manualScanEnabled: false,
         });
     });
 
@@ -562,7 +562,7 @@ describe('settings persist across sites (message-based GM store)', () => {
 
         await expect(loadSettings()).resolves.toMatchObject({
             enableLogging: false,
-            autoMineOnReview: false,
+            manualScanEnabled: false,
         });
         expect(store.has(SETTINGS_STORAGE_KEY)).toBe(false);
         expect(store.has(SETTINGS_INTENT_LEDGER_STORAGE_KEY)).toBe(false);
@@ -582,9 +582,9 @@ describe('settings persist across sites (message-based GM store)', () => {
         await expect(saveSettings({
             ...previous,
             enableLogging: true,
-            autoMineOnReview: true,
+            manualScanEnabled: true,
         }, {
-            explicitUserChoiceKeys: ['enableLogging', 'autoMineOnReview'],
+            explicitUserChoiceKeys: ['enableLogging', 'manualScanEnabled'],
         })).rejects.toThrow('first target commit rejected');
 
         expect(store.has(SETTINGS_STORAGE_KEY)).toBe(false);
@@ -592,7 +592,7 @@ describe('settings persist across sites (message-based GM store)', () => {
         expect(localStorage.getItem(SETTINGS_STORAGE_KEY)).toBeNull();
         await expect(loadSettings()).resolves.toMatchObject({
             enableLogging: false,
-            autoMineOnReview: false,
+            manualScanEnabled: false,
         });
     });
 
@@ -608,16 +608,16 @@ describe('settings persist across sites (message-based GM store)', () => {
         await expect(saveSettings({
             ...previous,
             enableLogging: true,
-            autoMineOnReview: true,
+            manualScanEnabled: true,
         }, {
-            explicitUserChoiceKeys: ['enableLogging', 'autoMineOnReview'],
+            explicitUserChoiceKeys: ['enableLogging', 'manualScanEnabled'],
         })).resolves.toBeUndefined();
 
         expect(writes.length).toBeGreaterThan(0);
         expect(JSON.stringify(writes)).not.toContain('pagePayload');
         await expect(loadSettings()).resolves.toMatchObject({
             enableLogging: true,
-            autoMineOnReview: true,
+            manualScanEnabled: true,
         });
     });
 
@@ -625,12 +625,12 @@ describe('settings persist across sites (message-based GM store)', () => {
         const previousSettings = {
             ...DEFAULT_SETTINGS,
             enableLogging: false,
-            autoMineOnReview: false,
+            manualScanEnabled: false,
         };
         const nextSettings = {
             ...previousSettings,
             enableLogging: true,
-            autoMineOnReview: true,
+            manualScanEnabled: true,
         };
         const previousPair = serializeSettingsPersistencePair(previousSettings, { revision: 0, records: {} });
         const nextPair = serializeSettingsPersistencePair(nextSettings, { revision: 0, records: {} });
@@ -1049,7 +1049,7 @@ describe('hosted settings donors', () => {
         vi.stubGlobal('location', hostedLocation);
         const store = new Map<string, unknown>();
         installSharedMessageBasedGm(store);
-        const before = seedSettingsPair(store, { autoMineOnReview: true });
+        const before = seedSettingsPair(store, { manualScanEnabled: true });
         localStorage.setItem('jpdb-popup-reader-settings', JSON.stringify({
             jitenApiKey: 'stranded-key',
             theme: 'dark',
@@ -1063,7 +1063,7 @@ describe('hosted settings donors', () => {
 
         const shared = store.get('jpdb-popup-reader-settings') as Record<string, unknown>;
         expect(shared).toEqual(before[SETTINGS_STORAGE_KEY]);
-        expect(shared.autoMineOnReview).toBe(true);
+        expect(shared.manualScanEnabled).toBe(true);
     });
 
     // A rejected hosted save used to leave its new intent ledger in the local
@@ -1164,17 +1164,17 @@ describe('hosted settings donors', () => {
         });
 
         const store = new Map<string, unknown>();
-        seedSettingsPair(store, { autoMineOnReview: true, theme: 'light', popupMode: 'popover', lookupOnHover: true, jitenApiKey: 'gm-old-choice' });
+        seedSettingsPair(store, { manualScanEnabled: true, theme: 'light', popupMode: 'popover', lookupOnHover: true, jitenApiKey: 'gm-old-choice' });
         installSharedMessageBasedGm(store);
 
         const reconciled = await loadSettings();
         expect(reconciled.theme).toBe('light');
         expect(reconciled.lookupOnHover).toBe(true);
         expect(reconciled.jitenApiKey).toBe('gm-old-choice');
-        expect(reconciled.autoMineOnReview).toBe(true);
+        expect(reconciled.manualScanEnabled).toBe(true);
         expect(reconciled.popupMode).toBe('popover');
         expect(store.get('jpdb-popup-reader-settings')).toMatchObject({
-            autoMineOnReview: true,
+            manualScanEnabled: true,
             theme: 'light',
             popupMode: 'popover',
             lookupOnHover: true,

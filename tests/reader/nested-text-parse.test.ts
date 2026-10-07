@@ -3,7 +3,6 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { canHoverLookupReaderWordElement, canLookupReaderWordElement } from '../../src/reader/app/dom-helpers';
 import { collectFormControlTextTargetsIn, readerWordSurfaceText } from '../../src/reader/dom/index';
 import { applyNestedParsePlan, clearNestedParseLoadingKey, clearNestedParseState, nestedParseAlreadyScheduled, nestedTextParsePlan, providerExampleTextParsePlan } from '../../src/reader/lookup/nested-text-parse';
-import { lookupPopoverParsedWordElement } from '../../src/reader/newtab/lookup-dom';
 import { DEFAULT_SETTINGS } from '../../src/reader/settings/index';
 import type { JPDBCard, JPDBToken } from '../../src/reader/app/types';
 
@@ -20,16 +19,6 @@ function appendParsedReaderWord(root: HTMLElement): void {
     const word = document.createElement('span');
     word.classList.add('jpdb-reader-word');
     root.querySelector<HTMLElement>('.jpdb-reader-parseable')!.append(word);
-}
-
-function clickParsedWordInPopover(popover: HTMLElement, target: HTMLElement): { click: MouseEvent; parsedWord: HTMLElement | null } {
-    let parsedWord: HTMLElement | null = null;
-    popover.addEventListener('click', event => {
-        parsedWord = lookupPopoverParsedWordElement(event as MouseEvent, popover);
-    });
-    const click = new MouseEvent('click', { bubbles: true, cancelable: true });
-    target.dispatchEvent(click);
-    return { click, parsedWord };
 }
 
 describe('nested text parse plans', () => {

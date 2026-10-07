@@ -692,7 +692,7 @@ function isCompactControlDescendantTextTarget(parent: HTMLElement, text: string)
 
 function isInsideExcludedReaderRoot(parent: HTMLElement, options: TextTargetCollectionOptions): boolean {
     if (options.includeReaderRoot) return false;
-    for (let current: Element | null = parent; current; current = composedParentElement(current)) {
+    for (let current: HTMLElement | null = parent; current; current = composedParentElement(current)) {
         if (current.matches(READER_ROOT_SELECTOR)) return true;
     }
     return false;

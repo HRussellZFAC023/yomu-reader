@@ -106,15 +106,6 @@ describe('companion registry', () => {
         registerYomuCompanion('settings', {
             SettingsDialogController: SettingsDialogController as never,
             LookupModalAccessibility: LookupModalAccessibility as never,
-            selfEnhancement: {
-                SETTINGS_PARSE_TARGET_LIMIT: 120,
-                nestedSettingsParseAlreadyRendered: vi.fn(),
-                nestedSettingsTextParsePlan: vi.fn(),
-                parsedSettingsTargetsForCurrentPlan: vi.fn(),
-                supplementSettingsFallbackTokens: vi.fn(),
-                addSettingsRubyFromRenderedReadings: vi.fn(),
-                settingsForSettingsFormParse: vi.fn(),
-            } as never,
         });
 
         expect(yomuSettingsSurfaceCompanion()).toMatchObject({

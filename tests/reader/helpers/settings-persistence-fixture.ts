@@ -78,7 +78,7 @@ export function installRejectedOptionsCommit(
     const previousSettings = {
         ...DEFAULT_SETTINGS,
         enableLogging: false,
-        autoMineOnReview: false,
+        manualScanEnabled: false,
     };
     const previousPair = serializeSettingsPersistencePair(previousSettings, { revision: 0, records: {} });
     const values = new Map<string, unknown>(Object.entries(previousPair));
@@ -93,9 +93,9 @@ export function saveExplicitOptions(previousSettings: ReaderSettings): Promise<v
     return saveSettings({
         ...previousSettings,
         enableLogging: true,
-        autoMineOnReview: true,
+        manualScanEnabled: true,
     }, {
-        explicitUserChoiceKeys: ['enableLogging', 'autoMineOnReview'],
+        explicitUserChoiceKeys: ['enableLogging', 'manualScanEnabled'],
     });
 }
 

@@ -66,7 +66,6 @@ async function expectExplicitOptInApplied(storedSettings: unknown, storedIntentL
 }
 
 describe('preferred Japanese site language', () => {
-        const language = navigator.language;
     const originalFetch = globalThis.fetch;
 
     afterEach(() => {
