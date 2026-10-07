@@ -898,6 +898,7 @@ describe('new tab review — Anki loading & study-pool ordering', () => {
             });
 
             expect(visible.map(card => card.spelling)).toEqual(['語', '彙', '復習']);
+            expect(root.querySelector('.jpdb-reader-doodle-canvas')).not.toBeNull();
             expect(visible.slice(0, 2).every(card => card.sourceCardKey === '35486:1:語彙:ごい')).toBe(true);
             expect(visible.slice(0, 2).every(card => card.reviewSource === undefined)).toBe(true);
             expect(visible[2]?.reviewSource).toBe('jpdb-api');
@@ -954,6 +955,7 @@ describe('new tab review — Anki loading & study-pool ordering', () => {
 
             const visible = (controller as unknown as { visibleWords: JPDBCard[] }).visibleWords;
             expect(visible.map(card => card.spelling)).toEqual(['語', '彙', '復習']);
+            expect(document.querySelector('.jpdb-reader-doodle-canvas')).not.toBeNull();
             expect((controller as unknown as { index: number }).index).toBe(0);
             expectOpaqueStudyCardToken(document, locked.spelling, locked.reading);
         } finally {

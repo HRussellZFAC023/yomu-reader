@@ -485,6 +485,18 @@ describe('new tab review — dictionary fallbacks, refresh & shared-URL history'
         }
     });
 
+    it('opens actual single-kanji starter vocabulary as a word, not a synthetic unlock exercise', async () => {
+        const { controller, fallbackCardFromText } = newTabBuiltInFallbackFixture('auto');
+        fallbackCardFromText.mockImplementation(text => bareFallbackCardFromText(text, 'ja'));
+        const restoreCanvas = stubKanjiDoodleBrowserApis();
+        try {
+            await controller.renderPage();
+            expect(document.querySelector('.jpdb-reader-doodle-canvas')).toBeNull();
+            expect(document.querySelector('[data-newtab-prompt] [data-expression="水"]')).not.toBeNull();
+            expect(document.querySelector('[data-newtab-action="reveal"]')).not.toBeNull();
+        } finally { restoreCanvas(); controller.destroy(); resetNewTabReviewStorage(); }
+    });
+
     it.each(['recognition', 'cloze', 'writing'] as const)('starts %s practice from the actual keyless built-in Study loader', async purpose => {
         const { controller, publicSearch, fallbackCardFromText } = newTabBuiltInFallbackFixture('auto');
         fallbackCardFromText.mockImplementation(text => bareFallbackCardFromText(text, 'ja'));

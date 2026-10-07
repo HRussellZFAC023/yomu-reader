@@ -5,6 +5,7 @@ import type { JpdbKanjiInfo, JpdbKanjiVocabulary } from '../jpdb/jpdb-kanji';
 import { kanjiCharacters } from './index';
 import { DEFAULT_OVERLAY_BACKGROUND_COLOR } from '../settings/index';
 import { KANJI_DICTIONARIES_SOURCE_ID, KANJI_JPDB_SOURCE_ID, KANJI_ORIGINS_SOURCE_ID, KANJI_SIMILAR_WORDS_SOURCE_ID, KANJI_STROKE_SOURCE_ID, kanjiSourceLabel } from '../sources/sections';
+import { newTabSourceForCard } from './source';
 import { stablePositiveHashId } from '../core/stable-hash';
 import { uniqueTrimmedStrings as uniqueStrings } from '../core/string-utils';
 import { jpdbVocabularyIdentityFromUrl } from '../jpdb/jpdb-vocabulary-url';
@@ -56,12 +57,14 @@ export const oldFormsFact = (fullInfo: JpdbKanjiInfo | null): string => fullInfo
 export const isStandaloneKanjiCard = (card: JPDBCard, kanji: string): boolean =>
     card.spelling === kanji && kanjiCharacters(card.spelling).length === 1 && Array.from(card.spelling).length === 1;
 
-// Synthetic kanji cards injected into the Word-tab queue by the kanji-unlock
-// flow (jpdb parity): negative vid from stableNegativeNewTabId plus a
-// single-kanji spelling identifies them so they render and grade as kanji
-// even outside the Kanji tab.
+// Vocabulary and provider adapters also use negative IDs. Only the identities
+// issued for character lookup or the derived unlock queue identify kanji cards.
 export const isKanjiUnlockStudyCard = (card: JPDBCard): boolean =>
-    card.vid < 0 && isStandaloneKanjiCard(card, card.spelling);
+    isStandaloneKanjiCard(card, card.spelling)
+    && card.sid === 0 && card.rid === 0 && card.reading === card.spelling
+    && (card.vid === stableNegativeNewTabId(`kanji:${card.spelling}`)
+        || Boolean(card.sourceCardKey)
+            && card.vid === stableNegativeNewTabId(`kanji-study:${newTabSourceForCard(card)}:${card.spelling}`));
 
 export const randomPublicJpdbSeedKanji = (limit = NEW_TAB_PUBLIC_JPDB_KANJI_SEED_LIMIT): string[] =>
     shuffleStrings(uniqueStrings(Array.from(NEW_TAB_HANDWRITING_COMMON_KANJI))).slice(0, Math.max(0, limit));
