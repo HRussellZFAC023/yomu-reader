@@ -33,16 +33,9 @@ describe('docs localization browser smoke readiness', () => {
 
     it('gates userscript side effects behind installed or hosted ownership', () => {
         const gate = 'if (installedRuntime || (docEl && shouldInstallHostedReaderRuntime())) {';
-        const activationDeclaration = 'function activateTargetOwnedDocumentStart(): void {';
         const gateStart = USERSCRIPT_ENTRY_SOURCE.indexOf(gate);
-        const gateEnd = USERSCRIPT_ENTRY_SOURCE.indexOf(`\n}\n\n${activationDeclaration}`, gateStart);
+        const gateEnd = USERSCRIPT_ENTRY_SOURCE.indexOf('\n}\n', gateStart);
         const guardedBoot = USERSCRIPT_ENTRY_SOURCE.slice(gateStart, gateEnd);
-        const activationStart = USERSCRIPT_ENTRY_SOURCE.indexOf(activationDeclaration, gateEnd);
-        const activationEnd = USERSCRIPT_ENTRY_SOURCE.indexOf(
-            '\n}\n\nfunction installMokuroToggleNoteWhenReady',
-            activationStart,
-        );
-        const privateActivation = USERSCRIPT_ENTRY_SOURCE.slice(activationStart, activationEnd);
 
         expect(USERSCRIPT_ENTRY_SOURCE).toContain('const installedRuntime = announceInstalledReaderRuntime();');
         expect(USERSCRIPT_ENTRY_SOURCE).toContain('const docEl = document.documentElement;');
@@ -52,14 +45,10 @@ describe('docs localization browser smoke readiness', () => {
         expect(gateEnd).toBeGreaterThan(gateStart);
         expect(guardedBoot).toContain("if (!installedRuntime) docEl.dataset.yomuHosted = '';");
         expect(guardedBoot).toContain('installPreferredJapaneseSiteLanguageFromStoredSettings()');
-        expect(guardedBoot).toContain(
-            'installDocumentStartTargetPolicy(pageOwnedLearningTarget, activateTargetOwnedDocumentStart)',
-        );
-        expect(guardedBoot).not.toContain('installUserscriptHttpBridgeWhenReady()');
-        expect(activationStart).toBeGreaterThan(gateEnd);
-        expect(activationEnd).toBeGreaterThan(activationStart);
-        expect(USERSCRIPT_ENTRY_SOURCE).not.toContain('export function activateTargetOwnedDocumentStart');
-        expect(privateActivation).toContain('installUserscriptHttpBridgeWhenReady()');
+        // Japanese-only: no target policy waits for a choice, so the bridges
+        // install inside the ownership gate at document start.
+        expect(USERSCRIPT_ENTRY_SOURCE).not.toContain('installDocumentStartTargetPolicy');
+        expect(guardedBoot).toContain('installUserscriptHttpBridgeWhenReady()');
         expect(USERSCRIPT_ENTRY_SOURCE.match(/installUserscriptHttpBridgeWhenReady\(\)/g)).toHaveLength(1);
         expect(guardedBoot).toContain('installUserscriptGmStorageBridgeWhenReady()');
         expect(guardedBoot).not.toContain('promoteStrandedHostedSettingsToGmStorage');
@@ -88,7 +77,6 @@ describe('docs localization browser smoke readiness', () => {
         const contaminated = functionBody('assertContaminatedHostedContextStaysEnglish');
         const installed = functionBody('assertInstalledRuntimePreservesStoredState');
         const studyFirst = functionBody('assertStudyDoesNotContaminateRoot');
-        const studyLauncher = functionBody('assertStudyPreviewUsesTrustedOnboardingLauncher');
         const academyFirst = functionBody('assertAcademyDoesNotContaminateRoot');
         const firstRoot = SMOKE_SOURCE.indexOf("page.goto(`${ORIGIN}/`, { waitUntil: 'domcontentloaded' })");
 
@@ -96,7 +84,7 @@ describe('docs localization browser smoke readiness', () => {
         expect(SMOKE_SOURCE).toContain("const BROWSER_NAME = process.env.YOMU_DOCS_BROWSER || 'chromium'");
         expect(SMOKE_SOURCE).toContain("url.hostname = 'yomureader.localhost'");
         // This exact pseudo-loopback origin stays outside the theme's force-local
-        // bypass, but it must still activate the docs page-owned target policy.
+        // bypass, but it must still be recognised as the trusted docs preview.
         expect(TRUSTED_HOSTED_URL_SOURCE).toContain(
             "const DOCS_PREVIEW_HOST = 'yomureader.localhost'",
         );
@@ -136,10 +124,6 @@ describe('docs localization browser smoke readiness', () => {
         expect(installed).toContain('state.settings, expectedSettings');
         expect(studyFirst).toContain("window.__YOMU_READER_RUNTIME__ === 'newtab'");
         expect(studyFirst).toContain('document.documentElement.dataset.yomuHosted !== undefined');
-        expect(studyFirst).toContain('assertStudyPreviewUsesTrustedOnboardingLauncher(page)');
-        expect(studyLauncher).toContain(".jpdb-reader-onboarding-trusted-launcher");
-        expect(studyLauncher).toContain('data-onboarding-action="open-trusted-setup"');
-        expect(studyLauncher).toContain("locator('form, input, select, textarea, output').count()");
         expect(academyFirst).toContain("'yomu:academy:language:v1': 'ja'");
         expect(academyFirst).toContain("assertEnglishHostedHomepage(page, 'Academy-to-English homepage'");
         expect(SMOKE_SOURCE).not.toContain('jpdb-reader-hosted-application');

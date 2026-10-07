@@ -1,4 +1,4 @@
-import { COPY_LOOKUP_LINK, DEFAULT_AUDIO_SOURCES, DEFAULT_SETTINGS, dictionaryLookupLinksForTarget, MAX_LOOKUP_LINK_ROWS, normalizeAudioSource, normalizeDictionaryLookupLinks, normalizeOcrProvider, normalizeReaderSettings, sanitizeAccentColor } from './index';
+import { COPY_LOOKUP_LINK, DEFAULT_AUDIO_SOURCES, DEFAULT_SETTINGS, MAX_LOOKUP_LINK_ROWS, normalizeAudioSource, normalizeDictionaryLookupLinks, normalizeOcrProvider, normalizeReaderSettings, sanitizeAccentColor } from './index';
 import { normalizeAnkiFieldMappings } from './anki-field-mappings';
 import { readApiCredentialsFromFormData } from './api-credential';
 import { createSettingsFormReader, type SettingsFormReader } from './form-data';
@@ -10,42 +10,13 @@ import {
     nativeSubtitleDisplayMode,
     NATIVE_SUBTITLE_DISPLAY_MODES,
 } from '../subtitles/native-subtitle-display';
-import {
-    activateLanguageProfileForOutputLanguage,
-    activeLanguageProfile,
-    canonicalTagForLearningTarget,
-    canonicalTagForSlice1Language,
-    isLearningTargetRosterId,
-    learningTargetRosterIdForTag,
-    slice1LanguageIdForTag,
-    type LearningTargetRosterId,
-} from '../languages';
-import { availableInterfaceLocales, isLearnerLanguageId, type LearnerLanguageId } from '../locales';
-import { readingAnnotationModeForTarget } from './reading-annotation-mode';
+import { activeLanguageProfile } from '../languages/profiles';
 import { languageProfileDictionariesFromPreferences } from './language-profile-dictionaries';
 import { credentialValueFromReader } from './credential-form';
 
 
-/**
- * D43 — what may be STORED as the interface language is exactly what the locale
- * manifest says is available, plus `auto`.
- *
- * The picker already renders a blocked locale as a disabled option, but
- * `disabled` only stops a *user* from choosing it: assigning `select.value` in
- * script, a hand-edited settings export, or a profile written by a build with a
- * different ledger all reach this function with a tag we cannot speak. Any of
- * those falls back to the value already in effect, so the one outcome D43
- * forbids — a locale accepted and then silently answered in English — cannot
- * happen through the settings form.
- *
- * `tests/reader/locales/rtl-interim.test.ts` pins this list to `auto/en/ja`, so
- * enabling a locale in the ledger without widening `InterfaceLanguage` fails
- * loudly instead of storing a value the type says is impossible.
- */
-export const SELECTABLE_INTERFACE_LANGUAGES = Object.freeze([
-    'auto',
-    ...availableInterfaceLocales().map(locale => locale.tag),
-]) as readonly ReaderSettings['interfaceLanguage'][];
+/** What may be stored as Yomu's own interface language. */
+export const SELECTABLE_INTERFACE_LANGUAGES = Object.freeze(['auto', 'en', 'ja']) as readonly ReaderSettings['interfaceLanguage'][];
 export const CUSTOM_FONT_FAMILY_VALUE = '__custom_font_family__';
 type FontFamilySettingName = 'readerFontFamily' | 'popupFontFamily' | 'subtitleFontFamily';
 type SourcePriorityFormRow = readonly [string, keyof ReaderSettings, keyof ReaderSettings, (keyof ReaderSettings)?];
@@ -150,7 +121,7 @@ export function readFormSettings(data: FormData, current: ReaderSettings): Reade
         bunpro: hasSourceRow(has, 'bunproDefinitions'),
         wanikani: hasSourceRow(has, 'wanikaniDefinitions'),
     };
-    const dictionaryLookupLinks = readTargetAwareDictionaryLookupLinks(data, current);
+    const dictionaryLookupLinks = readDictionaryLookupLinks(data);
     const dictionaryPreferences = reorderLocalFrequencyDictionaryPreferences(
         readDictionaryPreferences(data, current.dictionaryPreferences, reader),
         dictionaryLookupLinks,
@@ -198,7 +169,6 @@ export function readFormSettings(data: FormData, current: ReaderSettings): Reade
         shortcuts: readShortcutFormSettings(reader, current),
     };
     preserveDetachedJapaneseSettings(settings, current, data);
-    enforceTargetReadingAnnotationMode(settings);
     return normalizeReaderSettings(settings);
 }
 
@@ -216,74 +186,20 @@ function readLanguageProfileFormSettings(
         };
     }
 
-    // OUTPUT axis. The control is still named `learnerLanguage` in the form,
-    // because a form field name is part of the rendered contract the dialog
-    // controller and its tests already speak; the persisted axis is
-    // `outputLanguage`.
-    const fallbackOutputLanguage = slice1LanguageIdForTag(active.outputLanguage) ?? 'en';
-    const outputLanguage = readOutputLanguage(data, fallbackOutputLanguage);
-    const outputLanguageTag = outputLanguage === fallbackOutputLanguage
-        ? active.outputLanguage
-        : canonicalTagForSlice1Language(outputLanguage);
-    const fallbackTargetLanguage = learningTargetRosterIdForTag(active.targetLanguage) ?? 'ja';
-    const targetLanguageId = readTargetLanguage(data, fallbackTargetLanguage);
-    const targetLanguage = canonicalTagForLearningTarget(targetLanguageId);
     const parserProvider = readOption(
         String(data.get('parserProvider') ?? ''),
         ['local', 'jiten', 'jpdb', 'auto'] as const,
         current.parserProvider,
     );
-    const definitionTranslationProviderIds = data.has('definitionTranslationControlsPresent')
-        ? normalizedStringIds(data.getAll('definitionTranslationProviderIds'))
-        : [...active.definitionTranslationProviderIds];
     const dictionaries = languageProfileDictionariesFromPreferences(dictionaryPreferences);
-
-    if (outputLanguage !== fallbackOutputLanguage) {
-        const activated = activateLanguageProfileForOutputLanguage(
-            current.languageProfiles,
-            current.activeLanguageProfileId,
-            outputLanguageTag,
-            {
-                uiLocale: interfaceLanguage,
-                parserProvider,
-                targetLanguage,
-                dictionaries,
-                definitionTranslationProviderIds,
-            },
-        );
-        return {
-            languageProfiles: activated.profiles,
-            activeLanguageProfileId: activated.activeProfileId,
-        };
-    }
-
+    // The stored target, definition language and translation choices are kept
+    // exactly as an earlier Yomu wrote them (ADR-0024): nothing reads them.
     return {
         languageProfiles: current.languageProfiles.map(profile => profile.id === active.id
-            ? {
-                ...profile,
-                // Keep an existing supported script/region variant when the
-                // roster selection did not change (zh-Hant-TW, pt-BR, ko-KR).
-                outputLanguage: outputLanguageTag,
-                learnerLanguage: outputLanguageTag,
-                targetLanguage,
-                uiLocale: interfaceLanguage,
-                parserProvider,
-                dictionaries,
-                definitionTranslationProviderIds,
-            }
+            ? { ...profile, uiLocale: interfaceLanguage, parserProvider, dictionaries }
             : profile),
         activeLanguageProfileId: active.id,
     };
-}
-
-function readOutputLanguage(data: FormData, fallback: LearnerLanguageId): LearnerLanguageId {
-    const value = String(data.get('learnerLanguage') ?? '');
-    return isLearnerLanguageId(value) ? value : fallback;
-}
-
-function readTargetLanguage(data: FormData, fallback: LearningTargetRosterId): LearningTargetRosterId {
-    const value = String(data.get('targetLanguage') ?? '');
-    return isLearningTargetRosterId(value) ? value : fallback;
 }
 
 function preserveDetachedJapaneseSettings(
@@ -303,37 +219,6 @@ function preserveDetachedJapaneseSettings(
         settings.pitchColorOdaka = current.pitchColorOdaka;
         settings.pitchColorUnknown = current.pitchColorUnknown;
     }
-    // Pitch remains a Japanese-only colour channel. Its <option> is physically
-    // detached for another target, so the browser selects the first remaining
-    // option; keep the stored Japanese choice until that option exists again.
-    if (readTargetLanguage(data, 'ja') !== 'ja') {
-        for (const name of COLOR_SOURCE_SETTING_NAMES) {
-            if (current[name] === 'pitch') settings[name] = current[name];
-        }
-    }
-}
-
-function enforceTargetReadingAnnotationMode(settings: ReaderSettings): void {
-    const active = activeLanguageProfile(settings.languageProfiles, settings.activeLanguageProfileId);
-    const targetLanguage = learningTargetRosterIdForTag(active?.targetLanguage) ?? 'ja';
-    const mode = readingAnnotationModeForTarget(settings.furiganaMode, targetLanguage);
-    if (mode === settings.furiganaMode) return;
-    settings.furiganaMode = mode;
-    settings.showFurigana = mode !== 'off';
-    settings.hideKnownFurigana = mode === 'known-status';
-}
-
-function normalizedStringIds(values: FormDataEntryValue[]): string[] {
-    const seen = new Set<string>();
-    const result: string[] = [];
-    values.forEach(value => {
-        if (typeof value !== 'string') return;
-        const id = value.trim();
-        if (!id || id.length > 160 || seen.has(id)) return;
-        seen.add(id);
-        result.push(id);
-    });
-    return result;
 }
 
 function colorSourceFallback(key: string, fallback: ReaderColorSource): SelectableReaderColorSource {
@@ -918,17 +803,8 @@ function shouldSkipAudioSourceRow(source: AudioSourceSetting, builtInTypes: Set<
     return !source.enabled && !source.url && !source.voice && !builtInTypes.has(source.type);
 }
 
-/**
- * The submitted pill row, normalized against the TARGET the same form declares.
- *
- * The target is read out of the FormData rather than passed in, so every caller
- * — the dialog, the row editor, Yomu Gaming — stays a one-argument call and none
- * of them can accidentally normalize a Spanish row against Japanese built-ins
- * and have Jiten, JPDB and Bunpro appended to it. A form with no target select
- * (the gaming surface, older fixtures) reads as Japanese, which is what it is.
- */
 export function readDictionaryLookupLinks(data: FormData): DictionaryLookupLink[] {
-    return normalizeDictionaryLookupLinks(lookupLinkRows(data), false, readTargetLanguage(data, 'ja'));
+    return normalizeDictionaryLookupLinks(lookupLinkRows(data), false);
 }
 
 export function lookupLinkRows(data: FormData): DictionaryLookupLink[] {
@@ -942,24 +818,6 @@ export function lookupLinkRows(data: FormData): DictionaryLookupLink[] {
     }
 
     return links;
-}
-
-/**
- * The pill row this submit should persist, given the target it also declares.
- *
- * When the target is unchanged the submitted rows win, exactly as before. When
- * it changed, the row is rebuilt from the new target's verified hotlinks, which
- * is the whole point of a per-target set: the outgoing target's sites cannot
- * answer for the incoming one, so keeping them would leave a Spanish learner
- * clicking `dict.naver.com`.
- */
-function readTargetAwareDictionaryLookupLinks(data: FormData, current: ReaderSettings): DictionaryLookupLink[] {
-    const active = activeLanguageProfile(current.languageProfiles, current.activeLanguageProfileId);
-    const previous = learningTargetRosterIdForTag(active?.targetLanguage) ?? 'ja';
-    const next = readTargetLanguage(data, previous);
-    return next === previous
-        ? readDictionaryLookupLinks(data)
-        : dictionaryLookupLinksForTarget(lookupLinkRows(data), next);
 }
 
 function readDictionaryLookupLinkRow(

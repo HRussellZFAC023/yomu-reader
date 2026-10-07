@@ -140,8 +140,7 @@ function renderWanikaniAccuracy(info: WanikaniLookupInfo): string {
 }
 
 function renderWanikaniPublicDefinitions(subject: WanikaniSubject): string {
-    const payload = wanikaniPublicDefinitionPayload(subject);
-    return `<div class="yomu-wanikani-public-definitions"${wanikaniDefinitionPayloadAttributes(payload)}>
+    return `<div class="yomu-wanikani-public-definitions">
         <p><strong>Meanings:</strong> ${subject.meanings.map(renderWanikaniMeaning).join(', ')}</p>
         ${renderWanikaniAlternatives('Also accepted', subject.auxiliaryMeanings, 'whitelist')}
         ${renderWanikaniAlternatives('Not accepted', subject.auxiliaryMeanings, 'blacklist')}
@@ -157,16 +156,6 @@ function renderWanikaniMeaning(item: WanikaniMeaning): string {
 function renderWanikaniAlternatives(label: string, items: WanikaniAuxiliaryMeaning[], type: WanikaniAuxiliaryMeaning['type']): string {
     const values = items.filter(item => item.type === type).map(item => escapeHtml(item.meaning)).join(', ');
     return renderWanikaniParagraph(label, values);
-}
-
-function wanikaniPublicDefinitionPayload(subject: WanikaniSubject): string {
-    const publicAlternativeTypes = new Set<WanikaniAuxiliaryMeaning['type']>(['whitelist', 'blacklist']);
-    const alternatives = subject.auxiliaryMeanings.filter(item => publicAlternativeTypes.has(item.type));
-    return [...subject.meanings, ...alternatives].map(item => item.meaning).filter(Boolean).join('\n');
-}
-
-function wanikaniDefinitionPayloadAttributes(payload: string): string {
-    return payload ? ` data-definition-translation-text data-definition-translation-payload="${escapeHtml(payload)}"` : '';
 }
 
 function renderWanikaniReadings(subject: WanikaniSubject): string {

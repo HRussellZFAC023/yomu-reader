@@ -17,7 +17,6 @@ import {
     addScriptTagWithCspFallback,
     installUserscriptCssResource,
 } from './lib/smoke-test-helpers.mjs';
-import { TARGET_AUDIT_FIXTURES } from './lib/multilingual-capability-audit-fixtures.ts';
 
 const SMOKE_PATHS = createSmokePaths(import.meta.dirname);
 const ROOT = SMOKE_PATHS.root;
@@ -43,10 +42,13 @@ const ENGINES = requestedEngineNames.size
     : ENGINE_MATRIX;
 const FURIGANA_MODES = ['all', 'off'];
 const INTERACTIONS = ['hover', 'click'];
-const MULTILINGUAL_TARGET_IDS = Object.freeze(['es', 'ar', 'ko', 'yue']);
 const SENTENCES = fixtureSentences();
-const MULTILINGUAL_SENTENCES = multilingualFixtureSentences();
-const PAGE_SENTENCES = [...SENTENCES, ...MULTILINGUAL_SENTENCES];
+// Yomu reads Japanese only. These lines sit on the same page, their words are
+// headwords in the same imported dictionary, and none of them may be painted
+// or open a popup: Latin (with a decomposed accent), full-width Latin and
+// digits, Cyrillic, Hangul, Arabic (RTL), and the Latin half of mixed text.
+const NON_JAPANESE_SENTENCES = nonJapaneseSentences();
+const PAGE_SENTENCES = [...SENTENCES, ...NON_JAPANESE_SENTENCES];
 const EXPECTED_TOKENS = SENTENCES.flatMap(sentence => sentence.tokens.map(token => ({
     sentenceId: sentence.id,
     selector: `[data-parser-sentence="${sentence.id}"]`,
@@ -55,8 +57,6 @@ const EXPECTED_TOKENS = SENTENCES.flatMap(sentence => sentence.tokens.map(token 
 const GLYPH_PROBES = glyphProbes(SENTENCES);
 
 const BASE_SETTINGS = createReaderSmokeSettings({
-    onboardingSeen: true,
-    learningTargetChosen: true,
     interfaceLanguage: 'en',
     apiKey: '',
     jitenApiKey: '',
@@ -121,11 +121,6 @@ assert(ENGINES.length > 0 && ENGINES.length === (requestedEngineNames.size || EN
 assert(GLYPH_PROBES.length === 36, 'Fixture no longer covers the expected 36 Japanese glyphs.', {
     glyphCount: GLYPH_PROBES.length,
 });
-assert(Object.keys(TARGET_AUDIT_FIXTURES).length === 33,
-    'Target audit fixture roster no longer covers all 33 learning targets.', {
-        fixtureIds: Object.keys(TARGET_AUDIT_FIXTURES),
-    });
-assertMultilingualFixtureContract();
 
 const server = await startLoopbackServer((request, response) => {
     const pathname = new URL(request.url ?? '/', 'http://127.0.0.1').pathname;
@@ -154,7 +149,7 @@ const report = {
     ok: false,
     fixture: PAGE_SENTENCES.map(({ id, targetId, text, tokens }) => ({ id, targetId, text, tokens })),
     expectedGlyphsPerScenario: GLYPH_PROBES.length,
-    representativeTargets: MULTILINGUAL_TARGET_IDS,
+    nonJapaneseSentences: NON_JAPANESE_SENTENCES.map(({ id, text }) => ({ id, text })),
     scenarios: [],
 };
 
@@ -189,7 +184,7 @@ async function runEngine(engine, scenarios) {
     try {
         const page = await preparedEnginePage(browser, engine);
         await runJapaneseScenarioMatrix(page, engine.name, scenarios);
-        await runMultilingualScenarioMatrix(page, engine.name, scenarios);
+        scenarios.push(await exerciseNonJapaneseScenario(page, engine.name));
     } finally {
         await browser.close();
     }
@@ -240,17 +235,6 @@ async function runJapaneseScenarioMatrix(page, engineName, scenarios) {
                 interaction,
             }));
         }
-    }
-}
-
-async function runMultilingualScenarioMatrix(page, engineName, scenarios) {
-    for (const fixture of MULTILINGUAL_SENTENCES) {
-        await configureMultilingualScenario(page, fixture);
-        scenarios.push(await exerciseMultilingualScenario(page, {
-            engine: engineName,
-            targetId: fixture.targetId,
-            interaction: 'click',
-        }, fixture));
     }
 }
 
@@ -326,48 +310,6 @@ async function configureScenario(page, furiganaMode, interaction) {
     // of depending on the page-start work detector's per-navigation timing.
     await page.keyboard.press('Shift+J');
     await waitForFixtureReady(page, furiganaMode);
-}
-
-async function configureMultilingualScenario(page, fixture) {
-    const configured = await page.evaluate(({ settingsKey, targetLanguage }) => {
-        const current = window.GM_getValue(settingsKey, {});
-        const languageProfiles = Array.from(current.languageProfiles ?? []);
-        const activeIndex = languageProfiles.findIndex(profile => profile.id === current.activeLanguageProfileId);
-        if (activeIndex < 0) return false;
-        languageProfiles[activeIndex] = { ...languageProfiles[activeIndex], targetLanguage };
-        window.GM_setValue(settingsKey, {
-            ...current,
-            languageProfiles,
-            showFurigana: true,
-            furiganaMode: 'all',
-            lookupOnHover: false,
-            lookupOnClick: true,
-            popupActivationMode: 'click',
-        });
-        return true;
-    }, {
-        settingsKey: YOMU_SETTINGS_KEY,
-        targetLanguage: fixture.targetId,
-    });
-    assert(configured, 'Could not switch the active language profile for a multilingual parser scenario.', {
-        targetId: fixture.targetId,
-    });
-    await page.reload({ waitUntil: 'domcontentloaded' });
-    await injectReader(page);
-    await page.keyboard.press('Shift+J');
-    await waitForMultilingualFixtureReady(page, fixture);
-}
-
-async function waitForMultilingualFixtureReady(page, fixture) {
-    try {
-        await waitForPaintedTokens(page, [fixture], 45_000);
-    } catch (error) {
-        const diagnostics = await collectParserDiagnostics(page);
-        throw new Error(`Multilingual fixture never painted its expected source ranges.\n${JSON.stringify(diagnostics, null, 2)}`, {
-            cause: error,
-        });
-    }
-    await page.waitForTimeout(250);
 }
 
 async function waitForFixtureReady(page, furiganaMode) {
@@ -467,34 +409,56 @@ async function exerciseScenario(page, scenario) {
     return { ...scenario, rubyCount, painted, probes, screenshot };
 }
 
-async function exerciseMultilingualScenario(page, scenario, fixture) {
-    const selector = `[data-parser-sentence="${fixture.id}"]`;
-    const content = await multilingualContentSnapshot(page, selector);
-    assertMultilingualContent(content, fixture, scenario);
-    const rubyCount = content.readingAnnotations.length;
-    assert(rubyCount === 0, 'Non-Japanese target painted Japanese ruby annotations.', {
-        ...scenario,
-        sentenceId: fixture.id,
-        rubyCount,
-        content,
-    });
-
+// Click mode with furigana on: every non-Japanese glyph stays bare and a press
+// on it opens nothing, while the Japanese lines above stay annotated.
+async function exerciseNonJapaneseScenario(page, engineName) {
+    const scenario = { engine: engineName, furiganaMode: 'all', interaction: 'click', nonJapanese: true };
+    await configureScenario(page, 'all', 'click');
     const painted = await parserSentenceSnapshots(page);
-    assertPrivateWordIdentityAbsent(painted, scenario);
-    const expectedTokens = fixture.tokens.map(token => ({
-        sentenceId: fixture.id,
-        selector,
-        ...token,
-    }));
-    assertPaintedTokens(painted, scenario, expectedTokens);
-    const probes = await exerciseGlyphProbes(
-        page,
-        scenario,
-        glyphProbes([fixture]),
-        'Multilingual popover headword did not match the grapheme under the pointer.',
-    );
-    const screenshot = await captureScenarioScreenshot(page, `${scenario.engine}-${fixture.targetId}-click`);
-    return { ...scenario, rubyCount, content, painted, probes, screenshot };
+    const bareSentences = painted.filter(sentence => NON_JAPANESE_SENTENCES.some(fixture => fixture.id === sentence.sentenceId));
+    const leaks = bareSentences.flatMap(sentence => sentence.words
+        .filter(word => nonJapaneseRanges(sentence.sentenceId).some(range => word.start < range.end && range.start < word.end))
+        .map(word => ({ sentenceId: sentence.sentenceId, ...word })));
+    assert(leaks.length === 0, 'Non-Japanese text was annotated.', { ...scenario, leaks });
+    const probes = [];
+    for (const sentence of NON_JAPANESE_SENTENCES) {
+        for (const range of sentence.bare) {
+            await dismissPopover(page);
+            await page.locator(`[data-parser-sentence="${sentence.id}"]`).scrollIntoViewIfNeeded();
+            const point = await page.evaluate(browserGlyphPointAndPaint, {
+                selector: `[data-parser-sentence="${sentence.id}"]`,
+                sourceOffset: range.start,
+                sourceLength: range.probeLength,
+            });
+            assert(point && point.width > 0 && point.height > 0, 'Could not resolve a non-Japanese glyph rectangle.', {
+                ...scenario,
+                sentenceId: sentence.id,
+                range,
+                point,
+            });
+            await page.mouse.click(point.x, point.y);
+            await page.waitForTimeout(500);
+            const popupOpen = await page.evaluate(() => [...document.querySelectorAll('.jpdb-reader-popover')].some(popover => {
+                const style = getComputedStyle(popover);
+                return style.display !== 'none'
+                    && style.visibility !== 'hidden'
+                    && Number(style.opacity || 1) > 0
+                    && popover.getClientRects().length > 0;
+            }));
+            assert(!popupOpen, 'A press on non-Japanese text opened a lookup.', {
+                ...scenario,
+                sentenceId: sentence.id,
+                glyph: point.glyph,
+            });
+            probes.push({ sentenceId: sentence.id, glyph: point.glyph, popupOpen });
+        }
+    }
+    const screenshot = await captureScenarioScreenshot(page, `${engineName}-non-japanese-click`);
+    return { ...scenario, painted: bareSentences, probes, screenshot };
+}
+
+function nonJapaneseRanges(sentenceId) {
+    return NON_JAPANESE_SENTENCES.find(sentence => sentence.id === sentenceId)?.bare ?? [];
 }
 
 function assertJapaneseScenarioPaint(rubyCount, painted, scenario) {
@@ -513,36 +477,6 @@ function assertPrivateWordIdentityAbsent(painted, scenario) {
     assert(identityLeaks.length === 0, 'Off-host reader words exposed private provider identity.', {
         ...scenario,
         identityLeaks,
-    });
-}
-
-async function multilingualContentSnapshot(page, selector) {
-    return await page.locator(selector).evaluate((element, settingsKey) => {
-        const settings = window.GM_getValue(settingsKey, {});
-        const activeTargetLanguage = settings.languageProfiles
-            .find(profile => profile.id === settings.activeLanguageProfileId)?.targetLanguage ?? '';
-        return {
-            lang: element.lang,
-            dir: element.dir,
-            computedDirection: getComputedStyle(element).direction,
-            activeTargetLanguage,
-            readingAnnotations: [...element.querySelectorAll('rt, .jpdb-reader-furi')].map(annotation => ({
-                text: annotation.textContent,
-                html: annotation.parentElement.outerHTML,
-            })),
-        };
-    }, YOMU_SETTINGS_KEY);
-}
-
-function assertMultilingualContent(content, fixture, scenario) {
-    assert(content.activeTargetLanguage === fixture.targetId
-        && content.lang === fixture.lang
-        && content.dir === fixture.dir
-        && content.computedDirection === fixture.dir,
-    'Multilingual fixture did not preserve its active target and content direction.', {
-        ...scenario,
-        fixture: { id: fixture.id, targetId: fixture.targetId, lang: fixture.lang, dir: fixture.dir },
-        content,
     });
 }
 
@@ -842,15 +776,11 @@ function fixtureDictionaryTerms() {
         term('が', 'が', 'prt', 'subject marker', 14),
         term('出る', 'でる', 'v1', 'to come out', 15),
     ];
-    for (const [sentenceIndex, sentence] of MULTILINGUAL_SENTENCES.entries()) {
-        sentence.tokens.forEach((token, tokenIndex) => terms.push(term(
-            token.headword,
-            token.headword,
-            '',
-            `${sentence.targetId} parser identity fixture`,
-            100 + sentenceIndex * 10 + tokenIndex,
-        )));
-    }
+    // Every non-Japanese word is a dictionary headword too, so only the
+    // Japanese-only gate can keep it bare.
+    NON_JAPANESE_SENTENCES.flatMap(sentence => sentence.headwords).forEach((headword, index) => {
+        terms.push(term(headword, headword, '', 'non-Japanese headword', 100 + index));
+    });
     return terms;
 
     function term(expression, reading, rules, gloss, sequence) {
@@ -894,97 +824,36 @@ function fixtureSentences() {
     ];
 }
 
-function multilingualFixtureSentences() {
-    const spanishHeadword = TARGET_AUDIT_FIXTURES.es.probe;
-    const spanishDecomposed = spanishHeadword.normalize('NFD');
-    const arabic = TARGET_AUDIT_FIXTURES.ar.probe;
-    const korean = TARGET_AUDIT_FIXTURES.ko.probe;
-    const cantonese = TARGET_AUDIT_FIXTURES.yue.probe;
-    const cantoneseSupplementary = '\u{282e2}';
+function nonJapaneseSentences() {
+    const accented = 'corazo\u0301n';
     return [
-        sentenceFixture('target-es', spanishDecomposed, [[spanishDecomposed, spanishHeadword]], {
-            targetId: 'es',
-            lang: 'es',
-            dir: 'ltr',
-        }),
-        sentenceFixture('target-ar', arabic, [[arabic, arabic]], {
-            targetId: 'ar',
-            lang: 'ar',
-            dir: 'rtl',
-        }),
-        sentenceFixture('target-ko', korean, [[korean, korean]], {
-            targetId: 'ko',
-            lang: 'ko',
-            dir: 'ltr',
-        }),
-        sentenceFixture('target-yue', `${cantonese}${cantoneseSupplementary}`, [
-            [cantonese, cantonese],
-            [cantoneseSupplementary, cantoneseSupplementary],
-        ], {
-            targetId: 'yue',
-            lang: 'yue-Hant',
-            dir: 'ltr',
-        }),
+        bareSentence('latin-en', 'Sign in to your account right now', 'en', 'ltr', ['Sign', 'account', 'right']),
+        bareSentence('latin-es', accented, 'es', 'ltr', [accented, 'corazón']),
+        bareSentence('fullwidth-latin', 'ＪＲＡ ２０２６', 'ja', 'ltr', ['ＪＲＡ', 'JRA']),
+        bareSentence('cyrillic', 'Привет мир', 'ru', 'ltr', ['Привет', 'мир']),
+        bareSentence('hangul', '학교에 갑니다', 'ko', 'ltr', ['학교', '학교에']),
+        bareSentence('arabic', 'كِتاب', 'ar', 'rtl', ['كِتاب']),
+        // Mixed text: "GI" is bare, the Japanese after it is not this check's concern.
+        { ...bareSentence('mixed-latin', 'GIの中でも', 'ja', 'ltr', ['GI']), bare: [{ start: 0, end: 2, probeLength: 1 }] },
     ];
 }
 
-function assertMultilingualFixtureContract() {
-    assertRepresentativeTargetOrder();
-    for (const sentence of MULTILINGUAL_SENTENCES) assertAuditFixtureSource(sentence);
-    assertDecomposedSpanishFixture();
-    assertSupplementaryCantoneseFixture();
-    assertArabicDirectionFixture();
-}
-
-function assertRepresentativeTargetOrder() {
-    assert(MULTILINGUAL_SENTENCES.map(sentence => sentence.targetId).join('\u0000')
-        === MULTILINGUAL_TARGET_IDS.join('\u0000'),
-    'Compact multilingual parser matrix drifted from its representative target IDs.', {
-        expected: MULTILINGUAL_TARGET_IDS,
-        actual: MULTILINGUAL_SENTENCES.map(sentence => sentence.targetId),
-    });
-}
-
-function assertAuditFixtureSource(sentence) {
-    const auditFixture = TARGET_AUDIT_FIXTURES[sentence.targetId];
-    assert(auditFixture, 'Representative parser target is absent from TARGET_AUDIT_FIXTURES.', {
-        targetId: sentence.targetId,
-    });
-    assert(sentence.text.normalize('NFC').includes(auditFixture.probe.normalize('NFC')),
-        'Multilingual parser fixture stopped deriving from TARGET_AUDIT_FIXTURES.', {
-            targetId: sentence.targetId,
-            sentence: sentence.text,
-            auditProbe: auditFixture.probe,
-        });
-}
-
-function assertDecomposedSpanishFixture() {
-    const spanish = multilingualSentence('es');
-    assert(spanish.text !== spanish.text.normalize('NFC'),
-        'Spanish parser fixture must retain a decomposed Latin grapheme.', {
-            text: spanish.text,
-        });
-}
-
-function assertSupplementaryCantoneseFixture() {
-    const cantonese = multilingualSentence('yue');
-    assert([...cantonese.text].some(glyph => glyph.codePointAt(0) > 0xffff),
-        'Cantonese parser fixture must retain a supplementary-plane Han glyph.', {
-            text: cantonese.text,
-        });
-}
-
-function assertArabicDirectionFixture() {
-    const arabic = multilingualSentence('ar');
-    assert(arabic.dir === 'rtl', 'Arabic parser fixture must exercise RTL geometry.', {
-        fixture: arabic,
-    });
-}
-
-function multilingualSentence(targetId) {
-    const sentence = MULTILINGUAL_SENTENCES.find(candidate => candidate.targetId === targetId);
-    assert(sentence, 'Compact multilingual parser matrix omitted a representative target.', { targetId });
-    return sentence;
+function bareSentence(id, text, lang, dir, headwords) {
+    return {
+        id,
+        text,
+        tokens: [],
+        targetId: 'none',
+        lang,
+        dir,
+        headwords,
+        // Probe the first grapheme of each whitespace-separated run.
+        bare: [...text.matchAll(/\S+/gu)].map(match => ({
+            start: match.index,
+            end: match.index + match[0].length,
+            probeLength: [...new Intl.Segmenter(lang, { granularity: 'grapheme' }).segment(match[0])][0].segment.length,
+        })),
+    };
 }
 
 function sentenceFixture(id, text, tokenDefinitions, options = {}) {

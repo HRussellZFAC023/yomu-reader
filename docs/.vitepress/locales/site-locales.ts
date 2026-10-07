@@ -225,10 +225,10 @@ function localizedWebsitePath(pathname: string): string {
 }
 
 const WEBSITE_MESSAGES = Object.freeze({
-    'docs.site.title': { en: 'よむ - Read your learning language', ja: 'よむ - 学習している言語を読む' },
+    'docs.site.title': { en: 'よむ - Read Japanese', ja: 'よむ - 日本語を読む' },
     'docs.site.description': {
-        en: 'Yomu helps you read in any of 33 learning languages. Look up words on web pages, images, game text, PDFs, and subtitles, save useful sentences, and review them in context. Japanese adds furigana, pitch accent, kanji study, and deeper grammar.',
-        ja: 'よむは、33の学習言語のどれでも読むためのツールです。ウェブページ、画像、ゲーム、PDF、字幕の単語を調べ、役立つ文を保存し、文脈と一緒に復習できます。日本語では、ふりがな、ピッチアクセント、漢字学習、より深い文法も使えます。',
+        en: 'Yomu helps you read Japanese. Look up words on web pages, images, game text, PDFs, and subtitles with furigana and pitch accent, save useful sentences, and review them in context.',
+        ja: 'よむは日本語を読むためのツールです。ウェブページ、画像、ゲーム、PDF、字幕の単語をふりがなとピッチアクセント付きで調べ、役立つ文を保存し、文脈と一緒に復習できます。',
     },
     'docs.site.logoAlt': { en: 'よむ app icon', ja: 'よむのアプリアイコン' },
     'docs.site.imageAlt': {

@@ -4,7 +4,6 @@ import { formatIsolated, isRtlInterface } from '../locales/direction';
 import { GRAMMAR_UI_COPY } from '../study/grammar-copy';
 import { SUBTITLE_SETTINGS_COPY } from './subtitle-settings-copy';
 import { LOCAL_DICTIONARY_STORAGE_COPY } from './local-dictionary-storage-copy';
-import { TARGET_AWARE_UI_COPY } from './target-aware-copy';
 import { SETTINGS_RECOVERY_COPY } from './settings-recovery-copy';
 import { PRACTICE_SESSION_COPY } from './practice-session-copy';
 import { SAVE_WAIT_COPY } from './save-wait-copy';
@@ -19,48 +18,13 @@ const COPY = {
     en: {
         ...PRACTICE_SESSION_COPY.en, ...COLLECTION_COPY.en,
         settingsTitle: `${APP_NAME} Settings`,
-        welcomeLabel: `${APP_NAME} welcome`,
-        onboardingEyebrow: '{language}, wherever it appears',
-        onboardingCopy: 'Make {language} text, subtitles, and images tappable.',
-        onboardingLanguage: 'Settings language',
-        onboardingOutputLanguage: 'Definition and translation language (output)',
-        onboardingTargetLanguage: 'Language you are reading (target)',
-        onboardingChooseTarget: 'Choose a learning language…',
-        onboardingTargetRequired: 'Choose a learning language before continuing.',
-        onboardingUnselectedTargetName: 'your learning language',
-        onboardingAccentColor: 'Accent color',
-        customAccentColor: 'Custom color',
-        onboardingImmersionOptions: 'Immersion defaults',
-        onboardingInstallOfflineDictionaries: 'Download starter dictionaries for this language',
-        studyTargetReadinessFull: 'Full Yomu support',
-        // All 33 targets have the whole loop; Japanese differs by DEPTH, not by
-        // whether it can be studied. See learning-target-contract.test.ts.
-        studyTargetReadinessReadingOnly: 'Read, mine and review',
-        studyTargetReadinessPlanned: 'Planned',
-        studyTargetReadinessFullReason: 'Everything, including pitch accent, kanji and grammar.',
-        studyTargetReadinessReadingOnlyReason: 'Reading, lookup, mining and review are ready.',
-        studyTargetReadinessPlannedReason: 'Support is planned.',
-        onboardingHoverShortcut: 'Lookup hover modifier',
         manualPageScanShortcut: 'Manual page scan shortcut',
-        onboardingAddApiKey: 'Add API key',
-        onboardingUseWithoutApiKey: 'Use without API key',
-        closeOnboarding: 'Close welcome',
-        featureText: 'Text',
-        featureTextBody: 'Hover or tap scanned {language}.',
-        featureImages: 'Images',
-        featureImagesBody: 'Read any image by tapping it.',
-        featureVideo: 'Video',
-        featureVideoBody: 'Make subtitle words tappable.',
-        featureControl: 'Control',
-        featureControlBody: 'Tune features, shortcuts, and color.',
-        featureStudy: 'Study',
-        featureStudyBody: 'Review words and characters on the study page.',
-        featureGame: 'Game',
-        featureGameBody: 'Install the Yomu app to use in games or anywhere on the PC.',
-        gamingChooseTargetTitle: 'Choose the language you want to read', gamingChooseTargetBody: 'Yomu can read any supported language on your screen after you choose it.',
-        gamingChooseTargetAction: 'Choose a language', gamingTargetRequired: 'Choose the language you want to read before capturing your screen.',
         scanPage: 'Scan page',
-        noUnscannedJapaneseText: 'No unscanned {language} text found.',
+        noUnscannedJapaneseText: 'No unscanned Japanese text found.',
+        contextOccurrences: 'In context ×{count}',
+        puckAutoDetectSubtitles: 'Auto-detect subtitles',
+        loadTargetSubtitles: 'Load Japanese subtitles',
+        loadOutputSubtitles: 'Load English subtitles',
         jpdbScanFailed: 'Page scan failed.',
         pageCoverageSummary: '{percent}% known · {known}/{total} · {unknown} new · {iPlusOne} i+1',
         settings: 'Settings',
@@ -73,7 +37,7 @@ const COPY = {
         settingsSearch: 'Search settings',
         settingsSearchPlaceholder: 'Search settings',
         settingsSearchNoResults: 'No matches.',
-        accountSettingsTrustedSurfaceTitle: 'Open Settings in Study', accountSettingsTrustedSurfaceHelp: 'This page can read and change its own controls, so Yomu does not put settings, account details, imports, or recovery codes here. Open the Yomu-owned Study page to edit and save them safely.', openAccountSettingsTrustedSurface: 'Open Study settings', onboardingTrustedSurfaceEyebrow: 'Finish setup in Study', onboardingTrustedSurfaceCopy: 'This website can change anything shown here. Choose your learning language and preferences on the Yomu-owned Study page.', openOnboardingTrustedSurface: 'Continue setup in Study',
+        accountSettingsTrustedSurfaceTitle: 'Open Settings in Study', accountSettingsTrustedSurfaceHelp: 'This page can read and change its own controls, so Yomu does not put settings, account details, imports, or recovery codes here. Open the Yomu-owned Study page to edit and save them safely.', openAccountSettingsTrustedSurface: 'Open Study settings',
         save: 'Save',
         cancel: 'Cancel',
         show: 'Show',
@@ -258,9 +222,9 @@ const COPY = {
         lookupOnHover: 'Look up on hover',
         lookupOnMiddleMouse: 'Look up with middle-mouse hold',
         showFloatingButton: 'Show settings puck',
-        pageScanMode: '{language} text on webpages',
+        pageScanMode: 'Japanese text on webpages',
         pageScanModeOff: 'Leave pages unchanged',
-        pageScanModeAuto: 'Scan {language} automatically',
+        pageScanModeAuto: 'Scan Japanese automatically',
         pageScanModeManual: 'Scan only when I ask',
         manualScanEnabled: 'Manual page scanning',
         ocrInteractionMode: 'Image OCR scanning',
@@ -268,7 +232,6 @@ const COPY = {
         ocrInteractionModeManual: 'Tap or hover',
         ocrInteractionModeOff: 'Off',
         puckMenuLabel: `${APP_NAME} menu`,
-        ...TARGET_AWARE_UI_COPY.en,
         puckPauseAnnotations: 'Pause annotations',
         puckResumeAnnotations: 'Resume annotations',
         puckOcrAuto: 'OCR: Auto',
@@ -474,17 +437,17 @@ const COPY = {
         hideControls: 'Hide controls',
         alwaysVisible: 'Always visible',
         preview: 'Preview',
-        youtubeImmersionEnabled: '{language} YouTube only',
-        preferJapaneseSiteLanguage: 'Open {language} versions of sites',
+        youtubeImmersionEnabled: 'Japanese YouTube only',
+        preferJapaneseSiteLanguage: 'Open Japanese versions of sites',
         youtubeShowChannelRecommendations: 'Show Japanese channel suggestions',
         youtubeShowFilterNotice: 'Show hidden-video notice',
-        youtubeHelp: 'Filter YouTube for {language} and open {language} versions of sites.',
+        youtubeHelp: 'Filter YouTube for Japanese and open Japanese versions of sites.',
         youtubeShowHiddenVideos: 'Show hidden videos',
         youtubeHideHiddenVideos: 'Hide hidden videos',
         youtubeHideNotice: 'Hide notice',
         youtubeFilterShowing: '{appName} shows {count} hidden item{plural}',
         youtubeFilterHid: '{appName} hid {count} other-language item{plural}',
-        youtubeFilterVisible: '{count} {language} items stayed visible.',
+        youtubeFilterVisible: '{count} Japanese items stayed visible.',
         youtubeToggleToastOn: 'YouTube immersion filter enabled.',
         youtubeToggleToastOff: 'YouTube immersion filter disabled.',
         ankiEnabled: 'Enable Anki mining',
@@ -605,8 +568,6 @@ const COPY = {
         parserProviderJpdb: 'JPDB API',
         parserProviderAuto: 'Automatic (Jiten/JPDB)',
         parserProviderHelp: 'Local parses with imported dictionaries, offline. Jiten and JPDB always use that API when its key is set. Automatic uses your preferred grading service when both keys are set, otherwise Jiten, then JPDB.',
-        offlineDictionarySetupComplete: 'Offline dictionaries installed.',
-        offlineDictionarySetupFailed: 'Offline dictionary setup failed. Retry from Settings → Sources.',
         copiesCurrentWord: 'Copies the current word',
         plaintextHttpLink: 'Opens over plaintext HTTP.',
         lookupPillLabelNumber: 'Lookup pill {number} label',
@@ -630,7 +591,6 @@ const COPY = {
         mirroredDictionariesSummary: '{count} more dictionaries · {size} total',
         mirroredDictionarySearch: 'Search dictionaries',
         mirroredDictionarySearchNoResults: 'No dictionaries match your search.',
-        mirroredDictionaryLanguageNote: 'Dictionaries for reading {language}.',
         install: 'Install',
         installing: 'Installing',
         installed: 'Installed',
@@ -640,8 +600,6 @@ const COPY = {
         download: 'Download',
         update: 'Update',
         checkingDictionaries: 'Checking imported dictionaries...',
-        targetDictionaryUnavailable: 'Dictionaries for {language} are not available yet.',
-        targetDictionaryAvailabilityUnavailable: 'Dictionary availability could not be checked.',
         dictionaryDownloading: 'Downloading',
         dictionaryReadingZip: 'Reading dictionary ZIP...',
         dictionaryCheckingIndex: 'Checking index...',
@@ -1169,14 +1127,6 @@ const COPY = {
         translationUnavailable: 'Translation unavailable.',
         translating: 'Translating...',
         ...GRAMMAR_UI_COPY.en,
-        // D43 interface-locale picker: Yomu ships two of 33 in-scope interface languages.
-        // The picker names what the other 31 are waiting on instead of silently replacing them with English.
-        interfaceLocalesReady: 'Ready now',
-        interfaceLocalesInProgress: 'On the way',
-        interfaceLocaleRtlPending: 'Right-to-left layout checks are still running',
-        interfaceLocaleTranslationPending: 'Translation is still in progress',
-        interfaceLocaleBlockedNote: 'These are coming. Each one shows what it is waiting on.',
-        interfaceLocaleReadyCount: '{ready} of {total} interface languages are ready.',
     },
 } as const;
 export type UiCopyKey = keyof typeof COPY.en;
@@ -1216,53 +1166,8 @@ function parseUiCopyTable(rows: string): Partial<Record<UiCopyKey, string>> {
     return copy;
 }
 const JA_COPY: Partial<Record<UiCopyKey, string>> = {
-    gamingChooseTargetTitle: '読みたい言語を選んでください', gamingChooseTargetBody: '言語を選ぶと、画面上の対応言語を読み取れるようになります。',
-    gamingChooseTargetAction: '言語を選ぶ', gamingTargetRequired: '画面をキャプチャする前に、読みたい言語を選んでください。',
     ...parseUiCopyTable(String.raw`
-interfaceLocalesReady	今すぐ使えます
-interfaceLocalesInProgress	準備中
-interfaceLocaleRtlPending	右から左へのレイアウト確認が進行中です
-interfaceLocaleTranslationPending	翻訳が進行中です
-interfaceLocaleBlockedNote	これらの言語も準備中です。それぞれ何を待っているか表示します。
-interfaceLocaleReadyCount	表示言語{total}件のうち{ready}件が使えます。
 settingsTitle	{APP_NAME} 設定
-welcomeLabel	{APP_NAME} ようこそ
-onboardingEyebrow	{language}がある場所ならどこでも
-onboardingCopy	本文、字幕、画像の{language}をタップ可能にします。
-onboardingLanguage	表示言語
-onboardingOutputLanguage	定義・翻訳の言語（出力）
-onboardingTargetLanguage	ページで読む言語（対象）
-onboardingChooseTarget	学習する言語を選ぶ…
-onboardingTargetRequired	続ける前に学習する言語を選んでください。
-onboardingUnselectedTargetName	学習中の言語
-onboardingAccentColor	アクセントカラー
-customAccentColor	カスタムカラー
-onboardingImmersionOptions	没入設定の初期値
-onboardingInstallOfflineDictionaries	この言語のスターター辞書をダウンロード
-studyTargetReadinessFull	よむの全機能
-studyTargetReadinessReadingOnly	読んで、集めて、復習
-studyTargetReadinessPlanned	準備中
-studyTargetReadinessFullReason	ピッチアクセント、漢字、文法まですべて使えます。
-studyTargetReadinessReadingOnlyReason	読解、検索、マイニング、復習が使えます。
-studyTargetReadinessPlannedReason	対応を準備中です。
-offlineDictionarySetupComplete	オフライン辞書をインストールしました。
-offlineDictionarySetupFailed	オフライン辞書のセットアップに失敗しました。設定→ソースから再試行してください。
-onboardingHoverShortcut	ホバー検索の修飾キー
-onboardingAddApiKey	APIキーを追加
-onboardingUseWithoutApiKey	APIキーなしで使う
-closeOnboarding	ようこそ画面を閉じる
-featureText	テキスト
-featureTextBody	スキャンした{language}をホバー/タップできます。
-featureImages	画像
-featureImagesBody	画像をタップして読み取れます。
-featureVideo	動画
-featureVideoBody	字幕内の語もタップできます。
-featureControl	調整
-featureControlBody	機能、キー、色を調整できます。
-featureStudy	学習
-featureStudyBody	学習ページで単語と文字を復習。
-featureGame	ゲーム
-featureGameBody	Yomuアプリをインストールすると、ゲームやPC上のどこでも使えます。
 automatic	自動
 english	英語
 japanese	日本語
@@ -1328,8 +1233,6 @@ dictionaryTotal	合計
 dictionaryDownloadProgress	辞書をダウンロード中
 dictionaryStatusSummary	辞書{dictionaries}、語{terms}、漢字{kanji}、メタ{metadata}
 dictionaryStatusUnavailable	辞書状態を取得不可。
-targetDictionaryUnavailable	{language}の辞書はまだ利用できません。
-targetDictionaryAvailabilityUnavailable	辞書の提供状況を確認できませんでした。
 noLocalDictionariesImported	辞書は未追加です。まず定義用の語句辞書を追加してください。
 dictionaryDownloadFailed	辞書のダウンロードに失敗しました。
 storageRuntimeUnavailable	よむの保存機能を利用できません。ページを再読み込みし、解決しない場合はよむを再インストールしてください。
@@ -1359,7 +1262,11 @@ dictionaryZipMissingIndex	ZIPにindex.jsonがありません。
 local	ローカル
 dict	辞書
 scanPage	ページをスキャン
-noUnscannedJapaneseText	未スキャンの{language}テキストはありません。
+noUnscannedJapaneseText	未スキャンの日本語テキストはありません。
+contextOccurrences	文脈内 ×{count}
+puckAutoDetectSubtitles	字幕を自動検出
+loadTargetSubtitles	日本語字幕を読み込む
+loadOutputSubtitles	英語字幕を読み込む
 jpdbScanFailed	ページスキャンに失敗しました。
 pageCoverageSummary	{percent}%・{known}/{total}・新{unknown}・i+1 {iPlusOne}
 noImmersionExamplesCompact	例文なし
@@ -1710,7 +1617,7 @@ translating	翻訳中...
 };
 
 const JA_SETTINGS_COPY: Partial<Record<UiCopyKey, string>> = {
-    accountSettingsTrustedSurfaceTitle: 'Studyで設定を開く', accountSettingsTrustedSurfaceHelp: 'このページは自身の入力欄を読み書きできるため、よむは設定、アカウント情報、インポート、復旧コードをここに表示しません。よむが管理するStudyページで安全に編集・保存してください。', openAccountSettingsTrustedSurface: 'Studyの設定を開く', onboardingTrustedSurfaceEyebrow: 'Studyで初期設定を完了', onboardingTrustedSurfaceCopy: 'このウェブサイトは、ここに表示された内容を変更できます。よむが管理するStudyページで学習言語と設定を安全に選んでください。', openOnboardingTrustedSurface: 'Studyで初期設定を続ける',
+    accountSettingsTrustedSurfaceTitle: 'Studyで設定を開く', accountSettingsTrustedSurfaceHelp: 'このページは自身の入力欄を読み書きできるため、よむは設定、アカウント情報、インポート、復旧コードをここに表示しません。よむが管理するStudyページで安全に編集・保存してください。', openAccountSettingsTrustedSurface: 'Studyの設定を開く',
     ...parseUiCopyTable(String.raw`
 settingsTitle	{APP_NAME} 設定
 settingsSections	設定セクション
@@ -1892,10 +1799,10 @@ lookupOnClick	タップまたはクリックで検索
 lookupOnHover	ホバーで検索
 lookupOnMiddleMouse	中央ボタン長押しで検索
 showFloatingButton	設定ボタンを表示
-pageScanMode	ウェブページの{language}
+pageScanMode	ウェブページの日本語
 pageScanModeOff	ページを変更しない
-pageScanModeAuto	{language}を自動で検出
-pageScanModeManual	指示したときだけ{language}を検出
+pageScanModeAuto	日本語を自動で検出
+pageScanModeManual	指示したときだけ日本語を検出
 manualPageScanShortcut	手動ページスキャンのショートカット
 manualScanEnabled	手動ページスキャン
 ocrInteractionMode	画像OCRスキャン
@@ -2089,17 +1996,17 @@ showWhenNeeded	コンパクト表示
 hideControls	コントロールを隠す
 alwaysVisible	常に表示
 preview	プレビュー
-youtubeImmersionEnabled	{language}のYouTubeのみ
-preferJapaneseSiteLanguage	{language}版のサイトを開く
+youtubeImmersionEnabled	日本語のYouTubeのみ
+preferJapaneseSiteLanguage	日本語版のサイトを開く
 youtubeShowChannelRecommendations	日本語チャンネル候補を表示
 youtubeShowFilterNotice	非表示動画の通知を表示
-youtubeHelp	YouTubeを{language}向けに絞り、{language}版のサイトを開きます。
+youtubeHelp	YouTubeを日本語向けに絞り、日本語版のサイトを開きます。
 youtubeShowHiddenVideos	非表示動画を表示
 youtubeHideHiddenVideos	非表示動画を隠す
 youtubeHideNotice	通知を隠す
 youtubeFilterShowing	{appName}は非表示のYouTube項目{count}件を表示中
 youtubeFilterHid	{appName}は他の言語のYouTube項目{count}件を非表示
-youtubeFilterVisible	{language}らしい項目{count}件は表示したままです。
+youtubeFilterVisible	日本語らしい項目{count}件は表示したままです。
 youtubeToggleToastOn	YouTube没入フィルターをオンにしました。
 youtubeToggleToastOff	YouTube没入フィルターをオフにしました。
 ankiEnabled	Anki採掘を有効にする
@@ -2240,7 +2147,6 @@ mirroredDictionaries	配信中のすべての辞書
 mirroredDictionariesSummary	他{count}件の辞書 · 合計{size}
 mirroredDictionarySearch	辞書を検索
 mirroredDictionarySearchNoResults	検索に一致する辞書がありません。
-mirroredDictionaryLanguageNote	{language}を読むための辞書です。
 install	インストール
 installing	インストール中
 installed	インストール済み
@@ -2385,7 +2291,6 @@ recommendedBccwj	BCCWJ由来の頻度バッジです。
 recommendedJiten	Jiten由来の頻度バッジです。
 `),
     ...SUBTITLE_SETTINGS_COPY.ja,
-    ...TARGET_AWARE_UI_COPY.ja,
 };
 
 export interface GrammarRuleCopy {

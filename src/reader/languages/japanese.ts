@@ -1,5 +1,5 @@
 import { normalizedJapaneseCardReading } from '../cards/highlight-values';
-import { HAS_JAPANESE } from '../dom/constants';
+import { HAS_JAPANESE_LETTER } from '../dom/constants';
 import {
     compareJapaneseLookupCandidates,
     normalizeFallbackTerm,
@@ -22,14 +22,8 @@ const JAPANESE_POINTER_WORD_RE = new RegExp(
 );
 
 /**
- * Japanese Adapter over Yomu's existing, heavily-tested parser primitives.
- * Keeping the Implementation here as delegation avoids replacing mature
- * segmentation/deinflection semantics while shared callers migrate to the new
- * target-language seam.
- *
- * Every fact below is the literal value core used to hardcode at the call
- * sites that now resolve through this contract, so moving Japanese behind the
- * seam is a pure relocation.
+ * The Japanese Adapter over Yomu's heavily-tested parser primitives: the one
+ * learning target (ADR-0024). Core reads Japanese facts through this contract.
  */
 export const JAPANESE_LEARNING_TARGET: LearningTargetModule = createLearningTargetModule({
     id: 'japanese-v1',
@@ -76,14 +70,8 @@ export const JAPANESE_LEARNING_TARGET: LearningTargetModule = createLearningTarg
         languageAliases: [],
     },
 
-    detectsText: HAS_JAPANESE,
+    detectsText: HAS_JAPANESE_LETTER,
     normalizeText: normalizeJapaneseTargetText,
-
-    // Japanese writes no word boundaries, so its segmenter infers them. That is
-    // good enough to decide where a reading is drawn and not good enough to
-    // decide where a dictionary term may begin, which is why the term engine
-    // sweeps every position for this target and lets the dictionary arbitrate.
-    lookupStartsAtSegmentBoundary: false,
 
     segment(text: string) {
         return segmentJapaneseText(text).map(segment => ({

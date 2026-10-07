@@ -10,8 +10,6 @@ import {
 } from '../lookup/japanese-script';
 import { effectiveFuriganaMode } from '../settings/index';
 import { isUnifiedIdeograph } from '../languages/han';
-import { activeLearningTarget, learningTargetModuleFor } from '../languages/target-runtime';
-import type { LearningTargetModule } from '../languages/types';
 import type { CardState, JPDBCard, JPDBToken, ReaderSettings } from '../app/types';
 import {
     type KanjiNavigationRenderOptions,
@@ -149,7 +147,7 @@ function isSafeTokenSpan(token: JPDBToken, offset: number, text: string): boolea
     return Number.isInteger(start)
         && Number.isInteger(end)
         && spanFitsText(start, end, offset, text)
-        && tokenSourceSpanIsRenderable(token, text.slice(start, end));
+        && tokenSourceSpanIsRenderable(text.slice(start, end));
 }
 
 function spanFitsText(start: number, end: number, offset: number, text: string): boolean {
@@ -158,13 +156,12 @@ function spanFitsText(start: number, end: number, offset: number, text: string):
         && end <= text.length;
 }
 
-function tokenSourceSpanIsRenderable(token: JPDBToken, source: string): boolean {
-    const target = learningTargetForToken(token);
-    // Japanese scan detection accepts marks like `・`/`ー`; rendering still
-    // requires a lexical letter. Other targets' lookup predicates already do.
-    return target.language === 'ja'
-        ? HAS_JAPANESE_LETTER.test(source)
-        : target.isLookupableText(source);
+// The paint gate. Japanese scan detection accepts marks like `・`/`ー`;
+// painting requires a Japanese letter in the word's own source slice, so no
+// provider token over Latin, Cyrillic, Hangul or digits is ever decorated,
+// whatever language a stored card claims.
+function tokenSourceSpanIsRenderable(source: string): boolean {
+    return HAS_JAPANESE_LETTER.test(source);
 }
 
 export function miningInsightTokenKeys(tokens: JPDBToken[]): ReadonlySet<string> {
@@ -237,12 +234,10 @@ export function shouldRenderRuby(
 function furiganaModeAllowsRuby(mode: string, surface: string, token: JPDBToken, settings: ReaderSettings): boolean {
     if (mode === 'off') return false;
     if (mode === 'known-status') return !shouldHideFuriganaForCardState(settings, primaryCardState(token.card.cardState));
-    return mode !== 'difficult-kanji' || targetAllowsFurigana(surface, token);
+    return mode !== 'difficult-kanji' || targetAllowsFurigana(surface);
 }
 
-function targetAllowsFurigana(surface: string, token: JPDBToken): boolean {
-    // Easy-kanji filtering is Japanese-only.
-    if (learningTargetForToken(token).typing.answerNormalizer !== 'japanese-kana') return true;
+function targetAllowsFurigana(surface: string): boolean {
     for (const char of surface) {
         if (isDifficultKanji(char)) return true;
     }
@@ -412,12 +407,7 @@ export function effectiveTokenRubies(
     token: JPDBToken,
     preserveTokenRubies = false,
 ): JPDBToken['rubies'] {
-    const target = learningTargetForToken(token);
-    if (target.typography.readingAnnotationMode === 'none') return [];
     const sources = sourceTokenRubies(surface, token);
-    if (target.experiences.characterLookup === 'term-dictionary') {
-        return sources.filter(ruby => localRubyRange(surface, token, ruby));
-    }
     if (preserveTokenRubies) {
         return sources.flatMap(ruby => {
             const range = localRubyRange(surface, token, ruby);
@@ -459,10 +449,6 @@ function trimmedTokenReading(token: JPDBToken): string {
 }
 
 function inferredTokenRubies(surface: string, reading: string, token: JPDBToken): JPDBToken['rubies'] {
-    // Inflected-surface inference is a Japanese Adapter. Other targets render
-    // exact dictionary-owned spans and never guess how a reading maps across a
-    // changed surface.
-    if (learningTargetForToken(token).typing.answerNormalizer !== 'japanese-kana') return [];
     if (!KANJI_RE.test(surface)) return [];
     if (!KANA_RE.test(reading)) return [];
     const inferred = inferredInflectedSurfaceRubies(surface, token.card.spelling, reading);
@@ -488,10 +474,6 @@ function explicitRubyReadingMatchesSurface(surface: string, token: JPDBToken): b
     }
     reconstructed += surface.slice(cursor);
     return reconstructed.normalize('NFC') === surface.normalize('NFC');
-}
-
-function learningTargetForToken(token: JPDBToken): LearningTargetModule {
-    return learningTargetModuleFor(token.card.language) ?? activeLearningTarget();
 }
 
 function kanjiOnlyRubySegments(

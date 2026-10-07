@@ -1,9 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
-    resetActiveLearningTargetLanguage,
-    setActiveLearningTargetLanguage,
-} from '../../../src/reader/languages/active';
-import {
     registerReaderHelpersCleanup,
     DEFAULT_SETTINGS,
     READER_WORD_CSS,
@@ -456,32 +452,6 @@ describe('reader helpers', () => {
         }
     });
 
-    it('keeps native Shorts chrome page-owned when the active target and UI are non-Japanese', () => {
-        vi.stubGlobal('location', {
-            href: 'https://www.youtube.com/shorts/espanol',
-            origin: 'https://www.youtube.com',
-            hostname: 'www.youtube.com',
-            pathname: '/shorts/espanol',
-        });
-        expect(setActiveLearningTargetLanguage('es')).not.toBeNull();
-        try {
-            const targets = collectYouTubeTargets(`
-                <ytm-shorts>
-                    <div class="shorts-action-rail" role="toolbar">
-                        <button aria-label="Compartir"><span>Compartir</span></button>
-                    </div>
-                    <section>Estudio palabras nuevas cada día</section>
-                </ytm-shorts>
-            `, 'https://www.youtube.com/shorts/espanol', 20);
-
-            expect(targets.some(target => target.text.includes('Estudio palabras nuevas'))).toBe(true);
-            expect(targets.some(target => target.text.includes('Compartir'))).toBe(false);
-        } finally {
-            resetActiveLearningTargetLanguage();
-            vi.unstubAllGlobals();
-        }
-    });
-
     it('prioritizes YouTube watch sidebar recommendations before busy live chat at low limits', () => {
         vi.stubGlobal('location', {
             href: YOUTUBE_WATCH_TEST_URL,
@@ -542,7 +512,6 @@ describe('reader helpers', () => {
             hostname: 'www.youtube.com',
             pathname: '/watch',
         });
-        expect(setActiveLearningTargetLanguage('ja')).not.toBeNull();
         try {
             const title = '日本語で考えるってどういう事？ / How to Think in Japanese';
             const description = '10万回視聴 1か月前 日本語学習のアドバイス podcast (About japanese study)';
@@ -569,7 +538,6 @@ describe('reader helpers', () => {
             expect(document.querySelector('#reported-share .jpdb-reader-word')).toBeNull();
             expect(document.querySelector('#reported-share .jpdb-reader-text-mirror')).toBeNull();
         } finally {
-            resetActiveLearningTargetLanguage();
             vi.unstubAllGlobals();
         }
     });

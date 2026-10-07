@@ -1,20 +1,18 @@
 import { afterEach, expect, it, vi } from 'vitest';
 import { LocalYomuSrsRepository, createYomuLocalSrsAdapter } from '../../src/reader/srs/local-yomu';
 import { DEFAULT_SETTINGS } from '../../src/reader/settings';
-import { setActiveLearningTargetLanguage, resetActiveLearningTargetLanguage } from '../../src/reader/languages/active';
 import { newTabPromptController, newTabTestCard, renderEnabledNewTabRoot } from './new-tab-review/fixtures';
 import type { JPDBCard } from '../../src/reader/app/types';
 import { DEFAULT_NEW_TAB_UI_STATE } from '../../src/reader/newtab/state';
 import { allowSyntheticReaderInteractionsForTests, dispatchAuthorizedReaderControlClick, installTrustedReaderRootBoundary } from '../../src/reader/ui/trusted-interaction';
 
-afterEach(() => { vi.restoreAllMocks(); allowSyntheticReaderInteractionsForTests(true); document.body.replaceChildren(); localStorage.clear(); sessionStorage.clear(); resetActiveLearningTargetLanguage(); });
+afterEach(() => { vi.restoreAllMocks(); allowSyntheticReaderInteractionsForTests(true); document.body.replaceChildren(); localStorage.clear(); sessionStorage.clear(); });
 
 it('shows a saved word in the collection without placing it in the review queue', async () => {
-    setActiveLearningTargetLanguage('ja');
     await new LocalYomuSrsRepository().mine({ expression: '読む', reading: 'よむ', meaning: 'to read', sentence: '本を読む。' });
     const repository = new LocalYomuSrsRepository();
     const adapter = createYomuLocalSrsAdapter(repository);
-    const controller = newTabPromptController({ ...DEFAULT_SETTINGS, learningTargetChosen: true }, {
+    const controller = newTabPromptController(DEFAULT_SETTINGS, {
         srsAdapters: { 'yomu-local': adapter },
     });
     try {
@@ -30,7 +28,6 @@ it('shows a saved word in the collection without placing it in the review queue'
 });
 
 it.each([false, true])('enrolls only on an explicit collection action and reports failure=%s', async failure => {
-    setActiveLearningTargetLanguage('ja');
     allowSyntheticReaderInteractionsForTests(false);
     const boundary = new AbortController();
     installTrustedReaderRootBoundary(document, boundary.signal);
@@ -40,7 +37,7 @@ it.each([false, true])('enrolls only on an explicit collection action and report
     const enroll = vi.spyOn(repository, 'startReview');
     if (failure) enroll.mockRejectedValueOnce(new Error('storage unavailable'));
     const toast = vi.fn();
-    const controller = newTabPromptController({ ...DEFAULT_SETTINGS, learningTargetChosen: true }, { srsAdapters: { 'yomu-local': adapter }, toast });
+    const controller = newTabPromptController(DEFAULT_SETTINGS, { srsAdapters: { 'yomu-local': adapter }, toast });
     const probe = controller as unknown as {
         state: typeof DEFAULT_NEW_TAB_UI_STATE;
         browsePool: JPDBCard[];
@@ -79,7 +76,6 @@ it.each([false, true])('enrolls only on an explicit collection action and report
 });
 
 it('returns to a Study queue rebuilt with the word just added to review', async () => {
-    setActiveLearningTargetLanguage('ja');
     allowSyntheticReaderInteractionsForTests(false);
     const boundary = new AbortController();
     installTrustedReaderRootBoundary(document, boundary.signal);
@@ -87,7 +83,7 @@ it('returns to a Study queue rebuilt with the word just added to review', async 
     await repository.mine({ expression: '読む', reading: 'よむ', meaning: 'to read', sentence: '本を読む。' });
     const adapter = createYomuLocalSrsAdapter(repository);
     const toast = vi.fn();
-    const controller = newTabPromptController({ ...DEFAULT_SETTINGS, learningTargetChosen: true }, { srsAdapters: { 'yomu-local': adapter }, toast });
+    const controller = newTabPromptController(DEFAULT_SETTINGS, { srsAdapters: { 'yomu-local': adapter }, toast });
     const probe = controller as unknown as {
         state: typeof DEFAULT_NEW_TAB_UI_STATE;
         allWords: JPDBCard[];

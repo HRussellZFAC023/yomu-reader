@@ -13,7 +13,6 @@ import { runCardActionOperation } from '../../src/reader/cards/action-operation'
 import { userFacingErrorText } from '../../src/reader/app/user-facing-errors';
 import { readCardCommandCapability } from '../../src/reader/dom/private-command-capabilities';
 import { setInnerHtml } from '../../src/reader/dom';
-import { resetActiveLearningTargetLanguage, setActiveLearningTargetLanguage } from '../../src/reader/languages/active';
 import { openDeckPickerForCardAdd } from '../../src/reader/study/mining-controls';
 import { reviewGradeScale } from '../../src/reader/cards/grade-scale';
 import { renderNewTabLookupReviewControls } from '../../src/reader/newtab/lookup-dom';
@@ -62,7 +61,6 @@ const STUDY_REVIEW_TARGETS: NewTabLookupReviewTarget[] = [
 
 afterEach(() => {
     allowSyntheticReaderInteractionsForTests(true);
-    resetActiveLearningTargetLanguage();
     document.body.replaceChildren();
     localStorage.clear();
 });
@@ -454,7 +452,6 @@ describe('popup collect action', () => {
     });
 
     it('saves exactly once to the local deck, without scheduling it, only on trusted input, and keeps keyboard focus on it', async () => {
-        setActiveLearningTargetLanguage('ja');
         allowSyntheticReaderInteractionsForTests(false);
         const boundary = new AbortController();
         installTrustedReaderRootBoundary(document, boundary.signal);

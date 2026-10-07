@@ -1,8 +1,5 @@
 import { APP_NAME, APP_PUCK } from '../app/constants';
-import { formatUiText, uiText } from '../app/i18n';
-import { targetLanguageDisplayName } from '../app/target-language-name';
-import { activeLearningTargetLanguage } from '../languages/target-runtime';
-import { usesJapaneseProviders } from '../languages/character-lookup';
+import { uiText } from '../app/i18n';
 import type { ReaderSettings } from '../app/types';
 import {
     RadialMenuController,
@@ -90,15 +87,9 @@ interface PowerActionPresentation {
     tone: 'on' | 'off' | 'partial';
 }
 
-const JAPANESE_POWER_ACTION: Readonly<Record<PuckPowerState, PowerActionPresentation>> = Object.freeze({
+const POWER_ACTION: Readonly<Record<PuckPowerState, PowerActionPresentation>> = Object.freeze({
     on: { label: 'puckHideFurigana', icon: radialPowerIcon, tone: 'on' },
     'no-furigana': { label: 'puckPauseAnnotations', icon: radialFuriganaHiddenIcon, tone: 'partial' },
-    paused: { label: 'puckResumeAnnotations', icon: radialPausedIcon, tone: 'off' },
-});
-
-const GENERIC_POWER_ACTION: Readonly<Record<PuckPowerState, PowerActionPresentation>> = Object.freeze({
-    on: { label: 'puckPauseAnnotations', icon: radialPowerIcon, tone: 'on' },
-    'no-furigana': { label: 'puckPauseAnnotations', icon: radialPowerIcon, tone: 'on' },
     paused: { label: 'puckResumeAnnotations', icon: radialPausedIcon, tone: 'off' },
 });
 
@@ -112,7 +103,7 @@ function floatingButtonRadialActions(
         audioRadialAction(settings, actions),
         ocrRadialAction(settings, actions),
     ];
-    if (usesJapaneseProviders()) items.push(japaneseSiteRadialAction(settings, actions));
+    items.push(japaneseSiteRadialAction(settings, actions));
     items.push(settingsRadialAction(settings, actions), studyRadialAction(settings, actions));
     if (actions.hasSubtitleVideo()) items.push(subtitleRadialAction(settings, actions));
     if (actions.isYouTube()) items.push(youtubeRadialAction(settings, actions));
@@ -125,7 +116,7 @@ function powerRadialAction(
     syncButtonState: () => void,
 ): RadialAction {
     const state = actions.powerState();
-    const presentation = (usesJapaneseProviders() ? JAPANESE_POWER_ACTION : GENERIC_POWER_ACTION)[state];
+    const presentation = POWER_ACTION[state];
     return {
         id: 'power',
         label: uiText(settings.interfaceLanguage, presentation.label),
@@ -169,9 +160,7 @@ function ocrRadialTone(mode: OcrInteractionMode, powerState: PuckPowerState): 'o
 function japaneseSiteRadialAction(settings: ReaderSettings, actions: FloatingButtonActions): RadialAction {
     return {
         id: 'japanese-site',
-        label: formatUiText(settings.interfaceLanguage, 'preferJapaneseSiteLanguage', {
-            language: targetLanguageDisplayName(settings),
-        }),
+        label: uiText(settings.interfaceLanguage, 'preferJapaneseSiteLanguage'),
         icon: '日',
         glyph: true,
         tone: settings.preferJapaneseSiteLanguage ? 'on' : 'off',
@@ -192,7 +181,7 @@ function settingsRadialAction(settings: ReaderSettings, actions: FloatingButtonA
 function studyRadialAction(settings: ReaderSettings, actions: FloatingButtonActions): RadialAction {
     return {
         id: 'study',
-        label: targetActionLabel(settings, 'puckStudyTarget'),
+        label: uiText(settings.interfaceLanguage, 'newTab'),
         icon: 'よ',
         glyph: true,
         run: () => actions.openStudyPage(),
@@ -203,7 +192,7 @@ function subtitleRadialAction(settings: ReaderSettings, actions: FloatingButtonA
     const enabled = actions.isAutoSubtitlesEnabled();
     return {
         id: 'subtitles',
-        label: targetActionLabel(settings, 'puckAutoDetectTargetSubtitles'),
+        label: uiText(settings.interfaceLanguage, 'puckAutoDetectSubtitles'),
         icon: radialCaptionsIcon(),
         tone: enabled ? 'on' : 'off',
         keepOpen: true,
@@ -215,21 +204,12 @@ function youtubeRadialAction(settings: ReaderSettings, actions: FloatingButtonAc
     const enabled = actions.isYoutubeFilterEnabled();
     return {
         id: 'youtube',
-        label: targetActionLabel(settings, 'puckFilterYoutubeTarget'),
+        label: uiText(settings.interfaceLanguage, 'youtubeImmersionEnabled'),
         icon: radialYoutubeIcon(),
         tone: enabled ? 'on' : 'off',
         keepOpen: true,
         run: () => actions.toggleYoutubeFilter(),
     };
-}
-
-function targetActionLabel(
-    settings: ReaderSettings,
-    key: 'puckStudyTarget' | 'puckAutoDetectTargetSubtitles' | 'puckFilterYoutubeTarget',
-): string {
-    return formatUiText(settings.interfaceLanguage, key, {
-        language: targetLanguageDisplayName(settings),
-    });
 }
 
 export class FloatingButtonController {
@@ -318,7 +298,6 @@ export class FloatingButtonController {
         if (!button) return;
         const powerState = this.actions?.powerState() ?? 'on';
         const language = this.settings?.interfaceLanguage ?? 'en';
-        const targetName = this.settings ? targetLanguageDisplayName(this.settings) : '';
         // Sites with their own bottom action dock (Jiten's study grade bar +
         // Blacklist/Master row) collide with the default bottom-right spot;
         // raise the FAB above them (mobile UX finding, 2026-06-11).
@@ -326,10 +305,7 @@ export class FloatingButtonController {
         button.classList.toggle('jpdb-reader-fab--on', powerState === 'on');
         button.classList.toggle('jpdb-reader-fab--no-furigana', powerState === 'no-furigana');
         button.classList.toggle('jpdb-reader-fab--paused', powerState === 'paused');
-        button.dataset.targetLanguage = activeLearningTargetLanguage();
-        button.title = powerState === 'on' && targetName
-            ? formatUiText(language, 'puckLearningTarget', { language: targetName })
-            : puckStateLabel(language, powerState);
+        button.title = puckStateLabel(language, powerState);
         button.setAttribute('aria-label', button.title);
     }
 

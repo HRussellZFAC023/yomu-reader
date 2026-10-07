@@ -1,10 +1,4 @@
 import { canonicalLanguageTag } from './locale';
-import { normalizeLearningTargetLanguage } from './target-runtime';
-import {
-    DEFAULT_SLICE1_LEARNER_LANGUAGE,
-    normalizeSlice1LearnerLanguage,
-    slice1LanguageIdForTag,
-} from './roster';
 import {
     isSupportedLanguageProfileSchemaVersion,
     LANGUAGE_PROFILE_SCHEMA_VERSION,
@@ -56,29 +50,12 @@ export interface NormalizedLanguageProfiles {
     activeProfileId: string;
 }
 
-export interface ActivatedLanguageProfile {
-    profiles: LanguageProfile[];
-    activeProfileId: string;
-    created: boolean;
-}
-
-export interface NewLanguageProfileValues {
-    uiLocale?: LocalePreference;
-    parserProvider?: ParserProvider;
-    targetLanguage?: LanguageTag;
-    dictionaries?: LanguageProfileDictionaries;
-    definitionTranslationProviderIds?: string[];
-}
-
 export function createDefaultLanguageProfile(defaults: LanguageProfileDefaults = {}): LanguageProfile {
     return {
         schemaVersion: LANGUAGE_PROFILE_SCHEMA_VERSION,
         id: DEFAULT_LANGUAGE_PROFILE_ID,
-        ...outputLanguageFields(normalizeSlice1LearnerLanguage(
-            readOutputLanguageField(defaults),
-            DEFAULT_SLICE1_LEARNER_LANGUAGE,
-        )),
-        targetLanguage: normalizeLearningTargetLanguage(defaults.targetLanguage),
+        ...outputLanguageFields(storedOutputLanguage(readOutputLanguageField(defaults))),
+        targetLanguage: storedTargetLanguage(defaults.targetLanguage),
         uiLocale: normalizeUiLocale(defaults.uiLocale, 'en'),
         parserProvider: normalizeParserProvider(defaults.parserProvider, 'local'),
         dictionaries: emptyProfileDictionaries(),
@@ -128,58 +105,6 @@ export function activeLanguageProfile(
 }
 
 /**
- * Selects the independent profile for an OUTPUT language, creating it exactly
- * once when that language has not been used before. Physical dictionaries
- * remain shared browser data, while enabled/order choices and translation
- * consent are copied into the new profile and then evolve independently.
- */
-export function activateLanguageProfileForOutputLanguage(
-    profiles: readonly LanguageProfile[],
-    activeProfileId: string,
-    outputLanguage: unknown,
-    initial: NewLanguageProfileValues = {},
-): ActivatedLanguageProfile {
-    const canonicalOutputLanguage = normalizeSlice1LearnerLanguage(outputLanguage);
-    const outputLanguageId = slice1LanguageIdForTag(canonicalOutputLanguage)
-        ?? DEFAULT_SLICE1_LEARNER_LANGUAGE;
-    const existing = profiles.find(profile =>
-        slice1LanguageIdForTag(profile.outputLanguage) === outputLanguageId,
-    );
-    if (existing) {
-        return {
-            profiles: [...profiles],
-            activeProfileId: existing.id,
-            created: false,
-        };
-    }
-
-    const base = activeLanguageProfile(profiles, activeProfileId)
-        ?? createDefaultLanguageProfile();
-    const usedIds = new Set(profiles.map(profile => profile.id));
-    const profile: LanguageProfile = {
-        ...base,
-        // The ID keeps its revision-1 shape: it is a stored pointer, and
-        // renaming it would orphan every existing profile.
-        id: uniqueProfileId(`learner-${outputLanguageId}-ja`, usedIds),
-        ...outputLanguageFields(canonicalOutputLanguage),
-        // A new output-language profile inherits what the person is already
-        // studying. Switching definition language is not a target decision.
-        targetLanguage: normalizeLearningTargetLanguage(initial.targetLanguage ?? base.targetLanguage),
-        uiLocale: initial.uiLocale ?? base.uiLocale,
-        parserProvider: initial.parserProvider ?? base.parserProvider,
-        dictionaries: cloneProfileDictionaries(initial.dictionaries ?? base.dictionaries),
-        definitionTranslationProviderIds: [
-            ...(initial.definitionTranslationProviderIds ?? base.definitionTranslationProviderIds),
-        ],
-    };
-    return {
-        profiles: [...profiles, profile],
-        activeProfileId: profile.id,
-        created: true,
-    };
-}
-
-/**
  * Narrow consumer seam for code that may receive either a profile or the
  * ReaderSettings-shaped profile collection. This keeps translation, lookup and
  * Study code independent from settings storage/migration details.
@@ -217,19 +142,26 @@ function normalizeLanguageProfile(
     return {
         schemaVersion: LANGUAGE_PROFILE_SCHEMA_VERSION,
         id: normalizeProfileId(value.id, index),
-        ...outputLanguageFields(normalizeSlice1LearnerLanguage(
-            readOutputLanguageField(value),
-            normalizeSlice1LearnerLanguage(readOutputLanguageField(defaults)),
-        )),
-        // A stored target survives only while core still has a module for it;
-        // anything else degrades to the default rather than leaving the reader
-        // pointed at a target nothing implements.
-        targetLanguage: normalizeLearningTargetLanguage(value.targetLanguage ?? defaults.targetLanguage),
+        ...outputLanguageFields(storedOutputLanguage(readOutputLanguageField(value) ?? readOutputLanguageField(defaults))),
+        targetLanguage: storedTargetLanguage(value.targetLanguage ?? defaults.targetLanguage),
         uiLocale: normalizeUiLocale(value.uiLocale, normalizeUiLocale(defaults.uiLocale, 'en')),
         parserProvider: normalizeParserProvider(value.parserProvider, normalizeParserProvider(defaults.parserProvider, 'local')),
         dictionaries: normalizeProfileDictionaries(value.dictionaries),
         definitionTranslationProviderIds: normalizeStringIds(value.definitionTranslationProviderIds),
     };
+}
+
+/**
+ * Yomu reads Japanese with English definitions (ADR-0024), and nothing reads
+ * these two fields at runtime. What an earlier Yomu stored is kept verbatim, so
+ * Saving settings never rewrites what the learner once chose.
+ */
+function storedTargetLanguage(value: unknown): LanguageTag {
+    return canonicalLanguageTag(value) ?? 'ja';
+}
+
+function storedOutputLanguage(value: unknown): LanguageTag {
+    return canonicalLanguageTag(value) ?? 'en';
 }
 
 function normalizeProfileId(value: unknown, index: number): string {
@@ -275,14 +207,6 @@ function normalizeProfileDictionaries(value: unknown): LanguageProfileDictionari
 
 function emptyProfileDictionaries(): LanguageProfileDictionaries {
     return { installed: [], enabled: [], order: [] };
-}
-
-function cloneProfileDictionaries(value: LanguageProfileDictionaries): LanguageProfileDictionaries {
-    return {
-        installed: [...value.installed],
-        enabled: [...value.enabled],
-        order: [...value.order],
-    };
 }
 
 function normalizeStringIds(value: unknown): string[] {

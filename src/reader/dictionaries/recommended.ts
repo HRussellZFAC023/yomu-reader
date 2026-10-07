@@ -176,26 +176,12 @@ export function recommendedDictionariesForLearnerLanguage(
     return CATALOG_RECOMMENDATIONS_BY_LANGUAGE[learnerLanguage];
 }
 
-/**
- * Profile-aware recommendation seam.
- *
- * Japanese keeps its curated shelf. The other 32 targets derive the same
- * deterministic terms-and-IPA pair as their published learner-target manifest
- * from the compact runtime catalogue, avoiding 1,056 static JSON imports in
- * the size-limited userscript.
- */
+/** Japanese is the one target (ADR-0024), with its curated shelf. */
 export function recommendedDictionariesForLanguageProfile(
     learnerLanguage: Slice1LearnerLanguage,
     targetLanguage: LearningTargetRosterId,
 ): readonly RecommendedDictionary[] {
-    if (targetLanguage === 'ja') return recommendedDictionariesForLearnerLanguage(learnerLanguage);
-    const key = `${learnerLanguage}-${targetLanguage}`;
-    const cached = TARGET_RECOMMENDATIONS_BY_PAIR.get(key);
-    if (cached) return cached;
-    const recommendations = Object.freeze(targetRecommendations(learnerLanguage, targetLanguage));
-    TARGET_RECOMMENDATIONS_BY_PAIR.set(key, recommendations);
-    recommendations.forEach(dictionary => CATALOG_RECOMMENDATIONS_BY_ID.set(dictionary.id, dictionary));
-    return recommendations;
+    return targetLanguage === 'ja' ? recommendedDictionariesForLearnerLanguage(learnerLanguage) : [];
 }
 
 export function recommendedDictionaryInstalledIdentity(
@@ -278,88 +264,6 @@ function catalogInstalledDictionaryIdentity(entry: DictionaryCatalogEntry): stri
     return yomitanDictionaryIdentity(entry.installedTitle ?? entry.title);
 }
 
-const TARGET_RECOMMENDATIONS_BY_PAIR = new Map<string, readonly RecommendedDictionary[]>();
-
-function targetRecommendations(
-    learnerLanguage: Slice1LearnerLanguage,
-    targetLanguage: LearningTargetRosterId,
-): RecommendedDictionary[] {
-    const terms = targetTermsRecommendation(learnerLanguage, targetLanguage);
-    if (!terms) throw new Error(`Published dictionary catalog has no term dictionary for target ${targetLanguage}.`);
-    const pronunciationLanguage = [learnerLanguage, targetLanguage, 'en'].find(definitionLanguage =>
-        CATALOG_ENTRY_BY_ID.get(`wty-${targetLanguage}-${definitionLanguage}-ipa`)?.distribution.state === 'published',
-    );
-    const pronunciation: DictionaryRecommendation | undefined = pronunciationLanguage
-        ? {
-              dictionaryId: `wty-${targetLanguage}-${pronunciationLanguage}-ipa`,
-              role: 'pronunciation',
-              priority: 20,
-              selectedByDefault: true,
-              definitionLanguage: pronunciationLanguage,
-              translationMode: 'off',
-          }
-        : undefined;
-    return [terms, ...(pronunciation ? [pronunciation] : [])]
-        .map(recommendation => recommendedDictionaryFromCatalog(learnerLanguage, targetLanguage, recommendation));
-}
-
-function targetTermsRecommendation(
-    learnerLanguage: Slice1LearnerLanguage,
-    targetLanguage: LearningTargetRosterId,
-): DictionaryRecommendation | undefined {
-    const preferredDefinitions = [learnerLanguage, targetLanguage, 'en'];
-    const candidates = FROZEN_DICTIONARY_CATALOG.entries
-        .filter(entry =>
-            entry.distribution.state === 'published'
-            && entry.headwordLanguages.includes(targetLanguage)
-            && entry.categories.includes('terms'),
-        )
-        .map(entry => {
-            const definitionLanguage = preferredDefinitions.find(language =>
-                entry.definitionLanguages.includes(language),
-            ) ?? entry.definitionLanguages[0] ?? 'en';
-            const definitionRank = preferredDefinitions.indexOf(definitionLanguage);
-            // Preferring the canonical `wty-<target>-<definitions>` id used to outrank
-            // everything else, which silently assumed WTY always has the content. For
-            // Cantonese it does not: MEASURED 2026-08-03, `wty-yue-en` is 28,109 bytes
-            // — 483x smaller than the published, licence-reviewed Words.hk Cantonese-
-            // English dictionary at 13,578,603 — so a Cantonese learner installed the
-            // recommendation and could look almost nothing up. That is the whole of
-            // yue's 0/47 in the parity baseline while every other target averages 84%.
-            //
-            // Content decides instead, which is not a Cantonese special case: simulated
-            // across all 32 non-Japanese targets, ordering by size changes exactly ONE
-            // recommendation, because WTY already IS the largest everywhere else. The
-            // canonical-shape preference was only ever a proxy for "the good one", and
-            // it is the proxy that broke, not the goal. `-gloss` archives stay
-            // deprioritised — they are a different kind of entry, not a smaller one.
-            const shapeRank = entry.id.includes('-gloss') ? 2 : 0;
-            return {
-                entry,
-                definitionLanguage,
-                rank: (definitionRank < 0 ? 3 : definitionRank) * 10 + shapeRank,
-                // Narrowed explicitly: only a published distribution carries an object,
-                // and the filter above already excludes the others.
-                bytes: entry.distribution.state === 'published' ? entry.distribution.object.bytes : 0,
-            };
-        })
-        .sort((left, right) => left.rank - right.rank
-            || right.bytes - left.bytes
-            || left.entry.id.localeCompare(right.entry.id, 'en'))[0];
-    if (!candidates) return undefined;
-    const { entry, definitionLanguage } = candidates;
-    return {
-        dictionaryId: entry.id,
-        role: definitionLanguage === learnerLanguage ? 'primary-terms' : 'fallback-terms',
-        priority: 10,
-        selectedByDefault: true,
-        definitionLanguage,
-        translationMode: definitionLanguage === learnerLanguage || learnerLanguage === 'grc'
-            ? 'off'
-            : 'offer',
-    };
-}
-
 /**
  * Settings offers the whole mirror, not just the seed: the recommendation cards
  * stay preselected at the top and every other mirrored archive is listed below
@@ -376,10 +280,7 @@ export function catalogBrowseGroupsForLearnerLanguage(
     });
 }
 
-/**
- * The same shelf, continued past the studied language: Japanese first, then the
- * Mandarin, Cantonese and Literary Chinese archives the mirror also hosts.
- */
+/** The same shelf, as the catalogue browser lists it. */
 export function catalogBrowseLanguageSectionsForLearnerLanguage(
     learnerLanguage: Slice1LearnerLanguage,
     targetLanguage: LearningTargetRosterId = 'ja',

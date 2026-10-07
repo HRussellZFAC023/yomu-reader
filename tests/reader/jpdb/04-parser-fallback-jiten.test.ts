@@ -647,7 +647,6 @@ describe('reader helpers', () => {
     it('ignores obsolete disabled scan settings on hosted video-player pages', async () => {
         const rectSpy = mockElementBoundingClientRect();
         stubSharedReaderSettings({
-            learningTargetChosen: true,
             interfaceLanguage: 'ja',
             autoScanJapanese: false,
             scanVisiblePage: false,
@@ -778,9 +777,7 @@ describe('reader helpers', () => {
     });
 
     it('scans Japanese that hydrates after init inside an otherwise shadow-only generic page', async () => {
-        stubSharedReaderSettings({
-            learningTargetChosen: true,
-        });
+        stubSharedReaderSettings({});
         const { app, scanVisiblePage } = testReaderAppWithPageScanner('<main>Loading</main><div id="late-shadow"></div>');
         vi.stubGlobal('location', {
             href: 'https://example.com/reader',
@@ -840,9 +837,7 @@ describe('reader helpers', () => {
 
     it('scans Japanese hydrating in an open root inside a scoped Reader Surface', async () => {
         document.documentElement.setAttribute('data-yomu-annotation-scope', 'surface');
-        stubSharedReaderSettings({
-            learningTargetChosen: true,
-        });
+        stubSharedReaderSettings({});
         const { app, scanVisiblePage } = testReaderAppWithPageScanner(`
             <main>Loading docs</main>
             <section data-yomu-runtime-surface><div id="surface-shadow"></div></section>

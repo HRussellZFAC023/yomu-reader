@@ -1,14 +1,5 @@
-import { afterEach, describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vitest';
 
-import {
-    resetActiveLearningTargetLanguage,
-    setActiveLearningTargetLanguage,
-} from '../../src/reader/languages/active';
-import { createLearningTargetModule } from '../../src/reader/languages/module';
-import {
-    registerLearningTargetModule,
-    unregisterLearningTargetModule,
-} from '../../src/reader/languages/registry';
 import { normalizeOcrResult } from '../../src/reader/ocr/response';
 import { cleanOcrText } from '../../src/reader/ocr/response-shared';
 
@@ -43,35 +34,10 @@ describe('cleanOcrText', () => {
 });
 
 /**
- * The same rule, one layer up. A recognizer's own line fields used to be read
- * with a private space-stripper instead of the cleaner above, so every OCR
- * surface honoured the rule except the one that turns a provider's JSON into
- * lines — and a space-delimited target came back as a single blob no
- * dictionary could match.
+ * The same rule, one layer up: a recognizer's own line fields go through the
+ * cleaner above when a provider's JSON is turned into lines.
  */
 describe('recognizer line text', () => {
-    const SWEDISH = 'sv';
-
-    function studySwedish() {
-        const target = registerLearningTargetModule(createLearningTargetModule({
-            id: 'sv-ocr-response-test-target',
-            language: SWEDISH,
-            featureSemantics: {
-                characterSystem: 'latin',
-                phoneticScripts: ['latin'],
-                pronunciation: 'none',
-                readingAnnotation: 'none',
-            },
-            detectsText: /[A-Za-zÅÄÖåäö]/u,
-        }));
-        expect(setActiveLearningTargetLanguage(SWEDISH)).toBe(target);
-    }
-
-    afterEach(() => {
-        resetActiveLearningTargetLanguage();
-        unregisterLearningTargetModule(SWEDISH);
-    });
-
     function lineTexts(value: unknown): string[] {
         return normalizeOcrResult(value, 800, 450)?.lines.map(line => line.text) ?? [];
     }
@@ -82,27 +48,8 @@ describe('recognizer line text', () => {
         })).toEqual(['冒険を始めよう']);
     });
 
-    it('keeps the words apart in the language being studied', () => {
-        studySwedish();
-
-        expect(lineTexts({
-            lines: [{ text: 'Tryck på A', box: { left: 10, top: 20, width: 180, height: 28 } }],
-        })).toEqual(['Tryck på A']);
-    });
-
-    it('joins the lines of a boxless result without gluing words together', () => {
+    it('joins the lines of a boxless Japanese result without inserting spaces', () => {
         // No per-line box, so the whole result collapses into one string.
-        const boxless = {
-            results: [{
-                box: { left: 10, top: 20, width: 180, height: 60 },
-                text: [{ content: 'Tryck på' }, { content: 'knappen' }],
-            }],
-        };
-
-        studySwedish();
-        expect(lineTexts(boxless)).toEqual(['Tryck på knappen']);
-
-        resetActiveLearningTargetLanguage();
         expect(lineTexts({
             results: [{
                 box: { left: 10, top: 20, width: 180, height: 60 },

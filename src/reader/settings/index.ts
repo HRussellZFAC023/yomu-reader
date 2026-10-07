@@ -17,7 +17,6 @@ import {
 import { createDefaultSubtitleSettings } from './subtitle-defaults';
 import { hasOwn, stringValue, trimmedText } from './values';
 import { normalizeLanguageProfileSettings } from './language-profile-settings-normalization';
-import { normalizeLearningTargetChosen } from './learning-target-choice';
 import { EXPLICIT_USER_SETTINGS_STORAGE_KEY, persistSettingsStorageTransaction, readSettingsIntentLedgerForWrite, readSettingsPersistenceViewStrictFrom, SETTINGS_PERSISTENCE_LEASE_OPTIONS, SETTINGS_PERSISTENCE_STORAGE_LEASE, SETTINGS_STORAGE_KEY } from './settings-persistence-transaction';
 import { RETIRED_SETTINGS_STORAGE_KEYS } from './settings-authority-storage-keys';
 import { gmStorageDelete, gmStorageGetSharedStrict, gmStorageGetStrict, isHostedYomuOrigin, storedValueExists, subscribeToStoredValueChanges, withGmStorageLease } from '../app/storage';
@@ -31,16 +30,14 @@ import {
     isAudioSourceType,
 } from './audio-source-defaults';
 import {
-    activeLanguageProfile,
     createDefaultLanguageProfile,
     DEFAULT_LANGUAGE_PROFILE_ID,
 } from '../languages/profiles';
-import { learningTargetRosterIdForTag, SLICE1_TARGET_LANGUAGE } from '../languages/roster';
 import { isTargetDefaultOcrLanguageTag } from '../languages/resolve';
 import type { AnkiTemplateMode, AudioAutoPlayMode, AudioSourceSetting, AudioSubSourceSetting, AudioTtsMode, FuriganaMode, ImmersionExampleSource, ImmersionKitCategory, ImmersionKitSort, InterfaceLanguage, OcrOverlayTheme, OcrProvider, ReaderColorSource, ReaderSettings } from '../app/types';
 export { formatShortcutEvent, matchesShortcut, shortcutIsPressed } from './shortcuts';
 export { accentToRgba, accessibleOcrBackgroundColor, accessibleOcrBackgroundOpacity, sanitizeAccentColor } from './color-settings';
-export { COPY_LOOKUP_LINK, MAX_EXTRA_LOOKUP_LINKS, MAX_LOOKUP_LINK_ROWS, defaultDictionaryLookupLinks, defaultLookupLinkMode, dictionaryLookupLinksForTarget, mergeDictionaryPreferences, normalizeDictionaryLookupLinks, normalizeDictionaryPreferences, retireStaleDictionaryPreferences } from './dictionary';
+export { COPY_LOOKUP_LINK, MAX_EXTRA_LOOKUP_LINKS, MAX_LOOKUP_LINK_ROWS, defaultDictionaryLookupLinks, defaultLookupLinkMode, mergeDictionaryPreferences, normalizeDictionaryLookupLinks, normalizeDictionaryPreferences, retireStaleDictionaryPreferences } from './dictionary';
 export { NO_EXPLICIT_USER_CHOICE } from './intent-ledger';
 export { AUDIO_SOURCE_UI_TYPE_VALUES, DEFAULT_AUDIO_SOURCES } from './audio-source-defaults';
 export { EXPLICIT_USER_SETTINGS_STORAGE_KEY, SETTINGS_STORAGE_KEY };
@@ -211,8 +208,6 @@ export const DEFAULT_SETTINGS: ReaderSettings = {
     bunproFrontendApiToken: '',
     bunproFrontendApiTokenExpiresAt: '',
     wanikaniApiToken: '',
-    onboardingSeen: false,
-    learningTargetChosen: false,
     interfaceLanguage: 'en',
     languageProfiles: [createDefaultLanguageProfile()],
     activeLanguageProfileId: DEFAULT_LANGUAGE_PROFILE_ID,
@@ -509,17 +504,8 @@ function mergeSettings(value: Partial<ReaderSettings> | null): ReaderSettings {
         ...normalizeMiningSettings(settingsValue),
         ...normalizeSourceAliasSettings(settingsValue),
         ...normalizeRemovedDictionarySettings(settingsValue),
-        // The pill row belongs to the TARGET, so it is normalized against the
-        // profile's target rather than against Japanese. A fresh Spanish install
-        // boots with the Spanish hotlink set; a Japanese one is untouched.
-        dictionaryLookupLinks: normalizeDictionaryLookupLinkSettings(
-            settingsValue,
-            activeTargetRosterId(languageProfileSettings),
-        ),
+        dictionaryLookupLinks: normalizeDictionaryLookupLinkSettings(settingsValue),
         ...languageProfileSettings,
-        // v1.9.3 contract: a record that predates the field keeps the choice
-        // its own Reader state implies (learning-target-choice.ts).
-        learningTargetChosen: normalizeLearningTargetChosen(value),
         ...unpinnedOcrLanguage(settingsValue),
         preferJapaneseSiteLanguage: normalizePreferredJapaneseSiteLanguage(settingsValue),
         shortcuts: normalizeShortcutSettings(settingsValue),
@@ -549,21 +535,6 @@ function normalizeParserProvider(value: Partial<ReaderSettings> | null): ReaderS
 
 export function normalizeReaderSettings(value: Partial<ReaderSettings> | null | undefined): ReaderSettings {
     return mergeSettings(value as Partial<ReaderSettings> | null);
-}
-
-/**
- * The roster ID of the target the normalized profiles point at.
- *
- * Reads the profiles this same normalization pass just produced rather than the
- * raw stored value, so a profile that was repaired or created here answers for
- * itself. Japanese is the fallback, which is what every install predating the
- * target picker is.
- */
-function activeTargetRosterId(
-    profileSettings: Pick<ReaderSettings, 'languageProfiles' | 'activeLanguageProfileId'>,
-): string {
-    const active = activeLanguageProfile(profileSettings.languageProfiles, profileSettings.activeLanguageProfileId);
-    return learningTargetRosterIdForTag(active?.targetLanguage) ?? SLICE1_TARGET_LANGUAGE;
 }
 
 function normalizeApiCredentialSettings(value: Partial<ReaderSettings> | null | undefined): Pick<ReaderSettings, 'apiKey' | 'jitenApiKey' | 'bunproApiKey' | 'bunproFrontendApiToken' | 'bunproFrontendApiTokenExpiresAt' | 'wanikaniApiToken'> {

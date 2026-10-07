@@ -11,13 +11,12 @@ import { DEFAULT_SETTINGS } from '../../src/reader/settings';
 afterEach(() => { vi.unstubAllGlobals(); localStorage.clear(); sessionStorage.clear(); });
 
 describe('VitePress hosted settings target provenance', () => {
-    it('persists a first explicit appearance choice without choosing a learning target', async () => {
+    it('persists a first explicit appearance choice as the only shared setting', async () => {
         const { values } = installGmStorageFixture();
         await persistHostedSharedSettingsPatch({ theme: 'dark' }, true);
-        await expect(readBackupSettingsPersistenceView(Object.fromEntries(values))).resolves.toMatchObject({
-            settings: { learningTargetChosen: false, onboardingSeen: false, theme: 'dark' },
-            intentLedger: { revision: 1, records: { theme: { seq: 1, value: 'dark' } } },
-        });
+        const view = await readBackupSettingsPersistenceView(Object.fromEntries(values));
+        expect(view?.settings).toEqual({ theme: 'dark' });
+        expect(view?.intentLedger).toMatchObject({ revision: 1, records: { theme: { seq: 1, value: 'dark' } } });
     });
 
     it('does not create shared learner settings from passive hosted appearance state', async () => {
@@ -26,11 +25,11 @@ describe('VitePress hosted settings target provenance', () => {
         expect(values.has(SETTINGS_STORAGE_KEY)).toBe(false);
     });
 
-    it('preserves an existing shared target and unrelated preferences', async () => {
-        const pair = serializeSettingsPersistencePair({ ...DEFAULT_SETTINGS, learningTargetChosen: true, subtitleFontSize: 48 }, { revision: 0, records: {} });
+    it('preserves existing shared preferences', async () => {
+        const pair = serializeSettingsPersistencePair({ ...DEFAULT_SETTINGS, subtitleFontSize: 48 }, { revision: 0, records: {} });
         const { values } = installGmStorageFixture(new Map(Object.entries(pair)));
         await persistHostedSharedSettingsPatch({ theme: 'dark' }, true);
-        expect(values.get(SETTINGS_STORAGE_KEY)).toMatchObject({ learningTargetChosen: true, subtitleFontSize: 48, theme: 'dark' });
+        expect(values.get(SETTINGS_STORAGE_KEY)).toMatchObject({ subtitleFontSize: 48, theme: 'dark' });
     });
 
     it('serializes the docs shared patch with the canonical settings transaction', () => {

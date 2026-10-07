@@ -13,7 +13,7 @@ Use any kana course you will complete. A few short sessions each day for a week 
 
 ## Install Yomu
 
-Chrome, Edge, Brave and Opera use the [Chrome store](https://chromewebstore.google.com/detail/%E3%82%88%E3%82%80/bbaickgfdgnecdnkcplaoiopnfghlkna). Firefox and Firefox for Android use the [Firefox store](https://addons.mozilla.org/en-US/firefox/addon/yomu-reader/). Choose Add, select Japanese as your learning target in Yomu, then open a Japanese page.
+Chrome, Edge, Brave and Opera use the [Chrome store](https://chromewebstore.google.com/detail/%E3%82%88%E3%82%80/bbaickgfdgnecdnkcplaoiopnfghlkna). Firefox and Firefox for Android use the [Firefox store](https://addons.mozilla.org/en-US/firefox/addon/yomu-reader/). Choose Add, then open a Japanese page. There is nothing to set up first.
 
 Safari, iPhone and iPad use the free Userscripts app:
 
@@ -32,7 +32,7 @@ Open [NHK News Web Easy](https://www3.nhk.or.jp/news/easy/) or a [Tadoku free bo
 
 The popup shows the reading, meaning, pitch accent, frequency, audio and example sentences. Press a kanji in the headword when you want its readings or stroke order. Save the word only if you want to meet it again.
 
-Yomu installs a starter dictionary for your definition language. That dictionary stays on your device and works without a connection. You can add more later.
+Lookups work straight away. To have them answered on your device, even without a connection, install the recommended dictionaries from Settings → Sources. You can add more later.
 
 <figure class="yomu-feature-shot">
   <img :src="'/screenshots/real-popup-lookup.png'" alt="A Yomu word panel open on a real Japanese article, showing the headword, reading, pitch, definition and grading buttons.">
@@ -47,7 +47,7 @@ The coloured underlines show pitch accent. Word colours can show whether a word 
 
 ## Ignore the settings
 
-After choosing Japanese, the remaining defaults are enough for the first week. Do not connect five services. Do not import a shelf of dictionaries. Read one short thing, press a few words and come back tomorrow.
+The defaults are enough for the first week. Do not connect five services. Do not import a shelf of dictionaries. Read one short thing, press a few words and come back tomorrow.
 
 If Yomu does not appear, allow it on the site in the browser extension or userscript menu, then refresh. The [FAQ](/faq) covers the common failures.
 

@@ -12,8 +12,6 @@ export const YOMU_GAMING_CHANNELS = {
     updateCaptureShortcut: 'yomu-gaming:update-capture-shortcut',
     syncSettingsSnapshot: 'yomu-gaming:sync-settings-snapshot',
     restoreSettingsSnapshot: 'yomu-gaming:restore-settings-snapshot',
-    setLearningTargetChosen: 'yomu-gaming:set-learning-target-chosen',
-    targetChoiceRequired: 'yomu-gaming:target-choice-required',
 } as const;
 
 export type YomuGamingScreenAccess = 'granted' | 'denied' | 'restricted' | 'not-determined' | 'unknown' | 'unsupported';
@@ -68,18 +66,6 @@ export interface YomuGamingOcrRequest {
     engine: string;
     /** BCP-47 tag the OCR provider is asked to read in. */
     language: string;
-    /**
-     * The learning target the player is studying, as its bare language tag.
-     *
-     * Electron's main process parses every provider response before the
-     * renderer sees it, and that parse keeps only lines in the language being
-     * studied. Main has no settings of its own and no DOM to read them from, so
-     * the target rides along with the request that needs it: the renderer reads
-     * the live target when it builds the request, and main adopts it before
-     * parsing. Sending it per request is also what makes a target change reach
-     * main — the next capture simply carries the new one.
-     */
-    targetLanguage: string;
 }
 
 export interface YomuGamingOcrResponse {
@@ -116,6 +102,4 @@ export interface YomuGamingBridge {
     updateCaptureShortcut(shortcut: string): Promise<YomuGamingEnvironment>;
     syncSettingsSnapshot(settings: unknown): Promise<YomuGamingSettingsSyncMetadata>;
     restoreSettingsSnapshot(): Promise<YomuGamingSettingsSnapshot | null>;
-    setLearningTargetChosen(chosen: boolean): Promise<void>;
-    onTargetChoiceRequired(listener: () => void): () => void;
 }

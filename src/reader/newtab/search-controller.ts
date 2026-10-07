@@ -16,7 +16,6 @@ import {
 } from '../languages/character-lookup';
 import {
     activeLearningTarget,
-    activeLearningTargetGeneration,
     activeLearningTargetLanguage,
 } from '../languages/target-runtime';
 import { installKanjiDoodle, KANJI_DOODLE_CLEAR_EVENT, type DoodleStroke } from '../kanji/doodle';
@@ -109,7 +108,6 @@ interface NewTabSearchWordKanjiDetail {
 
 interface SearchTargetSnapshot {
     target: ReturnType<typeof activeLearningTarget>;
-    generation: number;
 }
 
 interface SearchCurrentness {
@@ -117,7 +115,6 @@ interface SearchCurrentness {
     route: 'study' | 'search' | 'stats';
     generation: number;
     targetLanguage: ReturnType<typeof activeLearningTargetLanguage>;
-    targetGeneration: number;
     providerContext: string;
     query: string;
 }
@@ -127,7 +124,6 @@ const SEARCH_CURRENTNESS_POLICY_FIELDS = [
     'route',
     'generation',
     'targetLanguage',
-    'targetGeneration',
     'providerContext',
     'query',
 ] as const satisfies readonly (keyof SearchCurrentness)[];
@@ -204,7 +200,6 @@ export interface NewTabSearchControllerDeps {
 export class NewTabSearchController {
     private searchGeneration = 0;
     private searchTargetLanguage = activeLearningTargetLanguage();
-    private searchTargetGeneration = activeLearningTargetGeneration();
     private searchProviderContext = '';
     private searchDebounce: ReturnType<typeof setTimeout> | undefined;
     private searchQuery = '';
@@ -240,7 +235,6 @@ export class NewTabSearchController {
     reset(): void {
         this.searchGeneration++;
         this.searchTargetLanguage = activeLearningTargetLanguage();
-        this.searchTargetGeneration = activeLearningTargetGeneration();
         this.searchProviderContext = this.deps.providerContext();
         this.clearSearchDebounce();
         this.searchQuery = '';
@@ -743,9 +737,7 @@ export class NewTabSearchController {
         this.clearSearchDebounce();
         const target = activeLearningTarget();
         this.searchTargetLanguage = target.language;
-        this.searchTargetGeneration = activeLearningTargetGeneration();
         this.searchProviderContext = this.deps.providerContext();
-        const targetGeneration = this.searchTargetGeneration;
         const query = normalizeSearchQuery(rawQuery);
         this.setSearchQuery(root, query);
         this.syncSearchUrl(query);
@@ -757,7 +749,7 @@ export class NewTabSearchController {
 
         const generation = ++this.searchGeneration;
         this.renderSearchLoading(root, query);
-        void this.loadSearchResults(query, target, targetGeneration).then(results => {
+        void this.loadSearchResults(query, target).then(results => {
             if (!this.isCurrentSearch(root, generation, query)) return;
             this.renderSearchResults(root, results);
         }).catch(error => {
@@ -772,7 +764,6 @@ export class NewTabSearchController {
             route: this.currentRoute(),
             generation: this.searchGeneration,
             targetLanguage: activeLearningTargetLanguage(),
-            targetGeneration: activeLearningTargetGeneration(),
             providerContext: this.deps.providerContext(),
             query: normalizeSearchQuery(this.searchQuery),
         }, {
@@ -780,41 +771,34 @@ export class NewTabSearchController {
             route: 'search',
             generation,
             targetLanguage: this.searchTargetLanguage,
-            targetGeneration: this.searchTargetGeneration,
             providerContext: this.searchProviderContext,
             query,
         });
     }
 
     private captureTargetSnapshot(): SearchTargetSnapshot {
-        return {
-            target: activeLearningTarget(),
-            generation: activeLearningTargetGeneration(),
-        };
+        return { target: activeLearningTarget() };
     }
 
     private targetSnapshotIsCurrent(snapshot: SearchTargetSnapshot): boolean {
-        return activeLearningTarget() === snapshot.target
-            && activeLearningTargetGeneration() === snapshot.generation;
+        return activeLearningTarget() === snapshot.target;
     }
 
     private targetSnapshotSignature(snapshot: SearchTargetSnapshot): string {
-        return `${snapshot.target.id}:${snapshot.generation}:${this.deps.providerContext()}`;
+        return `${snapshot.target.id}:${this.deps.providerContext()}`;
     }
 
     private async loadSearchResults(
         query: string,
         target: ReturnType<typeof activeLearningTarget>,
-        targetGeneration: number,
     ): Promise<NewTabSearchResults> {
         const settings = this.deps.getDependencies().getSettings();
         const hasLocalDictionaries = settings.localDictionariesEnabled && await this.deps.hasLocalDictionaries();
-        const words = await this.searchWordCards(query, hasLocalDictionaries, target, targetGeneration);
-        if (activeLearningTarget() !== target
-            || activeLearningTargetGeneration() !== targetGeneration) {
+        const words = await this.searchWordCards(query, hasLocalDictionaries, target);
+        if (activeLearningTarget() !== target) {
             return { query, words: [], kanji: [], suggestions: [], hasLocalDictionaries };
         }
-        const kanji = await this.searchKanjiCards(query, words, { target, generation: targetGeneration });
+        const kanji = await this.searchKanjiCards(query, words, { target });
         return {
             query,
             words,
@@ -828,7 +812,6 @@ export class NewTabSearchController {
         query: string,
         hasLocalDictionaries: boolean,
         target: ReturnType<typeof activeLearningTarget>,
-        targetGeneration: number,
     ): Promise<JPDBCard[]> {
         const settings = this.deps.getDependencies().getSettings();
         const parsedPromise = usesJapaneseProviders() && queryHasJapanese(query)
@@ -841,8 +824,7 @@ export class NewTabSearchController {
 
         const loadedCards = this.searchLoadedWordCards(query);
         const [parsed, localEntries, publicJpdbCards] = await Promise.all([parsedPromise, localEntriesPromise, publicJpdbPromise]);
-        if (activeLearningTarget() !== target
-            || activeLearningTargetGeneration() !== targetGeneration) return [];
+        if (activeLearningTarget() !== target) return [];
         const parsedCards = (parsed[0] ?? []).map(token => ({ ...token.card, sentence: token.sentence ?? query }));
         const localCards = localEntries
             .map(entry => ({ ...this.deps.getDependencies().parser.localCardFromEntry(entry, target), sentence: query }));

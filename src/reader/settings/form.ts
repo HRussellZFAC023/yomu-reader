@@ -2,7 +2,7 @@ import {
     HIDE_STATE_GROUP_CONTROL_LABELS,
     renderWordColorHiddenStateGroupControls,
 } from './hide-state-groups';
-import { ANKI_CONNECT_ADDON_URL, BUNPRO_DEFINITION_SOURCE_ID, DISCORD_INVITE_URL, DOCS_BASE_URL, DONATE_URL, GITHUB_REPOSITORY_URL, JITEN_DEFINITION_SOURCE_ID, JPDB_DEFINITION_SOURCE_ID, NADESHIKO_DEVELOPER_URL, NEW_TAB_PAGE_URL, PDF_READER_PAGE_URL, SUPPORT_COPY, SUPPORT_COPY_EXTRA, VIDEO_PLAYER_PAGE_URL, WANIKANI_DEFINITION_SOURCE_ID } from '../app/constants';
+import { ANKI_CONNECT_ADDON_URL, DISCORD_INVITE_URL, DOCS_BASE_URL, DONATE_URL, GITHUB_REPOSITORY_URL, NADESHIKO_DEVELOPER_URL, NEW_TAB_PAGE_URL, PDF_READER_PAGE_URL, SUPPORT_COPY, SUPPORT_COPY_EXTRA, VIDEO_PLAYER_PAGE_URL } from '../app/constants';
 import { escapeHtml, setInnerHtml, unwrapReaderWords } from '../dom/index';
 import { audioSourceLabel, formatUiText, resolveUiLanguage, uiText } from '../app/i18n';
 import { CURRENT_YOMU_VERSION } from '../app/version';
@@ -38,31 +38,10 @@ import { RECOMMENDED_JAPANESE_DICTIONARIES, type RecommendedDictionaryCategory }
 import { applySettingsSearch } from './settings-navigation';
 export { activateSettingsPanel, applySettingsSearch } from './settings-navigation';
 import { localizeSettingsDisclosures, renderAppearanceTuning } from './settings-disclosures';
-import { FROZEN_DICTIONARY_CATALOG } from '../dictionaries/catalog';
 import { definitionSourceRows, kanjiSourceRows } from '../sources/sections';
 import type { YomitanDictionaryInfo } from '../dictionaries/yomitan';
 import { settingsText, type SettingsText } from './settings-text';
 import { renderYoutubeSettingsPanel } from './youtube-panel';
-import {
-    activeLanguageProfile,
-    learningTargetRosterIdForTag,
-    slice1LanguageIdForTag,
-    type LearningTargetRosterId,
-} from '../languages';
-import {
-    INTERFACE_LOCALES,
-    LEARNER_LANGUAGES,
-    isolate,
-    learnerLanguageById,
-    resolveMessage,
-    setupMessageIdFor,
-    setupPackFor,
-    type InterfaceLocale,
-    type LearnerLanguageId,
-} from '../locales';
-import { dictionaryDefinitionLanguage } from '../dictionaries/definition-language';
-import { googleTranslationLanguageCapability } from '../translation/google';
-import { STUDY_TARGET_READINESS_ATTRIBUTE, studyTargetOptions } from '../app/study-target-picker';
 import { nativeSubtitleDisplayMode, type NativeSubtitleDisplayMode } from '../subtitles/native-subtitle-display';
 import { renderLocalDictionaryStorageControls } from './local-dictionary-storage-form';
 import { renderReadingAnnotationControls, syncReadingAnnotationControls } from './reading-annotation-controls';
@@ -99,191 +78,18 @@ function localizedOptions<V extends string>(text: SettingsText, table: SettingsO
     return table.map(([value, key]) => [value, text(key)]);
 }
 
-type MultilingualSettingsCopy = {
-    languageProfileTitle: string;
-    learnerLanguage: string;
-    targetLanguage: string;
-    languageProfileHelp: string;
-    translationTitle: string;
-    translationHelp: string;
-    translationEmpty: string;
-    translationUnavailable: string;
-    translateAutomatically: (language: string) => string;
-};
+const INTERFACE_LANGUAGE_OPTIONS = [
+    ['auto', 'automatic'],
+    ['en', 'english'],
+    ['ja', 'japanese'],
+] as const satisfies SettingsOptionTable;
 
-const DEFINITION_TRANSLATION_API_SOURCE_IDS = new Set<string>([JITEN_DEFINITION_SOURCE_ID, JPDB_DEFINITION_SOURCE_ID, BUNPRO_DEFINITION_SOURCE_ID, WANIKANI_DEFINITION_SOURCE_ID]);
-
-const CATALOG_DEFINITION_LANGUAGES = new Map<string, readonly string[]>(FROZEN_DICTIONARY_CATALOG.entries.flatMap((entry) => [[normalizeDictionaryIdentity(entry.id), entry.definitionLanguages] as const, [normalizeDictionaryIdentity(entry.title), entry.definitionLanguages] as const]));
-
-function multilingualSettingsCopy(language: InterfaceLanguage): MultilingualSettingsCopy {
-    return language === 'ja'
-        ? {
-              languageProfileTitle: '言語プロフィール',
-              learnerLanguage: '定義・翻訳の言語（出力）',
-              targetLanguage: '学習する言語（対象）',
-              languageProfileHelp: '対象はページで読む言語、出力は辞書の定義と翻訳の言語です。画面の表示言語は別に選べます。',
-              translationTitle: '定義の自動翻訳',
-              translationHelp: '有効にすると、選んだ情報源の定義テキストだけが Google 翻訳に送信されます。元の定義も保持されます。',
-              translationEmpty: '現在の情報源はすでにあなたの言語で定義されています。',
-              translationUnavailable: 'Google 翻訳は古代ギリシャ語への自動翻訳に対応していません。元の定義と古代ギリシャ語の辞書は引き続き利用できます。',
-              translateAutomatically: (learnerLanguage) => `${learnerLanguage}へ自動翻訳`,
-          }
-        : {
-              languageProfileTitle: 'Language profile',
-              learnerLanguage: 'Definition and translation language (output)',
-              targetLanguage: 'Language you are reading (target)',
-              languageProfileHelp: 'Target controls page text and lookup. Output controls definitions and translations. Interface controls Yomu labels.',
-              translationTitle: 'Automatic definition translation',
-              translationHelp: 'When enabled, only definition text from the sources you select is sent to Google Translate. The original definition remains available.',
-              translationEmpty: 'Your current definition sources already use your language.',
-              translationUnavailable: 'Google Translate does not support automatic translation into Ancient Greek. Original definitions and Ancient Greek dictionaries remain available.',
-              translateAutomatically: (learnerLanguage) => `Translate automatically into ${learnerLanguage}`,
-          };
-}
-
-export function activeLearnerLanguageId(settings: ReaderSettings): LearnerLanguageId {
-    const profile = activeLanguageProfile(settings.languageProfiles, settings.activeLanguageProfileId);
-    return slice1LanguageIdForTag(profile?.outputLanguage) ?? 'en';
-}
-
-export function activeTargetLanguageId(settings: ReaderSettings): LearningTargetRosterId {
-    const profile = activeLanguageProfile(settings.languageProfiles, settings.activeLanguageProfileId);
-    return learningTargetRosterIdForTag(profile?.targetLanguage) ?? 'ja';
-}
-
-function languageOptionLabel(language: { nativeName: string; englishName: string }): string {
-    return language.nativeName === language.englishName ? language.nativeName : `${language.nativeName} — ${language.englishName}`;
-}
-
-function renderLanguageOptions(
-    languages: readonly { id: string; runtimeLocale: string; direction: string; nativeName: string; englishName: string }[],
-    selected: string,
-): string {
-    return languages.map(item => `
-        <option value="${escapeHtml(item.id)}" lang="${escapeHtml(item.runtimeLocale)}" dir="${item.direction}" ${item.id === selected ? 'selected' : ''}>${escapeHtml(languageOptionLabel(item))}</option>
-    `).join('');
-}
-
-function renderStudyTargetOptions(
-    language: InterfaceLanguage,
-    selected: LearningTargetRosterId,
-): string {
-    return studyTargetOptions(language).map(item => `
-        <option value="${escapeHtml(item.id)}" lang="${escapeHtml(item.runtimeLocale)}" dir="${item.direction}" title="${escapeHtml(item.reason)}" ${STUDY_TARGET_READINESS_ATTRIBUTE}="${item.readiness}" ${item.disabled ? 'disabled aria-disabled="true"' : ''} ${item.id === selected ? 'selected' : ''}>${escapeHtml(item.label)}</option>
-    `).join('');
-}
-
-const INTERFACE_LOCALE_BLOCKED_ATTRIBUTE = 'data-interface-locale-blocked';
-
-/**
- * D43 — the interface-language picker over the full 33-locale manifest.
- *
- * The rule this control exists to enforce: a locale Yomu is not ready to speak
- * is shown, named, and DISABLED with the reason. It is never selectable and then
- * silently answered in English, which is the failure the ticket forbids and the
- * one a learner cannot distinguish from a bug.
- *
- * Three localisations meet here, on purpose:
- *
- *  - the option label is the locale's own `nativeName — englishName`, so it is
- *    findable by someone who does not read the current interface language;
- *  - the reason on the option is in the CURRENT interface language, because that
- *    is the language the person operating the dialog is reading;
- *  - the `title` carries the same reason in the BLOCKED locale's own language,
- *    from its `setup.*` catalogue, for the person who came looking for it.
- */
-function renderInterfaceLocaleSelect(settings: ReaderSettings): string {
-    const language = settings.interfaceLanguage;
-    const label = uiText(language, 'settingsLanguage');
-    const ready = INTERFACE_LOCALES.filter(locale => locale.available);
-    const blocked = INTERFACE_LOCALES.filter(locale => !locale.available);
-    const automatic = `<option value="auto" ${settings.interfaceLanguage === 'auto' ? 'selected' : ''}>${escapeHtml(uiText(language, 'automatic'))}</option>`;
-    const readyOptions = ready.map(locale => `
-                            <option value="${escapeHtml(locale.tag)}" lang="${escapeHtml(locale.tag)}" dir="${locale.direction}" ${settings.interfaceLanguage === locale.tag ? 'selected' : ''}>${escapeHtml(interfaceLocaleOptionLabel(locale))}</option>`).join('');
-    const blockedOptions = blocked.map(locale => renderBlockedInterfaceLocaleOption(locale, language)).join('');
-    return `<label>${escapeHtml(label)}<select name="interfaceLanguage">
-                            <optgroup label="${escapeHtml(uiText(language, 'interfaceLocalesReady'))}" data-interface-locale-group="ready">${automatic}${readyOptions}
-                            </optgroup>
-                            <optgroup label="${escapeHtml(uiText(language, 'interfaceLocalesInProgress'))}" data-interface-locale-group="in-progress">${blockedOptions}
-                            </optgroup>
-                        </select></label>`;
-}
-
-function interfaceLocaleOptionLabel(locale: InterfaceLocale): string {
-    // Each side is bidi-isolated. The option carries dir="rtl" for Arabic and
-    // Farsi, so an unisolated "العربية — Arabic" reorders: the Latin half moves
-    // and the whole label detaches to the right. FSI/PDI is the only isolation
-    // available inside an <option>, which is the case direction.ts's isolate()
-    // was written for.
-    return locale.nativeName === locale.englishName
-        ? isolate(locale.nativeName)
-        : `${isolate(locale.nativeName)} — ${isolate(locale.englishName)}`;
-}
-
-function renderBlockedInterfaceLocaleOption(locale: InterfaceLocale, language: InterfaceLanguage): string {
-    const reason = uiText(language, interfaceLocaleBlockerCopyKey(locale));
-    const nativeReason = blockedReasonInLocale(locale);
+/** Yomu's own interface language: Automatic, English or 日本語. */
+function renderInterfaceLanguageControl(settings: ReaderSettings): string {
+    const text = settingsText(settings.interfaceLanguage);
     return `
-                            <option value="${escapeHtml(locale.tag)}" lang="${escapeHtml(locale.tag)}" dir="${locale.direction}" disabled aria-disabled="true" title="${escapeHtml(nativeReason)}" ${INTERFACE_LOCALE_BLOCKED_ATTRIBUTE}="${escapeHtml(locale.blockers[0] ?? 'translation-incomplete')}">${escapeHtml(`${interfaceLocaleOptionLabel(locale)} · ${isolate(reason)}`)}</option>`;
-}
-
-function interfaceLocaleBlockerCopyKey(locale: InterfaceLocale): 'interfaceLocaleRtlPending' | 'interfaceLocaleTranslationPending' {
-    // The ledger orders blockers most-specific-first, so Arabic and Farsi report
-    // the RTL gate rather than the translation backlog they also have: the RTL
-    // gate is the one that has to pass before the locale can be offered at all.
-    return locale.blockers[0] === 'rtl-verification-pending'
-        ? 'interfaceLocaleRtlPending'
-        : 'interfaceLocaleTranslationPending';
-}
-
-/**
- * The blocker reason in the blocked locale's own words, resolved through the
- * unified fallback chain so a locale with no catalogue entry reads as English
- * instead of as a missing-key placeholder.
- */
-function blockedReasonInLocale(locale: InterfaceLocale): string {
-    const key = locale.blockers[0] === 'rtl-verification-pending'
-        ? 'interfaceRtlVerificationPending'
-        : 'interfaceTranslationPending';
-    const packs: Record<string, ReturnType<typeof setupPackFor>> = { en: setupPackFor('en') };
-    for (const tag of [locale.tag, ...locale.fallbacks]) packs[tag] ??= setupPackFor(tag);
-    return resolveMessage(setupMessageIdFor(key), locale, packs).value;
-}
-
-function renderInterfaceLocaleAvailabilityNote(language: InterfaceLanguage): string {
-    const ready = INTERFACE_LOCALES.filter(locale => locale.available).length;
-    const count = formatUiText(language, 'interfaceLocaleReadyCount', {
-        ready,
-        total: INTERFACE_LOCALES.length,
-    });
-    return `<div class="jpdb-reader-help" data-interface-locale-note>${escapeHtml(count)} ${escapeHtml(uiText(language, 'interfaceLocaleBlockedNote'))}</div>`;
-}
-
-function renderLanguageProfileControls(settings: ReaderSettings): string {
-    const copy = multilingualSettingsCopy(settings.interfaceLanguage);
-    const learnerLanguage = activeLearnerLanguageId(settings);
-    const targetLanguage = activeTargetLanguageId(settings);
-    return `
-                <div class="jpdb-reader-settings-subsection jpdb-reader-language-profile" data-language-profile-controls>
-                    <div class="jpdb-reader-local-title" data-multilingual-copy="languageProfileTitle">${escapeHtml(copy.languageProfileTitle)}</div>
-                    <div class="grid">
-                        <label>
-                            <span class="${SETTINGS_LABEL_TEXT_CLASS}" data-multilingual-copy="learnerLanguage">${escapeHtml(copy.learnerLanguage)}</span>
-                            <select name="learnerLanguage" autocomplete="language">
-                                ${renderLanguageOptions(LEARNER_LANGUAGES, learnerLanguage)}
-                            </select>
-                        </label>
-                        <label>
-                            <span class="${SETTINGS_LABEL_TEXT_CLASS}" data-multilingual-copy="targetLanguage">${escapeHtml(copy.targetLanguage)}</span>
-                            <select name="targetLanguage" autocomplete="language">
-                                ${renderStudyTargetOptions(settings.interfaceLanguage, targetLanguage)}
-                            </select>
-                        </label>
-                        ${renderInterfaceLocaleSelect(settings)}
-                    </div>
-                    <div class="jpdb-reader-help" data-multilingual-copy="languageProfileHelp">${escapeHtml(copy.languageProfileHelp)}</div>
-                    ${renderInterfaceLocaleAvailabilityNote(settings.interfaceLanguage)}
-                    <div class="jpdb-reader-help jpdb-reader-target-dictionary-state" data-target-dictionary-state role="status" aria-live="polite" hidden></div>
+                <div class="grid">
+                    ${select('interfaceLanguage', text('settingsLanguage'), settings.interfaceLanguage, localizedOptions(text, INTERFACE_LANGUAGE_OPTIONS))}
                 </div>
     `;
 }
@@ -328,7 +134,7 @@ function colorSourceSelectOptions(text: SettingsText): Array<[string, string, st
         ['status', text('colorSourceStatus')],
         ['jpdb', text('colorSourceJpdb')],
         ['anki', text('colorSourceAnki')],
-        ['pitch', text('colorSourcePitch'), 'jp-only'],
+        ['pitch', text('colorSourcePitch')],
         ['off', text('colorSourceNone')],
     ];
 }
@@ -583,7 +389,7 @@ function renderInterfaceSettingsPanel(settings: ReaderSettings): string {
     return `
             <fieldset id="jpdb-reader-settings-panel-appearance" role="tabpanel" data-settings-panel="appearance" data-legend-key="appearance">
                 <legend>${escapedUiText(settings.interfaceLanguage, 'appearance')}</legend>
-                ${renderLanguageProfileControls(settings)}
+                ${renderInterfaceLanguageControl(settings)}
                 <div class="grid">
                     ${themeSegmentedControl(settings.theme, text)}
                     ${select('popupMode', text('popupMode'), settings.popupMode, localizedOptions(text, POPUP_MODE_OPTIONS))}
@@ -751,11 +557,6 @@ function isAnkiSubdeckOf(deck: string, parent: string): boolean {
 // key. renderSettingsForm localizes them on first paint (no English flash before
 // localizeSettingsForm runs) and localizeSettingsForm re-applies the same table
 // on live language switches — one source, two consumers.
-//
-// The interface language is no longer one of them: D43 renders it from the
-// 33-locale manifest, grouped into what is ready and what is on the way, so a
-// blocked locale is visible and disabled rather than absent. See
-// renderInterfaceLocaleSelect / localizeInterfaceLocaleSelect.
 
 const POPUP_MODE_OPTIONS = [
     ['auto', 'auto'],
@@ -875,7 +676,7 @@ const OCR_MAX_IMAGE_PIXELS_OPTIONS = [
 // unwrapReaderWords pass from stripping the sample word spans.
 function renderAppearancePreview(language: InterfaceLanguage): string {
     return `
-                <div class="jpdb-reader-settings-subsection jpdb-reader-settings-preview-section jp-only" data-language-family="pitch-legend">
+                <div class="jpdb-reader-settings-subsection jpdb-reader-settings-preview-section" data-language-family="pitch-legend">
                     <div class="jpdb-reader-local-title" data-settings-preview-title>${escapedUiText(language, 'preview')}</div>
                     <div class="jpdb-reader-settings-appearance-preview" data-yomu-appearance-preview data-settings-preview-lookup lang="ja" aria-hidden="true">${appearancePreviewContentHtml()}</div>
                 </div>`;
@@ -894,7 +695,7 @@ export function appearancePreviewHtml(): string {
 }
 
 function renderPitchColorSettingsSubsection(settings: ReaderSettings): string {
-    return `<div class="jp-only" data-language-family="pitch-colouring">${renderColorSettingsSubsection('pitchAccentColors', PITCH_COLOR_FIELDS, settings)}</div>`;
+    return `<div data-language-family="pitch-colouring">${renderColorSettingsSubsection('pitchAccentColors', PITCH_COLOR_FIELDS, settings)}</div>`;
 }
 
 function renderColorChannelSettingsSubsection(settings: ReaderSettings): string {
@@ -1052,7 +853,6 @@ function renderReaderSettingsPanel(settings: ReaderSettings): string {
     const language = settings.interfaceLanguage;
     const text = settingsText(language);
     const pageScanMode = pageScanModeFromSettings(settings);
-    const targetLanguage = activeTargetLanguageId(settings);
     return `
             <fieldset id="jpdb-reader-settings-panel-reader" role="tabpanel" data-settings-panel="appearance" data-legend-key="reader" aria-describedby="settings-help-reader" hidden>
                 <legend>${escapedUiText(language, 'reader')}</legend>
@@ -1077,7 +877,7 @@ function renderReaderSettingsPanel(settings: ReaderSettings): string {
                         <div data-manual-page-scan-shortcut-label>${shortcutInput('shortcuts.scanPage', text('manualPageScanShortcut'), settings.shortcuts.scanPage)}</div>
                     </div>
                     ${select('appearancePreset', text('appearancePreset'), '', localizedOptions(text, APPEARANCE_PRESET_OPTIONS))}
-                    ${renderReadingAnnotationControls(settings, targetLanguage)}
+                    ${renderReadingAnnotationControls(settings)}
                     ${select('wordColorStates', text('wordColorStates'), settings.wordColorStates, localizedOptions(text, WORD_COLOR_STATE_OPTIONS))}
                     ${renderWordColorHiddenStateGroupControls(settings)}
                     <div data-language-family="pronunciation">
@@ -1258,7 +1058,7 @@ function renderDictionariesSettingsPanel(
                 </div>
                 <div class="jpdb-reader-dictionary-status" data-dictionary-status role="status" aria-live="polite">${escapedUiText(language, 'checkingDictionaries')}</div>
                 ${renderLocalDictionaryStorageControls(settings)}
-                <div class="jpdb-reader-settings-subsection jp-only" data-language-family="provider-pills">
+                <div class="jpdb-reader-settings-subsection" data-language-family="provider-pills">
                     <div class="jpdb-reader-help" data-help-key="parserProviderHelp">${escapedUiText(language, 'parserProviderHelp')}</div>
                     ${select('parserProvider', text('parserProvider'), settings.parserProvider, localizedOptions(text, PARSER_PROVIDER_OPTIONS))}
                 </div>
@@ -1267,17 +1067,11 @@ function renderDictionariesSettingsPanel(
                     <div class="jpdb-reader-help">${escapedUiText(language, 'lookupPillsHelp')}</div>
                     ${checkbox('showLookupPillFrequency', text('showLookupPillFrequency'), settings.showLookupPillFrequency)}
                     <div class="jpdb-reader-lookup-links" data-source-editor>
-                        ${renderDictionaryLookupLinkEditor(settings.dictionaryLookupLinks, [], activeTargetLanguageId(settings))}
+                        ${renderDictionaryLookupLinkEditor(settings.dictionaryLookupLinks, [])}
                     </div>
                 </div>
                 <div class="jpdb-reader-recommended-dictionaries" data-recommended-dictionaries>
-                    ${renderRecommendedDictionaries(
-                        [],
-                        activeLearnerLanguageId(settings),
-                        includeCatalogBrowse,
-                        activeTargetLanguageId(settings),
-                        expandCatalogBrowse,
-                    )}
+                    ${renderRecommendedDictionaries([], 'en', includeCatalogBrowse, 'ja', expandCatalogBrowse)}
                 </div>
                 <div class="jpdb-reader-help" data-import-status hidden></div>
                 </div>
@@ -1487,7 +1281,7 @@ export function localizeSettingsForm(form: HTMLFormElement, language: InterfaceL
         localizeSettingsDisclosures(form, language);
         localizeSettingsLabels(form, text);
         localizeSettingsSectionTitles(form, text);
-        localizeSettingsSelects(form, language, text);
+        localizeSettingsSelects(form, text);
         localizeSettingsShortcuts(form, text);
         localizeSettingsHelpText(form, text);
         localizeSettingsActions(form, text);
@@ -1497,77 +1291,6 @@ export function localizeSettingsForm(form: HTMLFormElement, language: InterfaceL
         normalizeSettingsLabelTextContainers(form);
         syncDisabledSettingsControlDescriptions(form, language);
     });
-    syncLanguageProfileControls(form, language);
-    installLanguageProfileControlSync(form);
-}
-
-function syncLanguageProfileControls(form: HTMLFormElement, language: InterfaceLanguage): void {
-    const copy = multilingualSettingsCopy(language);
-    const copyValues: Record<string, string> = {
-        languageProfileTitle: copy.languageProfileTitle,
-        learnerLanguage: copy.learnerLanguage,
-        targetLanguage: copy.targetLanguage,
-        languageProfileHelp: copy.languageProfileHelp,
-        translationTitle: copy.translationTitle,
-        translationHelp: copy.translationHelp,
-    };
-    form.querySelectorAll<HTMLElement>('[data-multilingual-copy]').forEach((element) => {
-        const key = element.dataset.multilingualCopy;
-        const value = key ? copyValues[key] : undefined;
-        if (value !== undefined) element.replaceChildren(value);
-    });
-
-    const targetSelect = form.querySelector<HTMLSelectElement>('select[name="targetLanguage"]');
-    const selectedTarget = targetSelect && learningTargetRosterIdForTag(targetSelect.value);
-    if (targetSelect && selectedTarget) {
-        setInnerHtml(targetSelect, renderStudyTargetOptions(language, selectedTarget));
-    }
-
-    const learnerSelect = form.querySelector<HTMLSelectElement>('select[name="learnerLanguage"]');
-    const learnerLanguageId = learnerSelect && learnerLanguageByIdOrNull(learnerSelect.value) ? (learnerSelect.value as LearnerLanguageId) : 'en';
-    const learnerLanguage = learnerLanguageById(learnerLanguageId);
-    const translationAvailable = googleTranslationLanguageCapability(learnerLanguage.runtimeLocale).supported;
-    if (learnerSelect) {
-        learnerSelect.lang = learnerLanguage.runtimeLocale;
-        learnerSelect.dir = learnerLanguage.direction;
-    }
-
-    let visibleCount = 0;
-    form.querySelectorAll<HTMLLabelElement>('[data-definition-translation-row]').forEach((row) => {
-        const definitionLanguages = new Set((row.dataset.definitionLanguages ?? '').split(/\s+/u).filter(Boolean));
-        const native = definitionLanguages.has(learnerLanguageId);
-        row.hidden = native || !translationAvailable;
-        const input = row.querySelector<HTMLInputElement>('input[name="definitionTranslationProviderIds"]');
-        if (input) input.disabled = native || !translationAvailable;
-        row.querySelector<HTMLElement>('[data-definition-translation-label]')?.replaceChildren(copy.translateAutomatically(learnerLanguage.nativeName));
-        if (!native && translationAvailable) visibleCount += 1;
-    });
-    const empty = form.querySelector<HTMLElement>('[data-definition-translation-empty]');
-    if (empty) {
-        empty.replaceChildren(copy.translationEmpty);
-        empty.hidden = !translationAvailable || visibleCount > 0;
-    }
-    const unavailable = form.querySelector<HTMLElement>('[data-definition-translation-unavailable]');
-    if (unavailable) {
-        unavailable.replaceChildren(copy.translationUnavailable);
-        unavailable.hidden = translationAvailable;
-    }
-}
-
-function installLanguageProfileControlSync(form: HTMLFormElement): void {
-    if (form.dataset.languageProfileControlSync === 'true') return;
-    form.dataset.languageProfileControlSync = 'true';
-    form.querySelector<HTMLSelectElement>('select[name="learnerLanguage"]')?.addEventListener('change', () => {
-        syncLanguageProfileControls(form, getFormInterfaceLanguage(form, 'en'));
-    });
-}
-
-function learnerLanguageByIdOrNull(value: string): ReturnType<typeof learnerLanguageById> | null {
-    try {
-        return learnerLanguageById(value as LearnerLanguageId);
-    } catch {
-        return null;
-    }
 }
 
 export function syncDisabledSettingsControlDescriptions(form: HTMLFormElement, language: InterfaceLanguage): void {
@@ -1779,50 +1502,15 @@ function replaceLocalTitle(form: HTMLFormElement, pattern: RegExp, value: string
     title?.replaceChildren(value);
 }
 
-function localizeSettingsSelects(form: HTMLFormElement, language: InterfaceLanguage, text: SettingsText): void {
-    localizeBasicSettingsSelects(form, language, text);
+function localizeSettingsSelects(form: HTMLFormElement, text: SettingsText): void {
+    localizeBasicSettingsSelects(form, text);
     localizeColorAndReaderSelects(form, text);
     localizeMediaSettingsSelects(form, text);
     localizeMiningSettingsSelects(form, text);
 }
 
-/**
- * Re-localize the interface-locale picker on a live language switch.
- *
- * `setSelectOptionLabels` cannot do this: the labels are not a fixed table any
- * more, the option list is grouped, and a blocked option's label is a locale
- * name plus a reason that has to move to the new interface language while the
- * `title` keeps the reason in the blocked locale's own language.
- */
-function localizeInterfaceLocaleSelect(form: HTMLFormElement, language: InterfaceLanguage, text: SettingsText): void {
-    const selectElement = namedFormControls(form, 'interfaceLanguage').find(
-        (element): element is HTMLSelectElement => element instanceof HTMLSelectElement,
-    );
-    if (!selectElement) return;
-    form.querySelectorAll<HTMLElement>('[data-interface-locale-group="ready"]')
-        .forEach(group => group.setAttribute('label', text('interfaceLocalesReady')));
-    form.querySelectorAll<HTMLElement>('[data-interface-locale-group="in-progress"]')
-        .forEach(group => group.setAttribute('label', text('interfaceLocalesInProgress')));
-    for (const option of Array.from(selectElement.options)) {
-        if (option.value === 'auto') {
-            option.textContent = text('automatic');
-            continue;
-        }
-        const locale = INTERFACE_LOCALES.find(candidate => candidate.tag === option.value);
-        if (!locale) continue;
-        option.textContent = locale.available
-            ? interfaceLocaleOptionLabel(locale)
-            : `${interfaceLocaleOptionLabel(locale)} · ${text(interfaceLocaleBlockerCopyKey(locale))}`;
-    }
-    const note = form.querySelector<HTMLElement>('[data-interface-locale-note]');
-    if (note) {
-        const ready = INTERFACE_LOCALES.filter(locale => locale.available).length;
-        note.textContent = `${formatUiText(language, 'interfaceLocaleReadyCount', { ready, total: INTERFACE_LOCALES.length })} ${text('interfaceLocaleBlockedNote')}`;
-    }
-}
-
-function localizeBasicSettingsSelects(form: HTMLFormElement, language: InterfaceLanguage, text: SettingsText): void {
-    localizeInterfaceLocaleSelect(form, language, text);
+function localizeBasicSettingsSelects(form: HTMLFormElement, text: SettingsText): void {
+    setSelectOptionLabels(form, 'interfaceLanguage', localizedOptions(text, INTERFACE_LANGUAGE_OPTIONS));
     form.querySelector<HTMLElement>('[data-theme-title]')?.replaceChildren(text('theme'));
     setSelectOptionLabels(form, 'popupMode', localizedOptions(text, POPUP_MODE_OPTIONS));
     setSelectOptionLabels(form, 'hoverPopupMode', localizedOptions(text, POPUP_MODE_OPTIONS));
@@ -2698,82 +2386,7 @@ export function renderDictionarySourceRows(settings: ReaderSettings): string {
         `).join('');
     const importHelp = visibleNames.size ? '' : renderSourceRowsHelp(settings.interfaceLanguage, 'importLocalDefinitionsHelp');
     const metadataHelp = settings.dictionaryPreferences.length > visibleNames.size ? renderSourceRowsHelp(settings.interfaceLanguage, 'metadataDictionariesHelp') : '';
-    return `${importHelp}${renderSourceRowsList(rows, { sourceLabel: 'Definition source', countName: 'dictionaryPreferenceCount', countValue: settings.dictionaryPreferences.length, showAlias: true })}${metadataHelp}${hidden}${renderDefinitionTranslationControls(settings)}`;
-}
-
-function renderDefinitionTranslationControls(settings: ReaderSettings): string {
-    const copy = multilingualSettingsCopy(settings.interfaceLanguage);
-    const learnerLanguageId = activeLearnerLanguageId(settings);
-    const learnerLanguage = learnerLanguageById(learnerLanguageId);
-    const translationAvailable = googleTranslationLanguageCapability(learnerLanguage.runtimeLocale).supported;
-    const activeProfile = activeLanguageProfile(settings.languageProfiles, settings.activeLanguageProfileId);
-    const enabled = new Set(activeProfile?.definitionTranslationProviderIds ?? []);
-    const sources = definitionTranslationSources(settings);
-    const visibleCount = translationAvailable
-        ? sources.filter((source) => !source.definitionLanguages.includes(learnerLanguageId)).length
-        : 0;
-    return `
-        <div class="jpdb-reader-settings-subsection jpdb-reader-definition-translation" data-definition-translation-controls>
-            <div class="jpdb-reader-local-title" data-multilingual-copy="translationTitle">${escapeHtml(copy.translationTitle)}</div>
-            <div class="jpdb-reader-help" data-multilingual-copy="translationHelp">${escapeHtml(copy.translationHelp)}</div>
-            <input type="hidden" name="definitionTranslationControlsPresent" value="1">
-            <div class="jpdb-reader-definition-translation-list">
-                ${sources
-                    .map((source) => {
-                        const isNative = source.definitionLanguages.includes(learnerLanguageId);
-                        const disabled = isNative || !translationAvailable;
-                        return `
-                        <label class="inline" data-definition-translation-row data-definition-languages="${escapeHtml(source.definitionLanguages.join(' '))}" ${disabled ? 'hidden' : ''}>
-                            <input name="definitionTranslationProviderIds" type="checkbox" value="${escapeHtml(source.id)}" ${enabled.has(source.id) ? 'checked' : ''} ${disabled ? 'disabled' : ''}>
-                            <span>
-                                <strong>${escapeHtml(source.name)}</strong>
-                                <span aria-hidden="true"> — </span>
-                                <span data-definition-translation-label>${escapeHtml(copy.translateAutomatically(learnerLanguage.nativeName))}</span>
-                            </span>
-                        </label>
-                    `;
-                    })
-                    .join('')}
-            </div>
-            <div class="jpdb-reader-help" data-definition-translation-empty ${!translationAvailable || visibleCount ? 'hidden' : ''}>${escapeHtml(copy.translationEmpty)}</div>
-            <div class="jpdb-reader-help" data-definition-translation-unavailable ${translationAvailable ? 'hidden' : ''}>${escapeHtml(copy.translationUnavailable)}</div>
-        </div>
-    `;
-}
-
-function definitionTranslationSources(settings: ReaderSettings): Array<{
-    id: string;
-    name: string;
-    definitionLanguages: readonly string[];
-}> {
-    const seen = new Set<string>();
-    return definitionSourceRows(settings)
-        .filter((row) => DEFINITION_TRANSLATION_API_SOURCE_IDS.has(row.id) || row.removable)
-        .filter((row) => {
-            if (seen.has(row.id)) return false;
-            seen.add(row.id);
-            return true;
-        })
-        .map((row) => ({
-            id: row.id,
-            name: row.alias || row.name,
-            definitionLanguages: definitionLanguagesForSource(row.id, row.name),
-        }));
-}
-
-function definitionLanguagesForSource(id: string, name: string): readonly string[] {
-    if (DEFINITION_TRANSLATION_API_SOURCE_IDS.has(id)) return ['en'];
-    return CATALOG_DEFINITION_LANGUAGES.get(normalizeDictionaryIdentity(id))
-        ?? CATALOG_DEFINITION_LANGUAGES.get(normalizeDictionaryIdentity(name))
-        ?? [dictionaryDefinitionLanguage(name)];
-}
-
-function normalizeDictionaryIdentity(value: string): string {
-    return value
-        .trim()
-        .toLocaleLowerCase('en-US')
-        .replace(/[^a-z0-9]+/gu, '-')
-        .replace(/^-|-$/gu, '');
+    return `${importHelp}${renderSourceRowsList(rows, { sourceLabel: 'Definition source', countName: 'dictionaryPreferenceCount', countValue: settings.dictionaryPreferences.length, showAlias: true })}${metadataHelp}${hidden}`;
 }
 
 export function renderKanjiSourceRows(settings: ReaderSettings): string {
@@ -2786,12 +2399,10 @@ export function renderKanjiSourceRows(settings: ReaderSettings): string {
 export function renderLookupPillsEditor(
     settings: ReaderSettings,
     installed: YomitanDictionaryInfo[] = installedDictionariesFromPreferences(settings.dictionaryPreferences),
-    targetLanguage = activeTargetLanguageId(settings),
 ): string {
     return renderDictionaryLookupLinkEditor(
         settings.dictionaryLookupLinks,
         installedFrequencyDictionaryPreferences(settings, installed),
-        targetLanguage,
     );
 }
 

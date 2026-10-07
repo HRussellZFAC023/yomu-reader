@@ -55,9 +55,6 @@ export function renderKanjiDefinitions(
                     <div
                         class="jpdb-reader-local-glossary jpdb-reader-parseable"
                         data-dictionary="${escapeHtml(entry.dictionary)}"
-                        data-definition-translation-text
-                        data-definition-translation-source-id="${escapeHtml(entry.dictionary)}"
-                        data-definition-translation-payload="${escapeHtml(entry.meanings.slice(0, 6).join('\n'))}"
                     >
                         ${entry.meanings.slice(0, 6).map(meaning => `<div>${escapeHtml(meaning)}</div>`).join('')}
                     </div>
@@ -153,7 +150,7 @@ function renderLocalTermTags(dictionary: string, group: LearnerTermGroup, dictio
 function renderLocalTermMeaning(dictionary: string, group: LearnerTermGroup): string {
     if (group.entries.some(hasAdditionalLocalDictionaryText)) return renderLocalGlossaryEntries(dictionary, group.entries, { showIndex: false });
     if (!group.meanings.length) return renderLocalGlossaryEntries(dictionary, group.entries);
-    return `<div class="jpdb-reader-local-senses" data-definition-translation-text>
+    return `<div class="jpdb-reader-local-senses">
         ${group.meanings.slice(0, 8).map((meaning, index) => `
             <div class="jpdb-reader-local-sense">
                 ${group.meanings.length > 1 ? `<span class="jpdb-reader-local-sense-index">${index + 1}</span>` : ''}
@@ -185,7 +182,7 @@ function renderLocalGlossaryEntries(dictionary: string, entries: YomitanTermEntr
     }).filter(Boolean).join('');
     if (!entryHtml) return '';
     return `
-        <div class="jpdb-reader-local-glossary jpdb-reader-parseable" data-dictionary="${escapeHtml(dictionary)}" data-definition-translation-text>
+        <div class="jpdb-reader-local-glossary jpdb-reader-parseable" data-dictionary="${escapeHtml(dictionary)}">
             ${entryHtml}
         </div>
     `;

@@ -21,7 +21,7 @@ export interface WebsiteRoutePublication {
 export const WEBSITE_ROUTE_CATALOG: readonly WebsiteRouteDefinition[] = Object.freeze([
     route('', 'index.md',
         ['よむ | Read Japanese. Stay with the story.', 'よむ | 日本語を読む。物語の続きを楽しむ。'],
-        ['Read web pages, subtitles, manga and PDFs in any of 33 learning languages, save the words you meet, and review them with their original context. Japanese adds furigana, pitch accent and kanji study.', '33の学習言語のどれでも、ウェブページ、字幕、漫画、PDFを読み、出会った単語を元の文脈と一緒に保存して復習できます。日本語では、ふりがな、ピッチアクセント、漢字学習も使えます。']),
+        ['Read Japanese web pages, subtitles, manga and PDFs with furigana, pitch accent and kanji study, save the words you meet, and review them with their original context.', 'ふりがな、ピッチアクセント、漢字学習を使いながら、日本語のウェブページ、字幕、漫画、PDFを読み、出会った単語を元の文脈と一緒に保存して復習できます。']),
     englishOnlyRoute('api/', 'api/index.md',
         'Yomu API reference',
         'Interactive OpenAPI reference for Yomu Academy, audio, support, and public edge services.',
@@ -82,7 +82,7 @@ export const WEBSITE_ROUTE_CATALOG: readonly WebsiteRouteDefinition[] = Object.f
         'privacy-native-review-pending'),
     route('reference/grammar', 'reference/grammar.md',
         ['Grammar coverage', '文法対応状況'],
-        ['See which learning targets have local grammar detection and which open a checked grammar reference.', '学習対象ごとの端末内文法検出の有無と、確認済み文法リファレンスへのリンクを確認できます。']),
+        ["See what Yomu's local Japanese grammar detection covers and the source it was checked against.", 'よむの端末内日本語文法検出の対象範囲と、確認に使った出典を確認できます。']),
     englishOnlyRoute('reference/settings', 'reference/settings.md',
         'Settings reference',
         'Every Yomu setting, its default, and the part of the settings dialog that holds it.',

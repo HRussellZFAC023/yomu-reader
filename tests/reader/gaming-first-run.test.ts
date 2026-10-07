@@ -11,7 +11,6 @@
 // is booted once for the file and each test leaves it back on Home.
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import type { YomuGamingBridge, YomuGamingEnvironment } from '../../src/gaming/ipc';
-import { activeLearningTarget } from '../../src/reader/languages/target-runtime';
 
 const SNAPSHOT_KEY = 'yomu-gaming-settings-snapshot-v1';
 const SETTINGS_KEY = 'yomu-gaming-reader-settings-v1';
@@ -19,7 +18,6 @@ const SETTINGS_KEY = 'yomu-gaming-reader-settings-v1';
 let appRoot: HTMLElement;
 let currentEnvironment: YomuGamingEnvironment = registeredEnvironment('CommandOrControl+Shift+Y');
 let installOverlayEscapeHandler: typeof import('../../src/gaming/renderer/app').installOverlayEscapeHandler;
-let gamingTargetChoiceError: typeof import('../../src/gaming/renderer/app').gamingTargetChoiceError;
 let createGamingReaderSettingsSurface: typeof import('../../src/gaming/renderer/app').createGamingReaderSettingsSurface;
 // When set, the next shortcut save answers with this environment instead of registering.
 let nextSaveEnvironment: YomuGamingEnvironment | null = null;
@@ -69,8 +67,6 @@ function testBridge(): YomuGamingBridge {
             const raw = localStorage.getItem(SNAPSHOT_KEY);
             return raw ? JSON.parse(raw) as { version: 1; syncedAt: string; settings: unknown } : null;
         },
-        setLearningTargetChosen: async () => undefined,
-        onTargetChoiceRequired: () => () => undefined,
     };
 }
 
@@ -91,12 +87,11 @@ beforeAll(async () => {
     window.yomuGaming = testBridge();
     ({
         installOverlayEscapeHandler,
-        gamingTargetChoiceError,
         createGamingReaderSettingsSurface,
     } = await import('../../src/gaming/renderer/app'));
     await vi.waitFor(() => {
         expect(document.querySelector('[data-gaming-home] h1')).not.toBeNull();
-        expect(document.querySelector('[data-gaming-home][data-target-choice-required="true"]')).not.toBeNull();
+        expect(document.querySelector('[data-gaming-home] [data-action="instant-capture"]')).not.toBeNull();
     });
     appRoot = document.querySelector<HTMLElement>('#app')!;
 }, 120_000);
@@ -161,89 +156,32 @@ async function saveShortcut(value: string): Promise<void> {
 }
 
 describe('Yomu Gaming first run', () => {
-    it('fails capture setup closed while the compatibility profile is still unchosen', () => {
-        expect(gamingTargetChoiceError({ learningTargetChosen: false, interfaceLanguage: 'en' }))
-            .toBe('Choose the language you want to read before capturing your screen.');
-        expect(gamingTargetChoiceError({ learningTargetChosen: false, interfaceLanguage: 'ja' }))
-            .toBe('画面をキャプチャする前に、読みたい言語を選んでください。');
-    });
-
-    it('renders no ambient target or capture promise and routes the choice to Appearance', () => {
+    it('captures immediately on a fresh install, with no target to choose first', () => {
         expect(shellView()).toBe('home');
-        expect(home().querySelector('h1')?.textContent).toBe('Choose the language you want to read');
-        expect(home().textContent).not.toContain('Japanese');
-        expect(home().querySelector('[data-action="instant-capture"]')).toBeNull();
-        expect(home().querySelector('[data-action="area-capture"]')).toBeNull();
-        expect(home().querySelector('[data-hotkey]')).toBeNull();
+        expect(text(home(), 'h1')).toBe('Read Japanese anywhere on your screen');
+        expect(home().dataset.targetChoiceRequired).toBeUndefined();
+        expect(home().querySelector('[data-action="choose-target"]')).toBeNull();
+        expect(home().querySelector('[data-action="instant-capture"]')).not.toBeNull();
+        expect(home().querySelector('[data-action="area-capture"]')).not.toBeNull();
+        expect(home().querySelector('[data-hotkey]')).not.toBeNull();
+        // Nothing had to be saved for capture to be ready.
         expect(localStorage.getItem(SETTINGS_KEY)).toBeNull();
 
-        click(home(), '[data-action="choose-target"]');
-        expect(shellView()).toBe('settings');
-        expect(activePanel()).toBe('appearance');
-        const target = settingsForm().querySelector<HTMLSelectElement>('select[name="targetLanguage"]')!;
-        expect(target.value).toBe('');
-        expect(target.required).toBe(true);
-        expect(target.querySelector('[data-gaming-target-placeholder]')?.textContent).toBe('Choose a language');
+        click(home(), '[data-action="open-settings"]');
+        expect(settingsForm().querySelector('select[name="targetLanguage"]')).toBeNull();
     });
 
-    it('renders the target-required surface in the chosen interface language', () => {
-        click(home(), '[data-action="choose-target"]');
-        const language = settingsForm().querySelector<HTMLSelectElement>('select[name="interfaceLanguage"]')!;
-        language.value = 'ja';
-        language.dispatchEvent(new Event('change', { bubbles: true }));
-
-        expect(home().lang).toBe('ja');
-        expect(text(home(), 'h1')).toBe('読みたい言語を選んでください');
-        expect(text(home(), '[data-gaming-target-body]'))
-            .toBe('言語を選ぶと、画面上の対応言語を読み取れるようになります。');
-        expect(text(home(), '[data-action="choose-target"]')).toBe('言語を選ぶ');
-        expect(text(home(), '[data-action="open-settings"]')).toBe('設定');
-        expect(text(settingsForm(), '[data-gaming-target-placeholder]')).toBe('言語を選ぶ');
-        expect(`${home().textContent}${settingsForm().textContent}`).not.toContain('未翻訳');
-
-        settingsForm().dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
-        expect(homeStatus().textContent).toBe('設定を保存しました。');
-
-        language.value = 'en';
-        language.dispatchEvent(new Event('change', { bubbles: true }));
-        expect(home().lang).toBe('en');
-        expect(text(home(), 'h1')).toBe('Choose the language you want to read');
-    });
-
-    it('keeps unrelated saves unchosen, then adopts an actual target selection immediately', async () => {
-        click(home(), '[data-action="choose-target"]');
-        const oldForm = settingsForm();
-        const target = oldForm.querySelector<HTMLSelectElement>('select[name="targetLanguage"]')!;
-        // An unrelated settings write must preserve the unchosen state. The
-        // compatibility Japanese profile is not consent to use Japanese.
-        click(settingsForm(), '[data-theme-switch]');
-        expect(JSON.parse(localStorage.getItem(SETTINGS_KEY) ?? '{}')).toMatchObject({ learningTargetChosen: false });
-        expect(settingsForm().querySelector<HTMLSelectElement>('select[name="targetLanguage"]')?.value).toBe('');
-
-        target.value = 'es';
-        const delayedPersist = vi.spyOn(window, 'setTimeout');
-        target.dispatchEvent(new Event('input', { bubbles: true }));
-        const delayedPersistCount = delayedPersist.mock.calls.length;
-        delayedPersist.mockRestore();
-        expect(delayedPersistCount).toBe(0);
-        target.dispatchEvent(new Event('change', { bubbles: true }));
-        await vi.waitFor(() => {
-            expect(shellView()).toBe('home');
-            expect(home().querySelector('h1')?.textContent).toBe('Read Spanish anywhere on your screen');
-        });
-        expect(oldForm.isConnected).toBe(false);
-        expect(JSON.parse(localStorage.getItem(SETTINGS_KEY) ?? '{}')).toMatchObject({ learningTargetChosen: true });
-        expect(activeLearningTarget().language).toBe('es');
-
-        // Leave the shared renderer in the Japanese state exercised by the
-        // existing Gaming fixture and the rest of this contract file.
+    it('keeps capture ready across an unrelated settings save', () => {
         click(home(), '[data-action="open-settings"]');
         click(settingsForm(), '[data-action="settings-panel"][data-panel="appearance"]');
-        const chosenTarget = settingsForm().querySelector<HTMLSelectElement>('select[name="targetLanguage"]')!;
-        chosenTarget.value = 'ja';
-        chosenTarget.dispatchEvent(new Event('change', { bubbles: true }));
-        await vi.waitFor(() => expect(activeLearningTarget().language).toBe('ja'));
+        click(settingsForm(), '[data-theme-switch]');
+
+        const stored = JSON.parse(localStorage.getItem(SETTINGS_KEY) ?? '{}') as Record<string, unknown>;
+        expect(stored).not.toHaveProperty('learningTargetChosen');
+        expect(stored).not.toHaveProperty('onboardingSeen');
         click(settingsForm(), '[data-action="close-settings"]');
+        expect(text(home(), 'h1')).toBe('Read Japanese anywhere on your screen');
+        expect(home().querySelector('[data-action="instant-capture"]')).not.toBeNull();
     });
 
     it('lands on one hero with one primary action and the shortcut shown once', () => {

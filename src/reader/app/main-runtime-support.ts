@@ -82,7 +82,7 @@ export function readerRootGestureLeaks(event: Event): boolean {
 // a sheet-drag that began on the handle is never matched — the popover sheet-drag,
 // the popover-body stabilizer, the newtab swipe and the OCR overlay are all untouched).
 // Trade-off: these utility panels lose native fling momentum (1:1 drag), which is fine.
-export const READER_ROOT_SCROLL_BODY_SELECTOR = '.jpdb-reader-settings-scroll, .jpdb-reader-popover-body, .jpdb-reader-onboarding';
+export const READER_ROOT_SCROLL_BODY_SELECTOR = '.jpdb-reader-settings-scroll, .jpdb-reader-popover-body';
 
 export function readerScrollBodyForEvent(event: Event): HTMLElement | null {
     return (event.target as Element | null)?.closest?.<HTMLElement>(READER_ROOT_SCROLL_BODY_SELECTOR) ?? null;

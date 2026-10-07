@@ -5,23 +5,23 @@ description: What Yomu keeps on your device, which services it talks to and when
 
 # Yomu privacy policy
 
-Last updated: 30 September 2026
+Last updated: 7 October 2026
 
 **The short version.** Your settings, dictionaries, saved words, and review history stay on your device. Yomu talks to an outside service only when you use a feature that needs one — a lookup service you connected, an audio source, a translation — and the page below says exactly which, and when. There is no advertising and no analytics tracking, and your data is not sold.
 
 ## Browser permissions
 
-The extension asks to run on websites because its core purpose is to add reading, target-aware lookup, OCR, subtitle, and mining tools for your selected learning language to the page you are viewing. It uses `activeTab` for user-requested visible-tab capture, `scripting` to install the reader, `storage` for settings and local study data, and context-menu access for reader shortcuts. It does not request browsing-history access.
+The extension asks to run on websites because its core purpose is to add Japanese reading, lookup, OCR, subtitle, and mining tools to the page you are viewing. It uses `activeTab` for user-requested visible-tab capture, `scripting` to install the reader, `storage` for settings and local study data, and context-menu access for reader shortcuts. It does not request browsing-history access.
 
 Firefox describes the text and images Yomu reads on a page as `websiteContent`. Account keys and imported sign-in tokens are `authenticationInfo`. Yomu declares website content as required for its reader, but account information as optional. Firefox can show that optional prompt only on an extension-owned page, so account details are added from **Study → Settings**. If you try from an ordinary webpage, Yomu keeps the details unsaved and points you to Study. The Bunpro page helper does not read its token in the Firefox extension; it opens Study settings so you can paste the token there. If you decline Firefox's prompt, the integration stays off.
 
-The same owned-page boundary protects authoritative settings and onboarding choices, imports, pairing and recovery controls, account-backed study details, and captured OCR image data. On an ordinary website, Yomu keeps those values out of page-readable controls and opens Study instead; popup lookup, annotations, and subtitles still work on the page you are reading.
+The same owned-page boundary protects authoritative settings, imports, pairing and recovery controls, account-backed study details, and captured OCR image data. On an ordinary website, Yomu keeps those values out of page-readable controls and opens Study instead; popup lookup, annotations, and subtitles still work on the page you are reading.
 
 The extension does not replace or redirect your browser's new-tab page. Study is a separate page that opens only when you choose it from Yomu's toolbar menu or visit the hosted Study page.
 
 ## Data stored locally
 
-- Settings, shortcuts, imported API credentials, dictionary preferences, and onboarding state.
+- Settings, shortcuts, imported API credentials, and dictionary preferences.
 - Imported Yomitan dictionaries, offline parsing dictionaries, lookup caches, and local review progress.
 - If Reader account sync is enabled, the long-lived device bearer and 32-byte profile encryption key in extension/userscript-owned private storage. They are excluded from page-readable storage, settings exports, and ordinary backups.
 - Media and OCR working data only as needed for the feature you invoke; Yomu does not upload it to a Yomu account.

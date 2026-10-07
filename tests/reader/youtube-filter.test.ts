@@ -11,10 +11,7 @@ import {
     youTubeChannelListSignature,
 } from '../../src/reader/subtitles/youtube-channel-recommendations';
 import { gmStorageGetSync, gmStorageSetSync } from '../../src/reader/app/storage';
-import {
-    classifyYouTubeFilterCandidates,
-    youTubeTargetLanguageDetector,
-} from '../../src/reader/subtitles/youtube-filter-scan';
+import { classifyYouTubeFilterCandidates } from '../../src/reader/subtitles/youtube-filter-scan';
 import {
     YoutubeImmersionFilter,
     collectYouTubeVideoCards,
@@ -2106,7 +2103,7 @@ describe('YouTube immersion filter', () => {
         }
     });
 
-    it('filters for the learner\'s own target language rather than for Japanese', async () => {
+    it('keeps filtering for Japanese when a stored profile names another target', async () => {
         const settings = youtubeFilterSettings({
             languageProfiles: DEFAULT_SETTINGS.languageProfiles.map(profile =>
                 profile.id === DEFAULT_SETTINGS.activeLanguageProfileId
@@ -2132,30 +2129,11 @@ describe('YouTube immersion filter', () => {
             },
         });
 
-        expect(card('russian').classList.contains('jpdb-youtube-filtered')).toBe(false);
-        expect(document.documentElement.classList.contains('jpdb-youtube-filter-active')).toBe(false);
-        expect(document.querySelector('.jpdb-youtube-channel-shelf')).toBeNull();
-        expect(settings).toMatchObject({
-            youtubeImmersionEnabled: true,
-            youtubeImmersionEnabledChosen: false,
-            youtubeShowChannelRecommendations: true,
-            youtubeShowChannelRecommendationsChosen: false,
-        });
-
-        settings.youtubeImmersionEnabledChosen = true;
-        settings.youtubeShowChannelRecommendationsChosen = true;
-        filter.refresh();
-        await runInitialFilterScan();
-
-        // The filter asks the ACTIVE target whether text is its language, so a Russian
-        // learner keeps Russian and loses Japanese -- the exact inverse of what shipped
-        // before A48, where `non-japanese` hid the learner's own language.
-        expect(card('russian').classList.contains('jpdb-youtube-filtered')).toBe(false);
-        expect(card('japanese').classList.contains('jpdb-youtube-filtered')).toBe(true);
-        expect(document.documentElement.classList.contains('jpdb-youtube-filter-active')).toBe(true);
-        // The channel corpus is 100 JLPT-graded Japanese channels, so it stays out of a
-        // Russian learner's feed even with recommendations explicitly turned on.
-        expect(document.querySelector('.jpdb-youtube-channel-shelf')).toBeNull();
+        // The stored profile is kept verbatim but never read: Yomu is Japanese-only,
+        // so the Japanese video stays and the Russian one is hidden.
+        expect(card('japanese').classList.contains('jpdb-youtube-filtered')).toBe(false);
+        expect(card('russian').classList.contains('jpdb-youtube-filtered')).toBe(true);
+        expect(settings.languageProfiles.find(profile => profile.id === settings.activeLanguageProfileId)?.targetLanguage).toBe('ru');
 
         filter.destroy();
     });
@@ -2591,32 +2569,12 @@ describe('notice dismissal and search auto-reveal', () => {
     });
 });
 
-describe('YouTube target-language detection', () => {
+describe('YouTube Japanese detection', () => {
     // The Japanese detector deliberately strips Japanese-locale YouTube chrome before
     // deciding, because a card whose ONLY Japanese characters are a view count must
     // still read as non-Japanese (the 2026-07-11 "EN videos should be hidden" report).
-    // Swapping in a per-target detector must not lose that.
-    it('keeps stripping Japanese YouTube chrome for a Japanese target', () => {
-        const detect = youTubeTargetLanguageDetector(true, () => true);
-        expect(detect('Best of 2024 · 7.2万回視聴・4時間前')).toBe(false);
-        expect(detect('日本語の聞き取り練習')).toBe(true);
-    });
-
-    it('asks the active target about its own language, not about Japanese', () => {
-        const cyrillic = (text: string) => /[\u0400-\u04ff]/.test(text);
-        const detect = youTubeTargetLanguageDetector(false, cyrillic);
-        expect(detect('Русский язык для начинающих')).toBe(true);
-        expect(detect('日本語の聞き取り練習')).toBe(false);
-        expect(detect('Learn Russian in 10 minutes')).toBe(false);
-    });
-
-    // A target's own locale chrome is NOT in the Japanese strip list, so a card whose
-    // only target-language text is a view count still reads as the target language.
-    // The failure direction is under-filtering -- an extra foreign video stays visible --
-    // which is why this is recorded rather than treated as a blocker (A48 residual).
-    it('records that per-target UI chrome is not yet stripped', () => {
-        const cyrillic = (text: string) => /[\u0400-\u04ff]/.test(text);
-        const detect = youTubeTargetLanguageDetector(false, cyrillic);
-        expect(detect('Best of 2024 · 1,2 млн просмотров')).toBe(true);
+    it('keeps stripping Japanese YouTube chrome', () => {
+        expect(isProbablyJapaneseYouTubeText('Best of 2024 · 7.2万回視聴・4時間前')).toBe(false);
+        expect(isProbablyJapaneseYouTubeText('日本語の聞き取り練習')).toBe(true);
     });
 });

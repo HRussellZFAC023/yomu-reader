@@ -1,10 +1,9 @@
 import { afterEach, expect, it, vi } from 'vitest';
 import { LocalYomuSrsRepository, createYomuLocalSrsAdapter } from '../../src/reader/srs/local-yomu';
 import { canonicalStudyCardKey } from '../../src/reader/srs/shared';
-import { resetActiveLearningTargetLanguage, setActiveLearningTargetLanguage } from '../../src/reader/languages/active';
 import { DEFAULT_SETTINGS, newTabApiSourceController, renderEnabledNewTabRoot, renderLoadedApiStats } from './new-tab-review/fixtures';
 
-afterEach(() => { vi.restoreAllMocks(); document.body.replaceChildren(); localStorage.clear(); sessionStorage.clear(); resetActiveLearningTargetLanguage(); });
+afterEach(() => { vi.restoreAllMocks(); document.body.replaceChildren(); localStorage.clear(); sessionStorage.clear(); });
 
 function metric(root: HTMLElement, label: string): string {
     const tile = [...root.querySelectorAll<HTMLElement>('.jpdb-reader-stats-metric')]
@@ -39,7 +38,7 @@ function openView(root: HTMLElement, mode: 'word' | 'search' | 'stats'): void {
 
 function academyStatsController(repository: LocalYomuSrsRepository, interfaceLanguage: 'en' | 'ja' = 'en', yomuLocalSrsEnabled = true) {
     return newTabApiSourceController(
-        { ...DEFAULT_SETTINGS, apiKey: '', interfaceLanguage, learningTargetChosen: true, yomuLocalSrsEnabled },
+        { ...DEFAULT_SETTINGS, apiKey: '', interfaceLanguage, yomuLocalSrsEnabled },
         { srsAdapters: { 'yomu-local': createYomuLocalSrsAdapter(repository) } },
     );
 }
@@ -54,7 +53,6 @@ async function loadAcademyStats(repository: LocalYomuSrsRepository, interfaceLan
 // Stats describes review work, so "Cards" counts every word in review, due or
 // not. A saved word waits in Library for "Add to review" and joins it then.
 it('counts every Academy card in review, not only the due queue', async () => {
-    setActiveLearningTargetLanguage('ja');
     const repository = new LocalYomuSrsRepository();
     const read = await repository.mine({ expression: '読む', reading: 'よむ', meaning: 'to read' });
     await repository.review({ card: read.card!, grade: 'good' });
@@ -76,14 +74,13 @@ it('counts every Academy card in review, not only the due queue', async () => {
 
 // A slow Stats load must not paint over the view the learner moved to.
 it('keeps a late Stats load from replacing Library after the learner leaves Stats', async () => {
-    setActiveLearningTargetLanguage('ja');
     const repository = new LocalYomuSrsRepository();
     await repository.mine({ expression: '読む', reading: 'よむ', meaning: 'to read' });
     const adapter = createYomuLocalSrsAdapter(repository);
     let release!: () => void;
     const gate = new Promise<void>(resolve => { release = resolve; });
     const controller = newTabApiSourceController(
-        { ...DEFAULT_SETTINGS, apiKey: '', learningTargetChosen: true, yomuLocalSrsEnabled: true },
+        { ...DEFAULT_SETTINGS, apiKey: '', yomuLocalSrsEnabled: true },
         { srsAdapters: { 'yomu-local': {
             ...adapter,
             stats: async () => { await gate; return adapter.stats(); },
@@ -114,7 +111,6 @@ it('keeps a late Stats load from replacing Library after the learner leaves Stat
 // Saved words are not review work, so they are not "Cards", but Stats still
 // says how many wait in Library: one "Saved" tile, only when there are some.
 it('counts saved words in a Saved tile, shown only when there are any', async () => {
-    setActiveLearningTargetLanguage('ja');
     const repository = new LocalYomuSrsRepository();
     const read = await repository.mine({ expression: '読む', reading: 'よむ', meaning: 'to read' });
     await repository.review({ card: read.card!, grade: 'good' });
@@ -138,7 +134,6 @@ it('counts saved words in a Saved tile, shown only when there are any', async ()
 // The tile is the way to those words. Adding one to review there makes it a
 // card, and Stats shows that the next time the learner opens it.
 it('opens Library from the Saved tile, and Add to review moves the word to Cards', async () => {
-    setActiveLearningTargetLanguage('ja');
     const repository = new LocalYomuSrsRepository();
     await repository.mine({ expression: '読む', reading: 'よむ', meaning: 'to read' });
     await repository.mine({ expression: '書く', reading: 'かく', meaning: 'to write' });
@@ -177,7 +172,6 @@ it('opens Library from the Saved tile, and Add to review moves the word to Cards
  * Stats must count it, and its Saved tile open Library on both words.
  */
 async function savedWordReachesStats(saveMore: (root: HTMLElement, controller: ReturnType<typeof academyStatsController>, repository: LocalYomuSrsRepository) => Promise<number>): Promise<void> {
-    setActiveLearningTargetLanguage('ja');
     const repository = new LocalYomuSrsRepository();
     await repository.mine({ expression: '読む', reading: 'よむ', meaning: 'to read' });
     const controller = academyStatsController(repository);
@@ -224,7 +218,6 @@ it('counts a word saved in another tab in Stats and the Library the tile opens',
 // With "Enable Academy" off, Library cannot list Academy words, so Stats must
 // not count them either: a Saved tile would lead to an empty Library.
 it('leaves Academy out of Stats while Academy is turned off', async () => {
-    setActiveLearningTargetLanguage('ja');
     const repository = new LocalYomuSrsRepository();
     const read = await repository.mine({ expression: '読む', reading: 'よむ', meaning: 'to read' });
     await repository.review({ card: read.card!, grade: 'good' });
@@ -246,7 +239,6 @@ it('leaves Academy out of Stats while Academy is turned off', async () => {
 // The tile promises the saved words, so Library must show them even when the
 // learner narrowed it earlier with a state chip or a search.
 it('opens Library on the saved words whatever chip or search narrowed it before', async () => {
-    setActiveLearningTargetLanguage('ja');
     const repository = new LocalYomuSrsRepository();
     const read = await repository.mine({ expression: '読む', reading: 'よむ', meaning: 'to read' });
     await repository.review({ card: read.card!, grade: 'good' });
@@ -283,7 +275,6 @@ it('opens Library on the saved words whatever chip or search narrowed it before'
 // Saved words have no due date, so in queue order they come after every
 // scheduled card: past a page of those, the tile must still open on them.
 it('opens Library on the saved words behind more than a page of scheduled Academy cards', async () => {
-    setActiveLearningTargetLanguage('ja');
     const repository = new LocalYomuSrsRepository();
     const scheduled = Array.from({ length: 55 }, (_, index) => ({ expression: `語${index}`, reading: `ご${index}`, meanings: ['word'], dueAt: Date.now() + 86_400_000 + index }));
     await repository.importBatch({ source: 'fixture', importedAt: Date.now(), items: scheduled });
@@ -300,29 +291,10 @@ it('opens Library on the saved words behind more than a page of scheduled Academ
     } finally { controller.destroy(); }
 });
 
-// Changing the learning target while Stats is open shows the new target's
-// figures straight away, not an empty dashboard waiting for a refresh.
-it('reloads Stats for the new learning target while Stats is open', async () => {
-    setActiveLearningTargetLanguage('ja');
-    const repository = new LocalYomuSrsRepository();
-    await repository.mine({ expression: '読む', reading: 'よむ', meaning: 'to read' });
-    await repository.mine({ expression: 'leer', reading: 'leer', meaning: 'to read', language: 'es' });
-    await repository.mine({ expression: 'ver', reading: 'ver', meaning: 'to see', language: 'es' });
-    const controller = academyStatsController(repository);
-    try {
-        const root = await renderLoadedApiStats(controller);
-        expect(metric(root, 'Saved')).toBe('1');
-
-        setActiveLearningTargetLanguage('es');
-        controller.invalidateForTargetChange();
-        await vi.waitFor(() => expect(metric(root, 'Saved')).toBe('2'));
-    } finally { controller.destroy(); }
-});
-
-// Study and Library read Academy for the active learning target, so Stats does
-// too: "Saved" is then exactly what Library offers to add to review.
-it('counts Academy words of the active learning target only', async () => {
-    setActiveLearningTargetLanguage('ja');
+// Study and Library list Japanese Academy words only, so Stats does too:
+// "Saved" is then exactly what Library offers to add to review. A card stored
+// under another language stays in the deck untouched; it is simply not counted.
+it('counts Japanese Academy words only, leaving cards stored in other languages untouched', async () => {
     const repository = new LocalYomuSrsRepository();
     const write = await repository.mine({ expression: '書く', reading: 'かく', meaning: 'to write' });
     await repository.review({ card: write.card!, grade: 'good' });
@@ -335,14 +307,14 @@ it('counts Academy words of the active learning target only', async () => {
     const japanese = await loadAcademyStats(repository);
     expect([metric(japanese, 'Due now'), metric(japanese, 'Cards'), metric(japanese, 'Saved')]).toEqual(['0', '1', '1']);
 
-    setActiveLearningTargetLanguage('es');
-    document.body.replaceChildren();
-    const spanish = await loadAcademyStats(repository);
-    expect([metric(spanish, 'Due now'), metric(spanish, 'Cards'), metric(spanish, 'Saved')]).toEqual(['1', '1', '2']);
+    const stored = Object.values((await repository.snapshot()).cards)
+        .filter(card => card.language === 'es')
+        .map(card => card.expression)
+        .sort();
+    expect(stored).toEqual(['comer', 'leer', 'ver']);
 });
 
 it('labels the Saved tile, and the Library rows it opens, in Japanese', async () => {
-    setActiveLearningTargetLanguage('ja');
     const repository = new LocalYomuSrsRepository();
     await repository.mine({ expression: '読む', reading: 'よむ', meaning: 'to read' });
 

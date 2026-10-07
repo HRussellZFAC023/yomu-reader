@@ -12,11 +12,6 @@ const READER_DOCUMENT_CLICK_IGNORE_SELECTOR = [
     // path intercept that click made the text reveal only for the pressed
     // moment (or require repeated taps) on JPDB/Jiten page addons.
     '[data-jpdb-reader-root] .jpdb-reader-example-translation',
-    // The welcome panel owns all of its lookups (OnboardingController's click
-    // handler); the document path's point-text candidate lookup would otherwise
-    // stopPropagation on clicks over annotated words inside the panel's action
-    // buttons and swallow the buttons' own handlers.
-    '.jpdb-reader-onboarding',
 ].join(',');
 
 const NATIVE_PAGE_LOOKUP_BLOCK_SELECTOR = [

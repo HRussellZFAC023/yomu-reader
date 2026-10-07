@@ -45,10 +45,7 @@ describe('hosted settings authority availability', () => {
     it('does not turn a fresh standalone default snapshot into stored learner data', async () => {
         vi.stubGlobal('location', HOSTED_STUDY);
 
-        await expect(loadSettings()).resolves.toMatchObject({
-            learningTargetChosen: false,
-            onboardingSeen: false,
-        });
+        await expect(loadSettings()).resolves.toEqual(DEFAULT_SETTINGS);
 
         expectNoStoredSettingsAuthority();
     });
@@ -101,13 +98,14 @@ describe('hosted settings authority availability', () => {
         { epoch: '1:an-earlier-reset', loads: false },
     ])('reads same-epoch bytes a v1.9.3 raw toggle rewrote, never another epoch\'s ($epoch)', async ({ epoch, loads }) => {
         vi.stubGlobal('location', HOSTED_STUDY);
-        const chosen = {
+        // v1.9.3 stored its onboarding flags in the same record; v2 drops them on read.
+        const v193Record = {
             ...DEFAULT_SETTINGS,
             learningTargetChosen: true,
             onboardingSeen: true,
             theme: 'dark',
-        } satisfies ReaderSettings;
-        const before = JSON.stringify(chosen);
+        };
+        const before = JSON.stringify(v193Record);
         localStorage.setItem(SETTINGS_STORAGE_KEY, before);
         // v1.9.3's docs theme toggle rewrote this record in place, so the bytes
         // no longer match the fingerprint its managed write recorded.
@@ -121,26 +119,30 @@ describe('hosted settings authority availability', () => {
             },
         }));
 
-        if (loads) await expect(loadSettings()).resolves.toMatchObject({ learningTargetChosen: true, onboardingSeen: true, theme: 'dark' });
-        else await expect(loadSettings()).rejects.toThrow('without matching provenance');
+        if (loads) {
+            const loaded = await loadSettings();
+            expect(loaded).toMatchObject({ theme: 'dark' });
+            expect(loaded).not.toHaveProperty('learningTargetChosen');
+            expect(loaded).not.toHaveProperty('onboardingSeen');
+        } else {
+            await expect(loadSettings()).rejects.toThrow('without matching provenance');
+        }
 
         expect(storedSettingsBytes()).toBe(before);
     });
 
-    it('does not publish a default remote snapshot after a chosen tab loses authority', async () => {
+    it('does not publish a default remote snapshot after a tab with saved choices loses authority', async () => {
         vi.stubGlobal('location', HOSTED_STUDY);
         await saveSettings({
             ...DEFAULT_SETTINGS,
-            learningTargetChosen: true,
-            onboardingSeen: true,
+            showFurigana: false,
             theme: 'dark',
-        }, { explicitUserChoiceKeys: ['learningTargetChosen', 'onboardingSeen', 'theme'] });
+        }, { explicitUserChoiceKeys: ['showFurigana', 'theme'] });
         const onSettings = vi.fn<[ReaderSettings], void>();
         const unsubscribe = subscribeToReaderSettingsChanges(onSettings);
         await vi.waitFor(() => expect(onSettings).toHaveBeenCalledTimes(1));
         expect(onSettings.mock.calls[0]?.[0]).toMatchObject({
-            learningTargetChosen: true,
-            onboardingSeen: true,
+            showFurigana: false,
             theme: 'dark',
         });
 
@@ -189,9 +191,13 @@ describe('yomureader.com after a v1.9.x factory reset', () => {
             webStorage: Record<string, Record<string, string>>;
             expected: Record<string, { settings: Record<string, unknown> }>;
         }>(`${scenario}.json`);
+        // v1.9.3 showed its onboarding flags too; v2 drops them and keeps the rest.
+        const expected = { ...fixture.expected['https://yomureader.com/study/'].settings };
+        delete expected.learningTargetChosen;
+        delete expected.onboardingSeen;
         return {
             bytes: fixture.webStorage['https://yomureader.com'][SETTINGS_STORAGE_KEY],
-            expected: fixture.expected['https://yomureader.com/study/'].settings,
+            expected,
         };
     }
 
@@ -270,7 +276,7 @@ describe('hosted local mirror publication', () => {
 
     it('restores the previous value and provenance when provenance publication fails', () => {
         const epoch = { version: 1, generation: 1, resetId: 'atomic-mirror', committedAt: 1 } as const;
-        const before = { theme: 'dark', onboardingSeen: true };
+        const before = { theme: 'dark', showFurigana: false };
         writeLocalManagedValueOrThrow(SETTINGS_STORAGE_KEY, before, epoch);
         const beforeBytes = storedSettingsBytes();
         const beforeProvenance = localStorage.getItem(LOCAL_PROVENANCE_KEY);
@@ -290,7 +296,7 @@ describe('hosted local mirror publication', () => {
 
         expect(() => writeLocalManagedValueOrThrow(
             SETTINGS_STORAGE_KEY,
-            { theme: 'light', onboardingSeen: false },
+            { theme: 'light', showFurigana: true },
             epoch,
         )).toThrow(/provenance publication rejected/);
 

@@ -16,7 +16,7 @@ import { yomuBunproCompanion } from '../companions/registry';
 import { renderWanikaniDefinitionMount } from '../wanikani/wanikani-source';
 import { immersionKitCapabilitiesFor } from './examples/immersion-kit';
 import { renderTargetExampleSourceMounts } from './examples/mount';
-import { targetLanguageOf } from '../languages/selection';
+import { TARGET_LANGUAGE } from '../languages/selection';
 
 type SourceAttributes = (sourceStateKey: string, initiallyExpanded?: boolean) => string;
 type DictionaryLabel = (name: string) => string;
@@ -97,7 +97,7 @@ export function renderDefinitionSourceImmersionMount(settings: ReaderSettings, s
     // so unticking one Japanese anime source deleted Tatoeba — the only example
     // source the other 31 targets have. The toggle governs ImmersionKit, so it is
     // only consulted once ImmersionKit is the thing being rendered.
-    if (!immersionKitCapabilitiesFor(targetLanguageOf(settings)).supported) {
+    if (!immersionKitCapabilitiesFor(TARGET_LANGUAGE).supported) {
         return renderTargetExampleSourceMounts(settings, sourceAttributes);
     }
     if (!settings.immersionKitEnabled) return '';

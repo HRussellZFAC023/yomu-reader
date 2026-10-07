@@ -1,87 +1,26 @@
 // Yomu Gaming is a hotkey utility: the capture shortcut is the app, and a window is only
-// ever a view onto it. This module owns the policies that keep that coherent — target
-// readiness before capture, the tray item that stays reachable while every window is
+// ever a view onto it. This module owns the policies that keep that coherent — the
+// overlay-only capture boundary, the tray item that stays reachable while every window is
 // away, and what closing a window means. All stay free of `electron` imports so the rules
 // can be unit-tested.
 
-export interface TargetGatedCapture {
-    learningTargetChosen: boolean;
-    capture(): Promise<void>;
-    chooseTarget(): Promise<void>;
-}
-
-export const GAMING_TARGET_CHOICE_REQUIRED = 'Choose the language you want to read before capturing your screen.';
 export const GAMING_OVERLAY_CAPTURE_REQUIRED = 'Screen capture is only available to the Yomu Gaming overlay.';
-export const GAMING_TARGET_CHOICE_SENDER_REQUIRED = 'Learning target choice is only accepted from the Yomu Gaming settings window.';
-
-// The OS shortcut and tray can reach main before the renderer has a target. Keep the
-// positive choice check in front of the callback that samples the display, not merely in
-// the overlay that receives the already-sampled image.
-export async function runTargetGatedCapture(request: TargetGatedCapture): Promise<'captured' | 'target-required'> {
-    if (!request.learningTargetChosen) {
-        await request.chooseTarget();
-        return 'target-required';
-    }
-    await request.capture();
-    return 'captured';
-}
 
 export interface OverlayCaptureRequest<T> {
-    learningTargetChosen: boolean;
     senderId: number;
     overlayRendererId: number | null;
     capture(): Promise<T>;
 }
 
 // Frozen-frame IPC is deliberately narrower than the shared preload bridge: only the
-// live overlay may read it, and only after main has received a positive target choice.
-// Keeping the callback behind both checks means even a direct invoke cannot sample a
-// display as a side effect of discovering that access should have been denied.
+// live overlay may read it. Keeping the callback behind that check means even a direct
+// invoke cannot sample a display as a side effect of discovering that access should have
+// been denied.
 export async function runOverlayCapture<T>(request: OverlayCaptureRequest<T>): Promise<T> {
-    if (!request.learningTargetChosen) throw new Error(GAMING_TARGET_CHOICE_REQUIRED);
     if (request.overlayRendererId === null || request.senderId !== request.overlayRendererId) {
         throw new Error(GAMING_OVERLAY_CAPTURE_REQUIRED);
     }
     return request.capture();
-}
-
-export interface LearningTargetChoiceUpdate {
-    chosen: boolean;
-    senderId: number;
-    mainRendererId: number | null;
-    apply(chosen: boolean): void;
-}
-
-// Both windows receive the same deliberately small preload bridge. Only the settings
-// window reads the persisted target choice, so the overlay must never be able to grant
-// itself capture access by invoking that shared setter.
-export function applyMainRendererTargetChoice(request: LearningTargetChoiceUpdate): void {
-    if (request.mainRendererId === null || request.senderId !== request.mainRendererId) {
-        throw new Error(GAMING_TARGET_CHOICE_SENDER_REQUIRED);
-    }
-    request.apply(request.chosen);
-}
-
-/** The part of an Electron window a renderer message needs. */
-export interface GamingMessageWindow {
-    isDestroyed(): boolean;
-    webContents: {
-        isLoading(): boolean;
-        once(event: 'did-finish-load', listener: () => void): unknown;
-        send(channel: string): void;
-    };
-}
-
-// A message sent while the page is still loading is lost: the settings window would
-// never open the target choice the capture shortcut asked for. Deliver it once the
-// page has loaded instead.
-export function sendWhenLoaded(window: GamingMessageWindow | null, channel: string): void {
-    if (!window || window.isDestroyed()) return;
-    if (window.webContents.isLoading()) {
-        window.webContents.once('did-finish-load', () => sendWhenLoaded(window, channel));
-        return;
-    }
-    window.webContents.send(channel);
 }
 
 export interface GamingTrayStatus {

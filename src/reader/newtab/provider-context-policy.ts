@@ -122,7 +122,6 @@ export interface NewTabSourceCacheIdentity {
     settings: ReaderSettings;
     interfaceLanguage: InterfaceLanguage;
     targetLanguage: string;
-    targetGeneration: number;
     activeJpdbDeck: string;
     activeAnkiDeck: string;
 }
@@ -133,7 +132,6 @@ export function newTabSourceCacheSignature(identity: NewTabSourceCacheIdentity):
         source: identity.source,
         language: identity.interfaceLanguage,
         targetLanguage: identity.targetLanguage,
-        targetGeneration: identity.targetGeneration,
         providerContext: newTabProviderContext(settings),
         jpdbMiningEnabled: settings.jpdbMiningEnabled,
         jpdbReviewMode: settings.newTabJpdbReviewMode,

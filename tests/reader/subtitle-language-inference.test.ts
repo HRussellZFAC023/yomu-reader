@@ -1,7 +1,6 @@
-import { afterEach, describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vitest';
 
 import { languageSubtag } from '../../src/reader/languages/locale';
-import { resetActiveLearningTargetLanguage, setActiveLearningTargetLanguage } from '../../src/reader/languages/active';
 import { LEARNING_TARGET_ROSTER, type LearningTargetRosterId } from '../../src/reader/languages/roster';
 import { collectPageSubtitleSources } from '../../src/reader/subtitles/subtitle-sources';
 import { inferSubtitleLanguage, normalizeSubtitleLanguage } from '../../src/reader/subtitles/subtitle-language';
@@ -44,9 +43,7 @@ const ISO_639_2_ALIAS: Readonly<Record<LearningTargetRosterId, string>> = Object
 });
 
 describe('subtitle language inference', () => {
-    afterEach(() => resetActiveLearningTargetLanguage());
-
-    it('normalizes codes and recognizes names for every one of the 33 learning targets', () => {
+    it('normalizes codes and recognizes names for every one of the 33 roster languages', () => {
         expect(LEARNING_TARGET_ROSTER).toHaveLength(33);
 
         for (const target of LEARNING_TARGET_ROSTER) {
@@ -64,11 +61,10 @@ describe('subtitle language inference', () => {
                 `${target.id} filename alias`,
             ).toBe(expectedTag);
 
-            expect(setActiveLearningTargetLanguage(target.runtimeLocale), `${target.id} activation`).not.toBeNull();
             expect(isTargetLanguageSubtitleTrack({
                 kind: 'remote',
                 label: target.nativeName,
-            }), `${target.id} active target match`).toBe(true);
+            }), `${target.id} Japanese target match`).toBe(target.id === 'ja');
         }
     });
 

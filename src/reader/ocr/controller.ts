@@ -1640,7 +1640,7 @@ export class ImageOcrController {
 
     private unpinOcrLinesFromDocumentEvent(event: Event): void {
         const target = event.target instanceof Element ? event.target : null;
-        if (target?.closest('.jpdb-ocr-line, .jpdb-reader-popover, .jpdb-reader-settings, .jpdb-reader-onboarding, .jpdb-reader-fab')) return;
+        if (target?.closest('.jpdb-ocr-line, .jpdb-reader-popover, .jpdb-reader-settings, .jpdb-reader-fab')) return;
         this.unpinAllLines();
     }
 

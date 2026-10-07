@@ -24,7 +24,6 @@ import { cardKey } from '../cards/utils';
 import { normalizeCardStates } from '../cards/state';
 import {
     yomuImageOcrController,
-    yomuOnboardingController,
     yomuSettingsSurfaceCompanion,
     yomuSettingsDialogController,
     yomuSubtitlePlayerController,
@@ -36,7 +35,6 @@ import { APP_NAME, JITEN_DEFINITION_SOURCE_ID, JPDB_DEFINITION_SOURCE_ID, NEW_TA
 import { publishSettingsChange as publishPrivateSettingsChange, subscribeToSettingsChanges } from '../settings/settings-change-bus';
 import { DictionarySourceStateController } from '../sources/state';
 import { createReaderDictionaryStyleController } from '../sources/styles';
-import { OfflineDictionarySetupController } from '../dictionaries/offline-setup-controller';
 import { createFactoryResetCoordinator, type FactoryResetCoordinator } from './factory-reset-coordinator';
 import {
     annotationScopeRoots,
@@ -268,13 +266,10 @@ import { NestedParseCoordinator } from '../lookup/nested-parse-coordinator';
 import { resolveUiLanguage, uiText } from '../app/i18n';
 import { userFacingErrorText } from './user-facing-errors';
 import { translateJapaneseSentence } from '../study/tools';
-import { activeLearningTarget } from '../languages/target-runtime';
-import { adoptLearningTargetFromSettings } from '../languages/target-selection';
 import { targetCanLookupCharacter, usesJapaneseCharacterStudy, usesJapaneseProviders } from '../languages/character-lookup';
-import { outputLanguageOf, targetLanguageOf } from '../languages/selection';
+import { OUTPUT_LANGUAGE, TARGET_LANGUAGE } from '../languages/selection';
 import { immersionKitCapabilitiesFor } from '../sources/examples/immersion-kit';
 import { abortPendingTargetExampleSources, installTargetExampleSources } from '../sources/examples/mount';
-import { jpOnlyOn, syncLanguageFamilyDom } from '../settings/language-gating';
 import { applyInterfaceLocaleToRoot } from '../locales/direction';
 import { resolveInterfaceLocale } from '../locales/resolve';
 import type { InterfaceLocale } from '../locales/manifest';
@@ -304,7 +299,7 @@ import { ReaderAudioActions } from '../audio/actions';
 import { canAttemptReaderAutoAudio } from '../audio/activation';
 import { registerReaderMenuCommands } from './menu-commands';
 import { bindReaderRuntimeEvents } from './runtime-events';
-import { detectReaderStartupJapaneseText, installReaderStartupBridge, loadReaderStartupSettings, shouldShowReaderOnboarding, type ReaderAppInitOptions, type ReaderSettingsSurface } from './startup';
+import { detectReaderStartupJapaneseText, installReaderStartupBridge, loadReaderStartupSettings, type ReaderAppInitOptions, type ReaderSettingsSurface } from './startup';
 import { rejectAsReaderSettingsUnavailable } from './settings-unavailable-error';
 import { scheduleReaderAnkiStatusRefresh, scheduleReaderAnkiStatusWarmup } from './status-warmup';
 import { createPostPaintPass, viewForNode } from '../dom/post-paint-pass';
@@ -391,7 +386,7 @@ import { RenderedWordIndex } from './rendered-word-index';
 import { VisiblePageScanner } from './visible-page-scanner';
 import { renderWordPills, updateHeadingWordPills } from '../sources/word-pills';
 import { addWindowEventListener } from '../platform/window-events';
-import { applyTargetSurfaceSettingsChange, shouldWakeTopLevelTarget, subscribeToFirstPersistedLearningTarget, subscribeToReaderSettingsChanges, TopLevelTargetLifecycle } from './settings-storage-subscription';
+import { subscribeToReaderSettingsChanges } from './settings-storage-subscription';
 import type {
     YomitanKanjiEntry,
     YomitanMetaEntry,
@@ -471,11 +466,7 @@ export class ReaderApp {
     private abortController = new AbortController();
     private isDestroyed = false;
     private settings: ReaderSettings = DEFAULT_SETTINGS;
-    /** Non-persisted policy owned by a deliberate hosted reading surface. */
-    private pageOwnedLearningTargetActive = false;
-    private targetOwnedCoreInstalled = false;
     private settingsSurface?: ReaderSettingsSurface;
-    private readonly topLevelTargetLifecycle = new TopLevelTargetLifecycle();
     private hostTheme = new HostThemeController({
         getSettings: () => this.settings,
         adoptTheme: theme => {
@@ -566,14 +557,7 @@ export class ReaderApp {
         new WanikaniLookupClient(this.wanikani),
         () => this.settings,
         (key, initiallyExpanded) => this.dictionarySourceState.attributes(key, initiallyExpanded),
-        mount => {
-            this.repositionActivePopover();
-            const installDefinitionTranslationBehaviors =
-                yomuSettingsSurfaceCompanion()?.installDefinitionTranslationBehaviors;
-            if (!installDefinitionTranslationBehaviors) return;
-            void installDefinitionTranslationBehaviors(mount, this.settings)
-                .then(() => this.repositionActivePopover());
-        },
+        () => this.repositionActivePopover(),
     );
     private bunproWordStates = this.bunproCompanion && this.bunpro ? new this.bunproCompanion.BunproWordStateStore(this.bunpro) : null;
     private yomuLocalSrs = createYomuLocalSrsAdapter(new LocalYomuSrsRepository());
@@ -626,19 +610,6 @@ export class ReaderApp {
         dictionaryLabel: name => this.dictionaryLabel(name),
     });
     private dictionaryStyles = createReaderDictionaryStyleController(() => this.settings, preferences => this.dictionaries.dictionaryStyleCss(preferences), error => log.warn('Dictionary styles unavailable', error));
-    private offlineDictionaries = new OfflineDictionarySetupController({
-        dictionaries: this.dictionaries,
-        getSettings: () => this.settings,
-        applySettings: async settings => {
-            this.settings = settings;
-            await this.persistSettings(settings, { explicitUserChoiceKeys: NO_EXPLICIT_USER_CHOICE });
-        },
-        notify: message => this.toast(message),
-        afterInstalled: async () => {
-            await this.refreshDictionaryStyles();
-            this.scheduleDictionaryRescan();
-        },
-    });
     private studySources = new StudySourceController({
         getSettings: () => this.settings,
         dictionarySourceAttributes: key => this.dictionarySourceState.attributes(key),
@@ -743,7 +714,6 @@ export class ReaderApp {
         }),
         yomuLocalSrs: this.yomuLocalSrs,
     });
-    private onboarding = this.createOnboardingController();
     private subtitles = this.createSubtitlePlayer();
     private ocr: ImageOcrController = this.createImageOcrController();
     private youtube = this.createYoutubeFilter();
@@ -916,14 +886,6 @@ export class ReaderApp {
         showCard: (card, sentence, anchor, options) => void this.showCard(card, sentence, anchor, options),
         showTokenList: (tokens, selected, anchor, options) => this.showTokenList(tokens, selected, anchor, options),
         toast: message => this.toast(message),
-        onTargetChange: () => {
-            this.cardRenderRequest += 1;
-            this.deferredPublicJitenReadings.clear();
-            this.cancelPendingHoverLookup();
-            if (this.activePopover && !this.activePopover.classList.contains('jpdb-reader-settings')) {
-                this.dismiss({ suppressHoverTarget: false });
-            }
-        },
         log,
     });
     private dictionaryRescanPending = false;
@@ -1035,27 +997,6 @@ export class ReaderApp {
     constructor(private readonly persistSettings: typeof saveSettings = saveSettings, private readonly observesSettingsStorage = true) {
         configureLogger({ settingsProvider: () => this.settings });
     }
-    private createOnboardingController() {
-        const Controller = yomuOnboardingController();
-        if (!Controller) return undefined;
-        return new Controller({
-            getSettings: () => this.settings, saveSettings: (settings, options) => this.persistSettings(settings, options),
-            setSettings: settings => {
-                const previous = this.settings;
-                this.settings = settings;
-                if (settings.learningTargetChosen) this.syncCardLookupTarget(settings);
-                this.applyTheme();
-                if (settings.learningTargetChosen) this.stagePreferredJapaneseSiteLanguage(previous, settings);
-            },
-            showSettings: panel => this.showSettings(panel),
-            parseJapanese: panel => void this.parseOnboardingJapanese(panel),
-            lookupText: (text, sentence, anchor) => this.lookupText(text, sentence || text, { anchor, stackOverSettings: true }),
-            installOfflineDictionaries: () => void this.offlineDictionaries.run(),
-            onComplete: settings => this.completePreferredJapaneseSiteLanguageSave(settings),
-            onPersistenceFailed: settings => this.rollbackOnboardingSettings(settings),
-        });
-    }
-
     private createSubtitlePlayer() {
         const Controller = yomuSubtitlePlayerController();
         if (!Controller) return {
@@ -1140,9 +1081,8 @@ export class ReaderApp {
         try {
             this.settingsSurface = options.settingsSurface;
             this.embeddedFrame = options.embeddedFrame === true;
-            const shouldShowWelcome = await this.loadInitialSettings(options);
-            if (!this.canContinueStartup(shouldShowWelcome)) return;
-            const surfacesReady = await this.initializeReaderSurfaces(shouldShowWelcome);
+            if (!await this.loadInitialSettings(options) || this.isDestroyed) return;
+            const surfacesReady = await this.initializeReaderSurfaces();
             if (!surfacesReady) return;
             publishPrivateSettingsChange({ settings: this.settings });
         } finally {
@@ -1150,15 +1090,11 @@ export class ReaderApp {
         }
     }
 
-    private canContinueStartup(startupResult: boolean | null = false): startupResult is boolean {
-        return startupResult !== null && !this.isDestroyed;
-    }
-
-    private async initializeReaderSurfaces(shouldShowWelcome: boolean): Promise<boolean> {
+    private async initializeReaderSurfaces(): Promise<boolean> {
         await this.installCoreSurfaces();
-        if (!this.canContinueStartup()) return false;
-        await this.initReaderPage(shouldShowWelcome);
-        return this.canContinueStartup();
+        if (this.isDestroyed) return false;
+        await this.initReaderPage();
+        return !this.isDestroyed;
     }
 
     private async waitForDocumentBody(): Promise<void> {
@@ -1186,27 +1122,21 @@ export class ReaderApp {
         });
     }
 
-    private async loadInitialSettings(options?: ReaderAppInitOptions): Promise<boolean | null> {
+    private async loadInitialSettings(options?: ReaderAppInitOptions): Promise<boolean> {
         // A rejecting backend or a pair still torn after the strict retries is
         // typed so boot can offer the content-page recovery affordance.
         const startup = await loadReaderStartupSettings(options).catch(rejectAsReaderSettingsUnavailable);
         // Ownership can move to another runtime while browser storage is still
         // resolving. Do not bind controllers, restore styles, or publish state
         // after destroy() has already completed its one cleanup pass.
-        if (this.isDestroyed) return null;
+        if (this.isDestroyed) return false;
         this.factoryReset.bind();
         this.settings = startup.settings;
-        this.pageOwnedLearningTargetActive = startup.pageOwnedLearningTarget !== null;
-        if (startup.settings.learningTargetChosen) {
-            this.syncCardLookupTarget(startup.settings);
-            this.applyPreferredJapaneseSiteLanguage();
-        }
+        this.applyPreferredJapaneseSiteLanguage();
         configureLogger({ forceEnabled: this.settings.enableLogging });
-        this.pageHasJapaneseText = this.hasLearningTargetRuntimePolicy()
-            ? detectReaderStartupJapaneseText()
-            : false;
+        this.pageHasJapaneseText = detectReaderStartupJapaneseText();
         log.info('Settings loaded', startup.settingsSummary);
-        return startup.shouldShowWelcome;
+        return true;
     }
 
     private async installCoreSurfaces(): Promise<void> {
@@ -1222,19 +1152,9 @@ export class ReaderApp {
         // browser storage startup (notably in userscript page contexts), and
         // awaiting it here used to hold back the FAB and subtitle rail with no
         // visible sign that Yomu had loaded.
-        if (this.hasLearningTargetRuntimePolicy()) this.installTargetOwnedCoreSurfaces();
-    }
-
-    private installTargetOwnedCoreSurfaces(): void {
-        if (this.targetOwnedCoreInstalled) return;
-        this.targetOwnedCoreInstalled = true;
-        this.installTargetOwnedStorageSurfaces();
-        if (!this.embeddedFrame) this.installTopLevelCoreSurfaces();
-    }
-
-    private installTargetOwnedStorageSurfaces(): void {
         void this.refreshDictionaryStyles();
         if (this.observesSettingsStorage) this.installSettingsStorageSubscription();
+        if (!this.embeddedFrame) this.installTopLevelCoreSurfaces();
     }
 
     private installTopLevelCoreSurfaces(): void {
@@ -1244,14 +1164,14 @@ export class ReaderApp {
         this.disposeJpdbReviewBridge = installReaderStartupBridge();
     }
 
-    private async initReaderPage(shouldShowWelcome: boolean): Promise<void> {
+    private async initReaderPage(): Promise<void> {
         await this.waitForDocumentBody();
         if (!this.canInitializeReaderPage()) return;
         if (this.embeddedFrame) {
             this.initEmbeddedReaderPage();
             return;
         }
-        await this.initTopLevelReaderPage(shouldShowWelcome);
+        this.initTopLevelReaderPage();
     }
 
     private canInitializeReaderPage(): boolean {
@@ -1259,9 +1179,6 @@ export class ReaderApp {
     }
 
     private initEmbeddedReaderPage(): void {
-        // Embedded frames cannot host the required first-run chooser. Until the
-        // top-level realm records a target, they must remain entirely inert.
-        if (!this.hasLearningTargetRuntimePolicy()) return;
         this.captureStartupTargetProbe();
         this.subtitles.init();
         // Player iframes need OCR too: the subtitle rail's OCR button and
@@ -1277,16 +1194,7 @@ export class ReaderApp {
         if (this.shouldScanEmbeddedFrame() || this.pageHasJapaneseText) this.scheduleVisiblePageRescan();
     }
 
-    private async initTopLevelReaderPage(shouldShowWelcome: boolean): Promise<void> {
-        if (!await this.ensureTopLevelLearningTarget(shouldShowWelcome)) {
-            this.installDormantLearningTargetSubscription();
-            return;
-        }
-        if (!this.topLevelTargetLifecycle.beginTargetOwnedSurfaces(this.isDestroyed, this.embeddedFrame, this.hasLearningTargetRuntimePolicy())) return;
-        this.installTargetOwnedCoreSurfaces();
-        // The chosen target owns this bounded composed-DOM probe. Running it
-        // before onboarding used to scan 200k characters for the compatibility
-        // Japanese fallback even though the learner had selected nothing.
+    private initTopLevelReaderPage(): void {
         const startupTargetProbe = this.captureStartupTargetProbe();
         this.installFab();
         void this.installBunproTokenImporter();
@@ -1303,19 +1211,6 @@ export class ReaderApp {
         this.installCardStateSignalSubscription();
         installAcademyReaderSrsSync();
         this.scheduleInitialReaderWork(startupTargetProbe.shadowDiscoveryExhausted);
-    }
-
-    private async ensureTopLevelLearningTarget(shouldShowWelcome: boolean): Promise<boolean> {
-        if (this.hasLearningTargetRuntimePolicy()) return true;
-        if (shouldShowReaderOnboarding(shouldShowWelcome)) await this.runOnboardingIfAvailable();
-        return !this.isDestroyed && this.hasLearningTargetRuntimePolicy();
-    }
-
-    private async runOnboardingIfAvailable(): Promise<void> {
-        const onboarding = this.onboarding;
-        if (!onboarding) return;
-        await onboarding.showIfNeeded();
-        await onboarding.waitForCompletion();
     }
 
     private captureStartupTargetProbe(): ReturnType<typeof documentJapaneseTextProbe> {
@@ -1362,17 +1257,7 @@ export class ReaderApp {
         });
     }
 
-    private installDormantLearningTargetSubscription(): void {
-        if (!this.topLevelTargetLifecycle.canWaitForTarget(this.isDestroyed, this.embeddedFrame, this.hasLearningTargetRuntimePolicy())) return;
-        this.unsubscribeSettingsStorageChanges?.();
-        this.unsubscribeSettingsStorageChanges = subscribeToFirstPersistedLearningTarget(
-            () => this.settings,
-            settings => { if (!this.isDestroyed) void this.applyRemoteSettings(settings); },
-        );
-    }
-
     private async applyRemoteSettings(settings: ReaderSettings): Promise<void> {
-        const wakesTopLevelTarget = shouldWakeTopLevelTarget(this.embeddedFrame, this.hasLearningTargetRuntimePolicy(), settings);
         const pauseChanged = settings.annotationsPaused !== this.settings.annotationsPaused;
         // Turning the preference off in another tab is still the user turning it
         // off here, so this tab leaves its Japanese URL as well instead of staying
@@ -1380,32 +1265,19 @@ export class ReaderApp {
         const japaneseSiteOptOut = japaneseSiteLanguageDisabled(this.settings, settings);
         this.pendingPreferredJapaneseSiteLanguage = undefined;
         this.settings = settings;
-        if (settings.learningTargetChosen) this.syncCardLookupTarget(settings);
         configureLogger({ forceEnabled: settings.enableLogging });
         this.applyPreferredJapaneseSiteLanguage(settings, japaneseSiteOptOut);
         this.applyTheme(settings);
         this.applyWordColors(settings);
-        const initializedTarget = await applyTargetSurfaceSettingsChange(
-            wakesTopLevelTarget, this.embeddedFrame,
-            () => this.initTopLevelReaderPage(false), () => this.installFab(),
-            () => { this.subtitles.refresh(); this.ocr.refresh(); this.youtube.refresh(); },
-        );
+        if (!this.embeddedFrame) this.installFab();
+        this.subtitles.refresh();
+        this.ocr.refresh();
+        this.youtube.refresh();
         if (pauseChanged) this.applyAnnotationsPausedState();
         this.clearBridgeBackedCaches();
-        if (!initializedTarget) {
-            this.scheduleDictionaryRescan();
-            await this.refreshDictionaryStyles();
-        }
+        this.scheduleDictionaryRescan();
+        await this.refreshDictionaryStyles();
         publishPrivateSettingsChange({ settings, remote: true });
-    }
-
-    private syncCardLookupTarget(settings: ReaderSettings): void {
-        adoptLearningTargetFromSettings(settings);
-        this.cardLookup.syncTarget(settings);
-    }
-
-    private hasLearningTargetRuntimePolicy(): boolean {
-        return this.settings.learningTargetChosen || this.pageOwnedLearningTargetActive;
     }
 
     private scheduleAnkiStatusWarmup(): void {
@@ -1556,11 +1428,7 @@ export class ReaderApp {
     }
 
     private isYoutubeImmersionEnabled(): boolean {
-        return jpOnlyOn(
-            this.settings,
-            this.settings.youtubeImmersionEnabled,
-            this.settings.youtubeImmersionEnabledChosen,
-        );
+        return this.settings.youtubeImmersionEnabled;
     }
 
     private async setYoutubeFilterNoticeVisible(visible: boolean): Promise<void> {
@@ -1720,7 +1588,7 @@ export class ReaderApp {
             settings.preferJapaneseSiteLanguage,
             options,
             deferCookieResponseReloadUntilPersisted,
-            targetLanguageOf(settings),
+            TARGET_LANGUAGE,
         );
     }
 
@@ -1754,17 +1622,6 @@ export class ReaderApp {
             preferJapaneseSiteLanguage: previousSettings.preferJapaneseSiteLanguage,
         };
         this.applyPreferredJapaneseSiteLanguage(this.settings, false);
-    }
-
-    private rollbackOnboardingSettings(previousSettings: ReaderSettings): void {
-        this.failPreferredJapaneseSiteLanguageSave(previousSettings);
-        this.settings = previousSettings;
-        // An unchosen compatibility profile is not an instruction to replace a
-        // previously active target. Chosen settings, however, are durable user
-        // intent and can safely restore their target too.
-        if (previousSettings.learningTargetChosen) this.syncCardLookupTarget(previousSettings);
-        this.applyTheme(previousSettings);
-        this.applyWordColors(previousSettings);
     }
 
     private publishThemeSettingsChange(): void {
@@ -6623,7 +6480,7 @@ export class ReaderApp {
         // Japanese keeps the ImmersionKit controller as it is; any other TARGET has its
         // own example sources, which the shared loader fills. The target check precedes
         // `immersionKitEnabled` or one Japanese anime toggle empties all 31 (b15).
-        if (!immersionKitCapabilitiesFor(targetLanguageOf(this.settings)).supported) {
+        if (!immersionKitCapabilitiesFor(TARGET_LANGUAGE).supported) {
             installTargetExampleSources(popover, {
                 settings: this.settings,
                 term: card.spelling,
@@ -7718,10 +7575,9 @@ export class ReaderApp {
     }
 
     private async performPopoverJapaneseParse(popover: HTMLElement): Promise<void> {
-        void yomuSettingsSurfaceCompanion()?.installDefinitionTranslationBehaviors(popover, this.settings);
         installProviderExampleBehaviors(popover, {
             interfaceLanguage: this.settings.interfaceLanguage,
-            outputLanguage: outputLanguageOf(this.settings),
+            outputLanguage: OUTPUT_LANGUAGE,
             blurTranslations: this.settings.immersionKitRevealTranslationOnClick,
             translate: translateJapaneseSentence,
             isCurrentRoot: root => this.isCurrentPopoverRoot(root),
@@ -7748,19 +7604,6 @@ export class ReaderApp {
         this.enrichJpdbRelatedWords(root);
         clearNestedParseState(root);
         await this.parseNestedJapaneseContent(root, nestedTextParsePlan(root, 120), () => this.isJpdbPageAddonRoot(root));
-    }
-
-    // Welcome panel: furigana + pitch on its Japanese, through the same chrome
-    // parse path as the settings dialog (local/segmented, no remote parse spend).
-    private async parseOnboardingJapanese(panel: HTMLElement): Promise<void> {
-        if (!panel.isConnected) return;
-        clearNestedParseState(panel);
-        if (resolveUiLanguage(this.settings.interfaceLanguage) !== 'ja' || !this.canParseJapanese()) return;
-        await this.parseNestedJapaneseContent(panel, nestedTextParsePlan(panel, 120), () => panel.isConnected, {
-            allowJpdbTimeoutFallback: true,
-            allowSegmentedFallback: true,
-            skipJpdb: true,
-        });
     }
 
     private enrichJpdbRelatedWords(root: ParentNode): void {
@@ -9568,21 +9411,11 @@ export class ReaderApp {
         }, this.lookupModal, this.settings.interfaceLanguage, panel, trigger);
     }
 
-    private settingsAfterDialogTargetChange(
-        previous: ReaderSettings,
-        settings: ReaderSettings,
-        transient: boolean,
-    ): ReaderSettings {
-        if (transient) return settings;
-        if (targetLanguageOf(settings) === targetLanguageOf(previous)) return settings;
-        return { ...settings, learningTargetChosen: true };
-    }
     private applyDialogSettingsTransitions(
         previous: ReaderSettings,
         settings: ReaderSettings,
         pauseChanged: boolean,
     ): void {
-        this.syncCardLookupTarget(settings);
         this.stagePreferredJapaneseSiteLanguage(previous, settings);
         if (!settings.ankiEnabled) this.clearRenderedAnkiWordStates();
         if (pauseChanged) this.applyAnnotationsPausedState();
@@ -9596,10 +9429,9 @@ export class ReaderApp {
                 const transient = options?.transient === true;
                 const pauseChanged = settings.annotationsPaused !== this.settings.annotationsPaused;
                 const previous = this.settings;
-                const nextSettings = this.settingsAfterDialogTargetChange(previous, settings, transient);
-                this.settings = nextSettings;
+                this.settings = settings;
                 if (transient) return;
-                this.applyDialogSettingsTransitions(previous, nextSettings, pauseChanged);
+                this.applyDialogSettingsTransitions(previous, settings, pauseChanged);
             },
             saveSettings: (settings, options) => this.persistSettings(settings, options),
             onSettingsPersisted: settings => this.completePreferredJapaneseSiteLanguageSave(settings),
@@ -9731,16 +9563,10 @@ export class ReaderApp {
     }
 
     private syncReaderRootLanguage(root: HTMLElement): void {
-        syncLanguageFamilyDom(root, activeLearningTarget().language);
-        // U79's fail-closed CSS gate depends on this exact data-language
-        // attribute being present on every reader-owned surface.
-        root.setAttribute('data-language', root.dataset.language ?? activeLearningTarget().language);
-        // D43: the same seam carries the INTERFACE locale and its direction.
-        // These are two different axes on the same element — `data-language` is
-        // the TARGET being studied and drives which controls exist, while
-        // `lang`/`dir` are the language Yomu is speaking and drive layout,
-        // fonts and screen-reader voice. Every reader-owned surface reaches this
-        // method: popover, settings dialog, bottom sheet, backdrop, HUD, FAB.
+        // `lang`/`dir` are the language Yomu's own interface speaks and drive
+        // layout, fonts and screen-reader voice. Every reader-owned surface
+        // reaches this method: popover, settings dialog, bottom sheet, backdrop,
+        // HUD, FAB.
         //
         // The host page's own documentElement is deliberately untouched. Yomu is
         // injected into pages it does not own; flipping their direction would

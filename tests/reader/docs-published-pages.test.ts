@@ -9,12 +9,7 @@ import {
     sitemapRouteKey,
     withHostedAppSitemapItems,
 } from '../../config/docs/published-pages';
-import {
-    assertStudyTargetClaimReadiness,
-    HOMEPAGE_STUDY_TARGET_CLAIM_READINESS,
-    heroStudyLanguages,
-    measuredDefinitionLanguageCount,
-} from '../../config/docs/product-claims';
+import { measuredDefinitionLanguageCount } from '../../config/docs/product-claims';
 import {
     LEGACY_DOC_HASH_REDIRECTS,
     LEGACY_DOC_REDIRECTS,
@@ -26,8 +21,6 @@ import {
     hostedShellNavRoutes,
     siteNavRoutes,
 } from '../../src/reader/app/site-nav';
-import { LEARNING_TARGET_ROSTER } from '../../src/reader/languages/roster';
-import { learningTargetModuleFor } from '../../src/reader/languages/registry';
 import {
     PUBLISHED_WEBSITE_ROUTES,
     websiteNavigationLabel,
@@ -173,70 +166,18 @@ describe('published docs pages', () => {
 });
 
 describe('published product claims', () => {
-    it('scopes the homepage hero to reading and lookup readiness', () => {
+    it('scopes the homepage hero to Japanese', () => {
         const homepage = readProjectFile('docs/index.md');
         const config = readProjectFile('docs/.vitepress/config.mts');
         const catalogue = readProjectFile('docs/.vitepress/locales/docs-prose-catalog.ts');
         const theme = readProjectFile('docs/.vitepress/theme/index.ts');
-        const heroLanguages = heroStudyLanguages();
 
-        // Japanese-first positioning does not remove any supported learning target.
         expect(homepage).toContain('>Read Japanese. Stay with the story.</h1>');
         expect(catalogue).toContain("'Read Japanese. Stay with the story.': '日本語を読む。物語の続きを楽しむ。'");
-        expect(homepage).toContain('Reading and lookup in 33 learning languages.');
+        expect(homepage).toContain('Furigana, pitch accent and kanji study on any page with Japanese.');
+        expect(homepage).not.toContain('learning languages');
         expect(theme).not.toContain('installHostedHeroLanguageRotator');
         expect(config).not.toContain('__YOMU_HERO_LANGUAGES__');
-        expect(heroLanguages.length).toBeGreaterThan(1);
-        for (const language of heroLanguages) {
-            const target = LEARNING_TARGET_ROSTER.find(candidate => candidate.id === language.id);
-            expect(target, `homepage names unknown target ${language.id}`).toBeDefined();
-            expect(target?.studyTargetReadiness).not.toBe('planned');
-        }
-        // COUNTED MEMBERSHIP: every named language must genuinely reach reading
-        // and lookup. The support statement still requires that same readiness.
-        expect(() => assertStudyTargetClaimReadiness(
-            heroLanguages.map(language => language.id),
-            HOMEPAGE_STUDY_TARGET_CLAIM_READINESS,
-            'Homepage hero',
-        )).not.toThrow();
-    });
-
-    it('fails if an unknown target is claimed as full', () => {
-        expect(() => assertStudyTargetClaimReadiness(
-            ['not-a-target'],
-            'full',
-            'Mutation proof',
-        )).toThrow('Mutation proof claims an unknown study target: not-a-target.');
-        expect(() => heroStudyLanguages('full')).toThrow(
-            'Homepage hero claims Albanian (sq) as full, but its study-target readiness is reading-only.',
-        );
-    });
-
-    it('keeps every lookup-capable picker target backed by published dictionary supply', () => {
-        const catalogue = JSON.parse(
-            readProjectFile('config/dictionaries/published/v1/catalog.json'),
-        ) as {
-            entries?: Array<{
-                headwordLanguages?: string[];
-                distribution?: { state?: string };
-            }>;
-        };
-        const suppliedHeadwordLanguages = new Set(
-            (catalogue.entries ?? [])
-                .filter(entry => entry.distribution?.state === 'published' || entry.distribution?.state === 'upstream')
-                .flatMap(entry => entry.headwordLanguages ?? [])
-                .map(language => language.toLowerCase().replace(/_/gu, '-').split('-')[0]),
-        );
-        const lookupCapableTargets = LEARNING_TARGET_ROSTER
-            .filter(language => learningTargetModuleFor(language.runtimeLocale)?.capabilities['term-lookup']);
-
-        expect(lookupCapableTargets.map(language => language.id)).not.toContain('my');
-        for (const target of lookupCapableTargets) {
-            expect(
-                suppliedHeadwordLanguages.has(target.id),
-                `${target.id} has term lookup in the picker but zero published dictionary entries`,
-            ).toBe(true);
-        }
     });
 
     it('keeps every published "N languages" claim at the measured definition-language count', () => {
@@ -252,7 +193,7 @@ describe('published product claims', () => {
                 }));
             });
 
-        expect(claims.length).toBeGreaterThan(0);
+        // Japanese-only docs need not make a count claim; any that appears must be measured.
         for (const claim of claims) {
             expect(
                 claim.count,

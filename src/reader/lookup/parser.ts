@@ -15,7 +15,7 @@ import {
     type TermSpanLookupCandidate,
     type TermSpanPreconfirmCandidate,
 } from './term-span-resolver';
-import { activeLearningTarget, activeLearningTargetGeneration } from '../languages';
+import { activeLearningTarget } from '../languages/target-runtime';
 import type { LearningTargetModule } from '../languages/types';
 import { splitReadingAcrossKanji } from './kanji-ruby-split';
 import { getPitchClass } from '../jpdb/jpdb-parser';
@@ -143,7 +143,6 @@ export class ReaderParser {
         const { getSettings } = this.dependencies;
         const settings = getSettings();
         const target = activeLearningTarget();
-        const targetGeneration = activeLearningTargetGeneration();
         const done = log.time('parse', {
             paragraphs: paragraphs.length,
             hasApiKey: hasJpdbApiCredential(settings),
@@ -152,9 +151,7 @@ export class ReaderParser {
         });
         try {
             const parsed = await this.parseWithPreferredSource(paragraphs, options, settings, target);
-            if (!isCurrentLearningTarget(target, targetGeneration)) return emptyParseResult(paragraphs);
             const authoritative = await this.withAuthoritativeTermSpans(paragraphs, parsed, options, target);
-            if (!isCurrentLearningTarget(target, targetGeneration)) return emptyParseResult(paragraphs);
             // Public/detail enrichment and page scanning can overlap. Once a
             // card has acquired a real reading or pitch pattern, a later
             // sparse parse of the same provider id must not replace that
@@ -164,7 +161,6 @@ export class ReaderParser {
             // but returns when pressed" split.
             const evidenceReconciled = this.withCachedCardEvidence(paragraphs, authoritative);
             const rubyAligned = await this.reconcileLocalParse(paragraphs, evidenceReconciled, options, target);
-            if (!isCurrentLearningTarget(target, targetGeneration)) return emptyParseResult(paragraphs);
             const normalized = this.withNormalizedMetricParseResult(paragraphs, rubyAligned);
             if (!settings.yomuLocalSrsEnabled || !this.dependencies.yomuLocalSrs) return normalized;
             try {
@@ -176,12 +172,10 @@ export class ReaderParser {
                     LOCAL_PARSE_TIMEOUT_MS,
                     () => new Error('Academy SRS state hydration timed out.'),
                 );
-                return isCurrentLearningTarget(target, targetGeneration) ? hydrated : emptyParseResult(paragraphs);
+                return hydrated;
             } catch (error) {
                 log.warn('Academy SRS state hydration failed; keeping provider states', error);
-                return isCurrentLearningTarget(target, targetGeneration)
-                    ? normalized
-                    : emptyParseResult(paragraphs);
+                return normalized;
             }
         } finally {
             done();
@@ -1347,12 +1341,6 @@ function rejectUntrustworthySpanShapes(
     segments: readonly { start: number; end: number }[],
     target: LearningTargetModule,
 ): (candidate: TermSpanPreconfirmCandidate, match: ParserSpanMatch, context: TermSpanAdmitContext) => boolean {
-    // The interior-end tell requires segments to be real word covers: the
-    // Japanese segmenter is grammar-aware and spaced languages segment on
-    // words, but unspaced non-Japanese text (Han, Korean) gets statistical
-    // ICU chunks — there a dictionary-confirmed span crossing a chunk edge
-    // is the dictionary correcting the guess, not a stem cut.
-    const segmentsAreWordCovers = target.language === 'ja' || target.lookupStartsAtSegmentBoundary;
     return (candidate, match, context) => {
         const term = target.normalizeText(candidate.lookupCandidate.term);
         const identity = term === target.normalizeText(candidate.surface);
@@ -1367,8 +1355,7 @@ function rejectUntrustworthySpanShapes(
                 || hasInternalKanaToKanjiTransition(text, candidate.start, candidate.end))) {
             return false;
         }
-        if (segmentsAreWordCovers
-            && endsStrictlyInsideSegment(segments, candidate.end)
+        if (endsStrictlyInsideSegment(segments, candidate.end)
             && !context.hasConfirmedSpanAt(candidate.end)
             && !KANA_CASE_PARTICLE_CONTINUATIONS.some(particle => text.startsWith(particle, candidate.end))) {
             return false;
@@ -1827,15 +1814,6 @@ function cardEvidenceCacheKey(card: JPDBCard): string {
 
 function cardCacheKey(vid: number, sid: number): string {
     return `${vid}:${sid}`;
-}
-
-function isCurrentLearningTarget(target: LearningTargetModule, generation: number): boolean {
-    return activeLearningTarget() === target
-        && activeLearningTargetGeneration() === generation;
-}
-
-function emptyParseResult(paragraphs: readonly string[]): JPDBToken[][] {
-    return paragraphs.map(() => []);
 }
 
 function withTimeout<T>(promise: Promise<T>, timeoutMs: number, errorFactory: () => Error): Promise<T> {

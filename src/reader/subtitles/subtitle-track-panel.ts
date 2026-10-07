@@ -1,10 +1,9 @@
 import { escapeHtml } from '../dom/index';
-import { formatUiText, resolveUiLanguage, uiText } from '../app/i18n';
+import { uiText } from '../app/i18n';
 import { formatTrackKind, trackStatusText, type SubtitleTrackKind, type SubtitleTrackLoadingState } from './subtitle-track-metadata';
 import { renderDrawerHead, subtitleActionAttributes } from './subtitle-surface';
 import type { InterfaceLanguage, ReaderSettings } from '../app/types';
 import { escapeRegExp } from './youtube-config';
-import { languageDisplayName } from '../languages/locale';
 
 export interface SubtitleTrackPanelTrack {
     id: string;
@@ -44,9 +43,6 @@ export interface SubtitleTrackPanelRenderState {
 
 export function renderSubtitleTrackPanel(state: SubtitleTrackPanelRenderState): string {
     const language = state.language;
-    const displayLocale = resolveUiLanguage(language);
-    const targetName = languageDisplayName(state.targetLanguage, displayLocale);
-    const outputName = languageDisplayName(state.outputLanguage, displayLocale);
     return `
         ${renderDrawerHead({
             mode: 'tracks',
@@ -79,8 +75,8 @@ export function renderSubtitleTrackPanel(state: SubtitleTrackPanelRenderState): 
         })}
         <div class="jpdb-subtitle-list-scroll"${trackVirtualizedAttribute(state)}>
             <div class="jpdb-subtitle-track-tools">
-                <button type="button" data-action="load"${subtitleActionAttributes('load')}>${escapeHtml(formatUiText(language, 'loadTargetSubtitles', { language: targetName }))}</button>
-                <button type="button" data-action="load-secondary"${subtitleActionAttributes('load-secondary')}>${escapeHtml(formatUiText(language, 'loadOutputSubtitles', { language: outputName }))}</button>
+                <button type="button" data-action="load"${subtitleActionAttributes('load')}>${escapeHtml(uiText(language, 'loadTargetSubtitles'))}</button>
+                <button type="button" data-action="load-secondary"${subtitleActionAttributes('load-secondary')}>${escapeHtml(uiText(language, 'loadOutputSubtitles'))}</button>
                 ${renderAnimeSubtitleSearchLink(state)}
             </div>
             <div class="jpdb-subtitle-track-summary">${escapeHtml(trackPanelSummaryText(state.autoDetected, language))}</div>
@@ -98,7 +94,6 @@ function trackVirtualizedAttribute(state: SubtitleTrackPanelRenderState): string
 }
 
 function renderAnimeSubtitleSearchLink(state: SubtitleTrackPanelRenderState): string {
-    if (state.targetLanguage !== 'ja') return '';
     const label = escapeHtml(uiText(state.language, 'searchAnimeSubtitles'));
     return `<a href="${escapeHtml(jimakuAnimeSearchUrl(state.animeSearchQuery))}" target="_blank" rel="noopener" data-jimaku-anime-search>${label}</a>`;
 }

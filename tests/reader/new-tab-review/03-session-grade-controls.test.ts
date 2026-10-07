@@ -33,10 +33,6 @@ import type {
     JPDBCard,
     JPDBGrade,
 } from './fixtures';
-import {
-    resetActiveLearningTargetLanguage,
-    setActiveLearningTargetLanguage,
-} from '../../../src/reader/languages/active';
 import { readReviewTargetCapability } from '../../../src/reader/dom/private-command-capabilities';
 
 type JpdbDeckOption = {
@@ -966,33 +962,6 @@ describe('new tab review — session progress, grade bar & deck selectors', () =
         } finally {
             controller.destroy();
             document.body.replaceChildren();
-        }
-    });
-
-    it('does not let a delayed Japanese deck list overwrite a new target', async () => {
-        resetActiveLearningTargetLanguage();
-        const settings = {
-            ...DEFAULT_SETTINGS,
-            apiKey: 'jpdb-key',
-            newTabJpdbDeck: 'all',
-        };
-        const decks = deferred<JpdbDeckOption[]>();
-        const { controller, select, populate } = newTabJpdbDeckSelectorFixture(settings, () => decks.promise);
-
-        try {
-            const japaneseRequest = populate();
-            expect(setActiveLearningTargetLanguage('es')).not.toBeNull();
-            await populate();
-            expect([...select.options].map(option => option.value)).toEqual(['all']);
-
-            decks.resolve([{ id: 'japanese-deck', name: 'Japanese deck' }]);
-            await japaneseRequest;
-            expect([...select.options].map(option => option.value)).toEqual(['all']);
-            expect(select.textContent).not.toContain('Japanese deck');
-        } finally {
-            resetActiveLearningTargetLanguage();
-            controller.destroy();
-            select.remove();
         }
     });
 

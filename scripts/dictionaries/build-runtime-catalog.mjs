@@ -7,13 +7,16 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '.
 const publishedPath = path.join(root, 'config', 'dictionaries', 'published', 'v1', 'catalog.json');
 const runtimePath = path.join(root, 'config', 'dictionaries', 'published', 'v1', 'runtime-catalog.json');
 const catalog = JSON.parse(await readFile(publishedPath, 'utf8'));
+// Yomu reads Japanese only (ADR-0024): the app carries the Japanese-headword
+// dictionaries. The published catalogue keeps every entry.
+const entries = catalog.entries.filter(entry => entry.headwordLanguages.includes('ja'));
 
-const archiveRevisions = sharedArchiveRevisions(catalog.entries);
+const archiveRevisions = sharedArchiveRevisions(entries);
 const runtime = {
     revision: catalog.revision,
     objectsBaseUrl: catalog.objectsBaseUrl,
     archiveRevisions,
-    entries: catalog.entries.map(entry => [
+    entries: entries.map(entry => [
         entry.id,
         entry.title,
         entry.installedTitle ?? null,
@@ -30,7 +33,7 @@ const runtime = {
 const output = `${JSON.stringify(runtime, null, 2)}\n`;
 if (process.argv.includes('--check')) {
     if (await readFile(runtimePath, 'utf8') !== output) {
-        throw new Error('Runtime dictionary catalog is stale relative to published catalog.json. Run node scripts/dictionaries/build-runtime-catalog.mjs before generating offline starters.');
+        throw new Error('Runtime dictionary catalog is stale relative to published catalog.json. Run node scripts/dictionaries/build-runtime-catalog.mjs.');
     }
 } else {
     await writeFile(runtimePath, output);

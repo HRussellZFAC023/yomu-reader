@@ -1,6 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
 
-import { resetActiveLearningTargetLanguage, setActiveLearningTargetLanguage } from '../../../src/reader/languages/active';
 import { newTabLookupMetaItems } from '../../../src/reader/newtab/lookup-dom';
 import { newTabCardFromSrsReviewable } from '../../../src/reader/newtab/srs-card-adapter';
 import { LocalYomuSrsRepository } from '../../../src/reader/srs/local-yomu';
@@ -29,7 +28,6 @@ describe('new tab review — lookup header contract', () => {
     // Library and Stats call an Academy word saved but not in review "Saved";
     // its Study lookup popup names it the same way, keeping the in-deck swatch.
     it.each([['en', 'Academy Saved'], ['ja', 'Academy 保存済み']] as const)('names a saved Academy word as Library does (%s)', async (interfaceLanguage, label) => {
-        setActiveLearningTargetLanguage('ja');
         const repository = new LocalYomuSrsRepository();
         await repository.mine({ expression: '読む', reading: 'よむ', meaning: 'to read' });
         const [saved] = await repository.collection();
@@ -47,7 +45,6 @@ describe('new tab review — lookup header contract', () => {
             runtime.destroy();
             document.body.replaceChildren();
             localStorage.clear();
-            resetActiveLearningTargetLanguage();
         }
     });
 

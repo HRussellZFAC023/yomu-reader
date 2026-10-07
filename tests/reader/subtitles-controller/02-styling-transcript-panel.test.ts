@@ -1,6 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { positionSubtitleStylePopover } from '../../../src/reader/subtitles/subtitle-style-popover';
-import { resetActiveLearningTargetLanguage, setActiveLearningTargetLanguage } from '../../../src/reader/languages/active';
 import {
     allowSyntheticReaderInteractionsForTests,
     installTrustedReaderRootBoundary,
@@ -609,10 +608,9 @@ describe('SubtitlePlayerController — styling & transcript panel', () => {
         }
     });
 
-    it('stamps TARGET and OUTPUT language direction across overlay, transcript, and shadow surfaces', () => {
-        expect(setActiveLearningTargetLanguage('ar')).not.toBeNull();
+    it('stamps the Japanese TARGET and an RTL OUTPUT language direction across overlay, transcript, and shadow surfaces', () => {
         const { controller } = createInstalledSubtitleController({ subtitleOverlayVisible: true, subtitleSecondaryVisible: true });
-        const cue = { start: 0, end: 2, text: 'نقرأ اليوم.', transcriptEligible: true };
+        const cue = { start: 0, end: 2, text: '今日は読む。', transcriptEligible: true };
         const secondary = { start: 0, end: 2, text: 'امروز می‌خوانیم.', transcriptEligible: false };
         const internals = controllerInternals<{
             tracks: Array<{ id: string; label: string; kind: 'file'; language: string }>;
@@ -628,10 +626,10 @@ describe('SubtitlePlayerController — styling & transcript panel', () => {
             showNativeFullscreenCueTrack: (video: HTMLVideoElement) => void;
         }>(controller);
         internals.tracks = [
-            { id: 'arabic', label: 'العربية', kind: 'file', language: 'ar' },
+            { id: 'japanese', label: '日本語', kind: 'file', language: 'ja' },
             { id: 'persian', label: 'فارسی', kind: 'file', language: 'fa' },
         ];
-        internals.selectedTrackId = 'arabic';
+        internals.selectedTrackId = 'japanese';
         internals.secondaryTrackId = 'persian';
         internals.cues = [cue];
         internals.secondaryCues = [secondary];
@@ -640,16 +638,16 @@ describe('SubtitlePlayerController — styling & transcript panel', () => {
 
         try {
             internals.render();
-            expect(document.querySelector('.jpdb-subtitle-primary')).toMatchObject({ lang: 'ar', dir: 'rtl' });
+            expect(document.querySelector('.jpdb-subtitle-primary')).toMatchObject({ lang: 'ja', dir: 'ltr' });
             expect(document.querySelector('.jpdb-subtitle-secondary')).toMatchObject({ lang: 'fa', dir: 'rtl' });
 
             internals.openLinesPanel();
-            expect(document.querySelector('.jpdb-subtitle-row-text')).toMatchObject({ lang: 'ar', dir: 'rtl' });
+            expect(document.querySelector('.jpdb-subtitle-row-text')).toMatchObject({ lang: 'ja', dir: 'ltr' });
             document.querySelector<HTMLButtonElement>('[data-action="peek-row"]')!.click();
             expect(document.querySelector('.jpdb-subtitle-row-secondary')).toMatchObject({ lang: 'fa', dir: 'rtl' });
 
             document.querySelector<HTMLButtonElement>('[data-action="panel-shadow"]')!.click();
-            expect(document.querySelector('.jpdb-subtitle-shadow-line')).toMatchObject({ lang: 'ar', dir: 'rtl' });
+            expect(document.querySelector('.jpdb-subtitle-shadow-line')).toMatchObject({ lang: 'ja', dir: 'ltr' });
             expect(document.querySelector('.jpdb-subtitle-shadow-secondary')).toMatchObject({ lang: 'fa', dir: 'rtl' });
 
             vi.stubGlobal('VTTCue', class {
@@ -662,15 +660,10 @@ describe('SubtitlePlayerController — styling & transcript panel', () => {
             Object.defineProperty(video, 'webkitDisplayingFullscreen', { configurable: true, value: true });
             internals.video = video;
             internals.showNativeFullscreenCueTrack(video);
-            expect(addTextTrack).toHaveBeenCalledWith('subtitles', 'Yomu', 'ar');
-
-            expect(setActiveLearningTargetLanguage('es')).not.toBeNull();
-            controller.refresh();
-            expect(addTextTrack).toHaveBeenLastCalledWith('subtitles', 'Yomu', 'es');
+            expect(addTextTrack).toHaveBeenCalledWith('subtitles', 'Yomu', 'ja');
         } finally {
             vi.unstubAllGlobals();
             controller.destroy();
-            resetActiveLearningTargetLanguage();
         }
     });
 
@@ -946,19 +939,17 @@ describe('SubtitlePlayerController — styling & transcript panel', () => {
         }
     });
 
-    it('names TARGET and OUTPUT uploads in Japanese UI and only offers Jimaku for Japanese', () => {
-        expect(setActiveLearningTargetLanguage('es')).not.toBeNull();
+    it('names TARGET and OUTPUT uploads in Japanese UI and offers Jimaku for Japanese', () => {
         const { controller } = createInstalledSubtitleController({ interfaceLanguage: 'ja' as const });
         try {
             controllerInternals<{ openTracksPanel: () => void }>(controller).openTracksPanel();
             const panel = document.querySelector<HTMLElement>('.jpdb-subtitle-list')!;
 
-            expect(panel.textContent).toContain('スペイン語字幕を読み込む');
+            expect(panel.textContent).toContain('日本語字幕を読み込む');
             expect(panel.textContent).toContain('英語字幕を読み込む');
-            expect(panel.querySelector('[data-jimaku-anime-search]')).toBeNull();
+            expect(panel.querySelector('[data-jimaku-anime-search]')).not.toBeNull();
         } finally {
             controller.destroy();
-            resetActiveLearningTargetLanguage();
         }
     });
 

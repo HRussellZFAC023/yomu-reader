@@ -11,11 +11,8 @@ import {
 import { normalizeOcrRequest, requestGamingOcr } from './ocr';
 import { captureShortcutLabel, DEFAULT_CAPTURE_SHORTCUT, normalizeCaptureShortcut } from './capture-shortcut';
 import {
-    applyMainRendererTargetChoice,
     createGamingTray,
     runOverlayCapture,
-    runTargetGatedCapture,
-    sendWhenLoaded,
     windowCloseIntent,
     type GamingTrayController,
     type GamingTrayHost,
@@ -70,10 +67,6 @@ let hotkeyRegistered = false;
 let hotkey = DEFAULT_CAPTURE_SHORTCUT;
 let hotkeyError = '';
 let registeredHotkey: string | null = null;
-// Main owns the screen sampler, so it needs an explicit positive choice of its own.
-// It starts closed and is synchronized by the main renderer after local settings load.
-let learningTargetChosen = false;
-let targetChoiceRequested = false;
 // Freeze-frame: the screen is grabbed once while none of our windows are visible,
 // then the overlay reads/crops from this frozen frame. This is what keeps the
 // overlay's own selection chrome out of the OCR'd image.
@@ -139,7 +132,6 @@ async function createMainWindow(): Promise<void> {
         mainWindow = null;
     });
     await window.loadURL(rendererUrl());
-    notifyTargetChoiceRequired();
     if (!window.isDestroyed() && !window.isVisible()) window.show();
 }
 
@@ -309,11 +301,7 @@ function installBrokenPipeGuard(): void {
 }
 
 async function requestOverlay(mode: YomuGamingCaptureMode = 'instant'): Promise<void> {
-    await runTargetGatedCapture({
-        learningTargetChosen,
-        chooseTarget: requestLearningTargetChoice,
-        capture: () => showOverlay(mode),
-    });
+    await showOverlay(mode);
 }
 
 async function showOverlay(mode: YomuGamingCaptureMode): Promise<void> {
@@ -413,29 +401,6 @@ async function showApp(): Promise<void> {
     mainWindow?.focus();
 }
 
-async function requestLearningTargetChoice(): Promise<void> {
-    targetChoiceRequested = true;
-    await showApp();
-    notifyTargetChoiceRequired();
-}
-
-function notifyTargetChoiceRequired(): void {
-    if (targetChoiceRequested) sendWhenLoaded(mainWindow, YOMU_GAMING_CHANNELS.targetChoiceRequired);
-}
-
-function setLearningTargetChosen(event: Electron.IpcMainInvokeEvent, value: unknown): void {
-    const window = mainWindow;
-    applyMainRendererTargetChoice({
-        chosen: value === true,
-        senderId: event.sender.id,
-        mainRendererId: window && !window.isDestroyed() ? window.webContents.id : null,
-        apply: chosen => {
-            learningTargetChosen = chosen;
-            if (learningTargetChosen) targetChoiceRequested = false;
-        },
-    });
-}
-
 function lifecycleState() {
     return { quitting, hasTray: Boolean(tray), platform: process.platform };
 }
@@ -507,7 +472,6 @@ function registerIpcHandlers(): void {
     ipcMain.handle(YOMU_GAMING_CHANNELS.updateCaptureShortcut, (_event, shortcut: string) => updateCaptureShortcut(shortcut));
     ipcMain.handle(YOMU_GAMING_CHANNELS.syncSettingsSnapshot, (_event, settings: unknown) => syncSettingsSnapshot(settings));
     ipcMain.handle(YOMU_GAMING_CHANNELS.restoreSettingsSnapshot, () => restoreSettingsSnapshot());
-    ipcMain.handle(YOMU_GAMING_CHANNELS.setLearningTargetChosen, (event, chosen: unknown) => setLearningTargetChosen(event, chosen));
 }
 
 function captureForOverlay(
@@ -516,7 +480,6 @@ function captureForOverlay(
 ): Promise<YomuGamingCaptureSource> {
     const overlay = overlayWindow;
     return runOverlayCapture({
-        learningTargetChosen,
         senderId: event.sender.id,
         overlayRendererId: overlay && !overlay.isDestroyed() ? overlay.webContents.id : null,
         capture,

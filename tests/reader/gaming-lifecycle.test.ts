@@ -1,17 +1,12 @@
 import { describe, expect, it, vi } from 'vitest';
 import { captureShortcutLabel, DEFAULT_CAPTURE_SHORTCUT, normalizeCaptureShortcut } from '../../src/gaming/capture-shortcut';
 import {
-    applyMainRendererTargetChoice,
     createGamingTray,
     GAMING_OVERLAY_CAPTURE_REQUIRED,
-    GAMING_TARGET_CHOICE_REQUIRED,
-    GAMING_TARGET_CHOICE_SENDER_REQUIRED,
     gamingTrayMenuTemplate,
     gamingTrayTooltip,
     gamingWindowParkingHint,
     runOverlayCapture,
-    runTargetGatedCapture,
-    sendWhenLoaded,
     windowCloseIntent,
     type GamingTrayActions,
     type GamingTrayHost,
@@ -20,52 +15,11 @@ import {
     type GamingTrayMenuItem,
 } from '../../src/gaming/lifecycle';
 
-describe('gaming capture target gate', () => {
-    it('routes an unchosen hotkey without sampling the display', async () => {
-        const capture = vi.fn(async () => undefined);
-        const chooseTarget = vi.fn(async () => undefined);
-
-        await expect(runTargetGatedCapture({ learningTargetChosen: false, capture, chooseTarget }))
-            .resolves.toBe('target-required');
-        expect(chooseTarget).toHaveBeenCalledOnce();
-        expect(capture).not.toHaveBeenCalled();
-    });
-
-    it('samples the display only after a positive target choice', async () => {
-        const capture = vi.fn(async () => undefined);
-        const chooseTarget = vi.fn(async () => undefined);
-
-        await expect(runTargetGatedCapture({ learningTargetChosen: true, capture, chooseTarget }))
-            .resolves.toBe('captured');
-        expect(capture).toHaveBeenCalledOnce();
-        expect(chooseTarget).not.toHaveBeenCalled();
-    });
-
-    it('rejects an unchosen direct capture before it can sample the display', async () => {
+describe('gaming overlay capture boundary', () => {
+    it('lets the live overlay capture with no target choice first', async () => {
         const capture = vi.fn(async () => 'frame');
 
         await expect(runOverlayCapture({
-            learningTargetChosen: false,
-            senderId: 7,
-            overlayRendererId: 7,
-            capture,
-        })).rejects.toThrow(GAMING_TARGET_CHOICE_REQUIRED);
-        expect(capture).not.toHaveBeenCalled();
-    });
-
-    it('accepts the main renderer choice and lets the live overlay capture', async () => {
-        let learningTargetChosen = false;
-        const capture = vi.fn(async () => 'frame');
-
-        applyMainRendererTargetChoice({
-            chosen: true,
-            senderId: 3,
-            mainRendererId: 3,
-            apply: chosen => { learningTargetChosen = chosen; },
-        });
-
-        await expect(runOverlayCapture({
-            learningTargetChosen,
             senderId: 7,
             overlayRendererId: 7,
             capture,
@@ -73,42 +27,9 @@ describe('gaming capture target gate', () => {
         expect(capture).toHaveBeenCalledOnce();
     });
 
-    it('does not let the overlay grant itself capture access', async () => {
-        let learningTargetChosen = false;
-        const apply = vi.fn((chosen: boolean) => { learningTargetChosen = chosen; });
-        const capture = vi.fn(async () => 'frame');
-
-        expect(() => applyMainRendererTargetChoice({
-            chosen: true,
-            senderId: 7,
-            mainRendererId: 3,
-            apply,
-        })).toThrow(GAMING_TARGET_CHOICE_SENDER_REQUIRED);
-        expect(apply).not.toHaveBeenCalled();
-        await expect(runOverlayCapture({
-            learningTargetChosen,
-            senderId: 7,
-            overlayRendererId: 7,
-            capture,
-        })).rejects.toThrow(GAMING_TARGET_CHOICE_REQUIRED);
-        expect(capture).not.toHaveBeenCalled();
-    });
-
-    it('rejects target updates when the settings renderer is unavailable', () => {
-        const apply = vi.fn();
-
-        expect(() => applyMainRendererTargetChoice({
-            chosen: true,
-            senderId: 3,
-            mainRendererId: null,
-            apply,
-        })).toThrow(GAMING_TARGET_CHOICE_SENDER_REQUIRED);
-        expect(apply).not.toHaveBeenCalled();
-    });
-
     it('rejects capture from the settings renderer and from a missing overlay', async () => {
         const capture = vi.fn(async () => 'frame');
-        const request = { learningTargetChosen: true, senderId: 3, capture };
+        const request = { senderId: 3, capture };
 
         await expect(runOverlayCapture({ ...request, overlayRendererId: 7 }))
             .rejects.toThrow(GAMING_OVERLAY_CAPTURE_REQUIRED);
@@ -117,11 +38,10 @@ describe('gaming capture target gate', () => {
         expect(capture).not.toHaveBeenCalled();
     });
 
-    it('preserves a chosen overlay capture failure for the renderer error contract', async () => {
+    it('preserves an overlay capture failure for the renderer error contract', async () => {
         const failure = new Error('Screen capture failed.');
 
         await expect(runOverlayCapture({
-            learningTargetChosen: true,
             senderId: 7,
             overlayRendererId: 7,
             capture: async () => { throw failure; },
@@ -166,44 +86,6 @@ function fakeHost(overrides: Partial<GamingTrayHost> = {}) {
     };
     return { host, item, state, listeners };
 }
-
-describe('gaming renderer messages', () => {
-    function messageWindow(loading: boolean) {
-        let finishLoad: (() => void) | undefined;
-        const send = vi.fn();
-        const window = {
-            loading,
-            isDestroyed: () => false,
-            webContents: {
-                isLoading: () => window.loading,
-                once: (_event: 'did-finish-load', listener: () => void) => { finishLoad = listener; },
-                send,
-            },
-        };
-        return { window, send, finishLoad: () => { window.loading = false; finishLoad?.(); } };
-    }
-
-    it('sends at once to a loaded window', () => {
-        const { window, send } = messageWindow(false);
-        sendWhenLoaded(window, 'yomu-gaming:target-choice-required');
-        expect(send).toHaveBeenCalledWith('yomu-gaming:target-choice-required');
-    });
-
-    it('delivers a message sent while the page is loading once it has loaded, instead of dropping it', () => {
-        const { window, send, finishLoad } = messageWindow(true);
-        sendWhenLoaded(window, 'yomu-gaming:target-choice-required');
-        expect(send).not.toHaveBeenCalled();
-        finishLoad();
-        expect(send).toHaveBeenCalledOnce();
-    });
-
-    it('sends nothing to a missing or destroyed window', () => {
-        expect(() => sendWhenLoaded(null, 'yomu-gaming:target-choice-required')).not.toThrow();
-        const { window, send } = messageWindow(false);
-        sendWhenLoaded({ ...window, isDestroyed: () => true }, 'yomu-gaming:target-choice-required');
-        expect(send).not.toHaveBeenCalled();
-    });
-});
 
 describe('gaming window close policy', () => {
     it('parks the window instead of destroying it while a tray is live', () => {

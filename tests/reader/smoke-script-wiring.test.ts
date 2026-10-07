@@ -4,8 +4,6 @@ import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 import { userscriptCompanionPaths } from '../../scripts/lib/smoke-test-helpers.mjs';
-import { TARGET_AUDIT_FIXTURES } from '../../scripts/lib/multilingual-capability-audit-fixtures';
-import { LEARNING_TARGET_ROSTER } from '../../src/reader/languages/roster';
 
 /**
  * A smoke script with no npm alias runs exactly once — on the day it is written.
@@ -44,18 +42,13 @@ describe('smoke script wiring', () => {
             .toContain('npm run smoke:parser-glyph-identity');
     });
 
-    it('keeps parser identity fixtures exhaustive while the browser matrix stays compact', () => {
-        const rosterIds = LEARNING_TARGET_ROSTER.map(target => target.id).sort();
-        const fixtureIds = Object.keys(TARGET_AUDIT_FIXTURES).sort();
-        expect(rosterIds).toHaveLength(33);
-        expect(fixtureIds).toEqual(rosterIds);
-
+    it('keeps non-Japanese text bare in the release glyph sweep', () => {
         const source = readFileSync('scripts/parser-glyph-identity-smoke.mjs', 'utf8');
-        const matrix = /const MULTILINGUAL_TARGET_IDS = Object\.freeze\(\[([\s\S]*?)\]\);/u.exec(source)?.[1] ?? '';
-        const targetIds = [...matrix.matchAll(/'([^']+)'/gu)].map(match => match[1]);
-        expect(targetIds).toEqual(['es', 'ar', 'ko', 'yue']);
-        expect(source).toContain("from './lib/multilingual-capability-audit-fixtures.ts'");
-        expect(source).toContain('Non-Japanese target painted Japanese ruby annotations.');
+        expect(source).toContain('Non-Japanese text was annotated.');
+        expect(source).toContain('A press on non-Japanese text opened a lookup.');
+        for (const id of ['latin-en', 'fullwidth-latin', 'cyrillic', 'hangul', 'arabic', 'mixed-latin']) {
+            expect(source).toContain(`'${id}'`);
+        }
     });
 
     it('keeps the hosted settings smoke on the late shared-authority regression boundary', () => {

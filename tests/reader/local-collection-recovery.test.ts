@@ -1,7 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { JPDBCard } from '../../src/reader/app/types';
 import { resetManagedStateEpochSessionsForTests } from '../../src/reader/app/managed-state-epoch';
-import { resetActiveLearningTargetLanguage, setActiveLearningTargetLanguage } from '../../src/reader/languages/active';
 import type { NewTabController } from '../../src/reader/newtab/controller';
 import { NewTabRuntime } from '../../src/reader/newtab/runtime';
 import { DEFAULT_NEW_TAB_UI_STATE } from '../../src/reader/newtab/state';
@@ -93,13 +92,12 @@ function statsDueNow(): string {
 
 describe('local collection export and recovery', () => {
     beforeEach(() => localStorage.clear());
-    afterEach(() => { vi.unstubAllGlobals(); document.body.replaceChildren(); resetActiveLearningTargetLanguage(); });
+    afterEach(() => { vi.unstubAllGlobals(); document.body.replaceChildren(); });
 
     it('refreshes a Study page that loaded Library, Stats and a queue before the restore, as a reload would', async () => {
         const backup = await collectAndExport();
         openProfile();
-        setActiveLearningTargetLanguage('ja');
-        const controller = newTabPromptController({ ...DEFAULT_SETTINGS, learningTargetChosen: true }, {
+        const controller = newTabPromptController(DEFAULT_SETTINGS, {
             srsAdapters: { 'yomu-local': createYomuLocalSrsAdapter(new LocalYomuSrsRepository(() => NOW)) },
         });
         const study = controller as unknown as { state: typeof DEFAULT_NEW_TAB_UI_STATE; allWords: JPDBCard[] };

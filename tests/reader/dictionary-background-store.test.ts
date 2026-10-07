@@ -6,7 +6,6 @@ import { IDBFactory, IDBKeyRange } from 'fake-indexeddb';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import type { InterfaceLanguage } from '../../src/reader/app/types';
-import { resetActiveLearningTargetLanguage, setActiveLearningTargetLanguage } from '../../src/reader/languages/target-runtime';
 import { userFacingErrorText } from '../../src/reader/app/user-facing-errors';
 import { isStaleManagedStateEpochError, managedStateEpochSessionForRealm, StaleManagedStateEpochError } from '../../src/reader/app/managed-state-epoch';
 import { createReaderDictionaryStore, dictionaryReadConcurrency, type LocalDictionaryStore } from '../../src/reader/dictionaries/local-store';
@@ -50,7 +49,6 @@ const SETTINGS = {
 afterEach(() => {
     vi.useRealTimers();
     vi.restoreAllMocks();
-    resetActiveLearningTargetLanguage();
 });
 
 describe('extension background dictionary store', () => {
@@ -519,27 +517,6 @@ describe('extension background dictionary store', () => {
             reason: expect.objectContaining({ code: 'YOMU_STALE_MANAGED_STATE_EPOCH' }),
         })));
         expect(remoteMeta).not.toHaveBeenCalled();
-    });
-
-    it('starts another batch when the learning target changes within the macrotask', async () => {
-        const remoteMeta = vi.fn(async () => []);
-        const harness = backgroundHarness(store({ lookupTermMeta: remoteMeta }));
-        const proxy = extensionDictionaryStoreProxy(store({}), harness.root as unknown as typeof globalThis);
-        await proxy.lookupTermMeta('読む', 12);
-
-        const japanese = proxy.lookupTermMeta('書く', 12);
-        // The capability is warm: the read joins its batch one microtask later.
-        await Promise.resolve();
-        await Promise.resolve();
-        expect(setActiveLearningTargetLanguage('zh')).not.toBeNull();
-        const chinese = proxy.lookupTermMeta('写', 12);
-        await Promise.all([japanese, chinese]);
-
-        const batches = invokeMessages(harness.runtime).slice(1) as Array<{ args: unknown[]; target: { id: string } }>;
-        expect(batches.map(batch => [batch.target.id, batch.args])).toEqual([
-            ['japanese-v1', [['lookupTermMeta', ['書く', 12]]]],
-            [expect.not.stringMatching(/^japanese/), [['lookupTermMeta', ['写', 12]]]],
-        ]);
     });
 
     it('answers a mutation inside a read batch with an error and never runs it', async () => {

@@ -75,7 +75,6 @@ import { dispatchAuthorizedReaderControlClick, isDirectTrustedReaderInteraction 
 import { matchesShortcut } from '../settings/index';
 import {
     activeLearningTarget,
-    activeLearningTargetGeneration,
     activeLearningTargetLanguage,
 } from '../languages/target-runtime';
 import {
@@ -1278,7 +1277,7 @@ export class NewTabController {
         ].forEach(clear => clear());
     }
 
-    private clearTargetBoundState(): void {
+    private clearLoadedStudyState(): void {
         this.searchController.reset();
         this.clearSourceResultCache();
         this.clearCardBoundState();
@@ -1311,49 +1310,7 @@ export class NewTabController {
         this.navigationSupplementPromise = null;
         this.reviewCountMode = false;
         this.emptyLoadMessageKey = null;
-        this.clearTargetBoundState();
-    }
-
-    invalidateForTargetChange(): void {
-        this.loadGeneration++;
-        this.navigationGeneration++;
-        this.resetLoadedSourceState();
-        this.state.revealAnswer = false;
-        this.clearTargetBoundState();
-        this.pendingLiveJpdbGrade = null;
-        this.studyActivityRevision += 1;
-        this.studyStepOverride = null;
-        this.pinnedStudyPlan = null;
-        this.invalidateBrowsePool();
-        this.browseSourceFilters.clear();
-        this.browsePage = 0;
-        this.deckSelectorDecks = undefined;
-        this.studyCardDomTokens.clear();
-        this.studyCardsByDomToken.clear();
-        this.offlineReadyKeys.clear();
-        this.offlineWarmSignature = '';
-        this.offlineWarmTotal = 0;
-        this.clearOfflineWarmRetry();
-        this.fallbackStudyNotice = false;
-        this.statsStudyFilter = null;
-        this.listenItem = null;
-        this.listenContrastCard = null;
-        this.listenAudioGeneration++;
-        this.clearListenSpeakingScore();
-        this.clearListenRecording();
-        this.renderAfterTargetInvalidation();
-    }
-
-    private clearOfflineWarmRetry(): void {
-        if (this.offlineWarmRetryTimer === undefined) return;
-        clearTimeout(this.offlineWarmRetryTimer);
-        this.offlineWarmRetryTimer = undefined;
-    }
-
-    // Stats reloads here too: its figures belong to the target just left.
-    private renderAfterTargetInvalidation(): void {
-        const root = this.currentRoot();
-        if (root && !this.renderNonStudyRoute(root)) this.applyWords(root, false);
+        this.clearLoadedStudyState();
     }
 
     private renderEnabledContent(): DocumentFragment {
@@ -3438,7 +3395,6 @@ export class NewTabController {
             settings,
             interfaceLanguage: this.language(),
             targetLanguage: activeLearningTarget().language,
-            targetGeneration: activeLearningTargetGeneration(),
             activeJpdbDeck: this.state.jpdbDeck,
             activeAnkiDeck: this.normalizedAnkiDeckScope(),
         });

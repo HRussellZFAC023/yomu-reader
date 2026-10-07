@@ -60,11 +60,6 @@ export function targetTermMatchLookupCandidates(
     return result;
 }
 
-/** Whether production asks the reading index in addition to expression. */
-export function targetTermMatchQueriesReadingIndex(target: LearningTargetModule): boolean {
-    return target.lookupSweepMode !== 'left-to-right-longest-exact';
-}
-
 interface RankedDictionaryEntry {
     dictionary: string;
 }
@@ -396,7 +391,7 @@ export async function collectTermMatchCandidates(
             (entryRules, candidateRules) => target.matchesLookupCandidateRules(entryRules, candidateRules),
         ),
     ]));
-    await source.visitTermsByKeys(expressions, targetTermMatchQueriesReadingIndex(target), (expression, entry) => {
+    await source.visitTermsByKeys(expressions, true, (expression, entry) => {
         collectors.get(expression)?.add(entry);
     });
     return expressions.flatMap(expression => collectors.get(expression)?.matches() ?? []);

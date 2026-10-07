@@ -1,5 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { resetActiveLearningTargetLanguage, setActiveLearningTargetLanguage } from '../../../src/reader/languages/active';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
     DEFAULT_SETTINGS,
     registerSubtitleControllerCleanup,
@@ -48,10 +47,7 @@ function subtitleCandidateController(settings: ReaderSettings): SubtitlePlayerCo
 
 describe('SubtitlePlayerController — page-caption detection & tracks panel', () => {
     registerSubtitleControllerCleanup();
-    beforeEach(() => resetActiveLearningTargetLanguage());
-
     afterEach(() => {
-        resetActiveLearningTargetLanguage();
         vi.useRealTimers();
         document.body.innerHTML = '';
     });
@@ -845,39 +841,6 @@ describe('SubtitlePlayerController — page-caption detection & tracks panel', (
 
         expect(readPageCaptionText(video)).toBe('');
         expect(readPageCaptionText(video, undefined, { allowAnyCaptionScript: true })).toBe('today we read subtitles');
-    });
-
-    it('accepts DOM captions recognized by the active non-Japanese target', () => {
-        expect(setActiveLearningTargetLanguage('es')).not.toBeNull();
-        const video = nearbyPageCaption('hoy leemos subtítulos');
-
-        expect(readPageCaptionText(video)).toBe('hoy leemos subtítulos');
-    });
-
-    it('discovers a page subtitle track under a non-Japanese active target', () => {
-        expect(setActiveLearningTargetLanguage('es')).not.toBeNull();
-        document.body.innerHTML = `
-            <video controls>
-                <track kind="subtitles" srclang="es" label="Español" src="/captions/es.vtt">
-            </video>
-        `;
-        const { controller } = createInstalledSubtitleController({ subtitleAutoDetect: true });
-        const internals = controllerInternals<{
-            discoverPageSubtitleTracks: () => void;
-            tracks: Array<{ kind: string; language?: string; label: string; url?: string }>;
-        }>(controller);
-
-        try {
-            internals.discoverPageSubtitleTracks();
-
-            expect(internals.tracks).toContainEqual(expect.objectContaining({
-                kind: 'remote',
-                language: 'es',
-                label: 'Español',
-            }));
-        } finally {
-            controller.destroy();
-        }
     });
 
     it('does not treat asbplayer helper DOM as page captions', () => {

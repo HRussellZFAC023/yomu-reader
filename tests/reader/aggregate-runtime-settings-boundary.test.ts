@@ -54,7 +54,6 @@ describe('aggregate runtime Settings launcher boundary', () => {
 
         for (const required of [
             'src/reader/companions/settings-services.ts',
-            'src/reader/app/onboarding.ts',
             'src/reader/dictionaries/offline-setup.ts',
             'src/reader/dictionaries/offline-starters-projection.ts',
             'src/reader/dictionaries/yomitan/index.ts',
@@ -109,7 +108,6 @@ describe('aggregate runtime Settings launcher boundary', () => {
         expect(artifact).toContain('const NEW_TAB_PAGE_URL = `${DOCS_BASE_URL}study/`;');
         expect(settingsSurface).toContain(`const CURRENT_YOMU_VERSION = "${packageVersion}"`);
         expect(artifact).toContain('class LookupModalAccessibility');
-        expect(artifact).toContain('class OnboardingController');
         expect(artifact).toContain('function installOfflineParsingDictionaries');
         expect(artifact).toContain('function installDefinitionTranslationBehaviors');
         expect(artifact).toContain('function installAcademyReaderSrsSync');

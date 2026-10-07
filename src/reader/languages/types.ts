@@ -17,31 +17,8 @@ export function isSupportedLanguageProfileSchemaVersion(value: unknown): boolean
     return (SUPPORTED_LANGUAGE_PROFILE_SCHEMA_VERSIONS as readonly unknown[]).includes(value);
 }
 
-/**
- * Revision of the `LearningTargetModule` contract that this build of core
- * speaks. Bump it whenever the shape below gains, loses, or changes the
- * meaning of a member.
- */
+/** Revision of the `LearningTargetModule` contract this build speaks. */
 export const LEARNING_TARGET_MODULE_INTERFACE_VERSION = 10 as const;
-
-/**
- * Revisions core can still drive. A target module declares the revision it was
- * written against and the registry refuses anything outside this set, so a
- * module built against a different contract (a companion bundle, an
- * out-of-tree target) fails loudly at registration instead of silently
- * missing a capability at some call site months later.
- */
-export const SUPPORTED_LEARNING_TARGET_MODULE_INTERFACE_VERSIONS = [10] as const;
-
-export type LearningTargetModuleInterfaceVersion =
-    typeof SUPPORTED_LEARNING_TARGET_MODULE_INTERFACE_VERSIONS[number];
-
-export function isSupportedLearningTargetModuleInterfaceVersion(
-    value: unknown,
-): value is LearningTargetModuleInterfaceVersion {
-    return (SUPPORTED_LEARNING_TARGET_MODULE_INTERFACE_VERSIONS as readonly number[])
-        .includes(value as number);
-}
 
 /**
  * A canonical BCP-47 language tag. Runtime inputs must cross the locale
@@ -325,9 +302,8 @@ export interface LearningTargetGrammar {
  */
 export interface LearningTargetModule {
     /**
-     * Contract revision this module implements. Deliberately a plain `number`
-     * so a module object built against another revision can still be handed to
-     * the registry and be rejected, rather than being unrepresentable.
+     * Contract revision this module implements; the extension's dictionary
+     * host checks it against the page's.
      */
     readonly interfaceVersion: number;
     readonly id: string;
@@ -350,49 +326,6 @@ export interface LearningTargetModule {
         /** True when whitespace inside target text is a section break, not a word separator. */
         readonly whitespaceIsBoundary: boolean;
     };
-
-    /**
-     * Whether this target's own segmentation is where a dictionary lookup may
-     * start.
-     *
-     * True for every writing system that marks its word boundaries — the
-     * segments are the words, so the engine looks each one up and nothing
-     * else. That matters for more than speed: sweeping every substring of
-     * `paella` offers `ella`, a real Spanish word, as a match inside another
-     * one.
-     *
-     * False for a target whose boundaries are inferred rather than written.
-     * Japanese is the case that shapes this: its segmenter is good enough to
-     * decide where to draw a reading, and not good enough to decide where a
-     * dictionary term may begin, so the engine sweeps every position instead
-     * and lets the dictionary arbitrate.
-     */
-    readonly lookupStartsAtSegmentBoundary: boolean;
-    /**
-     * Bounded lookup surfaces inside one target segment.
-     *
-     * Absent means the target either trusts its segment boundaries or, when
-     * `lookupStartsAtSegmentBoundary` is false, needs the established
-     * all-position sweep. A target supplies this only when it can name a
-     * narrower safe strategy, such as Korean particle stripping.
-     */
-    readonly lookupSubsegments?: (segment: string, maxLength: number) => readonly string[];
-    /**
-     * Valid contiguous runs for an all-position dictionary sweep.
-     *
-     * Absent preserves the Japanese sweep over the source. Han targets supply
-     * ideograph-only runs so punctuation and mixed-script text never become
-     * guessed dictionary candidates.
-     */
-    readonly lookupRunSegments?: (text: string) => readonly LanguageTextSegment[];
-    /**
-     * How an all-position sweep is queried and selected.
-     *
-     * Han text uses conventional left-to-right longest exact-expression
-     * matching. Japanese keeps its established globally ranked expression-or-
-     * reading behavior.
-     */
-    readonly lookupSweepMode: 'global-ranked' | 'left-to-right-longest-exact';
 
     normalizeText(text: string): string;
     isLookupableText(text: string): boolean;

@@ -27,7 +27,7 @@ Yomu Gaming is a separate desktop download. Academy is in development and open b
 |---|---|
 | Install, first lookup and phone setup | [Week one](/learn/week-one) |
 | Popup readings, meanings, frequency, pitch, audio and examples | [Reading](/learn/reading) |
-| Grammar detection and per-language references | [Grammar coverage](/reference/grammar) |
+| Grammar detection and its source | [Grammar coverage](/reference/grammar) |
 | Furigana, pitch underlines and study-state colours | [Week one](/learn/week-one#leave-furigana-on) |
 | Local and imported Yomitan dictionaries | [Your own setup](/learn/your-own-setup#bring-your-dictionaries) |
 | Kanji readings, RTK, components, stroke order and drawing | [Reading](/learn/reading#slow-down-on-one-kanji) |
@@ -45,7 +45,7 @@ Yomu Gaming is a separate desktop download. Academy is in development and open b
 | Jiten, Bunpro, JPDB, WaniKani and Anki | [Your own setup](/learn/your-own-setup#keep-one-review-home) |
 | Local and provider audio | [Your own setup](/learn/your-own-setup#bring-your-audio) |
 | Accounts, encrypted card sync, export and deletion | [Your own setup](/learn/your-own-setup#sync-yomu-between-devices) |
-| Sentence-audio mining, 32-language targets, Migaku import and Academy | [Your own setup](/learn/your-own-setup#know-what-is-still-being-built) |
+| Sentence-audio mining, Migaku import and Academy | [Your own setup](/learn/your-own-setup#know-what-is-still-being-built) |
 
 ## Settings by screen
 

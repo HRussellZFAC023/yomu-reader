@@ -1,12 +1,10 @@
 import { APP_NAME } from '../app/constants';
 import { uiText } from '../app/i18n';
-import { targetLanguageDisplayName } from '../app/target-language-name';
 import type { InterfaceLanguage, ReaderSettings } from '../app/types';
 import {
     YOUTUBE_CHANNEL_RECOMMENDATION_COUNT,
     YOUTUBE_CHANNEL_RECOMMENDATION_FILTERS,
     allYouTubeChannelRecommendations,
-    channelRecommendationsCoverTarget,
     filterYouTubeChannelRecommendations,
     starterYouTubeChannelRecommendations,
     youTubeChannelListSignature,
@@ -19,7 +17,6 @@ import { gmStorageDeleteSync, gmStorageGetSync, gmStorageSetSync, managedSession
 import {
     classifyYouTubeFilterCandidates,
     isProbablyJapaneseYouTubeText,
-    youTubeSettingsTargetLanguageDetector,
     type YouTubeFilterCandidate,
     type YouTubeFilterDecision,
     type YouTubeFilterScanDecision,
@@ -32,7 +29,6 @@ import {
     shouldShowChannelRecommendationsForRoute,
 } from './youtube-routes';
 import { isYouTubeAppHostname } from '../app/youtube-host';
-import { jpOnlyOn } from '../settings/language-gating';
 import { withYouTubeFeedScrollAnchor } from './youtube-feed-scroll-anchor';
 const YOUTUBE_READER_ROOT_SELECTOR = '[data-jpdb-reader-root]';
 const YOUTUBE_FILTERED_CLASS = 'jpdb-youtube-filtered';
@@ -526,8 +522,7 @@ export class YoutubeImmersionFilter {
         this.resetStaleAutoReveal();
         const result = classifyYouTubeFilterCandidates(this.collectFilterCandidates(), {
             revealed: this.revealed,
-            // A48: ask the learner's own target, not "is this Japanese?".
-            matchesTargetLanguage: youTubeSettingsTargetLanguageDetector(settings),
+            matchesTargetLanguage: isProbablyJapaneseYouTubeText,
         });
         // A search whose results are ALL non-Japanese must not become a
         // filtering loop: hiding everything keeps YouTube's continuation
@@ -732,7 +727,7 @@ export class YoutubeImmersionFilter {
         };
         const decision = classifyYouTubeFilterCandidates([candidate], {
             revealed: this.revealed,
-            matchesTargetLanguage: youTubeSettingsTargetLanguageDetector(this.options.getSettings()),
+            matchesTargetLanguage: isProbablyJapaneseYouTubeText,
         }).decisions[0];
         if (decision?.kind === 'hide') this.advancePastFilteredShort(videoId || resolvedTitle || title);
     }
@@ -976,7 +971,7 @@ export class YoutubeImmersionFilter {
 
     private updateNoticeSummary(summary: HTMLElement, filteredCount: number, shownCount: number, settings: ReaderSettings): void {
         const summaryText = this.noticeSummaryText(filteredCount, settings);
-        const values = { count: String(shownCount), language: targetLanguageDisplayName(settings) };  // {language} = the target, not Japanese (A48)
+        const values = { count: String(shownCount) };
         const visibleText = shownCount ? formatYoutubeText(uiText(settings.interfaceLanguage, 'youtubeFilterVisible'), values) : '';
         const bar = summary.closest<HTMLElement>('.jpdb-youtube-filter-bar');
         summary.textContent = summaryText;
@@ -1042,7 +1037,6 @@ export class YoutubeImmersionFilter {
 
     private shouldShowChannelShelf(filteredCount: number, settings: ReaderSettings): boolean {
         if (!youtubeChannelRecommendationsEnabled(settings)) return false;
-        if (!channelRecommendationsCoverTarget(settings)) return false;
         if (this.revealed) return false;
         if (!shouldShowChannelRecommendationsForRoute()) return false;
         if (isYouTubeHomePage()) return false;
@@ -1747,19 +1741,11 @@ function cardHasFilteredLayoutState(card: HTMLElement): boolean {
 }
 
 export function youtubeImmersionFilterEnabled(settings: ReaderSettings): boolean {
-    return jpOnlyOn(
-        settings,
-        settings.youtubeImmersionEnabled,
-        settings.youtubeImmersionEnabledChosen,
-    );
+    return settings.youtubeImmersionEnabled;
 }
 
 function youtubeChannelRecommendationsEnabled(settings: ReaderSettings): boolean {
-    return jpOnlyOn(
-        settings,
-        settings.youtubeShowChannelRecommendations,
-        settings.youtubeShowChannelRecommendationsChosen,
-    );
+    return settings.youtubeShowChannelRecommendations;
 }
 
 function formatYoutubeText(template: string, values: Record<string, string>): string {

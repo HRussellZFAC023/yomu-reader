@@ -1,17 +1,10 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { DEFAULT_SETTINGS } from '../../src/reader/settings/index';
-import {
-    activeLearningTarget,
-    resetActiveLearningTargetLanguage,
-    setActiveLearningTargetLanguage,
-} from '../../src/reader/languages';
+import { activeLearningTarget } from '../../src/reader/languages';
 import { renderStudyToolResult } from '../../src/reader/study/render-impl';
-import { StudySourceController } from '../../src/reader/study/sources';
 import { renderGrammarHints } from '../../src/reader/study/tools-impl';
 
 afterEach(() => {
-    resetActiveLearningTargetLanguage();
     document.body.replaceChildren();
     vi.restoreAllMocks();
 });
@@ -40,30 +33,5 @@ describe('grammar availability stays visible', () => {
 
         expect(html).toContain('data-grammar-availability="empty"');
         expect(html).toContain('No built-in Japanese grammar patterns matched this sentence.');
-    });
-
-    it('keeps a non-Japanese target row mounted when its checked rules do not match', async () => {
-        expect(setActiveLearningTargetLanguage('ko')).not.toBeNull();
-        expect(activeLearningTarget().grammar.rules).toHaveLength(1);
-        const root = document.createElement('div');
-        document.body.append(root);
-        const controller = new StudySourceController({
-            getSettings: () => ({ ...DEFAULT_SETTINGS, interfaceLanguage: 'en', studyGrammarEnabled: true }),
-            dictionarySourceAttributes: () => 'open',
-            parseJapanese: vi.fn(async () => []),
-            parsePopoverJapanese: vi.fn(),
-            enrichPitchWords: vi.fn(),
-            enrichAnkiWords: vi.fn(),
-            isCurrentPopoverRoot: candidate => candidate === root,
-        });
-
-        root.innerHTML = controller.renderGrammarSource('한국어 문장입니다.');
-        controller.installLoaders(root, '한국어 문장입니다.');
-
-        await vi.waitFor(() => expect(root.textContent).not.toContain('Finding grammar'));
-        const row = root.querySelector<HTMLElement>('[data-study-grammar]');
-        expect(row).not.toBeNull();
-        expect(row?.dataset.availability).toBe('empty');
-        expect(row?.textContent).toContain('No built-in Korean grammar patterns matched this sentence.');
     });
 });

@@ -18,7 +18,6 @@ import { APP_NAME, JITEN_DEFINITION_SOURCE_ID, JPDB_DEFINITION_SOURCE_ID, USERSC
 import { handleReaderActionPillLink } from '../app/main-helpers';
 import {
     yomuKanjiStudyCompanion,
-    yomuOnboardingController,
     yomuSettingsSurfaceCompanion,
 } from '../companions/registry';
 import {
@@ -31,7 +30,6 @@ import { installProviderExampleBehaviors } from '../sources/provider-examples';
 import { DictionarySourceStateController } from '../sources/state';
 import { escapeHtml, inferredInflectedSurfaceRubies, readerWordSurfaceText, setInnerHtml } from '../dom';
 import { createReaderDictionaryStyleController } from '../sources/styles';
-import { OfflineDictionarySetupController } from '../dictionaries/offline-setup-controller';
 import { createFactoryResetCoordinator, type FactoryResetCoordinator } from '../app/factory-reset-coordinator';
 import { clearManagedBrowserCaches, ensureManagedWebStorageCurrent, unregisterManagedServiceWorkers } from '../app/storage';
 import { ImmersionKitClient } from '../immersion/kit';
@@ -82,7 +80,7 @@ import { applyNestedParsePlan, clearNestedParseLoadingKey, clearNestedParseState
 import { NestedParseCoordinator } from '../lookup/nested-parse-coordinator';
 import { isTargetLanguageText } from '../lookup/target-text';
 import { NewTabController, newTabKanjiSourceTitle, type NewTabLookupReviewTargetSelection } from './controller';
-import { newTabSettingsWithPageInterfaceLanguage, newTabSettingsWithPageTarget } from './runtime-target-policy';
+import { newTabSettingsWithPageInterfaceLanguage } from './runtime-target-policy';
 import { settingsPanelFromHash, type SettingsPanelId } from './url';
 import { ensureExtensionStudySettingsAuthority } from './extension-settings-recovery-guard';
 import type { StudySessionClock } from './session-clock';
@@ -115,7 +113,6 @@ import { ReaderParser } from '../lookup/parser';
 import {
     DEFAULT_SETTINGS,
     loadSettings,
-    NO_EXPLICIT_USER_CHOICE,
     saveSettings,
     shouldLookupAnkiStatus,
 } from '../settings/index';
@@ -154,7 +151,7 @@ import {
     syncFixedPopoverHeight,
 } from '../runtime/popover-body-stabilizer';
 import { StudySourceController } from '../study/sources';
-import { outputLanguageOf, targetLanguageOf } from '../languages/selection';
+import { OUTPUT_LANGUAGE } from '../languages/selection';
 import { translateJapaneseSentence } from '../study/tools';
 import type { JPDBCard, JPDBGrade, JPDBToken, ReaderSettings } from '../app/types';
 import { addWindowEventListener } from '../platform/window-events';
@@ -240,8 +237,6 @@ export async function startNewTabRuntime(options: NewTabRuntimeStartupOptions = 
 
 export interface NewTabRuntimeOptions {
     readonly mountHost?: HTMLElement;
-    /** Deliberate, non-persisted target owned by an embedded hosted lesson. */
-    readonly pageOwnedLearningTarget?: 'ja';
     readonly sessionClock?: StudySessionClock;
     readonly interfaceLanguage?: 'en' | 'ja';
     /** Read-only lesson context. Scheduler writes are owned by Academy learner evidence. */
@@ -268,7 +263,6 @@ export async function mountNewTabStudySurface(
     await ensureManagedWebStorageCurrent();
     return mountEmbeddedStudyRuntime(host, new NewTabRuntime({
         mountHost: host,
-        pageOwnedLearningTarget: 'ja',
         sessionClock: options.sessionClock,
         interfaceLanguage: options.language,
         sessionVocabulary: options.sessionVocabulary,
@@ -284,7 +278,6 @@ export class NewTabRuntime {
     private activeBackdrop?: HTMLElement;
     private settingsPreviewOriginalAccent?: string;
     private settingsPreviewOriginalTheme?: ReaderSettings['theme'];
-    private pendingOnboardingSettingsPanel?: string;
     private newTab?: NewTabController;
     private jpdb = new JpdbClient(() => effectiveJpdbApiKey(this.settings), () => this.settings.corsProxyUrl);
     private jiten = new JitenApiClient(() => effectiveJitenApiKey(this.settings), { proxyUrl: () => this.settings.corsProxyUrl });
@@ -321,14 +314,7 @@ export class NewTabRuntime {
         new WanikaniLookupClient(this.wanikani),
         () => this.settings,
         (key, initiallyExpanded) => this.dictionarySourceState.attributes(key, initiallyExpanded),
-        mount => {
-            this.repositionLookupPopover();
-            const installDefinitionTranslationBehaviors =
-                yomuSettingsSurfaceCompanion()?.installDefinitionTranslationBehaviors;
-            if (!installDefinitionTranslationBehaviors) return;
-            void installDefinitionTranslationBehaviors(mount, this.settings)
-                .then(() => this.repositionLookupPopover());
-        },
+        () => this.repositionLookupPopover(),
     );
     private navigation = new PopupNavigationController(() => Boolean(
         this.activeLookupPopover?.isConnected && this.activeLookupPopover.querySelector('.jpdb-reader-kanji-display'),
@@ -374,16 +360,6 @@ export class NewTabRuntime {
     private lastAutoAudioKey = '';
     private lastAutoAudioAt = 0;
     private externalRefreshController?: AbortController;
-    private offlineDictionaries = new OfflineDictionarySetupController({
-        dictionaries: this.dictionaries,
-        getSettings: () => this.settings,
-        applySettings: async settings => {
-            this.settings = settings;
-            await saveSettings(settings, { explicitUserChoiceKeys: NO_EXPLICIT_USER_CHOICE });
-        },
-        notify: message => this.toast(message),
-        afterInstalled: () => this.refreshDictionaryStyles(),
-    });
     private dictionaryStyles = createReaderDictionaryStyleController(() => this.settings, preferences => this.dictionaries.dictionaryStyleCss(preferences), error => log.warn('Dictionary styles unavailable', error));
     private studySources = new StudySourceController({
         getSettings: () => this.settings,
@@ -480,10 +456,8 @@ export class NewTabRuntime {
 
     private settingsDialog = new SettingsDialogController({
         getSettings: () => this.settings, saveSettings,
-        setSettings: (settings, options) => {
-            const nextSettings = this.settingsDialogTargetChoice(settings, options?.transient === true);
-            this.settings = nextSettings;
-            this.syncRuntimeTarget(nextSettings);
+        setSettings: settings => {
+            this.settings = settings;
         },
         jpdb: this.jpdb,
         dictionaries: this.dictionaries,
@@ -519,7 +493,6 @@ export class NewTabRuntime {
             this.settingsPreviewOriginalTheme = undefined;
         },
     });
-    private onboarding = this.createOnboardingController();
 
     constructor(private readonly options: NewTabRuntimeOptions = {}) {}
 
@@ -531,9 +504,8 @@ export class NewTabRuntime {
         this.factoryReset.bind();
         this.settings = newTabSettingsWithPageInterfaceLanguage(await loadSettings(), this.options.interfaceLanguage);
         // Hosted Study can start before an installed userscript/extension has
-        // exposed its shared storage bridge. Listen before target resolution:
-        // onboarding waits below, so installing this only after the first
-        // render made the authoritative settings permanently unreachable.
+        // exposed its shared storage bridge. Listen before the first render so
+        // the authoritative settings reach this page as soon as it is ready.
         this.installSettingsStorageSubscription();
         configureLogger({ forceEnabled: this.settings.enableLogging });
         // D43: the new tab and the study app are documents Yomu owns outright, so
@@ -542,14 +514,10 @@ export class NewTabRuntime {
         // the mount, never the page's documentElement.
         this.applyInterfaceLocale();
         this.applyTheme();
-        const runtimeTargetSettings = await this.resolveRuntimeTargetSettings();
-        if (!runtimeTargetSettings) return;
-        this.syncLookupTarget(runtimeTargetSettings);
         this.assertSessionVocabularyReadOnly();
         const requestedSettingsPanel = this.consumeRequestedSettingsPanel();
         this.newTab = this.createNewTabController();
         await this.newTab.renderPage();
-        this.openPendingOnboardingSettingsPanel();
         this.openRequestedSettingsPanel(requestedSettingsPanel);
         void this.refreshDictionaryStyles();
         this.scheduleDictionaryIndexPreparation();
@@ -568,69 +536,6 @@ export class NewTabRuntime {
         window.setTimeout(() => {
             if (!this.isDestroyed) void this.dictionaries.prepareTermSearchIndex();
         }, 1500);
-    }
-
-    private createOnboardingController() {
-        const Controller = yomuOnboardingController();
-        if (!Controller) return undefined;
-        return new Controller({
-            getSettings: () => this.settings,
-            setSettings: settings => {
-                this.settings = settings;
-                if (settings.learningTargetChosen) this.syncLookupTarget(settings);
-                this.applyTheme(settings);
-                this.applyWordColors(settings);
-            },
-            showSettings: panel => { this.pendingOnboardingSettingsPanel = panel; },
-            parseJapanese: panel => void this.parseNewTabContent(panel),
-            lookupText: (text, sentence, anchor) => void this.lookupText(text, sentence || text, anchor, { stackOverSettings: true }),
-            installOfflineDictionaries: () => void this.offlineDictionaries.run(),
-            onComplete: settings => this.applyRemoteSettings(settings),
-            onPersistenceFailed: settings => this.rollbackOnboardingSettings(settings),
-        });
-    }
-
-    private async resolveRuntimeTargetSettings(): Promise<ReaderSettings | null> {
-        const current = this.runtimeTargetSettings(this.settings);
-        if (current) return current;
-        // A generic embedded mount must fail closed. Academy supplies a
-        // page-owned target, while standalone Study can host the chooser.
-        if (this.options.mountHost) return null;
-        await this.runOnboardingIfAvailable();
-        if (this.isDestroyed) return null;
-        return this.runtimeTargetSettings(this.settings);
-    }
-
-    private runtimeTargetSettings(settings: ReaderSettings): ReaderSettings | null {
-        if (settings.learningTargetChosen) return settings;
-        const pageOwnedLearningTarget = this.options.pageOwnedLearningTarget;
-        if (!pageOwnedLearningTarget) return null;
-        return newTabSettingsWithPageTarget(settings, pageOwnedLearningTarget);
-    }
-
-    private settingsDialogTargetChoice(settings: ReaderSettings, transient: boolean): ReaderSettings {
-        if (transient) return settings;
-        if (targetLanguageOf(settings) === targetLanguageOf(this.settings)) return settings;
-        return { ...settings, learningTargetChosen: true };
-    }
-
-    private syncRuntimeTarget(settings: ReaderSettings): void {
-        const runtimeTargetSettings = this.runtimeTargetSettings(settings);
-        if (runtimeTargetSettings) this.syncLookupTarget(runtimeTargetSettings);
-    }
-
-    private async runOnboardingIfAvailable(): Promise<void> {
-        const onboarding = this.onboarding;
-        if (!onboarding) return;
-        await onboarding.showIfNeeded();
-        await onboarding.waitForCompletion();
-    }
-
-    private rollbackOnboardingSettings(previousSettings: ReaderSettings): void {
-        this.settings = previousSettings;
-        this.syncRuntimeTarget(previousSettings);
-        this.applyTheme(previousSettings);
-        this.applyWordColors(previousSettings);
     }
 
     private assertSessionVocabularyReadOnly(): void {
@@ -668,8 +573,6 @@ export class NewTabRuntime {
     private async applyRemoteSettings(settings: ReaderSettings): Promise<void> {
         const effectiveSettings = newTabSettingsWithPageInterfaceLanguage(settings, this.options.interfaceLanguage);
         this.settings = effectiveSettings;
-        void this.onboarding?.waitForCompletion(effectiveSettings);
-        this.syncRuntimeTarget(effectiveSettings);
         configureLogger({ forceEnabled: effectiveSettings.enableLogging });
         this.cardRenderData.clear();
         this.parseContentCache.clear();
@@ -886,11 +789,6 @@ export class NewTabRuntime {
     private showSettings(panel?: string): void {
         this.settingsDialog.open(panel);
     }
-    private openPendingOnboardingSettingsPanel(): void {
-        const panel = this.pendingOnboardingSettingsPanel;
-        this.pendingOnboardingSettingsPanel = undefined;
-        if (panel) this.showSettings(panel);
-    }
     private consumeRequestedSettingsPanel(): SettingsPanelId | null {
         const panel = settingsPanelFromHash(location.hash);
         if (!panel) return null;
@@ -944,15 +842,6 @@ export class NewTabRuntime {
 
     private isCurrentLookupTarget(snapshot: LookupTargetSnapshot): boolean {
         return this.lookupTarget.isCurrent(snapshot);
-    }
-
-    private syncLookupTarget(settings: ReaderSettings): void {
-        if (!this.lookupTarget.sync(settings)) return;
-        this.parseContentCache.clear();
-        this.newTab?.invalidateForTargetChange();
-        // This closes only the lookup layer. A settings dialog underneath a
-        // stacked lookup remains mounted and interactive.
-        this.dismissLookupPopover();
     }
 
     private isCurrentKanjiLookupRender(popover: HTMLElement, requestId: number, kanji: string): boolean {
@@ -2297,11 +2186,10 @@ export class NewTabRuntime {
     }
 
     private async performNewTabContentParse(root: HTMLElement, options: NewTabParseContentOptions): Promise<void> {
-        void yomuSettingsSurfaceCompanion()?.installDefinitionTranslationBehaviors(root, this.settings);
         if (!this.parser.canParse()) return;
         installProviderExampleBehaviors(root, {
             interfaceLanguage: this.settings.interfaceLanguage,
-            outputLanguage: outputLanguageOf(this.settings),
+            outputLanguage: OUTPUT_LANGUAGE,
             blurTranslations: this.settings.immersionKitRevealTranslationOnClick,
             translate: translateJapaneseSentence,
             isCurrentRoot: candidate => candidate.isConnected,

@@ -104,34 +104,6 @@ export function nonOverlappingMatches(matches: YomitanTermMatch[], limit: number
     return result;
 }
 
-/**
- * Conventional maximal matching for unspaced Han text.
- *
- * At the earliest dictionary-backed start, take the longest exact expression
- * and advance to its end. A position with no hit emits nothing. This never
- * turns an ICU boundary guess into an answer and never lets a later long word
- * displace an earlier word merely because it is longer.
- */
-export function leftToRightLongestMatches(matches: YomitanTermMatch[], limit: number, rank?: DictionaryRank): YomitanTermMatch[] {
-    const candidates = [...matches].sort((a, b) =>
-        a.start - b.start
-        || compareTermMatchLengthDescending(a, b)
-        || compareTermMatchDeinflectionDepth(a, b)
-        || compareTermMatchDictionaryPriority(a, b, rank)
-        || compareTermMatchDictionaryName(a, b)
-        || compareTermMatchEntryScoreDescending(a, b),
-    );
-    const selected: YomitanTermMatch[] = [];
-    let coveredUntil = 0;
-    for (const match of candidates) {
-        if (match.start < coveredUntil) continue;
-        selected.push(match);
-        coveredUntil = match.end;
-        if (selected.length >= limit) break;
-    }
-    return selected;
-}
-
 function compareTermMatchesForSelection(a: YomitanTermMatch, b: YomitanTermMatch, rank?: DictionaryRank): number {
     for (const compare of TERM_MATCH_SELECTION_COMPARATORS) {
         const result = compare(a, b, rank);

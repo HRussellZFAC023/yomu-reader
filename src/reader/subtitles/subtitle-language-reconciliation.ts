@@ -43,13 +43,12 @@ function translatedTrackIdsForChangedSelection(
 }
 
 function subtitleLanguageSelectionChanged(previous: SubtitleLanguageContext, next: SubtitleLanguageContext): boolean {
-    return previous.generation !== next.generation
-        || previous.targetLanguage !== next.targetLanguage
+    return previous.targetLanguage !== next.targetLanguage
         || previous.outputLanguage !== next.outputLanguage;
 }
 
 function targetLanguageChanged(previous: SubtitleLanguageContext, next: SubtitleLanguageContext): boolean {
-    return previous.generation !== next.generation || previous.targetLanguage !== next.targetLanguage;
+    return previous.targetLanguage !== next.targetLanguage;
 }
 
 function invalidSelection(

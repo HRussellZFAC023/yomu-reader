@@ -6,8 +6,6 @@ import {
     normalizeLanguageProfiles,
     resolveLanguageProfile,
 } from '../../../src/reader/languages/profiles';
-import { outputLanguageOf } from '../../../src/reader/languages/selection';
-import { normalizeSlice1LearnerLanguage } from '../../../src/reader/languages/roster';
 
 describe('language profile normalization', () => {
     it('creates the Slice 1 Japanese target with privacy-preserving defaults', () => {
@@ -99,26 +97,26 @@ describe('language profile normalization', () => {
         expect(activeLanguageProfile([], 'missing')).toBeNull();
     });
 
-    it('exposes the active learner language without leaking settings storage details', () => {
-        const profiles = [
-            { ...createDefaultLanguageProfile(), id: 'english' },
-            { ...createDefaultLanguageProfile(), id: 'korean', outputLanguage: 'ko-KR', learnerLanguage: 'ko-KR' },
-        ];
-        const settingsShape = {
-            languageProfiles: profiles,
-            activeLanguageProfileId: 'korean',
-            interfaceLanguage: 'en',
+    it('keeps a stored target and definition language verbatim', () => {
+        const [profile] = normalizeLanguageProfiles([{
+            schemaVersion: 2,
+            id: 'learner-de-es',
+            outputLanguage: 'de',
+            learnerLanguage: 'de',
+            targetLanguage: 'es',
+            uiLocale: 'en',
             parserProvider: 'local',
-        };
+            dictionaries: { installed: [], enabled: [], order: [] },
+            definitionTranslationProviderIds: ['jpdb'],
+        }], 'learner-de-es').profiles;
 
-        expect(resolveLanguageProfile(settingsShape).id).toBe('korean');
-        expect(outputLanguageOf(settingsShape)).toBe('ko-KR');
-        expect(outputLanguageOf(profiles[0])).toBe('en');
-        expect(outputLanguageOf(null)).toBe('en');
-    });
-
-    it('canonicalizes every Serbo-Croatian alias to the same Latin-script runtime identity', () => {
-        expect(['sh', 'sr', 'sr-Latn', 'hr', 'bs'].map(value => normalizeSlice1LearnerLanguage(value)))
-            .toEqual(Array(5).fill('sr-Latn'));
+        expect(profile).toMatchObject({
+            id: 'learner-de-es',
+            outputLanguage: 'de',
+            learnerLanguage: 'de',
+            targetLanguage: 'es',
+            definitionTranslationProviderIds: ['jpdb'],
+        });
+        expect(resolveLanguageProfile({ languageProfiles: [profile], activeLanguageProfileId: profile!.id }).targetLanguage).toBe('es');
     });
 });

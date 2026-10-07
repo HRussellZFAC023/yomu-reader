@@ -12,7 +12,6 @@ import {
 } from '../dictionaries/catalog-browse';
 import {
     catalogBrowseCopy,
-    catalogBrowseLanguageNote,
     type CatalogBrowseCopy,
 } from '../dictionaries/catalog-browse-copy';
 import {
@@ -172,8 +171,6 @@ function renderCatalogBrowseLanguage(
     const language = section.headwordLanguage;
     return `
         <div class="jpdb-reader-recommended-group jpdb-reader-catalog-browse-language" data-catalog-browse-language="${escapeHtml(language)}" data-catalog-browse-language-endonym="${escapeHtml(headwordLanguageEndonym(language))}"${section.isTargetLanguage ? ' data-catalog-browse-language-target' : ''}>
-            <div class="jpdb-reader-recommended-title" data-catalog-browse-language-title>${escapeHtml(headwordLanguageName(language, locale))}</div>
-            <div class="jpdb-reader-help" data-catalog-browse-language-note>${escapeHtml(catalogBrowseLanguageNote(copy, headwordLanguageName(language, locale)))}</div>
             ${section.groups
                 .map(group => `
                     <div class="jpdb-reader-recommended-group" data-catalog-browse-group="${escapeHtml(group.category)}">
@@ -233,7 +230,6 @@ function catalogBrowseCopyForLocale(learnerLanguageId: LearnerLanguageId, locale
         summary: uiText('ja', 'mirroredDictionariesSummary'),
         searchLabel: uiText('ja', 'mirroredDictionarySearch'),
         noResults: uiText('ja', 'mirroredDictionarySearchNoResults'),
-        languageNote: uiText('ja', 'mirroredDictionaryLanguageNote'),
         categories: Object.fromEntries(
             (Object.keys(CATALOG_BROWSE_CATEGORY_TEXT_KEYS) as DictionaryCategory[])
                 .map(category => [category, uiText('ja', CATALOG_BROWSE_CATEGORY_TEXT_KEYS[category])]),

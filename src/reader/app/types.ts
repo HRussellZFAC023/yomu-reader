@@ -320,14 +320,6 @@ export interface ReaderSettings {
     bunproFrontendApiToken: string;
     bunproFrontendApiTokenExpiresAt: string;
     wanikaniApiToken: string;
-    onboardingSeen: boolean;
-    /**
-     * True only after the learner has explicitly confirmed a learning target.
-     * Pre-1.9 records with substantive Reader/subtitle state migrate to true so
-     * their existing target remains authoritative. Passive hosted/bootstrap and
-     * metadata-only records stay false, as does a genuinely fresh profile.
-     */
-    learningTargetChosen: boolean;
     interfaceLanguage: InterfaceLanguage;
     /**
      * Versioned multilingual profiles. Root-level language/parser settings

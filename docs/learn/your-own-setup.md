@@ -7,19 +7,17 @@ description: Connect dictionaries, audio, Anki, Jiten, Bunpro, JPDB and WaniKani
 
 Keep the study system you already open.
 
-Yomu works with a starter dictionary and a local deck. Everything after that is a choice. Add one service when it removes friction. Remove it when it adds ceremony.
+Yomu works with its defaults and a local deck. Everything after that is a choice. Add one service when it removes friction. Remove it when it adds ceremony.
 
 ## Bring your dictionaries
 
-Install a dictionary from the catalogue or import any compatible Yomitan ZIP. The starter uses both choices in your language profile: an English-speaking learner reading Spanish gets Spanish-headword terms with English definitions and Spanish IPA in the popup's pronunciation row. Japanese uses that same row for pitch accent. Japanese terms, kanji and pitch remain the starter only when Japanese is the selected target. Dictionary files, search indexes and local lookup results stay in the browser. To see the answer you trust first, move it up under Popup order in Settings → Sources and press Save.
+Install a dictionary from the catalogue or import any compatible Yomitan ZIP. The recommended dictionaries are Japanese ones with English definitions, such as JMdict English, plus kanji, pitch-accent and frequency data. The popup's pronunciation row shows pitch accent. Dictionary files, search indexes and local lookup results stay in the browser. To see the answer you trust first, move it up under Popup order in Settings → Sources and press Save.
 
-Yomu ships definitions in 32 languages.
-
-Choose the language you are reading separately from the language used for definitions. Japanese is labelled **Full Yomu support**. The other 32 are labelled **Read, mine and review** — the whole loop works in every one of them. Japanese is the deepest rather than the only one: it adds pitch accent, kanji cards and far more grammar.
+The catalogue lists dictionaries with Japanese headwords. JMdict and KANJIDIC with definitions in other languages, such as German, French, Russian or Spanish, are in its Japanese section.
 
 ## Bring your audio
 
-For Japanese, Yomu Hosted Audio provides the default recorded pronunciation. Other targets use speech synthesis in the selected language by default. Where available, you can enable source audio from Jiten, Bunpro and other connected providers, import custom JSON sources, or run Ultimate Yomitan Audio on your computer.
+Yomu Hosted Audio provides the default recorded pronunciation. Where available, you can enable source audio from Jiten, Bunpro and other connected providers, import custom JSON sources, or run Ultimate Yomitan Audio on your computer.
 
 The [Local Audio guide](/local-audio) covers the server, audio folders and phone access. Each source can be enabled and ordered separately.
 
@@ -60,7 +58,7 @@ Export or import settings from Study → Settings → Backup & sync. Only the cu
 
 ## Know what is still being built
 
-Sentence-audio mining, deeper study tools for the reading-and-lookup targets, and Migaku import are in development. Academy is a story-driven Japanese course from first sounds to N1; it is in development and invitation-only while it is built.
+Sentence-audio mining and Migaku import are in development. Academy is a story-driven Japanese course from first sounds to N1; it is in development and invitation-only while it is built.
 
 Planned does not mean installed. The [changelog](/changelog) is the record of what has shipped.
 

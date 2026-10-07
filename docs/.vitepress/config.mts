@@ -209,7 +209,7 @@ function jsonLdFor(pageData: PageDataLike, pageUrl: string, locale: WebsiteLocal
             isAccessibleForFree: true,
             offers: { '@type': 'Offer', price: '0', priceCurrency: 'USD' },
             featureList: [
-                'Target-aware popup lookup for 33 learning languages',
+                'Japanese popup dictionary lookup',
                 'Manga and image OCR',
                 'Yomu Gaming desktop capture',
                 'Video subtitle mining',

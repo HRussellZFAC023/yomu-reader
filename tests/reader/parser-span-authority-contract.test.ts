@@ -1,8 +1,7 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import type { JPDBCard, JPDBToken, ReaderSettings } from '../../src/reader/app/types';
 import type { YomitanTermEntry, YomitanTermMatch } from '../../src/reader/dictionaries/yomitan';
-import { resetActiveLearningTargetLanguage } from '../../src/reader/languages/active';
 import {
     ReaderParser,
     type ReaderParserDependencies,
@@ -216,14 +215,6 @@ function tokenSummary(text: string, tokens: readonly JPDBToken[]) {
         end: token.end,
     }));
 }
-
-beforeEach(() => {
-    resetActiveLearningTargetLanguage();
-});
-
-afterEach(() => {
-    resetActiveLearningTargetLanguage();
-});
 
 describe('ReaderParser span authority contract', () => {
     it('ignores provider offsets and prevents conflicting paragraph decorations from choosing or resizing spans', async () => {

@@ -19,7 +19,6 @@ import {
     throttledAutoScanDelay,
 } from '../../src/reader/app/main-helpers';
 import { normalizedNestedParseOptions } from '../../src/reader/app/main-lookup-helpers';
-import { shouldShowReaderOnboarding } from '../../src/reader/app/startup';
 import { isHostedYomuOrigin } from '../../src/reader/app/storage';
 import { documentLooksLikeImageReadingPage } from '../../src/reader/app/dom-helpers';
 import { scheduleReaderAnkiStatusWarmup } from '../../src/reader/app/status-warmup';
@@ -95,12 +94,6 @@ describe('reader runtime helpers', () => {
             pathname: '/study/',
         });
         expect(isHostedYomuOrigin()).toBe(true);
-    });
-
-    it('keeps hosted pages out of onboarding', () => {
-        expect(shouldShowReaderOnboarding(true, 'https://hrussellzfac023.github.io/yomu-reader/')).toBe(false);
-        expect(shouldShowReaderOnboarding(true, 'https://example.com/article')).toBe(true);
-        expect(shouldShowReaderOnboarding(false, 'https://example.com/article')).toBe(false);
     });
 
     it('gives every host the paced YouTube-tier public pitch budget', () => {

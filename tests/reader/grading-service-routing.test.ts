@@ -1,7 +1,6 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { ReaderParser } from '../../src/reader/lookup/parser';
 import { DEFAULT_SETTINGS } from '../../src/reader/settings';
-import { resetActiveLearningTargetLanguage } from '../../src/reader/languages/active';
 import { CardPopoverRenderer } from '../../src/reader/cards/popover-renderer';
 import { userFacingErrorText } from '../../src/reader/app/user-facing-errors';
 import { uiText } from '../../src/reader/app/i18n';
@@ -32,9 +31,6 @@ function token(card: JPDBCard, sentence = card.spelling): JPDBToken {
 
 const jpdbYomu: JPDBCard = { ...baseCard, source: 'jpdb', vid: 777, sid: 3, spelling: '読む', reading: 'よむ', cardState: ['learning'] };
 const jitenYomu = jitenTestCard({ spelling: '読む', reading: 'よむ', cardState: ['new'] });
-
-beforeEach(() => resetActiveLearningTargetLanguage());
-afterEach(() => resetActiveLearningTargetLanguage());
 
 describe('automatic parsing follows the grading service', () => {
     const PAGE_TEXT = '本を読むのが好きです';

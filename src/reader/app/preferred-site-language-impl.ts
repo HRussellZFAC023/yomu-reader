@@ -2,7 +2,6 @@ import {
     PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY,
     SETTINGS_STORAGE_KEYS,
 } from '../settings/index';
-import { normalizeLearningTargetChosen } from '../settings/learning-target-choice';
 import {
     ensureManagedWebStorageCurrent,
     ensureManagedWebStorageCurrentSync,
@@ -15,8 +14,7 @@ import {
 } from './storage';
 import { pageCompartmentDescriptorOrNull, pageCompartmentValue } from '../platform/window-events';
 import type { ReaderSettings } from './types';
-import { targetLanguageOf } from '../languages/selection';
-import { languageFamilyIncludes } from '../settings/language-gating';
+import { TARGET_LANGUAGE } from '../languages/selection';
 import { isRecord } from '../core/object-utils';
 import { SETTINGS_INTENT_LEDGER_STORAGE_KEY } from '../settings/intent-ledger';
 import { committedSettingsStoragePair } from '../settings/settings-persistence-transaction';
@@ -158,7 +156,7 @@ function canApplyPreferenceRevision(revision: number): boolean {
 }
 
 function japaneseSitePreferenceEnabled(enabled: boolean, targetLanguage: string): boolean {
-    return enabled && languageFamilyIncludes('jp-only', targetLanguage);
+    return enabled && targetLanguage === 'ja';
 }
 
 function shouldRevertSitePreference(effectiveEnabled: boolean, revertOnDisable: boolean): boolean {
@@ -336,8 +334,7 @@ function sitePreference(
 ): StoredPreference | undefined {
     const enabled = storedSitePreferenceEnabled(dedicated, settings, fallback);
     if (typeof enabled !== 'boolean') return undefined;
-    if (enabled === true && !storedSettingsChooseLearningTarget(settings)) return undefined;
-    return { enabled, targetLanguage: targetLanguageOf(settings) };
+    return { enabled, targetLanguage: TARGET_LANGUAGE };
 }
 
 function storedSitePreferenceEnabled(
@@ -350,10 +347,6 @@ function storedSitePreferenceEnabled(
         return settings.preferJapaneseSiteLanguage;
     }
     return fallback;
-}
-
-function storedSettingsChooseLearningTarget(settings: StoredSettings | undefined): boolean {
-    return normalizeLearningTargetChosen(settings ?? null);
 }
 
 function readCachedPreferenceEnabled(): boolean | undefined {

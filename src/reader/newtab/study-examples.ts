@@ -1,7 +1,6 @@
 import { el, replaceChildrenWith } from '../dom/builder';
 import type { ImmersionKitClient, ImmersionKitExample, ImmersionKitSearchOptions, ImmersionSearchResult } from '../immersion/kit';
 import { sensitiveFingerprint } from '../core/sensitive-fingerprint';
-import { activeLearningTargetGeneration } from '../languages/target-runtime';
 import { nextImmersionExampleIndex, renderImmersionExampleToolbar } from '../immersion/player-view';
 import { renderImmersionSearchLinks } from '../immersion/search-links';
 import { waitForIdle as waitForBrowserIdle } from '../platform/idle';
@@ -835,7 +834,7 @@ class StudyExampleQueries {
 
     searchContext(): string {
         const settings = this.deps.getSettings();
-        return JSON.stringify([activeLearningTargetGeneration(), settings.immersionKitEnabled,
+        return JSON.stringify([settings.immersionKitEnabled,
             sensitiveFingerprint(settings.nadeshikoApiKey), sensitiveFingerprint(settings.apiKey), sensitiveFingerprint(settings.corsProxyUrl),
             settings.immersionKitExampleSource, settings.immersionKitMinLength, settings.immersionKitMaxLength,
             settings.immersionKitCategory, settings.immersionKitSort, settings.immersionKitExactMatch,

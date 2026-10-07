@@ -246,8 +246,6 @@ function transactionRecord(settings: StorageSnapshot, intentLedger: StorageSnaps
     const previous = objectRecord(settings.previousValue) ?? {};
     return {
         ...previous,
-        learningTargetChosen: previous.learningTargetChosen === true,
-        onboardingSeen: typeof previous.onboardingSeen === 'boolean' ? previous.onboardingSeen : false,
         [TRANSACTION_FIELD]: {
             version: 1,
             settings: serializeSnapshot(settings),

@@ -32,7 +32,7 @@ import type { JPDBCard, JPDBGrade, JPDBToken, ReaderSettings } from '../app/type
 import type { LocalDictionaryStore } from '../dictionaries/local-store';
 import type { YomuSrsAdapter } from '../srs';
 import type { GrammarHint } from '../study/tools';
-import { outputLanguageOf } from '../languages';
+import { OUTPUT_LANGUAGE } from '../languages';
 import { targetUsesCharacterDictionary } from '../languages/character-lookup';
 import {
     readAnkiAudioMergeCapability,
@@ -172,7 +172,7 @@ export class CardActionController {
         const settings = this.options.getSettings();
         await renderStudyToolResult(button, action, sentence, undefined, settings.interfaceLanguage, {
             audioEnabled: settings.audioEnabled,
-            outputLanguage: outputLanguageOf(settings),
+            outputLanguage: OUTPUT_LANGUAGE,
         });
         void this.reparsePopoverJapanese(button);
         return false;

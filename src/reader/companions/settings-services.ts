@@ -1,6 +1,4 @@
-import { OnboardingController } from '../app/onboarding';
 import { enumerateDictionaryArchiveStorageKeys } from '../dictionaries/archive-cache';
-import { installOfflineParsingDictionaries } from '../dictionaries/offline-setup';
 import { createLocalDictionaryStore } from '../dictionaries/local-store-factory';
 import { renderStructuredGlossaryHtml } from '../dictionaries/yomitan/structured-content';
 import {
@@ -17,16 +15,6 @@ import {
     settingsForSettingsFormParse,
 } from '../lookup/settings-parse-render';
 import { LookupModalAccessibility } from '../popup/modal-accessibility-impl';
-import {
-    hasTargetLookupSites,
-    isTargetLookupLinkId,
-    lookupSiteComponents,
-    missingLookupComponents,
-    targetLookupLinks,
-    targetLookupSiteIds,
-    targetLookupSites,
-} from '../settings/lookup-links';
-import { installDefinitionTranslationBehaviors } from '../sources/definition-translation';
 import { installAcademyReaderSrsSync } from '../srs/account-sync';
 import {
     registerYomuCompanion,
@@ -41,9 +29,6 @@ export function registerSettingsServices(
     registerYomuCompanion('settings', {
         SettingsDialogController: SettingsDialogController ?? yomuSettingsDialogController(),
         LookupModalAccessibility,
-        OnboardingController,
-        installOfflineParsingDictionaries,
-        installDefinitionTranslationBehaviors,
         installAcademyReaderSrsSync,
         selfEnhancement: {
             SETTINGS_PARSE_TARGET_LIMIT,
@@ -53,15 +38,6 @@ export function registerSettingsServices(
             supplementSettingsFallbackTokens,
             addSettingsRubyFromRenderedReadings,
             settingsForSettingsFormParse,
-        },
-        lookupLinks: {
-            hasTargetLookupSites,
-            targetLookupSiteIds,
-            isTargetLookupLinkId,
-            targetLookupSites,
-            targetLookupLinks,
-            lookupSiteComponents,
-            missingLookupComponents,
         },
     });
     registerYomuCompanion('localDictionaries', {

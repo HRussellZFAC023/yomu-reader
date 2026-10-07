@@ -2,9 +2,6 @@ export type SettingsDialogControllerClass = typeof import('../settings/dialog-co
 export type SettingsDialogControllerInstance = InstanceType<SettingsDialogControllerClass>;
 export type LookupModalAccessibilityClass = typeof import('../popup/modal-accessibility-impl').LookupModalAccessibility;
 export type LookupModalAccessibilityInstance = InstanceType<LookupModalAccessibilityClass>;
-export type OnboardingControllerClass = typeof import('../app/onboarding').OnboardingController;
-type InstallOfflineParsingDictionariesFn = typeof import('../dictionaries/offline-setup').installOfflineParsingDictionaries;
-type InstallDefinitionTranslationBehaviorsFn = typeof import('../sources/definition-translation').installDefinitionTranslationBehaviors;
 interface SettingsSelfEnhancementCompanion {
     SETTINGS_PARSE_TARGET_LIMIT: typeof import('../lookup/nested-text-parse').SETTINGS_PARSE_TARGET_LIMIT;
     nestedSettingsParseAlreadyRendered: typeof import('../lookup/nested-text-parse').nestedSettingsParseAlreadyRendered;
@@ -93,13 +90,7 @@ type StudySourceControllerClass = typeof import('../study/sources').StudySourceC
 type LearningTargetRuntime = Pick<
     typeof import('../languages/target-runtime'),
     | 'activeLearningTarget'
-    | 'activeLearningTargetGeneration'
     | 'activeLearningTargetLanguage'
-    | 'adoptLearningTargetLanguage'
-    | 'defaultLearningTargetModule'
-    | 'learningTargetModuleFor'
-    | 'normalizeLearningTargetLanguage'
-    | 'registeredLearningTargetModules'
 >;
 
 interface YomuCompanionRegistry {
@@ -192,24 +183,10 @@ interface YomuCompanionRegistry {
     settings?: {
         SettingsDialogController?: SettingsDialogControllerClass;
         LookupModalAccessibility: LookupModalAccessibilityClass;
-        OnboardingController: OnboardingControllerClass;
-        // Multilingual catalogues and locale copy are intentionally owned by
-        // the settings companion so they do not enter the size-limited core.
-        installOfflineParsingDictionaries: InstallOfflineParsingDictionariesFn;
-        installDefinitionTranslationBehaviors: InstallDefinitionTranslationBehaviorsFn;
         // Academy account pairing/device sync is an account-surface feature and
         // rides with the settings companion that owns the account panel.
         installAcademyReaderSrsSync?: typeof import('../srs/account-sync').installAcademyReaderSrsSync;
         selfEnhancement: SettingsSelfEnhancementCompanion;
-        lookupLinks?: {
-            hasTargetLookupSites: typeof import('../settings/lookup-links').hasTargetLookupSites;
-            targetLookupSiteIds: typeof import('../settings/lookup-links').targetLookupSiteIds;
-            isTargetLookupLinkId: typeof import('../settings/lookup-links').isTargetLookupLinkId;
-            targetLookupSites: typeof import('../settings/lookup-links').targetLookupSites;
-            targetLookupLinks: typeof import('../settings/lookup-links').targetLookupLinks;
-            lookupSiteComponents: typeof import('../settings/lookup-links').lookupSiteComponents;
-            missingLookupComponents: typeof import('../settings/lookup-links').missingLookupComponents;
-        };
     };
     video?: {
         SubtitlePlayerController: SubtitlePlayerControllerClass;
@@ -316,10 +293,6 @@ export function registerYomuCompanion<K extends keyof YomuCompanionRegistry>(
 
 export function yomuSettingsDialogController(): SettingsDialogControllerClass | undefined {
     return yomuCompanions().settings?.SettingsDialogController;
-}
-
-export function yomuOnboardingController(): OnboardingControllerClass | undefined {
-    return yomuCompanions().settings?.OnboardingController;
 }
 
 export function yomuSettingsSurfaceCompanion(): NonNullable<YomuCompanionRegistry['settings']> | undefined {
