@@ -394,7 +394,9 @@ function placeProviderWords(root: ParentNode, frame: OcrOverlayFrame): void {
                 left: `${frame.imageLeft + box.left * frame.imageWidth - origin.left}px`,
                 top: `${frame.imageTop + box.top * frame.imageHeight - origin.top}px`,
                 width: `${box.width * frame.imageWidth}px`, height: `${box.height * frame.imageHeight}px`,
-                minWidth: '0', minHeight: '0', padding: '0', margin: '0', transform: 'none' });
+                minWidth: '0', minHeight: '0', padding: '0', margin: '0', transform: 'none', overflow: 'hidden' });
+            word.style.setProperty('pointer-events', 'auto', 'important');
+            for (const visual of word.querySelectorAll<HTMLElement>('*')) visual.style.setProperty('pointer-events', 'none', 'important');
         }
     }
 }
