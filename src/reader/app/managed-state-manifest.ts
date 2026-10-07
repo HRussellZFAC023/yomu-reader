@@ -104,6 +104,8 @@ const MANAGED_STATE_MANIFEST: readonly ManagedStateEntry[] = [
     // The one-time reader-canvas tap hint appears once per site. Each site's record
     // is private and keyed by a hash of its origin, so no page can read it.
     { owner: 'ocr/reader-canvas-tap-hint', kind: 'gm', prefix: 'yomu:private:ocr-canvas-tap-hint-seen:v1:' },
+    // The popup grade keycaps retire after the learner's first popup grade.
+    { owner: 'cards/grade-key-hints', kind: 'gm', key: 'yomu:private:grade-key-hints-retired:v1' },
 
     // Reader CSS last-good cache. v3 is deliberately version-independent (see
     // styles/index) so an upgrade does not start cold; the v2 prefix family

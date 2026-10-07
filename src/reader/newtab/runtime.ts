@@ -1,6 +1,7 @@
 import { subscribeToCardStateSignals } from '../app/card-state-signal';
 import { mountEmbeddedStudyRuntime } from './embedded-study-lifecycle';
 import { installLookupGradeShortcuts } from '../dom/review-shortcuts';
+import { retireGradeKeyHints, showGradeKeyHintsUntilRetired } from '../cards/grade-key-hints';
 import { AudioPlayer } from '../audio/player';
 import { AnkiConnectClient, ankiLookupWithUnavailableDetails, untrustedAnkiLookupResult, type AnkiLookupResult } from '../anki';
 import { newTabAnkiClient } from '../anki/new-tab';
@@ -510,6 +511,7 @@ export class NewTabRuntime {
         // the mount, never the page's documentElement.
         this.applyInterfaceLocale();
         this.applyTheme();
+        void showGradeKeyHintsUntilRetired(this.options.mountHost ?? document.documentElement);
         this.assertSessionVocabularyReadOnly();
         const requestedSettingsPanel = this.consumeRequestedSettingsPanel();
         this.newTab = this.createNewTabController();
@@ -1628,6 +1630,7 @@ export class NewTabRuntime {
 
     private gradeLookupFromButton(button: HTMLButtonElement, command: CardCommandCapability, card?: JPDBCard, sentence?: string, anchor?: HTMLElement): void {
         if (!privateReviewGradeAllowed(button, command)) return;
+        retireGradeKeyHints();
         if (command.grade) void this.gradeCurrentCardFromLookup(button, command.grade, newTabLookupReviewTargetSelection(button), card, sentence, anchor);
     }
 

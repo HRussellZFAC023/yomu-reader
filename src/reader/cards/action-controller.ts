@@ -3,6 +3,7 @@ import { publishCardStateSignal } from '../app/card-state-signal';
 import { copyText } from '../ui/browser';
 import { PreparedBatchActions } from './prepared-batch-actions';
 import { findWordsOnService } from './grading-service-word';
+import { retireGradeKeyHints } from './grade-key-hints';
 import { normalizeCardStates } from './state';
 import { readerWordSurfaceText } from '../dom/index';
 import { JpdbClient } from '../jpdb/jpdb';
@@ -632,9 +633,11 @@ export class CardActionController {
         });
     }
 
+    // A popup grade, given by clicking a grade button or by its key.
     async reviewGrade(grade: JPDBGrade, card: JPDBCard, sentence?: string, options: { target?: PopoverReviewTargetKind; ankiCardId?: number; deckId?: string; suppressToast?: boolean } = {}): Promise<void> {
         const settings = this.options.getSettings();
         if (!settings.enableReviews) throw userFacingError('reviewActionsDisabled');
+        retireGradeKeyHints();
         if (options.target === 'both') {
             await this.reviewApiCard(grade, card, sentence, options);
             await this.answerAnkiCard(grade, card, options.ankiCardId);

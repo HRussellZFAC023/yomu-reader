@@ -1871,26 +1871,26 @@ html.jpdb-reader-sheet-close-left .jpdb-reader-sheet-close {
   left: max(12px, env(safe-area-inset-left));
 }
 
-/* Keyboard key for each grade button (positional for four-button scales),
-   under its label: five grades leave no room beside "Something", and every
-   grade row shows its keys the same way. An Anki due-in interval stacks the
-   same way, with or without a key. */
-.jpdb-reader-btn[data-grade-key],
+/* An Anki due-in interval stacks under its grade label. */
 .jpdb-reader-btn:has(> .jpdb-reader-grade-interval) {
   flex-direction: column;
   gap: 2px !important; /* the base button's 6px gap is !important */
 }
-.jpdb-reader-btn[data-grade-key]::after {
-  content: attr(data-grade-key) / "";
-  padding: 0 4px;
-  border: 1px solid currentColor;
-  border-radius: 3px;
-  font: 600 10px/1.3 ui-monospace, SFMono-Regular, Menlo, monospace;
-  opacity: 0.6;
-}
 
-@media (hover: none) and (pointer: coarse) {
-  .jpdb-reader-btn[data-grade-key]::after {
-    display: none;
+/* Keyboard key for each grade button (positional for four-button scales),
+   under its label, until the learner's first popup grade retires the keycaps
+   (grade-key-hints.ts sets the <html> class). A touch screen has no keys. */
+@media (hover: hover) and (pointer: fine) {
+  .jpdb-reader-grade-key-hints .jpdb-reader-btn[data-grade-key] {
+    flex-direction: column;
+    gap: 2px !important;
+  }
+  .jpdb-reader-grade-key-hints .jpdb-reader-btn[data-grade-key]::after {
+    content: attr(data-grade-key) / "";
+    padding: 0 4px;
+    border: 1px solid currentColor;
+    border-radius: 3px;
+    font: 600 10px/1.3 ui-monospace, SFMono-Regular, Menlo, monospace;
+    opacity: 0.6;
   }
 }

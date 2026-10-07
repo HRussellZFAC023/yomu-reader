@@ -121,6 +121,7 @@ import {
 import { JpdbVocabularyClient, type JpdbVocabularyInfo } from '../jpdb/jpdb-vocabulary';
 import type { KanjiSourceInfo } from '../kanji/origin';
 import { updateKanjiMiningControlsMount } from '../kanji/mining-controls';
+import { showGradeKeyHintsUntilRetired } from '../cards/grade-key-hints';
 import type { KanjiVGInfo } from '../kanji/vg';
 import {
     boundedPublicPitchLookupReservation,
@@ -1153,6 +1154,7 @@ export class ReaderApp {
         // awaiting it here used to hold back the FAB and subtitle rail with no
         // visible sign that Yomu had loaded.
         void this.refreshDictionaryStyles();
+        void showGradeKeyHintsUntilRetired();
         if (this.observesSettingsStorage) this.installSettingsStorageSubscription();
         if (!this.embeddedFrame) this.installTopLevelCoreSurfaces();
     }
