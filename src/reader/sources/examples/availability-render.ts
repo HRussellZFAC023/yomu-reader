@@ -2,6 +2,7 @@ import { escapeHtml } from '../../dom/index';
 import { formatUiText, resolveUiLanguage, uiText } from '../../app/i18n';
 import { speakerIcon } from '../../ui/icons';
 import type { InterfaceLanguage } from '../../app/types';
+import { renderExampleListWithMore } from '../more-disclosure';
 import type {
     ExampleAvailabilityReason,
     ExampleCollection,
@@ -61,7 +62,7 @@ export function renderExampleSourceRow(options: ExampleSourceRowOptions): string
             ${options.sourceAttributes(exampleSourceStateKey(options.sourceId), open)}>
             <summary class="jpdb-reader-local-title jpdb-reader-example-summary" data-jpdb-reader-surface-ignore>
                 <span class="jpdb-reader-example-source">${escapeHtml(options.sourceName)}</span>
-                <span class="jpdb-reader-source-status jpdb-reader-example-count" data-example-status>${escapeHtml(status)}</span>
+                ${status ? `<span class="jpdb-reader-source-status jpdb-reader-example-count" data-example-status>${escapeHtml(status)}</span>` : ''}
             </summary>
             <div class="jpdb-reader-local-glossary">
                 ${renderRowBody(options)}
@@ -85,7 +86,7 @@ function renderRowBody(options: ExampleSourceRowOptions): string {
                 <button class="jpdb-reader-btn" type="button" data-action="retry-example-source" data-example-source-id="${escapeHtml(options.sourceId)}">${escapeHtml(uiText(options.interfaceLanguage, 'exampleSourceRetry'))}</button>`;
         case 'loaded':
             return `
-                <ul class="jpdb-reader-jpdb-examples">${collection.items.map(record => renderExampleRecord(record, options)).join('')}</ul>
+                ${renderExampleListWithMore(collection.items.map(record => renderExampleRecord(record, options)), uiText(options.interfaceLanguage, 'moreExamples'))}
                 ${mediaNotices(options, collection)}
             `;
     }
@@ -98,8 +99,9 @@ function renderRowBody(options: ExampleSourceRowOptions): string {
 function statusChip(options: ExampleSourceRowOptions): string {
     const { collection, interfaceLanguage } = options;
     switch (collection.availability) {
+        // Loaded sentences speak for themselves; only a state needs a word.
         case 'loaded':
-            return String(collection.items.length);
+            return '';
         case 'empty':
             return uiText(interfaceLanguage, 'exampleSourceEmptyShort');
         case 'unsupported':

@@ -352,6 +352,42 @@
 .jpdb-reader-definition-original-body {
   margin-top: 0.45rem;
 }
+
+/* "More meanings" / "More examples": later senses and examples wait behind
+   one quiet disclosure, drawn with the same "+ / -" as every other popup
+   disclosure and set on the content's own left edge. */
+.jpdb-reader-more > summary.jpdb-reader-more-summary {
+  display: flex;
+  align-items: center;
+  width: max-content;
+  min-height: 28px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  color: var(--jpdb-reader-muted);
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+}
+.jpdb-reader-more > summary.jpdb-reader-more-summary::-webkit-details-marker {
+  display: none;
+}
+.jpdb-reader-more > summary.jpdb-reader-more-summary::after {
+  content: "+";
+  margin-inline-start: 6px;
+}
+.jpdb-reader-more[open] > summary.jpdb-reader-more-summary::after {
+  content: "-";
+}
+.jpdb-reader-more > summary.jpdb-reader-more-summary:hover,
+.jpdb-reader-more[open] > summary.jpdb-reader-more-summary {
+  color: var(--jpdb-reader-accent-readable);
+}
+@media (pointer: coarse) {
+  .jpdb-reader-more > summary.jpdb-reader-more-summary {
+    min-height: 44px;
+  }
+}
 .jpdb-reader-local-sense {
   color: var(--jpdb-reader-text);
   font-size: 13px;

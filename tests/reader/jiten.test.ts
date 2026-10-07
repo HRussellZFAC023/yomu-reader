@@ -1392,6 +1392,11 @@ describe('JitenApiClient', () => {
 
         const mount = document.createElement('div');
         mount.innerHTML = rendered;
+        // The popup header already shows 大学 だいがく, so Jiten does not repeat it.
+        expect(mount.querySelector('.jpdb-reader-jiten-headword')).toBeNull();
+
+        // A kana lookup whose Jiten entry is written 大学 shows that spelling.
+        mount.innerHTML = renderJitenDefinitionSource(jitenCard({ spelling: 'だいがく', reading: 'だいがく' }), () => '', info, 'en');
         const headword = mount.querySelector<HTMLElement>('.jpdb-reader-jiten-headword .jpdb-reader-word[data-expression="大学"]');
         expect(headword).not.toBeNull();
         expect(headword?.classList.contains('jpdb-reader-passive-word')).toBe(true);
@@ -1404,7 +1409,8 @@ describe('JitenApiClient', () => {
     });
 
     it('renders the headword with per-kanji furigana from the annotated mainReading instead of leaking bracketed kana', () => {
-        const card = jitenCard({ spelling: '以前', reading: 'いぜん' });
+        // Looked up in kana, so Jiten's written headword is not a repeat.
+        const card = jitenCard({ spelling: 'いぜん', reading: 'いぜん' });
         const info = jitenVocabularyInfo({
             wordId: 849,
             mainReading: { text: '以[い]前[ぜん]', readingIndex: 0, frequencyRank: 100, usedInMediaAmount: null },

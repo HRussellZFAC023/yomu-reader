@@ -9,13 +9,16 @@ import { JPDB_RELATED_WORD_PITCH_CLASS, JPDB_RELATED_WORD_STATE } from './jpdb-r
 import { renderProviderExamples, type ProviderExampleView } from '../sources/provider-examples';
 import { renderedWordPrivateAttributesForState } from '../dom/rendered-word-private-state';
 import { privateCommandAttributes } from '../dom/private-command-capabilities';
+import { renderWithMoreDisclosure, VISIBLE_SENSE_COUNT } from '../sources/more-disclosure';
 
 type SourceAttributes = (sourceStateKey: string, initiallyExpanded?: boolean) => string;
 
 export function renderJpdbDefinitionSource(card: JPDBCard, sourceAttributes: SourceAttributes, info: JpdbVocabularyInfo | null = null, language: InterfaceLanguage = 'en', title = 'JPDB'): string {
-    const meanings = jpdbDefinitionMeanings(card, info)
-        .map(meaning => `<div class="jpdb-reader-meaning">${escapeHtml(meaning)}</div>`)
-        .join('');
+    const meanings = renderWithMoreDisclosure(
+        jpdbDefinitionMeanings(card, info).map(meaning => `<div class="jpdb-reader-meaning">${escapeHtml(meaning)}</div>`),
+        VISIBLE_SENSE_COUNT,
+        uiText(language, 'moreMeanings'),
+    );
     const extras = renderJpdbVocabularyExtras(info, sourceAttributes, language, card);
     if (!meanings && !extras) return '';
     return `

@@ -811,7 +811,7 @@ describe('reader helpers', () => {
         expect(html).toContain('<rt class="jpdb-reader-furi">こっか</rt>');
         expect(html).toContain('jpdb-reader-has-furi');
         expect(html).not.toContain('<span class="jpdb-reader-jpdb-compound-reading">こっかしゅぎ</span>');
-        expect(html).toContain('jpdb-reader-example-count');
+        expect(html).not.toContain('jpdb-reader-example-count');
         expect(html).not.toContain('jpdb-reader-jpdb-compound-ruby');
         expect(html).toContain('大統領');
         expect(html).toContain('国家主席と話をする予定です。');

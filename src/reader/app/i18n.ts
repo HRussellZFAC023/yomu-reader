@@ -988,6 +988,8 @@ const COPY = {
         jitenCompositeWords: 'Composite words',
         usedInVocabulary: 'Used in vocabulary',
         exampleSentences: 'Example sentences',
+        moreMeanings: 'More meanings',
+        moreExamples: 'More examples',
         // U46: every one of these is a state a learner can reach. They exist
         // because an example source with nothing to show used to render nothing
         // at all, so an unsupported language looked exactly like a broken one.
@@ -1533,6 +1535,8 @@ loadingDictionaryDetails	辞書詳細を読み込み中...
 jitenCompositeWords	複合語
 usedInVocabulary	使われる単語
 exampleSentences	例文
+moreMeanings	ほかの意味
+moreExamples	ほかの例文
 exampleSourceEmpty	この語の例文はまだありません。
 exampleSourceEmptyShort	例文なし
 exampleSourceLimitedCorpus	コーパスが小さいため、例文がまだない語もあります。

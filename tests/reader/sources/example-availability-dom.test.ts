@@ -171,7 +171,7 @@ describe('U46 reverses the silent hiding in the shared provider renderer', () =>
         expect(details.querySelector('.jpdb-reader-jpdb-examples')).toBeNull();
     });
 
-    it('leaves a loaded Japanese collection exactly as it renders today', () => {
+    it('renders a loaded Japanese collection without a count', () => {
         const example: ProviderExampleView = {
             id: 'example-1',
             sentence: '毎日復習する。',
@@ -181,7 +181,8 @@ describe('U46 reverses the silent hiding in the shared provider renderer', () =>
         document.body.innerHTML = renderProviderExamples('jiten', 'jiten', { availability: 'loaded', items: [example] }, sourceAttributes, 'en');
         const details = document.body.querySelector<HTMLElement>('details')!;
         expect(details.dataset.examplesAvailability).toBe('loaded');
-        expect(details.querySelector('.jpdb-reader-example-count')?.textContent).toBe('1');
+        // The sentences speak for themselves: no count beside the header.
+        expect(details.querySelector('.jpdb-reader-example-count')).toBeNull();
         expect(details.querySelectorAll('.jpdb-reader-jpdb-example')).toHaveLength(1);
         expect(details.querySelector('[data-example-reason]')).toBeNull();
     });

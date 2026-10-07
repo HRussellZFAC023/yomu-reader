@@ -6,6 +6,7 @@ import { hasRichStructuredGlossary, localTermTags, normalizeFrequencyChipValue, 
 import { formatMetaFrequency, groupTermEntriesByHeadword, summarizeLearnerGlossary, type LearnerTermGroup } from '../dictionaries/groups';
 import type { InterfaceLanguage, ReaderSettings } from '../app/types';
 import { glossaryToHtml, glossaryToText, type YomitanKanjiEntry, type YomitanMetaEntry, type YomitanTermEntry } from '../dictionaries/yomitan';
+import { renderWithMoreDisclosure, VISIBLE_SENSE_COUNT } from './more-disclosure';
 
 export { renderJpdbDefinitionSource } from '../jpdb/jpdb-definition-source-render';
 
@@ -103,7 +104,7 @@ function renderLocalTermGroup(dictionary: string, group: LearnerTermGroup, dicti
         <article class="jpdb-reader-local-entry jpdb-reader-local-term">
             ${renderLocalTermHead(group, reference)}
             ${renderLocalTermTags(dictionary, group, dictionaryLabel, options.showDictionaryTag ?? true, language)}
-            ${renderLocalTermMeaning(dictionary, group)}
+            ${renderLocalTermMeaning(dictionary, group, language)}
         </article>
     `;
 }
@@ -147,17 +148,16 @@ function renderLocalTermTags(dictionary: string, group: LearnerTermGroup, dictio
     return tagItems.length ? `<div class="jpdb-reader-local-tags">${tagItems.join('')}</div>` : '';
 }
 
-function renderLocalTermMeaning(dictionary: string, group: LearnerTermGroup): string {
+function renderLocalTermMeaning(dictionary: string, group: LearnerTermGroup, language: InterfaceLanguage): string {
     if (group.entries.some(hasAdditionalLocalDictionaryText)) return renderLocalGlossaryEntries(dictionary, group.entries, { showIndex: false });
     if (!group.meanings.length) return renderLocalGlossaryEntries(dictionary, group.entries);
-    return `<div class="jpdb-reader-local-senses">
-        ${group.meanings.slice(0, 8).map((meaning, index) => `
-            <div class="jpdb-reader-local-sense">
-                ${group.meanings.length > 1 ? `<span class="jpdb-reader-local-sense-index">${index + 1}</span>` : ''}
-                <span>${escapeHtml(meaning)}</span>
-            </div>
-        `).join('')}
-    </div>`;
+    const senses = group.meanings.slice(0, 8).map((meaning, index) => `
+        <div class="jpdb-reader-local-sense">
+            ${group.meanings.length > 1 ? `<span class="jpdb-reader-local-sense-index">${index + 1}</span>` : ''}
+            <span>${escapeHtml(meaning)}</span>
+        </div>
+    `);
+    return `<div class="jpdb-reader-local-senses">${renderWithMoreDisclosure(senses, VISIBLE_SENSE_COUNT, uiText(language, 'moreMeanings'))}</div>`;
 }
 
 function renderLocalTermFrequency(group: LearnerTermGroup): string {
