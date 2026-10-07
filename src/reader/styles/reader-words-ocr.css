@@ -2030,6 +2030,16 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
   align-items: flex-end;
   line-height: 1;
 }
+/* A line's frame grows upward to make room for readings, and each line paints over the
+   one before it. In a dialogue box set tighter than that reading strip, the next line's
+   frame covered the lower half of every word above it, so a press on the word reached the
+   line below and only the strip where its reading sits still found it. The type owns the
+   pixels it is drawn on: glyph boxes sit above every line frame on the layer. */
+.jpdb-ocr-line .jpdb-ocr-ruby-base,
+.jpdb-ocr-line .jpdb-ocr-plain {
+  position: relative;
+  z-index: 1;
+}
 .jpdb-ocr-ruby-base-text {
   display: inline-flex;
   align-items: flex-end;
