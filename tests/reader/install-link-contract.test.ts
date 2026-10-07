@@ -69,8 +69,9 @@ describe('hosted store install routes', () => {
         expect(amoMetadata.summary.ja.length).toBeLessThanOrEqual(250);
         expect(amoMetadata.description['en-US']).toContain('Read Japanese where you already read.');
         expect(amoMetadata.description.ja).toContain('いつもの場所で、日本語をそのまま読む。');
-        expect(amoMetadata.version.approval_notes).toContain('explicit learning-language choice');
-        expect(amoMetadata.version.approval_notes).toContain('Kanji 1 for Japanese and Word for non-Japanese targets');
+        expect(amoMetadata.version.approval_notes).toContain('No first-run setup or language choice is required');
+        expect(amoMetadata.version.approval_notes).toContain('Kanji 1 by default');
+        expect(amoMetadata.version.approval_notes).not.toContain('non-Japanese targets');
         expect(compiler.branding.tagline).toBe('Read Japanese. Stay with the story.');
         const chromeDescription = execFileSync(
             process.execPath,
@@ -80,8 +81,8 @@ describe('hosted store install routes', () => {
         expect(chromeDescription).toContain('Highlights\n- Pop-up Japanese dictionary on any web page');
         expect(chromeDescription).toContain('- No remote executable code and no sale of personal data\n\nSite access is needed');
         expect(chromeDescription).not.toMatch(/<\/?(?:ul|li)>/u);
-        expect(reviewNotes).toContain('language-learning reader');
-        expect(reviewNotes).toContain('Japanese additionally supports');
+        expect(reviewNotes).toContain('Japanese reader for learners');
+        expect(reviewNotes).toContain('Text in other languages is left untouched.');
 
         for (const route of ['chrome', 'firefox'] as const) {
             const page = readFileSync(`docs/public/store/${route}/index.html`, 'utf8');
