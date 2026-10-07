@@ -1110,7 +1110,14 @@ describe('JitenApiClient', () => {
         });
 
         const mount = document.createElement('div');
-        mount.innerHTML = renderJitenDefinitionSource(jitenCard(), () => '', info, 'en');
+        mount.innerHTML = renderJitenDefinitionSource(jitenCard(), (_key, initiallyExpanded = true) => initiallyExpanded ? 'open' : '', info, 'en');
+
+        expect(mount.querySelector<HTMLDetailsElement>('[data-source="jiten"]')?.open).toBe(true);
+        const relatedGroups = [...mount.querySelectorAll<HTMLDetailsElement>('.jpdb-reader-jiten-related-group')];
+        expect(relatedGroups).toHaveLength(2);
+        expect(relatedGroups.map(group => group.open)).toEqual([false, false]);
+        relatedGroups[1]!.open = true;
+        expect(relatedGroups[1]!.querySelector('.jpdb-reader-jiten-related-link')).not.toBeNull();
 
         const exampleGroup = mount.querySelector<HTMLElement>('[data-example-provider="jiten"]');
         expect(exampleGroup?.dataset.examplesAvailability).toBe('loaded');

@@ -170,7 +170,7 @@ function renderJitenRelatedWords(
 ): string {
     if (!entries.length) return '';
     return `
-        <details class="jpdb-reader-local-entry jpdb-reader-dictionary-group jpdb-reader-jpdb-used-in-group jpdb-reader-jiten-related-group" ${sourceAttributes(definitionSourceStateKey(stateKey))}>
+        <details class="jpdb-reader-local-entry jpdb-reader-dictionary-group jpdb-reader-jpdb-used-in-group jpdb-reader-jiten-related-group" ${sourceAttributes(definitionSourceStateKey(stateKey), false)}>
             <summary class="jpdb-reader-local-title jpdb-reader-example-summary">
                 <span class="jpdb-reader-example-source">${escapeHtml(uiText(language, titleKey))}</span>
                 <span class="jpdb-reader-source-status jpdb-reader-example-count">${escapeHtml(status)}</span>

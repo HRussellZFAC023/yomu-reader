@@ -1001,7 +1001,7 @@ describe('reader helpers', () => {
             spelling: '無料',
             reading: 'むりょう',
             meanings: [{ glosses: ['free; gratis'], partOfSpeech: [] }],
-        }, key => `data-source-state-key="${key}" open`, {
+        }, (key, initiallyExpanded = true) => `data-source-state-key="${key}"${initiallyExpanded ? ' open' : ''}`, {
             meanings: ['free; gratis'],
             compounds: [
                 { term: '無', reading: 'む', meaning: 'nothing; naught; nought; un-; non-', url: '/vocabulary/1' },
@@ -1016,6 +1016,8 @@ describe('reader helpers', () => {
         document.body.append(host);
 
         try {
+            expect(host.querySelector<HTMLDetailsElement>('[data-source="jpdb"]')?.open).toBe(true);
+            expect(host.querySelector<HTMLDetailsElement>('.jpdb-reader-jpdb-used-in-group')?.open).toBe(false);
             const extra = host.querySelector<HTMLElement>('.jpdb-reader-jpdb-extra');
             expect(extra).not.toBeNull();
             const computed = getComputedStyle(extra!);
