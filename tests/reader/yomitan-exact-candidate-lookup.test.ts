@@ -40,6 +40,20 @@ async function importTerms(terms: YomitanTermEntry[], name: string): Promise<voi
 }
 
 describe('exact local candidate lookup', () => {
+    it('keeps dictionary order ahead of written-form preference and lexical score', async () => {
+        await importTerms([
+            { expression: '歯', reading: 'は', rules: 'n', score: 30, glossary: [], dictionary: 'Primary' },
+            { expression: '歯', reading: 'は', rules: 'n', score: 30, glossary: [], dictionary: 'Secondary' },
+            { expression: 'は', reading: 'は', rules: 'prt', score: 10, glossary: [], dictionary: 'Secondary' },
+        ], 'written-form.json');
+        const preference = (first: string, second: string) => [first, second].map((name, priority) => ({ name, alias: name, enabled: true, priority }));
+        const requests = [request('は', 'は')];
+        const primary = await store.lookupExactTermCandidates(requests, preference('Primary', 'Secondary'));
+        expect(primary[0]?.entry).toMatchObject({ expression: '歯', dictionary: 'Primary' });
+        const secondary = await store.lookupExactTermCandidates(requests, preference('Secondary', 'Primary'));
+        expect(secondary[0]?.entry).toMatchObject({ expression: 'は', dictionary: 'Secondary' });
+    });
+
     it('preserves request identity and index without sweeping the source surface', async () => {
         await importTerms([
             {

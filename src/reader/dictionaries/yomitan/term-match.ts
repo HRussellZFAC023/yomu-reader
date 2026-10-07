@@ -150,7 +150,7 @@ export function exactTermCandidateMatches<
     for (const match of matches) {
         const requestIndex = exactRequestIndex(match, requests);
         if (requestIndex === undefined) continue;
-        retainExactTermCandidateEntry(requestIndex, match.entry, entryByRequestIndex, rank);
+        retainExactTermCandidateEntry(requestIndex, match.entry, entryByRequestIndex, rank, requests[requestIndex].lookupCandidate.term);
     }
     return requests.flatMap((request, requestIndex) => {
         const entry = entryByRequestIndex.get(requestIndex);
@@ -163,9 +163,10 @@ function retainExactTermCandidateEntry(
     entry: YomitanTermEntry,
     entryByRequestIndex: Map<number, YomitanTermEntry>,
     rank: Map<string, DictionaryPreference>,
+    expression: string,
 ): void {
     const current = entryByRequestIndex.get(requestIndex);
-    if (current && compareTermMatchEntries(entry, current, rank) >= 0) return;
+    if (current && compareTermMatchEntries(entry, current, rank, expression) >= 0) return;
     entryByRequestIndex.set(requestIndex, entry);
 }
 
@@ -229,7 +230,7 @@ function createTermMatchEntryCollector(
     return {
         add(entry) {
             if (!dictionaryEnabled(entry.dictionary, rank)) return;
-            collectCompatibleTermEntry(entry, candidateRules, bestEntryByRules, rank, matchesRules);
+            collectCompatibleTermEntry(entry, candidateRules, bestEntryByRules, rank, matchesRules, expression);
         },
         matches() {
             return positions.flatMap(position => {
@@ -246,10 +247,11 @@ function collectCompatibleTermEntry(
     bestEntryByRules: Map<string, YomitanTermEntry>,
     rank: Map<string, DictionaryPreference>,
     matchesRules: LookupCandidateRuleMatcher,
+    expression: string,
 ): void {
     for (const [rulesKey, rules] of candidateRules) {
         if (!matchesRules(entry.rules, rules)) continue;
-        retainBetterTermEntry(rulesKey, entry, bestEntryByRules, rank);
+        retainBetterTermEntry(rulesKey, entry, bestEntryByRules, rank, expression);
     }
 }
 
@@ -258,9 +260,10 @@ function retainBetterTermEntry(
     entry: YomitanTermEntry,
     bestEntryByRules: Map<string, YomitanTermEntry>,
     rank: Map<string, DictionaryPreference>,
+    expression: string,
 ): void {
     const current = bestEntryByRules.get(rulesKey);
-    if (current && compareTermMatchEntries(entry, current, rank) >= 0) return;
+    if (current && compareTermMatchEntries(entry, current, rank, expression) >= 0) return;
     bestEntryByRules.set(rulesKey, entry);
 }
 
@@ -295,8 +298,12 @@ function compareTermMatchEntries(
     a: YomitanTermEntry,
     b: YomitanTermEntry,
     rank: Map<string, DictionaryPreference>,
+    expression: string,
 ): number {
     return dictionaryPriority(a.dictionary, rank) - dictionaryPriority(b.dictionary, rank)
+        // Reading-index homophones must not displace an exact written form.
+        // Scores still decide between equally exact analyses in this dictionary.
+        || Number(b.expression === expression) - Number(a.expression === expression)
         || (b.score ?? 0) - (a.score ?? 0);
 }
 

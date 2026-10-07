@@ -20,6 +20,28 @@ const store = new YomitanDictionaryStore();
 afterEach(async () => { await store.clear(); });
 
 describe('reported Wikipedia dictionary parsing', () => {
+    it('prefers an exact written particle over a higher-scored reading homophone', async () => {
+        // JMdict 2028920/2028930 are kana-written particles; 1313000/1197760
+        // are 歯/蛾, retrieved by the same reading index. Priority tags can
+        // give the nouns a higher score without changing what was written.
+        const terms = [
+            { expression: '歯', reading: 'は', rules: 'n', score: 30 },
+            { expression: '蛾', reading: 'が', rules: 'n', score: 20 },
+            { expression: 'は', reading: 'は', rules: 'prt', score: 10 },
+            { expression: 'が', reading: 'が', rules: 'prt', score: 10 },
+        ].map(entry => ({ ...entry, glossary: [], dictionary: 'JMdict regression facts' }));
+        await store.importFile(new File([JSON.stringify({ formatName: 'yomu-yomitan-dictionaries', formatVersion: 2, terms })], 'particles.json', { type: 'application/json' }));
+        const parser = new ReaderParser({ getSettings: () => ({ ...DEFAULT_SETTINGS, apiKey: '', jitenApiKey: '', parserProvider: 'local', localDictionariesEnabled: true, showPitchAccent: false }), jpdb: {} as never, dictionaries: store });
+        const [tokens] = await parser.parse(['日本は言語がある。'], { allowSegmentedFallback: true });
+        for (const surface of ['は', 'が']) {
+            const token = tokens.find(token => '日本は言語がある。'.slice(token.start, token.end) === surface);
+            expect(token?.card.spelling).toBe(surface);
+            expect(token?.card.partOfSpeech).toContain('prt');
+        }
+        const [writtenTooth] = await parser.parse(['歯'], { allowSegmentedFallback: true });
+        expect(writtenTooth[0]?.card.spelling).toBe('歯');
+    });
+
     it('keeps dictionary-confirmed compounds and chooses the common inflection', async () => {
         await store.clear();
         await store.importFile(new File([JSON.stringify({ formatName: 'yomu-yomitan-dictionaries', formatVersion: 2,
