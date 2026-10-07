@@ -1576,7 +1576,7 @@
 .yomu-fits-list li:first-child { padding-top: 0; }
 .yomu-fits-list strong { color: var(--home-text); font-weight: 600; }
 .yomu-fits-list a { margin: 0; }
-.yomu-home-more { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 48px; }
+.yomu-home-more { display: grid; grid-template-columns: minmax(0, 1fr); gap: 48px; }
 .yomu-home .yomu-band-concept { display: block; padding-inline: 0; }
 .yomu-install-inner { max-width: 740px; }
 .yomu-install-lead, .yomu-discord p { margin: 24px 0 0; max-width: 55ch; color: var(--home-muted); font-size: 18px; line-height: 1.75; }

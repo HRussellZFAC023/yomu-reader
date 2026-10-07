@@ -1,9 +1,9 @@
 ---
-title: Your own setup
-description: Connect dictionaries, audio, Anki, Jiten, Bunpro, JPDB and WaniKani, sync devices, and see which planned integrations are still in development.
+title: Optional setup
+description: Add dictionaries and audio, connect Anki, Jiten, Bunpro, JPDB or WaniKani, and sync devices, only if you want to.
 ---
 
-# Your own setup
+# Optional setup
 
 Keep the study system you already open.
 
@@ -62,4 +62,4 @@ Sentence-audio mining and Migaku import are in development. Academy is a story-d
 
 Planned does not mean installed. The [changelog](/changelog) is the record of what has shipped.
 
-Next: [Reference: find the switch for anything →](/learn/reference)
+That is the whole guide. The [Settings reference](/reference/settings) lists every switch, and the [FAQ](/faq) answers common questions.

@@ -50,9 +50,8 @@ export interface NavRoute {
 }
 
 /**
- * Primary nav: the ordered learning path first, then the apps and destinations
- * a learner reaches for repeatedly. The path itself stays in the VitePress
- * sidebar, where all eleven steps fit without turning every hosted shell into a
+ * Primary nav: the three things a learner does every day. The guide itself
+ * stays in the VitePress sidebar, so the hosted shells do not turn into a
  * catalogue.
  */
 export const APPS_NAV_LABEL = 'Apps';
@@ -64,22 +63,19 @@ export const PRIMARY_NAV: readonly NavRoute[] = Object.freeze([
 ]);
 
 /**
- * Everything else, behind one overflow entry. These are real destinations that
- * simply are not daily: tools you open occasionally, reference, and policy.
+ * Everything else, behind one overflow entry: the guide, the desktop app
+ * (a separate download, named only on its own page so a rename is one edit), the hosted surfaces a learner opens occasionally, and help. Reference
+ * pages (settings, local audio, API) live in the docs sidebar instead, so this
+ * menu stays short enough to read at a glance.
  */
 export const OVERFLOW_NAV: readonly NavRoute[] = Object.freeze([
-    { text: 'Learning path', ja: '学習の道筋', link: '/learn/' },
-    { text: 'Academy', ja: 'アカデミー', link: '/academy/', target: '_self' },
-    { text: APPS_NAV_LABEL, ja: 'アプリ', link: '/learn/reference#apps' },
-    { text: 'Help', ja: 'ヘルプ', link: '/support' },
+    { text: 'Guide', ja: 'ガイド', link: '/learn/' },
+    { text: 'Desktop app', ja: 'デスクトップアプリ', link: '/desktop' },
     { text: 'PDF Reader', ja: 'PDFリーダー', link: '/pdf-reader/', target: '_self' },
     { text: 'Stats', ja: '統計', link: '/study/?mode=stats', target: '_self' },
-    { text: 'API', ja: 'API', link: '/api/', target: '_self' },
-    { text: 'Local Audio', ja: 'ローカル音声', link: '/local-audio' },
-    // Generated from DEFAULT_SETTINGS by scripts/settings-reference.mjs. It
-    // stays in overflow because a learner reaches for it to find one control.
-    { text: 'Settings reference', ja: '設定リファレンス', link: '/reference/settings' },
+    { text: 'Academy', ja: 'アカデミー', link: '/academy/', target: '_self' },
     { text: 'FAQ', ja: 'よくある質問', link: '/faq' },
+    { text: 'Help', ja: 'ヘルプ', link: '/support' },
     { text: 'Changelog', ja: '変更履歴', link: '/changelog' },
     { text: 'Privacy', ja: 'プライバシー', link: '/privacy' },
 ]);
@@ -91,8 +87,9 @@ export const OVERFLOW_NAV: readonly NavRoute[] = Object.freeze([
  * choice, and put a payment company's logo in a learner's way. One entry now
  * leads to a page where the visitor picks the method they already use.
  *
- * Not "Donate": the plan is that contributing unlocks Academy, so it is not
- * charity and calling it charity would misdescribe what you get.
+ * "Donate", not "Membership": a donation pays running costs and unlocks
+ * nothing. Calling it a membership implied paid features Yomu does not have
+ * (owner decision, 2026-10-07). The route stays /membership so links keep working.
  */
 // target:'_self' is load-bearing, not decoration. VitePress's SPA router claims
 // every in-site link click (window listener in dist/client/app/router.js) and
@@ -103,7 +100,7 @@ export const OVERFLOW_NAV: readonly NavRoute[] = Object.freeze([
 // the only thing that acts on a plain press. Every surface renders it with the
 // target for that reason, including the ones VitePress never touches: a hosted
 // shell that dropped it would start breaking the moment its markup was reused.
-export const MEMBERSHIP_NAV: NavRoute = Object.freeze({ text: 'Membership', ja: 'メンバーシップ', link: '/membership', target: '_self' });
+export const MEMBERSHIP_NAV: NavRoute = Object.freeze({ text: 'Donate', ja: '寄付', link: '/membership', target: '_self' });
 
 /** The label of the entry every surface hides the overflow behind. */
 export const OVERFLOW_LABEL = Object.freeze({ text: 'More', ja: 'その他' });

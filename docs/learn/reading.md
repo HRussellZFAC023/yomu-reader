@@ -32,6 +32,8 @@ Furigana can appear above every word, only uncommon kanji or only words you have
 
 The popup brings together the reading, meanings, frequency, pitch, audio, examples and the state held by your study services. Imported Yomitan dictionaries answer on your device. Jiten, Bunpro, JPDB and other sources add their own sections when you enable them, in the order set under Popup order in Settings → Sources.
 
+The Grammar card names the JLPT grammar points it finds in the sentence, from N5 to N1, and links to [Tofugu's Japanese grammar guide](https://www.tofugu.com/japanese-grammar/). A match is a hint to look closer, not a full parse.
+
 ## Slow down on one kanji
 
 Press a kanji in the headword. The drilldown can show on and kun readings, stroke count, school grade, JLPT level, RTK keywords, components, related words and animated KanjiVG stroke order. A drawing pad lets you trace it before returning to the sentence.
@@ -47,4 +49,4 @@ The [PDF reader](/pdf-reader/) opens a PDF from your computer and gives its text
 
 Browser-supported text, PDF text, furigana and dictionary lookup are different doors into the same room. Pick the one your book needs.
 
-Next: [Watching things you actually enjoy →](/learn/watching)
+Next: [Watching →](/learn/watching)

@@ -54,8 +54,8 @@ describe('reviewed website locale contract', () => {
 
     it('publishes every English route but only body-reviewed Japanese routes', () => {
         expect(WEBSITE_ROUTE_CATALOG.map(definition => definition.route)).toEqual(PUBLISHED_WEBSITE_ROUTES);
-        expect(publishedWebsiteRouteDefinitions('en')).toHaveLength(22);
-        expect(publishedWebsiteRouteDefinitions('ja')).toHaveLength(17);
+        expect(publishedWebsiteRouteDefinitions('en')).toHaveLength(17);
+        expect(publishedWebsiteRouteDefinitions('ja')).toHaveLength(12);
 
         const japaneseBlockers = WEBSITE_ROUTE_CATALOG
             .filter(definition => !websiteRoutePublication(definition, 'ja'))
@@ -153,7 +153,7 @@ describe('reviewed website locale contract', () => {
     });
 
     it('uses stable semantic messages and route publications', () => {
-        expect(websiteMessage('docs.nav.learningPath', 'ja')).toBe('学習の道筋');
+        expect(websiteMessage('docs.nav.learningPath', 'ja')).toBe('ガイド');
         expect(websiteLocaleForPathname('/ja/learn/reading')).toBe('ja');
         expect(websiteLocaleForPathname('/learn/reading')).toBe('en');
         const reading = websiteRouteDefinition('/learn/reading');

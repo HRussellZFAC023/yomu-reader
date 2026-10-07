@@ -103,8 +103,8 @@ describe('interface language resolution', () => {
 
     it('keeps the hosted apps overview covered by Japanese docs copy', () => {
         const themeSource = readFileSync('docs/.vitepress/locales/docs-prose-catalog.ts', 'utf8');
-        const referenceSource = readFileSync('docs/learn/reference.md', 'utf8');
-        const appsSection = between(referenceSource, '## Apps', '## Feature map');
+        const startSource = readFileSync('docs/learn/index.md', 'utf8');
+        const appsSection = between(startSource, '## Try Yomu without installing {#try-yomu-without-installing}', 'Next:');
         const appsCopy = [
             ...markdownHeadings(appsSection),
             ...markdownParagraphs(appsSection),

@@ -7,4 +7,4 @@ description: Yomu's documentation now follows one ordered path from your first d
 
 Yomu's documentation now follows one ordered path from your first day to a power-user setup.
 
-[Continue in the learning path →](/learn/reference#feature-map)
+[Continue in the learning path →](/learn/)

@@ -7,27 +7,44 @@
  * disappears while search engines learn the new canonical destinations.
  */
 export const LEGACY_DOC_REDIRECTS = Object.freeze({
-    'getting-started.md': '/learn/week-one',
-    'features.md': '/learn/reference#feature-map',
+    'getting-started.md': '/learn/#install-yomu',
+    'features.md': '/learn/',
     'guides/index.md': '/learn/',
     'guides/comprehensible-input-youtube.md': '/learn/watching#retune-youtube',
     'guides/mine-sentences-to-anki.md': '/learn/keeping-words#mine-the-whole-moment',
     'guides/read-manga-in-japanese.md': '/learn/manga-and-games#read-manga',
     'guides/study-setup.md': '/learn/your-own-setup#keep-one-review-home',
-    'tools/index.md': '/learn/reference#apps',
-    'tools/furigana-reader.md': '/learn/week-one#leave-furigana-on',
+    'tools/index.md': '/learn/#try-yomu-without-installing',
+    'tools/furigana-reader.md': '/learn/#leave-furigana-on',
     'tools/japanese-ocr.md': '/learn/manga-and-games#read-manga',
     'tools/japanese-subtitle-reader.md': '/learn/watching#read-one-line',
     'tools/kanji-stroke-order.md': '/learn/reading#slow-down-on-one-kanji',
     'tools/study-page.md': '/learn/keeping-words#open-study',
-    'tools/yomu-gaming.md': '/learn/manga-and-games#read-a-game-frame',
+    'tools/yomu-gaming.md': '/desktop',
     'tools/youtube-japanese.md': '/learn/watching#retune-youtube',
+    // Folded into Start here and Save and review on 2026-10-07, when the
+    // eleven-step path became six pages.
+    'learn/approach.md': '/learn/#how-to-learn-with-yomu',
+    'learn/building-a-core.md': '/learn/#how-to-learn-with-yomu',
+    'learn/staying-with-it.md': '/learn/keeping-words#when-reviews-pile-up',
+    'learn/reference.md': '/learn/',
+    'learn/week-one.md': '/learn/#install-yomu',
+    // Yomu is for learning Japanese, so the per-language coverage table went
+    // with the other learning targets. Japanese grammar is described on Reading.
+    'reference/grammar.md': '/learn/reading#let-the-page-help',
 } as const);
 
 export const LEGACY_DOC_HASH_REDIRECTS = Object.freeze({
     'getting-started.md': Object.freeze({
         '#use-desktop-anki-from-a-phone-ipad-or-android':
             '/learn/your-own-setup#use-desktop-anki-from-a-phone-ipad-or-android',
+    }),
+    'learn/week-one.md': Object.freeze({
+        '#press-your-first-word': '/learn/#press-your-first-word',
+        '#leave-furigana-on': '/learn/#leave-furigana-on',
+    }),
+    'learn/reference.md': Object.freeze({
+        '#apps': '/learn/#try-yomu-without-installing',
     }),
 } as const);
 

@@ -145,7 +145,7 @@ describe('published docs pages', () => {
 
         for (const [file, target] of Object.entries(LEGACY_DOC_REDIRECTS)) {
             expect(existsSync(path.join(DOCS, file)), file).toBe(true);
-            expect(sitemapRouteKey(target)).toMatch(/^learn(?:\/|$)/);
+            expect(sitemapRouteKey(target)).toMatch(/^(?:learn(?:\/|$)|desktop$)/);
             expect(ACTIVE_PUBLIC_ROUTES.map(sitemapRouteKey)).toContain(sitemapRouteKey(target));
         }
 
@@ -239,9 +239,9 @@ describe('one navbar everywhere', () => {
         // gets to open instead of the router navigating away.
         expect(MEMBERSHIP_NAV.target).toBe('_self');
         const more = docsNav().find(item => (item as { text: string }).text === 'More') as { items: unknown[] };
-        expect(more.items).toContainEqual({ text: 'Membership', link: '/membership', target: '_self' });
+        expect(more.items).toContainEqual({ text: 'Donate', link: '/membership', target: '_self' });
 
-        const membership = hostedShellNavRoutes('/').find(link => link.text === 'Membership');
+        const membership = hostedShellNavRoutes('/').find(link => link.text === 'Donate');
         expect(membership?.target).toBe('_self');
         for (const shell of SHELLS) {
             expect(readProjectFile(shell)).toContain('<a href="../membership" target="_self" data-site-nav-item');

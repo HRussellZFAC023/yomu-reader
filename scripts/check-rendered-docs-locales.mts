@@ -15,8 +15,8 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const DIST = path.join(ROOT, 'docs', '.vitepress', 'dist');
 const ORIGIN = 'https://yomureader.com';
 const LOCALIZED_CHROME_EXPECTATIONS = {
-    en: { navigation: 'Learning path', footer: 'Free and open source.', localeLabel: '日本語', localeHref: '/ja/' },
-    ja: { navigation: '学習の道筋', footer: '無料のオープンソースです。', localeLabel: 'English', localeHref: '/' },
+    en: { navigation: 'Guide', footer: 'Free and open source.', localeLabel: '日本語', localeHref: '/ja/' },
+    ja: { navigation: 'ガイド', footer: '無料のオープンソースです。', localeLabel: 'English', localeHref: '/' },
 } as const;
 
 assert.ok(existsSync(DIST), 'docs build output is missing');

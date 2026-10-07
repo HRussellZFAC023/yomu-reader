@@ -36,7 +36,7 @@ Yes — free and [open source](https://github.com/HRussellZFAC023/yomu-reader). 
 
 ### I'm not technical. What's the easiest way to install it?
 
-On Chrome, Edge or Brave: press **Add よむ to Chrome** on the [homepage](/). On Firefox, including Firefox on Android, use the Firefox store. On iPhone, iPad and Safari it takes a couple of minutes with a free helper app. [Week one](/learn/week-one) walks through it.
+On Chrome, Edge or Brave: press **Add よむ to Chrome** on the [homepage](/). On Firefox, including Firefox on Android, use the Firefox store. On iPhone, iPad and Safari it takes a couple of minutes with a free helper app. [Start here](/learn/#install-yomu) walks through it.
 
 ### Does it work on my phone?
 
@@ -44,7 +44,7 @@ Yes. On Android, install Firefox and add Yomu from its store. On iPhone and iPad
 
 ### Do I need to know kana or grammar first?
 
-You can press words before you know kana because Yomu shows furigana. Learn hiragana first anyway. It takes a few days and makes every later lookup easier. [Week one](/learn/week-one) gives you the order.
+You can press words before you know kana because Yomu shows furigana. Learn hiragana first anyway. It takes a few days and makes every later lookup easier. [Start here](/learn/) gives you the order.
 
 ### I'm a complete beginner. Can Yomu teach me Japanese from zero?
 
@@ -78,7 +78,11 @@ Press a picture — or use the Scan images command — and Yomu recognises the J
 
 ### Can it read my PC games?
 
-Yes. [Yomu Gaming](/learn/manga-and-games#read-a-game-frame) is a small desktop app that reads the text on your screen, so the same press-a-word lookup works in any game.
+Yes. The free [desktop app](/desktop) reads the Japanese on your screen, so the same press-a-word lookup works in games and any other program. It runs on Windows, macOS and Linux.
+
+### Does the desktop app sync with the browser add-on?
+
+Not yet. The desktop app keeps its own settings. There is nothing to buy to make it sync.
 
 ### What do the colours and lines under words mean?
 

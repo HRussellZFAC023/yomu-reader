@@ -1,9 +1,9 @@
 ---
-title: Keeping words
-description: Save words with their original context, review them through active recall, and use Yomu Study with local or connected sources.
+title: Save and review
+description: Save words with the sentence where you found them, review them in Study, and keep going when reviews pile up.
 ---
 
-# Keeping words
+# Save and review
 
 Keep fewer words than you want to keep.
 
@@ -50,4 +50,12 @@ Grades follow the service that schedules the card. JPDB records Nothing, Somethi
 
 The local deck uses an ease-based spaced schedule from the SM-2 family. Failed cards return soon. Successful cards spread out. Connected services keep their own schedules and receive the grade.
 
-Next: [Staying with it after the streak breaks →](/learn/staying-with-it)
+## When reviews pile up
+
+Missing two weeks changes one thing: today has cards in it. When 400 cards are waiting, do ten. Stop if ten is what fits, and come back tomorrow.
+
+Do not reset a deck because the number looks ugly. Do not grade everything Easy to clear the screen. The schedule can recover if the grades stay honest.
+
+If reviews take all the time you meant to spend with Japanese, save fewer words and read something easy. A streak is a record that you came back, not a debt.
+
+Next: [Optional setup →](/learn/your-own-setup)

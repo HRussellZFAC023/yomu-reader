@@ -5,7 +5,7 @@ sidebar: false
 aside: false
 title: よむ | Read Japanese. Stay with the story.
 titleTemplate: false
-description: Read Japanese web pages, subtitles, manga and PDFs with furigana, pitch accent and kanji study, save the words you meet, and review them with their original context.
+description: Read web pages, subtitles, manga and PDFs in any of 33 learning languages, save the words you meet, and review them with their original context. Japanese adds furigana, pitch accent and kanji study.
 ---
 
 <main class="yomu-home-content">
@@ -14,7 +14,7 @@ description: Read Japanese web pages, subtitles, manga and PDFs with furigana, p
     <p class="yomu-wordmark" aria-hidden="true"><span class="yomu-wordmark-ja" lang="ja" data-yomu-localize="off">よむ</span><span class="yomu-wordmark-en" data-yomu-localize="off">YOMU</span></p>
     <h1 class="yomu-fold-h1" id="yomu-home-title" data-jpdb-reader-surface-ignore="true">Read Japanese. Stay with the story.</h1>
     <p class="yomu-fold-lead">Look up a word, hear it, and save the sentence. Keep reading the things you came for.</p>
-    <p class="yomu-fold-scope">Furigana, pitch accent and kanji study on any page with Japanese.</p>
+    <p class="yomu-fold-scope">Reading and lookup in 33 learning languages. Furigana, pitch accent and kanji study for Japanese.</p>
     <div class="yomu-fold-live">
       <p class="yomu-fold-prompt" data-yomu-fold-prompt data-jpdb-reader-surface-ignore="true"><span class="yomu-fold-prompt-live">Try me</span><a class="yomu-fold-prompt-fallback" href="#read">See it working below</a></p>
       <div class="yomu-try-me-text yomu-fold-try" data-yomu-furigana-mode="all" data-yomu-runtime-surface>
@@ -96,7 +96,7 @@ description: Read Japanese web pages, subtitles, manga and PDFs with furigana, p
   <div class="yomu-band-copy">
     <p class="yomu-band-kicker">Manga</p>
     <h2 id="yomu-band-manga">Press a word inside the picture.</h2>
-    <p class="yomu-band-lead">Tap a panel and よむ finds the Japanese text, on a laptop or with a thumb on an iPad.</p>
+    <p class="yomu-band-lead">Tap a panel and よむ finds text in your selected learning language, on a laptop or with a thumb on an iPad.</p>
     <p class="yomu-band-lead">This panel is live. よむ is reading the words in it.</p>
   </div>
   <figure class="yomu-band-frame yomu-manga-figure" id="yomu-live-ocr" data-yomu-runtime-surface>
@@ -125,27 +125,19 @@ description: Read Japanese web pages, subtitles, manga and PDFs with furigana, p
   </div>
 </section>
 <div class="yomu-home-more">
-<section class="yomu-band yomu-band-concept" id="gaming" aria-labelledby="yomu-band-gaming">
+<section class="yomu-band yomu-band-concept" id="desktop" aria-labelledby="yomu-band-desktop">
   <div class="yomu-band-copy">
-    <p class="yomu-band-kicker">Yomu Gaming</p>
-    <h2 id="yomu-band-gaming">Press one shortcut in a PC game.</h2>
-    <p class="yomu-band-lead">The desktop app reads the Japanese on screen with OCR and hands it back as words you can press. Separate download for Windows, macOS, Linux and Steam Deck.</p>
-    <a class="yomu-band-action" href="/learn/manga-and-games#read-a-game-frame">See Yomu Gaming</a>
-  </div>
-</section>
-<section class="yomu-band yomu-band-concept" id="academy" aria-labelledby="yomu-band-academy">
-  <div class="yomu-band-copy">
-    <p class="yomu-band-kicker">Academy</p>
-    <h2 id="yomu-band-academy">Academy opens by invitation while it is built</h2>
-    <p class="yomu-band-lead">A story-driven course from the first sounds to N1, taught through places and conversations, with Yomu's reading and review underneath.</p>
-    <a class="yomu-band-action" href="/academy/">Visit the Academy</a>
+    <p class="yomu-band-kicker">Desktop app</p>
+    <h2 id="yomu-band-desktop">Read Japanese anywhere on your computer.</h2>
+    <p class="yomu-band-lead">Press one shortcut in a game, an app or a video, and the Japanese on your screen becomes words you can press. Free for Windows, macOS and Linux.</p>
+    <a class="yomu-band-action" href="/desktop">Get the desktop app</a>
   </div>
 </section>
 </div>
 <section class="yomu-install" id="install" aria-labelledby="yomu-install-title">
   <div class="yomu-install-inner">
     <h2 id="yomu-install-title">Take Yomu to the rest of the web.</h2>
-    <p class="yomu-install-lead"><a href="/learn/week-one#install-yomu">Install Yomu</a>, open something you wanted to read anyway, and <a href="/learn/week-one#press-your-first-word">press a word.</a></p>
+    <p class="yomu-install-lead"><a href="/learn/#install-yomu">Install Yomu</a>, open something you wanted to read anyway, and <a href="/learn/#press-your-first-word">press a word.</a></p>
     <div class="yomu-install-routes">
       <a class="yomu-install-route" data-yomu-route="chrome" href="https://chromewebstore.google.com/detail/%E3%82%88%E3%82%80/bbaickgfdgnecdnkcplaoiopnfghlkna">Add よむ to Chrome</a>
       <a class="yomu-install-route" data-yomu-route="firefox" href="https://addons.mozilla.org/en-US/firefox/addon/yomu-reader/">Add よむ to Firefox</a>
@@ -153,7 +145,7 @@ description: Read Japanese web pages, subtitles, manga and PDFs with furigana, p
       <p class="yomu-fold-micro">Free, on your computer and your phone.</p>
       <p class="yomu-install-routes-note">Also available:</p>
     </div>
-    <p class="yomu-install-note">If the userscript downloads instead of installing, <a href="/learn/week-one#install-yomu">your manager needs it from the URL</a></p>
+    <p class="yomu-install-note">If the userscript downloads instead of installing, <a href="/learn/#install-yomu">your manager needs it from the URL</a></p>
   </div>
 </section>
 <section class="yomu-discord" aria-labelledby="yomu-discord-title">
@@ -164,6 +156,6 @@ description: Read Japanese web pages, subtitles, manga and PDFs with furigana, p
   </div>
 </section>
 <section class="yomu-next" aria-label="More from Yomu">
-  <p class="yomu-next-row"><a href="/learn/">Learning path</a><a href="/faq">FAQ</a><a href="/academy/" target="_self">Academy</a><a href="/learn/manga-and-games#read-manga">Manga OCR</a><a href="/learn/manga-and-games#read-a-game-frame">Games</a><a href="/support">Support</a></p>
+  <p class="yomu-next-row"><a href="/learn/">Guide</a><a href="/desktop">Desktop app</a><a href="/faq">FAQ</a><a href="/support">Help</a></p>
 </section>
 </main>

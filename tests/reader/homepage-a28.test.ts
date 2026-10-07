@@ -47,7 +47,7 @@ describe('editorial homepage contract', () => {
         expect(page.querySelectorAll('main')).toHaveLength(1);
         expect(page.querySelector('main > .yomu-fold')).not.toBeNull();
         expect(page.querySelector('main > .yomu-next')).not.toBeNull();
-        expect([...page.querySelectorAll('.yomu-home-more > section')].map(section => section.id)).toEqual(['gaming', 'academy']);
+        expect([...page.querySelectorAll('.yomu-home-more > section')].map(section => section.id)).toEqual(['desktop']);
     });
 
     it('passes the real VitePress Markdown and Vue SSR parser for both locales', () => {
@@ -107,17 +107,16 @@ describe('editorial homepage contract', () => {
 
     it('uses one shared Apps category label', () => {
         // The v2 primary nav is task-focused (Read, Watch, Study; asserted in
-        // hosted-overflow-menu.test.ts), so Apps now sits under More. The contract
-        // is the label: one constant names the nav entry and the sidebar group on
-        // every surface, in both locales, and the retired 'Tools' label is gone.
+        // hosted-overflow-menu.test.ts). The Apps overview page was folded into
+        // Start here on 2026-10-07, so Apps names only the sidebar group now,
+        // while the desktop app — the one app that needs a download — has its
+        // own entry under More. The retired 'Tools' label stays gone.
         expect(APPS_NAV_LABEL).toBe('Apps');
         const routes = siteNavRoutes();
-        expect(routes.filter(route => route.text === APPS_NAV_LABEL)).toEqual([
-            { text: APPS_NAV_LABEL, ja: 'アプリ', link: '/learn/reference#apps' },
-        ]);
+        expect(routes.some(route => route.text === APPS_NAV_LABEL)).toBe(false);
         expect(routes.some(route => route.text === 'Tools')).toBe(false);
         const more = (docsNav() as Array<{ items?: Array<{ text: string; link: string }> }>).find(entry => entry.items);
-        expect(more?.items).toContainEqual({ text: APPS_NAV_LABEL, link: '/learn/reference#apps' });
+        expect(more?.items).toContainEqual({ text: 'Desktop app', link: '/desktop' });
         expect(websiteNavigationLabel(APPS_NAV_LABEL, 'ja')).toBe('アプリ');
         const config = readFileSync('docs/.vitepress/config.mts', 'utf8');
         expect(config).toContain('text: APPS_NAV_LABEL,');

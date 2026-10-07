@@ -81,7 +81,7 @@ describe('hosted store install routes', () => {
     });
 
     it('leads the install page with both stores and keeps the userscript as the fallback', () => {
-        const weekOne = readFileSync('docs/learn/week-one.md', 'utf8');
+        const weekOne = readFileSync('docs/learn/index.md', 'utf8');
         const chromeAt = weekOne.indexOf(INSTALL_ROUTE_URLS.chrome);
         const firefoxAt = weekOne.indexOf(INSTALL_ROUTE_URLS.firefox);
         const userscriptAt = weekOne.indexOf(CANONICAL_USERSCRIPT_URL);
