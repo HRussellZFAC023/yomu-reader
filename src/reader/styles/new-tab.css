@@ -605,8 +605,8 @@
 }
 
 .jpdb-reader-newtab-searchbox input::placeholder {
-  color: var(--jpdb-reader-faint);
-  -webkit-text-fill-color: var(--jpdb-reader-faint);
+  color: var(--jpdb-reader-muted);
+  -webkit-text-fill-color: var(--jpdb-reader-muted);
   opacity: 1;
 }
 
@@ -2376,8 +2376,8 @@ button.jpdb-reader-newtab-study-hint-btn:active {
 }
 
 .jpdb-reader-newtab-recall-input::placeholder {
-  color: var(--jpdb-reader-faint);
-  -webkit-text-fill-color: var(--jpdb-reader-faint);
+  color: var(--jpdb-reader-muted);
+  -webkit-text-fill-color: var(--jpdb-reader-muted);
   opacity: 1;
 }
 

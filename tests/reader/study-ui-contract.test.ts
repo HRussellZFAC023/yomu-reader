@@ -35,7 +35,7 @@ describe('Reader Study UI contract', () => {
         expect(newTabCss).toContain('.jpdb-reader-newtab-searchbox input { min-width: 0; min-height: 46px;');
         expect(newTabCss).toContain('color: var(--jpdb-reader-text); -webkit-text-fill-color: var(--jpdb-reader-text); caret-color: var(--jpdb-reader-accent);');
         expect(newTabCss).toContain('.jpdb-reader-newtab-recall-input { width: 100%; min-width: 0;');
-        expect(newTabCss).toContain('.jpdb-reader-newtab-recall-input::placeholder { color: var(--jpdb-reader-faint); -webkit-text-fill-color: var(--jpdb-reader-faint); opacity: 1; }');
+        expect(newTabCss).toContain('.jpdb-reader-newtab-recall-input::placeholder { color: var(--jpdb-reader-muted); -webkit-text-fill-color: var(--jpdb-reader-muted); opacity: 1; }');
         expect(newTabCss).toContain('.jpdb-reader-newtab-recall-input::selection { color: var(--jpdb-reader-selection-text); background: var(--jpdb-reader-selection-bg); -webkit-text-fill-color: var(--jpdb-reader-selection-text); }');
         expect(newTabCss).toContain(':is(.jpdb-reader-newtab-searchbox input, .jpdb-reader-newtab-recall-input)::selection { color: #fffdf5; background: #6d5149; -webkit-text-fill-color: #fffdf5; }');
     });

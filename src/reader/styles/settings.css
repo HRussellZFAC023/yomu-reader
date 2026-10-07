@@ -343,7 +343,7 @@
 }
 .jpdb-reader-settings input::placeholder,
 .jpdb-reader-settings textarea::placeholder {
-  color: var(--jpdb-reader-faint) !important;
+  color: var(--jpdb-reader-muted) !important;
   opacity: 1;
 }
 .jpdb-reader-settings select {

@@ -487,6 +487,15 @@ async function settingsLayoutSnapshot(page, panel) {
         function settingsReadableControlIssues(root) {
             if (!root) return [];
             const found = [];
+            for (const input of [...root.querySelectorAll('input[placeholder]:not(:disabled), textarea[placeholder]:not(:disabled)')].filter(isVisible)) {
+                if (input.value || !input.placeholder) continue;
+                const foreground = rgba(getComputedStyle(input, '::placeholder').color);
+                const background = rgba(getComputedStyle(input).backgroundColor);
+                if (foreground[3] < 255 || background[3] < 255) continue;
+                const values = [luminance(foreground), luminance(background)].sort((a,b) => b-a);
+                const contrast = (values[0] + .05) / (values[1] + .05);
+                if (contrast < 4.5) found.push({ type: 'faint-placeholder', name: input.name, contrast: round(contrast) });
+            }
             for (const icon of [...root.querySelectorAll('a.jpdb-reader-btn > svg')].filter(isVisible)) {
                 const rect = icon.getBoundingClientRect();
                 if (rect.width > 20 || rect.height > 20) found.push({ type: 'unbounded-button-icon', rect: rectSnapshot(rect) });
@@ -516,6 +525,17 @@ async function settingsLayoutSnapshot(page, panel) {
                 }
             }
             return found;
+        }
+
+        function rgba(color) {
+            const canvas = document.createElement('canvas'); canvas.width = canvas.height = 1;
+            const context = canvas.getContext('2d'); context.fillStyle = color; context.fillRect(0, 0, 1, 1);
+            return [...context.getImageData(0, 0, 1, 1).data];
+        }
+
+        function luminance(color) {
+            const [r,g,b] = color.slice(0,3).map(value => value/255).map(value => value <= .04045 ? value/12.92 : ((value+.055)/1.055)**2.4);
+            return .2126*r + .7152*g + .0722*b;
         }
 
         function sourceRowIssues(root) {
