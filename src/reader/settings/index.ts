@@ -431,7 +431,6 @@ export const DEFAULT_SETTINGS: ReaderSettings = {
     yomuLocalSrsEnabled: true,
     apiGradingProvider: 'jiten',
     miningDeck: 'forq',
-    autoMineOnReview: false,
     neverForgetDeck: 'never-forget',
     blacklistDeck: 'blacklist',
     addToForq: false,
@@ -722,7 +721,6 @@ function normalizeMiningSettings(value: Partial<ReaderSettings> | null): Partial
     return {
         ankiTags: trimmedStringSetting(value, 'ankiTags', DEFAULT_SETTINGS.ankiTags),
         miningDeck: normalizeDeckIdSetting(value?.miningDeck, DEFAULT_SETTINGS.miningDeck),
-        autoMineOnReview: typeof value?.autoMineOnReview === 'boolean' ? value.autoMineOnReview : DEFAULT_SETTINGS.autoMineOnReview,
         neverForgetDeck: normalizeDeckIdSetting(value?.neverForgetDeck, DEFAULT_SETTINGS.neverForgetDeck),
         blacklistDeck: normalizeDeckIdSetting(value?.blacklistDeck, DEFAULT_SETTINGS.blacklistDeck),
         apiGradingProvider: normalizeApiGradingProvider(value?.apiGradingProvider),

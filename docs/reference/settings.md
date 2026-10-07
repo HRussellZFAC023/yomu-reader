@@ -35,7 +35,6 @@ Some rows say Not yet described. That marks a real stored setting whose wording 
 | Allow WaniKani review (due assignments only) | — | on | `wanikaniReviewEnabled` |
 | Preferred grading service | — | Jiten (`jiten`) | `apiGradingProvider` |
 | Mining deck | — | FORQ (`forq`) | `miningDeck` |
-| Add reviewed words to the mining deck automatically | — | off | `autoMineOnReview` |
 | Never forget deck | — | Saved: never-forget (`never-forget`) | `neverForgetDeck` |
 | Blacklist deck | — | Saved: blacklist (`blacklist`) | `blacklistDeck` |
 | Also copy JPDB adds to forq | — | off | `addToForq` |

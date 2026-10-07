@@ -15,6 +15,7 @@ import { bindPrivateCommandCapability } from '../../src/reader/dom/private-comma
 import { setInnerHtml } from '../../src/reader/dom';
 import { installGmStorageFixture } from './helpers/settings-persistence-fixture';
 import { DEFAULT_SETTINGS, card, testCardActionController } from './jpdb/fixtures';
+import type { JPDBCard } from './jpdb/fixtures';
 import { NewTabRuntime } from './new-tab-review/fixtures';
 
 const HINTS_CLASS = 'jpdb-reader-grade-key-hints';
@@ -67,7 +68,7 @@ describe('popup grade keycaps', () => {
         const runtime = new NewTabRuntime();
         const internals = runtime as unknown as {
             newTab: { gradeFromLookup: () => Promise<unknown> };
-            handleLookupCardCommand(button: HTMLButtonElement, command: { kind: 'card-action'; action: 'grade'; grade: 'okay' }, card: typeof card): void;
+            handleLookupCardCommand(button: HTMLButtonElement, command: { kind: 'card-action'; action: 'grade'; grade: 'okay' }, lookedUp: JPDBCard): void;
         };
         internals.newTab = { gradeFromLookup: vi.fn(async () => ({ preserveLookup: true })), destroy: vi.fn() } as never;
         const button = document.createElement('button');

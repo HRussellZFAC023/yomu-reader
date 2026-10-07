@@ -1623,9 +1623,7 @@ export class NewTabRuntime {
 
     private handleLookupCardCommand(button: HTMLButtonElement, command: CardCommandCapability, card: JPDBCard, sentence: string | undefined, anchor?: HTMLElement): void {
         if (command.action === 'grade') return this.gradeLookupFromButton(button, command, card, sentence, anchor);
-        if (command.action !== 'add' || !this.openDeckPickerForAdd(button, card, sentence)) {
-            void this.handleCardAction(button, card, sentence, anchor, command);
-        }
+        void this.handleCardAction(button, card, sentence, anchor, command);
     }
 
     private gradeLookupFromButton(button: HTMLButtonElement, command: CardCommandCapability, card?: JPDBCard, sentence?: string, anchor?: HTMLElement): void {

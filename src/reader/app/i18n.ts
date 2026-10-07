@@ -836,8 +836,9 @@ const COPY = {
         loadingKanjiDetails: 'Loading kanji details...',
         lookupDialog: `${APP_NAME} lookup`,
         resizeLookupSheet: 'Drag to resize lookup sheet, or tap to close',
-        showMiningActions: 'Show mining actions',
-        hideMiningActions: 'Hide mining actions',
+        showMiningActions: 'More actions',
+        hideMiningActions: 'Fewer actions',
+        extensionPopupPageActions: 'On this page',
         ...GRADING_SERVICE_COPY.en,
         jpdbKanjiUpdated: 'JPDB kanji updated.',
         jpdbKanjiUpdateFailedRuntime: 'Could not update JPDB kanji. Check kanji reviews.',
@@ -934,10 +935,9 @@ const COPY = {
         heisigComment: 'Heisig comment',
         koohiiStories: 'Koohii stories',
         add: 'Add',
-        addToDeck: 'Add to deck',
+        addToDeck: 'Add to deck…',
         deck: 'Deck',
         deckActions: 'Deck actions',
-        reviewAddsToDeck: 'Reviewing will add new words to',
         reviewBlockedBlacklisted: 'Blacklisted. Unlist before reviewing.',
         reviewBlockedNeverForget: 'Never-forget. Remove before reviewing.',
         reviewBlockedRedundant: 'JPDB marks this redundant.',
@@ -1199,8 +1199,9 @@ exampleSearchLinks	例文検索リンク
 loadingKanjiDetails	漢字情報を読み込み中...
 lookupDialog	{APP_NAME}検索
 resizeLookupSheet	検索シートをリサイズ。タップで閉じる
-showMiningActions	マイニング操作を表示
-hideMiningActions	マイニング操作を隠す
+showMiningActions	その他の操作
+hideMiningActions	操作を閉じる
+extensionPopupPageActions	このページ
 closeDrawer	ドロワーを閉じる
 copiedWord	単語をコピーしました。
 jpdbKanjiUpdated	JPDB漢字を更新しました。
@@ -1477,10 +1478,9 @@ heisigStory	Heisigストーリー
 heisigComment	Heisigコメント
 koohiiStories	Koohiiストーリー
 add	追加
-addToDeck	デッキに追加
+addToDeck	デッキに追加…
 deck	デッキ
 deckActions	デッキ操作
-reviewAddsToDeck	レビューすると新しい単語を追加します:
 reviewBlockedBlacklisted	ブラックリスト入りです。解除するとレビューできます。
 reviewBlockedNeverForget	「忘れない」設定です。解除するとレビューできます。
 reviewBlockedRedundant	JPDBで冗長のためレビューできません。

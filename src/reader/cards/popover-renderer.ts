@@ -4,7 +4,7 @@ import { renderAnkiActionRow, renderAnkiExistingSection, renderAnkiNewCardPrevie
 import { gradeKeyHintAttributes, reviewGradeProfile, reviewGradeScale, type ReviewGradeProfile } from './grade-scale';
 import { normalizeCardStates, primaryCardState } from './state';
 import type { CardRenderData } from './render-data';
-import { renderDeckChoiceOptions, jpdbDeckLabel } from './deck-choice';
+import { deckChoices, type DeckChoice } from './deck-choice';
 import { renderCardSpellingWithFurigana, renderHeadwordComponentPitchSpans } from './reading-display';
 import { escapeHtml, renderRuby } from '../dom/index';
 import { renderKanjiDefinitions } from '../sources/definition-render';
@@ -17,7 +17,7 @@ import { formatPartOfSpeech, formatPartOfSpeechDetails } from '../lookup/pos';
 import { cardPronunciationReading, headwordComponentPitchSegments, type ExpressionComponentLookup, type ExpressionComponentPitch } from '../popup/render';
 import { cardUsesPitchAccentPronunciation, renderPronunciation } from '../popup/pronunciation';
 import { getPitchClass } from '../jpdb/jpdb-parser-pitch';
-import { apiSrsGradingProviderViewForCard, apiSrsProviderViewForCard, apiSrsSwitchableProviderIds, collectionDestinationsForCard, isApiSrsProviderEnabled, type ApiSrsProviderView, type CollectionDestinationId } from './srs-providers';
+import { apiSrsGradingProviderViewForCard, apiSrsProviderViewForCard, apiSrsSwitchableProviderIds, collectionDestinationsForCard, isApiSrsProviderEnabled, type ApiSrsProviderView } from './srs-providers';
 import type { InterfaceLanguage, JPDBCard, JPDBToken, ReaderSettings } from '../app/types';
 import type { JitenVocabularyInfo } from '../dictionaries/jiten';
 import { contextOccurrenceCount, hasFrequencyRankEvidence, type ProviderFrequencyRanks } from './frequency-ranks';
@@ -67,14 +67,13 @@ interface ReviewButtonsRenderOptions {
     cardStates: ReturnType<typeof normalizeCardStates>;
     data: CardRenderData & { loading: boolean };
     provider: ApiSrsProviderView | null;
-    selectedDeckLabel: string;
     reviewBlockReason: string;
     language: InterfaceLanguage;
 }
 
 /**
  * A grade row split into the target bar that sits over the action row and the
- * controls beneath it, so the popup can place the bar ahead of "Add to deck +".
+ * controls beneath it, so the popup can place the bar ahead of the ⋯ overflow.
  */
 export interface PopoverReviewControls {
     /** The target bar over the action row; only a switchable target has one. */
@@ -83,9 +82,9 @@ export interface PopoverReviewControls {
 }
 
 interface PopoverMiningActions {
-    /** "Add to deck +", always visible beside the grades. */
+    /** "Add to deck…", which opens a deck picker, in the ⋯ overflow. */
     collect: string;
-    /** Never forget / Blacklist, kept in the collapsed drawer. */
+    /** Never forget / Blacklist, in the ⋯ overflow. */
     deckState: string;
 }
 
@@ -163,9 +162,8 @@ export class CardPopoverRenderer {
         const trustedAccountDataSurface = this.accountDataSurfaceTrusted();
         const provider = this.apiProviderForCard(card);
         // Grades follow the chosen grading service, which may resolve the word
-        // first, and so does "Add to deck +" beside them (ADR-0016).
+        // first, and so does "Add to deck…" (ADR-0016).
         const gradingProvider = apiSrsGradingProviderViewForCard(card, settings, this.dependencies.isJpdbBackedCard);
-        const selectedDeckLabel = this.selectedDeckLabelForView(gradingProvider, data, trustedAccountDataSurface);
         const reviewBlockReason = this.reviewBlockReasonForView(cardStates, data, language);
         const miningActions = this.renderApiMiningActions(card, cardStates, language, data, gradingProvider, trustedAccountDataSurface);
         const reviewControls = this.renderReviewControls({
@@ -173,7 +171,6 @@ export class CardPopoverRenderer {
             cardStates,
             data,
             provider: gradingProvider,
-            selectedDeckLabel,
             reviewBlockReason,
             language,
         }, trustedAccountDataSurface);
@@ -197,10 +194,6 @@ export class CardPopoverRenderer {
             audioButtonTitle: popoverAudioButtonTitle(settings),
             trustedAccountDataSurface,
         };
-    }
-
-    private selectedDeckLabelForView(provider: ApiSrsProviderView | null, data: CardRenderData & { loading: boolean }, trusted: boolean): string {
-        return trusted ? this.selectedApiDeckLabel(provider, data) : '';
     }
 
     private reviewBlockReasonForView(cardStates: ReturnType<typeof normalizeCardStates>, data: CardRenderData, language: InterfaceLanguage): string {
@@ -328,28 +321,20 @@ export class CardPopoverRenderer {
         }, data.ankiFieldTargetPlan, { trustedAccountDataSurface: view.trustedAccountDataSurface });
     }
 
-    // DOM order is focus order: the bar over the row, the drawer it opens,
-    // then "Add to deck +" directly before the grades.
+    // DOM order is focus order: the bar with the ⋯ toggle, the overflow it
+    // opens ("Add to deck…" first), then the grades. Without the companion
+    // that opens the overflow, its actions stay in the row.
     private renderActions(view: CardPopoverRenderView): string {
-        const hasMiningPanel = Boolean(view.deckStateActions || view.ankiActions) && canExpandMiningDrawer();
-        const miningPanel = hasMiningPanel ? this.renderMiningPanel(view) : '';
-        const hasDrawer = hasMiningPanel || Boolean(view.reviewTargetGutter);
-        const miningClass = hasDrawer
+        const overflow = `${view.collectAction}${view.deckStateActions}${view.ankiActions}`;
+        if (!overflow && !view.reviewTargetGutter && !view.reviewButtons) return '';
+        const hasOverflow = Boolean(overflow) && canExpandMiningDrawer();
+        const miningClass = hasOverflow || view.reviewTargetGutter
             ? ' jpdb-reader-actions-has-mining jpdb-reader-actions-mining-collapsed'
             : '';
         return `<div class="jpdb-reader-actions${miningClass}">
-            ${view.reviewTargetGutter || renderMiningGutter(miningPanel, view.language)}
-            ${miningPanel}
-            ${hasMiningPanel ? '' : view.ankiActions}
-            ${view.collectAction}
+            ${view.reviewTargetGutter || (hasOverflow ? renderMiningGutter(view.language) : '')}
+            ${hasOverflow ? `<div class="jpdb-reader-mining-panel">${overflow}</div>` : overflow}
             ${view.reviewButtons}
-        </div>`;
-    }
-
-    private renderMiningPanel(view: CardPopoverRenderView): string {
-        return `<div class="jpdb-reader-mining-panel">
-            ${view.deckStateActions}
-            ${view.ankiActions}
         </div>`;
     }
 
@@ -364,7 +349,13 @@ export class CardPopoverRenderer {
         const settings = this.settings();
         // A learner with no Jiten word list saves elsewhere: Jiten takes a word only into one.
         const destinations = collectionDestinationsForCard(card, settings, this.dependencies.isJpdbBackedCard, hasNoJitenWordList(data) ? 'jiten' : undefined);
-        return renderApiMiningActions(settings, card, cardStates, language, data, provider, destinations, trustedAccountDataSurface);
+        // JPDB and Jiten decks follow the service the grade row uses (the ⇄ toggle switches it).
+        const choices = deckChoices(settings, destinations.filter(id => (id !== 'jpdb' && id !== 'jiten') || id === provider?.id), {
+            jpdbDecks: data.jpdbDecks,
+            jitenDecks: data.jitenDecks ?? [],
+            ankiDecks: data.ankiDecks,
+        });
+        return renderApiMiningActions(settings, card, cardStates, language, data, provider, choices, trustedAccountDataSurface);
     }
 
     private renderReviewControls(options: ReviewButtonsRenderOptions, trustedAccountDataSurface: boolean): PopoverReviewControls {
@@ -394,15 +385,10 @@ export class CardPopoverRenderer {
         return this.renderUntargetedReviewControls(options);
     }
 
+    // A service that can grade the word always yields a target, so with none
+    // only Study's own grade row for its current review card can stand in.
     private renderUntargetedReviewControls(options: ReviewButtonsRenderOptions): PopoverReviewControls {
-        const { card, cardStates, data, provider, selectedDeckLabel, reviewBlockReason, language } = options;
-        if (this.shouldUseFallbackReviewButtons(card, data, provider, reviewBlockReason)) return this.renderReviewButtonsFallback(card, data);
-        return buttonsOnly(this.renderApiReviewButtons(card, provider, data, cardStates, selectedDeckLabel, language));
-    }
-
-    private shouldUseFallbackReviewButtons(card: JPDBCard, data: CardRenderData & { loading: boolean }, provider: ApiSrsProviderView | null, reviewBlockReason: string): boolean {
-        return isLiveJpdbCardOnAcademy(provider, card)
-            || !this.shouldRenderReviewButtons(data, provider, reviewBlockReason);
+        return this.renderReviewButtonsFallback(options.card, options.data);
     }
 
     private renderReviewButtonsFallback(card: JPDBCard, data: CardRenderData & { loading: boolean }): PopoverReviewControls {
@@ -417,28 +403,6 @@ export class CardPopoverRenderer {
         if (reviewBlockReason) return buttonsOnly(`<div class="jpdb-reader-help jpdb-reader-review-blocked">${escapeHtml(reviewBlockReason)}</div>`);
         if (data.loading || !this.settings().enableReviews) return this.renderReviewButtonsFallback(card, data);
         return undefined;
-    }
-
-    private renderApiReviewButtons(
-        card: JPDBCard,
-        provider: ApiSrsProviderView | null,
-        data: CardRenderData & { loading: boolean },
-        cardStates: ReturnType<typeof normalizeCardStates>,
-        selectedDeckLabel: string,
-        language: InterfaceLanguage,
-    ): string {
-        return renderReviewButtons(this.settings(), null, {
-            targetLabel: provider?.label ?? uiText(language, 'gradeJpdbCardTarget'),
-            title: reviewButtonTitle(data, cardStates, selectedDeckLabel, language),
-            // Jiten/Anki parity: due-in previews on the popover grade row.
-            intervals: card.reviewGradeIntervals,
-            gradeProfile: reviewGradeProfile(card, provider?.id),
-        });
-    }
-
-    private shouldRenderReviewButtons(data: CardRenderData & { loading: boolean }, provider: ApiSrsProviderView | null, reviewBlockReason: string): boolean {
-        if (reviewBlockReason || data.loading || !this.settings().enableReviews) return false;
-        return this.canReviewWithApiProvider(provider);
     }
 
     // A popup grades only into a connected review service (owner decision 2,
@@ -631,11 +595,6 @@ export class CardPopoverRenderer {
         return apiSrsProviderViewForCard(card, this.settings(), this.dependencies.isJpdbBackedCard);
     }
 
-    private selectedApiDeckLabel(provider: ApiSrsProviderView | null, data: CardRenderData & { loading: boolean }): string {
-        if (provider?.id === 'jiten') return jitenDeckLabel((data.jitenDecks ?? [])[0]);
-        return jpdbDeckLabel(this.settings(), this.settings().miningDeck.trim() || 'forq', data.jpdbDecks);
-    }
-
     private accountDataSurfaceTrusted(): boolean {
         return this.dependencies.accountDataSurfaceTrusted?.() ?? currentAccountDataSurfaceIsTrusted();
     }
@@ -676,9 +635,6 @@ function popoverAnkiSourceContext(context: ReturnType<typeof loadMiningContext> 
     };
 }
 
-function isLiveJpdbCardOnAcademy(provider: ApiSrsProviderView | null, card: JPDBCard): boolean {
-    return provider?.id === 'yomu-local' && card.reviewSource === 'jpdb-live';
-}
 
 function renderPopoverFrequencyMeta(card: JPDBCard, provider: ApiSrsProviderView | null, settings: ReaderSettings): string {
     return shouldRenderMetaFrequencyRank(card, provider, settings)
@@ -842,15 +798,6 @@ function formatTargetLabel(template: string, target: string): string {
     return template.replaceAll('{target}', target);
 }
 
-function reviewButtonTitle(
-    data: CardRenderData & { loading: boolean },
-    cardStates: ReturnType<typeof normalizeCardStates>,
-    selectedDeckLabel: string,
-    language: InterfaceLanguage,
-): string {
-    const reviewAddsToDeck = !data.ankiLookup.primary?.primaryCardId && cardStates.includes('not-in-deck');
-    return reviewAddsToDeck ? `${uiText(language, 'reviewAddsToDeck')} ${selectedDeckLabel}` : '';
-}
 
 function miningActionState(cardStates: ReturnType<typeof normalizeCardStates>, language: InterfaceLanguage): MiningActionState {
     const isNeverForget = cardStates.includes('never-forget');
@@ -870,19 +817,17 @@ function renderApiMiningActions(
     language: InterfaceLanguage,
     data: CardRenderData & { loading: boolean },
     provider: ApiSrsProviderView | null,
-    destinations: CollectionDestinationId[],
+    choices: DeckChoice[],
     trustedAccountDataSurface: boolean,
 ): PopoverMiningActions {
-    // An ordinary page owns this DOM: it gets one provider-neutral save whose
-    // destination the controller resolves from the same list.
-    if (!trustedAccountDataSurface) return { collect: destinations.length ? renderPrivateCollectAction(language) : '', deckState: '' };
-    // Every deck offered is one the word can be saved to, so with no deck there is
-    // nothing for "Add to deck +" to do and it is not shown.
-    const addDeckSelect = renderAddDeckSelect(settings, data, language, provider, destinations);
-    const canChangeDeckState = (Boolean(addDeckSelect) || canRenderApiMiningActions(settings, provider)) && canToggleApiDeckState(card, settings);
-    const collect = (addDeckSelect ? renderApiDeckAdd(addDeckSelect, destinations[0], language) : '') + jitenWordListNote(provider, data, language);
+    // Every deck offered is one the word can be saved to, so with none there is
+    // nothing for "Add to deck…" to do and it is not shown.
+    const addToDeck = choices.length ? renderAddToDeck(choices, language) : '';
+    // An ordinary page owns this DOM: no service, deck or deck state is named there.
+    if (!trustedAccountDataSurface) return { collect: addToDeck, deckState: '' };
+    const canChangeDeckState = (choices.length > 0 || canRenderApiMiningActions(settings, provider)) && canToggleApiDeckState(card, settings);
     return {
-        collect: collect ? renderCollectAction(collect) : '',
+        collect: addToDeck + jitenWordListNote(provider, data, language),
         deckState: canChangeDeckState ? renderApiDeckStateActions(miningActionState(cardStates, language), language) : '',
     };
 }
@@ -897,19 +842,10 @@ function hasNoJitenWordList(data: CardRenderData): boolean {
     return data.jitenDecks?.length === 0;
 }
 
-// Saving is the deliberate, unscheduled action, so it sits beside the grades
-// (which add and schedule) instead of inside the collapsed drawer.
-function renderCollectAction(content: string): string {
-    return `<div class="jpdb-reader-collect">${content}</div>`;
-}
-
-function renderPrivateCollectAction(language: InterfaceLanguage): string {
-    return renderCollectAction(`<button class="jpdb-reader-btn add jpdb-reader-mining-title" data-action="add-default"${privateCommandAttributes({ kind: 'card-action', action: 'add-default' })}>${collectButtonLabel(language)}</button>`);
-}
-
-// The "+" is decoration: the button's accessible name is "Add to deck".
-function collectButtonLabel(language: InterfaceLanguage): string {
-    return `${escapeHtml(uiText(language, 'addToDeck'))} <span aria-hidden="true">+</span>`;
+// The decks travel in the button's private capability; the picker shows them
+// in a closed shadow root (study/mining-controls-impl.ts).
+function renderAddToDeck(choices: DeckChoice[], language: InterfaceLanguage): string {
+    return `<button class="jpdb-reader-btn add" data-action="deck-picker"${privateCommandAttributes({ kind: 'card-ui', action: 'deck-picker', choices })} aria-haspopup="listbox" aria-expanded="false">${escapeHtml(uiText(language, 'addToDeck'))}</button>`;
 }
 
 // Mirrors changeProviderDeckState's resolution: Never forget / Blacklist land
@@ -922,47 +858,6 @@ function canToggleApiDeckState(card: JPDBCard, settings: ReaderSettings): boolea
 
 function canRenderApiMiningActions(settings: ReaderSettings, provider: ApiSrsProviderView | null): boolean {
     return Boolean(provider?.hasApiKey && isApiSrsProviderEnabled(settings, provider.id));
-}
-
-// JPDB and Jiten decks follow the service the grade row uses (the ⇄ toggle
-// switches it); every destination offered is one the learner has enabled.
-function renderAddDeckSelect(
-    settings: ReaderSettings,
-    data: CardRenderData & { loading: boolean },
-    language: InterfaceLanguage,
-    provider: ApiSrsProviderView | null,
-    destinations: CollectionDestinationId[],
-): string {
-    const deckOptions = renderDeckChoiceOptions(settings, data.jpdbDecks, data.ankiDecks, {
-        includeJpdb: provider?.id === 'jpdb' && destinations.includes('jpdb'),
-        includeJiten: provider?.id === 'jiten' && destinations.includes('jiten'),
-        includeBunpro: destinations.includes('bunpro'),
-        includeYomuLocal: destinations.includes('yomu-local'),
-        jitenDecks: data.jitenDecks ?? [],
-    });
-    if (!deckOptions) return '';
-    return `<select class="jpdb-reader-add-deck-select" data-add-deck-select aria-label="${escapeHtml(uiText(language, 'deck'))}" hidden>${deckOptions}</select>`;
-}
-
-// A direct save renders no picker: both runtimes open the row's picker for an
-// "add" when there is one, so a one-choice select beside it would open instead.
-function renderApiDeckAdd(addDeckSelect: string, defaultDestination: CollectionDestinationId | undefined, language: InterfaceLanguage): string {
-    const label = collectButtonLabel(language);
-    const deckSource = directCollection(addDeckSelect, defaultDestination);
-    if (!deckSource) {
-        return `<button class="jpdb-reader-btn add jpdb-reader-mining-title" data-action="deck-picker"${privateCommandAttributes({ kind: 'card-ui', action: 'deck-picker' })} aria-expanded="false">${label}</button>${addDeckSelect}`;
-    }
-    return `<button class="jpdb-reader-btn add jpdb-reader-mining-title" data-action="add" data-deck-source="${deckSource}"${privateCommandAttributes({ kind: 'card-action', action: 'add', deckSource })}>${label}</button>`;
-}
-
-// Bunpro and the Yomu deck are single collections: when the default destination
-// is one of them and is the only choice, "Add to deck +" saves there straight
-// away instead of opening a picker with one choice. A default whose decks have
-// not loaded yet, such as Jiten's, keeps the picker.
-function directCollection(addDeckSelect: string, defaultDestination: CollectionDestinationId | undefined): 'bunpro' | 'yomu-local' | undefined {
-    if (defaultDestination !== 'bunpro' && defaultDestination !== 'yomu-local') return undefined;
-    const sources = addDeckSelect.match(/data-deck-source="[^"]*"/g) ?? [];
-    return sources.length === 1 && sources[0] === `data-deck-source="${defaultDestination}"` ? defaultDestination : undefined;
 }
 
 function renderApiDeckStateActions(state: MiningActionState, language: InterfaceLanguage): string {
@@ -1084,13 +979,7 @@ function canExpandMiningDrawer(): boolean {
     return Boolean(yomuKanjiStudyCompanion()?.setMiningControlsExpanded);
 }
 
-function renderMiningGutter(miningActions: string, language: InterfaceLanguage): string {
+function renderMiningGutter(language: InterfaceLanguage): string {
     const label = uiText(language, 'showMiningActions');
-    return miningActions
-        ? `<div class="jpdb-reader-actions-gutter"><button class="jpdb-reader-mining-collapse jpdb-reader-mining-drawer-handle" data-action="mining-collapse"${privateCommandAttributes({ kind: 'card-ui', action: 'mining-collapse' })} aria-expanded="false" aria-label="${escapeHtml(label)}"></button></div>`
-        : '';
-}
-
-function jitenDeckLabel(deck: { name: string } | undefined): string {
-    return deck?.name ? `Jiten: ${deck.name}` : 'Jiten';
+    return `<div class="jpdb-reader-actions-gutter"><button class="jpdb-reader-mining-collapse jpdb-reader-mining-drawer-handle" data-action="mining-collapse"${privateCommandAttributes({ kind: 'card-ui', action: 'mining-collapse' })} aria-expanded="false" aria-label="${escapeHtml(label)}"></button></div>`;
 }

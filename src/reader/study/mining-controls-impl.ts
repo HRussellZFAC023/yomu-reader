@@ -1,5 +1,5 @@
 import type { JPDBCard } from '../app/types';
-import { readDeckChoiceCapability, type CardCommandCapability } from '../dom/private-command-capabilities';
+import { readCardUiCommandCapability, type CardCommandCapability } from '../dom/private-command-capabilities';
 import { trustedReaderEventHandler } from '../ui/trusted-interaction';
 
 type MiningControlLabel = (expanded: boolean) => string;
@@ -7,11 +7,11 @@ type MiningCardAction = (button: HTMLButtonElement, card: JPDBCard, sentence: st
 
 const MINING_ACTIONS_CLASS = 'jpdb-reader-actions';
 const MINING_COLLAPSED_CLASS = 'jpdb-reader-actions-mining-collapsed';
-const DECK_PICKER_OPEN_CLASS = 'jpdb-reader-add-deck-select-open';
-const DECK_PICKER_WRAPPER_OPEN_CLASS = 'jpdb-reader-deck-picker-open';
 const DECK_PICKER_BLUR_DELAY_MS = 180;
-// "Add to deck +" and its deck picker share the popup's always-visible collect row.
-const DECK_PICKER_SCOPE = '.jpdb-reader-collect';
+// The picker lives in a closed shadow root: its deck names never reach the page's DOM (ADR-0020).
+const DECK_PICKER_STYLE = 'select{box-sizing:border-box;width:100%;height:36px;margin-top:6px;padding:0 8px;border:1px solid var(--jpdb-reader-border);border-radius:8px;background:var(--jpdb-reader-surface);color:var(--jpdb-reader-text);font:600 13px/1 var(--jpdb-reader-font,system-ui)}';
+
+const openPickers = new WeakMap<HTMLButtonElement, HTMLSelectElement>();
 
 export function toggleMiningControls(button: HTMLButtonElement, label: MiningControlLabel): void {
     const actions = button.closest<HTMLElement>(`.${MINING_ACTIONS_CLASS}`);
@@ -29,79 +29,65 @@ export function setMiningControlsExpanded(button: HTMLButtonElement, expanded: b
     button.title = text;
 }
 
+/**
+ * "Add to deck…": opens a picker of the decks its private capability carries,
+ * right below the button, and adds the word to the deck the learner picks.
+ */
 export function openDeckPickerForCardAdd(
     button: HTMLButtonElement,
     card: JPDBCard,
     sentence: string | undefined,
     performAction: MiningCardAction,
 ): boolean {
-    const picker = deckPickerForButton(button);
-    if (!picker) return false;
-    const wrapper = picker.closest<HTMLElement>(DECK_PICKER_SCOPE);
-    const toggle = wrapper?.querySelector<HTMLButtonElement>('.jpdb-reader-mining-title');
-    if (picker.classList.contains(DECK_PICKER_OPEN_CLASS)) {
-        picker.hidden = false;
-        picker.focus();
+    const choices = readCardUiCommandCapability(button)?.choices;
+    if (!choices?.length) return false;
+    const open = openPickers.get(button);
+    if (open?.isConnected) {
+        open.focus();
         return true;
     }
 
+    const host = document.createElement('div');
+    host.className = 'jpdb-reader-deck-picker';
+    const root = host.attachShadow({ mode: 'closed' });
+    const style = document.createElement('style');
+    style.textContent = DECK_PICKER_STYLE;
+    const picker = document.createElement('select');
+    const label = button.textContent?.trim() ?? '';
+    picker.setAttribute('aria-label', label);
+    const placeholder = new Option(label, '', true, true);
+    placeholder.disabled = true;
+    picker.append(placeholder, ...choices.map(choice => new Option(choice.label)));
+    root.append(style, picker);
+
     const controller = new AbortController();
-    const cleanup = (): void => closeDeckPicker(picker, wrapper, toggle, controller);
+    const close = (): void => {
+        controller.abort();
+        openPickers.delete(button);
+        host.remove();
+        button.setAttribute('aria-expanded', 'false');
+    };
     picker.addEventListener('change', trustedReaderEventHandler(() => {
-        const deck = readDeckChoiceCapability(picker.selectedOptions[0]);
-        cleanup();
-        if (!deck?.id) return;
-        // The picker closed with focus on it: focus goes back to the button that
-        // opened it, where the save's own focus keeping expects to find it.
+        const choice = choices[picker.selectedIndex - 1];
+        close();
+        if (!choice) return;
+        // Focus goes back to the button that opened the picker, where the
+        // save's own focus keeping expects to find it.
         button.focus({ preventScroll: true });
-        void performAction(button, card, sentence, {
-            kind: 'card-action',
-            action: 'add',
-            deckSource: deck.source,
-            deckId: deck.id,
-        });
+        void performAction(button, card, sentence, { kind: 'card-action', action: 'add', deckSource: choice.source, deckId: choice.id });
     }), { signal: controller.signal });
     picker.addEventListener('blur', () => {
         window.setTimeout(() => {
-            if (document.activeElement !== picker) cleanup();
+            if (root.activeElement !== picker) close();
         }, DECK_PICKER_BLUR_DELAY_MS);
-    }, { once: true, signal: controller.signal });
+    }, { signal: controller.signal });
 
-    showDeckPicker(picker, wrapper, toggle);
-    return true;
-}
-
-function deckPickerForButton(button: HTMLButtonElement): HTMLSelectElement | null {
-    return button
-        .closest<HTMLElement>(DECK_PICKER_SCOPE)
-        ?.querySelector<HTMLSelectElement>('[data-add-deck-select]') ?? null;
-}
-
-function closeDeckPicker(
-    picker: HTMLSelectElement,
-    wrapper: HTMLElement | null | undefined,
-    toggle: HTMLButtonElement | null | undefined,
-    controller: AbortController,
-): void {
-    controller.abort();
-    picker.classList.remove(DECK_PICKER_OPEN_CLASS);
-    picker.hidden = true;
-    wrapper?.classList.remove(DECK_PICKER_WRAPPER_OPEN_CLASS);
-    toggle?.setAttribute('aria-expanded', 'false');
-    picker.selectedIndex = 0;
-}
-
-function showDeckPicker(
-    picker: HTMLSelectElement,
-    wrapper: HTMLElement | null | undefined,
-    toggle: HTMLButtonElement | null | undefined,
-): void {
-    picker.hidden = false;
-    picker.classList.add(DECK_PICKER_OPEN_CLASS);
-    wrapper?.classList.add(DECK_PICKER_WRAPPER_OPEN_CLASS);
-    toggle?.setAttribute('aria-expanded', 'true');
+    button.after(host);
+    openPickers.set(button, picker);
+    button.setAttribute('aria-expanded', 'true');
     picker.focus();
     tryShowNativePicker(picker);
+    return true;
 }
 
 function tryShowNativePicker(picker: HTMLSelectElement): void {
@@ -110,6 +96,6 @@ function tryShowNativePicker(picker: HTMLSelectElement): void {
     try {
         showPicker.call(picker);
     } catch {
-        // The temporary visible select remains as the fallback on browsers without a native picker.
+        // The visible select stays as the fallback on browsers without a native picker.
     }
 }

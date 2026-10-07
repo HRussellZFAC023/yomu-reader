@@ -13,7 +13,7 @@ import {
 } from '../../src/reader/dom/rendered-word-private-state';
 import { renderedWordElementKey } from '../../src/reader/dom/rendered-word-state';
 import { DEFAULT_SETTINGS } from '../../src/reader/settings';
-import { readCardCommandCapability } from '../../src/reader/dom/private-command-capabilities';
+import { readCardCommandCapability, readCardUiCommandCapability, type CardCommandCapability } from '../../src/reader/dom/private-command-capabilities';
 import { noteScannedShadowRoot } from '../../src/reader/dom/shadow-scan-registry';
 import { refreshReaderWordContrast } from '../../src/reader/dom/word-contrast';
 import { reviewShortcutButton } from '../../src/reader/dom/review-shortcuts';
@@ -206,7 +206,10 @@ describe('offhost account-data privacy', () => {
         expect(offhost.textContent).toContain('機密語');
         expectAccountSecretsAbsent(offhost);
         expect(offhost.querySelector('.jpdb-reader-provider-status')).toBeNull();
-        expect(offhost.querySelector('.jpdb-reader-add-deck-select')).toBeNull();
+        // "Add to deck…" carries its decks privately; none reaches the page's DOM.
+        const addToDeck = offhost.querySelector<HTMLButtonElement>('[data-action="deck-picker"]');
+        expect(addToDeck?.textContent).toBe('Add to deck…');
+        expect(readCardUiCommandCapability(addToDeck)?.choices).toContainEqual({ source: 'anki', id: PRIVATE_DECK, label: `Anki: ${PRIVATE_DECK}` });
         expect(offhost.querySelector('[data-review-target-select]')).toBeNull();
         expect(offhost.querySelector('[data-review-target], [data-newtab-review-target]')).toBeNull();
         expect(offhost.querySelector('[data-deck-source], [data-deck-id]')).toBeNull();
@@ -218,32 +221,37 @@ describe('offhost account-data privacy', () => {
         const trusted = document.createElement('div');
         setInnerHtml(trusted, popupRenderer(true).render(card, '機密語を読む。', 'modal', richRenderData()));
         expect(trusted.querySelector('.jpdb-reader-provider-status')).not.toBeNull();
-        expect(trusted.querySelector('.jpdb-reader-add-deck-select')).not.toBeNull();
+        expect(readCardUiCommandCapability(trusted.querySelector('[data-action="deck-picker"]'))?.choices?.[0]).toEqual({ source: 'jpdb', id: 'private-jpdb-deck-id', label: 'JPDB: Private JPDB Deck Ω' });
         expect(trusted.querySelector('[data-review-target-select]')).not.toBeNull();
         expect(trusted.querySelector('[data-anki-card-id="808080"]')).not.toBeNull();
         expect(trusted.textContent).toContain(PRIVATE_DECK);
     });
 
     it('mines to the private default deck without reading deck authority from hostile DOM', async () => {
+        const offhost = document.createElement('div');
+        setInnerHtml(offhost, popupRenderer(false).render(card, '機密語を読む。', 'modal', richRenderData()));
+        const button = offhost.querySelector<HTMLButtonElement>('[data-action="deck-picker"]')!;
+        // A page rewrites what it can see; the decks never were there.
+        button.dataset.deckSource = 'anki';
+        button.dataset.deckId = 'attacker';
+        const [first] = readCardUiCommandCapability(button)?.choices ?? [];
         const addToDeck = vi.fn(async () => undefined);
         const controller = testCardActionController({
             getSettings: () => settings,
             jpdb: { addToDeck } as never,
         });
-        const neutralButton = document.createElement('button');
 
         await expect(controller.perform(
-            { kind: 'card-action', action: 'add-default' },
-            neutralButton,
+            { kind: 'card-action', action: 'add', deckSource: first!.source, deckId: first!.id },
+            button,
             card,
             '機密語を読む。',
         )).resolves.toBe(true);
 
-        expect(neutralButton.attributes).toHaveLength(0);
         expect(addToDeck).toHaveBeenCalledWith('private-jpdb-deck-id', card, '機密語を読む。');
     });
 
-    // An ordinary page can read every toast. Whatever destination "Add to deck +"
+    // An ordinary page can read every toast. Whatever deck "Add to deck…"
     // reaches, and however it fails, what it reports names no service, deck or
     // Anki state; Study keeps the named copy.
     describe('collection outcomes', () => {
@@ -266,20 +274,31 @@ describe('offhost account-data privacy', () => {
             ['Anki unreachable', { ankiEnabled: true }, { anki: anki(false, async () => { throw new Error(`AnkiConnect refused ${PRIVATE_DECK}`); }) as never }],
         ];
 
-        async function saveOnPage(language: 'en' | 'ja', learner: Partial<ReaderSettings>, services: Partial<Parameters<typeof testCardActionController>[0]>, word: JPDBCard, trusted = false): Promise<string[]> {
+        async function saveOnPage(language: 'en' | 'ja', learner: Partial<ReaderSettings>, services: Partial<Parameters<typeof testCardActionController>[0]>, word: JPDBCard, trusted = false, wordLists = [{ id: '3', name: PRIVATE_DECK }]): Promise<string[]> {
             document.body.replaceChildren();
             const chosen = { ...keyless, ...learner, interfaceLanguage: language };
             const controller = testCardActionController({ getSettings: () => chosen, toast: message => showReaderToast(message), resolveMiningContext: miningContext,
                 isJpdbBackedCard: candidate => candidate.source === 'jpdb', accountDataSurfaceTrusted: () => trusted, ...services });
-            await controller.perform({ kind: 'card-action', action: 'add-default' }, document.createElement('button'), { ...word }, '機密語を読む。')
+            await controller.perform(pickedDeck(chosen, word, wordLists), document.createElement('button'), { ...word }, '機密語を読む。')
                 .catch((error: unknown) => showReaderToast(userFacingErrorText(language, 'actionFailed', error)));
             return [...document.querySelectorAll('.jpdb-reader-toast')].map(toast => toast.textContent ?? '');
         }
 
+        // The deck "Add to deck…" offers first, as the learner would pick it.
+        // With no word list Jiten is not offered; a picker opened before the
+        // learner deleted their last word list still names an empty one.
+        function pickedDeck(chosen: ReaderSettings, word: JPDBCard, wordLists: Array<{ id: string; name: string }>): CardCommandCapability {
+            const html = popupRenderer(false, chosen).render(word, '機密語を読む。', 'modal', richRenderData({ jitenDecks: wordLists }));
+            const root = document.createElement('div');
+            setInnerHtml(root, html);
+            const [first] = readCardUiCommandCapability(root.querySelector('[data-action="deck-picker"]'))?.choices ?? [];
+            return { kind: 'card-action', action: 'add', deckSource: first?.source ?? 'jiten', deckId: first?.id ?? '' };
+        }
+
         const cases = destinations.flatMap(([name, learner, services, word = card]) => (['en', 'ja'] as const)
             .map(language => ({ name, language, learner, services, word })));
-        it.each(cases)('names no service for $name ($language)', async ({ language, learner, services, word }) => {
-            const toasts = await saveOnPage(language, learner, services, word);
+        it.each(cases)('names no service for $name ($language)', async ({ name, language, learner, services, word }) => {
+            const toasts = await saveOnPage(language, learner, services, word, false, name.includes('without a word list') ? [] : undefined);
             expect(toasts.length).toBeGreaterThan(0);
             for (const toast of toasts) {
                 expect(toast).not.toMatch(/anki|jpdb|jiten|bunpro|wanikani|academy/i);
@@ -639,7 +658,7 @@ function popupRenderer(trusted: boolean, selectedSettings = settings): CardPopov
     });
 }
 
-function richRenderData() {
+function richRenderData(overrides = {}) {
     return {
         localEntries: [],
         kanjiEntries: [],
@@ -651,6 +670,7 @@ function richRenderData() {
         jpdbVocabularyInfo: null,
         jitenVocabularyInfo: null,
         loading: false,
+        ...overrides,
     };
 }
 

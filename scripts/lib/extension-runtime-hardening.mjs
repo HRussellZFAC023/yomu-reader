@@ -2,6 +2,7 @@ import { readdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { strToU8, unzipSync, zipSync } from 'fflate';
 import { assertCompilerStorageContract } from './extension-storage-contract.mjs';
+import { installExtensionPopupActionsSource } from './extension-popup-actions.mjs';
 import {
     extensionStoragePrefixFromBackgroundSource,
     hardenCompilerRuntimeMessageChannel,
@@ -411,7 +412,10 @@ export function extensionStudyStorageRuntimeSource(storagePrefix) {
 }
 
 export function hardenExtensionPopupSource(source, options = {}) {
-    if (options.target !== 'safari') return source;
+    return installExtensionPopupActionsSource(options.target === 'safari' ? safariInjectableTabsOnly(source) : source);
+}
+
+function safariInjectableTabsOnly(source) {
     const injectablePattern = 'return /^https?:|^file:/i.test(url);';
     if (!source.includes(injectablePattern)) {
         if (source.includes('return /^https?:/i.test(url);')) return source;
@@ -654,6 +658,7 @@ export async function assertExtensionReleasePackageParity(root) {
         'manifest.json',
         'background.js',
         'content.js',
+        POPUP_FILE,
         PACKAGED_STUDY_STORAGE_RUNTIME_FILE,
         'newtab/index.html',
     ]);
@@ -661,6 +666,7 @@ export async function assertExtensionReleasePackageParity(root) {
         'manifest.json',
         'background.js',
         'gm-runtime.js',
+        POPUP_FILE,
         PACKAGED_STUDY_STORAGE_RUNTIME_FILE,
         'newtab/index.html',
         'content.js',
@@ -986,6 +992,7 @@ async function hardenReleaseArchiveEntry(name, bytes, entries, options) {
     if (name === BACKGROUND_FILE) return hardenReleaseArchiveBackground(bytes, options);
     if (name === CONTENT_FILE) return hardenReleaseArchiveContent(bytes, entries, options.target);
     if (name === MANIFEST_FILE) return hardenReleaseArchiveManifest(bytes, options);
+    if (name === POPUP_FILE) return strToU8(hardenExtensionPopupSource(new TextDecoder().decode(bytes), { target: options.target }));
     return bytes;
 }
 

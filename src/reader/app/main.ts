@@ -6964,9 +6964,7 @@ export class ReaderApp {
     }
 
     private handleCardPopoverDeckPickerAction(button: HTMLButtonElement, card: JPDBCard, sentence: string | undefined): boolean {
-        if (cardPopoverDeckPickerCommand(button)) return this.openDeckPickerForAdd(button, card, sentence);
-        if (!cardPopoverAddCommand(button)) return false;
-        return this.openDeckPickerForAdd(button, card, sentence);
+        return cardPopoverDeckPickerCommand(button) && this.openDeckPickerForAdd(button, card, sentence);
     }
 
     private toggleMiningControls(button: HTMLButtonElement): void {
@@ -10023,10 +10021,6 @@ function jpdbPageAddonActionButton(event: MouseEvent, root: HTMLElement): HTMLBu
 
 function cardPopoverDeckPickerCommand(button: HTMLButtonElement): boolean {
     return privateCommands.readCardUiCommandCapability(button)?.action === 'deck-picker';
-}
-
-function cardPopoverAddCommand(button: HTMLButtonElement): boolean {
-    return privateCommands.readCardCommandCapability(button)?.action === 'add';
 }
 
 function mainCardCommand(button: HTMLButtonElement, supplied: privateCommands.CardCommandCapability | undefined): privateCommands.CardCommandCapability | undefined {

@@ -587,7 +587,6 @@ export interface ReaderSettings {
     popupFontFamily: string;
     popupFontWeight: number;
     miningDeck: string;
-    autoMineOnReview: boolean;
     jpdbMiningEnabled: boolean;
     bunproMiningEnabled: boolean;
     wanikaniReviewEnabled: boolean;

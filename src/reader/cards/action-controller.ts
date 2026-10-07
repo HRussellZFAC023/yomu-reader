@@ -4,6 +4,7 @@ import { copyText } from '../ui/browser';
 import { PreparedBatchActions } from './prepared-batch-actions';
 import { findWordsOnService } from './grading-service-word';
 import { retireGradeKeyHints } from './grade-key-hints';
+import { Logger } from '../app/logger';
 import { normalizeCardStates } from './state';
 import { readerWordSurfaceText } from '../dom/index';
 import { JpdbClient } from '../jpdb/jpdb';
@@ -41,6 +42,8 @@ import {
     privateReviewGradeAllowed,
     type CardCommandCapability,
 } from '../dom/private-command-capabilities';
+
+const log = Logger.scope('CardActionController');
 
 interface ShowCardOptions {
     autoPlay?: boolean;
@@ -115,7 +118,7 @@ export class CardActionController {
     constructor(private options: CardActionControllerOptions) {
         this.batchMining = new PreparedBatchActions({
             getSettings: () => this.options.getSettings(),
-            // "Add selected" saves each word where the popup's "Add to deck +" would.
+            // "Add selected" saves each word to the deck "Add to deck…" offers first.
             resolveCollectionDestination: (card, settings, without) => this.privateDefaultDestination(card, settings, without),
             resolveReviewProvider: (card, settings) => this.gradingProviderForCard(card, settings),
             collectionDeck: (provider, settings) => this.privateDefaultDeckId(provider, settings),
@@ -289,8 +292,7 @@ export class CardActionController {
 
     private miningActionHandler(command: CardCommandCapability, button: HTMLButtonElement, card: JPDBCard, sentence: string | undefined, context: CardActionContext): MiningActionHandler | undefined {
         const handlers: Record<string, MiningActionHandler> = {
-            add: () => this.addToSelectedDeck(command, card, sentence, context),
-            'add-default': () => this.addToPrivateDefaultDeck(card, sentence, context),
+            add: () => this.collect(context, collectContext => this.addToSelectedDeck(command, card, sentence, collectContext)),
             anki: () => this.addToAnki(card, sentence, undefined, context),
             'anki-edit': () => this.openAnkiNote(command),
             'anki-merge': () => this.mergeExistingAnkiCard(command, button, card, sentence, context),
@@ -460,10 +462,10 @@ export class CardActionController {
 
     // An ordinary page renders this save and can read what it reports (ADR-0020):
     // a confirmation or failure there names no service, deck or Anki state.
-    private async addToPrivateDefaultDeck(card: JPDBCard, sentence: string | undefined, context: CardActionContext): Promise<void> {
-        if (this.accountDataSurfaceTrusted()) return this.addToDefaultDestination(card, sentence, context);
+    private async collect(context: CardActionContext, save: (context: CardActionContext) => Promise<void>): Promise<void> {
+        if (this.accountDataSurfaceTrusted()) return save(context);
         try {
-            await this.addToDefaultDestination(card, sentence, { ...context, privately: true });
+            await save({ ...context, privately: true });
         } catch (error) {
             throw privateCollectionFailure(error);
         }
@@ -473,18 +475,6 @@ export class CardActionController {
         return this.options.accountDataSurfaceTrusted?.() ?? currentAccountDataSurfaceIsTrusted();
     }
 
-    // Only Jiten can have no collection for a word (no word list): the save
-    // then goes to the next destination, which always has one (ADR-0016).
-    private async addToDefaultDestination(card: JPDBCard, sentence: string | undefined, context: CardActionContext, without?: ApiSrsProviderId): Promise<void> {
-        const settings = this.options.getSettings();
-        const destination = this.privateDefaultDestination(card, settings, without);
-        if (destination === 'anki') return this.addToAnki(card, sentence, settings.ankiDeck, context);
-        if (!destination) throw userFacingError(noCollectionKey(without));
-        const selectedDeckId = await this.privateDefaultDeckId(destination, settings);
-        if (!selectedDeckId) return this.addToDefaultDestination(card, sentence, context, destination.id);
-        await this.addToApiProviderDeck(destination, selectedDeckId, card, sentence, context, settings, await this.wordOnCollectionService(destination, card));
-    }
-
     // A save follows the grade row (ADR-0016): the grading service saves a word
     // another service identified only after finding it, and no match saves
     // nothing anywhere (ADR-0021).
@@ -492,8 +482,7 @@ export class CardActionController {
         return acceptsForCollection(provider, card) ? Promise.resolve(card) : this.resolveWordOnGradingService(card, provider, 'collectWordNotFound');
     }
 
-    // The popup renders "Add to deck +" from the same destination list, so the
-    // save lands on the first destination the learner was offered.
+    // The popup's "Add to deck…" offers the same destinations, this one first.
     private privateDefaultDestination(card: JPDBCard, settings: ReaderSettings, without?: ApiSrsProviderId): ApiSrsProviderAdapter | 'anki' | null {
         const providers = this.apiProviders(settings).filter(provider => provider.hasApiKey);
         for (const id of collectionDestinationsForCard(card, settings, this.options.isJpdbBackedCard, without)) {
@@ -677,9 +666,8 @@ export class CardActionController {
         const result = await provider.reviewCard(target, grade, { sentence, deckId: this.reviewDeckId(options) });
         options.onReviewed?.();
         options.assertCurrent?.();
-        if (result.addedBeforeReview) {
-            if (!options.suppressToast) this.options.toast(uiText(settings.interfaceLanguage, 'addedToDeckAndReviewed'));
-        } else if (settings.autoMineOnReview) await this.autoMineReviewedCard(provider, target, sentence, states, settings, options.suppressToast === true);
+        const added = result.addedBeforeReview || await this.collectGradedWord(provider, target, sentence, states, settings);
+        if (added && !options.suppressToast) this.options.toast(uiText(settings.interfaceLanguage, 'addedToDeckAndReviewed'));
         this.notifyApiCardStateChanged(target);
     }
 
@@ -692,17 +680,22 @@ export class CardActionController {
         return match;
     }
 
-    // Jiten Reader parity: optionally add every reviewed word to the mining
-    // deck so reviewing doubles as collecting (off by default).
-    private async autoMineReviewedCard(provider: ApiSrsProviderAdapter, card: JPDBCard, sentence: string | undefined, states: string[], settings: ReaderSettings, suppressToast = false): Promise<void> {
-        if (!states.includes('not-in-deck')) return;
+    // A grade adds the word to the grading service's deck when it is in none
+    // (owner decision 1, 2026-10-07): the deck "Add to deck…" offers first.
+    // JPDB and the Yomu deck add it themselves before the review; Jiten's
+    // review only schedules the word, so it joins the first word list here,
+    // and a learner with none keeps the grade without a deck.
+    private async collectGradedWord(provider: ApiSrsProviderAdapter, card: JPDBCard, sentence: string | undefined, states: string[], settings: ReaderSettings): Promise<boolean> {
+        if (!states.includes('not-in-deck')) return false;
         try {
-            const deckId = provider.selectedDeckId(this.reviewDeckId({}), settings);
-            if (!deckId) return;
-            await provider.addToDeck(deckId, card, sentence, { sourceTitle: document.title });
-            if (!suppressToast) this.options.toast(uiText(settings.interfaceLanguage, 'addedToDeckAndReviewed'));
-        } catch {
-            // Auto-mining is a convenience; the review itself already succeeded.
+            const deckId = await this.privateDefaultDeckId(provider, settings);
+            if (!deckId) return false;
+            await provider.addToDeck(deckId, card, sentence, { sourceTitle: document.title, sourceUrl: location.href });
+            return true;
+        } catch (error) {
+            // The review itself already succeeded.
+            log.warn('Adding a graded word to its deck failed', { provider: provider.id, term: card.spelling }, error);
+            return false;
         }
     }
 
@@ -909,10 +902,6 @@ function acceptsForCollection(provider: ApiSrsProviderAdapter, card: JPDBCard): 
 
 function missingProviderDeckKey(provider: ApiSrsProviderAdapter): UiCopyKey {
     return provider.id === 'jiten' ? 'jitenNeedsWordList' : provider.addApiKeyRequiredKey;
-}
-
-function noCollectionKey(without: ApiSrsProviderId | undefined): UiCopyKey {
-    return without === 'jiten' ? 'jitenNeedsWordList' : 'collectNoDestination';
 }
 
 function providerCanDropMedia(provider: ApiSrsProviderAdapter, minedToAnkiToo: boolean): boolean {

@@ -524,7 +524,6 @@ function readMiningFormSettings(reader: SettingsFormReader, current: ReaderSetti
         bunproMiningEnabled: has('bunproMiningEnabled'),
         wanikaniReviewEnabled: has('wanikaniReviewEnabled'),
         yomuLocalSrsEnabled: has('yomuLocalSrsEnabled'),
-        autoMineOnReview: has('autoMineOnReview'),
         miningDeck: get('miningDeck').trim() || 'forq',
         neverForgetDeck: get('neverForgetDeck').trim() || 'never-forget',
         blacklistDeck: get('blacklistDeck').trim() || 'blacklist',
