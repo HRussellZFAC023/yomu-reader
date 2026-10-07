@@ -104,9 +104,6 @@ async function createMainWindow(): Promise<void> {
     });
     const window = mainWindow;
     hardenWebContents(window);
-    window.once('ready-to-show', () => {
-        if (!window.isDestroyed()) window.show();
-    });
     window.on('close', event => {
         const intent = windowCloseIntent(lifecycleState());
         // Park the window instead of destroying it: the capture shortcut and the tray keep
@@ -124,16 +121,16 @@ async function createMainWindow(): Promise<void> {
         mainWindow = null;
     });
     await window.loadURL(rendererUrl());
-    if (!window.isDestroyed() && !window.isVisible()) window.show();
+    if (!window.isDestroyed() && !tray) window.show();
 }
 
 function mainWindowOptions(): Pick<BrowserWindowConstructorOptions, 'x' | 'y' | 'width' | 'height'> {
     const workArea = activeDisplay().workArea;
     return {
-        x: workArea.x,
-        y: workArea.y,
-        width: Math.max(640, workArea.width),
-        height: Math.max(520, workArea.height),
+        x: workArea.x + Math.max(0, Math.round((workArea.width - 920) / 2)),
+        y: workArea.y + Math.max(0, Math.round((workArea.height - 780) / 2)),
+        width: Math.min(920, workArea.width),
+        height: Math.min(780, workArea.height),
     };
 }
 

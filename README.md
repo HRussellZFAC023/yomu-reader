@@ -248,3 +248,5 @@ The desktop app (previously Yomu Gaming) reads Japanese in games and other apps.
 The live layer uses the last capture's text; it does not track moving text automatically. Exclusive fullscreen and native Wayland window/input behavior require device verification. OCR providers that return word boxes use those boxes for hit areas; line-only responses retain the fitted-line fallback.
 
 Desktop settings use one Export/Import JSON flow. Desktop exports restore capture settings too; importing browser settings preserves the current desktop capture setup. Older app-local snapshot files are left untouched.
+
+The desktop app stays in the tray. Use its Read screen command or your capture shortcut; open Settings only when needed. There is no introductory home screen.

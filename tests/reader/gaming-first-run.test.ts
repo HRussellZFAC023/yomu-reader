@@ -1,18 +1,7 @@
-// The Yomu Gaming window opens on ONE surface that answers two questions: what this app
-// is, and what to press. Regression guard for the first run that said the same thing
-// twice in two styles, offered six buttons for three actions, and used the reader's Media
-// settings tab (audio sources, text-to-speech, proxy URL) as its landing surface.
-//
-// It also guards the follow-on failure: the hero naming a key the system never handed
-// over, and a green "saved" for a shortcut that never took. Both facts come from
-// `hotkeyRegistered` now, so these tests drive a bridge whose registration they control.
-//
-// The gaming renderer boots itself on import and pulls in the whole reader, so the shell
-// is booted once for the file and each test leaves it back on Home.
-import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
+// Settings is the only ordinary desktop window. Native shortcuts and overlay requests share it.
+import { beforeAll, describe, expect, it, vi } from 'vitest';
 import type { YomuGamingBridge, YomuGamingEnvironment } from '../../src/gaming/ipc';
 
-const SNAPSHOT_KEY = 'yomu-gaming-settings-snapshot-v1';
 const SETTINGS_KEY = 'yomu-gaming-reader-settings-v1';
 
 let appRoot: HTMLElement;
@@ -81,44 +70,21 @@ beforeAll(async () => {
         createGamingReaderSettingsSurface,
     } = await import('../../src/gaming/renderer/app'));
     await vi.waitFor(() => {
-        expect(document.querySelector('[data-gaming-home] h1')).not.toBeNull();
-        expect(document.querySelector('[data-gaming-home] [data-action="instant-capture"]')).not.toBeNull();
+        expect(document.querySelector('[data-yomu-gaming-settings]')).not.toBeNull();
     });
     appRoot = document.querySelector<HTMLElement>('#app')!;
 }, 120_000);
 
-afterEach(() => {
-    const back = appRoot.querySelector<HTMLButtonElement>('[data-action="close-settings"]');
-    if (shellView() === 'settings' && back) back.click();
-    // Every test in this file shares ONE app instance and one localStorage,
-    // because the renderer is imported once in beforeAll. The snapshot a backup
-    // test writes therefore survives into the next test, which is enough to
-    // change what a later restore observes. "keeps the settings tab you were on"
-    // fails intermittently inside the sharded CI suite while passing alone and
-    // as a whole file, so shared state is the shape to remove — this closes the
-    // intra-file half of it. Tracked as A40; do not read a green run here as
-    // proof the sharded failure is gone.
-    localStorage.removeItem(SNAPSHOT_KEY);
-});
-
 function shellView(): string {
     return appRoot.querySelector<HTMLElement>('.yomu-gaming-shell')?.dataset.shellView ?? '';
-}
-
-function home(): HTMLElement {
-    return appRoot.querySelector<HTMLElement>('[data-gaming-home]')!;
 }
 
 function settingsForm(): HTMLFormElement {
     return appRoot.querySelector<HTMLFormElement>('[data-yomu-gaming-settings]')!;
 }
 
-function shortcutLine(): HTMLElement {
-    return home().querySelector<HTMLElement>('[data-gaming-shortcut-line]')!;
-}
-
 function homeStatus(): HTMLElement {
-    return home().querySelector<HTMLElement>('[data-gaming-shell-status]')!;
+    return settingsForm().querySelector<HTMLElement>('[data-gaming-shell-status]')!;
 }
 
 function activePanel(): string {
@@ -129,14 +95,9 @@ function click(scope: HTMLElement, selector: string): void {
     scope.querySelector<HTMLButtonElement>(selector)!.click();
 }
 
-function text(scope: HTMLElement, selector: string): string {
-    return scope.querySelector<HTMLElement>(selector)!.textContent ?? '';
-}
-
 // The real path a user takes: open Settings, put a shortcut in the capture field, wait
 // for the app to finish answering.
 async function saveShortcut(value: string): Promise<void> {
-    if (shellView() !== 'settings') click(home(), '[data-action="open-settings"]');
     const input = settingsForm().querySelector<HTMLInputElement>('[data-native-capture-shortcut] [data-capture-shortcut-input]')!;
     input.value = value;
     input.dispatchEvent(new Event('change'));
@@ -146,81 +107,14 @@ async function saveShortcut(value: string): Promise<void> {
     });
 }
 
-describe('Yomu Gaming first run', () => {
-    it('captures immediately on a fresh install, with no target to choose first', () => {
-        expect(shellView()).toBe('home');
-        expect(text(home(), 'h1')).toBe('Read Japanese anywhere on your screen');
-        expect(home().dataset.targetChoiceRequired).toBeUndefined();
-        expect(home().querySelector('[data-action="choose-target"]')).toBeNull();
-        expect(home().querySelector('[data-action="instant-capture"]')).not.toBeNull();
-        expect(home().querySelector('[data-action="area-capture"]')).not.toBeNull();
-        expect(home().querySelector('[data-hotkey]')).not.toBeNull();
-        // Nothing had to be saved for capture to be ready.
-        expect(localStorage.getItem(SETTINGS_KEY)).toBeNull();
-
-        click(home(), '[data-action="open-settings"]');
+describe('Desktop settings without a home screen', () => {
+    it('opens only settings and never requires a target choice', () => {
+        expect(document.querySelector('[data-gaming-home]')).toBeNull();
         expect(settingsForm().querySelector('select[name="targetLanguage"]')).toBeNull();
-    });
-
-    it('keeps capture ready across an unrelated settings save', () => {
-        click(home(), '[data-action="open-settings"]');
-        click(settingsForm(), '[data-action="settings-panel"][data-panel="appearance"]');
-        click(settingsForm(), '[data-theme-switch]');
-
-        const stored = JSON.parse(localStorage.getItem(SETTINGS_KEY) ?? '{}') as Record<string, unknown>;
-        expect(stored).not.toHaveProperty('learningTargetChosen');
-        expect(stored).not.toHaveProperty('onboardingSeen');
-        click(settingsForm(), '[data-action="close-settings"]');
-        expect(text(home(), 'h1')).toBe('Read Japanese anywhere on your screen');
-        expect(home().querySelector('[data-action="instant-capture"]')).not.toBeNull();
-    });
-
-    it('lands on one hero with one primary action and the shortcut shown once', () => {
-        expect(shellView()).toBe('home');
-        expect(home().hidden).toBe(false);
-        expect(settingsForm().hidden).toBe(true);
-
-        const headings = appRoot.querySelectorAll('h1');
-        expect(headings).toHaveLength(1);
-        expect(headings[0]?.textContent).toBe('Read Japanese anywhere on your screen');
-
-        const actions = Array.from(home().querySelectorAll<HTMLButtonElement>('button[data-action]'));
-        expect(actions.map(button => button.dataset.action)).toEqual(['instant-capture', 'open-settings']);
-        expect(actions.filter(button => button.classList.contains('add'))).toHaveLength(1);
-        expect(appRoot.querySelectorAll('[data-hotkey]')).toHaveLength(1);
-        expect(shortcutLine().querySelector('[data-hotkey]')?.textContent).toBe('Ctrl+Shift+Y');
-    });
-
-    it('says what it does without leaking mechanism or narrowing to games', () => {
-        const copy = home().textContent ?? '';
-        expect(copy).toContain('Read Japanese anywhere on your screen');
-        expect(copy).toContain('Read my screen');
-        expect(copy).not.toMatch(/OCR|Google Lens|proxy/i);
-        expect(copy).not.toMatch(/game text|in games/i);
-    });
-
-    it('adds nothing to the hero while the shortcut works', () => {
-        expect(shortcutLine().dataset.shortcutReady).toBe('true');
-        expect(shortcutLine().textContent).toContain('any time, in any app');
-        expect(homeStatus().hidden).toBe(true);
-        expect(homeStatus().textContent).toBe('');
-    });
-
-    it('opens settings on the capture shortcut, never on the media tab', () => {
-        click(home(), '[data-action="open-settings"]');
-
         expect(shellView()).toBe('settings');
-        expect(home().hidden).toBe(true);
-        expect(settingsForm().hidden).toBe(false);
-        expect(activePanel()).not.toBe('media');
-        expect(activePanel()).toBe('shortcuts');
-        expect(settingsForm().querySelector('[data-native-capture-shortcut]')).not.toBeNull();
     });
 
-    // Gaming settings save as they change. A Reader shortcut is recorded from the
-    // keydown rather than typed, so it has to announce itself to be kept.
     it('keeps a Reader shortcut recorded on the Shortcuts tab', async () => {
-        click(home(), '[data-action="open-settings"]');
         const scanPage = settingsForm().querySelector<HTMLInputElement>('[data-shortcut-input][name="shortcuts.scanPage"]')!;
         const key = scanPage.value === 'Alt+K' ? 'L' : 'K';
 
@@ -270,15 +164,6 @@ describe('Yomu Gaming first run', () => {
         expect(hideOverlay).not.toHaveBeenCalled();
     });
 
-    it('returns home from settings', () => {
-        click(home(), '[data-action="open-settings"]');
-        click(settingsForm(), '[data-action="close-settings"]');
-
-        expect(shellView()).toBe('home');
-        expect(home().hidden).toBe(false);
-        expect(settingsForm().hidden).toBe(true);
-    });
-
     it('uses one Escape for the reader popover and the next for the overlay', () => {
         const hideOverlay = vi.fn(async () => undefined);
         const dispose = installOverlayEscapeHandler(hideOverlay);
@@ -305,7 +190,6 @@ describe('Yomu Gaming first run', () => {
     });
 
     it('offers portable export and import instead of duplicate local snapshots', () => {
-        click(home(), '[data-action="open-settings"]');
         click(settingsForm(), '[data-action="settings-panel"][data-panel="backup"]');
         expect(settingsForm().querySelector('[data-native-settings-sync]')).toBeNull();
         expect(settingsForm().querySelector<HTMLButtonElement>('[data-action="export-reader-settings"]')?.hidden).toBe(false);
@@ -317,51 +201,13 @@ describe('Yomu Gaming first run', () => {
 
         expect(homeStatus().textContent).toBe('Capture shortcut saved: Ctrl+Shift+K.');
         expect(homeStatus().dataset.statusTone).toBe('success');
-        expect(shortcutLine().querySelector('[data-hotkey]')?.textContent).toBe('Ctrl+Shift+K');
+        expect(settingsForm().querySelector<HTMLInputElement>('[data-capture-shortcut-input]')?.value).toBe('Ctrl+Shift+K');
     });
 
-    it('offers the next step instead of a key the system kept', async () => {
-        nextSaveEnvironment = {
-            ...registeredEnvironment('CommandOrControl+Shift+Y'),
-            hotkeyRegistered: false,
-            hotkeyError: 'Ctrl+Shift+P is taken here. Try another key.',
-        };
-        await saveShortcut('Ctrl+Shift+P');
-
-        // No green light for a shortcut the system never handed over.
-        expect(homeStatus().dataset.statusTone).toBe('warning');
-        expect(homeStatus().textContent).toBe('Ctrl+Shift+P is taken here. Try another key.');
-        expect(homeStatus().textContent).not.toContain('saved');
-
-        click(settingsForm(), '[data-action="close-settings"]');
-        // The hero stops naming a key nobody can press, and says where to fix it.
-        expect(shortcutLine().querySelector('[data-hotkey]')).toBeNull();
-        expect(shortcutLine().dataset.shortcutReady).toBe('false');
-        expect(shortcutLine().textContent).toBe('Pick a shortcut in Settings to read from any app.');
-        expect(home().textContent).not.toContain('any time, in any app');
-    });
-
-    it('still declines to claim success when a save comes back quiet', async () => {
-        nextSaveEnvironment = {
-            ...registeredEnvironment('Control+Shift+J'),
-            hotkeyRegistered: false,
-        };
-        await saveShortcut('Ctrl+Shift+J');
-
-        expect(homeStatus().dataset.statusTone).toBe('warning');
-        expect(homeStatus().textContent).toBe('Try another key to use the keyboard.');
-
-        click(settingsForm(), '[data-action="close-settings"]');
-        expect(shortcutLine().querySelector('[data-hotkey]')).toBeNull();
-        expect(shortcutLine().textContent).toBe('Pick a shortcut in Settings to read from any app.');
-    });
-
-    it('puts the key back on the hero as soon as one registers', async () => {
-        await saveShortcut('Ctrl+Shift+Y');
-        click(settingsForm(), '[data-action="close-settings"]');
-
-        expect(shortcutLine().dataset.shortcutReady).toBe('true');
-        expect(shortcutLine().querySelector('[data-hotkey]')?.textContent).toBe('Ctrl+Shift+Y');
-        expect(shortcutLine().textContent).toContain('any time, in any app');
+    it('contains settings only, with no intro, capture choice or status prose', () => {
+        expect(appRoot.querySelector('[data-gaming-home]')).toBeNull();
+        expect(appRoot.querySelector('[data-action="area-capture"]')).toBeNull();
+        expect(appRoot.querySelector('[data-gaming-session-note]')).toBeNull();
+        expect(settingsForm().hidden).toBe(false);
     });
 });

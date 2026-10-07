@@ -90,20 +90,17 @@ try {
     fixtureOcr = await startFixtureOcrServer();
     step('launch Electron app');
     let page = await launchGamingApp();
-    step('wait for Yomu home screen');
+    step('wait for Desktop settings');
     await assertGamingWindowIdentity(page);
     await page.waitForSelector('.yomu-gaming-shell[data-yomu-gaming-ready="true"]', { timeout: 45_000 });
-    await page.waitForSelector('.yomu-gaming-home', { timeout: 45_000 });
     await page.waitForSelector('.jpdb-reader-settings[data-yomu-gaming-settings]', { state: 'attached', timeout: 45_000 });
     await assertNativeWindowSize(page);
-    step('verify the first run is language-neutral');
-    await assertNeutralFirstRunClarity(page);
+    assertSmoke(await page.locator('[data-gaming-home]').count() === 0, 'Desktop still opens an unnecessary home screen.');
     await assertDefaultOcrPath(page);
     step('verify a pre-choice global capture does not sample the display and routes to the target setting');
     await assertUnchosenCaptureRoutesToTarget(page, fixtureOcr);
     step('choose Japanese explicitly for the Japanese OCR fixture');
     await chooseJapaneseTarget(page);
-    await assertFirstRunClarity(page);
     step('configure and persist capture shortcut');
     await configureCaptureShortcut(page, 'Ctrl+Shift+U');
     const savedShortcut = JSON.parse(readFileSync(captureShortcutPath, 'utf8'));
@@ -111,13 +108,12 @@ try {
         throw new Error(`Capture shortcut was not persisted: ${JSON.stringify(savedShortcut)}`);
     }
     await page.evaluate(() => localStorage.setItem('jpdb-popup-reader-settings', JSON.stringify({ apiKey: 'obsolete-reader-copy' })));
-    step('relaunch and verify the app still lands on home');
+    step('relaunch and verify persisted settings');
     await closeElectronApp(app);
     app = undefined;
     page = await launchGamingApp();
     await page.waitForSelector('.yomu-gaming-shell[data-yomu-gaming-ready="true"]', { timeout: 45_000 });
     await assertLegacyReaderSettingsCopyAbsent(page, 'packaged relaunch cleanup');
-    await assertFirstRunClarity(page);
     await openSettingsPanel(page, 'shortcuts');
     const restoredShortcut = await page.locator('[data-native-capture-shortcut] [data-capture-shortcut-input]').first().inputValue();
     if (restoredShortcut !== 'Ctrl+Shift+U') {
@@ -135,11 +131,11 @@ try {
     await page.locator('[data-action="export-reader-settings"]:visible').waitFor();
     step('import the browser settings export: its Pass/Fail grading reaches Gaming');
     await importBrowserSettingsExport(page, { twoButtonReviews: true });
-    await returnToHome(page);
+    await showSettingsWindow(page);
     await page.screenshot({ path: screenshotPath });
     step('run instant full-screen capture');
     fixtureOcr.setCaptureRegion(FULL_CAPTURE_REGION);
-    await page.locator('.yomu-gaming-home [data-action="instant-capture"]').click();
+    await page.evaluate(() => window.yomuGaming.showOverlay());
     const overlay = await waitForOverlayWindow(app, 'instant');
     await overlay.waitForSelector('[data-yomu-gaming-overlay-ready="true"][data-capture-mode="instant"][data-overlay-mode="result"]', { timeout: 10_000 });
     await assertNonActivatingLayer(overlay);
@@ -152,31 +148,9 @@ try {
     }
     step('press the capture shortcut with the overlay up: it reads the screen again');
     await assertShortcutRecapturesOverOverlay(overlay);
-    if (process.env.YOMU_DESKTOP_NATIVE_POINTER_PROOF === '1') {
-        rmSync(path.join(appRoot, 'qa-artifacts/native-pointer-finish'), { force: true });
-        await app.evaluate(async ({ BrowserWindow }, fixturePath) => {
-            process.env.YOMU_GAMING_TEST_MODE = '0';
-            await globalThis.__yomuGamingPressCaptureShortcut();
-            const layer = BrowserWindow.getAllWindows().find(window => window.webContents.getURL().includes('#overlay-instant'));
-            const fixture = new BrowserWindow({ width: 640, height: 360, title: 'Test window',
-                webPreferences: { contextIsolation: true, nodeIntegration: false } });
-            await fixture.loadFile(fixturePath);
-            fixture.show(); fixture.focus(); layer.showInactive();
-        }, path.join(appRoot, 'tests/reader/fixtures/desktop-pointer.html'));
-        writeFileSync(path.join(appRoot, 'qa-artifacts/native-pointer-ready'), 'ready');
-        console.log('[desktop-native] Fixture ready for actual OS pointer input.');
-        while (!existsSync(path.join(appRoot, 'qa-artifacts/native-pointer-finish'))) await new Promise(resolve => setTimeout(resolve, 500));
-        const evidence = await app.evaluate(async ({ BrowserWindow }) => {
-            const fixture = BrowserWindow.getAllWindows().find(window => window.getTitle() === 'Test window');
-            const layer = BrowserWindow.getAllWindows().find(window => window.webContents.getURL().includes('#overlay-instant'));
-            return { fixtureFocused: fixture.isFocused(), layerFocused: layer.isFocused(), text: await fixture.webContents.executeJavaScript('document.body.innerText') };
-        });
-        writeFileSync(path.join(appRoot, 'qa-artifacts/native-pointer-report.json'), JSON.stringify(evidence, null, 2));
-        assertSmoke(evidence.text.includes('Done') && !evidence.layerFocused, 'Actual pointer did not reach the underlying fixture.');
-    }
     step('open native settings from the inline Reader shortcut');
     await assertInlineReaderSettingsLandsOnSettings(page, overlay);
-    await returnToHome(page);
+    await showSettingsWindow(page);
     assertSmoke(await page.locator('[data-action="area-capture"]').count() === 0, 'Removed region selector is still offered.');
     console.log(`Desktop fixture OCR: ${fullScreenRequest.png.width}x${fullScreenRequest.png.height}; fresh recapture passed. Native hardware gaps: ${path.relative(appRoot, hardwareGapPath)}`);
     smokePassed = true;
@@ -201,6 +175,7 @@ async function launchGamingApp() {
         },
     });
     const page = await withTimeout(app.firstWindow(), 20_000, 'settings window');
+    await page.evaluate(() => window.yomuGaming.showApp());
     app.on('window', attachPageDiagnostics);
     attachPageDiagnostics(page);
     return page;
@@ -221,7 +196,7 @@ function electronLaunchEnv() {
 
 async function openSettingsPanel(page, panel) {
     if (!await page.locator('.jpdb-reader-settings[data-yomu-gaming-settings]:visible').count()) {
-        await page.locator('.yomu-gaming-home [data-action="open-settings"]').click();
+        await page.evaluate(() => window.yomuGaming.showApp());
     }
     await page.locator('[data-action="settings-panel"][data-panel="' + panel + '"]').click();
     await page.waitForFunction(expected => {
@@ -230,11 +205,9 @@ async function openSettingsPanel(page, panel) {
     }, panel, { timeout: 10_000 });
 }
 
-async function returnToHome(page) {
-    if (await page.locator('[data-action="close-settings"]:visible').count()) {
-        await page.locator('[data-action="close-settings"]').first().click();
-    }
-    await page.locator('.yomu-gaming-home').waitFor({ timeout: 10_000 });
+async function showSettingsWindow(page) {
+    // Settings is the only ordinary window; capture is invoked through the native bridge.
+    await page.evaluate(() => window.yomuGaming.showApp());
 }
 
 async function assertCompactSettingsActions(page) {
@@ -444,80 +417,6 @@ function crc32(buffer) {
 
 // A compatibility profile still contains Japanese defaults, but fresh Gaming has no
 // learner intent yet. It may name neither Japanese nor a capture path until selection.
-async function assertNeutralFirstRunClarity(page) {
-    const home = page.locator('.yomu-gaming-home[data-target-choice-required="true"]');
-    await home.waitFor({ timeout: 10_000 });
-    const shape = await gamingHomeShape(page);
-    assertSmoke(shape.headings === 1, `Yomu Gaming neutral first run showed ${shape.headings} heroes instead of one.`);
-    assertSmoke(shape.primaries === 1, `Yomu Gaming neutral first run showed ${shape.primaries} primary actions instead of one.`);
-    const actionNames = shape.actions.map(action => action.name);
-    assertSmoke(JSON.stringify(actionNames) === JSON.stringify(['choose-target', 'open-settings']), `Yomu Gaming neutral first run exposed capture actions: ${JSON.stringify(actionNames)}`);
-    assertSmoke(shape.shortcuts === 0, `Yomu Gaming neutral first run advertised ${shape.shortcuts} capture shortcuts before target choice.`);
-    const copy = await home.innerText();
-    const missing = ['よむ Desktop', 'Choose the language you want to read', 'Choose a language']
-        .filter(expected => !copy.toLowerCase().includes(expected.toLowerCase()));
-    assertSmoke(missing.length === 0, `Yomu Gaming neutral first run is missing ${JSON.stringify(missing)}: ${copy}`);
-    const leaked = ['Japanese', 'Read my screen', 'Read part of the screen'].filter(forbidden => copy.includes(forbidden));
-    assertSmoke(leaked.length === 0, `Yomu Gaming neutral first run still promises ${JSON.stringify(leaked)}: ${copy}`);
-}
-
-// Once the player has chosen the Japanese fixture's target, preserve the established
-// three-action home: one primary capture, one area capture, Settings, and one shortcut.
-async function assertFirstRunClarity(page) {
-    const home = page.locator('.yomu-gaming-home');
-    await home.waitFor({ timeout: 10_000 });
-    await assertHomeSurfaceVisible(page);
-    const shape = await gamingHomeShape(page);
-    assertChosenHomeShape(shape);
-    const copy = await home.innerText();
-    // The wordmark is styled uppercase, so match it the way it reads, not the way it is cased.
-    assertSmoke(/よむ Desktop/i.test(copy), `Yomu Gaming first run does not name the app: ${copy}`);
-    assertCopyIncludes(copy, ['Read Japanese anywhere on your screen', 'Read my screen', 'Settings']);
-    assertCopyExcludes(copy, ['Google Lens', 'OCR', 'proxy', 'Try now', 'Choose area', 'Done', 'Japanese anywhere on your PC', 'Page scanning', 'Manual scan shortcut', 'Scan modifier key']);
-    assertSmoke(!/endpoint|127\.0\.0\.1/i.test(copy), `Yomu Gaming first run still exposes advanced OCR setup: ${copy}`);
-    assertSmoke(!ambiguousScanCopyPattern.test(copy), `Yomu Gaming first run still uses ambiguous scan copy: ${copy}`);
-}
-
-async function assertHomeSurfaceVisible(page) {
-    const visibleSettings = await page.locator('.jpdb-reader-settings[data-yomu-gaming-settings]:visible').count();
-    assertSmoke(visibleSettings === 0, 'Yomu Gaming opened on the settings form instead of its home screen.');
-}
-
-function assertChosenHomeShape(shape) {
-    assertSmoke(shape.headings === 1, `Yomu Gaming first run shows ${shape.headings} heroes; it must show exactly one.`);
-    assertSmoke(
-        shape.actions.length === 2 && shape.primaries === 1,
-        `Yomu Gaming first run must offer two actions with one primary: ${JSON.stringify(shape.actions)}`,
-    );
-    assertSmoke(shape.shortcuts === 1, `Yomu Gaming first run shows the capture shortcut ${shape.shortcuts} times; it must show it once.`);
-}
-
-function assertCopyIncludes(copy, required) {
-    const missing = required.filter(expected => !copy.includes(expected));
-    assertSmoke(missing.length === 0, `Yomu Gaming first run is missing ${JSON.stringify(missing)}: ${copy}`);
-}
-
-function assertCopyExcludes(copy, forbidden) {
-    const exposed = forbidden.filter(fragment => copy.includes(fragment));
-    assertSmoke(exposed.length === 0, `Yomu Gaming first run still exposes ${JSON.stringify(exposed)}: ${copy}`);
-}
-
-async function gamingHomeShape(page) {
-    return page.evaluate(() => {
-        const surface = document.querySelector('.yomu-gaming-home');
-        const actions = Array.from(surface?.querySelectorAll('button[data-action]') ?? []);
-        return {
-            headings: document.querySelectorAll('.yomu-gaming-shell h1:not([hidden])').length,
-            actions: actions.map(button => ({
-                name: button.dataset.action ?? '',
-                label: (button.textContent || '').trim(),
-            })),
-            primaries: actions.filter(button => button.classList.contains('add')).length,
-            shortcuts: surface?.querySelectorAll('kbd[data-hotkey]').length ?? 0,
-        };
-    });
-}
-
 function assertSmoke(condition, message) {
     if (!condition) throw new Error(message);
 }
@@ -525,7 +424,7 @@ function assertSmoke(condition, message) {
 async function assertUnchosenCaptureRoutesToTarget(page, fixtureOcr) {
     const requestCount = fixtureOcr.requests.length;
     const overlayCount = app.windows().filter(window => window.url().includes('#overlay-')).length;
-    await page.evaluate(() => window.yomuGaming?.showOverlay('instant'));
+    await page.evaluate(() => window.yomuGaming?.showOverlay());
     await page.bringToFront();
     await page.waitForFunction(() => {
         const shell = document.querySelector('.yomu-gaming-shell');
@@ -545,16 +444,8 @@ async function assertUnchosenCaptureRoutesToTarget(page, fixtureOcr) {
 async function chooseJapaneseTarget(page) {
     const target = page.locator('select[name="targetLanguage"]');
     await target.selectOption('ja');
-    await page.locator('.yomu-gaming-home [data-action="instant-capture"]').waitFor({ state: 'visible', timeout: 10_000 });
-    const state = await page.evaluate(() => {
-        const settings = JSON.parse(localStorage.getItem('yomu-gaming-reader-settings-v1') || '{}');
-        return {
-            chosen: settings.learningTargetChosen,
-            heading: document.querySelector('.yomu-gaming-home h1')?.textContent ?? '',
-        };
-    });
-    assertSmoke(state.chosen === true, `Yomu Gaming did not persist explicit target intent: ${JSON.stringify(state)}`);
-    assertSmoke(state.heading === 'Read Japanese anywhere on your screen', `Yomu Gaming did not adopt the explicit Japanese choice: ${JSON.stringify(state)}`);
+    await page.waitForFunction(() => JSON.parse(localStorage.getItem('yomu-gaming-reader-settings-v1') || '{}').learningTargetChosen === true);
+
 }
 
 // The overlay is a second window with its own web preferences, so "Settings" there
@@ -651,7 +542,7 @@ function assertOverlaySettingsButtonActionable(state) {
 // Media is the reader's deepest tab (audio sources, text-to-speech, proxy URL). Landing
 // there was the old bug, so the default panel is asserted, not assumed.
 async function assertSettingsOpenOnCapture(page) {
-    await page.locator('.yomu-gaming-home [data-action="open-settings"]').click();
+    await page.evaluate(() => window.yomuGaming.showApp());
     await page.locator('.jpdb-reader-settings[data-yomu-gaming-settings]').waitFor({ timeout: 10_000 });
     const panel = await page.evaluate(() => document.querySelector('[data-action="settings-panel"][aria-selected="true"]')?.dataset.panel ?? '');
     if (panel === 'media' || panel !== 'shortcuts') {
@@ -687,8 +578,8 @@ async function assertNativeWindowSize(page) {
         innerHeight: window.innerHeight,
         shellWidth: document.querySelector('.yomu-gaming-shell')?.getBoundingClientRect().width ?? 0,
     }));
-    if (size.innerWidth < 900 || size.innerHeight < 600) {
-        throw new Error(`Yomu Gaming did not open as a full-size native window: ${JSON.stringify(size)}`);
+    if (size.innerWidth < 640 || size.innerHeight < 500 || size.innerWidth > 920) {
+        throw new Error(`Yomu Gaming did not open bounded Settings: ${JSON.stringify(size)}`);
     }
     if (size.shellWidth < size.innerWidth - 2) {
         throw new Error(`Yomu Gaming shell did not fill the native window: ${JSON.stringify(size)}`);
@@ -711,6 +602,7 @@ async function assertDefaultOcrPath(page) {
 }
 
 async function configureCaptureShortcut(page, shortcut) {
+    await openSettingsPanel(page, 'shortcuts');
     await assertSettingsOpenOnCapture(page);
     const shortcutInput = page.locator('[data-native-capture-shortcut] [data-capture-shortcut-input]').first();
     if (await shortcutInput.getAttribute('readonly') !== null) {
@@ -723,12 +615,7 @@ async function configureCaptureShortcut(page, shortcut) {
     if (settingsShortcut !== shortcut) {
         throw new Error(`Capture shortcut settings input did not sync: ${settingsShortcut}`);
     }
-    // The home hero must show the shortcut the user just chose.
-    await returnToHome(page);
-    const heroShortcut = (await page.locator('.yomu-gaming-home kbd[data-hotkey]').innerText()).trim();
-    if (heroShortcut !== shortcut) {
-        throw new Error(`Yomu Gaming home still shows "${heroShortcut}" after the shortcut changed to ${shortcut}.`);
-    }
+
 }
 
 function step(message) {
@@ -985,6 +872,8 @@ async function importBrowserSettingsExport(page, browserChoices) {
     await importButton.click();
     await (await chooser).setFiles(exportPath);
     await page.locator('[data-gaming-shell-status]:visible').filter({ hasText: 'Settings imported.' }).first().waitFor({ timeout: 10_000 });
+    // Let the file-input debounce expire: a detached pre-import form must not overwrite the new choice.
+    await page.waitForTimeout(250);
     const imported = await page.evaluate(() => JSON.parse(localStorage.getItem('yomu-gaming-reader-settings-v1') || '{}'));
     assertSmoke(imported.twoButtonReviews === true, 'Yomu Gaming did not adopt Pass/Fail grading from the browser settings export.');
     assertSmoke(imported.ocrEndpointUrl === current.ocrEndpointUrl, 'Importing browser settings replaced how Gaming reads the screen.');

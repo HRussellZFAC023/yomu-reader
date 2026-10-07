@@ -25,7 +25,7 @@ Stylised lettering, tiny furigana, sound effects and text crossing artwork can c
 
 Games and other programs outside the browser use [よむ Desktop](/desktop), previously called Yomu Gaming. Press Ctrl+Shift+Y (Cmd+Shift+Y on a Mac) to read the screen. Hover a recognized Japanese word to open its meaning.
 
-Press the same shortcut again when the dialogue changes. Escape closes the reading layer. Settings and Close are available in the top-right corner.
+Use Read screen from the tray or the capture shortcut. Press the same shortcut again when the dialogue changes. Open Settings from the tray when needed.
 
 To move settings between the browser and desktop app, use Export settings JSON and Import settings JSON under Backup & sync. A desktop export includes its capture settings; importing browser settings keeps the current desktop capture setup.
 
