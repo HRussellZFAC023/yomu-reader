@@ -27,6 +27,12 @@ Yomu Gaming is a separate desktop app for Windows, macOS, Linux and Steam Deck d
 
 The default recognition path needs a connection. You can point Gaming at Cloud Vision or a compatible local reader. Busy games are easier when you capture only the dialogue box.
 
+Press the shortcut again while the overlay is open to read the screen as it is now, such as a new line of dialogue or a tooltip under the pointer. Leave the pointer where it is. Escape or Close puts the overlay away.
+
+Gaming keeps its own settings. To use what you set in the browser, such as Pass/Fail grading or your Jiten or JPDB key, choose "Export settings JSON" under Backup & sync in the browser, then "Import settings JSON" under Backup & sync in Gaming.
+
+On Linux the download is an AppImage. Allow it to run as a program before opening it, from its file properties or with `chmod +x yomu-gaming-*.AppImage`. If it still does not start, run it from a terminal to see why. `./yomu-gaming-*.AppImage --appimage-extract-and-run` starts it without FUSE.
+
 ## Keep the source with the word
 
 A saved OCR word can carry its sentence and source image when the mining target supports them. That matters in manga and games because the picture often explains what the line leaves unsaid.
