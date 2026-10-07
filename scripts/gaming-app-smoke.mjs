@@ -129,6 +129,7 @@ try {
     await page.locator('[data-action="export-reader-settings"]:visible').waitFor();
     step('import the browser settings export: its Pass/Fail grading reaches Gaming');
     await importBrowserSettingsExport(page, { twoButtonReviews: true });
+    await assertDesktopBackupRoundTrip(page);
     await showSettingsWindow(page);
     await page.screenshot({ path: screenshotPath });
     step('run instant full-screen capture');
@@ -221,10 +222,8 @@ async function assertCompactSettingsActions(page) {
     const addAudio = await actionGeometry(page.locator('[data-action="audio-source-add"]'));
     assertLabelSizedAction('Add audio source', addAudio, viewportWidth);
 
-    await openSettingsPanel(page, 'newTab');
-    const copyAddress = await actionGeometry(page.locator('[data-action="copy-newtab-url"]'));
-    assertLabelSizedAction('Copy address', copyAddress, viewportWidth);
-    await page.locator('[data-action="copy-newtab-url"]').scrollIntoViewIfNeeded();
+    assertSmoke(await page.locator('[data-action="copy-newtab-url"]').count() === 0,
+        'Desktop still exposes the removed Copy Study URL control.');
     await page.screenshot({ path: settingsActionsScreenshotPath });
 
     await openSettingsPanel(page, 'backup');
@@ -568,10 +567,12 @@ function attachPageDiagnostics(page) {
 async function assertInlineOcrResult(overlay, label, paintScreenshotPath) {
     await assertInlineOcrSurface(overlay, label);
     const word = await ocrWordForVisualText(overlay, '冒険');
+    // Annotation schedules desktop projection in rAF; inspect the rendered frame, not its pre-layout DOM.
+    await overlay.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
     await assertInvisibleProviderTargets(overlay, label);
     await word.hover();
     await overlay.locator('.jpdb-reader-popover').first().waitFor({ state: 'visible', timeout: 15000 });
-    await assertPassFailGradeRow(overlay, label);
+    await overlay.screenshot({ path: paintScreenshotPath });
     const popupBounds = await overlay.locator('.jpdb-reader-popover').first().evaluate(node => {
         const box = node.getBoundingClientRect();
         return { left: box.left, top: box.top, right: box.right, bottom: box.bottom, width: innerWidth, height: innerHeight };
@@ -580,6 +581,7 @@ async function assertInlineOcrResult(overlay, label, paintScreenshotPath) {
         `Desktop popup exceeds viewport: ${JSON.stringify(popupBounds)}`);
     await assertInvisibleProviderTargets(overlay, `${label} while hovered`);
     await overlay.screenshot({ path: paintScreenshotPath });
+    await assertLocalPopupActions(overlay, label);
 }
 
 async function assertInvisibleProviderTargets(overlay, label) {
@@ -618,12 +620,25 @@ async function assertInvisibleProviderTargets(overlay, label) {
                 Math.abs(actual.top - (originY + top * imageHeight)), Math.abs(actual.width - (right - left) * imageWidth),
                 Math.abs(actual.height - (bottom - top) * imageHeight)) };
         });
-        const leaks = [...document.querySelectorAll('.overlay-inline-layer, .overlay-inline-layer *')].filter(node => {
-            const style = getComputedStyle(node);
-            const transparent = value => value === 'transparent' || /rgba\([^)]*,\s*0\)$/.test(value);
-            return !transparent(style.webkitTextFillColor) || style.textShadow !== 'none' || !transparent(style.backgroundColor) || style.backgroundImage !== 'none'
-                || getComputedStyle(node, '::before').content !== 'none' || getComputedStyle(node, '::after').content !== 'none';
-        }).map(node => node.className);
+        const clear = value => value === 'transparent' || /rgba\([^)]*,\s*0\)$/.test(value);
+        const paints = style => {
+            if (style.display === 'none' || style.visibility === 'hidden' || Number(style.opacity) === 0) return false;
+            return !clear(style.webkitTextFillColor) || style.textShadow !== 'none'
+                || !clear(style.backgroundColor) || style.backgroundImage !== 'none' || style.boxShadow !== 'none'
+                || (Number.parseFloat(style.webkitTextStrokeWidth) > 0 && !clear(style.webkitTextStrokeColor))
+                || ['Top', 'Right', 'Bottom', 'Left'].some(side => Number.parseFloat(style[`border${side}Width`]) > 0
+                    && style[`border${side}Style`] !== 'none' && !clear(style[`border${side}Color`]));
+        };
+        const leaks = [...document.querySelectorAll('.overlay-inline-layer, .overlay-inline-layer *')].flatMap(node => {
+            const failures = [];
+            for (const pseudo of [null, '::before', '::after']) {
+                const style = getComputedStyle(node, pseudo);
+                if (pseudo && ['none', 'normal'].includes(style.content)) continue;
+                if (paints(style)) failures.push({className: node.className, pseudo, fill:style.webkitTextFillColor,
+                    background:style.background, shadow:style.textShadow, stroke:style.webkitTextStroke, content:style.content});
+            }
+            return failures;
+        });
         return { boxes, leaks };
     });
     assertSmoke(measured.boxes.length > 0 && measured.boxes.every(box => box.error <= 2 && box.misses === 0), `Desktop ${label} provider geometry drift: ${JSON.stringify(measured.boxes)}`);
@@ -664,15 +679,59 @@ async function assertInlineOcrSurface(overlay, label) {
     return horizontalLine;
 }
 
-// The browser export imported earlier chose Pass/Fail; the popup over the game has to
-// grade on that scale, not on Gaming's default one.
-async function assertPassFailGradeRow(overlay, label) {
-    const grades = overlay.locator('.jpdb-reader-popover [data-action="grade"]');
-    await grades.first().waitFor({ state: 'attached', timeout: 15_000 });
-    const scale = await grades.evaluateAll(buttons => buttons.map(button => button.getAttribute('data-grade')));
-    if (scale.join(',') !== 'fail,pass') {
-        throw new Error(`Yomu Gaming ${label} graded on ${JSON.stringify(scale)} after the learner imported Pass/Fail grading.`);
-    }
+async function assertLocalPopupActions(overlay, label) {
+    const popup = overlay.locator('.jpdb-reader-popover').first();
+    assertSmoke(await popup.getByRole('button', { name: /^(Fail|Pass|Again|Hard|Good|Easy)(?:\s|$)/ }).count() === 0,
+        `Desktop ${label} offered review grading without a connected service.`);
+    const more = popup.getByRole('button', { name: 'More actions', exact: true });
+    await more.click();
+    const add = popup.getByRole('button', { name: 'Add to deck…', exact: true });
+    await add.waitFor({ state: 'visible', timeout: 5000 });
+    await overlay.screenshot({ path: path.join(appRoot, 'qa-artifacts/desktop-overflow-before-add.png') });
+    await add.click().catch(async error => {
+        await overlay.screenshot({ path: path.join(appRoot, 'qa-artifacts/desktop-overflow-failure.png') });
+        writeFileSync(path.join(appRoot, 'qa-artifacts/desktop-overflow-failure.html'), await overlay.content());
+        throw error;
+    });
+    await popup.locator('.jpdb-reader-deck-picker').waitFor({ state: 'attached', timeout: 5000 });
+    assertSmoke(await add.getAttribute('aria-expanded') === 'true', 'Private deck picker did not open.');
+    assertSmoke(await popup.locator('.jpdb-reader-deck-picker').evaluate(node => node.shadowRoot === null), 'Deck picker leaked its private shadow root.');
+    // Electron's native select menu is outside CDP keyboard delivery. Opening the private
+    // picker is covered here; actual OS selection is a separate hardware acceptance check.
+    // Dismiss through the normal native lifecycle, then restore a fresh visible capture
+    // for the shortcut recapture assertion; never leave a system menu open behind the test.
+    await overlay.evaluate(() => window.yomuGaming.hideOverlay());
+    await overlay.evaluate(() => window.yomuGaming.showOverlay());
+    await overlay.waitForSelector('[data-overlay-mode="result"]', { timeout: 15000 });
+    await ocrWordForVisualText(overlay, '冒険');
+}
+
+async function assertDesktopBackupRoundTrip(page) {
+    step('round-trip portable Desktop backup including the native capture shortcut');
+    const before = JSON.parse(readFileSync(captureShortcutPath, 'utf8')).shortcut;
+    assertSmoke(before === 'Control+Shift+U', 'Browser import changed the native shortcut.');
+    await openSettingsPanel(page, 'backup');
+    const exportedPath = path.join(userDataDir, 'desktop-backup-export.json');
+    await app.evaluate(({ session }, destination) => {
+        globalThis.__desktopSmokeDownload = new Promise(resolve => session.defaultSession.once('will-download', (_event, item) => {
+            item.setSavePath(destination); item.once('done', (_event, state) => resolve(state));
+        }));
+    }, exportedPath);
+    await page.locator('[data-action="export-reader-settings"]:visible').click();
+    const downloadState = await app.evaluate(() => globalThis.__desktopSmokeDownload);
+    assertSmoke(downloadState === 'completed', `Desktop export did not finish: ${downloadState}`);
+    const exported = JSON.parse(readFileSync(exportedPath, 'utf8'));
+    assertSmoke(exported.formatName === 'yomu-reader-settings' && exported.formatVersion === 3,
+        'Desktop export did not use the shared portable format.');
+    assertSmoke(exported.desktop?.captureShortcut === before, 'Desktop backup omitted the native shortcut.');
+    await configureCaptureShortcut(page, 'Ctrl+Shift+I');
+    await openSettingsPanel(page, 'backup');
+    const chooser = page.waitForEvent('filechooser');
+    await page.locator('[data-action="import-reader-settings"]:visible').click();
+    await (await chooser).setFiles(exportedPath);
+    await page.locator('[data-gaming-shell-status]:visible').filter({hasText:'Settings imported.'}).waitFor();
+    const restored = JSON.parse(readFileSync(captureShortcutPath, 'utf8')).shortcut;
+    assertSmoke(restored === before, `Desktop backup did not restore its native shortcut: ${restored}`);
 }
 
 // What a learner's browser hands over: its own "Export settings JSON" file. Built from
