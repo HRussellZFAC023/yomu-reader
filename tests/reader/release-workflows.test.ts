@@ -259,6 +259,16 @@ describe('release workflow safety', () => {
         expect(releaseGamingWorkflow).toContain('upload_release_assets "$TAG" release-assets/*');
     });
 
+    it('attaches version-less desktop downloads for the website buttons', () => {
+        // yomureader.com links releases/latest/download/yomu-desktop-<file>, so
+        // every platform needs a stable copy before checksums and upload.
+        const stable = releaseGamingWorkflow.indexOf('- name: Add stable download names');
+        expect(stable).toBeGreaterThan(releaseGamingWorkflow.indexOf('- name: Download platform artifacts'));
+        expect(stable).toBeLessThan(releaseGamingWorkflow.indexOf('- name: Write SHA256SUMS'));
+        expect(releaseGamingWorkflow).toContain('for file in win-x64.exe mac-arm64.zip mac-x64.zip linux-x86_64.AppImage; do');
+        expect(releaseGamingWorkflow).toContain('cp "yomu-gaming-${version}-${file}" "yomu-desktop-${file}"');
+    });
+
     it('builds every Gaming artifact with the audited Node and npm toolchain', () => {
         const setupNode = releaseGamingWorkflow.indexOf("node-version-file: '.nvmrc'");
         const pinNpm = releaseGamingWorkflow.indexOf('npm install --global npm@11.9.0');
