@@ -2584,9 +2584,11 @@
   font: 700 13px/1 var(--jpdb-reader-font) !important;
   transform: none !important;
 }
+/* Full-strength text on an accent tint: the accent-coloured label fell to low
+   contrast on the dark tint. */
 .jpdb-reader-settings-tab[aria-selected="true"] {
-  background: var(--jpdb-reader-accent-soft) !important;
-  color: var(--jpdb-reader-accent-readable) !important;
+  background: color-mix(in srgb, var(--jpdb-reader-accent) 18%, transparent) !important;
+  color: var(--jpdb-reader-text) !important;
 }
 .jpdb-reader-settings-tab:focus-visible {
   outline: 2px solid var(--jpdb-reader-accent) !important;
