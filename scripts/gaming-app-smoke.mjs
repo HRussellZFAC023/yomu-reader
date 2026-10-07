@@ -145,6 +145,8 @@ try {
     if (restoredEndpoint !== fixtureOcr.url) {
         throw new Error(`Native settings snapshot did not restore the OCR endpoint: ${restoredEndpoint}`);
     }
+    step('import the browser settings export: its Pass/Fail grading reaches Gaming');
+    await importBrowserSettingsExport(page, { twoButtonReviews: true });
     await returnToHome(page);
     await page.screenshot({ path: screenshotPath });
     step('run instant full-screen capture');
@@ -959,6 +961,7 @@ async function activateInlineOcrLookup(overlay, annotatedTerm, readingPaint, lab
     if (!popoverOpened) {
         throw new Error(`Yomu Gaming ${label} did not open the real Yomu popover from inline OCR text.`);
     }
+    await assertPassFailGradeRow(overlay, label);
     // Remove incidental :hover. The lookup lease must keep the OCR line active
     // and its reading/pitch visibly painted on its own.
     await overlay.mouse.move(2, 2);
@@ -970,6 +973,42 @@ async function activateInlineOcrLookup(overlay, annotatedTerm, readingPaint, lab
     assertOcrReadingVisualPaint(activatedReadingPaint, label, 'after click activation');
     console.log(`[gaming-smoke] ${label} OCR retained reading/pitch paint: ${JSON.stringify(activatedReadingPaint)}`);
     assertStableOcrReadingPaint(readingPaint, activatedReadingPaint, label);
+}
+
+// The browser export imported earlier chose Pass/Fail; the popup over the game has to
+// grade on that scale, not on Gaming's default one.
+async function assertPassFailGradeRow(overlay, label) {
+    const grades = overlay.locator('.jpdb-reader-popover [data-action="grade"]');
+    await grades.first().waitFor({ state: 'attached', timeout: 15_000 });
+    const scale = await grades.evaluateAll(buttons => buttons.map(button => button.getAttribute('data-grade')));
+    if (scale.join(',') !== 'fail,pass') {
+        throw new Error(`Yomu Gaming ${label} graded on ${JSON.stringify(scale)} after the learner imported Pass/Fail grading.`);
+    }
+}
+
+// What a learner's browser hands over: its own "Export settings JSON" file. Built from
+// Gaming's current settings so the capture under test keeps working, with the browser's
+// choice layered on top.
+async function importBrowserSettingsExport(page, browserChoices) {
+    const current = await page.evaluate(() => JSON.parse(localStorage.getItem('yomu-gaming-reader-settings-v1') || '{}'));
+    const exportPath = path.join(userDataDir, 'yomu-settings-browser-export.json');
+    writeFileSync(exportPath, JSON.stringify({
+        formatName: 'yomu-reader-settings',
+        formatVersion: 3,
+        exportedAt: new Date().toISOString(),
+        settings: { ...current, ...browserChoices },
+        storage: {},
+    }));
+    await openSettingsPanel(page, 'backup');
+    const importButton = page.locator('[data-action="import-reader-settings"]:visible').first();
+    await importButton.waitFor({ timeout: 10_000 });
+    const chooser = page.waitForEvent('filechooser', { timeout: 10_000 });
+    await importButton.click();
+    await (await chooser).setFiles(exportPath);
+    await page.locator('[data-gaming-shell-status]:visible').filter({ hasText: 'Settings imported.' }).first().waitFor({ timeout: 10_000 });
+    const imported = await page.evaluate(() => JSON.parse(localStorage.getItem('yomu-gaming-reader-settings-v1') || '{}'));
+    assertSmoke(imported.twoButtonReviews === true, 'Yomu Gaming did not adopt Pass/Fail grading from the browser settings export.');
+    assertSmoke(imported.ocrEndpointUrl === current.ocrEndpointUrl, 'Importing browser settings replaced how Gaming reads the screen.');
 }
 
 function assertStableOcrReadingPaint(readingPaint, activatedReadingPaint, label) {

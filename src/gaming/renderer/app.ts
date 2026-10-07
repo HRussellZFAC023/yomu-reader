@@ -15,6 +15,7 @@ import type { ReaderSettingsSurface } from '../../reader/app/startup';
 import { uiText } from '../../reader/app/i18n';
 import { escapeHtml } from '../../reader/dom/index';
 import { DEFAULT_SETTINGS, formatShortcutEvent, normalizeReaderSettings } from '../../reader/settings';
+import { pickFile } from '../../reader/settings/file-io';
 import {
     activateSettingsPanel,
     applySettingsSearch,
@@ -43,6 +44,7 @@ import { gamingWindowParkingHint } from '../lifecycle';
 import { activateWordWithPointer, GamepadOverlayController, gamingOcrWordTargets } from './gamepad-overlay';
 import { removeLegacyGamingReaderSettingsCopy } from './legacy-reader-settings-cleanup';
 import { installGamingHttpTransport } from './http-transport';
+import { gamingSettingsFromBrowserExport } from './settings-import';
 import {
     captureSelectionFromViewport,
     layoutOverlayOcrLines,
@@ -123,7 +125,6 @@ const DEFAULT_GAMING_OCR_PROVIDER: ReaderSettings['ocrProvider'] = 'google-lens'
 const DEFAULT_GAMING_OCR_ENDPOINT = '';
 const UNSUPPORTED_SETTINGS_ACTIONS = new Set([
     'factory-reset',
-    'import-reader-settings',
     'export-reader-settings',
     'import-yomitan-dictionary',
     'export-yomitan-dictionary',
@@ -618,6 +619,11 @@ function bindSettingsForm(form: HTMLFormElement): void {
             void handleNativeSettingsSyncAction(form, action, button);
             return;
         }
+        if (action === 'import-reader-settings') {
+            event.preventDefault();
+            void importBrowserSettings(form, button);
+            return;
+        }
         if (EDITOR_ACTIONS.has(action)) {
             event.preventDefault();
             updateSettingsEditor(form, action, button);
@@ -815,6 +821,30 @@ async function handleNativeSettingsSyncAction(form: HTMLFormElement, action: 'sy
         renderShell();
     } catch (error) {
         setShellStatus(error instanceof Error ? error.message : 'Settings snapshot failed.', 'error');
+    } finally {
+        if (button?.isConnected) button.removeAttribute('disabled');
+    }
+}
+
+// The browser's "Export settings" file, read into Gaming's own settings (settings-import.ts):
+// how a Pass/Fail choice or a Jiten key made in the browser reaches the popup over a game.
+async function importBrowserSettings(form: HTMLFormElement, button: HTMLButtonElement | null): Promise<void> {
+    const file = await pickFile(form, 'settings');
+    if (!file) return;
+    button?.setAttribute('disabled', 'true');
+    try {
+        const imported = gamingSettingsFromBrowserExport(await file.text(), shellState.settings);
+        if (!imported) {
+            setShellStatus(uiText(shellState.settings.interfaceLanguage, 'settingsImportUnsupportedFormat'), 'error');
+            return;
+        }
+        shellState.settings = imported;
+        persistGamingSettings(imported);
+        syncMainProcessTargetChoice(imported);
+        setShellStatus(uiText(imported.interfaceLanguage, 'settingsImported'), 'success');
+        renderShell();
+    } catch {
+        setShellStatus(uiText(shellState.settings.interfaceLanguage, 'settingsImportUnsupportedFormat'), 'error');
     } finally {
         if (button?.isConnected) button.removeAttribute('disabled');
     }
