@@ -369,14 +369,20 @@ function fraction(value: number, extent: number): number {
 // Pin tokenizer words to provider geometry instead of the replacement font's advances.
 function placeProviderWords(root: ParentNode, frame: OcrOverlayFrame): void {
     for (const line of root.querySelectorAll<HTMLElement>('[data-provider-words]')) {
-        const words = JSON.parse(line.dataset.providerWords || '[]') as { text: string; box: YomuGamingSelectionRect }[];
-        if (!words.length) continue;
         const source = line.dataset.ocrText ?? '';
+        const provided = JSON.parse(line.dataset.providerWords || '[]') as { text: string; box: YomuGamingSelectionRect }[];
+        // Line-only providers still need usable targets after glyph paint is suppressed.
+        const words = provided.length ? provided : [{ text: source, box: {
+            left: Number(line.dataset.boxLeft), top: Number(line.dataset.boxTop),
+            width: Number(line.dataset.boxWidth), height: Number(line.dataset.boxHeight),
+        } }];
         let offset = 0;
         for (const word of line.querySelectorAll<HTMLElement>('.jpdb-reader-word')) {
             const text = [...word.querySelectorAll<HTMLElement>('[data-yomu-ocr-visual-text]')]
                 .filter(node => !node.closest('.jpdb-ocr-furi')).map(node => node.dataset.yomuOcrVisualText ?? '').join('');
             if (!text) continue;
+            word.setAttribute('aria-label', text);
+            word.setAttribute('role', 'button');
             const start = source.indexOf(text, offset);
             if (start < 0) continue;
             offset = start + text.length;

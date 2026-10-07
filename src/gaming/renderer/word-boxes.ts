@@ -13,7 +13,9 @@ export function providerSpanBox(text: string, words: readonly WordBox[], start: 
         cursor = index + word.text.length;
         const from = Math.max(start, index), to = Math.min(end, cursor);
         if (from >= to) continue;
-        const a = (from - index) / word.text.length, b = (to - from) / word.text.length;
+        const length = [...word.text].length;
+        const a = [...word.text.slice(0, from - index)].length / length;
+        const b = [...word.text.slice(from - index, to - index)].length / length;
         boxes.push(vertical
             ? { ...word.box, top: word.box.top + word.box.height * a, height: word.box.height * b }
             : { ...word.box, left: word.box.left + word.box.width * a, width: word.box.width * b });

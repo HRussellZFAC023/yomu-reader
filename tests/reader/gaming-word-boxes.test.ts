@@ -36,3 +36,8 @@ it('offsets nested provider words together with their enclosing OCR region', () 
     expect(result?.lines[0].words?.[0].box).toEqual({ left: 510, top: 320, width: 60, height: 30 });
     expect(providerSpanBox('日本語', result!.lines[0].words!, 0, 3, false)).toEqual(result?.lines[0].box);
 });
+
+it('interpolates supplementary Japanese characters by glyph count rather than UTF-16 units', () => {
+    expect(providerSpanBox('𠮷田', [{ text: '𠮷田', box: { left: 0, top: 0, width: 40, height: 20 } }], 0, 2, false))
+        .toEqual({ left: 0, top: 0, width: 20, height: 20 });
+});
