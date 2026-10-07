@@ -14,8 +14,6 @@ const bridge: YomuGamingBridge = {
     hideApp: () => ipcRenderer.invoke(YOMU_GAMING_CHANNELS.hideApp),
     openExternal: (url: string) => ipcRenderer.invoke(YOMU_GAMING_CHANNELS.openExternal, url),
     updateCaptureShortcut: (shortcut: string) => ipcRenderer.invoke(YOMU_GAMING_CHANNELS.updateCaptureShortcut, shortcut),
-    syncSettingsSnapshot: (settings: unknown) => ipcRenderer.invoke(YOMU_GAMING_CHANNELS.syncSettingsSnapshot, settings),
-    restoreSettingsSnapshot: () => ipcRenderer.invoke(YOMU_GAMING_CHANNELS.restoreSettingsSnapshot),
 };
 
 contextBridge.exposeInMainWorld('yomuGaming', bridge);

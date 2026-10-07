@@ -15,7 +15,7 @@ import type { ReaderSettingsSurface } from '../../reader/app/startup';
 import { uiText } from '../../reader/app/i18n';
 import { escapeHtml } from '../../reader/dom/index';
 import { DEFAULT_SETTINGS, formatShortcutEvent, normalizeReaderSettings } from '../../reader/settings';
-import { pickFile } from '../../reader/settings/file-io';
+import { pickFile, downloadBlob, dateStamp } from '../../reader/settings/file-io';
 import {
     activateSettingsPanel,
     applySettingsSearch,
@@ -44,7 +44,7 @@ import { gamingWindowParkingHint } from '../lifecycle';
 import { activateWordWithPointer, GamepadOverlayController, gamingOcrWordTargets } from './gamepad-overlay';
 import { removeLegacyGamingReaderSettingsCopy } from './legacy-reader-settings-cleanup';
 import { installGamingHttpTransport } from './http-transport';
-import { gamingSettingsFromBrowserExport } from './settings-import';
+import { gamingSettingsFromBrowserExport, desktopSettingsExport } from './settings-import';
 import {
     layoutOverlayOcrLines,
     normalizeCaptureOcrBox,
@@ -106,7 +106,6 @@ interface PreparedGamingCapture {
 }
 
 const GAMING_SETTINGS_STORAGE_KEY = 'yomu-gaming-reader-settings-v1';
-const GAMING_SETTINGS_SNAPSHOT_STORAGE_KEY = 'yomu-gaming-settings-snapshot-v1';
 const GAMING_PENDING_VIEW_STORAGE_KEY = 'yomu-gaming-pending-view-v1';
 const GAMING_PENDING_VIEW_ACK_STORAGE_KEY = 'yomu-gaming-pending-view-ack-v1';
 const GAMING_PENDING_VIEW_MAX_AGE_MS = 15_000;
@@ -123,7 +122,6 @@ const DEFAULT_GAMING_OCR_PROVIDER: ReaderSettings['ocrProvider'] = 'google-lens'
 const DEFAULT_GAMING_OCR_ENDPOINT = '';
 const UNSUPPORTED_SETTINGS_ACTIONS = new Set([
     'factory-reset',
-    'export-reader-settings',
     'import-yomitan-dictionary',
     'export-yomitan-dictionary',
     'download-recommended-dictionary',
@@ -198,7 +196,6 @@ function renderShell(): void {
     applyGamingSettingsCopy(form);
     installGamingSettingsHeader(form);
     installGamingCaptureShortcutSection(form);
-    installNativeSettingsSyncSection(form);
     activateSettingsPanel(form, shellState.settingsPanel);
     scrollToInitialSettingsSection(form);
     installShortcutCapture(form);
@@ -482,7 +479,7 @@ function sessionGuidanceText(environment: YomuGamingEnvironment | null): { text:
 }
 
 // Settings is a place you go, so it gets its own way back and its own status line —
-// otherwise a save or a snapshot restore reported itself onto a surface you are not on.
+// otherwise a save reported itself onto a surface you are not on.
 function installGamingSettingsHeader(form: HTMLFormElement): void {
     const head = form.querySelector<HTMLElement>('.jpdb-reader-settings-head');
     if (!head || head.querySelector('[data-action="close-settings"]')) return;
@@ -527,29 +524,6 @@ function clearSettingsSaveStatus(form: HTMLFormElement): void {
         element.hidden = true;
         element.setAttribute('aria-hidden', 'true');
     });
-}
-
-function installNativeSettingsSyncSection(form: HTMLFormElement): void {
-    const panel = form.querySelector<HTMLElement>('#jpdb-reader-settings-panel-backup');
-    if (!panel || panel.querySelector('[data-native-settings-sync]')) return;
-    const section = document.createElement('div');
-    section.className = 'jpdb-reader-settings-subsection';
-    section.dataset.nativeSettingsSync = 'true';
-    section.innerHTML = `
-        <div class="jpdb-reader-local-title">Native settings snapshot</div>
-        <div class="jpdb-reader-help">Stores one Yomu settings snapshot in this app profile. Dictionaries stay local.</div>
-        <div class="jpdb-reader-settings-actions jpdb-reader-settings-actions-single">
-            <button class="jpdb-reader-btn" type="button" data-action="sync-cloud-settings">Save snapshot</button>
-            <button class="jpdb-reader-btn" type="button" data-action="restore-cloud-settings">Restore snapshot</button>
-        </div>
-    `;
-    const actions = panel.querySelector<HTMLElement>('.jpdb-reader-settings-actions');
-    panel.insertBefore(section, directChildAnchor(panel, actions) ?? panel.firstChild);
-}
-
-function directChildAnchor(parent: HTMLElement, descendant: HTMLElement | null): Element | null {
-    if (!descendant) return null;
-    return [...parent.children].find(child => child === descendant || child.contains(descendant)) ?? null;
 }
 
 function bindSettingsForm(form: HTMLFormElement): void {
@@ -610,9 +584,10 @@ function bindSettingsForm(form: HTMLFormElement): void {
             });
             return;
         }
-        if (action === 'sync-cloud-settings' || action === 'restore-cloud-settings') {
+        if (action === 'export-reader-settings') {
             event.preventDefault();
-            void handleNativeSettingsSyncAction(form, action, button);
+            persistSettingsFromForm(form);
+            downloadBlob(new Blob([desktopSettingsExport(shellState.settings)], { type: 'application/json' }), `yomu-desktop-settings-${dateStamp()}.json`);
             return;
         }
         if (action === 'import-reader-settings') {
@@ -791,34 +766,6 @@ function persistSettingsFromForm(form: HTMLFormElement): void {
     applyDocumentTheme(shellState.settings);
     syncDisabledSettingsControlDescriptions(form, shellState.settings.interfaceLanguage);
     updateCaptureShortcutCopy();
-}
-
-async function handleNativeSettingsSyncAction(form: HTMLFormElement, action: 'sync-cloud-settings' | 'restore-cloud-settings', button: HTMLButtonElement | null): Promise<void> {
-    button?.setAttribute('disabled', 'true');
-    try {
-        if (action === 'sync-cloud-settings') {
-            persistSettingsFromForm(form);
-            const metadata = await bridge.syncSettingsSnapshot(shellState.settings);
-            setShellStatus(`Settings snapshot saved (${formatSnapshotTime(metadata.syncedAt)}).`, 'success');
-            return;
-        }
-        const snapshot = await bridge.restoreSettingsSnapshot();
-        if (!snapshot) {
-            setShellStatus('No native settings snapshot has been saved yet.', 'warning');
-            return;
-        }
-        shellState.settings = normalizeReaderSettings({
-            ...shellState.settings,
-            ...snapshotSettingsObject(snapshot.settings),
-        });
-        persistGamingSettings(shellState.settings);
-        setShellStatus(`Settings snapshot restored (${formatSnapshotTime(snapshot.syncedAt)}).`, 'success');
-        renderShell();
-    } catch (error) {
-        setShellStatus(error instanceof Error ? error.message : 'Settings snapshot failed.', 'error');
-    } finally {
-        if (button?.isConnected) button.removeAttribute('disabled');
-    }
 }
 
 // The browser's "Export settings" file, read into Gaming's own settings (settings-import.ts):
@@ -1033,16 +980,6 @@ function persistGamingSettings(settings: ReaderSettings): void {
 }
 
 
-
-function snapshotSettingsObject(value: unknown): Partial<ReaderSettings> {
-    return value && typeof value === 'object' && !Array.isArray(value) ? value as Partial<ReaderSettings> : {};
-}
-
-function formatSnapshotTime(value: string): string {
-    const date = new Date(value);
-    if (Number.isNaN(date.getTime())) return value;
-    return new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' }).format(date);
-}
 
 function languageAttribute(language: InterfaceLanguage): string {
     return language === 'ja' ? 'ja' : 'en';
@@ -1519,16 +1456,5 @@ function browserFallbackBridge(): YomuGamingBridge {
             hotkeyError: 'Shortcuts work in the よむ Desktop app.',
             screenAccess: 'unsupported',
         }),
-        syncSettingsSnapshot: async (settings: unknown) => {
-            const syncedAt = new Date().toISOString();
-            localStorage.setItem(GAMING_SETTINGS_SNAPSHOT_STORAGE_KEY, JSON.stringify({ version: 1, syncedAt, settings }));
-            return { syncedAt, storagePath: 'browser-localStorage' };
-        },
-        restoreSettingsSnapshot: async () => {
-            const raw = localStorage.getItem(GAMING_SETTINGS_SNAPSHOT_STORAGE_KEY);
-            if (!raw) return null;
-            const parsed = JSON.parse(raw) as unknown;
-            return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed as { version: 1; syncedAt: string; settings: unknown } : null;
-        },
     };
 }

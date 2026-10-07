@@ -53,3 +53,5 @@ The layer contains the last capture's text: press the shortcut again when the sc
 よむ Desktop（旧 Yomu Gaming）は、ゲームや他のアプリの日本語を読み取ります。画面全体の読み取りでは元のアプリを表示したまま、キーボードのフォーカスを移しません。認識した単語にマウスを合わせると辞書が開き、それ以外の場所のクリックは元のアプリに届きます。右上にマウスを移すと、再読み取り・設定・閉じるが表示されます。場面が変わったら、同じショートカットでもう一度読み取ってください。既存の設定とダウンロードのファイル名は引き継がれます。
 
 表示される単語は最後に読み取った画面のものです。排他的フルスクリーンとネイティブ Wayland の動作は、実機での確認が必要です。
+
+Desktop settings use one Export/Import JSON flow. Desktop exports restore capture settings too; importing browser settings preserves the current desktop capture setup. Older app-local snapshot files are left untouched.

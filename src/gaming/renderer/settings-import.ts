@@ -23,7 +23,17 @@ const GAMING_OWNED_SETTINGS = [
  * Yomu settings export. Dictionaries and study data in the export stay in the browser.
  */
 export function gamingSettingsFromBrowserExport(text: string, current: ReaderSettings): ReaderSettings | null {
-    const backup = parseReaderSettingsBackup(parsedJson(text));
+    const value = parsedJson(text);
+    // Desktop exports restore capture choices too; browser exports deliberately preserve
+    // them because website OCR settings describe a different capture environment.
+    if (value && typeof value === 'object' && !Array.isArray(value)) {
+        const record = value as Record<string, unknown>;
+        if (record.formatName === 'yomu-desktop-settings' && record.formatVersion === 1
+            && record.settings && typeof record.settings === 'object' && !Array.isArray(record.settings)) {
+            return normalizeReaderSettings({ ...current, ...record.settings });
+        }
+    }
+    const backup = parseReaderSettingsBackup(value);
     if (!backup) return null;
     const imported = backup.settings as Partial<ReaderSettings>;
     const owned = Object.fromEntries(GAMING_OWNED_SETTINGS.map(key => [key, current[key]])) as Partial<ReaderSettings>;
@@ -41,4 +51,10 @@ function parsedJson(text: string): unknown {
     } catch {
         return null;
     }
+}
+
+/** A portable desktop backup; the existing browser export remains accepted by Import. */
+export function desktopSettingsExport(settings: ReaderSettings): string {
+    return JSON.stringify({ formatName: 'yomu-desktop-settings', formatVersion: 1,
+        exportedAt: new Date().toISOString(), settings }, null, 2);
 }

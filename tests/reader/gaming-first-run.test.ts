@@ -58,15 +58,6 @@ function testBridge(): YomuGamingBridge {
             nextSaveEnvironment = null;
             return currentEnvironment;
         },
-        syncSettingsSnapshot: async (settings: unknown) => {
-            const syncedAt = new Date().toISOString();
-            localStorage.setItem(SNAPSHOT_KEY, JSON.stringify({ version: 1, syncedAt, settings }));
-            return { syncedAt, storagePath: 'test' };
-        },
-        restoreSettingsSnapshot: async () => {
-            const raw = localStorage.getItem(SNAPSHOT_KEY);
-            return raw ? JSON.parse(raw) as { version: 1; syncedAt: string; settings: unknown } : null;
-        },
     };
 }
 
@@ -313,22 +304,12 @@ describe('Yomu Gaming first run', () => {
         }
     });
 
-    it('keeps the settings tab you were on when a snapshot restore re-renders', async () => {
+    it('offers portable export and import instead of duplicate local snapshots', () => {
         click(home(), '[data-action="open-settings"]');
         click(settingsForm(), '[data-action="settings-panel"][data-panel="backup"]');
-        expect(activePanel()).toBe('backup');
-
-        click(settingsForm(), '[data-action="sync-cloud-settings"]');
-        await vi.waitFor(() => {
-            expect(localStorage.getItem(SNAPSHOT_KEY)).not.toBeNull();
-        });
-        click(settingsForm(), '[data-action="restore-cloud-settings"]');
-        await vi.waitFor(() => {
-            expect(appRoot.querySelector('[data-gaming-shell-status]')?.textContent).toContain('Settings snapshot restored');
-        });
-
-        expect(shellView()).toBe('settings');
-        expect(activePanel()).toBe('backup');
+        expect(settingsForm().querySelector('[data-native-settings-sync]')).toBeNull();
+        expect(settingsForm().querySelector<HTMLButtonElement>('[data-action="export-reader-settings"]')?.hidden).toBe(false);
+        expect(settingsForm().querySelector<HTMLButtonElement>('[data-action="import-reader-settings"]')?.hidden).toBe(false);
     });
 
     it('reports a new shortcut once the keyboard has it', async () => {

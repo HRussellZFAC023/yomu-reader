@@ -130,18 +130,9 @@ try {
     await page.locator('text=Image text (OCR)').first().waitFor({ timeout: 10_000 });
     await page.locator('select[name="ocrProvider"]').selectOption('local-service');
     await page.locator('input[name="ocrEndpointUrl"]').fill(fixtureOcr.url);
-    step('save and restore native settings snapshot');
     await openSettingsPanel(page, 'backup');
-    await page.locator('[data-native-settings-sync]').waitFor({ timeout: 10_000 });
-    await page.locator('[data-native-settings-sync] [data-action="sync-cloud-settings"]').click();
-    await page.locator('[data-gaming-shell-status]:visible').filter({ hasText: 'Settings snapshot saved' }).first().waitFor({ timeout: 10_000 });
-    await page.locator('[data-native-settings-sync] [data-action="restore-cloud-settings"]').click();
-    await page.locator('[data-gaming-shell-status]:visible').filter({ hasText: 'Settings snapshot restored' }).first().waitFor({ timeout: 10_000 });
-    await openSettingsPanel(page, 'media');
-    const restoredEndpoint = await page.locator('input[name="ocrEndpointUrl"]').inputValue();
-    if (restoredEndpoint !== fixtureOcr.url) {
-        throw new Error(`Native settings snapshot did not restore the OCR endpoint: ${restoredEndpoint}`);
-    }
+    assertSmoke(await page.locator('[data-native-settings-sync]').count() === 0, 'Desktop still offers duplicate local snapshots.');
+    await page.locator('[data-action="export-reader-settings"]:visible').waitFor();
     step('import the browser settings export: its Pass/Fail grading reaches Gaming');
     await importBrowserSettingsExport(page, { twoButtonReviews: true });
     await returnToHome(page);
@@ -161,6 +152,28 @@ try {
     }
     step('press the capture shortcut with the overlay up: it reads the screen again');
     await assertShortcutRecapturesOverOverlay(overlay);
+    if (process.env.YOMU_DESKTOP_NATIVE_POINTER_PROOF === '1') {
+        rmSync(path.join(appRoot, 'qa-artifacts/native-pointer-finish'), { force: true });
+        await app.evaluate(async ({ BrowserWindow }, fixturePath) => {
+            process.env.YOMU_GAMING_TEST_MODE = '0';
+            await globalThis.__yomuGamingPressCaptureShortcut();
+            const layer = BrowserWindow.getAllWindows().find(window => window.webContents.getURL().includes('#overlay-instant'));
+            const fixture = new BrowserWindow({ width: 640, height: 360, title: 'Test window',
+                webPreferences: { contextIsolation: true, nodeIntegration: false } });
+            await fixture.loadFile(fixturePath);
+            fixture.show(); fixture.focus(); layer.showInactive();
+        }, path.join(appRoot, 'tests/reader/fixtures/desktop-pointer.html'));
+        writeFileSync(path.join(appRoot, 'qa-artifacts/native-pointer-ready'), 'ready');
+        console.log('[desktop-native] Fixture ready for actual OS pointer input.');
+        while (!existsSync(path.join(appRoot, 'qa-artifacts/native-pointer-finish'))) await new Promise(resolve => setTimeout(resolve, 500));
+        const evidence = await app.evaluate(async ({ BrowserWindow }) => {
+            const fixture = BrowserWindow.getAllWindows().find(window => window.getTitle() === 'Test window');
+            const layer = BrowserWindow.getAllWindows().find(window => window.webContents.getURL().includes('#overlay-instant'));
+            return { fixtureFocused: fixture.isFocused(), layerFocused: layer.isFocused(), text: await fixture.webContents.executeJavaScript('document.body.innerText') };
+        });
+        writeFileSync(path.join(appRoot, 'qa-artifacts/native-pointer-report.json'), JSON.stringify(evidence, null, 2));
+        assertSmoke(evidence.text.includes('Done') && !evidence.layerFocused, 'Actual pointer did not reach the underlying fixture.');
+    }
     step('open native settings from the inline Reader shortcut');
     await assertInlineReaderSettingsLandsOnSettings(page, overlay);
     await returnToHome(page);
@@ -184,7 +197,6 @@ async function launchGamingApp() {
             YOMU_GAMING_TEST_MODE: '1',
             YOMU_GAMING_SIMULATED_CAPTURE_PATH: fixtureCapturePath,
             YOMU_GAMING_USER_DATA_DIR: userDataDir,
-            YOMU_GAMING_SETTINGS_SYNC_PATH: path.join(userDataDir, 'settings-sync-v1.json'),
             YOMU_GAMING_CAPTURE_SHORTCUT_PATH: captureShortcutPath,
         },
     });
@@ -1218,7 +1230,7 @@ async function closeElectronApp(app) {
 function writeHardwareGapNote() {
     writeFileSync(hardwareGapPath, [
         'Yomu Gaming automated smoke uses a deterministic Japanese fixture image as a simulated primary-screen capture.',
-        'Covered: Electron settings shell, native settings snapshot save/restore, instant full-screen capture, fresh shortcut recapture, nonactivating transparent layer, and Japanese lookup rendering.',
+        'Covered: Electron settings shell, portable settings import/export, instant full-screen capture, fresh shortcut recapture, nonactivating transparent layer, and Japanese lookup rendering.',
         'Remaining hardware gap: true global desktop capture over an exclusive-fullscreen game and Steam Deck gamescope/Wayland capture must be validated on target hardware.',
     ].join('\n') + '\n');
 }

@@ -11,8 +11,6 @@ export const YOMU_GAMING_CHANNELS = {
     hideApp: 'yomu-gaming:hide-app',
     openExternal: 'yomu-gaming:open-external',
     updateCaptureShortcut: 'yomu-gaming:update-capture-shortcut',
-    syncSettingsSnapshot: 'yomu-gaming:sync-settings-snapshot',
-    restoreSettingsSnapshot: 'yomu-gaming:restore-settings-snapshot',
 } as const;
 
 export type YomuGamingScreenAccess = 'granted' | 'denied' | 'restricted' | 'not-determined' | 'unknown' | 'unsupported';
@@ -75,17 +73,6 @@ export interface YomuGamingOcrResponse {
     error?: string;
 }
 
-export interface YomuGamingSettingsSnapshot {
-    version: 1;
-    syncedAt: string;
-    settings: unknown;
-}
-
-export interface YomuGamingSettingsSyncMetadata {
-    syncedAt: string;
-    storagePath: string;
-}
-
 export interface YomuGamingBridge {
     getEnvironment(): Promise<YomuGamingEnvironment>;
     getFrozenCapture(): Promise<YomuGamingCaptureSource>;
@@ -99,6 +86,4 @@ export interface YomuGamingBridge {
     hideApp(): Promise<void>;
     openExternal(url: string): Promise<void>;
     updateCaptureShortcut(shortcut: string): Promise<YomuGamingEnvironment>;
-    syncSettingsSnapshot(settings: unknown): Promise<YomuGamingSettingsSyncMetadata>;
-    restoreSettingsSnapshot(): Promise<YomuGamingSettingsSnapshot | null>;
 }

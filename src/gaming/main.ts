@@ -29,8 +29,6 @@ import {
     type YomuGamingCaptureSource,
     type YomuGamingEnvironment,
     type YomuGamingScreenAccess,
-    type YomuGamingSettingsSnapshot,
-    type YomuGamingSettingsSyncMetadata,
 } from './ipc';
 
 const APP_NAME = 'よむ Desktop';
@@ -49,7 +47,6 @@ const SCREEN_PERMISSION_MESSAGE = process.platform === 'darwin'
     ? 'Yomu Gaming needs Screen Recording permission. Open System Settings › Privacy & Security › Screen Recording, enable Yomu Gaming, then quit and reopen the app.'
     : 'Yomu Gaming could not read the screen. Check this device’s screen-capture permissions and try again.';
 const ALLOWED_EXTERNAL_HOSTS = new Set(['yomureader.com', 'jpdb.io', 'jiten.moe']);
-const SETTINGS_SYNC_FILE_NAME = 'settings-sync-v1.json';
 const CAPTURE_SHORTCUT_FILE_NAME = 'capture-shortcut-v1.json';
 
 installBrokenPipeGuard();
@@ -504,8 +501,6 @@ function registerIpcHandlers(): void {
     });
     ipcMain.handle(YOMU_GAMING_CHANNELS.openExternal, (_event, url: string) => openAllowedExternalUrl(url));
     ipcMain.handle(YOMU_GAMING_CHANNELS.updateCaptureShortcut, (_event, shortcut: string) => updateCaptureShortcut(shortcut));
-    ipcMain.handle(YOMU_GAMING_CHANNELS.syncSettingsSnapshot, (_event, settings: unknown) => syncSettingsSnapshot(settings));
-    ipcMain.handle(YOMU_GAMING_CHANNELS.restoreSettingsSnapshot, () => restoreSettingsSnapshot());
 }
 
 function captureForOverlay(
@@ -680,32 +675,6 @@ async function openAllowedExternalUrl(value: string): Promise<void> {
     await shell.openExternal(url.toString());
 }
 
-async function syncSettingsSnapshot(settings: unknown): Promise<YomuGamingSettingsSyncMetadata> {
-    if (!settings || typeof settings !== 'object' || Array.isArray(settings)) {
-        throw new Error('Settings snapshot must be an object.');
-    }
-    const storagePath = settingsSyncPath();
-    const syncedAt = new Date().toISOString();
-    const snapshot: YomuGamingSettingsSnapshot = { version: 1, syncedAt, settings };
-    await mkdir(path.dirname(storagePath), { recursive: true });
-    await writeFile(storagePath, `${JSON.stringify(snapshot, null, 2)}\n`, 'utf8');
-    return { syncedAt, storagePath };
-}
-
-async function restoreSettingsSnapshot(): Promise<YomuGamingSettingsSnapshot | null> {
-    let raw = '';
-    try {
-        raw = await readFile(settingsSyncPath(), 'utf8');
-    } catch (error) {
-        if (isNodeErrorCode(error, 'ENOENT')) return null;
-        throw error;
-    }
-    const parsed = JSON.parse(raw) as unknown;
-    const snapshot = normalizeSettingsSnapshot(parsed);
-    if (!snapshot) throw new Error('Saved settings snapshot is invalid.');
-    return snapshot;
-}
-
 async function loadCaptureShortcut(): Promise<void> {
     let raw = '';
     try {
@@ -749,29 +718,10 @@ async function persistCaptureShortcut(shortcut: string): Promise<void> {
     await writeFile(storagePath, `${JSON.stringify({ version: 1, shortcut }, null, 2)}\n`, 'utf8');
 }
 
-function settingsSyncPath(): string {
-    return process.env.YOMU_GAMING_SETTINGS_SYNC_PATH
-        ? path.resolve(process.env.YOMU_GAMING_SETTINGS_SYNC_PATH)
-        : path.join(app.getPath('userData'), SETTINGS_SYNC_FILE_NAME);
-}
-
 function captureShortcutPath(): string {
     return process.env.YOMU_GAMING_CAPTURE_SHORTCUT_PATH
         ? path.resolve(process.env.YOMU_GAMING_CAPTURE_SHORTCUT_PATH)
         : path.join(app.getPath('userData'), CAPTURE_SHORTCUT_FILE_NAME);
-}
-
-function normalizeSettingsSnapshot(value: unknown): YomuGamingSettingsSnapshot | null {
-    if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
-    const record = value as Record<string, unknown>;
-    if (record.version !== 1) return null;
-    if (typeof record.syncedAt !== 'string' || !record.syncedAt.trim()) return null;
-    if (!record.settings || typeof record.settings !== 'object' || Array.isArray(record.settings)) return null;
-    return {
-        version: 1,
-        syncedAt: record.syncedAt,
-        settings: record.settings,
-    };
 }
 
 function isNodeErrorCode(error: unknown, code: string): boolean {

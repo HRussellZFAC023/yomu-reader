@@ -282,3 +282,5 @@ If よむ helps you read more Japanese, a star makes it easier for other learner
 The desktop app (previously Yomu Gaming) reads Japanese in games and other apps. Instant capture now leaves the live app visible and does not take keyboard focus. Hover recognized words for lookup; the rest of the screen passes pointer input through. Move to the top-right corner for Read again, Settings and Close. Press the capture shortcut again to read a changed scene. The existing app identity, profile and download filenames are preserved.
 
 The live layer uses the last capture's text; it does not track moving text automatically. Exclusive fullscreen and native Wayland window/input behavior require device verification. OCR providers that return word boxes use those boxes for hit areas; line-only responses retain the fitted-line fallback.
+
+Desktop settings use one Export/Import JSON flow. Desktop exports restore capture settings too; importing browser settings preserves the current desktop capture setup. Older app-local snapshot files are left untouched.

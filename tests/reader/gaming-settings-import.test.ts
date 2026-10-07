@@ -3,7 +3,7 @@ import type { JPDBCard, ReaderSettings } from '../../src/reader/app/types';
 import { reviewGradeProfile, reviewGradeScale } from '../../src/reader/cards/grade-scale';
 import { DEFAULT_SETTINGS, normalizeReaderSettings } from '../../src/reader/settings';
 import { READER_SETTINGS_BACKUP_FORMAT, READER_SETTINGS_BACKUP_VERSION } from '../../src/reader/settings/file-io';
-import { gamingSettingsFromBrowserExport } from '../../src/gaming/renderer/settings-import';
+import { gamingSettingsFromBrowserExport, desktopSettingsExport } from '../../src/gaming/renderer/settings-import';
 
 const JITEN_CARD = { vid: 1234, sid: 0, source: 'jiten', jitenWordId: 1234, jitenReadingIndex: 0 } as unknown as JPDBCard;
 
@@ -87,4 +87,14 @@ describe('Yomu Gaming reads the browser settings export', () => {
         expect(gamingSettingsFromBrowserExport('not json', gamingSettings())).toBeNull();
         expect(gamingSettingsFromBrowserExport(JSON.stringify({ twoButtonReviews: true }), gamingSettings())).toBeNull();
     });
+});
+
+
+it('round-trips desktop capture choices in a portable settings backup', () => {
+    const saved = { ...DEFAULT_SETTINGS, ocrProvider: 'local-service' as const,
+        ocrEndpointUrl: 'http://localhost:9000/ocr', twoButtonReviews: true };
+    const restored = gamingSettingsFromBrowserExport(desktopSettingsExport(saved), DEFAULT_SETTINGS);
+    expect(restored?.ocrProvider).toBe('local-service');
+    expect(restored?.ocrEndpointUrl).toBe('http://localhost:9000/ocr');
+    expect(restored?.twoButtonReviews).toBe(true);
 });
