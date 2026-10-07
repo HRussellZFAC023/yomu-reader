@@ -432,7 +432,6 @@ function readAnkiSectionFormSettings(
     if (!ankiSectionRowPresent(reader)) {
         return {
             ankiSectionEnabled: current.ankiSectionEnabled,
-
             ankiSectionPriority: current.ankiSectionPriority,
         };
     }

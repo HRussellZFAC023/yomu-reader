@@ -69,8 +69,6 @@ export type SubtitleTranscriptPlacement = 'right' | 'left' | 'bottom';
 
 export type InterfaceLanguage = 'auto' | 'en' | 'ja';
 
-
-
 export type ImmersionExampleSource = 'immersion-kit' | 'nadeshiko' | 'combined';
 
 export type AnkiTemplateMode = 'recognition' | 'context';

@@ -1674,36 +1674,6 @@ function localizeSourceRows(form: HTMLFormElement, text: SettingsText): void {
         const key = element.dataset.sourceNameKey;
         if (isSettingsTextKey(key)) element.replaceChildren(text(key));
     });
-    form.querySelectorAll<HTMLInputElement>('[data-source-placeholder-key]').forEach(input => {
-        const key = input.dataset.sourcePlaceholderKey;
-        if (isSettingsTextKey(key)) input.placeholder = text(key);
-    });
-    form.querySelectorAll<HTMLElement>('[data-source-help-key]').forEach(element => {
-        const key = element.dataset.sourceHelpKey;
-        if (isSettingsTextKey(key)) element.replaceChildren(text(key));
-    });
-    // Keep these fallback English names paired with the sourceName*/sourceHelp* i18n keys.
-    const rows: Array<[string, SettingsTextKey, SettingsTextKey]> = [
-        ['Translation', 'sourceNameTranslation', 'sourceHelpTranslation'],
-        ['Grammar', 'sourceNameGrammar', 'sourceHelpGrammar'],
-        ['Immersion Kit', 'sourceNameImmersionKit', 'sourceHelpImmersionKit'],
-        ['Stroke practice', 'sourceNameStrokePractice', 'sourceHelpStrokePractice'],
-        ['Readings and components', 'readingsComponents', 'sourceHelpReadingsComponents'],
-        ['Imported kanji dictionaries', 'sourceNameImportedKanjiDictionaries', 'sourceHelpImportedKanjiDictionaries'],
-        ['Component graph', 'originStructure', 'sourceHelpComponentGraph'],
-    ];
-    rows.forEach(([sourceName, nameKey, helpKey]) => {
-        form.querySelectorAll<HTMLElement>('[data-dictionary-source-row]').forEach(row => {
-            const display = row.querySelector<HTMLElement>('.jpdb-reader-field-display');
-            if (display?.textContent === sourceName) display.replaceChildren(text(nameKey));
-            const help = row.querySelector<HTMLElement>('.jpdb-reader-dictionary-row-help');
-            if (help && !help.dataset.sourceHelpKey && sourceRowHelpMatches(help.textContent ?? '', sourceName)) help.replaceChildren(text(helpKey));
-        });
-    });
-    replaceSourceHelp(form, /JPDB meanings shown/, text('sourceHelpJpdb'));
-    replaceSourceHelp(form, /Example sentences, images, and audio/, text('sourceHelpImmersionKit'));
-    replaceSourceHelp(form, /Remembering the Kanji/, text('sourceHelpRtk'));
-    replaceSourceHelp(form, /Imported Yomitan kanji dictionary/, text('sourceHelpImportedKanjiDictionary'));
     form.querySelectorAll<HTMLInputElement>('[data-source-enable-toggle]').forEach(input => {
         const row = input.closest<HTMLElement>('[data-dictionary-source-row]');
         const name = row?.querySelector<HTMLInputElement>('input[name$=".alias"]')?.value.trim()
@@ -1718,28 +1688,11 @@ function localizeSourceRows(form: HTMLFormElement, text: SettingsText): void {
 
 function localizeSourceHead(head: Element, text: SettingsText): void {
     const spans = head.querySelectorAll('span');
-    const hasDisplayName = !head.classList.contains('compact');
     spans[0]?.replaceChildren(text('enabledHeader'));
     const sourceLabel = text(head.getAttribute('data-source-label-key') === 'kanjiSection' ? 'kanjiSection' : 'definitionSource');
     spans[1]?.replaceChildren(sourceLabel);
-    if (hasDisplayName) {
-        spans[2]?.replaceChildren(text('displayName'));
-        spans[3]?.replaceChildren(text('orderHeader'));
-        spans[4]?.replaceChildren(text('removeHeader'));
-    } else {
-        spans[2]?.replaceChildren(text('orderHeader'));
-        spans[3]?.replaceChildren(text('removeHeader'));
-    }
-}
-
-function replaceSourceHelp(form: HTMLFormElement, pattern: RegExp, value: string): void {
-    form.querySelectorAll<HTMLElement>('.jpdb-reader-help, .jpdb-reader-dictionary-row-help').forEach(help => {
-        if (pattern.test(help.textContent ?? '')) help.replaceChildren(value);
-    });
-}
-
-function sourceRowHelpMatches(value: string, sourceName: string): boolean {
-    return value.includes(sourceName);
+    spans[2]?.replaceChildren(text('orderHeader'));
+    spans[3]?.replaceChildren(text('removeHeader'));
 }
 
 function localizeRecommendedDictionaryGroups(form: HTMLFormElement, text: SettingsText): void {
