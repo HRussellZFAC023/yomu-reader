@@ -1615,7 +1615,7 @@ api	API
 apiCredential	APIキー
 apiCredentialJpdb	JPDB APIキー
 apiCredentialJiten	Jiten APIキー
-apiCredentialBunpro	Bunpro frontend API token
+apiCredentialBunpro	BunproフロントエンドAPIトークン
 apiCredentialWanikani	WaniKaniパーソナルアクセストークン
 wanikaniTokenHelp	WaniKaniでread/write権限のパーソナルアクセストークンを作成し、ここに貼り付けてください。ブラウザ内にのみ保存され、プロキシを経由せずapi.wanikani.comへ直接送信され、ログに残ることはありません。
 apiCredentialBunproLegacy	Bunpro APIキー

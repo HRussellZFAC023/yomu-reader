@@ -383,6 +383,12 @@ describe('settings form localization', () => {
         }
     });
 
+    it('names the Bunpro frontend API token in Japanese', () => {
+        const form = sharedJapaneseSettingsTestForm();
+        expect(labelForControl(form, 'apiCredentialBunpro')).toContain('BunproフロントエンドAPIトークン');
+        expect(labelForControl(form, 'apiCredentialBunpro')).not.toContain('frontend API token');
+    });
+
     it('localizes Japanese font family option metadata', () => {
         const form = sharedJapaneseSettingsTestForm();
 
