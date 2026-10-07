@@ -1,10 +1,8 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { DictionarySourceStateController } from '../../src/reader/sources/state';
-import { DEFAULT_SETTINGS } from '../../src/reader/settings/index';
 
 const createController = () =>
     new DictionarySourceStateController({
-        getSettings: () => DEFAULT_SETTINGS,
         onStateChange: () => undefined,
     });
 
@@ -32,6 +30,12 @@ describe('dictionary source open state', () => {
         document.body.replaceChildren();
         localStorage.clear();
         sessionStorage.clear();
+    });
+
+    it('opens an unseen source without a global preference', () => {
+        const controller = createController();
+        expect(controller.isOpen('definition:unseen')).toBe(true);
+        expect(controller.attributes('definition:unseen')).toContain(' open');
     });
 
     it('persists collapsed source sections across controller instances', () => {

@@ -2,6 +2,8 @@ import { uiText } from '../app/i18n';
 import { requestBlob, requestText } from '../network/http';
 import type { ReaderSettings } from '../app/types';
 
+export const AUDIO_REQUEST_TIMEOUT_MS = 6_000;
+
 export interface AudioRequestOptions {
     method?: 'GET' | 'POST';
     headers?: Record<string, string>;

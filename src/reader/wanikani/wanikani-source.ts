@@ -20,7 +20,7 @@ type SourceAttributes = (key: string, initiallyExpanded?: boolean) => string;
 export function renderWanikaniDefinitionMount(card: JPDBCard, settings: ReaderSettings, sourceAttributes: SourceAttributes): string {
     if (!settings.wanikaniDefinitionsEnabled || !settings.wanikaniApiToken.trim()) return '';
     return `<div data-wanikani-definition-mount data-wanikani-expression="${escapeHtml(card.spelling)}" data-wanikani-reading="${escapeHtml(card.reading)}">
-        ${renderLoadingSource(settings.wanikaniDefinitionsAlias || 'WaniKani', sourceAttributes(definitionSourceStateKey(WANIKANI_DEFINITION_SOURCE_ID)))}
+        ${renderLoadingSource('WaniKani', sourceAttributes(definitionSourceStateKey(WANIKANI_DEFINITION_SOURCE_ID)))}
     </div>`;
 }
 
@@ -48,7 +48,7 @@ export class WanikaniSourceController {
                     settings,
                     this.sourceAttributes(definitionSourceStateKey(WANIKANI_DEFINITION_SOURCE_ID)),
                     // fallow-ignore-next-line code-duplication
-                    settings.wanikaniDefinitionsAlias || 'WaniKani',
+                    'WaniKani',
                 ));
                 mount.dataset.wanikaniLoaded = 'true';
                 this.onRendered?.(mount);
@@ -67,7 +67,7 @@ export class WanikaniSourceController {
             return;
         }
         mount.dataset.wanikaniLoading = 'true';
-        setInnerHtml(mount, renderLoadingSource(settings.wanikaniKanjiAlias || 'WaniKani', this.sourceAttributes(kanjiSourceStateKey(KANJI_WANIKANI_SOURCE_ID))));
+        setInnerHtml(mount, renderLoadingSource('WaniKani', this.sourceAttributes(kanjiSourceStateKey(KANJI_WANIKANI_SOURCE_ID))));
         void this.lookup.lookupKanji(kanji).then(info => {
             if (!mount.isConnected) return;
             if (!info || info.subject.type !== 'kanji') {
@@ -79,7 +79,7 @@ export class WanikaniSourceController {
                 settings,
                 this.sourceAttributes(kanjiSourceStateKey(KANJI_WANIKANI_SOURCE_ID)),
                 // fallow-ignore-next-line code-duplication
-                settings.wanikaniKanjiAlias || 'WaniKani',
+                'WaniKani',
             ));
             mount.dataset.wanikaniLoaded = 'true';
             this.onRendered?.(mount);

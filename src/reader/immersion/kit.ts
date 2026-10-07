@@ -1,3 +1,4 @@
+import { AUDIO_REQUEST_TIMEOUT_MS } from '../audio/request';
 import { isRecord } from '../core/object-utils';
 import { pruneOldestCacheEntries } from '../core/cache-utils';
 import { readBlobAsDataUrl } from '../core/blob-data-url';
@@ -24,6 +25,7 @@ const SEARCH_RATE_LIMIT_INITIAL_BACKOFF_MS = 1_000;
 const SEARCH_RATE_LIMIT_MAX_BACKOFF_MS = 30_000;
 const NADESHIKO_SEARCH_LIMIT = 25;
 const MIN_LEARNING_SENTENCE_LENGTH = 8;
+const MAX_LEARNING_SENTENCE_LENGTH = 80;
 const DEFAULT_EXAMPLE_SORT = 'sentence_length:asc';
 const log = Logger.scope('ImmersionKit');
 
@@ -191,7 +193,7 @@ export class ImmersionKitClient {
                 : inflight;
         }
 
-        const done = log.time('search', { query, source: settings.immersionKitExampleSource, category: settings.immersionKitCategory, exact: settings.immersionKitExactMatch });
+        const done = log.time('search', { query, source: settings.immersionKitExampleSource });
         const promise = this.searchEnabledSources(query, settings, options)
             .then(outcome => {
                 const result = { ...outcome, examples: applySearchExampleLimit(outcome.examples, settings, options) };
@@ -283,10 +285,10 @@ export class ImmersionKitClient {
 
     private searchImmersionKit(query: string, settings: ReaderSettings, options: ImmersionKitSearchOptions): Promise<ImmersionKitExample[]> {
         this.assertImmersionKitSearchAllowed(settings.interfaceLanguage);
-        return requestJson(apiUrls(`/search?${this.searchParams(query, settings, options)}`), settings.audioTimeoutMs, settings.corsProxyUrl, options.signal, settings.interfaceLanguage)
+        return requestJson(apiUrls(`/search?${this.searchParams(query, options)}`), AUDIO_REQUEST_TIMEOUT_MS, settings.corsProxyUrl, options.signal, settings.interfaceLanguage)
             .then(data => {
                 this.resetImmersionKitBackoff();
-                return filterSearchExamples(data, query, settings, this.minimumSentenceLength(settings), 'immersion-kit');
+                return filterSearchExamples(data, query, 'immersion-kit');
             })
             .catch(error => {
                 if (isImmersionKitRateLimitError(error)) this.noteImmersionKitRateLimit();
@@ -319,8 +321,8 @@ export class ImmersionKitClient {
                 Authorization: `Bearer ${apiKey}`,
                 'Content-Type': 'application/json',
             },
-            data: JSON.stringify(nadeshikoSearchPayload(query, settings, this.minimumSentenceLength(settings))),
-            timeoutMs: settings.audioTimeoutMs,
+            data: JSON.stringify(nadeshikoSearchPayload(query)),
+            timeoutMs: AUDIO_REQUEST_TIMEOUT_MS,
             allowDirectCrossOrigin: true,
             allowPublicProxies: false,
             allowConfiguredProxy: false,
@@ -330,7 +332,7 @@ export class ImmersionKitClient {
             failureMessage: uiText(settings.interfaceLanguage, 'nadeshikoRequestFailed'),
             statusFailureMessage: status => formatUiText(settings.interfaceLanguage, 'nadeshikoRequestFailedWithStatus', { status }),
             timeoutLabel: uiText(settings.interfaceLanguage, 'nadeshikoRequestTimedOut'),
-        }).then(data => filterNadeshikoExamples(data, query, settings, this.minimumSentenceLength(settings)));
+        }).then(data => filterNadeshikoExamples(data, query));
     }
 
     private searchCacheKey(query: string, settings: ReaderSettings, options: ImmersionKitSearchOptions): string {
@@ -341,11 +343,6 @@ export class ImmersionKitClient {
             proxy: sensitiveFingerprint(settings.corsProxyUrl),
             limit: searchRequestLimit(options),
             userLimit: searchResultLimit(settings, options),
-            min: this.minimumSentenceLength(settings),
-            max: settings.immersionKitMaxLength,
-            category: settings.immersionKitCategory,
-            sort: this.effectiveSort(settings),
-            exact: settings.immersionKitExactMatch,
             fastFirst: Boolean(options.fastFirst),
         });
     }
@@ -355,30 +352,16 @@ export class ImmersionKitClient {
             query,
             source: settings.immersionKitExampleSource,
             key: sensitiveFingerprint(settings.nadeshikoApiKey),
-            min: this.minimumSentenceLength(settings),
-            max: settings.immersionKitMaxLength,
-            category: settings.immersionKitCategory,
-            exact: settings.immersionKitExactMatch,
         });
     }
 
-    private searchParams(query: string, settings: ReaderSettings, options: ImmersionKitSearchOptions): URLSearchParams {
+    private searchParams(query: string, options: ImmersionKitSearchOptions): URLSearchParams {
         const params = new URLSearchParams({
             q: query,
             limit: String(searchRequestLimit(options)),
-            sort: this.effectiveSort(settings),
+            sort: DEFAULT_EXAMPLE_SORT,
         });
-        if (settings.immersionKitExactMatch) params.set('exactMatch', 'true');
-        if (settings.immersionKitCategory !== 'all') params.set('category', settings.immersionKitCategory);
         return params;
-    }
-
-    private effectiveSort(settings: ReaderSettings): string {
-        return settings.immersionKitSort === 'random' ? DEFAULT_EXAMPLE_SORT : settings.immersionKitSort;
-    }
-
-    private minimumSentenceLength(settings: ReaderSettings): number {
-        return Math.max(settings.immersionKitMinLength, MIN_LEARNING_SENTENCE_LENGTH);
     }
 
     // Compatibility helper for callers that still expect the first media candidate.
@@ -468,25 +451,23 @@ function firstArrayField(record: Record<string, unknown>, keys: string[]): unkno
 function filterSearchExamples(
     data: unknown,
     query: string,
-    settings: ReaderSettings,
-    minLength: number,
     provider: 'immersion-kit' | 'nadeshiko' = 'immersion-kit',
 ): ImmersionKitExample[] {
     return collectExamples(data)
         .map(value => normalizeExample(value, provider))
         .filter((example): example is ImmersionKitExample => Boolean(example))
-        .filter(example => isSearchExampleInRange(example, settings, minLength))
+        .filter(example => isSearchExampleInRange(example))
         .filter(example => isSearchExampleSurfaceMatch(example, query));
 }
 
-function filterNadeshikoExamples(data: unknown, query: string, settings: ReaderSettings, minLength: number): ImmersionKitExample[] {
+function filterNadeshikoExamples(data: unknown, query: string): ImmersionKitExample[] {
     const response = nadeshikoResponseRecord(data);
     if (!response) return [];
     const media = nadeshikoMediaMap(response);
     return nadeshikoSegments(response)
         .map(value => normalizeNadeshikoExample(value, media))
         .filter((example): example is ImmersionKitExample => Boolean(example))
-        .filter(example => isSearchExampleInRange(example, settings, minLength))
+        .filter(example => isSearchExampleInRange(example))
         .filter(example => isSearchExampleSurfaceMatch(example, query));
 }
 
@@ -511,9 +492,9 @@ function boundedSearchLimit(value: number | undefined, fallback: number): number
     return Math.max(1, Math.min(SEARCH_EXAMPLE_LIMIT, Math.trunc(value)));
 }
 
-function isSearchExampleInRange(example: ImmersionKitExample, settings: ReaderSettings, minLength: number): boolean {
+function isSearchExampleInRange(example: ImmersionKitExample): boolean {
     const length = sentenceLength(example.sentence);
-    return length >= minLength && (!settings.immersionKitMaxLength || length <= settings.immersionKitMaxLength);
+    return length >= MIN_LEARNING_SENTENCE_LENGTH && length <= MAX_LEARNING_SENTENCE_LENGTH;
 }
 
 function isSearchExampleSurfaceMatch(example: ImmersionKitExample, query: string): boolean {
@@ -551,15 +532,14 @@ function normalizeExampleRecord(record: Record<string, unknown>, provider: 'imme
     };
 }
 
-function nadeshikoSearchPayload(query: string, settings: ReaderSettings, minLength: number): unknown {
-    const maxLength = settings.immersionKitMaxLength || 1000;
+function nadeshikoSearchPayload(query: string): unknown {
     return {
         query: { search: query },
         take: NADESHIKO_SEARCH_LIMIT,
         filters: {
             segmentLengthChars: {
-                min: minLength,
-                max: Math.max(minLength, maxLength),
+                min: MIN_LEARNING_SENTENCE_LENGTH,
+                max: MAX_LEARNING_SENTENCE_LENGTH,
             },
         },
     };

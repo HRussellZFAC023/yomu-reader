@@ -14,7 +14,7 @@ function nadeshikoResponse(sentence: string) { return { segments: [{ publicId: s
 function fixture(source: ReaderSettings['immersionKitExampleSource']) {
     const settings: ReaderSettings = { ...DEFAULT_SETTINGS, immersionKitEnabled: true,
         immersionKitExampleSource: source, nadeshikoApiKey: 'fixture-first-key',
-        immersionKitMinLength: 0, immersionKitShowImages: false, immersionKitAutoPlayAudio: false,
+        immersionKitShowImages: false, immersionKitAutoPlayAudio: false,
         jpdbDefinitionsEnabled: false };
     const client = new ImmersionKitClient();
     const module = new StudyExamples({ getSettings: () => settings, immersionKit: client,

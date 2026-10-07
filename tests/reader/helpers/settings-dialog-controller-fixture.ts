@@ -150,7 +150,6 @@ export function createSettingsDialog(overrides: Record<string, unknown> = {}, pa
         refreshDictionaryStyles: vi.fn().mockResolvedValue(undefined),
         scheduleDictionaryRescan: vi.fn(),
         refreshNewTabIfCurrent: vi.fn(),
-        clearDictionarySourceOpenOverrides: vi.fn(),
         resetAllData: vi.fn(),
         beginSettingsPreview: vi.fn(),
         clearSettingsPreview: vi.fn(),

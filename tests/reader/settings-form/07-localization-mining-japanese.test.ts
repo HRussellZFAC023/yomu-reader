@@ -35,8 +35,6 @@ describe('settings form localization', () => {
         const guide = form.querySelector<HTMLElement>('.jpdb-reader-proxy-guide')!;
 
         expect(guide.textContent).toContain('Make your own Cloudflare proxy');
-        expect(guide.querySelector('[data-proxy-guide-show]')?.textContent).toBe('Show');
-        expect(guide.querySelector('[data-proxy-guide-hide]')?.textContent).toBe('Hide');
         expect(guide.textContent).toContain('Worker source');
         expect(guide.textContent).toContain('Deploy guide');
         expect(guide.querySelector('.jpdb-reader-proxy-guide-code')).toBeNull();
@@ -142,7 +140,8 @@ describe('settings form localization', () => {
             JITEN_DEFINITION_SOURCE_ID,
         ]);
         expect(ankiRow.textContent).toContain('Anki');
-        expect(ankiRow.textContent).toContain('Matching Anki card content and status');
+        expect(ankiRow.title).toContain('Matching Anki card content and status');
+        expect(ankiRow.querySelector('.jpdb-reader-dictionary-row-help')).toBeNull();
         expect(ankiRow.textContent).not.toContain('mining');
         expect(ankiRow.querySelector<HTMLInputElement>('input[name="ankiSection.name"]')?.value).toBe('Anki');
         expect(ankiRow.querySelector<HTMLElement>('[data-source-drag-handle]')?.tabIndex).toBe(-1);
@@ -305,7 +304,7 @@ describe('settings form localization', () => {
         expect(topLevelLegendForControl(form, 'ankiEnabled')).toBe('Anki');
         expect(topLevelLegendForControl(form, 'jpdbDefinitionsEnabled')).toBe('');
         expect(topLevelLegendForControl(form, 'shortcuts.openSettings')).toBe('Shortcuts');
-        expect(form.querySelector('.jpdb-reader-radio-group > legend')?.textContent).toBe('Examples per word limit');
+        expect(topLevelLegendForControl(form, 'immersionKitLimit')).toBe('Immersion Kit');
     });
 
     it('keeps YouTube controls while site-language navigation stays opt-in', () => {
@@ -351,7 +350,7 @@ describe('settings form localization', () => {
         expect(form.lang).toBe('ja');
         expect(settingsText(form, 'h2')).toBe('よむ 設定');
         expect(labelForControl(form, 'newTabJpdbReviewMode')).toContain('API復習モード');
-        expect(optionText(form, 'newTabSource', 'auto')).toBe('自動: Academy・アカウント後に学習語');
+        expect(optionText(form, 'newTabSource', 'auto')).toBe('自動');
         expect(optionText(form, 'newTabSource', 'jpdb')).toBe('API SRS（Jiten / JPDB）');
         expect(optionText(form, 'newTabJpdbReviewMode', 'api-vocabulary')).toBe('API語彙のみ（デッキ順）');
         expect(settingsText(form, '[data-jpdb-api-key-help]')).toContain('Bunproに必要なのはフロントエンドトークンだけです');
@@ -360,7 +359,7 @@ describe('settings form localization', () => {
         expect(settingsText(form, '[data-jpdb-api-key-help]')).toContain('パスワードと同様に扱ってください');
         expect(settingsText(form, '[data-jpdb-api-key-help]')).toContain('保存時点では未確認');
         expect(labelForControl(form, 'newTabKanjiKeywordSource')).toContain('漢字キーワードのソース');
-        expect(optionText(form, 'newTabKanjiKeywordSource', 'auto')).toBe('自動: RTK、JPDB、ローカル');
+        expect(optionText(form, 'newTabKanjiKeywordSource', 'auto')).toBe('自動');
         expect(optionText(form, 'newTabKanjiKeywordSource', 'jpdb')).toBe('JPDB漢字情報（Jiten / JPDB）');
         expect(labelForControl(form, 'newTabParsingEnabled')).toContain('学習の文解析を有効');
         expect(labelForControl(form, 'preferJapaneseSiteLanguage')).toContain('日本語版のサイトを開く');
@@ -375,7 +374,7 @@ describe('settings form localization', () => {
         expect(labelForControl(form, 'shortcuts.nextLookupWord')).toContain('次の単語');
         expect(labelForControl(form, 'shortcuts.studyReveal')).toContain('学習: カードを表示');
         expect(labelForControl(form, 'shortcuts.studyNext')).toContain('学習: 次のカード');
-        expect(settingsText(form, '.jpdb-reader-radio-group > legend')).toBe('単語ごとの例文数制限');
+        expect(labelForControl(form, 'immersionKitLimit')).toBe('単語ごとの例文数（0 = すべて）');
         expect(settingsText(form, '.jpdb-reader-lookup-link-head span:nth-child(3)')).toBe('検索URLテンプレート');
     });
 
@@ -427,8 +426,6 @@ describe('settings form localization', () => {
     it('localizes Japanese proxy and help controls added outside the original labels', () => {
         const form = sharedJapaneseSettingsTestForm();
 
-        expect(settingsText(form, '[data-proxy-guide-show]')).toBe('表示');
-        expect(settingsText(form, '[data-proxy-guide-hide]')).toBe('隠す');
         expect(form.querySelector<HTMLInputElement>('[data-lookup-link-enable-toggle]')?.getAttribute('aria-label')).toContain('検索ピル');
         expect(settingsText(form, '[data-help-links-title]')).toBe('便利なページ');
         expect(settingsText(form, '[data-help-support-title]')).toBe('よむをサポート');

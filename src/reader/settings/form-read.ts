@@ -19,7 +19,7 @@ import { credentialValueFromReader } from './credential-form';
 export const SELECTABLE_INTERFACE_LANGUAGES = Object.freeze(['auto', 'en', 'ja']) as readonly ReaderSettings['interfaceLanguage'][];
 export const CUSTOM_FONT_FAMILY_VALUE = '__custom_font_family__';
 type FontFamilySettingName = 'readerFontFamily' | 'popupFontFamily' | 'subtitleFontFamily';
-type SourcePriorityFormRow = readonly [string, keyof ReaderSettings, keyof ReaderSettings, (keyof ReaderSettings)?];
+type SourcePriorityFormRow = readonly [string, keyof ReaderSettings, keyof ReaderSettings];
 export type SelectableReaderColorSource = Exclude<ReaderColorSource, 'auto'>;
 export type ColorSourceSettingName =
     | 'wordHighlightColorSource'
@@ -95,12 +95,12 @@ const SHORTCUT_SETTING_NAMES = [
     'gradePass',
 ] as const satisfies readonly ShortcutSettingName[];
 const KANJI_ADDON_SOURCE_ROWS = [
-    ['jpdbKanji', 'jpdbKanjiEnabled', 'jpdbKanjiPriority', 'jpdbKanjiAlias'],
-    ['kanjiImmersionKit', 'kanjiImmersionKitEnabled', 'kanjiImmersionKitPriority', 'kanjiImmersionKitAlias'],
-    ['wanikaniKanji', 'wanikaniKanjiEnabled', 'wanikaniKanjiPriority', 'wanikaniKanjiAlias'],
-    ['rtk', 'rtkEnabled', 'rtkPriority', 'rtkAlias'],
-    ['kanjivg', 'kanjivgEnabled', 'kanjivgPriority', 'kanjivgAlias'],
-    ['kanjiOrigins', 'kanjiOriginsEnabled', 'kanjiOriginsPriority', 'kanjiOriginsAlias'],
+    ['jpdbKanji', 'jpdbKanjiEnabled', 'jpdbKanjiPriority'],
+    ['kanjiImmersionKit', 'kanjiImmersionKitEnabled', 'kanjiImmersionKitPriority'],
+    ['wanikaniKanji', 'wanikaniKanjiEnabled', 'wanikaniKanjiPriority'],
+    ['rtk', 'rtkEnabled', 'rtkPriority'],
+    ['kanjivg', 'kanjivgEnabled', 'kanjivgPriority'],
+    ['kanjiOrigins', 'kanjiOriginsEnabled', 'kanjiOriginsPriority'],
 ] as const satisfies readonly SourcePriorityFormRow[];
 
 export function settingsColorSourceValue(settings: ReaderSettings, name: ColorSourceSettingName): SelectableReaderColorSource {
@@ -243,16 +243,12 @@ function readApiDefinitionFormSettings(
     const jpdbPageEnhancementsEnabled = has('jpdbPageEnhancementsEnabled');
     return {
         jpdbDefinitionsEnabled: rowsPresent.jpdb ? has('jpdbDefinitions.enabled') : current.jpdbDefinitionsEnabled,
-        jpdbDefinitionsAlias: readSourceAlias(reader, 'jpdbDefinitions', current.jpdbDefinitionsAlias),
         jpdbDefinitionsPriority: clamped('jpdbDefinitions.priority', 0, 999, current.jpdbDefinitionsPriority),
         jitenDefinitionsEnabled: rowsPresent.jiten ? has('jitenDefinitions.enabled') : current.jitenDefinitionsEnabled,
-        jitenDefinitionsAlias: readSourceAlias(reader, 'jitenDefinitions', current.jitenDefinitionsAlias),
         jitenDefinitionsPriority: clamped('jitenDefinitions.priority', 0, 999, current.jitenDefinitionsPriority),
         bunproDefinitionsEnabled: rowsPresent.bunpro ? has('bunproDefinitions.enabled') : current.bunproDefinitionsEnabled,
-        bunproDefinitionsAlias: readSourceAlias(reader, 'bunproDefinitions', current.bunproDefinitionsAlias),
         bunproDefinitionsPriority: clamped('bunproDefinitions.priority', 0, 999, current.bunproDefinitionsPriority),
         wanikaniDefinitionsEnabled: rowsPresent.wanikani ? has('wanikaniDefinitions.enabled') : current.wanikaniDefinitionsEnabled,
-        wanikaniDefinitionsAlias: readSourceAlias(reader, 'wanikaniDefinitions', current.wanikaniDefinitionsAlias),
         wanikaniDefinitionsPriority: clamped('wanikaniDefinitions.priority', 0, 999, current.wanikaniDefinitionsPriority),
         jpdbPageEnhancementsEnabled,
         jpdbPageWordEnhancementsEnabled: jpdbPageEnhancementsEnabled && has('jpdbPageWordEnhancementsEnabled'),
@@ -277,34 +273,26 @@ function readSourcePriorityRows(
 ): Partial<ReaderSettings> {
     const settings: Partial<ReaderSettings> = {};
     const out = settings as Record<string, unknown>;
-    for (const [rowName, enabledKey, priorityKey, aliasKey] of rows) {
+    for (const [rowName, enabledKey, priorityKey] of rows) {
         out[enabledKey] = reader.has(`${rowName}.enabled`);
         out[priorityKey] = reader.clamped(`${rowName}.priority`, 0, 999, Number(current[priorityKey]));
-        if (aliasKey) out[aliasKey] = readSourceAlias(reader, rowName, String(current[aliasKey] ?? ''));
     }
     return settings;
 }
 
-function readSourceAlias(reader: SettingsFormReader, prefix: string, current: string): string {
-    const key = `${prefix}.alias`;
-    return reader.has(key) ? reader.get(key).trim() : current;
-}
-
 function readAudioFormSettings(reader: SettingsFormReader, current: ReaderSettings, audioSources: AudioSourceSetting[]): Partial<ReaderSettings> {
-    const { get, has, clamped } = reader;
+    const { get, has } = reader;
     const audioAutoPlayMode = readOption(get('audioAutoPlayMode'), ['off', 'all', 'hover', 'tap'] as const, current.audioAutoPlayMode);
     return {
         audioEnabled: has('audioEnabled'),
-        autoPlayAudio: has('autoPlayAudio') && audioAutoPlayMode !== 'off',
+        autoPlayAudio: audioAutoPlayMode !== 'off',
         suppressAutoAudioOnVideo: has('suppressAutoAudioOnVideo'),
-        audioAutoPlayMode,
+        audioAutoPlayMode: audioAutoPlayMode === 'off' ? current.audioAutoPlayMode : audioAutoPlayMode,
         audioSources,
         audioEnableDefaultSources: has('audioEnableDefaultSources'),
         audioSourceUrl: audioSources.find(source => source.url.trim())?.url.trim() ?? current.audioSourceUrl,
         audioViaBlob: current.audioViaBlob,
         audioFallbackChimeEnabled: has('audioFallbackChimeEnabled'),
-        audioTimeoutMs: clamped('audioTimeoutMs', 1000, 30000, current.audioTimeoutMs),
-        audioSelectionMode: readOption(get('audioSelectionMode'), ['first', 'random'] as const, current.audioSelectionMode),
         audioTtsMode: readOption(get('audioTtsMode'), ['fallback', 'source-order'] as const, current.audioTtsMode),
     };
 }
@@ -410,9 +398,7 @@ function readLocalDictionaryFormSettings(reader: SettingsFormReader, current: Re
         localDictionariesEnabled: has('localDictionariesEnabled'),
         parserProvider: readOption(get('parserProvider'), ['local', 'jiten', 'jpdb', 'auto'] as const, current.parserProvider),
         localDictionaryShowKanji: has('kanjiDictionaries.enabled') || kanjiPreferences.some(preference => preference.enabled),
-        kanjiDictionariesAlias: readSourceAlias(reader, 'kanjiDictionaries', current.kanjiDictionariesAlias),
         kanjiDictionariesPriority: clamped('kanjiDictionaries.priority', 0, 999, current.kanjiDictionariesPriority),
-        dictionarySourcesInitiallyExpanded: true,
         localDictionaryMaxResults: DEFAULT_SETTINGS.localDictionaryMaxResults,
     };
 }
@@ -442,17 +428,16 @@ function readAnkiSectionFormSettings(
     reader: SettingsFormReader,
     current: ReaderSettings,
     ankiEnabled: boolean,
-): Pick<ReaderSettings, 'ankiSectionEnabled' | 'ankiSectionAlias' | 'ankiSectionPriority'> {
+): Pick<ReaderSettings, 'ankiSectionEnabled' | 'ankiSectionPriority'> {
     if (!ankiSectionRowPresent(reader)) {
         return {
             ankiSectionEnabled: current.ankiSectionEnabled,
-            ankiSectionAlias: current.ankiSectionAlias,
+
             ankiSectionPriority: current.ankiSectionPriority,
         };
     }
     return {
         ankiSectionEnabled: reader.has('ankiSection.enabled') || shouldAutoEnableAnkiSection(ankiEnabled, current),
-        ankiSectionAlias: readSourceAlias(reader, 'ankiSection', current.ankiSectionAlias),
         ankiSectionPriority: reader.clamped('ankiSection.priority', 0, 999, current.ankiSectionPriority),
     };
 }
@@ -485,10 +470,8 @@ function readStudyToolFormSettings(reader: SettingsFormReader, current: ReaderSe
     const { has, clamped } = reader;
     return {
         studyTranslationEnabled: has('studyTranslation.enabled'),
-        studyTranslationAlias: readSourceAlias(reader, 'studyTranslation', current.studyTranslationAlias),
         studyTranslationPriority: clamped('studyTranslation.priority', 0, 999, current.studyTranslationPriority),
         studyGrammarEnabled: has('studyGrammar.enabled'),
-        studyGrammarAlias: readSourceAlias(reader, 'studyGrammar', current.studyGrammarAlias),
         studyGrammarPriority: clamped('studyGrammar.priority', 0, 999, current.studyGrammarPriority),
     };
 }
@@ -620,19 +603,14 @@ function readSubtitleFormSettings(reader: SettingsFormReader, current: ReaderSet
 
 function readImmersionKitFormSettings(reader: SettingsFormReader, current: ReaderSettings): Partial<ReaderSettings> {
     const { get, has, clamped } = reader;
+    const limit = clamped('immersionKitLimit', 0, 12, current.immersionKitLimitEnabled ? current.immersionKitLimit : 0);
     return {
         immersionKitEnabled: readImmersionKitEnabled(reader),
-        immersionKitAlias: readSourceAlias(reader, 'immersionKit', current.immersionKitAlias),
         immersionKitExampleSource: readOption(get('immersionKitExampleSource'), ['immersion-kit', 'nadeshiko', 'combined'] as const, current.immersionKitExampleSource),
         nadeshikoApiKey: credentialValueFromReader(reader, 'nadeshikoApiKey', current.nadeshikoApiKey),
         immersionKitPriority: clamped('immersionKit.priority', 0, 999, current.immersionKitPriority),
-        immersionKitLimitEnabled: get('immersionKitLimitEnabled') === 'on',
-        immersionKitLimit: clamped('immersionKitLimit', 1, 12, current.immersionKitLimit),
-        immersionKitMinLength: clamped('immersionKitMinLength', 0, 120, current.immersionKitMinLength),
-        immersionKitMaxLength: clamped('immersionKitMaxLength', 0, 240, current.immersionKitMaxLength),
-        immersionKitCategory: readOption(get('immersionKitCategory'), ['all', 'anime', 'drama', 'games'] as const, current.immersionKitCategory),
-        immersionKitSort: readOption(get('immersionKitSort'), ['sentence_length:asc', 'sentence_length:desc'] as const, current.immersionKitSort),
-        immersionKitExactMatch: has('immersionKitExactMatch'),
+        immersionKitLimitEnabled: limit > 0,
+        immersionKitLimit: limit || current.immersionKitLimit,
         immersionKitShowTranslation: has('immersionKitShowTranslation'),
         immersionKitRevealTranslationOnClick: readEnabledChildCheckbox(reader, 'immersionKitShowTranslation', 'immersionKitRevealTranslationOnClick'),
         immersionKitShowImages: has('immersionKitShowImages'),

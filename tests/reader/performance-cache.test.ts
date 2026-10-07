@@ -427,7 +427,7 @@ describe('performance cache bounds', () => {
 
         try {
             await controller.loadExamples(popover, cardFor(1));
-            await vi.waitFor(() => expect(fetchBlobUrl).toHaveBeenCalledWith(mediaUrl, DEFAULT_SETTINGS.audioTimeoutMs, DEFAULT_SETTINGS.corsProxyUrl, DEFAULT_SETTINGS.interfaceLanguage));
+            await vi.waitFor(() => expect(fetchBlobUrl).toHaveBeenCalledWith(mediaUrl, 6_000, DEFAULT_SETTINGS.corsProxyUrl, DEFAULT_SETTINGS.interfaceLanguage));
             const image = popover.querySelector<HTMLImageElement>('[data-immersion-image]');
 
             expect(image?.getAttribute('src')).toBeNull();
@@ -515,7 +515,7 @@ describe('performance cache bounds', () => {
         expect(currentImage).not.toBeNull();
         await vi.waitFor(() => expect(fetchBlobUrl).toHaveBeenCalledWith(
             'https://media.test/first.jpg',
-            DEFAULT_SETTINGS.audioTimeoutMs,
+            6_000,
             DEFAULT_SETTINGS.corsProxyUrl,
             DEFAULT_SETTINGS.interfaceLanguage,
         ));

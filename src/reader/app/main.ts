@@ -1,3 +1,4 @@
+import { AUDIO_REQUEST_TIMEOUT_MS } from '../audio/request';
 import { AudioPlayer } from '../audio/player';
 import { isYomuHostedAppUrl } from './pages';
 import { AnkiConnectClient, ankiLookupWithUnavailableDetails, captureActiveVideoFrame, untrustedAnkiLookupResult, type AnkiLookupResult } from '../anki/index';
@@ -588,7 +589,6 @@ export class ReaderApp {
         this.activePopover?.isConnected && this.activePopover.querySelector('.jpdb-reader-kanji-display'),
     ));
     private dictionarySourceState = new DictionarySourceStateController({
-        getSettings: () => this.settings,
         onStateChange: () => this.repositionActivePopover(),
     });
     private cardPopoverRenderer = new CardPopoverRenderer({
@@ -1864,7 +1864,7 @@ export class ReaderApp {
                 if (!imageUrls.length) return;
                 void client.fetchBlobUrl(
                     imageUrls[0],
-                    this.settings.audioTimeoutMs,
+                    AUDIO_REQUEST_TIMEOUT_MS,
                     this.settings.corsProxyUrl,
                     this.settings.interfaceLanguage,
                 ).catch(() => undefined);
@@ -9368,7 +9368,6 @@ export class ReaderApp {
             refreshDictionaryStyles: () => this.refreshDictionaryStyles(),
             scheduleDictionaryRescan: () => this.scheduleDictionaryRescan(),
             refreshNewTabIfCurrent: () => undefined,
-            clearDictionarySourceOpenOverrides: () => this.dictionarySourceState.clear(),
             resetAllData: () => this.factoryReset.resetAllData(),
             beginSettingsPreview: (accent, language, theme) => {
                 this.settingsPreviewOriginalAccent = accent;

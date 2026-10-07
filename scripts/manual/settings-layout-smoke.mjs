@@ -13,8 +13,10 @@ import {
 import { createSmokePaths } from '../lib/smoke-harness.mjs';
 
 const paths = createSmokePaths(import.meta.dirname);
-const ARTIFACT_DIR = path.join(paths.artifacts, 'settings-layout');
-const NEWTAB_DIR = paths.newTabDir;
+const ARTIFACT_DIR = process.env.YOMU_SETTINGS_LAYOUT_OUTPUT || path.join(paths.artifacts, 'settings-layout');
+const NEWTAB_DIR = process.env.YOMU_SETTINGS_LAYOUT_BUILD_DIR
+    ? path.join(path.resolve(process.env.YOMU_SETTINGS_LAYOUT_BUILD_DIR), 'newtab')
+    : paths.newTabDir;
 const PUBLIC_DIR = path.join(paths.root, 'docs', 'public');
 const NEWTAB_BASE_PATH = '/yomu-reader/newtab/';
 const JPDB_ORIGIN = 'https://jpdb.io';
@@ -86,12 +88,13 @@ const BASE_SETTINGS = {
     enableLogging: false,
 };
 
-const PANELS = ['appearance', 'api', 'dictionaries', 'media', 'mining', 'newTab', 'shortcuts', 'help'];
+const PANELS = ['appearance', 'backup', 'api', 'dictionaries', 'media', 'mining', 'newTab', 'shortcuts', 'help'];
 const VIEWPORTS = [
     { name: 'desktop', viewport: { width: 1360, height: 900 }, hasTouch: false, isMobile: false },
     { name: 'tablet', viewport: { width: 820, height: 1180 }, hasTouch: true, isMobile: false },
     { name: 'mobile', viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true },
-].flatMap(viewport => PANELS.map(panel => ({ ...viewport, name: `${viewport.name}-${panel.toLowerCase()}`, panel })));
+].flatMap(viewport => PANELS.map(panel => ({ ...viewport, name: `${viewport.name}-${panel.toLowerCase()}`, panel })))
+    .filter(scenario => !process.env.YOMU_SETTINGS_LAYOUT_SCENARIO || scenario.name === process.env.YOMU_SETTINGS_LAYOUT_SCENARIO);
 
 mkdirSync(ARTIFACT_DIR, { recursive: true });
 assertBuiltArtifacts([
@@ -137,11 +140,17 @@ async function verifyViewport(browserInstance, baseUrl, scenario) {
     await page.addInitScript(({ key, value }) => {
         localStorage.setItem(key, JSON.stringify(value));
     }, { key: YOMU_SETTINGS_KEY, value: BASE_SETTINGS });
+    await page.route('https://yomureader.com/**', async route => {
+        const url = new URL(route.request().url());
+        const pathname = url.pathname.replace(/^\/study\//, NEWTAB_BASE_PATH);
+        const response = await route.fetch({ url: `${baseUrl}${pathname}${url.search}` });
+        await route.fulfill({ response });
+    });
     await page.route('https://jpdb.io/**', route => route.fulfill(mockedJpdbRoute(route.request(), requests)));
     await page.route('https://api.jiten.moe/**', route => route.fulfill(mockedJitenRoute(route.request(), requests)));
     await page.route(`${YOMU_PUBLIC_PROXY_ORIGIN}/**`, route => route.fulfill(mockedProxyRoute(route.request(), requests)));
     try {
-        await page.goto(`${baseUrl}${NEWTAB_BASE_PATH}index.html?q=${encodeURIComponent('読み取る')}&settings-layout=${scenario.name}`, { waitUntil: 'domcontentloaded' });
+        await page.goto(`https://yomureader.com/study/index.html?q=${encodeURIComponent('読み取る')}&settings-layout=${scenario.name}`, { waitUntil: 'domcontentloaded' });
         await page.waitForSelector('[data-jpdb-reader-root].jpdb-reader-newtab', { timeout: 12_000 });
         await openSettingsFromNewTabMenu(page);
         await selectSettingsPanel(page, scenario.panel);
@@ -255,16 +264,14 @@ function contentTypeForFile(filePath) {
 
 async function openSettingsFromNewTabMenu(page) {
     await page.locator('.jpdb-reader-newtab-more summary').click();
-    await page.locator('[data-newtab-action="settings"]').click();
+    await page.locator('.jpdb-reader-newtab-more [data-newtab-action="settings"]').click();
     await page.waitForSelector('.jpdb-reader-settings', { timeout: 8_000 });
 }
 
 async function selectSettingsPanel(page, panel) {
     const selector = `.jpdb-reader-settings [data-action="settings-panel"][data-panel="${panel}"]`;
     await page.waitForSelector(selector, { state: 'attached', timeout: 8_000 });
-    await page.evaluate(({ tabSelector }) => {
-        document.querySelector(tabSelector)?.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
-    }, { tabSelector: selector });
+    await page.locator(selector).click();
     await page.waitForSelector(`.jpdb-reader-settings [data-settings-panel="${panel}"]:not([hidden])`, { timeout: 8_000 });
 }
 
@@ -401,6 +408,7 @@ async function settingsLayoutSnapshot(page, panel) {
             issues.push(...gridGapIssues(grid, children));
         }
         issues.push(...sourceRowIssues(panelRoot));
+        issues.push(...settingsReadableControlIssues(panelRoot));
         issues.push(...audioSourceBoxAlignmentIssues(panelRoot));
         issues.push(...gridInlineControlAlignmentIssues(panelRoot));
 
@@ -437,6 +445,40 @@ async function settingsLayoutSnapshot(page, panel) {
             preview,
             issues,
         };
+
+        function settingsReadableControlIssues(root) {
+            if (!root) return [];
+            const found = [];
+            for (const icon of [...root.querySelectorAll('a.jpdb-reader-btn > svg')].filter(isVisible)) {
+                const rect = icon.getBoundingClientRect();
+                if (rect.width > 20 || rect.height > 20) found.push({ type: 'unbounded-button-icon', rect: rectSnapshot(rect) });
+            }
+            for (const name of [...root.querySelectorAll('[data-dictionary-source-row] > .jpdb-reader-field-display')].filter(isVisible)) {
+                const rect = name.getBoundingClientRect();
+                if (rect.width < 120) found.push({ type: 'cramped-source-name', text: textOf(name), rect: rectSnapshot(rect) });
+            }
+            for (const select of [...root.querySelectorAll('.jpdb-reader-audio-source-choice select')].filter(isVisible)) {
+                if (select.getBoundingClientRect().width < 180) found.push({ type: 'cramped-audio-source', text: select.selectedOptions[0]?.textContent });
+            }
+            for (const label of [...root.querySelectorAll('.jpdb-reader-settings-label-text:has(> a)')].filter(isVisible)) {
+                const anchor = label.querySelector('a');
+                const text = [...label.childNodes].find(node => node.nodeType === Node.TEXT_NODE && node.textContent.trim());
+                if (!text || !anchor) continue;
+                const range = document.createRange(); range.selectNodeContents(text);
+                const textRect = range.getBoundingClientRect(), linkRect = anchor.getBoundingClientRect();
+                if (sharesVisualRow(textRect, linkRect) && linkRect.left - textRect.right < 2) found.push({ type: 'touching-label-link', text: textOf(label) });
+            }
+            for (const row of [...root.querySelectorAll('.jpdb-reader-order-row')].filter(isVisible)) {
+                const buttons = [...row.querySelectorAll('.jpdb-reader-row-tools button')].filter(isVisible);
+                for (let i = 0; i < buttons.length; i++) for (let j = i + 1; j < buttons.length; j++) {
+                    const a = buttons[i].getBoundingClientRect(), b = buttons[j].getBoundingClientRect();
+                    if (Math.min(a.right, b.right) - Math.max(a.left, b.left) > 1 && Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top) > 1) {
+                        found.push({ type: 'colliding-source-actions', row: textOf(row) });
+                    }
+                }
+            }
+            return found;
+        }
 
         function sourceRowIssues(root) {
             if (!root) return [];

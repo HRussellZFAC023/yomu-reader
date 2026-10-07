@@ -34,7 +34,7 @@ import {
     DEFAULT_LANGUAGE_PROFILE_ID,
 } from '../languages/profiles';
 import { isTargetDefaultOcrLanguageTag } from '../languages/resolve';
-import type { AnkiTemplateMode, AudioAutoPlayMode, AudioSourceSetting, AudioSubSourceSetting, AudioTtsMode, FuriganaMode, ImmersionExampleSource, ImmersionKitCategory, ImmersionKitSort, InterfaceLanguage, OcrOverlayTheme, OcrProvider, ReaderColorSource, ReaderSettings } from '../app/types';
+import type { AnkiTemplateMode, AudioAutoPlayMode, AudioSourceSetting, AudioSubSourceSetting, AudioTtsMode, FuriganaMode, ImmersionExampleSource, InterfaceLanguage, OcrOverlayTheme, OcrProvider, ReaderColorSource, ReaderSettings } from '../app/types';
 export { formatShortcutEvent, matchesShortcut, shortcutIsPressed } from './shortcuts';
 export { accentToRgba, accessibleOcrBackgroundColor, accessibleOcrBackgroundOpacity, sanitizeAccentColor } from './color-settings';
 export { COPY_LOOKUP_LINK, MAX_EXTRA_LOOKUP_LINKS, MAX_LOOKUP_LINK_ROWS, defaultDictionaryLookupLinks, defaultLookupLinkMode, mergeDictionaryPreferences, normalizeDictionaryLookupLinks, normalizeDictionaryPreferences, retireStaleDictionaryPreferences } from './dictionary';
@@ -110,29 +110,11 @@ const API_DEFINITION_NUMBER_SETTING_RANGES = {
     bunproDefinitionsPriority: { min: 0, max: 999 },
     wanikaniDefinitionsPriority: { min: 0, max: 999 },
 } as const;
-const SOURCE_ALIAS_SETTING_KEYS = [
-    'jpdbDefinitionsAlias',
-    'jitenDefinitionsAlias',
-    'bunproDefinitionsAlias',
-    'wanikaniDefinitionsAlias',
-    'jpdbKanjiAlias',
-    'kanjiImmersionKitAlias',
-    'wanikaniKanjiAlias',
-    'rtkAlias',
-    'kanjivgAlias',
-    'kanjiOriginsAlias',
-    'kanjiDictionariesAlias',
-    'immersionKitAlias',
-    'ankiSectionAlias',
-    'studyTranslationAlias',
-    'studyGrammarAlias',
-] as const satisfies readonly (keyof ReaderSettings)[];
 const MINING_BOOLEAN_SETTING_KEYS = [
     'jpdbMiningEnabled',
     'bunproMiningEnabled',
     'wanikaniReviewEnabled',
     'yomuLocalSrsEnabled',
-    'dictionarySourcesInitiallyExpanded',
 ] as const;
 const SUBTITLE_BOOLEAN_SETTING_KEYS = [
     'subtitleOverlayVisibleChosen',
@@ -190,8 +172,6 @@ const HOVER_POPUP_MODES = ['sheet', 'popover', 'auto'] as const satisfies readon
 const POPOVER_HEIGHT_MODES = ['fixed', 'available'] as const satisfies readonly ReaderSettings['popoverHeightMode'][];
 const AUDIO_AUTO_PLAY_MODES = ['off', 'all', 'hover', 'tap'] as const satisfies readonly AudioAutoPlayMode[];
 const AUDIO_TTS_MODES = ['source-order', 'fallback'] as const satisfies readonly AudioTtsMode[];
-const IMMERSION_KIT_CATEGORIES = ['anime', 'drama', 'games', 'all'] as const satisfies readonly ImmersionKitCategory[];
-const IMMERSION_KIT_SORTS = ['sentence_length:desc', 'sentence_length:asc'] as const satisfies readonly ImmersionKitSort[];
 const IMMERSION_EXAMPLE_SOURCES = ['nadeshiko', 'combined', 'immersion-kit'] as const satisfies readonly ImmersionExampleSource[];
 const OCR_OVERLAY_THEMES = ['auto', 'dark', 'light'] as const satisfies readonly OcrOverlayTheme[];
 const SUBTITLE_CONTROL_MODES = ['always', 'hidden', 'auto'] as const satisfies readonly ReaderSettings['subtitleControlsMode'][];
@@ -225,37 +205,27 @@ export const DEFAULT_SETTINGS: ReaderSettings = {
     pitchColorUnknown: DEFAULT_PITCH_COLORS.unknown,
     ...DEFAULT_COLOR_CHANNELS,
     jpdbDefinitionsEnabled: true,
-    jpdbDefinitionsAlias: '',
     jpdbDefinitionsPriority: 1,
     jitenDefinitionsEnabled: true,
-    jitenDefinitionsAlias: '',
     jitenDefinitionsPriority: 0,
     bunproDefinitionsEnabled: true,
-    bunproDefinitionsAlias: '',
     bunproDefinitionsPriority: 2,
     wanikaniDefinitionsEnabled: true,
-    wanikaniDefinitionsAlias: '',
     wanikaniDefinitionsPriority: 3,
     jpdbPageEnhancementsEnabled: true,
     jpdbPageWordEnhancementsEnabled: true,
     jpdbPageKanjiEnhancementsEnabled: true,
     jpdbKanjiEnabled: true,
-    jpdbKanjiAlias: '',
     jpdbKanjiPriority: 10,
     kanjiImmersionKitEnabled: true,
-    kanjiImmersionKitAlias: '',
     kanjiImmersionKitPriority: 60,
     wanikaniKanjiEnabled: true,
-    wanikaniKanjiAlias: '',
     wanikaniKanjiPriority: 55,
     rtkEnabled: true,
-    rtkAlias: '',
     rtkPriority: 20,
     kanjivgEnabled: true,
-    kanjivgAlias: '',
     kanjivgPriority: 0,
     kanjiOriginsEnabled: true,
-    kanjiOriginsAlias: '',
     kanjiOriginsPriority: 30,
     kanjiOriginKanjiMapEnabled: true,
     kanjiOriginGraphEnabled: true,
@@ -269,21 +239,13 @@ export const DEFAULT_SETTINGS: ReaderSettings = {
     audioSourceUrl: DEFAULT_AUDIO_URL,
     audioViaBlob: true,
     audioFallbackChimeEnabled: true,
-    audioTimeoutMs: 6000,
-    audioSelectionMode: 'random',
     audioTtsMode: 'fallback',
     immersionKitEnabled: true,
-    immersionKitAlias: '',
     immersionKitExampleSource: 'immersion-kit',
     nadeshikoApiKey: '',
     immersionKitPriority: 80,
     immersionKitLimitEnabled: false,
     immersionKitLimit: 12,
-    immersionKitMinLength: 8,
-    immersionKitMaxLength: 80,
-    immersionKitCategory: 'all',
-    immersionKitSort: 'sentence_length:asc',
-    immersionKitExactMatch: false,
     immersionKitShowTranslation: true,
     immersionKitRevealTranslationOnClick: true,
     immersionKitShowImages: true,
@@ -367,9 +329,7 @@ export const DEFAULT_SETTINGS: ReaderSettings = {
     parserProvider: 'local',
     localDictionaryMaxResults: 12,
     localDictionaryShowKanji: true,
-    kanjiDictionariesAlias: '',
     kanjiDictionariesPriority: 30,
-    dictionarySourcesInitiallyExpanded: true,
     dictionaryPreferences: [],
     // Numbered as normalization numbers them, so the defaults are already
     // normal and an untouched Save writes them back unchanged.
@@ -384,7 +344,6 @@ export const DEFAULT_SETTINGS: ReaderSettings = {
     // Keep Anki opt-in: fresh installs/factory resets cannot assume Anki exists, and the send button costs real space on mobile popups.
     ankiEnabled: false,
     ankiSectionEnabled: false,
-    ankiSectionAlias: '',
     ankiSectionPriority: 90,
     ankiConnectUrl: 'http://127.0.0.1:8765',
     ankiDeck: 'よむ',
@@ -395,9 +354,7 @@ export const DEFAULT_SETTINGS: ReaderSettings = {
     ankiFrontImage: true,
     ankiMobileHandoff: false,
     studyTranslationEnabled: true,
-    studyTranslationAlias: '',
     studyGrammarEnabled: true,
-    studyGrammarAlias: '',
     enableLogging: false,
     ankiTags: 'yomu',
     ankiMineWithJpdb: false,
@@ -501,7 +458,6 @@ function mergeSettings(value: Partial<ReaderSettings> | null): ReaderSettings {
         ...normalizeAnkiAndStudySettings(settingsValue),
         ...normalizePresentationSettings(settingsValue),
         ...normalizeMiningSettings(settingsValue),
-        ...normalizeSourceAliasSettings(settingsValue),
         ...normalizeRemovedDictionarySettings(settingsValue),
         dictionaryLookupLinks: normalizeDictionaryLookupLinkSettings(settingsValue),
         ...languageProfileSettings,
@@ -602,19 +558,10 @@ function normalizeDefinitionSourcePrioritySettings(value: Partial<ReaderSettings
     return normalizeNumberSettingGroup(value, API_DEFINITION_NUMBER_SETTING_RANGES);
 }
 
-function normalizeSourceAliasSettings(value: Partial<ReaderSettings> | null): Pick<ReaderSettings, typeof SOURCE_ALIAS_SETTING_KEYS[number]> {
-    const aliases = {} as Pick<ReaderSettings, typeof SOURCE_ALIAS_SETTING_KEYS[number]>;
-    for (const key of SOURCE_ALIAS_SETTING_KEYS) {
-        aliases[key] = trimmedStringSetting(value, key, DEFAULT_SETTINGS[key]);
-    }
-    return aliases;
-}
-
-function normalizeRemovedDictionarySettings(value: Partial<ReaderSettings> | null): Pick<ReaderSettings, 'jpdbDefinitionsEnabled' | 'localDictionariesEnabled' | 'dictionarySourcesInitiallyExpanded' | 'localDictionaryMaxResults' | 'localDictionaryShowKanji'> {
+function normalizeRemovedDictionarySettings(value: Partial<ReaderSettings> | null): Pick<ReaderSettings, 'jpdbDefinitionsEnabled' | 'localDictionariesEnabled' | 'localDictionaryMaxResults' | 'localDictionaryShowKanji'> {
     return {
         jpdbDefinitionsEnabled: booleanSetting(value, 'jpdbDefinitionsEnabled'),
         localDictionariesEnabled: booleanSetting(value, 'localDictionariesEnabled'),
-        dictionarySourcesInitiallyExpanded: booleanSetting(value, 'dictionarySourcesInitiallyExpanded'),
         localDictionaryMaxResults: DEFAULT_SETTINGS.localDictionaryMaxResults,
         localDictionaryShowKanji: booleanSetting(value, 'localDictionaryShowKanji'),
     };
@@ -757,10 +704,6 @@ function normalizeMediaSettings(value: Partial<ReaderSettings> | null): Partial<
         nadeshikoApiKey: trimmedStringSetting(value, 'nadeshikoApiKey', DEFAULT_SETTINGS.nadeshikoApiKey),
         immersionKitPriority: clampNumber(settings.immersionKitPriority, 0, 999, DEFAULT_SETTINGS.immersionKitPriority),
         ...immersionExampleLimit,
-        immersionKitMinLength: clampNumber(settings.immersionKitMinLength, 0, 120, DEFAULT_SETTINGS.immersionKitMinLength),
-        immersionKitMaxLength: clampNumber(settings.immersionKitMaxLength, 0, 240, DEFAULT_SETTINGS.immersionKitMaxLength),
-        immersionKitCategory: normalizeImmersionKitCategory(settings.immersionKitCategory),
-        immersionKitSort: normalizeImmersionKitSort(settings.immersionKitSort),
         immersionKitPlaybackRate: clampNumber(settings.immersionKitPlaybackRate, 0.5, 2, DEFAULT_SETTINGS.immersionKitPlaybackRate),
         immersionKitRevealTranslationOnClick: booleanSetting(value, 'immersionKitRevealTranslationOnClick'),
         immersionKitPlayOnHover: booleanSetting(value, 'immersionKitPlayOnHover'),
@@ -862,14 +805,6 @@ function normalizeAudioAutoPlayMode(value: unknown): AudioAutoPlayMode {
 
 function normalizeAudioTtsMode(value: unknown): AudioTtsMode {
     return normalizeOption(value, AUDIO_TTS_MODES, DEFAULT_SETTINGS.audioTtsMode);
-}
-
-function normalizeImmersionKitCategory(value: unknown): ImmersionKitCategory {
-    return normalizeOption(value, IMMERSION_KIT_CATEGORIES, DEFAULT_SETTINGS.immersionKitCategory);
-}
-
-function normalizeImmersionKitSort(value: unknown): ImmersionKitSort {
-    return normalizeOption(value, IMMERSION_KIT_SORTS, DEFAULT_SETTINGS.immersionKitSort);
 }
 
 function normalizeImmersionExampleSource(value: unknown): ImmersionExampleSource {

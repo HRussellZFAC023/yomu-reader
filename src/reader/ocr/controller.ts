@@ -1168,7 +1168,7 @@ export class ImageOcrController {
         // Bound canvas encoding plus fallback transports; an HTTP timer alone misses a hung WebKit encode.
         const providerResult = inlineFallback ? null : await promiseWithTimeout(
             this.recognizeImage(image, settings),
-            ocrAttemptTimeoutMs(settings, this.options.ocrAttemptTimeoutFloorMs),
+            ocrAttemptTimeoutMs(this.options.ocrAttemptTimeoutFloorMs),
             'OCR timed out.',
         );
         work.target.requireCurrent(STALE_OCR_STATE);

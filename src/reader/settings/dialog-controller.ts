@@ -1,3 +1,4 @@
+import { AUDIO_REQUEST_TIMEOUT_MS } from '../audio/request';
 import { AudioPlayer } from '../audio/player';
 import { AnkiConnectClient, canUseMobileAnkiHandoff, isAnkiConnectAvailabilityError, hasUserscriptAnkiBridge } from '../anki/index';
 import { diagnoseAnkiConnectFailure } from '../anki/transport';
@@ -161,7 +162,6 @@ interface SettingsDialogDependencies {
     refreshNewTabIfCurrent: () => void;
     // A restore replaced stored learner data; the host reloads views it loaded from storage.
     onStoredDataRestored?: () => void;
-    clearDictionarySourceOpenOverrides: () => void;
     resetAllData: () => void | Promise<void>;
     beginSettingsPreview: (accent: string, language: InterfaceLanguage, theme: ReaderSettings['theme']) => void;
     clearSettingsPreview: () => void;
@@ -631,7 +631,6 @@ export class SettingsDialogController {
     private bindFormSubmit(form: HTMLFormElement): void {
         bindAuthorizedReaderFormSubmit(form, () => {
             const previousSettings = this.stableSettings;
-            const previousInitialOpen = previousSettings.dictionarySourcesInitiallyExpanded;
             const nextSettings = readFormSettings(new FormData(form), previousSettings);
             const settingsImportRevision = this.restoreCoordinator.beginSave(form);
             if (settingsImportRevision === undefined) return;
@@ -653,9 +652,6 @@ export class SettingsDialogController {
                 }
                 this.settings = nextSettings;
                 configureLogger({ forceEnabled: this.settings.enableLogging });
-                if (this.settings.dictionarySourcesInitiallyExpanded !== previousInitialOpen) {
-                    this.dependencies.clearDictionarySourceOpenOverrides();
-                }
                 return withSaveWaitStatus(this.settings.interfaceLanguage, () => this.saveCurrentSettings(previousSettings)).then(() => {
                     saved = this.afterSettingsSaved(form, saveRequestId);
                 });
@@ -813,11 +809,6 @@ export class SettingsDialogController {
         form.querySelectorAll<HTMLInputElement>('input[name^="wordColor"], input[name^="pitchColor"]').forEach(input => {
             input.addEventListener('input', scheduleWordColorPreview);
         });
-        const autoPlayAudio = form.querySelector<HTMLInputElement>('input[name="autoPlayAudio"]');
-        const audioAutoPlayMode = form.querySelector<HTMLSelectElement>('select[name="audioAutoPlayMode"]');
-        autoPlayAudio?.addEventListener('change', () => {
-            if (audioAutoPlayMode) audioAutoPlayMode.disabled = !autoPlayAudio.checked;
-        });
         this.syncThemeSwitch(form);
         form.querySelector<HTMLButtonElement>('[data-theme-switch]')?.addEventListener('click', event => {
             event.preventDefault();
@@ -885,16 +876,6 @@ export class SettingsDialogController {
         };
         form.querySelector<HTMLSelectElement>('select[name="immersionKitExampleSource"]')?.addEventListener('change', syncNadeshikoKeyField);
         syncNadeshikoKeyField();
-        const syncImmersionLimit = () => {
-            const enabled = form.querySelector<HTMLInputElement>('input[name="immersionKitLimitEnabled"][value="on"]')?.checked ?? false;
-            const limit = form.querySelector<HTMLInputElement>('input[name="immersionKitLimit"]');
-            if (limit) limit.disabled = !enabled;
-            syncDisabledSettingsControlDescriptions(form, getFormInterfaceLanguage(form, this.settings.interfaceLanguage));
-        };
-        form.querySelectorAll<HTMLInputElement>('input[name="immersionKitLimitEnabled"]').forEach(input => {
-            input.addEventListener('change', syncImmersionLimit);
-        });
-        syncImmersionLimit();
         form.querySelector<HTMLSelectElement>('select[name="interfaceLanguage"]')?.addEventListener('change', event => {
             const value = (event.currentTarget as HTMLSelectElement).value;
             if (value !== 'auto' && value !== 'en' && value !== 'ja') return;
@@ -1729,7 +1710,7 @@ export class SettingsDialogController {
         const known = knownAudioSubSourceNames(url);
         if (!known.length) setDetectStatus(uiText(language, 'audioDetectingSubSources'));
         try {
-            const detected = await detectCustomJsonAudioSubSources(url, this.settings.audioTimeoutMs, this.settings.corsProxyUrl);
+            const detected = await detectCustomJsonAudioSubSources(url, AUDIO_REQUEST_TIMEOUT_MS, this.settings.corsProxyUrl);
             // The row can be re-rendered, reordered, or removed while the probe
             // is in flight, so re-resolve it and bail unless it still holds the
             // URL that was probed.

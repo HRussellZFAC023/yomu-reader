@@ -142,6 +142,7 @@ const DISABLED_SETTINGS_CONTROL_DESCRIPTION_ID = 'jpdb-reader-disabled-control-d
 const AUTOFILL_IGNORE_ATTRIBUTE_HTML = ' data-1p-ignore="true" data-lpignore="true" data-bwignore="true" data-protonpass-ignore="true" data-form-type="other"';
 function protectedCredentialInput(
     name: string, label: string, storedValue: string, language: InterfaceLanguage, emptyPlaceholder = '',
+    link?: { url: string; label: string },
 ): string {
     const configured = Boolean(storedValue.trim());
     const field = input(name, label, '', 'text', {
@@ -150,8 +151,9 @@ function protectedCredentialInput(
         placeholder: configured ? uiText(language, 'storedCredentialPlaceholder') : emptyPlaceholder,
         ...(configured ? { 'data-stored-credential-placeholder': 'true' } : {}),
     });
-    if (!configured) return field;
-    return `<div class="jpdb-reader-protected-credential" data-stored-credential="true">${field}<label class="inline"><input name="${escapeHtml(storedCredentialClearName(name))}" type="checkbox"><span data-clear-stored-credential>${escapedUiText(language, 'clearStoredCredential')}</span></label></div>`;
+    const help = link ? `<a href="${escapeHtml(link.url)}" target="_blank" rel="noopener">${escapeHtml(link.label)}</a>` : '';
+    const clear = configured ? `<label class="inline"><input name="${escapeHtml(storedCredentialClearName(name))}" type="checkbox"><span data-clear-stored-credential>${escapedUiText(language, 'clearStoredCredential')}</span></label>` : '';
+    return `<div class="jpdb-reader-protected-credential"${configured ? ' data-stored-credential="true"' : ''}>${field}${help}${clear}</div>`;
 }
 const SETTINGS_TABS: readonly {
     panel: string;
@@ -322,8 +324,7 @@ function renderSettingsSearch(language: InterfaceLanguage): string {
     return `
             <div class="jpdb-reader-settings-search">
                 <label>
-                    <span class="jpdb-reader-settings-label-text">${escapedUiText(language, 'settingsSearch')}</span>
-                    <input type="search" name="yomu-settings-search" data-settings-search placeholder="${escapedUiText(language, 'settingsSearchPlaceholder')}" autocomplete="off"${AUTOFILL_IGNORE_ATTRIBUTE_HTML}>
+                    <input type="search" name="yomu-settings-search" data-settings-search aria-label="${escapedUiText(language, 'settingsSearch')}" placeholder="${escapedUiText(language, 'settingsSearchPlaceholder')}" autocomplete="off"${AUTOFILL_IGNORE_ATTRIBUTE_HTML}>
                 </label>
             </div>
             <div class="jpdb-reader-settings-search-empty" data-settings-search-empty hidden>${escapedUiText(language, 'settingsSearchNoResults')}</div>
@@ -363,11 +364,11 @@ function renderApiSettingsPanel(settings: ReaderSettings, jpdbSettingsUrl: strin
                 <div class="jpdb-reader-settings-subsection">
                     <div class="jpdb-reader-local-title">${escapedUiText(language, 'apiAccess')}</div>
                     <div class="grid">
-                        ${protectedCredentialInput('apiCredentialJiten', `${escapedUiText(language, 'apiCredentialJiten')} <a href="${jitenSettingsUrl}" target="_blank" rel="noopener">${escapedUiText(language, 'jitenSettings')}</a>`, effectiveJitenApiKey(settings), language)}
-                        ${protectedCredentialInput('apiCredentialJpdb', `${escapedUiText(language, 'apiCredentialJpdb')} <a href="${jpdbSettingsUrl}" target="_blank" rel="noopener">${escapedUiText(language, 'jpdbSettings')}</a>`, effectiveJpdbApiKey(settings), language)}
-                        ${protectedCredentialInput('apiCredentialBunpro', `${escapedUiText(language, 'apiCredentialBunpro')} <a href="${DEFAULT_BUNPRO_SETTINGS_URL}" target="_blank" rel="noopener">${escapedUiText(language, 'bunproSettings')}</a>`, settings.bunproFrontendApiToken, language, 'frontend_api_token')}
+                        ${protectedCredentialInput('apiCredentialJiten', escapedUiText(language, 'apiCredentialJiten'), effectiveJitenApiKey(settings), language, '', { url: jitenSettingsUrl, label: uiText(language, 'jitenSettings') })}
+                        ${protectedCredentialInput('apiCredentialJpdb', escapedUiText(language, 'apiCredentialJpdb'), effectiveJpdbApiKey(settings), language, '', { url: jpdbSettingsUrl, label: uiText(language, 'jpdbSettings') })}
+                        ${protectedCredentialInput('apiCredentialBunpro', escapedUiText(language, 'apiCredentialBunpro'), settings.bunproFrontendApiToken, language, 'frontend_api_token', { url: DEFAULT_BUNPRO_SETTINGS_URL, label: uiText(language, 'bunproSettings') })}
                         <input type="hidden" name="bunproFrontendApiTokenExpiresAt" value="${escapeHtml(settings.bunproFrontendApiTokenExpiresAt)}">
-                        ${protectedCredentialInput('apiCredentialWanikani', `${escapedUiText(language, 'apiCredentialWanikani')} <a href="${WANIKANI_TOKEN_SETTINGS_URL}" target="_blank" rel="noopener">${escapedUiText(language, 'wanikaniSettings')}</a>`, settings.wanikaniApiToken, language, 'wanikani personal access token')}
+                        ${protectedCredentialInput('apiCredentialWanikani', escapedUiText(language, 'apiCredentialWanikani'), settings.wanikaniApiToken, language, 'wanikani personal access token', { url: WANIKANI_TOKEN_SETTINGS_URL, label: uiText(language, 'wanikaniSettings') })}
                     </div>
                     <div class="jpdb-reader-help" data-jpdb-api-key-help>${escapedUiText(language, 'apiAccessHelp')}</div>
                     <div class="jpdb-reader-help" data-wanikani-api-key-help>${escapedUiText(language, 'wanikaniTokenHelp')}</div>
@@ -476,7 +477,7 @@ function renderNewTabSettingsSubsection(settings: ReaderSettings): string {
 function kanjiKeywordSourceOptions(settings: Pick<ReaderSettings, 'apiKey' | 'jitenApiKey'>, text?: SettingsText): [ReaderSettings['newTabKanjiKeywordSource'], string][] {
     const apiLabel = combinedApiCredentialLabel(settings);
     const auto = text
-        ? text('newTabKanjiKeywordAuto').replace('{service}', apiLabel)
+        ? text('newTabKanjiKeywordAuto')
         : `Auto: RTK, then ${apiLabel} kanji facts, then local`;
     const apiFacts = text
         ? text('newTabKanjiKeywordApiFacts').replace('{service}', apiLabel)
@@ -601,31 +602,15 @@ const WORD_COLOR_STATE_OPTIONS = [
 ] as const satisfies readonly (readonly [ReaderSettings['wordColorStates'], SettingsTextKey])[];
 
 const AUDIO_AUTO_PLAY_MODE_OPTIONS = [
+    ['off', 'off'],
     ['all', 'audioAutoPlayAll'],
     ['hover', 'audioAutoPlayHover'],
     ['tap', 'audioAutoPlayTap'],
 ] as const satisfies SettingsOptionTable;
 
-const AUDIO_SELECTION_MODE_OPTIONS = [
-    ['first', 'firstAudio'],
-    ['random', 'randomAudio'],
-] as const satisfies SettingsOptionTable;
-
 const AUDIO_TTS_MODE_OPTIONS = [
     ['fallback', 'audioTtsFallback'],
     ['source-order', 'audioTtsSourceOrder'],
-] as const satisfies SettingsOptionTable;
-
-const IMMERSION_KIT_CATEGORY_OPTIONS = [
-    ['all', 'allCategories'],
-    ['anime', 'anime'],
-    ['drama', 'drama'],
-    ['games', 'games'],
-] as const satisfies SettingsOptionTable;
-
-const IMMERSION_KIT_SORT_OPTIONS = [
-    ['sentence_length:asc', 'shortestFirst'],
-    ['sentence_length:desc', 'longestFirst'],
 ] as const satisfies SettingsOptionTable;
 
 const SUBTITLE_CONTROLS_MODE_OPTIONS = [
@@ -734,7 +719,7 @@ function renderColorInputs(fields: readonly ColorInputField[], settings: ReaderS
 function renderAudioSettingsPanel(settings: ReaderSettings): string {
     const language = settings.interfaceLanguage;
     const text = settingsText(language);
-    const autoPlayMode = settings.audioAutoPlayMode === 'off' ? 'all' : settings.audioAutoPlayMode;
+    const autoPlayMode = settings.autoPlayAudio ? settings.audioAutoPlayMode : 'off';
     return `
             <fieldset id="jpdb-reader-settings-panel-audio" role="tabpanel" data-settings-panel="media" data-legend-key="audio" aria-describedby="settings-help-audio" hidden>
                 <legend>${escapedUiText(language, 'audio')}</legend>
@@ -745,11 +730,8 @@ function renderAudioSettingsPanel(settings: ReaderSettings): string {
                     ${checkbox('audioFallbackChimeEnabled', uiText(language, 'audioFallbackChimeEnabled'), settings.audioFallbackChimeEnabled)}
                 </div>
                 <div class="grid jpdb-reader-settings-cgrid">
-                    ${checkbox('autoPlayAudio', uiText(language, 'autoPlayAudio'), settings.autoPlayAudio)}
-                    ${audioAutoPlayModeSelect(language, autoPlayMode, !settings.autoPlayAudio)}
-                    ${select('audioSelectionMode', uiText(language, 'audioSelectionMode'), settings.audioSelectionMode, localizedOptions(text, AUDIO_SELECTION_MODE_OPTIONS))}
+                    ${select('audioAutoPlayMode', uiText(language, 'audioAutoPlayMode'), autoPlayMode, localizedOptions(text, AUDIO_AUTO_PLAY_MODE_OPTIONS))}
                     ${select('audioTtsMode', uiText(language, 'audioTtsMode'), settings.audioTtsMode, localizedOptions(text, AUDIO_TTS_MODE_OPTIONS))}
-                    ${input('audioTimeoutMs', uiText(language, 'audioTimeoutMs'), String(settings.audioTimeoutMs), 'number', { min: 1000, max: 30000, step: 500 })}
                     ${input('corsProxyUrl', uiText(language, 'corsProxyUrl'), settings.corsProxyUrl, 'url', { placeholder: 'https://your-worker.workers.dev' })}
                 </div>
                 ${renderProxySetupGuide(language)}
@@ -761,22 +743,11 @@ function renderAudioSettingsPanel(settings: ReaderSettings): string {
     `;
 }
 
-function audioAutoPlayModeSelect(language: InterfaceLanguage, value: Exclude<ReaderSettings['audioAutoPlayMode'], 'off'>, disabled: boolean): string {
-    const options = localizedOptions(settingsText(language), AUDIO_AUTO_PLAY_MODE_OPTIONS);
-    return `<label>${escapedUiText(language, 'audioAutoPlayMode')}<select name="audioAutoPlayMode" ${disabled ? 'disabled' : ''}>${options.map(([optionValue, text]) =>
-        `<option value="${escapeHtml(optionValue)}" ${optionValue === value ? 'selected' : ''}>${escapeHtml(text)}</option>`,
-    ).join('')}</select>${disabled ? `<input type="hidden" name="audioAutoPlayMode" value="${escapeHtml(value)}">` : ''}</label>`;
-}
-
 function renderProxySetupGuide(language: InterfaceLanguage): string {
     return `
                 <details class="jpdb-reader-proxy-guide">
                     <summary>
                         <span data-proxy-guide-summary>${escapedUiText(language, 'audioProxyGuideSummary')}</span>
-                        <span class="jpdb-reader-proxy-guide-toggle" aria-hidden="true">
-                            <span data-proxy-guide-show>${escapedUiText(language, 'show')}</span>
-                            <span data-proxy-guide-hide>${escapedUiText(language, 'hide')}</span>
-                        </span>
                     </summary>
                     <div class="jpdb-reader-proxy-guide-body">
                         <p>${escapedUiText(language, 'audioProxyGuideIntro')}</p>
@@ -811,17 +782,11 @@ function renderImmersionKitSettingsPanel(settings: ReaderSettings): string {
                     ${checkbox('immersionKitShowTranslation', uiText(language, 'immersionKitShowTranslation'), settings.immersionKitShowTranslation)}
                     ${checkbox('immersionKitRevealTranslationOnClick', uiText(language, 'immersionKitRevealTranslationOnClick'), settings.immersionKitRevealTranslationOnClick, { disabled: !settings.immersionKitShowTranslation })}
                     ${checkbox('immersionKitShowImages', uiText(language, 'immersionKitShowImages'), settings.immersionKitShowImages)}
-                    ${checkbox('immersionKitExactMatch', uiText(language, 'immersionKitExactMatch'), settings.immersionKitExactMatch)}
                 </div>
                 <div class="grid jpdb-reader-settings-cgrid">
                     ${select('immersionKitExampleSource', uiText(language, 'immersionKitExampleSource'), settings.immersionKitExampleSource, immersionKitExampleSourceOptions(text))}
                     ${renderNadeshikoApiKeyField(settings)}
-                    ${select('immersionKitCategory', uiText(language, 'immersionKitCategory'), settings.immersionKitCategory, localizedOptions(text, IMMERSION_KIT_CATEGORY_OPTIONS))}
-                    ${select('immersionKitSort', uiText(language, 'immersionKitSort'), settings.immersionKitSort, localizedOptions(text, IMMERSION_KIT_SORT_OPTIONS))}
-                    ${radioGroup('immersionKitLimitEnabled', uiText(language, 'immersionKitLimitEnabled'), settings.immersionKitLimitEnabled ? 'on' : 'off', [['off', uiText(language, 'allExamples')], ['on', uiText(language, 'limitExamples')]])}
-                    ${input('immersionKitLimit', uiText(language, 'immersionKitLimit'), String(settings.immersionKitLimit), 'number', { min: 1, max: 12, step: 1 })}
-                    ${input('immersionKitMinLength', uiText(language, 'immersionKitMinLength'), String(settings.immersionKitMinLength), 'number', { min: 0, max: 120, step: 1 })}
-                    ${input('immersionKitMaxLength', uiText(language, 'immersionKitMaxLength'), String(settings.immersionKitMaxLength), 'number', { min: 0, max: 240, step: 1 })}
+                    ${input('immersionKitLimit', uiText(language, 'immersionKitLimit'), String(settings.immersionKitLimitEnabled ? settings.immersionKitLimit : 0), 'number', { min: 0, max: 12, step: 1 })}
                     ${input('immersionKitPlaybackRate', uiText(language, 'immersionKitPlaybackRate'), String(settings.immersionKitPlaybackRate), 'number', { min: 0.5, max: 2, step: 0.05 })}
                 </div>
                 <div class="jpdb-reader-settings-subsection">
@@ -841,7 +806,7 @@ function renderNadeshikoApiKeyField(settings: ReaderSettings): string {
     const language = settings.interfaceLanguage;
     return `
                     <div data-nadeshiko-api-key-field ${usesNadeshikoExamples(settings.immersionKitExampleSource) ? '' : 'hidden'}>
-                        ${protectedCredentialInput('nadeshikoApiKey', `${escapedUiText(language, 'nadeshikoApiKey')} <a href="${NADESHIKO_DEVELOPER_URL}" target="_blank" rel="noopener">${externalButtonLabel(uiText(language, 'getNadeshikoKey'))}</a>`, settings.nadeshikoApiKey, language)}
+                        ${protectedCredentialInput('nadeshikoApiKey', escapedUiText(language, 'nadeshikoApiKey'), settings.nadeshikoApiKey, language, '', { url: NADESHIKO_DEVELOPER_URL, label: uiText(language, 'getNadeshikoKey') })}
                     </div>`;
 }
 
@@ -1051,7 +1016,6 @@ function renderDictionariesSettingsPanel(
                 <div data-target-dictionary-content hidden>
                 <div class="jpdb-reader-settings-subsection">
                     <div class="jpdb-reader-local-title" data-help-key="popupOrderTitle">${escapedUiText(language, 'popupOrderTitle')}</div>
-                    <div class="jpdb-reader-help" data-help-key="popupOrderHelp">${escapedUiText(language, 'popupOrderHelp')}</div>
                     <div class="jpdb-reader-dictionary-priorities" data-source-editor data-definition-source-editor>
                         ${renderDictionarySourceRows(settings)}
                     </div>
@@ -1084,7 +1048,6 @@ function renderBackupSettingsPanel(settings: ReaderSettings): string {
     return `
             <fieldset id="jpdb-reader-settings-panel-backup" role="tabpanel" data-settings-panel="backup" data-legend-key="backupSync" hidden>
                 <legend>${escapedUiText(language, 'backupSync')}</legend>
-                <div class="jpdb-reader-help" data-help-key="backupSyncHelp">${escapedUiText(language, 'backupSyncHelp')}</div>
                 ${renderAcademyAccountSyncSection(settings)}
                 ${CLOUD_SETTINGS_SYNC_ENABLED ? renderCloudSettingsSyncSection(settings) : ''}
                 <div class="jpdb-reader-settings-actions">
@@ -1347,8 +1310,6 @@ const SELECTOR_TEXT_KEYS = [
     ['[data-subtitle-preview] .jpdb-subtitle-secondary', 'subtitlePreview'],
     ['[data-settings-preview-title]', 'preview'],
     ['[data-proxy-guide-summary]', 'audioProxyGuideSummary'],
-    ['[data-proxy-guide-show]', 'show'],
-    ['[data-proxy-guide-hide]', 'hide'],
     ['[data-cloud-settings-sync-title]', 'cloudSettingsSync'],
     ['[data-academy-account-title]', 'academyAccountSync'],
     ['[data-academy-pairing-code-label]', 'academyPairingCode'],
@@ -1443,7 +1404,6 @@ function localizeSettingsTabs(form: HTMLFormElement, text: SettingsText): void {
 
 function localizeSettingsSearch(form: HTMLFormElement, text: SettingsText): void {
     const input = form.querySelector<HTMLInputElement>('[data-settings-search]');
-    input?.closest('label')?.querySelector<HTMLElement>(':scope > .jpdb-reader-settings-label-text')?.replaceChildren(text('settingsSearch'));
     if (input) {
         input.placeholder = text('settingsSearchPlaceholder');
         input.setAttribute('aria-label', text('settingsSearch'));
@@ -1462,13 +1422,13 @@ function localizeSettingsLegends(form: HTMLFormElement, text: SettingsText): voi
 
 function localizeSettingsLabels(form: HTMLFormElement, text: SettingsText): void {
     SETTINGS_CONTROL_LABELS.forEach(([name, key]) => setControlLabel(form, name, text(key)));
-    const jpdbSettings = form.querySelector<HTMLAnchorElement>('label a[href*="jpdb.io/settings"]');
+    const jpdbSettings = form.querySelector<HTMLAnchorElement>('.jpdb-reader-protected-credential > a[href*="jpdb.io/settings"]');
     if (jpdbSettings) jpdbSettings.textContent = text('jpdbSettings');
-    const jitenSettings = form.querySelector<HTMLAnchorElement>('label a[href*="jiten.moe/settings"]');
+    const jitenSettings = form.querySelector<HTMLAnchorElement>('.jpdb-reader-protected-credential > a[href*="jiten.moe/settings"]');
     if (jitenSettings) jitenSettings.textContent = text('jitenSettings');
-    const bunproSettings = form.querySelector<HTMLAnchorElement>('label a[href*="bunpro.jp/settings"]');
+    const bunproSettings = form.querySelector<HTMLAnchorElement>('.jpdb-reader-protected-credential > a[href*="bunpro.jp/settings"]');
     if (bunproSettings) bunproSettings.textContent = text('bunproSettings');
-    const nadeshikoKeyLink = form.querySelector<HTMLAnchorElement>('label a[href*="nadeshiko.co/user/developer"]');
+    const nadeshikoKeyLink = form.querySelector<HTMLAnchorElement>('.jpdb-reader-protected-credential > a[href*="nadeshiko.co/user/developer"]');
     if (nadeshikoKeyLink) nadeshikoKeyLink.textContent = text('getNadeshikoKey');
     localizeBlockControlLabel(form, 'ocrEndpointUrl', text('ocrEndpointUrl'));
     localizeBlockControlLabel(form, 'ocrCloudVisionApiKey', text('cloudVisionApiKey'));
@@ -1538,11 +1498,8 @@ function localizeColorSourceSelects(form: HTMLFormElement, text: SettingsText): 
 
 function localizeMediaSettingsSelects(form: HTMLFormElement, text: SettingsText): void {
     setSelectOptionLabels(form, 'audioAutoPlayMode', localizedOptions(text, AUDIO_AUTO_PLAY_MODE_OPTIONS));
-    setSelectOptionLabels(form, 'audioSelectionMode', localizedOptions(text, AUDIO_SELECTION_MODE_OPTIONS));
     setSelectOptionLabels(form, 'audioTtsMode', localizedOptions(text, AUDIO_TTS_MODE_OPTIONS));
-    setSelectOptionLabels(form, 'immersionKitCategory', localizedOptions(text, IMMERSION_KIT_CATEGORY_OPTIONS));
     setSelectOptionLabels(form, 'immersionKitExampleSource', immersionKitExampleSourceOptions(text));
-    setSelectOptionLabels(form, 'immersionKitSort', localizedOptions(text, IMMERSION_KIT_SORT_OPTIONS));
     localizeOcrSettingsSelects(form, text);
     setSelectOptionLabels(form, 'subtitleControlsMode', localizedOptions(text, SUBTITLE_CONTROLS_MODE_OPTIONS));
     setSelectOptionLabels(form, 'subtitleNativeDisplay', localizedOptions(text, NATIVE_SUBTITLE_DISPLAY_OPTIONS));
@@ -1601,12 +1558,6 @@ function localizeSettingsShortcuts(form: HTMLFormElement, text: SettingsText): v
     setRadioLabel(form, 'ocrInteractionMode', 'auto', text('ocrInteractionModeAuto'));
     setRadioLabel(form, 'ocrInteractionMode', 'manual', text('ocrInteractionModeManual'));
     setRadioLabel(form, 'ocrInteractionMode', 'off', text('ocrInteractionModeOff'));
-    const immersionLimitLegend = getNamedControl<HTMLInputElement>(form, 'immersionKitLimitEnabled')
-        ?.closest<HTMLFieldSetElement>('.jpdb-reader-radio-group')
-        ?.querySelector('legend');
-    immersionLimitLegend?.replaceChildren(text('immersionKitLimitEnabled'));
-    setRadioLabel(form, 'immersionKitLimitEnabled', 'off', text('allExamples'));
-    setRadioLabel(form, 'immersionKitLimitEnabled', 'on', text('limitExamples'));
 }
 
 function localizeSettingsHelpText(form: HTMLFormElement, text: SettingsText): void {
@@ -1753,6 +1704,10 @@ function localizeDeckControls(form: HTMLFormElement, text: SettingsText): void {
 }
 
 function localizeSourceRows(form: HTMLFormElement, text: SettingsText): void {
+    form.querySelectorAll<HTMLElement>('[data-source-description-key]').forEach(row => {
+        const key = row.dataset.sourceDescriptionKey;
+        if (isSettingsTextKey(key)) row.title = text(key);
+    });
     form.querySelectorAll('.jpdb-reader-dictionary-head').forEach(head => localizeSourceHead(head, text));
     form.querySelectorAll<HTMLElement>('[data-source-name-key]').forEach(element => {
         const key = element.dataset.sourceNameKey;
@@ -1792,6 +1747,7 @@ function localizeSourceRows(form: HTMLFormElement, text: SettingsText): void {
         const row = input.closest<HTMLElement>('[data-dictionary-source-row]');
         const name = row?.querySelector<HTMLInputElement>('input[name$=".alias"]')?.value.trim()
             || row?.querySelector<HTMLElement>('.jpdb-reader-field-display')?.textContent?.trim()
+            || row?.querySelector<HTMLInputElement>('input[name$=".name"]')?.value.trim()
             || input.closest('label')?.textContent?.trim()
             || '';
         input.setAttribute('aria-label', text('enableSourceName').replace('{name}', name));
@@ -1803,7 +1759,7 @@ function localizeSourceHead(head: Element, text: SettingsText): void {
     const spans = head.querySelectorAll('span');
     const hasDisplayName = !head.classList.contains('compact');
     spans[0]?.replaceChildren(text('enabledHeader'));
-    const sourceLabel = sourceHeadLabel(spans[1]?.textContent ?? '', text);
+    const sourceLabel = text(head.getAttribute('data-source-label-key') === 'kanjiSection' ? 'kanjiSection' : 'definitionSource');
     spans[1]?.replaceChildren(sourceLabel);
     if (hasDisplayName) {
         spans[2]?.replaceChildren(text('displayName'));
@@ -1813,11 +1769,6 @@ function localizeSourceHead(head: Element, text: SettingsText): void {
         spans[2]?.replaceChildren(text('orderHeader'));
         spans[3]?.replaceChildren(text('removeHeader'));
     }
-}
-
-function sourceHeadLabel(value: string, text: SettingsText): string {
-    if (value === 'Kanji section') return text('kanjiSection');
-    return text('definitionSource');
 }
 
 function replaceSourceHelp(form: HTMLFormElement, pattern: RegExp, value: string): void {
@@ -1953,10 +1904,10 @@ const DIRECT_SETTINGS_CONTROL_LABEL_KEYS = [
     'subtitleHighlightColorSource', 'subtitleUnderlineColorSource', 'subtitleTextColorSource', 'lookupOnClick',
     'popupLookupEnabled', 'lookupOnHover', 'lookupOnMiddleMouse', 'showFloatingButton', 'pageScanMode', 'appearancePreset', 'clampedRowReadings', 'wordColorStates', 'showPitchAccent', 'showLookupPillFrequency', 'suppressRedundantWordUi', 'sheetCloseButtonOnLeft',
     'audioEnabled', 'autoPlayAudio', 'suppressAutoAudioOnVideo', 'audioAutoPlayMode', 'audioEnableDefaultSources', 'audioFallbackChimeEnabled',
-    'audioSelectionMode', 'audioTtsMode', 'audioTimeoutMs', 'immersionKitEnabled', 'immersionKitExampleSource',
+    'audioTtsMode', 'immersionKitEnabled', 'immersionKitExampleSource',
     'nadeshikoApiKey', 'immersionKitShowTranslation', 'immersionKitRevealTranslationOnClick', 'immersionKitShowImages', 'immersionKitAutoPlayAudio',
-    'immersionKitPlayOnHover', 'immersionKitPlayOnImageClick', 'immersionKitCategory', 'immersionKitSort', 'immersionKitLimit',
-    'immersionKitMinLength', 'immersionKitMaxLength', 'immersionKitPlaybackRate', 'immersionKitExactMatch', 'ocrInteractionMode',
+    'immersionKitPlayOnHover', 'immersionKitPlayOnImageClick', 'immersionKitLimit',
+    'immersionKitPlaybackRate', 'ocrInteractionMode',
     'ocrShowTextOverlay', 'ocrVideoPauseFrames', 'ocrInvertDarkPanels', 'ocrProvider', 'ocrOverlayTheme', 'ocrMaxImagesPerPage', 'ocrMinImageArea',
     'ocrMaxImagePixels', 'ocrTextColor', 'ocrOutlineColor', 'ocrBackgroundOpacity',
     'ocrFontScale', 'ocrEndpointUrl', 'ocrEngine', 'subtitlePlayerEnabled', 'subtitleAutoDetect',
@@ -2386,13 +2337,13 @@ export function renderDictionarySourceRows(settings: ReaderSettings): string {
         `).join('');
     const importHelp = visibleNames.size ? '' : renderSourceRowsHelp(settings.interfaceLanguage, 'importLocalDefinitionsHelp');
     const metadataHelp = settings.dictionaryPreferences.length > visibleNames.size ? renderSourceRowsHelp(settings.interfaceLanguage, 'metadataDictionariesHelp') : '';
-    return `${importHelp}${renderSourceRowsList(rows, { sourceLabel: 'Definition source', countName: 'dictionaryPreferenceCount', countValue: settings.dictionaryPreferences.length, showAlias: true })}${metadataHelp}${hidden}`;
+    return `${importHelp}${renderSourceRowsList(rows, { sourceLabelKey: 'definitionSource', countName: 'dictionaryPreferenceCount', countValue: settings.dictionaryPreferences.length, language: settings.interfaceLanguage })}${metadataHelp}${hidden}`;
 }
 
 export function renderKanjiSourceRows(settings: ReaderSettings): string {
     return renderSourceRowsList(kanjiSourceRows(settings), {
-        sourceLabel: 'Kanji section',
-        showAlias: true,
+        sourceLabelKey: 'kanjiSection',
+        language: settings.interfaceLanguage,
     });
 }
 

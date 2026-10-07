@@ -1486,7 +1486,7 @@ describe('reader helpers', () => {
             theme: 'dark' as const,
             popupMode: 'popover' as const,
             popoverHeightMode: 'fixed' as const,
-            audioSelectionMode: 'random' as const,
+
             audioTtsMode: 'source-order' as const,
             audioAutoPlayMode: 'tap' as const,
             interfaceLanguage: 'ja' as const,
@@ -1507,7 +1507,7 @@ describe('reader helpers', () => {
         expect(settings.theme).toBe('dark');
         expect(settings.popupMode).toBe('popover');
         expect(settings.popoverHeightMode).toBe('fixed');
-        expect(settings.audioSelectionMode).toBe('random');
+        expect(settings).not.toHaveProperty('audioSelectionMode');
         expect(settings.audioTtsMode).toBe('source-order');
         expect(settings.audioAutoPlayMode).toBe('tap');
         expect(settings.interfaceLanguage).toBe('ja');
@@ -1681,7 +1681,7 @@ describe('reader helpers', () => {
             const player = new AudioPlayer(() => ({
                 ...DEFAULT_SETTINGS,
                 audioEnableDefaultSources: false,
-                audioSelectionMode: 'random',
+
                 audioFallbackChimeEnabled: false,
                 audioSources: [{ type: 'text-to-speech', url: '', voice: '', enabled: true }],
             }));

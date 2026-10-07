@@ -47,7 +47,6 @@ const COPY = {
         dictionaries: 'Dictionaries',
         sources: 'Sources',
         backupSync: 'Backup & sync',
-        backupSyncHelp: 'Save or move your Yomu setup: export and import settings as plain JSON, back up dictionaries, or sync through Google Drive.',
         media: 'Media',
         mining: 'Mining',
         shortcuts: 'Shortcuts',
@@ -156,19 +155,19 @@ const COPY = {
         newTabAnkiReviewDecks: 'Anki review decks',
         newTabAnkiReviewDecksHelp: 'Uncheck decks to skip.',
         newTabSource: 'Study review source',
-        newTabAuto: `Auto: ${ACADEMY_SRS_LABEL}, accounts, then study words`,
+        newTabAuto: 'Automatic',
         newTabApiSrs: 'API SRS (Jiten / JPDB)',
         newTabBunpro: 'Bunpro',
         newTabWanikani: 'WaniKani',
         newTabYomuLocal: ACADEMY_SRS_LABEL,
         dictionaryFallback: 'Dictionary fallback',
         newTabJpdbReviewMode: 'API review mode',
-        newTabJpdbReviewAuto: 'Auto: live kanji + API vocabulary',
+        newTabJpdbReviewAuto: 'Automatic',
         newTabLiveReview: 'Live JPDB review session',
         newTabApiVocabulary: 'API vocabulary only',
         corsProxyUrl: 'Cross-origin proxy URL',
         newTabKanjiKeywordSource: 'Kanji keyword source',
-        newTabKanjiKeywordAuto: 'Auto: RTK, then {service} kanji facts, then local',
+        newTabKanjiKeywordAuto: 'Automatic',
         newTabKanjiKeywordRtk: 'RTK / Heisig',
         newTabKanjiKeywordApiFacts: '{service} kanji facts (Jiten / JPDB)',
         newTabKanjiKeywordLocal: 'Local card meaning',
@@ -249,12 +248,12 @@ const COPY = {
         furiganaMode: 'Furigana',
         wordColorStates: 'Color words',
         appearancePreset: 'Quick setup',
-        appearancePresetCustom: 'Keep current custom settings',
+        appearancePresetCustom: 'Custom',
         appearancePresetBalanced: 'Balanced reading',
         appearancePresetNoColors: 'Plain text',
         appearancePresetNewOnly: 'Focus on new words',
         appearancePresetUnderlineNew: 'Minimal highlights',
-        wordColorStatesAll: 'Use all learning states',
+        wordColorStatesAll: 'All learning states',
         wordColorStatesNewOnly: 'Only new / not-in-deck words',
         hideFuriganaFor: 'Hide furigana for',
         hideColorFor: 'Hide color for',
@@ -263,7 +262,7 @@ const COPY = {
         statusColorNoSourceHelp: `Status colors read from a deck. Enable ${ACADEMY_SRS_LABEL} in Study, or add a JPDB, Jiten, or Anki source, and words take the color of their learning state.`,
         furiganaHideKnown: 'Hide familiar words',
         furiganaHoverOnly: 'Show on hover',
-        furiganaAllParsed: 'Show on every parsed word',
+        furiganaAllParsed: 'All parsed words',
         clampedRowReadings: 'Readings on clamped rows',
         clampedRowReadingsShow: 'Show (row grows)',
         clampedRowReadingsHover: 'Hover only',
@@ -281,17 +280,15 @@ const COPY = {
         audioEnabled: 'Enable term audio',
         autoPlayAudio: 'Auto-play term audio',
         suppressAutoAudioOnVideo: 'Disable lookup audio on video pages',
-        audioAutoPlayMode: 'Auto-play trigger',
+        audioAutoPlayMode: 'Auto-play term audio',
         audioEnableDefaultSources: 'Enable built-in audio sources',
         audioFallbackChimeEnabled: 'Enable fallback chime',
-        audioSelectionMode: 'When several sources or clips exist',
         audioPlayback: 'Audio playback',
         firstAudio: 'First audio',
         randomAudio: 'Shuffle audio',
         audioTtsMode: 'Text-to-speech handling',
         audioTtsFallback: 'Fallback after recorded audio',
         audioTtsSourceOrder: 'Follow source order / shuffle',
-        audioTimeoutMs: 'Audio timeout (ms)',
         previewAudio: 'Preview audio',
         audioHelp: 'URL tokens: {term}, {reading}, {language}.',
         audioSource: 'Audio source',
@@ -354,16 +351,11 @@ const COPY = {
         immersionKitAutoPlayAudio: 'Play example audio after reveal or next/previous',
         immersionKitPlayOnHover: 'Play example audio when hovering thumbnails',
         immersionKitPlayOnImageClick: 'Play example audio when clicking thumbnails',
-        immersionKitCategory: 'Immersion Kit category',
-        immersionKitSort: 'Example order',
         immersionKitLimitEnabled: 'Examples per word limit',
         allExamples: 'All examples',
         limitExamples: 'Limit examples',
-        immersionKitLimit: 'Examples per word',
-        immersionKitMinLength: 'Minimum sentence length',
-        immersionKitMaxLength: 'Maximum sentence length',
+        immersionKitLimit: 'Examples per word (0 = all)',
         immersionKitPlaybackRate: 'Example audio speed',
-        immersionKitExactMatch: 'Prefer exact matches',
         immersionKitHelp: 'Examples appear in popups. Nadeshiko needs a key.',
         loadingExamples: 'Loading examples...',
         noImmersionExamplesCompact: 'No examples',
@@ -526,7 +518,6 @@ const COPY = {
         ankiHelp: 'Install AnkiConnect and keep desktop Anki open. If CORS appears, add this site to webCorsOriginList. Mobile handoff creates notes only.',
         jpdbDefinitionsEnabled: 'Show JPDB definitions',
         ...LOCAL_DICTIONARY_STORAGE_COPY.enSettings,
-        dictionarySourcesInitiallyExpanded: 'Open sources by default',
         localDictionaryMaxResults: 'Dictionary result limit',
         cloudSettingsSync: 'Google Drive settings sync',
         cloudSettingsSyncHelp: 'Stores your Yomu settings and local SRS progress in Google Drive app data. Dictionaries stay local.',
@@ -1071,7 +1062,6 @@ const COPY = {
         removeHeader: 'Remove',
         definitionSource: 'Definition source',
         popupOrderTitle: 'Popup order',
-        popupOrderHelp: 'This list sets the order of sections in the popup. Reorder it with the arrows or by dragging, then press Save.',
         kanjiSection: 'Kanji section',
         dragToReorder: 'Drag to reorder',
         moveUp: 'Move up',
@@ -1632,7 +1622,6 @@ appearance	外観
 reading	読解
 sources	ソース
 backupSync	バックアップと同期
-backupSyncHelp	Yomuの設定を保存・移行できます。設定をJSONでエクスポート/インポート、辞書のバックアップ、Google Drive同期に対応しています。
 media	メディア
 mining	採掘
 shortcuts	ショートカット
@@ -1733,19 +1722,19 @@ newTabAnkiEnabled	学習でAnkiカードを使う
 newTabAnkiReviewDecks	Anki復習デッキ
 newTabAnkiReviewDecksHelp	不要なデッキを外します。
 newTabSource	学習の復習ソース
-newTabAuto	自動: Academy・アカウント後に学習語
+newTabAuto	自動
 newTabApiSrs	API SRS（Jiten / JPDB）
 newTabBunpro	Bunpro
 newTabWanikani	WaniKani
 newTabYomuLocal	Academy
 dictionaryFallback	辞書フォールバック
 newTabJpdbReviewMode	API復習モード
-newTabJpdbReviewAuto	自動: ライブ漢字+API語彙
+newTabJpdbReviewAuto	自動
 newTabLiveReview	ライブJPDB復習セッション
 newTabApiVocabulary	API語彙のみ（デッキ順）
 corsProxyUrl	クロスオリジンプロキシURL
 newTabKanjiKeywordSource	漢字キーワードのソース
-newTabKanjiKeywordAuto	自動: RTK、{service}、ローカル
+newTabKanjiKeywordAuto	自動
 newTabKanjiKeywordRtk	RTK / Heisig
 newTabKanjiKeywordApiFacts	{service}漢字情報（Jiten / JPDB）
 newTabKanjiKeywordLocal	ローカルカードの意味
@@ -1827,7 +1816,7 @@ showFurigana	ふりがな注釈を有効にする
 furiganaMode	ふりがな
 wordColorStates	色を付ける単語
 appearancePreset	かんたん設定
-appearancePresetCustom	現在のカスタム設定を保持
+appearancePresetCustom	カスタム
 appearancePresetBalanced	読みやすいバランス
 appearancePresetNoColors	プレーンテキスト
 appearancePresetNewOnly	新規単語に集中
@@ -1841,7 +1830,7 @@ furiganaDifficultKanjiHelp	Yomuは初級漢字の固定リストを持ち、そ�
 statusColorNoSourceHelp	学習状態の色はデッキから読み取ります。StudyでAcademyを有効にするか、JPDB・Jiten・Ankiのいずれかを追加すると、単語が学習状態の色になります。
 furiganaHideKnown	なじみのある語を非表示
 furiganaHoverOnly	ホバー時に表示
-furiganaAllParsed	解析済みの全単語に表示
+furiganaAllParsed	解析済みの全単語
 clampedRowReadings	省略行の読み
 clampedRowReadingsShow	表示（行が広がる）
 clampedRowReadingsHover	ホバー時のみ
@@ -1858,17 +1847,15 @@ kanjiOriginRadicalImagesEnabled	部首画像を表示
 audioEnabled	語句の音声を有効にする
 autoPlayAudio	語句の音声を自動再生
 suppressAutoAudioOnVideo	動画では検索音声オフ
-audioAutoPlayMode	自動再生のきっかけ
+audioAutoPlayMode	単語音声の自動再生
 audioEnableDefaultSources	内蔵音声ソースを有効
 audioFallbackChimeEnabled	フォールバック音を有効
-audioSelectionMode	複数音声があるとき
 audioPlayback	音声再生
 firstAudio	最初の音声
 randomAudio	シャッフル音声
 audioTtsMode	読み上げの扱い
 audioTtsFallback	録音音声の後のフォールバック
 audioTtsSourceOrder	ソース順/シャッフルに含める
-audioTimeoutMs	音声タイムアウト (ms)
 previewAudio	音声を試聴
 audioHelp	URL: {term}、{reading}、{language}。
 audioSource	音声ソース
@@ -1930,16 +1917,11 @@ immersionKitShowImages	例文サムネイルを表示
 immersionKitAutoPlayAudio	表示後や移動時に音声再生
 immersionKitPlayOnHover	ホバーで例文音声を再生
 immersionKitPlayOnImageClick	クリックで例文音声を再生
-immersionKitCategory	例文ソース
-immersionKitSort	例文の並び順
 immersionKitLimitEnabled	単語ごとの例文数制限
 allExamples	すべての例文
 limitExamples	例文数を制限
-immersionKitLimit	単語ごとの例文数
-immersionKitMinLength	最小文長
-immersionKitMaxLength	最大文長
+immersionKitLimit	単語ごとの例文数（0 = すべて）
 immersionKitPlaybackRate	例文音声速度
-immersionKitExactMatch	完全一致を優先
 immersionKitHelp	例文を表示。Nadeshikoはキー必須。
 allCategories	すべて
 anime	アニメ
@@ -2082,7 +2064,6 @@ ankiMappingLowConfidence	低
 ankiHelp	AnkiConnectを入れてデスクトップ版Ankiを開きます。CORS表示が出る場合はこのサイトをwebCorsOriginListに追加してください。モバイル受け渡しは新規ノート作成のみです。
 jpdbDefinitionsEnabled	JPDB定義を表示
 ${Object.entries(LOCAL_DICTIONARY_STORAGE_COPY.jaSettings).map(([key, value]) => `${key}\t${value}`).join('\n')}
-dictionarySourcesInitiallyExpanded	ポップアップのソースを標準で開く
 localDictionaryMaxResults	辞書結果の上限
 cloudSettingsSync	Google Drive設定同期
 cloudSettingsSyncHelp	Yomuの設定をGoogle Driveのアプリデータに保存します。辞書は端末内に残ります。
@@ -2247,7 +2228,6 @@ orderHeader	順序
 removeHeader	削除
 definitionSource	定義ソース
 popupOrderTitle	ポップアップの順序
-popupOrderHelp	この一覧の順にポップアップの項目が並びます。矢印かドラッグで並べ替えてから「保存」を押してください。
 kanjiSection	漢字セクション
 dragToReorder	ドラッグして並べ替え
 moveUp	上へ移動

@@ -80,9 +80,9 @@ Some rows say Not yet described. That marks a real stored setting whose wording 
 | --- | --- | --- | --- |
 | Use Anki cards in Study | — | off | `newTabAnkiEnabled` |
 | Not yet described | — | empty list | `newTabAnkiDisabledDecks` |
-| Study review source | — | Auto: Academy, accounts, then study words (`auto`) | `newTabSource` |
-| API review mode | — | Auto: live kanji + API vocabulary (`auto`) | `newTabJpdbReviewMode` |
-| Kanji keyword source | — | Auto: RTK, then JPDB kanji facts, then local (`auto`) | `newTabKanjiKeywordSource` |
+| Study review source | — | Automatic (`auto`) | `newTabSource` |
+| API review mode | — | Automatic (`auto`) | `newTabJpdbReviewMode` |
+| Kanji keyword source | — | Automatic (`auto`) | `newTabKanjiKeywordSource` |
 | Enable sentence parsing on Study | — | on | `newTabParsingEnabled` |
 | Show sentence on word fronts | — | on | `newTabFrontSentenceEnabled` |
 | Cache Study for offline use | — | on | `newTabOfflineEnabled` |
@@ -105,13 +105,11 @@ URL tokens: {term}, {reading}, {language}.
 | Enable term audio | — | on | `audioEnabled` |
 | Auto-play term audio | — | on | `autoPlayAudio` |
 | Disable lookup audio on video pages | — | on | `suppressAutoAudioOnVideo` |
-| Auto-play trigger | — | Hover and tap/click (`all`) | `audioAutoPlayMode` |
+| Auto-play term audio | — | Hover and tap/click (`all`) | `audioAutoPlayMode` |
 | Not yet described | — | 8 entries | `audioSources` |
 | Enable built-in audio sources | — | on | `audioEnableDefaultSources` |
 | Not yet described | — | `https://audio.yomureader.com/?term={term}&r…` | `audioSourceUrl` |
 | Enable fallback chime | — | on | `audioFallbackChimeEnabled` |
-| Audio timeout (ms) | — | `6000` | `audioTimeoutMs` |
-| When several sources or clips exist | — | Shuffle audio (`random`) | `audioSelectionMode` |
 | Text-to-speech handling | — | Fallback after recorded audio (`fallback`) | `audioTtsMode` |
 | Cross-origin proxy URL | — | empty | `corsProxyUrl` |
 
@@ -125,12 +123,7 @@ Examples appear in popups. Nadeshiko needs a key.
 | Example provider | — | Immersion Kit (`immersion-kit`) | `immersionKitExampleSource` |
 | Nadeshiko API key | — | empty | `nadeshikoApiKey` |
 | Examples per word limit | — | off | `immersionKitLimitEnabled` |
-| Examples per word | — | `12` | `immersionKitLimit` |
-| Minimum sentence length | — | `8` | `immersionKitMinLength` |
-| Maximum sentence length | — | `80` | `immersionKitMaxLength` |
-| Immersion Kit category | — | All (`all`) | `immersionKitCategory` |
-| Example order | — | Shortest first (`sentence_length:asc`) | `immersionKitSort` |
-| Prefer exact matches | — | off | `immersionKitExactMatch` |
+| Examples per word (0 = all) | — | `12` | `immersionKitLimit` |
 | Show example translations | — | on | `immersionKitShowTranslation` |
 | Blur example translations until clicked | — | on | `immersionKitRevealTranslationOnClick` |
 | Show example thumbnails | — | on | `immersionKitShowImages` |
@@ -158,10 +151,10 @@ Set a hover key. Blank means plain hover.
 | Show Yomu lookup popup | — | `hover` | `popupActivationMode` |
 | Show settings puck | — | on | `showFloatingButton` |
 | Selected learning-language text on webpages | — | inactive until a learning target is explicitly chosen | `annotationsPaused` |
-| Furigana | — | Show on every parsed word (`all`) | `furiganaMode` |
+| Furigana | — | All parsed words (`all`) | `furiganaMode` |
 | Readings on clamped rows | — | Show (row grows) (`show`) | `clampedRowReadings` |
 | Not yet described | — | 3 entries | `furiganaHiddenStateGroups` |
-| Color words | — | Use all learning states (`all`) | `wordColorStates` |
+| Color words | — | All learning states (`all`) | `wordColorStates` |
 | Not yet described | — | empty list | `wordColorHiddenStateGroups` |
 | Show pronunciation | — | on | `showPitchAccent` |
 | Hide JPDB-redundant styling | — | off | `suppressRedundantWordUi` |
@@ -174,29 +167,21 @@ Set a hover key. Blank means plain hover.
 | Setting | What it does | Default | Stored as |
 | --- | --- | --- | --- |
 | JPDB: shown in the popup | JPDB meanings from the current card. | on | `jpdbDefinitionsEnabled` |
-| JPDB: display name | JPDB meanings from the current card. | empty | `jpdbDefinitionsAlias` |
 | JPDB: order in the popup | JPDB meanings from the current card. | `1` | `jpdbDefinitionsPriority` |
 | Jiten: shown in the popup | Jiten meanings, examples, and related words. | on | `jitenDefinitionsEnabled` |
-| Jiten: display name | Jiten meanings, examples, and related words. | empty | `jitenDefinitionsAlias` |
 | Jiten: order in the popup | Jiten meanings, examples, and related words. | `0` | `jitenDefinitionsPriority` |
 | Bunpro: shown in the popup | Bunpro vocabulary and grammar meanings, nuance, and examples. | on | `bunproDefinitionsEnabled` |
-| Bunpro: display name | Bunpro vocabulary and grammar meanings, nuance, and examples. | empty | `bunproDefinitionsAlias` |
 | Bunpro: order in the popup | Bunpro vocabulary and grammar meanings, nuance, and examples. | `2` | `bunproDefinitionsPriority` |
 | WaniKani: shown in the popup | WaniKani vocabulary meanings, mnemonics, and SRS status for subjects on your account. | on | `wanikaniDefinitionsEnabled` |
-| WaniKani: display name | WaniKani vocabulary meanings, mnemonics, and SRS status for subjects on your account. | empty | `wanikaniDefinitionsAlias` |
 | WaniKani: order in the popup | WaniKani vocabulary meanings, mnemonics, and SRS status for subjects on your account. | `3` | `wanikaniDefinitionsPriority` |
-| Immersion Kit: display name | Example sentences, images, and audio. | empty | `immersionKitAlias` |
 | Immersion Kit: order in the popup | Example sentences, images, and audio. | `80` | `immersionKitPriority` |
 | Show site frequency in pills | — | on | `showLookupPillFrequency` |
 | Show imported dictionary definitions | — | on | `localDictionariesEnabled` |
 | Parsing source | — | Local dictionaries (offline) (`local`) | `parserProvider` |
 | Anki: shown in the popup | Matching Anki card content and status. | off | `ankiSectionEnabled` |
-| Anki: display name | Matching Anki card content and status. | empty | `ankiSectionAlias` |
 | Anki: order in the popup | Matching Anki card content and status. | `90` | `ankiSectionPriority` |
 | Translation: shown in the popup | Sentence translation. | on | `studyTranslationEnabled` |
-| Translation: display name | Sentence translation. | empty | `studyTranslationAlias` |
 | Grammar: shown in the popup | Local grammar hints. | on | `studyGrammarEnabled` |
-| Grammar: display name | Local grammar hints. | empty | `studyGrammarAlias` |
 | Translation: order in the popup | Sentence translation. | `10` | `studyTranslationPriority` |
 | Grammar: order in the popup | Local grammar hints. | `20` | `studyGrammarPriority` |
 
@@ -207,28 +192,21 @@ Uchisen is available only as an optional outbound lookup link, disabled by defau
 | Setting | What it does | Default | Stored as |
 | --- | --- | --- | --- |
 | Readings and components: shown in the popup | JPDB readings, components, and mnemonic. | on | `jpdbKanjiEnabled` |
-| Readings and components: display name | JPDB readings, components, and mnemonic. | empty | `jpdbKanjiAlias` |
 | Readings and components: order in the popup | JPDB readings, components, and mnemonic. | `10` | `jpdbKanjiPriority` |
 | Immersion Kit: shown in the popup | Example sentences, images, and audio. | on | `kanjiImmersionKitEnabled` |
-| Immersion Kit: display name | Example sentences, images, and audio. | empty | `kanjiImmersionKitAlias` |
 | Immersion Kit: order in the popup | Example sentences, images, and audio. | `60` | `kanjiImmersionKitPriority` |
 | WaniKani: shown in the popup | WaniKani kanji meaning/reading mnemonics, level, and SRS status. | on | `wanikaniKanjiEnabled` |
-| WaniKani: display name | WaniKani kanji meaning/reading mnemonics, level, and SRS status. | empty | `wanikaniKanjiAlias` |
 | WaniKani: order in the popup | WaniKani kanji meaning/reading mnemonics, level, and SRS status. | `55` | `wanikaniKanjiPriority` |
 | RTK: shown in the popup | RTK keywords, elements, and stories. | on | `rtkEnabled` |
-| RTK: display name | RTK keywords, elements, and stories. | empty | `rtkAlias` |
 | RTK: order in the popup | RTK keywords, elements, and stories. | `20` | `rtkPriority` |
 | Stroke practice: shown in the popup | Stroke order preview and drawing pad. | on | `kanjivgEnabled` |
-| Stroke practice: display name | Stroke order preview and drawing pad. | empty | `kanjivgAlias` |
 | Stroke practice: order in the popup | Stroke order preview and drawing pad. | `0` | `kanjivgPriority` |
 | Component graph: shown in the popup | Kanji facts, components, radical images. | on | `kanjiOriginsEnabled` |
-| Component graph: display name | Kanji facts, components, radical images. | empty | `kanjiOriginsAlias` |
 | Component graph: order in the popup | Kanji facts, components, radical images. | `30` | `kanjiOriginsPriority` |
 | Not yet described | — | on | `kanjiOriginKanjiMapEnabled` |
 | Not yet described | — | on | `kanjiOriginGraphEnabled` |
 | Not yet described | — | on | `kanjiOriginRadicalImagesEnabled` |
 | Not yet described | — | on | `localDictionaryShowKanji` |
-| Imported kanji dictionaries: display name | Imported Yomitan kanji entries. | empty | `kanjiDictionariesAlias` |
 | Imported kanji dictionaries: order in the popup | Imported Yomitan kanji entries. | `30` | `kanjiDictionariesPriority` |
 
 ## Image text (OCR) (Media tab)
@@ -381,6 +359,5 @@ Yomu stores these the same way, and a settings export carries them. Some are wri
 | Hide furigana for known cards only | — | on | `hideKnownFurigana` |
 | Read text in images | — | on | `ocrEnabled` |
 | Dictionary result limit | — | `12` | `localDictionaryMaxResults` |
-| Open sources by default | — | on | `dictionarySourcesInitiallyExpanded` |
 | Not yet described | — | empty list | `dictionaryPreferences` |
 | Transcript panel position | — | `right` | `subtitleTranscriptPlacement` |

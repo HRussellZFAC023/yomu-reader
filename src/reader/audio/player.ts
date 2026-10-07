@@ -1,3 +1,4 @@
+import { AUDIO_REQUEST_TIMEOUT_MS } from './request';
 import { uiText } from '../app/i18n';
 import { Logger } from '../app/logger';
 import { ShuffledAudioDeck } from './playback-queue';
@@ -332,9 +333,7 @@ export class AudioPlayer {
         playbackLifecycle?: AudioPlaybackLifecycle,
     ): Promise<AudioSourcePlayResult> {
         const errors: string[] = [];
-        const avoidIdentity = settings.audioSelectionMode === 'random'
-            ? this.lastPlayedAudioIdentity(card)
-            : undefined;
+        const avoidIdentity = this.lastPlayedAudioIdentity(card);
         const result = await this.playFromSourcesAttempt(
             sources,
             card,
@@ -464,14 +463,14 @@ export class AudioPlayer {
         if (!sources.length) return false;
 
         for (const { source } of sources) {
-            void this.getCachedAudioCandidates(source, card, settings.audioTimeoutMs, settings.corsProxyUrl)
+            void this.getCachedAudioCandidates(source, card, AUDIO_REQUEST_TIMEOUT_MS, settings.corsProxyUrl)
                 .then(candidates => {
                     const triedUrls = new Set<string>();
-                    for (const { candidate } of orderAudioCandidates(candidates, audioCandidateSelectionMode(source.type, settings.audioSelectionMode), getAudioBagKey(source, card), this.shuffledAudio).slice(0, candidateLimit)) {
+                    for (const { candidate } of orderAudioCandidates(candidates, audioCandidateSelectionMode(source.type, 'random'), getAudioBagKey(source, card), this.shuffledAudio).slice(0, candidateLimit)) {
                         if (!registerAudioAttempt(triedUrls, candidate)) continue;
                         preconnectAudioUrl(candidate.url);
                         if (!prepareAudio) continue;
-                        void this.preparePlayableAudio(candidate, settings.audioTimeoutMs, settings.audioSelectionMode, true)
+                        void this.preparePlayableAudio(candidate, AUDIO_REQUEST_TIMEOUT_MS, 'random', true)
                             .catch(() => undefined);
                     }
                 })
@@ -500,7 +499,7 @@ export class AudioPlayer {
         if (!trimmed) throw new Error(uiText(settings.interfaceLanguage, 'noTextToRead'));
 
         this.stopCurrent();
-        await this.playTextToSpeech(trimmed, voiceName, this.textToSpeechTextBagKey(trimmed, voiceName, settings));
+        await this.playTextToSpeech(trimmed, voiceName, this.textToSpeechTextBagKey(trimmed, voiceName));
         if (requestId !== this.playRequestId) this.stopCurrent();
     }
 
@@ -543,7 +542,7 @@ export class AudioPlayer {
         if (!canAttemptAudiblePlayback(true)) return false;
         const requestId = ++this.playRequestId;
         this.stopCurrent();
-        const playableUrl = await this.prepareDirectMediaUrl(audioUrl, settings);
+        const playableUrl = await this.prepareDirectMediaUrl(audioUrl);
         const audio = await this.createReadyAudio(playableUrl);
         return await this.playPreparedAudio(audio, requestId, () => true, { userGesture: true });
     }
@@ -566,7 +565,7 @@ export class AudioPlayer {
         for (const url of candidates) {
             if (!this.isPlaybackCurrent(requestId, isCurrent)) return false;
             try {
-                const playableUrl = await this.prepareDirectMediaUrl(url, settings);
+                const playableUrl = await this.prepareDirectMediaUrl(url);
                 if (!this.isPlaybackCurrent(requestId, isCurrent)) return false;
                 const audio = await this.createReadyAudio(playableUrl);
                 if (options.playbackRate && Number.isFinite(options.playbackRate)) audio.playbackRate = options.playbackRate;
@@ -579,9 +578,9 @@ export class AudioPlayer {
         return false;
     }
 
-    private async prepareDirectMediaUrl(audioUrl: string, settings: ReaderSettings): Promise<string> {
+    private async prepareDirectMediaUrl(audioUrl: string): Promise<string> {
         if (!shouldFetchDirectMediaAsBlob(audioUrl)) return audioUrl;
-        return await this.fetchAudioAsBlobUrl(audioUrl, audioUrl, settings.audioTimeoutMs, settings.audioSelectionMode);
+        return await this.fetchAudioAsBlobUrl(audioUrl, audioUrl, AUDIO_REQUEST_TIMEOUT_MS, 'random');
     }
 
     private reserveJpdbGestureAudioElement(userGesture = false): HTMLAudioElement | undefined {
@@ -682,7 +681,7 @@ export class AudioPlayer {
         const { source } = sourceEntry;
         if (isBrowserTextToSpeechSource(source)) return await this.playFromTextToSpeechSource(source, context);
 
-        const candidates = await this.getCachedAudioCandidates(source, card, settings.audioTimeoutMs, settings.corsProxyUrl);
+        const candidates = await this.getCachedAudioCandidates(source, card, AUDIO_REQUEST_TIMEOUT_MS, settings.corsProxyUrl);
         if (!candidates.length) {
             context.errors.push(`${source.type}: ${uiText(settings.interfaceLanguage, 'audioSourceReturnedNoAudio')}`);
             return false;
@@ -693,10 +692,10 @@ export class AudioPlayer {
     }
 
     private async playFromTextToSpeechSource(source: AudioSourceSetting, context: AudioSourcePlaybackContext): Promise<boolean> {
-        const { card, settings, requestId, isCurrent } = context;
+        const { card, requestId, isCurrent } = context;
         if (!this.isPlaybackCurrent(requestId, isCurrent)) return false;
         const text = source.type === 'text-to-speech-reading' ? card.reading : card.spelling;
-        const played = await this.playTextToSpeech(text, source.voice, this.textToSpeechSourceBagKey(source, card, settings), {
+        const played = await this.playTextToSpeech(text, source.voice, this.textToSpeechSourceBagKey(source, card), {
             avoidIdentity: context.avoidIdentity,
             onAvoided: () => { context.attemptState.skippedAvoidedIdentity = true; },
             onPlayed: identity => this.markAudioIdentityPlayed(card, identity),
@@ -714,7 +713,7 @@ export class AudioPlayer {
     ): Promise<boolean> {
         const { card, settings, requestId, triedUrls, isCurrent, reservedAudio } = context;
         const playableCandidates = this.availableAudioCandidates(sourceType, candidates);
-        for (const { candidate, id } of orderAudioCandidates(playableCandidates, audioCandidateSelectionMode(sourceType, settings.audioSelectionMode), bagKey, this.shuffledAudio)) {
+        for (const { candidate, id } of orderAudioCandidates(playableCandidates, audioCandidateSelectionMode(sourceType, 'random'), bagKey, this.shuffledAudio)) {
             if (!registerAudioAttempt(triedUrls, candidate)) {
                 this.shuffledAudio.markSkipped(bagKey, id);
                 continue;
@@ -869,7 +868,7 @@ export class AudioPlayer {
         const audioViaBlob = sourceType !== 'jiten-tts'
             && (settings.audioViaBlob || shouldForceBlobAudioPlayback(sourceType) || shouldForceBlobAudioCandidate(candidate));
         return audioViaBlob
-            ? this.preparePlayableAudio(candidate, settings.audioTimeoutMs, settings.audioSelectionMode, audioViaBlob, reservedAudio, requestId, isCurrent)
+            ? this.preparePlayableAudio(candidate, AUDIO_REQUEST_TIMEOUT_MS, 'random', audioViaBlob, reservedAudio, requestId, isCurrent)
             : reservedAudio
                 ? this.createReadyAudioForRequest(candidate.url, reservedAudio, requestId, isCurrent)
                 : this.createAudioElement(candidate.url);
@@ -1213,14 +1212,14 @@ export class AudioPlayer {
         if (choice.deckKey && choice.deckId) this.shuffledAudio.markSkipped(choice.deckKey, choice.deckId);
     }
 
-    private textToSpeechSourceBagKey(source: AudioSourceSetting, card: JPDBCard, settings: ReaderSettings): string | undefined {
-        return settings.audioSelectionMode === 'random' && !source.voice.trim()
+    private textToSpeechSourceBagKey(source: AudioSourceSetting, card: JPDBCard): string | undefined {
+        return !source.voice.trim()
             ? getAudioBagKey(source, card)
             : undefined;
     }
 
-    private textToSpeechTextBagKey(text: string, voiceName: string, settings: ReaderSettings): string | undefined {
-        return settings.audioSelectionMode === 'random' && !voiceName.trim()
+    private textToSpeechTextBagKey(text: string, voiceName: string): string | undefined {
+        return !voiceName.trim()
             ? ['text-to-speech', text].join('\u0001')
             : undefined;
     }

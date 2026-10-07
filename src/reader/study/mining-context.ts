@@ -1,3 +1,4 @@
+import { AUDIO_REQUEST_TIMEOUT_MS } from '../audio/request';
 import { isNonNullObject as isRecord } from '../core/object-utils';
 import type { ImmersionKitExample } from '../immersion/kit';
 import { Logger } from '../app/logger';
@@ -149,7 +150,7 @@ async function resolveStoredImmersionMiningContext(options: Pick<MiningContextRe
     if (!chosen || !shouldUseImmersionContext(settings, chosen)) return null;
     const [fetchedImageDataUrl, fetchedAudioDataUrl] = await Promise.all([
         fetchMiningContextImage(chosen, settings, fetchImageDataUrl),
-        fetchMiningContextAudio(chosen, settings, fetchAudioDataUrl),
+        fetchMiningContextAudio(chosen, fetchAudioDataUrl),
     ]);
     return { ...chosen, imageDataUrl: fetchedImageDataUrl, audioDataUrl: fetchedAudioDataUrl };
 }
@@ -160,18 +161,17 @@ function fetchMiningContextImage(
     fetchImageDataUrl: MiningContextResolutionOptions['fetchImageDataUrl'],
 ): Promise<string | undefined> {
     if (!context.imageUrl || !settings.immersionKitShowImages || !fetchImageDataUrl) return Promise.resolve(undefined);
-    return fetchImageDataUrl(context.imageUrl, settings.audioTimeoutMs).catch(() => {
+    return fetchImageDataUrl(context.imageUrl, AUDIO_REQUEST_TIMEOUT_MS).catch(() => {
         return undefined;
     });
 }
 
 function fetchMiningContextAudio(
     context: StoredMiningContext,
-    settings: ReaderSettings,
     fetchAudioDataUrl: MiningContextResolutionOptions['fetchAudioDataUrl'],
 ): Promise<string | undefined> {
     if (!context.audioUrls?.length || !fetchAudioDataUrl) return Promise.resolve(undefined);
-    return fetchAudioDataUrl(context.audioUrls, settings.audioTimeoutMs).catch(() => {
+    return fetchAudioDataUrl(context.audioUrls, AUDIO_REQUEST_TIMEOUT_MS).catch(() => {
         return undefined;
     });
 }

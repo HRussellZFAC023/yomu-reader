@@ -147,7 +147,6 @@ describe('reader helpers', () => {
             </details>
         `;
         const controller = new DictionarySourceStateController({
-            getSettings: () => DEFAULT_SETTINGS,
             onStateChange,
         });
 
@@ -169,7 +168,7 @@ describe('reader helpers', () => {
         const settings = {
             ...DEFAULT_SETTINGS,
             immersionKitEnabled: true,
-            dictionarySourcesInitiallyExpanded: true,
+
             jpdbDefinitionsEnabled: false,
             studyTranslationEnabled: false,
             studyGrammarEnabled: false,

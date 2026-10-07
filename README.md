@@ -114,6 +114,8 @@ The reader built into yomureader.com is only a no-install fallback. When the よ
 
 ### Settings backups
 
+Settings use one autoplay selector and one example-count field (`0` means all). Built-in sources keep their translated names; imported dictionaries can keep a shorter display name. Source order, privacy, accessibility, credentials, and review destinations remain configurable. Retired display names and tuning options are ignored when loading a supported backup. The [settings reference](docs/reference/settings.md) lists the supported model. Practice is available in Study’s phone navigation as well as on desktop.
+
 Export or import settings from Study → Settings → Backup & sync. Only the current Yomu settings backup format is supported; older Yomu and Yomitan settings files are not converted. Unsupported files are rejected before restoring data. Backups can contain API keys. Store them privately.
 
 ## Privacy

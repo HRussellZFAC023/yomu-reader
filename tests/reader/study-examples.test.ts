@@ -11,7 +11,7 @@ function example(sentence: string, id = sentence): ImmersionKitExample {
 function deferred<T>() { let resolve!: (value: T) => void; const promise = new Promise<T>(done => { resolve = done; }); return { promise, resolve }; }
 function fixture(overrides: Partial<StudyExamplesDependencies> = {}) {
     const settings = { ...DEFAULT_SETTINGS, immersionKitEnabled: true, immersionKitShowImages: false,
-        immersionKitAutoPlayAudio: false, immersionKitMinLength: 0, jpdbDefinitionsEnabled: false };
+        immersionKitAutoPlayAudio: false, jpdbDefinitionsEnabled: false };
     const search = vi.fn(async (_query: string) => [example('私は中学生です。', 'one'), example('中学生になりました。', 'two')]);
     const kit = { searchResult: async (query: string) => ({ examples: await search(query), status: 'complete' as const }), mediaUrls: (value: ImmersionKitExample, kind: string) =>
         [kind === 'sound' ? value.soundUrl : value.imageUrl].filter(Boolean), fetchBlobUrl: vi.fn(async () => 'blob:media') } as unknown as ImmersionKitClient;
@@ -294,9 +294,9 @@ describe('StudyExamples Interface', () => {
     });
 
     it('times out a hung search without making its empty fallback permanent', async () => {
-        vi.useFakeTimers(); const f = fixture(); f.settings.audioTimeoutMs = 100;
+        vi.useFakeTimers(); const f = fixture();
         f.search.mockReturnValue(new Promise(() => undefined));
-        const first = f.module.examples(f.card); await vi.advanceTimersByTimeAsync(1_100);
+        const first = f.module.examples(f.card); await vi.advanceTimersByTimeAsync(7_000);
         expect(await first).toEqual([]);
         f.search.mockResolvedValue([example('私は中学生です。')]); await vi.advanceTimersByTimeAsync(1_001);
         expect((await f.module.examples(f.card)).length).toBe(1);

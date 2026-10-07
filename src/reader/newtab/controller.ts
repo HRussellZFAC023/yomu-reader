@@ -1,3 +1,4 @@
+import { STARTER_WORDS } from './starter-words';
 import {
     browseSourceForCard,
     filterBrowseCards,
@@ -1439,6 +1440,7 @@ export class NewTabController {
             'aria-label': newTabText(language, 'appNavigation'),
         },
         item(newTabText(language, 'study'), '学', newTabAction('mode'), 'word'),
+        item(uiText(language, 'practiceTitle'), '練', newTabAction('practice-sessions')),
         item(newTabText(language, 'library'), '辞', newTabAction('mode'), 'search'),
         item(newTabText(language, 'stats'), '統', newTabAction('mode'), 'stats'),
         item(newTabText(language, 'connections'), '連', newTabAction('settings')));
@@ -3514,8 +3516,12 @@ export class NewTabController {
         // Built-in seed words are not the user's dictionary — labeling them
         // "Dictionary" confused keyless users who never imported one.
         if (typeof fallbackCardFromText !== 'function') return emptyNewTabLoadResult(this.text('starterWords'));
-        const cards = randomPublicJpdbSeedWords(limit)
-            .map(term => fallbackCardFromText.call(this.dependencies.parser, term));
+        const cards = STARTER_WORDS.slice(0, limit).map(word => ({
+            ...fallbackCardFromText.call(this.dependencies.parser, word.spelling),
+            reading: word.reading,
+            meanings: [{ glosses: [word.meaning], partOfSpeech: [] }],
+            sentence: word.sentence,
+        }));
         return {
             cards,
             sourceLabel: this.text('starterWords'),

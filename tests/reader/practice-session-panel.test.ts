@@ -49,7 +49,10 @@ describe('practice session controls', () => {
         dispatchAuthorizedReaderControlClick(control!);
     }
     async function start(purpose: string) {
-        root.querySelector<HTMLSelectElement>('[data-practice-purpose]')!.value = purpose;
+        const select = root.querySelector<HTMLSelectElement>('[data-practice-purpose]')!;
+        select.value = purpose;
+        dispatchAuthorizedReaderControlEvent(select, new Event('change', { bubbles: true }));
+        await vi.waitFor(() => expect(root.querySelector<HTMLButtonElement>('[data-practice-action="start"]')?.disabled).toBe(false));
         click('[data-practice-action="start"]');
         await vi.waitFor(() => expect(root.querySelector('.yomu-practice-prompt')).not.toBeNull());
     }
@@ -61,6 +64,26 @@ describe('practice session controls', () => {
         const promise = new Promise<void>(done => { resolve = done; });
         return { promise, resolve };
     }
+
+    it('disables Start before a selected practice mode has no eligible words', async () => {
+        const current = new PracticeSessionPanel({ sessions, language: () => 'en',
+            selection: () => ({ title: 'Words without sentences', material: material.map(({ sentence, ...word }) => word) }), leave: vi.fn() });
+        panels.push(current);
+        await current.show(root);
+        const startButton = root.querySelector<HTMLButtonElement>('[data-practice-action="start"]')!;
+        expect(startButton.disabled).toBe(false);
+        const purpose = root.querySelector<HTMLSelectElement>('[data-practice-purpose]')!;
+        purpose.value = 'cloze';
+        dispatchAuthorizedReaderControlEvent(purpose, new Event('change', { bubbles: true }));
+        await vi.waitFor(() => {
+            expect(startButton.disabled).toBe(true);
+            expect(root.querySelector('[data-practice-status]')?.textContent).toContain('No selected words');
+        });
+        expect(await sessions.list()).toEqual([]);
+        purpose.value = 'writing';
+        dispatchAuthorizedReaderControlEvent(purpose, new Event('change', { bubbles: true }));
+        await vi.waitFor(() => expect(startButton.disabled).toBe(false));
+    });
 
     it('shares a delayed restore across two shows without clearing the reload pointer', async () => {
         const record = await sessions.start({ purpose: 'writing', material, title: 'Restored words' });

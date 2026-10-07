@@ -1,3 +1,4 @@
+import { AUDIO_REQUEST_TIMEOUT_MS } from '../../../src/reader/audio/request';
 import { describe, expect, it, vi } from 'vitest';
 import {
     registerReaderHelpersCleanup,
@@ -137,7 +138,7 @@ describe('reader helpers', () => {
             const player = new AudioPlayer(() => ({
                 ...DEFAULT_SETTINGS,
                 audioEnableDefaultSources: false,
-                audioSelectionMode: 'random',
+
                 audioTtsMode: 'fallback',
                 audioViaBlob: true,
                 audioFallbackChimeEnabled: false,
@@ -232,7 +233,7 @@ describe('reader helpers', () => {
             const player = new AudioPlayer(() => ({
                 ...DEFAULT_SETTINGS,
                 audioEnableDefaultSources: false,
-                audioSelectionMode: 'random',
+
                 audioViaBlob: true,
                 audioFallbackChimeEnabled: false,
                 audioSources: [
@@ -1052,7 +1053,7 @@ describe('reader helpers', () => {
         });
 
         try {
-            await expect(client.fetchBlobUrl(client.mediaUrl(example, 'sound'), DEFAULT_SETTINGS.audioTimeoutMs))
+            await expect(client.fetchBlobUrl(client.mediaUrl(example, 'sound'), 6_000))
                 .rejects.toThrow('Media request returned an error page.');
         } finally {
             vi.unstubAllGlobals();
@@ -1075,7 +1076,7 @@ describe('reader helpers', () => {
         const fetchMock = mockProxyAudioBlobFetch('unexpected direct fetch');
 
         try {
-            await expect(client.fetchBlobUrl(target, DEFAULT_SETTINGS.audioTimeoutMs, TEST_PROXY_URL))
+            await expect(client.fetchBlobUrl(target, 6_000, TEST_PROXY_URL))
                 .resolves.toBe('blob:https://hrussellzfac023.github.io/yomu-reader/immersion-kit-audio');
             expect(fetchMock.mock.calls.map(([url]) => String(url))).toEqual([
                 publicProxyUrlFor(target),
@@ -1178,7 +1179,7 @@ describe('reader helpers', () => {
         });
 
         try {
-            await expect(client.fetchBlobUrl(['https://media.test/bad.mp3', 'https://media.test/good.mp3'], DEFAULT_SETTINGS.audioTimeoutMs))
+            await expect(client.fetchBlobUrl(['https://media.test/bad.mp3', 'https://media.test/good.mp3'], 6_000))
                 .resolves.toBe('blob:http://localhost/immersion-ok.mp3');
             expect(requestedUrls).toEqual(['https://media.test/bad.mp3', 'https://media.test/good.mp3']);
         } finally {
@@ -1208,7 +1209,7 @@ describe('reader helpers', () => {
         });
 
         try {
-            const request = client.fetchBlobUrl(['https://media.test/bad.mp3', 'https://media.test/good.mp3'], DEFAULT_SETTINGS.audioTimeoutMs);
+            const request = client.fetchBlobUrl(['https://media.test/bad.mp3', 'https://media.test/good.mp3'], 6_000);
             await Promise.resolve();
 
             expect(requestedUrls).toEqual(['https://media.test/bad.mp3']);
@@ -1247,12 +1248,12 @@ describe('reader helpers', () => {
                 searchExamples(card: JPDBCard): Promise<unknown>;
             };
         };
-        internals.settings = { ...DEFAULT_SETTINGS, audioTimeoutMs: 1000 };
+        internals.settings = { ...DEFAULT_SETTINGS, };
         internals.immersionPopover.searchExamples = vi.fn(() => new Promise(() => undefined));
 
         try {
             const load = internals.immersionPopover.loadExamples(popover, card);
-            await vi.advanceTimersByTimeAsync(2000);
+            await vi.advanceTimersByTimeAsync(AUDIO_REQUEST_TIMEOUT_MS + 1000);
             await load;
 
             expect(container.dataset.immersionEmpty).toBe('true');
@@ -1411,7 +1412,7 @@ describe('reader helpers', () => {
             playExampleAudio(example: ImmersionKitExample): Promise<void>;
         }).playExampleAudio(example);
 
-        expect(fetchBlobUrl).toHaveBeenCalledWith(['https://media.test/line.mp3'], DEFAULT_SETTINGS.audioTimeoutMs, DEFAULT_SETTINGS.corsProxyUrl, DEFAULT_SETTINGS.interfaceLanguage);
+        expect(fetchBlobUrl).toHaveBeenCalledWith(['https://media.test/line.mp3'], 6_000, DEFAULT_SETTINGS.corsProxyUrl, DEFAULT_SETTINGS.interfaceLanguage);
         expect(playMediaCandidates).toHaveBeenCalledWith(
             ['blob:http://localhost/line.mp3', 'https://media.test/line.mp3'],
             { playbackRate: DEFAULT_SETTINGS.immersionKitPlaybackRate, isCurrent: expect.any(Function) },
@@ -1462,7 +1463,7 @@ describe('reader helpers', () => {
             playExampleAudio(example: ImmersionKitExample): Promise<void>;
         }).playExampleAudio(example);
 
-        expect(fetchBlobUrl).toHaveBeenCalledWith(['https://media.test/kakegurui.mp3'], DEFAULT_SETTINGS.audioTimeoutMs, DEFAULT_SETTINGS.corsProxyUrl, DEFAULT_SETTINGS.interfaceLanguage);
+        expect(fetchBlobUrl).toHaveBeenCalledWith(['https://media.test/kakegurui.mp3'], 6_000, DEFAULT_SETTINGS.corsProxyUrl, DEFAULT_SETTINGS.interfaceLanguage);
         expect(playMediaCandidates.mock.calls[0]?.[0]).toEqual(['', 'https://media.test/kakegurui.mp3']);
         expect(toast).not.toHaveBeenCalled();
     });

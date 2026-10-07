@@ -178,8 +178,7 @@ describe('mining context helpers', () => {
                 ...DEFAULT_SETTINGS,
                 immersionKitEnabled: true,
                 immersionKitShowImages: true,
-                audioTimeoutMs: 123,
-            },
+                },
             storedContext: stored,
             sourceKind: 'page',
             fetchImageDataUrl: async (imageUrl, timeoutMs) => `${imageUrl}?timeout=${timeoutMs}`,
@@ -189,10 +188,10 @@ describe('mining context helpers', () => {
         expect(context).toMatchObject({
             sentence: 'メールを読みました。',
             sourceKind: 'immersion-kit',
-            imageDataUrl: 'https://images.test/frame.jpg?timeout=123',
-            audioDataUrl: 'https://audio.test/clip.mp3|https://audio.test/fallback.mp3?timeout=123',
+            imageDataUrl: 'https://images.test/frame.jpg?timeout=6000',
+            audioDataUrl: 'https://audio.test/clip.mp3|https://audio.test/fallback.mp3?timeout=6000',
         });
-        expect(fetchAudioDataUrl).toHaveBeenCalledWith(['https://audio.test/clip.mp3', 'https://audio.test/fallback.mp3'], 123);
+        expect(fetchAudioDataUrl).toHaveBeenCalledWith(['https://audio.test/clip.mp3', 'https://audio.test/fallback.mp3'], 6_000);
     });
 
     it('does not hydrate Immersion Kit audio when screenshot context wins', async () => {

@@ -69,9 +69,7 @@ export type SubtitleTranscriptPlacement = 'right' | 'left' | 'bottom';
 
 export type InterfaceLanguage = 'auto' | 'en' | 'ja';
 
-export type ImmersionKitCategory = 'all' | 'anime' | 'drama' | 'games';
 
-export type ImmersionKitSort = 'sentence_length:asc' | 'sentence_length:desc' | 'random';
 
 export type ImmersionExampleSource = 'immersion-kit' | 'nadeshiko' | 'combined';
 
@@ -346,37 +344,27 @@ export interface ReaderSettings {
     subtitleUnderlineColorSource: ReaderColorSource;
     subtitleTextColorSource: ReaderColorSource;
     jpdbDefinitionsEnabled: boolean;
-    jpdbDefinitionsAlias: string;
     jpdbDefinitionsPriority: number;
     jitenDefinitionsEnabled: boolean;
-    jitenDefinitionsAlias: string;
     jitenDefinitionsPriority: number;
     bunproDefinitionsEnabled: boolean;
-    bunproDefinitionsAlias: string;
     bunproDefinitionsPriority: number;
     wanikaniDefinitionsEnabled: boolean;
-    wanikaniDefinitionsAlias: string;
     wanikaniDefinitionsPriority: number;
     jpdbPageEnhancementsEnabled: boolean;
     jpdbPageWordEnhancementsEnabled: boolean;
     jpdbPageKanjiEnhancementsEnabled: boolean;
     jpdbKanjiEnabled: boolean;
-    jpdbKanjiAlias: string;
     jpdbKanjiPriority: number;
     kanjiImmersionKitEnabled: boolean;
-    kanjiImmersionKitAlias: string;
     kanjiImmersionKitPriority: number;
     wanikaniKanjiEnabled: boolean;
-    wanikaniKanjiAlias: string;
     wanikaniKanjiPriority: number;
     rtkEnabled: boolean;
-    rtkAlias: string;
     rtkPriority: number;
     kanjivgEnabled: boolean;
-    kanjivgAlias: string;
     kanjivgPriority: number;
     kanjiOriginsEnabled: boolean;
-    kanjiOriginsAlias: string;
     kanjiOriginsPriority: number;
     kanjiOriginKanjiMapEnabled: boolean;
     kanjiOriginGraphEnabled: boolean;
@@ -390,21 +378,13 @@ export interface ReaderSettings {
     audioSourceUrl?: string;
     audioViaBlob: boolean;
     audioFallbackChimeEnabled: boolean;
-    audioTimeoutMs: number;
-    audioSelectionMode: AudioSelectionMode;
     audioTtsMode: AudioTtsMode;
     immersionKitEnabled: boolean;
-    immersionKitAlias: string;
     immersionKitExampleSource: ImmersionExampleSource;
     nadeshikoApiKey: string;
     immersionKitPriority: number;
     immersionKitLimitEnabled: boolean;
     immersionKitLimit: number;
-    immersionKitMinLength: number;
-    immersionKitMaxLength: number;
-    immersionKitCategory: ImmersionKitCategory;
-    immersionKitSort: ImmersionKitSort;
-    immersionKitExactMatch: boolean;
     immersionKitShowTranslation: boolean;
     immersionKitRevealTranslationOnClick: boolean;
     immersionKitShowImages: boolean;
@@ -504,9 +484,7 @@ export interface ReaderSettings {
     parserProvider: ParserProvider;
     localDictionaryMaxResults: number;
     localDictionaryShowKanji: boolean;
-    kanjiDictionariesAlias: string;
     kanjiDictionariesPriority: number;
-    dictionarySourcesInitiallyExpanded: boolean;
     dictionaryPreferences: DictionaryPreference[];
     dictionaryLookupLinks: DictionaryLookupLink[];
     yomitanSettingsBackup?: unknown;
@@ -554,7 +532,6 @@ export interface ReaderSettings {
     preferJapaneseSiteLanguage: boolean;
     ankiEnabled: boolean;
     ankiSectionEnabled: boolean;
-    ankiSectionAlias: string;
     ankiSectionPriority: number;
     ankiConnectUrl: string;
     ankiDeck: string;
@@ -569,10 +546,8 @@ export interface ReaderSettings {
     ankiFrontImage: boolean;
     ankiMobileHandoff: boolean;
     studyTranslationEnabled: boolean;
-    studyTranslationAlias: string;
     studyTranslationPriority: number;
     studyGrammarEnabled: boolean;
-    studyGrammarAlias: string;
     studyGrammarPriority: number;
     enableLogging: boolean;
     theme: 'auto' | 'light' | 'dark';

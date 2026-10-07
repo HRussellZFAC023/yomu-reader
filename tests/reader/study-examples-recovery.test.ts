@@ -15,7 +15,7 @@ describe('Study examples transport recovery', () => {
         });
         const client = new ImmersionKitClient();
         const settings = { ...DEFAULT_SETTINGS, immersionKitEnabled: true, immersionKitExampleSource: 'combined' as const,
-            nadeshikoApiKey: 'test-key', immersionKitMinLength: 0 };
+            nadeshikoApiKey: 'test-key', };
         const partial = await client.searchResult('中学生', settings);
         expect(partial.status).toBe('partial'); expect(partial.examples).toHaveLength(1);
         const firstCalls = transport.mock.calls.length;
@@ -35,7 +35,7 @@ describe('Study examples transport recovery', () => {
             : { examples: [{ id: 'one', sentence: '私は中学生です。' }] });
         const client = new ImmersionKitClient();
         const settings = { ...DEFAULT_SETTINGS, immersionKitEnabled: true, immersionKitExampleSource: 'combined' as const,
-            nadeshikoApiKey: 'test-key', immersionKitMinLength: 0 };
+            nadeshikoApiKey: 'test-key', };
         const providerCalls = () => {
             const nadeshiko = transport.mock.calls.filter(([url]) => String(url).includes('nadeshiko')).length;
             return { immersionKit: transport.mock.calls.length - nadeshiko, nadeshiko };
@@ -52,7 +52,7 @@ describe('Study examples transport recovery', () => {
         let now = 100_000; vi.spyOn(Date, 'now').mockImplementation(() => now);
         const transport = vi.spyOn(http, 'requestJson').mockRejectedValue(new Error('Immersion Kit failed (429)'));
         const client = new ImmersionKitClient();
-        const settings = { ...DEFAULT_SETTINGS, immersionKitEnabled: true, immersionKitExampleSource: 'immersion-kit' as const, immersionKitMinLength: 0 };
+        const settings = { ...DEFAULT_SETTINGS, immersionKitEnabled: true, immersionKitExampleSource: 'immersion-kit' as const, };
         await expect(client.searchResult('中学生', settings)).rejects.toThrow(/429/);
         const failedCalls = transport.mock.calls.length;
         now += 500; await expect(client.searchResult('中学生', settings)).rejects.toThrow();
@@ -67,7 +67,7 @@ describe('Study examples transport recovery', () => {
         const client = new ImmersionKitClient();
         const settings = { ...DEFAULT_SETTINGS,
             immersionKitEnabled: true, immersionKitExampleSource: 'immersion-kit',
-            immersionKitMinLength: 0, jpdbDefinitionsEnabled: false, immersionKitShowImages: false,
+            jpdbDefinitionsEnabled: false, immersionKitShowImages: false,
         } as typeof DEFAULT_SETTINGS;
         const examples = new StudyExamples({ getSettings: () => settings, immersionKit: client,
             parser: { canParse: () => false } as never,

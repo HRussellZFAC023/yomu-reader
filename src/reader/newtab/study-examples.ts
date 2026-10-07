@@ -1,3 +1,4 @@
+import { AUDIO_REQUEST_TIMEOUT_MS } from '../audio/request';
 import { el, replaceChildrenWith } from '../dom/builder';
 import type { ImmersionKitClient, ImmersionKitExample, ImmersionKitSearchOptions, ImmersionSearchResult } from '../immersion/kit';
 import { sensitiveFingerprint } from '../core/sensitive-fingerprint';
@@ -549,7 +550,7 @@ class StudyExamplesPresentation {
         image.addEventListener('error', showNextDirectImage, { signal: this.mountLifecycle.signal });
         image.addEventListener('load', () => { if (current()) syncNewTabImmersionFrameSubtitleSize(root); }, { signal: this.mountLifecycle.signal });
         const settings = this.deps.getSettings();
-        void this.deps.immersionKit.fetchBlobUrl(urls, settings.audioTimeoutMs, settings.corsProxyUrl, settings.interfaceLanguage)
+        void this.deps.immersionKit.fetchBlobUrl(urls, AUDIO_REQUEST_TIMEOUT_MS, settings.corsProxyUrl, settings.interfaceLanguage)
             .then(src => {
                 if (!current()) return;
                 image.removeEventListener('error', showNextDirectImage);
@@ -681,12 +682,12 @@ class StudyExamplesPresentation {
         const settings = this.deps.getSettings();
         const imageUrls = settings.immersionKitShowImages ? this.deps.immersionKit.mediaUrls(example, 'image') : [];
         if (imageUrls.length) {
-            void this.deps.immersionKit.fetchBlobUrl(imageUrls, settings.audioTimeoutMs, settings.corsProxyUrl, settings.interfaceLanguage)
+            void this.deps.immersionKit.fetchBlobUrl(imageUrls, AUDIO_REQUEST_TIMEOUT_MS, settings.corsProxyUrl, settings.interfaceLanguage)
                 .catch(() => undefined);
         }
         const audioUrls = this.deps.immersionKit.mediaUrls(example, 'sound');
         if (audioUrls.length) {
-            void this.deps.immersionKit.fetchBlobUrl(audioUrls, settings.audioTimeoutMs, settings.corsProxyUrl, settings.interfaceLanguage)
+            void this.deps.immersionKit.fetchBlobUrl(audioUrls, AUDIO_REQUEST_TIMEOUT_MS, settings.corsProxyUrl, settings.interfaceLanguage)
                 .catch(() => undefined);
         }
     }
@@ -782,11 +783,10 @@ class StudyExampleQueries {
         const key = this.immersionCacheKey(card);
         const existing = this.immersionCache.get(key);
         if (existing && existing.expiresAt > Date.now()) return existing.promise;
-        const settings = this.deps.getSettings();
         const entry = { promise: Promise.resolve({ examples: [], status: 'complete' } as ImmersionSearchResult), expiresAt: Infinity };
         entry.promise = promiseWithTimeout(
             this.fetchNewTabImmersionExamples(card),
-            settings.audioTimeoutMs + NEW_TAB_IMMERSION_LOAD_TIMEOUT_GRACE_MS,
+            AUDIO_REQUEST_TIMEOUT_MS + NEW_TAB_IMMERSION_LOAD_TIMEOUT_GRACE_MS,
             'Immersion Kit examples timed out.',
         ).then(result => { entry.expiresAt = acquisitionExpiry(result); return result; })
             .catch(error => { entry.expiresAt = Date.now() + 1_000; throw error; });
@@ -836,8 +836,7 @@ class StudyExampleQueries {
         const settings = this.deps.getSettings();
         return JSON.stringify([settings.immersionKitEnabled,
             sensitiveFingerprint(settings.nadeshikoApiKey), sensitiveFingerprint(settings.apiKey), sensitiveFingerprint(settings.corsProxyUrl),
-            settings.immersionKitExampleSource, settings.immersionKitMinLength, settings.immersionKitMaxLength,
-            settings.immersionKitCategory, settings.immersionKitSort, settings.immersionKitExactMatch,
+            settings.immersionKitExampleSource,
             settings.immersionKitLimitEnabled, settings.immersionKitLimit, settings.jpdbDefinitionsEnabled]);
     }
 

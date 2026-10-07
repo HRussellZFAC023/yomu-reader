@@ -1579,7 +1579,7 @@ describe('reader helpers', () => {
         }));
         try {
             const client = new ImmersionKitClient();
-            const settings = { ...DEFAULT_SETTINGS, immersionKitEnabled: true, audioTimeoutMs: 1000, corsProxyUrl: configuredProxyUrl };
+            const settings = { ...DEFAULT_SETTINGS, immersionKitEnabled: true, corsProxyUrl: configuredProxyUrl };
 
             await expect(client.search('読む', settings, { requestLimit: 1, resultLimit: 1 })).rejects.toThrow(/429|rate/i);
             await expect(client.search('書く', settings, { requestLimit: 1, resultLimit: 1 })).rejects.toThrow(/rate/i);
@@ -1597,7 +1597,6 @@ describe('reader helpers', () => {
             const settings = {
                 ...DEFAULT_SETTINGS,
                 apiKey: 'api-key',
-                audioTimeoutMs: 1000,
                 localDictionariesEnabled: true,
                 localDictionaryShowKanji: true,
                 showPitchAccent: true,

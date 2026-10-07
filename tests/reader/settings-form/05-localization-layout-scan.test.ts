@@ -66,6 +66,34 @@ describe('settings form localization', () => {
         expect(form.querySelector<HTMLFieldSetElement>('fieldset[data-legend-key="audio"]')?.hidden).toBe(true);
     });
 
+    it.each(['en', 'ja'] as const)('keeps every Settings control independently operable in %s', language => {
+        const form = renderSettingsTestForm({ ...DEFAULT_SETTINGS, interfaceLanguage: language });
+        localizeSettingsForm(form, language);
+        const controls = 'a[href], button, input:not([type="hidden"]), select, textarea, [role="button"], summary';
+        for (const outer of form.querySelectorAll('a[href], button, [role="button"], summary')) {
+            expect(outer.querySelector(controls), outer.outerHTML).toBeNull();
+        }
+        for (const label of form.querySelectorAll('label')) {
+            expect(label.querySelector('a[href], button, summary, label'), label.outerHTML).toBeNull();
+            expect(label.querySelectorAll('input:not([type="hidden"]), select, textarea').length, label.outerHTML).toBeLessThanOrEqual(1);
+        }
+        const credential = form.querySelector<HTMLInputElement>('[name="apiCredentialJiten"]')!;
+        expect(credential.labels?.[0]?.textContent).toContain('Jiten');
+        const link = credential.closest('.jpdb-reader-protected-credential')!.querySelector('a')!;
+        expect(link.getAttribute('href')).toBe('https://jiten.moe/settings');
+        expect(link.closest('label')).toBeNull();
+    });
+
+    it('opens each settings panel at the top after scrolling another panel', () => {
+        const form = renderSettingsTestForm(DEFAULT_SETTINGS);
+        const scroll = form.querySelector<HTMLElement>('.jpdb-reader-settings-scroll')!;
+        activateSettingsPanel(form, 'dictionaries');
+        scroll.scrollTop = 1200;
+        activateSettingsPanel(form, 'appearance');
+        expect(scroll.scrollTop).toBe(0);
+        expect(form.querySelector('[data-settings-panel="appearance"]')?.hasAttribute('hidden')).toBe(false);
+    });
+
     it('uses roving tabs for settings sections', () => {
         const form = document.createElement('form');
         form.innerHTML = renderSettingsForm(DEFAULT_SETTINGS, 'https://jpdb.io/settings');
@@ -161,11 +189,11 @@ describe('settings form localization', () => {
         expect(topLevelLegendsForControl(form, 'twoButtonReviews')).toEqual(['Study']);
         expect(labelForControl(form, 'twoButtonReviews')).toContain('Review rating scale');
         expect(labelForControl(form, 'newTabJpdbReviewMode')).toContain('API review mode');
-        expect(optionText(form, 'newTabSource', 'auto')).toBe('Auto: Academy, accounts, then study words');
+        expect(optionText(form, 'newTabSource', 'auto')).toBe('Automatic');
         expect(optionText(form, 'newTabSource', 'jpdb')).toBe('API SRS (Jiten / JPDB)');
         expect(optionText(form, 'twoButtonReviews', 'true')).toBe('Two point: FAIL / PASS');
         expect(optionText(form, 'twoButtonReviews', 'false')).toBe('Provider default');
-        expect(optionText(form, 'newTabKanjiKeywordSource', 'auto')).toBe('Auto: RTK, then JPDB kanji facts, then local');
+        expect(optionText(form, 'newTabKanjiKeywordSource', 'auto')).toBe('Automatic');
         expect(optionText(form, 'newTabKanjiKeywordSource', 'jpdb')).toBe('JPDB kanji facts (Jiten / JPDB)');
         expect(form.querySelector<HTMLFieldSetElement>('fieldset[data-settings-panel="newTab"]')?.hidden).toBe(true);
         expect(form.querySelector<HTMLButtonElement>('[data-action="settings-panel"][data-panel="newTab"]')).not.toBeNull();
@@ -384,7 +412,7 @@ describe('settings form localization', () => {
         });
 
         localizeSettingsForm(form, 'en');
-        expect(optionText(form, 'newTabKanjiKeywordSource', 'auto')).toContain('Jiten + JPDB');
+        expect(optionText(form, 'newTabKanjiKeywordSource', 'jpdb')).toContain('Jiten + JPDB');
         expect(settingsText(form, '[data-jpdb-status]')).toContain('Jiten and JPDB');
         expect(settingsText(form, '[data-bunpro-status]')).toContain('saved');
         expect(settingsText(form, '[data-wanikani-status]')).toContain('saved');
@@ -440,12 +468,10 @@ describe('settings form localization', () => {
             jpdbDefinitionsEnabled: false,
             jitenDefinitionsEnabled: false,
             localDictionariesEnabled: false,
-            dictionarySourcesInitiallyExpanded: false,
         })).toMatchObject({
             jpdbDefinitionsEnabled: false,
             jitenDefinitionsEnabled: false,
             localDictionariesEnabled: false,
-            dictionarySourcesInitiallyExpanded: false,
         });
         expect(shouldLookupAnkiStatus(DEFAULT_SETTINGS)).toBe(false);
         expect(shouldLookupAnkiStatus({ ...DEFAULT_SETTINGS, ankiSectionEnabled: true })).toBe(false);
@@ -456,7 +482,7 @@ describe('settings form localization', () => {
         expect(form.querySelector<HTMLInputElement>('input[name="ankiEnabled"]')?.checked).toBe(false);
         const appearancePreset = form.querySelector<HTMLSelectElement>('select[name="appearancePreset"]')!;
         expect(Array.from(appearancePreset.options).map(option => [option.value, option.textContent])).toEqual([
-            ['', 'Keep current custom settings'],
+            ['', 'Custom'],
             ['balanced', 'Balanced reading'],
             ['new-only', 'Focus on new words'],
             ['underline-new', 'Minimal highlights'],
@@ -524,7 +550,6 @@ describe('settings form localization', () => {
             newTabShortcutHintsEnabled: checkboxValue(form, 'newTabShortcutHintsEnabled'),
             showFloatingButton: checkboxValue(form, 'showFloatingButton'),
             audioEnabled: checkboxValue(form, 'audioEnabled'),
-            autoPlayAudio: checkboxValue(form, 'autoPlayAudio'),
             audioEnableDefaultSources: checkboxValue(form, 'audioEnableDefaultSources'),
             audioAutoPlayMode: selectValue(form, 'audioAutoPlayMode'),
             popupMode: selectValue(form, 'popupMode'),
@@ -535,7 +560,6 @@ describe('settings form localization', () => {
             newTabShortcutHintsEnabled: true,
             showFloatingButton: true,
             audioEnabled: true,
-            autoPlayAudio: true,
             audioEnableDefaultSources: true,
             audioAutoPlayMode: 'all',
             popupMode: 'auto',

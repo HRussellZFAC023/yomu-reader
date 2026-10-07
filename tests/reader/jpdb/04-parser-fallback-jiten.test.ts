@@ -1410,7 +1410,7 @@ describe('reader helpers', () => {
             const player = new AudioPlayer(() => ({
                 ...DEFAULT_SETTINGS,
                 audioEnableDefaultSources: false,
-                audioSelectionMode: 'random',
+
                 audioViaBlob: false,
                 audioFallbackChimeEnabled: false,
                 audioSources: [
@@ -1456,7 +1456,7 @@ describe('reader helpers', () => {
             const player = new AudioPlayer(() => ({
                 ...DEFAULT_SETTINGS,
                 audioEnableDefaultSources: false,
-                audioSelectionMode: 'first',
+
                 audioViaBlob: false,
                 audioFallbackChimeEnabled: false,
                 audioSources: [
@@ -1495,7 +1495,7 @@ describe('reader helpers', () => {
             const player = new AudioPlayer(() => ({
                 ...DEFAULT_SETTINGS,
                 audioEnableDefaultSources: false,
-                audioSelectionMode: 'first',
+
                 audioViaBlob: false,
                 audioFallbackChimeEnabled: false,
                 audioSources: [
@@ -1535,7 +1535,7 @@ describe('reader helpers', () => {
             const player = new AudioPlayer(() => ({
                 ...DEFAULT_SETTINGS,
                 audioEnableDefaultSources: false,
-                audioSelectionMode: 'first',
+
                 audioViaBlob: false,
                 audioFallbackChimeEnabled: false,
                 audioSources: [
@@ -1571,7 +1571,7 @@ describe('reader helpers', () => {
             const player = new AudioPlayer(() => ({
                 ...DEFAULT_SETTINGS,
                 audioEnableDefaultSources: false,
-                audioSelectionMode: 'first',
+
                 audioViaBlob: false,
                 audioFallbackChimeEnabled: false,
                 audioSources: [{ type: 'custom', url: 'http://x.test/tapped-word.mp3', voice: '', enabled: true }],
@@ -1609,7 +1609,7 @@ describe('reader helpers', () => {
             const player = new AudioPlayer(() => ({
                 ...DEFAULT_SETTINGS,
                 audioEnableDefaultSources: false,
-                audioSelectionMode: 'random',
+
                 audioViaBlob: false,
                 audioFallbackChimeEnabled: false,
                 audioSources: [{ type: 'custom', url: 'http://x.test/single-source.mp3', voice: '', enabled: true }],
@@ -1660,11 +1660,10 @@ describe('reader helpers', () => {
             const player = new AudioPlayer(() => ({
                 ...DEFAULT_SETTINGS,
                 audioEnableDefaultSources: false,
-                audioSelectionMode: 'random',
+
                 audioTtsMode: 'fallback',
                 audioViaBlob: true,
                 audioFallbackChimeEnabled: false,
-                audioTimeoutMs: 2000,
                 audioSources: [
                     { type: 'custom', url: 'http://x.test/slow.mp3', voice: '', enabled: true },
                     { type: 'custom', url: 'http://x.test/fast.mp3', voice: '', enabled: true },
@@ -1701,7 +1700,7 @@ describe('reader helpers', () => {
             const player = new AudioPlayer(() => ({
                 ...DEFAULT_SETTINGS,
                 audioEnableDefaultSources: false,
-                audioSelectionMode: 'random',
+
                 audioViaBlob: true,
                 audioFallbackChimeEnabled: false,
                 audioSources: [
@@ -1736,7 +1735,7 @@ describe('reader helpers', () => {
         let settings: ReaderSettings = {
             ...DEFAULT_SETTINGS,
             audioEnableDefaultSources: false,
-            audioSelectionMode: 'first',
+
             audioViaBlob: false,
             audioFallbackChimeEnabled: false,
             audioSources: [
@@ -1751,7 +1750,7 @@ describe('reader helpers', () => {
             await expect(player.play(card)).resolves.toBe(true);
             settings = {
                 ...settings,
-                audioSelectionMode: 'random',
+
                 audioSources: [
                     { type: 'custom', url: 'http://x.test/repeated.mp3', voice: '', enabled: true },
                     { type: 'text-to-speech', url: '', voice: '', enabled: true },
@@ -1794,7 +1793,7 @@ describe('reader helpers', () => {
             const player = new AudioPlayer(() => ({
                 ...DEFAULT_SETTINGS,
                 audioEnableDefaultSources: false,
-                audioSelectionMode: 'random',
+
                 audioViaBlob: true,
                 audioFallbackChimeEnabled: false,
                 audioSources: [

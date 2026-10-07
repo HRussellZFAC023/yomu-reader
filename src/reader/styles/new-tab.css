@@ -2679,6 +2679,8 @@ button.jpdb-reader-newtab-study-hint-btn:active {
 
 .jpdb-reader-newtab-controls.jpdb-reader-newtab-grade-controls {
   position: fixed;
+  background: var(--jpdb-reader-bg);
+  border-radius: 12px;
   left: 50%;
   bottom: max(12px, env(safe-area-inset-bottom));
   transform: translateX(-50%);
@@ -4328,7 +4330,7 @@ button.jpdb-reader-newtab-study-hint-btn:active {
     z-index: 40;
     min-height: calc(64px + env(safe-area-inset-bottom));
     display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-columns: repeat(5, minmax(0, 1fr));
     align-items: start;
     gap: 2px;
     padding: 6px max(8px, env(safe-area-inset-right)) env(safe-area-inset-bottom)

@@ -1,3 +1,6 @@
+import { IDBFactory } from 'fake-indexeddb';
+import { PracticeSessions, type PracticeMaterial } from '../../../src/reader/study/practice-session';
+import { bareFallbackCardFromText } from '../../../src/reader/lookup/japanese-segments';
 import { describe, expect, it, vi } from 'vitest';
 import {
     registerNewTabReviewCleanup,
@@ -482,6 +485,25 @@ describe('new tab review — dictionary fallbacks, refresh & shared-URL history'
         }
     });
 
+    it.each(['recognition', 'cloze', 'writing'] as const)('starts %s practice from the actual keyless built-in Study loader', async purpose => {
+        const { controller, publicSearch, fallbackCardFromText } = newTabBuiltInFallbackFixture('auto');
+        fallbackCardFromText.mockImplementation(text => bareFallbackCardFromText(text, 'ja'));
+        try {
+            await controller.renderPage();
+            const selection = (controller as unknown as {
+                practiceSelection(): { title: string; material: PracticeMaterial[] };
+            }).practiceSelection();
+            expect(selection.material).toHaveLength(12);
+            expect(selection.material.every(word => word.meaning && word.reading && word.sentence?.includes(word.spelling))).toBe(true);
+            const sessions = new PracticeSessions(new IDBFactory());
+            const session = await sessions.start({ purpose, ...selection });
+            expect(session.view()).toMatchObject({ status: 'ready', total: 12, ineligible: 0 });
+            expect(session.view().current?.prompt).toBeTruthy();
+            expect(publicSearch).not.toHaveBeenCalled();
+            session.close();
+        } finally { controller.destroy(); resetNewTabReviewStorage(); }
+    });
+
     it('uses built-in study words when auto has no local dictionaries installed without public JPDB fallback', async () => {
         const { controller, publicSearch, fallbackCardFromText } = newTabBuiltInFallbackFixture('auto');
         await expectBuiltInFallbackWords(controller, fallbackCardFromText);
@@ -518,7 +540,8 @@ describe('new tab review — dictionary fallbacks, refresh & shared-URL history'
             const state = controller as unknown as { visibleWords: JPDBCard[]; index: number };
             const current = state.visibleWords[state.index]!;
             expect(current).toBeDefined();
-            expect(document.querySelector('[data-newtab-prompt] .jpdb-reader-word')?.textContent).toBe(current.spelling);
+            expect(document.querySelector('[data-newtab-prompt] .jpdb-reader-word')?.getAttribute('data-expression')).toBe(current.spelling);
+            expect(document.querySelector('[data-newtab-prompt] .jpdb-reader-word')?.textContent).toContain(current.reading);
             expect(document.querySelector('.jpdb-reader-doodle-canvas')).toBeNull();
             expect(document.querySelector('[data-newtab-answer]')?.textContent).not.toBe('Looking for more kanji...');
         } finally {

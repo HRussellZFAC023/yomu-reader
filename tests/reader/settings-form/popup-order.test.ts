@@ -29,8 +29,7 @@ describe('the popup order in Settings → Sources', () => {
         const first = sourcesContent(form).firstElementChild!;
 
         expect(first.querySelector('[data-help-key="popupOrderTitle"]')?.textContent).toBe('Popup order');
-        expect(first.querySelector('[data-help-key="popupOrderHelp"]')?.textContent)
-            .toBe('This list sets the order of sections in the popup. Reorder it with the arrows or by dragging, then press Save.');
+        expect(first.querySelector('[data-help-key="popupOrderHelp"]')).toBeNull();
         expect(first.querySelector('[data-definition-source-editor] [data-source-row]')).not.toBeNull();
         const editor = form.querySelector('[data-definition-source-editor]')!;
         for (const later of ['[data-dictionary-status]', '[data-local-dictionary-storage]', 'select[name="parserProvider"]']) {
@@ -39,7 +38,7 @@ describe('the popup order in Settings → Sources', () => {
     });
 
     // Not plain "order": the Order column header already matched it before.
-    it.each(['popup', 'reorder', 'Popup order', 'sets the order of sections'])('is what Settings search finds for "%s"', query => {
+    it.each(['popup', 'reorder', 'Popup order'])('is what Settings search finds for "%s"', query => {
         expect(sourcesFoundBy(renderSettingsTestForm(DEFAULT_SETTINGS), query)).toBe(true);
     });
 
@@ -51,7 +50,6 @@ describe('the popup order in Settings → Sources', () => {
         for (const form of [japanese, switched]) {
             const first = sourcesContent(form).firstElementChild!;
             expect(first.querySelector('[data-help-key="popupOrderTitle"]')?.textContent).toBe('ポップアップの順序');
-            expect(first.textContent).toContain('並べ替えて');
             expect(first.textContent).not.toContain('未翻訳');
             expect(first.textContent).not.toContain('Popup order');
             expect(sourcesFoundBy(form, 'ポップアップ')).toBe(true);

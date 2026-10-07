@@ -2630,7 +2630,6 @@ export function sourceSummaryClickFixture(detailsHtml: string, installCount = 1)
     const popover = document.createElement('div');
     popover.innerHTML = detailsHtml;
     const controller = new DictionarySourceStateController({
-        getSettings: () => DEFAULT_SETTINGS,
         onStateChange: vi.fn(),
     });
     for (let index = 0; index < installCount; index += 1) {
@@ -2894,7 +2893,7 @@ export function setupJpdbWordVoicePlayback(options: {
     const player = new AudioPlayer(() => ({
         ...DEFAULT_SETTINGS,
         audioEnableDefaultSources: false,
-        audioSelectionMode: 'first',
+
         audioFallbackChimeEnabled: false,
         audioSources: [{ type: 'jpdb-tts', url: '', voice: '', enabled: true }],
     }));
@@ -2978,7 +2977,7 @@ export function testJpdbSentenceAudioPlayer(): AudioPlayer {
     return new AudioPlayer(() => ({
         ...DEFAULT_SETTINGS,
         audioEnableDefaultSources: false,
-        audioSelectionMode: 'first',
+
         audioFallbackChimeEnabled: false,
     }));
 }

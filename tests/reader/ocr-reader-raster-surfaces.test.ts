@@ -800,7 +800,7 @@ describe('reader raster OCR surfaces', { timeout: 20_000 }, () => {
         document.body.append(viewport);
 
         const controller = createController(
-            { ocrInvertDarkPanels: false, audioTimeoutMs: 120 },
+            { ocrInvertDarkPanels: false, },
             undefined, undefined, undefined, undefined, undefined,
             { ocrAttemptTimeoutFloorMs: 120 },
         );
@@ -836,7 +836,7 @@ describe('reader raster OCR surfaces', { timeout: 20_000 }, () => {
         document.body.append(viewport);
 
         const controller = createController(
-            { audioTimeoutMs: 120 },
+            { },
             undefined, undefined, undefined, undefined, undefined,
             { ocrAttemptTimeoutFloorMs: 120 },
         );
@@ -862,7 +862,7 @@ describe('reader raster OCR surfaces', { timeout: 20_000 }, () => {
         }
     });
 
-    it('lets a scan slower than the audio timeout finish instead of failing it (iPad-slow provider)', async () => {
+    it('lets a delayed OCR response finish within the scan budget', async () => {
         stubLocation('viewer.bookwalker.jp');
         stubReadableCanvas();
         pageCounter('5/13');
@@ -871,9 +871,8 @@ describe('reader raster OCR surfaces', { timeout: 20_000 }, () => {
         viewport.append(pageCanvas(24, 20));
         document.body.append(viewport);
 
-        // audioTimeoutMs is an audio-sized budget (6s default, 50ms here); a slow
-        // userscript bridge routinely needs longer than that for one healthy scan.
-        const controller = createController({ audioTimeoutMs: 50 });
+        // A delayed native-messaging response is still a healthy scan.
+        const controller = createController();
         const recognizeImage = vi.fn(() => new Promise<OcrResult | null>(resolve => {
             setTimeout(() => resolve({ width: 1200, height: 1600, lines: [
                 { text: '再スキャン', box: { left: 144, top: 288, width: 552, height: 128 }, vertical: false },

@@ -304,7 +304,6 @@ export class NewTabRuntime {
     private jpdbReviewBridge = createJpdbReviewBridgeClient();
     private dictionaries = createLocalDictionaryStore(() => this.settings.corsProxyUrl, () => this.settings.interfaceLanguage);
     private dictionarySourceState = new DictionarySourceStateController({
-        getSettings: () => this.settings,
         onStateChange: () => this.repositionLookupPopover(),
     });
     // fallow-ignore-next-line code-duplication
@@ -479,7 +478,6 @@ export class NewTabRuntime {
             if (this.newTab?.isCurrentPage()) void this.newTab.renderPage();
         },
         onStoredDataRestored: () => this.refreshExternalData(),
-        clearDictionarySourceOpenOverrides: () => undefined,
         resetAllData: () => this.factoryReset.resetAllData(),
         beginSettingsPreview: (accent, _language, theme) => {
             this.settingsPreviewOriginalAccent = accent;

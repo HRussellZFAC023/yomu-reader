@@ -360,7 +360,7 @@ describe('reader helpers', () => {
             const player = new AudioPlayer(() => ({
                 ...DEFAULT_SETTINGS,
                 audioEnableDefaultSources: false,
-                audioSelectionMode: 'first',
+
                 audioFallbackChimeEnabled: false,
                 audioSources: [{ type: 'jpdb-tts', url: '', voice: '', enabled: true }],
             }));
@@ -446,7 +446,7 @@ describe('reader helpers', () => {
             const player = new AudioPlayer(() => ({
                 ...DEFAULT_SETTINGS,
                 audioEnableDefaultSources: false,
-                audioSelectionMode: 'first',
+
                 audioFallbackChimeEnabled: false,
                 audioSources: [{ type: 'jpdb-tts', url: '', voice: '', enabled: true }],
             }));
@@ -537,7 +537,7 @@ describe('reader helpers', () => {
             const player = new AudioPlayer(() => ({
                 ...DEFAULT_SETTINGS,
                 audioEnableDefaultSources: false,
-                audioSelectionMode: 'first',
+
                 audioSources: [
                     { type: 'jisho', url: '', voice: '', enabled: true },
                     { type: 'text-to-speech', url: '', voice: '', enabled: true },
@@ -1681,20 +1681,20 @@ describe('reader helpers', () => {
         }
     });
 
-    it('shows editable display names for built-in definition sources', () => {
+    it('uses fixed names for built-in definition sources', () => {
         document.body.innerHTML = `<form>${renderDictionarySourceRows(DEFAULT_SETTINGS)}</form>`;
 
         const header = document.querySelector<HTMLElement>('.jpdb-reader-dictionary-head');
         const row = document.querySelector<HTMLElement>('[data-dictionary-source-row]');
         const alias = document.querySelector<HTMLInputElement>('input[name="jitenDefinitions.alias"]');
 
-        expect(header?.textContent).toContain('Display name');
+        expect(header?.textContent).not.toContain('Display name');
         expect(header?.textContent).not.toContain('Remove');
-        expect(header?.classList.contains('compact')).toBe(false);
+        expect(header?.classList.contains('compact')).toBe(true);
         expect(header?.classList.contains('no-remove')).toBe(true);
-        expect(row?.classList.contains('compact')).toBe(false);
+        expect(row?.classList.contains('compact')).toBe(true);
         expect(row?.classList.contains('no-remove')).toBe(true);
-        expect(alias?.type).toBe('text');
+        expect(alias).toBeNull();
     });
 
     it('saves editable dictionary display names without changing dictionary titles', () => {
@@ -1712,7 +1712,7 @@ describe('reader helpers', () => {
         const form = document.querySelector('form')!;
         const alias = form.querySelector<HTMLInputElement>('input[name="dictionaryPreferences.0.alias"]');
 
-        expect(form.textContent).toContain('Display name');
+        expect(alias?.getAttribute('aria-label')).toBe('Display name');
         expect(form.textContent).toContain('Remove');
         expect(alias?.type).toBe('text');
         alias!.value = 'Jitendex';

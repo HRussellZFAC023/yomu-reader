@@ -171,8 +171,7 @@
   .jpdb-reader-anki-rendered-card-title
 )::after,
 .jpdb-reader-popover .jpdb-reader-local-glossary .gloss-sc-summary,
-.jpdb-reader-popover .jpdb-reader-grammar-more > summary::after,
-.jpdb-reader-settings .jpdb-reader-proxy-guide-toggle {
+.jpdb-reader-popover .jpdb-reader-grammar-more > summary::after {
   transition:
     color 0.16s ease,
     transform 0.16s ease;

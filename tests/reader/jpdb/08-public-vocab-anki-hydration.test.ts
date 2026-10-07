@@ -923,7 +923,7 @@ describe('reader helpers', () => {
             const player = new AudioPlayer(() => ({
                 ...DEFAULT_SETTINGS,
                 audioEnableDefaultSources: false,
-                audioSelectionMode: 'random',
+
                 audioViaBlob: true,
                 audioFallbackChimeEnabled: false,
                 audioSources: [
@@ -967,7 +967,7 @@ describe('reader helpers', () => {
             const player = new AudioPlayer(() => ({
                 ...DEFAULT_SETTINGS,
                 audioEnableDefaultSources: false,
-                audioSelectionMode: 'random',
+
                 audioViaBlob: true,
                 audioFallbackChimeEnabled: false,
                 audioSources: [
@@ -1011,7 +1011,7 @@ describe('reader helpers', () => {
             const player = new AudioPlayer(() => ({
                 ...DEFAULT_SETTINGS,
                 audioEnableDefaultSources: false,
-                audioSelectionMode: 'random',
+
                 audioViaBlob: true,
                 audioFallbackChimeEnabled: false,
                 audioSources: [
@@ -1061,7 +1061,7 @@ describe('reader helpers', () => {
             const player = new AudioPlayer(() => ({
                 ...DEFAULT_SETTINGS,
                 audioEnableDefaultSources: false,
-                audioSelectionMode: 'random',
+
                 audioViaBlob: true,
                 audioFallbackChimeEnabled: false,
                 audioSources: [
@@ -1107,7 +1107,7 @@ describe('reader helpers', () => {
             const player = new AudioPlayer(() => ({
                 ...DEFAULT_SETTINGS,
                 audioEnableDefaultSources: false,
-                audioSelectionMode: 'random',
+
                 audioTtsMode: 'source-order',
                 audioViaBlob: true,
                 audioFallbackChimeEnabled: false,
@@ -1158,7 +1158,7 @@ describe('reader helpers', () => {
             const player = new AudioPlayer(() => ({
                 ...DEFAULT_SETTINGS,
                 audioEnableDefaultSources: false,
-                audioSelectionMode: 'random',
+
                 audioTtsMode: 'source-order',
                 audioViaBlob: true,
                 audioFallbackChimeEnabled: false,
@@ -1206,7 +1206,7 @@ describe('reader helpers', () => {
             const player = new AudioPlayer(() => ({
                 ...DEFAULT_SETTINGS,
                 audioEnableDefaultSources: false,
-                audioSelectionMode: 'first',
+
                 audioViaBlob: true,
                 audioFallbackChimeEnabled: false,
                 audioSources: [
@@ -1248,7 +1248,7 @@ describe('reader helpers', () => {
             const player = new AudioPlayer(() => ({
                 ...DEFAULT_SETTINGS,
                 audioEnableDefaultSources: false,
-                audioSelectionMode: 'first',
+
                 audioViaBlob: true,
                 audioFallbackChimeEnabled: false,
                 audioSources: [
@@ -1309,7 +1309,7 @@ describe('reader helpers', () => {
             const player = new AudioPlayer(() => ({
                 ...DEFAULT_SETTINGS,
                 audioEnableDefaultSources: false,
-                audioSelectionMode: 'first',
+
                 audioViaBlob: true,
                 audioFallbackChimeEnabled: false,
                 audioSources: [
@@ -1361,7 +1361,7 @@ describe('reader helpers', () => {
             const player = new AudioPlayer(() => ({
                 ...DEFAULT_SETTINGS,
                 audioEnableDefaultSources: false,
-                audioSelectionMode: 'random',
+
                 audioViaBlob: true,
                 audioFallbackChimeEnabled: false,
                 audioSources: [
@@ -1394,7 +1394,7 @@ describe('reader helpers', () => {
             const player = new AudioPlayer(() => ({
                 ...DEFAULT_SETTINGS,
                 audioEnableDefaultSources: false,
-                audioSelectionMode: 'first',
+
                 audioTtsMode: 'source-order',
                 audioViaBlob: true,
                 audioFallbackChimeEnabled: false,
@@ -1484,7 +1484,7 @@ describe('reader helpers', () => {
             const player = new AudioPlayer(() => ({
                 ...DEFAULT_SETTINGS,
                 audioEnableDefaultSources: false,
-                audioSelectionMode: 'first',
+
                 audioTtsMode: 'source-order',
                 audioViaBlob: true,
                 audioFallbackChimeEnabled: false,
@@ -1550,7 +1550,7 @@ describe('reader helpers', () => {
             const player = new AudioPlayer(() => ({
                 ...DEFAULT_SETTINGS,
                 audioEnableDefaultSources: false,
-                audioSelectionMode: 'first',
+
                 audioFallbackChimeEnabled: false,
                 audioSources: [
                     { type: 'jpdb-tts', url: '', voice: '', enabled: true },
@@ -1603,7 +1603,7 @@ describe('reader helpers', () => {
             const player = new AudioPlayer(() => ({
                 ...DEFAULT_SETTINGS,
                 audioEnableDefaultSources: false,
-                audioSelectionMode: 'first',
+
                 audioViaBlob: true,
                 audioFallbackChimeEnabled: false,
                 audioSources: [
@@ -1654,7 +1654,7 @@ describe('reader helpers', () => {
             const player = new AudioPlayer(() => ({
                 ...DEFAULT_SETTINGS,
                 audioEnableDefaultSources: false,
-                audioSelectionMode: 'first',
+
                 audioFallbackChimeEnabled: false,
                 audioSources: [
                     { type: 'jpdb-tts', url: '', voice: '', enabled: true },

@@ -90,10 +90,15 @@ describe('new-tab session progress', () => {
         const controller = progressController();
         const root = renderProgressRoot(controller);
 
+        const interactive = 'a[href], button, input, select, textarea, [role="button"], summary';
+        for (const outer of root.querySelectorAll('a[href], button, [role="button"], summary')) {
+            expect(outer.querySelector(interactive), outer.outerHTML).toBeNull();
+        }
+
         const navigation = root.querySelector<HTMLElement>('[data-newtab-app-navigation]');
         expect(navigation?.getAttribute('aria-label')).toBe('App navigation');
         expect([...navigation!.querySelectorAll<HTMLButtonElement>('[data-newtab-action]')]
-            .map(button => button.textContent)).toEqual(['学Study', '辞Library', '統Stats', '連Connect']);
+            .map(button => button.textContent)).toEqual(['学Study', '練Practice', '辞Library', '統Stats', '連Connect']);
         expect(root.querySelector('[data-newtab-connectivity]')?.textContent).toBe('Offline ready');
         expect([...root.querySelectorAll('.jpdb-reader-newtab-mode [data-newtab-action="mode"]')]
             .map(button => button.textContent)).toEqual(['Study', 'Library', 'Stats']);

@@ -95,6 +95,11 @@ export class PracticeSessions {
     private readonly store: PracticeSessionStore;
     constructor(factory: IDBFactory = indexedDB) { this.store = new PracticeSessionStore(factory); }
 
+    async countReady(request: PracticeStart): Promise<number> {
+        const material = request.fromSession ? (await this.read(request.fromSession)).material : request.material;
+        return material?.filter(item => validMaterial(item) && prepareItem(request.purpose, item)).length ?? 0;
+    }
+
     async start(request: PracticeStart): Promise<PracticeSession> {
         const { purpose } = request;
         if (!PURPOSES.includes(purpose)) throw new TypeError('Unsupported practice purpose.');
