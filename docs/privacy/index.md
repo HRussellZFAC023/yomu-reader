@@ -70,4 +70,4 @@ Chrome, Firefox, and Safari extension packages contain their executable code. Th
 
 ## Contact and deletion
 
-You can erase Yomu's local data from **Settings → Backup & data → Reset all data**, or by removing the extension and its site data. Resetting or uninstalling local data does not itself delete an optional server profile; use **Profile & sync → Delete profile/account** for that. Report privacy questions or issues through the [Yomu GitHub issue tracker](https://github.com/HRussellZFAC023/yomu-reader/issues).
+You can erase Yomu's local data from **Settings → Help → Factory Reset**, or by removing the extension and its site data. Resetting or uninstalling local data does not itself delete an optional server profile; use **Profile & sync → Delete profile/account** for that. Report privacy questions or issues through the [Yomu GitHub issue tracker](https://github.com/HRussellZFAC023/yomu-reader/issues).

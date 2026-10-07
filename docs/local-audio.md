@@ -147,7 +147,7 @@ If the browser says the page cannot be reached, the server is not running, the w
 
 1. Open a page where よむ is running.
 2. Open settings with the floating よむ button. The **Open settings** shortcut is configurable in Settings → Shortcuts.
-3. Open Audio.
+3. Open Media.
 4. Turn on Enable audio playback for terms.
 5. Press Add audio source.
 6. Set Type to Custom URL.
@@ -163,7 +163,7 @@ http://localhost:9393/?term={term}&reading={reading}
 
 Leave `{term}` and `{reading}` exactly as written. よむ replaces those placeholders for each word you look up.
 
-Jiten/JPDB and browser text-to-speech rows are off by default. Turn them on only if you want synthetic fallback audio. Shuffle mode behaves like a shuffled deck: よむ tries every available candidate for a word before reshuffling, instead of independently picking a random clip each time. In Settings > Audio, change **Text-to-speech handling** to **Follow source order / shuffle** if you want TTS rows to follow your source order or shuffled audio setting.
+Jiten/JPDB and browser text-to-speech rows are off by default. Turn them on only if you want synthetic fallback audio. Shuffle mode behaves like a shuffled deck: よむ tries every available candidate for a word before reshuffling, instead of independently picking a random clip each time. In Settings → Media, change **Text-to-speech handling** to **Follow source order / shuffle** if you want TTS rows to follow your source order or shuffled audio setting.
 
 ## Using an iPad or Another Device
 

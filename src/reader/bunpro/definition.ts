@@ -480,7 +480,7 @@ export function renderBunproDefinitionSource(
 
 // Headword mirrors the Jiten headword: a passive, parseable reader-word (so
 // our annotation/lookup machinery applies). Word audio is not a per-section
-// button; Bunpro pronunciation is a regular Settings → Audio source feeding
+// button; Bunpro pronunciation is a regular Settings → Media audio source feeding
 // the card's shared audio control.
 function renderBunproHeadword(card: JPDBCard, info: BunproDefinitionInfo, _language: InterfaceLanguage): string {
     if (repeatsLookupHeadword(card, info)) return '';
