@@ -411,17 +411,10 @@ export function extensionStudyStorageRuntimeSource(storagePrefix) {
 })();\n`;
 }
 
-export function hardenExtensionPopupSource(source, options = {}) {
-    return installExtensionPopupActionsSource(options.target === 'safari' ? safariInjectableTabsOnly(source) : source);
-}
-
-function safariInjectableTabsOnly(source) {
-    const injectablePattern = 'return /^https?:|^file:/i.test(url);';
-    if (!source.includes(injectablePattern)) {
-        if (source.includes('return /^https?:/i.test(url);')) return source;
-        throw new Error('Generated Safari popup.js no longer contains the expected injectable-tab URL guard.');
-    }
-    return source.replace(injectablePattern, 'return /^https?:/i.test(url);');
+export function hardenExtensionPopupSource(source) {
+    // Settings is always a packaged page; no browser target injects code into
+    // the active tab. All targets use the same idempotent popup replacement.
+    return installExtensionPopupActionsSource(source);
 }
 
 function installExtensionScreenshotBridgeSource(source) {

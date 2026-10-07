@@ -948,14 +948,13 @@ line two\`;
         ]);
     });
 
-    it('does not offer Safari injection on unsupported file pages', () => {
-        const source = 'function isInjectableTab(url) { return /^https?:|^file:/i.test(url); }';
-        const hardened = hardenExtensionPopupSource(source, { target: 'safari' });
+    it.each(['chrome', 'firefox', 'safari'])('replaces legacy popup injection and menus in %s idempotently', target => {
+        const source = readFileSync('tests/fixtures/extension/compiler-popup.js', 'utf8');
+        const hardened = hardenExtensionPopupSource(source, { target });
 
-        expect(hardened).toContain('return /^https?:/i.test(url);');
-        expect(hardened).not.toContain('^file:');
-        expect(hardenExtensionPopupSource(hardened, { target: 'safari' })).toBe(hardened);
-        expect(hardenExtensionPopupSource(source, { target: 'chrome' })).toBe(source);
+        expect(hardened).toContain('newtab/index.html#settings=appearance');
+        expect(hardened).not.toMatch(/executeScript|settingsEvent|CustomEvent|USC_listMenuCommands|USC_runMenuCommand|renderPrimaryActions/);
+        expect(hardenExtensionPopupSource(hardened, { target })).toBe(hardened);
     });
 
     it('declares Firefox built-in data consent and its supported versions', () => {

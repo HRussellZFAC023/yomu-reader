@@ -2,6 +2,7 @@
 // 2026-10-07): the page answers with the puck's actions and their state, and
 // the popup renders and runs them, with nothing kept in the background.
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { readFileSync } from 'node:fs';
 import { ReaderApp } from '../../src/reader/app/main';
 import {
     EXTENSION_POPUP_ACTIONS_CHANNEL,
@@ -47,6 +48,7 @@ function puck() {
 
 afterEach(() => {
     vi.unstubAllGlobals();
+    vi.restoreAllMocks();
     document.body.replaceChildren();
 });
 
@@ -120,7 +122,7 @@ describe('the page side of the extension popup', () => {
         const { send } = fakeRuntime();
         installExtensionPopupActions({ ...puck().source, language: () => 'ja' }, new AbortController().signal);
         const list = await send({ channel: EXTENSION_POPUP_ACTIONS_CHANNEL, type: 'list' }) as ExtensionPopupActionList;
-        expect([list.heading, list.settingsLabel]).toEqual(['このページ', '設定']);
+        expect([list.heading, list.studyLabel, list.settingsLabel]).toEqual(['このページ', '学習', '設定']);
     });
 
     it('answers only this extension\'s own pages, and stops when the reader is torn down', async () => {
@@ -141,51 +143,59 @@ describe('the page side of the extension popup', () => {
 });
 
 describe('the toolbar popup', () => {
-    // The compiler-generated popup's helpers that Yomu's section reuses.
-    const compilerPopup = `const api = globalThis.__popupApi;
-function callApi(fn, thisArg, ...args) { return Promise.resolve(fn.call(thisArg, ...args)); }
-async function activeTab() { return { id: 7 }; }
-async function openPath(path) { globalThis.__opened.push(path); }`;
+    // Copied from the actual compiler output before hardening on 2026-10-07.
+    // The legacy listeners and complete HTML must be present in this regression.
+    const compilerPopup = readFileSync('tests/fixtures/extension/compiler-popup.js', 'utf8');
+    const compilerHtml = readFileSync('tests/fixtures/extension/compiler-popup.html', 'utf8');
 
     function mountPopup(answer: (message: { type: string; id: string }, tabId: number, options: unknown) => unknown) {
-        document.body.innerHTML = '<main><section class="section"><div class="menu" data-primary-actions><button data-action="open-page">Open Study</button></div></section></main>';
+        document.body.innerHTML = compilerHtml;
         const opened: string[] = [];
         const sendMessage = vi.fn(async (tabId: number, message: { type: string; id: string }, options: unknown) => answer(message, tabId, options));
-        Object.assign(globalThis, { __popupApi: { tabs: { sendMessage } }, __opened: opened });
+        const legacySend = vi.fn();
+        const executeScript = vi.fn();
+        vi.stubGlobal('chrome', {
+            runtime: { getURL: (path: string) => `chrome-extension://${EXTENSION_ID}/${path}`, sendMessage: legacySend },
+            tabs: { sendMessage, query: async () => [{ id: 7 }], create: async ({ url }: { url: string }) => { opened.push(url); } },
+            scripting: { executeScript },
+        });
+        vi.spyOn(window, 'close').mockImplementation(() => undefined);
         const source = hardenExtensionPopupSource(compilerPopup, { target: 'chrome' }) as string;
         new Function(source)();
-        return { opened, sendMessage };
+        return { opened, sendMessage, legacySend, executeScript };
     }
 
     const buttons = () => [...document.querySelectorAll<HTMLButtonElement>('[data-yomu-action]')];
     const settle = () => new Promise(resolve => setTimeout(resolve, 0));
 
-    afterEach(() => {
-        delete (globalThis as Record<string, unknown>).__popupApi;
-        delete (globalThis as Record<string, unknown>).__opened;
-    });
-
-    it('shows the page\'s actions under its heading, asking only the top frame, and opens Settings as a packaged page', async () => {
-        const { opened, sendMessage } = mountPopup(() => ({
+    it('replaces all compiler menus with one native-button group and opens packaged destinations', async () => {
+        const { opened, sendMessage, legacySend, executeScript } = mountPopup(() => ({
             heading: 'On this page',
+            studyLabel: 'Study',
             settingsLabel: 'Settings',
             actions: [{ id: 'power', label: 'Pause annotations', tone: 'on' }, { id: 'youtube', label: 'Filter YouTube to Japanese', tone: 'off', pressed: false }],
         }));
         await settle();
 
         expect(sendMessage).toHaveBeenCalledWith(7, { channel: EXTENSION_POPUP_ACTIONS_CHANNEL, type: 'list', id: '' }, { frameId: 0 });
-        expect(document.querySelector('#yomu-page-actions-label')?.textContent).toBe('On this page');
+        expect(document.querySelectorAll('[role="group"]')).toHaveLength(1);
+        expect(document.querySelectorAll('header,h1,[data-primary-actions],[data-script-menu-section],[role="menu"]')).toHaveLength(0);
         expect(buttons().map(button => [button.textContent, button.getAttribute('aria-pressed')])).toEqual([
             ['Pause annotations', null],
             ['Filter YouTube to Japanese', 'false'],
+            ['Study', null],
             ['Settings', null],
         ]);
-        // The section follows the compiler's primary actions, which keep Open Study.
-        expect(document.querySelector('[data-primary-actions]')?.closest('section')?.nextElementSibling?.contains(buttons()[0]!)).toBe(true);
-
         buttons()[2]!.click();
         await settle();
-        expect(opened).toEqual(['newtab/index.html#settings=appearance']);
+        buttons()[3]!.click();
+        await settle();
+        expect(opened).toEqual([
+            `chrome-extension://${EXTENSION_ID}/newtab/index.html`,
+            `chrome-extension://${EXTENSION_ID}/newtab/index.html#settings=appearance`,
+        ]);
+        expect(legacySend).not.toHaveBeenCalled();
+        expect(executeScript).not.toHaveBeenCalled();
     });
 
     it('runs an action in the page and redraws its new state', async () => {
@@ -204,10 +214,20 @@ async function openPath(path) { globalThis.__opened.push(path); }`;
         expect(buttons()[0]!.textContent).toBe('Resume annotations');
     });
 
-    it('still offers Settings on a tab without Yomu', async () => {
+    it('offers packaged Study and Settings on a tab without Yomu', async () => {
         mountPopup(() => { throw new Error('Could not establish connection. Receiving end does not exist.'); });
         await settle();
-        expect(buttons().map(button => button.textContent)).toEqual(['Settings']);
-        expect(document.querySelector<HTMLElement>('#yomu-page-actions-label')?.hidden).toBe(true);
+        expect(buttons().map(button => button.textContent)).toEqual(['Study', 'Settings']);
+    });
+
+    it('removes stale page actions if the active page no longer answers', async () => {
+        mountPopup(message => {
+            if (message.type === 'run') throw new Error('Tab closed');
+            return { actions: [{ id: 'power', label: 'Pause annotations', tone: 'on' }] };
+        });
+        await settle();
+        buttons()[0]!.click();
+        await settle();
+        expect(buttons().map(button => button.textContent)).toEqual(['Study', 'Settings']);
     });
 });

@@ -27,6 +27,7 @@ export interface ExtensionPopupAction {
 
 export interface ExtensionPopupActionList {
     heading: string;
+    studyLabel: string;
     settingsLabel: string;
     actions: ExtensionPopupAction[];
 }
@@ -71,6 +72,7 @@ async function answerPopup(source: ExtensionPopupActionSource, request: { type: 
     const language = source.language();
     return {
         heading: uiText(language, 'extensionPopupPageActions'),
+        studyLabel: uiText(language, 'newTab'),
         settingsLabel: uiText(language, 'settings'),
         actions: popupActions(source).map(({ id, label, tone }) => ({
             id,
