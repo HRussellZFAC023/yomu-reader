@@ -42,7 +42,7 @@ describe('hosted store install routes', () => {
         }
     });
 
-    it('keeps extension metadata language-neutral and stable update routes on the stores', () => {
+    it('keeps extension metadata Japanese-only and stable update routes on the stores', () => {
         const amoMetadata = JSON.parse(readFileSync('config/amo-metadata.json', 'utf8')) as {
             summary: Record<string, string>;
             description: Record<string, string>;
@@ -53,20 +53,21 @@ describe('hosted store install routes', () => {
         };
         const reviewNotes = readFileSync('docs/store-review-notes.md', 'utf8');
 
-        expect(amoMetadata.summary['en-US']).toContain('33 learning languages');
-        expect(amoMetadata.summary.ja).toContain('33の学習言語');
-        expect(amoMetadata.description['en-US']).toContain('All 33 learning targets');
-        expect(amoMetadata.description.ja).toContain('33の学習言語すべて');
-        expect(amoMetadata.description['en-US']).toContain('Japanese is the deepest target');
+        expect(amoMetadata.summary['en-US']).toMatch(/^Read Japanese\. Stay with the story\./u);
+        expect(amoMetadata.summary.ja).toMatch(/^日本語を読む。物語の続きを楽しむ。/u);
+        expect(amoMetadata.summary['en-US'].length).toBeLessThanOrEqual(250);
+        expect(amoMetadata.summary.ja.length).toBeLessThanOrEqual(250);
+        expect(amoMetadata.description['en-US']).toContain('Read Japanese where you already read.');
+        expect(amoMetadata.description.ja).toContain('いつもの場所で、日本語をそのまま読む。');
         expect(amoMetadata.version.approval_notes).toContain('explicit learning-language choice');
         expect(amoMetadata.version.approval_notes).toContain('Kanji 1 for Japanese and Word for non-Japanese targets');
-        expect(compiler.branding.tagline).toBe('Read your learning language anywhere.');
+        expect(compiler.branding.tagline).toBe('Read Japanese. Stay with the story.');
         const chromeDescription = execFileSync(
             process.execPath,
             ['scripts/print-chrome-store-description.mjs'],
             { encoding: 'utf8' },
         );
-        expect(chromeDescription).toContain('Highlights\n- Target-aware pop-up lookup for 33 learning languages');
+        expect(chromeDescription).toContain('Highlights\n- Pop-up Japanese dictionary on any web page');
         expect(chromeDescription).toContain('- No remote executable code and no sale of personal data\n\nSite access is needed');
         expect(chromeDescription).not.toMatch(/<\/?(?:ul|li)>/u);
         expect(reviewNotes).toContain('language-learning reader');

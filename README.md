@@ -4,13 +4,12 @@
 
 <h1>よむ <sub>· Yomu</sub></h1>
 
-<p><b>Read Japanese without leaving the page. Understand it and save it for study.</b></p>
+<p><b>Read Japanese. Stay with the story.</b></p>
 
 <p>
-  よむ is a Japanese popup reader for websites, manga, game text, PDFs, and
-  subtitles. It runs as a browser extension or userscript, works on desktop and
-  mobile, and connects to Yomitan dictionaries, Anki, Jiten, Bunpro, JPDB, and
-  WaniKani.
+  よむ is a free pop-up dictionary for learning Japanese. Press a word on a web
+  page, a subtitle, a manga panel or a PDF to see its reading, meaning, pitch
+  accent and sound, then save it with the sentence where you found it.
 </p>
 
 <p>
@@ -30,18 +29,16 @@
 </p>
 
 <p>
-  <a href="https://yomureader.com/yomu.user.js"><b>Install as a userscript</b></a> ·
-  <a href="https://yomureader.com/learn/">Learning path</a> ·
-  <a href="https://yomureader.com/learn/reference">Feature map</a> ·
-  <a href="https://yomureader.com/learn/manga-and-games#read-a-game-frame">Yomu Gaming</a> ·
-  <a href="https://yomureader.com/video-player/">Video reader</a> ·
-  <a href="https://yomureader.com/study/">Study app</a> ·
-  <a href="https://yomureader.com/academy/">Academy</a> ·
+  <a href="https://yomureader.com/learn/"><b>Start here</b></a> ·
+  <a href="https://yomureader.com/desktop">Desktop app</a> ·
+  <a href="https://yomureader.com/video-player/">Video player</a> ·
+  <a href="https://yomureader.com/study/">Study</a> ·
+  <a href="https://yomureader.com/faq">FAQ</a> ·
   <a href="https://discord.gg/jD6NPURewD">Discord</a>
 </p>
 
 <p>
-  <a href="https://yomureader.com/yomu.user.js">
+  <a href="https://yomureader.com/learn/">
     <img src="https://yomureader.com/screenshots/real-popup-lookup.png" alt="A よむ popup showing Japanese readings, definitions, pitch, and mining actions" width="760" />
   </a>
 </p>
@@ -51,66 +48,47 @@
 
 ## Why よむ
 
-- **Lookup anywhere:** press Japanese text on normal pages, OCR results, subtitles, and PDFs. Only Japanese is annotated or looked up: English, other scripts, and plain numbers are left alone, while Japanese mixed with Latin letters, such as GIの中でも, still works for its Japanese words.
-- **Nothing to set up:** install it and open a Japanese page. There is no welcome dialog and no language to choose; the userscript, the extension, Study, and Yomu Gaming all start with Japanese defaults, and every setting is optional. Furigana, pitch accent, kanji cards, and grammar come with it.
-- **Study what you saved:** Study reviews your Japanese cards, and a complete example sentence gets a Recall gap. Audio-dependent Listen and Speak modes show when audio is not available instead of silently disappearing.
-- **Inspect grammar in context:** a local detector with 307 JLPT grammar points. The [grammar page](https://yomureader.com/reference/grammar) names its scope and source.
-- **Local-first parsing:** with imported dictionaries, text parsing runs entirely in your browser — no Jiten/JPDB calls, works offline. Install them from Settings → Sources, and switch parsing under Settings → Sources → Parsing.
-- **Mine and review while reading:** create Anki cards or add words to Academy, Jiten, Bunpro, or JPDB with source context; review Bunpro and currently due WaniKani assignments safely from their live queues.
-- **Optional encrypted Reader account:** create an account from yomureader.com, pair Reader with a one-time code, and synchronize Academy/local SRS states without giving Yomu the decryption key. A free Reader account does not unlock the separate Academy curriculum.
-- **Keep connected sources consistent:** WaniKani definitions, mnemonics, account state, personal notes, pronunciation, kanji components, review queue, and stats sit alongside Jiten, Bunpro, and JPDB instead of becoming a separate workflow.
-- **Enhance the sites you study in:** on jpdb, Jiten, and Bunpro detail, lesson, and revealed review pages, よむ adds Immersion Kit examples and your other enabled dictionary sources directly to the native page. Jiten review cards prefetch one exact current-card search without exposing it on the question side or fanning out fallback traffic; every supported review surface mounts a centred, height-bounded video area immediately while dictionaries hydrate independently at full width.
-- **Read examples consistently:** Bunpro, Jiten, and JPDB use the same compact example rows, annotate the full Japanese sentence with furigana, and blur translations until you reveal them. Missing provider translations are filled with よむ's cached sentence translator. Bunpro also exposes labelled per-corpus frequency and pitch evidence, with pronunciation recordings available as an audio source that stays off until you enable it.
-- **Bring your dictionaries:** the recommended dictionaries are Japanese ones with English definitions, such as JMdict English, plus kanji, pitch-accent, and frequency data; the popup's pronunciation row shows pitch accent. JMdict and KANJIDIC in other definition languages (German, French, Russian, Spanish, Dutch, Hungarian, and Swedish, plus Portuguese KANJIDIC) stay installable from the catalogue's Japanese section. Yomu's immutable catalogue lists Japanese-headword dictionaries, expands only when you ask, and offers current downloadable archives rather than source-only guides or legacy builds. You can also import your own Yomitan ZIPs, JMdict, kanji, pitch, and frequency dictionaries.
-- **Read media, not only text:** manga/image OCR, PC game capture through Yomu Gaming, YouTube subtitle mining, a local video reader, and a PDF reader. Dual subtitles can keep the native translation blurred until you reveal it, show it continuously, or hide it completely; concealment strength lives beside subtitle size in the player controls.
-- **Mobile-friendly:** works on iPhone/iPad through userscript apps, with touch-first lookup, 44px review controls, one-tap blurred-translation reveal, and mobile Anki handoff.
-- **Free and open source:** MIT-licensed, no account needed to start.
+- **Start reading:** install よむ and open a Japanese page. No setup dialog or language choice.
+- **Look up any word:** press Japanese on ordinary web pages, YouTube subtitles, manga and images (through OCR), and PDFs. The popup shows the reading, meanings, pitch accent, audio, frequency and example sentences.
+- **Read with help that fades:** furigana above every word to start with, later only on uncommon kanji or not at all. Coloured underlines show pitch accent; word colours show what is new, learning, known or due.
+- **Open one kanji:** readings, stroke count, JLPT level, components, related words and animated KanjiVG stroke order, with a pad to trace it.
+- **Save the sentence, not just the word:** keep each word with its sentence, and for video and OCR its picture. Review in the built-in Study app, or send cards to Anki, Jiten, Bunpro or JPDB. WaniKani can supply its kanji and vocabulary state.
+- **Keep your own tools:** import any compatible Yomitan dictionary. Lookups from installed dictionaries run on your device and work offline.
+- **Watch and play:** a subtitle reader with transcript, shadowing and batch mining for YouTube and your own video files, and a [desktop app](https://yomureader.com/desktop) that reads the Japanese on your screen in games and other programs.
+- **On your phone too:** Firefox for Android installs from Firefox Add-ons; iPhone and iPad run よむ in Safari through a free userscript app.
+- **Free and open source:** MIT-licensed. No account needed to start.
 
 ## Install
 
-Install from your browser's store — no userscript manager needed:
+- **Chrome, Edge, Brave, Vivaldi or Opera:** [Add よむ from the Chrome Web Store](https://chromewebstore.google.com/detail/%E3%82%88%E3%82%80/bbaickgfdgnecdnkcplaoiopnfghlkna). Edge asks you to allow extensions from other stores; Opera needs its Install Chrome Extensions add-on first.
+- **Firefox, including Firefox for Android:** [Add よむ from Firefox Add-ons](https://addons.mozilla.org/en-US/firefox/addon/yomu-reader/). The Firefox `.xpi` attached to GitHub releases is unsigned, so Firefox will not install it; it is only for developers and store reviewers.
+- **Safari, iPhone and iPad, or any browser with a userscript manager:** install the userscript from `https://yomureader.com/yomu.user.js`.
+- **Games and other desktop programs:** download the [desktop app](https://yomureader.com/desktop) for Windows, macOS or Linux from the [latest release](https://github.com/HRussellZFAC023/yomu-reader/releases/latest).
 
-- **Chrome, Edge, Brave, Opera:** [Add よむ from the Chrome Web Store](https://chromewebstore.google.com/detail/%E3%82%88%E3%82%80/bbaickgfdgnecdnkcplaoiopnfghlkna)
-- **Firefox, Firefox for Android:** [Add よむ from Firefox Add-ons](https://addons.mozilla.org/en-US/firefox/addon/yomu-reader/)
+The step-by-step guide, including the Safari walkthrough, is at https://yomureader.com/learn/.
 
-Prefer the walkthrough? The step-by-step guide covers both routes:
-
-```text
-https://yomureader.com/learn/week-one
-```
-
-Already have Tampermonkey or another userscript manager? Install directly:
-
-```text
-https://yomureader.com/yomu.user.js
-```
-
-To update on Chrome or Edge, use **Tampermonkey Dashboard → Utilities → Check for userscript updates**. A browser warning that userscripts cannot be added is a disabled Tampermonkey permission, not a bad download host; the setup guide covers **Allow User Scripts** and Developer mode.
-
-Chrome Web Store and Firefox Add-ons are supported release channels, but their review queues can lag the current GitHub release; each store listing shows the version it has approved. Safari is not published yet, while each GitHub release includes its Safari package alongside the userscript and versioned Chrome and Firefox packages. The Firefox `.xpi` on GitHub is unsigned and Firefox reports it as unverified. It is only for developers and store reviewers; Firefox users should install よむ from Firefox Add-ons.
+Chrome Web Store and Firefox Add-ons review each release, so a store can lag the current GitHub release by a few days; each listing shows the version it has approved. Safari is not in the App Store yet; each GitHub release includes its Safari package for developers.
 
 ## What It Does
 
 | Workflow | よむ helps with |
 | --- | --- |
-| Web reading | Popup dictionary lookup, furigana, sourced whole-word or component pitch/accent color, audio, examples with public Immersion Kit/Nadeshiko search links, configurable lookup pills, and kanji drilldown with source-labelled keyword comparisons |
-| Manga and images | OCR overlays that make recognized Japanese text lookup-ready without covering the page |
-| Games | First-party Yomu Gaming desktop capture, local OCR handoff, and in-place lookup |
-| Video | ASB-style subtitle overlay, transcript lookup, shadowing practice, batch mining, and a hosted local-file video reader |
-| PDFs | Browser PDF reader with selectable text, OCR fallback, and the same popup/mining flow |
-| Yomu app | An installable, offline-first Study, Library, Stats, and Connections client with Academy/local SRS highlighting and encrypted account sync; kanji, word, typing, listening, and speaking practice; AnkiConnect; Jiten/Bunpro/JPDB sync; and live due-only WaniKani reviews |
-| Dictionaries | Recommended Japanese dictionaries with English definitions, content-addressed Yomitan downloads, local imports, JMdict, kanji data, grammar hints, and source ordering |
+| Web reading | Popup dictionary lookup, furigana, pitch-accent colours, audio, example sentences, lookup pills, and kanji drilldown with stroke order |
+| Manga and images | OCR that makes the Japanese in a picture lookup-ready without covering the page |
+| Desktop | A separate desktop app that reads the Japanese on screen in games and other programs |
+| Video | Subtitle overlay, transcript lookup, shadowing practice, batch mining, and a hosted local-file video player |
+| PDFs | A browser PDF reader with selectable text, OCR for scanned pages, and the same popup |
+| Study | An installable, offline-first review app with Library and Stats; kanji, word, typing, listening and speaking practice; AnkiConnect; Jiten, Bunpro and JPDB sync; and due-only WaniKani reviews |
+| Dictionaries | Recommended Japanese dictionaries from Yomu's content-addressed mirror, local Yomitan imports, JMdict, kanji data, grammar hints, and source ordering |
 
 ## Hosted Apps
 
-- [Homepage PWA](https://yomureader.com/) installs as one Yomu shell with offline docs fallback and shortcuts to Study, Video, PDF, and setup.
-- [Video reader](https://yomureader.com/video-player/) for local video files and subtitles.
-- [PDF reader](https://yomureader.com/pdf-reader/) for Japanese PDFs and scanned pages.
-- [Yomu app](https://yomureader.com/study/) for an installable offline-first review queue, local dictionary and card Library, combined Stats, and Connections for Anki, Bunpro, Jiten, JPDB, and WaniKani. The local source is called **Academy**, and JPDB appears only after its key is configured. On iPhone/iPad use **Share → Add to Home Screen**; on Android use the browser's **Install app** action. The old `/newtab/` URL remains a compatibility route.
-- [Yomu Gaming](https://yomureader.com/learn/manga-and-games#read-a-game-frame) for first-party PC game capture and lookup.
-- [Learning path](https://yomureader.com/learn/) for the approach, real-product screenshots and detailed behavior.
+- [Study](https://yomureader.com/study/): review queue, Library, Stats and Connections for Anki, Bunpro, Jiten, JPDB and WaniKani. Works offline after the first load. On iPhone and iPad use **Share → Add to Home Screen**; on Android use the browser's **Install app** action. The old `/newtab/` URL still works.
+- [Video player](https://yomureader.com/video-player/) for your own video and subtitle files.
+- [PDF reader](https://yomureader.com/pdf-reader/) for PDFs, scanned pages included.
+- [Desktop app](https://yomureader.com/desktop) for Windows, macOS and Linux.
 
-The reader built into yomureader.com is only a no-install fallback. When the よむ userscript or extension is installed, that copy stays in control and keeps using its own Jiten/JPDB keys, settings, and progress.
+The reader built into yomureader.com is only a no-install fallback. When the よむ userscript or extension is installed, that copy stays in control and keeps using its own settings, keys and progress.
 
 ### Settings backups
 
@@ -122,11 +100,11 @@ Export or import settings from Study → Settings → Backup & sync. Only the cu
 
 よむ keeps imported Yomitan dictionaries and settings in your browser. Recommended dictionaries are downloaded from Yomu's public, content-addressed dictionary mirror and then remain local. WTY JA-JA comes from its project's releases on Hugging Face, and Kanjium pitch accents from FooSoft's Yomichan repackaging of the Kanjium data on GitHub. Jitendex and Jiten install their projects' newest builds wherever your userscript manager, the Reader or the extension can fetch them; Study on its own installs the mirror's older copies and never offers one over a newer install. Google Translate receives subtitle or sentence text only when you ask for a translation, or when an enabled Jiten, Bunpro, or JPDB example has no translation of its own. Definitions are not sent for translation. Anki mining talks to your local AnkiConnect endpoint. Jiten, Bunpro, JPDB, WaniKani, Immersion Kit, Nadeshiko, custom audio, local OCR, and optional kanji data sources are contacted only when their related features are enabled or used. WaniKani requests go directly to its official API and never through Yomu's proxy.
 
-An optional Yomu account can synchronize the Academy/local SRS deck. The Reader encrypts card mutations before upload and keeps the profile key in extension/userscript-owned storage; the server receives ciphertext, opaque ids, timestamps, and device metadata, not words, readings, meanings, or schedules in plaintext. Account export, device revocation, profile deletion, and account deletion are available from Profile & sync.
+An optional free Yomu account can synchronize the local Study deck between devices. The Reader encrypts card changes before upload and keeps the profile key in extension/userscript-owned storage; the server receives ciphertext, opaque ids, timestamps, and device metadata, not words, readings, meanings, or schedules in plaintext. Account export, device revocation, profile deletion, and account deletion are available from Profile & sync.
 
 The imported Bunpro frontend token grants account read/write access for reviews. Treat it like a password. Bunpro support uses an authenticated private frontend endpoint rather than a documented public API, so it can change without notice; no Bunpro corpus is bundled.
 
-Yomu Gaming sends captured images only to the local OCR endpoint you configure. Clipboard capture, screenshot capture, audio capture, and cloud OCR or translation services outside that endpoint are external unless you explicitly choose them.
+The desktop app sends the screen area you capture to Google Lens by default to find the text. In its Settings you can switch to Google Cloud Vision with your own key or to a local OCR server. It sends nothing until you capture.
 
 For the complete data-use disclosure, read the [Yomu privacy policy](https://yomureader.com/privacy).
 
@@ -215,19 +193,10 @@ That sync updates the userscript and its metadata header, but not the listing's 
 - Documentation: https://yomureader.com/
 - Issues: https://github.com/HRussellZFAC023/yomu-reader/issues
 - Discord: https://discord.gg/jD6NPURewD
-- Support and monthly running-cost breakdown: https://yomureader.com/support
+- Donations and the monthly running-cost breakdown: https://yomureader.com/membership
 
-Once the support migrations and Worker are deployed, the live status combines
-verified card, Ko-fi, Buy Me a Coffee, and PayPal receipts with authenticated
-increases in Patreon's paid campaign-lifetime total. A service appears there
-only when its official page, provider verification settings, and support ledger
-connection are ready.
-
-Card, Ko-fi, and qualifying Patreon support can create one よむ Academy code.
-Buy Me a Coffee and PayPal contribute to the running-cost total without
-creating a code. A code is sent to the email in the provider's verified payment
-notice; card payments also keep the same-browser claim page as a fallback.
-Enter it within 30 days with the Google account you choose.
+よむ is free, and a donation does not unlock anything. Donations help pay the
+running costs listed on that page.
 
 If よむ helps you read more Japanese, a star makes it easier for other learners to find.
 
@@ -255,7 +224,6 @@ If よむ helps you read more Japanese, a star makes it easier for other learner
 - [JPDB RTK Information Inserter](https://greasyfork.org/en/scripts/546314-jpdb-rtk-information-inserter), [JPDB Immersion Kit Examples](https://github.com/AwooDesu/JPDB-Immersion-Kit-Examples), and [JPDB Nadeshiko Examples](https://greasyfork.org/en/scripts/529745-jpdb-nadeshiko-examples) for optional JPDB-side behavior references.
 - [Yomikiri](https://github.com/BlueGreenMagick/yomikiri), [Tofugu grammar guides](https://www.tofugu.com/japanese-grammar/), Ultimate Yomitan Audio, and local audio server references for workflow inspiration.
 - [NPO Tadoku Supporters (NPO多言語多読)](https://tadoku.org/japanese/en/free-books-en/) for the free graded readers listed on the website's Read page; よむ links to each book and copies none of its pages or covers.
-- The [grammar coverage page](https://yomureader.com/reference/grammar) credits the reference used to scope Japanese grammar support.
 - [Immersion Kit](https://www.immersionkit.com/), [Nadeshiko](https://nadeshiko.co/), [AnkiConnect](https://foosoft.net/projects/anki-connect/), [Jiten](https://jiten.moe/), [Bunpro](https://bunpro.jp/), [JPDB](https://jpdb.io), and [WaniKani](https://www.wanikani.com/) for external services users can connect to.
 
 | Source | License / terms used by よむ |
@@ -269,7 +237,7 @@ If よむ helps you read more Japanese, a star makes it easier for other learner
 | [Kanji Alive data/media](https://github.com/kanjialive/kanji-data-media) | [Creative Commons Attribution 4.0](https://creativecommons.org/licenses/by/4.0/), with project-documented exceptions; よむ hosts a pinned compact extract of the licensed primary-gloss field, excluding mnemonic hints |
 | [The Kanji Map](https://github.com/gabor-kovacs/the-kanji-map) | No repository license is declared upstream; optional runtime data and referenced upstream media retain their own terms |
 | [Tadoku free books](https://tadoku.org/japanese/en/free-books-en/) | © their creators and NPO Tadoku Supporters; each book's page names its creators and licence, for example [CC BY-NC-ND 4.0](https://creativecommons.org/licenses/by-nc-nd/4.0/). よむ publishes only titles, levels, genres and outbound links, and hotlinks no covers. |
-| [Grammar reference](https://yomureader.com/reference/grammar) | External reference for construction names, scope, and further reading. よむ bundles independently written bounded detector patterns, not source prose, tables, PDFs, or media; upstream terms remain theirs. |
+| Grammar references ([Tofugu's Japanese grammar guide](https://www.tofugu.com/japanese-grammar/)) | External references for construction names, level assignments, and further reading. よむ bundles independently written bounded detector patterns, not source prose, tables, PDFs, or media; upstream terms remain theirs. |
 | [Yomitan](https://github.com/yomidevs/yomitan), [fflate](https://github.com/101arrowz/fflate), [asbplayer](https://github.com/asbplayer/asbplayer), [anki-jpdb.reader](https://github.com/Kagu-chan/anki-jpdb.reader), [JPDB Immersion Kit Examples](https://github.com/AwooDesu/JPDB-Immersion-Kit-Examples), [JPDB Nadeshiko Examples](https://greasyfork.org/en/scripts/529745-jpdb-nadeshiko-examples) | Upstream terms apply; used as compatible formats, libraries, or behavior references |
 | [AnkiConnect](https://foosoft.net/projects/anki-connect/), [NihongoTube](https://www.nihongotube.app/), [Immersion Kit](https://www.immersionkit.com/), [Nadeshiko](https://nadeshiko.co/), and optional local OCR/audio services | External/runtime services or references; よむ does not bundle their corpora |
 | [Bunpro](https://bunpro.jp/), [Jiten](https://jiten.moe/), [JPDB](https://jpdb.io/), and [WaniKani](https://www.wanikani.com/) | Optional account-authenticated runtime services; upstream content and terms remain theirs, and よむ bundles none of their corpora or recordings. WaniKani uses its documented API directly with the user's personal token, respects the account's granted level, and does not use よむ's proxy. Bunpro uses a private, unsupported frontend endpoint that may change. Its opt-in pronunciation recordings are fetched at runtime from Bunpro's public CDN; hosted/browser playback may use よむ's narrow public proxy. |

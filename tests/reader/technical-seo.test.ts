@@ -184,10 +184,13 @@ describe('app shell social metadata', () => {
         expect(scripts['docs:build']).toContain('npm run docs:og-image');
     });
 
-    it('describes general-purpose reader shells without a Japanese-only identity', () => {
+    it('describes the hosted shells as Japanese readers', () => {
+        // Reversed 2026-10-07: Yomu is for learning Japanese, so the website's
+        // shells say Japanese and no longer talk about a "selected learning
+        // language". The Study app's own manifest (public/newtab) changes with
+        // the reader, not the website, so it is not listed here.
         const sources = [
             'public/newtab/index.html',
-            'public/newtab/manifest.webmanifest',
             'docs/public/manifest.webmanifest',
             'docs/public/pdf-reader/index.html',
             'docs/public/pdf-reader/manifest.webmanifest',
@@ -195,8 +198,10 @@ describe('app shell social metadata', () => {
             'docs/public/video-player/manifest.webmanifest',
         ];
         for (const file of sources) {
-            expect(read(file), `${file} still presents よむ as Japanese-only`)
-                .not.toMatch(/Japanese Reader|Japanese study|Japanese cards|Japanese PDFs|Japanese subtitles/iu);
+            const text = read(file);
+            expect(text, `${file} does not name Japanese`).toMatch(/Japanese/u);
+            expect(text, `${file} still describes a multi-language reader`)
+                .not.toMatch(/learning (?:languages?|targets?)|target-aware|\b\d+ learning/iu);
         }
         for (const file of ['docs/public/pdf-reader/index.html', 'docs/public/video-player/index.html']) {
             expect(read(file).match(/<meta name="description"/gu), `${file} must have one description`)
@@ -205,37 +210,45 @@ describe('app shell social metadata', () => {
     });
 });
 
-describe('Japanese-first positioning with multilingual reading support', () => {
-    it('keeps the homepage focus distinct from supported targets and onboarding choices', () => {
+describe('Japanese-only positioning', () => {
+    it('presents Yomu as a Japanese reader on every public surface', () => {
+        // Owner decision 2026-10-07: Yomu is for learning Japanese. The public
+        // surfaces used to advertise 33 learning languages; this keeps every one
+        // of them from drifting back.
         const homepage = read('docs/index.md');
         const config = read('docs/.vitepress/config.mts');
         const llms = read('docs/public/llms.txt');
         const faq = read('docs/faq.md');
         const readme = read('README.md');
-        const reviewNotes = read('docs/store-review-notes.md');
         const privacy = read('docs/privacy/index.md');
         const storeMetadata = JSON.parse(read('config/amo-metadata.json')) as {
-            version: { approval_notes: string };
+            summary: Record<string, string>;
+            description: Record<string, string>;
         };
 
         expect(homepage).toContain('Read Japanese. Stay with the story.</h1>');
-        expect(homepage).toContain('Reading and lookup in 33 learning languages.');
-        expect(homepage).not.toContain('A complete system for learning 日本語.</h1>');
-        expect(config).toContain("alternateName: 'Yomu Language Reader'");
-        expect(config).toContain('Target-aware popup lookup for 33 learning languages');
-        expect(llms).toContain('reader for 33 learning languages');
-        expect(llms).not.toContain('Japanese immersion reader');
-        expect(faq).toContain('First-run setup requires you to choose one rather than assuming Japanese.');
-        expect(faq).not.toContain('turns what you already read into Japanese study');
-        expect(readme).toContain('first-run setup requires an explicit target, with no Japanese preselection');
-        expect(readme).not.toContain('other 32 targets are labelled for reading and lookup');
-        expect(privacy).toContain('tools for your selected learning language');
-        expect(privacy).not.toContain('core purpose is to add Japanese reading');
-        expect(reviewNotes).toContain('Japanese is not preselected');
-        expect(reviewNotes).toContain('**Kanji 1** for Japanese and **Word** for non-Japanese targets');
-        expect(reviewNotes).not.toContain('**Kanji 1** by default');
-        expect(storeMetadata.version.approval_notes).toContain('Japanese is not preselected');
-        expect(storeMetadata.version.approval_notes).toContain('Kanji 1 for Japanese and Word for non-Japanese targets');
+        expect(config).toContain("alternateName: 'Yomu Japanese Reader'");
+        expect(llms).toContain('pop-up dictionary for learning Japanese');
+        expect(faq).toContain('Yes. よむ is for learning Japanese.');
+        expect(readme).toContain('よむ is a free pop-up dictionary for learning Japanese.');
+        expect(privacy).toContain('add Japanese reading, lookup, OCR, subtitle, and mining tools');
+
+        const multilingualClaim = /\b\d+\s+(?:learning\s+)?(?:languages?|targets?)\b|\blearning (?:languages?|targets?)\b|学習言語/iu;
+        const surfaces = {
+            homepage,
+            config,
+            llms,
+            faq,
+            readme,
+            privacy,
+            storeSummaryEn: storeMetadata.summary['en-US'],
+            storeSummaryJa: storeMetadata.summary.ja,
+            storeDescriptionEn: storeMetadata.description['en-US'],
+            storeDescriptionJa: storeMetadata.description.ja,
+        };
+        for (const [surface, text] of Object.entries(surfaces)) {
+            expect(text, surface).not.toMatch(multilingualClaim);
+        }
     });
 });
 

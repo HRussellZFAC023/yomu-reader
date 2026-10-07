@@ -221,8 +221,8 @@ function localizedWebsitePath(pathname: string): string {
 const WEBSITE_MESSAGES = Object.freeze({
     'docs.site.title': { en: 'よむ - Read Japanese', ja: 'よむ - 日本語を読む' },
     'docs.site.description': {
-        en: 'Yomu helps you read Japanese. Look up words on web pages, images, game text, PDFs, and subtitles with furigana and pitch accent, save useful sentences, and review them in context.',
-        ja: 'よむは日本語を読むためのツールです。ウェブページ、画像、ゲーム、PDF、字幕の単語をふりがなとピッチアクセント付きで調べ、役立つ文を保存し、文脈と一緒に復習できます。',
+        en: 'よむ is a free pop-up dictionary for learning Japanese. Look up words on web pages, subtitles, manga, PDFs and your screen, with furigana, pitch accent and audio, then save the sentence and review it.',
+        ja: 'よむは、日本語を学ぶための無料のポップアップ辞書です。ウェブページ、字幕、漫画、PDF、パソコンの画面の単語を、ふりがな、ピッチアクセント、音声と一緒に調べ、文を保存して復習できます。',
     },
     'docs.site.logoAlt': { en: 'よむ app icon', ja: 'よむのアプリアイコン' },
     'docs.site.imageAlt': {

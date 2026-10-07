@@ -5,7 +5,7 @@ sidebar: false
 aside: false
 title: よむ | Read Japanese. Stay with the story.
 titleTemplate: false
-description: Read web pages, subtitles, manga and PDFs in any of 33 learning languages, save the words you meet, and review them with their original context. Japanese adds furigana, pitch accent and kanji study.
+description: Read Japanese web pages, subtitles, manga and PDFs with a pop-up dictionary, save the words you meet, and review them with the sentences where you found them.
 ---
 
 <main class="yomu-home-content">
@@ -14,7 +14,6 @@ description: Read web pages, subtitles, manga and PDFs in any of 33 learning lan
     <p class="yomu-wordmark" aria-hidden="true"><span class="yomu-wordmark-ja" lang="ja" data-yomu-localize="off">よむ</span><span class="yomu-wordmark-en" data-yomu-localize="off">YOMU</span></p>
     <h1 class="yomu-fold-h1" id="yomu-home-title" data-jpdb-reader-surface-ignore="true">Read Japanese. Stay with the story.</h1>
     <p class="yomu-fold-lead">Look up a word, hear it, and save the sentence. Keep reading the things you came for.</p>
-    <p class="yomu-fold-scope">Reading and lookup in 33 learning languages. Furigana, pitch accent and kanji study for Japanese.</p>
     <div class="yomu-fold-live">
       <p class="yomu-fold-prompt" data-yomu-fold-prompt data-jpdb-reader-surface-ignore="true"><span class="yomu-fold-prompt-live">Try me</span><a class="yomu-fold-prompt-fallback" href="#read">See it working below</a></p>
       <div class="yomu-try-me-text yomu-fold-try" data-yomu-furigana-mode="all" data-yomu-runtime-surface>
@@ -96,7 +95,7 @@ description: Read web pages, subtitles, manga and PDFs in any of 33 learning lan
   <div class="yomu-band-copy">
     <p class="yomu-band-kicker">Manga</p>
     <h2 id="yomu-band-manga">Press a word inside the picture.</h2>
-    <p class="yomu-band-lead">Tap a panel and よむ finds text in your selected learning language, on a laptop or with a thumb on an iPad.</p>
+    <p class="yomu-band-lead">Tap a panel and よむ finds the Japanese in it, on a laptop or with a thumb on an iPad.</p>
     <p class="yomu-band-lead">This panel is live. よむ is reading the words in it.</p>
   </div>
   <figure class="yomu-band-frame yomu-manga-figure" id="yomu-live-ocr" data-yomu-runtime-surface>
@@ -118,7 +117,7 @@ description: Read web pages, subtitles, manga and PDFs in any of 33 learning lan
   <div class="yomu-fits-inner">
     <h2 id="yomu-fits-title">It fits the deck you already review in</h2>
     <ul class="yomu-fits-list">
-      <li><strong>Anki, jpdb, jiten, Bunpro.</strong> Yomu writes the word there and reads back what that service already knows. Migaku is next.</li>
+      <li><strong>Anki, jpdb, jiten, Bunpro.</strong> Yomu writes the word there and reads back what that service already knows.</li>
       <li><strong>Or keep the words in Yomu.</strong> Its deck schedules on SM-2 and carries the sentence, the audio and the picture with each word.</li>
       <li><strong>Coming from Migaku or Duolingo?</strong> <a href="/faq#how-yomu-compares-with-migaku-and-duolingo">The plain comparison, item by item</a></li>
     </ul>

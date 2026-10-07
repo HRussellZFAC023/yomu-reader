@@ -1,6 +1,6 @@
 ---
 title: FAQ
-description: What Yomu is, what it costs, how reviews work, which languages and apps it supports, and where your data lives, in plain answers.
+description: What Yomu is, what it costs, how reviews work, which apps it supports, and where your data lives, in plain answers.
 ---
 
 # Frequently asked questions
@@ -14,9 +14,9 @@ Plain answers, grouped by what you came here to find out. If yours is missing, [
 
 ## What is Yomu?
 
-A reader that turns the Japanese you already read into study.
+A pop-up dictionary that turns the Japanese you already read and watch into study.
 
-- **Press a word, anywhere.** Web pages, YouTube subtitles, manga pictures, PDFs — one press gives the meaning, reading, pitch accent and recorded audio, with furigana above the kanji.
+- **Press a word, anywhere.** Web pages, YouTube subtitles, manga pictures, PDFs — one press gives the reading, the meaning, pitch accent and recorded audio. Furigana sits above the kanji.
 - **Keep the words you meet.** One more press saves the word with its sentence, audio and picture, ready to review. Reviews are built in.
 - **It runs on your phone.** Android installs from the Firefox store; iPhone and iPad run it in Safari. Most tools like this are desktop-only.
 - **It joins your tools instead of replacing them.** Anki, jpdb, Bunpro, WaniKani and jiten all connect: Yomu shows their word statuses on every page and sends your grades back.
@@ -39,13 +39,17 @@ No. Install Yomu, open a Japanese page and press a word — that is the whole se
 
 Yes — free and [open source](https://github.com/HRussellZFAC023/yomu-reader). There is no paid tier and nothing is locked.
 
+### Is it only for Japanese?
+
+Yes. よむ is for learning Japanese. Its menus and settings are in English or 日本語.
+
 ### I'm not technical. What's the easiest way to install it?
 
-On Chrome, Edge or Brave: press **Add よむ to Chrome** on the [homepage](/). On Firefox, including Firefox on Android, use the Firefox store. On iPhone, iPad and Safari it takes a couple of minutes with a free helper app. [Start here](/learn/#install-yomu) walks through it.
+On Chrome, Edge, Brave, Vivaldi or Opera: press **Add よむ to Chrome** on the [homepage](/). On Firefox, including Firefox on Android, use Firefox Add-ons. On iPhone, iPad and Safari it takes a couple of minutes with a free helper app. [Start here](/learn/#install-yomu) walks through it.
 
 ### Does it work on my phone?
 
-Yes. On Android, install Firefox and add Yomu from its store. On iPhone and iPad, Yomu runs inside Safari — lookup, furigana, pitch accent, reviews and manga reading all work by touch. [Study](/study/) installs to your home screen from your browser's menu. Once it is there it opens like any other app and works offline, so reviews still work on the train.
+Yes. On Android, install Firefox and add Yomu from Firefox Add-ons. On iPhone and iPad, Yomu runs inside Safari — lookup, furigana, pitch accent, reviews and manga reading all work by touch. [Study](/study/) installs to your home screen from your browser's menu. Once it is there it opens like any other app and works offline, so reviews still work on the train.
 
 ### Do I need to know kana or grammar first?
 
@@ -79,7 +83,7 @@ Any page with Japanese text. On top of that, YouTube gets its own subtitle reade
 
 ### How does it read manga and pictures?
 
-Press a picture — or use the Scan images command — and Yomu recognises the Japanese text in it, so every recognised word becomes a word you can press. Recognition uses Google Lens by default, with no key or account; you can switch to your own Google Cloud Vision key, or to a fully local service, in Settings.
+Press a picture — or use the Scan images command — and Yomu recognises the Japanese in it, so every recognised word becomes a word you can press. Recognition uses Google Lens by default, with no key or account; you can switch to your own Google Cloud Vision key, or to a fully local service, in Settings.
 
 ### Can it read my PC games?
 

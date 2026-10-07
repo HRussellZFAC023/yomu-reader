@@ -58,8 +58,11 @@ describe('editorial homepage contract', () => {
         expect(output).toContain('Homepage SSR passed: EN and JA.');
     }, 35_000);
 
-    it('keeps language support explicit without client heading replacement or hidden content', () => {
-        expect(homepage).toContain('Reading and lookup in 33 learning languages.');
+    it('says Japanese without client heading replacement or hidden content', () => {
+        // Yomu is for learning Japanese (owner decision, 2026-10-07): the fold
+        // no longer carries a count of other learning languages.
+        expect(homepage).not.toMatch(/learning languages?/iu);
+        expect(homepage).not.toContain('yomu-fold-scope');
         const theme = readFileSync('docs/.vitepress/theme/index.ts', 'utf8');
         const config = readFileSync('docs/.vitepress/config.mts', 'utf8');
         expect(theme).not.toContain('installHostedHeroLanguageRotator');

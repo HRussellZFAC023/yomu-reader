@@ -21,7 +21,7 @@ export interface WebsiteRoutePublication {
 export const WEBSITE_ROUTE_CATALOG: readonly WebsiteRouteDefinition[] = Object.freeze([
     route('', 'index.md',
         ['よむ | Read Japanese. Stay with the story.', 'よむ | 日本語を読む。物語の続きを楽しむ。'],
-        ['Read web pages, subtitles, manga and PDFs in any of 33 learning languages, save the words you meet, and review them with their original context. Japanese adds furigana, pitch accent and kanji study.', '33の学習言語のどれでも、ウェブページ、字幕、漫画、PDFを読み、出会った単語を元の文脈と一緒に保存して復習できます。日本語では、ふりがな、ピッチアクセント、漢字学習も使えます。']),
+        ['Read Japanese web pages, subtitles, manga and PDFs with a pop-up dictionary, save the words you meet, and review them with the sentences where you found them.', 'ポップアップ辞書で日本語のウェブページ、字幕、漫画、PDFを読み、出会った単語を見つけた文と一緒に保存して復習できます。']),
     englishOnlyRoute('api/', 'api/index.md',
         'Yomu API reference',
         'Interactive OpenAPI reference for Yomu Academy, audio, support, and public edge services.',
@@ -34,7 +34,7 @@ export const WEBSITE_ROUTE_CATALOG: readonly WebsiteRouteDefinition[] = Object.f
         ['Read Japanese anywhere on your computer, in games, apps and videos, with the free よむ desktop app for Windows, macOS and Linux.', '無料のよむデスクトップアプリで、ゲーム、アプリ、動画など、パソコンの画面上のどこでも日本語を読めます。Windows、macOS、Linuxに対応しています。']),
     route('faq', 'faq.md',
         ['FAQ', 'よくある質問'],
-        ['What Yomu is, what it costs, how reviews work, which languages and apps it supports, and where your data lives, in plain answers.', 'よむとは何か、費用、復習の仕組み、対応する言語とアプリ、データの保存場所を分かりやすく答えます。']),
+        ['What Yomu is, what it costs, how reviews work, which apps it supports, and where your data lives, in plain answers.', 'よむとは何か、費用、復習の仕組み、対応するアプリ、データの保存場所を分かりやすく答えます。']),
     route('learn/', 'learn/index.md',
         ['Start here', 'ここから始める'],
         ['Install よむ, press your first Japanese word, and learn the small daily routine the rest of this guide builds on.', 'よむをインストールして最初の日本語の単語を押し、このガイド全体の土台になる小さな毎日の習慣を覚えます。']),

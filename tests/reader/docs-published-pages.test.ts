@@ -9,7 +9,6 @@ import {
     sitemapRouteKey,
     withHostedAppSitemapItems,
 } from '../../config/docs/published-pages';
-import { measuredDefinitionLanguageCount } from '../../config/docs/product-claims';
 import {
     LEGACY_DOC_HASH_REDIRECTS,
     LEGACY_DOC_REDIRECTS,
@@ -166,41 +165,43 @@ describe('published docs pages', () => {
 });
 
 describe('published product claims', () => {
-    it('scopes the homepage hero to Japanese', () => {
+    it('says Yomu is for learning Japanese and claims no other learning languages', () => {
+        // Owner decision 2026-10-07: Yomu is Japanese-only. The site used to
+        // count 33 learning targets on the homepage, the FAQ, the setup page and
+        // a per-language grammar table; none of that may come back. The settings
+        // reference is generated from the reader's own setting labels, so the
+        // reader owns its wording and it is not scanned here.
         const homepage = readProjectFile('docs/index.md');
-        const config = readProjectFile('docs/.vitepress/config.mts');
         const catalogue = readProjectFile('docs/.vitepress/locales/docs-prose-catalog.ts');
-        const theme = readProjectFile('docs/.vitepress/theme/index.ts');
-
         expect(homepage).toContain('>Read Japanese. Stay with the story.</h1>');
         expect(catalogue).toContain("'Read Japanese. Stay with the story.': '日本語を読む。物語の続きを楽しむ。'");
-        expect(homepage).toContain('Furigana, pitch accent and kanji study on any page with Japanese.');
-        expect(homepage).not.toContain('learning languages');
-        expect(theme).not.toContain('installHostedHeroLanguageRotator');
-        expect(config).not.toContain('__YOMU_HERO_LANGUAGES__');
-    });
 
-    it('keeps every published "N languages" claim at the measured definition-language count', () => {
-        const measuredCount = measuredDefinitionLanguageCount();
         const claims = docsMarkdownFiles()
-            .filter(file => !isInternalDocPath(file))
-            .flatMap(file => {
-                const source = readProjectFile(`docs/${file}`);
-                return [...source.matchAll(/\b(\d+)\s+languages?\b/gi)].map(match => ({
-                    file,
-                    count: Number(match[1]),
-                    text: match[0],
-                }));
-            });
-
-        // Japanese-only docs need not make a count claim; any that appears must be measured.
-        for (const claim of claims) {
-            expect(
-                claim.count,
-                `${claim.file} claims "${claim.text}", but ${measuredCount} distinct learner languages have published matching definitions`,
-            ).toBe(measuredCount);
-        }
+            .filter(file => !isInternalDocPath(file) && file !== 'reference/settings.md')
+            .flatMap(file => [...readProjectFile(`docs/${file}`)
+                .matchAll(/\b\d+\s+(?:learning\s+)?(?:languages?|targets?)\b|\blearning (?:languages?|targets?)\b/giu)]
+                .map(match => `${file}: ${match[0]}`));
+        expect(claims).toEqual([]);
     });
+
+    it('keeps Japanese lookup backed by published dictionary supply', () => {
+        const catalogue = JSON.parse(
+            readProjectFile('config/dictionaries/published/v1/catalog.json'),
+        ) as {
+            entries?: Array<{
+                headwordLanguages?: string[];
+                distribution?: { state?: string };
+            }>;
+        };
+        const suppliedHeadwordLanguages = new Set(
+            (catalogue.entries ?? [])
+                .filter(entry => entry.distribution?.state === 'published' || entry.distribution?.state === 'upstream')
+                .flatMap(entry => entry.headwordLanguages ?? [])
+                .map(language => language.toLowerCase().replace(/_/gu, '-').split('-')[0]),
+        );
+        expect(suppliedHeadwordLanguages.has('ja')).toBe(true);
+    });
+
 });
 
 describe('one navbar everywhere', () => {

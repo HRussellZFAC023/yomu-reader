@@ -58,7 +58,7 @@ Export or import settings from Study → Settings → Backup & sync. Only the cu
 
 ## Know what is still being built
 
-Sentence-audio mining and Migaku import are in development. Academy is a story-driven Japanese course from first sounds to N1; it is in development and invitation-only while it is built.
+Sentence-audio mining and Migaku import are in development. Use Export settings JSON and Import settings JSON under Backup & sync to transfer settings between the browser and desktop app. Academy, a story-driven Japanese course from first sounds to N1, is in development and open by invitation only.
 
 Planned does not mean installed. The [changelog](/changelog) is the record of what has shipped.
 
