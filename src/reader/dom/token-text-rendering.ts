@@ -1,3 +1,4 @@
+import { NUMERIC_COUNTER_SUFFIX_SEGMENTS, numericRangeImmediatelyBefore } from '../lookup/japanese-counters';
 import { primaryCardState } from '../cards/state';
 import { cardDeckMembershipClassNames } from '../cards/deck-membership';
 import { currentAccountDataSurfaceIsTrusted } from '../app/account-data-surface';
@@ -423,6 +424,12 @@ export function effectiveTokenRubies(
 }
 
 function sourceTokenRubies(surface: string, token: JPDBToken): JPDBToken['rubies'] {
+    // A dictionary's standalone 月/日/人 reading is not the reading of 10月,
+    // 6日 or 3人. Without a token covering the number too, retain the lookup
+    // but omit its uncertain ruby rather than teach a context-free reading.
+    if (NUMERIC_COUNTER_SUFFIX_SEGMENTS.has(surface) && token.sentence
+        && token.sentence.slice(token.start, token.end) === surface
+        && numericRangeImmediatelyBefore(token.sentence, token.start)) return [];
     if (token.rubies.length) return explicitTokenRubies(surface, token);
     const reading = distinctTokenReading(surface, token);
     if (!reading) return [];

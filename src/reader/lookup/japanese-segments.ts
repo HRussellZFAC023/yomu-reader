@@ -1,3 +1,4 @@
+import { NUMERIC_COUNTER_SUFFIX_SEGMENTS, numericRangeImmediatelyBefore } from './japanese-counters';
 import { deinflectJapaneseTerm, type DeinflectedTerm } from './deinflect';
 import type { LanguageLookupCandidate, LanguageTag } from '../languages/types';
 import { uniqueNonEmptyStrings as uniqueStrings } from '../core/string-utils';
@@ -65,8 +66,7 @@ const SURU_STEM_SEGMENT_RE = new RegExp(
     'u',
 );
 const SURU_AUXILIARY_SUFFIX_RE = /^(?:し|する|した|して|します|しました|しましょう|しない|でき|出来|できる|できます|できた|できて|できない|できなかった)/u;
-const NUMERIC_COUNTER_SUFFIX_SEGMENTS = new Set(['話', '巻', '回', '章', '部', '番', '号', '版', '人', '名', '匹', '頭', '羽', '枚', '本', '冊', '個', '台', '件', '分', '秒', '時', '日', '月', '年', '泊', '円']);
-const NUMERIC_RANGE_BEFORE_RE = /(?:第\s*)?(?:[0-9０-９]+|[一二三四五六七八九十百千万億兆]+)(?:\s*[〜～~\-ー−―–]\s*(?:[0-9０-９]+|[一二三四五六七八九十百千万億兆]+))*$/u;
+
 const BOGUS_SMALL_TSU_FINAL_RE = /っ[うくぐすずつづぬふぶぷむゆる]$/u;
 // A pure-kana span only looks like an inflectable verb/adjective base when it
 // ends in an i-adjective い or a godan dictionary end (う-row) and carries no
@@ -531,10 +531,6 @@ function isNumericCounterFallbackStem(segment: JapaneseTextSegment, sourceText: 
         && numericRangeImmediatelyBefore(sourceText, segment.start);
 }
 
-function numericRangeImmediatelyBefore(sourceText: string, start: number): boolean {
-    const before = sourceText.slice(Math.max(0, start - 24), start).replace(/\s+$/u, '');
-    return NUMERIC_RANGE_BEFORE_RE.test(before);
-}
 
 function hasUsefulFallbackDeinflection(surface: string): boolean {
     return fallbackLookupTermsForText(surface).length > 1;
