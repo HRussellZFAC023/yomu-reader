@@ -4,6 +4,7 @@ import { Arch, build, Platform } from 'electron-builder';
 import { cp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { gamingBuilderConfig, gamingPackageManifest } from './lib/gaming-package-config.mjs';
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const appRoot = path.resolve(scriptDir, '..');
@@ -29,48 +30,18 @@ await rm(packagesDir, { recursive: true, force: true });
 await mkdir(packageSourceDir, { recursive: true });
 await cp(path.join(distRoot, 'electron'), path.join(packageSourceDir, 'electron'), { recursive: true });
 await cp(path.join(distRoot, 'renderer'), path.join(packageSourceDir, 'renderer'), { recursive: true });
-await writeFile(path.join(packageSourceDir, 'package.json'), JSON.stringify({
-    name: 'yomu-gaming',
-    productName: 'Yomu Gaming',
-    version: packageJson.version,
-    description: 'Yomu Gaming desktop reader.',
-    author: packageJson.author || 'Yomu Reader contributors',
-    private: true,
-    main: 'electron/main.cjs',
-}, null, 2));
+await writeFile(path.join(packageSourceDir, 'package.json'), JSON.stringify(gamingPackageManifest(packageJson), null, 2));
 
 await mkdir(packagesDir, { recursive: true });
 const artifactPaths = await build({
     targets: platformTarget(platform).createTarget(targets, archTarget(arch)),
-    config: {
-        appId: 'com.yomureader.gaming',
-        productName: 'Yomu Gaming',
-        copyright: 'Copyright Yomu Reader contributors',
+    config: gamingBuilderConfig({
         electronVersion,
-        icon: path.join(distRoot, 'yomu-icon-512.png'),
-        asar: true,
-        npmRebuild: false,
-        directories: {
-            app: packageSourceDir,
-            output: packagesDir,
-        },
-        files: ['**/*'],
-        linux: {
-            category: 'Education',
-            executableName: 'yomu-gaming',
-            artifactName: 'yomu-gaming-${version}-${os}-${arch}.${ext}',
-        },
-        mac: {
-            category: 'public.app-category.education',
-            artifactName: 'yomu-gaming-${version}-${os}-${arch}.${ext}',
-            // Prebuilt icns (scripts/generate-gaming-icon.mjs): app-builder's own
-            // PNG→icns downscaler corrupts the 16/32px representations.
-            icon: path.join(distRoot, 'yomu-icon.icns'),
-        },
-        win: {
-            artifactName: 'yomu-gaming-${version}-${os}-${arch}.${ext}',
-        },
-    },
+        iconPng: path.join(distRoot, 'yomu-icon-512.png'),
+        iconIcns: path.join(distRoot, 'yomu-icon.icns'),
+        appDir: packageSourceDir,
+        outputDir: packagesDir,
+    }),
     publish: 'never',
 });
 
