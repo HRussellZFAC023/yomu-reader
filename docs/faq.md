@@ -91,7 +91,7 @@ Yes. The free [desktop app](/desktop) reads the Japanese on your screen, so the 
 
 ### Does the desktop app sync with the browser add-on?
 
-Not yet. The desktop app keeps its own settings. There is nothing to buy to make it sync.
+Settings do not sync automatically. Use Export settings JSON and Import settings JSON under Backup & sync to transfer them.
 
 ### What do the colours and lines under words mean?
 

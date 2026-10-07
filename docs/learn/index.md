@@ -35,7 +35,7 @@ Open a Japanese page you want to read and press a word. Two good first pages:
 
 The popup shows the reading, meaning, pitch accent, frequency, audio and example sentences. Press a kanji in the headword when you want its readings or stroke order. Save the word only if you want to meet it again.
 
-よむ installs a starter dictionary that stays on your device and works without a connection.
+Install a dictionary under Settings → Sources for offline lookup.
 
 <figure class="yomu-feature-shot">
   <img :src="'/screenshots/real-popup-lookup.png'" alt="A Yomu word panel open on a real Japanese article, showing the headword, reading, pitch, definition and grading buttons.">

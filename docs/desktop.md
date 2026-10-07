@@ -13,7 +13,7 @@ description: Read Japanese anywhere on your computer, in games, apps and videos,
 
 Read Japanese anywhere on your computer: games, apps, videos and anything else on your screen. Press a shortcut and the Japanese text becomes words you can press, with the same popup as the browser add-on.
 
-The desktop app is free for Windows, macOS and Linux. For now it is called Yomu Gaming.
+よむ Desktop is free for Windows, macOS and Linux. The 2.0.12 downloads below use its earlier name, Yomu Gaming.
 
 ## Download the app
 
@@ -58,10 +58,10 @@ On Steam Deck, switch to Desktop Mode first.
 
 Press Ctrl+Shift+Y (Cmd+Shift+Y on a Mac) to read the screen. Press it again when the text changes. You can change the shortcut in Settings.
 
-Hover a Japanese word to open its meaning.
+Hover a Japanese word to open its meaning. Read screen and Settings are also available from the tray.
 
 To find text, the app sends the screenshot to Google Lens by default, so it needs a connection. In Settings you can switch to Google Cloud Vision with your own key, or to an OCR server on your own computer.
 
-## What it does not do yet
+## Move your settings
 
-The desktop app keeps its own settings and does not sync with the browser add-on yet. There is nothing to buy: the app is free, and so is everything else in よむ.
+Use Export settings JSON and Import settings JSON under Backup & sync to move settings between the browser and desktop app. Desktop exports include capture settings; importing browser settings keeps the current desktop capture setup. Settings do not sync automatically.
