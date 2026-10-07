@@ -262,6 +262,7 @@ import {
 } from '../study/mining-controls';
 import { AUTO_SCAN_OBSERVER_OPTIONS, clickMayRevealDynamicUiText, clickMayRevealReviewAnswer, createMutationJapaneseScanBudget, mutationInsideReaderRoot, mutationMayAffectJpdbPageEnhancements, mutationMayContainJapaneseText, mutationScanProbeCanProduceWork, mutationTouchesAsbPlayer } from './mutation-scan';
 import { NativeTitleGuard } from './native-title-guard';
+import { handOverLinkHover } from './link-hover-handover';
 import { clearManagedBrowserCaches, managedLocalStorage, unregisterManagedServiceWorkers } from './storage';
 import { isNativePageLookupBlocked, nativeClickableAncestor, shouldIgnoreDocumentClickTarget } from './native-page-lookup-targets';
 import { applyNestedParsePlan, clearNestedParseState, nestedParseAlreadyScheduled, nestedTextParsePlan, parseUnderNestedTicket, providerExampleTextParsePlan, type NestedParsePlan } from '../lookup/nested-text-parse';
@@ -5607,6 +5608,10 @@ export class ReaderApp {
     private async showLookupCandidate(candidate: PointerTextLookup, trigger: 'modal' | 'hover', options: { navigation?: CardNavigationMode; preservePosition?: boolean; hoverLookupGeneration?: number; userGesture?: boolean } = {}): Promise<void> {
         const sentence = lookupCandidateSentence(candidate.text, candidate.start, candidate.end);
         if (!sentence) return;
+        // After the task: the browser sends the link its mouseover only after
+        // the pointer event that started this lookup, and a site preview starts
+        // its dwell on that mouseover.
+        if (trigger === 'hover') window.setTimeout(() => handOverLinkHover(candidate.anchor), 0);
         const done = log.time('lookupTextAtPointer', { length: sentence.length, offset: candidate.offset, trigger });
         try {
             await this.showFirstPointerTextCandidate(candidate, sentence, trigger, options);
@@ -9570,6 +9575,10 @@ export class ReaderApp {
         this.retainOcrLookupLineForAnchor(state.resolvedAnchor, { preserveExisting: preserveOcrLookupLine });
         this.hoverPopoverPointerPosition = mountedHoverPointerPosition(state, this.lastPointerPosition);
         popover.classList.toggle('jpdb-reader-sheet-sticky', this.isStickyMountedSheet(popover, state));
+        // Hand the hover over while the link still carries its title: site
+        // previews (Wikipedia's a[href][title]) only hear a leave from a link
+        // they still recognise, and the title guard below strips it.
+        if (state.mode === 'hover') handOverLinkHover(state.resolvedAnchor);
         this.nativeTitleGuard.suppressForPopover(popover, state.resolvedAnchor);
         // Opening a lookup over a subtitle word pauses the video so the entry can
         // be read; closing the popover resumes it. Anchored here so EVERY path
