@@ -33,6 +33,7 @@
     ]
   },
   "scripts": {
+    "inspect": "node scripts/yomu-inspect.mjs",
     "audio:export": "node scripts/export-yomu-audio-from-local.mjs",
     "quality:file-size": "node scripts/file-size-audit.mjs",
     "assets:prune": "node scripts/prune-content-addressed-assets.mjs --write",
