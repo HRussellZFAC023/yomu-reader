@@ -241,7 +241,7 @@ export class RadialMenuController {
     }
 
     /** Re-derive tone/label/icon for toggles that kept the menu open. */
-    private refresh(): void {
+    refresh(): void {
         if (this.state !== 'open') return;
         const actions = this.host.buildActions();
         for (const action of actions) {

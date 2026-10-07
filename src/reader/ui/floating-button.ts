@@ -242,6 +242,9 @@ export class FloatingButtonController {
             .forEach(element => { if (element !== this.button) element.remove(); });
         if (this.button?.isConnected) {
             this.syncButtonState();
+            // A saved toggle echoes back through here, sometimes after a later
+            // write; the open menu must show where the settings landed.
+            this.radial?.refresh();
             return;
         }
         this.build(settings);

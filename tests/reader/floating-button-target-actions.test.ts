@@ -74,3 +74,24 @@ describe('floating button actions', () => {
         }
     });
 });
+
+describe('the open puck menu after a settings echo', () => {
+    // A saved toggle comes back through install(), sometimes after a later
+    // write has already landed. The open menu must follow the settings, not
+    // keep the label it had when the item was pressed.
+    it('relabels the power item when the reader state changes underneath it', () => {
+        let state: 'on' | 'no-furigana' | 'paused' = 'paused';
+        const actions = { powerState: () => state, isPaused: () => state === 'paused' };
+        const mounted = openFloatingButton({ actions });
+        try {
+            const power = () => document.querySelector('[data-radial-id="power"]')?.getAttribute('aria-label');
+            expect(power()).toBe('Yomu off');
+            state = 'on';
+            mounted.controller.install({ ...DEFAULT_SETTINGS, showFloatingButton: true }, vi.fn(), stubFloatingButtonActions(actions));
+            expect(power()).toBe('Yomu on · furigana shown');
+            expect(document.querySelector('.jpdb-reader-fab')?.getAttribute('aria-label')).toBe('Yomu on · furigana shown');
+        } finally {
+            mounted.dispose();
+        }
+    });
+});

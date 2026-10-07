@@ -3,6 +3,7 @@
 const EXTENSION_POPUP_ACTIONS_MARKER = 'yomu-extension-popup-actions:v2';
 const CHANNEL = 'yomu-popup-actions';
 const SETTINGS_PATH = 'newtab/index.html#settings=appearance';
+const SETTLE_RELIST_MS = 900;
 
 export function installExtensionPopupActionsSource(source) {
     if (source.includes(EXTENSION_POPUP_ACTIONS_MARKER)) return source;
@@ -133,8 +134,21 @@ function extensionPopupActionsSource() {
       return;
     }
     render(list);
-    [...menu.querySelectorAll('[data-yomu-action]')].find(action => action.dataset.yomuAction === id)?.focus();
+    focusAction(id);
+    // A saved toggle can echo back through the page after it answered; ask once
+    // more so the row settles on the state the page actually landed in.
+    setTimeout(async () => {
+      const settled = await askPage('list');
+      if (!settled || menu.querySelector('button:disabled')) return;
+      const focused = document.activeElement?.dataset?.yomuAction;
+      render(settled);
+      if (focused) focusAction(focused);
+    }, ${JSON.stringify(SETTLE_RELIST_MS)});
   });
+
+  function focusAction(id) {
+    [...menu.querySelectorAll('[data-yomu-action]')].find(action => action.dataset.yomuAction === id)?.focus();
+  }
 
   render(undefined);
   askPage('list').then(list => { if (list) render(list); });

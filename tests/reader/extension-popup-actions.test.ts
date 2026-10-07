@@ -280,6 +280,26 @@ describe('the toolbar popup', () => {
         expect(document.querySelector('header,h1')).toBeNull();
     });
 
+    it('settles on the state the page lands in after a toggle echoes back', async () => {
+        let landed = 'Yomu off';
+        mountPopup(message => {
+            // The run answers before the saved resume echoes back; a later list shows where it landed.
+            if (message.type === 'run') {
+                setTimeout(() => { landed = 'Yomu on · furigana shown'; }, 50);
+                return { actions: [{ id: 'power', label: 'Yomu off', tone: 'off' }] };
+            }
+            return { actions: [{ id: 'power', label: landed, tone: landed === 'Yomu off' ? 'off' : 'on' }] };
+        });
+        await settle();
+        buttons()[0]!.click();
+        await settle();
+        await settle();
+        expect(buttons()[0]!.textContent).toBe('Yomu off');
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        expect(buttons()[0]!.textContent).toBe('Yomu on · furigana shown');
+        expect(document.activeElement).toBe(buttons()[0]);
+    });
+
     it('preserves all three power actions and restores focus after an icon click', async () => {
         const states = [
             { label: 'Yomu on · furigana shown', tone: 'on' },
