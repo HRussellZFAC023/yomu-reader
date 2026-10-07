@@ -441,9 +441,13 @@ export class CardPopoverRenderer {
         return this.canReviewWithApiProvider(provider);
     }
 
+    // A popup grades only into a connected review service (owner decision 2,
+    // 2026-10-07). The Yomu deck is not one: a learner whose words go only
+    // there uses the popup as a dictionary and reviews in Study, so the Yomu
+    // deck's local-first fallback gets no grade bar.
     private canReviewWithApiProvider(provider: ApiSrsProviderView | null): boolean {
         const settings = this.settings();
-        return Boolean(provider?.hasApiKey && isApiSrsProviderEnabled(settings, provider.id));
+        return Boolean(provider?.hasApiKey && provider.id !== 'yomu-local' && isApiSrsProviderEnabled(settings, provider.id));
     }
 
     // The next provider the ⇄ toggle would switch to, or null when there is

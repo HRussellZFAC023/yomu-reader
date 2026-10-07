@@ -467,7 +467,10 @@ describe('reader helpers', () => {
         expect(document.querySelector('[data-deck-source="bunpro"]')).toBeNull();
     });
 
-    it('renders local Yomu SRS mining and review controls without external accounts', () => {
+    // Owner decision 2 (2026-10-07): with no connected review service the
+    // learner uses the popup as a dictionary. The Yomu deck still collects the
+    // word; its reviews happen in Study, so the popup shows no grade bar.
+    it('renders local Yomu deck saving but no grade bar without external accounts', () => {
         const renderer = testCardPopoverRenderer({
             apiKey: '',
             jitenApiKey: '',
@@ -484,8 +487,8 @@ describe('reader helpers', () => {
 
         expect(readerMetaText()).not.toContain('Yomu');
         expect(document.querySelector('[data-action="grade-provider-toggle"]')).toBeNull();
-        expect(popoverGradeButtons().every(button => button.dataset.reviewTarget === 'yomu-local')).toBe(true);
-        expect(document.querySelector('[data-newtab-grade-target-text]')?.textContent).toBe('Grades Academy');
+        expect(popoverGradeButtons()).toEqual([]);
+        expect(document.querySelector('[data-newtab-grade-target-text]')).toBeNull();
         const addButton = document.querySelector<HTMLButtonElement>('.jpdb-reader-mining-title[data-action="add"]');
         expect(addButton?.dataset.deckSource).toBe('yomu-local');
     });

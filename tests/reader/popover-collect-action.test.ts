@@ -94,12 +94,14 @@ function expectCollectActionBesideGrades(actions: HTMLElement, collect: HTMLElem
 }
 
 describe('popup collect action', () => {
-    it('shows "Add to deck +" beside the grades on an ordinary page without opening the drawer', () => {
+    it('shows "Add to deck +" on an ordinary page without opening the drawer, and no grades for a dictionary-only learner', () => {
         const actions = renderActions(KEYLESS, ORDINARY_PAGE);
         const collect = actions.querySelector<HTMLButtonElement>('[data-action="add-default"]')!;
 
         expect(collect).not.toBeNull();
-        expectCollectActionBesideGrades(actions, collect);
+        expect(collect.closest(COLLAPSED_DRAWER)).toBeNull();
+        // Only the Yomu deck takes the word: no connected service grades it (owner decision 2).
+        expect(actions.querySelector('[data-action="grade"]')).toBeNull();
         // The save was the drawer's only entry here, so no drawer is left to open.
         expect(actions.querySelector('[data-action="mining-collapse"]')).toBeNull();
         expect(collect.closest('.jpdb-reader-collect')?.querySelector('[data-deck-source], [data-deck-id], [data-add-deck-select]')).toBeNull();
