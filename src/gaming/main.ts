@@ -256,6 +256,8 @@ function gamingWebPreferences(role: 'main' | 'overlay'): BrowserWindowConstructo
         // network access the reader gets as a userscript/extension. Scoped to the overlay
         // window (it only ever loads our own bundled file:// renderer); the settings window
         // keeps web security on. The connect-src CSP still bounds reachable hosts.
+        // renderer/http-transport.ts hands this route to the reader as its request
+        // manager, which is what carries a learner's Jiten/JPDB key from the popup.
         webSecurity: role === 'main',
     };
 }

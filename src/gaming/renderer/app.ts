@@ -42,6 +42,7 @@ import { captureShortcutLabel } from '../capture-shortcut';
 import { gamingWindowParkingHint } from '../lifecycle';
 import { activateWordWithPointer, GamepadOverlayController, gamingOcrWordTargets } from './gamepad-overlay';
 import { removeLegacyGamingReaderSettingsCopy } from './legacy-reader-settings-cleanup';
+import { installGamingHttpTransport } from './http-transport';
 import {
     captureSelectionFromViewport,
     layoutOverlayOcrLines,
@@ -166,6 +167,8 @@ queueMicrotask(() => void boot());
 async function boot(): Promise<void> {
     appRoot.dataset.yomuGamingReady = 'true';
     if (isOverlay) {
+        // Before the reader boots: its Jiten/JPDB calls need the overlay's privileged route.
+        installGamingHttpTransport(window);
         document.documentElement.classList.add('yomu-gaming-overlay-document');
         document.body.classList.add('yomu-gaming-overlay-document');
         new OverlaySelectionController(appRoot, bridge, overlayCaptureMode).render();
