@@ -209,12 +209,16 @@ describe('new tab review — session progress, grade bar & deck selectors', () =
 
     it('renders SRS session progress and timer labels while navigating left and right', () => {
         document.querySelectorAll('[data-jpdb-reader-root].jpdb-reader-newtab').forEach(root => root.remove());
+        // Timed Study is opt-in since 2.1.0 (ba2b781a5): the timer label belongs
+        // to a learner who chose a daily goal. The untimed default is pinned by
+        // the deep-queue test below and 12-fallbacks-refresh-shared-url.
         const controller = newTabPromptController({
             ...DEFAULT_SETTINGS,
             apiKey: 'jpdb-key',
             jpdbMiningEnabled: true,
             enableReviews: true,
             immersionKitEnabled: false,
+            newTabDailyGoalMinutes: 60,
         });
         const root = renderEnabledNewTabRoot(controller, { appendToDocument: true });
         const first = newTabTestCard({
@@ -296,6 +300,8 @@ describe('new tab review — session progress, grade bar & deck selectors', () =
             jpdbMiningEnabled: true,
             enableReviews: true,
             immersionKitEnabled: false,
+            // Both clocks must actually run (timed Study is opt-in since ba2b781a5).
+            newTabDailyGoalMinutes: 60,
         });
         const activeController = newTabPromptController({
             ...DEFAULT_SETTINGS,
@@ -303,6 +309,8 @@ describe('new tab review — session progress, grade bar & deck selectors', () =
             jpdbMiningEnabled: true,
             enableReviews: true,
             immersionKitEnabled: false,
+            // Both clocks must actually run (timed Study is opt-in since ba2b781a5).
+            newTabDailyGoalMinutes: 60,
         });
         const staleCards = [
             newTabTestCard({ vid: 101, spelling: '古い', reading: 'ふるい', source: 'jpdb', reviewSource: 'jpdb-api', cardState: ['due'] }),
@@ -394,14 +402,15 @@ describe('new tab review — session progress, grade bar & deck selectors', () =
 
             expect(root.querySelector('[data-newtab-status]')?.textContent).toBe('');
             expect(newTabSourceSelect(root).value).toBe('jpdb');
-            expect(root.querySelector('[data-newtab-count]')?.textContent).toMatch(/^Done 0 · Left 539 · Due 539 · \d\d:\d\d · 0\/60 min$/);
+            // Default profile: no daily goal, so no unsolicited timer (ba2b781a5).
+            expect(root.querySelector('[data-newtab-count]')?.textContent).toBe('Done 0 · Left 539 · Due 539');
             expect(root.textContent).not.toContain('360 / 539');
 
             root.querySelector<HTMLButtonElement>('[data-grade="okay"]')?.click();
 
             await waitForExpect(() => {
                 expect(reviewCard).toHaveBeenCalledWith(current, 'okay');
-                expect(root.querySelector('[data-newtab-count]')?.textContent).toMatch(/^Done 1 · Left 538 · Due 538 · \d\d:\d\d · 0\/60 min$/);
+                expect(root.querySelector('[data-newtab-count]')?.textContent).toBe('Done 1 · Left 538 · Due 538');
                 expect(root.textContent).not.toContain('360 / 539');
                 expect(root.textContent).not.toContain('360 / 538');
             });
