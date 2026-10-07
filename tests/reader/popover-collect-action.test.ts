@@ -128,10 +128,16 @@ function expectCollectActionInOverflow(actions: HTMLElement, collect: HTMLElemen
 }
 
 describe('popup collect action', () => {
-    it('puts the dictionary-only save in the overflow without grades or account data in the page DOM', () => {
+    // Design item 6: a drawer that folds away one action costs more than the
+    // action, so a lone "Add to deck…" sits in the row with no toggle or strip.
+    it('shows a lone dictionary-only save in the row, without a drawer, grades or account data in the page DOM', () => {
         const actions = renderActions(KEYLESS, ORDINARY_PAGE);
         const collect = actions.querySelector<HTMLElement>(DECK_SELECT)!;
-        expectCollectActionInOverflow(actions, collect);
+        expect(collect.textContent).toBe('Add to deck…');
+        expect(collect.parentElement).toBe(actions);
+        expect(actions.classList.contains('jpdb-reader-actions-has-mining')).toBe(false);
+        expect(actions.classList.contains('jpdb-reader-actions-quiet')).toBe(true);
+        expect(actions.querySelector('[data-action="mining-collapse"], .jpdb-reader-mining-panel')).toBeNull();
         expect(actions.querySelector('[data-action="grade"]')).toBeNull();
         expect(actions.querySelector('[data-deck-source], [data-deck-id], select')).toBeNull();
         expect(choices(collect).map(choice => choice.source)).toEqual(['yomu-local']);
@@ -142,6 +148,7 @@ describe('popup collect action', () => {
             ankiLookup: testAnkiLookup({ state: 'not-in-deck', notes: [], primary: null }),
         }));
         expectCollectActionInOverflow(actions, actions.querySelector(DECK_SELECT)!);
+        expect(actions.classList.contains('jpdb-reader-actions-quiet')).toBe(false);
         for (const action of ['neverforget', 'blacklist', 'anki']) {
             expect(actions.querySelector(`[data-action="${action}"]`)?.closest('.jpdb-reader-mining-panel')).not.toBeNull();
         }
@@ -223,11 +230,13 @@ describe('popup collect action', () => {
     });
 
     // A modal popup traps Tab at its edges. The dropdown's control is in a closed
-    // shadow root, so the trap counted ⋯ as the last stop and wrapped past the dropdown.
+    // shadow root, so the trap counted the control before it as the last stop and
+    // wrapped past the dropdown. Alone in the row, it has no ⋯ ahead of it.
     it('keeps the dropdown in a modal popup\'s Tab order', () => {
         const actions = renderActions(KEYLESS);
         const popover = actions.closest<HTMLElement>('.jpdb-reader-popover')!;
         mountDeckSelects(actions, WORD, SENTENCE, vi.fn());
+        const collect = actions.querySelector<HTMLElement>(DECK_SELECT)!;
         const modal = new LookupModalAccessibility();
         modal.activate(popover);
         const tab = (): KeyboardEvent => {
@@ -236,14 +245,17 @@ describe('popup collect action', () => {
             return event;
         };
         try {
-            const more = actions.querySelector<HTMLButtonElement>('[data-action="mining-collapse"]')!;
-            more.focus();
-            // ⋯ is no longer the edge: the browser moves on to the dropdown.
+            expect(actions.querySelector('[data-action="mining-collapse"]')).toBeNull();
+            const before = [...popover.querySelectorAll<HTMLElement>('button, a[href]')]
+                .filter(control => control.compareDocumentPosition(collect) & Node.DOCUMENT_POSITION_FOLLOWING)
+                .at(-1)!;
+            before.focus();
+            // The control before it is no longer the edge: the browser moves on to the dropdown.
             expect(tab().defaultPrevented).toBe(false);
             picker().focus();
             // The dropdown is the last stop, so Tab wraps to the first.
             expect(tab().defaultPrevented).toBe(true);
-            expect(document.activeElement).not.toBe(actions.querySelector(DECK_SELECT));
+            expect(document.activeElement).not.toBe(collect);
         } finally {
             modal.release();
         }
@@ -597,11 +609,13 @@ describe('popup collect action', () => {
             expect(mine).not.toHaveBeenCalled();
             chooseLocalDeck();
             await vi.waitFor(() => expect(toast).toHaveBeenCalledWith('Added to deck.'));
-            // A keyboard learner keeps their place: the refreshed popup opens with ⋯
-            // closed, so that is its toggle, one step from the dropdown.
+            // A keyboard learner keeps their place: alone in its row on an ordinary
+            // page, the refreshed popup's dropdown is that place (Study's, with ⋯
+            // closed, lands on the toggle instead).
             const refreshed = popover.querySelector(DECK_SELECT);
             expect(refreshed).not.toBe(collect);
-            await vi.waitFor(() => expect(document.activeElement).toBe(popover.querySelector('[data-action="mining-collapse"]')));
+            await vi.waitFor(() => expect(document.activeElement).toBe(popover.querySelector(DECK_SELECT)));
+            expect(popover.querySelector('[data-action="mining-collapse"]')).toBeNull();
 
             expect(mine).toHaveBeenCalledTimes(1);
             expect(review).not.toHaveBeenCalled();

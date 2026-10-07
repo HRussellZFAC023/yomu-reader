@@ -26,7 +26,8 @@ const NOT_IN_DECK: AnkiLookupResult = { state: 'not-in-deck', notes: [], primary
 const SETTINGS = {
     ...DEFAULT_SETTINGS,
     interfaceLanguage: 'en' as const,
-    apiKey: '',
+    apiKey: 'jpdb-key',
+    jpdbMiningEnabled: false,
     jitenApiKey: '',
     yomuLocalSrsEnabled: true,
     ankiEnabled: false,
@@ -94,7 +95,11 @@ async function nextTask(): Promise<void> {
 }
 
 // A popup as the reader mounts one: focusable itself, so focus can always stay inside it.
-function mountPopup(): { app: InstanceType<typeof ReaderApp>; internals: Internals; popover: HTMLElement } {
+// Where account data may show (Study's origin) and with a JPDB key, "Add to deck…" shares
+// the ⋯ overflow with Never forget and Blacklist. An ordinary page's popup has only
+// "Add to deck…", so it sits alone in the row with no ⋯ (a lone action needs no drawer).
+function mountPopup(surface: 'study' | 'ordinary page' = 'study'): { app: InstanceType<typeof ReaderApp>; internals: Internals; popover: HTMLElement } {
+    if (surface === 'study') vi.stubGlobal('location', new URL('https://yomureader.com/study/'));
     const app = new ReaderApp();
     const internals = app as unknown as Internals;
     const popover = document.createElement('div');
@@ -209,6 +214,59 @@ describe.each(['modal', 'hover'] as const)('%s popup actions while enrichment re
             expect(overflow()!.getAttribute('aria-expanded')).toBe('true');
             expect(host()!.closest('.jpdb-reader-actions-mining-collapsed')).toBeNull();
             expect(pickerRoot!.querySelector('select')!.options).toHaveLength(dropdown.options.length);
+        } finally {
+            popover.remove();
+            app.destroy();
+        }
+    });
+
+    it('keeps a lone "Add to deck…" in the row through enrichment on an ordinary page, saves the chosen deck, then catches up', async () => {
+        const { app, internals, popover } = mountPopup('ordinary page');
+        internals.settings = { ...SETTINGS, apiKey: '' };
+        const card = testAozoraCard();
+        const handleCardAction = vi.fn(async () => undefined);
+        internals.handleCardAction = handleCardAction;
+        const localEntries = deferred<YomitanTermEntry[]>();
+        holdFrames();
+        const host = () => popover.querySelector<HTMLElement>('.jpdb-reader-deck-select');
+        const isLoneInRow = (node: HTMLElement) => node.parentElement!.matches('.jpdb-reader-actions.jpdb-reader-actions-quiet');
+        const loading = () => popover.querySelector('[data-card-details-loading]');
+
+        try {
+            internals.renderDeferredCardLocalEntries(
+                popover, card, SENTENCE, trigger,
+                { localEntries: localEntries.promise, all: deferred<CardRenderData>().promise },
+                NOT_IN_DECK, { instantLocalEntries: null, requestId: 1 }, { fullRenderCompleted: false }, () => true,
+            );
+            localEntries.resolve([]);
+            await settle();
+            flushFrames();
+            expect(loading()).not.toBeNull();
+            expect(popover.querySelector('[data-action="mining-collapse"]')).toBeNull();
+            const opened = host()!;
+            expect(isLoneInRow(opened)).toBe(true);
+            const dropdown = pickerRoot!.querySelector('select')!;
+            dropdown.focus();
+
+            internals.renderCompletedCardPopover(popover, card, SENTENCE, trigger, completedData());
+            flushFrames();
+            expect(host()).toBe(opened);
+            expect(pickerRoot!.activeElement).toBe(dropdown);
+            expect(loading()).not.toBeNull();
+
+            dropdown.selectedIndex = 1;
+            dispatchAuthorizedReaderControlEvent(dropdown, new Event('change'));
+            expect(handleCardAction).toHaveBeenCalledWith(dropdown, card, SENTENCE, { kind: 'card-action', action: 'add', deckSource: 'yomu-local', deckId: 'yomu-local' });
+            await settle();
+            expect(pickerRoot!.activeElement).toBe(dropdown);
+
+            dropdown.blur();
+            await nextTask();
+            flushFrames();
+            expect(loading()).toBeNull();
+            expect(host()).not.toBe(opened);
+            expect(isLoneInRow(host()!)).toBe(true);
+            expect(popover.querySelector('[data-action="mining-collapse"]')).toBeNull();
         } finally {
             popover.remove();
             app.destroy();

@@ -58,7 +58,7 @@ describe('reader stylesheet loading', () => {
         expect(css).toContain(':is(.jpdb-reader-popover,.jpdb-reader-settings) .jpdb-reader-icon-btn');
         expect(css).toContain(':is(.jpdb-reader-popover,.jpdb-reader-settings) .jpdb-reader-icon-btn svg');
         expect(css).toContain('.jpdb-reader-actions .jpdb-reader-mining-collapse');
-        expect(css).toContain('.jpdb-reader-actions .jpdb-reader-mining-collapse::before');
+        expect(css).toContain('.jpdb-reader-actions .jpdb-reader-mining-collapse::before{content:"";position:relative;z-index:1;display:block;width:8px;height:8px;border-top:2px solid currentColor;border-left:2px solid currentColor;');
         expect(css).toContain('.jpdb-reader-word:is(.jpdb-pitch-heiban,[data-pitch-class=heiban])');
         expect(css).toContain('--d2:var(--pc,#0000)');
         expect(css).toContain('.jpdb-reader-word:is(.jpdb-pitch-unknown,[data-pitch-class=unknown],.jpdb-pitch-particle,[data-pitch-class=particle]){--pc:var(--jpdb-reader-pitch-unknown);--pr:var(--jpdb-reader-pitch-unknown-readable);--c2:var(--pr,var(--pc,currentColor));--d2:#0000}');

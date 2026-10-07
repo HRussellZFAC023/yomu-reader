@@ -255,7 +255,7 @@ describe('reader helpers', () => {
         }
     });
 
-    it('renders the mining drawer affordance as a bar instead of text', () => {
+    it('renders the mining drawer affordance as a chevron, not text or a second grab bar', () => {
         const settings = {
             apiKey: 'test-key',
             jpdbMiningEnabled: true,
@@ -275,6 +275,13 @@ describe('reader helpers', () => {
         expect(normalizedPopoverCss).toContain('.jpdb-reader-popover .jpdb-reader-icon-btn svg, .jpdb-reader-settings .jpdb-reader-icon-btn svg, .jpdb-reader-icon-btn svg {');
         expect(normalizedKanjiCss).toContain('.jpdb-reader-actions .jpdb-reader-mining-collapse, .jpdb-reader-mining-collapse {');
         expect(normalizedKanjiCss).toContain('.jpdb-reader-actions .jpdb-reader-mining-collapse::before, .jpdb-reader-mining-collapse::before {');
+        // A phone sheet already has its grab bar at the top; the drawer toggle
+        // is a chevron, so the sheet does not read as two stacked sheets.
+        const drawerGlyph = normalizedKanjiCss.match(/\.jpdb-reader-actions \.jpdb-reader-mining-collapse::before, \.jpdb-reader-mining-collapse::before \{([^}]*)\}/u)?.[1] ?? '';
+        expect(drawerGlyph).toContain('border-top: 2px solid currentColor;');
+        expect(drawerGlyph).toContain('transform: translateY(2px) rotate(45deg);');
+        expect(drawerGlyph).not.toContain('height: 5px');
+        expect(normalizedKanjiCss).toContain('.jpdb-reader-actions:not(.jpdb-reader-actions-mining-collapsed) .jpdb-reader-mining-collapse::before { transform: translateY(-2px) rotate(225deg); }');
         expect(normalizedKanjiCss).toContain('.jpdb-reader-mining-collapse::after { content: ""; position: absolute; inset: -16px 0 0; border-radius: 999px; }');
         expect(normalizedKanjiCss).not.toContain('.jpdb-reader-actions-has-mining { padding-top: 45px; }');
         expect(normalizedPopoverCss).toContain('.jpdb-reader-popover.jpdb-reader-sheet:has(.jpdb-reader-popover-body) .jpdb-reader-actions.jpdb-reader-actions-has-mining { padding-top: 31px; }');

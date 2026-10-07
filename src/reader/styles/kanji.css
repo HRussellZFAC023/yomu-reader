@@ -1016,6 +1016,12 @@ html.jpdb-reader-doodle-active * {
   background: var(--jpdb-reader-actions-bg);
   box-shadow: 0 -1px 0 var(--jpdb-reader-actions-bg);
 }
+/* A lone "Add to deck…" needs no grey tray: it sits on the popup's own
+   surface under the hairline, with even space above and below. */
+.jpdb-reader-actions.jpdb-reader-actions-quiet {
+  --jpdb-reader-actions-bg: var(--jpdb-reader-bg);
+  padding-block: 10px;
+}
 .jpdb-reader-sr-only {
   position: absolute !important;
   width: 1px !important;
@@ -1149,33 +1155,30 @@ html.jpdb-reader-doodle-active * {
   -webkit-tap-highlight-color: transparent;
   flex: none;
 }
+/* The drawer toggle is a chevron, not a grab bar: a phone sheet already has
+   its handle at the top, and a second bar at the bottom read as a second sheet.
+   It points up while the actions are folded away and down once they show. */
 .jpdb-reader-actions .jpdb-reader-mining-collapse::before,
 .jpdb-reader-mining-collapse::before {
   content: "";
   position: relative;
   z-index: 1;
   display: block;
-  width: 42px;
-  height: 5px;
-  border-radius: 999px;
-  background: var(--jpdb-reader-faint);
+  width: 8px;
+  height: 8px;
+  border-top: 2px solid currentColor;
+  border-left: 2px solid currentColor;
+  border-radius: 1px;
+  transform: translateY(2px) rotate(45deg);
 }
 .jpdb-reader-actions .jpdb-reader-mining-collapse:hover,
 .jpdb-reader-actions .jpdb-reader-mining-collapse:focus-visible,
 .jpdb-reader-mining-collapse:hover,
 .jpdb-reader-mining-collapse:focus-visible {
-  outline: none;
-}
-.jpdb-reader-actions .jpdb-reader-mining-collapse:hover::before,
-.jpdb-reader-actions .jpdb-reader-mining-collapse:focus-visible::before,
-.jpdb-reader-mining-collapse:hover::before,
-.jpdb-reader-mining-collapse:focus-visible::before {
-  background: var(--jpdb-reader-accent);
-  box-shadow: 0 0 0 4px color-mix(in srgb, var(--jpdb-reader-accent) 12%, transparent);
+  color: var(--jpdb-reader-accent-readable);
 }
 .jpdb-reader-actions:not(.jpdb-reader-actions-mining-collapsed) .jpdb-reader-mining-collapse::before {
-  width: 48px;
-  background: color-mix(in srgb, var(--jpdb-reader-accent) 74%, var(--jpdb-reader-faint));
+  transform: translateY(-2px) rotate(225deg);
 }
 .jpdb-reader-actions-mining-collapsed .jpdb-reader-mining-panel,
 .jpdb-reader-actions-mining-collapsed .jpdb-reader-mining-details {
@@ -1394,13 +1397,6 @@ html.jpdb-reader-doodle-active * {
     height: 28px;
     min-width: 64px;
     min-height: 28px;
-  }
-  .jpdb-reader-actions .jpdb-reader-mining-collapse::before,
-  .jpdb-reader-mining-collapse::before {
-    width: 38px;
-  }
-  .jpdb-reader-actions:not(.jpdb-reader-actions-mining-collapsed) .jpdb-reader-mining-collapse::before {
-    width: 44px;
   }
   .jpdb-reader-row,
   .jpdb-reader-mining-action-row {

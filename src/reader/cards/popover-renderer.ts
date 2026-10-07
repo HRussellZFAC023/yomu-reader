@@ -323,15 +323,20 @@ export class CardPopoverRenderer {
 
     // DOM order is focus order: the bar with the ⋯ toggle, the overflow it
     // opens ("Add to deck…" first), then the grades. Without the companion
-    // that opens the overflow, its actions stay in the row.
+    // that opens the overflow, its actions stay in the row, and so does a
+    // lone "Add to deck…": a drawer that folds away one action costs more
+    // than the action.
     private renderActions(view: CardPopoverRenderView): string {
         const overflow = `${view.collectAction}${view.deckStateActions}${view.ankiActions}`;
         if (!overflow && !view.reviewTargetGutter && !view.reviewButtons) return '';
-        const hasOverflow = Boolean(overflow) && canExpandMiningDrawer();
+        const foldsSeveral = Boolean(view.reviewTargetGutter || view.deckStateActions || view.ankiActions);
+        const hasOverflow = Boolean(overflow) && foldsSeveral && canExpandMiningDrawer();
         const miningClass = hasOverflow || view.reviewTargetGutter
             ? ' jpdb-reader-actions-has-mining jpdb-reader-actions-mining-collapsed'
             : '';
-        return `<div class="jpdb-reader-actions${miningClass}">
+        // A lone action needs no tray: it sits on the popup's own surface.
+        const quietClass = !foldsSeveral && !view.reviewButtons ? ' jpdb-reader-actions-quiet' : '';
+        return `<div class="jpdb-reader-actions${miningClass}${quietClass}">
             ${view.reviewTargetGutter || (hasOverflow ? renderMiningGutter(view.language) : '')}
             ${hasOverflow ? `<div class="jpdb-reader-mining-panel">${overflow}</div>` : overflow}
             ${view.reviewButtons}

@@ -130,6 +130,10 @@
   padding-top: 31px;
 }
 
+.jpdb-reader-popover.jpdb-reader-sheet:has(.jpdb-reader-popover-body) .jpdb-reader-actions.jpdb-reader-actions-quiet {
+  padding-block: 10px calc(10px + env(safe-area-inset-bottom));
+}
+
 .jpdb-reader-popover.jpdb-reader-sheet.jpdb-reader-sheet-expanded {
   border-radius: 0;
   padding-top: max(8px, env(safe-area-inset-top));

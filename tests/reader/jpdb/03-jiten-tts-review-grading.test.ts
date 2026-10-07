@@ -496,7 +496,9 @@ describe('reader helpers', () => {
         expect(popoverGradeButtons()).toEqual([]);
         expect(document.querySelector('[data-newtab-grade-target-text]')).toBeNull();
         const collect = document.querySelector('.jpdb-reader-deck-select')!;
-        expect(collect.closest('.jpdb-reader-mining-panel')).not.toBeNull();
+        // The lone save sits in the row: no drawer folds it away.
+        expect(collect.closest('.jpdb-reader-mining-panel')).toBeNull();
+        expect(document.querySelector('[data-action="mining-collapse"]')).toBeNull();
         expect(readCardUiCommandCapability(collect)?.choices).toEqual([{ source: 'yomu-local', id: 'yomu-local', label: 'Academy' }]);
         expect(document.querySelector('[data-deck-source], [data-deck-id], [data-add-deck-select]')).toBeNull();
     });
