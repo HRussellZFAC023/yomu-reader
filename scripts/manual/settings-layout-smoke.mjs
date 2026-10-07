@@ -200,6 +200,27 @@ async function verifyViewport(browserInstance, baseUrl, scenario) {
         }
         assert(snapshot.popoverCount === 0, `${scenario.name} settings layout smoke opened an unrelated lookup popover`, snapshot);
         assert(snapshot.issues.length === 0, `${scenario.name} settings layout issues`, snapshot);
+        if (scenario.panel === 'newTab' && scenario.viewport.width < 700) {
+            // Settings no longer has an always-present toast action, so place a
+            // toast in the product's own fixed stack and measure the real CSS.
+            const toastBounds = await page.evaluate(() => {
+                let stack = document.querySelector('.jpdb-reader-toast-stack');
+                if (!stack) {
+                    stack = document.createElement('div');
+                    stack.className = 'jpdb-reader-toast-stack';
+                    document.body.append(stack);
+                }
+                const toast = document.createElement('div');
+                toast.className = 'jpdb-reader-toast is-visible';
+                toast.textContent = 'Saved';
+                stack.append(toast);
+                const rect = toast.getBoundingClientRect();
+                toast.remove();
+                return { y: rect.y, height: rect.height };
+            });
+            const saveBounds = await page.locator('.jpdb-reader-settings button[type="submit"]').boundingBox();
+            assert(toastBounds.y + toastBounds.height <= saveBounds.y - 4, 'Settings toast covers the footer actions', { toastBounds, saveBounds });
+        }
         return {
             name: scenario.name,
             panel: scenario.panel,

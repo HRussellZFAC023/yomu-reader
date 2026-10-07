@@ -314,6 +314,22 @@ async function injectUserscript(page) {
 async function verifySettingsDiscoverability(page, baseUrl) {
     await page.goto(`${baseUrl}/reader-fixture.html`, { waitUntil: 'domcontentloaded' });
     await injectUserscript(page);
+    const initialViewport = page.viewportSize();
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.locator('.jpdb-reader-fab').click();
+    await page.locator('[data-radial-id="audio"]').click();
+    await page.locator('.jpdb-reader-toast.is-visible').waitFor();
+    const toastOverlapsAction = await page.evaluate(() => {
+        const toast = document.querySelector('.jpdb-reader-toast').getBoundingClientRect();
+        return [...document.querySelectorAll('[data-radial-id]')].some(button => {
+            const action = button.getBoundingClientRect();
+            return Math.min(toast.right, action.right) > Math.max(toast.left, action.left)
+                && Math.min(toast.bottom, action.bottom) > Math.max(toast.top, action.top);
+        });
+    });
+    assert(!toastOverlapsAction, 'Phone toast covers a radial menu action');
+    await page.keyboard.press('Escape');
+    await page.setViewportSize(initialViewport);
     await page.locator('.jpdb-reader-fab').click();
     const settingsAction = page.locator('.jpdb-reader-fab-radial [data-radial-id="settings"]');
     await settingsAction.waitFor({ state: 'visible', timeout: 6000 });
