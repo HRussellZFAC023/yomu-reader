@@ -37,7 +37,6 @@ const LOCAL_SETTINGS_ACTIONS = new Set([
     'audio-source-remove',
     'audio-source-up',
     'cancel',
-    'copy-newtab-url',
     'dictionary-source-down',
     'dictionary-source-up',
     'lookup-link-add',

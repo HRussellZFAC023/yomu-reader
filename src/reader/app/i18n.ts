@@ -181,12 +181,9 @@ const COPY = {
         newTabStopAtBatchEnd: 'Stop at the end of each batch',
         newTabSwipeReviews: 'Swipe cards to grade (left = fail, right = pass)',
         newTabShortcutHintsEnabled: 'Show Study keyboard shortcut hints',
-        newTabUrl: 'Study address',
         newTabOfflineHelp: 'Caches due cards and queued grades.',
-        newTabAddressHelp: 'Use as a start page or iPad shortcut.',
         newTabJpdbDeck: 'Study JPDB deck',
         openNewTabPage: 'Open Study',
-        copyAddress: 'Copy address',
         wordColors: 'Word colors',
         wordColorNew: 'New and in deck',
         wordColorLearning: 'Learning',
@@ -326,19 +323,7 @@ const COPY = {
         audioSubSourceOverlapHint: 'also listed as its own source',
         defaultVoiceSuffix: 'default',
         audioGuideLinkLabel: 'Yomitan audio guide',
-        audioProxyGuideSummary: 'Make your own Cloudflare proxy',
-        audioProxyGuideIntro: 'Use a Worker when you want a private proxy.',
-        audioProxyGuideCloudflare: 'Open Cloudflare.',
-        audioProxyGuideWorkers: 'Open Workers & Pages, then Create.',
-        audioProxyGuideCreateWorker: 'Choose Worker, name it, deploy.',
-        audioProxyGuideEditCode: 'Paste the Yomu Worker source.',
-        audioProxyGuideDeploy: 'Deploy.',
-        audioProxyGuideCopyUrl: 'Copy the Worker URL.',
-        audioProxyGuidePasteUrl: 'Paste it into Cross-origin proxy URL.',
-        audioProxyGuideTest: 'Save, then test lookup/import/audio.',
-        audioProxyGuideNote: 'Limit hosts before sharing.',
-        audioProxyWorkerSource: 'Worker source',
-        audioProxyDeployGuide: 'Deploy guide',
+        audioProxyDeployGuide: 'Proxy setup',
         immersionKit: 'Immersion Kit',
         immersionKitEnabled: 'Show Immersion Kit examples',
         immersionKitExampleSource: 'Example provider',
@@ -818,7 +803,6 @@ const COPY = {
         github: 'GitHub',
         word: 'Word',
         search: 'Search',
-        newTabAddressCopied: 'Study address copied.',
         loading: 'Loading...',
         reveal: 'Reveal',
         revealTranslation: 'Reveal translation',
@@ -1180,7 +1164,6 @@ word	単語
 search	検索
 switchToLightTheme	ライトテーマに切り替え
 switchToDarkTheme	ダークテーマに切り替え
-newTabAddressCopied	学習ページのアドレスをコピーしました。
 loading	読み込み中...
 reveal	表示
 revealTranslation	翻訳を表示
@@ -1748,12 +1731,9 @@ newTabKanjiUnlockEnabled	漢字後に単語を解放
 newTabStopAtBatchEnd	バッチの終わりで停止
 newTabSwipeReviews	スワイプ採点（左=失敗、右=合格）
 newTabShortcutHintsEnabled	学習のキーボードショートカットヒントを表示
-newTabUrl	学習ページのアドレス
 newTabOfflineHelp	カードと未送信採点を保存。
-newTabAddressHelp	新規タブやiPadホーム画面用。
 newTabJpdbDeck	学習のJPDBデッキ
 openNewTabPage	学習を開く
-copyAddress	アドレスをコピー
 wordColors	単語の色
 wordColorNew	新規・デッキ内
 wordColorLearning	学習中
@@ -1893,19 +1873,7 @@ audioSubSourcesHelp	このURLが提供するソース。不要なものはオフ
 audioSubSourceOverlapHint	下の単独ソースと重複
 defaultVoiceSuffix	標準
 audioGuideLinkLabel	Yomitan音声ガイド
-audioProxyGuideSummary	Cloudflareプロキシ
-audioProxyGuideIntro	専用プロキシにはWorkerを使います。
-audioProxyGuideCloudflare	Cloudflareを開きます。
-audioProxyGuideWorkers	Workers & PagesでCreateします。
-audioProxyGuideCreateWorker	Workerを選び、名前を付けてDeploy。
-audioProxyGuideEditCode	Yomu Workerソースを貼ります。
-audioProxyGuideDeploy	Deployします。
-audioProxyGuideCopyUrl	Worker URLをコピーします。
-audioProxyGuidePasteUrl	Cross-origin proxy URLに貼ります。
-audioProxyGuideTest	保存後、検索・インポート・音声で確認。
-audioProxyGuideNote	共有前にホストを絞ります。
-audioProxyWorkerSource	Workerソース
-audioProxyDeployGuide	デプロイガイド
+audioProxyDeployGuide	プロキシの設定
 immersionKitEnabled	イマージョンキット例文を表示
 immersionKitExampleSource	例文プロバイダー
 immersionKitAndNadeshiko	イマージョンキット + なでしこ

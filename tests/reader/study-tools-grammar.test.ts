@@ -377,7 +377,7 @@ describe('local Japanese grammar hints', () => {
         const root = document.createElement('div');
         root.innerHTML = html;
 
-        expect(root.querySelector('.jpdb-reader-grammar-summary')?.textContent).toBe('2 shown');
+        expect(root.querySelector('[data-grammar-toolbar]')).toBeNull();
         expect(root.querySelectorAll('li[data-grammar-rule-id]')).toHaveLength(2);
         expect(root.querySelectorAll('li[data-grammar-rule-id="particle-wo"]')).toHaveLength(1);
         expect(root.querySelector('li[data-grammar-rule-id="particle-wo"] .jpdb-reader-grammar-repeat')?.textContent).toBe('x2');
@@ -398,7 +398,7 @@ describe('local Japanese grammar hints', () => {
         const root = document.createElement('div');
         root.innerHTML = html;
 
-        expect(root.querySelector('.jpdb-reader-grammar-summary')?.textContent).toBe('1 shown · 1 known hidden');
+        expect(root.querySelector('.jpdb-reader-grammar-summary')?.textContent).toBe('1 known hidden');
         expect(root.querySelectorAll('li[data-grammar-rule-id]')).toHaveLength(1);
         expect(root.querySelector('li[data-grammar-rule-id="particle-wo"]')).toBeNull();
     });

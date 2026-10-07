@@ -19,6 +19,7 @@ import {
     registerSettingsFormCleanup,
     renderImportedAnkiFieldMappingsForm,
     renderSettingsForm,
+    renderSettingsTestForm,
     savedAnkiFieldMappings,
     settingsText,
     sharedJapaneseSettingsTestForm,
@@ -29,18 +30,15 @@ import {
 describe('settings form localization', () => {
     registerSettingsFormCleanup();
 
-    it('links proxy setup to the maintained Worker source instead of embedding stale code', () => {
-        const form = document.createElement('form');
-        form.innerHTML = renderSettingsForm(DEFAULT_SETTINGS, 'https://jpdb.io/settings');
-        const guide = form.querySelector<HTMLElement>('.jpdb-reader-proxy-guide')!;
-
-        expect(guide.textContent).toContain('Make your own Cloudflare proxy');
-        expect(guide.textContent).toContain('Worker source');
-        expect(guide.textContent).toContain('Deploy guide');
-        expect(guide.querySelector('.jpdb-reader-proxy-guide-code')).toBeNull();
-        expect(guide.textContent).not.toContain('const JPDB_AUDIO_ACCESS_HEADER');
-        expect(guide.querySelector('a[href$="/workers/jpdb-public-proxy/src/index.ts"]')).toBeTruthy();
-        expect(guide.querySelector('a[href$="/workers/jpdb-public-proxy"]')).toBeTruthy();
+    it('links the proxy field to maintained setup docs without an embedded deployment flow', () => {
+        const form = renderSettingsTestForm(DEFAULT_SETTINGS);
+        expect(form.querySelector('.jpdb-reader-proxy-guide')).toBeNull();
+        expect(form.querySelector('[name="corsProxyUrl"]')).not.toBeNull();
+        const link = form.querySelector('[data-proxy-setup-link]')!;
+        expect(link.getAttribute('href')).toMatch(/\/workers\/jpdb-public-proxy$/);
+        expect(link.textContent).toBe('Proxy setup');
+        localizeSettingsForm(form, 'ja');
+        expect(link.textContent).toBe('プロキシの設定');
     });
 
     it('shows the Nadeshiko key field only for Nadeshiko-backed example modes', () => {

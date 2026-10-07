@@ -84,6 +84,14 @@ describe('settings form localization', () => {
         expect(link.closest('label')).toBeNull();
     });
 
+    it('keeps the Study destination in Help without duplicating a launcher in Study settings', () => {
+        const form = renderSettingsTestForm(DEFAULT_SETTINGS);
+        expect(form.querySelector('[name="newTabUrl"], [data-action="copy-newtab-url"], [data-newtab-url-link]')).toBeNull();
+        expect(form.querySelector('[data-help-link="new-tab"]')?.getAttribute('href')).toContain('/study/');
+        expect(form.querySelector('[name="newTabOfflineEnabled"]')).not.toBeNull();
+        expect(form.querySelector('[name="newTabSource"]')).not.toBeNull();
+    });
+
     it('opens each settings panel at the top after scrolling another panel', () => {
         const form = renderSettingsTestForm(DEFAULT_SETTINGS);
         const scroll = form.querySelector<HTMLElement>('.jpdb-reader-settings-scroll')!;

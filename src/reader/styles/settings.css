@@ -1078,41 +1078,6 @@
   grid-template-columns: repeat(3, minmax(88px, 1fr));
   gap: 10px 12px;
 }
-.jpdb-reader-proxy-guide {
-  margin: 12px 0 4px;
-  border: 1px solid var(--jpdb-reader-border);
-  border-radius: 8px;
-  background: color-mix(in srgb, var(--jpdb-reader-surface) 84%, transparent);
-}
-.jpdb-reader-proxy-guide > summary {
-  padding: 10px 12px;
-  color: var(--jpdb-reader-accent-readable);
-  font: 800 12px/1.2 var(--jpdb-reader-font);
-  cursor: pointer;
-}
-.jpdb-reader-proxy-guide[open] > summary {
-  border-bottom: 1px solid var(--jpdb-reader-border);
-}
-.jpdb-reader-proxy-guide-body {
-  display: grid;
-  gap: 10px;
-  padding: 12px;
-  color: var(--jpdb-reader-muted);
-  font-size: 12px;
-  line-height: 1.5;
-}
-.jpdb-reader-proxy-guide-body p,
-.jpdb-reader-proxy-guide-body ol {
-  margin: 0;
-}
-.jpdb-reader-proxy-guide-body ol {
-  display: grid;
-  gap: 7px;
-  padding-inline-start: 20px;
-}
-.jpdb-reader-proxy-guide-body code {
-  font: 11px/1.35 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-}
 .jpdb-reader-theme-field {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
@@ -1315,30 +1280,6 @@
 }
 .jpdb-reader-settings .jpdb-reader-anki-actions {
   grid-template-columns: repeat(2, minmax(0, 1fr));
-}
-.jpdb-reader-settings-actions .jpdb-reader-btn[data-newtab-url-link] {
-  border-color: color-mix(
-    in srgb,
-    var(--jpdb-reader-accent) 45%,
-    var(--jpdb-reader-border)
-  );
-  background: color-mix(
-    in srgb,
-    var(--jpdb-reader-surface) 86%,
-    var(--jpdb-reader-accent) 14%
-  );
-  color: var(--jpdb-reader-text) !important;
-}
-.jpdb-reader-settings-actions .jpdb-reader-btn[data-newtab-url-link]:hover,
-.jpdb-reader-settings-actions .jpdb-reader-btn[data-newtab-url-link]:focus-visible {
-  border-color: var(--jpdb-reader-accent);
-  background: color-mix(
-    in srgb,
-    var(--jpdb-reader-surface) 78%,
-    var(--jpdb-reader-accent) 22%
-  );
-  box-shadow: 0 6px 16px
-    color-mix(in srgb, var(--jpdb-reader-accent) 18%, transparent);
 }
 .jpdb-reader-settings .jpdb-reader-help-actions {
   display: flex;

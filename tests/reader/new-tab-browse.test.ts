@@ -155,6 +155,7 @@ describe('study-page card browser (SH-3)', () => {
         const single = renderBrowseList([pool[0]], 0, 'en', {
             empty: 'none', previous: 'p', next: 'n', showing: () => '',
         });
+        expect(single.querySelector('.jpdb-reader-newtab-browse-meta')).toBeNull();
         const row = single.querySelector<HTMLElement>('.jpdb-reader-newtab-browse-row')!;
         expect(row.dataset.newtabAction).toBe('browse-card');
         expect(row.dataset.expression).toBe('読む');

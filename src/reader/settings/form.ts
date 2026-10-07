@@ -62,7 +62,6 @@ export type { AnkiAdapterState, SettingsStatusAction, SettingsStatusDetail, Sett
 const DEFAULT_JITEN_SETTINGS_URL = 'https://jiten.moe/settings';
 const DEFAULT_BUNPRO_SETTINGS_URL = 'https://bunpro.jp/settings/api';
 const ACADEMY_ACCOUNT_SYNC_URL = 'https://yomureader.com/academy/?view=profile-sync';
-const PROXY_WORKER_SOURCE_URL = `${GITHUB_REPOSITORY_URL}/blob/main/workers/jpdb-public-proxy/src/index.ts`;
 const PROXY_WORKER_README_URL = `${GITHUB_REPOSITORY_URL}/tree/main/workers/jpdb-public-proxy`;
 type FontFamilySettingName = 'readerFontFamily' | 'popupFontFamily' | 'subtitleFontFamily';
 type StringReaderSettingName = {
@@ -352,7 +351,6 @@ function renderJpdbPageEnhancementControls(settings: ReaderSettings, text = sett
                         ${checkbox('jpdbPageWordEnhancementsEnabled', text('jpdbPageWordEnhancementsEnabled'), settings.jpdbPageEnhancementsEnabled && settings.jpdbPageWordEnhancementsEnabled, { disabled: !settings.jpdbPageEnhancementsEnabled })}
                         ${checkbox('jpdbPageKanjiEnhancementsEnabled', text('jpdbPageKanjiEnhancementsEnabled'), settings.jpdbPageEnhancementsEnabled && settings.jpdbPageKanjiEnhancementsEnabled, { disabled: !settings.jpdbPageEnhancementsEnabled })}
                     </div>
-                    <div class="jpdb-reader-help">Adds your dictionaries, Immersion Kit, kanji practice, and other sources to jpdb.io and jiten.moe vocabulary, kanji, and parse pages. Toggle individual sources under Dictionaries and Reading.</div>
                 </div>`;
 }
 
@@ -461,13 +459,7 @@ function renderNewTabSettingsSubsection(settings: ReaderSettings): string {
                     <div class="grid jpdb-reader-settings-cgrid jpdb-reader-settings-study-options">
                         ${input('newTabOfflineLimit', text('newTabOfflineLimit'), String(settings.newTabOfflineLimit), 'number', { min: 0, max: 500, step: 10 })}
                         ${input('newTabDailyGoalMinutes', text('newTabDailyGoalMinutes'), String(settings.newTabDailyGoalMinutes), 'number', { min: 0, max: 1440, step: 5 })}
-                        <label>${escapedUiText(language, 'newTabUrl')}<input name="newTabUrl" type="text" value="${escapeHtml(NEW_TAB_PAGE_URL)}" readonly autocomplete="off"></label>
                     </div>
-                    <div class="jpdb-reader-settings-actions">
-                        <a class="jpdb-reader-btn" href="${NEW_TAB_PAGE_URL}" target="_blank" rel="noopener" data-newtab-url-link>${escapedUiText(language, 'openNewTabPage')}</a>
-                        <button class="jpdb-reader-btn" type="button" data-action="copy-newtab-url">${escapedUiText(language, 'copyAddress')}</button>
-                    </div>
-                    <div class="jpdb-reader-help" data-newtab-address-help>${escapedUiText(language, 'newTabAddressHelp')}</div>
                     <div class="jpdb-reader-help" data-newtab-offline-help>${escapedUiText(language, 'newTabOfflineHelp')}</div>
                 </div>
     `;
@@ -734,40 +726,12 @@ function renderAudioSettingsPanel(settings: ReaderSettings): string {
                     ${select('audioTtsMode', uiText(language, 'audioTtsMode'), settings.audioTtsMode, localizedOptions(text, AUDIO_TTS_MODE_OPTIONS))}
                     ${input('corsProxyUrl', uiText(language, 'corsProxyUrl'), settings.corsProxyUrl, 'url', { placeholder: 'https://your-worker.workers.dev' })}
                 </div>
-                ${renderProxySetupGuide(language)}
+                <a href="${PROXY_WORKER_README_URL}" target="_blank" rel="noopener" data-proxy-setup-link>${escapedUiText(language, 'audioProxyDeployGuide')}</a>
                 <div class="jpdb-reader-audio-sources" data-source-editor data-audio-source-editor>
                     ${renderAudioSourceEditor(settings.audioSources, language)}
                 </div>
                 <div id="settings-help-audio" class="jpdb-reader-help" data-help-key="audioHelp">${audioHelpHtml(language)}</div>
             </fieldset>
-    `;
-}
-
-function renderProxySetupGuide(language: InterfaceLanguage): string {
-    return `
-                <details class="jpdb-reader-proxy-guide">
-                    <summary>
-                        <span data-proxy-guide-summary>${escapedUiText(language, 'audioProxyGuideSummary')}</span>
-                    </summary>
-                    <div class="jpdb-reader-proxy-guide-body">
-                        <p>${escapedUiText(language, 'audioProxyGuideIntro')}</p>
-                        <ol>
-                            <li>${escapedUiText(language, 'audioProxyGuideCloudflare')}</li>
-                            <li>${escapedUiText(language, 'audioProxyGuideWorkers')}</li>
-                            <li>${escapedUiText(language, 'audioProxyGuideCreateWorker')}</li>
-                            <li>${escapedUiText(language, 'audioProxyGuideEditCode')}</li>
-                            <li>${escapedUiText(language, 'audioProxyGuideDeploy')}</li>
-                            <li>${escapedUiText(language, 'audioProxyGuideCopyUrl')}</li>
-                            <li>${escapedUiText(language, 'audioProxyGuidePasteUrl')}</li>
-                            <li>${escapedUiText(language, 'audioProxyGuideTest')}</li>
-                        </ol>
-                        <p>${escapedUiText(language, 'audioProxyGuideNote')}</p>
-                        <div class="jpdb-reader-help-actions">
-                            <a class="jpdb-reader-btn" href="${PROXY_WORKER_SOURCE_URL}" target="_blank" rel="noopener">${externalButtonLabel(uiText(language, 'audioProxyWorkerSource'))}</a>
-                            <a class="jpdb-reader-btn" href="${PROXY_WORKER_README_URL}" target="_blank" rel="noopener">${externalButtonLabel(uiText(language, 'audioProxyDeployGuide'))}</a>
-                        </div>
-                    </div>
-                </details>
     `;
 }
 
@@ -1309,7 +1273,7 @@ const SELECTOR_TEXT_KEYS = [
     ['[data-grading-provider-help]', 'apiGradingProviderHelp'],
     ['[data-subtitle-preview] .jpdb-subtitle-secondary', 'subtitlePreview'],
     ['[data-settings-preview-title]', 'preview'],
-    ['[data-proxy-guide-summary]', 'audioProxyGuideSummary'],
+    ['[data-proxy-setup-link]', 'audioProxyDeployGuide'],
     ['[data-cloud-settings-sync-title]', 'cloudSettingsSync'],
     ['[data-academy-account-title]', 'academyAccountSync'],
     ['[data-academy-pairing-code-label]', 'academyPairingCode'],
@@ -1321,8 +1285,6 @@ const SETTINGS_ACTION_TEXT_KEYS = [
     ['[data-action="test-anki"]', 'testAnki'],
     ['[data-action="prepare-anki"]', 'prepareAnki'],
     ['[data-action="update-anki-model"]', 'updateAnkiModel'],
-    ['[data-action="copy-newtab-url"]', 'copyAddress'],
-    ['[data-newtab-url-link]', 'openNewTabPage'],
     ['[data-action="import-reader-settings"]', 'importSettings'],
     ['[data-action="export-reader-settings"]', 'exportSettings'],
     ['[data-action="import-yomitan-dictionary"]', 'importDictionaries'],
@@ -1572,7 +1534,6 @@ function localizeSettingsHelpText(form: HTMLFormElement, text: SettingsText): vo
 }
 
 function localizeNewTabHelp(form: HTMLFormElement, text: SettingsText): void {
-    form.querySelector<HTMLElement>('[data-newtab-address-help]')?.replaceChildren(text('newTabAddressHelp'));
     form.querySelector<HTMLElement>('[data-newtab-offline-help]')?.replaceChildren(text('newTabOfflineHelp'));
     form.querySelector<HTMLElement>('[data-newtab-anki-decks-title]')?.replaceChildren(text('newTabAnkiReviewDecks'));
     form.querySelector<HTMLElement>('[data-newtab-anki-decks-help]')?.replaceChildren(text('newTabAnkiReviewDecksHelp'));
@@ -1897,7 +1858,7 @@ const DIRECT_SETTINGS_CONTROL_LABEL_KEYS = [
     'popoverHeight', 'popoverHeightMode', 'readerFontFamily', 'popupFontFamily', 'popupFontWeight',
     'enableLogging', 'accentColor', 'newTabAnkiEnabled', 'newTabSource',
     'newTabJpdbReviewMode', 'corsProxyUrl', 'newTabKanjiKeywordSource', 'newTabParsingEnabled', 'newTabFrontSentenceEnabled',
-    'newTabKanjiAutogradeEnabled', 'newTabOfflineEnabled', 'newTabOfflineLimit', 'newTabDailyGoalMinutes', 'newTabKanjiUnlockEnabled', 'newTabStopAtBatchEnd', 'newTabSwipeReviews', 'newTabShortcutHintsEnabled', 'newTabUrl',
+    'newTabKanjiAutogradeEnabled', 'newTabOfflineEnabled', 'newTabOfflineLimit', 'newTabDailyGoalMinutes', 'newTabKanjiUnlockEnabled', 'newTabStopAtBatchEnd', 'newTabSwipeReviews', 'newTabShortcutHintsEnabled',
     'wordColorNew', 'wordColorLearning', 'wordColorKnown', 'wordColorDue', 'wordColorFailed',
     'wordColorIgnored', 'localDictionariesEnabled', 'parserProvider', 'pitchColorHeiban', 'pitchColorAtamadaka', 'pitchColorNakadaka', 'pitchColorOdaka',
     'pitchColorUnknown', 'wordHighlightColorSource', 'wordUnderlineColorSource', 'wordTextColorSource',

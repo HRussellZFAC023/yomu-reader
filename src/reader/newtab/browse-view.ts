@@ -284,7 +284,7 @@ export function renderBrowseList(
     const start = currentPage * BROWSE_PAGE_SIZE;
     const visible = cards.slice(start, start + BROWSE_PAGE_SIZE);
     return el('div', { class: 'jpdb-reader-newtab-browse-list' },
-        el('p', { class: 'jpdb-reader-newtab-browse-meta' }, copy.showing(start + 1, start + visible.length, cards.length)),
+        pageCount > 1 ? el('p', { class: 'jpdb-reader-newtab-browse-meta' }, copy.showing(start + 1, start + visible.length, cards.length)) : null,
         copy.bulk ? renderBrowseBulkBar(copy.bulk) : null,
         el('ol', { class: 'jpdb-reader-newtab-browse-rows' },
             ...visible.map(card => renderBrowseRow(card, language, Boolean(copy.bulk), copy.dueIn?.(card) ?? '', copy.startReview)),

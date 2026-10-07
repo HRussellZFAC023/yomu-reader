@@ -33,7 +33,6 @@ const SETTINGS_ACTION_OPERATION_POLICY = [
     ['cancel', 'local'],
     ['clear-local-dictionary-site-storage', 'durable'],
     ['connect-academy-account', 'durable'],
-    ['copy-newtab-url', 'local'],
     ['create-academy-recovery-code', 'durable'],
     ['delete-yomitan-dictionary', 'durable'],
     ['dictionary-source-down', 'local'],

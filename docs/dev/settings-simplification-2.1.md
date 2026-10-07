@@ -326,3 +326,22 @@ The October 7 takeover began with 214 passing settings tests and a passing typec
 The first takeover capture used the actual built Study app, Chromium, 390 × 844, light theme, English, with live provider requests; it saved 91 states. Reviewed Settings API, Sources, Media and Backup images have legible controls and bounded icons. This is not a claim that the full original cross-browser/theme/language matrix, packaged extension, or integrated release has passed. Integration removes intentional Settings self-annotation separately, so final visual acceptance must use that combined build.
 
 Measured against 2.0.12 after this source build: reader CSS 491,465 → 481,161 bytes (−10,304), Study CSS 660,315 → 650,071 (−10,244), settings CSS source 82,920 → 72,671 (−10,249), userscript 1,842,725 → 1,842,020 (−705). Generated assets are not part of this source-only commit.
+
+## Follow-up flow cleanup
+
+Removed the read-only Study address, Open Study and Copy address controls from the Study settings panel, including their clipboard handler, action-policy entry and translation strings. Settings already runs inside Study; Help retains the Study destination for install/start-page tasks. Offline caching and review-source configuration remain in Study settings. Also removed the dictionary-page enhancement paragraph that restated its three controls and referred to panels named Dictionaries/Reading that no longer exist. No stored setting or learner data was removed in this follow-up.
+
+The inline eight-step Cloudflare deployment recipe was a second setup flow inside Audio settings. It is now one Proxy setup link beside the retained proxy field, pointing to the maintained Worker README, which includes its network limits and deploy command. The duplicated prose, localization keys and now-ownerless disclosure CSS were removed.
+
+Actual built-app offline Practice checks passed in both Chromium and WebKit at 390 × 844: Read words, Complete sentences and Write words each opened a nonempty prompt after the browser network was disabled. These six checks used the real starter loader and IndexedDB session store, not an injected word fixture. Evidence: `artifacts/settings-takeover/practice-built/results.json` and six screenshots.
+
+Removed the grammar toolbar's “N shown” count and the toolbar itself when there are no hidden known items. Hidden-known counts and their visibility control remain because they explain missing material. Library ranges now appear only when there is more than one page; a single visible list no longer repeats its length above itself.
+
+Follow-up verification: 56 settings/navigation/restore tests, 26 localization tests, and 650 grammar/Library tests pass; typecheck passes with incremental output disabled. The recipe/launcher selector usage search found no remaining production matches after their shared interaction CSS was removed.
+
+Final follow-up build passed. Combined byte changes from 2.0.12:
+
+- dist/yomu.css: 491465 -> 479302 (-12,163 bytes)
+- dist/yomu.user.js: 1842725 -> 1842132 (-593 bytes)
+- src/reader/styles/settings.css: 82920 -> 71000 (-11,920 bytes)
+- Study CSS: 660315 -> 648212 (-12,103 bytes)

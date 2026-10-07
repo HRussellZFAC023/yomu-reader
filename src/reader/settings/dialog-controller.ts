@@ -2,12 +2,12 @@ import { AUDIO_REQUEST_TIMEOUT_MS } from '../audio/request';
 import { AudioPlayer } from '../audio/player';
 import { AnkiConnectClient, canUseMobileAnkiHandoff, isAnkiConnectAvailabilityError, hasUserscriptAnkiBridge } from '../anki/index';
 import { diagnoseAnkiConnectFailure } from '../anki/transport';
-import { copyText, openUrlInNewTab } from '../ui/browser';
+import { openUrlInNewTab } from '../ui/browser';
 import { withSaveWaitStatus } from '../ui/save-wait-status';
 import { ankiScanConfidenceForModel, isAnkiFieldMappingRole } from './anki-scan-confidence';
 import { detectYomuUpdateFlow } from '../app/userscript-update';
 import { createAudioPreviewCard } from '../cards/utils';
-import { FURIGANA_HIDE_STATE_GROUPS, NEW_TAB_PAGE_URL, NEW_TAB_VERSION_URL, SETTINGS_TITLE } from '../app/constants';
+import { FURIGANA_HIDE_STATE_GROUPS, NEW_TAB_VERSION_URL, SETTINGS_TITLE } from '../app/constants';
 import { readerWordSurfaceText, setInnerHtml } from '../dom/index';
 import { JpdbClient } from '../jpdb/jpdb';
 import { configureLogger, Logger } from '../app/logger';
@@ -2157,11 +2157,6 @@ export class SettingsDialogController {
             // a raw .user.js navigation the browser would block with its
             // "cannot be added from this website" banner.
             openUrlInNewTab(detectYomuUpdateFlow().url);
-            return true;
-        }
-        if (action === 'copy-newtab-url') {
-            await copyText(NEW_TAB_PAGE_URL);
-            this.dependencies.toast(uiText(this.settings.interfaceLanguage, 'newTabAddressCopied'));
             return true;
         }
         if (action === 'factory-reset') {

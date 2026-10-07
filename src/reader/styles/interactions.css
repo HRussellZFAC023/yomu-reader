@@ -155,7 +155,6 @@
   .jpdb-reader-jpdb-kanji summary:not(.jpdb-reader-local-title),
   .jpdb-reader-jiten-kanji-more > summary.jpdb-reader-local-title
 ),
-.jpdb-reader-settings .jpdb-reader-proxy-guide > summary,
 .jpdb-reader-newtab .jpdb-reader-newtab-handwriting summary,
 .jpdb-reader-newtab .jpdb-reader-newtab-kanji-details .jpdb-reader-local-title {
   border-radius: 7px;
@@ -189,7 +188,6 @@
   .jpdb-reader-jpdb-kanji details[open] > summary:not(.jpdb-reader-local-title),
   .jpdb-reader-jiten-kanji-more[open] > summary.jpdb-reader-local-title
 ),
-.jpdb-reader-settings .jpdb-reader-proxy-guide[open] > summary,
 .jpdb-reader-newtab .jpdb-reader-newtab-handwriting[open] summary {
   color: var(--jpdb-reader-accent-readable);
 }
@@ -210,7 +208,6 @@
     .jpdb-reader-jpdb-kanji summary:not(.jpdb-reader-local-title),
     .jpdb-reader-jiten-kanji-more > summary.jpdb-reader-local-title
   ):hover,
-  .jpdb-reader-settings .jpdb-reader-proxy-guide > summary:hover,
   .jpdb-reader-newtab .jpdb-reader-newtab-handwriting summary:hover,
   .jpdb-reader-newtab .jpdb-reader-newtab-kanji-details .jpdb-reader-local-title:hover {
     background: color-mix(in srgb, var(--jpdb-reader-accent) 9%, transparent);
