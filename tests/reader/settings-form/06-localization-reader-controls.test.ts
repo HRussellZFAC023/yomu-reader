@@ -496,23 +496,21 @@ describe('settings form localization', () => {
         expect(strength.closest<HTMLElement>('label')?.hidden).toBe(true);
     });
 
-    it('exposes video-safe autoplay and popover dimming settings', () => {
+    it('exposes video-safe autoplay and no page-dimming setting', () => {
         const form = document.createElement('form');
         form.innerHTML = renderSettingsForm(DEFAULT_SETTINGS, 'https://jpdb.io/settings');
         const videoAudio = form.querySelector<HTMLInputElement>('input[name="suppressAutoAudioOnVideo"]')!;
-        const backdrop = form.querySelector<HTMLInputElement>('input[name="popoverBackdropEnabled"]')!;
 
         expect(DEFAULT_SETTINGS.suppressAutoAudioOnVideo).toBe(true);
-        expect(DEFAULT_SETTINGS.popoverBackdropEnabled).toBe(true);
         expect(videoAudio.checked).toBe(true);
-        expect(backdrop.checked).toBe(true);
+        // A lookup never dims the page, so there is nothing to switch off.
+        expect(form.querySelector('input[name="popoverBackdropEnabled"]')).toBeNull();
+        expect('popoverBackdropEnabled' in DEFAULT_SETTINGS).toBe(false);
 
         videoAudio.checked = false;
-        backdrop.checked = false;
 
         const saved = readFormSettings(new FormData(form), DEFAULT_SETTINGS);
         expect(saved.suppressAutoAudioOnVideo).toBe(false);
-        expect(saved.popoverBackdropEnabled).toBe(false);
     });
 
     it('persists font presets, custom font stacks, pause panel, and navigation shortcuts', () => {

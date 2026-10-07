@@ -6,8 +6,9 @@ change release metadata or publish builds. The baseline is origin/main 2.0.12
 
 ## Decisions
 
-Remove 23 stored options: 15 built-in source aliases, five example-search
-filters, two audio tuning knobs, and the global source-expansion default.
+Remove 24 stored options: 15 built-in source aliases, five example-search
+filters, two audio tuning knobs, the global source-expansion default, and the
+page dim behind a lookup.
 Use the existing defaults, including the existing per-surface example budgets.
 Keep source enablement, provider credentials, write destinations, privacy controls,
 font/colour/input/timing accessibility, imported dictionary identities and ordering.
@@ -258,7 +259,7 @@ protected language/onboarding work, not a completed removal on this branch.
 | `popupMode` | Popup mode | Keyboard, touch, low-vision and motor-access users | Keep | Accessibility, readable presentation, or reliable input across devices; do not remove. |
 | `hoverPopupMode` | Hover popup mode | Keyboard, touch, low-vision and motor-access users | Keep | Accessibility, readable presentation, or reliable input across devices; do not remove. |
 | `stickyBottomSheet` | Keep sheet open after lookup | Keyboard, touch, low-vision and motor-access users | Keep | Accessibility, readable presentation, or reliable input across devices; do not remove. |
-| `popoverBackdropEnabled` | Dim page behind popover | Keyboard, touch, low-vision and motor-access users | Keep | Accessibility, readable presentation, or reliable input across devices; do not remove. |
+| `popoverBackdropEnabled` | Dim page behind popover | No learner-specific need | Remove | A lookup never dims the page: it keeps its own shadow, so the sentence stays readable. Escape and an outside press still dismiss it, and that press lands on a clear surface, never on the link or button underneath; Settings keeps its own dim. |
 | `popoverWidth` | Popover width (px) | Keyboard, touch, low-vision and motor-access users | Keep | Accessibility, readable presentation, or reliable input across devices; do not remove. |
 | `popoverHeight` | Popover height (px) | Keyboard, touch, low-vision and motor-access users | Keep | Accessibility, readable presentation, or reliable input across devices; do not remove. |
 | `popoverHeightMode` | Popover height behavior | Keyboard, touch, low-vision and motor-access users | Keep | Accessibility, readable presentation, or reliable input across devices; do not remove. |

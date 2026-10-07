@@ -1829,7 +1829,7 @@ export class NewTabRuntime {
         if (stackOverSettings) forceReaderPopoverSurface(popover, this.settings);
         const useBackdrop = !stackOverSettings && !popover.classList.contains('jpdb-reader-sheet');
         if (useBackdrop) {
-            const backdrop = createReaderBackdrop(() => this.dismissLookupPopover());
+            const backdrop = createReaderBackdrop(() => this.dismissLookupPopover(), { clear: true });
             document.body.append(backdrop, popover);
             this.activeLookupBackdrop = backdrop;
         } else {

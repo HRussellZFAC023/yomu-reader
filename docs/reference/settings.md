@@ -64,7 +64,6 @@ Some rows say Not yet described. That marks a real stored setting whose wording 
 | Popup mode | — | Auto (`auto`) | `popupMode` |
 | Hover popup mode | — | Popover (`popover`) | `hoverPopupMode` |
 | Keep sheet open after lookup | — | off | `stickyBottomSheet` |
-| Dim page behind popover | — | on | `popoverBackdropEnabled` |
 | Popover width (px) | — | `520` | `popoverWidth` |
 | Popover height (px) | — | `540` | `popoverHeight` |
 | Popover height behavior | — | Use height setting (`fixed`) | `popoverHeightMode` |

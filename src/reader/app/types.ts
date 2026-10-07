@@ -552,7 +552,6 @@ export interface ReaderSettings {
     popupMode: 'auto' | 'sheet' | 'popover';
     hoverPopupMode: 'auto' | 'sheet' | 'popover';
     stickyBottomSheet: boolean;
-    popoverBackdropEnabled: boolean;
     popoverWidth: number;
     popoverHeight: number;
     popoverHeightMode: 'available' | 'fixed';

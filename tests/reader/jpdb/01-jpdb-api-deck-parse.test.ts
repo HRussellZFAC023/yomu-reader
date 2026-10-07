@@ -1464,12 +1464,11 @@ describe('reader helpers', () => {
         }
     });
 
-    it('keeps click popovers modal even when visual page dimming is off', () => {
+    it('gives a click popover a clear dismiss surface that does not dim the page', () => {
         const app = new ReaderApp();
         const settings = {
             ...DEFAULT_SETTINGS,
             popupMode: 'popover' as const,
-            popoverBackdropEnabled: false,
         };
         const internals = app as unknown as {
             settings: typeof settings;
@@ -1493,6 +1492,16 @@ describe('reader helpers', () => {
             expect(popover.getAttribute('role')).toBe('dialog');
             expect(popover.getAttribute('aria-modal')).toBe('true');
             expect(page.getAttribute('aria-hidden')).toBe('true');
+            // The outside press lands on this surface and only dismisses: it
+            // never reaches the page's links, buttons or players underneath.
+            const backdrop = document.querySelector<HTMLElement>('.jpdb-reader-backdrop');
+            expect(backdrop?.classList.contains('jpdb-reader-backdrop--clear')).toBe(true);
+            expect(backdrop?.nextElementSibling).toBe(popover);
+            const pageClick = vi.fn();
+            page.addEventListener('click', pageClick);
+            backdrop!.click();
+            expect(pageClick).not.toHaveBeenCalled();
+            expect(popover.isConnected).toBe(false);
             expect(document.querySelector('.jpdb-reader-backdrop')).toBeNull();
         } finally {
             vi.unstubAllGlobals();
@@ -1506,7 +1515,6 @@ describe('reader helpers', () => {
         const settings = {
             ...DEFAULT_SETTINGS,
             popupMode: 'popover' as const,
-            popoverBackdropEnabled: false,
         };
         const internals = app as unknown as {
             settings: typeof settings;
@@ -1636,7 +1644,6 @@ describe('reader helpers', () => {
         const settings = {
             ...DEFAULT_SETTINGS,
             popupMode: 'popover' as const,
-            popoverBackdropEnabled: true,
         };
         const internals = app as unknown as {
             settings: typeof settings;
@@ -1659,7 +1666,7 @@ describe('reader helpers', () => {
             internals.mountPopover(popover, anchor, { mode: 'modal' });
 
             expect(popover.parentElement).toBe(frame);
-            expect(document.querySelector('.jpdb-reader-backdrop')?.parentElement).toBe(frame);
+            expect(document.querySelector('.jpdb-reader-backdrop--clear')?.parentElement).toBe(frame);
             expect(popover.getAttribute('aria-modal')).toBe('true');
         } finally {
             vi.unstubAllGlobals();

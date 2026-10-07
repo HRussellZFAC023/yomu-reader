@@ -132,7 +132,6 @@ const COPY = {
         bottomSheet: 'Bottom sheet',
         popover: 'Popover',
         stickyBottomSheet: 'Keep sheet open after lookup',
-        popoverBackdropEnabled: 'Dim page behind popover',
         popoverWidth: 'Popover width (px)',
         popoverHeight: 'Popover height (px)',
         popoverHeightMode: 'Popover height behavior',
@@ -1674,7 +1673,6 @@ hoverPopupMode	ホバー時の表示
 bottomSheet	下部シート
 popover	ポップオーバー
 stickyBottomSheet	検索後も開く
-popoverBackdropEnabled	背後を暗くする
 popoverWidth	ポップオーバー幅 (px)
 popoverHeight	ポップオーバー高さ (px)
 popoverHeightMode	ポップオーバー高さの動作

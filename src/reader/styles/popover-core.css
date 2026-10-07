@@ -6,6 +6,10 @@
   background: var(--jpdb-reader-backdrop);
 }
 
+.jpdb-reader-backdrop--clear {
+  background: transparent;
+}
+
 .jpdb-reader-popover,
 .jpdb-reader-settings {
   position: fixed;

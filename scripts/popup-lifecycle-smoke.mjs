@@ -152,7 +152,6 @@ const desktopSettings = {
     popoverHeightMode: 'fixed',
     popoverHeight: 300,
     popoverWidth: 460,
-    popoverBackdropEnabled: false,
     enableLogging: false,
 };
 

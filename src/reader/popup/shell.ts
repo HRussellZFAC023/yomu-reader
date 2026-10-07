@@ -156,9 +156,14 @@ export function refreshForcedReaderPopoverSurface(popover: HTMLElement, settings
     popover.querySelectorAll('.jpdb-reader-sheet-handle, .jpdb-reader-sheet-close').forEach(element => element.remove());
 }
 
-export function createReaderBackdrop(onDismiss: () => void): HTMLElement {
+/**
+ * The dismiss surface behind a modal Reader surface. Settings dims the page;
+ * a lookup passes `clear` so it only catches the outside press and the page
+ * stays as it was.
+ */
+export function createReaderBackdrop(onDismiss: () => void, { clear = false }: { clear?: boolean } = {}): HTMLElement {
     const backdrop = document.createElement('div');
-    backdrop.className = 'jpdb-reader-backdrop';
+    backdrop.className = clear ? 'jpdb-reader-backdrop jpdb-reader-backdrop--clear' : 'jpdb-reader-backdrop';
     backdrop.dataset.jpdbReaderRoot = 'true';
     // Preserve the user's text selection when they click away to dismiss:
     // a mousedown on the overlay would otherwise collapse the page selection.

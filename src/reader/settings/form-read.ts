@@ -503,7 +503,6 @@ function readPopupFormSettings(reader: SettingsFormReader, current: ReaderSettin
         popupMode,
         hoverPopupMode: readOption(get('hoverPopupMode'), ['auto', 'sheet', 'popover'] as const, current.hoverPopupMode),
         stickyBottomSheet: has('stickyBottomSheet'),
-        popoverBackdropEnabled: has('popoverBackdropEnabled'),
         popoverWidth: clamped('popoverWidth', 280, 900, current.popoverWidth),
         popoverHeight: clamped('popoverHeight', 220, 900, current.popoverHeight),
         popoverHeightMode: readOption(get('popoverHeightMode'), ['available', 'fixed'] as const, current.popoverHeightMode),

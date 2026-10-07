@@ -9455,11 +9455,12 @@ export class ReaderApp {
     private popoverMountState(anchor: HTMLElement | undefined, options: MountPopoverOptions): PopoverMountState {
         const mode = options.mode ?? 'modal';
         const assistiveModal = mode === 'modal' && options.focusOnMount !== false;
-        const backdrop = options.stackOverSettings || mode === 'hover' || shouldUseSheet(this.settings) || !this.settings.popoverBackdropEnabled
+        // A clicked lookup gets a clear dismiss surface, as Study's does: the
+        // outside press only closes it and never reaches the link, button or
+        // player underneath. It does not dim the page.
+        const backdrop = options.stackOverSettings || mode === 'hover' || shouldUseSheet(this.settings)
             ? undefined
-            : this.createLanguageAwareBackdrop(() => {
-                this.dismiss();
-            });
+            : this.createLanguageAwareBackdrop(() => this.dismiss(), { clear: true });
         const resolvedAnchor = connectedElement(anchor) ?? connectedElement(this.activePopoverAnchor);
         const anchorRect = popoverAnchorRect(resolvedAnchor, this.activePopoverAnchorRect);
         const previousPopoverRect = options.preservePosition && this.activePopover
@@ -9470,8 +9471,8 @@ export class ReaderApp {
         return { mode, assistiveModal, backdrop, mountParent, resolvedAnchor, anchorRect, previousPopoverRect, previousHoverPointerPosition };
     }
 
-    private createLanguageAwareBackdrop(onDismiss: () => void): HTMLElement {
-        const backdrop = createReaderBackdrop(onDismiss);
+    private createLanguageAwareBackdrop(onDismiss: () => void, options: { clear?: boolean } = {}): HTMLElement {
+        const backdrop = createReaderBackdrop(onDismiss, options);
         this.syncReaderRootLanguage(backdrop);
         return backdrop;
     }

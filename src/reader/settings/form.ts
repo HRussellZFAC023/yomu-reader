@@ -406,7 +406,6 @@ function renderInterfaceSettingsPanel(settings: ReaderSettings): string {
                     ${select('popupMode', text('popupMode'), settings.popupMode, localizedOptions(text, POPUP_MODE_OPTIONS))}
                     ${select('hoverPopupMode', text('hoverPopupMode'), settings.hoverPopupMode, localizedOptions(text, POPUP_MODE_OPTIONS))}
                     ${renderStickyBottomSheetControl(settings)}
-                    ${checkbox('popoverBackdropEnabled', text('popoverBackdropEnabled'), settings.popoverBackdropEnabled)}
                     ${fontFamilyControl('readerFontFamily', text('readerFontFamily'), settings.readerFontFamily, text)}
                     ${fontFamilyControl('popupFontFamily', text('popupFontFamily'), settings.popupFontFamily, text)}
                     ${input('accentColor', text('accentColor'), sanitizeAccentColor(settings.accentColor), 'color')}
@@ -1821,7 +1820,7 @@ function localizeDictionaryStatus(form: HTMLFormElement, text: SettingsText): vo
 const DIRECT_SETTINGS_CONTROL_LABEL_KEYS = [
     'apiCredential', 'apiCredentialJpdb', 'apiCredentialJiten', 'apiCredentialBunproLegacy', 'apiCredentialBunpro', 'apiCredentialWanikani', 'miningDeck', 'newTabJpdbDeck', 'neverForgetDeck', 'blacklistDeck',
     'jpdbMiningEnabled', 'bunproMiningEnabled', 'wanikaniReviewEnabled', 'yomuLocalSrsEnabled', 'addToForq', 'enableReviews', 'apiGradingProvider', 'jpdbPageEnhancementsEnabled', 'jpdbPageWordEnhancementsEnabled',
-    'jpdbPageKanjiEnhancementsEnabled', 'popupMode', 'hoverPopupMode', 'stickyBottomSheet', 'popoverBackdropEnabled', 'popoverWidth',
+    'jpdbPageKanjiEnhancementsEnabled', 'popupMode', 'hoverPopupMode', 'stickyBottomSheet', 'popoverWidth',
     'popoverHeight', 'popoverHeightMode', 'readerFontFamily', 'popupFontFamily', 'popupFontWeight',
     'enableLogging', 'accentColor', 'newTabAnkiEnabled', 'newTabSource',
     'newTabJpdbReviewMode', 'corsProxyUrl', 'newTabKanjiKeywordSource', 'newTabParsingEnabled', 'newTabFrontSentenceEnabled',
