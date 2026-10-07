@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { JitenApiClient } from '../../src/reader/dictionaries/jiten';
+import { requestHttp } from '../../src/reader/network/http-request';
 import type { JPDBCard } from '../../src/reader/app/types';
 import { installGamingHttpTransport } from '../../src/gaming/renderer/http-transport';
 
@@ -74,6 +75,34 @@ describe('Yomu Gaming HTTP transport', () => {
 
         await expect(client.reviewCard(JITEN_CARD, 'okay')).rejects.toThrow(/401|key|Jiten/i);
         expect(fetchImpl).toHaveBeenCalledTimes(1);
+    });
+
+    // jpdb.io drops a connection made straight from the overlay. A public, keyless read
+    // still has Yomu's shared proxy to fall back on, as it had before the overlay lent
+    // the reader a request route.
+    it('falls back to the public proxy when a host refuses the overlay', async () => {
+        const fetchImpl = vi.fn(async () => {
+            throw new TypeError('Failed to fetch');
+        });
+        installGamingHttpTransport(window, fetchImpl);
+        const proxied = vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response('<html>jpdb</html>', { status: 200 }));
+
+        const text = await requestHttp('https://jpdb.io/search?q=%E5%86%92%E9%99%BA', { responseType: 'text' });
+
+        expect(text).toBe('<html>jpdb</html>');
+        expect(fetchImpl).toHaveBeenCalledTimes(1);
+        expect(String(proxied.mock.calls[0]?.[0])).toMatch(/^https:\/\/[^/]*yomu[^/]*\//);
+    });
+
+    it('never sends a refused keyed Jiten request to a proxy', async () => {
+        const fetchImpl = vi.fn(async () => {
+            throw new TypeError('Failed to fetch');
+        });
+        installGamingHttpTransport(window, fetchImpl);
+        const proxied = vi.spyOn(globalThis, 'fetch');
+
+        await expect(new JitenApiClient(() => 'learner-key').reviewCard(JITEN_CARD, 'okay')).rejects.toThrow();
+        expect(proxied).not.toHaveBeenCalled();
     });
 
     it('never replaces a request transport the page already has', () => {

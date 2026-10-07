@@ -30,11 +30,20 @@ export function gamingHttpRequest(fetchImpl: GamingFetch): UserscriptHttpRequest
             response => details.onload?.(response),
             error => {
                 // The reader's own deadline aborted this and has already settled the call.
-                if (!controller.signal.aborted) details.onerror?.(error);
+                if (!controller.signal.aborted) details.onerror?.(gamingTransportError(error));
             },
         );
         return { abort: () => controller.abort() };
     };
+}
+
+// Some hosts refuse a request straight from the overlay — jpdb.io drops the connection on
+// its public search page — where Yomu's shared proxy would have answered. fetch() reports
+// that as a bare "Failed to fetch"; named as the network failure it is, the reader falls
+// back to its proxy route for public read-only requests, as it does for a userscript
+// manager whose request failed. Requests carrying a key still never go to a proxy.
+function gamingTransportError(error: unknown): Error {
+    return new Error('Network request failed.', { cause: error });
 }
 
 async function sendGamingRequest(
