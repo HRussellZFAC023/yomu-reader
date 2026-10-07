@@ -511,6 +511,27 @@ function renderBunproStructures(info: BunproDefinitionInfo, language: InterfaceL
     return `<div class="jpdb-reader-local-glossary"><strong>${escapeHtml(uiText(language, 'bunproStructure'))}</strong>${blocks}</div>`;
 }
 
+// Related lists follow the meaning and examples, collapsed and without a
+// count, as JPDB's and Jiten's do.
+function renderBunproRelatedGroup(
+    stateSuffix: string,
+    titleKey: 'bunproUsedInVocab' | 'relatedWords' | 'relatedGrammar',
+    rows: string,
+    sourceAttributes: (key: string, initiallyExpanded?: boolean) => string,
+    language: InterfaceLanguage,
+): string {
+    return `
+        <details class="jpdb-reader-local-entry jpdb-reader-dictionary-group jpdb-reader-jpdb-used-in-group" ${sourceAttributes(definitionSourceStateKey(`${BUNPRO_DEFINITION_SOURCE_ID}:${stateSuffix}`), false)}>
+            <summary class="jpdb-reader-local-title jpdb-reader-example-summary">
+                <span class="jpdb-reader-example-source">${escapeHtml(uiText(language, titleKey))}</span>
+            </summary>
+            <div class="jpdb-reader-local-glossary">
+                <ul class="jpdb-reader-jpdb-used-in">${rows}</ul>
+            </div>
+        </details>
+    `;
+}
+
 function renderBunproUsedInVocab(info: BunproDefinitionInfo, sourceAttributes: (key: string, initiallyExpanded?: boolean) => string, language: InterfaceLanguage): string {
     if (!info.usedInVocab.length) return '';
     const rows = info.usedInVocab.map(entry => `
@@ -524,17 +545,7 @@ function renderBunproUsedInVocab(info: BunproDefinitionInfo, sourceAttributes: (
             </span>
         </li>
     `).join('');
-    return `
-        <details class="jpdb-reader-local-entry jpdb-reader-dictionary-group jpdb-reader-jpdb-used-in-group" ${sourceAttributes(definitionSourceStateKey(`${BUNPRO_DEFINITION_SOURCE_ID}:used-in`))}>
-            <summary class="jpdb-reader-local-title jpdb-reader-example-summary">
-                <span class="jpdb-reader-example-source">${escapeHtml(uiText(language, 'bunproUsedInVocab'))}</span>
-                <span class="jpdb-reader-source-status jpdb-reader-example-count">${info.usedInVocab.length}</span>
-            </summary>
-            <div class="jpdb-reader-local-glossary">
-                <ul class="jpdb-reader-jpdb-used-in">${rows}</ul>
-            </div>
-        </details>
-    `;
+    return renderBunproRelatedGroup('used-in', 'bunproUsedInVocab', rows, sourceAttributes, language);
 }
 
 function renderBunproRelatedWords(info: BunproDefinitionInfo, sourceAttributes: (key: string, initiallyExpanded?: boolean) => string, language: InterfaceLanguage): string {
@@ -549,17 +560,7 @@ function renderBunproRelatedWords(info: BunproDefinitionInfo, sourceAttributes: 
             </span>
         </li>
     `).join('');
-    return `
-        <details class="jpdb-reader-local-entry jpdb-reader-dictionary-group jpdb-reader-jpdb-used-in-group" ${sourceAttributes(definitionSourceStateKey(`${BUNPRO_DEFINITION_SOURCE_ID}:related-words`))}>
-            <summary class="jpdb-reader-local-title jpdb-reader-example-summary">
-                <span class="jpdb-reader-example-source">${escapeHtml(uiText(language, 'relatedWords'))}</span>
-                <span class="jpdb-reader-source-status jpdb-reader-example-count">${info.relatedWords.length}</span>
-            </summary>
-            <div class="jpdb-reader-local-glossary">
-                <ul class="jpdb-reader-jpdb-used-in">${rows}</ul>
-            </div>
-        </details>
-    `;
+    return renderBunproRelatedGroup('related-words', 'relatedWords', rows, sourceAttributes, language);
 }
 
 function renderBunproRelatedGrammar(info: BunproDefinitionInfo, sourceAttributes: (key: string, initiallyExpanded?: boolean) => string, language: InterfaceLanguage): string {
@@ -573,17 +574,7 @@ function renderBunproRelatedGrammar(info: BunproDefinitionInfo, sourceAttributes
             </span>
         </li>
     `).join('');
-    return `
-        <details class="jpdb-reader-local-entry jpdb-reader-dictionary-group jpdb-reader-jpdb-used-in-group" ${sourceAttributes(definitionSourceStateKey(`${BUNPRO_DEFINITION_SOURCE_ID}:related-grammar`))}>
-            <summary class="jpdb-reader-local-title jpdb-reader-example-summary">
-                <span class="jpdb-reader-example-source">${escapeHtml(uiText(language, 'relatedGrammar'))}</span>
-                <span class="jpdb-reader-source-status jpdb-reader-example-count">${info.relatedGrammar.length}</span>
-            </summary>
-            <div class="jpdb-reader-local-glossary">
-                <ul class="jpdb-reader-jpdb-used-in">${rows}</ul>
-            </div>
-        </details>
-    `;
+    return renderBunproRelatedGroup('related-grammar', 'relatedGrammar', rows, sourceAttributes, language);
 }
 
 function renderBunproExamples(info: BunproDefinitionInfo, sourceAttributes: (key: string, initiallyExpanded?: boolean) => string, language: InterfaceLanguage): string {

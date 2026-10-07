@@ -75,7 +75,6 @@ function jitenInfo(meanings: string[]): JitenVocabularyInfo {
         knownStates: ['not-in-deck'],
         composedOf: [],
         usedIn: [],
-        usedInTotal: 0,
         examples: [],
     };
 }
@@ -261,7 +260,6 @@ describe('definition source stack', () => {
                 frequencyRank: 32000,
                 matchSurface: '復習会',
             }],
-            usedInTotal: 1,
             examples: [{
                 sentenceId: 99,
                 text: '毎日復習する。',

@@ -390,6 +390,33 @@ describe('Bunpro example sentences', () => {
         expect(jaHtml).toContain('関連文法');
     });
 
+    // YQ-08: Bunpro's related lists match JPDB's and Jiten's: they follow the
+    // examples, closed until asked for, and carry no count.
+    it('keeps its related lists collapsed and without counts', () => {
+        const info = normalizeBunproDefinitionSearch({
+            vocabs: { data: [{ id: '42', type: 'vocab', attributes: { id: 42, title: '読む', kana: 'よむ', slug: '読む', meaning: 'to read' } }] },
+            grammar_points: { data: [] },
+        }, '読む', 'よむ');
+        if (!info) throw new Error('expected info');
+        const related = {
+            ...info,
+            examples: [{ id: 'e1', parts: [{ text: '本を', target: false }, { text: '読む', target: true }, { text: '。', target: false }], text: '本を読む。', translation: 'I read a book.', audioUrls: [], source: { provider: 'bunpro' as const, url: 'https://bunpro.jp/vocabs/読む' } }],
+            examplesAvailability: 'loaded' as const,
+            usedInVocab: [{ id: 1, text: '読書', reading: 'どくしょ', meaning: 'reading' }],
+            relatedWords: [{ text: '書く', relation: 'related' as const }],
+            relatedGrammar: [{ id: 2, title: 'ながら', slug: 'ながら' }],
+        };
+        const mount = document.createElement('div');
+        mount.innerHTML = renderBunproDefinitionSource(card, (key, initiallyExpanded = true) => `data-source-state="${key}"${initiallyExpanded ? ' open' : ''}`, related, 'en');
+
+        const groups = [...mount.querySelectorAll<HTMLDetailsElement>('.jpdb-reader-jpdb-used-in-group')];
+        expect(groups.map(group => group.querySelector('summary')?.textContent?.trim())).toEqual(['Used in', 'Related words', 'Related grammar']);
+        expect(groups.map(group => group.open)).toEqual([false, false, false]);
+        expect(groups.some(group => group.querySelector('.jpdb-reader-example-count'))).toBe(false);
+        const examples = mount.querySelector('.jpdb-reader-jpdb-examples-group')!;
+        expect(examples.compareDocumentPosition(groups[0]) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    });
+
     it('resolves a bounded set of grammar coverage vocab into a Used in section', async () => {
         const vocabById: Record<number, { word?: string; kana: string; meaning: string }> = {
             9101: { word: '食べる', kana: 'たべる', meaning: 'to eat' },

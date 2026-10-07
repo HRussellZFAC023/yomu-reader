@@ -1096,7 +1096,6 @@ describe('JitenApiClient', () => {
                 frequencyRank: null,
                 matchSurface: '訓',
             }],
-            usedInTotal: 1,
             examples: [{
                 sentenceId: 99,
                 text: '今日は訓むこともある。',
@@ -1122,17 +1121,22 @@ describe('JitenApiClient', () => {
         const exampleGroup = mount.querySelector<HTMLElement>('[data-example-provider="jiten"]');
         expect(exampleGroup?.dataset.examplesAvailability).toBe('loaded');
         expect(exampleGroup?.classList.contains('jpdb-reader-jpdb-examples-group')).toBe(true);
+        // The example sentence comes before the collapsed related-word lists,
+        // whose headers carry no counts.
+        expect(exampleGroup!.compareDocumentPosition(relatedGroups[0]!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+        expect(relatedGroups.map(group => group.querySelector('summary')?.textContent?.replace(/\s+/gu, ' ').trim())).toEqual(['Composite words', 'Used in vocabulary']);
+        expect(relatedGroups.some(group => group.querySelector('.jpdb-reader-example-count'))).toBe(false);
         const buttons = Array.from(mount.querySelectorAll<HTMLButtonElement>('.jpdb-reader-jiten-audio'));
         expect(buttons).toHaveLength(3);
         expect(buttons.map(button => button.dataset.action)).toEqual(['jiten-audio', 'jiten-audio', 'jiten-audio']);
-        expect(buttons.map(button => button.dataset.studySentence)).toEqual(['訓む', '訓読み', '今日は訓むこともある。']);
-        expect(buttons[0]?.dataset.jitenWordId).toBe('7');
-        expect(buttons[0]?.dataset.jitenReadingIndex).toBe('0');
-        expect(buttons[0]?.dataset.jitenAudioUrls).toBe(JSON.stringify(['https://audio.example.test/word.mp3']));
-        expect(buttons[2]?.dataset.jitenSentenceId).toBe('99');
-        expect(buttons[2]?.dataset.jitenAudioUrls).toBe(JSON.stringify(['https://audio.example.test/sentence.mp3']));
-        expect(buttons[2]?.classList.contains('jpdb-reader-jpdb-example-audio')).toBe(true);
-        expect(buttons[2]?.getAttribute('aria-label')).toBe('Play audio');
+        expect(buttons.map(button => button.dataset.studySentence)).toEqual(['今日は訓むこともある。', '訓む', '訓読み']);
+        expect(buttons[1]?.dataset.jitenWordId).toBe('7');
+        expect(buttons[1]?.dataset.jitenReadingIndex).toBe('0');
+        expect(buttons[1]?.dataset.jitenAudioUrls).toBe(JSON.stringify(['https://audio.example.test/word.mp3']));
+        expect(buttons[0]?.dataset.jitenSentenceId).toBe('99');
+        expect(buttons[0]?.dataset.jitenAudioUrls).toBe(JSON.stringify(['https://audio.example.test/sentence.mp3']));
+        expect(buttons[0]?.classList.contains('jpdb-reader-jpdb-example-audio')).toBe(true);
+        expect(buttons[0]?.getAttribute('aria-label')).toBe('Play audio');
 
         const relatedRow = mount.querySelector<HTMLElement>('.jpdb-reader-jiten-related-row');
         expect(relatedRow?.classList.contains('jpdb-reader-jpdb-used-in-row')).toBe(true);
@@ -1206,7 +1210,6 @@ describe('JitenApiClient', () => {
                 frequencyRank: 12345,
                 matchSurface: longWord,
             }],
-            usedInTotal: 1,
         });
 
         const mount = document.createElement('div');
@@ -1507,7 +1510,6 @@ function jitenVocabularyInfo(overrides: Partial<JitenVocabularyInfo> = {}): Jite
         knownStates: ['new'],
         composedOf: [],
         usedIn: [],
-        usedInTotal: 0,
         examples: [],
         ...overrides,
     };

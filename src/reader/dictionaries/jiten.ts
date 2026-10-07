@@ -279,7 +279,6 @@ export interface JitenVocabularyInfo {
     knownStates: CardState[];
     composedOf: JitenVocabularyWordSummary[];
     usedIn: JitenVocabularyWordSummary[];
-    usedInTotal: number;
     examples: JitenVocabularyExample[];
 }
 
@@ -1190,7 +1189,6 @@ function normalizeJitenVocabularyInfo(value: unknown): JitenVocabularyInfo | nul
         knownStates: Array.isArray(record.knownStates) ? jitenKnownStateToCardStates(record.knownStates) : [],
         composedOf: normalizeJitenVocabularyWordSummaries(record.composedOf),
         usedIn: normalizeJitenVocabularyWordSummaries(record.usedIn),
-        usedInTotal: finiteJitenInteger(record.usedInTotal) ?? 0,
         examples: [],
     };
 }

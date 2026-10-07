@@ -74,4 +74,42 @@ describe('JPDB definition source rendering', () => {
         expect(example?.textContent).toContain('で日本語を勉強します。');
         expect(mount.querySelector<HTMLElement>('[data-provider-example-translation]')?.dataset.providerTranslationBlurred).toBe('true');
     });
+
+    // YQ-08: an example follows the meaning, and the related-word lists that
+    // come after it stay collapsed without a count.
+    it('puts the example before compounds and used-in words, with no used-in count', () => {
+        const info: JpdbVocabularyInfo = {
+            meanings: ['university'],
+            compounds: [{
+                term: '大学生',
+                reading: 'だいがくせい',
+                meaning: 'university student',
+                url: '/vocabulary/124/%E5%A4%A7%E5%AD%A6%E7%94%9F/%E3%81%A0%E3%81%84%E3%81%8C%E3%81%8F%E3%81%9B%E3%81%84#a',
+            }],
+            usedInVocabulary: [{
+                term: '大学院',
+                reading: 'だいがくいん',
+                meaning: 'graduate school',
+                url: '/vocabulary/123/%E5%A4%A7%E5%AD%A6%E9%99%A2/%E3%81%A0%E3%81%84%E3%81%8C%E3%81%8F%E3%81%84%E3%82%93#a',
+            }],
+            examples: [{
+                sentence: '大学で日本語を勉強します。',
+                sentenceHtml: '',
+                translation: 'I study Japanese at university.',
+                audioIds: [],
+            }],
+        };
+        const mount = document.createElement('div');
+        setInnerHtml(mount, renderJpdbDefinitionSource(card(), key => `data-source-state-key="${key}"`, info, 'en'));
+
+        const example = mount.querySelector('.jpdb-reader-example-sentence')!;
+        const compounds = mount.querySelector('.jpdb-reader-jpdb-compounds')!;
+        const usedIn = mount.querySelector<HTMLDetailsElement>('.jpdb-reader-jpdb-used-in-group')!;
+        const follows = (first: Node, second: Node) => Boolean(first.compareDocumentPosition(second) & Node.DOCUMENT_POSITION_FOLLOWING);
+        expect(follows(example, compounds)).toBe(true);
+        expect(follows(example, usedIn)).toBe(true);
+        expect(usedIn.open).toBe(false);
+        expect(usedIn.querySelector('summary')?.textContent?.trim()).toBe('Used in vocabulary');
+        expect(usedIn.querySelector('.jpdb-reader-example-count')).toBeNull();
+    });
 });

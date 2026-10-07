@@ -775,7 +775,6 @@ describe('new tab review — search mode', () => {
                 frequencyRank: 32000,
                 matchSurface: '復習会',
             }],
-            usedInTotal: 1,
             examples: [{
                 sentenceId: 99,
                 text: '毎日復習する。',
@@ -1573,7 +1572,6 @@ describe('new tab review — search mode', () => {
                 knownStates: [],
                 composedOf: [],
                 usedIn: [],
-                usedInTotal: 0,
                 examples: [],
             },
         };

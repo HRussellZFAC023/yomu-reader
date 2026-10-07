@@ -152,12 +152,9 @@ function dedupeText(values: string[]): string[] {
 
 function renderJitenVocabularyExtras(info: JitenVocabularyInfo | null, sourceAttributes: SourceAttributes, language: InterfaceLanguage, card: CardHighlightTarget): string {
     if (!info || (!info.composedOf.length && !info.usedIn.length && !info.examples.length)) return '';
-    return `<div class="jpdb-reader-jpdb-extras jpdb-reader-jiten-extras">${renderJitenRelatedWords(info.composedOf, 'jitenCompositeWords', `${JITEN_DEFINITION_SOURCE_ID}:composite`, sourceAttributes, language)}${renderJitenUsedIn(info, sourceAttributes, language)}${renderJitenExamples(info.examples, sourceAttributes, language, card, info)}</div>`;
-}
-
-function renderJitenUsedIn(info: JitenVocabularyInfo, sourceAttributes: SourceAttributes, language: InterfaceLanguage): string {
-    const status = info.usedInTotal > info.usedIn.length ? `${info.usedIn.length}/${info.usedInTotal}` : String(info.usedIn.length);
-    return info.usedIn.length ? renderJitenRelatedWords(info.usedIn, 'usedInVocabulary', `${JITEN_DEFINITION_SOURCE_ID}:used-in-vocabulary`, sourceAttributes, language, status) : '';
+    // An example sentence comes straight after the meaning; related-word lists
+    // follow, collapsed and without counts.
+    return `<div class="jpdb-reader-jpdb-extras jpdb-reader-jiten-extras">${renderJitenExamples(info.examples, sourceAttributes, language, card, info)}${renderJitenRelatedWords(info.composedOf, 'jitenCompositeWords', `${JITEN_DEFINITION_SOURCE_ID}:composite`, sourceAttributes, language)}${renderJitenRelatedWords(info.usedIn, 'usedInVocabulary', `${JITEN_DEFINITION_SOURCE_ID}:used-in-vocabulary`, sourceAttributes, language)}</div>`;
 }
 
 function renderJitenRelatedWords(
@@ -166,14 +163,12 @@ function renderJitenRelatedWords(
     stateKey: string,
     sourceAttributes: SourceAttributes,
     language: InterfaceLanguage,
-    status = String(entries.length),
 ): string {
     if (!entries.length) return '';
     return `
         <details class="jpdb-reader-local-entry jpdb-reader-dictionary-group jpdb-reader-jpdb-used-in-group jpdb-reader-jiten-related-group" ${sourceAttributes(definitionSourceStateKey(stateKey), false)}>
             <summary class="jpdb-reader-local-title jpdb-reader-example-summary">
                 <span class="jpdb-reader-example-source">${escapeHtml(uiText(language, titleKey))}</span>
-                <span class="jpdb-reader-source-status jpdb-reader-example-count">${escapeHtml(status)}</span>
             </summary>
             <div class="jpdb-reader-local-glossary">
                 <ul class="jpdb-reader-jpdb-used-in jpdb-reader-jiten-related-words">

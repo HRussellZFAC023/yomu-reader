@@ -147,7 +147,6 @@ describe('provider-specific frequency evidence', () => {
             knownStates: [],
             composedOf: [],
             usedIn: [],
-            usedInTotal: 0,
             examples: [],
         }));
         const search = vi.fn(async () => ({ cards: [
@@ -181,7 +180,6 @@ describe('provider-specific frequency evidence', () => {
             knownStates: [],
             composedOf: [],
             usedIn: [],
-            usedInTotal: 0,
             examples: [],
         }));
 

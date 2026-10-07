@@ -17,7 +17,7 @@ function summary(reading: string, readingFurigana: string, surface: string): Jit
 function infoWith(usedIn: JitenVocabularyWordSummary[]): JitenVocabularyInfo {
     return {
         wordId: 1456130, mainReading: null, alternativeReadings: [], partsOfSpeech: [], definitions: [],
-        pitchAccents: [], knownStates: [], composedOf: [], usedIn, usedInTotal: usedIn.length, examples: [],
+        pitchAccents: [], knownStates: [], composedOf: [], usedIn, examples: [],
     } as unknown as JitenVocabularyInfo;
 }
 

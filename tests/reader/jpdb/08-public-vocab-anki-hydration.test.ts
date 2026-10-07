@@ -777,7 +777,6 @@ describe('reader helpers', () => {
             knownStates: ['new'] as JPDBCard['cardState'],
             composedOf: [],
             usedIn: [],
-            usedInTotal: 0,
             examples: [],
         }));
         const settings = cardDetailLoaderSettings({

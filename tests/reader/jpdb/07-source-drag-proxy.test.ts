@@ -1729,7 +1729,6 @@ describe('reader helpers', () => {
             knownStates: ['new' as const],
             composedOf: [],
             usedIn: [],
-            usedInTotal: 0,
             examples: [],
         }));
         const loader = testCardRenderDataLoader({
