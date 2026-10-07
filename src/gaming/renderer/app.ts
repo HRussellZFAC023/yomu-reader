@@ -1,3 +1,4 @@
+import { dismissDesktopLookup } from './layer-key-events';
 import { dispatchAuthorizedReaderControlClick } from '../../reader/ui/trusted-interaction';
 import '../../reader/styles/base.css';
 import '../../reader/styles/settings.css';
@@ -862,8 +863,7 @@ class OverlayController {
         this.watchLayerInput();
         this.gamingBridge.onLayerShortcut?.(key => {
             if (key === 'Escape') {
-                if (document.querySelector('.jpdb-reader-popover')) document.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true }));
-                else void this.gamingBridge.hideOverlay();
+                dismissDesktopLookup(document, () => this.gamingBridge.hideOverlay());
                 return;
             }
             const button = this.gradeButtons().find(button => button.getAttribute('aria-keyshortcuts') === key);

@@ -1,3 +1,5 @@
+import { dismissDesktopLookup } from '../../src/gaming/renderer/layer-key-events';
+import { allowSyntheticReaderInteractionsForTests, trustedReaderEventHandler } from '../../src/reader/ui/trusted-interaction';
 import { describe, expect, it, vi } from 'vitest';
 import { LayerShortcuts } from '../../src/gaming/layer-shortcuts';
 
@@ -24,4 +26,26 @@ describe('native keys belong only to a visible desktop lookup', () => {
         expect(shortcuts.update(false, ['1', '2'])).toEqual([]);
         expect(host.register).not.toHaveBeenCalled();
     });
+});
+
+
+it('preserves native Escape authority across IPC without enabling arbitrary synthetic events', () => {
+    allowSyntheticReaderInteractionsForTests(false);
+    const popup = document.createElement('div'); popup.className = 'jpdb-reader-popover'; document.body.append(popup);
+    const dismiss = vi.fn(() => popup.remove());
+    const listener = trustedReaderEventHandler((event: KeyboardEvent) => { if (event.key === 'Escape') dismiss(); });
+    const hide = vi.fn(async () => {});
+    document.addEventListener('keydown', listener);
+    try {
+        document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+        expect(dismiss).not.toHaveBeenCalled();
+        dismissDesktopLookup(document, hide);
+        expect(dismiss).toHaveBeenCalledOnce();
+        expect(hide).not.toHaveBeenCalled();
+        dismissDesktopLookup(document, hide);
+        expect(hide).toHaveBeenCalledOnce();
+    } finally {
+        document.removeEventListener('keydown', listener); popup.remove();
+        allowSyntheticReaderInteractionsForTests(true);
+    }
 });
