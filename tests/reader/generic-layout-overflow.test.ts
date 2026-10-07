@@ -271,12 +271,12 @@ describe('generic reader layout overflow guards', () => {
         expect(Array.from(chip.querySelectorAll<HTMLElement>('.jpdb-reader-word')).every(word => word.dataset.jpdbReaderPassive === 'true')).toBe(true);
     });
 
-    it('re-renders mutated compact controls inline without duplicate mirrors or in-flow ruby', () => {
+    it('re-renders mutated compact toolbar links inline without duplicate mirrors or in-flow ruby', () => {
         document.body.innerHTML = `
-            <nav class="mobile-actions" role="navigation">
-                <button id="action-chip" type="button" style="display:inline-flex;align-items:center;justify-content:center;width:118px;height:34px;max-height:34px;overflow:hidden;white-space:nowrap">
+            <nav class="mobile-actions" role="toolbar">
+                <a id="action-chip" href="/orders" style="display:inline-flex;align-items:center;justify-content:center;width:118px;height:34px;max-height:34px;overflow:hidden;white-space:nowrap">
                     注文確認
-                </button>
+                </a>
             </nav>
         `;
         const chip = document.querySelector<HTMLElement>('#action-chip')!;
@@ -519,13 +519,13 @@ describe('generic reader layout overflow guards', () => {
         document.body.innerHTML = `
             <nav>
                 <div role="tablist" style="display:flex;gap:8px;overflow-x:auto;white-space:nowrap">
-                    <a role="tab" href="#" aria-selected="true">ニュース</a>
-                    <a role="tab" href="#">新着</a>
-                    <a role="tab" href="#">注目</a>
-                    <a role="tab" href="#">社会</a>
-                    <a role="tab" href="#">気象</a>
-                    <a role="tab" href="#">災害</a>
-                    <a role="tab" href="#">政治</a>
+                    <a role="tab" href="/news/" aria-selected="true">ニュース</a>
+                    <a role="tab" href="/news/new/">新着</a>
+                    <a role="tab" href="/news/pickup/">注目</a>
+                    <a role="tab" href="/news/society/">社会</a>
+                    <a role="tab" href="/news/weather/">気象</a>
+                    <a role="tab" href="/news/disaster/">災害</a>
+                    <a role="tab" href="/news/politics/">政治</a>
                 </div>
             </nav>
         `;

@@ -184,7 +184,7 @@ describe('framework-managed chat mirror', () => {
     });
 
     it('splits explicit non-destructive multi-leaf targets without framework markers', () => {
-        document.body.innerHTML = '<button id="host"><span>共</span><span>有</span></button>';
+        document.body.innerHTML = '<a id="host" href="/share"><span>共</span><span>有</span></a>';
         const host = document.getElementById('host')!;
         const target = collectFragmentTextTargetsIn(host, 40, false).find(candidate => candidate.text === '共有');
         expect(target).toBeTruthy();

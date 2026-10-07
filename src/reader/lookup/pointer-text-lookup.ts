@@ -127,9 +127,15 @@ export function caretTextPositionFromPoint(x: number, y: number): { node: Text; 
 
 export const pointerTextRunAt = targetPointerWordAt;
 
-export function pointerTextCharacterOffset(node: Text, caretOffset: number, x: number, y: number): number | null {
+export function pointerTextCharacterOffset(
+    node: Text,
+    caretOffset: number,
+    x: number,
+    y: number,
+    options: PointerTextLookupNodeOptions = {},
+): number | null {
     const parent = node.parentElement;
-    if (!parent || !isPointerTextParentEligible(parent)) return null;
+    if (!parent || !isPointerTextParentEligible(parent, options)) return null;
     const clamped = Math.min(Math.max(caretOffset, 0), node.data.length - 1);
     const candidates = [clamped, clamped - 1, clamped + 1]
         .filter((offset, index, offsets) => offset >= 0 && offset < node.data.length && offsets.indexOf(offset) === index);
@@ -317,6 +323,9 @@ function isLowValuePointerText(text: string, parent?: HTMLElement | null): boole
     const compact = text.replace(/\s+/g, '');
     if (!compact) return true;
     if (parent?.closest(YOUTUBE_METADATA_SELECTOR)) return true;
+    // A control's label is what the learner chose to hover, even a feed chip
+    // that reads like a metadata badge (新着).
+    if (parent?.closest(POINTER_TEXT_INTERACTIVE_SKIP_SELECTOR)) return false;
 
     const parts = compact
         .split(/[・•|｜/／()[\]【】「」『』<>〈〉《》]+/u)
@@ -355,6 +364,10 @@ function localPointerWordLength(text: string, offset: number): number {
 }
 
 function pointerTextContextRoot(anchor: HTMLElement): HTMLElement | null {
+    // A page control's label is its own context: hover reads it (ADR-0025),
+    // but never joins it to the neighbouring tabs or buttons.
+    const control = anchor.closest<HTMLElement>(POINTER_TEXT_INTERACTIVE_SKIP_SELECTOR);
+    if (control) return control;
     const root = anchor.closest<HTMLElement>(POINTER_TEXT_CONTEXT_ROOT_SELECTOR);
     if (!root) return pointerTextInlineContextRoot(anchor);
     if (!isPointerTextParentEligible(root)) return null;
@@ -404,7 +417,7 @@ function readablePointerTextContext(root: HTMLElement, target: Text): { text: st
         element.childNodes.forEach(visit);
     };
 
-    visit(root);
+    root.childNodes.forEach(visit);
     if (rangeStart < 0 || rangeEnd <= rangeStart || !hasTargetPointerWord(text)) return null;
     const leadingWhitespace = text.match(/^\s*/u)?.[0].length ?? 0;
     const trailingWhitespace = text.match(/\s*$/u)?.[0].length ?? 0;

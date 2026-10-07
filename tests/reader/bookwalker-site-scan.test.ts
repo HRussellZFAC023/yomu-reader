@@ -46,7 +46,8 @@ describe('BookWalker site scan boundaries', () => {
                 .toEqual(['bookwalker-storefront']);
             expect(getMatchingSiteParsers(BOOKWALKER_WWW_HOME_URL).map(profile => profile.id))
                 .toEqual(['bookwalker-storefront']);
-            const expected = ['ストアトップ', 'ランキング', 'ログイン', '異世界漫画フェア', '今すぐ読む', '次へ', 'ジャンルで探す'];
+            // ログイン and 次へ are buttons: the page's own controls stay as drawn.
+            const expected = ['ストアトップ', 'ランキング', '異世界漫画フェア', '今すぐ読む', 'ジャンルで探す'];
             for (const url of [BOOKWALKER_HOME_URL, BOOKWALKER_WWW_HOME_URL]) {
                 const targets = collectScanTargets(20, url);
                 expect(targets.map(target => target.text)).toEqual(expected);
@@ -139,7 +140,8 @@ describe('BookWalker site scan boundaries', () => {
                 'シリーズ予約',
             ];
             const targets = collectScanTargets(40, BOOKWALKER_HOME_URL);
-            expect(targets.length).toBeGreaterThanOrEqual(expectedText.length);
+            // カート, 無料会員登録 and シリーズ予約 are buttons and are not scanned.
+            expect(targets.length).toBeGreaterThanOrEqual(expectedText.length - 3);
 
             for (const target of targets) {
                 const token = target.text.includes('先生')
@@ -167,7 +169,7 @@ describe('BookWalker site scan boundaries', () => {
         }
     });
 
-    it('scans BookWalker reader metadata and keeps settings controls passive', () => {
+    it('scans BookWalker reader metadata and leaves settings controls as drawn', () => {
         const restoreRects = mockVisibleElementRects();
         const readerUrl = 'https://viewer.bookwalker.jp/03/1/viewer.html';
         document.body.innerHTML = `
@@ -197,12 +199,11 @@ describe('BookWalker site scan boundaries', () => {
             expect(targets.map(target => target.text)).toEqual(expect.arrayContaining([
                 'あなた達それでも先生ですかっ！【期間限定無料】',
                 '今日は静かな喫茶店で新しい本を読みました。',
-                'ページ移動方向',
-                '横',
-                '縦',
-                'タップ設定',
                 '見開き表示',
             ]));
+            for (const control of ['ページ移動方向', '横', '縦', 'タップ設定']) {
+                expect(targets.map(target => target.text)).not.toContain(control);
+            }
             expect(targets.every(target => 'parserId' in target && target.parserId === 'bookwalker-reader')).toBe(true);
 
             const title = targets.find(target => target.text.includes('あなた達それでも先生ですかっ'))!;
@@ -212,7 +213,7 @@ describe('BookWalker site scan boundaries', () => {
             expect(titleHost.querySelector('rt')?.textContent).toBe('たち');
             expect(titleHost.querySelector('.jpdb-reader-word')?.getAttribute('data-pitch-class')).toBe('heiban');
 
-            const settingsTarget = targets.find(target => target.text === 'ページ移動方向')!;
+            const settingsTarget = targets.find(target => target.text === '見開き表示')!;
             expect(settingsTarget).toMatchObject({
                 suppressRuby: true,
                 passiveInteraction: true,
@@ -220,6 +221,7 @@ describe('BookWalker site scan boundaries', () => {
             applyTokensToScanTarget(settingsTarget, [firstJapaneseToken(settingsTarget.text)!], { ...DEFAULT_SETTINGS, furiganaMode: 'all' });
             expect(document.querySelector('.settings-popover ruby')).toBeNull();
             expect(document.querySelector('.settings-popover .jpdb-reader-passive-word')).not.toBeNull();
+            expect(document.querySelector('.settings-popover button .jpdb-reader-word')).toBeNull();
         } finally {
             restoreRects();
         }
@@ -351,7 +353,7 @@ describe('BookWalker site scan boundaries', () => {
         }
     });
 
-    it('marks tall vertical storefront control labels as passive ruby-suppressed targets', () => {
+    it('leaves a tall vertical storefront button as the page drew it', () => {
         const restoreRects = mockVisibleElementRects();
         document.body.innerHTML = `
             <main>
@@ -373,14 +375,7 @@ describe('BookWalker site scan boundaries', () => {
 
         try {
             const targets = collectScanTargets(20, BOOKWALKER_HOME_URL);
-            const control = targets.find(target => target.text.includes('縦書き'));
-
-            expect(control).toBeTruthy();
-            expect(control).toMatchObject({
-                parserId: 'residual-visible-japanese-parser',
-                suppressRuby: true,
-                passiveInteraction: true,
-            });
+            expect(targets.find(target => target.text.includes('縦書き'))).toBeUndefined();
         } finally {
             restoreRects();
         }
@@ -460,11 +455,7 @@ describe('BookWalker site scan boundaries', () => {
                 expect(isBookWalkerStorefrontPage()).toBe(false);
                 expect(allowsGenericVisibleAutoScan()).toBe(false);
                 const targets = collectScanTargets(20, url);
-                expect(targets.map(target => target.text)).toEqual(expect.arrayContaining([
-                    'ページ移動方向',
-                    'タップ設定',
-                    '見開き表示',
-                ]));
+                expect(targets.map(target => target.text)).toEqual(['見開き表示']);
                 expect(targets.every(target => 'parserId' in target && target.parserId === 'bookwalker-reader')).toBe(true);
                 expect(targets.every(target => target.suppressRuby)).toBe(true);
                 expect(targets.every(target => target.passiveInteraction)).toBe(true);

@@ -9,15 +9,18 @@
 //   prose-full          long-form prose: inline ruby, ruby-room growth allowed
 //   content-ruby        non-prose content (titles, metadata, comments,
 //                       transcript, named content chips): inline ruby + growth
-//   interactive-passive interactive controls: every enabled annotation remains
-//                       visible at rest, but readings use an out-of-flow lane so
-//                       controls keep their authored line height and hit target
-//   skip                editable/composing contexts and truncation-sensitive
-//                       native chrome: never decorated
+//   interactive-passive links in menus and toolbars, and compact metadata:
+//                       every enabled annotation remains visible at rest, but
+//                       readings use an out-of-flow lane so the row keeps its
+//                       authored line height and hit target
+//   skip                the page's own buttons and controls, editable/composing
+//                       contexts and truncation-sensitive native chrome: never
+//                       decorated (a hover still looks control text up)
 import { CORE_COLOR_TOKENS } from '../theme/color-tokens';
 import { READER_ROOT_SELECTOR } from './constants';
 import { isTargetLanguageText } from '../lookup/target-text';
 import { isYouTubeAppHostname } from '../app/youtube-host';
+import { ANNOTATION_SCOPE_SURFACE_SELECTOR } from '../app/annotation-scope';
 
 export type DecorationState = 'prose-full' | 'content-ruby' | 'interactive-passive' | 'skip';
 
@@ -905,6 +908,8 @@ function isComboboxOwnedPopup(element: Element): boolean {
 // isEditableComposingContext, which classifyDecoration tests first).
 const INTERACTIVE_CONTROL_SELECTOR = `button,summary,label,${roleSelectors('button,tab,menuitem,menuitemcheckbox,menuitemradio,option,switch,checkbox,radio,combobox')},[slot="more-button"],.more-button,#more,#less`;
 const INTERACTIVE_LINK_SELECTOR = 'a[href],[role="link"]';
+const LINK_AS_BUTTON_SELECTOR = 'a[href="#"],a[href^="javascript:" i]';
+const REAL_LINK_SELECTOR = 'a[href]:not([role="button"])';
 // Strict control contexts only: links in header/nav/footer/breadcrumbs are
 // content-bearing (owner-pinned: breadcrumb, footer-help, global-nav labels
 // keep furigana) — the compact cascade still classifies the genuinely
@@ -1065,15 +1070,32 @@ export function classifyDecoration(element: Element): DecorationState {
     if (element instanceof HTMLElement && youtubeNativeChromeMustRemainPageOwned(element)) {
         return 'skip';
     }
+    // A page's buttons and controls are its interface, not reading text: they
+    // stay exactly as the page drew them. Links keep their annotations unless
+    // the link is a button in disguise, as NHK's audio and furigana toggles
+    // (href="#") are; word spans broke their icon and label (YQ-07).
+    if (element.closest(LINK_AS_BUTTON_SELECTOR)) return 'skip';
     const control = interactivePassiveControl(element);
     if (control) {
         if (control.closest(CONTENT_CHIP_ROOT_SELECTOR)) return 'content-ruby';
-        return 'interactive-passive';
+        return isPageControlText(element, control) ? 'skip' : 'interactive-passive';
     }
     if (element instanceof HTMLElement && compactMetadataChromeElement(element)) return 'interactive-passive';
     if (element.closest(NAMED_CONTENT_ROOT_SELECTOR)) return 'content-ruby';
     if (element instanceof HTMLElement && compactScanRubySuppression(element).suppress) return 'interactive-passive';
     return element instanceof HTMLElement && isProseFullContext(element) ? 'prose-full' : 'content-ruby';
+}
+
+// Text inside a button, tab, menu item, option, switch, summary or label is the
+// page's control. A real link inside (or acting as) that control stays a link,
+// and a page that declares the control itself a Reader Surface (Academy's
+// Japanese choice buttons) asked for its label to be read.
+function isPageControlText(element: Element, control: HTMLElement): boolean {
+    if (!safeElementMatches(control, INTERACTIVE_CONTROL_SELECTOR)) return false;
+    const surface = element.closest(ANNOTATION_SCOPE_SURFACE_SELECTOR);
+    if (surface && control.contains(surface)) return false;
+    const link = element.closest<HTMLElement>(REAL_LINK_SELECTOR);
+    return !(link && (link === control || control.contains(link)));
 }
 
 // Keep the three safety owners visible and ordered at this single scan gate.

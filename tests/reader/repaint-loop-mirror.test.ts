@@ -401,7 +401,7 @@ describe('repaint-loop mirror fallback', () => {
     });
 
     it('preserves the host content-box inset in non-destructive mirrors', () => {
-        document.body.innerHTML = `<button id="control" style="box-sizing:border-box;height:40px;padding:13px 18px 13px 10px;line-height:14px">${TEXT}</button>`;
+        document.body.innerHTML = `<div role="toolbar"><a id="control" href="/control" style="display:inline-flex;align-items:center;box-sizing:border-box;height:40px;padding:13px 18px 13px 10px;line-height:14px">${TEXT}</a></div>`;
         const host = document.getElementById('control')!;
         const target = collectTextTargetsIn(document.body, 40, false).find(t => t.text.trim() === TEXT)!;
 
@@ -422,7 +422,7 @@ describe('repaint-loop mirror fallback', () => {
     });
 
     it('preserves an explicit non-centred control cross-axis alignment', () => {
-        document.body.innerHTML = `<button id="control" style="display:flex;align-items:flex-start;height:40px;padding:4px 10px;line-height:14px">${TEXT}</button>`;
+        document.body.innerHTML = `<div role="toolbar"><a id="control" href="/control" style="display:flex;align-items:flex-start;height:40px;padding:4px 10px;line-height:14px">${TEXT}</a></div>`;
         const host = document.getElementById('control')!;
         const target = collectTextTargetsIn(document.body, 40, false).find(t => t.text.trim() === TEXT)!;
 

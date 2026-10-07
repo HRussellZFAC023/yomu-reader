@@ -113,7 +113,7 @@ main { padding: 18px 18px 56px; width: min(760px, 100vw); box-sizing: border-box
 h3 { margin: 8px 0 8px; color: #8ab4f8; font-size: 28px; line-height: 1.14; font-weight: 400; }
 .VwiC3b { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; color: #bdc1c6; font-size: 18px; line-height: 24px; text-decoration: none; }
 .clipped-heading { height: 34px; max-height: 34px; overflow: hidden; line-height: 32px; }
-#chip { display: flex; align-items: center; justify-content: center; gap: 12px; height: 36px; max-height: 36px; overflow: hidden; margin: 22px 30px 0; padding: 0 18px; border-radius: 22px; background: #303134; color: #d5d7db; line-height: 18px; text-align: center; }
+#chip, #button-chip { display: flex; align-items: center; justify-content: center; gap: 12px; height: 36px; max-height: 36px; overflow: hidden; margin: 22px 30px 0; padding: 0 18px; border-radius: 22px; background: #303134; color: #d5d7db; line-height: 18px; text-align: center; text-decoration: none; }
 #chip-label { display: block; height: 18px; max-height: 18px; overflow: hidden; line-height: 18px; white-space: nowrap; }
 .ask-card { margin: 30px 28px 0; padding: 20px; background: #25272c; color: #d5d7db; font-size: 21px; line-height: 1.55; }
 .ask-button { display: inline-block; margin-top: 12px; padding: 6px 18px; border-radius: 18px; background: #a8c7fa; color: #202124; }
@@ -127,7 +127,8 @@ h3 { margin: 8px 0 8px; color: #8ab4f8; font-size: 28px; line-height: 1.14; font
         <div class="site"><span class="icon"></span><span>Google Play<br><small>https://play.google.com</small></span></div>
         <h3 class="LC20lb">SEO Checker - Google Play のアプリ</h3>
         <a class="VwiC3b" href="/url?q=https://play.google.com/store/apps/details">2026/02/17 — SEO Checkerを使用すると、あらゆるWebページの主要なSEO要素を数秒で分析して理解できます。あなたがデジタルマーケティング担当者、開発者、...</a>
-        <div id="chip" role="button" tabindex="0"><span id="chip-label">検索結果を表示</span><span aria-hidden="true">⌄</span></div>
+        <div role="toolbar"><a id="chip" href="/search?q=seo%20checker&amp;start=10"><span id="chip-label">検索結果を表示</span><span aria-hidden="true">⌄</span></a></div>
+        <div id="button-chip" role="button" tabindex="0"><span>検索ツールを表示</span></div>
       </article>
     </div>
     <div id="weblio-result" class="MjjYud">
@@ -314,9 +315,9 @@ async function runGoogleSearchCaseWithBrowser(engineName, browser, pageOptions =
         assertGoogleSearchSnapshot(afterHover, 'after hover', { expectStatusHighlight: true, baseline });
         assert(afterHover.snippetFirstWord.backgroundImage.includes('linear-gradient'), 'Passive Google snippet word lost its highlight backing on hover', afterHover.snippetFirstWord);
 
-        // Chrome-chip contract: a role=button chip is annotated AT REST, and
-        // hovering changes nothing about whether the reading is shown. What
-        // keeps that safe is geometry, not hiding — assertGoogleChip's
+        // Chrome-chip contract: a compact toolbar link chip is annotated AT
+        // REST, and hovering changes nothing about whether the reading is
+        // shown. What keeps that safe is geometry, not hiding — assertGoogleChip's
         // growth and clipping guards run on the at-rest snapshot above.
         await page.locator('#chip').hover();
         await page.waitForTimeout(250);
@@ -513,6 +514,7 @@ function snapshotGoogleClippedRow(element) {
 function snapshotGoogleSearchSummary() {
     const chip = document.querySelector('#chip');
     const label = document.querySelector('#chip-label');
+    const buttonChip = document.querySelector('#button-chip');
     const snippetFirstWord = document.querySelector('.VwiC3b .jpdb-reader-word.jpdb-reader-passive-word[data-expression="使用"]');
     const snippetStyle = getComputedStyle(snippetFirstWord);
     const chipRect = chip.getBoundingClientRect();
@@ -558,6 +560,11 @@ function snapshotGoogleSearchSummary() {
         wordCount: document.querySelectorAll('.jpdb-reader-word').length,
         passiveWordCount: document.querySelectorAll('.jpdb-reader-word.jpdb-reader-passive-word').length,
         rejectedPunctuationWords: document.querySelectorAll('.jpdb-reader-word[data-expression="日本語"]').length,
+        buttonChip: {
+            text: buttonChip.textContent.replace(/\s+/g, '').trim(),
+            annotationNodes: buttonChip.querySelectorAll('.jpdb-reader-word,.jpdb-reader-text-mirror,.jpdb-reader-furi,rt').length,
+            height: buttonChip.getBoundingClientRect().height,
+        },
         chip: {
             text: chip.textContent.replace(/\s+/g, '').trim(),
             decoration: chip.getAttribute('data-yomu-decoration'),
@@ -629,6 +636,9 @@ function assertGoogleSearchSnapshot(snapshot, label, options = { expectStatusHig
     assert(snapshot.wordCount >= 8, `${label}: Google fixture did not parse enough reader words`, snapshot);
     assert(snapshot.passiveWordCount >= 8, `${label}: Google fixture words were not passive`, snapshot);
     assertGoogleChip(snapshot.chip, label);
+    // A role=button chip is Google's own control and stays exactly as drawn.
+    assert(snapshot.buttonChip.text === '検索ツールを表示' && snapshot.buttonChip.annotationNodes === 0
+        && snapshot.buttonChip.height <= 38, `${label}: Google button chip was annotated`, snapshot.buttonChip);
     assertGoogleClippedRows(snapshot, label);
     assertGoogleLayout(snapshot, label, options.baseline);
     assertGoogleHighlight(snapshot.snippetFirstWord, label, options.expectStatusHighlight);
@@ -636,9 +646,9 @@ function assertGoogleSearchSnapshot(snapshot, label, options = { expectStatusHig
 
 function assertGoogleChip(chip, label) {
     assert(chip.text.includes('検索結果'), `${label}: Google chip text is missing`, chip);
-    // Role/button chrome is sealed as interactive-passive: Yomu may add detached
-    // readings, state colour, or a pitch underline, but must not add in-flow ruby,
-    // hide the native label beneath a mirror, or grow the control's line box.
+    // A compact toolbar link is sealed as interactive-passive: Yomu may add
+    // detached readings, state colour, or a pitch underline, but must not add
+    // in-flow ruby, hide the native label beneath a mirror, or grow its line box.
     assert(chip.decoration === 'interactive-passive', `${label}: Google chip decoration policy changed`, chip);
     assert(chip.rubyCount === 0, `${label}: Google chip gained layout-affecting ruby`, chip);
     assert(chip.rubyBaseCount > 0, `${label}: Google chip lost its detached reading bases`, chip);
@@ -651,10 +661,10 @@ function assertGoogleChip(chip, label) {
     assert(chip.labelHeight <= 20, `${label}: Google chip label grew beyond its plain-text layout`, chip);
     assert(['hidden', 'visible'].includes(chip.labelOverflow), `${label}: Google chip label overflow contract changed`, chip);
     assert(chip.overflowY === 'hidden', `${label}: Google chip authored clipping was opened`, chip);
-    // A role=button chip is chrome, and chrome is annotated at rest like any
-    // other text. The guards above are what makes that safe: no ruby room, no
-    // growth past the plain-text layout, authored clipping untouched. The
-    // reading itself must be painted, not hidden until the user hovers.
+    // A link chip is annotated at rest like any other text. The guards above
+    // are what makes that safe: no ruby room, no growth past the plain-text
+    // layout, authored clipping untouched. The reading itself must be painted,
+    // not hidden until the user hovers.
     assert(chip.projectedReadings.length > 0,
         `${label}: Google chip is not annotated at rest`, chip);
     assertGoogleChipRevealed(chip, label);

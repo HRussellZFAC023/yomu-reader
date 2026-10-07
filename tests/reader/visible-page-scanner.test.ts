@@ -1057,7 +1057,7 @@ describe('VisiblePageScanner', () => {
         }
     }, 20_000);
 
-    it('enhances YouTube search chrome while preserving form and button dispatch', async () => {
+    it('leaves YouTube search chrome as drawn while preserving form and button dispatch', async () => {
         const restoreRects = mockVisibleElementRects();
         vi.stubGlobal('location', {
             href: 'https://www.youtube.com/',
@@ -1097,8 +1097,7 @@ describe('VisiblePageScanner', () => {
         try {
             await scanner.scanVisiblePage({ silent: true });
 
-            expect(parseJapanese).toHaveBeenCalled();
-            expect(document.querySelector('ytd-searchbox #search-icon-legacy .jpdb-reader-word[data-expression="検索"]')).not.toBeNull();
+            expect(document.querySelector('ytd-searchbox #search-icon-legacy .jpdb-reader-word')).toBeNull();
             expect(document.querySelector('ytd-searchbox .placeholder .jpdb-reader-word')).toBeNull();
             expect(document.querySelector('ytd-searchbox')?.textContent).toContain('検索');
             expect(document.querySelector('input .jpdb-reader-word')).toBeNull();
@@ -1236,7 +1235,7 @@ describe('VisiblePageScanner', () => {
     // comment-scan test (1.6.122) so busy build machines don't flake.
     }, 40000);
 
-    it('enhances YouTube filter chips as passive controls without stealing clicks', async () => {
+    it('leaves YouTube filter chips as drawn without stealing clicks', async () => {
         const restoreRects = mockVisibleElementRects();
         vi.stubGlobal('location', {
             href: 'https://www.youtube.com/',
@@ -1279,15 +1278,8 @@ describe('VisiblePageScanner', () => {
         try {
             await scanner.scanVisiblePage({ silent: true });
 
-            const words = [...document.querySelectorAll<HTMLElement>('ytd-feed-filter-chip-bar-renderer .jpdb-reader-word')];
-            expect(words.map(word => word.dataset.expression)).toEqual(expect.arrayContaining(['すべて', '動画']));
-            expect(words.every(word => word.classList.contains('jpdb-reader-passive-word'))).toBe(true);
-            const video = words.find(word => word.dataset.expression === '動画');
-            // Detached readings keep furigana outside YouTube's native centred
-            // line box while the control remains tokenized and lookupable.
-            expect(video?.querySelector('rt')).toBeNull();
-            expect(video?.querySelector('.jpdb-reader-detached-furi')?.textContent).toBe('どうが');
-            expect(video?.classList.contains('jpdb-pitch-heiban')).toBe(true);
+            // Chips are YouTube's own tab controls: no words, no mirrors.
+            expect(document.querySelector('ytd-feed-filter-chip-bar-renderer .jpdb-reader-word, ytd-feed-filter-chip-bar-renderer .jpdb-reader-text-mirror')).toBeNull();
 
             document.querySelectorAll<HTMLButtonElement>('button')[0]?.click();
             document.querySelectorAll<HTMLButtonElement>('button')[1]?.click();
@@ -1371,7 +1363,7 @@ describe('VisiblePageScanner', () => {
         }
     });
 
-    it('enhances YouTube topbar create button text while preserving button dispatch', async () => {
+    it('leaves the YouTube topbar create button as drawn while preserving button dispatch', async () => {
         const restoreRects = mockVisibleElementRects();
         vi.stubGlobal('location', {
             href: 'https://www.youtube.com/',
@@ -1400,14 +1392,8 @@ describe('VisiblePageScanner', () => {
         try {
             await scanner.scanVisiblePage({ silent: true });
 
-            const create = document.querySelector<HTMLElement>('ytd-masthead .jpdb-reader-word[data-expression="作成"]')!;
-            expect(create).not.toBeNull();
-            expect(create.classList.contains('jpdb-reader-passive-word')).toBe(true);
-            expect(create.classList.contains('jpdb-pitch-heiban')).toBe(true);
-            // The topbar button keeps its native centred line box while a
-            // detached reading paints above it without reserving a lane.
-            expect(create.querySelector('rt')).toBeNull();
-            expect(create.querySelector('.jpdb-reader-detached-furi')?.textContent).toBe('さくせい');
+            expect(parseJapanese).not.toHaveBeenCalled();
+            expect(document.querySelector('ytd-masthead .jpdb-reader-word, ytd-masthead .jpdb-reader-text-mirror')).toBeNull();
 
             document.querySelector<HTMLButtonElement>('button')?.click();
             expect(clicked).toBe(true);
@@ -1419,7 +1405,7 @@ describe('VisiblePageScanner', () => {
         }
     });
 
-    it('mirrors Japanese labels and dropdown options without treating text-entry placeholders as content', async () => {
+    it('leaves form labels and dropdowns as drawn and never treats text-entry placeholders as content', async () => {
         const restoreRects = mockVisibleElementRects();
         document.body.innerHTML = `
             <main>
@@ -1453,23 +1439,17 @@ describe('VisiblePageScanner', () => {
 
             const parsedTexts = parseJapanese.mock.calls.flatMap(call => call[0]);
             expect(parsedTexts.some(text => text.includes('静かな日本語の文章です。'))).toBe(true);
-            expect(parsedTexts.some(text => text.includes('表示順'))).toBe(true);
-            expect(parsedTexts.some(text => text.includes('日本語だけ'))).toBe(true);
+            // The label and the select are the page's form controls.
+            expect(parsedTexts.some(text => text.includes('表示順'))).toBe(false);
+            expect(parsedTexts.some(text => text.includes('日本語だけ'))).toBe(false);
             expect(parsedTexts.some(text => text.includes('単語を検索'))).toBe(false);
             expect(parsedTexts.some(text => text.includes('質問する'))).toBe(false);
             expect(parsedTexts.some(text => text.includes('検索ヘルプ'))).toBe(false);
 
-            const labelWord = document.querySelector<HTMLElement>('label .jpdb-reader-word[data-expression="表示順"]');
-            expect(labelWord).not.toBeNull();
-            expect(labelWord?.dataset.jpdbReaderPassive).toBe('true');
-
+            expect(document.querySelector('label .jpdb-reader-word')).toBeNull();
             const select = document.querySelector<HTMLSelectElement>('select')!;
             expect(select.querySelector('.jpdb-reader-word')).toBeNull();
-            const selectMirror = select.nextElementSibling as HTMLElement | null;
-            expect(selectMirror?.matches('.jpdb-reader-control-text-mirror')).toBe(true);
-            const selectWord = selectMirror?.querySelector<HTMLElement>('.jpdb-reader-word[data-expression="日本語"]') ?? null;
-            expect(selectWord).not.toBeNull();
-            expect(selectWord?.dataset.jpdbReaderPassive).toBe('true');
+            expect(select.nextElementSibling?.matches('.jpdb-reader-control-text-mirror')).not.toBe(true);
 
             const input = document.querySelector<HTMLInputElement>('input')!;
             expect(input.querySelector('.jpdb-reader-word')).toBeNull();
@@ -1479,8 +1459,6 @@ describe('VisiblePageScanner', () => {
             expect(document.querySelector('[role="textbox"] .jpdb-reader-word')).toBeNull();
             expect(document.querySelector('.placeholder .jpdb-reader-word')).toBeNull();
 
-            select.dispatchEvent(new Event('change'));
-            expect(selectMirror?.isConnected).toBe(false);
             input.dispatchEvent(new Event('input'));
             expect(inputMirror?.isConnected).not.toBe(true);
         } finally {
@@ -1569,7 +1547,7 @@ describe('VisiblePageScanner', () => {
 
             const parsedTexts = parseJapanese.mock.calls.flatMap(call => call[0]);
             expect(parsedTexts.some(text => text.includes('詳しい編集方法は'))).toBe(true);
-            expect(parsedTexts.some(text => text.includes('Wikibooks内を検索'))).toBe(true);
+            expect(parsedTexts.some(text => text.includes('Wikibooks内を検索'))).toBe(false);
             const searchWords = Array.from(document.querySelectorAll<HTMLElement>('[role="search"] .jpdb-reader-word'));
             expect(searchWords).toEqual([]);
 

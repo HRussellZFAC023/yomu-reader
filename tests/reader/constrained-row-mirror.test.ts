@@ -139,13 +139,13 @@ describe('non-destructive mirror preserves page-owned clips', () => {
         });
     });
 
-    it('does not count flex wrappers and an SVG caret as extra text lines in a compact control', () => {
+    it('does not count flex wrappers and an SVG caret as extra text lines in a compact toolbar link', () => {
         document.body.innerHTML = `
-            <button id="sort" aria-expanded="false" aria-haspopup="true"
+            <div role="toolbar"><a id="sort" href="/sort" aria-expanded="false" aria-haspopup="true"
                 style="display:inline-flex;align-items:center;overflow:hidden;width:98px;height:32px">
                 <span><span id="label">${TEXT}</span></span>
                 <svg aria-hidden="true" width="16" height="16"></svg>
-            </button>
+            </a></div>
         `;
         const button = document.getElementById('sort')!;
         const label = document.getElementById('label')!;
@@ -186,7 +186,7 @@ describe('non-destructive mirror preserves page-owned clips', () => {
     });
 
     it('keeps complete annotation facts while an authoritative sparse repaint updates card state', () => {
-        document.body.innerHTML = `<button id="sort" style="overflow:hidden;width:98px;height:32px"><span id="label">${TEXT}</span></button>`;
+        document.body.innerHTML = `<div role="toolbar"><a id="sort" href="/sort" style="display:inline-block;overflow:hidden;width:98px;height:32px"><span id="label">${TEXT}</span></a></div>`;
         const button = document.getElementById('sort')!;
         const label = document.getElementById('label')!;
         mockCompactBox(button, 98, 32);
@@ -291,7 +291,7 @@ describe('non-destructive mirror preserves page-owned clips', () => {
 
     it('keeps complete ranges omitted by a bounded repaint', () => {
         const text = `${TEXT}投票`;
-        document.body.innerHTML = `<button id="host" style="overflow:hidden;width:140px;height:32px">${text}</button>`;
+        document.body.innerHTML = `<div role="toolbar"><a id="host" href="/vote" style="display:inline-block;overflow:hidden;width:140px;height:32px">${text}</a></div>`;
         const host = document.getElementById('host')!;
         mockCompactBox(host, 140, 32);
         const first = token();

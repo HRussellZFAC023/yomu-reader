@@ -11,9 +11,10 @@
 //   - a fixed card with 14-16px Japanese flair and vote/comment metadata;
 //   - Latin-only and punctuation-only source ranges returned as bogus tokens.
 //
-// The contract is visible annotation without geometry-changing ruby in controls
-// or compact metadata. Base text stays visible, buttons remain clickable, cards
-// do not grow, and only source ranges that actually contain Japanese are painted.
+// The contract: Reddit's own buttons stay exactly as Reddit drew them (no words,
+// no mirror, same geometry, still clickable), while flair, metadata, menu links
+// and other reading text are annotated without geometry-changing ruby. Cards do
+// not grow, and only source ranges that actually contain Japanese are painted.
 import { existsSync, mkdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -45,12 +46,12 @@ const ARTIFACTS = smokePaths.artifacts;
 const SCRIPT_PATH = path.resolve(process.env.YOMU_REDDIT_SMOKE_USERSCRIPT ?? smokePaths.scriptPath);
 const CSS_PATH = path.resolve(process.env.YOMU_REDDIT_SMOKE_CSS ?? smokePaths.cssPath);
 
-// Every fixture label is annotated at rest, chrome and content alike — buttons
-// (create/join/sort/share and their shadow-DOM twins), menu items, flair,
-// metadata, timestamps and foreign chips all take the same path. Controls stay
-// safe because their readings ride an out-of-flow lane that cannot change the
-// control's line height, hit target, or clipping, which the geometry assertions
-// below enforce — not because anything is hidden until hover.
+// Every reading label is annotated at rest — menu links, flair, metadata,
+// timestamps and foreign chips all take the same path, and their readings ride
+// an out-of-flow lane that cannot change a row's line height, hit target, or
+// clipping, which the geometry assertions below enforce — not because anything
+// is hidden until hover. Buttons (create/join/sort/award/share) are the page's
+// own controls and are never annotated (YQ-07).
 const REQUIRED_COMPANION_PATHS = userscriptCompanionPaths(SCRIPT_PATH);
 // Browser DOMRects include the font line box. Directly stacked reading/base
 // glyphs can therefore report up to 3px of contact without visibly overlapping.
@@ -143,7 +144,7 @@ body { display: grid; place-items: start center; }
 .post-actions { margin-top: 18px; }
 #subreddit, #punctuation { display: inline-block; margin-right: 10px; }
 .foreign-stack { margin-top: 12px; }
-.foreign-row { box-sizing: border-box; height: 28px; font: 600 28px/28px system-ui, sans-serif; white-space: nowrap; }
+.foreign-row { display: block; box-sizing: border-box; height: 28px; font: 600 28px/28px system-ui, sans-serif; white-space: nowrap; }
 #popup-anchor {
   position: fixed; right: 18px; bottom: 112px; z-index: 2;
   box-sizing: border-box; padding: 8px 12px; border: 1px solid #748087; border-radius: 10px;
@@ -162,7 +163,7 @@ body { display: grid; place-items: start center; }
       <button id="create-post" class="safe-control" type="button">＋ 投稿を作成</button>
       <reddit-header-shell id="join-shell"></reddit-header-shell>
     </div>
-    <div id="foreign-stack" class="foreign-stack" role="menu"><div class="foreign-row">Sort mode</div><div id="foreign-jp" class="foreign-row" role="menuitem">共有</div></div>
+    <div id="foreign-stack" class="foreign-stack" role="menu"><div class="foreign-row">Sort mode</div><a id="foreign-jp" class="foreign-row" role="menuitem" href="?share">共有</a></div>
     <div class="feed-tools"><reddit-feed-control id="feed-shell"></reddit-feed-control><reddit-sort-control id="sort-shell"></reddit-sort-control></div>
     <reddit-clipped-title></reddit-clipped-title>
     <a id="highlight-card" class="highlight-card" href="#highlight">
@@ -222,7 +223,7 @@ class RedditSortControl extends HTMLElement {
   constructor() {
     super();
     const root = this.attachShadow({ mode: 'open' });
-    root.innerHTML = '<style>:host{position:relative}.menu{position:absolute;inset-inline-end:0;z-index:3;width:320px;padding:8px 14px;background:#111a1d;border:1px solid #343d42;border-radius:14px}button{box-sizing:border-box;height:40px;max-height:40px;overflow:hidden;padding:0 12px;border:0;background:#0b1416;color:#b7c2c8;font:600 14px/20px system-ui;white-space:nowrap}.menu[hidden]{display:none}.menu-heading,.menu-option{box-sizing:border-box;height:56px;padding-top:20px;font:600 28px/28px system-ui;white-space:nowrap}</style><button id="sort" type="button" aria-haspopup="menu" aria-expanded="false">Sort⌄</button><div id="sort-menu" class="menu" role="menu" hidden><div id="menu-heading" class="menu-heading">Sort criterion</div><div id="menu-hot" class="menu-option" role="menuitem">Hot</div><div id="menu-new" class="menu-option" role="menuitem">New</div><div id="menu-votes" class="menu-option" role="menuitem">Most votes</div></div>';
+    root.innerHTML = '<style>:host{position:relative}.menu{position:absolute;inset-inline-end:0;z-index:3;width:320px;padding:8px 14px;background:#111a1d;border:1px solid #343d42;border-radius:14px}button{box-sizing:border-box;height:40px;max-height:40px;overflow:hidden;padding:0 12px;border:0;background:#0b1416;color:#b7c2c8;font:600 14px/20px system-ui;white-space:nowrap}.menu[hidden]{display:none}.menu-heading,.menu-option{display:block;color:inherit;text-decoration:none;box-sizing:border-box;height:56px;padding-top:20px;font:600 28px/28px system-ui;white-space:nowrap}</style><button id="sort" type="button" aria-haspopup="menu" aria-expanded="false">Sort⌄</button><div id="sort-menu" class="menu" role="menu" hidden><div id="menu-heading" class="menu-heading">Sort criterion</div><a id="menu-hot" class="menu-option" role="menuitem" href="?sort=hot">Hot</a><a id="menu-new" class="menu-option" role="menuitem" href="?sort=new">New</a><a id="menu-votes" class="menu-option" role="menuitem" href="?sort=top">Most votes</a></div>';
     root.getElementById('sort').addEventListener('click', () => {
       window.__redditSmokeClicks.sort += 1;
       root.getElementById('sort-menu').hidden = false;
@@ -248,7 +249,7 @@ class RedditLateJoinHost extends HTMLElement {
   constructor() {
     super();
     const root = this.attachShadow({ mode: 'open' });
-    root.innerHTML = '<button id="late-join" type="button">参加</button>';
+    root.innerHTML = '<p id="late-join">参加</p>';
   }
 }
 customElements.define('reddit-late-join-host', RedditLateJoinHost);
@@ -259,7 +260,7 @@ class RedditLateHydrateHost extends HTMLElement {
   }
   connectedCallback() {
     setTimeout(() => {
-      this.shadowRoot.innerHTML = '<button id="late-hydrate" type="button">フィード</button>';
+      this.shadowRoot.innerHTML = '<p id="late-hydrate">フィード</p>';
     }, 100);
   }
 }
@@ -406,10 +407,9 @@ async function runEngine(engineName, browser) {
         // rejected without observer registration, so these mutations stayed
         // bare until an unrelated page event happened to trigger a scan.
         await Promise.all([
-            page.locator('#create-post .jpdb-reader-word').nth(1).waitFor({ timeout: 20_000 }),
+            page.locator('#flair .jpdb-reader-word').first().waitFor({ timeout: 20_000 }),
             page.locator('#card-metadata .jpdb-reader-word').nth(1).waitFor({ timeout: 20_000 }),
-            page.locator('#award-control .jpdb-reader-word[data-expression="贈る"]').waitFor({ timeout: 20_000 }),
-            page.locator('#share .jpdb-reader-word').first().waitFor({ timeout: 20_000 }),
+            page.locator('#post-meta .jpdb-reader-word').first().waitFor({ timeout: 20_000 }),
             page.locator('#clipped-reader-row .jpdb-reader-additive-text-mirror').waitFor({ timeout: 20_000, state: 'attached' }),
         ]);
         const localizedControlBoxes = await page.evaluate(() => {
@@ -441,51 +441,37 @@ async function runEngine(engineName, browser) {
         });
 
         await Promise.all([
-            page.locator('#join .jpdb-reader-word').first().waitFor({ timeout: 20_000 }),
             page.locator('#feed .jpdb-reader-word').first().waitFor({ timeout: 20_000 }),
-            page.locator('#sort .jpdb-reader-word').first().waitFor({ timeout: 20_000 }),
             page.locator('.jpdb-reader-fab').waitFor({ timeout: 20_000 }),
-            signInFrame.locator('#google-signin .jpdb-reader-word[data-expression="続ける"]').waitFor({ timeout: 20_000 }),
         ]);
-        // The iframe sign-in button is rendered via the DESTRUCTIVE in-place path
-        // (word spans injected straight into the <button>), so it proves chrome is
-        // annotated at rest on that path too, not just through the control mirror.
-        await signInFrame.waitForFunction(() => {
-            const button = document.querySelector('#google-signin');
-            const readings = window.__yomuProjectedReadingDiagnostics(button);
-            return readings.sources.length > 0
-                && readings.associations.length === readings.sources.length;
-        }, null, { timeout: 20_000 });
-        const lateLocalizedSignIn = await signInFrame.locator('#google-signin').evaluate(button => {
-            const readings = window.__yomuProjectedReadingDiagnostics(button);
-            return {
-                text: button.textContent?.trim() ?? '',
-                expressions: [...button.querySelectorAll('.jpdb-reader-word')]
-                    .map(word => word.dataset.expression ?? ''),
-                words: button.querySelectorAll('.jpdb-reader-word').length,
-                sourceFurigana: readings.sources.length,
-                sourceFuriganaVisible: readings.sources.filter(readings.visible).length,
-                projectedFurigana: readings.associations.length,
-                pitchWords: button.querySelectorAll('.jpdb-reader-word[data-pitch-class]:not([data-pitch-class="unknown"])').length,
-            };
+        // Give the localized controls the same settle window a reading would
+        // need, then prove they stayed exactly as the page drew them: a
+        // control localized to Japanese long after boot is still a control.
+        await page.waitForTimeout(1_500);
+        const lateLocalizedSignIn = await signInFrame.locator('#google-signin').evaluate(button => ({
+            text: button.textContent?.trim() ?? '',
+            words: button.querySelectorAll('.jpdb-reader-word').length,
+            mirrors: button.querySelectorAll('.jpdb-reader-text-mirror').length,
+        }));
+        assert(lateLocalizedSignIn.text === 'Google で続ける'
+            && lateLocalizedSignIn.words === 0
+            && lateLocalizedSignIn.mirrors === 0,
+        `${engineName}: a localized embedded button was annotated`, lateLocalizedSignIn);
+        const untouchedControls = await page.evaluate(() => {
+            const join = document.querySelector('reddit-header-shell').shadowRoot
+                .querySelector('reddit-join-control').shadowRoot.querySelector('#join');
+            const sort = document.querySelector('reddit-sort-control').shadowRoot.querySelector('#sort');
+            const award = document.querySelector('reddit-award-button').shadowRoot.querySelector('#award-control');
+            return Object.fromEntries(Object.entries({
+                create: document.querySelector('#create-post'),
+                join,
+                sort,
+                award,
+                share: document.querySelector('#share'),
+            }).map(([name, control]) => [name, control.querySelectorAll('.jpdb-reader-word,.jpdb-reader-text-mirror,.jpdb-reader-furi,rt').length]));
         });
-        // In-place path: a control localized to Japanese long after boot is
-        // enriched (word parsed, source furigana + pitch present) and painted
-        // at rest, exactly like any other text.
-        assert(lateLocalizedSignIn.expressions.includes('続ける')
-            && lateLocalizedSignIn.words > 0
-            && lateLocalizedSignIn.sourceFurigana > 0
-            // The source reading stays out of page layout; the projected clone
-            // is what the user actually reads, and chrome shows it at rest.
-            && lateLocalizedSignIn.sourceFuriganaVisible === 0
-            && lateLocalizedSignIn.projectedFurigana > 0
-            && lateLocalizedSignIn.pitchWords > 0,
-        `${engineName}: a Latin embedded control was not enriched after Japanese localization`, lateLocalizedSignIn);
-        // No rest-hiding marker may exist anywhere: chrome is annotated at rest.
-        const commandMarkers = await signInFrame.locator('#google-signin').evaluate(button =>
-            Number(Boolean(button.closest('[data-yomu-command-control]')))
-            + button.querySelectorAll('[data-yomu-command-control]').length);
-        assert(commandMarkers === 0, `${engineName}: a bare-until-hover marker survived on chrome`, { commandMarkers });
+        assert(Object.values(untouchedControls).every(count => count === 0),
+            `${engineName}: a Reddit button was annotated`, untouchedControls);
         await page.waitForTimeout(400);
         const responsiveness = await page.evaluate(stopRedditResponsivenessProbe);
         // Let Yomu's deliberately delayed 1.5s clamp/readings sweep finish,
@@ -524,7 +510,7 @@ async function runEngine(engineName, browser) {
             customElements.define('reddit-late-upgrade-host', class extends HTMLElement {
                 constructor() {
                     super();
-                    this.attachShadow({ mode: 'open' }).innerHTML = '<button id="late-upgrade">並べ替え基準</button>';
+                    this.attachShadow({ mode: 'open' }).innerHTML = '<p id="late-upgrade">並べ替え基準</p>';
                 }
             });
         });
@@ -578,24 +564,23 @@ async function runEngine(engineName, browser) {
         const puckDrag = await exerciseCompensatedPuckDrag(page);
         assertCompensatedPuckDrag(engineName, puckDrag);
         const mirrorRemovalFallback = await page.evaluate(() => {
-            const join = document.querySelector('reddit-header-shell').shadowRoot
-                .querySelector('reddit-join-control').shadowRoot.querySelector('#join');
-            join.querySelector('.jpdb-reader-text-mirror')?.remove();
-            const style = getComputedStyle(join);
+            const row = document.querySelector('reddit-clipped-title').shadowRoot.querySelector('#clipped-reader-row');
+            row.querySelector('.jpdb-reader-text-mirror')?.remove();
+            const style = getComputedStyle(row);
             return {
-                text: join.textContent.trim(),
+                text: row.textContent.trim(),
                 visibility: style.visibility,
                 color: style.color,
                 fill: style.webkitTextFillColor,
-                width: join.getBoundingClientRect().width,
+                width: row.getBoundingClientRect().width,
             };
         });
-        assert(mirrorRemovalFallback.text.includes('参加')
+        assert(mirrorRemovalFallback.text.includes('国際カップル')
             && mirrorRemovalFallback.visibility !== 'hidden'
             && mirrorRemovalFallback.color !== 'transparent'
             && mirrorRemovalFallback.color !== 'rgba(0, 0, 0, 0)'
             && mirrorRemovalFallback.width > 0,
-        `${engineName}: removing a framework mirror left a blank control`, mirrorRemovalFallback);
+        `${engineName}: removing a framework mirror left a blank row`, mirrorRemovalFallback);
         assert(pageErrors.length === 0, `${engineName}: pointer/video checks raised page errors`, pageErrors);
         return {
             engine: engineName,
@@ -608,6 +593,7 @@ async function runEngine(engineName, browser) {
             puckDrag,
             mirrorRemovalFallback,
             lateLocalizedSignIn,
+            untouchedControls,
             performance: {
                 responsiveness,
                 steadyState,
@@ -1633,15 +1619,10 @@ function snapshotRedditLayout() {
 
 async function snapshotRedditRegression(page) {
     const backgroundSpecs = {
-        create: ['#create-post', '投稿を作成'],
-        join: ['#join', '参加'],
         feed: ['#feed', 'フィード'],
-        sort: ['#sort', '賛成票率順'],
         flair: ['#flair', '告知'],
         metadata: ['#card-metadata', '賛成票・コメント'],
         time: ['#post-meta', '時間前'],
-        award: ['#award-control', 'アワードを贈る'],
-        share: ['#share', '共有'],
         foreign: ['#foreign-jp', '共有'],
         lateJoin: ['#late-join', '参加'],
         lateHydrate: ['#late-hydrate', 'フィード'],
@@ -2204,9 +2185,9 @@ function assertAnnotatedLabels(engineName, labels) {
             assert(label.visibleText.includes(fragment), `${engineName}: ${name} lost visible base text "${fragment}"`, label);
         }
     }
-    // Chrome buttons and metadata rows alike keep every parsed reading painted
-    // at rest — the point of the whole tier is layout safety, not hiding.
-    for (const name of ['create', 'join', 'sort', 'award', 'share', 'time']) {
+    // Menu links and metadata rows alike keep every parsed reading painted at
+    // rest — the point of the whole tier is layout safety, not hiding.
+    for (const name of ['menuHot', 'menuVotes', 'time']) {
         const label = labels[name];
         assert(label.readingCount > 0
             && label.projectedReadingCount === label.readingCount
@@ -2287,12 +2268,8 @@ function assertForeignTextVisibility(engineName, foreignLabel) {
         `${engineName}: foreign-text adjacency removed pitch annotation`, foreignLabel);
 }
 
-function assertControlBehavior(engineName, baseline, snapshot) {
-    assert(Object.values(snapshot.clicks).every(count => count === 1), `${engineName}: an annotated control stopped receiving clicks`, snapshot.clicks);
-    assert(Math.abs(snapshot.labels.join.wordCenterOffset - baseline.joinTextCenterOffset) <= 2,
-        `${engineName}: mirrored Join label moved away from its native vertical alignment`, { baseline, join: snapshot.labels.join });
-    assert(Math.abs(snapshot.labels.sort.wordCenterOffset - baseline.sortTextCenterOffset) <= 2,
-        `${engineName}: mirrored sort label moved away from its native vertical alignment`, { baseline, sort: snapshot.labels.sort });
+function assertControlBehavior(engineName, _baseline, snapshot) {
+    assert(Object.values(snapshot.clicks).every(count => count === 1), `${engineName}: a Reddit button stopped receiving clicks`, snapshot.clicks);
 }
 
 function assertCoarsePointerSafety(engineName, touchHover) {

@@ -53,13 +53,14 @@ afterEach(() => {
 // (ytd-comments-header-renderer DIVs + tp-yt-paper-menu-button min-height)
 // because the sort trigger's caret ICON made isMediaTextContentControl treat
 // the role=button trigger as media-text CONTENT — an icon is how controls
-// decorate themselves, not a thumbnail. Menus/dropdown triggers must classify
-// interactive-passive; real media cards (img avatar + name) stay content.
-describe('comments-header sort trigger classifies interactive-passive', () => {
-    it('classifies the sort dropdown label as interactive-passive despite the ytd-comments content root', () => {
+// decorate themselves, not a thumbnail. Menus/dropdown triggers are page
+// controls, which the page keeps as drawn; real media cards (img avatar +
+// name) stay content.
+describe('comments-header sort trigger stays a page control', () => {
+    it('leaves the sort dropdown label alone despite the ytd-comments content root', () => {
         commentsHeaderDom();
         const label = document.querySelector<HTMLElement>('#label-text')!;
-        expect(classifyDecoration(label)).toBe('interactive-passive');
+        expect(classifyDecoration(label)).toBe('skip');
     });
 
     it('treats a small measured <img> caret exactly like an svg icon (still a control)', () => {
@@ -73,7 +74,7 @@ describe('comments-header sort trigger classifies interactive-passive', () => {
             configurable: true,
             value: () => ({ x: 0, y: 0, left: 0, top: 0, right: 16, bottom: 16, width: 16, height: 16, toJSON: () => ({}) }) as DOMRect,
         });
-        expect(classifyDecoration(document.getElementById('text')!)).toBe('interactive-passive');
+        expect(classifyDecoration(document.getElementById('text')!)).toBe('skip');
     });
 
     it('keeps a channel avatar link (real media + name) as content', () => {

@@ -229,14 +229,14 @@ describe('classifyDecoration acceptance matrix', () => {
         `;
     }
 
-    it('classifies a YouTube speed-picker chip as interactive-passive', () => {
+    it('leaves a YouTube speed-picker chip as the page drew it', () => {
         stubYouTube();
         document.body.innerHTML = `
             <ytm-bottom-sheet-renderer>
                 <button id="chip" class="option"><span id="label">0.5倍</span></button>
             </ytm-bottom-sheet-renderer>
         `;
-        expect(classifyText('#label')).toBe('interactive-passive');
+        expect(classifyText('#label')).toBe('skip');
     });
 
     it('leaves YouTube ellipsis-constrained action and mini-guide labels undecorated', () => {
@@ -321,7 +321,7 @@ describe('classifyDecoration acceptance matrix', () => {
         expect(classifyText('#video-title')).toBe('content-ruby');
     });
 
-    it('keeps a realistically bounded YouTube video-title link and unclipped controls annotatable', () => {
+    it('keeps a realistically bounded YouTube video-title link annotatable and leaves its buttons alone', () => {
         stubYouTube();
         document.body.innerHTML = `
             <ytd-reel-player-overlay-renderer>
@@ -334,7 +334,7 @@ describe('classifyDecoration acceptance matrix', () => {
         mockRect(document.querySelector<HTMLElement>('#title-link')!, { width: 240, height: 40 });
 
         expect(classifyText('#title')).toBe('content-ruby');
-        expect(classifyText('#create')).toBe('interactive-passive');
+        expect(classifyText('#create')).toBe('skip');
     });
 
     it('recognizes YouTube native ellipsis chrome across an open shadow root', () => {
@@ -353,15 +353,15 @@ describe('classifyDecoration acceptance matrix', () => {
         expect(classifyDecoration(label)).toBe('skip');
     });
 
-    it('keeps ellipsis-constrained controls on other sites annotatable', () => {
+    it('keeps an ellipsis-constrained toolbar link on other sites annotatable', () => {
         document.body.innerHTML = `
-            <nav><button><span id="share" style="display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">共有</span></button></nav>
+            <div role="toolbar"><a href="/share"><span id="share" style="display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">共有</span></a></div>
         `;
 
         expect(classifyText('#share')).toBe('interactive-passive');
     });
 
-    it('keeps unrelated YouTube controls annotatable while native Shorts chrome is page-owned before CSS hydration', () => {
+    it('leaves YouTube controls and native Shorts chrome page-owned before CSS hydration', () => {
         stubYouTube();
         document.body.innerHTML = `
             <ytm-bottom-sheet-renderer>
@@ -372,7 +372,7 @@ describe('classifyDecoration acceptance matrix', () => {
             </ytd-reel-player-overlay-renderer>
         `;
 
-        expect(classifyText('#speed')).toBe('interactive-passive');
+        expect(classifyText('#speed')).toBe('skip');
         expect(classifyText('#unclipped-share')).toBe('skip');
     });
 
@@ -387,11 +387,20 @@ describe('classifyDecoration acceptance matrix', () => {
         expect(getComputedStyle).not.toHaveBeenCalled();
     });
 
-    it('classifies a player settings row (menuitem) as interactive-passive', () => {
+    it('leaves a player settings row (menuitem) as the page drew it', () => {
         stubYouTube();
         document.body.innerHTML = `
             <div class="ytp-settings-menu" role="menu">
                 <div id="row" role="menuitem"><span id="label">画質</span></div>
+            </div>
+        `;
+        expect(classifyText('#label')).toBe('skip');
+    });
+
+    it('keeps a link that is a menu item annotatable', () => {
+        document.body.innerHTML = `
+            <div role="menu">
+                <a id="row" role="menuitem" href="/settings"><span id="label">設定</span></a>
             </div>
         `;
         expect(classifyText('#label')).toBe('interactive-passive');
@@ -567,7 +576,7 @@ describe('classifyDecoration acceptance matrix', () => {
         expect(targets.some(candidate => candidate.text === '深い階層に置かれた日本語のタイトル')).toBe(true);
     });
 
-    it('classifies subscribe buttons as interactive-passive even inside watch metadata', () => {
+    it('leaves subscribe buttons alone even inside watch metadata', () => {
         stubYouTube();
         document.body.innerHTML = `
             <ytd-watch-metadata data-yomu-furigana-mode="all">
@@ -576,20 +585,20 @@ describe('classifyDecoration acceptance matrix', () => {
                 </ytd-subscribe-button-renderer>
             </ytd-watch-metadata>
         `;
-        expect(classifyText('#label')).toBe('interactive-passive');
+        expect(classifyText('#label')).toBe('skip');
     });
 
-    it('classifies a feed filter chip (role=tab) as interactive-passive', () => {
+    it('leaves a feed filter chip (role=tab) as the page drew it', () => {
         stubYouTube();
         document.body.innerHTML = `
             <ytm-feed-filter-chip-bar-renderer role="tablist">
                 <div id="chip" role="tab"><span id="label">新着</span></div>
             </ytm-feed-filter-chip-bar-renderer>
         `;
-        expect(classifyText('#label')).toBe('interactive-passive');
+        expect(classifyText('#label')).toBe('skip');
     });
 
-    it('keeps a search editor untouched while its declared suggestion choice is passive', () => {
+    it('keeps a search editor and its declared suggestion choices untouched', () => {
         document.body.innerHTML = `
             <div role="combobox" aria-owns="suggestions" aria-expanded="true">
                 <input id="search" type="search" value="日本語">
@@ -600,11 +609,8 @@ describe('classifyDecoration acceptance matrix', () => {
         `;
         expect(classifyText('#search')).toBe('skip');
         expect(classifyText('#suggestions')).toBe('skip');
-        expect(classifyText('#suggestion')).toBe('interactive-passive');
-        expect(collectTargets().find(candidate => candidate.text === '日本語 勉強')).toMatchObject({
-            decoration: 'interactive-passive',
-            passiveInteraction: true,
-        });
+        expect(classifyText('#suggestion')).toBe('skip');
+        expect(collectTargets().find(candidate => candidate.text === '日本語 勉強')).toBeUndefined();
     });
 
     it('classifies a combobox-owned popup without a listbox role as skip', () => {
@@ -615,13 +621,13 @@ describe('classifyDecoration acceptance matrix', () => {
         expect(classifyText('#row')).toBe('skip');
     });
 
-    it('annotates a non-editable listbox trigger (select-like combobox) passively', () => {
+    it('leaves a non-editable listbox trigger (select-like combobox) alone', () => {
         document.body.innerHTML = `
             <div id="picker" role="combobox" aria-haspopup="listbox" aria-expanded="false">
                 <span id="face">日本語</span>
             </div>
         `;
-        expect(classifyText('#face')).toBe('interactive-passive');
+        expect(classifyText('#face')).toBe('skip');
     });
 
     it('keeps an autocomplete combobox on the editor skip path', () => {
@@ -643,12 +649,12 @@ describe('classifyDecoration acceptance matrix', () => {
         expect(classifyText('#hint')).toBe('skip');
     });
 
-    it('annotates a declared menu choice inside a combobox-owned popup passively', () => {
+    it('leaves a declared menu choice inside a combobox-owned popup alone', () => {
         document.body.innerHTML = `
             <input role="combobox" aria-controls="popup" type="text">
             <div id="popup"><div id="row" role="menuitem">候補を選択</div></div>
         `;
-        expect(classifyText('#row')).toBe('interactive-passive');
+        expect(classifyText('#row')).toBe('skip');
     });
 
     it('keeps native select options on the native-control mirror path', () => {
@@ -691,14 +697,14 @@ describe('classifyDecoration acceptance matrix', () => {
         expect(classifyText('#content-text')).toBe('content-ruby');
     });
 
-    it('keeps actual controls in YouTube content roots interactive-passive', () => {
+    it('leaves actual controls in YouTube content roots as the page drew them', () => {
         stubYouTube();
         document.body.innerHTML = `
             <ytm-slim-video-metadata-section-renderer>
                 <ytm-button-renderer><button id="ask"><span id="label">質問する</span></button></ytm-button-renderer>
             </ytm-slim-video-metadata-section-renderer>
         `;
-        expect(classifyText('#label')).toBe('interactive-passive');
+        expect(classifyText('#label')).toBe('skip');
     });
 
     it('classifies an article paragraph as prose-full', () => {
@@ -777,16 +783,16 @@ describe('late YouTube native-chrome hydration', () => {
 });
 
 // Geometry-invariance guard (the interactive-passive layout contract):
-// decorating a control changes NOTHING about its geometry — no in-flow
+// decorating a toolbar link changes NOTHING about its geometry — no in-flow
 // <ruby>, no line-height class, identical bounding rect, and repeated scans
 // accumulate nothing. Asserted on a youtube.com fixture because YouTube was
 // the site historically exempted from chrome ruby suppression.
 describe('interactive-passive geometry invariance', () => {
-    it('never adds in-flow ruby or growth to a YouTube subscribe button across repeated scans', () => {
+    it('never adds in-flow ruby or growth to a YouTube toolbar link across repeated scans', () => {
         stubYouTube();
         document.body.innerHTML = `
-            <div id="shell">
-                <button id="subscribe" style="overflow:hidden;height:36px;white-space:nowrap">チャンネル登録</button>
+            <div id="shell" role="toolbar">
+                <a id="subscribe" href="/subscribe" style="display:inline-block;overflow:hidden;height:36px;white-space:nowrap">チャンネル登録</a>
             </div>
         `;
         const button = document.querySelector<HTMLElement>('#subscribe')!;
@@ -1363,10 +1369,10 @@ describe('clip-constrained chrome rows (engine-unconditional)', () => {
 // furigana-mode=all attribute: an UNCONSTRAINED control (no clip styles, so
 // the constrained-row guard cannot mask the check) still gets no in-flow ruby.
 describe('interactive-passive under furigana-mode=all', () => {
-    it('keeps in-flow ruby off an unconstrained button when readings are forced page-wide', () => {
+    it('keeps in-flow ruby off an unconstrained toolbar link when readings are forced page-wide', () => {
         document.body.innerHTML = `
-            <div data-yomu-furigana-mode="all">
-                <button id="open">設定を開く</button>
+            <div data-yomu-furigana-mode="all" role="toolbar">
+                <a id="open" href="/settings">設定を開く</a>
             </div>
         `;
         const target = collectTargets().find(candidate => candidate.text === '設定を開く');
@@ -1375,10 +1381,10 @@ describe('interactive-passive under furigana-mode=all', () => {
         applyTokensToScanTarget(target!, [
             token('設定', 0, '設定を開く', 'せってい'),
         ], FURIGANA_SETTINGS);
-        const button = document.querySelector<HTMLElement>('#open')!;
-        expect(button.querySelector('.jpdb-reader-word')).toBeTruthy();
-        expect(button.querySelector('rt')).toBeNull();
-        expect(button.querySelector('.jpdb-reader-detached-furi')?.textContent).toBe('せってい');
+        const link = document.querySelector<HTMLElement>('#open')!;
+        expect(link.querySelector('.jpdb-reader-word')).toBeTruthy();
+        expect(link.querySelector('rt')).toBeNull();
+        expect(link.querySelector('.jpdb-reader-detached-furi')?.textContent).toBe('せってい');
     });
 });
 
@@ -1480,7 +1486,7 @@ describe('mirror bareness with painted descendants', () => {
 describe('interactive-passive mirror channel under furigana-mode=all', () => {
     it('derives detached furigana from a card reading when the live token has no explicit rubies', () => {
         document.body.innerHTML = `
-            <button id="sort" style="height:36px;overflow:hidden;white-space:nowrap">賛成票率順</button>
+            <div role="toolbar"><a id="sort" href="/sort" style="display:inline-block;height:36px;overflow:hidden;white-space:nowrap">賛成票率順</a></div>
         `;
         const button = document.querySelector<HTMLElement>('#sort')!;
         mockRect(button, { width: 144, height: 36 });
@@ -1502,7 +1508,7 @@ describe('interactive-passive mirror channel under furigana-mode=all', () => {
         expect(button.style.getPropertyValue('overflow')).toBe('hidden');
     });
 
-    it('renders a centered subscribe-button annotation with a layout-neutral detached reading', () => {
+    it('leaves a subscribe button as the page drew it under furigana-mode=all', () => {
         stubYouTube();
         document.body.innerHTML = `
             <div data-yomu-furigana-mode="all">
@@ -1517,36 +1523,19 @@ describe('interactive-passive mirror channel under furigana-mode=all', () => {
                 </ytd-watch-metadata>
             </div>
         `;
-        const collected = collectTargets().find(candidate => candidate.text === 'チャンネル登録');
-        expect(collected).toBeTruthy();
-        expect(collected?.decoration).toBe('interactive-passive');
-        // The volatile watch-metadata profile routes subscribe rows through
-        // the non-destructive mirror.
-        const target = { ...collected!, nonDestructive: true, passiveInteraction: true };
-
-        applyTokensToScanTarget(target, [
-            token('登録', 'チャンネル登録'.indexOf('登録'), 'チャンネル登録', 'とうろく'),
-        ], FURIGANA_SETTINGS);
-
         const button = document.querySelector<HTMLElement>('button.yt-spec-button-shape-next')!;
-        const mirror = button.querySelector<HTMLElement>('.jpdb-reader-text-mirror');
-        expect(mirror).toBeTruthy();
-        expect(mirror?.querySelector('.jpdb-reader-word')).toBeTruthy();
-        // Controls remain lookupable and readable without reserving an
-        // in-flow furigana lane that can displace fixed-height labels on WebKit.
-        expect(button.querySelectorAll('rt')).toHaveLength(0);
-        expect(mirror?.querySelector('.jpdb-reader-detached-furi')?.textContent).toBe('とうろく');
-        // Subscribe is a control, so its mirror keeps the host's own control
-        // metrics while the reading rides the out-of-flow lane above.
-        expect(mirror?.dataset.yomuControlMirror).toBe('true');
-        expect(button.dataset.yomuRubyRoom).toBeUndefined();
+        const nativeHtml = button.innerHTML;
+
+        expect(collectTargets().find(candidate => candidate.text === 'チャンネル登録')).toBeUndefined();
+        expect(button.innerHTML).toBe(nativeHtml);
+        expect(button.querySelector('.jpdb-reader-text-mirror')).toBeNull();
     });
 
-    it('preserves detached readings plus compound and multiple pitch patterns on a control word', () => {
+    it('preserves detached readings plus compound and multiple pitch patterns on a toolbar link word', () => {
         stubYouTube();
         document.documentElement.classList.add('jpdb-reader-word-underline-pitch');
         document.body.innerHTML = `
-            <button id="count" style="height:36px;overflow:hidden;white-space:nowrap">チャンネル登録者数</button>
+            <div role="toolbar"><a id="count" href="/subscribers" style="display:inline-block;height:36px;overflow:hidden;white-space:nowrap">チャンネル登録者数</a></div>
         `;
         const button = document.querySelector<HTMLElement>('#count')!;
         mockRect(button, { width: 168, height: 36 });
@@ -1596,10 +1585,10 @@ describe('interactive-passive mirror channel under furigana-mode=all', () => {
         expect(row.closest('[data-yomu-ruby-room="true"]')).toBeNull();
     });
 
-    it('keeps a clipped Reddit-style control mirror annotated and visible at rest', () => {
+    it('keeps a clipped Reddit-style toolbar link mirror annotated and visible at rest', () => {
         document.body.innerHTML = `
             <shreddit-app data-yomu-furigana-mode="all">
-                <button id="join" style="height:40px;max-height:40px;overflow:hidden;white-space:nowrap">参加</button>
+                <div role="toolbar"><a id="join" href="/join" style="display:inline-block;height:40px;max-height:40px;overflow:hidden;white-space:nowrap">参加</a></div>
             </shreddit-app>
         `;
         const button = document.querySelector<HTMLElement>('#join')!;
@@ -1616,8 +1605,8 @@ describe('interactive-passive mirror channel under furigana-mode=all', () => {
         expect(mirror.querySelector('.jpdb-reader-word')).toBeTruthy();
         expect(mirror.querySelector('rt')).toBeNull();
         expect(mirror.querySelector('.jpdb-reader-detached-furi')?.textContent).toBe('さんか');
-        // 参加 is a Reddit chrome button: annotated at rest through the
-        // out-of-flow reading lane, like every other control.
+        // A clipped toolbar link is annotated at rest through the
+        // out-of-flow reading lane; there is no bare-until-hover tier.
         expect(mirror.dataset.yomuControlMirror).toBe('true');
         expect(mirror.classList.contains('jpdb-reader-additive-text-mirror')).toBe(true);
         expect(mirror.classList.contains('jpdb-reader-clip-hover-mirror')).toBe(false);
@@ -1630,7 +1619,7 @@ describe('interactive-passive mirror channel under furigana-mode=all', () => {
         document.documentElement.classList.add('jpdb-reader-word-underline-pitch');
         document.body.innerHTML = `
             <shreddit-app data-yomu-furigana-mode="all">
-                <button id="feed" style="height:40px;overflow:hidden;white-space:nowrap">フィード</button>
+                <div role="toolbar"><a id="feed" href="/feed" style="display:inline-block;height:40px;overflow:hidden;white-space:nowrap">フィード</a></div>
             </shreddit-app>
         `;
         const button = document.querySelector<HTMLElement>('#feed')!;
@@ -1727,50 +1716,6 @@ describe('clip-constrained rows keep detached readings without ruby-room growth'
         expect(panel.style.getPropertyValue('overflow')).toBe('hidden');
         expect(panel.dataset.yomuDetachedReadingOverflow).toBeUndefined();
         expect(panel.querySelector('.jpdb-reader-detached-furi')?.textContent).toBe('にほんご');
-    });
-
-    it('opens a visible furigana lane on an aria-expanded disclosure button', () => {
-        document.body.innerHTML = `
-            <button id="sort" type="button" aria-expanded="false" aria-haspopup="menu"
-                style="height:40px;max-height:40px;overflow:hidden;white-space:nowrap">賛成票率順</button>
-        `;
-        const button = document.querySelector<HTMLElement>('#sort')!;
-        mockRect(button, { width: 150, height: 40 });
-        Object.defineProperties(button, {
-            clientWidth: { value: 150, configurable: true },
-            clientHeight: { value: 40, configurable: true },
-            scrollWidth: { value: 150, configurable: true },
-            scrollHeight: { value: 40, configurable: true },
-        });
-        const clicked = vi.fn();
-        button.addEventListener('click', clicked);
-        const target = collectTargets(button).find(candidate => candidate.text === '賛成票率順')!;
-        const nativeCreateRange = document.createRange.bind(document);
-        vi.spyOn(document, 'createRange').mockImplementation(() => {
-            const range = nativeCreateRange();
-            Object.defineProperty(range, 'getClientRects', {
-                configurable: true,
-                value: () => [{
-                    x: 0, y: 10, left: 0, top: 10, right: 120, bottom: 30,
-                    width: 120, height: 20, toJSON: () => ({}),
-                }] as unknown as DOMRectList,
-            });
-            return range;
-        });
-
-        applyTokensToScanTarget(target, [
-            token('賛成票率順', 0, target.text, 'さんせいひょうりつじゅん'),
-        ], FURIGANA_SETTINGS);
-        makeRoomForRubyInCroppedRows(document);
-
-        const reading = button.querySelector<HTMLElement>('.jpdb-reader-detached-furi')!;
-        expect(button.dataset.yomuDetachedReadingOverflow).toBeUndefined();
-        expect(button.style.getPropertyValue('overflow')).toBe('hidden');
-        expect(reading.dataset.yomuDetachedReadingHidden).toBeUndefined();
-        expect(getComputedStyle(reading).display).toBe('none');
-        expect(button.getBoundingClientRect().height).toBe(40);
-        button.click();
-        expect(clicked).toHaveBeenCalledTimes(1);
     });
 
     it.each([
@@ -1883,43 +1828,61 @@ describe('clip-constrained rows keep detached readings without ruby-room growth'
     });
 });
 
-// Chrome buttons (Reddit's 質問 / 参加 / 共有 / アワードを贈る and their kind) are
-// annotated AT REST like any other text. They stay interactive-passive, so the
-// reading rides an out-of-flow lane and the control keeps its authored line
-// height and hit target — that is layout safety, not a reason to hide the
-// reading. There is no bare-until-hover tier: a reading the user cannot see
-// until they hover is a reading they cannot read.
-describe('chrome buttons are annotated at rest', () => {
-    function chromeMirror(button: HTMLElement, text: string, reading: string): HTMLElement {
-        mockRect(button, { width: 120, height: 40 });
-        const collected = collectTargets(button).find(candidate => candidate.text === text)!;
+// Page buttons (Reddit's 質問 / 参加 / 共有 / アワードを贈る and their kind) are the
+// page's own interface: Yomu leaves them exactly as the page drew them, and a
+// hover can still look their text up (YQ-07). Links in toolbars and menus stay
+// annotated AT REST: their reading rides an out-of-flow lane so the row keeps
+// its authored line height and hit target. There is no bare-until-hover tier:
+// a reading the user cannot see until they hover is a reading they cannot read.
+describe('page buttons stay as drawn; toolbar links are annotated at rest', () => {
+    function chromeMirror(control: HTMLElement, text: string, reading: string): HTMLElement {
+        mockRect(control, { width: 120, height: 40 });
+        const collected = collectTargets(control).find(candidate => candidate.text === text)!;
         expect(collected).toBeTruthy();
         expect(collected.decoration).toBe('interactive-passive');
         applyTokensToScanTarget({ ...collected, nonDestructive: true, passiveInteraction: true }, [
             token(text, 0, text, reading),
         ], FURIGANA_SETTINGS);
-        return button.querySelector<HTMLElement>('.jpdb-reader-text-mirror')!;
+        return control.querySelector<HTMLElement>('.jpdb-reader-text-mirror')!;
     }
 
-    // Every case asserts the same contract: the reading exists in the detached
-    // lane at rest, and no in-flow rt can grow the button.
     it.each([
-        ['search-bar 質問 button', '<div role="search"><button id="c">質問</button></div>', '質問', 'しつもん'],
-        ['参加 join button', '<button id="c">参加</button>', '参加', 'さんか'],
-        ['共有 share button with an icon child', '<button id="c"><svg aria-hidden="true"></svg><span>共有</span></button>', '共有', 'きょうゆう'],
-        ['アワードを贈る comment action', '<div class="comment-action-row"><button id="c">アワードを贈る</button></div>', 'アワードを贈る', 'おく'],
-    ])('annotates a %s at rest', (_name, html, text, reading) => {
+        ['search-bar 質問 button', '<div role="search"><button id="c">質問</button></div>', '質問'],
+        ['参加 join button', '<button id="c">参加</button>', '参加'],
+        ['共有 share button with an icon child', '<button id="c"><svg aria-hidden="true"></svg><span>共有</span></button>', '共有'],
+        ['アワードを贈る comment action', '<div class="comment-action-row"><button id="c">アワードを贈る</button></div>', 'アワードを贈る'],
+        ['NHK-style link-as-button', '<article><a id="c" href="#" class="article-buttons__ruby"><ruby>漢字<rt>かんじ</rt></ruby>の読み方を消す</a></article>', '漢字の読み方を消す'],
+    ])('leaves a %s as the page drew it', (_name, html, text) => {
         document.body.innerHTML = html;
-        const mirror = chromeMirror(document.querySelector<HTMLElement>('#c')!, text, reading);
+        const control = document.querySelector<HTMLElement>('#c')!;
+        const nativeHtml = control.innerHTML;
+        mockRect(control, { width: 120, height: 40 });
+        expect(collectTargets().map(candidate => candidate.text)).not.toContain(text);
+        expect(classifyDecoration(control)).toBe('skip');
+        expect(control.innerHTML).toBe(nativeHtml);
+    });
+
+    // Yomu's own pages opt a control in: Academy declares each Japanese choice
+    // button a Reader Surface so a learner can read はじめてです. A surface that
+    // only wraps a control (a docs column) does not opt its buttons in.
+    it('annotates a control the page itself declared a Reader Surface', () => {
+        document.body.innerHTML = '<main data-yomu-runtime-surface="docs"><button id="wrapped">保存</button><button id="c" lang="ja" data-yomu-runtime-surface="academy-copy">はじめてです</button></main>';
+        expect(classifyDecoration(document.querySelector<HTMLElement>('#c')!)).toBe('interactive-passive');
+        expect(classifyDecoration(document.querySelector<HTMLElement>('#wrapped')!)).toBe('skip');
+    });
+
+    it('annotates a toolbar link at rest through the detached lane', () => {
+        document.body.innerHTML = '<div role="toolbar"><a id="c" href="/join">参加</a></div>';
+        const mirror = chromeMirror(document.querySelector<HTMLElement>('#c')!, '参加', 'さんか');
         expect(mirror.dataset.yomuControlMirror).toBe('true');
         expect(mirror.querySelector('.jpdb-reader-word')).toBeTruthy();
         expect(mirror.querySelector('rt')).toBeNull();
-        expect(mirror.querySelector('.jpdb-reader-detached-furi')?.textContent).toBe(reading);
+        expect(mirror.querySelector('.jpdb-reader-detached-furi')?.textContent).toBe('さんか');
     });
 
     // Nothing may reintroduce a rest-hiding marker on chrome.
     it('leaves no bare-until-hover marker on an annotated control', () => {
-        document.body.innerHTML = '<button id="c">参加</button>';
+        document.body.innerHTML = '<div role="toolbar"><a id="c" href="/join">参加</a></div>';
         chromeMirror(document.querySelector<HTMLElement>('#c')!, '参加', 'さんか');
         expect(document.querySelector('[data-yomu-command-control]')).toBeNull();
         expect(document.querySelector('[data-yomu-control-mirror="command"]')).toBeNull();

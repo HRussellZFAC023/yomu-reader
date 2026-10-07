@@ -320,8 +320,8 @@ describe('shadow DOM scanner (Phase 1)', () => {
         }
     });
 
-    it('looks through a Latin-only outer shell to reach Reddit-style nested Japanese controls', () => {
-        defineShadowHost('yomu-reddit-join-host', 'open', '<button id="join">参加</button>');
+    it('looks through a Latin-only outer shell to reach Reddit-style nested Japanese toolbar links', () => {
+        defineShadowHost('yomu-reddit-join-host', 'open', '<div role="toolbar"><a id="join" href="/join">参加</a></div>');
         // The outer component has no direct Japanese text. ShadowRoot.textContent
         // therefore cannot see the label; the bounded lookahead must discover
         // it through the nested component boundary.
@@ -346,7 +346,7 @@ describe('shadow DOM scanner (Phase 1)', () => {
         // (display: contents, 0x0 rect). The wrapper's light textContent has
         // no Japanese, so a light-tree-only prune drops the branch and the
         // component's root is never walked, registered, or observed.
-        defineShadowHost('yomu-share-button-host', 'open', '<button class="share">共有</button>');
+        defineShadowHost('yomu-share-button-host', 'open', '<div role="toolbar"><a class="share" href="/share">共有</a></div>');
         defineShadowHost('yomu-share-action-bar', 'open', '<div class="bar"><slot name="share"><yomu-share-button-host></yomu-share-button-host></slot></div>');
         document.body.innerHTML = '<yomu-share-action-bar></yomu-share-action-bar>';
 
@@ -372,15 +372,15 @@ describe('shadow DOM scanner (Phase 1)', () => {
         }
     });
 
-    it('collects a painted aria-hidden shadow label that exactly matches its control name', () => {
+    it('collects a painted aria-hidden shadow label that exactly matches its toolbar link name', () => {
         // Current Reddit award-button shape: the custom-element host has no
         // light-DOM text, while its open root paints the label in an aria-hidden
         // span and repeats the same text as the button's accessible name.
         defineShadowHost('yomu-award-button-host', 'open', `
-            <button aria-label="アワードを贈る">
+            <div role="toolbar"><a href="/award" aria-label="アワードを贈る">
                 <span aria-hidden="true"><svg aria-hidden="true"></svg></span>
                 <span><span data-award-initial-text aria-hidden="true">アワードを贈る</span></span>
-            </button>
+            </a></div>
         `);
         document.body.innerHTML = '<yomu-award-button-host></yomu-award-button-host>';
         const host = document.querySelector('yomu-award-button-host') as HTMLElement;

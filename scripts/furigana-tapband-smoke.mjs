@@ -46,7 +46,8 @@ const COMPANION_PATHS = userscriptCompanionPaths(SCRIPT_PATH);
 
 // One expression per surface, so every assertion below names exactly one word:
 // 詳細/読む in destructively annotated prose, 設定/保存 in the framework-owned
-// prose that must be mirrored instead, 検索 in a control that keeps its own click.
+// prose that must be mirrored instead, 検索 on a toolbar link that keeps its own
+// click, and the same 検索 on a page button that Yomu leaves as drawn (ADR-0025).
 const VOCABULARY = [
     ['詳細', '詳細', 'しょうさい', 'details', ['noun'], 1200, ['not-in-deck'], ['LHHH']],
     ['読む', '読む', 'よむ', 'to read', ['verb'], 400, ['not-in-deck'], ['LH']],
@@ -76,14 +77,14 @@ const PAGE = `<!doctype html>
   body { margin: 0; background: #fff; color: #111; font: 28px/2.6 "Hiragino Sans", "Noto Sans JP", system-ui, sans-serif; }
   #prose { margin: 90px 60px; }
   .control-row { margin: 60px; }
-  button { font: 22px/1.6 "Hiragino Sans", "Noto Sans JP", system-ui, sans-serif; padding: 10px 22px; border: 1px solid #888; border-radius: 8px; background: #f4f4f4; color: #111; cursor: pointer; }
+  .control-row a, button { display: inline-block; font: 22px/1.6 "Hiragino Sans", "Noto Sans JP", system-ui, sans-serif; padding: 10px 22px; border: 1px solid #888; border-radius: 8px; background: #f4f4f4; color: #111; cursor: pointer; text-decoration: none; }
 </style>
 </head>
 <body>
 <main>
   <p id="prose">詳細を読む</p>
   <p id="framework">設定を保存</p>
-  <div class="control-row"><button id="control" type="button">検索</button></div>
+  <div class="control-row" role="toolbar"><a id="control" href="#results">検索</a> <button id="page-button" type="button">検索</button></div>
 </main>
 </body>
 </html>`;
@@ -184,10 +185,11 @@ async function runEngine(engineName, browser) {
         const inPlace = await pressInPlaceReadingBand(page, engineName, '詳細');
         const projected = await pressProjectedReadingBand(page, engineName, '設定');
         const control = await pressControlReadingBand(page, engineName, '検索');
+        const pageButton = await assertPageButtonAsDrawn(page, engineName);
 
         const screenshot = path.join(ARTIFACTS, `furigana-tapband-${engineName}.png`);
         await page.screenshot({ path: screenshot, fullPage: false });
-        return { engine: engineName, inPlace, projected, control, screenshot, requestCount: requests.length };
+        return { engine: engineName, inPlace, projected, control, pageButton, screenshot, requestCount: requests.length };
     } finally {
         await context.close().catch(() => undefined);
     }
@@ -283,6 +285,37 @@ async function pressControlReadingBand(page, engineName, expression) {
         `${engineName}: pressing a control's reading band did not deliver the control's own click`, { band, outcome });
     await dismissPopover(page);
     return { ...band, ...outcome };
+}
+
+/**
+ * A page's button is its interface, not text to read (ADR-0025): its label
+ * keeps the markup the page drew, with no reading inside or above it, while
+ * the toolbar link beside it with the same word is annotated.
+ */
+async function assertPageButtonAsDrawn(page, engineName) {
+    const state = await page.evaluate(() => {
+        const button = document.getElementById('page-button');
+        if (!(button instanceof HTMLElement)) return null;
+        const box = button.getBoundingClientRect();
+        const readingsOver = [...document.querySelectorAll('[data-yomu-projected-reading="true"], rt.jpdb-reader-furi')]
+            .filter(reading => {
+                const rect = reading.getBoundingClientRect();
+                if (rect.width <= 0 || getComputedStyle(reading).display === 'none') return false;
+                const x = rect.left + rect.width / 2;
+                const y = rect.top + rect.height / 2;
+                return x >= box.left && x <= box.right && y >= box.top - rect.height && y <= box.bottom;
+            }).length;
+        return {
+            html: button.innerHTML,
+            readerWords: button.querySelectorAll('.jpdb-reader-word').length,
+            mirrors: button.querySelectorAll('.jpdb-reader-text-mirror').length,
+            readingsOver,
+        };
+    });
+    assert(state, `${engineName}: the page button fixture is missing`);
+    assert(state.html === '検索' && state.readerWords === 0 && state.mirrors === 0 && state.readingsOver === 0,
+        `${engineName}: Yomu annotated the page's own button`, state);
+    return state;
 }
 
 async function waitForPopoverHeadword(page, engineName, band) {
