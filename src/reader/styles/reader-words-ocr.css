@@ -53,6 +53,12 @@
   box-decoration-break: clone;
 }
 
+/* Host controls often draw icons on every descendant span. Generated words
+   must not repeat those icons. OCR's larger touch target overrides this below. */
+.jpdb-reader-word::before {
+  content: none;
+}
+
 .jpdb-reader-word::after {
   content: "";
   position: absolute;

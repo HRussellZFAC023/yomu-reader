@@ -100,6 +100,7 @@ export const ARMOURED_PROPERTIES: ReadonlySet<string> = new Set([
     'border-image-repeat',
     'box-shadow',
     'color',
+    'content',
 ]);
 
 /**
@@ -139,7 +140,7 @@ const OWNED_SUBJECT_ATTRIBUTE = /^(?:data-jpdb|data-yomu|aria-|role$|type$|disab
 const FOREIGN_CONTENT_CONTAINER = /jpdb-reader-local-glossary/i;
 // Every armoured property starts with one of these, so a declaration block that
 // mentions none of them can be skipped without being parsed.
-const ARMOURABLE_BLOCK = /border|background|box-shadow|color/i;
+const ARMOURABLE_BLOCK = /border|background|box-shadow|color|content/i;
 const IMPORTANT_SUFFIX = /!\s*important\s*$/i;
 // A sheet far larger than the real one is a sign of corruption, not of a bigger
 // product; skip rather than spend the main thread on it during boot.

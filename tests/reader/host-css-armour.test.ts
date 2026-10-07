@@ -82,6 +82,13 @@ describe('host CSS armour', () => {
         expect(armour).not.toContain('captions-text');
     });
 
+    it('owns generated word pseudo-content without changing the host control icon', () => {
+        const armour = hostCssArmour('.jpdb-reader-word::before{content:none}.jpdb-reader-word::after{content:""}.article-buttons span::before{content:"speaker"}');
+        expect(armour).toContain('.jpdb-reader-word::before{content:none!important}');
+        expect(armour).toContain('.jpdb-reader-word::after{content:""!important}');
+        expect(armour).not.toContain('.article-buttons');
+    });
+
     it('preserves conditional at-rule context', () => {
         const armour = hostCssArmour('@media (max-width:600px){.jpdb-reader-popover{border-radius:16px 16px 0 0}}');
         expect(armour).toContain('@media (max-width:600px){.jpdb-reader-popover{border-radius:16px 16px 0 0!important}}');
@@ -95,7 +102,7 @@ describe('host CSS armour', () => {
 
     it('does not mistake declaration text inside comments or strings for rules', () => {
         const armour = hostCssArmour('.jpdb-reader-chip{content:"}{border-radius:0";border-radius:999px}/* .jpdb-x{border-radius:1px} */');
-        expect(armour).toContain('.jpdb-reader-chip{border-radius:999px!important}');
+        expect(armour).toContain('.jpdb-reader-chip{content:"}{border-radius:0"!important;border-radius:999px!important}');
         expect(armour).not.toContain('1px');
     });
 
