@@ -87,6 +87,10 @@ describe('Reader Study UI contract', () => {
         expect(modeRules[0]).toContain('grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr);');
     });
 
+    it('keeps review controls off Search and Stats even when a late card render unhides them', () => {
+        expect(newTabCss).toContain('.jpdb-reader-newtab-controls[hidden], :is(.jpdb-reader-newtab-search-mode, .jpdb-reader-newtab-stats-mode) .jpdb-reader-newtab-controls { display: none !important; }');
+    });
+
     it('uses native-style bottom navigation and a single-line step rail on phones', () => {
         expect(newTabCss).toContain('.jpdb-reader-newtab-app-nav { display: none; }');
         // Study, Practice, Library, Stats and Connect each need a phone column.

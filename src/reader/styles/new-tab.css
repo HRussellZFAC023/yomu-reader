@@ -2673,7 +2673,7 @@ button.jpdb-reader-newtab-study-hint-btn:active {
 }
 
 .jpdb-reader-newtab-controls[hidden],
-.jpdb-reader-newtab-search-mode .jpdb-reader-newtab-controls {
+:is(.jpdb-reader-newtab-search-mode, .jpdb-reader-newtab-stats-mode) .jpdb-reader-newtab-controls {
   display: none !important;
 }
 

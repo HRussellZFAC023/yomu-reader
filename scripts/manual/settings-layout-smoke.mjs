@@ -221,6 +221,16 @@ async function verifyViewport(browserInstance, baseUrl, scenario) {
             const saveBounds = await page.locator('.jpdb-reader-settings button[type="submit"]').boundingBox();
             assert(toastBounds.y + toastBounds.height <= saveBounds.y - 4, 'Settings toast covers the footer actions', { toastBounds, saveBounds });
         }
+        if (scenario.panel === 'help') {
+            await page.locator('.jpdb-reader-settings [data-action="cancel"]').click();
+            await page.locator('[data-newtab-action="mode"][data-mode="stats"]').filter({ visible: true }).first().click();
+            await page.locator('.jpdb-reader-stats-panel-heading h2').first().waitFor();
+            // A late card render can reset the controls' hidden property.
+            // The route must still keep review actions off the Stats screen.
+            const controls = page.locator('[data-newtab-controls]');
+            await controls.evaluate(element => { element.hidden = false; });
+            assert(!await controls.isVisible(), 'Late card controls leak into Stats');
+        }
         return {
             name: scenario.name,
             panel: scenario.panel,
