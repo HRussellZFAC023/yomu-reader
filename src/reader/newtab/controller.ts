@@ -221,7 +221,7 @@ import { NewTabReviewSubmitter } from './review-submitter';
 import { isSessionBunproCard, newTabUndoableReview, requiresFreshProviderReview } from './review-flow-policy';
 import { ReviewDraftResetError, ReviewQueueRejectedError } from './extension-review-queue-client';
 import { syncHeldReviewNotice } from './held-review-notice';
-import { renderNewTabShell } from './shell-view';
+import { renderNewTabAppNavigation, renderNewTabShell } from './shell-view';
 import {
     jpdbDeckMembershipName,
     newTabAnkiDeckSelection,
@@ -1323,7 +1323,7 @@ export class NewTabController {
         return renderNewTabShell({
             language,
             overflowMenu: showChrome ? this.renderOverflowMenu(language) : null,
-            appNavigation: showChrome ? this.renderAppNavigation(language) : null,
+            appNavigation: showChrome ? renderNewTabAppNavigation(language) : null,
             showSessionClockControl: this.hasTimedSession() && this.options.showSessionClockControl !== false,
         });
     }
@@ -1426,27 +1426,6 @@ export class NewTabController {
             role: 'menuitem',
             lang: japanese ? 'ja' : 'en',
         }, japanese ? link.ja : link.text);
-    }
-
-    private renderAppNavigation(language: ReaderSettings['interfaceLanguage']): HTMLElement {
-        const item = (label: string, mark: string, action: NewTabAction, mode?: string) => el('button', {
-            class: 'jpdb-reader-newtab-app-nav-item jpdb-reader-parseable',
-            type: 'button',
-            dataset: { newtabAction: action, ...(mode ? { mode } : {}) },
-            lang: resolveUiLanguage(language) === 'ja' ? 'ja' : 'en',
-        },
-        el('span', { class: 'jpdb-reader-newtab-app-nav-mark', 'aria-hidden': 'true' }, mark),
-        el('span', { class: 'jpdb-reader-newtab-app-nav-label' }, label));
-        return el('nav', {
-            class: 'jpdb-reader-newtab-app-nav',
-            dataset: { newtabAppNavigation: true },
-            'aria-label': newTabText(language, 'appNavigation'),
-        },
-        item(newTabText(language, 'study'), '学', newTabAction('mode'), 'word'),
-        item(uiText(language, 'practiceTitle'), '練', newTabAction('practice-sessions')),
-        item(newTabText(language, 'library'), '辞', newTabAction('mode'), 'search'),
-        item(newTabText(language, 'stats'), '統', newTabAction('mode'), 'stats'),
-        item(newTabText(language, 'connections'), '連', newTabAction('settings')));
     }
 
     private renderOverflowMenuButton(

@@ -3,7 +3,7 @@ import { resolveUiLanguage, uiText } from '../app/i18n';
 import type { ReaderSettings } from '../app/types';
 import { el, fragment } from '../dom/builder';
 import { usesJapaneseCharacterStudy } from '../languages/character-lookup';
-import { newTabAction } from './actions';
+import { newTabAction, type NewTabAction } from './actions';
 import { NEW_TAB_HEADER_LABEL } from './controller-config';
 import { newTabText } from './i18n';
 import { resolveNewTabBrandAssets } from './index';
@@ -151,4 +151,25 @@ export function renderNewTabShell(options: NewTabShellOptions): DocumentFragment
             el('aside', { class: 'jpdb-reader-newtab-support-banner', dataset: { newtabSupportBanner: true }, hidden: true, 'aria-label': newTabText(language, 'supportBannerLabel') }),
         ),
     );
+}
+
+export function renderNewTabAppNavigation(language: ReaderSettings['interfaceLanguage']): HTMLElement {
+    const item = (label: string, mark: string, action: NewTabAction, mode?: string) => el('button', {
+        class: 'jpdb-reader-newtab-app-nav-item jpdb-reader-parseable',
+        type: 'button',
+        dataset: { newtabAction: action, ...(mode ? { mode } : {}) },
+        lang: resolveUiLanguage(language) === 'ja' ? 'ja' : 'en',
+    },
+    el('span', { class: 'jpdb-reader-newtab-app-nav-mark', 'aria-hidden': 'true' }, mark),
+    el('span', { class: 'jpdb-reader-newtab-app-nav-label' }, label));
+    return el('nav', {
+        class: 'jpdb-reader-newtab-app-nav',
+        dataset: { newtabAppNavigation: true },
+        'aria-label': newTabText(language, 'appNavigation'),
+    },
+    item(newTabText(language, 'study'), '学', newTabAction('mode'), 'word'),
+    item(uiText(language, 'practiceTitle'), '練', newTabAction('practice-sessions')),
+    item(newTabText(language, 'library'), '辞', newTabAction('mode'), 'search'),
+    item(newTabText(language, 'stats'), '統', newTabAction('mode'), 'stats'),
+    item(newTabText(language, 'connections'), '連', newTabAction('settings')));
 }

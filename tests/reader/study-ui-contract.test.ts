@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { renderNewTabShell } from '../../src/reader/newtab/shell-view';
+import { renderNewTabAppNavigation, renderNewTabShell } from '../../src/reader/newtab/shell-view';
 
 const newTabCss = readFileSync('src/reader/styles/new-tab.css', 'utf8').replace(/\s+/gu, ' ');
 const statsCss = readFileSync('src/reader/styles/stats.css', 'utf8').replace(/\s+/gu, ' ');
@@ -89,6 +89,17 @@ describe('Reader Study UI contract', () => {
 
     it('keeps review controls off Search and Stats even when a late card render unhides them', () => {
         expect(newTabCss).toContain('.jpdb-reader-newtab-controls[hidden], :is(.jpdb-reader-newtab-search-mode, .jpdb-reader-newtab-stats-mode) .jpdb-reader-newtab-controls { display: none !important; }');
+    });
+
+    it('renders the phone tab bar from the shell view, Practice included', () => {
+        const navigation = renderNewTabAppNavigation('ja');
+        expect(navigation.dataset.newtabAppNavigation).toBe('true');
+        expect([...navigation.querySelectorAll<HTMLElement>('[data-newtab-action]')]
+            .map(item => [item.dataset.newtabAction, item.dataset.mode ?? '', item.lang]))
+            .toEqual([
+                ['mode', 'word', 'ja'], ['practice-sessions', '', 'ja'], ['mode', 'search', 'ja'],
+                ['mode', 'stats', 'ja'], ['settings', '', 'ja'],
+            ]);
     });
 
     it('uses native-style bottom navigation and a single-line step rail on phones', () => {
