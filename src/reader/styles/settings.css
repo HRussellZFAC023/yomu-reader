@@ -609,8 +609,14 @@
   gap: 14px 16px;
 }
 
-.jpdb-reader-settings .grid > [data-language-family] {
+.jpdb-reader-settings .grid > [data-language-family],
+.jpdb-reader-settings .grid > [data-reading-annotation-controls] {
   display: contents;
+}
+/* The furigana selects join the row beside Quick setup and Color words, so all
+   four align; the furigana note and hidden-state boxes take a row of their own. */
+.jpdb-reader-settings .grid > [data-reading-annotation-controls] > :is(.jpdb-reader-help, fieldset) {
+  grid-column: 1 / -1;
 }
 
 :root[data-yomu-hosted] :is(
@@ -653,7 +659,8 @@
    cell, so every control on a row lines up regardless of how many lines the
    label above it wraps to. */
 .jpdb-reader-settings .grid > label:not(.inline),
-.jpdb-reader-settings .grid > .jpdb-reader-shortcut-group > label:not(.inline) {
+.jpdb-reader-settings .grid > .jpdb-reader-shortcut-group > label:not(.inline),
+.jpdb-reader-settings .grid > [data-reading-annotation-controls] > label:not(.inline) {
   display: flex;
   flex-direction: column;
   align-items: stretch;
@@ -684,10 +691,10 @@
 .jpdb-reader-settings .grid > label:not(.inline) > select,
 .jpdb-reader-settings .grid > label:not(.inline) > textarea,
 .jpdb-reader-settings .grid > label:not(.inline) > .jpdb-reader-field-display,
-.jpdb-reader-settings .grid > * > label > input,
-.jpdb-reader-settings .grid > * > label > select,
-.jpdb-reader-settings .grid > * > label > textarea,
-.jpdb-reader-settings .grid > * > label > .jpdb-reader-field-display {
+.jpdb-reader-settings .grid > * > label:not(.inline) > input,
+.jpdb-reader-settings .grid > * > label:not(.inline) > select,
+.jpdb-reader-settings .grid > * > label:not(.inline) > textarea,
+.jpdb-reader-settings .grid > * > label:not(.inline) > .jpdb-reader-field-display {
   margin-top: auto;
 }
 .jpdb-reader-settings .jpdb-reader-settings-cgrid > label:not(.inline) > input,

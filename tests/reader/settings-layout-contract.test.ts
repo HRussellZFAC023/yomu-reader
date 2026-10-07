@@ -10,6 +10,18 @@ describe('Settings layout contract', () => {
         expect(settingsCss).toContain('body:has(.jpdb-reader-fab-radial.is-open) .jpdb-reader-toast-stack { top: calc(72px + env(safe-area-inset-top)); bottom: auto; } }');
     });
 
+    it('lines Quick setup, Furigana, Readings and Color words up on one row (YQ-13)', () => {
+        // The furigana selects used to sit stacked in one cell, 10 px off their neighbours.
+        expect(settingsCss).toContain('.jpdb-reader-settings .grid > [data-language-family], .jpdb-reader-settings .grid > [data-reading-annotation-controls] { display: contents; }');
+        expect(settingsCss).toContain('.jpdb-reader-settings .grid > [data-reading-annotation-controls] > :is(.jpdb-reader-help, fieldset) { grid-column: 1 / -1; }');
+        // ...and their labels take the same label-above structure as their neighbours.
+        expect(settingsCss).toContain('.jpdb-reader-settings .grid > [data-reading-annotation-controls] > label:not(.inline) { display: flex; flex-direction: column; align-items: stretch; gap: 6px; margin: 0; }');
+        // A checkbox inside a wrapper stays centred on its text instead of
+        // being pushed to the bottom of its row by the label-above rule.
+        expect(settingsCss).toContain('.jpdb-reader-settings .grid > * > label:not(.inline) > input,');
+        expect(settingsCss).not.toContain('.jpdb-reader-settings .grid > * > label > input,');
+    });
+
     it('paints active placeholders with the readable muted token, not the faint one', () => {
         // Dark settings measured 3.57:1 with the faint token; the smoke requires 4.5:1.
         expect(settingsCss).toContain('.jpdb-reader-settings input::placeholder, .jpdb-reader-settings textarea::placeholder { color: var(--jpdb-reader-muted) !important; opacity: 1; }');
