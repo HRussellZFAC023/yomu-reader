@@ -84,7 +84,7 @@ describe('reader stylesheet loading', () => {
         expect(css).toContain('.jpdb-reader-word ruby{');
         expect(css).toContain('ruby-align:center!important');
         expect(css).toContain('ruby-position:over!important');
-        expect(css).toContain('.jpdb-reader-furi{font-size:.58em');
+        expect(css).toContain('.jpdb-reader-furi{font-family:inherit;font-size:max(6px,.5em);font-style:inherit;font-weight:normal;letter-spacing:normal;');
         expect(css).toContain('.jpdb-reader-word.jpdb-reader-has-furi{line-height:2.15}');
         // `-webkit-ruby-align` never existed in any engine and only parse-fails;
         // it must not reappear in the critical subset.
@@ -323,9 +323,22 @@ describe('reader stylesheet loading', () => {
         expect(css).not.toContain('.jpdb-reader-word.jpdb-reader-scan-word.jpdb-reader-has-furi:not(.jpdb-reader-prose-word) {\n  line-height: inherit;\n}');
         const furiRule = Array.from(css.matchAll(/\.jpdb-reader-furi\s*\{[^}]*\}/g), match => match[0])
             .find(rule => rule.includes('font-size')) ?? '';
-        expect(furiRule).toContain('font-size: 0.58em');
-        expect(furiRule).toContain('font-weight: 700');
+        // Half the base in the page's face at regular weight: a bold 0.58em
+        // reading read as a second typeface stacked over the word.
+        expect(furiRule).toContain('font-size: max(6px, 0.5em)');
+        expect(furiRule).toContain('font-weight: normal');
+        expect(furiRule).toContain('font-family: inherit');
+        expect(furiRule).toContain('letter-spacing: normal');
         expect(furiRule).toContain('line-height: 1.08');
+    });
+
+    it('keeps annotated words in the host page\'s face against host span and ruby rules', () => {
+        // The computed result in real engines: scripts/annotation-typography-smoke.mjs.
+        const css = readFileSync('src/reader/styles/reader-words-ocr.css', 'utf8');
+        const rule = css.match(/\.jpdb-reader-word\.jpdb-reader-scan-word,\n\.jpdb-reader-word\.jpdb-reader-scan-word ruby,\n\.jpdb-reader-word\.jpdb-reader-scan-word \.jpdb-reader-ruby-base \{[^}]*\}/)?.[0] ?? '';
+        for (const property of ['font-family', 'font-size', 'font-style', 'font-weight', 'font-feature-settings', 'letter-spacing']) {
+            expect(rule).toContain(`${property}: inherit;`);
+        }
     });
 
     it('hides clip-constrained readings at rest and re-shows them once the row has grown', () => {

@@ -1388,6 +1388,20 @@ describe('interactive-passive under furigana-mode=all', () => {
     });
 });
 
+// A detached reading is the same reading as an in-flow one: half the base
+// size at regular weight. It was 0.46em and bold, a second furigana style
+// beside the page's in-flow readings.
+describe('detached reading typography', () => {
+    it('sizes a control reading at half its host text, at regular weight', () => {
+        document.body.innerHTML = '<div><button id="open" style="font-size:16px">設定を開く</button></div>';
+        const target = collectTargets().find(candidate => candidate.text === '設定を開く')!;
+        applyTokensToScanTarget(target, [token('設定', 0, '設定を開く', 'せってい')], FURIGANA_SETTINGS);
+        const reading = document.querySelector<HTMLElement>('#open .jpdb-reader-detached-furi')!;
+        expect(reading.style.fontSize).toBe('8px');
+        expect(reading.style.fontWeight).toBe('normal');
+    });
+});
+
 // A sealed verdict must go stale when the classification-relevant facts
 // change between collection and the asynchronous apply.
 describe('sealed decoration staleness', () => {

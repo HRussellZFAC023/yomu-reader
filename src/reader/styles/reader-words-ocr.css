@@ -53,6 +53,28 @@
   box-decoration-break: clone;
 }
 
+/* Annotated text is the page's text. A word span or ruby wrapper must never
+   pick up a host rule aimed at bare elements (`span { font-weight: 700 }`,
+   `ruby { font-size: 80% }`, tracked `p span`), or the annotated words read as
+   a second typeface beside the plain particles around them. Two classes beat
+   any element-and-ancestor host selector without !important, so Yomu's own
+   surfaces that size their words (popup, OCR, subtitles) keep doing so.
+   scripts/annotation-typography-smoke.mjs holds this in real engines. */
+.jpdb-reader-word.jpdb-reader-scan-word,
+.jpdb-reader-word.jpdb-reader-scan-word ruby,
+.jpdb-reader-word.jpdb-reader-scan-word .jpdb-reader-ruby-base {
+  font-family: inherit;
+  font-size: inherit;
+  font-style: inherit;
+  font-weight: inherit;
+  font-stretch: inherit;
+  font-variant: inherit;
+  font-feature-settings: inherit;
+  font-kerning: inherit;
+  letter-spacing: inherit;
+  word-spacing: inherit;
+}
+
 /* Host controls often draw icons on every descendant span. Generated words
    must not repeat those icons. OCR's larger touch target overrides this below. */
 .jpdb-reader-word::before,
@@ -868,17 +890,23 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
   line-height: 2.15;
 }
 .jpdb-reader-furi {
-  font-size: 0.58em;
-  font-weight: 700;
-  /* Furigana always tracks the base word it annotates: `inherit` takes the
-     word's own computed colour (page text, pitch/status/jpdb/review tint, or the
-     contrast-adjusted --jpdb-reader-word-accessible-color), so the reading is
-     never a muted grey that diverges from its base. -webkit-text-fill-color is
-     pinned to currentColor so WebKit fills the kana with that same inherited
-     colour instead of inheriting the word's own fill channel. Mirror readings
-     use .jpdb-reader-detached-furi, whose higher-specificity rule keeps them on
-     the native colour where the base glyph is painted transparent. */
-  color: inherit !important;
+  /* Half the base size, JLREQ's ruby convention, in the page's own face at
+     regular weight: a bold reading at 0.58em read as a second, louder
+     typeface stacked over the word. A host `rt` rule must not restyle it, and
+     tracking belongs to the base text, not the reading. The detached lane
+     (dom/index.ts styleDetachedReadingElements) uses the same size. */
+  font-family: inherit;
+  font-size: max(6px, 0.5em);
+  font-style: inherit;
+  font-weight: normal;
+  letter-spacing: normal;
+  /* One quiet reading colour for every word, links included:
+     --jpdb-reader-furi-color is the paragraph's own ink eased toward the
+     sampled backdrop and held at 4.5:1 (dom/word-contrast.ts). Without a
+     sample the reading takes the word's colour. -webkit-text-fill-color is
+     pinned to currentColor so WebKit fills the kana with that same colour
+     instead of inheriting the word's fill channel. */
+  color: var(--jpdb-reader-furi-color, inherit) !important;
   -webkit-text-fill-color: currentColor !important;
   line-height: 1.08;
   user-select: none;
@@ -1084,7 +1112,7 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
   --jpdb-reader-mirror-status-soft: var(--jpdb-reader-source-review-soft, transparent);
 }
 .jpdb-reader-text-mirror.jpdb-reader-additive-text-mirror .jpdb-reader-detached-furi {
-  color: var(--jpdb-reader-furi-accessible-color, inherit) !important;
+  color: var(--jpdb-reader-furi-color, inherit) !important;
   -webkit-text-fill-color: currentColor !important;
   opacity: 1 !important;
 }

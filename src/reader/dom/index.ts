@@ -4174,7 +4174,9 @@ function styleDetachedReadingElements(root: HTMLElement, host: HTMLElement): voi
 
     const hostStyle = safeComputedStyle(host);
     const hostFontSize = Number.parseFloat(hostStyle.fontSize) || 16;
-    const readingFontSize = Math.min(10, Math.max(6, hostFontSize * 0.46));
+    // Half the base, as in-flow ruby is (.jpdb-reader-furi), capped because a
+    // detached reading lives in the line gap rather than taking room of its own.
+    const readingFontSize = Math.min(10, Math.max(6, hostFontSize * 0.5));
 
     for (const wrapper of detachedRubies) {
         setInlineStyleIfChanged(wrapper, 'position', 'relative', 'important');
@@ -4187,7 +4189,7 @@ function styleDetachedReadingElements(root: HTMLElement, host: HTMLElement): voi
     for (const reading of root.querySelectorAll<HTMLElement>('.jpdb-reader-detached-furi')) {
         setInlineStyleIfChanged(reading, 'display', 'none', 'important');
         setInlineStyleIfChanged(reading, 'font-size', `${readingFontSize}px`);
-        setInlineStyleIfChanged(reading, 'font-weight', '700');
+        setInlineStyleIfChanged(reading, 'font-weight', 'normal');
         setInlineStyleIfChanged(reading, 'line-height', '1', 'important');
         setInlineStyleIfChanged(reading, 'text-decoration', 'none', 'important');
         setInlineStyleIfChanged(reading, 'user-select', 'none');
