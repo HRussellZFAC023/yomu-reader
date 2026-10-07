@@ -6,6 +6,38 @@
 
 export const GAMING_OVERLAY_CAPTURE_REQUIRED = 'Screen capture is only available to the Yomu Gaming overlay.';
 
+/**
+ * The URL of a new overlay document for one capture.
+ *
+ * The overlay's renderer reads the frozen frame once per document, so every capture needs a
+ * new document. loadURL() to the URL a window is already showing — the same capture mode
+ * twice in a row, which is every press of the shortcut — is a same-document fragment
+ * navigation, not a load: the overlay kept the session's first frame and its words on every
+ * later press, and only its own Re-capture button read the screen again. A per-capture value
+ * in the query makes each capture a real load.
+ */
+export function overlayDocumentUrl(base: URL, mode: 'instant' | 'area', capture: number): string {
+    const url = new URL(base.toString());
+    url.searchParams.set('captureMode', mode);
+    url.searchParams.set('capture', String(capture));
+    url.hash = mode === 'area' ? 'overlay-area' : 'overlay-instant';
+    return url.toString();
+}
+
+// One run at a time: a call made while the previous run is still going joins it instead of
+// starting a second one. A capture hides and re-shows Yomu's windows and samples the
+// display, so two overlapping presses (a double tap, a held key's auto-repeat) would race
+// each other for the same windows and could freeze a frame with the overlay still on it.
+export function singleFlight(run: () => Promise<void>): () => Promise<void> {
+    let inFlight: Promise<void> | null = null;
+    return () => {
+        inFlight ??= run().finally(() => {
+            inFlight = null;
+        });
+        return inFlight;
+    };
+}
+
 export interface OverlayCaptureRequest<T> {
     senderId: number;
     overlayRendererId: number | null;

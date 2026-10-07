@@ -159,6 +159,8 @@ try {
     if (fullScreenRequest.png.width < 900 || fullScreenRequest.png.height < 500) {
         throw new Error(`Instant capture did not send the full simulated screen: ${JSON.stringify(fullScreenRequest.png)}`);
     }
+    step('press the capture shortcut with the overlay up: it reads the screen again');
+    await assertShortcutRecapturesOverOverlay(overlay);
     step('open native settings from the inline Reader shortcut');
     await assertInlineReaderSettingsLandsOnSettings(page, overlay);
     await returnToHome(page);
@@ -347,7 +349,40 @@ async function renderBrowserFixture() {
     writeGeneratedGameFixturePng(fixtureCapturePath);
 }
 
-function writeGeneratedGameFixturePng(filePath) {
+// The scene the shortcut re-reads: the same frame with a hover tooltip open over the sky,
+// which is what a player presses the shortcut again for.
+async function assertShortcutRecapturesOverOverlay(overlay) {
+    const before = await overlay.evaluate(() => {
+        window.__yomuSmokePreviousOverlayDocument = true;
+        return document.querySelector('img.overlay-backdrop')?.getAttribute('src') ?? '';
+    });
+    const requestCount = fixtureOcr.requests.length;
+    writeGeneratedGameFixturePng(fixtureCapturePath, { tooltip: true });
+    try {
+        await app.evaluate(() => globalThis.__yomuGamingPressCaptureShortcut());
+        await overlay.waitForFunction(
+            () => !window.__yomuSmokePreviousOverlayDocument
+                && Boolean(document.querySelector('[data-yomu-gaming-overlay-ready="true"][data-overlay-mode="result"]')),
+            undefined,
+            { timeout: 15_000 },
+        );
+    } finally {
+        writeGeneratedGameFixturePng(fixtureCapturePath);
+    }
+    const after = await overlay.evaluate(() => document.querySelector('img.overlay-backdrop')?.getAttribute('src') ?? '');
+    const overlayVisible = await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()
+        .some(window => window.webContents.getURL().includes('#overlay-') && window.isVisible()));
+    assertSmoke(overlayVisible, 'The capture shortcut closed the overlay instead of reading the screen again.');
+    assertSmoke(Boolean(after) && after !== before, 'The capture shortcut kept the previous frame instead of the screen as it is now.');
+    assertSmoke(
+        fixtureOcr.requests.length === requestCount + 1,
+        `The capture shortcut sent ${fixtureOcr.requests.length - requestCount} OCR requests for one press.`,
+    );
+    // The reader boots again on the new frame; later steps drive it.
+    await ocrWordForVisualText(overlay, '冒険');
+}
+
+function writeGeneratedGameFixturePng(filePath, { tooltip = false } = {}) {
     const width = FIXTURE_CAPTURE.width;
     const height = FIXTURE_CAPTURE.height;
     const data = Buffer.alloc((width * 4 + 1) * height);
@@ -372,6 +407,11 @@ function writeGeneratedGameFixturePng(filePath) {
                 data[index] = 99;
                 data[index + 1] = 224;
                 data[index + 2] = 214;
+            }
+            if (tooltip && x > 600 && x < 820 && y > 120 && y < 210) {
+                data[index] = 250;
+                data[index + 1] = 236;
+                data[index + 2] = 180;
             }
             if (isFixtureGlyphInk(x, y)) {
                 data[index] = 245;

@@ -33,7 +33,7 @@ add it to Steam as a non-Steam game so it can launch from Game Mode.
 |---|------|----------|
 | B1 | In Game Mode, open the Steam overlay → Controller Settings → map a Deck button (e.g. **L4/R4 back paddle** or a **radial menu** entry) to send the capture chord (default `Ctrl+Shift+Y`). | Steam Input sends the chord to the focused app. |
 | B2 | Launch a Japanese game (or any window with Japanese text). Press the mapped button. | The Yomu overlay appears **over the game** within ~1s, showing a frozen frame of the screen. |
-| B3 | Press the mapped button again while the overlay is open. | Overlay closes (the global shortcut toggles show/hide — `registerGlobalShortcuts`). |
+| B3 | Press the mapped button again while the overlay is open. | The overlay re-reads the screen as it is now (a fresh frozen frame and new results) and stays open — `pressCaptureShortcut` in `main.ts`. **B** closes it (C-section back button). |
 
 > If B2 shows a **blank/black** frozen frame, this is the gamescope/Wayland capture
 > gap. `desktopCapturer.getSources({types:['screen']})` may return an empty or black

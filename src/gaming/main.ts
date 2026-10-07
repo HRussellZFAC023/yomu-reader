@@ -12,7 +12,10 @@ import { normalizeOcrRequest, requestGamingOcr } from './ocr';
 import { captureShortcutLabel, DEFAULT_CAPTURE_SHORTCUT, normalizeCaptureShortcut } from './capture-shortcut';
 import {
     createGamingTray,
+    overlayDocumentUrl,
     runOverlayCapture,
+    sendWhenLoaded,
+    singleFlight,
     windowCloseIntent,
     type GamingTrayController,
     type GamingTrayHost,
@@ -36,6 +39,8 @@ const APP_NAME = 'Yomu Gaming';
 // session fails, so retry until a screen actually arrives.
 const CAPTURE_ATTEMPTS = 6;
 const CAPTURE_RETRY_DELAY_MS = 120;
+const COMPOSITOR_SETTLE_MS = 90;
+const UNCOVERED_SCREEN_SETTLE_MS = 220;
 // Copied next to the bundled main.cjs by scripts/build-gaming-electron.mjs, so the
 // same __dirname lookup works from dist-gaming/electron and from inside app.asar.
 const APP_ICON_FILE = 'yomu-icon-512.png';
@@ -74,18 +79,14 @@ let frozenCapture: YomuGamingCaptureSource | null = null;
 // The display this overlay session belongs to. Held for as long as the overlay is up
 // so a re-capture re-reads the same screen the player is looking at.
 let activeCaptureTarget: GamingCaptureTarget | null = null;
+// Numbers each overlay document, so every capture loads a new one (see overlayDocumentUrl).
+let overlayDocumentCount = 0;
 
 function rendererUrl(hash = ''): string {
     const devUrl = process.env.YOMU_GAMING_RENDERER_URL;
+    const url = devUrl ? new URL(devUrl) : pathToFileURL(path.join(__dirname, '..', 'renderer', 'index.html'));
     const overlayMode = overlayModeFromHash(hash);
-    if (devUrl) {
-        const url = new URL(devUrl);
-        if (overlayMode) url.searchParams.set('captureMode', overlayMode);
-        url.hash = hash;
-        return url.toString();
-    }
-    const url = pathToFileURL(path.join(__dirname, '..', 'renderer', 'index.html'));
-    if (overlayMode) url.searchParams.set('captureMode', overlayMode);
+    if (overlayMode) return overlayDocumentUrl(url, overlayMode, ++overlayDocumentCount);
     url.hash = hash;
     return url.toString();
 }
@@ -190,10 +191,11 @@ function displayGeometry(display: Electron.Display): GamingDisplayGeometry {
 async function ensureOverlayWindow(mode: YomuGamingCaptureMode, target: GamingCaptureTarget): Promise<BrowserWindow> {
     const hash = overlayHash(mode);
     if (overlayWindow && !overlayWindow.isDestroyed()) {
-        // Always reload, even when the mode is unchanged. The renderer reads the frozen
-        // frame exactly once per document (its controller is guarded by a `started`
-        // flag), so reusing the document replayed the FIRST capture on every later
-        // press — the scene had moved on but the overlay still showed the old one.
+        // Always a new document, even when the mode is unchanged. The renderer reads the
+        // frozen frame exactly once per document (its controller is guarded by a `started`
+        // flag), so reusing the document replayed the FIRST capture on every later press.
+        // rendererUrl() numbers each overlay URL: loading the URL already showing is only a
+        // same-document fragment navigation and would reuse it all the same.
         await overlayWindow.loadURL(rendererUrl(hash));
         return overlayWindow;
     }
@@ -337,7 +339,9 @@ function visibleMainWindow(): BrowserWindow | null {
 async function openOverlayFromFrozenCapture(mode: YomuGamingCaptureMode): Promise<void> {
     const target = resolveCaptureTarget();
     activeCaptureTarget = target;
-    frozenCapture = await captureFrozenFrame(target);
+    // An overlay that is already up is about to reload onto the new frame, so it stays
+    // hidden until then instead of flashing the previous result back for a moment.
+    frozenCapture = await captureFrozenFrame(target, { restoreOverlay: false });
     const window = await ensureOverlayWindow(mode, target);
     window.setBounds(target.bounds);
     window.show();
@@ -374,16 +378,19 @@ function hideOverlay(): void {
     activeCaptureTarget = null;
 }
 
-async function captureFrozenFrame(target: GamingCaptureTarget): Promise<YomuGamingCaptureSource> {
+async function captureFrozenFrame(
+    target: GamingCaptureTarget,
+    { restoreOverlay = true }: { restoreOverlay?: boolean } = {},
+): Promise<YomuGamingCaptureSource> {
     const wasOverlayVisible = Boolean(overlayWindow && !overlayWindow.isDestroyed() && overlayWindow.isVisible());
     if (wasOverlayVisible) {
         overlayWindow?.hide();
-        await waitForCompositorFrame();
+        await waitForUncoveredScreen();
     }
     try {
         return await captureTargetScreen(target);
     } finally {
-        if (wasOverlayVisible && overlayWindow && !overlayWindow.isDestroyed()) {
+        if (restoreOverlay && wasOverlayVisible && overlayWindow && !overlayWindow.isDestroyed()) {
             overlayWindow.show();
             overlayWindow.focus();
         }
@@ -393,7 +400,15 @@ async function captureFrozenFrame(target: GamingCaptureTarget): Promise<YomuGami
 // Two animation frames is enough for the compositor to drop a just-hidden window
 // before desktopCapturer samples the display.
 function waitForCompositorFrame(): Promise<void> {
-    return new Promise(resolve => setTimeout(resolve, 90));
+    return wait(COMPOSITOR_SETTLE_MS);
+}
+
+// Re-reading over our own overlay also has to let the GAME catch up: while the overlay
+// covered it, the game saw no pointer, so whatever hangs off the pointer — a hover tooltip,
+// a highlighted menu entry — has to be redrawn before the grab or the new frame misses
+// exactly the thing the player re-captured for.
+function waitForUncoveredScreen(): Promise<void> {
+    return wait(UNCOVERED_SCREEN_SETTLE_MS);
 }
 
 async function showApp(): Promise<void> {
@@ -412,7 +427,7 @@ function lifecycleState() {
 function createTray(): void {
     if (tray) return;
     tray = createGamingTray(electronTrayHost(), {
-        readScreen: () => void requestOverlay('instant').catch(reportOverlayFailure),
+        readScreen: () => void pressCaptureShortcut(),
         openSettings: () => void showApp(),
         quit: () => quitApp(),
     }, trayStatus());
@@ -759,13 +774,25 @@ function registerGlobalShortcuts(): void {
         globalShortcut.unregister(registeredHotkey);
         registeredHotkey = null;
     }
-    hotkeyRegistered = process.env.YOMU_GAMING_TEST_MODE === '1' || globalShortcut.register(hotkey, () => {
-        if (overlayWindow?.isVisible()) hideOverlay();
-        else void requestOverlay('instant').catch(reportOverlayFailure);
-    });
+    hotkeyRegistered = process.env.YOMU_GAMING_TEST_MODE === '1' || globalShortcut.register(hotkey, pressCaptureShortcut);
     if (hotkeyRegistered) registeredHotkey = hotkey;
     // Single place the shortcut changes, so it is the single place the tray relabels.
     refreshTray();
+}
+
+// The capture shortcut reads the screen as it is at the moment of the press — with the
+// overlay already up too. It used to toggle the overlay off instead, so re-reading a hover
+// tooltip meant reaching for Re-capture and then putting the pointer back before the grab;
+// now the pointer stays where the game needs it. Escape, Close or the controller's B
+// dismiss the overlay. A press while a capture is still running joins that capture rather
+// than racing it for the same windows.
+const pressCaptureShortcut = singleFlight(() => requestOverlay('instant').catch(reportOverlayFailure));
+
+// The smoke test has no real global shortcut to press (test mode never registers one), so
+// it presses this instead — the same function the OS shortcut calls.
+if (process.env.YOMU_GAMING_TEST_MODE === '1') {
+    (globalThis as typeof globalThis & { __yomuGamingPressCaptureShortcut?: () => Promise<void> })
+        .__yomuGamingPressCaptureShortcut = pressCaptureShortcut;
 }
 
 app.whenReady().then(async () => {
