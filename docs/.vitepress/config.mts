@@ -308,7 +308,11 @@ const localizedSiteNavigation = Object.freeze({
         sidebar: localizeWebsiteNavigation(siteSidebar, 'ja'),
     },
 });
+// The logo links each locale's home page, which is not a nav or sidebar entry,
+// so name both homes here or the sitemap leaves out the one page that matters.
 const linkedRoutes = navigationRoutes([
+    { link: '/' },
+    { link: '/ja/' },
     ...localizedSiteNavigation.en.nav,
     ...localizedSiteNavigation.en.sidebar,
     ...localizedSiteNavigation.ja.nav,

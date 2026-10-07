@@ -186,6 +186,11 @@ describe('published docs pages', () => {
 
         expect(config).toContain('srcExclude: internalDocsExcludeGlobs');
         expect(config).toContain('sitemapItemsForRoutes(items, linkedRoutes)');
+        // Nothing in the nav links a home page (the logo does), so the route
+        // list names both; without them sitemap.xml omitted / and /ja/.
+        expect(config).toContain("const linkedRoutes = navigationRoutes([\n    { link: '/' },\n    { link: '/ja/' },");
+        const homes = sitemapItemsForRoutes([{ url: '' }, { url: 'ja/' }], navigationRoutes([{ link: '/' }, { link: '/ja/' }]));
+        expect(homes.map(item => item.url)).toEqual(['', 'ja/']);
         expect(internalDocsExcludeGlobs).toContain('academy/**/*.md');
     });
 });
