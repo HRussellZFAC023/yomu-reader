@@ -2,7 +2,7 @@ import { LayerShortcuts } from './layer-shortcuts';
 import { pointInLayerRegions, layerInputRegions } from './layer-input';
 import { withHiddenCaptureWindows } from './capture-windows';
 import { app, BrowserWindow, desktopCapturer, dialog, globalShortcut, ipcMain, Menu, nativeImage, screen, shell, systemPreferences, Tray, type BrowserWindowConstructorOptions } from 'electron';
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import {
@@ -13,6 +13,7 @@ import {
 } from './display';
 import { normalizeOcrRequest, requestGamingOcr } from './ocr';
 import { captureShortcutLabel, DEFAULT_CAPTURE_SHORTCUT, normalizeCaptureShortcut } from './capture-shortcut';
+import { settingsFileWriter } from './settings-file';
 import {
     createGamingTray,
     overlayDocumentUrl,
@@ -722,10 +723,11 @@ async function updateCaptureShortcut(value: string): Promise<YomuGamingEnvironme
     return environmentStatus();
 }
 
+// One shortcut edit can save twice (its change, then its blur): the saves must not overlap.
+const saveSettingsFile = settingsFileWriter();
+
 async function persistCaptureShortcut(shortcut: string): Promise<void> {
-    const storagePath = captureShortcutPath();
-    await mkdir(path.dirname(storagePath), { recursive: true });
-    await writeFile(storagePath, `${JSON.stringify({ version: 1, shortcut }, null, 2)}\n`, 'utf8');
+    await saveSettingsFile(captureShortcutPath(), `${JSON.stringify({ version: 1, shortcut }, null, 2)}\n`);
 }
 
 function captureShortcutPath(): string {
