@@ -147,6 +147,8 @@ try {
     }
     step('press the capture shortcut with the overlay up: it reads the screen again');
     await assertShortcutRecapturesOverOverlay(overlay);
+    step('choose a deck in "Add to deck…" while the popup is still enriching: the dropdown survives and saves');
+    await assertDeckDropdownSurvivesEnrichment(overlay);
     step('open native settings from the inline Reader shortcut');
     await assertInlineReaderSettingsLandsOnSettings(page, overlay);
     await showSettingsWindow(page);
@@ -674,25 +676,18 @@ async function assertLocalPopupActions(overlay, label) {
     const popup = overlay.locator('.jpdb-reader-popover').first();
     assertSmoke(await popup.getByRole('button', { name: /^(Fail|Pass|Again|Hard|Good|Easy)(?:\s|$)/ }).count() === 0,
         `Desktop ${label} offered review grading without a connected service.`);
-    const more = popup.getByRole('button', { name: 'More actions', exact: true });
-    await more.click();
-    const add = popup.getByRole('button', { name: 'Add to deck…', exact: true });
-    await add.waitFor({ state: 'visible', timeout: 5000 });
-    await overlay.screenshot({ path: path.join(appRoot, 'qa-artifacts/desktop-overflow-before-add.png') });
-    await add.click().catch(async error => {
-        await overlay.screenshot({ path: path.join(appRoot, 'qa-artifacts/desktop-overflow-failure.png') });
-        writeFileSync(path.join(appRoot, 'qa-artifacts/desktop-overflow-failure.html'), await overlay.content());
-        throw error;
-    });
-    await popup.locator('.jpdb-reader-deck-picker').waitFor({ state: 'attached', timeout: 5000 });
-    assertSmoke(await add.getAttribute('aria-expanded') === 'true', 'Private deck picker did not open.');
-    assertSmoke(await popup.locator('.jpdb-reader-deck-picker').evaluate(node => node.shadowRoot === null), 'Deck picker leaked its private shadow root.');
-    // Electron's native select menu is outside CDP keyboard delivery. Opening the private
-    // picker is covered here; actual OS selection is a separate hardware acceptance check.
-    // Dismiss through the normal native lifecycle, then restore a fresh visible capture
-    // for the shortcut recapture assertion; never leave a system menu open behind the test.
-    // The capture is restored from the main process, as the OS shortcut does: asking the
-    // overlay's own renderer to show the overlay reloads the document making that call.
+    await popup.getByRole('button', { name: 'More actions', exact: true }).click();
+    // "Add to deck…" is one dropdown, with no button in front of it, and its decks stay private.
+    const dropdown = popup.locator('.jpdb-reader-deck-select');
+    await dropdown.waitFor({ state: 'visible', timeout: 5000 });
+    assertSmoke(await popup.getByRole('button', { name: 'Add to deck…', exact: true }).count() === 0,
+        'Desktop popup still puts an "Add to deck…" button in front of the deck dropdown.');
+    assertSmoke(await dropdown.evaluate(node => node.shadowRoot === null && node.textContent === ''),
+        'Deck dropdown leaked its private deck list into the page.');
+    await overlay.screenshot({ path: path.join(appRoot, 'qa-artifacts/desktop-overflow-deck-dropdown.png') });
+    // Restore a fresh visible capture for the shortcut recapture assertion. The capture is
+    // restored from the main process, as the OS shortcut does: asking the overlay's own
+    // renderer to show the overlay reloads the document making that call.
     await overlay.evaluate(() => window.yomuGaming.hideOverlay());
     await pressCaptureShortcutForFreshOverlayDocument(overlay);
     await ocrWordForVisualText(overlay, '冒険');
@@ -710,6 +705,99 @@ async function pressCaptureShortcutForFreshOverlayDocument(overlay) {
         undefined,
         { timeout: 15_000 },
     );
+}
+
+// A provider landing re-renders the whole popup. A learner who had already opened ⋯
+// and "Add to deck…" lost both, and a choice meant for the deck list hit a detached
+// control. The overlay's own fetches are held so enrichment lands, deterministically,
+// while the learner is in the dropdown. (Held in the renderer: a main-process webRequest
+// hold also stalls while macOS tracks a select's native menu.) Electron's native select
+// menu is outside CDP input, so the learner reaches the dropdown with Tab and picks a deck
+// by typing its name, as a keyboard user does. Enrichment has a short fallback, so the
+// learner must reach the dropdown within it: the race assertion below fails loudly if not.
+async function assertDeckDropdownSurvivesEnrichment(overlay) {
+    await overlay.mouse.move(0, 0);
+    await overlay.locator('.jpdb-reader-popover').waitFor({ state: 'detached', timeout: 10_000 }).catch(() => undefined);
+    await overlay.evaluate(() => {
+        const fetchNow = window.fetch;
+        const held = [];
+        window.__yomuSmokeHeldFetches = { pending: 0 };
+        window.__yomuSmokeReleaseFetch = () => {
+            window.fetch = fetchNow;
+            for (const send of held.splice(0)) send();
+        };
+        window.fetch = (input, init) => new Promise((resolve, reject) => {
+            window.__yomuSmokeHeldFetches.pending++;
+            held.push(() => fetchNow(input, init).then(resolve, reject).finally(() => { window.__yomuSmokeHeldFetches.pending--; }));
+        });
+    });
+    const release = () => overlay.evaluate(() => window.__yomuSmokeReleaseFetch?.());
+    try {
+        const word = await ocrWordForVisualText(overlay, '冒険');
+        const popup = overlay.locator('.jpdb-reader-popover').first();
+        const shellDeadline = Date.now() + 20_000;
+        // The OCR word already carries its card, so the shell needs no network; a busy
+        // machine can still drop a hover, so it is repeated rather than the hold loosened.
+        while (!await popup.isVisible()) {
+            assertSmoke(Date.now() < shellDeadline, 'Desktop popup shell never opened over the held enrichment.');
+            await overlay.mouse.move(0, 0);
+            await word.hover();
+            await popup.waitFor({ state: 'visible', timeout: 4000 }).catch(() => undefined);
+        }
+        await popup.getByRole('button', { name: 'More actions', exact: true }).click();
+        // Open, the same toggle is named for closing the overflow.
+        const more = popup.locator('[data-action="mining-collapse"]');
+        const dropdown = popup.locator('.jpdb-reader-deck-select');
+        await dropdown.waitFor({ state: 'visible', timeout: 5000 });
+        // The pointer rests on the dropdown, inside the popup, so the hover popup stays.
+        await dropdown.hover();
+        // A press on ⋯ leaves focus where it was, so focus is put on ⋯ as a keyboard
+        // learner's would be: one Tab from there must land on the dropdown.
+        await more.focus();
+        await overlay.keyboard.press('Tab');
+        const opened = await dropdown.evaluate(host => {
+            host.dataset.smokeOpenedDropdown = 'true';
+            return document.activeElement === host;
+        });
+        assertSmoke(opened, `Tab from "More actions" did not reach the "Add to deck…" dropdown: ${await overlay.evaluate(() => document.activeElement?.outerHTML.slice(0, 160))}`);
+        assertSmoke(await popup.locator('[data-card-details-loading]').count() === 1,
+            'Desktop popup finished enriching with its fetches held; the re-render race was not exercised.');
+
+        await release();
+        await overlay.waitForFunction(() => window.__yomuSmokeHeldFetches.pending === 0, undefined, { timeout: 15_000 });
+        await overlay.waitForTimeout(400);
+        const during = await popup.evaluate(root => ({
+            sameDropdown: root.querySelector('.jpdb-reader-deck-select')?.dataset.smokeOpenedDropdown === 'true',
+            focused: document.activeElement?.matches('.jpdb-reader-deck-select') ?? false,
+            overflowOpen: !root.querySelector('.jpdb-reader-actions-mining-collapsed'),
+        }));
+        assertSmoke(during.sameDropdown && during.focused && during.overflowOpen,
+            `Desktop popup rebuilt under the open deck dropdown when enrichment landed: ${JSON.stringify(during)}`);
+
+        // Pick the local deck by typing its name: the word is saved there, once.
+        await overlay.keyboard.type('Academy');
+        const toast = overlay.locator('.jpdb-reader-toast').filter({ hasText: /^Added to (deck|Academy)\.$/ });
+        await toast.first().waitFor({ state: 'attached', timeout: 15_000 });
+        const saved = await overlay.evaluate(() => Object.keys(localStorage)
+            .filter(key => /srs|deck/i.test(key) && (localStorage.getItem(key) || '').includes('冒険')));
+        assertSmoke(saved.length > 0, 'Choosing a deck in the dropdown did not save the word to the local deck.');
+        // The refresh after the save shows the enriched card, with the dropdown back under focus.
+        await popup.locator('[data-card-details-loading]').waitFor({ state: 'detached', timeout: 15_000 });
+        // The refreshed popup opens with ⋯ closed, so the learner's place is its toggle.
+        const after = await popup.evaluate(root => ({
+            focused: root.getRootNode().activeElement?.matches('.jpdb-reader-deck-select, [data-action="mining-collapse"]') === true
+                && root.contains(root.getRootNode().activeElement),
+            toasts: [...document.querySelectorAll('.jpdb-reader-toast')].map(node => node.textContent),
+        }));
+        assertSmoke(after.focused, `A keyboard save left the learner off the deck dropdown: ${JSON.stringify(after)}`);
+        await overlay.screenshot({ path: path.join(appRoot, 'qa-artifacts/desktop-deck-dropdown-after-save.png') });
+        console.log(`[desktop-popup] deck dropdown kept through enrichment and saved the word: ${JSON.stringify({ during, after, saved })}`);
+    } finally {
+        await release().catch(() => undefined);
+    }
+    await overlay.evaluate(() => window.yomuGaming.hideOverlay());
+    await pressCaptureShortcutForFreshOverlayDocument(overlay);
+    await ocrWordForVisualText(overlay, '冒険');
 }
 
 async function assertDesktopBackupRoundTrip(page) {
