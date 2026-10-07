@@ -303,20 +303,11 @@ async function assertNonActivatingLayer(overlay) {
 }
 
 async function assertShortcutRecapturesOverOverlay(overlay) {
-    const before = await overlay.evaluate(() => {
-        window.__yomuSmokePreviousOverlayDocument = true;
-        return document.querySelector('img.overlay-backdrop')?.getAttribute('src') ?? '';
-    });
+    const before = await overlay.evaluate(() => document.querySelector('img.overlay-backdrop')?.getAttribute('src') ?? '');
     const requestCount = fixtureOcr.requests.length;
     writeGeneratedGameFixturePng(fixtureCapturePath, { tooltip: true });
     try {
-        await app.evaluate(() => globalThis.__yomuGamingPressCaptureShortcut());
-        await overlay.waitForFunction(
-            () => !window.__yomuSmokePreviousOverlayDocument
-                && Boolean(document.querySelector('[data-yomu-gaming-overlay-ready="true"][data-overlay-mode="result"]')),
-            undefined,
-            { timeout: 15_000 },
-        );
+        await pressCaptureShortcutForFreshOverlayDocument(overlay);
     } finally {
         writeGeneratedGameFixturePng(fixtureCapturePath);
     }
@@ -700,10 +691,25 @@ async function assertLocalPopupActions(overlay, label) {
     // picker is covered here; actual OS selection is a separate hardware acceptance check.
     // Dismiss through the normal native lifecycle, then restore a fresh visible capture
     // for the shortcut recapture assertion; never leave a system menu open behind the test.
+    // The capture is restored from the main process, as the OS shortcut does: asking the
+    // overlay's own renderer to show the overlay reloads the document making that call.
     await overlay.evaluate(() => window.yomuGaming.hideOverlay());
-    await overlay.evaluate(() => window.yomuGaming.showOverlay());
-    await overlay.waitForSelector('[data-overlay-mode="result"]', { timeout: 15000 });
+    await pressCaptureShortcutForFreshOverlayDocument(overlay);
     await ocrWordForVisualText(overlay, '冒険');
+}
+
+// Presses the capture shortcut through the main-process hook the OS shortcut calls, and
+// waits until the overlay has loaded a NEW document on the new frame (every capture
+// reloads the overlay, so a marker on the old document tells the two apart).
+async function pressCaptureShortcutForFreshOverlayDocument(overlay) {
+    await overlay.evaluate(() => { window.__yomuSmokePreviousOverlayDocument = true; });
+    await app.evaluate(() => globalThis.__yomuGamingPressCaptureShortcut());
+    await overlay.waitForFunction(
+        () => !window.__yomuSmokePreviousOverlayDocument
+            && Boolean(document.querySelector('[data-yomu-gaming-overlay-ready="true"][data-overlay-mode="result"]')),
+        undefined,
+        { timeout: 15_000 },
+    );
 }
 
 async function assertDesktopBackupRoundTrip(page) {
