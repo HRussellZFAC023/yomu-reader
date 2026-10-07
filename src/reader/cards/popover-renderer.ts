@@ -24,7 +24,6 @@ import { contextOccurrenceCount, hasFrequencyRankEvidence, type ProviderFrequenc
 import type { BunproDefinitionInfo } from '../bunpro/definition';
 import type { JpdbVocabularyInfo } from '../jpdb/jpdb-vocabulary';
 import { jpdbVocabularyUrl } from '../jpdb/jpdb-vocabulary-url';
-import { pillStyle } from '../dictionaries/display';
 import type { YomitanMetaEntry, YomitanTermEntry } from '../dictionaries/yomitan';
 import { bunproDefinitionStatusAttributes } from '../bunpro/status-attributes';
 import { targetUsesCharacterDictionary } from '../languages/character-lookup';
@@ -234,7 +233,7 @@ export class CardPopoverRenderer {
         const count = contextOccurrenceCount(card, sentence);
         if (!count) return '';
         const label = formatUiText(language, 'contextOccurrences', { count });
-        return `<span class="jpdb-reader-pill jpdb-reader-frequency-pill" data-frequency-source="context" style="${pillStyle('frequency:context')}" title="${escapeHtml(label)}">${escapeHtml(label)}</span>`;
+        return `<span class="jpdb-reader-pill jpdb-reader-frequency-pill" data-frequency-source="context" title="${escapeHtml(label)}">${escapeHtml(label)}</span>`;
     }
 
     private renderTitleRow(card: JPDBCard, data: CardRenderData & { loading: boolean }, view: CardPopoverRenderView): string {
@@ -879,7 +878,7 @@ function renderApiDeckStateActions(state: MiningActionState, language: Interface
 function renderMetaFrequencyRank(rank: number, language: InterfaceLanguage): string {
     const label = uiText(language, 'factFrequency');
     const value = `#${rank}`;
-    return `<span class="jpdb-reader-pill jpdb-reader-frequency-pill jpdb-reader-meta-pill" data-dictionary="JPDB" style="${pillStyle('frequency:JPDB')}" title="${escapeHtml(label)}" aria-label="${escapeHtml(`${label}: ${value}`)}">${escapeHtml(value)}</span>`;
+    return `<span class="jpdb-reader-pill jpdb-reader-frequency-pill jpdb-reader-meta-pill" data-dictionary="JPDB" title="${escapeHtml(label)}" aria-label="${escapeHtml(`${label}: ${value}`)}">${escapeHtml(value)}</span>`;
 }
 
 function shouldRenderMetaFrequencyRank(card: JPDBCard, provider: ApiSrsProviderView | null, settings: ReaderSettings): boolean {

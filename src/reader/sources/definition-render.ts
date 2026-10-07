@@ -2,7 +2,7 @@ import { HAS_JAPANESE, escapeHtml } from '../dom/index';
 import { uiText } from '../app/i18n';
 import { cardHighlightScopeAttributes, type CardHighlightTarget } from '../cards/highlight';
 import { KANJI_DICTIONARIES_SOURCE_ID } from './sections';
-import { hasRichStructuredGlossary, localTermTags, normalizeFrequencyChipValue, pillStyle } from '../dictionaries/display';
+import { hasRichStructuredGlossary, localTermTags, normalizeFrequencyChipValue } from '../dictionaries/display';
 import { formatMetaFrequency, groupTermEntriesByHeadword, summarizeLearnerGlossary, type LearnerTermGroup } from '../dictionaries/groups';
 import type { InterfaceLanguage, ReaderSettings } from '../app/types';
 import { glossaryToHtml, glossaryToText, type YomitanKanjiEntry, type YomitanMetaEntry, type YomitanTermEntry } from '../dictionaries/yomitan';
@@ -210,5 +210,5 @@ function hasAdditionalLocalDictionaryText(entry: YomitanTermEntry): boolean {
 export function renderFrequencyPill(entry: YomitanMetaEntry, dictionaryLabel: DictionaryLabel): string {
     const label = dictionaryLabel(entry.dictionary);
     const value = normalizeFrequencyChipValue(label, formatMetaFrequency(entry.data));
-    return value ? `<span class="jpdb-reader-pill jpdb-reader-frequency-pill" data-dictionary="${escapeHtml(entry.dictionary)}" data-frequency-source="local" style="${pillStyle(`frequency:${entry.dictionary}`)}" title="${escapeHtml(`${label} local frequency`)}">${escapeHtml(label)} ${escapeHtml(value)}</span>` : '';
+    return value ? `<span class="jpdb-reader-pill jpdb-reader-frequency-pill" data-dictionary="${escapeHtml(entry.dictionary)}" data-frequency-source="local" title="${escapeHtml(`${label} local frequency`)}">${escapeHtml(label)} ${escapeHtml(value)}</span>` : '';
 }

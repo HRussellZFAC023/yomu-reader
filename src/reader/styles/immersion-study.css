@@ -1024,10 +1024,12 @@ mark.jpdb-reader-example-target {
   color: var(--jpdb-reader-accent-readable);
   font-weight: 850;
 }
+/* Frequency is a quiet label, not another destination; .jpdb-reader-pill
+   paints these chip colours. */
 .jpdb-reader-frequency-pill {
-  border: 1px solid var(--chip-border, var(--jpdb-reader-border));
-  background: var(--chip-bg, var(--jpdb-reader-surface-2));
-  color: var(--chip-text, var(--jpdb-reader-text));
+  --chip-border: transparent;
+  --chip-bg: var(--jpdb-reader-surface-2);
+  --chip-text: var(--jpdb-reader-muted);
 }
 .jpdb-reader-kanji-char {
   font-family: var(--jpdb-reader-popup-font, var(--jpdb-reader-font));

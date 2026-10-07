@@ -1,6 +1,5 @@
 import type { InterfaceLanguage } from '../app/types';
 import type { YomitanMetaEntry, YomitanTermEntry } from './yomitan';
-import { LOOKUP_PILL_COLOR_TOKENS } from '../theme/color-tokens';
 
 const LOCAL_TAG_SPLIT_RE = /[\s,;|/]+/;
 const HIDDEN_LOCAL_TERM_TAGS = new Set(['0', '1', '2', '3', '4', '5']);
@@ -67,18 +66,6 @@ function isRichStructuredGlossaryRecord(record: Record<string, unknown>): boolea
     return record.type === 'image' || 'path' in record || tag === 'img' || tag === 'table';
 }
 
-export function pillStyle(key: string): string {
-    const hue = stableHue(key);
-    return `--chip-bg:hsl(${hue} 70% 36%);--chip-border:hsl(${hue} 72% 50%);--chip-text:#fff;`;
-}
-
-export function lookupPillStyle(id: string): string {
-    const token = LOOKUP_PILL_COLOR_TOKENS[id as keyof typeof LOOKUP_PILL_COLOR_TOKENS];
-    return token
-        ? `--chip-bg:${token.bg};--chip-border:${token.border};--chip-text:${token.text};`
-        : pillStyle(`lookup:${id}`);
-}
-
 export function bestFrequencyEntries(entries: YomitanMetaEntry[]): YomitanMetaEntry[] {
     const bestByDictionary = new Map<string, YomitanMetaEntry>();
     const others: YomitanMetaEntry[] = [];
@@ -113,12 +100,6 @@ function numericFrequencyRank(value: string): number {
 export function normalizeFrequencyChipValue(label: string, value: string): string {
     const marker = label.match(/[㋕㋐]$/u)?.[0];
     return marker && value.endsWith(marker) ? value.slice(0, -marker.length) : value;
-}
-
-function stableHue(value: string): number {
-    let hash = 0;
-    for (let index = 0; index < value.length; index++) hash = ((hash << 5) - hash + value.charCodeAt(index)) | 0;
-    return Math.abs(hash) % 360;
 }
 
 export function formatLookupUrl(template: string, values: { query: string; word: string; reading: string; vid: string; sid: string }): string {

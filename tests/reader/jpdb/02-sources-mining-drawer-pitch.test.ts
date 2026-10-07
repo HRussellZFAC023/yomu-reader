@@ -1164,10 +1164,10 @@ describe('reader helpers', () => {
 
         expect(html).not.toContain('jpdb-reader-copy-pill');
         expect(html).not.toContain('data-action="copy-word"');
-        expect(html).toContain('--chip-bg:#2563c7');
+        expect(html).toContain('>JPDB ');
     });
 
-    it('renders the built-in lookup pills Yomu-first with their provider colors', () => {
+    it('renders the built-in lookup pills Yomu-first, all in one quiet style', () => {
         const html = renderWordPills({
             card,
             jpdbUrl: 'https://jpdb.io/vocabulary/1',
@@ -1189,8 +1189,9 @@ describe('reader helpers', () => {
         expect(html).toContain('>Copy ');
         expect(html).toContain('https://jiten.moe/parse?text=');
         expect(html).toContain(`${NEW_TAB_PAGE_URL}index.html?q=`);
-        expect(html).toContain('--chip-bg:#b83280');
-        expect(html).toContain('--chip-bg:#13845f');
+        // No rainbow: provider identity is the label, not a fill colour.
+        expect(html).not.toContain('--chip-');
+        expect(html).not.toContain('style=');
         expect(html).not.toContain('>Immersion Kit ');
         expect(html).not.toContain('>Uchisen ');
     });
@@ -1350,7 +1351,7 @@ describe('reader helpers', () => {
         expect(html).toContain('data-action="anki"');
         expect(html).toContain('title="Add to Anki"');
         expect(html).toContain('>Anki ');
-        expect(html).toContain('--chip-bg:#2f6da8');
+        expect(html).not.toContain('--chip-');
     });
 
     it('renders an Edit in Anki pill for existing Anki notes', () => {
@@ -1429,7 +1430,7 @@ describe('reader helpers', () => {
         expect(html).not.toContain('href="https://jiten.moe/parse?text=%E8%AA%AD"');
     });
 
-    it('renders optional Immersion Kit, Nadeshiko, and Uchisen lookup pills with provider colors', () => {
+    it('renders optional Immersion Kit, Nadeshiko, and Uchisen lookup pills without provider colours', () => {
         const html = renderWordPills({
             card,
             jpdbUrl: 'https://jpdb.io/vocabulary/1',
@@ -1450,9 +1451,7 @@ describe('reader helpers', () => {
         expect(html).toContain('https://www.immersionkit.com/dictionary?keyword=');
         expect(html).toContain('https://nadeshiko.co/search/');
         expect(html).toContain('https://uchisen.com/kanji/');
-        expect(html).toContain('--chip-bg:#0e7490');
-        expect(html).toContain('--chip-bg:#7c3aed');
-        expect(html).toContain('--chip-bg:#9a3412');
+        expect(html).not.toContain('--chip-');
     });
 
     it('uses the hosted new-tab review fallback when a dictionary card is gradeable outside JPDB API lookup', () => {

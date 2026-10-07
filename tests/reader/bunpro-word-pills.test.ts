@@ -48,13 +48,13 @@ describe('Bunpro lookup pill', () => {
         expect(renderPills({ ...DEFAULT_SETTINGS, dictionaryLookupLinks: defaults })).toContain('>Bunpro ');
     });
 
-    it('renders as an enabled lookup pill with Bunpro URL and color token', () => {
+    it('renders as an enabled, neutral lookup pill with the Bunpro URL', () => {
         const html = renderPills(settingsWithBunproPill(true));
 
         expect(html).toContain('>Bunpro ');
         expect(html).toContain('href="https://bunpro.jp/search?query=%E9%A3%9F%E3%81%B9%E3%82%8B"');
-        expect(html).toContain('--chip-bg:#be3455');
-        expect(html).toContain('--chip-border:#fb7185');
+        // Source links are quiet destinations: no per-provider colour.
+        expect(html).not.toContain('--chip-');
     });
 });
 

@@ -1,7 +1,7 @@
 import { escapeHtml } from '../dom/index';
 import { renderFrequencyPill } from './definition-render';
 import { formatUiText, uiText } from '../app/i18n';
-import { bestFrequencyEntries, formatLookupUrl, lookupPillStyle } from '../dictionaries/display';
+import { bestFrequencyEntries, formatLookupUrl } from '../dictionaries/display';
 import { canUseMobileAnkiHandoff, mobileAnkiHandoffAppName, type AnkiLookupResult } from '../anki/index';
 import { ankiIcon, copyIcon, externalLinkIcon } from '../ui/icons';
 import { replaceOptionalElement } from '../app/dom-helpers';
@@ -82,12 +82,11 @@ function renderSelectionLookupPill(
     language: ReaderSettings['interfaceLanguage'],
     link: ReaderSettings['dictionaryLookupLinks'][number],
 ): string {
-    const style = lookupPillStyle(link.id || link.label);
-    if (link.action === 'copy' || link.id === 'copy') return renderSelectionCopyPill(language, context.query, style);
+    if (link.action === 'copy' || link.id === 'copy') return renderSelectionCopyPill(language, context.query);
     const url = formatLookupUrl(link.urlTemplate, context);
     if (!url) return '';
     const title = lookupSelectionPillTitle(language, link);
-    return `<a class="${lookupLinkPillClass(link.id)}" href="${escapeHtml(url)}" target="_blank" rel="noopener"${lookupPillStyleAttribute(style)} title="${escapeHtml(title)}" aria-label="${escapeHtml(`${title}: ${context.query}`)}">${escapeHtml(link.label)} ${externalLinkIcon()}</a>`;
+    return `<a class="${lookupLinkPillClass(link.id)}" href="${escapeHtml(url)}" target="_blank" rel="noopener" title="${escapeHtml(title)}" aria-label="${escapeHtml(`${title}: ${context.query}`)}">${escapeHtml(link.label)} ${externalLinkIcon()}</a>`;
 }
 
 function lookupSelectionPillTitle(language: ReaderSettings['interfaceLanguage'], link: ReaderSettings['dictionaryLookupLinks'][number]): string {
@@ -104,8 +103,7 @@ function renderLookupLinkPill(
     link: ReaderSettings['dictionaryLookupLinks'][number],
     mergedLiveRanks: MergedLiveRanks,
 ): string {
-    const style = lookupPillStyle(link.id || link.label);
-    if (link.action === 'copy' || link.id === 'copy') return renderCopyPill(language, query, style, options.inert);
+    if (link.action === 'copy' || link.id === 'copy') return renderCopyPill(language, query, options.inert);
     const url = lookupLinkPillUrl(options, context, link);
     if (!url) return '';
     // Merge a provider's live rank inline (e.g. "Jiten #18447"). Bunpro shows
@@ -116,9 +114,9 @@ function renderLookupLinkPill(
     const title = rank?.detail ? `${baseTitle}\n${rank.detail}` : baseTitle;
     const label = rank ? `${link.label} ${rank.display ?? `#${rank.rank}`}` : link.label;
     if (options.inert) {
-        return `<span class="${lookupLinkPillClass(link.id)}" role="link" aria-disabled="true" tabindex="-1"${lookupPillStyleAttribute(style)} title="${escapeHtml(title)}" aria-label="${escapeHtml(`${title}: ${query}`)}">${escapeHtml(label)} ${externalLinkIcon()}</span>`;
+        return `<span class="${lookupLinkPillClass(link.id)}" role="link" aria-disabled="true" tabindex="-1" title="${escapeHtml(title)}" aria-label="${escapeHtml(`${title}: ${query}`)}">${escapeHtml(label)} ${externalLinkIcon()}</span>`;
     }
-    return `<a class="${lookupLinkPillClass(link.id)}" href="${escapeHtml(url)}" target="_blank" rel="noopener"${lookupPillStyleAttribute(style)} title="${escapeHtml(title)}" aria-label="${escapeHtml(`${title}: ${query}`)}">${escapeHtml(label)} ${externalLinkIcon()}</a>`;
+    return `<a class="${lookupLinkPillClass(link.id)}" href="${escapeHtml(url)}" target="_blank" rel="noopener" title="${escapeHtml(title)}" aria-label="${escapeHtml(`${title}: ${query}`)}">${escapeHtml(label)} ${externalLinkIcon()}</a>`;
 }
 
 // The live-frequency rank is shown inline on its sibling link pill.
@@ -277,35 +275,28 @@ function ankiPillButton(options: {
     inert?: boolean;
     noteId?: number;
 }): string {
-    const styleAttribute = lookupPillStyleAttribute(lookupPillStyle('anki'));
     const label = uiText(options.language, 'anki');
     const title = escapeHtml(options.title);
     const ariaLabel = escapeHtml(`${options.title}: ${options.query}`);
     const content = `${escapeHtml(label)} ${ankiIcon()}`;
     if (options.inert) {
-        return `<span class="jpdb-reader-pill jpdb-reader-action-pill jpdb-reader-anki-pill" role="button" aria-disabled="true" tabindex="-1"${styleAttribute} title="${title}" aria-label="${ariaLabel}">${content}</span>`;
+        return `<span class="jpdb-reader-pill jpdb-reader-action-pill jpdb-reader-anki-pill" role="button" aria-disabled="true" tabindex="-1" title="${title}" aria-label="${ariaLabel}">${content}</span>`;
     }
     const noteAttribute = options.action === 'anki-edit' && options.noteId ? ` data-note-id="${options.noteId}"` : '';
-    return `<button class="jpdb-reader-pill jpdb-reader-action-pill jpdb-reader-anki-pill" data-action="${options.action}"${noteAttribute}${privateCommandAttributes({ kind: 'card-action', action: options.action, noteId: options.noteId })} type="button"${styleAttribute} title="${title}" aria-label="${ariaLabel}">${content}</button>`;
+    return `<button class="jpdb-reader-pill jpdb-reader-action-pill jpdb-reader-anki-pill" data-action="${options.action}"${noteAttribute}${privateCommandAttributes({ kind: 'card-action', action: options.action, noteId: options.noteId })} type="button" title="${title}" aria-label="${ariaLabel}">${content}</button>`;
 }
 
-function lookupPillStyleAttribute(style: string): string {
-    return style ? ` style="${style}"` : '';
-}
-
-function renderSelectionCopyPill(language: ReaderSettings['interfaceLanguage'], query: string, style = lookupPillStyle('copy')): string {
+function renderSelectionCopyPill(language: ReaderSettings['interfaceLanguage'], query: string): string {
     const copyTitle = uiText(language, 'copyWordTitle');
-    const styleAttribute = style ? ` style="${style}"` : '';
-    return `<button class="jpdb-reader-pill jpdb-reader-action-pill jpdb-reader-copy-pill" data-action="copy-selection" type="button"${styleAttribute} title="${escapeHtml(copyTitle)}" aria-label="${escapeHtml(`${copyTitle}: ${query}`)}">${escapeHtml(uiText(language, 'copyWord'))} ${copyIcon()}</button>`;
+    return `<button class="jpdb-reader-pill jpdb-reader-action-pill jpdb-reader-copy-pill" data-action="copy-selection" type="button" title="${escapeHtml(copyTitle)}" aria-label="${escapeHtml(`${copyTitle}: ${query}`)}">${escapeHtml(uiText(language, 'copyWord'))} ${copyIcon()}</button>`;
 }
 
-function renderCopyPill(language: ReaderSettings['interfaceLanguage'], query: string, style = lookupPillStyle('copy'), inert = false): string {
+function renderCopyPill(language: ReaderSettings['interfaceLanguage'], query: string, inert = false): string {
     const copyTitle = uiText(language, 'copyWordTitle');
-    const styleAttribute = style ? ` style="${style}"` : '';
     if (inert) {
-        return `<span class="jpdb-reader-pill jpdb-reader-action-pill jpdb-reader-copy-pill" role="button" aria-disabled="true" tabindex="-1"${styleAttribute} title="${escapeHtml(copyTitle)}" aria-label="${escapeHtml(`${copyTitle}: ${query}`)}">${escapeHtml(uiText(language, 'copyWord'))} ${copyIcon()}</span>`;
+        return `<span class="jpdb-reader-pill jpdb-reader-action-pill jpdb-reader-copy-pill" role="button" aria-disabled="true" tabindex="-1" title="${escapeHtml(copyTitle)}" aria-label="${escapeHtml(`${copyTitle}: ${query}`)}">${escapeHtml(uiText(language, 'copyWord'))} ${copyIcon()}</span>`;
     }
-    return `<button class="jpdb-reader-pill jpdb-reader-action-pill jpdb-reader-copy-pill" data-action="copy-word"${privateCommandAttributes({ kind: 'card-action', action: 'copy-word' })} type="button"${styleAttribute} title="${escapeHtml(copyTitle)}" aria-label="${escapeHtml(`${copyTitle}: ${query}`)}">${escapeHtml(uiText(language, 'copyWord'))} ${copyIcon()}</button>`;
+    return `<button class="jpdb-reader-pill jpdb-reader-action-pill jpdb-reader-copy-pill" data-action="copy-word"${privateCommandAttributes({ kind: 'card-action', action: 'copy-word' })} type="button" title="${escapeHtml(copyTitle)}" aria-label="${escapeHtml(`${copyTitle}: ${query}`)}">${escapeHtml(uiText(language, 'copyWord'))} ${copyIcon()}</button>`;
 }
 
 function frequencyPillsByLookupId(options: WordPillRenderOptions): { pills: Map<string, string>; mergedLiveRanks: MergedLiveRanks } {

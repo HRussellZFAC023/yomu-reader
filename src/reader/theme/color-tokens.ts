@@ -65,24 +65,6 @@ export const DEFAULT_PITCH_COLOR_TOKENS = {
     unknown: '#94a3b8',
 } as const;
 
-export const LOOKUP_PILL_COLOR_TOKENS = {
-    jpdb: { bg: '#2563c7', border: '#4f8ff0', text: CORE_COLOR_TOKENS.white },
-    jiten: { bg: '#13845f', border: '#34c89a', text: CORE_COLOR_TOKENS.white },
-    bunpro: { bg: '#be3455', border: '#fb7185', text: CORE_COLOR_TOKENS.white },
-    'yomu-search': { bg: '#b83280', border: '#f472b6', text: CORE_COLOR_TOKENS.white },
-    jisho: { bg: '#4f46c7', border: '#7567f0', text: CORE_COLOR_TOKENS.white },
-    weblio: { bg: '#0f766e', border: '#2dd4bf', text: CORE_COLOR_TOKENS.white },
-    kotobank: { bg: '#be123c', border: '#fb7185', text: CORE_COLOR_TOKENS.white },
-    takoboto: { bg: '#0f5f99', border: '#38bdf8', text: CORE_COLOR_TOKENS.white },
-    'wiktionary-ja': { bg: '#374151', border: '#9ca3af', text: CORE_COLOR_TOKENS.white },
-    'immersion-kit': { bg: '#0e7490', border: '#22d3ee', text: CORE_COLOR_TOKENS.white },
-    nadeshiko: { bg: '#7c3aed', border: '#a78bfa', text: CORE_COLOR_TOKENS.white },
-    // Styling for the retained outbound lookup link only; there is no embedded source.
-    uchisen: { bg: '#9a3412', border: '#fb923c', text: CORE_COLOR_TOKENS.white },
-    anki: { bg: '#2f6da8', border: '#68a6e6', text: CORE_COLOR_TOKENS.white },
-    copy: { bg: '#7e3fbf', border: '#a064e5', text: CORE_COLOR_TOKENS.white },
-} as const;
-
 export const NEW_TAB_COLOR_TOKENS = {
     backgroundBase: '#f6f8f5',
     backgroundReadableSeed: '#141b17',
