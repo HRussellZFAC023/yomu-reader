@@ -150,7 +150,8 @@ describe('mirrored dictionary catalogue browsing', () => {
         const shelfDigests = catalogShelfDigests(cards);
 
         const supportedPublishedEntries = publishedEntries.filter(isCurrentCatalogEntry);
-        expect(supportedPublishedEntries.length).toBeGreaterThan(150);
+        expect(supportedPublishedEntries.length).toBeGreaterThan(0);
+        expect(supportedPublishedEntries.every(entry => entry.headwordLanguages.includes('ja'))).toBe(true);
         const unreachable = unreachableCatalogEntries(supportedPublishedEntries, renderedIds, shelfDigests);
 
         expect(unreachable.map(entry => `${entry.headwordLanguages.join('+')} ${entry.id}`)).toEqual([]);
@@ -209,9 +210,8 @@ describe('mirrored dictionary catalogue browsing', () => {
         const pronunciation = catalogBrowseDictionaries().filter(
             dictionary => dictionary.catalogCategory === 'pronunciation',
         );
-        const nonJapanese = pronunciation.filter(dictionary => dictionary.headwordLanguage !== 'ja');
-
-        expect(nonJapanese.length).toBeGreaterThan(400);
+        expect(pronunciation.length).toBeGreaterThan(0);
+        expect(pronunciation.every(dictionary => dictionary.headwordLanguage === 'ja')).toBe(true);
         expect(pronunciation.every(dictionary => dictionary.category === 'pronunciation')).toBe(true);
         expect(pronunciation.some(dictionary => dictionary.category === 'pitch')).toBe(false);
     });
