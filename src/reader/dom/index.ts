@@ -66,6 +66,7 @@ import {
     unregisterDocumentAnnotationPortalMirror,
 } from './youtube-chrome-annotation-portal';
 import { sourcePreservingProseNeedsDocumentPortal } from './document-portal-prose-policy';
+import { furiganaSettingsForTarget, targetForcesAllFurigana, targetKeepsInFlowReadings } from './furigana-mode-stamp';
 import { commonFragmentTextHost, scanTargetPaintRoots, scanTargetSourceScope } from './scan-paint-roots';
 import { selectedWordColorSourceToken } from '../theme/color-source-classes';
 import { isYouTubeAppHostname } from '../app/youtube-host';
@@ -4917,12 +4918,6 @@ function restoreControlTextMirrorHost(host: HTMLElement, state: ControlTextMirro
     }
 }
 
-function furiganaSettingsForTarget(settings: ReaderSettings, parent: HTMLElement): ReaderSettings {
-    if (!targetForcesAllFurigana(parent)) return settings;
-    if (settings.showFurigana && settings.furiganaMode === 'all') return settings;
-    return { ...settings, showFurigana: true, furiganaMode: 'all' };
-}
-
 function scanTargetSuppressesRuby(
     parent: HTMLElement,
     suppressRuby?: boolean,
@@ -4951,19 +4946,6 @@ function scanTargetSuppressesRuby(
     }
     if (targetKeepsInFlowReadings(parent)) return false;
     return Boolean(suppressRuby);
-}
-
-// 'all' overrides which words get a reading; it is also what Yomu-owned
-// example rows stamp.
-function targetForcesAllFurigana(parent: HTMLElement): boolean {
-    return Boolean(parent.closest('[data-yomu-furigana-mode="all"]'));
-}
-
-// Either mode that shows readings at rest puts them back in flow on content
-// whose collector suppressed them (prose with links), so the reading lane
-// does not change with which words are hidden.
-function targetKeepsInFlowReadings(parent: HTMLElement): boolean {
-    return Boolean(parent.closest('[data-yomu-furigana-mode="all"],[data-yomu-furigana-mode="known-status"]'));
 }
 
 // Class Q (2026-07-10): constrained-row protection is engine-UNCONDITIONAL —

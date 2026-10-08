@@ -7,6 +7,7 @@ import {
     shouldHideFuriganaForCardState,
     shouldRenderRuby,
 } from '../dom/index';
+import { furiganaSettingsForTarget } from '../dom/furigana-mode-stamp';
 import { cardStateLabel } from '../app/i18n';
 import { cardDeckMembershipClassNames } from '../cards/deck-membership';
 import { primaryCardState } from '../cards/state';
@@ -226,7 +227,7 @@ export function applyPublicVocabularyFurigana(word: HTMLElement, card: JPDBCard,
     if (word.closest('ruby')) return false;
     const ocrLine = word.closest<HTMLElement>('.jpdb-ocr-line');
     const surface = readerWordSurfaceText(word).trim() || word.dataset.expression || card.spelling;
-    const renderSettings = publicVocabularyFuriganaSettings(word, settings);
+    const renderSettings = furiganaSettingsForTarget(settings, word);
     if (shouldHideFuriganaForCardState(renderSettings, publicVocabularyFuriganaCardState(word, card))) {
         return clearPublicVocabularyFurigana(word, surface, ocrLine, isPopupLookupEnabled(settings));
     }
@@ -302,12 +303,6 @@ function clearPublicVocabularyFurigana(
     yomuNormalizeOcrRenderedText()?.(word, isolatePageScanners);
     if (!ocrLine.querySelector('.jpdb-reader-word.jpdb-reader-has-furi')) delete ocrLine.dataset.hasFuri;
     return true;
-}
-
-function publicVocabularyFuriganaSettings(word: HTMLElement, settings: ReaderSettings): ReaderSettings {
-    if (!word.closest('[data-yomu-furigana-mode="all"]')) return settings;
-    if (settings.showFurigana && settings.furiganaMode === 'all') return settings;
-    return { ...settings, showFurigana: true, furiganaMode: 'all' };
 }
 
 export function applyAnkiLookupToRenderedWord(
