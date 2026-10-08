@@ -70,6 +70,15 @@ describe('hosted userscript install links', () => {
         expect(readFileSync('docs/desktop.md', 'utf8')).toContain('Screen Recording');
     });
 
+    it('keeps the release page one click away on /desktop', () => {
+        // releases/latest lacks the desktop files for the minutes each release
+        // takes to upload them, and for good if that upload fails.
+        const desktop = readFileSync('docs/desktop.md', 'utf8').replace(/^---[\s\S]*?---/u, '');
+        const link = '<a class="yomu-desktop-other" href="https://github.com/HRussellZFAC023/yomu-reader/releases/latest">';
+        expect(desktop).toContain(`${link}All downloads</a>`);
+        expect(localizeHtmlFragment(desktop, 'ja')).toContain(`${link}ダウンロード一覧</a>`);
+    });
+
     it.each([
         ['Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36', 0, 'win-x64'],
         ['Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Safari/605.1.15', 0, 'mac-arm64'],

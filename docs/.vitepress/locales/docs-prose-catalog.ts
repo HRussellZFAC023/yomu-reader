@@ -907,6 +907,7 @@ const HOSTED_DOCS_JA_COPY: Record<string, string> = {
     'Read the Japanese in games and apps. Press one shortcut, then hover a word. Free.': 'ゲームやアプリの日本語を読めます。ショートカットを押して、単語にカーソルを合わせるだけ。無料です。',
     'Mac (Apple silicon)': 'Mac（Appleシリコン）',
     'Mac (Intel)': 'Mac（Intel）',
+    'All downloads': 'ダウンロード一覧',
     'Open よむ Desktop. It waits in the tray, or the menu bar on a Mac.': 'よむ Desktopを開きます。タスクトレイ（Macではメニューバー）で待機します。',
     'With Japanese on screen, press Ctrl+Shift+Y (Cmd+Shift+Y on a Mac).': '画面に日本語が出たら、Ctrl+Shift+Y（MacではCmd+Shift+Y）を押します。',
     'Hover a word.': '単語にカーソルを合わせます。',

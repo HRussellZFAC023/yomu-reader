@@ -8,9 +8,12 @@
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
+import { createRequire } from 'node:module';
 import {
+    PRODUCTION_DOWNLOADS,
     PRODUCTION_HEALTH_ENDPOINTS,
     evaluateHealthResponse,
+    evaluateMissingDownload,
     // @ts-expect-error -- plain Node probe script, deliberately not part of the typed bundle
 } from '../../scripts/production-health-check.mjs';
 import { SERVICE_VERSION, serviceRevision } from '../../workers/shared/service-revision';
@@ -23,6 +26,9 @@ interface HealthEndpoint {
 }
 
 const endpoints = PRODUCTION_HEALTH_ENDPOINTS as HealthEndpoint[];
+const { DESKTOP_DOWNLOAD_URLS } = createRequire(import.meta.url)('../../scripts/lib/hosted-install-route.cjs') as {
+    DESKTOP_DOWNLOAD_URLS: Record<string, string>;
+};
 
 // Every deployed Worker, with the config that creates its route and the source
 // file that answers its health path.
@@ -81,6 +87,28 @@ describe('production health monitoring', () => {
         expect(healthy.version).toBe('9.9.9');
         // The academy shape, which reports `ok: true` rather than a status word.
         expect(evaluateHealthResponse(200, JSON.stringify({ ok: true })).ok).toBe(true);
+    });
+});
+
+describe('よむ Desktop download monitoring', () => {
+    it('checks every download button the site shows', () => {
+        // The buttons link releases/latest/download/yomu-desktop-*, which 404s
+        // whenever the latest release lacks those files.
+        expect((PRODUCTION_DOWNLOADS as HealthEndpoint[]).map(download => download.url).sort())
+            .toEqual(Object.values(DESKTOP_DOWNLOAD_URLS).sort());
+        expect(read('.github/workflows/production-health.yml')).toContain('GITHUB_TOKEN: ${{ github.token }}');
+    });
+
+    it('fails a missing download unless the latest release is under an hour old', () => {
+        const now = Date.parse('2026-10-08T12:00:00Z');
+        // The site went live before the release that carries the files.
+        expect(evaluateMissingDownload('HTTP 404', '2026-10-05T10:15:31Z', now).ok).toBe(false);
+        // Published two minutes ago: the desktop workflow is still uploading.
+        expect(evaluateMissingDownload('HTTP 404', '2026-10-08T11:58:00Z', now).ok).toBe(true);
+        // Published over an hour ago: the desktop workflow failed.
+        expect(evaluateMissingDownload('HTTP 404', '2026-10-08T10:59:00Z', now).ok).toBe(false);
+        // GitHub did not say when: no grace.
+        expect(evaluateMissingDownload('HTTP 404', null, now).ok).toBe(false);
     });
 });
 

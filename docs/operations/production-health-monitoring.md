@@ -32,6 +32,16 @@ Use `/healthz` for the `edge` Worker, not `/health`. `/health` is an ordinary
 proxy request path and answers `400 Missing url parameter.`; a 2026-07-29 sweep
 read that 400 as a broken route.
 
+## よむ Desktop downloads
+
+The same run sends a `HEAD` to each `releases/latest/download/yomu-desktop-*`
+file that yomureader.com's download buttons link (`DESKTOP_DOWNLOAD_URLS` in
+`scripts/lib/hosted-install-route.cjs`). A file that does not answer 200 fails
+the run, unless the latest release is under an hour old: GitHub marks a release
+latest as soon as `release.yml` publishes it, and `release-gaming.yml` attaches
+the desktop files a minute or two later. The workflow's own token pays for that
+one release lookup.
+
 ## What fails the run, and what only gets reported
 
 Fails: a non-200, a 200 whose body is not JSON, or a payload whose

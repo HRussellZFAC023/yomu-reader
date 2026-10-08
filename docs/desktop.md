@@ -19,6 +19,7 @@ Read the Japanese in games and apps. Press one shortcut, then hover a word. Free
   <a class="yomu-desktop-other" href="https://github.com/HRussellZFAC023/yomu-reader/releases/latest/download/yomu-desktop-mac-x64.zip">Mac (Intel)</a>
   <a class="yomu-desktop-other" href="https://github.com/HRussellZFAC023/yomu-reader/releases/latest/download/yomu-desktop-win-x64.exe">Windows</a>
   <a class="yomu-desktop-other" href="https://github.com/HRussellZFAC023/yomu-reader/releases/latest/download/yomu-desktop-linux-x86_64.AppImage">Linux</a>
+  <a class="yomu-desktop-other" href="https://github.com/HRussellZFAC023/yomu-reader/releases/latest">All downloads</a>
 </div>
 
 ## Use it

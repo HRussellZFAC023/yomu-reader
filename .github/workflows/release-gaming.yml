@@ -102,7 +102,8 @@ jobs:
 
       # yomureader.com links releases/latest/download/<stable name>, so the
       # download buttons follow every release without a docs edit. The
-      # versioned files stay for old links and for the checksum list.
+      # versioned files stay for old links and for the checksum list. The
+      # Production Health workflow fails when these names go missing.
       - name: Add stable download names
         shell: bash
         run: |

@@ -38,4 +38,7 @@ jobs:
       # No npm ci: the probe is plain Node with fetch, so a broken lockfile or a
       # registry outage can never be why a monitor stops reporting.
       - name: Probe every production health endpoint
+        env:
+          # Read-only: looks up when the latest release was published.
+          GITHUB_TOKEN: ${{ github.token }}
         run: node scripts/production-health-check.mjs
