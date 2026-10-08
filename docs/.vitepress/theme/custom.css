@@ -1489,7 +1489,8 @@
   :root:not([data-yomu-install]) [data-yomu-route='userscript'],
   :root[data-yomu-install='userscript'] [data-yomu-route='userscript'],
   :root[data-yomu-install='chrome'] [data-yomu-route='chrome'],
-  :root[data-yomu-install='firefox'] [data-yomu-route='firefox']
+  :root[data-yomu-install='firefox'] [data-yomu-route='firefox'],
+  :root[data-yomu-install='android'] [data-yomu-route='firefox']
 ) {
   order: -3;
   padding: 13px 22px;
@@ -1513,7 +1514,8 @@
   :root:not([data-yomu-install]) [data-yomu-route='userscript'],
   :root[data-yomu-install='userscript'] [data-yomu-route='userscript'],
   :root[data-yomu-install='chrome'] [data-yomu-route='chrome'],
-  :root[data-yomu-install='firefox'] [data-yomu-route='firefox']
+  :root[data-yomu-install='firefox'] [data-yomu-route='firefox'],
+  :root[data-yomu-install='android'] [data-yomu-route='firefox']
 ) { color: var(--home-on-action); }
 /* One short line under the promoted button, for the same route only. */
 .yomu-install-hint {
@@ -1529,7 +1531,8 @@
   :root:not([data-yomu-install]) [data-yomu-hint='userscript'],
   :root[data-yomu-install='userscript'] [data-yomu-hint='userscript'],
   :root[data-yomu-install='chrome'] [data-yomu-hint='chrome'],
-  :root[data-yomu-install='firefox'] [data-yomu-hint='firefox']
+  :root[data-yomu-install='firefox'] [data-yomu-hint='firefox'],
+  :root[data-yomu-install='android'] [data-yomu-hint='android']
 ) { display: block; }
 
 /* よむ Desktop: one button that downloads this computer's file. The head

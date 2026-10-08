@@ -852,6 +852,7 @@ const HOSTED_DOCS_JA_COPY: Record<string, string> = {
     'Install on Safari, iPhone or iPad': 'Safari・iPhone・iPadで使う',
     'Also Edge, Brave, Vivaldi and Opera.': 'Edge、Brave、Vivaldi、Operaでも使えます。',
     'Desktop and Android.': 'パソコンとAndroidで使えます。',
+    'On Android, よむ runs in Firefox.': 'Androidでは、よむはFirefoxで動きます。',
     'Uses the free Userscripts app.': '無料のUserscriptsアプリを使います。',
     'How to learn Japanese with よむ': 'よむで日本語を身につけるには',
     'Open a PDF': 'PDFを開く',

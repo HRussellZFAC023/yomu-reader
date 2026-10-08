@@ -100,7 +100,7 @@ describe('editorial homepage contract', () => {
         const page = new DOMParser().parseFromString(homepage.replace(/^---[\s\S]*?---/, ''), 'text/html');
         for (const routes of page.querySelectorAll('.yomu-install-routes')) {
             const hints = [...routes.querySelectorAll<HTMLElement>('.yomu-install-hint')];
-            expect(hints.map(hint => hint.dataset.yomuHint)).toEqual(['chrome', 'firefox', 'userscript']);
+            expect(hints.map(hint => hint.dataset.yomuHint)).toEqual(['chrome', 'firefox', 'android', 'userscript']);
             for (const hint of hints) expect(hint.textContent!.split(/\s+/u).length).toBeLessThanOrEqual(8);
             expect(routes.querySelector('[data-yomu-route="userscript"]')?.getAttribute('href')).toBe('/install#safari');
             expect(routes.querySelector('a[href="/desktop"]')).not.toBeNull();

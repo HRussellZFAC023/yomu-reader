@@ -15,8 +15,9 @@
 //   - Firefox is tested before Android because the AMO listing declares Android
 //     142+ support (verified against the AMO API), so Firefox for Android is a
 //     real store install.
-//   - Android is then excluded because Chromium on Android has no extension
-//     support at all.
+//   - Every other Android browser gets its own route, which promotes Firefox:
+//     Chrome on Android installs no extensions, and the Safari steps the
+//     userscript route opens mean nothing there.
 //   - Everything else Chromium-shaped (Chrome, Edge, Brave, Opera, Chromium)
 //     installs from the Chrome Web Store.
 // Safari, iPadOS, and anything unrecognised fall through to the userscript,
@@ -35,7 +36,7 @@ const INSTALL_ROUTE_URLS = Object.freeze({
 const INSTALL_ROUTE_RULES = Object.freeze([
     ['userscript', 'FxiOS|CriOS|EdgiOS|OPiOS'],
     ['firefox', 'Firefox/'],
-    ['userscript', 'Android'],
+    ['android', 'Android'],
     ['chrome', 'Edg/|Chrome/|Chromium/'],
 ]);
 
@@ -67,7 +68,7 @@ const DEFAULT_DESKTOP_ROUTE = 'none';
 
 /**
  * @param {string} userAgent
- * @returns {'chrome' | 'firefox' | 'userscript'}
+ * @returns {'chrome' | 'firefox' | 'android' | 'userscript'}
  */
 function resolveHostedInstallRoute(userAgent) {
     const ua = typeof userAgent === 'string' ? userAgent : '';

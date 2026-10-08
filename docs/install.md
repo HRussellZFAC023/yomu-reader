@@ -11,6 +11,7 @@ description: Add よむ to Chrome, Edge, Firefox or Safari, or download よむ D
   <a class="yomu-install-route" data-yomu-route="userscript" href="#safari">Install on Safari, iPhone or iPad</a>
   <p class="yomu-install-hint" data-yomu-hint="chrome">Also Edge, Brave, Vivaldi and Opera.</p>
   <p class="yomu-install-hint" data-yomu-hint="firefox">Desktop and Android.</p>
+  <p class="yomu-install-hint" data-yomu-hint="android">On Android, よむ runs in Firefox.</p>
   <p class="yomu-install-hint" data-yomu-hint="userscript">Uses the free Userscripts app.</p>
   <a class="yomu-install-route" href="/desktop">よむ Desktop</a>
 </div>

@@ -2,8 +2,10 @@ import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { describe, expect, it } from 'vitest';
+import { localizeHtmlFragment } from '../../docs/.vitepress/locales/markdown-localization';
 
 type DesktopRoute = 'mac-arm64' | 'mac-x64' | 'win-x64' | 'linux-x86_64';
+type InstallRoute = 'chrome' | 'firefox' | 'android' | 'userscript';
 
 const {
     DEFAULT_INSTALL_ROUTE,
@@ -18,10 +20,36 @@ const {
     INSTALL_ROUTE_URLS: Record<'chrome' | 'firefox' | 'userscript', string>;
     hostedInstallRouteSnippet(): string;
     resolveHostedDesktopRoute(userAgent: string, maxTouchPoints?: number): DesktopRoute | 'none';
-    resolveHostedInstallRoute(userAgent: string): 'chrome' | 'firefox' | 'userscript';
+    resolveHostedInstallRoute(userAgent: string): InstallRoute;
 };
 
 const CANONICAL_USERSCRIPT_URL = 'https://yomureader.com/yomu.user.js';
+const ANDROID_CHROME_UA = 'Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Mobile Safari/537.36';
+const SAMSUNG_INTERNET_UA = 'Mozilla/5.0 (Linux; Android 14; SM-S918B) AppleWebKit/537.36 (KHTML, like Gecko) SamsungBrowser/25.0 Chrome/121.0.0.0 Mobile Safari/537.36';
+const FIREFOX_ANDROID_UA = 'Mozilla/5.0 (Android 15; Mobile; rv:142.0) Gecko/142.0 Firefox/142.0';
+const IPHONE_SAFARI_UA = 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1';
+// iPadOS Safari sends exactly this Mac user agent; only touch points tell them apart.
+const MAC_SAFARI_UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Safari/605.1.15';
+const WINDOWS_CHROME_UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36';
+
+/** Runs the shipped head snippet the way a browser would, against a stub navigator. */
+function stampInstallRoute(documentLike: { documentElement: { setAttribute(name: string, value: string): void } }, navigatorStub: object): void {
+    new Function('navigator', 'document', hostedInstallRouteSnippet())(navigatorStub, documentLike);
+}
+
+/**
+ * The first `<head>:is(...)` rule in the site stylesheet, as a matcher. jsdom's
+ * selector engine can't parse that multi-line `:is()`, so each listed selector
+ * is matched on its own, which is what `:is()` means.
+ */
+function cssRuleMatcher(css: string, head: string): (element: Element) => boolean {
+    const start = css.indexOf(`${head}:is(`);
+    const end = css.indexOf('\n) {', start);
+    expect(start).toBeGreaterThanOrEqual(0);
+    expect(end).toBeGreaterThan(start);
+    const selectors = css.slice(start + head.length + ':is('.length, end).split(',').map(selector => selector.trim().replace(/\s+/gu, ' '));
+    return element => element.matches(head) && selectors.some(selector => element.matches(selector));
+}
 const RELEASE_ATTACHMENT_URL_RE = /https:\/\/github\.com\/[^\s"')]+\/releases\/download\/[^\s"')]+\/yomu\.user\.js/;
 
 describe('hosted userscript install links', () => {
@@ -157,8 +185,10 @@ describe('hosted store install routes', () => {
         // them however Chrome-shaped or Firefox-shaped the UA looks.
         ['Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) CriOS/130.0.0.0 Mobile/15E148 Safari/604.1', 'userscript'],
         ['Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) FxiOS/133.0 Mobile/15E148 Safari/605.1.15', 'userscript'],
-        // Chromium on Android has no extension support at all.
-        ['Mozilla/5.0 (Linux; Android 15; Pixel 9) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Mobile Safari/537.36', 'userscript'],
+        // Chromium on Android installs no extensions, and the Safari steps
+        // mean nothing there: every other Android browser is pointed at Firefox.
+        ['Mozilla/5.0 (Linux; Android 15; Pixel 9) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Mobile Safari/537.36', 'android'],
+        [SAMSUNG_INTERNET_UA, 'android'],
         // Anything unrecognised, and an absent UA, take the build that runs everywhere.
         ['', 'userscript'],
         ['Mozilla/5.0 (compatible; SomeFutureBrowser/1.0)', 'userscript'],
@@ -175,12 +205,16 @@ describe('hosted store install routes', () => {
         const snippet = hostedInstallRouteSnippet();
         expect(snippet).not.toContain('</script');
 
-        for (const userAgent of [
-            'Mozilla/5.0 (Windows NT 10.0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36',
-            'Mozilla/5.0 (Windows NT 10.0; rv:142.0) Gecko/20100101 Firefox/142.0',
-            'Mozilla/5.0 (iPad; CPU OS 18_0 like Mac OS X) AppleWebKit/605.1.15 Version/18.0 Safari/604.1',
-            '',
-        ]) {
+        for (const [userAgent, maxTouchPoints] of [
+            ['Mozilla/5.0 (Windows NT 10.0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36', 0],
+            ['Mozilla/5.0 (Windows NT 10.0; rv:142.0) Gecko/20100101 Firefox/142.0', 0],
+            ['Mozilla/5.0 (iPad; CPU OS 18_0 like Mac OS X) AppleWebKit/605.1.15 Version/18.0 Safari/604.1', 5],
+            // iPadOS Safari: a Mac user agent with a touch screen is offered no Mac download.
+            [MAC_SAFARI_UA, 5],
+            [MAC_SAFARI_UA, 0],
+            [ANDROID_CHROME_UA, 5],
+            ['', 0],
+        ] as const) {
             const attributes = new Map<string, string>();
             const documentStub = {
                 documentElement: {
@@ -189,10 +223,44 @@ describe('hosted store install routes', () => {
                     },
                 },
             };
-            new Function('navigator', 'document', snippet)({ userAgent }, documentStub);
+            stampInstallRoute(documentStub, { userAgent, maxTouchPoints });
             expect([...attributes.keys()]).toEqual(['data-yomu-install', 'data-yomu-desktop']);
             expect(attributes.get('data-yomu-install')).toBe(resolveHostedInstallRoute(userAgent));
-            expect(attributes.get('data-yomu-desktop')).toBe(resolveHostedDesktopRoute(userAgent));
+            expect(attributes.get('data-yomu-desktop')).toBe(resolveHostedDesktopRoute(userAgent, maxTouchPoints));
+        }
+    });
+
+    // What a visitor actually sees: the shipped snippet stamps the page, and the
+    // shipped stylesheet's selectors pick the one big button and its one line.
+    it.each([
+        ['Android Chrome', ANDROID_CHROME_UA, 5, 'firefox', 'android'],
+        ['Samsung Internet', SAMSUNG_INTERNET_UA, 5, 'firefox', 'android'],
+        ['Firefox for Android', FIREFOX_ANDROID_UA, 5, 'firefox', 'firefox'],
+        ['iPhone Safari', IPHONE_SAFARI_UA, 5, 'userscript', 'userscript'],
+        ['iPad Safari', MAC_SAFARI_UA, 5, 'userscript', 'userscript'],
+        ['Windows Chrome', WINDOWS_CHROME_UA, 0, 'chrome', 'chrome'],
+    ] as const)('promotes the right install button on %s', (_name, userAgent, maxTouchPoints, button, hint) => {
+        const css = readFileSync('docs/.vitepress/theme/custom.css', 'utf8');
+        const promoted = cssRuleMatcher(css, '.yomu-install-route');
+        const shownHint = cssRuleMatcher(css, '.yomu-install-hint');
+        for (const file of ['docs/index.md', 'docs/install.md']) {
+            const markdown = readFileSync(file, 'utf8').replace(/^---[\s\S]*?---/u, '');
+            for (const locale of ['en', 'ja'] as const) {
+                const page = new DOMParser().parseFromString(localizeHtmlFragment(markdown, locale), 'text/html');
+                stampInstallRoute(page, { userAgent, maxTouchPoints });
+                const routeBlocks = [...page.querySelectorAll('.yomu-install-routes')];
+                expect(routeBlocks.length).toBeGreaterThan(0);
+                for (const routes of routeBlocks) {
+                    const buttons = [...routes.querySelectorAll('a.yomu-install-route')].filter(promoted);
+                    const hints = [...routes.querySelectorAll('.yomu-install-hint')].filter(shownHint);
+                    expect(buttons.map(link => link.getAttribute('data-yomu-route')), `${file} ${locale}`).toEqual([button]);
+                    expect(hints.map(line => line.getAttribute('data-yomu-hint')), `${file} ${locale}`).toEqual([hint]);
+                    // A phone that can't run the Safari route is never offered it.
+                    if (/Android/u.test(userAgent)) {
+                        expect(`${buttons[0].textContent} ${hints[0].textContent}`).not.toMatch(/Safari|iPhone|iPad|Userscripts/u);
+                    }
+                }
+            }
         }
     });
 
