@@ -1,3 +1,4 @@
+import recordedLatticeBatch from './fixtures/public-jiten-lattice-batch-20261008.json';
 import recordedParagraphBatch from './fixtures/public-jiten-paragraph-batch-20261007.json';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ensureManagedWebStorageCurrent } from '../../src/reader/app/storage';
@@ -750,22 +751,18 @@ describe('JitenPublicVocabularyClient', () => {
         expect(requestJson).toHaveBeenCalledTimes(sent);
     });
 
-    // The span resolver asks about every candidate substring of a sentence
-    // (コンテン, コンテ, ンテン...), about 3,800 terms on the recorded
-    // Japanese Wikipedia article. Nothing kept a substring Jiten found no word
-    // in, and an 800-entry memory evicted the page's own words before a hover
-    // re-parsed their sentence: 44% of the terms the built extension sent were
-    // repeats (教科 went out 35 times), all spent from the same 300-a-minute
-    // anonymous budget the popup's badge needs.
-    it('keeps a page-sized lattice of answers, including where Jiten found no word', async () => {
-        const parsedTexts: string[] = [];
+    // The span resolver asks about every candidate substring of a sentence,
+    // about 3,800 terms on the recorded Japanese Wikipedia article. An
+    // 800-entry memory evicted the page's own words before a hover re-parsed
+    // their sentence, and each repeat spent the 300-a-minute anonymous budget
+    // the popup's badge needs.
+    it("keeps a page's worth of answers for a hover to ask again", async () => {
         const requestJson = vi.fn(async (url: string) => {
             const text = new URL(url).searchParams.get('text');
             if (text !== null) {
-                parsedTexts.push(text);
                 return text.split('。').flatMap((term, index) => [
                     ...(index ? [{ wordId: 0, readingIndex: 0, originalText: '。' }] : []),
-                    { wordId: term.startsWith('ン') ? 0 : 1_000_000 + Number(term.slice(1)), readingIndex: 0, originalText: term },
+                    { wordId: 1_000_000 + Number(term.slice(1)), readingIndex: 0, originalText: term },
                 ]);
             }
             const wordId = Number(/vocabulary\/(\d+)\//u.exec(url)?.[1]);
@@ -774,13 +771,41 @@ describe('JitenPublicVocabularyClient', () => {
         const client = new JitenPublicVocabularyClient({ requestJsonImpl: requestJson });
         const words = Array.from({ length: 1200 }, (_, index) => `語${index}`);
 
-        await client.lookupMany([...words, 'ンテン'], { detailLimit: words.length });
+        await client.lookupMany(words, { detailLimit: words.length });
         const sent = requestJson.mock.calls.length;
-        const again = await client.lookupMany(['語0', 'ンテン']);
 
-        expect(again.get('語0')).toMatchObject({ spelling: '語0', jitenWordId: 1_000_000 });
-        expect(again.has('ンテン')).toBe(false);
+        expect((await client.lookupMany(['語0'])).get('語0')).toMatchObject({ spelling: '語0', jitenWordId: 1_000_000 });
         expect(requestJson).toHaveBeenCalledTimes(sent);
+    });
+
+    // A lattice batch the built extension sent on the recorded article,
+    // answered live. Jiten folds a separator into text it could not read
+    // ('・。', 'う。', and once a run over メイン, a word it knows alone), and
+    // the batch's grouping loses its place after the first fold. An empty
+    // group is therefore not a miss: remembering it as one hid 表示 and 切る
+    // from every later lookup for ten minutes.
+    it('asks again for words a batch answered with nothing', async () => {
+        const ids = new Map(recordedLatticeBatch.body.filter(record => record.wordId > 0).map(record => [record.originalText, record.wordId]));
+        const requestJson = vi.fn(async (url: string) => {
+            const text = new URL(url).searchParams.get('text');
+            if (text === recordedLatticeBatch.terms.join('。')) return recordedLatticeBatch.body;
+            if (text !== null) {
+                return text.split('。').flatMap((term, index) => [
+                    ...(index ? [{ wordId: 0, readingIndex: 0, originalText: '。' }] : []),
+                    { wordId: ids.get(term) ?? 0, readingIndex: 0, originalText: term },
+                ]);
+            }
+            const wordId = Number(/vocabulary\/(\d+)\//u.exec(url)?.[1]);
+            return { wordId, mainReading: { text: [...ids].find(([, id]) => id === wordId)?.[0] } };
+        });
+        const client = new JitenPublicVocabularyClient({ requestJsonImpl: requestJson });
+        await client.lookupMany(recordedLatticeBatch.terms, { detailLimit: recordedLatticeBatch.terms.length });
+
+        const again = await client.lookupMany(['メイン', '表示', '切る']);
+
+        expect(Object.fromEntries([...again].map(([term, card]) => [term, card.jitenWordId])))
+            .toEqual({ メイン: 1132680, 表示: 1489610, 切る: 1384830 });
+        await expect(client.lookup('非')).resolves.toMatchObject({ spelling: '非', jitenWordId: 1484710 });
     });
 
     it('separates ambiguous short batch terms for Jiten parsing', async () => {

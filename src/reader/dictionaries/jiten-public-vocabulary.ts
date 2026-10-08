@@ -238,13 +238,13 @@ export class JitenPublicVocabularyClient {
     private async lookupManyUncached(terms: string[], options: JitenPublicLookupManyOptions): Promise<Map<string, JPDBCard>> {
         const parsedByTerm = await this.parseTermGroups(terms);
         const candidatesByTerm = new Map<string, PublicParseWord>();
-        const answeredAt = Date.now();
+        // An empty group is not a miss. Jiten folds a separator into text it
+        // could not read ('・。', 'う。', even 'メ。メイン。メイ。メ。イン' over a
+        // word it knows alone), so the grouping can lose a batch's place; the
+        // term is asked again rather than remembered as wordless.
         terms.forEach((term, index) => {
-            const parsed = parsedByTerm[index];
-            const candidate = parsed && bestParsedWordForTerm(term, parsed);
+            const candidate = bestParsedWordForTerm(term, parsedByTerm[index] ?? []);
             if (candidate) candidatesByTerm.set(term, candidate);
-            // Jiten read it and found no word in it (ンテン): an answer too.
-            else if (parsed) this.remember(this.cardCache, term, Promise.resolve(null), answeredAt);
         });
 
         await mapLimited([...candidatesByTerm].slice(0, normalizedDetailLimit(options.detailLimit)), DETAIL_CONCURRENCY, async ([term, candidate]) => {
@@ -297,33 +297,29 @@ export class JitenPublicVocabularyClient {
 
     private async requestParseText(text: string): Promise<PublicParseWord[]> {
         const records = await this.requestParseRecords(text);
-        return records?.filter(word => word.wordId > 0) ?? [];
+        return records.filter(word => word.wordId > 0);
     }
 
-    /** One group per term; undefined where backoff kept the question from being asked. */
-    private async parseTermGroups(terms: readonly string[]): Promise<Array<PublicParseWord[] | undefined>> {
+    private async parseTermGroups(terms: readonly string[]): Promise<PublicParseWord[][]> {
         const chunks = chunkTermsForParse(terms);
         const groups = await mapLimited(chunks, DETAIL_CONCURRENCY, async chunk => {
             const records = await this.requestParseRecords(chunk.join(PARSE_TERM_SEPARATOR));
-            return records ? publicParseTermGroups(chunk, records) : chunk.map(() => undefined);
+            return publicParseTermGroups(chunk, records);
         });
         return groups.flat();
     }
 
-    /** Null when backoff skipped any part: unasked, which is not the same as empty. */
-    private async requestParseRecords(text: string): Promise<PublicParseWord[] | null> {
+    private async requestParseRecords(text: string): Promise<PublicParseWord[]> {
         const records: PublicParseWord[] = [];
         for (const part of publicParseTextSlices(text)) {
-            const answered = await this.requestParseRecordChunk(part.text);
-            if (!answered) return null;
-            records.push(...answered);
+            records.push(...await this.requestParseRecordChunk(part.text));
         }
         return records;
     }
 
-    private requestParseRecordChunk(text: string): Promise<PublicParseWord[] | null> {
+    private requestParseRecordChunk(text: string): Promise<PublicParseWord[]> {
         return sharedParseGate.run(async () => {
-            if (this.isBackoffActive()) return null;
+            if (this.isBackoffActive()) return [];
             const payload = await this.requestJson(`vocabulary/parse?text=${encodeURIComponent(text)}`).catch(error => {
                 this.noteFailure(error);
                 throw error;
