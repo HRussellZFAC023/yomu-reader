@@ -333,6 +333,7 @@ async function verifySettingsDiscoverability(page, baseUrl) {
     await page.locator('.jpdb-reader-fab').click();
     const settingsAction = page.locator('.jpdb-reader-fab-radial [data-radial-id="settings"]');
     await settingsAction.waitFor({ state: 'visible', timeout: 6000 });
+    await assertOnePuckLabelAtATime(page);
     await settingsAction.click();
     const launcher = page.locator('.jpdb-reader-settings-launcher');
     await launcher.waitFor({ state: 'visible', timeout: 6000 });
@@ -343,6 +344,47 @@ async function verifySettingsDiscoverability(page, baseUrl) {
     assert(state.trustedLauncherVisible, 'Settings did not expose the trusted Study launcher', state);
     assert(state.pageWritableControls === 0, 'Off-host settings exposed page-writable controls', state);
     await launcher.screenshot({ path: path.join(ARTIFACTS, 'feedback-settings-launcher.png') });
+}
+
+// The power disc keeps its state label up; the audio disc beside it shows its
+// own label in the same slot above the arc. Pointing at audio, with the mouse or
+// the keyboard, must show one readable label, not two stacked on each other.
+async function assertOnePuckLabelAtATime(page) {
+    const audio = page.locator('.jpdb-reader-fab-radial.is-open [data-radial-id="audio"]');
+    await page.waitForFunction(() => document.querySelector('.jpdb-reader-fab-radial.is-open')
+        ?.getAnimations({ subtree: true }).every(animation => animation.playState === 'finished'));
+    await audio.hover();
+    await expectOnePuckLabel(page, 'hover');
+    await page.mouse.move(4, 4);
+    await page.locator('.jpdb-reader-fab-radial.is-open [data-radial-id="power"]').focus();
+    await page.keyboard.press('ArrowDown');
+    await expectOnePuckLabel(page, 'keyboard');
+}
+
+async function expectOnePuckLabel(page, via) {
+    const readLabels = () => [...document.querySelectorAll('.jpdb-reader-fab-radial.is-open .jpdb-reader-fab-radial-label')]
+        .map(label => ({ label, rect: label.getBoundingClientRect(), opacity: Number(getComputedStyle(label).opacity) }))
+        .filter(({ opacity }) => opacity > 0.05)
+        .map(({ label, rect, opacity }) => ({
+            item: label.closest('[data-radial-id]')?.getAttribute('data-radial-id'),
+            text: label.textContent,
+            opacity,
+            left: rect.left,
+            right: rect.right,
+            top: rect.top,
+            bottom: rect.bottom,
+        }));
+    const settled = labels => labels.length > 0
+        && labels.every(label => label.opacity > 0.95)
+        && labels.some(label => label.item === 'audio')
+        && !labels.some((a, index) => labels.slice(index + 1).some(b => Math.min(a.right, b.right) > Math.max(a.left, b.left)
+            && Math.min(a.bottom, b.bottom) > Math.max(a.top, b.top)));
+    try {
+        await page.waitForFunction(`(${settled})((${readLabels})())`, null, { timeout: 3000 });
+    } catch (error) {
+        const labels = await page.evaluate(`(${readLabels})()`);
+        throw new Error(`Puck labels overlap or the audio label is missing (${via}): ${JSON.stringify(labels)}`, { cause: error });
+    }
 }
 
 function trimText(value) {

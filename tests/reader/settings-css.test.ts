@@ -77,6 +77,29 @@ describe('settings CSS', () => {
             .toContain('padding-bottom: calc(var(--jpdb-reader-settings-gutter) + env(safe-area-inset-bottom, 0px));');
     });
 
+    it('keeps each puck disc ringed in its own state colour under the pointer', () => {
+        const css = normalizeCss(READER_WORDS_OCR_CSS);
+        const hoverRings = [...css.matchAll(/([^{}]*\.jpdb-reader-fab-radial-item[^{}]*:hover[^{}]*)\{([^}]*)\}/g)]
+            .filter(([, , body]) => /border(?:-color)?:/.test(body!))
+            .map(([, selector]) => selector!.trim());
+
+        // The power disc's ring is its state colour…
+        expect(normalizedRuleBlock(READER_WORDS_OCR_CSS, '.jpdb-reader-fab-radial-item.is-primary'))
+            .toContain('border: 2px solid var(--jpdb-reader-radial-tone) !important;');
+        // …and no hover ring may repaint it, or any toned disc, in the accent green.
+        expect(hoverRings.length).toBeGreaterThan(0);
+        for (const selector of hoverRings) {
+            expect(selector).toMatch(/:not\([^)]*\.is-primary/);
+            for (const tone of ['.is-on', '.is-partial', '.is-off']) expect(selector).toMatch(new RegExp(`:not\\([^)]*\\${tone}`));
+        }
+    });
+
+    it('shows one puck label at a time, hiding the power label while a neighbour shows its own', () => {
+        expect(normalizeCss(READER_WORDS_OCR_CSS)).toContain(
+            '.jpdb-reader-fab-radial.is-open:has(.jpdb-reader-fab-radial-item:not(.is-primary):is(:hover, :focus-visible)) .jpdb-reader-fab-radial-item.is-primary .jpdb-reader-fab-radial-label { opacity: 0 !important; }',
+        );
+    });
+
     it('keeps the settings puck clickable when it overlaps the transcript side panel', () => {
         const puckRule = normalizedRuleBlock(READER_WORDS_OCR_CSS, '.jpdb-reader-fab');
 

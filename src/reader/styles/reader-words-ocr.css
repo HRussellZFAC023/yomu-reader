@@ -2491,8 +2491,12 @@ html.jpdb-reader-suppress-redundant .jpdb-reader-word.jpdb-redundant {
     0 0 0 4px color-mix(in srgb, var(--jpdb-reader-radial-tone) 20%, transparent) !important;
 }
 
+/* Hover lifts every disc; only a disc with no state takes the accent ring, so a
+   toned ring always names the state under the pointer. */
 .jpdb-reader-fab-radial-item:hover {
   --jpdb-reader-radial-scale: 1.06;
+}
+.jpdb-reader-fab-radial-item:not(.is-primary, .is-on, .is-partial, .is-off):hover {
   border-color: var(--jpdb-reader-accent) !important;
 }
 .jpdb-reader-fab-radial-item:focus-visible {
@@ -2569,6 +2573,11 @@ html.jpdb-reader-suppress-redundant .jpdb-reader-word.jpdb-redundant {
 .jpdb-reader-fab-radial.is-open .jpdb-reader-fab-radial-item.is-primary .jpdb-reader-fab-radial-label {
   opacity: 1 !important;
   transform: none !important;
+}
+/* One label at a time: the power disc's state label steps aside while a
+   neighbour shows its own in the same slot above the arc. */
+.jpdb-reader-fab-radial.is-open:has(.jpdb-reader-fab-radial-item:not(.is-primary):is(:hover, :focus-visible)) .jpdb-reader-fab-radial-item.is-primary .jpdb-reader-fab-radial-label {
+  opacity: 0 !important;
 }
 
 @media (prefers-reduced-motion: reduce) {
