@@ -94,4 +94,26 @@ describe('the open puck menu after a settings echo', () => {
             mounted.dispose();
         }
     });
+
+    it('shows the state a press lands in once its save settles, not the state before it', async () => {
+        // Resuming from off lands only after its save: the state changes when the
+        // press's promise resolves, not when the item is pressed.
+        let state: 'on' | 'no-furigana' | 'paused' = 'paused';
+        let finishSave!: () => void;
+        const cyclePowerState = vi.fn(() => new Promise<void>(resolve => { finishSave = resolve; }).then(() => { state = 'on'; }));
+        const mounted = openFloatingButton({ actions: { cyclePowerState, powerState: () => state, isPaused: () => state === 'paused' } });
+        try {
+            const power = () => document.querySelector<HTMLButtonElement>('[data-radial-id="power"]')!;
+            power().click();
+            expect(cyclePowerState).toHaveBeenCalledOnce();
+            expect(power().getAttribute('aria-label')).toBe('よむ off');
+
+            finishSave();
+            await vi.waitFor(() => expect(power().getAttribute('aria-label')).toBe('よむ on · furigana shown'));
+            expect(power().classList.contains('is-on')).toBe(true);
+            expect(document.querySelector('.jpdb-reader-fab-radial.is-open')).not.toBeNull();
+        } finally {
+            mounted.dispose();
+        }
+    });
 });

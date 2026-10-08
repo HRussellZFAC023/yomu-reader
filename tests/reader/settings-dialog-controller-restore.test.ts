@@ -237,6 +237,11 @@ describe('settings dialog restore and save interlocks', () => {
         expect(cancel.matches(':disabled')).toBe(false);
         cancel.click();
         expect(dismiss).toHaveBeenCalledOnce();
+        // The title row's close is the other way out, and an import must not trap it.
+        const close = settingsElement<HTMLButtonElement>(form, '[data-settings-close]');
+        expect(close.matches(':disabled')).toBe(false);
+        close.click();
+        expect(dismiss).toHaveBeenCalledTimes(2);
         expect(settingsElement<HTMLElement>(form, '[data-settings-save-status]').textContent)
             .toBe('Settings import is running. Save unlocks when it finishes.');
 
