@@ -24,7 +24,8 @@ import type { SettingsIntentLedger } from './intent-ledger';
  *
  * 2.1 annotation defaults (ADR-0025): nothing painted behind a word at rest,
  * the underline carries study state instead of pitch, known and ignored words
- * stay plain, and readings follow what the learner knows.
+ * stay plain, and readings follow what the learner knows: known and due words
+ * lose theirs, a word the learner just failed keeps it.
  */
 // 'auto' meant 'all' until known-status replaced it.
 const RETIRED_READING_MODES: readonly unknown[] = ['all', 'auto'];
@@ -36,6 +37,8 @@ const RETIRED_SETTING_DEFAULTS: ReadonlyArray<{
     { keys: ['furiganaMode'], retired: RETIRED_READING_MODES.map(mode => [mode]) },
     // The mode the puck brings back when furigana is shown again.
     { keys: ['puckFuriganaModeBeforeHide'], retired: RETIRED_READING_MODES.map(mode => [mode]) },
+    // A word the learner just failed keeps its reading.
+    { keys: ['furiganaHiddenStateGroups'], retired: [[['known', 'due', 'failed']]] },
     { keys: ['wordHighlightColorSource', 'wordUnderlineColorSource', 'wordTextColorSource'], retired: [['jpdb', 'pitch', 'anki']] },
     { keys: ['subtitleHighlightColorSource', 'subtitleUnderlineColorSource', 'subtitleTextColorSource'], retired: [['jpdb', 'pitch', 'anki']] },
     { keys: ['wordColorHiddenStateGroups'], retired: [[[]]] },
@@ -83,6 +86,8 @@ export function retirePuckDefaultDeclarations(ledger: SettingsIntentLedger): Set
     return { revision: ledger.revision, records };
 }
 
+// Hidden-group lists are sets: the form writes them in its own order.
 function sameValue(left: unknown, right: unknown): boolean {
+    if (Array.isArray(left) && Array.isArray(right)) return JSON.stringify([...left].sort()) === JSON.stringify([...right].sort());
     return left === right || JSON.stringify(left) === JSON.stringify(right);
 }

@@ -299,7 +299,9 @@ export const DEFAULT_SETTINGS: ReaderSettings = {
     furiganaMode: 'known-status',
     clampedRowReadings: 'show',
     puckFuriganaModeBeforeHide: '',
-    furiganaHiddenStateGroups: ['known', 'due', 'failed'],
+    // Help fades with what the learner knows: a known or due word loses its
+    // reading, a word they just failed keeps it (ADR-0025).
+    furiganaHiddenStateGroups: ['known', 'due'],
     wordColorStates: 'all',
     // Known and ignored words are most of a page for anyone past the start;
     // colouring them carries no news (ADR-0025).

@@ -53,7 +53,7 @@ const THEMES = { light: { paper: '#ffffff', ink: '#202122' }, dark: { paper: '#1
 // [surface, spelling, reading, gloss, pos, frequency, state, pitch]
 const ROWS = [
     ['今日', '今日', 'きょう', 'today', ['n'], 50, ['due'], ['HLL']],
-    ['静か', '静か', 'しずか', 'quiet', ['adj-na'], 900, ['not-in-deck'], ['LHH']],
+    ['静か', '静か', 'しずか', 'quiet', ['adj-na'], 900, ['failed'], ['LHH']],
     ['喫茶店', '喫茶店', 'きっさてん', 'cafe', ['n'], 3000, ['new'], ['LHHHH']],
     ['新しい', '新しい', 'あたらしい', 'new', ['adj-i'], 200, ['learning'], ['LHHLL']],
     ['本', '本', 'ほん', 'book', ['n'], 100, ['known'], ['HL']],
@@ -219,16 +219,18 @@ function judgeStudyState(id, measured, paper) {
     if (underline('喫茶店').style !== 'solid') fail(`${id}: the New word should carry a solid underline.`, byText('喫茶店'));
     if (underline('新しい').style !== 'dashed') fail(`${id}: the Learning word should carry a dashed underline.`, byText('新しい'));
     if (underline('今日').style !== 'dotted') fail(`${id}: the Due word should carry a dotted underline.`, byText('今日'));
-    for (const text of ['喫茶店', '新しい', '今日']) {
+    if (underline('静か').style !== 'solid') fail(`${id}: the Failed word should carry a solid underline.`, byText('静か'));
+    for (const text of ['喫茶店', '新しい', '今日', '静か']) {
         const color = underline(text).color;
         if (color && contrast(color, paper) < 3) fail(`${id}: ${text}'s underline (${color}) is below 3:1.`, byText(text));
     }
-    for (const text of ['本', 'は', '日本', '国内', '静か']) {
+    for (const text of ['本', 'は', '日本', '国内']) {
         if (underline(text).style !== 'none') fail(`${id}: ${text} should carry no underline at rest.`, byText(text));
     }
     for (const text of ['本', '今日']) {
         if (measured.readings.some(reading => reading.word === text)) fail(`${id}: ${text}, which the study source knows, should carry no reading.`, measured.readings);
     }
+    if (!measured.readings.some(reading => reading.word === '静か')) fail(`${id}: 静か, which the learner just failed, should keep its reading.`, measured.readings);
 }
 
 function judgeOverhang(id, measured) {

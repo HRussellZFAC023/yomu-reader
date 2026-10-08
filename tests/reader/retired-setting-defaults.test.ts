@@ -19,6 +19,7 @@ import { installGmStorageFixture } from './helpers/settings-persistence-fixture'
 
 const PRE_2_1_DEFAULTS: Partial<ReaderSettings> = {
     furiganaMode: 'all',
+    furiganaHiddenStateGroups: ['known', 'due', 'failed'],
     wordHighlightColorSource: 'jpdb',
     wordUnderlineColorSource: 'pitch',
     wordTextColorSource: 'anki',
@@ -30,6 +31,7 @@ const PRE_2_1_DEFAULTS: Partial<ReaderSettings> = {
 
 const NEW_DEFAULTS: Partial<ReaderSettings> = {
     furiganaMode: 'known-status',
+    furiganaHiddenStateGroups: ['known', 'due'],
     wordHighlightColorSource: 'off',
     wordUnderlineColorSource: 'status',
     wordTextColorSource: 'off',
@@ -152,6 +154,11 @@ describe('retired annotation defaults', () => {
         const adopted = await restore({ settings: { furiganaMode: 'hover', wordColorHiddenStateGroups: ['due'] } });
         expect(adopted).toMatchObject({ furiganaMode: 'hover', wordColorHiddenStateGroups: ['due'] });
         expect(await loadSettings()).toMatchObject({ furiganaMode: 'hover', wordColorHiddenStateGroups: ['due'] });
+    });
+
+    it('read a hidden-group list as a set, whatever order it was stored in', async () => {
+        const settings = await loadStored({ furiganaHiddenStateGroups: ['failed', 'known', 'due'] });
+        expect(settings.furiganaHiddenStateGroups).toEqual(['known', 'due']);
     });
 
     it('are declared by the smoke harness whenever a smoke sets them, so smokes keep testing what they set', () => {
