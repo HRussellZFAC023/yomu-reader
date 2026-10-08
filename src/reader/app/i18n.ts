@@ -407,7 +407,7 @@ const COPY = {
         preferJapaneseSiteLanguage: 'Request Japanese sites',
         youtubeShowChannelRecommendations: 'Show Japanese channel suggestions',
         youtubeShowFilterNotice: 'Show hidden-video notice',
-        youtubeHelp: 'Filter YouTube for Japanese and open Japanese versions of sites.',
+        youtubeHelp: 'Filter YouTube for Japanese.',
         youtubeShowHiddenVideos: 'Show hidden videos',
         youtubeHideHiddenVideos: 'Hide hidden videos',
         youtubeHideNotice: 'Hide notice',
@@ -1931,7 +1931,7 @@ youtubeImmersionEnabled	日本語のYouTubeのみ
 preferJapaneseSiteLanguage	日本語版サイトをリクエスト
 youtubeShowChannelRecommendations	日本語チャンネル候補を表示
 youtubeShowFilterNotice	非表示動画の通知を表示
-youtubeHelp	YouTubeを日本語向けに絞り、日本語版のサイトを開きます。
+youtubeHelp	YouTubeを日本語向けに絞ります。
 youtubeShowHiddenVideos	非表示動画を表示
 youtubeHideHiddenVideos	非表示動画を隠す
 youtubeHideNotice	通知を隠す

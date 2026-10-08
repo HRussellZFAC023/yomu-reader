@@ -148,7 +148,7 @@ Set a hover key. Blank means plain hover.
 | Hover close delay (ms) | — | `80` | `hoverCloseDelayMs` |
 | Show Yomu lookup popup | — | `hover` | `popupActivationMode` |
 | Show settings puck | — | on | `showFloatingButton` |
-| Japanese text on webpages | — | off | `manualScanEnabled` |
+| Japanese text on webpages | — | Scan Japanese automatically | `manualScanEnabled` |
 | Furigana | — | All parsed words (`all`) | `furiganaMode` |
 | Readings on clamped rows | — | Show (row grows) (`show`) | `clampedRowReadings` |
 | Not yet described | — | 3 entries | `furiganaHiddenStateGroups` |
@@ -214,7 +214,7 @@ Reads nearby images. Google Lens needs no setup.
 
 | Setting | What it does | Default | Stored as |
 | --- | --- | --- | --- |
-| Image OCR scanning | — | on | `ocrAutoScanImages` |
+| Image OCR scanning | — | Auto | `ocrAutoScanImages` |
 | Auto-read paused video frames | — | off | `ocrVideoPauseFrames` |
 | Show recognized text areas | — | off | `ocrShowTextOverlay` |
 | OCR overlay theme | — | Match app theme (`auto`) | `ocrOverlayTheme` |
@@ -270,7 +270,7 @@ Reads nearby images. Google Lens needs no setup.
 
 ## YouTube (Media tab)
 
-Filter YouTube for Japanese. Japanese-site navigation is optional.
+Filter YouTube for Japanese.
 
 | Setting | What it does | Default | Stored as |
 | --- | --- | --- | --- |
@@ -350,7 +350,7 @@ Yomu stores these the same way, and a settings export carries them. Some are wri
 | Not yet described | — | `keyboard` | `newTabTypeWordInputMode` |
 | Not yet described | — | unset | `puckPositionX` |
 | Not yet described | — | unset | `puckPositionY` |
-| Pause page annotations | — | off | `annotationsPaused` |
+| よむ off | — | off | `annotationsPaused` |
 | Enable furigana annotations | — | on | `showFurigana` |
 | Not yet described | — | empty | `puckFuriganaModeBeforeHide` |
 | Hide furigana for known cards only | — | on | `hideKnownFurigana` |

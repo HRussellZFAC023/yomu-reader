@@ -79,7 +79,11 @@ describe('generated settings reference', () => {
         const page = readFileSync(path.join(ROOT, 'docs', 'reference', 'settings.md'), 'utf8');
 
         expect(page).toContain('Yomu reads Japanese immediately after installation.');
-        expect(page).toContain('| Pause page annotations | — | off | `annotationsPaused` |');
+        expect(page).toContain('| よむ off | — | off | `annotationsPaused` |');
+        // A radio group's default is the option the dialog shows chosen, not on/off.
+        expect(page).toContain('| Japanese text on webpages | — | Scan Japanese automatically | `manualScanEnabled` |');
+        expect(page).toContain('| Image OCR scanning | — | Auto | `ocrAutoScanImages` |');
+        expect(page).not.toContain('Japanese-site navigation is optional');
         expect(page).toContain('| Japanese YouTube only | — | on | `youtubeImmersionEnabled` |');
         expect(page).toContain('| Show Japanese channel suggestions | — | on | `youtubeShowChannelRecommendations` |');
         expect(page).toContain('| Request Japanese sites | — | off | `preferJapaneseSiteLanguage` |');

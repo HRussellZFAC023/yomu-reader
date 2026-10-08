@@ -15,8 +15,8 @@
 //   * Which control writes which stored key is measured, not guessed: the form is
 //     rendered, `readFormSettings` reads it once for a baseline, then each control
 //     is nudged and read again. Keys whose value moved are the keys that control
-//     writes. That is how combined controls are resolved, such as the one field
-//     that stores `annotationsPaused`, and it keeps working through a rename.
+//     writes. That is how combined controls are resolved, such as the radio
+//     group that stores `manualScanEnabled`, and it keeps working through a rename.
 //   * Dictionary and kanji source rows take their name and description from
 //     `src/reader/sources/sections.ts`.
 //   * A setting with no control anywhere falls back to an i18n entry keyed by its
@@ -41,7 +41,7 @@ const NOT_DESCRIBED = 'Not yet described';
 const NO_DESCRIPTION = '—';
 const UCHISEN_RETIREMENT_COPY = 'Uchisen is available only as an optional outbound lookup link, disabled by default. よむ does not fetch or render its pages, mnemonic stories, images, keywords, or components. Its retired provider settings are discarded when settings are loaded or imported.';
 const REFERENCE_SECTION_HELP = new Map([
-    ['YouTube', 'Filter YouTube for Japanese. Japanese-site navigation is optional.'],
+    ['YouTube', 'Filter YouTube for Japanese.'],
 ]);
 // The page's own words, in one place. Each of these, plus the four column labels
 // and the marker above, has a Japanese entry keyed by the exact English string in
@@ -223,7 +223,8 @@ function settingRows(source, controls, writers) {
         const wording = settingWording(key, controls, writers, source);
         return {
             key,
-            label: key === 'annotationsPaused' ? 'Pause page annotations' : wording.label || NOT_DESCRIBED,
+            // The puck and toolbar name this state; Settings has no control for it.
+            label: key === 'annotationsPaused' ? 'よむ off' : wording.label || NOT_DESCRIBED,
             described: Boolean(wording.label),
             description: wording.description || NO_DESCRIPTION,
             section: wording.section,
@@ -314,6 +315,10 @@ function sourceRowWording(key, controls, sourceRows) {
 }
 
 function formatValue(value, control) {
+    // A radio group can store a boolean (or two): its default is the option the
+    // dialog shows chosen, in the dialog's words, not the stored value's on/off.
+    const chosen = checkedRadioLabel(control);
+    if (chosen) return typeof value === 'string' && value !== chosen ? `${chosen} (${code(value)})` : chosen;
     if (value === undefined || value === null) return 'unset';
     if (value === '') return 'empty';
     if (typeof value === 'boolean') return value ? 'on' : 'off';
@@ -347,6 +352,11 @@ function countText(count) {
 // A stored value like `difficult-kanji` means nothing on its own. When the control
 // is a menu, lead with the wording the menu shows and keep the stored value too,
 // because that is what an exported settings file holds.
+function checkedRadioLabel(control) {
+    const radio = control?.elements.find(element => element.type === 'radio' && element.checked);
+    return radio ? collapse(radio.closest('label')?.textContent ?? '') || null : null;
+}
+
 function optionLabel(value, control) {
     const select = control?.elements.find(element => element.tagName === 'SELECT');
     const option = select ? [...select.options].find(item => item.value === String(value)) : null;
