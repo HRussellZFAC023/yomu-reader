@@ -945,7 +945,8 @@ function normalizeFuriganaHiddenStateGroups(value: unknown): ReaderSettings['fur
 
 function normalizeWordColorHiddenStateGroups(value: unknown): ReaderSettings['wordColorHiddenStateGroups'] {
     // Furigana groups PLUS the ignored family (own colour, own picker): validating
-    // against the furigana set dropped it on load (#37). Default EMPTY = colour all.
+    // against the furigana set dropped it on load (#37). Empty colours every group;
+    // the default hides known and ignored words (ADR-0025).
     if (!Array.isArray(value)) return [...DEFAULT_SETTINGS.wordColorHiddenStateGroups];
     const groups = value.filter((item): item is ReaderSettings['wordColorHiddenStateGroups'][number] =>
         typeof item === 'string' && (WORD_COLOR_HIDE_STATE_GROUPS as readonly string[]).includes(item));

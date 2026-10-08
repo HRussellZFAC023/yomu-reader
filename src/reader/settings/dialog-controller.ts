@@ -7,7 +7,7 @@ import { withSaveWaitStatus } from '../ui/save-wait-status';
 import { ankiScanConfidenceForModel, isAnkiFieldMappingRole } from './anki-scan-confidence';
 import { detectYomuUpdateFlow } from '../app/userscript-update';
 import { createAudioPreviewCard } from '../cards/utils';
-import { FURIGANA_HIDE_STATE_GROUPS, NEW_TAB_VERSION_URL, SETTINGS_TITLE } from '../app/constants';
+import { FURIGANA_HIDE_STATE_GROUPS, NEW_TAB_VERSION_URL, SETTINGS_TITLE, WORD_COLOR_HIDE_STATE_GROUPS } from '../app/constants';
 import { readerWordSurfaceText, setInnerHtml } from '../dom/index';
 import { JpdbClient } from '../jpdb/jpdb';
 import { configureLogger, Logger } from '../app/logger';
@@ -1074,10 +1074,10 @@ export class SettingsDialogController {
             const control = form.querySelector<HTMLSelectElement>(`select[name="${name}"]`);
             if (control) control.value = value;
         };
-        const setGroups = (groups: string[]): void => {
-            for (const group of FURIGANA_HIDE_STATE_GROUPS) {
-                const box = form.querySelector<HTMLInputElement>(`input[name="furiganaHide-${group}"]`);
-                if (box) box.checked = groups.includes(group);
+        const setChecked = (prefix: string, groups: readonly string[], selected: readonly string[]): void => {
+            for (const group of groups) {
+                const box = form.querySelector<HTMLInputElement>(`input[name="${prefix}${group}"]`);
+                if (box) box.checked = selected.includes(group);
             }
         };
         const setColorSources = (highlight: string, underline: string, text: string): void => {
@@ -1088,6 +1088,20 @@ export class SettingsDialogController {
             setSelect('subtitleUnderlineColorSource', underline);
             setSelect('subtitleTextColorSource', text);
         };
+        // The default look (ADR-0025), read from the defaults rather than
+        // restated: one quiet state underline, known words left plain, and
+        // readings that follow what the learner knows.
+        const setDefaultLook = (wordColorStates: ReaderSettings['wordColorStates']): void => {
+            setSelect('wordColorStates', wordColorStates);
+            setSelect('furiganaMode', DEFAULT_SETTINGS.furiganaMode);
+            setChecked('furiganaHide-', FURIGANA_HIDE_STATE_GROUPS, DEFAULT_SETTINGS.furiganaHiddenStateGroups);
+            setChecked('colorHide-', WORD_COLOR_HIDE_STATE_GROUPS, DEFAULT_SETTINGS.wordColorHiddenStateGroups);
+            setColorSources(
+                DEFAULT_COLOR_CHANNELS.wordHighlightColorSource,
+                DEFAULT_COLOR_CHANNELS.wordUnderlineColorSource,
+                DEFAULT_COLOR_CHANNELS.wordTextColorSource,
+            );
+        };
         const syncGroupVisibility = (): void => {
             const fieldset = form.querySelector<HTMLElement>('[data-furigana-hide-groups]');
             const mode = form.querySelector<HTMLSelectElement>('select[name="furiganaMode"]')?.value;
@@ -1096,32 +1110,19 @@ export class SettingsDialogController {
             const difficultyNote = form.querySelector<HTMLElement>('[data-furigana-difficulty-note]');
             if (difficultyNote) difficultyNote.hidden = mode !== 'difficult-kanji';
         };
-        // A11: quick setup always starts with every parsed reading visible.
-        // Difficulty- and status-based hiding remain explicit choices.
         form.querySelector<HTMLSelectElement>('select[name="furiganaMode"]')?.addEventListener('change', syncGroupVisibility);
         const preset = form.querySelector<HTMLSelectElement>('select[name="appearancePreset"]');
         preset?.addEventListener('change', () => {
             const value = preset.value;
             if (!value) return;
             if (value === 'balanced' || value === 'default') {
-                // Balanced is the default look (ADR-0025), so it reads from the
-                // defaults rather than restating them.
-                setSelect('wordColorStates', DEFAULT_SETTINGS.wordColorStates);
-                setSelect('furiganaMode', DEFAULT_SETTINGS.furiganaMode);
-                setGroups(DEFAULT_SETTINGS.furiganaHiddenStateGroups);
-                setColorSources(
-                    DEFAULT_COLOR_CHANNELS.wordHighlightColorSource,
-                    DEFAULT_COLOR_CHANNELS.wordUnderlineColorSource,
-                    DEFAULT_COLOR_CHANNELS.wordTextColorSource,
-                );
+                setDefaultLook(DEFAULT_SETTINGS.wordColorStates);
             } else if (value === 'no-colors') {
                 setSelect('wordColorStates', 'all');
                 setColorSources('off', 'off', 'off');
             } else if (value === 'new-only') {
-                setSelect('wordColorStates', 'new-only');
-                setSelect('furiganaMode', 'all');
-                setGroups(['known', 'due', 'failed']);
-                setColorSources('jpdb', 'pitch', 'anki');
+                // The default look with only new words underlined.
+                setDefaultLook('new-only');
             } else if (value === 'underline-new') {
                 setSelect('wordColorStates', 'new-only');
                 setSelect('furiganaMode', 'hover');
@@ -1130,7 +1131,7 @@ export class SettingsDialogController {
                 setSelect('furiganaMode', 'all');
             } else if (value === 'furi-known-hidden') {
                 setSelect('furiganaMode', 'known-status');
-                setGroups(['known', 'due', 'failed']);
+                setGroups(DEFAULT_SETTINGS.furiganaHiddenStateGroups);
             } else if (value === 'furi-hover') {
                 setSelect('furiganaMode', 'hover');
             }

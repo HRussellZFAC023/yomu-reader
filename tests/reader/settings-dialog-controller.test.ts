@@ -1073,24 +1073,36 @@ describe('settings dialog keyboard dismissal', () => {
     });
 
     it('maps quick setup presets onto complete reader and subtitle color controls', () => {
-        const { dependencies, form } = createSettingsDialog();
+        // A learner who colours every group and hides readings on failed words,
+        // as 2.0 offered: the default-look presets reset both checkbox groups.
+        const { dependencies, form } = createSettingsDialog({
+            getSettings: () => ({ ...DEFAULT_SETTINGS, wordColorHiddenStateGroups: [], furiganaHiddenStateGroups: ['known', 'due', 'failed'] }),
+        });
         const preset = form.querySelector<HTMLSelectElement>('select[name="appearancePreset"]')!;
         const selectValue = (name: string): string => form.querySelector<HTMLSelectElement>(`select[name="${name}"]`)!.value;
+        const checkedGroups = (prefix: string): string[] => Array.from(form.querySelectorAll<HTMLInputElement>(`input[name^="${prefix}"]`))
+            .filter(box => box.checked)
+            .map(box => box.name.slice(prefix.length))
+            .sort();
         const choosePreset = (value: string): void => {
             preset.value = value;
             preset.dispatchEvent(new Event('change', { bubbles: true }));
         };
 
+        // Focus on new words is the default look with only new words underlined;
+        // it no longer brings back 2.0's highlight, pitch and Anki colours.
         choosePreset('new-only');
 
         expect(selectValue('wordColorStates')).toBe('new-only');
-        expect(selectValue('furiganaMode')).toBe('all');
-        expect(selectValue('wordHighlightColorSource')).toBe('jpdb');
-        expect(selectValue('wordUnderlineColorSource')).toBe('pitch');
-        expect(selectValue('wordTextColorSource')).toBe('anki');
-        expect(selectValue('subtitleHighlightColorSource')).toBe('jpdb');
-        expect(selectValue('subtitleUnderlineColorSource')).toBe('pitch');
-        expect(selectValue('subtitleTextColorSource')).toBe('anki');
+        expect(selectValue('furiganaMode')).toBe(DEFAULT_SETTINGS.furiganaMode);
+        expect(selectValue('wordHighlightColorSource')).toBe('off');
+        expect(selectValue('wordUnderlineColorSource')).toBe('status');
+        expect(selectValue('wordTextColorSource')).toBe('off');
+        expect(selectValue('subtitleHighlightColorSource')).toBe('off');
+        expect(selectValue('subtitleUnderlineColorSource')).toBe('status');
+        expect(selectValue('subtitleTextColorSource')).toBe('off');
+        expect(checkedGroups('colorHide-')).toEqual([...DEFAULT_SETTINGS.wordColorHiddenStateGroups].sort());
+        expect(checkedGroups('furiganaHide-')).toEqual([...DEFAULT_SETTINGS.furiganaHiddenStateGroups].sort());
 
         choosePreset('underline-new');
 
@@ -1117,9 +1129,13 @@ describe('settings dialog keyboard dismissal', () => {
         expect(selectValue('subtitleUnderlineColorSource')).toBe('off');
         expect(selectValue('subtitleTextColorSource')).toBe('off');
 
-        // Balanced is the default look (ADR-0025).
+        // Balanced is the default look (ADR-0025), colour-hidden groups included.
+        for (const box of form.querySelectorAll<HTMLInputElement>('input[name^="colorHide-"], input[name^="furiganaHide-"]')) box.checked = false;
         choosePreset('balanced');
 
+        expect(checkedGroups('colorHide-')).toEqual(['ignored', 'known']);
+        expect(checkedGroups('furiganaHide-')).toEqual(['due', 'known']);
+        expect(selectValue('wordColorStates')).toBe('all');
         expect(selectValue('furiganaMode')).toBe('known-status');
         expect(selectValue('wordHighlightColorSource')).toBe('off');
         expect(selectValue('wordUnderlineColorSource')).toBe('status');
@@ -1130,7 +1146,7 @@ describe('settings dialog keyboard dismissal', () => {
         expect(dependencies.applyTheme).toHaveBeenCalled();
     });
 
-    // Balanced is the default look (ADR-0025); New only keeps every reading.
+    // Both presets take the default reading mode (ADR-0025).
     it('keeps quick setup furigana independent of the available decks', () => {
         for (const settings of [
             { ...DEFAULT_SETTINGS, apiKey: '', jitenApiKey: '', ankiEnabled: false, yomuLocalSrsEnabled: false },
@@ -1141,7 +1157,7 @@ describe('settings dialog keyboard dismissal', () => {
             const preset = form.querySelector<HTMLSelectElement>('select[name="appearancePreset"]')!;
             const mode = form.querySelector<HTMLSelectElement>('select[name="furiganaMode"]')!;
 
-            for (const [value, expected] of [['balanced', DEFAULT_SETTINGS.furiganaMode], ['new-only', 'all']] as const) {
+            for (const [value, expected] of [['balanced', DEFAULT_SETTINGS.furiganaMode], ['new-only', DEFAULT_SETTINGS.furiganaMode]] as const) {
                 preset.value = value;
                 preset.dispatchEvent(new Event('change', { bubbles: true }));
                 expect(mode.value).toBe(expected);
