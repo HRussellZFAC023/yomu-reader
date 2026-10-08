@@ -7,8 +7,10 @@ import path from 'node:path';
 import process from 'node:process';
 import { summarizeAxeViolations, WCAG_AUDIT_TAGS } from './lib/a11y-audit-helpers.mjs';
 import { createYomuPaths } from './lib/paths.mjs';
+import hostedInstallRoute from './lib/hosted-install-route.cjs';
 
 const { appRoot: ROOT, qaArtifactsRoot: ARTIFACTS } = createYomuPaths(import.meta.dirname);
+const { INSTALL_ROUTE_URLS } = hostedInstallRoute;
 const DOCS_DIST = path.join(ROOT, 'docs/.vitepress/dist');
 
 const pages = [
@@ -324,10 +326,6 @@ async function assertHomepageDemo(page, label) {
             // for any page still on the single-button shape.
             installCta: [...document.querySelectorAll('.yomu-fold .yomu-install-route, .yomu-fold-cta')]
                 .map(link => link.getAttribute('href')),
-            pitchExplanation: document.querySelector('.yomu-fold-pitch-note')?.textContent?.trim() ?? '',
-            // The teaching copy below the live line replaces the old labelled
-            // legend. Keep checking the classes the reader actually paints so
-            // the prose cannot drift away from the sample.
             samplePitchClasses: [...new Set([...document.querySelectorAll('.yomu-try-me-sample .jpdb-reader-word')]
                 .flatMap(word => [...word.classList])
                 .filter(name => name.startsWith('jpdb-pitch-')))].sort(),
@@ -341,23 +339,19 @@ async function assertHomepageDemo(page, label) {
     assertAudit(fold.words >= 5 && fold.pitchWords >= 5 && fold.ruby >= 5, `${label} fold pitch/furigana fixture missing: ${JSON.stringify(fold)}`);
     assertAudit(!fold.rubyBasesWithKana.length, `${label} fold ruby should only sit over kanji bases: ${JSON.stringify(fold.rubyBasesWithKana)}`);
     assertAudit(!fold.promptFallbackShown, `${label} fold prompt fell back to the static link while the runtime was live`);
-    assertAudit(fold.installCta.some(href => href?.endsWith('.user.js')), `${label} fold install action missing: ${JSON.stringify(fold.installCta)}`);
     // Detection promotes one route with CSS, so a visitor whose detection never
     // ran or guessed wrong reaches the others only if they are all really here.
-    // Losing a store route silently sends every store-capable visitor down the
-    // path that needs a manager installed first, which is the friction the
-    // store CTAs exist to remove.
-    for (const store of ['chromewebstore.google.com', 'addons.mozilla.org']) {
-        assertAudit(
-            fold.installCta.some(href => href?.includes(store)),
-            `${label} fold lost its ${store} install route: ${JSON.stringify(fold.installCta)}`,
-        );
+    // Safari and iPhone go to the Userscripts steps: the bare .user.js does
+    // nothing until that app is installed.
+    for (const href of [INSTALL_ROUTE_URLS.chrome, INSTALL_ROUTE_URLS.firefox, '/install#safari']) {
+        assertAudit(fold.installCta.includes(href), `${label} fold install route missing ${href}: ${JSON.stringify(fold.installCta)}`);
     }
+    // The fold shows pitch colours without a legend (the owner cut "Colours are
+    // pitch accent"; the FAQ explains them), so only the painted classes are checked.
     const expectedPitchClasses = ['jpdb-pitch-atamadaka', 'jpdb-pitch-heiban', 'jpdb-pitch-nakadaka'];
     assertAudit(
-        expectedPitchClasses.every(name => fold.samplePitchClasses.includes(name))
-            && ['blue', 'pink', 'amber'].every(colour => fold.pitchExplanation.toLowerCase().includes(colour)),
-        `${label} fold pitch sample and teaching copy drifted apart: ${JSON.stringify(fold)}`,
+        expectedPitchClasses.every(name => fold.samplePitchClasses.includes(name)),
+        `${label} fold sample lost a pitch pattern: ${JSON.stringify(fold.samplePitchClasses)}`,
     );
 
     // The claim under the arrow is "press a word". Prove a press answers.
