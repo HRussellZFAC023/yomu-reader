@@ -2345,7 +2345,6 @@
   }
 
   .jpdb-reader-settings-tabs {
-    flex-wrap: nowrap;
     overflow-x: auto;
     overscroll-behavior-x: contain;
     scrollbar-width: none;
@@ -2372,7 +2371,6 @@
   }
 
   .jpdb-reader-settings.jpdb-reader-settings-keyboard-open .jpdb-reader-settings-tabs {
-    flex-wrap: nowrap;
     overflow-x: auto;
     overscroll-behavior-x: contain;
     scrollbar-width: none;
@@ -2583,8 +2581,22 @@
   padding: 0 0 6px;
   border-bottom: 1px solid var(--jpdb-reader-border);
 }
+/* A short touch screen (a phone held sideways, or any phone with its keyboard
+   up) keeps one scrolling row so Save stays on screen. These come after the
+   rule above on purpose: white-space and text-wrap both set the wrap
+   mode, so the later declaration wins. */
 .jpdb-reader-settings.jpdb-reader-settings-keyboard-open .jpdb-reader-settings-tabs {
   white-space: nowrap;
+}
+@media (pointer: coarse) and (max-height: 560px) {
+  .jpdb-reader-settings-tabs {
+    white-space: nowrap;
+  }
+  /* The footer sits below the scroll area, not over it, and padding cannot
+     shrink: the usual 96px under the last setting would push Save off screen. */
+  .jpdb-reader-settings-scroll {
+    padding-bottom: 16px;
+  }
 }
 .jpdb-reader-settings-tab {
   display: inline-flex !important;

@@ -51,6 +51,22 @@ describe('settings CSS', () => {
         expect(normalizeCss(settingsCss)).toContain('.jpdb-reader-settings.jpdb-reader-settings-keyboard-open .jpdb-reader-settings-tabs { white-space: nowrap; }');
     });
 
+    it('keeps the section nav on one scrolling row on a phone held sideways, so Save stays on screen', () => {
+        const css = normalizeCss(readFileSync('src/reader/styles/settings.css', 'utf8')).replace(/\/\*.*?\*\/ /g, '');
+        const landscapeRow = '@media (pointer: coarse) and (max-height: 560px) { .jpdb-reader-settings-tabs { white-space: nowrap; } .jpdb-reader-settings-scroll { padding-bottom: 16px; } }';
+        const balancedNav = css.lastIndexOf('text-wrap: balance;');
+
+        // One row of tabs, and only a little room under the last setting: the
+        // footer sits below the scroll area, and padding cannot shrink.
+        expect(css).toContain(landscapeRow);
+        // white-space and text-wrap both set the wrap mode, so the one-row rule
+        // only wins when it comes after the balanced nav.
+        expect(balancedNav).toBeGreaterThan(-1);
+        expect(css.lastIndexOf(landscapeRow)).toBeGreaterThan(balancedNav);
+        // The scroll the row needs is still there for the same screens.
+        expect(css).toMatch(/@media \(pointer: coarse\) and \(max-height: 560px\) \{[^@]*\.jpdb-reader-settings-tabs \{ overflow-x: auto;/);
+    });
+
     it('sets the Settings title face itself so a host page h2 rule cannot restyle it', () => {
         const settingsCss = readFileSync('src/reader/styles/settings.css', 'utf8');
         const title = lastNormalizedRuleBlock(settingsCss, '.jpdb-reader-settings .jpdb-reader-settings-head h2');
