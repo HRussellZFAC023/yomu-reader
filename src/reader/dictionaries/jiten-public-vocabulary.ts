@@ -43,6 +43,17 @@ const log = Logger.scope('JitenPublicVocabulary');
 const sharedParseGate = new ConcurrencyGate(1);
 let sharedRequestBackoffUntil = 0;
 let sharedRequestBackoffMs = REQUEST_BACKOFF_INITIAL_MS;
+// api.jiten.moe lets an anonymous address make 300 requests a minute, then
+// queues three and refuses the rest. This client spends at most 240, so the
+// popup's own Jiten requests (its rank badge search) still answer, and its
+// background lanes keep to 40 in any 15 seconds, so a hover finds some left.
+// Jiten counts what reaches it: every parse does, while two in three word
+// details came from its cache on 2026-10-08, so a detail costs half.
+const REQUEST_BUDGET_PER_MINUTE = 240;
+const BACKGROUND_REQUEST_BUDGET = 40;
+const BACKGROUND_WINDOW_MS = 15_000;
+const DETAIL_REQUEST_COST = 0.5;
+const sharedRequests: Array<{ at: number; cost: number }> = [];
 
 export interface JitenPublicVocabularyClientOptions {
     baseUrl?: string;
@@ -58,13 +69,32 @@ export interface JitenPublicLookupManyOptions {
 export function resetJitenPublicVocabularyBackoffForTests(): void {
     sharedRequestBackoffUntil = 0;
     sharedRequestBackoffMs = REQUEST_BACKOFF_INITIAL_MS;
+    sharedRequests.length = 0;
 }
 
-// Callers pacing their own retry lanes (deferred pitch enrichment) consult
-// this instead of blindly consuming queued work into guaranteed misses while
-// the shared public-endpoint backoff is active.
+// The background lanes (deferred readings and pitch) wait this long before
+// asking again: while the shared backoff runs, or until their share of the
+// last 15 seconds and the minute's budget have room.
 export function publicJitenBackoffRemainingMs(): number {
-    return Math.max(0, sharedRequestBackoffUntil - Date.now());
+    const now = Date.now();
+    return Math.max(
+        0,
+        sharedRequestBackoffUntil - now,
+        requestBudgetWaitMs(BACKGROUND_WINDOW_MS, BACKGROUND_REQUEST_BUDGET, now),
+        requestBudgetWaitMs(60_000, REQUEST_BUDGET_PER_MINUTE, now),
+    );
+}
+
+// How long until the requests sent in the last `windowMs` cost less than
+// `budget`: the newest requests that reach it must first leave the window.
+function requestBudgetWaitMs(windowMs: number, budget: number, now: number): number {
+    while (sharedRequests.length && sharedRequests[0].at <= now - 60_000) sharedRequests.shift();
+    let cost = 0;
+    for (let index = sharedRequests.length - 1; index >= 0 && sharedRequests[index].at > now - windowMs; index--) {
+        cost += sharedRequests[index].cost;
+        if (cost >= budget) return sharedRequests[index].at + windowMs - now;
+    }
+    return 0;
 }
 
 interface PublicParseWord {
@@ -308,6 +338,7 @@ export class JitenPublicVocabularyClient {
 
     private requestJson(endpoint: string, timeoutMs = REQUEST_TIMEOUT_MS): Promise<unknown> {
         const request = this.options.requestJsonImpl ?? requestJson;
+        sharedRequests.push({ at: Date.now(), cost: endpoint.startsWith('vocabulary/parse') ? 1 : DETAIL_REQUEST_COST });
         return request(endpointUrl(this.options.baseUrl, endpoint), {
             responseType: 'json',
             timeoutMs,
@@ -353,11 +384,12 @@ export class JitenPublicVocabularyClient {
         }
     }
 
-    // Backoff holds requests back, never answers already in hand: a hovered
-    // word the page looked up earlier keeps its Jiten card (and so its rank
-    // badge) while api.jiten.moe is refusing this address.
+    // Backoff and a spent budget hold requests back, never answers already in
+    // hand: a hovered word the page looked up earlier keeps its Jiten card
+    // (and so its rank badge) while api.jiten.moe is not being asked.
     private isBackoffActive(): boolean {
-        return Date.now() < sharedRequestBackoffUntil;
+        const now = Date.now();
+        return now < sharedRequestBackoffUntil || requestBudgetWaitMs(60_000, REQUEST_BUDGET_PER_MINUTE, now) > 0;
     }
 
     private noteFailure(error: unknown): void {

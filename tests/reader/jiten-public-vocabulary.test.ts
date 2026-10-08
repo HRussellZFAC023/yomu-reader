@@ -6,6 +6,7 @@ import {
     JITEN_BACKGROUND_DETAIL_TIMEOUT_MS,
     JitenPublicVocabularyClient,
     parsedCardHydrationKey,
+    publicJitenBackoffRemainingMs,
     resetJitenPublicVocabularyBackoffForTests,
 } from '../../src/reader/dictionaries/jiten-public-vocabulary';
 import type { JPDBCard } from '../../src/reader/app/types';
@@ -877,6 +878,43 @@ describe('JitenPublicVocabularyClient', () => {
 
         expect(jitenIds(cards, ['なっている', 'なる'])).toEqual({ なっている: 1375610, なる: 1375610 });
         expect(requestJson.mock.calls.filter(([url]) => String(url).endsWith('/info'))).toHaveLength(1);
+    });
+
+    // api.jiten.moe gives an anonymous address 300 requests a minute, then
+    // queues three and refuses the rest. Nine hovers over one recorded
+    // Wikipedia paragraph sent about 800 from the built extension, most of
+    // them enriching each popup's own examples, and past 300 the popup's rank
+    // badge search sat in Jiten's queue until its 30 s timeout. A parse costs
+    // one, a word detail (mostly answered from Jiten's cache) a half.
+    it('spends at most 240 a minute and keeps background lanes to 40 in 15 seconds', async () => {
+        vi.useFakeTimers();
+        try {
+            const requestJson = vi.fn(async (url: string) => {
+                const text = new URL(url).searchParams.get('text');
+                if (text !== null) return [{ wordId: 1000 + Number(text.slice(1)), readingIndex: 0, originalText: text }];
+                const wordId = Number(/vocabulary\/(\d+)\//u.exec(url)?.[1]);
+                return { wordId, mainReading: { text: `語${wordId - 1000}` } };
+            });
+            const client = new JitenPublicVocabularyClient({ requestJsonImpl: requestJson });
+
+            for (let index = 0; index < 26; index++) await client.lookupMany([`語${index}`]);
+            expect(publicJitenBackoffRemainingMs()).toBe(0);
+            await client.lookupMany(['語26']);
+            expect(publicJitenBackoffRemainingMs()).toBe(15_000);
+            for (let index = 27; index < 170; index++) await client.lookupMany([`語${index}`]);
+
+            expect(requestJson).toHaveBeenCalledTimes(320);
+            await expect(client.lookup('語0')).resolves.toMatchObject({ jitenWordId: 1000 });
+            await expect(client.lookup('語169')).resolves.toBeNull();
+            expect(requestJson).toHaveBeenCalledTimes(320);
+            await vi.advanceTimersByTimeAsync(59_999);
+            expect(publicJitenBackoffRemainingMs()).toBe(1);
+            await expect(client.lookup('語169')).resolves.toBeNull();
+            await vi.advanceTimersByTimeAsync(1);
+            await expect(client.lookup('語169')).resolves.toMatchObject({ jitenWordId: 1169 });
+        } finally {
+            vi.useRealTimers();
+        }
     });
 
     it('separates ambiguous short batch terms for Jiten parsing', async () => {
