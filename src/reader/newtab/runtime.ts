@@ -73,6 +73,7 @@ import {
 } from '../study/mining-context';
 import {
     mountDeckSelects,
+    rerenderAroundMiningControls,
     setMiningControlsExpanded as setMiningControlsExpandedState,
     toggleMiningControls as toggleMiningControlsState,
 } from '../study/mining-controls';
@@ -921,7 +922,6 @@ export class NewTabRuntime {
         const renderState = { fullRenderCompleted: false };
         let metaEntriesValue: YomitanMetaEntry[] = [];
         let renderedPitchKey = card.pitchAccent.join('|');
-        clearNestedParseState(popover);
         this.renderLookupPopoverContent(popover, card, sentence, loadingCardRenderData([], fallbackAnkiLookup));
         this.localizeLookupPopoverChrome(popover);
         this.activateLookupRenderSurface(popover, anchor, reused, options);
@@ -936,18 +936,20 @@ export class NewTabRuntime {
                 currentAnkiLookup = ankiLookup;
                 this.applyAnkiLookupToRenderedWords(card, ankiLookup);
                 if (renderState.fullRenderCompleted) return;
-                clearNestedParseState(popover);
-                this.renderLookupPopoverContent(popover, card, sentence, loadingCardRenderData([], ankiLookup, metaEntriesValue));
-                this.refreshDeferredLookupPopover(popover, card, sentence);
+                this.rerenderLookupPopover(popover, requestId, () => {
+                    this.renderLookupPopoverContent(popover, card, sentence, loadingCardRenderData([], ankiLookup, metaEntriesValue));
+                    this.refreshDeferredLookupPopover(popover, card, sentence);
+                });
             }).catch(error => {
                 log.warn('New-tab Anki lookup failed', { term: card.spelling }, error);
             });
         }
         void renderData.localEntries.then(localEntries => {
             if (renderState.fullRenderCompleted || !this.isCurrentLookupRender(popover, requestId)) return;
-            clearNestedParseState(popover);
-            this.renderLookupPopoverContent(popover, card, sentence, loadingCardRenderData(localEntries, currentAnkiLookup));
-            this.refreshDeferredLookupPopover(popover, card, sentence);
+            this.rerenderLookupPopover(popover, requestId, () => {
+                this.renderLookupPopoverContent(popover, card, sentence, loadingCardRenderData(localEntries, currentAnkiLookup));
+                this.refreshDeferredLookupPopover(popover, card, sentence);
+            });
         });
         if (renderData.localMetaEntries) {
             void Promise.all([renderData.localEntries, renderData.localMetaEntries]).then(([localEntries, metaEntries]) => {
@@ -955,9 +957,10 @@ export class NewTabRuntime {
                 if (renderState.fullRenderCompleted || !this.isCurrentLookupRender(popover, requestId)) return;
                 this.applyPitchAccentToRenderedWords(card);
                 renderedPitchKey = card.pitchAccent.join('|');
-                clearNestedParseState(popover);
-                this.renderLookupPopoverContent(popover, card, sentence, loadingCardRenderData(localEntries, currentAnkiLookup, metaEntries));
-                this.refreshDeferredLookupPopover(popover, card, sentence);
+                this.rerenderLookupPopover(popover, requestId, () => {
+                    this.renderLookupPopoverContent(popover, card, sentence, loadingCardRenderData(localEntries, currentAnkiLookup, metaEntries));
+                    this.refreshDeferredLookupPopover(popover, card, sentence);
+                });
             });
         }
         if (renderData.pitchAccent) {
@@ -986,15 +989,24 @@ export class NewTabRuntime {
             metaEntriesValue = data.metaEntries;
             renderedPitchKey = card.pitchAccent.join('|');
             this.applyPitchAccentToRenderedWords(card);
-            clearNestedParseState(popover);
             const renderedData = currentAnkiLookup.primary && !data.ankiLookup.primary
                 ? { ...data, ankiLookup: currentAnkiLookup }
                 : data;
-            this.renderLookupPopoverContent(popover, card, sentence, { ...renderedData, loading: false });
-            this.refreshDeferredLookupPopover(popover, card, sentence, renderedData.jpdbVocabularyInfo);
+            this.rerenderLookupPopover(popover, requestId, () => {
+                this.renderLookupPopoverContent(popover, card, sentence, { ...renderedData, loading: false });
+                this.refreshDeferredLookupPopover(popover, card, sentence, renderedData.jpdbVocabularyInfo);
+            });
             this.renderHydratedLookupAnki(popover, card, sentence, renderedData, renderData, requestId);
         });
         void this.parseNewTabContent(popover);
+    }
+
+    // A provider landing re-renders the popup. Like the browser popup, it waits while the
+    // learner is choosing a deck, and keeps their open ⋯ and focus.
+    private rerenderLookupPopover(popover: HTMLElement, requestId: number, render: () => void): void {
+        rerenderAroundMiningControls(popover, expanded => this.miningControlsToggleLabel(expanded), () => {
+            if (this.isCurrentLookupRender(popover, requestId)) render();
+        });
     }
 
     private renderLookupPopoverContent(
@@ -1003,6 +1015,7 @@ export class NewTabRuntime {
         sentence: string | undefined,
         data: CardRenderData & { loading: boolean },
     ): void {
+        clearNestedParseState(popover);
         setInnerHtml(popover, this.lookupPopoverRenderer.render(card, sentence, 'modal', data));
         mountDeckSelects(popover, card, sentence, (control, actionCard, actionSentence, command) => this.handleCardAction(control, actionCard, actionSentence, undefined, command));
         this.wanikaniSources.installDefinitionMounts(popover, card);
@@ -1059,14 +1072,14 @@ export class NewTabRuntime {
                 const resolvesPendingMiss = data.ankiLookup.trusted === false && ankiLookup.trusted !== false;
                 if (!ankiLookup.primary && !data.ankiLookup.primary && !resolvesPendingMiss) return;
                 if (!this.isCurrentLookupRender(popover, requestId)) return;
-                this.renderHydratedLookupAnkiResult(popover, card, sentence, data, ankiLookup);
+                this.renderHydratedLookupAnkiResult(popover, card, sentence, data, ankiLookup, requestId);
             })
             .catch(error => {
                 log.warn('New-tab Anki detail failed', { term: card.spelling }, error);
                 if (!this.isCurrentLookupRender(popover, requestId)) return;
                 const ankiLookup = ankiLookupWithUnavailableDetails(data.ankiLookup);
                 if (!ankiLookup.primary) return;
-                this.renderHydratedLookupAnkiResult(popover, card, sentence, data, ankiLookup);
+                this.renderHydratedLookupAnkiResult(popover, card, sentence, data, ankiLookup, requestId);
         });
     }
 
@@ -1076,11 +1089,13 @@ export class NewTabRuntime {
         sentence: string | undefined,
         data: CardRenderData,
         ankiLookup: AnkiLookupResult,
+        requestId: number,
     ): void {
-        clearNestedParseState(popover);
-        this.renderLookupPopoverContent(popover, card, sentence, { ...data, ankiLookup, loading: false });
-        this.applyAnkiLookupToRenderedWords(card, ankiLookup);
-        this.refreshDeferredLookupPopover(popover, card, sentence, data.jpdbVocabularyInfo);
+        this.rerenderLookupPopover(popover, requestId, () => {
+            this.renderLookupPopoverContent(popover, card, sentence, { ...data, ankiLookup, loading: false });
+            this.applyAnkiLookupToRenderedWords(card, ankiLookup);
+            this.refreshDeferredLookupPopover(popover, card, sentence, data.jpdbVocabularyInfo);
+        });
     }
 
     private refreshDeferredLookupPopover(

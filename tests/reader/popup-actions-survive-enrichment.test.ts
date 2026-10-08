@@ -9,6 +9,7 @@ import {
 import type { AnkiLookupResult, CardRenderData, JPDBCard, YomitanTermEntry } from './jpdb/fixtures';
 import type { CardCommandCapability } from '../../src/reader/dom/private-command-capabilities';
 import { dispatchAuthorizedReaderControlEvent } from '../../src/reader/ui/trusted-interaction';
+import { NewTabRuntime, newTabLookupRenderData, newTabTestCard, setupNewTabLookupRuntime } from './new-tab-review/fixtures';
 
 /**
  * "A first Add click detached during enrichment": the learner opens the ⋯ overflow
@@ -323,6 +324,76 @@ describe('a hover popup pinned by a press while it is still loading', () => {
         } finally {
             word.remove();
             app.destroy();
+        }
+    });
+});
+
+// Study's lookup popup (the extension's Study page and the hosted and packaged Study app)
+// re-rendered on every provider with no regard for the learner: the open dropdown was
+// destroyed under them, focus fell to the page and the ⋯ overflow closed.
+describe("Study's lookup popup while enrichment re-renders the card", () => {
+    it('keeps the learner in the dropdown through the completed and hydrated renders, then lands the newest on ⋯', async () => {
+        vi.stubGlobal('location', new URL('https://yomureader.com/study/'));
+        const runtime = new NewTabRuntime();
+        const pendingMiss: AnkiLookupResult = { ...NOT_IN_DECK, trusted: false };
+        const hydratedMiss: AnkiLookupResult = { ...NOT_IN_DECK };
+        const all = deferred<ReturnType<typeof newTabLookupRenderData>>();
+        const hydrated = deferred<AnkiLookupResult>();
+        const internals = setupNewTabLookupRuntime(runtime, newTabLookupRenderData(), {
+            settings: { ...SETTINGS, ankiEnabled: true },
+            isJpdbBackedCard: () => false,
+        }) as unknown as {
+            cardRenderData: { load(): unknown; clear(): void };
+            activeLookupPopover?: HTMLElement;
+            toggleMiningControls(button: HTMLButtonElement): void;
+            renderLookupPopoverContent(popover: HTMLElement, card: JPDBCard, sentence: string | undefined, data: CardRenderData & { loading: boolean }): void;
+            showLookupCard(card: JPDBCard, sentence?: string): Promise<void>;
+        };
+        internals.cardRenderData = {
+            load: () => ({ localEntries: Promise.resolve([]), all: all.promise, hydrateAnkiLookup: () => hydrated.promise }),
+            clear: () => undefined,
+        };
+        const popover = () => internals.activeLookupPopover!;
+        const host = () => popover().querySelector<HTMLElement>('.jpdb-reader-deck-select');
+        const overflow = () => popover().querySelector<HTMLButtonElement>('[data-action="mining-collapse"]');
+        const loading = () => popover().querySelector('[data-card-details-loading]');
+
+        try {
+            await internals.showLookupCard(newTabTestCard({ spelling: '読む', reading: 'よむ', sentence: '本を読む。' }), '本を読む。');
+            await settle();
+            expect(loading()).not.toBeNull();
+            internals.toggleMiningControls(overflow()!);
+            const opened = host()!;
+            const dropdown = pickerRoot!.querySelector('select')!;
+            dropdown.focus();
+            expect(document.activeElement).toBe(opened);
+            const renders = vi.spyOn(internals, 'renderLookupPopoverContent');
+
+            // Enrichment completes, then the Anki detail lands: nothing rebuilds under the choice.
+            all.resolve(newTabLookupRenderData({ ankiLookup: pendingMiss }));
+            await settle();
+            hydrated.resolve(hydratedMiss);
+            await settle();
+            await settle();
+            expect(renders).not.toHaveBeenCalled();
+            expect(host()).toBe(opened);
+            expect(pickerRoot!.activeElement).toBe(dropdown);
+            expect(overflow()!.getAttribute('aria-expanded')).toBe('true');
+            expect(loading()).not.toBeNull();
+
+            // Shift+Tab to ⋯: only the newest render lands, and focus stays on the rebuilt ⋯.
+            const toggle = overflow()!;
+            toggle.focus();
+            await nextTask();
+            expect(renders).toHaveBeenCalledTimes(1);
+            expect(renders.mock.calls[0]![3]).toMatchObject({ loading: false, ankiLookup: hydratedMiss });
+            expect(loading()).toBeNull();
+            expect(overflow()).not.toBe(toggle);
+            expect(document.activeElement).toBe(overflow());
+            expect(overflow()!.getAttribute('aria-expanded')).toBe('true');
+        } finally {
+            runtime.destroy();
+            vi.unstubAllGlobals();
         }
     });
 });
