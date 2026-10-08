@@ -47,9 +47,10 @@ const OUT = path.join(ARTIFACTS, 'underline-colour-sources', ENGINE);
 const HEIBAN = 'rgb(53, 158, 255)';
 const LEARNING = 'rgb(255, 209, 102)';
 const UNKNOWN_SWATCH = 'rgb(148, 163, 184)';
-// White New on a white page: the readability pass darkens the underline to
-// #858585 so it stays visible. That grey is by design and must survive.
-const NEW_ON_WHITE = 'rgb(133, 133, 133)';
+// The default New seed is white; on a white page the contrast pass draws it
+// in the ink-and-paper New token, #687384 (theme/color-tokens.ts), so it
+// stays visible and quiet. That grey is by design and must survive.
+const NEW_ON_WHITE = 'rgb(104, 115, 132)';
 
 // [surface, spelling, reading, gloss, pos, frequency, state, pitch]
 const DECK_ROWS = [
@@ -227,7 +228,7 @@ async function checkDeckStatusUnderline() {
     for (const id of ['underline-jpdb-light', 'underline-jpdb-anki-light', 'underline-status-light']) {
         const result = report.page[id];
         expect(result.words.find(word => word.classes.includes('jpdb-new'))?.underline === NEW_ON_WHITE,
-            `${id}: a white New underline on a white page should still darken to #858585, Anki card or not.`, result);
+            `${id}: a white New underline on a white page should still take the #687384 page token, Anki card or not.`, result);
     }
 }
 

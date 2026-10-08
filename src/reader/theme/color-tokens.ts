@@ -45,6 +45,15 @@ export const DEFAULT_WORD_COLOR_TOKENS = {
     ignored: '#b8a7ff',
 } as const;
 
+// Study-state underlines on a page, in ink and paper: one quiet hue per state,
+// and its tint for a dark page. An underline drawn from an untouched default
+// above takes these for the page it sits on (dom/word-contrast.ts); white and
+// yellow lines read loud on a dark page. A learner's own colour is kept.
+export const PAGE_STATE_UNDERLINE_COLOR_TOKENS = {
+    light: { new: '#687384', learning: '#916f08', known: '#347a57', due: '#216f7a', failed: '#b53f43', ignored: '#77649a' },
+    dark: { new: '#aab2c0', learning: '#d6b65e', known: '#80b99a', due: '#77b6c0', failed: '#f08a8a', ignored: '#b7a6d7' },
+} as const;
+
 export const DEFAULT_PITCH_COLOR_TOKENS = {
     heiban: '#359eff',
     atamadaka: '#fe4b74',

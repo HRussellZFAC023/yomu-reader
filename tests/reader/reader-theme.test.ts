@@ -366,6 +366,23 @@ describe('reader theme', () => {
         expect(contrastRatio(underline, highlight)).toBeGreaterThanOrEqual(3);
     });
 
+    it('draws a default study-state underline in the ink-and-paper token for its page', () => {
+        // White New and yellow Learning seeds read loud on a dark page; the
+        // page token is one quiet hue per state, and a learner's own colour
+        // is only held at 3:1.
+        const underlineOn = (paper: string, ink: string, word: string, color: string) => {
+            document.body.innerHTML = `<p style="background: ${paper}; color: ${ink};"><span class="jpdb-reader-word ${word}" style="color: ${ink}; text-decoration-color: ${color};">読む</span></p>`;
+            const element = document.querySelector<HTMLElement>('.jpdb-reader-word')!;
+            refreshReaderWordContrastForWord(element);
+            return element.style.getPropertyValue('--jpdb-reader-word-accessible-underline');
+        };
+        expect(underlineOn('rgb(255, 255, 255)', 'rgb(32, 33, 34)', 'jpdb-new', 'rgb(255, 255, 255)')).toBe('#687384');
+        expect(underlineOn('rgb(16, 20, 24)', 'rgb(234, 236, 240)', 'jpdb-new', 'rgb(255, 255, 255)')).toBe('#aab2c0');
+        expect(underlineOn('rgb(16, 20, 24)', 'rgb(234, 236, 240)', 'jpdb-learning', 'rgb(255, 209, 102)')).toBe('#d6b65e');
+        expect(underlineOn('rgb(255, 255, 255)', 'rgb(32, 33, 34)', 'jpdb-due', 'rgb(95, 179, 179)')).toBe('#216f7a');
+        expect(underlineOn('rgb(255, 255, 255)', 'rgb(32, 33, 34)', 'jpdb-failed', 'rgb(233, 30, 99)')).toBe('#e91e63');
+    });
+
     it('measures variable-backed first-render highlights without repainting them darker', () => {
         document.body.innerHTML = `
             <p style="background: rgb(255, 255, 255); color: rgb(242, 243, 245);">

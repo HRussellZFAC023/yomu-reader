@@ -1,4 +1,4 @@
-import { CORE_COLOR_TOKENS, PAGE_WORD_COLOR_TOKENS } from '../theme/color-tokens';
+import { CORE_COLOR_TOKENS, DEFAULT_WORD_COLOR_TOKENS, PAGE_STATE_UNDERLINE_COLOR_TOKENS, PAGE_WORD_COLOR_TOKENS } from '../theme/color-tokens';
 import { blendRgba, contrastRatio, cssColorToHex, cssColorToRgba, mixHex, readableOn, readableOnAll, rgbaToHex, type RgbaColor } from '../theme/color-utils';
 import { probePageBackground, type PageBackground, type ProbedPageBackground } from './page-background';
 import { RENDERED_WORD_CONTRAST_VARS, RENDERED_WORD_CONTRAST_VARS_WITHOUT_SHADOW } from './rendered-word-contrast-vars';
@@ -346,7 +346,7 @@ function applyWordContrastVars(word: HTMLElement, background: PageBackground, m:
 
     word.style.setProperty('--jpdb-reader-word-highlight-text', readableOnAll(nativeText, textBackgrounds, TEXT_CONTRAST));
     word.style.setProperty('--jpdb-reader-word-accessible-color', readableOnAll(textSource, textBackgrounds, TEXT_CONTRAST));
-    if (decoration) word.style.setProperty('--jpdb-reader-word-accessible-underline', readableOn(decoration, accessibleHex, DECORATION_CONTRAST));
+    if (decoration) word.style.setProperty('--jpdb-reader-word-accessible-underline', readableOn(pageUnderlineSeed(decoration, accessibleHex), accessibleHex, DECORATION_CONTRAST));
     else word.style.removeProperty('--jpdb-reader-word-accessible-underline');
 }
 
@@ -457,6 +457,19 @@ function readerWords(root: ParentNode): HTMLElement[] {
     if (root instanceof HTMLElement && root.matches(PAGE_WORD_SELECTOR)) words.add(root);
     root.querySelectorAll<HTMLElement>(PAGE_WORD_SELECTOR).forEach(word => words.add(word));
     return [...words];
+}
+
+const DEFAULT_STATE_BY_SEED = new Map<string, keyof typeof DEFAULT_WORD_COLOR_TOKENS>(
+    Object.entries(DEFAULT_WORD_COLOR_TOKENS).map(([state, seed]) => [seed, state as keyof typeof DEFAULT_WORD_COLOR_TOKENS]),
+);
+
+// A study-state underline still on its default seed takes the ink-and-paper
+// token for this backdrop (theme/color-tokens.ts); any other colour is the
+// learner's, held at 3:1 by the caller.
+function pageUnderlineSeed(color: string, backdrop: string): string {
+    const state = DEFAULT_STATE_BY_SEED.get(color);
+    if (!state) return color;
+    return PAGE_STATE_UNDERLINE_COLOR_TOKENS[bestTextColor(backdrop) === CORE_COLOR_TOKENS.white ? 'dark' : 'light'][state];
 }
 
 function bestTextColor(background: string): string {
