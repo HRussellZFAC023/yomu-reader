@@ -701,6 +701,37 @@ describe('JitenPublicVocabularyClient', () => {
         }
     });
 
+    // Backoff skips the network, not what is already known. A page's own
+    // annotation spends api.jiten.moe's anonymous budget (300 a minute per
+    // address); once it ran out, a hovered word the page had already looked
+    // up came back empty, fell to a segmented card without its Jiten identity
+    // and rank, and the popup's Jiten badge then needed requests that could
+    // not get through.
+    it('answers words it already looked up while Jiten is backed off', async () => {
+        let throttled = false;
+        const requestJson = vi.fn(async (url: string) => {
+            if (throttled) throw new Error('Jiten fail (429).');
+            if (url.includes('/vocabulary/parse?')) return [{ wordId: 1206820, readingIndex: 0, originalText: '学習' }];
+            if (url.includes('/vocabulary/1206820/0/info')) {
+                return { wordId: 1206820, mainReading: { text: '学[がく]習[しゅう]', frequencyRank: 6898 }, definitions: [{ meanings: ['study'] }] };
+            }
+            throw new Error(`Unexpected URL: ${url}`);
+        });
+        const client = new JitenPublicVocabularyClient({ requestJsonImpl: requestJson });
+        await client.lookupMany(['学習']);
+        throttled = true;
+        await client.lookupMany(['公用語']);
+        const sent = requestJson.mock.calls.length;
+
+        const during = await client.lookupMany(['学習', '習']);
+
+        expect(during.get('学習')).toMatchObject({ spelling: '学習', reading: 'がくしゅう', frequencyRank: 6898, jitenWordId: 1206820 });
+        await expect(client.lookup('学習')).resolves.toMatchObject({ frequencyRank: 6898 });
+        await expect(new JitenPublicVocabularyClient({ requestJsonImpl: requestJson }).lookupMany(['学習']))
+            .resolves.toEqual(new Map([['学習', expect.objectContaining({ frequencyRank: 6898 })]]));
+        expect(requestJson).toHaveBeenCalledTimes(sent);
+    });
+
     it('separates ambiguous short batch terms for Jiten parsing', async () => {
         const details = new Map([
             [1444810, { text: '登録[とうろく]', pitchAccents: [0] }],

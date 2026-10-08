@@ -91,7 +91,7 @@ export class JitenPublicVocabularyClient {
 
     lookup(term: string): Promise<JPDBCard | null> {
         const normalized = normalizeLookupText(term);
-        if (!normalized || this.isBackoffActive()) return Promise.resolve(null);
+        if (!normalized) return Promise.resolve(null);
         const cached = this.cardCache.get(normalized);
         const now = Date.now();
         if (cached && cached.expiresAt > now) {
@@ -106,6 +106,7 @@ export class JitenPublicVocabularyClient {
             this.remember(this.cardCache, normalized, promise, now);
             return promise;
         }
+        if (this.isBackoffActive()) return Promise.resolve(null);
         const promise = this.lookupUncached(normalized)
             .then(card => {
                 if (card) writePublicJitenCache('card', normalized, card);
@@ -124,7 +125,7 @@ export class JitenPublicVocabularyClient {
     async lookupMany(terms: readonly string[], options: JitenPublicLookupManyOptions = {}): Promise<Map<string, JPDBCard>> {
         const uniqueTerms = uniqueNormalizedTerms(terms);
         const result = new Map<string, JPDBCard>();
-        if (!uniqueTerms.length || this.isBackoffActive()) return result;
+        if (!uniqueTerms.length) return result;
 
         const cachedTerms: string[] = [];
         const persistedCards = new Map<string, JPDBCard>();
@@ -147,7 +148,7 @@ export class JitenPublicVocabularyClient {
         });
 
         persistedCards.forEach((card, term) => result.set(term, card));
-        if (pendingTerms.length) {
+        if (pendingTerms.length && !this.isBackoffActive()) {
             const loaded = await this.lookupManyUncached(pendingTerms, options).catch(error => {
                 this.noteFailure(error);
                 logPublicJitenFailure('Jiten batch', { terms: pendingTerms.length }, error);
@@ -183,7 +184,7 @@ export class JitenPublicVocabularyClient {
 
     async hydrateCards(cards: readonly JPDBCard[], options: JitenPublicLookupManyOptions = {}): Promise<Map<string, JPDBCard>> {
         const result = new Map<string, JPDBCard>();
-        if (!cards.length || this.isBackoffActive()) return result;
+        if (!cards.length) return result;
         const pending: Array<{ key: string; word: PublicParseWord; requestedTerm: string }> = [];
         const seen = new Set<string>();
         const limit = normalizedDetailLimit(options.detailLimit);
@@ -202,6 +203,7 @@ export class JitenPublicVocabularyClient {
             }
             if (pending.length < limit) pending.push({ key, word, requestedTerm: card.spelling || word.originalText });
         }
+        if (this.isBackoffActive()) return result;
         await mapLimited(pending, DETAIL_CONCURRENCY, async item => {
             const card = await this.lookupDetail(item.word, item.requestedTerm, options.detailTimeoutMs ?? JITEN_BACKGROUND_DETAIL_TIMEOUT_MS).catch(error => {
                 this.noteFailure(error);
@@ -389,6 +391,9 @@ export class JitenPublicVocabularyClient {
         }
     }
 
+    // Backoff holds requests back, never answers already in hand: a hovered
+    // word the page looked up earlier keeps its Jiten card (and so its rank
+    // badge) while api.jiten.moe is refusing this address.
     private isBackoffActive(): boolean {
         return Date.now() < sharedRequestBackoffUntil;
     }
