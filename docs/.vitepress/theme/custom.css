@@ -96,7 +96,9 @@
   color: var(--vp-c-brand-1);
 }
 
-.yomu-reference-page .vp-doc table a {
+/* Striped table rows are too light behind brand-coloured link text, so table
+   links take the text colour and keep the brand colour in the underline. */
+.vp-doc table a {
   color: var(--vp-c-text-1);
   text-decoration-color: var(--vp-c-brand-1);
 }
