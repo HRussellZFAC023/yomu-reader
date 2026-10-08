@@ -16,6 +16,8 @@ export function installExtensionPopupActionsSource(source) {
     return `${extensionPopupActionsSource()}\n`;
 }
 
+// The menu paints the shared ink-and-paper surface, text, surface-2, border and
+// readable accent (src/reader/styles/base.css) in both themes, so it reads as よむ.
 function extensionPopupActionsSource() {
     return `/* ${EXTENSION_POPUP_ACTIONS_MARKER} */
 (() => {
@@ -31,8 +33,8 @@ function extensionPopupActionsSource() {
   const style = document.createElement('style');
   style.textContent = \`
     body.yomu-toolbar {
-      --menu-bg: #fff; --menu-text: #25272b; --menu-hover: #f0f1f3;
-      --menu-line: #e4e5e7; --menu-focus: #346fc4; --menu-on: #237e51; --menu-partial: #a36b12;
+      --menu-bg: #ffffff; --menu-text: #20242b; --menu-hover: #f0f2f5;
+      --menu-line: #dfe3e8; --menu-focus: #b8324e; --menu-on: #237e51; --menu-partial: #a36b12;
       margin: 0; min-width: 0; width: 244px; background: var(--menu-bg); color: var(--menu-text);
       font: 13px/1.35 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
     }
@@ -40,7 +42,7 @@ function extensionPopupActionsSource() {
     .yomu-toolbar .menu { display: flex; flex-direction: column; gap: 1px; }
     .yomu-toolbar .menu button {
       display: flex; align-items: center; gap: 10px; width: 100%; min-height: 32px;
-      margin: 0; padding: 6px 9px; border: 0; border-radius: 5px; box-shadow: none;
+      margin: 0; padding: 6px 9px; border: 0; border-radius: 8px; box-shadow: none;
       background: transparent; color: inherit; font: inherit; text-align: left; cursor: pointer;
     }
     .yomu-toolbar .menu button:hover:not(:disabled) { background: var(--menu-hover); color: inherit; }
@@ -52,7 +54,7 @@ function extensionPopupActionsSource() {
     .yomu-toolbar .menu svg[data-tone="off"] { opacity: .5; }
     .yomu-toolbar .menu hr { align-self: stretch; height: 0; margin: 5px 9px; border: 0; border-top: 1px solid var(--menu-line); }
     @media (prefers-color-scheme: dark) {
-      body.yomu-toolbar { --menu-bg: #252629; --menu-text: #f0f0f1; --menu-hover: #37383c; --menu-line: #45464a; --menu-focus: #88b4f0; --menu-on: #68c49a; --menu-partial: #e1b660; }
+      body.yomu-toolbar { --menu-bg: #20242b; --menu-text: #f2f4f8; --menu-hover: #282e37; --menu-line: rgba(255, 255, 255, .12); --menu-focus: #ff7892; --menu-on: #68c49a; --menu-partial: #e1b660; }
     }
   \`;
   document.head.append(style);
