@@ -33,7 +33,58 @@ import type {
     JPDBCard,
     JPDBGrade,
 } from './fixtures';
+import { readFileSync } from 'node:fs';
 import { readReviewTargetCapability } from '../../../src/reader/dom/private-command-capabilities';
+
+// The stylesheets Study ships, in src/reader/styles.css's cascade order.
+function studyStylesheetText(): string {
+    const imports = readFileSync('src/reader/styles.css', 'utf8').matchAll(/@import '\.\/([^']+)';/gu);
+    return Array.from(imports, ([, path]) => readFileSync(`src/reader/${path}`, 'utf8')).join('\n');
+}
+
+// Every declaration a stylesheet makes on the ::before of `element`, from any
+// selector in a rule's list (grouping rules such as @media included).
+function beforeDeclarationsReaching(element: Element, sheet: CSSStyleSheet): Array<[string, string]> {
+    const declarations: Array<[string, string]> = [];
+    const visit = (rules: CSSRuleList): void => {
+        for (const rule of Array.from(rules)) {
+            if ('cssRules' in rule) visit((rule as CSSGroupingRule).cssRules);
+            if (!(rule instanceof CSSStyleRule)) continue;
+            const reaches = topLevelSelectors(rule.selectorText).some(selector => {
+                if (!selector.endsWith('::before')) return false;
+                try {
+                    return element.matches(selector.slice(0, -'::before'.length));
+                } catch {
+                    return false;
+                }
+            });
+            if (!reaches) continue;
+            for (let index = 0; index < rule.style.length; index += 1) {
+                const property = rule.style[index]!;
+                declarations.push([property, rule.style.getPropertyValue(property)]);
+            }
+        }
+    };
+    visit(sheet.cssRules);
+    return declarations;
+}
+
+function topLevelSelectors(selectorText: string): string[] {
+    const selectors: string[] = [];
+    let depth = 0;
+    let start = 0;
+    for (let index = 0; index < selectorText.length; index += 1) {
+        const char = selectorText[index];
+        if (char === '(') depth += 1;
+        else if (char === ')') depth -= 1;
+        else if (char === ',' && depth === 0) {
+            selectors.push(selectorText.slice(start, index).trim());
+            start = index + 1;
+        }
+    }
+    selectors.push(selectorText.slice(start).trim());
+    return selectors;
+}
 
 type JpdbDeckOption = {
     id: string;
@@ -482,6 +533,41 @@ describe('new tab review — session progress, grade bar & deck selectors', () =
         expect(select?.selectedOptions[0]?.textContent).toBe('Both');
         expect(select?.selectedOptions[0]?.dataset.newtabGradeTargetLabel).toBe('Grades JPDB + Anki card: Core #404');
         expect(Array.from(mount.querySelectorAll<HTMLButtonElement>('[data-newtab-action="grade"]')).map(button => button.querySelector('.jpdb-reader-newtab-grade-label')?.textContent)).toEqual(['Fail', 'Pass']);
+    });
+
+    it('keeps the grade-target handle a grab bar: no Study stylesheet draws the popup drawer chevron on it', () => {
+        const mount = document.createElement('div');
+        mount.append(...renderNewTabGradeControlButtons({
+            apiShortLabel: 'JPDB',
+            bothLabel: 'Both',
+            grades: [['fail', 'Fail'], ['pass', 'Pass']],
+            selectorLabel: 'Target',
+            selectedOption: undefined,
+            summary: summarizeNewTabReviewSources(['jpdb-api', 'anki']),
+            targetLabel: 'Grades JPDB + Anki card: Core #404',
+            targetOptions: [
+                { id: 'both', kind: 'both', label: 'Grades JPDB + Anki card: Core #404', shortLabel: 'Both' },
+                { id: 'jpdb', kind: 'jpdb', label: 'Grades JPDB', shortLabel: 'JPDB' },
+            ],
+        }));
+        const style = document.createElement('style');
+        style.textContent = studyStylesheetText();
+        document.head.append(style);
+        document.body.append(mount);
+        try {
+            const details = mount.querySelector<HTMLDetailsElement>('[data-newtab-grade-target]')!;
+            const handle = details.querySelector<HTMLElement>('.jpdb-reader-mining-collapse')!;
+            const chevronDeclarations = () => beforeDeclarationsReaching(handle, style.sheet!)
+                .filter(([property, value]) => /^(transform|border(-(top|left))?)$/u.test(property) && !/^(none|0(px)?)\b/u.test(value));
+            expect(beforeDeclarationsReaching(handle, style.sheet!)).toContainEqual(['height', '5px']);
+            expect(chevronDeclarations()).toEqual([]);
+            details.open = true;
+            handle.dataset.expanded = 'true';
+            expect(chevronDeclarations()).toEqual([]);
+        } finally {
+            style.remove();
+            mount.remove();
+        }
     });
 
     it('wires card.reviewGradeIntervals into the main new-tab grade bar', () => {

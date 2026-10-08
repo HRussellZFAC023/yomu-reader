@@ -274,10 +274,11 @@ describe('reader helpers', () => {
         expect(normalizedPopoverCss).toContain('.jpdb-reader-popover .jpdb-reader-icon-btn, .jpdb-reader-settings .jpdb-reader-icon-btn, .jpdb-reader-icon-btn {');
         expect(normalizedPopoverCss).toContain('.jpdb-reader-popover .jpdb-reader-icon-btn svg, .jpdb-reader-settings .jpdb-reader-icon-btn svg, .jpdb-reader-icon-btn svg {');
         expect(normalizedKanjiCss).toContain('.jpdb-reader-actions .jpdb-reader-mining-collapse, .jpdb-reader-mining-collapse {');
-        expect(normalizedKanjiCss).toContain('.jpdb-reader-actions .jpdb-reader-mining-collapse::before, .jpdb-reader-mining-collapse::before {');
         // A phone sheet already has its grab bar at the top; the drawer toggle
-        // is a chevron, so the sheet does not read as two stacked sheets.
-        const drawerGlyph = normalizedKanjiCss.match(/\.jpdb-reader-actions \.jpdb-reader-mining-collapse::before, \.jpdb-reader-mining-collapse::before \{([^}]*)\}/u)?.[1] ?? '';
+        // is a chevron, so the sheet does not read as two stacked sheets. The
+        // chevron stays inside the action bar (Study's grade-target handle
+        // reuses the class and keeps its own bar).
+        const drawerGlyph = normalizedKanjiCss.match(/[}/] \.jpdb-reader-actions \.jpdb-reader-mining-collapse::before \{([^}]*)\}/u)?.[1] ?? '';
         expect(drawerGlyph).toContain('border-top: 2px solid currentColor;');
         expect(drawerGlyph).toContain('transform: translateY(2px) rotate(45deg);');
         expect(drawerGlyph).not.toContain('height: 5px');

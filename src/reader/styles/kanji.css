@@ -1157,9 +1157,10 @@ html.jpdb-reader-doodle-active * {
 }
 /* The drawer toggle is a chevron, not a grab bar: a phone sheet already has
    its handle at the top, and a second bar at the bottom read as a second sheet.
-   It points up while the actions are folded away and down once they show. */
-.jpdb-reader-actions .jpdb-reader-mining-collapse::before,
-.jpdb-reader-mining-collapse::before {
+   It points up while the actions are folded away and down once they show.
+   Scoped to the action bar: Study's grade-target handle reuses the class
+   outside it and keeps its own grab bar (new-tab.css). */
+.jpdb-reader-actions .jpdb-reader-mining-collapse::before {
   content: "";
   position: relative;
   z-index: 1;
@@ -1172,9 +1173,7 @@ html.jpdb-reader-doodle-active * {
   transform: translateY(2px) rotate(45deg);
 }
 .jpdb-reader-actions .jpdb-reader-mining-collapse:hover,
-.jpdb-reader-actions .jpdb-reader-mining-collapse:focus-visible,
-.jpdb-reader-mining-collapse:hover,
-.jpdb-reader-mining-collapse:focus-visible {
+.jpdb-reader-actions .jpdb-reader-mining-collapse:focus-visible {
   color: var(--jpdb-reader-accent-readable);
 }
 .jpdb-reader-actions:not(.jpdb-reader-actions-mining-collapsed) .jpdb-reader-mining-collapse::before {
