@@ -732,6 +732,39 @@ describe('JitenPublicVocabularyClient', () => {
         expect(requestJson).toHaveBeenCalledTimes(sent);
     });
 
+    // The span resolver asks about every candidate substring of a sentence
+    // (コンテン, コンテ, ンテン...), about 3,800 terms on the recorded
+    // Japanese Wikipedia article. Nothing kept a substring Jiten found no word
+    // in, and an 800-entry memory evicted the page's own words before a hover
+    // re-parsed their sentence: 44% of the terms the built extension sent were
+    // repeats (教科 went out 35 times), all spent from the same 300-a-minute
+    // anonymous budget the popup's badge needs.
+    it('keeps a page-sized lattice of answers, including where Jiten found no word', async () => {
+        const parsedTexts: string[] = [];
+        const requestJson = vi.fn(async (url: string) => {
+            const text = new URL(url).searchParams.get('text');
+            if (text !== null) {
+                parsedTexts.push(text);
+                return text.split('。').flatMap((term, index) => [
+                    ...(index ? [{ wordId: 0, readingIndex: 0, originalText: '。' }] : []),
+                    { wordId: term.startsWith('ン') ? 0 : 1_000_000 + Number(term.slice(1)), readingIndex: 0, originalText: term },
+                ]);
+            }
+            const wordId = Number(/vocabulary\/(\d+)\//u.exec(url)?.[1]);
+            return { wordId, mainReading: { text: `語${wordId - 1_000_000}`, frequencyRank: 100 } };
+        });
+        const client = new JitenPublicVocabularyClient({ requestJsonImpl: requestJson });
+        const words = Array.from({ length: 1200 }, (_, index) => `語${index}`);
+
+        await client.lookupMany([...words, 'ンテン'], { detailLimit: words.length });
+        const sent = requestJson.mock.calls.length;
+        const again = await client.lookupMany(['語0', 'ンテン']);
+
+        expect(again.get('語0')).toMatchObject({ spelling: '語0', jitenWordId: 1_000_000 });
+        expect(again.has('ンテン')).toBe(false);
+        expect(requestJson).toHaveBeenCalledTimes(sent);
+    });
+
     it('separates ambiguous short batch terms for Jiten parsing', async () => {
         const details = new Map([
             [1444810, { text: '登録[とうろく]', pitchAccents: [0] }],

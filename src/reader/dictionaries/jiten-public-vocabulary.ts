@@ -20,7 +20,11 @@ export const JITEN_BACKGROUND_DETAIL_TIMEOUT_MS = 4000;
 // long enough to absorb a burst, so the paced retry lane can actually retry.
 const TRANSIENT_NULL_TTL_MS = 5_000;
 const CACHE_TTL_MS = 10 * 60 * 1000;
-const CACHE_LIMIT = 800;
+// The span resolver asks about every candidate substring of a page's
+// sentences, about 4,000 terms on a long article. A smaller memory evicted the
+// page's own answers before a hover re-parsed their sentence, and every repeat
+// spent api.jiten.moe's anonymous budget (300 requests a minute) again.
+const CACHE_LIMIT = 5000;
 const DETAIL_CONCURRENCY = 4;
 const LOOKUP_DETAIL_LIMIT = 12;
 const PARSE_DETAIL_LIMIT = LOOKUP_DETAIL_LIMIT;
@@ -231,9 +235,13 @@ export class JitenPublicVocabularyClient {
     private async lookupManyUncached(terms: string[], options: JitenPublicLookupManyOptions): Promise<Map<string, JPDBCard>> {
         const parsedByTerm = await this.parseTermGroups(terms);
         const candidatesByTerm = new Map<string, PublicParseWord>();
+        const answeredAt = Date.now();
         terms.forEach((term, index) => {
-            const candidate = bestParsedWordForTerm(term, parsedByTerm[index] ?? []);
+            const parsed = parsedByTerm[index];
+            const candidate = parsed && bestParsedWordForTerm(term, parsed);
             if (candidate) candidatesByTerm.set(term, candidate);
+            // Jiten read it and found no word in it (ンテン): an answer too.
+            else if (parsed) this.remember(this.cardCache, term, Promise.resolve(null), answeredAt);
         });
 
         await mapLimited([...candidatesByTerm].slice(0, normalizedDetailLimit(options.detailLimit)), DETAIL_CONCURRENCY, async ([term, candidate]) => {
@@ -286,29 +294,33 @@ export class JitenPublicVocabularyClient {
 
     private async requestParseText(text: string): Promise<PublicParseWord[]> {
         const records = await this.requestParseRecords(text);
-        return records.filter(word => word.wordId > 0);
+        return records?.filter(word => word.wordId > 0) ?? [];
     }
 
-    private async parseTermGroups(terms: readonly string[]): Promise<PublicParseWord[][]> {
+    /** One group per term; undefined where backoff kept the question from being asked. */
+    private async parseTermGroups(terms: readonly string[]): Promise<Array<PublicParseWord[] | undefined>> {
         const chunks = chunkTermsForParse(terms);
         const groups = await mapLimited(chunks, DETAIL_CONCURRENCY, async chunk => {
             const records = await this.requestParseRecords(chunk.join(PARSE_TERM_SEPARATOR));
-            return publicParseTermGroups(chunk, records);
+            return records ? publicParseTermGroups(chunk, records) : chunk.map(() => undefined);
         });
         return groups.flat();
     }
 
-    private async requestParseRecords(text: string): Promise<PublicParseWord[]> {
+    /** Null when backoff skipped any part: unasked, which is not the same as empty. */
+    private async requestParseRecords(text: string): Promise<PublicParseWord[] | null> {
         const records: PublicParseWord[] = [];
         for (const part of publicParseTextSlices(text)) {
-            records.push(...await this.requestParseRecordChunk(part.text));
+            const answered = await this.requestParseRecordChunk(part.text);
+            if (!answered) return null;
+            records.push(...answered);
         }
         return records;
     }
 
-    private requestParseRecordChunk(text: string): Promise<PublicParseWord[]> {
+    private requestParseRecordChunk(text: string): Promise<PublicParseWord[] | null> {
         return sharedParseGate.run(async () => {
-            if (this.isBackoffActive()) return [];
+            if (this.isBackoffActive()) return null;
             const payload = await this.requestJson(`vocabulary/parse?text=${encodeURIComponent(text)}`).catch(error => {
                 this.noteFailure(error);
                 throw error;
@@ -379,15 +391,14 @@ export class JitenPublicVocabularyClient {
         if (entry) entry.expiresAt = Math.min(entry.expiresAt, Date.now() + ttlMs);
     }
 
+    // Oldest first: entries go in as they are answered, so pruning stops at the
+    // first live one instead of walking a page-sized map on every insert.
     private remember(cache: Map<string, PublicCardCacheEntry>, key: string, promise: Promise<JPDBCard | null>, now: number): void {
+        cache.delete(key);
         cache.set(key, { expiresAt: now + CACHE_TTL_MS, promise });
         for (const [entryKey, entry] of cache) {
-            if (entry.expiresAt <= now) cache.delete(entryKey);
-        }
-        while (cache.size > CACHE_LIMIT) {
-            const oldest = cache.keys().next().value;
-            if (typeof oldest !== 'string') break;
-            cache.delete(oldest);
+            if (cache.size <= CACHE_LIMIT && entry.expiresAt > now) break;
+            cache.delete(entryKey);
         }
     }
 
