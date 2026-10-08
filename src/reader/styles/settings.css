@@ -2239,9 +2239,18 @@
   .jpdb-reader-settings-actions,
   .jpdb-reader-anki-layout,
   .jpdb-reader-anki-choice-grid,
-  .jpdb-reader-template-preview-grid,
-  .jpdb-reader-recommended-item {
+  .jpdb-reader-template-preview-grid {
     grid-template-columns: 1fr;
+  }
+
+  /* A recommended dictionary is one row: its name, then a compact Install
+     beside it, not a full-width button under every name. */
+  .jpdb-reader-recommended-item {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+  .jpdb-reader-recommended-item .jpdb-reader-btn {
+    width: auto;
+    min-height: 44px;
   }
 
   .jpdb-reader-anki-adapter {
