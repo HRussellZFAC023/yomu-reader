@@ -327,7 +327,7 @@ function createSensitiveSettingsLauncher(language: InterfaceLanguage): HTMLEleme
     const head = document.createElement('div');
     head.className = 'jpdb-reader-settings-head';
     const title = document.createElement('h2');
-    title.textContent = uiText(language, 'accountSettingsTrustedSurfaceTitle');
+    title.textContent = uiText(language, 'settingsTitle');
     const close = document.createElement('button');
     close.type = 'button';
     close.className = 'jpdb-reader-settings-close';
@@ -339,14 +339,15 @@ function createSensitiveSettingsLauncher(language: InterfaceLanguage): HTMLEleme
 
     const content = document.createElement('div');
     content.className = 'jpdb-reader-settings-scroll';
+    // One line on why, then the one action, styled like Settings' Save.
     const help = document.createElement('p');
     help.className = 'jpdb-reader-help';
-    help.textContent = uiText(language, 'accountSettingsTrustedSurfaceHelp');
+    help.textContent = uiText(language, 'settingsLauncherHelp');
     const launcher = document.createElement('button');
-    launcher.className = 'jpdb-reader-btn';
+    launcher.className = 'jpdb-reader-btn add';
     launcher.dataset.trustedSettingsLauncher = 'true';
     launcher.type = 'button';
-    launcher.textContent = uiText(language, 'openAccountSettingsTrustedSurface');
+    launcher.textContent = uiText(language, 'openInStudy');
     content.append(help, launcher);
 
     root.append(head, content);

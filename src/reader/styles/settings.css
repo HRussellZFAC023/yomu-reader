@@ -2658,3 +2658,10 @@
 .jpdb-reader-settings-launcher .jpdb-reader-settings-scroll {
   padding-bottom: calc(var(--jpdb-reader-settings-gutter) + env(safe-area-inset-bottom, 0px));
 }
+/* It holds one line and one action, so a wider screen gets a compact dialog
+   rather than the full Settings width; phones keep the bottom sheet. */
+@media (min-width: 700px) {
+  .jpdb-reader-settings.jpdb-reader-settings-launcher {
+    width: min(440px, calc(100vw - 48px));
+  }
+}

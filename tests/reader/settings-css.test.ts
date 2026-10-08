@@ -75,6 +75,8 @@ describe('settings CSS', () => {
         expect(title).toContain('font-family: var(--jpdb-reader-font);');
         expect(lastNormalizedRuleBlock(settingsCss, '.jpdb-reader-settings-launcher .jpdb-reader-settings-scroll'))
             .toContain('padding-bottom: calc(var(--jpdb-reader-settings-gutter) + env(safe-area-inset-bottom, 0px));');
+        // One line and one action: a compact dialog on wider screens, not the full Settings width.
+        expect(normalizeCss(settingsCss)).toContain('@media (min-width: 700px) { .jpdb-reader-settings.jpdb-reader-settings-launcher { width: min(440px, calc(100vw - 48px)); } }');
     });
 
     it('keeps each puck disc ringed in its own state colour under the pointer', () => {

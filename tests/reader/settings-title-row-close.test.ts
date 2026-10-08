@@ -52,4 +52,26 @@ describe('the Settings title row', () => {
         close.click();
         expect(dismiss).toHaveBeenCalledTimes(1);
     });
+
+    it.each([
+        ['en', 'よむ Settings', 'Open in Study'],
+        ['ja', 'よむ 設定', 'Studyで開く'],
+    ] as const)('says each thing once in the %s launcher: the Settings title, one line, one action', (language, title, action) => {
+        const launcher = mountSettingsSurfaceLauncher({
+            createBackdrop: () => document.body.appendChild(document.createElement('div')),
+            mountDialog: (backdrop, surface) => backdrop.append(surface),
+            sensitiveSettingsSurface: () => ({ trusted: false, launcherUrl: 'https://yomureader.com/study/#settings=api' }),
+            dismiss: vi.fn(),
+            toast: () => undefined,
+        }, new LookupModalAccessibility(), language);
+        // The same title as every other Settings surface, and as the dialog's own name.
+        expect(launcher.querySelector('h2')?.textContent).toBe(title);
+        expect(launcher.getAttribute('aria-label')).toBe(title);
+        const help = [...launcher.querySelectorAll('.jpdb-reader-help')];
+        expect(help).toHaveLength(1);
+        expect(help[0]!.textContent!.length).toBeLessThanOrEqual(60);
+        const buttons = [...launcher.querySelectorAll<HTMLButtonElement>('.jpdb-reader-settings-scroll button')];
+        expect(buttons.map(button => button.textContent)).toEqual([action]);
+        expect(buttons[0]!.classList.contains('add')).toBe(true);
+    });
 });

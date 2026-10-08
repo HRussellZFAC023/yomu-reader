@@ -41,6 +41,8 @@ const COPY = {
         save: 'Save',
         cancel: 'Cancel',
         closeSettings: 'Close settings',
+        settingsLauncherHelp: 'Settings open in Study, where this site can\'t read them.',
+        openInStudy: 'Open in Study',
         show: 'Show',
         hide: 'Hide',
         appearance: 'Appearance',
@@ -1597,6 +1599,8 @@ settingsSearchNoResults	一致なし。
 save	保存
 cancel	キャンセル
 closeSettings	設定を閉じる
+settingsLauncherHelp	設定は、このサイトから読み取れないStudyで開きます。
+openInStudy	Studyで開く
 show	表示
 hide	隠す
 appearance	外観
