@@ -715,7 +715,17 @@ async function pressCaptureShortcutForFreshOverlayDocument(overlay) {
 // menu is outside CDP input, so the learner reaches the dropdown with Tab, types a deck's
 // name and presses Enter, as a keyboard user does. Enrichment has a short fallback, so the
 // learner must reach the dropdown within it: the race assertion below fails loudly if not.
+// The waiting render lands once the learner leaves the dropdown, so it is left both ways:
+// Tab first, which saves nothing, then Shift+Tab, which goes on to save the word.
 async function assertDeckDropdownSurvivesEnrichment(overlay) {
+    const tab = await inDeckDropdownWhileEnrichmentLands(overlay, assertTabOutOfDeckDropdownKeepsFocus);
+    const shiftTab = await inDeckDropdownWhileEnrichmentLands(overlay, assertShiftTabOutOfDeckDropdownThenSave);
+    console.log(`[desktop-popup] deck dropdown kept through enrichment and saved the word: ${JSON.stringify({ tab, shiftTab })}`);
+}
+
+// Opens the word's popup, goes into the dropdown while its enrichment is held, lets the
+// enrichment land, then hands over to `leave`.
+async function inDeckDropdownWhileEnrichmentLands(overlay, leave) {
     await overlay.mouse.move(0, 0);
     await overlay.locator('.jpdb-reader-popover').waitFor({ state: 'detached', timeout: 10_000 }).catch(() => undefined);
     await overlay.evaluate(() => {
@@ -732,6 +742,7 @@ async function assertDeckDropdownSurvivesEnrichment(overlay) {
         });
     });
     const release = () => overlay.evaluate(() => window.__yomuSmokeReleaseFetch?.());
+    let result;
     try {
         const word = await ocrWordForVisualText(overlay, '冒険');
         const popup = overlay.locator('.jpdb-reader-popover').first();
@@ -745,7 +756,6 @@ async function assertDeckDropdownSurvivesEnrichment(overlay) {
             await popup.waitFor({ state: 'visible', timeout: 4000 }).catch(() => undefined);
         }
         await popup.getByRole('button', { name: 'More actions', exact: true }).click();
-        // Open, the same toggle is named for closing the overflow.
         const more = popup.locator('[data-action="mining-collapse"]');
         const dropdown = popup.locator('.jpdb-reader-deck-select');
         await dropdown.waitFor({ state: 'visible', timeout: 5000 });
@@ -774,50 +784,92 @@ async function assertDeckDropdownSurvivesEnrichment(overlay) {
         assertSmoke(during.sameDropdown && during.focused && during.overflowOpen,
             `Desktop popup rebuilt under the open deck dropdown when enrichment landed: ${JSON.stringify(during)}`);
 
-        // Typing a deck's name browses to it and saves nothing; Enter saves the word there, once.
-        const savedToLocalDeck = () => overlay.evaluate(() => Object.keys(localStorage)
-            .filter(key => /srs|deck/i.test(key) && (localStorage.getItem(key) || '').includes('冒険')));
-        const toast = overlay.locator('.jpdb-reader-toast').filter({ hasText: /^Added to (deck|Academy)\.$/ });
+        // Typing a deck's name browses to it and saves nothing.
         await overlay.keyboard.type('Academy');
         await overlay.waitForTimeout(600);
-        assertSmoke(await toast.count() === 0 && (await savedToLocalDeck()).length === 0,
+        assertSmoke(await savedToDeckToast(overlay).count() === 0 && (await wordsSavedToLocalDeck(overlay)).length === 0,
             'Typing in the closed deck dropdown saved the word before the learner pressed Enter.');
-        // Shift+Tab to ⋯ lets the waiting render in once focus has landed there: the
-        // learner is on the rebuilt ⋯, not dropped onto the page. Tab returns to the dropdown.
-        await overlay.keyboard.press('Shift+Tab');
-        await popup.locator('[data-card-details-loading]').waitFor({ state: 'detached', timeout: 5000 });
-        const left = await popup.evaluate(root => ({
-            onToggle: document.activeElement?.matches('[data-action="mining-collapse"]') === true && root.contains(document.activeElement),
-            rebuilt: root.querySelector('.jpdb-reader-deck-select')?.dataset.smokeOpenedDropdown !== 'true',
-            overflowOpen: !root.querySelector('.jpdb-reader-actions-mining-collapsed'),
-        }));
-        assertSmoke(left.onToggle && left.rebuilt && left.overflowOpen,
-            `Leaving the deck dropdown as enrichment landed dropped the learner's focus: ${JSON.stringify(left)}`);
-        await overlay.keyboard.press('Tab');
-        assertSmoke(await popup.evaluate(root => document.activeElement?.matches('.jpdb-reader-deck-select') === true && root.contains(document.activeElement)),
-            'Tab from "More actions" did not return to the rebuilt deck dropdown.');
-        await overlay.keyboard.type('Academy');
-        await overlay.keyboard.press('Enter');
-        await toast.first().waitFor({ state: 'attached', timeout: 15_000 });
-        const saved = await savedToLocalDeck();
-        assertSmoke(saved.length > 0, 'Choosing a deck in the dropdown did not save the word to the local deck.');
-        // The refresh after the save shows the enriched card, with the dropdown back under focus.
-        await popup.locator('[data-card-details-loading]').waitFor({ state: 'detached', timeout: 15_000 });
-        // The refreshed popup opens with ⋯ closed, so the learner's place is its toggle.
-        const after = await popup.evaluate(root => ({
-            focused: root.getRootNode().activeElement?.matches('.jpdb-reader-deck-select, [data-action="mining-collapse"]') === true
-                && root.contains(root.getRootNode().activeElement),
-            toasts: [...document.querySelectorAll('.jpdb-reader-toast')].map(node => node.textContent),
-        }));
-        assertSmoke(after.focused, `A keyboard save left the learner off the deck dropdown: ${JSON.stringify(after)}`);
-        await overlay.screenshot({ path: path.join(appRoot, 'qa-artifacts/desktop-deck-dropdown-after-save.png') });
-        console.log(`[desktop-popup] deck dropdown kept through enrichment and saved the word: ${JSON.stringify({ during, left, after, saved })}`);
+        result = { during, ...await leave(overlay, popup) };
     } finally {
         await release().catch(() => undefined);
     }
     await overlay.evaluate(() => window.yomuGaming.hideOverlay());
     await pressCaptureShortcutForFreshOverlayDocument(overlay);
     await ocrWordForVisualText(overlay, '冒険');
+    return result;
+}
+
+// (Function declarations: the smoke runs at module top level, before a module const here exists.)
+function wordsSavedToLocalDeck(overlay) {
+    return overlay.evaluate(() => Object.keys(localStorage)
+        .filter(key => /srs|deck/i.test(key) && (localStorage.getItem(key) || '').includes('冒険')));
+}
+
+function savedToDeckToast(overlay) {
+    return overlay.locator('.jpdb-reader-toast').filter({ hasText: /^Added to (deck|Academy)\.$/ });
+}
+
+// Tab from the dropdown, the popup's last control, moves on past it (a dialog wraps it to
+// its first control). The waiting render lands once focus is there: focus stays on the
+// control Tab reached, rebuilt if the popup's own, and is never dropped onto the page.
+async function assertTabOutOfDeckDropdownKeepsFocus(overlay, popup) {
+    await overlay.evaluate(() => document.addEventListener('focusin', event => {
+        event.target.dataset.smokeTabReached = 'true';
+        window.__yomuSmokeTabReached = {
+            control: `${event.target.localName}[${event.target.dataset.action ?? ''}]`,
+            inPopup: Boolean(event.target.closest('.jpdb-reader-popover')),
+        };
+    }, { once: true }));
+    await overlay.keyboard.press('Tab');
+    await popup.locator('[data-card-details-loading]').waitFor({ state: 'detached', timeout: 5000 });
+    const left = await popup.evaluate(root => {
+        const active = document.activeElement;
+        return {
+            reached: window.__yomuSmokeTabReached ?? null,
+            focused: { control: `${active?.localName}[${active?.dataset?.action ?? ''}]`, inPopup: root.contains(active) },
+            rebuilt: active?.dataset?.smokeTabReached !== 'true',
+            dialog: root.getAttribute('aria-modal') === 'true',
+            dropdownRebuilt: root.querySelector('.jpdb-reader-deck-select')?.dataset.smokeOpenedDropdown !== 'true',
+            overflowOpen: !root.querySelector('.jpdb-reader-actions-mining-collapsed'),
+        };
+    });
+    assertSmoke(JSON.stringify(left.focused) === JSON.stringify(left.reached) && left.dropdownRebuilt && left.overflowOpen,
+        `Tabbing out of the deck dropdown as enrichment landed dropped the learner's focus: ${JSON.stringify(left)}`);
+    await overlay.screenshot({ path: path.join(appRoot, 'qa-artifacts/desktop-deck-dropdown-tab-forward.png') });
+    return { tabbedTo: left };
+}
+
+// Shift+Tab to ⋯ lands the waiting render with the learner on the rebuilt ⋯, not dropped
+// onto the page. Tab returns to the dropdown, where Enter saves the deck typed.
+async function assertShiftTabOutOfDeckDropdownThenSave(overlay, popup) {
+    await overlay.keyboard.press('Shift+Tab');
+    await popup.locator('[data-card-details-loading]').waitFor({ state: 'detached', timeout: 5000 });
+    const left = await popup.evaluate(root => ({
+        onToggle: document.activeElement?.matches('[data-action="mining-collapse"]') === true && root.contains(document.activeElement),
+        rebuilt: root.querySelector('.jpdb-reader-deck-select')?.dataset.smokeOpenedDropdown !== 'true',
+        overflowOpen: !root.querySelector('.jpdb-reader-actions-mining-collapsed'),
+    }));
+    assertSmoke(left.onToggle && left.rebuilt && left.overflowOpen,
+        `Leaving the deck dropdown as enrichment landed dropped the learner's focus: ${JSON.stringify(left)}`);
+    await overlay.keyboard.press('Tab');
+    assertSmoke(await popup.evaluate(root => document.activeElement?.matches('.jpdb-reader-deck-select') === true && root.contains(document.activeElement)),
+        'Tab from "More actions" did not return to the rebuilt deck dropdown.');
+    await overlay.keyboard.type('Academy');
+    await overlay.keyboard.press('Enter');
+    await savedToDeckToast(overlay).first().waitFor({ state: 'attached', timeout: 15_000 });
+    const saved = await wordsSavedToLocalDeck(overlay);
+    assertSmoke(saved.length > 0, 'Choosing a deck in the dropdown did not save the word to the local deck.');
+    // The refresh after the save shows the enriched card, with the dropdown back under focus.
+    await popup.locator('[data-card-details-loading]').waitFor({ state: 'detached', timeout: 15_000 });
+    // The refreshed popup opens with ⋯ closed, so the learner's place is its toggle.
+    const after = await popup.evaluate(root => ({
+        focused: root.getRootNode().activeElement?.matches('.jpdb-reader-deck-select, [data-action="mining-collapse"]') === true
+            && root.contains(root.getRootNode().activeElement),
+        toasts: [...document.querySelectorAll('.jpdb-reader-toast')].map(node => node.textContent),
+    }));
+    assertSmoke(after.focused, `A keyboard save left the learner off the deck dropdown: ${JSON.stringify(after)}`);
+    await overlay.screenshot({ path: path.join(appRoot, 'qa-artifacts/desktop-deck-dropdown-after-save.png') });
+    return { left, after, saved };
 }
 
 async function assertDesktopBackupRoundTrip(page) {

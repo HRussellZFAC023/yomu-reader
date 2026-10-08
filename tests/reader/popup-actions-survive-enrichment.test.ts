@@ -4,6 +4,7 @@ import {
     ReaderApp,
     deferred,
     registerReaderHelpersCleanup,
+    installSheetHandle,
     testAozoraCard,
 } from './jpdb/fixtures';
 import type { AnkiLookupResult, CardRenderData, JPDBCard, YomitanTermEntry } from './jpdb/fixtures';
@@ -92,6 +93,21 @@ async function nextTask(): Promise<void> {
     await new Promise(resolve => setTimeout(resolve));
 }
 
+// A popup as the reader mounts one: focusable itself, so focus can always stay inside it.
+function mountPopup(): { app: InstanceType<typeof ReaderApp>; internals: Internals; popover: HTMLElement } {
+    const app = new ReaderApp();
+    const internals = app as unknown as Internals;
+    const popover = document.createElement('div');
+    popover.className = 'jpdb-reader-popover';
+    popover.dataset.jpdbReaderRoot = 'true';
+    popover.tabIndex = -1;
+    document.body.append(popover);
+    internals.activePopover = popover;
+    internals.settings = SETTINGS;
+    internals.parsePopoverJapanese = vi.fn(async () => undefined);
+    return { app, internals, popover };
+}
+
 function completedData(): CardRenderData {
     return {
         localEntries: [],
@@ -104,18 +120,39 @@ function completedData(): CardRenderData {
     } as unknown as CardRenderData;
 }
 
+// Where the learner leaves the dropdown for: Shift+Tab reaches ⋯; Tab, the popup's last
+// control behind it, wraps (a modal's focus trap) to its first, such as ← back or the
+// heading's kanji.
+const LEAVE_DROPDOWN_FOR = [
+    ['⋯ (Shift+Tab)', (popover: HTMLElement) => popover.querySelector<HTMLElement>('[data-action="mining-collapse"]')!],
+    ['first control (Tab)', (popover: HTMLElement) => [...popover.querySelectorAll<HTMLElement>('button, a[href]')].find(node => !node.closest('.jpdb-reader-actions'))!],
+] as const;
+
+// The popup still loading, ⋯ open and the learner in "Add to deck…": the completed
+// render waits for them to leave it.
+async function enterDropdownWithCompletedRenderWaiting(internals: Internals, popover: HTMLElement, trigger: 'modal' | 'hover'): Promise<void> {
+    const card = testAozoraCard();
+    const localEntries = deferred<YomitanTermEntry[]>();
+    holdFrames();
+    internals.renderDeferredCardLocalEntries(
+        popover, card, SENTENCE, trigger,
+        { localEntries: localEntries.promise, all: deferred<CardRenderData>().promise },
+        NOT_IN_DECK, { instantLocalEntries: null, requestId: 1 }, { fullRenderCompleted: false }, () => true,
+    );
+    localEntries.resolve([]);
+    await settle();
+    flushFrames();
+    internals.toggleMiningControls(popover.querySelector<HTMLButtonElement>('[data-action="mining-collapse"]')!);
+    pickerRoot!.querySelector('select')!.focus();
+    internals.renderCompletedCardPopover(popover, card, SENTENCE, trigger, completedData());
+    flushFrames();
+    expect(popover.querySelector('[data-card-details-loading]')).not.toBeNull();
+}
+
 describe.each(['modal', 'hover'] as const)('%s popup actions while enrichment re-renders the card', trigger => {
     it('does not rebuild under the open "Add to deck…" dropdown, saves the chosen deck, then catches up', async () => {
-        const app = new ReaderApp();
-        const internals = app as unknown as Internals;
+        const { app, internals, popover } = mountPopup();
         const card = testAozoraCard();
-        const popover = document.createElement('div');
-        popover.className = 'jpdb-reader-popover';
-        popover.dataset.jpdbReaderRoot = 'true';
-        document.body.append(popover);
-        internals.activePopover = popover;
-        internals.settings = SETTINGS;
-        internals.parsePopoverJapanese = vi.fn(async () => undefined);
         const handleCardAction = vi.fn(async () => undefined);
         internals.handleCardAction = handleCardAction;
         const localEntries = deferred<YomitanTermEntry[]>();
@@ -178,47 +215,67 @@ describe.each(['modal', 'hover'] as const)('%s popup actions while enrichment re
         }
     });
 
-    // Shift+Tab from the dropdown moves focus to ⋯ only after focusout. The waiting render
-    // ran inside focusout and rebuilt ⋯ before focus reached it, so focus fell to the page.
-    it('lands focus on the rebuilt ⋯ when the learner leaves the dropdown for it while a render waits', async () => {
-        const app = new ReaderApp();
-        const internals = app as unknown as Internals;
-        const card = testAozoraCard();
-        const popover = document.createElement('div');
-        popover.className = 'jpdb-reader-popover';
-        popover.dataset.jpdbReaderRoot = 'true';
-        document.body.append(popover);
-        internals.activePopover = popover;
-        internals.settings = SETTINGS;
-        internals.parsePopoverJapanese = vi.fn(async () => undefined);
-        const localEntries = deferred<YomitanTermEntry[]>();
-        holdFrames();
-        const overflow = () => popover.querySelector<HTMLButtonElement>('[data-action="mining-collapse"]');
+    // Focus reaches the control the learner moves to only after the dropdown's focusout, and
+    // the waiting render runs a task later. Run inside focusout, it rebuilt ⋯ before focus
+    // got there; giving focus back only to the action row, it lost Tab's to the page.
+    it.each(LEAVE_DROPDOWN_FOR)('lands focus on the rebuilt %s when the learner leaves the dropdown for it while a render waits', async (_, control) => {
+        const { app, internals, popover } = mountPopup();
 
         try {
-            internals.renderDeferredCardLocalEntries(
-                popover, card, SENTENCE, trigger,
-                { localEntries: localEntries.promise, all: deferred<CardRenderData>().promise },
-                NOT_IN_DECK, { instantLocalEntries: null, requestId: 1 }, { fullRenderCompleted: false }, () => true,
-            );
-            localEntries.resolve([]);
-            await settle();
-            flushFrames();
-            internals.toggleMiningControls(overflow()!);
-            pickerRoot!.querySelector('select')!.focus();
-            internals.renderCompletedCardPopover(popover, card, SENTENCE, trigger, completedData());
-            flushFrames();
-            expect(popover.querySelector('[data-card-details-loading]')).not.toBeNull();
-
-            const toggle = overflow()!;
-            toggle.focus();
+            await enterDropdownWithCompletedRenderWaiting(internals, popover, trigger);
+            const reached = control(popover);
+            reached.focus();
             await nextTask();
             flushFrames();
 
             expect(popover.querySelector('[data-card-details-loading]')).toBeNull();
-            expect(overflow()).not.toBe(toggle);
-            expect(document.activeElement).toBe(overflow());
-            expect(overflow()!.getAttribute('aria-expanded')).toBe('true');
+            expect(control(popover)).not.toBe(reached);
+            expect(document.activeElement).toBe(control(popover));
+            expect(popover.querySelector('[data-action="mining-collapse"]')!.getAttribute('aria-expanded')).toBe('true');
+        } finally {
+            popover.remove();
+            app.destroy();
+        }
+    });
+
+    // On a phone the popup is a sheet, and Tab from the dropdown reaches its handle. A
+    // rebuilt handle takes focus only once the sheet's observer has made it a control.
+    it('lands focus on the rebuilt sheet handle when the learner leaves the dropdown for it while a render waits', async () => {
+        const { app, internals, popover } = mountPopup();
+        installSheetHandle(popover, () => undefined);
+        const handle = () => popover.querySelector<HTMLElement>('.jpdb-reader-sheet-handle')!;
+
+        try {
+            await enterDropdownWithCompletedRenderWaiting(internals, popover, trigger);
+            const reached = handle();
+            reached.focus();
+            expect(document.activeElement).toBe(reached);
+            await nextTask();
+            flushFrames();
+
+            expect(popover.querySelector('[data-card-details-loading]')).toBeNull();
+            expect(handle()).not.toBe(reached);
+            expect(document.activeElement).toBe(handle());
+        } finally {
+            popover.remove();
+            app.destroy();
+        }
+    });
+
+    it('keeps focus in the popup when the control the learner moved to is not rebuilt', async () => {
+        const { app, internals, popover } = mountPopup();
+
+        try {
+            await enterDropdownWithCompletedRenderWaiting(internals, popover, trigger);
+            const passing = document.createElement('button');
+            popover.append(passing);
+            passing.focus();
+            await nextTask();
+            flushFrames();
+
+            expect(popover.querySelector('[data-card-details-loading]')).toBeNull();
+            expect(passing.isConnected).toBe(false);
+            expect(document.activeElement).toBe(popover);
         } finally {
             popover.remove();
             app.destroy();
@@ -226,16 +283,8 @@ describe.each(['modal', 'hover'] as const)('%s popup actions while enrichment re
     });
 
     it('keeps an open overflow across a re-render while the learner is not in the dropdown', async () => {
-        const app = new ReaderApp();
-        const internals = app as unknown as Internals;
+        const { app, internals, popover } = mountPopup();
         const card = testAozoraCard();
-        const popover = document.createElement('div');
-        popover.className = 'jpdb-reader-popover';
-        popover.dataset.jpdbReaderRoot = 'true';
-        document.body.append(popover);
-        internals.activePopover = popover;
-        internals.settings = SETTINGS;
-        internals.parsePopoverJapanese = vi.fn(async () => undefined);
 
         try {
             internals.renderCompletedCardPopover(popover, card, SENTENCE, trigger, completedData());
@@ -255,16 +304,8 @@ describe.each(['modal', 'hover'] as const)('%s popup actions while enrichment re
     });
 
     it('keeps keyboard focus on the overflow toggle across a re-render', async () => {
-        const app = new ReaderApp();
-        const internals = app as unknown as Internals;
+        const { app, internals, popover } = mountPopup();
         const card = testAozoraCard();
-        const popover = document.createElement('div');
-        popover.className = 'jpdb-reader-popover';
-        popover.dataset.jpdbReaderRoot = 'true';
-        document.body.append(popover);
-        internals.activePopover = popover;
-        internals.settings = SETTINGS;
-        internals.parsePopoverJapanese = vi.fn(async () => undefined);
 
         try {
             internals.renderCompletedCardPopover(popover, card, SENTENCE, trigger, completedData());
@@ -332,7 +373,7 @@ describe('a hover popup pinned by a press while it is still loading', () => {
 // re-rendered on every provider with no regard for the learner: the open dropdown was
 // destroyed under them, focus fell to the page and the ⋯ overflow closed.
 describe("Study's lookup popup while enrichment re-renders the card", () => {
-    it('keeps the learner in the dropdown through the completed and hydrated renders, then lands the newest on ⋯', async () => {
+    it.each(LEAVE_DROPDOWN_FOR)('keeps the learner in the dropdown through the completed and hydrated renders, then lands the newest with focus on its rebuilt %s', async (_, control) => {
         vi.stubGlobal('location', new URL('https://yomureader.com/study/'));
         const runtime = new NewTabRuntime();
         const pendingMiss: AnkiLookupResult = { ...NOT_IN_DECK, trusted: false };
@@ -381,15 +422,15 @@ describe("Study's lookup popup while enrichment re-renders the card", () => {
             expect(overflow()!.getAttribute('aria-expanded')).toBe('true');
             expect(loading()).not.toBeNull();
 
-            // Shift+Tab to ⋯: only the newest render lands, and focus stays on the rebuilt ⋯.
-            const toggle = overflow()!;
-            toggle.focus();
+            // Leaving: only the newest render lands, and focus stays on the rebuilt control.
+            const reached = control(popover());
+            reached.focus();
             await nextTask();
             expect(renders).toHaveBeenCalledTimes(1);
             expect(renders.mock.calls[0]![3]).toMatchObject({ loading: false, ankiLookup: hydratedMiss });
             expect(loading()).toBeNull();
-            expect(overflow()).not.toBe(toggle);
-            expect(document.activeElement).toBe(overflow());
+            expect(control(popover())).not.toBe(reached);
+            expect(document.activeElement).toBe(control(popover()));
             expect(overflow()!.getAttribute('aria-expanded')).toBe('true');
         } finally {
             runtime.destroy();

@@ -118,8 +118,9 @@ const waitingRenders = new WeakMap<ParentNode, { host: Element; render: () => vo
  * A popup re-renders its whole HTML when a provider lands, which rebuilt the action rows
  * under the learner. `render` does that here without losing their place: while they are
  * in a deck dropdown in `root` it waits until they leave it (a rebuild would close its
- * list mid-choice), and only the newest waiting render runs. A render that runs puts
- * back, on the rebuilt rows, the ⋯ overflows that were open and focus on a row control.
+ * list mid-choice), and only the newest waiting render runs, so a caller queues only a
+ * render that will still draw. A render that runs puts back the ⋯ overflows that were
+ * open, and focus on the rebuilt control that had it, wherever it is in `root`.
  */
 export function rerenderAroundMiningControls(root: ParentNode, label: MiningControlLabel, render: () => void): void {
     const choosing = deckSelectInUse(root);
@@ -152,13 +153,13 @@ function waitForDeckChoice(root: ParentNode, host: HTMLElement, render: () => vo
     }), { once: true });
 }
 
-// Controls pair up with their rebuilt counterparts by order in `root`.
+// Open overflows pair up with their rebuilt counterparts by order in `root`.
 function preserveMiningControls(root: ParentNode, label: MiningControlLabel): () => void {
     const expanded = [...root.querySelectorAll<HTMLButtonElement>(MINING_DRAWER_SELECTOR)].map(drawer => {
         const actions = drawer.closest(`.${MINING_ACTIONS_CLASS}`);
         return Boolean(actions && !actions.classList.contains(MINING_COLLAPSED_CLASS));
     });
-    const restoreFocus = focusedActionButton(root);
+    const restoreFocus = preserveFocus(root);
     return () => {
         const drawers = [...root.querySelectorAll<HTMLButtonElement>(MINING_DRAWER_SELECTOR)];
         expanded.forEach((open, index) => {
@@ -169,17 +170,31 @@ function preserveMiningControls(root: ParentNode, label: MiningControlLabel): ()
     };
 }
 
-function focusedActionButton(root: ParentNode): (() => void) | null {
-    const active = (root as Node).ownerDocument?.activeElement;
-    if (!(active instanceof HTMLElement) || active.localName !== 'button' || !root.contains(active)) return null;
-    const action = active.closest(`.${MINING_ACTIONS_CLASS}`) && active.dataset.action;
-    if (!action) return null;
-    const selector = `.${MINING_ACTIONS_CLASS} button[data-action="${action}"]`;
-    const index = [...root.querySelectorAll(selector)].indexOf(active);
+// Whichever control in `root` has focus (Tab from the dropdown may reach the heading or a
+// sheet's handle) pairs up with its rebuilt counterpart: the same kind of control, by its
+// class, action and link, at the same place. Until that takes focus the popup itself holds
+// it, never the page: a rebuilt sheet handle is a control only once the sheet's observer
+// has run.
+function preserveFocus(root: ParentNode): (() => void) | null {
+    const scope = (root as Node).getRootNode() as Document | ShadowRoot;
+    const active = scope.activeElement;
+    if (!(active instanceof HTMLElement) || active === root || !root.contains(active)) return null;
+    const sameKind = (node: Element): boolean => node.classList[0] === active.classList[0]
+        && node.getAttribute('data-action') === active.getAttribute('data-action')
+        && node.getAttribute('href') === active.getAttribute('href');
+    const controls = (): HTMLElement[] => [...root.querySelectorAll<HTMLElement>(active.localName)].filter(sameKind);
+    const index = controls().indexOf(active);
+    const focus = (target: HTMLElement): boolean => {
+        target.focus({ preventScroll: true });
+        return scope.activeElement === target;
+    };
     return () => {
-        const current = (root as Node).ownerDocument?.activeElement;
+        const current = scope.activeElement;
         // A learner who moved on during the render keeps their new place.
-        if (current && current !== current.ownerDocument.body && current.isConnected) return;
-        root.querySelectorAll<HTMLElement>(selector)[index]?.focus({ preventScroll: true });
+        if (current && current !== active.ownerDocument.body && current.isConnected) return;
+        const counterpart = controls()[index];
+        if (counterpart && focus(counterpart)) return;
+        focus(root as HTMLElement);
+        if (counterpart) queueMicrotask(() => { if (scope.activeElement === root) focus(counterpart); });
     };
 }
