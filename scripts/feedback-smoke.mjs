@@ -317,8 +317,7 @@ async function verifySettingsDiscoverability(page, baseUrl) {
     const initialViewport = page.viewportSize();
     await page.setViewportSize({ width: 390, height: 844 });
     await page.locator('.jpdb-reader-fab').click();
-    await page.locator('[data-radial-id="audio"]').click();
-    await page.locator('.jpdb-reader-toast.is-visible').waitFor();
+    await assertAudioDiscNamesItsOwnState(page);
     const toastOverlapsAction = await page.evaluate(() => {
         const toast = document.querySelector('.jpdb-reader-toast').getBoundingClientRect();
         return [...document.querySelectorAll('[data-radial-id]')].some(button => {
@@ -344,6 +343,24 @@ async function verifySettingsDiscoverability(page, baseUrl) {
     assert(state.trustedLauncherVisible, 'Settings did not expose the trusted Study launcher', state);
     assert(state.pageWritableControls === 0, 'Off-host settings exposed page-writable controls', state);
     await launcher.screenshot({ path: path.join(ARTIFACTS, 'feedback-settings-launcher.png') });
+}
+
+// The audio disc's label names its new state, so pressing it raises no toast
+// that says it again. OCR still confirms its mode in a toast, which the caller
+// checks clears the arc on a phone; an audio toast would still be beside it.
+async function assertAudioDiscNamesItsOwnState(page) {
+    const audio = page.locator('[data-radial-id="audio"]');
+    const before = await audio.getAttribute('aria-label');
+    await audio.click();
+    await page.waitForFunction(label => {
+        const now = document.querySelector('[data-radial-id="audio"]')?.getAttribute('aria-label');
+        return now && now !== label;
+    }, before);
+    await page.locator('[data-radial-id="ocr"]').click();
+    await page.locator('.jpdb-reader-toast.is-visible').first().waitFor();
+    const toasts = await page.locator('.jpdb-reader-toast').allTextContents();
+    const after = await audio.getAttribute('aria-label');
+    assert(!toasts.includes(after), 'The audio disc toasted the state its label already shows', { toasts, after });
 }
 
 // The power disc keeps its state label up; the audio disc beside it shows its

@@ -86,7 +86,7 @@ import type { ImmersionSearchOptions } from '../immersion/popover-controller';
 import { waitForIdle as waitForBrowserIdle } from '../platform/idle';
 import { ParkableObserver, parkableMutationObserver } from '../platform/page-activity';
 import { mutationContainsOnlyReaderPaint } from '../dom/mutation';
-import { FloatingButtonController, puckPowerStateLabel } from '../ui/floating-button';
+import { autoPlayAudioLabel, FloatingButtonController, puckPowerStateLabel } from '../ui/floating-button';
 import { JitenApiClient, type JitenKanjiInfo, type JitenVocabularyInfo } from '../dictionaries/jiten';
 import { JitenPublicVocabularyClient, publicJitenBackoffRemainingMs } from '../dictionaries/jiten-public-vocabulary';
 import { jitenKanjiOriginFactLabels, renderJitenKanjiInfo, renderJitenKanjiKeywordLine } from '../jiten/jiten-kanji-info-render';
@@ -1397,7 +1397,7 @@ export class ReaderApp {
             installFloatingButton: () => this.installFab(),
             showSettings: () => this.showSettings(),
             toggleAnnotations: () => this.toggleAnnotationsPaused(),
-            toggleAudio: () => this.toggleAutoPlayAudio(),
+            toggleAudio: () => this.toggleAutoPlayAudioFromMenu(),
             toggleSiteLanguage: () => this.togglePreferredJapaneseSiteLanguage(),
             toggleYoutube: () => this.toggleYoutubeImmersion(),
             factoryReset: () => void this.factoryReset.resetAllData(),
@@ -2266,7 +2266,7 @@ export class ReaderApp {
                 isPaused: () => this.settings.annotationsPaused,
                 toggleOcrMode: () => void this.cycleOcrMode(),
                 ocrMode: () => ocrInteractionModeFromSettings(this.settings),
-                toggleAutoPlayAudio: () => void this.toggleAutoPlayAudio(),
+                toggleAutoPlayAudio: () => this.toggleAutoPlayAudio(),
                 isAutoPlayAudioEnabled: () => this.isAutoPlayAudioEnabled(),
                 toggleJapaneseSiteLanguage: () => void this.togglePreferredJapaneseSiteLanguage(),
                 isYouTube: () => isYouTubeHostname(),
@@ -2362,7 +2362,13 @@ export class ReaderApp {
         // settings normalization forces autoPlayAudio back to false.
         if (!enabled && this.settings.audioAutoPlayMode === 'off') this.settings.audioAutoPlayMode = 'all';
         await this.persistSettings(this.settings, { explicitUserChoiceKeys: ['autoPlayAudio', 'audioAutoPlayMode'] });
-        this.toast(uiText(this.settings.interfaceLanguage, enabled ? 'autoplayAudioOff' : 'autoplayAudioOn'));
+    }
+
+    // The userscript manager's menu command: it has no label of its own to
+    // show the new state, so a toast names it the way the puck does.
+    private async toggleAutoPlayAudioFromMenu(): Promise<void> {
+        await this.toggleAutoPlayAudio();
+        this.toast(autoPlayAudioLabel(this.settings.interfaceLanguage, this.isAutoPlayAudioEnabled()));
     }
 
     private puckPowerState(): 'on' | 'no-furigana' | 'paused' {

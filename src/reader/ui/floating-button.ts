@@ -32,6 +32,11 @@ export function puckPowerStateLabel(language: ReaderSettings['interfaceLanguage'
     return uiText(language, POWER_ACTION[state].label);
 }
 
+/** Names the auto-play audio state the way the puck, its menu and the toolbar do. */
+export function autoPlayAudioLabel(language: ReaderSettings['interfaceLanguage'], enabled: boolean): string {
+    return uiText(language, enabled ? 'autoplayAudioOn' : 'autoplayAudioOff');
+}
+
 /**
  * The puck power button steps through three states: everything on → furigana
  * hidden (colours, lookups, and mining stay live) → annotations paused → on.
@@ -47,7 +52,7 @@ export interface FloatingButtonActions {
     isPaused(): boolean;
     toggleOcrMode(): void;
     ocrMode(): OcrInteractionMode;
-    toggleAutoPlayAudio(): void;
+    toggleAutoPlayAudio(): Promise<void>;
     isAutoPlayAudioEnabled(): boolean;
     toggleJapaneseSiteLanguage(): void;
     isYouTube(): boolean;
@@ -120,7 +125,7 @@ function audioRadialAction(settings: ReaderSettings, actions: FloatingButtonActi
     const enabled = actions.isAutoPlayAudioEnabled();
     return {
         id: 'audio',
-        label: uiText(settings.interfaceLanguage, enabled ? 'autoplayAudioOn' : 'autoplayAudioOff'),
+        label: autoPlayAudioLabel(settings.interfaceLanguage, enabled),
         icon: enabled ? 'audio' : 'audio-muted',
         tone: enabled ? 'on' : 'off',
         keepOpen: true,
