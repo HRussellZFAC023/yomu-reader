@@ -65,7 +65,7 @@ Check that Yomu is allowed on that site — in your browser's extensions menu, o
 
 ### Can I turn よむ off on one website?
 
-Not from inside よむ yet. The よむ menu's **Yomu off** state applies to every site and every open tab, not only the page you are on. To keep よむ off on one site, change it in your userscript manager or your browser, then reload the page:
+Not from inside よむ yet. The よむ menu's **よむ off** state applies to every site and every open tab, not only the page you are on. To keep よむ off on one site, change it in your userscript manager or your browser, then reload the page:
 
 - **Tampermonkey:** open the Tampermonkey menu, choose Dashboard and click よむ. On its Settings tab, add the site to **User excludes** and press Save. A pattern like `*://example.com/*` covers every page of example.com.
 - **Violentmonkey:** on that site, open the Violentmonkey menu, press the three dots next to よむ, choose **Exclude...** and press the site's name.

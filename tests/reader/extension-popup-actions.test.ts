@@ -100,7 +100,6 @@ describe('the page side of the extension popup', () => {
         const list = await send({ channel: EXTENSION_POPUP_ACTIONS_CHANNEL, type: 'list' }) as ExtensionPopupActionList;
 
         expect(list.language).toBe('en');
-        expect(list.heading).toBe('On this page');
         expect(list.settingsLabel).toBe('Settings');
         expect(list.actions).toEqual([
             { id: 'power', label: 'Pause annotations', icon: 'fallback', tone: 'on', pressed: undefined },
@@ -125,13 +124,13 @@ describe('the page side of the extension popup', () => {
         const { send } = fakeRuntime();
         installExtensionPopupActions({ ...puck().source, language: () => 'ja' }, new AbortController().signal);
         const list = await send({ channel: EXTENSION_POPUP_ACTIONS_CHANNEL, type: 'list' }) as ExtensionPopupActionList;
-        expect([list.language, list.heading, list.studyLabel, list.settingsLabel]).toEqual(['ja', 'このページ', '学習', '設定']);
+        expect([list.language, list.studyLabel, list.settingsLabel]).toEqual(['ja', '学習', '設定']);
     });
 
     it.each([
-        ['en', 'Study', 'Settings', 'Request Japanese sites', ['Yomu on · furigana shown', 'Yomu on · furigana hidden', 'Yomu off']],
-        ['ja', '学習', '設定', '日本語版サイトをリクエスト', ['よむ オン・ふりがな表示', 'よむ オン・ふりがな非表示', 'よむ オフ']],
-    ] as const)('names the real puck\'s three reading states in %s and steps through them', async (language, study, settings, sites, powerStates) => {
+        ['en', 'Study', 'Settings', 'Request Japanese sites', 'Auto-play audio on', ['よむ on · furigana shown', 'よむ on · furigana hidden', 'よむ off']],
+        ['ja', '学習', '設定', '日本語版サイトをリクエスト', '音声の自動再生 オン', ['よむ オン・ふりがな表示', 'よむ オン・ふりがな非表示', 'よむ オフ']],
+    ] as const)('names the real puck\'s three reading states in %s and steps through them', async (language, study, settings, sites, audio, powerStates) => {
         const { send } = fakeRuntime();
         const app = new ReaderApp();
         const internals = app as unknown as {
@@ -147,6 +146,8 @@ describe('the page side of the extension popup', () => {
             let list = await send({ channel: EXTENSION_POPUP_ACTIONS_CHANNEL, type: 'list' }) as ExtensionPopupActionList;
             expect([list.language, list.studyLabel, list.settingsLabel]).toEqual([language, study, settings]);
             expect(list.actions.find(action => action.id === 'japanese-site')?.label).toBe(sites);
+            // Audio names its state like the power row, in the puck's own words.
+            expect(list.actions.find(action => action.id === 'audio')?.label).toBe(audio);
             const seen: string[] = [];
             const seenIcons: string[] = [];
             for (let step = 0; step <= powerStates.length; step++) {
@@ -286,7 +287,7 @@ describe('the toolbar popup', () => {
     });
 
     it('draws the state icon the page names with the puck\'s shapes', async () => {
-        mountPopup(() => ({ actions: [{ id: 'power', label: 'Yomu on · furigana hidden', icon: 'furigana-hidden', tone: 'partial' }] }));
+        mountPopup(() => ({ actions: [{ id: 'power', label: 'よむ on · furigana hidden', icon: 'furigana-hidden', tone: 'partial' }] }));
         await settle();
         const drawn = [...buttons()[0]!.querySelectorAll('svg > *')].map(shape => shape.getAttribute('d'));
         expect(drawn).toEqual(MENU_ICON_SHAPES['furigana-hidden'].map(([, attributes]) => (attributes as { d?: string }).d));
@@ -295,30 +296,30 @@ describe('the toolbar popup', () => {
     });
 
     it('settles on the state the page lands in after a toggle echoes back', async () => {
-        let landed = 'Yomu off';
+        let landed = 'よむ off';
         mountPopup(message => {
             // The run answers before the saved resume echoes back; a later list shows where it landed.
             if (message.type === 'run') {
-                setTimeout(() => { landed = 'Yomu on · furigana shown'; }, 50);
-                return { actions: [{ id: 'power', label: 'Yomu off', tone: 'off' }] };
+                setTimeout(() => { landed = 'よむ on · furigana shown'; }, 50);
+                return { actions: [{ id: 'power', label: 'よむ off', tone: 'off' }] };
             }
-            return { actions: [{ id: 'power', label: landed, tone: landed === 'Yomu off' ? 'off' : 'on' }] };
+            return { actions: [{ id: 'power', label: landed, tone: landed === 'よむ off' ? 'off' : 'on' }] };
         });
         await settle();
         buttons()[0]!.click();
         await settle();
         await settle();
-        expect(buttons()[0]!.textContent).toBe('Yomu off');
+        expect(buttons()[0]!.textContent).toBe('よむ off');
         await new Promise(resolve => setTimeout(resolve, 1000));
-        expect(buttons()[0]!.textContent).toBe('Yomu on · furigana shown');
+        expect(buttons()[0]!.textContent).toBe('よむ on · furigana shown');
         expect(document.activeElement).toBe(buttons()[0]);
     });
 
     it('preserves all three power actions and restores focus after an icon click', async () => {
         const states = [
-            { label: 'Yomu on · furigana shown', tone: 'on' },
-            { label: 'Yomu on · furigana hidden', tone: 'partial' },
-            { label: 'Yomu off', tone: 'off' },
+            { label: 'よむ on · furigana shown', tone: 'on' },
+            { label: 'よむ on · furigana hidden', tone: 'partial' },
+            { label: 'よむ off', tone: 'off' },
         ];
         let index = 0;
         const { sendMessage } = mountPopup(message => {

@@ -44,10 +44,10 @@ describe('floating button actions', () => {
         const mounted = openFloatingButton({ actions: { hasSubtitleVideo: () => true, isYouTube: () => true } });
         try {
             const puck = document.querySelector<HTMLButtonElement>('.jpdb-reader-fab');
-            expect(puck?.getAttribute('aria-label')).toBe('Yomu on · furigana shown');
+            expect(puck?.getAttribute('aria-label')).toBe('よむ on · furigana shown');
             expect(puck?.dataset.targetLanguage).toBeUndefined();
             expect(document.querySelector('[data-radial-id="study"]')?.getAttribute('aria-label')).toBe('Study');
-            expect(document.querySelector('[data-radial-id="power"]')?.getAttribute('aria-label')).toBe('Yomu on · furigana shown');
+            expect(document.querySelector('[data-radial-id="power"]')?.getAttribute('aria-label')).toBe('よむ on · furigana shown');
             expect(document.querySelector('[data-radial-id="subtitles"]')?.getAttribute('aria-label')).toBe('Auto-detect subtitles');
             expect(document.querySelector('[data-radial-id="subtitles"] svg')).not.toBeNull();
             expect(document.querySelector('[data-radial-id="youtube"]')?.getAttribute('aria-label')).toBe('Japanese YouTube only');
@@ -85,11 +85,11 @@ describe('the open puck menu after a settings echo', () => {
         const mounted = openFloatingButton({ actions });
         try {
             const power = () => document.querySelector('[data-radial-id="power"]')?.getAttribute('aria-label');
-            expect(power()).toBe('Yomu off');
+            expect(power()).toBe('よむ off');
             state = 'on';
             mounted.controller.install({ ...DEFAULT_SETTINGS, showFloatingButton: true }, vi.fn(), stubFloatingButtonActions(actions));
-            expect(power()).toBe('Yomu on · furigana shown');
-            expect(document.querySelector('.jpdb-reader-fab')?.getAttribute('aria-label')).toBe('Yomu on · furigana shown');
+            expect(power()).toBe('よむ on · furigana shown');
+            expect(document.querySelector('.jpdb-reader-fab')?.getAttribute('aria-label')).toBe('よむ on · furigana shown');
         } finally {
             mounted.dispose();
         }

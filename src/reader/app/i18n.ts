@@ -229,19 +229,14 @@ const COPY = {
         ocrInteractionModeManual: 'Tap or hover',
         ocrInteractionModeOff: 'Off',
         puckMenuLabel: `${APP_NAME} menu`,
-        puckPowerOnFurigana: 'Yomu on · furigana shown',
-        puckPowerOnNoFurigana: 'Yomu on · furigana hidden',
-        puckPowerOff: 'Yomu off',
+        puckPowerOnFurigana: `${APP_NAME} on · furigana shown`,
+        puckPowerOnNoFurigana: `${APP_NAME} on · furigana hidden`,
+        puckPowerOff: `${APP_NAME} off`,
         puckOcrAuto: 'OCR: Auto',
         puckOcrManual: 'OCR: Tap/Hover',
         puckOcrOff: 'OCR: Off',
-        annotationsPausedToast: 'Annotations paused.',
-        annotationsResumedToast: 'Annotations resumed.',
-        puckMuteAudio: 'Mute auto-play audio',
-        puckUnmuteAudio: 'Unmute auto-play audio',
-        autoplayAudioOnToast: 'Auto-play audio on.',
-        autoplayAudioOffToast: 'Auto-play audio muted.',
-        furiganaOffToast: 'Furigana off. Lookups stay active.',
+        autoplayAudioOn: 'Auto-play audio on',
+        autoplayAudioOff: 'Auto-play audio off',
         showFurigana: 'Enable furigana annotations',
         furiganaMode: 'Furigana',
         wordColorStates: 'Color words',
@@ -1785,13 +1780,8 @@ puckPowerOff	{APP_NAME} オフ
 puckOcrAuto	OCR: 自動
 puckOcrManual	OCR: タップ/ホバー
 puckOcrOff	OCR: オフ
-annotationsPausedToast	注釈を一時停止しました。
-annotationsResumedToast	注釈を再開しました。
-puckMuteAudio	音声の自動再生をミュート
-puckUnmuteAudio	音声の自動再生のミュートを解除
-furiganaOffToast	ふりがなを非表示にしました。単語の検索は引き続き使えます。
-autoplayAudioOnToast	音声の自動再生をオンにしました。
-autoplayAudioOffToast	音声の自動再生をミュートしました。
+autoplayAudioOn	音声の自動再生 オン
+autoplayAudioOff	音声の自動再生 オフ
 showFurigana	ふりがな注釈を有効にする
 furiganaMode	ふりがな
 wordColorStates	色を付ける単語

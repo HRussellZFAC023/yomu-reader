@@ -86,7 +86,7 @@ import type { ImmersionSearchOptions } from '../immersion/popover-controller';
 import { waitForIdle as waitForBrowserIdle } from '../platform/idle';
 import { ParkableObserver, parkableMutationObserver } from '../platform/page-activity';
 import { mutationContainsOnlyReaderPaint } from '../dom/mutation';
-import { FloatingButtonController } from '../ui/floating-button';
+import { FloatingButtonController, puckPowerStateLabel } from '../ui/floating-button';
 import { JitenApiClient, type JitenKanjiInfo, type JitenVocabularyInfo } from '../dictionaries/jiten';
 import { JitenPublicVocabularyClient, publicJitenBackoffRemainingMs } from '../dictionaries/jiten-public-vocabulary';
 import { jitenKanjiOriginFactLabels, renderJitenKanjiInfo, renderJitenKanjiKeywordLine } from '../jiten/jiten-kanji-info-render';
@@ -2288,8 +2288,11 @@ export class ReaderApp {
         this.subtitles.init();
     }
 
+    // The userscript manager's menu command: it has no label of its own to
+    // show the new state, so a toast names it the way the puck does.
     private async toggleAnnotationsPaused(): Promise<void> {
         await this.setAnnotationsPaused(!this.settings.annotationsPaused);
+        this.toast(puckPowerStateLabel(this.settings.interfaceLanguage, this.puckPowerState()));
     }
 
     // Always persists, even when `paused` already matches, so the explicit
@@ -2305,7 +2308,6 @@ export class ReaderApp {
             this.rollbackAnnotationPauseChoice(previous, changed);
             throw error;
         }
-        if (changed) this.toastAnnotationPauseChoice(paused);
     }
 
     private persistAnnotationPauseChoice(): Promise<void> {
@@ -2316,10 +2318,6 @@ export class ReaderApp {
         this.settings.annotationsPaused = previous;
         if (changed) this.applyAnnotationsPausedState();
         this.toast(uiText(this.settings.interfaceLanguage, 'settingsSaveFailed'));
-    }
-
-    private toastAnnotationPauseChoice(paused: boolean): void {
-        this.toast(uiText(this.settings.interfaceLanguage, paused ? 'annotationsPausedToast' : 'annotationsResumedToast'));
     }
 
     // Paused: drop any in-flight hover lookup and strip existing annotations so
@@ -2364,7 +2362,7 @@ export class ReaderApp {
         // settings normalization forces autoPlayAudio back to false.
         if (!enabled && this.settings.audioAutoPlayMode === 'off') this.settings.audioAutoPlayMode = 'all';
         await this.persistSettings(this.settings, { explicitUserChoiceKeys: ['autoPlayAudio', 'audioAutoPlayMode'] });
-        this.toast(uiText(this.settings.interfaceLanguage, enabled ? 'autoplayAudioOffToast' : 'autoplayAudioOnToast'));
+        this.toast(uiText(this.settings.interfaceLanguage, enabled ? 'autoplayAudioOff' : 'autoplayAudioOn'));
     }
 
     private puckPowerState(): 'on' | 'no-furigana' | 'paused' {
@@ -2385,7 +2383,6 @@ export class ReaderApp {
                 hideFurigana: async rememberedMode => {
                     this.settings.puckFuriganaModeBeforeHide = rememberedMode;
                     await this.applyFuriganaMode('off');
-                    this.toast(uiText(this.settings.interfaceLanguage, 'furiganaOffToast'));
                 },
                 pause: () => this.setAnnotationsPaused(true),
                 resume: async furiganaMode => {

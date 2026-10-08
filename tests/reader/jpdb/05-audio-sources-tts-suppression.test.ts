@@ -891,7 +891,7 @@ describe('reader helpers', () => {
             expect(offsets).toHaveLength(7);
             expect(labels).not.toContain('Scan page');
             expect(labels).toContain('Request Japanese sites');
-            expect(labels).toContain('Yomu on · furigana shown');
+            expect(labels).toContain('よむ on · furigana shown');
             expect(Math.min(...adjacentDistances)).toBeGreaterThanOrEqual(60);
         } finally {
             controller.destroy();
@@ -1063,7 +1063,7 @@ describe('reader helpers', () => {
             expect(puck.classList.contains('jpdb-reader-fab--on')).toBe(true);
             expect(puck.classList.contains('jpdb-reader-fab--no-furigana')).toBe(false);
             expect(puck.classList.contains('jpdb-reader-fab--paused')).toBe(false);
-            expect(powerButton().getAttribute('aria-label')).toBe('Yomu on · furigana shown');
+            expect(powerButton().getAttribute('aria-label')).toBe('よむ on · furigana shown');
             expect(powerButton().classList.contains('is-on')).toBe(true);
             const onIcon = powerButton().querySelector<HTMLElement>('.jpdb-reader-fab-radial-icon')?.innerHTML ?? '';
             expect(onIcon).toContain('data-icon="power"');
@@ -1075,8 +1075,8 @@ describe('reader helpers', () => {
             expect(puck.classList.contains('jpdb-reader-fab--on')).toBe(false);
             expect(puck.classList.contains('jpdb-reader-fab--no-furigana')).toBe(true);
             expect(puck.classList.contains('jpdb-reader-fab--paused')).toBe(false);
-            expect(puck.getAttribute('aria-label')).toBe('Yomu on · furigana hidden');
-            expect(powerButton().getAttribute('aria-label')).toBe('Yomu on · furigana hidden');
+            expect(puck.getAttribute('aria-label')).toBe('よむ on · furigana hidden');
+            expect(powerButton().getAttribute('aria-label')).toBe('よむ on · furigana hidden');
             expect(powerButton().classList.contains('is-partial')).toBe(true);
             const noFuriganaIcon = powerButton().querySelector<HTMLElement>('.jpdb-reader-fab-radial-icon')?.innerHTML ?? '';
             expect(noFuriganaIcon).toContain('data-icon="furigana-hidden"');
@@ -1088,8 +1088,8 @@ describe('reader helpers', () => {
             expect(puck.classList.contains('jpdb-reader-fab--on')).toBe(false);
             expect(puck.classList.contains('jpdb-reader-fab--no-furigana')).toBe(false);
             expect(puck.classList.contains('jpdb-reader-fab--paused')).toBe(true);
-            expect(puck.getAttribute('aria-label')).toBe('Yomu off');
-            expect(powerButton().getAttribute('aria-label')).toBe('Yomu off');
+            expect(puck.getAttribute('aria-label')).toBe('よむ off');
+            expect(powerButton().getAttribute('aria-label')).toBe('よむ off');
             expect(powerButton().classList.contains('is-off')).toBe(true);
             const pausedIcon = powerButton().querySelector<HTMLElement>('.jpdb-reader-fab-radial-icon')?.innerHTML ?? '';
             // Off draws the power icon too; the receded tone and label carry the state.
@@ -1102,8 +1102,8 @@ describe('reader helpers', () => {
             expect(puck.classList.contains('jpdb-reader-fab--on')).toBe(true);
             expect(puck.classList.contains('jpdb-reader-fab--no-furigana')).toBe(false);
             expect(puck.classList.contains('jpdb-reader-fab--paused')).toBe(false);
-            expect(puck.getAttribute('aria-label')).toBe('Yomu on · furigana shown');
-            expect(powerButton().getAttribute('aria-label')).toBe('Yomu on · furigana shown');
+            expect(puck.getAttribute('aria-label')).toBe('よむ on · furigana shown');
+            expect(powerButton().getAttribute('aria-label')).toBe('よむ on · furigana shown');
             expect(powerButton().querySelector<HTMLElement>('.jpdb-reader-fab-radial-icon')?.innerHTML).toBe(onIcon);
         } finally {
             controller.destroy();

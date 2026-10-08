@@ -27,7 +27,8 @@ function hostHasBottomActionDock(): boolean {
     return location.hostname === 'jiten.moe' && location.pathname.startsWith('/srs/');
 }
 
-function puckStateLabel(language: ReaderSettings['interfaceLanguage'], state: PuckPowerState): string {
+/** Names a reading state the way the puck, its menu and the toolbar do. */
+export function puckPowerStateLabel(language: ReaderSettings['interfaceLanguage'], state: PuckPowerState): string {
     return uiText(language, POWER_ACTION[state].label);
 }
 
@@ -119,7 +120,7 @@ function audioRadialAction(settings: ReaderSettings, actions: FloatingButtonActi
     const enabled = actions.isAutoPlayAudioEnabled();
     return {
         id: 'audio',
-        label: uiText(settings.interfaceLanguage, enabled ? 'puckMuteAudio' : 'puckUnmuteAudio'),
+        label: uiText(settings.interfaceLanguage, enabled ? 'autoplayAudioOn' : 'autoplayAudioOff'),
         icon: enabled ? 'audio' : 'audio-muted',
         tone: enabled ? 'on' : 'off',
         keepOpen: true,
@@ -305,7 +306,7 @@ export class FloatingButtonController {
             badge.dataset.state = powerState;
             badge.replaceChildren(menuIcon(POWER_ACTION[powerState].icon));
         }
-        button.title = puckStateLabel(language, powerState);
+        button.title = puckPowerStateLabel(language, powerState);
         button.setAttribute('aria-label', button.title);
     }
 
