@@ -32,8 +32,11 @@ const REQUEST_BACKOFF_INITIAL_MS = 30_000;
 const REQUEST_BACKOFF_MAX_MS = 5 * 60_000;
 const PARSE_TEXT_LIMIT = 1900;
 // The public endpoint uses GET. 1,900 Japanese characters become a 17 KB
-// request URL (observed HTTP 414); bound the encoded query as well as text.
-const PARSE_ENCODED_TEXT_LIMIT = 6000;
+// request URL, so the encoded query is bounded as well as the text. Jiten's
+// own limit is an 8 KB request line (an 8,148-byte URL parsed, 8,247 bytes got
+// HTTP 414, 2026-10-08). Fuller requests mean fewer of them from the anonymous
+// 300-a-minute budget.
+const PARSE_ENCODED_TEXT_LIMIT = 7800;
 const PARSE_TERM_SEPARATOR = '。';
 const PARSE_SEPARATOR_ENCODED_LENGTH = encodeURIComponent(PARSE_TERM_SEPARATOR).length;
 const log = Logger.scope('JitenPublicVocabulary');

@@ -232,7 +232,7 @@ describe('JitenPublicVocabularyClient', () => {
         const requestJson = vi.fn(async (url: string) => {
             if (url.includes('/vocabulary/parse?')) {
                 const text = new URL(url).searchParams.get('text')!;
-                expect(encodeURIComponent(text).length).toBeLessThanOrEqual(6000);
+                expect(encodeURIComponent(text).length).toBeLessThanOrEqual(7800);
                 const group = text.split('。');
                 requestedGroups.push(group);
                 return group.flatMap(term => [
@@ -250,12 +250,28 @@ describe('JitenPublicVocabularyClient', () => {
         expect([...cards].map(([term, card]) => [term, card.jitenWordId])).toEqual(terms.map((term, index) => [term, index + 1]));
     });
 
+    it('fills a parse request up to the 8 KB line api.jiten.moe accepts', async () => {
+        // 200 terms of 日本語 come to 7,191 encoded bytes with separators: one
+        // request, where a 6,000-byte bound sent two.
+        const terms = Array.from({ length: 200 }, () => '日本語');
+        const texts: string[] = [];
+        const client = new JitenPublicVocabularyClient({ requestJsonImpl: async url => {
+            const text = new URL(url).searchParams.get('text');
+            if (text === null) return { wordId: 1464530, mainReading: { text: '日本語' } };
+            texts.push(text);
+            return [];
+        } });
+        await client.parse([terms.join('。')], { detailLimit: 0 });
+        expect(texts).toHaveLength(1);
+        expect(encodeURIComponent(texts[0]).length).toBe(7191);
+    });
+
     it('bounds even one oversized lookup term without dropping source text', async () => {
         const term = 'あ'.repeat(1900);
         const chunks: string[] = [];
         const client = new JitenPublicVocabularyClient({ requestJsonImpl: async url => {
             const text = new URL(url).searchParams.get('text')!;
-            expect(encodeURIComponent(text).length).toBeLessThanOrEqual(6000);
+            expect(encodeURIComponent(text).length).toBeLessThanOrEqual(7800);
             chunks.push(text);
             return [{ wordId: 0, readingIndex: 0, originalText: text }];
         } });
@@ -269,7 +285,7 @@ describe('JitenPublicVocabularyClient', () => {
         const requests: string[] = [];
         const client = new JitenPublicVocabularyClient({ requestJsonImpl: async url => {
             const text = new URL(url).searchParams.get('text')!;
-            expect(encodeURIComponent(text).length).toBeLessThanOrEqual(6000);
+            expect(encodeURIComponent(text).length).toBeLessThanOrEqual(7800);
             requests.push(text);
             return [...text].map(originalText => ({ wordId: 1, readingIndex: 0, originalText }));
         } });
