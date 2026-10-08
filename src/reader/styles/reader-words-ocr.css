@@ -909,7 +909,8 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
      kana are set solid (no proportional `palt` widths) and take the
      paragraph's own tracking, so a reading is as wide as its kana count says,
      which the overhang below relies on in WebKit. The detached lane
-     (dom/index.ts styleDetachedReadingElements) uses the same size. */
+     (dom/index.ts styleDetachedReadingElements) sits in a line gap and is a
+     little smaller. */
   font-family: inherit;
   font-size: max(6px, 0.5em);
   font-style: inherit;

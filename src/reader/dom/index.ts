@@ -4176,9 +4176,11 @@ function styleDetachedReadingElements(root: HTMLElement, host: HTMLElement): voi
 
     const hostStyle = safeComputedStyle(host);
     const hostFontSize = Number.parseFloat(hostStyle.fontSize) || 16;
-    // Half the base, as in-flow ruby is (.jpdb-reader-furi), capped because a
-    // detached reading lives in the line gap rather than taking room of its own.
-    const readingFontSize = Math.min(10, Math.max(6, hostFontSize * 0.5));
+    // A detached reading lives in the line gap rather than taking room of its
+    // own, so it stays a little under in-flow ruby's half (.jpdb-reader-furi)
+    // and is capped: at half, the crowding solver pushed WebKit's edge
+    // readings of a crowded control row (Reddit's sort menu) off their words.
+    const readingFontSize = Math.min(10, Math.max(6, hostFontSize * 0.46));
 
     for (const wrapper of detachedRubies) {
         setInlineStyleIfChanged(wrapper, 'position', 'relative', 'important');
