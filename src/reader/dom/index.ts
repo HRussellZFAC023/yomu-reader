@@ -67,6 +67,7 @@ import {
 } from './youtube-chrome-annotation-portal';
 import { sourcePreservingProseNeedsDocumentPortal } from './document-portal-prose-policy';
 import { furiganaSettingsForTarget, targetForcesAllFurigana, targetKeepsInFlowReadings } from './furigana-mode-stamp';
+import { syncRubyEdgeOverhang } from './ruby-overhang';
 import { commonFragmentTextHost, scanTargetPaintRoots, scanTargetSourceScope } from './scan-paint-roots';
 import { selectedWordColorSourceToken } from '../theme/color-source-classes';
 import { isYouTubeAppHostname } from '../app/youtube-host';
@@ -6793,6 +6794,7 @@ export function replaceRenderedWordFurigana(word: HTMLElement, surface: string, 
 
     setInnerHtml(word, html);
     word.classList.add('jpdb-reader-has-furi');
+    syncRubyEdgeOverhang([word]);
     if (!detached) return true;
 
     word.classList.add('jpdb-reader-detached-reading-word');
@@ -6832,6 +6834,7 @@ export function replaceRenderedWordFurigana(word: HTMLElement, surface: string, 
 export function clearRenderedWordFurigana(word: HTMLElement, surface: string): void {
     word.textContent = surface;
     word.classList.remove('jpdb-reader-has-furi');
+    syncRubyEdgeOverhang([word]);
     clearProjectedReadings(word);
     const mirror = word.closest<HTMLElement>(READER_TEXT_MIRROR_SELECTOR);
     if (!mirror) return;

@@ -905,14 +905,18 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
 .jpdb-reader-furi {
   /* Half the base size, JLREQ's ruby convention, in the page's own face at
      regular weight: a bold reading at 0.58em read as a second, louder
-     typeface stacked over the word. A host `rt` rule must not restyle it, and
-     tracking belongs to the base text, not the reading. The detached lane
+     typeface stacked over the word. A host `rt` rule must not restyle it. The
+     kana are set solid (no proportional `palt` widths) and take the
+     paragraph's own tracking, so a reading is as wide as its kana count says,
+     which the overhang below relies on in WebKit. The detached lane
      (dom/index.ts styleDetachedReadingElements) uses the same size. */
   font-family: inherit;
   font-size: max(6px, 0.5em);
   font-style: inherit;
   font-weight: normal;
-  letter-spacing: normal;
+  font-feature-settings: normal;
+  font-variant-east-asian: normal;
+  letter-spacing: inherit;
   /* One quiet reading colour for every word, links included:
      --jpdb-reader-furi-color is the paragraph's own ink eased toward the
      sampled backdrop and held at 4.5:1 (dom/word-contrast.ts). Without a
@@ -926,6 +930,23 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
   /* -webkit- too: iOS Safari (the OOM/copy target) needs the prefixed property
      to keep ruby readings out of the selection when copying mirrored text. */
   -webkit-user-select: none;
+}
+/* Ruby overhang (JLREQ): a reading wider than its kanji overhangs the
+   characters beside it by half a ruby character, as browsers already do inside
+   one run of text, so the kanji keeps its place in the line (no gap around 間
+   in の間で). A negative margin on the reading only shrinks its share of the
+   line: the kanji never moves. dom/ruby-overhang.ts decides which readings
+   may: one inside its word at once, one at a word edge only while the word
+   beside it carries no reading (edge-overhang), so two readings never meet.
+   No sibling selector here: one over page words made Chromium annotate a
+   one-root page ten times slower. WebKit stops centring a reading whose
+   margins make it narrower than its kanji, so the margin is never more than
+   that half character: solid kana and shared tracking (above) keep the
+   reading at least that much wider. Page words only, in flow or passive
+   (prose with links); a text mirror lays its copy over the host's own text
+   and must keep the host's widths. */
+.jpdb-reader-scan-word:not(:is(.jpdb-reader-text-mirror, .jpdb-reader-control-text-mirror) *) > ruby:is(.jpdb-reader-ruby-overhang:not(.jpdb-reader-ruby-at-start, .jpdb-reader-ruby-at-end), .jpdb-reader-ruby-edge-overhang) > rt.jpdb-reader-furi {
+  margin-inline: -0.5em;
 }
 .jpdb-reader-word ruby {
   position: static !important;

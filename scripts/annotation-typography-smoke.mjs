@@ -10,9 +10,13 @@
 // property (span, ruby and rt rules), with JPDB parse mocked, and measures the
 // computed result in real engines:
 //   * each word's base glyphs compute the same font as the host text around it;
-//   * each reading is half the base size, regular weight, the page's face, one
-//     muted colour for linked and plain words alike, at 4.5:1;
+//   * each reading is half the base size, regular weight, the page's face and
+//     tracking with solid kana, one muted colour for linked and plain words
+//     alike, at 4.5:1;
 //   * each reading is centred over its own word and clear of its neighbours;
+//   * a reading wider than its kanji overhangs the plain words beside it, so
+//     the kanji keeps its place in the line (no gap around 間 in の間で), and
+//     never overhangs a neighbour's reading;
 //   * nothing is painted behind a word at rest; only words the study source is
 //     still teaching carry an underline (new solid, learning dashed, due
 //     dotted, 3:1);
@@ -60,14 +64,29 @@ const ROWS = [
     ['使用', '使用', 'しよう', 'use', ['n'], 400, ['not-in-deck'], ['LHH']],
     ['言語', '言語', 'げんご', 'language', ['n'], 800, ['not-in-deck'], ['HLL']],
     ['注釈', '注釈', 'ちゅうしゃく', 'note', ['n'], 9000, ['not-in-deck'], ['LHHH']],
+    ['間', '間', 'あいだ', 'between', ['n'], 500, ['not-in-deck'], ['LHH']],
+    ['学習', '学習', 'がくしゅう', 'study', ['n'], 300, ['not-in-deck'], ['LHHH']],
+    ['行う', '行う', 'おこなう', 'to do', ['v5u'], 400, ['not-in-deck'], ['LHHH']],
+    ['頭', '頭', 'あたま', 'head', ['n'], 600, ['not-in-deck'], ['LHH']],
+    ['体', '体', 'からだ', 'body', ['n'], 600, ['not-in-deck'], ['LHH']],
     ...['は', 'な', 'で', 'を', 'の'].map(particle => [particle, particle, particle, 'particle', ['prt'], 1, ['not-in-deck'], []]),
 ];
 const FURIGANA = {
     静か: [['静', 'しず'], 'か'],
     新しい: [['新', 'あたら'], 'しい'],
     読みました: [['読', 'よ'], 'みました'],
+    行う: [['行', 'おこな'], 'う'],
 };
 const SENTENCE = '今日は静かな喫茶店で新しい本を読みました。';
+// Wide readings between plain words, and two wide readings side by side (頭体),
+// which must keep their gap rather than overhang into each other.
+const OVERHANG = 'の間で学習を行う。頭体';
+// [paragraph, plain text before, plain text after, kanji between]: the kanji
+// under a wide reading takes its own advance in the line. #sentence is
+// tracked, and its readings share that tracking, so up to a pixel of the gap
+// stays there.
+const OVERHANG_SPANS = [['sentence', 'で', 'し', 1], ['overhang', 'の', 'で', 1], ['overhang', 'で', 'を', 2], ['overhang', 'を', 'う', 1]];
+
 const LINKED = '日本語は<a href="/wiki/日本">日本</a>国内で使用されている言語。'
     + '<sup class="mw-ref reference" id="cite_ref-3"><a href="#cite_note-3"><span class="cite-bracket">[</span>注釈 3<span class="cite-bracket">]</span></a></sup>';
 // A host stylesheet aimed at bare elements, the way real sites style their own
@@ -139,6 +158,7 @@ async function checkScenario(browser, engine, theme) {
         await addScriptTagWithCspFallback(page, SCRIPT_PATH);
         await page.waitForFunction(() => document.querySelectorAll('#sentence .jpdb-reader-word').length >= 10
             && document.querySelectorAll('#linked .jpdb-reader-word').length >= 5
+            && document.querySelectorAll('#overhang rt').length >= 5
             && document.querySelector('#sentence .jpdb-reader-word.jpdb-new')?.style.getPropertyValue('--jpdb-reader-word-accessible-underline'),
         null, { timeout: 30_000 });
         await page.waitForTimeout(600);
@@ -154,10 +174,21 @@ async function checkScenario(browser, engine, theme) {
 }
 
 function judge(id, measured, paper) {
+    judgeWords(id, measured);
+    judgeReadings(id, measured, paper);
+    judgeStudyState(id, measured, paper);
+    judgeOverhang(id, measured);
+}
+
+function judgeWords(id, measured) {
     for (const word of measured.words) {
         if (word.fontDiff.length) fail(`${id}: ${word.text} does not use the host font (${word.fontDiff.join('; ')}).`, word);
         if (word.background !== 'none') fail(`${id}: ${word.text} is painted at rest (${word.background}).`, word);
     }
+    if (measured.footnoteWords) fail(`${id}: the footnote marker was annotated.`, measured);
+}
+
+function judgeReadings(id, measured, paper) {
     for (const paragraph of ['sentence', 'linked']) {
         const readings = measured.readings.filter(reading => reading.paragraph === paragraph);
         if (!readings.length) fail(`${id}: #${paragraph} shows no readings.`, measured);
@@ -169,13 +200,18 @@ function judge(id, measured, paper) {
         if (Math.abs(reading.fontSize - expectedSize) > 0.6) fail(`${id}: reading ${reading.text} is ${reading.fontSize}px over ${reading.baseFontSize}px text, not half.`, reading);
         if (reading.fontWeight !== '400') fail(`${id}: reading ${reading.text} has weight ${reading.fontWeight}.`, reading);
         if (reading.fontFamily !== reading.baseFontFamily) fail(`${id}: reading ${reading.text} is set in ${reading.fontFamily}.`, reading);
-        if (reading.letterSpacing !== 'normal' && reading.letterSpacing !== '0px') fail(`${id}: reading ${reading.text} is tracked (${reading.letterSpacing}).`, reading);
+        if (reading.letterSpacing !== reading.baseLetterSpacing) fail(`${id}: reading ${reading.text} is tracked ${reading.letterSpacing}, its paragraph ${reading.baseLetterSpacing}.`, reading);
+        if (reading.fontFeatureSettings !== 'normal') fail(`${id}: reading ${reading.text} takes host font features (${reading.fontFeatureSettings}).`, reading);
         if (contrast(reading.color, paper) < 4.5) fail(`${id}: reading ${reading.text} (${reading.color}) is below 4.5:1 on ${paper}.`, reading);
         if (Math.abs(reading.centre - reading.baseCentre) > 1.5) fail(`${id}: reading ${reading.text} is off its word's centre by ${(reading.centre - reading.baseCentre).toFixed(1)}px.`, reading);
     }
     for (const [left, right] of measured.readingNeighbours) {
         if (left.right > right.left + 0.5) fail(`${id}: readings ${left.text} and ${right.text} overlap.`, { left, right });
     }
+    if (!measured.readings.some(reading => reading.word === '日本' && reading.inFlow)) fail(`${id}: the linked word's reading should sit in flow like its neighbours'.`, measured.readings);
+}
+
+function judgeStudyState(id, measured, paper) {
     const byText = text => measured.words.find(word => word.text === text);
     const underline = text => byText(text)?.underline ?? { style: 'missing' };
     if (underline('喫茶店').style !== 'solid') fail(`${id}: the New word should carry a solid underline.`, byText('喫茶店'));
@@ -191,8 +227,18 @@ function judge(id, measured, paper) {
     for (const text of ['本', '今日']) {
         if (measured.readings.some(reading => reading.word === text)) fail(`${id}: ${text}, which the study source knows, should carry no reading.`, measured.readings);
     }
-    if (measured.footnoteWords) fail(`${id}: the footnote marker was annotated.`, measured);
-    if (!measured.readings.some(reading => reading.word === '日本' && reading.inFlow)) fail(`${id}: the linked word's reading should sit in flow like its neighbours'.`, measured.readings);
+}
+
+function judgeOverhang(id, measured) {
+    for (const [paragraph, before, after, kanji] of OVERHANG_SPANS) {
+        const span = measured.spans[paragraph]?.[`${before}${after}`];
+        const width = kanji * measured.advances[paragraph];
+        if (span === undefined || Math.abs(span - width) > 1) fail(`${id}: the ${kanji} kanji between ${before} and ${after} in #${paragraph} take ${span?.toFixed(1)}px, not ${width.toFixed(1)}px: a wide reading opened a gap.`, measured.spans);
+    }
+    for (const text of ['あたま', 'からだ']) {
+        const reading = measured.readings.find(item => item.text === text);
+        if (!reading || reading.marginStart !== 0 || reading.marginEnd !== 0) fail(`${id}: ${text} sits beside another reading and must not overhang it.`, reading);
+    }
 }
 
 function fail(message, details) {
@@ -202,7 +248,7 @@ function fail(message, details) {
 function fixturePage(paper, ink) {
     return `<!doctype html><html lang="ja"><head><meta charset="utf-8"><title>Yomu annotation typography smoke</title>
 <style>body{margin:0;padding:24px;background:${paper};color:${ink};font:20px/1.9 "Hiragino Mincho ProN","Noto Serif JP",serif}a{color:${ink === '#202122' ? '#3366cc' : '#88a3e8'}}${HOSTILE_CSS}</style>
-</head><body><main><p id="sentence" class="tracked">${SENTENCE}</p><p id="linked">${LINKED}</p></main></body></html>`;
+</head><body><main><p id="sentence" class="tracked">${SENTENCE}</p><p id="linked">${LINKED}</p><p id="overhang">${OVERHANG}</p></main></body></html>`;
 }
 
 function handleRequest(request) {
@@ -261,11 +307,15 @@ function measurePage() {
             letterSpacing: style.letterSpacing,
             baseFontSize: Number.parseFloat(baseStyle.fontSize),
             baseFontFamily: baseStyle.fontFamily,
+            baseLetterSpacing: baseStyle.letterSpacing,
+            fontFeatureSettings: style.fontFeatureSettings,
             left: rect.left,
             right: rect.right,
             top: Math.round(rect.top),
             centre: (rect.left + rect.right) / 2,
             baseCentre: (baseRect.left + baseRect.right) / 2,
+            marginStart: Number.parseFloat(style.marginInlineStart) || 0,
+            marginEnd: Number.parseFloat(style.marginInlineEnd) || 0,
         };
     });
     const readingNeighbours = [];
@@ -273,10 +323,37 @@ function measurePage() {
     for (let index = 1; index < sorted.length; index += 1) {
         if (sorted[index].top === sorted[index - 1].top) readingNeighbours.push([sorted[index - 1], sorted[index]]);
     }
+    // Plain characters (not readings), in order, with where each one starts and
+    // ends; spans[p][ab] is the room between plain a and the next plain b.
+    const spans = {};
+    const advances = {};
+    for (const paragraph of document.querySelectorAll('main p')) {
+        const style = getComputedStyle(paragraph);
+        advances[paragraph.id] = Number.parseFloat(style.fontSize) + (Number.parseFloat(style.letterSpacing) || 0);
+        const glyphs = [];
+        const walker = document.createTreeWalker(paragraph, NodeFilter.SHOW_TEXT);
+        const range = document.createRange();
+        for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+            if (node.parentElement.closest('rt, rp, ruby')) continue;
+            for (let index = 0; index < node.data.length; index += 1) {
+                range.setStart(node, index);
+                range.setEnd(node, index + 1);
+                const rect = range.getClientRects()[0];
+                if (rect) glyphs.push({ text: node.data[index], left: rect.left, right: rect.right, top: Math.round(rect.top) });
+            }
+        }
+        spans[paragraph.id] = {};
+        for (let index = 1; index < glyphs.length; index += 1) {
+            const [left, right] = [glyphs[index - 1], glyphs[index]];
+            if (left.top === right.top) spans[paragraph.id][`${left.text}${right.text}`] ??= right.left - left.right;
+        }
+    }
     return {
         words,
         readings,
         readingNeighbours,
+        spans,
+        advances,
         footnoteWords: document.querySelectorAll('sup .jpdb-reader-word').length,
     };
 }

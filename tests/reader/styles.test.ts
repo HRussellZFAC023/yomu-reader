@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import {
@@ -84,7 +84,7 @@ describe('reader stylesheet loading', () => {
         expect(css).toContain('.jpdb-reader-word ruby{');
         expect(css).toContain('ruby-align:center!important');
         expect(css).toContain('ruby-position:over!important');
-        expect(css).toContain('.jpdb-reader-furi{font-family:inherit;font-size:max(6px,.5em);font-style:inherit;font-weight:normal;letter-spacing:normal;');
+        expect(css).toContain('.jpdb-reader-furi{font-family:inherit;font-size:max(6px,.5em);font-style:inherit;font-weight:normal;font-feature-settings:normal;font-variant-east-asian:normal;letter-spacing:inherit;');
         expect(css).toContain('.jpdb-reader-word.jpdb-reader-has-furi{line-height:2.15}');
         // `-webkit-ruby-align` never existed in any engine and only parse-fails;
         // it must not reappear in the critical subset.
@@ -328,8 +328,44 @@ describe('reader stylesheet loading', () => {
         expect(furiRule).toContain('font-size: max(6px, 0.5em)');
         expect(furiRule).toContain('font-weight: normal');
         expect(furiRule).toContain('font-family: inherit');
-        expect(furiRule).toContain('letter-spacing: normal');
+        // Solid kana in the paragraph's tracking: a wide reading keeps the
+        // width its kana count says, which the WebKit overhang relies on.
+        expect(furiRule).toContain('font-feature-settings: normal');
+        expect(furiRule).toContain('letter-spacing: inherit');
         expect(furiRule).toContain('line-height: 1.08');
+    });
+
+    it('draws a wide reading\'s overhang only where dom/ruby-overhang.ts allows it', () => {
+        // Geometry in real engines: scripts/annotation-typography-smoke.mjs.
+        const css = readFileSync('src/reader/styles/reader-words-ocr.css', 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
+        const rules = Array.from(css.matchAll(/([^{}]*ruby[^{}]*overhang[^{}]*)\{([^}]*)\}/g), match => ({ selector: match[1].trim(), body: match[2].trim() }));
+        expect(rules).toEqual([{
+            selector: '.jpdb-reader-scan-word:not(:is(.jpdb-reader-text-mirror, .jpdb-reader-control-text-mirror) *) > ruby:is(.jpdb-reader-ruby-overhang:not(.jpdb-reader-ruby-at-start, .jpdb-reader-ruby-at-end), .jpdb-reader-ruby-edge-overhang) > rt.jpdb-reader-furi',
+            body: 'margin-inline: -0.5em;',
+        }]);
+    });
+
+    it('never relates page words through a sibling selector', () => {
+        // A `+` rule over page words, with or without :has(), made Chromium
+        // annotate a 150-line one-root page ten times slower (ja-docs perf
+        // smoke at 2.5x: 5.3 s, then 57 s). Neighbours are read in script.
+        const wordClass = /\.jpdb-reader-(?:word|scan-word|has-furi|prose-word)\b|ruby|\brt\b/;
+        const offenders: string[] = [];
+        for (const file of readdirSync('src/reader/styles').filter(name => name.endsWith('.css'))) {
+            const css = readFileSync(`src/reader/styles/${file}`, 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
+            for (const [, selectorList] of css.matchAll(/([^{}]+)\{/g)) {
+                for (const selector of selectorList.split(',').map(part => part.trim())) {
+                    const compounds = selector.split(/\s*([+~])\s*/);
+                    for (let index = 1; index < compounds.length; index += 2) {
+                        const left = compounds[index - 1].split(/\s|>/).pop() ?? '';
+                        const right = compounds[index + 1].split(/\s|>/)[0] ?? '';
+                        if (wordClass.test(left) || wordClass.test(right)) offenders.push(`${file}: ${selector}`);
+                    }
+                    if (/:has\(\s*[+~]/.test(selector) && wordClass.test(selector)) offenders.push(`${file}: ${selector}`);
+                }
+            }
+        }
+        expect(offenders).toEqual([]);
     });
 
     it('keeps annotated words in the host page\'s face against host span and ruby rules', () => {

@@ -21,6 +21,7 @@ import {
 import { formatUiText, uiText } from '../app/i18n';
 import { normalizeOcrScannerLinesInRoot } from './dom-helpers';
 import { PaintedWordRecorder } from '../dom/painted-word-recorder';
+import { syncRubyEdgeOverhang } from '../dom/ruby-overhang';
 import { refreshRenderedMiningInsights, renderedWordsInRoot } from '../dom/rendered-word-state';
 import { renderedWordPrivateValue } from '../dom/rendered-word-private-state';
 import { userFacingErrorText } from './user-facing-errors';
@@ -875,7 +876,11 @@ export class VisiblePageScanner {
     }
 
     private notePaintedWords(words: HTMLElement[]): void {
-        if (words.length) this.dependencies.notePaintedWords?.(words);
+        if (!words.length) return;
+        // A painted word's neighbours can change too: a word beside it may
+        // now overhang its reading, or must stop (dom/ruby-overhang.ts).
+        syncRubyEdgeOverhang(words);
+        this.dependencies.notePaintedWords?.(words);
     }
 
     // Only a paced page scan records its costs: an ASB cue batch can run while
