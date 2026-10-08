@@ -1,6 +1,5 @@
 import { captureActiveLanguageProfileDictionaries } from './dictionary';
 import {
-    DEFAULT_SETTINGS,
     mergeDictionaryPreferences,
     normalizeReaderSettings,
     retireStaleDictionaryPreferences,
@@ -15,7 +14,6 @@ import {
     parseReaderSettingsBackup,
     readerDictionaryExportHasData,
 } from './file-io';
-import { adoptCurrentDefaults } from './retired-defaults';
 import { uiText } from '../app/i18n';
 import { userFacingError } from '../app/user-facing-errors';
 import type { InterfaceLanguage, ReaderSettings } from '../app/types';
@@ -55,19 +53,11 @@ export async function restoreReaderSettingsBackup(
     const result = await runSettingsRestoreTransaction({
         storage: backup.storage,
         prepareSettings: importedView => {
-            const candidate = witnessedSettingsRestoreCandidate(
+            importedSettings = witnessedSettingsRestoreCandidate(
                 previousSettings,
                 importedSettings,
                 importedView,
             );
-            // A default a release retired (ADR-0025) that the backup merely
-            // carried is no choice. With the backup's ledger it reads as
-            // today's default, as the next load would read it; a settings-only
-            // backup has no ledger, so that setting stays as it is now rather
-            // than being declared the learner's.
-            importedSettings = importedView
-                ? adoptCurrentDefaults(candidate, importedView.intentLedger, DEFAULT_SETTINGS)
-                : adoptCurrentDefaults(candidate, { revision: 0, records: {} }, previousSettings);
         },
         stageBeforeSettings: () => dictionaries.stage(importedSettings).then(settings => {
             importedSettings = settings;

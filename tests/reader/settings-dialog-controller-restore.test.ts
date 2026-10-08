@@ -1078,6 +1078,82 @@ describe('settings dialog restore and save interlocks', () => {
     });
 });
 
+// ADR-0025: a Google Drive snapshot carries the whole 2.0 settings object, so
+// a default 2.1 retired must read as today's on this restore path too, as it
+// does for a settings file. The snapshot is the 2.0.12 defaults, unchanged.
+describe('Google Drive restore of retired annotation defaults', () => {
+    const RETIRED: Partial<ReaderSettings> = {
+        furiganaMode: 'all',
+        wordHighlightColorSource: 'jpdb',
+        wordUnderlineColorSource: 'pitch',
+        wordTextColorSource: 'anki',
+        subtitleHighlightColorSource: 'jpdb',
+        subtitleUnderlineColorSource: 'pitch',
+        subtitleTextColorSource: 'anki',
+        wordColorHiddenStateGroups: [],
+    };
+    const TODAY: Partial<ReaderSettings> = {
+        furiganaMode: DEFAULT_SETTINGS.furiganaMode,
+        wordHighlightColorSource: DEFAULT_SETTINGS.wordHighlightColorSource,
+        wordUnderlineColorSource: DEFAULT_SETTINGS.wordUnderlineColorSource,
+        wordTextColorSource: DEFAULT_SETTINGS.wordTextColorSource,
+        subtitleHighlightColorSource: DEFAULT_SETTINGS.subtitleHighlightColorSource,
+        subtitleUnderlineColorSource: DEFAULT_SETTINGS.subtitleUnderlineColorSource,
+        subtitleTextColorSource: DEFAULT_SETTINGS.subtitleTextColorSource,
+        wordColorHiddenStateGroups: DEFAULT_SETTINGS.wordColorHiddenStateGroups,
+    };
+
+    afterEach(() => {
+        resetSettingsDialogTestEnvironment();
+    });
+
+    async function restoreFromDrive(storage: Record<string, unknown> | undefined): Promise<{
+        adopted: ReaderSettings;
+        options: SettingsRestoreSaveOptions;
+    }> {
+        const authorizationState = 'b'.repeat(48);
+        settingsDialogTestState.cloudSettingsAvailable = true;
+        settingsDialogTestState.cloudSettingsAuthResult = { ok: true, state: authorizationState };
+        settingsDialogTestState.pendingCloudSettingsAction = {
+            action: 'restore-cloud-settings',
+            startedAt: Date.now(),
+            state: authorizationState,
+        };
+        const cloudSync = await import('../../src/reader/settings/cloud-sync');
+        vi.spyOn(cloudSync, 'downloadCloudSettingsFromCloud').mockResolvedValue({
+            formatName: 'yomu-google-drive-settings-sync',
+            formatVersion: 1,
+            syncedAt: '2026-09-13T08:00:00.000Z',
+            settings: { ...DEFAULT_SETTINGS, ...RETIRED, theme: 'dark' },
+            ...(storage ? { storage } : {}),
+        });
+        const fixture = createSettingsRestoreFixture({ ...DEFAULT_SETTINGS });
+        expect(await fixture.controller.resumePendingCloudSettingsSync()).toBe(true);
+        await waitForCondition(() => fixture.saveSettings.mock.calls.length === 1);
+        return { adopted: fixture.state.settings, options: restoreSaveOptions(fixture.saveSettings) };
+    }
+
+    it('reads an undeclared retired default in a snapshot with its ledger as today\'s default', async () => {
+        const commit = 'drive-2-0-commit';
+        const { adopted, options } = await restoreFromDrive({
+            'jpdb-popup-reader-settings': { ...DEFAULT_SETTINGS, ...RETIRED, theme: 'dark', __yomuSettingsPersistenceCommitV1: commit },
+            'yomu:settings-intent:v2': {
+                revision: 1,
+                records: { theme: { seq: 1, value: 'dark' } },
+                __yomuSettingsPersistenceCommitV1: commit,
+            },
+        });
+        expect(adopted).toMatchObject({ ...TODAY, theme: 'dark' });
+        expect(options.explicitUserChoiceKeys).toEqual(['theme']);
+    });
+
+    it('leaves a retired default in a settings-only snapshot as it is, and declares none of them', async () => {
+        const { adopted, options } = await restoreFromDrive(undefined);
+        expect(adopted).toMatchObject({ ...TODAY, theme: 'dark' });
+        expect(options.explicitUserChoiceKeys).toEqual(['theme']);
+    });
+});
+
 function saveStatusText(form: HTMLFormElement): string {
     const status = form.querySelector<HTMLElement>('[data-settings-save-status]');
     return status && !status.hidden ? status.textContent ?? '' : '';
