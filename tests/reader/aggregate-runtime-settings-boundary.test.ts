@@ -25,6 +25,9 @@ function visitImportedSource(pending: string[], visited: Set<string>): void {
 }
 
 function transpiledRelativeImports(file: string): string[] {
+    // A JSON module (the shared menu icon shapes) has no imports, and
+    // transpileModule cannot emit it.
+    if (!/\.tsx?$/u.test(file)) return [];
     const output = ts.transpileModule(readFileSync(file, 'utf8'), {
         compilerOptions: {
             module: ts.ModuleKind.ESNext,
