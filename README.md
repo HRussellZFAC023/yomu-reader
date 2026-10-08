@@ -66,7 +66,8 @@ No account and no setup. [How to learn Japanese with よむ](https://yomureader.
 
 Settings, dictionaries and saved words stay on your device. No ads, no analytics, nothing sold. よむ contacts a service only when a feature needs it:
 
-- Until you install a dictionary, page text goes to Jiten's public API to find the words.
+- The word you look up goes to Jiten, JPDB and Bunpro for its meaning, pitch accent and frequency.
+- Until you install a dictionary, page text also goes to Jiten's public API to find the words.
 - Recommended dictionaries come from Yomu's mirror. WTY JA-JA comes from its project on Hugging Face, Kanjium pitch accents from FooSoft's Yomichan repackaging on GitHub, and Jitendex and Jiten from their own projects.
 - Audio sources, OCR (Google Lens by default), translation and any review service you connect get only what that feature needs.
 

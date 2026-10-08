@@ -28,7 +28,7 @@ Yes. On Android, use Firefox. On iPhone and iPad, use Safari: [install steps](/i
 
 ## Do I need to install a dictionary? {#dictionary}
 
-No. Lookups use Jiten's free online dictionary. For offline lookups, install the recommended one in <a href="/study/#settings=dictionaries" target="_self">Settings → Sources</a>
+No. Until you install one, Jiten's free online dictionary splits each page into words. To do that on your device, install the recommended one in <a href="/study/#settings=dictionaries" target="_self">Settings → Sources</a>
 
 ## Where did my saved words go? {#saved-words}
 

@@ -25,6 +25,7 @@ import {
     websiteNavigationLabel,
 } from '../../docs/.vitepress/locales/site-locales';
 import { publishedWebsiteRouteDefinitions } from '../../docs/.vitepress/locales/route-catalog';
+import { DEFAULT_SETTINGS } from '../../src/reader/settings';
 
 const ROOT = process.cwd();
 const DOCS = path.join(ROOT, 'docs');
@@ -213,6 +214,25 @@ describe('published product claims', () => {
                 .matchAll(/\b\d+\s+(?:learning\s+)?(?:languages?|targets?)\b|\blearning (?:languages?|targets?)\b/giu)]
                 .map(match => `${file}: ${match[0]}`));
         expect(claims).toEqual([]);
+    });
+
+    it('names every service a lookup reaches by default, before any key is added', () => {
+        // Opening a word asks each definition source that is on by default and
+        // needs no key. The privacy page once listed them only under "services
+        // you connect", as if nothing left the device until you connected one.
+        const NEEDS_A_KEY = new Set(['wanikani']);
+        const NAMES: Record<string, string> = { jiten: 'Jiten', jpdb: 'JPDB', bunpro: 'Bunpro', wanikani: 'WaniKani' };
+        const keyless = Object.entries(DEFAULT_SETTINGS)
+            .flatMap(([key, value]) => {
+                const provider = /^(\w+)DefinitionsEnabled$/u.exec(key)?.[1];
+                return provider && value === true && !NEEDS_A_KEY.has(provider) ? [NAMES[provider]] : [];
+            });
+        expect(keyless.sort()).toEqual(['Bunpro', 'JPDB', 'Jiten']);
+        for (const file of ['docs/privacy/index.md', 'README.md']) {
+            const lookupLine = readProjectFile(file).split('\n').find(line => /word you (?:open|look up) goes to/u.test(line));
+            expect(lookupLine, file).toBeDefined();
+            for (const name of keyless) expect(lookupLine, `${file}: ${name}`).toContain(name);
+        }
     });
 
     it('keeps Japanese lookup backed by published dictionary supply', () => {
