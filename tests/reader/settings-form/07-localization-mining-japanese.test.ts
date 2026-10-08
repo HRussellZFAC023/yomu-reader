@@ -286,7 +286,10 @@ describe('settings form localization', () => {
         expect(phoneAnki).toContain("can't see your decks or reviews");
         expect(phoneAnki).toContain('AnkiMobile or AnkiDroid');
         expect(phoneAnki).toContain('"webBindAddress": "100.x.y.z"');
-        expect(phoneAnki).toContain('"webCorsOriginList": ["http://localhost", "https://yomureader.com"]');
+        // Never a whole webCorsOriginList to paste: that wipes origins other
+        // tools already added. The answer says to add one and keep the rest.
+        expect(phoneAnki).toContain("add `https://yomureader.com` to `webCorsOriginList` and keep what's there");
+        expect(phoneAnki).not.toContain('"webCorsOriginList"');
         expect(phoneAnki).toContain('Never open port 8765 to the internet.');
     });
 

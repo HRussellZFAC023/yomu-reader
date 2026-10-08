@@ -43,12 +43,13 @@ No. Study is built in. To use Anki, install the AnkiConnect add-on, keep Anki op
 Yes, while Anki runs on your computer:
 
 1. [Install Tailscale](https://tailscale.com/) on the computer and the phone.
-2. In Anki, open Tools → Add-ons → AnkiConnect → Config and set these two lines, using the computer's Tailscale address. Restart Anki.
+2. In Anki, open Tools → Add-ons → AnkiConnect → Config and set this line to the computer's Tailscale address:
 
    ```json
-   "webBindAddress": "100.x.y.z",
-   "webCorsOriginList": ["http://localhost", "https://yomureader.com"]
+   "webBindAddress": "100.x.y.z"
    ```
+
+   Then add `https://yomureader.com` to `webCorsOriginList` and keep what's there. Restart Anki.
 
 3. On the phone, enter that address under Settings → Mining, such as `http://100.x.y.z:8765`, and press Check AnkiConnect.
 
