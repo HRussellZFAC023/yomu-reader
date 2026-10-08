@@ -19,7 +19,7 @@ What the evidence says, in short:
 3. Readings follow the learner (`known-status`). A word the study source knows loses its reading; with no source, every parsed word keeps one. Readings take the same in-flow lane as under `all`.
 4. A reading is half its word, regular weight, in the page's face, and one colour per paragraph: the prose ink eased toward the backdrop and held at 4.5:1. Annotated words inherit every font property from the host text.
 5. Footnote and citation markers are not annotated.
-6. Existing installs adopt these defaults. Every save writes the whole settings object, so a group of changed keys that still holds its 2.0 values, with no intent-ledger declaration, reads as the new default (`settings/retired-defaults.ts`). The groups are the reading mode, the hidden colour groups, and each colour channel set (highlight, underline and text together), so a set the learner changed anywhere stays whole. Storage is not rewritten; the next save stores what was read.
+6. Existing installs adopt these defaults. Every save writes the whole settings object, so a group of changed keys that still holds its 2.0 values, with no intent-ledger declaration, reads as the new default (`settings/retired-defaults.ts`). The groups are the reading mode, the hidden colour groups, and each colour channel set (highlight, underline and text together), so a set the learner changed anywhere stays whole. Storage is not rewritten; the next save stores what was read. Restoring a backup does the same at once: with the backup's intent ledger an undeclared old default reads as today's, and a settings-only backup, which has no ledger, leaves that setting as it is rather than declaring a value nobody chose.
 
 ## Consequences
 

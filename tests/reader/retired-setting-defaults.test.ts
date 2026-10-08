@@ -1,7 +1,8 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import type { ReaderSettings } from '../../src/reader/app/types';
-import { DEFAULT_SETTINGS, loadSettings, SETTINGS_STORAGE_KEY } from '../../src/reader/settings';
+import { DEFAULT_SETTINGS, loadSettings, saveSettings, SETTINGS_STORAGE_KEY } from '../../src/reader/settings';
+import { restoreReaderSettingsBackup } from '../../src/reader/settings/reader-settings-restore-adapter';
 import { RETIRED_DEFAULT_SETTING_KEYS } from '../../src/reader/settings/retired-defaults';
 import { serializeSettingsPersistencePair } from '../../src/reader/settings/settings-persistence-transaction';
 import type { SettingsIntentLedger } from '../../src/reader/settings/intent-ledger';
@@ -45,6 +46,27 @@ async function loadStored(settings: Partial<ReaderSettings>, ledger = EMPTY_LEDG
 }
 
 afterEach(() => { vi.unstubAllGlobals(); });
+
+// Restores a settings backup the way Settings does and returns what the page
+// adopted. With `storage`, the backup carries its settings and intent ledger.
+async function restore(backup: { settings: Partial<ReaderSettings>; storage?: Record<string, unknown> }): Promise<ReaderSettings> {
+    const text = JSON.stringify({ formatName: 'yomu-reader-settings', formatVersion: 3, ...backup });
+    const file = new File([text], 'yomu-settings.json', { type: 'application/json' });
+    Object.defineProperty(file, 'text', { value: async () => text });
+    let adopted: ReaderSettings | undefined;
+    await restoreReaderSettingsBackup(file, await loadSettings(), {
+        persistSettings: saveSettings,
+        adoptSettings: settings => { adopted = settings; },
+        setStatus: () => undefined,
+        dictionaryStateChanged: () => undefined,
+        dictionaries: {
+            exportJson: vi.fn(),
+            importFile: vi.fn(),
+            summary: vi.fn().mockResolvedValue({ dictionaries: [] }),
+        } as never,
+    });
+    return adopted!;
+}
 
 describe('retired annotation defaults', () => {
     it('are what a fresh install starts with', () => {
@@ -98,6 +120,36 @@ describe('retired annotation defaults', () => {
             wordColorHiddenStateGroups: ['due'],
         };
         expect(await loadStored(choices)).toMatchObject(choices);
+    });
+
+    it('read as the new defaults right after restoring a backup that never declared them', async () => {
+        installGmStorageFixture();
+        const storage = serializeSettingsPersistencePair({ ...DEFAULT_SETTINGS, ...PRE_2_1_DEFAULTS, theme: 'dark' }, {
+            revision: 1,
+            records: { theme: { seq: 1, value: 'dark' } },
+        });
+        const adopted = await restore({ settings: { ...PRE_2_1_DEFAULTS, theme: 'dark' }, storage });
+        expect(adopted).toMatchObject({ ...NEW_DEFAULTS, theme: 'dark' });
+        expect(await loadSettings()).toMatchObject({ ...NEW_DEFAULTS, theme: 'dark' });
+    });
+
+    it('stay as they are when a settings-only backup carries the old defaults, and are not declared', async () => {
+        await loadStored({ wordUnderlineColorSource: 'pitch', wordHighlightColorSource: 'off', wordTextColorSource: 'off' }, {
+            revision: 1,
+            records: { wordUnderlineColorSource: { seq: 1, value: 'pitch' } },
+        });
+        const adopted = await restore({ settings: { ...PRE_2_1_DEFAULTS, theme: 'dark' } });
+        // The learner's own pitch underline survives a backup that only carried 2.0's.
+        expect(adopted).toMatchObject({ ...NEW_DEFAULTS, wordUnderlineColorSource: 'pitch', wordHighlightColorSource: 'off', wordTextColorSource: 'off', theme: 'dark' });
+        const reloaded = await loadSettings();
+        expect(reloaded).toMatchObject({ furiganaMode: 'known-status', wordUnderlineColorSource: 'pitch', theme: 'dark' });
+    });
+
+    it('restore every value the old defaults never had from a settings-only backup', async () => {
+        installGmStorageFixture();
+        const adopted = await restore({ settings: { furiganaMode: 'hover', wordColorHiddenStateGroups: ['due'] } });
+        expect(adopted).toMatchObject({ furiganaMode: 'hover', wordColorHiddenStateGroups: ['due'] });
+        expect(await loadSettings()).toMatchObject({ furiganaMode: 'hover', wordColorHiddenStateGroups: ['due'] });
     });
 
     it('are declared by the smoke harness whenever a smoke sets them, so smokes keep testing what they set', () => {
