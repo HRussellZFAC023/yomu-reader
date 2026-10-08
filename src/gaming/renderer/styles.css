@@ -42,7 +42,7 @@ textarea {
     font: inherit;
 }
 
-:where(.yomu-gaming-shell, .overlay-root, body.yomu-gaming-overlay-document) :where(
+:where(.yomu-gaming-shell, body.yomu-gaming-overlay-document) :where(
     button,
     input,
     select,
@@ -61,7 +61,7 @@ textarea {
         transform 0.14s ease;
 }
 
-:where(.yomu-gaming-shell, .overlay-root, body.yomu-gaming-overlay-document) :where(
+:where(.yomu-gaming-shell, body.yomu-gaming-overlay-document) :where(
     button,
     label,
     [role="button"],
@@ -72,7 +72,7 @@ textarea {
 }
 
 @media (hover: hover) and (pointer: fine) {
-    :where(.yomu-gaming-shell, .overlay-root, body.yomu-gaming-overlay-document) :where(
+    :where(.yomu-gaming-shell, body.yomu-gaming-overlay-document) :where(
         button,
         label,
         [role="button"],
@@ -302,141 +302,9 @@ textarea {
     background: color-mix(in srgb, var(--jpdb-reader-accent) 36%, var(--jpdb-reader-black) 48%);
 }
 
-
-
 .overlay-action-primary {
     border-color: color-mix(in srgb, var(--jpdb-reader-accent) 60%, transparent) !important;
     background: color-mix(in srgb, var(--jpdb-reader-accent) 32%, transparent) !important;
-}
-
-/* Inline definition popover — read the word in place without leaving the game. */
-.overlay-lookup {
-    position: fixed;
-    z-index: 8;
-    display: grid;
-    gap: 8px;
-    padding: 12px 14px;
-    border: 1px solid color-mix(in srgb, var(--jpdb-reader-accent) 34%, transparent);
-    border-radius: 14px;
-    background: color-mix(in srgb, #0f1620 95%, transparent);
-    color: var(--jpdb-reader-white);
-    box-shadow: 0 20px 46px color-mix(in srgb, var(--jpdb-reader-black) 56%, transparent);
-    cursor: default;
-    pointer-events: auto;
-    backdrop-filter: blur(10px);
-}
-
-.overlay-lookup-head {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 10px;
-}
-
-.overlay-lookup-line {
-    overflow: hidden;
-    font-size: 17px;
-    font-weight: 850;
-    line-height: 1.25;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-.overlay-lookup-chips {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 5px;
-}
-
-.overlay-lookup-chips button {
-    min-height: 26px;
-    padding: 0 10px;
-    border: 1px solid color-mix(in srgb, var(--jpdb-reader-white) 18%, transparent);
-    border-radius: 999px;
-    background: color-mix(in srgb, var(--jpdb-reader-black) 42%, transparent);
-    color: var(--jpdb-reader-white);
-    cursor: pointer;
-    font-size: 14px;
-    font-weight: 800;
-}
-
-.overlay-lookup-chips button.is-selected {
-    border-color: color-mix(in srgb, var(--jpdb-reader-accent) 70%, transparent);
-    background: color-mix(in srgb, var(--jpdb-reader-accent) 34%, transparent);
-}
-
-.overlay-lookup-head button {
-    min-width: 28px;
-    min-height: 28px;
-    border: 1px solid color-mix(in srgb, var(--jpdb-reader-white) 22%, transparent);
-    border-radius: 999px;
-    background: color-mix(in srgb, var(--jpdb-reader-black) 40%, transparent);
-    color: var(--jpdb-reader-white);
-    cursor: pointer;
-    font-size: 16px;
-    line-height: 1;
-}
-
-.overlay-lookup-word {
-    display: flex;
-    align-items: baseline;
-    flex-wrap: wrap;
-    gap: 8px;
-    font-size: 18px;
-    font-weight: 800;
-}
-
-.overlay-lookup-reading {
-    color: var(--jpdb-reader-accent);
-    font-size: 15px;
-    font-weight: 750;
-}
-
-.overlay-lookup-tag {
-    padding: 1px 8px;
-    border-radius: 999px;
-    background: color-mix(in srgb, var(--jpdb-reader-accent) 32%, transparent);
-    font-size: 11px;
-    font-weight: 800;
-    text-transform: uppercase;
-}
-
-.overlay-lookup-pos {
-    color: color-mix(in srgb, var(--jpdb-reader-white) 70%, transparent);
-    font-size: 12px;
-    font-weight: 700;
-}
-
-.overlay-lookup-glosses {
-    margin: 0;
-    padding-left: 20px;
-    display: grid;
-    gap: 3px;
-    font-size: 14px;
-    line-height: 1.35;
-}
-
-.overlay-lookup-empty,
-.overlay-lookup-loading {
-    color: color-mix(in srgb, var(--jpdb-reader-white) 76%, transparent);
-    font-size: 13px;
-}
-
-.overlay-lookup-foot {
-    display: flex;
-    justify-content: flex-end;
-}
-
-.overlay-lookup-foot button {
-    min-height: 28px;
-    padding: 0 12px;
-    border: 1px solid color-mix(in srgb, var(--jpdb-reader-accent) 50%, transparent);
-    border-radius: 999px;
-    background: color-mix(in srgb, var(--jpdb-reader-accent) 24%, transparent);
-    color: var(--jpdb-reader-white);
-    cursor: pointer;
-    font-size: 12px;
-    font-weight: 800;
 }
 
 .overlay-status {
@@ -472,16 +340,15 @@ textarea {
     white-space: nowrap;
 }
 
-.overlay-actions button,
-.overlay-term-pills button,
-.overlay-primary-term {
+.overlay-actions button {
     min-height: 32px;
+    padding: 0 11px;
     border: 1px solid color-mix(in srgb, var(--jpdb-reader-white) 18%, transparent);
-    border-radius: 999px;
+    border-radius: 8px;
     background: color-mix(in srgb, var(--jpdb-reader-black) 42%, transparent);
     color: var(--jpdb-reader-white);
     cursor: pointer;
-    font-weight: 850;
+    font-weight: 600;
 }
 
 .overlay-result {
@@ -524,58 +391,10 @@ textarea {
     line-height: 1.45;
 }
 
-.overlay-caption {
-    max-width: min(680px, calc(100vw - 48px));
-    overflow: hidden;
-    padding: 8px 12px;
-    border: 1px solid color-mix(in srgb, var(--jpdb-reader-accent) 34%, transparent);
-    border-radius: 999px;
-    background: color-mix(in srgb, var(--jpdb-reader-accent) 26%, var(--jpdb-reader-black) 52%);
-    color: var(--jpdb-reader-white);
-    font-size: 20px;
-    font-weight: 850;
-    line-height: 1.22;
-    text-overflow: ellipsis;
-    text-shadow: 0 1px 2px color-mix(in srgb, var(--jpdb-reader-black) 72%, transparent);
-    white-space: nowrap;
-}
-
-.overlay-primary-term {
-    width: auto;
-    padding: 8px 11px;
-    border-color: color-mix(in srgb, var(--jpdb-reader-accent) 60%, transparent);
-    background: color-mix(in srgb, var(--jpdb-reader-accent) 28%, transparent);
-    color: var(--jpdb-reader-white);
-    font-size: 22px;
-    line-height: 1.15;
-    text-align: left;
-}
-
-.overlay-actions,
-.overlay-term-pills {
+.overlay-actions {
     display: flex;
     flex-wrap: wrap;
     gap: 7px;
-}
-
-.overlay-actions button,
-.overlay-term-pills button {
-    padding: 0 11px;
-}
-
-.overlay-term-pills button {
-    max-width: 118px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-.overlay-term-pills-primary {
-    align-items: center;
-}
-
-.overlay-result-compact .overlay-term-pills button {
-    background: color-mix(in srgb, var(--jpdb-reader-black) 50%, transparent);
 }
 
 /* The recognized lines ARE the reader's OCR overlay: .jpdb-ocr-layer wrapping
