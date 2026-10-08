@@ -96,6 +96,6 @@ describe("support banner layout", () => {
     }
     const forecast = operatingForecast.lineItems.reduce((sum, item) => sum + item.monthlyGBP, 0);
     const exactGoal = Math.max(operatingForecast.floorGBP, forecast);
-    expect(supportDocs).toContain(`| **Exact forecast** | **£${exactGoal.toFixed(2)}** |`);
+    expect(supportDocs).toContain(`| **Total** | **£${exactGoal.toFixed(2)}** |`);
   });
 });

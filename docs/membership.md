@@ -17,7 +17,7 @@ Ko-fi takes one-off or monthly donations. Patreon is monthly. Card accepts GBP, 
 
 ## Monthly running costs {#monthly-running-costs}
 
-| Forecast input | Monthly estimate |
+| Cost | Per month |
 | --- | ---: |
 | Cloudflare Workers Paid plan | £3.75 |
 | R2 audio bucket storage | £0.60 |
@@ -25,7 +25,7 @@ Ko-fi takes one-off or monthly donations. Patreon is monthly. Card accepts GBP, 
 | yomureader.com domain | £0.65 |
 | D1 + KV donation state | £0.30 |
 | API usage and test devices | £4.50 |
-| **Exact forecast** | **£10.20** |
+| **Total** | **£10.20** |
 
 ## Free ways to help
 
