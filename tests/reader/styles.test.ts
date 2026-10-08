@@ -340,7 +340,7 @@ describe('reader stylesheet loading', () => {
         const css = readFileSync('src/reader/styles/reader-words-ocr.css', 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
         const rules = Array.from(css.matchAll(/([^{}]*ruby[^{}]*overhang[^{}]*)\{([^}]*)\}/g), match => ({ selector: match[1].trim(), body: match[2].trim() }));
         expect(rules).toEqual([{
-            selector: '.jpdb-reader-scan-word:not(:is(.jpdb-reader-text-mirror, .jpdb-reader-control-text-mirror) *) > ruby:is(.jpdb-reader-ruby-overhang:not(.jpdb-reader-ruby-at-start, .jpdb-reader-ruby-at-end), .jpdb-reader-ruby-edge-overhang) > rt.jpdb-reader-furi',
+            selector: '.jpdb-reader-scan-word:not(:is(.jpdb-reader-text-mirror, .jpdb-reader-control-text-mirror) *) > ruby:is(.jpdb-reader-ruby-overhang:not(.jpdb-reader-ruby-at-start, .jpdb-reader-ruby-at-end), .jpdb-reader-ruby-edge-overhang):not(.jpdb-reader-ruby-line-edge) > rt.jpdb-reader-furi',
             body: 'margin-inline: -0.5em;',
         }]);
     });

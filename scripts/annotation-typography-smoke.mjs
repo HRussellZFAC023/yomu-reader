@@ -16,11 +16,13 @@
 //   * each reading is centred over its own word and clear of its neighbours;
 //   * a reading wider than its kanji overhangs the plain words and text beside
 //     it, out of its own link too, so the kanji keeps its place in the line
-//     (no gap around 間 in の間で), and never overhangs a neighbour's reading;
+//     (no gap around 間 in の間で), and never overhangs a neighbour's reading
+//     or the edge of a line it starts or ends;
 //   * nothing is painted behind a word at rest; only words the study source is
 //     still teaching carry an underline (new solid, learning dashed, due
 //     dotted, 3:1);
-//   * known and due words carry no reading, and footnote markers are not
+//   * known and due words carry no reading, a word the learner just failed
+//     keeps its reading and a solid line, and footnote markers are not
 //     annotated.
 // YOMU_TYPOGRAPHY_ENGINES=chromium,webkit (default both); YOMU_TYPOGRAPHY_DIST
 // points at another build to prove a failure.
@@ -87,6 +89,9 @@ const OVERHANG = 'の間で学習を行う。頭体、<a href="/wiki/学校教�
 // under a wide reading takes its own advance in the line. #sentence is
 // tracked, and its readings share that tracking, so up to a pixel of the gap
 // stays there.
+// A wide reading whose word starts a line: the column is narrowed so that 間
+// wraps to the head of line 2, where its reading must not stick out.
+const LINE_HEAD = 'あいうえおか間で';
 const OVERHANG_SPANS = [['sentence', 'で', 'し', 1], ['overhang', 'の', 'で', 1], ['overhang', 'で', 'を', 2], ['overhang', 'を', 'う', 1], ['overhang', '、', 'で', 4]];
 
 const LINKED = '日本語は<a href="/wiki/日本">日本</a>国内で使用されている言語。'
@@ -161,6 +166,7 @@ async function checkScenario(browser, engine, theme) {
         await page.waitForFunction(() => document.querySelectorAll('#sentence .jpdb-reader-word').length >= 10
             && document.querySelectorAll('#linked .jpdb-reader-word').length >= 5
             && document.querySelectorAll('#overhang rt').length >= 6
+            && document.querySelector('#line-head rt')
             && document.querySelector('#sentence .jpdb-reader-word.jpdb-new')?.style.getPropertyValue('--jpdb-reader-word-accessible-underline'),
         null, { timeout: 30_000 });
         await page.waitForTimeout(600);
@@ -180,6 +186,7 @@ function judge(id, measured, paper) {
     judgeReadings(id, measured, paper);
     judgeStudyState(id, measured, paper);
     judgeOverhang(id, measured);
+    judgeLineEdges(id, measured);
 }
 
 function judgeWords(id, measured) {
@@ -245,6 +252,14 @@ function judgeOverhang(id, measured) {
     }
 }
 
+function judgeLineEdges(id, measured) {
+    const { column, readings, wrapped } = measured.lineHead;
+    if (!wrapped) fail(`${id}: 間 should wrap to the head of line 2 in #line-head.`, measured.lineHead);
+    for (const reading of readings) {
+        if (reading.left < column.left - 0.5 || reading.right > column.right + 0.5) fail(`${id}: reading ${reading.text} sticks out of its column at a line edge (${reading.left.toFixed(1)}–${reading.right.toFixed(1)} in ${column.left.toFixed(1)}–${column.right.toFixed(1)}).`, measured.lineHead);
+    }
+}
+
 function fail(message, details) {
     report.failures.push({ message, details });
 }
@@ -252,7 +267,7 @@ function fail(message, details) {
 function fixturePage(paper, ink) {
     return `<!doctype html><html lang="ja"><head><meta charset="utf-8"><title>Yomu annotation typography smoke</title>
 <style>body{margin:0;padding:24px;background:${paper};color:${ink};font:20px/1.9 "Hiragino Mincho ProN","Noto Serif JP",serif}a{color:${ink === '#202122' ? '#3366cc' : '#88a3e8'}}${HOSTILE_CSS}</style>
-</head><body><main><p id="sentence" class="tracked">${SENTENCE}</p><p id="linked">${LINKED}</p><p id="overhang">${OVERHANG}</p></main></body></html>`;
+</head><body><main><p id="sentence" class="tracked">${SENTENCE}</p><p id="linked">${LINKED}</p><p id="overhang">${OVERHANG}</p><p id="line-head" style="width:6.5em">${LINE_HEAD}</p></main></body></html>`;
 }
 
 function handleRequest(request) {
@@ -356,7 +371,26 @@ function measurePage() {
             if (left.top === right.top) spans[paragraph.id][`${left.text}${right.text}`] ??= right.left - left.right;
         }
     }
+    const lineHeadParagraph = document.querySelector('#line-head');
+    const glyphTop = (node, offset) => {
+        const glyph = document.createRange();
+        glyph.setStart(node, offset);
+        glyph.setEnd(node, offset + 1);
+        return glyph.getBoundingClientRect().top;
+    };
+    const kanjiText = document.createTreeWalker(lineHeadParagraph, NodeFilter.SHOW_TEXT, { acceptNode: node => node.data.includes('間') && !node.parentElement.closest('rt') ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_SKIP }).nextNode();
+    const lineHead = {
+        column: lineHeadParagraph.getBoundingClientRect().toJSON(),
+        wrapped: Boolean(kanjiText) && glyphTop(kanjiText, kanjiText.data.indexOf('間')) > glyphTop(document.createTreeWalker(lineHeadParagraph, NodeFilter.SHOW_TEXT).nextNode(), 0) + 10,
+        readings: Array.from(lineHeadParagraph.querySelectorAll('rt')).map(rt => {
+            const ink = document.createRange();
+            ink.selectNodeContents(rt);
+            const rect = ink.getBoundingClientRect();
+            return { text: rt.textContent, left: rect.left, right: rect.right, rubyClasses: rt.parentElement.className };
+        }),
+    };
     return {
+        lineHead,
         words,
         readings,
         readingNeighbours,

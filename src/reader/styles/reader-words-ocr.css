@@ -938,7 +938,9 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
    in の間で). A negative margin on the reading only shrinks its share of the
    line: the kanji never moves. dom/ruby-overhang.ts decides which readings
    may: one inside its word at once, one at a word edge only while no reading
-   sits on the other side (edge-overhang), so two readings never meet.
+   sits on the other side (edge-overhang), so two readings never meet, and
+   none at the head or end of a line (line-edge), where JLREQ aligns ruby to
+   the line and an overhang would stick out of the column.
    No sibling selector here: one over page words made Chromium annotate a
    one-root page ten times slower. WebKit stops centring a reading whose
    margins make it narrower than its kanji, so the margin is never more than
@@ -946,7 +948,7 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
    reading at least that much wider. Page words only, in flow or passive
    (prose with links); a text mirror lays its copy over the host's own text
    and must keep the host's widths. */
-.jpdb-reader-scan-word:not(:is(.jpdb-reader-text-mirror, .jpdb-reader-control-text-mirror) *) > ruby:is(.jpdb-reader-ruby-overhang:not(.jpdb-reader-ruby-at-start, .jpdb-reader-ruby-at-end), .jpdb-reader-ruby-edge-overhang) > rt.jpdb-reader-furi {
+.jpdb-reader-scan-word:not(:is(.jpdb-reader-text-mirror, .jpdb-reader-control-text-mirror) *) > ruby:is(.jpdb-reader-ruby-overhang:not(.jpdb-reader-ruby-at-start, .jpdb-reader-ruby-at-end), .jpdb-reader-ruby-edge-overhang):not(.jpdb-reader-ruby-line-edge) > rt.jpdb-reader-furi {
   margin-inline: -0.5em;
 }
 .jpdb-reader-word ruby {

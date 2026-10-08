@@ -10,8 +10,14 @@
  * A reading inside its word overhangs at once; at a word edge it overhangs only
  * where no reading sits on the other side: plain text, a word without a
  * reading, or a word that ends in kana there, looking out of a link the word
- * starts or ends (学校教育 is its own link on Wikipedia). A line or block edge
- * stops it, and so does anything else. reader-words-ocr.css draws the overhang.
+ * starts or ends (学校教育 is its own link on Wikipedia). A block edge stops
+ * it, and so does anything else. reader-words-ocr.css draws the overhang.
+ *
+ * A line edge stops it too: at the head or end of a line JLREQ aligns ruby to
+ * the line instead, and an overhang there would stick out of the text column
+ * and lose its first kana to any box that clips. Where lines break is layout,
+ * so that is read after layout, once a frame, for every reading that may
+ * overhang, after each paint and on resize (`jpdb-reader-ruby-line-edge`).
  *
  * The neighbours are read here, not by a sibling selector: an adjacent-sibling
  * rule over page words, with or without :has(), made Chromium take ten times
@@ -22,7 +28,11 @@ const OVERHANG_CLASS = 'jpdb-reader-ruby-overhang';
 const AT_START_CLASS = 'jpdb-reader-ruby-at-start';
 const AT_END_CLASS = 'jpdb-reader-ruby-at-end';
 const EDGE_OVERHANG_CLASS = 'jpdb-reader-ruby-edge-overhang';
+const LINE_EDGE_CLASS = 'jpdb-reader-ruby-line-edge';
 const EDGE_RUBY_SELECTOR = `:scope > ruby.${OVERHANG_CLASS}:is(.${AT_START_CLASS}, .${AT_END_CLASS})`;
+// The readings reader-words-ocr.css lets overhang: page words, not a text
+// mirror, which keeps the host's own widths.
+const PAGE_OVERHANG_RUBY_SELECTOR = `.jpdb-reader-scan-word:not(:is(.jpdb-reader-text-mirror, .jpdb-reader-control-text-mirror) *) > ruby.${OVERHANG_CLASS}`;
 const WORD_CLASS = 'jpdb-reader-word';
 
 type Side = 'before' | 'after';
@@ -50,6 +60,110 @@ export function syncRubyEdgeOverhang(words: Iterable<HTMLElement>): void {
         }
     }
     affected.forEach(syncWord);
+    for (const word of affected) {
+        for (const ruby of word.querySelectorAll(`:scope > ruby.${OVERHANG_CLASS}`)) lineEdgeCandidates.add(ruby);
+    }
+    scheduleLineEdgeCheck();
+}
+
+// Readings that may overhang. A paint anywhere can move line breaks anywhere
+// in its paragraph, so every pass reads them all; a disconnected one leaves.
+const lineEdgeCandidates = new Set<Element>();
+let lineEdgeFrame = 0;
+let resizeListening = false;
+
+function scheduleLineEdgeCheck(): void {
+    if (lineEdgeFrame || !lineEdgeCandidates.size || typeof requestAnimationFrame !== 'function') return;
+    if (!resizeListening) {
+        resizeListening = true;
+        window.addEventListener('resize', scheduleLineEdgeCheck, { passive: true });
+    }
+    lineEdgeFrame = requestAnimationFrame(checkLineEdges);
+}
+
+// All reads first, then the class writes, so a pass costs one layout.
+function checkLineEdges(): void {
+    lineEdgeFrame = 0;
+    const verdicts: Array<[Element, boolean]> = [];
+    for (const ruby of lineEdgeCandidates) {
+        if (!ruby.isConnected) lineEdgeCandidates.delete(ruby);
+        else if (ruby.matches(PAGE_OVERHANG_RUBY_SELECTOR)) verdicts.push([ruby, atLineEdge(ruby)]);
+    }
+    for (const [ruby, edge] of verdicts) {
+        if (ruby.classList.contains(LINE_EDGE_CLASS) !== edge) ruby.classList.toggle(LINE_EDGE_CLASS, edge);
+    }
+}
+
+/** Whether the line breaks right before or right after this ruby's kanji. */
+function atLineEdge(ruby: Element): boolean {
+    const base = glyphRects(ruby);
+    if (!base) return false;
+    const before = facingGlyph(ruby, 'before');
+    const after = facingGlyph(ruby, 'after');
+    return Boolean((before && !sameLine(before, base.first)) || (after && !sameLine(after, base.last)));
+}
+
+// The ruby's first and last kanji, without its reading.
+function glyphRects(ruby: Element): { first: DOMRect; last: DOMRect } | null {
+    const walker = glyphWalker(ruby);
+    const firstText = walker.nextNode() as Text | null;
+    if (!firstText) return null;
+    let lastText = firstText;
+    for (let node = walker.nextNode(); node; node = walker.nextNode()) lastText = node as Text;
+    const first = glyphRect(firstText, 'after');
+    const last = glyphRect(lastText, 'before');
+    return first && last ? { first, last } : null;
+}
+
+// The nearest page glyph before or after the ruby in its paragraph, skipping
+// readings: its own word's kana, plain text, or a neighbour's kanji.
+function facingGlyph(ruby: Element, side: Side): DOMRect | null {
+    const walker = glyphWalker(ruby.closest(PARAGRAPH_SELECTOR) ?? ruby.ownerDocument.body);
+    let from: Node = ruby;
+    if (side === 'after') while (from.lastChild) from = from.lastChild;
+    walker.currentNode = from;
+    const text = (side === 'before' ? walker.previousNode() : walker.nextNode()) as Text | null;
+    return text ? glyphRect(text, side) : null;
+}
+
+const PARAGRAPH_SELECTOR = 'p, li, dd, dt, td, th, h1, h2, h3, h4, h5, h6, blockquote, figcaption, caption, div, section, article';
+
+function glyphWalker(root: Node): TreeWalker {
+    return root.ownerDocument!.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
+        acceptNode: node => (node.parentElement?.closest('rt, rp') || !/\S/.test((node as Text).data)
+            ? NodeFilter.FILTER_SKIP
+            : NodeFilter.FILTER_ACCEPT),
+    });
+}
+
+// The glyph of `text` that faces the ruby: its last one before, its first after.
+function glyphRect(text: Text, side: Side): DOMRect | null {
+    const { data } = text;
+    let start = data.length - data.trimStart().length;
+    let end = start + 1;
+    if (side === 'before') {
+        end = data.trimEnd().length;
+        start = end - 1;
+    }
+    // Keep a surrogate pair (a rare kanji) whole.
+    if (side === 'before' && start > 0 && /[\uDC00-\uDFFF]/.test(data[start]!)) start -= 1;
+    if (side === 'after' && /[\uD800-\uDBFF]/.test(data[start]!)) end += 1;
+    const range = text.ownerDocument.createRange();
+    // jsdom has no layout: no rects, so no line edge.
+    if (typeof range.getClientRects !== 'function') return null;
+    range.setStart(text, start);
+    range.setEnd(text, end);
+    const rects = range.getClientRects();
+    return rects[side === 'before' ? rects.length - 1 : 0] ?? null;
+}
+
+// Two glyphs share a line when they overlap across it: vertically in
+// horizontal text, horizontally in vertical text.
+function sameLine(left: DOMRect, right: DOMRect): boolean {
+    const overlap = (start: number, end: number, otherStart: number, otherEnd: number, size: number): boolean =>
+        Math.min(end, otherEnd) - Math.max(start, otherStart) > size / 2;
+    return overlap(left.top, left.bottom, right.top, right.bottom, Math.min(left.height, right.height))
+        || overlap(left.left, left.right, right.left, right.right, Math.min(left.width, right.width));
 }
 
 function syncWord(word: Element): void {
