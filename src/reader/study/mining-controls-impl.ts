@@ -61,16 +61,38 @@ function mountDeckSelect(host: HTMLElement, choices: readonly DeckChoice[], card
     select.append(placeholder, ...choices.map(choice => new Option(choice.label)));
     root.append(style, select);
     host.replaceChildren();
-    // Typing a deck's name picks it: page shortcuts must not take those keys.
+    // Keys typed into the dropdown browse its decks: page shortcuts must not take them.
     host.setAttribute(FORM_CONTROL_HOST_ATTRIBUTE, '');
     deckSelects.set(host, select);
-    select.addEventListener('change', trustedReaderEventHandler(() => {
+    const choose = (): void => {
         const choice = choices[select.selectedIndex - 1];
         select.selectedIndex = 0;
         if (choice) void addToChosenDeck(host, select, () => performAction(select, card, sentence, {
             kind: 'card-action', action: 'add', deckSource: choice.source, deckId: choice.id,
         }));
+    };
+    // A closed dropdown moves to the deck a typed letter or an arrow reaches and reports
+    // each move as a change, so a save there would go to whichever deck the first letter
+    // found. Those moves only browse; Enter saves the deck reached. A deck picked in the
+    // open list (a click, a tap, or Enter there) saves at once.
+    let browsing = false;
+    select.addEventListener('keydown', trustedReaderEventHandler((event: KeyboardEvent) => {
+        if (event.key === 'Enter' && select.selectedIndex > 0) {
+            event.preventDefault();
+            choose();
+            return;
+        }
+        browsing = true;
+        setTimeout(() => { browsing = false; });
     }));
+    select.addEventListener('change', trustedReaderEventHandler(() => {
+        if (!browsing) choose();
+    }));
+    // A deck browsed to and left unsaved is let go: the list opens on no deck, so picking
+    // any deck there is a change that saves.
+    const letGo = (): void => { select.selectedIndex = 0; };
+    select.addEventListener('pointerdown', letGo);
+    select.addEventListener('blur', letGo);
 }
 
 async function addToChosenDeck(host: HTMLElement, select: HTMLSelectElement, add: () => Promise<void> | void): Promise<void> {

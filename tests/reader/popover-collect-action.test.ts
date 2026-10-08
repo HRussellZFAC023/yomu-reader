@@ -101,6 +101,25 @@ function chooseLocalDeck(): void {
     picker().selectedIndex = [...picker().options].findIndex(option => option.textContent?.includes('Academy'));
     dispatchAuthorizedReaderControlEvent(picker(), new Event('change'));
 }
+// What a browser does with keys typed into the focused, closed dropdown: each letter moves
+// it to the first deck named by what was typed so far, and reports the move as a change.
+function typeIntoClosedDropdown(text: string): void {
+    let typed = '';
+    for (const key of text) {
+        typed += key.toLowerCase();
+        const keydown = new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true });
+        dispatchAuthorizedReaderControlEvent(picker(), keydown);
+        const reached = [...picker().options].findIndex(option => !option.disabled && option.text.toLowerCase().startsWith(typed));
+        if (keydown.defaultPrevented || reached < 1 || reached === picker().selectedIndex) continue;
+        picker().selectedIndex = reached;
+        dispatchAuthorizedReaderControlEvent(picker(), new Event('change', { bubbles: true }));
+    }
+}
+function pressEnter(): KeyboardEvent {
+    const enter = new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true });
+    dispatchAuthorizedReaderControlEvent(picker(), enter);
+    return enter;
+}
 function expectCollectActionInOverflow(actions: HTMLElement, collect: HTMLElement): void {
     expect(collect.closest(COLLAPSED_DRAWER)).not.toBeNull();
     expect(collect.textContent).toBe('Add to deck…');
@@ -144,7 +163,7 @@ describe('popup collect action', () => {
         ]);
         expect(picker().selectedIndex).toBe(0);
         expect(perform).not.toHaveBeenCalled();
-        // Typing a deck's name picks it, so page shortcuts leave those keys alone.
+        // Keys typed into it browse its decks, so page shortcuts leave those keys alone.
         expect(isEditableTarget(collect)).toBe(true);
 
         chooseLocalDeck();
@@ -155,6 +174,52 @@ describe('popup collect action', () => {
         // Mounting again (a later render pass) does not stack a second dropdown.
         mountDeckSelects(actions, WORD, SENTENCE, perform);
         expect(actions.querySelectorAll(DECK_SELECT)).toHaveLength(1);
+    });
+
+    // A closed dropdown moves to a deck on each typed letter and reports each move as a
+    // change. Saving on that change sent a keyboard learner's word to whichever deck their
+    // first letter reached: Anki is listed ahead of Academy, so typing "Academy" saved to Anki.
+    it.each([
+        ['Academy', 'yomu-local', 'yomu-local'],
+        ['Anki: Core', 'anki', 'Core'],
+    ])('saves a deck reached by typing "%s" only on Enter, and only to that deck', (typed, deckSource, deckId) => {
+        const actions = renderActions({ ...KEYLESS, apiKey: 'jpdb-key', jpdbMiningEnabled: false, ankiEnabled: true, ankiDeck: 'よむ' }, {}, emptyCardRenderData({ ankiDecks: ['Core'] }));
+        const perform = vi.fn();
+        mountDeckSelects(actions, WORD, SENTENCE, perform);
+        expect([...picker().options].map(option => option.text)).toEqual(['Add to deck…', 'Anki: よむ', 'Anki: Core', 'Academy']);
+
+        typeIntoClosedDropdown(typed);
+        expect(perform).not.toHaveBeenCalled();
+        expect(picker().selectedOptions[0]?.text).toBe(typed);
+
+        expect(pressEnter().defaultPrevented).toBe(true);
+        expect(perform).toHaveBeenCalledTimes(1);
+        expect(perform).toHaveBeenCalledWith(picker(), WORD, SENTENCE, { kind: 'card-action', action: 'add', deckSource, deckId });
+        expect(picker().selectedIndex).toBe(0);
+    });
+
+    it('lets go of a deck browsed to and left unsaved, so a deck picked from the open list saves at once', async () => {
+        const actions = renderActions({ ...KEYLESS, ankiEnabled: true, ankiDeck: 'よむ' });
+        const perform = vi.fn();
+        mountDeckSelects(actions, WORD, SENTENCE, perform);
+        picker().focus();
+        typeIntoClosedDropdown('Academy');
+        // Leaving the dropdown, or pressing it to open its list, shows its label again:
+        // the list opens on no deck, so picking the browsed deck there is still a change.
+        picker().blur();
+        expect(picker().selectedIndex).toBe(0);
+        typeIntoClosedDropdown('Academy');
+        picker().dispatchEvent(new Event('pointerdown'));
+        expect(picker().selectedIndex).toBe(0);
+        expect(perform).not.toHaveBeenCalled();
+        // Enter on the label saves nothing.
+        expect(pressEnter().defaultPrevented).toBe(false);
+
+        // A pick in the open list is a change with no key behind it.
+        await new Promise(resolve => setTimeout(resolve));
+        chooseLocalDeck();
+        expect(perform).toHaveBeenCalledTimes(1);
+        expect(perform).toHaveBeenCalledWith(picker(), WORD, SENTENCE, { kind: 'card-action', action: 'add', deckSource: 'yomu-local', deckId: 'yomu-local' });
     });
 
     // A modal popup traps Tab at its edges. The dropdown's control is in a closed

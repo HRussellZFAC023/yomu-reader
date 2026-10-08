@@ -712,8 +712,8 @@ async function pressCaptureShortcutForFreshOverlayDocument(overlay) {
 // control. The overlay's own fetches are held so enrichment lands, deterministically,
 // while the learner is in the dropdown. (Held in the renderer: a main-process webRequest
 // hold also stalls while macOS tracks a select's native menu.) Electron's native select
-// menu is outside CDP input, so the learner reaches the dropdown with Tab and picks a deck
-// by typing its name, as a keyboard user does. Enrichment has a short fallback, so the
+// menu is outside CDP input, so the learner reaches the dropdown with Tab, types a deck's
+// name and presses Enter, as a keyboard user does. Enrichment has a short fallback, so the
 // learner must reach the dropdown within it: the race assertion below fails loudly if not.
 async function assertDeckDropdownSurvivesEnrichment(overlay) {
     await overlay.mouse.move(0, 0);
@@ -774,12 +774,17 @@ async function assertDeckDropdownSurvivesEnrichment(overlay) {
         assertSmoke(during.sameDropdown && during.focused && during.overflowOpen,
             `Desktop popup rebuilt under the open deck dropdown when enrichment landed: ${JSON.stringify(during)}`);
 
-        // Pick the local deck by typing its name: the word is saved there, once.
-        await overlay.keyboard.type('Academy');
-        const toast = overlay.locator('.jpdb-reader-toast').filter({ hasText: /^Added to (deck|Academy)\.$/ });
-        await toast.first().waitFor({ state: 'attached', timeout: 15_000 });
-        const saved = await overlay.evaluate(() => Object.keys(localStorage)
+        // Typing a deck's name browses to it and saves nothing; Enter saves the word there, once.
+        const savedToLocalDeck = () => overlay.evaluate(() => Object.keys(localStorage)
             .filter(key => /srs|deck/i.test(key) && (localStorage.getItem(key) || '').includes('冒険')));
+        const toast = overlay.locator('.jpdb-reader-toast').filter({ hasText: /^Added to (deck|Academy)\.$/ });
+        await overlay.keyboard.type('Academy');
+        await overlay.waitForTimeout(600);
+        assertSmoke(await toast.count() === 0 && (await savedToLocalDeck()).length === 0,
+            'Typing in the closed deck dropdown saved the word before the learner pressed Enter.');
+        await overlay.keyboard.press('Enter');
+        await toast.first().waitFor({ state: 'attached', timeout: 15_000 });
+        const saved = await savedToLocalDeck();
         assertSmoke(saved.length > 0, 'Choosing a deck in the dropdown did not save the word to the local deck.');
         // The refresh after the save shows the enriched card, with the dropdown back under focus.
         await popup.locator('[data-card-details-loading]').waitFor({ state: 'detached', timeout: 15_000 });
