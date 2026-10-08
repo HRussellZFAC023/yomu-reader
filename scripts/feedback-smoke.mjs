@@ -680,10 +680,10 @@ async function openHostedVideoPlayer(page, baseUrl) {
     await prepareHostedVideoPage(page, baseUrl);
     await page.goto(`${HOSTED_FIXTURE_ORIGIN}/video-player/index.html`, { waitUntil: 'domcontentloaded' });
     try {
+        // Japanese is the only reading target, so the player no longer names one.
         await page.waitForFunction(
-            expectedTarget => Boolean(window.__yomuReaderAppInitialized
-                && document.querySelector(`.jpdb-subtitle-player[data-language="${expectedTarget}"]`)),
-            HOSTED_EXPECTED_TARGET,
+            () => Boolean(window.__yomuReaderAppInitialized && document.querySelector('.jpdb-subtitle-player')),
+            null,
             { timeout: 6000 },
         );
         const boot = await readHostedVideoBootState(page);
@@ -769,7 +769,6 @@ async function readHostedVideoBootState(page) {
         return {
             initialized: window.__yomuReaderAppInitialized === true,
             subtitlePlayer: Boolean(player),
-            runtimeTarget: player.getAttribute('data-language'),
             runtimeOwnerKind: runtimeOwner.getAttribute('data-yomu-runtime-kind'),
             installedRuntimeKind: installedRuntime.getAttribute('data-yomu-installed-runtime-kind'),
             onboardingCount: document.querySelectorAll('.jpdb-reader-onboarding').length,
@@ -803,7 +802,6 @@ function hostedVideoBootedFromExplicitTarget(state) {
     return [
         state.initialized === true,
         state.subtitlePlayer === true,
-        state.runtimeTarget === HOSTED_EXPECTED_TARGET,
         state.runtimeOwnerKind === 'userscript',
         state.installedRuntimeKind === 'userscript',
         state.onboardingCount === 0,
@@ -821,9 +819,9 @@ function pageCopyMatchesInstalledStore(local, shared) {
 
 function hostedExplicitTargetSettingsReady(settings) {
     return [
+        // Setup gates are gone (ADR-0024): the runtime drops onboardingSeen and
+        // learningTargetChosen, so only the profile and player choice remain.
         activeBaseSettingsTarget() === HOSTED_EXPECTED_TARGET,
-        settings.onboardingSeen === true,
-        settings.learningTargetChosen === true,
         settings.activeLanguageProfileId === baseSettings.activeLanguageProfileId,
         settings.profileId === baseSettings.activeLanguageProfileId,
         settings.profileSchemaVersion === 2,
@@ -916,7 +914,8 @@ async function openHostedSettingsFromOverflow(page) {
     await page.waitForSelector('.jpdb-reader-settings-launcher', { timeout: 6000 });
     const hostedSettings = await readHostedSettingsState(page);
     assert(hostedSettingsReady(hostedSettings), 'Hosted Settings menu item did not open the trusted Study launcher', hostedSettings);
-    await page.locator('.jpdb-reader-settings [data-action="cancel"]').click();
+    // The launcher's one way out is its title-row close.
+    await page.locator('.jpdb-reader-settings-launcher [data-settings-close]').click();
     await page.waitForFunction(() => !document.querySelector('.jpdb-reader-settings'));
     const closeState = await page.evaluate(() => {
         let clicked = false;
@@ -1249,7 +1248,7 @@ async function assertHostedSubtitleSettingsSyncedFromCompactControls(page, expec
     await page.waitForSelector('.jpdb-reader-settings-launcher', { timeout: 6000 });
     const state = await readHostedSubtitleSettingsSyncState(page);
     assert(hostedSubtitleSettingsSynced(state, expectedBottomOffset), 'Compact subtitle controls did not persist before opening trusted Study settings', state);
-    await page.locator('.jpdb-reader-settings [data-action="cancel"]').click();
+    await page.locator('.jpdb-reader-settings-launcher [data-settings-close]').click();
     await page.waitForFunction(() => !document.querySelector('.jpdb-reader-settings'));
 }
 
