@@ -49,12 +49,13 @@
   line-height: 1.42;
 }
 
-/* An account with nothing yet: one sentence and the two ways to start. */
+/* An account with nothing yet: one sentence and the two ways to start, under
+   the title in Library's empty-line rhythm. */
 .jpdb-reader-stats-empty {
   display: grid;
   justify-items: start;
   gap: 16px;
-  padding: 24px 0;
+  padding: 8px 0;
 }
 
 .jpdb-reader-stats-empty p {

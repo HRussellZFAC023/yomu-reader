@@ -625,6 +625,14 @@
   outline: none;
 }
 
+/* The named clear icon is the field's one clear control; WebKit/Blink would
+   add their own blue cross beside it. */
+.jpdb-reader-newtab-searchbox input::-webkit-search-cancel-button {
+  -webkit-appearance: none;
+  appearance: none;
+  display: none;
+}
+
 .jpdb-reader-newtab-searchbox input::placeholder {
   color: var(--jpdb-reader-muted);
   -webkit-text-fill-color: var(--jpdb-reader-muted);
@@ -4356,7 +4364,6 @@ button.jpdb-reader-newtab-study-hint-btn:active {
       max(8px, env(safe-area-inset-left));
     border-top: 1px solid color-mix(in srgb, var(--jpdb-reader-border) 86%, transparent);
     background: var(--jpdb-reader-bg);
-    box-shadow: 0 -12px 32px color-mix(in srgb, var(--jpdb-reader-black) 18%, transparent);
   }
 
   .jpdb-reader-newtab-app-nav-item {

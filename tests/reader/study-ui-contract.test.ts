@@ -110,8 +110,9 @@ describe('Reader Study UI contract', () => {
         // new-tab-session-progress.test.ts checks the rendered navigation actions.
         expect(newTabCss).toContain('grid-template-columns: repeat(5, minmax(0, 1fr));');
         expect(newTabCss).toContain('min-height: calc(64px + env(safe-area-inset-bottom));');
-        // Opaque, so reading text never shows through the fixed tab bar (WebKit).
-        expect(newTabCss).toContain('border-top: 1px solid color-mix(in srgb, var(--jpdb-reader-border) 86%, transparent); background: var(--jpdb-reader-bg); box-shadow: 0 -12px 32px');
+        // Opaque, so reading text never shows through the fixed tab bar (WebKit);
+        // its top rule separates it, with no fog of shadow over the page.
+        expect(newTabCss).toContain('border-top: 1px solid color-mix(in srgb, var(--jpdb-reader-border) 86%, transparent); background: var(--jpdb-reader-bg); }');
         expect(newTabCss).not.toContain('backdrop-filter: blur(18px) saturate(1.18);');
         // Flush on the dock, so no strip of the answer scrolls between the two bars.
         expect(newTabCss).toContain('.jpdb-reader-newtab-controls.jpdb-reader-newtab-grade-controls { bottom: calc(64px + env(safe-area-inset-bottom)); border-radius: 0; }');
@@ -162,6 +163,8 @@ describe('Library search field', () => {
         // handwriting pad exists only while its icon holds it open.
         expect(newTabCss).toContain('.jpdb-reader-newtab-searchbox:has(input:placeholder-shown) .jpdb-reader-newtab-search-icon.is-clear { display: none; }');
         expect(newTabCss).toContain('.jpdb-reader-newtab-handwriting:not([open]) { display: none; }');
+        // A search input draws its own blue cross in Chromium and Safari; the named icon is the only one.
+        expect(newTabCss).toContain('.jpdb-reader-newtab-searchbox input::-webkit-search-cancel-button { -webkit-appearance: none; appearance: none; display: none; }');
     });
 });
 
@@ -179,6 +182,8 @@ describe('Library and Stats', () => {
     it('styles the Library empty state with one rule', () => {
         expect(newTabCss.match(/\.jpdb-reader-newtab-browse-empty \{/gu)).toHaveLength(1);
         expect(newTabCss).toContain('.jpdb-reader-newtab-browse-empty { display: grid; justify-items: start; gap: 16px; margin: 0; padding: 8px 0; color: var(--jpdb-reader-muted); }');
+        // Empty Stats keeps the same rhythm under its title.
+        expect(statsCss).toContain('.jpdb-reader-stats-empty { display: grid; justify-items: start; gap: 16px; padding: 8px 0; }');
     });
 
     // The brand and menu jumped 60-80px sideways between Study (1040px),
