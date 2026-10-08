@@ -42,6 +42,39 @@ latest as soon as `release.yml` publishes it, and `release-gaming.yml` attaches
 the desktop files a minute or two later. The workflow's own token pays for that
 one release lookup.
 
+### Before a release reaches main
+
+Deploy Docs puts the buttons live about 20 minutes after a push to `main`. A
+tag's desktop files land about 35 minutes after the tag (30 to 44 for v2.0.9 to
+v2.0.12), because Release Yomu Gaming waits for `release.yml` to publish. While
+the latest release already has the files, that order costs only the minute or
+two above.
+
+v2.0.12 has no `yomu-desktop-*` files. If 2.1.0 goes out in the usual order
+(main, Deploy Docs, tag), every button, the homepage's included, opens a GitHub
+404 from the docs deploy until v2.1.0's files land, and this check goes red.
+
+So run `node scripts/production-health-check.mjs` before pushing `main`. If a
+`desktop` row fails, do one of these first:
+
+1. Attach copies under the stable names to the latest release. This edits a
+   public release, so it is the owner's call. The copies are byte-identical to
+   files `SHA256SUMS.txt` already lists.
+
+   ```bash
+   tag="$(gh release view --json tagName --jq .tagName)"
+   dir="$(mktemp -d)"
+   for file in win-x64.exe mac-arm64.zip mac-x64.zip linux-x86_64.AppImage; do
+     gh release download "$tag" --dir "$dir" --pattern "yomu-gaming-${tag#v}-$file"
+     cp "$dir/yomu-gaming-${tag#v}-$file" "$dir/yomu-desktop-$file"
+   done
+   gh release upload "$tag" "$dir"/yomu-desktop-*
+   node scripts/production-health-check.mjs
+   ```
+
+2. Push the tag first. Push `main` once Release Yomu Gaming has finished and the
+   check passes.
+
 ## What fails the run, and what only gets reported
 
 Fails: a non-200, a 200 whose body is not JSON, or a payload whose
