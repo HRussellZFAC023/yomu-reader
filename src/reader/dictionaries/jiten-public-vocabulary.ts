@@ -95,6 +95,7 @@ export class JitenPublicVocabularyClient {
     // as, or null when it reads the term as anything else.
     private readonly words = new Map<string, CacheEntry<PublicParseWord | null>>();
     private readonly details = new Map<string, CacheEntry<Promise<JPDBCard | null>>>();
+    private readonly reading = new Map<string, Promise<void>>();
 
     constructor(private readonly options: JitenPublicVocabularyClientOptions = {}) {}
 
@@ -122,12 +123,19 @@ export class JitenPublicVocabularyClient {
             asked.push(term);
             if (!known) unread.push(term);
         }
-        if (unread.length && !this.isBackoffActive()) {
-            await this.readTerms(unread).catch(error => {
+        // A term another call is already asking about is waited for, not sent
+        // twice: the hover, the popup and the page scan often overlap.
+        const reads = new Set(unread.flatMap(term => this.reading.get(term) ?? []));
+        const toRead = unread.filter(term => !this.reading.has(term));
+        if (toRead.length && !this.isBackoffActive()) {
+            const read = this.readTerms(toRead).catch(error => {
                 this.noteFailure(error);
-                logPublicJitenFailure('Jiten batch', { terms: unread.length }, error);
-            });
+                logPublicJitenFailure('Jiten batch', { terms: toRead.length }, error);
+            }).finally(() => toRead.forEach(term => this.reading.delete(term)));
+            toRead.forEach(term => this.reading.set(term, read));
+            reads.add(read);
         }
+        await Promise.all(reads);
 
         let detailBudget = normalizedDetailLimit(options.detailLimit);
         const answers = asked.flatMap(term => {

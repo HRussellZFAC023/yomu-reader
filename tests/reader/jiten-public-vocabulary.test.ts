@@ -841,6 +841,23 @@ describe('JitenPublicVocabularyClient', () => {
         expect(requestJson).toHaveBeenCalledTimes(sent);
     });
 
+    // The hover, the popup and the page scan often ask about the same
+    // sentence at once; the second asks nothing Jiten is already being asked.
+    it('sends a term another lookup is already asking about only once', async () => {
+        const [menu] = recordedLattice.batches;
+        const { client, parseTexts } = recordedLatticeJiten();
+
+        const [first, second] = await Promise.all([
+            client.lookupMany(menu.terms, { detailLimit: 0 }),
+            client.lookupMany(['表示', '切る'], { detailLimit: 0 }),
+        ]);
+
+        expect(first.size + second.size).toBe(0);
+        expect(parseTexts).toHaveLength(2);
+        expect(jitenIds(await client.lookupMany(['表示', '切る']), ['表示', '切る'])).toEqual({ 表示: 1489610, 切る: 1384830 });
+        expect(parseTexts).toHaveLength(2);
+    });
+
     // The detail budget counts words: なっている and なる are one word to
     // Jiten, so one detail answers both.
     it('spends the detail budget on words, not on the terms that share one', async () => {
