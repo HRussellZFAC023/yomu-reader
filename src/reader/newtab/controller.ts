@@ -6790,7 +6790,9 @@ export class NewTabController {
                 const hasRecallCloze = buildNewTabRecallCloze(card, sentence, newTabCardReading(card)).hasCloze;
                 this.pinnedStudyPlan = { cardKey: key, inputs: { ...this.pinnedStudyPlan.inputs, hasRecallCloze } };
             }
-            if (isCurrent) this.renderWord(root!, active!);
+            // Library and Stats own the prompt slot: the Study card takes the
+            // sentence when it renders next, never over the Library title.
+            if (isCurrent && this.state.route === 'study') this.renderWord(root!, active!);
         });
     }
 

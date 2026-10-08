@@ -270,6 +270,32 @@ describe('type-word typed answers', () => {
         }
     });
 
+    // Opening Library a few seconds after Study loaded once showed the Study
+    // card where the Library title belongs: the N+1 sentence landed late and
+    // re-rendered the card into the prompt slot Library had taken over.
+    it('keeps a late N+1 sentence off the Library page and saves it for the next Study render', async () => {
+        const card = typeCard();
+        const { controller, internals } = typeWordController([card]);
+        studyRoot();
+        const late = internals as unknown as {
+            selectNPlusOneStudySentence(card: JPDBCard): Promise<string>;
+            ensureNPlusOneStudySentence(card: JPDBCard): void;
+            studySentenceOverrides: Map<string, string>;
+        };
+        let deliver!: (sentence: string) => void;
+        late.selectNPlusOneStudySentence = () => new Promise(resolve => { deliver = resolve; });
+        const renderWord = vi.spyOn(internals, 'renderWord');
+        try {
+            late.ensureNPlusOneStudySentence(card);
+            internals.state = { ...internals.state, route: 'search' };
+            deliver('温かい飲み物が欲しい。');
+            await vi.waitFor(() => expect(late.studySentenceOverrides.get(cardKey(card))).toBe('温かい飲み物が欲しい。'));
+            expect(renderWord).not.toHaveBeenCalled();
+        } finally {
+            controller.destroy();
+        }
+    });
+
     it('checks a typed practice answer and records the first attempt only', () => {
         const card = typeCard();
         const { controller, internals } = typeWordController([card]);
