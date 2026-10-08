@@ -888,7 +888,7 @@ const HOSTED_DOCS_JA_COPY: Record<string, string> = {
     'Furigana over the kanji, the meaning under your cursor. Tap on a phone.': '漢字にはふりがな。カーソルを合わせれば意味が出ます。スマホならタップです。',
     'Pause, hover the word, carry on. Try it on this clip.': '止めて、単語にカーソルを合わせて、また再生。この動画で試せます。',
     'This manga page is live. Hover a speech bubble.': 'この漫画のページは本当に動きます。吹き出しにカーソルを合わせてみてください。',
-    'Save the words worth keeping. They come back with the sentence you found them in. Review here, or in Anki, JPDB or Jiten.': '覚えたい単語だけ保存します。見つけたときの文と一緒に、復習に出てきます。ここでも、Anki、JPDB、Jitenでも復習できます。',
+    'Save the words worth keeping, with the sentence you found them in. Review them here, or in Anki, JPDB or Jiten.': '覚えたい単語だけを、見つけたときの文と一緒に保存します。復習はここでも、Anki、JPDB、Jitenでもできます。',
     'よむ Desktop reads your screen. Press one shortcut, then hover any Japanese.': 'よむ Desktopは画面を読み取ります。ショートカットを押して、日本語にカーソルを合わせるだけです。',
     'For Mac. First launch: System Settings → Privacy & Security → Open Anyway.': 'Mac用。初回は「システム設定」→「プライバシーとセキュリティ」→「このまま開く」。',
     'For Windows. If Windows protects your PC: More info → Run anyway.': 'Windows用。「PCが保護されました」と出たら「詳細情報」→「実行」。',

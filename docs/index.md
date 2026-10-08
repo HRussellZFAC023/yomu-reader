@@ -74,7 +74,7 @@ description: Hover any Japanese word on a web page, a YouTube subtitle or a mang
 <section class="yomu-band" id="study" aria-labelledby="yomu-band-keep">
   <div class="yomu-band-copy">
     <h2 id="yomu-band-keep">Ten minutes of review a day.</h2>
-    <p class="yomu-band-lead">Save the words worth keeping. They come back with the sentence you found them in. Review here, or in Anki, JPDB or Jiten.</p>
+    <p class="yomu-band-lead">Save the words worth keeping, with the sentence you found them in. Review them here, or in Anki, JPDB or Jiten.</p>
     <a class="yomu-band-action" href="/study/">Open Study</a>
   </div>
   <figure class="yomu-band-frame yomu-band-pair" data-yomu-ocr="ignore">

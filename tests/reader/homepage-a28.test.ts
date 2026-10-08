@@ -108,6 +108,16 @@ describe('editorial homepage contract', () => {
         expect(homepageStyles).toContain(":root[data-yomu-install='chrome'] [data-yomu-hint='chrome']");
     });
 
+    it('never promises that a saved word comes back for review on its own', () => {
+        // Saving to the local deck stores the card with reviewEnabled = false
+        // (src/reader/srs/local-yomu.ts) until "Add to review" in Study → Library,
+        // so a homepage line saying saved words "come back" sets up a broken promise.
+        expect(readFileSync('src/reader/srs/local-yomu.ts', 'utf8')).toContain('candidate.reviewEnabled = false;');
+        const studyBand = homepage.slice(homepage.indexOf('id="study"'), homepage.indexOf('id="mobile"'));
+        expect(studyBand).toContain('Save the words worth keeping');
+        expect(studyBand).not.toMatch(/come back|comes back|return/iu);
+    });
+
     it('drops the "nothing installed" duplicate CTA section', () => {
         // Its four links each live in their own proof section already; the
         // owner removed the second copy (2026-08-04).
