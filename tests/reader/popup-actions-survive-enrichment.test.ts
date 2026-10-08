@@ -282,6 +282,48 @@ describe.each(['modal', 'hover'] as const)('%s popup actions while enrichment re
         }
     });
 
+    // The last provider asks for a loading frame and enrichment completes a microtask
+    // later, before that frame. The frame came due with the completed render waiting on the
+    // dropdown, took its place as the newest, then rendered nothing: the popup stayed loading.
+    it('shows the completed card once the learner leaves, when a loading frame came due after completion', async () => {
+        const { app, internals, popover } = mountPopup();
+        const card = testAozoraCard();
+        const localEntries = deferred<YomitanTermEntry[]>();
+        const jpdbVocabularyInfo = deferred<null>();
+        const renderState = { fullRenderCompleted: false };
+        const loading = () => popover.querySelector('[data-card-details-loading]');
+        holdFrames();
+
+        try {
+            internals.renderDeferredCardLocalEntries(
+                popover, card, SENTENCE, trigger,
+                { localEntries: localEntries.promise, jpdbVocabularyInfo: jpdbVocabularyInfo.promise, all: deferred<CardRenderData>().promise },
+                NOT_IN_DECK, { instantLocalEntries: null, requestId: 1 }, renderState, () => true,
+            );
+            localEntries.resolve([]);
+            await settle();
+            flushFrames();
+            internals.toggleMiningControls(popover.querySelector<HTMLButtonElement>('[data-action="mining-collapse"]')!);
+            const dropdown = pickerRoot!.querySelector('select')!;
+            dropdown.focus();
+
+            jpdbVocabularyInfo.resolve(null);
+            await settle();
+            renderState.fullRenderCompleted = true;
+            internals.renderCompletedCardPopover(popover, card, SENTENCE, trigger, completedData());
+            flushFrames();
+            expect(loading()).not.toBeNull();
+
+            dropdown.blur();
+            await nextTask();
+            flushFrames();
+            expect(loading()).toBeNull();
+        } finally {
+            popover.remove();
+            app.destroy();
+        }
+    });
+
     it('keeps an open overflow across a re-render while the learner is not in the dropdown', async () => {
         const { app, internals, popover } = mountPopup();
         const card = testAozoraCard();

@@ -6538,7 +6538,9 @@ export class ReaderApp {
         const canRenderLoading = () => !renderState.fullRenderCompleted && isCurrentRender();
         const runLoadingRender = () => {
             loadingRenderFrame = undefined;
-            this.rerenderAroundMiningControls(popover, renderLoadingNow);
+            // A loading frame due after completion would draw nothing, yet as the newest
+            // render waiting on the dropdown it would take the completed card's place.
+            if (canRenderLoading()) this.rerenderAroundMiningControls(popover, renderLoadingNow);
         };
         const renderLoadingNow = () => {
             if (!canRenderLoading()) return;
