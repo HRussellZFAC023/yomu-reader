@@ -1,10 +1,14 @@
 // The extension's toolbar popup offers the puck's actions for the active tab
 // (owner decision 4, 2026-10-07). The popup asks the tab's top frame over
 // runtime messaging (scripts/lib/extension-popup-actions.mjs) and this page
-// answers with each action's current label and state, so nothing lives in the
-// background, whose MV3 worker forgets in-memory state when it idles: that is
-// how the compiler's GM menu commands vanished from the popup. Only the
+// answers with each action's current label and state, so no action lives in
+// the background, whose MV3 worker forgets in-memory state when it idles: that
+// is how the compiler's GM menu commands vanished from the popup. Only the
 // extension build installs this; userscript managers keep the GM menu.
+//
+// A tab Yomu does not run on (Study itself, a new tab, a browser page) cannot
+// answer, so the background answers the popup's own two rows instead, in the
+// saved interface language it already reads from extension storage.
 import { resolveUiLanguage, uiText } from './i18n';
 import { extensionRuntimeMayBeYomu } from './runtime-env';
 import type { InterfaceLanguage } from './types';
@@ -27,11 +31,14 @@ export interface ExtensionPopupAction {
     pressed?: boolean;
 }
 
-export interface ExtensionPopupActionList {
+/** The popup's own Study and Settings rows, named in the interface language. */
+export interface ExtensionToolbarLabels {
     language: 'en' | 'ja';
-    heading: string;
     studyLabel: string;
     settingsLabel: string;
+}
+
+export interface ExtensionPopupActionList extends ExtensionToolbarLabels {
     actions: ExtensionPopupAction[];
 }
 
@@ -67,6 +74,25 @@ export function installExtensionPopupActions(source: ExtensionPopupActionSource,
     signal.addEventListener('abort', () => onMessage.removeListener(listener), { once: true });
 }
 
+/** Answers the popup's `labels` request from the extension background. */
+export function installExtensionToolbarLabels(savedLanguage: () => Promise<InterfaceLanguage>): void {
+    const runtime = extensionMessagingRuntime();
+    if (!runtime?.id || !runtime.onMessage) return;
+    runtime.onMessage.addListener((message, sender, sendResponse) => {
+        if (popupMessage(message)?.type !== 'labels' || sender.id !== runtime.id || sender.tab) return undefined;
+        void savedLanguage().then(language => sendResponse(extensionToolbarLabels(language)), () => sendResponse(undefined));
+        return true;
+    });
+}
+
+function extensionToolbarLabels(language: InterfaceLanguage): ExtensionToolbarLabels {
+    return {
+        language: resolveUiLanguage(language),
+        studyLabel: uiText(language, 'newTab'),
+        settingsLabel: uiText(language, 'settings'),
+    };
+}
+
 async function answerPopup(source: ExtensionPopupActionSource, request: { type: 'list' | 'run'; id: string }): Promise<ExtensionPopupActionList> {
     if (request.type === 'run') {
         const action = popupActions(source).find(candidate => candidate.id === request.id);
@@ -74,10 +100,7 @@ async function answerPopup(source: ExtensionPopupActionSource, request: { type: 
     }
     const language = source.language();
     return {
-        language: resolveUiLanguage(language),
-        heading: uiText(language, 'extensionPopupPageActions'),
-        studyLabel: uiText(language, 'newTab'),
-        settingsLabel: uiText(language, 'settings'),
+        ...extensionToolbarLabels(language),
         actions: popupActions(source).map(({ id, label, icon, tone }) => ({
             id,
             label,
@@ -93,10 +116,16 @@ function popupActions(source: ExtensionPopupActionSource): RadialAction[] {
 }
 
 function popupActionsRequest(message: unknown): { type: 'list' | 'run'; id: string } | undefined {
+    const request = popupMessage(message);
+    const type = request?.type;
+    if (type !== 'list' && type !== 'run') return undefined;
+    return { type, id: typeof request?.id === 'string' ? request.id : '' };
+}
+
+function popupMessage(message: unknown): { type?: unknown; id?: unknown } | undefined {
     if (!message || typeof message !== 'object') return undefined;
-    const { channel, type, id } = message as { channel?: unknown; type?: unknown; id?: unknown };
-    if (channel !== EXTENSION_POPUP_ACTIONS_CHANNEL || (type !== 'list' && type !== 'run')) return undefined;
-    return { type, id: typeof id === 'string' ? id : '' };
+    const request = message as { channel?: unknown; type?: unknown; id?: unknown };
+    return request.channel === EXTENSION_POPUP_ACTIONS_CHANNEL ? request : undefined;
 }
 
 function extensionMessagingRuntime(): ExtensionMessagingRuntime | undefined {

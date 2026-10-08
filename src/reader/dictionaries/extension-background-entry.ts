@@ -2,8 +2,9 @@ import { activeLearningTarget } from '../languages/target-runtime';
 import { createLocalDictionaryStore } from './local-store-factory';
 import { installExtensionDictionaryBackgroundHost } from './extension-background-host';
 import type { DictionaryRpcTarget } from './extension-rpc-protocol';
-import { compiledStoragePrefix } from './extension-background-adapters';
+import { backgroundInterfaceLanguage, compiledStoragePrefix } from './extension-background-adapters';
 import { installExtensionReviewQueueHost, type ReviewQueueExtensionRoot } from '../newtab/extension-review-queue-host';
+import { installExtensionToolbarLabels } from '../app/extension-popup-actions';
 
 installExtensionReviewQueueHost(globalThis as ReviewQueueExtensionRoot, compiledStoragePrefix);
 
@@ -12,6 +13,8 @@ installExtensionDictionaryBackgroundHost({
     resolveTarget: validatedTarget,
     adoptTarget: validatedTarget,
 });
+
+installExtensionToolbarLabels(backgroundInterfaceLanguage);
 
 function validatedTarget(target: DictionaryRpcTarget): unknown {
     const module = activeLearningTarget();

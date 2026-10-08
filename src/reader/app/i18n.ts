@@ -802,7 +802,6 @@ const COPY = {
         resizeLookupSheet: 'Drag to resize lookup sheet, or tap to close',
         showMiningActions: 'More actions',
         hideMiningActions: 'Fewer actions',
-        extensionPopupPageActions: 'On this page',
         ...GRADING_SERVICE_COPY.en,
         jpdbKanjiUpdated: 'JPDB kanji updated.',
         jpdbKanjiUpdateFailedRuntime: 'Could not update JPDB kanji. Check kanji reviews.',
@@ -1169,7 +1168,6 @@ lookupDialog	{APP_NAME}検索
 resizeLookupSheet	検索シートをリサイズ。タップで閉じる
 showMiningActions	その他の操作
 hideMiningActions	操作を閉じる
-extensionPopupPageActions	このページ
 closeDrawer	ドロワーを閉じる
 copiedWord	単語をコピーしました。
 jpdbKanjiUpdated	JPDB漢字を更新しました。

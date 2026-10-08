@@ -7,8 +7,10 @@ import { ReaderApp } from '../../src/reader/app/main';
 import {
     EXTENSION_POPUP_ACTIONS_CHANNEL,
     installExtensionPopupActions,
+    installExtensionToolbarLabels,
     type ExtensionPopupActionList,
 } from '../../src/reader/app/extension-popup-actions';
+import { backgroundInterfaceLanguage, configureExtensionDictionaryBackgroundStorage } from '../../src/reader/dictionaries/extension-background-adapters';
 import type { RadialAction } from '../../src/reader/ui/radial-menu';
 import { menuIcon } from '../../src/reader/ui/menu-icons';
 import MENU_ICON_SHAPES from '../../src/reader/ui/menu-icons.json';
@@ -181,6 +183,41 @@ describe('the page side of the extension popup', () => {
     });
 });
 
+describe('the background answer for a tab without Yomu', () => {
+    const PREFIX = 'toolbar-labels-test_';
+    function background(saved?: Record<string, unknown>) {
+        const runtime = fakeRuntime();
+        const values: Record<string, unknown> = saved ? { [`${PREFIX}jpdb-popup-reader-settings`]: saved } : {};
+        const get = vi.fn(async (key: string) => Object.hasOwn(values, key) ? { [key]: values[key] } : {});
+        configureExtensionDictionaryBackgroundStorage({ browser: { storage: { local: { get } } } } as unknown as typeof globalThis, PREFIX);
+        installExtensionToolbarLabels(backgroundInterfaceLanguage);
+        return runtime;
+    }
+    const labelsRequest = { channel: EXTENSION_POPUP_ACTIONS_CHANNEL, type: 'labels' };
+
+    it.each([
+        ['a saved Japanese interface', { interfaceLanguage: 'ja' }, { language: 'ja', studyLabel: '学習', settingsLabel: '設定' }],
+        ['a saved English interface', { interfaceLanguage: 'en' }, { language: 'en', studyLabel: 'Study', settingsLabel: 'Settings' }],
+        ['nothing saved, as the reader defaults', undefined, { language: 'en', studyLabel: 'Study', settingsLabel: 'Settings' }],
+    ])('names Study and Settings for %s', async (_case, saved, labels) => {
+        const { send } = background(saved);
+        expect(await send(labelsRequest)).toEqual(labels);
+    });
+
+    it('follows the browser for a saved automatic interface language', async () => {
+        vi.spyOn(navigator, 'languages', 'get').mockReturnValue(['ja-JP']);
+        const { send } = background({ interfaceLanguage: 'auto' });
+        expect(await send(labelsRequest)).toEqual({ language: 'ja', studyLabel: '学習', settingsLabel: '設定' });
+    });
+
+    it('answers only the extension\'s own pages, and only the labels request', async () => {
+        const { send } = background({ interfaceLanguage: 'ja' });
+        expect(await send(labelsRequest, { id: EXTENSION_ID, tab: { id: 3 } })).toBe('unanswered');
+        expect(await send(labelsRequest, { id: 'someone-else' })).toBe('unanswered');
+        expect(await send({ channel: EXTENSION_POPUP_ACTIONS_CHANNEL, type: 'list' })).toBe('unanswered');
+    });
+});
+
 describe('the toolbar popup', () => {
     // Copied from the actual compiler output before hardening on 2026-10-07.
     // The legacy listeners and complete HTML must be present in this regression.
@@ -189,14 +226,18 @@ describe('the toolbar popup', () => {
     const compilerPopup = readFileSync('tests/fixtures/extension/compiler-popup.js', 'utf8');
     const compilerHtml = readFileSync('tests/fixtures/extension/compiler-popup.html.txt', 'utf8');
 
-    function mountPopup(answer: (message: { type: string; id: string }, tabId: number, options: unknown) => unknown) {
+    function mountPopup(
+        answer: (message: { type: string; id: string }, tabId: number, options: unknown) => unknown,
+        background: (message: unknown) => unknown = () => undefined,
+    ) {
         document.body.innerHTML = compilerHtml;
         const opened: string[] = [];
         const sendMessage = vi.fn(async (tabId: number, message: { type: string; id: string }, options: unknown) => answer(message, tabId, options));
-        const legacySend = vi.fn();
+        // Runtime messages reach the extension's own pages and its background.
+        const runtimeSend = vi.fn(async (message: unknown) => background(message));
         const executeScript = vi.fn();
         vi.stubGlobal('chrome', {
-            runtime: { getURL: (path: string) => `chrome-extension://${EXTENSION_ID}/${path}`, sendMessage: legacySend },
+            runtime: { getURL: (path: string) => `chrome-extension://${EXTENSION_ID}/${path}`, sendMessage: runtimeSend },
             tabs: { sendMessage, query: async () => [{ id: 7 }], create: async ({ url }: { url: string }) => { opened.push(url); } },
             scripting: { executeScript },
         });
@@ -205,15 +246,14 @@ describe('the toolbar popup', () => {
         // Firefox's store gate rejects executable HTML assignments, even for static icons.
         expect(source).not.toMatch(/\b(?:innerHTML|outerHTML)\s*=/u);
         new Function(source)();
-        return { opened, sendMessage, legacySend, executeScript };
+        return { opened, sendMessage, runtimeSend, executeScript };
     }
 
     const buttons = () => [...document.querySelectorAll<HTMLButtonElement>('[data-yomu-action]')];
     const settle = () => new Promise(resolve => setTimeout(resolve, 0));
 
     it('replaces all compiler menus with one native-button group and opens packaged destinations', async () => {
-        const { opened, sendMessage, legacySend, executeScript } = mountPopup(() => ({
-            heading: 'On this page',
+        const { opened, sendMessage, runtimeSend, executeScript } = mountPopup(() => ({
             studyLabel: 'Study',
             settingsLabel: 'Settings',
             actions: [{ id: 'power', label: 'Pause annotations', tone: 'on' }, { id: 'youtube', label: 'Filter YouTube to Japanese', tone: 'off', pressed: false }],
@@ -237,7 +277,8 @@ describe('the toolbar popup', () => {
             `chrome-extension://${EXTENSION_ID}/newtab/index.html`,
             `chrome-extension://${EXTENSION_ID}/newtab/index.html#settings=appearance`,
         ]);
-        expect(legacySend).not.toHaveBeenCalled();
+        // The compiler's legacy menu messages are gone; only the labels request remains.
+        expect(runtimeSend.mock.calls).toEqual([[{ channel: EXTENSION_POPUP_ACTIONS_CHANNEL, type: 'labels' }]]);
         expect(executeScript).not.toHaveBeenCalled();
     });
 
@@ -245,7 +286,7 @@ describe('the toolbar popup', () => {
         let paused = false;
         const { sendMessage } = mountPopup(message => {
             if (message.type === 'run' && message.id === 'power') paused = true;
-            return { heading: 'On this page', settingsLabel: 'Settings', actions: [{ id: 'power', label: paused ? 'Resume annotations' : 'Pause annotations', tone: paused ? 'off' : 'on' }] };
+            return { settingsLabel: 'Settings', actions: [{ id: 'power', label: paused ? 'Resume annotations' : 'Pause annotations', tone: paused ? 'off' : 'on' }] };
         });
         await settle();
 
@@ -258,9 +299,9 @@ describe('the toolbar popup', () => {
     });
 
     it.each([
-        ['en', 'Mute auto-play audio', 'Mute auto-play', 'Request Japanese sites', 'Request Japanese sites', 'Study', 'Settings'],
-        ['ja', '音声の自動再生をミュート', '自動再生をミュート', '日本語版サイトをリクエスト', '日本語版サイトをリクエスト', '学習', '設定'],
-    ])('keeps compact %s rows accessible with aligned decorative icons', async (_locale, audio, shortAudio, sites, shortSites, study, settings) => {
+        ['en', 'Auto-play audio on', 'Request Japanese sites', 'Study', 'Settings'],
+        ['ja', '音声の自動再生 オン', '日本語版サイトをリクエスト', '学習', '設定'],
+    ])('keeps compact %s rows accessible with aligned decorative icons', async (_locale, audio, sites, study, settings) => {
         mountPopup(() => ({
             language: _locale, studyLabel: study, settingsLabel: settings,
             actions: [
@@ -272,7 +313,8 @@ describe('the toolbar popup', () => {
         await settle();
 
         expect(document.documentElement.lang).toBe(_locale);
-        expect(buttons().map(button => button.textContent)).toEqual([shortAudio, shortSites, 'OCR: Auto', study, settings]);
+        // The page's own words, shown as they are: the toolbar rewrites none of them.
+        expect(buttons().map(button => button.textContent)).toEqual([audio, sites, 'OCR: Auto', study, settings]);
         expect(buttons()[0]!.getAttribute('aria-label')).toBe(audio);
         expect(buttons()[1]!.getAttribute('aria-label')).toBe(sites);
         expect(buttons()[1]!.getAttribute('aria-pressed')).toBe('false');
@@ -352,6 +394,35 @@ describe('the toolbar popup', () => {
         await settle();
         expect(buttons().map(button => button.textContent)).toEqual(['Study', 'Settings']);
         expect(document.querySelector('main hr')).toBeNull();
+    });
+
+    it('names Study and Settings in the saved Japanese interface on a tab without Yomu', async () => {
+        // Study itself, a new tab or a browser page: no page answers, so the background does.
+        mountPopup(
+            () => { throw new Error('Could not establish connection. Receiving end does not exist.'); },
+            message => (message as { type?: string }).type === 'labels'
+                ? { language: 'ja', studyLabel: '学習', settingsLabel: '設定' }
+                : undefined,
+        );
+        await settle();
+        expect(document.documentElement.lang).toBe('ja');
+        expect(buttons().map(button => button.textContent)).toEqual(['学習', '設定']);
+        expect(buttons().map(button => button.getAttribute('aria-label'))).toEqual(['学習', '設定']);
+    });
+
+    it('keeps the saved interface language when the page stops answering after an action', async () => {
+        mountPopup(
+            message => {
+                if (message.type === 'run') throw new Error('Tab closed');
+                return { language: 'ja', studyLabel: '学習', settingsLabel: '設定', actions: [{ id: 'power', label: 'よむ オフ', tone: 'off' }] };
+            },
+            () => ({ language: 'ja', studyLabel: '学習', settingsLabel: '設定' }),
+        );
+        await settle();
+        buttons()[0]!.click();
+        await settle();
+        expect(document.documentElement.lang).toBe('ja');
+        expect(buttons().map(button => button.textContent)).toEqual(['学習', '設定']);
     });
 
     it('removes stale page actions if the active page no longer answers', async () => {

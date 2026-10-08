@@ -56,15 +56,12 @@ function extensionPopupActionsSource() {
     }
   \`;
   document.head.append(style);
-  const compactLabels = {
-    'Mute auto-play audio': 'Mute auto-play',
-    'Unmute auto-play audio': 'Enable auto-play',
-    '音声の自動再生をミュート': '自動再生をミュート',
-    '音声の自動再生のミュートを解除': '自動再生を有効に',
-  };
   const iconPaths = ${JSON.stringify(MENU_ICON_SHAPES)};
 
   let pageTab;
+  // Study and Settings in the saved interface language, from the background,
+  // for a tab with no Yomu page to name them.
+  let ownLabels;
 
   async function openPath(path) {
     await api.tabs.create({ url: api.runtime.getURL(path), active: true });
@@ -77,7 +74,16 @@ function extensionPopupActionsSource() {
       if (!pageTab?.id) return undefined;
       return await api.tabs.sendMessage(pageTab.id, { channel: ${JSON.stringify(CHANNEL)}, type, id }, { frameId: 0 });
     } catch {
-      // No Yomu in this tab: a browser page, a store page, or Yomu not set up yet.
+      // No Yomu in this tab: Study itself, a browser page, a store page, or Yomu not set up yet.
+      return undefined;
+    }
+  }
+
+  async function askBackground() {
+    try {
+      const labels = await api.runtime.sendMessage({ channel: ${JSON.stringify(CHANNEL)}, type: 'labels' });
+      return labels && typeof labels === 'object' ? labels : undefined;
+    } catch {
       return undefined;
     }
   }
@@ -99,18 +105,19 @@ function extensionPopupActionsSource() {
     }
     if (action.tone) icon.dataset.tone = action.tone;
     const label = document.createElement('span');
-    label.textContent = Object.hasOwn(compactLabels, action.label) ? compactLabels[action.label] : action.label;
+    label.textContent = action.label;
     button.append(icon, label);
     return button;
   }
 
   function render(list) {
-    document.documentElement.lang = list?.language === 'ja' ? 'ja' : 'en';
+    const labels = list || ownLabels;
+    document.documentElement.lang = labels?.language === 'ja' ? 'ja' : 'en';
     menu.replaceChildren(
       ...(list?.actions || []).map(actionButton),
       ...(list?.actions?.length ? [document.createElement('hr')] : []),
-      actionButton({ id: 'study', label: list?.studyLabel || 'Study' }),
-      actionButton({ id: 'settings', label: list?.settingsLabel || 'Settings' }),
+      actionButton({ id: 'study', label: labels?.studyLabel || 'Study' }),
+      actionButton({ id: 'settings', label: labels?.settingsLabel || 'Settings' }),
     );
   }
 
@@ -145,7 +152,10 @@ function extensionPopupActionsSource() {
     [...menu.querySelectorAll('[data-yomu-action]')].find(action => action.dataset.yomuAction === id)?.focus();
   }
 
-  render(undefined);
-  askPage('list').then(list => { if (list) render(list); });
+  // Draw once both have answered, so the rows never flash English first.
+  Promise.all([askPage('list'), askBackground()]).then(([list, labels]) => {
+    ownLabels = labels;
+    render(list);
+  });
 })();`;
 }

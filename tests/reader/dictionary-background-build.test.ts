@@ -52,4 +52,27 @@ describe('compiled dictionary background', () => {
         expect(source).not.toMatch(/\bgmStorage(?:Get|Set|Delete)\b|\bmanagedLocalStorage\b/);
         expect(source).not.toContain('dictionaryReplicaPurgeRequest');
     }, 30_000);
+
+    it('names the toolbar popup\'s Study and Settings rows in the saved interface language', async () => {
+        // The built background, run as the browser runs it: a tab without Yomu
+        // (Study itself, a new tab) has no page to answer the popup.
+        const source = compiledDictionaryBackgroundSource()
+            .replace('"__YOMU_EXTENSION_STORAGE_PREFIX_PLACEHOLDER__"', JSON.stringify(PREFIX));
+        const values: Record<string, unknown> = { [`${PREFIX}jpdb-popup-reader-settings`]: { interfaceLanguage: 'ja' } };
+        const listeners: ((message: unknown, sender: unknown, reply: (value: unknown) => void) => unknown)[] = [];
+        const event = <T>(list: T[]) => ({ addListener: (listener: T) => list.push(listener), removeListener: vi.fn() });
+        vi.stubGlobal('chrome', {
+            runtime: { id: 'yomu', getURL: (path: string) => `chrome-extension://yomu/${path}`, onMessage: event(listeners), onConnect: event([]) },
+            storage: {
+                local: { get: vi.fn(async (key: string) => Object.hasOwn(values, key) ? { [key]: values[key] } : {}) },
+                onChanged: event([]),
+            },
+        });
+        new Function(source)();
+        const labels = await new Promise(resolve => {
+            const answering = listeners.map(listener => listener({ channel: 'yomu-popup-actions', type: 'labels' }, { id: 'yomu' }, resolve));
+            if (!answering.includes(true)) resolve('unanswered');
+        });
+        expect(labels).toEqual({ language: 'ja', studyLabel: '学習', settingsLabel: '設定' });
+    }, 30_000);
 });

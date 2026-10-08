@@ -90,6 +90,11 @@ function extensionDictionaryBackgroundStorage(): DirectExtensionDictionaryStorag
     return backgroundStorage ?? configureExtensionDictionaryBackgroundStorage();
 }
 
+/** The saved interface language, for the toolbar popup on a tab Yomu does not run on. */
+export async function backgroundInterfaceLanguage(): Promise<InterfaceLanguage> {
+    return (await extensionDictionaryBackgroundStorage().loadSettings()).interfaceLanguage;
+}
+
 /**
  * The generated extension background is itself the GM host. This adapter talks
  * to its storage area directly, applying the compiler prefix and Yomu's current
