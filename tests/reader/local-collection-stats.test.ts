@@ -228,7 +228,9 @@ it('leaves Academy out of Stats while Academy is turned off', async () => {
         const root = await renderLoadedApiStats(controller);
         expect(savedTile(root)).toBeNull();
         expect(metric(root, 'Saved')).toBe('');
-        expect(metric(root, 'Cards')).toBe('0');
+        // With Academy's words left out there is nothing to count: the empty state, not a tile of zeros.
+        expect(metric(root, 'Cards')).toBe('');
+        expect(root.querySelector('.jpdb-reader-stats-empty')).not.toBeNull();
         // Library, which the tile would open, lists no Academy words: it is the bare dictionary search.
         openView(root, 'search');
         await vi.waitFor(() => expect(root.querySelector('[data-newtab-search-results] .jpdb-reader-newtab-search-empty')).not.toBeNull());

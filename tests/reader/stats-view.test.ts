@@ -109,7 +109,8 @@ describe('new tab stats connection cards', () => {
             wanikani: emptyStatsSource('wanikani', 'WaniKani', 'WaniKani loaded.', 'ready'),
             yomuLocal,
             anki: emptyStatsSource('anki', 'Anki', 'Anki is unavailable.', ankiStatus),
-            combined: { ...yomuLocal, id: 'combined' },
+            // Some history, so the dashboard and every source card render.
+            combined: { ...yomuLocal, id: 'combined', totalReviews: 3 },
         };
     }
 
@@ -151,5 +152,75 @@ describe('new tab stats connection cards', () => {
         const root = renderConnections('ready');
         expect(root.querySelector('.jpdb-reader-stats-connection.is-yomu-local .jpdb-reader-stats-connection-actions')).toBeNull();
         expect(root.querySelector('.jpdb-reader-stats-connection.is-anki .jpdb-reader-stats-connection-actions')).not.toBeNull();
+    });
+});
+
+describe('new tab stats for an account with nothing yet', () => {
+    function emptySnapshot(): StatsDashboardSnapshot {
+        const yomuLocal = emptyStatsSource('yomu-local', ACADEMY_SRS_LABEL, '', 'setup');
+        return {
+            jpdb: emptyStatsSource('jpdb', 'JPDB', ''),
+            jiten: emptyStatsSource('jiten', 'Jiten', ''),
+            bunpro: emptyStatsSource('bunpro', 'Bunpro', ''),
+            wanikani: emptyStatsSource('wanikani', 'WaniKani', ''),
+            yomuLocal,
+            anki: emptyStatsSource('anki', 'Anki', ''),
+            combined: { ...yomuLocal, id: 'combined' },
+        };
+    }
+
+    function render(snapshot: StatsDashboardSnapshot): HTMLElement {
+        return renderNewTabStatsContent({ activityMetric: 'reviews', language: 'en', selectedSource: 'combined', snapshot, text: key => String(key) });
+    }
+
+    // A screen of zero tiles, empty bars and empty calendars said nothing.
+    it('shows one sentence and the two ways to start instead of a dashboard of zeros', () => {
+        const root = render(emptySnapshot());
+
+        expect(root.dataset.statsEmpty).toBe('true');
+        expect(root.querySelector('.jpdb-reader-stats-empty p')?.textContent).toBe('statsEmptyHelp');
+        expect(Array.from(root.querySelectorAll<HTMLElement>('.jpdb-reader-stats-empty [data-newtab-action]'))
+            .map(button => `${button.dataset.newtabAction}:${button.dataset.mode ?? ''}`)).toEqual(['mode:word', 'practice-sessions:']);
+        for (const dashboard of ['.jpdb-reader-stats-metrics', '.jpdb-reader-stats-activity', '.jpdb-reader-stats-month-strip', '.jpdb-reader-stats-distribution', '.jpdb-reader-stats-progress']) {
+            expect(root.querySelector(dashboard), dashboard).toBeNull();
+        }
+    });
+
+    it('drops a source card that has nothing to offer but keeps ones with a next step', () => {
+        const snapshot = emptySnapshot();
+        snapshot.yomuLocal = { ...snapshot.yomuLocal, status: 'ready', message: 'No stats yet.' };
+        snapshot.anki = { ...snapshot.anki, status: 'error', message: 'Anki is unavailable.' };
+        snapshot.combined = { ...snapshot.yomuLocal, id: 'combined' };
+        const root = render(snapshot);
+        expect(Array.from(root.querySelectorAll('.jpdb-reader-stats-connection')).map(card => card.className)).toEqual(['jpdb-reader-stats-connection is-anki']);
+    });
+
+    it('keeps the dashboard while stats are still loading', () => {
+        const snapshot = emptySnapshot();
+        snapshot.combined = { ...snapshot.combined, status: 'loading' };
+        expect(render(snapshot).querySelector('.jpdb-reader-stats-empty')).toBeNull();
+    });
+});
+
+describe('new tab stats units', () => {
+    function metric(root: HTMLElement, label: string): HTMLElement {
+        return Array.from(root.querySelectorAll<HTMLElement>('.jpdb-reader-stats-metric'))
+            .find(tile => tile.querySelector('.jpdb-reader-stats-metric-label')?.textContent === label)!;
+    }
+
+    // "Due now" is a count of cards; without a time estimate it once read "cards/min".
+    it('labels Due now as a count of cards, never as a rate', () => {
+        const untimed = snapshot();
+        untimed.combined = { ...untimed.combined, daily: [{ date: ACTIVE_DAY, reviews: 3, correct: 3, failed: 0, newCards: 1, minutes: 0 }] };
+        const root = renderNewTabStatsContent({ activityMetric: 'reviews', language: 'en', selectedSource: 'combined', snapshot: untimed, text: key => String(key) });
+        const due = metric(root, 'statsDueNow');
+        expect(due.querySelector('.jpdb-reader-stats-metric-detail')?.textContent).toBe('statscards');
+        expect(metric(renderStats(), 'statsDueNow').querySelector('.jpdb-reader-stats-metric-detail')?.textContent).toBe('statsEstimatedDueTime: 0m');
+    });
+
+    it('shows an unknown rate as a dash, not n/a', () => {
+        const root = renderStats();
+        expect(metric(root, 'statsRetention').querySelector('strong')?.textContent).toBe('—');
+        expect(root.textContent).not.toContain('n/a');
     });
 });

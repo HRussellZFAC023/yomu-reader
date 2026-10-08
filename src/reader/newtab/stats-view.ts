@@ -48,11 +48,12 @@ export function renderNewTabStatsContent(options: NewTabStatsContentOptions): HT
         source: statsSourceForId(options.snapshot, selectedSource),
     };
     const { source, text } = context;
-    return el('div', { class: 'jpdb-reader-stats', dataset: { statsStatus: source.status } },
+    const empty = isEmptyStatsSource(source);
+    return el('div', { class: 'jpdb-reader-stats', dataset: { statsStatus: source.status, statsEmpty: empty } },
         el('div', { class: 'jpdb-reader-stats-header' },
             el('div', { class: 'jpdb-reader-stats-title' },
                 el('h1', {}, text('stats')),
-                el('p', {}, source.message || text('statsNoData')),
+                empty ? null : el('p', {}, source.message || text('statsNoData')),
             ),
             el('button', {
                 type: 'button',
@@ -62,13 +63,39 @@ export function renderNewTabStatsContent(options: NewTabStatsContentOptions): HT
                 title: text('statsRefresh'),
             }, '↻'),
         ),
+        ...(empty ? [renderStatsEmpty(text)] : renderStatsDashboard(context)),
+        renderStatsConnections(context, empty),
+    );
+}
+
+// Nothing reviewed, saved or loaded yet: a screen of zeros, empty charts and
+// calendars says nothing, so one line says what will appear and how to start.
+function isEmptyStatsSource(source: StatsRenderSource): boolean {
+    return source.status !== 'loading'
+        && source.totalReviews === 0
+        && source.cards.total === 0
+        && !source.savedOnly
+        && source.daily.every(point => !point.reviews && !point.newCards && !point.minutes);
+}
+
+function renderStatsEmpty(text: NewTabStatsText): HTMLElement {
+    return el('section', { class: 'jpdb-reader-stats-empty' },
+        el('p', {}, text('statsEmptyHelp')),
+        el('div', { class: 'jpdb-reader-stats-empty-actions' },
+            el('button', { type: 'button', class: 'is-primary', dataset: { newtabAction: newTabAction('mode'), mode: 'word' } }, text('study')),
+            el('button', { type: 'button', dataset: { newtabAction: newTabAction('practice-sessions') } }, text('practiceTitle')),
+        ),
+    );
+}
+
+function renderStatsDashboard(context: NewTabStatsRenderContext): HTMLElement[] {
+    return [
         renderStatsSourceTabs(context),
         renderStatsMetrics(context),
         renderStatsLearningProgress(context),
         renderStatsActivity(context),
         renderStatsDistribution(context),
-        renderStatsConnections(context),
-    );
+    ];
 }
 
 export function normalizeNewTabStatsActivityMetric(value: string | undefined): StatsActivityMetric {
@@ -337,9 +364,12 @@ function renderStatsDistribution(context: NewTabStatsRenderContext): HTMLElement
     );
 }
 
-function renderStatsConnections(context: NewTabStatsRenderContext): HTMLElement {
+// With nothing to show yet, only a source that offers a next step earns a card:
+// another "No stats yet." beside the empty-state line says nothing new.
+function renderStatsConnections(context: NewTabStatsRenderContext, actionableOnly = false): HTMLElement {
     const { snapshot, text } = context;
-    const sources = visibleStatsSources(snapshot).map(([, source]) => source);
+    const sources = visibleStatsSources(snapshot).map(([, source]) => source)
+        .filter(source => !actionableOnly || statsConnectionActions(source, text).length > 0);
     return el('section', { class: 'jpdb-reader-stats-connections', 'aria-label': text('statsConnections') },
         sources.map(source => renderStatsConnectionCard(source, context)),
     );
@@ -513,7 +543,7 @@ function statsLocale(language: string): string {
 function statsDayLabel(point: StatsDailyPoint, sourcePoints: StatsDailyPoint[], context: NewTabStatsRenderContext): string {
     const { language, text } = context;
     const attempts = point.correct + point.failed;
-    const accuracy = attempts > 0 ? formatPercent(point.correct / attempts) : 'n/a';
+    const accuracy = attempts > 0 ? formatPercent(point.correct / attempts) : '—';
     const streak = dailyActivityStreakAt(sourcePoints, point.date);
     return [
         formatStatsDateLabel(point.date, language),
@@ -555,7 +585,7 @@ function formatStatsActivityValue(value: number, metric: StatsActivityMetric): s
 }
 
 function formatStatsSpeed(speed: number | null): string {
-    return speed === null ? 'n/a' : `${speed.toFixed(speed >= 10 ? 0 : 1)}`;
+    return speed === null ? '—' : `${speed.toFixed(speed >= 10 ? 0 : 1)}`;
 }
 
 function statsDueTimeDetail(minutes: number | null, context: NewTabStatsRenderContext): string {
@@ -566,7 +596,7 @@ function statsDueTimeDetail(minutes: number | null, context: NewTabStatsRenderCo
     // scheduler can answer exactly (Anki).
     const forecast = source.dueForecast;
     if (forecast) parts.push(`${text('statsNext7d')}: ${formatCompactNumber(forecast.in7)} · ${text('statsNext30d')}: ${formatCompactNumber(forecast.in30)}`);
-    return parts.length ? parts.join(' · ') : text('statsCardsPerMinute');
+    return parts.length ? parts.join(' · ') : text('statsCards').toLowerCase();
 }
 
 function formatStatsDuration(minutes: number): string {

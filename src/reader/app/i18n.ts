@@ -21,6 +21,7 @@ const COPY = {
         manualPageScanShortcut: 'Manual page scan shortcut',
         scanPage: 'Scan page',
         noUnscannedJapaneseText: 'No unscanned Japanese text found.',
+        statsEmptyHelp: 'Your reviews and progress show up here after your first session.',
         libraryEmpty: 'Save a word while you read and it shows up here.',
         contextOccurrences: 'In context ×{count}',
         puckAutoDetectSubtitles: 'Auto-detect subtitles',
@@ -1144,6 +1145,7 @@ english	英語
 japanese	日本語
 settings	設定
 settingsSaved	設定を保存しました。
+statsEmptyHelp	最初の学習のあと、復習の記録と進み具合がここに表示されます。
 libraryEmpty	読みながら単語を保存すると、ここに表示されます。
 settingsSaveFailed	設定を保存できませんでした。
 settingsCompanionUnavailable	設定を開けませんでした。

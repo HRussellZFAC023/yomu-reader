@@ -414,7 +414,7 @@ export function statsSourceHasVisibleData(source: StatsSourceSnapshot): boolean 
 }
 
 export function formatPercent(value: number | null): string {
-    if (value === null || !Number.isFinite(value)) return 'n/a';
+    if (value === null || !Number.isFinite(value)) return '—';
     return `${Math.round(value * 100)}%`;
 }
 
