@@ -1186,7 +1186,7 @@ describe('reader helpers', () => {
         expect(html.indexOf('>Yomu ')).toBeLessThan(html.indexOf('>Jiten '));
         expect(html.indexOf('>Jiten ')).toBeLessThan(html.indexOf('>JPDB '));
         expect(html).not.toContain('>Jisho ');
-        expect(html).toContain('>Copy ');
+        expect(html.indexOf('>JPDB ')).toBeLessThan(html.indexOf('jpdb-reader-copy-pill'));
         expect(html).toContain('https://jiten.moe/parse?text=');
         expect(html).toContain(`${NEW_TAB_PAGE_URL}index.html?q=`);
         // No rainbow: provider identity is the label, not a fill colour.
@@ -1323,7 +1323,12 @@ describe('reader helpers', () => {
         expect(html).toContain('>Jiten ');
         expect(html).toContain('>Yomu ');
         expect(html).not.toContain('>Jisho ');
-        expect(html).toContain('>Copy ');
+        // Copy is an icon: the accessible name and tooltip carry the words.
+        const copy = new DOMParser().parseFromString(html, 'text/html').querySelector('.jpdb-reader-copy-pill');
+        expect(copy?.textContent?.trim()).toBe('');
+        expect(copy?.querySelector('svg')).not.toBeNull();
+        expect(copy?.getAttribute('title')).toBe('Copy word');
+        expect(copy?.getAttribute('aria-label')).toMatch(/^Copy word: /);
         expect(html).toContain('<a ');
         expect(html).toContain('href="https://jiten.moe/parse?text=');
         expect(html).toContain(`href="${NEW_TAB_PAGE_URL}index.html?q=`);

@@ -1073,6 +1073,12 @@ span.jpdb-reader-action-pill[aria-disabled="true"] {
   stroke-linecap: round;
   stroke-linejoin: round;
 }
+/* Copy is an icon; its name and tooltip carry the words. */
+.jpdb-reader-copy-pill {
+  justify-content: center;
+  min-width: 24px !important;
+  padding-inline: 5px !important;
+}
 .jpdb-reader-word-pills {
   display: flex;
   align-items: center;

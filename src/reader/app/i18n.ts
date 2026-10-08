@@ -869,7 +869,6 @@ const COPY = {
         openOnJpdb: 'Open on JPDB',
         openOnLookup: 'Open on {label}',
         viewOnLookup: 'View on {label}',
-        copyWord: 'Copy',
         copyWordTitle: 'Copy word',
         copiedWord: 'Copied word.',
         backToWord: 'Back to word',
@@ -1333,7 +1332,6 @@ playExampleAudio	例文音声を再生
 openOnJpdb	JPDBで開く
 openOnLookup	{label}で開く
 viewOnLookup	{label}で見る
-copyWord	コピー
 copyWordTitle	単語をコピー
 backToWord	単語に戻る
 backToKanji	漢字に戻る
