@@ -743,6 +743,8 @@ describe('JitenPublicVocabularyClient', () => {
 
         expect(during.get('学習')).toMatchObject({ spelling: '学習', reading: 'がくしゅう', frequencyRank: 6898, jitenWordId: 1206820 });
         await expect(client.lookup('学習')).resolves.toMatchObject({ frequencyRank: 6898 });
+        const parsed = parsedJitenCard({ vid: 1206820, jitenWordId: 1206820, spelling: '学習' });
+        expect((await client.hydrateCards([parsed])).get(parsedCardHydrationKey(parsed))).toMatchObject({ reading: 'がくしゅう', frequencyRank: 6898 });
         await expect(new JitenPublicVocabularyClient({ requestJsonImpl: requestJson }).lookupMany(['学習']))
             .resolves.toEqual(new Map([['学習', expect.objectContaining({ frequencyRank: 6898 })]]));
         expect(requestJson).toHaveBeenCalledTimes(sent);
