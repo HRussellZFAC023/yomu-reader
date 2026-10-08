@@ -68,10 +68,15 @@ const DEFAULT_READER_SMOKE_SETTINGS = Object.freeze({
     popupActivationMode: 'click',
     showFloatingButton: false,
     showFurigana: true,
+    // The 2.0 annotation look, whole: since 2.1 (ADR-0025) it is a choice, so
+    // these smokes declare it rather than inherit the quiet defaults. Without
+    // the empty hidden groups, a known word keeps its highlight source but
+    // loses its paint.
     furiganaMode: 'all',
     wordHighlightColorSource: 'jpdb',
     wordUnderlineColorSource: 'pitch',
     wordTextColorSource: 'off',
+    wordColorHiddenStateGroups: [],
     enableLogging: false,
 });
 
@@ -679,7 +684,19 @@ export const ANNOTATION_DEFAULT_KEYS_SMOKES_DECLARE = Object.freeze([
     'subtitleTextColorSource',
     'wordColorHiddenStateGroups',
 ]);
-const SETTINGS_INTENT_LEDGER_KEY = 'yomu:settings-intent:v2';
+export const SETTINGS_INTENT_LEDGER_KEY = 'yomu:settings-intent:v2';
+
+/**
+ * The intent ledger that declares every retired-default key these settings
+ * set, or null when they set none. For a script that seeds GM storage itself
+ * rather than through the bridge: store it under SETTINGS_INTENT_LEDGER_KEY.
+ */
+export function annotationDefaultsIntentLedger(settings) {
+    const declared = ANNOTATION_DEFAULT_KEYS_SMOKES_DECLARE.filter(name => Object.hasOwn(settings, name));
+    if (!declared.length) return null;
+    const records = Object.fromEntries(declared.map((name, index) => [name, { seq: index + 1, value: settings[name] }]));
+    return { revision: declared.length, records };
+}
 
 function withDeclaredAnnotationDefaults(options) {
     const { declareAnnotationDefaults = true, ...bridgeOptions } = options;
@@ -687,10 +704,8 @@ function withDeclaredAnnotationDefaults(options) {
     if (!declareAnnotationDefaults || bridgeOptions.key !== YOMU_SETTINGS_KEY || !value || typeof value !== 'object') return bridgeOptions;
     // A smoke that writes a committed pair of its own owns its ledger too.
     if (Object.keys(value).some(name => name.startsWith('__yomuSettingsPersistence'))) return bridgeOptions;
-    const declared = ANNOTATION_DEFAULT_KEYS_SMOKES_DECLARE.filter(name => Object.hasOwn(value, name));
-    if (!declared.length) return bridgeOptions;
-    const records = Object.fromEntries(declared.map((name, index) => [name, { seq: index + 1, value: value[name] }]));
-    return { ...bridgeOptions, intentLedger: { key: SETTINGS_INTENT_LEDGER_KEY, value: { revision: declared.length, records } } };
+    const ledger = annotationDefaultsIntentLedger(value);
+    return ledger ? { ...bridgeOptions, intentLedger: { key: SETTINGS_INTENT_LEDGER_KEY, value: ledger } } : bridgeOptions;
 }
 
 export async function addGmStorageBridgeInitScript(page, options) {

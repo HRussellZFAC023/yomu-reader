@@ -2480,8 +2480,8 @@ async function assertHostedTryMeFreshProfile(browser, server) {
         ankiEnabled: false,
         // A20 (fd56739bf, 1.8.28): Yomu's own deck, on by default, feeds the
         // state colour channel too. Only a profile with no deck at all falls
-        // back to pitch underline with text colour off, which is what this
-        // pre-check is about.
+        // back to the default underline, which since 2.1 is none (ADR-0025),
+        // with text colour off, which is what this pre-check is about.
         yomuLocalSrsEnabled: false,
         wordHighlightColorSource: 'jpdb',
         wordUnderlineColorSource: 'jpdb',
@@ -2497,7 +2497,7 @@ async function assertHostedTryMeFreshProfile(browser, server) {
         const snapshot = await hostedTryMeVisualSnapshot(page);
         assertAudit(snapshot.down?.expression === '下', `fresh hosted Try Me 下 word has wrong expression: ${JSON.stringify(snapshot)}`);
         assertAudit(snapshot.pointSurface === '下' && snapshot.pointExpression === '下', `fresh hosted Try Me center point misses 下: ${JSON.stringify(snapshot)}`);
-        assertAudit(snapshot.rootClasses.includes('jpdb-reader-word-underline-pitch'), `fresh hosted Try Me should keep pitch styling without login: ${JSON.stringify(snapshot)}`);
+        assertAudit(snapshot.rootClasses.includes('jpdb-reader-word-underline-off'), `fresh hosted Try Me should draw no underline without login: ${JSON.stringify(snapshot)}`);
         assertAudit(snapshot.rootClasses.includes('jpdb-reader-word-text-off'), `fresh hosted Try Me text color should stay off without login: ${JSON.stringify(snapshot)}`);
         assertAudit(snapshot.jpdbWord?.color === snapshot.hostTextColor, `fresh hosted Try Me text should inherit host copy color without login: ${JSON.stringify(snapshot)}`);
     } finally {

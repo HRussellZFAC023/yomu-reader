@@ -15,6 +15,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright';
+import { annotationDefaultsIntentLedger, SETTINGS_INTENT_LEDGER_KEY } from './lib/smoke-harness.mjs';
 
 const ROOT = path.resolve(fileURLToPath(new URL('..', import.meta.url)));
 const USERSCRIPT = path.join(ROOT, 'dist/yomu.user.js');
@@ -86,7 +87,7 @@ const settings = {
 
 const gmShim = `
 (() => {
-  const store = new Map(Object.entries(${JSON.stringify({ [SETTINGS_KEY]: settings })}));
+  const store = new Map(Object.entries(${JSON.stringify({ [SETTINGS_KEY]: settings, [SETTINGS_INTENT_LEDGER_KEY]: annotationDefaultsIntentLedger(settings) })}));
   const listeners = new Map();
   window.GM_getValue = (k, d) => store.has(k) ? store.get(k) : d;
   window.GM_setValue = (k, v) => { const old = store.get(k); store.set(k, v); (listeners.get(k)||[]).forEach(f=>{try{f(k,old,v,false)}catch{}}); };
