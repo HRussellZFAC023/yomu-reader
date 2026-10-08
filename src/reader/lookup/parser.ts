@@ -425,16 +425,15 @@ export class ReaderParser {
         const client = this.dependencies.jitenPublicVocabulary;
         if (!client) return new Map();
         if (typeof client.lookupMany === 'function') {
-            const found = await client.lookupMany(terms, {
-                detailLimit: Math.max(options.publicJitenDetailLimit ?? 0, terms.length),
-            });
+            // Each confirmation is a detail request from the anonymous budget
+            // (300 a minute), and one sentence's candidates hold dozens of
+            // words: the caller's detail budget holds here too.
+            const found = await client.lookupMany(terms, { detailLimit: options.publicJitenDetailLimit });
             const cards = new Map<string, JPDBCard[]>();
             found.forEach((card, term) => cards.set(target.normalizeText(term), [card]));
             return cards;
         }
-        const parsed = await client.parse(terms, {
-            detailLimit: Math.max(options.publicJitenDetailLimit ?? 0, terms.length),
-        });
+        const parsed = await client.parse(terms, { detailLimit: options.publicJitenDetailLimit });
         return authoritativeCardsFromParsedTerms(terms, parsed, target);
     }
 
