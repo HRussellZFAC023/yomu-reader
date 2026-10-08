@@ -180,6 +180,12 @@ describe('Library and Stats', () => {
         expect(newTabCss.match(/\.jpdb-reader-newtab-browse-empty \{/gu)).toHaveLength(1);
         expect(newTabCss).toContain('.jpdb-reader-newtab-browse-empty { display: grid; justify-items: start; gap: 16px; margin: 0; padding: 8px 0; color: var(--jpdb-reader-muted); }');
     });
+
+    // The brand and menu jumped 60-80px sideways between Study (1040px),
+    // Library (920px) and Stats (1080px).
+    it('keeps the header still across Study, Library and Stats on a desktop', () => {
+        expect(newTabCss).toContain('@media (min-width: 641px) { /* Study, Library and Stats share one width, so the header holds still when the tab changes. */ .jpdb-reader-newtab:not([data-study-surface="academy"]) .jpdb-reader-newtab-shell { width: min(1040px, calc(100vw - 40px)); }');
+    });
 });
 
 describe('Study on a phone', () => {

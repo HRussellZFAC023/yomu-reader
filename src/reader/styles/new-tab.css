@@ -1554,9 +1554,14 @@
 }
 
 @media (min-width: 641px) {
+  /* Study, Library and Stats share one width, so the header holds still
+     when the tab changes. */
+  .jpdb-reader-newtab:not([data-study-surface="academy"]) .jpdb-reader-newtab-shell {
+    width: min(1040px, calc(100vw - 40px));
+  }
+
   .jpdb-reader-newtab:not(.jpdb-reader-newtab-search-mode, .jpdb-reader-newtab-stats-mode)
     .jpdb-reader-newtab-shell {
-    width: min(1040px, calc(100vw - 40px));
     gap: 14px;
   }
 
