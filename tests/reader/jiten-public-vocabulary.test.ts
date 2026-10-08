@@ -1,4 +1,4 @@
-import recordedLatticeBatch from './fixtures/public-jiten-lattice-batch-20261008.json';
+import recordedLattice from './fixtures/public-jiten-lattice-batch-20261008.json';
 import recordedParagraphBatch from './fixtures/public-jiten-paragraph-batch-20261007.json';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ensureManagedWebStorageCurrent } from '../../src/reader/app/storage';
@@ -22,6 +22,34 @@ function parsedJitenCard(overrides: Partial<JPDBCard> = {}): JPDBCard {
         source: 'jiten', jitenWordId: 1381470, jitenReadingIndex: 0,
         ...overrides,
     } as unknown as JPDBCard;
+}
+
+// Jiten as recorded on the Wikipedia article: each recorded lattice batch
+// gets its live answer, and any other text the ids those answers found, one
+// word per separator-joined term.
+function recordedLatticeJiten() {
+    const words = recordedLattice.batches.flatMap(batch => batch.body).filter(record => record.wordId > 0);
+    const ids = new Map(words.map(record => [record.originalText, record.wordId]));
+    const spellings = new Map(words.map(record => [record.wordId, record.originalText]));
+    const parseTexts: string[] = [];
+    const requestJson = vi.fn(async (url: string) => {
+        const text = new URL(url).searchParams.get('text');
+        if (text === null) {
+            const wordId = Number(/vocabulary\/(\d+)\//u.exec(url)?.[1]);
+            return { wordId, mainReading: { text: spellings.get(wordId) } };
+        }
+        parseTexts.push(text);
+        const recorded = recordedLattice.batches.find(batch => batch.terms.join('。') === text);
+        return recorded?.body ?? text.split('。').flatMap((term, index) => [
+            ...(index ? [{ wordId: 0, readingIndex: 0, originalText: '。' }] : []),
+            { wordId: ids.get(term) ?? 0, readingIndex: 0, originalText: term },
+        ]);
+    });
+    return { client: new JitenPublicVocabularyClient({ requestJsonImpl: requestJson }), parseTexts };
+}
+
+function jitenIds(cards: ReadonlyMap<string, JPDBCard>, terms: readonly string[]): Record<string, number | undefined> {
+    return Object.fromEntries(terms.map(term => [term, cards.get(term)?.jitenWordId]));
 }
 
 describe('JitenPublicVocabularyClient', () => {
@@ -778,32 +806,32 @@ describe('JitenPublicVocabularyClient', () => {
         expect(requestJson).toHaveBeenCalledTimes(sent);
     });
 
-    // A lattice batch the built extension sent on the recorded article,
-    // answered live. Jiten folds a separator into text it could not read
-    // ('・。', 'う。', and once a run over メイン, a word it knows alone), and
-    // the batch's grouping loses its place after the first fold. An empty
-    // group is therefore not a miss: remembering it as one hid 表示 and 切る
-    // from every later lookup for ten minutes.
+    // Jiten folds a separator into text it could not read ('う。' in
+    // 明してう), and counting separators past that fold put every later term
+    // a word behind: している got して and 明して got 明, kept ten minutes for
+    // lookup() and the popup's public fallback too.
+    it("never hands a lattice term its neighbour's word", async () => {
+        const [, setsumei] = recordedLattice.batches;
+        const { client, parseTexts } = recordedLatticeJiten();
+
+        const explained = await client.lookupMany(setsumei.terms, { detailLimit: setsumei.terms.length });
+        const again = await client.lookupMany(['している', '明して', '明し']);
+
+        expect(jitenIds(explained, ['説明して', '明している'])).toEqual({ 説明して: 1386460, 明している: 1532220 });
+        expect(jitenIds(again, ['している', '明して', '明し'])).toEqual({ している: 1157170, 明して: 1532220, 明し: 1532220 });
+        expect(parseTexts).toHaveLength(2);
+    });
+
+    // A term a batch answered with nothing has not been told no: Jiten can
+    // swallow a word it knows alone (メイン inside 'メ。メイン。メイ。メ。イン'),
+    // and terms after a fold go unanswered. Remembering them as misses hid
+    // 表示 and 切る from every later lookup for ten minutes.
     it('asks again for words a batch answered with nothing', async () => {
-        const ids = new Map(recordedLatticeBatch.body.filter(record => record.wordId > 0).map(record => [record.originalText, record.wordId]));
-        const requestJson = vi.fn(async (url: string) => {
-            const text = new URL(url).searchParams.get('text');
-            if (text === recordedLatticeBatch.terms.join('。')) return recordedLatticeBatch.body;
-            if (text !== null) {
-                return text.split('。').flatMap((term, index) => [
-                    ...(index ? [{ wordId: 0, readingIndex: 0, originalText: '。' }] : []),
-                    { wordId: ids.get(term) ?? 0, readingIndex: 0, originalText: term },
-                ]);
-            }
-            const wordId = Number(/vocabulary\/(\d+)\//u.exec(url)?.[1]);
-            return { wordId, mainReading: { text: [...ids].find(([, id]) => id === wordId)?.[0] } };
-        });
-        const client = new JitenPublicVocabularyClient({ requestJsonImpl: requestJson });
-        await client.lookupMany(recordedLatticeBatch.terms, { detailLimit: recordedLatticeBatch.terms.length });
+        const [menu] = recordedLattice.batches;
+        const { client } = recordedLatticeJiten();
+        await client.lookupMany(menu.terms, { detailLimit: menu.terms.length });
 
-        const again = await client.lookupMany(['メイン', '表示', '切る']);
-
-        expect(Object.fromEntries([...again].map(([term, card]) => [term, card.jitenWordId])))
+        expect(jitenIds(await client.lookupMany(['メイン', '表示', '切る']), ['メイン', '表示', '切る']))
             .toEqual({ メイン: 1132680, 表示: 1489610, 切る: 1384830 });
         await expect(client.lookup('非')).resolves.toMatchObject({ spelling: '非', jitenWordId: 1484710 });
     });

@@ -238,10 +238,10 @@ export class JitenPublicVocabularyClient {
     private async lookupManyUncached(terms: string[], options: JitenPublicLookupManyOptions): Promise<Map<string, JPDBCard>> {
         const parsedByTerm = await this.parseTermGroups(terms);
         const candidatesByTerm = new Map<string, PublicParseWord>();
-        // An empty group is not a miss. Jiten folds a separator into text it
-        // could not read ('・。', 'う。', even 'メ。メイン。メイ。メ。イン' over a
-        // word it knows alone), so the grouping can lose a batch's place; the
-        // term is asked again rather than remembered as wordless.
+        // An empty group is not a miss: grouping stops at the first separator
+        // Jiten folds, and a fold can swallow a word Jiten knows alone (メイン
+        // in 'メ。メイン。メイ。メ。イン'). The term is asked again rather than
+        // remembered as wordless.
         terms.forEach((term, index) => {
             const candidate = bestParsedWordForTerm(term, parsedByTerm[index] ?? []);
             if (candidate) candidatesByTerm.set(term, candidate);
@@ -545,6 +545,13 @@ function publicParseTermGroups(terms: readonly string[], parsed: readonly Public
             complete = false;
             continue;
         }
+        // Jiten folded a separator into text it could not read ('う。', '・。',
+        // '。ール'). From here the count is a term behind and would hand each
+        // term its neighbour's word (して for している), so the rest of the
+        // batch goes unanswered and is asked again. Recounting would answer
+        // about ten times as many lattice terms on the recorded article, each
+        // a detail request from the same 300-a-minute anonymous budget.
+        if (surface.includes(PARSE_TERM_SEPARATOR)) break;
         if (complete) {
             termIndex++;
             consumed = '';
