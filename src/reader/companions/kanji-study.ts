@@ -25,7 +25,7 @@ import {
     translateTargetSentence,
 } from '../study/tools-impl';
 import { handleStudyGrammarAction, renderStudyToolResult } from '../study/render-impl';
-import { deckSelectInUse, mountDeckSelects, preserveMiningControls, setMiningControlsExpanded, toggleMiningControls } from '../study/mining-controls-impl';
+import { mountDeckSelects, rerenderAroundMiningControls, setMiningControlsExpanded, toggleMiningControls } from '../study/mining-controls-impl';
 import { updateKanjiMiningControlsMount } from '../kanji/mining-controls-impl';
 import {
     contextLabel,
@@ -81,8 +81,7 @@ registerYomuCompanion('kanjiStudy', {
     toggleMiningControls,
     setMiningControlsExpanded,
     mountDeckSelects,
-    deckSelectInUse,
-    preserveMiningControls,
+    rerenderAroundMiningControls,
     updateKanjiMiningControlsMount,
     normalizeMiningSentence,
     inferMiningSourceKind,

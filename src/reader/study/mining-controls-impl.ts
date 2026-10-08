@@ -112,50 +112,74 @@ async function addToChosenDeck(host: HTMLElement, select: HTMLSelectElement, add
     target?.focus({ preventScroll: true });
 }
 
-/** The dropdown placeholder a learner is using in `root`, if any: a popup must not rebuild under it. */
-export function deckSelectInUse(root: ParentNode): HTMLElement | null {
+const waitingRenders = new WeakMap<ParentNode, { host: Element; render: () => void }>();
+
+/**
+ * A popup re-renders its whole HTML when a provider lands, which rebuilt the action rows
+ * under the learner. `render` does that here without losing their place: while they are
+ * in a deck dropdown in `root` it waits until they leave it (a rebuild would close its
+ * list mid-choice), and only the newest waiting render runs. A render that runs puts
+ * back, on the rebuilt rows, the ⋯ overflows that were open and focus on a row control.
+ */
+export function rerenderAroundMiningControls(root: ParentNode, label: MiningControlLabel, render: () => void): void {
+    const choosing = deckSelectInUse(root);
+    if (choosing) {
+        waitForDeckChoice(root, choosing, () => rerenderAroundMiningControls(root, label, render));
+        return;
+    }
+    waitingRenders.delete(root);
+    const restore = preserveMiningControls(root, label);
+    render();
+    restore();
+}
+
+function deckSelectInUse(root: ParentNode): HTMLElement | null {
     const active = (root as Node).ownerDocument?.activeElement as HTMLElement | null | undefined;
     return active?.matches(`.${DECK_SELECT_CLASS}`) && root.contains(active) ? active : null;
 }
 
-/**
- * A popup re-renders its whole HTML when a provider lands, which rebuilt the action
- * rows under the learner: the ⋯ overflow collapsed and focus fell to the page. Call
- * this before the re-render; the function it returns puts back, on the rebuilt rows,
- * the overflows that were open and focus on a row control. Controls pair up by their
- * order in `root`.
- */
-export function preserveMiningControls(root: ParentNode, label: MiningControlLabel): (root: ParentNode) => void {
+function waitForDeckChoice(root: ParentNode, host: HTMLElement, render: () => void): void {
+    const listening = waitingRenders.get(root)?.host === host;
+    waitingRenders.set(root, { host, render });
+    if (listening) return;
+    // Focus reaches the next control only after focusout. Waiting a task lets the render
+    // rebuild that control with focus kept on it, instead of out from under it.
+    host.addEventListener('focusout', () => setTimeout(() => {
+        const waiting = waitingRenders.get(root);
+        if (waiting?.host !== host) return;
+        waitingRenders.delete(root);
+        waiting.render();
+    }), { once: true });
+}
+
+// Controls pair up with their rebuilt counterparts by order in `root`.
+function preserveMiningControls(root: ParentNode, label: MiningControlLabel): () => void {
     const expanded = [...root.querySelectorAll<HTMLButtonElement>(MINING_DRAWER_SELECTOR)].map(drawer => {
         const actions = drawer.closest(`.${MINING_ACTIONS_CLASS}`);
         return Boolean(actions && !actions.classList.contains(MINING_COLLAPSED_CLASS));
     });
-    const restoreFocus = focusedActionControl(root);
-    return next => {
-        const drawers = [...next.querySelectorAll<HTMLButtonElement>(MINING_DRAWER_SELECTOR)];
+    const restoreFocus = focusedActionButton(root);
+    return () => {
+        const drawers = [...root.querySelectorAll<HTMLButtonElement>(MINING_DRAWER_SELECTOR)];
         expanded.forEach((open, index) => {
             const drawer = drawers[index];
             if (open && drawer) setMiningControlsExpanded(drawer, true, label);
         });
-        restoreFocus?.(next);
+        restoreFocus?.();
     };
 }
 
-function focusedActionControl(root: ParentNode): ((next: ParentNode) => void) | null {
-    const active = (root as Node).ownerDocument?.activeElement ?? null;
-    if (!active || !root.contains(active) || !active.closest(`.${MINING_ACTIONS_CLASS}`)) return null;
-    const selector = active.matches(`.${DECK_SELECT_CLASS}`)
-        ? `.${MINING_ACTIONS_CLASS} .${DECK_SELECT_CLASS}`
-        : active instanceof HTMLElement && active.localName === 'button' && active.dataset.action
-            ? `.${MINING_ACTIONS_CLASS} button[data-action="${active.dataset.action}"]`
-            : '';
-    if (!selector) return null;
+function focusedActionButton(root: ParentNode): (() => void) | null {
+    const active = (root as Node).ownerDocument?.activeElement;
+    if (!(active instanceof HTMLElement) || active.localName !== 'button' || !root.contains(active)) return null;
+    const action = active.closest(`.${MINING_ACTIONS_CLASS}`) && active.dataset.action;
+    if (!action) return null;
+    const selector = `.${MINING_ACTIONS_CLASS} button[data-action="${action}"]`;
     const index = [...root.querySelectorAll(selector)].indexOf(active);
-    return next => {
-        const current = (next as Node).ownerDocument?.activeElement;
+    return () => {
+        const current = (root as Node).ownerDocument?.activeElement;
         // A learner who moved on during the render keeps their new place.
         if (current && current !== current.ownerDocument.body && current.isConnected) return;
-        const control = next.querySelectorAll<HTMLElement>(selector)[index];
-        (control && deckSelects.get(control) || control)?.focus({ preventScroll: true });
+        root.querySelectorAll<HTMLElement>(selector)[index]?.focus({ preventScroll: true });
     };
 }

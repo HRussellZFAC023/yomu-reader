@@ -86,6 +86,11 @@ async function settle(): Promise<void> {
     await Promise.resolve();
 }
 
+// A render waiting on the dropdown lands a task after focus leaves it.
+async function nextTask(): Promise<void> {
+    await new Promise(resolve => setTimeout(resolve));
+}
+
 function completedData(): CardRenderData {
     return {
         localEntries: [],
@@ -153,15 +158,66 @@ describe.each(['modal', 'hover'] as const)('%s popup actions while enrichment re
             dispatchAuthorizedReaderControlEvent(dropdown, new Event('change'));
             expect(handleCardAction).toHaveBeenCalledTimes(1);
             expect(handleCardAction).toHaveBeenCalledWith(dropdown, card, SENTENCE, { kind: 'card-action', action: 'add', deckSource: 'yomu-local', deckId: 'yomu-local' });
+            // The learner keeps their place in the dropdown after the save.
+            await settle();
+            expect(pickerRoot!.activeElement).toBe(dropdown);
 
             // Leaving the dropdown lets the newest render in, with the overflow still open.
             dropdown.blur();
+            await nextTask();
             flushFrames();
             expect(loading()).toBeNull();
             expect(host()).not.toBe(opened);
             expect(overflow()!.getAttribute('aria-expanded')).toBe('true');
             expect(host()!.closest('.jpdb-reader-actions-mining-collapsed')).toBeNull();
             expect(pickerRoot!.querySelector('select')!.options).toHaveLength(dropdown.options.length);
+        } finally {
+            popover.remove();
+            app.destroy();
+        }
+    });
+
+    // Shift+Tab from the dropdown moves focus to ⋯ only after focusout. The waiting render
+    // ran inside focusout and rebuilt ⋯ before focus reached it, so focus fell to the page.
+    it('lands focus on the rebuilt ⋯ when the learner leaves the dropdown for it while a render waits', async () => {
+        const app = new ReaderApp();
+        const internals = app as unknown as Internals;
+        const card = testAozoraCard();
+        const popover = document.createElement('div');
+        popover.className = 'jpdb-reader-popover';
+        popover.dataset.jpdbReaderRoot = 'true';
+        document.body.append(popover);
+        internals.activePopover = popover;
+        internals.settings = SETTINGS;
+        internals.parsePopoverJapanese = vi.fn(async () => undefined);
+        const localEntries = deferred<YomitanTermEntry[]>();
+        holdFrames();
+        const overflow = () => popover.querySelector<HTMLButtonElement>('[data-action="mining-collapse"]');
+
+        try {
+            internals.renderDeferredCardLocalEntries(
+                popover, card, SENTENCE, trigger,
+                { localEntries: localEntries.promise, all: deferred<CardRenderData>().promise },
+                NOT_IN_DECK, { instantLocalEntries: null, requestId: 1 }, { fullRenderCompleted: false }, () => true,
+            );
+            localEntries.resolve([]);
+            await settle();
+            flushFrames();
+            internals.toggleMiningControls(overflow()!);
+            pickerRoot!.querySelector('select')!.focus();
+            internals.renderCompletedCardPopover(popover, card, SENTENCE, trigger, completedData());
+            flushFrames();
+            expect(popover.querySelector('[data-card-details-loading]')).not.toBeNull();
+
+            const toggle = overflow()!;
+            toggle.focus();
+            await nextTask();
+            flushFrames();
+
+            expect(popover.querySelector('[data-card-details-loading]')).toBeNull();
+            expect(overflow()).not.toBe(toggle);
+            expect(document.activeElement).toBe(overflow());
+            expect(overflow()!.getAttribute('aria-expanded')).toBe('true');
         } finally {
             popover.remove();
             app.destroy();

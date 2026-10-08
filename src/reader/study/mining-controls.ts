@@ -16,17 +16,14 @@ export function setMiningControlsExpanded(button: HTMLButtonElement, expanded: b
     yomuKanjiStudyCompanion()?.setMiningControlsExpanded?.(button, expanded, label);
 }
 
-/** Call before a popup re-render; the returned function restores open overflows and focus. */
-export function preserveMiningControls(root: ParentNode, label: MiningControlLabel): (root: ParentNode) => void {
-    return yomuKanjiStudyCompanion()?.preserveMiningControls?.(root, label) ?? (() => undefined);
+/** Re-renders a popup through `render` without pulling its action rows from under the learner. */
+export function rerenderAroundMiningControls(root: ParentNode, label: MiningControlLabel, render: () => void): void {
+    const companion = yomuKanjiStudyCompanion()?.rerenderAroundMiningControls;
+    if (companion) companion(root, label, render);
+    else render();
 }
 
 /** Mounts the "Add to deck…" dropdowns a popup render placed in `root`. */
 export function mountDeckSelects(root: ParentNode, card: JPDBCard, sentence: string | undefined, performAction: MiningCardAction): void {
     yomuKanjiStudyCompanion()?.mountDeckSelects?.(root, card, sentence, performAction);
-}
-
-/** The "Add to deck…" dropdown in use in `root`, if any. */
-export function deckSelectInUse(root: ParentNode): HTMLElement | null {
-    return yomuKanjiStudyCompanion()?.deckSelectInUse?.(root) ?? null;
 }

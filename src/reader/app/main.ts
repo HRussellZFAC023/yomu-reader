@@ -255,9 +255,8 @@ import {
     type MiningContext,
 } from '../study/mining-context';
 import {
-    deckSelectInUse,
     mountDeckSelects,
-    preserveMiningControls,
+    rerenderAroundMiningControls,
     setMiningControlsExpanded as setMiningControlsExpandedState,
     toggleMiningControls as toggleMiningControlsState,
 } from '../study/mining-controls';
@@ -825,7 +824,6 @@ export class ReaderApp {
     private activeHoverWord?: HTMLElement;
     private activeHoverLookupKey = '';
     private pinnedHoverPopover?: HTMLElement;
-    private readonly rendersAwaitingDeckChoice = new WeakMap<HTMLElement, () => void>();
     private releaseActiveOcrLookupLine?: () => void;
     private ownedModalOcrPin?: HTMLElement;
     private activePointerTextLookup?: ActivePointerTextLookup;
@@ -6540,7 +6538,7 @@ export class ReaderApp {
         const canRenderLoading = () => !renderState.fullRenderCompleted && isCurrentRender();
         const runLoadingRender = () => {
             loadingRenderFrame = undefined;
-            this.renderUnlessChoosingDeck(popover, renderLoadingNow);
+            this.rerenderAroundMiningControls(popover, renderLoadingNow);
         };
         const renderLoadingNow = () => {
             if (!canRenderLoading()) return;
@@ -6684,7 +6682,7 @@ export class ReaderApp {
             roots: renderedRoots,
         });
         this.applyPitchAccentToRenderedWords(card, undefined, renderedRoots);
-        this.renderUnlessChoosingDeck(popover, () => {
+        this.rerenderAroundMiningControls(popover, () => {
             if (!this.isActivePopoverRender(popover)) return;
             this.rerenderCardPopoverHtml(popover, card, sentence, this.cardPopoverRenderer.render(card, sentence, trigger, { ...data, loading: false }));
             this.wanikaniSources.installDefinitionMounts(popover, card);
@@ -6696,37 +6694,20 @@ export class ReaderApp {
         });
     }
 
-    // A popup does not rebuild under a learner choosing a deck: the dropdown's list
-    // would close mid-choice. The newest render waits until focus leaves the dropdown.
-    private renderUnlessChoosingDeck(popover: HTMLElement, render: () => void): void {
-        const choosing = deckSelectInUse(popover);
-        if (!choosing) {
-            this.rendersAwaitingDeckChoice.delete(popover);
-            render();
-            return;
-        }
-        const waiting = this.rendersAwaitingDeckChoice.has(popover);
-        this.rendersAwaitingDeckChoice.set(popover, render);
-        if (waiting) return;
-        choosing.addEventListener('focusout', () => {
-            const next = this.rendersAwaitingDeckChoice.get(popover);
-            this.rendersAwaitingDeckChoice.delete(popover);
-            if (next && this.isActivePopoverRender(popover)) this.renderUnlessChoosingDeck(popover, next);
-        }, { once: true });
+    // A late render waits while the learner is choosing a deck, and keeps their open ⋯ and focus.
+    private rerenderAroundMiningControls(popover: HTMLElement, render: () => void): void {
+        rerenderAroundMiningControls(popover, expanded => this.miningControlsToggleLabel(expanded), render);
     }
 
-    // Late providers re-enter on the same, still-active popover. Whatever the learner
-    // has there survives the new HTML: loaded Immersion examples, their scroll (a
-    // non-zero offset is the learner's), an open ⋯ overflow, focus, and the deck dropdown.
+    // Late providers re-enter on the same, still-active popover. Loaded Immersion examples
+    // and their scroll (a non-zero offset is the learner's) survive the new HTML.
     private rerenderCardPopoverHtml(popover: HTMLElement, card: JPDBCard, sentence: string | undefined, html: string): void {
         const preservedImmersion = this.preserveImmersionMountForRerender(popover);
         const scrollOffset = capturePopoverScrollOffset(popover);
-        const restoreMiningControls = preserveMiningControls(popover, expanded => this.miningControlsToggleLabel(expanded));
         clearNestedParseState(popover);
         setInnerHtml(popover, html);
         this.restorePreservedImmersionMount(popover, preservedImmersion);
         this.mountDeckSelects(popover, card, sentence);
-        restoreMiningControls(popover);
         restorePopoverScrollOffsetSoon(scrollOffset);
     }
 

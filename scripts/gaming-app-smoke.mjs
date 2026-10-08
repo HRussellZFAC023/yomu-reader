@@ -782,6 +782,21 @@ async function assertDeckDropdownSurvivesEnrichment(overlay) {
         await overlay.waitForTimeout(600);
         assertSmoke(await toast.count() === 0 && (await savedToLocalDeck()).length === 0,
             'Typing in the closed deck dropdown saved the word before the learner pressed Enter.');
+        // Shift+Tab to ⋯ lets the waiting render in once focus has landed there: the
+        // learner is on the rebuilt ⋯, not dropped onto the page. Tab returns to the dropdown.
+        await overlay.keyboard.press('Shift+Tab');
+        await popup.locator('[data-card-details-loading]').waitFor({ state: 'detached', timeout: 5000 });
+        const left = await popup.evaluate(root => ({
+            onToggle: document.activeElement?.matches('[data-action="mining-collapse"]') === true && root.contains(document.activeElement),
+            rebuilt: root.querySelector('.jpdb-reader-deck-select')?.dataset.smokeOpenedDropdown !== 'true',
+            overflowOpen: !root.querySelector('.jpdb-reader-actions-mining-collapsed'),
+        }));
+        assertSmoke(left.onToggle && left.rebuilt && left.overflowOpen,
+            `Leaving the deck dropdown as enrichment landed dropped the learner's focus: ${JSON.stringify(left)}`);
+        await overlay.keyboard.press('Tab');
+        assertSmoke(await popup.evaluate(root => document.activeElement?.matches('.jpdb-reader-deck-select') === true && root.contains(document.activeElement)),
+            'Tab from "More actions" did not return to the rebuilt deck dropdown.');
+        await overlay.keyboard.type('Academy');
         await overlay.keyboard.press('Enter');
         await toast.first().waitFor({ state: 'attached', timeout: 15_000 });
         const saved = await savedToLocalDeck();
@@ -796,7 +811,7 @@ async function assertDeckDropdownSurvivesEnrichment(overlay) {
         }));
         assertSmoke(after.focused, `A keyboard save left the learner off the deck dropdown: ${JSON.stringify(after)}`);
         await overlay.screenshot({ path: path.join(appRoot, 'qa-artifacts/desktop-deck-dropdown-after-save.png') });
-        console.log(`[desktop-popup] deck dropdown kept through enrichment and saved the word: ${JSON.stringify({ during, after, saved })}`);
+        console.log(`[desktop-popup] deck dropdown kept through enrichment and saved the word: ${JSON.stringify({ during, left, after, saved })}`);
     } finally {
         await release().catch(() => undefined);
     }
