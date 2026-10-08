@@ -85,90 +85,66 @@ interface PublicParseChunk {
     ranges: PublicParseChunkRange[];
 }
 
-interface PublicCardCacheEntry {
+interface CacheEntry<T> {
     expiresAt: number;
-    promise: Promise<JPDBCard | null>;
+    value: T;
 }
 
 export class JitenPublicVocabularyClient {
-    private readonly cardCache = new Map<string, PublicCardCacheEntry>();
-    private readonly detailCache = new Map<string, PublicCardCacheEntry>();
+    // Jiten's reading of each term asked: the word it reads the whole term
+    // as, or null when it reads the term as anything else.
+    private readonly words = new Map<string, CacheEntry<PublicParseWord | null>>();
+    private readonly details = new Map<string, CacheEntry<Promise<JPDBCard | null>>>();
 
     constructor(private readonly options: JitenPublicVocabularyClientOptions = {}) {}
 
-    lookup(term: string): Promise<JPDBCard | null> {
+    async lookup(term: string): Promise<JPDBCard | null> {
         const normalized = normalizeLookupText(term);
-        if (!normalized) return Promise.resolve(null);
-        const cached = this.cardCache.get(normalized);
-        const now = Date.now();
-        if (cached && cached.expiresAt > now) {
-            this.cardCache.delete(normalized);
-            this.cardCache.set(normalized, cached);
-            return cached.promise;
-        }
-        if (cached) this.cardCache.delete(normalized);
-        const persisted = readPublicJitenCache<JPDBCard>('card', normalized, now);
-        if (persisted) {
-            const promise = Promise.resolve(persisted);
-            this.remember(this.cardCache, normalized, promise, now);
-            return promise;
-        }
-        if (this.isBackoffActive()) return Promise.resolve(null);
-        const promise = this.lookupUncached(normalized)
-            .then(card => {
-                if (card) writePublicJitenCache('card', normalized, card);
-                return card;
-            })
-            .catch(error => {
-                this.noteFailure(error);
-                this.shortenCacheEntry(this.cardCache, normalized, TRANSIENT_NULL_TTL_MS);
-                logPublicJitenFailure('Jiten lookup', { term: normalized }, error);
-                return null;
-            });
-        this.remember(this.cardCache, normalized, promise, now);
-        return promise;
+        if (!normalized) return null;
+        return (await this.lookupMany([normalized])).get(normalized) ?? null;
     }
 
+    // Answers each term Jiten reads as one word with that word's card. Terms
+    // are asked once a cache lifetime; details go to the first `detailLimit`
+    // words not yet looked up, in the caller's order.
     async lookupMany(terms: readonly string[], options: JitenPublicLookupManyOptions = {}): Promise<Map<string, JPDBCard>> {
-        const uniqueTerms = uniqueNormalizedTerms(terms);
         const result = new Map<string, JPDBCard>();
-        if (!uniqueTerms.length) return result;
-
-        const cachedTerms: string[] = [];
-        const persistedCards = new Map<string, JPDBCard>();
-        const pendingTerms: string[] = [];
+        const asked: string[] = [];
+        const unread: string[] = [];
         const now = Date.now();
-        uniqueTerms.forEach(term => {
-            const cached = this.cardCache.get(term);
-            if (cached && cached.expiresAt > now) {
-                cachedTerms.push(term);
-                return;
-            }
-            if (cached) this.cardCache.delete(term);
-            const persisted = readPublicJitenCache<JPDBCard>('card', term, now);
+        for (const term of uniqueNormalizedTerms(terms)) {
+            const known = this.cached(this.words, term, now);
+            const persisted = known ? undefined : readPublicJitenCache<JPDBCard>('card', term, now);
             if (persisted) {
-                persistedCards.set(term, persisted);
-                this.remember(this.cardCache, term, Promise.resolve(persisted), now);
-                return;
+                result.set(term, persisted);
+                continue;
             }
-            pendingTerms.push(term);
-        });
-
-        persistedCards.forEach((card, term) => result.set(term, card));
-        if (pendingTerms.length && !this.isBackoffActive()) {
-            const loaded = await this.lookupManyUncached(pendingTerms, options).catch(error => {
+            asked.push(term);
+            if (!known) unread.push(term);
+        }
+        if (unread.length && !this.isBackoffActive()) {
+            await this.readTerms(unread).catch(error => {
                 this.noteFailure(error);
-                logPublicJitenFailure('Jiten batch', { terms: pendingTerms.length }, error);
-                return new Map<string, JPDBCard>();
+                logPublicJitenFailure('Jiten batch', { terms: unread.length }, error);
             });
-            loaded.forEach((card, term) => result.set(term, card));
         }
 
-        await Promise.all(cachedTerms.map(async term => {
-            const cached = this.cardCache.get(term);
-            if (!cached) return;
-            const card = await cached.promise.catch(() => null);
-            if (card) result.set(term, card);
+        let detailBudget = normalizedDetailLimit(options.detailLimit);
+        const answers = asked.flatMap(term => {
+            const word = this.cached(this.words, term, Date.now())?.value;
+            if (!word) return [];
+            const key = publicWordKey(word);
+            const detail = this.cached(this.details, key, Date.now())?.value;
+            if (detail) return [{ term, card: detail, fresh: false }];
+            if (detailBudget <= 0 || this.isBackoffActive()) return [];
+            detailBudget--;
+            return [{ term, card: this.lookupDetail(word, term, options.detailTimeoutMs), fresh: true }];
+        });
+        await Promise.all(answers.map(async ({ term, card: pending, fresh }) => {
+            const card = await pending;
+            if (!card) return;
+            result.set(term, card);
+            if (fresh) writePublicJitenCache('card', term, card);
         }));
         return result;
     }
@@ -205,7 +181,6 @@ export class JitenPublicVocabularyClient {
             const persisted = readPublicJitenCache<JPDBCard>('card', normalizeLookupText(card.spelling), now);
             if (persisted) {
                 result.set(key, persisted);
-                this.remember(this.cardCache, normalizeLookupText(card.spelling), Promise.resolve(persisted), now);
                 continue;
             }
             if (pending.length < limit) pending.push({ key, word, requestedTerm: card.spelling || word.originalText });
@@ -225,47 +200,35 @@ export class JitenPublicVocabularyClient {
     }
 
     clear(): void {
-        this.cardCache.clear();
-        this.detailCache.clear();
+        this.words.clear();
+        this.details.clear();
     }
 
-    private async lookupUncached(term: string): Promise<JPDBCard | null> {
-        const parsed = await this.parseTerms([term]);
-        const candidate = bestParsedWordForTerm(term, parsed);
-        return candidate ? this.lookupDetail(candidate, term) : null;
+    // Jiten answers a joined batch with words and gaps laid end to end over
+    // the text, and its answer for one term depends on its neighbours: a gap
+    // runs on across separators, and a word it skipped can be placed over an
+    // earlier copy of the same letters. A term whose own records stay inside
+    // it is answered; one a record crosses is asked again with its neighbours
+    // reversed, and Jiten does not read a term unsettled both ways as a word.
+    private async readTerms(terms: readonly string[]): Promise<void> {
+        const unsettled = await this.readTermBatches(terms);
+        if (!unsettled.length) return;
+        const now = Date.now();
+        for (const term of await this.readTermBatches(unsettled.reverse())) this.remember(this.words, term, null, now);
     }
 
-    private async lookupManyUncached(terms: string[], options: JitenPublicLookupManyOptions): Promise<Map<string, JPDBCard>> {
-        const parsedByTerm = await this.parseTermGroups(terms);
-        const candidatesByTerm = new Map<string, PublicParseWord>();
-        // An empty group is not a miss: grouping stops at the first separator
-        // Jiten folds, and a fold can swallow a word Jiten knows alone (メイン
-        // in 'メ。メイン。メイ。メ。イン'). The term is asked again rather than
-        // remembered as wordless.
-        terms.forEach((term, index) => {
-            const candidate = bestParsedWordForTerm(term, parsedByTerm[index] ?? []);
-            if (candidate) candidatesByTerm.set(term, candidate);
+    private async readTermBatches(terms: readonly string[]): Promise<string[]> {
+        const unsettled = await mapLimited(chunkTermsForParse(terms), DETAIL_CONCURRENCY, async chunk => {
+            const records = await this.requestParseRecords(chunk.join(PARSE_TERM_SEPARATOR));
+            if (!records) return [];
+            const now = Date.now();
+            return publicParseTermAnswers(chunk, records).flatMap((word, index) => {
+                if (word === undefined) return [chunk[index]];
+                this.remember(this.words, chunk[index], word, now);
+                return [];
+            });
         });
-
-        await mapLimited([...candidatesByTerm].slice(0, normalizedDetailLimit(options.detailLimit)), DETAIL_CONCURRENCY, async ([term, candidate]) => {
-            const promise = this.lookupDetail(candidate, term, options.detailTimeoutMs);
-            this.remember(this.cardCache, term, promise, Date.now());
-            await promise;
-        });
-
-        const cards = new Map<string, JPDBCard>();
-        await Promise.all([...candidatesByTerm.keys()].map(async term => {
-            const card = await this.cardCache.get(term)?.promise.catch(() => null);
-            if (!card) {
-                // A failed detail lookup resolves null; keeping that null for the
-                // full TTL would block the paced retry lane from ever retrying.
-                this.shortenCacheEntry(this.cardCache, term, TRANSIENT_NULL_TTL_MS);
-                return;
-            }
-            cards.set(term, card);
-            writePublicJitenCache('card', term, card);
-        }));
-        return cards;
+        return unsettled.flat();
     }
 
     private async hydrateParsedTokens(result: JPDBToken[][], limit: number): Promise<void> {
@@ -282,44 +245,25 @@ export class JitenPublicVocabularyClient {
         }
     }
 
-    private async parseTerms(terms: readonly string[]): Promise<PublicParseWord[]> {
-        const chunks = chunkTermsForParse(terms);
-        const groups = await mapLimited(chunks, DETAIL_CONCURRENCY, chunk => this.requestParse(chunk).catch(error => {
-            logPublicJitenFailure('Jiten parse', { terms: chunk.length }, error);
-            return [];
-        }));
-        return groups.flat();
-    }
-
-    private async requestParse(terms: readonly string[]): Promise<PublicParseWord[]> {
-        return this.requestParseText(terms.join(PARSE_TERM_SEPARATOR));
-    }
-
     private async requestParseText(text: string): Promise<PublicParseWord[]> {
         const records = await this.requestParseRecords(text);
-        return records.filter(word => word.wordId > 0);
+        return records?.filter(word => word.wordId > 0) ?? [];
     }
 
-    private async parseTermGroups(terms: readonly string[]): Promise<PublicParseWord[][]> {
-        const chunks = chunkTermsForParse(terms);
-        const groups = await mapLimited(chunks, DETAIL_CONCURRENCY, async chunk => {
-            const records = await this.requestParseRecords(chunk.join(PARSE_TERM_SEPARATOR));
-            return publicParseTermGroups(chunk, records);
-        });
-        return groups.flat();
-    }
-
-    private async requestParseRecords(text: string): Promise<PublicParseWord[]> {
+    // Null when backoff kept part of the text from being asked.
+    private async requestParseRecords(text: string): Promise<PublicParseWord[] | null> {
         const records: PublicParseWord[] = [];
         for (const part of publicParseTextSlices(text)) {
-            records.push(...await this.requestParseRecordChunk(part.text));
+            const answer = await this.requestParseRecordChunk(part.text);
+            if (!answer) return null;
+            records.push(...answer);
         }
         return records;
     }
 
-    private requestParseRecordChunk(text: string): Promise<PublicParseWord[]> {
+    private requestParseRecordChunk(text: string): Promise<PublicParseWord[] | null> {
         return sharedParseGate.run(async () => {
-            if (this.isBackoffActive()) return [];
+            if (this.isBackoffActive()) return null;
             const payload = await this.requestJson(`vocabulary/parse?text=${encodeURIComponent(text)}`).catch(error => {
                 this.noteFailure(error);
                 throw error;
@@ -331,12 +275,11 @@ export class JitenPublicVocabularyClient {
         });
     }
 
-    private async lookupDetail(word: PublicParseWord, requestedTerm: string, timeoutMs = REQUEST_TIMEOUT_MS): Promise<JPDBCard | null> {
-        const key = `${word.wordId}:${word.readingIndex}`;
-        const cached = this.detailCache.get(key);
+    private lookupDetail(word: PublicParseWord, requestedTerm: string, timeoutMs = REQUEST_TIMEOUT_MS): Promise<JPDBCard | null> {
+        const key = publicWordKey(word);
         const now = Date.now();
-        if (cached && cached.expiresAt > now) return cached.promise;
-        if (cached) this.detailCache.delete(key);
+        const cached = this.cached(this.details, key, now);
+        if (cached) return cached.value;
         const promise = this.requestJson(`vocabulary/${word.wordId}/${word.readingIndex}/info`, timeoutMs)
             .then(payload => {
                 this.noteSuccess();
@@ -344,11 +287,14 @@ export class JitenPublicVocabularyClient {
             })
             .catch(error => {
                 this.noteFailure(error);
-                this.shortenCacheEntry(this.detailCache, key, TRANSIENT_NULL_TTL_MS);
+                // A failure is not an answer: keep its null only long enough
+                // to absorb a burst, so the paced retry lane can ask again.
+                const entry = this.details.get(key);
+                if (entry) entry.expiresAt = Math.min(entry.expiresAt, Date.now() + TRANSIENT_NULL_TTL_MS);
                 logPublicJitenFailure('Jiten detail', { wordId: word.wordId, readingIndex: word.readingIndex }, error);
                 return null;
             });
-        this.remember(this.detailCache, key, promise, now);
+        this.remember(this.details, key, promise, now);
         return promise;
     }
 
@@ -382,19 +328,17 @@ export class JitenPublicVocabularyClient {
             : this.options.proxyUrl ?? '';
     }
 
-    // Clamp an existing cache entry's lifetime down to a transient-failure
-    // window so a null produced by a timeout/network error cannot masquerade
-    // as an authoritative 10-minute "no such word".
-    private shortenCacheEntry(cache: Map<string, PublicCardCacheEntry>, key: string, ttlMs: number): void {
+    private cached<T>(cache: Map<string, CacheEntry<T>>, key: string, now: number): CacheEntry<T> | undefined {
         const entry = cache.get(key);
-        if (entry) entry.expiresAt = Math.min(entry.expiresAt, Date.now() + ttlMs);
+        if (entry && entry.expiresAt <= now) cache.delete(key);
+        return entry && entry.expiresAt > now ? entry : undefined;
     }
 
     // Oldest first: entries go in as they are answered, so pruning stops at the
     // first live one instead of walking a page-sized map on every insert.
-    private remember(cache: Map<string, PublicCardCacheEntry>, key: string, promise: Promise<JPDBCard | null>, now: number): void {
+    private remember<T>(cache: Map<string, CacheEntry<T>>, key: string, value: T, now: number): void {
         cache.delete(key);
-        cache.set(key, { expiresAt: now + CACHE_TTL_MS, promise });
+        cache.set(key, { expiresAt: now + CACHE_TTL_MS, value });
         for (const [entryKey, entry] of cache) {
             if (cache.size <= CACHE_LIMIT && entry.expiresAt > now) break;
             cache.delete(entryKey);
@@ -530,53 +474,34 @@ function normalizePublicParseWord(value: unknown): PublicParseWord | null {
     return { wordId, readingIndex, originalText };
 }
 
-function publicParseTermGroups(terms: readonly string[], parsed: readonly PublicParseWord[]): PublicParseWord[][] {
-    const groups = terms.map((): PublicParseWord[] => []);
-    let termIndex = 0;
-    let consumed = '';
-    let complete = false;
-    for (const word of parsed) {
-        if (termIndex >= terms.length) break;
-        const surface = normalizeLookupText(word.originalText);
-        if (!surface) continue;
-        if (surface === PARSE_TERM_SEPARATOR) {
-            termIndex++;
-            consumed = '';
-            complete = false;
-            continue;
-        }
-        // Jiten folded a separator into text it could not read ('う。', '・。',
-        // '。ール'). From here the count is a term behind and would hand each
-        // term its neighbour's word (して for している), so the rest of the
-        // batch goes unanswered and is asked again. Recounting would answer
-        // about ten times as many lattice terms on the recorded article, each
-        // a detail request from the same 300-a-minute anonymous budget.
-        if (surface.includes(PARSE_TERM_SEPARATOR)) break;
-        if (complete) {
-            termIndex++;
-            consumed = '';
-            complete = false;
-            if (termIndex >= terms.length) break;
-        }
-        const target = normalizeLookupText(terms[termIndex] ?? '');
-        const next = `${consumed}${surface}`;
-        if (!target.startsWith(next)) continue;
-        consumed = next;
-        if (word.wordId > 0) groups[termIndex].push(word);
-        complete = consumed === target;
+// Jiten's answer for each term of a joined batch, by where its records lie:
+// the word whose record is exactly the term, null when every record over the
+// term stays inside it, undefined when one crosses its edge or the answer
+// stops short of it. Text no record covers counts as a gap.
+function publicParseTermAnswers(terms: readonly string[], records: readonly PublicParseWord[]): Array<PublicParseWord | null | undefined> {
+    const text = terms.join(PARSE_TERM_SEPARATOR);
+    const placed: Array<{ start: number; end: number; wordId: number; word?: PublicParseWord }> = [];
+    let covered = 0;
+    for (const word of records) {
+        const start = text.indexOf(word.originalText, covered);
+        if (start < 0) continue;
+        if (start > covered) placed.push({ start: covered, end: start, wordId: 0 });
+        covered = start + word.originalText.length;
+        placed.push({ start, end: covered, wordId: word.wordId, word });
     }
-    return groups;
-}
-
-function bestParsedWordForTerm(term: string, parsed: PublicParseWord[]): PublicParseWord | null {
-    const normalized = normalizeLookupText(term);
-    return parsed.find(word => normalizeLookupText(word.originalText) === normalized)
-        ?? parsed.find(word => {
-            const original = normalizeLookupText(word.originalText);
-            return Boolean(original && normalized.includes(original));
-        })
-        ?? parsed[0]
-        ?? null;
+    let start = 0;
+    let first = 0;
+    return terms.map(term => {
+        const end = start + term.length;
+        const termStart = start;
+        start = end + PARSE_TERM_SEPARATOR.length;
+        if (end > covered) return undefined;
+        while (placed[first].end <= termStart) first++;
+        let last = first;
+        while (placed[last].end < end) last++;
+        if (placed[first].start < termStart || placed[last].end > end) return undefined;
+        return first === last && placed[first].wordId > 0 ? placed[first].word : null;
+    });
 }
 
 function publicParseChunks(paragraphs: readonly string[]): PublicParseChunk[] {
@@ -729,6 +654,10 @@ function uniqueNormalizedTerms(terms: readonly string[]): string[] {
 // reading; this key deliberately does not, because hydration REPLACES them).
 export function parsedCardHydrationKey(card: JPDBCard): string {
     return `${card.vid}:${card.sid}`;
+}
+
+function publicWordKey(word: PublicParseWord): string {
+    return `${word.wordId}:${word.readingIndex}`;
 }
 
 function normalizedDetailLimit(value: number | undefined): number {

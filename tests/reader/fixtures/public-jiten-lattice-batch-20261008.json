@@ -2,7 +2,7 @@
   "source": "https://ja.wikipedia.org/wiki/日本語",
   "api": "https://api.jiten.moe/api/vocabulary/parse",
   "observed": "2026-10-08",
-  "note": "Lattice batches the built extension sent while hovering the recorded article, joined with transport separators and re-sent live: its menu and section-toggle labels, and the start of one over 説明しています. Jiten folds a separator into text it could not read ('・。', 'う。', 'てい。', '。ール') and, once, into a run that swallows メイン, which it parses on its own as 1132680. The records still tile the text exactly. Only parser-consumed response fields retained. Wikipedia source is CC BY-SA.",
+  "note": "Lattice batches the built extension sent while hovering the recorded article, joined with transport separators and re-sent live: its menu and section-toggle labels, and the start of one over 説明しています. Jiten folds a separator into text it could not read ('・。', 'う。', 'てい。', '。ール') and, once, into a run that swallows メイン, which it parses on its own as 1132680. The records still tile the text exactly. Only parser-consumed response fields retained. Wikipedia source is CC BY-SA. The last two batches are the terms of the first two that a record crossed, re-sent live in reverse order the same day: メイン, メイ, メニュー and ニュー settle as words, and every other term still has a record across its edge.",
   "batches": [
     {
       "terms": ["メインメニュ", "メインメニ", "メインメ", "メイン", "メイ", "メ", "インメニュー", "インメニュ", "インメニ", "インメ", "ンメニュー", "ンメニュ", "ンメニ", "ンメ", "メニュー", "メニュ", "メニ", "ニュー", "ニュ", "ュー", "次", "表示・非表示", "表示・非表", "表示・非", "表示・", "示・非表示", "示・非表", "示・非", "示・", "・非表示", "・非表", "・非", "・", "非表", "非", "表示", "切り替う", "切り替", "切り", "切る", "切", "り替え", "り替う", "り替", "替え", "替う", "替", "ツー", "ール"],
@@ -158,6 +158,60 @@
         {"wordId": 0, "readingIndex": 0, "originalText": "。"},
         {"wordId": 1288850, "readingIndex": 1, "originalText": "いま"},
         {"wordId": 0, "readingIndex": 0, "originalText": "。ます。ま"}
+      ]
+    },
+    {
+      "terms": ["ール", "替う", "り替", "り替う", "り替え", "切り替う", "・", "・非", "・非表", "・非表示", "示・", "表示・", "ュー", "ニュ", "ニュー", "メニ", "メニュ", "メニュー", "ンメ", "ンメニ", "ンメニュ", "ンメニュー", "インメ", "インメニ", "インメニュ", "インメニュー", "メ", "メイ", "メイン", "メインメ", "メインメニ", "メインメニュ"],
+      "body": [
+        {"wordId": 0, "readingIndex": 0, "originalText": "ール。"},
+        {"wordId": 1410830, "readingIndex": 0, "originalText": "替"},
+        {"wordId": 0, "readingIndex": 0, "originalText": "う。り"},
+        {"wordId": 1410830, "readingIndex": 0, "originalText": "替"},
+        {"wordId": 0, "readingIndex": 0, "originalText": "。り"},
+        {"wordId": 1410830, "readingIndex": 0, "originalText": "替"},
+        {"wordId": 0, "readingIndex": 0, "originalText": "う。り"},
+        {"wordId": 1410830, "readingIndex": 0, "originalText": "替え"},
+        {"wordId": 0, "readingIndex": 0, "originalText": "。"},
+        {"wordId": 1384830, "readingIndex": 0, "originalText": "切り"},
+        {"wordId": 1410830, "readingIndex": 0, "originalText": "替"},
+        {"wordId": 0, "readingIndex": 0, "originalText": "う。・。・"},
+        {"wordId": 1484710, "readingIndex": 0, "originalText": "非"},
+        {"wordId": 0, "readingIndex": 0, "originalText": "。・"},
+        {"wordId": 1484710, "readingIndex": 0, "originalText": "非"},
+        {"wordId": 1489350, "readingIndex": 0, "originalText": "表"},
+        {"wordId": 0, "readingIndex": 0, "originalText": "。・"},
+        {"wordId": 2809380, "readingIndex": 0, "originalText": "非表示"},
+        {"wordId": 0, "readingIndex": 0, "originalText": "。"},
+        {"wordId": 1317110, "readingIndex": 0, "originalText": "示"},
+        {"wordId": 0, "readingIndex": 0, "originalText": "・。"},
+        {"wordId": 1489610, "readingIndex": 0, "originalText": "表示"},
+        {"wordId": 0, "readingIndex": 0, "originalText": "・。ュー。ニュ。"},
+        {"wordId": 1091340, "readingIndex": 0, "originalText": "ニュー"},
+        {"wordId": 0, "readingIndex": 0, "originalText": "。メニ。メニュ。"},
+        {"wordId": 1133790, "readingIndex": 0, "originalText": "メニュー"},
+        {"wordId": 0, "readingIndex": 0, "originalText": "。ンメ。ンメニ。ンメニュ。ンメニュー。"},
+        {"wordId": 1022130, "readingIndex": 1, "originalText": "イン"},
+        {"wordId": 0, "readingIndex": 0, "originalText": "メ。インメニ。インメニュ。イン"},
+        {"wordId": 1133790, "readingIndex": 0, "originalText": "メニュー"},
+        {"wordId": 0, "readingIndex": 0, "originalText": "。メ。"},
+        {"wordId": 2188120, "readingIndex": 0, "originalText": "メイ"},
+        {"wordId": 0, "readingIndex": 0, "originalText": "。"},
+        {"wordId": 1132680, "readingIndex": 0, "originalText": "メイン"},
+        {"wordId": 0, "readingIndex": 0, "originalText": "。メインメ。メインメニ。メインメニュ"}
+      ]
+    },
+    {
+      "terms": ["ま", "ます", "ていま", "してい", "してう", "明してう"],
+      "body": [
+        {"wordId": 0, "readingIndex": 0, "originalText": "ま。ます。て"},
+        {"wordId": 1288850, "readingIndex": 1, "originalText": "いま"},
+        {"wordId": 0, "readingIndex": 0, "originalText": "。"},
+        {"wordId": 2086640, "readingIndex": 0, "originalText": "し"},
+        {"wordId": 0, "readingIndex": 0, "originalText": "てい。"},
+        {"wordId": 2424740, "readingIndex": 0, "originalText": "して"},
+        {"wordId": 0, "readingIndex": 0, "originalText": "う。"},
+        {"wordId": 1532220, "readingIndex": 0, "originalText": "明して"},
+        {"wordId": 0, "readingIndex": 0, "originalText": "う"}
       ]
     }
   ]

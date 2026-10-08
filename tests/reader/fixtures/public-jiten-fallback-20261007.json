@@ -1,7 +1,7 @@
 {
   "source": "https://api.jiten.moe/api/vocabulary/",
   "observed": "2026-10-07",
-  "note": "Observed parse/id/reading/POS metadata; definitions and unrelated detail fields omitted.",
+  "note": "Observed parse/id/reading/POS metadata; definitions and unrelated detail fields omitted. The parse of そしつ。そする was observed on 2026-10-08.",
   "requests": {
     "https://api.jiten.moe/api/vocabulary/parse?text=%E3%81%9D%E3%81%99%E3%82%8B%E3%80%82%E3%81%AA%E3%81%86%E3%80%82%E3%81%9D%E3%81%97%E3%81%A4%E3%80%82%E3%81%AA%E3%81%A4%E3%80%82%E3%81%9D%E3%81%97%E3%82%8B%E3%80%82%E3%81%AA%E3%82%8B": [
       {
@@ -221,6 +221,32 @@
       "pitchAccents": [
         1
       ]
-    }
+    },
+    "https://api.jiten.moe/api/vocabulary/parse?text=%E3%81%9D%E3%81%97%E3%81%A4%E3%80%82%E3%81%9D%E3%81%99%E3%82%8B": [
+      {
+        "wordId": 0,
+        "originalText": "そ",
+        "readingIndex": 0,
+        "conjugations": []
+      },
+      {
+        "wordId": 1320640,
+        "originalText": "しつ",
+        "readingIndex": 1,
+        "conjugations": []
+      },
+      {
+        "wordId": 0,
+        "originalText": "。そ",
+        "readingIndex": 0,
+        "conjugations": []
+      },
+      {
+        "wordId": 1157170,
+        "originalText": "する",
+        "readingIndex": 1,
+        "conjugations": []
+      }
+    ]
   }
 }
