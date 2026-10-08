@@ -14,6 +14,14 @@ export interface AnnotationPowerEffects {
     resume(furiganaMode?: FuriganaMode): Promise<void>;
 }
 
+/**
+ * The keys a puck furigana write declares, the remembered mode FIRST. Up to
+ * 2.0 it came last, and that order is how settings/retired-defaults.ts tells a
+ * 2.0 puck write of the then-default 'all' from a reading mode chosen since:
+ * keep the order.
+ */
+export const PUCK_FURIGANA_INTENT_KEYS = ['puckFuriganaModeBeforeHide', 'showFurigana', 'furiganaMode'] as const satisfies readonly (keyof ReaderSettings)[];
+
 type AnnotationPowerSettings = Pick<
     ReaderSettings,
     'annotationsPaused' | 'showFurigana' | 'furiganaMode' | 'puckFuriganaModeBeforeHide'

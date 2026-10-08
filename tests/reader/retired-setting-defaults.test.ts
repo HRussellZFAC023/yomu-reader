@@ -4,6 +4,8 @@ import type { ReaderSettings } from '../../src/reader/app/types';
 import { DEFAULT_SETTINGS, loadSettings, saveSettings, SETTINGS_STORAGE_KEY } from '../../src/reader/settings';
 import { restoreReaderSettingsBackup } from '../../src/reader/settings/reader-settings-restore-adapter';
 import { RETIRED_DEFAULT_SETTING_KEYS } from '../../src/reader/settings/retired-defaults';
+import { planAnnotationPowerTransition, PUCK_FURIGANA_INTENT_KEYS } from '../../src/reader/app/annotation-power-policy';
+import { SETTINGS_INTENT_LEDGER_STORAGE_KEY } from '../../src/reader/settings/intent-ledger';
 import { serializeSettingsPersistencePair } from '../../src/reader/settings/settings-persistence-transaction';
 import type { SettingsIntentLedger } from '../../src/reader/settings/intent-ledger';
 // @ts-expect-error plain .mjs script module without type declarations
@@ -154,5 +156,66 @@ describe('retired annotation defaults', () => {
 
     it('are declared by the smoke harness whenever a smoke sets them, so smokes keep testing what they set', () => {
         expect([...(ANNOTATION_DEFAULT_KEYS_SMOKES_DECLARE as string[])].sort()).toEqual([...RETIRED_DEFAULT_SETTING_KEYS].sort());
+    });
+});
+
+// 2.0's puck declared the reading mode it switched to, the then-default 'all'
+// included, and the mode to come back to after hiding, in one write with the
+// remembered mode last. This ledger is what a real 2.0.12 build wrote after
+// one hide, pause and resume cycle on a fresh install.
+describe('reading modes the 2.0 puck declared', () => {
+    const PUCK_CYCLED: SettingsIntentLedger = {
+        revision: 8,
+        records: {
+            showFurigana: { seq: 5, value: true },
+            furiganaMode: { seq: 6, value: 'all' },
+            puckFuriganaModeBeforeHide: { seq: 7, value: '' },
+            annotationsPaused: { seq: 8, value: false },
+        },
+    };
+    // The same install with furigana hidden by the puck when it upgrades.
+    const PUCK_HIDDEN: SettingsIntentLedger = {
+        revision: 7,
+        records: {
+            showFurigana: { seq: 5, value: true },
+            furiganaMode: { seq: 6, value: 'off' },
+            puckFuriganaModeBeforeHide: { seq: 7, value: 'all' },
+        },
+    };
+
+    async function storedLedger(): Promise<SettingsIntentLedger> {
+        const { GM_getValue: read } = globalThis as unknown as { GM_getValue: (key: string, fallback: unknown) => Promise<unknown> };
+        return await read(SETTINGS_INTENT_LEDGER_STORAGE_KEY, null) as SettingsIntentLedger;
+    }
+
+    it('read as the new default, and the next save drops the declaration', async () => {
+        const loaded = await loadStored({ ...PRE_2_1_DEFAULTS, puckFuriganaModeBeforeHide: '' }, PUCK_CYCLED);
+        expect(loaded.furiganaMode).toBe('known-status');
+
+        await saveSettings({ ...loaded, theme: 'dark' }, { explicitUserChoiceKeys: ['theme'] });
+        const ledger = await storedLedger();
+        expect(Object.keys(ledger.records)).not.toContain('furiganaMode');
+        expect(ledger.records.showFurigana).toMatchObject({ value: true });
+        expect(await loadSettings()).toMatchObject({ furiganaMode: 'known-status', theme: 'dark' });
+    });
+
+    it('resume on the new default when the puck hid furigana before the upgrade', async () => {
+        const loaded = await loadStored({ ...PRE_2_1_DEFAULTS, furiganaMode: 'off', puckFuriganaModeBeforeHide: 'all' }, PUCK_HIDDEN);
+        // Hidden stays hidden: that was the learner's choice.
+        expect(loaded.furiganaMode).toBe('off');
+        expect(loaded.puckFuriganaModeBeforeHide).toBe('');
+        expect(planAnnotationPowerTransition({ ...loaded, annotationsPaused: true }, true, DEFAULT_SETTINGS.furiganaMode))
+            .toEqual({ kind: 'resume', furiganaMode: 'known-status' });
+    });
+
+    it('keep a reading mode chosen since 2.1 through a puck hide and resume', async () => {
+        installGmStorageFixture();
+        const chosen = { ...DEFAULT_SETTINGS, furiganaMode: 'all' as const };
+        await saveSettings(chosen, { explicitUserChoiceKeys: ['furiganaMode'] });
+        const hidden = { ...chosen, furiganaMode: 'off' as const, puckFuriganaModeBeforeHide: 'all' as const };
+        await saveSettings(hidden, { explicitUserChoiceKeys: PUCK_FURIGANA_INTENT_KEYS });
+        expect(await loadSettings()).toMatchObject({ furiganaMode: 'off', puckFuriganaModeBeforeHide: 'all' });
+        await saveSettings({ ...hidden, furiganaMode: 'all', puckFuriganaModeBeforeHide: '' }, { explicitUserChoiceKeys: PUCK_FURIGANA_INTENT_KEYS });
+        expect((await loadSettings()).furiganaMode).toBe('all');
     });
 });

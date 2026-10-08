@@ -676,6 +676,7 @@ async function countIndexedDbEntries(page, dbName, entryStore) {
  */
 export const ANNOTATION_DEFAULT_KEYS_SMOKES_DECLARE = Object.freeze([
     'furiganaMode',
+    'puckFuriganaModeBeforeHide',
     'wordHighlightColorSource',
     'wordUnderlineColorSource',
     'wordTextColorSource',

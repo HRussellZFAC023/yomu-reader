@@ -141,6 +141,7 @@ import {
     annotationPowerState,
     applyAnnotationPowerTransition,
     planAnnotationPowerTransition,
+    PUCK_FURIGANA_INTENT_KEYS,
 } from './annotation-power-policy';
 import { configureLogger, Logger } from './logger';
 import {
@@ -2407,7 +2408,7 @@ export class ReaderApp {
         this.settings.showFurigana = this.settings.showFurigana || mode !== 'off';
         this.settings.furiganaMode = mode;
         await this.persistSettings(this.settings, {
-            explicitUserChoiceKeys: ['showFurigana', 'furiganaMode', 'puckFuriganaModeBeforeHide'],
+            explicitUserChoiceKeys: PUCK_FURIGANA_INTENT_KEYS,
         });
         this.clearAllAnnotations();
         this.scheduleVisiblePageRescan();
