@@ -38,7 +38,7 @@ import { WANIKANI_TOKEN_SETTINGS_URL } from '../wanikani/wanikani';
 import { RECOMMENDED_JAPANESE_DICTIONARIES, type RecommendedDictionaryCategory } from '../dictionaries/recommended';
 import { applySettingsSearch } from './settings-navigation';
 export { activateSettingsPanel, applySettingsSearch } from './settings-navigation';
-import { localizeSettingsDisclosures, renderAppearanceTuning } from './settings-disclosures';
+import { localizeSettingsDisclosures, renderAppearanceTuning, renderSettingsDisclosure } from './settings-disclosures';
 import { definitionSourceRows, kanjiSourceRows } from '../sources/sections';
 import type { YomitanDictionaryInfo } from '../dictionaries/yomitan';
 import { settingsText, type SettingsText } from './settings-text';
@@ -177,9 +177,9 @@ const PITCH_COLOR_FIELDS = [
     ['pitchColorOdaka', 'pitchColorOdaka'],
     ['pitchColorUnknown', 'pitchColorUnknown'],
 ] as const satisfies readonly ColorInputField[];
-// No ocrBackgroundColor field: the highlight background is derived from the
-// accent color on every normalize (accessibleOcrBackgroundColor), so a picker
-// for it was a dead control whose pick was silently discarded.
+// No ocrBackgroundColor field: the highlight background is the overlay ink,
+// derived on every normalize (accessibleOcrBackgroundColor), so a picker for it
+// was a dead control whose pick was silently discarded.
 const OCR_COLOR_FIELDS = [
     ['ocrTextColor', 'ocrTextColor'],
     ['ocrOutlineColor', 'ocrOutlineColor'],
@@ -406,11 +406,12 @@ function renderInterfaceSettingsPanel(settings: ReaderSettings): string {
                     ${select('popupMode', text('popupMode'), settings.popupMode, localizedOptions(text, POPUP_MODE_OPTIONS))}
                     ${select('hoverPopupMode', text('hoverPopupMode'), settings.hoverPopupMode, localizedOptions(text, POPUP_MODE_OPTIONS))}
                     ${renderStickyBottomSheetControl(settings)}
+                </div>
+                ${renderAppearancePreview(settings.interfaceLanguage)}
+                ${renderAppearanceTuning(settings.interfaceLanguage, `<div class="grid">
                     ${fontFamilyControl('readerFontFamily', text('readerFontFamily'), settings.readerFontFamily, text)}
                     ${fontFamilyControl('popupFontFamily', text('popupFontFamily'), settings.popupFontFamily, text)}
                     ${input('accentColor', text('accentColor'), sanitizeAccentColor(settings.accentColor), 'color')}
-                </div>
-                ${renderAppearanceTuning(settings.interfaceLanguage, `<div class="grid">
                     ${input('popoverWidth', text('popoverWidth'), String(settings.popoverWidth), 'number', { min: 280, max: 900, step: 10 })}
                     ${input('popoverHeight', text('popoverHeight'), String(settings.popoverHeight), 'number', { min: 220, max: 900, step: 10 })}
                     ${select('popoverHeightMode', text('popoverHeightMode'), settings.popoverHeightMode, localizedOptions(text, POPOVER_HEIGHT_MODE_OPTIONS))}
@@ -418,7 +419,6 @@ function renderInterfaceSettingsPanel(settings: ReaderSettings): string {
                 </div>
                 ${renderWordColorSettingsSubsection(settings)}
                 ${renderColorChannelSettingsSubsection(settings)}`)}
-                ${renderAppearancePreview(settings.interfaceLanguage)}
             </fieldset>
     `;
 }
@@ -735,13 +735,16 @@ function renderAudioSettingsPanel(settings: ReaderSettings): string {
                 <div class="grid jpdb-reader-settings-cgrid">
                     ${select('audioAutoPlayMode', uiText(language, 'audioAutoPlayMode'), autoPlayMode, localizedOptions(text, AUDIO_AUTO_PLAY_MODE_OPTIONS))}
                     ${select('audioTtsMode', uiText(language, 'audioTtsMode'), settings.audioTtsMode, localizedOptions(text, AUDIO_TTS_MODE_OPTIONS))}
-                    ${input('corsProxyUrl', uiText(language, 'corsProxyUrl'), settings.corsProxyUrl, 'url', { placeholder: 'https://your-worker.workers.dev' })}
                 </div>
-                <a href="${PROXY_WORKER_README_URL}" target="_blank" rel="noopener" data-proxy-setup-link>${escapedUiText(language, 'audioProxyDeployGuide')}</a>
-                <div class="jpdb-reader-audio-sources" data-source-editor data-audio-source-editor>
-                    ${renderAudioSourceEditor(settings.audioSources, language)}
-                </div>
-                <div id="settings-help-audio" class="jpdb-reader-help" data-help-key="audioHelp">${audioHelpHtml(language)}</div>
+                ${renderSettingsDisclosure(uiText(language, 'audioSourcesTitle'), `
+                    <div class="jpdb-reader-audio-sources" data-source-editor data-audio-source-editor>
+                        ${renderAudioSourceEditor(settings.audioSources, language)}
+                    </div>
+                    <div class="grid jpdb-reader-settings-cgrid">
+                        ${input('corsProxyUrl', uiText(language, 'corsProxyUrl'), settings.corsProxyUrl, 'url', { placeholder: 'https://your-worker.workers.dev' })}
+                    </div>
+                    <div id="settings-help-audio" class="jpdb-reader-help" data-help-key="audioHelp">${audioHelpHtml(language)}</div>
+                    <a href="${PROXY_WORKER_README_URL}" target="_blank" rel="noopener" data-proxy-setup-link>${escapedUiText(language, 'audioProxyDeployGuide')}</a>`, ' data-audio-sources-title')}
             </fieldset>
     `;
 }
@@ -985,34 +988,32 @@ function renderDictionariesSettingsPanel(
     expandCatalogBrowse: boolean,
 ): string {
     const language = settings.interfaceLanguage; const text = settingsText(language);
+    // The popup order stays the tab's first, findable line (Leia, 2026-10-02);
+    // its rows and the lookup-link editor open on request.
     return `
             <fieldset id="jpdb-reader-settings-panel-dictionaries" role="tabpanel" data-settings-panel="dictionaries" data-legend-key="sources" hidden>
                 <legend>${escapedUiText(language, 'sources')}</legend>
                 <div data-target-dictionary-content>
-                <div class="jpdb-reader-settings-subsection">
-                    <div class="jpdb-reader-local-title" data-help-key="popupOrderTitle">${escapedUiText(language, 'popupOrderTitle')}</div>
+                ${renderSettingsDisclosure(uiText(language, 'popupOrderTitle'), `
                     <div class="jpdb-reader-dictionary-priorities" data-source-editor data-definition-source-editor>
                         ${renderDictionarySourceRows(settings)}
-                    </div>
-                </div>
+                    </div>`, ' data-help-key="popupOrderTitle"')}
                 <div class="jpdb-reader-dictionary-status" data-dictionary-status role="status" aria-live="polite">${escapedUiText(language, 'checkingDictionaries')}</div>
+                <div class="jpdb-reader-recommended-dictionaries" data-recommended-dictionaries>
+                    ${renderRecommendedDictionaries([], 'en', includeCatalogBrowse, 'ja', expandCatalogBrowse)}
+                </div>
+                <div class="jpdb-reader-help" data-import-status hidden></div>
                 ${renderLocalDictionaryStorageControls(settings)}
                 <div class="jpdb-reader-settings-subsection" data-language-family="provider-pills">
                     <div class="jpdb-reader-help" data-help-key="parserProviderHelp">${escapedUiText(language, 'parserProviderHelp')}</div>
                     ${select('parserProvider', text('parserProvider'), settings.parserProvider, localizedOptions(text, PARSER_PROVIDER_OPTIONS))}
                 </div>
-                <div class="jpdb-reader-settings-subsection">
-                    <div class="jpdb-reader-local-title">${escapedUiText(language, 'lookupPills')}</div>
+                ${renderSettingsDisclosure(uiText(language, 'lookupPills'), `
                     <div class="jpdb-reader-help">${escapedUiText(language, 'lookupPillsHelp')}</div>
                     ${checkbox('showLookupPillFrequency', text('showLookupPillFrequency'), settings.showLookupPillFrequency)}
                     <div class="jpdb-reader-lookup-links" data-source-editor>
                         ${renderDictionaryLookupLinkEditor(settings.dictionaryLookupLinks, [])}
-                    </div>
-                </div>
-                <div class="jpdb-reader-recommended-dictionaries" data-recommended-dictionaries>
-                    ${renderRecommendedDictionaries([], 'en', includeCatalogBrowse, 'ja', expandCatalogBrowse)}
-                </div>
-                <div class="jpdb-reader-help" data-import-status hidden></div>
+                    </div>`)}
                 </div>
             </fieldset>
     `;
@@ -1285,6 +1286,7 @@ const SELECTOR_TEXT_KEYS = [
     ['[data-subtitle-preview] .jpdb-subtitle-secondary', 'subtitlePreview'],
     ['[data-settings-preview-title]', 'preview'],
     ['[data-proxy-setup-link]', 'audioProxyDeployGuide'],
+    ['[data-audio-sources-title]', 'audioSourcesTitle'],
     ['[data-cloud-settings-sync-title]', 'cloudSettingsSync'],
     ['[data-academy-account-title]', 'academyAccountSync'],
     ['[data-academy-pairing-code-label]', 'academyPairingCode'],

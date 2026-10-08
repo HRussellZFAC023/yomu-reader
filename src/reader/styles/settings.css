@@ -2415,22 +2415,15 @@
 
 
 /* UT-47: appearance preview — a sample annotated sentence that restyles
-   live with the furigana/colour options (classes cascade from the root). */
+   live with the furigana/colour options (classes cascade from the root). It
+   sits on plain paper, the way the sentence would on a page. */
 .jpdb-reader-settings-appearance-preview {
-  min-height: 170px;
-  margin: 10px 0 2px;
-  padding: 28px 18px;
+  min-height: 112px;
+  margin: 8px 0 0;
+  padding: 16px;
   border: 1px solid var(--jpdb-reader-border);
-  border-radius: 10px;
-  background:
-    linear-gradient(
-      135deg,
-      color-mix(in srgb, var(--jpdb-reader-accent) 9%, transparent) 25%,
-      transparent 25% 50%,
-      color-mix(in srgb, var(--jpdb-reader-accent) 9%, transparent) 50% 75%,
-      transparent 75%
-    ) 0 0 / 30px 30px,
-    color-mix(in srgb, var(--jpdb-reader-surface-2) 74%, var(--jpdb-reader-bg));
+  border-radius: 8px;
+  background: var(--jpdb-reader-surface);
   color: var(--jpdb-reader-text) !important;
   display: flex;
   flex-wrap: wrap;
@@ -2441,7 +2434,7 @@
   overflow-wrap: anywhere;
   word-break: normal;
   text-align: center;
-  font-size: 28px;
+  font-size: 24px;
   line-height: 1.48;
   user-select: none;
 }

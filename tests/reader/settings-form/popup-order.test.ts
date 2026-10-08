@@ -47,6 +47,21 @@ describe('the popup order in Settings → Sources', () => {
         }
     });
 
+    // Sixteen order rows and a link editor made Sources a configuration editor.
+    // Both stay one line until opened; installed and recommended dictionaries lead.
+    it('keeps the order rows and the lookup-link editor closed until asked for', () => {
+        const form = renderSettingsTestForm(DEFAULT_SETTINGS);
+        const order = form.querySelector('[data-definition-source-editor]')!.closest('details')!;
+        const links = form.querySelector('.jpdb-reader-lookup-links')!.closest('details')!;
+        expect(order.open).toBe(false);
+        expect(order.querySelector(':scope > summary')?.textContent).toBe('Popup order');
+        expect(links.open).toBe(false);
+        expect(links.querySelector(':scope > summary')?.textContent).toBe('Lookup pills');
+        const recommended = form.querySelector('[data-recommended-dictionaries]')!;
+        expect(recommended.closest('details')).toBeNull();
+        expect(recommended.compareDocumentPosition(links) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    });
+
     // Not plain "order": the Order column header already matched it before.
     it.each(['popup', 'reorder', 'Popup order'])('is what Settings search finds for "%s"', query => {
         expect(sourcesFoundBy(renderSettingsTestForm(DEFAULT_SETTINGS), query)).toBe(true);

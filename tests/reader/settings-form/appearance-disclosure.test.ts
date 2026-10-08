@@ -17,6 +17,23 @@ describe('appearance progressive disclosure', () => {
         expect(saved.popupFontWeight).toBe(650);
     });
 
+    // Fonts and colour are expert tuning; language, theme, popup behaviour and
+    // a plain preview lead the panel.
+    it('leads with everyday choices and a plain preview, with fonts and colour tucked away', () => {
+        const form = renderSettingsTestForm(DEFAULT_SETTINGS);
+        const panel = form.querySelector<HTMLElement>('[data-settings-panel="appearance"]')!;
+        const details = panel.querySelector<HTMLDetailsElement>('[data-settings-tuning="appearance"]')!;
+        for (const name of ['readerFontFamily', 'popupFontFamily', 'accentColor']) {
+            expect(details.querySelector(`[name="${name}"]`), name).not.toBeNull();
+        }
+        for (const name of ['theme', 'popupMode', 'hoverPopupMode', 'popoverBackdropEnabled']) {
+            expect(panel.querySelector(`[name="${name}"]`)?.closest('details'), name).toBeNull();
+        }
+        const preview = panel.querySelector('[data-yomu-appearance-preview]')!;
+        expect(preview.closest('details')).toBeNull();
+        expect(preview.compareDocumentPosition(details) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    });
+
     it('opens matching search results and restores the learner’s original disclosure state', () => {
         const form = renderSettingsTestForm(DEFAULT_SETTINGS);
         const details = form.querySelector<HTMLDetailsElement>('[data-settings-tuning]')!;

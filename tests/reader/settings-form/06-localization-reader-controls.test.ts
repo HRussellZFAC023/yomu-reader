@@ -142,7 +142,15 @@ describe('settings form localization', () => {
         expect(audioToggleGrid.querySelector('input[name="audioEnabled"]')).not.toBeNull();
         expect(audioToggleGrid.querySelector('select[name="audioAutoPlayMode"]')).toBeNull();
         expect(audioControlGrid.querySelector('select[name="audioAutoPlayMode"]')).not.toBeNull();
-        expect(audioControlGrid.querySelector('input[name="corsProxyUrl"]')).not.toBeNull();
+        // The source list and its proxy are setup most learners never touch:
+        // they wait in a closed disclosure under the everyday choices.
+        const audioSources = audioPanel.querySelector<HTMLDetailsElement>('details[data-settings-tuning]')!;
+        expect(audioSources.open).toBe(false);
+        expect(audioSources.querySelector('[data-audio-source-editor]')).not.toBeNull();
+        expect(audioSources.querySelector('input[name="corsProxyUrl"]')).not.toBeNull();
+        // The URL-token help describes those sources, so it opens with them.
+        expect(audioSources.querySelector('[data-help-key="audioHelp"]')).not.toBeNull();
+        expect(audioControlGrid.querySelector('input[name="corsProxyUrl"]')).toBeNull();
 
         const immersionPanel = form.querySelector<HTMLElement>('[data-legend-key="immersionKit"]')!;
         const immersionGrids = Array.from(immersionPanel.querySelectorAll<HTMLElement>('.jpdb-reader-settings-tgrid, .jpdb-reader-settings-cgrid'));
