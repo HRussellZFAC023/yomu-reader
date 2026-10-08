@@ -103,12 +103,37 @@ describe('ruby edge overhang', () => {
     });
 
     it('re-decides the words beside a painted word', () => {
-        const [before, between, after] = paragraph('の', ['間', [['間', 'あいだ']]], 'で');
+        const [before, between, after] = paragraph('の', ['間', [['間', 'あいだ']]], '手');
         syncRubyEdgeOverhang([before, between, after]);
         expect(overhangs(between)).toEqual([true]);
+        // A later paint gives 手 its reading in place.
         after.classList.add('jpdb-reader-has-furi');
+        after.innerHTML = renderRuby('手', token('手', [['手', 'て']]));
         syncRubyEdgeOverhang([after]);
         expect(overhangs(between)).toEqual([false]);
+    });
+
+    it('reads plain text, kana word ends and link edges as plain', () => {
+        const word = (surface: string, rubies: Array<[string, string]> = []) => rubies.length
+            ? `<span class="jpdb-reader-word jpdb-reader-scan-word jpdb-reader-has-furi">${renderRuby(surface, token(surface, rubies))}</span>`
+            : `<span class="jpdb-reader-word jpdb-reader-scan-word">${surface}</span>`;
+        const between = word('間', [['間', 'あいだ']]);
+        const cases: Array<[html: string, overhangs: boolean]> = [
+            // 学校教育 is its own link on Wikipedia, after 、 and before に.
+            [`され、<a href="/wiki/x">${word('学校教育', [['学校教育', 'がっこうきょういく']])}</a>${word('に')}`, true],
+            // 新しい's reading sits over 新; しい faces 間.
+            [`${word('新しい', [['新', 'あたら']])}${between}${word('で')}`, true],
+            [`「${between}」`, true],
+            [`${word('お頭', [['頭', 'あたま']])}${between}${word('で')}`, false],
+            [`<br>${between}${word('で')}`, false],
+            [`${between}`, false],
+        ];
+        for (const [html, expected] of cases) {
+            document.body.innerHTML = `<p>${html}</p>`;
+            syncRubyEdgeOverhang(document.querySelectorAll<HTMLElement>('.jpdb-reader-word'));
+            const wide = Array.from(document.querySelectorAll('ruby.jpdb-reader-ruby-at-start.jpdb-reader-ruby-at-end'));
+            expect(wide.map(ruby => ruby.classList.contains('jpdb-reader-ruby-edge-overhang')), html).toEqual([expected]);
+        }
     });
 
     it('follows a neighbour that gains or loses its reading late', () => {

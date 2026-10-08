@@ -14,9 +14,9 @@
 //     tracking with solid kana, one muted colour for linked and plain words
 //     alike, at 4.5:1;
 //   * each reading is centred over its own word and clear of its neighbours;
-//   * a reading wider than its kanji overhangs the plain words beside it, so
-//     the kanji keeps its place in the line (no gap around 間 in の間で), and
-//     never overhangs a neighbour's reading;
+//   * a reading wider than its kanji overhangs the plain words and text beside
+//     it, out of its own link too, so the kanji keeps its place in the line
+//     (no gap around 間 in の間で), and never overhangs a neighbour's reading;
 //   * nothing is painted behind a word at rest; only words the study source is
 //     still teaching carry an underline (new solid, learning dashed, due
 //     dotted, 3:1);
@@ -68,6 +68,7 @@ const ROWS = [
     ['学習', '学習', 'がくしゅう', 'study', ['n'], 300, ['not-in-deck'], ['LHHH']],
     ['行う', '行う', 'おこなう', 'to do', ['v5u'], 400, ['not-in-deck'], ['LHHH']],
     ['頭', '頭', 'あたま', 'head', ['n'], 600, ['not-in-deck'], ['LHH']],
+    ['学校教育', '学校教育', 'がっこうきょういく', 'school education', ['n'], 2000, ['not-in-deck'], ['LHHHHHH']],
     ['体', '体', 'からだ', 'body', ['n'], 600, ['not-in-deck'], ['LHH']],
     ...['は', 'な', 'で', 'を', 'の'].map(particle => [particle, particle, particle, 'particle', ['prt'], 1, ['not-in-deck'], []]),
 ];
@@ -78,14 +79,15 @@ const FURIGANA = {
     行う: [['行', 'おこな'], 'う'],
 };
 const SENTENCE = '今日は静かな喫茶店で新しい本を読みました。';
-// Wide readings between plain words, and two wide readings side by side (頭体),
-// which must keep their gap rather than overhang into each other.
-const OVERHANG = 'の間で学習を行う。頭体';
+// Wide readings between plain words, one alone in its link (学校教育, as on
+// Wikipedia), and two wide readings side by side (頭体), which must keep their
+// gap rather than overhang into each other.
+const OVERHANG = 'の間で学習を行う。頭体、<a href="/wiki/学校教育">学校教育</a>で';
 // [paragraph, plain text before, plain text after, kanji between]: the kanji
 // under a wide reading takes its own advance in the line. #sentence is
 // tracked, and its readings share that tracking, so up to a pixel of the gap
 // stays there.
-const OVERHANG_SPANS = [['sentence', 'で', 'し', 1], ['overhang', 'の', 'で', 1], ['overhang', 'で', 'を', 2], ['overhang', 'を', 'う', 1]];
+const OVERHANG_SPANS = [['sentence', 'で', 'し', 1], ['overhang', 'の', 'で', 1], ['overhang', 'で', 'を', 2], ['overhang', 'を', 'う', 1], ['overhang', '、', 'で', 4]];
 
 const LINKED = '日本語は<a href="/wiki/日本">日本</a>国内で使用されている言語。'
     + '<sup class="mw-ref reference" id="cite_ref-3"><a href="#cite_note-3"><span class="cite-bracket">[</span>注釈 3<span class="cite-bracket">]</span></a></sup>';
@@ -158,7 +160,7 @@ async function checkScenario(browser, engine, theme) {
         await addScriptTagWithCspFallback(page, SCRIPT_PATH);
         await page.waitForFunction(() => document.querySelectorAll('#sentence .jpdb-reader-word').length >= 10
             && document.querySelectorAll('#linked .jpdb-reader-word').length >= 5
-            && document.querySelectorAll('#overhang rt').length >= 5
+            && document.querySelectorAll('#overhang rt').length >= 6
             && document.querySelector('#sentence .jpdb-reader-word.jpdb-new')?.style.getPropertyValue('--jpdb-reader-word-accessible-underline'),
         null, { timeout: 30_000 });
         await page.waitForTimeout(600);
@@ -293,7 +295,11 @@ function measurePage() {
         const base = ruby?.querySelector('.jpdb-reader-ruby-base, rb') ?? word;
         const style = getComputedStyle(reading);
         const baseStyle = getComputedStyle(base);
-        const rect = reading.getBoundingClientRect();
+        // Where the kana are drawn, not the rt box: WebKit can size the box of
+        // an overhanging reading narrower than its text.
+        const inkRange = document.createRange();
+        inkRange.selectNodeContents(reading);
+        const rect = inkRange.getBoundingClientRect();
         const baseRect = (ruby?.firstChild?.nodeType === Node.TEXT_NODE ? ruby : base).getBoundingClientRect();
         return {
             text: reading.textContent,

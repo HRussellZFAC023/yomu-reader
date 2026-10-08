@@ -936,8 +936,8 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
    one run of text, so the kanji keeps its place in the line (no gap around 間
    in の間で). A negative margin on the reading only shrinks its share of the
    line: the kanji never moves. dom/ruby-overhang.ts decides which readings
-   may: one inside its word at once, one at a word edge only while the word
-   beside it carries no reading (edge-overhang), so two readings never meet.
+   may: one inside its word at once, one at a word edge only while no reading
+   sits on the other side (edge-overhang), so two readings never meet.
    No sibling selector here: one over page words made Chromium annotate a
    one-root page ten times slower. WebKit stops centring a reading whose
    margins make it narrower than its kanji, so the margin is never more than
