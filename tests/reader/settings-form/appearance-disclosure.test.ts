@@ -26,9 +26,10 @@ describe('appearance progressive disclosure', () => {
         for (const name of ['readerFontFamily', 'popupFontFamily', 'accentColor']) {
             expect(details.querySelector(`[name="${name}"]`), name).not.toBeNull();
         }
-        for (const name of ['theme', 'popupMode', 'hoverPopupMode', 'popoverBackdropEnabled']) {
+        for (const name of ['theme', 'popupMode', 'hoverPopupMode']) {
             expect(panel.querySelector(`[name="${name}"]`)?.closest('details'), name).toBeNull();
         }
+        expect(panel.querySelector('[name="popoverBackdropEnabled"]')).toBeNull();
         const preview = panel.querySelector('[data-yomu-appearance-preview]')!;
         expect(preview.closest('details')).toBeNull();
         expect(preview.compareDocumentPosition(details) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
