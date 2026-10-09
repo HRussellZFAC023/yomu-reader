@@ -108,7 +108,7 @@ const BASE_SETTINGS = {
 
 const IN_DECK = ['jpdb-new', 'jpdb-known', 'jpdb-due', 'jpdb-failed', 'jpdb-blacklisted'];
 // These scenarios test the underline beside the not-in-deck highlight wash
-// with every state coloured, which since 2.1 (ADR-0025) is a choice: pin it.
+// with every state coloured, which since 2.1 (ADR-0026) is a choice: pin it.
 const DECK_CHANNELS = { wordHighlightColorSource: 'jpdb', wordColorHiddenStateGroups: [] };
 const DECK_SCENARIOS = [
     { id: 'underline-jpdb-light', theme: 'light', settings: { ...DECK_CHANNELS, wordUnderlineColorSource: 'jpdb' }, rootClass: 'jpdb-reader-word-underline-jpdb' },
@@ -168,7 +168,7 @@ assert(!report.failures.length, `${report.failures.length} underline colour sour
 console.log(`underline colour sources smoke passed (${ENGINE}); report: ${path.join(OUT, 'report.json')}`);
 
 async function checkCompoundPitch() {
-    // Pitch underlines are a choice since 2.1 (ADR-0025); a compound keeps its
+    // Pitch underlines are a choice since 2.1 (ADR-0026); a compound keeps its
     // per-part colours when the learner makes it.
     const defaults = await compoundScenario('compound-pitch', { wordUnderlineColorSource: 'pitch' });
     const colours = gradientColours(defaults.gradient);
@@ -214,7 +214,7 @@ async function compoundScenario(id, settings) {
 
 async function checkDeckStatusUnderline() {
     const defaults = await deckScenario('deck-defaults', 'light', {});
-    // The default underline carries deck state (ADR-0025): a word in no deck,
+    // The default underline carries deck state (ADR-0026): a word in no deck,
     // even one with a known pitch, draws nothing, and a New word draws its colour.
     expect(isTransparent(defaults.words.find(word => word.text === '練習')?.underline),
         'By default a not-in-deck word should carry no underline, whatever its pitch.', defaults);

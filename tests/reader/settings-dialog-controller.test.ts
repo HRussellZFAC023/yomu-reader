@@ -1129,7 +1129,7 @@ describe('settings dialog keyboard dismissal', () => {
         expect(selectValue('subtitleUnderlineColorSource')).toBe('off');
         expect(selectValue('subtitleTextColorSource')).toBe('off');
 
-        // Balanced is the default look (ADR-0025), colour-hidden groups included.
+        // Balanced is the default look (ADR-0026), colour-hidden groups included.
         for (const box of form.querySelectorAll<HTMLInputElement>('input[name^="colorHide-"], input[name^="furiganaHide-"]')) box.checked = false;
         choosePreset('balanced');
 
@@ -1146,7 +1146,7 @@ describe('settings dialog keyboard dismissal', () => {
         expect(dependencies.applyTheme).toHaveBeenCalled();
     });
 
-    // Both presets take the default reading mode (ADR-0025).
+    // Both presets take the default reading mode (ADR-0026).
     it('keeps quick setup furigana independent of the available decks', () => {
         for (const settings of [
             { ...DEFAULT_SETTINGS, apiKey: '', jitenApiKey: '', ankiEnabled: false, yomuLocalSrsEnabled: false },

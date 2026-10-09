@@ -48,7 +48,7 @@ describe('simplified settings model', () => {
         const settings = witnessedSettingsRestoreCandidate(previous, normalizeReaderSettings(backup.settings), view);
         const original = normalizeReaderSettings(view!.settings as Partial<ReaderSettings>);
         // A restore reads the backup's undeclared 2.0 annotation defaults as
-        // 2.1's (ADR-0025); every other value is the backup's own.
+        // 2.1's (ADR-0026); every other value is the backup's own.
         expect(settings).toEqual(adoptCurrentDefaults(original, view!.intentLedger, DEFAULT_SETTINGS));
         const retiredKeys = new Set<string>(RETIRED_DEFAULT_SETTING_KEYS);
         const differs = (left: ReaderSettings, right: ReaderSettings) => Object.keys(left)
@@ -60,7 +60,7 @@ describe('simplified settings model', () => {
         vi.stubGlobal('GM_listValues', vi.fn(async () => [...values.keys()]));
         await saveSettings(settings, settingsRestoreSaveOptions(previous, settings, view));
         // The backup's 2.0 annotation defaults that nobody declared read as
-        // 2.1's (ADR-0025); every other value round-trips unchanged.
+        // 2.1's (ADR-0026); every other value round-trips unchanged.
         const loaded = await loadSettings();
         const { intentLedger } = await readSettingsPersistenceViewStrict();
         expect(loaded).toEqual(adoptCurrentDefaults(settings, intentLedger, DEFAULT_SETTINGS));

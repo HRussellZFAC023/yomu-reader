@@ -1099,7 +1099,7 @@ describe('reader helpers', () => {
         expect(effectiveReaderColorSource(deckless, 'auto')).toBe('off');
         expect(effectiveReaderColorSource(deckless, 'auto', 'pitch')).toBe('pitch');
         expect(effectiveReaderColorSource({ ...deckless, wordHighlightMode: 'pitch' } as never, 'auto')).toBe('off');
-        // 'auto' is the default, and the default highlight is off (ADR-0025).
+        // 'auto' is the default, and the default highlight is off (ADR-0026).
         expect(effectiveReaderColorSource({ ...DEFAULT_SETTINGS, apiKey: 'key', ankiEnabled: true, wordHighlightMode: 'status' } as never, 'auto')).toBe('off');
         expect(effectiveReaderColorSource({ ...DEFAULT_SETTINGS, apiKey: 'key' }, 'auto', 'jpdb')).toBe('jpdb');
         expect(effectiveReaderColorSource({ ...deckless, wordHighlightMode: 'status' } as never, 'auto')).toBe('off');
@@ -1164,7 +1164,7 @@ describe('reader helpers', () => {
         expect(saved).toMatchObject(expected);
     });
 
-    // A11 and ADR-0025: readings follow what the learner knows, and legacy
+    // A11 and ADR-0026: readings follow what the learner knows, and legacy
     // 'auto' lands on that default, a mode the surrounding UI can explain.
     it('defaults furigana to the known-status mode and preserves typed automatic mode', () => {
         expect(DEFAULT_SETTINGS.furiganaMode).toBe('known-status');

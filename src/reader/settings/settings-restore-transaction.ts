@@ -50,7 +50,7 @@ export function settingsRestoreSaveOptions(
 
 /**
  * The settings a restore adopts, for every restore path (settings file, Google
- * Drive). A default a release retired (ADR-0025) that the backup merely carried
+ * Drive). A default a release retired (ADR-0026) that the backup merely carried
  * is no choice: with the backup's ledger it reads as today's default, as the
  * next load would read it; a settings-only backup has no ledger, so that
  * setting stays as it is now rather than being declared the learner's.

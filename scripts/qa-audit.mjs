@@ -2480,7 +2480,7 @@ async function assertHostedTryMeFreshProfile(browser, server) {
         ankiEnabled: false,
         // A20 (fd56739bf, 1.8.28): Yomu's own deck, on by default, feeds the
         // state colour channel too. Only a profile with no deck at all falls
-        // back to the default underline, which since 2.1 is none (ADR-0025),
+        // back to the default underline, which since 2.1 is none (ADR-0026),
         // with text colour off, which is what this pre-check is about.
         yomuLocalSrsEnabled: false,
         wordHighlightColorSource: 'jpdb',

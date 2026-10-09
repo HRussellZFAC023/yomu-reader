@@ -1078,7 +1078,7 @@ describe('settings dialog restore and save interlocks', () => {
     });
 });
 
-// ADR-0025: a Google Drive snapshot carries the whole 2.0 settings object, so
+// ADR-0026: a Google Drive snapshot carries the whole 2.0 settings object, so
 // a default 2.1 retired must read as today's on this restore path too, as it
 // does for a settings file. The snapshot is the 2.0.12 defaults, unchanged.
 describe('Google Drive restore of retired annotation defaults', () => {

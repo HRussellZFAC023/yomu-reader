@@ -22,7 +22,7 @@ import type { SettingsIntentLedger } from './intent-ledger';
  * and that declaration outranks this projection. A backup carries the ledger
  * beside the settings, so a restored choice stays a choice.
  *
- * 2.1 annotation defaults (ADR-0025): nothing painted behind a word at rest,
+ * 2.1 annotation defaults (ADR-0026): nothing painted behind a word at rest,
  * the underline carries study state instead of pitch, known and ignored words
  * stay plain, and readings follow what the learner knows: known and due words
  * lose theirs, a word the learner just failed keeps it.

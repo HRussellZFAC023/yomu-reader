@@ -1088,7 +1088,7 @@ export class SettingsDialogController {
             setSelect('subtitleUnderlineColorSource', underline);
             setSelect('subtitleTextColorSource', text);
         };
-        // The default look (ADR-0025), read from the defaults rather than
+        // The default look (ADR-0026), read from the defaults rather than
         // restated: one quiet state underline, known words left plain, and
         // readings that follow what the learner knows.
         const setDefaultLook = (wordColorStates: ReaderSettings['wordColorStates']): void => {

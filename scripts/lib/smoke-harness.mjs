@@ -68,7 +68,7 @@ const DEFAULT_READER_SMOKE_SETTINGS = Object.freeze({
     popupActivationMode: 'click',
     showFloatingButton: false,
     showFurigana: true,
-    // The 2.0 annotation look, whole: since 2.1 (ADR-0025) it is a choice, so
+    // The 2.0 annotation look, whole: since 2.1 (ADR-0026) it is a choice, so
     // these smokes declare it rather than inherit the quiet defaults. Without
     // the empty hidden groups, a known word keeps its highlight source but
     // loses its paint.

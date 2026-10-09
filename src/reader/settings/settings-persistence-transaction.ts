@@ -122,7 +122,7 @@ async function sampledSettingsView(read: SettingsStorageRead): Promise<SettingsP
     if (!intentLedger) return null;
     return {
         settings: committed.settings,
-        // Load, Save and restore all read through here (ADR-0025).
+        // Load, Save and restore all read through here (ADR-0026).
         intentLedger: retirePuckDefaultDeclarations(intentLedger),
     };
 }

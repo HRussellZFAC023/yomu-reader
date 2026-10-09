@@ -963,7 +963,7 @@ describe('reader helpers', () => {
 
         const first = appInternals(new ReaderApp());
         // The default reading mode, so the marker restores what a learner who never
-        // chose a mode had (known-status since 2.1, ADR-0025).
+        // chose a mode had (known-status since 2.1, ADR-0026).
         first.settings = { ...DEFAULT_SETTINGS, showFurigana: true, furiganaMode: 'known-status' };
         await first.cyclePowerState();
         expect(first.settings.furiganaMode).toBe('off');
@@ -1471,7 +1471,7 @@ describe('reader helpers', () => {
         try {
             const settings = await loadSettings();
 
-            // 2.1 defaults (ADR-0025); the undeclared 2.0 'pitch' reads as one too.
+            // 2.1 defaults (ADR-0026); the undeclared 2.0 'pitch' reads as one too.
             expect(settings.wordHighlightColorSource).toBe('off');
             expect(settings.wordUnderlineColorSource).toBe('status');
             expect(settings.wordTextColorSource).toBe('off');

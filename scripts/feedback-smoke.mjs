@@ -2222,7 +2222,7 @@ try {
     const styleContainmentPage = await newPage(browser, {
         ...baseSettings,
         theme: 'dark',
-        // The author word is known; since 2.1 (ADR-0025) known words are
+        // The author word is known; since 2.1 (ADR-0026) known words are
         // hidden from colour unless the learner colours every group.
         wordHighlightColorSource: 'jpdb',
         wordTextColorSource: 'status',

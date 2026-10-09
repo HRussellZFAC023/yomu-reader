@@ -12,7 +12,7 @@ import type { SettingsIntentLedger } from '../../src/reader/settings/intent-ledg
 import { ANNOTATION_DEFAULT_KEYS_SMOKES_DECLARE } from '../../scripts/lib/smoke-harness.mjs';
 import { installGmStorageFixture } from './helpers/settings-persistence-fixture';
 
-// 2.1 changed the annotation defaults (ADR-0025). Every save writes the whole
+// 2.1 changed the annotation defaults (ADR-0026). Every save writes the whole
 // settings object, so an install that never touched these controls still has
 // the 2.0 defaults written down; they must read as the new defaults, while a
 // value the learner declared, or one the old defaults never had, stays.

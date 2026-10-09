@@ -456,10 +456,10 @@ describe('settings form localization', () => {
         expect(DEFAULT_SETTINGS.ankiMineWithJpdb).toBe(false);
         expect(DEFAULT_SETTINGS.popupMode).toBe('auto');
         expect(DEFAULT_SETTINGS.furiganaMode).toBe('known-status');
-        // A word the learner just failed keeps its reading (ADR-0025).
+        // A word the learner just failed keeps its reading (ADR-0026).
         expect(DEFAULT_SETTINGS.furiganaHiddenStateGroups).toEqual(['known', 'due']);
         expect(DEFAULT_SETTINGS.wordColorStates).toBe('all');
-        // Known and ignored words stay plain by default (ADR-0025); normalize
+        // Known and ignored words stay plain by default (ADR-0026); normalize
         // drops invalid/duplicate groups and keeps an explicit empty list.
         expect(DEFAULT_SETTINGS.wordColorHiddenStateGroups).toEqual(['known', 'ignored']);
         expect(normalizeReaderSettings({}).wordColorHiddenStateGroups).toEqual(['known', 'ignored']);
@@ -488,7 +488,7 @@ describe('settings form localization', () => {
         expect(shouldLookupAnkiStatus({ ...DEFAULT_SETTINGS, ankiEnabled: true })).toBe(true);
         expect(effectiveReaderTextColorSource(DEFAULT_SETTINGS, DEFAULT_SETTINGS.wordTextColorSource)).toBe('off');
         expect(effectiveReaderTextColorSource({ ...DEFAULT_SETTINGS, ankiSectionEnabled: true }, 'anki')).toBe('off');
-        // Text colour is off by default (ADR-0025); a learner who picks Anki gets it once Anki is on.
+        // Text colour is off by default (ADR-0026); a learner who picks Anki gets it once Anki is on.
         expect(effectiveReaderTextColorSource({ ...DEFAULT_SETTINGS, ankiEnabled: true }, DEFAULT_SETTINGS.wordTextColorSource)).toBe('off');
         expect(effectiveReaderTextColorSource({ ...DEFAULT_SETTINGS, ankiEnabled: true }, 'anki')).toBe('anki');
         expect(form.querySelector<HTMLInputElement>('input[name="ankiEnabled"]')?.checked).toBe(false);

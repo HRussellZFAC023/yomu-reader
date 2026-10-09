@@ -81,7 +81,7 @@ type NumberSettingRange = { min: number; max: number };
 type ConcreteReaderColorSource = Exclude<ReaderColorSource, 'auto'>;
 type AccentColorSettingKey = Extract<keyof ReaderSettings, string>;
 
-// One colour channel at rest (ADR-0025): the underline carries what the
+// One colour channel at rest (ADR-0026): the underline carries what the
 // learner's own study source knows, and nothing when there is none. A per-word
 // fill and page-wide pitch colours had no evidence of helping a reader and
 // made prose look like a worksheet; both stay one choice away, and pitch is
@@ -292,7 +292,7 @@ export const DEFAULT_SETTINGS: ReaderSettings = {
     showFurigana: true,
     // A11: 'difficult-kanji' hides readings by a fixed easy-kanji list
     // (EASY_FURIGANA_KANJI), so a bare kanji told the learner nothing about
-    // their own knowledge and the page read as half-annotated. ADR-0025:
+    // their own knowledge and the page read as half-annotated. ADR-0026:
     // readings follow what the learner knows instead. A word their study
     // source knows loses its reading; with no source, or a word not yet in
     // it, every parsed word keeps its reading.
@@ -300,11 +300,11 @@ export const DEFAULT_SETTINGS: ReaderSettings = {
     clampedRowReadings: 'show',
     puckFuriganaModeBeforeHide: '',
     // Help fades with what the learner knows: a known or due word loses its
-    // reading, a word they just failed keeps it (ADR-0025).
+    // reading, a word they just failed keeps it (ADR-0026).
     furiganaHiddenStateGroups: ['known', 'due'],
     wordColorStates: 'all',
     // Known and ignored words are most of a page for anyone past the start;
-    // colouring them carries no news (ADR-0025).
+    // colouring them carries no news (ADR-0026).
     wordColorHiddenStateGroups: ['known', 'ignored'],
     showPitchAccent: true,
     showLookupPillFrequency: true,
@@ -946,7 +946,7 @@ function normalizeFuriganaHiddenStateGroups(value: unknown): ReaderSettings['fur
 function normalizeWordColorHiddenStateGroups(value: unknown): ReaderSettings['wordColorHiddenStateGroups'] {
     // Furigana groups PLUS the ignored family (own colour, own picker): validating
     // against the furigana set dropped it on load (#37). Empty colours every group;
-    // the default hides known and ignored words (ADR-0025).
+    // the default hides known and ignored words (ADR-0026).
     if (!Array.isArray(value)) return [...DEFAULT_SETTINGS.wordColorHiddenStateGroups];
     const groups = value.filter((item): item is ReaderSettings['wordColorHiddenStateGroups'][number] =>
         typeof item === 'string' && (WORD_COLOR_HIDE_STATE_GROUPS as readonly string[]).includes(item));

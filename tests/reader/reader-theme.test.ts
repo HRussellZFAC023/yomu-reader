@@ -188,7 +188,7 @@ describe('reader theme', () => {
         for (const group of ['new', 'learning', 'known', 'due', 'failed'] as const) {
             expect(root.classList.contains(`yomu-word-color-hide-${group}`)).toBe(false);
         }
-        // The default leaves known and ignored words plain (ADR-0025).
+        // The default leaves known and ignored words plain (ADR-0026).
         applyReaderTheme({ ...DEFAULT_SETTINGS, apiKey: 'test-api-key' }, root);
         expect(root.classList.contains('yomu-word-color-hide-known')).toBe(true);
         expect(root.classList.contains('yomu-word-color-hide-ignored')).toBe(true);
@@ -226,7 +226,7 @@ describe('reader theme', () => {
         expect(root.classList.contains('yomu-word-color-hide-ignored')).toBe(false);
     });
 
-    // ADR-0025: one channel at rest. The state underline resolves to the one
+    // ADR-0026: one channel at rest. The state underline resolves to the one
     // study source present (JPDB here); nothing is painted behind a word.
     it('applies concrete default color channels', () => {
         const applied = applyReaderTheme({ ...DEFAULT_SETTINGS, apiKey: 'test-api-key' });
@@ -960,7 +960,7 @@ describe('reader theme', () => {
         expect(root.classList.contains('jpdb-reader-word-highlight-off')).toBe(true);
         expect(root.classList.contains('jpdb-reader-word-underline-jpdb')).toBe(false);
         // An unavailable channel falls back to the default, which is the state
-        // underline (ADR-0025), and with no state source that is off.
+        // underline (ADR-0026), and with no state source that is off.
         expect(root.classList.contains('jpdb-reader-word-underline-off')).toBe(true);
         expect(root.classList.contains('jpdb-reader-word-text-jpdb')).toBe(false);
         expect(root.classList.contains('jpdb-reader-word-text-off')).toBe(true);
@@ -1463,7 +1463,7 @@ describe('reader theme', () => {
 
         const settings = await loadSettings();
         // A changed channel set is the learner's, so the pitch underline stays
-        // (ADR-0025); only the doubled pitch highlight is dropped when applied.
+        // (ADR-0026); only the doubled pitch highlight is dropped when applied.
         expect(settings).toMatchObject({ wordUnderlineColorSource: 'pitch', subtitleUnderlineColorSource: 'pitch' });
         expectPitchUnderlineOnlyApplied(applyReaderTheme(settings));
     });
