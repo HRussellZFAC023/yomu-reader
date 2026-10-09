@@ -4851,6 +4851,25 @@ button.jpdb-reader-newtab-study-hint-btn:active {
     padding-bottom: calc(148px + env(safe-area-inset-bottom));
   }
 
+  /* One 16px gutter on every route, so the brand and menu hold still when the
+     tab changes (Study was 6px from the edge, Library and Stats 14px). */
+  .jpdb-reader-newtab:not([data-study-surface="academy"]) .jpdb-reader-newtab-shell {
+    width: calc(100% - 32px);
+  }
+
+  /* Previous, Reveal and Next wait where the grades will appear, so the thumb's
+     target does not jump down the screen when the answer opens. */
+  .jpdb-reader-newtab:not([data-study-surface="academy"]):not(.jpdb-reader-newtab-setup-mode)
+    .jpdb-reader-newtab-controls:not(.jpdb-reader-newtab-grade-controls) {
+    position: fixed;
+    left: 50%;
+    bottom: calc(64px + env(safe-area-inset-bottom));
+    transform: translateX(-50%);
+    width: min(100%, calc(100vw - 12px));
+    margin: 0;
+    background: var(--jpdb-reader-bg);
+  }
+
   .jpdb-reader-newtab:not([data-study-surface="academy"]):has(.jpdb-reader-newtab-grade-target-context):not(.jpdb-reader-newtab-search-mode):not(.jpdb-reader-newtab-stats-mode)
     .jpdb-reader-newtab-shell {
     padding-bottom: calc(180px + env(safe-area-inset-bottom));

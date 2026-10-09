@@ -201,4 +201,17 @@ describe('Study on a phone', () => {
         expect(newTabCss).toContain('@media (max-width: 640px) { .jpdb-reader-newtab:not([data-study-surface="academy"]):not(.jpdb-reader-newtab-search-mode):not(.jpdb-reader-newtab-stats-mode) .jpdb-reader-newtab-shell { padding-bottom: calc(148px + env(safe-area-inset-bottom)); }');
         expect(newTabCss).toContain(':has(.jpdb-reader-newtab-grade-target-context):not(.jpdb-reader-newtab-search-mode):not(.jpdb-reader-newtab-stats-mode) .jpdb-reader-newtab-shell { padding-bottom: calc(180px + env(safe-area-inset-bottom)); }');
     });
+
+    // The logo and menu moved 5px between Study and Library/Stats/Practice,
+    // and Study sat 6px from the screen edge.
+    it('keeps one 16px gutter on every route', () => {
+        expect(newTabCss).toContain('/* One 16px gutter on every route, so the brand and menu hold still when the tab changes (Study was 6px from the edge, Library and Stats 14px). */ .jpdb-reader-newtab:not([data-study-surface="academy"]) .jpdb-reader-newtab-shell { width: calc(100% - 32px); }');
+    });
+
+    // Reveal sat 90px above the dock and the grades appeared flush on it, so
+    // the main thumb target jumped 84px when the answer opened.
+    it('keeps Reveal where the grades appear', () => {
+        expect(newTabCss).toContain('.jpdb-reader-newtab:not([data-study-surface="academy"]):not(.jpdb-reader-newtab-setup-mode) .jpdb-reader-newtab-controls:not(.jpdb-reader-newtab-grade-controls) { position: fixed; left: 50%; bottom: calc(64px + env(safe-area-inset-bottom)); transform: translateX(-50%);');
+        expect(newTabCss).toContain('.jpdb-reader-newtab:not([data-study-surface="academy"]) .jpdb-reader-newtab-controls.jpdb-reader-newtab-grade-controls { bottom: calc(64px + env(safe-area-inset-bottom));');
+    });
 });
