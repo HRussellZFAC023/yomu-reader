@@ -153,7 +153,7 @@ describe('D43 copy tiers are a property of the string', () => {
         const humanCritical = messages.filter((message) => message.tier === 'human-critical');
         const byIdAlone = humanCritical.filter((message) => copyTierOf(message.id).tier === 'human-critical');
         expect({ total: messages.length, critical: humanCritical.length, byId: byIdAlone.length })
-            .toEqual({ total: 1208, critical: 412, byId: 406 });
+            .toEqual({ total: 1207, critical: 412, byId: 406 });
         // Japanese-only/setup/settings removal changed the message inventory;
         // all ten classification rules and surviving critical keys remain pinned.
         // The Settings launcher gained one help line and "Open in Study"; the
