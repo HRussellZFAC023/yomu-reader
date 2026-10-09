@@ -116,6 +116,7 @@ interface VisibleScanParseOptions {
     allowSegmentedFallback?: boolean;
     skipApi?: boolean;
     publicJitenDetailLimit?: number;
+    publicJitenPriority?: 'annotation';
 }
 
 interface VisiblePageCoverageSummary {
@@ -1118,6 +1119,9 @@ function scanParseOptions(settings: ReaderSettings): VisibleScanParseOptions {
         // repaint them asynchronously; up to twelve /info round-trips must not
         // sit on the visible scan's first-DOM-apply path.
         publicJitenDetailLimit: 0,
+        // The page's word boundaries go ahead of readings, pitch and popup
+        // examples, and behind the word a hover is waiting on.
+        publicJitenPriority: 'annotation',
     };
 }
 

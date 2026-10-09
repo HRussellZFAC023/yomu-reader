@@ -23,7 +23,7 @@ const CACHE_TTL_MS = 10 * 60 * 1000;
 // The span resolver asks about every candidate substring of a page's
 // sentences, about 4,000 terms on a long article. A smaller memory evicted the
 // page's own answers before a hover re-parsed their sentence, and every repeat
-// spent api.jiten.moe's anonymous budget (300 requests a minute) again.
+// spent api.jiten.moe's anonymous budget again.
 const CACHE_LIMIT = 5000;
 const DETAIL_CONCURRENCY = 4;
 const LOOKUP_DETAIL_LIMIT = 12;
@@ -35,7 +35,7 @@ const PARSE_TEXT_LIMIT = 1900;
 // request URL, so the encoded query is bounded as well as the text. Jiten's
 // own limit is an 8 KB request line (an 8,148-byte URL parsed, 8,247 bytes got
 // HTTP 414, 2026-10-08). Fuller requests mean fewer of them from the anonymous
-// 300-a-minute budget.
+// budget.
 const PARSE_ENCODED_TEXT_LIMIT = 7800;
 const PARSE_TERM_SEPARATOR = '。';
 const PARSE_SEPARATOR_ENCODED_LENGTH = encodeURIComponent(PARSE_TERM_SEPARATOR).length;
@@ -43,17 +43,34 @@ const log = Logger.scope('JitenPublicVocabulary');
 const sharedParseGate = new ConcurrencyGate(1);
 let sharedRequestBackoffUntil = 0;
 let sharedRequestBackoffMs = REQUEST_BACKOFF_INITIAL_MS;
-// api.jiten.moe lets an anonymous address make 300 requests a minute, then
-// queues three and refuses the rest. This client spends at most 240, so the
-// popup's own Jiten requests (its rank badge search) still answer, and its
-// background lanes keep to 40 in any 15 seconds, so a hover finds some left.
-// Jiten counts what reaches it: every parse does, while two in three word
-// details came from its cache on 2026-10-08, so a detail costs half.
-const REQUEST_BUDGET_PER_MINUTE = 240;
-const BACKGROUND_REQUEST_BUDGET = 40;
-const BACKGROUND_WINDOW_MS = 15_000;
-const DETAIL_REQUEST_COST = 0.5;
-const sharedRequests: Array<{ at: number; cost: number }> = [];
+// When the running backoff began. A request sent by then failed for the
+// reason it already counts, so it neither extends nor doubles it.
+let sharedRequestBackoffArmedAt = Number.NEGATIVE_INFINITY;
+
+// api.jiten.moe gives an anonymous address 120 vocabulary requests in any
+// minute: Jiten's limiter since 2026-10-08 (Sirush/Jiten 506bc13e, a sliding
+// 60 s window of six 10 s segments) queues three more and refuses the rest
+// with 429. The live API still allowed 300 in a fixed minute on 2026-10-09;
+// keeping to the published 120 holds under both. Each request counts as one.
+// A word detail Jiten's CDN answers from its cache never reaches the limiter,
+// but this client cannot tell which did, and on an article read for the
+// first time four in five reached it.
+//
+// Accounting is per reader realm, not shared across tabs or other apps on
+// the same address; upstream refusal still uses the backoff below.
+//
+// Each kind of work may fill the last minute only up to its own ceiling, so
+// the less urgent kinds always leave the more urgent ones room:
+// - lookup: the word the learner hovers or clicks. The 15 it leaves are for
+//   the popup's own Jiten requests (rank badge search, word info), which the
+//   definition client sends.
+// - annotation: the word boundaries of the page being read.
+// - enrichment: page readings and pitch, and the popup's example sentences.
+export type JitenRequestPriority = 'lookup' | 'annotation' | 'enrichment';
+const REQUEST_CEILINGS: Readonly<Record<JitenRequestPriority, number>> = { lookup: 105, annotation: 70, enrichment: 50 };
+const PRIORITY_RANKS: Readonly<Record<JitenRequestPriority, number>> = { lookup: 2, annotation: 1, enrichment: 0 };
+const REQUEST_WINDOW_MS = 60_000;
+const sentRequests: number[] = [];
 
 export interface JitenPublicVocabularyClientOptions {
     baseUrl?: string;
@@ -64,37 +81,54 @@ export interface JitenPublicVocabularyClientOptions {
 export interface JitenPublicLookupManyOptions {
     detailLimit?: number;
     detailTimeoutMs?: number;
+    // Enrichment unless the caller says otherwise.
+    priority?: JitenRequestPriority;
 }
 
 export function resetJitenPublicVocabularyBackoffForTests(): void {
     sharedRequestBackoffUntil = 0;
     sharedRequestBackoffMs = REQUEST_BACKOFF_INITIAL_MS;
-    sharedRequests.length = 0;
+    sharedRequestBackoffArmedAt = Number.NEGATIVE_INFINITY;
+    sentRequests.length = 0;
 }
 
 // The background lanes (deferred readings and pitch) wait this long before
-// asking again: while the shared backoff runs, or until their share of the
-// last 15 seconds and the minute's budget have room.
+// asking again: while the shared backoff runs, or until enrichment's share of
+// the last minute has room.
 export function publicJitenBackoffRemainingMs(): number {
     const now = Date.now();
-    return Math.max(
-        0,
-        sharedRequestBackoffUntil - now,
-        requestBudgetWaitMs(BACKGROUND_WINDOW_MS, BACKGROUND_REQUEST_BUDGET, now),
-        requestBudgetWaitMs(60_000, REQUEST_BUDGET_PER_MINUTE, now),
-    );
+    return Math.max(0, sharedRequestBackoffUntil - now, ceilingWaitMs('enrichment', now));
 }
 
-// How long until the requests sent in the last `windowMs` cost less than
-// `budget`: the newest requests that reach it must first leave the window.
-function requestBudgetWaitMs(windowMs: number, budget: number, now: number): number {
-    while (sharedRequests.length && sharedRequests[0].at <= now - 60_000) sharedRequests.shift();
-    let cost = 0;
-    for (let index = sharedRequests.length - 1; index >= 0 && sharedRequests[index].at > now - windowMs; index--) {
-        cost += sharedRequests[index].cost;
-        if (cost >= budget) return sharedRequests[index].at + windowMs - now;
-    }
-    return 0;
+// How long until fewer requests than the priority's ceiling were sent in the
+// last minute.
+function ceilingWaitMs(priority: JitenRequestPriority, now: number): number {
+    while (sentRequests.length && sentRequests[0] <= now - REQUEST_WINDOW_MS) sentRequests.shift();
+    const excess = sentRequests.length - REQUEST_CEILINGS[priority];
+    return excess < 0 ? 0 : sentRequests[excess] + REQUEST_WINDOW_MS - now;
+}
+
+// Backoff and a spent share hold requests back, never answers already in
+// hand: a hovered word the page looked up earlier keeps its Jiten card (and
+// so its rank badge) while api.jiten.moe is not being asked.
+function mayRequest(priority: JitenRequestPriority): boolean {
+    const now = Date.now();
+    return now >= sharedRequestBackoffUntil && ceilingWaitMs(priority, now) === 0;
+}
+
+function noteRequestFailure(error: unknown, sentAt: number): void {
+    if (!isPublicJitenBackoffError(error) || sentAt <= sharedRequestBackoffArmedAt) return;
+    const now = Date.now();
+    sharedRequestBackoffArmedAt = now;
+    sharedRequestBackoffUntil = now + sharedRequestBackoffMs;
+    sharedRequestBackoffMs = Math.min(sharedRequestBackoffMs * 2, REQUEST_BACKOFF_MAX_MS);
+}
+
+// A completed request proves the endpoint is healthy again: stop the
+// doubling so the NEXT backoff (if any) starts from the initial window
+// instead of a session-cumulative maximum.
+function noteRequestSuccess(): void {
+    sharedRequestBackoffMs = REQUEST_BACKOFF_INITIAL_MS;
 }
 
 interface PublicParseWord {
@@ -124,8 +158,16 @@ export class JitenPublicVocabularyClient {
     // Jiten's reading of each term asked: the word it reads the whole term
     // as, or null when it reads the term as anything else.
     private readonly words = new Map<string, CacheEntry<PublicParseWord | null>>();
+    // Jiten's words for each passage parsed. Hovering another word of a
+    // sentence parses that sentence again.
+    private readonly passages = new Map<string, CacheEntry<PublicParseWord[]>>();
+    // The word Jiten read each run of letters as inside a parsed passage. A
+    // term that cannot be asked is answered from here, so the 移住者 a page's
+    // own parse read as one word stays one word for a hover while Jiten is
+    // backed off, instead of falling to the segmenter's 移住.
+    private readonly seen = new Map<string, CacheEntry<PublicParseWord>>();
     private readonly details = new Map<string, CacheEntry<Promise<JPDBCard | null>>>();
-    private readonly reading = new Map<string, Promise<void>>();
+    private readonly reading = new Map<string, { read: Promise<void>; priority: JitenRequestPriority }>();
 
     constructor(private readonly options: JitenPublicVocabularyClientOptions = {}) {}
 
@@ -139,6 +181,7 @@ export class JitenPublicVocabularyClient {
     // are asked once a cache lifetime; details go to the first `detailLimit`
     // words not yet looked up, in the caller's order.
     async lookupMany(terms: readonly string[], options: JitenPublicLookupManyOptions = {}): Promise<Map<string, JPDBCard>> {
+        const priority = options.priority ?? 'enrichment';
         const result = new Map<string, JPDBCard>();
         const asked: string[] = [];
         const unread: string[] = [];
@@ -154,56 +197,69 @@ export class JitenPublicVocabularyClient {
             if (!known) unread.push(term);
         }
         // A term another call is already asking about is waited for, not sent
-        // twice: the hover, the popup and the page scan often overlap.
-        const reads = new Set(unread.flatMap(term => this.reading.get(term) ?? []));
-        const toRead = unread.filter(term => !this.reading.has(term));
-        if (toRead.length && !this.isBackoffActive()) {
-            const read = this.readTerms(toRead).catch(error => {
-                this.noteFailure(error);
-                logPublicJitenFailure('Jiten batch', { terms: toRead.length }, error);
-            }).finally(() => toRead.forEach(term => this.reading.delete(term)));
-            toRead.forEach(term => this.reading.set(term, read));
+        // twice: the hover, the popup and the page scan often overlap. A call
+        // waits only for an ask at least as urgent as its own; behind the
+        // page's queue a hover would wait for all of it.
+        const reads = new Set<Promise<void>>();
+        const toRead: string[] = [];
+        for (const term of unread) {
+            const pending = this.reading.get(term);
+            if (pending && PRIORITY_RANKS[pending.priority] >= PRIORITY_RANKS[priority]) reads.add(pending.read);
+            else toRead.push(term);
+        }
+        if (toRead.length && mayRequest(priority)) {
+            const read: Promise<void> = this.readTerms(toRead, priority)
+                .catch(error => logPublicJitenFailure('Jiten batch', { terms: toRead.length }, error))
+                .finally(() => toRead.forEach(term => {
+                    if (this.reading.get(term)?.read === read) this.reading.delete(term);
+                }));
+            toRead.forEach(term => this.reading.set(term, { read, priority }));
             reads.add(read);
         }
         await Promise.all(reads);
 
         let detailBudget = normalizedDetailLimit(options.detailLimit);
         const answers = asked.flatMap(term => {
-            const word = this.cached(this.words, term, Date.now())?.value;
+            const now = Date.now();
+            const answered = this.cached(this.words, term, now);
+            const word = answered ? answered.value : this.cached(this.seen, term, now)?.value;
             if (!word) return [];
-            const key = publicWordKey(word);
-            const detail = this.cached(this.details, key, Date.now())?.value;
-            if (detail) return [{ term, card: detail, fresh: false }];
-            if (detailBudget <= 0 || this.isBackoffActive()) return [];
-            detailBudget--;
-            return [{ term, card: this.lookupDetail(word, term, options.detailTimeoutMs), fresh: true }];
+            const detail = this.cached(this.details, publicWordKey(word), now)?.value;
+            if (detail) return [{ term, card: detail, persist: false }];
+            if (detailBudget > 0 && mayRequest(priority)) {
+                detailBudget--;
+                // Only Jiten's answer for the term itself is kept across pages.
+                return [{ term, card: this.lookupDetail(word, term, options.detailTimeoutMs), persist: Boolean(answered) }];
+            }
+            // While Jiten cannot be asked, the word a learner waits on still
+            // has its identity; the popup asks for the rest when it can.
+            if (priority === 'lookup' && !mayRequest(priority)) return [{ term, card: Promise.resolve(publicJitenParsedCard(word, term)), persist: false }];
+            return [];
         });
-        await Promise.all(answers.map(async ({ term, card: pending, fresh }) => {
+        await Promise.all(answers.map(async ({ term, card: pending, persist }) => {
             const card = await pending;
             if (!card) return;
             result.set(term, card);
-            if (fresh) writePublicJitenCache('card', term, card);
+            if (persist) writePublicJitenCache('card', term, card);
         }));
         return result;
     }
 
     async parse(paragraphs: readonly string[], options: JitenPublicLookupManyOptions = {}): Promise<JPDBToken[][]> {
+        const priority = options.priority ?? 'enrichment';
         const result = paragraphs.map((): JPDBToken[] => []);
-        if (!paragraphs.length || this.isBackoffActive()) return result;
+        if (!paragraphs.length) return result;
         const chunks = publicParseChunks(paragraphs);
         await mapLimited(chunks, DETAIL_CONCURRENCY, async chunk => {
-            const parsed = await this.requestParseText(chunk.text).catch(error => {
-                this.noteFailure(error);
-                logPublicJitenFailure('Jiten public parse', { length: chunk.text.length }, error);
-                return [];
-            });
+            const parsed = this.cached(this.passages, chunk.text, Date.now())?.value ?? await this.readPassage(chunk.text, priority);
             applyPublicParseChunk(result, chunk, parsed, paragraphs);
         });
-        await this.hydrateParsedTokens(result, options.detailLimit ?? PARSE_DETAIL_LIMIT);
+        await this.hydrateParsedTokens(result, options.detailLimit ?? PARSE_DETAIL_LIMIT, priority);
         return result;
     }
 
     async hydrateCards(cards: readonly JPDBCard[], options: JitenPublicLookupManyOptions = {}): Promise<Map<string, JPDBCard>> {
+        const priority = options.priority ?? 'enrichment';
         const result = new Map<string, JPDBCard>();
         if (!cards.length) return result;
         const pending: Array<{ key: string; word: PublicParseWord; requestedTerm: string }> = [];
@@ -223,13 +279,9 @@ export class JitenPublicVocabularyClient {
             }
             if (pending.length < limit) pending.push({ key, word, requestedTerm: card.spelling || word.originalText });
         }
-        if (this.isBackoffActive()) return result;
         await mapLimited(pending, DETAIL_CONCURRENCY, async item => {
-            const card = await this.lookupDetail(item.word, item.requestedTerm, options.detailTimeoutMs ?? JITEN_BACKGROUND_DETAIL_TIMEOUT_MS).catch(error => {
-                this.noteFailure(error);
-                logPublicJitenFailure('Jiten parsed detail', { wordId: item.word.wordId, readingIndex: item.word.readingIndex }, error);
-                return null;
-            });
+            if (!this.cached(this.details, publicWordKey(item.word), Date.now()) && !mayRequest(priority)) return;
+            const card = await this.lookupDetail(item.word, item.requestedTerm, options.detailTimeoutMs ?? JITEN_BACKGROUND_DETAIL_TIMEOUT_MS);
             if (!card) return;
             result.set(item.key, card);
             writePublicJitenCache('card', normalizeLookupText(card.spelling), card);
@@ -239,7 +291,22 @@ export class JitenPublicVocabularyClient {
 
     clear(): void {
         this.words.clear();
+        this.passages.clear();
+        this.seen.clear();
         this.details.clear();
+    }
+
+    private async readPassage(text: string, priority: JitenRequestPriority): Promise<PublicParseWord[]> {
+        const records = await this.parseTurn(priority, () => this.requestParseRecords(text, priority)).catch(error => {
+            logPublicJitenFailure('Jiten public parse', { length: text.length }, error);
+            return null;
+        });
+        if (!records) return [];
+        const words = records.filter(word => word.wordId > 0);
+        const now = Date.now();
+        this.remember(this.passages, text, words, now);
+        words.forEach(word => this.remember(this.seen, normalizeLookupText(word.originalText), word, now));
+        return words;
     }
 
     // Jiten answers a joined batch with words and gaps laid end to end over
@@ -248,32 +315,36 @@ export class JitenPublicVocabularyClient {
     // earlier copy of the same letters. A term whose own records stay inside
     // it is answered; one a record crosses is asked again with its neighbours
     // reversed, and Jiten does not read a term unsettled both ways as a word.
-    private async readTerms(terms: readonly string[]): Promise<void> {
-        const unsettled = await this.readTermBatches(terms);
+    private async readTerms(terms: readonly string[], priority: JitenRequestPriority): Promise<void> {
+        const unsettled = await this.readTermBatches(terms, priority);
         if (!unsettled.length) return;
         const now = Date.now();
-        for (const term of await this.readTermBatches(unsettled.reverse())) this.remember(this.words, term, null, now);
+        for (const term of await this.readTermBatches(unsettled.reverse(), priority)) this.remember(this.words, term, null, now);
     }
 
-    private async readTermBatches(terms: readonly string[]): Promise<string[]> {
-        const unsettled = await mapLimited(chunkTermsForParse(terms), DETAIL_CONCURRENCY, async chunk => {
-            const records = await this.requestParseRecords(chunk.join(PARSE_TERM_SEPARATOR));
+    private async readTermBatches(terms: readonly string[], priority: JitenRequestPriority): Promise<string[]> {
+        const unsettled = await mapLimited(chunkTermsForParse(terms), DETAIL_CONCURRENCY, chunk => this.parseTurn(priority, async () => {
+            // A more urgent ask may have answered some of these while this
+            // one waited its turn.
+            const asked = chunk.filter(term => !this.cached(this.words, term, Date.now()));
+            if (!asked.length) return [];
+            const records = await this.requestParseRecords(asked.join(PARSE_TERM_SEPARATOR), priority);
             if (!records) return [];
             const now = Date.now();
-            return publicParseTermAnswers(chunk, records).flatMap((word, index) => {
-                if (word === undefined) return [chunk[index]];
-                this.remember(this.words, chunk[index], word, now);
+            return publicParseTermAnswers(asked, records).flatMap((word, index) => {
+                if (word === undefined) return [asked[index]];
+                this.remember(this.words, asked[index], word, now);
                 return [];
             });
-        });
-        return unsettled.flat();
+        }));
+        return unsettled.flatMap(terms => terms ?? []);
     }
 
-    private async hydrateParsedTokens(result: JPDBToken[][], limit: number): Promise<void> {
+    private async hydrateParsedTokens(result: JPDBToken[][], limit: number, priority: JitenRequestPriority): Promise<void> {
         const tokens = result.flat();
         if (!tokens.length || limit <= 0) return;
         const hydrationCards = parsedCardsWithinTargetBoundary(result, limit);
-        const cards = await this.hydrateCards(hydrationCards, { detailLimit: hydrationCards.length });
+        const cards = await this.hydrateCards(hydrationCards, { detailLimit: hydrationCards.length, priority });
         if (!cards.size) return;
         for (const token of tokens) {
             const card = cards.get(parsedCardHydrationKey(token.card));
@@ -283,34 +354,24 @@ export class JitenPublicVocabularyClient {
         }
     }
 
-    private async requestParseText(text: string): Promise<PublicParseWord[]> {
-        const records = await this.requestParseRecords(text);
-        return records?.filter(word => word.wordId > 0) ?? [];
+    // Public parses go to Jiten one at a time, and a more urgent one goes
+    // ahead of those waiting. Null when backoff or a spent share kept the
+    // turn from asking.
+    private parseTurn<R>(priority: JitenRequestPriority, ask: () => Promise<R>): Promise<R | null> {
+        return sharedParseGate.run(() => mayRequest(priority) ? ask() : null, PRIORITY_RANKS[priority]);
     }
 
-    // Null when backoff kept part of the text from being asked.
-    private async requestParseRecords(text: string): Promise<PublicParseWord[] | null> {
+    private async requestParseRecords(text: string, priority: JitenRequestPriority): Promise<PublicParseWord[] | null> {
         const records: PublicParseWord[] = [];
         for (const part of publicParseTextSlices(text)) {
-            const answer = await this.requestParseRecordChunk(part.text);
-            if (!answer) return null;
-            records.push(...answer);
+            // A long term may span more than one request. If its share ends
+            // between chunks, do not cache an incomplete response as a miss.
+            if (!mayRequest(priority)) return null;
+            const payload = await this.requestJson(`vocabulary/parse?text=${encodeURIComponent(part.text)}`);
+            if (!Array.isArray(payload)) continue;
+            records.push(...payload.map(normalizePublicParseWord).filter((word): word is PublicParseWord => Boolean(word)));
         }
         return records;
-    }
-
-    private requestParseRecordChunk(text: string): Promise<PublicParseWord[] | null> {
-        return sharedParseGate.run(async () => {
-            if (this.isBackoffActive()) return null;
-            const payload = await this.requestJson(`vocabulary/parse?text=${encodeURIComponent(text)}`).catch(error => {
-                this.noteFailure(error);
-                throw error;
-            });
-            this.noteSuccess();
-            return Array.isArray(payload)
-                ? payload.map(normalizePublicParseWord).filter((word): word is PublicParseWord => Boolean(word))
-                : [];
-        });
     }
 
     private lookupDetail(word: PublicParseWord, requestedTerm: string, timeoutMs = REQUEST_TIMEOUT_MS): Promise<JPDBCard | null> {
@@ -319,12 +380,8 @@ export class JitenPublicVocabularyClient {
         const cached = this.cached(this.details, key, now);
         if (cached) return cached.value;
         const promise = this.requestJson(`vocabulary/${word.wordId}/${word.readingIndex}/info`, timeoutMs)
-            .then(payload => {
-                this.noteSuccess();
-                return publicJitenCardFromDetail(payload, requestedTerm, word);
-            })
+            .then(payload => publicJitenCardFromDetail(payload, requestedTerm, word))
             .catch(error => {
-                this.noteFailure(error);
                 // A failure is not an answer: keep its null only long enough
                 // to absorb a burst, so the paced retry lane can ask again.
                 const entry = this.details.get(key);
@@ -336,29 +393,38 @@ export class JitenPublicVocabularyClient {
         return promise;
     }
 
-    private requestJson(endpoint: string, timeoutMs = REQUEST_TIMEOUT_MS): Promise<unknown> {
+    // Every request is counted here, once, whatever its outcome.
+    private async requestJson(endpoint: string, timeoutMs = REQUEST_TIMEOUT_MS): Promise<unknown> {
         const request = this.options.requestJsonImpl ?? requestJson;
-        sharedRequests.push({ at: Date.now(), cost: endpoint.startsWith('vocabulary/parse') ? 1 : DETAIL_REQUEST_COST });
-        return request(endpointUrl(this.options.baseUrl, endpoint), {
-            responseType: 'json',
-            timeoutMs,
-            timeoutLabel: 'Jiten timeout.',
-            failureLabel: 'Jiten',
-            statusFailureMessage: status => `Jiten fail (${status}).`,
-            proxyUrl: this.proxyUrl(),
-            anonymous: true,
-            allowDirectCrossOrigin: false,
-            allowConfiguredProxy: true,
-            allowSensitiveConfiguredProxy: false,
-            // Every request here is a keyless GET against the shared-proxy
-            // allowlist (vocabulary/parse + vocabulary/{id}/{idx}/info), so the
-            // built-in Yomu edge proxy may serve it. api.jiten.moe sends no
-            // Access-Control-Allow-Origin, so on hosted pages with no GM bridge
-            // and no configured proxy this is the ONLY transport — blocking it
-            // killed all keyless public lookups there ("No configured proxy.").
-            allowPublicProxies: true,
-            preferFetch: true,
-        });
+        const sentAt = Date.now();
+        sentRequests.push(sentAt);
+        try {
+            const payload = await request(endpointUrl(this.options.baseUrl, endpoint), {
+                responseType: 'json',
+                timeoutMs,
+                timeoutLabel: 'Jiten timeout.',
+                failureLabel: 'Jiten',
+                statusFailureMessage: status => `Jiten fail (${status}).`,
+                proxyUrl: this.proxyUrl(),
+                anonymous: true,
+                allowDirectCrossOrigin: false,
+                allowConfiguredProxy: true,
+                allowSensitiveConfiguredProxy: false,
+                // Every request here is a keyless GET against the shared-proxy
+                // allowlist (vocabulary/parse + vocabulary/{id}/{idx}/info), so the
+                // built-in Yomu edge proxy may serve it. api.jiten.moe sends no
+                // Access-Control-Allow-Origin, so on hosted pages with no GM bridge
+                // and no configured proxy this is the ONLY transport — blocking it
+                // killed all keyless public lookups there ("No configured proxy.").
+                allowPublicProxies: true,
+                preferFetch: true,
+            });
+            noteRequestSuccess();
+            return payload;
+        } catch (error) {
+            noteRequestFailure(error, sentAt);
+            throw error;
+        }
     }
 
     private proxyUrl(): string {
@@ -382,27 +448,6 @@ export class JitenPublicVocabularyClient {
             if (cache.size <= CACHE_LIMIT && entry.expiresAt > now) break;
             cache.delete(entryKey);
         }
-    }
-
-    // Backoff and a spent budget hold requests back, never answers already in
-    // hand: a hovered word the page looked up earlier keeps its Jiten card
-    // (and so its rank badge) while api.jiten.moe is not being asked.
-    private isBackoffActive(): boolean {
-        const now = Date.now();
-        return now < sharedRequestBackoffUntil || requestBudgetWaitMs(60_000, REQUEST_BUDGET_PER_MINUTE, now) > 0;
-    }
-
-    private noteFailure(error: unknown): void {
-        if (!isPublicJitenBackoffError(error)) return;
-        sharedRequestBackoffUntil = Date.now() + sharedRequestBackoffMs;
-        sharedRequestBackoffMs = Math.min(sharedRequestBackoffMs * 2, REQUEST_BACKOFF_MAX_MS);
-    }
-
-    // A completed request proves the endpoint is healthy again: stop the
-    // doubling so the NEXT backoff (if any) starts from the initial window
-    // instead of a session-cumulative maximum.
-    private noteSuccess(): void {
-        sharedRequestBackoffMs = REQUEST_BACKOFF_INITIAL_MS;
     }
 }
 

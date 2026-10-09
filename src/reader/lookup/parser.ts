@@ -25,6 +25,7 @@ import { localPitchResolutionFromMetaLookup, type LocalPitchResolution } from '.
 import { stablePositiveHashId } from '../core/stable-hash';
 import { chosenWordGradingService, hasJitenApiCredential, hasJpdbApiCredential } from '../settings/api-credential';
 import type { JitenApiClient } from '../dictionaries/jiten';
+import type { JitenPublicLookupManyOptions, JitenRequestPriority } from '../dictionaries/jiten-public-vocabulary';
 import type { JPDBCard, JPDBToken, ReaderSettings } from '../app/types';
 import { glossaryToText, type YomitanMetaEntry, type YomitanTermEntry, type YomitanTermMatch } from '../dictionaries/yomitan';
 import { dictionaryReadConcurrency, type LocalDictionaryStore } from '../dictionaries/local-store';
@@ -96,6 +97,9 @@ export interface ReaderParserParseOptions {
     requireJpdb?: boolean;
     allowSegmentedFallback?: boolean;
     publicJitenDetailLimit?: number;
+    // What the public Jiten requests of this parse are for: a lookup the
+    // learner is waiting on goes ahead of page annotation and enrichment.
+    publicJitenPriority?: JitenRequestPriority;
 }
 
 export interface ReaderParserDependencies {
@@ -103,8 +107,8 @@ export interface ReaderParserDependencies {
     jpdb: JpdbClient;
     jiten?: JitenApiClient;
     jitenPublicVocabulary?: {
-        parse: (paragraphs: readonly string[], options?: { detailLimit?: number }) => Promise<JPDBToken[][]>;
-        lookupMany?: (terms: readonly string[], options?: { detailLimit?: number }) => Promise<Map<string, JPDBCard>>;
+        parse: (paragraphs: readonly string[], options?: Pick<JitenPublicLookupManyOptions, 'detailLimit' | 'priority'>) => Promise<JPDBToken[][]>;
+        lookupMany?: (terms: readonly string[], options?: Pick<JitenPublicLookupManyOptions, 'detailLimit' | 'priority'>) => Promise<Map<string, JPDBCard>>;
     };
     dictionaries: LocalDictionaryStore;
     yomuLocalSrs?: Pick<YomuSrsAdapter, 'lookupCards'>;
@@ -425,15 +429,15 @@ export class ReaderParser {
         const client = this.dependencies.jitenPublicVocabulary;
         if (!client) return new Map();
         if (typeof client.lookupMany === 'function') {
-            // Each confirmation is a detail request from the anonymous budget
-            // (300 a minute), and one sentence's candidates hold dozens of
+            // Each confirmation is a detail request from api.jiten.moe's
+            // anonymous budget, and one sentence's candidates hold dozens of
             // words: the caller's detail budget holds here too.
-            const found = await client.lookupMany(terms, { detailLimit: options.publicJitenDetailLimit });
+            const found = await client.lookupMany(terms, publicJitenOptions(options));
             const cards = new Map<string, JPDBCard[]>();
             found.forEach((card, term) => cards.set(target.normalizeText(term), [card]));
             return cards;
         }
-        const parsed = await client.parse(terms, { detailLimit: options.publicJitenDetailLimit });
+        const parsed = await client.parse(terms, publicJitenOptions(options));
         return authoritativeCardsFromParsedTerms(terms, parsed, target);
     }
 
@@ -610,9 +614,9 @@ export class ReaderParser {
         const parser = this.dependencies.jitenPublicVocabulary;
         if (typeof parser?.parse !== 'function') return null;
         try {
-            const parsed = options.publicJitenDetailLimit === undefined
+            const parsed = options.publicJitenDetailLimit === undefined && options.publicJitenPriority === undefined
                 ? await parser.parse(paragraphs)
-                : await parser.parse(paragraphs, { detailLimit: options.publicJitenDetailLimit });
+                : await parser.parse(paragraphs, publicJitenOptions(options));
             if (!parsed.some(tokens => tokens.length)) return null;
             return this.withSegmentedFallbackGaps(paragraphs, parsed, options, target);
         } catch (error) {
@@ -1194,6 +1198,10 @@ export class ReaderParser {
 }
 
 type ParserSpanLookupSource = 'jpdb' | 'jiten' | 'local' | 'public-jiten';
+
+function publicJitenOptions(options: ReaderParserParseOptions): Pick<JitenPublicLookupManyOptions, 'detailLimit' | 'priority'> {
+    return { detailLimit: options.publicJitenDetailLimit, priority: options.publicJitenPriority };
+}
 
 interface ParserSpanMatch {
     card: JPDBCard;

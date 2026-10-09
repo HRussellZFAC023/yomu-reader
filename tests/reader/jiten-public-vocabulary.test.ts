@@ -271,10 +271,10 @@ describe('JitenPublicVocabularyClient', () => {
             return { wordId: id, mainReading: { text: terms[id - 1] }, definitions: [] };
         });
         const client = new JitenPublicVocabularyClient({ requestJsonImpl: requestJson });
-        const cards = await client.lookupMany(terms, { detailLimit: terms.length });
+        const cards = await client.lookupMany(terms, { detailLimit: 40 });
         expect(requestedGroups.length).toBeGreaterThan(1);
         expect(requestedGroups.flat()).toEqual(terms);
-        expect([...cards].map(([term, card]) => [term, card.jitenWordId])).toEqual(terms.map((term, index) => [term, index + 1]));
+        expect([...cards].map(([term, card]) => [term, card.jitenWordId])).toEqual(terms.slice(0, 40).map((term, index) => [term, index + 1]));
     });
 
     it('fills a parse request up to the 8 KB line api.jiten.moe accepts', async () => {
@@ -880,38 +880,133 @@ describe('JitenPublicVocabularyClient', () => {
         expect(requestJson.mock.calls.filter(([url]) => String(url).endsWith('/info'))).toHaveLength(1);
     });
 
-    // api.jiten.moe gives an anonymous address 300 requests a minute, then
-    // queues three and refuses the rest. Nine hovers over one recorded
-    // Wikipedia paragraph sent about 800 from the built extension, most of
-    // them enriching each popup's own examples, and past 300 the popup's rank
-    // badge search sat in Jiten's queue until its 30 s timeout. A parse costs
-    // one, a word detail (mostly answered from Jiten's cache) a half.
-    it('spends at most 240 a minute and keeps background lanes to 40 in 15 seconds', async () => {
+    // api.jiten.moe gives an anonymous address 120 vocabulary requests in any
+    // minute (Jiten's limiter since 2026-10-08) and refuses the rest; the live
+    // API still allowed 300 on 2026-10-09. 0fcb43727 counted a word detail as
+    // half a request, so a page could send 320 in a minute while its ledger
+    // read 240, and on an article read for the first time four in five
+    // details reached Jiten. Past its 240 it then held the hovered sentence's
+    // own parse back, and the popup opened 移住 for 移住者.
+    it("keeps each kind of work under its own share of Jiten's 120 a minute", async () => {
         vi.useFakeTimers();
         try {
+            const words = new Map<string, number>();
             const requestJson = vi.fn(async (url: string) => {
                 const text = new URL(url).searchParams.get('text');
-                if (text !== null) return [{ wordId: 1000 + Number(text.slice(1)), readingIndex: 0, originalText: text }];
+                if (text !== null) {
+                    if (!words.has(text)) words.set(text, 1000 + words.size);
+                    return [{ wordId: words.get(text), readingIndex: 0, originalText: text }];
+                }
                 const wordId = Number(/vocabulary\/(\d+)\//u.exec(url)?.[1]);
-                return { wordId, mainReading: { text: `語${wordId - 1000}` } };
+                return { wordId, mainReading: { text: '移住者', frequencyRank: 14279 } };
             });
             const client = new JitenPublicVocabularyClient({ requestJsonImpl: requestJson });
 
-            for (let index = 0; index < 26; index++) await client.lookupMany([`語${index}`]);
-            expect(publicJitenBackoffRemainingMs()).toBe(0);
-            await client.lookupMany(['語26']);
-            expect(publicJitenBackoffRemainingMs()).toBe(15_000);
-            for (let index = 27; index < 170; index++) await client.lookupMany([`語${index}`]);
+            for (let index = 0; index < 100; index++) await client.lookupMany([`語${'あ'.repeat(index)}`]);
+            expect(requestJson).toHaveBeenCalledTimes(50);
+            expect(publicJitenBackoffRemainingMs()).toBe(60_000);
+            for (let index = 0; index < 100; index++) await client.lookupMany([`頁${'い'.repeat(index)}`], { detailLimit: 0, priority: 'annotation' });
+            expect(requestJson).toHaveBeenCalledTimes(70);
 
-            expect(requestJson).toHaveBeenCalledTimes(320);
-            await expect(client.lookup('語0')).resolves.toMatchObject({ jitenWordId: 1000 });
-            await expect(client.lookup('語169')).resolves.toBeNull();
-            expect(requestJson).toHaveBeenCalledTimes(320);
+            await expect(client.lookupMany(['移住者'], { priority: 'lookup' }))
+                .resolves.toEqual(new Map([['移住者', expect.objectContaining({ spelling: '移住者', frequencyRank: 14279 })]]));
+            expect(requestJson).toHaveBeenCalledTimes(72);
+            for (let index = 0; index < 100; index++) await client.lookupMany([`字${'う'.repeat(index)}`], { detailLimit: 0, priority: 'lookup' });
+            expect(requestJson).toHaveBeenCalledTimes(105);
+
             await vi.advanceTimersByTimeAsync(59_999);
             expect(publicJitenBackoffRemainingMs()).toBe(1);
-            await expect(client.lookup('語169')).resolves.toBeNull();
+            await client.lookupMany(['後'], { detailLimit: 0 });
+            expect(requestJson).toHaveBeenCalledTimes(105);
             await vi.advanceTimersByTimeAsync(1);
-            await expect(client.lookup('語169')).resolves.toMatchObject({ jitenWordId: 1169 });
+            await client.lookupMany(['後'], { detailLimit: 0 });
+            expect(requestJson).toHaveBeenCalledTimes(106);
+        } finally {
+            vi.useRealTimers();
+        }
+    });
+
+    // Public parses go to Jiten one at a time. In first-come order a hover
+    // waited behind every parse the page had queued, and it also waited for
+    // the page's own queued ask of a word it shares with the hovered sentence.
+    it("sends a hover's parse ahead of the page's queued ones", async () => {
+        const sent: string[] = [];
+        const held: Array<{ text: string; answer: () => void }> = [];
+        const requestJson = vi.fn((url: string) => new Promise(resolve => {
+            const text = new URL(url).searchParams.get('text') ?? '';
+            sent.push(text);
+            held.push({ text, answer: () => resolve([{ wordId: 1753960, readingIndex: 0, originalText: text }]) });
+        }));
+        const client = new JitenPublicVocabularyClient({ requestJsonImpl: requestJson });
+        const answer = async (text: string) => {
+            await vi.waitFor(() => expect(held.some(request => request.text === text)).toBe(true));
+            held.splice(held.findIndex(request => request.text === text), 1)[0].answer();
+        };
+
+        const page = ['公用語', '言語', '移住者'].map(term => client.lookupMany([term], { detailLimit: 0, priority: 'annotation' }));
+        const examples = client.lookupMany(['事実上'], { detailLimit: 0 });
+        const hover = client.lookupMany(['移住者'], { detailLimit: 0, priority: 'lookup' });
+        await answer('公用語');
+        await answer('移住者');
+        await hover;
+
+        expect(sent.slice(0, 2)).toEqual(['公用語', '移住者']);
+        await answer('言語');
+        await answer('事実上');
+        await Promise.all([...page, examples]);
+        expect(sent).toEqual(['公用語', '移住者', '言語', '事実上']);
+    });
+
+    // Each hover parses the sentence around the pointer, and a learner hovers
+    // several words of one sentence. Every hover asked Jiten for the same
+    // sentence again, about one request in four of a reading session.
+    it('parses a sentence once for every hover in it', async () => {
+        const requestJson = vi.fn(async (url: string) => {
+            const text = new URL(url).searchParams.get('text');
+            if (text === null) throw new Error(`Unexpected detail: ${url}`);
+            return [{ wordId: 1753960, readingIndex: 0, originalText: '移住者' }, { wordId: 1218770, readingIndex: 0, originalText: '含む' }];
+        });
+        const client = new JitenPublicVocabularyClient({ requestJsonImpl: requestJson });
+
+        const first = await client.parse(['移住者を含む'], { detailLimit: 0, priority: 'lookup' });
+        const second = await client.parse(['移住者を含む'], { detailLimit: 0, priority: 'lookup' });
+
+        expect(second).toEqual(first);
+        expect(second[0]?.map(token => token.card.jitenWordId)).toEqual([1753960, 1218770]);
+        expect(requestJson).toHaveBeenCalledTimes(1);
+    });
+
+    // One timeout used to be counted twice, by the parse and by the lattice
+    // read around it, and arm a 60 s backoff instead of 30; requests already
+    // in flight then doubled it again as each failed. One run of failures is
+    // one backoff, and the next run after it doubles.
+    it('counts one run of failed requests as one backoff', async () => {
+        vi.useFakeTimers();
+        try {
+            let failing = true;
+            const requestJson = vi.fn(async (url: string) => {
+                if (failing) throw Object.assign(new Error('Jiten timeout.'), { name: 'RetryableTimeoutError' });
+                if (url.includes('/vocabulary/parse?')) return [];
+                return { wordId: 1, mainReading: { text: '青空' } };
+            });
+            const client = new JitenPublicVocabularyClient({ requestJsonImpl: requestJson });
+
+            await client.lookupMany(['移住者', '事実上']);
+            expect(requestJson).toHaveBeenCalledTimes(1);
+            expect(publicJitenBackoffRemainingMs()).toBe(30_000);
+
+            await vi.advanceTimersByTimeAsync(30_000);
+            const cards = Array.from({ length: 4 }, (_, index) => parsedJitenCard({ vid: index + 1, jitenWordId: index + 1, spelling: `語${index}` }));
+            await client.hydrateCards(cards, { detailLimit: 4 });
+            expect(requestJson).toHaveBeenCalledTimes(5);
+            expect(publicJitenBackoffRemainingMs()).toBe(60_000);
+
+            await vi.advanceTimersByTimeAsync(60_000);
+            failing = false;
+            await client.lookupMany(['青空'], { detailLimit: 0 });
+            failing = true;
+            await client.lookupMany(['読む'], { detailLimit: 0 });
+            expect(publicJitenBackoffRemainingMs()).toBe(30_000);
         } finally {
             vi.useRealTimers();
         }

@@ -239,6 +239,7 @@ describe('VisiblePageScanner', () => {
                 includeLocalPitch: false,
                 allowSegmentedFallback: true,
                 publicJitenDetailLimit: 0,
+                publicJitenPriority: 'annotation',
             });
             // Apply chunks are 48 targets wide so the first paint covers the
             // whole parsed batch instead of arriving in 16-item waves.

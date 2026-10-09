@@ -5645,12 +5645,15 @@ export class ReaderApp {
         }
     }
 
+    // The word under the pointer is what the learner is waiting on, so its
+    // public Jiten requests go ahead of the page's own work.
     private pointerTextJpdbParseOptions(): ReaderParserParseOptions {
-        if (!hasJpdbApiCredential(this.settings)) return jpdbFirstParseOptions();
+        if (!hasJpdbApiCredential(this.settings)) return jpdbFirstParseOptions({ publicJitenPriority: 'lookup' });
         return jpdbFirstParseOptions({
             requireJpdb: false,
             jpdbTimeoutMs: POINTER_TEXT_JPDB_TIMEOUT_MS,
             allowJpdbTimeoutFallback: true,
+            publicJitenPriority: 'lookup',
         });
     }
 

@@ -50,23 +50,27 @@ export async function mapLimited<T, R>(
 
 // Shared concurrency gate: serializes work across DIFFERENT call sites (e.g.
 // every cue being warmed in parallel) so the aggregate in-flight count stays
-// bounded, not just the per-call fan-out.
+// bounded, not just the per-call fan-out. A waiting task of a higher rank
+// starts before every waiting task of a lower one; equal ranks keep their order.
 export class ConcurrencyGate {
     private active = 0;
-    private readonly queue: Array<() => void> = [];
+    private readonly queue: Array<{ rank: number; start: () => void }> = [];
 
     constructor(readonly limit: number) {}
 
-    async run<R>(task: () => Promise<R> | R): Promise<R> {
+    async run<R>(task: () => Promise<R> | R, rank = 0): Promise<R> {
         if (this.active >= this.limit) {
-            await new Promise<void>(resolve => this.queue.push(resolve));
+            await new Promise<void>(start => {
+                const behind = this.queue.findIndex(waiting => waiting.rank < rank);
+                this.queue.splice(behind < 0 ? this.queue.length : behind, 0, { rank, start });
+            });
         }
         this.active += 1;
         try {
             return await task();
         } finally {
             this.active -= 1;
-            this.queue.shift()?.();
+            this.queue.shift()?.start();
         }
     }
 }
