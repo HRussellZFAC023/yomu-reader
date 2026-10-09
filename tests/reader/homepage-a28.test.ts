@@ -76,7 +76,7 @@ describe('editorial homepage contract', () => {
         expect(homeCss).not.toMatch(/rotate\(|clip-path|@keyframes/);
     });
 
-    it('says each section in one line and keeps the existing captures', () => {
+    it('says each section in one line and keeps live demos without obsolete captures', () => {
         // Owner, 2026-10-07: less is more, and no labels that state the
         // obvious. One line of what よむ is, one install button, then one
         // heading and one line per place it works. The method lives on /learn/,
@@ -92,8 +92,14 @@ describe('editorial homepage contract', () => {
         expect(homepage).not.toContain('#how-yomu-compares-with-migaku-and-duolingo');
         expect(page.querySelector('.yomu-letter a[href="/learn/"]')).not.toBeNull();
         for (const image of ['popover', 'wikipedia', 'youtube', 'keep-press', 'study', 'phone', 'ipad']) {
-            expect(homepage).toContain(`/home/${image}.webp`);
+            expect(homepage).not.toContain(`/home/${image}.webp`);
         }
+        expect([...page.querySelectorAll('main img')].map(image => image.getAttribute('src')))
+            .toEqual(['/media/manga-ocr-sample.png']);
+        const video = page.querySelector('[data-yomu-demo-player] video')!;
+        expect(video.hasAttribute('controls')).toBe(true);
+        expect(video.querySelectorAll('source')).toHaveLength(2);
+        expect(video.querySelector('track[kind="subtitles"][srclang="ja"]')).not.toBeNull();
     });
 
     it('gives the promoted install button at most one short line of help', () => {
