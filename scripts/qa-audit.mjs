@@ -2088,9 +2088,12 @@ async function auditSettingsMobile(browser) {
     assertAudit(snapshot.apiKeyTop < snapshot.viewportHeight * 0.55, 'API key field is too far down after opening settings');
 
     await page.locator('[data-action="settings-panel"][data-panel="media"]').click();
+    await page.locator('[data-audio-sources-title]').click();
     snapshot = await page.evaluate(mobileAudioSourceToolsSnapshotFromDom);
     assertAudit(snapshot.tools.length > 0, 'mobile audio source tools are missing');
-    assertAudit(snapshot.tools.every(tool => tool.left >= 0 && tool.buttons.length > 0 && tool.buttons.every(button => button.left >= 0 && button.right <= snapshot.viewportWidth && button.width >= 44 && button.height >= 44)), 'mobile audio source controls are cramped or clipped');
+    // Subtracting fractional DOMRect edges can report a 44px control as 43.99994px.
+    const geometryEpsilon = 1 / 1024;
+    assertAudit(snapshot.tools.every(tool => tool.left >= 0 && tool.buttons.length > 0 && tool.buttons.every(button => button.left >= 0 && button.right <= snapshot.viewportWidth && button.width + geometryEpsilon >= 44 && button.height + geometryEpsilon >= 44)), `mobile audio source controls are cramped or clipped: ${JSON.stringify(snapshot)}`);
 
     await page.locator('[data-action="settings-panel"][data-panel="help"]').click();
     await assertAccessibleSurface(page, 'mobile settings help', '.jpdb-reader-settings');
