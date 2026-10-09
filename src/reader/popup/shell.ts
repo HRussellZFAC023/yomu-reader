@@ -218,10 +218,11 @@ export function installSheetHandle(popover: HTMLElement, onDismiss: () => void, 
     let dragPageScale = 1;
     const isFullHeight = (): boolean => viewportHeight > 0 && sheetHeight >= viewportHeight - SHEET_FULL_HEIGHT_THRESHOLD_PX;
     const syncHandle = (handle: HTMLElement): void => {
-        handle.setAttribute('role', 'button');
+        handle.setAttribute('role', 'separator');
         handle.setAttribute('tabindex', '0');
         handle.setAttribute('aria-label', label);
-        handle.setAttribute('aria-expanded', String(isFullHeight()));
+        handle.setAttribute('aria-orientation', 'horizontal');
+        handle.removeAttribute('aria-expanded');
         handle.setAttribute('aria-valuemin', String(sheetMinHeight(viewportHeight)));
         handle.setAttribute('aria-valuemax', String(viewportHeight));
         handle.setAttribute('aria-valuenow', String(Math.round(sheetHeight)));

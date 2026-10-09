@@ -943,6 +943,31 @@ describe('reader helpers', () => {
         expect(normalizedImmersionCss).toContain('.yomu-jpdb-page-addon .jpdb-reader-immersion .jpdb-reader-example-card.has-image .jpdb-reader-example-sentence { left: clamp(8px, 3%, 16px); right: clamp(8px, 3%, 16px); bottom: clamp(10px, 4%, 16px); width: auto; max-width: none; padding: 0; transform: none; background: transparent; box-shadow: none; }');
     });
 
+    it.each(['Enter', ' ', 'Escape'])('keeps resize and close keys on a focusable horizontal separator (%s)', closeKey => {
+        localStorage.removeItem(SHEET_HEIGHT_STORAGE_KEY);
+        const { popover, handle } = createSheetPopoverFixture();
+        const dismiss = vi.fn();
+        handle.setAttribute('aria-expanded', 'true');
+        installSheetHandle(popover, dismiss);
+        expect(handle.getAttribute('role')).toBe('separator');
+        expect(handle.getAttribute('aria-orientation')).toBe('horizontal');
+        expect(handle.hasAttribute('aria-expanded')).toBe(false);
+        expect(handle.tabIndex).toBe(0);
+        handle.focus();
+        expect(document.activeElement).toBe(handle);
+        const height = Number(handle.getAttribute('aria-valuenow'));
+        expect(Number(handle.getAttribute('aria-valuemin'))).toBeGreaterThan(0);
+        expect(Number(handle.getAttribute('aria-valuemax'))).toBe(window.innerHeight);
+        handle.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowUp', bubbles: true, cancelable: true }));
+        expect(Number(handle.getAttribute('aria-valuenow'))).toBe(height + 48);
+        handle.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true, cancelable: true }));
+        expect(Number(handle.getAttribute('aria-valuenow'))).toBe(height);
+        expect(dismiss).not.toHaveBeenCalled();
+        handle.dispatchEvent(new KeyboardEvent('keydown', { key: closeKey, bubbles: true, cancelable: true }));
+        expect(dismiss).toHaveBeenCalledOnce();
+        localStorage.removeItem(SHEET_HEIGHT_STORAGE_KEY);
+    });
+
     it('resizes sheet popovers continuously when dragging the handle', () => {
         localStorage.removeItem(SHEET_HEIGHT_STORAGE_KEY);
         const { popover, handle } = createSheetPopoverFixture({ pointerCapture: true });
@@ -1234,7 +1259,7 @@ describe('reader helpers', () => {
         localStorage.removeItem(SHEET_HEIGHT_STORAGE_KEY);
     });
 
-    it('restores sheet handle button state when popover content is re-rendered', async () => {
+    it('restores sheet handle separator state when popover content is re-rendered', async () => {
         localStorage.removeItem(SHEET_HEIGHT_STORAGE_KEY);
         const popover = document.createElement('div');
         popover.className = 'jpdb-reader-popover jpdb-reader-sheet';
@@ -1246,9 +1271,11 @@ describe('reader helpers', () => {
         await Promise.resolve();
 
         const handle = popover.querySelector<HTMLElement>('.jpdb-reader-sheet-handle');
-        expect(handle?.getAttribute('role')).toBe('button');
+        expect(handle?.getAttribute('role')).toBe('separator');
         expect(handle?.getAttribute('tabindex')).toBe('0');
-        expect(handle?.getAttribute('aria-expanded')).toBe('false');
+        expect(handle?.getAttribute('aria-orientation')).toBe('horizontal');
+        expect(handle?.hasAttribute('aria-expanded')).toBe(false);
+        expect(Number(handle?.getAttribute('aria-valuenow'))).toBe(Number.parseFloat(popover.style.getPropertyValue('--jpdb-reader-sheet-height')));
     });
 
     it('keeps forced bottom-sheet popovers positioned on desktop viewports', () => {
