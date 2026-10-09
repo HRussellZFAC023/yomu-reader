@@ -60,6 +60,7 @@
    any element-and-ancestor host selector without !important, so Yomu's own
    surfaces that size their words (popup, OCR, subtitles) keep doing so.
    scripts/annotation-typography-smoke.mjs holds this in real engines. */
+.jpdb-reader-number-bind.jpdb-reader-number-bind,
 .jpdb-reader-word.jpdb-reader-scan-word,
 .jpdb-reader-word.jpdb-reader-scan-word ruby,
 .jpdb-reader-word.jpdb-reader-scan-word .jpdb-reader-ruby-base {
@@ -938,7 +939,7 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
    in の間で). A negative margin on the reading only shrinks its share of the
    line: the kanji never moves. dom/ruby-overhang.ts decides which readings
    may: one inside its word at once, one at a word edge only while no reading
-   sits on the other side (edge-overhang), so two readings never meet, and
+   sits on that side (start/end-overhang), so two readings never meet, and
    none at the head or end of a line (line-edge), where JLREQ aligns ruby to
    the line and an overhang would stick out of the column.
    No sibling selector here: one over page words made Chromium annotate a
@@ -948,8 +949,11 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
    reading at least that much wider. Page words only, in flow or passive
    (prose with links); a text mirror lays its copy over the host's own text
    and must keep the host's widths. */
-.jpdb-reader-scan-word:not(:is(.jpdb-reader-text-mirror, .jpdb-reader-control-text-mirror) *) > ruby:is(.jpdb-reader-ruby-overhang:not(.jpdb-reader-ruby-at-start, .jpdb-reader-ruby-at-end), .jpdb-reader-ruby-edge-overhang):not(.jpdb-reader-ruby-line-edge) > rt.jpdb-reader-furi {
-  margin-inline: -0.5em;
+.jpdb-reader-scan-word:not(:is(.jpdb-reader-text-mirror, .jpdb-reader-control-text-mirror) *) > ruby:is(.jpdb-reader-ruby-overhang:not(.jpdb-reader-ruby-at-start, .jpdb-reader-ruby-at-end), .jpdb-reader-ruby-start-overhang):not(.jpdb-reader-ruby-line-edge) > rt.jpdb-reader-furi {
+  margin-inline-start: -0.5em;
+}
+.jpdb-reader-scan-word:not(:is(.jpdb-reader-text-mirror, .jpdb-reader-control-text-mirror) *) > ruby:is(.jpdb-reader-ruby-overhang:not(.jpdb-reader-ruby-at-start, .jpdb-reader-ruby-at-end), .jpdb-reader-ruby-end-overhang):not(.jpdb-reader-ruby-line-edge) > rt.jpdb-reader-furi {
+  margin-inline-end: -0.5em;
 }
 .jpdb-reader-word ruby {
   position: static !important;

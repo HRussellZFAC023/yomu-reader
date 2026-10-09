@@ -465,6 +465,7 @@ import {
     type MountedCardCompletionContext,
 } from './main-runtime-support';
 import { HostThemeController } from './host-theme-controller';
+import { observePageAnnotationContrast } from '../dom/page-annotation-contrast-observer';
 
 const log = Logger.scope('ReaderApp');
 
@@ -1167,6 +1168,7 @@ export class ReaderApp {
     private installTopLevelCoreSurfaces(): void {
         this.registerMenuCommands();
         this.bindEvents();
+        observePageAnnotationContrast(this.abortController.signal);
         installExtensionPopupActions({
             language: () => this.settings.interfaceLanguage,
             actions: () => this.floatingButton.pageActions(),

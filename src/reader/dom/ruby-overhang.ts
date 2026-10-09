@@ -27,7 +27,8 @@
 const OVERHANG_CLASS = 'jpdb-reader-ruby-overhang';
 const AT_START_CLASS = 'jpdb-reader-ruby-at-start';
 const AT_END_CLASS = 'jpdb-reader-ruby-at-end';
-const EDGE_OVERHANG_CLASS = 'jpdb-reader-ruby-edge-overhang';
+const START_OVERHANG_CLASS = 'jpdb-reader-ruby-start-overhang';
+const END_OVERHANG_CLASS = 'jpdb-reader-ruby-end-overhang';
 const LINE_EDGE_CLASS = 'jpdb-reader-ruby-line-edge';
 const EDGE_RUBY_SELECTOR = `:scope > ruby.${OVERHANG_CLASS}:is(.${AT_START_CLASS}, .${AT_END_CLASS})`;
 // The readings reader-words-ocr.css lets overhang: page words, not a text
@@ -171,7 +172,8 @@ function syncWord(word: Element): void {
     for (const ruby of word.querySelectorAll(EDGE_RUBY_SELECTOR)) {
         const clearBefore = !ruby.classList.contains(AT_START_CLASS) || plainEdgeFacing(besideWord(word, 'before'), 'before');
         const clearAfter = !ruby.classList.contains(AT_END_CLASS) || plainEdgeFacing(besideWord(word, 'after'), 'after');
-        ruby.classList.toggle(EDGE_OVERHANG_CLASS, clearBefore && clearAfter);
+        ruby.classList.toggle(START_OVERHANG_CLASS, clearBefore);
+        ruby.classList.toggle(END_OVERHANG_CLASS, clearAfter);
     }
 }
 
@@ -207,7 +209,7 @@ function adjacentNode(node: Node, side: Side): Node | null {
 
 // Whether the side of `beside` that faces the word carries no reading.
 function plainEdgeFacing(beside: Beside, side: Side): boolean {
-    if (beside === 'text') return true;
+    if (beside === 'text' || beside?.classList.contains('jpdb-reader-number-bind')) return true;
     if (!beside?.classList.contains(WORD_CLASS) || beside.classList.contains('jpdb-reader-detached-reading-word')) return false;
     if (!beside.classList.contains('jpdb-reader-has-furi')) return true;
     // 新しい before 間: its reading sits over 新, and しい faces 間.

@@ -72,6 +72,10 @@ const ROWS = [
     ['頭', '頭', 'あたま', 'head', ['n'], 600, ['not-in-deck'], ['LHH']],
     ['学校教育', '学校教育', 'がっこうきょういく', 'school education', ['n'], 2000, ['not-in-deck'], ['LHHHHHH']],
     ['体', '体', 'からだ', 'body', ['n'], 600, ['not-in-deck'], ['LHH']],
+    ['一部', '一部', 'いちぶ', 'part', ['n'], 600, ['not-in-deck'], ['LHH']],
+    ['住民', '住民', 'じゅうみん', 'resident', ['n'], 600, ['not-in-deck'], ['LHHH']],
+    ['位', '位', 'くらい', 'rank', ['n'], 600, ['not-in-deck'], ['LHH']],
+    ['以内', '以内', 'いない', 'within', ['n'], 600, ['not-in-deck'], ['LHH']],
     ...['は', 'な', 'で', 'を', 'の'].map(particle => [particle, particle, particle, 'particle', ['prt'], 1, ['not-in-deck'], []]),
 ];
 const FURIGANA = {
@@ -91,6 +95,7 @@ const OVERHANG = 'の間で学習を行う。頭体、<a href="/wiki/学校教�
 // stays there.
 // A wide reading whose word starts a line: the column is narrowed so that 間
 // wraps to the head of line 2, where its reading must not stick out.
+const ONE_SIDED = '一部住民など、10位以内';
 const LINE_HEAD = 'あいうえおか間で';
 const OVERHANG_SPANS = [['sentence', 'で', 'し', 1], ['overhang', 'の', 'で', 1], ['overhang', 'で', 'を', 2], ['overhang', 'を', 'う', 1], ['overhang', '、', 'で', 4]];
 
@@ -176,6 +181,18 @@ async function checkScenario(browser, engine, theme) {
         const measured = await page.evaluate(measurePage);
         report.runs[id] = measured;
         judge(id, measured, paper);
+        // Changing the page theme must update readings and state lines without
+        // a scroll, hover, settings save or a second scan.
+        const opposite = THEMES[theme === 'light' ? 'dark' : 'light'];
+        await page.evaluate(({ paper, ink }) => {
+            document.body.style.backgroundColor = paper;
+            document.body.style.color = ink;
+        }, opposite);
+        await page.waitForTimeout(200);
+        const switched = await page.evaluate(measurePage);
+        report.runs[`${id}-theme-switch`] = switched;
+        judgeReadings(`${id}-theme-switch`, switched, opposite.paper);
+        judgeStudyState(`${id}-theme-switch`, switched, opposite.paper);
     } finally {
         await context.close();
     }
@@ -212,7 +229,7 @@ function judgeReadings(id, measured, paper) {
         if (reading.letterSpacing !== reading.baseLetterSpacing) fail(`${id}: reading ${reading.text} is tracked ${reading.letterSpacing}, its paragraph ${reading.baseLetterSpacing}.`, reading);
         if (reading.fontFeatureSettings !== 'normal') fail(`${id}: reading ${reading.text} takes host font features (${reading.fontFeatureSettings}).`, reading);
         if (contrast(reading.color, paper) < 4.5) fail(`${id}: reading ${reading.text} (${reading.color}) is below 4.5:1 on ${paper}.`, reading);
-        if (Math.abs(reading.centre - reading.baseCentre) > 1.5) fail(`${id}: reading ${reading.text} is off its word's centre by ${(reading.centre - reading.baseCentre).toFixed(1)}px.`, reading);
+        if (Math.abs(reading.centre - reading.baseCentre - (reading.marginStart - reading.marginEnd) / 2) > 1.5) fail(`${id}: reading ${reading.text} is off its word's centre by ${(reading.centre - reading.baseCentre).toFixed(1)}px.`, reading);
     }
     for (const [left, right] of measured.readingNeighbours) {
         if (left.right > right.left + 0.5) fail(`${id}: readings ${left.text} and ${right.text} overlap.`, { left, right });
@@ -246,9 +263,13 @@ function judgeOverhang(id, measured) {
         const width = kanji * measured.advances[paragraph];
         if (span === undefined || Math.abs(span - width) > 1) fail(`${id}: the ${kanji} kanji between ${before} and ${after} in #${paragraph} take ${span?.toFixed(1)}px, not ${width.toFixed(1)}px: a wide reading opened a gap.`, measured.spans);
     }
+    for (const [text, side] of [['じゅうみん', 'marginEnd'], ['くらい', 'marginStart']]) {
+        const reading = measured.readings.find(item => item.text === text);
+        if (!reading || reading[side] >= 0) fail(`${id}: ${text} must overhang its plain neighbour.`, reading);
+    }
     for (const text of ['あたま', 'からだ']) {
         const reading = measured.readings.find(item => item.text === text);
-        if (!reading || reading.marginStart !== 0 || reading.marginEnd !== 0) fail(`${id}: ${text} sits beside another reading and must not overhang it.`, reading);
+        if (!reading || (text === 'あたま' ? reading.marginEnd : reading.marginStart) !== 0) fail(`${id}: ${text} sits beside another reading and must not overhang that side.`, reading);
     }
 }
 
@@ -267,7 +288,7 @@ function fail(message, details) {
 function fixturePage(paper, ink) {
     return `<!doctype html><html lang="ja"><head><meta charset="utf-8"><title>Yomu annotation typography smoke</title>
 <style>body{margin:0;padding:24px;background:${paper};color:${ink};font:20px/1.9 "Hiragino Mincho ProN","Noto Serif JP",serif}a{color:${ink === '#202122' ? '#3366cc' : '#88a3e8'}}${HOSTILE_CSS}</style>
-</head><body><main><p id="sentence" class="tracked">${SENTENCE}</p><p id="linked">${LINKED}</p><p id="overhang">${OVERHANG}</p><p id="line-head" style="width:6.5em">${LINE_HEAD}</p></main></body></html>`;
+</head><body><main><p id="sentence" class="tracked">${SENTENCE}</p><p id="linked">${LINKED}</p><p id="overhang">${OVERHANG}</p><p id="one-sided">${ONE_SIDED}</p><p id="line-head" style="width:6.5em">${LINE_HEAD}</p></main></body></html>`;
 }
 
 function handleRequest(request) {
@@ -289,7 +310,7 @@ function measurePage() {
         while (host?.closest('.jpdb-reader-word')) host = host.parentElement;
         return host;
     };
-    const words = Array.from(document.querySelectorAll('main .jpdb-reader-word')).map(word => {
+    const words = Array.from(document.querySelectorAll('main .jpdb-reader-word, main .jpdb-reader-number-bind')).map(word => {
         const base = word.querySelector('.jpdb-reader-ruby-base') ?? word;
         const own = getComputedStyle(base);
         const host = getComputedStyle(hostOf(word));

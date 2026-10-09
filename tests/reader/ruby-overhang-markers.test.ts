@@ -55,7 +55,7 @@ function paragraph(...words: WordSpec[]): HTMLElement[] {
 }
 
 function overhangs(word: HTMLElement): boolean[] {
-    return Array.from(word.querySelectorAll('ruby'), ruby => ruby.classList.contains('jpdb-reader-ruby-edge-overhang'));
+    return Array.from(word.querySelectorAll('ruby'), ruby => ruby.classList.contains('jpdb-reader-ruby-start-overhang') && ruby.classList.contains('jpdb-reader-ruby-end-overhang'));
 }
 
 describe('ruby overhang markers', () => {
@@ -132,8 +132,19 @@ describe('ruby edge overhang', () => {
             document.body.innerHTML = `<p>${html}</p>`;
             syncRubyEdgeOverhang(document.querySelectorAll<HTMLElement>('.jpdb-reader-word'));
             const wide = Array.from(document.querySelectorAll('ruby.jpdb-reader-ruby-at-start.jpdb-reader-ruby-at-end'));
-            expect(wide.map(ruby => ruby.classList.contains('jpdb-reader-ruby-edge-overhang')), html).toEqual([expected]);
+            expect(wide.map(ruby => ruby.classList.contains('jpdb-reader-ruby-start-overhang') && ruby.classList.contains('jpdb-reader-ruby-end-overhang')), html).toEqual([expected]);
         }
+    });
+
+    it('overhangs the plain side independently from the neighbouring reading', () => {
+        const [before, wide, after] = paragraph(['本', [['本', 'ほん']]], ['間', [['間', 'あいだ']]], 'で');
+        syncRubyEdgeOverhang([before, wide, after]);
+        expect(wide.firstElementChild?.classList.contains('jpdb-reader-ruby-start-overhang')).toBe(false);
+        expect(wide.firstElementChild?.classList.contains('jpdb-reader-ruby-end-overhang')).toBe(true);
+        before.className = 'jpdb-reader-number-bind';
+        before.textContent = '10';
+        syncRubyEdgeOverhang([wide]);
+        expect(overhangs(wide)).toEqual([true]);
     });
 
     it('follows a neighbour that gains or loses its reading late', () => {
