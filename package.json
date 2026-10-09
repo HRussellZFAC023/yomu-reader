@@ -3,7 +3,7 @@
   "version": "2.1.0",
   "private": true,
   "type": "module",
-  "description": "よむ: Japanese pop-up dictionary with furigana, pitch accent, subtitles, OCR, and Study.",
+  "description": "\u3088\u3080: Japanese pop-up dictionary with furigana, pitch accent, subtitles, OCR, and Study.",
   "license": "MIT",
   "repository": {
     "type": "git",
@@ -251,7 +251,7 @@
     "smoke:nightly": "node scripts/run-nightly-smokes.mjs",
     "smoke:reddit-chrome": "node scripts/reddit-chrome-furigana-smoke.mjs",
     "smoke:layout-neutral-scan": "node scripts/layout-neutral-page-scan-smoke.mjs",
-    "smoke:layout-regressions": "npm run smoke:layout-neutral-scan && npm run smoke:prose-portal && npm run smoke:fractional-projection && npm run smoke:chip-mirror && npm run smoke:annotation-scroll && npm run smoke:constrained-gate && npm run smoke:reddit-chrome && npm run smoke:drag-handle && npm run smoke:trusted-form-submit-order && npm run smoke:subtitle-highlight && npm run smoke:subtitle-furigana-outline && npm run smoke:host-css-armour && npm run smoke:ocr-line-register && npm run smoke:gaming-ocr-hit-target && npm run smoke:ocr-transform-register && npm run smoke:ocr-scroll-perf && npm run smoke:youtube-paused-frame-register",
+    "smoke:layout-regressions": "npm run smoke:layout-neutral-scan && npm run smoke:prose-portal && npm run smoke:fractional-projection && npm run smoke:ruby-overhang-scope && npm run smoke:chip-mirror && npm run smoke:annotation-scroll && npm run smoke:constrained-gate && npm run smoke:reddit-chrome && npm run smoke:drag-handle && npm run smoke:trusted-form-submit-order && npm run smoke:subtitle-highlight && npm run smoke:subtitle-furigana-outline && npm run smoke:host-css-armour && npm run smoke:ocr-line-register && npm run smoke:gaming-ocr-hit-target && npm run smoke:ocr-transform-register && npm run smoke:ocr-scroll-perf && npm run smoke:youtube-paused-frame-register",
     "manual:settings-layout": "node scripts/manual/settings-layout-smoke.mjs",
     "manual:subtitle-live-sites": "node scripts/manual/subtitle-live-video-site-smoke.mjs",
     "manual:subtitle-live-compat": "YOMU_LIVE_VIDEO_SITE_SET=compat node scripts/manual/subtitle-live-video-site-smoke.mjs",
@@ -298,7 +298,8 @@
     "smoke:trusted-form-submit-order": "node scripts/trusted-form-submit-order-smoke.mjs",
     "smoke:subtitle-highlight": "node scripts/subtitle-highlight-layers-smoke.mjs",
     "smoke:subtitle-furigana-outline": "node scripts/subtitle-furigana-outline-scale-smoke.mjs",
-    "smoke:host-css-armour": "node scripts/host-css-armour-smoke.mjs"
+    "smoke:host-css-armour": "node scripts/host-css-armour-smoke.mjs",
+    "smoke:ruby-overhang-scope": "node scripts/ruby-overhang-scope-smoke.mjs"
   },
   "dependencies": {
     "aws4fetch": "^1.0.20",
