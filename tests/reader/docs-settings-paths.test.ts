@@ -13,6 +13,8 @@ const ROOT = path.resolve(__dirname, '../..');
 const SKIPPED_DIRECTORIES = new Set(['public', 'dev', 'academy', 'qa', 'operations', 'api', '.vitepress', 'node_modules']);
 // Operating-system settings paths, not Yomu's dialog.
 const OS_SETTINGS_PREFIX = /(?:System|Safari|iOS|iPadOS|macOS)\s*(?:→|>|›)?\s*$/u;
+// A userscript manager's own page for よむ (Tampermonkey: Dashboard → よむ → Settings).
+const MANAGER_SETTINGS_PREFIX = /Dashboard\s*→\s*よむ\s*→\s*$/u;
 
 function publicMarkdown(directory: string): string[] {
     return readdirSync(directory).flatMap(name => {
@@ -31,7 +33,8 @@ function settingsTabLabels(): Set<string> {
 function namedSettingsTabs(text: string): string[] {
     const named: string[] = [];
     for (const match of text.matchAll(/Settings\s*(?:→|>|›|->)\s*([A-Z][A-Za-z]*(?: & [A-Za-z]+)?)/gu)) {
-        if (OS_SETTINGS_PREFIX.test(text.slice(Math.max(0, match.index - 12), match.index))) continue;
+        const before = text.slice(Math.max(0, match.index - 24), match.index);
+        if (OS_SETTINGS_PREFIX.test(before) || MANAGER_SETTINGS_PREFIX.test(before)) continue;
         named.push(match[1]!);
     }
     return named;
@@ -51,5 +54,6 @@ describe('docs name only Settings tabs that exist', () => {
     it('reads a path the way a page writes it', () => {
         expect(namedSettingsTabs('Open Study → Settings → Backup & sync, then Settings > Audio.')).toEqual(['Backup & sync', 'Audio']);
         expect(namedSettingsTabs('Open System Settings → Privacy & Security; Safari → Settings → Extensions.')).toEqual([]);
+        expect(namedSettingsTabs('Tampermonkey: Dashboard → よむ → Settings → User excludes')).toEqual([]);
     });
 });
