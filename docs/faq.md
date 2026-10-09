@@ -30,6 +30,8 @@ Yes. On Android, use Firefox. On iPhone and iPad, use Safari: [install steps](/i
 
 No. Until you install one, Jiten's free online dictionary splits each page into words. To do that on your device, install the recommended one in <a href="/study/#settings=dictionaries" target="_self">Settings → Sources</a>
 
+<span id="colours" aria-hidden="true"></span>
+
 ## What do the readings and underlines mean? {#readings-and-underlines}
 
 Readings stay visible until a study source tells よむ which words you know. Known and due words lose their readings; missed words keep them. Underlines are solid for new or missed words, dashed while learning, and dotted when due. Known words stay plain.
@@ -77,10 +79,6 @@ To turn it off everywhere, set the よむ button to よむ off.
 ## How does it read manga? {#manga}
 
 よむ finds the Japanese in pictures with Google Lens, no key needed. On some sites, tap the page first. Switch to Cloud Vision or a local OCR server under Settings → Media.
-
-## What do the colours mean? {#colours}
-
-Underline colour is pitch accent. Word colour shows whether a word is new, learning, known or due. Turn either off under Settings → Appearance.
 
 ## How do I put my dictionary first in the popup? {#popup-order}
 

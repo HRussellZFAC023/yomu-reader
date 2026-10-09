@@ -1131,7 +1131,7 @@ export class SettingsDialogController {
                 setSelect('furiganaMode', 'all');
             } else if (value === 'furi-known-hidden') {
                 setSelect('furiganaMode', 'known-status');
-                setGroups(DEFAULT_SETTINGS.furiganaHiddenStateGroups);
+                setChecked('furiganaHide-', FURIGANA_HIDE_STATE_GROUPS, DEFAULT_SETTINGS.furiganaHiddenStateGroups);
             } else if (value === 'furi-hover') {
                 setSelect('furiganaMode', 'hover');
             }

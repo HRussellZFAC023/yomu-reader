@@ -30,7 +30,7 @@ describe('recommended dictionaries in Sources', () => {
         const host = document.createElement('div');
         host.innerHTML = renderRecommendedDictionaries([], 'en', false);
         const seed = [...host.querySelectorAll<HTMLElement>('[data-catalog-recommendation-seed] .jpdb-reader-recommended-item')]
-            .map(item => [item.querySelector('.jpdb-reader-recommended-name')?.textContent?.trim(), item.querySelector('.jpdb-reader-help')?.textContent?.trim() ?? '']);
+            .map(item => [item.querySelector('.jpdb-reader-recommended-name')?.textContent?.trim(), item.querySelector('.jpdb-reader-help')?.textContent?.trim() ?? ''] as const);
         const jmdict = seed.find(([name]) => name === 'JMdict (en)');
         expect(jmdict?.[1]).toBe('');
         expect(seed.some(([name, help]) => /\[JA-JA\]/u.test(name ?? '') && /Translate automatically/u.test(help))).toBe(true);

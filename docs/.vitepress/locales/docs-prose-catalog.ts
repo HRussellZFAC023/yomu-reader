@@ -9,6 +9,7 @@ export interface ReviewedDocsMessage {
 }
 
 const HOSTED_DOCS_JA_COPY: Record<string, string> = {
+    "Permalink to \"What do the readings and underlines mean?\"": "「読みと下線は何を表していますか？」へのパーマリンク",
     "What do the readings and underlines mean?": "読みと下線は何を表していますか？",
     "Readings stay visible until a study source tells よむ which words you know. Known and due words lose their readings; missed words keep them. Underlines are solid for new or missed words, dashed while learning, and dotted when due. Known words stay plain.": "学習サービスで習得状況が分かるまでは、漢字に読みが表示されます。習得済みや復習予定の単語では読みが消え、間違えた単語では残ります。新しい単語や間違えた単語は実線、学習中は破線、復習予定は点線です。習得済みの単語には下線が付きません。",
     // Keys are the English text nodes the Markdown localizer sees on a rendered
@@ -1031,7 +1032,6 @@ const HOSTED_DOCS_JA_COPY: Record<string, string> = {
     'Safari → Settings → Extensions → Edit Websites → Deny.': 'Safari →「設定」→「機能拡張」→「Webサイトを編集」→「拒否」。',
     'To turn it off everywhere, set the よむ button to よむ off.': 'すべてのサイトでオフにするときは、よむボタンを「よむ オフ」にします。',
     'よむ finds the Japanese in pictures with Google Lens, no key needed. On some sites, tap the page first. Switch to Cloud Vision or a local OCR server under Settings → Media.': 'よむはGoogle Lensで画像の中の日本語を見つけます。キーは不要です。サイトによっては、先にページをタップします。「設定」→「メディア」でCloud VisionやローカルのOCRサーバーに切り替えられます。',
-    'Underline colour is pitch accent. Word colour shows whether a word is new, learning, known or due. Turn either off under Settings → Appearance.': '下線の色はピッチアクセントです。単語の色は、新規・学習中・既知・復習期限のどれかを表します。どちらも「設定」→「外観」でオフにできます。',
     'Settings → Sources → Popup order. Move it up, then press Save.': '「設定」→「ソース」→「ポップアップの順序」で上に動かし、「保存」を押します。',
     'Audio works out of the box. To add a source, such as': '音声は最初から使えます。ソースを追加するには（たとえば',
     ', use Add audio source under Settings → Media.': '）、「設定」→「メディア」の「音声ソースを追加」を使います。',
