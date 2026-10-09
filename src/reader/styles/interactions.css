@@ -189,7 +189,9 @@
   .jpdb-reader-jiten-kanji-more[open] > summary.jpdb-reader-local-title
 ),
 .jpdb-reader-newtab .jpdb-reader-newtab-handwriting[open] summary {
-  color: var(--jpdb-reader-accent-readable);
+  /* An open section heading is still a heading, not a selected control: the
+     +/- glyph says it is open, so it keeps the muted ink of a closed one. */
+  color: var(--jpdb-reader-muted);
 }
 
 @media (hover: hover) and (pointer: fine) {
@@ -210,8 +212,8 @@
   ):hover,
   .jpdb-reader-newtab .jpdb-reader-newtab-handwriting summary:hover,
   .jpdb-reader-newtab .jpdb-reader-newtab-kanji-details .jpdb-reader-local-title:hover {
-    background: color-mix(in srgb, var(--jpdb-reader-accent) 9%, transparent);
-    color: var(--jpdb-reader-accent-readable);
+    background: var(--jpdb-reader-hover);
+    color: var(--jpdb-reader-text);
   }
 }
 
@@ -285,8 +287,8 @@
     .jpdb-reader-newtab-listen-submodes button
   ):where(:hover):where(:not(:disabled, [aria-disabled="true"])) {
     box-shadow:
-      inset 0 0 0 1px color-mix(in srgb, var(--jpdb-reader-accent) 18%, transparent),
-      0 8px 18px color-mix(in srgb, var(--jpdb-reader-accent) 12%, transparent);
+      inset 0 0 0 1px color-mix(in srgb, var(--jpdb-reader-text) 18%, transparent),
+      0 8px 18px color-mix(in srgb, var(--jpdb-reader-text) 12%, transparent);
   }
 
   .jpdb-reader-newtab :where(
@@ -294,7 +296,7 @@
     .jpdb-reader-newtab-kanji-backing-word .jpdb-reader-newtab-kanji-backing-term,
     .jpdb-reader-newtab-immersion .jpdb-reader-example-sentence .jpdb-reader-word
   ):hover {
-    text-decoration-color: var(--jpdb-reader-accent-readable) !important;
+    text-decoration-color: var(--jpdb-reader-text) !important;
   }
 }
 

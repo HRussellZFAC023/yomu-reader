@@ -214,7 +214,7 @@
 .yomu-wanikani-tag-reading,
 .yomu-wanikani-tag-meaning,
 .yomu-wanikani-tag-ja {
-  color: var(--jpdb-reader-accent-readable);
+  color: var(--jpdb-reader-muted);
   font-weight: 700;
 }
 .jpdb-reader-kanji > .jpdb-reader-local-entry + .jpdb-reader-local-entry {
@@ -274,9 +274,9 @@
 }
 .jpdb-reader-local-frequency {
   margin-inline-start: auto;
-  color: var(--jpdb-reader-accent-readable);
+  color: var(--jpdb-reader-muted);
   font-size: 11px;
-  font-weight: 800;
+  font-weight: 600;
 }
 .jpdb-reader-local-senses {
   display: grid;
@@ -300,19 +300,13 @@
   align-items: center;
   min-height: 1.35em;
   padding: 0 0.38em;
-  border: 1px solid
-    color-mix(in srgb, var(--jpdb-reader-accent) 55%, var(--jpdb-reader-border));
+  border: 1px solid var(--jpdb-reader-border);
   border-radius: 4px;
-  /* A tint --jpdb-reader-accent-readable is computed against (reader-theme.ts),
-     so the label keeps 4.5:1 in both themes. */
-  background: color-mix(
-    in srgb,
-    var(--jpdb-reader-accent) 26%,
-    var(--jpdb-reader-surface)
-  );
-  color: var(--jpdb-reader-accent-readable);
+  /* A label, not a control: paper and ink, never the accent. */
+  background: var(--jpdb-reader-surface-2);
+  color: var(--jpdb-reader-muted);
   font-size: 10px;
-  font-weight: 800;
+  font-weight: 600;
   line-height: 1.2;
 }
 .jpdb-reader-source-tag {
@@ -331,9 +325,9 @@
 .jpdb-reader-definition-translation {
   margin: 0.55rem 0.65rem 0.35rem;
   padding: 0.65rem 0.75rem;
-  border: 1px solid color-mix(in srgb, var(--jpdb-reader-accent) 34%, transparent);
+  border: 1px solid color-mix(in srgb, var(--jpdb-reader-text) 34%, transparent);
   border-radius: 0.65rem;
-  background: color-mix(in srgb, var(--jpdb-reader-accent) 8%, transparent);
+  background: color-mix(in srgb, var(--jpdb-reader-text) 8%, transparent);
   line-height: 1.55;
   unicode-bidi: plaintext;
 }
@@ -625,11 +619,11 @@
   vertical-align: middle;
 }
 .jpdb-reader-local-glossary [data-sc-class="form-valid"] {
-  color: var(--jpdb-reader-accent-readable);
+  color: var(--jpdb-reader-text);
   font-weight: 800;
 }
 .jpdb-reader-local-glossary .gloss-link {
-  color: var(--jpdb-reader-accent-readable);
+  color: var(--jpdb-reader-text);
   text-decoration: underline;
   text-decoration-thickness: 1px;
   text-underline-offset: 2px;

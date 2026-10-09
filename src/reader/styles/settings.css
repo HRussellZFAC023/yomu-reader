@@ -149,7 +149,7 @@
 }
 .jpdb-reader-settings-drag-handle:hover::before,
 .jpdb-reader-settings-drag-handle:focus-visible::before {
-  background: var(--jpdb-reader-accent);
+  background: var(--jpdb-reader-text);
 }
 .jpdb-reader-settings-tabs {
   flex: 0 0 auto;
@@ -395,13 +395,17 @@
 }
 .jpdb-reader-btn:hover,
 .jpdb-reader-btn:focus-visible {
-  border-color: var(--button-accent, var(--jpdb-reader-accent)) !important;
+  border-color: var(--button-accent, color-mix(in srgb, var(--jpdb-reader-text) 40%, var(--jpdb-reader-border))) !important;
   background: color-mix(
     in srgb,
-    var(--jpdb-reader-surface) 82%,
-    var(--button-accent, var(--jpdb-reader-accent)) 18%
+    var(--jpdb-reader-surface) 88%,
+    var(--button-accent, var(--jpdb-reader-text)) 12%
   ) !important;
   outline: none !important;
+}
+/* Red marks keyboard focus, not hover. */
+.jpdb-reader-btn:focus-visible {
+  border-color: var(--button-accent, var(--jpdb-reader-accent)) !important;
 }
 .jpdb-reader-btn:active {
   transform: scale(0.98) !important;
@@ -412,9 +416,9 @@
 }
 .jpdb-reader-btn[data-save-blocked] {
   cursor: wait !important;
-  color: var(--jpdb-reader-accent-readable) !important;
-  border-color: color-mix(in srgb, var(--jpdb-reader-accent) 55%, var(--jpdb-reader-border)) !important;
-  background: var(--jpdb-reader-accent-soft) !important;
+  color: var(--jpdb-reader-muted) !important;
+  border-color: var(--jpdb-reader-border) !important;
+  background: var(--jpdb-reader-hover) !important;
 }
 .jpdb-reader-btn[data-import-state] {
   gap: 7px !important;
@@ -516,7 +520,7 @@
   border: 1.5px solid var(--jpdb-reader-border) !important;
   background-color: var(--jpdb-reader-surface-2) !important;
   background-image: none !important;
-  accent-color: var(--jpdb-reader-accent) !important;
+  accent-color: var(--jpdb-reader-text) !important;
   box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--jpdb-reader-black) 6%, transparent);
 }
 .jpdb-reader-settings input[type="checkbox"] {
@@ -525,25 +529,22 @@
 .jpdb-reader-settings input[type="radio"] {
   border-radius: 999px;
 }
+/* Ticked boxes are ink: a panel of red ticks read as a panel of warnings. */
 .jpdb-reader-settings input[type="checkbox"]:enabled:hover,
 .jpdb-reader-settings input[type="radio"]:enabled:hover {
-  border-color: var(--jpdb-reader-accent) !important;
-  background-color: color-mix(
-    in srgb,
-    var(--jpdb-reader-surface-2) 82%,
-    var(--jpdb-reader-accent) 18%
-  ) !important;
-  box-shadow: 0 0 0 3px var(--jpdb-reader-accent-soft);
+  border-color: color-mix(in srgb, var(--jpdb-reader-text) 56%, var(--jpdb-reader-border)) !important;
+  background-color: var(--jpdb-reader-surface-2) !important;
+  box-shadow: 0 0 0 3px var(--jpdb-reader-hover);
 }
 .jpdb-reader-settings input[type="checkbox"]:checked,
 .jpdb-reader-settings input[type="radio"]:checked {
-  border-color: var(--jpdb-reader-accent) !important;
-  background-color: var(--jpdb-reader-accent) !important;
-  box-shadow: 0 0 0 3px var(--jpdb-reader-accent-soft);
+  border-color: var(--jpdb-reader-text) !important;
+  background-color: var(--jpdb-reader-text) !important;
+  box-shadow: none;
 }
 .jpdb-reader-settings input[type="checkbox"]:checked:enabled:hover,
 .jpdb-reader-settings input[type="radio"]:checked:enabled:hover {
-  background-color: var(--jpdb-reader-accent) !important;
+  background-color: var(--jpdb-reader-text) !important;
 }
 .jpdb-reader-settings input[type="checkbox"]:checked::after {
   content: "";
@@ -552,8 +553,8 @@
   /* Physical on purpose: this is the two strokes of a checkmark glyph, rotated
      -45deg. It is drawing, not layout — mirroring it in RTL would draw the tick
      backwards. The plan keeps geometry physical and flips layout only. */
-  border-left: 2.5px solid var(--jpdb-reader-accent-text);
-  border-bottom: 2.5px solid var(--jpdb-reader-accent-text);
+  border-left: 2.5px solid var(--jpdb-reader-surface);
+  border-bottom: 2.5px solid var(--jpdb-reader-surface);
   transform: rotate(-45deg) translate(1px, -1px);
 }
 .jpdb-reader-settings input[type="radio"]:checked::after {
@@ -561,7 +562,7 @@
   width: 10px;
   height: 10px;
   border-radius: 999px;
-  background: var(--jpdb-reader-accent-text);
+  background: var(--jpdb-reader-surface);
 }
 .jpdb-reader-settings input[type="checkbox"]:focus-visible,
 .jpdb-reader-settings input[type="radio"]:focus-visible {
@@ -916,13 +917,13 @@
   max-width: 100%;
   min-height: 30px;
   padding: 4px 8px;
-  border: 1px solid color-mix(in srgb, var(--jpdb-reader-accent) 34%, var(--jpdb-reader-border));
+  border: 1px solid var(--jpdb-reader-border);
   border-radius: 8px;
-  background: color-mix(in srgb, var(--jpdb-reader-accent) 10%, var(--jpdb-reader-surface));
+  background: var(--jpdb-reader-surface-2);
   color: var(--jpdb-reader-text);
 }
 .jpdb-reader-settings .jpdb-reader-status-checklist a {
-  color: var(--jpdb-reader-accent-readable);
+  color: var(--jpdb-reader-text);
   font-weight: 650;
   text-decoration: none;
 }
@@ -1233,9 +1234,11 @@
     var(--jpdb-reader-text) 5%
   );
 }
+/* Links are ink with an underline, like the rest of the page's text. */
 .jpdb-reader-settings a:not(.jpdb-reader-btn) {
-  color: var(--jpdb-reader-accent-readable) !important;
+  color: var(--jpdb-reader-text) !important;
   text-decoration: underline;
+  text-decoration-color: color-mix(in srgb, var(--jpdb-reader-text) 40%, transparent);
   text-underline-offset: 3px;
 }
 .jpdb-reader-settings a:not(.jpdb-reader-btn) svg {
@@ -1345,20 +1348,9 @@
   stroke-linecap: round;
   stroke-linejoin: round;
 }
+/* Donating is optional: an ink button beside the others, not a red call to action. */
 .jpdb-reader-settings .jpdb-reader-help-actions .jpdb-reader-help-donate {
-  border-color: var(--jpdb-reader-accent) !important;
-  background: var(--jpdb-reader-accent) !important;
-  color: var(--jpdb-reader-accent-text) !important;
-  box-shadow: 0 6px 16px
-    color-mix(in srgb, var(--jpdb-reader-accent) 22%, transparent) !important;
-}
-.jpdb-reader-settings .jpdb-reader-help-actions .jpdb-reader-help-donate:hover,
-.jpdb-reader-settings .jpdb-reader-help-actions .jpdb-reader-help-donate:focus-visible {
-  border-color: color-mix(in srgb, var(--jpdb-reader-accent) 86%, var(--jpdb-reader-white)) !important;
-  background: color-mix(in srgb, var(--jpdb-reader-accent) 90%, var(--jpdb-reader-white)) !important;
-  color: var(--jpdb-reader-accent-text) !important;
-  box-shadow: 0 8px 20px
-    color-mix(in srgb, var(--jpdb-reader-accent) 28%, transparent) !important;
+  border-color: color-mix(in srgb, var(--jpdb-reader-text) 40%, var(--jpdb-reader-border)) !important;
 }
 .jpdb-reader-settings .jpdb-reader-help-actions .jpdb-reader-help-reset {
   border-color: color-mix(in srgb, var(--jpdb-reader-danger-readable) 64%, var(--jpdb-reader-border));
@@ -1391,10 +1383,10 @@
 
 .jpdb-reader-settings .jpdb-reader-tag-chip {
   appearance: none;
-  border: 1px solid color-mix(in srgb, var(--jpdb-reader-accent) 54%, var(--jpdb-reader-border));
+  border: 1px solid var(--jpdb-reader-border);
   border-radius: 999px;
-  background: color-mix(in srgb, var(--jpdb-reader-accent) 15%, var(--jpdb-reader-surface-2));
-  color: var(--jpdb-reader-accent-readable);
+  background: var(--jpdb-reader-surface-2);
+  color: var(--jpdb-reader-text);
   display: inline-flex;
   align-items: center;
   gap: 8px;
@@ -1407,10 +1399,11 @@
 }
 .jpdb-reader-settings .jpdb-reader-tag-chip:hover,
 .jpdb-reader-settings .jpdb-reader-tag-chip:focus-visible {
-  border-color: var(--jpdb-reader-accent);
-  background: color-mix(in srgb, var(--jpdb-reader-accent) 24%, var(--jpdb-reader-surface-2));
-  color: var(--jpdb-reader-accent-readable);
+  border-color: color-mix(in srgb, var(--jpdb-reader-text) 40%, var(--jpdb-reader-border));
+  background: var(--jpdb-reader-hover);
   outline: none;
+}
+.jpdb-reader-settings .jpdb-reader-tag-chip:focus-visible {
   box-shadow: 0 0 0 3px var(--jpdb-reader-accent-soft);
 }
 
@@ -1484,7 +1477,7 @@
   cursor: pointer;
 }
 .jpdb-reader-catalog-browse-toggle:hover {
-  border-color: color-mix(in srgb, var(--jpdb-reader-accent) 54%, var(--jpdb-reader-border));
+  border-color: color-mix(in srgb, var(--jpdb-reader-text) 54%, var(--jpdb-reader-border));
 }
 .jpdb-reader-catalog-browse-toggle:focus-visible {
   outline: 2px solid var(--jpdb-reader-accent-readable);
@@ -1875,10 +1868,10 @@
 }
 .jpdb-reader-icon-mini:hover,
 .jpdb-reader-icon-mini:focus-visible {
-  border-color: var(--jpdb-reader-accent);
+  border-color: var(--jpdb-reader-text);
   box-shadow: 0 8px 18px
-    color-mix(in srgb, var(--jpdb-reader-accent) 22%, transparent);
-  color: var(--jpdb-reader-accent-readable);
+    color-mix(in srgb, var(--jpdb-reader-text) 22%, transparent);
+  color: var(--jpdb-reader-text);
   transform: translateY(-0.25rem);
   outline: none;
 }

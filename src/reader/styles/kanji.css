@@ -59,9 +59,9 @@
   min-height: 24px;
   padding: 3px 9px;
   border: 1px solid
-    color-mix(in srgb, var(--jpdb-reader-accent) 34%, var(--jpdb-reader-border));
+    color-mix(in srgb, var(--jpdb-reader-text) 34%, var(--jpdb-reader-border));
   border-radius: 999px;
-  background: color-mix(in srgb, var(--jpdb-reader-surface-2) 88%, var(--jpdb-reader-accent) 12%);
+  background: color-mix(in srgb, var(--jpdb-reader-surface-2) 88%, var(--jpdb-reader-text) 12%);
   color: var(--jpdb-reader-text);
   box-shadow: none;
   font-size: 12px;
@@ -71,8 +71,8 @@
   white-space: nowrap;
 }
 .jpdb-reader-kanji-keyword[data-canonical] {
-  border-color: color-mix(in srgb, var(--jpdb-reader-accent) 62%, var(--jpdb-reader-border));
-  background: color-mix(in srgb, var(--jpdb-reader-surface-2) 76%, var(--jpdb-reader-accent) 24%);
+  border-color: color-mix(in srgb, var(--jpdb-reader-text) 62%, var(--jpdb-reader-border));
+  background: color-mix(in srgb, var(--jpdb-reader-surface-2) 76%, var(--jpdb-reader-text) 24%);
 }
 .jpdb-reader-kanji-keyword small,
 .jpdb-reader-kanji-keyword-source {
@@ -82,7 +82,7 @@
   height: auto;
   padding: 1px 5px;
   border-radius: 6px;
-  background: color-mix(in srgb, var(--jpdb-reader-accent) 14%, transparent);
+  background: color-mix(in srgb, var(--jpdb-reader-text) 14%, transparent);
   color: var(--jpdb-reader-muted);
   font-size: 9px;
   font-weight: 800;
@@ -181,7 +181,7 @@
   background: color-mix(
     in srgb,
     var(--jpdb-reader-surface-2) 86%,
-    var(--jpdb-reader-accent) 8%
+    var(--jpdb-reader-text) 8%
   );
   color: var(--jpdb-reader-muted);
   font: inherit;
@@ -250,7 +250,7 @@
   height: 42px;
   border: 1px solid color-mix(in srgb, var(--jpdb-reader-border) 82%, transparent);
   border-radius: 8px;
-  background: color-mix(in srgb, var(--jpdb-reader-surface-2) 88%, var(--jpdb-reader-accent) 6%);
+  background: color-mix(in srgb, var(--jpdb-reader-surface-2) 88%, var(--jpdb-reader-text) 6%);
   color: var(--jpdb-reader-text);
   box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--jpdb-reader-text) 7%, transparent);
   font-size: 28px !important;
@@ -306,12 +306,12 @@
   );
   --jpdb-reader-origin-graph-outbound-line: color-mix(
     in srgb,
-    var(--jpdb-reader-accent) 76%,
+    var(--jpdb-reader-text) 76%,
     var(--jpdb-reader-text)
   );
   --jpdb-reader-origin-graph-subcomponent-line: color-mix(
     in srgb,
-    var(--jpdb-reader-accent) 48%,
+    var(--jpdb-reader-text) 48%,
     var(--jpdb-reader-text)
   );
   --jpdb-reader-origin-graph-frame: color-mix(
@@ -321,17 +321,17 @@
   );
   --jpdb-reader-origin-graph-node-fill: color-mix(
     in srgb,
-    var(--jpdb-reader-accent) 72%,
+    var(--jpdb-reader-text) 72%,
     var(--jpdb-reader-surface-2)
   );
   --jpdb-reader-origin-graph-related-fill: color-mix(
     in srgb,
-    var(--jpdb-reader-accent) 18%,
+    var(--jpdb-reader-text) 18%,
     var(--jpdb-reader-surface)
   );
   --jpdb-reader-origin-graph-accent-text: color-mix(
     in srgb,
-    var(--jpdb-reader-accent) 12%,
+    var(--jpdb-reader-text) 12%,
     var(--jpdb-reader-black)
   );
   position: relative;
@@ -361,12 +361,12 @@
   );
   --jpdb-reader-origin-graph-outbound-line: color-mix(
     in srgb,
-    var(--jpdb-reader-accent) 72%,
+    var(--jpdb-reader-text) 72%,
     var(--jpdb-reader-text, var(--jpdb-reader-theme-light-text)) 8%
   );
   --jpdb-reader-origin-graph-subcomponent-line: color-mix(
     in srgb,
-    var(--jpdb-reader-accent) 44%,
+    var(--jpdb-reader-text) 44%,
     var(--jpdb-reader-text, var(--jpdb-reader-theme-light-text)) 18%
   );
   --jpdb-reader-origin-graph-frame: color-mix(
@@ -376,12 +376,12 @@
   );
   --jpdb-reader-origin-graph-node-fill: color-mix(
     in srgb,
-    var(--jpdb-reader-accent) 24%,
+    var(--jpdb-reader-text) 24%,
     var(--jpdb-reader-white)
   );
   --jpdb-reader-origin-graph-related-fill: color-mix(
     in srgb,
-    var(--jpdb-reader-accent) 12%,
+    var(--jpdb-reader-text) 12%,
     var(--jpdb-reader-surface)
   );
   --jpdb-reader-origin-graph-accent-text: var(--jpdb-reader-accent-text);
@@ -403,12 +403,12 @@
     );
     --jpdb-reader-origin-graph-outbound-line: color-mix(
       in srgb,
-      var(--jpdb-reader-accent) 72%,
+      var(--jpdb-reader-text) 72%,
       var(--jpdb-reader-text, var(--jpdb-reader-theme-light-text)) 8%
     );
     --jpdb-reader-origin-graph-subcomponent-line: color-mix(
       in srgb,
-      var(--jpdb-reader-accent) 44%,
+      var(--jpdb-reader-text) 44%,
       var(--jpdb-reader-text, var(--jpdb-reader-theme-light-text)) 18%
     );
     --jpdb-reader-origin-graph-frame: color-mix(
@@ -418,12 +418,12 @@
     );
     --jpdb-reader-origin-graph-node-fill: color-mix(
       in srgb,
-      var(--jpdb-reader-accent) 24%,
+      var(--jpdb-reader-text) 24%,
       var(--jpdb-reader-white)
     );
     --jpdb-reader-origin-graph-related-fill: color-mix(
       in srgb,
-      var(--jpdb-reader-accent) 12%,
+      var(--jpdb-reader-text) 12%,
       var(--jpdb-reader-surface)
     );
     --jpdb-reader-origin-graph-accent-text: var(--jpdb-reader-accent-text);
@@ -521,7 +521,7 @@
   width: 14px;
   height: 14px;
   margin: 0;
-  accent-color: var(--jpdb-reader-accent);
+  accent-color: var(--jpdb-reader-text);
 }
 .jpdb-reader-origin-graph-node {
   position: absolute;

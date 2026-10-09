@@ -284,11 +284,11 @@
 
 .jpdb-reader-stats-panel-button {
   min-height: 30px;
-  border: 1px solid color-mix(in srgb, var(--jpdb-reader-accent) 48%, var(--jpdb-reader-border));
+  border: 1px solid var(--jpdb-reader-border);
   border-radius: 8px;
   padding: 0 10px;
   background: color-mix(in srgb, var(--jpdb-reader-surface-2) 84%, transparent);
-  color: var(--jpdb-reader-accent-readable, var(--jpdb-reader-text));
+  color: var(--jpdb-reader-text);
   font-size: 11px;
   font-weight: 600;
   line-height: 1.1;
@@ -397,11 +397,8 @@
   height: var(--stats-bar-height, 1%);
   min-height: 2px;
   border-radius: 5px 5px 0 0;
-  background: linear-gradient(
-    180deg,
-    color-mix(in srgb, var(--jpdb-reader-accent) 78%, var(--jpdb-reader-white)),
-    var(--jpdb-reader-accent)
-  );
+  /* Data is drawn in ink; red is kept for the selected day. */
+  background: color-mix(in srgb, var(--jpdb-reader-text) 72%, var(--jpdb-reader-surface));
 }
 
 .jpdb-reader-stats-bar[data-selected="true"] .jpdb-reader-stats-bar-fill {
@@ -480,19 +477,19 @@
 }
 
 .jpdb-reader-stats-heatmap-cell[data-level="1"] {
-  background: color-mix(in srgb, var(--jpdb-reader-accent) 28%, var(--jpdb-reader-bg));
+  background: color-mix(in srgb, var(--jpdb-reader-text) 18%, var(--jpdb-reader-bg));
 }
 
 .jpdb-reader-stats-heatmap-cell[data-level="2"] {
-  background: color-mix(in srgb, var(--jpdb-reader-accent) 44%, var(--jpdb-reader-bg));
+  background: color-mix(in srgb, var(--jpdb-reader-text) 34%, var(--jpdb-reader-bg));
 }
 
 .jpdb-reader-stats-heatmap-cell[data-level="3"] {
-  background: color-mix(in srgb, var(--jpdb-reader-accent) 62%, var(--jpdb-reader-bg));
+  background: color-mix(in srgb, var(--jpdb-reader-text) 54%, var(--jpdb-reader-bg));
 }
 
 .jpdb-reader-stats-heatmap-cell[data-level="4"] {
-  background: color-mix(in srgb, var(--jpdb-reader-accent) 82%, var(--jpdb-reader-bg));
+  background: color-mix(in srgb, var(--jpdb-reader-text) 78%, var(--jpdb-reader-bg));
 }
 
 .jpdb-reader-stats-heatmap-cell[data-today="true"]::after,
@@ -538,7 +535,7 @@
 
 .jpdb-reader-stats-stack-segment.is-review,
 .jpdb-reader-stats-legend .is-review {
-  --stats-segment: var(--jpdb-reader-accent);
+  --stats-segment: var(--jpdb-reader-muted);
 }
 
 .jpdb-reader-stats-stack-segment.is-due,
@@ -652,7 +649,7 @@
 }
 
 .jpdb-reader-stats-deck-toggle[data-active="true"] {
-  border-color: color-mix(in srgb, var(--jpdb-reader-accent) 58%, var(--jpdb-reader-border));
+  border-color: color-mix(in srgb, var(--jpdb-reader-text) 58%, var(--jpdb-reader-border));
   color: var(--jpdb-reader-text);
 }
 
@@ -674,23 +671,23 @@
 }
 
 .jpdb-reader-stats-deck-toggle input:enabled:hover {
-  border-color: var(--jpdb-reader-accent);
+  border-color: var(--jpdb-reader-text);
   background: color-mix(
     in srgb,
     var(--jpdb-reader-surface-2) 82%,
-    var(--jpdb-reader-accent) 18%
+    var(--jpdb-reader-text) 18%
   );
-  box-shadow: 0 0 0 3px var(--jpdb-reader-accent-soft);
+  box-shadow: 0 0 0 3px var(--jpdb-reader-hover);
 }
 
 .jpdb-reader-stats-deck-toggle input:checked {
-  border-color: var(--jpdb-reader-accent);
-  background: var(--jpdb-reader-accent);
-  box-shadow: 0 0 0 3px var(--jpdb-reader-accent-soft);
+  border-color: var(--jpdb-reader-text);
+  background: var(--jpdb-reader-text);
+  box-shadow: 0 0 0 3px var(--jpdb-reader-hover);
 }
 
 .jpdb-reader-stats-deck-toggle input:checked:enabled:hover {
-  background: var(--jpdb-reader-accent);
+  background: var(--jpdb-reader-text);
 }
 
 .jpdb-reader-stats-deck-toggle input:checked::after {
@@ -700,8 +697,8 @@
   /* Physical on purpose: this is the two strokes of a checkmark glyph, rotated
      -45deg. It is drawing, not layout — mirroring it in RTL would draw the tick
      backwards. The plan keeps geometry physical and flips layout only. */
-  border-left: 2.5px solid var(--jpdb-reader-accent-text);
-  border-bottom: 2.5px solid var(--jpdb-reader-accent-text);
+  border-left: 2.5px solid var(--jpdb-reader-surface);
+  border-bottom: 2.5px solid var(--jpdb-reader-surface);
   transform: rotate(-45deg) translate(1px, -1px);
 }
 
@@ -746,8 +743,8 @@
 }
 
 .jpdb-reader-stats-connection-actions button:first-child {
-  border-color: color-mix(in srgb, var(--jpdb-reader-accent) 58%, var(--jpdb-reader-border));
-  color: var(--jpdb-reader-accent-readable, var(--jpdb-reader-text));
+  border-color: color-mix(in srgb, var(--jpdb-reader-text) 28%, var(--jpdb-reader-border));
+  color: var(--jpdb-reader-text);
 }
 
 .jpdb-reader-stats-dropzone {
@@ -786,8 +783,8 @@
   .jpdb-reader-stats-connection-actions button:hover,
   .jpdb-reader-stats-metric-link:hover,
   .jpdb-reader-stats-heatmap-cell:hover {
-    border-color: color-mix(in srgb, var(--jpdb-reader-accent) 64%, var(--jpdb-reader-border));
-    background: color-mix(in srgb, var(--jpdb-reader-surface-2) 78%, var(--jpdb-reader-accent) 12%);
+    border-color: color-mix(in srgb, var(--jpdb-reader-text) 28%, var(--jpdb-reader-border));
+    background: var(--jpdb-reader-hover);
   }
 
   .jpdb-reader-stats-panel-button:disabled:hover {

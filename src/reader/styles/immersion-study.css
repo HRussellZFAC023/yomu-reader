@@ -820,7 +820,7 @@ mark.jpdb-reader-example-target {
   border-radius: 3px;
   color: color-mix(
     in srgb,
-    var(--jpdb-reader-accent-readable) 82%,
+    var(--jpdb-reader-text) 82%,
     var(--jpdb-reader-text)
   );
   font-size: 11px;
@@ -828,7 +828,7 @@ mark.jpdb-reader-example-target {
   text-decoration: underline;
   text-decoration-color: color-mix(
     in srgb,
-    var(--jpdb-reader-accent-readable) 64%,
+    var(--jpdb-reader-text) 64%,
     transparent
   );
   text-decoration-thickness: 1px;
@@ -837,7 +837,7 @@ mark.jpdb-reader-example-target {
 }
 .jpdb-reader-study-guide:hover {
   color: var(--jpdb-reader-text);
-  text-decoration-color: var(--jpdb-reader-accent-readable);
+  text-decoration-color: var(--jpdb-reader-text);
 }
 .jpdb-reader-study-guide:focus-visible {
   color: var(--jpdb-reader-text);
@@ -855,10 +855,10 @@ mark.jpdb-reader-example-target {
 .jpdb-reader-grammar-level {
   justify-self: start;
   border: 1px solid
-    color-mix(in srgb, var(--jpdb-reader-accent) 42%, var(--jpdb-reader-border));
+    color-mix(in srgb, var(--jpdb-reader-text) 42%, var(--jpdb-reader-border));
   border-radius: 999px;
   padding: 1px 5px;
-  color: var(--jpdb-reader-accent-readable);
+  color: var(--jpdb-reader-muted);
   font-size: 10px;
   font-weight: 850;
   line-height: 1.2;
@@ -1021,7 +1021,7 @@ mark.jpdb-reader-example-target {
   margin: 10px 0 8px;
 }
 .jpdb-reader-template-sentence span {
-  color: var(--jpdb-reader-accent-readable);
+  color: var(--jpdb-reader-text);
   font-weight: 850;
 }
 /* Frequency is a quiet label, not another destination; .jpdb-reader-pill

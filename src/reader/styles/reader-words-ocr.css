@@ -1655,7 +1655,7 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: var(--jpdb-reader-accent, #b8324e);
+  background: #b0b8c4;
 }
 
 /* The reader root's theme text colour (dark in the light theme) would beat the

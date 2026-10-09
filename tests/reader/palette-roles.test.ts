@@ -125,3 +125,33 @@ describe('the shared palette', () => {
         }
     });
 });
+
+// Red is the よむ accent for selection, focus and one primary action. Swapping
+// the default from green to red once painted every Stats bar, heatmap day and
+// provider dot red, so Stats read like an error report.
+describe('where the red does not go', () => {
+    const stats = readFileSync('src/reader/styles/stats.css', 'utf8');
+    const newTab = readFileSync('src/reader/styles/new-tab.css', 'utf8');
+    const ruleBody = (css: string, selector: string): string => {
+        const start = css.indexOf(`${selector} {`);
+        if (start < 0) throw new Error(`No rule for ${selector}`);
+        return css.slice(css.indexOf('{', start) + 1, css.indexOf('}', start));
+    };
+
+    it('draws Stats data in ink', () => {
+        for (const selector of [
+            '.jpdb-reader-stats-bar-fill',
+            '.jpdb-reader-stats-heatmap-cell[data-level="1"]',
+            '.jpdb-reader-stats-heatmap-cell[data-level="2"]',
+            '.jpdb-reader-stats-heatmap-cell[data-level="3"]',
+            '.jpdb-reader-stats-heatmap-cell[data-level="4"]',
+        ]) expect(ruleBody(stats, selector), selector).not.toContain('--jpdb-reader-accent');
+    });
+
+    it('gives no review source the brand red as its dot', () => {
+        for (const source of ['jpdb', 'bunpro', 'yomu-local']) {
+            expect(ruleBody(newTab, `.jpdb-reader-newtab-source-select[data-source="${source}"]`), source).not.toContain('--jpdb-reader-accent');
+            expect(ruleBody(newTab, `.jpdb-reader-newtab-status-light[data-source="${source}"]`), source).not.toContain('--jpdb-reader-accent');
+        }
+    });
+});

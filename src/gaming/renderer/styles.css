@@ -299,7 +299,7 @@ textarea {
 }
 
 .overlay-toolbar button:hover {
-    background: color-mix(in srgb, var(--jpdb-reader-accent) 36%, var(--jpdb-reader-black) 48%);
+    background: color-mix(in srgb, var(--jpdb-reader-white) 14%, transparent);
 }
 
 .overlay-action-primary {
