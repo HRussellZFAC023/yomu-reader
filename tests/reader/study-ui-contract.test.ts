@@ -162,7 +162,8 @@ describe('Library search field', () => {
         // The clear icon appears only once there is something to clear, and the
         // handwriting pad exists only while its icon holds it open.
         expect(newTabCss).toContain('.jpdb-reader-newtab-searchbox:has(input:placeholder-shown) .jpdb-reader-newtab-search-icon.is-clear { display: none; }');
-        expect(newTabCss).toContain('.jpdb-reader-newtab-handwriting:not([open]) { display: none; }');
+        expect(newTabCss).toContain('.jpdb-reader-newtab-handwriting[hidden] { display: none; }');
+        expect(newTabCss).not.toContain('.jpdb-reader-newtab-handwriting summary');
         // A search input draws its own blue cross in Chromium and Safari; the named icon is the only one.
         expect(newTabCss).toContain('.jpdb-reader-newtab-searchbox input::-webkit-search-cancel-button { -webkit-appearance: none; appearance: none; display: none; }');
     });

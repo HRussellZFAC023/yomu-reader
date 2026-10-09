@@ -155,7 +155,6 @@
   .jpdb-reader-jpdb-kanji summary:not(.jpdb-reader-local-title),
   .jpdb-reader-jiten-kanji-more > summary.jpdb-reader-local-title
 ),
-.jpdb-reader-newtab .jpdb-reader-newtab-handwriting summary,
 .jpdb-reader-newtab .jpdb-reader-newtab-kanji-details .jpdb-reader-local-title {
   border-radius: 7px;
   outline-offset: 2px;
@@ -187,8 +186,7 @@
   .jpdb-reader-rtk details[open] > summary:not(.jpdb-reader-local-title),
   .jpdb-reader-jpdb-kanji details[open] > summary:not(.jpdb-reader-local-title),
   .jpdb-reader-jiten-kanji-more[open] > summary.jpdb-reader-local-title
-),
-.jpdb-reader-newtab .jpdb-reader-newtab-handwriting[open] summary {
+) {
   /* An open section heading is still a heading, not a selected control: the
      +/- glyph says it is open, so it keeps the muted ink of a closed one. */
   color: var(--jpdb-reader-muted);
@@ -210,7 +208,6 @@
     .jpdb-reader-jpdb-kanji summary:not(.jpdb-reader-local-title),
     .jpdb-reader-jiten-kanji-more > summary.jpdb-reader-local-title
   ):hover,
-  .jpdb-reader-newtab .jpdb-reader-newtab-handwriting summary:hover,
   .jpdb-reader-newtab .jpdb-reader-newtab-kanji-details .jpdb-reader-local-title:hover {
     background: var(--jpdb-reader-hover);
     color: var(--jpdb-reader-text);

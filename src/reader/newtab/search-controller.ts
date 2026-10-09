@@ -565,10 +565,6 @@ export class NewTabSearchController {
         }
         const panel = this.ensureSearchHandwritingPanel(root);
         this.syncSearchHandwritingToggle(root);
-        if (panel && panel.dataset.newtabHandwritingToggleBound !== 'true') {
-            panel.dataset.newtabHandwritingToggleBound = 'true';
-            panel.addEventListener('toggle', () => this.syncSearchHandwritingToggle(root));
-        }
         if (typeof ResizeObserver !== 'function') return;
         if (!panel || panel.dataset.newtabHandwritingBound === 'true') return;
         panel.dataset.newtabHandwritingBound = 'true';
@@ -599,11 +595,11 @@ export class NewTabSearchController {
 
     private toggleSearchHandwriting(root: HTMLElement, open?: boolean): void {
         if (!targetSupportsHandwriting()) return;
-        const panel = this.ensureSearchHandwritingPanel(root) as HTMLDetailsElement | null;
+        const panel = this.ensureSearchHandwritingPanel(root);
         if (!panel) return;
-        panel.open = open ?? !panel.open;
+        panel.hidden = !(open ?? panel.hidden);
         this.syncSearchHandwritingToggle(root);
-        if (!panel.open) return;
+        if (panel.hidden) return;
         this.focusSearchHandwritingCanvas(panel);
     }
 
@@ -616,13 +612,13 @@ export class NewTabSearchController {
     }
 
     private syncSearchHandwritingToggle(root: HTMLElement): void {
-        const panel = root.querySelector<HTMLDetailsElement>('[data-newtab-handwriting]');
+        const panel = root.querySelector<HTMLElement>('[data-newtab-handwriting]');
         const toggle = root.querySelector<HTMLButtonElement>(newTabActionSelector('search-handwriting-toggle'));
         if (!toggle) return;
         const enabled = targetSupportsHandwriting();
         toggle.hidden = !enabled;
         toggle.disabled = !enabled;
-        toggle.setAttribute('aria-expanded', String(enabled && Boolean(panel?.open)));
+        toggle.setAttribute('aria-expanded', String(enabled && Boolean(panel && !panel.hidden)));
     }
 
     private scheduleSearchHandwritingRecognition(root: HTMLElement): void {
@@ -1536,9 +1532,17 @@ export class NewTabSearchController {
 
 // --- Module-local helpers (search-only) -----------------------------------
 
+// The pencil icon in the search box opens and closes this pad; it carries no
+// heading or toggle of its own, which would only repeat the pencil's name.
 function renderSearchHandwritingPanel(language: ReaderSettings['interfaceLanguage']): HTMLElement {
-    return el('details', { id: 'jpdb-reader-newtab-handwriting', class: 'jpdb-reader-newtab-handwriting', dataset: { newtabHandwriting: true } },
-        el('summary', { class: 'jpdb-reader-parseable', lang: resolveUiLanguage(language) === 'ja' ? 'ja' : 'en' }, newTabText(language, 'drawKanji')),
+    return el('div', {
+        id: 'jpdb-reader-newtab-handwriting',
+        class: 'jpdb-reader-newtab-handwriting',
+        role: 'group',
+        'aria-label': newTabText(language, 'drawKanji'),
+        dataset: { newtabHandwriting: true },
+        hidden: true,
+    },
         el('div', { class: 'jpdb-reader-newtab-handwriting-body' },
             el('div', { class: 'jpdb-reader-doodle-stage jpdb-reader-newtab-doodle jpdb-reader-newtab-search-doodle trace-hidden', dataset: { kanji: '' } },
                 el('div', { class: 'jpdb-reader-doodle-ghost', hidden: true }),

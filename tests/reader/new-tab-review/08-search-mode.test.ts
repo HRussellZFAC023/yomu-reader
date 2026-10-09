@@ -1598,14 +1598,17 @@ describe('new tab review — search mode', () => {
         const { root, searchApi } = createDictionarySearchModeFixture();
 
         try {
-            const handwriting = root.querySelector<HTMLDetailsElement>('[data-newtab-handwriting]')!;
+            const handwriting = root.querySelector<HTMLElement>('[data-newtab-handwriting]')!;
             const drawToggle = root.querySelector<HTMLButtonElement>('[data-newtab-action="search-handwriting-toggle"]')!;
-            expect(handwriting.open).toBe(false);
+            expect(handwriting.hidden).toBe(true);
             expect(drawToggle.getAttribute('aria-expanded')).toBe('false');
             drawToggle.click();
-            expect(handwriting.open).toBe(true);
+            expect(handwriting.hidden).toBe(false);
             expect(drawToggle.getAttribute('aria-expanded')).toBe('true');
             expect(handwriting.querySelector('[data-doodle-clear]')).toBeNull();
+            // The pencil is the only control: no heading or second toggle repeats it.
+            expect(handwriting.querySelector('summary, button:not([data-newtab-action="handwriting-candidate"])')).toBeNull();
+            expect(handwriting.getAttribute('aria-label')).toBe(drawToggle.getAttribute('aria-label'));
 
             let doodleClearCount = 0;
             handwriting.addEventListener(KANJI_DOODLE_CLEAR_EVENT, () => { doodleClearCount += 1; });
@@ -1613,20 +1616,20 @@ describe('new tab review — search mode', () => {
             root.querySelector<HTMLButtonElement>('[data-newtab-action="handwriting-candidate"]')?.click();
             expect(doodleClearCount).toBe(1);
             expect(newTabSearchInput(root).value).toBe('日');
-            expect(handwriting.open).toBe(true);
+            expect(handwriting.hidden).toBe(false);
             expect(root.querySelector<HTMLElement>('[data-newtab-handwriting-candidates]')?.hidden).toBe(true);
 
             searchApi.renderSearchHandwritingCandidates(root, ['本'], '');
             root.querySelector<HTMLButtonElement>('[data-newtab-action="handwriting-candidate"]')?.click();
             expect(doodleClearCount).toBe(2);
             expect(newTabSearchInput(root).value).toBe('日本');
-            expect(handwriting.open).toBe(true);
+            expect(handwriting.hidden).toBe(false);
 
             root.querySelector<HTMLButtonElement>('[data-newtab-action="search-clear"]')?.click();
             expect(doodleClearCount).toBe(3);
             expect(root.querySelector<HTMLElement>('[data-newtab-handwriting-candidates]')?.hidden).toBe(true);
             drawToggle.click();
-            expect(handwriting.open).toBe(false);
+            expect(handwriting.hidden).toBe(true);
         } finally {
             root.remove();
         }

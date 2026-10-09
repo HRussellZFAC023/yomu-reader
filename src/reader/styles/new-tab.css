@@ -827,7 +827,7 @@
 }
 
 /* Handwriting exists only while the draw icon holds it open. */
-.jpdb-reader-newtab-handwriting:not([open]) {
+.jpdb-reader-newtab-handwriting[hidden] {
   display: none;
 }
 
@@ -837,32 +837,10 @@
   border-radius: 8px;
   background: color-mix(
     in srgb,
-    var(--jpdb-reader-surface) 70%,
-    transparent
-  );
-  overflow: hidden;
-}
-
-.jpdb-reader-newtab-handwriting[open] {
-  background: color-mix(
-    in srgb,
     var(--jpdb-reader-surface) 82%,
     transparent
   );
-}
-
-.jpdb-reader-newtab-handwriting summary {
-  min-height: 38px;
-  display: flex;
-  align-items: center;
-  padding: 0 12px;
-  color: var(--jpdb-reader-muted);
-  font-size: 11px;
-  font-weight: 600;
-  line-height: 1.1;
-  text-transform: uppercase;
-  cursor: pointer;
-  user-select: none;
+  overflow: hidden;
 }
 
 .jpdb-reader-newtab-handwriting-body {
@@ -4828,7 +4806,6 @@ button.jpdb-reader-newtab-study-hint-btn:active {
   .jpdb-reader-newtab-controls button:not([data-grade]),
   .jpdb-reader-newtab-search-links a,
   .jpdb-reader-newtab-search-links button,
-  .jpdb-reader-newtab-handwriting summary,
   .jpdb-reader-newtab-handwriting-candidates button,
   .jpdb-reader-newtab-doodle-actions button,
   .jpdb-reader-newtab-search-card,
