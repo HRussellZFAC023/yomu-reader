@@ -16,7 +16,7 @@ import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { ReaderSettings } from '../../src/reader/app/types';
-import { loadSettings, normalizeReaderSettings, saveSettings } from '../../src/reader/settings';
+import { DEFAULT_SETTINGS, effectiveFuriganaMode, furiganaStyle, loadSettings, normalizeReaderSettings, saveSettings } from '../../src/reader/settings';
 import { loadReaderStartupSettings } from '../../src/reader/app/startup';
 import { resetManagedStateEpochSessionsForTests } from '../../src/reader/app/managed-state-epoch';
 import { resetManagedWebStorageForTests } from '../../src/reader/app/managed-web-storage';
@@ -28,7 +28,7 @@ import {
 import { parseReaderSettingsBackup } from '../../src/reader/settings/file-io';
 import { renderSettingsForm } from '../../src/reader/settings/form';
 import { readFormSettings } from '../../src/reader/settings/form-read';
-import { annotationPowerState } from '../../src/reader/app/annotation-power-policy';
+import { annotationPowerState, planAnnotationPowerTransition } from '../../src/reader/app/annotation-power-policy';
 import { restoreReaderSettingsBackup } from '../../src/reader/settings/reader-settings-restore-adapter';
 import { validateCloudSettingsEnvelope } from '../../src/reader/settings/cloud-settings-envelope';
 import {
@@ -447,6 +447,13 @@ describe('settings backup file exported by v1.9.3: f-backup-file-v1.9.3', () => 
     // carries (furigana hidden, Japanese sites requested) must survive both the
     // import and a later Settings Save that no longer renders those controls.
     it('keeps its reading state through import and a later Settings Save', async () => {
+        // The archived ledger declares hidden readings, but never chose All:
+        // its stored All is an old default, so only the style may adopt 2.1's.
+        const archived = JSON.parse(fileText);
+        const archivedIntent = archived.storage['yomu:settings-intent:v2'].records;
+        expect(archived.settings.furiganaMode).toBe('all');
+        expect(archivedIntent.showFurigana.value).toBe(false);
+        expect(archivedIntent).not.toHaveProperty('furiganaMode');
         enterUserscriptSite(createStore(), 'https://www.example.com/articles/yomu-upgrade');
         await restoreReaderSettingsBackup(
             new File([fileText], fixture.file.split('/').pop()!, { type: 'application/json' }),
@@ -463,24 +470,41 @@ describe('settings backup file exported by v1.9.3: f-backup-file-v1.9.3', () => 
         const restored = await loadSettings();
         expect(annotationPowerState(restored, true)).toBe('no-furigana');
         expect(restored.preferJapaneseSiteLanguage).toBe(true);
+        expect(effectiveFuriganaMode(restored)).toBe('off');
+        expect(restored.furiganaMode).toBe(DEFAULT_SETTINGS.furiganaMode);
 
         const form = document.createElement('form');
         form.innerHTML = renderSettingsForm(restored, 'https://jpdb.io/settings');
         expect(form.querySelector('[name="preferJapaneseSiteLanguage"]')).toBeNull();
         expect(form.querySelector('input[name="pageScanMode"][value="off"]')).toBeNull();
         expect(form.querySelector('select[name="furiganaMode"] option[value="off"]')).toBeNull();
-        expect(form.querySelector<HTMLSelectElement>('select[name="furiganaMode"]')!.value).toBe('all');
+        expect(form.querySelector<HTMLSelectElement>('select[name="furiganaMode"]')!.value).toBe(furiganaStyle(restored));
 
         const untouched = readFormSettings(new FormData(form), restored);
         expect(annotationPowerState(untouched, true)).toBe('no-furigana');
         expect([untouched.showFurigana, untouched.furiganaMode, untouched.preferJapaneseSiteLanguage, untouched.annotationsPaused])
-            .toEqual([false, 'all', true, false]);
+            .toEqual([false, restored.furiganaMode, true, false]);
+        await saveSettings(untouched, { explicitUserChoiceKeys: [] });
+        resetManagedStateEpochSessionsForTests();
+        const afterSave = await loadSettings();
+        expect(effectiveFuriganaMode(afterSave)).toBe('off');
+        expect(annotationPowerState(afterSave, true)).toBe('no-furigana');
+        expect(afterSave.preferJapaneseSiteLanguage).toBe(true);
 
         // A new style while furigana is hidden is the style the puck brings back.
-        form.querySelector<HTMLSelectElement>('select[name="furiganaMode"]')!.value = 'known-status';
+        form.querySelector<HTMLSelectElement>('select[name="furiganaMode"]')!.value = 'all';
         const restyled = readFormSettings(new FormData(form), restored);
         expect(annotationPowerState(restyled, true)).toBe('no-furigana');
-        expect(restyled.puckFuriganaModeBeforeHide).toBe('known-status');
+        expect(restyled.puckFuriganaModeBeforeHide).toBe('all');
+        await saveSettings(restyled, { explicitUserChoiceKeys: ['puckFuriganaModeBeforeHide'] });
+        resetManagedStateEpochSessionsForTests();
+        const reloaded = await loadSettings();
+        expect(effectiveFuriganaMode(reloaded)).toBe('off');
+        expect(annotationPowerState(reloaded, true)).toBe('no-furigana');
+        expect(furiganaStyle(reloaded)).toBe('all');
+        expect(planAnnotationPowerTransition({ ...reloaded, annotationsPaused: true }, true, DEFAULT_SETTINGS.furiganaMode))
+            .toEqual({ kind: 'resume', furiganaMode: 'all' });
+        expect(corpusText(fixture.file)).toBe(fileText);
     });
 });
 

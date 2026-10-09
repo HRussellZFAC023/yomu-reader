@@ -1394,13 +1394,36 @@ describe('interactive-passive under furigana-mode=all', () => {
 // readings of Reddit's sort menu more than 3px off their words
 // (smoke:reddit-chrome).
 describe('detached reading typography', () => {
-    it('sizes a control reading just under half its host text, at regular weight', () => {
-        document.body.innerHTML = '<div><button id="open" style="font-size:16px">設定を開く</button></div>';
-        const target = collectTargets().find(candidate => candidate.text === '設定を開く')!;
-        applyTokensToScanTarget(target, [token('設定', 0, '設定を開く', 'せってい')], FURIGANA_SETTINGS);
-        const reading = document.querySelector<HTMLElement>('#open .jpdb-reader-detached-furi')!;
-        expect(reading.style.fontSize).toBe('7.36px');
+    it.each([[16, '7.36px'], [30, '10px'], [10, '6px']])('uses the host font and a bounded 0.46-size reading for an opted-in %ipx control', (fontSize, expectedReadingSize) => {
+        const font = `font:italic small-caps 700 ${fontSize}px/24px Georgia,serif;letter-spacing:0.4px`;
+        document.body.innerHTML = `<div>
+            <button id="ordinary" style="${font}">通常の設定</button>
+            <button id="open" lang="ja" data-yomu-runtime-surface="academy-copy" style="${font}">設定を開く</button>
+        </div>`;
+        const host = document.querySelector<HTMLElement>('#open')!;
+        mockRect(host, { width: 180, height: 40 });
+        const source = getComputedStyle(host);
+        const properties = ['font', 'fontFamily', 'fontSize', 'fontStyle', 'fontWeight', 'fontVariant', 'lineHeight', 'letterSpacing'] as const;
+        const sourceFont = Object.fromEntries(properties.map(property => [property, source[property]]));
+        const targets = collectTargets();
+        expect(targets.some(candidate => candidate.text === '通常の設定')).toBe(false);
+        const target = targets.find(candidate => candidate.text === '設定を開く')!;
+        expect(target).toBeTruthy();
+        expect(target.decoration).toBe('interactive-passive');
+        // Exercise the source-preserving path used for framework-owned controls.
+        applyTokensToScanTarget({ ...target, nonDestructive: true, passiveInteraction: true }, [token('設定', 0, '設定を開く', 'せってい')], FURIGANA_SETTINGS);
+        expect(document.querySelector('#ordinary .jpdb-reader-word')).toBeNull();
+        expect(baseText(host)).toBe('設定を開く');
+        const mirror = host.querySelector<HTMLElement>('.jpdb-reader-text-mirror')!;
+        expect(mirror).toBeTruthy();
+        for (const property of properties) expect(mirror.style[property], property).toBe(sourceFont[property]);
+        const reading = host.querySelector<HTMLElement>('.jpdb-reader-detached-furi')!;
+        expect(host.querySelector('rt')).toBeNull();
+        expect(reading.textContent).toBe('せってい');
+        expect(reading.style.fontSize).toBe(expectedReadingSize);
         expect(reading.style.fontWeight).toBe('normal');
+        expect(reading.style.getPropertyValue('line-height')).toBe('1');
+        expect(reading.style.getPropertyPriority('line-height')).toBe('important');
     });
 });
 
