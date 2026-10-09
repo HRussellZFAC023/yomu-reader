@@ -148,6 +148,13 @@ describe('where the red does not go', () => {
         ]) expect(ruleBody(stats, selector), selector).not.toContain('--jpdb-reader-accent');
     });
 
+    // On dark manga pages the auto overlay mixed 22% red into every line's band
+    // and 58% into its rim: maroon bands that read as an alert.
+    it('bands OCR lines in ink on dark pages', () => {
+        const ocr = readFileSync('src/reader/styles/reader-words-ocr.css', 'utf8');
+        expect(ruleBody(ocr, '.jpdb-ocr-layer[data-ocr-overlay-theme="dark"][data-ocr-overlay-variant="auto"]')).not.toContain('--jpdb-reader-accent');
+    });
+
     it('gives no review source the brand red as its dot', () => {
         for (const source of ['jpdb', 'bunpro', 'yomu-local']) {
             expect(ruleBody(newTab, `.jpdb-reader-newtab-source-select[data-source="${source}"]`), source).not.toContain('--jpdb-reader-accent');

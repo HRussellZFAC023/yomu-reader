@@ -1761,11 +1761,8 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
   --jpdb-reader-highlight-shadow: 0 1px 5px rgba(0, 0, 0, 0.42);
 }
 .jpdb-ocr-layer[data-ocr-overlay-theme="dark"][data-ocr-overlay-variant="auto"] {
-  --jpdb-ocr-auto-dark-surface: color-mix(
-    in srgb,
-    rgba(9, 13, 20, 0.64) 78%,
-    var(--jpdb-reader-accent, #b8324e) 22%
-  );
+  /* Ink, not the accent: a red cast over every line of a manga page is noise. */
+  --jpdb-ocr-auto-dark-surface: rgba(9, 13, 20, 0.64);
   --jpdb-ocr-auto-dark-visible: color-mix(
     in srgb,
     var(--jpdb-ocr-auto-dark-surface) 54%,
@@ -1776,11 +1773,7 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
     var(--jpdb-ocr-auto-dark-surface) 72%,
     transparent
   );
-  --jpdb-ocr-auto-dark-border: color-mix(
-    in srgb,
-    var(--jpdb-reader-accent, #b8324e) 58%,
-    rgba(255, 255, 255, 0.16)
-  );
+  --jpdb-ocr-auto-dark-border: rgba(255, 255, 255, 0.28);
 }
 .jpdb-ocr-layer[data-ocr-overlay-theme="light"] {
   --jpdb-reader-highlight-backdrop: rgba(255, 255, 255, 0.9);
