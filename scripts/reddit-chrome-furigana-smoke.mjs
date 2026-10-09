@@ -918,7 +918,8 @@ function snapshotRadialMenuReadiness(returnUnready) {
     const animationsSettled = animationStates.every(state => state === 'finished');
     const ready = animationsSettled
         && rects.length >= 6
-        && widths.every(width => width >= 45 && width <= 51)
+        && items.filter(item => item.classList.contains('is-primary')).length === 1
+        && widths.every((width, index) => Math.abs(width - (items[index].classList.contains('is-primary') ? 52 : 46)) <= 1)
         && distances.every(distance => distance >= 60)
         && hitTargets.every(Boolean);
     const readiness = {
@@ -1375,7 +1376,8 @@ async function exerciseCompensatedPuckDrag(page) {
         { steps: 6 },
     );
     await page.mouse.up();
-    await page.waitForTimeout(100);
+    await page.waitForFunction(() => document.querySelector('.jpdb-reader-fab')
+        ?.getAnimations().every(animation => animation.playState === 'finished'), null, { timeout: 5_000 });
 
     return puck.evaluate((button, details) => {
         const box = button.getBoundingClientRect();
@@ -2034,6 +2036,7 @@ function snapshotRedditPageSummary() {
                 offsetTop: visualViewport.offsetTop,
             } : null,
             radialWidths: radialRects.map(rect => rect.width),
+            radialPrimary: radialItems.map(item => item.classList.contains('is-primary')),
             adjacentDistances: radialCenters.slice(1).map((center, index) => Math.hypot(
                 center.x - radialCenters[index].x,
                 center.y - radialCenters[index].y,
@@ -2068,7 +2071,8 @@ function radialGeometryHasSettled() {
     if (items.length < 6) return false;
     const rects = items.map(item => item.getBoundingClientRect());
     const centers = rects.map(rect => ({ x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 }));
-    return rects.every(rect => rect.width >= 45 && rect.width <= 51)
+    return items.filter(item => item.classList.contains('is-primary')).length === 1
+        && rects.every((rect, index) => Math.abs(rect.width - (items[index].classList.contains('is-primary') ? 52 : 46)) <= 1)
         && centers.slice(1).every((center, index) => Math.hypot(
             center.x - centers[index].x,
             center.y - centers[index].y,
@@ -2095,9 +2099,9 @@ function assertRedditRegression(engineName, baseline, snapshot, touchHover, page
         assert(snapshot.overlay.scaleAdapter === '' && snapshot.overlay.puckInlineZoom === '',
             `${engineName}: normal-scale Reddit received unnecessary compensation`, snapshot.overlay);
     }
-    // The open hub deliberately grows to 1.06× (52 × 1.06 = 55.12px). It must
-    // stay that physical size even when WebKit renders the page itself at 1.6×.
-    assert(Math.abs(snapshot.overlay.puckWidth - 55.12) <= 1 && Math.abs(snapshot.overlay.puckHeight - 55.12) <= 1,
+    // The hub remains 52 physical pixels, including while open and when
+    // WebKit renders the surrounding page at 1.6×.
+    assert(Math.abs(snapshot.overlay.puckWidth - 52) <= 1 && Math.abs(snapshot.overlay.puckHeight - 52) <= 1,
         `${engineName}: Reddit page scale enlarged the Yomu puck`, snapshot.overlay);
     // Headless Linux WebKit applies CSS zoom to a fixed bottom edge
     // differently from Safari/WebKit on macOS. Keep that synthetic lane strict
@@ -2112,7 +2116,8 @@ function assertRedditRegression(engineName, baseline, snapshot, touchHover, page
             `${engineName}: compensated puck lost its authored bottom edge rule`, snapshot.overlay);
     }
     assert(snapshot.overlay.radialWidths.length >= 6
-        && snapshot.overlay.radialWidths.every(width => width >= 45 && width <= 51),
+        && snapshot.overlay.radialPrimary.filter(Boolean).length === 1
+        && snapshot.overlay.radialWidths.every((width, index) => Math.abs(width - (snapshot.overlay.radialPrimary[index] ? 52 : 46)) <= 1),
     `${engineName}: Reddit page scale enlarged the Yomu radial controls`, snapshot.overlay);
     assert(Math.min(...snapshot.overlay.adjacentDistances) >= 60,
         `${engineName}: Reddit scale isolation collapsed radial finger spacing`, snapshot.overlay);
@@ -2128,12 +2133,12 @@ function assertRedditRegression(engineName, baseline, snapshot, touchHover, page
 
 function assertOverlayScaleIsolation(engineName, overlay) {
     assert(overlay.hostname === 'www.reddit.com', `${engineName}: Reddit scale fixture lost its production hostname`, overlay);
-    // The open hub deliberately grows to 1.06×; the host's 1.6× zoom must not
-    // multiply that again (52 × 1.06 = 55.12px).
-    assert(Math.abs(overlay.puckWidth - 55.12) <= 1 && Math.abs(overlay.puckHeight - 55.12) <= 1,
+    // Host zoom must not enlarge the fixed-size hub or either control role.
+    assert(Math.abs(overlay.puckWidth - 52) <= 1 && Math.abs(overlay.puckHeight - 52) <= 1,
         `${engineName}: Reddit host zoom enlarged the Yomu puck`, overlay);
     assert(overlay.radialWidths.length >= 6
-        && overlay.radialWidths.every(width => width >= 45 && width <= 51),
+        && overlay.radialPrimary.filter(Boolean).length === 1
+        && overlay.radialWidths.every((width, index) => Math.abs(width - (overlay.radialPrimary[index] ? 52 : 46)) <= 1),
     `${engineName}: Reddit host zoom enlarged the Yomu radial controls`, overlay);
     assert(Math.min(...overlay.adjacentDistances) >= 60,
         `${engineName}: Reddit scale isolation collapsed radial finger spacing`, overlay);
