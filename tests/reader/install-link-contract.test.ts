@@ -1,7 +1,7 @@
 import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { localizeHtmlFragment } from '../../docs/.vitepress/locales/markdown-localization';
 
 type DesktopRoute = 'mac-arm64' | 'mac-x64' | 'win-x64' | 'linux-x86_64';
@@ -19,7 +19,7 @@ const {
     DESKTOP_DOWNLOAD_URLS: Record<DesktopRoute, string>;
     INSTALL_ROUTE_URLS: Record<'chrome' | 'firefox' | 'userscript', string>;
     hostedInstallRouteSnippet(): string;
-    resolveHostedDesktopRoute(userAgent: string, maxTouchPoints?: number): DesktopRoute | 'none';
+    resolveHostedDesktopRoute(userAgent: string, maxTouchPoints?: number, architecture?: string): DesktopRoute | 'none';
     resolveHostedInstallRoute(userAgent: string): InstallRoute;
 };
 
@@ -81,7 +81,7 @@ describe('hosted userscript install links', () => {
 
     it.each([
         ['Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36', 0, 'win-x64'],
-        ['Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Safari/605.1.15', 0, 'mac-arm64'],
+        ['Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Safari/605.1.15', 0, 'none'],
         ['Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Safari/605.1.15', 5, 'none'],
         ['Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36', 0, 'linux-x86_64'],
         ['Mozilla/5.0 (Android 15; Mobile; rv:142.0) Gecko/142.0 Firefox/142.0', 5, 'none'],
@@ -273,18 +273,49 @@ describe('hosted store install routes', () => {
         }
     });
 
-    it('switches an Intel Mac to the Intel download when Chromium reports the architecture', async () => {
+    it.each([['arm', 'mac-arm64'], ['x86', 'mac-x64']] as const)('selects the Mac %s binary only after an explicit architecture hint', async (architecture, route) => {
         const attributes = new Map<string, string>();
         const documentStub = { documentElement: { setAttribute: (name: string, value: string) => attributes.set(name, value) } };
-        const navigatorStub = {
-            userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36',
-            maxTouchPoints: 0,
-            userAgentData: { getHighEntropyValues: async () => ({ architecture: 'x86' }) },
-        };
-        new Function('navigator', 'document', hostedInstallRouteSnippet())(navigatorStub, documentStub);
-        expect(attributes.get('data-yomu-desktop')).toBe('mac-arm64');
-        await Promise.resolve();
-        await Promise.resolve();
-        expect(attributes.get('data-yomu-desktop')).toBe('mac-x64');
+        const userAgent = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36';
+        const hints = vi.fn(async () => ({ architecture }));
+        stampInstallRoute(documentStub, { userAgent, maxTouchPoints: 0, userAgentData: { getHighEntropyValues: hints } });
+        expect(attributes.get('data-yomu-desktop')).toBe('none');
+        await vi.waitFor(() => expect(attributes.get('data-yomu-desktop')).toBe(route));
+        expect(hints).toHaveBeenCalledWith(['architecture']);
+        expect(resolveHostedDesktopRoute(userAgent, 0, architecture)).toBe(route);
     });
+
+    it.each([MAC_SAFARI_UA, 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:140.0) Gecko/20100101 Firefox/140.0'])('offers a real choice page for a Mac with an unknown architecture: %s', userAgent => {
+        const attributes = new Map<string, string>();
+        stampInstallRoute({ documentElement: { setAttribute: (name, value) => attributes.set(name, value) } }, { userAgent, maxTouchPoints: 0 });
+        expect(attributes.get('data-yomu-desktop')).toBe('none');
+        const home = document.createElement('div'); home.innerHTML = readFileSync('docs/index.md', 'utf8');
+        expect(home.querySelector('.yomu-desktop-fallback')?.getAttribute('href')).toBe('/desktop');
+        const choice = document.createElement('div'); choice.innerHTML = readFileSync('docs/desktop.md', 'utf8');
+        for (const [route, name] of [['mac-arm64', 'Mac (Apple silicon)'], ['mac-x64', 'Mac (Intel)']] as const) {
+            expect(choice.querySelector(`a.yomu-desktop-other[href="${DESKTOP_DOWNLOAD_URLS[route]}"]`)?.textContent).toBe(name);
+        }
+    });
+
+    it('does not request a Mac architecture hint for an iPad masquerading as a Mac', () => {
+        const hints = vi.fn(async () => ({ architecture: 'arm' }));
+        const attributes = new Map<string, string>();
+        stampInstallRoute({ documentElement: { setAttribute: (name, value) => attributes.set(name, value) } }, {
+            userAgent: MAC_SAFARI_UA, maxTouchPoints: 5, userAgentData: { getHighEntropyValues: hints },
+        });
+        expect(attributes.get('data-yomu-desktop')).toBe('none');
+        expect(hints).not.toHaveBeenCalled();
+        expect(resolveHostedDesktopRoute(MAC_SAFARI_UA, 5, 'arm')).toBe('none');
+    });
+
+    it.each(['', 'unknown', 'rejected'])('keeps the Mac choice when architecture is %s', async architecture => {
+        const attributes = new Map<string, string>();
+        stampInstallRoute({ documentElement: { setAttribute: (name, value) => attributes.set(name, value) } }, {
+            userAgent: MAC_SAFARI_UA, maxTouchPoints: 0,
+            userAgentData: { getHighEntropyValues: async () => { if (architecture === 'rejected') throw new Error('Denied'); return { architecture }; } },
+        });
+        await Promise.resolve();
+        expect(attributes.get('data-yomu-desktop')).toBe('none');
+    });
+
 });

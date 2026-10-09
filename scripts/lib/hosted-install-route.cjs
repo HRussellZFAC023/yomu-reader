@@ -53,14 +53,12 @@ const DESKTOP_DOWNLOAD_URLS = Object.freeze({
     'linux-x86_64': `${DESKTOP_DOWNLOAD_BASE}yomu-desktop-linux-x86_64.AppImage`,
 });
 
-// Phones and tablets first: iPadOS Safari sends a Mac user agent, so a Mac with
-// a touch screen is an iPad (the snippet checks maxTouchPoints). Macs default to
-// Apple silicon, which every Mac sold since 2020 uses; Chromium can say "x86"
-// through userAgentData, and Intel stays one click away in the list.
+// iPadOS can send a Mac user agent. A non-touch Mac still has unknown CPU
+// architecture until Client Hints supplies it; Safari's "Intel" UA is not proof.
 const DESKTOP_ROUTE_RULES = Object.freeze([
     ['none', 'iPhone|iPad|iPod|Android|CrOS'],
     ['win-x64', 'Windows'],
-    ['mac-arm64', 'Macintosh|Mac OS X'],
+    ['mac', 'Macintosh|Mac OS X'],
     ['linux-x86_64', 'Linux|X11'],
 ]);
 
@@ -81,13 +79,16 @@ function resolveHostedInstallRoute(userAgent) {
 /**
  * @param {string} userAgent
  * @param {number} [maxTouchPoints]
+ * @param {string} [architecture] explicit User-Agent Client Hint
  * @returns {'mac-arm64' | 'mac-x64' | 'win-x64' | 'linux-x86_64' | 'none'}
  */
-function resolveHostedDesktopRoute(userAgent, maxTouchPoints = 0) {
+function resolveHostedDesktopRoute(userAgent, maxTouchPoints = 0, architecture = '') {
     const ua = typeof userAgent === 'string' ? userAgent : '';
     for (const [route, pattern] of DESKTOP_ROUTE_RULES) {
         if (!new RegExp(pattern).test(ua)) continue;
-        return route === 'mac-arm64' && maxTouchPoints > 1 ? 'none' : route;
+        if (route !== 'mac') return route;
+        if (maxTouchPoints > 1) return 'none';
+        return architecture === 'arm' ? 'mac-arm64' : architecture === 'x86' ? 'mac-x64' : 'none';
     }
     return DEFAULT_DESKTOP_ROUTE;
 }
@@ -99,10 +100,9 @@ function resolveHostedDesktopRoute(userAgent, maxTouchPoints = 0) {
  * from the same table as resolveHostedInstallRoute, so the shipped page and the
  * tested function can never disagree.
  *
- * It also stamps data-yomu-desktop with the よむ Desktop file for this
- * computer, so the download button fetches that file directly. Chromium on an
- * Intel Mac reports "x86" through userAgentData a moment later; the attribute
- * is corrected then, before anyone can reach the button.
+ * Unknown Macs use the existing Desktop choice page, which offers labelled
+ * Apple silicon and Intel links. Only an explicit architecture hint promotes
+ * a direct binary, including while an asynchronous hint is still pending.
  *
  * The snippet never removes an attribute and never writes anything except
  * those two; if it throws, the page keeps the no-JS defaults: the userscript
@@ -123,11 +123,11 @@ function hostedInstallRouteSnippet() {
         'h.setAttribute("data-yomu-install",m);' +
         `var q=${desktopRules},d=${desktopFallback};` +
         'for(var j=0;j<q.length;j++){if(new RegExp(q[j][1]).test(u)){d=q[j][0];break}}' +
-        'if(d==="mac-arm64"&&(n.maxTouchPoints||0)>1)d="none";' +
+        'var mac=d==="mac"&&(n.maxTouchPoints||0)<=1;if(d==="mac")d="none";' +
         'h.setAttribute("data-yomu-desktop",d);' +
-        'if(d==="mac-arm64"&&n.userAgentData&&n.userAgentData.getHighEntropyValues)' +
+        'if(mac&&n.userAgentData&&n.userAgentData.getHighEntropyValues)' +
         'n.userAgentData.getHighEntropyValues(["architecture"]).then(function(v){' +
-        'if(v&&v.architecture==="x86")h.setAttribute("data-yomu-desktop","mac-x64")},function(){})' +
+        'if(v&&(v.architecture==="arm"||v.architecture==="x86"))h.setAttribute("data-yomu-desktop",v.architecture==="arm"?"mac-arm64":"mac-x64")},function(){})' +
         '}catch(e){}})()';
     // Inline scripts end at the first `</script>`; nothing here has any business
     // producing one, but never let a future URL or rule break every hosted page.

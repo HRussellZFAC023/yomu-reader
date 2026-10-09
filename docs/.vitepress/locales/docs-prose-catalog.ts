@@ -1153,7 +1153,7 @@ const HOSTED_DOCS_JA_COPY: Record<string, string> = {
     'Looking up a word.': '単語を調べるとき。',
     'The word you open goes to Jiten, JPDB and Bunpro for its meaning, pitch accent and frequency. This is on by default, with or without an installed dictionary.': '開いた単語は、意味、ピッチアクセント、頻度を調べるためにJiten、JPDB、Bunproに送られます。これは初期設定でオンで、辞書をインストールしていてもいなくても同じです。',
     'Finding words.': '単語の判定。',
-    "Until you install a dictionary, the Japanese text on the page also goes to Jiten's public API, or to JPDB once you add a JPDB key, to be split into words. With a dictionary installed, that happens on your device.": '辞書をインストールするまでは、ページの日本語も単語に分けるためにJitenの公開APIに送られます（JPDBのキーを入れた後はJPDBに送られます）。辞書をインストールすると、これは端末の中で行われます。',
+    "To keep page parsing on your device, choose the local parser and enable a word dictionary. Pitch or frequency data alone is not enough. Otherwise, Japanese page text can go to Jiten or JPDB; Jiten's public API needs no key.": 'ページの解析を端末内で行うには、ローカルの解析方法を選び、単語辞書を有効にしてください。アクセントや頻度の辞書だけでは足りません。それ以外ではページの日本語がJitenやJPDBに送られる場合があります。Jitenの公開APIにはキーが不要です。',
     'Accounts you connect.': '接続したアカウント。',
     'With your key, Jiten, JPDB, Bunpro and WaniKani get the words you save or grade, their sentences, your reviews and that key. WaniKani requests go straight to api.wanikani.com, never through a proxy.': 'キーを入れると、Jiten、JPDB、Bunpro、WaniKaniは、保存または採点した単語とその文、復習の結果、そのキーを受け取ります。WaniKaniへの通信はプロキシを通さず、api.wanikani.comに直接送られます。',
     'Examples and translations.': '例文と翻訳。',

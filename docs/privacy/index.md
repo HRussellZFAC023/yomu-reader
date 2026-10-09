@@ -21,7 +21,7 @@ Uninstalling removes this data. To keep a copy, export a backup first from Study
 ## What leaves your device, and when
 
 - **Looking up a word.** The word you open goes to Jiten, JPDB and Bunpro for its meaning, pitch accent and frequency. This is on by default, with or without an installed dictionary.
-- **Finding words.** Until you install a dictionary, the Japanese text on the page also goes to Jiten's public API, or to JPDB once you add a JPDB key, to be split into words. With a dictionary installed, that happens on your device.
+- **Finding words.** To keep page parsing on your device, choose the local parser and enable a word dictionary. Pitch or frequency data alone is not enough. Otherwise, Japanese page text can go to Jiten or JPDB; Jiten's public API needs no key.
 - **Accounts you connect.** With your key, Jiten, JPDB, Bunpro and WaniKani get the words you save or grade, their sentences, your reviews and that key. WaniKani requests go straight to api.wanikani.com, never through a proxy.
 - **Examples and translations.** Immersion Kit and Nadeshiko get the search term or sentence when you ask for examples. Google Translate gets subtitle or sentence text when you ask for a translation, or when an example from Jiten, Bunpro or JPDB arrives without one.
 - **Audio.** Your audio sources get the word and reading: Yomu Audio, Jiten, JPDB, Bunpro's audio CDN, JapanesePod101, Wikimedia Commons, or a source you add.
