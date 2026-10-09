@@ -15,7 +15,6 @@ import {
     parseSettingsIntentLedger,
     type SettingsIntentLedger,
 } from './intent-ledger';
-import { retirePuckDefaultDeclarations } from './retired-defaults';
 import { createStorageCoordinationId, STORAGE_WORK_LEASE_MS, type GmStorageLeaseOptions } from '../app/gm-storage-lease';
 import { reportSaveWaitingForAnotherTab } from '../app/save-wait';
 import {
@@ -122,8 +121,7 @@ async function sampledSettingsView(read: SettingsStorageRead): Promise<SettingsP
     if (!intentLedger) return null;
     return {
         settings: committed.settings,
-        // Load, Save and restore all read through here (ADR-0026).
-        intentLedger: retirePuckDefaultDeclarations(intentLedger),
+        intentLedger,
     };
 }
 

@@ -5,7 +5,7 @@ import { DEFAULT_SETTINGS, loadSettings, saveSettings, SETTINGS_STORAGE_KEY } fr
 import { restoreReaderSettingsBackup } from '../../src/reader/settings/reader-settings-restore-adapter';
 import { RETIRED_DEFAULT_SETTING_KEYS } from '../../src/reader/settings/retired-defaults';
 import { planAnnotationPowerTransition, PUCK_FURIGANA_INTENT_KEYS } from '../../src/reader/app/annotation-power-policy';
-import { SETTINGS_INTENT_LEDGER_STORAGE_KEY } from '../../src/reader/settings/intent-ledger';
+import { recordSettingsIntent, SETTINGS_INTENT_LEDGER_STORAGE_KEY } from '../../src/reader/settings/intent-ledger';
 import { serializeSettingsPersistencePair } from '../../src/reader/settings/settings-persistence-transaction';
 import type { SettingsIntentLedger } from '../../src/reader/settings/intent-ledger';
 // @ts-expect-error plain .mjs script module without type declarations
@@ -166,53 +166,59 @@ describe('retired annotation defaults', () => {
     });
 });
 
-// 2.0's puck declared the reading mode it switched to, the then-default 'all'
-// included, and the mode to come back to after hiding, in one write with the
-// remembered mode last. This ledger is what a real 2.0.12 build wrote after
-// one hide, pause and resume cycle on a fresh install.
-describe('reading modes the 2.0 puck declared', () => {
-    const PUCK_CYCLED: SettingsIntentLedger = {
-        revision: 8,
-        records: {
-            showFurigana: { seq: 5, value: true },
-            furiganaMode: { seq: 6, value: 'all' },
-            puckFuriganaModeBeforeHide: { seq: 7, value: '' },
-            annotationsPaused: { seq: 8, value: false },
-        },
-    };
-    // The same install with furigana hidden by the puck when it upgrades.
-    const PUCK_HIDDEN: SettingsIntentLedger = {
-        revision: 7,
-        records: {
-            showFurigana: { seq: 5, value: true },
-            furiganaMode: { seq: 6, value: 'off' },
-            puckFuriganaModeBeforeHide: { seq: 7, value: 'all' },
-        },
-    };
+// The legacy puck stores only the latest value per key. Its adjacent sequence
+// numbers cannot distinguish a remembered Settings choice from an old default.
+describe('declared reading modes across the old puck lifecycle', () => {
+    const OLD_PUCK_KEYS = ['showFurigana', 'furiganaMode', 'puckFuriganaModeBeforeHide'] as const;
+
+    function explicitAllThenOldPuckHide() {
+        const chosen = { ...DEFAULT_SETTINGS, ...PRE_2_1_DEFAULTS, furiganaMode: 'all' as const };
+        const chosenLedger = recordSettingsIntent({ revision: 9, records: {} }, ['furiganaMode'], chosen);
+        const hide = planAnnotationPowerTransition(chosen, true, 'all');
+        expect(hide).toEqual({ kind: 'hide-furigana', rememberedMode: 'all' });
+        const hidden = { ...chosen, furiganaMode: 'off' as const, puckFuriganaModeBeforeHide: 'all' as const };
+        const ledger = recordSettingsIntent(chosenLedger, OLD_PUCK_KEYS, hidden);
+        expect(ledger.records.furiganaMode).toEqual({ seq: 12, value: 'off' });
+        expect(ledger.records.puckFuriganaModeBeforeHide).toEqual({ seq: 13, value: 'all' });
+        return { hidden, ledger };
+    }
 
     async function storedLedger(): Promise<SettingsIntentLedger> {
         const { GM_getValue: read } = globalThis as unknown as { GM_getValue: (key: string, fallback: unknown) => Promise<unknown> };
         return await read(SETTINGS_INTENT_LEDGER_STORAGE_KEY, null) as SettingsIntentLedger;
     }
 
-    it('read as the new default, and the next save drops the declaration', async () => {
-        const loaded = await loadStored({ ...PRE_2_1_DEFAULTS, puckFuriganaModeBeforeHide: '' }, PUCK_CYCLED);
-        expect(loaded.furiganaMode).toBe('known-status');
-
+    it('keeps explicit All through a legacy hide, upgrade, unrelated Save and resume', async () => {
+        const { hidden, ledger } = explicitAllThenOldPuckHide();
+        const loaded = await loadStored(hidden, ledger);
+        expect(loaded).toMatchObject({ furiganaMode: 'off', puckFuriganaModeBeforeHide: 'all' });
         await saveSettings({ ...loaded, theme: 'dark' }, { explicitUserChoiceKeys: ['theme'] });
-        const ledger = await storedLedger();
-        expect(Object.keys(ledger.records)).not.toContain('furiganaMode');
-        expect(ledger.records.showFurigana).toMatchObject({ value: true });
-        expect(await loadSettings()).toMatchObject({ furiganaMode: 'known-status', theme: 'dark' });
+        expect((await storedLedger()).records.puckFuriganaModeBeforeHide).toEqual({ seq: 13, value: 'all' });
+        const reloaded = await loadSettings();
+        expect(planAnnotationPowerTransition({ ...reloaded, annotationsPaused: true }, true, DEFAULT_SETTINGS.furiganaMode))
+            .toEqual({ kind: 'resume', furiganaMode: 'all' });
+        await saveSettings({ ...reloaded, furiganaMode: 'all', puckFuriganaModeBeforeHide: '' }, { explicitUserChoiceKeys: PUCK_FURIGANA_INTENT_KEYS });
+        expect(await loadSettings()).toMatchObject({ furiganaMode: 'all', theme: 'dark' });
     });
 
-    it('resume on the new default when the puck hid furigana before the upgrade', async () => {
-        const loaded = await loadStored({ ...PRE_2_1_DEFAULTS, furiganaMode: 'off', puckFuriganaModeBeforeHide: 'all' }, PUCK_HIDDEN);
-        // Hidden stays hidden: that was the learner's choice.
-        expect(loaded.furiganaMode).toBe('off');
-        expect(loaded.puckFuriganaModeBeforeHide).toBe('');
-        expect(planAnnotationPowerTransition({ ...loaded, annotationsPaused: true }, true, DEFAULT_SETTINGS.furiganaMode))
-            .toEqual({ kind: 'resume', furiganaMode: 'known-status' });
+    it('keeps the same declared remembered mode when restoring the legacy backup', async () => {
+        const { hidden, ledger } = explicitAllThenOldPuckHide();
+        installGmStorageFixture();
+        const adopted = await restore({ settings: hidden, storage: serializeSettingsPersistencePair(hidden, ledger) });
+        expect(adopted).toMatchObject({ furiganaMode: 'off', puckFuriganaModeBeforeHide: 'all' });
+        expect(await loadSettings()).toMatchObject({ furiganaMode: 'off', puckFuriganaModeBeforeHide: 'all' });
+        expect(planAnnotationPowerTransition({ ...adopted, annotationsPaused: true }, true, DEFAULT_SETTINGS.furiganaMode))
+            .toEqual({ kind: 'resume', furiganaMode: 'all' });
+    });
+
+    it('preserves a completed old puck cycle whose original mode provenance is unknowable', async () => {
+        const { hidden, ledger } = explicitAllThenOldPuckHide();
+        const resumed = { ...hidden, furiganaMode: 'all' as const, puckFuriganaModeBeforeHide: '' as const };
+        const cycledLedger = recordSettingsIntent(ledger, OLD_PUCK_KEYS, resumed);
+        const loaded = await loadStored(resumed, cycledLedger);
+        expect(loaded.furiganaMode).toBe('all');
+        await saveSettings({ ...loaded, theme: 'dark' }, { explicitUserChoiceKeys: ['theme'] });
+        expect((await storedLedger()).records.furiganaMode).toEqual(cycledLedger.records.furiganaMode);
     });
 
     it('keep a reading mode chosen since 2.1 through a puck hide and resume', async () => {
