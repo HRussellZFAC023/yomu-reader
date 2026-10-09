@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 
-import { contrastRatio } from '../../src/reader/theme/color-utils';
+import { contrastRatio, mixHex } from '../../src/reader/theme/color-utils';
 
 // The shared palette gives each colour one job. Red is the よむ accent:
 // selection, focus and the one primary action. An outcome takes the success or
@@ -12,6 +12,7 @@ const CSS = {
     popover: read('popover-core'),
     settings: read('settings'),
     words: read('reader-words-ocr'),
+    kanji: read('kanji'),
 };
 
 function read(name: string): string {
@@ -56,6 +57,16 @@ function property(css: string, selector: string, name: string, theme: Theme): st
     const value = declarations(block(css, selector)).get(name);
     if (!value) throw new Error(`${selector} has no ${name}`);
     return resolve(value, themeTokens(theme));
+}
+
+/** Composite the simple sRGB mixes used by keyword chips onto their actual parent. */
+function chipBackground(value: string, tokens: Map<string, string>, parent: string): string {
+    if (value === 'transparent') return parent;
+    const mix = /^color-mix\(in srgb, (var\(--[\w-]+\)|#[\da-f]+) (\d+)%, (var\(--[\w-]+\)|#[\da-f]+|transparent)(?: (\d+)%)?\)$/iu.exec(value);
+    if (!mix) return resolve(value, tokens);
+    const firstWeight = Number(mix[2]);
+    const secondWeight = mix[4] ? Number(mix[4]) : 100 - firstWeight;
+    return mixHex(mix[3] === 'transparent' ? parent : resolve(mix[3], tokens), resolve(mix[1], tokens), firstWeight / (firstWeight + secondWeight));
 }
 
 function hue(hex: string): number {
@@ -124,6 +135,22 @@ describe('the shared palette', () => {
             expect(contrastRatio(ink, amber), `${ink} on ${amber}`).toBeGreaterThanOrEqual(4.5);
         }
     });
+
+    for (const theme of ['light', 'dark'] as const) {
+        for (const canonical of [false, true]) {
+            it(`keeps the ${canonical ? 'canonical' : 'ordinary'} kanji source tag readable (${theme})`, () => {
+                const tokens = themeTokens(theme);
+                const chip = declarations(block(CSS.kanji, canonical
+                    ? '.jpdb-reader-kanji-keyword[data-canonical] {'
+                    : '.jpdb-reader-kanji-keyword {'));
+                const source = declarations(block(CSS.kanji, '.jpdb-reader-kanji-keyword small,'));
+                const paper = chipBackground(chip.get('background')!, tokens, resolve('var(--jpdb-reader-surface-2)', tokens));
+                const labelPaper = chipBackground(source.get('background')!, tokens, paper);
+                const ink = resolve(source.get('color')!, tokens);
+                expect(contrastRatio(ink, labelPaper), `${ink} on ${labelPaper}`).toBeGreaterThanOrEqual(4.5);
+            });
+        }
+    }
 });
 
 // Red is the よむ accent for selection, focus and one primary action. Swapping

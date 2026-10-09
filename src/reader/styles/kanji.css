@@ -58,10 +58,9 @@
   max-width: 100%;
   min-height: 24px;
   padding: 3px 9px;
-  border: 1px solid
-    color-mix(in srgb, var(--jpdb-reader-text) 34%, var(--jpdb-reader-border));
+  border: 1px solid var(--jpdb-reader-border);
   border-radius: 999px;
-  background: color-mix(in srgb, var(--jpdb-reader-surface-2) 88%, var(--jpdb-reader-text) 12%);
+  background: var(--jpdb-reader-surface-2);
   color: var(--jpdb-reader-text);
   box-shadow: none;
   font-size: 12px;
@@ -70,9 +69,11 @@
   overflow: hidden;
   white-space: nowrap;
 }
+/* The canonical keyword is a shade deeper, still light enough that the muted
+   source tag on it keeps 4.5:1 (an ink mix at the accent's old 24% fell to 2.7:1). */
 .jpdb-reader-kanji-keyword[data-canonical] {
-  border-color: color-mix(in srgb, var(--jpdb-reader-text) 62%, var(--jpdb-reader-border));
-  background: color-mix(in srgb, var(--jpdb-reader-surface-2) 76%, var(--jpdb-reader-text) 24%);
+  border-color: color-mix(in srgb, var(--jpdb-reader-text) 40%, var(--jpdb-reader-border));
+  background: color-mix(in srgb, var(--jpdb-reader-surface-2) 92%, var(--jpdb-reader-text) 8%);
 }
 .jpdb-reader-kanji-keyword small,
 .jpdb-reader-kanji-keyword-source {
@@ -82,7 +83,7 @@
   height: auto;
   padding: 1px 5px;
   border-radius: 6px;
-  background: color-mix(in srgb, var(--jpdb-reader-text) 14%, transparent);
+  background: transparent;
   color: var(--jpdb-reader-muted);
   font-size: 9px;
   font-weight: 800;
