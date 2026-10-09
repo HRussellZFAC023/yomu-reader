@@ -38392,7 +38392,6 @@ const COPY$c = {
     dictionaryEntries: "entries",
     dictionaryTotal: "total",
     dictionaryDownloadProgress: "Downloading",
-    dictionaryStatusSummary: "Dicts {dictionaries}, terms {terms}, kanji {kanji}, meta {metadata}",
     dictionaryStatusUnavailable: "Unavailable.",
     noLocalDictionariesImported: "No dictionaries imported yet. Start with a term dictionary for definitions.",
     dictionaryDownloadFailed: "Dictionary download failed.",
@@ -39005,7 +39004,6 @@ dictionaryRecords	辞書レコード
 dictionaryEntries	件
 dictionaryTotal	合計
 dictionaryDownloadProgress	辞書をダウンロード中
-dictionaryStatusSummary	辞書{dictionaries}、語{terms}、漢字{kanji}、メタ{metadata}
 dictionaryStatusUnavailable	辞書状態を取得不可。
 noLocalDictionariesImported	辞書は未追加です。まず定義用の語句辞書を追加してください。
 dictionaryDownloadFailed	辞書のダウンロードに失敗しました。
@@ -264361,7 +264359,7 @@ function padClockPart(value) {
 const DEFAULT_ACADEMY_STUDY_DURATION_MS = DEFAULT_STUDY_DURATION_MS;
 class StudyRuntimeLoadFailure extends Error {
 }
-function createCanonicalAcademyStudyModule(loadRuntime = () => import("./runtime-C4-z84Qg.js")) {
+function createCanonicalAcademyStudyModule(loadRuntime = () => import("./runtime-DhooKz3E.js")) {
   return {
     async mount(host2, context2) {
       let runtime;

@@ -11,7 +11,7 @@
 // @updateURL https://update.greasyfork.org/scripts/581653/%E3%82%88%E3%82%80.meta.js
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-runtime.d36ec25fa390.user.js#sha256=027CX6OQpg8zHFqIqazsbUcDL8n+QOnGrKweHjc/SzI=
+// @require https://yomureader.com/greasyfork/yomu-runtime.6889f8299c2c.user.js#sha256=aIn4KZwsoyHPuhYrhTPpISpPhToO4FPRr3V6yvYXOnM=
 // @resource yomuCss  https://yomureader.com/yomu.d378ade3078c.css#sha256=03it4weMHwIDqlKgM4xW47rcDBiUk4tYH9QhORGJQQo=
 // @connect api.jiten.moe
 // @connect api.tatoeba.org
@@ -33180,7 +33180,6 @@ dictionaryRecords	辞書レコード
 dictionaryEntries	件
 dictionaryTotal	合計
 dictionaryDownloadProgress	辞書をダウンロード中
-dictionaryStatusSummary	辞書{dictionaries}、語{terms}、漢字{kanji}、メタ{metadata}
 dictionaryStatusUnavailable	辞書状態を取得不可。
 noLocalDictionariesImported	辞書は未追加です。まず定義用の語句辞書を追加してください。
 dictionaryDownloadFailed	辞書のダウンロードに失敗しました。
