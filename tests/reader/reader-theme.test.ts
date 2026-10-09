@@ -5,7 +5,7 @@ import 'fake-indexeddb/auto';
 import { SETTINGS_CHANGE_EVENT } from '../../src/reader/app/constants';
 import { publishSettingsChange } from '../../src/reader/settings/settings-change-bus';
 import { ReaderApp } from '../../src/reader/app/main';
-import { blendRgba, contrastRatio, cssColorToRgba, mixHex, rgbaToHex } from '../../src/reader/theme/color-utils';
+import { blendRgba, contrastRatio, cssColorToRgba, rgbaToHex } from '../../src/reader/theme/color-utils';
 import { READER_THEME_COLOR_TOKENS } from '../../src/reader/theme/color-tokens';
 import { resetCssColorProbeForTests } from '../../src/reader/theme/color-rgba';
 import { applyReaderTheme, applyResolvedReaderTheme, resetReaderRootClassGuardForTests } from '../../src/reader/theme/reader-theme';
