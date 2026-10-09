@@ -1294,19 +1294,15 @@ describe('reader theme', () => {
         expect(document.documentElement.style.getPropertyValue('--jpdb-reader-accent-text')).toBe('#ffffff');
     });
 
-    // Dictionary tags (N5, noun, ...) paint the readable accent on an accent tint.
-    // That tint must be one the readable accent is computed against, or the label
-    // lands under 4.5:1 (4.41:1 measured on light Study, lower on light popups).
-    it.each(['light', 'dark'] as const)('keeps dictionary tag labels readable on their tint in the %s theme', theme => {
+    // Dictionary labels use neutral ink on paper, independently of the brand
+    // accent. Their actual foreground/background tokens still need 4.5:1.
+    it.each(['light', 'dark'] as const)('keeps neutral dictionary tags readable in the %s theme', theme => {
         const tagRule = readFileSync('src/reader/styles/local-dictionaries.css', 'utf8').match(/\.jpdb-reader-dict-tag \{([^}]*)\}/)![1];
-        const [, percent, surface] = tagRule.replace(/\/\*[\s\S]*?\*\//g, '')
-            .match(/background:\s*color-mix\(\s*in srgb,\s*var\(--jpdb-reader-accent\) (\d+)%,\s*var\(--jpdb-reader-(surface|surface-2)\)\s*\)/)!;
+        const backgroundToken = tagRule.match(/background:\s*var\(--jpdb-reader-(surface|surface-2)\)/)![1] as 'surface' | 'surface-2';
+        const foregroundToken = tagRule.match(/(?:^|;)\s*color:\s*var\(--jpdb-reader-(text|muted|faint)\)/)![1] as 'text' | 'muted' | 'faint';
         const tokens = READER_THEME_COLOR_TOKENS[theme];
-        const background = mixHex({ surface: tokens.surface, 'surface-2': tokens.surface2 }[surface]!, DEFAULT_SETTINGS.accentColor, Number(percent) / 100);
-
-        applyReaderTheme({ ...DEFAULT_SETTINGS, theme });
-
-        expect(contrastRatio(document.documentElement.style.getPropertyValue('--jpdb-reader-accent-readable'), background)).toBeGreaterThanOrEqual(4.5);
+        const background = backgroundToken === 'surface' ? tokens.surface : tokens.surface2;
+        expect(contrastRatio(tokens[foregroundToken], background)).toBeGreaterThanOrEqual(4.5);
     });
 
     // Example counts double as source status text ("Not loaded"). Faint is a

@@ -171,7 +171,8 @@ describe('settings form localization', () => {
         expect(baseControlFontIndex).toBeGreaterThanOrEqual(0);
         expect(noZoomFontIndex).toBeGreaterThan(baseControlFontIndex);
         expect(normalizedCss).toContain('.jpdb-reader-settings .jpdb-reader-tag-chip-list, .jpdb-reader-settings .jpdb-reader-tag-add-row { display: flex; flex-wrap: wrap;');
-        expect(normalizedCss).toContain('.jpdb-reader-settings .jpdb-reader-tag-chip:hover, .jpdb-reader-settings .jpdb-reader-tag-chip:focus-visible { border-color: var(--jpdb-reader-accent);');
+        expect(normalizedCss).toContain('.jpdb-reader-settings .jpdb-reader-tag-chip:hover, .jpdb-reader-settings .jpdb-reader-tag-chip:focus-visible { border-color: color-mix(in srgb, var(--jpdb-reader-text) 40%, var(--jpdb-reader-border));');
+        expect(normalizedCss).toContain('.jpdb-reader-settings .jpdb-reader-tag-chip:focus-visible { box-shadow: 0 0 0 3px var(--jpdb-reader-accent-soft);');
         expect(normalizedCss).toContain('.jpdb-reader-settings .jpdb-reader-tag-add-row input, .jpdb-reader-settings .jpdb-reader-tag-add-row .jpdb-reader-btn { flex-basis: 100%; }');
     });
 

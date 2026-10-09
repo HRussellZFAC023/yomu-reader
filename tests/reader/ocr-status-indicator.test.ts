@@ -23,7 +23,7 @@ describe('OCR status indicator styles', () => {
         expect(indicator).toMatch(/width: 16px;/);
         expect(indicator).toMatch(/height: 16px;/);
         expect(indicator).toMatch(/pointer-events: none;/);
-        expect(indicator).toMatch(/--jpdb-ocr-status-ink: var\(--jpdb-reader-accent/);
+        expect(indicator).toMatch(/--jpdb-ocr-status-ink: var\(--jpdb-reader-success/);
         // Contrast comes from a rim around the mark, not from a surface behind it.
         expect(indicator).toMatch(/filter: drop-shadow\(0 0 1px rgba\(0, 0, 0, 0\.8\)\) drop-shadow\(0 0 1px rgba\(255, 255, 255, 0\.45\)\)/);
         expect(indicator).not.toMatch(/background|border|box-shadow|padding|font/);
