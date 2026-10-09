@@ -16,8 +16,8 @@
  * A line edge stops it too: at the head or end of a line JLREQ aligns ruby to
  * the line instead, and an overhang there would stick out of the text column
  * and lose its first kana to any box that clips. Where lines break is layout,
- * so that is read after layout, once a frame, for every reading that may
- * overhang, after each paint and on resize (`jpdb-reader-ruby-line-edge`).
+ * so that is read after layout, once a frame, for readings in the paragraphs
+ * a paint can reflow, and across registered paragraphs on resize (`jpdb-reader-ruby-line-edge`).
  *
  * The neighbours are read here, not by a sibling selector: an adjacent-sibling
  * rule over page words, with or without :has(), made Chromium take ten times
@@ -60,36 +60,66 @@ export function syncRubyEdgeOverhang(words: Iterable<HTMLElement>): void {
             if (beside instanceof Element && beside.classList.contains(WORD_CLASS)) affected.add(beside);
         }
     }
-    affected.forEach(syncWord);
     for (const word of affected) {
-        for (const ruby of word.querySelectorAll(`:scope > ruby.${OVERHANG_CLASS}`)) lineEdgeCandidates.add(ruby);
+        syncWord(word);
+        const previousRoot = wordLayoutRoots.get(word);
+        const root = layoutRoot(word);
+        if (previousRoot) dirtyLayoutRoots.add(previousRoot);
+        if (root) {
+            dirtyLayoutRoots.add(root);
+            wordLayoutRoots.set(word, root);
+        } else wordLayoutRoots.delete(word);
     }
     scheduleLineEdgeCheck();
 }
 
-// Readings that may overhang. A paint anywhere can move line breaks anywhere
-// in its paragraph, so every pass reads them all; a disconnected one leaves.
-const lineEdgeCandidates = new Set<Element>();
+// A changed reading can reflow its entire paragraph, but not every unrelated
+// paragraph on the page. Keep roots, never detached ruby nodes; each dirty root
+// supplies its current readings. A mode-wide repaint naturally dirties all roots.
+type LayoutRoot = Element | ShadowRoot;
+const wordLayoutRoots = new WeakMap<Element, LayoutRoot>();
+const layoutRoots = new Set<LayoutRoot>();
+const dirtyLayoutRoots = new Set<LayoutRoot>();
 let lineEdgeFrame = 0;
 let resizeListening = false;
 
+function layoutRoot(element: Element): LayoutRoot | null {
+    const paragraph = element.closest(PARAGRAPH_SELECTOR);
+    if (paragraph) return paragraph;
+    const parent = (element.closest(`.${WORD_CLASS}`) ?? element).parentNode;
+    return parent instanceof Element || parent instanceof ShadowRoot ? parent : null;
+}
+
+function scheduleAllLineEdgeChecks(): void {
+    for (const root of layoutRoots) dirtyLayoutRoots.add(root);
+    scheduleLineEdgeCheck();
+}
+
 function scheduleLineEdgeCheck(): void {
-    if (lineEdgeFrame || !lineEdgeCandidates.size || typeof requestAnimationFrame !== 'function') return;
+    if (lineEdgeFrame || !dirtyLayoutRoots.size || typeof requestAnimationFrame !== 'function') return;
     if (!resizeListening) {
         resizeListening = true;
-        window.addEventListener('resize', scheduleLineEdgeCheck, { passive: true });
+        window.addEventListener('resize', scheduleAllLineEdgeChecks, { passive: true });
     }
     lineEdgeFrame = requestAnimationFrame(checkLineEdges);
 }
 
-// All reads first, then the class writes, so a pass costs one layout.
+// All reads first, then the class writes, so a pass costs one layout. Discard
+// removed roots without reading geometry, and discover replaced readings only
+// within the paragraphs whose text changed.
 function checkLineEdges(): void {
     lineEdgeFrame = 0;
+    for (const root of layoutRoots) if (!root.isConnected) layoutRoots.delete(root);
     const verdicts: Array<[Element, boolean]> = [];
-    for (const ruby of lineEdgeCandidates) {
-        if (!ruby.isConnected) lineEdgeCandidates.delete(ruby);
-        else if (ruby.matches(PAGE_OVERHANG_RUBY_SELECTOR)) verdicts.push([ruby, atLineEdge(ruby)]);
+    for (const root of dirtyLayoutRoots) {
+        if (!root.isConnected) continue;
+        const rubies = [...root.querySelectorAll(PAGE_OVERHANG_RUBY_SELECTOR)]
+            .filter(ruby => layoutRoot(ruby) === root);
+        if (rubies.length) layoutRoots.add(root);
+        else layoutRoots.delete(root);
+        for (const ruby of rubies) verdicts.push([ruby, atLineEdge(ruby)]);
     }
+    dirtyLayoutRoots.clear();
     for (const [ruby, edge] of verdicts) {
         if (ruby.classList.contains(LINE_EDGE_CLASS) !== edge) ruby.classList.toggle(LINE_EDGE_CLASS, edge);
     }
@@ -119,7 +149,7 @@ function glyphRects(ruby: Element): { first: DOMRect; last: DOMRect } | null {
 // The nearest page glyph before or after the ruby in its paragraph, skipping
 // readings: its own word's kana, plain text, or a neighbour's kanji.
 function facingGlyph(ruby: Element, side: Side): DOMRect | null {
-    const walker = glyphWalker(ruby.closest(PARAGRAPH_SELECTOR) ?? ruby.ownerDocument.body);
+    const walker = glyphWalker(layoutRoot(ruby) ?? ruby.ownerDocument.body);
     let from: Node = ruby;
     if (side === 'after') while (from.lastChild) from = from.lastChild;
     walker.currentNode = from;
