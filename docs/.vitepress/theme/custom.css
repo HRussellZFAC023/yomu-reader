@@ -1439,7 +1439,7 @@
 /* The install routes also head the Install page, outside the homepage's tokens. */
 .vp-doc .yomu-install-routes {
   --home-action: var(--vp-c-brand-1);
-  --home-on-action: var(--vp-c-white);
+  --home-on-action: var(--vp-button-brand-text);
   --home-muted: var(--vp-c-text-2);
   margin-bottom: 8px;
 }
@@ -1473,6 +1473,10 @@
    snippet (scripts/lib/hosted-install-route.cjs) stamps data-yomu-desktop; a
    phone, or a page without JS, gets the link to /desktop instead. */
 .yomu-desktop-download {
+  /* Pair the readable brand fill with its own ink, on every page and before
+     hydration. The raw accent's ink can differ (pink versus red in dark mode). */
+  --home-action: var(--vp-c-brand-1);
+  --home-on-action: var(--yomu-brand-ink, var(--yomu-doc-brand-ink));
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -1480,8 +1484,6 @@
   margin-top: 24px;
 }
 .vp-doc .yomu-desktop-download {
-  --home-action: var(--vp-c-brand-1);
-  --home-on-action: var(--vp-c-white);
   --home-muted: var(--vp-c-text-2);
 }
 .vp-doc .yomu-desktop-download p { margin: 0; }

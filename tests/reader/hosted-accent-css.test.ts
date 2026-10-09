@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { readFileSync } from 'node:fs';
 
 import {
     currentAccentColor,
@@ -13,6 +14,27 @@ import { sharedContrastRatio } from '../../src/reader/core/color-math';
 const ORANGE = '#f2711c';
 
 describe('hosted accent CSS variables', () => {
+    it('pairs every desktop CTA, including the homepage fallback, with readable brand ink', () => {
+        const css = readFileSync('docs/.vitepress/theme/custom.css', 'utf8');
+        const desktop = css.match(/^\.yomu-desktop-download \{([^}]+)\}/m)?.[1] ?? '';
+        expect(desktop).toContain('--home-action: var(--vp-c-brand-1)');
+        expect(desktop).toContain('--home-on-action: var(--yomu-brand-ink, var(--yomu-doc-brand-ink))');
+        expect(css).not.toContain('--home-on-action: var(--vp-c-white)');
+        expect(css).toContain('.yomu-desktop-download a.yomu-desktop-button { color: var(--home-on-action);');
+        for (const dark of [false, true]) {
+            // Static CSS paints these same pairs before the shared appearance
+            // bootstrap stamps the custom accent, including with script disabled.
+            const section = dark ? css.split('.dark {')[1] : css.split('.dark {')[0];
+            const background = section.match(/--vp-c-brand-1: (#[\da-f]{6});/)![1];
+            const foreground = section.match(/--yomu-doc-brand-ink: (#[\da-f]{6});/)![1];
+            expect(sharedContrastRatio(foreground, background)).toBeGreaterThanOrEqual(4.5);
+            for (const accent of [undefined, ORANGE, '#ffd166', '#ffffff', '#000000', '#777777']) {
+                const variables = hostedAccentCssVariables(accent, dark);
+                expect(sharedContrastRatio(variables['--yomu-brand-ink'], variables['--vp-c-brand-1'])).toBeGreaterThanOrEqual(4.5);
+            }
+        }
+    });
+
     it('paints the chosen accent on the accent tokens themselves', () => {
         const variables = hostedAccentCssVariables(ORANGE, false);
         expect(variables['--yomu-accent']).toBe(ORANGE);
