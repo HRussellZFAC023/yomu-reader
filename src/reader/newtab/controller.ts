@@ -4860,8 +4860,8 @@ export class NewTabController {
         return `${this.index + 1} / ${this.visibleWords.length}`;
     }
 
-    private renderSessionProgress(slots: NewTabStudySlots, card: JPDBCard, root: HTMLElement): void {
-        const baseLabel = this.newTabCountLabel(card);
+    private renderSessionProgress(slots: NewTabStudySlots, card: JPDBCard | undefined, root: HTMLElement): void {
+        const baseLabel = card ? this.newTabCountLabel(card) : '';
         const reviewCards = this.reviewCountMode ? this.sessionProgressCards() : [];
         const snapshot = this.reviewCountMode ? this.sessionProgress.snapshot(reviewCards) : null;
         if (this.reviewCountMode) this.warmOfflineCache(reviewCards);
@@ -4915,11 +4915,10 @@ export class NewTabController {
     }
 
     private refreshSessionProgressSoon(): void {
-        // The 1s session clock already re-renders the progress line, so we only
-        // nudge a render when a clock is not active (e.g. just after enqueue).
-        const root = this.sessionClockRoot;
+        if (this.destroyed) return;
+        const root = this.currentRoot();
         const card = this.visibleWords[this.index];
-        if (root?.isConnected && card && this.isVocabularyStudyRoute()) {
+        if (root?.isConnected && this.isVocabularyStudyRoute()) {
             this.renderSessionProgress(this.studySlots(root), card, root);
         }
     }

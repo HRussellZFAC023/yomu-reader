@@ -101,6 +101,82 @@ describe('new tab review — offline grades, Bunpro & dual-source grading', () =
         root.remove();
     });
 
+    it.each([false, true])('repaints untimed Study after the real queued grades drain on reconnect (no cards left: %s)', async completed => {
+        const cards = Array.from({ length: 5 }, (_, index) => newTabTestCard({
+            vid: index + 1, sid: index + 1, spelling: `かな${index}`, reading: 'かな',
+            source: 'jpdb', reviewSource: 'jpdb-api', cardState: ['due'],
+        }));
+        queueNewTabGrades(...cards.map(card => ({ id: `jpdb-api:${card.vid}:${card.sid}`, target: 'jpdb-api', card, grade: 'easy' })));
+        let online = false;
+        const onlineState = vi.spyOn(navigator, 'onLine', 'get').mockImplementation(() => online);
+        const reviewCard = vi.fn(async () => {});
+        const controller = newTabFlushController({ ...DEFAULT_SETTINGS, apiKey: 'jpdb-key', jpdbMiningEnabled: true, newTabDailyGoalMinutes: 0 }, {
+            jpdb: { reviewCard } as never,
+        });
+        scopeQueuedNetworkGradesTo(controller);
+        const probe = controller as unknown as { flushQueuedGrades(): Promise<void>; sessionClockRoot: HTMLElement | null; visibleWords: JPDBCard[] };
+        let root: HTMLElement | undefined;
+        try {
+            await probe.flushQueuedGrades();
+            root = renderSeededNewTabWord(controller, cards[0]!, {
+                allWords: cards, visibleWords: cards, reviewCountMode: true, sourceLabel: 'JPDB',
+                state: { route: 'study', source: 'jpdb' }, appendToDocument: true,
+            });
+            const progress = root.querySelector('[data-newtab-count]')!;
+            expect(probe.sessionClockRoot).toBeNull();
+            expect(progress.textContent).toContain('To sync 5');
+            expect(readNewTabGradeQueue()).toHaveLength(5);
+            if (completed) probe.visibleWords = [];
+            online = true;
+            await probe.flushQueuedGrades();
+            expect(reviewCard).toHaveBeenCalledTimes(5);
+            expect(readNewTabGradeQueue()).toEqual([]);
+            expect(progress.textContent).toContain('✓ Synced');
+            expect(progress.textContent).not.toContain('To sync');
+            expect(root.querySelector('[data-study-clock="countdown"]')).toBeNull();
+        } finally { onlineState.mockRestore(); controller.destroy(); root?.remove(); }
+    });
+
+    it('refreshes untimed cache progress only on the current live Study surface', () => {
+        const card = newTabTestCard({ spelling: 'かな', reading: 'かな', source: 'jpdb', reviewSource: 'jpdb-api' });
+        const controller = newTabFlushController({ ...DEFAULT_SETTINGS, apiKey: 'jpdb-key', newTabDailyGoalMinutes: 0 });
+        const probe = controller as unknown as {
+            offlineWarmTotal: number;
+            state: { route: string };
+            markCardOfflineReady(card: JPDBCard): void;
+            refreshSessionProgressSoon(): void;
+            renderSessionProgress(slots: unknown, card: JPDBCard, root: HTMLElement): void;
+        };
+        probe.offlineWarmTotal = 1;
+        const render = () => renderSeededNewTabWord(controller, card, {
+            allWords: [card], reviewCountMode: true, sourceLabel: 'JPDB',
+            state: { route: 'study', source: 'jpdb' }, appendToDocument: true,
+        });
+        const first = render();
+        let replacement: HTMLElement | undefined;
+        try {
+            expect(first.querySelector('[data-newtab-count]')?.textContent).toContain('Cached 0/1');
+            probe.markCardOfflineReady(card);
+            expect(first.querySelector('[data-newtab-count]')?.textContent).toContain('Cached 1');
+            const repaint = vi.spyOn(probe, 'renderSessionProgress');
+            first.remove();
+            probe.refreshSessionProgressSoon();
+            expect(repaint).not.toHaveBeenCalled();
+            replacement = render();
+            repaint.mockClear();
+            probe.refreshSessionProgressSoon();
+            expect(repaint).toHaveBeenLastCalledWith(expect.anything(), card, replacement);
+            repaint.mockClear();
+            probe.state.route = 'stats';
+            probe.refreshSessionProgressSoon();
+            expect(repaint).not.toHaveBeenCalled();
+            controller.destroy();
+            probe.state.route = 'study';
+            probe.refreshSessionProgressSoon();
+            expect(repaint).not.toHaveBeenCalled();
+        } finally { controller.destroy(); first.remove(); replacement?.remove(); }
+    });
+
     it('flushes queued JPDB grades when the source is reachable again', async () => {
         const card = newTabTestCard({ vid: 1, sid: 1, spelling: '安定', reading: 'あんてい', source: 'jpdb', reviewSource: 'jpdb-api' });
         queueNewTabGrades({
