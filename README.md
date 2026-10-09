@@ -37,12 +37,6 @@
   <a href="https://discord.gg/jD6NPURewD">Discord</a>
 </p>
 
-<p>
-  <a href="https://yomureader.com/learn/">
-    <img src="https://yomureader.com/screenshots/real-popup-lookup.png" alt="A よむ popup showing Japanese readings, definitions, pitch, and mining actions" width="760" />
-  </a>
-</p>
-
 </div>
 
 ## Install

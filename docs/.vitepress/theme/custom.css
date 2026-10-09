@@ -1323,11 +1323,12 @@
 
 .yomu-fold {
   display: grid;
-  grid-template-columns: minmax(0, 1.35fr) minmax(0, 0.8fr);
+  grid-template-columns: minmax(0, 1fr);
   align-items: center;
   gap: clamp(32px, 5vw, 80px);
   padding-block: clamp(40px, 6vw, 88px) var(--home-space);
 }
+.yomu-fold-main { max-width: 780px; }
 .yomu-wordmark {
   display: flex;
   align-items: baseline;
@@ -1387,19 +1388,12 @@
   font-size: clamp(24px, 2.35vw, 32px);
   line-height: 2.2;
 }
-.yomu-fold-card {
-  width: 100%;
-  max-width: 390px;
-  margin: 0;
-  justify-self: center;
-}
 .yomu-home figure img {
   display: block;
   width: 100%;
   height: auto;
   border-radius: 4px;
 }
-.yomu-fold-card img { border: 1px solid var(--home-line); }
 
 .yomu-install-routes {
   display: flex;
@@ -1553,22 +1547,16 @@
 }
 .yomu-band-frame { margin: 0; }
 .yomu-band-frame > img { border: 1px solid var(--home-line); }
-.yomu-band-pair { display: grid; gap: 20px; }
 .yomu-band-player { margin: 24px 0 0; }
 .yomu-band-video { display: block; width: 100%; border-radius: 4px; background: #111; }
 .yomu-manga-figure { max-width: 420px; justify-self: center; }
-.yomu-band-devices {
-  display: grid;
-  grid-template-columns: minmax(0, 0.48fr) minmax(0, 1fr);
-  align-items: end;
-  gap: 20px;
-}
 
 .yomu-letter { max-width: 780px; margin: 0 auto; }
 .yomu-letter > p { margin: 24px 0 0; font-size: 18px; line-height: 1.8; color: var(--home-muted); }
 .yomu-letter .yomu-letter-sign { color: var(--home-text); font-family: var(--home-serif); font-style: italic; }
 .yomu-home-more { display: grid; grid-template-columns: minmax(0, 1fr); gap: 48px; }
 .yomu-home .yomu-band-concept { display: block; padding-inline: 0; }
+.yomu-band-concept .yomu-band-copy { max-width: 780px; }
 .yomu-install-inner { max-width: 740px; }
 .yomu-next { padding-block: 24px 48px; border-top: 1px solid var(--home-line); }
 .yomu-next-row { display: flex; flex-wrap: wrap; gap: 8px 28px; margin: 0; }
@@ -1578,11 +1566,9 @@ body:has(.yomu-home) .jpdb-reader-fab { bottom: max(72px, calc(env(safe-area-ins
 @media (max-width: 900px) {
   .yomu-fold { grid-template-columns: minmax(0, 1fr); }
   .yomu-home .yomu-fold-h1 { max-width: 19ch; }
-  .yomu-fold-card { max-width: 360px; justify-self: start; }
   .yomu-band { grid-template-columns: minmax(0, 1fr); }
   .yomu-band-copy { max-width: 620px; }
   .yomu-manga-figure { justify-self: start; }
-  .yomu-band-devices { max-width: 600px; }
 }
 @media (max-width: 600px) {
   .yomu-home-more { grid-template-columns: minmax(0, 1fr); gap: 0; }

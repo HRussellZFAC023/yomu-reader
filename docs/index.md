@@ -31,21 +31,15 @@ description: Hover any Japanese word on a web page, a YouTube subtitle or a mang
       <a class="yomu-install-route" href="/desktop">よむ Desktop</a>
     </div>
   </div>
-  <figure class="yomu-fold-card" data-yomu-ocr="ignore">
-    <img src="/home/popover.webp" width="840" height="864" fetchpriority="high" decoding="async" alt="The よむ lookup popover for 季語, showing pitch accent, audio, a dictionary definition and example sentences." />
-  </figure>
 </section>
-<section class="yomu-band" id="read" aria-labelledby="yomu-band-pages">
+<section class="yomu-band yomu-band-concept" id="read" aria-labelledby="yomu-band-pages">
   <div class="yomu-band-copy">
     <h2 id="yomu-band-pages">Any web page. Any PDF.</h2>
     <p class="yomu-band-lead">Furigana over the kanji, the meaning under your cursor. Tap on a phone.</p>
     <a class="yomu-band-action" href="/pdf-reader/">Open a PDF</a>
   </div>
-  <figure class="yomu-band-frame" data-yomu-ocr="ignore">
-    <img src="/home/wikipedia.webp" width="1600" height="1000" loading="lazy" decoding="async" alt="Japanese Wikipedia with furigana above the kanji, coloured underlines on every word, and the よむ popover open." />
-  </figure>
 </section>
-<section class="yomu-band" id="watch" aria-labelledby="yomu-band-video">
+<section class="yomu-band yomu-band-concept" id="watch" aria-labelledby="yomu-band-video">
   <div class="yomu-band-copy">
     <h2 id="yomu-band-video">YouTube, one line at a time.</h2>
     <p class="yomu-band-lead">Pause, hover the word, carry on. Try it on this clip.</p>
@@ -58,9 +52,6 @@ description: Hover any Japanese word on a web page, a YouTube subtitle or a mang
       </video>
     </figure>
   </div>
-  <figure class="yomu-band-frame" data-yomu-ocr="ignore">
-    <img src="/home/youtube.webp" width="1280" height="900" loading="lazy" decoding="async" alt="A YouTube video with the Japanese subtitle annotated on the picture and the full subtitle list open beside it." />
-  </figure>
 </section>
 <section class="yomu-band" id="manga" aria-labelledby="yomu-band-manga">
   <div class="yomu-band-copy">
@@ -71,26 +62,18 @@ description: Hover any Japanese word on a web page, a YouTube subtitle or a mang
     <img src="/media/manga-ocr-sample.png" width="900" height="1280" loading="lazy" decoding="async" alt="Japanese manga page with text detected by よむ OCR" />
   </figure>
 </section>
-<section class="yomu-band" id="study" aria-labelledby="yomu-band-keep">
+<section class="yomu-band yomu-band-concept" id="study" aria-labelledby="yomu-band-keep">
   <div class="yomu-band-copy">
     <h2 id="yomu-band-keep">Ten minutes of review a day.</h2>
     <p class="yomu-band-lead">Save the words worth keeping, with the sentence you found them in. Review them here, or in Anki, JPDB or Jiten.</p>
     <a class="yomu-band-action" href="/study/">Open Study</a>
   </div>
-  <figure class="yomu-band-frame yomu-band-pair" data-yomu-ocr="ignore">
-    <img class="yomu-pair-a" src="/home/keep-press.webp" width="1034" height="562" loading="lazy" decoding="async" alt="Example sentences with audio inside the よむ popover, above the grading buttons that keep the word." />
-    <img class="yomu-pair-b" src="/home/study.webp" width="1300" height="813" loading="lazy" decoding="async" alt="The よむ Study page on the Type step, with the answer typed in and marked correct." />
-  </figure>
 </section>
-<section class="yomu-band yomu-band-plate" id="mobile" aria-labelledby="yomu-band-mobile">
+<section class="yomu-band yomu-band-plate yomu-band-concept" id="mobile" aria-labelledby="yomu-band-mobile">
   <div class="yomu-band-copy">
     <h2 id="yomu-band-mobile">On your phone too.</h2>
     <p class="yomu-band-lead">Firefox on Android. Safari on iPhone and iPad.</p>
   </div>
-  <figure class="yomu-band-frame yomu-band-devices" data-yomu-ocr="ignore">
-    <img class="yomu-device-phone" src="/home/phone.webp" width="390" height="844" loading="lazy" decoding="async" alt="よむ on a phone, showing Japanese Wikipedia with furigana above the kanji and the lookup popover open on コーヒー with its pitch accent, meaning and grading buttons." />
-    <img class="yomu-device-tablet" src="/home/ipad.webp" width="820" height="1180" loading="lazy" decoding="async" alt="よむ on an iPad, showing a Japanese Wikipedia article with furigana and the 喫茶店 popover open with two pitch accent patterns, the dictionary meaning and example sentences." />
-  </figure>
 </section>
 <div class="yomu-home-more">
 <section class="yomu-band yomu-band-concept" id="desktop" aria-labelledby="yomu-band-desktop">
