@@ -2481,14 +2481,15 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
     border-radius: 16px 16px 0 0;
   }
 
-  /* A phone sheet owns the bottom of the screen, where the puck would sit on
-     its lower rows; the puck returns when the sheet closes. */
-  body:has(.jpdb-subtitle-list:not([hidden])) .jpdb-reader-fab {
+  /* A phone sheet owns the bottom of the screen, where a puck resting there
+     would sit on its lower rows; it returns when the sheet closes. A puck the
+     learner moved up out of the way stays (floating-button.ts puckRest). */
+  body:has(.jpdb-subtitle-list:not([hidden])) .jpdb-reader-fab[data-puck-rest="bottom"] {
     display: none !important;
   }
 }
 
 /* Any bottom sheet, at any width, spans the corner the puck rests in. */
-body:has(.jpdb-subtitle-list.jpdb-subtitle-transcript-bottom:not([hidden])) .jpdb-reader-fab {
+body:has(.jpdb-subtitle-list.jpdb-subtitle-transcript-bottom:not([hidden])) .jpdb-reader-fab[data-puck-rest="bottom"] {
   display: none !important;
 }

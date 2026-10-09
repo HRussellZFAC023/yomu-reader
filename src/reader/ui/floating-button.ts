@@ -22,6 +22,8 @@ const VIDEO_AVOIDANCE_SETTLE_MS = 120;
 // settling after a rotation. Reconcile once more after that short transition so
 // a transient 2x reading cannot leave the puck stuck at inverse (half) scale.
 const VIEWPORT_SCALE_SETTLE_MS = 240;
+// The puck's CSS size, for placement maths before it has laid out.
+const PUCK_FALLBACK_SIZE = 52;
 
 function hostHasBottomActionDock(): boolean {
     return location.hostname === 'jiten.moe' && location.pathname.startsWith('/srs/');
@@ -266,6 +268,8 @@ export class FloatingButtonController {
         button.title = APP_NAME;
         button.setAttribute('aria-haspopup', 'menu');
         button.dataset.jpdbReaderRoot = 'true';
+        // Unplaced, the puck rests in the bottom corner (CSS right/bottom).
+        button.dataset.puckRest = 'bottom';
         restoreButtonPosition(button, settings);
         this.button = button;
         this.syncButtonState();
@@ -596,6 +600,10 @@ function clampRestoredButtonPosition(button: HTMLButtonElement, settings: Reader
 function applyPuckPosition(button: HTMLButtonElement, x: number, y: number): void {
     button.style.setProperty('left', `${x}px`);
     button.style.setProperty('top', `${y}px`);
+    // A bottom sheet (the phone transcript) covers the lower half, so only a
+    // puck resting there gives way to it; one moved up out of its way stays.
+    const middle = y + (button.offsetHeight || PUCK_FALLBACK_SIZE) / 2;
+    button.dataset.puckRest = middle > window.innerHeight / 2 ? 'bottom' : 'top';
     // .jpdb-reader-fab uses !important default right/bottom rules to survive
     // hostile page CSS. Restored/dragged positions must clear those with the
     // same priority; otherwise fixed layout gets both left and right and the

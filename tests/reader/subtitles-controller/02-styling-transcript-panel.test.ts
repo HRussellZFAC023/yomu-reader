@@ -487,15 +487,17 @@ describe('SubtitlePlayerController — styling & transcript panel', () => {
     });
 
     // The phone track sheet let YouTube thumbnails show through its controls,
-    // and the puck sat on its lower track choices.
-    it('paints the transcript sheet opaque and keeps the puck off a bottom sheet', () => {
+    // and the puck sat on its lower track choices. Only a puck resting in the
+    // bottom half gives way: one the learner moved up stays usable.
+    it('paints the transcript sheet opaque and keeps a bottom-resting puck off a bottom sheet', () => {
         const normalizedCss = SUBTITLES_YOUTUBE_CSS.replace(/\s+/g, ' ');
         const panel = normalizedCss.match(/\.jpdb-subtitle-list \{ position: fixed;[^}]*\}/)?.[0] ?? '';
         expect(panel).toContain('background: var(--jpdb-reader-surface);');
         expect(panel).not.toContain('transparent');
-        expect(normalizedCss).toContain('body:has(.jpdb-subtitle-list.jpdb-subtitle-transcript-bottom:not([hidden])) .jpdb-reader-fab { display: none !important; }');
+        expect(normalizedCss).toContain('body:has(.jpdb-subtitle-list.jpdb-subtitle-transcript-bottom:not([hidden])) .jpdb-reader-fab[data-puck-rest="bottom"] { display: none !important; }');
         expect(normalizedCss).toContain('@media (max-width: 519px) {');
-        expect(normalizedCss).toContain('body:has(.jpdb-subtitle-list:not([hidden])) .jpdb-reader-fab { display: none !important; }');
+        expect(normalizedCss).toContain('body:has(.jpdb-subtitle-list:not([hidden])) .jpdb-reader-fab[data-puck-rest="bottom"] { display: none !important; }');
+        expect(normalizedCss).not.toMatch(/:not\(\[hidden\]\)\) \.jpdb-reader-fab \{/);
     });
 
     it('keeps plain overlay and transcript captions selectable while annotations are paused', () => {
