@@ -194,7 +194,7 @@ try {
     const localGloss = ({ title, gloss }) => {
         const card = [...document.querySelectorAll('.jpdb-reader-popover [data-source="local-dictionary"]')]
             .find(candidate => candidate.getAttribute('data-dictionary') === title);
-        const text = (card?.querySelector('[data-definition-translation-text]')?.textContent ?? '').replace(/\s+/g, ' ').trim();
+        const text = (card?.querySelector('.jpdb-reader-local-senses')?.textContent ?? '').replace(/\s+/g, ' ').trim();
         return text.includes(gloss) ? text : null;
     };
     const popoverText = () => page.evaluate(() => document.querySelector('.jpdb-reader-popover')?.textContent?.replace(/\s+/g, ' ').trim() ?? null);
