@@ -544,6 +544,8 @@ const COPY = {
         lookupPillOrder: 'Lookup pill order',
         builtInAction: 'Built-in action',
         recommendedDownloads: 'Dictionaries',
+        recommendedJapaneseDictionaries: 'Recommended Japanese dictionaries',
+        recommendedDictionaryCountAndSize: 'Dictionaries: {count} · {size}',
         termDictionaries: 'Term dictionaries',
         kanjiDictionaries: 'Kanji dictionaries',
         pitchDictionaries: 'Pitch dictionaries',
@@ -2072,6 +2074,8 @@ lookupUrlTemplateNumber	ピル{number} URL
 lookupPillOrder	検索ピルの順序
 builtInAction	内蔵アクション
 recommendedDownloads	辞書
+recommendedJapaneseDictionaries	おすすめの日本語辞書
+recommendedDictionaryCountAndSize	辞書{count}件 · {size}
 termDictionaries	語句辞書
 kanjiDictionaries	漢字辞書
 pitchDictionaries	ピッチ辞書

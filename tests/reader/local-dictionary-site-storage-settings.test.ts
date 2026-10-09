@@ -14,8 +14,7 @@ describe('local dictionary site storage settings', () => {
         const help = form.querySelector<HTMLElement>('[data-local-dictionary-storage] [data-help-key]')!;
         expect(toggle.checked).toBe(true);
         expect(toggle.closest('label')?.textContent).toContain('Show imported dictionary definitions');
-        expect(help.textContent).toContain('stored by the site where you import them');
-        expect(help.textContent).toContain('online sources');
+        expect(help.textContent).toBe('Imported dictionaries stay on your device.');
         expect(clearButton.textContent).toBe('Disable and remove stored dictionaries');
 
         toggle.checked = false;
@@ -34,7 +33,7 @@ describe('local dictionary site storage settings', () => {
         const section = form.querySelector<HTMLElement>('[data-local-dictionary-storage]')!;
         expect(toggle.checked).toBe(false);
         expect(toggle.closest('label')?.textContent).toContain('インポート済み辞書の定義を表示');
-        expect(section.textContent).toContain('インポートしたサイトに保存されます');
+        expect(section.textContent).toContain('インポートした辞書は端末内に保存されます。');
         expect(section.textContent).toContain('保存済み辞書を削除');
         expect(readFormSettings(new FormData(form), settings).localDictionariesEnabled).toBe(false);
     });

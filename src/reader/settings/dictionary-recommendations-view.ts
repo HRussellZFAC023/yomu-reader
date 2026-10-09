@@ -1,5 +1,6 @@
-import { uiText } from '../app/i18n';
+import { resolveUiLanguage, uiText } from '../app/i18n';
 import { escapeHtml } from '../dom/index';
+import type { InterfaceLanguage } from '../app/types';
 import type { DictionaryCategory } from '../dictionaries/catalog';
 import {
     catalogBrowseDescription,
@@ -27,6 +28,7 @@ import { yomitanDictionaryIdentity } from '../dictionaries/yomitan/zip-normalize
 import type { LearningTargetRosterId } from '../languages';
 import {
     LOCALE_CATALOGS,
+    isLearnerLanguageId,
     learnerLanguageById,
     type LearnerLanguageId,
 } from '../locales';
@@ -264,6 +266,23 @@ function renderCatalogRecommendationSeed(
             ${dictionaries.map(dictionary => renderRecommendedDictionary(dictionary, installed)).join('')}
         </section>
     `;
+}
+
+/** Presentation follows the interface; dictionary selection still follows definition language. */
+export function localizeCatalogRecommendationSeed(section: HTMLElement, language: InterfaceLanguage): void {
+    const locale = resolveUiLanguage(language);
+    const learner = section.dataset.catalogRecommendationSeed ?? 'en';
+    const dictionaries = recommendedDictionariesForLanguageProfile(isLearnerLanguageId(learner) ? learner : 'en', 'ja');
+    section.lang = locale;
+    section.dir = 'ltr';
+    section.querySelector('.jpdb-reader-catalog-seed-title')?.replaceChildren(uiText(locale, 'recommendedJapaneseDictionaries'));
+    section.querySelector('.jpdb-reader-catalog-seed-summary')?.replaceChildren(
+        formatDictionaryCountAndSize(uiText(locale, 'recommendedDictionaryCountAndSize'), dictionaries.length, completeDictionarySeedSize(dictionaries, locale), locale),
+    );
+    for (const item of section.querySelectorAll<HTMLElement>('[data-catalog-recommendation]')) {
+        const dictionary = dictionaries.find(candidate => candidate.catalogDictionaryId === item.dataset.catalogRecommendation);
+        if (dictionary) item.querySelector('.jpdb-reader-help')?.replaceChildren(recommendedDictionaryDescription(dictionary, locale));
+    }
 }
 
 function renderRecommendedDictionary(

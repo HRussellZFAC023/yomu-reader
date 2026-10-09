@@ -1,3 +1,4 @@
+import { dictionaryStatusElements, renderDictionaryStatusElements } from '../../../src/reader/settings/dictionary-status-view';
 import { describe, expect, it } from 'vitest';
 import {
     DEFAULT_SETTINGS,
@@ -11,6 +12,29 @@ import {
 
 describe('source display names', () => {
     registerSettingsFormCleanup();
+
+    it('localizes built-in recommendation chrome and empty state without translating dictionary names', () => {
+        const form = renderSettingsTestForm(DEFAULT_SETTINGS);
+        renderDictionaryStatusElements(dictionaryStatusElements(form), {
+            dictionaries: [], terms: 0, kanji: 0, termMeta: 0, kanjiMeta: 0,
+        }, DEFAULT_SETTINGS, 'en', 'ja', false);
+        const seed = form.querySelector<HTMLElement>('[data-catalog-recommendation-seed]')!;
+        const names = [...seed.querySelectorAll('.jpdb-reader-recommended-name')].map(node => node.textContent);
+        localizeSettingsForm(form, 'ja');
+        expect(seed.lang).toBe('ja');
+        expect(seed.dataset.catalogRecommendationSeed).toBe('en');
+        expect(seed.querySelector('.jpdb-reader-catalog-seed-title')?.textContent).toContain('日本語');
+        expect(seed.querySelector('.jpdb-reader-catalog-seed-summary')?.textContent).not.toContain('dictionaries');
+        expect(seed.textContent).not.toContain('Original Japanese');
+        expect(seed.textContent).not.toContain('Translate automatically into English');
+        expect(form.querySelector('[data-dictionary-status]')?.textContent).not.toContain('No dictionaries imported');
+        expect([...seed.querySelectorAll('.jpdb-reader-recommended-name')].map(node => node.textContent)).toEqual(names);
+        expect(form.querySelector('[data-help-key="localDictionarySiteStorageHelp"]')?.textContent).toBe('インポートした辞書は端末内に保存されます。');
+        localizeSettingsForm(form, 'en');
+        expect(seed.lang).toBe('en');
+        expect(seed.querySelector('.jpdb-reader-catalog-seed-title')?.textContent).toBe('Recommended Japanese dictionaries');
+        expect(form.querySelector('[data-dictionary-status]')?.textContent).toContain('No dictionaries imported');
+    });
 
     it('uses a single name column and offers no renaming controls for built-in sources', () => {
         const form = renderSettingsTestForm(DEFAULT_SETTINGS);

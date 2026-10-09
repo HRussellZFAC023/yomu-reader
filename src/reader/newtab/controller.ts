@@ -659,6 +659,7 @@ export class NewTabController {
     private visibleWords: JPDBCard[] = [];
     private index = 0;
     private sourceLabel = '';
+    private sourceId: NewTabLoadResult['sourceId'];
     private visiblePoolSignature = '';
     // Post-grade refresh coalescing: the graded card is removed locally, so
     // queue accuracy does not need a provider round-trip per grade — a 500-due
@@ -1312,6 +1313,7 @@ export class NewTabController {
         this.visibleWords = [];
         this.index = 0;
         this.sourceLabel = '';
+        this.sourceId = undefined;
         this.visiblePoolSignature = '';
         this.navigationSupplementPromise = null;
         this.reviewCountMode = false;
@@ -1356,7 +1358,7 @@ export class NewTabController {
     private practiceSelection(): { title: string; material: PracticeMaterial[] } {
         const cards = new Map(this.visibleWords.filter(newTabCardMatchesActiveTarget).map(card => [this.cardSelectionKey(card), card]));
         return {
-            title: this.sourceLabel || uiText(this.language(), 'practiceTitle'),
+            title: this.sourceId === 'starter-words' ? this.text('starterWords') : this.sourceLabel || uiText(this.language(), 'practiceTitle'),
             material: [...cards].map(([id, card]) => ({
                 id, language: newTabCardTarget(card).language, spelling: card.spelling, reading: newTabCardReading(card),
                 meaning: firstCardMeaning(card), sentence: this.recallSentenceFromCard(card),
@@ -2734,6 +2736,7 @@ export class NewTabController {
         this.emptyLoadMessageKey = result.emptyMessageKey ?? null;
         this.fallbackStudyNotice = result.fallbackNotice === true;
         this.sourceLabel = this.loadedWordSourceLabel(result.sourceLabel, statsStudyFilter);
+        this.sourceId = result.sourceId;
         this.statsStudyFilter = null;
     }
 
@@ -2913,6 +2916,7 @@ export class NewTabController {
         this.reviewCountMode = false;
         this.emptyLoadMessageKey = null;
         this.sourceLabel = this.offlineSourceLabel(cached.sourceLabel);
+        this.sourceId = undefined;
     }
 
     private canPrimeWithOfflineCache(cards: JPDBCard[]): boolean {
@@ -3509,6 +3513,7 @@ export class NewTabController {
         return {
             cards,
             sourceLabel: this.text('starterWords'),
+            sourceId: 'starter-words',
             reviewCountMode: false,
         };
     }
@@ -4013,6 +4018,7 @@ export class NewTabController {
         this.navigationSupplementPromise = null;
         this.index = 0;
         this.sourceLabel = '';
+        this.sourceId = undefined;
         this.reviewCountMode = false;
         this.clearReviewHistory();
         this.emptyLoadMessageKey = null;

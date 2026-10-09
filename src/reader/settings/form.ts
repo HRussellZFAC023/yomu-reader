@@ -47,7 +47,7 @@ import { nativeSubtitleDisplayMode, type NativeSubtitleDisplayMode } from '../su
 import { renderLocalDictionaryStorageControls } from './local-dictionary-storage-form';
 import { renderReadingAnnotationControls, syncReadingAnnotationControls } from './reading-annotation-controls';
 import { localizeCatalogBrowse } from './catalog-browse-localization';
-import { renderRecommendedDictionaries } from './dictionary-recommendations-view';
+import { localizeCatalogRecommendationSeed, renderRecommendedDictionaries } from './dictionary-recommendations-view';
 import { recommendedDictionaryActionKey } from './recommended-dictionary-card';
 import { PROTECTED_CREDENTIAL_INPUT_ATTRIBUTES, storedCredentialClearName } from './credential-form';
 
@@ -1731,6 +1731,9 @@ function localizeRecommendedDictionaryGroups(form: HTMLFormElement, text: Settin
  * chrome with English is exactly the regression this panel had.
  */
 function localizeCatalogBrowseSection(form: HTMLFormElement, text: SettingsText): void {
+    form.querySelectorAll<HTMLElement>('[data-catalog-recommendation-seed]').forEach(seed => {
+        localizeCatalogRecommendationSeed(seed, resolveUiLanguageFromText(text));
+    });
     const section = form.querySelector<HTMLElement>('[data-catalog-browse]');
     if (!section) return;
     localizeCatalogBrowse(section, text, resolveUiLanguageFromText(text));
@@ -1814,7 +1817,10 @@ function localizeRecommendedDictionaryButtons(form: HTMLFormElement, text: Setti
 
 function localizeDictionaryStatus(form: HTMLFormElement, text: SettingsText): void {
     const dictionaryStatus = form.querySelector<HTMLElement>('[data-dictionary-status]');
-    if (dictionaryStatus && /Checking imported|インポート済み辞書を確認/.test(dictionaryStatus.textContent ?? '')) {
+    if (dictionaryStatus && ['en', 'ja'].some(language =>
+        dictionaryStatus.textContent === uiText(language as InterfaceLanguage, 'noLocalDictionariesImported'))) {
+        dictionaryStatus.textContent = text('noLocalDictionariesImported');
+    } else if (dictionaryStatus && /Checking imported|インポート済み辞書を確認/.test(dictionaryStatus.textContent ?? '')) {
         dictionaryStatus.textContent = text('checkingDictionaries');
     }
 }

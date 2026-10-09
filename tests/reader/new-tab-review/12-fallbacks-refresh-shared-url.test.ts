@@ -485,6 +485,25 @@ describe('new tab review — dictionary fallbacks, refresh & shared-URL history'
         }
     });
 
+    it('localizes the built-in Practice selection after a locale change without renaming user sources', async () => {
+        const settings = { interfaceLanguage: 'en' as 'en' | 'ja' };
+        const { controller, fallbackCardFromText } = newTabBuiltInFallbackFixture('auto', settings);
+        fallbackCardFromText.mockImplementation(text => bareFallbackCardFromText(text, 'ja'));
+        const view = controller as unknown as {
+            practiceSelection(): { title: string };
+            applyLoadedWordState(result: { cards: JPDBCard[]; sourceLabel: string }, filter: null): void;
+            visibleWords: JPDBCard[];
+        };
+        try {
+            await controller.renderPage();
+            expect(view.practiceSelection().title).toBe('Starter words');
+            settings.interfaceLanguage = 'ja';
+            expect(view.practiceSelection().title).toBe('入門単語');
+            view.applyLoadedWordState({ cards: view.visibleWords, sourceLabel: 'Starter words' }, null);
+            expect(view.practiceSelection().title).toBe('Starter words');
+        } finally { controller.destroy(); resetNewTabReviewStorage(); }
+    });
+
     it('leaves timed study off for a fresh keyless default profile', async () => {
         const { controller, fallbackCardFromText } = newTabBuiltInFallbackFixture('auto');
         fallbackCardFromText.mockImplementation(text => bareFallbackCardFromText(text, 'ja'));
