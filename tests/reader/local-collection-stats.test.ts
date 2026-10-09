@@ -5,10 +5,19 @@ import { DEFAULT_SETTINGS, newTabApiSourceController, renderEnabledNewTabRoot, r
 
 afterEach(() => { vi.restoreAllMocks(); document.body.replaceChildren(); localStorage.clear(); sessionStorage.clear(); });
 
+// A measure with no value yet is left out of Stats, so a loaded dashboard
+// without the "Due now" tile has nothing due ('0'); '' means nothing loaded.
 function metric(root: HTMLElement, label: string): string {
     const tile = [...root.querySelectorAll<HTMLElement>('.jpdb-reader-stats-metric')]
         .find(candidate => candidate.querySelector('.jpdb-reader-stats-metric-label')?.textContent === label);
-    return tile?.querySelector('strong')?.textContent ?? '';
+    const value = tile?.querySelector('strong')?.textContent ?? '';
+    return value || (label === 'Due now' && root.querySelector('.jpdb-reader-stats-progress') ? '0' : '');
+}
+
+// Cards in review: the Words column of the progress row (the old "Cards" tile
+// repeated it).
+function cards(root: HTMLElement): string {
+    return root.querySelector('.jpdb-reader-stats-progress-item strong')?.textContent ?? '';
 }
 
 function savedTile(root: HTMLElement): HTMLButtonElement | null {
@@ -60,14 +69,14 @@ it('counts every Academy card in review, not only the due queue', async () => {
 
     const reviewed = await loadAcademyStats(repository);
     expect(metric(reviewed, 'Due now')).toBe('0');
-    expect(metric(reviewed, 'Cards')).toBe('1');
+    expect(cards(reviewed)).toBe('1');
     expect(reviewed.querySelector('.jpdb-reader-stats-legend')?.textContent).toBe('Learning 1');
 
     await repository.startReview(canonicalStudyCardKey('書く', 'かく'));
     document.body.replaceChildren();
     const added = await loadAcademyStats(repository);
     expect(metric(added, 'Due now')).toBe('1');
-    expect(metric(added, 'Cards')).toBe('2');
+    expect(cards(added)).toBe('2');
     const legend = [...added.querySelectorAll('.jpdb-reader-stats-legend span')].map(item => item.textContent);
     expect(legend).toEqual(expect.arrayContaining(['New 1', 'Learning 1']));
 });
@@ -97,7 +106,7 @@ it('keeps a late Stats load from replacing Library after the learner leaves Stat
         internals.state.route = 'stats';
         const loading = internals.loadStatsInto(root, true);
         // The loading dashboard is up; the Academy data is still on its way.
-        await vi.waitFor(() => expect(root.querySelector('.jpdb-reader-stats-metric')).not.toBeNull());
+        await vi.waitFor(() => expect(root.querySelector('.jpdb-reader-stats[aria-busy="true"]')).not.toBeNull());
         // The learner opens Library, which paints into the same surface.
         internals.state.route = 'search';
         const surface = root.querySelector<HTMLElement>('[data-newtab-study]')!;
@@ -116,7 +125,7 @@ it('counts saved words in a Saved tile, shown only when there are any', async ()
     await repository.review({ card: read.card!, grade: 'good' });
 
     const none = await loadAcademyStats(repository);
-    expect(metric(none, 'Cards')).toBe('1');
+    expect(cards(none)).toBe('1');
     expect(savedTile(none)).toBeNull();
     expect(metric(none, 'Saved')).toBe('');
 
@@ -125,7 +134,7 @@ it('counts saved words in a Saved tile, shown only when there are any', async ()
     document.body.replaceChildren();
     const saved = await loadAcademyStats(repository);
     expect(metric(saved, 'Saved')).toBe('2');
-    expect(metric(saved, 'Cards')).toBe('1');
+    expect(cards(saved)).toBe('1');
     expect(savedTile(saved)?.textContent).toContain('Add to review in Library');
     // Saved words are not a stage of review, so the distribution leaves them out.
     expect(saved.querySelector('.jpdb-reader-stats-legend')?.textContent).toBe('Learning 1');
@@ -141,7 +150,7 @@ it('opens Library from the Saved tile, and Add to review moves the word to Cards
     try {
         const root = await renderLoadedApiStats(controller);
         expect(metric(root, 'Saved')).toBe('2');
-        expect(metric(root, 'Cards')).toBe('0');
+        expect(cards(root)).toBe('0');
         const tile = savedTile(root)!;
         // A native button: Tab reaches it, and Enter or Space opens Library.
         expect(tile.tagName).toBe('BUTTON');
@@ -162,7 +171,7 @@ it('opens Library from the Saved tile, and Add to review moves the word to Cards
         expect(libraryAddToReview(root, '書く')).not.toBeNull();
 
         openView(root, 'stats');
-        await vi.waitFor(() => expect(metric(root, 'Cards')).toBe('1'));
+        await vi.waitFor(() => expect(cards(root)).toBe('1'));
         expect(metric(root, 'Saved')).toBe('1');
     } finally { controller.destroy(); }
 });
@@ -229,7 +238,7 @@ it('leaves Academy out of Stats while Academy is turned off', async () => {
         expect(savedTile(root)).toBeNull();
         expect(metric(root, 'Saved')).toBe('');
         // With Academy's words left out there is nothing to count: the empty state, not a tile of zeros.
-        expect(metric(root, 'Cards')).toBe('');
+        expect(cards(root)).toBe('');
         expect(root.querySelector('.jpdb-reader-stats-empty')).not.toBeNull();
         // Library, which the tile would open, lists no Academy words: it is the bare dictionary search.
         openView(root, 'search');
@@ -284,7 +293,7 @@ it('opens Library on the saved words behind more than a page of scheduled Academ
     const controller = academyStatsController(repository);
     try {
         const root = await renderLoadedApiStats(controller);
-        expect([metric(root, 'Cards'), metric(root, 'Saved')]).toEqual(['55', '2']);
+        expect([cards(root), metric(root, 'Saved')]).toEqual(['55', '2']);
         savedTile(root)!.click();
         await vi.waitFor(() => expect(libraryAddToReview(root, '書く')).not.toBeNull());
         expect(libraryAddToReview(root, '見る')).not.toBeNull();
@@ -307,7 +316,7 @@ it('counts Japanese Academy words only, leaving cards stored in other languages 
     await repository.mine({ expression: 'ver', reading: 'ver', meaning: 'to see', language: 'es' });
 
     const japanese = await loadAcademyStats(repository);
-    expect([metric(japanese, 'Due now'), metric(japanese, 'Cards'), metric(japanese, 'Saved')]).toEqual(['0', '1', '1']);
+    expect([metric(japanese, 'Due now'), cards(japanese), metric(japanese, 'Saved')]).toEqual(['0', '1', '1']);
 
     const stored = Object.values((await repository.snapshot()).cards)
         .filter(card => card.language === 'es')

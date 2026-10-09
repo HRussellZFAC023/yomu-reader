@@ -24,7 +24,7 @@ import {
     NEW_TAB_STATS_JPDB_CARD_LIMIT,
     NEW_TAB_STATS_JPDB_HISTORY_KEY,
 } from './controller-config';
-import { isNewTabStatsDateKey, normalizeNewTabStatsActivityMetric, renderNewTabStatsContent } from './stats-view';
+import { isNewTabStatsDateKey, normalizeNewTabStatsActivityMetric, renderNewTabStatsContent, type StatsActivityView } from './stats-view';
 import {
     applyJitenDailyStats,
     applyJitenReviewHistory,
@@ -169,6 +169,7 @@ export class NewTabStatsController {
     private snapshot: StatsDashboardSnapshot = emptyStatsDashboardSnapshot();
     private selectedSource: StatsSourceId = 'combined';
     private activityMetric: StatsActivityMetric = 'reviews';
+    private activityView: StatsActivityView = 'bars';
     private selectedDate = '';
     private loaded = false;
     private deckPrefsLoaded = false;
@@ -180,6 +181,7 @@ export class NewTabStatsController {
     private readonly clickHandlers: Partial<Record<NewTabStatsAction, StatsClickHandler>> = {
         'stats-source': (root, target) => this.selectSource(root, target),
         'stats-activity-metric': (root, target) => this.selectActivityMetric(root, target),
+        'stats-activity-view': root => this.toggleActivityView(root),
         'stats-select-day': (root, target, request) => this.selectDay(root, target, request.chartDayTarget),
         'stats-study-trouble': root => this.deps.studyTroubleCards(root),
         'stats-refresh': root => { void this.loadInto(root, true); },
@@ -230,6 +232,7 @@ export class NewTabStatsController {
         study.removeAttribute('data-newtab-card');
         study.replaceChildren(renderNewTabStatsContent({
             activityMetric: this.activityMetric,
+            activityView: this.activityView,
             language: this.deps.resolvedLanguage(),
             selectedDate: this.selectedDate,
             selectedSource: this.selectedSource,
@@ -327,6 +330,11 @@ export class NewTabStatsController {
     private selectActivityMetric(root: HTMLElement, target: HTMLElement): void {
         const metric = target.closest<HTMLElement>('[data-stats-activity-metric]')?.dataset.statsActivityMetric;
         this.activityMetric = normalizeNewTabStatsActivityMetric(metric);
+        this.render(root);
+    }
+
+    private toggleActivityView(root: HTMLElement): void {
+        this.activityView = this.activityView === 'calendar' ? 'bars' : 'calendar';
         this.render(root);
     }
 

@@ -321,7 +321,8 @@ describe('new tab review — stats, My Cards & kanji-doodle grading', () => {
             expect(values[2]).toContain('2');
             expect(values[2]).toMatch(/50/);
             expect(progress!.querySelector('.jpdb-reader-stats-progress-rail')).not.toBeNull();
-            expect(root.textContent).toContain('Total known non-redundant vocabulary: 2');
+            // The "Total known non-redundant vocabulary" line repeated You know.
+            expect(root.textContent).not.toContain('Total known non-redundant vocabulary');
         } finally {
             controller.destroy();
             document.body.replaceChildren();

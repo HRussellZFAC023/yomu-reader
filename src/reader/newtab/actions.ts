@@ -70,6 +70,7 @@ export const NEW_TAB_ACTIONS = [
     // Stats dashboard.
     'stats-source',
     'stats-activity-metric',
+    'stats-activity-view',
     'stats-select-day',
     'stats-study-trouble',
     'stats-refresh',

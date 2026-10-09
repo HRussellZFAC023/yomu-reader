@@ -224,14 +224,18 @@ async function verifyViewport(browserInstance, baseUrl, scenario) {
         if (scenario.panel === 'help') {
             await page.locator('.jpdb-reader-settings [data-action="cancel"]').click();
             await page.locator('[data-newtab-action="mode"][data-mode="stats"]').filter({ visible: true }).first().click();
+            // A profile with no reviews gets Stats' one-line empty state and no
+            // panels; the heading check applies once a panel is drawn.
+            await page.locator('.jpdb-reader-stats-panel-heading h2, .jpdb-reader-stats-empty').first().waitFor();
             const heading = page.locator('.jpdb-reader-stats-panel-heading h2').first();
-            await heading.waitFor();
-            const layout = await heading.evaluate(element => ({
-                text: element.textContent,
-                height: element.getBoundingClientRect().height,
-                lineHeight: Number.parseFloat(getComputedStyle(element).lineHeight),
-            }));
-            assert(layout.height <= layout.lineHeight + 2, 'Stats actions squeeze the activity heading into a broken line', layout);
+            if (await heading.count()) {
+                const layout = await heading.evaluate(element => ({
+                    text: element.textContent,
+                    height: element.getBoundingClientRect().height,
+                    lineHeight: Number.parseFloat(getComputedStyle(element).lineHeight),
+                }));
+                assert(layout.height <= layout.lineHeight + 2, 'Stats actions squeeze the activity heading into a broken line', layout);
+            }
             // A late card render can reset the controls' hidden property.
             // The route must still keep review actions off the Stats screen.
             const controls = page.locator('[data-newtab-controls]');

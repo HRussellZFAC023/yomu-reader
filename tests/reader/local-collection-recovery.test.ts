@@ -82,15 +82,16 @@ function libraryRows(): string[] {
 }
 
 // The due count once Stats has loaded the local deck ('' until then). A deck
-// with nothing in it shows Stats' empty state instead of a Due now tile.
+// with nothing in it shows Stats' empty state instead of a Due now tile, and a
+// loaded deck with nothing due leaves the tile out.
 function statsDueNow(): string {
     const stats = document.querySelector<HTMLElement>('.jpdb-reader-stats');
-    if (stats?.dataset.statsEmpty === 'true') return ['setup', 'loading'].includes(stats.dataset.statsStatus ?? '') ? '' : '0';
-    const deck = document.querySelector('.jpdb-reader-stats-connection.is-yomu-local')?.getAttribute('data-stats-status');
-    if (!deck || deck === 'setup' || deck === 'loading') return '';
+    const status = stats?.dataset.statsStatus ?? '';
+    if (!stats || status === 'setup' || status === 'loading') return '';
+    if (stats.dataset.statsEmpty === 'true') return '0';
     const metric = [...document.querySelectorAll('.jpdb-reader-stats-metric')]
         .find(item => item.querySelector('.jpdb-reader-stats-metric-label')?.textContent?.trim() === 'Due now');
-    return metric?.querySelector('strong')?.textContent?.trim() ?? '';
+    return metric?.querySelector('strong')?.textContent?.trim() ?? '0';
 }
 
 describe('local collection export and recovery', () => {

@@ -27,8 +27,12 @@ type NewTabStatsTextKey = UiCopyKey | NewTabCopyKey;
 type NewTabStatsText = (key: NewTabStatsTextKey) => string;
 type StatsRenderSource = StatsSourceSnapshot | ReturnType<typeof statsSourceForId>;
 
+/** The one activity chart Stats draws: the last 30 days, or six months of calendars on request. */
+export type StatsActivityView = 'bars' | 'calendar';
+
 export interface NewTabStatsContentOptions {
     activityMetric: StatsActivityMetric;
+    activityView?: StatsActivityView;
     language: string;
     selectedDate?: string;
     selectedSource: StatsSourceId;
@@ -48,13 +52,17 @@ export function renderNewTabStatsContent(options: NewTabStatsContentOptions): HT
         source: statsSourceForId(options.snapshot, selectedSource),
     };
     const { source, text } = context;
-    const empty = isEmptyStatsSource(source);
-    return el('div', { class: 'jpdb-reader-stats', dataset: { statsStatus: source.status, statsEmpty: empty } },
+    const visibleSources = visibleStatsSources(options.snapshot);
+    // Nothing anywhere yet: one sentence and the two ways to start. An empty
+    // source tab among sources with history keeps the tabs (the way back to
+    // All) and says what that source itself reports instead.
+    const empty = isEmptyStatsSource(options.snapshot.combined) || (visibleSources.length <= 1 && isEmptyStatsSource(source));
+    const sourceEmpty = !empty && isEmptyStatsSource(source);
+    const loading = source.status === 'loading';
+    return el('div', { class: 'jpdb-reader-stats', dataset: { statsStatus: source.status, statsEmpty: empty }, 'aria-busy': String(loading) },
         el('div', { class: 'jpdb-reader-stats-header' },
-            el('div', { class: 'jpdb-reader-stats-title' },
-                el('h1', {}, text('stats')),
-                empty ? null : el('p', {}, source.message || text('statsNoData')),
-            ),
+            el('h1', { class: 'jpdb-reader-stats-title' }, text('stats')),
+            // Turns while stats load; each source's own state is on its card.
             el('button', {
                 type: 'button',
                 class: 'jpdb-reader-stats-refresh',
@@ -63,8 +71,11 @@ export function renderNewTabStatsContent(options: NewTabStatsContentOptions): HT
                 title: text('statsRefresh'),
             }, '↻'),
         ),
-        ...(empty ? [renderStatsEmpty(text)] : renderStatsDashboard(context)),
-        renderStatsConnections(context, empty),
+        ...(empty
+            ? [renderStatsEmpty(text), renderStatsConnections(context, 'actionable')]
+            : sourceEmpty
+                ? [renderStatsSourceTabs(context), renderStatsConnections(context, 'selected')]
+                : [...renderStatsDashboard(context), renderStatsConnections(context, 'informative')]),
     );
 }
 
@@ -88,12 +99,14 @@ function renderStatsEmpty(text: NewTabStatsText): HTMLElement {
     );
 }
 
-function renderStatsDashboard(context: NewTabStatsRenderContext): HTMLElement[] {
+function renderStatsDashboard(context: NewTabStatsRenderContext): Array<HTMLElement | null> {
     return [
         renderStatsSourceTabs(context),
         renderStatsMetrics(context),
         renderStatsLearningProgress(context),
-        renderStatsActivity(context),
+        // No day with any activity: an empty chart would only contradict the
+        // measures above (a provider may count today without a history).
+        context.source.daily.some(point => point.reviews || point.newCards || point.minutes) ? renderStatsActivity(context) : null,
         renderStatsDistribution(context),
     ];
 }
@@ -127,73 +140,102 @@ function renderStatsSourceTabs(context: NewTabStatsRenderContext): HTMLElement {
     );
 }
 
-function renderStatsMetrics(context: NewTabStatsRenderContext): HTMLElement {
-    const { source, text } = context;
-    const speed = averageReviewSpeed(source);
-    const dueEstimate = estimatedDueMinutes(source);
+interface StatsMeasure {
+    label: string;
+    value: string;
+    detail?: string;
+    /** Saved words: the measure is also the way to them in Library. */
+    opensSaved?: boolean;
+    /** The detail is the value's unit, so it stays beside the value on the quiet line. */
+    unit?: boolean;
+}
+
+// A measure with no value yet (no reviews today, nothing due, no rate) is left
+// out rather than drawn as 0 or a dash. The first three lead as tiles and any
+// others follow on one quiet line. Card totals are the Words column below.
+function renderStatsMetrics(context: NewTabStatsRenderContext): HTMLElement | null {
+    const measures = statsMeasures(context);
+    if (!measures.length) return null;
+    const lead = measures.slice(0, 3);
+    const rest = measures.slice(3);
     return el('div', { class: 'jpdb-reader-stats-metrics' },
-        renderStatsMetric(text('statsReviewsToday'), formatCompactNumber(source.reviewsToday), reviewsTodayDetail(context)),
-        // Jiten Today-panel parity (SH-7): due-now with the time estimate.
-        renderStatsMetric(text('statsDueNow'), formatCompactNumber(source.cards.due), statsDueTimeDetail(dueEstimate, context)),
-        renderStatsMetric(text('statsCurrentStreak'), formatCompactNumber(source.currentStreak), `${text('statsLongestStreak')}: ${formatCompactNumber(source.longestStreak)} ${text('statsDays')}`),
-        renderStatsMetric(text('statsRetention'), formatPercent(source.retention), text('statsTotalReviews')),
-        renderStatsMetric(text('statsAverageSpeed'), formatStatsSpeed(speed), text('statsCardsPerMinute')),
-        renderStatsMetric(text('statsCards'), formatCompactNumber(source.cards.total), cardSummaryText(source.cards, text)),
-        renderStatsSavedMetric(context),
+        lead.map(measure => renderStatsMeasure(measure, false)),
+        rest.length ? el('div', { class: 'jpdb-reader-stats-more' }, rest.map(measure => renderStatsMeasure(measure, true))) : null,
     );
 }
 
-// Saved words are not review work, so they are not "Cards". The tile is the
-// way to them: it opens Library on them, where "Add to review" schedules each one.
-function renderStatsSavedMetric({ source, text }: NewTabStatsRenderContext): HTMLElement | null {
-    if (!source.savedOnly) return null;
-    return el('button', {
-        type: 'button',
-        class: 'jpdb-reader-stats-metric jpdb-reader-stats-metric-link',
-        dataset: { newtabAction: newTabAction('stats-open-saved') },
-    }, statsMetricContent(text('savedWord'), formatCompactNumber(source.savedOnly), text('statsSavedDetail')));
+function statsMeasures(context: NewTabStatsRenderContext): StatsMeasure[] {
+    const { source, text } = context;
+    const speed = averageReviewSpeed(source);
+    const measures: Array<StatsMeasure | null> = [
+        source.reviewsToday > 0 ? { label: text('statsReviewsToday'), value: formatCompactNumber(source.reviewsToday), detail: reviewsTodayDetail(context) } : null,
+        // Jiten Today-panel parity (SH-7): due-now with the time estimate.
+        source.cards.due > 0 ? { label: text('statsDueNow'), value: formatCompactNumber(source.cards.due), detail: statsDueTimeDetail(estimatedDueMinutes(source), context) } : null,
+        source.currentStreak > 0 ? { label: text('statsCurrentStreak'), value: formatStatsDayCount(source.currentStreak, context), detail: `${text('statsLongestStreak')}: ${formatStatsDayCount(source.longestStreak, context)}` } : null,
+        source.retention !== null && Number.isFinite(source.retention) ? { label: text('statsRetention'), value: formatPercent(source.retention), detail: source.totalReviews > 0 ? `${text('statsTotalReviews')}: ${formatCompactNumber(source.totalReviews)}` : undefined } : null,
+        speed !== null && speed > 0 ? { label: text('statsAverageSpeed'), value: formatStatsSpeed(speed), detail: text('statsCardsPerMinute'), unit: true } : null,
+        // Saved words are not review work, so they are not counted as cards. The
+        // measure is the way to them: it opens Library, where "Add to review"
+        // schedules each one.
+        source.savedOnly ? { label: text('savedWord'), value: formatCompactNumber(source.savedOnly), detail: text('statsSavedDetail'), opensSaved: true } : null,
+    ];
+    return measures.filter((measure): measure is StatsMeasure => measure !== null);
 }
 
-function reviewsTodayDetail(context: NewTabStatsRenderContext): string {
+function reviewsTodayDetail(context: NewTabStatsRenderContext): string | undefined {
     const { source, text } = context;
     const today = recentDailyPoints(source.daily, 1)[0];
     const newToday = today?.newCards ?? 0;
-    return newToday > 0 ? `+${formatCompactNumber(newToday)} ${text('statsNewToday')}` : text('statsDailyActivity');
+    return newToday > 0 ? `+${formatCompactNumber(newToday)} ${text('statsNewToday')}` : undefined;
 }
 
-function renderStatsMetric(label: string, value: string, detail: string): HTMLElement {
-    return el('section', { class: 'jpdb-reader-stats-metric' }, statsMetricContent(label, value, detail));
-}
-
-function statsMetricContent(label: string, value: string, detail: string): HTMLElement[] {
-    return [
-        el('span', { class: 'jpdb-reader-stats-metric-label' }, label),
-        el('strong', {}, value),
-        el('span', { class: 'jpdb-reader-stats-metric-detail' }, detail),
+function renderStatsMeasure(measure: StatsMeasure, minor: boolean): HTMLElement {
+    const className = ['jpdb-reader-stats-metric', measure.opensSaved ? 'jpdb-reader-stats-metric-link' : '', minor ? 'is-minor' : ''].filter(Boolean).join(' ');
+    const content = [
+        el('span', { class: 'jpdb-reader-stats-metric-label' }, measure.label),
+        el('strong', {}, measure.value),
+        // On the quiet line only a unit follows the value ("5.6 cards/min").
+        measure.detail && (!minor || measure.unit) ? el('span', { class: 'jpdb-reader-stats-metric-detail' }, measure.detail) : null,
     ];
+    return measure.opensSaved
+        ? el('button', { type: 'button', class: className, dataset: { newtabAction: newTabAction('stats-open-saved') } }, content)
+        : el(minor ? 'span' : 'section', { class: className }, content);
 }
 
+// One chart at a time: the last 30 days as bars, or on request the last six
+// months as calendars. Drawing both said the same thing twice.
 function renderStatsActivity(context: NewTabStatsRenderContext): HTMLElement {
     const { activityMetric, source, text } = context;
+    const calendar = context.activityView === 'calendar';
     const points = recentDailyPoints(source.daily, 30);
     const maxValue = Math.max(1, ...points.map(point => statsActivityMetricValue(point, activityMetric)));
     const selected = selectedStatsDayPoint(source.daily, points, context);
-    return el('section', { class: 'jpdb-reader-stats-panel jpdb-reader-stats-activity' },
+    return el('section', { class: 'jpdb-reader-stats-panel jpdb-reader-stats-activity', dataset: { statsActivityView: calendar ? 'calendar' : 'bars' } },
         el('div', { class: 'jpdb-reader-stats-panel-heading' },
             el('h2', {}, text('statsDailyActivity')),
+            // Beside the title on a phone; after the metric tabs on a desktop (CSS order).
+            el('button', {
+                type: 'button',
+                class: 'jpdb-reader-stats-view-toggle',
+                dataset: { newtabAction: newTabAction('stats-activity-view') },
+                'aria-pressed': String(calendar),
+                'aria-label': text('statsMonthlyHeatmap'),
+                title: text('statsMonthlyHeatmap'),
+            }),
             el('div', { class: 'jpdb-reader-stats-panel-actions' },
                 renderStatsActivityMetricTabs(context),
                 el('span', {}, statsActivityTotalLabel(points, activityMetric, context)),
             ),
         ),
         el('p', { class: 'jpdb-reader-stats-activity-summary' }, statsDayLabel(selected, source.daily, context)),
-        el('div', { class: 'jpdb-reader-stats-bars', role: 'group', 'aria-label': text('statsDailyActivity') },
-            // Only an explicit user pick draws the selected outline; the
-            // implicit today-default made the final bar look permanently
-            // "selected" (user-reported).
-            points.map(point => renderStatsActivityBar(point, maxValue, activityMetric, isNewTabStatsDateKey(context.selectedDate) ? selected.date : '', source.daily, context)),
-        ),
-        renderStatsMonthStrip(source, activityMetric, context),
+        calendar
+            ? renderStatsMonthStrip(source, activityMetric, context)
+            : el('div', { class: 'jpdb-reader-stats-bars', role: 'group', 'aria-label': text('statsDailyActivity') },
+                // Only an explicit user pick draws the selected outline; the
+                // implicit today-default made the final bar look permanently
+                // "selected" (user-reported).
+                points.map(point => renderStatsActivityBar(point, maxValue, activityMetric, isNewTabStatsDateKey(context.selectedDate) ? selected.date : '', source.daily, context)),
+            ),
     );
 }
 
@@ -311,9 +353,7 @@ function renderStatsLearningProgress(context: NewTabStatsRenderContext): HTMLEle
             el('span', { class: 'is-learning', style: `width:${formatProgressRailWidth(learningRatio)}%` }),
             el('span', { class: 'is-known', style: `width:${formatProgressRailWidth(knownRatio)}%` }),
         ),
-        el('p', { class: 'jpdb-reader-stats-progress-total' },
-            `${text('statsTotalKnownVocabulary')}: ${formatCompactNumber(cards.known)}`,
-        ),
+        // No "Total known vocabulary" line: it repeated the You know column.
     );
 }
 
@@ -364,12 +404,20 @@ function renderStatsDistribution(context: NewTabStatsRenderContext): HTMLElement
     );
 }
 
-// With nothing to show yet, only a source that offers a next step earns a card:
-// another "No stats yet." beside the empty-state line says nothing new.
-function renderStatsConnections(context: NewTabStatsRenderContext, actionableOnly = false): HTMLElement {
-    const { snapshot, text } = context;
-    const sources = visibleStatsSources(snapshot).map(([, source]) => source)
-        .filter(source => !actionableOnly || statsConnectionActions(source, text).length > 0);
+// Which source cards to show. With nothing to show yet, only a source that
+// offers a next step earns a card ('actionable'). On an empty source tab, that
+// source's own card says why ('selected'). Beside the dashboard, a card that
+// would only repeat "loaded" and offer nothing is left out ('informative').
+type StatsConnectionFilter = 'actionable' | 'selected' | 'informative';
+
+function renderStatsConnections(context: NewTabStatsRenderContext, filter: StatsConnectionFilter): HTMLElement | null {
+    const { selectedSource, snapshot, text } = context;
+    const sources = visibleStatsSources(snapshot).filter(([id, source]) => {
+        if (filter === 'selected') return id === selectedSource;
+        const hasActions = statsConnectionActions(source, text).length > 0;
+        return hasActions || (filter === 'informative' && source.status !== 'ready');
+    }).map(([, source]) => source);
+    if (!sources.length) return null;
     return el('section', { class: 'jpdb-reader-stats-connections', 'aria-label': text('statsConnections') },
         sources.map(source => renderStatsConnectionCard(source, context)),
     );
@@ -478,15 +526,6 @@ function renderStatsAnkiDeckToggles(source: StatsSourceSnapshot, text: NewTabSta
     );
 }
 
-function cardSummaryText(cards: StatsSourceSnapshot['cards'], text: NewTabStatsText): string {
-    const parts = [
-        cards.failed ? `${text('stateFailed')} ${formatCompactNumber(cards.failed)}` : '',
-        cards.due ? `${text('statsDue')} ${formatCompactNumber(cards.due)}` : '',
-        cards.known ? `${text('statsKnown')} ${formatCompactNumber(cards.known)}` : '',
-    ].filter(Boolean);
-    return parts.join(' · ') || text('statsCardDistribution');
-}
-
 function localizedStatsSegmentLabel(label: string, text: NewTabStatsText): string {
     const keyByLabel: Record<string, NewTabStatsTextKey> = {
         New: 'stateNew',
@@ -588,15 +627,17 @@ function formatStatsSpeed(speed: number | null): string {
     return speed === null ? '—' : `${speed.toFixed(speed >= 10 ? 0 : 1)}`;
 }
 
-function statsDueTimeDetail(minutes: number | null, context: NewTabStatsRenderContext): string {
+// "Due now" is a count of cards; its second line is the time it should take
+// and, where the scheduler can say (Anki), what is coming.
+function statsDueTimeDetail(minutes: number | null, context: NewTabStatsRenderContext): string | undefined {
     const { source, text } = context;
     const parts: string[] = [];
-    if (minutes !== null) parts.push(`${text('statsEstimatedDueTime')}: ${formatStatsDuration(minutes)}`);
+    if (minutes !== null && minutes > 0) parts.push(`${text('statsEstimatedDueTime')}: ${formatStatsDuration(minutes)}`);
     // Jiten Today-panel parity: upcoming-review forecast where the provider's
     // scheduler can answer exactly (Anki).
     const forecast = source.dueForecast;
     if (forecast) parts.push(`${text('statsNext7d')}: ${formatCompactNumber(forecast.in7)} · ${text('statsNext30d')}: ${formatCompactNumber(forecast.in30)}`);
-    return parts.length ? parts.join(' · ') : text('statsCards').toLowerCase();
+    return parts.length ? parts.join(' · ') : undefined;
 }
 
 function formatStatsDuration(minutes: number): string {
