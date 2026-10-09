@@ -72,7 +72,7 @@ export function renderNewTabStatsContent(options: NewTabStatsContentOptions): HT
             }, '↻'),
         ),
         ...(empty
-            ? [renderStatsEmpty(text), renderStatsConnections(context, 'actionable')]
+            ? [renderStatsSourceTabs(context), renderStatsEmpty(text), renderStatsConnections(context, 'actionable')]
             : sourceEmpty
                 ? [renderStatsSourceTabs(context), renderStatsConnections(context, 'selected')]
                 : [...renderStatsDashboard(context), renderStatsConnections(context, 'informative')]),
@@ -83,6 +83,8 @@ export function renderNewTabStatsContent(options: NewTabStatsContentOptions): HT
 // calendars says nothing, so one line says what will appear and how to start.
 function isEmptyStatsSource(source: StatsRenderSource): boolean {
     return source.status !== 'loading'
+        && source.reviewsToday === 0
+        && !source.reviewedCardsToday
         && source.totalReviews === 0
         && source.cards.total === 0
         && !source.savedOnly
@@ -106,7 +108,7 @@ function renderStatsDashboard(context: NewTabStatsRenderContext): Array<HTMLElem
         renderStatsLearningProgress(context),
         // No day with any activity: an empty chart would only contradict the
         // measures above (a provider may count today without a history).
-        context.source.daily.some(point => point.reviews || point.newCards || point.minutes) ? renderStatsActivity(context) : null,
+        context.source.reviewHistoryAvailable !== false && context.source.daily.some(point => point.reviews || point.newCards || point.minutes) ? renderStatsActivity(context) : null,
         renderStatsDistribution(context),
     ];
 }
@@ -166,13 +168,15 @@ function renderStatsMetrics(context: NewTabStatsRenderContext): HTMLElement | nu
 
 function statsMeasures(context: NewTabStatsRenderContext): StatsMeasure[] {
     const { source, text } = context;
-    const speed = averageReviewSpeed(source);
+    const hasHistory = source.reviewHistoryAvailable !== false;
+    const speed = hasHistory ? averageReviewSpeed(source) : null;
     const measures: Array<StatsMeasure | null> = [
+        source.reviewedCardsToday ? { label: text('statsWordsReviewedToday'), value: formatCompactNumber(source.reviewedCardsToday), detail: source.id === 'combined' ? context.snapshot.yomuLocal.label : undefined } : null,
         source.reviewsToday > 0 ? { label: text('statsReviewsToday'), value: formatCompactNumber(source.reviewsToday), detail: reviewsTodayDetail(context) } : null,
         // Jiten Today-panel parity (SH-7): due-now with the time estimate.
-        source.cards.due > 0 ? { label: text('statsDueNow'), value: formatCompactNumber(source.cards.due), detail: statsDueTimeDetail(estimatedDueMinutes(source), context) } : null,
-        source.currentStreak > 0 ? { label: text('statsCurrentStreak'), value: formatStatsDayCount(source.currentStreak, context), detail: `${text('statsLongestStreak')}: ${formatStatsDayCount(source.longestStreak, context)}` } : null,
-        source.retention !== null && Number.isFinite(source.retention) ? { label: text('statsRetention'), value: formatPercent(source.retention), detail: source.totalReviews > 0 ? `${text('statsTotalReviews')}: ${formatCompactNumber(source.totalReviews)}` : undefined } : null,
+        source.cards.due > 0 ? { label: text('statsDueNow'), value: formatCompactNumber(source.cards.due), detail: statsDueTimeDetail(hasHistory ? estimatedDueMinutes(source) : null, context) } : null,
+        hasHistory && source.currentStreak > 0 ? { label: text('statsCurrentStreak'), value: formatStatsDayCount(source.currentStreak, context), detail: `${text('statsLongestStreak')}: ${formatStatsDayCount(source.longestStreak, context)}` } : null,
+        hasHistory && source.retention !== null && Number.isFinite(source.retention) ? { label: text('statsRetention'), value: formatPercent(source.retention), detail: source.totalReviews > 0 ? `${text('statsTotalReviews')}: ${formatCompactNumber(source.totalReviews)}` : undefined } : null,
         speed !== null && speed > 0 ? { label: text('statsAverageSpeed'), value: formatStatsSpeed(speed), detail: text('statsCardsPerMinute'), unit: true } : null,
         // Saved words are not review work, so they are not counted as cards. The
         // measure is the way to them: it opens Library, where "Add to review"

@@ -81,6 +81,21 @@ it('counts every Academy card in review, not only the due queue', async () => {
     expect(legend).toEqual(expect.arrayContaining(['New 1', 'Learning 1']));
 });
 
+it.each(['en', 'ja'] as const)('reports unique reviewed words after multiple real grades, without invented history (%s)', async language => {
+    const repository = new LocalYomuSrsRepository();
+    const mined = await repository.mine({ expression: '読む', reading: 'よむ', meaning: 'to read' });
+    await repository.review({ card: mined.card!, grade: 'again' });
+    await repository.review({ card: mined.card!, grade: 'good' });
+    expect(Object.values((await repository.snapshot()).cards)[0].reviews).toBe(2);
+    expect((await repository.stats()).reviewsToday).toBe(1);
+    const root = await loadAcademyStats(repository, language);
+    expect(metric(root, language === 'ja' ? '今日復習した単語' : 'Words reviewed today')).toBe('1');
+    expect(metric(root, language === 'ja' ? '今日の復習' : 'Reviews today')).toBe('');
+    expect(root.querySelector('.jpdb-reader-stats-activity')).toBeNull();
+    expect(root.querySelector('.jpdb-reader-stats-progress')).not.toBeNull();
+    expect(root.querySelector('.jpdb-reader-stats-distribution')).not.toBeNull();
+});
+
 // A slow Stats load must not paint over the view the learner moved to.
 it('keeps a late Stats load from replacing Library after the learner leaves Stats', async () => {
     const repository = new LocalYomuSrsRepository();

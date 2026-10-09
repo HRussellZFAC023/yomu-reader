@@ -51,6 +51,7 @@ export interface YomuSrsStatsSnapshot {
     providerId: YomuSrsProviderId;
     fetchedAt: number;
     reviewsDue?: number;
+    /** The yomu-local adapter counts distinct cards here, not review events. */
     reviewsToday?: number;
     newToday?: number;
     streakDays?: number;

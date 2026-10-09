@@ -471,7 +471,8 @@ export class NewTabStatsController {
                 ...snapshot,
                 savedOnly: listed.length - cards.length,
                 message: cards.length || stats.reviewsDue || stats.reviewsToday ? snapshot.message : this.deps.text('statsNoData'),
-                reviewsToday: stats.reviewsToday ?? snapshot.reviewsToday,
+                reviewsToday: source === 'yomu-local' ? 0 : stats.reviewsToday ?? snapshot.reviewsToday,
+                ...(source === 'yomu-local' ? { reviewedCardsToday: stats.reviewsToday ?? 0 } : {}),
                 cards: {
                     ...snapshot.cards,
                     due: stats.reviewsDue ?? snapshot.cards.due,
