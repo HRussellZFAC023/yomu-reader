@@ -25,6 +25,25 @@ describe('settings restore coordinator latch recovery', () => {
         vi.restoreAllMocks();
     });
 
+    it.each(['delete-yomitan-dictionary', 'clear-local-dictionary-site-storage', 'future-durable-action'])
+        ('keeps %s blocking Save alongside a nonblocking import', async action => {
+            const { coordinator, form } = coordinatorFixture();
+            let finishImport!: () => void;
+            let finishAction!: () => void;
+            const importing = coordinator.runAction(form, coordinator.captureAction(form, 'import-yomitan-dictionary')!,
+                () => new Promise<void>(resolve => { finishImport = resolve; }));
+            const blocking = coordinator.runAction(form, coordinator.captureAction(form, action)!,
+                () => new Promise<void>(resolve => { finishAction = resolve; }));
+            expect(coordinator.beginSave(form)).toBeUndefined();
+            finishImport();
+            await importing;
+            expect(coordinator.beginSave(form)).toBeUndefined();
+            finishAction();
+            await blocking;
+            expect(coordinator.beginSave(form)).toBe(0);
+            coordinator.finishSave(form);
+        });
+
     it('releases a durable-action latch when its initial UI projection throws', async () => {
         const { coordinator, form } = coordinatorFixture();
         const query = vi.spyOn(form, 'querySelector').mockImplementationOnce(() => {

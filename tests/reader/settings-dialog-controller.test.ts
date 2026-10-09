@@ -2664,16 +2664,16 @@ describe('settings dialog dictionary imports', () => {
 
         await waitForCondition(() => importFile.mock.calls.length === 1);
         expect(importFile.mock.calls[0]?.[0]).toBe(files[0]);
-        expect(form.querySelector<HTMLButtonElement>('button[type="submit"]')?.disabled).toBe(true);
+        expect(form.querySelector<HTMLButtonElement>('button[type="submit"]')?.disabled).toBe(false);
         expect(form.querySelector<HTMLElement>('[data-settings-save-status]')?.textContent).toContain('2 installs running');
 
         firstImport.resolve(importSummary('First dictionary'));
         await waitForCondition(() => importFile.mock.calls.length === 2);
         expect(importFile.mock.calls[1]?.[0]).toBe(files[1]);
-        expect(form.querySelector<HTMLButtonElement>('button[type="submit"]')?.disabled).toBe(true);
+        expect(form.querySelector<HTMLButtonElement>('button[type="submit"]')?.disabled).toBe(false);
 
         secondImport.resolve(importSummary('Second dictionary'));
-        await waitForCondition(() => form.querySelector<HTMLButtonElement>('button[type="submit"]')?.disabled === false);
+        await waitForCondition(() => form.querySelector<HTMLElement>('#jpdb-reader-settings-panel-backup [data-import-status]')?.textContent === 'Imported 2 from 2 sources.');
 
         expect(dependencies.refreshDictionaryStyles).toHaveBeenCalledTimes(2);
         expect(dependencies.scheduleDictionaryRescan).toHaveBeenCalledTimes(2);

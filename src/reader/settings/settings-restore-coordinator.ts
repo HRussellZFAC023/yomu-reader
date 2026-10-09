@@ -31,6 +31,7 @@ export interface DictionaryOperationOptions {
 export interface SettingsActionTicket {
     readonly revision: number;
     readonly mode: SettingsActionMode;
+    readonly holdsSave: boolean;
 }
 
 interface FormFreezeSnapshot {
@@ -87,6 +88,7 @@ export class SettingsRestoreCoordinator {
     private savePending = false;
     private editedDuringSave = false;
     private readonly activeSaves = new Set<Promise<void>>();
+    private saveHoldingDurableOperations = 0;
     private readonly activeDurableOperations = new Set<Promise<void>>();
     private readonly freezeSnapshots = new WeakMap<HTMLFormElement, FormFreezeSnapshot>();
     private readonly savedNotices = new WeakSet<HTMLFormElement>();
@@ -102,7 +104,9 @@ export class SettingsRestoreCoordinator {
     }
 
     captureAction(form: HTMLFormElement, action: string): SettingsActionTicket | undefined {
-        const ticket = { revision: this.revision, mode: settingsActionMode(action) } as const;
+        // File import remains durable for restore ordering, including its file
+        // picker, but only its final settings write needs to hold Save.
+        const ticket = { revision: this.revision, mode: settingsActionMode(action), holdsSave: action !== 'import-yomitan-dictionary' } as const;
         return this.actionIsAdmitted(form, ticket) ? ticket : undefined;
     }
 
@@ -112,7 +116,7 @@ export class SettingsRestoreCoordinator {
         operation: () => Promise<T>,
     ): Promise<T | undefined> {
         if (!this.actionIsAdmitted(form, ticket)) return undefined;
-        if (ticket.mode === 'durable') return this.runDurableOperation(operation);
+        if (ticket.mode === 'durable') return this.runDurableOperation(operation, ticket.holdsSave);
         return operation();
     }
 
@@ -168,7 +172,7 @@ export class SettingsRestoreCoordinator {
     }
 
     private saveConflictPending(): boolean {
-        return this.savePending || this.dictionarySettingsWritePending || this.activeDurableOperations.size > 0;
+        return this.savePending || this.dictionarySettingsWritePending || this.saveHoldingDurableOperations > 0;
     }
 
     /**
@@ -208,15 +212,17 @@ export class SettingsRestoreCoordinator {
         return revision === this.importRevision;
     }
 
-    async runDurableOperation<T>(operation: () => Promise<T>): Promise<T> {
+    async runDurableOperation<T>(operation: () => Promise<T>, holdsSave = true): Promise<T> {
         let release!: () => void;
         const lifetime = new Promise<void>(resolve => { release = resolve; });
         this.activeDurableOperations.add(lifetime);
+        if (holdsSave) this.saveHoldingDurableOperations++;
         try {
             this.syncCurrentForm();
             return await operation();
         } finally {
             this.activeDurableOperations.delete(lifetime);
+            if (holdsSave) this.saveHoldingDurableOperations--;
             release();
             this.syncCurrentForm();
         }
@@ -342,7 +348,7 @@ export class SettingsRestoreCoordinator {
         // Installs still running say so beside Save, which an install no
         // longer holds.
         const queue = this.pendingDictionaryOperations > 0 ? dictionaryQueueStatus(this.pendingDictionaryOperations, language, 'dictionaryInstallRunning') : '';
-        if (this.activeDurableOperations.size > 0 || this.dictionarySettingsWritePending) return { ...busyUiState(language, 'settings-action'), message: queue };
+        if (this.saveHoldingDurableOperations > 0 || this.dictionarySettingsWritePending) return { ...busyUiState(language, 'settings-action'), message: queue };
         if (this.savePending) return busyUiState(language, 'settings-save');
         return { ...readyUiState(language), message: queue };
     }
