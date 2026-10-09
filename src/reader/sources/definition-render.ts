@@ -101,7 +101,7 @@ function renderLocalDictionaryGroup(dictionary: string, groups: LearnerTermGroup
 
 function renderLocalTermGroup(dictionary: string, group: LearnerTermGroup, dictionaryLabel: DictionaryLabel, language: InterfaceLanguage, reference?: CardHighlightTarget, options: { showDictionaryTag?: boolean } = {}): string {
     return `
-        <article class="jpdb-reader-local-entry jpdb-reader-local-term">
+        <article class="jpdb-reader-local-entry jpdb-reader-local-term" data-more-entry-key="${escapeHtml(JSON.stringify([group.expression, group.reading]))}">
             ${renderLocalTermHead(group, reference)}
             ${renderLocalTermTags(dictionary, group, dictionaryLabel, options.showDictionaryTag ?? true, language)}
             ${renderLocalTermMeaning(dictionary, group, language)}

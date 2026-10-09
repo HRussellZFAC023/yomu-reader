@@ -538,3 +538,56 @@ describe("Study's lookup popup while enrichment re-renders the card", () => {
         }
     });
 });
+
+
+describe('source disclosures during actual popup enrichment', () => {
+    const meanings = ['first sense', 'second sense', 'third sense', 'fourth sense', 'fifth sense']
+        .map(gloss => ({ glosses: [gloss], partOfSpeech: [] }));
+    const examples = ['一つ目。', '二つ目。', '三つ目。'].map(sentence => ({ sentence, translation: '' }));
+    const meaningsMore = (root: HTMLElement) => root.querySelector<HTMLDetailsElement>('[data-source="jpdb"] [data-more-kind="meanings"]')!;
+    const examplesMore = (root: HTMLElement) => root.querySelector<HTMLDetailsElement>('[data-source="jpdb"] [data-more-kind="examples"]')!;
+
+    it.each(['modal', 'hover'] as const)('keeps the %s Reader popup open at More meanings when examples arrive', trigger => {
+        const { app, internals, popover } = mountPopup();
+        const card = testAozoraCard({ source: 'jpdb', meanings });
+        try {
+            internals.renderCompletedCardPopover(popover, card, SENTENCE, trigger, completedData());
+            const original = meaningsMore(popover);
+            expect(original).not.toBeNull();
+            original.open = true;
+            const enriched = { ...completedData(), jpdbVocabularyInfo: { meanings: [], compounds: [], examples } };
+            internals.renderCompletedCardPopover(popover, card, SENTENCE, trigger, enriched);
+            expect(meaningsMore(popover)).not.toBe(original);
+            expect(meaningsMore(popover).open).toBe(true);
+            expect(examplesMore(popover).open).toBe(false);
+            meaningsMore(popover).open = false;
+            examplesMore(popover).open = true;
+            internals.renderCompletedCardPopover(popover, card, SENTENCE, trigger, enriched);
+            expect(meaningsMore(popover).open).toBe(false);
+            expect(examplesMore(popover).open).toBe(true);
+        } finally { app.destroy(); vi.unstubAllGlobals(); }
+    });
+
+    it('keeps Study More meanings open after deferred provider completion, without opening new examples', async () => {
+        vi.stubGlobal('location', new URL('https://yomureader.com/study/'));
+        const runtime = new NewTabRuntime();
+        const all = deferred<ReturnType<typeof newTabLookupRenderData>>();
+        const internals = setupNewTabLookupRuntime(runtime, newTabLookupRenderData(), { settings: SETTINGS });
+        internals.cardRenderData = {
+            load: () => ({ localEntries: Promise.resolve([]), all: all.promise }), clear: () => undefined,
+        };
+        try {
+            await internals.showLookupCard(newTabTestCard({ source: 'jpdb', spelling: '読む', reading: 'よむ', meanings }), '本を読む。');
+            await settle();
+            const popover = (runtime as unknown as { activeLookupPopover: HTMLElement }).activeLookupPopover;
+            const original = meaningsMore(popover);
+            expect(original).not.toBeNull();
+            original.open = true;
+            all.resolve(newTabLookupRenderData({ jpdbVocabularyInfo: { meanings: [], compounds: [], examples } }));
+            await settle(); await settle();
+            expect(meaningsMore(popover)).not.toBe(original);
+            expect(meaningsMore(popover).open).toBe(true);
+            expect(examplesMore(popover).open).toBe(false);
+        } finally { runtime.destroy(); vi.unstubAllGlobals(); }
+    });
+});

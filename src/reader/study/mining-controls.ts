@@ -1,5 +1,6 @@
 // ADR-0003 core import-severing: the mining drawer/deck-picker DOM helpers ship
 // in the Yomu Kanji/Study companion; this facade keeps core call sites stable.
+import { preserveMoreDisclosures } from '../sources/more-disclosure';
 import { yomuKanjiStudyCompanion } from '../companions/registry';
 import type { JPDBCard } from '../app/types';
 import type { CardCommandCapability } from '../dom/private-command-capabilities';
@@ -19,8 +20,15 @@ export function setMiningControlsExpanded(button: HTMLButtonElement, expanded: b
 /** Re-renders a popup through `render` without pulling its action rows from under the learner. */
 export function rerenderAroundMiningControls(root: ParentNode, label: MiningControlLabel, render: () => void): void {
     const companion = yomuKanjiStudyCompanion()?.rerenderAroundMiningControls;
-    if (companion) companion(root, label, render);
-    else render();
+    // Capture when the render actually runs: the companion can defer it while
+    // a deck picker is in use, and disclosure choices can change meanwhile.
+    const renderPreservingDisclosures = (): void => {
+        const restore = preserveMoreDisclosures(root);
+        render();
+        restore();
+    };
+    if (companion) companion(root, label, renderPreservingDisclosures);
+    else renderPreservingDisclosures();
 }
 
 /** Mounts the "Add to deck…" dropdowns a popup render placed in `root`. */
