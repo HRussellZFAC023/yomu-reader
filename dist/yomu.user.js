@@ -12,7 +12,7 @@
 // @match *://*/*
 // @match file:///*
 // @require https://yomureader.com/greasyfork/yomu-runtime.d36ec25fa390.user.js#sha256=027CX6OQpg8zHFqIqazsbUcDL8n+QOnGrKweHjc/SzI=
-// @resource yomuCss  https://yomureader.com/yomu.487fa83ac3a3.css#sha256=SH+oOsOjKrhloUzvtvubPX9yuem9f4Ythpxa4g0Ti7k=
+// @resource yomuCss  https://yomureader.com/yomu.d378ade3078c.css#sha256=03it4weMHwIDqlKgM4xW47rcDBiUk4tYH9QhORGJQQo=
 // @connect api.jiten.moe
 // @connect api.tatoeba.org
 // @connect tatoeba.org
@@ -31066,10 +31066,11 @@ let rawDragHeight = 0;
 let dragPageScale = 1;
 const isFullHeight = () => viewportHeight > 0 && sheetHeight >= viewportHeight - SHEET_FULL_HEIGHT_THRESHOLD_PX;
 const syncHandle = (handle) => {
-handle.setAttribute("role", "button");
+handle.setAttribute("role", "separator");
 handle.setAttribute("tabindex", "0");
 handle.setAttribute("aria-label", label);
-handle.setAttribute("aria-expanded", String(isFullHeight()));
+handle.setAttribute("aria-orientation", "horizontal");
+handle.removeAttribute("aria-expanded");
 handle.setAttribute("aria-valuemin", String(sheetMinHeight(viewportHeight)));
 handle.setAttribute("aria-valuemax", String(viewportHeight));
 handle.setAttribute("aria-valuenow", String(Math.round(sheetHeight)));

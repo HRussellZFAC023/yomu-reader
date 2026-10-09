@@ -26159,12 +26159,7 @@ function renderDictionaryStatusElements(elements, summary, settings2, learnerLan
 }
 function renderDictionaryStatusLine(element, summary, settings2) {
   if (!element) return;
-  element.textContent = summary.dictionaries.length ? formatUiText(settings2.interfaceLanguage, "dictionaryStatusSummary", {
-  dictionaries: summary.dictionaries.length.toLocaleString(),
-  terms: summary.terms.toLocaleString(),
-  kanji: summary.kanji.toLocaleString(),
-  metadata: summary.termMeta.toLocaleString()
-  }) : uiText(settings2.interfaceLanguage, "noLocalDictionariesImported");
+  element.textContent = summary.dictionaries.length ? "" : uiText(settings2.interfaceLanguage, "noLocalDictionariesImported");
 }
 function renderDictionaryPriorities(elements, settings2) {
   if (elements.priorities) setInnerHtml(elements.priorities, renderDictionarySourceRows(settings2));

@@ -10160,6 +10160,7 @@ html.jpdb-reader-doodle-active * {
   color: var(--jpdb-reader-muted);
   font-size: 11px;
 }
+.jpdb-reader-dictionary-status:empty { display: none; }
 .jpdb-reader-dictionary-priorities,
 .jpdb-reader-kanji-priorities,
 .jpdb-reader-audio-sources,

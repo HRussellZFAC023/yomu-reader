@@ -45202,10 +45202,11 @@ ${normalizedReading}`;
     let dragPageScale = 1;
     const isFullHeight = () => viewportHeight2 > 0 && sheetHeight >= viewportHeight2 - SHEET_FULL_HEIGHT_THRESHOLD_PX;
     const syncHandle = (handle) => {
-      handle.setAttribute("role", "button");
+      handle.setAttribute("role", "separator");
       handle.setAttribute("tabindex", "0");
       handle.setAttribute("aria-label", label);
-      handle.setAttribute("aria-expanded", String(isFullHeight()));
+      handle.setAttribute("aria-orientation", "horizontal");
+      handle.removeAttribute("aria-expanded");
       handle.setAttribute("aria-valuemin", String(sheetMinHeight(viewportHeight2)));
       handle.setAttribute("aria-valuemax", String(viewportHeight2));
       handle.setAttribute("aria-valuenow", String(Math.round(sheetHeight)));
@@ -92330,12 +92331,7 @@ ${reading}`);
   }
   function renderDictionaryStatusLine(element, summary, settings2) {
     if (!element) return;
-    element.textContent = summary.dictionaries.length ? formatUiText(settings2.interfaceLanguage, "dictionaryStatusSummary", {
-      dictionaries: summary.dictionaries.length.toLocaleString(),
-      terms: summary.terms.toLocaleString(),
-      kanji: summary.kanji.toLocaleString(),
-      metadata: summary.termMeta.toLocaleString()
-    }) : uiText(settings2.interfaceLanguage, "noLocalDictionariesImported");
+    element.textContent = summary.dictionaries.length ? "" : uiText(settings2.interfaceLanguage, "noLocalDictionariesImported");
   }
   function renderDictionaryPriorities(elements, settings2) {
     if (elements.priorities) setInnerHtml(elements.priorities, renderDictionarySourceRows(settings2));
@@ -117828,7 +117824,7 @@ ${options.version}`;
       return `${this.index + 1} / ${this.visibleWords.length}`;
     }
     renderSessionProgress(slots, card, root) {
-      const baseLabel = this.newTabCountLabel(card);
+      const baseLabel = card ? this.newTabCountLabel(card) : "";
       const reviewCards = this.reviewCountMode ? this.sessionProgressCards() : [];
       const snapshot = this.reviewCountMode ? this.sessionProgress.snapshot(reviewCards) : null;
       if (this.reviewCountMode) this.warmOfflineCache(reviewCards);
@@ -117877,9 +117873,10 @@ ${options.version}`;
       return card.sourceCardKey || cardKey(card);
     }
     refreshSessionProgressSoon() {
-      const root = this.sessionClockRoot;
+      if (this.destroyed) return;
+      const root = this.currentRoot();
       const card = this.visibleWords[this.index];
-      if (root?.isConnected && card && this.isVocabularyStudyRoute()) {
+      if (root?.isConnected && this.isVocabularyStudyRoute()) {
         this.renderSessionProgress(this.studySlots(root), card, root);
       }
     }
