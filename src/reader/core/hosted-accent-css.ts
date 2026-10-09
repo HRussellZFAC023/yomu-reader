@@ -1,5 +1,5 @@
 import { sharedContrastRatio, sharedHexToRgba, sharedMixHex } from './color-math';
-import { BRAND_COLOR_TOKENS } from '../theme/color-tokens';
+import { BRAND_COLOR_TOKENS } from '../theme/brand-color-tokens';
 
 // Every hosted surface (docs, study/new tab, PDF reader, video player) paints
 // the accent through these tokens, so the pre-paint bootstrap and the runtime

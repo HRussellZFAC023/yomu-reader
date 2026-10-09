@@ -4,13 +4,7 @@ export const CORE_COLOR_TOKENS = {
     transparentBlack: 'rgba(0, 0, 0, 0)',
 } as const;
 
-// Ink and paper with one restrained red, taken from the よむ icon's pitch mark
-// (#fe4b74) and deepened until white text on it and it on white both pass AA.
-export const BRAND_COLOR_TOKENS = {
-    accent: '#b8324e',
-    accentOnDark: '#ff7892',
-    consoleAccent: '#b8324e',
-} as const;
+export { BRAND_COLOR_TOKENS } from './brand-color-tokens';
 
 export const READER_THEME_COLOR_TOKENS = {
     dark: {

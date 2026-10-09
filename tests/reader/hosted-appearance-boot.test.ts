@@ -103,6 +103,16 @@ describe('hosted pre-paint appearance bootstrap', () => {
         expect(hostedAppearanceBootSnippet('docs')).not.toContain('</script');
         expect(hostedAppearanceBootSnippet('surface')).not.toContain('</script');
     });
+
+    // Inlined into every hosted page's <head>: importing the brand red from the
+    // reader's token table pulled that whole table in (+1 KB of unused colours).
+    it('carries the brand colours and none of the reader token tables', () => {
+        for (const mode of ['docs', 'surface'] as const) {
+            const snippet = hostedAppearanceBootSnippet(mode);
+            expect(snippet).toContain('#b8324e');
+            expect(snippet).not.toMatch(/surface2|sentenceBorder|tableBorder/u);
+        }
+    });
 });
 
 // The template's `:root…{ --bg: … }` theme blocks, other than the dark default.
