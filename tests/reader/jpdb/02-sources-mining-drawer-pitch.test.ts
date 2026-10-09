@@ -25,6 +25,7 @@ import {
     readingTestCard,
     renderModalCard,
     renderWordPills,
+    renderCopyWordControl,
     sourceSummaryClickFixture,
     testAnkiExistingNote,
     testAnkiLookup,
@@ -1167,7 +1168,9 @@ describe('reader helpers', () => {
         expect(html).toContain('>JPDB ');
     });
 
-    it('renders the built-in lookup pills Yomu-first, all in one quiet style', () => {
+    // Jiten and JPDB lead; Yomu search and Bunpro wait behind one "More" so the
+    // row is a single line on a phone (Copy once wrapped alone at 390px).
+    it('renders the built-in lookup pills Jiten and JPDB first, the rest behind More, all in one quiet style', () => {
         const html = renderWordPills({
             card,
             jpdbUrl: 'https://jpdb.io/vocabulary/1',
@@ -1183,10 +1186,14 @@ describe('reader helpers', () => {
         expect(html).toContain('>JPDB ');
         expect(html).toContain('>Jiten ');
         expect(html).toContain('>Yomu ');
-        expect(html.indexOf('>Yomu ')).toBeLessThan(html.indexOf('>Jiten '));
         expect(html.indexOf('>Jiten ')).toBeLessThan(html.indexOf('>JPDB '));
         expect(html).not.toContain('>Jisho ');
         expect(html.indexOf('>JPDB ')).toBeLessThan(html.indexOf('jpdb-reader-copy-pill'));
+        const row = new DOMParser().parseFromString(html, 'text/html').querySelector('.jpdb-reader-word-pills')!;
+        const more = row.querySelector('details.jpdb-reader-pill-more');
+        expect(Array.from(more?.querySelectorAll(':scope > a') ?? []).map(link => link.textContent?.trim())).toEqual(['Yomu', 'Bunpro']);
+        expect(more?.querySelector('summary')?.getAttribute('aria-label')).toBe('More links');
+        expect(row.lastElementChild).toBe(more);
         expect(html).toContain('https://jiten.moe/parse?text=');
         expect(html).toContain(`${NEW_TAB_PAGE_URL}index.html?q=`);
         // No rainbow: provider identity is the label, not a fill colour.
@@ -1334,6 +1341,21 @@ describe('reader helpers', () => {
         expect(html).toContain(`href="${NEW_TAB_PAGE_URL}index.html?q=`);
         expect(html).toContain('data-action="copy-word"');
         expect(html).not.toContain('aria-disabled="true"');
+    });
+
+    // In the word popup Copy is an icon beside audio, not the last pill on the
+    // row, where at 390px it wrapped onto a line of its own.
+    it('draws Copy beside audio in the word popup, out of the pill row', () => {
+        const settings = { ...DEFAULT_SETTINGS, interfaceLanguage: 'en' as const, dictionaryLookupLinks: defaultDictionaryLookupLinks('local') };
+        const row = renderWordPills({ card, jpdbUrl: 'https://jpdb.io/vocabulary/1', settings, isJpdbBackedCard: () => true, dictionaryLabel: name => name, copyBesideAudio: true });
+        expect(row).not.toContain('data-action="copy-word"');
+        const control = new DOMParser().parseFromString(renderCopyWordControl(settings, card), 'text/html').querySelector('button')!;
+        expect(control.classList.contains('jpdb-reader-icon-btn')).toBe(true);
+        expect(control.dataset.action).toBe('copy-word');
+        expect(control.getAttribute('aria-label')).toMatch(/^Copy word: /u);
+        expect(control.querySelector('svg')).not.toBeNull();
+        const noCopy = { ...settings, dictionaryLookupLinks: settings.dictionaryLookupLinks.map(link => (link.id === 'copy' ? { ...link, enabled: false } : link)) };
+        expect(renderCopyWordControl(noCopy, card)).toBe('');
     });
 
     it('renders an Add to Anki pill for trusted Anki misses', () => {

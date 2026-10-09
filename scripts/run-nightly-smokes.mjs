@@ -59,6 +59,7 @@ export const NIGHTLY_SMOKES = [
     'smoke:pitch-underline:webkit',
     'smoke:popover-headword-furigana',
     'smoke:popup-lifecycle',
+    'smoke:popup-header-phone',
     'smoke:study-personas',
     'smoke:subtitle-network',
     // Live api.tatoeba.org contract. Network-dependent, so it stays out of

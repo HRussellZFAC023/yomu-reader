@@ -12,6 +12,12 @@ export function copyIcon(): string {
     </svg>`;
 }
 
+export function moreIcon(): string {
+    return `<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+        <path d="M6 12h.01M12 12h.01M18 12h.01"></path>
+    </svg>`;
+}
+
 export function ankiIcon(): string {
     return `<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
         <rect x="5" y="4" width="14" height="16" rx="2"></rect>

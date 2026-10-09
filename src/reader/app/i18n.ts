@@ -23,6 +23,7 @@ const COPY = {
         noUnscannedJapaneseText: 'No unscanned Japanese text found.',
         statsEmptyHelp: 'Your reviews and progress show up here after your first session.',
         libraryEmpty: 'Save a word while you read and it shows up here.',
+        moreLookupLinks: 'More links',
         audioSourcesTitle: 'Audio sources',
         contextOccurrences: 'In context ×{count}',
         puckAutoDetectSubtitles: 'Auto-detect subtitles',
@@ -1147,6 +1148,7 @@ settings	設定
 settingsSaved	設定を保存しました。
 statsEmptyHelp	最初の学習のあと、復習の記録と進み具合がここに表示されます。
 libraryEmpty	読みながら単語を保存すると、ここに表示されます。
+moreLookupLinks	その他のリンク
 audioSourcesTitle	音声ソース
 settingsSaveFailed	設定を保存できませんでした。
 settingsCompanionUnavailable	設定を開けませんでした。

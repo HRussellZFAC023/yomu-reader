@@ -24,6 +24,7 @@ import { contextOccurrenceCount, hasFrequencyRankEvidence, type ProviderFrequenc
 import type { BunproDefinitionInfo } from '../bunpro/definition';
 import type { JpdbVocabularyInfo } from '../jpdb/jpdb-vocabulary';
 import { jpdbVocabularyUrl } from '../jpdb/jpdb-vocabulary-url';
+import { renderCopyWordControl } from '../sources/word-pills';
 import type { YomitanMetaEntry, YomitanTermEntry } from '../dictionaries/yomitan';
 import { bunproDefinitionStatusAttributes } from '../bunpro/status-attributes';
 import { targetUsesCharacterDictionary } from '../languages/character-lookup';
@@ -218,7 +219,10 @@ export class CardPopoverRenderer {
                     loading: data.loading,
                     dictionaryLabel: name => this.dependencies.dictionaryLabel(name),
                 })}
-                <button class="jpdb-reader-icon-btn jpdb-reader-audio-control" data-action="audio"${privateCommandAttributes({ kind: 'card-action', action: 'audio' })} aria-label="${view.audioButtonTitle}" title="${view.audioButtonTitle}"${view.audioButtonDisabled ? ' disabled' : ''}>${speakerIcon()}</button>
+                <div class="jpdb-reader-word-actions">
+                    ${renderCopyWordControl(this.settings(), card)}
+                    <button class="jpdb-reader-icon-btn jpdb-reader-audio-control" data-action="audio"${privateCommandAttributes({ kind: 'card-action', action: 'audio' })} aria-label="${view.audioButtonTitle}" title="${view.audioButtonTitle}"${view.audioButtonDisabled ? ' disabled' : ''}>${speakerIcon()}</button>
+                </div>
             </div>
         </div>`;
     }
@@ -900,9 +904,11 @@ function renderMeta(metaItems: string[]): string {
     return metaItems.length ? `<div class="jpdb-reader-meta">${metaItems.join('')}</div>` : '';
 }
 
+// The pill joins the row before its "More" menu, which stays the last item.
 function appendWordPill(wordPills: string, pill: string): string {
     if (!pill) return wordPills;
-    const closingTag = wordPills.includes('jpdb-reader-word-pills') ? wordPills.lastIndexOf('</div>') : -1;
+    const more = wordPills.indexOf('<details class="jpdb-reader-pill-more"');
+    const closingTag = more >= 0 ? more : wordPills.includes('jpdb-reader-word-pills') ? wordPills.lastIndexOf('</div>') : -1;
     return closingTag >= 0
         ? `${wordPills.slice(0, closingTag)}${pill}${wordPills.slice(closingTag)}`
         : `${wordPills}<div class="jpdb-reader-word-pills">${pill}</div>`;

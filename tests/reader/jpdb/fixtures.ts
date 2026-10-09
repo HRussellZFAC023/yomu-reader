@@ -104,7 +104,7 @@ import { renderSubtitlePrimary } from '../../../src/reader/subtitles/subtitle-re
 import { renderControllerPrimarySubtitle } from '../../../src/reader/subtitles/subtitle-primary-render';
 import { planTranscriptHydrationIndexes } from '../../../src/reader/subtitles/subtitle-transcript-hydration';
 import { getUserscriptHttpRequest, installUserscriptHttpBridge, installUserscriptHttpBridgeWhenReady, uninstallUserscriptHttpBridge } from '../../../src/reader/userscript/index';
-import { renderWordPills } from '../../../src/reader/sources/word-pills';
+import { renderCopyWordControl, renderWordPills } from '../../../src/reader/sources/word-pills';
 import { YomitanDictionaryStore, glossaryToHtml, glossaryToText, renderDictionaryScopedStyles, type YomitanTermEntry } from '../../../src/reader/dictionaries/yomitan';
 import { glossaryValueToSearchText } from '../../../src/reader/dictionaries/yomitan/glossary-text';
 import type { AudioSourceSetting, JPDBCard, JPDBRawToken, JPDBToken, ReaderSettings } from '../../../src/reader/app/types';
@@ -3275,6 +3275,7 @@ export {
     renderedWordPrivateStateForCard,
     renderedWordPrivateValue,
     renderWordPills,
+    renderCopyWordControl,
     resolveAnkiWordAudio,
     resolveNewTabBrandAssets,
     restoreWindowDescriptor,
