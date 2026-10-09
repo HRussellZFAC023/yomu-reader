@@ -274,13 +274,14 @@ function renderRecommendedDictionary(
     const alreadyInstalled = typeof installed === 'boolean'
         ? installed
         : recommendedDictionaryInstallState(dictionary, installed);
+    const description = recommendedDictionaryDescription(dictionary, locale);
     return `
         <div class="jpdb-reader-recommended-item"${catalogRecommendationAttributes(dictionary)}>
             <div>
                 <div class="jpdb-reader-recommended-name">
                     <span>${escapeHtml(dictionary.name)}</span>
                 </div>
-                <div class="jpdb-reader-help">${escapeHtml(recommendedDictionaryDescription(dictionary, locale))}</div>
+                ${description ? `<div class="jpdb-reader-help">${escapeHtml(description)}</div>` : ''}
                 <div class="jpdb-reader-recommended-status" data-recommended-dictionary-status role="status" aria-live="polite" hidden></div>
             </div>
             ${recommendedDictionaryAction(dictionary, alreadyInstalled)}
@@ -300,9 +301,16 @@ function recommendedDictionaryAction(dictionary: RecommendedDictionary, alreadyI
 }
 
 function recommendedDictionaryDescription(dictionary: RecommendedDictionary, locale?: string): string {
+    // "JMdict (en)" over "Original English" said the language twice.
+    if (dictionary.translationMode === 'off' && nameStatesDefinitionLanguage(dictionary)) return '';
     const localized = localizedCatalogBrowseDescription(dictionary, locale);
     if (localized !== undefined) return localized;
     return staticRecommendedDictionaryDescription(dictionary);
+}
+
+function nameStatesDefinitionLanguage(dictionary: RecommendedDictionary): boolean {
+    const language = dictionary.definitionLanguage;
+    return Boolean(language) && new RegExp(`\\(${language}\\)\\s*$`, 'iu').test(dictionary.name);
 }
 
 function localizedCatalogBrowseDescription(

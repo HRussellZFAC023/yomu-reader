@@ -1543,18 +1543,22 @@
   letter-spacing: 0.02em;
 }
 .jpdb-reader-recommended-item {
+  /* Rows divided by hairlines rather than a stack of bordered cards: eight
+     suggestions read as one list and take half the height. */
   display: grid;
   grid-template-columns: minmax(0, 1fr) 112px;
   gap: 10px;
   align-items: center;
-  border: 1px solid var(--jpdb-reader-border);
-  border-radius: 8px;
-  background: var(--jpdb-reader-surface);
-  padding: 10px;
+  padding: 6px 0;
+}
+/* The hairline takes the group's 7px row gap, so it sits midway between rows. */
+.jpdb-reader-recommended-item + .jpdb-reader-recommended-item {
+  margin-top: -7px;
+  border-top: 1px solid var(--jpdb-reader-border);
 }
 .jpdb-reader-recommended-item .jpdb-reader-btn {
   width: 100%;
-  min-height: 42px;
+  min-height: 36px;
   padding-inline: 10px;
 }
 .jpdb-reader-recommended-name {
