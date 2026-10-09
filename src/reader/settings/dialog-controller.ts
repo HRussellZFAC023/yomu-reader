@@ -389,7 +389,9 @@ export class SettingsDialogController {
         this.previewBaseline = new SettingsPreviewBaseline(dependencies, () => this.currentForm);
         this.academyAccountSync = new AcademyAccountSyncSettingsController(message => dependencies.toast(message));
         this.restoreCoordinator = new SettingsRestoreCoordinator({
-            interfaceLanguage: () => this.settings.interfaceLanguage,
+            interfaceLanguage: () => this.currentForm
+                ? getFormInterfaceLanguage(this.currentForm, this.settings.interfaceLanguage)
+                : this.settings.interfaceLanguage,
             currentForm: () => this.currentForm,
             toast: message => dependencies.toast(message),
             invalidateRestoreDependents: () => this.invalidateRestoreDependentOperations(),

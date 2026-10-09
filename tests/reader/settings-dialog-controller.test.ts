@@ -821,6 +821,35 @@ describe('settings dialog keyboard dismissal', () => {
         expectExplicitIntentAdvanced(beforeIntent, afterIntent, 'light', 'dark');
     });
 
+    it.each([['en', 'ja', '保存', '設定を保存しました。'], ['ja', 'en', 'Save', 'Settings saved.']] as const)(
+        'uses the %s → %s preview language for the footer before, during and after Save', async (before, preview, saveLabel, savedLabel) => {
+            let current: ReaderSettings = { ...DEFAULT_SETTINGS, interfaceLanguage: before };
+            const pending = deferred<void>();
+            const saveSettings = vi.fn(() => pending.promise);
+            const { form } = createSettingsDialog({
+                getSettings: () => current,
+                setSettings: next => { current = next; },
+                saveSettings,
+            });
+            const save = form.querySelector<HTMLButtonElement>('button[type="submit"]')!;
+            previewInterfaceLanguage(form, preview);
+            expect(form.lang).toBe(preview);
+            expect(current.interfaceLanguage).toBe(before);
+            expect(saveSettings).not.toHaveBeenCalled();
+            expect(save.textContent).toBe(saveLabel);
+            form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+            expect(save.disabled).toBe(true);
+            expect(save.textContent).toBe(saveLabel);
+            await waitForCondition(() => saveSettings.mock.calls.length === 1);
+            expect(save.textContent).toBe(saveLabel);
+            pending.resolve();
+            await waitForCondition(() => !save.disabled && settingsSavedShown(form));
+            expect(save.textContent).toBe(saveLabel);
+            expect(form.querySelector('[data-settings-save-status]')?.textContent).toBe(savedLabel);
+            expectExplicitSettingSaved(saveSettings, 'interfaceLanguage', preview);
+        },
+    );
+
     it('commits a live interface-language preview as explicit intent without mutating its baseline', async () => {
         vi.stubGlobal('location', new URL('http://127.0.0.1:5174/study/'));
         await persistReaderSettings(
