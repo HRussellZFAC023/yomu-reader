@@ -7,6 +7,7 @@ import {
     renderBrowseEmpty,
     renderBrowseList,
     renderBrowseSourceChips,
+    showsBrowseControls,
     sortBrowseCards,
     toggleBrowseChip,
     type BrowseFilter,
@@ -7815,7 +7816,7 @@ export class NewTabController {
                 anki: 'Anki',
             }),
             renderBrowseChips(cards, this.browseFilters, language, this.text('browseAllChip')),
-            renderBrowseControls(this.browseSort, this.browseSortDescending, this.browseSelectMode, {
+            showsBrowseControls(cards.length, this.browseSelectMode) ? renderBrowseControls(this.browseSort, this.browseSortDescending, this.browseSelectMode, {
                 sortLabel: this.text('browseSortLabel'),
                 sortQueue: this.text('browseSortQueue'),
                 sortAlpha: this.text('browseSortAlpha'),
@@ -7824,7 +7825,7 @@ export class NewTabController {
                 directionAscending: this.text('browseSortAscending'),
                 directionDescending: this.text('browseSortDescending'),
                 select: this.text('browseSelectMode'),
-            }),
+            }) : null,
             renderBrowseList(filtered, this.browsePage, language, {
                 empty: this.text('browseNoCards'),
                 startReview: this.dependencies.srsAdapters?.['yomu-local']?.startReview ? this.text('browseStartReview') : undefined,

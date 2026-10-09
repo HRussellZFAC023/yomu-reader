@@ -21,6 +21,9 @@ export type BrowseSourceChip = 'all' | BrowseSourceFilter;
 export type BrowseSortKey = 'queue' | 'alpha' | 'frequency' | 'history';
 
 const BROWSE_PAGE_SIZE = 50;
+// Sort, direction and Select earn their row once a list is long enough to
+// reorder or act on in bulk; above two saved words they only restated the list.
+const BROWSE_CONTROLS_MIN_CARDS = 11;
 
 // JPDB deck-browse "Show only" order, after the words saved for review.
 const BROWSE_FILTER_ORDER: BrowseStateKey[] = [
@@ -108,12 +111,15 @@ export interface BrowseSourceFilterCopy {
     anki: string;
 }
 
+// A chip row with one value besides "All" filters nothing, so it is left out;
+// with a chip pressed it stays, so the learner can clear it.
 export function renderBrowseSourceChips(
     cards: JPDBCard[],
     active: ReadonlySet<BrowseSourceFilter>,
     copy: BrowseSourceFilterCopy,
-): HTMLElement {
+): HTMLElement | null {
     const counts = browseSourceCounts(cards);
+    if (!active.size && counts.size <= 1) return null;
     const labels: Record<BrowseSourceFilter, string> = {
         jpdb: copy.jpdb,
         jiten: copy.jiten,
@@ -202,13 +208,15 @@ function queueOrderValue(card: JPDBCard): number {
     return typeof card.dueAt === 'number' ? card.dueAt : Number.MAX_SAFE_INTEGER;
 }
 
+// Left out with a single state and nothing pressed, as the source chips are.
 export function renderBrowseChips(
     cards: JPDBCard[],
     active: ReadonlySet<BrowseStateKey>,
     language: ReaderSettings['interfaceLanguage'],
     allLabel: string,
-): HTMLElement {
+): HTMLElement | null {
     const counts = browseStateCounts(cards);
+    if (!active.size && counts.size <= 1) return null;
     const label = (state: BrowseStateKey): string => state === 'saved' ? uiText(language, 'savedWord') : cardStateLabel(state, language);
     const chip = (filter: BrowseFilter, label: string, count: number, pressed: boolean): HTMLElement => el('button', {
         type: 'button',
@@ -233,6 +241,11 @@ export interface BrowseControlsCopy {
     directionAscending: string;
     directionDescending: string;
     select: string;
+}
+
+/** Whether the sort and Select row is worth showing; select mode keeps it, so it can be left. */
+export function showsBrowseControls(cardCount: number, selectMode: boolean): boolean {
+    return selectMode || cardCount >= BROWSE_CONTROLS_MIN_CARDS;
 }
 
 // Sort + direction + select-mode toggle row. Kept to three compact controls

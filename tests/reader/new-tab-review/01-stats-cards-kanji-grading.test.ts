@@ -556,8 +556,10 @@ describe('new tab review — stats, My Cards & kanji-doodle grading', () => {
 
             await waitForExpect(() => {
                 expect(listStudyDeckVocabularyCards).toHaveBeenCalledWith(7, NEW_TAB_BROWSE_DECK_LIMIT);
-                expect(root.querySelector('[data-browse-source-filter="jiten"]')?.textContent).toBe('Jiten 2');
+                expect(root.querySelectorAll('.jpdb-reader-newtab-browse-row')).toHaveLength(2);
             });
+            // Every word is from Jiten, so a Jiten source chip would filter nothing.
+            expect(root.querySelector('[data-newtab-action="browse-source-filter"]')).toBeNull();
             expect(listStudyBatchCards).not.toHaveBeenCalled();
             const rows = [...root.querySelectorAll<HTMLElement>('.jpdb-reader-newtab-browse-row')];
             expect(rows.map(row => row.textContent)).toEqual([
@@ -573,9 +575,12 @@ describe('new tab review — stats, My Cards & kanji-doodle grading', () => {
     });
 
     it('bulk-blacklists the selected page of My Cards through the shared card-action path (SH-3 v2)', async () => {
+        // Select appears once a list is long enough to act on in bulk.
+        const filler = Array.from({ length: 9 }, (_, index) => newTabTestCard({ spelling: `語${index}`, reading: `ご${index}`, cardState: ['known'], vid: 30 + index, source: 'jpdb' }));
         const listDeckCards = vi.fn(async () => [
             newTabTestCard({ spelling: '読む', reading: 'よむ', cardState: ['known'], vid: 21, source: 'jpdb' }),
             newTabTestCard({ spelling: '書く', reading: 'かく', cardState: ['due'], vid: 22, source: 'jpdb' }),
+            ...filler,
         ]);
         const performCardAction = vi.fn(async (..._args: [HTMLButtonElement, JPDBCard, string?, HTMLElement?]) => {});
         const controller = newTabApiSourceController({
@@ -610,11 +615,11 @@ describe('new tab review — stats, My Cards & kanji-doodle grading', () => {
             await new Promise(resolve => setTimeout(resolve, 0));
             await new Promise(resolve => setTimeout(resolve, 0));
 
-            expect(performCardAction).toHaveBeenCalledTimes(2);
-            const actions = performCardAction.mock.calls.map(call => call[0].dataset.action);
-            expect(actions).toEqual(['blacklist', 'blacklist']);
-            const spellings = performCardAction.mock.calls.map(call => call[1].spelling).sort();
-            expect(spellings).toEqual(['書く', '読む']);
+            expect(performCardAction).toHaveBeenCalledTimes(11);
+            const actions = new Set(performCardAction.mock.calls.map(call => call[0].dataset.action));
+            expect([...actions]).toEqual(['blacklist']);
+            const spellings = performCardAction.mock.calls.map(call => call[1].spelling);
+            expect(spellings).toEqual(expect.arrayContaining(['書く', '読む', ...filler.map(card => card.spelling)]));
             // The pool reloads so the rows recolor with post-action states.
             expect(listDeckCards.mock.calls.length).toBeGreaterThanOrEqual(2);
         } finally {

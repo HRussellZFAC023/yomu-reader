@@ -136,9 +136,18 @@ it('shows how words arrive, not empty filters, before any word is saved', async 
             expect(results.querySelector(machinery), machinery).toBeNull();
         }
 
+        // One saved word: its row, and no chip that could only say "All" again.
         probe.browsePool = [newTabTestCard({ spelling: '読む', reading: 'よむ' })];
         probe.renderBrowseResults(results);
         expect(results.querySelector('.jpdb-reader-newtab-browse-empty')).toBeNull();
-        expect(results.querySelector('.jpdb-reader-newtab-browse-chips')).not.toBeNull();
+        expect(results.querySelectorAll('.jpdb-reader-newtab-browse-row')).toHaveLength(1);
+        expect(results.querySelector('.jpdb-reader-newtab-browse-chips')).toBeNull();
+        expect(results.querySelector('.jpdb-reader-newtab-browse-controls')).toBeNull();
+
+        // Two states: the state chips can now narrow the list.
+        probe.browsePool = [newTabTestCard({ spelling: '読む', reading: 'よむ', cardState: ['known'] }), newTabTestCard({ spelling: '書く', reading: 'かく', cardState: ['due'] })];
+        probe.renderBrowseResults(results);
+        expect([...results.querySelectorAll('[data-newtab-action="browse-filter"]')].map(chip => chip.textContent)).toEqual(['All 2', 'Due 1', 'Known 1']);
+        expect(results.querySelector('[data-newtab-action="browse-source-filter"]')).toBeNull();
     } finally { controller.destroy(); }
 });
