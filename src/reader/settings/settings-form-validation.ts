@@ -1,6 +1,7 @@
 import { uiText } from '../app/i18n';
 import type { InterfaceLanguage } from '../app/types';
 import { activateSettingsPanel, getFormInterfaceLanguage } from './form';
+import { showSettingsSaveStatus } from './settings-restore-coordinator';
 
 type SettingsConstraintControl = HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement;
 
@@ -30,8 +31,7 @@ function activateInvalidSettingsPanel(form: HTMLFormElement, control: SettingsCo
 function showInvalidSettingsStatus(form: HTMLFormElement, message: string): boolean {
     const status = form.querySelector<HTMLElement>('[data-settings-save-status]');
     if (!status) return false;
-    status.hidden = false;
-    status.textContent = message;
+    showSettingsSaveStatus(form, message, 'error');
     return status.isConnected && getComputedStyle(status).display !== 'none';
 }
 

@@ -63,14 +63,13 @@
   background: color-mix(in srgb, var(--jpdb-reader-surface) 88%, transparent);
 }
 .jpdb-reader-adapter-state-chip[data-adapter-state="connected"],
-.jpdb-reader-adapter-state-chip[data-adapter-state="suggested"],
 .jpdb-reader-adapter-state-chip[data-adapter-state="ready"] {
-  border-color: var(--jpdb-reader-accent);
-  color: var(--jpdb-reader-accent-readable);
+  border-color: var(--jpdb-reader-success);
+  color: var(--jpdb-reader-success);
 }
 .jpdb-reader-adapter-state-chip[data-adapter-state="unreachable"] {
-  border-color: color-mix(in srgb, #d33 60%, var(--jpdb-reader-border));
-  color: color-mix(in srgb, #d33 70%, var(--jpdb-reader-text));
+  border-color: color-mix(in srgb, var(--jpdb-reader-danger) 60%, var(--jpdb-reader-border));
+  color: var(--jpdb-reader-danger-readable);
 }
 
 .jpdb-reader-settings {
@@ -1205,9 +1204,15 @@
 }
 .jpdb-reader-settings-save-status {
   flex: 1 1 100%;
-  color: var(--jpdb-reader-accent-readable);
+  color: var(--jpdb-reader-muted);
   font: 500 11px/1.35 var(--jpdb-reader-font);
   text-align: end;
+}
+.jpdb-reader-settings-save-status[data-status-tone="success"] {
+  color: var(--jpdb-reader-success);
+}
+.jpdb-reader-settings-save-status[data-status-tone="error"] {
+  color: var(--jpdb-reader-danger-readable);
 }
 .jpdb-reader-settings-footer-version {
   margin-inline-end: auto;
@@ -1262,10 +1267,10 @@
   min-height: 1.45em;
 }
 .jpdb-reader-settings .jpdb-reader-academy-account-status[data-status-tone="success"] {
-  color: var(--jpdb-reader-accent-readable);
+  color: var(--jpdb-reader-success);
 }
 .jpdb-reader-settings .jpdb-reader-academy-account-status[data-status-tone="error"] {
-  color: color-mix(in srgb, #d33 72%, var(--jpdb-reader-text));
+  color: var(--jpdb-reader-danger-readable);
 }
 .jpdb-reader-settings .jpdb-reader-academy-account-connect {
   display: grid;
@@ -1574,12 +1579,9 @@
 }
 .jpdb-reader-recommended-status {
   margin-top: 7px;
-  color: var(--jpdb-reader-accent-readable);
+  color: var(--jpdb-reader-muted);
   font: 500 11px/1.35 var(--jpdb-reader-font);
   overflow-wrap: anywhere;
-}
-.jpdb-reader-recommended-status[data-import-state="queued"] {
-  color: var(--jpdb-reader-muted);
 }
 .jpdb-reader-recommended-status[data-import-state="failed"] {
   color: var(--jpdb-reader-danger-readable);

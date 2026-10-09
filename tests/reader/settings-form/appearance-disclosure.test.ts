@@ -67,6 +67,7 @@ describe('appearance progressive disclosure', () => {
         const status = form.querySelector<HTMLElement>('[data-settings-save-status]')!;
         expect(status.hidden).toBe(false);
         expect(status.textContent).toBe(input.validationMessage);
+        expect(status.dataset.statusTone).toBe('error');
         expect(toast).not.toHaveBeenCalled();
     });
 

@@ -260,10 +260,8 @@ export class SettingsRestoreCoordinator {
         syncSettingsSaveControl(save, state);
         this.syncFormFreeze(form, save);
         const message = this.saveStatusMessage(form, state);
-        if (status) {
-            status.hidden = !message;
-            status.textContent = message;
-        }
+        // Only "Settings saved." is an outcome; queue and import notes are neutral.
+        if (status) setSettingsSaveStatus(status, message, state.message ? 'pending' : 'success');
     }
 
     /** "Settings saved." lasts until the next edit or the next operation on this form. */
@@ -286,11 +284,7 @@ export class SettingsRestoreCoordinator {
 
     showStaleSaveDiscarded(form: HTMLFormElement): void {
         const message = uiText(this.port.interfaceLanguage(), 'settingsImportStaleSaveDiscarded');
-        const status = form.querySelector<HTMLElement>('[data-settings-save-status]');
-        if (status) {
-            status.hidden = false;
-            status.textContent = message;
-        }
+        showSettingsSaveStatus(form, message, 'pending');
         this.port.toast(message);
     }
 
@@ -406,11 +400,7 @@ export class SettingsRestoreCoordinator {
     private showDictionarySaveBlocked(form: HTMLFormElement): void {
         this.sync(form);
         const message = uiText(this.port.interfaceLanguage(), 'dictionaryInstallSaveBlocked');
-        const status = form.querySelector<HTMLElement>('[data-settings-save-status]');
-        if (status) {
-            status.hidden = false;
-            status.textContent = message;
-        }
+        showSettingsSaveStatus(form, message, 'pending');
         this.port.toast(message);
     }
 
@@ -423,6 +413,20 @@ export class SettingsRestoreCoordinator {
         const current = this.port.currentForm();
         if (current && current !== form && current.isConnected) this.sync(current);
     }
+}
+
+export type SettingsSaveStatusTone = 'pending' | 'success' | 'error';
+
+/** The footer line beside Save. Its tone, not the brand colour, says how it went. */
+export function showSettingsSaveStatus(form: HTMLFormElement, message: string, tone: SettingsSaveStatusTone): void {
+    const status = form.querySelector<HTMLElement>('[data-settings-save-status]');
+    if (status) setSettingsSaveStatus(status, message, tone);
+}
+
+function setSettingsSaveStatus(status: HTMLElement, message: string, tone: SettingsSaveStatusTone): void {
+    status.hidden = !message;
+    status.textContent = message;
+    status.dataset.statusTone = tone;
 }
 
 function controlStaysInteractive(control: SettingsControl, save: HTMLButtonElement | null): boolean {

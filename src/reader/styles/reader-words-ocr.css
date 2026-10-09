@@ -1505,7 +1505,8 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
    visible on white pages and a faint light halo on black ones, whatever the
    accent. It never takes pointer input, except as a reader page's retry button. */
 .jpdb-ocr-video-frame-status {
-  --jpdb-ocr-status-ink: var(--jpdb-reader-accent, #b8324e);
+  /* Read: the success colour. Loading and nothing-found are neutral, failure red. */
+  --jpdb-ocr-status-ink: var(--jpdb-reader-success, #347a57);
   position: fixed;
   z-index: 2147483644;
   display: grid;
@@ -1542,8 +1543,9 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
   animation: jpdb-ocr-video-frame-status-spin 1s linear infinite;
 }
 
+.jpdb-ocr-video-frame-status-loading,
 .jpdb-ocr-video-frame-status-empty {
-  --jpdb-ocr-status-ink: var(--jpdb-reader-theme-dark-muted, #aab2c0);
+  --jpdb-ocr-status-ink: var(--jpdb-reader-theme-dark-muted, #b0b8c4);
 }
 
 .jpdb-ocr-video-frame-status-empty::before {
@@ -2395,6 +2397,9 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
 }
 .jpdb-reader-fab.jpdb-reader-fab--no-furigana {
   --jpdb-reader-fab-tone: var(--jpdb-reader-grade-something);
+}
+.jpdb-reader-fab.jpdb-reader-fab--no-furigana .jpdb-reader-fab-state {
+  color: var(--jpdb-reader-theme-light-text) !important;
 }
 .jpdb-reader-fab.jpdb-reader-fab--paused {
   --jpdb-reader-fab-tone: color-mix(in srgb, var(--jpdb-reader-muted) 85%, var(--jpdb-reader-surface));

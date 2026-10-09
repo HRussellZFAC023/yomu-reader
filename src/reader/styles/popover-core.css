@@ -1230,19 +1230,13 @@ span.jpdb-reader-action-pill[aria-disabled="true"] {
   --jpdb-reader-status-light: var(--jpdb-reader-muted);
   color: var(--jpdb-reader-muted);
 }
+/* Outcomes take the semantic success/error colours, never the brand red: a
+   connected key must not look like a rejected one. Success stays calm (ink text,
+   a green dot and rim); only an error tints the line and its text. */
 .jpdb-reader-status-line[data-status-tone="success"] {
-  --jpdb-reader-status-light: var(--jpdb-reader-accent);
-  border-color: color-mix(
-    in srgb,
-    var(--jpdb-reader-accent) 52%,
-    var(--jpdb-reader-border)
-  );
-  background: color-mix(
-    in srgb,
-    var(--jpdb-reader-accent) 11%,
-    var(--jpdb-reader-surface-2)
-  );
-  color: var(--jpdb-reader-accent-readable);
+  --jpdb-reader-status-light: var(--jpdb-reader-success);
+  border-color: color-mix(in srgb, var(--jpdb-reader-success) 52%, var(--jpdb-reader-border));
+  color: var(--jpdb-reader-text);
 }
 .jpdb-reader-status-line[data-status-tone="error"] {
   --jpdb-reader-status-light: var(--jpdb-reader-danger);

@@ -38,6 +38,8 @@ describe('Settings Save keeps the dialog open', () => {
         expect(form.isConnected).toBe(true);
         expect(saveStatus(form).hidden).toBe(false);
         expect(saveStatus(form).textContent).toBe('Settings saved.');
+        // An outcome, painted in the success colour rather than the brand red.
+        expect(saveStatus(form).dataset.statusTone).toBe('success');
         expect(dependencies.toast).not.toHaveBeenCalledWith('Settings saved.');
         expect(dependencies.clearSettingsPreview).not.toHaveBeenCalled();
         expect(settingsElement<HTMLButtonElement>(form, 'button[type="submit"]').getAttribute('aria-label')).toBe('Save');
