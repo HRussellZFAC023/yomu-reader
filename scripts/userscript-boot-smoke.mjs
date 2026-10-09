@@ -107,6 +107,7 @@ async function bootScenario(name, url, targetLanguage) {
                 missingServices: marker?.getAttribute('data-yomu-runtime-missing-services') ?? '',
                 companionSlots: Object.keys(globalThis.__yomuCompanions ?? {}).sort(),
                 targetLanguage: globalThis.__yomuCompanions?.learningTargets?.activeLearningTargetLanguage?.() ?? '',
+                onboarding: Boolean(document.querySelector('.jpdb-reader-onboarding, .jpdb-reader-onboarding-trusted-launcher')),
                 fab: Boolean(document.querySelector('.jpdb-reader-fab')),
                 video: Boolean(document.querySelector('video')),
             };
@@ -114,10 +115,13 @@ async function bootScenario(name, url, targetLanguage) {
         assert(snapshot.runtimeKind === 'userscript', `${name}: built artifact did not claim userscript runtime`, snapshot);
         assert(snapshot.runtimeHealth === 'ready', `${name}: runtime health is not ready`, snapshot);
         assert(snapshot.missingServices === '', `${name}: consolidated runtime missed companion services`, snapshot);
-        assert(snapshot.targetLanguage === targetLanguage, `${name}: core and runtime disagree on the active learning target`, snapshot);
+        // The old Korean profile remains an upgrade fixture; 2.1 reads Japanese regardless.
+        assert(snapshot.targetLanguage === 'ja', `${name}: upgraded runtime is not Japanese-only`, snapshot);
+        assert(!snapshot.onboarding, `${name}: boot was blocked by a retired setup gate`, snapshot);
+        if (name === 'youtube') assert(snapshot.video, 'YouTube fixture lost its native video', snapshot);
         assert(snapshot.fab, `${name}: reader FAB did not boot`, snapshot);
         assert(errors.length === 0, `${name}: userscript boot emitted errors`, { errors, snapshot });
-        return { name, ...snapshot };
+        return { name, storedTargetFixture: targetLanguage, ...snapshot };
     } finally {
         await context.close();
     }
