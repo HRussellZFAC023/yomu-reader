@@ -1,14 +1,28 @@
 (function() {
 "use strict";
+const BRAND_COLOR_TOKENS = {
+  accent: "#b8324e",
+  consoleAccent: "#b8324e"
+};
 const CORE_COLOR_TOKENS = {
   white: "#ffffff"
 };
-const BRAND_COLOR_TOKENS = {
-  accent: "#5ea780",
-  consoleAccent: "#247a58"
+const READER_THEME_COLOR_TOKENS = {
+  dark: {
+  bg: "#181b20"
+  }
 };
 const OVERLAY_COLOR_TOKENS = {
-  text: CORE_COLOR_TOKENS.white
+  text: CORE_COLOR_TOKENS.white,
+  background: READER_THEME_COLOR_TOKENS.dark.bg
+};
+const DEFAULT_WORD_COLOR_TOKENS = {
+  new: "#ffffff",
+  learning: "#ffd166",
+  known: "#7bd88f",
+  due: "#5fb3b3",
+  failed: "#ff6b6b",
+  ignored: "#b8a7ff"
 };
 const DOODLE_COLOR_TOKENS = {
   ink: "#141820"
@@ -32,7 +46,7 @@ const GITHUB_PAGES_ORIGIN = `https://${GITHUB_OWNER.toLowerCase()}.github.io`;
 const DOCS_ORIGIN = "https://yomureader.com";
 const DOCS_BASE_URL = `${DOCS_ORIGIN}/`;
 const NEW_TAB_PAGE_URL = `${DOCS_BASE_URL}study/`;
-const SUPPORT_COPY = "よむ is a free userscript for popup lookup, dictionaries, OCR, subtitles, study, and Anki.";
+const SUPPORT_COPY = "よむ is free: popup lookup, dictionaries, OCR, subtitles, study and Anki in one place.";
 const SUPPORT_COPY_EXTRA = "Donations are optional and help cover development, devices, services, maintenance, and API costs.";
 const USERSCRIPT_HTTP_BRIDGE_READY_EVENT = "yomu-userscript-http-bridge-ready";
 const USERSCRIPT_STORAGE_BRIDGE_READY_EVENT = "yomu-userscript-storage-bridge-ready";
@@ -2708,7 +2722,9 @@ function requestViaUserscript(url, options, userscriptRequest) {
     return normalizeUserscriptResponse(response, options.responseType ?? "text");
   },
   onError: (error) => error instanceof Error ? error : new Error(formatFailure(options)),
-  onTimeout: () => new Error(options.timeoutLabel ?? `${options.failureLabel ?? "Request"} timed out.`)
+  // Typed like the page fetch's own timeout, so a caller can tell a host
+  // that stopped answering from one that refused, whatever the label says.
+  onTimeout: () => new RetryableTimeoutError(options.timeoutLabel ?? `${options.failureLabel ?? "Request"} timed out.`)
   });
 }
 function normalizeUserscriptResponse(response, responseType) {
@@ -3876,6 +3892,9 @@ const NUMERIC_RANGE_BEFORE_RE = /(?:第\s*)?(?:[0-9０-９]+|[一二三四五六
 function numericRangeImmediatelyBefore(sourceText, start) {
   const before = sourceText.slice(Math.max(0, start - 24), start).replace(/\s+$/u, "");
   return NUMERIC_RANGE_BEFORE_RE.test(before);
+}
+function isCounterAfterNumber(surface, sentence, start) {
+  return NUMERIC_COUNTER_SUFFIX_SEGMENTS.has(surface) && Boolean(sentence) && start >= 0 && sentence.slice(start, start + surface.length) === surface && numericRangeImmediatelyBefore(sentence, start);
 }
 const TOKEN_ATTRIBUTE = "data-yomu-private-token";
 const MAX_PENDING_VALUES = 16384;
@@ -5558,13 +5577,13 @@ function parseGrammarRule(row) {
   examples: Object.freeze([])
   });
 }
-function createGrammarRegistry() {
-  const rules = GRAMMAR_PATTERN_DATA.trim().split("\n").map(parseGrammarRule);
+function parseGrammarRegistry(data) {
+  const rules = data.trim().split("\n").map((row) => parseGrammarRule(row.replace(/^ +/u, "")));
   const ids = new Set(rules.map((rule) => rule.ruleId));
   if (ids.size !== rules.length) throw new TypeError("Yomu grammar registry contains duplicate rule ids.");
   return Object.freeze(rules);
 }
-const YOMU_GRAMMAR_REGISTRY = createGrammarRegistry();
+const YOMU_GRAMMAR_REGISTRY = parseGrammarRegistry(GRAMMAR_PATTERN_DATA);
 new Map(YOMU_GRAMMAR_REGISTRY.map((rule) => [rule.ruleId, rule]));
 const MAX_GRAMMAR_HINTS = 12;
 const MAX_OCCURRENCES_PER_RULE = 2;
@@ -6397,14 +6416,14 @@ function accessibleOcrBackgroundOpacity(opacity) {
   const clampedOpacity = Number.isFinite(numericOpacity) ? Math.max(0, Math.min(1, numericOpacity)) : DEFAULT_OCR_BACKGROUND_OPACITY;
   return Math.max(OCR_BACKGROUND_MIN_RENDERED_OPACITY, clampedOpacity);
 }
-function accessibleOcrBackgroundColor(accentColor, opacity = DEFAULT_OCR_BACKGROUND_OPACITY) {
-  const accent = sanitizeAccentColor(accentColor);
+function accessibleOcrBackgroundColor(opacity = DEFAULT_OCR_BACKGROUND_OPACITY) {
+  const ink = OVERLAY_COLOR_TOKENS.background;
   const renderedOpacity = accessibleOcrBackgroundOpacity(opacity);
-  if (ocrRenderedBackgroundContrast(accent, renderedOpacity) >= OCR_BACKGROUND_MIN_TEXT_CONTRAST) {
-  return accent;
+  if (ocrRenderedBackgroundContrast(ink, renderedOpacity) >= OCR_BACKGROUND_MIN_TEXT_CONTRAST) {
+  return ink;
   }
   for (let amount = 0.08; amount <= 1; amount += 0.04) {
-  const candidate = sharedMixHex(accent, "#000000", amount, sanitizeAccentColor);
+  const candidate = sharedMixHex(ink, "#000000", amount, sanitizeAccentColor);
   if (ocrRenderedBackgroundContrast(candidate, renderedOpacity) >= OCR_BACKGROUND_MIN_TEXT_CONTRAST) {
     return candidate;
   }
@@ -6415,10 +6434,7 @@ function ocrRenderedBackgroundContrast(color, opacity) {
   const renderedOnWhite = sharedMixHex("#ffffff", color, opacity, sanitizeAccentColor);
   return sharedContrastRatio(renderedOnWhite, DEFAULT_OCR_TEXT_COLOR, sanitizeAccentColor);
 }
-accessibleOcrBackgroundColor(
-  DEFAULT_ACCENT_COLOR,
-  DEFAULT_OCR_BACKGROUND_OPACITY
-);
+accessibleOcrBackgroundColor(DEFAULT_OCR_BACKGROUND_OPACITY);
 const DEFAULT_LANGUAGE_PROFILE_ID = "default-ja";
 const PARSER_PROVIDERS = /* @__PURE__ */ new Set(["local", "jiten", "jpdb", "auto"]);
 function readOutputLanguageField(source) {
@@ -7074,7 +7090,7 @@ const EN_SUBTITLE_SETTINGS_COPY = {
   subtitleOverlayVisible: "Show subtitle overlay",
   // Not a control label: no checkbox writes this any more, the three-way
   // `subtitleNativeDisplay` select does. It stays because a stored setting with
-  // no control of its own takes its wording in docs/reference/settings.md from
+  // no control of its own takes its wording in docs/dev/settings-reference.md from
   // the i18n entry keyed by its own name, and this sentence is what the stored
   // boolean means.
   subtitleSecondaryVisible: "Show native subtitles",
@@ -7379,6 +7395,10 @@ const COPY = {
   manualPageScanShortcut: "Manual page scan shortcut",
   scanPage: "Scan page",
   noUnscannedJapaneseText: "No unscanned Japanese text found.",
+  statsEmptyHelp: "Your reviews and progress show up here after your first session.",
+  libraryEmpty: "Save a word while you read and it shows up here.",
+  moreLookupLinks: "More links",
+  audioSourcesTitle: "Audio sources",
   contextOccurrences: "In context ×{count}",
   puckAutoDetectSubtitles: "Auto-detect subtitles",
   loadTargetSubtitles: "Load Japanese subtitles",
@@ -7402,6 +7422,9 @@ const COPY = {
   openAccountSettingsTrustedSurface: "Open Study settings",
   save: "Save",
   cancel: "Cancel",
+  closeSettings: "Close settings",
+  settingsLauncherHelp: "Settings open in Study, where this site can't read them.",
+  openInStudy: "Open in Study",
   show: "Show",
   hide: "Hide",
   appearance: "Appearance",
@@ -7470,7 +7493,7 @@ const COPY = {
   gradeTargetYomuLocalAndAnki: `Grades ${ACADEMY_SRS_LABEL} + Anki card: {target}`,
   missingAnkiCardId: "Missing Anki card id.",
   jpdbPageEnhancements: "Dictionary site enhancements",
-  jpdbPageEnhancementsEnabled: "Enhance dictionary pages",
+  jpdbPageEnhancementsEnabled: "Enhance JPDB and Jiten pages",
   jpdbPageWordEnhancementsEnabled: "Add sources to word/search pages",
   jpdbPageKanjiEnhancementsEnabled: "Add sources to kanji pages",
   fivePoint: "Provider default",
@@ -7491,7 +7514,6 @@ const COPY = {
   bottomSheet: "Bottom sheet",
   popover: "Popover",
   stickyBottomSheet: "Keep sheet open after lookup",
-  popoverBackdropEnabled: "Dim page behind popover",
   popoverWidth: "Popover width (px)",
   popoverHeight: "Popover height (px)",
   popoverHeightMode: "Popover height behavior",
@@ -7580,7 +7602,6 @@ const COPY = {
   lookupOnMiddleMouse: "Look up with middle-mouse hold",
   showFloatingButton: "Show settings puck",
   pageScanMode: "Japanese text on webpages",
-  pageScanModeOff: "Leave pages unchanged",
   pageScanModeAuto: "Scan Japanese automatically",
   pageScanModeManual: "Scan only when I ask",
   manualScanEnabled: "Manual page scanning",
@@ -7589,19 +7610,14 @@ const COPY = {
   ocrInteractionModeManual: "Tap or hover",
   ocrInteractionModeOff: "Off",
   puckMenuLabel: `${APP_NAME} menu`,
-  puckPauseAnnotations: "Pause annotations",
-  puckResumeAnnotations: "Resume annotations",
+  puckPowerOnFurigana: `${APP_NAME} on · furigana shown`,
+  puckPowerOnNoFurigana: `${APP_NAME} on · furigana hidden`,
+  puckPowerOff: `${APP_NAME} off`,
   puckOcrAuto: "OCR: Auto",
   puckOcrManual: "OCR: Tap/Hover",
   puckOcrOff: "OCR: Off",
-  annotationsPausedToast: "Annotations paused.",
-  annotationsResumedToast: "Annotations resumed.",
-  puckMuteAudio: "Mute auto-play audio",
-  puckUnmuteAudio: "Unmute auto-play audio",
-  autoplayAudioOnToast: "Auto-play audio on.",
-  autoplayAudioOffToast: "Auto-play audio muted.",
-  puckHideFurigana: "Hide furigana",
-  furiganaOffToast: "Furigana off. Lookups stay active.",
+  autoplayAudioOn: "Auto-play audio on",
+  autoplayAudioOff: "Auto-play audio off",
   showFurigana: "Enable furigana annotations",
   furiganaMode: "Furigana",
   wordColorStates: "Color words",
@@ -7769,10 +7785,10 @@ const COPY = {
   alwaysVisible: "Always visible",
   preview: "Preview",
   youtubeImmersionEnabled: "Japanese YouTube only",
-  preferJapaneseSiteLanguage: "Open Japanese versions of sites",
+  preferJapaneseSiteLanguage: "Request Japanese sites",
   youtubeShowChannelRecommendations: "Show Japanese channel suggestions",
   youtubeShowFilterNotice: "Show hidden-video notice",
-  youtubeHelp: "Filter YouTube for Japanese and open Japanese versions of sites.",
+  youtubeHelp: "Filter YouTube for Japanese.",
   youtubeShowHiddenVideos: "Show hidden videos",
   youtubeHideHiddenVideos: "Hide hidden videos",
   youtubeHideNotice: "Hide notice",
@@ -7961,6 +7977,7 @@ const COPY = {
   dictionaryInstallQueued: "{dictionary} queued.",
   dictionaryInstallSaveBlocked: "Import running. Save unlocks when done.",
   dictionaryImportQueueStatus: "{count} install{plural} running.",
+  dictionaryInstallRunning: "{count} install{plural} running.",
   dictionaryRemoveConfirm: 'Remove "{dictionary}"?',
   dictionaryRemoving: "Removing {dictionary}...",
   dictionaryRemoved: "Removed {dictionary}.",
@@ -8139,7 +8156,7 @@ const COPY = {
   updateHelpNotesManagerDashboard: "On Chrome or Edge, Update opens the Tampermonkey dashboard instructions: Utilities → Check for userscript updates. This avoids the browser’s blocked website-install banner.",
   updateHelpNotesExternalManager: "Keep one Yomu script enabled. Update opens the script source; your userscript app reads it from the open tab to update. If updates stall on iPhone/iPad, open this link in Safari and leave the tab open.",
   updateHelpNotesNoManager: "No userscript manager was detected here, and browsers block direct script installs — Update opens the install guide with per-browser steps.",
-  updateHelpNotesExtensionStore: "You are running the Yomu browser extension. Update opens your browser’s extension store, where installs update automatically and you can trigger a manual update check.",
+  updateHelpNotesExtensionStore: "Updates come from the browser extension store.",
   updateUserscript: "Update",
   duplicateStatusSingle: "One Yomu runtime active ({kind}).",
   duplicateStatusUnknown: "Duplicate check unavailable. If Yomu appears twice, disable the older script.",
@@ -8167,7 +8184,6 @@ const COPY = {
   resizeLookupSheet: "Drag to resize lookup sheet, or tap to close",
   showMiningActions: "More actions",
   hideMiningActions: "Fewer actions",
-  extensionPopupPageActions: "On this page",
   ...GRADING_SERVICE_COPY.en,
   jpdbKanjiUpdated: "JPDB kanji updated.",
   jpdbKanjiUpdateFailedRuntime: "Could not update JPDB kanji. Check kanji reviews.",
@@ -8232,7 +8248,6 @@ const COPY = {
   openOnJpdb: "Open on JPDB",
   openOnLookup: "Open on {label}",
   viewOnLookup: "View on {label}",
-  copyWord: "Copy",
   copyWordTitle: "Copy word",
   copiedWord: "Copied word.",
   backToWord: "Back to word",
@@ -8355,6 +8370,8 @@ const COPY = {
   jitenCompositeWords: "Composite words",
   usedInVocabulary: "Used in vocabulary",
   exampleSentences: "Example sentences",
+  moreMeanings: "More meanings",
+  moreExamples: "More examples",
   // U46: every one of these is a state a learner can reach. They exist
   // because an example source with nothing to show used to render nothing
   // at all, so an unsupported language looked exactly like a broken one.
@@ -8477,7 +8494,7 @@ const CARD_STATE_LABEL_KEYS = {
 };
 function parseUiCopyTable(rows) {
   const copy = {};
-  rows.trim().split("\n").forEach((row) => {
+  rows.trim().split("\n").map((row) => row.replace(/^ +/u, "")).forEach((row) => {
   const tab = row.indexOf("	");
   if (tab < 0) {
     const key = row.trim();
@@ -8497,6 +8514,10 @@ english	英語
 japanese	日本語
 settings	設定
 settingsSaved	設定を保存しました。
+statsEmptyHelp	最初の学習のあと、復習の記録と進み具合がここに表示されます。
+libraryEmpty	読みながら単語を保存すると、ここに表示されます。
+moreLookupLinks	その他のリンク
+audioSourcesTitle	音声ソース
 settingsSaveFailed	設定を保存できませんでした。
 settingsCompanionUnavailable	設定を開けませんでした。
 firefoxAuthenticationInfoDenied	Firefoxの許可がなかったため、アカウント情報は保存しませんでした。
@@ -8524,7 +8545,6 @@ lookupDialog	{APP_NAME}検索
 resizeLookupSheet	検索シートをリサイズ。タップで閉じる
 showMiningActions	その他の操作
 hideMiningActions	操作を閉じる
-extensionPopupPageActions	このページ
 closeDrawer	ドロワーを閉じる
 copiedWord	単語をコピーしました。
 jpdbKanjiUpdated	JPDB漢字を更新しました。
@@ -8570,6 +8590,7 @@ dictionaryInstallQueueHelp	まず定義用の語句辞書をインストール�
 dictionaryInstallQueued	{dictionary}待機中。
 dictionaryInstallSaveBlocked	インポート中。完了後に保存できます。
 dictionaryImportQueueStatus	{count}件インストール中。完了後に保存。
+dictionaryInstallRunning	{count}件インストール中。
 dictionaryRemoveConfirm	「{dictionary}」を削除？
 dictionaryRemoving	{dictionary}を削除中...
 dictionaryRemoved	{dictionary}を削除しました。
@@ -8681,7 +8702,6 @@ playExampleAudio	例文音声を再生
 openOnJpdb	JPDBで開く
 openOnLookup	{label}で開く
 viewOnLookup	{label}で見る
-copyWord	コピー
 copyWordTitle	単語をコピー
 backToWord	単語に戻る
 backToKanji	漢字に戻る
@@ -8891,6 +8911,8 @@ loadingDictionaryDetails	辞書詳細を読み込み中...
 jitenCompositeWords	複合語
 usedInVocabulary	使われる単語
 exampleSentences	例文
+moreMeanings	ほかの意味
+moreExamples	ほかの例文
 exampleSourceEmpty	この語の例文はまだありません。
 exampleSourceEmptyShort	例文なし
 exampleSourceLimitedCorpus	コーパスが小さいため、例文がまだない語もあります。
@@ -8955,6 +8977,9 @@ settingsSearchPlaceholder	設定を検索
 settingsSearchNoResults	一致なし。
 save	保存
 cancel	キャンセル
+closeSettings	設定を閉じる
+settingsLauncherHelp	設定は、このサイトから読み取れないStudyで開きます。
+openInStudy	Studyで開く
 show	表示
 hide	隠す
 appearance	外観
@@ -8975,7 +9000,7 @@ api	API
 apiCredential	APIキー
 apiCredentialJpdb	JPDB APIキー
 apiCredentialJiten	Jiten APIキー
-apiCredentialBunpro	Bunpro frontend API token
+apiCredentialBunpro	BunproフロントエンドAPIトークン
 apiCredentialWanikani	WaniKaniパーソナルアクセストークン
 wanikaniTokenHelp	WaniKaniでread/write権限のパーソナルアクセストークンを作成し、ここに貼り付けてください。ブラウザ内にのみ保存され、プロキシを経由せずapi.wanikani.comへ直接送信され、ログに残ることはありません。
 apiCredentialBunproLegacy	Bunpro APIキー
@@ -9019,7 +9044,7 @@ gradeTargetBunproAndAnki	Bunpro + Ankiカードを採点: {target}
 gradeTargetYomuLocalAndAnki	Academy + Ankiカードに記録: {target}
 missingAnkiCardId	AnkiカードIDがありません。
 jpdbPageEnhancements	辞書サイト拡張
-jpdbPageEnhancementsEnabled	辞書ページを拡張
+jpdbPageEnhancementsEnabled	JPDB・Jitenのページを拡張
 jpdbPageWordEnhancementsEnabled	単語・検索ページにソースを追加
 jpdbPageKanjiEnhancementsEnabled	漢字ページにソースを追加
 fivePoint	サービスの標準評価
@@ -9035,7 +9060,6 @@ hoverPopupMode	ホバー時の表示
 bottomSheet	下部シート
 popover	ポップオーバー
 stickyBottomSheet	検索後も開く
-popoverBackdropEnabled	背後を暗くする
 popoverWidth	ポップオーバー幅 (px)
 popoverHeight	ポップオーバー高さ (px)
 popoverHeightMode	ポップオーバー高さの動作
@@ -9124,7 +9148,6 @@ lookupOnHover	ホバーで検索
 lookupOnMiddleMouse	中央ボタン長押しで検索
 showFloatingButton	設定ボタンを表示
 pageScanMode	ウェブページの日本語
-pageScanModeOff	ページを変更しない
 pageScanModeAuto	日本語を自動で検出
 pageScanModeManual	指示したときだけ日本語を検出
 manualPageScanShortcut	手動ページスキャンのショートカット
@@ -9134,19 +9157,14 @@ ocrInteractionModeAuto	自動
 ocrInteractionModeManual	タップ/ホバー
 ocrInteractionModeOff	オフ
 puckMenuLabel	よむ メニュー
-puckPauseAnnotations	注釈を一時停止
-puckResumeAnnotations	注釈を再開
+puckPowerOnFurigana	{APP_NAME} オン・ふりがな表示
+puckPowerOnNoFurigana	{APP_NAME} オン・ふりがな非表示
+puckPowerOff	{APP_NAME} オフ
 puckOcrAuto	OCR: 自動
 puckOcrManual	OCR: タップ/ホバー
 puckOcrOff	OCR: オフ
-annotationsPausedToast	注釈を一時停止しました。
-annotationsResumedToast	注釈を再開しました。
-puckMuteAudio	音声の自動再生をミュート
-puckUnmuteAudio	音声の自動再生のミュートを解除
-puckHideFurigana	ふりがなを隠す
-furiganaOffToast	ふりがなを非表示にしました。単語の検索は引き続き使えます。
-autoplayAudioOnToast	音声の自動再生をオンにしました。
-autoplayAudioOffToast	音声の自動再生をミュートしました。
+autoplayAudioOn	音声の自動再生 オン
+autoplayAudioOff	音声の自動再生 オフ
 showFurigana	ふりがな注釈を有効にする
 furiganaMode	ふりがな
 wordColorStates	色を付ける単語
@@ -9295,10 +9313,10 @@ hideControls	コントロールを隠す
 alwaysVisible	常に表示
 preview	プレビュー
 youtubeImmersionEnabled	日本語のYouTubeのみ
-preferJapaneseSiteLanguage	日本語版のサイトを開く
+preferJapaneseSiteLanguage	日本語版サイトをリクエスト
 youtubeShowChannelRecommendations	日本語チャンネル候補を表示
 youtubeShowFilterNotice	非表示動画の通知を表示
-youtubeHelp	YouTubeを日本語向けに絞り、日本語版のサイトを開きます。
+youtubeHelp	YouTubeを日本語向けに絞ります。
 youtubeShowHiddenVideos	非表示動画を表示
 youtubeHideHiddenVideos	非表示動画を隠す
 youtubeHideNotice	通知を隠す
@@ -9512,7 +9530,7 @@ updateHelpNotesManager	よむスクリプトは1つだけ有効にしてくだ�
 updateHelpNotesManagerDashboard	Chrome または Edge では、「更新」を押すと Tampermonkey の更新手順が開きます。ダッシュボードの「ユーティリティ」→「ユーザースクリプトの更新を確認」を使うため、ウェブサイトからのインストールをブロックする警告を回避できます。
 updateHelpNotesExternalManager	よむスクリプトは1つだけ有効にしてください。「更新」でスクリプトのソースが開き、ユーザースクリプトアプリが開いたタブから読み取って更新します。iPhone/iPadで更新が止まる場合は、このリンクをSafariで開いてタブを開いたままにしてください。
 updateHelpNotesNoManager	この環境ではユーザースクリプトマネージャーが検出されませんでした。ブラウザはスクリプトの直接インストールをブロックするため、「更新」ではブラウザ別の手順があるインストールガイドを開きます。
-updateHelpNotesExtensionStore	よむのブラウザ拡張機能版を実行中です。「更新」を押すとブラウザの拡張機能ストアが開きます。ストア版は自動的に更新され、手動での更新確認も行えます。
+updateHelpNotesExtensionStore	更新はブラウザの拡張機能ストアから届きます。
 updateUserscript	更新
 duplicateStatusSingle	有効なYomuランタイムは1つです（{kind}）。
 duplicateStatusUnknown	重複確認はできません。よむが2つ表示される場合は古いスクリプトを無効にしてください。
@@ -9522,7 +9540,7 @@ ankiConnectSetupConfig	AnkiConnectのwebCorsOriginListに次のオリジンを�
 ankiConnectSetupMobile	スマホやiPadでは、デスクトップPCのLANまたはTailscale URLを使います。スマホ上のlocalhostはPCではなくスマホ自身を指します。
 ankiConnectSetupBrave	BraveでローカルAnki確認がブロックされる場合は、StudyページのShieldsをオフにしてください。
 helpSupportTitle	よむをサポート
-helpSupportCopy	よむは検索、OCR、字幕、辞書、学習、Ankiをまとめた無料ユーザースクリプトです。
+helpSupportCopy	よむは検索、OCR、字幕、辞書、学習、Ankiをまとめた無料のツールです。
 helpSupportCopyExtra	寄付は開発とサービス費用を支えます。
 videoPlayer	動画プレイヤー
 pdfReader	PDFリーダー
@@ -9863,6 +9881,18 @@ const DEFAULT_DICTIONARY_LOOKUP_LINKS = [
   IMMERSION_KIT_LOOKUP_LINK.id,
   UCHISEN_LOOKUP_LINK.id
 ]];
+const RETIRED_READING_MODES = ["all", "auto"];
+const RETIRED_SETTING_DEFAULTS = [
+  { keys: ["furiganaMode"], retired: RETIRED_READING_MODES.map((mode) => [mode]) },
+  // The mode the puck brings back when furigana is shown again.
+  { keys: ["puckFuriganaModeBeforeHide"], retired: RETIRED_READING_MODES.map((mode) => [mode]) },
+  // A word the learner just failed keeps its reading.
+  { keys: ["furiganaHiddenStateGroups"], retired: [[["known", "due", "failed"]]] },
+  { keys: ["wordHighlightColorSource", "wordUnderlineColorSource", "wordTextColorSource"], retired: [["jpdb", "pitch", "anki"]] },
+  { keys: ["subtitleHighlightColorSource", "subtitleUnderlineColorSource", "subtitleTextColorSource"], retired: [["jpdb", "pitch", "anki"]] },
+  { keys: ["wordColorHiddenStateGroups"], retired: [[[]]] }
+];
+RETIRED_SETTING_DEFAULTS.flatMap((group) => group.keys);
 const AUDIO_SOURCE_TYPE_VALUES = [
   "jpod101",
   "language-pod-101",
@@ -9890,7 +9920,7 @@ new Set(FURIGANA_HIDE_STATE_GROUPS);
 function effectiveFuriganaMode(settings) {
   if (!settings.showFurigana || settings.furiganaMode === "off") return "off";
   if (isExplicitFuriganaMode(settings.furiganaMode)) return settings.furiganaMode;
-  return "all";
+  return "known-status";
 }
 function isExplicitFuriganaMode(value) {
   return EXPLICIT_FURIGANA_MODES.has(value);
@@ -9924,6 +9954,14 @@ function immutableCommandSnapshot(command) {
   return Object.freeze({ ...command, choices: Object.freeze(command.choices.map((choice) => Object.freeze({ ...choice }))) });
   }
   return Object.freeze({ ...command });
+}
+const OVERHANG_CLASS = "jpdb-reader-ruby-overhang";
+const AT_START_CLASS = "jpdb-reader-ruby-at-start";
+const AT_END_CLASS = "jpdb-reader-ruby-at-end";
+function rubyOverhangClassAttribute(surface, start, end, reading, readingBeside) {
+  if (readingBeside || Array.from(reading).length <= 2 * Array.from(surface.slice(start, end)).length) return "";
+  const edges = [start === 0 ? ` ${AT_START_CLASS}` : "", end === surface.length ? ` ${AT_END_CLASS}` : ""].join("");
+  return ` class="${OVERHANG_CLASS}${edges}"`;
 }
 const EASY_FURIGANA_KANJI = new Set(
   "一丁七万三上下不世中主久乗九予事二五井交京人今介仏仕他付代令以休会伝住何作使例供係信借元兄先光入全公六共内円写冬出分切前力加動北十千午半南原友反取口古台同名向君告周味呼命和品員問四回国土在地坂堂場声売夏夕外多夜大天太夫央女好妹姉始子字学安家宿寒寺小少山川工左市帰年広店度庭建引弟強待後心思急息悪手持教文方旅日早明春昼時曜書有朝木本村来東林校森業楽歌止正歩母毎気水池海父物犬王生田町男白百的目知石社私秋空立竹笑答米糸紙終聞肉自花英茶草行西見言話語読買赤走足車近通週道遠里野金長門間雨青音食飲駅高魚鳥黒".split("")
@@ -10113,14 +10151,16 @@ function renderRuby(surface, token, kanjiNavigation, preserveTokenRubies = false
 function renderTokenReadings(surface, token, kanjiNavigation, preserveTokenRubies, layout) {
   let html = "";
   let localOffset = 0;
-  for (const ruby of effectiveTokenRubies(surface, token, preserveTokenRubies)) {
+  const rubies = effectiveTokenRubies(surface, token, preserveTokenRubies);
+  rubies.forEach((ruby, index) => {
   const start = ruby.start - token.start;
   const end = ruby.end - token.start;
   html += renderKanjiNavigationText(surface.slice(localOffset, start));
   const base = renderKanjiNavigationText(surface.slice(start, end));
-  html += `<ruby><span class="jpdb-reader-ruby-base">${base}</span><rp>(</rp><rt class="jpdb-reader-furi">${escapeHtml(ruby.text)}</rt><rp>)</rp></ruby>`;
+  const readingBeside = index > 0 && start === localOffset || rubies[index + 1]?.start === ruby.end;
+  html += `<ruby${rubyOverhangClassAttribute(surface, start, end, ruby.text, readingBeside)}><span class="jpdb-reader-ruby-base">${base}</span><rp>(</rp><rt class="jpdb-reader-furi">${escapeHtml(ruby.text)}</rt><rp>)</rp></ruby>`;
   localOffset = end;
-  }
+  });
   html += renderKanjiNavigationText(surface.slice(localOffset));
   return html;
 }
@@ -10208,7 +10248,7 @@ function effectiveTokenRubies(surface, token, preserveTokenRubies = false) {
   return sources.flatMap((ruby) => kanjiOnlyRubySegments(surface, token, ruby));
 }
 function sourceTokenRubies(surface, token) {
-  if (NUMERIC_COUNTER_SUFFIX_SEGMENTS.has(surface) && token.sentence && token.sentence.slice(token.start, token.end) === surface && numericRangeImmediatelyBefore(token.sentence, token.start)) return [];
+  if (isCounterAfterNumber(surface, token.sentence, token.start - (token.sentenceStart ?? 0))) return [];
   if (token.rubies.length) return explicitTokenRubies(surface, token);
   const reading = distinctTokenReading(surface, token);
   if (!reading) return [];
@@ -12804,6 +12844,7 @@ function apiUrls(path) {
   const cleanPath = path.startsWith("/") ? path : `/${path}`;
   return API_BASES.map((base) => `${base}${cleanPath}`);
 }
+const FORM_CONTROL_HOST_ATTRIBUTE = "data-yomu-form-control-host";
 function hasVisiblePageVideo() {
   return Array.from(document.querySelectorAll("video")).some(isVisiblePageVideo);
 }
@@ -13350,6 +13391,9 @@ Logger.scope("DictionaryReplicaPurge");
 Logger.scope("Yomitan");
 new TextDecoder();
 Logger.scope("Yomitan");
+new Map(
+  Object.entries(DEFAULT_WORD_COLOR_TOKENS).map(([state, seed]) => [seed, state])
+);
 Logger.scope("ReaderParser");
 function apiFirstParseOptions(options = {}) {
   const requireApi = options.requireApi ?? options.requireJpdb ?? true;
@@ -16857,9 +16901,10 @@ function replaceStudyPanelHtml(panel, html) {
 }
 const MINING_ACTIONS_CLASS = "jpdb-reader-actions";
 const MINING_COLLAPSED_CLASS = "jpdb-reader-actions-mining-collapsed";
-const DECK_PICKER_BLUR_DELAY_MS = 180;
-const DECK_PICKER_STYLE = "select{box-sizing:border-box;width:100%;height:36px;margin-top:6px;padding:0 8px;border:1px solid var(--jpdb-reader-border);border-radius:8px;background:var(--jpdb-reader-surface);color:var(--jpdb-reader-text);font:600 13px/1 var(--jpdb-reader-font,system-ui)}";
-const openPickers = /* @__PURE__ */ new WeakMap();
+const MINING_DRAWER_SELECTOR = '[data-action="mining-collapse"]';
+const DECK_SELECT_CLASS = "jpdb-reader-deck-select";
+const DECK_SELECT_STYLE = ":host{display:block;min-width:0}select{box-sizing:border-box;width:100%;min-height:36px;padding:0 10px;border:1px solid var(--jpdb-reader-accent);border-radius:8px;background:var(--jpdb-reader-surface);color:var(--jpdb-reader-accent-readable);font:600 13px/1.2 var(--jpdb-reader-font,system-ui);cursor:pointer}select:focus-visible{outline:2px solid var(--jpdb-reader-accent);outline-offset:2px}select:disabled{opacity:.6;cursor:progress}";
+const deckSelects = /* @__PURE__ */ new WeakMap();
 function toggleMiningControls(button, label) {
   const actions = button.closest(`.${MINING_ACTIONS_CLASS}`);
   if (!actions) return;
@@ -16874,59 +16919,132 @@ function setMiningControlsExpanded(button, expanded, label) {
   button.setAttribute("aria-label", text2);
   button.title = text2;
 }
-function openDeckPickerForCardAdd(button, card, sentence, performAction) {
-  const choices = readCardUiCommandCapability(button)?.choices;
-  if (!choices?.length) return false;
-  const open = openPickers.get(button);
-  if (open?.isConnected) {
-  open.focus();
-  return true;
+function mountDeckSelects(root, card, sentence, performAction) {
+  for (const host of root.querySelectorAll(`.${DECK_SELECT_CLASS}`)) {
+  const choices = readCardUiCommandCapability(host)?.choices;
+  if (!deckSelects.has(host) && choices?.length) mountDeckSelect(host, choices, card, sentence, performAction);
   }
-  const host = document.createElement("div");
-  host.className = "jpdb-reader-deck-picker";
-  const root = host.attachShadow({ mode: "closed" });
+}
+function mountDeckSelect(host, choices, card, sentence, performAction) {
+  const label = host.textContent?.trim() ?? "";
+  const root = host.attachShadow({ mode: "closed", delegatesFocus: true });
   const style = document.createElement("style");
-  style.textContent = DECK_PICKER_STYLE;
-  const picker = document.createElement("select");
-  const label = button.textContent?.trim() ?? "";
-  picker.setAttribute("aria-label", label);
+  style.textContent = DECK_SELECT_STYLE;
+  const select = document.createElement("select");
+  select.setAttribute("aria-label", label);
   const placeholder = new Option(label, "", true, true);
   placeholder.disabled = true;
-  picker.append(placeholder, ...choices.map((choice) => new Option(choice.label)));
-  root.append(style, picker);
-  const controller = new AbortController();
-  const close = () => {
-  controller.abort();
-  openPickers.delete(button);
-  host.remove();
-  button.setAttribute("aria-expanded", "false");
+  select.append(placeholder, ...choices.map((choice) => new Option(choice.label)));
+  root.append(style, select);
+  host.replaceChildren();
+  host.setAttribute(FORM_CONTROL_HOST_ATTRIBUTE, "");
+  deckSelects.set(host, select);
+  const choose = () => {
+  const choice = choices[select.selectedIndex - 1];
+  select.selectedIndex = 0;
+  if (choice) void addToChosenDeck(host, select, () => performAction(select, card, sentence, {
+    kind: "card-action",
+    action: "add",
+    deckSource: choice.source,
+    deckId: choice.id
+  }));
   };
-  picker.addEventListener("change", trustedReaderEventHandler(() => {
-  const choice = choices[picker.selectedIndex - 1];
-  close();
-  if (!choice) return;
-  button.focus({ preventScroll: true });
-  void performAction(button, card, sentence, { kind: "card-action", action: "add", deckSource: choice.source, deckId: choice.id });
-  }), { signal: controller.signal });
-  picker.addEventListener("blur", () => {
-  window.setTimeout(() => {
-    if (root.activeElement !== picker) close();
-  }, DECK_PICKER_BLUR_DELAY_MS);
-  }, { signal: controller.signal });
-  button.after(host);
-  openPickers.set(button, picker);
-  button.setAttribute("aria-expanded", "true");
-  picker.focus();
-  tryShowNativePicker(picker);
-  return true;
-}
-function tryShowNativePicker(picker) {
-  const showPicker = picker.showPicker;
-  if (!showPicker) return;
-  try {
-  showPicker.call(picker);
-  } catch {
+  let browsing = false;
+  select.addEventListener("keydown", trustedReaderEventHandler((event) => {
+  if (event.key === "Enter" && select.selectedIndex > 0) {
+    event.preventDefault();
+    choose();
+    return;
   }
+  browsing = true;
+  setTimeout(() => {
+    browsing = false;
+  });
+  }));
+  select.addEventListener("change", trustedReaderEventHandler(() => {
+  if (!browsing) choose();
+  }));
+  const letGo = () => {
+  select.selectedIndex = 0;
+  };
+  select.addEventListener("pointerdown", letGo);
+  select.addEventListener("blur", letGo);
+}
+async function addToChosenDeck(host, select, add) {
+  const scope = host.getRootNode();
+  const focused = scope.activeElement === host;
+  await add();
+  const active = scope.activeElement;
+  if (!focused || active && active !== host.ownerDocument.body && !active.matches(".jpdb-reader-popover")) return;
+  const hosts = scope.querySelectorAll(`.jpdb-reader-popover .${DECK_SELECT_CLASS}`);
+  const current = select.isConnected ? host : hosts[hosts.length - 1];
+  const collapsed = current?.closest(`.${MINING_COLLAPSED_CLASS}`);
+  const target = collapsed ? collapsed.querySelector(MINING_DRAWER_SELECTOR) : current && deckSelects.get(current);
+  target?.focus({ preventScroll: true });
+}
+const waitingRenders = /* @__PURE__ */ new WeakMap();
+function rerenderAroundMiningControls(root, label, render) {
+  const choosing = deckSelectInUse(root);
+  if (choosing) {
+  waitForDeckChoice(root, choosing, () => rerenderAroundMiningControls(root, label, render));
+  return;
+  }
+  waitingRenders.delete(root);
+  const restore = preserveMiningControls(root, label);
+  render();
+  restore();
+}
+function deckSelectInUse(root) {
+  const active = root.ownerDocument?.activeElement;
+  return active?.matches(`.${DECK_SELECT_CLASS}`) && root.contains(active) ? active : null;
+}
+function waitForDeckChoice(root, host, render) {
+  const listening = waitingRenders.get(root)?.host === host;
+  waitingRenders.set(root, { host, render });
+  if (listening) return;
+  host.addEventListener("focusout", () => setTimeout(() => {
+  const waiting = waitingRenders.get(root);
+  if (waiting?.host !== host) return;
+  waitingRenders.delete(root);
+  waiting.render();
+  }), { once: true });
+}
+function preserveMiningControls(root, label) {
+  const expanded = [...root.querySelectorAll(MINING_DRAWER_SELECTOR)].map((drawer) => {
+  const actions = drawer.closest(`.${MINING_ACTIONS_CLASS}`);
+  return Boolean(actions && !actions.classList.contains(MINING_COLLAPSED_CLASS));
+  });
+  const restoreFocus = preserveFocus(root);
+  return () => {
+  const drawers = [...root.querySelectorAll(MINING_DRAWER_SELECTOR)];
+  expanded.forEach((open, index) => {
+    const drawer = drawers[index];
+    if (open && drawer) setMiningControlsExpanded(drawer, true, label);
+  });
+  restoreFocus?.();
+  };
+}
+function preserveFocus(root) {
+  const scope = root.getRootNode();
+  const active = scope.activeElement;
+  if (!(active instanceof HTMLElement) || active === root || !root.contains(active)) return null;
+  const sameKind = (node) => node.classList[0] === active.classList[0] && node.getAttribute("data-action") === active.getAttribute("data-action") && node.getAttribute("href") === active.getAttribute("href");
+  const controls = () => [...root.querySelectorAll(active.localName)].filter(sameKind);
+  const index = controls().indexOf(active);
+  const focus = (target) => {
+  target.focus({ preventScroll: true });
+  return scope.activeElement === target;
+  };
+  return () => {
+  const current = scope.activeElement;
+  if (current && current !== active.ownerDocument.body && current.isConnected) return;
+  const counterpart = controls()[index];
+  if (counterpart && focus(counterpart)) return;
+  focus(root);
+  if (counterpart) queueMicrotask(() => {
+    if (scope.activeElement === root) focus(counterpart);
+  });
+  };
 }
 function updateKanjiMiningControlsMount(popover, controls, setMiningControlsExpanded2) {
   const actions = popover.querySelector("[data-kanji-actions]");
@@ -17850,7 +17968,8 @@ registerYomuCompanion("kanjiStudy", {
   handleStudyGrammarAction,
   toggleMiningControls,
   setMiningControlsExpanded,
-  openDeckPickerForCardAdd,
+  mountDeckSelects,
+  rerenderAroundMiningControls,
   updateKanjiMiningControlsMount,
   normalizeMiningSentence,
   inferMiningSourceKind,

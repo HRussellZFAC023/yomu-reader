@@ -8976,13 +8976,13 @@ function parseGrammarRule(row2) {
     examples: Object.freeze([])
   });
 }
-function createGrammarRegistry() {
-  const rules = GRAMMAR_PATTERN_DATA.trim().split("\n").map(parseGrammarRule);
+function parseGrammarRegistry(data) {
+  const rules = data.trim().split("\n").map((row2) => parseGrammarRule(row2.replace(/^ +/u, "")));
   const ids2 = new Set(rules.map((rule) => rule.ruleId));
   if (ids2.size !== rules.length) throw new TypeError("Yomu grammar registry contains duplicate rule ids.");
   return Object.freeze(rules);
 }
-const YOMU_GRAMMAR_REGISTRY = createGrammarRegistry();
+const YOMU_GRAMMAR_REGISTRY = parseGrammarRegistry(GRAMMAR_PATTERN_DATA);
 const GRAMMAR_RULES_BY_ID = new Map(YOMU_GRAMMAR_REGISTRY.map((rule) => [rule.ruleId, rule]));
 function isYomuGrammarRuleId(ruleId) {
   return GRAMMAR_RULES_BY_ID.has(ruleId);
@@ -27654,16 +27654,19 @@ class ConcurrencyGate {
   }
   active = 0;
   queue = [];
-  async run(task2) {
+  async run(task2, rank2 = 0) {
     if (this.active >= this.limit) {
-      await new Promise((resolve) => this.queue.push(resolve));
+      await new Promise((start) => {
+        const behind = this.queue.findIndex((waiting) => waiting.rank < rank2);
+        this.queue.splice(behind < 0 ? this.queue.length : behind, 0, { rank: rank2, start });
+      });
     }
     this.active += 1;
     try {
       return await task2();
     } finally {
       this.active -= 1;
-      this.queue.shift()?.();
+      this.queue.shift()?.start();
     }
   }
 }
@@ -27694,7 +27697,7 @@ const NEW_TAB_PAGE_URL = `${DOCS_BASE_URL}study/`;
 const NEW_TAB_VERSION_URL = `${NEW_TAB_PAGE_URL}version.json`;
 const VIDEO_PLAYER_PAGE_URL = `${DOCS_BASE_URL}video-player/`;
 const PDF_READER_PAGE_URL = `${DOCS_BASE_URL}pdf-reader/`;
-const SUPPORT_COPY = "よむ is a free userscript for popup lookup, dictionaries, OCR, subtitles, study, and Anki.";
+const SUPPORT_COPY = "よむ is free: popup lookup, dictionaries, OCR, subtitles, study and Anki in one place.";
 const SUPPORT_COPY_EXTRA = "Donations are optional and help cover development, devices, services, maintenance, and API costs.";
 const NADESHIKO_URL = "https://nadeshiko.co/";
 const NADESHIKO_DEVELOPER_URL = `${NADESHIKO_URL}user/developer`;
@@ -31947,6 +31950,9 @@ function numericRangeImmediatelyBefore(sourceText, start) {
   const before = sourceText.slice(Math.max(0, start - 24), start).replace(/\s+$/u, "");
   return NUMERIC_RANGE_BEFORE_RE.test(before);
 }
+function isCounterAfterNumber(surface, sentence, start) {
+  return NUMERIC_COUNTER_SUFFIX_SEGMENTS.has(surface) && Boolean(sentence) && start >= 0 && sentence.slice(start, start + surface.length) === surface && numericRangeImmediatelyBefore(sentence, start);
+}
 const DEINFLECTION_CONDITION = {
   Ichidan: 1 << 0,
   GodanU: 1 << 1,
@@ -35236,7 +35242,8 @@ const RENDERED_WORD_CONTRAST_VARS = [
   "--jpdb-reader-word-accessible-highlight",
   "--jpdb-reader-word-accessible-underline",
   "--jpdb-reader-word-highlight-text",
-  "--jpdb-reader-word-contrast-shadow"
+  "--jpdb-reader-word-contrast-shadow",
+  "--jpdb-reader-furi-color"
 ];
 const RENDERED_WORD_CONTRAST_VARS_WITHOUT_SHADOW = RENDERED_WORD_CONTRAST_VARS.filter(
   (name) => name !== "--jpdb-reader-word-contrast-shadow"
@@ -35562,14 +35569,15 @@ function createTrustedHtmlPolicyWithOptions(factory, options) {
     return null;
   }
 }
+const BRAND_COLOR_TOKENS = {
+  accent: "#b8324e",
+  accentOnDark: "#ff7892",
+  consoleAccent: "#b8324e"
+};
 const CORE_COLOR_TOKENS = {
   black: "#000000",
   white: "#ffffff",
   transparentBlack: "rgba(0, 0, 0, 0)"
-};
-const BRAND_COLOR_TOKENS = {
-  accent: "#5ea780",
-  consoleAccent: "#247a58"
 };
 const READER_THEME_COLOR_TOKENS = {
   dark: {
@@ -35579,9 +35587,9 @@ const READER_THEME_COLOR_TOKENS = {
     accentText: "#11161d"
   },
   light: {
-    bg: "#fbfcfe",
-    surface: "#f4f7fa",
-    surface2: "#e8edf3",
+    bg: "#f8f9fb",
+    surface: "#ffffff",
+    surface2: "#f0f2f5",
     accentText: CORE_COLOR_TOKENS.white
   }
 };
@@ -35598,29 +35606,16 @@ const DEFAULT_WORD_COLOR_TOKENS = {
   failed: "#ff6b6b",
   ignored: "#b8a7ff"
 };
+const PAGE_STATE_UNDERLINE_COLOR_TOKENS = {
+  light: { new: "#687384", learning: "#916f08", known: "#347a57", due: "#216f7a", failed: "#b53f43", ignored: "#77649a" },
+  dark: { new: "#aab2c0", learning: "#d6b65e", known: "#80b99a", due: "#77b6c0", failed: "#f08a8a", ignored: "#b7a6d7" }
+};
 const DEFAULT_PITCH_COLOR_TOKENS = {
   heiban: "#359eff",
   atamadaka: "#fe4b74",
   nakadaka: "#fba840",
   odaka: "#57ccb7",
   unknown: "#94a3b8"
-};
-const LOOKUP_PILL_COLOR_TOKENS = {
-  jpdb: { bg: "#2563c7", border: "#4f8ff0", text: CORE_COLOR_TOKENS.white },
-  jiten: { bg: "#13845f", border: "#34c89a", text: CORE_COLOR_TOKENS.white },
-  bunpro: { bg: "#be3455", border: "#fb7185", text: CORE_COLOR_TOKENS.white },
-  "yomu-search": { bg: "#b83280", border: "#f472b6", text: CORE_COLOR_TOKENS.white },
-  jisho: { bg: "#4f46c7", border: "#7567f0", text: CORE_COLOR_TOKENS.white },
-  weblio: { bg: "#0f766e", border: "#2dd4bf", text: CORE_COLOR_TOKENS.white },
-  kotobank: { bg: "#be123c", border: "#fb7185", text: CORE_COLOR_TOKENS.white },
-  takoboto: { bg: "#0f5f99", border: "#38bdf8", text: CORE_COLOR_TOKENS.white },
-  "wiktionary-ja": { bg: "#374151", border: "#9ca3af", text: CORE_COLOR_TOKENS.white },
-  "immersion-kit": { bg: "#0e7490", border: "#22d3ee", text: CORE_COLOR_TOKENS.white },
-  nadeshiko: { bg: "#7c3aed", border: "#a78bfa", text: CORE_COLOR_TOKENS.white },
-  // Styling for the retained outbound lookup link only; there is no embedded source.
-  uchisen: { bg: "#9a3412", border: "#fb923c", text: CORE_COLOR_TOKENS.white },
-  anki: { bg: "#2f6da8", border: "#68a6e6", text: CORE_COLOR_TOKENS.white },
-  copy: { bg: "#7e3fbf", border: "#a064e5", text: CORE_COLOR_TOKENS.white }
 };
 const DOODLE_COLOR_TOKENS = {
   ink: "#141820"
@@ -36625,14 +36620,14 @@ function accessibleOcrBackgroundOpacity(opacity) {
   const clampedOpacity = Number.isFinite(numericOpacity) ? Math.max(0, Math.min(1, numericOpacity)) : DEFAULT_OCR_BACKGROUND_OPACITY;
   return Math.max(OCR_BACKGROUND_MIN_RENDERED_OPACITY, clampedOpacity);
 }
-function accessibleOcrBackgroundColor(accentColor, opacity = DEFAULT_OCR_BACKGROUND_OPACITY) {
-  const accent = sanitizeAccentColor(accentColor);
+function accessibleOcrBackgroundColor(opacity = DEFAULT_OCR_BACKGROUND_OPACITY) {
+  const ink = OVERLAY_COLOR_TOKENS.background;
   const renderedOpacity = accessibleOcrBackgroundOpacity(opacity);
-  if (ocrRenderedBackgroundContrast(accent, renderedOpacity) >= OCR_BACKGROUND_MIN_TEXT_CONTRAST) {
-    return accent;
+  if (ocrRenderedBackgroundContrast(ink, renderedOpacity) >= OCR_BACKGROUND_MIN_TEXT_CONTRAST) {
+    return ink;
   }
   for (let amount = 0.08; amount <= 1; amount += 0.04) {
-    const candidate2 = sharedMixHex(accent, "#000000", amount, sanitizeAccentColor);
+    const candidate2 = sharedMixHex(ink, "#000000", amount, sanitizeAccentColor);
     if (ocrRenderedBackgroundContrast(candidate2, renderedOpacity) >= OCR_BACKGROUND_MIN_TEXT_CONTRAST) {
       return candidate2;
     }
@@ -36643,10 +36638,25 @@ function ocrRenderedBackgroundContrast(color, opacity) {
   const renderedOnWhite = sharedMixHex("#ffffff", color, opacity, sanitizeAccentColor);
   return sharedContrastRatio(renderedOnWhite, DEFAULT_OCR_TEXT_COLOR, sanitizeAccentColor);
 }
-const DEFAULT_OCR_BACKGROUND_COLOR = accessibleOcrBackgroundColor(
-  DEFAULT_ACCENT_COLOR,
-  DEFAULT_OCR_BACKGROUND_OPACITY
-);
+const DEFAULT_OCR_BACKGROUND_COLOR = accessibleOcrBackgroundColor(DEFAULT_OCR_BACKGROUND_OPACITY);
+const HOSTED_ACCENT_TOKENS = {
+  accent: BRAND_COLOR_TOKENS.accent
+};
+const RETIRED_DEFAULT_ACCENTS = /* @__PURE__ */ new Set(["#5ea780"]);
+function currentAccentColor(value, fallback = HOSTED_ACCENT_TOKENS.accent) {
+  const color = hostedAccentColorFromValue(value);
+  return color && !RETIRED_DEFAULT_ACCENTS.has(color) ? color : fallback;
+}
+function readableAccentSeed(accent, dark) {
+  return dark && accent === BRAND_COLOR_TOKENS.accent ? BRAND_COLOR_TOKENS.accentOnDark : accent;
+}
+function hostedAccentColorFromValue(value) {
+  if (typeof value !== "string") return void 0;
+  const trimmed = value.trim();
+  if (/^#[0-9a-f]{6}$/i.test(trimmed)) return trimmed.toLowerCase();
+  const shortHex = /^#([0-9a-f])([0-9a-f])([0-9a-f])$/i.exec(trimmed);
+  return shortHex ? `#${shortHex[1]}${shortHex[1]}${shortHex[2]}${shortHex[2]}${shortHex[3]}${shortHex[3]}`.toLowerCase() : void 0;
+}
 function hasOwn(value, key2) {
   return Boolean(value) && Object.prototype.hasOwnProperty.call(value, key2);
 }
@@ -37508,7 +37518,7 @@ const EN_SUBTITLE_SETTINGS_COPY = {
   subtitleOverlayVisible: "Show subtitle overlay",
   // Not a control label: no checkbox writes this any more, the three-way
   // `subtitleNativeDisplay` select does. It stays because a stored setting with
-  // no control of its own takes its wording in docs/reference/settings.md from
+  // no control of its own takes its wording in docs/dev/settings-reference.md from
   // the i18n entry keyed by its own name, and this sentence is what the stored
   // boolean means.
   subtitleSecondaryVisible: "Show native subtitles",
@@ -37813,6 +37823,10 @@ const COPY$c = {
     manualPageScanShortcut: "Manual page scan shortcut",
     scanPage: "Scan page",
     noUnscannedJapaneseText: "No unscanned Japanese text found.",
+    statsEmptyHelp: "Your reviews and progress show up here after your first session.",
+    libraryEmpty: "Save a word while you read and it shows up here.",
+    moreLookupLinks: "More links",
+    audioSourcesTitle: "Audio sources",
     contextOccurrences: "In context ×{count}",
     puckAutoDetectSubtitles: "Auto-detect subtitles",
     loadTargetSubtitles: "Load Japanese subtitles",
@@ -37836,6 +37850,9 @@ const COPY$c = {
     openAccountSettingsTrustedSurface: "Open Study settings",
     save: "Save",
     cancel: "Cancel",
+    closeSettings: "Close settings",
+    settingsLauncherHelp: "Settings open in Study, where this site can't read them.",
+    openInStudy: "Open in Study",
     show: "Show",
     hide: "Hide",
     appearance: "Appearance",
@@ -37904,7 +37921,7 @@ const COPY$c = {
     gradeTargetYomuLocalAndAnki: `Grades ${ACADEMY_SRS_LABEL} + Anki card: {target}`,
     missingAnkiCardId: "Missing Anki card id.",
     jpdbPageEnhancements: "Dictionary site enhancements",
-    jpdbPageEnhancementsEnabled: "Enhance dictionary pages",
+    jpdbPageEnhancementsEnabled: "Enhance JPDB and Jiten pages",
     jpdbPageWordEnhancementsEnabled: "Add sources to word/search pages",
     jpdbPageKanjiEnhancementsEnabled: "Add sources to kanji pages",
     fivePoint: "Provider default",
@@ -37925,7 +37942,6 @@ const COPY$c = {
     bottomSheet: "Bottom sheet",
     popover: "Popover",
     stickyBottomSheet: "Keep sheet open after lookup",
-    popoverBackdropEnabled: "Dim page behind popover",
     popoverWidth: "Popover width (px)",
     popoverHeight: "Popover height (px)",
     popoverHeightMode: "Popover height behavior",
@@ -38014,7 +38030,6 @@ const COPY$c = {
     lookupOnMiddleMouse: "Look up with middle-mouse hold",
     showFloatingButton: "Show settings puck",
     pageScanMode: "Japanese text on webpages",
-    pageScanModeOff: "Leave pages unchanged",
     pageScanModeAuto: "Scan Japanese automatically",
     pageScanModeManual: "Scan only when I ask",
     manualScanEnabled: "Manual page scanning",
@@ -38023,19 +38038,14 @@ const COPY$c = {
     ocrInteractionModeManual: "Tap or hover",
     ocrInteractionModeOff: "Off",
     puckMenuLabel: `${APP_NAME} menu`,
-    puckPauseAnnotations: "Pause annotations",
-    puckResumeAnnotations: "Resume annotations",
+    puckPowerOnFurigana: `${APP_NAME} on · furigana shown`,
+    puckPowerOnNoFurigana: `${APP_NAME} on · furigana hidden`,
+    puckPowerOff: `${APP_NAME} off`,
     puckOcrAuto: "OCR: Auto",
     puckOcrManual: "OCR: Tap/Hover",
     puckOcrOff: "OCR: Off",
-    annotationsPausedToast: "Annotations paused.",
-    annotationsResumedToast: "Annotations resumed.",
-    puckMuteAudio: "Mute auto-play audio",
-    puckUnmuteAudio: "Unmute auto-play audio",
-    autoplayAudioOnToast: "Auto-play audio on.",
-    autoplayAudioOffToast: "Auto-play audio muted.",
-    puckHideFurigana: "Hide furigana",
-    furiganaOffToast: "Furigana off. Lookups stay active.",
+    autoplayAudioOn: "Auto-play audio on",
+    autoplayAudioOff: "Auto-play audio off",
     showFurigana: "Enable furigana annotations",
     furiganaMode: "Furigana",
     wordColorStates: "Color words",
@@ -38203,10 +38213,10 @@ const COPY$c = {
     alwaysVisible: "Always visible",
     preview: "Preview",
     youtubeImmersionEnabled: "Japanese YouTube only",
-    preferJapaneseSiteLanguage: "Open Japanese versions of sites",
+    preferJapaneseSiteLanguage: "Request Japanese sites",
     youtubeShowChannelRecommendations: "Show Japanese channel suggestions",
     youtubeShowFilterNotice: "Show hidden-video notice",
-    youtubeHelp: "Filter YouTube for Japanese and open Japanese versions of sites.",
+    youtubeHelp: "Filter YouTube for Japanese.",
     youtubeShowHiddenVideos: "Show hidden videos",
     youtubeHideHiddenVideos: "Hide hidden videos",
     youtubeHideNotice: "Hide notice",
@@ -38395,6 +38405,7 @@ const COPY$c = {
     dictionaryInstallQueued: "{dictionary} queued.",
     dictionaryInstallSaveBlocked: "Import running. Save unlocks when done.",
     dictionaryImportQueueStatus: "{count} install{plural} running.",
+    dictionaryInstallRunning: "{count} install{plural} running.",
     dictionaryRemoveConfirm: 'Remove "{dictionary}"?',
     dictionaryRemoving: "Removing {dictionary}...",
     dictionaryRemoved: "Removed {dictionary}.",
@@ -38573,7 +38584,7 @@ const COPY$c = {
     updateHelpNotesManagerDashboard: "On Chrome or Edge, Update opens the Tampermonkey dashboard instructions: Utilities → Check for userscript updates. This avoids the browser’s blocked website-install banner.",
     updateHelpNotesExternalManager: "Keep one Yomu script enabled. Update opens the script source; your userscript app reads it from the open tab to update. If updates stall on iPhone/iPad, open this link in Safari and leave the tab open.",
     updateHelpNotesNoManager: "No userscript manager was detected here, and browsers block direct script installs — Update opens the install guide with per-browser steps.",
-    updateHelpNotesExtensionStore: "You are running the Yomu browser extension. Update opens your browser’s extension store, where installs update automatically and you can trigger a manual update check.",
+    updateHelpNotesExtensionStore: "Updates come from the browser extension store.",
     updateUserscript: "Update",
     duplicateStatusSingle: "One Yomu runtime active ({kind}).",
     duplicateStatusUnknown: "Duplicate check unavailable. If Yomu appears twice, disable the older script.",
@@ -38601,7 +38612,6 @@ const COPY$c = {
     resizeLookupSheet: "Drag to resize lookup sheet, or tap to close",
     showMiningActions: "More actions",
     hideMiningActions: "Fewer actions",
-    extensionPopupPageActions: "On this page",
     ...GRADING_SERVICE_COPY.en,
     jpdbKanjiUpdated: "JPDB kanji updated.",
     jpdbKanjiUpdateFailedRuntime: "Could not update JPDB kanji. Check kanji reviews.",
@@ -38666,7 +38676,6 @@ const COPY$c = {
     openOnJpdb: "Open on JPDB",
     openOnLookup: "Open on {label}",
     viewOnLookup: "View on {label}",
-    copyWord: "Copy",
     copyWordTitle: "Copy word",
     copiedWord: "Copied word.",
     backToWord: "Back to word",
@@ -38789,6 +38798,8 @@ const COPY$c = {
     jitenCompositeWords: "Composite words",
     usedInVocabulary: "Used in vocabulary",
     exampleSentences: "Example sentences",
+    moreMeanings: "More meanings",
+    moreExamples: "More examples",
     // U46: every one of these is a state a learner can reach. They exist
     // because an example source with nothing to show used to render nothing
     // at all, so an unsupported language looked exactly like a broken one.
@@ -38911,7 +38922,7 @@ const CARD_STATE_LABEL_KEYS = {
 };
 function parseUiCopyTable(rows) {
   const copy2 = {};
-  rows.trim().split("\n").forEach((row2) => {
+  rows.trim().split("\n").map((row2) => row2.replace(/^ +/u, "")).forEach((row2) => {
     const tab = row2.indexOf("	");
     if (tab < 0) {
       const key2 = row2.trim();
@@ -38931,6 +38942,10 @@ english	英語
 japanese	日本語
 settings	設定
 settingsSaved	設定を保存しました。
+statsEmptyHelp	最初の学習のあと、復習の記録と進み具合がここに表示されます。
+libraryEmpty	読みながら単語を保存すると、ここに表示されます。
+moreLookupLinks	その他のリンク
+audioSourcesTitle	音声ソース
 settingsSaveFailed	設定を保存できませんでした。
 settingsCompanionUnavailable	設定を開けませんでした。
 firefoxAuthenticationInfoDenied	Firefoxの許可がなかったため、アカウント情報は保存しませんでした。
@@ -38958,7 +38973,6 @@ lookupDialog	{APP_NAME}検索
 resizeLookupSheet	検索シートをリサイズ。タップで閉じる
 showMiningActions	その他の操作
 hideMiningActions	操作を閉じる
-extensionPopupPageActions	このページ
 closeDrawer	ドロワーを閉じる
 copiedWord	単語をコピーしました。
 jpdbKanjiUpdated	JPDB漢字を更新しました。
@@ -39004,6 +39018,7 @@ dictionaryInstallQueueHelp	まず定義用の語句辞書をインストール�
 dictionaryInstallQueued	{dictionary}待機中。
 dictionaryInstallSaveBlocked	インポート中。完了後に保存できます。
 dictionaryImportQueueStatus	{count}件インストール中。完了後に保存。
+dictionaryInstallRunning	{count}件インストール中。
 dictionaryRemoveConfirm	「{dictionary}」を削除？
 dictionaryRemoving	{dictionary}を削除中...
 dictionaryRemoved	{dictionary}を削除しました。
@@ -39115,7 +39130,6 @@ playExampleAudio	例文音声を再生
 openOnJpdb	JPDBで開く
 openOnLookup	{label}で開く
 viewOnLookup	{label}で見る
-copyWord	コピー
 copyWordTitle	単語をコピー
 backToWord	単語に戻る
 backToKanji	漢字に戻る
@@ -39325,6 +39339,8 @@ loadingDictionaryDetails	辞書詳細を読み込み中...
 jitenCompositeWords	複合語
 usedInVocabulary	使われる単語
 exampleSentences	例文
+moreMeanings	ほかの意味
+moreExamples	ほかの例文
 exampleSourceEmpty	この語の例文はまだありません。
 exampleSourceEmptyShort	例文なし
 exampleSourceLimitedCorpus	コーパスが小さいため、例文がまだない語もあります。
@@ -39389,6 +39405,9 @@ settingsSearchPlaceholder	設定を検索
 settingsSearchNoResults	一致なし。
 save	保存
 cancel	キャンセル
+closeSettings	設定を閉じる
+settingsLauncherHelp	設定は、このサイトから読み取れないStudyで開きます。
+openInStudy	Studyで開く
 show	表示
 hide	隠す
 appearance	外観
@@ -39409,7 +39428,7 @@ api	API
 apiCredential	APIキー
 apiCredentialJpdb	JPDB APIキー
 apiCredentialJiten	Jiten APIキー
-apiCredentialBunpro	Bunpro frontend API token
+apiCredentialBunpro	BunproフロントエンドAPIトークン
 apiCredentialWanikani	WaniKaniパーソナルアクセストークン
 wanikaniTokenHelp	WaniKaniでread/write権限のパーソナルアクセストークンを作成し、ここに貼り付けてください。ブラウザ内にのみ保存され、プロキシを経由せずapi.wanikani.comへ直接送信され、ログに残ることはありません。
 apiCredentialBunproLegacy	Bunpro APIキー
@@ -39453,7 +39472,7 @@ gradeTargetBunproAndAnki	Bunpro + Ankiカードを採点: {target}
 gradeTargetYomuLocalAndAnki	Academy + Ankiカードに記録: {target}
 missingAnkiCardId	AnkiカードIDがありません。
 jpdbPageEnhancements	辞書サイト拡張
-jpdbPageEnhancementsEnabled	辞書ページを拡張
+jpdbPageEnhancementsEnabled	JPDB・Jitenのページを拡張
 jpdbPageWordEnhancementsEnabled	単語・検索ページにソースを追加
 jpdbPageKanjiEnhancementsEnabled	漢字ページにソースを追加
 fivePoint	サービスの標準評価
@@ -39469,7 +39488,6 @@ hoverPopupMode	ホバー時の表示
 bottomSheet	下部シート
 popover	ポップオーバー
 stickyBottomSheet	検索後も開く
-popoverBackdropEnabled	背後を暗くする
 popoverWidth	ポップオーバー幅 (px)
 popoverHeight	ポップオーバー高さ (px)
 popoverHeightMode	ポップオーバー高さの動作
@@ -39558,7 +39576,6 @@ lookupOnHover	ホバーで検索
 lookupOnMiddleMouse	中央ボタン長押しで検索
 showFloatingButton	設定ボタンを表示
 pageScanMode	ウェブページの日本語
-pageScanModeOff	ページを変更しない
 pageScanModeAuto	日本語を自動で検出
 pageScanModeManual	指示したときだけ日本語を検出
 manualPageScanShortcut	手動ページスキャンのショートカット
@@ -39568,19 +39585,14 @@ ocrInteractionModeAuto	自動
 ocrInteractionModeManual	タップ/ホバー
 ocrInteractionModeOff	オフ
 puckMenuLabel	よむ メニュー
-puckPauseAnnotations	注釈を一時停止
-puckResumeAnnotations	注釈を再開
+puckPowerOnFurigana	{APP_NAME} オン・ふりがな表示
+puckPowerOnNoFurigana	{APP_NAME} オン・ふりがな非表示
+puckPowerOff	{APP_NAME} オフ
 puckOcrAuto	OCR: 自動
 puckOcrManual	OCR: タップ/ホバー
 puckOcrOff	OCR: オフ
-annotationsPausedToast	注釈を一時停止しました。
-annotationsResumedToast	注釈を再開しました。
-puckMuteAudio	音声の自動再生をミュート
-puckUnmuteAudio	音声の自動再生のミュートを解除
-puckHideFurigana	ふりがなを隠す
-furiganaOffToast	ふりがなを非表示にしました。単語の検索は引き続き使えます。
-autoplayAudioOnToast	音声の自動再生をオンにしました。
-autoplayAudioOffToast	音声の自動再生をミュートしました。
+autoplayAudioOn	音声の自動再生 オン
+autoplayAudioOff	音声の自動再生 オフ
 showFurigana	ふりがな注釈を有効にする
 furiganaMode	ふりがな
 wordColorStates	色を付ける単語
@@ -39729,10 +39741,10 @@ hideControls	コントロールを隠す
 alwaysVisible	常に表示
 preview	プレビュー
 youtubeImmersionEnabled	日本語のYouTubeのみ
-preferJapaneseSiteLanguage	日本語版のサイトを開く
+preferJapaneseSiteLanguage	日本語版サイトをリクエスト
 youtubeShowChannelRecommendations	日本語チャンネル候補を表示
 youtubeShowFilterNotice	非表示動画の通知を表示
-youtubeHelp	YouTubeを日本語向けに絞り、日本語版のサイトを開きます。
+youtubeHelp	YouTubeを日本語向けに絞ります。
 youtubeShowHiddenVideos	非表示動画を表示
 youtubeHideHiddenVideos	非表示動画を隠す
 youtubeHideNotice	通知を隠す
@@ -39946,7 +39958,7 @@ updateHelpNotesManager	よむスクリプトは1つだけ有効にしてくだ�
 updateHelpNotesManagerDashboard	Chrome または Edge では、「更新」を押すと Tampermonkey の更新手順が開きます。ダッシュボードの「ユーティリティ」→「ユーザースクリプトの更新を確認」を使うため、ウェブサイトからのインストールをブロックする警告を回避できます。
 updateHelpNotesExternalManager	よむスクリプトは1つだけ有効にしてください。「更新」でスクリプトのソースが開き、ユーザースクリプトアプリが開いたタブから読み取って更新します。iPhone/iPadで更新が止まる場合は、このリンクをSafariで開いてタブを開いたままにしてください。
 updateHelpNotesNoManager	この環境ではユーザースクリプトマネージャーが検出されませんでした。ブラウザはスクリプトの直接インストールをブロックするため、「更新」ではブラウザ別の手順があるインストールガイドを開きます。
-updateHelpNotesExtensionStore	よむのブラウザ拡張機能版を実行中です。「更新」を押すとブラウザの拡張機能ストアが開きます。ストア版は自動的に更新され、手動での更新確認も行えます。
+updateHelpNotesExtensionStore	更新はブラウザの拡張機能ストアから届きます。
 updateUserscript	更新
 duplicateStatusSingle	有効なYomuランタイムは1つです（{kind}）。
 duplicateStatusUnknown	重複確認はできません。よむが2つ表示される場合は古いスクリプトを無効にしてください。
@@ -39956,7 +39968,7 @@ ankiConnectSetupConfig	AnkiConnectのwebCorsOriginListに次のオリジンを�
 ankiConnectSetupMobile	スマホやiPadでは、デスクトップPCのLANまたはTailscale URLを使います。スマホ上のlocalhostはPCではなくスマホ自身を指します。
 ankiConnectSetupBrave	BraveでローカルAnki確認がブロックされる場合は、StudyページのShieldsをオフにしてください。
 helpSupportTitle	よむをサポート
-helpSupportCopy	よむは検索、OCR、字幕、辞書、学習、Ankiをまとめた無料ユーザースクリプトです。
+helpSupportCopy	よむは検索、OCR、字幕、辞書、学習、Ankiをまとめた無料のツールです。
 helpSupportCopyExtra	寄付は開発とサービス費用を支えます。
 videoPlayer	動画プレイヤー
 pdfReader	PDFリーダー
@@ -40083,6 +40095,11 @@ function copyIcon() {
   return `<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
         <rect x="9" y="9" width="10" height="10" rx="2"></rect>
         <path d="M5 15V7a2 2 0 0 1 2-2h8"></path>
+    </svg>`;
+}
+function moreIcon() {
+  return `<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+        <path d="M6 12h.01M12 12h.01M18 12h.01"></path>
     </svg>`;
 }
 function ankiIcon() {
@@ -40773,6 +40790,32 @@ function createDefaultSubtitleSettings(fontFamily) {
     subtitleSeekPadding: 0.08
   };
 }
+const RETIRED_READING_MODES = ["all", "auto"];
+const RETIRED_SETTING_DEFAULTS = [
+  { keys: ["furiganaMode"], retired: RETIRED_READING_MODES.map((mode) => [mode]) },
+  // The mode the puck brings back when furigana is shown again.
+  { keys: ["puckFuriganaModeBeforeHide"], retired: RETIRED_READING_MODES.map((mode) => [mode]) },
+  // A word the learner just failed keeps its reading.
+  { keys: ["furiganaHiddenStateGroups"], retired: [[["known", "due", "failed"]]] },
+  { keys: ["wordHighlightColorSource", "wordUnderlineColorSource", "wordTextColorSource"], retired: [["jpdb", "pitch", "anki"]] },
+  { keys: ["subtitleHighlightColorSource", "subtitleUnderlineColorSource", "subtitleTextColorSource"], retired: [["jpdb", "pitch", "anki"]] },
+  { keys: ["wordColorHiddenStateGroups"], retired: [[[]]] }
+];
+RETIRED_SETTING_DEFAULTS.flatMap((group2) => group2.keys);
+function adoptCurrentDefaults(settings, ledger, defaults) {
+  let next = null;
+  for (const { keys, retired } of RETIRED_SETTING_DEFAULTS) {
+    if (keys.some((key2) => hasOwn(ledger.records, key2))) continue;
+    if (!retired.some((values) => keys.every((key2, index) => sameValue(values[index], settings[key2])))) continue;
+    next ??= { ...settings };
+    for (const key2 of keys) next[key2] = structuredClone(defaults[key2]);
+  }
+  return next ?? settings;
+}
+function sameValue(left, right) {
+  if (Array.isArray(left) && Array.isArray(right)) return JSON.stringify([...left].sort()) === JSON.stringify([...right].sort());
+  return left === right || JSON.stringify(left) === JSON.stringify(right);
+}
 function normalizeLanguageProfileSettings(value, parserProvider, dictionaryPreferences, defaults) {
   const interfaceLanguage = storedInterfaceLanguage(value, defaults.interfaceLanguage);
   const normalized2 = normalizeLanguageProfiles(
@@ -41390,12 +41433,12 @@ function isPopupLookupEnabled(settings) {
 const READER_COLOR_SOURCES = /* @__PURE__ */ new Set(["auto", "status", "jpdb", "anki", "pitch", "off"]);
 const EXPLICIT_FURIGANA_MODES = /* @__PURE__ */ new Set(["all", "difficult-kanji", "known-status", "hover"]);
 const DEFAULT_COLOR_CHANNELS = {
-  wordHighlightColorSource: "jpdb",
-  wordUnderlineColorSource: "pitch",
-  wordTextColorSource: "anki",
-  subtitleHighlightColorSource: "jpdb",
-  subtitleUnderlineColorSource: "pitch",
-  subtitleTextColorSource: "anki"
+  wordHighlightColorSource: "off",
+  wordUnderlineColorSource: "status",
+  wordTextColorSource: "off",
+  subtitleHighlightColorSource: "off",
+  subtitleUnderlineColorSource: "status",
+  subtitleTextColorSource: "off"
 };
 const KANJI_BOOLEAN_SETTING_KEYS = [
   "jpdbKanjiEnabled",
@@ -41594,14 +41637,20 @@ const DEFAULT_SETTINGS = {
   showFurigana: true,
   // A11: 'difficult-kanji' hides readings by a fixed easy-kanji list
   // (EASY_FURIGANA_KANJI), so a bare kanji told the learner nothing about
-  // their own knowledge and the page read as half-annotated. Every parsed
-  // word gets its reading until someone chooses otherwise.
-  furiganaMode: "all",
+  // their own knowledge and the page read as half-annotated. ADR-0026:
+  // readings follow what the learner knows instead. A word their study
+  // source knows loses its reading; with no source, or a word not yet in
+  // it, every parsed word keeps its reading.
+  furiganaMode: "known-status",
   clampedRowReadings: "show",
   puckFuriganaModeBeforeHide: "",
-  furiganaHiddenStateGroups: ["known", "due", "failed"],
+  // Help fades with what the learner knows: a known or due word loses its
+  // reading, a word they just failed keeps it (ADR-0026).
+  furiganaHiddenStateGroups: ["known", "due"],
   wordColorStates: "all",
-  wordColorHiddenStateGroups: [],
+  // Known and ignored words are most of a page for anyone past the start;
+  // colouring them carries no news (ADR-0026).
+  wordColorHiddenStateGroups: ["known", "ignored"],
   showPitchAccent: true,
   showLookupPillFrequency: true,
   suppressRedundantWordUi: false,
@@ -41681,7 +41730,6 @@ const DEFAULT_SETTINGS = {
   popupMode: "auto",
   hoverPopupMode: "popover",
   stickyBottomSheet: false,
-  popoverBackdropEnabled: true,
   popoverWidth: 520,
   popoverHeight: 540,
   popoverHeightMode: "fixed",
@@ -41880,7 +41928,7 @@ function normalizeNewTabSettings(value) {
 function normalizeReaderDisplaySettings(value) {
   const settings = value ?? {};
   return {
-    accentColor: sanitizeAccentColor(settings.accentColor),
+    accentColor: currentAccentColor(settings.accentColor, DEFAULT_ACCENT_COLOR),
     ...normalizeAccentColorSettings(settings, READER_ACCENT_COLOR_SETTING_KEYS),
     ...normalizeReaderColorChannelSettings(value),
     puckPositionX: normalizeOptionalCoordinate(settings.puckPositionX),
@@ -41930,7 +41978,6 @@ function normalizePresentationSettings(value) {
     popupMode: normalizePopupMode(value?.popupMode),
     hoverPopupMode: normalizeHoverPopupMode(value?.hoverPopupMode),
     stickyBottomSheet: booleanSetting(value, "stickyBottomSheet"),
-    popoverBackdropEnabled: booleanSetting(value, "popoverBackdropEnabled"),
     popoverWidth: clampNumber(value?.popoverWidth, 280, 900, DEFAULT_SETTINGS.popoverWidth),
     popoverHeight: clampNumber(value?.popoverHeight, 220, 900, DEFAULT_SETTINGS.popoverHeight),
     popoverHeightMode: normalizePopoverHeightMode(value?.popoverHeightMode),
@@ -41986,7 +42033,7 @@ function normalizeMediaSettings(value) {
     ocrCloudVisionApiKey: normalizeCloudVisionApiKey(settings.ocrCloudVisionApiKey),
     ocrTextColor: normalizeOcrTextColor(settings),
     ocrOutlineColor: normalizeOcrOutlineColor(settings),
-    ocrBackgroundColor: accessibleOcrBackgroundColor(settings.accentColor, ocrBackgroundOpacity),
+    ocrBackgroundColor: accessibleOcrBackgroundColor(ocrBackgroundOpacity),
     ocrBackgroundOpacity,
     ocrFontScale: clampNumber(settings.ocrFontScale, 0.7, 1.8, DEFAULT_SETTINGS.ocrFontScale)
   };
@@ -42243,10 +42290,18 @@ const COLOR_STATUS_CHANNEL_KEYS = [
 function effectiveFuriganaMode(settings) {
   if (!settings.showFurigana || settings.furiganaMode === "off") return "off";
   if (isExplicitFuriganaMode(settings.furiganaMode)) return settings.furiganaMode;
+  return "known-status";
+}
+function furiganaStyle(settings) {
+  const effective = effectiveFuriganaMode(settings);
+  if (effective !== "off") return effective;
+  for (const candidate2 of [settings.puckFuriganaModeBeforeHide, settings.furiganaMode, DEFAULT_SETTINGS.furiganaMode]) {
+    if (candidate2 && isExplicitFuriganaMode(candidate2)) return candidate2;
+  }
   return "all";
 }
 function furiganaModeNeedsDifficultyExplanation(settings) {
-  return effectiveFuriganaMode(settings) === "difficult-kanji";
+  return furiganaStyle(settings) === "difficult-kanji";
 }
 function isExplicitFuriganaMode(value) {
   return EXPLICIT_FURIGANA_MODES.has(value);
@@ -42278,7 +42333,7 @@ async function loadSettingsFromStorage() {
   const current = mergeSettings(settingsRecord(view.settings));
   const withSitePreference = applyStoredSitePreference(current, storedSitePreference);
   const settings = mergeSettings(applySettingsIntent(withSitePreference, view.intentLedger));
-  return settings;
+  return adoptCurrentDefaults(settings, view.intentLedger, DEFAULT_SETTINGS);
 }
 function applyStoredSitePreference(settings, storedSitePreference) {
   return {
@@ -42511,6 +42566,174 @@ function immutableCommandSnapshot(command) {
   }
   return Object.freeze({ ...command });
 }
+const OVERHANG_CLASS = "jpdb-reader-ruby-overhang";
+const AT_START_CLASS = "jpdb-reader-ruby-at-start";
+const AT_END_CLASS = "jpdb-reader-ruby-at-end";
+const START_OVERHANG_CLASS = "jpdb-reader-ruby-start-overhang";
+const END_OVERHANG_CLASS = "jpdb-reader-ruby-end-overhang";
+const LINE_EDGE_CLASS = "jpdb-reader-ruby-line-edge";
+const EDGE_RUBY_SELECTOR = `:scope > ruby.${OVERHANG_CLASS}:is(.${AT_START_CLASS}, .${AT_END_CLASS})`;
+const PAGE_OVERHANG_RUBY_SELECTOR = `.jpdb-reader-scan-word:not(:is(.jpdb-reader-text-mirror, .jpdb-reader-control-text-mirror) *) > ruby.${OVERHANG_CLASS}`;
+const WORD_CLASS = "jpdb-reader-word";
+function rubyOverhangClassAttribute(surface, start, end, reading, readingBeside) {
+  if (readingBeside || Array.from(reading).length <= 2 * Array.from(surface.slice(start, end)).length) return "";
+  const edges = [start === 0 ? ` ${AT_START_CLASS}` : "", end === surface.length ? ` ${AT_END_CLASS}` : ""].join("");
+  return ` class="${OVERHANG_CLASS}${edges}"`;
+}
+function syncRubyEdgeOverhang(words) {
+  const affected = /* @__PURE__ */ new Set();
+  for (const word of words) {
+    affected.add(word);
+    for (const side of ["before", "after"]) {
+      const beside = besideWord(word, side);
+      if (beside instanceof Element && beside.classList.contains(WORD_CLASS)) affected.add(beside);
+    }
+  }
+  for (const word of affected) {
+    syncWord(word);
+    const previousRoot = wordLayoutRoots.get(word);
+    const root = layoutRoot(word);
+    if (previousRoot) dirtyLayoutRoots.add(previousRoot);
+    if (root) {
+      dirtyLayoutRoots.add(root);
+      wordLayoutRoots.set(word, root);
+    } else wordLayoutRoots.delete(word);
+  }
+  scheduleLineEdgeCheck();
+}
+const wordLayoutRoots = /* @__PURE__ */ new WeakMap();
+const layoutRoots = /* @__PURE__ */ new Set();
+const dirtyLayoutRoots = /* @__PURE__ */ new Set();
+let lineEdgeFrame = 0;
+let resizeListening = false;
+function layoutRoot(element2) {
+  const paragraph = element2.closest(PARAGRAPH_SELECTOR);
+  if (paragraph) return paragraph;
+  const parent = (element2.closest(`.${WORD_CLASS}`) ?? element2).parentNode;
+  return parent instanceof Element || parent instanceof ShadowRoot ? parent : null;
+}
+function scheduleAllLineEdgeChecks() {
+  for (const root of layoutRoots) dirtyLayoutRoots.add(root);
+  scheduleLineEdgeCheck();
+}
+function scheduleLineEdgeCheck() {
+  if (lineEdgeFrame || !dirtyLayoutRoots.size || typeof requestAnimationFrame !== "function") return;
+  if (!resizeListening) {
+    resizeListening = true;
+    window.addEventListener("resize", scheduleAllLineEdgeChecks, { passive: true });
+  }
+  lineEdgeFrame = requestAnimationFrame(checkLineEdges);
+}
+function checkLineEdges() {
+  lineEdgeFrame = 0;
+  for (const root of layoutRoots) if (!root.isConnected) layoutRoots.delete(root);
+  const verdicts = [];
+  for (const root of dirtyLayoutRoots) {
+    if (!root.isConnected) continue;
+    const rubies = [...root.querySelectorAll(PAGE_OVERHANG_RUBY_SELECTOR)].filter((ruby) => layoutRoot(ruby) === root);
+    if (rubies.length) layoutRoots.add(root);
+    else layoutRoots.delete(root);
+    for (const ruby of rubies) verdicts.push([ruby, atLineEdge(ruby)]);
+  }
+  dirtyLayoutRoots.clear();
+  for (const [ruby, edge] of verdicts) {
+    if (ruby.classList.contains(LINE_EDGE_CLASS) !== edge) ruby.classList.toggle(LINE_EDGE_CLASS, edge);
+  }
+}
+function atLineEdge(ruby) {
+  const base = glyphRects(ruby);
+  if (!base) return false;
+  const before = facingGlyph(ruby, "before");
+  const after = facingGlyph(ruby, "after");
+  return Boolean(before && !sameLine(before, base.first) || after && !sameLine(after, base.last));
+}
+function glyphRects(ruby) {
+  const walker = glyphWalker(ruby);
+  const firstText = walker.nextNode();
+  if (!firstText) return null;
+  let lastText = firstText;
+  for (let node2 = walker.nextNode(); node2; node2 = walker.nextNode()) lastText = node2;
+  const first = glyphRect(firstText, "after");
+  const last = glyphRect(lastText, "before");
+  return first && last ? { first, last } : null;
+}
+function facingGlyph(ruby, side) {
+  const walker = glyphWalker(layoutRoot(ruby) ?? ruby.ownerDocument.body);
+  let from = ruby;
+  if (side === "after") while (from.lastChild) from = from.lastChild;
+  walker.currentNode = from;
+  const text2 = side === "before" ? walker.previousNode() : walker.nextNode();
+  return text2 ? glyphRect(text2, side) : null;
+}
+const PARAGRAPH_SELECTOR = "p, li, dd, dt, td, th, h1, h2, h3, h4, h5, h6, blockquote, figcaption, caption, div, section, article";
+function glyphWalker(root) {
+  return root.ownerDocument.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
+    acceptNode: (node2) => node2.parentElement?.closest("rt, rp") || !/\S/.test(node2.data) ? NodeFilter.FILTER_SKIP : NodeFilter.FILTER_ACCEPT
+  });
+}
+function glyphRect(text2, side) {
+  const { data } = text2;
+  let start = data.length - data.trimStart().length;
+  let end = start + 1;
+  if (side === "before") {
+    end = data.trimEnd().length;
+    start = end - 1;
+  }
+  if (side === "before" && start > 0 && /[\uDC00-\uDFFF]/.test(data[start])) start -= 1;
+  if (side === "after" && /[\uD800-\uDBFF]/.test(data[start])) end += 1;
+  const range2 = text2.ownerDocument.createRange();
+  if (typeof range2.getClientRects !== "function") return null;
+  range2.setStart(text2, start);
+  range2.setEnd(text2, end);
+  const rects = range2.getClientRects();
+  return rects[side === "before" ? rects.length - 1 : 0] ?? null;
+}
+function sameLine(left, right) {
+  const overlap = (start, end, otherStart, otherEnd, size) => Math.min(end, otherEnd) - Math.max(start, otherStart) > size / 2;
+  return overlap(left.top, left.bottom, right.top, right.bottom, Math.min(left.height, right.height)) || overlap(left.left, left.right, right.left, right.right, Math.min(left.width, right.width));
+}
+function syncWord(word) {
+  if (!word.classList.contains("jpdb-reader-has-furi")) return;
+  for (const ruby of word.querySelectorAll(EDGE_RUBY_SELECTOR)) {
+    const clearBefore = !ruby.classList.contains(AT_START_CLASS) || plainEdgeFacing(besideWord(word, "before"), "before");
+    const clearAfter = !ruby.classList.contains(AT_END_CLASS) || plainEdgeFacing(besideWord(word, "after"), "after");
+    ruby.classList.toggle(START_OVERHANG_CLASS, clearBefore);
+    ruby.classList.toggle(END_OVERHANG_CLASS, clearAfter);
+  }
+}
+function besideWord(word, side) {
+  let candidate2 = adjacentNode(word, side);
+  while (candidate2) {
+    if (candidate2.nodeType === Node.TEXT_NODE) {
+      if (candidate2.textContent?.trim()) return "text";
+    } else if (candidate2 instanceof Element) {
+      if (candidate2.tagName !== "A") return candidate2;
+      const inside = side === "before" ? candidate2.lastChild : candidate2.firstChild;
+      if (inside) {
+        candidate2 = inside;
+        continue;
+      }
+    }
+    candidate2 = adjacentNode(candidate2, side);
+  }
+  return null;
+}
+function adjacentNode(node2, side) {
+  for (let current = node2; ; ) {
+    const sibling = side === "before" ? current.previousSibling : current.nextSibling;
+    if (sibling) return sibling;
+    const parent = current.parentElement;
+    if (parent?.tagName !== "A") return null;
+    current = parent;
+  }
+}
+function plainEdgeFacing(beside, side) {
+  if (beside === "text" || beside?.classList.contains("jpdb-reader-number-bind")) return true;
+  if (!beside?.classList.contains(WORD_CLASS) || beside.classList.contains("jpdb-reader-detached-reading-word")) return false;
+  if (!beside.classList.contains("jpdb-reader-has-furi")) return true;
+  const edge = side === "before" ? beside.lastChild : beside.firstChild;
+  return edge?.nodeType === Node.TEXT_NODE && Boolean(edge.textContent?.trim());
+}
 function kanjiNavigationForElement(element2) {
   const host2 = element2.closest("[data-jpdb-reader-kanji-nav]");
   if (!host2) return void 0;
@@ -42710,14 +42933,16 @@ function renderDetachedReadings(surface, token, kanjiNavigation, preserveTokenRu
 function renderTokenReadings(surface, token, kanjiNavigation, preserveTokenRubies, layout) {
   let html = "";
   let localOffset = 0;
-  for (const ruby of effectiveTokenRubies(surface, token, preserveTokenRubies)) {
+  const rubies = effectiveTokenRubies(surface, token, preserveTokenRubies);
+  rubies.forEach((ruby, index) => {
     const start = ruby.start - token.start;
     const end = ruby.end - token.start;
     html += renderKanjiNavigationText(surface.slice(localOffset, start), kanjiNavigation);
     const base = renderKanjiNavigationText(surface.slice(start, end), kanjiNavigation);
-    html += layout === "detached" ? `<span class="jpdb-reader-detached-ruby" data-yomu-source-start="${ruby.start}" data-yomu-source-end="${ruby.end}"><span class="jpdb-reader-ruby-base">${base}</span><span class="jpdb-reader-furi jpdb-reader-detached-furi" aria-hidden="true">${escapeHtml(ruby.text)}</span></span>` : `<ruby><span class="jpdb-reader-ruby-base">${base}</span><rp>(</rp><rt class="jpdb-reader-furi">${escapeHtml(ruby.text)}</rt><rp>)</rp></ruby>`;
+    const readingBeside = index > 0 && start === localOffset || rubies[index + 1]?.start === ruby.end;
+    html += layout === "detached" ? `<span class="jpdb-reader-detached-ruby" data-yomu-source-start="${ruby.start}" data-yomu-source-end="${ruby.end}"><span class="jpdb-reader-ruby-base">${base}</span><span class="jpdb-reader-furi jpdb-reader-detached-furi" aria-hidden="true">${escapeHtml(ruby.text)}</span></span>` : `<ruby${rubyOverhangClassAttribute(surface, start, end, ruby.text, readingBeside)}><span class="jpdb-reader-ruby-base">${base}</span><rp>(</rp><rt class="jpdb-reader-furi">${escapeHtml(ruby.text)}</rt><rp>)</rp></ruby>`;
     localOffset = end;
-  }
+  });
   html += renderKanjiNavigationText(surface.slice(localOffset), kanjiNavigation);
   return html;
 }
@@ -42805,7 +43030,7 @@ function effectiveTokenRubies(surface, token, preserveTokenRubies = false) {
   return sources.flatMap((ruby) => kanjiOnlyRubySegments(surface, token, ruby));
 }
 function sourceTokenRubies(surface, token) {
-  if (NUMERIC_COUNTER_SUFFIX_SEGMENTS.has(surface) && token.sentence && token.sentence.slice(token.start, token.end) === surface && numericRangeImmediatelyBefore(token.sentence, token.start)) return [];
+  if (isCounterAfterNumber(surface, token.sentence, token.start - (token.sentenceStart ?? 0))) return [];
   if (token.rubies.length) return explicitTokenRubies(surface, token);
   const reading = distinctTokenReading(surface, token);
   if (!reading) return [];
@@ -43176,6 +43401,21 @@ function renderedWordHasCardIdentity(word, card) {
     identity2.sid === card.sid
   ].every(Boolean);
 }
+function renderedWordRecordedSpan(word) {
+  const start = Number(word.dataset.tokenStart);
+  const end = Number(word.dataset.tokenEnd);
+  const valid = [Number.isInteger(start), Number.isInteger(end), start >= 0, end > start].every(Boolean);
+  if (!valid) return null;
+  return { start, end };
+}
+function renderedWordSentenceSpan(word, surface) {
+  const recorded2 = surface ? renderedWordRecordedSpan(word) : null;
+  if (!recorded2) return null;
+  const sentence = word.dataset.sentence ?? "";
+  const start = recorded2.start - Number(word.dataset.sentenceStart ?? 0);
+  const end = start + recorded2.end - recorded2.start;
+  return start >= 0 && sentence.slice(start, end) === surface ? { sentence, start, end } : null;
+}
 function tokenWithSentenceStart(token, text2, sentence = token.sentence) {
   const sentenceStart = sentence ? sentenceStartAround(text2, token, sentence) : void 0;
   if (sentence === token.sentence && sentenceStart === token.sentenceStart) return token;
@@ -43511,6 +43751,8 @@ const YOUTUBE_APP_HOSTS = /* @__PURE__ */ new Set([
 function isYouTubeAppHostname(hostname = location.hostname) {
   return YOUTUBE_APP_HOSTS.has(hostname.toLowerCase());
 }
+const ANNOTATION_SCOPE_SURFACE_ATTRIBUTE = "data-yomu-runtime-surface";
+const ANNOTATION_SCOPE_SURFACE_SELECTOR = `[${ANNOTATION_SCOPE_SURFACE_ATTRIBUTE}], .yomu-try-me-text`;
 const DECORATION_STATE_ATTRIBUTE = "data-yomu-decoration";
 const selectorPairs = (names, attributes = ["class", "id"]) => names.split(",").flatMap((name) => attributes.map((attribute) => `[${attribute}*="${name}" i]`)).join(",");
 const roleSelectors = (names) => names.split(",").map((name) => `[role="${name}"]`).join(",");
@@ -44003,6 +44245,8 @@ function isComboboxOwnedPopup(element2) {
 }
 const INTERACTIVE_CONTROL_SELECTOR = `button,summary,label,${roleSelectors("button,tab,menuitem,menuitemcheckbox,menuitemradio,option,switch,checkbox,radio,combobox")},[slot="more-button"],.more-button,#more,#less`;
 const INTERACTIVE_LINK_SELECTOR = 'a[href],[role="link"]';
+const LINK_AS_BUTTON_SELECTOR = 'a[href="#"],a[href^="javascript:" i]';
+const REAL_LINK_SELECTOR = 'a[href]:not([role="button"])';
 const INTERACTIVE_LINK_CONTEXT_SELECTOR = roleSelectors("menu,menubar,toolbar,tablist");
 const CONTENT_CHIP_ROOT_SELECTOR = ".yomu-hosted-overflow-group";
 const NAMED_CONTENT_ROOT_SELECTOR = `${CONTENT_CHIP_ROOT_SELECTOR},.viewer-title-bar,.bookTitleText,#bookDescription`;
@@ -44086,15 +44330,23 @@ function classifyDecoration(element2) {
   if (element2 instanceof HTMLElement && youtubeNativeChromeMustRemainPageOwned(element2)) {
     return "skip";
   }
+  if (element2.closest(LINK_AS_BUTTON_SELECTOR)) return "skip";
   const control2 = interactivePassiveControl(element2);
   if (control2) {
     if (control2.closest(CONTENT_CHIP_ROOT_SELECTOR)) return "content-ruby";
-    return "interactive-passive";
+    return isPageControlText(element2, control2) ? "skip" : "interactive-passive";
   }
   if (element2 instanceof HTMLElement && compactMetadataChromeElement(element2)) return "interactive-passive";
   if (element2.closest(NAMED_CONTENT_ROOT_SELECTOR)) return "content-ruby";
   if (element2 instanceof HTMLElement && compactScanRubySuppression(element2).suppress) return "interactive-passive";
   return element2 instanceof HTMLElement && isProseFullContext(element2) ? "prose-full" : "content-ruby";
+}
+function isPageControlText(element2, control2) {
+  if (!safeElementMatches(control2, INTERACTIVE_CONTROL_SELECTOR)) return false;
+  const surface = element2.closest(ANNOTATION_SCOPE_SURFACE_SELECTOR);
+  if (surface && control2.contains(surface)) return false;
+  const link = element2.closest(REAL_LINK_SELECTOR);
+  return !(link && (link === control2 || control2.contains(link)));
 }
 function decorationMustBeSkipped(element2) {
   if (isEditableComposingContext(element2)) return true;
@@ -44735,6 +44987,19 @@ function isDocumentPortalProseAncestor(current, host2) {
     current === host2 && VOLATILE_PROSE_IDENTITY_RE.test(identity2)
   ].some(Boolean);
 }
+const FORCES_ALL_SELECTOR = '[data-yomu-furigana-mode="all"]';
+const KEEPS_IN_FLOW_SELECTOR = `${FORCES_ALL_SELECTOR},[data-yomu-furigana-mode="known-status"]`;
+function targetForcesAllFurigana(target2) {
+  return Boolean(target2.closest(FORCES_ALL_SELECTOR));
+}
+function targetKeepsInFlowReadings(target2) {
+  return Boolean(target2.closest(KEEPS_IN_FLOW_SELECTOR));
+}
+function furiganaSettingsForTarget(settings, target2) {
+  if (!targetForcesAllFurigana(target2)) return settings;
+  if (settings.showFurigana && settings.furiganaMode === "all") return settings;
+  return { ...settings, showFurigana: true, furiganaMode: "all" };
+}
 function scanTargetSourceScope(target2) {
   const scope2 = commonFragmentTextHost([target2.parent, ...fragmentParents(target2)]) ?? target2.parent;
   return scope2.closest("ruby")?.parentElement ?? scope2;
@@ -45195,6 +45460,7 @@ const NUMBER_BIND_CLASS = "jpdb-reader-number-bind";
 const BLOCK_FLOW_TAG_NAMES = new Set("ADDRESS,ARTICLE,ASIDE,BLOCKQUOTE,DD,DETAILS,DIALOG,DIV,DL,DT,FIELDSET,FIGCAPTION,FIGURE,FOOTER,FORM,H1,H2,H3,H4,H5,H6,HEADER,HR,LI,MAIN,NAV,OL,P,PRE,SECTION,TABLE,TBODY,TD,TFOOT,TH,THEAD,TR,UL".split(","));
 const EDITABLE_FRAGMENT_ROOT_SELECTOR = '[contenteditable="true"],textarea,input,[role="textbox"]';
 const EDITABLE_TEXT_SURFACE_SELECTOR = `[contenteditable],[role=textbox],[role=searchbox],[role=combobox][aria-autocomplete="list"],[role=combobox][aria-autocomplete="inline"],[role=combobox][aria-autocomplete="both"],[aria-multiline],[aria-placeholder],[data-placeholder],[data-slate-editor],[data-lexical-editor],[class*="placeholder" i],[class*="ProseMirror" i]`;
+const FOOTNOTE_MARKER_SELECTOR = 'sup.reference,[role="doc-noteref"],sup > a[href^="#"]';
 const BASE_SKIP_SELECTOR = `script,style,noscript,textarea,input,select,option,svg,use,[aria-hidden=true],${EDITABLE_TEXT_SURFACE_SELECTOR},[role=checkbox],[role=radio],[role=tab],[data-jpdb-reader-surface-ignore],[data-audio],[class*="audio" i],[class*="sound" i],[class*="speaker" i],[class*="voice" i],.jpdb-reader-text-mirror,.jpdb-reader-control-text-mirror,.jpdb-reader-canvas-text-layer,.jpdb-reader-word,.subsection-pitch-accent .subsection`;
 const BASE_SKIP_SELECTOR_WITHOUT_TAB = BASE_SKIP_SELECTOR.replace(",[role=tab]", "");
 const FORM_BOUNDARY_SKIP_SELECTOR = "form,label,fieldset,legend";
@@ -45555,9 +45821,13 @@ function isExcludedReaderRootElement(element2, options) {
 }
 function shouldFlushAndSkipFragmentElement(element2, state, isRoot) {
   if (fragmentElementMustRemainPageOwned(element2, isRoot)) return true;
+  if (isRoot ? isFootnoteMarker(element2) : safeElementMatches(element2, FOOTNOTE_MARKER_SELECTOR)) return true;
   if (matchesSkippedFragmentElement(element2, state, isRoot)) return true;
   if (shouldSkipInvisibleFragmentElement(element2, state.visibleOnly)) return true;
   return shouldSkipFragmentTextPresentation(element2, state.options);
+}
+function isFootnoteMarker(element2) {
+  return Boolean(element2.closest(FOOTNOTE_MARKER_SELECTOR));
 }
 function fragmentElementMustRemainPageOwned(element2, isRoot) {
   if (!isYouTubeAppHostname()) return false;
@@ -45690,8 +45960,7 @@ function isAriaHiddenAccessibleNameDuplicate(element2) {
   if (!hiddenRoot) return false;
   const labelled = element2.closest("[aria-label]");
   const accessibleName = normalizedControlText(labelled?.getAttribute("aria-label") ?? "");
-  const paintedLabel = normalizedControlText(hiddenRoot.textContent ?? "");
-  if (accessibleName && accessibleName !== paintedLabel) return true;
+  if (accessibleName && accessibleName !== normalizedControlText(hiddenRoot.textContent ?? "")) return true;
   const control2 = hiddenRoot.closest(
     `${PASSIVE_INTERACTION_SELECTOR},${COMPACT_PASSIVE_INTERACTION_SELECTOR}`
   );
@@ -46999,8 +47268,8 @@ function mergeSourceLineRects(rects) {
   const merged = [];
   for (const rect of sorted) {
     const previous = merged.at(-1);
-    const sameLine = previous && Math.abs(previous.top - rect.top) <= 1 && Math.abs(previous.bottom - rect.bottom) <= 1;
-    if (!sameLine || rect.left > previous.right + 1) {
+    const sameLine2 = previous && Math.abs(previous.top - rect.top) <= 1 && Math.abs(previous.bottom - rect.bottom) <= 1;
+    if (!sameLine2 || rect.left > previous.right + 1) {
       merged.push(rect);
       continue;
     }
@@ -47227,7 +47496,7 @@ function styleDetachedReadingElements(root, host2) {
   for (const reading of root.querySelectorAll(".jpdb-reader-detached-furi")) {
     setInlineStyleIfChanged(reading, "display", "none", "important");
     setInlineStyleIfChanged(reading, "font-size", `${readingFontSize}px`);
-    setInlineStyleIfChanged(reading, "font-weight", "700");
+    setInlineStyleIfChanged(reading, "font-weight", "normal");
     setInlineStyleIfChanged(reading, "line-height", "1", "important");
     setInlineStyleIfChanged(reading, "text-decoration", "none", "important");
     setInlineStyleIfChanged(reading, "user-select", "none");
@@ -47653,11 +47922,6 @@ function restoreControlTextMirrorHost(host2, state) {
     restoreStyleProperty(state.parent, "position", "relative", state.parentPosition, state.parentPositionPriority);
   }
 }
-function furiganaSettingsForTarget(settings, parent) {
-  if (!targetForcesAllFurigana(parent)) return settings;
-  if (settings.showFurigana && settings.furiganaMode === "all") return settings;
-  return { ...settings, showFurigana: true, furiganaMode: "all" };
-}
 function scanTargetSuppressesRuby(parent, suppressRuby, inPlace = true, decoration) {
   if (targetForcesAllFurigana(parent) && parent.closest(READER_ROOT_SELECTOR)) return false;
   if (decoration === "interactive-passive") return true;
@@ -47665,11 +47929,8 @@ function scanTargetSuppressesRuby(parent, suppressRuby, inPlace = true, decorati
     const clipRow = closestRubyFragileConstrainedRow(parent);
     if (clipRow && !clampRowKeepsInFlowRestRuby(decoration ?? decorationStateForWord(parent) ?? void 0, clipRow)) return true;
   }
-  if (targetForcesAllFurigana(parent)) return false;
+  if (targetKeepsInFlowReadings(parent)) return false;
   return Boolean(suppressRuby);
-}
-function targetForcesAllFurigana(parent) {
-  return Boolean(parent.closest('[data-yomu-furigana-mode="all"]'));
 }
 function nonDestructiveScanHost(target2) {
   if (!isFragmentTextTarget(target2)) return target2.parent;
@@ -48129,7 +48390,7 @@ function applyTokensToFragmentTarget(target2, tokens, settings) {
   const safeTokens = nonOverlappingTokens(tokens, target2.text);
   if (!safeTokens.length) return;
   const sentence = target2.text.replace(/\s+/g, " ").trim();
-  const renderTarget = target2.decoration === "interactive-passive" && interactivePassiveControl(target2.parent) ? { ...target2, suppressRuby: true } : targetForcesAllFurigana(target2.parent) ? { ...target2, suppressRuby: false } : target2;
+  const renderTarget = target2.decoration === "interactive-passive" && interactivePassiveControl(target2.parent) ? { ...target2, suppressRuby: true } : targetKeepsInFlowReadings(target2.parent) ? { ...target2, suppressRuby: false } : target2;
   {
     const clipRow = closestRubyFragileConstrainedRow(target2.parent);
     if (clipRow) {
@@ -48620,6 +48881,7 @@ function replaceRenderedWordFurigana(word, surface, token) {
   if (detached ? !html.includes("jpdb-reader-detached-furi") : !html.includes("<rt")) return false;
   setInnerHtml(word, html);
   word.classList.add("jpdb-reader-has-furi");
+  syncRubyEdgeOverhang([word]);
   if (!detached) return true;
   word.classList.add("jpdb-reader-detached-reading-word");
   const renderSurface = mirror ?? word.parentElement ?? word;
@@ -48642,6 +48904,7 @@ function replaceRenderedWordFurigana(word, surface, token) {
 function clearRenderedWordFurigana(word, surface) {
   word.textContent = surface;
   word.classList.remove("jpdb-reader-has-furi");
+  syncRubyEdgeOverhang([word]);
   clearProjectedReadings(word);
   const mirror = word.closest(READER_TEXT_MIRROR_SELECTOR);
   if (!mirror) return;
@@ -263375,6 +263638,7 @@ const NEW_TAB_COPY = {
     statsCombined: "Combined",
     statsConnections: "Connections",
     statsReviewsToday: "Reviews today",
+    statsWordsReviewedToday: "Words reviewed today",
     statsDueNow: "Due now",
     statsNewToday: "new",
     statsTotalReviews: "Total reviews",
@@ -263414,7 +263678,6 @@ const NEW_TAB_COPY = {
     statsWordsRow: "Words",
     statsLearningColumn: "Learning",
     statsKnownColumn: "You know",
-    statsTotalKnownVocabulary: "Total known non-redundant vocabulary",
     statsStudyTroubleCards: "Study due/failed",
     statsStudyTroubleHint: "Open the main study deck focused on cards marked due or failed.",
     statsChooseJpdbFile: "Choose reviews.json",
@@ -263475,7 +263738,6 @@ const NEW_TAB_COPY = {
     reviewUndone: "Review undone.",
     undoReviewFailed: "Could not undo the review.",
     searchWordsOrKanji: "Search words or kanji",
-    draw: "Draw",
     drawKanji: "Write by hand",
     clearSearch: "Clear search",
     searchSuggestions: "Search suggestions",
@@ -263675,6 +263937,7 @@ const JA_NEW_TAB_COPY = {
   statsCombined: "合計",
   statsConnections: "接続",
   statsReviewsToday: "今日の復習",
+  statsWordsReviewedToday: "今日復習した単語",
   statsDueNow: "現在の期限",
   statsNewToday: "新規",
   statsTotalReviews: "総復習数",
@@ -263714,7 +263977,6 @@ const JA_NEW_TAB_COPY = {
   statsWordsRow: "単語",
   statsLearningColumn: "学習中",
   statsKnownColumn: "習得済み",
-  statsTotalKnownVocabulary: "習得済み語彙の合計（重複除く）",
   statsStudyTroubleCards: "期限/失敗を学習",
   statsStudyTroubleHint: "期限または失敗のカードを中心に学習画面を開きます。",
   statsChooseJpdbFile: "reviews.jsonを選択",
@@ -263775,7 +264037,6 @@ const JA_NEW_TAB_COPY = {
   reviewUndone: "レビューを取り消しました。",
   undoReviewFailed: "レビューを取り消せませんでした。",
   searchWordsOrKanji: "単語・漢字を検索",
-  draw: "手書き",
   drawKanji: "手書き入力",
   clearSearch: "検索をクリア",
   searchSuggestions: "検索候補",
@@ -264097,7 +264358,7 @@ function padClockPart(value) {
 const DEFAULT_ACADEMY_STUDY_DURATION_MS = DEFAULT_STUDY_DURATION_MS;
 class StudyRuntimeLoadFailure extends Error {
 }
-function createCanonicalAcademyStudyModule(loadRuntime = () => import("./runtime-C4-mTzRP.js")) {
+function createCanonicalAcademyStudyModule(loadRuntime = () => import("./runtime-BnN9zi2m.js")) {
   return {
     async mount(host2, context2) {
       let runtime;
@@ -270280,7 +270541,7 @@ export {
   cheapCandidatePreloadAudioSources as Z,
   orderAudioCandidates as _,
   normalizeCardStates as a,
-  renderKanjiNavigationText as a$,
+  applyOverlayPageScale as a$,
   audioCandidateSelectionMode as a0,
   registerAudioAttempt as a1,
   getJpdbAudioBagKey as a2,
@@ -270291,33 +270552,33 @@ export {
   isApiTextToSpeechSource as a7,
   canonicalLanguageTag as a8,
   languageSubtag as a9,
-  isBunproFrontendCredentialExpired as aA,
-  hasWanikaniApiCredential as aB,
-  ACADEMY_SRS_LABEL as aC,
-  isLocalYomuSrsStorageError as aD,
-  isLocalYomuSrsSaveInterrupted as aE,
-  activeLearningTargetLanguage as aF,
-  effectiveWanikaniApiToken as aG,
-  effectiveBunproFrontendApiToken as aH,
-  effectiveBunproLegacyApiKey as aI,
-  effectiveJpdbApiKey as aJ,
-  effectiveJitenApiKey as aK,
-  yomuKanjiStudyCompanion as aL,
-  gmStorageGetSync as aM,
-  gmStorageSetSync as aN,
-  isNonNullObject as aO,
-  isRecord$6 as aP,
-  ConcurrencyGate as aQ,
-  pitchPatternFromPosition as aR,
-  isUnifiedIdeograph as aS,
-  activeLearningTarget as aT,
-  readerWordSurfaceText as aU,
-  readAnkiAudioMergeCapability as aV,
-  formatUiText as aW,
-  uiList as aX,
-  readReviewTargetCapability as aY,
-  applyOverlayPageScale as aZ,
-  watchSavesWaitingForAnotherTab as a_,
+  chosenWordGradingService as aA,
+  hasBunproFrontendCredential as aB,
+  isBunproFrontendCredentialExpired as aC,
+  hasWanikaniApiCredential as aD,
+  ACADEMY_SRS_LABEL as aE,
+  isLocalYomuSrsStorageError as aF,
+  isLocalYomuSrsSaveInterrupted as aG,
+  activeLearningTargetLanguage as aH,
+  effectiveWanikaniApiToken as aI,
+  effectiveBunproFrontendApiToken as aJ,
+  effectiveBunproLegacyApiKey as aK,
+  effectiveJpdbApiKey as aL,
+  effectiveJitenApiKey as aM,
+  yomuKanjiStudyCompanion as aN,
+  gmStorageGetSync as aO,
+  gmStorageSetSync as aP,
+  isNonNullObject as aQ,
+  isRecord$6 as aR,
+  ConcurrencyGate as aS,
+  pitchPatternFromPosition as aT,
+  isUnifiedIdeograph as aU,
+  activeLearningTarget as aV,
+  readerWordSurfaceText as aW,
+  readAnkiAudioMergeCapability as aX,
+  formatUiText as aY,
+  uiList as aZ,
+  readReviewTargetCapability as a_,
   hasJitenAudioReference as aa,
   yomuAnkiCompanion as ab,
   flattenNoteFields as ac,
@@ -270338,310 +270599,319 @@ export {
   RENDERED_WORD_CONTRAST_VARS_WITHOUT_SHADOW as ar,
   PAGE_WORD_COLOR_TOKENS as as,
   renderedWordHasAnkiState as at,
-  canonicalStudyCardIdentity as au,
-  applyLocalYomuSrsStateToRenderedWord as av,
-  hasJpdbApiCredential as aw,
-  hasJitenApiCredential as ax,
-  chosenWordGradingService as ay,
-  hasBunproFrontendCredential as az,
+  PAGE_STATE_UNDERLINE_COLOR_TOKENS as au,
+  DEFAULT_WORD_COLOR_TOKENS as av,
+  canonicalStudyCardIdentity as aw,
+  applyLocalYomuSrsStateToRenderedWord as ax,
+  hasJpdbApiCredential as ay,
+  hasJitenApiCredential as az,
   KANJI_PATTERN as b,
-  mapLimited as b$,
-  escapeHtml as b0,
-  shouldRenderRuby as b1,
-  renderRuby as b2,
-  renderHighlightedTextHtml as b3,
-  cardHighlightTargets as b4,
-  renderedWordPrivateValue as b5,
-  compactCardHighlightValue as b6,
-  cleanCardHighlightValue as b7,
-  IMMERSION_KIT_SOURCE_ID as b8,
-  JITEN_DEFINITION_SOURCE_ID as b9,
-  normalizeGenericLookupText as bA,
-  splitTags as bB,
-  JAPANESE_RE as bC,
-  codePointBoundaryAtOrAfter as bD,
-  yomitanZipDictionaryName as bE,
-  yomitanZipVersion as bF,
-  countYomitanZipBanks as bG,
-  normalizeImportedLookupTerm as bH,
-  yomitanDictionaryReplacementKey as bI,
-  imageMimeType as bJ,
-  bytesToBase64 as bK,
-  renderedWordNumericIdentity as bL,
-  speakerIcon as bM,
-  renderedWordPrivateAttributesForState as bN,
-  cardStateLabel as bO,
-  uniqueNonEmptyStrings$1 as bP,
-  pitchNumberForReading as bQ,
-  KANA as bR,
-  COMBINING_KANA_MARKS as bS,
-  collectPitchVariants as bT,
-  splitMorae as bU,
-  pitchLevelsForDisplay as bV,
-  pitchClassNameForPattern as bW,
-  primaryCardState as bX,
-  KANA_ONLY_RUN_RE as bY,
-  ITERATION_MARK as bZ,
-  KANA_WITH_PROLONGED as b_,
-  JPDB_DEFINITION_SOURCE_ID as ba,
-  BUNPRO_DEFINITION_SOURCE_ID as bb,
-  WANIKANI_DEFINITION_SOURCE_ID as bc,
-  STUDY_TRANSLATION_SOURCE_ID as bd,
-  ANKI_SOURCE_ID as be,
-  STUDY_GRAMMAR_SOURCE_ID as bf,
-  LOOKUP_PILL_COLOR_TOKENS as bg,
-  normalizeDictionaryPreferences as bh,
-  genericLookupTextVariants as bi,
-  yomitanDictionaryIdentity as bj,
-  gmStorageGet as bk,
-  gmStorageSet as bl,
-  gmStorageDelete as bm,
-  assertManagedStateMutationAllowed as bn,
-  managedStateEpochToken as bo,
-  managedStateEpochTokenRelation as bp,
-  assertManagedStateReadAllowed as bq,
-  normalizeZipKanjiMetaRow as br,
-  normalizeZipTermMetaRow as bs,
-  normalizeZipKanjiRow as bt,
-  normalizeZipTermRow as bu,
-  isYomuNewTabUrl as bv,
-  privateCommandAttributes as bw,
-  isJapaneseKanjiCharacter as bx,
-  lookupSpansStartingInRange as by,
-  normalizeImportedLookupMeta as bz,
+  isPopupLookupEnabled as b$,
+  watchSavesWaitingForAnotherTab as b0,
+  renderKanjiNavigationText as b1,
+  escapeHtml as b2,
+  shouldRenderRuby as b3,
+  renderRuby as b4,
+  renderHighlightedTextHtml as b5,
+  cardHighlightTargets as b6,
+  renderedWordPrivateValue as b7,
+  compactCardHighlightValue as b8,
+  cleanCardHighlightValue as b9,
+  normalizeImportedLookupMeta as bA,
+  normalizeGenericLookupText as bB,
+  splitTags as bC,
+  JAPANESE_RE as bD,
+  codePointBoundaryAtOrAfter as bE,
+  yomitanZipDictionaryName as bF,
+  yomitanZipVersion as bG,
+  countYomitanZipBanks as bH,
+  normalizeImportedLookupTerm as bI,
+  yomitanDictionaryReplacementKey as bJ,
+  imageMimeType as bK,
+  bytesToBase64 as bL,
+  renderedWordNumericIdentity as bM,
+  speakerIcon as bN,
+  renderedWordPrivateAttributesForState as bO,
+  cardStateLabel as bP,
+  uniqueNonEmptyStrings$1 as bQ,
+  pitchNumberForReading as bR,
+  KANA as bS,
+  COMBINING_KANA_MARKS as bT,
+  collectPitchVariants as bU,
+  splitMorae as bV,
+  pitchLevelsForDisplay as bW,
+  pitchClassNameForPattern as bX,
+  setRenderedWordPitchClass as bY,
+  furiganaSettingsForTarget as bZ,
+  shouldHideFuriganaForCardState as b_,
+  IMMERSION_KIT_SOURCE_ID as ba,
+  JITEN_DEFINITION_SOURCE_ID as bb,
+  JPDB_DEFINITION_SOURCE_ID as bc,
+  BUNPRO_DEFINITION_SOURCE_ID as bd,
+  WANIKANI_DEFINITION_SOURCE_ID as be,
+  STUDY_TRANSLATION_SOURCE_ID as bf,
+  ANKI_SOURCE_ID as bg,
+  STUDY_GRAMMAR_SOURCE_ID as bh,
+  normalizeDictionaryPreferences as bi,
+  genericLookupTextVariants as bj,
+  yomitanDictionaryIdentity as bk,
+  gmStorageGet as bl,
+  gmStorageSet as bm,
+  gmStorageDelete as bn,
+  assertManagedStateMutationAllowed as bo,
+  managedStateEpochToken as bp,
+  managedStateEpochTokenRelation as bq,
+  assertManagedStateReadAllowed as br,
+  normalizeZipKanjiMetaRow as bs,
+  normalizeZipTermMetaRow as bt,
+  normalizeZipKanjiRow as bu,
+  normalizeZipTermRow as bv,
+  isYomuNewTabUrl as bw,
+  privateCommandAttributes as bx,
+  isJapaneseKanjiCharacter as by,
+  lookupSpansStartingInRange as bz,
   attempt as c,
-  newTabText as c$,
-  bareFallbackCardFromText as c0,
+  parseHtmlDocument as c$,
+  yomuNormalizeOcrRenderedText as c0,
   inferredInflectedSurfaceRubies as c1,
-  nonOverlappingTokens as c2,
-  READING_KANA_ONLY_RE as c3,
-  HALFWIDTH_KATAKANA as c4,
-  PROLONGED_SOUND_MARK as c5,
-  KATAKANA_MIDDLE_DOT as c6,
-  fallbackLookupTermsForCard as c7,
-  yomuBunproCompanion as c8,
-  shouldLookupAnkiStatus as c9,
-  endSettingsResetGuard as cA,
-  managedStoredKeysLeftAfterReset as cB,
-  ManagedStateResetError as cC,
-  stableHash32 as cD,
-  uniqueTrimmedStrings as cE,
-  stableHashBase36 as cF,
-  isTargetLanguageText as cG,
-  KANJI_LIKE_WITH_COUNTERS as cH,
-  HIRAGANA_WITH_PROLONGED as cI,
-  KATAKANA_WITH_PROLONGED as cJ,
-  KANJI_LIKE_RE as cK,
-  overlayViewportBottomInset as cL,
-  renderImmersionSearchLinksHtml as cM,
-  renderTokensToHtml as cN,
-  readPrivateReviewTarget as cO,
-  runLimited as cP,
-  isManagedStorageKey as cQ,
-  managedLocalStorage as cR,
-  readJitenKanjiWordsCommandCapability as cS,
-  bindPrivateCommandCapability as cT,
-  parseHtmlDocument as cU,
-  unwrapReaderWords as cV,
-  collectFragmentTextTargetsIn as cW,
-  collectFormControlTextTargetsIn as cX,
-  isCurrentScanTarget as cY,
-  applyTokensToScanTarget as cZ,
-  DEFAULT_OVERLAY_BACKGROUND_COLOR as c_,
-  setRenderedWordPitchClass as ca,
-  shouldHideFuriganaForCardState as cb,
-  isPopupLookupEnabled as cc,
-  yomuNormalizeOcrRenderedText as cd,
-  replaceRenderedWordFurigana as ce,
-  htmlToFirstElement as cf,
-  clearRenderedWordAnkiState as cg,
-  clearRenderedWordFurigana as ch,
-  updateRenderedWordPrivateState as ci,
-  syncWordReviewLane as cj,
-  cardDeckMembershipClassNames as ck,
-  setInnerHtml as cl,
-  resolveUiLanguage as cm,
-  gmStorageDeleteSync as cn,
-  appendToDocumentHead as co,
-  subscribeToFactoryResetSignals as cp,
-  APP_NAME as cq,
-  createFactoryResetSignal as cr,
-  beginSettingsResetGuard as cs,
-  publishFactoryResetSignal as ct,
-  delay as cu,
-  clearManagedStoredValues as cv,
-  deleteSettingsStorage as cw,
-  commitManagedStateResetEpoch as cx,
-  clearFactoryResetSignal as cy,
-  managedStateResetEpochMayHaveCommitted as cz,
+  renderedWordSentenceSpan as c2,
+  replaceRenderedWordFurigana as c3,
+  htmlToFirstElement as c4,
+  clearRenderedWordAnkiState as c5,
+  primaryCardState as c6,
+  clearRenderedWordFurigana as c7,
+  updateRenderedWordPrivateState as c8,
+  syncWordReviewLane as c9,
+  publishFactoryResetSignal as cA,
+  delay as cB,
+  clearManagedStoredValues as cC,
+  deleteSettingsStorage as cD,
+  commitManagedStateResetEpoch as cE,
+  clearFactoryResetSignal as cF,
+  managedStateResetEpochMayHaveCommitted as cG,
+  endSettingsResetGuard as cH,
+  managedStoredKeysLeftAfterReset as cI,
+  ManagedStateResetError as cJ,
+  stableHash32 as cK,
+  uniqueTrimmedStrings as cL,
+  stableHashBase36 as cM,
+  isTargetLanguageText as cN,
+  KANJI_LIKE_WITH_COUNTERS as cO,
+  HIRAGANA_WITH_PROLONGED as cP,
+  KATAKANA_WITH_PROLONGED as cQ,
+  KANJI_LIKE_RE as cR,
+  overlayViewportBottomInset as cS,
+  renderImmersionSearchLinksHtml as cT,
+  renderTokensToHtml as cU,
+  readPrivateReviewTarget as cV,
+  runLimited as cW,
+  isManagedStorageKey as cX,
+  managedLocalStorage as cY,
+  readJitenKanjiWordsCommandCapability as cZ,
+  bindPrivateCommandCapability as c_,
+  cardDeckMembershipClassNames as ca,
+  copyIcon as cb,
+  moreIcon as cc,
+  externalLinkIcon as cd,
+  ankiIcon as ce,
+  KANA_ONLY_RUN_RE as cf,
+  ITERATION_MARK as cg,
+  KANA_WITH_PROLONGED as ch,
+  mapLimited as ci,
+  bareFallbackCardFromText as cj,
+  nonOverlappingTokens as ck,
+  READING_KANA_ONLY_RE as cl,
+  HALFWIDTH_KATAKANA as cm,
+  PROLONGED_SOUND_MARK as cn,
+  KATAKANA_MIDDLE_DOT as co,
+  fallbackLookupTermsForCard as cp,
+  yomuBunproCompanion as cq,
+  shouldLookupAnkiStatus as cr,
+  setInnerHtml as cs,
+  resolveUiLanguage as ct,
+  gmStorageDeleteSync as cu,
+  appendToDocumentHead as cv,
+  subscribeToFactoryResetSignals as cw,
+  APP_NAME as cx,
+  createFactoryResetSignal as cy,
+  beginSettingsResetGuard as cz,
   installedStorageResponderReady as d,
-  accentToRgba as d$,
-  CARD_STATE_LABEL_KEYS as d0,
-  readKanjiCommandCapability as d1,
-  dispatchPrivateCommand as d2,
-  claimLocalTapActivation as d3,
-  installControlTapActivation as d4,
-  enabledReaderControl as d5,
-  effectiveFuriganaMode as d6,
-  KANJI_DOODLE_CLEAR_EVENT as d7,
-  installKanjiDoodle as d8,
-  rankKanjiStrokeCandidates as d9,
-  DOCS_BASE_URL as dA,
-  SUPPORT_STATUS_URL as dB,
-  renderedWordHasCardIdentity as dC,
-  renderedWordTextIdentityMatches as dD,
-  validPitchPositions as dE,
-  mountStudySessionClockControl as dF,
-  combinedApiCredentialLabel as dG,
-  assessKanjiStrokes as dH,
-  renderedWordSourceVisualClass as dI,
-  replaceRenderedWordStateAndPitchClasses as dJ,
-  bindRenderedWordCardIdentity as dK,
-  preserveRenderedWordSentence as dL,
-  SHAPE_PASS_SCORE as dM,
-  readBackupSettingsPersistenceView as dN,
-  beginStoredValuesImport as dO,
-  settingsIntentKeys as dP,
-  normalizeReaderSettings as dQ,
-  mergeDictionaryPreferences as dR,
-  retireStaleDictionaryPreferences as dS,
-  captureActiveLanguageProfileDictionaries as dT,
-  saveSettings as dU,
-  DEFAULT_SETTINGS as dV,
-  packagedExtensionStorageAdapterMissing as dW,
-  readSettingsPersistenceViewStrict as dX,
-  FURIGANA_HIDE_STATE_GROUPS as dY,
-  WORD_COLOR_HIDE_STATE_GROUPS as dZ,
-  setReviewLanePainted as d_,
-  promiseWithTimeout as da,
-  convertRomajiToKana as db,
-  normalizeJapaneseStudyAnswer as dc,
-  isolate as dd,
-  contextPitchPattern as de,
-  managedStateWritesSuppressed as df,
-  createStorageCoordinationId as dg,
-  managedSessionStorage as dh,
-  bindAuthorizedReaderFormSubmit as di,
-  isDirectTrustedReaderInteraction as dj,
-  normalizedJapaneseCardReading as dk,
-  parseManagedStateEpoch as dl,
-  sameManagedStateEpoch as dm,
-  gmStorageGetStrict as dn,
-  withGmStorageLease as dp,
-  isStorageLeaseLapsed as dq,
-  renderImmersionSearchLinks as dr,
-  createStudySessionClock as ds,
-  subscribeAcademyDeckChanges as dt,
-  readJpdbKanjiCommandCapability as du,
-  isNewTabCopyKey as dv,
-  nextExplicitUiLanguage as dw,
-  GITHUB_REPOSITORY_URL as dx,
-  DISCORD_INVITE_URL as dy,
-  dispatchAuthorizedReaderControlClick as dz,
+  retireStaleDictionaryPreferences as d$,
+  unwrapReaderWords as d0,
+  collectFragmentTextTargetsIn as d1,
+  collectFormControlTextTargetsIn as d2,
+  isCurrentScanTarget as d3,
+  applyTokensToScanTarget as d4,
+  DEFAULT_OVERLAY_BACKGROUND_COLOR as d5,
+  newTabText as d6,
+  CARD_STATE_LABEL_KEYS as d7,
+  readKanjiCommandCapability as d8,
+  dispatchPrivateCommand as d9,
+  subscribeAcademyDeckChanges as dA,
+  readJpdbKanjiCommandCapability as dB,
+  isNewTabCopyKey as dC,
+  nextExplicitUiLanguage as dD,
+  GITHUB_REPOSITORY_URL as dE,
+  DISCORD_INVITE_URL as dF,
+  dispatchAuthorizedReaderControlClick as dG,
+  DOCS_BASE_URL as dH,
+  SUPPORT_STATUS_URL as dI,
+  renderedWordHasCardIdentity as dJ,
+  renderedWordTextIdentityMatches as dK,
+  validPitchPositions as dL,
+  mountStudySessionClockControl as dM,
+  combinedApiCredentialLabel as dN,
+  assessKanjiStrokes as dO,
+  renderedWordSourceVisualClass as dP,
+  replaceRenderedWordStateAndPitchClasses as dQ,
+  bindRenderedWordCardIdentity as dR,
+  preserveRenderedWordSentence as dS,
+  SHAPE_PASS_SCORE as dT,
+  readBackupSettingsPersistenceView as dU,
+  beginStoredValuesImport as dV,
+  settingsIntentKeys as dW,
+  adoptCurrentDefaults as dX,
+  normalizeReaderSettings as dY,
+  DEFAULT_SETTINGS as dZ,
+  mergeDictionaryPreferences as d_,
+  claimLocalTapActivation as da,
+  installControlTapActivation as db,
+  enabledReaderControl as dc,
+  effectiveFuriganaMode as dd,
+  KANJI_DOODLE_CLEAR_EVENT as de,
+  installKanjiDoodle as df,
+  rankKanjiStrokeCandidates as dg,
+  promiseWithTimeout as dh,
+  convertRomajiToKana as di,
+  normalizeJapaneseStudyAnswer as dj,
+  isolate as dk,
+  contextPitchPattern as dl,
+  managedStateWritesSuppressed as dm,
+  createStorageCoordinationId as dn,
+  managedSessionStorage as dp,
+  bindAuthorizedReaderFormSubmit as dq,
+  isDirectTrustedReaderInteraction as dr,
+  normalizedJapaneseCardReading as ds,
+  parseManagedStateEpoch as dt,
+  sameManagedStateEpoch as du,
+  gmStorageGetStrict as dv,
+  withGmStorageLease as dw,
+  isStorageLeaseLapsed as dx,
+  renderImmersionSearchLinks as dy,
+  createStudySessionClock as dz,
   expectedBridgeKind as e,
-  gmPrivateStorageDelete as e$,
-  effectiveReaderTextColorSource as e0,
-  effectiveReaderColorSource as e1,
-  effectiveSubtitleTextColorSource as e2,
-  effectiveSubtitleColorSource as e3,
-  accessibleOcrBackgroundOpacity as e4,
-  accessibleOcrBackgroundColor as e5,
-  colorSourceClassName as e6,
-  READER_THEME_COLOR_TOKENS as e7,
-  ENGLISH_INTERFACE_LOCALE as e8,
-  interfaceLocaleByTag as e9,
-  audioSourceLabel as eA,
-  DEFAULT_POPUP_FONT_FAMILY as eB,
-  DEFAULT_READER_FONT_FAMILY as eC,
-  isPromiseLike as eD,
-  dispatchAuthorizedReaderControlEvent as eE,
-  ANKI_CONNECT_ADDON_URL as eF,
-  redactedApiCredentialsFromForm as eG,
-  languageDisplayName as eH,
-  learnerLanguageById as eI,
-  readTrustedYomuUrl as eJ,
-  externalLinkIcon as eK,
-  isLearnerLanguageId as eL,
-  isLearningTargetRosterId as eM,
-  furiganaModeNeedsDifficultyExplanation as eN,
-  DEFAULT_OVERLAY_TEXT_COLOR as eO,
-  DEFAULT_OVERLAY_OUTLINE_COLOR as eP,
-  storedCredentialClearName as eQ,
-  hasStatusColorSource as eR,
-  AUDIO_GUIDE_URL as eS,
-  NADESHIKO_DEVELOPER_URL as eT,
-  VIDEO_PLAYER_PAGE_URL as eU,
-  PDF_READER_PAGE_URL as eV,
-  NEW_TAB_PAGE_URL as eW,
-  DONATE_URL as eX,
-  SUPPORT_COPY as eY,
-  SUPPORT_COPY_EXTRA as eZ,
-  PROTECTED_CREDENTIAL_INPUT_ATTRIBUTES as e_,
-  INTERFACE_LOCALES as ea,
-  EXTENSION_STORE_URLS as eb,
-  USERSCRIPT_INSTALL_URL as ec,
-  runningAsBrowserExtension as ed,
-  userscriptGmInfo as ee,
-  userscriptGmApi as ef,
-  readApiCredentialsFromFormData as eg,
-  DEFAULT_AUDIO_SOURCES as eh,
-  normalizeDictionaryLookupLinks as ei,
-  credentialValueFromReader as ej,
-  normalizeOcrProvider as ek,
-  activeLanguageProfile as el,
-  languageProfileDictionariesFromPreferences as em,
-  normalizeAudioSource as en,
-  MAX_LOOKUP_LINK_ROWS as eo,
-  normalizeAnkiFieldMappings as ep,
-  COPY_LOOKUP_LINK as eq,
-  exportManagedStoredValues as er,
-  RETIRED_SETTINGS_STORAGE_KEYS as es,
-  SETTINGS_STORAGE_KEY as et,
-  SETTINGS_INTENT_LEDGER_STORAGE_KEY as eu,
-  applySettingsIntent as ev,
-  serializeSettingsPersistencePair as ew,
-  defaultDictionaryLookupLinks as ex,
-  MAX_EXTRA_LOOKUP_LINKS as ey,
-  AUDIO_SOURCE_UI_TYPE_VALUES as ez,
+  storedCredentialClearName as e$,
+  captureActiveLanguageProfileDictionaries as e0,
+  saveSettings as e1,
+  packagedExtensionStorageAdapterMissing as e2,
+  readSettingsPersistenceViewStrict as e3,
+  FURIGANA_HIDE_STATE_GROUPS as e4,
+  WORD_COLOR_HIDE_STATE_GROUPS as e5,
+  setReviewLanePainted as e6,
+  accentToRgba as e7,
+  effectiveReaderTextColorSource as e8,
+  effectiveReaderColorSource as e9,
+  MAX_LOOKUP_LINK_ROWS as eA,
+  normalizeAnkiFieldMappings as eB,
+  COPY_LOOKUP_LINK as eC,
+  exportManagedStoredValues as eD,
+  RETIRED_SETTINGS_STORAGE_KEYS as eE,
+  SETTINGS_STORAGE_KEY as eF,
+  SETTINGS_INTENT_LEDGER_STORAGE_KEY as eG,
+  applySettingsIntent as eH,
+  serializeSettingsPersistencePair as eI,
+  defaultDictionaryLookupLinks as eJ,
+  MAX_EXTRA_LOOKUP_LINKS as eK,
+  AUDIO_SOURCE_UI_TYPE_VALUES as eL,
+  audioSourceLabel as eM,
+  DEFAULT_POPUP_FONT_FAMILY as eN,
+  DEFAULT_READER_FONT_FAMILY as eO,
+  isPromiseLike as eP,
+  dispatchAuthorizedReaderControlEvent as eQ,
+  ANKI_CONNECT_ADDON_URL as eR,
+  redactedApiCredentialsFromForm as eS,
+  languageDisplayName as eT,
+  learnerLanguageById as eU,
+  readTrustedYomuUrl as eV,
+  isLearnerLanguageId as eW,
+  isLearningTargetRosterId as eX,
+  furiganaModeNeedsDifficultyExplanation as eY,
+  DEFAULT_OVERLAY_TEXT_COLOR as eZ,
+  DEFAULT_OVERLAY_OUTLINE_COLOR as e_,
+  effectiveSubtitleTextColorSource as ea,
+  effectiveSubtitleColorSource as eb,
+  accessibleOcrBackgroundOpacity as ec,
+  accessibleOcrBackgroundColor as ed,
+  colorSourceClassName as ee,
+  readableAccentSeed as ef,
+  READER_THEME_COLOR_TOKENS as eg,
+  DEFAULT_COLOR_CHANNELS as eh,
+  ENGLISH_INTERFACE_LOCALE as ei,
+  interfaceLocaleByTag as ej,
+  INTERFACE_LOCALES as ek,
+  EXTENSION_STORE_URLS as el,
+  USERSCRIPT_INSTALL_URL as em,
+  userscriptGmInfo as en,
+  userscriptGmApi as eo,
+  runningAsBrowserExtension as ep,
+  announcedInstalledReaderRuntime as eq,
+  furiganaStyle as er,
+  readApiCredentialsFromFormData as es,
+  DEFAULT_AUDIO_SOURCES as et,
+  normalizeDictionaryLookupLinks as eu,
+  credentialValueFromReader as ev,
+  normalizeOcrProvider as ew,
+  activeLanguageProfile as ex,
+  languageProfileDictionariesFromPreferences as ey,
+  normalizeAudioSource as ez,
   addWindowEventListener as f,
-  subscribeToSettingsChanges as f0,
-  subscribeLocalYomuSrsMutations as f1,
-  LocalYomuSrsRepository as f2,
-  unwrapProfileKey as f3,
-  parseAcademyPairingTicket as f4,
-  wrapProfileKey as f5,
-  LOCAL_YOMU_SRS_INDEX_KEY as f6,
-  decryptProfileEvent as f7,
-  encryptProfileEvent as f8,
-  mergeStoredYomuSrsDecks as f9,
-  applyInterfaceLocaleToDocument as fA,
-  ensureManagedWebStorageCurrent as fB,
-  settingsPanelHash as fa,
-  isPrivilegedYomuLocalDevelopmentOrigin as fb,
-  settingsPanelFromHash as fc,
-  SETTINGS_TITLE as fd,
-  NEW_TAB_VERSION_URL as fe,
-  NO_EXPLICIT_USER_CHOICE as ff,
-  normalizeAudioSubSources as fg,
-  publishSettingsChange as fh,
-  mergeApiCredentialValues as fi,
-  configureLogger as fj,
-  localeDirection as fk,
-  subscribeToSettingsStorageChanges as fl,
-  isHostedYomuOrigin as fm,
-  loadSettings as fn,
-  copyIcon as fo,
-  ankiIcon as fp,
-  deinflectJapaneseTerm as fq,
-  termRulesMatch as fr,
-  createYomuLocalSrsAdapter as fs,
-  clearManagedBrowserCaches as ft,
-  unregisterManagedServiceWorkers as fu,
-  setRenderedWordCardIdentity as fv,
-  renderedWordCardKey as fw,
-  renderedWordsInRoot as fx,
-  renderedWordElementKey as fy,
-  applyInterfaceLocaleToRoot as fz,
+  hasStatusColorSource as f0,
+  AUDIO_GUIDE_URL as f1,
+  NADESHIKO_DEVELOPER_URL as f2,
+  VIDEO_PLAYER_PAGE_URL as f3,
+  PDF_READER_PAGE_URL as f4,
+  NEW_TAB_PAGE_URL as f5,
+  DONATE_URL as f6,
+  SUPPORT_COPY as f7,
+  SUPPORT_COPY_EXTRA as f8,
+  PROTECTED_CREDENTIAL_INPUT_ATTRIBUTES as f9,
+  termRulesMatch as fA,
+  createYomuLocalSrsAdapter as fB,
+  clearManagedBrowserCaches as fC,
+  unregisterManagedServiceWorkers as fD,
+  setRenderedWordCardIdentity as fE,
+  renderedWordCardKey as fF,
+  renderedWordsInRoot as fG,
+  renderedWordElementKey as fH,
+  applyInterfaceLocaleToRoot as fI,
+  applyInterfaceLocaleToDocument as fJ,
+  ensureManagedWebStorageCurrent as fK,
+  gmPrivateStorageDelete as fa,
+  subscribeToSettingsChanges as fb,
+  subscribeLocalYomuSrsMutations as fc,
+  LocalYomuSrsRepository as fd,
+  unwrapProfileKey as fe,
+  parseAcademyPairingTicket as ff,
+  wrapProfileKey as fg,
+  LOCAL_YOMU_SRS_INDEX_KEY as fh,
+  decryptProfileEvent as fi,
+  encryptProfileEvent as fj,
+  mergeStoredYomuSrsDecks as fk,
+  settingsPanelHash as fl,
+  isPrivilegedYomuLocalDevelopmentOrigin as fm,
+  settingsPanelFromHash as fn,
+  SETTINGS_TITLE as fo,
+  NEW_TAB_VERSION_URL as fp,
+  NO_EXPLICIT_USER_CHOICE as fq,
+  normalizeAudioSubSources as fr,
+  publishSettingsChange as fs,
+  mergeApiCredentialValues as ft,
+  configureLogger as fu,
+  localeDirection as fv,
+  subscribeToSettingsStorageChanges as fw,
+  isHostedYomuOrigin as fx,
+  loadSettings as fy,
+  deinflectJapaneseTerm as fz,
   getPitchClass as g,
   bridgeEventDetail as h,
   isAppleTouchBrowser as i,

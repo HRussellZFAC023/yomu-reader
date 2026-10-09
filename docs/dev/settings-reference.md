@@ -46,20 +46,19 @@ Some rows say Not yet described. That marks a real stored setting whose wording 
 | --- | --- | --- | --- |
 | Settings language | — | English (`en`) | `interfaceLanguage` |
 | Not yet described | — | 1 entry | `languageProfiles` |
-| Accent color | — | `#5ea780` | `accentColor` |
+| Accent color | — | `#b8324e` | `accentColor` |
 | New and in deck | — | `#ffffff` | `wordColorNew` |
 | Learning | — | `#ffd166` | `wordColorLearning` |
 | Known and never forget | — | `#7bd88f` | `wordColorKnown` |
 | Due | — | `#5fb3b3` | `wordColorDue` |
 | Failed | — | `#ff6b6b` | `wordColorFailed` |
 | Ignored, suspended, and blacklisted | — | `#b8a7ff` | `wordColorIgnored` |
-| Word highlight color | — | Primary deck status (`jpdb`) | `wordHighlightColorSource` |
-| Word underline color | — | Pitch accent (`pitch`) | `wordUnderlineColorSource` |
-| Word text color | — | Anki status (`anki`) | `wordTextColorSource` |
-| Subtitle highlight color | — | Primary deck status (`jpdb`) | `subtitleHighlightColorSource` |
-| Subtitle underline color | — | Pitch accent (`pitch`) | `subtitleUnderlineColorSource` |
-| Subtitle text color | — | Anki status (`anki`) | `subtitleTextColorSource` |
-| Not yet described | — | `#223c2e` | `ocrBackgroundColor` |
+| Word highlight color | — | None (`off`) | `wordHighlightColorSource` |
+| Word underline color | — | All study statuses (`status`) | `wordUnderlineColorSource` |
+| Word text color | — | None (`off`) | `wordTextColorSource` |
+| Subtitle highlight color | — | None (`off`) | `subtitleHighlightColorSource` |
+| Subtitle underline color | — | All study statuses (`status`) | `subtitleUnderlineColorSource` |
+| Subtitle text color | — | None (`off`) | `subtitleTextColorSource` |
 | Theme | — | `auto` | `theme` |
 | Popup mode | — | Auto (`auto`) | `popupMode` |
 | Hover popup mode | — | Popover (`popover`) | `hoverPopupMode` |
@@ -148,14 +147,15 @@ Set a hover key. Blank means plain hover.
 | Show Yomu lookup popup | — | `hover` | `popupActivationMode` |
 | Show settings puck | — | on | `showFloatingButton` |
 | Japanese text on webpages | — | Scan Japanese automatically | `manualScanEnabled` |
-| Furigana | — | All parsed words (`all`) | `furiganaMode` |
+| Furigana | — | Hide familiar words (`known-status`) | `furiganaMode` |
 | Readings on clamped rows | — | Show (row grows) (`show`) | `clampedRowReadings` |
-| Not yet described | — | 3 entries | `furiganaHiddenStateGroups` |
+| Not yet described | — | 2 entries | `furiganaHiddenStateGroups` |
 | Color words | — | All learning states (`all`) | `wordColorStates` |
-| Not yet described | — | empty list | `wordColorHiddenStateGroups` |
+| Not yet described | — | 2 entries | `wordColorHiddenStateGroups` |
 | Show pronunciation | — | on | `showPitchAccent` |
 | Hide JPDB-redundant styling | — | off | `suppressRedundantWordUi` |
 | Sheet close button on left | — | off | `sheetCloseButtonOnLeft` |
+| Hide furigana for known cards only | — | on | `hideKnownFurigana` |
 | Manual page scan shortcut | — | `Shift+J` | `shortcuts.scanPage` |
 | Hold while hovering | — | empty | `shortcuts.hoverLookup` |
 
@@ -352,8 +352,8 @@ Yomu stores these the same way, and a settings export carries them. Some are wri
 | よむ off | — | off | `annotationsPaused` |
 | Enable furigana annotations | — | on | `showFurigana` |
 | Not yet described | — | empty | `puckFuriganaModeBeforeHide` |
-| Hide furigana for known cards only | — | on | `hideKnownFurigana` |
 | Read text in images | — | on | `ocrEnabled` |
+| Not yet described | — | `#181b20` | `ocrBackgroundColor` |
 | Dictionary result limit | — | `12` | `localDictionaryMaxResults` |
 | Not yet described | — | empty list | `dictionaryPreferences` |
 | Transcript panel position | — | `right` | `subtitleTranscriptPlacement` |

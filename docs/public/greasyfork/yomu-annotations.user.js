@@ -372,9 +372,9 @@ function syncProjectedReadingStyle(record) {
   setImportantStyleIfChanged(clone, "font-family", sourceStyle.fontFamily || baseStyle.fontFamily);
   setImportantStyleIfChanged(clone, "font-size", sourceStyle.fontSize || "10px");
   setImportantStyleIfChanged(clone, "font-style", sourceStyle.fontStyle || baseStyle.fontStyle);
-  setImportantStyleIfChanged(clone, "font-weight", sourceStyle.fontWeight || "700");
+  setImportantStyleIfChanged(clone, "font-weight", sourceStyle.fontWeight || "400");
   setImportantStyleIfChanged(clone, "letter-spacing", sourceStyle.letterSpacing || baseStyle.letterSpacing);
-  setImportantStyleIfChanged(clone, "color", baseStyle.color || sourceStyle.color || "currentColor");
+  setImportantStyleIfChanged(clone, "color", sourceStyle.color || baseStyle.color || "currentColor");
   setImportantStyleIfChanged(clone, "text-shadow", baseStyle.textShadow || "none");
   const key = `${clone.textContent ?? ""}\0${clone.style.getPropertyValue("font-size")}`;
   if (record.naturalReadingKey !== key) {

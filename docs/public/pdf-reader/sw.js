@@ -2,11 +2,11 @@ importScripts('../hosted-reader-worker.js');
 const APPEARANCE_REVISION = '3ca592417e5d';
 
 // yomu:runtime-cache:start
-const CACHE_NAME = 'yomu-pdf-reader-5e60d8bb54e0';
+const CACHE_NAME = 'yomu-pdf-reader-1704921e4183';
 // yomu:runtime-cache:end
 const RUNTIME_GRAPH = [
   // yomu:runtime-companions:start
-  '/greasyfork/yomu-runtime.ffaa2e164275.user.js',
+  '/greasyfork/yomu-runtime.589023dbb459.user.js',
   // yomu:runtime-companions:end
 ];
 
