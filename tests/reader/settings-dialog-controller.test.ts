@@ -828,7 +828,7 @@ describe('settings dialog keyboard dismissal', () => {
             const saveSettings = vi.fn(() => pending.promise);
             const { form } = createSettingsDialog({
                 getSettings: () => current,
-                setSettings: next => { current = next; },
+                setSettings: (next: ReaderSettings) => { current = next; },
                 saveSettings,
             });
             const save = form.querySelector<HTMLButtonElement>('button[type="submit"]')!;
