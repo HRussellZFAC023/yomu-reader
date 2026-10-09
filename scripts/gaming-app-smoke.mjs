@@ -676,15 +676,18 @@ async function assertLocalPopupActions(overlay, label) {
     const popup = overlay.locator('.jpdb-reader-popover').first();
     assertSmoke(await popup.getByRole('button', { name: /^(Fail|Pass|Again|Hard|Good|Easy)(?:\s|$)/ }).count() === 0,
         `Desktop ${label} offered review grading without a connected service.`);
-    await popup.getByRole('button', { name: 'More actions', exact: true }).click();
     // "Add to deck…" is one dropdown, with no button in front of it, and its decks stay private.
+    // With no service connected it is the popup's only action, so it sits in the row itself:
+    // a drawer that folds away one action costs more than the action.
     const dropdown = popup.locator('.jpdb-reader-deck-select');
     await dropdown.waitFor({ state: 'visible', timeout: 5000 });
+    assertSmoke(await popup.getByRole('button', { name: 'More actions', exact: true }).count() === 0,
+        'Desktop popup folds its lone "Add to deck…" away behind "More actions".');
     assertSmoke(await popup.getByRole('button', { name: 'Add to deck…', exact: true }).count() === 0,
         'Desktop popup still puts an "Add to deck…" button in front of the deck dropdown.');
     assertSmoke(await dropdown.evaluate(node => node.shadowRoot === null && node.textContent === ''),
         'Deck dropdown leaked its private deck list into the page.');
-    await overlay.screenshot({ path: path.join(appRoot, 'qa-artifacts/desktop-overflow-deck-dropdown.png') });
+    await overlay.screenshot({ path: path.join(appRoot, 'qa-artifacts/desktop-deck-dropdown.png') });
     // Restore a fresh visible capture for the shortcut recapture assertion. The capture is
     // restored from the main process, as the OS shortcut does: asking the overlay's own
     // renderer to show the overlay reloads the document making that call.
@@ -707,8 +710,8 @@ async function pressCaptureShortcutForFreshOverlayDocument(overlay) {
     );
 }
 
-// A provider landing re-renders the whole popup. A learner who had already opened ⋯
-// and "Add to deck…" lost both, and a choice meant for the deck list hit a detached
+// A provider landing re-renders the whole popup. A learner who was already in
+// "Add to deck…" lost it, and a choice meant for the deck list hit a detached
 // control. The overlay's own fetches are held so enrichment lands, deterministically,
 // while the learner is in the dropdown. (Held in the renderer: a main-process webRequest
 // hold also stalls while macOS tracks a select's native menu.) Electron's native select
@@ -716,7 +719,8 @@ async function pressCaptureShortcutForFreshOverlayDocument(overlay) {
 // name and presses Enter, as a keyboard user does. Enrichment has a short fallback, so the
 // learner must reach the dropdown within it: the race assertion below fails loudly if not.
 // The waiting render lands once the learner leaves the dropdown, so it is left both ways:
-// Tab first, which saves nothing, then Shift+Tab, which goes on to save the word.
+// Tab first, which saves nothing, then Shift+Tab, which goes on to save the word. With no
+// service connected the dropdown is the popup's lone action, alone in its row with no ⋯.
 async function assertDeckDropdownSurvivesEnrichment(overlay) {
     const tab = await inDeckDropdownWhileEnrichmentLands(overlay, assertTabOutOfDeckDropdownKeepsFocus);
     const shiftTab = await inDeckDropdownWhileEnrichmentLands(overlay, assertShiftTabOutOfDeckDropdownThenSave);
@@ -755,21 +759,21 @@ async function inDeckDropdownWhileEnrichmentLands(overlay, leave) {
             await word.hover();
             await popup.waitFor({ state: 'visible', timeout: 4000 }).catch(() => undefined);
         }
-        await popup.getByRole('button', { name: 'More actions', exact: true }).click();
-        const more = popup.locator('[data-action="mining-collapse"]');
         const dropdown = popup.locator('.jpdb-reader-deck-select');
         await dropdown.waitFor({ state: 'visible', timeout: 5000 });
         // The pointer rests on the dropdown, inside the popup, so the hover popup stays.
         await dropdown.hover();
-        // A press on ⋯ leaves focus where it was, so focus is put on ⋯ as a keyboard
-        // learner's would be: one Tab from there must land on the dropdown.
-        await more.focus();
+        // Focus is put on the control just before the dropdown, as a keyboard learner's
+        // would be: one Tab from there must land on the dropdown, not wrap past it.
+        const before = await markControlBeforeDeckDropdown(popup);
+        assertSmoke(before, 'Desktop popup has no control ahead of the "Add to deck…" dropdown to Tab from.');
+        await popup.locator('[data-smoke-before-dropdown="true"]').focus();
         await overlay.keyboard.press('Tab');
         const opened = await dropdown.evaluate(host => {
             host.dataset.smokeOpenedDropdown = 'true';
             return document.activeElement === host;
         });
-        assertSmoke(opened, `Tab from "More actions" did not reach the "Add to deck…" dropdown: ${await overlay.evaluate(() => document.activeElement?.outerHTML.slice(0, 160))}`);
+        assertSmoke(opened, `Tab from ${before} did not reach the "Add to deck…" dropdown: ${await overlay.evaluate(() => document.activeElement?.outerHTML.slice(0, 160))}`);
         assertSmoke(await popup.locator('[data-card-details-loading]').count() === 1,
             'Desktop popup finished enriching with its fetches held; the re-render race was not exercised.');
 
@@ -779,9 +783,9 @@ async function inDeckDropdownWhileEnrichmentLands(overlay, leave) {
         const during = await popup.evaluate(root => ({
             sameDropdown: root.querySelector('.jpdb-reader-deck-select')?.dataset.smokeOpenedDropdown === 'true',
             focused: document.activeElement?.matches('.jpdb-reader-deck-select') ?? false,
-            overflowOpen: !root.querySelector('.jpdb-reader-actions-mining-collapsed'),
+            loneInRow: root.querySelector('.jpdb-reader-deck-select')?.parentElement?.matches('.jpdb-reader-actions-quiet') === true,
         }));
-        assertSmoke(during.sameDropdown && during.focused && during.overflowOpen,
+        assertSmoke(during.sameDropdown && during.focused && during.loneInRow,
             `Desktop popup rebuilt under the open deck dropdown when enrichment landed: ${JSON.stringify(during)}`);
 
         // Typing a deck's name browses to it and saves nothing.
@@ -800,6 +804,20 @@ async function inDeckDropdownWhileEnrichmentLands(overlay, leave) {
 }
 
 // (Function declarations: the smoke runs at module top level, before a module const here exists.)
+// Marks the last visible control ahead of "Add to deck…" in the popup's Tab order and names it.
+function markControlBeforeDeckDropdown(popup) {
+    return popup.evaluate(root => {
+        root.querySelectorAll('[data-smoke-before-dropdown]').forEach(node => node.removeAttribute('data-smoke-before-dropdown'));
+        const host = root.querySelector('.jpdb-reader-deck-select');
+        const control = [...root.querySelectorAll('button, input, select, textarea, a[href], summary, [contenteditable], [tabindex]:not([tabindex^="-"])')]
+            .filter(node => node.compareDocumentPosition(host) & Node.DOCUMENT_POSITION_FOLLOWING && node.getClientRects().length > 0)
+            .at(-1);
+        if (!control) return null;
+        control.dataset.smokeBeforeDropdown = 'true';
+        return `${control.localName}[${control.dataset.action ?? ''}]`;
+    });
+}
+
 function wordsSavedToLocalDeck(overlay) {
     return overlay.evaluate(() => Object.keys(localStorage)
         .filter(key => /srs|deck/i.test(key) && (localStorage.getItem(key) || '').includes('冒険')));
@@ -830,30 +848,40 @@ async function assertTabOutOfDeckDropdownKeepsFocus(overlay, popup) {
             rebuilt: active?.dataset?.smokeTabReached !== 'true',
             dialog: root.getAttribute('aria-modal') === 'true',
             dropdownRebuilt: root.querySelector('.jpdb-reader-deck-select')?.dataset.smokeOpenedDropdown !== 'true',
-            overflowOpen: !root.querySelector('.jpdb-reader-actions-mining-collapsed'),
+            loneInRow: root.querySelector('.jpdb-reader-deck-select')?.parentElement?.matches('.jpdb-reader-actions-quiet') === true,
         };
     });
-    assertSmoke(JSON.stringify(left.focused) === JSON.stringify(left.reached) && left.dropdownRebuilt && left.overflowOpen,
+    assertSmoke(JSON.stringify(left.focused) === JSON.stringify(left.reached) && left.dropdownRebuilt && left.loneInRow,
         `Tabbing out of the deck dropdown as enrichment landed dropped the learner's focus: ${JSON.stringify(left)}`);
     await overlay.screenshot({ path: path.join(appRoot, 'qa-artifacts/desktop-deck-dropdown-tab-forward.png') });
     return { tabbedTo: left };
 }
 
-// Shift+Tab to ⋯ lands the waiting render with the learner on the rebuilt ⋯, not dropped
-// onto the page. Tab returns to the dropdown, where Enter saves the deck typed.
+// Shift+Tab to the control before the dropdown lands the waiting render with the learner
+// on that control, rebuilt, not dropped onto the page. Tab returns to the dropdown, where
+// Enter saves the deck typed.
 async function assertShiftTabOutOfDeckDropdownThenSave(overlay, popup) {
+    const before = await markControlBeforeDeckDropdown(popup);
     await overlay.keyboard.press('Shift+Tab');
     await popup.locator('[data-card-details-loading]').waitFor({ state: 'detached', timeout: 5000 });
-    const left = await popup.evaluate(root => ({
-        onToggle: document.activeElement?.matches('[data-action="mining-collapse"]') === true && root.contains(document.activeElement),
-        rebuilt: root.querySelector('.jpdb-reader-deck-select')?.dataset.smokeOpenedDropdown !== 'true',
-        overflowOpen: !root.querySelector('.jpdb-reader-actions-mining-collapsed'),
-    }));
-    assertSmoke(left.onToggle && left.rebuilt && left.overflowOpen,
-        `Leaving the deck dropdown as enrichment landed dropped the learner's focus: ${JSON.stringify(left)}`);
+    const left = await popup.evaluate(root => {
+        const active = document.activeElement;
+        return {
+            focused: root.contains(active) ? `${active.localName}[${active.dataset?.action ?? ''}]` : null,
+            rebuilt: root.querySelector('.jpdb-reader-deck-select')?.dataset.smokeOpenedDropdown !== 'true'
+                && active?.dataset?.smokeBeforeDropdown !== 'true',
+            loneInRow: root.querySelector('.jpdb-reader-deck-select')?.parentElement?.matches('.jpdb-reader-actions-quiet') === true,
+        };
+    });
+    assertSmoke(left.focused === before && left.rebuilt && left.loneInRow,
+        `Leaving the deck dropdown as enrichment landed dropped the learner's focus: ${JSON.stringify({ before, ...left })}`);
+    // Back to the dropdown with Tab from the control now just before it: the completed
+    // render may have added sections between the two.
+    const beforeNow = await markControlBeforeDeckDropdown(popup);
+    await popup.locator('[data-smoke-before-dropdown="true"]').focus();
     await overlay.keyboard.press('Tab');
     assertSmoke(await popup.evaluate(root => document.activeElement?.matches('.jpdb-reader-deck-select') === true && root.contains(document.activeElement)),
-        'Tab from "More actions" did not return to the rebuilt deck dropdown.');
+        `Tab from ${beforeNow} did not return to the rebuilt deck dropdown.`);
     await overlay.keyboard.type('Academy');
     await overlay.keyboard.press('Enter');
     await savedToDeckToast(overlay).first().waitFor({ state: 'attached', timeout: 15_000 });
@@ -861,7 +889,8 @@ async function assertShiftTabOutOfDeckDropdownThenSave(overlay, popup) {
     assertSmoke(saved.length > 0, 'Choosing a deck in the dropdown did not save the word to the local deck.');
     // The refresh after the save shows the enriched card, with the dropdown back under focus.
     await popup.locator('[data-card-details-loading]').waitFor({ state: 'detached', timeout: 15_000 });
-    // The refreshed popup opens with ⋯ closed, so the learner's place is its toggle.
+    // The refreshed popup's dropdown, alone in its row, is the learner's place (⋯ when a
+    // popup folds several actions away).
     const after = await popup.evaluate(root => ({
         focused: root.getRootNode().activeElement?.matches('.jpdb-reader-deck-select, [data-action="mining-collapse"]') === true
             && root.contains(root.getRootNode().activeElement),
