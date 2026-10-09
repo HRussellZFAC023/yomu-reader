@@ -95,8 +95,11 @@ function parkableMutationObserver(callback, options = {}) {
   return new ParkableObserver(observer, options);
 }
 function setImportantStyleIfChanged(element, property, value) {
-  if (element.style.getPropertyValue(property) === value && element.style.getPropertyPriority(property) === "important") return;
-  element.style.setProperty(property, value, "important");
+  setInlineStyleIfChanged(element, property, value, "important");
+}
+function setInlineStyleIfChanged(element, property, value, priority = "") {
+  if (element.style.getPropertyValue(property) === value && element.style.getPropertyPriority(property) === priority) return;
+  element.style.setProperty(property, value, priority);
 }
 const CSS_PIXEL_SIGNIFICANT_DIGITS = 6;
 const CSS_PIXEL_MINIMUM = 1e-6;

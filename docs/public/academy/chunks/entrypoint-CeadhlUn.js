@@ -37592,7 +37592,7 @@ const LOCAL_DICTIONARY_STORAGE_COPY = {
     extensionDictionaryUnavailable: "The extension dictionary service is unavailable. Retry, or reload the Yomu extension.",
     extensionDictionaryConnectionLost: "The extension dictionary connection was lost. Check whether the operation completed before retrying.",
     localDictionariesEnabled: "Show imported dictionary definitions",
-    localDictionarySiteStorageHelp: "Imported dictionaries are stored by the site where you import them. Other sites answer from Jiten and your online sources.",
+    localDictionarySiteStorageHelp: "Imported dictionaries stay on your device.",
     clearLocalDictionarySiteStorage: "Disable and remove stored dictionaries",
     clearLocalDictionarySiteStorageConfirm: "Disable imported dictionaries and delete this site's stored copy?\n\nSites that still hold a copy from earlier versions remove it the next time you visit them. You can re-import dictionaries at any time.",
     clearLocalDictionarySiteStorageClearing: "Disabling imported dictionaries and clearing this site's copy...",
@@ -37610,7 +37610,7 @@ const LOCAL_DICTIONARY_STORAGE_COPY = {
     extensionDictionaryUnavailable: "拡張機能の辞書サービスを利用できません。再試行するか、よむ拡張機能を再読み込みしてください。",
     extensionDictionaryConnectionLost: "拡張機能の辞書サービスとの接続が切れました。再試行する前に、操作が完了していないか確認してください。",
     localDictionariesEnabled: "インポート済み辞書の定義を表示",
-    localDictionarySiteStorageHelp: "インポート済み辞書は、インポートしたサイトに保存されます。他のサイトではJitenなどのオンラインソースが使われます。",
+    localDictionarySiteStorageHelp: "インポートした辞書は端末内に保存されます。",
     clearLocalDictionarySiteStorage: "無効にして保存済み辞書を削除",
     clearLocalDictionarySiteStorageConfirm: "インポート済み辞書を無効にし、このサイトの保存コピーを削除しますか？\n\n以前のバージョンのコピーが残っているサイトは、次回訪問時に自動的に削除されます。辞書はいつでも再インポートできます。",
     clearLocalDictionarySiteStorageClearing: "インポート済み辞書を無効にし、このサイトのコピーを削除中...",
@@ -38350,6 +38350,8 @@ const COPY$c = {
     lookupPillOrder: "Lookup pill order",
     builtInAction: "Built-in action",
     recommendedDownloads: "Dictionaries",
+    recommendedJapaneseDictionaries: "Recommended Japanese dictionaries",
+    recommendedDictionaryCountAndSize: "Dictionaries: {count} · {size}",
     termDictionaries: "Term dictionaries",
     kanjiDictionaries: "Kanji dictionaries",
     pitchDictionaries: "Pitch dictionaries",
@@ -39875,6 +39877,8 @@ lookupUrlTemplateNumber	ピル{number} URL
 lookupPillOrder	検索ピルの順序
 builtInAction	内蔵アクション
 recommendedDownloads	辞書
+recommendedJapaneseDictionaries	おすすめの日本語辞書
+recommendedDictionaryCountAndSize	辞書{count}件 · {size}
 termDictionaries	語句辞書
 kanjiDictionaries	漢字辞書
 pitchDictionaries	ピッチ辞書
@@ -44442,8 +44446,11 @@ function detachedReadingLaneLineHeight(style, alreadyReserved) {
   return current >= minimum ? "" : `${minimum}px`;
 }
 function setImportantStyleIfChanged(element2, property, value) {
-  if (element2.style.getPropertyValue(property) === value && element2.style.getPropertyPriority(property) === "important") return;
-  element2.style.setProperty(property, value, "important");
+  setInlineStyleIfChanged(element2, property, value, "important");
+}
+function setInlineStyleIfChanged(element2, property, value, priority = "") {
+  if (element2.style.getPropertyValue(property) === value && element2.style.getPropertyPriority(property) === priority) return;
+  element2.style.setProperty(property, value, priority);
 }
 const CSS_PIXEL_SIGNIFICANT_DIGITS = 6;
 const CSS_PIXEL_MINIMUM = 1e-6;
@@ -45050,6 +45057,31 @@ function clearProjectedReadingsWithin(root) {
 }
 function pruneProjectedReadings(document2) {
   yomuAnnotationsCompanion()?.pruneProjectedReadings(document2);
+}
+function styleDetachedReadingElements(root, host2) {
+  const detachedRubies = Array.from(root.querySelectorAll(".jpdb-reader-detached-ruby"));
+  if (!detachedRubies.length) return;
+  const hostStyle = safeComputedStyle(host2);
+  const hostFontSize = Number.parseFloat(hostStyle.fontSize) || 16;
+  const readingFontSize = Math.min(10, Math.max(6, hostFontSize * 0.46));
+  for (const wrapper of detachedRubies) {
+    setInlineStyleIfChanged(wrapper, "position", "relative", "important");
+    setInlineStyleIfChanged(wrapper, "display", "inline-block", "important");
+    setInlineStyleIfChanged(wrapper, "line-height", "1", "important");
+    setInlineStyleIfChanged(wrapper, "vertical-align", "baseline", "important");
+    setInlineStyleIfChanged(wrapper, "white-space", "nowrap", "important");
+  }
+  for (const reading of root.querySelectorAll(".jpdb-reader-detached-furi")) {
+    setInlineStyleIfChanged(reading, "display", "none", "important");
+    setInlineStyleIfChanged(reading, "font-size", `${readingFontSize}px`);
+    setInlineStyleIfChanged(reading, "font-weight", "normal");
+    setInlineStyleIfChanged(reading, "line-height", "1", "important");
+    setInlineStyleIfChanged(reading, "text-decoration", "none", "important");
+    setInlineStyleIfChanged(reading, "user-select", "none");
+    setInlineStyleIfChanged(reading, "-webkit-user-select", "none");
+    if (reading.style.getPropertyValue("color")) reading.style.removeProperty("color");
+    setInlineStyleIfChanged(reading, "-webkit-text-fill-color", "currentColor", "important");
+  }
 }
 function createPostPaintPass(run) {
   let pendingScheduler = null;
@@ -47479,35 +47511,6 @@ function sourceRangeBoundary(nodeOffsets, sourceOffset, side) {
     if (side === "end" && sourceOffset > nodeStart) return candidate2;
   }
   return boundary;
-}
-function styleDetachedReadingElements(root, host2) {
-  const detachedRubies = Array.from(root.querySelectorAll(".jpdb-reader-detached-ruby"));
-  if (!detachedRubies.length) return;
-  const hostStyle = safeComputedStyle(host2);
-  const hostFontSize = Number.parseFloat(hostStyle.fontSize) || 16;
-  const readingFontSize = Math.min(10, Math.max(6, hostFontSize * 0.46));
-  for (const wrapper of detachedRubies) {
-    setInlineStyleIfChanged(wrapper, "position", "relative", "important");
-    setInlineStyleIfChanged(wrapper, "display", "inline-block", "important");
-    setInlineStyleIfChanged(wrapper, "line-height", "1", "important");
-    setInlineStyleIfChanged(wrapper, "vertical-align", "baseline", "important");
-    setInlineStyleIfChanged(wrapper, "white-space", "nowrap", "important");
-  }
-  for (const reading of root.querySelectorAll(".jpdb-reader-detached-furi")) {
-    setInlineStyleIfChanged(reading, "display", "none", "important");
-    setInlineStyleIfChanged(reading, "font-size", `${readingFontSize}px`);
-    setInlineStyleIfChanged(reading, "font-weight", "normal");
-    setInlineStyleIfChanged(reading, "line-height", "1", "important");
-    setInlineStyleIfChanged(reading, "text-decoration", "none", "important");
-    setInlineStyleIfChanged(reading, "user-select", "none");
-    setInlineStyleIfChanged(reading, "-webkit-user-select", "none");
-    if (reading.style.getPropertyValue("color")) reading.style.removeProperty("color");
-    setInlineStyleIfChanged(reading, "-webkit-text-fill-color", "currentColor", "important");
-  }
-}
-function setInlineStyleIfChanged(element2, property, value, priority = "") {
-  if (element2.style.getPropertyValue(property) === value && element2.style.getPropertyPriority(property) === priority) return;
-  element2.style.setProperty(property, value, priority);
 }
 function removeInlineStyleIfPresent(element2, property) {
   if (!element2.style.getPropertyValue(property) && !element2.style.getPropertyPriority(property)) return;
@@ -264358,7 +264361,7 @@ function padClockPart(value) {
 const DEFAULT_ACADEMY_STUDY_DURATION_MS = DEFAULT_STUDY_DURATION_MS;
 class StudyRuntimeLoadFailure extends Error {
 }
-function createCanonicalAcademyStudyModule(loadRuntime = () => import("./runtime-BnN9zi2m.js")) {
+function createCanonicalAcademyStudyModule(loadRuntime = () => import("./runtime-CxemGJTw.js")) {
   return {
     async mount(host2, context2) {
       let runtime;

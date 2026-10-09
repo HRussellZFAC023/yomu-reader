@@ -11,7 +11,7 @@
 // @updateURL https://update.greasyfork.org/scripts/581653/%E3%82%88%E3%82%80.meta.js
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-runtime.589023dbb459.user.js#sha256=WJAj27RZyGIaakdnfC82fLX4bOLdop8bfeBlHugzwfo=
+// @require https://yomureader.com/greasyfork/yomu-runtime.d36ec25fa390.user.js#sha256=027CX6OQpg8zHFqIqazsbUcDL8n+QOnGrKweHjc/SzI=
 // @resource yomuCss  https://yomureader.com/yomu.487fa83ac3a3.css#sha256=SH+oOsOjKrhloUzvtvubPX9yuem9f4Ythpxa4g0Ti7k=
 // @connect api.jiten.moe
 // @connect api.tatoeba.org
@@ -6432,8 +6432,11 @@ if (alreadyReserved) return `${Math.ceil(Math.max(current, minimum))}px`;
 return current >= minimum ? "" : `${minimum}px`;
 }
 function setImportantStyleIfChanged(element, property, value) {
-if (element.style.getPropertyValue(property) === value && element.style.getPropertyPriority(property) === "important") return;
-element.style.setProperty(property, value, "important");
+setInlineStyleIfChanged(element, property, value, "important");
+}
+function setInlineStyleIfChanged(element, property, value, priority2 = "") {
+if (element.style.getPropertyValue(property) === value && element.style.getPropertyPriority(property) === priority2) return;
+element.style.setProperty(property, value, priority2);
 }
 const CSS_PIXEL_SIGNIFICANT_DIGITS = 6;
 const CSS_PIXEL_MINIMUM = 1e-6;
@@ -7436,6 +7439,31 @@ yomuAnnotationsCompanion()?.pruneProjectedReadings(document2);
 }
 function projectedReadingWordAtPoint(document2, x, y, accepts) {
 return yomuAnnotationsCompanion()?.projectedReadingWordAtPoint(document2, x, y, accepts) ?? null;
+}
+function styleDetachedReadingElements(root, host) {
+const detachedRubies = Array.from(root.querySelectorAll(".jpdb-reader-detached-ruby"));
+if (!detachedRubies.length) return;
+const hostStyle = safeComputedStyle(host);
+const hostFontSize = Number.parseFloat(hostStyle.fontSize) || 16;
+const readingFontSize = Math.min(10, Math.max(6, hostFontSize * 0.46));
+for (const wrapper of detachedRubies) {
+setInlineStyleIfChanged(wrapper, "position", "relative", "important");
+setInlineStyleIfChanged(wrapper, "display", "inline-block", "important");
+setInlineStyleIfChanged(wrapper, "line-height", "1", "important");
+setInlineStyleIfChanged(wrapper, "vertical-align", "baseline", "important");
+setInlineStyleIfChanged(wrapper, "white-space", "nowrap", "important");
+}
+for (const reading of root.querySelectorAll(".jpdb-reader-detached-furi")) {
+setInlineStyleIfChanged(reading, "display", "none", "important");
+setInlineStyleIfChanged(reading, "font-size", `${readingFontSize}px`);
+setInlineStyleIfChanged(reading, "font-weight", "normal");
+setInlineStyleIfChanged(reading, "line-height", "1", "important");
+setInlineStyleIfChanged(reading, "text-decoration", "none", "important");
+setInlineStyleIfChanged(reading, "user-select", "none");
+setInlineStyleIfChanged(reading, "-webkit-user-select", "none");
+if (reading.style.getPropertyValue("color")) reading.style.removeProperty("color");
+setInlineStyleIfChanged(reading, "-webkit-text-fill-color", "currentColor", "important");
+}
 }
 function createPostPaintPass(run) {
 let pendingScheduler = null;
@@ -10468,35 +10496,6 @@ return best;
 }
 function pointInsideSourceRects(rects, x, y) {
 return rects.some((rect) => sourceRectPointScore(rect, x, y) !== null);
-}
-function styleDetachedReadingElements(root, host) {
-const detachedRubies = Array.from(root.querySelectorAll(".jpdb-reader-detached-ruby"));
-if (!detachedRubies.length) return;
-const hostStyle = safeComputedStyle(host);
-const hostFontSize = Number.parseFloat(hostStyle.fontSize) || 16;
-const readingFontSize = Math.min(10, Math.max(6, hostFontSize * 0.46));
-for (const wrapper of detachedRubies) {
-setInlineStyleIfChanged(wrapper, "position", "relative", "important");
-setInlineStyleIfChanged(wrapper, "display", "inline-block", "important");
-setInlineStyleIfChanged(wrapper, "line-height", "1", "important");
-setInlineStyleIfChanged(wrapper, "vertical-align", "baseline", "important");
-setInlineStyleIfChanged(wrapper, "white-space", "nowrap", "important");
-}
-for (const reading of root.querySelectorAll(".jpdb-reader-detached-furi")) {
-setInlineStyleIfChanged(reading, "display", "none", "important");
-setInlineStyleIfChanged(reading, "font-size", `${readingFontSize}px`);
-setInlineStyleIfChanged(reading, "font-weight", "normal");
-setInlineStyleIfChanged(reading, "line-height", "1", "important");
-setInlineStyleIfChanged(reading, "text-decoration", "none", "important");
-setInlineStyleIfChanged(reading, "user-select", "none");
-setInlineStyleIfChanged(reading, "-webkit-user-select", "none");
-if (reading.style.getPropertyValue("color")) reading.style.removeProperty("color");
-setInlineStyleIfChanged(reading, "-webkit-text-fill-color", "currentColor", "important");
-}
-}
-function setInlineStyleIfChanged(element, property, value, priority2 = "") {
-if (element.style.getPropertyValue(property) === value && element.style.getPropertyPriority(property) === priority2) return;
-element.style.setProperty(property, value, priority2);
 }
 function removeInlineStyleIfPresent(element, property) {
 if (!element.style.getPropertyValue(property) && !element.style.getPropertyPriority(property)) return;
@@ -33090,7 +33089,7 @@ jaSettings: {
 extensionDictionaryUnavailable: "拡張機能の辞書サービスを利用できません。再試行するか、よむ拡張機能を再読み込みしてください。",
 extensionDictionaryConnectionLost: "拡張機能の辞書サービスとの接続が切れました。再試行する前に、操作が完了していないか確認してください。",
 localDictionariesEnabled: "インポート済み辞書の定義を表示",
-localDictionarySiteStorageHelp: "インポート済み辞書は、インポートしたサイトに保存されます。他のサイトではJitenなどのオンラインソースが使われます。",
+localDictionarySiteStorageHelp: "インポートした辞書は端末内に保存されます。",
 clearLocalDictionarySiteStorage: "無効にして保存済み辞書を削除",
 clearLocalDictionarySiteStorageConfirm: "インポート済み辞書を無効にし、このサイトの保存コピーを削除しますか？\n\n以前のバージョンのコピーが残っているサイトは、次回訪問時に自動的に削除されます。辞書はいつでも再インポートできます。",
 clearLocalDictionarySiteStorageClearing: "インポート済み辞書を無効にし、このサイトのコピーを削除中...",
@@ -34042,6 +34041,8 @@ lookupUrlTemplateNumber	ピル{number} URL
 lookupPillOrder	検索ピルの順序
 builtInAction	内蔵アクション
 recommendedDownloads	辞書
+recommendedJapaneseDictionaries	おすすめの日本語辞書
+recommendedDictionaryCountAndSize	辞書{count}件 · {size}
 termDictionaries	語句辞書
 kanjiDictionaries	漢字辞書
 pitchDictionaries	ピッチ辞書

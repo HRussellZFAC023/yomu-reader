@@ -5517,7 +5517,7 @@ const LOCAL_DICTIONARY_STORAGE_COPY = {
   extensionDictionaryUnavailable: "The extension dictionary service is unavailable. Retry, or reload the Yomu extension.",
   extensionDictionaryConnectionLost: "The extension dictionary connection was lost. Check whether the operation completed before retrying.",
   localDictionariesEnabled: "Show imported dictionary definitions",
-  localDictionarySiteStorageHelp: "Imported dictionaries are stored by the site where you import them. Other sites answer from Jiten and your online sources.",
+  localDictionarySiteStorageHelp: "Imported dictionaries stay on your device.",
   clearLocalDictionarySiteStorage: "Disable and remove stored dictionaries",
   clearLocalDictionarySiteStorageConfirm: "Disable imported dictionaries and delete this site's stored copy?\n\nSites that still hold a copy from earlier versions remove it the next time you visit them. You can re-import dictionaries at any time.",
   clearLocalDictionarySiteStorageClearing: "Disabling imported dictionaries and clearing this site's copy...",
@@ -5535,7 +5535,7 @@ const LOCAL_DICTIONARY_STORAGE_COPY = {
   extensionDictionaryUnavailable: "拡張機能の辞書サービスを利用できません。再試行するか、よむ拡張機能を再読み込みしてください。",
   extensionDictionaryConnectionLost: "拡張機能の辞書サービスとの接続が切れました。再試行する前に、操作が完了していないか確認してください。",
   localDictionariesEnabled: "インポート済み辞書の定義を表示",
-  localDictionarySiteStorageHelp: "インポート済み辞書は、インポートしたサイトに保存されます。他のサイトではJitenなどのオンラインソースが使われます。",
+  localDictionarySiteStorageHelp: "インポートした辞書は端末内に保存されます。",
   clearLocalDictionarySiteStorage: "無効にして保存済み辞書を削除",
   clearLocalDictionarySiteStorageConfirm: "インポート済み辞書を無効にし、このサイトの保存コピーを削除しますか？\n\n以前のバージョンのコピーが残っているサイトは、次回訪問時に自動的に削除されます。辞書はいつでも再インポートできます。",
   clearLocalDictionarySiteStorageClearing: "インポート済み辞書を無効にし、このサイトのコピーを削除中...",
@@ -6275,6 +6275,8 @@ const COPY = {
   lookupPillOrder: "Lookup pill order",
   builtInAction: "Built-in action",
   recommendedDownloads: "Dictionaries",
+  recommendedJapaneseDictionaries: "Recommended Japanese dictionaries",
+  recommendedDictionaryCountAndSize: "Dictionaries: {count} · {size}",
   termDictionaries: "Term dictionaries",
   kanjiDictionaries: "Kanji dictionaries",
   pitchDictionaries: "Pitch dictionaries",
@@ -7800,6 +7802,8 @@ lookupUrlTemplateNumber	ピル{number} URL
 lookupPillOrder	検索ピルの順序
 builtInAction	内蔵アクション
 recommendedDownloads	辞書
+recommendedJapaneseDictionaries	おすすめの日本語辞書
+recommendedDictionaryCountAndSize	辞書{count}件 · {size}
 termDictionaries	語句辞書
 kanjiDictionaries	漢字辞書
 pitchDictionaries	ピッチ辞書
@@ -22853,6 +22857,21 @@ function renderCatalogRecommendationSeed(dictionaries2, installed, learnerLangua
         </section>
     `;
 }
+function localizeCatalogRecommendationSeed(section, language2) {
+  const locale = resolveUiLanguage(language2);
+  const learner = section.dataset.catalogRecommendationSeed ?? "en";
+  const dictionaries2 = recommendedDictionariesForLanguageProfile(isLearnerLanguageId(learner) ? learner : "en", "ja");
+  section.lang = locale;
+  section.dir = "ltr";
+  section.querySelector(".jpdb-reader-catalog-seed-title")?.replaceChildren(uiText(locale, "recommendedJapaneseDictionaries"));
+  section.querySelector(".jpdb-reader-catalog-seed-summary")?.replaceChildren(
+  formatDictionaryCountAndSize(uiText(locale, "recommendedDictionaryCountAndSize"), dictionaries2.length, completeDictionarySeedSize(dictionaries2, locale), locale)
+  );
+  for (const item of section.querySelectorAll("[data-catalog-recommendation]")) {
+  const dictionary = dictionaries2.find((candidate) => candidate.catalogDictionaryId === item.dataset.catalogRecommendation);
+  if (dictionary) item.querySelector(".jpdb-reader-help")?.replaceChildren(recommendedDictionaryDescription(dictionary, locale));
+  }
+}
 function renderRecommendedDictionary(dictionary, installed, locale) {
   const alreadyInstalled = typeof installed === "boolean" ? installed : recommendedDictionaryInstallState(dictionary, installed);
   const description = recommendedDictionaryDescription(dictionary, locale);
@@ -25087,6 +25106,9 @@ function localizeRecommendedDictionaryGroups(form, text2) {
   });
 }
 function localizeCatalogBrowseSection(form, text2) {
+  form.querySelectorAll("[data-catalog-recommendation-seed]").forEach((seed) => {
+  localizeCatalogRecommendationSeed(seed, resolveUiLanguageFromText(text2));
+  });
   const section = form.querySelector("[data-catalog-browse]");
   if (!section) return;
   localizeCatalogBrowse(section, text2, resolveUiLanguageFromText(text2));
@@ -25156,7 +25178,9 @@ function localizeRecommendedDictionaryButtons(form, text2) {
 }
 function localizeDictionaryStatus(form, text2) {
   const dictionaryStatus = form.querySelector("[data-dictionary-status]");
-  if (dictionaryStatus && /Checking imported|インポート済み辞書を確認/.test(dictionaryStatus.textContent ?? "")) {
+  if (dictionaryStatus && ["en", "ja"].some((language2) => dictionaryStatus.textContent === uiText(language2, "noLocalDictionariesImported"))) {
+  dictionaryStatus.textContent = text2("noLocalDictionariesImported");
+  } else if (dictionaryStatus && /Checking imported|インポート済み辞書を確認/.test(dictionaryStatus.textContent ?? "")) {
   dictionaryStatus.textContent = text2("checkingDictionaries");
   }
 }
@@ -29122,7 +29146,7 @@ class SettingsDialogController {
   this.previewBaseline = new SettingsPreviewBaseline(dependencies, () => this.currentForm);
   this.academyAccountSync = new AcademyAccountSyncSettingsController((message) => dependencies.toast(message));
   this.restoreCoordinator = new SettingsRestoreCoordinator({
-    interfaceLanguage: () => this.settings.interfaceLanguage,
+    interfaceLanguage: () => this.currentForm ? getFormInterfaceLanguage(this.currentForm, this.settings.interfaceLanguage) : this.settings.interfaceLanguage,
     currentForm: () => this.currentForm,
     toast: (message) => dependencies.toast(message),
     invalidateRestoreDependents: () => this.invalidateRestoreDependentOperations()

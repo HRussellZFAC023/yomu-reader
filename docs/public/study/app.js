@@ -95,8 +95,11 @@
     return new ParkableObserver(observer, options);
   }
   function setImportantStyleIfChanged(element, property, value) {
-    if (element.style.getPropertyValue(property) === value && element.style.getPropertyPriority(property) === "important") return;
-    element.style.setProperty(property, value, "important");
+    setInlineStyleIfChanged(element, property, value, "important");
+  }
+  function setInlineStyleIfChanged(element, property, value, priority = "") {
+    if (element.style.getPropertyValue(property) === value && element.style.getPropertyPriority(property) === priority) return;
+    element.style.setProperty(property, value, priority);
   }
   const CSS_PIXEL_SIGNIFICANT_DIGITS = 6;
   const CSS_PIXEL_MINIMUM = 1e-6;
@@ -4445,7 +4448,7 @@
       extensionDictionaryUnavailable: "The extension dictionary service is unavailable. Retry, or reload the Yomu extension.",
       extensionDictionaryConnectionLost: "The extension dictionary connection was lost. Check whether the operation completed before retrying.",
       localDictionariesEnabled: "Show imported dictionary definitions",
-      localDictionarySiteStorageHelp: "Imported dictionaries are stored by the site where you import them. Other sites answer from Jiten and your online sources.",
+      localDictionarySiteStorageHelp: "Imported dictionaries stay on your device.",
       clearLocalDictionarySiteStorage: "Disable and remove stored dictionaries",
       clearLocalDictionarySiteStorageConfirm: "Disable imported dictionaries and delete this site's stored copy?\n\nSites that still hold a copy from earlier versions remove it the next time you visit them. You can re-import dictionaries at any time.",
       clearLocalDictionarySiteStorageClearing: "Disabling imported dictionaries and clearing this site's copy...",
@@ -4463,7 +4466,7 @@
       extensionDictionaryUnavailable: "拡張機能の辞書サービスを利用できません。再試行するか、よむ拡張機能を再読み込みしてください。",
       extensionDictionaryConnectionLost: "拡張機能の辞書サービスとの接続が切れました。再試行する前に、操作が完了していないか確認してください。",
       localDictionariesEnabled: "インポート済み辞書の定義を表示",
-      localDictionarySiteStorageHelp: "インポート済み辞書は、インポートしたサイトに保存されます。他のサイトではJitenなどのオンラインソースが使われます。",
+      localDictionarySiteStorageHelp: "インポートした辞書は端末内に保存されます。",
       clearLocalDictionarySiteStorage: "無効にして保存済み辞書を削除",
       clearLocalDictionarySiteStorageConfirm: "インポート済み辞書を無効にし、このサイトの保存コピーを削除しますか？\n\n以前のバージョンのコピーが残っているサイトは、次回訪問時に自動的に削除されます。辞書はいつでも再インポートできます。",
       clearLocalDictionarySiteStorageClearing: "インポート済み辞書を無効にし、このサイトのコピーを削除中...",
@@ -5203,6 +5206,8 @@
       lookupPillOrder: "Lookup pill order",
       builtInAction: "Built-in action",
       recommendedDownloads: "Dictionaries",
+      recommendedJapaneseDictionaries: "Recommended Japanese dictionaries",
+      recommendedDictionaryCountAndSize: "Dictionaries: {count} · {size}",
       termDictionaries: "Term dictionaries",
       kanjiDictionaries: "Kanji dictionaries",
       pitchDictionaries: "Pitch dictionaries",
@@ -6728,6 +6733,8 @@ lookupUrlTemplateNumber	ピル{number} URL
 lookupPillOrder	検索ピルの順序
 builtInAction	内蔵アクション
 recommendedDownloads	辞書
+recommendedJapaneseDictionaries	おすすめの日本語辞書
+recommendedDictionaryCountAndSize	辞書{count}件 · {size}
 termDictionaries	語句辞書
 kanjiDictionaries	漢字辞書
 pitchDictionaries	ピッチ辞書
@@ -20168,6 +20175,31 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   function pruneProjectedReadings(document2) {
     yomuAnnotationsCompanion()?.pruneProjectedReadings(document2);
   }
+  function styleDetachedReadingElements(root, host) {
+    const detachedRubies = Array.from(root.querySelectorAll(".jpdb-reader-detached-ruby"));
+    if (!detachedRubies.length) return;
+    const hostStyle = safeComputedStyle(host);
+    const hostFontSize = Number.parseFloat(hostStyle.fontSize) || 16;
+    const readingFontSize = Math.min(10, Math.max(6, hostFontSize * 0.46));
+    for (const wrapper of detachedRubies) {
+      setInlineStyleIfChanged(wrapper, "position", "relative", "important");
+      setInlineStyleIfChanged(wrapper, "display", "inline-block", "important");
+      setInlineStyleIfChanged(wrapper, "line-height", "1", "important");
+      setInlineStyleIfChanged(wrapper, "vertical-align", "baseline", "important");
+      setInlineStyleIfChanged(wrapper, "white-space", "nowrap", "important");
+    }
+    for (const reading of root.querySelectorAll(".jpdb-reader-detached-furi")) {
+      setInlineStyleIfChanged(reading, "display", "none", "important");
+      setInlineStyleIfChanged(reading, "font-size", `${readingFontSize}px`);
+      setInlineStyleIfChanged(reading, "font-weight", "normal");
+      setInlineStyleIfChanged(reading, "line-height", "1", "important");
+      setInlineStyleIfChanged(reading, "text-decoration", "none", "important");
+      setInlineStyleIfChanged(reading, "user-select", "none");
+      setInlineStyleIfChanged(reading, "-webkit-user-select", "none");
+      if (reading.style.getPropertyValue("color")) reading.style.removeProperty("color");
+      setInlineStyleIfChanged(reading, "-webkit-text-fill-color", "currentColor", "important");
+    }
+  }
   function createPostPaintPass(run) {
     let pendingScheduler = null;
     const flush = () => {
@@ -22602,35 +22634,6 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       if (side === "end" && sourceOffset > nodeStart) return candidate;
     }
     return boundary;
-  }
-  function styleDetachedReadingElements(root, host) {
-    const detachedRubies = Array.from(root.querySelectorAll(".jpdb-reader-detached-ruby"));
-    if (!detachedRubies.length) return;
-    const hostStyle = safeComputedStyle(host);
-    const hostFontSize = Number.parseFloat(hostStyle.fontSize) || 16;
-    const readingFontSize = Math.min(10, Math.max(6, hostFontSize * 0.46));
-    for (const wrapper of detachedRubies) {
-      setInlineStyleIfChanged(wrapper, "position", "relative", "important");
-      setInlineStyleIfChanged(wrapper, "display", "inline-block", "important");
-      setInlineStyleIfChanged(wrapper, "line-height", "1", "important");
-      setInlineStyleIfChanged(wrapper, "vertical-align", "baseline", "important");
-      setInlineStyleIfChanged(wrapper, "white-space", "nowrap", "important");
-    }
-    for (const reading of root.querySelectorAll(".jpdb-reader-detached-furi")) {
-      setInlineStyleIfChanged(reading, "display", "none", "important");
-      setInlineStyleIfChanged(reading, "font-size", `${readingFontSize}px`);
-      setInlineStyleIfChanged(reading, "font-weight", "normal");
-      setInlineStyleIfChanged(reading, "line-height", "1", "important");
-      setInlineStyleIfChanged(reading, "text-decoration", "none", "important");
-      setInlineStyleIfChanged(reading, "user-select", "none");
-      setInlineStyleIfChanged(reading, "-webkit-user-select", "none");
-      if (reading.style.getPropertyValue("color")) reading.style.removeProperty("color");
-      setInlineStyleIfChanged(reading, "-webkit-text-fill-color", "currentColor", "important");
-    }
-  }
-  function setInlineStyleIfChanged(element, property, value, priority = "") {
-    if (element.style.getPropertyValue(property) === value && element.style.getPropertyPriority(property) === priority) return;
-    element.style.setProperty(property, value, priority);
   }
   function removeInlineStyleIfPresent(element, property) {
     if (!element.style.getPropertyValue(property) && !element.style.getPropertyPriority(property)) return;
@@ -89234,6 +89237,21 @@ ${reading}`);
         </section>
     `;
   }
+  function localizeCatalogRecommendationSeed(section, language2) {
+    const locale = resolveUiLanguage(language2);
+    const learner = section.dataset.catalogRecommendationSeed ?? "en";
+    const dictionaries2 = recommendedDictionariesForLanguageProfile(isLearnerLanguageId(learner) ? learner : "en", "ja");
+    section.lang = locale;
+    section.dir = "ltr";
+    section.querySelector(".jpdb-reader-catalog-seed-title")?.replaceChildren(uiText(locale, "recommendedJapaneseDictionaries"));
+    section.querySelector(".jpdb-reader-catalog-seed-summary")?.replaceChildren(
+      formatDictionaryCountAndSize(uiText(locale, "recommendedDictionaryCountAndSize"), dictionaries2.length, completeDictionarySeedSize(dictionaries2, locale), locale)
+    );
+    for (const item of section.querySelectorAll("[data-catalog-recommendation]")) {
+      const dictionary = dictionaries2.find((candidate) => candidate.catalogDictionaryId === item.dataset.catalogRecommendation);
+      if (dictionary) item.querySelector(".jpdb-reader-help")?.replaceChildren(recommendedDictionaryDescription(dictionary, locale));
+    }
+  }
   function renderRecommendedDictionary(dictionary, installed, locale) {
     const alreadyInstalled = typeof installed === "boolean" ? installed : recommendedDictionaryInstallState(dictionary, installed);
     const description = recommendedDictionaryDescription(dictionary, locale);
@@ -91259,6 +91277,9 @@ ${reading}`);
     });
   }
   function localizeCatalogBrowseSection(form, text2) {
+    form.querySelectorAll("[data-catalog-recommendation-seed]").forEach((seed) => {
+      localizeCatalogRecommendationSeed(seed, resolveUiLanguageFromText(text2));
+    });
     const section = form.querySelector("[data-catalog-browse]");
     if (!section) return;
     localizeCatalogBrowse(section, text2, resolveUiLanguageFromText(text2));
@@ -91328,7 +91349,9 @@ ${reading}`);
   }
   function localizeDictionaryStatus(form, text2) {
     const dictionaryStatus = form.querySelector("[data-dictionary-status]");
-    if (dictionaryStatus && /Checking imported|インポート済み辞書を確認/.test(dictionaryStatus.textContent ?? "")) {
+    if (dictionaryStatus && ["en", "ja"].some((language2) => dictionaryStatus.textContent === uiText(language2, "noLocalDictionariesImported"))) {
+      dictionaryStatus.textContent = text2("noLocalDictionariesImported");
+    } else if (dictionaryStatus && /Checking imported|インポート済み辞書を確認/.test(dictionaryStatus.textContent ?? "")) {
       dictionaryStatus.textContent = text2("checkingDictionaries");
     }
   }
@@ -94387,7 +94410,7 @@ ${reading}`);
       this.previewBaseline = new SettingsPreviewBaseline(dependencies, () => this.currentForm);
       this.academyAccountSync = new AcademyAccountSyncSettingsController((message) => dependencies.toast(message));
       this.restoreCoordinator = new SettingsRestoreCoordinator({
-        interfaceLanguage: () => this.settings.interfaceLanguage,
+        interfaceLanguage: () => this.currentForm ? getFormInterfaceLanguage(this.currentForm, this.settings.interfaceLanguage) : this.settings.interfaceLanguage,
         currentForm: () => this.currentForm,
         toast: (message) => dependencies.toast(message),
         invalidateRestoreDependents: () => this.invalidateRestoreDependentOperations()
@@ -104352,6 +104375,9 @@ ${entry.url}`),
   function appendNewTabLoadResult(accumulator, result) {
     accumulator.reviewCountMode ||= result.reviewCountMode === true;
     accumulator.emptyMessageKey = result.emptyMessageKey ?? accumulator.emptyMessageKey;
+    if (result.cards.length) {
+      accumulator.sourceId = !accumulator.cards.length || accumulator.sourceId === result.sourceId ? result.sourceId : void 0;
+    }
     appendLoadedWords(result, accumulator.cards, accumulator.labels);
     if (!result.cards.length && result.reviewCountMode === true && result.sourceLabel && !accumulator.labels.includes(result.sourceLabel)) {
       accumulator.labels.push(result.sourceLabel);
@@ -104389,6 +104415,8 @@ ${entry.url}`),
     accumulator.reviewCountMode = results.some((result) => result.reviewCountMode === true);
     accumulator.emptyMessageKey = results.find((result) => result.emptyMessageKey)?.emptyMessageKey;
     const activeResults = results.filter((result) => result.cards.length > 0);
+    const sourceId = activeResults[0]?.sourceId;
+    if (sourceId && activeResults.every((result) => result.sourceId === sourceId)) accumulator.sourceId = sourceId;
     accumulator.cards.push(...interleaveNewTabCards(activeResults.map((result) => result.cards)));
     accumulator.labels.push(...activeResults.map((result) => result.sourceLabel));
     return accumulator;
@@ -104396,6 +104424,7 @@ ${entry.url}`),
   function newTabLoadResult(accumulator, language2) {
     return {
       cards: accumulator.cards,
+      ...accumulator.sourceId ? { sourceId: accumulator.sourceId } : {},
       sourceLabel: accumulator.labels.length ? orderedNewTabSourceLabels(accumulator.labels).join(" + ") : newTabText(language2, "noSource"),
       reviewCountMode: accumulator.reviewCountMode,
       emptyMessageKey: accumulator.emptyMessageKey,
@@ -114332,6 +114361,7 @@ ${options.version}`;
     visibleWords = [];
     index = 0;
     sourceLabel = "";
+    sourceId;
     visiblePoolSignature = "";
     // Post-grade refresh coalescing: the graded card is removed locally, so
     // queue accuracy does not need a provider round-trip per grade — a 500-due
@@ -114834,6 +114864,7 @@ ${options.version}`;
       this.visibleWords = [];
       this.index = 0;
       this.sourceLabel = "";
+      this.sourceId = void 0;
       this.visiblePoolSignature = "";
       this.navigationSupplementPromise = null;
       this.reviewCountMode = false;
@@ -114878,7 +114909,7 @@ ${options.version}`;
     practiceSelection() {
       const cards = new Map(this.visibleWords.filter(newTabCardMatchesActiveTarget).map((card) => [this.cardSelectionKey(card), card]));
       return {
-        title: this.sourceLabel || uiText(this.language(), "practiceTitle"),
+        title: this.sourceId === "starter-words" ? this.text("starterWords") : this.sourceLabel || uiText(this.language(), "practiceTitle"),
         material: [...cards].map(([id, card]) => ({
           id,
           language: newTabCardTarget().language,
@@ -116052,6 +116083,7 @@ ${options.version}`;
       this.emptyLoadMessageKey = result.emptyMessageKey ?? null;
       this.fallbackStudyNotice = result.fallbackNotice === true;
       this.sourceLabel = this.loadedWordSourceLabel(result.sourceLabel, statsStudyFilter);
+      this.sourceId = result.sourceId;
       this.statsStudyFilter = null;
     }
     loadedWordSourceLabel(sourceLabel, statsStudyFilter) {
@@ -116178,6 +116210,7 @@ ${options.version}`;
       this.reviewCountMode = false;
       this.emptyLoadMessageKey = null;
       this.sourceLabel = this.offlineSourceLabel(cached.sourceLabel);
+      this.sourceId = void 0;
     }
     canPrimeWithOfflineCache(cards) {
       if (this.state.source === "dictionary") return cards.every((card) => this.isDictionaryCard(card));
@@ -116652,6 +116685,7 @@ ${options.version}`;
       return {
         cards,
         sourceLabel: this.text("starterWords"),
+        sourceId: "starter-words",
         reviewCountMode: false
       };
     }
@@ -117072,6 +117106,7 @@ ${options.version}`;
       this.navigationSupplementPromise = null;
       this.index = 0;
       this.sourceLabel = "";
+      this.sourceId = void 0;
       this.reviewCountMode = false;
       this.clearReviewHistory();
       this.emptyLoadMessageKey = null;
