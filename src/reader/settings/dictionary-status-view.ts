@@ -1,5 +1,5 @@
 import type { ReaderSettings } from '../app/types';
-import { formatUiText, uiText } from '../app/i18n';
+import { uiText } from '../app/i18n';
 import { setInnerHtml } from '../dom/index';
 import type { LearningTargetRosterId } from '../languages';
 import type { LearnerLanguageId } from '../locales';
@@ -87,13 +87,10 @@ function renderDictionaryStatusLine(
     settings: ReaderSettings,
 ): void {
     if (!element) return;
+    // Installed dictionaries already appear in the source rows. Keep this live
+    // region for the empty state and failures, rather than duplicate technical counts.
     element.textContent = summary.dictionaries.length
-        ? formatUiText(settings.interfaceLanguage, 'dictionaryStatusSummary', {
-            dictionaries: summary.dictionaries.length.toLocaleString(),
-            terms: summary.terms.toLocaleString(),
-            kanji: summary.kanji.toLocaleString(),
-            metadata: summary.termMeta.toLocaleString(),
-        })
+        ? ''
         : uiText(settings.interfaceLanguage, 'noLocalDictionariesImported');
 }
 

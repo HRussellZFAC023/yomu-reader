@@ -2372,7 +2372,7 @@ describe('settings dialog dictionary imports', () => {
         });
         await dialog.refreshDictionaryStatus(dialog.form);
         expect(recommendedButton(dialog.form, 'jitendex').textContent?.trim()).toBe('Update');
-        expect(dialog.form.querySelector<HTMLElement>('[data-dictionary-status]')?.textContent).toContain('terms 42');
+        expect(dialog.form.querySelector<HTMLElement>('[data-dictionary-status]')?.textContent).toBe('');
     });
 
     it('routes the catalogue disclosure through a live status refresh and recovers after failure', async () => {
@@ -2515,7 +2515,7 @@ describe('settings dialog dictionary imports', () => {
             .toBe(false);
         expect(sourceOrder(dialog.form)).toEqual(liveSourceOrder);
         expect(lookupOrder(dialog.form).indexOf(bccwjId)).toBeLessThan(lookupOrder(dialog.form).indexOf(jitenId));
-        expect(dialog.form.querySelector<HTMLElement>('[data-dictionary-status]')?.textContent).toContain('terms 42');
+        expect(dialog.form.querySelector<HTMLElement>('[data-dictionary-status]')?.textContent).toBe('');
         expect(dialog.dependencies.refreshDictionaryStyles).toHaveBeenCalled();
 
         dialog.form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
