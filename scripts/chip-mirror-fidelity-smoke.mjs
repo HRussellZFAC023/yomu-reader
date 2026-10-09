@@ -813,22 +813,19 @@ writeFileSync(entryPath, `
         runYouTubeGeometryProbe() {
             setRubyDistortsConstrainedRowsForTest(null);
             removeNonDestructiveScanMirrors(document);
+            // 質問する is YouTube's own <button>: the page's control stays exactly
+            // as YouTube drew it, so a scan finds nothing to paint inside it.
             const chip = document.getElementById('ask-chip')!;
             const label = document.getElementById('ask-label')!;
             label.textContent = ASK_TEXT;
             const nativeBefore = findTextNode(label, ASK_TEXT);
-            const baseBefore = rectOfText(nativeBefore, 0, 2);
             const chipBefore = chip.getBoundingClientRect();
             const chipBoxBefore = boxGeometry(chip);
-            paintSingleWord(label, ASK_TEXT, '質問', 'しつもん');
-            const mirror = label.querySelector<HTMLElement>('.jpdb-reader-text-mirror');
-            const word = mirror?.querySelector<HTMLElement>('.jpdb-reader-word') ?? null;
-            const sourceReading = mirror?.querySelector<HTMLElement>('.jpdb-reader-detached-furi') ?? null;
-            const reading = projectedReadingFor(sourceReading);
-            const actionReadingAssociations = mirror ? projectedReadingAssociations(mirror) : [];
-            const base = mirror?.querySelector<HTMLElement>('.jpdb-reader-ruby-base') ?? null;
+            const chipHtmlBefore = chip.innerHTML;
+            const askTargetCount = collectTextTargetsIn(chip, 40, false).length;
+            makeRoomForRubyInCroppedRows(document);
+            projectAdditiveTextMirrors(document);
             const nativeAfter = findTextNode(label, ASK_TEXT);
-            const baseAfter = rectOfText(nativeAfter, 0, 2);
             const chipAfter = chip.getBoundingClientRect();
             const chipBoxAfter = boxGeometry(chip);
 
@@ -853,33 +850,15 @@ writeFileSync(entryPath, `
             const metadataProjectedAgain = projectedReadingFor(metadataReading);
             const metadataRectAfterReflow = metadata.getBoundingClientRect();
             return {
-                additiveMirror: Boolean(mirror?.classList.contains('jpdb-reader-additive-text-mirror')),
-                inlineRubyCount: mirror?.querySelectorAll('ruby,rt:not(.jpdb-reader-detached-furi)').length ?? -1,
-                detachedReadingCount: mirror?.querySelectorAll('.jpdb-reader-detached-furi').length ?? 0,
-                sourceReadingVisibleCount: mirror
-                    ? [...mirror.querySelectorAll<HTMLElement>('.jpdb-reader-detached-furi')].filter(visibleElement).length
-                    : 0,
-                projectedReadingCount: actionReadingAssociations.length,
-                projectedReadings: actionReadingAssociations.map(association => ({
-                    text: association.clone.textContent ?? '',
-                    sourceSurface: association.sourceSurface,
-                    sourceRange: association.sourceRange,
-                    centerDelta: association.centerDelta,
-                    baselineDelta: association.baselineDelta,
-                })),
+                askTargetCount,
+                askHtmlUnchanged: chip.innerHTML === chipHtmlBefore,
+                askAnnotationNodes: chip.querySelectorAll(YOMU_ANNOTATION_SELECTOR).length,
                 nativeTextNodePreserved: nativeAfter === nativeBefore,
                 nativeSourceText: nativeAfter.data,
-                nativeBaseCenterDelta: (baseAfter.top + baseAfter.bottom - baseBefore.top - baseBefore.bottom) / 2,
                 chipWidthGrowth: chipAfter.width - chipBefore.width,
                 chipHeightGrowth: chipAfter.height - chipBefore.height,
                 chipBoxBefore,
                 chipBoxAfter,
-                readingBaseClearance: reading && base ? base.getBoundingClientRect().top - reading.getBoundingClientRect().bottom : -1,
-                projectedReadingVisible: Boolean(reading && visibleElement(reading)),
-                projectedReadingClipped: reading ? readingIsClipped(reading) : true,
-                pitchUnderlineSurfaces: mirror ? pitchUnderlineSurfaces(mirror).length : 0,
-                visiblePitchUnderlines: mirror ? pitchUnderlineSurfaces(mirror).filter(paintsPitchUnderline).length : 0,
-                underlineToChipBottom: word ? chipAfter.bottom - word.getBoundingClientRect().bottom : -1,
                 metadataReadingRetained: Boolean(metadataReading),
                 metadataSourceReadingVisible: Boolean(metadataReading && visibleElement(metadataReading)),
                 metadataProjectedBefore: Boolean(metadataProjectedBefore && visibleElement(metadataProjectedBefore)),
@@ -1219,12 +1198,12 @@ body { font: 14px/1.4 Roboto, sans-serif; width: 400px; min-height: 2400px; marg
 #shorts-share-button { box-sizing:border-box;width:48px;height:48px;padding:0;border:0; }
 #shorts-share-label { display:block;width:34px;margin:auto;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:14px/20px Roboto,sans-serif; }
 </style></head><body>
-<div id="chip" role="button"><div id="chip-label"></div></div>
-<div id="tab-row" style="overflow: hidden; height: 32px; margin-top: 24px; background: #f5f5f5;">
-  <div id="tab-label" role="tab" style="font-size: 14px; line-height: 32px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;"></div>
+<div role="toolbar"><a id="chip" href="/sort"><div id="chip-label"></div></a></div>
+<div id="tab-row" role="tablist" style="overflow: hidden; height: 32px; margin-top: 24px; background: #f5f5f5;">
+  <a id="tab-label" role="tab" href="/tab" style="display: block; font-size: 14px; line-height: 32px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;"></a>
 </div>
-<div id="more-row" style="overflow: hidden; height: 22px; margin-top: 24px; background: rgba(0,0,0,0.08); border-radius: 4px; padding: 0 8px;">
-  <div id="generic-more" role="button" style="font-size: 14px; line-height: 22px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">さらに表示</div>
+<div id="more-row" role="toolbar" style="overflow: hidden; height: 22px; margin-top: 24px; background: rgba(0,0,0,0.08); border-radius: 4px; padding: 0 8px;">
+  <a id="generic-more" href="/more" style="display: block; font-size: 14px; line-height: 22px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">さらに表示</a>
 </div>
 <div id="youtube-shelf-scroll-shell">
   <ytd-shelf-renderer id="youtube-shelf-expansion">
@@ -1347,10 +1326,11 @@ function logProbe(name, label, result) {
 }
 
 function verifyChip(name, result) {
-    // The chip is a role=button control: annotated AT REST like any other
-    // text. The reading rides the out-of-flow lane, so the control keeps its
+    // The chip is a compact toolbar link: annotated AT REST like any other
+    // text. The reading rides the out-of-flow lane, so the link keeps its
     // authored geometry and hit target — that is the whole safety mechanism,
     // and the geometry guards below are what enforce it. Nothing is hidden.
+    // (A page's buttons are never annotated; the YouTube probe checks that.)
     if (!result.mirror) fail(`${name}: compact closed control did not use the additive mirror path`, result);
     if (result.detachedReadingCount < 1) fail(`${name}: compact control reading missing`, result);
     if (result.sourceReadingVisibleCount !== 0) fail(`${name}: compact control source reading entered page layout`, result);
@@ -1368,22 +1348,12 @@ function verifyChip(name, result) {
 }
 
 function verifyYouTubeGeometry(name, youtube) {
-    if (!youtube.additiveMirror || youtube.inlineRubyCount !== 0 || youtube.detachedReadingCount < 1) fail(`${name}: YouTube action chip did not use detached additive rendering`, youtube);
-    // The 質問する action chip is a <button>: annotated at rest like any other
-    // text. The source reading stays out of page layout and the projected clone
-    // is what the user reads; the geometry guards below prove the chip is
-    // unaffected, which is what makes annotating chrome safe.
-    if (youtube.sourceReadingVisibleCount !== 0
-        || youtube.projectedReadingCount === 0) fail(`${name}: YouTube action chip is not annotated at rest`, youtube);
-    if (!youtube.nativeTextNodePreserved || youtube.nativeSourceText !== '質問する') fail(`${name}: additive rendering replaced or changed the source text node`, youtube);
-    if (Math.abs(youtube.nativeBaseCenterDelta) > MAX_GEOMETRY_DELTA_PX) fail(`${name}: YouTube action chip base moved vertically`, youtube);
-    if (Math.abs(youtube.chipWidthGrowth) > MAX_GEOMETRY_DELTA_PX || Math.abs(youtube.chipHeightGrowth) > MAX_GEOMETRY_DELTA_PX) fail(`${name}: YouTube action chip geometry changed`, youtube);
-    if (!sameBoxGeometry(youtube.chipBoxBefore, youtube.chipBoxAfter)) fail(`${name}: YouTube action chip changed authored overflow or scroll geometry`, youtube);
-    if (youtube.readingBaseClearance < -MAX_FONT_BOX_CONTACT_PX) fail(`${name}: YouTube action chip furigana intrudes into its base`, youtube);
-    // The pitch underline is a status signal painted on the word itself, so it
-    // costs no layout and a chip carries it at rest exactly like body text.
-    if (youtube.pitchUnderlineSurfaces === 0) fail(`${name}: YouTube action chip has no pitch underline surface to measure`, youtube);
-    if (youtube.visiblePitchUnderlines === 0) fail(`${name}: YouTube action chip lost its pitch underline at rest`, youtube);
+    // 質問する is YouTube's <button>: Yomu leaves the page's controls exactly as
+    // drawn, so nothing is collected, painted or measured inside it.
+    if (youtube.askTargetCount !== 0 || youtube.askAnnotationNodes !== 0 || !youtube.askHtmlUnchanged) fail(`${name}: YouTube action button was annotated`, youtube);
+    if (!youtube.nativeTextNodePreserved || youtube.nativeSourceText !== '質問する') fail(`${name}: YouTube action button source text changed`, youtube);
+    if (Math.abs(youtube.chipWidthGrowth) > MAX_GEOMETRY_DELTA_PX || Math.abs(youtube.chipHeightGrowth) > MAX_GEOMETRY_DELTA_PX) fail(`${name}: YouTube action button geometry changed`, youtube);
+    if (!sameBoxGeometry(youtube.chipBoxBefore, youtube.chipBoxAfter)) fail(`${name}: YouTube action button changed authored overflow or scroll geometry`, youtube);
     if (!youtube.metadataReadingRetained || youtube.metadataSourceReadingVisible) fail(`${name}: metadata source reading entered page layout`, youtube);
     if (!youtube.metadataProjectedBefore || !youtube.metadataProjectedSafe || !youtube.metadataProjectedAgain) fail(`${name}: metadata projected furigana did not remain visible across reflow`, youtube);
     if (Math.abs(youtube.metadataReflowTopDelta) > MAX_GEOMETRY_DELTA_PX || Math.abs(youtube.metadataReflowHeightDelta) > MAX_GEOMETRY_DELTA_PX) fail(`${name}: metadata reflow probe changed the source row geometry`, youtube);

@@ -1,10 +1,10 @@
 import type { JPDBGrade } from '../app/types';
 import type { ReviewGradeProfile, ReviewShortcutKey } from '../cards/grade-scale';
+import type { DeckChoice } from '../cards/deck-choice';
 import { createPrivateElementStateSlot } from './private-element-state';
 
 export type CardCommandAction =
     | 'add'
-    | 'add-default'
     | 'anki'
     | 'anki-edit'
     | 'anki-media-audio'
@@ -54,12 +54,8 @@ export type CardCommandCapability = Readonly<{
 export type CardUiCommandCapability = Readonly<{
     kind: 'card-ui';
     action: 'deck-picker' | 'mining-collapse' | 'review-target-toggle';
-}>;
-
-export type DeckChoiceCapability = Readonly<{
-    kind: 'deck-choice';
-    source: 'jpdb' | 'jiten' | 'bunpro' | 'yomu-local' | 'anki';
-    id: string;
+    /** "Add to deck…": the decks it offers, kept out of the page's DOM. */
+    choices?: readonly DeckChoice[];
 }>;
 
 export type ReviewTargetCapability = Readonly<{
@@ -197,7 +193,6 @@ export type PrivateCommandCapability =
     | CardCommandCapability
     | Readonly<{ kind: 'review-selector'; reviewGroup: symbol }>
     | CardUiCommandCapability
-    | DeckChoiceCapability
     | ReviewTargetCapability
     | AnkiAudioMergeCapability
     | KanjiCommandCapability
@@ -262,11 +257,6 @@ export function readCardCommandCapability(element: Element | null | undefined): 
 export function readCardUiCommandCapability(element: Element | null | undefined): CardUiCommandCapability | undefined {
     const command = readPrivateCommandCapability(element);
     return command?.kind === 'card-ui' ? command : undefined;
-}
-
-export function readDeckChoiceCapability(element: Element | null | undefined): DeckChoiceCapability | undefined {
-    const command = readPrivateCommandCapability(element);
-    return command?.kind === 'deck-choice' ? command : undefined;
 }
 
 export function readReviewTargetCapability(element: Element | null | undefined): ReviewTargetCapability | undefined {
@@ -434,6 +424,9 @@ function immutableCommandSnapshot(command: PrivateCommandCapability): PrivateCom
     }
     if (command.kind === 'card-action' && command.audioUrls) {
         return Object.freeze({ ...command, audioUrls: Object.freeze([...command.audioUrls]) });
+    }
+    if (command.kind === 'card-ui' && command.choices) {
+        return Object.freeze({ ...command, choices: Object.freeze(command.choices.map(choice => Object.freeze({ ...choice }))) });
     }
     return Object.freeze({ ...command });
 }

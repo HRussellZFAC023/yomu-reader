@@ -1,6 +1,7 @@
 import { uiText } from '../app/i18n';
 import type { InterfaceLanguage } from '../app/types';
 import { activateSettingsPanel, getFormInterfaceLanguage } from './form';
+import { showSettingsSaveStatus } from './settings-restore-coordinator';
 
 type SettingsConstraintControl = HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement;
 
@@ -17,8 +18,9 @@ export function reportInvalidSettingsForm(
     control.focus();
     const message = control.validationMessage
         || uiText(getFormInterfaceLanguage(form, fallbackLanguage), 'settingsSaveFailed');
-    showInvalidSettingsStatus(form, message);
-    toast(message);
+    // The status line beside Save says it and is announced. A toast would only
+    // repeat it, and on a phone it sat on the very field to fix.
+    if (!showInvalidSettingsStatus(form, message)) toast(message);
 }
 
 function activateInvalidSettingsPanel(form: HTMLFormElement, control: SettingsConstraintControl): void {
@@ -26,12 +28,11 @@ function activateInvalidSettingsPanel(form: HTMLFormElement, control: SettingsCo
     if (panel) activateSettingsPanel(form, panel);
 }
 
-function showInvalidSettingsStatus(form: HTMLFormElement, message: string): void {
+function showInvalidSettingsStatus(form: HTMLFormElement, message: string): boolean {
     const status = form.querySelector<HTMLElement>('[data-settings-save-status]');
-    if (status) {
-        status.hidden = false;
-        status.textContent = message;
-    }
+    if (!status) return false;
+    showSettingsSaveStatus(form, message, 'error');
+    return status.isConnected && getComputedStyle(status).display !== 'none';
 }
 
 function firstInvalidSettingsControl(form: HTMLFormElement): SettingsConstraintControl | null {

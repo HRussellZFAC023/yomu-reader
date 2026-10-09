@@ -4,7 +4,7 @@ import {
     bindPrivateCommandCapability,
     privateCommandAttributes,
     readCardCommandCapability,
-    readDeckChoiceCapability,
+    readCardUiCommandCapability,
     readPrivateCommandCapability,
     readSubtitleCommandCapability,
 } from '../../src/reader/dom/private-command-capabilities';
@@ -142,23 +142,18 @@ describe('private command capabilities', () => {
         expect(readSubtitleCommandCapability(button.cloneNode(true) as Element)).toBeUndefined();
     });
 
-    it('keeps select option identity in the option WeakMap when values and attributes change', () => {
-        const select = document.createElement('select');
-        setInnerHtml(select, `<option value="jpdb:real" data-deck-source="jpdb" data-deck-id="real"${privateCommandAttributes({
-            kind: 'deck-choice',
-            source: 'jpdb',
-            id: 'real',
-        })}>Real deck</option>`);
-        const option = select.options[0]!;
-        option.value = 'anki:attacker';
-        option.dataset.deckSource = 'anki';
-        option.dataset.deckId = 'attacker';
+    it('carries "Add to deck…" choices privately and snapshots them', () => {
+        const root = document.createElement('div');
+        const choices = [{ source: 'jpdb' as const, id: 'real', label: 'JPDB: Secret mining deck' }];
+        setInnerHtml(root, `<button${privateCommandAttributes({ kind: 'card-ui', action: 'deck-picker', choices })}>Add to deck…</button>`);
+        choices[0]!.id = 'attacker';
+        choices.push({ source: 'jpdb', id: 'other', label: 'JPDB: Other' });
+        const button = root.querySelector('button')!;
 
-        expect(readDeckChoiceCapability(option)).toEqual({
-            kind: 'deck-choice',
-            source: 'jpdb',
-            id: 'real',
-        });
+        expect(readCardUiCommandCapability(button)?.choices).toEqual([{ source: 'jpdb', id: 'real', label: 'JPDB: Secret mining deck' }]);
+        expect(Object.isFrozen(readCardUiCommandCapability(button)?.choices?.[0])).toBe(true);
+        expect(root.innerHTML).not.toMatch(/Secret|mining deck|real/);
+        expect(readCardUiCommandCapability(button.cloneNode(true) as Element)).toBeUndefined();
     });
 
     it('keeps New Tab grade and selected target authority after hostile option rewrites', () => {

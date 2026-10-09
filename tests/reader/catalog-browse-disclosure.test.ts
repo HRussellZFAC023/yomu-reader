@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { catalogBrowseDictionaries } from '../../src/reader/dictionaries/catalog-browse';
+import { catalogBrowseLanguageSectionsForLearnerLanguage } from '../../src/reader/dictionaries/recommended';
 import { catalogBrowseCopy } from '../../src/reader/dictionaries/catalog-browse-copy';
 import {
     applyCatalogBrowseFilter,
@@ -38,14 +39,16 @@ describe('the exhaustive dictionary catalogue disclosure', () => {
             `initial catalogue DOM contained ${catalogueElementCount} elements and ${catalogueCardCount} cards`,
         ).toBe(5);
         expect(catalogueCardCount).toBe(0);
-        // Five mirror archives are offered once, by the hand-picked Japanese cards.
-        expect(section!.dataset.catalogBrowseCount).toBe('1595');
+        const available = catalogBrowseLanguageSectionsForLearnerLanguage('en', 'ja')
+            .flatMap(shelf => shelf.groups).flatMap(group => group.dictionaries);
+        expect(available.length).toBeGreaterThan(0);
+        expect(Number(section!.dataset.catalogBrowseCount)).toBe(available.length);
         expect(section!.dataset.catalogBrowseExpanded).toBe('false');
         expect(section!.querySelector('[data-catalog-browse-filter]')).toBeNull();
         expect(section!.querySelector('[data-action="toggle-catalog-browse"]')?.getAttribute('aria-expanded')).toBe('false');
     });
 
-    it('keeps collapsed aliases searchable and localizes English, Japanese, and RTL chrome without cards', () => {
+    it('keeps collapsed aliases searchable and localizes supported interfaces without cards', () => {
         const englishForm = renderedForm('en');
         const englishSection = browseSection(englishForm);
 
@@ -61,11 +64,11 @@ describe('the exhaustive dictionary catalogue disclosure', () => {
         expect(englishSection.querySelector('[data-catalog-browse-summary]')!.textContent).not.toContain('0 辞書');
         expect(englishSection.querySelectorAll('[data-catalog-recommendation]')).toHaveLength(0);
 
-        const rtlSection = browseSection(renderedForm('fa'));
-        expect(rtlSection.dir).toBe('rtl');
-        expect(rtlSection.lang).toBe('fa');
-        expect(rtlSection.querySelector('[data-catalog-browse-title]')!.textContent).toBe(catalogBrowseCopy('fa').title);
-        expect(rtlSection.querySelectorAll('[data-catalog-recommendation]')).toHaveLength(0);
+        const legacyLocaleSection = browseSection(renderedForm('fa'));
+        expect(legacyLocaleSection.dir).toBe('ltr');
+        expect(legacyLocaleSection.lang).toBe('en');
+        expect(legacyLocaleSection.querySelector('[data-catalog-browse-title]')!.textContent).toBe(catalogBrowseCopy('en').title);
+        expect(legacyLocaleSection.querySelectorAll('[data-catalog-recommendation]')).toHaveLength(0);
     });
 
     it('materializes on demand and preserves search, focus, and installed state across refreshes', async () => {

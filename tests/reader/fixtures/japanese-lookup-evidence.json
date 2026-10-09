@@ -1,0 +1,972 @@
+{
+  "recordedAt": "2026-10-05T07:38:19.691Z",
+  "recordedCommit": "b36c243e0a75d1ce5b78787cbe854fd247ceed3e",
+  "corpus": {
+    "language": "ja",
+    "source": {
+      "kind": "project-authored-translation",
+      "story": "maria-market-v1",
+      "license": "MIT",
+      "reviewStatus": "machine-drafted-2026-07-31"
+    },
+    "sentences": [
+      {
+        "id": "ja-01",
+        "text": "月曜日の朝、マリアは早く市場へ行きました。",
+        "contentWords": [
+          "月曜日",
+          "朝",
+          "マリア",
+          "早く",
+          "市場",
+          "行きました"
+        ]
+      },
+      {
+        "id": "ja-02",
+        "text": "新鮮なパンとりんごを二つ、それに水を一本買いました。",
+        "contentWords": [
+          "新鮮",
+          "パン",
+          "りんご",
+          "二つ",
+          "水",
+          "一本",
+          "買いました"
+        ]
+      },
+      {
+        "id": "ja-03",
+        "text": "店員は彼女に挨拶し、家族のことを尋ねました。",
+        "contentWords": [
+          "店員",
+          "彼女",
+          "挨拶",
+          "家族",
+          "尋ねました"
+        ]
+      },
+      {
+        "id": "ja-04",
+        "text": "マリアは子どもたちが家で勉強していると話しました。",
+        "contentWords": [
+          "マリア",
+          "子どもたち",
+          "家",
+          "勉強",
+          "話しました"
+        ]
+      },
+      {
+        "id": "ja-05",
+        "text": "買い物のあと、彼女は公園を歩きました。",
+        "contentWords": [
+          "買い物",
+          "彼女",
+          "公園",
+          "歩きました"
+        ]
+      },
+      {
+        "id": "ja-06",
+        "text": "小さな犬が湖の近くで遊んでいました。",
+        "contentWords": [
+          "小さな",
+          "犬",
+          "湖",
+          "近く",
+          "遊んでいました"
+        ]
+      },
+      {
+        "id": "ja-07",
+        "text": "彼女は木の下に座り、新しい本を読みました。",
+        "contentWords": [
+          "彼女",
+          "木",
+          "下",
+          "座り",
+          "新しい",
+          "本",
+          "読みました"
+        ]
+      },
+      {
+        "id": "ja-08",
+        "text": "雨が降り始めると、青い傘を開きました。",
+        "contentWords": [
+          "雨",
+          "降り始める",
+          "青い",
+          "傘",
+          "開きました"
+        ]
+      },
+      {
+        "id": "ja-09",
+        "text": "夕食前にバスで家へ帰りました。",
+        "contentWords": [
+          "夕食",
+          "バス",
+          "家",
+          "帰りました"
+        ]
+      },
+      {
+        "id": "ja-10",
+        "text": "夜は家族全員で食事をし、その日のことを話しました。",
+        "contentWords": [
+          "夜",
+          "家族",
+          "全員",
+          "食事",
+          "その日",
+          "話しました"
+        ]
+      }
+    ]
+  },
+  "dictionary": {
+    "id": "jmdict-en",
+    "title": "JMdict (en)",
+    "version": "2026-07-23",
+    "catalogRevision": "2026-07-23.574961e8.wty-95a9151c1beb",
+    "sha256": "5a413fc1bb5cd9250088dd27180df436bd518c6541cd82a597a62e2f1bd4bbe9",
+    "bytes": 15509389,
+    "url": "https://dictionaries.yomureader.com/objects/sha256/5a413fc1bb5cd9250088dd27180df436bd518c6541cd82a597a62e2f1bd4bbe9.zip",
+    "license": {
+      "spdx": "CC-BY-SA-4.0",
+      "attribution": "Electronic Dictionary Research and Development Group (EDRDG) and jmdict-yomitan contributors",
+      "sourceUrl": "https://github.com/yomidevs/jmdict-yomitan",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+      "redistribution": "allowed",
+      "reviewNote": "The generated dictionaries are published by jmdict-yomitan under CC BY-SA 4.0."
+    }
+  },
+  "terms": [
+    {
+      "expression": "月曜日",
+      "reading": "げつようび",
+      "definitionTags": "n adv",
+      "rules": "",
+      "score": 999800,
+      "glossary": [
+        "Published dictionary match (compact parity evidence)."
+      ],
+      "sequence": 1255890,
+      "termTags": "⭐ ichi",
+      "dictionary": "JMdict [2026-07-23]"
+    },
+    {
+      "expression": "野",
+      "reading": "の",
+      "definitionTags": "1 n",
+      "rules": "",
+      "score": 1999800,
+      "glossary": [
+        "Published dictionary match (compact parity evidence)."
+      ],
+      "sequence": 1537250,
+      "termTags": "⭐ ichi news2k",
+      "dictionary": "JMdict [2026-07-23]"
+    },
+    {
+      "expression": "朝",
+      "reading": "あさ",
+      "definitionTags": "1 n adv",
+      "rules": "",
+      "score": 1999800,
+      "glossary": [
+        "Published dictionary match (compact parity evidence)."
+      ],
+      "sequence": 1428280,
+      "termTags": "⭐ ichi news5k",
+      "dictionary": "JMdict [2026-07-23]"
+    },
+    {
+      "expression": "マリア",
+      "reading": "マリア",
+      "definitionTags": "1 n",
+      "rules": "",
+      "score": -200,
+      "glossary": [
+        "Published dictionary match (compact parity evidence)."
+      ],
+      "sequence": 2573170,
+      "termTags": "",
+      "dictionary": "JMdict [2026-07-23]"
+    },
+    {
+      "expression": "歯",
+      "reading": "は",
+      "definitionTags": "1 n",
+      "rules": "",
+      "score": 1999800,
+      "glossary": [
+        "Published dictionary match (compact parity evidence)."
+      ],
+      "sequence": 1313000,
+      "termTags": "⭐ ichi news3k",
+      "dictionary": "JMdict [2026-07-23]"
+    },
+    {
+      "expression": "早く",
+      "reading": "はやく",
+      "definitionTags": "1 adv n",
+      "rules": "",
+      "score": 999800,
+      "glossary": [
+        "Published dictionary match (compact parity evidence)."
+      ],
+      "sequence": 1400150,
+      "termTags": "⭐ ichi",
+      "dictionary": "JMdict [2026-07-23]"
+    },
+    {
+      "expression": "市場",
+      "reading": "いちば",
+      "definitionTags": "n",
+      "rules": "",
+      "score": 1999800,
+      "glossary": [
+        "Published dictionary match (compact parity evidence)."
+      ],
+      "sequence": 1308300,
+      "termTags": "⭐ ichi news1k",
+      "dictionary": "JMdict [2026-07-23]"
+    },
+    {
+      "expression": "へ",
+      "reading": "へ",
+      "definitionTags": "prt",
+      "rules": "",
+      "score": 999800,
+      "glossary": [
+        "Published dictionary match (compact parity evidence)."
+      ],
+      "sequence": 2029000,
+      "termTags": "⭐ spec",
+      "dictionary": "JMdict [2026-07-23]"
+    },
+    {
+      "expression": "行く",
+      "reading": "いく",
+      "definitionTags": "1 v5k-s vi",
+      "rules": "v5",
+      "score": 999800,
+      "glossary": [
+        "Published dictionary match (compact parity evidence)."
+      ],
+      "sequence": 1578850,
+      "termTags": "⭐ ichi",
+      "dictionary": "JMdict [2026-07-23]"
+    },
+    {
+      "expression": "新鮮",
+      "reading": "しんせん",
+      "definitionTags": "adj-na",
+      "rules": "",
+      "score": 1999800,
+      "glossary": [
+        "Published dictionary match (compact parity evidence)."
+      ],
+      "sequence": 1362100,
+      "termTags": "⭐ ichi news4k",
+      "dictionary": "JMdict [2026-07-23]"
+    },
+    {
+      "expression": "菜",
+      "reading": "な",
+      "definitionTags": "1 n",
+      "rules": "",
+      "score": 1999800,
+      "glossary": [
+        "Published dictionary match (compact parity evidence)."
+      ],
+      "sequence": 1295830,
+      "termTags": "⭐ news15k spec",
+      "dictionary": "JMdict [2026-07-23]"
+    },
+    {
+      "expression": "パン",
+      "reading": "パン",
+      "definitionTags": "1 n",
+      "rules": "",
+      "score": 1999800,
+      "glossary": [
+        "Published dictionary match (compact parity evidence)."
+      ],
+      "sequence": 1103090,
+      "termTags": "⭐ gai ichi",
+      "dictionary": "JMdict [2026-07-23]"
+    },
+    {
+      "expression": "戸",
+      "reading": "と",
+      "definitionTags": "1 n",
+      "rules": "",
+      "score": 1999800,
+      "glossary": [
+        "Published dictionary match (compact parity evidence)."
+      ],
+      "sequence": 1266970,
+      "termTags": "⭐ ichi news4k",
+      "dictionary": "JMdict [2026-07-23]"
+    },
+    {
+      "expression": "林檎",
+      "reading": "りんご",
+      "definitionTags": "1 n uk",
+      "rules": "",
+      "score": 1999800,
+      "glossary": [
+        "Published dictionary match (compact parity evidence)."
+      ],
+      "sequence": 1555480,
+      "termTags": "⭐ ichi news19k",
+      "dictionary": "JMdict [2026-07-23]"
+    },
+    {
+      "expression": "を",
+      "reading": "を",
+      "definitionTags": "1 prt",
+      "rules": "",
+      "score": 999800,
+      "glossary": [
+        "Published dictionary match (compact parity evidence)."
+      ],
+      "sequence": 2029010,
+      "termTags": "⭐ spec",
+      "dictionary": "JMdict [2026-07-23]"
+    },
+    {
+      "expression": "二つ",
+      "reading": "ふたつ",
+      "definitionTags": "num",
+      "rules": "",
+      "score": 1999800,
+      "glossary": [
+        "Published dictionary match (compact parity evidence)."
+      ],
+      "sequence": 1461160,
+      "termTags": "⭐ ichi news1k",
+      "dictionary": "JMdict [2026-07-23]"
+    },
+    {
+      "expression": "それに",
+      "reading": "それに",
+      "definitionTags": "conj uk",
+      "rules": "",
+      "score": 999800,
+      "glossary": [
+        "Published dictionary match (compact parity evidence)."
+      ],
+      "sequence": 1007040,
+      "termTags": "⭐ ichi",
+      "dictionary": "JMdict [2026-07-23]"
+    },
+    {
+      "expression": "水",
+      "reading": "みず",
+      "definitionTags": "1 n",
+      "rules": "",
+      "score": 1999800,
+      "glossary": [
+        "Published dictionary match (compact parity evidence)."
+      ],
+      "sequence": 1371260,
+      "termTags": "⭐ ichi news1k",
+      "dictionary": "JMdict [2026-07-23]"
+    },
+    {
+      "expression": "一本",
+      "reading": "いっぽん",
+      "definitionTags": "1 n",
+      "rules": "",
+      "score": 1999800,
+      "glossary": [
+        "Published dictionary match (compact parity evidence)."
+      ],
+      "sequence": 1166600,
+      "termTags": "⭐ news2k",
+      "dictionary": "JMdict [2026-07-23]"
+    },
+    {
+      "expression": "買う",
+      "reading": "かう",
+      "definitionTags": "1 v5u vt",
+      "rules": "v5",
+      "score": 1999800,
+      "glossary": [
+        "Published dictionary match (compact parity evidence)."
+      ],
+      "sequence": 1473740,
+      "termTags": "⭐ ichi news5k",
+      "dictionary": "JMdict [2026-07-23]"
+    },
+    {
+      "expression": "店員",
+      "reading": "てんいん",
+      "definitionTags": "n",
+      "rules": "",
+      "score": 1999800,
+      "glossary": [
+        "Published dictionary match (compact parity evidence)."
+      ],
+      "sequence": 1440670,
+      "termTags": "⭐ ichi news4k",
+      "dictionary": "JMdict [2026-07-23]"
+    },
+    {
+      "expression": "彼女",
+      "reading": "かのじょ",
+      "definitionTags": "1 pn",
+      "rules": "",
+      "score": 1999800,
+      "glossary": [
+        "Published dictionary match (compact parity evidence)."
+      ],
+      "sequence": 1483150,
+      "termTags": "⭐ ichi news1k",
+      "dictionary": "JMdict [2026-07-23]"
+    },
+    {
+      "expression": "荷",
+      "reading": "に",
+      "definitionTags": "1 n",
+      "rules": "",
+      "score": 1999800,
+      "glossary": [
+        "Published dictionary match (compact parity evidence)."
+      ],
+      "sequence": 1195250,
+      "termTags": "⭐ ichi news7k",
+      "dictionary": "JMdict [2026-07-23]"
+    },
+    {
+      "expression": "挨拶",
+      "reading": "あいさつ",
+      "definitionTags": "1 n vs vi",
+      "rules": "",
+      "score": 1999800,
+      "glossary": [
+        "Published dictionary match (compact parity evidence)."
+      ],
+      "sequence": 1151120,
+      "termTags": "⭐ ichi news12k",
+      "dictionary": "JMdict [2026-07-23]"
+    },
+    {
+      "expression": "死",
+      "reading": "し",
+      "definitionTags": "1 n",
+      "rules": "",
+      "score": 1999800,
+      "glossary": [
+        "Published dictionary match (compact parity evidence)."
+      ],
+      "sequence": 1310720,
+      "termTags": "⭐ news1k",
+      "dictionary": "JMdict [2026-07-23]"
+    },
+    {
+      "expression": "家族",
+      "reading": "かぞく",
+      "definitionTags": "n",
+      "rules": "",
+      "score": 1999800,
+      "glossary": [
+        "Published dictionary match (compact parity evidence)."
+      ],
+      "sequence": 1192150,
+      "termTags": "⭐ ichi news1k",
+      "dictionary": "JMdict [2026-07-23]"
+    },
+    {
+      "expression": "鋸",
+      "reading": "のこ",
+      "definitionTags": "n col abbr",
+      "rules": "",
+      "score": -200,
+      "glossary": [
+        "Published dictionary match (compact parity evidence)."
+      ],
+      "sequence": 2866084,
+      "termTags": "",
+      "dictionary": "JMdict [2026-07-23]"
+    },
+    {
+      "expression": "尋ねる",
+      "reading": "たずねる",
+      "definitionTags": "1 v1 vt",
+      "rules": "v1",
+      "score": 1999800,
+      "glossary": [
+        "Published dictionary match (compact parity evidence)."
+      ],
+      "sequence": 1369940,
+      "termTags": "⭐ ichi news14k",
+      "dictionary": "JMdict [2026-07-23]"
+    },
+    {
+      "expression": "子どもたち",
+      "reading": "こどもたち",
+      "definitionTags": "n",
+      "rules": "",
+      "score": 989800,
+      "glossary": [
+        "Published dictionary match (compact parity evidence)."
+      ],
+      "sequence": 1307870,
+      "termTags": "⭐ spec",
+      "dictionary": "JMdict [2026-07-23]"
+    },
+    {
+      "expression": "蛾",
+      "reading": "が",
+      "definitionTags": "n",
+      "rules": "",
+      "score": 999800,
+      "glossary": [
+        "Published dictionary match (compact parity evidence)."
+      ],
+      "sequence": 1197760,
+      "termTags": "news20k",
+      "dictionary": "JMdict [2026-07-23]"
+    },
+    {
+      "expression": "家",
+      "reading": "いえ",
+      "definitionTags": "1 n",
+      "rules": "",
+      "score": 999800,
+      "glossary": [
+        "Published dictionary match (compact parity evidence)."
+      ],
+      "sequence": 1191730,
+      "termTags": "⭐ ichi",
+      "dictionary": "JMdict [2026-07-23]"
+    },
+    {
+      "expression": "出",
+      "reading": "で",
+      "definitionTags": "1 n n-suf",
+      "rules": "",
+      "score": 1999800,
+      "glossary": [
+        "Published dictionary match (compact parity evidence)."
+      ],
+      "sequence": 1896380,
+      "termTags": "⭐ news6k",
+      "dictionary": "JMdict [2026-07-23]"
+    },
+    {
+      "expression": "勉強",
+      "reading": "べんきょう",
+      "definitionTags": "1 n vs vt",
+      "rules": "",
+      "score": 1999800,
+      "glossary": [
+        "Published dictionary match (compact parity evidence)."
+      ],
+      "sequence": 1512670,
+      "termTags": "⭐ ichi news2k",
+      "dictionary": "JMdict [2026-07-23]"
+    },
+    {
+      "expression": "する",
+      "reading": "する",
+      "definitionTags": "1 vs-i uk",
+      "rules": "vs",
+      "score": 999800,
+      "glossary": [
+        "Published dictionary match (compact parity evidence)."
+      ],
+      "sequence": 1157170,
+      "termTags": "⭐ ichi",
+      "dictionary": "JMdict [2026-07-23]"
+    },
+    {
+      "expression": "話す",
+      "reading": "はなす",
+      "definitionTags": "1 v5s vt",
+      "rules": "v5",
+      "score": 1999800,
+      "glossary": [
+        "Published dictionary match (compact parity evidence)."
+      ],
+      "sequence": 1562350,
+      "termTags": "⭐ ichi news11k",
+      "dictionary": "JMdict [2026-07-23]"
+    },
+    {
+      "expression": "買い物",
+      "reading": "かいもの",
+      "definitionTags": "n vs vi",
+      "rules": "",
+      "score": 1999800,
+      "glossary": [
+        "Published dictionary match (compact parity evidence)."
+      ],
+      "sequence": 1589730,
+      "termTags": "⭐ ichi news3k",
+      "dictionary": "JMdict [2026-07-23]"
+    },
+    {
+      "expression": "後",
+      "reading": "あと",
+      "definitionTags": "1 n adj-no",
+      "rules": "",
+      "score": 1999800,
+      "glossary": [
+        "Published dictionary match (compact parity evidence)."
+      ],
+      "sequence": 1269320,
+      "termTags": "⭐ ichi news1k",
+      "dictionary": "JMdict [2026-07-23]"
+    },
+    {
+      "expression": "公園",
+      "reading": "こうえん",
+      "definitionTags": "n",
+      "rules": "",
+      "score": 1999800,
+      "glossary": [
+        "Published dictionary match (compact parity evidence)."
+      ],
+      "sequence": 1273270,
+      "termTags": "⭐ ichi news1k",
+      "dictionary": "JMdict [2026-07-23]"
+    },
+    {
+      "expression": "歩く",
+      "reading": "あるく",
+      "definitionTags": "v5k vi",
+      "rules": "v5",
+      "score": 999800,
+      "glossary": [
+        "Published dictionary match (compact parity evidence)."
+      ],
+      "sequence": 1514320,
+      "termTags": "⭐ ichi",
+      "dictionary": "JMdict [2026-07-23]"
+    },
+    {
+      "expression": "小さな",
+      "reading": "ちいさな",
+      "definitionTags": "adj-pn",
+      "rules": "",
+      "score": 999800,
+      "glossary": [
+        "Published dictionary match (compact parity evidence)."
+      ],
+      "sequence": 2136180,
+      "termTags": "⭐ spec",
+      "dictionary": "JMdict [2026-07-23]"
+    },
+    {
+      "expression": "犬",
+      "reading": "いぬ",
+      "definitionTags": "1 n",
+      "rules": "",
+      "score": 1999800,
+      "glossary": [
+        "Published dictionary match (compact parity evidence)."
+      ],
+      "sequence": 1258330,
+      "termTags": "⭐ ichi news2k",
+      "dictionary": "JMdict [2026-07-23]"
+    },
+    {
+      "expression": "湖",
+      "reading": "みずうみ",
+      "definitionTags": "n",
+      "rules": "",
+      "score": 1999800,
+      "glossary": [
+        "Published dictionary match (compact parity evidence)."
+      ],
+      "sequence": 1267280,
+      "termTags": "⭐ ichi news4k",
+      "dictionary": "JMdict [2026-07-23]"
+    },
+    {
+      "expression": "近く",
+      "reading": "ちかく",
+      "definitionTags": "1 n adj-no adv",
+      "rules": "",
+      "score": 999800,
+      "glossary": [
+        "Published dictionary match (compact parity evidence)."
+      ],
+      "sequence": 1242160,
+      "termTags": "⭐ ichi",
+      "dictionary": "JMdict [2026-07-23]"
+    },
+    {
+      "expression": "遊ぶ",
+      "reading": "あそぶ",
+      "definitionTags": "1 v5b vi",
+      "rules": "v5",
+      "score": 1999800,
+      "glossary": [
+        "Published dictionary match (compact parity evidence)."
+      ],
+      "sequence": 1542160,
+      "termTags": "⭐ ichi news13k",
+      "dictionary": "JMdict [2026-07-23]"
+    },
+    {
+      "expression": "木の下",
+      "reading": "このした",
+      "definitionTags": "n poet",
+      "rules": "",
+      "score": -200,
+      "glossary": [
+        "Published dictionary match (compact parity evidence)."
+      ],
+      "sequence": 1869560,
+      "termTags": "",
+      "dictionary": "JMdict [2026-07-23]"
+    },
+    {
+      "expression": "座り",
+      "reading": "すわり",
+      "definitionTags": "1 n",
+      "rules": "",
+      "score": 1999800,
+      "glossary": [
+        "Published dictionary match (compact parity evidence)."
+      ],
+      "sequence": 1657640,
+      "termTags": "⭐ news12k",
+      "dictionary": "JMdict [2026-07-23]"
+    },
+    {
+      "expression": "新しい",
+      "reading": "あたらしい",
+      "definitionTags": "adj-i",
+      "rules": "adj-i",
+      "score": 1999800,
+      "glossary": [
+        "Published dictionary match (compact parity evidence)."
+      ],
+      "sequence": 1361490,
+      "termTags": "⭐ ichi news4k",
+      "dictionary": "JMdict [2026-07-23]"
+    },
+    {
+      "expression": "本",
+      "reading": "ほん",
+      "definitionTags": "1 n",
+      "rules": "",
+      "score": 999800,
+      "glossary": [
+        "Published dictionary match (compact parity evidence)."
+      ],
+      "sequence": 1522150,
+      "termTags": "⭐ ichi",
+      "dictionary": "JMdict [2026-07-23]"
+    },
+    {
+      "expression": "読む",
+      "reading": "よむ",
+      "definitionTags": "1 v5m vt",
+      "rules": "v5",
+      "score": 1999800,
+      "glossary": [
+        "Published dictionary match (compact parity evidence)."
+      ],
+      "sequence": 1456360,
+      "termTags": "⭐ ichi news6k",
+      "dictionary": "JMdict [2026-07-23]"
+    },
+    {
+      "expression": "雨",
+      "reading": "あめ",
+      "definitionTags": "1 n",
+      "rules": "",
+      "score": 1999800,
+      "glossary": [
+        "Published dictionary match (compact parity evidence)."
+      ],
+      "sequence": 1171900,
+      "termTags": "⭐ ichi news1k",
+      "dictionary": "JMdict [2026-07-23]"
+    },
+    {
+      "expression": "降り始める",
+      "reading": "ふりはじめる",
+      "definitionTags": "v1 vi",
+      "rules": "v1",
+      "score": -200,
+      "glossary": [
+        "Published dictionary match (compact parity evidence)."
+      ],
+      "sequence": 1282760,
+      "termTags": "",
+      "dictionary": "JMdict [2026-07-23]"
+    },
+    {
+      "expression": "青い",
+      "reading": "あおい",
+      "definitionTags": "1 adj-i",
+      "rules": "adj-i",
+      "score": 1999800,
+      "glossary": [
+        "Published dictionary match (compact parity evidence)."
+      ],
+      "sequence": 1381390,
+      "termTags": "⭐ ichi news13k",
+      "dictionary": "JMdict [2026-07-23]"
+    },
+    {
+      "expression": "傘",
+      "reading": "かさ",
+      "definitionTags": "1 n",
+      "rules": "",
+      "score": 1999800,
+      "glossary": [
+        "Published dictionary match (compact parity evidence)."
+      ],
+      "sequence": 1301940,
+      "termTags": "⭐ ichi news6k",
+      "dictionary": "JMdict [2026-07-23]"
+    },
+    {
+      "expression": "開く",
+      "reading": "ひらく",
+      "definitionTags": "1 v5k vi vt",
+      "rules": "v5",
+      "score": 999800,
+      "glossary": [
+        "Published dictionary match (compact parity evidence)."
+      ],
+      "sequence": 1202440,
+      "termTags": "⭐ ichi",
+      "dictionary": "JMdict [2026-07-23]"
+    },
+    {
+      "expression": "夕食",
+      "reading": "ゆうしょく",
+      "definitionTags": "n",
+      "rules": "",
+      "score": 1999800,
+      "glossary": [
+        "Published dictionary match (compact parity evidence)."
+      ],
+      "sequence": 1542730,
+      "termTags": "⭐ ichi news3k",
+      "dictionary": "JMdict [2026-07-23]"
+    },
+    {
+      "expression": "前",
+      "reading": "ぜん",
+      "definitionTags": "1 n-pref",
+      "rules": "",
+      "score": 999800,
+      "glossary": [
+        "Published dictionary match (compact parity evidence)."
+      ],
+      "sequence": 1392570,
+      "termTags": "⭐ ichi",
+      "dictionary": "JMdict [2026-07-23]"
+    },
+    {
+      "expression": "バス",
+      "reading": "バス",
+      "definitionTags": "1 n",
+      "rules": "",
+      "score": 1999800,
+      "glossary": [
+        "Published dictionary match (compact parity evidence)."
+      ],
+      "sequence": 1098390,
+      "termTags": "⭐ gai ichi",
+      "dictionary": "JMdict [2026-07-23]"
+    },
+    {
+      "expression": "帰る",
+      "reading": "かえる",
+      "definitionTags": "1 v5r vi",
+      "rules": "v5",
+      "score": 1999800,
+      "glossary": [
+        "Published dictionary match (compact parity evidence)."
+      ],
+      "sequence": 1221270,
+      "termTags": "⭐ ichi news19k",
+      "dictionary": "JMdict [2026-07-23]"
+    },
+    {
+      "expression": "夜",
+      "reading": "よる",
+      "definitionTags": "1 n adv",
+      "rules": "",
+      "score": 1999800,
+      "glossary": [
+        "Published dictionary match (compact parity evidence)."
+      ],
+      "sequence": 1536350,
+      "termTags": "⭐ ichi news1k",
+      "dictionary": "JMdict [2026-07-23]"
+    },
+    {
+      "expression": "全員",
+      "reading": "ぜんいん",
+      "definitionTags": "n adv",
+      "rules": "",
+      "score": 1999800,
+      "glossary": [
+        "Published dictionary match (compact parity evidence)."
+      ],
+      "sequence": 1394840,
+      "termTags": "⭐ ichi news1k",
+      "dictionary": "JMdict [2026-07-23]"
+    },
+    {
+      "expression": "食事",
+      "reading": "しょくじ",
+      "definitionTags": "1 n vs vi",
+      "rules": "",
+      "score": 1999800,
+      "glossary": [
+        "Published dictionary match (compact parity evidence)."
+      ],
+      "sequence": 1358490,
+      "termTags": "⭐ ichi news2k",
+      "dictionary": "JMdict [2026-07-23]"
+    },
+    {
+      "expression": "その日",
+      "reading": "そのひ",
+      "definitionTags": "exp n",
+      "rules": "",
+      "score": -200,
+      "glossary": [
+        "Published dictionary match (compact parity evidence)."
+      ],
+      "sequence": 2002320,
+      "termTags": "",
+      "dictionary": "JMdict [2026-07-23]"
+    }
+  ],
+  "expected": {
+    "annotated": 52,
+    "contentWords": 54,
+    "misses": [
+      {
+        "sentenceId": "ja-07",
+        "word": "木",
+        "start": 3,
+        "end": 4
+      },
+      {
+        "sentenceId": "ja-07",
+        "word": "下",
+        "start": 5,
+        "end": 6
+      }
+    ]
+  }
+}

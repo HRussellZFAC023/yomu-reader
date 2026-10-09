@@ -12,12 +12,9 @@ import {
     gmStorageGet,
     managedSessionStorage,
 } from '../../src/reader/app/storage-runtime-facade';
-import * as lookupLinkFacade from '../../src/reader/settings/lookup-links-companion';
-import * as lookupLinkImplementation from '../../src/reader/settings/lookup-links';
 
 const STORAGE_RUNTIME_API_SLOT = Symbol.for('yomu.storage-runtime-api.v1');
 const originalStorageSlot = Object.getOwnPropertyDescriptor(globalThis, STORAGE_RUNTIME_API_SLOT);
-const originalCompanionRegistry = Object.getOwnPropertyDescriptor(globalThis, '__yomuCompanions');
 const repoRoot = path.resolve(import.meta.dirname, '..', '..');
 
 describe('aggregate runtime storage split', () => {
@@ -121,42 +118,6 @@ describe('aggregate runtime storage split', () => {
     });
 });
 
-describe('lookup-link catalogue split', () => {
-    afterEach(() => {
-        if (originalCompanionRegistry) {
-            Object.defineProperty(globalThis, '__yomuCompanions', originalCompanionRegistry);
-        } else {
-            Reflect.deleteProperty(globalThis, '__yomuCompanions');
-        }
-    });
-
-    it('preserves the real companion catalogue behind the core facade', () => {
-        installLookupLinkCompanion(lookupLinkImplementation);
-        expect(lookupLinkFacade.targetLookupSiteIds()).toEqual(lookupLinkImplementation.targetLookupSiteIds());
-        expect(lookupLinkFacade.targetLookupLinks('en')).toEqual(lookupLinkImplementation.targetLookupLinks('en'));
-        expect(lookupLinkFacade.missingLookupComponents('grc')).toEqual(
-            lookupLinkImplementation.missingLookupComponents('grc'),
-        );
-    });
-
-    it('degrades to an empty catalogue when the runtime companion is absent', () => {
-        installLookupLinkCompanion(undefined);
-        expect(lookupLinkFacade.hasTargetLookupSites('en')).toBe(false);
-        expect(lookupLinkFacade.targetLookupSiteIds()).toEqual([]);
-        expect(lookupLinkFacade.isTargetLookupLinkId('wiktionary-en')).toBe(false);
-        expect(lookupLinkFacade.targetLookupSites('en')).toEqual([]);
-        expect(lookupLinkFacade.targetLookupLinks('en')).toEqual([]);
-        expect(lookupLinkFacade.lookupSiteComponents('en', 'wiktionary-en')).toEqual([]);
-        expect(lookupLinkFacade.missingLookupComponents('en')).toEqual([]);
-    });
-
-    it('routes the split core away from the duplicated catalogue module', () => {
-        const config = readFileSync(path.join(repoRoot, 'vite.config.ts'), 'utf8');
-        expect(config).toContain("alias['./lookup-links']");
-        expect(config).toContain("'lookup-links-companion.ts'");
-    });
-});
-
 function storageFacade(
     getItem: (key: string) => string | null = vi.fn(() => null),
 ): Pick<Storage, 'getItem' | 'setItem' | 'removeItem'> {
@@ -165,12 +126,4 @@ function storageFacade(
         setItem: vi.fn(),
         removeItem: vi.fn(),
     };
-}
-
-function installLookupLinkCompanion(lookupLinks: typeof lookupLinkImplementation | undefined): void {
-    Object.defineProperty(globalThis, '__yomuCompanions', {
-        configurable: true,
-        value: lookupLinks ? { settings: { lookupLinks } } : {},
-        writable: true,
-    });
 }

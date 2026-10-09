@@ -3,18 +3,18 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <title>Yomu Video Player — read subtitles in your learning language</title>
-  <meta name="description" content="A free in-browser video player for your selected learning language. Open local video and subtitle files, choose words for target-aware lookup, and mine sentences without uploading the files.">
+  <title>Yomu Video Player — read Japanese subtitles</title>
+  <meta name="description" content="A free in-browser video player for Japanese. Open local video and subtitle files, press words to look them up, and save sentences without uploading the files.">
   <link rel="canonical" href="https://yomureader.com/video-player/">
   <meta property="og:type" content="website">
   <meta property="og:site_name" content="よむ">
-  <meta property="og:title" content="Yomu Video Player — read subtitles in your learning language">
-  <meta property="og:description" content="Open local video and subtitle files, choose words for target-aware lookup, and mine sentences without uploading the files.">
+  <meta property="og:title" content="Yomu Video Player — read Japanese subtitles">
+  <meta property="og:description" content="Open local video and subtitle files, press Japanese words to look them up, and save sentences without uploading the files.">
   <meta property="og:url" content="https://yomureader.com/video-player/">
   <meta property="og:image" content="https://yomureader.com/og-image.png">
   <meta name="twitter:card" content="summary_large_image">
-  <meta name="twitter:title" content="Yomu Video Player — read subtitles in your learning language">
-  <meta name="twitter:description" content="Open local video and subtitle files, choose words for target-aware lookup, and mine sentences without uploading the files.">
+  <meta name="twitter:title" content="Yomu Video Player — read Japanese subtitles">
+  <meta name="twitter:description" content="Open local video and subtitle files, press Japanese words to look them up, and save sentences without uploading the files.">
   <meta name="twitter:image" content="https://yomureader.com/og-image.png">
   <link rel="icon" type="image/svg+xml" href="../yomu-icon.svg">
   <link rel="icon" type="image/png" sizes="32x32" href="../favicon-32x32.png">
@@ -22,61 +22,61 @@
   <link rel="apple-touch-icon" sizes="180x180" href="../apple-touch-icon.png">
   <link rel="manifest" href="./manifest.webmanifest">
   <meta name="apple-mobile-web-app-title" content="よむ">
-  <meta name="theme-color" content="#101316">
+  <meta name="theme-color" content="#181b20">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="color-scheme" content="light dark">
   <!-- Applies the reader's theme and accent before the first paint; stamped from
        src/reader/core/hosted-appearance-boot.ts by scripts/sync-docs-userscript.cjs. -->
-  <script>/* yomu:appearance-boot:start */"use strict";(()=>{var H="#000000";function b(t){return/^#[0-9a-f]{6}$/i.test(t)?t.toLowerCase():H}function A(t,n,e=b){let o=x(t,e),r=x(n,e),s=Math.max(o,r),a=Math.min(o,r);return(s+.05)/(a+.05)}function x(t,n=b){let[e,o,r]=f(t,n).map(s=>{let a=s/255;return a<=.03928?a/12.92:((a+.055)/1.055)**2.4});return .2126*e+.7152*o+.0722*r}function E(t,n,e,o=b){let r=f(t,o),s=f(n,o);return`#${r.map((a,d)=>Math.round(a+(s[d]-a)*e).toString(16).padStart(2,"0")).join("")}`}function f(t,n=b){let e=b(n(t));return[parseInt(e.slice(1,3),16),parseInt(e.slice(3,5),16),parseInt(e.slice(5,7),16)]}function _(t,n,e=b){let[o,r,s]=f(t,e);return`rgba(${o}, ${r}, ${s}, ${Math.max(0,Math.min(1,n)).toFixed(2)})`}var c={accent:"#5ea780",black:"#000000",white:"#ffffff",readableInk:"#11161d",pageBgDark:"#181b20",pageBgLight:"#ffffff"},S=4.5,y=4.5,C=3.5;function g(t,n=c.accent){return w(t)??n}function w(t){if(typeof t!="string")return;let n=t.trim();if(/^#[0-9a-f]{6}$/i.test(n))return n.toLowerCase();let e=/^#([0-9a-f])([0-9a-f])([0-9a-f])$/i.exec(n);return e?`#${e[1]}${e[1]}${e[2]}${e[2]}${e[3]}${e[3]}`.toLowerCase():void 0}function m(t){let n=i(t,c.readableInk),e=i(t,c.white),o=n>=e?c.readableInk:c.white;return Math.max(n,e)>=S?o:i(t,c.black)>=e?c.black:c.white}function T(t,n){let e=g(t),o=n?c.pageBgDark:c.pageBgLight,r=p(e,o,y),s=n?c.white:c.black,a=p(h(e,s,.18),o,C),d=p(h(e,c.black,.18),o,C),l=_(e,n?.22:.16,g),u=m(e),v=m(r),R=m(a);return{"--yomu-accent":e,"--yomu-accent-readable":r,"--yomu-accent-ink":u,"--yomu-brand-ink":v,"--yomu-brand-hover-ink":R,"--vp-c-brand-1":r,"--vp-c-brand-2":a,"--vp-c-brand-3":e,"--vp-c-brand-soft":l,"--vp-button-brand-border":r,"--vp-button-brand-bg":e,"--vp-button-brand-text":u,"--vp-button-brand-hover-border":a,"--vp-button-brand-hover-bg":a,"--vp-button-brand-hover-text":u,"--vp-button-brand-active-border":d,"--vp-button-brand-active-bg":d,"--vp-button-brand-active-text":u,"--vp-home-hero-name-color":r,"--accent":e,"--accent-ink":u,"--accent-soft":l,"--jpdb-reader-accent":e,"--jpdb-reader-accent-readable":r,"--jpdb-reader-accent-text":u,"--jpdb-reader-accent-soft":l}}function p(t,n,e){let o=g(t);if(i(o,n)>=e)return o;let r=N(n);for(let s=.08;s<=1;s+=.08){let a=h(o,r,s);if(i(a,n)>=e)return a}return r}function N(t){return i(t,c.black)>i(t,c.white)?c.black:c.white}function i(t,n){return A(t,n,g)}function h(t,n,e){return E(t,n,e,g)}var P="jpdb-popup-reader-settings",M="vitepress-theme-appearance",O="yomu-page-theme";function I(t){let n=document.documentElement,e=$(),o=L(e),r=o==="auto"?D():o==="dark",s=T(e.accentColor,r);for(let[a,d]of Object.entries(s))n.style.setProperty(a,d);t==="docs"?(n.classList.toggle("dark",r),document.querySelector('meta[name="theme-color"]')?.setAttribute("content",s["--yomu-accent"]),B(M,o==="auto"?"auto":r?"dark":"light")):(n.classList.toggle("yomu-page-theme-dark",r),n.classList.toggle("yomu-page-theme-light",!r))}function $(){try{let t=JSON.parse(localStorage.getItem(P)||"{}");return t&&typeof t=="object"&&!Array.isArray(t)?t:{}}catch{return{}}}function L(t){return k(t.theme)??k(j(O))??"auto"}function k(t){return t==="auto"||t==="dark"||t==="light"?t:void 0}function D(){try{return window.matchMedia("(prefers-color-scheme: dark)").matches}catch{return!1}}function j(t){try{return localStorage.getItem(t)}catch{return null}}function B(t,n){try{localStorage.setItem(t,n)}catch{}}try{I("surface")}catch{}})();/* yomu:appearance-boot:end */</script>
+  <script>/* yomu:appearance-boot:start */"use strict";(()=>{var N="#000000";function g(t){return/^#[0-9a-f]{6}$/i.test(t)?t.toLowerCase():N}function C(t,n,e=g){let o=_(t,e),r=_(n,e),s=Math.max(o,r),c=Math.min(o,r);return(s+.05)/(c+.05)}function _(t,n=g){let[e,o,r]=b(t,n).map(s=>{let c=s/255;return c<=.03928?c/12.92:((c+.055)/1.055)**2.4});return .2126*e+.7152*o+.0722*r}function T(t,n,e,o=g){let r=b(t,o),s=b(n,o);return`#${r.map((c,i)=>Math.round(c+(s[i]-c)*e).toString(16).padStart(2,"0")).join("")}`}function b(t,n=g){let e=g(n(t));return[parseInt(e.slice(1,3),16),parseInt(e.slice(3,5),16),parseInt(e.slice(5,7),16)]}function k(t,n,e=g){let[o,r,s]=b(t,e);return`rgba(${o}, ${r}, ${s}, ${Math.max(0,Math.min(1,n)).toFixed(2)})`}var l={accent:"#b8324e",accentOnDark:"#ff7892",consoleAccent:"#b8324e"};var a={accent:l.accent,black:"#000000",white:"#ffffff",readableInk:"#11161d",pageBgDark:"#181b20",pageBgLight:"#ffffff"},y=4.5,P=4.5,M=3.5;function m(t,n=a.accent){return S(t)??n}var I=new Set(["#5ea780"]);function D(t,n=a.accent){let e=S(t);return e&&!I.has(e)?e:n}function h(t){return t?a.pageBgDark:a.pageBgLight}function L(t,n){return n&&t===l.accent?l.accentOnDark:t}function S(t){if(typeof t!="string")return;let n=t.trim();if(/^#[0-9a-f]{6}$/i.test(n))return n.toLowerCase();let e=/^#([0-9a-f])([0-9a-f])([0-9a-f])$/i.exec(n);return e?`#${e[1]}${e[1]}${e[2]}${e[2]}${e[3]}${e[3]}`.toLowerCase():void 0}function p(t){let n=d(t,a.readableInk),e=d(t,a.white),o=n>=e?a.readableInk:a.white;return Math.max(n,e)>=y?o:d(t,a.black)>=e?a.black:a.white}function w(t,n){let e=D(t),o=h(n),r=R(L(e,n),o,P),s=n?a.white:a.black,c=R(f(r,s,.18),o,M),i=k(e,n?.22:.16,m),u=p(e),x=u===a.white?a.black:a.white,A=f(e,x,.12),E=f(e,x,.2),O=p(r),H=p(c);return{"--yomu-accent":e,"--yomu-accent-readable":r,"--yomu-accent-ink":u,"--yomu-brand-ink":O,"--yomu-brand-hover-ink":H,"--vp-c-brand-1":r,"--vp-c-brand-2":c,"--vp-c-brand-3":e,"--vp-c-brand-soft":i,"--vp-button-brand-border":e,"--vp-button-brand-bg":e,"--vp-button-brand-text":u,"--vp-button-brand-hover-border":A,"--vp-button-brand-hover-bg":A,"--vp-button-brand-hover-text":u,"--vp-button-brand-active-border":E,"--vp-button-brand-active-bg":E,"--vp-button-brand-active-text":u,"--vp-home-hero-name-color":r,"--accent":e,"--accent-ink":u,"--accent-soft":i,"--jpdb-reader-accent":e,"--jpdb-reader-accent-readable":r,"--jpdb-reader-accent-text":u,"--jpdb-reader-accent-soft":i}}function R(t,n,e){let o=m(t);if(d(o,n)>=e)return o;let r=$(n);for(let s=.08;s<=1;s+=.08){let c=f(o,r,s);if(d(c,n)>=e)return c}return r}function $(t){return d(t,a.black)>d(t,a.white)?a.black:a.white}function d(t,n){return C(t,n,m)}function f(t,n,e){return T(t,n,e,m)}var B="jpdb-popup-reader-settings",j="vitepress-theme-appearance",K="yomu-page-theme";function z(t){let n=document.documentElement,e=Y(),o=F(e),r=o==="auto"?V():o==="dark",s=w(e.accentColor,r);for(let[c,i]of Object.entries(s))n.style.setProperty(c,i);t==="docs"?(n.classList.toggle("dark",r),document.querySelector('meta[name="theme-color"]')?.setAttribute("content",h(r)),G(j,o==="auto"?"auto":r?"dark":"light")):(n.classList.toggle("yomu-page-theme-dark",r),n.classList.toggle("yomu-page-theme-light",!r))}function Y(){try{let t=JSON.parse(localStorage.getItem(B)||"{}");return t&&typeof t=="object"&&!Array.isArray(t)?t:{}}catch{return{}}}function F(t){return v(t.theme)??v(U(K))??"auto"}function v(t){return t==="auto"||t==="dark"||t==="light"?t:void 0}function V(){try{return window.matchMedia("(prefers-color-scheme: dark)").matches}catch{return!1}}function U(t){try{return localStorage.getItem(t)}catch{return null}}function G(t,n){try{localStorage.setItem(t,n)}catch{}}try{z("surface")}catch{}})();/* yomu:appearance-boot:end */</script>
   <style>
     :root {
       color-scheme: light dark;
       font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      --bg: #101316;
-      --ink: #f5f7f6;
-      --muted: #9aa3a3;
-      --panel: #181d21;
-      --line: rgba(255,255,255,.14);
+      --bg: #181b20;
+      --ink: #f2f4f8;
+      --muted: #b0b8c4;
+      --panel: #20242b;
+      --line: rgba(255,255,255,.12);
       --soft-line: rgba(255,255,255,.08);
-      --accent: #6cc98e;
-      --accent-ink: #0b1710;
-      --accent-soft: rgba(108,201,142,.2);
+      --accent: #b8324e;
+      --accent-ink: #ffffff;
+      --accent-soft: rgba(184,50,78,.22);
       --shadow: rgba(0,0,0,.32);
       --switch-shadow: rgba(0,0,0,.28);
-      --brand-icon-bg: #f7fbf8;
+      --brand-icon-bg: #f8f9fb;
       --stage-bg: #050708;
-      --stage-empty-text: rgba(245,247,246,.72);
+      --stage-empty-text: rgba(242,244,248,.72);
       --stage-empty-shadow: rgba(0,0,0,.72);
-      --stage-empty-strong: #f5f7f6;
+      --stage-empty-strong: #f2f4f8;
       --radius: 8px;
     }
 
     :root.yomu-page-theme-light {
       color-scheme: light;
-      --bg: #ffffff;
-      --ink: #171a1f;
-      --muted: #596272;
-      --panel: #f7f8fa;
-      --line: rgba(20,30,45,.16);
-      --soft-line: rgba(20,30,45,.08);
-      --accent: #3f805e;
+      --bg: #f8f9fb;
+      --ink: #20242b;
+      --muted: #59616d;
+      --panel: #ffffff;
+      --line: #dfe3e8;
+      --soft-line: rgba(32,36,43,.08);
+      --accent: #b8324e;
       --accent-ink: #ffffff;
-      --accent-soft: rgba(94,167,128,.16);
-      --shadow: rgba(20,30,45,.12);
+      --accent-soft: rgba(184,50,78,.16);
+      --shadow: rgba(32,36,43,.12);
     }
 
     :root.yomu-page-theme-dark {
       color-scheme: dark;
-      --bg: #101316;
-      --ink: #f5f7f6;
-      --muted: #9aa3a3;
-      --panel: #181d21;
-      --line: rgba(255,255,255,.14);
+      --bg: #181b20;
+      --ink: #f2f4f8;
+      --muted: #b0b8c4;
+      --panel: #20242b;
+      --line: rgba(255,255,255,.12);
       --soft-line: rgba(255,255,255,.08);
-      --accent: #6cc98e;
-      --accent-ink: #0b1710;
-      --accent-soft: rgba(108,201,142,.2);
+      --accent: #b8324e;
+      --accent-ink: #ffffff;
+      --accent-soft: rgba(184,50,78,.22);
       --shadow: rgba(0,0,0,.32);
     }
 
@@ -846,19 +846,15 @@
             <a href="../library/" data-site-nav-item data-nav-ja="読む">Read</a>
             <a href="../video-player/" target="_self" data-site-nav-item data-nav-ja="観る">Watch</a>
             <a href="../study/" target="_self" data-site-nav-item data-nav-ja="学習">Study</a>
-            <a href="../learn/" data-site-nav-item data-nav-ja="学習の道筋">Learning path</a>
-            <a href="../academy/" target="_self" data-site-nav-item data-nav-ja="アカデミー">Academy</a>
-            <a href="../learn/reference#apps" data-site-nav-item data-nav-ja="アプリ">Apps</a>
-            <a href="../support" data-site-nav-item data-nav-ja="ヘルプ">Help</a>
+            <a href="../learn/" data-site-nav-item data-nav-ja="ガイド">Guide</a>
+            <a href="../desktop" data-site-nav-item data-nav-ja="デスクトップアプリ">Desktop app</a>
             <a href="../pdf-reader/" target="_self" data-site-nav-item data-nav-ja="PDFリーダー">PDF Reader</a>
             <a href="../study/?mode=stats" target="_self" data-site-nav-item data-nav-ja="統計">Stats</a>
-            <a href="../api/" target="_self" data-site-nav-item data-nav-ja="API">API</a>
-            <a href="../local-audio" data-site-nav-item data-nav-ja="ローカル音声">Local Audio</a>
-            <a href="../reference/settings" data-site-nav-item data-nav-ja="設定リファレンス">Settings reference</a>
-            <a href="../faq" data-site-nav-item data-nav-ja="よくある質問">FAQ</a>
+            <a href="../academy/" target="_self" data-site-nav-item data-nav-ja="アカデミー">Academy</a>
+            <a href="../faq" data-site-nav-item data-nav-ja="ヘルプ">Help</a>
             <a href="../changelog" data-site-nav-item data-nav-ja="変更履歴">Changelog</a>
             <a href="../privacy" data-site-nav-item data-nav-ja="プライバシー">Privacy</a>
-            <a href="../membership" target="_self" data-site-nav-item data-nav-ja="メンバーシップ">Membership</a>
+            <a href="../membership" target="_self" data-site-nav-item data-nav-ja="寄付">Donate</a>
             <!-- yomu:site-nav:end -->
             <hr class="overflow-divider">
             <a href="https://github.com/HRussellZFAC023/yomu-reader" target="_blank" rel="noopener" data-menu-github>GitHub</a>
@@ -936,14 +932,14 @@
       const runtimeCompanionAttribute = 'data-yomu-hosted-video-companion';
       const runtimeCompanionScripts = [
         // yomu:runtime-companions:start
-        'greasyfork/yomu-runtime.1da5ece71162.user.js',
+        'greasyfork/yomu-runtime.6889f8299c2c.user.js',
         // yomu:runtime-companions:end
       ];
       const runtimeReadyTimeoutMs = 2600;
       const yomuRuntimeMarkerId = 'jpdb-reader-runtime-owner';
       const installedRuntimeMarkerId = 'jpdb-reader-installed-runtime';
       const colorTokens = {
-        accent: '#5ea780',
+        accent: '#b8324e', retiredAccent: '#5ea780',
         readableInk: '#11161d',
         white: '#ffffff',
       };
@@ -1110,7 +1106,7 @@
       function sanitizeAccent(value) {
         if (typeof value !== 'string') return colorTokens.accent;
         const trimmed = value.trim();
-        if (/^#[0-9a-f]{6}$/i.test(trimmed)) return trimmed.toLowerCase();
+        if (/^#[0-9a-f]{6}$/i.test(trimmed)) return trimmed.toLowerCase() === colorTokens.retiredAccent ? colorTokens.accent : trimmed.toLowerCase();
         const shortHex = /^#([0-9a-f])([0-9a-f])([0-9a-f])$/i.exec(trimmed);
         return shortHex ? `#${shortHex[1]}${shortHex[1]}${shortHex[2]}${shortHex[2]}${shortHex[3]}${shortHex[3]}`.toLowerCase() : colorTokens.accent;
       }

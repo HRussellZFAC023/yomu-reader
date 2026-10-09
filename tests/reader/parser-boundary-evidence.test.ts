@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import type { ReaderSettings } from '../../src/reader/app/types';
 import type {
@@ -6,7 +6,6 @@ import type {
     YomitanTermEntry,
     YomitanTermMatch,
 } from '../../src/reader/dictionaries/yomitan';
-import { resetActiveLearningTargetLanguage } from '../../src/reader/languages/active';
 import type { LearningTargetModule } from '../../src/reader/languages/types';
 import { ReaderParser } from '../../src/reader/lookup/parser';
 import { DEFAULT_SETTINGS } from '../../src/reader/settings';
@@ -88,14 +87,6 @@ function tokenSnapshot(text: string, tokens: Awaited<ReturnType<ReaderParser['pa
         range: [token.start, token.end],
     }));
 }
-
-beforeEach(() => {
-    resetActiveLearningTargetLanguage();
-});
-
-afterEach(() => {
-    resetActiveLearningTargetLanguage();
-});
 
 describe('exact local candidate integration', () => {
     it('lets an exact candidate confirmation own the span even when parse decoration offsets are wrong', async () => {

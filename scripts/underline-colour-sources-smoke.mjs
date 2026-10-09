@@ -47,9 +47,10 @@ const OUT = path.join(ARTIFACTS, 'underline-colour-sources', ENGINE);
 const HEIBAN = 'rgb(53, 158, 255)';
 const LEARNING = 'rgb(255, 209, 102)';
 const UNKNOWN_SWATCH = 'rgb(148, 163, 184)';
-// White New on a white page: the readability pass darkens the underline to
-// #858585 so it stays visible. That grey is by design and must survive.
-const NEW_ON_WHITE = 'rgb(133, 133, 133)';
+// The default New seed is white; on a white page the contrast pass draws it
+// in the ink-and-paper New token, #687384 (theme/color-tokens.ts), so it
+// stays visible and quiet. That grey is by design and must survive.
+const NEW_ON_WHITE = 'rgb(104, 115, 132)';
 
 // [surface, spelling, reading, gloss, pos, frequency, state, pitch]
 const DECK_ROWS = [
@@ -106,19 +107,22 @@ const BASE_SETTINGS = {
 };
 
 const IN_DECK = ['jpdb-new', 'jpdb-known', 'jpdb-due', 'jpdb-failed', 'jpdb-blacklisted'];
+// These scenarios test the underline beside the not-in-deck highlight wash
+// with every state coloured, which since 2.1 (ADR-0026) is a choice: pin it.
+const DECK_CHANNELS = { wordHighlightColorSource: 'jpdb', wordColorHiddenStateGroups: [] };
 const DECK_SCENARIOS = [
-    { id: 'underline-jpdb-light', theme: 'light', settings: { wordUnderlineColorSource: 'jpdb' }, rootClass: 'jpdb-reader-word-underline-jpdb' },
-    { id: 'underline-jpdb-dark', theme: 'dark', settings: { wordUnderlineColorSource: 'jpdb' }, rootClass: 'jpdb-reader-word-underline-jpdb' },
+    { id: 'underline-jpdb-light', theme: 'light', settings: { ...DECK_CHANNELS, wordUnderlineColorSource: 'jpdb' }, rootClass: 'jpdb-reader-word-underline-jpdb' },
+    { id: 'underline-jpdb-dark', theme: 'dark', settings: { ...DECK_CHANNELS, wordUnderlineColorSource: 'jpdb' }, rootClass: 'jpdb-reader-word-underline-jpdb' },
     // With Anki on, an ordinary page projects Anki's verdict as a second state
     // class, so every word the mock collection lacks also carries
     // jpdb-not-in-deck. Each channel's colour cascade ranks some states below
     // not-in-deck (New, and Ignored under Status); those painted the
     // not-in-deck grey and must now show their own colour, the same as on the
     // page without Anki.
-    { id: 'underline-jpdb-anki-light', theme: 'light', settings: { wordUnderlineColorSource: 'jpdb', ankiEnabled: true }, rootClass: 'jpdb-reader-word-underline-jpdb', sameAs: 'underline-jpdb-light' },
+    { id: 'underline-jpdb-anki-light', theme: 'light', settings: { ...DECK_CHANNELS, wordUnderlineColorSource: 'jpdb', ankiEnabled: true }, rootClass: 'jpdb-reader-word-underline-jpdb', sameAs: 'underline-jpdb-light' },
     // Status needs a review source beside the deck state, or it resolves to
     // the JPDB channel.
-    { id: 'underline-status-light', theme: 'light', settings: { wordUnderlineColorSource: 'status', ankiEnabled: true }, rootClass: 'jpdb-reader-word-underline-status', sameAs: 'underline-jpdb-light' },
+    { id: 'underline-status-light', theme: 'light', settings: { ...DECK_CHANNELS, wordUnderlineColorSource: 'status', ankiEnabled: true }, rootClass: 'jpdb-reader-word-underline-status', sameAs: 'underline-jpdb-light' },
 ];
 
 // [matches(url), respond(request, rows, url)], first match wins.
@@ -164,14 +168,16 @@ assert(!report.failures.length, `${report.failures.length} underline colour sour
 console.log(`underline colour sources smoke passed (${ENGINE}); report: ${path.join(OUT, 'report.json')}`);
 
 async function checkCompoundPitch() {
-    const defaults = await compoundScenario('compound-defaults', {});
+    // Pitch underlines are a choice since 2.1 (ADR-0026); a compound keeps its
+    // per-part colours when the learner makes it.
+    const defaults = await compoundScenario('compound-pitch', { wordUnderlineColorSource: 'pitch' });
     const colours = gradientColours(defaults.gradient);
     expect(colours.includes(HEIBAN), 'The resolved part of a compound should keep its pitch colour.', defaults);
     expect(!colours.includes(UNKNOWN_SWATCH), 'A compound part with unknown pitch must not paint the grey "Unknown" swatch.', defaults);
     expect(colours.filter(colour => colour !== HEIBAN).every(isTransparent),
         'Every unresolved compound part should leave its underline segment bare.', defaults);
 
-    const hidden = await compoundScenario('compound-hide-new', { wordColorHiddenStateGroups: ['new'] });
+    const hidden = await compoundScenario('compound-hide-new', { wordUnderlineColorSource: 'pitch', wordColorHiddenStateGroups: ['new'] });
     expect(hidden.gradient === 'none', 'Hiding a word group\'s colours should also hide its compound pitch underline.', hidden);
 
     // "Only new / not-in-deck words" keeps this not-in-deck compound by design,
@@ -208,9 +214,12 @@ async function compoundScenario(id, settings) {
 
 async function checkDeckStatusUnderline() {
     const defaults = await deckScenario('deck-defaults', 'light', {});
-    // Pitch underlines describe the word, not the deck, so they stay.
-    expect(!isTransparent(defaults.words.find(word => word.text === '練習')?.underline),
-        'A not-in-deck word with known pitch keeps its pitch underline by default.', defaults);
+    // The default underline carries deck state (ADR-0026): a word in no deck,
+    // even one with a known pitch, draws nothing, and a New word draws its colour.
+    expect(isTransparent(defaults.words.find(word => word.text === '練習')?.underline),
+        'By default a not-in-deck word should carry no underline, whatever its pitch.', defaults);
+    expect(defaults.words.find(word => word.classes.includes('jpdb-new'))?.underline === NEW_ON_WHITE,
+        'By default a New word should carry its state underline.', defaults);
     for (const scenario of DECK_SCENARIOS) {
         expectNoNotInDeckUnderline(scenario, await deckScenario(scenario.id, scenario.theme, scenario.settings));
     }
@@ -219,7 +228,7 @@ async function checkDeckStatusUnderline() {
     for (const id of ['underline-jpdb-light', 'underline-jpdb-anki-light', 'underline-status-light']) {
         const result = report.page[id];
         expect(result.words.find(word => word.classes.includes('jpdb-new'))?.underline === NEW_ON_WHITE,
-            `${id}: a white New underline on a white page should still darken to #858585, Anki card or not.`, result);
+            `${id}: a white New underline on a white page should still take the #687384 page token, Anki card or not.`, result);
     }
 }
 
@@ -319,8 +328,8 @@ async function checkSubtitleUnderline() {
         }));
     }
     report.subtitles = results;
-    // Defaults are subtitle highlight JPDB + subtitle underline pitch: the
-    // not-in-deck wash is painted and no underline rule may touch it.
+    // Under subtitle highlight JPDB the not-in-deck wash is painted, and no
+    // underline mode may touch it.
     const wash = results.pitch['not-in-deck'].highlight;
     expect(!isTransparent(wash), 'A not-in-deck subtitle word should keep its highlight wash under defaults.', results);
     expect(['off', 'jpdb', 'status'].every(mode => results[mode]['not-in-deck'].highlight === wash

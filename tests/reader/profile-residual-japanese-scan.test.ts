@@ -81,7 +81,7 @@ describe('profile-site residual visible Japanese scan', () => {
         const rooted = Array.from({ length: 190 }, (_, index) => `
             <ytd-comment-view-model><span id="content-text">日本語コメント${index}</span></ytd-comment-view-model>
         `).join('');
-        document.body.innerHTML = `${rooted}<div class="unrooted-sort-menu" role="menu"><button role="menuitem">賛成票率順</button><button role="menuitem">新しい順</button></div>`;
+        document.body.innerHTML = `${rooted}<div class="unrooted-sort-menu" role="menu"><a role="menuitem" href="?sort=top">賛成票率順</a><a role="menuitem" href="?sort=new">新しい順</a></div>`;
 
         const targets = collectScanTargets(200, 'https://m.youtube.com/watch?v=abc');
 
@@ -115,7 +115,7 @@ describe('profile-site residual visible Japanese scan', () => {
             pathname: '/r/singularity/',
         });
         const prose = Array.from({ length: 220 }, (_, index) => `<p class="comment-body">日本語の長いコメント本文${index}です。</p>`).join('');
-        document.body.innerHTML = `<shreddit-app>${prose}<div role="menu"><button role="menuitem">注目順</button><button role="menuitem">賛成票数順</button></div><faceplate-timeago><time datetime="2026-07-12T12:00:00Z">2時間前</time></faceplate-timeago></shreddit-app>`;
+        document.body.innerHTML = `<shreddit-app>${prose}<div role="menu"><a role="menuitem" href="?sort=hot">注目順</a><a role="menuitem" href="?sort=top">賛成票数順</a></div><faceplate-timeago><time datetime="2026-07-12T12:00:00Z">2時間前</time></faceplate-timeago></shreddit-app>`;
 
         const targets = collectScanTargets(200, 'https://www.reddit.com/r/singularity/');
 

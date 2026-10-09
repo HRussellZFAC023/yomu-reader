@@ -64,7 +64,7 @@ async function withHostedReaderSettings(assertSettings: (settings: ReaderSetting
     document.body.innerHTML = '<main>Hosted docs</main>';
     vi.stubGlobal('location', new URL('https://hrussellzfac023.github.io/yomu-reader/'));
     try {
-        await app.init({ showWelcome: false });
+        await app.init({});
         assertSettings((app as unknown as { settings: ReaderSettings }).settings);
     } finally {
         app.destroy();
@@ -536,7 +536,7 @@ describe('reader helpers', () => {
         try {
             expect(isYomuHostedPassivePage(location.href)).toBe(true);
 
-            await app.init({ showWelcome: false });
+            await app.init({});
 
             await waitForExpect(() => {
                 expect(document.querySelector('.jpdb-ocr-layer')).not.toBeNull();
@@ -572,7 +572,7 @@ describe('reader helpers', () => {
         });
 
         try {
-            await app.init({ showWelcome: false });
+            await app.init({});
 
             await waitForExpect(() => {
                 expect(scanVisiblePage).toHaveBeenCalledWith({ silent: true });
@@ -591,7 +591,7 @@ describe('reader helpers', () => {
         let resolved = false;
 
         try {
-            const initPromise = app.init({ showWelcome: false }).then(() => {
+            const initPromise = app.init({}).then(() => {
                 resolved = true;
             });
 
@@ -628,7 +628,7 @@ describe('reader helpers', () => {
         });
 
         try {
-            await app.init({ showWelcome: false });
+            await app.init({});
 
             await waitForExpect(() => {
                 expect(scanVisiblePage).toHaveBeenCalledWith({ silent: true });
@@ -647,7 +647,6 @@ describe('reader helpers', () => {
     it('ignores obsolete disabled scan settings on hosted video-player pages', async () => {
         const rectSpy = mockElementBoundingClientRect();
         stubSharedReaderSettings({
-            learningTargetChosen: true,
             interfaceLanguage: 'ja',
             autoScanJapanese: false,
             scanVisiblePage: false,
@@ -666,7 +665,7 @@ describe('reader helpers', () => {
         });
 
         try {
-            await app.init({ showWelcome: false });
+            await app.init({});
 
             await waitForExpect(() => {
                 expect(scanVisiblePage).toHaveBeenCalledWith({ silent: true });
@@ -714,7 +713,7 @@ describe('reader helpers', () => {
         stubLocalHostedReaderLocation('/yomu-reader/features/');
 
         try {
-            await app.init({ showWelcome: false });
+            await app.init({});
             expect(scanVisiblePage).not.toHaveBeenCalled();
 
             document.body.innerHTML = '<main><div class="vp-doc"><div class="hosted-text-fixture" data-yomu-runtime-surface>青空の下で本を読む</div></div></main>';
@@ -732,7 +731,7 @@ describe('reader helpers', () => {
         stubLocalHostedReaderLocation();
 
         try {
-            await app.init({ showWelcome: false });
+            await app.init({});
             expect(scanVisiblePage).not.toHaveBeenCalled();
 
             document.body.innerHTML = `
@@ -756,7 +755,7 @@ describe('reader helpers', () => {
         stubLocalHostedReaderLocation();
 
         try {
-            await app.init({ showWelcome: false });
+            await app.init({});
             await new Promise(resolve => window.setTimeout(resolve, 20));
             expect(scanVisiblePage).not.toHaveBeenCalled();
 
@@ -778,9 +777,7 @@ describe('reader helpers', () => {
     });
 
     it('scans Japanese that hydrates after init inside an otherwise shadow-only generic page', async () => {
-        stubSharedReaderSettings({
-            learningTargetChosen: true,
-        });
+        stubSharedReaderSettings({});
         const { app, scanVisiblePage } = testReaderAppWithPageScanner('<main>Loading</main><div id="late-shadow"></div>');
         vi.stubGlobal('location', {
             href: 'https://example.com/reader',
@@ -791,7 +788,7 @@ describe('reader helpers', () => {
         const root = document.querySelector<HTMLElement>('#late-shadow')!.attachShadow({ mode: 'open' });
 
         try {
-            await app.init({ showWelcome: false });
+            await app.init({});
             await new Promise(resolve => window.setTimeout(resolve, 30));
             expect(scanVisiblePage).not.toHaveBeenCalled();
 
@@ -820,7 +817,7 @@ describe('reader helpers', () => {
         const root = document.querySelector<HTMLElement>('#outside-shadow')!.attachShadow({ mode: 'open' });
 
         try {
-            await app.init({ showWelcome: false });
+            await app.init({});
             await new Promise(resolve => window.setTimeout(resolve, 30));
             expect(scanVisiblePage).not.toHaveBeenCalled();
 
@@ -840,9 +837,7 @@ describe('reader helpers', () => {
 
     it('scans Japanese hydrating in an open root inside a scoped Reader Surface', async () => {
         document.documentElement.setAttribute('data-yomu-annotation-scope', 'surface');
-        stubSharedReaderSettings({
-            learningTargetChosen: true,
-        });
+        stubSharedReaderSettings({});
         const { app, scanVisiblePage } = testReaderAppWithPageScanner(`
             <main>Loading docs</main>
             <section data-yomu-runtime-surface><div id="surface-shadow"></div></section>
@@ -856,7 +851,7 @@ describe('reader helpers', () => {
         const root = document.querySelector<HTMLElement>('#surface-shadow')!.attachShadow({ mode: 'open' });
 
         try {
-            await app.init({ showWelcome: false });
+            await app.init({});
             await new Promise(resolve => window.setTimeout(resolve, 30));
             expect(scanVisiblePage).not.toHaveBeenCalled();
 
@@ -888,7 +883,7 @@ describe('reader helpers', () => {
         stubLocalHostedReaderLocation();
 
         try {
-            await app.init({ showWelcome: false });
+            await app.init({});
 
             await expectSilentPageScan(scanVisiblePage);
             const { settings } = app as unknown as { settings: Record<string, unknown> };
@@ -1091,7 +1086,7 @@ describe('reader helpers', () => {
         stubInstantIntersectionObserver();
 
         try {
-            await app.init({ showWelcome: false });
+            await app.init({});
             await waitForExpect(() => {
                 expect(document.querySelector('.jpdb-ocr-line')?.getAttribute('aria-label')).toBe('日本語を読む');
             });
@@ -1415,7 +1410,7 @@ describe('reader helpers', () => {
             const player = new AudioPlayer(() => ({
                 ...DEFAULT_SETTINGS,
                 audioEnableDefaultSources: false,
-                audioSelectionMode: 'random',
+
                 audioViaBlob: false,
                 audioFallbackChimeEnabled: false,
                 audioSources: [
@@ -1461,7 +1456,7 @@ describe('reader helpers', () => {
             const player = new AudioPlayer(() => ({
                 ...DEFAULT_SETTINGS,
                 audioEnableDefaultSources: false,
-                audioSelectionMode: 'first',
+
                 audioViaBlob: false,
                 audioFallbackChimeEnabled: false,
                 audioSources: [
@@ -1500,7 +1495,7 @@ describe('reader helpers', () => {
             const player = new AudioPlayer(() => ({
                 ...DEFAULT_SETTINGS,
                 audioEnableDefaultSources: false,
-                audioSelectionMode: 'first',
+
                 audioViaBlob: false,
                 audioFallbackChimeEnabled: false,
                 audioSources: [
@@ -1540,7 +1535,7 @@ describe('reader helpers', () => {
             const player = new AudioPlayer(() => ({
                 ...DEFAULT_SETTINGS,
                 audioEnableDefaultSources: false,
-                audioSelectionMode: 'first',
+
                 audioViaBlob: false,
                 audioFallbackChimeEnabled: false,
                 audioSources: [
@@ -1576,7 +1571,7 @@ describe('reader helpers', () => {
             const player = new AudioPlayer(() => ({
                 ...DEFAULT_SETTINGS,
                 audioEnableDefaultSources: false,
-                audioSelectionMode: 'first',
+
                 audioViaBlob: false,
                 audioFallbackChimeEnabled: false,
                 audioSources: [{ type: 'custom', url: 'http://x.test/tapped-word.mp3', voice: '', enabled: true }],
@@ -1614,7 +1609,7 @@ describe('reader helpers', () => {
             const player = new AudioPlayer(() => ({
                 ...DEFAULT_SETTINGS,
                 audioEnableDefaultSources: false,
-                audioSelectionMode: 'random',
+
                 audioViaBlob: false,
                 audioFallbackChimeEnabled: false,
                 audioSources: [{ type: 'custom', url: 'http://x.test/single-source.mp3', voice: '', enabled: true }],
@@ -1665,11 +1660,10 @@ describe('reader helpers', () => {
             const player = new AudioPlayer(() => ({
                 ...DEFAULT_SETTINGS,
                 audioEnableDefaultSources: false,
-                audioSelectionMode: 'random',
+
                 audioTtsMode: 'fallback',
                 audioViaBlob: true,
                 audioFallbackChimeEnabled: false,
-                audioTimeoutMs: 2000,
                 audioSources: [
                     { type: 'custom', url: 'http://x.test/slow.mp3', voice: '', enabled: true },
                     { type: 'custom', url: 'http://x.test/fast.mp3', voice: '', enabled: true },
@@ -1706,7 +1700,7 @@ describe('reader helpers', () => {
             const player = new AudioPlayer(() => ({
                 ...DEFAULT_SETTINGS,
                 audioEnableDefaultSources: false,
-                audioSelectionMode: 'random',
+
                 audioViaBlob: true,
                 audioFallbackChimeEnabled: false,
                 audioSources: [
@@ -1741,7 +1735,7 @@ describe('reader helpers', () => {
         let settings: ReaderSettings = {
             ...DEFAULT_SETTINGS,
             audioEnableDefaultSources: false,
-            audioSelectionMode: 'first',
+
             audioViaBlob: false,
             audioFallbackChimeEnabled: false,
             audioSources: [
@@ -1756,7 +1750,7 @@ describe('reader helpers', () => {
             await expect(player.play(card)).resolves.toBe(true);
             settings = {
                 ...settings,
-                audioSelectionMode: 'random',
+
                 audioSources: [
                     { type: 'custom', url: 'http://x.test/repeated.mp3', voice: '', enabled: true },
                     { type: 'text-to-speech', url: '', voice: '', enabled: true },
@@ -1799,7 +1793,7 @@ describe('reader helpers', () => {
             const player = new AudioPlayer(() => ({
                 ...DEFAULT_SETTINGS,
                 audioEnableDefaultSources: false,
-                audioSelectionMode: 'random',
+
                 audioViaBlob: true,
                 audioFallbackChimeEnabled: false,
                 audioSources: [

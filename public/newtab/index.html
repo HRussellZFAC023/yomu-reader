@@ -5,17 +5,17 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     <title>よむ — Offline Language Reader & Study</title>
-    <meta name="description" content="An offline-first dictionary and Study companion for 33 learning targets, local cards, and supported connected services.">
+    <meta name="description" content="An offline-first Japanese dictionary and Study companion for local cards and supported connected services.">
     <link rel="canonical" href="https://yomureader.com/study/">
     <meta property="og:type" content="website">
     <meta property="og:site_name" content="よむ">
     <meta property="og:title" content="よむ — Offline Language Reader & Study">
-    <meta property="og:description" content="Install an offline-first dictionary and Study companion for your selected learning language, connected services, and local cards.">
+    <meta property="og:description" content="Install an offline-first Japanese dictionary and Study companion for local cards and connected services.">
     <meta property="og:url" content="https://yomureader.com/study/">
     <meta property="og:image" content="https://yomureader.com/og-image.png">
     <meta name="twitter:card" content="summary_large_image">
     <meta name="twitter:title" content="よむ — Offline Language Reader & Study">
-    <meta name="twitter:description" content="Install an offline-first dictionary and Study companion for your selected learning language, connected services, and local cards.">
+    <meta name="twitter:description" content="Install an offline-first Japanese dictionary and Study companion for local cards and connected services.">
     <meta name="twitter:image" content="https://yomureader.com/og-image.png">
     <link rel="icon" type="image/svg+xml" href="../yomu-icon.svg">
     <link rel="icon" type="image/png" sizes="32x32" href="../favicon-32x32.png">
@@ -39,11 +39,11 @@
     <style>
       :root {
         color-scheme: light dark;
-        --accent: #5ea780;
+        --accent: #b8324e;
         --bg: #181b20;
         --ink: #f2f4f8;
-        --muted: #aab2c0;
-        --faint: #6f7a89;
+        --muted: #b0b8c4;
+        --faint: #8993a2;
         --surface: #20242b;
         --surface-2: #282e37;
         --border: rgba(255, 255, 255, .12);
@@ -56,21 +56,21 @@
       :root.jpdb-reader-theme-light,
       :root.yomu-page-theme-light:not(.jpdb-reader-theme-dark) {
         color-scheme: light;
-        --bg: #ffffff;
-        --ink: #171a1f;
-        --muted: #596272;
-        --faint: #7b8493;
-        --surface: #f7f8fa;
-        --surface-2: #eef1f4;
-        --border: rgba(20, 30, 45, .16);
+        --bg: #f8f9fb;
+        --ink: #20242b;
+        --muted: #59616d;
+        --faint: #687384;
+        --surface: #ffffff;
+        --surface-2: #f0f2f5;
+        --border: #dfe3e8;
       }
 
       :root.jpdb-reader-theme-dark {
         color-scheme: dark;
         --bg: #181b20;
         --ink: #f2f4f8;
-        --muted: #aab2c0;
-        --faint: #6f7a89;
+        --muted: #b0b8c4;
+        --faint: #8993a2;
         --surface: #20242b;
         --surface-2: #282e37;
         --border: rgba(255, 255, 255, .12);
@@ -145,7 +145,7 @@
         padding: 0 0 4px;
         font-size: 18px;
         line-height: 1;
-        font-weight: 900;
+        font-weight: 600;
       }
 
       .jpdb-reader-newtab-brand img {
@@ -176,7 +176,7 @@
         color: inherit;
         font: inherit;
         font-size: 11px;
-        font-weight: 820;
+        font-weight: 600;
       }
 
       .jpdb-reader-newtab-mode button {
@@ -295,11 +295,7 @@
         cursor: pointer;
         user-select: none;
         padding-top: clamp(16px, 3vh, 32px);
-        transition: background .16s ease, filter .16s ease;
-      }
-
-      .jpdb-reader-newtab:not(.jpdb-reader-newtab-revealed) .jpdb-reader-newtab-study:hover {
-        background: color-mix(in srgb, var(--accent) 5%, transparent);
+        transition: filter .16s ease;
       }
 
       .jpdb-reader-newtab-study:active {
@@ -316,7 +312,7 @@
         color: var(--ink);
         font-size: 11px;
         line-height: 1.2;
-        font-weight: 760;
+        font-weight: 500;
         text-align: center;
       }
 
@@ -328,18 +324,17 @@
         border-radius: 0;
         background: transparent;
         font-size: clamp(2.25rem, 7vw, 5.2rem);
-        font-weight: 900;
+        font-weight: 600;
         line-height: 1.06;
         text-align: center;
         overflow-wrap: anywhere;
         text-wrap: balance;
-        text-shadow: 0 1px 2px rgba(0, 0, 0, .18);
       }
 
       .jpdb-reader-newtab-kanji-mode .jpdb-reader-newtab-prompt {
         font-family: inherit;
         font-size: clamp(2.6rem, 8vw, 5.8rem);
-        font-weight: 900;
+        font-weight: 600;
         line-height: 1.02;
       }
 
@@ -392,7 +387,7 @@
 
       .jpdb-reader-newtab-reading {
         font-size: clamp(1.2rem, 3.2vw, 2.05rem);
-        font-weight: 780;
+        font-weight: 600;
         line-height: 1.1;
         text-align: center;
       }
@@ -401,7 +396,7 @@
         max-width: min(520px, 100%);
         color: var(--muted);
         font-size: clamp(14px, 2.1vw, 18px);
-        font-weight: 650;
+        font-weight: 500;
         line-height: 1.42;
         text-align: center;
       }
@@ -421,15 +416,15 @@
         padding: 0 12px;
         border: 1px solid var(--border);
         border-radius: 8px;
-        background: color-mix(in srgb, var(--surface) 82%, transparent);
+        background: var(--surface);
         line-height: 1.1;
         text-align: center;
       }
 
       .jpdb-reader-newtab-controls button[data-newtab-action="reveal"] {
-        background: var(--ink);
-        border-color: transparent;
-        color: var(--bg);
+        background: var(--jpdb-reader-accent, var(--accent));
+        border-color: var(--jpdb-reader-accent, var(--accent));
+        color: var(--jpdb-reader-accent-text, #ffffff);
       }
 
       .jpdb-reader-newtab-sentence .jpdb-reader-word {
@@ -442,7 +437,7 @@
         justify-self: end;
         color: var(--faint);
         font-size: 11px;
-        font-weight: 760;
+        font-weight: 500;
         text-decoration: none;
       }
 

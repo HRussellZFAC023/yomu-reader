@@ -59,9 +59,9 @@ const origin = 'https://yomureader.com';
 const siteUrl = `${origin}${base}`;
 const socialImage = `${siteUrl}og-image.png`;
 const newTabLink = '/study/';
-const statsLink = '/study/?mode=stats';
 const videoPlayerLink = '/video-player/';
 const pdfReaderLink = '/pdf-reader/';
+const desktopAppLink = '/desktop';
 const stripeDonationLink = 'https://support.yomureader.com/donate';
 const stripeDonationIcon = {
     svg: '<svg role="img" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><title>Stripe</title><path d="M13.976 9.15c-2.172-.806-3.356-1.426-3.356-2.409 0-.831.683-1.305 1.901-1.305 2.227 0 4.515.858 6.09 1.631l.89-5.494C18.252.975 15.697 0 12.165 0 9.667 0 7.589.654 6.104 1.872 4.56 3.147 3.757 4.992 3.757 7.218c0 4.039 2.467 5.76 6.476 7.219 2.585.92 3.445 1.574 3.445 2.583 0 .98-.84 1.545-2.354 1.545-1.875 0-4.965-.921-6.99-2.109l-.9 5.555C5.175 22.99 8.385 24 11.714 24c2.641 0 4.843-.624 6.328-1.813 1.664-1.305 2.525-3.236 2.525-5.732 0-4.128-2.524-5.851-6.594-7.305h.003z"/></svg>',
@@ -195,7 +195,7 @@ function jsonLdFor(pageData: PageDataLike, pageUrl: string, locale: WebsiteLocal
             '@context': 'https://schema.org',
             '@type': 'SoftwareApplication',
             name: 'よむ (Yomu)',
-            alternateName: 'Yomu Language Reader',
+            alternateName: 'Yomu Japanese Reader',
             applicationCategory: 'EducationalApplication',
             applicationSubCategory: 'Language Learning',
             operatingSystem: 'Chrome, Firefox, Safari, iOS, Android (userscript)',
@@ -209,15 +209,15 @@ function jsonLdFor(pageData: PageDataLike, pageUrl: string, locale: WebsiteLocal
             isAccessibleForFree: true,
             offers: { '@type': 'Offer', price: '0', priceCurrency: 'USD' },
             featureList: [
-                'Target-aware popup lookup for 33 learning languages',
+                'Japanese pop-up dictionary on any web page',
+                'Furigana, pitch accent, and audio',
+                'Kanji stroke order and drilldown',
                 'Manga and image OCR',
-                'Yomu Gaming desktop capture',
+                'Desktop app for reading Japanese on screen',
                 'Video subtitle mining',
                 'Yomitan dictionary import',
                 'Anki card creation',
                 'Study card review',
-                'Japanese kanji stroke order and drilldown',
-                'Japanese furigana, pitch accent, and audio',
             ],
             author: {
                 '@type': 'Person',
@@ -229,7 +229,7 @@ function jsonLdFor(pageData: PageDataLike, pageUrl: string, locale: WebsiteLocal
             '@context': 'https://schema.org',
             '@type': 'WebSite',
             name: 'よむ',
-            alternateName: 'Yomu Language Reader',
+            alternateName: 'Yomu Japanese Reader',
             url: localeHome,
             description: localeDescription,
             inLanguage: locale,
@@ -260,46 +260,37 @@ function jsonLdFor(pageData: PageDataLike, pageUrl: string, locale: WebsiteLocal
 // meaning anything.
 const siteNav = docsNav() as WebsiteNavigationItem[];
 
+// Three groups a newcomer can take in at a glance: get started, the apps, and
+// the small print. The guide used to be six pages plus reference pages; it is
+// one page and the FAQ now, because nobody should need a manual (owner,
+// 2026-10-07).
 const siteSidebar: WebsiteNavigationItem[] = [
     {
-        text: 'Learn Japanese',
+        text: 'Guide',
         items: [
-            { text: '0. Start here', link: '/learn/' },
-            { text: '1. The approach', link: '/learn/approach' },
-            { text: '2. Week one', link: '/learn/week-one' },
-            { text: '3. Building a core', link: '/learn/building-a-core' },
-            { text: '4. Reading', link: '/learn/reading' },
-            { text: '5. Watching', link: '/learn/watching' },
-            { text: '6. Manga and games', link: '/learn/manga-and-games' },
-            { text: '7. Keeping words', link: '/learn/keeping-words' },
-            { text: '8. Staying with it', link: '/learn/staying-with-it' },
-            { text: '9. Your own setup', link: '/learn/your-own-setup' },
-            { text: '10. Reference', link: '/learn/reference' },
+            { text: 'Install', link: '/install' },
+            { text: 'How to learn', link: '/learn/' },
+            { text: 'FAQ', link: '/faq' },
         ],
     },
     {
         text: APPS_NAV_LABEL,
         items: [
-            { text: 'Apps overview', link: '/learn/reference#apps' },
+            { text: 'Study', link: newTabLink, target: '_self' },
             { text: 'Video Player', link: videoPlayerLink, target: '_self' },
             { text: 'PDF Reader', link: pdfReaderLink, target: '_self' },
-            { text: 'Yomu Gaming', link: '/learn/manga-and-games#read-a-game-frame' },
+            { text: 'よむ Desktop', link: desktopAppLink },
             { text: 'Academy', link: '/academy/', target: '_self' },
         ],
     },
     {
-        text: 'Reference and help',
+        text: 'About',
         items: [
-            { text: 'Homepage', link: '/' },
-            { text: 'Grammar coverage', link: '/reference/grammar' },
-            { text: 'Settings reference', link: '/reference/settings' },
-            { text: 'FAQ', link: '/faq' },
             { text: 'Privacy', link: '/privacy/' },
-            { text: 'Local Audio', link: '/local-audio' },
-            { text: 'Support', link: '/support' },
-            { text: 'Membership', link: '/membership' },
-            { text: 'API', link: '/api/', target: '_self' },
+            { text: 'Credits', link: '/credits' },
             { text: 'Changelog', link: '/changelog' },
+            { text: 'API', link: '/api/', target: '_self' },
+            { text: 'Donate', link: '/membership' },
         ],
     },
 ];
@@ -317,7 +308,11 @@ const localizedSiteNavigation = Object.freeze({
         sidebar: localizeWebsiteNavigation(siteSidebar, 'ja'),
     },
 });
+// The logo links each locale's home page, which is not a nav or sidebar entry,
+// so name both homes here or the sitemap leaves out the one page that matters.
 const linkedRoutes = navigationRoutes([
+    { link: '/' },
+    { link: '/ja/' },
     ...localizedSiteNavigation.en.nav,
     ...localizedSiteNavigation.en.sidebar,
     ...localizedSiteNavigation.ja.nav,
@@ -442,11 +437,14 @@ function legacyRedirectHead(relativePath: string, redirect: string | undefined):
 function websiteRouteHead(pageData: PageDataLike): HeadConfig[] {
     const locale = websiteLocaleForRelativePath(pageData.relativePath);
     const definition = websiteRouteForSource(pageData.relativePath);
-    const pageUrl = canonicalUrl(pageData.relativePath, locale);
     const title = ogTitleFor(pageData, locale);
     const description = ogDescriptionFor(pageData, locale);
-    const legacyRedirect = locale === 'en' ? legacyDocsRedirect(pageData.relativePath) : undefined;
-    const canonicalPageUrl = legacyRedirect ? new URL(legacyRedirect, siteUrl).href : pageUrl;
+    // A retired page canonicalises to where it redirects; a retired Japanese
+    // page has no reviewed route of its own to name.
+    const legacyRedirect = legacyDocsRedirect(pageData.relativePath);
+    const canonicalPageUrl = legacyRedirect
+        ? new URL(legacyRedirect, siteUrl).href
+        : canonicalUrl(pageData.relativePath, locale);
     return markRouteHead([
         ...socialMetadataHead(locale, canonicalPageUrl, title, description),
         ...openGraphLocaleAlternateHead(definition, locale),
@@ -557,12 +555,12 @@ export default defineConfig({
         ['link', { rel: 'stylesheet', href: `${base}yomu.css` }],
         ['meta', { name: 'apple-mobile-web-app-title', content: 'よむ' }],
         ['meta', { name: 'mobile-web-app-capable', content: 'yes' }],
-        ['meta', { name: 'theme-color', content: '#5ea780' }],
+        ['meta', { name: 'theme-color', content: '#ffffff' }],
         // Runs while the head is still parsing, so the reader's accent and
         // theme are on <html> before the first paint. Without it the static
-        // brand green paints first and every page flashes green before the
+        // brand accent paints first and every page flashes it before the
         // hydrated bundle re-applies the chosen accent. Placed after the
-        // theme-color meta so the snippet can repoint it too.
+        // theme-color meta so the snippet can point it at the page's own paper.
         ['script', {}, hostedAppearanceBootSnippet('docs')],
         // Marks the theme as RESOLVED by script. The homepage palette is driven
         // by tokens declared twice: under `.dark` (authoritative whenever the

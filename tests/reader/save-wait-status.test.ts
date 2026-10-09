@@ -3,7 +3,6 @@ import { uiText } from '../../src/reader/app/i18n';
 import { reportSaveWaitingForAnotherTab } from '../../src/reader/app/save-wait';
 import type { InterfaceLanguage, JPDBCard } from '../../src/reader/app/types';
 import { runCardActionOperation } from '../../src/reader/cards/action-operation';
-import { resetActiveLearningTargetLanguage, setActiveLearningTargetLanguage } from '../../src/reader/languages/active';
 import { DEFAULT_NEW_TAB_UI_STATE } from '../../src/reader/newtab/state';
 import { DEFAULT_SETTINGS } from '../../src/reader/settings';
 import { createYomuLocalSrsAdapter, LocalYomuSrsRepository } from '../../src/reader/srs/local-yomu';
@@ -16,7 +15,7 @@ import {
     waitForCondition,
 } from './helpers/settings-dialog-controller-fixture';
 
-// "Add to deck +" in the lookup popup (and in Study's) runs through the shared
+// "Add to deck…" in the lookup popup (and in Study's) runs through the shared
 // card-action lifecycle. While its save waits for another Yomu tab's storage
 // lease, the learner sees why, in the toast area where save feedback appears.
 function deferred(): { promise: Promise<void>; resolve: () => void } {
@@ -35,7 +34,7 @@ function addToDeck(language: InterfaceLanguage, save: () => Promise<void>) {
     const done = runCardActionOperation(button, save, {
         logger: { warn: () => undefined },
         warning: 'Card action failed',
-        action: 'add-default',
+        action: 'add',
         term: '読む',
         language,
         toast,
@@ -124,11 +123,9 @@ describe('Settings Save waiting for another tab', () => {
 
 // Study's Library "Add to review" and its grades save to the local deck too.
 describe('Study saves waiting for another tab', () => {
-    beforeEach(() => { setActiveLearningTargetLanguage('ja'); });
     afterEach(() => {
         vi.restoreAllMocks();
         allowSyntheticReaderInteractionsForTests(true);
-        resetActiveLearningTargetLanguage();
         document.body.replaceChildren();
         localStorage.clear();
     });
@@ -159,7 +156,7 @@ describe('Study saves waiting for another tab', () => {
             return startReview(cardId);
         });
         const toast = vi.fn();
-        const controller = newTabPromptController({ ...DEFAULT_SETTINGS, learningTargetChosen: true }, {
+        const controller = newTabPromptController(DEFAULT_SETTINGS, {
             srsAdapters: { 'yomu-local': createYomuLocalSrsAdapter(repository) }, toast,
         });
         const probe = controller as unknown as {
@@ -186,7 +183,7 @@ describe('Study saves waiting for another tab', () => {
     });
 
     it('says so while a grade waits, and stops when it proceeds', async () => {
-        const controller = newTabPromptController({ ...DEFAULT_SETTINGS, learningTargetChosen: true });
+        const controller = newTabPromptController(DEFAULT_SETTINGS);
         const internals = controller as unknown as {
             submitGrade(): Promise<null>;
             submitCurrentGrade(target: { root: HTMLElement; card: JPDBCard }, grade: 'pass', selectedTarget: undefined,

@@ -32,7 +32,7 @@ afterEach(() => {
 // stamp such late-clipped rows.
 describe('late clip-constrained stamping', () => {
     it('stamps a row whose clipping styles arrived after the mirror rendered', () => {
-        document.body.innerHTML = `<div id="row"><button id="host">${TEXT}</button></div>`;
+        document.body.innerHTML = `<div id="row" role="toolbar"><a id="host" href="/share">${TEXT}</a></div>`;
         const row = document.getElementById('row')!;
         const host = document.getElementById('host')!;
         const target = collectTextTargetsIn(host, 40, false).find(item => item.text.trim() === TEXT)!;
@@ -51,7 +51,7 @@ describe('late clip-constrained stamping', () => {
     });
 
     it('leaves un-clipped rows unstamped on settle', () => {
-        document.body.innerHTML = `<div id="row"><button id="host">${TEXT}</button></div>`;
+        document.body.innerHTML = `<div id="row" role="toolbar"><a id="host" href="/share">${TEXT}</a></div>`;
         const row = document.getElementById('row')!;
         const host = document.getElementById('host')!;
         const target = collectTextTargetsIn(host, 40, false).find(item => item.text.trim() === TEXT)!;

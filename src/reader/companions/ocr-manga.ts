@@ -5,9 +5,9 @@ import { registerYomuCompanion } from './registry';
 import { registerTargetOwnedDocumentStartActivator } from '../app/target-owned-document-start';
 
 // Registering the OCR implementation is inert. The core emits this one-shot
-// activation only after it has positive stored learner intent; existing users
-// still reach it at document-start, while a fresh/dismissed chooser never
-// patches canvas prototypes or starts the recorder's null-root retry window.
+// activation at document-start only where it runs a Reader (an installed
+// Reader, or the hosted fallback), so a page that loads the companion without
+// one never patches canvas prototypes or starts the recorder's retry window.
 let documentStartActivated = false;
 registerTargetOwnedDocumentStartActivator(() => {
     if (documentStartActivated) return;

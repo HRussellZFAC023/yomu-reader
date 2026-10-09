@@ -18,16 +18,17 @@ import {
     type TextFragment,
     type TextTarget,
 } from '../dom/index';
-import { formatUiText } from '../app/i18n';
+import { formatUiText, uiText } from '../app/i18n';
 import { normalizeOcrScannerLinesInRoot } from './dom-helpers';
 import { PaintedWordRecorder } from '../dom/painted-word-recorder';
+import { syncRubyEdgeOverhang } from '../dom/ruby-overhang';
 import { refreshRenderedMiningInsights, renderedWordsInRoot } from '../dom/rendered-word-state';
 import { renderedWordPrivateValue } from '../dom/rendered-word-private-state';
-import { activeTargetLanguageDisplayName } from './target-language-name';
 import { userFacingErrorText } from './user-facing-errors';
 import { Logger } from './logger';
 import { collectScanTargetsInSteps, effectiveSiteScanCollectionLimit } from './site-parsers';
 import {
+    DEFAULT_COLOR_CHANNELS,
     effectiveFuriganaMode,
     effectiveReaderColorSource,
     effectiveReaderTextColorSource,
@@ -115,6 +116,7 @@ interface VisibleScanParseOptions {
     allowSegmentedFallback?: boolean;
     skipApi?: boolean;
     publicJitenDetailLimit?: number;
+    publicJitenPriority?: 'annotation';
 }
 
 interface VisiblePageCoverageSummary {
@@ -875,7 +877,11 @@ export class VisiblePageScanner {
     }
 
     private notePaintedWords(words: HTMLElement[]): void {
-        if (words.length) this.dependencies.notePaintedWords?.(words);
+        if (!words.length) return;
+        // A painted word's neighbours can change too: a word beside it may
+        // now overhang its reading, or must stop (dom/ruby-overhang.ts).
+        syncRubyEdgeOverhang(words);
+        this.dependencies.notePaintedWords?.(words);
     }
 
     // Only a paced page scan records its costs: an ASB cue batch can run while
@@ -953,12 +959,7 @@ export class VisiblePageScanner {
 
     private handleEmptyVisiblePageScan(silent: boolean): void {
         if (silent) return;
-        // The scan looks for the ACTIVE target's language, so the toast names it
-        // rather than saying "Japanese" to someone studying Russian (b20).
-        const interfaceLanguage = this.dependencies.getSettings().interfaceLanguage;
-        this.dependencies.toast(formatUiText(interfaceLanguage, 'noUnscannedJapaneseText', {
-            language: activeTargetLanguageDisplayName(interfaceLanguage),
-        }));
+        this.dependencies.toast(uiText(this.dependencies.getSettings().interfaceLanguage, 'noUnscannedJapaneseText'));
     }
 
     private handleVisiblePageScanError(error: unknown, silent: boolean): void {
@@ -1042,9 +1043,13 @@ export class VisiblePageScanner {
         if (!root) return;
         const settings = this.dependencies.getSettings();
         this.syncClampedRowReadingsMode(settings, root);
-        if (settings.showFurigana && settings.furiganaMode === 'all') {
-            if (root.getAttribute(FORCE_FURIGANA_MODE_ATTRIBUTE) !== 'all') {
-                root.setAttribute(FORCE_FURIGANA_MODE_ATTRIBUTE, 'all');
+        // Both modes that show readings at rest stamp the page, so readings on
+        // prose with links take the same in-flow lane under either; only
+        // 'all' also overrides which words get one (dom/index.ts).
+        const mode = effectiveFuriganaMode(settings);
+        if (mode === 'all' || mode === 'known-status') {
+            if (root.getAttribute(FORCE_FURIGANA_MODE_ATTRIBUTE) !== mode) {
+                root.setAttribute(FORCE_FURIGANA_MODE_ATTRIBUTE, mode);
             }
             return;
         }
@@ -1070,7 +1075,7 @@ export class VisiblePageScanner {
         if (typeof document === 'undefined') return;
         const root = document.documentElement;
         if (!root) return;
-        if (root.getAttribute(FORCE_FURIGANA_MODE_ATTRIBUTE) === 'all') {
+        if (root.hasAttribute(FORCE_FURIGANA_MODE_ATTRIBUTE)) {
             root.removeAttribute(FORCE_FURIGANA_MODE_ATTRIBUTE);
         }
     }
@@ -1078,9 +1083,9 @@ export class VisiblePageScanner {
 
 export function pageScanHasVisibleAnnotations(settings: ReaderSettings): boolean {
     if (effectiveFuriganaMode(settings) !== 'off') return true;
-    return effectiveReaderColorSource(settings, settings.wordHighlightColorSource, 'jpdb') !== 'off'
-        || effectiveReaderColorSource(settings, settings.wordUnderlineColorSource, 'pitch') !== 'off'
-        || effectiveReaderTextColorSource(settings, settings.wordTextColorSource, 'anki') !== 'off';
+    return effectiveReaderColorSource(settings, settings.wordHighlightColorSource, DEFAULT_COLOR_CHANNELS.wordHighlightColorSource) !== 'off'
+        || effectiveReaderColorSource(settings, settings.wordUnderlineColorSource, DEFAULT_COLOR_CHANNELS.wordUnderlineColorSource) !== 'off'
+        || effectiveReaderTextColorSource(settings, settings.wordTextColorSource, DEFAULT_COLOR_CHANNELS.wordTextColorSource) !== 'off';
 }
 
 function waitForVisibleScanTurn(): Promise<void> {
@@ -1114,6 +1119,9 @@ function scanParseOptions(settings: ReaderSettings): VisibleScanParseOptions {
         // repaint them asynchronously; up to twelve /info round-trips must not
         // sit on the visible scan's first-DOM-apply path.
         publicJitenDetailLimit: 0,
+        // The page's word boundaries go ahead of readings, pitch and popup
+        // examples, and behind the word a hover is waiting on.
+        publicJitenPriority: 'annotation',
     };
 }
 

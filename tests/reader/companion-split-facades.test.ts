@@ -18,8 +18,8 @@ import {
 } from '../../src/reader/dictionaries/jiten-public-vocabulary-companion';
 import { renderJitenDefinitionSource as renderJitenDefinitionSourceFacade } from '../../src/reader/jiten/jiten-definition-source-render-companion';
 import {
-    defaultLearningTargetModule as defaultLearningTargetModuleFacade,
-    learningTargetModuleFor as learningTargetModuleForFacade,
+    activeLearningTarget as activeLearningTargetFacade,
+    activeLearningTargetLanguage as activeLearningTargetLanguageFacade,
 } from '../../src/reader/languages/target-runtime-companion';
 import { renderStructuredGlossaryHtml as renderStructuredGlossaryHtmlFacade } from '../../src/reader/dictionaries/yomitan/structured-content-companion';
 
@@ -220,22 +220,27 @@ describe('Jiten companion facades', () => {
 });
 
 describe('learning-target companion facade', () => {
-    it('resolves concrete target modules through the registered runtime', () => {
-        const fallback = { id: 'fallback-target' };
-        const selected = { id: 'selected-target' };
-        const defaultLearningTargetModule = vi.fn(() => fallback);
-        const learningTargetModuleFor = vi.fn(() => selected);
+    it('resolves the Japanese target through the registered runtime', () => {
+        const japanese = { id: 'ja' };
+        const activeLearningTarget = vi.fn(() => japanese);
+        const activeLearningTargetLanguage = vi.fn(() => 'ja');
         setCompanions({
             learningTargets: {
-                defaultLearningTargetModule,
-                learningTargetModuleFor,
+                activeLearningTarget,
+                activeLearningTargetLanguage,
             },
         });
 
-        expect(defaultLearningTargetModuleFacade()).toBe(fallback);
-        expect(learningTargetModuleForFacade('es')).toBe(selected);
-        expect(defaultLearningTargetModule).toHaveBeenCalledOnce();
-        expect(learningTargetModuleFor).toHaveBeenCalledWith('es');
+        expect(activeLearningTargetFacade()).toBe(japanese);
+        expect(activeLearningTargetLanguageFacade()).toBe('ja');
+        expect(activeLearningTarget).toHaveBeenCalledOnce();
+        expect(activeLearningTargetLanguage).toHaveBeenCalledOnce();
+    });
+
+    it('fails loudly when the learning-target runtime did not load', () => {
+        setCompanions({});
+
+        expect(() => activeLearningTargetFacade()).toThrow(/learning-target runtime did not load/);
     });
 });
 
@@ -324,7 +329,7 @@ describe('Greasy Fork split manifest', () => {
         expect(settingsLauncher).toContain("import './learning-targets';");
     });
 
-    it('keeps the active-target generation guard on the split runtime boundary', () => {
+    it('registers every facade the split runtime boundary exposes', () => {
         const learningTargets = readFileSync(
             path.join(repoRoot, 'src/reader/companions/learning-targets.ts'),
             'utf8',
@@ -333,9 +338,11 @@ describe('Greasy Fork split manifest', () => {
             path.join(repoRoot, 'src/reader/languages/target-runtime-companion.ts'),
             'utf8',
         );
-        expect(learningTargets).toContain('activeLearningTargetGeneration,');
-        expect(companionFacade).toContain('export function activeLearningTargetGeneration(): number');
-        expect(companionFacade).toContain('return runtime().activeLearningTargetGeneration();');
+        for (const name of ['activeLearningTarget', 'activeLearningTargetLanguage']) {
+            expect(learningTargets).toContain(`${name},`);
+            expect(companionFacade).toContain(`export function ${name}(`);
+            expect(companionFacade).toContain(`return runtime().${name}();`);
+        }
     });
 
     it('aliases the core learning-target runtime to the companion facade', () => {
@@ -380,16 +387,6 @@ describe('Greasy Fork split manifest', () => {
         )).not.toContain('structured-content-companion');
     });
 
-    it('keeps target-language labels on the canonical i18n companion alias', () => {
-        const targetLanguageName = readFileSync(
-            path.join(repoRoot, 'src/reader/app/target-language-name.ts'),
-            'utf8',
-        );
-        expect(targetLanguageName).toContain("from '../app/i18n';");
-        expect(targetLanguageName).not.toContain("from './i18n';");
-        expect(targetLanguageName).not.toContain('dictionaries/catalog-browse');
-    });
-
     it('keeps the core popup provider-state label on the canonical i18n companion alias', () => {
         // popover-renderer reaches this helper from core; a same-directory
         // `./i18n` import here put the whole copy catalogue (~140 KB) back in
@@ -402,30 +399,16 @@ describe('Greasy Fork split manifest', () => {
         expect(providerStateLabel).not.toContain("from './i18n';");
     });
 
-    it('keeps core pronunciation behind the companion-backed target runtime', () => {
+    it('keeps core pronunciation free of the learning-target modules', () => {
         const pronunciationSource = readFileSync(
             path.join(repoRoot, 'src/reader/popup/pronunciation.ts'),
             'utf8',
         );
-        expect(pronunciationSource).toContain("from '../languages/target-runtime';");
-        expect(pronunciationSource).not.toContain("from '../languages/registry';");
+        expect(pronunciationSource).not.toContain("from '../languages/");
     });
 
-    it('keeps core language labels detached from the frozen dictionary catalogue', () => {
-        const targetNameSource = readFileSync(
-            path.join(repoRoot, 'src/reader/app/target-language-name.ts'),
-            'utf8',
-        );
-        expect(targetNameSource).toContain("from '../app/i18n';");
-        expect(targetNameSource).toContain("from '../languages/display-name';");
-        expect(targetNameSource).toContain("from '../languages/locale';");
-        expect(targetNameSource).toContain("from '../languages/target-runtime';");
-        expect(targetNameSource).not.toContain("from './i18n';");
-        expect(targetNameSource).not.toContain("from '../languages';");
-        expect(targetNameSource).not.toContain("from '../languages/selection';");
-        expect(targetNameSource).not.toContain("from '../languages/profiles';");
+    it('keeps Settings labels and page scanning detached from the frozen dictionary catalogue', () => {
         for (const relativePath of [
-            'src/reader/app/target-language-name.ts',
             'src/reader/settings/settings-text.ts',
             'src/reader/app/visible-page-scanner.ts',
         ]) {

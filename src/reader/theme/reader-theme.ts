@@ -2,6 +2,7 @@ import {
     accentToRgba,
     accessibleOcrBackgroundColor,
     accessibleOcrBackgroundOpacity,
+    DEFAULT_COLOR_CHANNELS,
     effectiveFuriganaMode,
     effectiveReaderColorSource,
     effectiveReaderTextColorSource,
@@ -13,7 +14,8 @@ import { FURIGANA_HIDE_STATE_GROUPS, WORD_COLOR_HIDE_STATE_GROUPS } from '../app
 import { contrastRatio, isHexColor, mixHex, readableOnAll } from './color-utils';
 import { colorSourceClassName } from './color-source-classes';
 import { setReviewLanePainted } from '../dom/review-lane';
-import { READER_THEME_COLOR_TOKENS } from './color-tokens';
+import { CORE_COLOR_TOKENS, READER_THEME_COLOR_TOKENS } from './color-tokens';
+import { readableAccentSeed } from '../core/hosted-accent-css';
 import type { ReaderColorSource, ReaderSettings } from '../app/types';
 
 const COLOR_SOURCE_CLASSES: Exclude<ReaderColorSource, 'auto'>[] = ['status', 'jpdb', 'anki', 'pitch', 'off'];
@@ -135,7 +137,7 @@ function applyPopupFontSettings(settings: ReaderSettings, root: HTMLElement): vo
 
 function applyReaderImageTextOverlaySettings(settings: ReaderSettings, root: HTMLElement): void {
     const opacity = accessibleOcrBackgroundOpacity(settings.ocrBackgroundOpacity);
-    const background = accessibleOcrBackgroundColor(settings.accentColor, opacity);
+    const background = accessibleOcrBackgroundColor(opacity);
     root.style.setProperty('--jpdb-ocr-text-color', sanitizeAccentColor(settings.ocrTextColor));
     root.style.setProperty('--jpdb-ocr-outline-color', sanitizeAccentColor(settings.ocrOutlineColor));
     root.style.setProperty('--jpdb-ocr-background-rgba', accentToRgba(background, opacity));
@@ -192,14 +194,14 @@ export function applyReaderWordColors(settings: ReaderSettings, root = document.
 
 function appliedReaderTheme(settings: ReaderSettings): AppliedReaderTheme {
     const wordColorSources = normalizedAppliedColorSources(settings, {
-        highlight: effectiveReaderColorSource(settings, settings.wordHighlightColorSource, 'jpdb'),
-        underline: effectiveReaderColorSource(settings, settings.wordUnderlineColorSource, 'pitch'),
-        text: effectiveReaderTextColorSource(settings, settings.wordTextColorSource, 'anki'),
+        highlight: effectiveReaderColorSource(settings, settings.wordHighlightColorSource, DEFAULT_COLOR_CHANNELS.wordHighlightColorSource),
+        underline: effectiveReaderColorSource(settings, settings.wordUnderlineColorSource, DEFAULT_COLOR_CHANNELS.wordUnderlineColorSource),
+        text: effectiveReaderTextColorSource(settings, settings.wordTextColorSource, DEFAULT_COLOR_CHANNELS.wordTextColorSource),
     }, 'word');
     const subtitleColorSources = normalizedAppliedColorSources(settings, {
-        highlight: appliedSubtitleColorSource(settings, effectiveSubtitleColorSource(settings, settings.subtitleHighlightColorSource, 'jpdb')),
-        underline: appliedSubtitleColorSource(settings, effectiveSubtitleColorSource(settings, settings.subtitleUnderlineColorSource, 'pitch')),
-        text: appliedSubtitleColorSource(settings, effectiveSubtitleTextColorSource(settings, settings.subtitleTextColorSource, 'anki')),
+        highlight: appliedSubtitleColorSource(settings, effectiveSubtitleColorSource(settings, settings.subtitleHighlightColorSource, DEFAULT_COLOR_CHANNELS.subtitleHighlightColorSource)),
+        underline: appliedSubtitleColorSource(settings, effectiveSubtitleColorSource(settings, settings.subtitleUnderlineColorSource, DEFAULT_COLOR_CHANNELS.subtitleUnderlineColorSource)),
+        text: appliedSubtitleColorSource(settings, effectiveSubtitleTextColorSource(settings, settings.subtitleTextColorSource, DEFAULT_COLOR_CHANNELS.subtitleTextColorSource)),
     }, 'subtitle');
     return {
         furiganaMode: effectiveFuriganaMode(settings),
@@ -259,7 +261,9 @@ function applyReaderColorSourceClasses(root: HTMLElement, scope: 'word' | 'subti
 }
 
 function readableAccentOnSurface(accentColor: string, root: HTMLElement): string {
-    return readableThemeColorOnSurface(accentColor, root);
+    const surface = readerSurfaceColor(root);
+    const dark = contrastRatio(surface, CORE_COLOR_TOKENS.white) > contrastRatio(surface, CORE_COLOR_TOKENS.black);
+    return readableThemeColorOnSurface(readableAccentSeed(sanitizeAccentColor(accentColor), dark), root);
 }
 
 function readableThemeColorOnSurface(color: string, root: HTMLElement): string {

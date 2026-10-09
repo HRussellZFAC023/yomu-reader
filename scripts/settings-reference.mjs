@@ -1,11 +1,15 @@
 #!/usr/bin/env node
-// Generates docs/reference/settings.md: every key in DEFAULT_SETTINGS, grouped by
+// Generates docs/dev/settings-reference.md: every key in DEFAULT_SETTINGS, grouped by
 // the section of the settings dialog that owns it.
 //
 // Why generated. Yomu stores a few hundred settings. A hand-written reference goes
 // stale on the first rename, and a stale reference is worse than none, because it
 // sends a learner looking for a control that no longer exists. So this reads the
 // real source, and `--check` fails the build when the page and the source disagree.
+//
+// It is a contributor reference, not a public page. yomureader.com dropped it on
+// 2026-10-07 (settings label themselves, and a learner should not need a manual);
+// /reference/settings now redirects to the FAQ.
 //
 // How each row is derived, all of it from the reader's own code:
 //   * Section and tab come from the fieldset that renders the control, so the page
@@ -15,15 +19,13 @@
 //   * Which control writes which stored key is measured, not guessed: the form is
 //     rendered, `readFormSettings` reads it once for a baseline, then each control
 //     is nudged and read again. Keys whose value moved are the keys that control
-//     writes. That is how combined controls are resolved, such as the one field
-//     that stores `annotationsPaused`, and it keeps working through a rename.
+//     writes. That is how combined controls are resolved, such as the radio
+//     group that stores `manualScanEnabled`, and it keeps working through a rename.
 //   * Dictionary and kanji source rows take their name and description from
 //     `src/reader/sources/sections.ts`.
 //   * A setting with no control anywhere falls back to an i18n entry keyed by its
 //     own name.
-// FRESH_INSTALL_PRESENTATION below owns the small set of deliberate reference-level
-// overrides where historical stored values are not the behavior a fresh learner
-// experiences. Outside that policy, nothing is invented. A setting with no wording
+// Defaults come from the current runtime settings. A setting with no wording
 // in any of those places is marked "Not yet described" and stays in the table: an
 // admitted gap costs a learner less than a confident guess.
 //
@@ -37,41 +39,22 @@ import * as esbuild from 'esbuild';
 import { JSDOM } from 'jsdom';
 
 const ROOT = path.resolve(fileURLToPath(new URL('..', import.meta.url)));
-export const SETTINGS_REFERENCE_PAGE = path.join(ROOT, 'docs', 'reference', 'settings.md');
+export const SETTINGS_REFERENCE_PAGE = path.join(ROOT, 'docs', 'dev', 'settings-reference.md');
 
 const NOT_DESCRIBED = 'Not yet described';
 const NO_DESCRIPTION = '—';
-const LEARNING_TARGET_CHOSEN_LABEL = 'Learning target selected';
-const LEARNING_TARGET_CHOSEN_DESCRIPTION = 'Records whether you chose a learning target. Until you do, target-specific reading, dictionary, OCR, and Study work stays off.';
 const UCHISEN_RETIREMENT_COPY = 'Uchisen is available only as an optional outbound lookup link, disabled by default. よむ does not fetch or render its pages, mnemonic stories, images, keywords, or components. Its retired provider settings are discarded when settings are loaded or imported.';
-const FRESH_INSTALL_PRESENTATION = new Map([
-    ['annotationsPaused', {
-        label: 'Selected learning-language text on webpages',
-        value: 'inactive until a learning target is explicitly chosen',
-    }],
-    ['youtubeImmersionEnabled', {
-        label: 'Filter YouTube to the selected learning language',
-        value: 'stored on; inactive before target choice, then automatic for Japanese or opt-in for any other target',
-    }],
-    ['youtubeShowChannelRecommendations', {
-        value: 'stored on; inactive until Japanese is explicitly chosen',
-    }],
-    ['preferJapaneseSiteLanguage', {
-        value: 'off; explicit opt-in after choosing Japanese',
-    }],
-]);
 const REFERENCE_SECTION_HELP = new Map([
-    ['YouTube', 'Filter YouTube for the selected learning language. Japanese channel suggestions and Japanese-site navigation are available only after Japanese is explicitly chosen.'],
+    ['YouTube', 'Filter YouTube for Japanese.'],
 ]);
-// The page's own words, in one place. Each of these, plus the four column labels
-// and the marker above, has a Japanese entry keyed by the exact English string in
-// docs/.vitepress/locales/docs-prose-catalog.ts. Change one and add the matching entry.
+// The page's own words, in one place. The page is an English contributor
+// reference, so none of them needs a Japanese entry.
 const PAGE_COPY = Object.freeze({
     description: 'Every Yomu setting, its default, and the part of the settings dialog that holds it.',
     intro: 'Every setting Yomu stores is listed here, in the order the settings dialog presents them.',
     open: "Use the Yomu button on any page. On ordinary websites, Open settings launches the Yomu-owned Study page so the host cannot read or rewrite credentials, imports, recovery codes, or the values you save. The full dialog opens directly on Study and the extension's new-tab page.",
-    freshSetup: 'Fresh setup is language-neutral. Target-specific reading and Japanese-only preferences stay inactive until you explicitly choose a learning target. Some compatibility fields retain historical stored values; when one could look like a fresh Japanese default, the table states the effective gated behavior instead.',
-    columns: 'Each row gives the label the dialog shows, the explanation the dialog offers, the stored default or effective fresh-install gate, and the name the setting takes in an exported settings file.',
+    freshSetup: 'Yomu reads Japanese immediately after installation. There is no language choice or setup gate; dictionaries and connections are optional.',
+    columns: 'Each row names the setting, its description, stored default, and exported key.',
     generated: 'This page is generated from the reader source, so it stays in step with the version you have installed.',
     gaps: `Some rows say ${NOT_DESCRIBED}. That marks a real stored setting whose wording is still to be written, shown as a gap rather than filled with a guess.`,
     unplacedTitle: 'Settings without a section of their own',
@@ -241,19 +224,19 @@ function settingRows(source, controls, writers) {
     const values = flatten(source.defaults);
     return Object.keys(values).map(key => {
         const wording = settingWording(key, controls, writers, source);
-        return Object.assign({
+        return {
             key,
-            label: wording.label || NOT_DESCRIBED,
+            // The puck and toolbar name this state; Settings has no control for it.
+            label: key === 'annotationsPaused' ? 'よむ off' : wording.label || NOT_DESCRIBED,
             described: Boolean(wording.label),
             description: wording.description || NO_DESCRIPTION,
             section: wording.section,
             value: formatValue(JSON.parse(values[key] ?? 'null'), wording.control),
-        }, FRESH_INSTALL_PRESENTATION.get(key));
+        };
     });
 }
 
 const SETTING_WORDING_POLICIES = Object.freeze([
-    learningTargetSettingWording,
     directlyControlledSettingWording,
     sourceSettingWording,
     solelyWrittenSettingWording,
@@ -267,15 +250,6 @@ function settingWording(key, controls, writers, source) {
         if (wording) return wording;
     }
     return sharedSettingWording(context);
-}
-
-function learningTargetSettingWording({ key }) {
-    return key === 'learningTargetChosen' ? {
-        label: LEARNING_TARGET_CHOSEN_LABEL,
-        description: LEARNING_TARGET_CHOSEN_DESCRIPTION,
-        section: null,
-        control: null,
-    } : null;
 }
 
 function directlyControlledSettingWording({ key, controls }) {
@@ -344,6 +318,10 @@ function sourceRowWording(key, controls, sourceRows) {
 }
 
 function formatValue(value, control) {
+    // A radio group can store a boolean (or two): its default is the option the
+    // dialog shows chosen, in the dialog's words, not the stored value's on/off.
+    const chosen = checkedRadioLabel(control);
+    if (chosen) return typeof value === 'string' && value !== chosen ? `${chosen} (${code(value)})` : chosen;
     if (value === undefined || value === null) return 'unset';
     if (value === '') return 'empty';
     if (typeof value === 'boolean') return value ? 'on' : 'off';
@@ -377,6 +355,11 @@ function countText(count) {
 // A stored value like `difficult-kanji` means nothing on its own. When the control
 // is a menu, lead with the wording the menu shows and keep the stored value too,
 // because that is what an exported settings file holds.
+function checkedRadioLabel(control) {
+    const radio = control?.elements.find(element => element.type === 'radio' && element.checked);
+    return radio ? collapse(radio.closest('label')?.textContent ?? '') || null : null;
+}
+
 function optionLabel(value, control) {
     const select = control?.elements.find(element => element.tagName === 'SELECT');
     const option = select ? [...select.options].find(item => item.value === String(value)) : null;
@@ -581,14 +564,14 @@ async function main() {
             }
             return;
         }
-        process.stderr.write('docs/reference/settings.md no longer matches the settings source.\n');
+        process.stderr.write('docs/dev/settings-reference.md no longer matches the settings source.\n');
         process.stderr.write('Regenerate it with: npm run docs:settings-reference\n');
         process.exitCode = 1;
         return;
     }
     mkdirSync(path.dirname(SETTINGS_REFERENCE_PAGE), { recursive: true });
     writeFileSync(SETTINGS_REFERENCE_PAGE, markdown);
-    process.stdout.write(`wrote docs/reference/settings.md: ${rows.length} settings, ${described} described\n`);
+    process.stdout.write(`wrote docs/dev/settings-reference.md: ${rows.length} settings, ${described} described\n`);
 }
 
 function readCurrentPage() {

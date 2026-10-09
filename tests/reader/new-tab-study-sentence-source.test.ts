@@ -94,7 +94,7 @@ describe('Study sentence source precedence', () => {
         expect(tier).toEqual({ source: 'dictionary', sentences: ['冷たい飲み物が欲しい。'] });
     });
 
-    it('keeps a complete Spanish dictionary example available to Recall', () => {
+    it('rejects an unsupported-language dictionary example from Japanese Recall', () => {
         const spanishCard = {
             ...card,
             spelling: 'agua',
@@ -110,6 +110,6 @@ describe('Study sentence source precedence', () => {
         } as YomitanTermEntry;
 
         expect(studySentenceTiers(spanishCard, [spanishEntry], [])[0])
-            .toEqual({ source: 'dictionary', sentences: ['Bebo agua.'] });
+            .toEqual({ source: 'dictionary', sentences: [] });
     });
 });

@@ -1,3 +1,4 @@
+import { extensionRuntimeMayBeYomu } from './runtime-env';
 import { isManagedStorageKey } from './managed-storage-keys';
 
 interface ExtensionStorageArea {
@@ -60,8 +61,7 @@ function activeExtensionStorageArea(api: ExtensionStorageApi | undefined): Exten
 }
 
 function hasActiveExtensionRuntime(api: ExtensionStorageApi | undefined): api is ExtensionStorageApi {
-    if (!api) return false;
-    if (!api.runtime) return false;
+    if (!api?.runtime || !extensionRuntimeMayBeYomu()) return false;
     return Boolean(api.runtime.id);
 }
 

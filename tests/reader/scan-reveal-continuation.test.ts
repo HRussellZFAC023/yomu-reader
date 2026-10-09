@@ -26,8 +26,8 @@ describe('shared Japanese script gates', () => {
         expect(HAS_JAPANESE_LETTER.test('ﾞ')).toBe(false);
     });
 
-    it('admits half-width katakana controls through the generic safe-UI parser', () => {
-        document.body.innerHTML = '<button id="feed">ﾌｨｰﾄﾞ</button>';
+    it('admits half-width katakana toolbar links through the generic safe-UI parser', () => {
+        document.body.innerHTML = '<nav role="toolbar"><a id="feed" href="/feed">ﾌｨｰﾄﾞ</a></nav>';
         const feed = document.getElementById('feed')!;
         vi.spyOn(feed, 'getBoundingClientRect').mockReturnValue({
             x: 0,

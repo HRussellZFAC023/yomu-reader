@@ -1,7 +1,7 @@
-import { hostedAccentCssVariables } from './hosted-accent-css';
+import { hostedAccentCssVariables, hostedPageThemeColor } from './hosted-accent-css';
 
-// Pre-paint appearance bootstrap. Hosted surfaces ship their default (green)
-// accent in static CSS, so applying the reader's accent only once the page
+// Pre-paint appearance bootstrap. Hosted surfaces ship their default accent in
+// static CSS, so applying the reader's accent only once the page
 // bundle hydrates paints one frame of the wrong colour — the "flash of green
 // before it goes back to orange". This module runs inline in <head>, before the
 // first paint, and stamps the same custom properties the runtime re-applies
@@ -27,9 +27,9 @@ export function primeHostedAppearance(mode: 'docs' | 'surface'): void {
 
     if (mode === 'docs') {
         root.classList.toggle('dark', dark);
-        // Only the docs paint their browser chrome in the accent; standalone
-        // surfaces keep the page-background theme-color they ship with.
-        document.querySelector('meta[name="theme-color"]')?.setAttribute('content', variables['--yomu-accent']);
+        // The docs paint their browser chrome in the page's own paper or ink,
+        // never the accent; standalone surfaces keep the theme-color they ship with.
+        document.querySelector('meta[name="theme-color"]')?.setAttribute('content', hostedPageThemeColor(dark));
         // VitePress' own inline appearance script runs after this one and only
         // ever adds `dark`; mirroring the preference keeps the two in agreement
         // instead of letting a stale key re-add the class we just removed.

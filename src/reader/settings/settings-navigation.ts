@@ -6,6 +6,8 @@ export function activateSettingsPanel(form: HTMLFormElement, panel: string): voi
     const search = form.querySelector<HTMLInputElement>('[data-settings-search]');
     if (search?.value.trim()) applySettingsSearch(form, '');
     applyPanel(form, panel);
+    const scroll = form.querySelector<HTMLElement>('.jpdb-reader-settings-scroll');
+    if (scroll) scroll.scrollTop = 0;
 }
 
 export function applySettingsSearch(form: HTMLFormElement, query: string): void {
@@ -31,7 +33,9 @@ export function applySettingsSearch(form: HTMLFormElement, query: string): void 
 function matchesQuery(fieldset: HTMLFieldSetElement, query: string): boolean {
     const indexed = Array.from(fieldset.querySelectorAll<HTMLElement>('[data-settings-search-index]'),
         element => element.dataset.settingsSearchIndex ?? '').join(' ');
-    if (normalizeSearchQuery(`${fieldset.textContent ?? ''} ${indexed}`).includes(query)) return true;
+    const controls = Array.from(fieldset.querySelectorAll<HTMLElement>('[aria-label], [title]'),
+        element => `${element.getAttribute('aria-label') ?? ''} ${element.title}`).join(' ');
+    if (normalizeSearchQuery(`${fieldset.textContent ?? ''} ${indexed} ${controls}`).includes(query)) return true;
     const catalogue = fieldset.querySelector<HTMLElement>('[data-catalog-browse]');
     return catalogue !== null && catalogBrowseMatchesQuery(catalogue, query);
 }

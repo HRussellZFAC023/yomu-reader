@@ -24,7 +24,6 @@ add it to Steam as a non-Steam game so it can launch from Game Mode.
 | A1 | In Desktop Mode, `chmod +x` the AppImage and double-click it. | The Yomu Gaming home screen opens, titled "Yomu Gaming", filling the 1280×800 screen. |
 | A2 | Check the session note under the hero. | A note reads **"Steam Deck detected…"**. If SteamOS reports Wayland it warns about the capture portal. (Driven by `isSteamDeckSession` / `displayServer` in `environmentStatus()`.) |
 | A3 | Add the AppImage to Steam → switch to **Game Mode** → launch it from the library. | App launches full-screen in Game Mode without a desktop-session error. |
-| A4 | Read the home screen. | One hero: "Read Japanese anywhere on your screen", one primary "Read my screen", the capture shortcut shown once, then "Read part of the screen" and "Settings". Fits without vertical scroll at 800px. |
 | A5 | Read the line under **Read my screen**. | If gamescope kept the chord (`globalShortcut.register` returned false), that line reads **"Pick a shortcut in Settings to read from any app."** instead of naming a key — the home screen never tells you to press something the session did not hand over. Setting a shortcut that the session also keeps answers "… is taken here. Try another key." and stays on that line, never a green "saved". |
 
 ## B. Capture shortcut via Steam Input (controller-only)
@@ -33,7 +32,7 @@ add it to Steam as a non-Steam game so it can launch from Game Mode.
 |---|------|----------|
 | B1 | In Game Mode, open the Steam overlay → Controller Settings → map a Deck button (e.g. **L4/R4 back paddle** or a **radial menu** entry) to send the capture chord (default `Ctrl+Shift+Y`). | Steam Input sends the chord to the focused app. |
 | B2 | Launch a Japanese game (or any window with Japanese text). Press the mapped button. | The Yomu overlay appears **over the game** within ~1s, showing a frozen frame of the screen. |
-| B3 | Press the mapped button again while the overlay is open. | Overlay closes (the global shortcut toggles show/hide — `registerGlobalShortcuts`). |
+| B3 | Press the mapped button again while the overlay is open. | The overlay re-reads the screen as it is now (a fresh frozen frame and new results) and stays open — `pressCaptureShortcut` in `main.ts`. **B** closes it (C-section back button). |
 
 > If B2 shows a **blank/black** frozen frame, this is the gamescope/Wayland capture
 > gap. `desktopCapturer.getSources({types:['screen']})` may return an empty or black
@@ -65,7 +64,6 @@ Do this with **no keyboard/mouse attached** — just the Deck's built-in control
 |---|------|----------|
 | D1 | Instant capture (mapped button or "Read my screen") over a dialogue box. | Recognized lines render **in place** over the game text with furigana; no ellipsis truncation. |
 | D2 | Vertical text (VN/manga column). | Renders as an upright **vertical-rl** column, not a clipped horizontal pill. |
-| D3 | "Read part of the screen" then drag a box (touchscreen or trackpad) around a smaller region. | Only that region is OCR'd; the crop rectangle disappears once results render. |
 | D4 | Confirm the frozen frame does **not** contain Yomu's own toolbar/selection box. | Capture is the game only — the overlay chrome is excluded (frame is grabbed while our windows are hidden). |
 | D5 | Open a word popover and grade it (Nothing…Easy) if signed into jpdb/jiten. | Grade submits through the bundled reader; no browser tab opens. |
 

@@ -14,6 +14,11 @@ export interface AnnotationPowerEffects {
     resume(furiganaMode?: FuriganaMode): Promise<void>;
 }
 
+// A puck transition declares both the visible and remembered reading modes.
+// Sequence order records the write, not whether the remembered mode originally
+// came from Settings or an old default; it is never grounds to erase intent.
+export const PUCK_FURIGANA_INTENT_KEYS = ['puckFuriganaModeBeforeHide', 'showFurigana', 'furiganaMode'] as const satisfies readonly (keyof ReaderSettings)[];
+
 type AnnotationPowerSettings = Pick<
     ReaderSettings,
     'annotationsPaused' | 'showFurigana' | 'furiganaMode' | 'puckFuriganaModeBeforeHide'

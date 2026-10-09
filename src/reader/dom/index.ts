@@ -66,6 +66,8 @@ import {
     unregisterDocumentAnnotationPortalMirror,
 } from './youtube-chrome-annotation-portal';
 import { sourcePreservingProseNeedsDocumentPortal } from './document-portal-prose-policy';
+import { furiganaSettingsForTarget, targetForcesAllFurigana, targetKeepsInFlowReadings } from './furigana-mode-stamp';
+import { syncRubyEdgeOverhang } from './ruby-overhang';
 import { commonFragmentTextHost, scanTargetPaintRoots, scanTargetSourceScope } from './scan-paint-roots';
 import { selectedWordColorSourceToken } from '../theme/color-source-classes';
 import { isYouTubeAppHostname } from '../app/youtube-host';
@@ -80,11 +82,12 @@ import {
     clearProjectedReadings,
     pruneProjectedReadings,
     syncProjectedReadings,
+    styleDetachedReadingElements,
     type DetachedReadingProjection,
 } from './detached-reading-overlay';
 export { clearProjectedReadingsWithin, projectedReadingWordAtPoint } from './detached-reading-overlay';
 import { createPostPaintPass, viewForNode } from './post-paint-pass';
-import { stableCssPixels } from './inline-style';
+import { setInlineStyleIfChanged, stableCssPixels } from './inline-style';
 import { ensureReaderStylesForHost } from './shadow-styles';
 import { forEachScannedShadowRoot, watchPotentialOpenShadowRootHost } from './shadow-scan-registry';
 import { readerWordSurfaceText, sentenceAroundRange, sentenceAroundSurface, unwrapReaderWords } from './reader-word';
@@ -163,6 +166,12 @@ const EDITABLE_FRAGMENT_ROOT_SELECTOR = '[contenteditable="true"],textarea,input
 // contract; a bare combobox is a select-like listbox trigger whose label rides
 // the passive chip channel (see isNonEditableListboxTrigger in the policy).
 const EDITABLE_TEXT_SURFACE_SELECTOR = `[contenteditable],[role=textbox],[role=searchbox],[role=combobox][aria-autocomplete="list"],[role=combobox][aria-autocomplete="inline"],[role=combobox][aria-autocomplete="both"],[aria-multiline],[aria-placeholder],[data-placeholder],[data-slate-editor],[data-lexical-editor],[class*="placeholder" i],[class*="ProseMirror" i]`;
+// Footnote and citation markers ([1], [注釈 3]) are navigation, not prose:
+// annotating them put readings and underlines on page furniture. Wikipedia's
+// sup.reference, the DPUB-ARIA role, and the superscript in-page link that
+// Markdown footnotes emit. Checked by isFootnoteMarker in every collector,
+// before any rescue of short link or chip labels can admit them.
+const FOOTNOTE_MARKER_SELECTOR = 'sup.reference,[role="doc-noteref"],sup > a[href^="#"]';
 const BASE_SKIP_SELECTOR = `script,style,noscript,textarea,input,select,option,svg,use,[aria-hidden=true],${EDITABLE_TEXT_SURFACE_SELECTOR},[role=checkbox],[role=radio],[role=tab],[data-jpdb-reader-surface-ignore],[data-audio],[class*="audio" i],[class*="sound" i],[class*="speaker" i],[class*="voice" i],.jpdb-reader-text-mirror,.jpdb-reader-control-text-mirror,.jpdb-reader-canvas-text-layer,.jpdb-reader-word,.subsection-pitch-accent .subsection`;
 const BASE_SKIP_SELECTOR_WITHOUT_TAB = BASE_SKIP_SELECTOR.replace(',[role=tab]', '');
 const BASE_SKIP_SELECTOR_WITHOUT_ARIA_HIDDEN = BASE_SKIP_SELECTOR.replace(',[aria-hidden=true]', '');
@@ -580,8 +589,9 @@ function visibleTextNodeFilter(node: Node, visibilityCache: WeakMap<HTMLElement,
 
 function canInspectTextNode(node: Node, visibilityCache: WeakMap<HTMLElement, boolean>): boolean {
     const parent = node.parentElement;
-    if (!parent || parent.closest(READER_ROOT_SELECTOR)) return false;
+    if (!parent || isInsideExcludedReaderRoot(parent, {})) return false;
     if (!hasVisibleComposedTextAncestors(parent, visibilityCache)) return false;
+    if (isFootnoteMarker(parent)) return false;
     const blocked = parent.closest(SKIP_SELECTOR);
     if (!blocked) return true;
     return isAnnotatableChipControl(blocked);
@@ -672,6 +682,7 @@ function textTargetParentFilterResult(parent: HTMLElement, text: string, visible
 function shouldRejectTextTargetParent(parent: HTMLElement, text: string, visibleOnly: boolean, options: TextTargetCollectionOptions): boolean {
     const genericControl = parent.closest(GENERIC_CONTROL_TEXT_SKIP_SELECTOR);
     if (!options.includeFormChrome && genericControl && !isCompactControlDescendantTextTarget(parent, text)) return true;
+    if (isFootnoteMarker(parent)) return true;
     const blocked = parent.closest(SKIP_SELECTOR);
     if (blocked
         && !isAnnotatableChipControl(blocked)
@@ -692,7 +703,10 @@ function isCompactControlDescendantTextTarget(parent: HTMLElement, text: string)
 
 function isInsideExcludedReaderRoot(parent: HTMLElement, options: TextTargetCollectionOptions): boolean {
     if (options.includeReaderRoot) return false;
-    return Boolean(parent.closest(READER_ROOT_SELECTOR));
+    for (let current: HTMLElement | null = parent; current; current = composedParentElement(current)) {
+        if (current.matches(READER_ROOT_SELECTOR)) return true;
+    }
+    return false;
 }
 
 function shouldRejectTextTargetPresentation(parent: HTMLElement, visibleOnly: boolean): boolean {
@@ -816,7 +830,7 @@ function isCollectableFormControlTextElement(
     options: FormControlTextTargetCollectionOptions,
 ): boolean {
     if (control.closest(READER_CONTROL_TEXT_MIRROR_SELECTOR)) return false;
-    if (!options.includeReaderRoot && control.closest(READER_ROOT_SELECTOR)) return false;
+    if (isInsideExcludedReaderRoot(control, options)) return false;
     if (visibleOnly && !options.includeReaderRoot && isTextEntryFormControl(control)) return false;
     if (options.excludeSelector && (safeElementMatches(control, options.excludeSelector) || control.closest(options.excludeSelector))) return false;
     if (isDisabledFormControl(control) || isUnlookupableFormControl(control)) return false;
@@ -1307,7 +1321,7 @@ function isExcludedReaderRootElement(
     element: HTMLElement,
     options: FragmentTextTargetCollectionOptions,
 ): boolean {
-    return !options.includeReaderRoot && Boolean(element.closest(READER_ROOT_SELECTOR));
+    return isInsideExcludedReaderRoot(element, options);
 }
 
 function shouldFlushAndSkipFragmentElement(
@@ -1316,9 +1330,16 @@ function shouldFlushAndSkipFragmentElement(
     isRoot: boolean,
 ): boolean {
     if (fragmentElementMustRemainPageOwned(element, isRoot)) return true;
+    // A collector may re-root inside a marker (at its link or label), so a
+    // root checks its ancestors too; a child's ancestors were already visited.
+    if (isRoot ? isFootnoteMarker(element) : safeElementMatches(element, FOOTNOTE_MARKER_SELECTOR)) return true;
     if (matchesSkippedFragmentElement(element, state, isRoot)) return true;
     if (shouldSkipInvisibleFragmentElement(element, state.visibleOnly)) return true;
     return shouldSkipFragmentTextPresentation(element, state.options);
+}
+
+function isFootnoteMarker(element: Element): boolean {
+    return Boolean(element.closest(FOOTNOTE_MARKER_SELECTOR));
 }
 
 function fragmentElementMustRemainPageOwned(element: HTMLElement, isRoot: boolean): boolean {
@@ -1581,8 +1602,10 @@ function isAriaHiddenAccessibleNameDuplicate(element: HTMLElement): boolean {
     if (!hiddenRoot) return false;
     const labelled = element.closest<HTMLElement>('[aria-label]');
     const accessibleName = normalizedControlText(labelled?.getAttribute('aria-label') ?? '');
-    const paintedLabel = normalizedControlText(hiddenRoot.textContent ?? '');
-    if (accessibleName && accessibleName !== paintedLabel) return true;
+    // The painted label is the hidden root's whole text, so it is read only
+    // when there is a name to compare it with. A modal lookup hides the page's
+    // own siblings; reading the article once per text node froze the tab.
+    if (accessibleName && accessibleName !== normalizedControlText(hiddenRoot.textContent ?? '')) return true;
     const control = hiddenRoot.closest<HTMLElement>(
         `${PASSIVE_INTERACTION_SELECTOR},${COMPACT_PASSIVE_INTERACTION_SELECTOR}`,
     );
@@ -4147,48 +4170,6 @@ function pointInsideSourceRects(rects: readonly DOMRect[], x: number, y: number)
     return rects.some(rect => sourceRectPointScore(rect, x, y) !== null);
 }
 
-// A document stylesheet does not cross an open shadow boundary. Keep the
-// invisible base wrapper's layout contract inline, and retain the reading's
-// typography as source data for the document-owned projection overlay.
-function styleDetachedReadingElements(root: HTMLElement, host: HTMLElement): void {
-    const detachedRubies = Array.from(root.querySelectorAll<HTMLElement>('.jpdb-reader-detached-ruby'));
-    if (!detachedRubies.length) return;
-
-    const hostStyle = safeComputedStyle(host);
-    const hostFontSize = Number.parseFloat(hostStyle.fontSize) || 16;
-    const readingFontSize = Math.min(10, Math.max(6, hostFontSize * 0.46));
-
-    for (const wrapper of detachedRubies) {
-        setInlineStyleIfChanged(wrapper, 'position', 'relative', 'important');
-        setInlineStyleIfChanged(wrapper, 'display', 'inline-block', 'important');
-        setInlineStyleIfChanged(wrapper, 'line-height', '1', 'important');
-        setInlineStyleIfChanged(wrapper, 'vertical-align', 'baseline', 'important');
-        setInlineStyleIfChanged(wrapper, 'white-space', 'nowrap', 'important');
-    }
-
-    for (const reading of root.querySelectorAll<HTMLElement>('.jpdb-reader-detached-furi')) {
-        setInlineStyleIfChanged(reading, 'display', 'none', 'important');
-        setInlineStyleIfChanged(reading, 'font-size', `${readingFontSize}px`);
-        setInlineStyleIfChanged(reading, 'font-weight', '700');
-        setInlineStyleIfChanged(reading, 'line-height', '1', 'important');
-        setInlineStyleIfChanged(reading, 'text-decoration', 'none', 'important');
-        setInlineStyleIfChanged(reading, 'user-select', 'none');
-        setInlineStyleIfChanged(reading, '-webkit-user-select', 'none');
-        // Keep the semantic colour channel inherited from the live page. The
-        // additive base glyphs are hidden with text-fill (not color), so a
-        // late theme/class change flows through without a JS repaint or a
-        // stale mount-time colour snapshot.
-        if (reading.style.getPropertyValue('color')) reading.style.removeProperty('color');
-        setInlineStyleIfChanged(reading, '-webkit-text-fill-color', 'currentColor', 'important');
-    }
-}
-
-function setInlineStyleIfChanged(element: HTMLElement, property: string, value: string, priority = ''): void {
-    if (element.style.getPropertyValue(property) === value
-        && element.style.getPropertyPriority(property) === priority) return;
-    element.style.setProperty(property, value, priority);
-}
-
 function removeInlineStyleIfPresent(element: HTMLElement, property: string): void {
     if (!element.style.getPropertyValue(property) && !element.style.getPropertyPriority(property)) return;
     element.style.removeProperty(property);
@@ -4897,12 +4878,6 @@ function restoreControlTextMirrorHost(host: HTMLElement, state: ControlTextMirro
     }
 }
 
-function furiganaSettingsForTarget(settings: ReaderSettings, parent: HTMLElement): ReaderSettings {
-    if (!targetForcesAllFurigana(parent)) return settings;
-    if (settings.showFurigana && settings.furiganaMode === 'all') return settings;
-    return { ...settings, showFurigana: true, furiganaMode: 'all' };
-}
-
 function scanTargetSuppressesRuby(
     parent: HTMLElement,
     suppressRuby?: boolean,
@@ -4929,12 +4904,8 @@ function scanTargetSuppressesRuby(
         const clipRow = closestRubyFragileConstrainedRow(parent);
         if (clipRow && !clampRowKeepsInFlowRestRuby(decoration ?? decorationStateForWord(parent) ?? undefined, clipRow)) return true;
     }
-    if (targetForcesAllFurigana(parent)) return false;
+    if (targetKeepsInFlowReadings(parent)) return false;
     return Boolean(suppressRuby);
-}
-
-function targetForcesAllFurigana(parent: HTMLElement): boolean {
-    return Boolean(parent.closest('[data-yomu-furigana-mode="all"]'));
 }
 
 // Class Q (2026-07-10): constrained-row protection is engine-UNCONDITIONAL —
@@ -6049,7 +6020,7 @@ function applyTokensToFragmentTarget(target: FragmentTextTarget, tokens: JPDBTok
     // an owner call on mirror-vs-suppress for non-bare fragile content.
     const renderTarget = target.decoration === 'interactive-passive' && interactivePassiveControl(target.parent)
         ? { ...target, suppressRuby: true }
-        : (targetForcesAllFurigana(target.parent) ? { ...target, suppressRuby: false } : target);
+        : (targetKeepsInFlowReadings(target.parent) ? { ...target, suppressRuby: false } : target);
     // Class Q for the in-place fragment channel: readings stay in the DOM
     // (owner-pinned compact-content behaviors keep their annotations) but the
     // clip row is stamped so CSS hides rt at rest — in-place ruby in a
@@ -6782,6 +6753,7 @@ export function replaceRenderedWordFurigana(word: HTMLElement, surface: string, 
 
     setInnerHtml(word, html);
     word.classList.add('jpdb-reader-has-furi');
+    syncRubyEdgeOverhang([word]);
     if (!detached) return true;
 
     word.classList.add('jpdb-reader-detached-reading-word');
@@ -6821,6 +6793,7 @@ export function replaceRenderedWordFurigana(word: HTMLElement, surface: string, 
 export function clearRenderedWordFurigana(word: HTMLElement, surface: string): void {
     word.textContent = surface;
     word.classList.remove('jpdb-reader-has-furi');
+    syncRubyEdgeOverhang([word]);
     clearProjectedReadings(word);
     const mirror = word.closest<HTMLElement>(READER_TEXT_MIRROR_SELECTOR);
     if (!mirror) return;

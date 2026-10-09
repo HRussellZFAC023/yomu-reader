@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { renderNewTabShell } from '../../src/reader/newtab/shell-view';
+import { renderNewTabAppNavigation, renderNewTabShell } from '../../src/reader/newtab/shell-view';
 
 const newTabCss = readFileSync('src/reader/styles/new-tab.css', 'utf8').replace(/\s+/gu, ' ');
 const statsCss = readFileSync('src/reader/styles/stats.css', 'utf8').replace(/\s+/gu, ' ');
@@ -32,10 +32,10 @@ describe('Reader Study UI contract', () => {
     });
 
     it('gives Study text fields explicit glyph, caret, placeholder, and selection paint', () => {
-        expect(newTabCss).toContain('.jpdb-reader-newtab-searchbox input { min-width: 0; min-height: 46px;');
+        expect(newTabCss).toContain('.jpdb-reader-newtab-searchbox input { min-width: 0; min-height: 48px;');
         expect(newTabCss).toContain('color: var(--jpdb-reader-text); -webkit-text-fill-color: var(--jpdb-reader-text); caret-color: var(--jpdb-reader-accent);');
         expect(newTabCss).toContain('.jpdb-reader-newtab-recall-input { width: 100%; min-width: 0;');
-        expect(newTabCss).toContain('.jpdb-reader-newtab-recall-input::placeholder { color: var(--jpdb-reader-faint); -webkit-text-fill-color: var(--jpdb-reader-faint); opacity: 1; }');
+        expect(newTabCss).toContain('.jpdb-reader-newtab-recall-input::placeholder { color: var(--jpdb-reader-muted); -webkit-text-fill-color: var(--jpdb-reader-muted); opacity: 1; }');
         expect(newTabCss).toContain('.jpdb-reader-newtab-recall-input::selection { color: var(--jpdb-reader-selection-text); background: var(--jpdb-reader-selection-bg); -webkit-text-fill-color: var(--jpdb-reader-selection-text); }');
         expect(newTabCss).toContain(':is(.jpdb-reader-newtab-searchbox input, .jpdb-reader-newtab-recall-input)::selection { color: #fffdf5; background: #6d5149; -webkit-text-fill-color: #fffdf5; }');
     });
@@ -51,11 +51,13 @@ describe('Reader Study UI contract', () => {
     it('keeps the desktop learning flow compact and the answer action attached to its field', () => {
         expect(newTabCss).toContain('@media (min-width: 641px)');
         expect(newTabCss).toContain('.jpdb-reader-newtab-study-steps { flex-wrap: nowrap;');
-        expect(newTabCss).toContain('min-height: min(70dvh, 720px);');
-        expect(newTabCss).toContain('border-radius: 18px;');
+        // A word review is one column on the page: no frame, no shadow.
+        expect(newTabCss).toContain('.jpdb-reader-newtab-study { min-height: min(70dvh, 720px); padding: clamp(18px, 3vh, 30px) clamp(22px, 4vw, 54px) clamp(26px, 4vh, 42px); }');
+        // The fixed grade bar reaches the bottom edge, so no strip of the answer shows beneath it.
+        expect(newTabCss).toContain('.jpdb-reader-newtab-grade-controls:not(:has(.jpdb-reader-newtab-grade-target-context)) { bottom: 0; padding-bottom: max(20px, calc(8px + env(safe-area-inset-bottom))); border-radius: 12px 12px 0 0; }');
         expect(newTabCss).toContain('.jpdb-reader-newtab[data-study-surface="academy"]:not(.jpdb-reader-newtab-search-mode, .jpdb-reader-newtab-stats-mode) .jpdb-reader-newtab-shell { width: 100%; min-width: 0; max-width: 100%; grid-template-columns: minmax(0, 1fr); }');
         expect(newTabCss).toContain('.jpdb-reader-newtab-type-form { width: min(100%, 620px); grid-template-columns: 44px minmax(0, 1fr) auto;');
-        expect(newTabCss).toContain('font: 760 clamp(1.125rem, 2.3vw, 1.5rem) / 1.2 var(--jpdb-reader-font);');
+        expect(newTabCss).toContain('font: 600 clamp(1.125rem, 2.3vw, 1.5rem) / 1.2 var(--jpdb-reader-font);');
         expect(newTabCss).toContain('.jpdb-reader-newtab .jpdb-reader-newtab-recall-check { min-height: 50px;');
         expect(newTabCss).toContain('.jpdb-reader-newtab .jpdb-reader-newtab-type-mode[data-active="true"] { border-color:');
         expect(newTabCss).toContain('.jpdb-reader-newtab-type-input[readonly] { border-color:');
@@ -87,11 +89,33 @@ describe('Reader Study UI contract', () => {
         expect(modeRules[0]).toContain('grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr);');
     });
 
+    it('keeps review controls off Search and Stats even when a late card render unhides them', () => {
+        expect(newTabCss).toContain('.jpdb-reader-newtab-controls[hidden], :is(.jpdb-reader-newtab-search-mode, .jpdb-reader-newtab-stats-mode) .jpdb-reader-newtab-controls { display: none !important; }');
+    });
+
+    it('renders the phone tab bar from the shell view, Practice included', () => {
+        const navigation = renderNewTabAppNavigation('ja');
+        expect(navigation.dataset.newtabAppNavigation).toBe('true');
+        expect([...navigation.querySelectorAll<HTMLElement>('[data-newtab-action]')]
+            .map(item => [item.dataset.newtabAction, item.dataset.mode ?? '', item.lang]))
+            .toEqual([
+                ['mode', 'word', 'ja'], ['practice-sessions', '', 'ja'], ['mode', 'search', 'ja'],
+                ['mode', 'stats', 'ja'], ['settings', '', 'ja'],
+            ]);
+    });
+
     it('uses native-style bottom navigation and a single-line step rail on phones', () => {
         expect(newTabCss).toContain('.jpdb-reader-newtab-app-nav { display: none; }');
-        expect(newTabCss).toContain('grid-template-columns: repeat(4, minmax(0, 1fr));');
+        // Study, Practice, Library, Stats and Connect each need a phone column.
+        // new-tab-session-progress.test.ts checks the rendered navigation actions.
+        expect(newTabCss).toContain('grid-template-columns: repeat(5, minmax(0, 1fr));');
         expect(newTabCss).toContain('min-height: calc(64px + env(safe-area-inset-bottom));');
-        expect(newTabCss).toContain('.jpdb-reader-newtab-controls.jpdb-reader-newtab-grade-controls { bottom: calc(72px + env(safe-area-inset-bottom));');
+        // Opaque, so reading text never shows through the fixed tab bar (WebKit);
+        // its top rule separates it, with no fog of shadow over the page.
+        expect(newTabCss).toContain('border-top: 1px solid color-mix(in srgb, var(--jpdb-reader-border) 86%, transparent); background: var(--jpdb-reader-bg); }');
+        expect(newTabCss).not.toContain('backdrop-filter: blur(18px) saturate(1.18);');
+        // Flush on the dock, so no strip of the answer scrolls between the two bars.
+        expect(newTabCss).toContain('.jpdb-reader-newtab-controls.jpdb-reader-newtab-grade-controls { bottom: calc(64px + env(safe-area-inset-bottom)); border-radius: 0; }');
         expect(newTabCss).toContain('.jpdb-reader-newtab-study-steps { width: min(100%, calc(100vw - 16px)); flex-wrap: nowrap; justify-content: flex-start; overflow-x: auto;');
     });
 
@@ -111,10 +135,83 @@ describe('Reader Study UI contract', () => {
         expect(statsCss).toContain('.jpdb-reader-stats-panel-actions { flex-wrap: wrap; }');
     });
 
+    it('wraps the Stats actions below a heading instead of orphaning its last Japanese characters', () => {
+        expect(statsCss).toContain('.jpdb-reader-stats-panel-heading { min-width: 0; display: flex; flex-wrap: wrap;');
+        expect(statsCss).toContain('.jpdb-reader-stats-panel-heading h2 { flex: 1 0 auto; max-width: 100%; text-wrap: balance;');
+    });
+
     it('keeps the embedded Academy Study controls on one row in narrow hosts', () => {
         expect(academyShellCss).toContain('.academy-study-mount { position: relative; display: grid; gap: 12px; width: min(920px, 100%); max-width: 100%; min-width: 0;');
         expect(academyShellCss).toContain('overflow-x: clip;');
         expect(academyShellCss).toContain('.academy-study-chrome { flex-wrap: nowrap; gap: 6px; }');
         expect(academyShellCss).toContain('.academy-study-clock-host { flex: 0 0 auto; margin-left: auto; gap: 6px; }');
+    });
+});
+
+describe('Library search field', () => {
+    // One field: Enter and typing search, so the box carries no Search button,
+    // and clear and handwriting are named icons rather than three text buttons.
+    it('is one field with a named clear icon and a named handwriting icon', () => {
+        const shell = renderNewTabShell({ language: 'en', overflowMenu: document.createElement('div'), appNavigation: null, showSessionClockControl: false });
+        const box = shell.querySelector<HTMLElement>('.jpdb-reader-newtab-searchbox')!;
+
+        expect(box.querySelector('button[type="submit"]')).toBeNull();
+        expect(Array.from(box.querySelectorAll<HTMLButtonElement>('button')).map(button => [button.dataset.newtabAction, button.getAttribute('aria-label'), button.textContent]))
+            .toEqual([['search-clear', 'Clear search', ''], ['search-handwriting-toggle', 'Write by hand', '']]);
+        expect(box.querySelectorAll('input')).toHaveLength(1);
+        // The clear icon appears only once there is something to clear, and the
+        // handwriting pad exists only while its icon holds it open.
+        expect(newTabCss).toContain('.jpdb-reader-newtab-searchbox:has(input:placeholder-shown) .jpdb-reader-newtab-search-icon.is-clear { display: none; }');
+        expect(newTabCss).toContain('.jpdb-reader-newtab-handwriting[hidden] { display: none; }');
+        expect(newTabCss).not.toContain('.jpdb-reader-newtab-handwriting summary');
+        // A search input draws its own blue cross in Chromium and Safari; the named icon is the only one.
+        expect(newTabCss).toContain('.jpdb-reader-newtab-searchbox input::-webkit-search-cancel-button { -webkit-appearance: none; appearance: none; display: none; }');
+    });
+});
+
+describe('Library and Stats', () => {
+    // Library's title sat 60px below Stats' on the same shell: Study's
+    // top padding and its prompt margin still applied to the Library title.
+    it('puts the Library title where the Stats title sits', () => {
+        expect(newTabCss).toContain('.jpdb-reader-newtab-search-mode .jpdb-reader-newtab-study { grid-template-rows: auto auto; align-content: start; align-items: start; gap: clamp(14px, 2.2vh, 24px); padding-top: 4px;');
+        expect(statsCss).toContain('.jpdb-reader-newtab-stats-mode .jpdb-reader-newtab-study { align-content: start; align-items: start; justify-items: stretch; gap: 16px; padding: 4px 0 32px;');
+        expect(newTabCss).toContain('.jpdb-reader-newtab:not(.jpdb-reader-newtab-kanji-mode, .jpdb-reader-newtab-search-mode) .jpdb-reader-newtab-study > .jpdb-reader-newtab-prompt { margin-top: clamp(14px, 4vh, 44px); }');
+    });
+
+    // Two rules for the same element stacked 32px of margin and padding
+    // between the search field and the empty-Library line.
+    it('styles the Library empty state with one rule', () => {
+        expect(newTabCss.match(/\.jpdb-reader-newtab-browse-empty \{/gu)).toHaveLength(1);
+        expect(newTabCss).toContain('.jpdb-reader-newtab-browse-empty { display: grid; justify-items: start; gap: 16px; margin: 0; padding: 8px 0; color: var(--jpdb-reader-muted); }');
+        // Empty Stats keeps the same rhythm under its title.
+        expect(statsCss).toContain('.jpdb-reader-stats-empty { display: grid; justify-items: start; gap: 16px; padding: 8px 0; }');
+    });
+
+    // The brand and menu jumped 60-80px sideways between Study (1040px),
+    // Library (920px) and Stats (1080px).
+    it('keeps the header still across Study, Library and Stats on a desktop', () => {
+        expect(newTabCss).toContain('@media (min-width: 641px) { /* Study, Library and Stats share one width, so the header holds still when the tab changes. */ .jpdb-reader-newtab:not([data-study-surface="academy"]) .jpdb-reader-newtab-shell { width: min(1040px, calc(100vw - 40px)); }');
+    });
+});
+
+describe('Study on a phone', () => {
+    // The answer once ran under the grade bar on a notched phone: 148px of
+    // padding ignored the home indicator below a 128px stack of fixed bars.
+    it('pads the review clear of both fixed bars and the home indicator', () => {
+        expect(newTabCss).toContain('@media (max-width: 640px) { .jpdb-reader-newtab:not([data-study-surface="academy"]):not(.jpdb-reader-newtab-search-mode):not(.jpdb-reader-newtab-stats-mode) .jpdb-reader-newtab-shell { padding-bottom: calc(148px + env(safe-area-inset-bottom)); }');
+        expect(newTabCss).toContain(':has(.jpdb-reader-newtab-grade-target-context):not(.jpdb-reader-newtab-search-mode):not(.jpdb-reader-newtab-stats-mode) .jpdb-reader-newtab-shell { padding-bottom: calc(180px + env(safe-area-inset-bottom)); }');
+    });
+
+    // The logo and menu moved 5px between Study and Library/Stats/Practice,
+    // and Study sat 6px from the screen edge.
+    it('keeps one 16px gutter on every route', () => {
+        expect(newTabCss).toContain('/* One 16px gutter on every route, so the brand and menu hold still when the tab changes (Study was 6px from the edge, Library and Stats 14px). */ .jpdb-reader-newtab:not([data-study-surface="academy"]) .jpdb-reader-newtab-shell { width: calc(100% - 32px); }');
+    });
+
+    // Reveal sat 90px above the dock and the grades appeared flush on it, so
+    // the main thumb target jumped 84px when the answer opened.
+    it('keeps Reveal where the grades appear', () => {
+        expect(newTabCss).toContain('.jpdb-reader-newtab:not([data-study-surface="academy"]):not(.jpdb-reader-newtab-setup-mode) .jpdb-reader-newtab-controls:not(.jpdb-reader-newtab-grade-controls) { position: fixed; left: 50%; bottom: calc(64px + env(safe-area-inset-bottom)); transform: translateX(-50%);');
+        expect(newTabCss).toContain('.jpdb-reader-newtab:not([data-study-surface="academy"]) .jpdb-reader-newtab-controls.jpdb-reader-newtab-grade-controls { bottom: calc(64px + env(safe-area-inset-bottom));');
     });
 });

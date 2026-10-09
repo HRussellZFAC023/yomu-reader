@@ -47,6 +47,10 @@ export interface StatsSourceSnapshot {
     daily: StatsDailyPoint[];
     cards: StatsCardBreakdown;
     reviewsToday: number;
+    /** Distinct cards, not review events; never added to reviewsToday. */
+    reviewedCardsToday?: number;
+    /** False when the source cannot supply dated review events. */
+    reviewHistoryAvailable?: boolean;
     totalReviews: number;
     retention: number | null;
     currentStreak: number;
@@ -185,6 +189,7 @@ export function statsFromApiCards(
         message,
         daily: [],
         cards: jpdbCardBreakdown(cards),
+        reviewHistoryAvailable: false,
         reviewsToday: 0,
         totalReviews: 0,
         retention: null,
@@ -208,6 +213,7 @@ export function applyJpdbReviewImport(source: StatsSourceSnapshot, imported: Jpd
         ...source,
         status: source.status === 'ready' ? 'ready' : 'partial',
         message: source.status === 'ready' ? source.message : 'JPDB review history imported.',
+        reviewHistoryAvailable: true,
         daily: mergeDailyPoints(source.daily, imported.daily),
         updatedAt: Math.max(source.updatedAt ?? 0, imported.importedAt),
     });
@@ -226,6 +232,7 @@ export function applyJitenDailyStats(source: StatsSourceSnapshot, byDate: Record
     }
     return finalizeStatsSource({
         ...source,
+        reviewHistoryAvailable: true,
         daily: sortedDailyPoints([...daily.values()]),
         updatedAt: Math.max(source.updatedAt ?? 0, ...entries.map(([, snapshot]) => snapshot.updatedAt)),
     });
@@ -247,6 +254,7 @@ export function applyJitenReviewHistory(source: StatsSourceSnapshot, reviews: Ji
     }
     return finalizeStatsSource({
         ...source,
+        reviewHistoryAvailable: true,
         daily: mergeDailyPoints(source.daily, sortedDailyPoints([...daily.values()])),
         updatedAt: newest || source.updatedAt,
     });
@@ -265,7 +273,12 @@ export function combineStatsSources(...sources: StatsSourceSnapshot[]): StatsCom
         message: combinedMessage(combinedSources),
         daily,
         cards: addCardBreakdowns(...combinedSources.map(source => source.cards)),
-        reviewsToday: 0,
+        reviewsToday: combinedSources.reduce((sum, source) => sum + source.reviewsToday, 0),
+        reviewedCardsToday: combinedSources.reduce((sum, source) => sum + (source.reviewedCardsToday ?? 0), 0),
+        reviewHistoryAvailable: combinedSources
+            .filter(source => source.cards.total > 0 || source.totalReviews > 0 || source.reviewsToday > 0
+                || (source.reviewedCardsToday ?? 0) > 0 || source.daily.length > 0)
+            .every(source => source.reviewHistoryAvailable !== false),
         totalReviews: 0,
         retention: null,
         currentStreak: 0,
@@ -400,6 +413,7 @@ export function statsSourceForId(snapshot: StatsDashboardSnapshot, id: StatsSour
     if (id === 'jpdb') return snapshot.jpdb;
     if (id === 'jiten') return snapshot.jiten;
     if (id === 'bunpro') return snapshot.bunpro;
+    if (id === 'wanikani') return snapshot.wanikani;
     if (id === 'yomu-local') return snapshot.yomuLocal;
     if (id === 'anki') return snapshot.anki;
     return snapshot.combined;
@@ -414,7 +428,7 @@ export function statsSourceHasVisibleData(source: StatsSourceSnapshot): boolean 
 }
 
 export function formatPercent(value: number | null): string {
-    if (value === null || !Number.isFinite(value)) return 'n/a';
+    if (value === null || !Number.isFinite(value)) return '—';
     return `${Math.round(value * 100)}%`;
 }
 

@@ -314,9 +314,25 @@ async function injectUserscript(page) {
 async function verifySettingsDiscoverability(page, baseUrl) {
     await page.goto(`${baseUrl}/reader-fixture.html`, { waitUntil: 'domcontentloaded' });
     await injectUserscript(page);
+    const initialViewport = page.viewportSize();
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.locator('.jpdb-reader-fab').click();
+    await assertAudioDiscNamesItsOwnState(page);
+    const toastOverlapsAction = await page.evaluate(() => {
+        const toast = document.querySelector('.jpdb-reader-toast').getBoundingClientRect();
+        return [...document.querySelectorAll('[data-radial-id]')].some(button => {
+            const action = button.getBoundingClientRect();
+            return Math.min(toast.right, action.right) > Math.max(toast.left, action.left)
+                && Math.min(toast.bottom, action.bottom) > Math.max(toast.top, action.top);
+        });
+    });
+    assert(!toastOverlapsAction, 'Phone toast covers a radial menu action');
+    await page.keyboard.press('Escape');
+    await page.setViewportSize(initialViewport);
     await page.locator('.jpdb-reader-fab').click();
     const settingsAction = page.locator('.jpdb-reader-fab-radial [data-radial-id="settings"]');
     await settingsAction.waitFor({ state: 'visible', timeout: 6000 });
+    await assertOnePuckLabelAtATime(page);
     await settingsAction.click();
     const launcher = page.locator('.jpdb-reader-settings-launcher');
     await launcher.waitFor({ state: 'visible', timeout: 6000 });
@@ -327,6 +343,65 @@ async function verifySettingsDiscoverability(page, baseUrl) {
     assert(state.trustedLauncherVisible, 'Settings did not expose the trusted Study launcher', state);
     assert(state.pageWritableControls === 0, 'Off-host settings exposed page-writable controls', state);
     await launcher.screenshot({ path: path.join(ARTIFACTS, 'feedback-settings-launcher.png') });
+}
+
+// The audio disc's label names its new state, so pressing it raises no toast
+// that says it again. OCR still confirms its mode in a toast, which the caller
+// checks clears the arc on a phone; an audio toast would still be beside it.
+async function assertAudioDiscNamesItsOwnState(page) {
+    const audio = page.locator('[data-radial-id="audio"]');
+    const before = await audio.getAttribute('aria-label');
+    await audio.click();
+    await page.waitForFunction(label => {
+        const now = document.querySelector('[data-radial-id="audio"]')?.getAttribute('aria-label');
+        return now && now !== label;
+    }, before);
+    await page.locator('[data-radial-id="ocr"]').click();
+    await page.locator('.jpdb-reader-toast.is-visible').first().waitFor();
+    const toasts = await page.locator('.jpdb-reader-toast').allTextContents();
+    const after = await audio.getAttribute('aria-label');
+    assert(!toasts.includes(after), 'The audio disc toasted the state its label already shows', { toasts, after });
+}
+
+// The power disc keeps its state label up; the audio disc beside it shows its
+// own label in the same slot above the arc. Pointing at audio, with the mouse or
+// the keyboard, must show one readable label, not two stacked on each other.
+async function assertOnePuckLabelAtATime(page) {
+    const audio = page.locator('.jpdb-reader-fab-radial.is-open [data-radial-id="audio"]');
+    await page.waitForFunction(() => document.querySelector('.jpdb-reader-fab-radial.is-open')
+        ?.getAnimations({ subtree: true }).every(animation => animation.playState === 'finished'));
+    await audio.hover();
+    await expectOnePuckLabel(page, 'hover');
+    await page.mouse.move(4, 4);
+    await page.locator('.jpdb-reader-fab-radial.is-open [data-radial-id="power"]').focus();
+    await page.keyboard.press('ArrowDown');
+    await expectOnePuckLabel(page, 'keyboard');
+}
+
+async function expectOnePuckLabel(page, via) {
+    const readLabels = () => [...document.querySelectorAll('.jpdb-reader-fab-radial.is-open .jpdb-reader-fab-radial-label')]
+        .map(label => ({ label, rect: label.getBoundingClientRect(), opacity: Number(getComputedStyle(label).opacity) }))
+        .filter(({ opacity }) => opacity > 0.05)
+        .map(({ label, rect, opacity }) => ({
+            item: label.closest('[data-radial-id]')?.getAttribute('data-radial-id'),
+            text: label.textContent,
+            opacity,
+            left: rect.left,
+            right: rect.right,
+            top: rect.top,
+            bottom: rect.bottom,
+        }));
+    const settled = labels => labels.length > 0
+        && labels.every(label => label.opacity > 0.95)
+        && labels.some(label => label.item === 'audio')
+        && !labels.some((a, index) => labels.slice(index + 1).some(b => Math.min(a.right, b.right) > Math.max(a.left, b.left)
+            && Math.min(a.bottom, b.bottom) > Math.max(a.top, b.top)));
+    try {
+        await page.waitForFunction(`(${settled})((${readLabels})())`, null, { timeout: 3000 });
+    } catch (error) {
+        const labels = await page.evaluate(`(${readLabels})()`);
+        throw new Error(`Puck labels overlap or the audio label is missing (${via}): ${JSON.stringify(labels)}`, { cause: error });
+    }
 }
 
 function trimText(value) {
@@ -622,10 +697,10 @@ async function openHostedVideoPlayer(page, baseUrl) {
     await prepareHostedVideoPage(page, baseUrl);
     await page.goto(`${HOSTED_FIXTURE_ORIGIN}/video-player/index.html`, { waitUntil: 'domcontentloaded' });
     try {
+        // Japanese is the only reading target, so the player no longer names one.
         await page.waitForFunction(
-            expectedTarget => Boolean(window.__yomuReaderAppInitialized
-                && document.querySelector(`.jpdb-subtitle-player[data-language="${expectedTarget}"]`)),
-            HOSTED_EXPECTED_TARGET,
+            () => Boolean(window.__yomuReaderAppInitialized && document.querySelector('.jpdb-subtitle-player')),
+            null,
             { timeout: 6000 },
         );
         const boot = await readHostedVideoBootState(page);
@@ -711,7 +786,6 @@ async function readHostedVideoBootState(page) {
         return {
             initialized: window.__yomuReaderAppInitialized === true,
             subtitlePlayer: Boolean(player),
-            runtimeTarget: player.getAttribute('data-language'),
             runtimeOwnerKind: runtimeOwner.getAttribute('data-yomu-runtime-kind'),
             installedRuntimeKind: installedRuntime.getAttribute('data-yomu-installed-runtime-kind'),
             onboardingCount: document.querySelectorAll('.jpdb-reader-onboarding').length,
@@ -745,7 +819,6 @@ function hostedVideoBootedFromExplicitTarget(state) {
     return [
         state.initialized === true,
         state.subtitlePlayer === true,
-        state.runtimeTarget === HOSTED_EXPECTED_TARGET,
         state.runtimeOwnerKind === 'userscript',
         state.installedRuntimeKind === 'userscript',
         state.onboardingCount === 0,
@@ -763,9 +836,9 @@ function pageCopyMatchesInstalledStore(local, shared) {
 
 function hostedExplicitTargetSettingsReady(settings) {
     return [
+        // Setup gates are gone (ADR-0024): the runtime drops onboardingSeen and
+        // learningTargetChosen, so only the profile and player choice remain.
         activeBaseSettingsTarget() === HOSTED_EXPECTED_TARGET,
-        settings.onboardingSeen === true,
-        settings.learningTargetChosen === true,
         settings.activeLanguageProfileId === baseSettings.activeLanguageProfileId,
         settings.profileId === baseSettings.activeLanguageProfileId,
         settings.profileSchemaVersion === 2,
@@ -858,7 +931,8 @@ async function openHostedSettingsFromOverflow(page) {
     await page.waitForSelector('.jpdb-reader-settings-launcher', { timeout: 6000 });
     const hostedSettings = await readHostedSettingsState(page);
     assert(hostedSettingsReady(hostedSettings), 'Hosted Settings menu item did not open the trusted Study launcher', hostedSettings);
-    await page.locator('.jpdb-reader-settings [data-action="cancel"]').click();
+    // The launcher's one way out is its title-row close.
+    await page.locator('.jpdb-reader-settings-launcher [data-settings-close]').click();
     await page.waitForFunction(() => !document.querySelector('.jpdb-reader-settings'));
     const closeState = await page.evaluate(() => {
         let clicked = false;
@@ -1191,7 +1265,7 @@ async function assertHostedSubtitleSettingsSyncedFromCompactControls(page, expec
     await page.waitForSelector('.jpdb-reader-settings-launcher', { timeout: 6000 });
     const state = await readHostedSubtitleSettingsSyncState(page);
     assert(hostedSubtitleSettingsSynced(state, expectedBottomOffset), 'Compact subtitle controls did not persist before opening trusted Study settings', state);
-    await page.locator('.jpdb-reader-settings [data-action="cancel"]').click();
+    await page.locator('.jpdb-reader-settings-launcher [data-settings-close]').click();
     await page.waitForFunction(() => !document.querySelector('.jpdb-reader-settings'));
 }
 
@@ -2148,8 +2222,11 @@ try {
     const styleContainmentPage = await newPage(browser, {
         ...baseSettings,
         theme: 'dark',
+        // The author word is known; since 2.1 (ADR-0026) known words are
+        // hidden from colour unless the learner colours every group.
         wordHighlightColorSource: 'jpdb',
         wordTextColorSource: 'status',
+        wordColorHiddenStateGroups: [],
     });
     await verifyGenericPassiveStyleContainment(styleContainmentPage, baseUrl);
     await styleContainmentPage.close();

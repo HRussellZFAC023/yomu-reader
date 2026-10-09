@@ -95,8 +95,11 @@ function parkableMutationObserver(callback, options = {}) {
   return new ParkableObserver(observer, options);
 }
 function setImportantStyleIfChanged(element, property, value) {
-  if (element.style.getPropertyValue(property) === value && element.style.getPropertyPriority(property) === "important") return;
-  element.style.setProperty(property, value, "important");
+  setInlineStyleIfChanged(element, property, value, "important");
+}
+function setInlineStyleIfChanged(element, property, value, priority = "") {
+  if (element.style.getPropertyValue(property) === value && element.style.getPropertyPriority(property) === priority) return;
+  element.style.setProperty(property, value, priority);
 }
 const CSS_PIXEL_SIGNIFICANT_DIGITS = 6;
 const CSS_PIXEL_MINIMUM = 1e-6;
@@ -372,9 +375,9 @@ function syncProjectedReadingStyle(record) {
   setImportantStyleIfChanged(clone, "font-family", sourceStyle.fontFamily || baseStyle.fontFamily);
   setImportantStyleIfChanged(clone, "font-size", sourceStyle.fontSize || "10px");
   setImportantStyleIfChanged(clone, "font-style", sourceStyle.fontStyle || baseStyle.fontStyle);
-  setImportantStyleIfChanged(clone, "font-weight", sourceStyle.fontWeight || "700");
+  setImportantStyleIfChanged(clone, "font-weight", sourceStyle.fontWeight || "400");
   setImportantStyleIfChanged(clone, "letter-spacing", sourceStyle.letterSpacing || baseStyle.letterSpacing);
-  setImportantStyleIfChanged(clone, "color", baseStyle.color || sourceStyle.color || "currentColor");
+  setImportantStyleIfChanged(clone, "color", sourceStyle.color || baseStyle.color || "currentColor");
   setImportantStyleIfChanged(clone, "text-shadow", baseStyle.textShadow || "none");
   const key = `${clone.textContent ?? ""}\0${clone.style.getPropertyValue("font-size")}`;
   if (record.naturalReadingKey !== key) {

@@ -36,14 +36,12 @@ import {
     jpdbJsonResponse,
     jpdbParseResultToTokens,
     jpdbVocabularyToCards,
-    newTabSettingsJapaneseParserFixture,
     renderPitch,
     renderSettingsForm,
     renderTokensToHtml,
     renderedWordPrivateValue,
     restoreWindowDescriptor,
     setInnerHtml,
-    settingsJapaneseParserFixture,
     shouldUseSheet,
     waitForExpect,
     withViewport,
@@ -873,13 +871,63 @@ describe('reader helpers', () => {
         // remains a genuine 44px one-tap target.
         expect(normalizedNewTabCss).toContain('.jpdb-reader-newtab-immersion .jpdb-reader-icon-mini { width: 44px !important; min-width: 44px !important; height: 44px !important; min-height: 44px !important; }');
         expect(normalizedNewTabCss).not.toContain('.jpdb-reader-newtab-revealed .jpdb-reader-newtab-shell { padding-bottom: max(148px');
-        expect(normalizedNewTabCss).toContain('.jpdb-reader-newtab .jpdb-reader-newtab-overflow, .jpdb-reader-newtab-more-menu .jpdb-reader-newtab-menu-item, .jpdb-reader-newtab-mode button, button.jpdb-reader-newtab-status:not(:disabled), .jpdb-reader-newtab-source-select, .jpdb-reader-newtab-searchbox button, .jpdb-reader-newtab-grade-target-select, .jpdb-reader-newtab-controls button:not([data-grade]), .jpdb-reader-newtab-search-links a, .jpdb-reader-newtab-search-links button, .jpdb-reader-newtab-handwriting summary, .jpdb-reader-newtab-handwriting-candidates button, .jpdb-reader-newtab-doodle-actions button, .jpdb-reader-newtab-search-card, .jpdb-reader-newtab-kanji-details .jpdb-reader-source-card > summary.jpdb-reader-local-title, .jpdb-reader-newtab-kanji-details .jpdb-reader-component-button, .jpdb-reader-newtab-kanji-vocab > button, .jpdb-reader-newtab-mini-action { min-height: 44px !important; }');
+        // The pencil is a searchbox button; handwriting is now a plain
+        // panel, so there is no separate summary control. Keep every surviving
+        // control under the same coarse-pointer 44px minimum.
+        const touchSelectors = [
+            '.jpdb-reader-newtab .jpdb-reader-newtab-overflow',
+            '.jpdb-reader-newtab-more-menu .jpdb-reader-newtab-menu-item',
+            '.jpdb-reader-newtab-mode button',
+            'button.jpdb-reader-newtab-status:not(:disabled)',
+            '.jpdb-reader-newtab-source-select',
+            '.jpdb-reader-newtab-searchbox button',
+            '.jpdb-reader-newtab-grade-target-select',
+            '.jpdb-reader-newtab-controls button:not([data-grade])',
+            '.jpdb-reader-newtab-search-links a',
+            '.jpdb-reader-newtab-search-links button',
+            '.jpdb-reader-newtab-handwriting-candidates button',
+            '.jpdb-reader-newtab-doodle-actions button',
+            '.jpdb-reader-newtab-search-card',
+            '.jpdb-reader-newtab-kanji-details .jpdb-reader-source-card > summary.jpdb-reader-local-title',
+            '.jpdb-reader-newtab-kanji-details .jpdb-reader-component-button',
+            '.jpdb-reader-newtab-kanji-vocab > button',
+            '.jpdb-reader-newtab-mini-action',
+        ];
+        const style = document.createElement('style');
+        style.textContent = `${NEW_TAB_CSS}\n${STATS_CSS}`;
+        document.head.append(style);
+        try {
+            const topLevelRules = Array.from(style.sheet!.cssRules);
+            const rules = topLevelRules
+                .filter(rule => rule.type === CSSRule.MEDIA_RULE && (rule as CSSMediaRule).media.mediaText === '(pointer: coarse)')
+                .flatMap(rule => Array.from((rule as CSSMediaRule).cssRules))
+                .filter(rule => rule.type === CSSRule.STYLE_RULE) as CSSStyleRule[];
+            // Palette contract: an install hint is descriptive text, not a
+            // selected/focused/primary action that should use the red accent.
+            const installDescription = topLevelRules.find(rule => rule.type === CSSRule.STYLE_RULE
+                && (rule as CSSStyleRule).selectorText.replace(/\s+/g, ' ').trim()
+                    === '.jpdb-reader-newtab-install-app[data-install-prompt-available="true"] .jpdb-reader-newtab-menu-description') as CSSStyleRule | undefined;
+            expect(installDescription?.style.getPropertyValue('color')).toBe('var(--jpdb-reader-muted)');
+            const rulesFor = (selector: string) => rules.filter(rule => rule.selectorText.split(',')
+                .some(value => value.replace(/\s+/g, ' ').trim() === selector));
+            for (const selector of touchSelectors) {
+                const matching = rulesFor(selector);
+                expect(matching.some(rule => rule.style.getPropertyValue('min-height') === '44px'
+                    && rule.style.getPropertyPriority('min-height') === 'important'), selector).toBe(true);
+            }
+            // Refresh and the new chart-view toggle share this sizing rule.
+            for (const selector of ['.jpdb-reader-stats-refresh', '.jpdb-reader-stats-view-toggle']) {
+                for (const property of ['width', 'min-width', 'height']) {
+                    expect(rulesFor(selector).some(rule => rule.style.getPropertyValue(property) === '44px'), `${selector}: ${property}`).toBe(true);
+                }
+            }
+        } finally {
+            style.remove();
+        }
         expect(normalizedNewTabCss).toContain('min-height: 44px !important; overflow: visible; touch-action: manipulation; }');
         expect(normalizedNewTabCss).toContain('.jpdb-reader-newtab-controls.jpdb-reader-newtab-grade-controls button::after { content: ""; position: absolute; inset: 0; border-radius: 10px; }');
         expect(normalizedNewTabCss).not.toContain('.jpdb-reader-newtab-theme-controls .jpdb-reader-theme-switch { min-height: 24px !important; }');
-        expect(normalizedNewTabCss).toContain('.jpdb-reader-newtab-install-app[data-install-prompt-available="true"] .jpdb-reader-newtab-menu-description { color: var(--jpdb-reader-accent-readable, var(--jpdb-reader-text)); }');
         expect(normalizedStatsCss).toContain('@media (pointer: coarse) { .jpdb-reader-stats-refresh, .jpdb-reader-stats-tabs button, .jpdb-reader-stats-activity-tabs button, .jpdb-reader-stats-panel-button, .jpdb-reader-stats-deck-toggle, .jpdb-reader-stats-connection-actions button { min-height: 44px; touch-action: manipulation; }');
-        expect(normalizedStatsCss).toContain('.jpdb-reader-stats-refresh { width: 44px; min-width: 44px; height: 44px; }');
         expect(normalizedStatsCss).not.toContain('.jpdb-reader-stats-bars { grid-template-columns: repeat(30, minmax(24px, 1fr)); overflow-x: auto; }');
         expect(normalizedStatsCss).not.toContain('.jpdb-reader-stats-month-strip { grid-auto-columns: 180px; }');
         expect(normalizedStatsCss).toContain('.jpdb-reader-stats-bar, .jpdb-reader-stats-heatmap-cell { touch-action: manipulation; }');
@@ -893,6 +941,31 @@ describe('reader helpers', () => {
         expect(normalizedImmersionCss).toContain('.yomu-jpdb-page-addon .jpdb-reader-immersion .jpdb-reader-example-toolbar { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 8px; margin: 0 0 6px; }');
         expect(normalizedImmersionCss).toContain('width: fit-content; max-width: min(100%, 720px); overflow: visible; }');
         expect(normalizedImmersionCss).toContain('.yomu-jpdb-page-addon .jpdb-reader-immersion .jpdb-reader-example-card.has-image .jpdb-reader-example-sentence { left: clamp(8px, 3%, 16px); right: clamp(8px, 3%, 16px); bottom: clamp(10px, 4%, 16px); width: auto; max-width: none; padding: 0; transform: none; background: transparent; box-shadow: none; }');
+    });
+
+    it.each(['Enter', ' ', 'Escape'])('keeps resize and close keys on a focusable horizontal separator (%s)', closeKey => {
+        localStorage.removeItem(SHEET_HEIGHT_STORAGE_KEY);
+        const { popover, handle } = createSheetPopoverFixture();
+        const dismiss = vi.fn();
+        handle.setAttribute('aria-expanded', 'true');
+        installSheetHandle(popover, dismiss);
+        expect(handle.getAttribute('role')).toBe('separator');
+        expect(handle.getAttribute('aria-orientation')).toBe('horizontal');
+        expect(handle.hasAttribute('aria-expanded')).toBe(false);
+        expect(handle.tabIndex).toBe(0);
+        handle.focus();
+        expect(document.activeElement).toBe(handle);
+        const height = Number(handle.getAttribute('aria-valuenow'));
+        expect(Number(handle.getAttribute('aria-valuemin'))).toBeGreaterThan(0);
+        expect(Number(handle.getAttribute('aria-valuemax'))).toBe(window.innerHeight);
+        handle.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowUp', bubbles: true, cancelable: true }));
+        expect(Number(handle.getAttribute('aria-valuenow'))).toBe(height + 48);
+        handle.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true, cancelable: true }));
+        expect(Number(handle.getAttribute('aria-valuenow'))).toBe(height);
+        expect(dismiss).not.toHaveBeenCalled();
+        handle.dispatchEvent(new KeyboardEvent('keydown', { key: closeKey, bubbles: true, cancelable: true }));
+        expect(dismiss).toHaveBeenCalledOnce();
+        localStorage.removeItem(SHEET_HEIGHT_STORAGE_KEY);
     });
 
     it('resizes sheet popovers continuously when dragging the handle', () => {
@@ -1186,7 +1259,7 @@ describe('reader helpers', () => {
         localStorage.removeItem(SHEET_HEIGHT_STORAGE_KEY);
     });
 
-    it('restores sheet handle button state when popover content is re-rendered', async () => {
+    it('restores sheet handle separator state when popover content is re-rendered', async () => {
         localStorage.removeItem(SHEET_HEIGHT_STORAGE_KEY);
         const popover = document.createElement('div');
         popover.className = 'jpdb-reader-popover jpdb-reader-sheet';
@@ -1198,9 +1271,11 @@ describe('reader helpers', () => {
         await Promise.resolve();
 
         const handle = popover.querySelector<HTMLElement>('.jpdb-reader-sheet-handle');
-        expect(handle?.getAttribute('role')).toBe('button');
+        expect(handle?.getAttribute('role')).toBe('separator');
         expect(handle?.getAttribute('tabindex')).toBe('0');
-        expect(handle?.getAttribute('aria-expanded')).toBe('false');
+        expect(handle?.getAttribute('aria-orientation')).toBe('horizontal');
+        expect(handle?.hasAttribute('aria-expanded')).toBe(false);
+        expect(Number(handle?.getAttribute('aria-valuenow'))).toBe(Number.parseFloat(popover.style.getPropertyValue('--jpdb-reader-sheet-height')));
     });
 
     it('keeps forced bottom-sheet popovers positioned on desktop viewports', () => {
@@ -1466,12 +1541,11 @@ describe('reader helpers', () => {
         }
     });
 
-    it('keeps click popovers modal even when visual page dimming is off', () => {
+    it('gives a click popover a clear dismiss surface that does not dim the page', () => {
         const app = new ReaderApp();
         const settings = {
             ...DEFAULT_SETTINGS,
             popupMode: 'popover' as const,
-            popoverBackdropEnabled: false,
         };
         const internals = app as unknown as {
             settings: typeof settings;
@@ -1495,6 +1569,16 @@ describe('reader helpers', () => {
             expect(popover.getAttribute('role')).toBe('dialog');
             expect(popover.getAttribute('aria-modal')).toBe('true');
             expect(page.getAttribute('aria-hidden')).toBe('true');
+            // The outside press lands on this surface and only dismisses: it
+            // never reaches the page's links, buttons or players underneath.
+            const backdrop = document.querySelector<HTMLElement>('.jpdb-reader-backdrop');
+            expect(backdrop?.classList.contains('jpdb-reader-backdrop--clear')).toBe(true);
+            expect(backdrop?.nextElementSibling).toBe(popover);
+            const pageClick = vi.fn();
+            page.addEventListener('click', pageClick);
+            backdrop!.click();
+            expect(pageClick).not.toHaveBeenCalled();
+            expect(popover.isConnected).toBe(false);
             expect(document.querySelector('.jpdb-reader-backdrop')).toBeNull();
         } finally {
             vi.unstubAllGlobals();
@@ -1508,7 +1592,6 @@ describe('reader helpers', () => {
         const settings = {
             ...DEFAULT_SETTINGS,
             popupMode: 'popover' as const,
-            popoverBackdropEnabled: false,
         };
         const internals = app as unknown as {
             settings: typeof settings;
@@ -1638,7 +1721,6 @@ describe('reader helpers', () => {
         const settings = {
             ...DEFAULT_SETTINGS,
             popupMode: 'popover' as const,
-            popoverBackdropEnabled: true,
         };
         const internals = app as unknown as {
             settings: typeof settings;
@@ -1661,7 +1743,7 @@ describe('reader helpers', () => {
             internals.mountPopover(popover, anchor, { mode: 'modal' });
 
             expect(popover.parentElement).toBe(frame);
-            expect(document.querySelector('.jpdb-reader-backdrop')?.parentElement).toBe(frame);
+            expect(document.querySelector('.jpdb-reader-backdrop--clear')?.parentElement).toBe(frame);
             expect(popover.getAttribute('aria-modal')).toBe('true');
         } finally {
             vi.unstubAllGlobals();
@@ -1915,80 +1997,6 @@ describe('reader helpers', () => {
         expect(SETTINGS_CSS).toContain('.jpdb-reader-settings-drag-handle');
         expect(SETTINGS_CSS).toContain('.jpdb-reader-settings-drag-handle:hover::before');
         expect(SUBTITLES_YOUTUBE_CSS).toContain('.jpdb-subtitle-transcript-bottom .jpdb-subtitle-resize:hover::before');
-    });
-
-    it('parses Japanese settings labels in the main reader runtime using current form display settings', async () => {
-        const { app, form, parseJapanese, internals } = settingsJapaneseParserFixture({
-            spelling: '設定',
-            reading: 'せってい',
-            vid: 2468,
-            settings: {
-                showFurigana: false,
-                furiganaMode: 'off',
-                showPitchAccent: false,
-            },
-        });
-        form.querySelector<HTMLSelectElement>('select[name="furiganaMode"]')!.value = 'all';
-        form.querySelector<HTMLInputElement>('input[name="showPitchAccent"]')!.checked = true;
-
-        try {
-            await internals.parseSettingsJapanese(form);
-
-            expect(parseJapanese).toHaveBeenCalledWith(
-                expect.arrayContaining(['よむ 設定']),
-                expect.objectContaining({
-                    allowApiTimeoutFallback: true,
-                    allowJpdbTimeoutFallback: true,
-                    allowSegmentedFallback: true,
-                    apiTimeoutMs: 1_200,
-                    includeLocalPitch: false,
-                    jpdbTimeoutMs: 1_200,
-                    requireApi: false,
-                    requireJpdb: false,
-                    skipApi: true,
-                    skipJpdb: true,
-                }),
-            );
-            const parsedWord = form.querySelector<HTMLElement>('h2 .jpdb-reader-word[data-expression="設定"]');
-            expect(parsedWord).toBeTruthy();
-            expect(parsedWord?.classList.contains('jpdb-reader-has-furi')).toBe(true);
-            expect(parsedWord?.classList.contains('jpdb-pitch-heiban')).toBe(true);
-            expect(parsedWord?.querySelector('.jpdb-reader-furi')?.textContent).toBe('せってい');
-        } finally {
-            app.destroy();
-            document.body.replaceChildren();
-        }
-    });
-
-    it('parses Japanese settings labels in the hosted newtab runtime with segmented fallback enabled', async () => {
-        const { form, parse, internals } = newTabSettingsJapaneseParserFixture({
-            spelling: '設定',
-            reading: 'せってい',
-            vid: 3579,
-        });
-
-        try {
-            await internals.parseSettingsJapanese(form);
-
-            expect(parse).toHaveBeenCalledWith(
-                expect.arrayContaining(['よむ 設定']),
-                expect.objectContaining({
-                    allowJpdbTimeoutFallback: true,
-                    allowSegmentedFallback: true,
-                    includeLocalPitch: false,
-                    jpdbTimeoutMs: 10_000,
-                }),
-            );
-            const parsedWord = form.querySelector<HTMLElement>('h2 .jpdb-reader-word[data-expression="設定"]');
-            expect(parsedWord).toBeTruthy();
-            expect(parsedWord?.classList.contains('jpdb-reader-has-furi')).toBe(true);
-            expect(parsedWord?.classList.contains('jpdb-pitch-heiban')).toBe(true);
-            expect(parsedWord?.querySelector('.jpdb-reader-furi')?.textContent).toBe('せってい');
-            expect(internals.hydrateSettingsFallbackTokens).toHaveBeenCalled();
-            expect(internals.enrichPitchWords).toHaveBeenCalledWith(expect.any(Array), 192);
-        } finally {
-            document.body.replaceChildren();
-        }
     });
 
 });

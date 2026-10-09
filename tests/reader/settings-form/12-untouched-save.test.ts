@@ -113,6 +113,22 @@ describe('an untouched settings Save', () => {
         expect(sources).not.toContain('KANJIDIC');
     });
 
+    // YQ-11: Save stays enabled while a dictionary installs, so the form can be
+    // submitted before it has drawn the new dictionary's row. That Save must
+    // keep the stored preference rather than drop the dictionary it never saw.
+    it('keeps a dictionary installed after the form was drawn', () => {
+        const settings = usedSettings();
+        const form = renderSettingsTestForm(settings);
+        const installed = { name: 'JMdict', alias: 'JMdict', enabled: true, priority: 1003, type: 'terms' as const };
+        const current = { ...settings, dictionaryPreferences: [...settings.dictionaryPreferences, installed] };
+
+        const saved = readFormSettings(new FormData(form), current);
+
+        expect(saved.dictionaryPreferences.map(preference => preference.name))
+            .toEqual([...settings.dictionaryPreferences.map(preference => preference.name), 'JMdict']);
+        expect(saved.dictionaryPreferences.find(preference => preference.name === 'JMdict')).toMatchObject(installed);
+    });
+
     // Both editors number their fields by the shelf they were rendered from, so
     // a refresh after an import or removal must re-render the Kanji editor too.
     it.each(['Jitendex', 'KANJIDIC'])('re-renders both editors when %s leaves the shelf', name => {

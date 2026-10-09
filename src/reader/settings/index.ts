@@ -5,6 +5,7 @@ import { DEFAULT_PITCH_COLOR_TOKENS, DEFAULT_WORD_COLOR_TOKENS, OVERLAY_COLOR_TO
 import { normalizeAnkiFieldMappings } from './anki-field-mappings';
 import { combinedApiCredentialLabel, hasBunproFrontendCredential, hasJitenApiCredential, hasJpdbApiCredential, isBunproFrontendCredentialExpired } from './api-credential';
 import { accessibleOcrBackgroundColor, accessibleOcrBackgroundOpacity, DEFAULT_ACCENT_COLOR, DEFAULT_OCR_BACKGROUND_COLOR, DEFAULT_OCR_BACKGROUND_OPACITY, DEFAULT_OCR_OUTLINE_COLOR, DEFAULT_OCR_TEXT_COLOR, sanitizeAccentColor } from './color-settings';
+import { currentAccentColor } from '../core/hosted-accent-css';
 import { DEFAULT_DICTIONARY_LOOKUP_LINKS, normalizeDictionaryLookupLinkSettings, normalizeDictionaryPreferences } from './dictionary';
 import {
     applySettingsIntent,
@@ -15,9 +16,9 @@ import {
     SETTINGS_INTENT_LEDGER_STORAGE_KEY,
 } from './intent-ledger';
 import { createDefaultSubtitleSettings } from './subtitle-defaults';
+import { adoptCurrentDefaults } from './retired-defaults';
 import { hasOwn, stringValue, trimmedText } from './values';
 import { normalizeLanguageProfileSettings } from './language-profile-settings-normalization';
-import { normalizeLearningTargetChosen } from './learning-target-choice';
 import { EXPLICIT_USER_SETTINGS_STORAGE_KEY, persistSettingsStorageTransaction, readSettingsIntentLedgerForWrite, readSettingsPersistenceViewStrictFrom, SETTINGS_PERSISTENCE_LEASE_OPTIONS, SETTINGS_PERSISTENCE_STORAGE_LEASE, SETTINGS_STORAGE_KEY } from './settings-persistence-transaction';
 import { RETIRED_SETTINGS_STORAGE_KEYS } from './settings-authority-storage-keys';
 import { gmStorageDelete, gmStorageGetSharedStrict, gmStorageGetStrict, isHostedYomuOrigin, storedValueExists, subscribeToStoredValueChanges, withGmStorageLease } from '../app/storage';
@@ -31,16 +32,14 @@ import {
     isAudioSourceType,
 } from './audio-source-defaults';
 import {
-    activeLanguageProfile,
     createDefaultLanguageProfile,
     DEFAULT_LANGUAGE_PROFILE_ID,
 } from '../languages/profiles';
-import { learningTargetRosterIdForTag, SLICE1_TARGET_LANGUAGE } from '../languages/roster';
 import { isTargetDefaultOcrLanguageTag } from '../languages/resolve';
-import type { AnkiTemplateMode, AudioAutoPlayMode, AudioSourceSetting, AudioSubSourceSetting, AudioTtsMode, FuriganaMode, ImmersionExampleSource, ImmersionKitCategory, ImmersionKitSort, InterfaceLanguage, OcrOverlayTheme, OcrProvider, ReaderColorSource, ReaderSettings } from '../app/types';
+import type { AnkiTemplateMode, AudioAutoPlayMode, AudioSourceSetting, AudioSubSourceSetting, AudioTtsMode, FuriganaMode, ImmersionExampleSource, InterfaceLanguage, OcrOverlayTheme, OcrProvider, ReaderColorSource, ReaderSettings } from '../app/types';
 export { formatShortcutEvent, matchesShortcut, shortcutIsPressed } from './shortcuts';
 export { accentToRgba, accessibleOcrBackgroundColor, accessibleOcrBackgroundOpacity, sanitizeAccentColor } from './color-settings';
-export { COPY_LOOKUP_LINK, MAX_EXTRA_LOOKUP_LINKS, MAX_LOOKUP_LINK_ROWS, defaultDictionaryLookupLinks, defaultLookupLinkMode, dictionaryLookupLinksForTarget, mergeDictionaryPreferences, normalizeDictionaryLookupLinks, normalizeDictionaryPreferences, retireStaleDictionaryPreferences } from './dictionary';
+export { COPY_LOOKUP_LINK, MAX_EXTRA_LOOKUP_LINKS, MAX_LOOKUP_LINK_ROWS, defaultDictionaryLookupLinks, defaultLookupLinkMode, mergeDictionaryPreferences, normalizeDictionaryLookupLinks, normalizeDictionaryPreferences, retireStaleDictionaryPreferences } from './dictionary';
 export { NO_EXPLICIT_USER_CHOICE } from './intent-ledger';
 export { AUDIO_SOURCE_UI_TYPE_VALUES, DEFAULT_AUDIO_SOURCES } from './audio-source-defaults';
 export { EXPLICIT_USER_SETTINGS_STORAGE_KEY, SETTINGS_STORAGE_KEY };
@@ -83,13 +82,18 @@ type NumberSettingRange = { min: number; max: number };
 type ConcreteReaderColorSource = Exclude<ReaderColorSource, 'auto'>;
 type AccentColorSettingKey = Extract<keyof ReaderSettings, string>;
 
-const DEFAULT_COLOR_CHANNELS: Record<ReaderColorChannelKey, ConcreteReaderColorSource> = {
-    wordHighlightColorSource: 'jpdb',
-    wordUnderlineColorSource: 'pitch',
-    wordTextColorSource: 'anki',
-    subtitleHighlightColorSource: 'jpdb',
-    subtitleUnderlineColorSource: 'pitch',
-    subtitleTextColorSource: 'anki',
+// One colour channel at rest (ADR-0026): the underline carries what the
+// learner's own study source knows, and nothing when there is none. A per-word
+// fill and page-wide pitch colours had no evidence of helping a reader and
+// made prose look like a worksheet; both stay one choice away, and pitch is
+// always in the popup.
+export const DEFAULT_COLOR_CHANNELS: Readonly<Record<ReaderColorChannelKey, ConcreteReaderColorSource>> = {
+    wordHighlightColorSource: 'off',
+    wordUnderlineColorSource: 'status',
+    wordTextColorSource: 'off',
+    subtitleHighlightColorSource: 'off',
+    subtitleUnderlineColorSource: 'status',
+    subtitleTextColorSource: 'off',
 };
 const KANJI_BOOLEAN_SETTING_KEYS = [
     'jpdbKanjiEnabled',
@@ -113,29 +117,11 @@ const API_DEFINITION_NUMBER_SETTING_RANGES = {
     bunproDefinitionsPriority: { min: 0, max: 999 },
     wanikaniDefinitionsPriority: { min: 0, max: 999 },
 } as const;
-const SOURCE_ALIAS_SETTING_KEYS = [
-    'jpdbDefinitionsAlias',
-    'jitenDefinitionsAlias',
-    'bunproDefinitionsAlias',
-    'wanikaniDefinitionsAlias',
-    'jpdbKanjiAlias',
-    'kanjiImmersionKitAlias',
-    'wanikaniKanjiAlias',
-    'rtkAlias',
-    'kanjivgAlias',
-    'kanjiOriginsAlias',
-    'kanjiDictionariesAlias',
-    'immersionKitAlias',
-    'ankiSectionAlias',
-    'studyTranslationAlias',
-    'studyGrammarAlias',
-] as const satisfies readonly (keyof ReaderSettings)[];
 const MINING_BOOLEAN_SETTING_KEYS = [
     'jpdbMiningEnabled',
     'bunproMiningEnabled',
     'wanikaniReviewEnabled',
     'yomuLocalSrsEnabled',
-    'dictionarySourcesInitiallyExpanded',
 ] as const;
 const SUBTITLE_BOOLEAN_SETTING_KEYS = [
     'subtitleOverlayVisibleChosen',
@@ -193,8 +179,6 @@ const HOVER_POPUP_MODES = ['sheet', 'popover', 'auto'] as const satisfies readon
 const POPOVER_HEIGHT_MODES = ['fixed', 'available'] as const satisfies readonly ReaderSettings['popoverHeightMode'][];
 const AUDIO_AUTO_PLAY_MODES = ['off', 'all', 'hover', 'tap'] as const satisfies readonly AudioAutoPlayMode[];
 const AUDIO_TTS_MODES = ['source-order', 'fallback'] as const satisfies readonly AudioTtsMode[];
-const IMMERSION_KIT_CATEGORIES = ['anime', 'drama', 'games', 'all'] as const satisfies readonly ImmersionKitCategory[];
-const IMMERSION_KIT_SORTS = ['sentence_length:desc', 'sentence_length:asc'] as const satisfies readonly ImmersionKitSort[];
 const IMMERSION_EXAMPLE_SOURCES = ['nadeshiko', 'combined', 'immersion-kit'] as const satisfies readonly ImmersionExampleSource[];
 const OCR_OVERLAY_THEMES = ['auto', 'dark', 'light'] as const satisfies readonly OcrOverlayTheme[];
 const SUBTITLE_CONTROL_MODES = ['always', 'hidden', 'auto'] as const satisfies readonly ReaderSettings['subtitleControlsMode'][];
@@ -211,8 +195,6 @@ export const DEFAULT_SETTINGS: ReaderSettings = {
     bunproFrontendApiToken: '',
     bunproFrontendApiTokenExpiresAt: '',
     wanikaniApiToken: '',
-    onboardingSeen: false,
-    learningTargetChosen: false,
     interfaceLanguage: 'en',
     languageProfiles: [createDefaultLanguageProfile()],
     activeLanguageProfileId: DEFAULT_LANGUAGE_PROFILE_ID,
@@ -230,37 +212,27 @@ export const DEFAULT_SETTINGS: ReaderSettings = {
     pitchColorUnknown: DEFAULT_PITCH_COLORS.unknown,
     ...DEFAULT_COLOR_CHANNELS,
     jpdbDefinitionsEnabled: true,
-    jpdbDefinitionsAlias: '',
     jpdbDefinitionsPriority: 1,
     jitenDefinitionsEnabled: true,
-    jitenDefinitionsAlias: '',
     jitenDefinitionsPriority: 0,
     bunproDefinitionsEnabled: true,
-    bunproDefinitionsAlias: '',
     bunproDefinitionsPriority: 2,
     wanikaniDefinitionsEnabled: true,
-    wanikaniDefinitionsAlias: '',
     wanikaniDefinitionsPriority: 3,
     jpdbPageEnhancementsEnabled: true,
     jpdbPageWordEnhancementsEnabled: true,
     jpdbPageKanjiEnhancementsEnabled: true,
     jpdbKanjiEnabled: true,
-    jpdbKanjiAlias: '',
     jpdbKanjiPriority: 10,
     kanjiImmersionKitEnabled: true,
-    kanjiImmersionKitAlias: '',
     kanjiImmersionKitPriority: 60,
     wanikaniKanjiEnabled: true,
-    wanikaniKanjiAlias: '',
     wanikaniKanjiPriority: 55,
     rtkEnabled: true,
-    rtkAlias: '',
     rtkPriority: 20,
     kanjivgEnabled: true,
-    kanjivgAlias: '',
     kanjivgPriority: 0,
     kanjiOriginsEnabled: true,
-    kanjiOriginsAlias: '',
     kanjiOriginsPriority: 30,
     kanjiOriginKanjiMapEnabled: true,
     kanjiOriginGraphEnabled: true,
@@ -274,21 +246,13 @@ export const DEFAULT_SETTINGS: ReaderSettings = {
     audioSourceUrl: DEFAULT_AUDIO_URL,
     audioViaBlob: true,
     audioFallbackChimeEnabled: true,
-    audioTimeoutMs: 6000,
-    audioSelectionMode: 'random',
     audioTtsMode: 'fallback',
     immersionKitEnabled: true,
-    immersionKitAlias: '',
     immersionKitExampleSource: 'immersion-kit',
     nadeshikoApiKey: '',
     immersionKitPriority: 80,
     immersionKitLimitEnabled: false,
     immersionKitLimit: 12,
-    immersionKitMinLength: 8,
-    immersionKitMaxLength: 80,
-    immersionKitCategory: 'all',
-    immersionKitSort: 'sentence_length:asc',
-    immersionKitExactMatch: false,
     immersionKitShowTranslation: true,
     immersionKitRevealTranslationOnClick: true,
     immersionKitShowImages: true,
@@ -315,7 +279,7 @@ export const DEFAULT_SETTINGS: ReaderSettings = {
     newTabFrontSentenceEnabled: true,
     newTabOfflineEnabled: true,
     newTabOfflineLimit: 50,
-    newTabDailyGoalMinutes: 60,
+    newTabDailyGoalMinutes: 0,
     newTabKanjiUnlockEnabled: true,
     newTabStopAtBatchEnd: false,
     newTabSwipeReviews: true,
@@ -329,14 +293,20 @@ export const DEFAULT_SETTINGS: ReaderSettings = {
     showFurigana: true,
     // A11: 'difficult-kanji' hides readings by a fixed easy-kanji list
     // (EASY_FURIGANA_KANJI), so a bare kanji told the learner nothing about
-    // their own knowledge and the page read as half-annotated. Every parsed
-    // word gets its reading until someone chooses otherwise.
-    furiganaMode: 'all',
+    // their own knowledge and the page read as half-annotated. ADR-0026:
+    // readings follow what the learner knows instead. A word their study
+    // source knows loses its reading; with no source, or a word not yet in
+    // it, every parsed word keeps its reading.
+    furiganaMode: 'known-status',
     clampedRowReadings: 'show',
     puckFuriganaModeBeforeHide: '',
-    furiganaHiddenStateGroups: ['known', 'due', 'failed'],
+    // Help fades with what the learner knows: a known or due word loses its
+    // reading, a word they just failed keeps it (ADR-0026).
+    furiganaHiddenStateGroups: ['known', 'due'],
     wordColorStates: 'all',
-    wordColorHiddenStateGroups: [],
+    // Known and ignored words are most of a page for anyone past the start;
+    // colouring them carries no news (ADR-0026).
+    wordColorHiddenStateGroups: ['known', 'ignored'],
     showPitchAccent: true,
     showLookupPillFrequency: true,
     suppressRedundantWordUi: false,
@@ -372,9 +342,7 @@ export const DEFAULT_SETTINGS: ReaderSettings = {
     parserProvider: 'local',
     localDictionaryMaxResults: 12,
     localDictionaryShowKanji: true,
-    kanjiDictionariesAlias: '',
     kanjiDictionariesPriority: 30,
-    dictionarySourcesInitiallyExpanded: true,
     dictionaryPreferences: [],
     // Numbered as normalization numbers them, so the defaults are already
     // normal and an untouched Save writes them back unchanged.
@@ -389,7 +357,6 @@ export const DEFAULT_SETTINGS: ReaderSettings = {
     // Keep Anki opt-in: fresh installs/factory resets cannot assume Anki exists, and the send button costs real space on mobile popups.
     ankiEnabled: false,
     ankiSectionEnabled: false,
-    ankiSectionAlias: '',
     ankiSectionPriority: 90,
     ankiConnectUrl: 'http://127.0.0.1:8765',
     ankiDeck: 'よむ',
@@ -400,9 +367,7 @@ export const DEFAULT_SETTINGS: ReaderSettings = {
     ankiFrontImage: true,
     ankiMobileHandoff: false,
     studyTranslationEnabled: true,
-    studyTranslationAlias: '',
     studyGrammarEnabled: true,
-    studyGrammarAlias: '',
     enableLogging: false,
     ankiTags: 'yomu',
     ankiMineWithJpdb: false,
@@ -421,7 +386,6 @@ export const DEFAULT_SETTINGS: ReaderSettings = {
     popupMode: 'auto',
     hoverPopupMode: 'popover',
     stickyBottomSheet: false,
-    popoverBackdropEnabled: true,
     popoverWidth: 520,
     popoverHeight: 540,
     popoverHeightMode: 'fixed',
@@ -436,7 +400,6 @@ export const DEFAULT_SETTINGS: ReaderSettings = {
     yomuLocalSrsEnabled: true,
     apiGradingProvider: 'jiten',
     miningDeck: 'forq',
-    autoMineOnReview: false,
     neverForgetDeck: 'never-forget',
     blacklistDeck: 'blacklist',
     addToForq: false,
@@ -507,19 +470,9 @@ function mergeSettings(value: Partial<ReaderSettings> | null): ReaderSettings {
         ...normalizeAnkiAndStudySettings(settingsValue),
         ...normalizePresentationSettings(settingsValue),
         ...normalizeMiningSettings(settingsValue),
-        ...normalizeSourceAliasSettings(settingsValue),
         ...normalizeRemovedDictionarySettings(settingsValue),
-        // The pill row belongs to the TARGET, so it is normalized against the
-        // profile's target rather than against Japanese. A fresh Spanish install
-        // boots with the Spanish hotlink set; a Japanese one is untouched.
-        dictionaryLookupLinks: normalizeDictionaryLookupLinkSettings(
-            settingsValue,
-            activeTargetRosterId(languageProfileSettings),
-        ),
+        dictionaryLookupLinks: normalizeDictionaryLookupLinkSettings(settingsValue),
         ...languageProfileSettings,
-        // v1.9.3 contract: a record that predates the field keeps the choice
-        // its own Reader state implies (learning-target-choice.ts).
-        learningTargetChosen: normalizeLearningTargetChosen(value),
         ...unpinnedOcrLanguage(settingsValue),
         preferJapaneseSiteLanguage: normalizePreferredJapaneseSiteLanguage(settingsValue),
         shortcuts: normalizeShortcutSettings(settingsValue),
@@ -549,21 +502,6 @@ function normalizeParserProvider(value: Partial<ReaderSettings> | null): ReaderS
 
 export function normalizeReaderSettings(value: Partial<ReaderSettings> | null | undefined): ReaderSettings {
     return mergeSettings(value as Partial<ReaderSettings> | null);
-}
-
-/**
- * The roster ID of the target the normalized profiles point at.
- *
- * Reads the profiles this same normalization pass just produced rather than the
- * raw stored value, so a profile that was repaired or created here answers for
- * itself. Japanese is the fallback, which is what every install predating the
- * target picker is.
- */
-function activeTargetRosterId(
-    profileSettings: Pick<ReaderSettings, 'languageProfiles' | 'activeLanguageProfileId'>,
-): string {
-    const active = activeLanguageProfile(profileSettings.languageProfiles, profileSettings.activeLanguageProfileId);
-    return learningTargetRosterIdForTag(active?.targetLanguage) ?? SLICE1_TARGET_LANGUAGE;
 }
 
 function normalizeApiCredentialSettings(value: Partial<ReaderSettings> | null | undefined): Pick<ReaderSettings, 'apiKey' | 'jitenApiKey' | 'bunproApiKey' | 'bunproFrontendApiToken' | 'bunproFrontendApiTokenExpiresAt' | 'wanikaniApiToken'> {
@@ -632,19 +570,10 @@ function normalizeDefinitionSourcePrioritySettings(value: Partial<ReaderSettings
     return normalizeNumberSettingGroup(value, API_DEFINITION_NUMBER_SETTING_RANGES);
 }
 
-function normalizeSourceAliasSettings(value: Partial<ReaderSettings> | null): Pick<ReaderSettings, typeof SOURCE_ALIAS_SETTING_KEYS[number]> {
-    const aliases = {} as Pick<ReaderSettings, typeof SOURCE_ALIAS_SETTING_KEYS[number]>;
-    for (const key of SOURCE_ALIAS_SETTING_KEYS) {
-        aliases[key] = trimmedStringSetting(value, key, DEFAULT_SETTINGS[key]);
-    }
-    return aliases;
-}
-
-function normalizeRemovedDictionarySettings(value: Partial<ReaderSettings> | null): Pick<ReaderSettings, 'jpdbDefinitionsEnabled' | 'localDictionariesEnabled' | 'dictionarySourcesInitiallyExpanded' | 'localDictionaryMaxResults' | 'localDictionaryShowKanji'> {
+function normalizeRemovedDictionarySettings(value: Partial<ReaderSettings> | null): Pick<ReaderSettings, 'jpdbDefinitionsEnabled' | 'localDictionariesEnabled' | 'localDictionaryMaxResults' | 'localDictionaryShowKanji'> {
     return {
         jpdbDefinitionsEnabled: booleanSetting(value, 'jpdbDefinitionsEnabled'),
         localDictionariesEnabled: booleanSetting(value, 'localDictionariesEnabled'),
-        dictionarySourcesInitiallyExpanded: booleanSetting(value, 'dictionarySourcesInitiallyExpanded'),
         localDictionaryMaxResults: DEFAULT_SETTINGS.localDictionaryMaxResults,
         localDictionaryShowKanji: booleanSetting(value, 'localDictionaryShowKanji'),
     };
@@ -677,7 +606,7 @@ function normalizeNewTabSettings(value: Partial<ReaderSettings> | null): Partial
 function normalizeReaderDisplaySettings(value: Partial<ReaderSettings> | null): Partial<ReaderSettings> {
     const settings = value ?? {};
     return {
-        accentColor: sanitizeAccentColor(settings.accentColor),
+        accentColor: currentAccentColor(settings.accentColor, DEFAULT_ACCENT_COLOR),
         ...normalizeAccentColorSettings(settings, READER_ACCENT_COLOR_SETTING_KEYS),
         ...normalizeReaderColorChannelSettings(value),
         puckPositionX: normalizeOptionalCoordinate(settings.puckPositionX),
@@ -737,7 +666,6 @@ function normalizePresentationSettings(value: Partial<ReaderSettings> | null): P
         popupMode: normalizePopupMode(value?.popupMode),
         hoverPopupMode: normalizeHoverPopupMode(value?.hoverPopupMode),
         stickyBottomSheet: booleanSetting(value, 'stickyBottomSheet'),
-        popoverBackdropEnabled: booleanSetting(value, 'popoverBackdropEnabled'),
         popoverWidth: clampNumber(value?.popoverWidth, 280, 900, DEFAULT_SETTINGS.popoverWidth),
         popoverHeight: clampNumber(value?.popoverHeight, 220, 900, DEFAULT_SETTINGS.popoverHeight),
         popoverHeightMode: normalizePopoverHeightMode(value?.popoverHeightMode),
@@ -751,7 +679,6 @@ function normalizeMiningSettings(value: Partial<ReaderSettings> | null): Partial
     return {
         ankiTags: trimmedStringSetting(value, 'ankiTags', DEFAULT_SETTINGS.ankiTags),
         miningDeck: normalizeDeckIdSetting(value?.miningDeck, DEFAULT_SETTINGS.miningDeck),
-        autoMineOnReview: typeof value?.autoMineOnReview === 'boolean' ? value.autoMineOnReview : DEFAULT_SETTINGS.autoMineOnReview,
         neverForgetDeck: normalizeDeckIdSetting(value?.neverForgetDeck, DEFAULT_SETTINGS.neverForgetDeck),
         blacklistDeck: normalizeDeckIdSetting(value?.blacklistDeck, DEFAULT_SETTINGS.blacklistDeck),
         apiGradingProvider: normalizeApiGradingProvider(value?.apiGradingProvider),
@@ -788,10 +715,6 @@ function normalizeMediaSettings(value: Partial<ReaderSettings> | null): Partial<
         nadeshikoApiKey: trimmedStringSetting(value, 'nadeshikoApiKey', DEFAULT_SETTINGS.nadeshikoApiKey),
         immersionKitPriority: clampNumber(settings.immersionKitPriority, 0, 999, DEFAULT_SETTINGS.immersionKitPriority),
         ...immersionExampleLimit,
-        immersionKitMinLength: clampNumber(settings.immersionKitMinLength, 0, 120, DEFAULT_SETTINGS.immersionKitMinLength),
-        immersionKitMaxLength: clampNumber(settings.immersionKitMaxLength, 0, 240, DEFAULT_SETTINGS.immersionKitMaxLength),
-        immersionKitCategory: normalizeImmersionKitCategory(settings.immersionKitCategory),
-        immersionKitSort: normalizeImmersionKitSort(settings.immersionKitSort),
         immersionKitPlaybackRate: clampNumber(settings.immersionKitPlaybackRate, 0.5, 2, DEFAULT_SETTINGS.immersionKitPlaybackRate),
         immersionKitRevealTranslationOnClick: booleanSetting(value, 'immersionKitRevealTranslationOnClick'),
         immersionKitPlayOnHover: booleanSetting(value, 'immersionKitPlayOnHover'),
@@ -802,7 +725,7 @@ function normalizeMediaSettings(value: Partial<ReaderSettings> | null): Partial<
         ocrCloudVisionApiKey: normalizeCloudVisionApiKey(settings.ocrCloudVisionApiKey),
         ocrTextColor: normalizeOcrTextColor(settings),
         ocrOutlineColor: normalizeOcrOutlineColor(settings),
-        ocrBackgroundColor: accessibleOcrBackgroundColor(settings.accentColor, ocrBackgroundOpacity),
+        ocrBackgroundColor: accessibleOcrBackgroundColor(ocrBackgroundOpacity),
         ocrBackgroundOpacity,
         ocrFontScale: clampNumber(settings.ocrFontScale, 0.7, 1.8, DEFAULT_SETTINGS.ocrFontScale),
     };
@@ -893,14 +816,6 @@ function normalizeAudioAutoPlayMode(value: unknown): AudioAutoPlayMode {
 
 function normalizeAudioTtsMode(value: unknown): AudioTtsMode {
     return normalizeOption(value, AUDIO_TTS_MODES, DEFAULT_SETTINGS.audioTtsMode);
-}
-
-function normalizeImmersionKitCategory(value: unknown): ImmersionKitCategory {
-    return normalizeOption(value, IMMERSION_KIT_CATEGORIES, DEFAULT_SETTINGS.immersionKitCategory);
-}
-
-function normalizeImmersionKitSort(value: unknown): ImmersionKitSort {
-    return normalizeOption(value, IMMERSION_KIT_SORTS, DEFAULT_SETTINGS.immersionKitSort);
 }
 
 function normalizeImmersionExampleSource(value: unknown): ImmersionExampleSource {
@@ -1031,7 +946,8 @@ function normalizeFuriganaHiddenStateGroups(value: unknown): ReaderSettings['fur
 
 function normalizeWordColorHiddenStateGroups(value: unknown): ReaderSettings['wordColorHiddenStateGroups'] {
     // Furigana groups PLUS the ignored family (own colour, own picker): validating
-    // against the furigana set dropped it on load (#37). Default EMPTY = colour all.
+    // against the furigana set dropped it on load (#37). Empty colours every group;
+    // the default hides known and ignored words (ADR-0026).
     if (!Array.isArray(value)) return [...DEFAULT_SETTINGS.wordColorHiddenStateGroups];
     const groups = value.filter((item): item is ReaderSettings['wordColorHiddenStateGroups'][number] =>
         typeof item === 'string' && (WORD_COLOR_HIDE_STATE_GROUPS as readonly string[]).includes(item));
@@ -1186,16 +1102,30 @@ const COLOR_STATUS_CHANNEL_KEYS: ReaderColorChannelKey[] = [
 export function effectiveFuriganaMode(settings: ReaderSettings): Exclude<FuriganaMode, 'auto'> {
     if (!settings.showFurigana || settings.furiganaMode === 'off') return 'off';
     if (isExplicitFuriganaMode(settings.furiganaMode)) return settings.furiganaMode;
+    return 'known-status';
+}
+
+/**
+ * Which readings furigana shows while it is shown. Whether it is shown at all
+ * is the puck and toolbar's "Yomu on · furigana shown / hidden" state; while
+ * hidden this is the style those controls bring back.
+ */
+export function furiganaStyle(settings: ReaderSettings): Exclude<FuriganaMode, 'auto' | 'off'> {
+    const effective = effectiveFuriganaMode(settings);
+    if (effective !== 'off') return effective;
+    for (const candidate of [settings.puckFuriganaModeBeforeHide, settings.furiganaMode, DEFAULT_SETTINGS.furiganaMode]) {
+        if (candidate && isExplicitFuriganaMode(candidate)) return candidate;
+    }
     return 'all';
 }
 
 /**
  * A11: difficulty hiding drops readings by a fixed easy-kanji list, which the
  * learner has no way to read off the page. The settings form shows the
- * explanation whenever this is the chosen mode.
+ * explanation whenever this is the chosen style.
  */
 export function furiganaModeNeedsDifficultyExplanation(settings: ReaderSettings): boolean {
-    return effectiveFuriganaMode(settings) === 'difficult-kanji';
+    return furiganaStyle(settings) === 'difficult-kanji';
 }
 
 function isExplicitFuriganaMode(value: FuriganaMode): value is Exclude<FuriganaMode, 'auto' | 'off'> {
@@ -1281,7 +1211,7 @@ async function loadSettingsFromStorage(): Promise<ReaderSettings> {
     const current = mergeSettings(settingsRecord(view.settings));
     const withSitePreference = applyStoredSitePreference(current, storedSitePreference);
     const settings = mergeSettings(applySettingsIntent(withSitePreference, view.intentLedger) as Partial<ReaderSettings>);
-    return settings;
+    return adoptCurrentDefaults(settings, view.intentLedger, DEFAULT_SETTINGS);
 }
 
 function applyStoredSitePreference(

@@ -1,4 +1,8 @@
-const FOCUSABLE_SELECTOR = 'button,input,select,textarea,a[href],summary,audio[controls],video[controls],[contenteditable],[tabindex]:not([tabindex^="-"])';
+import { FORM_CONTROL_HOST_ATTRIBUTE } from '../ui/form-control-host';
+
+// A form-control host (the "Add to deck…" dropdown) keeps its control in a closed shadow
+// root: it counts as a stop of its own, and focusing it delegates to that control.
+const FOCUSABLE_SELECTOR = `button,input,select,textarea,a[href],summary,audio[controls],video[controls],[contenteditable],[tabindex]:not([tabindex^="-"]),[${FORM_CONTROL_HOST_ATTRIBUTE}]`;
 
 export class LookupModalAccessibility {
     private dialog?: HTMLElement;
@@ -42,9 +46,9 @@ export class LookupModalAccessibility {
             .filter(element => (
             !element.closest('[hidden]')
             && !element.closest('[aria-hidden="true"]')
-            && element.tabIndex >= 0
+            && (element.tabIndex >= 0 || element.hasAttribute(FORM_CONTROL_HOST_ATTRIBUTE))
         ))
-            .sort((left, right) => (left.tabIndex || Infinity) - (right.tabIndex || Infinity));
+            .sort((left, right) => tabOrder(left) - tabOrder(right));
         const destination = event.shiftKey ? focusable.at(-1) : focusable[0];
         const edge = event.shiftKey ? focusable[0] : focusable.at(-1);
         if (document.activeElement !== edge
@@ -53,6 +57,11 @@ export class LookupModalAccessibility {
         event.preventDefault();
         (destination ?? this.dialog).focus();
     };
+}
+
+// Positive tabindex first, then document order; a form-control host sits in document order.
+function tabOrder(element: HTMLElement): number {
+    return element.hasAttribute(FORM_CONTROL_HOST_ATTRIBUTE) ? Infinity : element.tabIndex || Infinity;
 }
 
 function hideBackground(root: HTMLElement): Array<[HTMLElement, string | null]> {

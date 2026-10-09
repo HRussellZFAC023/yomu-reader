@@ -1,3 +1,4 @@
+import { providerSpanBox } from './word-boxes';
 import { escapeHtml } from '../../reader/dom/index';
 import { targetContentLocale } from '../../reader/languages/resolve';
 import {
@@ -21,6 +22,7 @@ export interface GamingOcrLine {
 // moves it from the work area to the full display), so absolute viewport boxes
 // become stale before the response is painted.
 export interface NormalizedGamingOcrLine {
+    words?: { text: string; box: YomuGamingSelectionRect }[];
     text: string;
     box: YomuGamingSelectionRect;
     vertical: boolean;
@@ -86,8 +88,8 @@ export function overlayNormalizedOcrLayerHtml(lines: NormalizedGamingOcrLine[]):
 // the shared layout pass reads both surfaces the same way.
 function overlayOcrLineHtml(line: NormalizedGamingOcrLine): string {
     const box = line.box;
-    return `<div class="jpdb-ocr-line jpdb-ocr-line-visible" data-ocr-line data-vertical="${line.vertical}"`
-        + ` data-ocr-text="${escapeHtml(line.text)}"`
+    return `<div class="jpdb-ocr-line" data-ocr-line data-vertical="${line.vertical}"`
+        + ` data-ocr-text="${escapeHtml(line.text)}" data-provider-words="${escapeHtml(JSON.stringify(line.words ?? []))}"`
         + ` data-box-left="${box.left}" data-box-top="${box.top}"`
         + ` data-box-width="${box.width}" data-box-height="${box.height}"`
         + ` style="writing-mode:${line.vertical ? 'vertical-rl' : 'horizontal-tb'}">`
@@ -108,6 +110,8 @@ export function layoutOverlayOcrLines(root: ParentNode, frame: OcrOverlayFrame, 
     clearOverlayOcrTracking(root);
     layoutOcrOverlayLines(root, frame, fontScale);
     fitOverlayOcrTracking(root, frame, fontScale);
+    placeProviderWords(root, frame);
+    suppressDesktopLinePaint(root);
 }
 
 // The shared fit takes the font SIZE from the OCR ink-box thickness, then uses the
@@ -355,32 +359,6 @@ export function normalizeCaptureOcrBox(
     };
 }
 
-// Convert a viewport drag into the exact source pixels it intersects. Clamp
-// both endpoints: clamping only the origin while retaining the raw width turns
-// a drag across a letterbox bar into an unrelated strip at the capture edge.
-export function captureSelectionFromViewport(
-    selection: YomuGamingSelectionRect,
-    capture: YomuGamingImageSize,
-    frame: OcrOverlayFrame,
-): YomuGamingSelectionRect {
-    const scaleX = capture.width / Math.max(1, frame.imageWidth);
-    const scaleY = capture.height / Math.max(1, frame.imageHeight);
-    const rawLeft = (selection.left - frame.imageLeft) * scaleX;
-    const rawTop = (selection.top - frame.imageTop) * scaleY;
-    const rawRight = (selection.left + selection.width - frame.imageLeft) * scaleX;
-    const rawBottom = (selection.top + selection.height - frame.imageTop) * scaleY;
-    const left = clampNumber(Math.min(rawLeft, rawRight), 0, capture.width);
-    const top = clampNumber(Math.min(rawTop, rawBottom), 0, capture.height);
-    const right = clampNumber(Math.max(rawLeft, rawRight), 0, capture.width);
-    const bottom = clampNumber(Math.max(rawTop, rawBottom), 0, capture.height);
-    return {
-        left,
-        top,
-        width: Math.max(0, right - left),
-        height: Math.max(0, bottom - top),
-    };
-}
-
 // Full precision, exactly as the reader stores it. Rounding here would put the gaming
 // overlay a fraction of a pixel off the reader for the same box — the kind of drift
 // this convergence exists to remove.
@@ -388,6 +366,50 @@ function fraction(value: number, extent: number): number {
     return value / Math.max(1, extent);
 }
 
-function clampNumber(value: number, min: number, max: number): number {
-    return Math.min(max, Math.max(min, value));
+// Pin tokenizer words to provider geometry instead of the replacement font's advances.
+function placeProviderWords(root: ParentNode, frame: OcrOverlayFrame): void {
+    for (const line of root.querySelectorAll<HTMLElement>('[data-provider-words]')) {
+        const source = line.dataset.ocrText ?? '';
+        const provided = JSON.parse(line.dataset.providerWords || '[]') as { text: string; box: YomuGamingSelectionRect }[];
+        // Line-only providers still need usable targets after glyph paint is suppressed.
+        const words = provided.length ? provided : [{ text: source, box: {
+            left: Number(line.dataset.boxLeft), top: Number(line.dataset.boxTop),
+            width: Number(line.dataset.boxWidth), height: Number(line.dataset.boxHeight),
+        } }];
+        let offset = 0;
+        for (const word of line.querySelectorAll<HTMLElement>('.jpdb-reader-word')) {
+            const text = [...word.querySelectorAll<HTMLElement>('[data-yomu-ocr-visual-text]')]
+                .filter(node => !node.closest('.jpdb-ocr-furi')).map(node => node.dataset.yomuOcrVisualText ?? '').join('');
+            if (!text) continue;
+            word.setAttribute('aria-label', text);
+            word.setAttribute('role', 'button');
+            const start = source.indexOf(text, offset);
+            if (start < 0) continue;
+            offset = start + text.length;
+            const box = providerSpanBox(source, words, start, offset, line.dataset.vertical === 'true');
+            if (!box) continue;
+            word.style.position = 'absolute';
+            const origin = (word.offsetParent ?? line).getBoundingClientRect();
+            Object.assign(word.style, {
+                left: `${frame.imageLeft + box.left * frame.imageWidth - origin.left}px`,
+                top: `${frame.imageTop + box.top * frame.imageHeight - origin.top}px`,
+                width: `${box.width * frame.imageWidth}px`, height: `${box.height * frame.imageHeight}px`,
+                minWidth: '0', minHeight: '0', padding: '0', margin: '0', transform: 'none', overflow: 'hidden' });
+            word.style.setProperty('pointer-events', 'auto', 'important');
+            for (const visual of word.querySelectorAll<HTMLElement>('*')) visual.style.setProperty('pointer-events', 'none', 'important');
+        }
+    }
+}
+
+/** Reader contrast updates can write inline !important paint; the desktop owns a hit layer. */
+export function suppressDesktopLinePaint(root: ParentNode): void {
+    for (const line of root.querySelectorAll<HTMLElement>('.overlay-inline-layer, .overlay-inline-layer *')) {
+        for (const [property, value] of Object.entries({ color: 'transparent', '-webkit-text-fill-color': 'transparent',
+            'background-color': 'transparent', 'background-image': 'none', 'border-color': 'transparent',
+            '-webkit-text-stroke': '0px transparent', 'text-shadow': 'none', 'box-shadow': 'none' })) {
+            if (line.style.getPropertyValue(property) !== value || line.style.getPropertyPriority(property) !== 'important') {
+                line.style.setProperty(property, value, 'important');
+            }
+        }
+    }
 }

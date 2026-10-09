@@ -1,5 +1,5 @@
 import { promiseWithTimeout } from '../core/async-utils';
-import { findActiveSubtitleCue, findInitialLeadInCue, type SubtitleCue } from './subtitle-cues';
+import { findActiveSubtitleCue, type SubtitleCue } from './subtitle-cues';
 
 const FIRST_PAINT_PREWARM_BUDGET_MS = 1200;
 
@@ -14,8 +14,9 @@ export interface SubtitleFirstPaintPrewarmOptions {
 // shared public-lookup queue. The bounded wait preserves subtitle timing when
 // the active parse rejects or a provider stalls.
 export async function prewarmSubtitleFirstPaint(options: SubtitleFirstPaintPrewarmOptions): Promise<boolean> {
-    const activeCue = findActiveSubtitleCue(options.cues, options.currentTime)
-        ?? findInitialLeadInCue(options.cues, options.currentTime);
+    // Before the first line (or in a gap) the next line to show is warmed: it
+    // is prepared ahead of its start, never shown ahead of it.
+    const activeCue = findActiveSubtitleCue(options.cues, options.currentTime);
     let activeIndex = activeCue ? options.cues.indexOf(activeCue) : -1;
     if (activeIndex < 0) activeIndex = options.cues.findIndex(cue => cue.end >= options.currentTime);
     const activeText = options.cues[activeIndex]?.text.trim();

@@ -890,8 +890,8 @@ describe('reader helpers', () => {
 
             expect(offsets).toHaveLength(7);
             expect(labels).not.toContain('Scan page');
-            expect(labels).toContain('Open Japanese versions of sites');
-            expect(labels).toContain('Hide furigana');
+            expect(labels).toContain('Request Japanese sites');
+            expect(labels).toContain('よむ on · furigana shown');
             expect(Math.min(...adjacentDistances)).toBeGreaterThanOrEqual(60);
         } finally {
             controller.destroy();
@@ -962,10 +962,12 @@ describe('reader helpers', () => {
         };
 
         const first = appInternals(new ReaderApp());
-        first.settings = { ...DEFAULT_SETTINGS, showFurigana: true, furiganaMode: 'all' };
+        // The default reading mode, so the marker restores what a learner who never
+        // chose a mode had (known-status since 2.1, ADR-0026).
+        first.settings = { ...DEFAULT_SETTINGS, showFurigana: true, furiganaMode: 'known-status' };
         await first.cyclePowerState();
         expect(first.settings.furiganaMode).toBe('off');
-        expect(first.settings.puckFuriganaModeBeforeHide).toBe('all');
+        expect(first.settings.puckFuriganaModeBeforeHide).toBe('known-status');
         await first.cyclePowerState();
         expect(first.settings.annotationsPaused).toBe(true);
 
@@ -975,7 +977,7 @@ describe('reader helpers', () => {
         expect(second.puckPowerState()).toBe('paused');
         await second.cyclePowerState();
         expect(second.settings.annotationsPaused).toBe(false);
-        expect(second.settings.furiganaMode).toBe('all');
+        expect(second.settings.furiganaMode).toBe('known-status');
         expect(second.settings.showFurigana).toBe(true);
         expect(second.settings.puckFuriganaModeBeforeHide).toBe('');
         expect(second.puckPowerState()).toBe('on');
@@ -986,7 +988,7 @@ describe('reader helpers', () => {
         // values overlay the new blob and the next page sees the old state.
         const persisted = await loadSettings();
         expect(persisted.annotationsPaused).toBe(false);
-        expect(persisted.furiganaMode).toBe('all');
+        expect(persisted.furiganaMode).toBe('known-status');
         expect(persisted.showFurigana).toBe(true);
         expect(persisted.puckFuriganaModeBeforeHide).toBe('');
     });
@@ -1063,11 +1065,11 @@ describe('reader helpers', () => {
             expect(puck.classList.contains('jpdb-reader-fab--on')).toBe(true);
             expect(puck.classList.contains('jpdb-reader-fab--no-furigana')).toBe(false);
             expect(puck.classList.contains('jpdb-reader-fab--paused')).toBe(false);
-            expect(powerButton().getAttribute('aria-label')).toBe('Hide furigana');
+            expect(powerButton().getAttribute('aria-label')).toBe('よむ on · furigana shown');
             expect(powerButton().classList.contains('is-on')).toBe(true);
             const onIcon = powerButton().querySelector<HTMLElement>('.jpdb-reader-fab-radial-icon')?.innerHTML ?? '';
-            expect(onIcon).toContain('M12 4v8');
-            expect(onIcon).not.toContain('>ふ<');
+            expect(onIcon).toContain('data-icon="power"');
+            expect(puck.querySelector<HTMLElement>('.jpdb-reader-fab-state')?.dataset.state).toBe('on');
 
             powerButton().click();
             await waitForPowerCycle();
@@ -1075,33 +1077,35 @@ describe('reader helpers', () => {
             expect(puck.classList.contains('jpdb-reader-fab--on')).toBe(false);
             expect(puck.classList.contains('jpdb-reader-fab--no-furigana')).toBe(true);
             expect(puck.classList.contains('jpdb-reader-fab--paused')).toBe(false);
-            expect(puck.getAttribute('aria-label')).toContain('Furigana off');
-            expect(powerButton().getAttribute('aria-label')).toBe('Pause annotations');
+            expect(puck.getAttribute('aria-label')).toBe('よむ on · furigana hidden');
+            expect(powerButton().getAttribute('aria-label')).toBe('よむ on · furigana hidden');
             expect(powerButton().classList.contains('is-partial')).toBe(true);
             const noFuriganaIcon = powerButton().querySelector<HTMLElement>('.jpdb-reader-fab-radial-icon')?.innerHTML ?? '';
-            expect(noFuriganaIcon).toContain('>ふ<');
+            expect(noFuriganaIcon).toContain('data-icon="furigana-hidden"');
             expect(noFuriganaIcon).not.toBe(onIcon);
+            expect(puck.querySelector('.jpdb-reader-fab-state svg')?.getAttribute('data-icon')).toBe('furigana-hidden');
 
             powerButton().click();
             await waitForPowerCycle();
             expect(puck.classList.contains('jpdb-reader-fab--on')).toBe(false);
             expect(puck.classList.contains('jpdb-reader-fab--no-furigana')).toBe(false);
             expect(puck.classList.contains('jpdb-reader-fab--paused')).toBe(true);
-            expect(puck.getAttribute('aria-label')).toContain('Annotations paused');
-            expect(powerButton().getAttribute('aria-label')).toBe('Resume annotations');
+            expect(puck.getAttribute('aria-label')).toBe('よむ off');
+            expect(powerButton().getAttribute('aria-label')).toBe('よむ off');
             expect(powerButton().classList.contains('is-off')).toBe(true);
             const pausedIcon = powerButton().querySelector<HTMLElement>('.jpdb-reader-fab-radial-icon')?.innerHTML ?? '';
-            expect(pausedIcon).toContain('M9 5v14');
-            expect(pausedIcon).not.toBe(onIcon);
+            // Off draws the power icon too; the receded tone and label carry the state.
+            expect(pausedIcon).toContain('data-icon="power"');
             expect(pausedIcon).not.toBe(noFuriganaIcon);
+            expect(puck.querySelector<HTMLElement>('.jpdb-reader-fab-state')?.dataset.state).toBe('paused');
 
             powerButton().click();
             await waitForPowerCycle();
             expect(puck.classList.contains('jpdb-reader-fab--on')).toBe(true);
             expect(puck.classList.contains('jpdb-reader-fab--no-furigana')).toBe(false);
             expect(puck.classList.contains('jpdb-reader-fab--paused')).toBe(false);
-            expect(puck.getAttribute('aria-label')).toBe('よむ — learning target: Japanese');
-            expect(powerButton().getAttribute('aria-label')).toBe('Hide furigana');
+            expect(puck.getAttribute('aria-label')).toBe('よむ on · furigana shown');
+            expect(powerButton().getAttribute('aria-label')).toBe('よむ on · furigana shown');
             expect(powerButton().querySelector<HTMLElement>('.jpdb-reader-fab-radial-icon')?.innerHTML).toBe(onIcon);
         } finally {
             controller.destroy();
@@ -1158,13 +1162,13 @@ describe('reader helpers', () => {
             const ocrButton = () => document.querySelector<HTMLButtonElement>('.jpdb-reader-fab-radial-item[data-radial-id="ocr"]');
             expect(ocrButton()?.getAttribute('aria-label')).toBe('OCR: Auto');
             const autoIcon = ocrButton()?.querySelector<HTMLElement>('.jpdb-reader-fab-radial-icon')?.innerHTML ?? '';
-            expect(autoIcon).toContain('<rect');
+            expect(autoIcon).toContain('data-icon="ocr"');
 
             ocrButton()?.click();
             expect(toggleOcrMode).toHaveBeenCalledTimes(1);
             expect(ocrButton()?.getAttribute('aria-label')).toBe('OCR: Tap/Hover');
             const manualIcon = ocrButton()?.querySelector<HTMLElement>('.jpdb-reader-fab-radial-icon')?.innerHTML ?? '';
-            expect(manualIcon).toContain('M8 3H5');
+            expect(manualIcon).toContain('data-icon="ocr-manual"');
             expect(manualIcon).not.toBe(autoIcon);
             expect(document.querySelector('.jpdb-reader-fab-radial.is-open')).not.toBeNull();
 
@@ -1199,13 +1203,13 @@ describe('reader helpers', () => {
             }));
 
             const siteButton = () => document.querySelector<HTMLButtonElement>('.jpdb-reader-fab-radial-item[data-radial-id="japanese-site"]');
-            expect(siteButton()?.getAttribute('aria-label')).toBe('Open Japanese versions of sites');
+            expect(siteButton()?.getAttribute('aria-label')).toBe('Request Japanese sites');
             expect(siteButton()?.classList.contains('is-off')).toBe(true);
 
             siteButton()?.click();
 
             expect(toggleJapaneseSiteLanguage).toHaveBeenCalledTimes(1);
-            expect(siteButton()?.getAttribute('aria-label')).toBe('Open Japanese versions of sites');
+            expect(siteButton()?.getAttribute('aria-label')).toBe('Request Japanese sites');
             expect(siteButton()?.classList.contains('is-on')).toBe(true);
             expect(document.querySelector('.jpdb-reader-fab-radial.is-open')).not.toBeNull();
 
@@ -1243,7 +1247,7 @@ describe('reader helpers', () => {
             }));
 
             const subtitlesButton = () => document.querySelector<HTMLButtonElement>('.jpdb-reader-fab-radial-item[data-radial-id="subtitles"]');
-            expect(subtitlesButton()?.getAttribute('aria-label')).toBe('Auto-detect Japanese subtitles');
+            expect(subtitlesButton()?.getAttribute('aria-label')).toBe('Auto-detect subtitles');
             expect(subtitlesButton()?.classList.contains('is-on')).toBe(true);
             expect(subtitlesButton()?.querySelector('svg')).not.toBeNull();
             expect(subtitlesButton()?.textContent).not.toContain('字');
@@ -1251,7 +1255,7 @@ describe('reader helpers', () => {
             subtitlesButton()?.click();
 
             expect(toggleAutoSubtitles).toHaveBeenCalledTimes(1);
-            expect(subtitlesButton()?.getAttribute('aria-label')).toBe('Auto-detect Japanese subtitles');
+            expect(subtitlesButton()?.getAttribute('aria-label')).toBe('Auto-detect subtitles');
             expect(subtitlesButton()?.classList.contains('is-off')).toBe(true);
             expect(document.querySelector('.jpdb-reader-fab-radial.is-open')).not.toBeNull();
         } finally {
@@ -1467,12 +1471,13 @@ describe('reader helpers', () => {
         try {
             const settings = await loadSettings();
 
-            expect(settings.wordHighlightColorSource).toBe('jpdb');
-            expect(settings.wordUnderlineColorSource).toBe('pitch');
-            expect(settings.wordTextColorSource).toBe('anki');
-            expect(settings.subtitleHighlightColorSource).toBe('jpdb');
-            expect(settings.subtitleUnderlineColorSource).toBe('pitch');
-            expect(settings.subtitleTextColorSource).toBe('anki');
+            // 2.1 defaults (ADR-0026); the undeclared 2.0 'pitch' reads as one too.
+            expect(settings.wordHighlightColorSource).toBe('off');
+            expect(settings.wordUnderlineColorSource).toBe('status');
+            expect(settings.wordTextColorSource).toBe('off');
+            expect(settings.subtitleHighlightColorSource).toBe('off');
+            expect(settings.subtitleUnderlineColorSource).toBe('status');
+            expect(settings.subtitleTextColorSource).toBe('off');
             expect('wordHighlightMode' in settings).toBe(false);
         } finally {
             if (previous === null) localStorage.removeItem(storageKey);
@@ -1486,7 +1491,7 @@ describe('reader helpers', () => {
             theme: 'dark' as const,
             popupMode: 'popover' as const,
             popoverHeightMode: 'fixed' as const,
-            audioSelectionMode: 'random' as const,
+
             audioTtsMode: 'source-order' as const,
             audioAutoPlayMode: 'tap' as const,
             interfaceLanguage: 'ja' as const,
@@ -1507,7 +1512,7 @@ describe('reader helpers', () => {
         expect(settings.theme).toBe('dark');
         expect(settings.popupMode).toBe('popover');
         expect(settings.popoverHeightMode).toBe('fixed');
-        expect(settings.audioSelectionMode).toBe('random');
+        expect(settings).not.toHaveProperty('audioSelectionMode');
         expect(settings.audioTtsMode).toBe('source-order');
         expect(settings.audioAutoPlayMode).toBe('tap');
         expect(settings.interfaceLanguage).toBe('ja');
@@ -1681,7 +1686,7 @@ describe('reader helpers', () => {
             const player = new AudioPlayer(() => ({
                 ...DEFAULT_SETTINGS,
                 audioEnableDefaultSources: false,
-                audioSelectionMode: 'random',
+
                 audioFallbackChimeEnabled: false,
                 audioSources: [{ type: 'text-to-speech', url: '', voice: '', enabled: true }],
             }));

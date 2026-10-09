@@ -10,7 +10,7 @@ const newTabSupportBanner = readFileSync(
   "utf8",
 );
 const newTabSupportSources = `${newTabController}\n${newTabSupportBanner}`;
-const supportDocs = readFileSync("docs/support.md", "utf8");
+const supportDocs = readFileSync("docs/membership.md", "utf8");
 const operatingForecast = JSON.parse(
   readFileSync("workers/yomu-support/operating-forecast.json", "utf8"),
 ) as {
@@ -96,6 +96,6 @@ describe("support banner layout", () => {
     }
     const forecast = operatingForecast.lineItems.reduce((sum, item) => sum + item.monthlyGBP, 0);
     const exactGoal = Math.max(operatingForecast.floorGBP, forecast);
-    expect(supportDocs).toContain(`| **Exact forecast** | **£${exactGoal.toFixed(2)}** |`);
+    expect(supportDocs).toContain(`| **Total** | **£${exactGoal.toFixed(2)}** |`);
   });
 });

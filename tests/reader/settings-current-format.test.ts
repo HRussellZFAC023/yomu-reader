@@ -69,7 +69,6 @@ describe('current settings format', () => {
             theme: 'dark',
             apiKey: 'corpus0000000000000000000000jpdb',
             subtitleFontSize: 40,
-            learningTargetChosen: true,
         });
         expect(Object.fromEntries(values)).toEqual(before);
         expect(setValue).not.toHaveBeenCalled();

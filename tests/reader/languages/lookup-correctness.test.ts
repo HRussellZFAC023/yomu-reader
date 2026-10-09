@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vitest';
 
 import {
     normalizeDexieTermMetaRow,
@@ -10,79 +10,10 @@ import {
 } from '../../../src/reader/dictionaries/yomitan/zip-normalize';
 import { JAPANESE_LEARNING_TARGET } from '../../../src/reader/languages/japanese';
 import {
-    resetActiveLearningTargetLanguage,
-    setActiveLearningTargetLanguage,
-} from '../../../src/reader/languages/active';
-import { createLearningTargetModule } from '../../../src/reader/languages/module';
-import {
     normalizeGenericLookupText,
     normalizeImportedLookupMeta,
     normalizeImportedLookupTerm,
 } from '../../../src/reader/languages/lookup-normalization';
-import { learningTargetModuleFor } from '../../../src/reader/languages/registry';
-import type { LearningTargetModule } from '../../../src/reader/languages/types';
-import type {
-    YomitanExactTermCandidateRequest,
-    YomitanTermEntry,
-} from '../../../src/reader/dictionaries/yomitan';
-import { ReaderParser } from '../../../src/reader/lookup/parser';
-import { DEFAULT_SETTINGS } from '../../../src/reader/settings';
-
-afterEach(() => {
-    resetActiveLearningTargetLanguage();
-});
-
-function genericTarget(language: string) {
-    return createLearningTargetModule({
-        id: `lookup-correctness-${language}`,
-        language,
-        featureSemantics: {
-            characterSystem: 'test',
-            phoneticScripts: [],
-            pronunciation: 'none',
-            readingAnnotation: 'none',
-        },
-        detectsText: /\S/u,
-    });
-}
-
-function exactLookupParser(terms: readonly string[]): ReaderParser {
-    const entries: YomitanTermEntry[] = terms.map(term => ({
-        expression: term,
-        reading: term,
-        glossary: [`definition of ${term}`],
-        dictionary: 'Lookup correctness fixture',
-    }));
-    return new ReaderParser({
-        getSettings: () => ({
-            ...DEFAULT_SETTINGS,
-            apiKey: '',
-            jitenApiKey: '',
-            parserProvider: 'local',
-            localDictionariesEnabled: true,
-            showPitchAccent: false,
-        }),
-        jpdb: {} as never,
-        dictionaries: {
-            hasTermDictionaries: async () => true,
-            findTermMatches: async () => [],
-            lookupExactTermCandidates: async (
-                requests: readonly YomitanExactTermCandidateRequest[],
-                _preferences: unknown,
-                target: LearningTargetModule,
-            ) => requests.flatMap((request, requestIndex) => {
-                const term = target.normalizeText(request.lookupCandidate.term);
-                const entry = entries.find(candidate => (
-                    target.normalizeText(candidate.expression) === term
-                    || target.normalizeText(candidate.reading) === term
-                ));
-                return entry ? [{ request, requestIndex, entry }] : [];
-            }),
-            lookupTermMeta: async () => [],
-            lookupKanji: async () => [],
-        } as never,
-    });
-}
 
 describe('generic lookup normalization', () => {
     it('uses one canonical function at every dictionary import and query door', () => {
@@ -118,7 +49,6 @@ describe('generic lookup normalization', () => {
             dictionary: 'Reader export fixture',
         });
 
-        expect(genericTarget('es').normalizeText(source)).toBe(expected);
         expect(zip?.expression).toBe(expected);
         expect(zip?.reading).toBe(expected);
         expect(dexie?.expression).toBe(expected);
@@ -147,67 +77,5 @@ describe('generic lookup normalization', () => {
         expect(bytes(normalizeGenericLookupText(text))).toEqual(bytes(text));
         expect(bytes(JAPANESE_LEARNING_TARGET.normalizeText(text))).toEqual(bytes(text));
         expect(bytes(JAPANESE_LEARNING_TARGET.lookupCandidates(text)[0]!.term)).toEqual(bytes(text));
-    });
-});
-
-describe('bounded generic lookup candidates', () => {
-    it('orders the surface before its case fold and then target-data rewrites', () => {
-        const spanish = learningTargetModuleFor('es')!;
-        const candidates = spanish.lookupCandidates('Paellas');
-
-        expect(candidates.slice(0, 3).map(candidate => candidate.term))
-            .toEqual(['Paellas', 'paellas', 'paella']);
-        expect(candidates[0]?.depth).toBe(0);
-        expect(candidates[1]?.reasons).toEqual(['case fold']);
-        expect(candidates[2]?.reasons).toEqual(['case fold', 'plural suffix']);
-        expect(candidates.length).toBeLessThanOrEqual(12);
-    });
-
-    it('applies Arabic clitic rules as data and gives Han targets an exact dictionary sweep', () => {
-        const arabic = learningTargetModuleFor('ar')!;
-        expect(arabic.lookupCandidates('بالقطار').map(candidate => candidate.term))
-            .toEqual(['بالقطار', 'قطار', 'القطار']);
-        expect(arabic.lookupCandidates('أسرتها').map(candidate => candidate.term))
-            .toEqual(['أسرتها', 'أسرة']);
-
-        for (const language of ['zh', 'yue']) {
-            const chinese = learningTargetModuleFor(language)!;
-            expect(chinese.lookupStartsAtSegmentBoundary).toBe(false);
-            expect(chinese.lookupSweepMode).toBe('left-to-right-longest-exact');
-            expect(chinese.lookupRunSegments?.('我去，study 好𡃁').map(segment => segment.text))
-                .toEqual(['我去', '好𡃁']);
-            expect(chinese.lookupCandidates('我去').map(candidate => candidate.term)).toEqual(['我去']);
-        }
-    });
-
-    it('keeps target boundary policy while the parser chooses the longest dictionary-confirmed Korean span', async () => {
-        expect(learningTargetModuleFor('ko')?.lookupStartsAtSegmentBoundary).toBe(false);
-        expect(learningTargetModuleFor('es')?.lookupStartsAtSegmentBoundary).toBe(true);
-        expect(learningTargetModuleFor('ru')?.lookupStartsAtSegmentBoundary).toBe(true);
-
-        setActiveLearningTargetLanguage('ko');
-        const parser = exactLookupParser(['학생이', '학생']);
-        const leading = await parser.lookupTokenAt('학생이', 0);
-        const particleGlyph = await parser.lookupTokenAt('학생이', 2);
-        const shorter = await parser.lookupTokenAt('학생', 0);
-
-        expect(leading).toMatchObject({ start: 0, end: 3, card: { spelling: '학생이' } });
-        expect(particleGlyph).toMatchObject({ start: 0, end: 3, card: { spelling: '학생이' } });
-        expect(shorter).toMatchObject({ start: 0, end: 2, card: { spelling: '학생' } });
-    });
-
-    it('resolves Han dictionary spans on code-point boundaries at the pointed glyph', async () => {
-        setActiveLearningTargetLanguage('yue');
-        const parser = exactLookupParser(['鍾意', '𡃁', '地玄']);
-        const love = await parser.lookupTokenAt('我鍾意𡃁', 1);
-        const supplementary = await parser.lookupTokenAt('我𡃁好', 2);
-
-        const longRun = '天地玄黃宇宙洪荒日月盈昃辰宿列張寒來';
-        const middle = await parser.lookupTokenAt(longRun, 1);
-
-        expect(love).toMatchObject({ start: 1, end: 3, card: { spelling: '鍾意' } });
-        expect(supplementary).toMatchObject({ start: 1, end: 3, card: { spelling: '𡃁' } });
-        expect('我𡃁好'.slice(supplementary!.start, supplementary!.end)).toBe('𡃁');
-        expect(middle).toMatchObject({ start: 1, end: 3, card: { spelling: '地玄' } });
     });
 });

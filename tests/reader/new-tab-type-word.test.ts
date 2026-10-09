@@ -6,14 +6,9 @@ import { DEFAULT_NEW_TAB_UI_STATE } from '../../src/reader/newtab/state';
 import { NewTabController } from '../../src/reader/newtab/controller';
 import { normalizeNewTabRecallAnswer } from '../../src/reader/newtab/recall-practice';
 import { applyTypeWordSelfCheckAction } from '../../src/reader/newtab/type-word-rendering';
-import { targetSupportsCharacterLookup, targetSupportsHandwriting } from '../../src/reader/languages/character-lookup';
 import { createNewTabStudySession } from '../../src/reader/newtab/study-session';
 import { pitchPatternFromPosition } from '../../src/reader/lookup/pitch-accent';
 import { cardKey } from '../../src/reader/cards/utils';
-import {
-    adoptLearningTargetLanguage,
-    resetActiveLearningTargetLanguage,
-} from '../../src/reader/languages/active';
 import { testEnSettings } from './helpers/settings-fixture';
 
 function typeCard(overrides: Partial<JPDBCard> = {}): JPDBCard {
@@ -139,7 +134,6 @@ function renderTypeWordStep(internals: TypeWordInternals, root: HTMLElement, car
 
 beforeEach(() => stubKanjiDoodleBrowserApis());
 afterEach(() => {
-    resetActiveLearningTargetLanguage();
     document.body.replaceChildren();
     vi.clearAllMocks();
 });
@@ -199,36 +193,6 @@ describe('type-word handwriting self-check transitions', () => {
 describe('type-word typed answers', () => {
     it.each([
         {
-            name: 'Spanish',
-            language: 'es',
-            spelling: 'comiendo',
-            reading: 'comiendo',
-            typed: 'comiendo',
-            visible: 'comiendo',
-            direction: 'ltr',
-            outcome: 'correct',
-        },
-        {
-            name: 'Russian',
-            language: 'ru',
-            spelling: 'читаю',
-            reading: 'читаю',
-            typed: 'читаю',
-            visible: 'читаю',
-            direction: 'ltr',
-            outcome: 'correct',
-        },
-        {
-            name: 'Arabic',
-            language: 'ar',
-            spelling: 'آكل',
-            reading: 'آكل',
-            typed: 'آكل',
-            visible: 'آكل',
-            direction: 'rtl',
-            outcome: 'correct',
-        },
-        {
             name: 'Japanese',
             language: 'ja',
             spelling: '飲み物',
@@ -247,7 +211,6 @@ describe('type-word typed answers', () => {
         direction,
         outcome,
     }) => {
-        adoptLearningTargetLanguage(language);
         const card = typeCard({
             language,
             spelling,
@@ -302,6 +265,32 @@ describe('type-word typed answers', () => {
             });
             expect(root.querySelector<HTMLElement>('[data-newtab-study]')?.dataset.newtabStudyStep).toBe('type-word');
             expect(root.querySelector<HTMLElement>('[data-newtab-study]')?.dataset.newtabStudyFlow).toBe('word final-reveal');
+        } finally {
+            controller.destroy();
+        }
+    });
+
+    // Opening Library a few seconds after Study loaded once showed the Study
+    // card where the Library title belongs: the N+1 sentence landed late and
+    // re-rendered the card into the prompt slot Library had taken over.
+    it('keeps a late N+1 sentence off the Library page and saves it for the next Study render', async () => {
+        const card = typeCard();
+        const { controller, internals } = typeWordController([card]);
+        studyRoot();
+        const late = internals as unknown as {
+            selectNPlusOneStudySentence(card: JPDBCard): Promise<string>;
+            ensureNPlusOneStudySentence(card: JPDBCard): void;
+            studySentenceOverrides: Map<string, string>;
+        };
+        let deliver!: (sentence: string) => void;
+        late.selectNPlusOneStudySentence = () => new Promise(resolve => { deliver = resolve; });
+        const renderWord = vi.spyOn(internals, 'renderWord');
+        try {
+            late.ensureNPlusOneStudySentence(card);
+            internals.state = { ...internals.state, route: 'search' };
+            deliver('温かい飲み物が欲しい。');
+            await vi.waitFor(() => expect(late.studySentenceOverrides.get(cardKey(card))).toBe('温かい飲み物が欲しい。'));
+            expect(renderWord).not.toHaveBeenCalled();
         } finally {
             controller.destroy();
         }
@@ -551,70 +540,6 @@ describe('type-word typed answers', () => {
             expect(modes[0]?.textContent).toBe('Type');
             expect(modes[0]?.dataset.active).toBe('true');
             expect(modes[1]?.disabled).toBe(true);
-        } finally {
-            controller.destroy();
-        }
-    });
-
-    it('uses target self-check handwriting without invoking Japanese stroke providers for Chinese', () => {
-        adoptLearningTargetLanguage('zh');
-        const card = typeCard({
-            language: 'zh',
-            spelling: '学习',
-            reading: 'xuéxí',
-            sentence: '我学习中文。',
-            pitchAccent: [],
-        });
-        const loadKanjiDetails = vi.fn();
-        const { controller, internals } = typeWordController(
-            [card],
-            { newTabTypeWordInputMode: 'handwriting' },
-            { jpdbKanji: { lookup: loadKanjiDetails } as never },
-        );
-        const root = studyRoot();
-        try {
-            renderTypeWordStep(internals, root, card);
-            internals.bindRootEvents(root);
-            expect(root.querySelector('[data-newtab-type-input]')).toBeNull();
-            expect(root.querySelector('.jpdb-reader-doodle-canvas')).not.toBeNull();
-            expect(root.querySelector('[data-type-word-self-check]')).not.toBeNull();
-            expect(loadKanjiDetails).not.toHaveBeenCalled();
-
-            const compare = root.querySelector<HTMLButtonElement>('[data-newtab-action="type-word-handwriting-check"]')!;
-            expect(compare.disabled).toBe(true);
-            // Canvas events are owned by the doodle unit. Enabling the action
-            // here represents a non-empty stroke set and exercises the actual
-            // Study handlers from compare through first-attempt grading.
-            compare.disabled = false;
-            compare.click();
-            expect(root.querySelector<HTMLElement>('[data-type-word-self-check-answer]')?.hidden).toBe(false);
-            root.querySelector<HTMLButtonElement>('[data-newtab-action="type-word-handwriting-match"]')?.click();
-            expect(internals.studyStepStates.get(cardKey(card))?.type?.outcome).toBe('correct');
-            expect(root.querySelector('[data-newtab-type-result="correct"]')).not.toBeNull();
-        } finally {
-            controller.destroy();
-        }
-    });
-
-    // REGRESSION 2026-08-02: the Write step gated on character LOOKUP (per-character
-    // dictionary entries) when what it needs is stroke data. Those coincided while
-    // Japanese was the only target with either, so the wrong question returned the
-    // right answer. The moment Chinese gained per-character dictionaries, a Chinese
-    // learner who had once chosen handwriting was handed the Japanese KanjiVG grader.
-    // The target-owned self-check keeps Write meaningful without inventing stroke data.
-    it('keeps character dictionaries and self-check handwriting as separate Han experiences', () => {
-        adoptLearningTargetLanguage('zh');
-        const card = typeCard({ language: 'zh', spelling: '学习', reading: 'xuéxí', sentence: '我学习中文。', pitchAccent: [] });
-        const { controller, internals } = typeWordController([card], { newTabTypeWordInputMode: 'handwriting' });
-        const root = studyRoot();
-        try {
-            renderTypeWordStep(internals, root, card);
-            // Chinese HAS character lookup now — that is the whole point of the case.
-            expect(targetSupportsCharacterLookup()).toBe(true);
-            expect(targetSupportsHandwriting()).toBe(true);
-            expect(root.querySelector('[data-newtab-type-input]')).toBeNull();
-            expect(root.querySelector('[data-type-word-self-check]')).not.toBeNull();
-            expect(root.querySelector('.jpdb-reader-doodle-canvas')).not.toBeNull();
         } finally {
             controller.destroy();
         }

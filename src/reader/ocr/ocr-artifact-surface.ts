@@ -145,10 +145,10 @@ export function positionVideoFrameStatus(status: HTMLElement, rect: DOMRect, vid
     positionOcrImageStatus(status, content);
 }
 
+// The status indicator sits just inside the top-left corner, clear of a player's
+// bottom controls and never pushed off-screen by a partly scrolled image.
 export function positionOcrImageStatus(status: HTMLElement, rect: DOMRect): void {
-    const maxWidth = Math.max(96, Math.min(Math.max(96, rect.width - 24), 320));
-    setOcrArtifactPosition(status, Math.max(8, rect.left + 12), Math.max(8, rect.top + 12));
-    status.style.maxWidth = `${maxWidth}px`;
+    setOcrArtifactPosition(status, Math.max(4, rect.left + 6), Math.max(4, rect.top + 6));
 }
 
 export function appendOcrArtifactToRoot(element: HTMLElement, root: HTMLElement): void {
@@ -344,6 +344,10 @@ function updateSubtitleRailResumeState(root: HTMLElement | null): void {
 
 export function playVideoIcon(): string {
     return `<svg class="jpdb-ocr-video-frame-resume-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M8 5v14l11-7-11-7Z"></path></svg>`;
+}
+
+export function retryScanIcon(): string {
+    return `<svg viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M13 8a5 5 0 1 1-1.5-3.5M13 2.5v3h-3"></path></svg>`;
 }
 
 function videoContentBox(rect: DOMRect, video: HTMLVideoElement): DOMRect {

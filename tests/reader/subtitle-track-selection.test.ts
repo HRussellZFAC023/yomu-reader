@@ -1,8 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { resetActiveLearningTargetLanguage, setActiveLearningTargetLanguage } from '../../src/reader/languages/active';
-import { LEARNING_TARGET_ROSTER } from '../../src/reader/languages/roster';
-import { learningTargetModuleFor } from '../../src/reader/languages/registry';
+import { JAPANESE_LEARNING_TARGET } from '../../src/reader/languages/japanese';
 import { resetGoogleTranslationCacheForTests } from '../../src/reader/translation/google';
 import { loadSubtitleTrackCues } from '../../src/reader/subtitles/subtitle-track-loader';
 import {
@@ -14,8 +12,8 @@ import type { SubtitleTrackOption } from '../../src/reader/subtitles/subtitle-tr
 
 const JAPANESE_ENGLISH = { targetLanguage: 'ja', outputLanguage: 'en' };
 
-function expectLearningTargetSubtitleBehavior(runtimeLocale: string): void {
-    const target = learningTargetModuleFor(runtimeLocale)!;
+function expectLearningTargetSubtitleBehavior(): void {
+    const target = JAPANESE_LEARNING_TARGET;
     const languages = { targetLanguage: target.subtitles.languageTag, outputLanguage: 'en' };
     const option = { id: `target-${target.language}`, label: target.language, kind: 'remote' as const, language: target.subtitles.languageTag };
     expect(autoSelectablePageTrackRole(option, {
@@ -29,16 +27,12 @@ function expectLearningTargetSubtitleBehavior(runtimeLocale: string): void {
 
     const tracks = [{ id: 'english', label: 'English', kind: 'remote' as const, language: 'en' }];
     const generated = ensureTranslatedTargetTrack(tracks, 'en', languages);
-    const shouldGenerate = !['en', 'grc'].includes(target.subtitles.languageTag);
-    expect(generated, `${target.language} generated`).toBe(shouldGenerate);
-    expect(tracks.find(track => track.id !== 'english')?.language, `${target.language} label`).toBe(
-        shouldGenerate ? target.subtitles.languageTag : undefined,
-    );
+    expect(generated, `${target.language} generated`).toBe(true);
+    expect(tracks.find(track => track.id !== 'english')?.language, `${target.language} label`).toBe(target.subtitles.languageTag);
 }
 
 describe('subtitle track selection', () => {
     afterEach(() => {
-        resetActiveLearningTargetLanguage();
         resetGoogleTranslationCacheForTests();
         vi.unstubAllGlobals();
     });
@@ -56,42 +50,7 @@ describe('subtitle track selection', () => {
         ]);
     });
 
-    it('pairs the active target file as primary ahead of an English translation', () => {
-        expect(setActiveLearningTargetLanguage('es')).not.toBeNull();
-        const english = new File([''], 'lesson.eng.srt', { type: 'application/x-subrip' });
-        const spanish = new File([''], 'lesson.spa.srt', { type: 'application/x-subrip' });
-
-        expect(subtitleFilePickerJobs('primary', [english, spanish], {
-            targetLanguage: 'es',
-            outputLanguage: 'en',
-        }).map(job => ({
-            kind: job.kind,
-            name: job.file.name,
-        }))).toEqual([
-            { kind: 'primary', name: 'lesson.spa.srt' },
-            { kind: 'secondary', name: 'lesson.eng.srt' },
-        ]);
-    });
-
-    it('partitions English-target multi-file jobs once and keeps OUTPUT last for selection', () => {
-        const english = new File([''], 'lesson.eng.srt', { type: 'application/x-subrip' });
-        const japanese = new File([''], 'lesson.jpn.srt', { type: 'application/x-subrip' });
-        const output = new File([''], 'lesson.native.srt', { type: 'application/x-subrip' });
-
-        const jobs = subtitleFilePickerJobs('primary', [english, japanese, output], {
-            targetLanguage: 'en',
-            outputLanguage: 'es',
-        });
-
-        expect(jobs.map(job => `${job.kind}:${job.file.name}`)).toEqual([
-            'primary:lesson.eng.srt',
-            'secondary:lesson.jpn.srt',
-            'secondary:lesson.native.srt',
-        ]);
-        expect(new Set(jobs.map(job => job.file)).size).toBe(3);
-    });
-
-    it('auto-selects secondary tracks from OUTPUT rather than hardcoded English', () => {
+    it('auto-selects only the English OUTPUT track as secondary', () => {
         const state = {
             selectedTrackId: 'japanese',
             secondaryTrackId: '',
@@ -100,17 +59,15 @@ describe('subtitle track selection', () => {
             cues: [],
             secondaryCues: [],
         };
-        const languages = { targetLanguage: 'ja', outputLanguage: 'es' };
-
-        expect(autoSelectablePageTrackRole({
-            id: 'spanish', label: 'Español', kind: 'remote', language: 'es',
-        }, state, languages)).toBe('secondary');
         expect(autoSelectablePageTrackRole({
             id: 'english', label: 'English', kind: 'remote', language: 'en',
-        }, state, languages)).toBeNull();
+        }, state, JAPANESE_ENGLISH)).toBe('secondary');
+        expect(autoSelectablePageTrackRole({
+            id: 'spanish', label: 'Español', kind: 'remote', language: 'es',
+        }, state, JAPANESE_ENGLISH)).toBeNull();
     });
 
-    it('translates TARGET from a supported OUTPUT track without assuming English', async () => {
+    it('translates TARGET from a supported non-English track when no English track exists', async () => {
         const tracks: SubtitleTrackOption[] = [
             {
                 id: 'spanish',
@@ -121,21 +78,18 @@ describe('subtitle track selection', () => {
             },
         ];
 
-        expect(ensureTranslatedTargetTrack(tracks, 'en', {
-            targetLanguage: 'ko',
-            outputLanguage: 'es',
-        })).toBe(true);
+        expect(ensureTranslatedTargetTrack(tracks, 'en', JAPANESE_ENGLISH)).toBe(true);
         expect(tracks[1]).toMatchObject({
-            language: 'ko',
+            language: 'ja',
             sourceLanguage: 'es',
-            targetLanguage: 'ko',
+            targetLanguage: 'ja',
             translatedFromTrackId: 'spanish',
         });
 
         const requestedUrls: string[] = [];
         vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
             requestedUrls.push(String(input));
-            return new Response(JSON.stringify({ sentences: [{ trans: '오늘 읽어요.' }] }), {
+            return new Response(JSON.stringify({ sentences: [{ trans: '今日読みます。' }] }), {
                 status: 200,
                 headers: { 'content-type': 'application/json' },
             });
@@ -144,20 +98,16 @@ describe('subtitle track selection', () => {
             tracks,
             transcriptEligible: true,
             requestText: async () => '',
-        })).resolves.toMatchObject({ cues: [{ text: '오늘 읽어요.' }] });
+        })).resolves.toMatchObject({ cues: [{ text: '今日読みます。' }] });
         expect(new URL(requestedUrls[0]!).searchParams.get('sl')).toBe('es');
-        expect(new URL(requestedUrls[0]!).searchParams.get('tl')).toBe('ko');
+        expect(new URL(requestedUrls[0]!).searchParams.get('tl')).toBe('ja');
 
         expect(ensureTranslatedTargetTrack([
             { id: 'ancient-greek', label: 'Ἑλληνική', kind: 'remote', language: 'grc' },
-        ], 'en', {
-            targetLanguage: 'ko',
-            outputLanguage: 'grc',
-        })).toBe(false);
+        ], 'en', JAPANESE_ENGLISH)).toBe(false);
     });
 
-    it('proves primary matching and the provider-audited translation boundary across all 33 targets', () => {
-        expect(LEARNING_TARGET_ROSTER).toHaveLength(33);
-        for (const target of LEARNING_TARGET_ROSTER) expectLearningTargetSubtitleBehavior(target.runtimeLocale);
+    it('proves primary matching and the provider-audited translation boundary for the Japanese target', () => {
+        expectLearningTargetSubtitleBehavior();
     });
 });

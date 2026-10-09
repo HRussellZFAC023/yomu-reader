@@ -1,8 +1,7 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import type { JPDBCard, JPDBToken, ReaderSettings } from '../../src/reader/app/types';
 import type { YomitanTermEntry, YomitanTermMatch } from '../../src/reader/dictionaries/yomitan';
-import { resetActiveLearningTargetLanguage } from '../../src/reader/languages/active';
 import {
     ReaderParser,
     type ReaderParserDependencies,
@@ -152,7 +151,7 @@ function providerHarness(options: HarnessOptions) {
     const jpdbParse = vi.fn(async (paragraphs: string[]) => remoteParse(paragraphs));
     const jitenParse = vi.fn(async (paragraphs: string[]) => remoteParse(paragraphs));
     const publicParse = vi.fn(async (paragraphs: readonly string[]) => remoteParse(paragraphs));
-    const publicLookupMany = vi.fn(async (terms: readonly string[]) => {
+    const publicLookupMany = vi.fn(async (terms: readonly string[], _options?: { detailLimit?: number }) => {
         const result = new Map<string, JPDBCard>();
         for (const term of terms) {
             const matchedQuery = options.subtokenQueries?.[term] ?? term;
@@ -216,14 +215,6 @@ function tokenSummary(text: string, tokens: readonly JPDBToken[]) {
         end: token.end,
     }));
 }
-
-beforeEach(() => {
-    resetActiveLearningTargetLanguage();
-});
-
-afterEach(() => {
-    resetActiveLearningTargetLanguage();
-});
 
 describe('ReaderParser span authority contract', () => {
     it('ignores provider offsets and prevents conflicting paragraph decorations from choosing or resizing spans', async () => {
@@ -313,6 +304,27 @@ describe('ReaderParser span authority contract', () => {
             start: 0,
             end: text.length,
         });
+    });
+
+    // Every public confirmation is a detail request from api.jiten.moe's
+    // anonymous budget (300 a minute), and a sentence's candidates hold about a
+    // hundred words. The span lookup used to ask details for all of them,
+    // overriding the page scan's own budget of none.
+    it("spends only the caller's detail budget on public confirmations", async () => {
+        const text = '読みました';
+        const harness = providerHarness({
+            provider: 'public',
+            text,
+            lexicon: { 読む: { spelling: '読む', reading: 'よむ', rules: 'v5m' } },
+        });
+
+        await harness.parser.parse([text], { ...SPAN_OPTIONS, publicJitenDetailLimit: 0 });
+        await harness.parser.parse(['本を読む'], SPAN_OPTIONS);
+
+        expect(harness.publicLookupMany.mock.calls.map(([, options]) => options)).toEqual([
+            { detailLimit: 0 },
+            { detailLimit: undefined },
+        ]);
     });
 
     it('keeps repeated dictionary-confirmed occurrences distinct while querying each term once', async () => {

@@ -68,10 +68,15 @@ const DEFAULT_READER_SMOKE_SETTINGS = Object.freeze({
     popupActivationMode: 'click',
     showFloatingButton: false,
     showFurigana: true,
+    // The 2.0 annotation look, whole: since 2.1 (ADR-0026) it is a choice, so
+    // these smokes declare it rather than inherit the quiet defaults. Without
+    // the empty hidden groups, a known word keeps its highlight source but
+    // loses its paint.
     furiganaMode: 'all',
     wordHighlightColorSource: 'jpdb',
     wordUnderlineColorSource: 'pitch',
     wordTextColorSource: 'off',
+    wordColorHiddenStateGroups: [],
     enableLogging: false,
 });
 
@@ -661,16 +666,60 @@ async function countIndexedDbEntries(page, dbName, entryStore) {
     }, { name: dbName, storeName: entryStore });
 }
 
+/**
+ * The settings whose 2.0 defaults 2.1 retired (src/reader/settings/retired-defaults.ts).
+ * Stored without a declaration they read as the new defaults, so a smoke that
+ * sets one would silently test the new default instead. The bridge declares
+ * each one a smoke sets in the intent ledger, as the Settings control would;
+ * pass declareAnnotationDefaults: false to model a 2.0 install that never
+ * touched them.
+ */
+export const ANNOTATION_DEFAULT_KEYS_SMOKES_DECLARE = Object.freeze([
+    'furiganaMode',
+    'puckFuriganaModeBeforeHide',
+    'furiganaHiddenStateGroups',
+    'wordHighlightColorSource',
+    'wordUnderlineColorSource',
+    'wordTextColorSource',
+    'subtitleHighlightColorSource',
+    'subtitleUnderlineColorSource',
+    'subtitleTextColorSource',
+    'wordColorHiddenStateGroups',
+]);
+export const SETTINGS_INTENT_LEDGER_KEY = 'yomu:settings-intent:v2';
+
+/**
+ * The intent ledger that declares every retired-default key these settings
+ * set, or null when they set none. For a script that seeds GM storage itself
+ * rather than through the bridge: store it under SETTINGS_INTENT_LEDGER_KEY.
+ */
+export function annotationDefaultsIntentLedger(settings) {
+    const declared = ANNOTATION_DEFAULT_KEYS_SMOKES_DECLARE.filter(name => Object.hasOwn(settings, name));
+    if (!declared.length) return null;
+    const records = Object.fromEntries(declared.map((name, index) => [name, { seq: index + 1, value: settings[name] }]));
+    return { revision: declared.length, records };
+}
+
+function withDeclaredAnnotationDefaults(options) {
+    const { declareAnnotationDefaults = true, ...bridgeOptions } = options;
+    const value = bridgeOptions.value;
+    if (!declareAnnotationDefaults || bridgeOptions.key !== YOMU_SETTINGS_KEY || !value || typeof value !== 'object') return bridgeOptions;
+    // A smoke that writes a committed pair of its own owns its ledger too.
+    if (Object.keys(value).some(name => name.startsWith('__yomuSettingsPersistence'))) return bridgeOptions;
+    const ledger = annotationDefaultsIntentLedger(value);
+    return ledger ? { ...bridgeOptions, intentLedger: { key: SETTINGS_INTENT_LEDGER_KEY, value: ledger } } : bridgeOptions;
+}
+
 export async function addGmStorageBridgeInitScript(page, options) {
-    await page.addInitScript(initGmBridge, { ...options, storageEnabled: true });
+    await page.addInitScript(initGmBridge, { ...withDeclaredAnnotationDefaults(options), storageEnabled: true });
 }
 
 export function gmStorageBridgeInitProgram(options) {
-    return `(${initGmBridge.toString()})(${JSON.stringify({ ...options, storageEnabled: true })});`;
+    return `(${initGmBridge.toString()})(${JSON.stringify({ ...withDeclaredAnnotationDefaults(options), storageEnabled: true })});`;
 }
 
 export async function installGmStorageBridgeOnCurrentPage(page, options) {
-    await page.evaluate(initGmBridge, { ...options, storageEnabled: true });
+    await page.evaluate(initGmBridge, { ...withDeclaredAnnotationDefaults(options), storageEnabled: true });
 }
 
 export async function installUserscriptFixtureBridge(page, {
@@ -695,6 +744,7 @@ export async function addGmXmlHttpRequestBridgeInitScript(page, options) {
 function initGmBridge({
     key,
     value,
+    intentLedger,
     css = '',
     requestBridgeName,
     resourceName = 'yomuCss',
@@ -789,10 +839,17 @@ function initGmBridge({
         // 'never' models a freshly installed Reader that has saved nothing yet.
         if (initialize === 'never') return;
         if (initialize === 'ifMissing') {
-            if (readStoredValue(key, undefined) === undefined) writeStoredValue(key, value);
+            if (readStoredValue(key, undefined) !== undefined) return;
+            writeStoredValue(key, value);
+            writeDeclaredIntent();
             return;
         }
         writeStoredValue(key, value);
+        writeDeclaredIntent();
+    }
+
+    function writeDeclaredIntent() {
+        if (intentLedger && readStoredValue(intentLedger.key, undefined) === undefined) writeStoredValue(intentLedger.key, intentLedger.value);
     }
 
     function storageGmApi() {

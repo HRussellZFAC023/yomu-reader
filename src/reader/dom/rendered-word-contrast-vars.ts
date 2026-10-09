@@ -6,6 +6,7 @@ export const RENDERED_WORD_CONTRAST_VARS = [
     '--jpdb-reader-word-accessible-underline',
     '--jpdb-reader-word-highlight-text',
     '--jpdb-reader-word-contrast-shadow',
+    '--jpdb-reader-furi-color',
 ];
 
 export const RENDERED_WORD_CONTRAST_VARS_WITHOUT_SHADOW = RENDERED_WORD_CONTRAST_VARS.filter(

@@ -100,10 +100,10 @@ const pages = [
                   <div id="chips-content">
                     <iron-selector id="chips" role="tablist" selected-attribute="selected">
                       <yt-chip-cloud-chip-renderer selected="" chip-style="STYLE_HOME_FILTER">
-                        <button role="tab" aria-selected="true" data-proof-target data-proof-text="観光">観光</button>
+                        <button role="tab" aria-selected="true" data-proof-page-owned data-proof-text="観光">観光</button>
                       </yt-chip-cloud-chip-renderer>
                       <yt-chip-cloud-chip-renderer chip-style="STYLE_HOME_FILTER">
-                        <button role="tab" aria-selected="false" data-proof-target data-proof-text="関連動画">関連動画</button>
+                        <button role="tab" aria-selected="false" data-proof-page-owned data-proof-text="関連動画">関連動画</button>
                       </yt-chip-cloud-chip-renderer>
                     </iron-selector>
                   </div>
@@ -113,7 +113,7 @@ const pages = [
                     <div class="thumb"></div>
                     <a id="video-title-link" class="title clamped" href="/watch?v=home1" data-proof-target data-proof-text="完全独学で英語を話せる方法">完全独学で英語を話せる方法</a>
                     <ytd-channel-name><a href="/@tokyo" data-proof-target data-proof-text="東京散歩チャンネル">東京散歩チャンネル</a></ytd-channel-name>
-                    <div id="metadata-line"><span data-proof-target data-proof-text="3日前">3日前</span></div>
+                    <div id="metadata-line"><span data-proof-target data-proof-text="3日前" data-proof-expect-at-rest-decoration="true">3日前</span></div>
                   </ytd-rich-item-renderer>
                 <ytd-rich-item-renderer class="card">
                   <div class="thumb"></div>
@@ -214,18 +214,18 @@ const pages = [
                 <yt-page-header-view-model class="channel-header">
                   <h1 class="channel-name" data-proof-target data-proof-text="東京散歩チャンネル">東京散歩チャンネル</h1>
                   <yt-content-metadata-view-model>
-                    <div class="ytContentMetadataViewModelMetadataRow"><span data-proof-target data-proof-text="チャンネル登録者数 10万人">チャンネル登録者数 10万人</span></div>
+                    <div class="ytContentMetadataViewModelMetadataRow"><span data-proof-target data-proof-text="チャンネル登録者数 10万人" data-proof-expect-at-rest-decoration="true">チャンネル登録者数 10万人</span></div>
                   </yt-content-metadata-view-model>
                   <yt-description-preview-view-model class="channel-description">
                     <div class="channel-description-text" data-proof-target data-proof-text="東京の散歩と日本語の勉強について毎日配信します さらに表示" data-proof-expect-clip-invariant="true">東京の散歩と日本語の勉強について毎日配信します さらに表示</div>
                   </yt-description-preview-view-model>
                 </yt-page-header-view-model>
                 <yt-tab-group-shape class="tab-strip" role="tablist">
-                  <yt-tab-shape tab-title="ホーム"><div role="tab" class="tab" data-proof-target data-proof-text="ホーム" data-proof-expect-at-rest-decoration="true">ホーム</div></yt-tab-shape>
-                  <yt-tab-shape tab-title="動画"><div role="tab" class="tab" data-proof-target data-proof-text="動画" data-proof-expect-at-rest-decoration="true">動画</div></yt-tab-shape>
+                  <yt-tab-shape tab-title="ホーム"><div role="tab" class="tab" data-proof-page-owned data-proof-text="ホーム">ホーム</div></yt-tab-shape>
+                  <yt-tab-shape tab-title="動画"><div role="tab" class="tab" data-proof-page-owned data-proof-text="動画">動画</div></yt-tab-shape>
                   <yt-tab-shape tab-title="ショート"><div role="tab" class="tab">ショート</div></yt-tab-shape>
                   <yt-tab-shape tab-title="ライブ"><div role="tab" class="tab">ライブ</div></yt-tab-shape>
-                  <yt-tab-shape tab-title="再生リスト"><div role="tab" class="tab" data-proof-target data-proof-text="再生リスト">再生リスト</div></yt-tab-shape>
+                  <yt-tab-shape tab-title="再生リスト"><div role="tab" class="tab" data-proof-page-owned data-proof-text="再生リスト">再生リスト</div></yt-tab-shape>
                   <yt-tab-shape tab-title="投稿"><div role="tab" class="tab">投稿</div></yt-tab-shape>
                 </yt-tab-group-shape>
                 <grid-shelf-view-model class="shelf">
@@ -242,7 +242,7 @@ const pages = [
                   <ytd-grid-video-renderer class="card">
                     <div class="thumb"></div>
                     <a id="video-title" class="title clamped" href="/watch?v=ch2" data-proof-target data-proof-text="京都で朝ごはんを食べ歩きしてカフェで日本語を勉強" data-proof-expect-clip-invariant="true">京都で朝ごはんを食べ歩きしてカフェで日本語を勉強</a>
-                    <div id="metadata-line" class="grid-meta" data-proof-target data-proof-text="10万回視聴">10万回視聴</div>
+                    <div id="metadata-line" class="grid-meta" data-proof-target data-proof-text="10万回視聴" data-proof-expect-at-rest-decoration="true">10万回視聴</div>
                   </ytd-grid-video-renderer>
                 </ytd-shelf-renderer>
                 <ytd-shelf-renderer class="proof-shelf-expansion">

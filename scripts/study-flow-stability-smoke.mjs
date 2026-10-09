@@ -371,6 +371,15 @@ try {
     !requests.some((request) => request.endpoint === "review"),
     "Reveal submitted a review.",
   );
+  const gradeBarAlpha = await page.locator('[data-newtab-controls]').evaluate(bar => {
+    const canvas = document.createElement('canvas'); canvas.width = canvas.height = 1;
+    const context = canvas.getContext('2d');
+    context.fillStyle = getComputedStyle(bar).backgroundColor;
+    context.fillRect(0, 0, 1, 1);
+    return context.getImageData(0, 0, 1, 1).data[3];
+  });
+  assert(gradeBarAlpha === 255, "Reading text can show through the fixed Study grade bar.");
+  result.checks.push("opaque-study-grade-bar");
   result.checks.push("native-keyboard-reveal");
 
   if (fault === "background-lookup") {
@@ -388,7 +397,20 @@ try {
   result.stage = "prepare-practice";
   // The tab pointer lives in managed session storage, which an installed
   // Reader namespaces as yomu:web-owner:v2:<owner>:<key>.
-  await page.locator('[data-newtab-action="practice-sessions"]').click();
+  await page.setViewportSize({ width: 390, height: 844 });
+  const navigationAlpha = await page.locator('[data-newtab-app-navigation]').evaluate(bar => {
+    const canvas = document.createElement('canvas'); canvas.width = canvas.height = 1;
+    const context = canvas.getContext('2d');
+    context.fillStyle = getComputedStyle(bar).backgroundColor;
+    context.fillRect(0, 0, 1, 1);
+    return context.getImageData(0, 0, 1, 1).data[3];
+  });
+  assert(navigationAlpha === 255, "Reading text can show through the fixed phone navigation.");
+  result.checks.push("opaque-phone-navigation");
+  await page.locator('[data-newtab-app-navigation] [data-newtab-action="practice-sessions"]').click();
+  await page.locator('[data-practice-purpose]').waitFor();
+  result.checks.push("mobile-practice-navigation");
+  await page.setViewportSize({ width: 1200, height: 900 });
   await page.locator("[data-practice-purpose]").selectOption("writing");
   await page.locator('[data-practice-action="start"]').click();
   await page.locator("[data-practice-input]").fill("ず");

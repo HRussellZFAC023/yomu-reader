@@ -54,12 +54,14 @@ describe('current settings contract', () => {
         expect(normalizeReaderSettings({ audioSourceUrl: 'https://retired.example/audio' }).audioSources).toEqual(DEFAULT_SETTINGS.audioSources);
         const normalized = normalizeReaderSettings({
             wordHighlightMode: 'off', newTabEnabled: true,
+            learningTargetChosen: true, onboardingSeen: true,
             shortcuts: { hoverLookup: 42, retiredShortcut: 'Ctrl+K' },
         } as never);
         expect(normalized).not.toHaveProperty('wordHighlightMode');
         expect(normalized).not.toHaveProperty('newTabEnabled');
+        expect(normalized).not.toHaveProperty('learningTargetChosen');
+        expect(normalized).not.toHaveProperty('onboardingSeen');
         expect(normalized.shortcuts).toEqual(DEFAULT_SETTINGS.shortcuts);
-        expect(normalized.learningTargetChosen).toBe(false);
         expect(normalized.parserProvider).toBe(DEFAULT_SETTINGS.parserProvider);
     });
 

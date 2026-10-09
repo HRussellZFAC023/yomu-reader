@@ -90,6 +90,9 @@
     // Documented check-performance profiler; invoked directly when capturing
     // timing baselines rather than from an npm script.
     "scripts/measure-check.mjs",
+    // Direct profiling/visual QA CLIs documented in scripts/manual/README.md.
+    "scripts/manual/parser-network-profile.ts",
+    "scripts/manual/settings-visual-qa.mjs",
     "scripts/study-flow-stability-smoke.mjs",
     "scripts/manual/bookwalker-live-firefox-smoke.mjs",
     // The v1.9.3 upgrade-corpus capture runs older releases' writers inside a

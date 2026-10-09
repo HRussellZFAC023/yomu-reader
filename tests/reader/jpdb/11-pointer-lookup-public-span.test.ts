@@ -1,9 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
-    resetActiveLearningTargetLanguage,
-    setActiveLearningTargetLanguage,
-} from '../../../src/reader/languages/active';
-import {
     registerReaderHelpersCleanup,
     DEFAULT_SETTINGS,
     ReaderApp,
@@ -147,62 +143,6 @@ describe('reader helpers', () => {
                 { userGesture: true },
             );
         } finally {
-            app.destroy();
-        }
-    });
-
-    it('delegates non-Japanese pointer text to the same parser-owned resolver', async () => {
-        const app = new ReaderApp();
-        document.body.innerHTML = '<p>我去市場</p>';
-        const paragraph = document.querySelector<HTMLElement>('p')!;
-        const sentence = paragraph.textContent!;
-        const lookupCard: JPDBCard = {
-            ...card,
-            vid: -501,
-            sid: 0,
-            spelling: '去',
-            reading: '去',
-            source: 'local',
-        };
-        const token = parserOwnedPointerToken(lookupCard, sentence, 1, 2);
-        const lookupTokenAt = vi.fn(async () => token);
-        const showPointerTextCard = vi.fn(async () => undefined);
-        const candidate = pointerTextCandidate(sentence, paragraph, 1);
-        const internals = parserOwnedPointerInternals(app);
-        internals.settings = {
-            ...DEFAULT_SETTINGS,
-            apiKey: '',
-            jpdbDefinitionsEnabled: true,
-            localDictionariesEnabled: true,
-        };
-        internals.parser = { lookupTokenAt };
-        internals.showPointerTextCard = showPointerTextCard;
-        setActiveLearningTargetLanguage('zh');
-
-        try {
-            await internals.showFirstPointerTextCandidate(
-                candidate,
-                sentence,
-                'modal',
-                { userGesture: true },
-            );
-
-            expect(lookupTokenAt).toHaveBeenCalledWith(
-                sentence,
-                1,
-                { start: 0, end: sentence.length },
-                expect.any(Object),
-            );
-            expect(showPointerTextCard).toHaveBeenCalledWith(
-                lookupCard,
-                sentence,
-                candidate,
-                token,
-                'modal',
-                { userGesture: true },
-            );
-        } finally {
-            resetActiveLearningTargetLanguage();
             app.destroy();
         }
     });
@@ -542,101 +482,6 @@ describe('reader helpers', () => {
         }
     });
 
-    it('renders the target parser span for a raw Spanish pointer lookup', async () => {
-        const app = new ReaderApp();
-        const sentence = 'Paellas';
-        const anchor = document.createElement('p');
-        anchor.textContent = sentence;
-        document.body.append(anchor);
-        const lookupCard: JPDBCard = {
-            ...card,
-            vid: -601,
-            sid: 0,
-            spelling: 'paella',
-            reading: 'paella',
-            source: 'local',
-            partOfSpeech: ['n'],
-        };
-        const token = parserOwnedPointerToken(lookupCard, sentence, 0, sentence.length);
-        const lookupTokenAt = vi.fn(async () => token);
-        const showPointerTextCard = vi.fn(async () => undefined);
-        const candidate = pointerTextCandidate(sentence, anchor, 2);
-        const internals = parserOwnedPointerInternals(app);
-        internals.settings = { ...DEFAULT_SETTINGS, localDictionariesEnabled: true };
-        internals.parser = { lookupTokenAt };
-        internals.showPointerTextCard = showPointerTextCard;
-        setActiveLearningTargetLanguage('es');
-
-        try {
-            await internals.showFirstPointerTextCandidate(candidate, sentence, 'modal', { userGesture: true });
-
-            expect(lookupTokenAt).toHaveBeenCalledWith(
-                sentence,
-                2,
-                { start: 0, end: sentence.length },
-                expect.any(Object),
-            );
-            expect(showPointerTextCard).toHaveBeenCalledWith(
-                lookupCard,
-                sentence,
-                candidate,
-                token,
-                'modal',
-                { userGesture: true },
-            );
-        } finally {
-            resetActiveLearningTargetLanguage();
-            app.destroy();
-        }
-    });
-
-    it('renders a short parser-owned Han span from a long geometry run', async () => {
-        const app = new ReaderApp();
-        const sentence = '天地玄黃宇宙洪荒日月盈昃辰宿列張寒來';
-        const anchor = document.createElement('p');
-        anchor.textContent = sentence;
-        document.body.append(anchor);
-        const lookupCard: JPDBCard = {
-            ...card,
-            vid: -701,
-            sid: 0,
-            spelling: '地玄',
-            reading: '地玄',
-            source: 'local',
-        };
-        const token = parserOwnedPointerToken(lookupCard, sentence, 1, 3);
-        const lookupTokenAt = vi.fn(async () => token);
-        const showPointerTextCard = vi.fn(async () => undefined);
-        const candidate = pointerTextCandidate(sentence, anchor, 1);
-        const internals = parserOwnedPointerInternals(app);
-        internals.settings = { ...DEFAULT_SETTINGS, localDictionariesEnabled: true };
-        internals.parser = { lookupTokenAt };
-        internals.showPointerTextCard = showPointerTextCard;
-        setActiveLearningTargetLanguage('zh');
-
-        try {
-            await internals.showFirstPointerTextCandidate(candidate, sentence, 'modal', { userGesture: true });
-
-            expect(lookupTokenAt).toHaveBeenCalledWith(
-                sentence,
-                1,
-                { start: 0, end: sentence.length },
-                expect.any(Object),
-            );
-            expect(showPointerTextCard).toHaveBeenCalledWith(
-                lookupCard,
-                sentence,
-                candidate,
-                token,
-                'modal',
-                { userGesture: true },
-            );
-        } finally {
-            resetActiveLearningTargetLanguage();
-            app.destroy();
-        }
-    });
-
     it('renders the parser-selected inflected fallback span without narrowing it in the UI', async () => {
         const app = new ReaderApp();
         document.body.innerHTML = '<p>好きなものを読んで日本語を学ぶ</p>';
@@ -810,6 +655,7 @@ describe('reader helpers', () => {
 
             expect(parse).toHaveBeenCalledWith([sentence], {
                 allowSegmentedFallback: true,
+                publicJitenPriority: 'lookup',
                 includeLocalPitch: false,
                 requireApi: true,
                 requireJpdb: true,
@@ -859,6 +705,7 @@ describe('reader helpers', () => {
 
             expect(parse).toHaveBeenCalledWith([sentence], {
                 allowSegmentedFallback: true,
+                publicJitenPriority: 'lookup',
                 includeLocalPitch: false,
                 requireApi: true,
                 requireJpdb: true,

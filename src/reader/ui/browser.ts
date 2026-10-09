@@ -4,6 +4,7 @@ import {
     overlayViewportBounds,
     sourceRectToOverlay,
 } from './page-scale';
+import { FORM_CONTROL_HOST_ATTRIBUTE } from './form-control-host';
 
 type NormalizedWritingMode = 'horizontal-tb' | 'vertical-rl' | 'vertical-lr' | 'sideways-rl' | 'sideways-lr';
 
@@ -119,16 +120,18 @@ function isAudiblyPlayingVideo(video: HTMLVideoElement): boolean {
         && video.volume > 0;
 }
 
+const FORM_CONTROL_SELECTOR = `input, textarea, select, [${FORM_CONTROL_HOST_ATTRIBUTE}]`;
+
 export function isEditableTarget(target: EventTarget | null): boolean {
     const element = target instanceof Element ? target : null;
     if (!element) return false;
-    if (element.closest('input, textarea, select')) return true;
+    if (element.closest(FORM_CONTROL_SELECTOR)) return true;
     const editable = element.closest('[contenteditable]');
     return Boolean(editable && editable.getAttribute('contenteditable')?.toLowerCase() !== 'false');
 }
 
 function isEditableElement(element: Element): boolean {
-    if (element.matches?.('input, textarea, select')) return true;
+    if (element.matches?.(FORM_CONTROL_SELECTOR)) return true;
     const editable = element.closest?.('[contenteditable]');
     return Boolean(editable && editable.getAttribute('contenteditable')?.toLowerCase() !== 'false');
 }

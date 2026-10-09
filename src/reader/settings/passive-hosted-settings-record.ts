@@ -16,7 +16,7 @@ const HOSTED_APPEARANCE_CHOICES: Readonly<Record<string, ReadonlySet<unknown>>> 
 };
 const HOSTED_ACCENT_COLOR_RE = /^#[0-9a-f]{3}(?:[0-9a-f]{3})?$/iu;
 
-export function isPassiveHostedSettingsRecord(record: Record<string, unknown>): boolean {
+function isPassiveHostedSettingsRecord(record: Record<string, unknown>): boolean {
     const entries = Object.entries(record)
         .filter(([key, value]) => key !== 'learningTargetChosen' || value !== false);
     return entries.every(isHostedAppearanceEntry)

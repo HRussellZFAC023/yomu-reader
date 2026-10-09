@@ -1,16 +1,9 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import {
-    filterJitenKanjiWords,
-    loadMoreJitenKanjiWords,
     runJitenKanjiWordsAction,
     type JitenKanjiWordsActionContext,
 } from '../../src/reader/jiten/jiten-kanji-words-actions';
-import {
-    resetActiveLearningTargetLanguage,
-    setActiveLearningTargetLanguage,
-} from '../../src/reader/languages/active';
-import type { JitenKanjiWordsPage } from '../../src/reader/dictionaries/jiten';
 import { bindPrivateCommandCapability } from '../../src/reader/dom/private-command-capabilities';
 
 function jitenWordsRoot(): {
@@ -73,7 +66,6 @@ function context(lookupKanjiWords: JitenKanjiWordsActionContext['lookupKanjiWord
 }
 
 afterEach(() => {
-    resetActiveLearningTargetLanguage();
     document.body.replaceChildren();
 });
 
@@ -87,45 +79,5 @@ describe('Jiten kanji word actions', () => {
         await runJitenKanjiWordsAction(fixture.more, 'more', null);
 
         expect(lookupKanjiWords).toHaveBeenCalledTimes(2);
-    });
-
-    it('does not call the Japanese character provider for stale controls on another target', async () => {
-        setActiveLearningTargetLanguage('zh');
-        const lookupKanjiWords = vi.fn(async () => null);
-        const fixture = jitenWordsRoot();
-
-        await filterJitenKanjiWords(fixture.filter, context(lookupKanjiWords));
-        await loadMoreJitenKanjiWords(fixture.more, context(lookupKanjiWords));
-
-        expect(lookupKanjiWords).not.toHaveBeenCalled();
-        expect(fixture.grid.textContent).toContain('existing');
-        expect(fixture.filter.getAttribute('aria-pressed')).toBe('false');
-        expect(fixture.filter.disabled).toBe(false);
-        expect(fixture.more.disabled).toBe(false);
-    });
-
-    it('drops a filtered response when the target changes while Jiten is in flight', async () => {
-        let resolve!: (page: JitenKanjiWordsPage | null) => void;
-        const lookupKanjiWords = vi.fn(() => new Promise<JitenKanjiWordsPage | null>(settle => { resolve = settle; }));
-        const afterRender = vi.fn();
-        const fixture = jitenWordsRoot();
-        const pending = filterJitenKanjiWords(fixture.filter, {
-            ...context(lookupKanjiWords),
-            afterRender,
-        });
-        expect(fixture.filter.disabled).toBe(true);
-
-        setActiveLearningTargetLanguage('zh');
-        resolve({
-            items: [],
-            total: 0,
-            pageSize: 9,
-            offset: 0,
-        });
-        await pending;
-
-        expect(fixture.grid.textContent).toContain('existing');
-        expect(afterRender).not.toHaveBeenCalled();
-        expect(fixture.filter.disabled).toBe(false);
     });
 });

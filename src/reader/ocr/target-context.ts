@@ -1,14 +1,9 @@
 import type { JPDBCard } from '../app/types';
 import { stablePositiveHashId } from '../core/stable-hash';
-import {
-    activeLearningTarget,
-    activeLearningTargetGeneration,
-    activeLearningTargetLanguage,
-} from '../languages/target-runtime';
+import { activeLearningTargetLanguage } from '../languages/target-runtime';
 import { normalizeFallbackTerm } from '../lookup/japanese-segments';
 
 export interface OcrTargetContext {
-    readonly generation: number;
     cacheKey(contentKey: string): string;
     workKey(contentKey: string): string;
     isCurrent(): boolean;
@@ -42,20 +37,15 @@ export function releaseOcrScan(owner: OcrScanOwner, token: symbol): void {
     owner.manualRequested = false;
 }
 
-/** Captures the target identity shared by every async stage of one OCR render. */
+/** Captures the keys shared by every async stage of one OCR render. */
 export function captureOcrTargetContext(): OcrTargetContext {
-    const target = activeLearningTarget();
-    const generation = activeLearningTargetGeneration();
-    const isCurrent = () => activeLearningTarget() === target
-        && activeLearningTargetGeneration() === generation;
+    const language = activeLearningTargetLanguage();
+    const key = (contentKey: string) => `${contentKey}\n@yomu-target:${language}`;
     return {
-        generation,
-        cacheKey: contentKey => `${contentKey}\n@yomu-target:${target.language}`,
-        workKey: contentKey => `${contentKey}\n@yomu-target:${target.language}:${generation}`,
-        isCurrent,
-        requireCurrent(staleState: unknown): void {
-            if (!isCurrent()) throw staleState;
-        },
+        cacheKey: key,
+        workKey: key,
+        isCurrent: () => true,
+        requireCurrent: () => undefined,
     };
 }
 

@@ -5,7 +5,6 @@ import {
     cueHasExactWordTimings,
     escapeWithBreaks,
     findActiveSubtitleCue,
-    findInitialLeadInCue,
     findAlignedCue,
     normalizeSubtitleCues,
     parseSubtitleText,
@@ -47,6 +46,7 @@ import {
     activateYouTubeCaptionTrack,
     discoverCurrentYouTubeCaptionTracks,
     getYouTubeVideoId,
+    isYouTubeAdPlaying,
     isYouTubeOwnedVideoElement,
     isYouTubePage,
     shouldRefreshYouTubeTrackUrl,
@@ -643,10 +643,9 @@ function shouldReplaceLoadedCue(next: SubtitleCue | undefined, current: Subtitle
 }
 
 function shouldClearLoadedCue(next: SubtitleCue | undefined, current: SubtitleCue | undefined, time: number): boolean {
-    // Past the end (grace for boundary flicker) or before the start: the
-    // latter happens on backward seeks into a gap, where keeping the stale
-    // cue also left the parse-warmup window anchored at the old position.
-    return Boolean(!next && current && (time > current.end + 0.12 || time < current.start - 0.12));
+    // Outside the cue's window (grace for boundary flicker): past its end, before
+    // its start (a backward seek into a gap), or no content time at all (NaN).
+    return Boolean(!next && current && !(time >= current.start - 0.12 && time <= current.end + 0.12));
 }
 
 function normalizeSubtitleTimingOffsetSeconds(value: number | undefined): number {
@@ -2262,7 +2261,7 @@ export class SubtitlePlayerController {
         // prewarm is intended to avoid.
         if (selected?.loadingState === 'loading') return false;
         return Boolean(getYouTubeVideoId())
-            && isYouTubeOwnedVideoElement(this.video)
+            && isYouTubeOwnedVideoElement(this.video) && !isYouTubeAdPlaying(this.video)
             && !this.cues.length
             && (Boolean(this.selectedTrackId) || !this.tracks.some(track => track.kind === 'youtube'));
     }
@@ -2421,13 +2420,13 @@ export class SubtitlePlayerController {
 
     private updateFromLoadedCues(): void {
         if (!this.video) return;
-        const time = this.subtitlePlaybackTime(this.video);
-        const secondary = this.secondaryTrackId
-            ? (findActiveSubtitleCue(this.secondaryCues, time) ?? findInitialLeadInCue(this.secondaryCues, time))
-            : undefined;
+        // During a YouTube ad the element's clock is the ad's, so there is no content
+        // time: NaN (as for an unknown duration) matches no cue window and keeps none.
+        const time = isYouTubeAdPlaying(this.video) ? Number.NaN : this.subtitlePlaybackTime(this.video);
+        const secondary = this.secondaryTrackId ? findActiveSubtitleCue(this.secondaryCues, time) : undefined;
         const cue = this.selectedTrackId ? this.findRenderablePrimaryCue(time, secondary) : undefined;
         if (this.updateLoadedCueState(cue, secondary, time)) this.afterLoadedCueStateChanged();
-        else this.warmParseOnGapAnchorJump();
+        else if (!Number.isNaN(time)) this.warmParseOnGapAnchorJump();
     }
 
     private subtitlePlaybackTime(video: HTMLVideoElement): number {
@@ -2445,7 +2444,7 @@ export class SubtitlePlayerController {
         // direct lookup misses but a native cue is active, surface the primary
         // aligned to it so the pair appears together. Mirrors
         // primaryHeldByActiveSecondary for the not-yet-shown direction.
-        const direct = findActiveSubtitleCue(this.cues, time) ?? findInitialLeadInCue(this.cues, time);
+        const direct = findActiveSubtitleCue(this.cues, time);
         if (direct || !activeSecondary || !this.cues.length) return direct;
         return findAlignedCue(this.cues, activeSecondary);
     }
@@ -5268,7 +5267,7 @@ export class SubtitlePlayerController {
         this.lastYouTubeTrackDiscoveryAt = now;
         this.youtubeTrackDiscoveryInFlight = true;
         const contextKey = subtitleLanguageContextKey(this.subtitleLanguageContext);
-        await this.runYouTubeTrackDiscovery(contextKey);
+        await this.runYouTubeTrackDiscovery(contextKey, getYouTubeVideoId());
     }
 
     private shouldStartYouTubeTrackDiscovery(force: boolean, now: number): boolean {
@@ -5276,12 +5275,13 @@ export class SubtitlePlayerController {
         return force || now - this.lastYouTubeTrackDiscoveryAt >= interval;
     }
 
-    private async runYouTubeTrackDiscovery(contextKey: string): Promise<void> {
+    // A language or video change during the run had its forced discovery skipped.
+    private async runYouTubeTrackDiscovery(contextKey: string, videoId: string): Promise<void> {
         try {
             await this.discoverYouTubeTracks();
         } finally {
             this.youtubeTrackDiscoveryInFlight = false;
-            if (contextKey !== subtitleLanguageContextKey(this.subtitleLanguageContext)) void this.discoverYouTubeTracksThrottled(true);
+            if (contextKey !== subtitleLanguageContextKey(this.subtitleLanguageContext) || videoId !== getYouTubeVideoId()) void this.discoverYouTubeTracksThrottled(true);
         }
     }
 
@@ -5775,7 +5775,7 @@ export class SubtitlePlayerController {
     // leaves currentTime past cue.end, with the live currentCue already advanced to
     // the next line) — so it re-seeks whenever playback is outside the pinned line.
     private syncShadowLoop(): void {
-        if (!this.shadowLoopEnabled || !this.video) return;
+        if (!this.shadowLoopEnabled || !this.video || isYouTubeAdPlaying(this.video)) return;
         const cue = this.shadowLoopCue ?? this.currentCue;
         if (!cue) return;
         if (this.video.paused
@@ -7229,7 +7229,7 @@ export class SubtitlePlayerController {
         // and playback running through a gap keeps the previous row highlighted
         // until the next cue advances it once. Only while auto-follow is enabled --
         // with it off the previous "no active row" gap behavior is unchanged.
-        if (this.currentCue || !this.video) return -1;
+        if (this.currentCue || !this.video || isYouTubeAdPlaying(this.video)) return -1;
         if (!this.options.getSettings().subtitleTranscriptAutoScroll) return -1;
         const time = this.subtitlePlaybackTime(this.video);
         for (let index = rows.length - 1; index >= 0; index -= 1) {

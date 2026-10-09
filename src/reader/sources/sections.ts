@@ -41,7 +41,7 @@ export function definitionSourceRows(settings: ReaderSettings): SettingsSourceRo
         {
             id: JITEN_DEFINITION_SOURCE_ID,
             name: 'Jiten',
-            alias: settings.jitenDefinitionsAlias,
+            alias: '',
             enabled: settings.jitenDefinitionsEnabled,
             priority: settings.jitenDefinitionsPriority,
             prefix: 'jitenDefinitions',
@@ -51,7 +51,7 @@ export function definitionSourceRows(settings: ReaderSettings): SettingsSourceRo
         {
             id: JPDB_DEFINITION_SOURCE_ID,
             name: 'JPDB',
-            alias: settings.jpdbDefinitionsAlias,
+            alias: '',
             enabled: settings.jpdbDefinitionsEnabled,
             priority: settings.jpdbDefinitionsPriority,
             prefix: 'jpdbDefinitions',
@@ -61,7 +61,7 @@ export function definitionSourceRows(settings: ReaderSettings): SettingsSourceRo
         {
             id: BUNPRO_DEFINITION_SOURCE_ID,
             name: 'Bunpro',
-            alias: settings.bunproDefinitionsAlias,
+            alias: '',
             enabled: settings.bunproDefinitionsEnabled,
             priority: settings.bunproDefinitionsPriority,
             prefix: 'bunproDefinitions',
@@ -71,7 +71,7 @@ export function definitionSourceRows(settings: ReaderSettings): SettingsSourceRo
         {
             id: WANIKANI_DEFINITION_SOURCE_ID,
             name: 'WaniKani',
-            alias: settings.wanikaniDefinitionsAlias,
+            alias: '',
             enabled: settings.wanikaniDefinitionsEnabled,
             priority: settings.wanikaniDefinitionsPriority,
             prefix: 'wanikaniDefinitions',
@@ -81,7 +81,7 @@ export function definitionSourceRows(settings: ReaderSettings): SettingsSourceRo
         {
             id: STUDY_TRANSLATION_SOURCE_ID,
             name: uiText(language, 'sourceNameTranslation'),
-            alias: settings.studyTranslationAlias,
+            alias: '',
             enabled: settings.studyTranslationEnabled,
             priority: settings.studyTranslationPriority,
             prefix: 'studyTranslation',
@@ -91,7 +91,7 @@ export function definitionSourceRows(settings: ReaderSettings): SettingsSourceRo
         {
             id: ANKI_SOURCE_ID,
             name: 'Anki',
-            alias: settings.ankiSectionAlias,
+            alias: '',
             enabled: settings.ankiSectionEnabled,
             priority: settings.ankiSectionPriority,
             prefix: 'ankiSection',
@@ -101,7 +101,7 @@ export function definitionSourceRows(settings: ReaderSettings): SettingsSourceRo
         {
             id: STUDY_GRAMMAR_SOURCE_ID,
             name: uiText(language, 'sourceNameGrammar'),
-            alias: settings.studyGrammarAlias,
+            alias: '',
             enabled: settings.studyGrammarEnabled,
             priority: settings.studyGrammarPriority,
             prefix: 'studyGrammar',
@@ -111,7 +111,7 @@ export function definitionSourceRows(settings: ReaderSettings): SettingsSourceRo
         {
             id: IMMERSION_KIT_SOURCE_ID,
             name: uiText(language, 'sourceNameImmersionKit'),
-            alias: settings.immersionKitAlias,
+            alias: '',
             enabled: settings.immersionKitEnabled,
             priority: settings.immersionKitPriority,
             prefix: 'immersionKit',
@@ -161,7 +161,7 @@ export function kanjiSourceRows(settings: ReaderSettings): SettingsSourceRow[] {
         {
             id: KANJI_STROKE_SOURCE_ID,
             name: uiText(language, 'sourceNameStrokePractice'),
-            alias: settings.kanjivgAlias,
+            alias: '',
             enabled: settings.kanjivgEnabled,
             priority: settings.kanjivgPriority,
             prefix: 'kanjivg',
@@ -171,7 +171,7 @@ export function kanjiSourceRows(settings: ReaderSettings): SettingsSourceRow[] {
         {
             id: KANJI_JPDB_SOURCE_ID,
             name: readingsComponentsName,
-            alias: settings.jpdbKanjiAlias,
+            alias: '',
             enabled: settings.jpdbKanjiEnabled,
             priority: settings.jpdbKanjiPriority,
             prefix: 'jpdbKanji',
@@ -181,7 +181,7 @@ export function kanjiSourceRows(settings: ReaderSettings): SettingsSourceRow[] {
         {
             id: KANJI_RTK_SOURCE_ID,
             name: 'RTK',
-            alias: settings.rtkAlias,
+            alias: '',
             enabled: settings.rtkEnabled,
             priority: settings.rtkPriority,
             prefix: 'rtk',
@@ -191,7 +191,7 @@ export function kanjiSourceRows(settings: ReaderSettings): SettingsSourceRow[] {
         {
             id: IMMERSION_KIT_SOURCE_ID,
             name: uiText(language, 'sourceNameImmersionKit'),
-            alias: settings.kanjiImmersionKitAlias,
+            alias: '',
             enabled: settings.kanjiImmersionKitEnabled,
             priority: settings.kanjiImmersionKitPriority,
             prefix: 'kanjiImmersionKit',
@@ -201,7 +201,7 @@ export function kanjiSourceRows(settings: ReaderSettings): SettingsSourceRow[] {
         {
             id: KANJI_WANIKANI_SOURCE_ID,
             name: 'WaniKani',
-            alias: settings.wanikaniKanjiAlias,
+            alias: '',
             enabled: settings.wanikaniKanjiEnabled,
             priority: settings.wanikaniKanjiPriority,
             prefix: 'wanikaniKanji',
@@ -211,7 +211,7 @@ export function kanjiSourceRows(settings: ReaderSettings): SettingsSourceRow[] {
         ...(kanjiDictionaryRows.length ? [] : [{
             id: KANJI_DICTIONARIES_SOURCE_ID,
             name: uiText(language, 'sourceNameImportedKanjiDictionaries'),
-            alias: settings.kanjiDictionariesAlias,
+            alias: '',
             enabled: settings.localDictionaryShowKanji,
             priority: settings.kanjiDictionariesPriority,
             prefix: 'kanjiDictionaries',
@@ -222,7 +222,7 @@ export function kanjiSourceRows(settings: ReaderSettings): SettingsSourceRow[] {
         {
             id: KANJI_ORIGINS_SOURCE_ID,
             name: uiText(language, 'originStructure'),
-            alias: settings.kanjiOriginsAlias,
+            alias: '',
             enabled: settings.kanjiOriginsEnabled,
             priority: settings.kanjiOriginsPriority,
             prefix: 'kanjiOrigins',

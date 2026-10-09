@@ -1,5 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { resetActiveLearningTargetLanguage, setActiveLearningTargetLanguage } from '../../../src/reader/languages/active';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
     DEFAULT_SETTINGS,
     registerSubtitleControllerCleanup,
@@ -36,40 +35,6 @@ interface YouTubeTrackDiscoveryInternals {
     finishYouTubeTrackDiscovery: (added: number, updatedSelectedTrack: boolean) => void;
     selectTrack: (id: string) => Promise<void>;
     selectSecondaryTrack: (id: string) => Promise<void>;
-}
-
-interface LanguageSwitchInternals {
-    tracks: Array<{
-        id: string;
-        label: string;
-        kind: 'file' | 'remote';
-        language?: string;
-        targetLanguage?: string;
-        translatedFromTrackId?: string;
-    }>;
-    selectedTrackId: string;
-    secondaryTrackId: string;
-    trackSelections: { invalidate: (role: 'primary' | 'secondary') => void };
-    selectTrack: (id: string) => Promise<void>;
-    selectSecondaryTrack: (id: string) => Promise<void>;
-}
-
-function stubLanguageSwitchSelection(
-    internals: LanguageSwitchInternals,
-    selectedTrackId: string,
-    secondaryTrackId: string,
-): Array<'primary' | 'secondary'> {
-    internals.selectedTrackId = selectedTrackId;
-    internals.secondaryTrackId = secondaryTrackId;
-    const invalidatedRoles: Array<'primary' | 'secondary'> = [];
-    const invalidate = internals.trackSelections.invalidate.bind(internals.trackSelections);
-    internals.trackSelections.invalidate = role => {
-        invalidatedRoles.push(role);
-        invalidate(role);
-    };
-    internals.selectTrack = async id => { internals.selectedTrackId = id; };
-    internals.selectSecondaryTrack = async id => { internals.secondaryTrackId = id; };
-    return invalidatedRoles;
 }
 
 function stubEnglishOnlyYouTubeDiscovery(controller: SubtitlePlayerController): YouTubeTrackDiscoveryInternals {
@@ -140,10 +105,7 @@ function nativeTextTrack(label: string, language: string, mode: TextTrackMode = 
 
 describe('SubtitlePlayerController — subtitle transport & track pairing', () => {
     registerSubtitleControllerCleanup();
-    beforeEach(() => resetActiveLearningTargetLanguage());
-
     afterEach(() => {
-        resetActiveLearningTargetLanguage();
         vi.useRealTimers();
         document.body.innerHTML = '';
     });
@@ -1184,116 +1146,6 @@ describe('SubtitlePlayerController — subtitle transport & track pairing', () =
         expect(internals.secondaryTrackId).toBe('youtube-en');
     });
 
-    it('discovers and loads the active Spanish TARGET and English OUTPUT from Japanese YouTube ASR', async () => {
-        const originalPlayerResponse = (window as Window & { ytInitialPlayerResponse?: unknown }).ytInitialPlayerResponse;
-        const timedTextRequests: string[] = [];
-        const timedTextLines: Record<'es' | 'en', [string, string]> = {
-            es: ['Hoy leo.', 'Esta es la segunda línea.'],
-            en: ['I read today.', 'This is the second line.'],
-        };
-        const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
-            const href = String(input);
-            const url = new URL(href);
-            expect(url.pathname).toBe('/api/timedtext');
-            timedTextRequests.push(url.href);
-            const language = url.searchParams.get('tlang') as 'es' | 'en';
-            expect(['es', 'en']).toContain(language);
-            const lines = timedTextLines[language];
-            return new Response(
-                `<transcript><text start="0" dur="2">${lines[0]}</text><text start="2" dur="2">${lines[1]}</text></transcript>`,
-                { status: 200, headers: { 'content-type': 'text/xml' } },
-            );
-        });
-
-        expect(setActiveLearningTargetLanguage('es')).not.toBeNull();
-
-        try {
-            await withSubtitleRequestStubs(
-                'https://www.youtube.com/watch?v=multilingual-selection',
-                fetchMock,
-                undefined,
-                async () => {
-                    (window as Window & { ytInitialPlayerResponse?: unknown }).ytInitialPlayerResponse = {
-                        videoDetails: { videoId: 'multilingual-selection' },
-                        captions: {
-                            playerCaptionsTracklistRenderer: {
-                                captionTracks: [{
-                                    baseUrl: 'https://www.youtube.com/api/timedtext?v=multilingual-selection&lang=ja',
-                                    languageCode: 'ja',
-                                    vssId: 'a.ja',
-                                    kind: 'asr',
-                                    name: { simpleText: '日本語（自動生成）' },
-                                }],
-                                translationLanguages: [
-                                    { languageCode: 'es', languageName: { simpleText: 'Español' } },
-                                    { languageCode: 'en', languageName: { simpleText: 'English' } },
-                                ],
-                            },
-                        },
-                    };
-                    const { controller } = createInstalledSubtitleController({
-                        annotationsPaused: true,
-                        interfaceLanguage: 'en' as const,
-                        subtitleOverlayVisible: true,
-                        subtitleSecondaryVisible: true,
-                    });
-                    attachVideo(controller, { currentTime: 0.5 });
-                    const internals = controllerInternals<{
-                        tracks: Array<{
-                            id: string;
-                            kind: 'youtube';
-                            language?: string;
-                            sourceType?: 'asr' | 'translation';
-                            sourceLanguage?: string;
-                            targetLanguage?: string;
-                            cues?: Array<{ text: string }>;
-                            loadingState?: string;
-                        }>;
-                        selectedTrackId: string;
-                        secondaryTrackId: string;
-                        cues: Array<{ text: string }>;
-                        secondaryCues: Array<{ text: string }>;
-                        discoverYouTubeTracks: () => Promise<void>;
-                    }>(controller);
-
-                    await internals.discoverYouTubeTracks();
-                    await vi.waitFor(() => {
-                        expect(internals.cues.map(cue => cue.text)).toEqual([
-                            'Hoy leo.',
-                            'Esta es la segunda línea.',
-                        ]);
-                        expect(internals.secondaryCues.map(cue => cue.text)).toEqual([
-                            'I read today.',
-                            'This is the second line.',
-                        ]);
-                    });
-
-                    const selected = internals.tracks.find(track => track.id === internals.selectedTrackId);
-                    const secondary = internals.tracks.find(track => track.id === internals.secondaryTrackId);
-                    expect(selected).toMatchObject({
-                        language: 'es',
-                        sourceType: 'translation',
-                        sourceLanguage: 'ja',
-                        targetLanguage: 'es',
-                        loadingState: 'ready',
-                    });
-                    expect(secondary).toMatchObject({
-                        language: 'en',
-                        sourceType: 'translation',
-                        sourceLanguage: 'ja',
-                        targetLanguage: 'en',
-                        loadingState: 'ready',
-                    });
-                    expect(internals.tracks.filter(track => track.sourceType === 'asr')).toHaveLength(1);
-                    expect(timedTextRequests.some(href => new URL(href).searchParams.get('tlang') === 'es')).toBe(true);
-                    expect(timedTextRequests.some(href => new URL(href).searchParams.get('tlang') === 'en')).toBe(true);
-                },
-            );
-        } finally {
-            (window as Window & { ytInitialPlayerResponse?: unknown }).ytInitialPlayerResponse = originalPlayerResponse;
-        }
-    });
-
     it('recovers a secondary YouTube translation track when translated timedtext is empty', async () => {
         const originalLocation = window.location;
         const originalFetch = globalThis.fetch;
@@ -1386,11 +1238,7 @@ describe('SubtitlePlayerController — subtitle transport & track pairing', () =
         }
     });
 
-    it.each([
-        { label: 'a translated Japanese track', target: null, expectedLanguage: 'ja' },
-        { label: 'the active non-Japanese target language', target: 'es' as const, expectedLanguage: 'es' },
-    ])('synthesizes and auto-selects $label when YouTube only offers English captions', ({ target, expectedLanguage }) => {
-        if (target) expect(setActiveLearningTargetLanguage(target)).not.toBeNull();
+    it('synthesizes and auto-selects a translated Japanese track when YouTube only offers English captions', () => {
         const { controller } = createSubtitleController(makeSubtitleSettings({ interfaceLanguage: 'en' as const }));
         const internals = stubEnglishOnlyYouTubeDiscovery(controller);
 
@@ -1398,7 +1246,7 @@ describe('SubtitlePlayerController — subtitle transport & track pairing', () =
 
         const synthetic = internals.tracks.find(track => track.translatedFromTrackId === 'youtube-en');
         expect(synthetic).toBeTruthy();
-        expect(synthetic?.language).toBe(expectedLanguage);
+        expect(synthetic?.language).toBe('ja');
         expect(internals.selectedTrackId).toBe(synthetic?.id);
         expect(internals.secondaryTrackId).toBe('youtube-en');
     });
@@ -1548,55 +1396,13 @@ describe('SubtitlePlayerController — subtitle transport & track pairing', () =
         expect(internals.selectedTrackId).not.toBe('');
     });
 
-    it('invalidates stale synthetic selection work and reselects after a runtime target switch', () => {
-        const { controller } = createInstalledSubtitleController({ interfaceLanguage: 'en' as const });
-        const internals = controllerInternals<LanguageSwitchInternals>(controller);
-        internals.tracks = [
-            { id: 'english', label: 'English', kind: 'file', language: 'en' },
-            { id: 'translated-ja-english', label: 'Translation', kind: 'remote', language: 'ja', targetLanguage: 'ja', translatedFromTrackId: 'english' },
-            { id: 'spanish', label: 'Español', kind: 'file', language: 'es' },
-        ];
-        const invalidatedRoles = stubLanguageSwitchSelection(
-            internals,
-            'translated-ja-english',
-            'english',
-        );
-
-        expect(setActiveLearningTargetLanguage('es')).not.toBeNull();
-        controller.refresh();
-
-        expect(internals.tracks.some(track => track.id === 'translated-ja-english')).toBe(false);
-        expect(internals.selectedTrackId).toBe('spanish');
-        expect(internals.secondaryTrackId).toBe('english');
-        expect(invalidatedRoles).toEqual(['primary', 'secondary']);
-    });
-
-    it('switches only the secondary track when OUTPUT changes at runtime', () => {
-        const { controller, settings } = createInstalledSubtitleController({ interfaceLanguage: 'en' as const });
-        const internals = controllerInternals<LanguageSwitchInternals>(controller);
-        internals.tracks = [
-            { id: 'japanese', label: '日本語', kind: 'file', language: 'ja' },
-            { id: 'english', label: 'English', kind: 'file', language: 'en' },
-            { id: 'persian', label: 'فارسی', kind: 'file', language: 'fa' },
-        ];
-        const invalidatedRoles = stubLanguageSwitchSelection(internals, 'japanese', 'english');
-
-        settings.languageProfiles = settings.languageProfiles.map(profile => profile.id === settings.activeLanguageProfileId
-            ? { ...profile, outputLanguage: 'fa', learnerLanguage: 'fa' }
-            : profile);
-        controller.refresh();
-
-        expect(internals.selectedTrackId).toBe('japanese');
-        expect(internals.secondaryTrackId).toBe('persian');
-        expect(invalidatedRoles).toEqual(['secondary']);
-    });
-
-    it('restarts an in-flight YouTube discovery after the language context changes', async () => {
+    it('restarts an in-flight YouTube discovery after the watch page moves to another video', async () => {
         const originalLocation = window.location;
-        Object.defineProperty(window, 'location', {
+        const watch = (videoId: string) => Object.defineProperty(window, 'location', {
             configurable: true,
-            value: new URL('https://www.youtube.com/watch?v=abc123') as unknown as Location,
+            value: new URL(`https://www.youtube.com/watch?v=${videoId}`) as unknown as Location,
         });
+        watch('abc123');
         const firstDiscovery = deferred<void>();
         const { controller } = createInstalledSubtitleController({ interfaceLanguage: 'en' as const });
         const internals = controllerInternals<{
@@ -1610,8 +1416,10 @@ describe('SubtitlePlayerController — subtitle transport & track pairing', () =
 
         try {
             const pending = internals.discoverYouTubeTracksThrottled(true);
-            expect(setActiveLearningTargetLanguage('es')).not.toBeNull();
-            controller.refresh();
+            // The navigation's own forced discovery is skipped while the
+            // previous video's run is still in flight.
+            watch('next456');
+            await internals.discoverYouTubeTracksThrottled(true);
             expect(discover).toHaveBeenCalledTimes(1);
 
             firstDiscovery.resolve();

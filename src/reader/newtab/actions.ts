@@ -50,7 +50,6 @@ export const NEW_TAB_ACTIONS = [
     'listen-play-recording',
     'listen-record',
     // Library search.
-    'search-submit',
     'search-clear',
     'search-focus',
     'search-suggestion',
@@ -71,6 +70,7 @@ export const NEW_TAB_ACTIONS = [
     // Stats dashboard.
     'stats-source',
     'stats-activity-metric',
+    'stats-activity-view',
     'stats-select-day',
     'stats-study-trouble',
     'stats-refresh',

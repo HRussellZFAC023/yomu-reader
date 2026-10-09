@@ -1,12 +1,10 @@
 import { escapeHtml } from '../dom';
 import { installDictionarySourceTracking } from './state-events';
 import { gmStorageDeleteSync, gmStorageGetSync, gmStorageSetSync } from '../app/storage';
-import type { ReaderSettings } from '../app/types';
 
 const STORAGE_KEY = 'jpdb-reader-source-open-state';
 
 export interface DictionarySourceStateDependencies {
-    getSettings: () => ReaderSettings;
     onStateChange: () => void;
 }
 
@@ -20,11 +18,11 @@ export class DictionarySourceStateController {
         gmStorageDeleteSync(STORAGE_KEY);
     }
 
-    isOpen(sourceStateKey: string, initiallyExpanded = this.dependencies.getSettings().dictionarySourcesInitiallyExpanded): boolean {
+    isOpen(sourceStateKey: string, initiallyExpanded = true): boolean {
         return this.openOverrides.get(sourceStateKey) ?? initiallyExpanded;
     }
 
-    attributes(sourceStateKey: string, initiallyExpanded = this.dependencies.getSettings().dictionarySourcesInitiallyExpanded): string {
+    attributes(sourceStateKey: string, initiallyExpanded = true): string {
         const isOpen = this.isOpen(sourceStateKey, initiallyExpanded);
         return `data-source-state-key="${escapeHtml(sourceStateKey)}" data-source-initial-open="${String(isOpen)}"${isOpen ? ' open' : ''}`;
     }

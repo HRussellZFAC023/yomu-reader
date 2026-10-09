@@ -58,10 +58,9 @@
   max-width: 100%;
   min-height: 24px;
   padding: 3px 9px;
-  border: 1px solid
-    color-mix(in srgb, var(--jpdb-reader-accent) 34%, var(--jpdb-reader-border));
+  border: 1px solid var(--jpdb-reader-border);
   border-radius: 999px;
-  background: color-mix(in srgb, var(--jpdb-reader-surface-2) 88%, var(--jpdb-reader-accent) 12%);
+  background: var(--jpdb-reader-surface-2);
   color: var(--jpdb-reader-text);
   box-shadow: none;
   font-size: 12px;
@@ -70,9 +69,11 @@
   overflow: hidden;
   white-space: nowrap;
 }
+/* The canonical keyword is a shade deeper, still light enough that the muted
+   source tag on it keeps 4.5:1 (an ink mix at the accent's old 24% fell to 2.7:1). */
 .jpdb-reader-kanji-keyword[data-canonical] {
-  border-color: color-mix(in srgb, var(--jpdb-reader-accent) 62%, var(--jpdb-reader-border));
-  background: color-mix(in srgb, var(--jpdb-reader-surface-2) 76%, var(--jpdb-reader-accent) 24%);
+  border-color: color-mix(in srgb, var(--jpdb-reader-text) 40%, var(--jpdb-reader-border));
+  background: color-mix(in srgb, var(--jpdb-reader-surface-2) 92%, var(--jpdb-reader-text) 8%);
 }
 .jpdb-reader-kanji-keyword small,
 .jpdb-reader-kanji-keyword-source {
@@ -82,7 +83,7 @@
   height: auto;
   padding: 1px 5px;
   border-radius: 6px;
-  background: color-mix(in srgb, var(--jpdb-reader-accent) 14%, transparent);
+  background: transparent;
   color: var(--jpdb-reader-muted);
   font-size: 9px;
   font-weight: 800;
@@ -181,7 +182,7 @@
   background: color-mix(
     in srgb,
     var(--jpdb-reader-surface-2) 86%,
-    var(--jpdb-reader-accent) 8%
+    var(--jpdb-reader-text) 8%
   );
   color: var(--jpdb-reader-muted);
   font: inherit;
@@ -250,7 +251,7 @@
   height: 42px;
   border: 1px solid color-mix(in srgb, var(--jpdb-reader-border) 82%, transparent);
   border-radius: 8px;
-  background: color-mix(in srgb, var(--jpdb-reader-surface-2) 88%, var(--jpdb-reader-accent) 6%);
+  background: color-mix(in srgb, var(--jpdb-reader-surface-2) 88%, var(--jpdb-reader-text) 6%);
   color: var(--jpdb-reader-text);
   box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--jpdb-reader-text) 7%, transparent);
   font-size: 28px !important;
@@ -306,12 +307,12 @@
   );
   --jpdb-reader-origin-graph-outbound-line: color-mix(
     in srgb,
-    var(--jpdb-reader-accent) 76%,
+    var(--jpdb-reader-text) 76%,
     var(--jpdb-reader-text)
   );
   --jpdb-reader-origin-graph-subcomponent-line: color-mix(
     in srgb,
-    var(--jpdb-reader-accent) 48%,
+    var(--jpdb-reader-text) 48%,
     var(--jpdb-reader-text)
   );
   --jpdb-reader-origin-graph-frame: color-mix(
@@ -321,17 +322,17 @@
   );
   --jpdb-reader-origin-graph-node-fill: color-mix(
     in srgb,
-    var(--jpdb-reader-accent) 72%,
+    var(--jpdb-reader-text) 72%,
     var(--jpdb-reader-surface-2)
   );
   --jpdb-reader-origin-graph-related-fill: color-mix(
     in srgb,
-    var(--jpdb-reader-accent) 18%,
+    var(--jpdb-reader-text) 18%,
     var(--jpdb-reader-surface)
   );
   --jpdb-reader-origin-graph-accent-text: color-mix(
     in srgb,
-    var(--jpdb-reader-accent) 12%,
+    var(--jpdb-reader-text) 12%,
     var(--jpdb-reader-black)
   );
   position: relative;
@@ -361,12 +362,12 @@
   );
   --jpdb-reader-origin-graph-outbound-line: color-mix(
     in srgb,
-    var(--jpdb-reader-accent) 72%,
+    var(--jpdb-reader-text) 72%,
     var(--jpdb-reader-text, var(--jpdb-reader-theme-light-text)) 8%
   );
   --jpdb-reader-origin-graph-subcomponent-line: color-mix(
     in srgb,
-    var(--jpdb-reader-accent) 44%,
+    var(--jpdb-reader-text) 44%,
     var(--jpdb-reader-text, var(--jpdb-reader-theme-light-text)) 18%
   );
   --jpdb-reader-origin-graph-frame: color-mix(
@@ -376,12 +377,12 @@
   );
   --jpdb-reader-origin-graph-node-fill: color-mix(
     in srgb,
-    var(--jpdb-reader-accent) 24%,
+    var(--jpdb-reader-text) 24%,
     var(--jpdb-reader-white)
   );
   --jpdb-reader-origin-graph-related-fill: color-mix(
     in srgb,
-    var(--jpdb-reader-accent) 12%,
+    var(--jpdb-reader-text) 12%,
     var(--jpdb-reader-surface)
   );
   --jpdb-reader-origin-graph-accent-text: var(--jpdb-reader-accent-text);
@@ -403,12 +404,12 @@
     );
     --jpdb-reader-origin-graph-outbound-line: color-mix(
       in srgb,
-      var(--jpdb-reader-accent) 72%,
+      var(--jpdb-reader-text) 72%,
       var(--jpdb-reader-text, var(--jpdb-reader-theme-light-text)) 8%
     );
     --jpdb-reader-origin-graph-subcomponent-line: color-mix(
       in srgb,
-      var(--jpdb-reader-accent) 44%,
+      var(--jpdb-reader-text) 44%,
       var(--jpdb-reader-text, var(--jpdb-reader-theme-light-text)) 18%
     );
     --jpdb-reader-origin-graph-frame: color-mix(
@@ -418,12 +419,12 @@
     );
     --jpdb-reader-origin-graph-node-fill: color-mix(
       in srgb,
-      var(--jpdb-reader-accent) 24%,
+      var(--jpdb-reader-text) 24%,
       var(--jpdb-reader-white)
     );
     --jpdb-reader-origin-graph-related-fill: color-mix(
       in srgb,
-      var(--jpdb-reader-accent) 12%,
+      var(--jpdb-reader-text) 12%,
       var(--jpdb-reader-surface)
     );
     --jpdb-reader-origin-graph-accent-text: var(--jpdb-reader-accent-text);
@@ -521,7 +522,7 @@
   width: 14px;
   height: 14px;
   margin: 0;
-  accent-color: var(--jpdb-reader-accent);
+  accent-color: var(--jpdb-reader-text);
 }
 .jpdb-reader-origin-graph-node {
   position: absolute;
@@ -1016,6 +1017,12 @@ html.jpdb-reader-doodle-active * {
   background: var(--jpdb-reader-actions-bg);
   box-shadow: 0 -1px 0 var(--jpdb-reader-actions-bg);
 }
+/* A lone "Add to deck…" needs no grey tray: it sits on the popup's own
+   surface under the hairline, with even space above and below. */
+.jpdb-reader-actions.jpdb-reader-actions-quiet {
+  --jpdb-reader-actions-bg: var(--jpdb-reader-bg);
+  padding-block: 10px;
+}
 .jpdb-reader-sr-only {
   position: absolute !important;
   width: 1px !important;
@@ -1149,33 +1156,29 @@ html.jpdb-reader-doodle-active * {
   -webkit-tap-highlight-color: transparent;
   flex: none;
 }
-.jpdb-reader-actions .jpdb-reader-mining-collapse::before,
-.jpdb-reader-mining-collapse::before {
+/* The drawer toggle is a chevron, not a grab bar: a phone sheet already has
+   its handle at the top, and a second bar at the bottom read as a second sheet.
+   It points up while the actions are folded away and down once they show.
+   Scoped to the action bar: Study's grade-target handle reuses the class
+   outside it and keeps its own grab bar (new-tab.css). */
+.jpdb-reader-actions .jpdb-reader-mining-collapse::before {
   content: "";
   position: relative;
   z-index: 1;
   display: block;
-  width: 42px;
-  height: 5px;
-  border-radius: 999px;
-  background: var(--jpdb-reader-faint);
+  width: 8px;
+  height: 8px;
+  border-top: 2px solid currentColor;
+  border-left: 2px solid currentColor;
+  border-radius: 1px;
+  transform: translateY(2px) rotate(45deg);
 }
 .jpdb-reader-actions .jpdb-reader-mining-collapse:hover,
-.jpdb-reader-actions .jpdb-reader-mining-collapse:focus-visible,
-.jpdb-reader-mining-collapse:hover,
-.jpdb-reader-mining-collapse:focus-visible {
-  outline: none;
-}
-.jpdb-reader-actions .jpdb-reader-mining-collapse:hover::before,
-.jpdb-reader-actions .jpdb-reader-mining-collapse:focus-visible::before,
-.jpdb-reader-mining-collapse:hover::before,
-.jpdb-reader-mining-collapse:focus-visible::before {
-  background: var(--jpdb-reader-accent);
-  box-shadow: 0 0 0 4px color-mix(in srgb, var(--jpdb-reader-accent) 12%, transparent);
+.jpdb-reader-actions .jpdb-reader-mining-collapse:focus-visible {
+  color: var(--jpdb-reader-accent-readable);
 }
 .jpdb-reader-actions:not(.jpdb-reader-actions-mining-collapsed) .jpdb-reader-mining-collapse::before {
-  width: 48px;
-  background: color-mix(in srgb, var(--jpdb-reader-accent) 74%, var(--jpdb-reader-faint));
+  transform: translateY(-2px) rotate(225deg);
 }
 .jpdb-reader-actions-mining-collapsed .jpdb-reader-mining-panel,
 .jpdb-reader-actions-mining-collapsed .jpdb-reader-mining-details {
@@ -1200,27 +1203,6 @@ html.jpdb-reader-doodle-active * {
   margin-top: 2px;
   font-size: 12px;
   line-height: 1.4;
-}
-.jpdb-reader-add-deck-select {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  opacity: 0;
-  pointer-events: none;
-}
-.jpdb-reader-add-deck-select-open {
-  position: static;
-  width: 100%;
-  min-width: 0;
-  height: 34px;
-  margin-top: 6px;
-  border: 1px solid var(--jpdb-reader-border);
-  border-radius: 7px;
-  background: var(--jpdb-reader-surface);
-  color: var(--jpdb-reader-text);
-  opacity: 1;
-  pointer-events: auto;
-  font: 750 12px/1 var(--jpdb-reader-font);
 }
 /* No grade column is narrower than its label: on a phone-width popup
    "Something" widens its own button instead of spilling out of it. */
@@ -1416,13 +1398,6 @@ html.jpdb-reader-doodle-active * {
     min-width: 64px;
     min-height: 28px;
   }
-  .jpdb-reader-actions .jpdb-reader-mining-collapse::before,
-  .jpdb-reader-mining-collapse::before {
-    width: 38px;
-  }
-  .jpdb-reader-actions:not(.jpdb-reader-actions-mining-collapsed) .jpdb-reader-mining-collapse::before {
-    width: 44px;
-  }
   .jpdb-reader-row,
   .jpdb-reader-mining-action-row {
     gap: 3px;
@@ -1546,7 +1521,7 @@ html.jpdb-reader-doodle-active * {
   white-space: nowrap;
 }
 .jpdb-reader-pitch-variant-primary .jpdb-reader-pitch-variant-badge {
-  color: var(--jpdb-reader-accent);
+  color: var(--jpdb-reader-text);
 }
 .jpdb-reader-pitch-component-label {
   max-width: 128px;

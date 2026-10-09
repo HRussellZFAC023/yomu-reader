@@ -1,10 +1,7 @@
 import { afterEach, describe, expect, it, vi, type Mock } from 'vitest';
 import '../../src/reader/companions/register-build-companions';
 import { NewTabRuntime, startNewTabRuntime } from '../../src/reader/newtab/runtime';
-import {
-    activeLearningTargetLanguage,
-    resetActiveLearningTargetLanguage,
-} from '../../src/reader/languages/active';
+
 import {
     DEFAULT_SETTINGS,
     SETTINGS_STORAGE_KEY,
@@ -12,7 +9,6 @@ import {
     saveSettings,
 } from '../../src/reader/settings';
 import { installUserscriptGmStorageBridge, uninstallUserscriptGmStorageBridge } from '../../src/reader/userscript/storage-bridge';
-import { rejectOnboardingTargetPersistence } from './helpers/rejected-onboarding-target';
 import { v193UserscriptStore } from './helpers/upgrade-v193-corpus';
 
 const COMPILER_STORAGE_PREFIX = 'usc_https_github_com_HRussellZFAC023_yomu_reader_';
@@ -40,10 +36,6 @@ function prepareRenderingRuntime(
     }
     internals.settingsDialog = { resumePendingCloudSettingsSync: vi.fn(async () => undefined) };
     return internals;
-}
-
-function storeRuntimeSettings(overrides: Partial<typeof DEFAULT_SETTINGS>): void {
-    localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify({ ...DEFAULT_SETTINGS, ...overrides }));
 }
 
 function stubClonedGmValueReader(values: ReadonlyMap<string, unknown>): void {
@@ -89,11 +81,10 @@ function installSettingsStartupHarness(
     const torn = options.stableTornPair === true;
     let available = readable || torn;
     const values = new Map<string, unknown>([
-        [SETTINGS_STORAGE_KEY, { learningTargetChosen: true, apiKey: 'raw-startup-secret' }],
+        [SETTINGS_STORAGE_KEY, { apiKey: 'raw-startup-secret' }],
         [SETTINGS_INTENT_KEY, { revision: 1, records: {} }],
         [`${COMPILER_STORAGE_PREFIX}${SETTINGS_STORAGE_KEY}`, {
-            ...DEFAULT_SETTINGS, learningTargetChosen: true, onboardingSeen: true,
-            [SETTINGS_COMMIT_KEY]: 'current-settings',
+            ...DEFAULT_SETTINGS, [SETTINGS_COMMIT_KEY]: 'current-settings',
         }],
         [`${COMPILER_STORAGE_PREFIX}${SETTINGS_INTENT_KEY}`, {
             revision: 1, records: {}, [SETTINGS_COMMIT_KEY]: torn ? 'different-current-intent' : 'current-settings',
@@ -182,8 +173,6 @@ async function unblockRecoveryWithChosenCanonical(
 ): Promise<void> {
     harness.values.set(`${COMPILER_STORAGE_PREFIX}${SETTINGS_STORAGE_KEY}`, {
         ...DEFAULT_SETTINGS,
-        learningTargetChosen: true,
-        onboardingSeen: true,
         [SETTINGS_COMMIT_KEY]: 'ready-current',
     });
     harness.values.set(`${COMPILER_STORAGE_PREFIX}${SETTINGS_INTENT_KEY}`, {
@@ -196,21 +185,7 @@ async function unblockRecoveryWithChosenCanonical(
     await starting;
 }
 
-const RAW_ACADEMY_READER_DEFAULTS = {
-    learningTargetChosen: false,
-    showFurigana: true,
-    furiganaMode: 'all',
-    showPitchAccent: true,
-} as const;
 
-function replaceOnboardingWithDismissal(internals: Record<string, unknown>) {
-    const showIfNeeded = vi.fn(async () => true);
-    internals.onboarding = {
-        showIfNeeded,
-        waitForCompletion: vi.fn(async () => undefined),
-    };
-    return showIfNeeded;
-}
 
 function prepareOrderedRuntime(calls: string[]): {
     runtime: NewTabRuntime;
@@ -233,34 +208,11 @@ function recordOpenedSettings(internals: Record<string, unknown>, calls: string[
     };
 }
 
-function prepareFreshHostedStudyOnboarding(calls: string[]): ReturnType<typeof prepareOrderedRuntime> {
-    vi.stubGlobal('location', new URL('https://yomureader.com/study/'));
-    storeRuntimeSettings({
-        onboardingSeen: false,
-        learningTargetChosen: false,
-        localDictionariesEnabled: false,
-    });
-    const prepared = prepareOrderedRuntime(calls);
-    recordOpenedSettings(prepared.internals, calls);
-    return prepared;
-}
-
-async function chooseJapaneseWithoutApiKey(): Promise<void> {
-    await vi.waitFor(() => {
-        expect(document.querySelector<HTMLSelectElement>('select[name="targetLanguage"]')).not.toBeNull();
-    });
-    const targetLanguage = document.querySelector<HTMLSelectElement>('select[name="targetLanguage"]')!;
-    targetLanguage.value = 'ja';
-    targetLanguage.dispatchEvent(new Event('change', { bubbles: true }));
-    document.querySelector<HTMLInputElement>('input[name="onboardingInstallOfflineDictionaries"]')!.checked = false;
-    document.querySelector<HTMLButtonElement>('[data-onboarding-action="without-api"]')!.click();
-}
-
-describe('packaged Study welcome integration', () => {
+describe('packaged Study startup and settings recovery', () => {
     afterEach(() => {
         uninstallUserscriptGmStorageBridge();
         endSettingsResetGuard();
-        resetActiveLearningTargetLanguage();
+
         document.body.replaceChildren();
         document.documentElement.removeAttribute('data-yomu-newtab-runtime');
         localStorage.clear();
@@ -269,21 +221,18 @@ describe('packaged Study welcome integration', () => {
         vi.restoreAllMocks();
     });
 
-    it('constructs the real welcome controller without a new-tab takeover option', async () => {
-        vi.stubGlobal('location', new URL('https://yomureader.com/study/'));
-        vi.stubGlobal('chrome', { runtime: { id: 'test-extension-id' } });
-        const runtime = new NewTabRuntime();
-        const internals = runtime as unknown as {
-            settings: typeof DEFAULT_SETTINGS;
-            onboarding: { showIfNeeded(): Promise<boolean> };
-        };
-        internals.settings = { ...DEFAULT_SETTINGS, onboardingSeen: false };
-
-        await expect(internals.onboarding.showIfNeeded()).resolves.toBe(true);
-
-        expect(document.querySelector('.jpdb-reader-onboarding')).not.toBeNull();
-        expect(document.querySelector('input[name="newTabEnabled"]')).toBeNull();
-        expect(document.body.textContent).not.toContain('Set Study as the new tab');
+    it.each([false, true])('renders fresh Study immediately with embedded=%s and no setup gate', async embedded => {
+        const renderPage = vi.fn(async () => undefined);
+        const runtime = new NewTabRuntime(embedded ? { mountHost: document.createElement('main') } : {});
+        prepareRenderingRuntime(runtime, renderPage);
+        try {
+            await runtime.init();
+            expect(renderPage).toHaveBeenCalledOnce();
+            expect(document.querySelector('.jpdb-reader-onboarding')).toBeNull();
+            expect(document.querySelector('select[name="targetLanguage"]')).toBeNull();
+        } finally {
+            runtime.destroy();
+        }
     });
 
     it('starts standalone and embedded Study at the first configured learning step', () => {
@@ -296,31 +245,6 @@ describe('packaged Study welcome integration', () => {
 
         expect(standalone.createNewTabController().initialStudyStepIdPending).toBeNull();
         expect(academy.createNewTabController().initialStudyStepIdPending).toBeNull();
-    });
-
-    it('waits for an explicit target before rendering the packaged Study surface', async () => {
-        vi.stubGlobal('chrome', { runtime: { id: 'test-extension-id' } });
-        storeRuntimeSettings({
-            onboardingSeen: false,
-            localDictionariesEnabled: false,
-        });
-        const calls: string[] = [];
-        const { runtime, internals } = prepareOrderedRuntime(calls);
-        internals.onboarding = {
-            showIfNeeded: vi.fn(async () => { calls.push('welcome'); return true; }),
-            waitForCompletion: vi.fn(async () => {
-                calls.push('choose-target');
-                internals.settings = {
-                    ...(internals.settings as typeof DEFAULT_SETTINGS),
-                    onboardingSeen: true,
-                    learningTargetChosen: true,
-                };
-            }),
-        };
-
-        await runtime.init();
-
-        expect(calls).toEqual(['welcome', 'choose-target', 'render']);
     });
 
     it('blocks full Study startup when current settings cannot be read', async () => {
@@ -417,8 +341,7 @@ describe('packaged Study welcome integration', () => {
         expect(internals.settings).toMatchObject({
             apiKey: 'corpus0000000000000000000000jpdb',
             theme: 'dark',
-            learningTargetChosen: true,
-        });
+            });
         expect(Object.fromEntries(store)).toEqual(before);
         runtime.destroy();
     });
@@ -435,132 +358,10 @@ describe('packaged Study welcome integration', () => {
         await unblockRecoveryWithChosenCanonical(harness, alert, starting);
     });
 
-    it('opens post-onboarding dictionary settings only after the first Study render', async () => {
-        const calls: string[] = [];
-        const { runtime, internals } = prepareFreshHostedStudyOnboarding(calls);
-
-        const initializing = runtime.init();
-        await chooseJapaneseWithoutApiKey();
-        await initializing;
-
-        expect(calls).toEqual(['render', 'settings:dictionaries']);
-        expect(internals.settings).toMatchObject({ learningTargetChosen: true });
-        expect((internals.settings as typeof DEFAULT_SETTINGS).languageProfiles[0]?.targetLanguage).toBe('ja');
-        const storedSettings = JSON.parse(localStorage.getItem(SETTINGS_STORAGE_KEY) ?? '{}');
-        expect(storedSettings.learningTargetChosen).toBe(true);
-        expect(storedSettings.languageProfiles[0]?.targetLanguage).toBe('ja');
-    });
-
-    it('opens post-onboarding settings when Study sees its own completed settings before dictionary styles load', async () => {
-        const calls: string[] = [];
-        const { runtime, internals } = prepareFreshHostedStudyOnboarding(calls);
-        // The runtime applies the completed settings (and echoes them into
-        // waitForCompletion) before its real dictionary-style refresh settles;
-        // the mocked render is instant, so the first Study render would win.
-        let releaseDictionaryStyles!: () => void;
-        const dictionaryStyles = new Promise<void>(resolve => { releaseDictionaryStyles = resolve; });
-        internals.refreshDictionaryStyles = vi.fn(() => dictionaryStyles);
-
-        const initializing = runtime.init();
-        await chooseJapaneseWithoutApiKey();
-        await vi.waitFor(() => {
-            expect(document.querySelector('.jpdb-reader-onboarding')).toBeNull();
-        });
-        await new Promise(resolve => window.setTimeout(resolve, 0));
-        releaseDictionaryStyles();
-        await initializing;
-
-        await vi.waitFor(() => {
-            expect(calls).toContain('settings:dictionaries');
-        });
-        expect(calls.indexOf('render')).toBeLessThan(calls.indexOf('settings:dictionaries'));
-    });
-
-    it('leaves fresh public Study inert when the chooser is dismissed', async () => {
-        storeRuntimeSettings({
-            onboardingSeen: false,
-            learningTargetChosen: false,
-            localDictionariesEnabled: true,
-        });
-        const runtime = new NewTabRuntime();
-        const renderPage = vi.fn(async () => undefined);
-        const prepareTermSearchIndex = vi.fn(async () => undefined);
-        const internals = prepareRenderingRuntime(runtime, renderPage);
-        // "Not now": resolved wait, but no settings write or promotion.
-        const showIfNeeded = replaceOnboardingWithDismissal(internals);
-        internals.dictionaries = { prepareTermSearchIndex };
-        internals.refreshDictionaryStyles = vi.fn(async () => undefined);
-
-        await runtime.init();
-
-        expect(showIfNeeded).toHaveBeenCalledOnce();
-        expect(internals.createNewTabController).not.toHaveBeenCalled();
-        expect(renderPage).not.toHaveBeenCalled();
-        expect(prepareTermSearchIndex).not.toHaveBeenCalled();
-        expect((internals.settings as typeof DEFAULT_SETTINGS).learningTargetChosen).toBe(false);
-    });
-
-    it('keeps a rejected standalone Study target inert and asks again on reload', async () => {
-        vi.stubGlobal('location', new URL('https://yomureader.com/study/'));
-        storeRuntimeSettings({
-            onboardingSeen: false,
-            learningTargetChosen: false,
-            localDictionariesEnabled: false,
-        });
-        const runtime = new NewTabRuntime();
-        let internals = prepareRenderingRuntime(runtime);
-        const initializing = runtime.init();
-        await vi.waitFor(() => {
-            expect(document.querySelector('.jpdb-reader-onboarding')).not.toBeNull();
-        });
-        await rejectOnboardingTargetPersistence(internals.onboarding as {
-            complete(openSettings: boolean | 'dictionaries'): Promise<void>;
-        });
-        document.querySelector<HTMLButtonElement>('[data-onboarding-action="close"]')?.click();
-        await initializing;
-
-        expect((internals.settings as typeof DEFAULT_SETTINGS).learningTargetChosen).toBe(false);
-        expect((internals.settings as typeof DEFAULT_SETTINGS).languageProfiles[0]?.targetLanguage).toBe('ja');
-        expect(activeLearningTargetLanguage()).toBe('ja');
-        expect(internals.createNewTabController).not.toHaveBeenCalled();
-
-        endSettingsResetGuard();
-        runtime.destroy();
-        document.body.replaceChildren();
-        const reloadedRuntime = new NewTabRuntime();
-        internals = prepareRenderingRuntime(reloadedRuntime);
-        const reloading = reloadedRuntime.init();
-        await vi.waitFor(() => {
-            expect(document.querySelector<HTMLSelectElement>('select[name="targetLanguage"]')?.value).toBe('');
-        });
-        document.querySelector<HTMLButtonElement>('[data-onboarding-action="close"]')?.click();
-        await reloading;
-        expect(internals.createNewTabController).not.toHaveBeenCalled();
-        reloadedRuntime.destroy();
-    });
-
-    it('renders empty-store Academy only with its explicit non-persisted page policy', async () => {
-        storeRuntimeSettings({
-            localDictionariesEnabled: false,
-        });
-        const host = document.createElement('main');
-        const runtime = new NewTabRuntime({ mountHost: host, pageOwnedLearningTarget: 'ja' });
-        const renderPage = vi.fn(async () => undefined);
-        const internals = prepareRenderingRuntime(runtime, renderPage);
-        const showIfNeeded = replaceOnboardingWithDismissal(internals);
-
-        await runtime.init();
-
-        expect(renderPage).toHaveBeenCalledOnce();
-        expect(showIfNeeded).not.toHaveBeenCalled();
-        expect((internals.settings as typeof DEFAULT_SETTINGS).learningTargetChosen).toBe(false);
-    });
-
     it('keeps the Academy interface language page-owned across storage reconciliation', async () => {
         vi.stubGlobal('location', new URL('https://yomureader.com/academy/'));
         const storedSettings = {
             ...DEFAULT_SETTINGS,
-            learningTargetChosen: true,
             localDictionariesEnabled: false,
             interfaceLanguage: 'ja' as const,
         };
@@ -579,7 +380,6 @@ describe('packaged Study welcome integration', () => {
         const host = document.createElement('main');
         const runtime = new NewTabRuntime({
             mountHost: host,
-            pageOwnedLearningTarget: 'ja',
             interfaceLanguage: 'en',
         });
         const renderPage = vi.fn(async () => undefined);
@@ -609,110 +409,9 @@ describe('packaged Study welcome integration', () => {
         runtime.destroy();
     });
 
-    it('keeps the current Academy bootstrap transient and asks again on same-origin Study', async () => {
-        window.history.replaceState({}, '', '/academy/');
-        localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(RAW_ACADEMY_READER_DEFAULTS));
-        const academyRuntime = new NewTabRuntime({
-            mountHost: document.createElement('main'),
-            pageOwnedLearningTarget: 'ja',
-        });
-        const academyRender = vi.fn(async () => undefined);
-        const academyInternals = prepareRenderingRuntime(academyRuntime, academyRender);
-        const academyWelcome = replaceOnboardingWithDismissal(academyInternals);
-
-        await academyRuntime.init();
-
-        expect(academyRender).toHaveBeenCalledOnce();
-        expect(academyWelcome).not.toHaveBeenCalled();
-        expect(activeLearningTargetLanguage()).toBe('ja');
-        expect((academyInternals.settings as typeof DEFAULT_SETTINGS).learningTargetChosen).toBe(false);
-        expect(JSON.parse(localStorage.getItem(SETTINGS_STORAGE_KEY) ?? '{}')).toEqual(RAW_ACADEMY_READER_DEFAULTS);
-        academyRuntime.destroy();
-        resetActiveLearningTargetLanguage();
-
-        localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify({
-            ...RAW_ACADEMY_READER_DEFAULTS,
-            interfaceLanguage: 'ja',
-        }));
-        window.history.replaceState({}, '', '/newtab/');
-        const studyRuntime = new NewTabRuntime();
-        const studyRender = vi.fn(async () => undefined);
-        const studyInternals = prepareRenderingRuntime(studyRuntime, studyRender);
-        const studyWelcome = replaceOnboardingWithDismissal(studyInternals);
-
-        await studyRuntime.init();
-
-        expect(studyWelcome).toHaveBeenCalledOnce();
-        expect(studyInternals.createNewTabController).not.toHaveBeenCalled();
-        expect(studyRender).not.toHaveBeenCalled();
-        expect((studyInternals.settings as typeof DEFAULT_SETTINGS).learningTargetChosen).toBe(false);
-        studyRuntime.destroy();
-    });
-
-    it('keeps the raw docs interface-language handoff unchosen on Study', async () => {
-        window.history.replaceState({}, '', '/newtab/');
-        localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify({
-            learningTargetChosen: false,
-            interfaceLanguage: 'en',
-        }));
-        const runtime = new NewTabRuntime();
-        const renderPage = vi.fn(async () => undefined);
-        const internals = prepareRenderingRuntime(runtime, renderPage);
-        const showIfNeeded = replaceOnboardingWithDismissal(internals);
-
-        await runtime.init();
-
-        expect(showIfNeeded).toHaveBeenCalledOnce();
-        expect(internals.createNewTabController).not.toHaveBeenCalled();
-        expect(renderPage).not.toHaveBeenCalled();
-        expect((internals.settings as typeof DEFAULT_SETTINGS).interfaceLanguage).toBe('en');
-        expect((internals.settings as typeof DEFAULT_SETTINGS).learningTargetChosen).toBe(false);
-        runtime.destroy();
-    });
-
-    it('applies Academy Japanese as a transient runtime target over an unchosen partial profile', async () => {
-        vi.stubGlobal('location', new URL('https://yomureader.com/academy/'));
-        storeRuntimeSettings({
-            learningTargetChosen: false,
-            localDictionariesEnabled: false,
-            languageProfiles: DEFAULT_SETTINGS.languageProfiles.map(profile => ({
-                ...profile,
-                targetLanguage: 'es',
-            })),
-        });
-        const runtime = new NewTabRuntime({
-            mountHost: document.createElement('main'),
-            pageOwnedLearningTarget: 'ja',
-        });
-        const internals = prepareRenderingRuntime(runtime);
-
-        await runtime.init();
-
-        expect(activeLearningTargetLanguage()).toBe('ja');
-        expect((internals.settings as typeof DEFAULT_SETTINGS).learningTargetChosen).toBe(false);
-        expect((internals.settings as typeof DEFAULT_SETTINGS).languageProfiles[0]?.targetLanguage).toBe('es');
-    });
-
-    it('keeps an empty-store generic embedded Study mount inert', async () => {
-        storeRuntimeSettings({
-            localDictionariesEnabled: false,
-        });
-        const runtime = new NewTabRuntime({ mountHost: document.createElement('main') });
-        const internals = runtime as unknown as Record<string, unknown>;
-        internals.installExternalRefreshListener = vi.fn();
-        internals.factoryReset = { bind: vi.fn(), destroy: vi.fn() };
-        internals.createNewTabController = vi.fn();
-
-        await runtime.init();
-
-        expect(internals.createNewTabController).not.toHaveBeenCalled();
-    });
-
     it('opens account settings from the Firefox-safe Study link after welcome', async () => {
         window.history.replaceState({}, '', '/newtab/index.html#settings=api');
         installPackagedSettings({
-            onboardingSeen: true,
-            learningTargetChosen: true,
             localDictionariesEnabled: false,
         });
         const calls: string[] = [];
@@ -732,8 +431,6 @@ describe('packaged Study welcome integration', () => {
     it('captures packaged Appearance settings before render replaces the requested hash', async () => {
         window.history.replaceState({}, '', '/newtab/index.html#settings=appearance');
         installPackagedSettings({
-            onboardingSeen: true,
-            learningTargetChosen: true,
             localDictionariesEnabled: false,
         });
         const calls: string[] = [];
@@ -791,82 +488,10 @@ describe('packaged Study welcome integration', () => {
         runtime.destroy();
     }, 15_000);
 
-    it('retires provisional hosted onboarding when a late bridge reveals the chosen shared target', async () => {
-        vi.stubGlobal('location', new URL('https://yomureader.com/study/'));
-        expect(localStorage.getItem(SETTINGS_STORAGE_KEY)).toBeNull();
-
-        const authoritativeSettings = {
-            ...DEFAULT_SETTINGS,
-            onboardingSeen: true,
-            learningTargetChosen: true,
-            theme: 'dark' as const,
-            popupMode: 'popover' as const,
-            languageProfiles: [{
-                ...DEFAULT_SETTINGS.languageProfiles[0]!,
-                schemaVersion: 2 as const,
-                id: 'default-ja',
-                targetLanguage: 'ja',
-                outputLanguage: 'en',
-                learnerLanguage: 'en',
-                uiLocale: 'en',
-            }],
-            activeLanguageProfileId: 'default-ja',
-        };
-        const shared = new Map<string, unknown>([[
-            SETTINGS_STORAGE_KEY,
-            structuredClone(authoritativeSettings),
-        ]]);
-        const authoritativeBeforeBridge = structuredClone(authoritativeSettings);
-        const renderPage = vi.fn(async () => undefined);
-        const runtime = new NewTabRuntime();
-        const internals = prepareRenderingRuntime(runtime, renderPage, {
-            realSettingsStorageSubscription: true,
-        });
-
-        const initializing = runtime.init();
-        await vi.waitFor(() => {
-            expect(document.querySelector('.jpdb-reader-onboarding')).not.toBeNull();
-        });
-        const chooserClick = vi.fn();
-        document.querySelectorAll<HTMLElement>('[data-onboarding-action]')
-            .forEach(action => action.addEventListener('click', chooserClick));
-
-        const gmSetValue = vi.fn((key: string, value: unknown) => {
-            shared.set(key, structuredClone(value));
-        });
-        stubClonedGmValueReader(shared);
-        vi.stubGlobal('GM_setValue', gmSetValue);
-        vi.stubGlobal('GM_deleteValue', vi.fn((key: string) => { shared.delete(key); }));
-        vi.stubGlobal('GM_listValues', vi.fn(() => [...shared.keys()]));
-        installUserscriptGmStorageBridge();
-
-        await expect(initializing).resolves.toBeUndefined();
-
-        expect(chooserClick).not.toHaveBeenCalled();
-        expect(document.querySelector('.jpdb-reader-onboarding')).toBeNull();
-        expect(renderPage).toHaveBeenCalledOnce();
-        expect(internals.settings).toMatchObject({
-            onboardingSeen: true,
-            learningTargetChosen: true,
-            theme: 'dark',
-            popupMode: 'popover',
-            activeLanguageProfileId: 'default-ja',
-            languageProfiles: [expect.objectContaining({
-                schemaVersion: 2,
-                id: 'default-ja',
-                targetLanguage: 'ja',
-            })],
-        });
-        expect(shared.get(SETTINGS_STORAGE_KEY)).toEqual(authoritativeBeforeBridge);
-        expect(gmSetValue).not.toHaveBeenCalledWith(SETTINGS_STORAGE_KEY, expect.anything());
-        runtime.destroy();
-    }, 15_000);
-
     it('does not show or commit onboarding when the hosted settings authority rejects startup', async () => {
         vi.stubGlobal('location', new URL('https://yomureader.com/study/'));
         const runtime = new NewTabRuntime();
-        const internals = prepareRenderingRuntime(runtime);
-        const showIfNeeded = replaceOnboardingWithDismissal(internals);
+        prepareRenderingRuntime(runtime);
         const getValue = vi.fn(() => {
             throw new Error('hosted settings authority unavailable');
         });
@@ -877,7 +502,6 @@ describe('packaged Study welcome integration', () => {
         await expect(runtime.init()).rejects.toThrow('hosted settings authority unavailable');
 
         expect(getValue).toHaveBeenCalled();
-        expect(showIfNeeded).not.toHaveBeenCalled();
         expect(setValue).not.toHaveBeenCalled();
         expect(document.querySelector('.jpdb-reader-onboarding')).toBeNull();
         expect(localStorage.getItem(SETTINGS_STORAGE_KEY)).toBeNull();

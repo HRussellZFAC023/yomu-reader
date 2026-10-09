@@ -42,7 +42,7 @@ textarea {
     font: inherit;
 }
 
-:where(.yomu-gaming-shell, .overlay-root, body.yomu-gaming-overlay-document) :where(
+:where(.yomu-gaming-shell, body.yomu-gaming-overlay-document) :where(
     button,
     input,
     select,
@@ -61,7 +61,7 @@ textarea {
         transform 0.14s ease;
 }
 
-:where(.yomu-gaming-shell, .overlay-root, body.yomu-gaming-overlay-document) :where(
+:where(.yomu-gaming-shell, body.yomu-gaming-overlay-document) :where(
     button,
     label,
     [role="button"],
@@ -72,7 +72,7 @@ textarea {
 }
 
 @media (hover: hover) and (pointer: fine) {
-    :where(.yomu-gaming-shell, .overlay-root, body.yomu-gaming-overlay-document) :where(
+    :where(.yomu-gaming-shell, body.yomu-gaming-overlay-document) :where(
         button,
         label,
         [role="button"],
@@ -94,102 +94,6 @@ textarea {
     overflow: hidden;
 }
 
-/* Home and Settings are alternatives, never a stack. */
-.yomu-gaming-home[hidden],
-.yomu-gaming-settings.jpdb-reader-settings[hidden] {
-    display: none;
-}
-
-.yomu-gaming-home {
-    display: grid;
-    flex: 1 1 auto;
-    place-items: center;
-    width: 100%;
-    min-height: 0;
-    padding: 32px 24px;
-    overflow: auto;
-}
-
-.yomu-gaming-home-card {
-    display: grid;
-    justify-items: center;
-    gap: 10px;
-    width: min(560px, 100%);
-    text-align: center;
-}
-
-.yomu-gaming-home-icon {
-    width: 72px;
-    height: 72px;
-    border-radius: 16px;
-}
-
-.yomu-gaming-home-mark {
-    margin: 0;
-    color: var(--jpdb-reader-muted);
-    font-size: 12px;
-    font-weight: 900;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-}
-
-.yomu-gaming-home h1 {
-    margin: 0;
-    max-width: 18ch;
-    color: var(--jpdb-reader-text);
-    font-size: clamp(26px, 3.4vw, 36px);
-    font-weight: 900;
-    line-height: 1.1;
-}
-
-.yomu-gaming-home-lede {
-    margin: 0;
-    max-width: 44ch;
-    color: var(--jpdb-reader-muted);
-    font-size: 15px;
-    line-height: 1.45;
-}
-
-.yomu-gaming-home-primary.jpdb-reader-btn {
-    min-height: 48px;
-    margin-top: 8px;
-    padding: 0 30px;
-    border-radius: 12px;
-    font-size: 16px;
-    font-weight: 900;
-}
-
-.yomu-gaming-home-shortcut {
-    margin: 0;
-    color: var(--jpdb-reader-muted);
-    font-size: 13px;
-    line-height: 1.4;
-}
-
-/* Same line, same slot: when the keyboard is still to be set up, the sentence that
-   names a key becomes the sentence that offers one. */
-.yomu-gaming-home-shortcut[data-shortcut-ready="false"] {
-    color: #8a5a00;
-}
-
-.yomu-gaming-home-shortcut kbd {
-    padding: 3px 8px;
-    border: 1px solid var(--jpdb-reader-border);
-    border-radius: 7px;
-    background: var(--jpdb-reader-surface-2);
-    color: var(--jpdb-reader-text);
-    font: 850 12px/1.35 var(--jpdb-reader-font);
-    white-space: nowrap;
-}
-
-.yomu-gaming-home-secondary {
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: center;
-    gap: 8px;
-    margin-top: 6px;
-}
-
 .yomu-gaming-shell-status {
     color: var(--jpdb-reader-muted);
     font-size: 13px;
@@ -197,31 +101,15 @@ textarea {
 }
 
 .yomu-gaming-shell-status[data-status-tone="success"] {
-    color: #147947;
+    color: var(--jpdb-reader-success);
 }
 
 .yomu-gaming-shell-status[data-status-tone="warning"] {
-    color: #8a5a00;
+    color: var(--jpdb-reader-warning);
 }
 
 .yomu-gaming-shell-status[data-status-tone="error"] {
-    color: #b42318;
-}
-
-.yomu-gaming-session-note {
-    max-width: 46ch;
-    padding: 7px 10px;
-    border: 1px solid color-mix(in srgb, var(--jpdb-reader-accent) 34%, transparent);
-    border-radius: 8px;
-    background: color-mix(in srgb, var(--jpdb-reader-accent) 12%, transparent);
-    color: var(--jpdb-reader-text);
-    font-size: 12px;
-    line-height: 1.35;
-}
-
-.yomu-gaming-session-note[data-session-tone="warning"] {
-    border-color: color-mix(in srgb, #8a5a00 42%, transparent);
-    background: color-mix(in srgb, #8a5a00 12%, transparent);
+    color: var(--jpdb-reader-danger-readable);
 }
 
 .yomu-gaming-settings.jpdb-reader-settings {
@@ -242,19 +130,14 @@ textarea {
     box-shadow: none;
 }
 
+/* The shared title row (title, then status); the native window close is the way
+   out, so the shared close button is not drawn here. */
 .yomu-gaming-settings .jpdb-reader-settings-head {
-    display: flex;
-    align-items: center;
-    gap: 12px;
     padding-top: 16px;
 }
 
-.yomu-gaming-settings .jpdb-reader-settings-head h2 {
-    flex: 0 0 auto;
-}
-
 .yomu-gaming-settings .jpdb-reader-settings-head .yomu-gaming-shell-status {
-    flex: 1 1 auto;
+    flex: 0 1 auto;
     min-width: 0;
     overflow: hidden;
     text-align: right;
@@ -262,8 +145,8 @@ textarea {
     white-space: nowrap;
 }
 
-.yomu-gaming-settings-back.jpdb-reader-btn {
-    flex: 0 0 auto;
+.yomu-gaming-settings .jpdb-reader-settings-close {
+    display: none !important;
 }
 
 .yomu-gaming-settings .jpdb-reader-settings-drag-handle {
@@ -299,7 +182,7 @@ textarea {
     border-radius: 8px;
     background: var(--jpdb-reader-surface);
     color: var(--jpdb-reader-text);
-    font-weight: 800;
+    font-weight: 600;
 }
 
 .yomu-gaming-settings .jpdb-reader-settings-scroll {
@@ -362,7 +245,6 @@ textarea {
     user-select: none;
 }
 
-.overlay-shell[data-overlay-mode="selecting"],
 .overlay-shell[data-overlay-mode="busy"],
 .overlay-shell[data-overlay-mode="error"] {
     background: color-mix(in srgb, var(--jpdb-reader-black) 4%, transparent);
@@ -393,189 +275,36 @@ textarea {
     z-index: 7;
     display: inline-flex;
     align-items: center;
-    gap: 7px;
+    gap: 2px;
     min-height: 32px;
-    padding: 4px 5px 4px 12px;
+    padding: 4px;
     border: 1px solid color-mix(in srgb, var(--jpdb-reader-white) 18%, transparent);
-    border-radius: 999px;
+    border-radius: 8px;
     background: color-mix(in srgb, var(--jpdb-reader-black) 62%, transparent);
     color: var(--jpdb-reader-white);
-    box-shadow: 0 10px 26px color-mix(in srgb, var(--jpdb-reader-black) 44%, transparent);
     cursor: default;
-    font: 850 12px/1 var(--jpdb-reader-font);
+    font: 500 12px/1 var(--jpdb-reader-font);
     backdrop-filter: blur(8px);
-}
-
-.overlay-toolbar strong {
-    color: var(--jpdb-reader-accent);
-    font-weight: 900;
 }
 
 .overlay-toolbar button {
-    min-height: 26px;
+    min-height: 28px;
     padding: 0 10px;
-    border: 1px solid color-mix(in srgb, var(--jpdb-reader-white) 22%, transparent);
-    border-radius: 999px;
-    background: color-mix(in srgb, var(--jpdb-reader-black) 48%, transparent);
+    border: 0;
+    border-radius: 6px;
+    background: transparent;
     color: var(--jpdb-reader-white);
     cursor: pointer;
-    font: 850 11px/1 var(--jpdb-reader-font);
+    font: 500 12px/1 var(--jpdb-reader-font);
 }
 
 .overlay-toolbar button:hover {
-    background: color-mix(in srgb, var(--jpdb-reader-accent) 36%, var(--jpdb-reader-black) 48%);
-}
-
-.overlay-hint {
-    position: fixed;
-    left: 50%;
-    top: 50%;
-    z-index: 4;
-    transform: translate(-50%, -50%);
-    padding: 11px 18px;
-    border: 1px solid color-mix(in srgb, var(--jpdb-reader-white) 18%, transparent);
-    border-radius: 999px;
-    background: color-mix(in srgb, var(--jpdb-reader-black) 58%, transparent);
-    color: var(--jpdb-reader-white);
-    font: 800 14px/1.2 var(--jpdb-reader-font);
-    text-align: center;
-    box-shadow: 0 12px 30px color-mix(in srgb, var(--jpdb-reader-black) 46%, transparent);
-    backdrop-filter: blur(8px);
+    background: color-mix(in srgb, var(--jpdb-reader-white) 14%, transparent);
 }
 
 .overlay-action-primary {
     border-color: color-mix(in srgb, var(--jpdb-reader-accent) 60%, transparent) !important;
     background: color-mix(in srgb, var(--jpdb-reader-accent) 32%, transparent) !important;
-}
-
-/* Inline definition popover — read the word in place without leaving the game. */
-.overlay-lookup {
-    position: fixed;
-    z-index: 8;
-    display: grid;
-    gap: 8px;
-    padding: 12px 14px;
-    border: 1px solid color-mix(in srgb, var(--jpdb-reader-accent) 34%, transparent);
-    border-radius: 14px;
-    background: color-mix(in srgb, #0f1620 95%, transparent);
-    color: var(--jpdb-reader-white);
-    box-shadow: 0 20px 46px color-mix(in srgb, var(--jpdb-reader-black) 56%, transparent);
-    cursor: default;
-    pointer-events: auto;
-    backdrop-filter: blur(10px);
-}
-
-.overlay-lookup-head {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 10px;
-}
-
-.overlay-lookup-line {
-    overflow: hidden;
-    font-size: 17px;
-    font-weight: 850;
-    line-height: 1.25;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-.overlay-lookup-chips {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 5px;
-}
-
-.overlay-lookup-chips button {
-    min-height: 26px;
-    padding: 0 10px;
-    border: 1px solid color-mix(in srgb, var(--jpdb-reader-white) 18%, transparent);
-    border-radius: 999px;
-    background: color-mix(in srgb, var(--jpdb-reader-black) 42%, transparent);
-    color: var(--jpdb-reader-white);
-    cursor: pointer;
-    font-size: 14px;
-    font-weight: 800;
-}
-
-.overlay-lookup-chips button.is-selected {
-    border-color: color-mix(in srgb, var(--jpdb-reader-accent) 70%, transparent);
-    background: color-mix(in srgb, var(--jpdb-reader-accent) 34%, transparent);
-}
-
-.overlay-lookup-head button {
-    min-width: 28px;
-    min-height: 28px;
-    border: 1px solid color-mix(in srgb, var(--jpdb-reader-white) 22%, transparent);
-    border-radius: 999px;
-    background: color-mix(in srgb, var(--jpdb-reader-black) 40%, transparent);
-    color: var(--jpdb-reader-white);
-    cursor: pointer;
-    font-size: 16px;
-    line-height: 1;
-}
-
-.overlay-lookup-word {
-    display: flex;
-    align-items: baseline;
-    flex-wrap: wrap;
-    gap: 8px;
-    font-size: 18px;
-    font-weight: 800;
-}
-
-.overlay-lookup-reading {
-    color: var(--jpdb-reader-accent);
-    font-size: 15px;
-    font-weight: 750;
-}
-
-.overlay-lookup-tag {
-    padding: 1px 8px;
-    border-radius: 999px;
-    background: color-mix(in srgb, var(--jpdb-reader-accent) 32%, transparent);
-    font-size: 11px;
-    font-weight: 800;
-    text-transform: uppercase;
-}
-
-.overlay-lookup-pos {
-    color: color-mix(in srgb, var(--jpdb-reader-white) 70%, transparent);
-    font-size: 12px;
-    font-weight: 700;
-}
-
-.overlay-lookup-glosses {
-    margin: 0;
-    padding-left: 20px;
-    display: grid;
-    gap: 3px;
-    font-size: 14px;
-    line-height: 1.35;
-}
-
-.overlay-lookup-empty,
-.overlay-lookup-loading {
-    color: color-mix(in srgb, var(--jpdb-reader-white) 76%, transparent);
-    font-size: 13px;
-}
-
-.overlay-lookup-foot {
-    display: flex;
-    justify-content: flex-end;
-}
-
-.overlay-lookup-foot button {
-    min-height: 28px;
-    padding: 0 12px;
-    border: 1px solid color-mix(in srgb, var(--jpdb-reader-accent) 50%, transparent);
-    border-radius: 999px;
-    background: color-mix(in srgb, var(--jpdb-reader-accent) 24%, transparent);
-    color: var(--jpdb-reader-white);
-    cursor: pointer;
-    font-size: 12px;
-    font-weight: 800;
 }
 
 .overlay-status {
@@ -595,13 +324,14 @@ textarea {
     color: var(--jpdb-reader-white);
     box-shadow: 0 12px 28px color-mix(in srgb, var(--jpdb-reader-black) 42%, transparent);
     cursor: default;
-    font: 800 13px/1 var(--jpdb-reader-font);
+    font: 500 13px/1 var(--jpdb-reader-font);
     backdrop-filter: blur(8px);
 }
 
 .overlay-status strong {
-    color: var(--jpdb-reader-accent);
-    font-weight: 900;
+    /* The status pill is always ink, whatever the app theme. */
+    color: var(--jpdb-reader-theme-dark-accent-readable);
+    font-weight: 600;
 }
 
 .overlay-status span {
@@ -610,28 +340,15 @@ textarea {
     white-space: nowrap;
 }
 
-.overlay-actions button,
-.overlay-term-pills button,
-.overlay-primary-term {
+.overlay-actions button {
     min-height: 32px;
+    padding: 0 11px;
     border: 1px solid color-mix(in srgb, var(--jpdb-reader-white) 18%, transparent);
-    border-radius: 999px;
+    border-radius: 8px;
     background: color-mix(in srgb, var(--jpdb-reader-black) 42%, transparent);
     color: var(--jpdb-reader-white);
     cursor: pointer;
-    font-weight: 850;
-}
-
-.overlay-selection {
-    position: fixed;
-    z-index: 2;
-    border: 2px solid var(--jpdb-reader-accent);
-    border-radius: 7px;
-    background: color-mix(in srgb, var(--jpdb-reader-accent) 18%, transparent);
-    box-shadow:
-        0 0 0 9999px color-mix(in srgb, var(--jpdb-reader-black) 18%, transparent),
-        0 10px 28px color-mix(in srgb, var(--jpdb-reader-black) 36%, transparent);
-    pointer-events: none;
+    font-weight: 600;
 }
 
 .overlay-result {
@@ -674,58 +391,10 @@ textarea {
     line-height: 1.45;
 }
 
-.overlay-caption {
-    max-width: min(680px, calc(100vw - 48px));
-    overflow: hidden;
-    padding: 8px 12px;
-    border: 1px solid color-mix(in srgb, var(--jpdb-reader-accent) 34%, transparent);
-    border-radius: 999px;
-    background: color-mix(in srgb, var(--jpdb-reader-accent) 26%, var(--jpdb-reader-black) 52%);
-    color: var(--jpdb-reader-white);
-    font-size: 20px;
-    font-weight: 850;
-    line-height: 1.22;
-    text-overflow: ellipsis;
-    text-shadow: 0 1px 2px color-mix(in srgb, var(--jpdb-reader-black) 72%, transparent);
-    white-space: nowrap;
-}
-
-.overlay-primary-term {
-    width: auto;
-    padding: 8px 11px;
-    border-color: color-mix(in srgb, var(--jpdb-reader-accent) 60%, transparent);
-    background: color-mix(in srgb, var(--jpdb-reader-accent) 28%, transparent);
-    color: var(--jpdb-reader-white);
-    font-size: 22px;
-    line-height: 1.15;
-    text-align: left;
-}
-
-.overlay-actions,
-.overlay-term-pills {
+.overlay-actions {
     display: flex;
     flex-wrap: wrap;
     gap: 7px;
-}
-
-.overlay-actions button,
-.overlay-term-pills button {
-    padding: 0 11px;
-}
-
-.overlay-term-pills button {
-    max-width: 118px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-.overlay-term-pills-primary {
-    align-items: center;
-}
-
-.overlay-result-compact .overlay-term-pills button {
-    background: color-mix(in srgb, var(--jpdb-reader-black) 50%, transparent);
 }
 
 /* The recognized lines ARE the reader's OCR overlay: .jpdb-ocr-layer wrapping
@@ -773,19 +442,6 @@ textarea {
         padding: 0;
     }
 
-    .yomu-gaming-home {
-        padding: 24px 18px;
-    }
-
-    .yomu-gaming-home-secondary {
-        width: 100%;
-    }
-
-    .yomu-gaming-home-secondary .jpdb-reader-btn {
-        flex: 1 1 140px;
-        justify-content: center;
-    }
-
     .yomu-gaming-settings.jpdb-reader-settings {
         width: 100vw;
         min-height: 0;
@@ -793,11 +449,6 @@ textarea {
         margin: 0;
         border-width: 0;
         border-radius: 0;
-    }
-
-    .yomu-gaming-settings .jpdb-reader-settings-head {
-        flex-wrap: wrap;
-        gap: 6px 10px;
     }
 
     .yomu-gaming-settings .jpdb-reader-settings-head .yomu-gaming-shell-status {
@@ -809,3 +460,33 @@ textarea {
         max-width: min(100%, calc(100vw - 24px));
     }
 }
+
+/* Lookup is a transparent layer over the live app. */
+.overlay-shell[data-capture-mode="instant"] .overlay-backdrop { opacity: 0; }
+.overlay-shell[data-capture-mode="instant"] { cursor: default; background: transparent; }
+.overlay-shell[data-capture-mode="instant"] .jpdb-ocr-line {
+    background: transparent !important; border-color: transparent !important; box-shadow: none !important;
+}
+/* This is a hit-test surface, never a replacement typesetting surface. Keep opacity
+   for scanner eligibility, but suppress every base glyph, ruby and pseudo glyph. */
+body.yomu-gaming-overlay-document .overlay-inline-layer,
+body.yomu-gaming-overlay-document .overlay-inline-layer * {
+    color: transparent !important;
+    -webkit-text-fill-color: transparent !important;
+    text-shadow: none !important;
+    text-decoration: none !important;
+    background: transparent !important;
+    border-color: transparent !important;
+    box-shadow: none !important;
+    outline-color: transparent !important;
+}
+body.yomu-gaming-overlay-document .overlay-inline-layer *::before,
+body.yomu-gaming-overlay-document .overlay-inline-layer *::after {
+    content: none !important;
+    background: transparent !important;
+    border-color: transparent !important;
+    box-shadow: none !important;
+}
+.overlay-shell[data-capture-mode="instant"] .overlay-toolbar { opacity: 0; transition: opacity 100ms; }
+.overlay-shell[data-capture-mode="instant"] .overlay-toolbar:hover,
+.overlay-shell[data-capture-mode="instant"] .overlay-toolbar:focus-within { opacity: 1; }

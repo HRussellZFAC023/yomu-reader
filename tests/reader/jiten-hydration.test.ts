@@ -28,7 +28,7 @@ function jitenInfo(): JitenVocabularyInfo {
         wordId: 1579110,
         mainReading: { text: '今日', readingIndex: 0, frequencyRank: 95, usedInMediaAmount: 1 },
         alternativeReadings: [], partsOfSpeech: ['n'], definitions: [{ index: 0, meanings: ['today'], partsOfSpeech: [], field: [], dial: [], misc: [], restrictedToReadingIndices: [] }],
-        pitchAccents: [], knownStates: [], composedOf: [], usedIn: [], usedInTotal: 0, examples: [],
+        pitchAccents: [], knownStates: [], composedOf: [], usedIn: [], examples: [],
     } as unknown as JitenVocabularyInfo;
 }
 

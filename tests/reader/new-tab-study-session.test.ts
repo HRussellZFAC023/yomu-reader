@@ -1,7 +1,6 @@
-import { afterEach, describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vitest';
 
 import type { JPDBCard } from '../../src/reader/app/types';
-import { resetActiveLearningTargetLanguage, setActiveLearningTargetLanguage } from '../../src/reader/languages/active';
 import { createNewTabStudySession } from '../../src/reader/newtab/study-session';
 
 function sessionCard(overrides: Partial<JPDBCard> = {}): JPDBCard {
@@ -25,8 +24,6 @@ function sessionCard(overrides: Partial<JPDBCard> = {}): JPDBCard {
 }
 
 describe('new-tab review and practice model', () => {
-    afterEach(() => { resetActiveLearningTargetLanguage(); });
-
     const options = { revealAnswer: false, renderAsKanji: false, hasRecallCloze: true, pitchAvailable: true };
 
     it('keeps the normal review to its prompt and answer', () => {
@@ -79,15 +76,6 @@ describe('new-tab review and practice model', () => {
             'kanji-doodle', 'type-word', 'recall-cloze', 'listen-pitch', 'speaking',
         ]);
         expect(session.steps.map(step => step.kind)).toEqual(['word', 'final-reveal']);
-    });
-
-    it('does not offer Japanese character practice for a different target', () => {
-        setActiveLearningTargetLanguage('zh');
-        const session = createNewTabStudySession(sessionCard({ language: 'zh', spelling: '学习' }), {
-            ...options, renderAsKanji: true, pitchAvailable: false,
-        });
-        expect(session.practiceSteps.some(step => step.kind === 'kanji-doodle')).toBe(false);
-        expect(session.activeStep.kind).toBe('word');
     });
 
     it('does not activate an unavailable exercise from a stale selection', () => {

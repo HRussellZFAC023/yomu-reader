@@ -1,9 +1,10 @@
 import type { ReaderSettings } from '../app/types';
-import { activeLanguageProfile, normalizeLanguageProfiles } from '../languages/profiles';
 import {
-    isPersistedLanguageProfile,
-    languageProfileHasIndependentState,
-} from './learning-target-choice';
+    activeLanguageProfile,
+    DEFAULT_LANGUAGE_PROFILE_ID,
+    normalizeLanguageProfiles,
+} from '../languages/profiles';
+import { isSupportedLanguageProfileSchemaVersion } from '../languages/types';
 import { languageProfileDictionariesFromPreferences } from './language-profile-dictionaries';
 
 interface LanguageProfileSettingsDefaults {
@@ -194,4 +195,33 @@ function normalizedInterfaceLanguage(
 
 function isInterfaceLanguage(value: unknown): value is ReaderSettings['interfaceLanguage'] {
     return value === 'auto' || value === 'en' || value === 'ja';
+}
+
+function isPersistedLanguageProfile(profile: unknown): boolean {
+    return Boolean(
+        profile
+        && typeof profile === 'object'
+        && 'schemaVersion' in profile
+        && isSupportedLanguageProfileSchemaVersion(profile.schemaVersion),
+    );
+}
+
+// Independence means "differs from the profile Yomu would create". A custom
+// parser, a definition language or an installed dictionary is durable
+// evidence; the untouched compatibility profile is not. A stored target is
+// compared as stored, so a profile an earlier Yomu kept for another language
+// keeps its own settings.
+function languageProfileHasIndependentState(
+    profile: ReaderSettings['languageProfiles'][number],
+    defaults: LanguageProfileSettingsDefaults,
+): boolean {
+    return [
+        profile.id !== DEFAULT_LANGUAGE_PROFILE_ID,
+        profile.outputLanguage !== 'en',
+        profile.targetLanguage !== 'ja',
+        profile.uiLocale !== defaults.interfaceLanguage,
+        profile.parserProvider !== defaults.parserProvider,
+        profile.dictionaries.installed.length > 0,
+        profile.definitionTranslationProviderIds.length > 0,
+    ].includes(true);
 }

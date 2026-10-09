@@ -17,6 +17,24 @@ describe('appearance progressive disclosure', () => {
         expect(saved.popupFontWeight).toBe(650);
     });
 
+    // Fonts and colour are expert tuning; language, theme, popup behaviour and
+    // a plain preview lead the panel.
+    it('leads with everyday choices and a plain preview, with fonts and colour tucked away', () => {
+        const form = renderSettingsTestForm(DEFAULT_SETTINGS);
+        const panel = form.querySelector<HTMLElement>('[data-settings-panel="appearance"]')!;
+        const details = panel.querySelector<HTMLDetailsElement>('[data-settings-tuning="appearance"]')!;
+        for (const name of ['readerFontFamily', 'popupFontFamily', 'accentColor']) {
+            expect(details.querySelector(`[name="${name}"]`), name).not.toBeNull();
+        }
+        for (const name of ['theme', 'popupMode', 'hoverPopupMode']) {
+            expect(panel.querySelector(`[name="${name}"]`)?.closest('details'), name).toBeNull();
+        }
+        expect(panel.querySelector('[name="popoverBackdropEnabled"]')).toBeNull();
+        const preview = panel.querySelector('[data-yomu-appearance-preview]')!;
+        expect(preview.closest('details')).toBeNull();
+        expect(preview.compareDocumentPosition(details) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    });
+
     it('opens matching search results and restores the learner’s original disclosure state', () => {
         const form = renderSettingsTestForm(DEFAULT_SETTINGS);
         const details = form.querySelector<HTMLDetailsElement>('[data-settings-tuning]')!;
@@ -45,6 +63,24 @@ describe('appearance progressive disclosure', () => {
         reportInvalidSettingsForm(form, 'en', toast);
         expect(details.open).toBe(true);
         expect(document.activeElement).toBe(input);
-        expect(toast).toHaveBeenCalledOnce();
+        // The footer status beside Save carries the message; a toast would
+        // repeat it and, on a phone, cover the field being fixed.
+        const status = form.querySelector<HTMLElement>('[data-settings-save-status]')!;
+        expect(status.hidden).toBe(false);
+        expect(status.textContent).toBe(input.validationMessage);
+        expect(status.dataset.statusTone).toBe('error');
+        expect(toast).not.toHaveBeenCalled();
+    });
+
+    it('falls back to a toast when the form has no visible status line', () => {
+        const form = renderSettingsTestForm(DEFAULT_SETTINGS);
+        document.body.append(form);
+        form.querySelector('[data-settings-save-status]')?.remove();
+        const input = form.querySelector<HTMLInputElement>('[name="popoverWidth"]')!;
+        input.value = '5';
+        const toast = vi.fn();
+        reportInvalidSettingsForm(form, 'en', toast);
+        expect(document.activeElement).toBe(input);
+        expect(toast).toHaveBeenCalledWith(input.validationMessage);
     });
 });

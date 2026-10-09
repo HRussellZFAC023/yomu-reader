@@ -207,7 +207,7 @@ export async function renderGrammarHints(hints: GrammarHint[], sentence: string,
     const audioEnabled = options.audioEnabled ?? true;
     return `
         ${renderGrammarSentence(sentence, language, audioEnabled)}
-        ${renderGrammarToolbar(visibleGroups.length, knownCount, preferences.showKnown, language)}
+        ${renderGrammarToolbar(knownCount, preferences.showKnown, language)}
         ${await renderGrammarHintList(visibleGroups, knownRuleIds, language, audioEnabled)}`;
 }
 
@@ -232,12 +232,6 @@ function groupGrammarHintsByRule(hints: GrammarHint[]): GroupedGrammarHint[] {
     return Array.from(groups.values());
 }
 
-function grammarSummary(visibleCount: number, hiddenKnownCount: number, language: InterfaceLanguage): string {
-    const shown = `${visibleCount} ${uiText(language, 'grammarShown')}`;
-    if (hiddenKnownCount) return `${shown} · ${hiddenKnownCount} ${uiText(language, 'grammarKnownHidden')}`;
-    return shown;
-}
-
 function renderGrammarSentence(sentence: string, language: InterfaceLanguage, audioEnabled: boolean): string {
     return renderStudySentenceBlock(sentence, language, {
         audioEnabled,
@@ -245,11 +239,12 @@ function renderGrammarSentence(sentence: string, language: InterfaceLanguage, au
     });
 }
 
-function renderGrammarToolbar(visibleCount: number, knownCount: number, showKnown: boolean, language: InterfaceLanguage): string {
+function renderGrammarToolbar(knownCount: number, showKnown: boolean, language: InterfaceLanguage): string {
+    if (!knownCount) return '';
     const hiddenKnownCount = showKnown ? 0 : knownCount;
     return `
         <div class="jpdb-reader-grammar-toolbar" data-grammar-toolbar>
-            <div class="jpdb-reader-grammar-summary">${escapeHtml(grammarSummary(visibleCount, hiddenKnownCount, language))}</div>
+            ${hiddenKnownCount ? `<div class="jpdb-reader-grammar-summary">${hiddenKnownCount} ${escapeHtml(uiText(language, 'grammarKnownHidden'))}</div>` : ''}
             ${renderGrammarKnownVisibilityButton(knownCount, showKnown, language)}
         </div>`;
 }

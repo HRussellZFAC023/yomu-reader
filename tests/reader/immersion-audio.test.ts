@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { NewTabImmersionAudioPlayer, type NewTabImmersionAudioPlayerDeps } from '../../src/reader/newtab/immersion-audio';
 import type { ImmersionKitClient } from '../../src/reader/immersion/kit';
+import { DEFAULT_SETTINGS } from '../../src/reader/settings';
 import type { ReaderSettings } from '../../src/reader/app/types';
 
 class FakeAudio {
@@ -20,7 +21,7 @@ class FakeAudio {
 function makePlayer(over: Partial<NewTabImmersionAudioPlayerDeps> = {}) {
     const fetchBlobUrl = vi.fn(async (): Promise<string> => '');
     const player = new NewTabImmersionAudioPlayer({
-        getSettings: () => ({ immersionKitPlaybackRate: 1.5, audioTimeoutMs: 1000, corsProxyUrl: '', interfaceLanguage: 'en' }) as ReaderSettings,
+        getSettings: () => ({ ...DEFAULT_SETTINGS, immersionKitPlaybackRate: 1.5, corsProxyUrl: '', interfaceLanguage: 'en' }) as ReaderSettings,
         immersionKit: { fetchBlobUrl } as unknown as ImmersionKitClient,
         ...over,
     });

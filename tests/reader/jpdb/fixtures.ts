@@ -1,3 +1,4 @@
+import { JAPANESE_LEARNING_TARGET } from '../../../src/reader/languages/japanese';
 import { readFileSync } from 'node:fs';
 import { afterEach, beforeEach, expect, vi } from 'vitest';
 import 'fake-indexeddb/auto';
@@ -75,11 +76,7 @@ import { testEnSettings } from '../helpers/settings-fixture';
 export const DEFAULT_SETTINGS = testEnSettings();
 
 export function japaneseLearningTargetMatcher() {
-    return expect.objectContaining({
-        language: 'ja',
-        interfaceVersion: 10,
-        lookupSweepMode: 'global-ranked',
-    });
+    return JAPANESE_LEARNING_TARGET;
 }
 
 export function currentJapaneseLookupScopeMatcher() {
@@ -107,7 +104,7 @@ import { renderSubtitlePrimary } from '../../../src/reader/subtitles/subtitle-re
 import { renderControllerPrimarySubtitle } from '../../../src/reader/subtitles/subtitle-primary-render';
 import { planTranscriptHydrationIndexes } from '../../../src/reader/subtitles/subtitle-transcript-hydration';
 import { getUserscriptHttpRequest, installUserscriptHttpBridge, installUserscriptHttpBridgeWhenReady, uninstallUserscriptHttpBridge } from '../../../src/reader/userscript/index';
-import { renderWordPills } from '../../../src/reader/sources/word-pills';
+import { renderCopyWordControl, renderWordPills } from '../../../src/reader/sources/word-pills';
 import { YomitanDictionaryStore, glossaryToHtml, glossaryToText, renderDictionaryScopedStyles, type YomitanTermEntry } from '../../../src/reader/dictionaries/yomitan';
 import { glossaryValueToSearchText } from '../../../src/reader/dictionaries/yomitan/glossary-text';
 import type { AudioSourceSetting, JPDBCard, JPDBRawToken, JPDBToken, ReaderSettings } from '../../../src/reader/app/types';
@@ -1020,110 +1017,6 @@ export function testReaderAppWithPageScanner(html: string) {
     });
     document.body.innerHTML = html;
     return { app, scanVisiblePage };
-}
-
-export function settingsJapaneseParserFixture(options: {
-    spelling: string;
-    reading: string;
-    vid: number;
-    settings?: Partial<ReaderSettings>;
-}) {
-    const app = new ReaderApp();
-    const settings = {
-        ...DEFAULT_SETTINGS,
-        interfaceLanguage: 'ja' as const,
-        showFurigana: true,
-        furiganaMode: 'all' as const,
-        ...options.settings,
-    };
-    const form = document.createElement('form');
-    form.className = 'jpdb-reader-settings';
-    form.dataset.jpdbReaderRoot = 'true';
-    form.innerHTML = renderSettingsForm(settings, 'https://jpdb.io/settings');
-    localizeSettingsForm(form, 'ja');
-    document.body.append(form);
-    const parseJapanese = vi.fn(async (texts: string[], parseOptions?: unknown): Promise<JPDBToken[][]> => {
-        void parseOptions;
-        return texts.map(text => settingsJapaneseTokenForText(text, options));
-    });
-    const internals = app as unknown as {
-        settings: typeof settings;
-        activePopover?: HTMLElement;
-        parseJapanese: typeof parseJapanese;
-        parseSettingsJapanese(form: HTMLFormElement): Promise<void>;
-        enrichPitchWords(tokens: JPDBToken[], options?: unknown): Promise<void>;
-        enrichAnkiWords(tokens: JPDBToken[], roots?: ParentNode[]): Promise<void>;
-    };
-    internals.settings = settings;
-    internals.activePopover = form;
-    internals.parseJapanese = parseJapanese;
-    internals.enrichPitchWords = vi.fn(async () => undefined);
-    internals.enrichAnkiWords = vi.fn(async () => undefined);
-    return { app, form, parseJapanese, internals };
-}
-
-export function newTabSettingsJapaneseParserFixture(options: {
-    spelling: string;
-    reading: string;
-    vid: number;
-    settings?: Partial<ReaderSettings>;
-}) {
-    const runtime = new NewTabRuntime();
-    const settings = {
-        ...DEFAULT_SETTINGS,
-        interfaceLanguage: 'ja' as const,
-        showFurigana: true,
-        showPitchAccent: true,
-        furiganaMode: 'all' as const,
-        ...options.settings,
-    };
-    const form = document.createElement('form');
-    form.className = 'jpdb-reader-settings';
-    form.dataset.jpdbReaderRoot = 'true';
-    form.innerHTML = renderSettingsForm(settings, 'https://jpdb.io/settings');
-    localizeSettingsForm(form, 'ja');
-    document.body.append(form);
-    const parse = vi.fn(async (texts: string[], parseOptions?: unknown): Promise<JPDBToken[][]> => {
-        void parseOptions;
-        return texts.map(text => settingsJapaneseTokenForText(text, options));
-    });
-    const internals = runtime as unknown as {
-        settings: typeof settings;
-        activeDialog?: HTMLElement;
-        parser: { canParse(): boolean; parse: typeof parse };
-        parseSettingsJapanese(form: HTMLFormElement): Promise<void>;
-        hydrateSettingsFallbackTokens(parsed: JPDBToken[][]): Promise<void>;
-        enrichPitchWords(tokens: JPDBToken[], limit?: number): Promise<void>;
-    };
-    internals.settings = settings;
-    internals.activeDialog = form;
-    internals.parser = { canParse: () => true, parse };
-    internals.hydrateSettingsFallbackTokens = vi.fn(async () => undefined);
-    internals.enrichPitchWords = vi.fn(async () => undefined);
-    return { form, parse, internals };
-}
-
-function settingsJapaneseTokenForText(
-    text: string,
-    options: { spelling: string; reading: string; vid: number },
-): JPDBToken[] {
-    const start = text.indexOf(options.spelling);
-    if (start < 0) return [];
-    return [{
-        card: {
-            ...card,
-            vid: options.vid,
-            sid: 0,
-            spelling: options.spelling,
-            reading: options.reading,
-            partOfSpeech: ['n'],
-        },
-        start,
-        end: start + options.spelling.length,
-        length: options.spelling.length,
-        rubies: [{ text: options.reading, start, end: start + options.spelling.length, length: options.spelling.length }],
-        pitchClass: 'heiban',
-    }];
 }
 
 export function stubLocalHostedReaderLocation(path = '/yomu-reader/'): void {
@@ -2734,7 +2627,6 @@ export function sourceSummaryClickFixture(detailsHtml: string, installCount = 1)
     const popover = document.createElement('div');
     popover.innerHTML = detailsHtml;
     const controller = new DictionarySourceStateController({
-        getSettings: () => DEFAULT_SETTINGS,
         onStateChange: vi.fn(),
     });
     for (let index = 0; index < installCount; index += 1) {
@@ -2998,7 +2890,7 @@ export function setupJpdbWordVoicePlayback(options: {
     const player = new AudioPlayer(() => ({
         ...DEFAULT_SETTINGS,
         audioEnableDefaultSources: false,
-        audioSelectionMode: 'first',
+
         audioFallbackChimeEnabled: false,
         audioSources: [{ type: 'jpdb-tts', url: '', voice: '', enabled: true }],
     }));
@@ -3082,7 +2974,7 @@ export function testJpdbSentenceAudioPlayer(): AudioPlayer {
     return new AudioPlayer(() => ({
         ...DEFAULT_SETTINGS,
         audioEnableDefaultSources: false,
-        audioSelectionMode: 'first',
+
         audioFallbackChimeEnabled: false,
     }));
 }
@@ -3383,6 +3275,7 @@ export {
     renderedWordPrivateStateForCard,
     renderedWordPrivateValue,
     renderWordPills,
+    renderCopyWordControl,
     resolveAnkiWordAudio,
     resolveNewTabBrandAssets,
     restoreWindowDescriptor,

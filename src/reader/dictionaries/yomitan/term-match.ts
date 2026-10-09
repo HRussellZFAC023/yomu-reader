@@ -60,11 +60,6 @@ export function targetTermMatchLookupCandidates(
     return result;
 }
 
-/** Whether production asks the reading index in addition to expression. */
-export function targetTermMatchQueriesReadingIndex(target: LearningTargetModule): boolean {
-    return target.lookupSweepMode !== 'left-to-right-longest-exact';
-}
-
 interface RankedDictionaryEntry {
     dictionary: string;
 }
@@ -155,7 +150,7 @@ export function exactTermCandidateMatches<
     for (const match of matches) {
         const requestIndex = exactRequestIndex(match, requests);
         if (requestIndex === undefined) continue;
-        retainExactTermCandidateEntry(requestIndex, match.entry, entryByRequestIndex, rank);
+        retainExactTermCandidateEntry(requestIndex, match.entry, entryByRequestIndex, rank, requests[requestIndex].lookupCandidate.term);
     }
     return requests.flatMap((request, requestIndex) => {
         const entry = entryByRequestIndex.get(requestIndex);
@@ -168,9 +163,10 @@ function retainExactTermCandidateEntry(
     entry: YomitanTermEntry,
     entryByRequestIndex: Map<number, YomitanTermEntry>,
     rank: Map<string, DictionaryPreference>,
+    expression: string,
 ): void {
     const current = entryByRequestIndex.get(requestIndex);
-    if (current && compareTermMatchEntries(entry, current, rank) >= 0) return;
+    if (current && compareTermMatchEntries(entry, current, rank, expression) >= 0) return;
     entryByRequestIndex.set(requestIndex, entry);
 }
 
@@ -234,7 +230,7 @@ function createTermMatchEntryCollector(
     return {
         add(entry) {
             if (!dictionaryEnabled(entry.dictionary, rank)) return;
-            collectCompatibleTermEntry(entry, candidateRules, bestEntryByRules, rank, matchesRules);
+            collectCompatibleTermEntry(entry, candidateRules, bestEntryByRules, rank, matchesRules, expression);
         },
         matches() {
             return positions.flatMap(position => {
@@ -251,10 +247,11 @@ function collectCompatibleTermEntry(
     bestEntryByRules: Map<string, YomitanTermEntry>,
     rank: Map<string, DictionaryPreference>,
     matchesRules: LookupCandidateRuleMatcher,
+    expression: string,
 ): void {
     for (const [rulesKey, rules] of candidateRules) {
         if (!matchesRules(entry.rules, rules)) continue;
-        retainBetterTermEntry(rulesKey, entry, bestEntryByRules, rank);
+        retainBetterTermEntry(rulesKey, entry, bestEntryByRules, rank, expression);
     }
 }
 
@@ -263,21 +260,11 @@ function retainBetterTermEntry(
     entry: YomitanTermEntry,
     bestEntryByRules: Map<string, YomitanTermEntry>,
     rank: Map<string, DictionaryPreference>,
+    expression: string,
 ): void {
     const current = bestEntryByRules.get(rulesKey);
-    if (current && compareTermMatchEntries(entry, current, rank) >= 0) return;
+    if (current && compareTermMatchEntries(entry, current, rank, expression) >= 0) return;
     bestEntryByRules.set(rulesKey, entry);
-}
-
-export function termMatchesForEntries(
-    expression: string,
-    foundEntries: YomitanTermEntry[],
-    candidates: TermMatchCandidates,
-    rank: Map<string, DictionaryPreference>,
-): YomitanTermMatch[] {
-    const collector = createTermMatchEntryCollector(expression, candidates, rank);
-    for (const entry of foundEntries) collector.add(entry);
-    return collector.matches();
 }
 
 function distinctCandidateRules(
@@ -300,8 +287,12 @@ function compareTermMatchEntries(
     a: YomitanTermEntry,
     b: YomitanTermEntry,
     rank: Map<string, DictionaryPreference>,
+    expression: string,
 ): number {
     return dictionaryPriority(a.dictionary, rank) - dictionaryPriority(b.dictionary, rank)
+        // Reading-index homophones must not displace an exact written form.
+        // Scores still decide between equally exact analyses in this dictionary.
+        || Number(b.expression === expression) - Number(a.expression === expression)
         || (b.score ?? 0) - (a.score ?? 0);
 }
 
@@ -396,7 +387,7 @@ export async function collectTermMatchCandidates(
             (entryRules, candidateRules) => target.matchesLookupCandidateRules(entryRules, candidateRules),
         ),
     ]));
-    await source.visitTermsByKeys(expressions, targetTermMatchQueriesReadingIndex(target), (expression, entry) => {
+    await source.visitTermsByKeys(expressions, true, (expression, entry) => {
         collectors.get(expression)?.add(entry);
     });
     return expressions.flatMap(expression => collectors.get(expression)?.matches() ?? []);

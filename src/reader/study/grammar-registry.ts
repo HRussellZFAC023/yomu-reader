@@ -47,15 +47,20 @@ function parseGrammarRule(row: string): YomuGrammarRule {
     });
 }
 
-function createGrammarRegistry(): readonly YomuGrammarRule[] {
-    const rules = GRAMMAR_PATTERN_DATA.trim().split('\n').map(parseGrammarRule);
+/**
+ * Parses the tab-separated rule table. Leading spaces are not part of a row:
+ * the extension compiler indents template-literal text along with the code,
+ * which otherwise prefixed every rule id after the first with four spaces.
+ */
+export function parseGrammarRegistry(data: string): readonly YomuGrammarRule[] {
+    const rules = data.trim().split('\n').map(row => parseGrammarRule(row.replace(/^ +/u, '')));
     const ids = new Set(rules.map(rule => rule.ruleId));
     if (ids.size !== rules.length) throw new TypeError('Yomu grammar registry contains duplicate rule ids.');
     return Object.freeze(rules);
 }
 
 /** Canonical metadata for every grammar rule detected by Yomu Reader. */
-export const YOMU_GRAMMAR_REGISTRY = createGrammarRegistry();
+export const YOMU_GRAMMAR_REGISTRY = parseGrammarRegistry(GRAMMAR_PATTERN_DATA);
 
 const GRAMMAR_RULES_BY_ID = new Map(YOMU_GRAMMAR_REGISTRY.map(rule => [rule.ruleId, rule]));
 

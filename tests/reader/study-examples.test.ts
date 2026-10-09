@@ -2,7 +2,6 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { StudyExamples, type StudyExamplesDependencies } from '../../src/reader/newtab/study-examples';
 import type { ImmersionKitClient, ImmersionKitExample } from '../../src/reader/immersion/kit';
 import { DEFAULT_SETTINGS, newTabTestCard } from './new-tab-review/fixtures';
-import { resetActiveLearningTargetLanguage, setActiveLearningTargetLanguage } from '../../src/reader/languages/target-runtime';
 
 const sessions: StudyExamples[] = [];
 function example(sentence: string, id = sentence): ImmersionKitExample {
@@ -12,7 +11,7 @@ function example(sentence: string, id = sentence): ImmersionKitExample {
 function deferred<T>() { let resolve!: (value: T) => void; const promise = new Promise<T>(done => { resolve = done; }); return { promise, resolve }; }
 function fixture(overrides: Partial<StudyExamplesDependencies> = {}) {
     const settings = { ...DEFAULT_SETTINGS, immersionKitEnabled: true, immersionKitShowImages: false,
-        immersionKitAutoPlayAudio: false, immersionKitMinLength: 0, jpdbDefinitionsEnabled: false };
+        immersionKitAutoPlayAudio: false, jpdbDefinitionsEnabled: false };
     const search = vi.fn(async (_query: string) => [example('私は中学生です。', 'one'), example('中学生になりました。', 'two')]);
     const kit = { searchResult: async (query: string) => ({ examples: await search(query), status: 'complete' as const }), mediaUrls: (value: ImmersionKitExample, kind: string) =>
         [kind === 'sound' ? value.soundUrl : value.imageUrl].filter(Boolean), fetchBlobUrl: vi.fn(async () => 'blob:media') } as unknown as ImmersionKitClient;
@@ -24,7 +23,7 @@ function fixture(overrides: Partial<StudyExamplesDependencies> = {}) {
     const card = newTabTestCard({ spelling: '中学生', reading: 'ちゅうがくせい' });
     return { module, settings, search, mount, card, deps };
 }
-afterEach(() => { sessions.splice(0).forEach(module => module.dispose()); document.body.replaceChildren(); vi.restoreAllMocks(); vi.unstubAllGlobals(); vi.useRealTimers(); resetActiveLearningTargetLanguage(); });
+afterEach(() => { sessions.splice(0).forEach(module => module.dispose()); document.body.replaceChildren(); vi.restoreAllMocks(); vi.unstubAllGlobals(); vi.useRealTimers(); });
 
 describe('StudyExamples Interface', () => {
     it('keeps sibling Search panels registered while their section is assembled off-document', async () => {
@@ -273,16 +272,10 @@ describe('StudyExamples Interface', () => {
         expect(f.mount.querySelector('.jpdb-reader-newtab-immersion')).toBeNull();
     });
 
-    it('filters single-character hits and invalidates delayed kanji target changes', async () => {
+    it('filters single-character hits', async () => {
         const f = fixture(); const card = newTabTestCard({ spelling: '多', reading: 'た' });
         f.search.mockResolvedValue([example('多く読みます。', 'good'), example('私は中学生です。', 'wrong')]);
         expect((await f.module.examples(card)).map(value => value.id)).toEqual(['good']);
-        f.module.reset(); const pending = deferred<ImmersionKitExample[]>(); f.search.mockReturnValue(pending.promise);
-        f.mount.innerHTML = '<details data-newtab-kanji-immersion-details open><div data-newtab-kanji-immersion-body>Loading</div></details>';
-        f.module.present({ mount: f.mount, card, mode: 'kanji', kanji: '多', revealed: true });
-        setActiveLearningTargetLanguage('ko'); setActiveLearningTargetLanguage('ja');
-        pending.resolve([example('多く読みます。')]); await f.module.examples(card);
-        expect(f.mount.querySelector('[data-newtab-kanji-immersion]')).toBeNull();
     });
 
     it('updates the visible example while images hydrate and ignores the previous image completion', async () => {
@@ -301,20 +294,12 @@ describe('StudyExamples Interface', () => {
     });
 
     it('times out a hung search without making its empty fallback permanent', async () => {
-        vi.useFakeTimers(); const f = fixture(); f.settings.audioTimeoutMs = 100;
+        vi.useFakeTimers(); const f = fixture();
         f.search.mockReturnValue(new Promise(() => undefined));
-        const first = f.module.examples(f.card); await vi.advanceTimersByTimeAsync(1_100);
+        const first = f.module.examples(f.card); await vi.advanceTimersByTimeAsync(7_000);
         expect(await first).toEqual([]);
         f.search.mockResolvedValue([example('私は中学生です。')]); await vi.advanceTimersByTimeAsync(1_001);
         expect((await f.module.examples(f.card)).length).toBe(1);
-    });
-
-    it('invalidates away-and-back target results even when the language matches again', async () => {
-        const pending = deferred<ImmersionKitExample[]>(); const f = fixture(); f.search.mockReturnValue(pending.promise);
-        f.module.present({ ...f, mode: 'word', revealed: true });
-        setActiveLearningTargetLanguage('ko'); setActiveLearningTargetLanguage('ja');
-        pending.resolve([example('私は中学生です。')]); await Promise.resolve(); await Promise.resolve();
-        expect(f.mount.querySelector('.jpdb-reader-newtab-immersion')).toBeNull();
     });
 
     it('keeps A→B→A audio requests tied to their original presentation generation', async () => {

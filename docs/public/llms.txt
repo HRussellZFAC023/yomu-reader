@@ -1,36 +1,29 @@
 # よむ (Yomu)
 
-> よむ is a free, open-source reader for 33 learning languages. It turns web text, images, PC game captures, PDFs, and video subtitles into tappable lookup surfaces with target-aware readings or pronunciation, meanings, audio, example sentences, and study actions. Japanese adds furigana, pitch accent, kanji detail, and deeper grammar.
+> よむ is a free, open-source pop-up dictionary for learning Japanese. Hover a word on a web page, a YouTube subtitle, a manga page, a PDF or your desktop screen to see its reading, meaning, pitch accent and audio, then save it with its sentence and review it.
 
 ## Primary Links
 
-- [Homepage](https://yomureader.com/): Product overview and install entry point.
-- [Install よむ](https://yomureader.com/getting-started): Setup guide for desktop userscript managers and mobile userscript apps.
-- [Features](https://yomureader.com/features): Full feature list covering popup lookup, OCR, subtitles, Anki, dictionaries, audio, examples, and study.
-- [API reference](https://yomureader.com/api/): Interactive OpenAPI 3.1 explorer and JSON/YAML contracts for Yomu services.
+- [Homepage](https://yomureader.com/): What よむ is, and the install button for your browser.
+- [Install](https://yomureader.com/install): Chrome, Edge, Brave, Vivaldi, Opera, Firefox (desktop and Android), Safari, iPhone and iPad.
+- [How to learn](https://yomureader.com/learn/): The daily method in one page.
+- [よむ Desktop](https://yomureader.com/desktop): Download for Windows, macOS and Linux to read Japanese anywhere on screen, including games.
+- [FAQ](https://yomureader.com/faq): Short answers to common questions.
+- [Privacy](https://yomureader.com/privacy/): What stays on your device and what each service receives.
+- [Credits](https://yomureader.com/credits): Dictionaries, data and their licences.
 - [Install userscript](https://yomureader.com/yomu.user.js): Current production userscript.
 - [Source code](https://github.com/HRussellZFAC023/yomu-reader): MIT-licensed project repository.
 
-## Tools
+## Apps
 
-- [Japanese OCR reader](https://yomureader.com/tools/japanese-ocr): Manga and image OCR workflow.
-- [Japanese subtitle reader](https://yomureader.com/tools/japanese-subtitle-reader): Video subtitle lookup and mining workflow.
-- [Yomu Gaming](https://yomureader.com/tools/yomu-gaming): First-party desktop app for PC game capture and lookup.
-- [Furigana reader](https://yomureader.com/tools/furigana-reader): Furigana and reading assistance.
-- [Kanji stroke order](https://yomureader.com/tools/kanji-stroke-order): Kanji drilldown and stroke diagrams.
-- [Study page](https://yomureader.com/tools/study-page): Standalone vocabulary Study surface.
-- [YouTube Japanese](https://yomureader.com/tools/youtube-japanese): Japanese-focused YouTube filtering and subtitle support.
-
-## Guides
-
-- [Read manga in Japanese](https://yomureader.com/guides/read-manga-in-japanese): Manga reading setup with OCR.
-- [Comprehensible input on YouTube](https://yomureader.com/guides/comprehensible-input-youtube): Japanese YouTube immersion setup.
-- [Mine sentences to Anki](https://yomureader.com/guides/mine-sentences-to-anki): Anki mining flow and card creation.
-- [Study setup](https://yomureader.com/guides/study-setup): Recommended learner setup.
+- [Study](https://yomureader.com/study/): Offline-first review app.
+- [Video player](https://yomureader.com/video-player/): Local video and subtitle files.
+- [PDF reader](https://yomureader.com/pdf-reader/): Local PDFs, scanned pages included.
+- [API reference](https://yomureader.com/api/): OpenAPI contracts for Yomu services.
 
 ## Crawling Notes
 
-- Public docs and tools are crawlable.
+- Public docs and apps are crawlable.
 - Internal engineering ADRs and strategy notes are not published as docs pages.
 - Canonical domain: https://yomureader.com/
 - Sitemap: https://yomureader.com/sitemap.xml

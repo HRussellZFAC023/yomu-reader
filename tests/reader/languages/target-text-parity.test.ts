@@ -1,6 +1,5 @@
-import { afterEach, describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vitest';
 
-import { resetActiveLearningTargetLanguage } from '../../../src/reader/languages/active';
 import { fallbackLookupTermsForText } from '../../../src/reader/lookup/japanese-segments';
 import { targetLookupTermsForText } from '../../../src/reader/lookup/target-text';
 
@@ -38,11 +37,7 @@ const JAPANESE_CONJUGATION_CORPUS = [
     'もう一度、冒険を始めよう。',
 ] as const;
 
-afterEach(() => {
-    resetActiveLearningTargetLanguage();
-});
-
-describe('targetLookupTermsForText on the default Japanese target', () => {
+describe('targetLookupTermsForText on the Japanese target', () => {
     it.each(JAPANESE_CONJUGATION_CORPUS)('matches the Japanese fallback path for %s', surface => {
         expect(targetLookupTermsForText(surface)).toEqual(fallbackLookupTermsForText(surface));
     });

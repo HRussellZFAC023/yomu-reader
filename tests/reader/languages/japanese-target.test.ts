@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { JAPANESE_LEARNING_TARGET } from '../../../src/reader/languages/japanese';
-import { learningTargetModuleFor, supportedLearningTargetLanguages } from '../../../src/reader/languages/registry';
+import { activeLearningTarget } from '../../../src/reader/languages/active';
 import {
     LEARNING_TARGET_CAPABILITY_IDS,
     LEARNING_TARGET_MODULE_INTERFACE_VERSION,
@@ -44,9 +44,7 @@ describe('Japanese learning-target Adapter', () => {
         expect(JAPANESE_LEARNING_TARGET.normalizeReading('猫', 'cat')).toBe('猫');
     });
 
-    it('resolves canonical Japanese locale variants through the registry', () => {
-        expect(learningTargetModuleFor('ja-JP')).toBe(JAPANESE_LEARNING_TARGET);
-        expect(learningTargetModuleFor('und')).toBeNull();
-        expect(supportedLearningTargetLanguages()).toContain('ja');
+    it('is the one active learning target', () => {
+        expect(activeLearningTarget()).toBe(JAPANESE_LEARNING_TARGET);
     });
 });

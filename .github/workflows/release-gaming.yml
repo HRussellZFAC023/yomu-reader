@@ -100,6 +100,19 @@ jobs:
           path: release-assets
           merge-multiple: true
 
+      # yomureader.com links releases/latest/download/<stable name>, so the
+      # download buttons follow every release without a docs edit. The
+      # versioned files stay for old links and for the checksum list. The
+      # Production Health workflow fails when these names go missing.
+      - name: Add stable download names
+        shell: bash
+        run: |
+          version="$(node -p "require('./package.json').version")"
+          cd release-assets
+          for file in win-x64.exe mac-arm64.zip mac-x64.zip linux-x86_64.AppImage; do
+            cp "yomu-gaming-${version}-${file}" "yomu-desktop-${file}"
+          done
+
       - name: Write SHA256SUMS
         run: |
           cd release-assets
@@ -145,9 +158,9 @@ jobs:
           }
 
           cat > release-notes-gaming.md <<EOF
-          Yomu Gaming desktop release artifacts for ${TAG}.
+          よむ Desktop for ${TAG}. Download it from https://yomureader.com/desktop.
 
-          Primary Linux x64 AppImage is included for Steam Deck and Desktop Linux. SHA-256 checksums are in SHA256SUMS.txt.
+          SHA-256 checksums are in SHA256SUMS.txt.
           EOF
 
           # Only upload once the release exists as NON-draft. While the main

@@ -46,7 +46,6 @@ export {
   measureLocaleCoverage,
   registerChromeMessages,
   registerSetupMessages,
-  setupMessageIdFor,
   setupMessageIds,
   setupPackFor,
 } from "./registry";

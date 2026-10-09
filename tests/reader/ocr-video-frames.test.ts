@@ -1,11 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { ImageOcrController } from '../../src/reader/ocr/controller';
-import { ocrLineWordAtPoint } from '../../src/reader/app/dom-helpers';
-import {
-    resetActiveLearningTargetLanguage,
-    setActiveLearningTargetLanguage,
-} from '../../src/reader/languages/target-runtime';
 import { DEFAULT_SETTINGS } from '../../src/reader/settings/index';
 import type { JPDBToken, ReaderSettings } from '../../src/reader/app/types';
 import type { OcrLine } from '../../src/reader/ocr/response';
@@ -15,7 +10,6 @@ import { createPointerEvent } from './helpers/browser-fixtures';
 import { waitForExpect } from './test-utils';
 
 afterEach(() => {
-    resetActiveLearningTargetLanguage();
     document.body.replaceChildren();
 });
 
@@ -71,6 +65,11 @@ describe('paused-video OCR frames', () => {
         const image = privateRasterImageForHost(root.querySelector('.jpdb-ocr-video-frame'));
         if (!image) throw new Error('Missing private video-frame raster.');
         return image;
+    }
+
+    // Screen readers hear OCR status from one shared live region; the indicator itself has no text.
+    function announcement(): string | null | undefined {
+        return document.querySelector('.jpdb-ocr-status-announcer')?.textContent;
     }
 
     function recognizePausedFrame(lines: readonly OcrLine[]): {
@@ -158,7 +157,13 @@ describe('paused-video OCR frames', () => {
         expect(status).not.toBeNull();
         expect(status!.dataset.status).toBe('loading');
         expect(status!.textContent).toBe('');
-        expect(status!.getAttribute('aria-label')).toBe('Scanning...');
+        expect(status!.getAttribute('role')).toBeNull();
+        expect(status!.getAttribute('aria-label')).toBeNull();
+        await waitForExpect(() => expect(announcement()).toBe('Scanning...'));
+        const announcer = document.querySelector<HTMLElement>('.jpdb-ocr-status-announcer')!;
+        expect(announcer.getAttribute('role')).toBe('status');
+        expect(announcer.getAttribute('aria-live')).toBe('polite');
+        expect(announcer.classList.contains('jpdb-reader-sr-only')).toBe(true);
 
         Object.defineProperty(frame, 'naturalWidth', { value: 640, configurable: true });
         Object.defineProperty(frame, 'naturalHeight', { value: 360, configurable: true });
@@ -175,8 +180,11 @@ describe('paused-video OCR frames', () => {
             expect(frame.dataset.ocrPending).toBeUndefined();
             expect(status!.dataset.status).toBe('ready');
             expect(status!.textContent).toBe('');
-            expect(status!.getAttribute('aria-label')).toBe('Text ready');
         });
+        await waitForExpect(() => expect(announcement()).toBe('Text ready'), 3000);
+        // The outcome shows briefly, then the indicator fades and goes away.
+        await waitForExpect(() => expect(status!.isConnected).toBe(false), 3000);
+        expect(document.querySelectorAll('.jpdb-ocr-status-announcer')).toHaveLength(1);
     });
 
     it('shows the resume/play control immediately on pause while keeping the frame image and status gated', () => {
@@ -583,40 +591,18 @@ describe('paused-video OCR frames', () => {
         expect(line.classList.contains('jpdb-ocr-line-active')).toBe(false);
     });
 
-    it('makes parser-empty Spanish paused-frame OCR words hover-identifiable', async () => {
-        expect(setActiveLearningTargetLanguage('es')).not.toBeNull();
-        createController();
-        recognizePausedFrame([
-            { text: 'Pensamos en español', box: { left: 64, top: 72, width: 360, height: 54 }, vertical: false },
-        ]);
-
-        await waitForExpect(() => {
-            const words = [...document.querySelectorAll<HTMLElement>('.jpdb-ocr-line .jpdb-reader-word')];
-            expect(words.map(word => word.dataset.expression)).toEqual(['Pensamos', 'en', 'español']);
-        });
-
-        const line = document.querySelector<HTMLElement>('.jpdb-ocr-line')!;
-        const words = [...line.querySelectorAll<HTMLElement>('.jpdb-reader-word')];
-        words.forEach((word, index) => {
-            word.getBoundingClientRect = () => new DOMRect(100 + index * 80, 120, 70, 24);
-        });
-        expect(ocrLineWordAtPoint(line, 185, 132)?.dataset.expression).toBe('en');
-        expect(ocrLineWordAtPoint(line, 265, 132)?.dataset.expression).toBe('español');
-    });
-
-    it('reports no usable OCR when Japanese paused-frame text is rejected by the Spanish target', async () => {
-        expect(setActiveLearningTargetLanguage('es')).not.toBeNull();
+    it('reports no usable OCR when Latin paused-frame text is rejected by the Japanese target', async () => {
         createController({ ocrProvider: 'cloud-vision', ocrCloudVisionApiKey: '' });
         const { status } = recognizePausedFrame([
-            { text: '日本語で考える', box: { left: 64, top: 72, width: 300, height: 54 }, vertical: false },
+            { text: 'Pensamos en español', box: { left: 64, top: 72, width: 360, height: 54 }, vertical: false },
         ]);
 
         await waitForExpect(() => {
             expect(document.querySelector('.jpdb-ocr-line')).toBeNull();
             expect(document.querySelector('.jpdb-reader-word')).toBeNull();
             expect(status.dataset.status).toBe('empty');
-            expect(status.getAttribute('aria-label')).toBe('No text found');
         });
+        await waitForExpect(() => expect(announcement()).toBe('No text found'), 3000);
         expect(status.dataset.status).not.toBe('ready');
     });
 
@@ -628,7 +614,6 @@ describe('paused-video OCR frames', () => {
             expect(document.querySelector('.jpdb-ocr-line')).toBeNull();
             expect(status.dataset.status).toBe('empty');
             expect(status.textContent).toBe('');
-            expect(status.getAttribute('aria-label')).toBe('No text found');
             // On a no-text frame the status un-gates (feedback), the resume/play
             // control was already visible from pause, but the captured frame
             // image stays hidden so it never covers the player when there is

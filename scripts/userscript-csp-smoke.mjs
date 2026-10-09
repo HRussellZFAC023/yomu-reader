@@ -241,7 +241,7 @@ async function runScenario(browser, browserName, shape, policyName) {
         const word = page.locator('[data-csp-sentence] .jpdb-reader-word', { hasText: LOOKUP_WORD }).first();
         await word.click();
         const card = page.locator(`.jpdb-reader-popover [data-source="local-dictionary"][data-dictionary="${MINI_LOOKUP_DICTIONARY_TITLE}"]`).first();
-        const gloss = card.locator('[data-definition-translation-text]', { hasText: LOOKUP_GLOSS });
+        const gloss = card.locator('.jpdb-reader-local-sense, .jpdb-reader-local-glossary', { hasText: LOOKUP_GLOSS }).first();
         await gloss.waitFor({ state: 'attached', timeout: 15_000 }).catch(async error => {
             throw new Error(`${label}: the popup showed no local-dictionary gloss for ${LOOKUP_WORD}: ${error.message}\n${JSON.stringify({
                 popover: await page.locator('.jpdb-reader-popover').last().textContent().catch(() => null),

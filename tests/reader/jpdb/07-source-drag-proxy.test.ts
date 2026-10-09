@@ -811,7 +811,7 @@ describe('reader helpers', () => {
         expect(html).toContain('<rt class="jpdb-reader-furi">こっか</rt>');
         expect(html).toContain('jpdb-reader-has-furi');
         expect(html).not.toContain('<span class="jpdb-reader-jpdb-compound-reading">こっかしゅぎ</span>');
-        expect(html).toContain('jpdb-reader-example-count');
+        expect(html).not.toContain('jpdb-reader-example-count');
         expect(html).not.toContain('jpdb-reader-jpdb-compound-ruby');
         expect(html).toContain('大統領');
         expect(html).toContain('国家主席と話をする予定です。');
@@ -1001,7 +1001,7 @@ describe('reader helpers', () => {
             spelling: '無料',
             reading: 'むりょう',
             meanings: [{ glosses: ['free; gratis'], partOfSpeech: [] }],
-        }, key => `data-source-state-key="${key}" open`, {
+        }, (key, initiallyExpanded = true) => `data-source-state-key="${key}"${initiallyExpanded ? ' open' : ''}`, {
             meanings: ['free; gratis'],
             compounds: [
                 { term: '無', reading: 'む', meaning: 'nothing; naught; nought; un-; non-', url: '/vocabulary/1' },
@@ -1016,6 +1016,8 @@ describe('reader helpers', () => {
         document.body.append(host);
 
         try {
+            expect(host.querySelector<HTMLDetailsElement>('[data-source="jpdb"]')?.open).toBe(true);
+            expect(host.querySelector<HTMLDetailsElement>('.jpdb-reader-jpdb-used-in-group')?.open).toBe(false);
             const extra = host.querySelector<HTMLElement>('.jpdb-reader-jpdb-extra');
             expect(extra).not.toBeNull();
             const computed = getComputedStyle(extra!);
@@ -1577,7 +1579,7 @@ describe('reader helpers', () => {
         }));
         try {
             const client = new ImmersionKitClient();
-            const settings = { ...DEFAULT_SETTINGS, immersionKitEnabled: true, audioTimeoutMs: 1000, corsProxyUrl: configuredProxyUrl };
+            const settings = { ...DEFAULT_SETTINGS, immersionKitEnabled: true, corsProxyUrl: configuredProxyUrl };
 
             await expect(client.search('読む', settings, { requestLimit: 1, resultLimit: 1 })).rejects.toThrow(/429|rate/i);
             await expect(client.search('書く', settings, { requestLimit: 1, resultLimit: 1 })).rejects.toThrow(/rate/i);
@@ -1595,7 +1597,6 @@ describe('reader helpers', () => {
             const settings = {
                 ...DEFAULT_SETTINGS,
                 apiKey: 'api-key',
-                audioTimeoutMs: 1000,
                 localDictionariesEnabled: true,
                 localDictionaryShowKanji: true,
                 showPitchAccent: true,
@@ -1728,7 +1729,6 @@ describe('reader helpers', () => {
             knownStates: ['new' as const],
             composedOf: [],
             usedIn: [],
-            usedInTotal: 0,
             examples: [],
         }));
         const loader = testCardRenderDataLoader({

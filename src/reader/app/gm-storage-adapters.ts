@@ -1,6 +1,8 @@
 import type { GmGetValue } from './managed-read-path';
 import { getUserscriptGmStorage, userscriptGmStorageOwnerKind } from '../userscript/storage-bridge';
 import { detectInstalledReaderRuntime } from './runtime-presence';
+import { extensionRuntimeMayBeYomu } from './runtime-env';
+import { userscriptGmApi } from '../userscript/gm-api';
 
 export function managedStorageOwner(): 'standalone' | 'userscript' | 'extension' {
     return detectInstalledReaderRuntime() ?? userscriptGmStorageOwnerKind() ?? 'standalone';
@@ -62,10 +64,8 @@ function legacyGmGetValue(): GmGetValue | null {
 }
 
 function modernGmGetValue(): GmGetValue | null {
-    const modern = (globalThis as { GM?: { getValue?: GmGetValue } }).GM?.getValue;
-    return typeof modern === 'function'
-        ? modern.bind((globalThis as { GM?: unknown }).GM)
-        : null;
+    const gm = userscriptGmApi();
+    return typeof gm?.getValue === 'function' ? gm.getValue.bind(gm) as GmGetValue : null;
 }
 
 export function asyncGmSetValue(): GmSetValue | null {
@@ -86,10 +86,8 @@ function legacyGmSetValue(): GmSetValue | null {
 }
 
 function modernGmSetValue(): GmSetValue | null {
-    const modern = (globalThis as { GM?: { setValue?: GmSetValue } }).GM?.setValue;
-    return typeof modern === 'function'
-        ? modern.bind((globalThis as { GM?: unknown }).GM)
-        : null;
+    const gm = userscriptGmApi();
+    return typeof gm?.setValue === 'function' ? gm.setValue.bind(gm) : null;
 }
 
 function extensionGmSetValue(): GmSetValue | null {
@@ -120,10 +118,8 @@ function legacyGmDeleteValue(): GmDeleteValue | null {
 }
 
 function modernGmDeleteValue(): GmDeleteValue | null {
-    const modern = (globalThis as { GM?: { deleteValue?: GmDeleteValue } }).GM?.deleteValue;
-    return typeof modern === 'function'
-        ? modern.bind((globalThis as { GM?: unknown }).GM)
-        : null;
+    const gm = userscriptGmApi();
+    return typeof gm?.deleteValue === 'function' ? gm.deleteValue.bind(gm) : null;
 }
 
 function extensionGmDeleteValue(): GmDeleteValue | null {
@@ -155,10 +151,8 @@ function legacyGmListValues(): GmListValues | null {
 }
 
 function modernGmListValues(): GmListValues | null {
-    const modern = (globalThis as { GM?: { listValues?: GmListValues } }).GM?.listValues;
-    return typeof modern === 'function'
-        ? modern.bind((globalThis as { GM?: unknown }).GM)
-        : null;
+    const gm = userscriptGmApi();
+    return typeof gm?.listValues === 'function' ? gm.listValues.bind(gm) : null;
 }
 
 function extensionGmListValues(): GmListValues | null {
@@ -189,7 +183,8 @@ function activeExtensionCapability<T>(
     extension: ExtensionApi | undefined,
     select: (extension: ExtensionApi) => T | undefined,
 ): T | undefined {
-    return extension?.runtime?.id ? select(extension) : undefined;
+    // A userscript manager's own extension storage is never Yomu's store.
+    return extension?.runtime?.id && extensionRuntimeMayBeYomu() ? select(extension) : undefined;
 }
 
 export function packagedExtensionStorageAdapterMissing(): boolean {

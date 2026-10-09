@@ -4,10 +4,6 @@ import { StudySourceController } from '../../src/reader/study/sources';
 import { DEFAULT_SETTINGS } from '../../src/reader/settings/index';
 import { resetGoogleTranslationCacheForTests } from '../../src/reader/translation/google';
 import type { ReaderSettings } from '../../src/reader/app/types';
-import {
-    resetActiveLearningTargetLanguage,
-    setActiveLearningTargetLanguage,
-} from '../../src/reader/languages/active';
 
 // Regression (iPad Safari, real Reddit page): the study TRANSLATION card was
 // stuck forever showing "Translating..." under MEANING. The studied sentence
@@ -45,55 +41,6 @@ function makeController(getSettings: () => ReaderSettings = () => settings()) {
     });
 }
 
-function settingsForOutput(outputLanguage: string): ReaderSettings {
-    const activeProfile = DEFAULT_SETTINGS.languageProfiles[0]!;
-    return settings({
-        languageProfiles: [{ ...activeProfile, outputLanguage }],
-        activeLanguageProfileId: activeProfile.id,
-    });
-}
-
-function deferredResponse() {
-    let resolve!: (response: Response) => void;
-    let reject!: (error: Error) => void;
-    const promise = new Promise<Response>((accept, decline) => {
-        resolve = accept;
-        reject = decline;
-    });
-    return { promise, reject, resolve };
-}
-
-function translationResponse(trans: string): Response {
-    return new Response(
-        JSON.stringify({ sentences: [{ trans }] }),
-        { status: 200, headers: { 'Content-Type': 'application/json' } },
-    );
-}
-
-async function startInFlightTranslation() {
-    const oldOutput = deferredResponse();
-    const currentOutput = deferredResponse();
-    const fetchSpy = vi.fn()
-        .mockImplementationOnce(() => oldOutput.promise)
-        .mockImplementationOnce(() => currentOutput.promise);
-    vi.stubGlobal('fetch', fetchSpy);
-    vi.stubGlobal('GM_xmlhttpRequest', undefined);
-    const state = { settings: settingsForOutput('en') };
-    const controller = makeController(() => state.settings);
-    const { details } = mountTranslationCard(controller, 'これは日本語です。');
-    const result = details.querySelector<HTMLElement>('[data-study-translation-result]')!;
-    await vi.waitFor(() => expect(fetchSpy).toHaveBeenCalledTimes(1));
-    return {
-        oldOutput,
-        currentOutput,
-        fetchSpy,
-        result,
-        changeOutputLanguage: (outputLanguage: string) => {
-            state.settings = settingsForOutput(outputLanguage);
-        },
-    };
-}
-
 function mountTranslationCard(controller: StudySourceController, sentence: string) {
     document.body.innerHTML = `<div class="popover">${controller.renderTranslationSource(sentence)}</div>`;
     const popover = document.querySelector<HTMLElement>('.popover')!;
@@ -119,11 +66,9 @@ function stubTranslation(trans: string) {
 
 describe('study translation MEANING never sticks on "Translating..."', () => {
     beforeEach(() => {
-        resetActiveLearningTargetLanguage();
         resetGoogleTranslationCacheForTests();
     });
     afterEach(() => {
-        resetActiveLearningTargetLanguage();
         document.body.innerHTML = '';
         vi.unstubAllGlobals();
     });
@@ -155,53 +100,21 @@ describe('study translation MEANING never sticks on "Translating..."', () => {
         expect(result.textContent).not.toContain('Translating');
     });
 
-    it('marks target and output text independently for an RTL target', async () => {
-        expect(setActiveLearningTargetLanguage('ar')).not.toBeNull();
-        stubTranslation('We read books every day.');
+    it('marks the Japanese original and the output text independently', async () => {
+        stubTranslation('This is Japanese.');
         const controller = makeController();
 
-        const { details } = mountTranslationCard(controller, 'نقرأ الكتب كل يوم.');
+        const { details } = mountTranslationCard(controller, 'これは日本語です。');
         const original = details.querySelector<HTMLElement>('[data-study-original-render]')!;
-        expect(original.lang).toBe('ar');
-        expect(original.dir).toBe('rtl');
+        expect(original.lang).toBe('ja');
+        expect(original.dir).toBe('ltr');
 
         await flush();
 
         const result = details.querySelector<HTMLElement>('[data-study-translation-result]')!;
         expect(details.hidden).toBe(false);
-        expect(result.textContent).toBe('We read books every day.');
+        expect(result.textContent).toBe('This is Japanese.');
         expect(result.lang).toBe('en');
         expect(result.dir).toBe('ltr');
     });
-
-    it('discards an in-flight result owned by an older output language', async () => {
-        const request = await startInFlightTranslation();
-        request.changeOutputLanguage('ar');
-
-        request.oldOutput.resolve(translationResponse('Stale English result.'));
-        await vi.waitFor(() => expect(request.fetchSpy).toHaveBeenCalledTimes(2));
-        expect(request.result.textContent).not.toContain('Stale English');
-        expect(request.result.lang).not.toBe('en');
-
-        request.currentOutput.resolve(translationResponse('نتيجة عربية حالية.'));
-        await flush();
-        expect(request.result.textContent).toBe('نتيجة عربية حالية.');
-        expect(request.result.lang).toBe('ar');
-        expect(request.result.dir).toBe('rtl');
-    });
-
-    it('does not render an old request error after the output language changes', async () => {
-        const request = await startInFlightTranslation();
-        request.changeOutputLanguage('ar');
-
-        request.oldOutput.reject(new Error('stale request failed'));
-        await vi.waitFor(() => expect(request.fetchSpy).toHaveBeenCalledTimes(2));
-        expect(request.result.textContent).not.toContain('unavailable');
-
-        request.currentOutput.resolve(translationResponse('ترجمة حديثة.'));
-        await flush();
-        expect(request.result.textContent).toBe('ترجمة حديثة.');
-        expect(request.result.lang).toBe('ar');
-    });
-
 });

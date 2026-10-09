@@ -4,7 +4,7 @@ import { miniIcon } from './form-controls';
 import type { InterfaceLanguage } from '../app/types';
 import type { SettingsSourceRow } from '../sources/sections';
 
-type SourceRowsListOptions = { sourceLabel: string; countName?: string; countValue?: number; showAlias: boolean };
+type SourceRowsListOptions = { sourceLabelKey: 'definitionSource' | 'kanjiSection'; countName?: string; countValue?: number; language: InterfaceLanguage };
 type SourceRowRenderContext = SourceRowsListOptions & { layoutClass: string; showRemove: boolean };
 type SourceRowCopyKeys = { nameKey?: string; helpKey?: string };
 type MiniIconName = Parameters<typeof miniIcon>[0];
@@ -63,14 +63,13 @@ export function renderSourceRowsList(rows: SettingsSourceRow[], options: SourceR
     const showRemove = removableCount > 0;
     const context: SourceRowRenderContext = {
         ...options,
-        layoutClass: sourceRowsLayoutClass(options.showAlias, showRemove),
+        layoutClass: `compact ${showRemove ? 'has-remove' : 'no-remove'}`,
         showRemove,
     };
     return `
-        <div class="jpdb-reader-dictionary-head jpdb-reader-order-head ${context.layoutClass}">
+        <div class="jpdb-reader-dictionary-head jpdb-reader-order-head ${context.layoutClass}" data-source-label-key="${options.sourceLabelKey}">
             <span>On</span>
-            <span>${escapeHtml(options.sourceLabel)}</span>
-            ${options.showAlias ? '<span>Display name</span>' : ''}
+            <span>${escapeHtml(uiText(options.language, options.sourceLabelKey))}</span>
             <span>Order</span>
             ${showRemove ? '<span>Remove</span>' : ''}
         </div>
@@ -79,28 +78,20 @@ export function renderSourceRowsList(rows: SettingsSourceRow[], options: SourceR
     `;
 }
 
-function sourceRowsLayoutClass(showAlias: boolean, showRemove: boolean): string {
-    return [
-        showAlias ? '' : 'compact',
-        showRemove ? 'has-remove' : 'no-remove',
-    ].filter(Boolean).join(' ');
-}
-
 function renderSourceRowsCountInput(options: SourceRowsListOptions, removableCount: number): string {
     if (!options.countName) return '';
     return `<input type="hidden" name="${escapeHtml(options.countName)}" value="${options.countValue ?? removableCount}">`;
 }
 
 function renderSourceRow(row: SettingsSourceRow, index: number, context: SourceRowRenderContext): string {
-    const keys = sourceRowCopyKeys(row);
+    const keys = sourceRowCopyKeys(row, context.language);
     return `
-            <div class="jpdb-reader-dictionary-row jpdb-reader-order-row ${context.layoutClass}" data-source-row data-dictionary-source-row data-source-id="${escapeHtml(row.id)}">
+            <div class="jpdb-reader-dictionary-row jpdb-reader-order-row ${context.layoutClass}" data-source-row data-dictionary-source-row data-source-id="${escapeHtml(row.id)}" title="${escapeHtml(row.help)}"${keys?.helpKey ? ` data-source-description-key="${keys.helpKey}"` : ''}>
                 <label class="inline jpdb-reader-dictionary-toggle jpdb-reader-order-toggle">
                     <input name="${row.prefix}.enabled" type="checkbox" data-source-enable-toggle ${row.enabled ? 'checked' : ''}>
                     <span>${index + 1}</span>
                 </label>
-                ${sourceField(sourceRowDisplayName(row, context.showAlias), row.name, row.prefix, 'name', context.sourceLabel, keys?.nameKey)}
-                ${renderSourceAliasControl(row, context.showAlias, keys)}
+                ${renderSourceName(row, context, keys)}
                 ${renderRowOrderTools({
                     upAction: 'dictionary-source-up',
                     downAction: 'dictionary-source-down',
@@ -113,15 +104,14 @@ function renderSourceRow(row: SettingsSourceRow, index: number, context: SourceR
                 })}
                 ${renderSourceRemoveCell(row, context.showRemove)}
                 ${renderSourceTypeInput(row)}
-                ${renderSourceRowHelp(row, keys)}
             </div>
         `;
 }
 
-function renderSourceAliasControl(row: SettingsSourceRow, showAlias: boolean, keys: SourceRowCopyKeys | undefined): string {
-    if (!showAlias) return '';
-    const keyAttribute = keys?.nameKey ? ` data-source-placeholder-key="${escapeHtml(keys.nameKey)}"` : '';
-    return `<input name="${row.prefix}.alias" type="text" value="${escapeHtml(row.alias)}" aria-label="Source display name" placeholder="${escapeHtml(row.name)}"${keyAttribute}>`;
+function renderSourceName(row: SettingsSourceRow, context: SourceRowRenderContext, keys: SourceRowCopyKeys | undefined): string {
+    if (!row.removable) return sourceField(row.name, row.name, row.prefix, 'name', uiText(context.language, context.sourceLabelKey), keys?.nameKey);
+    return `<input name="${row.prefix}.alias" type="text" value="${escapeHtml(row.alias)}" aria-label="${escapeHtml(uiText(context.language, 'displayName'))}" placeholder="${escapeHtml(row.name)}" title="${escapeHtml(row.name)}">
+        <input name="${row.prefix}.name" type="hidden" value="${escapeHtml(row.name)}">`;
 }
 
 function renderSourceRemoveCell(row: SettingsSourceRow, showRemove: boolean): string {
@@ -139,16 +129,6 @@ function renderSourceTypeInput(row: SettingsSourceRow): string {
     return `<input name="${row.prefix}.type" type="hidden" value="${escapeHtml(row.dictionaryType ?? 'terms')}">`;
 }
 
-function renderSourceRowHelp(row: SettingsSourceRow, keys: SourceRowCopyKeys | undefined): string {
-    if (!row.help) return '';
-    const keyAttribute = keys?.helpKey ? `data-source-help-key="${escapeHtml(keys.helpKey)}"` : '';
-    return `<div class="jpdb-reader-dictionary-row-help" ${keyAttribute}>${escapeHtml(row.help)}</div>`;
-}
-
-function sourceRowDisplayName(row: SettingsSourceRow, showAlias: boolean): string {
-    return !showAlias && row.alias ? row.alias : row.name;
-}
-
 function sourceField(displayValue: string, formValue: string, prefix: string, field: 'name' | 'alias', label: string, nameKey?: string): string {
     return `
         <span class="jpdb-reader-field-display" aria-label="${escapeHtml(label)}" ${nameKey ? `data-source-name-key="${escapeHtml(nameKey)}"` : ''}>${escapeHtml(displayValue)}</span>
@@ -156,7 +136,12 @@ function sourceField(displayValue: string, formValue: string, prefix: string, fi
     `;
 }
 
-function sourceRowCopyKeys(row: SettingsSourceRow): SourceRowCopyKeys | undefined {
+function sourceRowCopyKeys(row: SettingsSourceRow, language: InterfaceLanguage): SourceRowCopyKeys | undefined {
+    if (row.id === '__kanji_jpdb__') {
+        return row.name === uiText(language, 'sourceNameJitenKanjiFacts')
+            ? { nameKey: 'sourceNameJitenKanjiFacts', helpKey: 'sourceHelpJitenKanjiFacts' }
+            : { nameKey: 'readingsComponents', helpKey: 'sourceHelpReadingsComponents' };
+    }
     return SOURCE_ROW_COPY_KEYS_BY_ID[row.id] ?? importedKanjiDictionaryCopyKeys(row.id);
 }
 

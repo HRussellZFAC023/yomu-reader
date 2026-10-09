@@ -215,7 +215,6 @@ describe('expression component pitch', () => {
                     { wordId: 2321, readingIndex: 0, reading: 'ひょうか', readingFurigana: 'ひょうか', mainDefinition: 'evaluation', frequencyRank: null, matchSurface: '評価', pitchAccents: [0] },
                 ],
                 usedIn: [],
-                usedInTotal: 0,
                 examples: [],
             },
         });
@@ -248,7 +247,6 @@ describe('expression component pitch', () => {
                     { wordId: 1158870, readingIndex: 0, reading: 'ちがい', readingFurigana: '違[ちが]い', mainDefinition: 'difference', frequencyRank: 1561, matchSurface: '違い' },
                 ],
                 usedIn: [],
-                usedInTotal: 0,
                 examples: [],
             },
         });

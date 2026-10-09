@@ -15,6 +15,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright';
+import { annotationDefaultsIntentLedger, SETTINGS_INTENT_LEDGER_KEY } from './lib/smoke-harness.mjs';
 
 const ROOT = path.resolve(fileURLToPath(new URL('..', import.meta.url)));
 const USERSCRIPT = path.join(ROOT, 'dist/yomu.user.js');
@@ -63,12 +64,15 @@ html, body { background: #2b2f36; color: #fff; font-family: sans-serif; }
 }
 /* The host's own control, which Yomu must leave exactly as the host painted it. */
 #host-control { border-radius: 12px; background: #4f46e5; border: 3px solid #10b981; box-shadow: 0 2px 6px #0008; }
+.article-buttons__audio span::before { content: "speaker"; }
 `;
 
 const HOST_HTML = `<!doctype html><html lang="ja" class="theme-graphite style-flat"><head><meta charset="utf-8">
 <title>Hostile host</title><style>${HOSTILE_CSS}</style></head><body>
 <main><p id="text">日本語の文章を読む練習をします。今日は天気がとても良いですね。</p>
-<button id="host-control" class="theme-option">ホストの操作子</button></main></body></html>`;
+<button id="host-control" class="theme-option">ホストの操作子</button>
+<button id="host-icon-control" class="article-buttons__audio"><span class="native-label"><span class="jpdb-reader-word"><ruby><span class="jpdb-reader-ruby-base">漢字</span><rt class="jpdb-reader-furi">かんじ</rt></ruby></span></span></button>
+</main></body></html>`;
 
 const settings = {
     onboardingSeen: true,
@@ -83,7 +87,7 @@ const settings = {
 
 const gmShim = `
 (() => {
-  const store = new Map(Object.entries(${JSON.stringify({ [SETTINGS_KEY]: settings })}));
+  const store = new Map(Object.entries(${JSON.stringify({ [SETTINGS_KEY]: settings, [SETTINGS_INTENT_LEDGER_KEY]: annotationDefaultsIntentLedger(settings) })}));
   const listeners = new Map();
   window.GM_getValue = (k, d) => store.has(k) ? store.get(k) : d;
   window.GM_setValue = (k, v) => { const old = store.get(k); store.set(k, v); (listeners.get(k)||[]).forEach(f=>{try{f(k,old,v,false)}catch{}}); };
@@ -160,6 +164,10 @@ try {
             armourLayers: layers.filter(name => name.startsWith('jpdb-reader-armour')),
             fab: read('.jpdb-reader-fab', ['border-radius', 'background-color', 'border-top-width', 'border-top-color', 'color', 'box-shadow']),
             hostControl: read('#host-control', ['border-radius', 'background-color', 'border-top-width', 'border-top-color', 'box-shadow']),
+            hostIcon: document.querySelector('#host-icon-control .native-label')
+                ? getComputedStyle(document.querySelector('#host-icon-control .native-label'), '::before').content : null,
+            injectedIcons: [...document.querySelectorAll('#host-icon-control .jpdb-reader-word, #host-icon-control .jpdb-reader-word *')]
+                .filter(element => getComputedStyle(element, '::before').content.includes('speaker')).length,
             words: document.querySelectorAll('.jpdb-reader-word').length,
         };
     });
@@ -168,6 +176,10 @@ try {
 
     check('armour layers installed', report.armourLayers.join(','), value => value.includes('jpdb-reader-armour'), 'jpdb-reader-armour layer present');
     check('words annotated', report.words, value => value > 0, '> 0');
+    if (report.hostIcon !== null) {
+        check('host icon preserved', report.hostIcon, value => value.includes('speaker'), 'original native icon');
+        check('icons not copied onto reader spans', report.injectedIcons, value => value === 0, 'no duplicated host icons');
+    }
 
     // Yomu's chrome keeps Yomu's paint despite the host's `!important`.
     check('fab border-radius', report.fab['border-radius'], value => value !== '0px', 'not 0px (host forced `*{border-radius:0!important}`)');

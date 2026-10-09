@@ -9,19 +9,22 @@ import { JPDB_RELATED_WORD_PITCH_CLASS, JPDB_RELATED_WORD_STATE } from './jpdb-r
 import { renderProviderExamples, type ProviderExampleView } from '../sources/provider-examples';
 import { renderedWordPrivateAttributesForState } from '../dom/rendered-word-private-state';
 import { privateCommandAttributes } from '../dom/private-command-capabilities';
+import { renderWithMoreDisclosure, VISIBLE_SENSE_COUNT } from '../sources/more-disclosure';
 
 type SourceAttributes = (sourceStateKey: string, initiallyExpanded?: boolean) => string;
 
 export function renderJpdbDefinitionSource(card: JPDBCard, sourceAttributes: SourceAttributes, info: JpdbVocabularyInfo | null = null, language: InterfaceLanguage = 'en', title = 'JPDB'): string {
-    const meanings = jpdbDefinitionMeanings(card, info)
-        .map(meaning => `<div class="jpdb-reader-meaning">${escapeHtml(meaning)}</div>`)
-        .join('');
+    const meanings = renderWithMoreDisclosure(
+        jpdbDefinitionMeanings(card, info).map(meaning => `<div class="jpdb-reader-meaning">${escapeHtml(meaning)}</div>`),
+        VISIBLE_SENSE_COUNT,
+        uiText(language, 'moreMeanings'),
+    );
     const extras = renderJpdbVocabularyExtras(info, sourceAttributes, language, card);
     if (!meanings && !extras) return '';
     return `
         <details class="jpdb-reader-local jpdb-reader-source-card" data-source="jpdb" ${cardHighlightScopeAttributes(card)} ${sourceAttributes(definitionSourceStateKey(JPDB_DEFINITION_SOURCE_ID), true)}>
             <summary class="jpdb-reader-local-title">${escapeHtml(title)}</summary>
-            ${meanings ? `<div class="jpdb-reader-meanings" data-definition-translation-text>${meanings}</div>` : ''}
+            ${meanings ? `<div class="jpdb-reader-meanings">${meanings}</div>` : ''}
             ${extras}
         </details>
     `;
@@ -45,7 +48,8 @@ function cardDefinitionMeanings(card: JPDBCard, info: JpdbVocabularyInfo | null)
 
 function renderJpdbVocabularyExtras(info: JpdbVocabularyInfo | null, sourceAttributes: SourceAttributes, language: InterfaceLanguage, card: CardHighlightTarget): string {
     if (!hasJpdbVocabularyExtras(info)) return '';
-    return `<div class="jpdb-reader-jpdb-extras">${renderJpdbCompounds(info, language)}${renderJpdbUsedInVocabulary(info, sourceAttributes, language)}${renderJpdbExamples(info, sourceAttributes, language, card)}</div>`;
+    // An example sentence comes straight after the meaning; related words follow.
+    return `<div class="jpdb-reader-jpdb-extras">${renderJpdbExamples(info, sourceAttributes, language, card)}${renderJpdbCompounds(info, language)}${renderJpdbUsedInVocabulary(info, sourceAttributes, language)}</div>`;
 }
 
 function hasJpdbVocabularyExtras(info: JpdbVocabularyInfo | null): info is JpdbVocabularyInfo {
@@ -84,10 +88,9 @@ function renderJpdbCompounds(info: JpdbVocabularyInfo, language: InterfaceLangua
 function renderJpdbUsedInVocabulary(info: JpdbVocabularyInfo, sourceAttributes: SourceAttributes, language: InterfaceLanguage): string {
     const entries = info.usedInVocabulary ?? [];
     return entries.length ? `
-        <details class="jpdb-reader-local-entry jpdb-reader-dictionary-group jpdb-reader-jpdb-used-in-group" ${sourceAttributes(definitionSourceStateKey(`${JPDB_DEFINITION_SOURCE_ID}:used-in-vocabulary`))}>
+        <details class="jpdb-reader-local-entry jpdb-reader-dictionary-group jpdb-reader-jpdb-used-in-group" ${sourceAttributes(definitionSourceStateKey(`${JPDB_DEFINITION_SOURCE_ID}:used-in-vocabulary`), false)}>
             <summary class="jpdb-reader-local-title jpdb-reader-example-summary">
                 <span class="jpdb-reader-example-source">${escapeHtml(uiText(language, 'usedInVocabulary'))}</span>
-                <span class="jpdb-reader-source-status jpdb-reader-example-count">${entries.length}</span>
             </summary>
             <div class="jpdb-reader-local-glossary">
                 <ul class="jpdb-reader-jpdb-used-in">

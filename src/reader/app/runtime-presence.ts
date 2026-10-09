@@ -1,3 +1,6 @@
+import { userscriptGmApi, userscriptGmInfo } from '../userscript/gm-api';
+import { extensionRuntimeMayBeYomu } from './runtime-env';
+
 export type InstalledReaderRuntimeKind = 'userscript' | 'extension';
 
 interface RuntimeDetectionGlobals {
@@ -17,16 +20,20 @@ export const INSTALLED_READER_RUNTIME_MARKER_ID = 'jpdb-reader-installed-runtime
 export function detectInstalledReaderRuntime(
     globals: RuntimeDetectionGlobals = globalThis as RuntimeDetectionGlobals,
 ): InstalledReaderRuntimeKind | null {
-    if (globals.chrome?.runtime?.id || globals.browser?.runtime?.id) return 'extension';
-    if ((globals === globalThis && typeof GM_getValue === 'function')
+    if (extensionRuntimeMayBeYomu() && (globals.chrome?.runtime?.id || globals.browser?.runtime?.id)) return 'extension';
+    return userscriptManagerApi(globals) ? 'userscript' : null;
+}
+
+function userscriptManagerApi(globals: RuntimeDetectionGlobals): boolean {
+    // The ambient realm also reads the manager's lexical bindings (gm-api.ts).
+    const ambient = globals === globalThis;
+    const gm = ambient ? userscriptGmApi() : globals.GM;
+    return (ambient && typeof GM_getValue === 'function')
         || typeof globals.GM_getValue === 'function'
-        || typeof globals.GM?.getValue === 'function'
-        || typeof globals.GM?.xmlHttpRequest === 'function'
-        || typeof globals.GM?.xmlhttpRequest === 'function'
-        || Boolean(globals.GM_info)) {
-        return 'userscript';
-    }
-    return null;
+        || typeof gm?.getValue === 'function'
+        || typeof gm?.xmlHttpRequest === 'function'
+        || typeof gm?.xmlhttpRequest === 'function'
+        || Boolean(ambient ? userscriptGmInfo() : globals.GM_info);
 }
 
 export function announceInstalledReaderRuntime(

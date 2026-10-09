@@ -5,10 +5,6 @@ import { renderWordPills } from '../../src/reader/sources/word-pills';
 import { kanjiFrequencyRanks } from '../../src/reader/cards/frequency-ranks';
 import type { JPDBCard, ReaderSettings } from '../../src/reader/app/types';
 import type { JpdbVocabularySearchResult } from '../../src/reader/jpdb/jpdb-vocabulary';
-import {
-    resetActiveLearningTargetLanguage,
-    setActiveLearningTargetLanguage,
-} from '../../src/reader/languages/active';
 
 type LoaderDependencies = ConstructorParameters<typeof CardRenderDataLoader>[0];
 
@@ -151,7 +147,6 @@ describe('provider-specific frequency evidence', () => {
             knownStates: [],
             composedOf: [],
             usedIn: [],
-            usedInTotal: 0,
             examples: [],
         }));
         const search = vi.fn(async () => ({ cards: [
@@ -173,33 +168,6 @@ describe('provider-specific frequency evidence', () => {
         });
     });
 
-    it('does not let a late Jiten result mutate a card after an away-and-back target switch', async () => {
-        const pending = deferred<Awaited<ReturnType<NonNullable<LoaderDependencies['jiten']>['lookupVocabularyInfoForCard']>>>();
-        const card = { ...jitenCard(), reading: '日本', wordWithReading: null, source: 'local' as const };
-        const load = loader({ jitenDefinitionsEnabled: true }, async () => ({ cards: [], status: 'complete' as const }), {
-            lookupVocabularyInfoForCard: vi.fn(() => pending.promise),
-        }).load(card);
-        setActiveLearningTargetLanguage('ko');
-        setActiveLearningTargetLanguage('ja');
-        pending.resolve({
-            wordId: 777,
-            mainReading: { text: '日本[にほん]', readingIndex: 0, frequencyRank: 1465, usedInMediaAmount: null },
-            alternativeReadings: [],
-            partsOfSpeech: [],
-            definitions: [],
-            pitchAccents: [],
-            knownStates: [],
-            composedOf: [],
-            usedIn: [],
-            usedInTotal: 0,
-            examples: [],
-        });
-        await load.all;
-        expect(card.reading).toBe('日本');
-        expect(card.wordWithReading).toBeNull();
-        resetActiveLearningTargetLanguage();
-    });
-
     it('does not let mismatched Jiten detail rewrite a populated homograph reading', async () => {
         const original = jitenCard();
         const lookupVocabularyInfoForCard = vi.fn(async () => ({
@@ -212,7 +180,6 @@ describe('provider-specific frequency evidence', () => {
             knownStates: [],
             composedOf: [],
             usedIn: [],
-            usedInTotal: 0,
             examples: [],
         }));
 

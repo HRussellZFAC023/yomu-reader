@@ -1,4 +1,3 @@
-import { adoptLearningTargetLanguage } from '../reader/languages/active';
 import { targetOcrLanguageHint, targetOcrLanguageTag } from '../reader/languages/resolve';
 import { createGoogleLensRequest, googleLensAcceptLanguage } from '../reader/ocr/google-lens-request';
 import {
@@ -49,9 +48,6 @@ export function normalizeOcrRequest(request: unknown): YomuGamingOcrRequest {
         // An absent language means "let the provider detect it": a literal here
         // would quietly override the language the player chose to read in.
         language: typeof record.language === 'string' ? record.language.trim() : '',
-        // An absent target means "whatever this build studies by default",
-        // which is the state main would be in anyway had nothing been sent.
-        targetLanguage: typeof record.targetLanguage === 'string' ? record.targetLanguage.trim() : '',
     };
 }
 
@@ -61,14 +57,6 @@ function positiveInt(value: unknown, fallback: number): number {
 }
 
 export async function requestGamingOcr(request: YomuGamingOcrRequest): Promise<YomuGamingOcrResponse> {
-    // Before anything parses a provider answer. `normalizeOcrResult` and
-    // `parseGoogleLensResponse` below keep only lines in the language being
-    // studied, and they ask the active learning target which lines those are.
-    // This process has its own module state and never loads settings, so
-    // without this it would answer for the default target and drop every line
-    // of the language the player actually chose — the renderer's own adoption
-    // happens on the other side of the IPC boundary and cannot be seen here.
-    adoptLearningTargetLanguage(request.targetLanguage);
     const provider = normalizeProvider(request.provider, request.endpointUrl);
     if (provider === 'off') return { ok: false, status: 0, body: null, error: 'Image OCR is off.' };
     if (provider === 'local-service') return requestLocalOcr(request);

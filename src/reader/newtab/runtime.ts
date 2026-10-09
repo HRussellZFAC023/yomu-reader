@@ -1,13 +1,14 @@
 import { subscribeToCardStateSignals } from '../app/card-state-signal';
 import { mountEmbeddedStudyRuntime } from './embedded-study-lifecycle';
 import { installLookupGradeShortcuts } from '../dom/review-shortcuts';
+import { retireGradeKeyHints, showGradeKeyHintsUntilRetired } from '../cards/grade-key-hints';
 import { AudioPlayer } from '../audio/player';
 import { AnkiConnectClient, ankiLookupWithUnavailableDetails, untrustedAnkiLookupResult, type AnkiLookupResult } from '../anki';
 import { newTabAnkiClient } from '../anki/new-tab';
 import { runLimited } from '../core/async-utils';
 import { copyText, positionPopover } from '../ui/browser';
 import { CardActionController } from '../cards/action-controller';
-import { refreshAfterCardAction, runCardActionOperation } from '../cards/action-operation';
+import { refreshAfterCardAction, runCardActionOperation, type CardActionControl } from '../cards/action-operation';
 import { CardPopoverRenderer, togglePopoverReviewTargetSelection, updatePopoverReviewTargetSelection, type PopoverReviewControls } from '../cards/popover-renderer';
 import { CardRenderDataLoader, loadingCardRenderData, type CardRenderData, type CardRenderDataLoad } from '../cards/render-data';
 import { highlightCardTargetScopes } from '../cards/highlight';
@@ -18,8 +19,6 @@ import { APP_NAME, JITEN_DEFINITION_SOURCE_ID, JPDB_DEFINITION_SOURCE_ID, USERSC
 import { handleReaderActionPillLink } from '../app/main-helpers';
 import {
     yomuKanjiStudyCompanion,
-    yomuOnboardingController,
-    yomuSettingsSurfaceCompanion,
 } from '../companions/registry';
 import {
     kanjiFactProviderTitle,
@@ -29,14 +28,13 @@ import {
 import { renderDefinitionSourcesStack, type DefinitionSourceStackOptions } from '../sources/definition-stack';
 import { installProviderExampleBehaviors } from '../sources/provider-examples';
 import { DictionarySourceStateController } from '../sources/state';
-import { escapeHtml, inferredInflectedSurfaceRubies, readerWordSurfaceText, setInnerHtml } from '../dom';
+import { escapeHtml, readerWordSurfaceText, setInnerHtml } from '../dom';
 import { createReaderDictionaryStyleController } from '../sources/styles';
-import { OfflineDictionarySetupController } from '../dictionaries/offline-setup-controller';
 import { createFactoryResetCoordinator, type FactoryResetCoordinator } from '../app/factory-reset-coordinator';
 import { clearManagedBrowserCaches, ensureManagedWebStorageCurrent, unregisterManagedServiceWorkers } from '../app/storage';
 import { ImmersionKitClient } from '../immersion/kit';
 import { ImmersionPopoverController } from '../immersion/popover-controller';
-import { resolveUiLanguage, uiText, type UiCopyKey } from '../app/i18n';
+import { uiText, type UiCopyKey } from '../app/i18n';
 import { isNewTabCopyKey, newTabText, type NewTabCopyKey } from './i18n';
 import {
     consumeLookupPopoverButtonEvent,
@@ -74,15 +72,16 @@ import {
     type MiningContext,
 } from '../study/mining-context';
 import {
-    openDeckPickerForCardAdd,
+    mountDeckSelects,
+    rerenderAroundMiningControls,
     setMiningControlsExpanded as setMiningControlsExpandedState,
     toggleMiningControls as toggleMiningControlsState,
 } from '../study/mining-controls';
-import { applyNestedParsePlan, clearNestedParseLoadingKey, clearNestedParseState, nestedParseAlreadyScheduled, nestedTextParsePlan, parseUnderNestedTicket, providerExampleTextParsePlan, type NestedParsePlan } from '../lookup/nested-text-parse';
+import { applyNestedParsePlan, clearNestedParseState, nestedParseAlreadyScheduled, nestedTextParsePlan, parseUnderNestedTicket, providerExampleTextParsePlan, type NestedParsePlan } from '../lookup/nested-text-parse';
 import { NestedParseCoordinator } from '../lookup/nested-parse-coordinator';
 import { isTargetLanguageText } from '../lookup/target-text';
 import { NewTabController, newTabKanjiSourceTitle, type NewTabLookupReviewTargetSelection } from './controller';
-import { newTabSettingsWithPageInterfaceLanguage, newTabSettingsWithPageTarget } from './runtime-target-policy';
+import { newTabSettingsWithPageInterfaceLanguage } from './runtime-target-policy';
 import { settingsPanelFromHash, type SettingsPanelId } from './url';
 import { ensureExtensionStudySettingsAuthority } from './extension-settings-recovery-guard';
 import type { StudySessionClock } from './session-clock';
@@ -115,7 +114,6 @@ import { ReaderParser } from '../lookup/parser';
 import {
     DEFAULT_SETTINGS,
     loadSettings,
-    NO_EXPLICIT_USER_CHOICE,
     saveSettings,
     shouldLookupAnkiStatus,
 } from '../settings/index';
@@ -129,7 +127,6 @@ import {
 } from '../settings/api-credential';
 import { renderedWordCardKey, renderedWordElementKey, renderedWordsInRoot, setRenderedWordCardIdentity, setRenderedWordPitchClass } from '../dom/rendered-word-state';
 import { renderedWordPrivateValue } from '../dom/rendered-word-private-state';
-import { refreshReaderWordContrast } from '../dom/word-contrast';
 import { applyReaderAccentColor, applyReaderTheme, applyReaderWordColors } from '../theme/reader-theme';
 import { applyInterfaceLocaleToDocument, applyInterfaceLocaleToRoot } from '../locales/direction';
 import { resolveInterfaceLocale } from '../locales/resolve';
@@ -154,7 +151,7 @@ import {
     syncFixedPopoverHeight,
 } from '../runtime/popover-body-stabilizer';
 import { StudySourceController } from '../study/sources';
-import { outputLanguageOf, targetLanguageOf } from '../languages/selection';
+import { OUTPUT_LANGUAGE } from '../languages/selection';
 import { translateJapaneseSentence } from '../study/tools';
 import type { JPDBCard, JPDBGrade, JPDBToken, ReaderSettings } from '../app/types';
 import { addWindowEventListener } from '../platform/window-events';
@@ -181,13 +178,10 @@ import { emptyKanjiLookupDetailPromises, type KanjiLookupDetailPromises } from '
 
 const log = Logger.scope('NewTabRuntime');
 const NEW_TAB_POPOVER_PARSE_TIMEOUT_MS = 1_200;
-const NEW_TAB_SETTINGS_PARSE_TIMEOUT_MS = 10_000;
 const NEW_TAB_STUDY_PARSE_TIMEOUT_MS = 15_000;
 const NEW_TAB_LOCAL_LOOKUP_TIMEOUT_MS = 450;
 const NEW_TAB_REMOTE_LOOKUP_TIMEOUT_MS = 8_000;
 const NEW_TAB_PITCH_ENRICHMENT_LIMIT = 12;
-const NEW_TAB_SETTINGS_ENRICHMENT_LIMIT = 192;
-const NEW_TAB_SETTINGS_PUBLIC_VOCABULARY_LIMIT = 64;
 const NEW_TAB_BACKGROUND_ENRICHMENT_CONCURRENCY = 4;
 const NEW_TAB_PARSE_CONTENT_CACHE_TTL_MS = 30_000;
 const NEW_TAB_PARSE_CONTENT_CACHE_LIMIT = 160;
@@ -240,8 +234,6 @@ export async function startNewTabRuntime(options: NewTabRuntimeStartupOptions = 
 
 export interface NewTabRuntimeOptions {
     readonly mountHost?: HTMLElement;
-    /** Deliberate, non-persisted target owned by an embedded hosted lesson. */
-    readonly pageOwnedLearningTarget?: 'ja';
     readonly sessionClock?: StudySessionClock;
     readonly interfaceLanguage?: 'en' | 'ja';
     /** Read-only lesson context. Scheduler writes are owned by Academy learner evidence. */
@@ -268,7 +260,6 @@ export async function mountNewTabStudySurface(
     await ensureManagedWebStorageCurrent();
     return mountEmbeddedStudyRuntime(host, new NewTabRuntime({
         mountHost: host,
-        pageOwnedLearningTarget: 'ja',
         sessionClock: options.sessionClock,
         interfaceLanguage: options.language,
         sessionVocabulary: options.sessionVocabulary,
@@ -284,7 +275,6 @@ export class NewTabRuntime {
     private activeBackdrop?: HTMLElement;
     private settingsPreviewOriginalAccent?: string;
     private settingsPreviewOriginalTheme?: ReaderSettings['theme'];
-    private pendingOnboardingSettingsPanel?: string;
     private newTab?: NewTabController;
     private jpdb = new JpdbClient(() => effectiveJpdbApiKey(this.settings), () => this.settings.corsProxyUrl);
     private jiten = new JitenApiClient(() => effectiveJitenApiKey(this.settings), { proxyUrl: () => this.settings.corsProxyUrl });
@@ -313,7 +303,6 @@ export class NewTabRuntime {
     private jpdbReviewBridge = createJpdbReviewBridgeClient();
     private dictionaries = createLocalDictionaryStore(() => this.settings.corsProxyUrl, () => this.settings.interfaceLanguage);
     private dictionarySourceState = new DictionarySourceStateController({
-        getSettings: () => this.settings,
         onStateChange: () => this.repositionLookupPopover(),
     });
     // fallow-ignore-next-line code-duplication
@@ -321,14 +310,7 @@ export class NewTabRuntime {
         new WanikaniLookupClient(this.wanikani),
         () => this.settings,
         (key, initiallyExpanded) => this.dictionarySourceState.attributes(key, initiallyExpanded),
-        mount => {
-            this.repositionLookupPopover();
-            const installDefinitionTranslationBehaviors =
-                yomuSettingsSurfaceCompanion()?.installDefinitionTranslationBehaviors;
-            if (!installDefinitionTranslationBehaviors) return;
-            void installDefinitionTranslationBehaviors(mount, this.settings)
-                .then(() => this.repositionLookupPopover());
-        },
+        () => this.repositionLookupPopover(),
     );
     private navigation = new PopupNavigationController(() => Boolean(
         this.activeLookupPopover?.isConnected && this.activeLookupPopover.querySelector('.jpdb-reader-kanji-display'),
@@ -359,6 +341,7 @@ export class NewTabRuntime {
             frequencyRanks,
             isJpdbBackedCard: value => this.parser.isJpdbBackedCard(value),
             dictionaryLabel: name => this.dictionaryLabel(name),
+            copyBesideAudio: true,
         }),
         renderDefinitionSources: (card, entries, sentence, jpdbVocabularyInfo, jitenVocabularyInfo, bunproDefinitionInfo, extraSections) => this.renderDefinitionSources(card, entries, sentence, jpdbVocabularyInfo, jitenVocabularyInfo, bunproDefinitionInfo, extraSections),
         dictionarySourceAttributes: (key, initiallyExpanded) => this.dictionarySourceState.attributes(key, initiallyExpanded),
@@ -374,16 +357,6 @@ export class NewTabRuntime {
     private lastAutoAudioKey = '';
     private lastAutoAudioAt = 0;
     private externalRefreshController?: AbortController;
-    private offlineDictionaries = new OfflineDictionarySetupController({
-        dictionaries: this.dictionaries,
-        getSettings: () => this.settings,
-        applySettings: async settings => {
-            this.settings = settings;
-            await saveSettings(settings, { explicitUserChoiceKeys: NO_EXPLICIT_USER_CHOICE });
-        },
-        notify: message => this.toast(message),
-        afterInstalled: () => this.refreshDictionaryStyles(),
-    });
     private dictionaryStyles = createReaderDictionaryStyleController(() => this.settings, preferences => this.dictionaries.dictionaryStyleCss(preferences), error => log.warn('Dictionary styles unavailable', error));
     private studySources = new StudySourceController({
         getSettings: () => this.settings,
@@ -480,10 +453,8 @@ export class NewTabRuntime {
 
     private settingsDialog = new SettingsDialogController({
         getSettings: () => this.settings, saveSettings,
-        setSettings: (settings, options) => {
-            const nextSettings = this.settingsDialogTargetChoice(settings, options?.transient === true);
-            this.settings = nextSettings;
-            this.syncRuntimeTarget(nextSettings);
+        setSettings: settings => {
+            this.settings = settings;
         },
         jpdb: this.jpdb,
         dictionaries: this.dictionaries,
@@ -500,7 +471,6 @@ export class NewTabRuntime {
         applyAccentColor: color => this.applyAccentColor(color),
         applyWordColors: settings => this.applyWordColors(settings),
         lookupText: (text, _sentence, anchor) => this.lookupText(text, text, anchor, { stackOverSettings: true }),
-        parseSettingsJapanese: form => this.parseSettingsJapanese(form),
         installFab: () => undefined,
         refreshDictionaryStyles: () => this.refreshDictionaryStyles(),
         scheduleDictionaryRescan: () => undefined,
@@ -508,7 +478,6 @@ export class NewTabRuntime {
             if (this.newTab?.isCurrentPage()) void this.newTab.renderPage();
         },
         onStoredDataRestored: () => this.refreshExternalData(),
-        clearDictionarySourceOpenOverrides: () => undefined,
         resetAllData: () => this.factoryReset.resetAllData(),
         beginSettingsPreview: (accent, _language, theme) => {
             this.settingsPreviewOriginalAccent = accent;
@@ -519,7 +488,6 @@ export class NewTabRuntime {
             this.settingsPreviewOriginalTheme = undefined;
         },
     });
-    private onboarding = this.createOnboardingController();
 
     constructor(private readonly options: NewTabRuntimeOptions = {}) {}
 
@@ -531,9 +499,8 @@ export class NewTabRuntime {
         this.factoryReset.bind();
         this.settings = newTabSettingsWithPageInterfaceLanguage(await loadSettings(), this.options.interfaceLanguage);
         // Hosted Study can start before an installed userscript/extension has
-        // exposed its shared storage bridge. Listen before target resolution:
-        // onboarding waits below, so installing this only after the first
-        // render made the authoritative settings permanently unreachable.
+        // exposed its shared storage bridge. Listen before the first render so
+        // the authoritative settings reach this page as soon as it is ready.
         this.installSettingsStorageSubscription();
         configureLogger({ forceEnabled: this.settings.enableLogging });
         // D43: the new tab and the study app are documents Yomu owns outright, so
@@ -542,14 +509,11 @@ export class NewTabRuntime {
         // the mount, never the page's documentElement.
         this.applyInterfaceLocale();
         this.applyTheme();
-        const runtimeTargetSettings = await this.resolveRuntimeTargetSettings();
-        if (!runtimeTargetSettings) return;
-        this.syncLookupTarget(runtimeTargetSettings);
+        void showGradeKeyHintsUntilRetired(this.options.mountHost ?? document.documentElement);
         this.assertSessionVocabularyReadOnly();
         const requestedSettingsPanel = this.consumeRequestedSettingsPanel();
         this.newTab = this.createNewTabController();
         await this.newTab.renderPage();
-        this.openPendingOnboardingSettingsPanel();
         this.openRequestedSettingsPanel(requestedSettingsPanel);
         void this.refreshDictionaryStyles();
         this.scheduleDictionaryIndexPreparation();
@@ -568,69 +532,6 @@ export class NewTabRuntime {
         window.setTimeout(() => {
             if (!this.isDestroyed) void this.dictionaries.prepareTermSearchIndex();
         }, 1500);
-    }
-
-    private createOnboardingController() {
-        const Controller = yomuOnboardingController();
-        if (!Controller) return undefined;
-        return new Controller({
-            getSettings: () => this.settings,
-            setSettings: settings => {
-                this.settings = settings;
-                if (settings.learningTargetChosen) this.syncLookupTarget(settings);
-                this.applyTheme(settings);
-                this.applyWordColors(settings);
-            },
-            showSettings: panel => { this.pendingOnboardingSettingsPanel = panel; },
-            parseJapanese: panel => void this.parseNewTabContent(panel),
-            lookupText: (text, sentence, anchor) => void this.lookupText(text, sentence || text, anchor, { stackOverSettings: true }),
-            installOfflineDictionaries: () => void this.offlineDictionaries.run(),
-            onComplete: settings => this.applyRemoteSettings(settings),
-            onPersistenceFailed: settings => this.rollbackOnboardingSettings(settings),
-        });
-    }
-
-    private async resolveRuntimeTargetSettings(): Promise<ReaderSettings | null> {
-        const current = this.runtimeTargetSettings(this.settings);
-        if (current) return current;
-        // A generic embedded mount must fail closed. Academy supplies a
-        // page-owned target, while standalone Study can host the chooser.
-        if (this.options.mountHost) return null;
-        await this.runOnboardingIfAvailable();
-        if (this.isDestroyed) return null;
-        return this.runtimeTargetSettings(this.settings);
-    }
-
-    private runtimeTargetSettings(settings: ReaderSettings): ReaderSettings | null {
-        if (settings.learningTargetChosen) return settings;
-        const pageOwnedLearningTarget = this.options.pageOwnedLearningTarget;
-        if (!pageOwnedLearningTarget) return null;
-        return newTabSettingsWithPageTarget(settings, pageOwnedLearningTarget);
-    }
-
-    private settingsDialogTargetChoice(settings: ReaderSettings, transient: boolean): ReaderSettings {
-        if (transient) return settings;
-        if (targetLanguageOf(settings) === targetLanguageOf(this.settings)) return settings;
-        return { ...settings, learningTargetChosen: true };
-    }
-
-    private syncRuntimeTarget(settings: ReaderSettings): void {
-        const runtimeTargetSettings = this.runtimeTargetSettings(settings);
-        if (runtimeTargetSettings) this.syncLookupTarget(runtimeTargetSettings);
-    }
-
-    private async runOnboardingIfAvailable(): Promise<void> {
-        const onboarding = this.onboarding;
-        if (!onboarding) return;
-        await onboarding.showIfNeeded();
-        await onboarding.waitForCompletion();
-    }
-
-    private rollbackOnboardingSettings(previousSettings: ReaderSettings): void {
-        this.settings = previousSettings;
-        this.syncRuntimeTarget(previousSettings);
-        this.applyTheme(previousSettings);
-        this.applyWordColors(previousSettings);
     }
 
     private assertSessionVocabularyReadOnly(): void {
@@ -668,8 +569,6 @@ export class NewTabRuntime {
     private async applyRemoteSettings(settings: ReaderSettings): Promise<void> {
         const effectiveSettings = newTabSettingsWithPageInterfaceLanguage(settings, this.options.interfaceLanguage);
         this.settings = effectiveSettings;
-        void this.onboarding?.waitForCompletion(effectiveSettings);
-        this.syncRuntimeTarget(effectiveSettings);
         configureLogger({ forceEnabled: effectiveSettings.enableLogging });
         this.cardRenderData.clear();
         this.parseContentCache.clear();
@@ -886,11 +785,6 @@ export class NewTabRuntime {
     private showSettings(panel?: string): void {
         this.settingsDialog.open(panel);
     }
-    private openPendingOnboardingSettingsPanel(): void {
-        const panel = this.pendingOnboardingSettingsPanel;
-        this.pendingOnboardingSettingsPanel = undefined;
-        if (panel) this.showSettings(panel);
-    }
     private consumeRequestedSettingsPanel(): SettingsPanelId | null {
         const panel = settingsPanelFromHash(location.hash);
         if (!panel) return null;
@@ -944,15 +838,6 @@ export class NewTabRuntime {
 
     private isCurrentLookupTarget(snapshot: LookupTargetSnapshot): boolean {
         return this.lookupTarget.isCurrent(snapshot);
-    }
-
-    private syncLookupTarget(settings: ReaderSettings): void {
-        if (!this.lookupTarget.sync(settings)) return;
-        this.parseContentCache.clear();
-        this.newTab?.invalidateForTargetChange();
-        // This closes only the lookup layer. A settings dialog underneath a
-        // stacked lookup remains mounted and interactive.
-        this.dismissLookupPopover();
     }
 
     private isCurrentKanjiLookupRender(popover: HTMLElement, requestId: number, kanji: string): boolean {
@@ -1038,7 +923,6 @@ export class NewTabRuntime {
         const renderState = { fullRenderCompleted: false };
         let metaEntriesValue: YomitanMetaEntry[] = [];
         let renderedPitchKey = card.pitchAccent.join('|');
-        clearNestedParseState(popover);
         this.renderLookupPopoverContent(popover, card, sentence, loadingCardRenderData([], fallbackAnkiLookup));
         this.localizeLookupPopoverChrome(popover);
         this.activateLookupRenderSurface(popover, anchor, reused, options);
@@ -1053,18 +937,20 @@ export class NewTabRuntime {
                 currentAnkiLookup = ankiLookup;
                 this.applyAnkiLookupToRenderedWords(card, ankiLookup);
                 if (renderState.fullRenderCompleted) return;
-                clearNestedParseState(popover);
-                this.renderLookupPopoverContent(popover, card, sentence, loadingCardRenderData([], ankiLookup, metaEntriesValue));
-                this.refreshDeferredLookupPopover(popover, card, sentence);
+                this.rerenderLookupPopover(popover, requestId, () => {
+                    this.renderLookupPopoverContent(popover, card, sentence, loadingCardRenderData([], ankiLookup, metaEntriesValue));
+                    this.refreshDeferredLookupPopover(popover, card, sentence);
+                });
             }).catch(error => {
                 log.warn('New-tab Anki lookup failed', { term: card.spelling }, error);
             });
         }
         void renderData.localEntries.then(localEntries => {
             if (renderState.fullRenderCompleted || !this.isCurrentLookupRender(popover, requestId)) return;
-            clearNestedParseState(popover);
-            this.renderLookupPopoverContent(popover, card, sentence, loadingCardRenderData(localEntries, currentAnkiLookup));
-            this.refreshDeferredLookupPopover(popover, card, sentence);
+            this.rerenderLookupPopover(popover, requestId, () => {
+                this.renderLookupPopoverContent(popover, card, sentence, loadingCardRenderData(localEntries, currentAnkiLookup));
+                this.refreshDeferredLookupPopover(popover, card, sentence);
+            });
         });
         if (renderData.localMetaEntries) {
             void Promise.all([renderData.localEntries, renderData.localMetaEntries]).then(([localEntries, metaEntries]) => {
@@ -1072,9 +958,10 @@ export class NewTabRuntime {
                 if (renderState.fullRenderCompleted || !this.isCurrentLookupRender(popover, requestId)) return;
                 this.applyPitchAccentToRenderedWords(card);
                 renderedPitchKey = card.pitchAccent.join('|');
-                clearNestedParseState(popover);
-                this.renderLookupPopoverContent(popover, card, sentence, loadingCardRenderData(localEntries, currentAnkiLookup, metaEntries));
-                this.refreshDeferredLookupPopover(popover, card, sentence);
+                this.rerenderLookupPopover(popover, requestId, () => {
+                    this.renderLookupPopoverContent(popover, card, sentence, loadingCardRenderData(localEntries, currentAnkiLookup, metaEntries));
+                    this.refreshDeferredLookupPopover(popover, card, sentence);
+                });
             });
         }
         if (renderData.pitchAccent) {
@@ -1103,15 +990,24 @@ export class NewTabRuntime {
             metaEntriesValue = data.metaEntries;
             renderedPitchKey = card.pitchAccent.join('|');
             this.applyPitchAccentToRenderedWords(card);
-            clearNestedParseState(popover);
             const renderedData = currentAnkiLookup.primary && !data.ankiLookup.primary
                 ? { ...data, ankiLookup: currentAnkiLookup }
                 : data;
-            this.renderLookupPopoverContent(popover, card, sentence, { ...renderedData, loading: false });
-            this.refreshDeferredLookupPopover(popover, card, sentence, renderedData.jpdbVocabularyInfo);
+            this.rerenderLookupPopover(popover, requestId, () => {
+                this.renderLookupPopoverContent(popover, card, sentence, { ...renderedData, loading: false });
+                this.refreshDeferredLookupPopover(popover, card, sentence, renderedData.jpdbVocabularyInfo);
+            });
             this.renderHydratedLookupAnki(popover, card, sentence, renderedData, renderData, requestId);
         });
         void this.parseNewTabContent(popover);
+    }
+
+    // A provider landing re-renders the popup. Like the browser popup, it waits while the
+    // learner is choosing a deck, and keeps their open ⋯ and focus.
+    private rerenderLookupPopover(popover: HTMLElement, requestId: number, render: () => void): void {
+        rerenderAroundMiningControls(popover, expanded => this.miningControlsToggleLabel(expanded), () => {
+            if (this.isCurrentLookupRender(popover, requestId)) render();
+        });
     }
 
     private renderLookupPopoverContent(
@@ -1120,7 +1016,9 @@ export class NewTabRuntime {
         sentence: string | undefined,
         data: CardRenderData & { loading: boolean },
     ): void {
+        clearNestedParseState(popover);
         setInnerHtml(popover, this.lookupPopoverRenderer.render(card, sentence, 'modal', data));
+        mountDeckSelects(popover, card, sentence, (control, actionCard, actionSentence, command) => this.handleCardAction(control, actionCard, actionSentence, undefined, command));
         this.wanikaniSources.installDefinitionMounts(popover, card);
         this.refreshNewTabLookupHeader(popover, card, data);
     }
@@ -1175,14 +1073,14 @@ export class NewTabRuntime {
                 const resolvesPendingMiss = data.ankiLookup.trusted === false && ankiLookup.trusted !== false;
                 if (!ankiLookup.primary && !data.ankiLookup.primary && !resolvesPendingMiss) return;
                 if (!this.isCurrentLookupRender(popover, requestId)) return;
-                this.renderHydratedLookupAnkiResult(popover, card, sentence, data, ankiLookup);
+                this.renderHydratedLookupAnkiResult(popover, card, sentence, data, ankiLookup, requestId);
             })
             .catch(error => {
                 log.warn('New-tab Anki detail failed', { term: card.spelling }, error);
                 if (!this.isCurrentLookupRender(popover, requestId)) return;
                 const ankiLookup = ankiLookupWithUnavailableDetails(data.ankiLookup);
                 if (!ankiLookup.primary) return;
-                this.renderHydratedLookupAnkiResult(popover, card, sentence, data, ankiLookup);
+                this.renderHydratedLookupAnkiResult(popover, card, sentence, data, ankiLookup, requestId);
         });
     }
 
@@ -1192,11 +1090,13 @@ export class NewTabRuntime {
         sentence: string | undefined,
         data: CardRenderData,
         ankiLookup: AnkiLookupResult,
+        requestId: number,
     ): void {
-        clearNestedParseState(popover);
-        this.renderLookupPopoverContent(popover, card, sentence, { ...data, ankiLookup, loading: false });
-        this.applyAnkiLookupToRenderedWords(card, ankiLookup);
-        this.refreshDeferredLookupPopover(popover, card, sentence, data.jpdbVocabularyInfo);
+        this.rerenderLookupPopover(popover, requestId, () => {
+            this.renderLookupPopoverContent(popover, card, sentence, { ...data, ankiLookup, loading: false });
+            this.applyAnkiLookupToRenderedWords(card, ankiLookup);
+            this.refreshDeferredLookupPopover(popover, card, sentence, data.jpdbVocabularyInfo);
+        });
     }
 
     private refreshDeferredLookupPopover(
@@ -1228,6 +1128,7 @@ export class NewTabRuntime {
             ankiLookup,
             isJpdbBackedCard: value => this.parser.isJpdbBackedCard(value),
             dictionaryLabel: name => this.dictionaryLabel(name),
+            copyBesideAudio: true,
         });
     }
 
@@ -1723,26 +1624,24 @@ export class NewTabRuntime {
         }
         dispatchPrivateCommand(button, {
             'kanji-lookup': command => { void this.showKanjiLookupCard(card, command.kanji, sentence, button, { reuseActivePopover: true }); },
-            'card-ui': command => this.handleLookupCardUiCommand(button, command.action, card, sentence),
+            'card-ui': command => this.handleLookupCardUiCommand(button, command.action),
             'card-action': command => this.handleLookupCardCommand(button, command, card, sentence, anchor),
         });
     }
 
-    private handleLookupCardUiCommand(button: HTMLButtonElement, action: 'deck-picker' | 'mining-collapse' | 'review-target-toggle', card: JPDBCard, sentence: string | undefined): void {
+    private handleLookupCardUiCommand(button: HTMLButtonElement, action: 'deck-picker' | 'mining-collapse' | 'review-target-toggle'): void {
         if (action === 'mining-collapse') return this.toggleMiningControls(button);
-        if (action === 'review-target-toggle') return togglePopoverReviewTargetSelection(button);
-        this.openDeckPickerForAdd(button, card, sentence);
+        if (action === 'review-target-toggle') togglePopoverReviewTargetSelection(button);
     }
 
     private handleLookupCardCommand(button: HTMLButtonElement, command: CardCommandCapability, card: JPDBCard, sentence: string | undefined, anchor?: HTMLElement): void {
         if (command.action === 'grade') return this.gradeLookupFromButton(button, command, card, sentence, anchor);
-        if (command.action !== 'add' || !this.openDeckPickerForAdd(button, card, sentence)) {
-            void this.handleCardAction(button, card, sentence, anchor, command);
-        }
+        void this.handleCardAction(button, card, sentence, anchor, command);
     }
 
     private gradeLookupFromButton(button: HTMLButtonElement, command: CardCommandCapability, card?: JPDBCard, sentence?: string, anchor?: HTMLElement): void {
         if (!privateReviewGradeAllowed(button, command)) return;
+        retireGradeKeyHints();
         if (command.grade) void this.gradeCurrentCardFromLookup(button, command.grade, newTabLookupReviewTargetSelection(button), card, sentence, anchor);
     }
 
@@ -1837,13 +1736,7 @@ export class NewTabRuntime {
         return this.text(expanded ? 'hideMiningActions' : 'showMiningActions');
     }
 
-    private openDeckPickerForAdd(button: HTMLButtonElement, card: JPDBCard, sentence: string | undefined): boolean {
-        return openDeckPickerForCardAdd(button, card, sentence, async (actionButton, actionCard, actionSentence, command) => {
-            await this.handleCardAction(actionButton, actionCard, actionSentence, undefined, command);
-        });
-    }
-
-    private async handleCardAction(button: HTMLButtonElement, card: JPDBCard, sentence?: string, anchor?: HTMLElement, suppliedCommand?: CardCommandCapability): Promise<void> {
+    private async handleCardAction(button: CardActionControl, card: JPDBCard, sentence?: string, anchor?: HTMLElement, suppliedCommand?: CardCommandCapability): Promise<void> {
         if (button.disabled) return;
         const command = runtimeCardCommand(button, suppliedCommand);
         if (!command) return;
@@ -1938,7 +1831,7 @@ export class NewTabRuntime {
         if (stackOverSettings) forceReaderPopoverSurface(popover, this.settings);
         const useBackdrop = !stackOverSettings && !popover.classList.contains('jpdb-reader-sheet');
         if (useBackdrop) {
-            const backdrop = createReaderBackdrop(() => this.dismissLookupPopover());
+            const backdrop = createReaderBackdrop(() => this.dismissLookupPopover(), { clear: true });
             document.body.append(backdrop, popover);
             this.activeLookupBackdrop = backdrop;
         } else {
@@ -2297,11 +2190,10 @@ export class NewTabRuntime {
     }
 
     private async performNewTabContentParse(root: HTMLElement, options: NewTabParseContentOptions): Promise<void> {
-        void yomuSettingsSurfaceCompanion()?.installDefinitionTranslationBehaviors(root, this.settings);
         if (!this.parser.canParse()) return;
         installProviderExampleBehaviors(root, {
             interfaceLanguage: this.settings.interfaceLanguage,
-            outputLanguage: outputLanguageOf(this.settings),
+            outputLanguage: OUTPUT_LANGUAGE,
             blurTranslations: this.settings.immersionKitRevealTranslationOnClick,
             translate: translateJapaneseSentence,
             isCurrentRoot: candidate => candidate.isConnected,
@@ -2347,123 +2239,13 @@ export class NewTabRuntime {
         return this.parseContentCache.load(texts, options, publicJitenDetailLimit);
     }
 
-    private async parseSettingsJapanese(form: HTMLFormElement): Promise<void> {
-        if (!this.isCurrentSettingsRoot(form)) return;
-        const enhancement = yomuSettingsSurfaceCompanion()?.selfEnhancement;
-        if (!enhancement || enhancement.nestedSettingsParseAlreadyRendered(form)) return;
-        if (form.dataset.yomuSettingsSelfEnhancing === 'true') {
-            form.dataset.yomuSettingsSelfEnhancePending = 'true';
-            return;
-        }
-        form.dataset.yomuSettingsSelfEnhancing = 'true';
-        if (resolveUiLanguage(this.settings.interfaceLanguage) !== 'ja' || !this.parser.canParse()) {
-            delete form.dataset.yomuSettingsSelfEnhancing;
-            return;
-        }
-        const plan = enhancement.nestedSettingsTextParsePlan(
-            form,
-            enhancement.SETTINGS_PARSE_TARGET_LIMIT,
-        );
-        if (!plan) {
-            delete form.dataset.yomuSettingsSelfEnhancing;
-            return;
-        }
-        if (nestedParseAlreadyScheduled(form, plan.parseKey)) {
-            delete form.dataset.yomuSettingsSelfEnhancing;
-            return;
-        }
-        const parseLoadingId = `${Date.now()}:${Math.random()}`;
-        form.dataset.jpdbReaderParseLoadingKey = plan.parseKey;
-        form.dataset.jpdbReaderParseLoadingId = parseLoadingId;
-        try {
-            const parsed = await this.parser.parse(plan.targets.map(target => target.text), {
-                allowJpdbTimeoutFallback: true,
-                allowSegmentedFallback: true,
-                includeLocalPitch: false,
-                jpdbTimeoutMs: NEW_TAB_SETTINGS_PARSE_TIMEOUT_MS,
-                requireJpdb: false,
-                skipJpdb: true,
-            });
-            if (!this.isCurrentSettingsRoot(form)
-                || form.dataset.jpdbReaderParseLoadingKey !== plan.parseKey
-                || form.dataset.jpdbReaderParseLoadingId !== parseLoadingId) return;
-            const currentPlan = enhancement.nestedSettingsTextParsePlan(
-                form,
-                enhancement.SETTINGS_PARSE_TARGET_LIMIT,
-            );
-            if (!currentPlan) return;
-            const currentParsed = enhancement.supplementSettingsFallbackTokens(
-                currentPlan.targets,
-                enhancement.parsedSettingsTargetsForCurrentPlan(plan, parsed, currentPlan),
-            );
-            await this.hydrateSettingsFallbackTokens(currentParsed);
-            const latestPlan = enhancement.nestedSettingsTextParsePlan(
-                form,
-                enhancement.SETTINGS_PARSE_TARGET_LIMIT,
-            );
-            if (!latestPlan) return;
-            const latestParsed = enhancement.supplementSettingsFallbackTokens(
-                latestPlan.targets,
-                enhancement.parsedSettingsTargetsForCurrentPlan(currentPlan, currentParsed, latestPlan),
-            );
-            const renderSettings = enhancement.settingsForSettingsFormParse(form, this.settings);
-            applyNestedParsePlan(latestPlan, latestParsed, renderSettings);
-            enhancement.addSettingsRubyFromRenderedReadings(form, renderSettings);
-            highlightCardTargetScopes(form);
-            refreshReaderWordContrast(form);
-            form.dataset.jpdbReaderParseKey = latestPlan.parseKey;
-            form.dataset.yomuSettingsSelfEnhanced = 'true';
-            const tokens = latestParsed.flat();
-            void this.enrichPublicVocabularyWords(tokens, NEW_TAB_SETTINGS_PUBLIC_VOCABULARY_LIMIT, { preserveMissingFallbacks: true });
-            void this.enrichPitchWords(tokens, NEW_TAB_SETTINGS_ENRICHMENT_LIMIT);
-            if (latestPlan.targets.length >= enhancement.SETTINGS_PARSE_TARGET_LIMIT) {
-                window.setTimeout(() => void this.parseSettingsJapanese(form), 0);
-            }
-        } catch {
-        } finally {
-            clearNestedParseLoadingKey(form, plan.parseKey, parseLoadingId);
-            if (this.isCurrentSettingsRoot(form)) {
-                const pending = form.dataset.yomuSettingsSelfEnhancePending === 'true';
-                delete form.dataset.yomuSettingsSelfEnhancing;
-                delete form.dataset.yomuSettingsSelfEnhancePending;
-                if (pending) {
-                    void this.parseSettingsJapanese(form);
-                }
-            }
-        }
-    }
-
-    private async hydrateSettingsFallbackTokens(parsed: JPDBToken[][]): Promise<void> {
-        const target = this.captureLookupTarget();
-        if (!usesJapaneseProviders()) return;
-        const tokens = this.uniqueTokens(
-            parsed.flat(),
-            token => token.card.source === 'fallback',
-            NEW_TAB_SETTINGS_PUBLIC_VOCABULARY_LIMIT,
-        );
-        const resolvedCards = await this.publicLookupFallbackCards(tokens.map(token => token.card), { jpdbPublicLookup: false });
-        if (!this.isCurrentLookupTarget(target) || !usesJapaneseProviders()) return;
-        await runLimited(tokens, NEW_TAB_BACKGROUND_ENRICHMENT_CONCURRENCY, async token => {
-            const card = resolvedCards.get(cardKey(token.card));
-            if (!card) return;
-            const surface = token.sentence?.slice(token.start, token.end) || card.spelling;
-            token.card = card;
-            token.rubies = inferredInflectedSurfaceRubies(surface, card.spelling, card.reading);
-            token.pitchClass = getPitchClass(card.pitchAccent, card.reading || card.spelling) || token.pitchClass;
-            this.parser.cacheCards?.([card]);
-        });
-    }
-
-    private isCurrentSettingsRoot(root: HTMLElement): boolean {
-        return Boolean(root.isConnected && this.activeDialog === root && root.classList.contains('jpdb-reader-settings'));
-    }
 }
 
 function kanjiLookupActionsClass(hasReviewTargetGutter: boolean): string {
     return hasReviewTargetGutter ? ' jpdb-reader-actions-has-mining jpdb-reader-actions-mining-collapsed' : '';
 }
 
-function runtimeCardCommand(button: HTMLButtonElement, supplied: CardCommandCapability | undefined): CardCommandCapability | undefined {
+function runtimeCardCommand(button: CardActionControl, supplied: CardCommandCapability | undefined): CardCommandCapability | undefined {
     return supplied ?? readCardCommandCapability(button);
 }
 

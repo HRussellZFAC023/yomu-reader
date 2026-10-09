@@ -17,9 +17,21 @@ interface SettingsOperationUiState {
 
 type SettingsActionMode = 'local' | 'durable' | 'restore';
 
+/**
+ * Whether a queued dictionary operation holds Save. An install only writes
+ * settings at its very end, so Save stays available while it downloads and
+ * imports; that final write waits for any Save in flight and holds Save for
+ * the moment it runs (`runDictionarySettingsWrite`). Deleting, clearing and
+ * restoring rewrite what the form shows, so they keep holding Save.
+ */
+export interface DictionaryOperationOptions {
+    readonly holdsSave?: boolean;
+}
+
 export interface SettingsActionTicket {
     readonly revision: number;
     readonly mode: SettingsActionMode;
+    readonly holdsSave: boolean;
 }
 
 interface FormFreezeSnapshot {
@@ -37,7 +49,6 @@ const LOCAL_SETTINGS_ACTIONS = new Set([
     'audio-source-remove',
     'audio-source-up',
     'cancel',
-    'copy-newtab-url',
     'dictionary-source-down',
     'dictionary-source-up',
     'lookup-link-add',
@@ -68,11 +79,16 @@ function settingsActionMode(action: string): SettingsActionMode {
 export class SettingsRestoreCoordinator {
     private dictionaryOperationTail: Promise<void> = Promise.resolve();
     private pendingDictionaryOperations = 0;
+    private saveHoldingDictionaryOperations = 0;
+    private dictionarySettingsWritePending = false;
+    private saveSettled: Promise<void> = Promise.resolve();
+    private settleSave?: () => void;
     private restorePending = false;
     private revision = 0;
     private savePending = false;
     private editedDuringSave = false;
     private readonly activeSaves = new Set<Promise<void>>();
+    private saveHoldingDurableOperations = 0;
     private readonly activeDurableOperations = new Set<Promise<void>>();
     private readonly freezeSnapshots = new WeakMap<HTMLFormElement, FormFreezeSnapshot>();
     private readonly savedNotices = new WeakSet<HTMLFormElement>();
@@ -88,7 +104,9 @@ export class SettingsRestoreCoordinator {
     }
 
     captureAction(form: HTMLFormElement, action: string): SettingsActionTicket | undefined {
-        const ticket = { revision: this.revision, mode: settingsActionMode(action) } as const;
+        // File import remains durable for restore ordering, including its file
+        // picker, but only its final settings write needs to hold Save.
+        const ticket = { revision: this.revision, mode: settingsActionMode(action), holdsSave: action !== 'import-yomitan-dictionary' } as const;
         return this.actionIsAdmitted(form, ticket) ? ticket : undefined;
     }
 
@@ -98,7 +116,7 @@ export class SettingsRestoreCoordinator {
         operation: () => Promise<T>,
     ): Promise<T | undefined> {
         if (!this.actionIsAdmitted(form, ticket)) return undefined;
-        if (ticket.mode === 'durable') return this.runDurableOperation(operation);
+        if (ticket.mode === 'durable') return this.runDurableOperation(operation, ticket.holdsSave);
         return operation();
     }
 
@@ -120,14 +138,21 @@ export class SettingsRestoreCoordinator {
     beginSave(form: HTMLFormElement): number | undefined {
         if (this.saveIsBlocked(form)) return undefined;
         this.savePending = true;
+        this.saveSettled = new Promise(resolve => { this.settleSave = resolve; });
         this.editedDuringSave = false;
         try {
             this.sync(form);
         } catch (error) {
-            this.savePending = false;
+            this.releaseSave();
             throw error;
         }
         return this.revision;
+    }
+
+    private releaseSave(): void {
+        this.savePending = false;
+        this.settleSave?.();
+        this.settleSave = undefined;
     }
 
     private saveIsBlocked(form: HTMLFormElement): boolean {
@@ -139,7 +164,7 @@ export class SettingsRestoreCoordinator {
             this.showRestoreBlocked(form);
             return true;
         }
-        if (this.pendingDictionaryOperations > 0) {
+        if (this.saveHoldingDictionaryOperations > 0) {
             this.showDictionarySaveBlocked(form);
             return true;
         }
@@ -147,11 +172,36 @@ export class SettingsRestoreCoordinator {
     }
 
     private saveConflictPending(): boolean {
-        return this.savePending || this.activeDurableOperations.size > 0;
+        return this.savePending || this.dictionarySettingsWritePending || this.saveHoldingDurableOperations > 0;
+    }
+
+    /**
+     * A dictionary install's settings write: it runs after any Save in flight,
+     * so it merges into what that Save stored, and Save waits the moment it
+     * takes rather than writing over it.
+     */
+    async runDictionarySettingsWrite<T>(form: HTMLFormElement | undefined, write: () => Promise<T>): Promise<T> {
+        // Dictionary operations run one at a time, so only a Save can be ahead.
+        while (this.savePending || this.activeSaves.size > 0) {
+            await Promise.allSettled([this.saveSettled, ...this.activeSaves]);
+        }
+        this.dictionarySettingsWritePending = true;
+        this.syncForm(form);
+        try {
+            return await write();
+        } finally {
+            this.dictionarySettingsWritePending = false;
+            this.syncForm(form);
+        }
+    }
+
+    private syncForm(form: HTMLFormElement | undefined): void {
+        if (form?.isConnected) this.sync(form);
+        this.syncOtherCurrentForm(form);
     }
 
     finishSave(form: HTMLFormElement, saved = false): void {
-        this.savePending = false;
+        this.releaseSave();
         // Save read the form when it started; an edit made since is not saved.
         if (saved && !this.editedDuringSave) this.savedNotices.add(form);
         if (form.isConnected) this.sync(form);
@@ -162,15 +212,17 @@ export class SettingsRestoreCoordinator {
         return revision === this.importRevision;
     }
 
-    async runDurableOperation<T>(operation: () => Promise<T>): Promise<T> {
+    async runDurableOperation<T>(operation: () => Promise<T>, holdsSave = true): Promise<T> {
         let release!: () => void;
         const lifetime = new Promise<void>(resolve => { release = resolve; });
         this.activeDurableOperations.add(lifetime);
+        if (holdsSave) this.saveHoldingDurableOperations++;
         try {
             this.syncCurrentForm();
             return await operation();
         } finally {
             this.activeDurableOperations.delete(lifetime);
+            if (holdsSave) this.saveHoldingDurableOperations--;
             release();
             this.syncCurrentForm();
         }
@@ -183,20 +235,27 @@ export class SettingsRestoreCoordinator {
         return operation;
     }
 
-    enqueueDictionaryOperation<T>(form: HTMLFormElement | undefined, task: () => Promise<T>): Promise<T> {
+    enqueueDictionaryOperation<T>(
+        form: HTMLFormElement | undefined,
+        task: () => Promise<T>,
+        { holdsSave = true }: DictionaryOperationOptions = {},
+    ): Promise<T> {
+        const hold = holdsSave ? 1 : 0;
         this.pendingDictionaryOperations++;
+        this.saveHoldingDictionaryOperations += hold;
         try {
             if (form) this.sync(form);
         } catch (error) {
             this.pendingDictionaryOperations = Math.max(0, this.pendingDictionaryOperations - 1);
+            this.saveHoldingDictionaryOperations = Math.max(0, this.saveHoldingDictionaryOperations - hold);
             throw error;
         }
         const operation = this.dictionaryOperationTail.then(task);
         this.dictionaryOperationTail = operation.then(() => undefined, () => undefined);
         return operation.finally(() => {
             this.pendingDictionaryOperations = Math.max(0, this.pendingDictionaryOperations - 1);
-            if (form?.isConnected) this.sync(form);
-            this.syncOtherCurrentForm(form);
+            this.saveHoldingDictionaryOperations = Math.max(0, this.saveHoldingDictionaryOperations - hold);
+            this.syncForm(form);
         });
     }
 
@@ -207,10 +266,8 @@ export class SettingsRestoreCoordinator {
         syncSettingsSaveControl(save, state);
         this.syncFormFreeze(form, save);
         const message = this.saveStatusMessage(form, state);
-        if (status) {
-            status.hidden = !message;
-            status.textContent = message;
-        }
+        // Only "Settings saved." is an outcome; queue and import notes are neutral.
+        if (status) setSettingsSaveStatus(status, message, state.message ? 'pending' : 'success');
     }
 
     /** "Settings saved." lasts until the next edit or the next operation on this form. */
@@ -233,11 +290,7 @@ export class SettingsRestoreCoordinator {
 
     showStaleSaveDiscarded(form: HTMLFormElement): void {
         const message = uiText(this.port.interfaceLanguage(), 'settingsImportStaleSaveDiscarded');
-        const status = form.querySelector<HTMLElement>('[data-settings-save-status]');
-        if (status) {
-            status.hidden = false;
-            status.textContent = message;
-        }
+        showSettingsSaveStatus(form, message, 'pending');
         this.port.toast(message);
     }
 
@@ -285,16 +338,19 @@ export class SettingsRestoreCoordinator {
     private operationUiState(): SettingsOperationUiState {
         const language = this.port.interfaceLanguage();
         if (this.restorePending) return restoreUiState(language);
-        if (this.pendingDictionaryOperations > 0) {
+        if (this.saveHoldingDictionaryOperations > 0) {
             return dictionaryQueueUiState(this.pendingDictionaryOperations, language);
         }
         return this.operationUiStateWithoutRestore(language);
     }
 
     private operationUiStateWithoutRestore(language: InterfaceLanguage): SettingsOperationUiState {
-        if (this.activeDurableOperations.size > 0) return busyUiState(language, 'settings-action');
+        // Installs still running say so beside Save, which an install no
+        // longer holds.
+        const queue = this.pendingDictionaryOperations > 0 ? dictionaryQueueStatus(this.pendingDictionaryOperations, language, 'dictionaryInstallRunning') : '';
+        if (this.saveHoldingDurableOperations > 0 || this.dictionarySettingsWritePending) return { ...busyUiState(language, 'settings-action'), message: queue };
         if (this.savePending) return busyUiState(language, 'settings-save');
-        return readyUiState(language);
+        return { ...readyUiState(language), message: queue };
     }
 
     private syncFormFreeze(form: HTMLFormElement, save: HTMLButtonElement | null): void {
@@ -350,11 +406,7 @@ export class SettingsRestoreCoordinator {
     private showDictionarySaveBlocked(form: HTMLFormElement): void {
         this.sync(form);
         const message = uiText(this.port.interfaceLanguage(), 'dictionaryInstallSaveBlocked');
-        const status = form.querySelector<HTMLElement>('[data-settings-save-status]');
-        if (status) {
-            status.hidden = false;
-            status.textContent = message;
-        }
+        showSettingsSaveStatus(form, message, 'pending');
         this.port.toast(message);
     }
 
@@ -369,8 +421,22 @@ export class SettingsRestoreCoordinator {
     }
 }
 
+export type SettingsSaveStatusTone = 'pending' | 'success' | 'error';
+
+/** The footer line beside Save. Its tone, not the brand colour, says how it went. */
+export function showSettingsSaveStatus(form: HTMLFormElement, message: string, tone: SettingsSaveStatusTone): void {
+    const status = form.querySelector<HTMLElement>('[data-settings-save-status]');
+    if (status) setSettingsSaveStatus(status, message, tone);
+}
+
+function setSettingsSaveStatus(status: HTMLElement, message: string, tone: SettingsSaveStatusTone): void {
+    status.hidden = !message;
+    status.textContent = message;
+    status.dataset.statusTone = tone;
+}
+
 function controlStaysInteractive(control: SettingsControl, save: HTMLButtonElement | null): boolean {
-    return control === save || control.dataset.action === 'cancel';
+    return control === save || control.dataset.action === 'cancel' || control.hasAttribute('data-settings-close');
 }
 
 function settingsActionIsUnsafe(control: SettingsControl): boolean {
@@ -398,13 +464,20 @@ function restoreUiState(language: InterfaceLanguage): SettingsOperationUiState {
     };
 }
 
-function dictionaryQueueUiState(count: number, language: InterfaceLanguage): SettingsOperationUiState {
-    const message = uiText(language, 'dictionaryImportQueueStatus')
+function dictionaryQueueStatus(
+    count: number,
+    language: InterfaceLanguage,
+    key: 'dictionaryImportQueueStatus' | 'dictionaryInstallRunning' = 'dictionaryImportQueueStatus',
+): string {
+    return uiText(language, key)
         .replace('{count}', count.toLocaleString())
         .replace('{plural}', count === 1 ? '' : 's');
+}
+
+function dictionaryQueueUiState(count: number, language: InterfaceLanguage): SettingsOperationUiState {
     return {
         busy: true,
-        message,
+        message: dictionaryQueueStatus(count, language),
         saveLabel: uiText(language, 'saveAfterInstall'),
         blockedBy: 'dictionary-import',
     };
@@ -428,7 +501,9 @@ function readyUiState(language: InterfaceLanguage): SettingsOperationUiState {
 
 function syncSettingsSaveControl(save: HTMLButtonElement | null, state: SettingsOperationUiState): void {
     if (!save) return;
-    const accessibleLabel = state.message || state.saveLabel;
+    // A held Save says why; an available one is just Save, whatever the
+    // status line beside it reports.
+    const accessibleLabel = state.busy ? state.message || state.saveLabel : state.saveLabel;
     save.setAttribute('aria-disabled', String(state.busy));
     save.disabled = state.busy;
     save.replaceChildren(state.saveLabel);

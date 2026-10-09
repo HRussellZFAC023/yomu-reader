@@ -9,6 +9,7 @@ type NewTabTextKey = UiCopyKey | NewTabCopyKey;
 export interface NewTabLoadResult {
     cards: JPDBCard[];
     sourceLabel: string;
+    sourceId?: 'starter-words';
     reviewCountMode?: boolean;
     emptyMessageKey?: NewTabTextKey;
     // Set when configured review sources returned nothing and practice words
@@ -17,6 +18,7 @@ export interface NewTabLoadResult {
 }
 
 export interface NewTabLoadAccumulator {
+    sourceId?: NewTabLoadResult['sourceId'];
     cards: JPDBCard[];
     labels: string[];
     reviewCountMode: boolean;
@@ -56,6 +58,9 @@ export function mergeEmptyNewTabLoadResults(previous: NewTabLoadResult, next: Ne
 export function appendNewTabLoadResult(accumulator: NewTabLoadAccumulator, result: NewTabLoadResult): void {
     accumulator.reviewCountMode ||= result.reviewCountMode === true;
     accumulator.emptyMessageKey = result.emptyMessageKey ?? accumulator.emptyMessageKey;
+    if (result.cards.length) {
+        accumulator.sourceId = !accumulator.cards.length || accumulator.sourceId === result.sourceId ? result.sourceId : undefined;
+    }
     appendLoadedWords(result, accumulator.cards, accumulator.labels);
     if (!result.cards.length && result.reviewCountMode === true && result.sourceLabel && !accumulator.labels.includes(result.sourceLabel)) {
         accumulator.labels.push(result.sourceLabel);
@@ -97,6 +102,8 @@ export function interleavedNewTabLoadAccumulator(results: NewTabLoadResult[]): N
     accumulator.reviewCountMode = results.some(result => result.reviewCountMode === true);
     accumulator.emptyMessageKey = results.find(result => result.emptyMessageKey)?.emptyMessageKey;
     const activeResults = results.filter(result => result.cards.length > 0);
+    const sourceId = activeResults[0]?.sourceId;
+    if (sourceId && activeResults.every(result => result.sourceId === sourceId)) accumulator.sourceId = sourceId;
     accumulator.cards.push(...interleaveNewTabCards(activeResults.map(result => result.cards)));
     accumulator.labels.push(...activeResults.map(result => result.sourceLabel));
     return accumulator;
@@ -105,6 +112,7 @@ export function interleavedNewTabLoadAccumulator(results: NewTabLoadResult[]): N
 export function newTabLoadResult(accumulator: NewTabLoadAccumulator, language: ReaderSettings['interfaceLanguage']): NewTabLoadResult {
     return {
         cards: accumulator.cards,
+        ...(accumulator.sourceId ? { sourceId: accumulator.sourceId } : {}),
         sourceLabel: accumulator.labels.length ? orderedNewTabSourceLabels(accumulator.labels).join(' + ') : newTabText(language, 'noSource'),
         reviewCountMode: accumulator.reviewCountMode,
         emptyMessageKey: accumulator.emptyMessageKey,

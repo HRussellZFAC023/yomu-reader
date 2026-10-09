@@ -1,3 +1,4 @@
+import { AUDIO_REQUEST_TIMEOUT_MS } from '../audio/request';
 import { AudioPlayer } from '../audio/player';
 import { hasVisiblePageVideo } from '../ui/browser';
 import { cardHighlightTargets, highlightCardTargetWords } from '../cards/highlight';
@@ -196,13 +197,12 @@ export class ImmersionPopoverController implements ImmersionPopoverControl {
         const controller = new AbortController();
         this.loadAbortControllers.set(popover, controller);
         const searchPromise = this.searchExamples(card, { ...options, signal: controller.signal });
-        const settings = this.options.getSettings();
 
         try {
             const result = await raceAgainstAbortOrTimeout(
                 searchPromise,
                 controller.signal,
-                settings.audioTimeoutMs + IMMERSION_LOAD_TIMEOUT_GRACE_MS,
+                AUDIO_REQUEST_TIMEOUT_MS + IMMERSION_LOAD_TIMEOUT_GRACE_MS,
             );
             if (this.shouldSkipLoadedExamplesRender(popover, container, controller)) return;
             this.renderLoadedExamples(container, card, result);
@@ -609,11 +609,6 @@ export class ImmersionPopoverController implements ImmersionPopoverControl {
             nadeshikoKey: Boolean(settings.nadeshikoApiKey.trim()),
             limit: settings.immersionKitLimit,
             limitEnabled: settings.immersionKitLimitEnabled,
-            min: settings.immersionKitMinLength,
-            max: settings.immersionKitMaxLength,
-            category: settings.immersionKitCategory,
-            sort: settings.immersionKitSort,
-            exact: settings.immersionKitExactMatch,
             parse: this.options.canParseJapanese(),
             exactOnly: Boolean(options.exactOnly),
             relatedQueries: uniqueImmersionQueries(options.relatedQueries ?? []).map(normalizeImmersionSearchQuery),
@@ -810,7 +805,7 @@ export class ImmersionPopoverController implements ImmersionPopoverControl {
                 const currentSrc = imageElement.currentSrc || imageElement.src;
                 const requestId = ++imageRequestId;
                 const settings = this.options.getSettings();
-                this.options.client.fetchBlobUrl(fallbackUrl, settings.audioTimeoutMs, settings.corsProxyUrl, settings.interfaceLanguage)
+                this.options.client.fetchBlobUrl(fallbackUrl, AUDIO_REQUEST_TIMEOUT_MS, settings.corsProxyUrl, settings.interfaceLanguage)
                     .then(displayUrl => {
                         if (requestId !== imageRequestId || !isCurrent() || !imageElement.isConnected) return;
                         if (!holdUntilReady || currentSrc === displayUrl) {
@@ -865,7 +860,7 @@ export class ImmersionPopoverController implements ImmersionPopoverControl {
         // the current image's critical path.
         void this.options.client.fetchBlobUrl(
             imageUrls[0],
-            settings.audioTimeoutMs,
+            AUDIO_REQUEST_TIMEOUT_MS,
             settings.corsProxyUrl,
             settings.interfaceLanguage,
         ).catch(() => undefined);
@@ -986,7 +981,7 @@ export class ImmersionPopoverController implements ImmersionPopoverControl {
             // Pre-fetch the media through the userscript bridge so its bytes are
             // registered as a page-media blob; the shared AudioPlayer then plays
             // it with a Web Audio fallback for strict media-src hosts.
-            const blobSrc = await this.options.client.fetchBlobUrl(source.urls, settings.audioTimeoutMs, settings.corsProxyUrl, settings.interfaceLanguage)
+            const blobSrc = await this.options.client.fetchBlobUrl(source.urls, AUDIO_REQUEST_TIMEOUT_MS, settings.corsProxyUrl, settings.interfaceLanguage)
                 .catch(() => '');
             if (!isCurrent()) return;
             await this.options.audio.playMediaCandidates([blobSrc, ...source.urls], {

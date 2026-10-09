@@ -33,11 +33,58 @@ import type {
     JPDBCard,
     JPDBGrade,
 } from './fixtures';
-import {
-    resetActiveLearningTargetLanguage,
-    setActiveLearningTargetLanguage,
-} from '../../../src/reader/languages/active';
+import { readFileSync } from 'node:fs';
 import { readReviewTargetCapability } from '../../../src/reader/dom/private-command-capabilities';
+
+// The stylesheets Study ships, in src/reader/styles.css's cascade order.
+function studyStylesheetText(): string {
+    const imports = readFileSync('src/reader/styles.css', 'utf8').matchAll(/@import '\.\/([^']+)';/gu);
+    return Array.from(imports, ([, path]) => readFileSync(`src/reader/${path}`, 'utf8')).join('\n');
+}
+
+// Every declaration a stylesheet makes on the ::before of `element`, from any
+// selector in a rule's list (grouping rules such as @media included).
+function beforeDeclarationsReaching(element: Element, sheet: CSSStyleSheet): Array<[string, string]> {
+    const declarations: Array<[string, string]> = [];
+    const visit = (rules: CSSRuleList): void => {
+        for (const rule of Array.from(rules)) {
+            if ('cssRules' in rule) visit((rule as CSSGroupingRule).cssRules);
+            if (!(rule instanceof CSSStyleRule)) continue;
+            const reaches = topLevelSelectors(rule.selectorText).some(selector => {
+                if (!selector.endsWith('::before')) return false;
+                try {
+                    return element.matches(selector.slice(0, -'::before'.length));
+                } catch {
+                    return false;
+                }
+            });
+            if (!reaches) continue;
+            for (let index = 0; index < rule.style.length; index += 1) {
+                const property = rule.style[index]!;
+                declarations.push([property, rule.style.getPropertyValue(property)]);
+            }
+        }
+    };
+    visit(sheet.cssRules);
+    return declarations;
+}
+
+function topLevelSelectors(selectorText: string): string[] {
+    const selectors: string[] = [];
+    let depth = 0;
+    let start = 0;
+    for (let index = 0; index < selectorText.length; index += 1) {
+        const char = selectorText[index];
+        if (char === '(') depth += 1;
+        else if (char === ')') depth -= 1;
+        else if (char === ',' && depth === 0) {
+            selectors.push(selectorText.slice(start, index).trim());
+            start = index + 1;
+        }
+    }
+    selectors.push(selectorText.slice(start).trim());
+    return selectors;
+}
 
 type JpdbDeckOption = {
     id: string;
@@ -213,12 +260,16 @@ describe('new tab review — session progress, grade bar & deck selectors', () =
 
     it('renders SRS session progress and timer labels while navigating left and right', () => {
         document.querySelectorAll('[data-jpdb-reader-root].jpdb-reader-newtab').forEach(root => root.remove());
+        // Timed Study is opt-in since 2.1.0 (ba2b781a5): the timer label belongs
+        // to a learner who chose a daily goal. The untimed default is pinned by
+        // the deep-queue test below and 12-fallbacks-refresh-shared-url.
         const controller = newTabPromptController({
             ...DEFAULT_SETTINGS,
             apiKey: 'jpdb-key',
             jpdbMiningEnabled: true,
             enableReviews: true,
             immersionKitEnabled: false,
+            newTabDailyGoalMinutes: 60,
         });
         const root = renderEnabledNewTabRoot(controller, { appendToDocument: true });
         const first = newTabTestCard({
@@ -300,6 +351,8 @@ describe('new tab review — session progress, grade bar & deck selectors', () =
             jpdbMiningEnabled: true,
             enableReviews: true,
             immersionKitEnabled: false,
+            // Both clocks must actually run (timed Study is opt-in since ba2b781a5).
+            newTabDailyGoalMinutes: 60,
         });
         const activeController = newTabPromptController({
             ...DEFAULT_SETTINGS,
@@ -307,6 +360,8 @@ describe('new tab review — session progress, grade bar & deck selectors', () =
             jpdbMiningEnabled: true,
             enableReviews: true,
             immersionKitEnabled: false,
+            // Both clocks must actually run (timed Study is opt-in since ba2b781a5).
+            newTabDailyGoalMinutes: 60,
         });
         const staleCards = [
             newTabTestCard({ vid: 101, spelling: '古い', reading: 'ふるい', source: 'jpdb', reviewSource: 'jpdb-api', cardState: ['due'] }),
@@ -398,14 +453,15 @@ describe('new tab review — session progress, grade bar & deck selectors', () =
 
             expect(root.querySelector('[data-newtab-status]')?.textContent).toBe('');
             expect(newTabSourceSelect(root).value).toBe('jpdb');
-            expect(root.querySelector('[data-newtab-count]')?.textContent).toMatch(/^Done 0 · Left 539 · Due 539 · \d\d:\d\d · 0\/60 min$/);
+            // Default profile: no daily goal, so no unsolicited timer (ba2b781a5).
+            expect(root.querySelector('[data-newtab-count]')?.textContent).toBe('Done 0 · Left 539 · Due 539');
             expect(root.textContent).not.toContain('360 / 539');
 
             root.querySelector<HTMLButtonElement>('[data-grade="okay"]')?.click();
 
             await waitForExpect(() => {
                 expect(reviewCard).toHaveBeenCalledWith(current, 'okay');
-                expect(root.querySelector('[data-newtab-count]')?.textContent).toMatch(/^Done 1 · Left 538 · Due 538 · \d\d:\d\d · 0\/60 min$/);
+                expect(root.querySelector('[data-newtab-count]')?.textContent).toBe('Done 1 · Left 538 · Due 538');
                 expect(root.textContent).not.toContain('360 / 539');
                 expect(root.textContent).not.toContain('360 / 538');
             });
@@ -477,6 +533,41 @@ describe('new tab review — session progress, grade bar & deck selectors', () =
         expect(select?.selectedOptions[0]?.textContent).toBe('Both');
         expect(select?.selectedOptions[0]?.dataset.newtabGradeTargetLabel).toBe('Grades JPDB + Anki card: Core #404');
         expect(Array.from(mount.querySelectorAll<HTMLButtonElement>('[data-newtab-action="grade"]')).map(button => button.querySelector('.jpdb-reader-newtab-grade-label')?.textContent)).toEqual(['Fail', 'Pass']);
+    });
+
+    it('keeps the grade-target handle a grab bar: no Study stylesheet draws the popup drawer chevron on it', () => {
+        const mount = document.createElement('div');
+        mount.append(...renderNewTabGradeControlButtons({
+            apiShortLabel: 'JPDB',
+            bothLabel: 'Both',
+            grades: [['fail', 'Fail'], ['pass', 'Pass']],
+            selectorLabel: 'Target',
+            selectedOption: undefined,
+            summary: summarizeNewTabReviewSources(['jpdb-api', 'anki']),
+            targetLabel: 'Grades JPDB + Anki card: Core #404',
+            targetOptions: [
+                { id: 'both', kind: 'both', label: 'Grades JPDB + Anki card: Core #404', shortLabel: 'Both' },
+                { id: 'jpdb', kind: 'jpdb', label: 'Grades JPDB', shortLabel: 'JPDB' },
+            ],
+        }));
+        const style = document.createElement('style');
+        style.textContent = studyStylesheetText();
+        document.head.append(style);
+        document.body.append(mount);
+        try {
+            const details = mount.querySelector<HTMLDetailsElement>('[data-newtab-grade-target]')!;
+            const handle = details.querySelector<HTMLElement>('.jpdb-reader-mining-collapse')!;
+            const chevronDeclarations = () => beforeDeclarationsReaching(handle, style.sheet!)
+                .filter(([property, value]) => /^(transform|border(-(top|left))?)$/u.test(property) && !/^(none|0(px)?)\b/u.test(value));
+            expect(beforeDeclarationsReaching(handle, style.sheet!)).toContainEqual(['height', '5px']);
+            expect(chevronDeclarations()).toEqual([]);
+            details.open = true;
+            handle.dataset.expanded = 'true';
+            expect(chevronDeclarations()).toEqual([]);
+        } finally {
+            style.remove();
+            mount.remove();
+        }
     });
 
     it('wires card.reviewGradeIntervals into the main new-tab grade bar', () => {
@@ -966,33 +1057,6 @@ describe('new tab review — session progress, grade bar & deck selectors', () =
         } finally {
             controller.destroy();
             document.body.replaceChildren();
-        }
-    });
-
-    it('does not let a delayed Japanese deck list overwrite a new target', async () => {
-        resetActiveLearningTargetLanguage();
-        const settings = {
-            ...DEFAULT_SETTINGS,
-            apiKey: 'jpdb-key',
-            newTabJpdbDeck: 'all',
-        };
-        const decks = deferred<JpdbDeckOption[]>();
-        const { controller, select, populate } = newTabJpdbDeckSelectorFixture(settings, () => decks.promise);
-
-        try {
-            const japaneseRequest = populate();
-            expect(setActiveLearningTargetLanguage('es')).not.toBeNull();
-            await populate();
-            expect([...select.options].map(option => option.value)).toEqual(['all']);
-
-            decks.resolve([{ id: 'japanese-deck', name: 'Japanese deck' }]);
-            await japaneseRequest;
-            expect([...select.options].map(option => option.value)).toEqual(['all']);
-            expect(select.textContent).not.toContain('Japanese deck');
-        } finally {
-            resetActiveLearningTargetLanguage();
-            controller.destroy();
-            select.remove();
         }
     });
 

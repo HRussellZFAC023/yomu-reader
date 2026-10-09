@@ -1,4 +1,5 @@
 import { execFileSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import { existsSync, readFileSync, statSync } from 'node:fs';
 import path from 'node:path';
 import process from 'node:process';
@@ -73,6 +74,30 @@ const RULES = [
     },
 ];
 
+// Reviewed fake literals whose exact value is embedded in recorded evidence, so
+// renaming them to a placeholder shape would invalidate that evidence. Each
+// entry exempts ONE rule, at ONE file and line, for ONE value (by SHA-256):
+// moving, editing or copying the literal anywhere else blocks again. This is
+// not a pattern allowlist; add an entry only with a reason a reviewer can check.
+const REVIEWED_FIXTURE_LITERALS = [
+    {
+        file: 'scripts/upgrade-corpus/lib/learner-story.ts',
+        line: 12,
+        rule: 'credential-assignment',
+        sha256: 'b15199f78bf13faccb5419b4e3c116e8aed5504dbe276ce4063a83f1855f29c2',
+        reason: 'Documented fake JPDB-shaped key of the v1.9.3 upgrade corpus (950d33caa). '
+            + 'Captured verbatim in tests/reader/fixtures/upgrade-v1.9.3/, so a new value would invalidate recorded evidence.',
+    },
+];
+
+function reviewedFixtureLiteral(file, line, rule, value) {
+    const sha256 = createHash('sha256').update(value).digest('hex');
+    return REVIEWED_FIXTURE_LITERALS.some(entry => entry.file === file
+        && entry.line === line
+        && entry.rule === rule
+        && entry.sha256 === sha256);
+}
+
 function parseArguments(argv) {
     const options = { root: process.cwd(), json: false };
     for (let index = 0; index < argv.length; index += 1) {
@@ -135,12 +160,13 @@ export function scanText(file, text) {
             if (rule.id === 'credential-assignment' && fixturePath(file)) continue;
             if (rule.valueGroup && fixtureValue(value)) continue;
             if (rule.id === 'credential-assignment' && /\s/.test(value)) continue;
+            const line = lineNumberAt(text, match.index ?? 0);
             findings.push({
-                severity: findingSeverity(file, rule.id),
+                severity: reviewedFixtureLiteral(file, line, rule.id, value) ? 'reviewed-fixture' : findingSeverity(file, rule.id),
                 rule: rule.id,
                 description: rule.description,
                 file,
-                line: lineNumberAt(text, match.index ?? 0),
+                line,
             });
         }
     }
@@ -192,6 +218,9 @@ function printHuman(result) {
         for (const item of result.skipped) console.error(`  ${item.file}: ${item.reason}`);
     }
 
+    for (const finding of result.findings.filter(item => item.severity === 'reviewed-fixture')) {
+        console.error(`REVIEWED fixture literal ${finding.file}:${finding.line} [${finding.rule}] ([redacted], non-blocking)`);
+    }
     if (debt.length > 0) {
         console.error(`DEBT tracked-secret scan found ${debt.length} allowlisted public credential occurrence(s).`);
         for (const finding of debt) {

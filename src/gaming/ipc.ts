@@ -6,14 +6,13 @@ export const YOMU_GAMING_CHANNELS = {
     requestOcr: 'yomu-gaming:request-ocr',
     showOverlay: 'yomu-gaming:show-overlay',
     hideOverlay: 'yomu-gaming:hide-overlay',
+    setLayerRegions: 'yomu-gaming:set-layer-regions',
+    setLayerShortcuts: 'yomu-gaming:set-layer-shortcuts',
+    layerShortcut: 'yomu-gaming:layer-shortcut',
     showApp: 'yomu-gaming:show-app',
     hideApp: 'yomu-gaming:hide-app',
     openExternal: 'yomu-gaming:open-external',
     updateCaptureShortcut: 'yomu-gaming:update-capture-shortcut',
-    syncSettingsSnapshot: 'yomu-gaming:sync-settings-snapshot',
-    restoreSettingsSnapshot: 'yomu-gaming:restore-settings-snapshot',
-    setLearningTargetChosen: 'yomu-gaming:set-learning-target-chosen',
-    targetChoiceRequired: 'yomu-gaming:target-choice-required',
 } as const;
 
 export type YomuGamingScreenAccess = 'granted' | 'denied' | 'restricted' | 'not-determined' | 'unknown' | 'unsupported';
@@ -53,7 +52,6 @@ export interface YomuGamingCaptureSource {
     displayId: string;
     thumbnailDataUrl: string;
     size: YomuGamingImageSize;
-    selection?: YomuGamingSelectionRect;
 }
 
 export type YomuGamingOcrProvider = 'google-lens' | 'cloud-vision' | 'local-service' | 'off';
@@ -68,18 +66,6 @@ export interface YomuGamingOcrRequest {
     engine: string;
     /** BCP-47 tag the OCR provider is asked to read in. */
     language: string;
-    /**
-     * The learning target the player is studying, as its bare language tag.
-     *
-     * Electron's main process parses every provider response before the
-     * renderer sees it, and that parse keeps only lines in the language being
-     * studied. Main has no settings of its own and no DOM to read them from, so
-     * the target rides along with the request that needs it: the renderer reads
-     * the live target when it builds the request, and main adopts it before
-     * parsing. Sending it per request is also what makes a target change reach
-     * main — the next capture simply carries the new one.
-     */
-    targetLanguage: string;
 }
 
 export interface YomuGamingOcrResponse {
@@ -89,33 +75,19 @@ export interface YomuGamingOcrResponse {
     error?: string;
 }
 
-export type YomuGamingCaptureMode = 'instant' | 'area';
-
-export interface YomuGamingSettingsSnapshot {
-    version: 1;
-    syncedAt: string;
-    settings: unknown;
-}
-
-export interface YomuGamingSettingsSyncMetadata {
-    syncedAt: string;
-    storagePath: string;
-}
-
 export interface YomuGamingBridge {
     getEnvironment(): Promise<YomuGamingEnvironment>;
     getFrozenCapture(): Promise<YomuGamingCaptureSource>;
     recaptureFrozenFrame(): Promise<YomuGamingCaptureSource>;
     openScreenSettings(): Promise<void>;
     requestOcr(request: YomuGamingOcrRequest): Promise<YomuGamingOcrResponse>;
-    showOverlay(mode?: YomuGamingCaptureMode): Promise<void>;
+    showOverlay(): Promise<void>;
     hideOverlay(): Promise<void>;
+    setLayerRegions?(regions: YomuGamingSelectionRect[]): Promise<void>;
+    setLayerShortcuts?(keys: string[]): Promise<string[]>;
+    onLayerShortcut?(listener: (key: string) => void): () => void;
     showApp(): Promise<void>;
     hideApp(): Promise<void>;
     openExternal(url: string): Promise<void>;
     updateCaptureShortcut(shortcut: string): Promise<YomuGamingEnvironment>;
-    syncSettingsSnapshot(settings: unknown): Promise<YomuGamingSettingsSyncMetadata>;
-    restoreSettingsSnapshot(): Promise<YomuGamingSettingsSnapshot | null>;
-    setLearningTargetChosen(chosen: boolean): Promise<void>;
-    onTargetChoiceRequired(listener: () => void): () => void;
 }

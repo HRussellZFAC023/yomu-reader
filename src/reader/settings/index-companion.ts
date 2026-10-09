@@ -8,6 +8,7 @@ const settings = aggregateRuntimeModules().settings;
 
 export const {
     DEFAULT_AUDIO_SOURCES,
+    DEFAULT_COLOR_CHANNELS,
     DEFAULT_OVERLAY_BACKGROUND_COLOR,
     DEFAULT_POPUP_FONT_FAMILY,
     DEFAULT_READER_FONT_FAMILY,

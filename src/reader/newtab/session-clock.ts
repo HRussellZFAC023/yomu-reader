@@ -1,7 +1,7 @@
 import { DEFAULT_STUDY_DURATION_MS } from '../srs/shared';
 
 export type StudySessionClockState = 'running' | 'paused' | 'complete';
-export type StudySessionPauseReason = 'user' | 'visibility';
+export type StudySessionPauseReason = 'user' | 'visibility' | 'settings';
 
 export interface StudySessionClockSnapshot {
     readonly mode: 'countdown';
@@ -61,7 +61,7 @@ const MAX_STUDY_DURATION_MS = 3 * 60 * 60 * 1_000;
 /**
  * One monotonic countdown for every Study surface.
  *
- * User pause and document visibility are independent reasons: returning to a
+ * User pause, document visibility and opting out are independent reasons: returning to a
  * visible tab never resumes a clock the learner paused. Completion clamps the
  * clock only; callers remain responsible for queue and evidence state.
  */

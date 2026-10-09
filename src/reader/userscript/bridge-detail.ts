@@ -1,5 +1,8 @@
 export type UserscriptHttpRequestOptions = Parameters<UserscriptHttpRequest>[0];
-export type BridgeRequestDetail = { id: string; options: UserscriptHttpRequestOptions };
+/** A page that wants download progress asks for it by flag: callbacks never cross worlds. */
+export type BridgedRequestOptions = UserscriptHttpRequestOptions & { reportProgress?: boolean };
+export type BridgeRequestDetail = { id: string; options: BridgedRequestOptions };
+export type BridgeProgressDetail = { id: string; loaded: number; total: number; lengthComputable: boolean };
 export type BridgeResponseDetail = { id: string; kind: 'load' | 'error' | 'timeout'; response?: UserscriptHttpResponse; message?: string };
 
 export function bridgeEventId(event: Event): string | undefined {
@@ -14,8 +17,21 @@ export function bridgeEventOwnerId(event: Event): string | undefined {
 export function bridgeRequestDetail(event: Event): BridgeRequestDetail | undefined {
     const detail = normalizedBridgeEventDetail(event);
     const id = bridgeEventId(event);
-    const options = safeReadProperty(detail, 'options') as UserscriptHttpRequestOptions | undefined;
+    const options = safeReadProperty(detail, 'options') as BridgedRequestOptions | undefined;
     return id && options ? { id, options } : undefined;
+}
+
+export function bridgeProgressEventDetail(event: Event): BridgeProgressDetail | undefined {
+    const detail = normalizedBridgeEventDetail(event);
+    const id = safeReadString(detail, 'id');
+    const loaded = safeReadNumber(detail, 'loaded');
+    if (!id || loaded === undefined) return undefined;
+    return {
+        id,
+        loaded,
+        total: safeReadNumber(detail, 'total') ?? 0,
+        lengthComputable: safeReadProperty(detail, 'lengthComputable') === true,
+    };
 }
 
 export function bridgeResponseEventDetail(event: Event): BridgeResponseDetail | undefined {
@@ -45,11 +61,12 @@ export function bridgeResponseDetail(
     };
 }
 
-export function bridgeRequestOptions(options: UserscriptHttpRequestOptions): UserscriptHttpRequestOptions {
+export function bridgeRequestOptions(options: BridgedRequestOptions): UserscriptHttpRequestOptions {
+    const { reportProgress: _reportProgress, ...request } = options;
     return {
-        ...options,
-        headers: options.headers ? { ...options.headers } : undefined,
-        data: bridgeRequestBody(options.data),
+        ...request,
+        headers: request.headers ? { ...request.headers } : undefined,
+        data: bridgeRequestBody(request.data),
     };
 }
 

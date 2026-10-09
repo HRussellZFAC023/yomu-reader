@@ -5,19 +5,14 @@
 // reach DOWN into this leaf instead of across each other.
 import type { ReaderSettings } from '../app/types';
 
-// An OCR attempt reuses audioTimeoutMs as its budget (there is no dedicated
-// setting), but that setting defaults to 6 seconds — an audio-sized budget. One
-// OCR attempt spans canvas encode plus up to two Lens transports, and on iPad
-// userscript managers each hop crosses a slow native-messaging bridge, so a 6s
-// ceiling kills healthy scans after the first few pages and strands every later
-// page on "Could not read text" until a reload. Give OCR an attempt floor that
-// distinguishes "slow but working" from "genuinely hung".
+// A scan includes image encoding and up to two provider transports. Native
+// messaging on iPad needs a longer budget than a single audio request.
 const OCR_MIN_ATTEMPT_TIMEOUT_MS = 30_000;
 
 const DEFAULT_LOCAL_OCR_ENDPOINT_URL = 'http://127.0.0.1:7331/ocr';
 
-export function ocrAttemptTimeoutMs(settings: ReaderSettings, floorMs = OCR_MIN_ATTEMPT_TIMEOUT_MS): number {
-    return Math.max(floorMs, settings.audioTimeoutMs);
+export function ocrAttemptTimeoutMs(floorMs = OCR_MIN_ATTEMPT_TIMEOUT_MS): number {
+    return floorMs;
 }
 
 export function imageCacheKey(image: HTMLImageElement): string {

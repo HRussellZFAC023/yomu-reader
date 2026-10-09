@@ -1,6 +1,5 @@
 import {
     classifyDecoration,
-    collectFormControlTextTargetsIn,
     collectFragmentTextTargetsIn,
     drainDepthCappedShadowHosts,
     collectVisibleTextTargets,
@@ -1875,7 +1874,6 @@ function collectProfileSafeUiChromeTargets(
     const nonDestructive = profiles.some(profile => profile.nonDestructive);
     collectSafeChromeRootTargets(profileSafeUiChromeRoots(extraExclude), collection, 'ui', extraExclude, parserId, nonDestructive);
     collectSafeChromeRootTargets(safeFormChromeRoots(), collection, 'form', '', parserId, nonDestructive);
-    collectSafeFormControlTextTargets(collection, extraExclude);
 
     return collection.targets;
 }
@@ -1890,22 +1888,8 @@ function collectSafeUiChromeTargets(
 
     collectSafeChromeRootTargets(safeUiChromeRoots(), collection, 'ui');
     collectSafeChromeRootTargets(safeFormChromeRoots(), collection, 'form');
-    collectSafeFormControlTextTargets(collection);
 
     return collection.targets;
-}
-
-function collectSafeFormControlTextTargets(
-    collection: GenericProseCollection,
-    extraExclude = '',
-): void {
-    const targets = scanScopeRoots().flatMap(root => collectFormControlTextTargetsIn(root, genericProseRemaining(collection), true, {
-        excludeSelector: extraExclude,
-    }));
-    for (const target of targets) {
-        collection.targets.push(target);
-        if (genericProseCollectionFull(collection)) break;
-    }
 }
 
 function collectSafeChromeRootTargets(

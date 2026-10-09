@@ -2732,11 +2732,12 @@ describe('hover lookup', () => {
 
         try {
             internals.handleHoverPointer(hoverPointerEvent(line));
+            // The hovered word's public Jiten requests go ahead of the page's.
             await vi.waitFor(() => expect(lookupTokenAt).toHaveBeenCalledWith(
                 '読む',
                 1,
                 { start: 0, end: 2 },
-                expect.any(Object),
+                expect.objectContaining({ publicJitenPriority: 'lookup' }),
             ));
 
             await vi.waitFor(() => expect(showCard).toHaveBeenCalledWith(

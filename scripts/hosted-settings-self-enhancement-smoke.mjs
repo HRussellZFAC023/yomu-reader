@@ -226,27 +226,7 @@ try {
         }));
     }));
     assert(immediateHelpClick.active && immediateHelpClick.panelVisible && immediateHelpClick.latencyMs < 100,
-        'Help tab did not paint promptly before Japanese settings annotations started', immediateHelpClick);
-    await waitForSettingsSelector(page, requests, '[data-help-links-title] .jpdb-reader-word[data-expression="便利"]');
-    await waitForSettingsSelector(page, requests, '[data-help-support-copy] .jpdb-reader-word[data-expression="検索"]');
-    if (INJECT_USERSCRIPT) {
-        await page.waitForFunction(() => document.querySelectorAll('.jpdb-reader-settings .jpdb-reader-word').length > 0, { timeout: 60_000 })
-            .catch(async error => {
-                throw new Error(`${error.message}\n${JSON.stringify({
-                    selector: '.jpdb-reader-settings .jpdb-reader-word',
-                    snapshot: await settingsSnapshot(page),
-                    parseRequests: requests
-                        .filter(request => request.endpoint === 'parse')
-                        .map(request => ({ chars: request.text.length, hasSettingsText: request.text.includes('設定'), preview: request.text.slice(0, 160) })),
-                }, null, 2)}`);
-            });
-    } else {
-        await waitForSettingsSelector(page, requests, '.jpdb-reader-settings h2 .jpdb-reader-word[data-expression="設定"].jpdb-pitch-heiban');
-        await waitForSettingsSelector(page, requests, '.jpdb-reader-settings-search .jpdb-reader-word[data-expression="検索"].jpdb-pitch-heiban');
-        await waitForSettingsSelector(page, requests, '.jpdb-reader-settings-tabs [data-panel="appearance"] .jpdb-reader-word[data-expression="外観"].jpdb-pitch-heiban');
-        await waitForSettingsSelector(page, requests, '.jpdb-reader-settings > .footer [data-action="cancel"] .jpdb-reader-word[data-expression="キャンセル"]');
-        await waitForSettingsSelector(page, requests, '.jpdb-reader-settings > .footer button[type="submit"] .jpdb-reader-word[data-expression="保存"]');
-    }
+        'Help tab did not paint promptly', immediateHelpClick);
 
     const initial = await settingsSnapshot(page);
     assert(initial.noUserscriptBridge === !INJECT_USERSCRIPT, INJECT_USERSCRIPT
@@ -254,25 +234,10 @@ try {
         : 'Hosted settings smoke unexpectedly found a userscript bridge',
     initial);
     assert(initial.runtimeMarker === 'newtab', 'Hosted newtab runtime marker missing', initial);
-    assert(initial.wordCount >= 8, 'Hosted settings did not enhance enough Japanese labels', initial);
-    if (!INJECT_USERSCRIPT) {
-        assert(initial.rubyCount >= 4, 'Hosted settings did not render ruby without userscript injection', initial);
-        assert(initial.pitchCount >= 5, 'Hosted settings did not render pitch classes without userscript injection', initial);
-        assert(initial.exact.title.reading && initial.exact.title.pitch, 'Settings title did not get reading and pitch metadata', { initial, requests });
-        assert(initial.exact.searchLabel.hasRuby && initial.exact.searchLabel.pitch, 'Settings search label did not get ruby and pitch', initial);
-        assert(initial.exact.appearanceTab.hasRuby && initial.exact.appearanceTab.pitch, 'Appearance tab did not get ruby and pitch', initial);
-        assert(initial.exact.cancel.found && initial.exact.cancel.passive, 'Cancel button text did not stay passively enhanced', initial);
-        assert(initial.exact.save.hasRuby && initial.exact.save.pitch && initial.exact.save.passive, 'Save button text did not get passive ruby and pitch', initial);
-    }
+    assert(initial.wordCount === 0, 'Yomu annotated its own Settings labels', initial);
     assert(initial.searchInputNative, 'Settings search input was not left as a native input', initial);
     assert(initial.cancelNative, 'Settings Cancel button was not left as a native button', initial);
     assert(initial.saveNative, 'Settings Save button was not left as a native submit button', initial);
-    if (!INJECT_USERSCRIPT) {
-        assert(initial.surfaces.some(surface => surface.text === '設定' && surface.hasRuby && surface.pitch),
-            'Hosted settings title/search text was not rendered from the hosted parser path', initial);
-        assert(initial.surfaces.some(surface => surface.text === '外観' && surface.hasRuby && surface.pitch),
-            'Hosted settings tab text was not rendered from the hosted parser path', initial);
-    }
 
     const tabClicks = [];
     for (const tab of [
@@ -283,7 +248,6 @@ try {
     ]) {
         tabClicks.push(await clickSettingsTab(page, tab.panel, tab.label));
     }
-    await page.waitForSelector('[data-settings-panel="appearance"]:not([hidden]) .jpdb-reader-word', { timeout: 20_000 });
 
     const settingsSearch = page.locator('[data-settings-search]');
     await settingsSearch.click();
@@ -291,19 +255,13 @@ try {
     await settingsSearch.press('Backspace');
     await settingsSearch.pressSequentially('外観');
     await page.waitForFunction(() => document.querySelector('.jpdb-reader-settings')?.getAttribute('data-settings-searching') === 'true');
-    if (!INJECT_USERSCRIPT) {
-        await page.waitForSelector('.jpdb-reader-settings-tabs [data-panel="appearance"] .jpdb-reader-word[data-expression="外観"]', { timeout: 20_000 });
-    }
     await page.waitForTimeout(800);
 
     const afterSearch = await settingsSnapshot(page);
-    assert(afterSearch.activePanel === 'appearance', 'Parsed settings tab click did not switch panels natively', afterSearch);
+    assert(afterSearch.activePanel === 'appearance', 'Settings tab click did not switch panels natively', afterSearch);
     assert(afterSearch.searchValue === '外観', 'Settings search field did not keep native input value', afterSearch);
     assert(afterSearch.visiblePanels >= 1, 'Settings search hid all matching panels', afterSearch);
-    if (!INJECT_USERSCRIPT) {
-        assert(afterSearch.exact.appearanceTab.hasRuby && afterSearch.exact.appearanceTab.pitch, 'Settings search did not keep the matching Japanese tab text enhanced', { afterSearch, requests });
-    }
-    assert(afterSearch.wordCount >= 8, 'Settings search dropped enhanced settings labels', { initial, afterSearch });
+    assert(afterSearch.wordCount === 0, 'Settings search annotated its own controls', { initial, afterSearch });
 
     await page.locator('.jpdb-reader-settings [data-action="cancel"]').click();
     await page.waitForFunction(() => !document.querySelector('.jpdb-reader-settings'));
@@ -1029,20 +987,6 @@ function pitchPositionFromPattern(pattern) {
     return drop >= 0 ? drop + 1 : 0;
 }
 
-async function waitForSettingsSelector(page, requests, selector) {
-    try {
-        await page.waitForSelector(selector, { timeout: 60_000 });
-    } catch (error) {
-        throw new Error(`${error.message}\n${JSON.stringify({
-            selector,
-            snapshot: await settingsSnapshot(page),
-            parseRequests: requests
-                .filter(request => request.endpoint === 'parse')
-                .map(request => ({ chars: request.text.length, hasSettingsText: request.text.includes('設定'), preview: request.text.slice(0, 160) })),
-        }, null, 2)}`);
-    }
-}
-
 async function clickSettingsTab(page, panel, label) {
     const selector = `[data-action="settings-panel"][data-panel="${panel}"]`;
     const tab = page.locator(selector);
@@ -1096,7 +1040,8 @@ function summarizeSnapshot(snapshot) {
 async function settingsSnapshot(page) {
     return await page.evaluate(() => {
         const form = document.querySelector('.jpdb-reader-settings');
-        const words = [...document.querySelectorAll('.jpdb-reader-settings .jpdb-reader-word')].filter(word => word instanceof HTMLElement);
+        const words = [...document.querySelectorAll('.jpdb-reader-settings .jpdb-reader-word')]
+            .filter(word => word instanceof HTMLElement && !word.closest('[data-settings-preview-lookup]'));
         const selectedTab = document.querySelector('.jpdb-reader-settings [data-action="settings-panel"][aria-selected="true"]');
         const tabs = [...document.querySelectorAll('.jpdb-reader-settings [data-action="settings-panel"]')]
             .filter(tab => tab instanceof HTMLElement)

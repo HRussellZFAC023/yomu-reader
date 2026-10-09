@@ -547,7 +547,7 @@ describe('new tab review — Immersion Kit card & doodle strokes', () => {
             reveal();
 
             await waitForExpect(() => expect(played).toEqual(['https://media.test/line.mp3', 'blob:http://localhost/line.mp3']));
-            expect(fetchBlobUrl).toHaveBeenCalledWith(['https://media.test/line.mp3'], DEFAULT_SETTINGS.audioTimeoutMs, DEFAULT_SETTINGS.corsProxyUrl, DEFAULT_SETTINGS.interfaceLanguage);
+            expect(fetchBlobUrl).toHaveBeenCalledWith(['https://media.test/line.mp3'], 6_000, DEFAULT_SETTINGS.corsProxyUrl, DEFAULT_SETTINGS.interfaceLanguage);
         } finally {
             root.remove();
             vi.unstubAllGlobals();

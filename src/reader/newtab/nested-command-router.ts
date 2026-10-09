@@ -5,7 +5,6 @@ import {
     type CardCommandCapability,
 } from '../dom/private-command-capabilities';
 import { targetCanLookupCharacter, usesJapaneseCharacterStudy } from '../languages/character-lookup';
-import { openDeckPickerForCardAdd } from '../study/mining-controls';
 import { sentenceForCard } from './study-queue';
 
 type PerformCardAction = (
@@ -100,23 +99,9 @@ export class NestedCommandRouter {
 
     private handleCardUi(target: HTMLElement, event: MouseEvent, action: 'deck-picker' | 'mining-collapse' | 'review-target-toggle'): void {
         const button = nestedCommandButton(target);
-        if (!button) return;
-        if (action === 'review-target-toggle') {
-            consumeNestedCommandEvent(event);
-            togglePopoverReviewTargetSelection(button);
-            return;
-        }
-        if (action === 'deck-picker') this.openDeckPicker(button, target, event);
-    }
-
-    private openDeckPicker(button: HTMLButtonElement, target: HTMLElement, event: MouseEvent): void {
-        const card = this.context.cardForTarget(target);
-        const perform = this.context.performCardAction;
-        if (!card || !perform) return;
+        if (!button || action !== 'review-target-toggle') return;
         consumeNestedCommandEvent(event);
-        openDeckPickerForCardAdd(button, card, sentenceForCard(card), (actionButton, actionCard, actionSentence, command) => (
-            perform(actionButton, actionCard, actionSentence, actionButton, command)
-        ));
+        togglePopoverReviewTargetSelection(button);
     }
 }
 

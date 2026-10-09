@@ -1,5 +1,5 @@
 import type { JPDBToken, ReaderSettings } from '../app/types';
-import { activeLearningTargetGeneration, activeLearningTargetLanguage } from '../languages/target-runtime';
+import { activeLearningTargetLanguage } from '../languages/target-runtime';
 import { parseContentCacheKey } from '../lookup/parse-content-cache-key';
 import type { ReaderParser } from '../lookup/parser';
 import { usesJapaneseProviders } from '../languages/character-lookup';
@@ -40,7 +40,6 @@ export class NewTabTargetParseCache {
         const key = parseContentCacheKey(texts, {
             ...parseOptions,
             targetLanguage: activeLearningTargetLanguage(),
-            targetGeneration: activeLearningTargetGeneration(),
         }, this.dependencies.getSettings());
         const now = Date.now();
         const cached = this.entries.get(key);

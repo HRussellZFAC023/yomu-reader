@@ -1,20 +1,18 @@
 import { afterEach, expect, it, vi } from 'vitest';
 import { LocalYomuSrsRepository, createYomuLocalSrsAdapter } from '../../src/reader/srs/local-yomu';
 import { DEFAULT_SETTINGS } from '../../src/reader/settings';
-import { setActiveLearningTargetLanguage, resetActiveLearningTargetLanguage } from '../../src/reader/languages/active';
 import { newTabPromptController, newTabTestCard, renderEnabledNewTabRoot } from './new-tab-review/fixtures';
 import type { JPDBCard } from '../../src/reader/app/types';
 import { DEFAULT_NEW_TAB_UI_STATE } from '../../src/reader/newtab/state';
 import { allowSyntheticReaderInteractionsForTests, dispatchAuthorizedReaderControlClick, installTrustedReaderRootBoundary } from '../../src/reader/ui/trusted-interaction';
 
-afterEach(() => { vi.restoreAllMocks(); allowSyntheticReaderInteractionsForTests(true); document.body.replaceChildren(); localStorage.clear(); sessionStorage.clear(); resetActiveLearningTargetLanguage(); });
+afterEach(() => { vi.restoreAllMocks(); allowSyntheticReaderInteractionsForTests(true); document.body.replaceChildren(); localStorage.clear(); sessionStorage.clear(); });
 
 it('shows a saved word in the collection without placing it in the review queue', async () => {
-    setActiveLearningTargetLanguage('ja');
     await new LocalYomuSrsRepository().mine({ expression: '読む', reading: 'よむ', meaning: 'to read', sentence: '本を読む。' });
     const repository = new LocalYomuSrsRepository();
     const adapter = createYomuLocalSrsAdapter(repository);
-    const controller = newTabPromptController({ ...DEFAULT_SETTINGS, learningTargetChosen: true }, {
+    const controller = newTabPromptController(DEFAULT_SETTINGS, {
         srsAdapters: { 'yomu-local': adapter },
     });
     try {
@@ -30,7 +28,6 @@ it('shows a saved word in the collection without placing it in the review queue'
 });
 
 it.each([false, true])('enrolls only on an explicit collection action and reports failure=%s', async failure => {
-    setActiveLearningTargetLanguage('ja');
     allowSyntheticReaderInteractionsForTests(false);
     const boundary = new AbortController();
     installTrustedReaderRootBoundary(document, boundary.signal);
@@ -40,7 +37,7 @@ it.each([false, true])('enrolls only on an explicit collection action and report
     const enroll = vi.spyOn(repository, 'startReview');
     if (failure) enroll.mockRejectedValueOnce(new Error('storage unavailable'));
     const toast = vi.fn();
-    const controller = newTabPromptController({ ...DEFAULT_SETTINGS, learningTargetChosen: true }, { srsAdapters: { 'yomu-local': adapter }, toast });
+    const controller = newTabPromptController(DEFAULT_SETTINGS, { srsAdapters: { 'yomu-local': adapter }, toast });
     const probe = controller as unknown as {
         state: typeof DEFAULT_NEW_TAB_UI_STATE;
         browsePool: JPDBCard[];
@@ -79,7 +76,6 @@ it.each([false, true])('enrolls only on an explicit collection action and report
 });
 
 it('returns to a Study queue rebuilt with the word just added to review', async () => {
-    setActiveLearningTargetLanguage('ja');
     allowSyntheticReaderInteractionsForTests(false);
     const boundary = new AbortController();
     installTrustedReaderRootBoundary(document, boundary.signal);
@@ -87,7 +83,7 @@ it('returns to a Study queue rebuilt with the word just added to review', async 
     await repository.mine({ expression: '読む', reading: 'よむ', meaning: 'to read', sentence: '本を読む。' });
     const adapter = createYomuLocalSrsAdapter(repository);
     const toast = vi.fn();
-    const controller = newTabPromptController({ ...DEFAULT_SETTINGS, learningTargetChosen: true }, { srsAdapters: { 'yomu-local': adapter }, toast });
+    const controller = newTabPromptController(DEFAULT_SETTINGS, { srsAdapters: { 'yomu-local': adapter }, toast });
     const probe = controller as unknown as {
         state: typeof DEFAULT_NEW_TAB_UI_STATE;
         allWords: JPDBCard[];
@@ -116,4 +112,42 @@ it('returns to a Study queue rebuilt with the word just added to review', async 
         expect(probe.state.route).toBe('study');
         expect(reload).toHaveBeenCalledOnce();
     } finally { controller.destroy(); boundary.abort(); }
+});
+
+// Before any word is saved, Library once showed "All sources 0", "All 0", a sort
+// menu and Select over nothing. It now says how words arrive and offers practice.
+it('shows how words arrive, not empty filters, before any word is saved', async () => {
+    const controller = newTabPromptController(DEFAULT_SETTINGS, {});
+    const probe = controller as unknown as {
+        state: typeof DEFAULT_NEW_TAB_UI_STATE;
+        browsePool: JPDBCard[];
+        renderBrowseResults(root: HTMLElement): void;
+    };
+    try {
+        probe.state = { ...DEFAULT_NEW_TAB_UI_STATE, route: 'search', source: 'auto' };
+        probe.browsePool = [];
+        const root = renderEnabledNewTabRoot(controller, { appendToDocument: true });
+        const results = root.querySelector<HTMLElement>('[data-newtab-search-results]')!;
+        probe.renderBrowseResults(results);
+
+        expect(results.querySelector('.jpdb-reader-newtab-browse-empty p')?.textContent).toBe('Save a word while you read and it shows up here.');
+        expect(results.querySelector('.jpdb-reader-newtab-browse-empty [data-newtab-action="practice-sessions"]')?.textContent).toBe('Practice');
+        for (const machinery of ['.jpdb-reader-newtab-browse-chips', '.jpdb-reader-newtab-browse-controls', '[data-newtab-action="browse-select-mode"]']) {
+            expect(results.querySelector(machinery), machinery).toBeNull();
+        }
+
+        // One saved word: its row, and no chip that could only say "All" again.
+        probe.browsePool = [newTabTestCard({ spelling: '読む', reading: 'よむ' })];
+        probe.renderBrowseResults(results);
+        expect(results.querySelector('.jpdb-reader-newtab-browse-empty')).toBeNull();
+        expect(results.querySelectorAll('.jpdb-reader-newtab-browse-row')).toHaveLength(1);
+        expect(results.querySelector('.jpdb-reader-newtab-browse-chips')).toBeNull();
+        expect(results.querySelector('.jpdb-reader-newtab-browse-controls')).toBeNull();
+
+        // Two states: the state chips can now narrow the list.
+        probe.browsePool = [newTabTestCard({ spelling: '読む', reading: 'よむ', cardState: ['known'] }), newTabTestCard({ spelling: '書く', reading: 'かく', cardState: ['due'] })];
+        probe.renderBrowseResults(results);
+        expect([...results.querySelectorAll('[data-newtab-action="browse-filter"]')].map(chip => chip.textContent)).toEqual(['All 2', 'Due 1', 'Known 1']);
+        expect(results.querySelector('[data-newtab-action="browse-source-filter"]')).toBeNull();
+    } finally { controller.destroy(); }
 });

@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import {
@@ -58,7 +58,7 @@ describe('reader stylesheet loading', () => {
         expect(css).toContain(':is(.jpdb-reader-popover,.jpdb-reader-settings) .jpdb-reader-icon-btn');
         expect(css).toContain(':is(.jpdb-reader-popover,.jpdb-reader-settings) .jpdb-reader-icon-btn svg');
         expect(css).toContain('.jpdb-reader-actions .jpdb-reader-mining-collapse');
-        expect(css).toContain('.jpdb-reader-actions .jpdb-reader-mining-collapse::before');
+        expect(css).toContain('.jpdb-reader-actions .jpdb-reader-mining-collapse::before{content:"";position:relative;z-index:1;display:block;width:8px;height:8px;border-top:2px solid currentColor;border-left:2px solid currentColor;');
         expect(css).toContain('.jpdb-reader-word:is(.jpdb-pitch-heiban,[data-pitch-class=heiban])');
         expect(css).toContain('--d2:var(--pc,#0000)');
         expect(css).toContain('.jpdb-reader-word:is(.jpdb-pitch-unknown,[data-pitch-class=unknown],.jpdb-pitch-particle,[data-pitch-class=particle]){--pc:var(--jpdb-reader-pitch-unknown);--pr:var(--jpdb-reader-pitch-unknown-readable);--c2:var(--pr,var(--pc,currentColor));--d2:#0000}');
@@ -84,7 +84,7 @@ describe('reader stylesheet loading', () => {
         expect(css).toContain('.jpdb-reader-word ruby{');
         expect(css).toContain('ruby-align:center!important');
         expect(css).toContain('ruby-position:over!important');
-        expect(css).toContain('.jpdb-reader-furi{font-size:.58em');
+        expect(css).toContain('.jpdb-reader-furi{font-family:inherit;font-size:max(6px,.5em);font-style:inherit;font-weight:normal;font-feature-settings:normal;font-variant-east-asian:normal;letter-spacing:inherit;');
         expect(css).toContain('.jpdb-reader-word.jpdb-reader-has-furi{line-height:2.15}');
         // `-webkit-ruby-align` never existed in any engine and only parse-fails;
         // it must not reappear in the critical subset.
@@ -323,9 +323,61 @@ describe('reader stylesheet loading', () => {
         expect(css).not.toContain('.jpdb-reader-word.jpdb-reader-scan-word.jpdb-reader-has-furi:not(.jpdb-reader-prose-word) {\n  line-height: inherit;\n}');
         const furiRule = Array.from(css.matchAll(/\.jpdb-reader-furi\s*\{[^}]*\}/g), match => match[0])
             .find(rule => rule.includes('font-size')) ?? '';
-        expect(furiRule).toContain('font-size: 0.58em');
-        expect(furiRule).toContain('font-weight: 700');
+        // Half the base in the page's face at regular weight: a bold 0.58em
+        // reading read as a second typeface stacked over the word.
+        expect(furiRule).toContain('font-size: max(6px, 0.5em)');
+        expect(furiRule).toContain('font-weight: normal');
+        expect(furiRule).toContain('font-family: inherit');
+        // Solid kana in the paragraph's tracking: a wide reading keeps the
+        // width its kana count says, which the WebKit overhang relies on.
+        expect(furiRule).toContain('font-feature-settings: normal');
+        expect(furiRule).toContain('letter-spacing: inherit');
         expect(furiRule).toContain('line-height: 1.08');
+    });
+
+    it('draws a wide reading\'s overhang only where dom/ruby-overhang.ts allows it', () => {
+        // Geometry in real engines: scripts/annotation-typography-smoke.mjs.
+        const css = readFileSync('src/reader/styles/reader-words-ocr.css', 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
+        const rules = Array.from(css.matchAll(/([^{}]*ruby[^{}]*overhang[^{}]*)\{([^}]*)\}/g), match => ({ selector: match[1].trim(), body: match[2].trim() }));
+        expect(rules).toEqual([{
+            selector: '.jpdb-reader-scan-word:not(:is(.jpdb-reader-text-mirror, .jpdb-reader-control-text-mirror) *) > ruby:is(.jpdb-reader-ruby-overhang:not(.jpdb-reader-ruby-at-start, .jpdb-reader-ruby-at-end), .jpdb-reader-ruby-start-overhang):not(.jpdb-reader-ruby-line-edge) > rt.jpdb-reader-furi',
+            body: 'margin-inline-start: -0.5em;',
+        }, {
+            selector: '.jpdb-reader-scan-word:not(:is(.jpdb-reader-text-mirror, .jpdb-reader-control-text-mirror) *) > ruby:is(.jpdb-reader-ruby-overhang:not(.jpdb-reader-ruby-at-start, .jpdb-reader-ruby-at-end), .jpdb-reader-ruby-end-overhang):not(.jpdb-reader-ruby-line-edge) > rt.jpdb-reader-furi',
+            body: 'margin-inline-end: -0.5em;',
+        }]);
+    });
+
+    it('never relates page words through a sibling selector', () => {
+        // A `+` rule over page words, with or without :has(), made Chromium
+        // annotate a 150-line one-root page ten times slower (ja-docs perf
+        // smoke at 2.5x: 5.3 s, then 57 s). Neighbours are read in script.
+        const wordClass = /\.jpdb-reader-(?:word|scan-word|has-furi|prose-word)\b|ruby|\brt\b/;
+        const offenders: string[] = [];
+        for (const file of readdirSync('src/reader/styles').filter(name => name.endsWith('.css'))) {
+            const css = readFileSync(`src/reader/styles/${file}`, 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
+            for (const [, selectorList] of css.matchAll(/([^{}]+)\{/g)) {
+                for (const selector of selectorList.split(',').map(part => part.trim())) {
+                    const compounds = selector.split(/\s*([+~])\s*/);
+                    for (let index = 1; index < compounds.length; index += 2) {
+                        const left = compounds[index - 1].split(/\s|>/).pop() ?? '';
+                        const right = compounds[index + 1].split(/\s|>/)[0] ?? '';
+                        if (wordClass.test(left) || wordClass.test(right)) offenders.push(`${file}: ${selector}`);
+                    }
+                    if (/:has\(\s*[+~]/.test(selector) && wordClass.test(selector)) offenders.push(`${file}: ${selector}`);
+                }
+            }
+        }
+        expect(offenders).toEqual([]);
+    });
+
+    it('keeps annotated words in the host page\'s face against host span and ruby rules', () => {
+        // The computed result in real engines: scripts/annotation-typography-smoke.mjs.
+        const css = readFileSync('src/reader/styles/reader-words-ocr.css', 'utf8');
+        const rule = css.match(/\.jpdb-reader-word\.jpdb-reader-scan-word,\n\.jpdb-reader-word\.jpdb-reader-scan-word ruby,\n\.jpdb-reader-word\.jpdb-reader-scan-word \.jpdb-reader-ruby-base \{[^}]*\}/)?.[0] ?? '';
+        for (const property of ['font-family', 'font-size', 'font-style', 'font-weight', 'font-feature-settings', 'letter-spacing']) {
+            expect(rule).toContain(`${property}: inherit;`);
+        }
     });
 
     it('hides clip-constrained readings at rest and re-shows them once the row has grown', () => {

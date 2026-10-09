@@ -65,7 +65,7 @@ async function recognizeViaLocalService(image: HTMLImageElement, settings: Reade
         ocr_adapter_name: engine,
         detection_only: false,
     });
-    const response = await requestJson(localOcrEndpointUrl(settings), body, ocrAttemptTimeoutMs(settings));
+    const response = await requestJson(localOcrEndpointUrl(settings), body, ocrAttemptTimeoutMs());
     return normalizeOcrResult(response, payload.width, payload.height);
 }
 
@@ -81,7 +81,7 @@ async function recognizeViaCloudVision(image: HTMLImageElement, settings: Reader
         }],
     });
     const url = `https://vision.googleapis.com/v1/images:annotate?key=${encodeURIComponent(apiKey)}`;
-    const response = await requestJson(url, body, ocrAttemptTimeoutMs(settings));
+    const response = await requestJson(url, body, ocrAttemptTimeoutMs());
     return normalizeOcrResult(response, payload.width, payload.height);
 }
 
@@ -92,7 +92,7 @@ async function recognizeViaGoogleLens(image: HTMLImageElement, settings: ReaderS
     // managers can leave a blocked GM request pending until its timer fires; giving
     // both transports the full budget made one attempt take a minute, and the reader
     // page retry loop multiplied that into several minutes of "Scanning...".
-    const deadline = Date.now() + ocrAttemptTimeoutMs(settings);
+    const deadline = Date.now() + ocrAttemptTimeoutMs();
     let protobufFailure: unknown;
     const protobuf = await recognizeViaGoogleLensProtobuf(
         blob,

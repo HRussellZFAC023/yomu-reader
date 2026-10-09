@@ -1,4 +1,3 @@
-import { activeLearningTargetLanguage } from '../reader/languages/active';
 import { targetOcrLanguageTag } from '../reader/languages/resolve';
 import {
     isTargetLanguageText,
@@ -15,6 +14,7 @@ const OCR_LOOKUP_LIMIT = 18;
 export type GamingOcrRect = OcrRect;
 
 export interface GamingOcrLine {
+    words?: { text: string; box: GamingOcrRect }[];
     text: string;
     box: GamingOcrRect;
     hasGeometry: boolean;
@@ -50,14 +50,14 @@ interface RawOcrResult {
     bounding_box?: unknown;
     bbox?: unknown;
     rect?: unknown;
+    vertical?: unknown;
+    words?: unknown;
 }
 
 /**
  * The OCR request for one capture. The renderer is the only process that loads
- * settings, so it resolves both languages here: the tag the provider is asked
- * to read in — the configured one when the player set one, otherwise the active
- * learning target's own OCR language — and the target itself, which the Electron
- * side adopts before it parses the provider's answer.
+ * settings, so it resolves the tag the provider is asked to read in: the
+ * configured one when the player set one, otherwise Japanese.
  */
 export function gamingOcrRequest(settings: GamingCaptureSettings, image: GamingCaptureImage): YomuGamingOcrRequest {
     return {
@@ -69,7 +69,6 @@ export function gamingOcrRequest(settings: GamingCaptureSettings, image: GamingC
         height: image.height,
         engine: settings.ocrEngine,
         language: targetOcrLanguageTag(settings.ocrLanguage),
-        targetLanguage: activeLearningTargetLanguage(),
     };
 }
 
@@ -127,7 +126,13 @@ function normalizeRawLine(value: unknown, width: number, height: number): Gaming
     const record = value as RawOcrResult;
     const text = cleanOcrText(record.text ?? record.description);
     const explicitBox = normalizeBox(record.box ?? record.boundingBox ?? record.bounding_box ?? record.bbox ?? record.rect, width, height);
-    return lineFromText(text, explicitBox ?? fullImageBox(width, height), Boolean(explicitBox));
+    const line = lineFromText(text, explicitBox ?? fullImageBox(width, height), Boolean(explicitBox));
+    if (!line) return null;
+    const words = normalizeRawLines(record.words, width, height)
+        .filter(word => word.hasGeometry).map(({ text, box }) => ({ text, box }));
+    return { ...line, ...(words.length ? { words } : {}),
+        vertical: typeof record.vertical === 'boolean' ? record.vertical : line.vertical };
+
 }
 
 function normalizeOcrRegions(value: unknown, width: number, height: number): GamingOcrLine[] {
@@ -156,7 +161,13 @@ function offsetLineToRegion(line: GamingOcrLine, region: GamingOcrRect, width: n
         width: line.box.width,
         height: line.box.height,
     }, width, height);
-    return box ? { ...line, box, hasGeometry: true, vertical: isVerticalOcrBox(box, line.text.length) } : null;
+    if (!box) return null;
+    const words = line.words?.flatMap(word => {
+        const placed = clampBox({ ...word.box, left: region.left + word.box.left,
+            top: region.top + word.box.top }, width, height);
+        return placed ? [{ ...word, box: placed }] : [];
+    });
+    return { ...line, box, ...(words ? { words } : {}), hasGeometry: true, vertical: line.vertical };
 }
 
 function lineFromText(value: string, box: GamingOcrRect, hasGeometry: boolean): GamingOcrLine | null {
@@ -168,8 +179,8 @@ function normalizeBox(value: unknown, width: number, height: number): GamingOcrR
     if (Array.isArray(value)) return normalizeArrayBox(value, width, height);
     if (!value || typeof value !== 'object') return null;
     const record = value as Record<string, unknown>;
-    const left = positiveNumber(record.left ?? record.x);
-    const top = positiveNumber(record.top ?? record.y);
+    const left = coordinate(record.left ?? record.x);
+    const top = coordinate(record.top ?? record.y);
     const boxWidth = positiveNumber(record.width ?? record.w);
     const boxHeight = positiveNumber(record.height ?? record.h);
     if (left === undefined || top === undefined || boxWidth === undefined || boxHeight === undefined) return null;
@@ -184,8 +195,8 @@ function normalizeArrayBox(values: unknown[], width: number, height: number): Ga
     const points = values
         .map(value => value && typeof value === 'object' ? value as Record<string, unknown> : null)
         .filter((value): value is Record<string, unknown> => Boolean(value));
-    const xs = points.map(point => positiveNumber(point.x)).filter((value): value is number => value !== undefined);
-    const ys = points.map(point => positiveNumber(point.y)).filter((value): value is number => value !== undefined);
+    const xs = points.map(point => coordinate(point.x)).filter((value): value is number => value !== undefined);
+    const ys = points.map(point => coordinate(point.y)).filter((value): value is number => value !== undefined);
     if (!xs.length || !ys.length) return null;
     const left = Math.min(...xs);
     const top = Math.min(...ys);
@@ -194,6 +205,12 @@ function normalizeArrayBox(values: unknown[], width: number, height: number): Ga
 
 function fullImageBox(width: number, height: number): GamingOcrRect {
     return { left: 0, top: 0, width, height };
+}
+
+function coordinate(value: unknown): number | undefined {
+    if (value === null || value === undefined || value === '') return undefined;
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : undefined;
 }
 
 function positiveNumber(value: unknown): number | undefined {

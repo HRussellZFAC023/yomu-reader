@@ -3,9 +3,10 @@ import { useData, type Theme } from 'vitepress';
 import { defineComponent, h, onMounted, provide, type Ref } from 'vue';
 import pkg from '../../../package.json' with { type: 'json' };
 import {
+    currentAccentColor,
     hostedAccentColorFromValue,
     hostedAccentCssVariables,
-    sanitizeHostedAccentColor,
+    hostedPageThemeColor,
 } from '../../../src/reader/core/hosted-accent-css';
 import {
     rememberSupportBannerDismissal,
@@ -463,7 +464,7 @@ function syncHostedAccent(source?: unknown): void {
         const change = settingsFromChangeEvent(source);
         if (change) rememberHostedSettingsChange(change.settings, !change.preview);
     }
-    const accent = sanitizeHostedAccentColor(readEffectiveHostedSettings().accentColor);
+    const accent = currentAccentColor(readEffectiveHostedSettings().accentColor);
     const root = document.documentElement;
     const dark = root.classList.contains('dark');
     const signature = `${accent}|${dark ? 'dark' : 'light'}`;
@@ -476,7 +477,7 @@ function syncHostedAccent(source?: unknown): void {
     const variables = hostedAccentCssVariables(accent, dark);
     for (const [name, value] of Object.entries(variables)) root.style.setProperty(name, value);
 
-    document.querySelector<HTMLMetaElement>('meta[name="theme-color"]')?.setAttribute('content', accent);
+    document.querySelector<HTMLMetaElement>('meta[name="theme-color"]')?.setAttribute('content', hostedPageThemeColor(dark));
 }
 
 
@@ -621,7 +622,7 @@ function renderHostedSupportBannerCopy(status: HostedSupportStatus, locale: Inte
     copy.append(meta);
     const breakdown = document.createElement('a');
     breakdown.className = 'yomu-support-banner-breakdown';
-    breakdown.href = localizedWebsiteHref('/support#monthly-running-costs', locale);
+    breakdown.href = localizedWebsiteHref('/membership#monthly-running-costs', locale);
     breakdown.textContent = locale === 'ja' ? '内訳' : 'What this covers';
     copy.append(breakdown);
     const progress = renderHostedSupportProgress(status);

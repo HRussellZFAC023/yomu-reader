@@ -1,12 +1,13 @@
+import { AUDIO_REQUEST_TIMEOUT_MS } from '../audio/request';
 import { AudioPlayer } from '../audio/player';
 import { AnkiConnectClient, canUseMobileAnkiHandoff, isAnkiConnectAvailabilityError, hasUserscriptAnkiBridge } from '../anki/index';
 import { diagnoseAnkiConnectFailure } from '../anki/transport';
-import { copyText, openUrlInNewTab } from '../ui/browser';
+import { openUrlInNewTab } from '../ui/browser';
 import { withSaveWaitStatus } from '../ui/save-wait-status';
 import { ankiScanConfidenceForModel, isAnkiFieldMappingRole } from './anki-scan-confidence';
 import { detectYomuUpdateFlow } from '../app/userscript-update';
 import { createAudioPreviewCard } from '../cards/utils';
-import { FURIGANA_HIDE_STATE_GROUPS, NEW_TAB_PAGE_URL, NEW_TAB_VERSION_URL, SETTINGS_TITLE } from '../app/constants';
+import { FURIGANA_HIDE_STATE_GROUPS, NEW_TAB_VERSION_URL, SETTINGS_TITLE, WORD_COLOR_HIDE_STATE_GROUPS } from '../app/constants';
 import { readerWordSurfaceText, setInnerHtml } from '../dom/index';
 import { JpdbClient } from '../jpdb/jpdb';
 import { configureLogger, Logger } from '../app/logger';
@@ -15,7 +16,7 @@ import { requestJson } from '../network/http';
 import { compareYomuVersions, CURRENT_YOMU_VERSION, latestYomuVersionFromVersionJson } from '../app/version';
 import { installSettingsDrawerHandle } from '../popup/shell';
 import { LookupModalAccessibility } from '../popup/modal-accessibility-impl';
-import { changedSettingsKeys, mergeDictionaryPreferences, NO_EXPLICIT_USER_CHOICE, normalizeAudioSubSources, retireStaleDictionaryPreferences, type SaveSettingsOptions } from './index';
+import { changedSettingsKeys, DEFAULT_COLOR_CHANNELS, DEFAULT_SETTINGS, mergeDictionaryPreferences, NO_EXPLICIT_USER_CHOICE, normalizeAudioSubSources, retireStaleDictionaryPreferences, type SaveSettingsOptions } from './index';
 import { readAudioSources, readAudioSubSources } from './form-read';
 import { detectCustomJsonAudioSubSources, knownAudioSubSourceNames } from '../audio/candidates';
 import { captureActiveLanguageProfileDictionaries } from './dictionary';
@@ -27,7 +28,6 @@ import { exportSettingsBackupSnapshot } from './settings-backup';
 import { reportInvalidSettingsForm } from './settings-form-validation';
 import {
     activateSettingsPanel,
-    activeTargetLanguageId,
     applySettingsSearch,
     ankiStatusLineForSettings,
     getFormInterfaceLanguage,
@@ -91,17 +91,7 @@ import { selectAnkiLibraryChoices } from './anki-library-selection';
 import type { AnkiFieldMappingRole, InterfaceLanguage, ReaderSettings } from '../app/types';
 import { formatUiText, uiText } from '../app/i18n';
 import { userFacingErrorText } from '../app/user-facing-errors';
-import {
-    isLearningTargetRosterId,
-    learningTargetRosterEntry,
-} from '../languages';
-import { syncLanguageFamilyDom } from './language-gating';
 import { bindLiveSettingsSync, SettingsPreviewBaseline } from './live-settings-sync';
-import {
-    syncLanguageProfileForm as syncLiveLanguageProfileForm,
-    type LanguageProfileFormSyncRequest,
-} from './language-profile-live-sync';
-import { publishedDictionaryHeadwordLanguages } from '../dictionaries/catalog/published-coverage';
 import type { ImportSummary } from '../dictionaries/yomitan';
 import type { LocalDictionaryStore } from '../dictionaries/local-store';
 import { requestDictionaryReplicaPurge } from '../dictionaries/replica-purge';
@@ -125,7 +115,6 @@ import {
 import { currentSensitiveSettingsSurfaceIsTrusted, mountSensitiveSettingsLauncher } from './sensitive-settings-surface';
 import {
     liveDictionaryPanelContext,
-    selectedTargetLanguage,
     type DictionaryStatusSummary,
 } from './dictionary-status-view';
 import {
@@ -167,18 +156,15 @@ interface SettingsDialogDependencies {
     applyAccentColor: (color: string) => void;
     applyWordColors: (settings?: ReaderSettings) => void;
     lookupText?: (text: string, sentence: string, anchor: HTMLElement) => void | Promise<void>;
-    parseSettingsJapanese?: (form: HTMLFormElement) => void | Promise<void>;
     installFab: () => void;
     refreshDictionaryStyles: () => Promise<void>;
     scheduleDictionaryRescan: () => void;
     refreshNewTabIfCurrent: () => void;
     // A restore replaced stored learner data; the host reloads views it loaded from storage.
     onStoredDataRestored?: () => void;
-    clearDictionarySourceOpenOverrides: () => void;
     resetAllData: () => void | Promise<void>;
     beginSettingsPreview: (accent: string, language: InterfaceLanguage, theme: ReaderSettings['theme']) => void;
     clearSettingsPreview: () => void;
-    publishedDictionaryLanguages?: () => Promise<ReadonlySet<string>>;
 }
 
 function isSettingsCommandWord(word: HTMLElement): boolean {
@@ -394,20 +380,18 @@ export class SettingsDialogController {
     private ankiModelUpdatePromptId = 0;
     private yomuUpdateCheckId = 0;
     private dictionaryRefreshId = 0;
-    private targetDictionaryAvailabilityRequestId = 0;
-    private publishedDictionaryLanguagesPromise?: Promise<ReadonlySet<string>>;
     private readonly academyAccountSync: AcademyAccountSyncSettingsController;
     private readonly restoreCoordinator: SettingsRestoreCoordinator;
     private readonly cloudSettings: SettingsCloudSyncCoordinator;
     private readonly actionRouter: SettingsActionRouter;
-    private settingsJapaneseParseRefreshFrame: number | undefined;
-    private settingsJapaneseParseRefreshTimer: number | undefined;
 
     constructor(private readonly dependencies: SettingsDialogDependencies) {
         this.previewBaseline = new SettingsPreviewBaseline(dependencies, () => this.currentForm);
         this.academyAccountSync = new AcademyAccountSyncSettingsController(message => dependencies.toast(message));
         this.restoreCoordinator = new SettingsRestoreCoordinator({
-            interfaceLanguage: () => this.settings.interfaceLanguage,
+            interfaceLanguage: () => this.currentForm
+                ? getFormInterfaceLanguage(this.currentForm, this.settings.interfaceLanguage)
+                : this.settings.interfaceLanguage,
             currentForm: () => this.currentForm,
             toast: message => dependencies.toast(message),
             invalidateRestoreDependents: () => this.invalidateRestoreDependentOperations(),
@@ -462,7 +446,6 @@ export class SettingsDialogController {
         installCatalogBrowseFilter(form);
         this.bindSettingsTabs(form);
         this.bindEditorControls(form);
-        syncLanguageFamilyDom(form, activeTargetLanguageId(this.settings));
         this.dependencies.mountDialog(backdrop, form);
         // Production mount tears down the old form before returning.
         this.currentForm = form;
@@ -480,11 +463,8 @@ export class SettingsDialogController {
             () => void this.refreshJpdbConnectionStatus(form), () => void this.refreshWanikaniConnectionStatus(form),
         ]);
         void this.refreshDictionaryStatus(form);
-        this.publishedDictionaryLanguagesPromise = undefined;
-        void this.refreshTargetDictionaryAvailability(form);
         runCredentialDependentSettingsRefreshes(firefoxAuthenticationInfoRequiresExtensionPage(), [() => void this.refreshDeckControls(form)]);
         if (panel === 'help') void this.refreshYomuUpdateStatus(form);
-        this.refreshSettingsJapaneseParse(form);
     }
 
     private onCatalogBrowseRendered(form: HTMLFormElement): void {
@@ -502,8 +482,6 @@ export class SettingsDialogController {
         void this.academyAccountSync.refresh(form, language);
         void this.refreshAnkiConnectionStatus(form);
         syncSubtitlePreview(form);
-        this.refreshSettingsJapaneseParse(form);
-        void this.refreshTargetDictionaryAvailability(form);
     }
 
     async resumePendingCloudSettingsSync(): Promise<boolean> {
@@ -642,7 +620,6 @@ export class SettingsDialogController {
         const form = document.createElement('form');
         form.className = 'jpdb-reader-settings';
         form.dataset.jpdbReaderRoot = 'true';
-        form.dataset.language = activeTargetLanguageId(this.settings);
         form.setAttribute('role', 'dialog');
         form.setAttribute('aria-modal', 'true');
         form.setAttribute('aria-label', SETTINGS_TITLE);
@@ -656,7 +633,6 @@ export class SettingsDialogController {
     private bindFormSubmit(form: HTMLFormElement): void {
         bindAuthorizedReaderFormSubmit(form, () => {
             const previousSettings = this.stableSettings;
-            const previousInitialOpen = previousSettings.dictionarySourcesInitiallyExpanded;
             const nextSettings = readFormSettings(new FormData(form), previousSettings);
             const settingsImportRevision = this.restoreCoordinator.beginSave(form);
             if (settingsImportRevision === undefined) return;
@@ -678,9 +654,6 @@ export class SettingsDialogController {
                 }
                 this.settings = nextSettings;
                 configureLogger({ forceEnabled: this.settings.enableLogging });
-                if (this.settings.dictionarySourcesInitiallyExpanded !== previousInitialOpen) {
-                    this.dependencies.clearDictionarySourceOpenOverrides();
-                }
                 return withSaveWaitStatus(this.settings.interfaceLanguage, () => this.saveCurrentSettings(previousSettings)).then(() => {
                     saved = this.afterSettingsSaved(form, saveRequestId);
                 });
@@ -698,6 +671,7 @@ export class SettingsDialogController {
         form.addEventListener('input', event => this.noteSettingsEdited(form, event.target));
         form.addEventListener('change', event => this.noteSettingsEdited(form, event.target));
         form.querySelector('[data-action="cancel"]')?.addEventListener('click', () => this.dismissSettings());
+        form.querySelector('[data-settings-close]')?.addEventListener('click', () => this.dismissSettings());
         form.addEventListener('keydown', event => {
             if (event.key !== 'Escape' || event.isComposing) return;
             event.preventDefault();
@@ -708,14 +682,6 @@ export class SettingsDialogController {
 
     private dismissSettings(): void {
         this.settingsSyncAbort?.abort();
-        if (this.settingsJapaneseParseRefreshFrame !== undefined) {
-            cancelCancelableFrame(this.settingsJapaneseParseRefreshFrame);
-            this.settingsJapaneseParseRefreshFrame = undefined;
-        }
-        if (this.settingsJapaneseParseRefreshTimer !== undefined) {
-            window.clearTimeout(this.settingsJapaneseParseRefreshTimer);
-            this.settingsJapaneseParseRefreshTimer = undefined;
-        }
         this.previewBaseline.restoreInterfaceLanguagePreview();
         this.modal.release();
         this.currentForm = undefined;
@@ -758,7 +724,6 @@ export class SettingsDialogController {
             const panel = tabs[nextIndex]?.dataset.panel ?? 'api';
             activateSettingsPanel(form, panel);
             this.onSettingsPanelActivated(form, panel);
-            this.refreshSettingsJapaneseParse(form);
         });
     }
 
@@ -847,11 +812,6 @@ export class SettingsDialogController {
         form.querySelectorAll<HTMLInputElement>('input[name^="wordColor"], input[name^="pitchColor"]').forEach(input => {
             input.addEventListener('input', scheduleWordColorPreview);
         });
-        const autoPlayAudio = form.querySelector<HTMLInputElement>('input[name="autoPlayAudio"]');
-        const audioAutoPlayMode = form.querySelector<HTMLSelectElement>('select[name="audioAutoPlayMode"]');
-        autoPlayAudio?.addEventListener('change', () => {
-            if (audioAutoPlayMode) audioAutoPlayMode.disabled = !autoPlayAudio.checked;
-        });
         this.syncThemeSwitch(form);
         form.querySelector<HTMLButtonElement>('[data-theme-switch]')?.addEventListener('click', event => {
             event.preventDefault();
@@ -868,11 +828,6 @@ export class SettingsDialogController {
             isActive: () => this.currentForm === form && form.isConnected,
             getSettings: () => this.settings,
             adoptSettings: settings => this.adoptLiveSettings(settings),
-            syncAdoptedLanguageProfile: (previousSettings, settings) => this.syncLanguageProfileForm(
-                form,
-                settings,
-                { source: 'durable-settings', previousSettings },
-            ),
             applyTheme: theme => {
                 const input = form.querySelector<HTMLInputElement>('[data-theme-value]');
                 if (input && input.value !== theme) {
@@ -893,17 +848,6 @@ export class SettingsDialogController {
             if (this.isAnkiModelControl(event.target)) this.renderAnkiFieldMappingEditor(form);
             if (this.isSubtitleControl(event.target)) syncSubtitlePreview(form);
             if (this.isColorSourceControl(event.target) || this.isReaderDisplayControl(event.target)) applyThemePreview();
-        });
-        form.querySelector<HTMLSelectElement>('select[name="learnerLanguage"]')?.addEventListener('change', () => {
-            void this.refreshDictionaryStatus(form);
-        });
-        form.querySelector<HTMLSelectElement>('select[name="targetLanguage"]')?.addEventListener('change', event => {
-            const value = (event.currentTarget as HTMLSelectElement).value;
-            if (!isLearningTargetRosterId(value)) return;
-            this.syncLanguageProfileForm(form, this.settings, {
-                source: 'target-picker',
-                targetLanguage: value,
-            });
         });
         this.bindAppearancePresets(form, applyThemePreview);
         form.querySelector<HTMLSelectElement>('select[name="popupMode"]')?.addEventListener('change', () => syncStickyBottomSheetAvailability(form));
@@ -935,16 +879,6 @@ export class SettingsDialogController {
         };
         form.querySelector<HTMLSelectElement>('select[name="immersionKitExampleSource"]')?.addEventListener('change', syncNadeshikoKeyField);
         syncNadeshikoKeyField();
-        const syncImmersionLimit = () => {
-            const enabled = form.querySelector<HTMLInputElement>('input[name="immersionKitLimitEnabled"][value="on"]')?.checked ?? false;
-            const limit = form.querySelector<HTMLInputElement>('input[name="immersionKitLimit"]');
-            if (limit) limit.disabled = !enabled;
-            syncDisabledSettingsControlDescriptions(form, getFormInterfaceLanguage(form, this.settings.interfaceLanguage));
-        };
-        form.querySelectorAll<HTMLInputElement>('input[name="immersionKitLimitEnabled"]').forEach(input => {
-            input.addEventListener('change', syncImmersionLimit);
-        });
-        syncImmersionLimit();
         form.querySelector<HTMLSelectElement>('select[name="interfaceLanguage"]')?.addEventListener('change', event => {
             const value = (event.currentTarget as HTMLSelectElement).value;
             if (value !== 'auto' && value !== 'en' && value !== 'ja') return;
@@ -967,59 +901,6 @@ export class SettingsDialogController {
             input.addEventListener('change', () => syncPageScanModeControls(form));
         });
         syncPageScanModeControls(form);
-    }
-
-    private syncLanguageProfileForm(
-        form: HTMLFormElement,
-        settings: ReaderSettings,
-        request: LanguageProfileFormSyncRequest,
-    ): void {
-        syncLiveLanguageProfileForm(form, settings, request, {
-            refreshTargetControls: targetLanguage => {
-                void this.refreshTargetDictionaryAvailability(form, targetLanguage);
-                void this.refreshDictionaryStatus(form);
-            },
-        });
-    }
-
-    private async refreshTargetDictionaryAvailability(
-        form: HTMLFormElement,
-        selected = selectedTargetLanguage(form, this.settings),
-    ): Promise<void> {
-        const requestId = ++this.targetDictionaryAvailabilityRequestId;
-        const status = form.querySelector<HTMLElement>('[data-target-dictionary-state]');
-        const content = form.querySelector<HTMLElement>('[data-target-dictionary-content]');
-        const showAvailability = (message?: string, hideContent = Boolean(message)): void => {
-            if (status) status.hidden = !message;
-            if (status) status.textContent = message ?? '';
-            if (content) content.hidden = hideContent;
-        };
-        showAvailability(uiText(this.settings.interfaceLanguage, 'checkingDictionaries'));
-
-        try {
-            this.publishedDictionaryLanguagesPromise ??= (
-                this.dependencies.publishedDictionaryLanguages?.()
-                ?? publishedDictionaryHeadwordLanguages()
-            );
-            const languages = await this.publishedDictionaryLanguagesPromise;
-            if (requestId !== this.targetDictionaryAvailabilityRequestId || !form.isConnected) return;
-            if (selectedTargetLanguage(form, this.settings) !== selected) return;
-            if (languages.has(selected)) {
-                showAvailability();
-                return;
-            }
-            const target = learningTargetRosterEntry(selected);
-            showAvailability(formatUiTemplate(
-                uiText(this.settings.interfaceLanguage, 'targetDictionaryUnavailable'),
-                { language: this.settings.interfaceLanguage === 'ja' ? target.nativeName : target.englishName },
-            ));
-        } catch (error) {
-            log.warn('Published dictionary coverage check failed', error);
-            this.publishedDictionaryLanguagesPromise = undefined;
-            if (requestId !== this.targetDictionaryAvailabilityRequestId || !form.isConnected) return;
-            // Catalogue unknown (offline): this device's dictionaries, order and pills still work; retry later.
-            showAvailability(uiText(this.settings.interfaceLanguage, 'targetDictionaryAvailabilityUnavailable'), false);
-        }
     }
 
     private bindEditorControls(form: HTMLFormElement): void {
@@ -1195,10 +1076,10 @@ export class SettingsDialogController {
             const control = form.querySelector<HTMLSelectElement>(`select[name="${name}"]`);
             if (control) control.value = value;
         };
-        const setGroups = (groups: string[]): void => {
-            for (const group of FURIGANA_HIDE_STATE_GROUPS) {
-                const box = form.querySelector<HTMLInputElement>(`input[name="furiganaHide-${group}"]`);
-                if (box) box.checked = groups.includes(group);
+        const setChecked = (prefix: string, groups: readonly string[], selected: readonly string[]): void => {
+            for (const group of groups) {
+                const box = form.querySelector<HTMLInputElement>(`input[name="${prefix}${group}"]`);
+                if (box) box.checked = selected.includes(group);
             }
         };
         const setColorSources = (highlight: string, underline: string, text: string): void => {
@@ -1209,6 +1090,20 @@ export class SettingsDialogController {
             setSelect('subtitleUnderlineColorSource', underline);
             setSelect('subtitleTextColorSource', text);
         };
+        // The default look (ADR-0026), read from the defaults rather than
+        // restated: one quiet state underline, known words left plain, and
+        // readings that follow what the learner knows.
+        const setDefaultLook = (wordColorStates: ReaderSettings['wordColorStates']): void => {
+            setSelect('wordColorStates', wordColorStates);
+            setSelect('furiganaMode', DEFAULT_SETTINGS.furiganaMode);
+            setChecked('furiganaHide-', FURIGANA_HIDE_STATE_GROUPS, DEFAULT_SETTINGS.furiganaHiddenStateGroups);
+            setChecked('colorHide-', WORD_COLOR_HIDE_STATE_GROUPS, DEFAULT_SETTINGS.wordColorHiddenStateGroups);
+            setColorSources(
+                DEFAULT_COLOR_CHANNELS.wordHighlightColorSource,
+                DEFAULT_COLOR_CHANNELS.wordUnderlineColorSource,
+                DEFAULT_COLOR_CHANNELS.wordTextColorSource,
+            );
+        };
         const syncGroupVisibility = (): void => {
             const fieldset = form.querySelector<HTMLElement>('[data-furigana-hide-groups]');
             const mode = form.querySelector<HTMLSelectElement>('select[name="furiganaMode"]')?.value;
@@ -1217,27 +1112,19 @@ export class SettingsDialogController {
             const difficultyNote = form.querySelector<HTMLElement>('[data-furigana-difficulty-note]');
             if (difficultyNote) difficultyNote.hidden = mode !== 'difficult-kanji';
         };
-        // A11: quick setup always starts with every parsed reading visible.
-        // Difficulty- and status-based hiding remain explicit choices.
         form.querySelector<HTMLSelectElement>('select[name="furiganaMode"]')?.addEventListener('change', syncGroupVisibility);
         const preset = form.querySelector<HTMLSelectElement>('select[name="appearancePreset"]');
         preset?.addEventListener('change', () => {
             const value = preset.value;
             if (!value) return;
             if (value === 'balanced' || value === 'default') {
-                setSelect('wordColorStates', 'all');
-                setSelect('furiganaMode', 'all');
-                setGroups(['known', 'due', 'failed']);
-                setColorSources('jpdb', 'pitch', 'anki');
+                setDefaultLook(DEFAULT_SETTINGS.wordColorStates);
             } else if (value === 'no-colors') {
                 setSelect('wordColorStates', 'all');
-                setSelect('furiganaMode', 'off');
                 setColorSources('off', 'off', 'off');
             } else if (value === 'new-only') {
-                setSelect('wordColorStates', 'new-only');
-                setSelect('furiganaMode', 'all');
-                setGroups(['known', 'due', 'failed']);
-                setColorSources('jpdb', 'pitch', 'anki');
+                // The default look with only new words underlined.
+                setDefaultLook('new-only');
             } else if (value === 'underline-new') {
                 setSelect('wordColorStates', 'new-only');
                 setSelect('furiganaMode', 'hover');
@@ -1246,11 +1133,9 @@ export class SettingsDialogController {
                 setSelect('furiganaMode', 'all');
             } else if (value === 'furi-known-hidden') {
                 setSelect('furiganaMode', 'known-status');
-                setGroups(['known', 'due', 'failed']);
+                setChecked('furiganaHide-', FURIGANA_HIDE_STATE_GROUPS, DEFAULT_SETTINGS.furiganaHiddenStateGroups);
             } else if (value === 'furi-hover') {
                 setSelect('furiganaMode', 'hover');
-            } else if (value === 'furi-off') {
-                setSelect('furiganaMode', 'off');
             }
             syncGroupVisibility();
             applyThemePreview();
@@ -1279,7 +1164,6 @@ export class SettingsDialogController {
         if (!apiKey) {
             setInnerHtml(container, renderDeckControls(formSettings, [], false, getFormInterfaceLanguage(form, this.settings.interfaceLanguage)));
             localizeSettingsForm(form, getFormInterfaceLanguage(form, this.settings.interfaceLanguage));
-            this.refreshSettingsJapaneseParse(form);
             return;
         }
 
@@ -1293,7 +1177,6 @@ export class SettingsDialogController {
         } finally {
             this.restoreTransientSettings(previous);
             localizeSettingsForm(form, getFormInterfaceLanguage(form, this.settings.interfaceLanguage));
-            this.refreshSettingsJapaneseParse(form);
         }
     }
 
@@ -1318,7 +1201,6 @@ export class SettingsDialogController {
             wanikaniStatus.dataset.statusTone = line.tone;
             wanikaniStatus.textContent = formatSettingsStatusLine(line, language);
         }
-        this.refreshSettingsJapaneseParse(form);
     }
 
     // fallow-ignore-next-line complexity
@@ -1354,7 +1236,6 @@ export class SettingsDialogController {
             status.dataset.statusTone = line.tone;
             status.textContent = formatSettingsStatusLine(line, language);
         }
-        this.refreshSettingsJapaneseParse(form);
     }
 
     // Live probe via jpdb /ping: upgrades the static "key set" line to a real
@@ -1365,7 +1246,6 @@ export class SettingsDialogController {
         const connected = await this.runJpdbConnectionProbe(probe.apiKey);
         if (!this.jpdbConnectionProbeIsCurrent(form, probe.requestId)) return;
         this.renderJpdbConnectionProbe(form, probe, connected);
-        this.refreshSettingsJapaneseParse(form);
     }
 
     private prepareJpdbConnectionProbe(form: HTMLFormElement): JpdbConnectionProbe | null {
@@ -1559,7 +1439,6 @@ export class SettingsDialogController {
         if (line.state) status.dataset.ankiAdapterState = line.state;
         else delete status.dataset.ankiAdapterState;
         setInnerHtml(status, renderAnkiStatusHtml(line, getFormInterfaceLanguage(form, this.settings.interfaceLanguage)));
-        this.refreshSettingsJapaneseParse(form);
     }
 
     private setAnkiStatus(form: HTMLFormElement, message: string, tone: 'pending' | 'success' | 'error', action?: SettingsStatusAction, state?: AnkiAdapterState, details?: SettingsStatusLine['details']): void {
@@ -1592,7 +1471,6 @@ export class SettingsDialogController {
         status.dataset.statusTone = 'pending';
         status.dataset.updateChecked = 'true';
         status.textContent = formatUiText(language, 'updateStatusChecking', { current: CURRENT_YOMU_VERSION });
-        this.refreshSettingsJapaneseParse(form);
         try {
             const version = await requestJson(`${NEW_TAB_VERSION_URL}?t=${Date.now()}`, {
                 allowDirectCrossOrigin: true,
@@ -1613,7 +1491,6 @@ export class SettingsDialogController {
             if (comparison === null) {
                 status.dataset.statusTone = 'pending';
                 status.textContent = formatUiText(language, 'updateStatusIncomparable', { current: CURRENT_YOMU_VERSION, latest });
-                this.refreshSettingsJapaneseParse(form);
                 return;
             }
             const updateAvailable = comparison < 0;
@@ -1622,13 +1499,11 @@ export class SettingsDialogController {
                 current: CURRENT_YOMU_VERSION,
                 latest,
             });
-            this.refreshSettingsJapaneseParse(form);
         } catch (error) {
             log.warn('Yomu update status unavailable', error);
             if (this.currentForm !== form || !form.isConnected || this.yomuUpdateCheckId !== requestId) return;
             status.dataset.statusTone = 'pending';
             status.textContent = formatUiText(language, 'updateStatusUnknown', { current: CURRENT_YOMU_VERSION });
-            this.refreshSettingsJapaneseParse(form);
         }
     }
 
@@ -1637,19 +1512,6 @@ export class SettingsDialogController {
         installCatalogBrowseFilter(form);
         this.syncRecommendedDictionaryInstallControls(form);
         this.restoreCoordinator.sync(form);
-        this.refreshSettingsJapaneseParse(form);
-    }
-
-    private refreshSettingsJapaneseParse(form: HTMLFormElement): void {
-        if (this.settingsJapaneseParseRefreshFrame !== undefined) cancelCancelableFrame(this.settingsJapaneseParseRefreshFrame);
-        if (this.settingsJapaneseParseRefreshTimer !== undefined) window.clearTimeout(this.settingsJapaneseParseRefreshTimer);
-        this.settingsJapaneseParseRefreshFrame = requestCancelableFrame(() => {
-            this.settingsJapaneseParseRefreshFrame = undefined;
-            this.settingsJapaneseParseRefreshTimer = window.setTimeout(() => {
-                this.settingsJapaneseParseRefreshTimer = undefined;
-                if (this.currentForm === form && form.isConnected) void this.dependencies.parseSettingsJapanese?.(form);
-            }, 0);
-        });
     }
 
     private async mergeDictionaryPreferencesFromSummary(
@@ -1742,7 +1604,6 @@ export class SettingsDialogController {
             const panel = selectedSettingsPanel(control);
             activateSettingsPanel(form, panel);
             this.onSettingsPanelActivated(form, panel);
-            this.refreshSettingsJapaneseParse(form);
             return true;
         }
         if (!this.applySettingsEditorAction(form, action, control)) return false;
@@ -1856,7 +1717,7 @@ export class SettingsDialogController {
         const known = knownAudioSubSourceNames(url);
         if (!known.length) setDetectStatus(uiText(language, 'audioDetectingSubSources'));
         try {
-            const detected = await detectCustomJsonAudioSubSources(url, this.settings.audioTimeoutMs, this.settings.corsProxyUrl);
+            const detected = await detectCustomJsonAudioSubSources(url, AUDIO_REQUEST_TIMEOUT_MS, this.settings.corsProxyUrl);
             // The row can be re-rendered, reordered, or removed while the probe
             // is in flight, so re-resolve it and bail unless it still holds the
             // URL that was probed.
@@ -2305,11 +2166,6 @@ export class SettingsDialogController {
             openUrlInNewTab(detectYomuUpdateFlow().url);
             return true;
         }
-        if (action === 'copy-newtab-url') {
-            await copyText(NEW_TAB_PAGE_URL);
-            this.dependencies.toast(uiText(this.settings.interfaceLanguage, 'newTabAddressCopied'));
-            return true;
-        }
         if (action === 'factory-reset') {
             const button = settingsActionButton(control);
             button?.setAttribute('disabled', 'true');
@@ -2429,9 +2285,9 @@ export class SettingsDialogController {
         if (!files.length) return;
         const results = await Promise.allSettled(files.map(file => this.restoreCoordinator.enqueueDictionaryOperation(form, async () => {
             const summary = await this.dependencies.dictionaries.importFile(file, message => setStatus(message));
-            await this.persistDictionaryImport(summary);
+            await this.persistDictionaryImport(summary, form);
             return summary;
-        })));
+        }, { holdsSave: false })));
         const report = dictionaryImportReport(files, results);
         if (report.summaries.length) {
             await this.refreshDictionaryStatus(form);
@@ -2472,8 +2328,8 @@ export class SettingsDialogController {
                 summary = await importRecommendedDictionary(this.dependencies.dictionaries, dictionary, message => {
                     setStatus(message);
                     this.setRecommendedDictionaryInstallState(form, dictionary.id, 'installing', `${dictionary.name}: ${message}`);
-                });
-                await this.persistDictionaryImport(summary);
+                }, { firstInstall: control?.dataset.installed !== 'true' });
+                await this.persistDictionaryImport(summary, form);
             } catch (error) {
                 // The card keeps the reason until its next click; the toast fades.
                 log.warn('Recommended dictionary install failed', { dictionary: dictionary.name }, error);
@@ -2490,23 +2346,27 @@ export class SettingsDialogController {
             }));
             await this.refreshDictionaryStatus(form);
             this.dependencies.refreshNewTabIfCurrent();
-        });
+        }, { holdsSave: false });
     }
 
-    private async persistDictionaryImport(summary: ImportSummary): Promise<void> {
+    private async persistDictionaryImport(summary: ImportSummary, form: HTMLFormElement): Promise<void> {
         this.dictionaryRefreshId++;
-        const previousSettings = this.stableSettings;
-        const dictionaryPreferences = mergeDictionaryPreferences(
-            previousSettings.dictionaryPreferences,
-            summary.dictionaries,
-            summary.dictionaryTypes ?? {},
-            summary.replacedDictionaries ?? [],
-        );
-        this.settings = captureActiveLanguageProfileDictionaries(
-            { ...previousSettings, localDictionariesEnabled: true },
-            dictionaryPreferences,
-        );
-        await this.persistCurrentSettings(previousSettings, { explicitUserChoiceKeys: ['dictionaryPreferences', 'localDictionariesEnabled'] });
+        // Save stays available during an install; this write lands after any
+        // Save in flight and merges into what it stored.
+        await this.restoreCoordinator.runDictionarySettingsWrite(form, async () => {
+            const previousSettings = this.stableSettings;
+            const dictionaryPreferences = mergeDictionaryPreferences(
+                previousSettings.dictionaryPreferences,
+                summary.dictionaries,
+                summary.dictionaryTypes ?? {},
+                summary.replacedDictionaries ?? [],
+            );
+            this.settings = captureActiveLanguageProfileDictionaries(
+                { ...previousSettings, localDictionariesEnabled: true },
+                dictionaryPreferences,
+            );
+            await this.persistCurrentSettings(previousSettings, { explicitUserChoiceKeys: ['dictionaryPreferences', 'localDictionariesEnabled'] });
+        });
         await this.dependencies.refreshDictionaryStyles();
         this.dependencies.scheduleDictionaryRescan();
     }

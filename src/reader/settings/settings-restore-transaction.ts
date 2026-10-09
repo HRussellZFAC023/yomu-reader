@@ -8,7 +8,8 @@ import {
 } from './settings-persistence-transaction';
 import { settingsIntentKeys } from './intent-ledger';
 import { changedSettingsKeys } from './store-reconciliation';
-import { normalizeReaderSettings, type SaveSettingsOptions } from './index';
+import { adoptCurrentDefaults } from './retired-defaults';
+import { DEFAULT_SETTINGS, normalizeReaderSettings, type SaveSettingsOptions } from './index';
 import type { ReaderSettings } from '../app/types';
 
 export interface SettingsRestoreTransactionOptions {
@@ -47,18 +48,26 @@ export function settingsRestoreSaveOptions(
     };
 }
 
+/**
+ * The settings a restore adopts, for every restore path (settings file, Google
+ * Drive). A default a release retired (ADR-0026) that the backup merely carried
+ * is no choice: with the backup's ledger it reads as today's default, as the
+ * next load would read it; a settings-only backup has no ledger, so that
+ * setting stays as it is now rather than being declared the learner's.
+ */
 export function witnessedSettingsRestoreCandidate(
     previous: ReaderSettings,
     fallback: ReaderSettings,
     importedView: SettingsPersistenceView | null,
 ): ReaderSettings {
-    if (!importedView) return fallback;
+    if (!importedView) return adoptCurrentDefaults(fallback, { revision: 0, records: {} }, previous);
     const witnessed = importedView.settings as Partial<ReaderSettings>;
-    return normalizeReaderSettings({
+    const candidate = normalizeReaderSettings({
         ...previous,
         ...witnessed,
         shortcuts: { ...previous.shortcuts, ...(witnessed.shortcuts ?? {}) },
     });
+    return adoptCurrentDefaults(candidate, importedView.intentLedger, DEFAULT_SETTINGS);
 }
 
 /**

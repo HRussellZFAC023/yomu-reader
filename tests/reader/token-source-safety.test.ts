@@ -72,6 +72,46 @@ describe('token source-range safety', () => {
         }
     });
 
+    it('omits isolated counter readings in dates and times without removing lookup targets', () => {
+        for (const text of ['2026年10月6日 20時10分', '２０２６年１０月６日 ２０時１０分', '三人と二本']) {
+            const tokens = [...text.matchAll(/[年月日時分人本]/gu)].map(match => {
+                const t = token(text, match.index, match.index + 1, match[0]);
+                t.card.reading = ({ 月: 'つき', 日: 'ひ', 時: 'とき', 分: 'ぶん' } as Record<string, string>)[match[0]] ?? 'ほん';
+                t.rubies = [{ ...t.rubies[0]!, text: t.card.reading }];
+                return t;
+            });
+            const host = rendered(text, tokens);
+            expect(host.querySelectorAll('.jpdb-reader-word')).toHaveLength(tokens.length);
+            expect(host.querySelector('rt')).toBeNull();
+            expect(host.textContent).toBe(text);
+        }
+    });
+
+    it('omits a counter reading after a number in a later sentence of the paragraph', () => {
+        const text = '見出しです。2026年10月6日に来た。';
+        const sentence = '2026年10月6日に来た。';
+        const tokens = [...text.matchAll(/[月日]/gu)].map(match => {
+            const t = token(sentence, match.index, match.index + 1, match[0]);
+            t.card.reading = match[0] === '月' ? 'つき' : 'ひ';
+            t.rubies = [{ ...t.rubies[0]!, text: t.card.reading }];
+            return t;
+        });
+        const host = rendered(text, tokens);
+        expect(host.querySelectorAll('.jpdb-reader-word')).toHaveLength(tokens.length);
+        expect(host.querySelector('rt')).toBeNull();
+    });
+
+    it('keeps independent noun readings and whole numeric-phrase readings', () => {
+        const noun = token('月を見る', 0, 1, '月');
+        noun.card.reading = 'つき';
+        noun.rubies = [{ text: 'つき', start: 0, end: 1, length: 1 }];
+        expect(rendered('月を見る', [noun]).querySelector('rt')?.textContent).toBe('つき');
+        const phrase = token('三人', 0, 2, '三人');
+        phrase.card.reading = 'さんにん';
+        phrase.rubies = [{ text: 'さんにん', start: 0, end: 2, length: 2 }];
+        expect(rendered('三人', [phrase]).querySelector('rt')?.textContent).toBe('さんにん');
+    });
+
     it('still decorates a Japanese source slice inside mixed-script text', () => {
         const text = 'r/日本語';
         const host = rendered(text, [token(text, 2, text.length)]);

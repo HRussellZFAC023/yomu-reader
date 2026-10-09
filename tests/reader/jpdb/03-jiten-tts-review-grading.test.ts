@@ -44,7 +44,8 @@ import type {
     JPDBToken,
     JitenApiClient,
 } from './fixtures';
-import { bindPrivateCommandCapability } from '../../../src/reader/dom/private-command-capabilities';
+import { bindPrivateCommandCapability, readCardUiCommandCapability } from '../../../src/reader/dom/private-command-capabilities';
+import { setInnerHtml } from '../../../src/reader/dom';
 import type { BatchMiningCardCandidate } from '../../../src/reader/cards/prepared-batch-actions';
 import type { JPDBGrade } from '../../../src/reader/app/types';
 
@@ -370,7 +371,7 @@ describe('reader helpers', () => {
         await expect(controller.perform({ kind: 'card-action', action: 'add', deckSource: 'jpdb', deckId: 'forq' }, button, lockedCard, '食べる。')).resolves.toBe(true);
 
         expect(addToDeck).toHaveBeenCalledWith('forq', lockedCard, '食べる。');
-        expect(toast).toHaveBeenCalledWith('Added to JPDB.');
+        expect(toast).toHaveBeenCalledWith('Added to deck.');
     });
 
     it('renders Jiten-native mining controls with Jiten study deck choices', () => {
@@ -394,12 +395,13 @@ describe('reader helpers', () => {
             jitenDecks: [{ id: '12', name: 'Mining' }],
         }));
         const mount = document.createElement('div');
-        mount.innerHTML = html;
+        setInnerHtml(mount, html);
 
         expect(html).toContain('Jiten New');
-        expect(html).toContain('data-deck-source="jiten"');
-        expect(html).toContain('data-deck-id="12"');
-        expect(html).toContain('Jiten: Mining');
+        const collect = mount.querySelector('.jpdb-reader-deck-select')!;
+        expect(readCardUiCommandCapability(collect)?.choices).toContainEqual({ source: 'jiten', id: '12', label: 'Jiten: Mining' });
+        expect(mount.querySelector('[data-deck-source], [data-deck-id], select')).toBeNull();
+        expect(mount.textContent).not.toContain('Jiten: Mining');
         expect(html).toContain('jpdb-reader-actions-mining-collapsed');
         expect(mount.querySelector('[data-newtab-grade-target-chip]')).toBeNull();
         expect(mount.querySelector('[data-review-target-gutter]')).not.toBeNull();
@@ -412,7 +414,7 @@ describe('reader helpers', () => {
         expect(mount.querySelector<HTMLButtonElement>('[data-action="grade"][data-grade="okay"]')?.title).toBe('Grades Jiten');
     });
 
-    it('renders Bunpro-backed review and direct mining controls without a provider toggle', () => {
+    it('renders Bunpro-backed review and private deck choices without a provider toggle', () => {
         const renderer = testCardPopoverRenderer({
             bunproFrontendApiToken: 'bunpro-token',
             bunproMiningEnabled: true,
@@ -431,15 +433,17 @@ describe('reader helpers', () => {
             cardState: ['due'],
         };
 
-        document.body.innerHTML = renderModalCard(renderer, bunproCard, 'ご飯を食べる。');
+        setInnerHtml(document.body, renderModalCard(renderer, bunproCard, 'ご飯を食べる。'));
 
         expect(readerMetaText()).toContain('Bunpro');
         expect(document.querySelector('[data-action="grade-provider-toggle"]')).toBeNull();
         expect(popoverGradeButtons().every(button => button.dataset.reviewTarget === 'bunpro')).toBe(true);
         expect(document.querySelector('[data-newtab-grade-target-text]')?.textContent).toBe('Grades Bunpro');
         expect(document.querySelector<HTMLButtonElement>('.jpdb-reader-mining-title[data-action="add"]')).toBeNull();
-        expect(document.querySelector<HTMLButtonElement>('.jpdb-reader-mining-title[data-action="deck-picker"]')).not.toBeNull();
-        expect(document.querySelector<HTMLOptionElement>('[data-deck-source="bunpro"]')?.dataset.deckId).toBe('bunpro');
+        const collect = document.querySelector('.jpdb-reader-deck-select')!;
+        expect(collect.closest('.jpdb-reader-mining-panel')).not.toBeNull();
+        expect(readCardUiCommandCapability(collect)?.choices).toContainEqual({ source: 'bunpro', id: 'bunpro', label: 'Bunpro' });
+        expect(document.querySelector('[data-deck-source], [data-deck-id], [data-add-deck-select]')).toBeNull();
     });
 
     it('offers Bunpro mining for words and grammar but not sentence reviewables', () => {
@@ -459,15 +463,20 @@ describe('reader helpers', () => {
             cardState: ['not-in-deck'],
         }, '日本語を勉強します。');
 
-        document.body.innerHTML = renderType('vocabulary');
-        expect(document.querySelector('[data-deck-source="bunpro"]')).not.toBeNull();
-        document.body.innerHTML = renderType('grammar');
-        expect(document.querySelector('[data-deck-source="bunpro"]')).not.toBeNull();
-        document.body.innerHTML = renderType('sentence');
-        expect(document.querySelector('[data-deck-source="bunpro"]')).toBeNull();
+        for (const kind of ['vocabulary', 'grammar'] as const) {
+            setInnerHtml(document.body, renderType(kind));
+            const collect = document.querySelector('.jpdb-reader-deck-select')!;
+            expect(readCardUiCommandCapability(collect)?.choices).toEqual([{ source: 'bunpro', id: 'bunpro', label: 'Bunpro' }]);
+            expect(document.querySelector('[data-deck-source], [data-deck-id], [data-add-deck-select]')).toBeNull();
+        }
+        setInnerHtml(document.body, renderType('sentence'));
+        expect(document.querySelector('.jpdb-reader-deck-select')).toBeNull();
     });
 
-    it('renders local Yomu SRS mining and review controls without external accounts', () => {
+    // Owner decision 2 (2026-10-07): with no connected review service the
+    // learner uses the popup as a dictionary. The Yomu deck still collects the
+    // word; its reviews happen in Study, so the popup shows no grade bar.
+    it('renders local Yomu deck saving but no grade bar without external accounts', () => {
         const renderer = testCardPopoverRenderer({
             apiKey: '',
             jitenApiKey: '',
@@ -476,18 +485,22 @@ describe('reader helpers', () => {
             enableReviews: true,
         });
 
-        document.body.innerHTML = renderModalCard(renderer, {
+        setInnerHtml(document.body, renderModalCard(renderer, {
             ...card,
             meanings: [{ glosses: ['to eat'], partOfSpeech: ['v1'] }],
             cardState: ['not-in-deck'],
-        }, 'ご飯を食べる。');
+        }, 'ご飯を食べる。'));
 
         expect(readerMetaText()).not.toContain('Yomu');
         expect(document.querySelector('[data-action="grade-provider-toggle"]')).toBeNull();
-        expect(popoverGradeButtons().every(button => button.dataset.reviewTarget === 'yomu-local')).toBe(true);
-        expect(document.querySelector('[data-newtab-grade-target-text]')?.textContent).toBe('Grades Academy');
-        const addButton = document.querySelector<HTMLButtonElement>('.jpdb-reader-mining-title[data-action="add"]');
-        expect(addButton?.dataset.deckSource).toBe('yomu-local');
+        expect(popoverGradeButtons()).toEqual([]);
+        expect(document.querySelector('[data-newtab-grade-target-text]')).toBeNull();
+        const collect = document.querySelector('.jpdb-reader-deck-select')!;
+        // The lone save sits in the row: no drawer folds it away.
+        expect(collect.closest('.jpdb-reader-mining-panel')).toBeNull();
+        expect(document.querySelector('[data-action="mining-collapse"]')).toBeNull();
+        expect(readCardUiCommandCapability(collect)?.choices).toEqual([{ source: 'yomu-local', id: 'yomu-local', label: 'Academy' }]);
+        expect(document.querySelector('[data-deck-source], [data-deck-id], [data-add-deck-select]')).toBeNull();
     });
 
     it('keeps dictionary, Immersion Kit, and study source stacks available for Jiten-backed cards', () => {
@@ -587,7 +600,7 @@ describe('reader helpers', () => {
         expect(reviewCard).toHaveBeenCalledWith(jitenCard, 'pass');
         expect(setVocabularyState).toHaveBeenCalledWith(jitenCard, 'neverForget', 'add');
         expect(addToDeck).not.toHaveBeenCalled();
-        expect(toast).toHaveBeenCalledWith('Added to Jiten.');
+        expect(toast).toHaveBeenCalledWith('Added to deck.');
     });
 
     it('mines and reviews Bunpro-backed cards through the Bunpro SRS adapter', async () => {
@@ -656,7 +669,7 @@ describe('reader helpers', () => {
                 kind: 'vocabulary',
             }),
         }));
-        expect(toast).toHaveBeenCalledWith('Added to Bunpro.');
+        expect(toast).toHaveBeenCalledWith('Added to deck.');
     });
 
     it('mines an ordinary popup word to Bunpro without fabricating a gradeable review', async () => {
@@ -767,7 +780,7 @@ describe('reader helpers', () => {
             }),
         }));
         expect(addToDeck).not.toHaveBeenCalled();
-        expect(toast).toHaveBeenCalledWith('Added to Academy.');
+        expect(toast).toHaveBeenCalledWith('Added to deck.');
         expect(toast).toHaveBeenCalledWith('Added to deck and reviewed.');
     });
 
@@ -800,7 +813,7 @@ describe('reader helpers', () => {
         await expect(controller.perform({ kind: 'card-action', action: 'add', deckSource: 'jiten', deckId: '12' }, button, jitenTestCard(), '本を読みます。')).resolves.toBe(true);
 
         const message = String(toast.mock.calls.at(-1)?.[0] ?? '');
-        expect(message).toContain('Added to Jiten.');
+        expect(message).toContain('Added to deck.');
         // The captured image is NOT silently dropped: Jiten has no media API.
         expect(message).toContain('no media API');
     });
@@ -810,7 +823,7 @@ describe('reader helpers', () => {
         popover.innerHTML = `
             <div class="jpdb-reader-actions jpdb-reader-actions-has-mining jpdb-reader-actions-mining-collapsed">
                 <div class="jpdb-reader-actions-gutter">
-                    <button class="jpdb-reader-mining-collapse jpdb-reader-mining-drawer-handle" type="button" data-action="mining-collapse" aria-expanded="false" title="Show mining actions" aria-label="Show mining actions"></button>
+                    <button class="jpdb-reader-mining-collapse jpdb-reader-mining-drawer-handle" type="button" data-action="mining-collapse" aria-expanded="false" title="More actions" aria-label="More actions"></button>
                 </div>
                 <div class="jpdb-reader-mining-details"></div>
             </div>
@@ -871,7 +884,7 @@ describe('reader helpers', () => {
         const { app, popover, actions, handle } = createMiningDrawerTestSurface(`
             <div class="jpdb-reader-actions jpdb-reader-actions-has-mining jpdb-reader-actions-mining-collapsed">
                 <div class="jpdb-reader-actions-gutter">
-                    <button class="jpdb-reader-mining-collapse jpdb-reader-mining-drawer-handle" type="button" data-action="mining-collapse" aria-expanded="false" title="Show mining actions" aria-label="Show mining actions"></button>
+                    <button class="jpdb-reader-mining-collapse jpdb-reader-mining-drawer-handle" type="button" data-action="mining-collapse" aria-expanded="false" title="More actions" aria-label="More actions"></button>
                 </div>
                 <span class="jpdb-reader-word" data-expression="食べる" data-reading="たべる" data-sentence="食べる。">食べる</span>
                 <div class="jpdb-reader-mining-details"></div>
@@ -943,7 +956,7 @@ describe('reader helpers', () => {
             <div class="jpdb-reader-actions jpdb-reader-actions-has-mining jpdb-reader-actions-mining-collapsed">
                 <div class="jpdb-reader-actions-gutter jpdb-reader-review-target-gutter" data-review-target-gutter>
                     <button type="button" class="jpdb-reader-provider-toggle" data-action="grade-provider-toggle" aria-label="Switch grading provider (Jiten)">⇄<span class="jpdb-reader-review-target-current" data-review-target-current aria-label="Grades JPDB">JPDB</span></button>
-                    <button class="jpdb-reader-mining-collapse jpdb-reader-mining-drawer-handle" type="button" data-action="mining-collapse" aria-expanded="false" title="Show mining actions" aria-label="Show mining actions"></button>
+                    <button class="jpdb-reader-mining-collapse jpdb-reader-mining-drawer-handle" type="button" data-action="mining-collapse" aria-expanded="false" title="More actions" aria-label="More actions"></button>
                 </div>
                 <div class="jpdb-reader-mining-panel"></div>
             </div>
@@ -1086,12 +1099,14 @@ describe('reader helpers', () => {
         expect(effectiveReaderColorSource(deckless, 'auto')).toBe('off');
         expect(effectiveReaderColorSource(deckless, 'auto', 'pitch')).toBe('pitch');
         expect(effectiveReaderColorSource({ ...deckless, wordHighlightMode: 'pitch' } as never, 'auto')).toBe('off');
-        expect(effectiveReaderColorSource({ ...DEFAULT_SETTINGS, apiKey: 'key', ankiEnabled: true, wordHighlightMode: 'status' } as never, 'auto')).toBe('jpdb');
+        // 'auto' is the default, and the default highlight is off (ADR-0026).
+        expect(effectiveReaderColorSource({ ...DEFAULT_SETTINGS, apiKey: 'key', ankiEnabled: true, wordHighlightMode: 'status' } as never, 'auto')).toBe('off');
+        expect(effectiveReaderColorSource({ ...DEFAULT_SETTINGS, apiKey: 'key' }, 'auto', 'jpdb')).toBe('jpdb');
         expect(effectiveReaderColorSource({ ...deckless, wordHighlightMode: 'status' } as never, 'auto')).toBe('off');
         expect(effectiveReaderColorSource({ ...deckless, wordHighlightMode: 'off' } as never, 'auto')).toBe('off');
         expect(effectiveReaderColorSource({ ...DEFAULT_SETTINGS, ankiEnabled: true }, 'anki')).toBe('anki');
         expect(effectiveReaderColorSource(deckless, 'anki')).toBe('off');
-        expect(effectiveSubtitleColorSource({ ...DEFAULT_SETTINGS, apiKey: 'key', wordHighlightMode: 'status' } as never, 'auto')).toBe('jpdb');
+        expect(effectiveSubtitleColorSource({ ...DEFAULT_SETTINGS, apiKey: 'key', wordHighlightMode: 'status' } as never, 'auto')).toBe('off');
         expect(effectiveSubtitleColorSource({ ...deckless, wordHighlightMode: 'pitch' } as never, 'auto')).toBe('off');
         expect(effectiveSubtitleColorSource(DEFAULT_SETTINGS, 'status')).toBe('status');
 
@@ -1106,12 +1121,12 @@ describe('reader helpers', () => {
         }], { ...DEFAULT_SETTINGS, apiKey: '', ankiEnabled: false, jpdbMiningEnabled: false });
 
         expect(html).toContain('jpdb-reader-word jpdb-not-in-deck jpdb-pitch-heiban');
-        expect(DEFAULT_SETTINGS.wordHighlightColorSource).toBe('jpdb');
-        expect(DEFAULT_SETTINGS.wordUnderlineColorSource).toBe('pitch');
-        expect(DEFAULT_SETTINGS.wordTextColorSource).toBe('anki');
-        expect(DEFAULT_SETTINGS.subtitleHighlightColorSource).toBe('jpdb');
-        expect(DEFAULT_SETTINGS.subtitleUnderlineColorSource).toBe('pitch');
-        expect(DEFAULT_SETTINGS.subtitleTextColorSource).toBe('anki');
+        expect(DEFAULT_SETTINGS.wordHighlightColorSource).toBe('off');
+        expect(DEFAULT_SETTINGS.wordUnderlineColorSource).toBe('status');
+        expect(DEFAULT_SETTINGS.wordTextColorSource).toBe('off');
+        expect(DEFAULT_SETTINGS.subtitleHighlightColorSource).toBe('off');
+        expect(DEFAULT_SETTINGS.subtitleUnderlineColorSource).toBe('status');
+        expect(DEFAULT_SETTINGS.subtitleTextColorSource).toBe('off');
         expect('wordHighlightMode' in DEFAULT_SETTINGS).toBe(false);
     });
 
@@ -1121,12 +1136,12 @@ describe('reader helpers', () => {
         // local deck instead and is covered in the settings-form suite.
         form.innerHTML = renderSettingsForm({ ...DEFAULT_SETTINGS, apiKey: 'jpdb-key' }, 'https://jpdb.io/settings');
         const expected = {
-            wordHighlightColorSource: 'jpdb',
-            wordUnderlineColorSource: 'pitch',
-            wordTextColorSource: 'anki',
-            subtitleHighlightColorSource: 'jpdb',
-            subtitleUnderlineColorSource: 'pitch',
-            subtitleTextColorSource: 'anki',
+            wordHighlightColorSource: 'off',
+            wordUnderlineColorSource: 'status',
+            wordTextColorSource: 'off',
+            subtitleHighlightColorSource: 'off',
+            subtitleUnderlineColorSource: 'status',
+            subtitleTextColorSource: 'off',
         } as const;
         const expectedLabels = [
             'All study statuses',
@@ -1149,11 +1164,12 @@ describe('reader helpers', () => {
         expect(saved).toMatchObject(expected);
     });
 
-    // A11: the shipped default reads every parsed word, and legacy 'auto' lands
-    // on a mode the surrounding UI can explain.
-    it('defaults furigana to every parsed word and preserves typed automatic mode', () => {
-        expect(DEFAULT_SETTINGS.furiganaMode).toBe('all');
-        expect(effectiveFuriganaMode(DEFAULT_SETTINGS)).toBe('all');
+    // A11 and ADR-0026: readings follow what the learner knows, and legacy
+    // 'auto' lands on that default, a mode the surrounding UI can explain.
+    it('defaults furigana to the known-status mode and preserves typed automatic mode', () => {
+        expect(DEFAULT_SETTINGS.furiganaMode).toBe('known-status');
+        expect(effectiveFuriganaMode(DEFAULT_SETTINGS)).toBe('known-status');
+        expect(effectiveFuriganaMode({ ...DEFAULT_SETTINGS, furiganaMode: 'auto' })).toBe('known-status');
         expect(normalizeReaderSettings({ apiKey: '', ankiEnabled: false, yomuLocalSrsEnabled: false, furiganaMode: 'auto' }).furiganaMode).toBe('auto');
         expect(normalizeReaderSettings({ apiKey: '', ankiEnabled: false, yomuLocalSrsEnabled: true, furiganaMode: 'auto' }).furiganaMode).toBe('auto');
         expect(normalizeReaderSettings({ apiKey: 'key', ankiEnabled: false, jpdbMiningEnabled: false, furiganaMode: 'auto' }).furiganaMode).toBe('auto');

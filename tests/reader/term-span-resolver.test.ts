@@ -114,6 +114,33 @@ describe('TermSpanResolver', () => {
         expect(all[0]).toEqual(at);
     });
 
+    it('uses lexical evidence for equal-depth analyses without changing span or exact-form priority', async () => {
+        const target: TermSpanLookupTarget = {
+            lookupCandidates(surface) {
+                return surface === 'なって'
+                    ? [candidate('なう', 1), candidate('なる', 1), candidate('deep', 2)]
+                    : [candidate(surface)];
+            },
+            compareLookupCandidates: SURFACE_TARGET.compareLookupCandidates,
+        };
+        const scores: Record<string, number> = { なう: 0, なる: 10, deep: 100, な: 1000 };
+        const resolver = new TermSpanResolver({
+            target,
+            lookup: confirmingLookup(request => request.lookupCandidate.term in scores ? { headword: request.lookupCandidate.term } : null),
+            compareMatches: (a, b) => scores[b.match.headword]! - scores[a.match.headword]!,
+        });
+        const at = await resolver.resolveAt({ text: 'なって', start: 0 });
+        expect(at).toMatchObject({ surface: 'なって', match: { headword: 'なる' } });
+        expect(await resolver.resolveAll({ text: 'なって', start: 0 })).toEqual([at]);
+        scores['なって'] = -100;
+        const exact = new TermSpanResolver({
+            target: { ...target, lookupCandidates: surface => [candidate(surface), ...target.lookupCandidates(surface)] },
+            lookup: confirmingLookup(request => request.lookupCandidate.term in scores ? { headword: request.lookupCandidate.term } : null),
+            compareMatches: (a, b) => scores[b.match.headword]! - scores[a.match.headword]!,
+        });
+        expect(await exact.resolveAt({ text: 'なって', start: 0 })).toMatchObject({ match: { headword: 'なって' } });
+    });
+
     it('keeps repeated surfaces occurrence-distinct', async () => {
         const resolver = new TermSpanResolver({
             target: SURFACE_TARGET,

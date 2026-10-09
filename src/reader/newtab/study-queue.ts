@@ -1,9 +1,6 @@
 import { cardHighlightTargets } from '../cards/highlight';
-import {
-    activeLearningTarget,
-    defaultLearningTargetModule,
-    learningTargetModuleFor,
-} from '../languages/target-runtime';
+import { activeLearningTarget } from '../languages/target-runtime';
+import { canonicalLanguageTag, languageSubtag } from '../languages/locale';
 import { cardPronunciationReading } from '../popup/pitch';
 import { cardKey } from './index';
 import type { JPDBCard } from '../app/types';
@@ -27,19 +24,23 @@ export function newTabCardHighlightTargets(card: JPDBCard): string[] {
     return cardHighlightTargets(card);
 }
 
-/** Resolve morphology and typography from the card identity, not ambient UI state. */
-export function newTabCardTarget(card: Pick<JPDBCard, 'language'>): LearningTargetModule {
-    return learningTargetModuleFor(newTabCardIdentityLanguage(card)) ?? defaultLearningTargetModule();
+/** Every card Study shows is Japanese, so morphology and typography are Japanese. */
+export function newTabCardTarget(_card: Pick<JPDBCard, 'language'>): LearningTargetModule {
+    return activeLearningTarget();
 }
 
+/**
+ * Study shows Japanese cards only. A card an earlier Yomu stored for another
+ * language stays in storage untouched; it is simply not listed.
+ */
 export function newTabCardMatchesActiveTarget(card: Pick<JPDBCard, 'language'>): boolean {
     return newTabCardIdentityLanguage(card) === activeLearningTarget().language;
 }
 
-/** Missing identity language is legacy Japanese, even while another target is active. */
+/** Missing identity language is legacy Japanese. */
 export function newTabCardIdentityLanguage(card: Pick<JPDBCard, 'language'>): string {
-    return learningTargetModuleFor(card.language ?? defaultLearningTargetModule().language)?.language
-        ?? defaultLearningTargetModule().language;
+    if (!card.language || card.language === 'ja') return 'ja';
+    return languageSubtag(canonicalLanguageTag(card.language)) ?? card.language;
 }
 
 function shouldShowInStudyQueue(card: JPDBCard): boolean {

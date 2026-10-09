@@ -8,9 +8,14 @@ export function setImportantStyleIfChanged(
     property: string,
     value: string,
 ): void {
+    setInlineStyleIfChanged(element, property, value, 'important');
+}
+
+/** Apply a style only when its value or priority changes. */
+export function setInlineStyleIfChanged(element: HTMLElement, property: string, value: string, priority = ''): void {
     if (element.style.getPropertyValue(property) === value
-        && element.style.getPropertyPriority(property) === 'important') return;
-    element.style.setProperty(property, value, 'important');
+        && element.style.getPropertyPriority(property) === priority) return;
+    element.style.setProperty(property, value, priority);
 }
 
 const CSS_PIXEL_SIGNIFICANT_DIGITS = 6;

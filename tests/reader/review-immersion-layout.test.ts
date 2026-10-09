@@ -100,8 +100,9 @@ describe('review Immersion Kit responsive contract', () => {
 
     it('uses the same bounded media stage on Yomu Study without changing dictionaries', () => {
         expect(newTabCss).toContain('.jpdb-reader-newtab-immersion { margin-top: clamp(6px, 1.6vh, 14px); width: min(34rem, 100%);');
-        expect(newTabCss).toContain('width: min(100%, 60.444dvh, 604px); min-width: 0; min-height: 0; aspect-ratio: 16 / 9;');
-        expect(newTabCss).toContain('max-height: min(340px, 34dvh);');
+        // The example sits under the meaning: a smaller, flat 16:9 frame.
+        expect(newTabCss).toContain('width: min(100%, 48dvh, 480px); min-width: 0; min-height: 0; aspect-ratio: 16 / 9;');
+        expect(newTabCss).toContain('max-height: min(270px, 30dvh); overflow: hidden; border-radius: 12px; background: var(--jpdb-reader-video-frame); }');
         expect(newTabCss).toContain('.jpdb-reader-newtab-immersion:not(.jpdb-reader-newtab-kanji-immersion) { width: min(30rem, 100%); }');
         expect(newTabCss).toContain('.jpdb-reader-newtab-immersion .jpdb-reader-icon-mini { width: 44px !important; min-width: 44px !important; height: 44px !important; min-height: 44px !important; }');
         expect(newTabCss).not.toContain('.jpdb-reader-newtab-reveal-dictionaries { width: min(34rem');

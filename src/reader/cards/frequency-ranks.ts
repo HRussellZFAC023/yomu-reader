@@ -2,7 +2,7 @@ import type { JPDBCard, ReaderSettings } from '../app/types';
 import type { JitenVocabularyInfo } from '../dictionaries/jiten';
 import { formatMetaFrequency } from '../dictionaries/groups-core';
 import type { YomitanMetaEntry } from '../dictionaries/yomitan';
-import { learningTargetModuleFor } from '../languages/target-runtime';
+import { activeLearningTarget } from '../languages/target-runtime';
 
 export type FrequencyProvider = 'jiten' | 'jpdb' | 'bunpro';
 export type FrequencyRankSource = 'card' | 'live-search' | 'kanji';
@@ -46,12 +46,10 @@ export function hasFrequencyRankEvidence(
 
 /** Count non-overlapping occurrences of the exact lookup surface in its sentence. */
 export function contextOccurrenceCount(
-    { spelling, language = 'ja' }: JPDBCard,
+    { spelling }: JPDBCard,
     context = '',
 ): number {
-    let normalize = normalizeIdentityText;
-    const target = learningTargetModuleFor(language);
-    if (target) normalize = value => target.normalizeText(value);
+    const normalize = (value: string) => activeLearningTarget().normalizeText(value);
     const surface = normalize(spelling);
     const text = normalize(context);
     if (!surface) return 0;

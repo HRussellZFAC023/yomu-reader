@@ -5,12 +5,8 @@ import {
 } from '../dictionaries/jiten-public-vocabulary';
 import type { JpdbVocabularyClient } from '../jpdb/jpdb-vocabulary';
 import { usesJapaneseProviders } from '../languages/character-lookup';
-import {
-    activeLearningTarget,
-    activeLearningTargetGeneration,
-} from '../languages/target-runtime';
+import { activeLearningTarget } from '../languages/target-runtime';
 import type { LearningTargetModule } from '../languages/types';
-import { targetLanguageOf } from '../languages/selection';
 import {
     batchJitenFallbackCards,
     normalizedJitenLookupKey,
@@ -74,48 +70,21 @@ interface ReaderCardLookupDependencies {
     showCard(card: JPDBCard, sentence?: string, anchor?: HTMLElement, options?: CardDisplayOptions): void;
     showTokenList(tokens: JPDBToken[], selected: string, anchor?: HTMLElement, options?: TokenListOptions): void;
     toast(message: string): void;
-    onTargetChange(): void;
     log: LookupLog;
 }
 
 /**
- * Owns one reader lookup session's target identity and provider boundary.
+ * Owns one reader lookup session's provider boundary.
  *
  * UI mounting stays in ReaderApp; this module owns the asynchronous policy so
- * every provider result and fallback is checked against the target that
+ * every provider result and fallback is checked against the scope that
  * started it before it can reach that UI.
  */
 export class ReaderCardLookupSession {
-    private version = 0;
-    private language: string;
-    private runtimeGeneration = activeLearningTargetGeneration();
-
-    constructor(private readonly dependencies: ReaderCardLookupDependencies) {
-        this.language = targetLanguageOf(dependencies.getSettings());
-    }
+    constructor(private readonly dependencies: ReaderCardLookupDependencies) {}
 
     captureTarget(): CardLookupTargetSnapshot {
-        const version = this.version;
-        const language = this.language;
-        const generation = activeLearningTargetGeneration();
-        const target = activeLearningTarget();
-        return {
-            target,
-            isCurrent: () => version === this.version
-                && language === this.language
-                && generation === activeLearningTargetGeneration()
-                && target === activeLearningTarget(),
-        };
-    }
-
-    syncTarget(settings: ReaderSettings): void {
-        const language = targetLanguageOf(settings);
-        const runtimeGeneration = activeLearningTargetGeneration();
-        if (language === this.language && runtimeGeneration === this.runtimeGeneration) return;
-        this.language = language;
-        this.runtimeGeneration = runtimeGeneration;
-        this.version += 1;
-        this.dependencies.onTargetChange();
+        return { target: activeLearningTarget(), isCurrent: () => true };
     }
 
     async lookupText(

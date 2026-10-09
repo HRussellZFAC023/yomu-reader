@@ -1,41 +1,44 @@
 ---
-title: Start here
-description: An honest starting point for learning Japanese with Yomu, covering how long it takes, what to do each day, what runs without an install, and what Yomu leaves up to you.
+title: How to learn Japanese with よむ
+description: Read and watch Japanese you enjoy every day, look up what blocks you, keep a few words and review them daily. The whole method on one page.
 ---
 
-# Start here
+# How to learn Japanese with よむ
 
-Learning Japanese takes a long time. Not a year, whatever a course sells you. People who read every day for a couple of years get comfortable with ordinary material; people who study in bursts and stop take longer or stop for good. That is the honest shape of it, and everything here is built around making the daily part small enough that you keep doing it.
+Read and watch Japanese you enjoy, every day. Look up what blocks you. Keep a few words. Review them daily. That's the method.
 
-Yomu is a popup dictionary that follows you around: web pages, videos, manga panels, PDFs and game screens. Press a word and you get its reading, its meaning, how it sounds and how common it is. Press again and you keep it, with the sentence where you found it.
+## First week {#first-week}
 
-That is the whole product. The rest of these pages are about what to do with it.
+[Install よむ](/install). Learn hiragana and katakana with any app; it takes about a week. Then stop studying about Japanese and start using it.
 
-## What you do
+## Every day {#every-day}
 
-Read and watch things you almost understand, in volume. Look up what stops you. Keep the words that keep stopping you. Come back to them a few times. That is the method, and the next page explains why it works.
+1. **Review first.** Ten minutes in Study.
+2. **Then spend the rest of your time in Japanese.** Anime, YouTube, manga, games, news: whatever you'd watch or read in English anyway.
+3. **Look up the word that blocks the sentence.** Skip the rest.
+4. **Save only the words you'll meet again.** Five to ten a day is plenty.
+5. **Put them in review.** In Study → Library, press Add to review.
 
-## What Yomu will not do
+## Rules {#rules}
 
-Yomu will not teach you kana. Do that first; it takes a few days and [Week one](/learn/week-one) says how. Yomu will not give you a fixed daily schedule. It will not decide which words matter to you.
+- **Pick what you enjoy over what's good for you.** A show you finish teaches more than a textbook you drop.
+- **Don't read the whole definition.** Get the gist and keep going.
+- **Leave the settings alone for a month.** The defaults are fine.
+- **Grade honestly.** If you didn't know it, fail it.
+- **Missed a week? Do today's reviews.** Never reset. If reviews pile up, stop saving words until they're back under control.
+- **Listen when you can't read.** Japanese audio while you cook or commute still counts.
+- **Learn grammar when it blocks you.** Skim [one beginner grammar guide](https://www.tofugu.com/japanese-grammar/) once, then learn the rest from what you read.
 
-Academy is the planned course from first sounds to N1. It is in development and open by invitation while it is built. Until then, this learning path gives you an approach rather than a syllabus.
+## What to start with {#what-to-start-with}
 
-## Try Yomu before installing
+- **Total beginner:** [free graded readers](/library/)
+- **Easy news:** [NHK News Web Easy](https://www3.nhk.or.jp/news/easy/)
+- **YouTube:** any video with Japanese subtitles. Hover the subtitle line.
+- **Manga:** one you've already read in English, so you know the story.
+- **Your own videos:** <a href="/video-player/" target="_self">Video Player</a>
+- **PDFs:** <a href="/pdf-reader/" target="_self">PDF Reader</a>
+- **Games:** [よむ Desktop](/desktop)
 
-Study, the video player, the PDF reader and the live OCR panel all run here with nothing installed.
+## Already use Anki, JPDB or Jiten? {#already-use-anki}
 
-- [Open Study](/study/)
-- [Open the video player](/video-player/)
-- [Open the PDF reader](/pdf-reader/)
-- [Press a word in the live OCR panel](/#yomu-live-ocr)
-
-When you want the dictionary on every page you visit, the add-on takes about a minute on Chrome or Firefox. Safari, iPhone and iPad use the userscript and take a couple of minutes.
-
-- [Add よむ to Chrome](https://chromewebstore.google.com/detail/%E3%82%88%E3%82%80/bbaickgfdgnecdnkcplaoiopnfghlkna)
-- [Add よむ to Firefox](https://addons.mozilla.org/en-US/firefox/addon/yomu-reader/)
-- [Install the よむ userscript](https://yomureader.com/yomu.user.js)
-
-You do not need an account to read, look words up, keep a local deck or use Study. Yomu is free and open source.
-
-Next: [The approach: why this works →](/learn/approach)
+Keep it. Connect it in Settings and よむ saves your words there. Review in one place, not two.

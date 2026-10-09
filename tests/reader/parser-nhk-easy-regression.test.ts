@@ -5,7 +5,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { JitenPublicVocabularyClient, resetJitenPublicVocabularyBackoffForTests } from '../../src/reader/dictionaries/jiten-public-vocabulary';
 import { YomitanDictionaryStore } from '../../src/reader/dictionaries/yomitan';
 import { renderTokensToHtml } from '../../src/reader/dom/index';
-import { resetActiveLearningTargetLanguage, setActiveLearningTargetLanguage } from '../../src/reader/languages/active';
 import { ReaderParser } from '../../src/reader/lookup/parser';
 import { pointerTokenAtOffset } from '../../src/reader/lookup/text-helpers';
 import { DEFAULT_SETTINGS } from '../../src/reader/settings';
@@ -67,13 +66,11 @@ function tokenIdentity(tokens: JPDBToken[], surface: string, occurrence = 0) {
 describe('NHK Easy parser regression (GitHub #48)', () => {
     beforeEach(() => {
         resetJitenPublicVocabularyBackoffForTests();
-        setActiveLearningTargetLanguage('ja');
         localStorage.removeItem('yomu:jiten-public-cache:v2');
     });
 
     afterEach(() => {
         resetJitenPublicVocabularyBackoffForTests();
-        resetActiveLearningTargetLanguage();
         localStorage.removeItem('yomu:jiten-public-cache:v2');
     });
 

@@ -103,10 +103,10 @@ html.jpdb-youtube-filter-active ytd-rich-grid-renderer ytd-continuation-item-ren
     min-height: 30px;
     white-space: nowrap;
     padding: 0 12px;
-    border: 1px solid var(--jpdb-reader-accent);
+    border: 1px solid var(--jpdb-reader-text);
     border-radius: 999px;
     background: transparent;
-    color: var(--jpdb-reader-accent-readable);
+    color: var(--jpdb-reader-text);
     font: inherit;
     cursor: pointer;
 }

@@ -1,88 +1,91 @@
 :root {
-  --vp-c-brand-1: #5ea780;
-  --vp-c-brand-2: #6fb28f;
-  --vp-c-brand-3: #5ea780;
-  --vp-c-brand-soft: rgba(94, 167, 128, 0.16);
+  /* The shared ink-and-paper palette (src/reader/styles/base.css) with the
+     brand red. These are the no-script values; the appearance boot and
+     syncHostedAccent stamp the same accent family from hosted-accent-css.ts. */
+  --vp-c-brand-1: #b8324e;
+  --vp-c-brand-2: #972940;
+  --vp-c-brand-3: #b8324e;
+  --vp-c-brand-soft: rgba(184, 50, 78, 0.16);
   --vp-c-bg: #ffffff;
-  --vp-c-bg-alt: #f7f8fa;
-  --vp-c-bg-soft: #eef1f4;
-  --vp-c-text-1: #171a1f;
-  --vp-c-text-2: #596272;
-  --vp-c-divider: rgba(20, 30, 45, 0.16);
+  --vp-c-bg-alt: #f8f9fb;
+  --vp-c-bg-soft: #f0f2f5;
+  --vp-c-text-1: #20242b;
+  --vp-c-text-2: #59616d;
+  --vp-c-text-3: #687384;
+  --vp-c-divider: #dfe3e8;
   --vp-font-family-base:
     system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  --vp-button-brand-border: #5ea780;
-  --vp-button-brand-text: #11161d;
-  --vp-button-brand-bg: #5ea780;
-  --vp-button-brand-hover-border: #6fb28f;
-  --vp-button-brand-hover-text: #11161d;
-  --vp-button-brand-hover-bg: #6fb28f;
-  --vp-button-brand-active-border: #549770;
-  --vp-button-brand-active-text: #11161d;
-  --vp-button-brand-active-bg: #549770;
-  --vp-button-alt-border: rgba(20, 30, 45, 0.18);
-  --vp-button-alt-bg: #eef1f4;
-  --vp-button-alt-hover-bg: #e3e8ed;
-  --vp-home-hero-name-color: var(--vp-c-brand-2);
-  --yomu-doc-icon-bg: #f7fbf8;
-  --yomu-doc-shadow: rgba(20, 30, 45, 0.18);
-  --yomu-doc-shadow-soft: rgba(20, 30, 45, 0.08);
-  --yomu-doc-panel-shadow: rgba(20, 30, 45, 0.07);
-  --yomu-doc-demo-surface: #fbfcfe;
-  --yomu-doc-demo-text: #1d2733;
-  --yomu-doc-shot-frame-bg: #f6f8fa;
-  --yomu-doc-shot-frame-border: rgba(20, 30, 45, 0.14);
+  --vp-button-brand-border: #b8324e;
+  --vp-button-brand-text: #ffffff;
+  --vp-button-brand-bg: #b8324e;
+  --vp-button-brand-hover-border: #a22c45;
+  --vp-button-brand-hover-text: #ffffff;
+  --vp-button-brand-hover-bg: #a22c45;
+  --vp-button-brand-active-border: #93283e;
+  --vp-button-brand-active-text: #ffffff;
+  --vp-button-brand-active-bg: #93283e;
+  --vp-button-alt-border: #dfe3e8;
+  --vp-button-alt-bg: #f0f2f5;
+  --vp-button-alt-hover-bg: #e6e9ee;
+  --vp-home-hero-name-color: var(--vp-c-brand-1);
+  --yomu-doc-icon-bg: #f8f9fb;
+  --yomu-doc-shadow: rgba(32, 36, 43, 0.16);
+  --yomu-doc-shadow-soft: rgba(32, 36, 43, 0.08);
+  --yomu-doc-panel-shadow: rgba(32, 36, 43, 0.07);
+  --yomu-doc-demo-surface: #ffffff;
+  --yomu-doc-demo-text: #20242b;
+  --yomu-doc-shot-frame-bg: #f8f9fb;
+  --yomu-doc-shot-frame-border: #dfe3e8;
   --yomu-doc-shot-image-bg: #ffffff;
-  --yomu-doc-shot-image-border: rgba(20, 30, 45, 0.16);
-  --yomu-doc-shot-shadow: rgba(20, 30, 45, 0.12);
+  --yomu-doc-shot-image-border: #dfe3e8;
+  --yomu-doc-shot-shadow: rgba(32, 36, 43, 0.12);
   --yomu-doc-shot-inset: rgba(255, 255, 255, 0.72);
-  --yomu-doc-caption: var(--vp-c-text-2);
+  --yomu-doc-success: #347a57;
   /* Match syncHostedAccent's readableTextOn(default accent) result before
-     hydration, so the native CTA and any early Reader mirror never traverse
-     an inaccessible white-to-ink colour transition. White ink belonged to the
-     old forest-green fallbacks; on the #5ea780 accent family the runtime
-     computes #11161d, and white measures 2.87:1 there. */
-  --yomu-doc-accent-ink: #11161d;
-  --yomu-doc-brand-ink: #11161d;
-  --yomu-doc-brand-hover-ink: #11161d;
+     hydration: white measures 5.83:1 on the brand red. */
+  --yomu-doc-accent-ink: #ffffff;
+  --yomu-doc-brand-ink: #ffffff;
+  --yomu-doc-brand-hover-ink: #ffffff;
 }
 
 .dark {
-  --vp-c-brand-1: #76bd99;
-  --vp-c-brand-2: #5ea780;
-  --vp-c-brand-3: #9cd8b8;
+  --vp-c-brand-1: #ff7892;
+  --vp-c-brand-2: #ff90a6;
+  --vp-c-brand-3: #b8324e;
+  --vp-c-brand-soft: rgba(184, 50, 78, 0.22);
   --vp-c-bg: #181b20;
   --vp-c-bg-alt: #20242b;
   --vp-c-bg-soft: #282e37;
   --vp-c-text-1: #f2f4f8;
-  --vp-c-text-2: #aab2c0;
+  --vp-c-text-2: #b0b8c4;
+  --vp-c-text-3: #8993a2;
   --vp-c-divider: rgba(255, 255, 255, 0.12);
-  --vp-button-brand-border: #5ea780;
-  --vp-button-brand-text: #11161d;
-  --vp-button-brand-bg: #5ea780;
-  --vp-button-brand-hover-border: #6fb28f;
-  --vp-button-brand-hover-text: #11161d;
-  --vp-button-brand-hover-bg: #6fb28f;
-  --vp-button-brand-active-border: #549770;
-  --vp-button-brand-active-text: #11161d;
-  --vp-button-brand-active-bg: #549770;
+  --vp-button-brand-border: #b8324e;
+  --vp-button-brand-text: #ffffff;
+  --vp-button-brand-bg: #b8324e;
+  --vp-button-brand-hover-border: #a22c45;
+  --vp-button-brand-hover-text: #ffffff;
+  --vp-button-brand-hover-bg: #a22c45;
+  --vp-button-brand-active-border: #93283e;
+  --vp-button-brand-active-text: #ffffff;
+  --vp-button-brand-active-bg: #93283e;
   --vp-button-alt-border: rgba(255, 255, 255, 0.14);
   --vp-button-alt-bg: #282e37;
   --vp-button-alt-hover-bg: #323946;
-  --yomu-doc-icon-bg: #f7fbf8;
+  --yomu-doc-icon-bg: #f8f9fb;
   --yomu-doc-shadow: rgba(0, 0, 0, 0.22);
   --yomu-doc-shadow-soft: rgba(0, 0, 0, 0.22);
   --yomu-doc-panel-shadow: rgba(0, 0, 0, 0.18);
   --yomu-doc-demo-surface: #181b20;
-  --yomu-doc-demo-text: #b7c0cc;
-  --yomu-doc-shot-frame-bg: #10161c;
+  --yomu-doc-demo-text: #b0b8c4;
+  --yomu-doc-shot-frame-bg: #20242b;
   --yomu-doc-shot-frame-border: rgba(255, 255, 255, 0.1);
-  --yomu-doc-shot-image-bg: #11171d;
+  --yomu-doc-shot-image-bg: #181b20;
   --yomu-doc-shot-image-border: rgba(255, 255, 255, 0.12);
   --yomu-doc-shot-shadow: rgba(0, 0, 0, 0.26);
   --yomu-doc-shot-inset: rgba(255, 255, 255, 0.04);
-  --yomu-doc-caption: #dce4ef;
-  --yomu-doc-accent-ink: #11161d;
+  --yomu-doc-success: #80b99a;
+  --yomu-doc-accent-ink: #ffffff;
   --yomu-doc-brand-ink: #11161d;
   --yomu-doc-brand-hover-ink: #11161d;
 }
@@ -96,7 +99,9 @@
   color: var(--vp-c-brand-1);
 }
 
-.yomu-reference-page .vp-doc table a {
+/* Striped table rows are too light behind brand-coloured link text, so table
+   links take the text colour and keep the brand colour in the underline. */
+.vp-doc table a {
   color: var(--vp-c-text-1);
   text-decoration-color: var(--vp-c-brand-1);
 }
@@ -296,15 +301,15 @@
 }
 
 .VPButton.brand {
-  border-color: var(--yomu-accent-readable, #5ea780) !important;
-  background-color: var(--yomu-accent-readable, #5ea780) !important;
+  border-color: var(--yomu-accent-readable, #b8324e) !important;
+  background-color: var(--yomu-accent-readable, #b8324e) !important;
   color: #fff !important;
 }
 
 .VPButton.brand:hover,
 .VPButton.brand:focus-visible {
-  border-color: var(--vp-button-brand-hover-border, #6fb28f) !important;
-  background-color: var(--vp-button-brand-hover-bg, #6fb28f) !important;
+  border-color: var(--vp-button-brand-hover-border, #a22c45) !important;
+  background-color: var(--vp-button-brand-hover-bg, #a22c45) !important;
   color: #fff !important;
 }
 
@@ -384,8 +389,8 @@
 }
 
 .yomu-hosted-account-state-mark[data-state="signed-in"] {
-  background: #39b86b;
-  box-shadow: 0 0 0 3px color-mix(in srgb, #39b86b 18%, transparent);
+  background: var(--yomu-doc-success);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--yomu-doc-success) 18%, transparent);
 }
 
 .yomu-hosted-account-state-mark[data-state="error"] {
@@ -728,7 +733,6 @@
   box-shadow: 0 14px 34px var(--yomu-doc-shot-shadow);
 }
 
-.yomu-shot-grid figure,
 .vp-doc figure:has(img[src*="screenshots"]) {
   padding: 12px;
   border: 1px solid var(--yomu-doc-shot-frame-border);
@@ -1131,66 +1135,6 @@
   line-height: 1;
 }
 
-.yomu-shot-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 18px;
-  min-width: 0;
-  max-width: 100%;
-  margin: 20px 0 28px;
-}
-
-.yomu-try-me .yomu-shot-grid {
-  margin: 0;
-}
-
-.yomu-shot-grid figure {
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-  min-width: 0;
-  max-width: 100%;
-  margin: 0;
-  overflow: hidden;
-}
-
-.yomu-shot-grid img {
-  display: block;
-  width: 100%;
-  max-width: 100%;
-  aspect-ratio: 16 / 11;
-  height: auto;
-  object-fit: contain;
-  object-position: center;
-}
-
-.yomu-feature-shot {
-  margin: 18px 0 28px;
-  padding: 12px;
-  border: 1px solid var(--yomu-doc-shot-frame-border);
-  border-radius: 10px;
-  background: var(--yomu-doc-shot-frame-bg);
-  box-shadow: inset 0 1px 0 var(--yomu-doc-shot-inset);
-}
-
-.yomu-feature-shot img {
-  display: block;
-  width: 100%;
-  border: 1px solid var(--yomu-doc-shot-image-border);
-  border-radius: 8px;
-  background: var(--yomu-doc-shot-image-bg);
-  box-shadow: 0 14px 34px var(--yomu-doc-shot-shadow);
-}
-
-.yomu-shot-grid figcaption,
-.yomu-feature-shot figcaption,
-.yomu-caption {
-  margin-top: 8px;
-  color: var(--yomu-doc-caption);
-  font-size: 13px;
-  line-height: 1.45;
-}
-
 .yomu-platform-list {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -1270,7 +1214,6 @@
 }
 
 @media (max-width: 960px) {
-  .yomu-shot-grid,
   .yomu-platform-list,
   .yomu-link-grid {
     grid-template-columns: 1fr;
@@ -1308,15 +1251,16 @@
 }
 
 
-/* Homepage: a reading page with quiet rules and full, uncropped captures. */
+/* Homepage: a reading page with quiet rules and full, uncropped captures. It
+   takes the site's ink-and-paper palette; the serif headlines and spacing
+   carry its editorial voice, not a second colour scheme. */
 .yomu-home {
-  --home-page: #f8f5ef;
-  --home-surface: #fffdf8;
-  --home-text: #292824;
-  --home-muted: #66635a;
-  --home-line: #d9d4c9;
-  --home-action: #315944;
-  --home-on-action: #fffdf8;
+  --home-page: var(--vp-c-bg);
+  --home-surface: var(--vp-c-bg-alt);
+  --home-text: var(--vp-c-text-1);
+  --home-muted: var(--vp-c-text-2);
+  --home-line: var(--vp-c-divider);
+  --home-action: var(--vp-c-brand-1);
   --home-gutter: clamp(20px, 5vw, 80px);
   --home-space: clamp(56px, 8vw, 112px);
   --home-serif: Georgia, 'Yu Mincho', 'Hiragino Mincho ProN', serif;
@@ -1324,25 +1268,15 @@
   color: var(--home-text);
 }
 
-.dark .yomu-home {
-  --home-page: #20211e;
-  --home-surface: #292b26;
-  --home-text: #eeeae1;
-  --home-muted: #b9b8ae;
-  --home-line: #45483e;
-  --home-action: #b7d0b6;
-  --home-on-action: #20211e;
-}
-
+/* Without script the dark class never lands; follow the system instead. */
 @media (prefers-color-scheme: dark) {
   html:not(.yomu-theme-resolved) .yomu-home {
-    --home-page: #20211e;
-    --home-surface: #292b26;
-    --home-text: #eeeae1;
-    --home-muted: #b9b8ae;
-    --home-line: #45483e;
-    --home-action: #b7d0b6;
-    --home-on-action: #20211e;
+    --home-page: #181b20;
+    --home-surface: #20242b;
+    --home-text: #f2f4f8;
+    --home-muted: #b0b8c4;
+    --home-line: rgba(255, 255, 255, 0.12);
+    --home-action: #ff7892;
   }
 }
 
@@ -1373,14 +1307,14 @@
   outline: 3px solid var(--home-action);
   outline-offset: 5px;
 }
-.yomu-home :is(.yomu-fold, .yomu-band, .yomu-story, .yomu-fits,
-  .yomu-install, .yomu-discord, .yomu-next, .yomu-home-more) {
+.yomu-home :is(.yomu-fold, .yomu-band, .yomu-story,
+  .yomu-install, .yomu-next, .yomu-home-more) {
   width: min(100%, 1280px);
   margin-inline: auto;
   padding-inline: var(--home-gutter);
   box-sizing: border-box;
 }
-.yomu-home :is(.yomu-band, .yomu-story, .yomu-fits, .yomu-install, .yomu-discord) {
+.yomu-home :is(.yomu-band, .yomu-story, .yomu-install) {
   padding-block: var(--home-space);
   border-top: 1px solid var(--home-line);
   scroll-margin-top: calc(var(--vp-nav-height) + 24px);
@@ -1389,11 +1323,12 @@
 
 .yomu-fold {
   display: grid;
-  grid-template-columns: minmax(0, 1.35fr) minmax(0, 0.8fr);
+  grid-template-columns: minmax(0, 1fr);
   align-items: center;
   gap: clamp(32px, 5vw, 80px);
   padding-block: clamp(40px, 6vw, 88px) var(--home-space);
 }
+.yomu-fold-main { max-width: 780px; }
 .yomu-wordmark {
   display: flex;
   align-items: baseline;
@@ -1412,13 +1347,6 @@
   max-width: 43ch;
   margin: 24px 0 12px;
   font-size: clamp(18px, 1.8vw, 22px);
-  line-height: 1.6;
-}
-.yomu-fold-scope {
-  max-width: 52ch;
-  margin: 0;
-  color: var(--home-muted);
-  font-size: 14px;
   line-height: 1.6;
 }
 .yomu-fold-live { margin-block: 32px; }
@@ -1460,19 +1388,12 @@
   font-size: clamp(24px, 2.35vw, 32px);
   line-height: 2.2;
 }
-.yomu-fold-card {
-  width: 100%;
-  max-width: 390px;
-  margin: 0;
-  justify-self: center;
-}
 .yomu-home figure img {
   display: block;
   width: 100%;
   height: auto;
   border-radius: 4px;
 }
-.yomu-fold-card img { border: 1px solid var(--home-line); }
 
 .yomu-install-routes {
   display: flex;
@@ -1496,19 +1417,37 @@
   :root:not([data-yomu-install]) [data-yomu-route='userscript'],
   :root[data-yomu-install='userscript'] [data-yomu-route='userscript'],
   :root[data-yomu-install='chrome'] [data-yomu-route='chrome'],
-  :root[data-yomu-install='firefox'] [data-yomu-route='firefox']
+  :root[data-yomu-install='firefox'] [data-yomu-route='firefox'],
+  :root[data-yomu-install='android'] [data-yomu-route='firefox']
 ) {
   order: -3;
   padding: 13px 22px;
-  border: 1px solid var(--home-action);
-  border-radius: 4px;
-  background: var(--home-action);
-  color: var(--home-on-action);
+  border: 1px solid var(--vp-button-brand-border);
+  border-radius: 8px;
+  background: var(--vp-button-brand-bg);
+  color: var(--vp-button-brand-text);
   font-size: 16px;
   text-decoration: none;
 }
 .yomu-install-route:hover { text-decoration-thickness: 2px; }
-.yomu-install-routes .yomu-fold-micro {
+/* The install routes also head the Install page, outside the homepage's tokens. */
+.vp-doc .yomu-install-routes {
+  --home-action: var(--vp-c-brand-1);
+  --home-on-action: var(--vp-button-brand-text);
+  --home-muted: var(--vp-c-text-2);
+  margin-bottom: 8px;
+}
+.vp-doc .yomu-install-routes p { margin: 0; }
+.vp-doc a.yomu-install-route:is(
+  :root:not([data-yomu-install]) [data-yomu-route='userscript'],
+  :root[data-yomu-install='userscript'] [data-yomu-route='userscript'],
+  :root[data-yomu-install='chrome'] [data-yomu-route='chrome'],
+  :root[data-yomu-install='firefox'] [data-yomu-route='firefox'],
+  :root[data-yomu-install='android'] [data-yomu-route='firefox']
+) { color: var(--home-on-action); }
+/* One short line under the promoted button, for the same route only. */
+.yomu-install-hint {
+  display: none;
   order: -2;
   flex-basis: 100%;
   margin: 0;
@@ -1516,21 +1455,78 @@
   font-size: 13px;
   line-height: 1.6;
 }
-.yomu-install-routes-note { order: -1; margin: 0; color: var(--home-muted); font-size: 13px; }
+.yomu-install-hint:is(
+  :root:not([data-yomu-install]) [data-yomu-hint='userscript'],
+  :root[data-yomu-install='userscript'] [data-yomu-hint='userscript'],
+  :root[data-yomu-install='chrome'] [data-yomu-hint='chrome'],
+  :root[data-yomu-install='firefox'] [data-yomu-hint='firefox'],
+  :root[data-yomu-install='android'] [data-yomu-hint='android']
+) { display: block; }
+
+/* よむ Desktop: one button that downloads this computer's file. The head
+   snippet (scripts/lib/hosted-install-route.cjs) stamps data-yomu-desktop; a
+   phone, or a page without JS, gets the link to /desktop instead. */
+.yomu-desktop-download {
+  /* Pair the readable brand fill with its own ink, on every page and before
+     hydration. The raw accent's ink can differ (pink versus red in dark mode). */
+  --home-action: var(--vp-c-brand-1);
+  --home-on-action: var(--yomu-brand-ink, var(--yomu-doc-brand-ink));
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 18px;
+  margin-top: 24px;
+}
+.vp-doc .yomu-desktop-download {
+  --home-muted: var(--vp-c-text-2);
+}
+.vp-doc .yomu-desktop-download p { margin: 0; }
+.yomu-desktop-button {
+  display: none;
+  align-items: center;
+  min-height: 44px;
+  padding: 13px 22px;
+  border-radius: 4px;
+  background: var(--home-action);
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 1.5;
+}
+.yomu-desktop-download a.yomu-desktop-button { color: var(--home-on-action); text-decoration: none; }
+.yomu-desktop-hint {
+  display: none;
+  flex-basis: 100%;
+  margin: 0;
+  color: var(--home-muted);
+  font-size: 13px;
+  line-height: 1.6;
+}
+.yomu-desktop-other {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  color: var(--home-action);
+  font-size: 14px;
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+:root:not([data-yomu-desktop]) .yomu-desktop-fallback,
+:root[data-yomu-desktop='none'] .yomu-desktop-fallback,
+:root[data-yomu-desktop='mac-arm64'] [data-yomu-desktop-file='mac-arm64'],
+:root[data-yomu-desktop='mac-x64'] [data-yomu-desktop-file='mac-x64'],
+:root[data-yomu-desktop='win-x64'] [data-yomu-desktop-file='win-x64'],
+:root[data-yomu-desktop='linux-x86_64'] [data-yomu-desktop-file='linux-x86_64'] { display: inline-flex; }
+:root:is([data-yomu-desktop='mac-arm64'], [data-yomu-desktop='mac-x64']) [data-yomu-desktop-hint='mac'],
+:root[data-yomu-desktop='win-x64'] [data-yomu-desktop-hint='win'],
+:root[data-yomu-desktop='linux-x86_64'] [data-yomu-desktop-hint='linux'] { display: block; }
+:root:is(:not([data-yomu-desktop]), [data-yomu-desktop='none']) .yomu-home .yomu-desktop-other { display: none; }
 
 .yomu-band {
   display: grid;
   grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr);
   align-items: center;
   gap: clamp(28px, 5vw, 72px);
-}
-.yomu-band-kicker {
-  margin: 0 0 16px;
-  color: var(--home-muted);
-  font-size: 12px;
-  font-weight: 650;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
 }
 .yomu-band-lead {
   max-width: 48ch;
@@ -1539,7 +1535,7 @@
   font-size: 17px;
   line-height: 1.75;
 }
-.yomu-band-action, .yomu-discord a, .yomu-fits-list a {
+.yomu-band-action {
   display: inline-flex;
   align-items: center;
   min-height: 44px;
@@ -1551,38 +1547,17 @@
 }
 .yomu-band-frame { margin: 0; }
 .yomu-band-frame > img { border: 1px solid var(--home-line); }
-.yomu-band-pair { display: grid; gap: 20px; }
 .yomu-band-player { margin: 24px 0 0; }
 .yomu-band-video { display: block; width: 100%; border-radius: 4px; background: #111; }
 .yomu-manga-figure { max-width: 420px; justify-self: center; }
-.yomu-band-devices {
-  display: grid;
-  grid-template-columns: minmax(0, 0.48fr) minmax(0, 1fr);
-  align-items: end;
-  gap: 20px;
-}
 
 .yomu-letter { max-width: 780px; margin: 0 auto; }
 .yomu-letter > p { margin: 24px 0 0; font-size: 18px; line-height: 1.8; color: var(--home-muted); }
 .yomu-letter .yomu-letter-sign { color: var(--home-text); font-family: var(--home-serif); font-style: italic; }
-.yomu-fits-inner {
-  display: grid;
-  grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr);
-  align-items: start;
-  gap: clamp(28px, 5vw, 72px);
-}
-.yomu-fits-list { margin: 0; padding: 0; list-style: none; }
-.yomu-fits-list li { margin: 0; padding: 20px 0; border-bottom: 1px solid var(--home-line); color: var(--home-muted); font-size: 17px; line-height: 1.75; }
-.yomu-fits-list li:first-child { padding-top: 0; }
-.yomu-fits-list strong { color: var(--home-text); font-weight: 600; }
-.yomu-fits-list a { margin: 0; }
-.yomu-home-more { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 48px; }
+.yomu-home-more { display: grid; grid-template-columns: minmax(0, 1fr); gap: 48px; }
 .yomu-home .yomu-band-concept { display: block; padding-inline: 0; }
+.yomu-band-concept .yomu-band-copy { max-width: 780px; }
 .yomu-install-inner { max-width: 740px; }
-.yomu-install-lead, .yomu-discord p { margin: 24px 0 0; max-width: 55ch; color: var(--home-muted); font-size: 18px; line-height: 1.75; }
-.yomu-install-lead a, .yomu-install-note a { color: var(--home-action); text-decoration: underline; text-underline-offset: 4px; }
-.yomu-install-note { margin: 24px 0 0; color: var(--home-muted); font-size: 14px; line-height: 1.6; }
-.yomu-discord-inner { max-width: 740px; }
 .yomu-next { padding-block: 24px 48px; border-top: 1px solid var(--home-line); }
 .yomu-next-row { display: flex; flex-wrap: wrap; gap: 8px 28px; margin: 0; }
 .yomu-next-row a { display: inline-flex; align-items: center; min-height: 44px; color: var(--home-muted); font-size: 14px; text-decoration: underline; text-underline-offset: 4px; }
@@ -1591,11 +1566,9 @@ body:has(.yomu-home) .jpdb-reader-fab { bottom: max(72px, calc(env(safe-area-ins
 @media (max-width: 900px) {
   .yomu-fold { grid-template-columns: minmax(0, 1fr); }
   .yomu-home .yomu-fold-h1 { max-width: 19ch; }
-  .yomu-fold-card { max-width: 360px; justify-self: start; }
-  .yomu-band, .yomu-fits-inner { grid-template-columns: minmax(0, 1fr); }
+  .yomu-band { grid-template-columns: minmax(0, 1fr); }
   .yomu-band-copy { max-width: 620px; }
   .yomu-manga-figure { justify-self: start; }
-  .yomu-band-devices { max-width: 600px; }
 }
 @media (max-width: 600px) {
   .yomu-home-more { grid-template-columns: minmax(0, 1fr); gap: 0; }
@@ -1609,7 +1582,7 @@ body:has(.yomu-home) .jpdb-reader-fab { bottom: max(72px, calc(env(safe-area-ins
    #f1ead9 paper over #e5dcc4 folded paper, pencil-grey secondary copy, 3-15px
    ASYMMETRIC corners, a slightly offset shadow, and exactly one folded corner
    plus one tape strip. Accent inherits the reader's own accent so a learner who
-   has set theirs sees it here, with the system's #5ea780 fallback.
+   has set theirs sees it here, with the system's brand-red fallback.
    Behaviour follows the W3C modal pattern the bible binds us to; see
    membership-popover.ts. Motion uses the bible's 150ms response step. */
 :root {
@@ -1618,7 +1591,7 @@ body:has(.yomu-home) .jpdb-reader-fab { bottom: max(72px, calc(env(safe-area-ins
   --paper-ink: #20242f;
   --paper-pencil: #4f566d;
   --world-ink: #141824;
-  --letter-accent: var(--jpdb-reader-accent, #5ea780);
+  --letter-accent: var(--jpdb-reader-accent, #b8324e);
 }
 
 .yomu-membership-backdrop {

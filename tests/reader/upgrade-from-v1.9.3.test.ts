@@ -16,9 +16,8 @@ import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { ReaderSettings } from '../../src/reader/app/types';
-import { loadSettings, normalizeReaderSettings, saveSettings } from '../../src/reader/settings';
+import { DEFAULT_SETTINGS, effectiveFuriganaMode, furiganaStyle, loadSettings, normalizeReaderSettings, saveSettings } from '../../src/reader/settings';
 import { loadReaderStartupSettings } from '../../src/reader/app/startup';
-import { OnboardingController } from '../../src/reader/app/onboarding';
 import { resetManagedStateEpochSessionsForTests } from '../../src/reader/app/managed-state-epoch';
 import { resetManagedWebStorageForTests } from '../../src/reader/app/managed-web-storage';
 import { ensureExtensionStudySettingsAuthority } from '../../src/reader/newtab/extension-settings-recovery-guard';
@@ -27,6 +26,9 @@ import {
     uninstallUserscriptGmStorageBridge,
 } from '../../src/reader/userscript/storage-bridge';
 import { parseReaderSettingsBackup } from '../../src/reader/settings/file-io';
+import { renderSettingsForm } from '../../src/reader/settings/form';
+import { readFormSettings } from '../../src/reader/settings/form-read';
+import { annotationPowerState, planAnnotationPowerTransition } from '../../src/reader/app/annotation-power-policy';
 import { restoreReaderSettingsBackup } from '../../src/reader/settings/reader-settings-restore-adapter';
 import { validateCloudSettingsEnvelope } from '../../src/reader/settings/cloud-settings-envelope';
 import {
@@ -118,7 +120,9 @@ function corpus<T>(relative: string): T {
 const HOSTED_STUDY_URL = 'https://yomureader.com/study/';
 const EXTENSION_ID = 'yomu@yomureader.com';
 // The settings fields every fixture recorded from v1.9.3's own reload.
-const VISIBLE_KEYS = Object.keys(corpus<UserscriptFixture>('a-userscript-explicit-save.json').expected.settings);
+// Retain the captured historical bytes; compare only options still shown by 2.1.
+const VISIBLE_KEYS = Object.keys(corpus<UserscriptFixture>('a-userscript-explicit-save.json').expected.settings)
+    .filter(key => key !== 'learningTargetChosen' && key !== 'onboardingSeen');
 
 // ---------------------------------------------------------------------------
 // Realms: the same channels the corpus was captured in, now running v2.
@@ -250,9 +254,16 @@ afterEach(() => {
 // What the learner sees
 // ---------------------------------------------------------------------------
 
-function visibleSettings(settings: ReaderSettings): Record<string, unknown> {
+function visibleSettings(settings: ReaderSettings | Record<string, unknown>): Record<string, unknown> {
     const record = settings as unknown as Record<string, unknown>;
     return Object.fromEntries(VISIBLE_KEYS.map(key => [key, record[key]]));
+}
+
+// What 2.1 shows for a v1.9.3 record. The stored bytes are untouched, but 2.1
+// retired the green default accent, so a record still carrying it shows the brand red.
+function shownBy21(settings: Record<string, unknown>): Record<string, unknown> {
+    const shown = visibleSettings(settings);
+    return shown.accentColor === '#5ea780' ? { ...shown, accentColor: '#b8324e' } : shown;
 }
 
 function targetLanguage(settings: ReaderSettings): string | null {
@@ -260,25 +271,13 @@ function targetLanguage(settings: ReaderSettings): string | null {
     return profiles.find(profile => profile.id === settings.activeLanguageProfileId)?.targetLanguage ?? null;
 }
 
-async function firstRunSetupShown(settings: ReaderSettings): Promise<boolean> {
-    const controller = new OnboardingController({
-        getSettings: () => settings,
-        setSettings: () => undefined,
-        showSettings: () => undefined,
-        parseJapanese: () => undefined,
-        installOfflineDictionaries: () => undefined,
-    });
-    const shown = await controller.showIfNeeded();
-    document.body.replaceChildren();
-    return shown;
-}
-
 /** Loads settings the way v2 boots and compares with what v1.9.3 showed. */
 async function expectSameAsV193(expected: Visible): Promise<ReaderSettings> {
     const settings = await loadSettings();
-    expect(visibleSettings(settings)).toEqual(expected.settings);
+    expect(visibleSettings(settings)).toEqual(shownBy21(expected.settings));
     expect(targetLanguage(settings)).toBe(expected.targetLanguage);
-    expect(await firstRunSetupShown(settings)).toBe(expected.onboardingShown);
+    // Setup was removed in 2.1; retained startup tests exercise fresh and upgraded rendering.
+    expect(settings).not.toHaveProperty('onboardingSeen');
     return settings;
 }
 
@@ -293,7 +292,7 @@ async function expectSaveStillWorks(expected: Visible): Promise<void> {
     await saveSettings({ ...current, subtitleFontSize: 44 }, { explicitUserChoiceKeys: ['subtitleFontSize'] });
     resetManagedStateEpochSessionsForTests();
     const reloaded = await loadSettings();
-    expect(visibleSettings(reloaded)).toEqual({ ...expected.settings, subtitleFontSize: 44 });
+    expect(visibleSettings(reloaded)).toEqual({ ...shownBy21(expected.settings), subtitleFontSize: 44 });
 }
 
 // ---------------------------------------------------------------------------
@@ -314,7 +313,7 @@ describe.each(USERSCRIPT_SCENARIOS)('userscript store left by v1.9.3: $scenario'
         const gm = createStore(fixture.gm);
         enterUserscriptSite(gm, fixture.location, fixture.webStorage);
         const startup = await loadReaderStartupSettings();
-        expect(startup.settings.learningTargetChosen).toBe(fixture.expected.settings.learningTargetChosen);
+        expect(startup.settings).not.toHaveProperty('learningTargetChosen');
         await expectSameAsV193(fixture.expected);
         expectNothingErased(fixture.gm, gm);
     });
@@ -441,6 +440,71 @@ describe('settings backup file exported by v1.9.3: f-backup-file-v1.9.3', () => 
         await expectSameAsV193(fixture.expected);
         const summary = await dictionaries.summary();
         expect(summary.dictionaries.map(entry => entry.title)).toEqual(fixture.expected.dictionaries);
+    });
+
+    // 2.1 moved "Yomu on/off", "furigana shown/hidden" and Request Japanese
+    // sites out of Settings into the puck and toolbar. The choices this backup
+    // carries (furigana hidden, Japanese sites requested) must survive both the
+    // import and a later Settings Save that no longer renders those controls.
+    it('keeps its reading state through import and a later Settings Save', async () => {
+        // The archived ledger declares hidden readings, but never chose All:
+        // its stored All is an old default, so only the style may adopt 2.1's.
+        const archived = JSON.parse(fileText);
+        const archivedIntent = archived.storage['yomu:settings-intent:v2'].records;
+        expect(archived.settings.furiganaMode).toBe('all');
+        expect(archivedIntent.showFurigana.value).toBe(false);
+        expect(archivedIntent).not.toHaveProperty('furiganaMode');
+        enterUserscriptSite(createStore(), 'https://www.example.com/articles/yomu-upgrade');
+        await restoreReaderSettingsBackup(
+            new File([fileText], fixture.file.split('/').pop()!, { type: 'application/json' }),
+            await loadSettings(),
+            {
+                dictionaries: freshDictionaries(),
+                setStatus: () => undefined,
+                persistSettings: saveSettings,
+                adoptSettings: () => undefined,
+                dictionaryStateChanged: () => undefined,
+            },
+        );
+        resetManagedStateEpochSessionsForTests();
+        const restored = await loadSettings();
+        expect(annotationPowerState(restored, true)).toBe('no-furigana');
+        expect(restored.preferJapaneseSiteLanguage).toBe(true);
+        expect(effectiveFuriganaMode(restored)).toBe('off');
+        expect(restored.furiganaMode).toBe(DEFAULT_SETTINGS.furiganaMode);
+
+        const form = document.createElement('form');
+        form.innerHTML = renderSettingsForm(restored, 'https://jpdb.io/settings');
+        expect(form.querySelector('[name="preferJapaneseSiteLanguage"]')).toBeNull();
+        expect(form.querySelector('input[name="pageScanMode"][value="off"]')).toBeNull();
+        expect(form.querySelector('select[name="furiganaMode"] option[value="off"]')).toBeNull();
+        expect(form.querySelector<HTMLSelectElement>('select[name="furiganaMode"]')!.value).toBe(furiganaStyle(restored));
+
+        const untouched = readFormSettings(new FormData(form), restored);
+        expect(annotationPowerState(untouched, true)).toBe('no-furigana');
+        expect([untouched.showFurigana, untouched.furiganaMode, untouched.preferJapaneseSiteLanguage, untouched.annotationsPaused])
+            .toEqual([false, restored.furiganaMode, true, false]);
+        await saveSettings(untouched, { explicitUserChoiceKeys: [] });
+        resetManagedStateEpochSessionsForTests();
+        const afterSave = await loadSettings();
+        expect(effectiveFuriganaMode(afterSave)).toBe('off');
+        expect(annotationPowerState(afterSave, true)).toBe('no-furigana');
+        expect(afterSave.preferJapaneseSiteLanguage).toBe(true);
+
+        // A new style while furigana is hidden is the style the puck brings back.
+        form.querySelector<HTMLSelectElement>('select[name="furiganaMode"]')!.value = 'all';
+        const restyled = readFormSettings(new FormData(form), restored);
+        expect(annotationPowerState(restyled, true)).toBe('no-furigana');
+        expect(restyled.puckFuriganaModeBeforeHide).toBe('all');
+        await saveSettings(restyled, { explicitUserChoiceKeys: ['puckFuriganaModeBeforeHide'] });
+        resetManagedStateEpochSessionsForTests();
+        const reloaded = await loadSettings();
+        expect(effectiveFuriganaMode(reloaded)).toBe('off');
+        expect(annotationPowerState(reloaded, true)).toBe('no-furigana');
+        expect(furiganaStyle(reloaded)).toBe('all');
+        expect(planAnnotationPowerTransition({ ...reloaded, annotationsPaused: true }, true, DEFAULT_SETTINGS.furiganaMode))
+            .toEqual({ kind: 'resume', furiganaMode: 'all' });
+        expect(corpusText(fixture.file)).toBe(fileText);
     });
 });
 

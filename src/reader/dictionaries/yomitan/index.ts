@@ -1,4 +1,4 @@
-import { activeLearningTarget, activeLearningTargetGeneration } from '../../languages/target-runtime';
+import { activeLearningTarget } from '../../languages/target-runtime';
 import { isUnifiedIdeograph } from '../../languages/han';
 import { codePointBoundaryAtOrAfter, codePointSafePrefix } from '../../languages/lookup-spans';
 import {
@@ -73,7 +73,6 @@ import {
     dictionaryEnabled,
     dictionaryPriority,
     dictionaryRank,
-    leftToRightLongestMatches,
     nonOverlappingMatches,
 } from './ranking';
 import {
@@ -428,7 +427,6 @@ export class YomitanDictionaryStore implements LocalDictionaryStore {
         preferences: DictionaryPreference[] = [],
         target: LearningTargetModule = activeLearningTarget(),
     ): Promise<YomitanTermMatch[]> {
-        const targetGeneration = activeLearningTargetGeneration();
         const done = log.time('Inline term match search', { length: text.length, limit, dictionaries: preferences.length });
         // The old 240 character cap silently dropped everything past it: an
         // expanded video description parsed at the top, went completely bare
@@ -450,8 +448,7 @@ export class YomitanDictionaryStore implements LocalDictionaryStore {
         }
 
         try {
-            const matches = await this.sweepTermMatchWindows(source, limit, preferences, target, targetGeneration);
-            return isCurrentLookupTarget(target, targetGeneration) ? matches : [];
+            return await this.sweepTermMatchWindows(source, limit, preferences, target);
         } catch (error) {
             log.warn('Inline term match search failed', { length: source.length, error });
             throw error;
@@ -486,7 +483,6 @@ export class YomitanDictionaryStore implements LocalDictionaryStore {
         limit: number,
         preferences: DictionaryPreference[],
         target: LearningTargetModule,
-        targetGeneration: number,
     ): Promise<YomitanTermMatch[]> {
         const selected: YomitanTermMatch[] = [];
         // The learner's dictionary order decides which entry answers for a span
@@ -506,15 +502,12 @@ export class YomitanDictionaryStore implements LocalDictionaryStore {
             // timeout fire at all — the collection walk itself never awaits.
             if (start > 0) await nextTask();
             const end = codePointBoundaryAtOrAfter(source, Math.min(start + TERM_MATCH_WINDOW_CHARS, source.length));
-            if (!isCurrentLookupTarget(target, targetGeneration)) return [];
             const candidates = this.inlineTermCandidates.collect(target, source, start, end);
             const matches = candidates.size
                 ? await this.lookupTermMatchCandidates(target, candidates, preferences, db)
                 : [];
             const free = matches.filter(match => match.start >= coveredUntil);
-            const windowMatches = target.lookupSweepMode === 'left-to-right-longest-exact'
-                ? leftToRightLongestMatches(free, limit, rank)
-                : nonOverlappingMatches(free, limit, rank);
+            const windowMatches = nonOverlappingMatches(free, limit, rank);
             for (const match of windowMatches) {
                 selected.push(match);
                 coveredUntil = Math.max(coveredUntil, match.end);
@@ -1480,18 +1473,25 @@ export class YomitanDictionaryStore implements LocalDictionaryStore {
         });
     }
 
-    private async getAllDictionaryInfo(db: IDBDatabase): Promise<YomitanDictionaryInfo[]> {
-        this.dictionaryInfoPromise ??= this.getAllFromStore<YomitanDictionaryInfo>(db, 'dictionaryInfo')
+    // Read fresh every time; only concurrent callers share one read. Another
+    // realm can change this database without telling this store: packaged
+    // Study imports beside the extension's background, and two hosted Study
+    // tabs share one origin. A list kept from before such an install told every
+    // page loaded afterwards that no term dictionary existed, so offline it had
+    // nothing to look words up in. The store holds a handful of rows.
+    private getAllDictionaryInfo(db: IDBDatabase): Promise<YomitanDictionaryInfo[]> {
+        if (this.dictionaryInfoPromise) return this.dictionaryInfoPromise;
+        const pending: Promise<YomitanDictionaryInfo[]> = this.getAllFromStore<YomitanDictionaryInfo>(db, 'dictionaryInfo')
             .then(items => items.sort((a, b) => a.priority - b.priority || a.title.localeCompare(b.title)))
             .then(items => {
                 this.reconcileDuplicateDictionaryIdentities(items);
                 return items;
             })
-            .catch(error => {
-                this.dictionaryInfoPromise = undefined;
-                throw error;
+            .finally(() => {
+                if (this.dictionaryInfoPromise === pending) this.dictionaryInfoPromise = undefined;
             });
-        return this.dictionaryInfoPromise;
+        this.dictionaryInfoPromise = pending;
+        return pending;
     }
 
     // Installs from before identity-keyed replacement can hold two revisions
@@ -2172,11 +2172,6 @@ async function deleteDictionaryBatch(db: IDBDatabase, storeName: InternalStoreNa
         };
     }, { durability: 'relaxed' }, importing);
     return deleted;
-}
-
-function isCurrentLookupTarget(target: LearningTargetModule, generation: number): boolean {
-    return activeLearningTarget() === target
-        && activeLearningTargetGeneration() === generation;
 }
 
 function nextTask(): Promise<void> {

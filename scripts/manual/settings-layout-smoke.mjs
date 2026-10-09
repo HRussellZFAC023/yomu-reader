@@ -13,8 +13,10 @@ import {
 import { createSmokePaths } from '../lib/smoke-harness.mjs';
 
 const paths = createSmokePaths(import.meta.dirname);
-const ARTIFACT_DIR = path.join(paths.artifacts, 'settings-layout');
-const NEWTAB_DIR = paths.newTabDir;
+const ARTIFACT_DIR = process.env.YOMU_SETTINGS_LAYOUT_OUTPUT || path.join(paths.artifacts, 'settings-layout');
+const NEWTAB_DIR = process.env.YOMU_SETTINGS_LAYOUT_BUILD_DIR
+    ? path.join(path.resolve(process.env.YOMU_SETTINGS_LAYOUT_BUILD_DIR), 'newtab')
+    : paths.newTabDir;
 const PUBLIC_DIR = path.join(paths.root, 'docs', 'public');
 const NEWTAB_BASE_PATH = '/yomu-reader/newtab/';
 const JPDB_ORIGIN = 'https://jpdb.io';
@@ -86,12 +88,13 @@ const BASE_SETTINGS = {
     enableLogging: false,
 };
 
-const PANELS = ['appearance', 'api', 'dictionaries', 'media', 'mining', 'newTab', 'shortcuts', 'help'];
+const PANELS = ['appearance', 'backup', 'api', 'dictionaries', 'media', 'mining', 'newTab', 'shortcuts', 'help'];
 const VIEWPORTS = [
     { name: 'desktop', viewport: { width: 1360, height: 900 }, hasTouch: false, isMobile: false },
     { name: 'tablet', viewport: { width: 820, height: 1180 }, hasTouch: true, isMobile: false },
     { name: 'mobile', viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true },
-].flatMap(viewport => PANELS.map(panel => ({ ...viewport, name: `${viewport.name}-${panel.toLowerCase()}`, panel })));
+].flatMap(viewport => PANELS.map(panel => ({ ...viewport, name: `${viewport.name}-${panel.toLowerCase()}`, panel })))
+    .filter(scenario => !process.env.YOMU_SETTINGS_LAYOUT_SCENARIO || scenario.name === process.env.YOMU_SETTINGS_LAYOUT_SCENARIO);
 
 mkdirSync(ARTIFACT_DIR, { recursive: true });
 assertBuiltArtifacts([
@@ -137,11 +140,17 @@ async function verifyViewport(browserInstance, baseUrl, scenario) {
     await page.addInitScript(({ key, value }) => {
         localStorage.setItem(key, JSON.stringify(value));
     }, { key: YOMU_SETTINGS_KEY, value: BASE_SETTINGS });
+    await page.route('https://yomureader.com/**', async route => {
+        const url = new URL(route.request().url());
+        const pathname = url.pathname.replace(/^\/study\//, NEWTAB_BASE_PATH);
+        const response = await route.fetch({ url: `${baseUrl}${pathname}${url.search}` });
+        await route.fulfill({ response });
+    });
     await page.route('https://jpdb.io/**', route => route.fulfill(mockedJpdbRoute(route.request(), requests)));
     await page.route('https://api.jiten.moe/**', route => route.fulfill(mockedJitenRoute(route.request(), requests)));
     await page.route(`${YOMU_PUBLIC_PROXY_ORIGIN}/**`, route => route.fulfill(mockedProxyRoute(route.request(), requests)));
     try {
-        await page.goto(`${baseUrl}${NEWTAB_BASE_PATH}index.html?q=${encodeURIComponent('読み取る')}&settings-layout=${scenario.name}`, { waitUntil: 'domcontentloaded' });
+        await page.goto(`https://yomureader.com/study/index.html?q=${encodeURIComponent('読み取る')}&settings-layout=${scenario.name}`, { waitUntil: 'domcontentloaded' });
         await page.waitForSelector('[data-jpdb-reader-root].jpdb-reader-newtab', { timeout: 12_000 });
         await openSettingsFromNewTabMenu(page);
         await selectSettingsPanel(page, scenario.panel);
@@ -191,6 +200,48 @@ async function verifyViewport(browserInstance, baseUrl, scenario) {
         }
         assert(snapshot.popoverCount === 0, `${scenario.name} settings layout smoke opened an unrelated lookup popover`, snapshot);
         assert(snapshot.issues.length === 0, `${scenario.name} settings layout issues`, snapshot);
+        if (scenario.panel === 'newTab' && scenario.viewport.width < 700) {
+            // Settings no longer has an always-present toast action, so place a
+            // toast in the product's own fixed stack and measure the real CSS.
+            const toastBounds = await page.evaluate(() => {
+                let stack = document.querySelector('.jpdb-reader-toast-stack');
+                if (!stack) {
+                    stack = document.createElement('div');
+                    stack.className = 'jpdb-reader-toast-stack';
+                    document.body.append(stack);
+                }
+                const toast = document.createElement('div');
+                toast.className = 'jpdb-reader-toast is-visible';
+                toast.textContent = 'Saved';
+                stack.append(toast);
+                const rect = toast.getBoundingClientRect();
+                toast.remove();
+                return { y: rect.y, height: rect.height };
+            });
+            const saveBounds = await page.locator('.jpdb-reader-settings button[type="submit"]').boundingBox();
+            assert(toastBounds.y + toastBounds.height <= saveBounds.y - 4, 'Settings toast covers the footer actions', { toastBounds, saveBounds });
+        }
+        if (scenario.panel === 'help') {
+            await page.locator('.jpdb-reader-settings [data-action="cancel"]').click();
+            await page.locator('[data-newtab-action="mode"][data-mode="stats"]').filter({ visible: true }).first().click();
+            // A profile with no reviews gets Stats' one-line empty state and no
+            // panels; the heading check applies once a panel is drawn.
+            await page.locator('.jpdb-reader-stats-panel-heading h2, .jpdb-reader-stats-empty').first().waitFor();
+            const heading = page.locator('.jpdb-reader-stats-panel-heading h2').first();
+            if (await heading.count()) {
+                const layout = await heading.evaluate(element => ({
+                    text: element.textContent,
+                    height: element.getBoundingClientRect().height,
+                    lineHeight: Number.parseFloat(getComputedStyle(element).lineHeight),
+                }));
+                assert(layout.height <= layout.lineHeight + 2, 'Stats actions squeeze the activity heading into a broken line', layout);
+            }
+            // A late card render can reset the controls' hidden property.
+            // The route must still keep review actions off the Stats screen.
+            const controls = page.locator('[data-newtab-controls]');
+            await controls.evaluate(element => { element.hidden = false; });
+            assert(!await controls.isVisible(), 'Late card controls leak into Stats');
+        }
         return {
             name: scenario.name,
             panel: scenario.panel,
@@ -255,16 +306,14 @@ function contentTypeForFile(filePath) {
 
 async function openSettingsFromNewTabMenu(page) {
     await page.locator('.jpdb-reader-newtab-more summary').click();
-    await page.locator('[data-newtab-action="settings"]').click();
+    await page.locator('.jpdb-reader-newtab-more [data-newtab-action="settings"]').click();
     await page.waitForSelector('.jpdb-reader-settings', { timeout: 8_000 });
 }
 
 async function selectSettingsPanel(page, panel) {
     const selector = `.jpdb-reader-settings [data-action="settings-panel"][data-panel="${panel}"]`;
     await page.waitForSelector(selector, { state: 'attached', timeout: 8_000 });
-    await page.evaluate(({ tabSelector }) => {
-        document.querySelector(tabSelector)?.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
-    }, { tabSelector: selector });
+    await page.locator(selector).click();
     await page.waitForSelector(`.jpdb-reader-settings [data-settings-panel="${panel}"]:not([hidden])`, { timeout: 8_000 });
 }
 
@@ -401,6 +450,7 @@ async function settingsLayoutSnapshot(page, panel) {
             issues.push(...gridGapIssues(grid, children));
         }
         issues.push(...sourceRowIssues(panelRoot));
+        issues.push(...settingsReadableControlIssues(panelRoot));
         issues.push(...audioSourceBoxAlignmentIssues(panelRoot));
         issues.push(...gridInlineControlAlignmentIssues(panelRoot));
 
@@ -438,6 +488,60 @@ async function settingsLayoutSnapshot(page, panel) {
             issues,
         };
 
+        function settingsReadableControlIssues(root) {
+            if (!root) return [];
+            const found = [];
+            for (const input of [...root.querySelectorAll('input[placeholder]:not(:disabled), textarea[placeholder]:not(:disabled)')].filter(isVisible)) {
+                if (input.value || !input.placeholder) continue;
+                const foreground = rgba(getComputedStyle(input, '::placeholder').color);
+                const background = rgba(getComputedStyle(input).backgroundColor);
+                if (foreground[3] < 255 || background[3] < 255) continue;
+                const values = [luminance(foreground), luminance(background)].sort((a,b) => b-a);
+                const contrast = (values[0] + .05) / (values[1] + .05);
+                if (contrast < 4.5) found.push({ type: 'faint-placeholder', name: input.name, contrast: round(contrast) });
+            }
+            for (const icon of [...root.querySelectorAll('a.jpdb-reader-btn > svg')].filter(isVisible)) {
+                const rect = icon.getBoundingClientRect();
+                if (rect.width > 20 || rect.height > 20) found.push({ type: 'unbounded-button-icon', rect: rectSnapshot(rect) });
+            }
+            for (const name of [...root.querySelectorAll('[data-dictionary-source-row] > .jpdb-reader-field-display')].filter(isVisible)) {
+                const rect = name.getBoundingClientRect();
+                if (rect.width < 120) found.push({ type: 'cramped-source-name', text: textOf(name), rect: rectSnapshot(rect) });
+            }
+            for (const select of [...root.querySelectorAll('.jpdb-reader-audio-source-choice select')].filter(isVisible)) {
+                if (select.getBoundingClientRect().width < 180) found.push({ type: 'cramped-audio-source', text: select.selectedOptions[0]?.textContent });
+            }
+            for (const label of [...root.querySelectorAll('.jpdb-reader-settings-label-text:has(> a)')].filter(isVisible)) {
+                const anchor = label.querySelector('a');
+                const text = [...label.childNodes].find(node => node.nodeType === Node.TEXT_NODE && node.textContent.trim());
+                if (!text || !anchor) continue;
+                const range = document.createRange(); range.selectNodeContents(text);
+                const textRect = range.getBoundingClientRect(), linkRect = anchor.getBoundingClientRect();
+                if (sharesVisualRow(textRect, linkRect) && linkRect.left - textRect.right < 2) found.push({ type: 'touching-label-link', text: textOf(label) });
+            }
+            for (const row of [...root.querySelectorAll('.jpdb-reader-order-row')].filter(isVisible)) {
+                const buttons = [...row.querySelectorAll('.jpdb-reader-row-tools button')].filter(isVisible);
+                for (let i = 0; i < buttons.length; i++) for (let j = i + 1; j < buttons.length; j++) {
+                    const a = buttons[i].getBoundingClientRect(), b = buttons[j].getBoundingClientRect();
+                    if (Math.min(a.right, b.right) - Math.max(a.left, b.left) > 1 && Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top) > 1) {
+                        found.push({ type: 'colliding-source-actions', row: textOf(row) });
+                    }
+                }
+            }
+            return found;
+        }
+
+        function rgba(color) {
+            const canvas = document.createElement('canvas'); canvas.width = canvas.height = 1;
+            const context = canvas.getContext('2d'); context.fillStyle = color; context.fillRect(0, 0, 1, 1);
+            return [...context.getImageData(0, 0, 1, 1).data];
+        }
+
+        function luminance(color) {
+            const [r,g,b] = color.slice(0,3).map(value => value/255).map(value => value <= .04045 ? value/12.92 : ((value+.055)/1.055)**2.4);
+            return .2126*r + .7152*g + .0722*b;
+        }
+
         function sourceRowIssues(root) {
             if (!root) return [];
             const found = [];
@@ -454,7 +558,12 @@ async function settingsLayoutSnapshot(page, panel) {
                         if (overlap > 6) found.push({ type: 'source-action-rail-overlap', row: textOf(row), overlap });
                     }
                 }
-                if (rowRect.height > 180) {
+                // Custom audio URLs can expose several provider switches below
+                // the main controls. Check the fixed row chrome separately so
+                // readable, wrapping switches do not count as empty row space.
+                const subsources = row.querySelector('.jpdb-reader-audio-subsources');
+                const subsourceHeight = isVisible(subsources) ? subsources.getBoundingClientRect().height + 10 : 0;
+                if (rowRect.height - subsourceHeight > 180) {
                     found.push({ type: 'source-row-too-tall', row: textOf(row), rect: rectSnapshot(rowRect) });
                 }
             }

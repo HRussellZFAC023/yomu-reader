@@ -1,14 +1,14 @@
 import { describe, expect, it } from 'vitest';
 
-import { normalizeReaderSettings } from '../../src/reader/settings/index';
+import { DEFAULT_SETTINGS, normalizeReaderSettings } from '../../src/reader/settings/index';
 
 describe('unsupported settings and current validation', () => {
     it('does not infer furiganaMode from hideKnownFurigana', () => {
-        expect(normalizeReaderSettings({ hideKnownFurigana: false }).furiganaMode).toBe('all');
+        expect(normalizeReaderSettings({ hideKnownFurigana: false }).furiganaMode).toBe(DEFAULT_SETTINGS.furiganaMode);
     });
 
     it('does not infer furiganaMode from showFurigana', () => {
-        expect(normalizeReaderSettings({ showFurigana: false }).furiganaMode).toBe('all');
+        expect(normalizeReaderSettings({ showFurigana: false }).furiganaMode).toBe(DEFAULT_SETTINGS.furiganaMode);
     });
 
     it('coerces junk subtitleControlsMode to auto', () => {

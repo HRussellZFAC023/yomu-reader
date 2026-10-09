@@ -16,7 +16,6 @@ import {
 } from '../languages/character-lookup';
 import {
     activeLearningTarget,
-    activeLearningTargetGeneration,
     activeLearningTargetLanguage,
 } from '../languages/target-runtime';
 import { installKanjiDoodle, KANJI_DOODLE_CLEAR_EVENT, type DoodleStroke } from '../kanji/doodle';
@@ -109,7 +108,6 @@ interface NewTabSearchWordKanjiDetail {
 
 interface SearchTargetSnapshot {
     target: ReturnType<typeof activeLearningTarget>;
-    generation: number;
 }
 
 interface SearchCurrentness {
@@ -117,7 +115,6 @@ interface SearchCurrentness {
     route: 'study' | 'search' | 'stats';
     generation: number;
     targetLanguage: ReturnType<typeof activeLearningTargetLanguage>;
-    targetGeneration: number;
     providerContext: string;
     query: string;
 }
@@ -127,7 +124,6 @@ const SEARCH_CURRENTNESS_POLICY_FIELDS = [
     'route',
     'generation',
     'targetLanguage',
-    'targetGeneration',
     'providerContext',
     'query',
 ] as const satisfies readonly (keyof SearchCurrentness)[];
@@ -204,7 +200,6 @@ export interface NewTabSearchControllerDeps {
 export class NewTabSearchController {
     private searchGeneration = 0;
     private searchTargetLanguage = activeLearningTargetLanguage();
-    private searchTargetGeneration = activeLearningTargetGeneration();
     private searchProviderContext = '';
     private searchDebounce: ReturnType<typeof setTimeout> | undefined;
     private searchQuery = '';
@@ -240,7 +235,6 @@ export class NewTabSearchController {
     reset(): void {
         this.searchGeneration++;
         this.searchTargetLanguage = activeLearningTargetLanguage();
-        this.searchTargetGeneration = activeLearningTargetGeneration();
         this.searchProviderContext = this.deps.providerContext();
         this.clearSearchDebounce();
         this.searchQuery = '';
@@ -394,7 +388,7 @@ export class NewTabSearchController {
         this.deps.syncThemeToggle(root);
 
         const slots = this.deps.studySlots(root);
-        this.deps.renderPromptSlot(slots.prompt, this.deps.text('search'), resolveUiLanguage(this.deps.language()) === 'ja' ? 'ja' : 'en');
+        this.deps.renderPromptSlot(slots.prompt, this.deps.text('library'), resolveUiLanguage(this.deps.language()) === 'ja' ? 'ja' : 'en');
         setOptionalText(slots.answer, '');
         setOptionalText(slots.meaning, '');
         this.deps.renderCount(slots.count, '');
@@ -571,10 +565,6 @@ export class NewTabSearchController {
         }
         const panel = this.ensureSearchHandwritingPanel(root);
         this.syncSearchHandwritingToggle(root);
-        if (panel && panel.dataset.newtabHandwritingToggleBound !== 'true') {
-            panel.dataset.newtabHandwritingToggleBound = 'true';
-            panel.addEventListener('toggle', () => this.syncSearchHandwritingToggle(root));
-        }
         if (typeof ResizeObserver !== 'function') return;
         if (!panel || panel.dataset.newtabHandwritingBound === 'true') return;
         panel.dataset.newtabHandwritingBound = 'true';
@@ -605,11 +595,11 @@ export class NewTabSearchController {
 
     private toggleSearchHandwriting(root: HTMLElement, open?: boolean): void {
         if (!targetSupportsHandwriting()) return;
-        const panel = this.ensureSearchHandwritingPanel(root) as HTMLDetailsElement | null;
+        const panel = this.ensureSearchHandwritingPanel(root);
         if (!panel) return;
-        panel.open = open ?? !panel.open;
+        panel.hidden = !(open ?? panel.hidden);
         this.syncSearchHandwritingToggle(root);
-        if (!panel.open) return;
+        if (panel.hidden) return;
         this.focusSearchHandwritingCanvas(panel);
     }
 
@@ -622,13 +612,13 @@ export class NewTabSearchController {
     }
 
     private syncSearchHandwritingToggle(root: HTMLElement): void {
-        const panel = root.querySelector<HTMLDetailsElement>('[data-newtab-handwriting]');
+        const panel = root.querySelector<HTMLElement>('[data-newtab-handwriting]');
         const toggle = root.querySelector<HTMLButtonElement>(newTabActionSelector('search-handwriting-toggle'));
         if (!toggle) return;
         const enabled = targetSupportsHandwriting();
         toggle.hidden = !enabled;
         toggle.disabled = !enabled;
-        toggle.setAttribute('aria-expanded', String(enabled && Boolean(panel?.open)));
+        toggle.setAttribute('aria-expanded', String(enabled && Boolean(panel && !panel.hidden)));
     }
 
     private scheduleSearchHandwritingRecognition(root: HTMLElement): void {
@@ -743,9 +733,7 @@ export class NewTabSearchController {
         this.clearSearchDebounce();
         const target = activeLearningTarget();
         this.searchTargetLanguage = target.language;
-        this.searchTargetGeneration = activeLearningTargetGeneration();
         this.searchProviderContext = this.deps.providerContext();
-        const targetGeneration = this.searchTargetGeneration;
         const query = normalizeSearchQuery(rawQuery);
         this.setSearchQuery(root, query);
         this.syncSearchUrl(query);
@@ -757,7 +745,7 @@ export class NewTabSearchController {
 
         const generation = ++this.searchGeneration;
         this.renderSearchLoading(root, query);
-        void this.loadSearchResults(query, target, targetGeneration).then(results => {
+        void this.loadSearchResults(query, target).then(results => {
             if (!this.isCurrentSearch(root, generation, query)) return;
             this.renderSearchResults(root, results);
         }).catch(error => {
@@ -772,7 +760,6 @@ export class NewTabSearchController {
             route: this.currentRoute(),
             generation: this.searchGeneration,
             targetLanguage: activeLearningTargetLanguage(),
-            targetGeneration: activeLearningTargetGeneration(),
             providerContext: this.deps.providerContext(),
             query: normalizeSearchQuery(this.searchQuery),
         }, {
@@ -780,41 +767,34 @@ export class NewTabSearchController {
             route: 'search',
             generation,
             targetLanguage: this.searchTargetLanguage,
-            targetGeneration: this.searchTargetGeneration,
             providerContext: this.searchProviderContext,
             query,
         });
     }
 
     private captureTargetSnapshot(): SearchTargetSnapshot {
-        return {
-            target: activeLearningTarget(),
-            generation: activeLearningTargetGeneration(),
-        };
+        return { target: activeLearningTarget() };
     }
 
     private targetSnapshotIsCurrent(snapshot: SearchTargetSnapshot): boolean {
-        return activeLearningTarget() === snapshot.target
-            && activeLearningTargetGeneration() === snapshot.generation;
+        return activeLearningTarget() === snapshot.target;
     }
 
     private targetSnapshotSignature(snapshot: SearchTargetSnapshot): string {
-        return `${snapshot.target.id}:${snapshot.generation}:${this.deps.providerContext()}`;
+        return `${snapshot.target.id}:${this.deps.providerContext()}`;
     }
 
     private async loadSearchResults(
         query: string,
         target: ReturnType<typeof activeLearningTarget>,
-        targetGeneration: number,
     ): Promise<NewTabSearchResults> {
         const settings = this.deps.getDependencies().getSettings();
         const hasLocalDictionaries = settings.localDictionariesEnabled && await this.deps.hasLocalDictionaries();
-        const words = await this.searchWordCards(query, hasLocalDictionaries, target, targetGeneration);
-        if (activeLearningTarget() !== target
-            || activeLearningTargetGeneration() !== targetGeneration) {
+        const words = await this.searchWordCards(query, hasLocalDictionaries, target);
+        if (activeLearningTarget() !== target) {
             return { query, words: [], kanji: [], suggestions: [], hasLocalDictionaries };
         }
-        const kanji = await this.searchKanjiCards(query, words, { target, generation: targetGeneration });
+        const kanji = await this.searchKanjiCards(query, words, { target });
         return {
             query,
             words,
@@ -828,7 +808,6 @@ export class NewTabSearchController {
         query: string,
         hasLocalDictionaries: boolean,
         target: ReturnType<typeof activeLearningTarget>,
-        targetGeneration: number,
     ): Promise<JPDBCard[]> {
         const settings = this.deps.getDependencies().getSettings();
         const parsedPromise = usesJapaneseProviders() && queryHasJapanese(query)
@@ -841,8 +820,7 @@ export class NewTabSearchController {
 
         const loadedCards = this.searchLoadedWordCards(query);
         const [parsed, localEntries, publicJpdbCards] = await Promise.all([parsedPromise, localEntriesPromise, publicJpdbPromise]);
-        if (activeLearningTarget() !== target
-            || activeLearningTargetGeneration() !== targetGeneration) return [];
+        if (activeLearningTarget() !== target) return [];
         const parsedCards = (parsed[0] ?? []).map(token => ({ ...token.card, sentence: token.sentence ?? query }));
         const localCards = localEntries
             .map(entry => ({ ...this.deps.getDependencies().parser.localCardFromEntry(entry, target), sentence: query }));
@@ -1554,9 +1532,17 @@ export class NewTabSearchController {
 
 // --- Module-local helpers (search-only) -----------------------------------
 
+// The pencil icon in the search box opens and closes this pad; it carries no
+// heading or toggle of its own, which would only repeat the pencil's name.
 function renderSearchHandwritingPanel(language: ReaderSettings['interfaceLanguage']): HTMLElement {
-    return el('details', { id: 'jpdb-reader-newtab-handwriting', class: 'jpdb-reader-newtab-handwriting', dataset: { newtabHandwriting: true } },
-        el('summary', { class: 'jpdb-reader-parseable', lang: resolveUiLanguage(language) === 'ja' ? 'ja' : 'en' }, newTabText(language, 'drawKanji')),
+    return el('div', {
+        id: 'jpdb-reader-newtab-handwriting',
+        class: 'jpdb-reader-newtab-handwriting',
+        role: 'group',
+        'aria-label': newTabText(language, 'drawKanji'),
+        dataset: { newtabHandwriting: true },
+        hidden: true,
+    },
         el('div', { class: 'jpdb-reader-newtab-handwriting-body' },
             el('div', { class: 'jpdb-reader-doodle-stage jpdb-reader-newtab-doodle jpdb-reader-newtab-search-doodle trace-hidden', dataset: { kanji: '' } },
                 el('div', { class: 'jpdb-reader-doodle-ghost', hidden: true }),

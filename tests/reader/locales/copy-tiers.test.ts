@@ -153,7 +153,14 @@ describe('D43 copy tiers are a property of the string', () => {
         const humanCritical = messages.filter((message) => message.tier === 'human-critical');
         const byIdAlone = humanCritical.filter((message) => copyTierOf(message.id).tier === 'human-critical');
         expect({ total: messages.length, critical: humanCritical.length, byId: byIdAlone.length })
-            .toEqual({ total: 1302, critical: 463, byId: 457 });
+            .toEqual({ total: 1207, critical: 412, byId: 406 });
+        // Japanese-only/setup/settings removal changed the message inventory;
+        // all ten classification rules and surviving critical keys remain pinned.
+        // The Settings launcher gained one help line and "Open in Study"; the
+        // reading-state control's old-vocabulary toasts and the toolbar popup's
+        // unused heading went, and audio is named by its state
+        // (autoplayAudioOn/Off, still human-critical). The "Dim page behind
+        // popover" setting went with the page dim.
         for (const key of ['backupMovedHelp', 'helpLinksCopy', 'extensionSettingsRecoveryGuidance', 'dictionaryImportHelp', 'yomitanSettingsInvalid']) {
             expect(chromeMessageSource()).not.toHaveProperty(key);
         }

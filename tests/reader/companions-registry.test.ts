@@ -99,35 +99,18 @@ describe('companion registry', () => {
         expect(yomuImageOcrController()).toBe(Controller);
     });
 
-    it('exposes multilingual dictionary setup and definition translation through the settings companion', () => {
+    it('exposes the settings dialog and modal accessibility through the settings companion', () => {
         const SettingsDialogController = class TestSettingsDialogController {};
         const LookupModalAccessibility = class TestLookupModalAccessibility {};
-        const OnboardingController = class TestOnboardingController {};
-        const installOfflineParsingDictionaries = vi.fn();
-        const installDefinitionTranslationBehaviors = vi.fn();
 
         registerYomuCompanion('settings', {
             SettingsDialogController: SettingsDialogController as never,
             LookupModalAccessibility: LookupModalAccessibility as never,
-            OnboardingController: OnboardingController as never,
-            installOfflineParsingDictionaries: installOfflineParsingDictionaries as never,
-            installDefinitionTranslationBehaviors: installDefinitionTranslationBehaviors as never,
-            selfEnhancement: {
-                SETTINGS_PARSE_TARGET_LIMIT: 120,
-                nestedSettingsParseAlreadyRendered: vi.fn(),
-                nestedSettingsTextParsePlan: vi.fn(),
-                parsedSettingsTargetsForCurrentPlan: vi.fn(),
-                supplementSettingsFallbackTokens: vi.fn(),
-                addSettingsRubyFromRenderedReadings: vi.fn(),
-                settingsForSettingsFormParse: vi.fn(),
-            } as never,
         });
 
         expect(yomuSettingsSurfaceCompanion()).toMatchObject({
             SettingsDialogController,
-            OnboardingController,
-            installOfflineParsingDictionaries,
-            installDefinitionTranslationBehaviors,
+            LookupModalAccessibility,
         });
     });
 

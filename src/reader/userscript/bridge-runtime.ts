@@ -4,10 +4,12 @@ import {
     bridgeEventId,
     bridgeEventOwnerId,
     bridgeEventDetail,
+    bridgeProgressEventDetail,
     bridgeRequestDetail,
     bridgeRequestOptions,
     bridgeResponseDetail,
     bridgeResponseEventDetail,
+    type BridgeProgressDetail,
     type BridgeResponseDetail,
     type UserscriptHttpRequestOptions,
 } from './bridge-detail';
@@ -28,6 +30,10 @@ const BRIDGE_REQUEST_EVENT = 'yomu-userscript-http-request';
 const BRIDGE_RESPONSE_EVENT = 'yomu-userscript-http-response';
 const BRIDGE_PROBE_EVENT = 'yomu-userscript-http-probe';
 const BRIDGE_PROBE_RESPONSE_EVENT = 'yomu-userscript-http-probe-response';
+// Download progress, as data. A page from before it ignores the event, and a
+// Reader from before it sends none, so either side may be older.
+const BRIDGE_PROGRESS_EVENT = 'yomu-userscript-http-progress';
+const BRIDGE_PROGRESS_INTERVAL_MS = 250;
 const BRIDGE_MARKER = 'yomuUserscriptHttpBridge';
 const BRIDGE_KEYS: BridgeDatasetKeys = { ready: BRIDGE_MARKER, owner: 'yomuHttpBridgeOwner', kind: 'yomuHttpBridgeKind' };
 const BRIDGE_TIMEOUT_MS = 30000;
@@ -85,6 +91,7 @@ export function installUserscriptHttpBridge(): void {
         };
         const options = {
             ...bridgeRequestOptions(detail.options),
+            ...(detail.options.reportProgress === true ? { onprogress: forwardProgress(detail.id) } : {}),
             onload: (response: UserscriptHttpResponse) => send('load', response),
             onerror: (error: unknown) => send('error', undefined, error instanceof Error ? error.message : String(error || 'Request failed.')),
             ontimeout: () => send('timeout', undefined, 'Request timed out.'),
@@ -107,6 +114,23 @@ export function installUserscriptHttpBridge(): void {
         probeCleanup();
     };
     dispatchUserscriptBridgeReady();
+}
+
+/** Relays the manager's download progress to the page, at most every 250 ms. */
+function forwardProgress(id: string): (event: { lengthComputable?: boolean; loaded: number; total: number }) => void {
+    let sentAt = 0;
+    return event => {
+        const now = Date.now();
+        if (now - sentAt < BRIDGE_PROGRESS_INTERVAL_MS) return;
+        sentAt = now;
+        const progress: BridgeProgressDetail = {
+            id,
+            loaded: Number(event.loaded) || 0,
+            total: Number(event.total) || 0,
+            lengthComputable: event.lengthComputable === true,
+        };
+        dispatchBridgeEvent(BRIDGE_PROGRESS_EVENT, progress);
+    };
 }
 
 export function installUserscriptHttpBridgeWhenReady(): void {
@@ -270,18 +294,28 @@ function userscriptHttpEventBridge(): UserscriptHttpRequest | undefined {
     if (currentHttpBridgeOwner() === null) return undefined;
     return tagEventBridgeRequest((options: UserscriptHttpRequestOptions) => new Promise<UserscriptHttpResponse>((resolve, reject) => {
         const id = `yomu-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
-        const timeout = window.setTimeout(() => {
+        const onTimeout = () => {
             cleanup();
             options.ontimeout?.();
             reject(new Error('Request timed out.'));
-        }, options.timeout ?? BRIDGE_TIMEOUT_MS);
-        let cleanupBridgeResponseListener = noop;
+        };
+        // Progress proves the transfer is alive, so it rearms the budget: a
+        // large dictionary on a thin link must not hit a fixed wall.
+        let timeout = window.setTimeout(onTimeout, options.timeout ?? BRIDGE_TIMEOUT_MS);
+        let cleanupBridgeListeners = noop;
         const cleanup = () => {
             window.clearTimeout(timeout);
-            cleanupBridgeResponseListener();
+            cleanupBridgeListeners();
         };
         const onResponse = (event: CustomEvent) => {
             handleBridgeResponseEvent(event, id, options, cleanup, resolve, reject);
+        };
+        const onProgress = (event: Event) => {
+            const progress = bridgeProgressEventDetail(event);
+            if (progress?.id !== id) return;
+            window.clearTimeout(timeout);
+            timeout = window.setTimeout(onTimeout, options.timeout ?? BRIDGE_TIMEOUT_MS);
+            options.onprogress?.(progress);
         };
         void httpBridgeOwner().then(owner => {
             if (!owner) {
@@ -291,8 +325,15 @@ function userscriptHttpEventBridge(): UserscriptHttpRequest | undefined {
                 reject(error);
                 return;
             }
-            cleanupBridgeResponseListener = addBridgeEventListener(BRIDGE_RESPONSE_EVENT, onResponse as EventListener);
-            dispatchBridgeEvent(BRIDGE_REQUEST_EVENT, { id, ownerId: owner.ownerId, options: withoutCallbacks(options) });
+            const reportProgress = typeof options.onprogress === 'function';
+            const cleanups = [addBridgeEventListener(BRIDGE_RESPONSE_EVENT, onResponse as EventListener)];
+            if (reportProgress) cleanups.push(addBridgeEventListener(BRIDGE_PROGRESS_EVENT, onProgress));
+            cleanupBridgeListeners = () => cleanups.forEach(cleanupListener => cleanupListener());
+            dispatchBridgeEvent(BRIDGE_REQUEST_EVENT, {
+                id,
+                ownerId: owner.ownerId,
+                options: { ...withoutCallbacks(options), ...(reportProgress ? { reportProgress: true } : {}) },
+            });
         });
     }));
 }

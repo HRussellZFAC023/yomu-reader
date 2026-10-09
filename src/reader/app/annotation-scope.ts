@@ -10,7 +10,7 @@
 export const ANNOTATION_SCOPE_ATTRIBUTE = 'data-yomu-annotation-scope';
 export const ANNOTATION_SCOPE_SURFACE_ATTRIBUTE = 'data-yomu-runtime-surface';
 const ANNOTATION_SCOPE_SURFACE_VALUE = 'surface';
-const ANNOTATION_SCOPE_SURFACE_SELECTOR = `[${ANNOTATION_SCOPE_SURFACE_ATTRIBUTE}], .yomu-try-me-text`;
+export const ANNOTATION_SCOPE_SURFACE_SELECTOR = `[${ANNOTATION_SCOPE_SURFACE_ATTRIBUTE}], .yomu-try-me-text`;
 
 export function annotationScopeActive(): boolean {
     return document.documentElement?.getAttribute(ANNOTATION_SCOPE_ATTRIBUTE) === ANNOTATION_SCOPE_SURFACE_VALUE;

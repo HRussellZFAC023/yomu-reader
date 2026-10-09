@@ -1,10 +1,6 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { ReaderParser } from '../../src/reader/lookup/parser';
 import { DEFAULT_SETTINGS, normalizeReaderSettings } from '../../src/reader/settings';
-import {
-    resetActiveLearningTargetLanguage,
-    setActiveLearningTargetLanguage,
-} from '../../src/reader/languages/active';
 import type { LearningTargetModule } from '../../src/reader/languages/types';
 import type { ReaderSettings } from '../../src/reader/app/types';
 import type {
@@ -103,14 +99,6 @@ function parserHarness({ settings = {}, hasTermDictionaries = true }: HarnessOve
     };
 }
 
-afterEach(() => {
-    resetActiveLearningTargetLanguage();
-});
-
-beforeEach(() => {
-    resetActiveLearningTargetLanguage();
-});
-
 describe('local-first parsing', () => {
     it('parses with local dictionaries and never calls Jiten/JPDB when term dictionaries are installed', async () => {
         const { parser, jpdbParse, jitenParse, findTermMatches, lookupExactTermCandidates } = parserHarness();
@@ -150,32 +138,6 @@ describe('local-first parsing', () => {
         expect(jitenParse).toHaveBeenCalledTimes(2);
         expect(jitenParse.mock.calls[0]?.[0]).toEqual(['日本語を学ぶ']);
         expect(findTermMatches).not.toHaveBeenCalled();
-    });
-});
-
-describe('non-Japanese provider isolation', () => {
-    it.each([true, false])('uses only local/segmented parsing when term dictionaries installed is %s', async hasTermDictionaries => {
-        setActiveLearningTargetLanguage('zh');
-        const {
-            parser,
-            jpdbParse,
-            jitenParse,
-            publicJitenParse,
-        } = parserHarness({
-            settings: { parserProvider: 'auto' },
-            hasTermDictionaries,
-        });
-
-        const [tokens] = await parser.parse(['我去市場'], {
-            requireApi: true,
-            requireJpdb: true,
-            allowSegmentedFallback: true,
-        });
-
-        expect(jpdbParse).not.toHaveBeenCalled();
-        expect(jitenParse).not.toHaveBeenCalled();
-        expect(publicJitenParse).not.toHaveBeenCalled();
-        expect(tokens?.length).toBeGreaterThan(0);
     });
 });
 

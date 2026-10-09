@@ -1,10 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import {
-    resetActiveLearningTargetLanguage,
-    setActiveLearningTargetLanguage,
-} from '../../src/reader/languages/active';
 
-import { browseSourceForCard, browseStateCounts, filterBrowseCards, renderBrowseChips, renderBrowseControls, renderBrowseList, renderBrowseSourceChips, sortBrowseCards } from '../../src/reader/newtab/browse-view';
+import { browseSourceForCard, browseStateCounts, filterBrowseCards, renderBrowseChips, renderBrowseControls, renderBrowseList, renderBrowseSourceChips, showsBrowseControls, sortBrowseCards } from '../../src/reader/newtab/browse-view';
 import { renderSearchKanjiResults, renderSearchWordResults } from '../../src/reader/newtab/search-view';
 import { DEFAULT_SETTINGS } from '../../src/reader/settings/index';
 import type { CardState, JPDBCard } from '../../src/reader/app/types';
@@ -26,6 +22,8 @@ function card(spelling: string, states: CardState[], overrides: Partial<JPDBCard
         ...overrides,
     };
 }
+
+const SOURCE_COPY = { all: 'All', jpdb: 'JPDB', jiten: 'Jiten', bunpro: 'Bunpro', wanikani: 'WaniKani', yomuLocal: 'Yomu', anki: 'Anki' };
 
 describe('study-page card browser (SH-3)', () => {
     const pool = [
@@ -64,15 +62,7 @@ describe('study-page card browser (SH-3)', () => {
         expect(mixed.map(browseSourceForCard)).toEqual(['jpdb', 'jiten', 'bunpro', 'wanikani', 'yomu-local', 'anki']);
         expect(filterBrowseCards(mixed, new Set(), '', new Set(['bunpro', 'yomu-local'])).map(c => c.spelling)).toEqual(['文法', '自習']);
 
-        const chips = renderBrowseSourceChips(mixed, new Set(['bunpro']), {
-            all: 'All',
-            jpdb: 'JPDB',
-            jiten: 'Jiten',
-            bunpro: 'Bunpro',
-            wanikani: 'WaniKani',
-            yomuLocal: 'Yomu',
-            anki: 'Anki',
-        });
+        const chips = renderBrowseSourceChips(mixed, new Set(['bunpro']), SOURCE_COPY)!;
         expect([...chips.querySelectorAll('button')].map(button => button.textContent)).toEqual([
             'All 6',
             'Jiten 1',
@@ -83,6 +73,24 @@ describe('study-page card browser (SH-3)', () => {
             'Anki 1',
         ]);
         expect(chips.querySelector('[data-browse-source-filter="bunpro"]')?.getAttribute('aria-pressed')).toBe('true');
+    });
+
+    // "All 2 | Academy 2" or "All 2 | Learning 2" filters nothing (owner: no
+    // controls that state the obvious); a pressed chip stays so it can be cleared.
+    it('leaves out a chip row with a single value unless one of its chips is pressed', () => {
+        const learning = [card('読む', ['learning']), card('書く', ['learning'])];
+        expect(renderBrowseSourceChips(learning, new Set(), SOURCE_COPY)).toBeNull();
+        expect(renderBrowseChips(learning, new Set(), 'en', 'All')).toBeNull();
+        expect(renderBrowseSourceChips(learning, new Set(['jpdb']), SOURCE_COPY)?.querySelector('[aria-pressed="true"]')?.textContent).toBe('JPDB 2');
+        expect(renderBrowseChips(learning, new Set(['learning']), 'en', 'All')?.querySelector('[aria-pressed="true"]')?.textContent).toBe('Learning 2');
+    });
+
+    it('shows sort and Select once a list is long enough to reorder or act on in bulk', () => {
+        expect(showsBrowseControls(2, false)).toBe(false);
+        expect(showsBrowseControls(10, false)).toBe(false);
+        expect(showsBrowseControls(11, false)).toBe(true);
+        // Select mode keeps its row, so it can be turned off again.
+        expect(showsBrowseControls(2, true)).toBe(true);
     });
 
     it('ranks prefix matches ahead of substring matches (typing よ)', () => {
@@ -104,36 +112,20 @@ describe('study-page card browser (SH-3)', () => {
         expect(sortBrowseCards(sortable, 'history', true).map(c => c.spelling)).toEqual(['一', '二', '三']);
     });
 
-    it('sorts target-language cards with their own collation rules', () => {
-        const spanish = [
+    it('keeps mixed defensive sorting independent of input order and treats missing identity as Japanese', () => {
+        const mixed = [
+            card('読む', ['known']),
             card('zorro', ['known'], { language: 'es' }),
             card('ñandú', ['known'], { language: 'es' }),
-            card('nube', ['known'], { language: 'es' }),
         ];
+        const expected = ['ñandú', 'zorro', '読む'];
 
-        expect(sortBrowseCards(spanish, 'alpha', false).map(c => c.spelling))
-            .toEqual(['nube', 'ñandú', 'zorro']);
-    });
-
-    it('keeps mixed defensive sorting independent of input order and treats missing identity as Japanese', () => {
-        setActiveLearningTargetLanguage('es');
-        try {
-            const mixed = [
-                card('読む', ['known']),
-                card('zorro', ['known'], { language: 'es' }),
-                card('ñandú', ['known'], { language: 'es' }),
-            ];
-            const expected = ['ñandú', 'zorro', '読む'];
-
-            expect(sortBrowseCards(mixed, 'alpha', false).map(value => value.spelling)).toEqual(expected);
-            expect(sortBrowseCards([...mixed].reverse(), 'alpha', false).map(value => value.spelling)).toEqual(expected);
-            const list = renderBrowseList([mixed[0]!], 0, 'en', {
-                empty: 'none', previous: 'p', next: 'n', showing: () => '',
-            });
-            expect(list.querySelector<HTMLElement>('.jpdb-reader-newtab-browse-term')?.lang).toBe('ja');
-        } finally {
-            resetActiveLearningTargetLanguage();
-        }
+        expect(sortBrowseCards(mixed, 'alpha', false).map(value => value.spelling)).toEqual(expected);
+        expect(sortBrowseCards([...mixed].reverse(), 'alpha', false).map(value => value.spelling)).toEqual(expected);
+        const list = renderBrowseList([mixed[0]!], 0, 'en', {
+            empty: 'none', previous: 'p', next: 'n', showing: () => '',
+        });
+        expect(list.querySelector<HTMLElement>('.jpdb-reader-newtab-browse-term')?.lang).toBe('ja');
     });
 
     it('renders compact sort/direction/select controls', () => {
@@ -148,7 +140,7 @@ describe('study-page card browser (SH-3)', () => {
     });
 
     it('renders chips in JPDB Show-only order with counts and marks the active one', () => {
-        const chips = renderBrowseChips(pool, new Set(['due']), 'en', 'All');
+        const chips = renderBrowseChips(pool, new Set(['due']), 'en', 'All')!;
         const labels = [...chips.querySelectorAll('button')].map(button => button.textContent);
         expect(labels[0]).toBe('All 5');
         // new before learning before due (JPDB deck-browse order), zero-count states omitted
@@ -175,27 +167,13 @@ describe('study-page card browser (SH-3)', () => {
         const single = renderBrowseList([pool[0]], 0, 'en', {
             empty: 'none', previous: 'p', next: 'n', showing: () => '',
         });
+        expect(single.querySelector('.jpdb-reader-newtab-browse-meta')).toBeNull();
         const row = single.querySelector<HTMLElement>('.jpdb-reader-newtab-browse-row')!;
         expect(row.dataset.newtabAction).toBe('browse-card');
         expect(row.dataset.expression).toBe('読む');
         expect(row.dataset.reading).toBe('よむ');
         expect(row.textContent).toContain('Top 590');
         expect(row.querySelector('.jpdb-reader-state-dot.jpdb-known')).not.toBeNull();
-    });
-
-    it('marks browse terms with the card target language and direction', () => {
-        const list = renderBrowseList([
-            card('libro', ['known'], { language: 'es' }),
-            card('كتاب', ['known'], { language: 'ar' }),
-        ], 0, 'en', {
-            empty: 'none', previous: 'p', next: 'n', showing: () => '',
-        });
-        const terms = [...list.querySelectorAll<HTMLElement>('.jpdb-reader-newtab-browse-term')];
-
-        expect(terms.map(term => [term.lang, term.dir])).toEqual([
-            ['es', 'ltr'],
-            ['ar', 'rtl'],
-        ]);
     });
 
     it('shows the empty message when the filter matches nothing', () => {

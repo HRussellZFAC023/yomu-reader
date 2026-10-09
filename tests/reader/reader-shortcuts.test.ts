@@ -168,7 +168,7 @@ describe('reader shortcuts', () => {
             panel: 'backup',
             expectedUrl: 'https://yomureader.com/study/#settings=backup',
             extension: false,
-            closeWithCancel: false,
+            closeWithButton: false,
         },
         {
             name: 'the hosted Study content realm',
@@ -176,7 +176,7 @@ describe('reader shortcuts', () => {
             panel: 'dictionaries',
             expectedUrl: 'https://yomureader.com/study/#settings=dictionaries',
             extension: false,
-            closeWithCancel: true,
+            closeWithButton: true,
         },
         {
             name: 'a Firefox extension content realm',
@@ -185,7 +185,7 @@ describe('reader shortcuts', () => {
             expectedUrl: 'moz-extension://yomu/newtab/index.html#settings=api',
             extension: true,
             expectedPanel: 'api',
-            closeWithCancel: false,
+            closeWithButton: false,
         },
         {
             name: 'an ordinary website in Firefox extension content',
@@ -194,7 +194,7 @@ describe('reader shortcuts', () => {
             expectedUrl: 'moz-extension://yomu/newtab/index.html#settings=appearance',
             extension: true,
             expectedPanel: 'appearance',
-            closeWithCancel: false,
+            closeWithButton: false,
         },
     ])('mounts a no-input owned-surface launcher from $name when the dialog controller is absent', ({
         pageUrl,
@@ -202,7 +202,7 @@ describe('reader shortcuts', () => {
         expectedUrl,
         extension,
         expectedPanel,
-        closeWithCancel,
+        closeWithButton,
     }) => {
         vi.stubGlobal('location', new URL(pageUrl));
         const runtimeSendMessage = vi.fn(async () => ({ ok: true, tabId: 73 }));
@@ -255,8 +255,8 @@ describe('reader shortcuts', () => {
                 expect(windowOpen).not.toHaveBeenCalled();
             }
 
-            if (closeWithCancel) {
-                surface.querySelector<HTMLButtonElement>('[data-action="cancel"]')!.click();
+            if (closeWithButton) {
+                surface.querySelector<HTMLButtonElement>('[data-settings-close]')!.click();
             } else {
                 surface.dispatchEvent(new KeyboardEvent('keydown', {
                     key: 'Escape',

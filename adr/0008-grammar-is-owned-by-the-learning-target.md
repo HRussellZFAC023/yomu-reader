@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted.
+Accepted; multi-target parts superseded by ADR-0024 (Japanese only).
 
 ## Context
 

@@ -2,8 +2,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 
 import { canHoverLookupReaderWordElement, canLookupReaderWordElement } from '../../src/reader/app/dom-helpers';
 import { collectFormControlTextTargetsIn, readerWordSurfaceText } from '../../src/reader/dom/index';
-import { applyNestedParsePlan, clearNestedParseLoadingKey, clearNestedParseState, nestedParseAlreadyScheduled, nestedSettingsParseAlreadyRendered, nestedSettingsTextParsePlan, nestedTextParsePlan, providerExampleTextParsePlan } from '../../src/reader/lookup/nested-text-parse';
-import { lookupPopoverParsedWordElement } from '../../src/reader/newtab/lookup-dom';
+import { applyNestedParsePlan, clearNestedParseLoadingKey, clearNestedParseState, nestedParseAlreadyScheduled, nestedTextParsePlan, providerExampleTextParsePlan } from '../../src/reader/lookup/nested-text-parse';
 import { DEFAULT_SETTINGS } from '../../src/reader/settings/index';
 import type { JPDBCard, JPDBToken } from '../../src/reader/app/types';
 
@@ -20,16 +19,6 @@ function appendParsedReaderWord(root: HTMLElement): void {
     const word = document.createElement('span');
     word.classList.add('jpdb-reader-word');
     root.querySelector<HTMLElement>('.jpdb-reader-parseable')!.append(word);
-}
-
-function clickParsedWordInPopover(popover: HTMLElement, target: HTMLElement): { click: MouseEvent; parsedWord: HTMLElement | null } {
-    let parsedWord: HTMLElement | null = null;
-    popover.addEventListener('click', event => {
-        parsedWord = lookupPopoverParsedWordElement(event as MouseEvent, popover);
-    });
-    const click = new MouseEvent('click', { bubbles: true, cancelable: true });
-    target.dispatchEvent(click);
-    return { click, parsedWord };
 }
 
 describe('nested text parse plans', () => {
@@ -264,196 +253,6 @@ describe('nested text parse plans', () => {
         expect(words[1]?.querySelector('rt')?.textContent).toBe('つか');
     });
 
-    it('parses dictionary source summaries as passive render-only words that keep toggling', () => {
-        document.body.innerHTML = `
-            <div class="jpdb-reader-popover" data-jpdb-reader-root="true">
-                <details open>
-                    <summary class="jpdb-reader-local-title">翻訳</summary>
-                    <div>Translation text.</div>
-                </details>
-            </div>
-        `;
-        const popover = document.body.querySelector<HTMLElement>('.jpdb-reader-popover')!;
-        const details = popover.querySelector<HTMLDetailsElement>('details')!;
-        const plan = nestedTextParsePlan(popover, 24)!;
-
-        expect(plan.targets.map(target => target.text)).toEqual(['翻訳']);
-        applyNestedParsePlan(plan, [[token('翻訳', 0, 'ほんやく', 'heiban')]], {
-            ...DEFAULT_SETTINGS,
-            ankiEnabled: false,
-            furiganaMode: 'all',
-        });
-
-        const summaryWord = popover.querySelector<HTMLElement>('summary .jpdb-reader-word')!;
-        const { click, parsedWord } = clickParsedWordInPopover(popover, summaryWord);
-
-        expect(readerWordSurfaceText(summaryWord)).toBe('翻訳');
-        expect(summaryWord.dataset.jpdbReaderPassive).toBe('true');
-        expect(summaryWord.querySelector('rt')?.textContent).toBe('ほんやく');
-        expect(parsedWord).toBeNull();
-        expect(click.defaultPrevented).toBe(false);
-        expect(details.open).toBe(false);
-    });
-
-    it('annotates surface-ignored source labels as their own parse roots without absorbing them into content flow', () => {
-        document.body.innerHTML = `
-            <div class="jpdb-reader-popover" data-jpdb-reader-root="true">
-                <div class="jpdb-reader-parseable">
-                    <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-immersion" open>
-                        <summary class="jpdb-reader-local-title" data-jpdb-reader-surface-ignore="true">イマージョンキット</summary>
-                        <div class="jpdb-reader-local-glossary">青空の下で本を読みます。</div>
-                    </details>
-                </div>
-            </div>
-        `;
-        const popover = document.body.querySelector<HTMLElement>('.jpdb-reader-popover')!;
-        const plan = nestedTextParsePlan(popover, 24);
-
-        // The glossary flow never absorbs the title (it stays surface-ignored
-        // for page scans and sentence extraction); the title is parsed as its
-        // own explicit root instead of staying a bare label.
-        expect(plan?.targets.map(target => target.text)).toEqual(['青空の下で本を読みます。', 'イマージョンキット']);
-    });
-
-    it('parses dictionary example summaries as passive render-only words', () => {
-        document.body.innerHTML = `
-            <div class="jpdb-reader-popover" data-jpdb-reader-root="true">
-                <details open>
-                    <summary class="jpdb-reader-local-title jpdb-reader-example-summary">翻訳</summary>
-                    <div>Translation text.</div>
-                </details>
-            </div>
-        `;
-        const popover = document.body.querySelector<HTMLElement>('.jpdb-reader-popover')!;
-        const details = popover.querySelector<HTMLDetailsElement>('details')!;
-        const plan = nestedTextParsePlan(popover, 24)!;
-
-        expect(plan.targets.map(target => target.text)).toEqual(['翻訳']);
-        applyNestedParsePlan(plan, [[token('翻訳', 0, 'ほんやく', 'heiban')]], {
-            ...DEFAULT_SETTINGS,
-            ankiEnabled: false,
-            furiganaMode: 'all',
-        });
-
-        const summaryWord = popover.querySelector<HTMLElement>('summary .jpdb-reader-word')!;
-        const { click, parsedWord } = clickParsedWordInPopover(popover, summaryWord);
-
-        expect(readerWordSurfaceText(summaryWord)).toBe('翻訳');
-        expect(summaryWord.dataset.jpdbReaderPassive).toBe('true');
-        expect(summaryWord.classList.contains('jpdb-reader-passive-word')).toBe(true);
-        expect(summaryWord.querySelector('rt')?.textContent).toBe('ほんやく');
-        expect(parsedWord).toBeNull();
-        expect(click.defaultPrevented).toBe(false);
-        expect(details.open).toBe(false);
-    });
-
-    it('collects Japanese settings labels, headings, help prose, status lines, and select metadata without parsing hidden controls', () => {
-        document.body.innerHTML = `
-            <form class="jpdb-reader-settings" data-jpdb-reader-root="true">
-                <h2>よむ 設定</h2>
-                <span class="jpdb-reader-theme-title">テーマ</span>
-                <div class="jpdb-reader-settings-tabs" role="tablist">
-                    <button class="jpdb-reader-settings-tab" type="button" role="tab">外観</button>
-                    <button class="jpdb-reader-settings-tab" type="button" role="tab">API</button>
-                    <button class="jpdb-reader-settings-tab" type="button" role="tab">学習</button>
-                </div>
-                <div data-settings-panel="basics">
-                    <fieldset><legend>基本</legend></fieldset>
-                    <label>設定言語<select><option>日本語</option></select><div data-settings-select-options-meta>選択肢: 自動 / 日本語</div></label>
-                    <div class="jpdb-reader-settings-actions">
-                        <a class="jpdb-reader-btn" href="https://example.test/study">学習を開く</a>
-                        <button class="jpdb-reader-btn" type="button">設定JSONをインポート</button>
-                    </div>
-                    <div data-audio-source-row><div class="jpdb-reader-audio-source-choice"><select><option>内蔵音声</option></select><div data-settings-select-options-meta>選択肢: 内蔵音声 / ブラウザ読み上げ</div><button type="button">試聴</button></div></div>
-                    <div class="jpdb-reader-local-title">新規タブ</div>
-                    <div class="jpdb-reader-help">日本語の説明を読む</div>
-                    <div class="jpdb-reader-help" data-anki-setup-help>デスクトップAnkiの説明を読む</div>
-                    <div class="jpdb-reader-status-line">JPDB APIキーがありません。公開検索は使えます。</div>
-                </div>
-                <div data-settings-panel="media" hidden>
-                    <label>隠れた設定</label>
-                    <div class="jpdb-reader-help">隠れた説明</div>
-                </div>
-                <div class="jpdb-reader-help" hidden>隠れた説明</div>
-                <button type="button">保存</button>
-                <a href="https://example.test">詳細</a>
-            </form>
-        `;
-        const root = document.body.querySelector<HTMLElement>('form')!;
-
-        const plan = nestedSettingsTextParsePlan(root, 24);
-        const texts = plan?.targets.map(target => target.text) ?? [];
-
-        expect(texts).toContain('日本語の説明を読む');
-        expect(texts).not.toContain('デスクトップAnkiの説明を読む');
-        // Status lines are real Japanese prose (version check, connection
-        // results, Bunpro token state) and annotate like the rest of the
-        // dialog since 1.6.232.
-        expect(texts).toContain('JPDB APIキーがありません。公開検索は使えます。');
-        expect(texts).toContain('よむ 設定');
-        expect(texts).toContain('基本');
-        expect(texts).toContain('設定言語');
-        expect(texts).not.toContain('選択肢: 自動 / 日本語');
-        expect(texts).toContain('学習を開く');
-        expect(texts).toContain('設定JSONをインポート');
-        expect(texts).not.toContain('選択肢: 内蔵音声 / ブラウザ読み上げ');
-        expect(texts).not.toContain('試聴');
-        expect(texts).toContain('新規タブ');
-        expect(texts).toContain('テーマ');
-        expect(texts).toContain('外観');
-        expect(texts).toContain('学習');
-        expect(texts).toContain('日本語');
-        expect(texts).not.toContain('API');
-        expect(texts).not.toContain('隠れた設定');
-        expect(texts).not.toContain('隠れた説明');
-        expect(texts).not.toContain('保存');
-        expect(texts).not.toContain('詳細');
-    });
-
-    it('renders reader-owned selected dropdown values but leaves text-entry placeholders native', () => {
-        document.body.innerHTML = `
-            <form class="jpdb-reader-settings" data-jpdb-reader-root="true">
-                <div data-settings-panel="appearance">
-                    <label id="language-label">表示言語
-                        <select aria-labelledby="language-label">
-                            <option value="ja" selected>日本語</option>
-                            <option value="en">英語</option>
-                        </select>
-                    </label>
-                    <input placeholder="辞書を検索" value="">
-                </div>
-            </form>
-        `;
-        const root = document.body.querySelector<HTMLElement>('form')!;
-        const plan = nestedSettingsTextParsePlan(root, 24)!;
-        const texts = plan.targets.map(target => target.text);
-
-        expect(texts).toContain('表示言語');
-        expect(texts).toContain('日本語');
-        expect(texts.some(text => text.includes('英語'))).toBe(false);
-        expect(texts).not.toContain('辞書を検索');
-
-        applyNestedParsePlan(plan, texts.map(tokensForSettingsControlText), {
-            ...DEFAULT_SETTINGS,
-            ankiEnabled: false,
-            furiganaMode: 'all',
-        });
-
-        const select = root.querySelector<HTMLSelectElement>('select')!;
-        expect(select.querySelector('.jpdb-reader-word')).toBeNull();
-        const selectMirror = select.nextElementSibling as HTMLElement | null;
-        expect(selectMirror?.matches('.jpdb-reader-control-text-mirror')).toBe(true);
-        const selectWord = selectMirror?.querySelector<HTMLElement>('.jpdb-reader-word[data-expression="日本語"]') ?? null;
-        expect(selectWord).not.toBeNull();
-        expect(selectWord?.dataset.jpdbReaderPassive).toBeUndefined();
-        expect(selectWord ? canLookupReaderWordElement(selectWord) : false).toBe(true);
-
-        const input = root.querySelector<HTMLInputElement>('input')!;
-        const inputMirror = input.nextElementSibling as HTMLElement | null;
-        expect(inputMirror?.matches('.jpdb-reader-control-text-mirror')).not.toBe(true);
-        expect(input.hasAttribute('data-jpdb-reader-control-placeholder-hidden')).toBe(false);
-    });
-
     it('does not overlay textarea placeholders as lookupable content', () => {
         document.body.innerHTML = `
             <div class="Txyg0d SJXlhf">
@@ -471,93 +270,6 @@ describe('nested text parse plans', () => {
         const mirror = textarea.nextElementSibling as HTMLElement | null;
         expect(mirror?.matches('.jpdb-reader-control-text-mirror')).not.toBe(true);
         expect(textarea.hasAttribute('data-jpdb-reader-control-placeholder-hidden')).toBe(false);
-    });
-
-    it('skips inactive settings panel text', () => {
-        document.body.innerHTML = `
-            <form class="jpdb-reader-settings" data-jpdb-reader-root="true">
-                <h2>よむ 設定</h2>
-                <div data-settings-panel="api" hidden>
-                    <label>APIアクセス</label>
-                </div>
-                <div data-settings-panel="appearance">
-                    <label>設定の表示言語 <span data-settings-select-options-meta>選択肢: 自動 / 英語 / 日本語</span></label>
-                </div>
-            </form>
-        `;
-        const root = document.body.querySelector<HTMLElement>('form')!;
-
-        const plan = nestedSettingsTextParsePlan(root, 24)!;
-
-        expect(plan.targets.map(target => target.text)).toEqual([
-            'よむ 設定',
-            '設定の表示言語',
-        ]);
-    });
-
-    it('does not mistake a partly annotated active settings panel for a completed parse', () => {
-        document.body.innerHTML = `
-            <form class="jpdb-reader-settings" data-jpdb-reader-root="true" data-jpdb-reader-parse-key="partial">
-                <fieldset data-settings-panel="help">
-                    <span class="jpdb-reader-word">便利</span>
-                    <span class="jpdb-reader-word">動画</span>
-                    <span class="jpdb-reader-word">学習</span>
-                    <span class="jpdb-reader-word">辞書</span>
-                    <p data-help-support-copy>よむは検索、OCR、字幕、辞書、学習をまとめた無料ユーザースクリプトです。</p>
-                    <div class="jpdb-reader-status-line">現在確認中です。</div>
-                </fieldset>
-            </form>
-        `;
-        const root = document.body.querySelector<HTMLElement>('form')!;
-
-        expect(nestedSettingsParseAlreadyRendered(root)).toBe(false);
-
-        root.querySelector('[data-help-support-copy]')!.innerHTML = '<span class="jpdb-reader-word">よむは検索、OCR、字幕、辞書、学習をまとめた無料ユーザースクリプトです。</span>';
-
-        // The status line is a parse target too now — with it still bare the
-        // panel must NOT count as fully rendered.
-        expect(nestedSettingsParseAlreadyRendered(root)).toBe(false);
-
-        root.querySelector('.jpdb-reader-status-line')!.innerHTML = '<span class="jpdb-reader-word">現在確認中です。</span>';
-
-        expect(nestedSettingsParseAlreadyRendered(root)).toBe(true);
-    });
-
-    it('renders reader-owned settings chrome labels as passive parsed words', () => {
-        document.body.innerHTML = `
-            <form class="jpdb-reader-settings" data-jpdb-reader-root="true">
-                <span class="jpdb-reader-theme-title">テーマ</span>
-                <div class="jpdb-reader-settings-tabs" role="tablist">
-                    <button class="jpdb-reader-settings-tab" type="button" role="tab">外観</button>
-                    <button class="jpdb-reader-settings-tab" type="button" role="tab">API</button>
-                    <button class="jpdb-reader-settings-tab" type="button" role="tab">学習</button>
-                </div>
-                <button type="button">保存</button>
-            </form>
-        `;
-        const root = document.body.querySelector<HTMLElement>('form')!;
-
-        const plan = nestedSettingsTextParsePlan(root, 24)!;
-        expect(plan.targets.map(target => target.text)).toEqual(['テーマ', '外観', '学習']);
-        const tabTarget = plan.targets.find(target => target.text === '外観')!;
-        expect('forceInlineRender' in tabTarget ? tabTarget.forceInlineRender : false).toBe(true);
-        expect('suppressRepaintLoopMirror' in tabTarget ? tabTarget.suppressRepaintLoopMirror : false).toBe(true);
-
-        applyNestedParsePlan(plan, plan.targets.map(target => {
-            if (target.text === 'テーマ') return [token('テーマ', 0)];
-            if (target.text === '外観') return [token('外観', 0, 'がいかん', 'heiban')];
-            return [token('学習', 0, 'がくしゅう', 'heiban')];
-        }), { ...DEFAULT_SETTINGS, furiganaMode: 'all', ankiEnabled: false });
-
-        const themeWord = document.querySelector<HTMLElement>('.jpdb-reader-theme-title .jpdb-reader-word')!;
-        const tab = document.querySelector<HTMLElement>('.jpdb-reader-settings-tab')!;
-        const tabWord = tab.querySelector<HTMLElement>('.jpdb-reader-word')!;
-        expect(themeWord.classList.contains('jpdb-not-in-deck')).toBe(true);
-        expect(tabWord.dataset.jpdbReaderPassive).toBe('true');
-        expect(tabWord.querySelector('rt')?.textContent).toBe('がいかん');
-        expect(tab.style.getPropertyValue('visibility')).toBe('');
-        expect(tab.querySelector('.jpdb-reader-text-mirror')).toBeNull();
-        expect(document.querySelector('button[type="button"]:not(.jpdb-reader-settings-tab) .jpdb-reader-word')).toBeNull();
     });
 
     it('renders reader-owned action buttons as passive hoverable words without cancelling clicks', () => {
@@ -630,16 +342,6 @@ function token(surface: string, start: number, reading = surface, pitchClass = '
     };
 }
 
-function tokensForSettingsControlText(text: string): JPDBToken[] {
-    return [
-        ['日本語', 'にほんご', 'heiban'],
-        ['辞書', 'じしょ', 'heiban'],
-        ['質問', 'しつもん', 'heiban'],
-    ].flatMap(([surface, reading, pitchClass]) => {
-        const start = text.indexOf(surface);
-        return start >= 0 ? [token(surface, start, reading, pitchClass)] : [];
-    });
-}
 
 function card(spelling: string, reading: string): JPDBCard {
     return {

@@ -53,6 +53,41 @@
   box-decoration-break: clone;
 }
 
+/* Annotated text is the page's text. A word span or ruby wrapper must never
+   pick up a host rule aimed at bare elements (`span { font-weight: 700 }`,
+   `ruby { font-size: 80% }`, tracked `p span`), or the annotated words read as
+   a second typeface beside the plain particles around them. Two classes beat
+   any element-and-ancestor host selector without !important, so Yomu's own
+   surfaces that size their words (popup, OCR, subtitles) keep doing so.
+   scripts/annotation-typography-smoke.mjs holds this in real engines. */
+.jpdb-reader-number-bind.jpdb-reader-number-bind,
+.jpdb-reader-word.jpdb-reader-scan-word,
+.jpdb-reader-word.jpdb-reader-scan-word ruby,
+.jpdb-reader-word.jpdb-reader-scan-word .jpdb-reader-ruby-base {
+  font-family: inherit;
+  font-size: inherit;
+  font-style: inherit;
+  font-weight: inherit;
+  font-stretch: inherit;
+  font-variant: inherit;
+  font-feature-settings: inherit;
+  font-kerning: inherit;
+  letter-spacing: inherit;
+  word-spacing: inherit;
+}
+
+/* Host controls often draw icons on every descendant span. Generated words
+   must not repeat those icons. OCR's larger touch target overrides this below. */
+.jpdb-reader-word::before,
+.jpdb-reader-ruby-base::before,
+.jpdb-reader-ruby-base::after,
+.jpdb-reader-detached-ruby::before,
+.jpdb-reader-detached-ruby::after,
+.jpdb-reader-furi::before,
+.jpdb-reader-furi::after {
+  content: none;
+}
+
 .jpdb-reader-word::after {
   content: "";
   position: absolute;
@@ -791,6 +826,19 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
 .jpdb-reader-word-underline-status .jpdb-reader-word {
   --jpdb-reader-word-decoration-source: var(--jpdb-reader-status-underline, transparent);
 }
+/* Colour is never the only cue (WCAG 1.4.1): a word still being learned draws
+   its state line dashed and a due word dotted, so neither depends on telling
+   hues apart. Simulated protan and deutan vision cannot separate the due teal
+   from the new grey on a light page. New and failed stay solid; the popup names
+   every state in words. */
+:is(.jpdb-reader-word-underline-status, .jpdb-reader-word-underline-jpdb, .jpdb-reader-word-underline-review)
+  .jpdb-reader-word:is(.jpdb-learning, .jpdb-young, .jiten-learning, .jiten-young, .anki-learning, .yomu-review-learning) {
+  --jpdb-reader-word-underline-style: dashed;
+}
+:is(.jpdb-reader-word-underline-status, .jpdb-reader-word-underline-jpdb, .jpdb-reader-word-underline-review)
+  .jpdb-reader-word:is(.jpdb-due, .jiten-due, .anki-due, .yomu-review-due) {
+  --jpdb-reader-word-underline-style: dotted;
+}
 .jpdb-reader-word-underline-jpdb .jpdb-reader-word {
   --jpdb-reader-word-decoration-source: var(--jpdb-reader-jpdb-underline, transparent);
 }
@@ -856,23 +904,56 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
   line-height: 2.15;
 }
 .jpdb-reader-furi {
-  font-size: 0.58em;
-  font-weight: 700;
-  /* Furigana always tracks the base word it annotates: `inherit` takes the
-     word's own computed colour (page text, pitch/status/jpdb/review tint, or the
-     contrast-adjusted --jpdb-reader-word-accessible-color), so the reading is
-     never a muted grey that diverges from its base. -webkit-text-fill-color is
-     pinned to currentColor so WebKit fills the kana with that same inherited
-     colour instead of inheriting the word's own fill channel. Mirror readings
-     use .jpdb-reader-detached-furi, whose higher-specificity rule keeps them on
-     the native colour where the base glyph is painted transparent. */
-  color: inherit !important;
+  /* Half the base size, JLREQ's ruby convention, in the page's own face at
+     regular weight: a bold reading at 0.58em read as a second, louder
+     typeface stacked over the word. A host `rt` rule must not restyle it. The
+     kana are set solid (no proportional `palt` widths) and take the
+     paragraph's own tracking, so a reading is as wide as its kana count says,
+     which the overhang below relies on in WebKit. The detached lane
+     (dom/index.ts styleDetachedReadingElements) sits in a line gap and is a
+     little smaller. */
+  font-family: inherit;
+  font-size: max(6px, 0.5em);
+  font-style: inherit;
+  font-weight: normal;
+  font-feature-settings: normal;
+  font-variant-east-asian: normal;
+  letter-spacing: inherit;
+  /* One quiet reading colour for every word, links included:
+     --jpdb-reader-furi-color is the paragraph's own ink eased toward the
+     sampled backdrop and held at 4.5:1 (dom/word-contrast.ts). Without a
+     sample the reading takes the word's colour. -webkit-text-fill-color is
+     pinned to currentColor so WebKit fills the kana with that same colour
+     instead of inheriting the word's fill channel. */
+  color: var(--jpdb-reader-furi-color, inherit) !important;
   -webkit-text-fill-color: currentColor !important;
   line-height: 1.08;
   user-select: none;
   /* -webkit- too: iOS Safari (the OOM/copy target) needs the prefixed property
      to keep ruby readings out of the selection when copying mirrored text. */
   -webkit-user-select: none;
+}
+/* Ruby overhang (JLREQ): a reading wider than its kanji overhangs the
+   characters beside it by half a ruby character, as browsers already do inside
+   one run of text, so the kanji keeps its place in the line (no gap around 間
+   in の間で). A negative margin on the reading only shrinks its share of the
+   line: the kanji never moves. dom/ruby-overhang.ts decides which readings
+   may: one inside its word at once, one at a word edge only while no reading
+   sits on that side (start/end-overhang), so two readings never meet, and
+   none at the head or end of a line (line-edge), where JLREQ aligns ruby to
+   the line and an overhang would stick out of the column.
+   No sibling selector here: one over page words made Chromium annotate a
+   one-root page ten times slower. WebKit stops centring a reading whose
+   margins make it narrower than its kanji, so the margin is never more than
+   that half character: solid kana and shared tracking (above) keep the
+   reading at least that much wider. Page words only, in flow or passive
+   (prose with links); a text mirror lays its copy over the host's own text
+   and must keep the host's widths. */
+.jpdb-reader-scan-word:not(:is(.jpdb-reader-text-mirror, .jpdb-reader-control-text-mirror) *) > ruby:is(.jpdb-reader-ruby-overhang:not(.jpdb-reader-ruby-at-start, .jpdb-reader-ruby-at-end), .jpdb-reader-ruby-start-overhang):not(.jpdb-reader-ruby-line-edge) > rt.jpdb-reader-furi {
+  margin-inline-start: -0.5em;
+}
+.jpdb-reader-scan-word:not(:is(.jpdb-reader-text-mirror, .jpdb-reader-control-text-mirror) *) > ruby:is(.jpdb-reader-ruby-overhang:not(.jpdb-reader-ruby-at-start, .jpdb-reader-ruby-at-end), .jpdb-reader-ruby-end-overhang):not(.jpdb-reader-ruby-line-edge) > rt.jpdb-reader-furi {
+  margin-inline-end: -0.5em;
 }
 .jpdb-reader-word ruby {
   position: static !important;
@@ -1072,7 +1153,7 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
   --jpdb-reader-mirror-status-soft: var(--jpdb-reader-source-review-soft, transparent);
 }
 .jpdb-reader-text-mirror.jpdb-reader-additive-text-mirror .jpdb-reader-detached-furi {
-  color: var(--jpdb-reader-furi-accessible-color, inherit) !important;
+  color: var(--jpdb-reader-furi-color, inherit) !important;
   -webkit-text-fill-color: currentColor !important;
   opacity: 1 !important;
 }
@@ -1389,15 +1470,6 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
   pointer-events: none !important;
 }
 
-/* The status dot sets its own opacity:1, which (equal specificity, later in
-   source) would otherwise beat the pending gate above; this compound selector
-   raises specificity so a gated status spinner stays hidden during OCR. The
-   image and resume controls have no competing opacity, so the plain rule gates
-   them. */
-.jpdb-ocr-video-frame-status.jpdb-ocr-video-frame-pending {
-  opacity: 0.001;
-}
-
 /* Canvas-reader snapshot (e.g. BookWalker). The real <canvas> already shows the
    page, so this capture anchor stays invisible — it only provides pixels for OCR
    and a rect for overlay alignment. pointer-events:none lets the host viewer's
@@ -1426,167 +1498,176 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
   stroke: none;
 }
 
+/* OCR Status Indicator (ocr/controller.ts): a 16px mark just inside the top-left
+   corner of the image, paused video frame or reader page that OCR is reading. It
+   has no surface or text of its own; screen readers hear the status from one
+   shared live region (ocr/ocr-status-announcer.ts). A dark rim keeps the mark
+   visible on white pages and a faint light halo on black ones, whatever the
+   accent. It never takes pointer input, except as a reader page's retry button. */
 .jpdb-ocr-video-frame-status {
-  --jpdb-ocr-status-surface: color-mix(
-    in srgb,
-    var(--jpdb-reader-surface, var(--jpdb-reader-theme-dark-surface, #20242b)) 78%,
-    transparent
-  );
-  --jpdb-ocr-status-text: var(--jpdb-reader-text, var(--jpdb-reader-theme-dark-text, #f2f4f8));
-  --jpdb-ocr-status-muted: var(--jpdb-reader-muted, var(--jpdb-reader-theme-dark-muted, #aab2c0));
+  /* Read: the success colour. Loading and nothing-found are neutral, failure red. */
+  --jpdb-ocr-status-ink: var(--jpdb-reader-success, #347a57);
   position: fixed;
   z-index: 2147483644;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  min-width: 24px;
-  max-width: 320px !important;
-  min-height: 24px;
-  padding: 4px 9px;
-  border: 1px solid var(--jpdb-reader-border, rgba(37, 52, 73, 0.18));
-  border-radius: 999px;
-  background: var(--jpdb-ocr-status-surface);
-  color: var(--jpdb-ocr-status-text);
-  font: 600 12px/1.15 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  display: grid;
+  place-items: center;
+  width: 16px;
+  height: 16px;
+  color: var(--jpdb-ocr-status-ink);
   pointer-events: none;
-  overflow: hidden;
-  opacity: 1;
-  white-space: nowrap;
-  box-shadow:
-    0 6px 16px rgba(15, 23, 42, 0.12),
-    inset 0 1px 0 rgba(255, 255, 255, 0.22);
+  filter: drop-shadow(0 0 1px rgba(0, 0, 0, 0.8)) drop-shadow(0 0 1px rgba(255, 255, 255, 0.45));
   transition: opacity 360ms ease;
 }
 
-:is(.jpdb-reader-theme-light, .yomu-page-theme-light) .jpdb-ocr-video-frame-status {
-  --jpdb-ocr-status-surface: color-mix(
-    in srgb,
-    var(--jpdb-reader-theme-light-surface, #f4f7fa) 86%,
-    transparent
-  );
-  --jpdb-ocr-status-text: var(--jpdb-reader-theme-light-text, #17202a);
-  --jpdb-ocr-status-muted: var(--jpdb-reader-theme-light-muted, #4f5968);
-}
-
-:is(.jpdb-reader-theme-dark, .yomu-page-theme-dark) .jpdb-ocr-video-frame-status {
-  --jpdb-ocr-status-surface: color-mix(
-    in srgb,
-    var(--jpdb-reader-theme-dark-surface, #20242b) 78%,
-    transparent
-  );
-  --jpdb-ocr-status-text: var(--jpdb-reader-theme-dark-text, #f2f4f8);
-  --jpdb-ocr-status-muted: var(--jpdb-reader-theme-dark-muted, #aab2c0);
-}
-
-/* "ready" dot flashes briefly then fades out (see OCR_STATUS_FADE_MS). */
-.jpdb-ocr-video-frame-status-fade-out {
-  opacity: 0;
+/* The indicator is itself a reader root, which the shared [hidden] contract
+   (interactions.css) only covers for descendants. */
+.jpdb-ocr-video-frame-status[hidden] {
+  display: none !important;
 }
 
 .jpdb-ocr-video-frame-status::before {
   content: "";
-  flex: 0 0 auto;
   width: 8px;
   height: 8px;
-  border-radius: 999px;
-  background: var(--jpdb-reader-accent, #7c9cff);
+  border-radius: 50%;
+  background: currentColor;
 }
 
+/* Reading: a thin arc turning on a faint track. */
 .jpdb-ocr-video-frame-status-loading::before {
-  width: 12px;
-  height: 12px;
-  border: 2px solid color-mix(in srgb, var(--jpdb-reader-accent, #7c9cff) 28%, transparent);
-  border-top-color: var(--jpdb-reader-accent, #7c9cff);
+  width: 14px;
+  height: 14px;
+  border: 2px solid color-mix(in srgb, currentColor 30%, transparent);
+  border-top-color: currentColor;
   background: transparent;
-  animation: jpdb-ocr-video-frame-status-spin 850ms linear infinite;
+  animation: jpdb-ocr-video-frame-status-spin 1s linear infinite;
 }
 
-.jpdb-ocr-video-frame-status-ready::before {
-  background: var(--jpdb-reader-state-known, #31c48d);
-}
-
-.jpdb-ocr-video-frame-status-empty,
-.jpdb-ocr-video-frame-status-failed {
-  color: var(--jpdb-ocr-status-muted);
+.jpdb-ocr-video-frame-status-loading,
+.jpdb-ocr-video-frame-status-empty {
+  --jpdb-ocr-status-ink: var(--jpdb-reader-theme-dark-muted, #b0b8c4);
 }
 
 .jpdb-ocr-video-frame-status-empty::before {
-  background: var(--jpdb-ocr-status-muted);
+  border: 2px solid currentColor;
+  background: transparent;
 }
 
-.jpdb-ocr-video-frame-status-failed::before {
-  background: var(--jpdb-reader-state-failed, #f87171);
+.jpdb-ocr-video-frame-status-failed {
+  --jpdb-ocr-status-ink: var(--jpdb-reader-state-failed, #ff6b6b);
 }
 
-/* The label text is for the full-page canvas variant only; the compact corner
-   dot used for inline images and video frames hides it. */
-.jpdb-ocr-video-frame-status-label {
-  display: none;
+/* Every outcome shows briefly, then fades (OCR_STATUS_FADE_MS). */
+.jpdb-ocr-video-frame-status-fade-out {
+  opacity: 0;
 }
 
-/* Full-page canvas readers (BookWalker/ComicWalker): a labeled pill instead of a
-   12px corner ring, so a multi-second Lens scan reads as "working", not frozen.
-   Stays in the top-left corner (positioned by positionOcrImageStatus) and never
-   intercepts taps so page-turn and word taps pass straight through to the page. */
-.jpdb-ocr-video-frame-status.jpdb-ocr-canvas-status {
-  width: auto;
-  min-width: 0;
-  max-width: 260px !important;
-  height: auto;
-  min-height: 28px;
+/* A reader page that found nothing or failed: a "Scan again" glyph in the status
+   colour, on a 24px target (36px for a finger). */
+.jpdb-ocr-video-frame-status[data-yomu-ocr-retry="true"] {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  pointer-events: auto;
+  cursor: pointer;
+}
+
+.jpdb-ocr-video-frame-status[data-yomu-ocr-retry="true"]::before {
+  content: none;
+}
+
+.jpdb-ocr-video-frame-status svg {
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.jpdb-ocr-video-frame-status[data-yomu-ocr-retry="true"]:focus-visible {
+  outline: 2px solid var(--jpdb-reader-accent, #b8324e);
+}
+
+@media (pointer: coarse) {
+  .jpdb-ocr-video-frame-status[data-yomu-ocr-retry="true"] {
+    width: 36px;
+    height: 36px;
+  }
+}
+
+@keyframes jpdb-ocr-video-frame-status-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes jpdb-ocr-video-frame-status-fade {
+  to {
+    opacity: 0.35;
+  }
+}
+
+/* No turning: the arc stands still and slowly fades in and out. */
+@media (prefers-reduced-motion: reduce) {
+  .jpdb-ocr-video-frame-status-loading::before {
+    animation: jpdb-ocr-video-frame-status-fade 1.6s ease-in-out infinite alternate;
+  }
+
+  .jpdb-ocr-video-frame-status {
+    transition: none;
+  }
+}
+
+/* One-time "Tap or click the page to read it" hint
+   (ocr/reader-canvas-tap-hint.ts): a dark labelled pill, pass-through so a tap on
+   it reads the page beneath. Only its dismiss button takes pointer input. It is
+   appended to <body>, outside the reader's themed scope, so it carries its own
+   ink. It is wide enough for the whole Japanese label (HINT_WIDTH_PX), but never
+   wider than a phone screen, where the dismiss button must stay in reach. */
+.jpdb-ocr-canvas-tap-hint {
+  position: fixed;
+  z-index: 2147483644;
+  display: inline-flex;
+  align-items: center;
   gap: 8px;
+  max-width: min(340px, calc(100vw - 24px)) !important;
+  min-height: 28px;
   padding: 6px 12px;
+  border: 1px solid var(--jpdb-reader-border, rgba(37, 52, 73, 0.18));
   border-radius: 999px;
-  /* Self-contained dark "toast" — the status pill is appended to <body>, outside the
-     reader's themed scope, so --jpdb-reader-bg/-fg are unreliable here and resolved
-     to white-on-white in light mode. A fixed dark, semi-opaque chip stays legible over
-     any page background in both light and dark mode. */
   background: rgba(17, 19, 26, 0.68) !important;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.24);
   color: #f5f7ff !important;
   font: 600 13px/1.2 system-ui, -apple-system, "Segoe UI", sans-serif;
   white-space: nowrap;
-  overflow: hidden;
+  pointer-events: none;
 }
 
-/* The pill's own colour loses to the reader root's theme text colour
-   (`[data-jpdb-reader-root]`), which is dark in the light theme, so everything
-   legible inside the pill carries the light ink itself: the label, and the
-   tap hint's dismiss "×". */
-.jpdb-ocr-video-frame-status.jpdb-ocr-canvas-status :is(.jpdb-ocr-video-frame-status-label, .jpdb-ocr-canvas-tap-hint-dismiss) {
+.jpdb-ocr-canvas-tap-hint[hidden] {
+  display: none !important;
+}
+
+.jpdb-ocr-canvas-tap-hint::before {
+  content: "";
+  flex: 0 0 auto;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #b0b8c4;
+}
+
+/* The reader root's theme text colour (dark in the light theme) would beat the
+   pill's own colour, so the label and the dismiss "×" carry the light ink. */
+.jpdb-ocr-canvas-tap-hint :is(.jpdb-ocr-canvas-tap-hint-label, .jpdb-ocr-canvas-tap-hint-dismiss) {
   color: #f5f7ff !important;
   -webkit-text-fill-color: #f5f7ff !important;
 }
 
-.jpdb-ocr-video-frame-status.jpdb-ocr-canvas-status .jpdb-ocr-video-frame-status-label {
-  display: inline;
-  text-overflow: ellipsis;
+.jpdb-ocr-canvas-tap-hint-label {
   overflow: hidden;
-}
-
-.jpdb-ocr-video-frame-status.jpdb-ocr-canvas-status[data-yomu-ocr-retry="true"] {
-  cursor: pointer;
-}
-
-.jpdb-ocr-video-frame-status.jpdb-ocr-canvas-status[data-yomu-ocr-retry="true"]:focus-visible {
-  outline: 2px solid var(--jpdb-reader-accent, #6aa4ff);
-  outline-offset: 3px;
-}
-
-/* One-time "Tap or click the page to read it" hint
-   (ocr/reader-canvas-tap-hint.ts): the canvas pill, pass-through like it, so a
-   tap on it reads the page beneath. Only its dismiss button takes pointer input.
-   It is wider than the scan pill so the whole Japanese label shows
-   (HINT_WIDTH_PX), but never wider than a phone screen, where the dismiss button
-   must stay in reach. */
-.jpdb-ocr-video-frame-status.jpdb-ocr-canvas-tap-hint[hidden] {
-  display: none !important;
-}
-
-.jpdb-ocr-video-frame-status.jpdb-ocr-canvas-tap-hint {
-  max-width: min(340px, calc(100vw - 24px)) !important;
-  overflow: visible;
+  text-overflow: ellipsis;
 }
 
 .jpdb-ocr-canvas-tap-hint .jpdb-ocr-canvas-tap-hint-dismiss {
@@ -1619,22 +1700,6 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
 @media (pointer: coarse) {
   .jpdb-ocr-canvas-tap-hint .jpdb-ocr-canvas-tap-hint-dismiss::before {
     inset: -12px;
-  }
-}
-
-@keyframes jpdb-ocr-video-frame-status-spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .jpdb-ocr-video-frame-status-loading::before {
-    animation: none;
-  }
-
-  .jpdb-ocr-video-frame-status {
-    transition: none;
   }
 }
 
@@ -1696,11 +1761,8 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
   --jpdb-reader-highlight-shadow: 0 1px 5px rgba(0, 0, 0, 0.42);
 }
 .jpdb-ocr-layer[data-ocr-overlay-theme="dark"][data-ocr-overlay-variant="auto"] {
-  --jpdb-ocr-auto-dark-surface: color-mix(
-    in srgb,
-    rgba(9, 13, 20, 0.64) 78%,
-    var(--jpdb-reader-accent, #5ea780) 22%
-  );
+  /* Ink, not the accent: a red cast over every line of a manga page is noise. */
+  --jpdb-ocr-auto-dark-surface: rgba(9, 13, 20, 0.64);
   --jpdb-ocr-auto-dark-visible: color-mix(
     in srgb,
     var(--jpdb-ocr-auto-dark-surface) 54%,
@@ -1711,11 +1773,7 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
     var(--jpdb-ocr-auto-dark-surface) 72%,
     transparent
   );
-  --jpdb-ocr-auto-dark-border: color-mix(
-    in srgb,
-    var(--jpdb-reader-accent, #5ea780) 58%,
-    rgba(255, 255, 255, 0.16)
-  );
+  --jpdb-ocr-auto-dark-border: rgba(255, 255, 255, 0.28);
 }
 .jpdb-ocr-layer[data-ocr-overlay-theme="light"] {
   --jpdb-reader-highlight-backdrop: rgba(255, 255, 255, 0.9);
@@ -1898,7 +1956,7 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
     inset 0 0 0 1px color-mix(in srgb, var(--jpdb-reader-white, #ffffff) 12%, transparent);
 }
 .jpdb-ocr-line:focus-visible {
-  outline: 2px solid var(--jpdb-reader-accent, #5ea780);
+  outline: 2px solid var(--jpdb-reader-accent, #b8324e);
   outline-offset: 2px;
 }
 .jpdb-ocr-layer[data-ocr-overlay-theme="dark"][data-ocr-overlay-variant="auto"]
@@ -2042,6 +2100,16 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
   align-items: flex-end;
   line-height: 1;
 }
+/* A line's frame grows upward to make room for readings, and each line paints over the
+   one before it. In a dialogue box set tighter than that reading strip, the next line's
+   frame covered the lower half of every word above it, so a press on the word reached the
+   line below and only the strip where its reading sits still found it. The type owns the
+   pixels it is drawn on: glyph boxes sit above every line frame on the layer. */
+.jpdb-ocr-line .jpdb-ocr-ruby-base,
+.jpdb-ocr-line .jpdb-ocr-plain {
+  position: relative;
+  z-index: 1;
+}
 .jpdb-ocr-ruby-base-text {
   display: inline-flex;
   align-items: flex-end;
@@ -2103,11 +2171,11 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
   background: color-mix(
     in srgb,
     var(--jpdb-reader-surface, #ffffff) 96%,
-    var(--jpdb-reader-accent, #5ea780) 4%
+    var(--jpdb-reader-accent, #b8324e) 4%
   ) !important;
   border-color: color-mix(
     in srgb,
-    var(--jpdb-reader-accent, #5ea780) 38%,
+    var(--jpdb-reader-accent, #b8324e) 38%,
     var(--jpdb-reader-border, rgba(20, 30, 45, 0.18))
   ) !important;
   box-shadow:
@@ -2223,7 +2291,15 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
   text-underline-offset: 0.15em !important;
   color: inherit !important;
 }
+/* ── Puck ──────────────────────────────────────────────────────────────────
+   One quiet disc: the よむ mark, a ring in the state colour and a small badge
+   carrying the state's icon from the shared menu set (menu-icons.json), the
+   same shapes the radial menu and the extension toolbar draw.
+     on · furigana shown   → green ring, green power badge
+     on · furigana hidden  → amber ring, amber eye-off badge
+     off                   → no ring, grey power badge, receded mark */
 .jpdb-reader-fab {
+  --jpdb-reader-fab-tone: var(--jpdb-reader-accent);
   position: fixed !important;
   display: inline-flex !important;
   align-items: center !important;
@@ -2246,74 +2322,96 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
   min-height: 52px !important;
   max-height: 52px !important;
   padding: 0 !important;
-  border: 1px solid var(--jpdb-reader-border) !important;
+  border: 1.5px solid color-mix(in srgb, var(--jpdb-reader-fab-tone) 62%, var(--jpdb-reader-border)) !important;
   border-radius: 50% !important;
   background: var(--jpdb-reader-surface) !important;
   color: var(--jpdb-reader-text) !important;
-  box-shadow: 0 10px 28px var(--jpdb-reader-shadow) !important;
-  /* Recedes at rest without blending its label and surface below WCAG text
-     contrast; hover/focus restores full opacity for a crisp state read. */
-  opacity: 0.72 !important;
-  font: 700 14px/1 var(--jpdb-reader-font) !important;
+  box-shadow:
+    0 1px 2px color-mix(in srgb, var(--jpdb-reader-shadow) 60%, transparent),
+    0 8px 22px color-mix(in srgb, var(--jpdb-reader-shadow) 80%, transparent) !important;
+  /* Recedes at rest without dropping the mark below text contrast. */
+  opacity: 0.9 !important;
+  font: 700 15px/1 var(--jpdb-reader-font) !important;
+  letter-spacing: 0 !important;
   cursor: pointer !important;
   overflow: visible !important;
   touch-action: none !important;
+  -webkit-tap-highlight-color: transparent !important;
   transform: translate3d(0, 0, 0) !important;
+  transition: opacity 0.16s ease, border-color 0.16s ease, box-shadow 0.16s ease, transform 0.16s ease !important;
 }
-.jpdb-reader-fab::after {
-  content: '' !important;
+.jpdb-reader-fab-mark {
+  display: block !important;
+  pointer-events: none !important;
+  transform: translateY(-0.5px) !important;
+}
+.jpdb-reader-fab-state {
   position: absolute !important;
-  right: -4px !important;
-  bottom: -4px !important;
-  display: inline-flex !important;
-  align-items: center !important;
-  justify-content: center !important;
+  right: -3px !important;
+  bottom: -3px !important;
+  display: grid !important;
+  place-items: center !important;
   inline-size: 20px !important;
   block-size: 20px !important;
-  min-inline-size: 20px !important;
-  min-block-size: 20px !important;
-  border: 1px solid var(--jpdb-reader-surface) !important;
+  border: 2px solid var(--jpdb-reader-surface) !important;
   border-radius: 50% !important;
-  background: var(--jpdb-reader-surface) !important;
-  color: var(--jpdb-reader-text) !important;
-  box-shadow: 0 4px 12px color-mix(in srgb, var(--jpdb-reader-shadow) 72%, transparent) !important;
-  font: 800 10px/1 var(--jpdb-reader-font) !important;
-  letter-spacing: 0 !important;
-  opacity: 0 !important;
+  background: var(--jpdb-reader-fab-tone) !important;
+  color: #fff !important;
+  box-sizing: border-box !important;
   pointer-events: none !important;
-  transform: scale(0.65) !important;
-  transition: opacity 0.16s ease, transform 0.16s ease !important;
 }
-.jpdb-reader-fab::before {
-  content: '' !important;
-  position: absolute !important;
-  right: -1px !important;
-  bottom: 5px !important;
-  inline-size: 17px !important;
-  block-size: 2px !important;
-  border-radius: 999px !important;
-  background: var(--jpdb-reader-surface) !important;
-  box-shadow: 0 0 0 1px color-mix(in srgb, var(--jpdb-reader-accent) 38%, transparent) !important;
-  opacity: 0 !important;
-  pointer-events: none !important;
-  transform: rotate(-35deg) scaleX(0.86) !important;
-  transition: opacity 0.16s ease !important;
-  z-index: 1 !important;
+.jpdb-reader-fab-state:empty {
+  display: none !important;
+}
+.jpdb-reader-fab-state svg {
+  display: block !important;
+  inline-size: 11px !important;
+  block-size: 11px !important;
+  width: 11px !important;
+  height: 11px !important;
+  stroke-width: 2.1 !important;
 }
 .jpdb-reader-fab:hover,
-.jpdb-reader-fab:focus-visible {
-  border-color: var(--jpdb-reader-accent) !important;
-  color: var(--jpdb-reader-accent-readable) !important;
+.jpdb-reader-fab:focus-visible,
+.jpdb-reader-fab.jpdb-reader-fab--menu-open,
+.jpdb-reader-fab.jpdb-reader-fab-dragging {
   opacity: 1 !important;
+  border-color: var(--jpdb-reader-fab-tone) !important;
   outline: none !important;
+}
+.jpdb-reader-fab:focus-visible {
+  box-shadow:
+    0 8px 22px color-mix(in srgb, var(--jpdb-reader-shadow) 80%, transparent),
+    0 0 0 3px var(--jpdb-reader-surface),
+    0 0 0 5px var(--jpdb-reader-accent) !important;
+}
+.jpdb-reader-fab:active {
+  transform: translate3d(0, 0, 0) scale(0.96) !important;
+}
+.jpdb-reader-fab.jpdb-reader-fab--no-furigana {
+  --jpdb-reader-fab-tone: var(--jpdb-reader-grade-something);
+}
+.jpdb-reader-fab.jpdb-reader-fab--no-furigana .jpdb-reader-fab-state {
+  color: var(--jpdb-reader-theme-light-text) !important;
+}
+.jpdb-reader-fab.jpdb-reader-fab--paused {
+  --jpdb-reader-fab-tone: color-mix(in srgb, var(--jpdb-reader-muted) 85%, var(--jpdb-reader-surface));
+  border-color: var(--jpdb-reader-border) !important;
+  color: var(--jpdb-reader-muted) !important;
+  opacity: 0.82 !important;
 }
 .jpdb-reader-fab-over-video:not(:hover):not(:focus-visible) {
   opacity: 0.68 !important;
   transform: translate3d(0, 6px, 0) scale(0.92) !important;
 }
 .jpdb-reader-fab.jpdb-reader-fab-dragging {
-  opacity: 1 !important;
   will-change: transform !important;
+}
+.jpdb-reader-fab.jpdb-reader-fab--menu-open {
+  z-index: 2147483647 !important; /* above the radial layer so it stays the hub */
+  box-shadow:
+    0 8px 22px color-mix(in srgb, var(--jpdb-reader-shadow) 80%, transparent),
+    0 0 0 4px color-mix(in srgb, var(--jpdb-reader-fab-tone) 22%, transparent) !important;
 }
 
 /* Jiten Reader parity: with "Hide styling on JPDB-redundant words" enabled,
@@ -2339,106 +2437,10 @@ html.jpdb-reader-suppress-redundant .jpdb-reader-word.jpdb-redundant {
 }
 
 /* ── Puck radial menu ──────────────────────────────────────────────────────
-   A context menu that blooms out of the puck. Visual language mirrors the
-   kanji origin-graph: accent-haloed circular nodes, soft elevation, springy
-   scale-in, color-mix tints. */
-
-/* Puck states while the menu is engaged. */
-.jpdb-reader-fab.jpdb-reader-fab--menu-open {
-  z-index: 2147483647 !important; /* above the backdrop so it stays a bright hub */
-  opacity: 1 !important;
-  border-color: var(--jpdb-reader-accent) !important;
-  color: var(--jpdb-reader-accent-readable) !important;
-  box-shadow: 0 12px 34px var(--jpdb-reader-shadow), 0 0 0 3px color-mix(in srgb, var(--jpdb-reader-accent) 32%, transparent) !important;
-  transform: translate3d(0, 0, 0) scale(1.06) !important;
-}
-/* The three power states form a green → amber → grey traffic light so on/off
-   reads instantly, not from a subtle badge alone (1.6.99: "on" and furigana-off
-   looked identical). Everything on → vivid GREEN ring + solid green dot. */
-.jpdb-reader-fab.jpdb-reader-fab--on {
-  opacity: 0.72 !important;
-  border-color: var(--jpdb-reader-accent) !important;
-  box-shadow:
-    0 10px 28px var(--jpdb-reader-shadow),
-    0 0 0 2px color-mix(in srgb, var(--jpdb-reader-accent) 18%, transparent) !important;
-}
-.jpdb-reader-fab.jpdb-reader-fab--on::after {
-  content: '' !important;
-  opacity: 1 !important;
-  transform: scale(1) !important;
-  inline-size: 13px !important;
-  block-size: 13px !important;
-  min-inline-size: 13px !important;
-  min-block-size: 13px !important;
-  right: 0 !important;
-  bottom: 0 !important;
-  background: var(--jpdb-reader-accent) !important;
-  border: 2px solid var(--jpdb-reader-surface) !important;
-}
-/* Annotations on, furigana hidden → AMBER (a hue clearly apart from the green
-   "on" state) with a struck-through ふ, so "reader live but furigana off" never
-   reads as fully on. */
-.jpdb-reader-fab.jpdb-reader-fab--no-furigana {
-  opacity: 0.72 !important;
-  border-color: var(--jpdb-reader-grade-something) !important;
-  box-shadow:
-    0 10px 28px var(--jpdb-reader-shadow),
-    0 0 0 2px color-mix(in srgb, var(--jpdb-reader-grade-something) 18%, transparent) !important;
-}
-.jpdb-reader-fab.jpdb-reader-fab--no-furigana::after {
-  content: 'ふ' !important;
-  opacity: 1 !important;
-  transform: scale(1) !important;
-  font-size: 12px !important;
-  background: var(--jpdb-reader-grade-something) !important;
-  color: var(--jpdb-reader-accent-text) !important;
-  border-color: var(--jpdb-reader-surface) !important;
-  text-decoration: line-through !important;
-  text-decoration-thickness: 2px !important;
-}
-.jpdb-reader-fab.jpdb-reader-fab--no-furigana::before {
-  opacity: 0 !important;
-}
-/* Annotations paused → drain to grey + dashed ring + pause glyph so "off" is
-   unmistakable and carries no accent glow. */
-.jpdb-reader-fab.jpdb-reader-fab--paused {
-  filter: grayscale(1) !important;
-  opacity: 0.68 !important;
-  border-style: dashed !important;
-  box-shadow: 0 8px 20px var(--jpdb-reader-shadow) !important;
-}
-.jpdb-reader-fab.jpdb-reader-fab--paused::after {
-  content: 'II' !important;
-  opacity: 1 !important;
-  transform: scale(1) !important;
-  font-size: 11px !important;
-  line-height: 1 !important;
-  /* No trailing letter-spacing — it pushed the 'II' left of the badge centre.
-     A hair of indent balances the glyph pair inside the flex-centred box. */
-  text-indent: 0.06em !important;
-  background: color-mix(in srgb, var(--jpdb-reader-muted) 78%, var(--jpdb-reader-surface)) !important;
-  color: var(--jpdb-reader-surface) !important;
-}
-.jpdb-reader-fab.jpdb-reader-fab--paused:hover,
-.jpdb-reader-fab.jpdb-reader-fab--paused:focus-visible {
-  filter: grayscale(0.7) !important;
-  opacity: 0.85 !important;
-}
-/* Interaction — hover, keyboard focus, an open radial menu, or a drag — brings
-   the puck to full opacity for a crisp read, overriding the recessive resting
-   opacity of the --on/--no-furigana state rules above. Those state rules have
-   equal specificity, so this must come after them; the :hover/:focus variants
-   are pinned to the state class so they also outrank by specificity. --paused
-   keeps its own dimmer :hover rule above. */
-.jpdb-reader-fab.jpdb-reader-fab--on:hover,
-.jpdb-reader-fab.jpdb-reader-fab--on:focus-visible,
-.jpdb-reader-fab.jpdb-reader-fab--no-furigana:hover,
-.jpdb-reader-fab.jpdb-reader-fab--no-furigana:focus-visible,
-.jpdb-reader-fab.jpdb-reader-fab--menu-open,
-.jpdb-reader-fab.jpdb-reader-fab-dragging {
-  opacity: 1 !important;
-}
-
+   Icon-only discs on a quarter arc, drawn from the shared menu icon set. Each
+   disc takes its tone (on / partly on / off); the power disc is larger, wears a
+   ring in its state colour and keeps its state label visible, so the current
+   reading state reads at a glance on touch screens too. */
 .jpdb-reader-fab-radial {
   position: fixed !important;
   inset: 0 !important;
@@ -2449,26 +2451,10 @@ html.jpdb-reader-suppress-redundant .jpdb-reader-word.jpdb-redundant {
   background: transparent !important;
   pointer-events: auto !important;
 }
-/* Independent scrim so the items keep full opacity while the page dims. */
-.jpdb-reader-fab-radial::before {
-  content: '' !important;
-  position: fixed !important;
-  inset: 0 !important;
-  background: color-mix(in srgb, var(--jpdb-reader-background, #15171c) 34%, transparent) !important;
-  -webkit-backdrop-filter: blur(2px) saturate(0.92) !important;
-  backdrop-filter: blur(2px) saturate(0.92) !important;
-  opacity: 0 !important;
-  transition: opacity 220ms ease !important;
-  pointer-events: none !important;
-}
-.jpdb-reader-fab-radial.is-open::before {
-  opacity: 1 !important;
-}
-.jpdb-reader-fab-radial.is-closing::before {
-  opacity: 0 !important;
-}
 
 .jpdb-reader-fab-radial-item {
+  --jpdb-reader-radial-tone: var(--jpdb-reader-border);
+  --jpdb-reader-radial-scale: 1;
   position: absolute !important;
   display: inline-flex !important;
   align-items: center !important;
@@ -2484,83 +2470,90 @@ html.jpdb-reader-suppress-redundant .jpdb-reader-word.jpdb-redundant {
   border-radius: 50% !important;
   background: var(--jpdb-reader-surface) !important;
   color: var(--jpdb-reader-text) !important;
-  box-shadow: 0 9px 24px color-mix(in srgb, var(--jpdb-reader-shadow) 78%, transparent) !important;
-  font: 700 13px/1 var(--jpdb-reader-font) !important;
+  box-shadow:
+    0 1px 2px color-mix(in srgb, var(--jpdb-reader-shadow) 50%, transparent),
+    0 6px 18px color-mix(in srgb, var(--jpdb-reader-shadow) 70%, transparent) !important;
+  font: 600 13px/1 var(--jpdb-reader-font) !important;
   cursor: pointer !important;
+  -webkit-tap-highlight-color: transparent !important;
   /* Start collapsed at the hub; the .is-open parent springs each item out. */
   transform: translate(-50%, -50%) scale(0.2) !important;
   opacity: 0 !important;
   transition:
-    transform 280ms cubic-bezier(0.34, 1.42, 0.5, 1),
-    opacity 200ms ease,
-    box-shadow 0.16s ease,
-    border-color 0.16s ease,
-    background-color 0.16s ease,
-    color 0.16s ease !important;
+    transform 260ms cubic-bezier(0.3, 1.3, 0.5, 1),
+    opacity 180ms ease,
+    box-shadow 0.14s ease,
+    border-color 0.14s ease,
+    background-color 0.14s ease,
+    color 0.14s ease !important;
   transition-delay: 0ms !important;
 }
 .jpdb-reader-fab-radial.is-open .jpdb-reader-fab-radial-item {
-  transform: translate(calc(-50% + var(--radial-x, 0px)), calc(-50% + var(--radial-y, 0px))) scale(1) !important;
+  transform: translate(calc(-50% + var(--radial-x, 0px)), calc(-50% + var(--radial-y, 0px))) scale(var(--jpdb-reader-radial-scale)) !important;
   opacity: 1 !important;
-  transition-delay: calc(var(--radial-i, 0) * 28ms) !important;
+  transition-delay: calc(var(--radial-i, 0) * 24ms) !important;
 }
 .jpdb-reader-fab-radial.is-closing .jpdb-reader-fab-radial-item {
   transform: translate(-50%, -50%) scale(0.2) !important;
   opacity: 0 !important;
   transition:
-    transform 170ms cubic-bezier(0.4, 0, 1, 1),
-    opacity 150ms ease !important;
+    transform 160ms cubic-bezier(0.4, 0, 1, 1),
+    opacity 140ms ease !important;
   transition-delay: 0ms !important;
 }
 
-.jpdb-reader-fab-radial-item:hover,
-.jpdb-reader-fab-radial-item:focus-visible {
-  outline: none !important;
-  border-color: var(--jpdb-reader-accent) !important;
-  color: var(--jpdb-reader-accent-readable) !important;
-  box-shadow:
-    0 14px 32px color-mix(in srgb, var(--jpdb-reader-shadow) 88%, transparent),
-    0 0 0 3px color-mix(in srgb, var(--jpdb-reader-accent) 26%, transparent) !important;
-}
-.jpdb-reader-fab-radial.is-open .jpdb-reader-fab-radial-item:hover,
-.jpdb-reader-fab-radial.is-open .jpdb-reader-fab-radial-item:focus-visible {
-  transform: translate(calc(-50% + var(--radial-x, 0px)), calc(-50% + var(--radial-y, 0px))) scale(1.1) !important;
-}
-
-/* Primary action (the on/off power toggle): a touch larger with an accent ring. */
-.jpdb-reader-fab-radial-item.is-primary {
-  inline-size: 50px !important;
-  block-size: 50px !important;
-  min-width: 50px !important;
-  width: 50px !important;
-  height: 50px !important;
-}
-
-/* Toggle state colouring. */
+/* Tones. "On" tints the disc and draws the icon in the readable accent; "partly
+   on" does the same in amber with a text-strength icon for contrast; "off" keeps
+   a plain disc with a receded icon. */
 .jpdb-reader-fab-radial-item.is-on {
-  border-color: var(--jpdb-reader-accent) !important;
-  background: color-mix(in srgb, var(--jpdb-reader-accent) 24%, var(--jpdb-reader-surface)) !important;
+  --jpdb-reader-radial-tone: var(--jpdb-reader-accent);
+  border-color: color-mix(in srgb, var(--jpdb-reader-accent) 48%, var(--jpdb-reader-border)) !important;
+  background: color-mix(in srgb, var(--jpdb-reader-accent) 14%, var(--jpdb-reader-surface)) !important;
   color: var(--jpdb-reader-accent-readable) !important;
 }
 .jpdb-reader-fab-radial-item.is-partial {
-  border-color: color-mix(in srgb, var(--jpdb-reader-grade-something) 76%, var(--jpdb-reader-border)) !important;
+  --jpdb-reader-radial-tone: var(--jpdb-reader-grade-something);
+  border-color: color-mix(in srgb, var(--jpdb-reader-grade-something) 60%, var(--jpdb-reader-border)) !important;
   background: color-mix(in srgb, var(--jpdb-reader-grade-something) 16%, var(--jpdb-reader-surface)) !important;
-  /* Readable theme text, not amber-on-amber (which fell to ~1.78:1 in light theme). */
-  color: var(--jpdb-reader-text) !important;
-  box-shadow:
-    0 9px 24px color-mix(in srgb, var(--jpdb-reader-shadow) 78%, transparent),
-    inset 0 0 0 2px color-mix(in srgb, var(--jpdb-reader-grade-something) 18%, transparent) !important;
+  color: color-mix(in srgb, var(--jpdb-reader-grade-something) 45%, var(--jpdb-reader-text)) !important;
 }
 .jpdb-reader-fab-radial-item.is-off {
-  filter: grayscale(1) !important;
-  color: color-mix(in srgb, var(--jpdb-reader-text) 62%, transparent) !important;
+  --jpdb-reader-radial-tone: color-mix(in srgb, var(--jpdb-reader-muted) 70%, var(--jpdb-reader-border));
+  color: var(--jpdb-reader-muted) !important;
 }
 .jpdb-reader-fab-radial-item.is-disabled {
   opacity: 0.4 !important;
-  filter: grayscale(1) !important;
   cursor: default !important;
   pointer-events: none !important;
-  box-shadow: 0 6px 16px color-mix(in srgb, var(--jpdb-reader-shadow) 60%, transparent) !important;
+}
+
+/* The power disc: larger, ringed in its state colour, label always shown. */
+.jpdb-reader-fab-radial-item.is-primary {
+  inline-size: 52px !important;
+  block-size: 52px !important;
+  min-width: 52px !important;
+  width: 52px !important;
+  height: 52px !important;
+  border: 2px solid var(--jpdb-reader-radial-tone) !important;
+  box-shadow:
+    0 6px 18px color-mix(in srgb, var(--jpdb-reader-shadow) 70%, transparent),
+    0 0 0 4px color-mix(in srgb, var(--jpdb-reader-radial-tone) 20%, transparent) !important;
+}
+
+/* Hover lifts every disc; only a disc with no state takes the accent ring, so a
+   toned ring always names the state under the pointer. */
+.jpdb-reader-fab-radial-item:hover {
+  --jpdb-reader-radial-scale: 1.06;
+}
+.jpdb-reader-fab-radial-item:not(.is-primary, .is-on, .is-partial, .is-off):hover {
+  border-color: var(--jpdb-reader-accent) !important;
+}
+.jpdb-reader-fab-radial-item:focus-visible {
+  outline: 2px solid var(--jpdb-reader-accent) !important;
+  outline-offset: 3px !important;
+}
+.jpdb-reader-fab-radial-item:active {
+  --jpdb-reader-radial-scale: 0.95;
 }
 
 .jpdb-reader-fab-radial-icon {
@@ -2570,35 +2563,51 @@ html.jpdb-reader-suppress-redundant .jpdb-reader-word.jpdb-redundant {
   pointer-events: none !important;
 }
 .jpdb-reader-fab-radial-icon svg {
+  display: block !important;
+  inline-size: 20px !important;
+  block-size: 20px !important;
+  width: 20px !important;
+  height: 20px !important;
+}
+.jpdb-reader-fab-radial-item.is-primary .jpdb-reader-fab-radial-icon svg {
   inline-size: 22px !important;
+  block-size: 22px !important;
   width: 22px !important;
   height: 22px !important;
-  display: block !important;
-}
-.jpdb-reader-fab-radial-icon.is-glyph {
-  font: 700 22px/1 var(--jpdb-reader-font) !important;
 }
 
-/* Per-item label — a pill above the node, revealed only for the focused/hovered
-   item so the ring of icons stays uncluttered and labels never collide with the
-   node beneath them. */
+/* Labels: a pill above the disc, shown for the hovered or focused item and
+   always for the power disc. The pill sits on the side facing the open screen. */
 .jpdb-reader-fab-radial-label {
   position: absolute !important;
-  bottom: calc(100% + 8px) !important;
+  bottom: calc(100% + 10px) !important;
   top: auto !important;
   left: 50% !important;
   transform: translate(-50%, 4px) !important;
-  padding: 3px 8px !important;
-  border-radius: 7px !important;
+  padding: 4px 9px !important;
+  border-radius: 8px !important;
   background: var(--jpdb-reader-surface) !important;
   color: var(--jpdb-reader-text) !important;
   border: 1px solid var(--jpdb-reader-border) !important;
-  box-shadow: 0 6px 16px color-mix(in srgb, var(--jpdb-reader-shadow) 70%, transparent) !important;
-  font: 600 12px/1.2 var(--jpdb-reader-font) !important;
+  box-shadow: 0 4px 14px color-mix(in srgb, var(--jpdb-reader-shadow) 60%, transparent) !important;
+  font: 600 12px/1.25 var(--jpdb-reader-font) !important;
   white-space: nowrap !important;
   opacity: 0 !important;
   pointer-events: none !important;
   transition: opacity 0.14s ease, transform 0.14s ease !important;
+}
+.jpdb-reader-fab-radial[data-fan-x="left"] .jpdb-reader-fab-radial-item.is-primary .jpdb-reader-fab-radial-label {
+  left: auto !important;
+  right: -4px !important;
+  transform: translateY(4px) !important;
+}
+.jpdb-reader-fab-radial[data-fan-x="right"] .jpdb-reader-fab-radial-item.is-primary .jpdb-reader-fab-radial-label {
+  left: -4px !important;
+  transform: translateY(4px) !important;
+}
+.jpdb-reader-fab-radial[data-fan-y="down"] .jpdb-reader-fab-radial-item.is-primary .jpdb-reader-fab-radial-label {
+  top: calc(100% + 10px) !important;
+  bottom: auto !important;
 }
 /* Lift the hovered node (and its label) above the surrounding ring. */
 .jpdb-reader-fab-radial.is-open .jpdb-reader-fab-radial-item:hover,
@@ -2610,14 +2619,31 @@ html.jpdb-reader-suppress-redundant .jpdb-reader-word.jpdb-redundant {
   opacity: 1 !important;
   transform: translate(-50%, 0) !important;
 }
+.jpdb-reader-fab-radial.is-open .jpdb-reader-fab-radial-item.is-primary .jpdb-reader-fab-radial-label {
+  opacity: 1 !important;
+  transform: none !important;
+}
+/* One label at a time: the power disc's state label steps aside while a
+   neighbour shows its own in the same slot above the arc. */
+.jpdb-reader-fab-radial.is-open:has(.jpdb-reader-fab-radial-item:not(.is-primary):is(:hover, :focus-visible)) .jpdb-reader-fab-radial-item.is-primary .jpdb-reader-fab-radial-label {
+  opacity: 0 !important;
+}
 
 @media (prefers-reduced-motion: reduce) {
+  .jpdb-reader-fab,
   .jpdb-reader-fab-radial-item,
   .jpdb-reader-fab-radial.is-open .jpdb-reader-fab-radial-item,
   .jpdb-reader-fab-radial.is-closing .jpdb-reader-fab-radial-item,
-  .jpdb-reader-fab-radial::before {
+  .jpdb-reader-fab-radial-label {
     transition-duration: 0.01ms !important;
     transition-delay: 0ms !important;
+  }
+  .jpdb-reader-fab-radial-item:hover,
+  .jpdb-reader-fab-radial-item:active {
+    --jpdb-reader-radial-scale: 1;
+  }
+  .jpdb-reader-fab:active {
+    transform: translate3d(0, 0, 0) !important;
   }
 }
 

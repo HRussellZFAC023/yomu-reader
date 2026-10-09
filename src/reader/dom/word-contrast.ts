@@ -1,4 +1,4 @@
-import { CORE_COLOR_TOKENS, PAGE_WORD_COLOR_TOKENS } from '../theme/color-tokens';
+import { CORE_COLOR_TOKENS, DEFAULT_WORD_COLOR_TOKENS, PAGE_STATE_UNDERLINE_COLOR_TOKENS, PAGE_WORD_COLOR_TOKENS } from '../theme/color-tokens';
 import { blendRgba, contrastRatio, cssColorToHex, cssColorToRgba, mixHex, readableOn, readableOnAll, rgbaToHex, type RgbaColor } from '../theme/color-utils';
 import { probePageBackground, type PageBackground, type ProbedPageBackground } from './page-background';
 import { RENDERED_WORD_CONTRAST_VARS, RENDERED_WORD_CONTRAST_VARS_WITHOUT_SHADOW } from './rendered-word-contrast-vars';
@@ -9,6 +9,12 @@ const YOMU_SURFACE_SELECTOR = '[data-jpdb-reader-root], .jpdb-ocr-layer, .jpdb-s
 const TEXT_CONTRAST = 4.5;
 const DECORATION_CONTRAST = 3;
 const HIGHLIGHT_CONTRAST = 1.45;
+// How far a reading eases from the prose ink toward the backdrop. Readings are
+// text, so the result is still held at TEXT_CONTRAST.
+const FURIGANA_INK_EASE = 0.3;
+const FURIGANA_COLOR_VAR = '--jpdb-reader-furi-color';
+const FURIGANA_WORD_SELECTOR = '.jpdb-reader-has-furi, .jpdb-reader-detached-reading-word';
+const LINK_SELECTOR = 'a[href]';
 const PASSIVE_CHROME_SELECTOR = 'button, [role="button"], [role="tab"], summary, label, .jpdb-reader-control-text-mirror, [data-jpdb-reader-passive-chrome="true"]';
 const COLORED_READER_WORD_CLASSES = new Set([
     'jpdb-new',
@@ -37,7 +43,7 @@ const COLORED_READER_WORD_CLASSES = new Set([
 // every status wash against the sampled backdrop, so that one var has to
 // survive the clear even for words we otherwise leave alone.
 const NEUTRAL_CLEARED_CONTRAST_VARS = RENDERED_WORD_CONTRAST_VARS.filter(
-    name => name !== '--jpdb-reader-highlight-backdrop',
+    name => name !== '--jpdb-reader-highlight-backdrop' && name !== '--jpdb-reader-furi-color',
 );
 const pendingHoverContrastRefresh = new WeakSet<HTMLElement>();
 const appliedContrastState = new WeakMap<HTMLElement, {
@@ -73,6 +79,7 @@ interface ReaderWordContrastPlan {
     neutralWords: HTMLElement[];
     neutralPageWords: HTMLElement[];
     neutralPageBackgrounds: PageBackground[];
+    furiganaColor: FuriganaColorReader;
 }
 
 function readerWordContrastPlan(words: HTMLElement[]): ReaderWordContrastPlan {
@@ -84,6 +91,7 @@ function readerWordContrastPlan(words: HTMLElement[]): ReaderWordContrastPlan {
         neutralWords: [],
         neutralPageWords: [],
         neutralPageBackgrounds: [],
+        furiganaColor: furiganaColorReader(),
     };
     // probePageBackground walks the word's ancestors calling getComputedStyle on
     // each — identical for every word under the same parent. Memoize per parent
@@ -279,13 +287,17 @@ function applyReaderWordContrastPlan(
     measurements: WordContrastMeasurement[],
 ): void {
     plan.neutralWords.forEach(word => clearContrastVars(word));
-    plan.neutralPageWords.forEach((word, index) => applyNeutralPageBackdrop(word, plan.neutralPageBackgrounds[index]));
+    plan.neutralPageWords.forEach((word, index) => {
+        applyNeutralPageBackdrop(word, plan.neutralPageBackgrounds[index]);
+        applyFuriganaColor(word, plan.neutralPageBackgrounds[index].hex, plan.furiganaColor);
+    });
     plan.unknownBackgroundWords.forEach((word, index) => applyUnknownBackgroundFallback(word, plan.unknownBackgrounds[index]));
     plan.activeWords.forEach((word, index) => {
         savedVars[index].forEach(({ name, value, priority }) => {
             if (value) word.style.setProperty(name, value, priority);
         });
         applyWordContrastVars(word, plan.activeBackgrounds[index], measurements[index]);
+        applyFuriganaColor(word, plan.activeBackgrounds[index].hex, plan.furiganaColor);
         appliedContrastState.set(word, {
             background: plan.activeBackgrounds[index].css,
             className: word.className,
@@ -334,7 +346,7 @@ function applyWordContrastVars(word: HTMLElement, background: PageBackground, m:
 
     word.style.setProperty('--jpdb-reader-word-highlight-text', readableOnAll(nativeText, textBackgrounds, TEXT_CONTRAST));
     word.style.setProperty('--jpdb-reader-word-accessible-color', readableOnAll(textSource, textBackgrounds, TEXT_CONTRAST));
-    if (decoration) word.style.setProperty('--jpdb-reader-word-accessible-underline', readableOn(decoration, accessibleHex, DECORATION_CONTRAST));
+    if (decoration) word.style.setProperty('--jpdb-reader-word-accessible-underline', readableOn(pageUnderlineSeed(decoration, accessibleHex), accessibleHex, DECORATION_CONTRAST));
     else word.style.removeProperty('--jpdb-reader-word-accessible-underline');
 }
 
@@ -447,6 +459,19 @@ function readerWords(root: ParentNode): HTMLElement[] {
     return [...words];
 }
 
+const DEFAULT_STATE_BY_SEED = new Map<string, keyof typeof DEFAULT_WORD_COLOR_TOKENS>(
+    Object.entries(DEFAULT_WORD_COLOR_TOKENS).map(([state, seed]) => [seed, state as keyof typeof DEFAULT_WORD_COLOR_TOKENS]),
+);
+
+// A study-state underline still on its default seed takes the ink-and-paper
+// token for this backdrop (theme/color-tokens.ts); any other colour is the
+// learner's, held at 3:1 by the caller.
+function pageUnderlineSeed(color: string, backdrop: string): string {
+    const state = DEFAULT_STATE_BY_SEED.get(color);
+    if (!state) return color;
+    return PAGE_STATE_UNDERLINE_COLOR_TOKENS[bestTextColor(backdrop) === CORE_COLOR_TOKENS.white ? 'dark' : 'light'][state];
+}
+
 function bestTextColor(background: string): string {
     return contrastRatio(CORE_COLOR_TOKENS.black, background) >= contrastRatio(CORE_COLOR_TOKENS.white, background)
         ? CORE_COLOR_TOKENS.black
@@ -484,4 +509,52 @@ function applyNeutralPageBackdrop(word: HTMLElement, background: PageBackground)
 
 function clearContrastVars(word: HTMLElement): void {
     RENDERED_WORD_CONTRAST_VARS.forEach(name => word.style.removeProperty(name));
+}
+
+/**
+ * One quiet colour for every reading on a page: the ink of the prose the word
+ * sits in (the nearest ancestor outside any link, so a linked word's reading
+ * is not blue), eased toward the sampled backdrop and held at 4.5:1. Readings
+ * are text; muted must never mean unreadable.
+ */
+function applyFuriganaColor(word: HTMLElement, backdropHex: string, furiganaColor: FuriganaColorReader): void {
+    if (!word.matches(FURIGANA_WORD_SELECTOR)) {
+        if (word.style.getPropertyValue(FURIGANA_COLOR_VAR)) word.style.removeProperty(FURIGANA_COLOR_VAR);
+        return;
+    }
+    const color = furiganaColor(word, backdropHex);
+    if (word.style.getPropertyValue(FURIGANA_COLOR_VAR) !== color) word.style.setProperty(FURIGANA_COLOR_VAR, color);
+}
+
+type FuriganaColorReader = (word: HTMLElement, backdropHex: string) => string;
+
+// Memoized for one pass, like the backdrop probe: a paragraph of readings
+// costs one computed-style read and one contrast solve, not one per word.
+function furiganaColorReader(): FuriganaColorReader {
+    const inkByProse = new Map<Element, string>();
+    const colorByInk = new Map<string, string>();
+    return (word, backdropHex) => {
+        const prose = proseElementFor(word);
+        let ink = inkByProse.get(prose);
+        if (ink === undefined) {
+            ink = getComputedStyle(prose).color;
+            inkByProse.set(prose, ink);
+        }
+        const key = `${ink}|${backdropHex}`;
+        let color = colorByInk.get(key);
+        if (color === undefined) {
+            const opaqueInk = cssColorToHex(ink, cssColorToRgba(backdropHex) ?? undefined) ?? bestTextColor(backdropHex);
+            color = readableOn(mixHex(opaqueInk, backdropHex, FURIGANA_INK_EASE), backdropHex, TEXT_CONTRAST);
+            colorByInk.set(key, color);
+        }
+        return color;
+    };
+}
+
+function proseElementFor(word: HTMLElement): Element {
+    let element: Element = word.parentElement ?? word;
+    for (let link = element.closest(LINK_SELECTOR); link?.parentElement; link = link.parentElement.closest(LINK_SELECTOR)) {
+        element = link.parentElement;
+    }
+    return element;
 }

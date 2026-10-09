@@ -235,8 +235,11 @@ html.jpdb-subtitle-yt-sheet-open .jpdb-subtitle-player:not(.jpdb-subtitle-fullsc
 ) {
   font-size: inherit !important;
 }
+/* Captions over footage keep their larger, bold reading; on-page readings
+   are half-size and regular (reader-words-ocr.css). */
 .jpdb-subtitle-primary .jpdb-reader-furi {
   font-size: .58em !important;
+  font-weight: 700;
 }
 .jpdb-subtitle-primary:empty {
   display: none;
@@ -721,15 +724,7 @@ html.jpdb-subtitle-yt-sheet-open .jpdb-subtitle-player:not(.jpdb-subtitle-fullsc
 }
 
 :is(.jpdb-reader-theme-light, .yomu-page-theme-light) .jpdb-reader-subtitle-preview {
-  background:
-    linear-gradient(
-      135deg,
-      color-mix(in srgb, var(--jpdb-reader-accent) 10%, transparent) 25%,
-      transparent 25% 50%,
-      color-mix(in srgb, var(--jpdb-reader-accent) 10%, transparent) 50% 75%,
-      transparent 75%
-    ) 0 0 / 28px 28px,
-    color-mix(in srgb, var(--jpdb-reader-surface-2) 62%, var(--jpdb-reader-bg));
+  background: color-mix(in srgb, var(--jpdb-reader-surface-2) 62%, var(--jpdb-reader-bg));
   color: color-mix(in srgb, var(--jpdb-reader-text) 84%, var(--subtitle-color));
 }
 .jpdb-reader-subtitle-preview .jpdb-subtitle-primary {
@@ -923,12 +918,12 @@ html.jpdb-subtitle-yt-sheet-open .jpdb-subtitle-player:not(.jpdb-subtitle-fullsc
 .jpdb-subtitle-rail-move { cursor: grab; touch-action: none; }
 .jpdb-subtitle-rail-dragging .jpdb-subtitle-rail-move { cursor: grabbing; }
 .jpdb-subtitle-controls-always .jpdb-subtitle-rail-move {
-  border-color: color-mix(in srgb, var(--jpdb-reader-accent) 50%, var(--jpdb-reader-border));
-  background: color-mix(in srgb, var(--jpdb-reader-accent) 18%, var(--jpdb-reader-surface));
+  border-color: color-mix(in srgb, var(--jpdb-reader-text) 50%, var(--jpdb-reader-border));
+  background: color-mix(in srgb, var(--jpdb-reader-text) 18%, var(--jpdb-reader-surface));
 }
 .jpdb-subtitle-panel-toggle {
-  border-color: color-mix(in srgb, var(--jpdb-reader-accent) 50%, var(--jpdb-reader-border)) !important;
-  background: color-mix(in srgb, var(--jpdb-reader-accent) 18%, var(--jpdb-reader-surface)) !important;
+  border-color: color-mix(in srgb, var(--jpdb-reader-text) 50%, var(--jpdb-reader-border)) !important;
+  background: color-mix(in srgb, var(--jpdb-reader-text) 18%, var(--jpdb-reader-surface)) !important;
 }
 .jpdb-subtitle-ocr-trigger.jpdb-subtitle-ocr-active {
   border-color: color-mix(in srgb, var(--jpdb-reader-accent) 42%, var(--jpdb-reader-border));
@@ -1014,7 +1009,7 @@ html.jpdb-subtitle-yt-sheet-open .jpdb-subtitle-player:not(.jpdb-subtitle-fullsc
   grid-column: 1 / -1;
   width: 100%;
   min-height: 28px;
-  accent-color: var(--jpdb-reader-accent);
+  accent-color: var(--jpdb-reader-text);
 }
 .jpdb-subtitle-style-select select {
   grid-column: 1 / -1;
@@ -1040,7 +1035,7 @@ html.jpdb-subtitle-yt-sheet-open .jpdb-subtitle-player:not(.jpdb-subtitle-fullsc
   width: 18px;
   height: 18px;
   margin: 0;
-  accent-color: var(--jpdb-reader-accent);
+  accent-color: var(--jpdb-reader-text);
 }
 .jpdb-subtitle-rail .jpdb-subtitle-style-reset {
   width: 100%;
@@ -1050,8 +1045,8 @@ html.jpdb-subtitle-yt-sheet-open .jpdb-subtitle-player:not(.jpdb-subtitle-fullsc
   max-height: 34px;
   justify-self: stretch;
   padding: 0 12px;
-  border-color: color-mix(in srgb, var(--jpdb-reader-accent) 36%, var(--jpdb-reader-border));
-  background: color-mix(in srgb, var(--jpdb-reader-accent) 10%, var(--jpdb-reader-surface)) !important;
+  border-color: color-mix(in srgb, var(--jpdb-reader-text) 36%, var(--jpdb-reader-border));
+  background: color-mix(in srgb, var(--jpdb-reader-text) 10%, var(--jpdb-reader-surface)) !important;
   color: var(--jpdb-reader-text);
 }
 .jpdb-subtitle-rail button[hidden] {
@@ -1119,8 +1114,9 @@ html.jpdb-subtitle-yt-sheet-open .jpdb-subtitle-player:not(.jpdb-subtitle-fullsc
   grid-template-rows: auto minmax(0, 1fr);
   container-type: inline-size;
   border: 1px solid color-mix(in srgb, var(--jpdb-reader-border) 88%, var(--jpdb-reader-video-grid-line));
-  border-radius: 22px;
-  background: color-mix(in srgb, var(--jpdb-reader-bg) 94%, color-mix(in srgb, var(--jpdb-reader-white) 6%, transparent));
+  border-radius: 16px;
+  /* Opaque: page thumbnails and text must never show through the controls. */
+  background: var(--jpdb-reader-surface);
   color: var(--jpdb-reader-text);
   box-shadow: 0 24px 56px var(--jpdb-reader-shadow);
   pointer-events: auto;
@@ -1770,7 +1766,7 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
 /* UT-68a: subtle copied confirmation */
 .jpdb-subtitle-copy-flash {
   position: relative;
-  color: var(--jpdb-reader-accent) !important;
+  color: var(--jpdb-reader-accent-readable) !important;
 }
 .jpdb-subtitle-copy-flash svg { opacity: 0; }
 .jpdb-subtitle-copy-flash::after {
@@ -1935,7 +1931,7 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
   opacity: 0.78;
 }
 .jpdb-subtitle-shadow-context:hover {
-  border-color: var(--jpdb-reader-accent);
+  border-color: var(--jpdb-reader-text);
   color: var(--jpdb-reader-text);
   opacity: 1;
 }
@@ -1984,7 +1980,7 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
 }
 .jpdb-subtitle-shadow-action[aria-pressed="true"] {
   border-color: var(--jpdb-reader-accent);
-  color: var(--jpdb-reader-accent);
+  color: var(--jpdb-reader-accent-readable);
 }
 .jpdb-subtitle-batch-sticky {
   position: relative;
@@ -2044,9 +2040,9 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
 .jpdb-subtitle-batch-row-grades .jpdb-subtitle-batch-grade-button {
   min-height: 30px;
   padding: 0 8px;
-  border-color: color-mix(in srgb, var(--jpdb-reader-accent) 30%, var(--jpdb-reader-border));
+  border-color: color-mix(in srgb, var(--jpdb-reader-text) 30%, var(--jpdb-reader-border));
   color: var(--jpdb-reader-text);
-  background: color-mix(in srgb, var(--jpdb-reader-accent) 10%, var(--jpdb-reader-surface));
+  background: color-mix(in srgb, var(--jpdb-reader-text) 10%, var(--jpdb-reader-surface));
   font: 800 10px/1.15 var(--jpdb-reader-font);
 }
 .jpdb-subtitle-batch-toolbar .jpdb-subtitle-batch-grade-button:disabled {
@@ -2135,9 +2131,9 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
   background: color-mix(in srgb, var(--jpdb-reader-surface) 72%, transparent);
 }
 .jpdb-subtitle-batch-meta .jpdb-subtitle-batch-badge {
-  border-color: color-mix(in srgb, var(--jpdb-reader-accent) 48%, var(--jpdb-reader-border));
-  color: var(--jpdb-reader-accent-readable, var(--jpdb-reader-text));
-  background: var(--jpdb-reader-accent-soft);
+  border-color: color-mix(in srgb, var(--jpdb-reader-text) 48%, var(--jpdb-reader-border));
+  color: var(--jpdb-reader-muted);
+  background: var(--jpdb-reader-hover);
 }
 .jpdb-subtitle-batch-sentence {
   grid-area: sentence;
@@ -2467,7 +2463,7 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
     border-right: 0;
     border-bottom: 0;
     border-left: 0;
-    border-radius: 20px 20px 0 0;
+    border-radius: 16px 16px 0 0;
   }
   .jpdb-subtitle-transcript-bottom .jpdb-subtitle-list-scroll {
     padding-bottom: calc(12px + env(safe-area-inset-bottom));
@@ -2482,6 +2478,18 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
     border-right: 0;
     border-bottom: 0;
     border-left: 0;
-    border-radius: 20px 20px 0 0;
+    border-radius: 16px 16px 0 0;
   }
+
+  /* A phone sheet owns the bottom of the screen, where a puck resting there
+     would sit on its lower rows; it returns when the sheet closes. A puck the
+     learner moved up out of the way stays (floating-button.ts puckRest). */
+  body:has(.jpdb-subtitle-list:not([hidden])) .jpdb-reader-fab[data-puck-rest="bottom"] {
+    display: none !important;
+  }
+}
+
+/* Any bottom sheet, at any width, spans the corner the puck rests in. */
+body:has(.jpdb-subtitle-list.jpdb-subtitle-transcript-bottom:not([hidden])) .jpdb-reader-fab[data-puck-rest="bottom"] {
+  display: none !important;
 }

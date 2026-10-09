@@ -31,7 +31,7 @@ const RETIRED_UCHISEN_EXECUTABLE_SEAM = /\b(?:KANJI_UCHISEN_SOURCE_ID|__kanji_uc
 
 describe('Uchisen retirement contract', () => {
     it('keeps only the explicit outbound lookup hotlink', () => {
-        const link = defaultDictionaryLookupLinks('local', 'ja').find(candidate => candidate.id === 'uchisen');
+        const link = defaultDictionaryLookupLinks('local').find(candidate => candidate.id === 'uchisen');
 
         expect(link).toEqual(expect.objectContaining({
             enabled: false,

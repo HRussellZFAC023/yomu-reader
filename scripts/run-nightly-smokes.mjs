@@ -29,6 +29,7 @@ import path from 'node:path';
 export const NIGHTLY_SMOKES = [
     'smoke:anki',
     'smoke:anki-template',
+    'smoke:annotation-typography',
     'smoke:bookwalker-cty2-scroll',
     'smoke:bookwalker-tap-passthrough',
     'smoke:bookwalker-tap-retry',
@@ -54,11 +55,11 @@ export const NIGHTLY_SMOKES = [
     // models.
     'smoke:modal-reading-register',
     'smoke:ocr-provider-matrix',
-    'smoke:onboarding-popover',
     'smoke:pitch-underline',
     'smoke:pitch-underline:webkit',
     'smoke:popover-headword-furigana',
     'smoke:popup-lifecycle',
+    'smoke:popup-header-phone',
     'smoke:study-personas',
     'smoke:subtitle-network',
     // Live api.tatoeba.org contract. Network-dependent, so it stays out of

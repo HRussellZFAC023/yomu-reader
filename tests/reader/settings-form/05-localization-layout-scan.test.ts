@@ -66,6 +66,42 @@ describe('settings form localization', () => {
         expect(form.querySelector<HTMLFieldSetElement>('fieldset[data-legend-key="audio"]')?.hidden).toBe(true);
     });
 
+    it.each(['en', 'ja'] as const)('keeps every Settings control independently operable in %s', language => {
+        const form = renderSettingsTestForm({ ...DEFAULT_SETTINGS, interfaceLanguage: language });
+        localizeSettingsForm(form, language);
+        const controls = 'a[href], button, input:not([type="hidden"]), select, textarea, [role="button"], summary';
+        for (const outer of form.querySelectorAll('a[href], button, [role="button"], summary')) {
+            expect(outer.querySelector(controls), outer.outerHTML).toBeNull();
+        }
+        for (const label of form.querySelectorAll('label')) {
+            expect(label.querySelector('a[href], button, summary, label'), label.outerHTML).toBeNull();
+            expect(label.querySelectorAll('input:not([type="hidden"]), select, textarea').length, label.outerHTML).toBeLessThanOrEqual(1);
+        }
+        const credential = form.querySelector<HTMLInputElement>('[name="apiCredentialJiten"]')!;
+        expect(credential.labels?.[0]?.textContent).toContain('Jiten');
+        const link = credential.closest('.jpdb-reader-protected-credential')!.querySelector('a')!;
+        expect(link.getAttribute('href')).toBe('https://jiten.moe/settings');
+        expect(link.closest('label')).toBeNull();
+    });
+
+    it('keeps the Study destination in Help without duplicating a launcher in Study settings', () => {
+        const form = renderSettingsTestForm(DEFAULT_SETTINGS);
+        expect(form.querySelector('[name="newTabUrl"], [data-action="copy-newtab-url"], [data-newtab-url-link]')).toBeNull();
+        expect(form.querySelector('[data-help-link="new-tab"]')?.getAttribute('href')).toContain('/study/');
+        expect(form.querySelector('[name="newTabOfflineEnabled"]')).not.toBeNull();
+        expect(form.querySelector('[name="newTabSource"]')).not.toBeNull();
+    });
+
+    it('opens each settings panel at the top after scrolling another panel', () => {
+        const form = renderSettingsTestForm(DEFAULT_SETTINGS);
+        const scroll = form.querySelector<HTMLElement>('.jpdb-reader-settings-scroll')!;
+        activateSettingsPanel(form, 'dictionaries');
+        scroll.scrollTop = 1200;
+        activateSettingsPanel(form, 'appearance');
+        expect(scroll.scrollTop).toBe(0);
+        expect(form.querySelector('[data-settings-panel="appearance"]')?.hasAttribute('hidden')).toBe(false);
+    });
+
     it('uses roving tabs for settings sections', () => {
         const form = document.createElement('form');
         form.innerHTML = renderSettingsForm(DEFAULT_SETTINGS, 'https://jpdb.io/settings');
@@ -161,11 +197,11 @@ describe('settings form localization', () => {
         expect(topLevelLegendsForControl(form, 'twoButtonReviews')).toEqual(['Study']);
         expect(labelForControl(form, 'twoButtonReviews')).toContain('Review rating scale');
         expect(labelForControl(form, 'newTabJpdbReviewMode')).toContain('API review mode');
-        expect(optionText(form, 'newTabSource', 'auto')).toBe('Auto: Academy, accounts, then study words');
+        expect(optionText(form, 'newTabSource', 'auto')).toBe('Automatic');
         expect(optionText(form, 'newTabSource', 'jpdb')).toBe('API SRS (Jiten / JPDB)');
         expect(optionText(form, 'twoButtonReviews', 'true')).toBe('Two point: FAIL / PASS');
         expect(optionText(form, 'twoButtonReviews', 'false')).toBe('Provider default');
-        expect(optionText(form, 'newTabKanjiKeywordSource', 'auto')).toBe('Auto: RTK, then JPDB kanji facts, then local');
+        expect(optionText(form, 'newTabKanjiKeywordSource', 'auto')).toBe('Automatic');
         expect(optionText(form, 'newTabKanjiKeywordSource', 'jpdb')).toBe('JPDB kanji facts (Jiten / JPDB)');
         expect(form.querySelector<HTMLFieldSetElement>('fieldset[data-settings-panel="newTab"]')?.hidden).toBe(true);
         expect(form.querySelector<HTMLButtonElement>('[data-action="settings-panel"][data-panel="newTab"]')).not.toBeNull();
@@ -180,7 +216,7 @@ describe('settings form localization', () => {
 
     it('reads per-state colour opt-out (colorHide-*) checkboxes into wordColorHiddenStateGroups', () => {
         const form = document.createElement('form');
-        form.innerHTML = renderSettingsForm(DEFAULT_SETTINGS, 'https://jpdb.io/settings');
+        form.innerHTML = renderSettingsForm({ ...DEFAULT_SETTINGS, wordColorHiddenStateGroups: [] }, 'https://jpdb.io/settings');
         // The colour subsection renders a "Hide color for" fieldset of state checkboxes.
         expect(form.querySelector('fieldset[data-word-color-hide-groups]')).not.toBeNull();
         const knownBox = form.querySelector<HTMLInputElement>('input[name="colorHide-known"]')!;
@@ -204,7 +240,7 @@ describe('settings form localization', () => {
     // the normalizer would have dropped the value on load even if it had.
     it('offers one hide-color switch for the ignored, suspended and blacklisted family', () => {
         const form = document.createElement('form');
-        form.innerHTML = renderSettingsForm(DEFAULT_SETTINGS, 'https://jpdb.io/settings');
+        form.innerHTML = renderSettingsForm({ ...DEFAULT_SETTINGS, wordColorHiddenStateGroups: [] }, 'https://jpdb.io/settings');
         const ignoredBox = form.querySelector<HTMLInputElement>('input[name="colorHide-ignored"]');
         expect(ignoredBox).not.toBeNull();
         // One switch, not three: the three states share one colour and one picker, so
@@ -384,7 +420,7 @@ describe('settings form localization', () => {
         });
 
         localizeSettingsForm(form, 'en');
-        expect(optionText(form, 'newTabKanjiKeywordSource', 'auto')).toContain('Jiten + JPDB');
+        expect(optionText(form, 'newTabKanjiKeywordSource', 'jpdb')).toContain('Jiten + JPDB');
         expect(settingsText(form, '[data-jpdb-status]')).toContain('Jiten and JPDB');
         expect(settingsText(form, '[data-bunpro-status]')).toContain('saved');
         expect(settingsText(form, '[data-wanikani-status]')).toContain('saved');
@@ -419,15 +455,17 @@ describe('settings form localization', () => {
         expect(DEFAULT_SETTINGS.ankiMobileHandoff).toBe(false);
         expect(DEFAULT_SETTINGS.ankiMineWithJpdb).toBe(false);
         expect(DEFAULT_SETTINGS.popupMode).toBe('auto');
-        expect(DEFAULT_SETTINGS.furiganaMode).toBe('all');
-        expect(DEFAULT_SETTINGS.furiganaHiddenStateGroups).toEqual(['known', 'due', 'failed']);
+        expect(DEFAULT_SETTINGS.furiganaMode).toBe('known-status');
+        // A word the learner just failed keeps its reading (ADR-0026).
+        expect(DEFAULT_SETTINGS.furiganaHiddenStateGroups).toEqual(['known', 'due']);
         expect(DEFAULT_SETTINGS.wordColorStates).toBe('all');
-        // Per-state colour opt-out defaults to empty (colour every state) so existing
-        // installs keep their colouring; normalize drops invalid/duplicate groups.
-        expect(DEFAULT_SETTINGS.wordColorHiddenStateGroups).toEqual([]);
-        expect(normalizeReaderSettings({}).wordColorHiddenStateGroups).toEqual([]);
+        // Known and ignored words stay plain by default (ADR-0026); normalize
+        // drops invalid/duplicate groups and keeps an explicit empty list.
+        expect(DEFAULT_SETTINGS.wordColorHiddenStateGroups).toEqual(['known', 'ignored']);
+        expect(normalizeReaderSettings({}).wordColorHiddenStateGroups).toEqual(['known', 'ignored']);
+        expect(normalizeReaderSettings({ wordColorHiddenStateGroups: [] }).wordColorHiddenStateGroups).toEqual([]);
         expect(normalizeReaderSettings({ wordColorHiddenStateGroups: ['known', 'known', 'bogus', 'due'] as never }).wordColorHiddenStateGroups).toEqual(['known', 'due']);
-        expect(effectiveFuriganaMode(DEFAULT_SETTINGS)).toBe('all');
+        expect(effectiveFuriganaMode(DEFAULT_SETTINGS)).toBe('known-status');
         expect(normalizeReaderSettings({ apiKey: '', jitenApiKey: 'ak_jiten-key', ankiEnabled: false, furiganaMode: 'auto' }).furiganaMode).toBe('auto');
         expect(normalizeReaderSettings({}).ankiEnabled).toBe(false);
         expect(normalizeReaderSettings({}).ankiSectionEnabled).toBe(false);
@@ -440,23 +478,23 @@ describe('settings form localization', () => {
             jpdbDefinitionsEnabled: false,
             jitenDefinitionsEnabled: false,
             localDictionariesEnabled: false,
-            dictionarySourcesInitiallyExpanded: false,
         })).toMatchObject({
             jpdbDefinitionsEnabled: false,
             jitenDefinitionsEnabled: false,
             localDictionariesEnabled: false,
-            dictionarySourcesInitiallyExpanded: false,
         });
         expect(shouldLookupAnkiStatus(DEFAULT_SETTINGS)).toBe(false);
         expect(shouldLookupAnkiStatus({ ...DEFAULT_SETTINGS, ankiSectionEnabled: true })).toBe(false);
         expect(shouldLookupAnkiStatus({ ...DEFAULT_SETTINGS, ankiEnabled: true })).toBe(true);
         expect(effectiveReaderTextColorSource(DEFAULT_SETTINGS, DEFAULT_SETTINGS.wordTextColorSource)).toBe('off');
         expect(effectiveReaderTextColorSource({ ...DEFAULT_SETTINGS, ankiSectionEnabled: true }, 'anki')).toBe('off');
-        expect(effectiveReaderTextColorSource({ ...DEFAULT_SETTINGS, ankiEnabled: true }, DEFAULT_SETTINGS.wordTextColorSource)).toBe('anki');
+        // Text colour is off by default (ADR-0026); a learner who picks Anki gets it once Anki is on.
+        expect(effectiveReaderTextColorSource({ ...DEFAULT_SETTINGS, ankiEnabled: true }, DEFAULT_SETTINGS.wordTextColorSource)).toBe('off');
+        expect(effectiveReaderTextColorSource({ ...DEFAULT_SETTINGS, ankiEnabled: true }, 'anki')).toBe('anki');
         expect(form.querySelector<HTMLInputElement>('input[name="ankiEnabled"]')?.checked).toBe(false);
         const appearancePreset = form.querySelector<HTMLSelectElement>('select[name="appearancePreset"]')!;
         expect(Array.from(appearancePreset.options).map(option => [option.value, option.textContent])).toEqual([
-            ['', 'Keep current custom settings'],
+            ['', 'Custom'],
             ['balanced', 'Balanced reading'],
             ['new-only', 'Focus on new words'],
             ['underline-new', 'Minimal highlights'],
@@ -524,7 +562,6 @@ describe('settings form localization', () => {
             newTabShortcutHintsEnabled: checkboxValue(form, 'newTabShortcutHintsEnabled'),
             showFloatingButton: checkboxValue(form, 'showFloatingButton'),
             audioEnabled: checkboxValue(form, 'audioEnabled'),
-            autoPlayAudio: checkboxValue(form, 'autoPlayAudio'),
             audioEnableDefaultSources: checkboxValue(form, 'audioEnableDefaultSources'),
             audioAutoPlayMode: selectValue(form, 'audioAutoPlayMode'),
             popupMode: selectValue(form, 'popupMode'),
@@ -535,7 +572,6 @@ describe('settings form localization', () => {
             newTabShortcutHintsEnabled: true,
             showFloatingButton: true,
             audioEnabled: true,
-            autoPlayAudio: true,
             audioEnableDefaultSources: true,
             audioAutoPlayMode: 'all',
             popupMode: 'auto',
@@ -652,12 +688,12 @@ describe('settings form localization', () => {
         expect(saved.shortcuts.scanImages).toBe('Ctrl+I');
     });
 
-    it('round-trips explicit page scanning modes', () => {
+    it('round-trips explicit page scanning modes and leaves Yomu off to the puck and toolbar', () => {
         const form = document.createElement('form');
         form.innerHTML = renderSettingsForm(DEFAULT_SETTINGS, 'https://jpdb.io/settings');
 
         expect(radioValue(form, 'pageScanMode')).toBe('auto');
-        expect(labelForControl(form, 'pageScanMode')).toContain('Leave pages unchanged');
+        expect([...form.querySelectorAll<HTMLInputElement>('input[name="pageScanMode"]')].map(input => input.value)).toEqual(['auto', 'manual']);
         expect(form.querySelector<HTMLElement>('[data-page-scan-manual-shortcut]')?.hidden).toBe(true);
 
         form.querySelector<HTMLInputElement>('input[name="pageScanMode"][value="manual"]')!.checked = true;
@@ -665,10 +701,14 @@ describe('settings form localization', () => {
         expect(manual.annotationsPaused).toBe(false);
         expect(manual.manualScanEnabled).toBe(true);
 
-        form.querySelector<HTMLInputElement>('input[name="pageScanMode"][value="off"]')!.checked = true;
-        const off = readFormSettings(new FormData(form), DEFAULT_SETTINGS);
-        expect(off.annotationsPaused).toBe(true);
-        expect(off.manualScanEnabled).toBe(false);
+        const off = { ...DEFAULT_SETTINGS, annotationsPaused: true, manualScanEnabled: true };
+        const offForm = document.createElement('form');
+        offForm.innerHTML = renderSettingsForm(off, 'https://jpdb.io/settings');
+        expect(radioValue(offForm, 'pageScanMode')).toBe('manual');
+        offForm.querySelector<HTMLInputElement>('input[name="pageScanMode"][value="auto"]')!.checked = true;
+        const stillOff = readFormSettings(new FormData(offForm), off);
+        expect(stillOff.annotationsPaused).toBe(true);
+        expect(stillOff.manualScanEnabled).toBe(false);
     });
 
     it('round-trips explicit OCR scanning modes', () => {
@@ -705,14 +745,11 @@ describe('settings form localization', () => {
         expect(saved.ocrOverlayTheme).toBe('dark');
     });
 
-    it('defaults OCR text to white on an accessible accent-derived highlight', () => {
+    it('defaults OCR text to white on an accessible ink highlight', () => {
         expect(BASE_DEFAULT_SETTINGS.ocrTextColor).toBe('#ffffff');
         expect(BASE_DEFAULT_SETTINGS.ocrOutlineColor).toBe('#000000');
         expect(BASE_DEFAULT_SETTINGS.ocrBackgroundOpacity).toBe(0.68);
-        expect(BASE_DEFAULT_SETTINGS.ocrBackgroundColor).toBe(accessibleOcrBackgroundColor(
-            BASE_DEFAULT_SETTINGS.accentColor,
-            BASE_DEFAULT_SETTINGS.ocrBackgroundOpacity,
-        ));
+        expect(BASE_DEFAULT_SETTINGS.ocrBackgroundColor).toBe(accessibleOcrBackgroundColor(BASE_DEFAULT_SETTINGS.ocrBackgroundOpacity));
         expect(contrastRatio(
             compositeOverWhiteHex(accentToRgba(BASE_DEFAULT_SETTINGS.ocrBackgroundColor, BASE_DEFAULT_SETTINGS.ocrBackgroundOpacity)),
             BASE_DEFAULT_SETTINGS.ocrTextColor,
@@ -720,7 +757,9 @@ describe('settings form localization', () => {
             .toBeGreaterThanOrEqual(4.5);
     });
 
-    it('normalizes the OCR background from the current accent color', () => {
+    // The band under recognised text is ink: an accent there (now the brand red)
+    // read as an alert under every line.
+    it('normalizes the OCR background to overlay ink, whatever the accent', () => {
         const settings = normalizeReaderSettings({
             accentColor: '#ffcc00',
             ocrTextColor: '#17202a',
@@ -733,7 +772,10 @@ describe('settings form localization', () => {
         expect(settings.ocrTextColor).toBe('#17202a');
         expect(settings.ocrOutlineColor).toBe('#ffffff');
         expect(settings.ocrBackgroundOpacity).toBe(opacity);
-        expect(settings.ocrBackgroundColor).toBe(accessibleOcrBackgroundColor('#ffcc00', opacity));
+        expect(settings.ocrBackgroundColor).toBe(accessibleOcrBackgroundColor(opacity));
+        expect(settings.ocrBackgroundColor).toBe(normalizeReaderSettings({ accentColor: '#336699', ocrBackgroundOpacity: 0.2 }).ocrBackgroundColor);
+        const [red, green, blue] = [1, 3, 5].map(index => parseInt(settings.ocrBackgroundColor.slice(index, index + 2), 16));
+        expect(Math.max(red, green, blue) - Math.min(red, green, blue)).toBeLessThanOrEqual(12);
     });
 
     it('omits the old paused-frame OCR status card setting', () => {

@@ -1,10 +1,13 @@
+import { STARTER_WORDS } from './starter-words';
 import {
     browseSourceForCard,
     filterBrowseCards,
     renderBrowseChips,
     renderBrowseControls,
+    renderBrowseEmpty,
     renderBrowseList,
     renderBrowseSourceChips,
+    showsBrowseControls,
     sortBrowseCards,
     toggleBrowseChip,
     type BrowseFilter,
@@ -75,7 +78,6 @@ import { dispatchAuthorizedReaderControlClick, isDirectTrustedReaderInteraction 
 import { matchesShortcut } from '../settings/index';
 import {
     activeLearningTarget,
-    activeLearningTargetGeneration,
     activeLearningTargetLanguage,
 } from '../languages/target-runtime';
 import {
@@ -221,7 +223,7 @@ import { NewTabReviewSubmitter } from './review-submitter';
 import { isSessionBunproCard, newTabUndoableReview, requiresFreshProviderReview } from './review-flow-policy';
 import { ReviewDraftResetError, ReviewQueueRejectedError } from './extension-review-queue-client';
 import { syncHeldReviewNotice } from './held-review-notice';
-import { renderNewTabShell } from './shell-view';
+import { renderNewTabAppNavigation, renderNewTabShell } from './shell-view';
 import {
     jpdbDeckMembershipName,
     newTabAnkiDeckSelection,
@@ -657,6 +659,7 @@ export class NewTabController {
     private visibleWords: JPDBCard[] = [];
     private index = 0;
     private sourceLabel = '';
+    private sourceId: NewTabLoadResult['sourceId'];
     private visiblePoolSignature = '';
     // Post-grade refresh coalescing: the graded card is removed locally, so
     // queue accuracy does not need a provider round-trip per grade — a 500-due
@@ -948,6 +951,7 @@ export class NewTabController {
         });
         this.ownsSessionClock = startup.ownsSessionClock;
         this.sessionClock = startup.sessionClock;
+        if (this.ownsSessionClock && !this.hasTimedSession()) this.sessionClock.pause('settings');
         this.sessionProgress = new NewTabSessionProgressTracker({ clock: this.sessionClock });
         this.lastDailyGoalElapsedMs = this.sessionClock.snapshot().elapsedMs;
         this.state = startup.state;
@@ -1046,6 +1050,7 @@ export class NewTabController {
         this.sessionClockControl = undefined;
         delete root.dataset.standaloneNewtab;
         root.dataset.newtabLanguage = this.resolvedLanguage();
+        root.dataset.newtabTimedStudy = String(this.hasTimedSession());
         root.dataset.studySurface = this.options.surface ?? 'standalone';
         root.replaceChildren(this.renderEnabledContent());
         this.syncMode(root);
@@ -1097,6 +1102,7 @@ export class NewTabController {
         return isNew
             || !root.querySelector('[data-newtab-study]')
             || root.dataset.newtabLanguage !== this.resolvedLanguage()
+            || root.dataset.newtabTimedStudy !== String(this.hasTimedSession())
             || root.dataset.standaloneNewtab === 'true';
     }
 
@@ -1278,7 +1284,7 @@ export class NewTabController {
         ].forEach(clear => clear());
     }
 
-    private clearTargetBoundState(): void {
+    private clearLoadedStudyState(): void {
         this.searchController.reset();
         this.clearSourceResultCache();
         this.clearCardBoundState();
@@ -1307,53 +1313,12 @@ export class NewTabController {
         this.visibleWords = [];
         this.index = 0;
         this.sourceLabel = '';
+        this.sourceId = undefined;
         this.visiblePoolSignature = '';
         this.navigationSupplementPromise = null;
         this.reviewCountMode = false;
         this.emptyLoadMessageKey = null;
-        this.clearTargetBoundState();
-    }
-
-    invalidateForTargetChange(): void {
-        this.loadGeneration++;
-        this.navigationGeneration++;
-        this.resetLoadedSourceState();
-        this.state.revealAnswer = false;
-        this.clearTargetBoundState();
-        this.pendingLiveJpdbGrade = null;
-        this.studyActivityRevision += 1;
-        this.studyStepOverride = null;
-        this.pinnedStudyPlan = null;
-        this.invalidateBrowsePool();
-        this.browseSourceFilters.clear();
-        this.browsePage = 0;
-        this.deckSelectorDecks = undefined;
-        this.studyCardDomTokens.clear();
-        this.studyCardsByDomToken.clear();
-        this.offlineReadyKeys.clear();
-        this.offlineWarmSignature = '';
-        this.offlineWarmTotal = 0;
-        this.clearOfflineWarmRetry();
-        this.fallbackStudyNotice = false;
-        this.statsStudyFilter = null;
-        this.listenItem = null;
-        this.listenContrastCard = null;
-        this.listenAudioGeneration++;
-        this.clearListenSpeakingScore();
-        this.clearListenRecording();
-        this.renderAfterTargetInvalidation();
-    }
-
-    private clearOfflineWarmRetry(): void {
-        if (this.offlineWarmRetryTimer === undefined) return;
-        clearTimeout(this.offlineWarmRetryTimer);
-        this.offlineWarmRetryTimer = undefined;
-    }
-
-    // Stats reloads here too: its figures belong to the target just left.
-    private renderAfterTargetInvalidation(): void {
-        const root = this.currentRoot();
-        if (root && !this.renderNonStudyRoute(root)) this.applyWords(root, false);
+        this.clearLoadedStudyState();
     }
 
     private renderEnabledContent(): DocumentFragment {
@@ -1362,8 +1327,8 @@ export class NewTabController {
         return renderNewTabShell({
             language,
             overflowMenu: showChrome ? this.renderOverflowMenu(language) : null,
-            appNavigation: showChrome ? this.renderAppNavigation(language) : null,
-            showSessionClockControl: this.options.showSessionClockControl !== false,
+            appNavigation: showChrome ? renderNewTabAppNavigation(language) : null,
+            showSessionClockControl: this.hasTimedSession() && this.options.showSessionClockControl !== false,
         });
     }
 
@@ -1393,7 +1358,7 @@ export class NewTabController {
     private practiceSelection(): { title: string; material: PracticeMaterial[] } {
         const cards = new Map(this.visibleWords.filter(newTabCardMatchesActiveTarget).map(card => [this.cardSelectionKey(card), card]));
         return {
-            title: this.sourceLabel || uiText(this.language(), 'practiceTitle'),
+            title: this.sourceId === 'starter-words' ? this.text('starterWords') : this.sourceLabel || uiText(this.language(), 'practiceTitle'),
             material: [...cards].map(([id, card]) => ({
                 id, language: newTabCardTarget(card).language, spelling: card.spelling, reading: newTabCardReading(card),
                 meaning: firstCardMeaning(card), sentence: this.recallSentenceFromCard(card),
@@ -1465,26 +1430,6 @@ export class NewTabController {
             role: 'menuitem',
             lang: japanese ? 'ja' : 'en',
         }, japanese ? link.ja : link.text);
-    }
-
-    private renderAppNavigation(language: ReaderSettings['interfaceLanguage']): HTMLElement {
-        const item = (label: string, mark: string, action: NewTabAction, mode?: string) => el('button', {
-            class: 'jpdb-reader-newtab-app-nav-item jpdb-reader-parseable',
-            type: 'button',
-            dataset: { newtabAction: action, ...(mode ? { mode } : {}) },
-            lang: resolveUiLanguage(language) === 'ja' ? 'ja' : 'en',
-        },
-        el('span', { class: 'jpdb-reader-newtab-app-nav-mark', 'aria-hidden': 'true' }, mark),
-        el('span', { class: 'jpdb-reader-newtab-app-nav-label' }, label));
-        return el('nav', {
-            class: 'jpdb-reader-newtab-app-nav',
-            dataset: { newtabAppNavigation: true },
-            'aria-label': newTabText(language, 'appNavigation'),
-        },
-        item(newTabText(language, 'study'), '学', newTabAction('mode'), 'word'),
-        item(newTabText(language, 'library'), '辞', newTabAction('mode'), 'search'),
-        item(newTabText(language, 'stats'), '統', newTabAction('mode'), 'stats'),
-        item(newTabText(language, 'connections'), '連', newTabAction('settings')));
     }
 
     private renderOverflowMenuButton(
@@ -2146,7 +2091,7 @@ export class NewTabController {
                 el('span', {}, newTabSupportMeta(status, this.language())),
                 el('a', {
                     class: 'jpdb-reader-newtab-support-breakdown',
-                    href: new URL('/support#monthly-running-costs', DOCS_BASE_URL).href,
+                    href: new URL('/membership#monthly-running-costs', DOCS_BASE_URL).href,
                 }, this.text('supportBannerBreakdown')),
             ),
             el('div', { class: 'jpdb-reader-newtab-support-actions' },
@@ -2791,6 +2736,7 @@ export class NewTabController {
         this.emptyLoadMessageKey = result.emptyMessageKey ?? null;
         this.fallbackStudyNotice = result.fallbackNotice === true;
         this.sourceLabel = this.loadedWordSourceLabel(result.sourceLabel, statsStudyFilter);
+        this.sourceId = result.sourceId;
         this.statsStudyFilter = null;
     }
 
@@ -2970,6 +2916,7 @@ export class NewTabController {
         this.reviewCountMode = false;
         this.emptyLoadMessageKey = null;
         this.sourceLabel = this.offlineSourceLabel(cached.sourceLabel);
+        this.sourceId = undefined;
     }
 
     private canPrimeWithOfflineCache(cards: JPDBCard[]): boolean {
@@ -3438,7 +3385,6 @@ export class NewTabController {
             settings,
             interfaceLanguage: this.language(),
             targetLanguage: activeLearningTarget().language,
-            targetGeneration: activeLearningTargetGeneration(),
             activeJpdbDeck: this.state.jpdbDeck,
             activeAnkiDeck: this.normalizedAnkiDeckScope(),
         });
@@ -3558,11 +3504,16 @@ export class NewTabController {
         // Built-in seed words are not the user's dictionary — labeling them
         // "Dictionary" confused keyless users who never imported one.
         if (typeof fallbackCardFromText !== 'function') return emptyNewTabLoadResult(this.text('starterWords'));
-        const cards = randomPublicJpdbSeedWords(limit)
-            .map(term => fallbackCardFromText.call(this.dependencies.parser, term));
+        const cards = STARTER_WORDS.slice(0, limit).map(word => ({
+            ...fallbackCardFromText.call(this.dependencies.parser, word.spelling),
+            reading: word.reading,
+            meanings: [{ glosses: [word.meaning], partOfSpeech: [] }],
+            sentence: word.sentence,
+        }));
         return {
             cards,
             sourceLabel: this.text('starterWords'),
+            sourceId: 'starter-words',
             reviewCountMode: false,
         };
     }
@@ -4067,6 +4018,7 @@ export class NewTabController {
         this.navigationSupplementPromise = null;
         this.index = 0;
         this.sourceLabel = '';
+        this.sourceId = undefined;
         this.reviewCountMode = false;
         this.clearReviewHistory();
         this.emptyLoadMessageKey = null;
@@ -4908,8 +4860,8 @@ export class NewTabController {
         return `${this.index + 1} / ${this.visibleWords.length}`;
     }
 
-    private renderSessionProgress(slots: NewTabStudySlots, card: JPDBCard, root: HTMLElement): void {
-        const baseLabel = this.newTabCountLabel(card);
+    private renderSessionProgress(slots: NewTabStudySlots, card: JPDBCard | undefined, root: HTMLElement): void {
+        const baseLabel = card ? this.newTabCountLabel(card) : '';
         const reviewCards = this.reviewCountMode ? this.sessionProgressCards() : [];
         const snapshot = this.reviewCountMode ? this.sessionProgress.snapshot(reviewCards) : null;
         if (this.reviewCountMode) this.warmOfflineCache(reviewCards);
@@ -4921,7 +4873,7 @@ export class NewTabController {
                 completed: this.text('sessionDone'),
                 left: this.text('sessionLeft'),
                 due: this.text('statsDue'),
-            }) : this.sessionProgress.snapshot([]).remainingSessionLabel,
+            }, this.hasTimedSession()) : this.hasTimedSession() ? this.sessionProgress.snapshot([]).remainingSessionLabel : '',
             snapshot ? this.offlineCacheSegment() : '',
             snapshot ? this.syncStatusSegment() : '',
             this.dailyGoalLabel(),
@@ -4963,11 +4915,10 @@ export class NewTabController {
     }
 
     private refreshSessionProgressSoon(): void {
-        // The 1s session clock already re-renders the progress line, so we only
-        // nudge a render when a clock is not active (e.g. just after enqueue).
-        const root = this.sessionClockRoot;
+        if (this.destroyed) return;
+        const root = this.currentRoot();
         const card = this.visibleWords[this.index];
-        if (root?.isConnected && card && this.isVocabularyStudyRoute()) {
+        if (root?.isConnected && this.isVocabularyStudyRoute()) {
             this.renderSessionProgress(this.studySlots(root), card, root);
         }
     }
@@ -5030,6 +4981,10 @@ export class NewTabController {
         }, NEW_TAB_OFFLINE_WARM_RETRY_MS);
     }
 
+    private hasTimedSession(): boolean {
+        return Boolean(this.options.sessionClock) || this.dependencies.getSettings().newTabDailyGoalMinutes > 0;
+    }
+
     private dailyGoalLabel(): string {
         const goal = this.dependencies.getSettings().newTabDailyGoalMinutes;
         if (!(goal > 0)) return '';
@@ -5043,6 +4998,12 @@ export class NewTabController {
         // Async provider work may settle after its Study surface has unmounted.
         // A destroyed controller must never subscribe to its disposed owned clock.
         if (this.destroyed) return;
+        if (!this.hasTimedSession()) {
+            this.stopSessionClock();
+            if (this.ownsSessionClock) this.sessionClock.pause('settings');
+            return;
+        }
+        if (this.ownsSessionClock) this.sessionClock.resume('settings');
         if (this.sessionClockRoot !== root) {
             this.stopSessionClock();
             this.sessionClockRoot = root;
@@ -6835,7 +6796,9 @@ export class NewTabController {
                 const hasRecallCloze = buildNewTabRecallCloze(card, sentence, newTabCardReading(card)).hasCloze;
                 this.pinnedStudyPlan = { cardKey: key, inputs: { ...this.pinnedStudyPlan.inputs, hasRecallCloze } };
             }
-            if (isCurrent) this.renderWord(root!, active!);
+            // Library and Stats own the prompt slot: the Study card takes the
+            // sentence when it renders next, never over the Library title.
+            if (isCurrent && this.state.route === 'study') this.renderWord(root!, active!);
         });
     }
 
@@ -7835,6 +7798,10 @@ export class NewTabController {
 
     private renderBrowseResults(mount: HTMLElement): void {
         const cards = this.browsePool ?? [];
+        if (!cards.length) {
+            replaceChildrenWith(mount, renderBrowseEmpty(this.text('libraryEmpty'), this.text('practiceTitle')));
+            return;
+        }
         const language = this.language();
         const query = this.browseScopeActive() ? normalizeSearchQuery(this.searchController.query) : '';
         const filtered = sortBrowseCards(
@@ -7854,7 +7821,7 @@ export class NewTabController {
                 anki: 'Anki',
             }),
             renderBrowseChips(cards, this.browseFilters, language, this.text('browseAllChip')),
-            renderBrowseControls(this.browseSort, this.browseSortDescending, this.browseSelectMode, {
+            showsBrowseControls(cards.length, this.browseSelectMode) ? renderBrowseControls(this.browseSort, this.browseSortDescending, this.browseSelectMode, {
                 sortLabel: this.text('browseSortLabel'),
                 sortQueue: this.text('browseSortQueue'),
                 sortAlpha: this.text('browseSortAlpha'),
@@ -7863,7 +7830,7 @@ export class NewTabController {
                 directionAscending: this.text('browseSortAscending'),
                 directionDescending: this.text('browseSortDescending'),
                 select: this.text('browseSelectMode'),
-            }),
+            }) : null,
             renderBrowseList(filtered, this.browsePage, language, {
                 empty: this.text('browseNoCards'),
                 startReview: this.dependencies.srsAdapters?.['yomu-local']?.startReview ? this.text('browseStartReview') : undefined,

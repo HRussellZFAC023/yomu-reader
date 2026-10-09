@@ -8,9 +8,13 @@ import { localBytesFromView } from '../../platform/binary-realm';
 import { isYomuNewTabUrl } from '../../newtab/url';
 
 const log = Logger.scope('Yomitan');
-// A dictionary archive legitimately needs the widest budget in the reader. A
-// page fetch also spends it per chunk, so a stalled body cannot hang an install.
+// A dictionary archive legitimately needs the widest budget in the reader. It
+// is spent per chunk, or per progress report, so a stalled body cannot hang an
+// install while a slow one still finishes.
 const DICTIONARY_DOWNLOAD_TIMEOUT_MS = 120000;
+// A userscript manager's own timeout covers the whole transfer, so it only
+// caps a download that keeps reporting progress.
+const DICTIONARY_DOWNLOAD_CEILING_MS = 20 * 60_000;
 
 export function filenameFromUrl(url: string): string {
     try {
@@ -105,14 +109,15 @@ function requestBlobViaUserscript(
 ): Promise<Blob> {
     // The 120 s is enforced locally too, because a manager that drops the
     // callback used to leave the import dialog on its progress line forever
-    // with no error and no way back.
+    // with no error and no way back. Progress rearms it (manager-request.ts).
     return requestViaUserscriptManager<Blob>(userscriptRequest, {
+        deadlineMs: DICTIONARY_DOWNLOAD_TIMEOUT_MS,
         details: {
             method: 'GET',
             url,
             headers: { accept: 'application/zip,application/octet-stream,*/*' },
             responseType: 'blob',
-            timeout: DICTIONARY_DOWNLOAD_TIMEOUT_MS,
+            timeout: DICTIONARY_DOWNLOAD_CEILING_MS,
             onprogress: event => {
                 if (event.lengthComputable && event.total > 0) {
                     onProgress?.(`${uiText(language, 'dictionaryDownloadProgress')} ${Math.round((event.loaded / event.total) * 100)}%...`);

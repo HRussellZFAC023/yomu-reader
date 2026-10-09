@@ -3,7 +3,7 @@ import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 import { readableTextOn } from '../../docs/.vitepress/theme/color-contrast';
-import { hostedAccentCssVariables } from '../../src/reader/core/hosted-accent-css';
+import { HOSTED_ACCENT_TOKENS, hostedAccentCssVariables } from '../../src/reader/core/hosted-accent-css';
 import { contrastRatio } from '../../src/reader/theme/color-utils';
 
 const ROOT = process.cwd();
@@ -76,7 +76,7 @@ describe('hosted docs synchronous accent contrast', () => {
         const lightInk = token(lightRoot, '--yomu-doc-accent-ink');
         const darkInk = token(darkRoot, '--yomu-doc-accent-ink');
 
-        expect(accent).toBe('#5ea780');
+        expect(accent).toBe(HOSTED_ACCENT_TOKENS.accent);
         expect(contrastRatio(lightInk, accent)).toBeGreaterThanOrEqual(4.5);
         expect(contrastRatio(darkInk, accent)).toBeGreaterThanOrEqual(4.5);
         expect(css).toMatch(/\.yomu-cta-button\.primary:hover\s*\{[^}]*color:\s*var\(--yomu-brand-hover-ink, var\(--yomu-doc-brand-hover-ink\)\) !important;/);

@@ -12,15 +12,15 @@ import { serializeSettingsPersistencePair } from '../../src/reader/settings/sett
 import {
     HOSTED_STUDY_LOCATION,
     installGmStorageFixture,
-    installRejectedTargetCommit,
+    installRejectedOptionsCommit,
     installSizeLimitedGmStorage,
-    saveChosenTarget,
+    saveExplicitOptions,
 } from './helpers/settings-persistence-fixture';
 
 function isFinalChosenSettingsWrite(key: string, value: unknown): boolean {
     if (key !== SETTINGS_STORAGE_KEY) return false;
     const settings = value as Record<string, unknown>;
-    if (settings.learningTargetChosen !== true) return false;
+    if (settings.enableLogging !== true) return false;
     return !Object.hasOwn(settings, '__yomuSettingsPersistenceTransactionV1');
 }
 
@@ -45,7 +45,7 @@ describe('interrupted settings persistence recovery', () => {
 
     it('cleans a staged ledger behind its marker before a later machine save publishes', async () => {
         vi.stubGlobal('location', HOSTED_STUDY_LOCATION);
-        const { previousSettings, previousPair: pair, store, storage } = installRejectedTargetCommit();
+        const { previousSettings, previousPair: pair, store, storage } = installRejectedOptionsCommit();
         storage.setValue.mockImplementation(async (key: string, value: unknown) => {
             if (isFinalChosenSettingsWrite(key, value)) throw new Error('settings blob rejected');
             if (key === SETTINGS_INTENT_LEDGER_STORAGE_KEY
@@ -53,14 +53,14 @@ describe('interrupted settings persistence recovery', () => {
             store.set(key, structuredClone(value));
         });
 
-        await expect(saveChosenTarget(previousSettings)).rejects.toThrow(/rollback operation/);
+        await expect(saveExplicitOptions(previousSettings)).rejects.toThrow(/rollback operation/);
 
         expect(store.get(SETTINGS_STORAGE_KEY)).toMatchObject({
-            learningTargetChosen: false,
+            enableLogging: false,
             __yomuSettingsPersistenceTransactionV1: { version: 1 },
         });
         expect(store.get(SETTINGS_INTENT_LEDGER_STORAGE_KEY)).toMatchObject({
-            records: { learningTargetChosen: { value: true } },
+            records: { enableLogging: { value: true } },
         });
 
         installGmStorageFixture(store);
@@ -70,13 +70,13 @@ describe('interrupted settings persistence recovery', () => {
         expect(store.get(SETTINGS_INTENT_LEDGER_STORAGE_KEY)).toMatchObject({ revision: 0, records: {} });
         expect(store.get(SETTINGS_STORAGE_KEY)).toMatchObject({
             theme: 'dark',
-            learningTargetChosen: false,
+            enableLogging: false,
         });
         expect(store.get(SETTINGS_STORAGE_KEY)).not.toHaveProperty('__yomuSettingsPersistenceTransactionV1');
         await expect(loadSettings()).resolves.toMatchObject({
             theme: 'dark',
-            learningTargetChosen: false,
-            onboardingSeen: false,
+            enableLogging: false,
+            manualScanEnabled: false,
         });
     });
 
@@ -84,8 +84,8 @@ describe('interrupted settings persistence recovery', () => {
         vi.stubGlobal('location', HOSTED_STUDY_LOCATION);
         const previousSettings = {
             ...DEFAULT_SETTINGS,
-            learningTargetChosen: false,
-            onboardingSeen: false,
+            enableLogging: false,
+            manualScanEnabled: false,
             accentColor: '#654321',
         };
         const concurrentSettings = { ...previousSettings, accentColor: '#abcdef' };
@@ -103,7 +103,7 @@ describe('interrupted settings persistence recovery', () => {
             store.set(key, structuredClone(value));
         });
 
-        await expect(saveChosenTarget(previousSettings)).rejects.toBeInstanceOf(AggregateError);
+        await expect(saveExplicitOptions(previousSettings)).rejects.toBeInstanceOf(AggregateError);
 
         expectRolledBackSettings(store, pair[SETTINGS_STORAGE_KEY], concurrentSettings, pair[SETTINGS_INTENT_LEDGER_STORAGE_KEY]);
         expect(localStorage.getItem('yomu:local-storage-provenance:v1')).toEqual(concurrentProvenance);
@@ -115,7 +115,7 @@ describe('interrupted settings persistence recovery', () => {
             serializeSettingsPersistencePair(DEFAULT_SETTINGS, { revision: 0, records: {} }),
         ));
         localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify({
-            learningTargetChosen: true,
+            enableLogging: true,
             pagePayload: 'x'.repeat(500_000),
         }));
         const { writes } = installSizeLimitedGmStorage(store, 200_000);
@@ -132,8 +132,8 @@ describe('interrupted settings persistence recovery', () => {
         vi.stubGlobal('location', HOSTED_STUDY_LOCATION);
         const previousSettings = {
             ...DEFAULT_SETTINGS,
-            learningTargetChosen: false,
-            onboardingSeen: false,
+            enableLogging: false,
+            manualScanEnabled: false,
         };
         const pair = serializeSettingsPersistencePair(previousSettings, { revision: 0, records: {} });
         const store = new Map<string, unknown>(Object.entries(pair));
@@ -150,7 +150,7 @@ describe('interrupted settings persistence recovery', () => {
             store.set(key, structuredClone(value));
         });
 
-        await expect(saveChosenTarget(previousSettings)).rejects.toThrow(/ledger rejected/);
+        await expect(saveExplicitOptions(previousSettings)).rejects.toThrow(/ledger rejected/);
 
         expectRolledBackSettings(store, pair[SETTINGS_STORAGE_KEY], previousSettings, pair[SETTINGS_INTENT_LEDGER_STORAGE_KEY]);
         expect(localStorage.getItem('yomu:local-storage-provenance:v1')).toBeNull();

@@ -165,7 +165,6 @@ function jitenCompoundInfo(): JitenVocabularyInfo {
             { wordId: 1_576_250, readingIndex: 0, reading: '一度', readingFurigana: '一[いち]度[ど]', mainDefinition: 'once', frequencyRank: 361, matchSurface: '' },
         ],
         usedIn: [],
-        usedInTotal: 0,
         examples: [],
     };
 }

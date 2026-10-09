@@ -1,3 +1,4 @@
+import { isCounterAfterNumber } from '../lookup/japanese-counters';
 import { primaryCardState } from '../cards/state';
 import { cardDeckMembershipClassNames } from '../cards/deck-membership';
 import { currentAccountDataSurfaceIsTrusted } from '../app/account-data-surface';
@@ -10,13 +11,12 @@ import {
 } from '../lookup/japanese-script';
 import { effectiveFuriganaMode } from '../settings/index';
 import { isUnifiedIdeograph } from '../languages/han';
-import { activeLearningTarget, learningTargetModuleFor } from '../languages/target-runtime';
-import type { LearningTargetModule } from '../languages/types';
 import type { CardState, JPDBCard, JPDBToken, ReaderSettings } from '../app/types';
 import {
     type KanjiNavigationRenderOptions,
 } from './token-kanji-navigation';
 import { privateCommandAttributes } from './private-command-capabilities';
+import { rubyOverhangClassAttribute } from './ruby-overhang';
 
 export { kanjiNavigationForElement } from './token-kanji-navigation';
 export type { KanjiNavigationRenderOptions } from './token-kanji-navigation';
@@ -149,7 +149,7 @@ function isSafeTokenSpan(token: JPDBToken, offset: number, text: string): boolea
     return Number.isInteger(start)
         && Number.isInteger(end)
         && spanFitsText(start, end, offset, text)
-        && tokenSourceSpanIsRenderable(token, text.slice(start, end));
+        && tokenSourceSpanIsRenderable(text.slice(start, end));
 }
 
 function spanFitsText(start: number, end: number, offset: number, text: string): boolean {
@@ -158,13 +158,12 @@ function spanFitsText(start: number, end: number, offset: number, text: string):
         && end <= text.length;
 }
 
-function tokenSourceSpanIsRenderable(token: JPDBToken, source: string): boolean {
-    const target = learningTargetForToken(token);
-    // Japanese scan detection accepts marks like `・`/`ー`; rendering still
-    // requires a lexical letter. Other targets' lookup predicates already do.
-    return target.language === 'ja'
-        ? HAS_JAPANESE_LETTER.test(source)
-        : target.isLookupableText(source);
+// The paint gate. Japanese scan detection accepts marks like `・`/`ー`;
+// painting requires a Japanese letter in the word's own source slice, so no
+// provider token over Latin, Cyrillic, Hangul or digits is ever decorated,
+// whatever language a stored card claims.
+function tokenSourceSpanIsRenderable(source: string): boolean {
+    return HAS_JAPANESE_LETTER.test(source);
 }
 
 export function miningInsightTokenKeys(tokens: JPDBToken[]): ReadonlySet<string> {
@@ -237,12 +236,10 @@ export function shouldRenderRuby(
 function furiganaModeAllowsRuby(mode: string, surface: string, token: JPDBToken, settings: ReaderSettings): boolean {
     if (mode === 'off') return false;
     if (mode === 'known-status') return !shouldHideFuriganaForCardState(settings, primaryCardState(token.card.cardState));
-    return mode !== 'difficult-kanji' || targetAllowsFurigana(surface, token);
+    return mode !== 'difficult-kanji' || targetAllowsFurigana(surface);
 }
 
-function targetAllowsFurigana(surface: string, token: JPDBToken): boolean {
-    // Easy-kanji filtering is Japanese-only.
-    if (learningTargetForToken(token).typing.answerNormalizer !== 'japanese-kana') return true;
+function targetAllowsFurigana(surface: string): boolean {
     for (const char of surface) {
         if (isDifficultKanji(char)) return true;
     }
@@ -318,16 +315,18 @@ export function renderTokenReadings(
 ): string {
     let html = '';
     let localOffset = 0;
-    for (const ruby of effectiveTokenRubies(surface, token, preserveTokenRubies)) {
+    const rubies = effectiveTokenRubies(surface, token, preserveTokenRubies);
+    rubies.forEach((ruby, index) => {
         const start = ruby.start - token.start;
         const end = ruby.end - token.start;
         html += renderKanjiNavigationText(surface.slice(localOffset, start), kanjiNavigation);
         const base = renderKanjiNavigationText(surface.slice(start, end), kanjiNavigation);
+        const readingBeside = (index > 0 && start === localOffset) || rubies[index + 1]?.start === ruby.end;
         html += layout === 'detached'
             ? `<span class="jpdb-reader-detached-ruby" data-yomu-source-start="${ruby.start}" data-yomu-source-end="${ruby.end}"><span class="jpdb-reader-ruby-base">${base}</span><span class="jpdb-reader-furi jpdb-reader-detached-furi" aria-hidden="true">${escapeHtml(ruby.text)}</span></span>`
-            : `<ruby><span class="jpdb-reader-ruby-base">${base}</span><rp>(</rp><rt class="jpdb-reader-furi">${escapeHtml(ruby.text)}</rt><rp>)</rp></ruby>`;
+            : `<ruby${rubyOverhangClassAttribute(surface, start, end, ruby.text, readingBeside)}><span class="jpdb-reader-ruby-base">${base}</span><rp>(</rp><rt class="jpdb-reader-furi">${escapeHtml(ruby.text)}</rt><rp>)</rp></ruby>`;
         localOffset = end;
-    }
+    });
     html += renderKanjiNavigationText(surface.slice(localOffset), kanjiNavigation);
     return html;
 }
@@ -412,12 +411,7 @@ export function effectiveTokenRubies(
     token: JPDBToken,
     preserveTokenRubies = false,
 ): JPDBToken['rubies'] {
-    const target = learningTargetForToken(token);
-    if (target.typography.readingAnnotationMode === 'none') return [];
     const sources = sourceTokenRubies(surface, token);
-    if (target.experiences.characterLookup === 'term-dictionary') {
-        return sources.filter(ruby => localRubyRange(surface, token, ruby));
-    }
     if (preserveTokenRubies) {
         return sources.flatMap(ruby => {
             const range = localRubyRange(surface, token, ruby);
@@ -433,6 +427,12 @@ export function effectiveTokenRubies(
 }
 
 function sourceTokenRubies(surface: string, token: JPDBToken): JPDBToken['rubies'] {
+    // A dictionary's standalone 月/日/人 reading is not the reading of 10月,
+    // 6日 or 3人. Without a token covering the number too, retain the lookup
+    // but omit its uncertain ruby rather than teach a context-free reading.
+    // The token's offsets count from the parsed text; its sentence starts at
+    // sentenceStart within that text.
+    if (isCounterAfterNumber(surface, token.sentence, token.start - (token.sentenceStart ?? 0))) return [];
     if (token.rubies.length) return explicitTokenRubies(surface, token);
     const reading = distinctTokenReading(surface, token);
     if (!reading) return [];
@@ -459,10 +459,6 @@ function trimmedTokenReading(token: JPDBToken): string {
 }
 
 function inferredTokenRubies(surface: string, reading: string, token: JPDBToken): JPDBToken['rubies'] {
-    // Inflected-surface inference is a Japanese Adapter. Other targets render
-    // exact dictionary-owned spans and never guess how a reading maps across a
-    // changed surface.
-    if (learningTargetForToken(token).typing.answerNormalizer !== 'japanese-kana') return [];
     if (!KANJI_RE.test(surface)) return [];
     if (!KANA_RE.test(reading)) return [];
     const inferred = inferredInflectedSurfaceRubies(surface, token.card.spelling, reading);
@@ -488,10 +484,6 @@ function explicitRubyReadingMatchesSurface(surface: string, token: JPDBToken): b
     }
     reconstructed += surface.slice(cursor);
     return reconstructed.normalize('NFC') === surface.normalize('NFC');
-}
-
-function learningTargetForToken(token: JPDBToken): LearningTargetModule {
-    return learningTargetModuleFor(token.card.language) ?? activeLearningTarget();
 }
 
 function kanjiOnlyRubySegments(

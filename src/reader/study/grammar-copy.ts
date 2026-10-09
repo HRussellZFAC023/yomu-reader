@@ -2,9 +2,7 @@
 export const GRAMMAR_UI_COPY = {
     en: {
         findingGrammar: 'Finding grammar...',
-        grammarNoLocalMatch: 'No built-in {language} grammar patterns matched this sentence.',
-        grammarDetectionPending: 'Built-in {language} grammar detection is still being prepared.',
-        grammarReferenceOnly: 'Built-in {language} grammar detection is still being prepared. Use the reference below.',
+        grammarNoLocalMatch: 'No built-in Japanese grammar patterns matched this sentence.',
         grammarCheckUnavailable: 'Grammar could not be checked.',
         grammarReference: 'Open grammar reference',
         grammarKnown: 'Known',
@@ -16,7 +14,6 @@ export const GRAMMAR_UI_COPY = {
         grammarHideKnown: 'Hide known',
         grammarShowKnown: 'Show known',
         allDetectedGrammarKnown: 'All detected grammar is marked known.',
-        grammarShown: 'shown',
         grammarKnownHidden: 'known hidden',
         grammarGenericShort: 'Grammar point: {name}',
         grammarGenericDetail: 'Uses {name} in 「{match}」.',
@@ -24,9 +21,7 @@ export const GRAMMAR_UI_COPY = {
     },
     ja: {
         findingGrammar: '文法を検索中...',
-        grammarNoLocalMatch: '内蔵の{language}文法パターンはこの文に一致しませんでした。',
-        grammarDetectionPending: '内蔵の{language}文法検出は準備中です。',
-        grammarReferenceOnly: '内蔵の{language}文法検出は準備中です。下のリファレンスを利用できます。',
+        grammarNoLocalMatch: '内蔵の日本語文法パターンはこの文に一致しませんでした。',
         grammarCheckUnavailable: '文法を確認できませんでした。',
         grammarReference: '文法リファレンスを開く',
         grammarKnown: '既知',
@@ -38,7 +33,6 @@ export const GRAMMAR_UI_COPY = {
         grammarHideKnown: '既知を隠す',
         grammarShowKnown: '既知を表示',
         allDetectedGrammarKnown: '検出文法はすべて既知です。',
-        grammarShown: '件表示',
         grammarKnownHidden: '件の既知を非表示',
         grammarGenericShort: '文法項目: {name}',
         grammarGenericDetail: '「{match}」に「{name}」。',

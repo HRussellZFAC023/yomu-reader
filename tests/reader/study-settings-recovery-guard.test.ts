@@ -280,14 +280,21 @@ async function wallStatus(wall: HTMLElement, text: string): Promise<void> {
     await vi.waitFor(() => expect(wall.querySelector('[data-recovery-status]')?.textContent).toBe(text));
 }
 
-function visible(settings: ReaderSettings, expected: Visible): Record<string, unknown> {
+function visible(settings: ReaderSettings | Record<string, unknown>, expected: Visible): Record<string, unknown> {
     const record = settings as unknown as Record<string, unknown>;
-    return Object.fromEntries(Object.keys(expected.settings).map(key => [key, record[key]]));
+    return Object.fromEntries(Object.keys(expected.settings).filter(key => key !== 'learningTargetChosen' && key !== 'onboardingSeen').map(key => [key, record[key]]));
+}
+
+// What 2.1 shows for a v1.9.3 record: the stored bytes are untouched, but the
+// retired green default accent shows as the brand red.
+function shownBy21(expected: Visible): Record<string, unknown> {
+    const shown = visible(expected.settings, expected);
+    return shown.accentColor === '#5ea780' ? { ...shown, accentColor: '#b8324e' } : shown;
 }
 
 /** A pair whose commit ids never match: every strict read and retry rejects it. */
 const TORN_PAIR = {
-    [SETTINGS_KEY]: { learningTargetChosen: true, onboardingSeen: true, theme: 'light', [COMMIT]: 'settings-half' },
+    [SETTINGS_KEY]: { theme: 'light', [COMMIT]: 'settings-half' },
     [INTENT_KEY]: { revision: 1, records: {}, [COMMIT]: 'intent-half' },
 };
 
@@ -385,9 +392,9 @@ describe.each(BACKEND_REALMS)('$name with a torn settings pair', realm => {
 
         expect(document.querySelector(WALL)).toBeNull();
         expect(createRuntime).toHaveBeenCalledOnce();
-        expect(visible(loaded[0], BACKUP.expected)).toEqual(BACKUP.expected.settings);
+        expect(visible(loaded[0], BACKUP.expected)).toEqual(visible(BACKUP.expected.settings, BACKUP.expected));
         resetManagedStateEpochSessionsForTests();
-        expect(visible(await loadSettings(), BACKUP.expected)).toEqual(BACKUP.expected.settings);
+        expect(visible(await loadSettings(), BACKUP.expected)).toEqual(visible(BACKUP.expected.settings, BACKUP.expected));
         const dictionaries = await new YomitanDictionaryStore().summary();
         expect(dictionaries.dictionaries.map(entry => entry.title)).toEqual(BACKUP.expected.dictionaries);
     });
@@ -409,7 +416,7 @@ describe('Study on a fresh install', () => {
         expect(prepend).not.toHaveBeenCalled();
         expect(document.querySelector(WALL)).toBeNull();
         expect(createRuntime).toHaveBeenCalledOnce();
-        expect(loaded[0].learningTargetChosen).toBe(false);
+        expect(loaded[0]).not.toHaveProperty('learningTargetChosen');
         expect(backend?.writes.filter(key => key === SETTINGS_KEY || key === INTENT_KEY) ?? []).toEqual([]);
         expect(localStorage.getItem(SETTINGS_KEY)).toBeNull();
     });
@@ -437,7 +444,7 @@ describe('Study over the stores v1.9.3 left', () => {
         await starting;
         expect(prepend).not.toHaveBeenCalled();
         expect(createRuntime).toHaveBeenCalledOnce();
-        expect(visible(loaded[0], expected)).toEqual(expected.settings);
+        expect(visible(loaded[0], expected)).toEqual(shownBy21(expected));
     }
 
     it.each(HOSTED)('%s: website-only hosted Study never sees the wall', async (_name, fixture) => {

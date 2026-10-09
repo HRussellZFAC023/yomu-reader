@@ -123,28 +123,25 @@ describe('jpdb structural widget skip', () => {
     });
 });
 
-// UT-76/79: short Japanese control labels annotate generically on any site
-// as click-transparent passive words — no per-site element lists.
+// UT-76/79 revisited (YQ-07): a page's buttons are its own interface and stay
+// exactly as drawn on any site; short links in toolbars still annotate as
+// click-transparent passive words — no per-site element lists.
 describe('control label annotation allowance', () => {
-    it('collects short Japanese control labels and skips long/non-Japanese ones', () => {
+    it('leaves Japanese button labels as the page drew them', () => {
         document.body.innerHTML = `
             <div class="chips"><button>最近アップロードされた動画</button></div>
             <button id="plain">設定を開く</button>
             <button id="english">Open settings</button>
             <button id="long">${'こ'.repeat(80)}</button>`;
         const targets = collectTextTargetsIn(document.body, 20, false);
-        const texts = targets.map(target => target.text.trim());
-        expect(texts).toContain('最近アップロードされた動画');
-        expect(texts).toContain('設定を開く');
-        expect(texts).not.toContain('Open settings');
-        expect(texts.some(text => text.startsWith('こここ'))).toBe(false);
+        expect(targets).toEqual([]);
         document.body.innerHTML = '';
     });
 
     it('marks chip text passive and layout sensitive end to end', async () => {
         const { applyTokensToTextNode } = await import('../../src/reader/dom');
         const { DEFAULT_SETTINGS } = await import('../../src/reader/settings');
-        document.body.innerHTML = '<div class="filter-row"><button>動画</button></div>';
+        document.body.innerHTML = '<div class="filter-row" role="toolbar"><a href="/videos">動画</a></div>';
         const [target] = collectTextTargetsIn(document.body, 5, false);
         expect(target).toBeTruthy();
         applyTokensToTextNode(target!, [{
@@ -156,7 +153,7 @@ describe('control label annotation allowance', () => {
         }], { ...DEFAULT_SETTINGS, furiganaMode: 'all' });
         const word = document.querySelector('.jpdb-reader-word');
         expect(word).toBeTruthy();
-        // Interactive controls are passive-only decorations (class B): colour
+        // Toolbar links are passive-only decorations (class B): colour
         // and pitch underline at rest, NO in-flow ruby — the reading stays
         // available through the hover/long-press word popover.
         expect(document.querySelector('rt')).toBeNull();

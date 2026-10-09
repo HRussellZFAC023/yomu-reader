@@ -1,6 +1,4 @@
 import { HAS_JAPANESE } from '../dom/index';
-import { learningTargetModuleFor } from '../languages/registry';
-import { targetLanguageOf } from '../languages/selection';
 
 const HIRAGANA_RE = /\p{Script=Hiragana}/u;
 const KATAKANA_RE = /\p{Script=Katakana}/u;
@@ -161,42 +159,4 @@ function normalizeYouTubeTitleForLanguageCheck(text: string): string {
         .replace(NIHONGO_TUBE_SYMBOL_RE, '')
         .replace(/\s+/g, ' ')
         .trim();
-}
-
-/**
- * A detector for any study target, reusing the chrome stripping the Japanese path
- * needs. `normalizeYouTubeTitleForLanguageCheck` removes YouTube's own UI furniture —
- * view counts, upload age, live badges, the watch CTA, decorative kaomoji — so a card
- * is judged on its title rather than on the surrounding interface. That mattered for
- * Japanese (an English card whose only Japanese came from 「7.2万回視聴」had to classify
- * as non-Japanese) and it matters the same way for every other target, because the
- * chrome is rendered in the viewer's UI language whatever they are studying.
- *
- * Japanese keeps `isProbablyJapaneseYouTubeText` rather than the generic path, because
- * that function also recognises English-titled Japanese-learning content
- * ("comprehensible japanese", "JLPT N3") which no script detector can see.
- */
-/**
- * The detector for whatever the learner is actually studying, read from settings.
- *
- * Lives here rather than on the filter controller because this file owns the
- * language decision; youtube.ts is a 2,700-line controller and the file-size
- * ratchet is right that it should not also own this.
- */
-export function youTubeSettingsTargetLanguageDetector(settings: unknown): (text: string) => boolean {
-    const target = learningTargetModuleFor(targetLanguageOf(settings));
-    // No module for the configured target (an unknown or half-migrated setting)
-    // falls back to the Japanese detector rather than to a predicate that matches
-    // nothing. Matching nothing would hide the learner's ENTIRE feed, which is a
-    // far worse failure than filtering for the wrong language.
-    if (!target) return isProbablyJapaneseYouTubeText;
-    return youTubeTargetLanguageDetector(target.language.startsWith('ja'), text => target.isLookupableText(text));
-}
-
-export function youTubeTargetLanguageDetector(
-    isJapaneseTarget: boolean,
-    isTargetText: (text: string) => boolean,
-): (text: string) => boolean {
-    if (isJapaneseTarget) return isProbablyJapaneseYouTubeText;
-    return text => isTargetText(normalizeYouTubeTitleForLanguageCheck(text));
 }

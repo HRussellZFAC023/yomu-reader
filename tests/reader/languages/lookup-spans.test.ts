@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest';
 
-import { hanIdeographSegments } from '../../../src/reader/languages/han';
 import {
     codePointBoundaryAtOrAfter,
     codePointBoundaryAtOrBefore,
@@ -21,7 +20,7 @@ describe('code-point-safe lookup spans', () => {
 
     it('returns UTF-16 coordinates while limiting by Unicode code point', () => {
         const text = '我𡃁好';
-        const segment = hanIdeographSegments(text)[0]!;
+        const segment = { text, start: 0, end: text.length };
         const spans = lookupSpansStartingInRange(text, segment, 0, text.length, 2);
 
         expect(spans.map(span => [span.term, span.start, span.end])).toEqual([
@@ -35,7 +34,7 @@ describe('code-point-safe lookup spans', () => {
 
     it('orders pointer candidates longest first without lone surrogates', () => {
         const text = '我𡃁好';
-        const segment = hanIdeographSegments(text)[0]!;
+        const segment = { text, start: 0, end: text.length };
         const spans = lookupSpansContainingOffset(text, segment, 2, 18, 8);
 
         expect(spans.map(span => span.term)).toEqual([

@@ -10,12 +10,6 @@ import {
     withHostedAppSitemapItems,
 } from '../../config/docs/published-pages';
 import {
-    assertStudyTargetClaimReadiness,
-    HOMEPAGE_STUDY_TARGET_CLAIM_READINESS,
-    heroStudyLanguages,
-    measuredDefinitionLanguageCount,
-} from '../../config/docs/product-claims';
-import {
     LEGACY_DOC_HASH_REDIRECTS,
     LEGACY_DOC_REDIRECTS,
 } from '../../config/docs/legacy-redirects';
@@ -26,13 +20,12 @@ import {
     hostedShellNavRoutes,
     siteNavRoutes,
 } from '../../src/reader/app/site-nav';
-import { LEARNING_TARGET_ROSTER } from '../../src/reader/languages/roster';
-import { learningTargetModuleFor } from '../../src/reader/languages/registry';
 import {
     PUBLISHED_WEBSITE_ROUTES,
     websiteNavigationLabel,
 } from '../../docs/.vitepress/locales/site-locales';
 import { publishedWebsiteRouteDefinitions } from '../../docs/.vitepress/locales/route-catalog';
+import { DEFAULT_SETTINGS } from '../../src/reader/settings';
 
 const ROOT = process.cwd();
 const DOCS = path.join(ROOT, 'docs');
@@ -69,6 +62,18 @@ function docsMarkdownFiles(directory = DOCS): string[] {
         if (!entry.isFile() || path.extname(entry.name) !== '.md') return [];
         return [path.relative(DOCS, entryPath).split(path.sep).join('/')];
     });
+}
+
+// Whether a redirect target names a published page, and a heading on it when it
+// carries an anchor.
+function publishes(target: string): boolean {
+    const [route, anchor] = target.split('#');
+    const japanese = route.startsWith('/ja/');
+    const key = sitemapRouteKey(route.replace(/^\/ja\//, '/'));
+    const definition = publishedWebsiteRouteDefinitions(japanese ? 'ja' : 'en')
+        .find(candidate => sitemapRouteKey(candidate.route) === key);
+    if (!definition) return false;
+    return !anchor || readProjectFile(`docs/${definition.source}`).includes(`{#${anchor}}`);
 }
 
 function routeFor(relativePath: string): string {
@@ -152,15 +157,29 @@ describe('published docs pages', () => {
 
         for (const [file, target] of Object.entries(LEGACY_DOC_REDIRECTS)) {
             expect(existsSync(path.join(DOCS, file)), file).toBe(true);
-            expect(sitemapRouteKey(target)).toMatch(/^learn(?:\/|$)/);
-            expect(ACTIVE_PUBLIC_ROUTES.map(sitemapRouteKey)).toContain(sitemapRouteKey(target));
+            // A Japanese stub lands on the Japanese page, an English one on English.
+            const japanese = file.startsWith('ja/');
+            expect(target.startsWith('/ja/'), file).toBe(japanese);
+            const published = japanese ? JAPANESE_PUBLIC_ROUTES : ACTIVE_PUBLIC_ROUTES;
+            expect(sitemapRouteKey(target).replace(/^ja\//, '')).toMatch(/^(?:learn$|desktop$|faq$|install$)/);
+            expect(published.map(sitemapRouteKey)).toContain(sitemapRouteKey(target));
+            expect(publishes(target), target).toBe(true);
         }
+        for (const redirects of Object.values(LEGACY_DOC_HASH_REDIRECTS)) {
+            for (const target of Object.values(redirects)) {
+                expect(publishes(target), target).toBe(true);
+            }
+        }
+    });
 
-        expect(LEGACY_DOC_HASH_REDIRECTS['getting-started.md'])
-            .toHaveProperty(
-                '#use-desktop-anki-from-a-phone-ipad-or-android',
-                '/learn/your-own-setup#use-desktop-anki-from-a-phone-ipad-or-android',
-            );
+    it('keeps the reader\'s phone-Anki help link landing on its answer', () => {
+        // MOBILE_ANKI_SETUP_DOCS_URL in the reader, and every installed build,
+        // still links the old setup page's anchor.
+        const anchor = '#use-desktop-anki-from-a-phone-ipad-or-android';
+        expect(readProjectFile('src/reader/settings/status-lines.ts')).toContain(`learn/your-own-setup${anchor}`);
+        expect(LEGACY_DOC_HASH_REDIRECTS['learn/your-own-setup.md'][anchor]).toBe('/faq#anki-on-a-phone');
+        expect(LEGACY_DOC_HASH_REDIRECTS['getting-started.md'][anchor]).toBe('/faq#anki-on-a-phone');
+        expect(readProjectFile('docs/faq.md')).toContain('## Can I add to Anki from my phone? {#anki-on-a-phone}');
     });
 
     it('wires the exclusion list and the sitemap filter into the VitePress config', () => {
@@ -168,51 +187,55 @@ describe('published docs pages', () => {
 
         expect(config).toContain('srcExclude: internalDocsExcludeGlobs');
         expect(config).toContain('sitemapItemsForRoutes(items, linkedRoutes)');
+        // Nothing in the nav links a home page (the logo does), so the route
+        // list names both; without them sitemap.xml omitted / and /ja/.
+        expect(config).toContain("const linkedRoutes = navigationRoutes([\n    { link: '/' },\n    { link: '/ja/' },");
+        const homes = sitemapItemsForRoutes([{ url: '' }, { url: 'ja/' }], navigationRoutes([{ link: '/' }, { link: '/ja/' }]));
+        expect(homes.map(item => item.url)).toEqual(['', 'ja/']);
         expect(internalDocsExcludeGlobs).toContain('academy/**/*.md');
     });
 });
 
 describe('published product claims', () => {
-    it('scopes the homepage hero to reading and lookup readiness', () => {
+    it('says Yomu is for learning Japanese and claims no other learning languages', () => {
+        // Owner decision 2026-10-07: Yomu is Japanese-only. The site used to
+        // count 33 learning targets on the homepage, the FAQ, the setup page and
+        // a per-language grammar table; none of that may come back. The settings
+        // reference is generated from the reader's own setting labels, so the
+        // reader owns its wording and it is not scanned here.
         const homepage = readProjectFile('docs/index.md');
-        const config = readProjectFile('docs/.vitepress/config.mts');
         const catalogue = readProjectFile('docs/.vitepress/locales/docs-prose-catalog.ts');
-        const theme = readProjectFile('docs/.vitepress/theme/index.ts');
-        const heroLanguages = heroStudyLanguages();
-
-        // Japanese-first positioning does not remove any supported learning target.
         expect(homepage).toContain('>Read Japanese. Stay with the story.</h1>');
         expect(catalogue).toContain("'Read Japanese. Stay with the story.': '日本語を読む。物語の続きを楽しむ。'");
-        expect(homepage).toContain('Reading and lookup in 33 learning languages.');
-        expect(theme).not.toContain('installHostedHeroLanguageRotator');
-        expect(config).not.toContain('__YOMU_HERO_LANGUAGES__');
-        expect(heroLanguages.length).toBeGreaterThan(1);
-        for (const language of heroLanguages) {
-            const target = LEARNING_TARGET_ROSTER.find(candidate => candidate.id === language.id);
-            expect(target, `homepage names unknown target ${language.id}`).toBeDefined();
-            expect(target?.studyTargetReadiness).not.toBe('planned');
+
+        const claims = docsMarkdownFiles()
+            .filter(file => !isInternalDocPath(file))
+            .flatMap(file => [...readProjectFile(`docs/${file}`)
+                .matchAll(/\b\d+\s+(?:learning\s+)?(?:languages?|targets?)\b|\blearning (?:languages?|targets?)\b/giu)]
+                .map(match => `${file}: ${match[0]}`));
+        expect(claims).toEqual([]);
+    });
+
+    it('names every service a lookup reaches by default, before any key is added', () => {
+        // Opening a word asks each definition source that is on by default and
+        // needs no key. The privacy page once listed them only under "services
+        // you connect", as if nothing left the device until you connected one.
+        const NEEDS_A_KEY = new Set(['wanikani']);
+        const NAMES: Record<string, string> = { jiten: 'Jiten', jpdb: 'JPDB', bunpro: 'Bunpro', wanikani: 'WaniKani' };
+        const keyless = Object.entries(DEFAULT_SETTINGS)
+            .flatMap(([key, value]) => {
+                const provider = /^(\w+)DefinitionsEnabled$/u.exec(key)?.[1];
+                return provider && value === true && !NEEDS_A_KEY.has(provider) ? [NAMES[provider]] : [];
+            });
+        expect(keyless.sort()).toEqual(['Bunpro', 'JPDB', 'Jiten']);
+        for (const file of ['docs/privacy/index.md', 'README.md']) {
+            const lookupLine = readProjectFile(file).split('\n').find(line => /word you (?:open|look up) goes to/u.test(line));
+            expect(lookupLine, file).toBeDefined();
+            for (const name of keyless) expect(lookupLine, `${file}: ${name}`).toContain(name);
         }
-        // COUNTED MEMBERSHIP: every named language must genuinely reach reading
-        // and lookup. The support statement still requires that same readiness.
-        expect(() => assertStudyTargetClaimReadiness(
-            heroLanguages.map(language => language.id),
-            HOMEPAGE_STUDY_TARGET_CLAIM_READINESS,
-            'Homepage hero',
-        )).not.toThrow();
     });
 
-    it('fails if an unknown target is claimed as full', () => {
-        expect(() => assertStudyTargetClaimReadiness(
-            ['not-a-target'],
-            'full',
-            'Mutation proof',
-        )).toThrow('Mutation proof claims an unknown study target: not-a-target.');
-        expect(() => heroStudyLanguages('full')).toThrow(
-            'Homepage hero claims Albanian (sq) as full, but its study-target readiness is reading-only.',
-        );
-    });
-
-    it('keeps every lookup-capable picker target backed by published dictionary supply', () => {
+    it('keeps Japanese lookup backed by published dictionary supply', () => {
         const catalogue = JSON.parse(
             readProjectFile('config/dictionaries/published/v1/catalog.json'),
         ) as {
@@ -227,39 +250,9 @@ describe('published product claims', () => {
                 .flatMap(entry => entry.headwordLanguages ?? [])
                 .map(language => language.toLowerCase().replace(/_/gu, '-').split('-')[0]),
         );
-        const lookupCapableTargets = LEARNING_TARGET_ROSTER
-            .filter(language => learningTargetModuleFor(language.runtimeLocale)?.capabilities['term-lookup']);
-
-        expect(lookupCapableTargets.map(language => language.id)).not.toContain('my');
-        for (const target of lookupCapableTargets) {
-            expect(
-                suppliedHeadwordLanguages.has(target.id),
-                `${target.id} has term lookup in the picker but zero published dictionary entries`,
-            ).toBe(true);
-        }
+        expect(suppliedHeadwordLanguages.has('ja')).toBe(true);
     });
 
-    it('keeps every published "N languages" claim at the measured definition-language count', () => {
-        const measuredCount = measuredDefinitionLanguageCount();
-        const claims = docsMarkdownFiles()
-            .filter(file => !isInternalDocPath(file))
-            .flatMap(file => {
-                const source = readProjectFile(`docs/${file}`);
-                return [...source.matchAll(/\b(\d+)\s+languages?\b/gi)].map(match => ({
-                    file,
-                    count: Number(match[1]),
-                    text: match[0],
-                }));
-            });
-
-        expect(claims.length).toBeGreaterThan(0);
-        for (const claim of claims) {
-            expect(
-                claim.count,
-                `${claim.file} claims "${claim.text}", but ${measuredCount} distinct learner languages have published matching definitions`,
-            ).toBe(measuredCount);
-        }
-    });
 });
 
 describe('one navbar everywhere', () => {
@@ -298,9 +291,9 @@ describe('one navbar everywhere', () => {
         // gets to open instead of the router navigating away.
         expect(MEMBERSHIP_NAV.target).toBe('_self');
         const more = docsNav().find(item => (item as { text: string }).text === 'More') as { items: unknown[] };
-        expect(more.items).toContainEqual({ text: 'Membership', link: '/membership', target: '_self' });
+        expect(more.items).toContainEqual({ text: 'Donate', link: '/membership', target: '_self' });
 
-        const membership = hostedShellNavRoutes('/').find(link => link.text === 'Membership');
+        const membership = hostedShellNavRoutes('/').find(link => link.text === 'Donate');
         expect(membership?.target).toBe('_self');
         for (const shell of SHELLS) {
             expect(readProjectFile(shell)).toContain('<a href="../membership" target="_self" data-site-nav-item');

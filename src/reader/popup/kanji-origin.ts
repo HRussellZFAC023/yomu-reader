@@ -11,7 +11,7 @@ export function renderKanjiOrigins(
     sourceInfo: KanjiSourceInfo | null,
     settings: ReaderSettings,
     language: InterfaceLanguage,
-    initiallyExpanded = settings.dictionarySourcesInitiallyExpanded,
+    initiallyExpanded = true,
     sourceStateKey?: string,
     excludeFactLabels?: Iterable<string>,
     title = uiText(language, 'originStructure'),

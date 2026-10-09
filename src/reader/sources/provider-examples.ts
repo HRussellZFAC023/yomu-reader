@@ -3,6 +3,7 @@ import { uiText } from '../app/i18n';
 import { escapeHtml } from '../dom';
 import { speakerIcon } from '../ui/icons';
 import { privateCommandAttributes, type CardCommandAction, type CardCommandCapability } from '../dom/private-command-capabilities';
+import { renderExampleListWithMore } from './more-disclosure';
 
 export type ProviderCollection<T> =
     | { availability: 'loaded'; items: T[] }
@@ -75,22 +76,24 @@ export function renderProviderExamples(
         <details class="jpdb-reader-local-entry jpdb-reader-dictionary-group jpdb-reader-jpdb-examples-group" data-example-provider="${provider}" data-examples-availability="${availability}" ${sourceAttributes(definitionSourceStateKey(`${sourceId}:examples`), items.length > 0)}>
             <summary class="jpdb-reader-local-title jpdb-reader-example-summary">
                 <span class="jpdb-reader-example-source">${escapeHtml(uiText(language, 'exampleSentences'))}</span>
-                <span class="jpdb-reader-source-status jpdb-reader-example-count">${escapeHtml(providerExampleStatus(collection, language))}</span>
+                ${renderProviderExampleStatus(collection, language)}
             </summary>
             <div class="jpdb-reader-local-glossary">
                 ${items.length
-                    ? `<ul class="jpdb-reader-jpdb-examples">${items.map(example => renderProviderExample(example, language)).join('')}</ul>`
+                    ? renderExampleListWithMore(items.map(example => renderProviderExample(example, language)), uiText(language, 'moreExamples'))
                     : renderProviderExampleAvailabilityReason(collection, language)}
             </div>
         </details>
     `;
 }
 
-function providerExampleStatus(collection: ProviderCollection<ProviderExampleView>, language: InterfaceLanguage): string {
-    if (collection.availability === 'loaded' && collection.items.length) return String(collection.items.length);
-    // Never "0". A zero beside a source name reads as a defect; "None yet"
-    // reads as an answer.
-    return uiText(language, collection.availability === 'unavailable' ? 'exampleSourceFailedShort' : 'exampleSourceEmptyShort');
+// Loaded sentences speak for themselves, so the header names no count, as the
+// related-word lists do not. Never "0" either: a zero beside a source name
+// reads as a defect; "None yet" reads as an answer.
+function renderProviderExampleStatus(collection: ProviderCollection<ProviderExampleView>, language: InterfaceLanguage): string {
+    if (collection.availability === 'loaded' && collection.items.length) return '';
+    const status = uiText(language, collection.availability === 'unavailable' ? 'exampleSourceFailedShort' : 'exampleSourceEmptyShort');
+    return `<span class="jpdb-reader-source-status jpdb-reader-example-count">${escapeHtml(status)}</span>`;
 }
 
 function renderProviderExampleAvailabilityReason(

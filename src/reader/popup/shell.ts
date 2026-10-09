@@ -156,9 +156,14 @@ export function refreshForcedReaderPopoverSurface(popover: HTMLElement, settings
     popover.querySelectorAll('.jpdb-reader-sheet-handle, .jpdb-reader-sheet-close').forEach(element => element.remove());
 }
 
-export function createReaderBackdrop(onDismiss: () => void): HTMLElement {
+/**
+ * The dismiss surface behind a modal Reader surface. Settings dims the page;
+ * a lookup passes `clear` so it only catches the outside press and the page
+ * stays as it was.
+ */
+export function createReaderBackdrop(onDismiss: () => void, { clear = false }: { clear?: boolean } = {}): HTMLElement {
     const backdrop = document.createElement('div');
-    backdrop.className = 'jpdb-reader-backdrop';
+    backdrop.className = clear ? 'jpdb-reader-backdrop jpdb-reader-backdrop--clear' : 'jpdb-reader-backdrop';
     backdrop.dataset.jpdbReaderRoot = 'true';
     // Preserve the user's text selection when they click away to dismiss:
     // a mousedown on the overlay would otherwise collapse the page selection.
@@ -213,10 +218,11 @@ export function installSheetHandle(popover: HTMLElement, onDismiss: () => void, 
     let dragPageScale = 1;
     const isFullHeight = (): boolean => viewportHeight > 0 && sheetHeight >= viewportHeight - SHEET_FULL_HEIGHT_THRESHOLD_PX;
     const syncHandle = (handle: HTMLElement): void => {
-        handle.setAttribute('role', 'button');
+        handle.setAttribute('role', 'separator');
         handle.setAttribute('tabindex', '0');
         handle.setAttribute('aria-label', label);
-        handle.setAttribute('aria-expanded', String(isFullHeight()));
+        handle.setAttribute('aria-orientation', 'horizontal');
+        handle.removeAttribute('aria-expanded');
         handle.setAttribute('aria-valuemin', String(sheetMinHeight(viewportHeight)));
         handle.setAttribute('aria-valuemax', String(viewportHeight));
         handle.setAttribute('aria-valuenow', String(Math.round(sheetHeight)));

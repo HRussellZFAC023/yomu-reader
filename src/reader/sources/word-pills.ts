@@ -1,9 +1,9 @@
 import { escapeHtml } from '../dom/index';
 import { renderFrequencyPill } from './definition-render';
 import { formatUiText, uiText } from '../app/i18n';
-import { bestFrequencyEntries, formatLookupUrl, lookupPillStyle } from '../dictionaries/display';
+import { bestFrequencyEntries, formatLookupUrl } from '../dictionaries/display';
 import { canUseMobileAnkiHandoff, mobileAnkiHandoffAppName, type AnkiLookupResult } from '../anki/index';
-import { ankiIcon, copyIcon, externalLinkIcon } from '../ui/icons';
+import { ankiIcon, copyIcon, externalLinkIcon, moreIcon } from '../ui/icons';
 import { replaceOptionalElement } from '../app/dom-helpers';
 import type { JPDBCard, ReaderSettings } from '../app/types';
 import { frequencyProviderForLookupId, type FrequencyProvider, type ProviderFrequencyRank, type ProviderFrequencyRanks } from '../cards/frequency-ranks';
@@ -33,24 +33,66 @@ export interface WordPillRenderOptions {
     isJpdbBackedCard: (card: JPDBCard) => boolean;
     dictionaryLabel: (name: string) => string;
     trustedAccountDataSurface?: boolean;
+    /** The word popup draws Copy as an icon beside audio, so its row leaves Copy out. */
+    copyBesideAudio?: boolean;
 }
+
+type LookupLink = ReaderSettings['dictionaryLookupLinks'][number];
+
+// Jiten and JPDB lead the row: their pages carry the word's frequency and deck
+// state. Other destinations (Yomu search, Bunpro, Jisho, a custom link) wait
+// behind one "More" so the row stays a single line on a phone.
+const LEAD_LOOKUP_LINK_IDS: ReadonlySet<string> = new Set(['jiten', 'jpdb']);
 
 export function renderWordPills(options: WordPillRenderOptions): string {
     const context = wordPillContext(options.card, options.overrideQuery);
     const query = context.query;
     const language = options.settings.interfaceLanguage;
-    const enabledLinks = options.settings.dictionaryLookupLinks.filter(link => link.enabled);
+    const enabledLinks = options.settings.dictionaryLookupLinks
+        .filter(link => link.enabled && !(options.copyBesideAudio && isCopyLookupLink(link)));
     const { pills: frequencyPills, mergedLiveRanks } = frequencyPillsByLookupId(options);
     const linkPills = enabledLinks
-        .map(link => renderConfiguredLookupPill(options, context, language, query, link, frequencyPills, mergedLiveRanks))
-        .filter(Boolean);
+        .map(link => ({ link, html: renderConfiguredLookupPill(options, context, language, query, link, frequencyPills, mergedLiveRanks) }))
+        .filter(pill => pill.html);
+    const { lead, more } = splitLookupPills(linkPills);
     const ankiPill = renderAnkiPill(options, language, query);
     const configuredFrequencyIds = new Set(enabledLinks.filter(link => isFrequencyLookupPill(link)).map(link => link.id));
     const leftoverFrequencyPills = Array.from(frequencyPills)
         .filter(([id]) => !configuredFrequencyIds.has(id))
         .map(([, html]) => html);
-    const pills = [...linkPills, ankiPill, ...leftoverFrequencyPills].filter(Boolean);
+    const pills = [...lead, ankiPill, ...leftoverFrequencyPills, renderMoreLookupPills(more, language)].filter(Boolean);
     return pills.length ? `<div class="jpdb-reader-word-pills">${pills.join('')}</div>` : '';
+}
+
+/** Copy, as an icon beside the audio button; '' when the Copy link is turned off. */
+export function renderCopyWordControl(settings: ReaderSettings, card: JPDBCard, inert = false): string {
+    if (!settings.dictionaryLookupLinks.some(link => link.enabled && isCopyLookupLink(link))) return '';
+    const language = settings.interfaceLanguage;
+    const title = uiText(language, 'copyWordTitle');
+    const label = `${title}: ${wordPillContext(card).query}`;
+    const disabled = inert ? ' aria-disabled="true" tabindex="-1"' : '';
+    const command = inert ? '' : privateCommandAttributes({ kind: 'card-action', action: 'copy-word' });
+    return `<button class="jpdb-reader-icon-btn jpdb-reader-copy-control" data-action="copy-word"${command} type="button"${disabled} title="${escapeHtml(title)}" aria-label="${escapeHtml(label)}">${copyIcon()}</button>`;
+}
+
+function isCopyLookupLink(link: LookupLink): boolean {
+    return link.action === 'copy' || link.id === 'copy';
+}
+
+function splitLookupPills(pills: Array<{ link: LookupLink; html: string }>): { lead: string[]; more: string[] } {
+    const others = pills.filter(pill => !isFrequencyLookupPill(pill.link) && !isCopyLookupLink(pill.link) && !LEAD_LOOKUP_LINK_IDS.has(pill.link.id));
+    // Without Jiten or JPDB, the first other destination leads instead.
+    const promoted = pills.some(pill => LEAD_LOOKUP_LINK_IDS.has(pill.link.id)) ? undefined : others[0];
+    const waiting = others.filter(pill => pill !== promoted);
+    // A menu holding a single link helps no one: it stays in the row.
+    if (waiting.length <= 1) return { lead: pills.map(pill => pill.html), more: [] };
+    return { lead: pills.filter(pill => !waiting.includes(pill)).map(pill => pill.html), more: waiting.map(pill => pill.html) };
+}
+
+function renderMoreLookupPills(more: string[], language: ReaderSettings['interfaceLanguage']): string {
+    if (!more.length) return '';
+    const label = escapeHtml(uiText(language, 'moreLookupLinks'));
+    return `<details class="jpdb-reader-pill-more"><summary class="jpdb-reader-pill jpdb-reader-action-pill jpdb-reader-pill-more-toggle" title="${label}" aria-label="${label}">${moreIcon()}</summary>${more.join('')}</details>`;
 }
 
 export function renderSelectionLookupPills(selected: string, settings: ReaderSettings): string {
@@ -82,12 +124,11 @@ function renderSelectionLookupPill(
     language: ReaderSettings['interfaceLanguage'],
     link: ReaderSettings['dictionaryLookupLinks'][number],
 ): string {
-    const style = lookupPillStyle(link.id || link.label);
-    if (link.action === 'copy' || link.id === 'copy') return renderSelectionCopyPill(language, context.query, style);
+    if (isCopyLookupLink(link)) return renderSelectionCopyPill(language, context.query);
     const url = formatLookupUrl(link.urlTemplate, context);
     if (!url) return '';
     const title = lookupSelectionPillTitle(language, link);
-    return `<a class="${lookupLinkPillClass(link.id)}" href="${escapeHtml(url)}" target="_blank" rel="noopener"${lookupPillStyleAttribute(style)} title="${escapeHtml(title)}" aria-label="${escapeHtml(`${title}: ${context.query}`)}">${escapeHtml(link.label)} ${externalLinkIcon()}</a>`;
+    return `<a class="${lookupLinkPillClass(link.id)}" href="${escapeHtml(url)}" target="_blank" rel="noopener" title="${escapeHtml(title)}" aria-label="${escapeHtml(`${title}: ${context.query}`)}">${escapeHtml(link.label)} ${externalLinkIcon()}</a>`;
 }
 
 function lookupSelectionPillTitle(language: ReaderSettings['interfaceLanguage'], link: ReaderSettings['dictionaryLookupLinks'][number]): string {
@@ -104,8 +145,7 @@ function renderLookupLinkPill(
     link: ReaderSettings['dictionaryLookupLinks'][number],
     mergedLiveRanks: MergedLiveRanks,
 ): string {
-    const style = lookupPillStyle(link.id || link.label);
-    if (link.action === 'copy' || link.id === 'copy') return renderCopyPill(language, query, style, options.inert);
+    if (isCopyLookupLink(link)) return renderCopyPill(language, query, options.inert);
     const url = lookupLinkPillUrl(options, context, link);
     if (!url) return '';
     // Merge a provider's live rank inline (e.g. "Jiten #18447"). Bunpro shows
@@ -116,9 +156,9 @@ function renderLookupLinkPill(
     const title = rank?.detail ? `${baseTitle}\n${rank.detail}` : baseTitle;
     const label = rank ? `${link.label} ${rank.display ?? `#${rank.rank}`}` : link.label;
     if (options.inert) {
-        return `<span class="${lookupLinkPillClass(link.id)}" role="link" aria-disabled="true" tabindex="-1"${lookupPillStyleAttribute(style)} title="${escapeHtml(title)}" aria-label="${escapeHtml(`${title}: ${query}`)}">${escapeHtml(label)} ${externalLinkIcon()}</span>`;
+        return `<span class="${lookupLinkPillClass(link.id)}" role="link" aria-disabled="true" tabindex="-1" title="${escapeHtml(title)}" aria-label="${escapeHtml(`${title}: ${query}`)}">${escapeHtml(label)} ${externalLinkIcon()}</span>`;
     }
-    return `<a class="${lookupLinkPillClass(link.id)}" href="${escapeHtml(url)}" target="_blank" rel="noopener"${lookupPillStyleAttribute(style)} title="${escapeHtml(title)}" aria-label="${escapeHtml(`${title}: ${query}`)}">${escapeHtml(label)} ${externalLinkIcon()}</a>`;
+    return `<a class="${lookupLinkPillClass(link.id)}" href="${escapeHtml(url)}" target="_blank" rel="noopener" title="${escapeHtml(title)}" aria-label="${escapeHtml(`${title}: ${query}`)}">${escapeHtml(label)} ${externalLinkIcon()}</a>`;
 }
 
 // The live-frequency rank is shown inline on its sibling link pill.
@@ -277,35 +317,28 @@ function ankiPillButton(options: {
     inert?: boolean;
     noteId?: number;
 }): string {
-    const styleAttribute = lookupPillStyleAttribute(lookupPillStyle('anki'));
     const label = uiText(options.language, 'anki');
     const title = escapeHtml(options.title);
     const ariaLabel = escapeHtml(`${options.title}: ${options.query}`);
     const content = `${escapeHtml(label)} ${ankiIcon()}`;
     if (options.inert) {
-        return `<span class="jpdb-reader-pill jpdb-reader-action-pill jpdb-reader-anki-pill" role="button" aria-disabled="true" tabindex="-1"${styleAttribute} title="${title}" aria-label="${ariaLabel}">${content}</span>`;
+        return `<span class="jpdb-reader-pill jpdb-reader-action-pill jpdb-reader-anki-pill" role="button" aria-disabled="true" tabindex="-1" title="${title}" aria-label="${ariaLabel}">${content}</span>`;
     }
     const noteAttribute = options.action === 'anki-edit' && options.noteId ? ` data-note-id="${options.noteId}"` : '';
-    return `<button class="jpdb-reader-pill jpdb-reader-action-pill jpdb-reader-anki-pill" data-action="${options.action}"${noteAttribute}${privateCommandAttributes({ kind: 'card-action', action: options.action, noteId: options.noteId })} type="button"${styleAttribute} title="${title}" aria-label="${ariaLabel}">${content}</button>`;
+    return `<button class="jpdb-reader-pill jpdb-reader-action-pill jpdb-reader-anki-pill" data-action="${options.action}"${noteAttribute}${privateCommandAttributes({ kind: 'card-action', action: options.action, noteId: options.noteId })} type="button" title="${title}" aria-label="${ariaLabel}">${content}</button>`;
 }
 
-function lookupPillStyleAttribute(style: string): string {
-    return style ? ` style="${style}"` : '';
-}
-
-function renderSelectionCopyPill(language: ReaderSettings['interfaceLanguage'], query: string, style = lookupPillStyle('copy')): string {
+function renderSelectionCopyPill(language: ReaderSettings['interfaceLanguage'], query: string): string {
     const copyTitle = uiText(language, 'copyWordTitle');
-    const styleAttribute = style ? ` style="${style}"` : '';
-    return `<button class="jpdb-reader-pill jpdb-reader-action-pill jpdb-reader-copy-pill" data-action="copy-selection" type="button"${styleAttribute} title="${escapeHtml(copyTitle)}" aria-label="${escapeHtml(`${copyTitle}: ${query}`)}">${escapeHtml(uiText(language, 'copyWord'))} ${copyIcon()}</button>`;
+    return `<button class="jpdb-reader-pill jpdb-reader-action-pill jpdb-reader-copy-pill" data-action="copy-selection" type="button" title="${escapeHtml(copyTitle)}" aria-label="${escapeHtml(`${copyTitle}: ${query}`)}">${copyIcon()}</button>`;
 }
 
-function renderCopyPill(language: ReaderSettings['interfaceLanguage'], query: string, style = lookupPillStyle('copy'), inert = false): string {
+function renderCopyPill(language: ReaderSettings['interfaceLanguage'], query: string, inert = false): string {
     const copyTitle = uiText(language, 'copyWordTitle');
-    const styleAttribute = style ? ` style="${style}"` : '';
     if (inert) {
-        return `<span class="jpdb-reader-pill jpdb-reader-action-pill jpdb-reader-copy-pill" role="button" aria-disabled="true" tabindex="-1"${styleAttribute} title="${escapeHtml(copyTitle)}" aria-label="${escapeHtml(`${copyTitle}: ${query}`)}">${escapeHtml(uiText(language, 'copyWord'))} ${copyIcon()}</span>`;
+        return `<span class="jpdb-reader-pill jpdb-reader-action-pill jpdb-reader-copy-pill" role="button" aria-disabled="true" tabindex="-1" title="${escapeHtml(copyTitle)}" aria-label="${escapeHtml(`${copyTitle}: ${query}`)}">${copyIcon()}</span>`;
     }
-    return `<button class="jpdb-reader-pill jpdb-reader-action-pill jpdb-reader-copy-pill" data-action="copy-word"${privateCommandAttributes({ kind: 'card-action', action: 'copy-word' })} type="button"${styleAttribute} title="${escapeHtml(copyTitle)}" aria-label="${escapeHtml(`${copyTitle}: ${query}`)}">${escapeHtml(uiText(language, 'copyWord'))} ${copyIcon()}</button>`;
+    return `<button class="jpdb-reader-pill jpdb-reader-action-pill jpdb-reader-copy-pill" data-action="copy-word"${privateCommandAttributes({ kind: 'card-action', action: 'copy-word' })} type="button" title="${escapeHtml(copyTitle)}" aria-label="${escapeHtml(`${copyTitle}: ${query}`)}">${copyIcon()}</button>`;
 }
 
 function frequencyPillsByLookupId(options: WordPillRenderOptions): { pills: Map<string, string>; mergedLiveRanks: MergedLiveRanks } {

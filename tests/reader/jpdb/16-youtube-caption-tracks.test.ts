@@ -1508,10 +1508,13 @@ describe('reader helpers', () => {
             spelling: '読みました',
             fallbackLookupTerms: ['読む'],
         });
+        // Public JPDB search scrapes prose POS labels, not JMdict codes; the
+        // shared fixture's inherited `v1` would claim 読む is ichidan.
         const publicCard = testPublicCard({
             vid: 1556420,
             spelling: '読む',
             reading: 'よむ',
+            partOfSpeech: ['Godan verb', 'Transitive verb'],
             pitchAccent: ['HL'],
         });
         const word = appendRenderedReaderWord(fallbackCard);

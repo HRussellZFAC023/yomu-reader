@@ -1,3 +1,4 @@
+import { AUDIO_REQUEST_TIMEOUT_MS } from '../audio/request';
 import { requestAudioUrl as requestUrl } from '../audio/request';
 import { normalizeAttemptedAudioUrl } from '../audio/source-resolution';
 import { uiText } from '../app/i18n';
@@ -52,7 +53,7 @@ export function jpdbAudioRequest(audioId: string, language: ReaderSettings['inte
 
 export async function fetchJpdbAudioBlob(audioId: string, settings: ReaderSettings): Promise<Blob> {
     const request = jpdbAudioRequest(audioId, settings.interfaceLanguage);
-    const response = await requestUrl(request.url, 'blob', settings.audioTimeoutMs, {
+    const response = await requestUrl(request.url, 'blob', AUDIO_REQUEST_TIMEOUT_MS, {
         headers: request.headers,
         proxyUrl: settings.corsProxyUrl,
         language: settings.interfaceLanguage,

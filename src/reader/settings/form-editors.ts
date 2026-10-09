@@ -7,7 +7,6 @@ import { audioSubSourceNameKey } from '../audio/source-resolution';
 import { knownAudioSubSourceNames } from '../audio/candidates';
 import { moveSourceRow } from './form-order';
 import { readAudioSources, readDictionaryLookupLinks } from './form-read';
-import { lookupSiteComponents, missingLookupComponents, type LookupLinkComponent } from './lookup-links';
 import { miniIconButton, renderRowOrderTools, renderRowRemoveTools } from './form-source-rows';
 import type { AudioSourceSetting, AudioSourceType, AudioSubSourceSetting, DictionaryLookupLink, DictionaryPreference, InterfaceLanguage, ReaderSettings } from '../app/types';
 
@@ -372,9 +371,8 @@ function isProbeableAudioSourceUrl(url: string): boolean {
 export function renderDictionaryLookupLinkEditor(
     links: DictionaryLookupLink[],
     localFrequencyPreferences: DictionaryPreference[] = [],
-    targetLanguage = 'ja',
 ): string {
-    const rows = lookupPillEditorRows(links, localFrequencyPreferences, targetLanguage);
+    const rows = lookupPillEditorRows(links, localFrequencyPreferences);
     return `
         <div class="jpdb-reader-lookup-link-head jpdb-reader-order-head">
             <span>On</span>
@@ -383,56 +381,20 @@ export function renderDictionaryLookupLinkEditor(
             <span>Order</span>
             <span>Remove</span>
         </div>
-        ${renderDictionaryLookupLinkRows(rows, targetLanguage)}
-        ${renderLookupLinkComponentGaps(targetLanguage)}
+        ${renderDictionaryLookupLinkRows(rows)}
         <div class="jpdb-reader-lookup-link-actions">
             <button class="jpdb-reader-btn add" type="button" data-action="lookup-link-add">Add</button>
         </div>
     `;
 }
 
-const LOOKUP_COMPONENT_LABELS: Record<LookupLinkComponent, string> = {
-    definition: 'Definitions',
-    sentences: 'Example sentences',
-    audio: 'Audio',
-    images: 'Images',
-};
-
-/**
- * What a built-in site actually hands back, beside its own row.
- *
- * U46's rule is that a component is claimed only where it was measured, so an
- * unlisted component is a statement and not a gap in the data: Treccani has
- * usage examples and no recordings, MDBG has neither, and both say so.
- */
-function renderLookupLinkNotes(targetLanguage: string, link: DictionaryLookupLink): string {
-    const components = lookupSiteComponents(targetLanguage, link.id);
-    const opensOverPlaintextHttp = /^http:\/\//i.test(link.urlTemplate);
-    if (!components.length && !opensOverPlaintextHttp) return '';
-    const note = components.map(component => LOOKUP_COMPONENT_LABELS[component]).join(' · ');
-    const separator = components.length && opensOverPlaintextHttp ? ' · ' : '';
-    const transport = opensOverPlaintextHttp
-        ? `<span data-lookup-link-transport>${escapedUiText('en', 'plaintextHttpLink')}</span>`
-        : '';
-    return `<span class="jpdb-reader-lookup-link-note" data-lookup-link-note="${components.length ? 'components' : 'transport'}"${components.length ? ` data-lookup-link-components="${escapeHtml(components.join(' '))}"` : ''}>${escapeHtml(note)}${separator}${transport}</span>`;
+/** A built-in site that opens over plain http says so beside its own row. */
+function renderLookupLinkNotes(link: DictionaryLookupLink): string {
+    if (!/^http:\/\//i.test(link.urlTemplate)) return '';
+    return `<span class="jpdb-reader-lookup-link-note" data-lookup-link-note="transport"><span data-lookup-link-transport>${escapedUiText('en', 'plaintextHttpLink')}</span></span>`;
 }
 
-/**
- * The components no site in this target's row can supply.
- *
- * This is the same reversal U46 applied to the example panels, moved to the pill
- * editor: a learner of Ancient Greek is told there is no pronunciation site
- * rather than left to wonder why no pill plays anything, and only Chinese and
- * Cantonese are told nothing about images because only they have an image site.
- */
-function renderLookupLinkComponentGaps(targetLanguage: string): string {
-    const missing = missingLookupComponents(targetLanguage);
-    if (!missing.length) return '';
-    const names = missing.map(component => LOOKUP_COMPONENT_LABELS[component].toLowerCase()).join(', ');
-    return `<p class="jpdb-reader-help" data-lookup-link-gap="${escapeHtml(missing.join(' '))}">No verified site for this language offers ${escapeHtml(names)}. Add your own above if you know one.</p>`;
-}
-
-function renderDictionaryLookupLinkRows(rows: DictionaryLookupLink[], targetLanguage: string): string {
+function renderDictionaryLookupLinkRows(rows: DictionaryLookupLink[]): string {
     const orderTools = renderRowOrderTools({
         label: 'Lookup pill order',
         upAction: 'lookup-link-up',
@@ -448,7 +410,7 @@ function renderDictionaryLookupLinkRows(rows: DictionaryLookupLink[], targetLang
                 ? `<span class="jpdb-reader-lookup-link-note" data-lookup-link-note="copy">Copies the current word</span><input name="dictionaryLookupLinks.${index}.urlTemplate" type="hidden" value="">`
                 : isFrequencyAction
                     ? `<span class="jpdb-reader-lookup-link-note" data-lookup-link-note="frequency">${escapeHtml(frequencyLookupPillNote(link))}</span><input name="dictionaryLookupLinks.${index}.urlTemplate" type="hidden" value="">`
-                    : `<input name="dictionaryLookupLinks.${index}.urlTemplate" type="text" value="${escapeHtml(link.urlTemplate)}" placeholder="https://takoboto.jp/?q={query}" aria-label="Lookup URL template">${renderLookupLinkNotes(targetLanguage, link)}`;
+                    : `<input name="dictionaryLookupLinks.${index}.urlTemplate" type="text" value="${escapeHtml(link.urlTemplate)}" placeholder="https://takoboto.jp/?q={query}" aria-label="Lookup URL template">${renderLookupLinkNotes(link)}`;
             const removeControl = isCopyAction || isFrequencyAction
                 ? '<span class="jpdb-reader-lookup-link-fixed" aria-label="Built-in action"></span>'
                 : miniIconButton('remove', 'Remove', 'data-action="lookup-link-remove"');
@@ -471,12 +433,11 @@ function renderDictionaryLookupLinkRows(rows: DictionaryLookupLink[], targetLang
     `;
 }
 
-export function lookupPillEditorRows(
+function lookupPillEditorRows(
     links: DictionaryLookupLink[],
     localFrequencyPreferences: DictionaryPreference[],
-    target: string,
 ): DictionaryLookupLink[] {
-    const normalized = normalizeDictionaryLookupLinks(links, false, target);
+    const normalized = normalizeDictionaryLookupLinks(links, false);
     const byId = new Map(normalized.map(link => [link.id, link]));
     for (const preference of localFrequencyPreferences) {
         const id = localFrequencyLookupPillId(preference.name);
@@ -491,7 +452,7 @@ export function lookupPillEditorRows(
             });
         }
     }
-    return normalizeDictionaryLookupLinks(Array.from(byId.values()), false, target)
+    return normalizeDictionaryLookupLinks(Array.from(byId.values()), false)
         .sort(compareLookupPillEditorRows);
 }
 
@@ -521,26 +482,18 @@ export function updateDictionaryLookupLinkEditor(form: HTMLFormElement, action: 
         moveSourceRow(container, index, action === 'lookup-link-up' ? index - 1 : index + 1);
         return;
     }
-    const data = new FormData(form);
-    const links = readDictionaryLookupLinks(data);
-    const target = formTargetLanguage(data);
-    updateDictionaryLookupLinks(links, action, index, target);
-    // The target lives in this same form, so re-rendering a row keeps the
-    // component notes and the gap line describing the language on screen.
-    setInnerHtml(container, renderDictionaryLookupLinkEditor(links, [], target));
+    const links = readDictionaryLookupLinks(new FormData(form));
+    updateDictionaryLookupLinks(links, action, index);
+    setInnerHtml(container, renderDictionaryLookupLinkEditor(links, []));
 }
 
-function formTargetLanguage(data: FormData): string {
-    return String(data.get('targetLanguage') ?? '') || 'ja';
-}
-
-function updateDictionaryLookupLinks(links: DictionaryLookupLink[], action: string, index: number, target: string): void {
-    if (action === 'lookup-link-add') addDictionaryLookupLink(links, target);
+function updateDictionaryLookupLinks(links: DictionaryLookupLink[], action: string, index: number): void {
+    if (action === 'lookup-link-add') addDictionaryLookupLink(links);
     if (action === 'lookup-link-remove') removeDictionaryLookupLink(links, index);
 }
 
-function addDictionaryLookupLink(links: DictionaryLookupLink[], target: string): void {
-    if (links.length >= defaultDictionaryLookupLinks('local', target).length
+function addDictionaryLookupLink(links: DictionaryLookupLink[]): void {
+    if (links.length >= defaultDictionaryLookupLinks('local').length
         + MAX_EXTRA_LOOKUP_LINKS) return;
     links.push({
         id: `custom-${Date.now().toString(36)}`,

@@ -2,9 +2,8 @@ import { CARD_STATE_LABEL_KEYS, uiText } from '../app/i18n';
 import { FURIGANA_HIDE_STATE_GROUPS, WORD_COLOR_HIDE_STATE_GROUPS } from '../app/constants';
 import { escapeHtml } from '../dom/html';
 import { checkbox } from './form-controls';
-import { effectiveFuriganaMode } from './index';
+import { furiganaStyle } from './index';
 import type { InterfaceLanguage, ReaderSettings } from '../app/types';
-import type { LearningTargetRosterId } from '../languages';
 
 // Same local alias the other settings modules use; there is no shared export.
 type SettingsTextKey = Parameters<typeof uiText>[1];
@@ -22,18 +21,14 @@ type SettingsTextKey = Parameters<typeof uiText>[1];
  * word on the page coloured with no way to turn it off (GitHub #37).
  */
 
-export function renderReadingHiddenStateGroupControls(
-    settings: ReaderSettings,
-    targetLanguage: LearningTargetRosterId,
-): string {
+export function renderReadingHiddenStateGroupControls(settings: ReaderSettings): string {
     const language = settings.interfaceLanguage;
     const selected = new Set(settings.furiganaHiddenStateGroups);
     const boxes = FURIGANA_HIDE_STATE_GROUPS
         .map(group => checkbox(`furiganaHide-${group}`, uiText(language, CARD_STATE_LABEL_KEYS[group]), selected.has(group)))
         .join('');
-    const hidden = effectiveFuriganaMode(settings) === 'known-status' ? '' : ' hidden';
-    const legendKey = targetLanguage === 'ja' ? 'hideFuriganaFor' : 'hideReadingsFor';
-    return `<fieldset class="jpdb-reader-radio-group" data-furigana-hide-groups${hidden}><legend>${escapedUiText(language, legendKey)}</legend>${boxes}</fieldset>`;
+    const hidden = furiganaStyle(settings) === 'known-status' ? '' : ' hidden';
+    return `<fieldset class="jpdb-reader-radio-group" data-furigana-hide-groups${hidden}><legend>${escapedUiText(language, 'hideFuriganaFor')}</legend>${boxes}</fieldset>`;
 }
 
 /**

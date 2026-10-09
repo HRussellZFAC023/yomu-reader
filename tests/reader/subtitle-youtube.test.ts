@@ -3,6 +3,7 @@ import {
     activateYouTubeCaptionTrack,
     discoverCurrentYouTubeCaptionTracks,
     getYouTubeCaptionTracks,
+    isYouTubeAdPlaying,
     isYouTubeFeedPreviewVideo,
     isYouTubeOwnedVideoElement,
 } from '../../src/reader/subtitles/subtitle-youtube';
@@ -183,6 +184,44 @@ describe('YouTube subtitle captions', () => {
             onVideoId,
         });
         contextKey = '1:es:en:es:en';
+
+        await expect(pending).resolves.toBeNull();
+        expect(onVideoId).toHaveBeenCalledWith('abc123');
+    });
+
+    it('reads an ad break from the watch player that owns the video', () => {
+        document.body.innerHTML = `
+            <div id="movie_player" class="html5-video-player"><video id="main" class="html5-main-video"></video></div>
+            <div class="ad-showing"><video id="elsewhere"></video></div>`;
+        const player = document.querySelector<HTMLElement>('#movie_player')!;
+        const main = document.querySelector<HTMLVideoElement>('#main')!;
+
+        expect(isYouTubeAdPlaying(main)).toBe(false);
+        player.classList.add('ad-showing');
+        expect(isYouTubeAdPlaying(main)).toBe(true);
+        player.classList.replace('ad-showing', 'ad-interrupting');
+        expect(isYouTubeAdPlaying(main)).toBe(true);
+        player.classList.remove('ad-interrupting');
+        expect(isYouTubeAdPlaying(main)).toBe(false);
+        expect(isYouTubeAdPlaying(document.querySelector<HTMLVideoElement>('#elsewhere')!)).toBe(false);
+        expect(isYouTubeAdPlaying(undefined)).toBe(false);
+    });
+
+    it('discards a caption discovery result after the watch page moves to another video', async () => {
+        installYouTubeCaptionResponse({ captionTracks: [englishCaptionTrack()] });
+        const contextKey = '0:ja:en:ja-JP:en';
+        const onVideoId = vi.fn();
+
+        const pending = discoverCurrentYouTubeCaptionTracks({
+            contextKey,
+            currentContextKey: () => contextKey,
+            onVideoId,
+        });
+        // Autoplay (or a click) lands on the next video while the request is out.
+        Object.defineProperty(window, 'location', {
+            configurable: true,
+            value: new URL('https://www.youtube.com/watch?v=next456') as unknown as Location,
+        });
 
         await expect(pending).resolves.toBeNull();
         expect(onVideoId).toHaveBeenCalledWith('abc123');

@@ -247,6 +247,39 @@ describe('reader helpers', () => {
         }
     });
 
+    // ADR-0025: a page's controls are never annotated, so hover has to read
+    // their raw label text or the learner loses the lookup along with the
+    // furigana (YouTube chips, Wikipedia 検索/非表示).
+    it('reads an unannotated page control label on hover but leaves its click to the page', () => {
+        document.body.innerHTML = `
+            <main>
+                <button type="button" id="save">保存する</button>
+                <div role="tablist"><div role="tab" id="tab">動画</div><div role="tab" id="chip">新着</div></div>
+                <div role="button" id="share">共有する</div>
+                <details><summary id="more">詳細を表示</summary></details>
+            </main>
+        `;
+        const app = new ReaderApp();
+
+        try {
+            for (const [id, label] of [['save', '保存する'], ['tab', '動画'], ['chip', '新着'], ['share', '共有する'], ['more', '詳細を表示']] as const) {
+                const control = document.getElementById(id)!;
+                withPointerTextLookupMock(control.firstChild as Text, 0, [{ left: 20, top: 20, width: 24, height: 28 }], () => {
+                    expect(lookupCandidateFromPoint(app, 28, 30, control), `${label} click`).toBeNull();
+                    expect(lookupCandidateFromPoint(app, 28, 30, control, { allowPassiveInteractionText: true }), `${label} hover`).toMatchObject({
+                        text: label,
+                        offset: 0,
+                        start: 0,
+                        anchor: control,
+                    });
+                });
+            }
+        } finally {
+            app.destroy();
+            document.body.replaceChildren();
+        }
+    });
+
     it('does not use fallback pointer lookup on JPDB native Immersion Kit controls', () => {
         vi.stubGlobal('location', {
             href: 'https://jpdb.io/vocabulary/1/%E4%BB%8A%E6%97%A5/%E3%81%8D%E3%82%87%E3%81%86',

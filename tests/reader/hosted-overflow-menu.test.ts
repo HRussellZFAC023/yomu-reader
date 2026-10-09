@@ -51,8 +51,8 @@ describe('hosted overflow menus', () => {
         const popover = readProjectFile('docs/.vitepress/theme/membership-popover.ts');
 
         expect(MEMBERSHIP_NAV).toEqual({
-            text: 'Membership',
-            ja: 'メンバーシップ',
+            text: 'Donate',
+            ja: '寄付',
             link: '/membership',
             target: '_self',
         });

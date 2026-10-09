@@ -1,7 +1,7 @@
 import type { ReaderSettings } from '../app/types';
-import { activeLearningTarget, activeLearningTargetGeneration } from '../languages/active';
+import { activeLearningTarget } from '../languages/active';
 import { canonicalLanguageTag, languageSubtag, localeDirection } from '../languages/locale';
-import { outputLanguageOf } from '../languages/selection';
+import { OUTPUT_LANGUAGE } from '../languages/selection';
 import type { TextDirection } from '../languages/types';
 import type { SubtitleTrackMetadata } from './subtitle-track-metadata';
 import { subtitleTrackLanguage } from './subtitle-track-metadata';
@@ -17,20 +17,18 @@ export interface SubtitleContentLanguage {
 }
 
 export interface SubtitleLanguageContext extends SubtitleLanguageSelection {
-    generation: number;
     targetContent: SubtitleContentLanguage;
     outputContent: SubtitleContentLanguage;
     preferredTranslationLanguages: readonly string[];
 }
 
 /** Resolve TARGET and OUTPUT once for one subtitle render/discovery transaction. */
-export function resolveSubtitleLanguageContext(settings: ReaderSettings): SubtitleLanguageContext {
+export function resolveSubtitleLanguageContext(_settings?: ReaderSettings): SubtitleLanguageContext {
     const target = activeLearningTarget();
     const targetContent = contentLanguage(target.typography.contentLocale, target.subtitles.languageTag);
-    const output = outputLanguageOf(settings);
+    const output = OUTPUT_LANGUAGE;
     const outputContent = contentLanguage(output, output);
     return {
-        generation: activeLearningTargetGeneration(),
         targetLanguage: target.subtitles.languageTag,
         outputLanguage: languageSubtag(output) ?? output,
         targetContent,
@@ -48,7 +46,6 @@ export function sameSubtitleLanguageContext(left: SubtitleLanguageContext, right
 
 export function subtitleLanguageContextKey(context: SubtitleLanguageContext): string {
     return [
-        context.generation,
         context.targetLanguage,
         context.outputLanguage,
         context.targetContent.lang,

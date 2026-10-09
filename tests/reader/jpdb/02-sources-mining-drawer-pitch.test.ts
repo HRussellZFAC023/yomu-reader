@@ -25,7 +25,7 @@ import {
     readingTestCard,
     renderModalCard,
     renderWordPills,
-    settingsJapaneseParserFixture,
+    renderCopyWordControl,
     sourceSummaryClickFixture,
     testAnkiExistingNote,
     testAnkiLookup,
@@ -43,6 +43,7 @@ import type {
     JPDBCard,
 } from './fixtures';
 import { setInnerHtml } from '../../../src/reader/dom';
+import { readCardUiCommandCapability } from '../../../src/reader/dom/private-command-capabilities';
 
 registerReaderHelpersCleanup();
 
@@ -86,25 +87,6 @@ function expectAnkiGradeButtons(cardId: string): void {
 }
 
 describe('reader helpers', () => {
-    it('does not parse settings help and status rows as reading text', async () => {
-        const { app, form, parseJapanese, internals } = settingsJapaneseParserFixture({
-            spelling: '公開',
-            reading: 'こうかい',
-            vid: 8642,
-        });
-
-        try {
-            await internals.parseSettingsJapanese(form);
-
-            const parsedTexts = parseJapanese.mock.calls[0]?.[0] ?? [];
-            expect(parsedTexts.join('\n')).not.toContain('公開検索は使えます');
-            expect(form.querySelector('[data-jpdb-status] .jpdb-reader-word')).toBeNull();
-            expect(form.querySelector('[data-jpdb-status] rt')).toBeNull();
-        } finally {
-            app.destroy();
-            document.body.replaceChildren();
-        }
-    });
 
     it('leaves source summary clicks to native details toggling even when tracking is installed twice', () => {
         const { click } = sourceSummaryClickFixture(`
@@ -167,7 +149,6 @@ describe('reader helpers', () => {
             </details>
         `;
         const controller = new DictionarySourceStateController({
-            getSettings: () => DEFAULT_SETTINGS,
             onStateChange,
         });
 
@@ -189,7 +170,7 @@ describe('reader helpers', () => {
         const settings = {
             ...DEFAULT_SETTINGS,
             immersionKitEnabled: true,
-            dictionarySourcesInitiallyExpanded: true,
+
             jpdbDefinitionsEnabled: false,
             studyTranslationEnabled: false,
             studyGrammarEnabled: false,
@@ -275,7 +256,7 @@ describe('reader helpers', () => {
         }
     });
 
-    it('renders the mining drawer affordance as a bar instead of text', () => {
+    it('renders the mining drawer affordance as a chevron, not text or a second grab bar', () => {
         const settings = {
             apiKey: 'test-key',
             jpdbMiningEnabled: true,
@@ -286,7 +267,7 @@ describe('reader helpers', () => {
         const html = renderModalCard(renderer, card, '食べる。');
 
         expect(html).toContain('jpdb-reader-mining-drawer-handle');
-        expect(html).toContain('aria-label="Show mining actions"');
+        expect(html).toContain('aria-label="More actions"');
         expect(html).not.toContain('>+</button>');
         expect(KANJI_CSS).toContain('.jpdb-reader-mining-collapse::before');
         const normalizedKanjiCss = KANJI_CSS.replace(/\s+/g, ' ');
@@ -294,7 +275,15 @@ describe('reader helpers', () => {
         expect(normalizedPopoverCss).toContain('.jpdb-reader-popover .jpdb-reader-icon-btn, .jpdb-reader-settings .jpdb-reader-icon-btn, .jpdb-reader-icon-btn {');
         expect(normalizedPopoverCss).toContain('.jpdb-reader-popover .jpdb-reader-icon-btn svg, .jpdb-reader-settings .jpdb-reader-icon-btn svg, .jpdb-reader-icon-btn svg {');
         expect(normalizedKanjiCss).toContain('.jpdb-reader-actions .jpdb-reader-mining-collapse, .jpdb-reader-mining-collapse {');
-        expect(normalizedKanjiCss).toContain('.jpdb-reader-actions .jpdb-reader-mining-collapse::before, .jpdb-reader-mining-collapse::before {');
+        // A phone sheet already has its grab bar at the top; the drawer toggle
+        // is a chevron, so the sheet does not read as two stacked sheets. The
+        // chevron stays inside the action bar (Study's grade-target handle
+        // reuses the class and keeps its own bar).
+        const drawerGlyph = normalizedKanjiCss.match(/[}/] \.jpdb-reader-actions \.jpdb-reader-mining-collapse::before \{([^}]*)\}/u)?.[1] ?? '';
+        expect(drawerGlyph).toContain('border-top: 2px solid currentColor;');
+        expect(drawerGlyph).toContain('transform: translateY(2px) rotate(45deg);');
+        expect(drawerGlyph).not.toContain('height: 5px');
+        expect(normalizedKanjiCss).toContain('.jpdb-reader-actions:not(.jpdb-reader-actions-mining-collapsed) .jpdb-reader-mining-collapse::before { transform: translateY(-2px) rotate(225deg); }');
         expect(normalizedKanjiCss).toContain('.jpdb-reader-mining-collapse::after { content: ""; position: absolute; inset: -16px 0 0; border-radius: 999px; }');
         expect(normalizedKanjiCss).not.toContain('.jpdb-reader-actions-has-mining { padding-top: 45px; }');
         expect(normalizedPopoverCss).toContain('.jpdb-reader-popover.jpdb-reader-sheet:has(.jpdb-reader-popover-body) .jpdb-reader-actions.jpdb-reader-actions-has-mining { padding-top: 31px; }');
@@ -670,7 +659,7 @@ describe('reader helpers', () => {
             isJpdbBackedCard: testIsJpdbBackedCard,
         });
         const html = renderModalCard(renderer, jitenTestCard(), '読む。');
-        expect(html).toContain('data-action="deck-picker"');
+        expect(html).toContain('jpdb-reader-deck-select');
         expect(html).toContain('data-action="neverforget"');
         expect(html).toContain('data-action="blacklist"');
         expect(html).not.toContain('data-action="jiten-mining"');
@@ -685,8 +674,11 @@ describe('reader helpers', () => {
             isJpdbBackedCard: testIsJpdbBackedCard,
         });
         const html = renderModalCard(renderer, jitenTestCard({ source: 'bunpro', jitenWordId: undefined, jitenReadingIndex: undefined, bunproReviewId: '77', bunproReviewableType: 'vocabulary' }), '読む。');
-        expect(html).toContain('data-action="deck-picker"');
-        expect(html).toContain('data-deck-source="bunpro"');
+        expect(html).toContain('jpdb-reader-deck-select');
+        setInnerHtml(document.body, html);
+        const collect = document.querySelector('.jpdb-reader-deck-select')!;
+        expect(readCardUiCommandCapability(collect)?.choices).toContainEqual({ source: 'bunpro', id: 'bunpro', label: 'Bunpro' });
+        expect(document.querySelector('[data-deck-source], [data-deck-id], [data-add-deck-select]')).toBeNull();
         expect(html).not.toContain('data-action="neverforget"');
         expect(html).not.toContain('data-action="blacklist"');
     });
@@ -704,7 +696,10 @@ describe('reader helpers', () => {
         });
 
         const html = renderModalCard(renderer, { ...card, source: 'local', cardState: ['not-in-deck'] }, '食べる。');
-        expect(html).toContain('data-deck-source="bunpro"');
+        setInnerHtml(document.body, html);
+        const collect = document.querySelector('.jpdb-reader-deck-select')!;
+        expect(readCardUiCommandCapability(collect)?.choices).toContainEqual({ source: 'bunpro', id: 'bunpro', label: 'Bunpro' });
+        expect(document.querySelector('[data-deck-source], [data-deck-id], [data-add-deck-select]')).toBeNull();
         expect(html).not.toContain('data-action="grade"');
     });
 
@@ -722,11 +717,11 @@ describe('reader helpers', () => {
         expect(jpdbOnly).toContain('jpdb-reader-actions-has-mining');
         expect(jpdbOnly).toContain('jpdb-reader-actions-mining-collapsed');
         expect(jpdbOnly).toContain('aria-expanded="false"');
-        expect(jpdbOnly).toContain('Show mining actions');
-        expect(jpdbOnly).toContain('data-action="deck-picker"');
+        expect(jpdbOnly).toContain('More actions');
+        expect(jpdbOnly).toContain('jpdb-reader-deck-select');
         expect(jpdbOnly).not.toContain('This JPDB card is locked');
         const container = document.createElement('div');
-        container.innerHTML = jpdbOnly;
+        setInnerHtml(container, jpdbOnly);
         document.body.innerHTML = jpdbOnly;
         expect(popoverGradeButtons()).toHaveLength(5);
         expect(popoverGradeButtons().every(button => button.dataset.reviewTarget === 'jpdb')).toBe(true);
@@ -737,7 +732,9 @@ describe('reader helpers', () => {
         expect(document.querySelector('.jpdb-reader-popover-grade-target-selector')).toBeNull();
         expect(document.querySelector('[data-review-target-gutter]')).not.toBeNull();
         expect(document.querySelector<HTMLButtonElement>('[data-review-target-gutter] [data-action="mining-collapse"]')?.getAttribute('aria-expanded')).toBe('false');
-        expect(container.querySelector<HTMLSelectElement>('[data-add-deck-select]')?.hidden).toBe(true);
+        expect(container.querySelector('[data-add-deck-select]')).toBeNull();
+        expect(readCardUiCommandCapability(container.querySelector('.jpdb-reader-deck-select')!)?.choices)
+            .toContainEqual({ source: 'jpdb', id: DEFAULT_SETTINGS.miningDeck, label: 'JPDB: FORQ' });
 
         const ankiBacked = renderModalCard(renderer, { ...card, cardState: ['locked'] }, '食べる。', {
             ankiLookup: testAnkiLookup({
@@ -1168,10 +1165,12 @@ describe('reader helpers', () => {
 
         expect(html).not.toContain('jpdb-reader-copy-pill');
         expect(html).not.toContain('data-action="copy-word"');
-        expect(html).toContain('--chip-bg:#2563c7');
+        expect(html).toContain('>JPDB ');
     });
 
-    it('renders the built-in lookup pills Yomu-first with their provider colors', () => {
+    // Jiten and JPDB lead; Yomu search and Bunpro wait behind one "More" so the
+    // row is a single line on a phone (Copy once wrapped alone at 390px).
+    it('renders the built-in lookup pills Jiten and JPDB first, the rest behind More, all in one quiet style', () => {
         const html = renderWordPills({
             card,
             jpdbUrl: 'https://jpdb.io/vocabulary/1',
@@ -1187,14 +1186,19 @@ describe('reader helpers', () => {
         expect(html).toContain('>JPDB ');
         expect(html).toContain('>Jiten ');
         expect(html).toContain('>Yomu ');
-        expect(html.indexOf('>Yomu ')).toBeLessThan(html.indexOf('>Jiten '));
         expect(html.indexOf('>Jiten ')).toBeLessThan(html.indexOf('>JPDB '));
         expect(html).not.toContain('>Jisho ');
-        expect(html).toContain('>Copy ');
+        expect(html.indexOf('>JPDB ')).toBeLessThan(html.indexOf('jpdb-reader-copy-pill'));
+        const row = new DOMParser().parseFromString(html, 'text/html').querySelector('.jpdb-reader-word-pills')!;
+        const more = row.querySelector('details.jpdb-reader-pill-more');
+        expect(Array.from(more?.querySelectorAll(':scope > a') ?? []).map(link => link.textContent?.trim())).toEqual(['Yomu', 'Bunpro']);
+        expect(more?.querySelector('summary')?.getAttribute('aria-label')).toBe('More links');
+        expect(row.lastElementChild).toBe(more);
         expect(html).toContain('https://jiten.moe/parse?text=');
         expect(html).toContain(`${NEW_TAB_PAGE_URL}index.html?q=`);
-        expect(html).toContain('--chip-bg:#b83280');
-        expect(html).toContain('--chip-bg:#13845f');
+        // No rainbow: provider identity is the label, not a fill colour.
+        expect(html).not.toContain('--chip-');
+        expect(html).not.toContain('style=');
         expect(html).not.toContain('>Immersion Kit ');
         expect(html).not.toContain('>Uchisen ');
     });
@@ -1326,12 +1330,32 @@ describe('reader helpers', () => {
         expect(html).toContain('>Jiten ');
         expect(html).toContain('>Yomu ');
         expect(html).not.toContain('>Jisho ');
-        expect(html).toContain('>Copy ');
+        // Copy is an icon: the accessible name and tooltip carry the words.
+        const copy = new DOMParser().parseFromString(html, 'text/html').querySelector('.jpdb-reader-copy-pill');
+        expect(copy?.textContent?.trim()).toBe('');
+        expect(copy?.querySelector('svg')).not.toBeNull();
+        expect(copy?.getAttribute('title')).toBe('Copy word');
+        expect(copy?.getAttribute('aria-label')).toMatch(/^Copy word: /);
         expect(html).toContain('<a ');
         expect(html).toContain('href="https://jiten.moe/parse?text=');
         expect(html).toContain(`href="${NEW_TAB_PAGE_URL}index.html?q=`);
         expect(html).toContain('data-action="copy-word"');
         expect(html).not.toContain('aria-disabled="true"');
+    });
+
+    // In the word popup Copy is an icon beside audio, not the last pill on the
+    // row, where at 390px it wrapped onto a line of its own.
+    it('draws Copy beside audio in the word popup, out of the pill row', () => {
+        const settings = { ...DEFAULT_SETTINGS, interfaceLanguage: 'en' as const, dictionaryLookupLinks: defaultDictionaryLookupLinks('local') };
+        const row = renderWordPills({ card, jpdbUrl: 'https://jpdb.io/vocabulary/1', settings, isJpdbBackedCard: () => true, dictionaryLabel: name => name, copyBesideAudio: true });
+        expect(row).not.toContain('data-action="copy-word"');
+        const control = new DOMParser().parseFromString(renderCopyWordControl(settings, card), 'text/html').querySelector('button')!;
+        expect(control.classList.contains('jpdb-reader-icon-btn')).toBe(true);
+        expect(control.dataset.action).toBe('copy-word');
+        expect(control.getAttribute('aria-label')).toMatch(/^Copy word: /u);
+        expect(control.querySelector('svg')).not.toBeNull();
+        const noCopy = { ...settings, dictionaryLookupLinks: settings.dictionaryLookupLinks.map(link => (link.id === 'copy' ? { ...link, enabled: false } : link)) };
+        expect(renderCopyWordControl(noCopy, card)).toBe('');
     });
 
     it('renders an Add to Anki pill for trusted Anki misses', () => {
@@ -1354,7 +1378,7 @@ describe('reader helpers', () => {
         expect(html).toContain('data-action="anki"');
         expect(html).toContain('title="Add to Anki"');
         expect(html).toContain('>Anki ');
-        expect(html).toContain('--chip-bg:#2f6da8');
+        expect(html).not.toContain('--chip-');
     });
 
     it('renders an Edit in Anki pill for existing Anki notes', () => {
@@ -1433,7 +1457,7 @@ describe('reader helpers', () => {
         expect(html).not.toContain('href="https://jiten.moe/parse?text=%E8%AA%AD"');
     });
 
-    it('renders optional Immersion Kit, Nadeshiko, and Uchisen lookup pills with provider colors', () => {
+    it('renders optional Immersion Kit, Nadeshiko, and Uchisen lookup pills without provider colours', () => {
         const html = renderWordPills({
             card,
             jpdbUrl: 'https://jpdb.io/vocabulary/1',
@@ -1454,9 +1478,7 @@ describe('reader helpers', () => {
         expect(html).toContain('https://www.immersionkit.com/dictionary?keyword=');
         expect(html).toContain('https://nadeshiko.co/search/');
         expect(html).toContain('https://uchisen.com/kanji/');
-        expect(html).toContain('--chip-bg:#0e7490');
-        expect(html).toContain('--chip-bg:#7c3aed');
-        expect(html).toContain('--chip-bg:#9a3412');
+        expect(html).not.toContain('--chip-');
     });
 
     it('uses the hosted new-tab review fallback when a dictionary card is gradeable outside JPDB API lookup', () => {

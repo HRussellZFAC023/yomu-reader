@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
     DEFAULT_SETTINGS,
+    activateSettingsPanel,
     applySettingsSearch,
     localizeSettingsForm,
     registerSettingsFormCleanup,
@@ -24,13 +25,21 @@ function sourcesFoundBy(form: HTMLFormElement, query: string): boolean {
 describe('the popup order in Settings → Sources', () => {
     registerSettingsFormCleanup();
 
+    it('exposes dictionary controls immediately without a retired language choice', () => {
+        const form = renderSettingsTestForm(DEFAULT_SETTINGS);
+        activateSettingsPanel(form, 'dictionaries');
+        expect(sourcesContent(form).hidden).toBe(false);
+        const parser = sourcesContent(form).querySelector('select[name="parserProvider"]');
+        expect(parser).not.toBeNull();
+        expect(parser?.closest('[hidden]')).toBeNull();
+    });
+
     it('opens the Sources tab, titled as the popup order, above storage and the parser', () => {
         const form = renderSettingsTestForm(DEFAULT_SETTINGS);
         const first = sourcesContent(form).firstElementChild!;
 
         expect(first.querySelector('[data-help-key="popupOrderTitle"]')?.textContent).toBe('Popup order');
-        expect(first.querySelector('[data-help-key="popupOrderHelp"]')?.textContent)
-            .toBe('This list sets the order of sections in the popup. Reorder it with the arrows or by dragging, then press Save.');
+        expect(first.querySelector('[data-help-key="popupOrderHelp"]')).toBeNull();
         expect(first.querySelector('[data-definition-source-editor] [data-source-row]')).not.toBeNull();
         const editor = form.querySelector('[data-definition-source-editor]')!;
         for (const later of ['[data-dictionary-status]', '[data-local-dictionary-storage]', 'select[name="parserProvider"]']) {
@@ -38,8 +47,23 @@ describe('the popup order in Settings → Sources', () => {
         }
     });
 
+    // Sixteen order rows and a link editor made Sources a configuration editor.
+    // Both stay one line until opened; installed and recommended dictionaries lead.
+    it('keeps the order rows and the lookup-link editor closed until asked for', () => {
+        const form = renderSettingsTestForm(DEFAULT_SETTINGS);
+        const order = form.querySelector('[data-definition-source-editor]')!.closest('details')!;
+        const links = form.querySelector('.jpdb-reader-lookup-links')!.closest('details')!;
+        expect(order.open).toBe(false);
+        expect(order.querySelector(':scope > summary')?.textContent).toBe('Popup order');
+        expect(links.open).toBe(false);
+        expect(links.querySelector(':scope > summary')?.textContent).toBe('Lookup pills');
+        const recommended = form.querySelector('[data-recommended-dictionaries]')!;
+        expect(recommended.closest('details')).toBeNull();
+        expect(recommended.compareDocumentPosition(links) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    });
+
     // Not plain "order": the Order column header already matched it before.
-    it.each(['popup', 'reorder', 'Popup order', 'sets the order of sections'])('is what Settings search finds for "%s"', query => {
+    it.each(['popup', 'reorder', 'Popup order'])('is what Settings search finds for "%s"', query => {
         expect(sourcesFoundBy(renderSettingsTestForm(DEFAULT_SETTINGS), query)).toBe(true);
     });
 
@@ -51,7 +75,6 @@ describe('the popup order in Settings → Sources', () => {
         for (const form of [japanese, switched]) {
             const first = sourcesContent(form).firstElementChild!;
             expect(first.querySelector('[data-help-key="popupOrderTitle"]')?.textContent).toBe('ポップアップの順序');
-            expect(first.textContent).toContain('並べ替えて');
             expect(first.textContent).not.toContain('未翻訳');
             expect(first.textContent).not.toContain('Popup order');
             expect(sourcesFoundBy(form, 'ポップアップ')).toBe(true);

@@ -3,7 +3,7 @@ import { resolveUiLanguage, uiText } from '../app/i18n';
 import type { ReaderSettings } from '../app/types';
 import { el, fragment } from '../dom/builder';
 import { usesJapaneseCharacterStudy } from '../languages/character-lookup';
-import { newTabAction } from './actions';
+import { newTabAction, type NewTabAction } from './actions';
 import { NEW_TAB_HEADER_LABEL } from './controller-config';
 import { newTabText } from './i18n';
 import { resolveNewTabBrandAssets } from './index';
@@ -119,18 +119,26 @@ export function renderNewTabShell(options: NewTabShellOptions): DocumentFragment
                             'aria-controls': 'jpdb-reader-newtab-autocomplete',
                             'aria-expanded': 'false',
                         }),
-                        el('button', { class: 'jpdb-reader-parseable', type: 'submit', dataset: { newtabAction: newTabAction('search-submit') }, lang: contentLanguage }, uiText(language, 'search')),
+                        // Enter searches (the one field submits the form) and typing
+                        // already searches, so the box needs only two icon actions.
                         el('button', {
-                            class: 'jpdb-reader-parseable',
+                            class: 'jpdb-reader-newtab-search-icon is-clear',
+                            type: 'button',
+                            dataset: { newtabAction: newTabAction('search-clear') },
+                            'aria-label': newTabText(language, 'clearSearch'),
+                            title: newTabText(language, 'clearSearch'),
+                        }),
+                        el('button', {
+                            class: 'jpdb-reader-newtab-search-icon is-draw',
                             type: 'button',
                             dataset: { newtabAction: newTabAction('search-handwriting-toggle') },
-                            lang: contentLanguage,
                             'aria-controls': 'jpdb-reader-newtab-handwriting',
                             'aria-expanded': 'false',
+                            'aria-label': newTabText(language, 'drawKanji'),
+                            title: newTabText(language, 'drawKanji'),
                             hidden: !usesJapaneseCharacterStudy(),
                             disabled: !usesJapaneseCharacterStudy(),
-                        }, newTabText(language, 'draw')),
-                        el('button', { class: 'jpdb-reader-parseable', type: 'button', dataset: { newtabAction: newTabAction('search-clear') }, lang: contentLanguage, 'aria-label': newTabText(language, 'clearSearch') }, uiText(language, 'clear')),
+                        }),
                     ),
                     el('div', {
                         id: 'jpdb-reader-newtab-autocomplete',
@@ -151,4 +159,25 @@ export function renderNewTabShell(options: NewTabShellOptions): DocumentFragment
             el('aside', { class: 'jpdb-reader-newtab-support-banner', dataset: { newtabSupportBanner: true }, hidden: true, 'aria-label': newTabText(language, 'supportBannerLabel') }),
         ),
     );
+}
+
+export function renderNewTabAppNavigation(language: ReaderSettings['interfaceLanguage']): HTMLElement {
+    const item = (label: string, mark: string, action: NewTabAction, mode?: string) => el('button', {
+        class: 'jpdb-reader-newtab-app-nav-item jpdb-reader-parseable',
+        type: 'button',
+        dataset: { newtabAction: action, ...(mode ? { mode } : {}) },
+        lang: resolveUiLanguage(language) === 'ja' ? 'ja' : 'en',
+    },
+    el('span', { class: 'jpdb-reader-newtab-app-nav-mark', 'aria-hidden': 'true' }, mark),
+    el('span', { class: 'jpdb-reader-newtab-app-nav-label' }, label));
+    return el('nav', {
+        class: 'jpdb-reader-newtab-app-nav',
+        dataset: { newtabAppNavigation: true },
+        'aria-label': newTabText(language, 'appNavigation'),
+    },
+    item(newTabText(language, 'study'), '学', newTabAction('mode'), 'word'),
+    item(uiText(language, 'practiceTitle'), '練', newTabAction('practice-sessions')),
+    item(newTabText(language, 'library'), '辞', newTabAction('mode'), 'search'),
+    item(newTabText(language, 'stats'), '統', newTabAction('mode'), 'stats'),
+    item(newTabText(language, 'connections'), '連', newTabAction('settings')));
 }

@@ -130,7 +130,7 @@ describe('reactive mirror source hit targets', () => {
         document.body.innerHTML = `
             <article id="thread" class="comment-thread">
                 外側文章
-                <button id="inner-control">内側</button>
+                <div role="toolbar"><a id="inner-control" href="/inner">内側</a></div>
             </article>
         `;
         const thread = document.getElementById('thread')!;

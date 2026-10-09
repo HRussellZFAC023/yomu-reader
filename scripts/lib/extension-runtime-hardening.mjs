@@ -2,6 +2,7 @@ import { readdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { strToU8, unzipSync, zipSync } from 'fflate';
 import { assertCompilerStorageContract } from './extension-storage-contract.mjs';
+import { installExtensionPopupActionsSource } from './extension-popup-actions.mjs';
 import {
     extensionStoragePrefixFromBackgroundSource,
     hardenCompilerRuntimeMessageChannel,
@@ -410,14 +411,10 @@ export function extensionStudyStorageRuntimeSource(storagePrefix) {
 })();\n`;
 }
 
-export function hardenExtensionPopupSource(source, options = {}) {
-    if (options.target !== 'safari') return source;
-    const injectablePattern = 'return /^https?:|^file:/i.test(url);';
-    if (!source.includes(injectablePattern)) {
-        if (source.includes('return /^https?:/i.test(url);')) return source;
-        throw new Error('Generated Safari popup.js no longer contains the expected injectable-tab URL guard.');
-    }
-    return source.replace(injectablePattern, 'return /^https?:/i.test(url);');
+export function hardenExtensionPopupSource(source) {
+    // Settings is always a packaged page; no browser target injects code into
+    // the active tab. All targets use the same idempotent popup replacement.
+    return installExtensionPopupActionsSource(source);
 }
 
 function installExtensionScreenshotBridgeSource(source) {
@@ -654,6 +651,7 @@ export async function assertExtensionReleasePackageParity(root) {
         'manifest.json',
         'background.js',
         'content.js',
+        POPUP_FILE,
         PACKAGED_STUDY_STORAGE_RUNTIME_FILE,
         'newtab/index.html',
     ]);
@@ -661,6 +659,7 @@ export async function assertExtensionReleasePackageParity(root) {
         'manifest.json',
         'background.js',
         'gm-runtime.js',
+        POPUP_FILE,
         PACKAGED_STUDY_STORAGE_RUNTIME_FILE,
         'newtab/index.html',
         'content.js',
@@ -986,6 +985,7 @@ async function hardenReleaseArchiveEntry(name, bytes, entries, options) {
     if (name === BACKGROUND_FILE) return hardenReleaseArchiveBackground(bytes, options);
     if (name === CONTENT_FILE) return hardenReleaseArchiveContent(bytes, entries, options.target);
     if (name === MANIFEST_FILE) return hardenReleaseArchiveManifest(bytes, options);
+    if (name === POPUP_FILE) return strToU8(hardenExtensionPopupSource(new TextDecoder().decode(bytes), { target: options.target }));
     return bytes;
 }
 

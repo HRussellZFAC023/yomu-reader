@@ -444,7 +444,7 @@ describe('committed standalone hosted runtime consumers', () => {
         })).toThrow(/standalone surface scope/u);
     });
 
-    it('seeds an explicit hosted target before waiting for the target-owned player', () => {
+    it('seeds an explicit hosted target before waiting for the player', () => {
         const source = readFileSync('scripts/feedback-smoke.mjs', 'utf8');
         const start = source.indexOf('async function openHostedVideoPlayer');
         const end = source.indexOf('async function assertHostedEmptyState', start);
@@ -459,8 +459,11 @@ describe('committed standalone hosted runtime consumers', () => {
         expect(openHostedVideoPlayer).toContain('onboardingCount: document.querySelectorAll');
         expect(openHostedVideoPlayer).toContain("runtimeOwnerKind === 'userscript'");
         expect(openHostedVideoPlayer).toContain("installedRuntimeKind === 'userscript'");
-        expect(openHostedVideoPlayer).toContain('.jpdb-subtitle-player[data-language=');
-        expect(openHostedVideoPlayer).toMatch(/HOSTED_EXPECTED_TARGET,\s*\{ timeout: 6000 \},/u);
+        // Japanese is the only reading target (ADR-0024): the player names none,
+        // and the runtime drops the retired setup flags, so neither is awaited.
+        expect(openHostedVideoPlayer).toContain("document.querySelector('.jpdb-subtitle-player')");
+        expect(openHostedVideoPlayer).not.toContain('data-language');
+        expect(openHostedVideoPlayer).not.toMatch(/settings\.(?:onboardingSeen|learningTargetChosen) === true/u);
         expect(openHostedVideoPlayer).not.toContain('select[name="targetLanguage"]');
     });
 });

@@ -13,9 +13,7 @@ const mainPath = path.join(appRoot, 'dist-gaming', 'electron', 'main.cjs');
 const screenshotPath = path.join(appRoot, 'qa-artifacts', 'gaming-app-smoke.png');
 const settingsActionsScreenshotPath = path.join(appRoot, 'qa-artifacts', 'gaming-app-settings-actions-smoke.png');
 const settingsAccountScreenshotPath = path.join(appRoot, 'qa-artifacts', 'gaming-app-settings-account-smoke.png');
-const overlayScreenshotPath = path.join(appRoot, 'qa-artifacts', 'gaming-app-overlay-smoke.png');
 const instantResultScreenshotPath = path.join(appRoot, 'qa-artifacts', 'gaming-app-instant-result-smoke.png');
-const areaResultScreenshotPath = path.join(appRoot, 'qa-artifacts', 'gaming-app-area-result-smoke.png');
 const fixturePath = path.join(appRoot, 'tests', 'reader', 'fixtures', 'gaming-japanese-page.html');
 const fixtureCapturePath = path.join(appRoot, 'qa-artifacts', 'gaming-browser-fixture.png');
 const hardwareGapPath = path.join(appRoot, 'qa-artifacts', 'gaming-hardware-gap.txt');
@@ -64,7 +62,6 @@ const FIXTURE_TEXT_BAR = {
 // Which part of the capture an OCR request's image covers, as fractions of the capture.
 // Instant capture sends the whole screen; the area drag sends the dialogue box.
 const FULL_CAPTURE_REGION = { left: 0, top: 0, right: 1, bottom: 1 };
-const AREA_CAPTURE_REGION = { left: 0.1, top: 0.55, right: 0.92, bottom: 0.9 };
 
 if (!existsSync(mainPath)) {
     throw new Error('Missing dist-gaming/electron/main.cjs. Run npm run build:gaming first.');
@@ -93,20 +90,15 @@ try {
     fixtureOcr = await startFixtureOcrServer();
     step('launch Electron app');
     let page = await launchGamingApp();
-    step('wait for Yomu home screen');
+    step('wait for Desktop settings');
     await assertGamingWindowIdentity(page);
     await page.waitForSelector('.yomu-gaming-shell[data-yomu-gaming-ready="true"]', { timeout: 45_000 });
-    await page.waitForSelector('.yomu-gaming-home', { timeout: 45_000 });
     await page.waitForSelector('.jpdb-reader-settings[data-yomu-gaming-settings]', { state: 'attached', timeout: 45_000 });
     await assertNativeWindowSize(page);
-    step('verify the first run is language-neutral');
-    await assertNeutralFirstRunClarity(page);
+    assertSmoke(await page.locator('[data-gaming-home]').count() === 0, 'Desktop still opens an unnecessary home screen.');
     await assertDefaultOcrPath(page);
-    step('verify a pre-choice global capture does not sample the display and routes to the target setting');
-    await assertUnchosenCaptureRoutesToTarget(page, fixtureOcr);
-    step('choose Japanese explicitly for the Japanese OCR fixture');
-    await chooseJapaneseTarget(page);
-    await assertFirstRunClarity(page);
+    assertSmoke(await page.locator('select[name="targetLanguage"]').count() === 0, 'Desktop still requires a language choice.');
+    assertSmoke(fixtureOcr.requests.length === 0, 'Desktop captured before a user requested it.');
     step('configure and persist capture shortcut');
     await configureCaptureShortcut(page, 'Ctrl+Shift+U');
     const savedShortcut = JSON.parse(readFileSync(captureShortcutPath, 'utf8'));
@@ -114,13 +106,12 @@ try {
         throw new Error(`Capture shortcut was not persisted: ${JSON.stringify(savedShortcut)}`);
     }
     await page.evaluate(() => localStorage.setItem('jpdb-popup-reader-settings', JSON.stringify({ apiKey: 'obsolete-reader-copy' })));
-    step('relaunch and verify the app still lands on home');
+    step('relaunch and verify persisted settings');
     await closeElectronApp(app);
     app = undefined;
     page = await launchGamingApp();
     await page.waitForSelector('.yomu-gaming-shell[data-yomu-gaming-ready="true"]', { timeout: 45_000 });
     await assertLegacyReaderSettingsCopyAbsent(page, 'packaged relaunch cleanup');
-    await assertFirstRunClarity(page);
     await openSettingsPanel(page, 'shortcuts');
     const restoredShortcut = await page.locator('[data-native-capture-shortcut] [data-capture-shortcut-input]').first().inputValue();
     if (restoredShortcut !== 'Ctrl+Shift+U') {
@@ -133,74 +124,36 @@ try {
     await page.locator('text=Image text (OCR)').first().waitFor({ timeout: 10_000 });
     await page.locator('select[name="ocrProvider"]').selectOption('local-service');
     await page.locator('input[name="ocrEndpointUrl"]').fill(fixtureOcr.url);
-    step('save and restore native settings snapshot');
     await openSettingsPanel(page, 'backup');
-    await page.locator('[data-native-settings-sync]').waitFor({ timeout: 10_000 });
-    await page.locator('[data-native-settings-sync] [data-action="sync-cloud-settings"]').click();
-    await page.locator('[data-gaming-shell-status]:visible').filter({ hasText: 'Settings snapshot saved' }).first().waitFor({ timeout: 10_000 });
-    await page.locator('[data-native-settings-sync] [data-action="restore-cloud-settings"]').click();
-    await page.locator('[data-gaming-shell-status]:visible').filter({ hasText: 'Settings snapshot restored' }).first().waitFor({ timeout: 10_000 });
-    await openSettingsPanel(page, 'media');
-    const restoredEndpoint = await page.locator('input[name="ocrEndpointUrl"]').inputValue();
-    if (restoredEndpoint !== fixtureOcr.url) {
-        throw new Error(`Native settings snapshot did not restore the OCR endpoint: ${restoredEndpoint}`);
-    }
-    await returnToHome(page);
+    assertSmoke(await page.locator('[data-native-settings-sync]').count() === 0, 'Desktop still offers duplicate local snapshots.');
+    await page.locator('[data-action="export-reader-settings"]:visible').waitFor();
+    step('import the browser settings export: its Pass/Fail grading reaches Gaming');
+    await importBrowserSettingsExport(page, { twoButtonReviews: true });
+    await assertDesktopBackupRoundTrip(page);
+    await showSettingsWindow(page);
     await page.screenshot({ path: screenshotPath });
     step('run instant full-screen capture');
     fixtureOcr.setCaptureRegion(FULL_CAPTURE_REGION);
-    await page.locator('.yomu-gaming-home [data-action="instant-capture"]').click();
+    await page.evaluate(() => window.yomuGaming.showOverlay());
     const overlay = await waitForOverlayWindow(app, 'instant');
     await overlay.waitForSelector('[data-yomu-gaming-overlay-ready="true"][data-capture-mode="instant"][data-overlay-mode="result"]', { timeout: 10_000 });
+    await assertNonActivatingLayer(overlay);
     await assertInlineOcrResult(overlay, 'instant capture', instantResultScreenshotPath);
-    await assertInlineReaderShortcutStaysPrivate(overlay);
+    await assertLegacyReaderSettingsCopyAbsent(overlay, 'inline reader boot');
     const fullScreenRequest = fixtureOcr.requests.at(-1);
     if (!fullScreenRequest) throw new Error('Fixture OCR endpoint did not receive an instant full-screen capture.');
     if (fullScreenRequest.png.width < 900 || fullScreenRequest.png.height < 500) {
         throw new Error(`Instant capture did not send the full simulated screen: ${JSON.stringify(fullScreenRequest.png)}`);
     }
+    step('press the capture shortcut with the overlay up: it reads the screen again');
+    await assertShortcutRecapturesOverOverlay(overlay);
+    step('choose a deck in "Add to deck…" while the popup is still enriching: the dropdown survives and saves');
+    await assertDeckDropdownSurvivesEnrichment(overlay);
     step('open native settings from the inline Reader shortcut');
     await assertInlineReaderSettingsLandsOnSettings(page, overlay);
-    await returnToHome(page);
-    step('open area capture overlay');
-    await homeCaptureButton(page).scrollIntoViewIfNeeded();
-    await homeCaptureButton(page).click();
-    const areaOverlay = await waitForOverlayWindow(app, 'area');
-    await areaOverlay.waitForSelector('[data-yomu-gaming-overlay-ready="true"][data-capture-mode="area"][data-overlay-mode="idle"]', { state: 'attached', timeout: 10_000 });
-    const overlayState = await areaOverlay.evaluate(() => {
-        const shell = document.querySelector('[data-yomu-gaming-overlay-ready="true"]');
-        const style = shell instanceof HTMLElement ? getComputedStyle(shell) : null;
-        return {
-            mode: shell?.getAttribute('data-overlay-mode') ?? '',
-            visibleChrome: document.querySelectorAll('.overlay-status,.overlay-result,.overlay-selection').length,
-            background: style?.backgroundColor ?? '',
-        };
-    });
-    if (overlayState.mode !== 'idle' || overlayState.visibleChrome !== 0) {
-        throw new Error(`Yomu Gaming overlay did not render as an idle minimal overlay: ${JSON.stringify(overlayState)}`);
-    }
-    await areaOverlay.screenshot({ path: overlayScreenshotPath });
-    step('drag OCR crop over the simulated screen’s dialogue box');
-    fixtureOcr.setCaptureRegion(AREA_CAPTURE_REGION);
-    await dragFixtureDialogueSelection(areaOverlay, AREA_CAPTURE_REGION);
-    await areaOverlay.waitForSelector('[data-yomu-gaming-overlay-ready="true"][data-capture-mode="area"][data-overlay-mode="result"]', { timeout: 10_000 });
-    await assertInlineOcrResult(areaOverlay, 'area capture', areaResultScreenshotPath);
-    const areaRequest = fixtureOcr.requests.at(-1);
-    if (!areaRequest) throw new Error('Fixture OCR endpoint did not receive an overlay crop.');
-    // The crop has to be the region that was dragged, or the box the fixture hands back for
-    // it is anchored to ink that is not in the picture and the register check below is
-    // measuring a coincidence.
-    const expectedCrop = {
-        width: Math.round((AREA_CAPTURE_REGION.right - AREA_CAPTURE_REGION.left) * fullScreenRequest.png.width),
-        height: Math.round((AREA_CAPTURE_REGION.bottom - AREA_CAPTURE_REGION.top) * fullScreenRequest.png.height),
-    };
-    if (Math.abs(areaRequest.png.width - expectedCrop.width) > 6 || Math.abs(areaRequest.png.height - expectedCrop.height) > 6) {
-        throw new Error(`Area capture cropped ${JSON.stringify(areaRequest.png)} of the capture, not the dragged ${JSON.stringify(expectedCrop)}.`);
-    }
-    step('open settings from the overlay toolbar');
-    await assertOverlaySettingsLandsOnSettings(page, areaOverlay);
-    console.log(`Yomu Gaming smoke screenshots: ${path.relative(appRoot, screenshotPath)}, ${path.relative(appRoot, settingsActionsScreenshotPath)}, ${path.relative(appRoot, settingsAccountScreenshotPath)}, ${path.relative(appRoot, instantResultScreenshotPath)}, ${path.relative(appRoot, overlayScreenshotPath)}, ${path.relative(appRoot, areaResultScreenshotPath)}`);
-    console.log(`Yomu Gaming fixture OCR captures: instant ${fullScreenRequest.png.width}x${fullScreenRequest.png.height}, area ${areaRequest.png.width}x${areaRequest.png.height}; hardware gap note: ${path.relative(appRoot, hardwareGapPath)}`);
+    await showSettingsWindow(page);
+    assertSmoke(await page.locator('[data-action="area-capture"]').count() === 0, 'Removed region selector is still offered.');
+    console.log(`Desktop fixture OCR: ${fullScreenRequest.png.width}x${fullScreenRequest.png.height}; fresh recapture passed. Native hardware gaps: ${path.relative(appRoot, hardwareGapPath)}`);
     smokePassed = true;
 } finally {
     await closeElectronApp(app);
@@ -219,11 +172,11 @@ async function launchGamingApp() {
             YOMU_GAMING_TEST_MODE: '1',
             YOMU_GAMING_SIMULATED_CAPTURE_PATH: fixtureCapturePath,
             YOMU_GAMING_USER_DATA_DIR: userDataDir,
-            YOMU_GAMING_SETTINGS_SYNC_PATH: path.join(userDataDir, 'settings-sync-v1.json'),
             YOMU_GAMING_CAPTURE_SHORTCUT_PATH: captureShortcutPath,
         },
     });
     const page = await withTimeout(app.firstWindow(), 20_000, 'settings window');
+    await page.evaluate(() => window.yomuGaming.showApp());
     app.on('window', attachPageDiagnostics);
     attachPageDiagnostics(page);
     return page;
@@ -242,13 +195,9 @@ function electronLaunchEnv() {
     };
 }
 
-function homeCaptureButton(page) {
-    return page.locator('.yomu-gaming-home [data-action="area-capture"]').first();
-}
-
 async function openSettingsPanel(page, panel) {
     if (!await page.locator('.jpdb-reader-settings[data-yomu-gaming-settings]:visible').count()) {
-        await page.locator('.yomu-gaming-home [data-action="open-settings"]').click();
+        await page.evaluate(() => window.yomuGaming.showApp());
     }
     await page.locator('[data-action="settings-panel"][data-panel="' + panel + '"]').click();
     await page.waitForFunction(expected => {
@@ -257,11 +206,9 @@ async function openSettingsPanel(page, panel) {
     }, panel, { timeout: 10_000 });
 }
 
-async function returnToHome(page) {
-    if (await page.locator('[data-action="close-settings"]:visible').count()) {
-        await page.locator('[data-action="close-settings"]').first().click();
-    }
-    await page.locator('.yomu-gaming-home').waitFor({ timeout: 10_000 });
+async function showSettingsWindow(page) {
+    // Settings is the only ordinary window; capture is invoked through the native bridge.
+    await page.evaluate(() => window.yomuGaming.showApp());
 }
 
 async function assertCompactSettingsActions(page) {
@@ -277,10 +224,8 @@ async function assertCompactSettingsActions(page) {
     const addAudio = await actionGeometry(page.locator('[data-action="audio-source-add"]'));
     assertLabelSizedAction('Add audio source', addAudio, viewportWidth);
 
-    await openSettingsPanel(page, 'newTab');
-    const copyAddress = await actionGeometry(page.locator('[data-action="copy-newtab-url"]'));
-    assertLabelSizedAction('Copy address', copyAddress, viewportWidth);
-    await page.locator('[data-action="copy-newtab-url"]').scrollIntoViewIfNeeded();
+    assertSmoke(await page.locator('[data-action="copy-newtab-url"]').count() === 0,
+        'Desktop still exposes the removed Copy Study URL control.');
     await page.screenshot({ path: settingsActionsScreenshotPath });
 
     await openSettingsPanel(page, 'backup');
@@ -347,7 +292,41 @@ async function renderBrowserFixture() {
     writeGeneratedGameFixturePng(fixtureCapturePath);
 }
 
-function writeGeneratedGameFixturePng(filePath) {
+// The scene the shortcut re-reads: the same frame with a hover tooltip open over the sky,
+// which is what a player presses the shortcut again for.
+async function assertNonActivatingLayer(overlay) {
+    const policy = await app.evaluate(({ BrowserWindow }) => {
+        const window = BrowserWindow.getAllWindows().find(window => window.webContents.getURL().includes('#overlay-instant'));
+        return { focused: window.isFocused(), focusable: window.isFocusable(), top: window.isAlwaysOnTop(), protected: window.isContentProtected() };
+    });
+    assertSmoke(!policy.focused && !policy.focusable && policy.top, `Desktop layer stole focus or lost its window policy: ${JSON.stringify(policy)}`);
+    const backdropOpacity = await overlay.locator('.overlay-backdrop').evaluate(node => getComputedStyle(node).opacity);
+    assertSmoke(backdropOpacity === '0', 'Instant lookup still obscures the live app with a frozen screenshot.');
+}
+
+async function assertShortcutRecapturesOverOverlay(overlay) {
+    const before = await overlay.evaluate(() => document.querySelector('img.overlay-backdrop')?.getAttribute('src') ?? '');
+    const requestCount = fixtureOcr.requests.length;
+    writeGeneratedGameFixturePng(fixtureCapturePath, { tooltip: true });
+    try {
+        await pressCaptureShortcutForFreshOverlayDocument(overlay);
+    } finally {
+        writeGeneratedGameFixturePng(fixtureCapturePath);
+    }
+    const after = await overlay.evaluate(() => document.querySelector('img.overlay-backdrop')?.getAttribute('src') ?? '');
+    const overlayVisible = await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()
+        .some(window => window.webContents.getURL().includes('#overlay-') && window.isVisible()));
+    assertSmoke(overlayVisible, 'The capture shortcut closed the overlay instead of reading the screen again.');
+    assertSmoke(Boolean(after) && after !== before, 'The capture shortcut kept the previous frame instead of the screen as it is now.');
+    assertSmoke(
+        fixtureOcr.requests.length === requestCount + 1,
+        `The capture shortcut sent ${fixtureOcr.requests.length - requestCount} OCR requests for one press.`,
+    );
+    // The reader boots again on the new frame; later steps drive it.
+    await ocrWordForVisualText(overlay, '冒険');
+}
+
+function writeGeneratedGameFixturePng(filePath, { tooltip = false } = {}) {
     const width = FIXTURE_CAPTURE.width;
     const height = FIXTURE_CAPTURE.height;
     const data = Buffer.alloc((width * 4 + 1) * height);
@@ -372,6 +351,11 @@ function writeGeneratedGameFixturePng(filePath) {
                 data[index] = 99;
                 data[index + 1] = 224;
                 data[index + 2] = 214;
+            }
+            if (tooltip && x > 600 && x < 820 && y > 120 && y < 210) {
+                data[index] = 250;
+                data[index + 1] = 236;
+                data[index + 2] = 180;
             }
             if (isFixtureGlyphInk(x, y)) {
                 data[index] = 245;
@@ -421,150 +405,10 @@ function crc32(buffer) {
     return (crc ^ 0xffffffff) >>> 0;
 }
 
-// A compatibility profile still contains Japanese defaults, but fresh Gaming has no
-// learner intent yet. It may name neither Japanese nor a capture path until selection.
-async function assertNeutralFirstRunClarity(page) {
-    const home = page.locator('.yomu-gaming-home[data-target-choice-required="true"]');
-    await home.waitFor({ timeout: 10_000 });
-    const shape = await gamingHomeShape(page);
-    assertSmoke(shape.headings === 1, `Yomu Gaming neutral first run showed ${shape.headings} heroes instead of one.`);
-    assertSmoke(shape.primaries === 1, `Yomu Gaming neutral first run showed ${shape.primaries} primary actions instead of one.`);
-    const actionNames = shape.actions.map(action => action.name);
-    assertSmoke(JSON.stringify(actionNames) === JSON.stringify(['choose-target', 'open-settings']), `Yomu Gaming neutral first run exposed capture actions: ${JSON.stringify(actionNames)}`);
-    assertSmoke(shape.shortcuts === 0, `Yomu Gaming neutral first run advertised ${shape.shortcuts} capture shortcuts before target choice.`);
-    const copy = await home.innerText();
-    const missing = ['Yomu Gaming', 'Choose the language you want to read', 'Choose a language']
-        .filter(expected => !copy.toLowerCase().includes(expected.toLowerCase()));
-    assertSmoke(missing.length === 0, `Yomu Gaming neutral first run is missing ${JSON.stringify(missing)}: ${copy}`);
-    const leaked = ['Japanese', 'Read my screen', 'Read part of the screen'].filter(forbidden => copy.includes(forbidden));
-    assertSmoke(leaked.length === 0, `Yomu Gaming neutral first run still promises ${JSON.stringify(leaked)}: ${copy}`);
-}
-
-// Once the player has chosen the Japanese fixture's target, preserve the established
-// three-action home: one primary capture, one area capture, Settings, and one shortcut.
-async function assertFirstRunClarity(page) {
-    const home = page.locator('.yomu-gaming-home');
-    await home.waitFor({ timeout: 10_000 });
-    await assertHomeSurfaceVisible(page);
-    const shape = await gamingHomeShape(page);
-    assertChosenHomeShape(shape);
-    const copy = await home.innerText();
-    // The wordmark is styled uppercase, so match it the way it reads, not the way it is cased.
-    assertSmoke(/yomu gaming/i.test(copy), `Yomu Gaming first run does not name the app: ${copy}`);
-    assertCopyIncludes(copy, ['Read Japanese anywhere on your screen', 'Read my screen', 'Read part of the screen', 'Settings']);
-    assertCopyExcludes(copy, ['Google Lens', 'OCR', 'proxy', 'Try now', 'Choose area', 'Done', 'Japanese anywhere on your PC', 'Page scanning', 'Manual scan shortcut', 'Scan modifier key']);
-    assertSmoke(!/endpoint|127\.0\.0\.1/i.test(copy), `Yomu Gaming first run still exposes advanced OCR setup: ${copy}`);
-    assertSmoke(!ambiguousScanCopyPattern.test(copy), `Yomu Gaming first run still uses ambiguous scan copy: ${copy}`);
-}
-
-async function assertHomeSurfaceVisible(page) {
-    const visibleSettings = await page.locator('.jpdb-reader-settings[data-yomu-gaming-settings]:visible').count();
-    assertSmoke(visibleSettings === 0, 'Yomu Gaming opened on the settings form instead of its home screen.');
-}
-
-function assertChosenHomeShape(shape) {
-    assertSmoke(shape.headings === 1, `Yomu Gaming first run shows ${shape.headings} heroes; it must show exactly one.`);
-    assertSmoke(
-        shape.actions.length === 3 && shape.primaries === 1,
-        `Yomu Gaming first run must offer three actions with one primary: ${JSON.stringify(shape.actions)}`,
-    );
-    assertSmoke(shape.shortcuts === 1, `Yomu Gaming first run shows the capture shortcut ${shape.shortcuts} times; it must show it once.`);
-}
-
-function assertCopyIncludes(copy, required) {
-    const missing = required.filter(expected => !copy.includes(expected));
-    assertSmoke(missing.length === 0, `Yomu Gaming first run is missing ${JSON.stringify(missing)}: ${copy}`);
-}
-
-function assertCopyExcludes(copy, forbidden) {
-    const exposed = forbidden.filter(fragment => copy.includes(fragment));
-    assertSmoke(exposed.length === 0, `Yomu Gaming first run still exposes ${JSON.stringify(exposed)}: ${copy}`);
-}
-
-async function gamingHomeShape(page) {
-    return page.evaluate(() => {
-        const surface = document.querySelector('.yomu-gaming-home');
-        const actions = Array.from(surface?.querySelectorAll('button[data-action]') ?? []);
-        return {
-            headings: document.querySelectorAll('.yomu-gaming-shell h1:not([hidden])').length,
-            actions: actions.map(button => ({
-                name: button.dataset.action ?? '',
-                label: (button.textContent || '').trim(),
-            })),
-            primaries: actions.filter(button => button.classList.contains('add')).length,
-            shortcuts: surface?.querySelectorAll('kbd[data-hotkey]').length ?? 0,
-        };
-    });
-}
-
 function assertSmoke(condition, message) {
     if (!condition) throw new Error(message);
 }
 
-async function assertUnchosenCaptureRoutesToTarget(page, fixtureOcr) {
-    const requestCount = fixtureOcr.requests.length;
-    const overlayCount = app.windows().filter(window => window.url().includes('#overlay-')).length;
-    await page.evaluate(() => window.yomuGaming?.showOverlay('instant'));
-    await page.bringToFront();
-    await page.waitForFunction(() => {
-        const shell = document.querySelector('.yomu-gaming-shell');
-        const tab = document.querySelector('[data-action="settings-panel"][aria-selected="true"]');
-        return shell?.getAttribute('data-shell-view') === 'settings'
-            && tab?.getAttribute('data-panel') === 'appearance';
-    }, undefined, { timeout: 10_000 });
-    const target = page.locator('select[name="targetLanguage"]');
-    await target.waitFor({ state: 'visible', timeout: 10_000 });
-    const targetValue = await target.inputValue();
-    assertSmoke(targetValue === '', `Yomu Gaming target route exposed an ambient target: ${targetValue}`);
-    const nextOverlayCount = app.windows().filter(window => window.url().includes('#overlay-')).length;
-    assertSmoke(nextOverlayCount === overlayCount, 'Yomu Gaming created an overlay, which means main sampled the display before target choice.');
-    assertSmoke(fixtureOcr.requests.length === requestCount, 'Yomu Gaming sent OCR before the player chose a learning target.');
-}
-
-async function chooseJapaneseTarget(page) {
-    const target = page.locator('select[name="targetLanguage"]');
-    await target.selectOption('ja');
-    await page.locator('.yomu-gaming-home [data-action="instant-capture"]').waitFor({ state: 'visible', timeout: 10_000 });
-    const state = await page.evaluate(() => {
-        const settings = JSON.parse(localStorage.getItem('yomu-gaming-reader-settings-v1') || '{}');
-        return {
-            chosen: settings.learningTargetChosen,
-            heading: document.querySelector('.yomu-gaming-home h1')?.textContent ?? '',
-        };
-    });
-    assertSmoke(state.chosen === true, `Yomu Gaming did not persist explicit target intent: ${JSON.stringify(state)}`);
-    assertSmoke(state.heading === 'Read Japanese anywhere on your screen', `Yomu Gaming did not adopt the explicit Japanese choice: ${JSON.stringify(state)}`);
-}
-
-// The overlay is a second window with its own web preferences, so "Settings" there
-// reaching the app window is a cross-window fact that only the packaged app can prove.
-async function assertOverlaySettingsLandsOnSettings(page, overlay) {
-    // The word popover from the OCR check is still open, and it owns the click
-    // layer. The first Escape must close only that popover and leave the overlay
-    // visible; the next Escape is the one that closes the overlay itself.
-    if (await overlay.locator('.jpdb-reader-popover').count()) {
-        await overlay.keyboard.press('Escape');
-        await overlay.locator('.jpdb-reader-popover').first().waitFor({ state: 'detached', timeout: 10_000 });
-    }
-    await overlay.locator('[data-yomu-gaming-overlay-ready="true"]:visible').waitFor({ timeout: 10_000 });
-    const settingsButton = overlay.locator('.overlay-toolbar [data-action="overlay-settings"]').first();
-    await settingsButton.waitFor({ state: 'visible', timeout: 10_000 });
-    const settingsButtonState = await settingsButton.evaluate(button => {
-        const rect = button.getBoundingClientRect();
-        return {
-            disabled: button instanceof HTMLButtonElement && button.disabled,
-            width: rect.width,
-            height: rect.height,
-            hitTarget: document.elementFromPoint(rect.left + rect.width / 2, rect.top + rect.height / 2) === button,
-        };
-    });
-    assertOverlaySettingsButtonActionable(settingsButtonState);
-    await settingsButton.click();
-    await waitForNativeSettings(page);
-    if (await page.locator('.yomu-gaming-home:visible').count()) {
-        throw new Error('Yomu Gaming showed home and settings at once after the overlay asked for settings.');
-    }
-}
 
 async function assertInlineReaderSettingsLandsOnSettings(page, overlay) {
     const settingsBefore = await overlay.evaluate(() => localStorage.getItem('yomu-gaming-reader-settings-v1'));
@@ -620,17 +464,10 @@ async function waitForOverlayWindowHidden(overlay) {
     throw new Error('Yomu Gaming left the capture overlay visible after opening native Settings.');
 }
 
-function assertOverlaySettingsButtonActionable(state) {
-    const report = JSON.stringify(state);
-    if (state.disabled) throw new Error(`Yomu Gaming overlay Settings control was disabled: ${report}`);
-    if (Math.min(state.width, state.height) < 20) throw new Error(`Yomu Gaming overlay Settings control was too small: ${report}`);
-    if (!state.hitTarget) throw new Error(`Yomu Gaming overlay Settings control did not own its hit target: ${report}`);
-}
-
 // Media is the reader's deepest tab (audio sources, text-to-speech, proxy URL). Landing
 // there was the old bug, so the default panel is asserted, not assumed.
 async function assertSettingsOpenOnCapture(page) {
-    await page.locator('.yomu-gaming-home [data-action="open-settings"]').click();
+    await page.evaluate(() => window.yomuGaming.showApp());
     await page.locator('.jpdb-reader-settings[data-yomu-gaming-settings]').waitFor({ timeout: 10_000 });
     const panel = await page.evaluate(() => document.querySelector('[data-action="settings-panel"][aria-selected="true"]')?.dataset.panel ?? '');
     if (panel === 'media' || panel !== 'shortcuts') {
@@ -641,7 +478,7 @@ async function assertSettingsOpenOnCapture(page) {
 
 async function assertGamingWindowIdentity(page) {
     const title = await page.title();
-    if (title !== 'Yomu Gaming') {
+    if (title !== 'よむ Desktop') {
         throw new Error(`Yomu Gaming window title was not branded correctly: ${title}`);
     }
     await assertAppIconLoads();
@@ -666,8 +503,8 @@ async function assertNativeWindowSize(page) {
         innerHeight: window.innerHeight,
         shellWidth: document.querySelector('.yomu-gaming-shell')?.getBoundingClientRect().width ?? 0,
     }));
-    if (size.innerWidth < 900 || size.innerHeight < 600) {
-        throw new Error(`Yomu Gaming did not open as a full-size native window: ${JSON.stringify(size)}`);
+    if (size.innerWidth < 640 || size.innerHeight < 500 || size.innerWidth > 920) {
+        throw new Error(`Yomu Gaming did not open bounded Settings: ${JSON.stringify(size)}`);
     }
     if (size.shellWidth < size.innerWidth - 2) {
         throw new Error(`Yomu Gaming shell did not fill the native window: ${JSON.stringify(size)}`);
@@ -690,6 +527,7 @@ async function assertDefaultOcrPath(page) {
 }
 
 async function configureCaptureShortcut(page, shortcut) {
+    await openSettingsPanel(page, 'shortcuts');
     await assertSettingsOpenOnCapture(page);
     const shortcutInput = page.locator('[data-native-capture-shortcut] [data-capture-shortcut-input]').first();
     if (await shortcutInput.getAttribute('readonly') !== null) {
@@ -702,12 +540,7 @@ async function configureCaptureShortcut(page, shortcut) {
     if (settingsShortcut !== shortcut) {
         throw new Error(`Capture shortcut settings input did not sync: ${settingsShortcut}`);
     }
-    // The home hero must show the shortcut the user just chose.
-    await returnToHome(page);
-    const heroShortcut = (await page.locator('.yomu-gaming-home kbd[data-hotkey]').innerText()).trim();
-    if (heroShortcut !== shortcut) {
-        throw new Error(`Yomu Gaming home still shows "${heroShortcut}" after the shortcut changed to ${shortcut}.`);
-    }
+
 }
 
 function step(message) {
@@ -724,33 +557,86 @@ function attachPageDiagnostics(page) {
     });
 }
 
-function isTransparentPaint(value) {
-    return !value || value === 'transparent' || /rgba\([^)]*,\s*0(?:\.0+)?\s*\)/.test(value);
-}
-
 async function assertInlineOcrResult(overlay, label, paintScreenshotPath) {
-    const horizontalLine = await assertInlineOcrSurface(overlay, label);
-    const annotatedTerm = await assertInlineOcrWord(overlay, label);
-    const readingPaint = await assertDeferredOcrReadingPaint(overlay, annotatedTerm, label);
-    // Capture the proof while the in-place annotation is visible and before a
-    // lookup popover can cover it.
+    await assertInlineOcrSurface(overlay, label);
+    const word = await ocrWordForVisualText(overlay, '冒険');
+    // Annotation schedules desktop projection in rAF; inspect the rendered frame, not its pre-layout DOM.
+    await overlay.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+    await assertInvisibleProviderTargets(overlay, label);
+    await word.hover();
+    await overlay.locator('.jpdb-reader-popover').first().waitFor({ state: 'visible', timeout: 15000 });
     await overlay.screenshot({ path: paintScreenshotPath });
-    await activateInlineOcrLookup(overlay, annotatedTerm, readingPaint, label);
-    await assertInlineOcrGeometry(overlay, horizontalLine, label);
+    const popupBounds = await overlay.locator('.jpdb-reader-popover').first().evaluate(node => {
+        const box = node.getBoundingClientRect();
+        return { left: box.left, top: box.top, right: box.right, bottom: box.bottom, width: innerWidth, height: innerHeight };
+    });
+    assertSmoke(popupBounds.left >= 0 && popupBounds.top >= 0 && popupBounds.right <= popupBounds.width + 1 && popupBounds.bottom <= popupBounds.height + 1,
+        `Desktop popup exceeds viewport: ${JSON.stringify(popupBounds)}`);
+    await assertInvisibleProviderTargets(overlay, `${label} while hovered`);
+    await overlay.screenshot({ path: paintScreenshotPath });
+    await assertLocalPopupActions(overlay, label);
 }
 
-async function assertInlineReaderShortcutStaysPrivate(overlay) {
-    const popover = overlay.locator('.jpdb-reader-popover').first();
-    if (await popover.count()) {
-        await overlay.keyboard.press('Escape');
-        await popover.waitFor({ state: 'detached', timeout: 10_000 });
-    }
-    await overlay.keyboard.press('Shift+H');
-    await overlay.locator('.jpdb-reader-toast')
-        .filter({ hasText: /Subtitle overlay (?:enabled|hidden)\./ })
-        .first()
-        .waitFor({ state: 'visible', timeout: 10_000 });
-    await assertLegacyReaderSettingsCopyAbsent(overlay, 'inline Reader shortcut save');
+async function assertInvisibleProviderTargets(overlay, label) {
+    const measured = await overlay.evaluate(() => {
+        const line = document.querySelector('[data-ocr-line]:not([data-vertical="true"])');
+        const source = line.dataset.ocrText;
+        const provider = JSON.parse(line.dataset.providerWords);
+        const backdrop = document.querySelector('.overlay-backdrop');
+        const rect = backdrop.getBoundingClientRect();
+        const scale = Math.min(rect.width / backdrop.naturalWidth, rect.height / backdrop.naturalHeight);
+        const imageWidth = backdrop.naturalWidth * scale, imageHeight = backdrop.naturalHeight * scale;
+        const originX = rect.left + (rect.width - imageWidth) / 2, originY = rect.top + (rect.height - imageHeight) / 2;
+        let providerCursor = 0;
+        const providerSpans = provider.map(item => {
+            const start = source.indexOf(item.text, providerCursor);
+            providerCursor = start + item.text.length;
+            return { ...item, start, end: providerCursor };
+        });
+        let offset = 0;
+        const boxes = [...line.querySelectorAll('.jpdb-reader-word')].map(word => {
+            const text = [...word.querySelectorAll('[data-yomu-ocr-visual-text]')].filter(node => !node.closest('.jpdb-ocr-furi')).map(node => node.dataset.yomuOcrVisualText).join('');
+            const start = source.indexOf(text, offset); offset = start + text.length;
+            // Fixture provider supplies one character per box, so no font metrics enter expected geometry.
+            const members = providerSpans.filter(item => item.start < offset && item.end > start);
+            const actual = word.getBoundingClientRect();
+            const left = Math.min(...members.map(item => item.box.left));
+            const top = Math.min(...members.map(item => item.box.top));
+            const right = Math.max(...members.map(item => item.box.left + item.box.width));
+            const bottom = Math.max(...members.map(item => item.box.top + item.box.height));
+            const misses = [0.15, 0.5, 0.85].flatMap(x => [0.15, 0.5, 0.85].map(y => {
+                const hit = document.elementFromPoint(originX + (left + (right - left) * x) * imageWidth,
+                    originY + (top + (bottom - top) * y) * imageHeight);
+                return hit && (word === hit || word.contains(hit) || hit.closest('.jpdb-reader-popover')) ? 0 : 1;
+            })).reduce((a, b) => a + b, 0);
+            return { text, misses, error: Math.max(Math.abs(actual.left - (originX + left * imageWidth)),
+                Math.abs(actual.top - (originY + top * imageHeight)), Math.abs(actual.width - (right - left) * imageWidth),
+                Math.abs(actual.height - (bottom - top) * imageHeight)) };
+        });
+        const clear = value => value === 'transparent' || /rgba\([^)]*,\s*0\)$/.test(value);
+        const paints = style => {
+            if (style.display === 'none' || style.visibility === 'hidden' || Number(style.opacity) === 0) return false;
+            return !clear(style.webkitTextFillColor) || style.textShadow !== 'none'
+                || !clear(style.backgroundColor) || style.backgroundImage !== 'none' || style.boxShadow !== 'none'
+                || (Number.parseFloat(style.webkitTextStrokeWidth) > 0 && !clear(style.webkitTextStrokeColor))
+                || ['Top', 'Right', 'Bottom', 'Left'].some(side => Number.parseFloat(style[`border${side}Width`]) > 0
+                    && style[`border${side}Style`] !== 'none' && !clear(style[`border${side}Color`]));
+        };
+        const leaks = [...document.querySelectorAll('.overlay-inline-layer, .overlay-inline-layer *')].flatMap(node => {
+            const failures = [];
+            for (const pseudo of [null, '::before', '::after']) {
+                const style = getComputedStyle(node, pseudo);
+                if (pseudo && ['none', 'normal'].includes(style.content)) continue;
+                if (paints(style)) failures.push({className: node.className, pseudo, fill:style.webkitTextFillColor,
+                    background:style.background, shadow:style.textShadow, stroke:style.webkitTextStroke, content:style.content});
+            }
+            return failures;
+        });
+        return { boxes, leaks };
+    });
+    assertSmoke(measured.boxes.length > 0 && measured.boxes.every(box => box.error <= 2 && box.misses === 0), `Desktop ${label} provider geometry drift: ${JSON.stringify(measured.boxes)}`);
+    assertSmoke(measured.leaks.length === 0, `Desktop ${label} painted reconstructed OCR glyphs: ${JSON.stringify(measured.leaks)}`);
+    console.log(`[desktop-layer] ${label}: ${measured.boxes.length} provider-aligned targets, no reconstructed glyph paint.`);
 }
 
 async function assertLegacyReaderSettingsCopyAbsent(page, label) {
@@ -786,195 +672,288 @@ async function assertInlineOcrSurface(overlay, label) {
     return horizontalLine;
 }
 
-async function assertInlineOcrWord(overlay, label) {
-    // The real reader wraps the OCR'd line into scanner-isolated words. Public
-    // visual glyphs identify the painted word for this browser proof; lookup
-    // identity remains in Yomu's private element state rather than becoming a
-    // page-readable data-* contract.
-    const annotatedTerm = await ocrWordForVisualText(overlay, '冒険');
-    const termPaint = await readInlineOcrWordPaint(annotatedTerm);
-    assertOcrWordAuthority(termPaint, label);
-    assertOcrWordScannerIsolation(termPaint, label);
-    assertOcrWordVisiblePaint(termPaint, label);
-    assertOcrWordPaintBox(termPaint, label);
-    assertOcrWordHitTarget(termPaint, label);
-    console.log(`[gaming-smoke] ${label} OCR word paint: ${JSON.stringify(termPaint)}`);
-    return annotatedTerm;
+async function assertLocalPopupActions(overlay, label) {
+    const popup = overlay.locator('.jpdb-reader-popover').first();
+    assertSmoke(await popup.getByRole('button', { name: /^(Fail|Pass|Again|Hard|Good|Easy)(?:\s|$)/ }).count() === 0,
+        `Desktop ${label} offered review grading without a connected service.`);
+    // "Add to deck…" is one dropdown, with no button in front of it, and its decks stay private.
+    // With no service connected it is the popup's only action, so it sits in the row itself:
+    // a drawer that folds away one action costs more than the action.
+    const dropdown = popup.locator('.jpdb-reader-deck-select');
+    await dropdown.waitFor({ state: 'visible', timeout: 5000 });
+    assertSmoke(await popup.getByRole('button', { name: 'More actions', exact: true }).count() === 0,
+        'Desktop popup folds its lone "Add to deck…" away behind "More actions".');
+    assertSmoke(await popup.getByRole('button', { name: 'Add to deck…', exact: true }).count() === 0,
+        'Desktop popup still puts an "Add to deck…" button in front of the deck dropdown.');
+    assertSmoke(await dropdown.evaluate(node => node.shadowRoot === null && node.textContent === ''),
+        'Deck dropdown leaked its private deck list into the page.');
+    await overlay.screenshot({ path: path.join(appRoot, 'qa-artifacts/desktop-deck-dropdown.png') });
+    // Restore a fresh visible capture for the shortcut recapture assertion. The capture is
+    // restored from the main process, as the OS shortcut does: asking the overlay's own
+    // renderer to show the overlay reloads the document making that call.
+    await overlay.evaluate(() => window.yomuGaming.hideOverlay());
+    await pressCaptureShortcutForFreshOverlayDocument(overlay);
+    await ocrWordForVisualText(overlay, '冒険');
 }
 
-async function readInlineOcrWordPaint(annotatedTerm) {
-    const [paint, visualTexts] = await Promise.all([
-        annotatedTerm.evaluate((node, publicDataAttributes) => {
-            function countTextNodes(root) {
-                const textWalker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
-                let count = 0;
-                while (textWalker.nextNode()) count += 1;
-                return count;
-            }
-
-            function scannerIsolated(lineText) {
-                return Boolean(lineText?.classList.contains('jpdb-ocr-page-scanner-isolated'));
-            }
-
-            function hitTargetsWord(hit, word) {
-                if (!hit) return false;
-                return hit === word || word.contains(hit);
-            }
-
-            const style = getComputedStyle(node);
-            const rect = node.getBoundingClientRect();
-            const lineText = node.closest('.jpdb-ocr-line-text');
-            const hit = document.elementFromPoint(rect.left + rect.width / 2, rect.top + rect.height / 2);
-            return {
-                unexpectedDataAttributes: node.getAttributeNames()
-                    .filter(name => name.startsWith('data-') && !publicDataAttributes.includes(name)),
-                textNodeCount: countTextNodes(lineText || node),
-                scannerIsolated: scannerIsolated(lineText),
-                hitTargetsWord: hitTargetsWord(hit, node),
-                color: style.color,
-                textFill: style.getPropertyValue('-webkit-text-fill-color'),
-                background: style.backgroundColor,
-                opacity: style.opacity,
-                width: rect.width,
-                height: rect.height,
-            };
-        }, PUBLIC_OCR_WORD_ATTRIBUTES),
-        annotatedTerm.evaluateAll(readOcrWordVisualTexts),
-    ]);
-    return { ...paint, visualText: visualTexts[0] || '' };
-}
-
-function assertOcrWordAuthority(termPaint, label) {
-    if (termPaint.visualText !== '冒険' || termPaint.unexpectedDataAttributes.length > 0) {
-        throw new Error(`Yomu Gaming ${label} lost private scanner-isolated OCR word authority: ${JSON.stringify(termPaint)}`);
-    }
-}
-
-function assertOcrWordScannerIsolation(termPaint, label) {
-    if (!termPaint.scannerIsolated || termPaint.textNodeCount !== 0) {
-        throw new Error(`Yomu Gaming ${label} exposed OCR Text nodes to page scanners: ${JSON.stringify(termPaint)}`);
-    }
-}
-
-function assertOcrWordVisiblePaint(termPaint, label) {
-    if (isTransparentPaint(termPaint.color) || isTransparentPaint(termPaint.textFill) || Number(termPaint.opacity) <= 0.05) {
-        throw new Error(`Yomu Gaming ${label} rendered inline OCR words invisibly: ${JSON.stringify(termPaint)}`);
-    }
-}
-
-function assertOcrWordPaintBox(termPaint, label) {
-    if (termPaint.width < 8 || termPaint.height < 8) {
-        throw new Error(`Yomu Gaming ${label} inline OCR word paint box is too small: ${JSON.stringify(termPaint)}`);
-    }
-}
-
-function assertOcrWordHitTarget(termPaint, label) {
-    if (!termPaint.hitTargetsWord) {
-        throw new Error(`Yomu Gaming ${label} inline OCR word is not tappable at its painted center: ${JSON.stringify(termPaint)}`);
-    }
-}
-
-async function assertDeferredOcrReadingPaint(overlay, annotatedTerm, label) {
-    // Scanner isolation is a first-paint invariant, while public Jiten detail
-    // hydration is intentionally deferred. Keep an explicit packaged check for
-    // the later reading repaint so moving isolation earlier cannot hide a
-    // stalled or lost furigana round-trip.
-    await annotatedTerm.locator('.jpdb-ocr-furi [data-yomu-ocr-visual-text]').first()
-        .waitFor({ state: 'attached', timeout: 15_000 });
-    const annotatedTermHandle = await annotatedTerm.elementHandle();
-    if (!annotatedTermHandle) throw new Error(`Yomu Gaming ${label} lost the annotated OCR word before enrichment.`);
+// Presses the capture shortcut through the main-process hook the OS shortcut calls, and
+// waits until the overlay has loaded a NEW document on the new frame (every capture
+// reloads the overlay, so a marker on the old document tells the two apart).
+async function pressCaptureShortcutForFreshOverlayDocument(overlay) {
+    await overlay.evaluate(() => { window.__yomuSmokePreviousOverlayDocument = true; });
+    await app.evaluate(() => globalThis.__yomuGamingPressCaptureShortcut());
     await overlay.waitForFunction(
-        node => node instanceof HTMLElement
-            && Boolean(node.dataset.pitchClass)
-            && node.dataset.pitchClass !== 'unknown',
-        annotatedTermHandle,
+        () => !window.__yomuSmokePreviousOverlayDocument
+            && Boolean(document.querySelector('[data-yomu-gaming-overlay-ready="true"][data-overlay-mode="result"]')),
+        undefined,
         { timeout: 15_000 },
     );
-    await annotatedTermHandle.dispose();
-    const readingPaint = await readOcrReadingPaint(annotatedTerm);
-    assertOcrReadingPaint(readingPaint, label, 'before activation');
-    console.log(`[gaming-smoke] ${label} OCR reading paint: ${JSON.stringify(readingPaint)}`);
-    await annotatedTerm.hover();
-    await waitForPaintFrames(overlay);
-    const hoveredReadingPaint = await readOcrReadingPaint(annotatedTerm);
-    if (hoveredReadingPaint.visiblePopovers !== 0) {
-        throw new Error(`Yomu Gaming ${label} unexpectedly opened lookup-on-hover during paint proof: ${JSON.stringify(hoveredReadingPaint)}`);
-    }
-    assertOcrReadingVisualPaint(hoveredReadingPaint, label, 'while hovered');
-    console.log(`[gaming-smoke] ${label} OCR visible reading/pitch paint: ${JSON.stringify(hoveredReadingPaint)}`);
-    return readingPaint;
 }
 
-async function activateInlineOcrLookup(overlay, annotatedTerm, readingPaint, label) {
-    await annotatedTerm.click({ force: true });
-    let popoverOpened = false;
+// A provider landing re-renders the whole popup. A learner who was already in
+// "Add to deck…" lost it, and a choice meant for the deck list hit a detached
+// control. The overlay's own fetches are held so enrichment lands, deterministically,
+// while the learner is in the dropdown. (Held in the renderer: a main-process webRequest
+// hold also stalls while macOS tracks a select's native menu.) Electron's native select
+// menu is outside CDP input, so the learner reaches the dropdown with Tab, types a deck's
+// name and presses Enter, as a keyboard user does. Enrichment has a short fallback, so the
+// learner must reach the dropdown within it: the race assertion below fails loudly if not.
+// The waiting render lands once the learner leaves the dropdown, so it is left both ways:
+// Tab first, which saves nothing, then Shift+Tab, which goes on to save the word. With no
+// service connected the dropdown is the popup's lone action, alone in its row with no ⋯.
+async function assertDeckDropdownSurvivesEnrichment(overlay) {
+    const tab = await inDeckDropdownWhileEnrichmentLands(overlay, assertTabOutOfDeckDropdownKeepsFocus);
+    const shiftTab = await inDeckDropdownWhileEnrichmentLands(overlay, assertShiftTabOutOfDeckDropdownThenSave);
+    console.log(`[desktop-popup] deck dropdown kept through enrichment and saved the word: ${JSON.stringify({ tab, shiftTab })}`);
+}
+
+// Opens the word's popup, goes into the dropdown while its enrichment is held, lets the
+// enrichment land, then hands over to `leave`.
+async function inDeckDropdownWhileEnrichmentLands(overlay, leave) {
+    await overlay.mouse.move(0, 0);
+    await overlay.locator('.jpdb-reader-popover').waitFor({ state: 'detached', timeout: 10_000 }).catch(() => undefined);
+    await overlay.evaluate(() => {
+        const fetchNow = window.fetch;
+        const held = [];
+        window.__yomuSmokeHeldFetches = { pending: 0 };
+        window.__yomuSmokeReleaseFetch = () => {
+            window.fetch = fetchNow;
+            for (const send of held.splice(0)) send();
+        };
+        window.fetch = (input, init) => new Promise((resolve, reject) => {
+            window.__yomuSmokeHeldFetches.pending++;
+            held.push(() => fetchNow(input, init).then(resolve, reject).finally(() => { window.__yomuSmokeHeldFetches.pending--; }));
+        });
+    });
+    const release = () => overlay.evaluate(() => window.__yomuSmokeReleaseFetch?.());
+    let result;
     try {
-        await overlay.locator('.jpdb-reader-popover').first().waitFor({ state: 'visible', timeout: 8_000 });
-        popoverOpened = true;
-    } catch {
-        await annotatedTerm.click({ force: true });
-        await overlay.locator('.jpdb-reader-popover').first().waitFor({ state: 'visible', timeout: 8_000 });
-        popoverOpened = true;
+        const word = await ocrWordForVisualText(overlay, '冒険');
+        const popup = overlay.locator('.jpdb-reader-popover').first();
+        const shellDeadline = Date.now() + 20_000;
+        // The OCR word already carries its card, so the shell needs no network; a busy
+        // machine can still drop a hover, so it is repeated rather than the hold loosened.
+        while (!await popup.isVisible()) {
+            assertSmoke(Date.now() < shellDeadline, 'Desktop popup shell never opened over the held enrichment.');
+            await overlay.mouse.move(0, 0);
+            await word.hover();
+            await popup.waitFor({ state: 'visible', timeout: 4000 }).catch(() => undefined);
+        }
+        const dropdown = popup.locator('.jpdb-reader-deck-select');
+        await dropdown.waitFor({ state: 'visible', timeout: 5000 });
+        // The pointer rests on the dropdown, inside the popup, so the hover popup stays.
+        await dropdown.hover();
+        // Focus is put on the control just before the dropdown, as a keyboard learner's
+        // would be: one Tab from there must land on the dropdown, not wrap past it.
+        const before = await markControlBeforeDeckDropdown(popup);
+        assertSmoke(before, 'Desktop popup has no control ahead of the "Add to deck…" dropdown to Tab from.');
+        await popup.locator('[data-smoke-before-dropdown="true"]').focus();
+        await overlay.keyboard.press('Tab');
+        const opened = await dropdown.evaluate(host => {
+            host.dataset.smokeOpenedDropdown = 'true';
+            return document.activeElement === host;
+        });
+        assertSmoke(opened, `Tab from ${before} did not reach the "Add to deck…" dropdown: ${await overlay.evaluate(() => document.activeElement?.outerHTML.slice(0, 160))}`);
+        assertSmoke(await popup.locator('[data-card-details-loading]').count() === 1,
+            'Desktop popup finished enriching with its fetches held; the re-render race was not exercised.');
+
+        await release();
+        await overlay.waitForFunction(() => window.__yomuSmokeHeldFetches.pending === 0, undefined, { timeout: 15_000 });
+        await overlay.waitForTimeout(400);
+        const during = await popup.evaluate(root => ({
+            sameDropdown: root.querySelector('.jpdb-reader-deck-select')?.dataset.smokeOpenedDropdown === 'true',
+            focused: document.activeElement?.matches('.jpdb-reader-deck-select') ?? false,
+            loneInRow: root.querySelector('.jpdb-reader-deck-select')?.parentElement?.matches('.jpdb-reader-actions-quiet') === true,
+        }));
+        assertSmoke(during.sameDropdown && during.focused && during.loneInRow,
+            `Desktop popup rebuilt under the open deck dropdown when enrichment landed: ${JSON.stringify(during)}`);
+
+        // Typing a deck's name browses to it and saves nothing.
+        await overlay.keyboard.type('Academy');
+        await overlay.waitForTimeout(600);
+        assertSmoke(await savedToDeckToast(overlay).count() === 0 && (await wordsSavedToLocalDeck(overlay)).length === 0,
+            'Typing in the closed deck dropdown saved the word before the learner pressed Enter.');
+        result = { during, ...await leave(overlay, popup) };
+    } finally {
+        await release().catch(() => undefined);
     }
-    if (!popoverOpened) {
-        throw new Error(`Yomu Gaming ${label} did not open the real Yomu popover from inline OCR text.`);
-    }
-    // Remove incidental :hover. The lookup lease must keep the OCR line active
-    // and its reading/pitch visibly painted on its own.
-    await overlay.mouse.move(2, 2);
-    await overlay.waitForFunction(() => Boolean(document.querySelector('.jpdb-ocr-line-active')), undefined, { timeout: 4_000 })
-        .catch(() => undefined);
-    await waitForPaintFrames(overlay);
-    const activatedReadingPaint = await readOcrReadingPaint(annotatedTerm);
-    assertOcrReadingPaint(activatedReadingPaint, label, 'after click activation');
-    assertOcrReadingVisualPaint(activatedReadingPaint, label, 'after click activation');
-    console.log(`[gaming-smoke] ${label} OCR retained reading/pitch paint: ${JSON.stringify(activatedReadingPaint)}`);
-    assertStableOcrReadingPaint(readingPaint, activatedReadingPaint, label);
+    await overlay.evaluate(() => window.yomuGaming.hideOverlay());
+    await pressCaptureShortcutForFreshOverlayDocument(overlay);
+    await ocrWordForVisualText(overlay, '冒険');
+    return result;
 }
 
-function assertStableOcrReadingPaint(readingPaint, activatedReadingPaint, label) {
-    if (
-        activatedReadingPaint.reading !== readingPaint.reading
-        || activatedReadingPaint.pitchClass !== readingPaint.pitchClass
-    ) {
-        throw new Error(`Yomu Gaming ${label} changed OCR reading/pitch during click activation: ${JSON.stringify({
-            before: readingPaint,
-            after: activatedReadingPaint,
-        })}`);
-    }
+// (Function declarations: the smoke runs at module top level, before a module const here exists.)
+// Marks the last visible control ahead of "Add to deck…" in the popup's Tab order and names it.
+function markControlBeforeDeckDropdown(popup) {
+    return popup.evaluate(root => {
+        root.querySelectorAll('[data-smoke-before-dropdown]').forEach(node => node.removeAttribute('data-smoke-before-dropdown'));
+        const host = root.querySelector('.jpdb-reader-deck-select');
+        const control = [...root.querySelectorAll('button, input, select, textarea, a[href], summary, [contenteditable], [tabindex]:not([tabindex^="-"])')]
+            .filter(node => node.compareDocumentPosition(host) & Node.DOCUMENT_POSITION_FOLLOWING && node.getClientRects().length > 0)
+            .at(-1);
+        if (!control) return null;
+        control.dataset.smokeBeforeDropdown = 'true';
+        return `${control.localName}[${control.dataset.action ?? ''}]`;
+    });
 }
 
-async function assertInlineOcrGeometry(overlay, horizontalLine, label) {
-    await assertVerticalOcrLine(overlay, label);
-    await assertDetachedOcrSurfacesAbsent(overlay, label);
-    await assertInlineOcrGeometryBox(horizontalLine, label);
-    await assertOcrLineRegister(overlay, label);
+function wordsSavedToLocalDeck(overlay) {
+    return overlay.evaluate(() => Object.keys(localStorage)
+        .filter(key => /srs|deck/i.test(key) && (localStorage.getItem(key) || '').includes('冒険')));
 }
 
-async function assertVerticalOcrLine(overlay, label) {
-    // Vertical line renders as an upright vertical column (writing-mode), not a clipped pill.
-    const verticalLine = overlay.locator('[data-ocr-line][data-vertical="true"]').first();
-    await verticalLine.waitFor({ state: 'attached', timeout: 10_000 });
-    const writingMode = await verticalLine.locator('.jpdb-ocr-line-text').first().evaluate(node => getComputedStyle(node).writingMode);
-    if (!/vertical/.test(writingMode)) {
-        throw new Error(`Yomu Gaming ${label} did not render the vertical line with a vertical writing-mode: ${writingMode}`);
-    }
+function savedToDeckToast(overlay) {
+    return overlay.locator('.jpdb-reader-toast').filter({ hasText: /^Added to (deck|Academy)\.$/ });
 }
 
-async function assertDetachedOcrSurfacesAbsent(overlay, label) {
-    if (await overlay.locator('.overlay-result').count()) {
-        throw new Error(`Yomu Gaming ${label} used the detached result panel even though OCR geometry was available.`);
-    }
-    if (await overlay.locator('.overlay-selection').count()) {
-        throw new Error(`Yomu Gaming ${label} left the crop rectangle visible over inline OCR results.`);
-    }
+// Tab from the dropdown, the popup's last control, moves on past it (a dialog wraps it to
+// its first control). The waiting render lands once focus is there: focus stays on the
+// control Tab reached, rebuilt if the popup's own, and is never dropped onto the page.
+async function assertTabOutOfDeckDropdownKeepsFocus(overlay, popup) {
+    await overlay.evaluate(() => document.addEventListener('focusin', event => {
+        event.target.dataset.smokeTabReached = 'true';
+        window.__yomuSmokeTabReached = {
+            control: `${event.target.localName}[${event.target.dataset.action ?? ''}]`,
+            inPopup: Boolean(event.target.closest('.jpdb-reader-popover')),
+        };
+    }, { once: true }));
+    await overlay.keyboard.press('Tab');
+    await popup.locator('[data-card-details-loading]').waitFor({ state: 'detached', timeout: 5000 });
+    const left = await popup.evaluate(root => {
+        const active = document.activeElement;
+        return {
+            reached: window.__yomuSmokeTabReached ?? null,
+            focused: { control: `${active?.localName}[${active?.dataset?.action ?? ''}]`, inPopup: root.contains(active) },
+            rebuilt: active?.dataset?.smokeTabReached !== 'true',
+            dialog: root.getAttribute('aria-modal') === 'true',
+            dropdownRebuilt: root.querySelector('.jpdb-reader-deck-select')?.dataset.smokeOpenedDropdown !== 'true',
+            loneInRow: root.querySelector('.jpdb-reader-deck-select')?.parentElement?.matches('.jpdb-reader-actions-quiet') === true,
+        };
+    });
+    assertSmoke(JSON.stringify(left.focused) === JSON.stringify(left.reached) && left.dropdownRebuilt && left.loneInRow,
+        `Tabbing out of the deck dropdown as enrichment landed dropped the learner's focus: ${JSON.stringify(left)}`);
+    await overlay.screenshot({ path: path.join(appRoot, 'qa-artifacts/desktop-deck-dropdown-tab-forward.png') });
+    return { tabbedTo: left };
 }
 
-async function assertInlineOcrGeometryBox(horizontalLine, label) {
-    const lineBox = await horizontalLine.boundingBox();
-    if (!lineBox || lineBox.width < 40 || lineBox.height < 12) {
-        throw new Error(`Yomu Gaming ${label} inline OCR geometry was not visible: ${JSON.stringify(lineBox)}`);
-    }
+// Shift+Tab to the control before the dropdown lands the waiting render with the learner
+// on that control, rebuilt, not dropped onto the page. Tab returns to the dropdown, where
+// Enter saves the deck typed.
+async function assertShiftTabOutOfDeckDropdownThenSave(overlay, popup) {
+    const before = await markControlBeforeDeckDropdown(popup);
+    await overlay.keyboard.press('Shift+Tab');
+    await popup.locator('[data-card-details-loading]').waitFor({ state: 'detached', timeout: 5000 });
+    const left = await popup.evaluate(root => {
+        const active = document.activeElement;
+        return {
+            focused: root.contains(active) ? `${active.localName}[${active.dataset?.action ?? ''}]` : null,
+            rebuilt: root.querySelector('.jpdb-reader-deck-select')?.dataset.smokeOpenedDropdown !== 'true'
+                && active?.dataset?.smokeBeforeDropdown !== 'true',
+            loneInRow: root.querySelector('.jpdb-reader-deck-select')?.parentElement?.matches('.jpdb-reader-actions-quiet') === true,
+        };
+    });
+    assertSmoke(left.focused === before && left.rebuilt && left.loneInRow,
+        `Leaving the deck dropdown as enrichment landed dropped the learner's focus: ${JSON.stringify({ before, ...left })}`);
+    // Back to the dropdown with Tab from the control now just before it: the completed
+    // render may have added sections between the two.
+    const beforeNow = await markControlBeforeDeckDropdown(popup);
+    await popup.locator('[data-smoke-before-dropdown="true"]').focus();
+    await overlay.keyboard.press('Tab');
+    assertSmoke(await popup.evaluate(root => document.activeElement?.matches('.jpdb-reader-deck-select') === true && root.contains(document.activeElement)),
+        `Tab from ${beforeNow} did not return to the rebuilt deck dropdown.`);
+    await overlay.keyboard.type('Academy');
+    await overlay.keyboard.press('Enter');
+    await savedToDeckToast(overlay).first().waitFor({ state: 'attached', timeout: 15_000 });
+    const saved = await wordsSavedToLocalDeck(overlay);
+    assertSmoke(saved.length > 0, 'Choosing a deck in the dropdown did not save the word to the local deck.');
+    // The refresh after the save shows the enriched card, with the dropdown back under focus.
+    await popup.locator('[data-card-details-loading]').waitFor({ state: 'detached', timeout: 15_000 });
+    // The refreshed popup's dropdown, alone in its row, is the learner's place (⋯ when a
+    // popup folds several actions away).
+    const after = await popup.evaluate(root => ({
+        focused: root.getRootNode().activeElement?.matches('.jpdb-reader-deck-select, [data-action="mining-collapse"]') === true
+            && root.contains(root.getRootNode().activeElement),
+        toasts: [...document.querySelectorAll('.jpdb-reader-toast')].map(node => node.textContent),
+    }));
+    assertSmoke(after.focused, `A keyboard save left the learner off the deck dropdown: ${JSON.stringify(after)}`);
+    await overlay.screenshot({ path: path.join(appRoot, 'qa-artifacts/desktop-deck-dropdown-after-save.png') });
+    return { left, after, saved };
+}
+
+async function assertDesktopBackupRoundTrip(page) {
+    step('round-trip portable Desktop backup including the native capture shortcut');
+    const before = JSON.parse(readFileSync(captureShortcutPath, 'utf8')).shortcut;
+    assertSmoke(before === 'Control+Shift+U', 'Browser import changed the native shortcut.');
+    await openSettingsPanel(page, 'backup');
+    const exportedPath = path.join(userDataDir, 'desktop-backup-export.json');
+    await app.evaluate(({ session }, destination) => {
+        globalThis.__desktopSmokeDownload = new Promise(resolve => session.defaultSession.once('will-download', (_event, item) => {
+            item.setSavePath(destination); item.once('done', (_event, state) => resolve(state));
+        }));
+    }, exportedPath);
+    await page.locator('[data-action="export-reader-settings"]:visible').click();
+    const downloadState = await app.evaluate(() => globalThis.__desktopSmokeDownload);
+    assertSmoke(downloadState === 'completed', `Desktop export did not finish: ${downloadState}`);
+    const exported = JSON.parse(readFileSync(exportedPath, 'utf8'));
+    assertSmoke(exported.formatName === 'yomu-reader-settings' && exported.formatVersion === 3,
+        'Desktop export did not use the shared portable format.');
+    assertSmoke(exported.desktop?.captureShortcut === before, 'Desktop backup omitted the native shortcut.');
+    await configureCaptureShortcut(page, 'Ctrl+Shift+I');
+    await openSettingsPanel(page, 'backup');
+    const chooser = page.waitForEvent('filechooser');
+    await page.locator('[data-action="import-reader-settings"]:visible').click();
+    await (await chooser).setFiles(exportedPath);
+    await page.locator('[data-gaming-shell-status]:visible').filter({hasText:'Settings imported.'}).waitFor();
+    const restored = JSON.parse(readFileSync(captureShortcutPath, 'utf8')).shortcut;
+    assertSmoke(restored === before, `Desktop backup did not restore its native shortcut: ${restored}`);
+}
+
+// What a learner's browser hands over: its own "Export settings JSON" file. Built from
+// Gaming's current settings so the capture under test keeps working, with the browser's
+// choice layered on top.
+async function importBrowserSettingsExport(page, browserChoices) {
+    const current = await page.evaluate(() => JSON.parse(localStorage.getItem('yomu-gaming-reader-settings-v1') || '{}'));
+    const exportPath = path.join(userDataDir, 'yomu-settings-browser-export.json');
+    writeFileSync(exportPath, JSON.stringify({
+        formatName: 'yomu-reader-settings',
+        formatVersion: 3,
+        exportedAt: new Date().toISOString(),
+        settings: { ...current, ...browserChoices },
+        storage: {},
+    }));
+    await openSettingsPanel(page, 'backup');
+    const importButton = page.locator('[data-action="import-reader-settings"]:visible').first();
+    await importButton.waitFor({ timeout: 10_000 });
+    const chooser = page.waitForEvent('filechooser', { timeout: 10_000 });
+    await importButton.click();
+    await (await chooser).setFiles(exportPath);
+    await page.locator('[data-gaming-shell-status]:visible').filter({ hasText: 'Settings imported.' }).first().waitFor({ timeout: 10_000 });
+    // Let the file-input debounce expire: a detached pre-import form must not overwrite the new choice.
+    await page.waitForTimeout(250);
+    const imported = await page.evaluate(() => JSON.parse(localStorage.getItem('yomu-gaming-reader-settings-v1') || '{}'));
+    assertSmoke(imported.twoButtonReviews === true, 'Yomu Gaming did not adopt Pass/Fail grading from the browser settings export.');
+    assertSmoke(imported.ocrEndpointUrl === current.ocrEndpointUrl, 'Importing browser settings replaced how Gaming reads the screen.');
 }
 
 async function ocrWordForVisualText(overlay, expectedText) {
@@ -997,129 +976,6 @@ function readOcrWordVisualTexts(nodes) {
             .map(element => element.getAttribute('data-yomu-ocr-visual-text') || '')
             .join('')
     ));
-}
-
-async function readOcrReadingPaint(annotatedTerm) {
-    return await annotatedTerm.evaluate(node => {
-        const line = node.closest('.jpdb-ocr-line');
-        const furi = node.querySelector('.jpdb-ocr-furi');
-        const furiStyle = furi ? getComputedStyle(furi) : null;
-        const furiRect = furi?.getBoundingClientRect();
-        const pitchStyle = getComputedStyle(node, '::after');
-        const glyphs = [...node.querySelectorAll('.jpdb-ocr-furi [data-yomu-ocr-visual-text]')];
-        return {
-            hasFuriganaClass: node.classList.contains('jpdb-reader-has-furi'),
-            reading: glyphs.map(element => element.getAttribute('data-yomu-ocr-visual-text') || '').join(''),
-            lineHasFurigana: line?.getAttribute('data-has-furi') || '',
-            lineActive: Boolean(line?.classList.contains('jpdb-ocr-line-active')),
-            lineHovered: Boolean(line?.matches(':hover')),
-            lineFocusVisible: Boolean(line?.matches(':focus-visible')),
-            linePinned: line?.getAttribute('data-pinned') || '',
-            linePressed: line?.getAttribute('aria-pressed') || '',
-            visiblePopovers: [...document.querySelectorAll('.jpdb-reader-popover')]
-                .filter(element => getComputedStyle(element).display !== 'none').length,
-            pitchClass: node.getAttribute('data-pitch-class') || '',
-            pitchAccent: node.getAttribute('data-pitch-accent') || '',
-            furiOpacity: furiStyle?.opacity || '',
-            furiColor: furiStyle?.color || '',
-            furiTextFill: furiStyle?.getPropertyValue('-webkit-text-fill-color') || '',
-            furiWidth: furiRect?.width || 0,
-            furiHeight: furiRect?.height || 0,
-            furiGlyphContents: glyphs.map(element => getComputedStyle(element, '::before').content),
-            pitchUnderlineColor: pitchStyle.borderBlockEndColor || pitchStyle.borderBottomColor,
-            pitchUnderlineWidth: pitchStyle.borderBlockEndWidth || pitchStyle.borderBottomWidth,
-            pitchUnderlineStyle: pitchStyle.borderBlockEndStyle || pitchStyle.borderBottomStyle,
-            pitchUnderlineOpacity: pitchStyle.opacity,
-        };
-    });
-}
-
-function assertOcrReadingPaint(readingPaint, label, phase) {
-    if (
-        readingPaint.hasFuriganaClass
-        && readingPaint.reading.trim()
-        && readingPaint.lineHasFurigana === 'true'
-        && readingPaint.pitchClass
-        && readingPaint.pitchClass !== 'unknown'
-    ) return;
-    throw new Error(`Yomu Gaming ${label} did not retain its deferred OCR reading/pitch ${phase}: ${JSON.stringify(readingPaint)}`);
-}
-
-function assertOcrReadingVisualPaint(readingPaint, label, phase) {
-    const glyphsPaint = readingPaint.furiGlyphContents.length > 0
-        && readingPaint.furiGlyphContents.every(content => content && !['none', 'normal', '""', "''"].includes(content));
-    const activePaint = readingPaint.lineActive || readingPaint.lineHovered || readingPaint.lineFocusVisible;
-    const furiganaPaint = Number(readingPaint.furiOpacity) > 0.05
-        && readingPaint.furiWidth > 0
-        && readingPaint.furiHeight > 0
-        && glyphsPaint
-        && !isTransparentPaint(readingPaint.furiColor)
-        && !isTransparentPaint(readingPaint.furiTextFill);
-    const pitchPaint = Number.parseFloat(readingPaint.pitchUnderlineWidth) > 0
-        && readingPaint.pitchUnderlineStyle !== 'none'
-        && Number(readingPaint.pitchUnderlineOpacity || '1') > 0.05
-        && !isTransparentPaint(readingPaint.pitchUnderlineColor);
-    if (activePaint && furiganaPaint && pitchPaint) return;
-    throw new Error(`Yomu Gaming ${label} did not visibly paint its OCR reading/pitch ${phase}: ${JSON.stringify(readingPaint)}`);
-}
-
-async function waitForPaintFrames(page) {
-    await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
-}
-
-// The point of the whole exercise: the recognized line has to sit ON the text it was read
-// from, at that text's size. The fixture paints its dialogue line at a known place, the
-// fixture endpoint hands back that line's own ink box, and this compares the two on screen.
-// Existence checks passed all the way through a build that typeset the line at 0.53x and
-// left it 22% of the line's width inside its left edge.
-async function assertOcrLineRegister(overlay, label) {
-    const measured = await overlay.evaluate(bar => {
-        const backdrop = document.querySelector('img.overlay-backdrop');
-        const rect = backdrop.getBoundingClientRect();
-        const scale = Math.min(rect.width / backdrop.naturalWidth, rect.height / backdrop.naturalHeight);
-        const width = backdrop.naturalWidth * scale;
-        const height = backdrop.naturalHeight * scale;
-        const pictureLeft = rect.left + (rect.width - width) / 2;
-        const pictureTop = rect.top + (rect.height - height) / 2;
-        const line = document.querySelector('[data-ocr-line]:not([data-vertical="true"])');
-        const text = line.querySelector('.jpdb-ocr-line-text');
-        const rendered = text.getBoundingClientRect();
-        return {
-            source: {
-                left: pictureLeft + bar.left * width,
-                bottom: pictureTop + (bar.top + bar.height) * height,
-                width: bar.width * width,
-                height: bar.height * height,
-            },
-            rendered: { left: rendered.left, bottom: rendered.bottom, width: rendered.width, height: rendered.height },
-            line: {
-                fontPx: Number.parseFloat(getComputedStyle(line).fontSize),
-                boxLeft: Number(line.dataset.boxLeft),
-                boxTop: Number(line.dataset.boxTop),
-                boxWidth: Number(line.dataset.boxWidth),
-                boxHeight: Number(line.dataset.boxHeight),
-                picture: { left: pictureLeft, top: pictureTop, width, height },
-            },
-        };
-    }, {
-        left: FIXTURE_TEXT_BAR.left / FIXTURE_CAPTURE.width,
-        top: FIXTURE_TEXT_BAR.top / FIXTURE_CAPTURE.height,
-        width: FIXTURE_TEXT_BAR.width / FIXTURE_CAPTURE.width,
-        height: FIXTURE_TEXT_BAR.height / FIXTURE_CAPTURE.height,
-    });
-    const { source, rendered } = measured;
-    const report = JSON.stringify(measured);
-    if (Math.abs(rendered.width - source.width) > source.width * 0.08) {
-        throw new Error(`Yomu Gaming ${label} rendered the recognized line at ${(rendered.width / source.width).toFixed(3)}x the width of the text it was read from: ${report}`);
-    }
-    if (Math.abs(rendered.left - source.left) > source.width * 0.05) {
-        throw new Error(`Yomu Gaming ${label} started the recognized line ${Math.round(rendered.left - source.left)}px away from the text it was read from: ${report}`);
-    }
-    // The line rests on its source's baseline; the rendered box is a full em tall against an
-    // ink box, so it may hang a little below.
-    if (rendered.bottom - source.bottom > source.height * 0.5 || source.bottom - rendered.bottom > source.height * 0.25) {
-        throw new Error(`Yomu Gaming ${label} left the recognized line off the baseline of the text it was read from: ${report}`);
-    }
 }
 
 function withTimeout(promise, timeoutMs, label) {
@@ -1168,38 +1024,11 @@ async function closeElectronApp(app) {
 // capture's — which is the normal case, and is what this run gets — window fractions and
 // capture fractions are different regions. Dragging window fractions is how the crop ended
 // up covering a part of the screen nobody had chosen.
-async function dragFixtureDialogueSelection(overlay, region) {
-    const picture = await overlay.evaluate(() => {
-        const backdrop = document.querySelector('img.overlay-backdrop');
-        const rect = backdrop.getBoundingClientRect();
-        const scale = Math.min(rect.width / backdrop.naturalWidth, rect.height / backdrop.naturalHeight);
-        const width = backdrop.naturalWidth * scale;
-        const height = backdrop.naturalHeight * scale;
-        return {
-            left: rect.left + (rect.width - width) / 2,
-            top: rect.top + (rect.height - height) / 2,
-            width,
-            height,
-        };
-    });
-    const start = {
-        x: Math.round(picture.left + region.left * picture.width),
-        y: Math.round(picture.top + region.top * picture.height),
-    };
-    const end = {
-        x: Math.round(picture.left + region.right * picture.width),
-        y: Math.round(picture.top + region.bottom * picture.height),
-    };
-    await overlay.mouse.move(start.x, start.y);
-    await overlay.mouse.down();
-    await overlay.mouse.move(end.x, end.y, { steps: 8 });
-    await overlay.mouse.up();
-}
 
 function writeHardwareGapNote() {
     writeFileSync(hardwareGapPath, [
         'Yomu Gaming automated smoke uses a deterministic Japanese fixture image as a simulated primary-screen capture.',
-        'Covered: Electron settings shell, native settings snapshot save/restore, instant full-screen capture, secondary area capture, crop submission to OCR, and Japanese lookup rendering.',
+        'Covered: Electron settings shell, portable settings import/export, instant full-screen capture, fresh shortcut recapture, nonactivating transparent layer, and Japanese lookup rendering.',
         'Remaining hardware gap: true global desktop capture over an exclusive-fullscreen game and Steam Deck gamescope/Wayland capture must be validated on target hardware.',
     ].join('\n') + '\n');
 }
@@ -1229,6 +1058,11 @@ function startFixtureOcrServer() {
                     {
                         text: FIXTURE_LINE_TEXT,
                         box: fixtureOcrLineBox(png, captureRegion),
+                        words: [...FIXTURE_LINE_TEXT].map((text, index) => ({ text, box: mapFixtureRect({
+                            left: FIXTURE_LINE_ORIGIN.left + index * FIXTURE_GLYPH_PITCH,
+                            top: FIXTURE_LINE_ORIGIN.top, width: FIXTURE_GLYPH_INK.width,
+                            height: FIXTURE_GLYPH_INK.height,
+                        }, captureRegion, png) })),
                     },
                     {
                         // Tall, narrow box -> vertical writing (the manga/VN/JRPG common case the
@@ -1346,7 +1180,7 @@ function pngDimensions(buffer) {
 }
 
 async function waitForOverlayWindow(app, mode = 'instant') {
-    const hash = mode === 'area' ? '#overlay-area' : '#overlay-instant';
+    const hash = '#overlay-instant';
     const deadline = Date.now() + 10_000;
     while (Date.now() < deadline) {
         const overlay = app.windows().find(window => window.url().includes(hash));

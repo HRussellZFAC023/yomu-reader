@@ -26,54 +26,10 @@ import type {
     JPDBCard,
     JPDBToken,
 } from './fixtures';
-import {
-    resetActiveLearningTargetLanguage,
-    setActiveLearningTargetLanguage,
-} from '../../../src/reader/languages/active';
 
 registerReaderHelpersCleanup();
 
 describe('reader helpers', () => {
-    it.each(['zh', 'yue'] as const)('keeps %s fallback cards out of Japanese public resolution', async target => {
-        setActiveLearningTargetLanguage(target);
-        const app = new ReaderApp();
-        const publicCard = { ...card, spelling: '学习', reading: 'xuéxí', source: 'jpdb' as const };
-        const lookupFallbackApiCard = vi.fn(async () => publicCard);
-        const cacheCards = vi.fn();
-        const fallbackCard = { ...card, spelling: '学习', reading: 'xuéxí', language: target, source: 'fallback' as const };
-        const internals = app as unknown as {
-            parser: { cacheCards: typeof cacheCards };
-            lookupFallbackApiCard: typeof lookupFallbackApiCard;
-            resolveLookupCard(card: JPDBCard): Promise<JPDBCard>;
-        };
-        internals.parser = { cacheCards };
-        internals.lookupFallbackApiCard = lookupFallbackApiCard;
-
-        try {
-            await expect(internals.resolveLookupCard(fallbackCard)).resolves.toBe(fallbackCard);
-            expect(lookupFallbackApiCard).not.toHaveBeenCalled();
-            expect(cacheCards).not.toHaveBeenCalled();
-        } finally {
-            app.destroy();
-            resetActiveLearningTargetLanguage();
-        }
-    });
-
-    it('loads non-Japanese modal render data through the target-aware loader', async () => {
-        setActiveLearningTargetLanguage('yue');
-        const app = new ReaderApp();
-        const fallbackCard = { ...card, spelling: '學', reading: 'hok6', language: 'yue', source: 'fallback' as const };
-        const fixture = createFallbackShowCardBoundaryFixture(app, async () => fallbackCard);
-
-        try {
-            await fixture.internals.showCard(fallbackCard);
-            expect(fixture.load).toHaveBeenCalledWith(fallbackCard);
-        } finally {
-            app.destroy();
-            resetActiveLearningTargetLanguage();
-        }
-    });
-
     it('renders fallback lookup cards promptly when public JPDB resolution is slow', async () => {
         vi.useFakeTimers();
         const app = new ReaderApp();
@@ -1150,15 +1106,13 @@ describe('reader helpers', () => {
             '日本語ツール一覧',
             '今日は便利なスキルを探します。',
             '戻る',
-            '保存',
         ]));
+        // 保存 is a button: the page's own control stays as drawn.
+        expect(targets.map(target => target.text)).not.toContain('保存');
         expect(targets.find(target => target.text === '日本語ツール一覧')).toMatchObject({
             parserId: 'generic-prose-parser',
         });
         expect(targets.find(target => target.text === '日本語ツール一覧')?.nonDestructive).not.toBe(true);
-        expect(targets.find(target => target.text === '保存')).toMatchObject({
-            parserId: 'safe-ui-chrome-parser',
-        });
         expect(targets.every(target => target.nonDestructive !== true)).toBe(true);
 
         applyTokensToScanTarget(targets.find(target => target.text === '日本語ツール一覧')!, [{
@@ -1197,15 +1151,12 @@ describe('reader helpers', () => {
         expect(targets.map(target => target.text)).toEqual(expect.arrayContaining([
             '日本語の配信ページ',
             '今日は字幕を探します。',
-            '保存',
         ]));
+        expect(targets.map(target => target.text)).not.toContain('保存');
         expect(targets.find(target => target.text === '日本語の配信ページ')).toMatchObject({
             parserId: 'residual-visible-japanese-parser',
         });
         expect(targets.find(target => target.text === '日本語の配信ページ')?.nonDestructive).not.toBe(true);
-        expect(targets.find(target => target.text === '保存')).toMatchObject({
-            parserId: 'safe-ui-chrome-parser',
-        });
         expect(targets.every(target => target.nonDestructive !== true)).toBe(true);
     });
 
@@ -1235,15 +1186,12 @@ describe('reader helpers', () => {
         expect(targets.map(target => target.text)).toEqual(expect.arrayContaining([
             '日本語ニュースを読む',
             '今日はコメントを確認します。',
-            '詳細',
         ]));
+        expect(targets.map(target => target.text)).not.toContain('詳細');
         expect(targets.find(target => target.text === '日本語ニュースを読む')).toMatchObject({
             parserId: 'generic-prose-parser',
         });
         expect(targets.find(target => target.text === '日本語ニュースを読む')?.nonDestructive).not.toBe(true);
-        expect(targets.find(target => target.text === '詳細')).toMatchObject({
-            parserId: 'safe-ui-chrome-parser',
-        });
         expect(targets.every(target => target.nonDestructive !== true)).toBe(true);
 
         applyTokensToScanTarget(targets.find(target => target.text === '日本語ニュースを読む')!, [{
@@ -1263,7 +1211,7 @@ describe('reader helpers', () => {
         expect(title.querySelector('.jpdb-reader-text-mirror')).toBeNull();
     });
 
-    it('sweeps visible Japanese comments controls and nav after generic prose', () => {
+    it('sweeps visible Japanese comments and nav after generic prose, leaving buttons alone', () => {
         const rectSpy = mockElementBoundingClientRect();
         document.body.innerHTML = `
             <main>
@@ -1286,9 +1234,9 @@ describe('reader helpers', () => {
             '青空の下で日本語を読む',
             '今日は静かな喫茶店で新しい本を読みました。',
             '戻る',
-            '保存する',
             '短いコメントです',
         ]));
+        expect(targets.map(target => target.text)).not.toContain('保存する');
         expect(targets.find(target => target.text === '短いコメントです')).toMatchObject({
             parserId: 'residual-visible-japanese-parser',
         });
@@ -1317,7 +1265,6 @@ describe('reader helpers', () => {
             '青空の下で日本語を読む',
             '今日は静かな喫茶店で新しい本を読みました。',
             '戻る',
-            '保存する',
             '短いコメントです',
         ]);
         expect(targets.at(-1)).toMatchObject({
@@ -1343,10 +1290,10 @@ describe('reader helpers', () => {
 
         expect(targets.map(target => target.text)).toEqual(expect.arrayContaining([
             'ランキング',
-            '購入する',
             'セール情報を読む',
             'おすすめ',
         ]));
+        expect(targets.map(target => target.text)).not.toContain('購入する');
         expect(targets.every(target => 'parserId' in target && target.parserId === 'residual-visible-japanese-parser')).toBe(true);
     });
 
@@ -1505,7 +1452,7 @@ describe('reader helpers', () => {
         expect(targets.at(-1)?.text).toBe('日本語の文章2004');
     });
 
-    it('adds safe UI chrome labels after prose as passive ruby scan targets', () => {
+    it('adds safe UI chrome links after prose as passive ruby scan targets and leaves controls alone', () => {
         const rectSpy = mockElementBoundingClientRect();
         document.body.innerHTML = `
             <header><nav><a href="/help">ヘルプセンター</a></nav></header>
@@ -1529,26 +1476,19 @@ describe('reader helpers', () => {
                 y: 0,
                 toJSON: () => ({}),
             } as DOMRect); });
+        const nativeControls = Array.from(document.querySelectorAll<HTMLElement>('button, summary')).map(control => control.innerHTML);
 
         const targets = collectScanTargets(10, 'https://support.google.com/youtube/answer/6342839');
         rectSpy.mockRestore();
 
+        // Buttons and the summary are the page's own controls: never scanned.
         expect(targets.map(target => target.text)).toEqual([
             '今日は静かな喫茶店で新しい本を読みました。',
             'ヘルプセンター',
             '検索履歴を管理する',
-            '設定を保存する',
-            '続きを読む',
-            '登録する',
         ]);
         const uiTarget = targets.find(target => target.text === '検索履歴を管理する')!;
-        const buttonTarget = targets.find(target => target.text === '設定を保存する')!;
-        const summaryTarget = targets.find(target => target.text === '続きを読む')!;
-        const submitTarget = targets.find(target => target.text === '登録する')!;
         expect(uiTarget).toMatchObject({ passiveInteraction: true });
-        expect(buttonTarget).toMatchObject({ passiveInteraction: true });
-        expect(summaryTarget).toMatchObject({ passiveInteraction: true });
-        expect(submitTarget).toMatchObject({ passiveInteraction: true });
 
         applyTokensToScanTarget(uiTarget, [{
             card: { ...card, cardState: ['known'], spelling: '検索履歴', reading: 'けんさくりれき' },
@@ -1559,71 +1499,16 @@ describe('reader helpers', () => {
             pitchClass: '',
             sentence: '検索履歴を管理する',
         }], { ...DEFAULT_SETTINGS, furiganaMode: 'all' });
-        applyTokensToScanTarget(buttonTarget, [{
-            card: { ...card, cardState: ['known'], spelling: '設定', reading: 'せってい' },
-            start: 0,
-            end: 2,
-            length: 2,
-            rubies: [{ text: 'せってい', start: 0, end: 2, length: 2 }],
-            pitchClass: '',
-            sentence: '設定を保存する',
-        }], { ...DEFAULT_SETTINGS, furiganaMode: 'all' });
-        applyTokensToScanTarget(summaryTarget, [{
-            card: { ...card, cardState: ['not-in-deck'], spelling: '続き', reading: 'つづき' },
-            start: 0,
-            end: 2,
-            length: 2,
-            rubies: [{ text: 'つづき', start: 0, end: 2, length: 2 }],
-            pitchClass: '',
-            sentence: '続きを読む',
-        }], { ...DEFAULT_SETTINGS, furiganaMode: 'all' });
-        applyTokensToScanTarget(submitTarget, [{
-            card: { ...card, cardState: ['known'], spelling: '登録', reading: 'とうろく' },
-            start: 0,
-            end: 2,
-            length: 2,
-            rubies: [{ text: 'とうろく', start: 0, end: 2, length: 2 }],
-            pitchClass: '',
-            sentence: '登録する',
-        }], { ...DEFAULT_SETTINGS, furiganaMode: 'all' });
 
         const word = document.querySelector<HTMLElement>('a[href="/history"] .jpdb-reader-word')!;
-        const buttonWord = document.querySelector<HTMLElement>('button[type="button"] .jpdb-reader-word')!;
-        const summaryWord = document.querySelector<HTMLElement>('summary .jpdb-reader-word')!;
-        const submitWord = document.querySelector<HTMLElement>('button[type="submit"] .jpdb-reader-word')!;
         expect(word.classList.contains('jpdb-reader-passive-word')).toBe(true);
         expect(word.classList.contains('jpdb-reader-scan-word')).toBe(true);
         expect(word.tabIndex).toBe(-1);
         expect(word.querySelector('rt')?.textContent).toBe('けんさくりれき');
-        expect(buttonWord.dataset.jpdbReaderPassive).toBe('true');
-        expect(buttonWord.classList.contains('jpdb-reader-passive-word')).toBe(true);
-        expect(buttonWord.classList.contains('jpdb-reader-scan-word')).toBe(true);
-        expect(buttonWord.tabIndex).toBe(-1);
-        expect(summaryWord.dataset.jpdbReaderPassive).toBe('true');
-        expect(summaryWord.classList.contains('jpdb-reader-passive-word')).toBe(true);
-        expect(summaryWord.classList.contains('jpdb-reader-scan-word')).toBe(true);
-        expect(summaryWord.tabIndex).toBe(-1);
-        expect(buttonWord.querySelector('ruby rt')).toBeNull();
-        expect(buttonWord.querySelector('.jpdb-reader-detached-furi')?.textContent).toBe('せってい');
-        expect(summaryWord.querySelector('ruby rt')).toBeNull();
-        expect(summaryWord.querySelector('.jpdb-reader-detached-furi')?.textContent).toBe('つづ');
-        expect(submitWord.dataset.jpdbReaderPassive).toBe('true');
-        expect(submitWord.querySelector('ruby rt')).toBeNull();
-        expect(submitWord.querySelector('.jpdb-reader-detached-furi')?.textContent).toBe('とうろく');
-        const app = new ReaderApp();
-        const readerWordAccess = app as unknown as {
-            canLookupReaderWord: (word: HTMLElement) => boolean;
-            canHoverLookupReaderWord: (word: HTMLElement) => boolean;
-        };
-        try {
-            expect(readerWordAccess.canLookupReaderWord(buttonWord)).toBe(false);
-            expect(readerWordAccess.canHoverLookupReaderWord(buttonWord)).toBe(true);
-        } finally {
-            app.destroy();
-        }
+        expect(Array.from(document.querySelectorAll<HTMLElement>('button, summary')).map(control => control.innerHTML)).toEqual(nativeControls);
     });
 
-    it('adds host role-tab and checkbox chrome labels as passive ruby scan targets', () => {
+    it('leaves host role-tab and checkbox controls as the page drew them', () => {
         const rectSpy = mockElementBoundingClientRect({ width: 240, height: 40 });
         document.body.innerHTML = `
             <main><article><p>今日は静かな喫茶店で新しい本を読みました。</p></article></main>
@@ -1637,46 +1522,11 @@ describe('reader helpers', () => {
         const targets = collectScanTargets(10, 'https://discourse.julialang.org/t/llms-and-uuids/115217/5');
         rectSpy.mockRestore();
 
-        expect(targets.map(target => target.text)).toEqual(expect.arrayContaining([
-            '今日は静かな喫茶店で新しい本を読みました。',
-            '外観',
-            '検索後もシートを開いたままにする',
-        ]));
-        const tabTarget = targets.find(target => target.text === '外観')!;
-        const checkboxTarget = targets.find(target => target.text === '検索後もシートを開いたままにする')!;
-        expect('passiveInteraction' in tabTarget && tabTarget.passiveInteraction).toBe(true);
-        expect('passiveInteraction' in checkboxTarget && checkboxTarget.passiveInteraction).toBe(true);
-
-        applyTokensToScanTarget(tabTarget, [{
-            card: { ...card, cardState: ['known'], spelling: '外観', reading: 'がいかん' },
-            start: 0,
-            end: 2,
-            length: 2,
-            rubies: [{ text: 'がいかん', start: 0, end: 2, length: 2 }],
-            pitchClass: '',
-            sentence: '外観',
-        }], { ...DEFAULT_SETTINGS, furiganaMode: 'all' });
-        applyTokensToScanTarget(checkboxTarget, [{
-            card: { ...card, cardState: ['known'], spelling: '検索', reading: 'けんさく' },
-            start: 0,
-            end: 2,
-            length: 2,
-            rubies: [{ text: 'けんさく', start: 0, end: 2, length: 2 }],
-            pitchClass: '',
-            sentence: '検索後もシートを開いたままにする',
-        }], { ...DEFAULT_SETTINGS, furiganaMode: 'all' });
-
-        const tabWord = document.querySelector<HTMLElement>('[role="tab"] .jpdb-reader-word')!;
-        const checkboxWord = document.querySelector<HTMLElement>('[role="checkbox"] .jpdb-reader-word')!;
-        expect(tabWord.dataset.jpdbReaderPassive).toBe('true');
-        expect(tabWord.querySelector('ruby rt')).toBeNull();
-        expect(tabWord.querySelector('.jpdb-reader-detached-furi')?.textContent).toBe('がいかん');
-        expect(checkboxWord.dataset.jpdbReaderPassive).toBe('true');
-        expect(checkboxWord.querySelector('ruby rt')).toBeNull();
-        expect(checkboxWord.querySelector('.jpdb-reader-detached-furi')?.textContent).toBe('けんさく');
+        expect(targets.map(target => target.text)).toEqual(['今日は静かな喫茶店で新しい本を読みました。']);
+        expect(document.querySelector('[role="tab"] .jpdb-reader-word, [role="checkbox"] .jpdb-reader-word')).toBeNull();
     });
 
-    it('adds compact parser-page chrome labels after site text as passive ruby scan targets', () => {
+    it('adds compact parser-page chrome links after site text and leaves its buttons and labels alone', () => {
         const rectSpy = mockElementBoundingClientRect();
         document.body.innerHTML = `
             <header class="vector-header">
@@ -1758,28 +1608,22 @@ describe('reader helpers', () => {
             '編集',
             '履歴を表示',
             '目次',
-            'ページ先頭',
             '表示',
-            'サイドバーに移動',
-            '非表示',
             'テキスト',
-            '標準',
-            'ライト',
         ]));
         expect(texts.some(text => text.includes('参考文献'))).toBe(true);
         expect(texts.some(text => text.includes('関連項目'))).toBe(true);
+        // Pin buttons, the appearance choices (form labels) and the href="#"
+        // back-to-top control are the page's own controls.
+        for (const control of ['サイドバーに移動', '非表示', '標準', 'ライト', 'ページ先頭']) {
+            expect(texts).not.toContain(control);
+        }
 
         const article = targets.find(target => target.text === '原子の質量を表す。')!;
         const edit = targets.find(target => target.text === '編集')!;
-        const light = targets.find(target => target.text === 'ライト')!;
-        const pinButton = targets.find(target => target.text === 'サイドバーに移動'
-            && target.parent.closest('.vector-pinnable-header-pin-button'))!;
         expect('parserId' in article && article.parserId).toBe('wikipedia-parser');
         expect('parserId' in edit && edit.parserId).toBe('wikipedia-parser');
-        expect('parserId' in pinButton && pinButton.parserId).toBe('wikipedia-parser');
         expect('passiveInteraction' in edit && edit.passiveInteraction).toBe(true);
-        expect('passiveInteraction' in light && light.passiveInteraction).toBe(true);
-        expect('passiveInteraction' in pinButton && pinButton.passiveInteraction).toBe(true);
 
         applyTokensToScanTarget(edit, [{
             card: { ...card, cardState: ['known'], spelling: '編集', reading: 'へんしゅう' },
@@ -1790,36 +1634,12 @@ describe('reader helpers', () => {
             pitchClass: '',
             sentence: '編集',
         }], { ...DEFAULT_SETTINGS, furiganaMode: 'all' });
-        applyTokensToScanTarget(light, [{
-            card: { ...card, cardState: ['known'], spelling: 'ライト', reading: 'ライト' },
-            start: 0,
-            end: 3,
-            length: 3,
-            rubies: [],
-            pitchClass: '',
-            sentence: 'ライト',
-        }], { ...DEFAULT_SETTINGS, furiganaMode: 'all' });
-        applyTokensToScanTarget(pinButton, [{
-            card: { ...card, cardState: ['known'], spelling: 'サイドバー', reading: 'サイドバー' },
-            start: 0,
-            end: 5,
-            length: 5,
-            rubies: [],
-            pitchClass: '',
-            sentence: 'サイドバーに移動',
-        }], { ...DEFAULT_SETTINGS, furiganaMode: 'all' });
 
         const editWord = document.querySelector<HTMLElement>('#ca-edit .jpdb-reader-word')!;
-        const lightWord = Array.from(document.querySelectorAll<HTMLElement>('#vector-appearance label .jpdb-reader-word'))
-            .find(word => readerWordSurfaceText(word) === 'ライト')!;
-        const pinWord = document.querySelector<HTMLElement>('.vector-pinnable-header-pin-button .jpdb-reader-word')!;
         expect(editWord.dataset.jpdbReaderPassive).toBe('true');
         expect(editWord.querySelector('ruby rt')).toBeNull();
         expect(editWord.querySelector('.jpdb-reader-detached-furi')?.textContent).toBe('へんしゅう');
-        expect(lightWord.dataset.jpdbReaderPassive).toBe('true');
-        expect(readerWordSurfaceText(lightWord)).toBe('ライト');
-        expect(pinWord.dataset.jpdbReaderPassive).toBe('true');
-        expect(readerWordSurfaceText(pinWord)).toBe('サイドバー');
+        expect(document.querySelector('.vector-pinnable-header button .jpdb-reader-word, #vector-appearance label .jpdb-reader-word')).toBeNull();
     });
 
 });

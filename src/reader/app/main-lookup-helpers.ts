@@ -18,7 +18,7 @@ export function uniqueTokensByCard(tokens: JPDBToken[]): JPDBToken[] {
     });
 }
 
-type NormalizedNestedParseOptions = Required<Omit<ReaderParserParseOptions, 'publicJitenDetailLimit'>>
+type NormalizedNestedParseOptions = Required<Omit<ReaderParserParseOptions, 'publicJitenDetailLimit' | 'publicJitenPriority'>>
     & Pick<ReaderParserParseOptions, 'publicJitenDetailLimit'>;
 
 export function normalizedNestedParseOptions(options: ReaderParserParseOptions, _settings: ReaderSettings): NormalizedNestedParseOptions {

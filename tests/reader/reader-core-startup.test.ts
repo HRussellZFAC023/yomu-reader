@@ -3,9 +3,6 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ReaderApp } from '../../src/reader/app/main';
 import type { ReaderSettings } from '../../src/reader/app/types';
 import {
-    resetActiveLearningTargetLanguage,
-} from '../../src/reader/languages/active';
-import {
     DEFAULT_SETTINGS,
     endSettingsResetGuard,
     SETTINGS_STORAGE_KEY,
@@ -35,21 +32,12 @@ interface StartupInternals {
 
 type CompanionHost = typeof globalThis & { __yomuCompanions?: Record<string, unknown> };
 
-async function dismissOffhostOnboarding(initializing: Promise<void>): Promise<void> {
-    await vi.waitFor(() => {
-        expect(document.querySelector('.jpdb-reader-onboarding-trusted-launcher')).not.toBeNull();
-    });
-    expect(document.querySelector('select[name="targetLanguage"]')).toBeNull();
-    document.querySelector<HTMLButtonElement>('[data-onboarding-action="close"]')?.click();
-    await initializing;
-}
-
 describe('ReaderApp core startup', () => {
     let app: ReaderApp | undefined;
 
     afterEach(() => {
         endSettingsResetGuard();
-        resetActiveLearningTargetLanguage();
+
         app?.destroy();
         app = undefined;
         vi.restoreAllMocks();
@@ -73,7 +61,7 @@ describe('ReaderApp core startup', () => {
         // styling itself is outside this startup-order regression.
         internals.installStyles = vi.fn();
 
-        await expect(app.init({ showWelcome: false })).resolves.toBeUndefined();
+        await expect(app.init({})).resolves.toBeUndefined();
 
         expect(refresh).toHaveBeenCalledOnce();
         expect(document.querySelector('.jpdb-reader-fab')).not.toBeNull();
@@ -94,7 +82,7 @@ describe('ReaderApp core startup', () => {
             fillStyle: '#ffffff',
         } as never);
         const stored = new Map<string, unknown>(Object.entries(format === 'current'
-            ? serializeSettingsPersistencePair({ ...DEFAULT_SETTINGS, learningTargetChosen: true, onboardingSeen: true, subtitleFontSize: 48 }, { revision: 0, records: {} })
+            ? serializeSettingsPersistencePair({ ...DEFAULT_SETTINGS, subtitleFontSize: 48 }, { revision: 0, records: {} })
             : { [SETTINGS_STORAGE_KEY]: { subtitleFontSize: 48 } }));
         const before = structuredClone(stored);
         vi.stubGlobal('GM_getValue', vi.fn((key: string, fallback: unknown) => stored.get(key) ?? fallback));
@@ -114,12 +102,12 @@ describe('ReaderApp core startup', () => {
         internals.installStyles = vi.fn();
         const subtitleInit = vi.spyOn(internals.subtitles, 'init');
 
-        await expect(app.init({ showWelcome: true })).resolves.toBeUndefined();
+        await expect(app.init({})).resolves.toBeUndefined();
 
         // An unmarked record is the committed pair v1.9.3 read; nothing is rewritten on read.
         if (format !== 'current') expect(stored).toEqual(before);
         expect(internals.settings.subtitleFontSize).toBe(48);
-        expect(internals.settings.learningTargetChosen).toBe(true);
+        expect(internals.settings).not.toHaveProperty('learningTargetChosen');
         expect(document.querySelector('.jpdb-reader-onboarding')).toBeNull();
         expect(subtitleInit).toHaveBeenCalledOnce();
         expect(document.querySelector('.jpdb-subtitle-player')).not.toBeNull();
@@ -135,7 +123,7 @@ describe('ReaderApp core startup', () => {
         internals.loadInitialSettings = vi.fn(() => settingsFinished);
         internals.installCoreSurfaces = vi.fn(async () => undefined);
 
-        const initializing = app.init({ showWelcome: false });
+        const initializing = app.init({});
         await vi.waitFor(() => {
             expect(internals.loadInitialSettings).toHaveBeenCalledOnce();
         });
@@ -146,70 +134,6 @@ describe('ReaderApp core startup', () => {
         expect(internals.installCoreSurfaces).not.toHaveBeenCalled();
         expect(document.querySelector('.jpdb-reader-fab')).toBeNull();
         expect(document.querySelector('.jpdb-subtitle-player')).toBeNull();
-    });
-
-    it('keeps a fresh ordinary page usable and target-owned work inert when setup is dismissed', async () => {
-        vi.stubGlobal('location', new URL('https://example.com/article'));
-        const hostAction = document.createElement('button');
-        hostAction.textContent = '日本語の本文を開く';
-        const hostClick = vi.fn();
-        hostAction.addEventListener('click', hostClick);
-        document.body.append(hostAction);
-
-        app = new ReaderApp();
-        const internals = app as unknown as StartupInternals;
-        internals.installStyles = vi.fn();
-        const dictionaryRefresh = vi.spyOn(internals.dictionaryStyles, 'refresh');
-        const parse = vi.spyOn(internals.parser, 'parse');
-        internals.installFab = vi.fn();
-        internals.setupAutoScan = vi.fn();
-        internals.installSettingsStorageSubscription = vi.fn();
-        internals.registerMenuCommands = vi.fn();
-        internals.bindEvents = vi.fn();
-        const installOfflineDictionaries = vi.spyOn(internals.offlineDictionaries, 'run');
-
-        const initializing = app.init({ showWelcome: true });
-        await vi.waitFor(() => {
-            expect(document.querySelector('.jpdb-reader-onboarding')).not.toBeNull();
-        });
-
-        document.querySelector<HTMLButtonElement>('[data-onboarding-action="close"]')?.click();
-        await initializing;
-        hostAction.click();
-
-        expect(hostClick).toHaveBeenCalledOnce();
-        expect(dictionaryRefresh).not.toHaveBeenCalled();
-        expect(parse).not.toHaveBeenCalled();
-        expect(installOfflineDictionaries).not.toHaveBeenCalled();
-        expect(internals.installFab).not.toHaveBeenCalled();
-        expect(internals.setupAutoScan).not.toHaveBeenCalled();
-        expect(internals.installSettingsStorageSubscription).not.toHaveBeenCalled();
-        expect(internals.registerMenuCommands).not.toHaveBeenCalled();
-        expect(internals.bindEvents).not.toHaveBeenCalled();
-    });
-
-    it('never exposes the target chooser on an ordinary page and offers the trusted launcher again on reload', async () => {
-        vi.stubGlobal('location', new URL('https://example.com/article'));
-        resetActiveLearningTargetLanguage();
-        app = new ReaderApp();
-        let internals = app as unknown as StartupInternals;
-        internals.installStyles = vi.fn();
-        internals.installTargetOwnedCoreSurfaces = vi.fn();
-
-        const initializing = app.init({ showWelcome: true });
-        await dismissOffhostOnboarding(initializing);
-
-        expect(internals.settings.learningTargetChosen).toBe(false);
-        expect(internals.settings.languageProfiles[0]?.targetLanguage).toBe('ja');
-        expect(internals.installTargetOwnedCoreSurfaces).not.toHaveBeenCalled();
-
-        endSettingsResetGuard();
-        app.destroy();
-        app = new ReaderApp();
-        internals = app as unknown as StartupInternals;
-        internals.installStyles = vi.fn();
-        const reloading = app.init({ showWelcome: true });
-        await dismissOffhostOnboarding(reloading);
     });
 
     it('does not apply theme classes after page teardown removes the document root', () => {

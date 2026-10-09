@@ -2,7 +2,9 @@ import { uiText, type UiCopyKey } from '../app/i18n';
 import { readTrustedYomuUrl } from '../app/trusted-hosted-url';
 import type { InterfaceLanguage } from '../app/types';
 import { userFacingCopyKeyOf, userFacingErrorText } from '../app/user-facing-errors';
-import { dictionaryInstallFailureText } from '../dictionaries/install-failure';
+import { dictionaryInstallFailureText, isDictionaryStorageFull } from '../dictionaries/install-failure';
+import { isAbortError } from '../core/errors';
+import { Logger } from '../app/logger';
 import {
     findRecommendedDictionary,
     recommendedDictionaryBuild,
@@ -13,6 +15,8 @@ import type { LocalDictionaryStore } from '../dictionaries/local-store';
 import type { ImportSummary } from '../dictionaries/yomitan';
 import { getUserscriptHttpRequest } from '../userscript/index';
 import { recommendedDictionaryFilename } from './file-io';
+
+const log = Logger.scope('Dictionaries');
 
 /**
  * A recommended dictionary card in Settings → Sources: its Install/Update
@@ -103,17 +107,40 @@ function syncRecommendedDictionaryStatus(button: HTMLButtonElement, operation: R
     }
 }
 
+/**
+ * Installs the build this page can reach. A project's newest build comes from
+ * its own host (api.jiten.moe, GitHub releases), which only the Reader reaches;
+ * when that host is slow or down the download times out ("Dictionary download
+ * timed out." on the Jiten card). A first install then takes the mirror's
+ * digest-checked copy rather than leaving the card failed. An update keeps the
+ * failure, so the older mirror copy can never replace a newer install.
+ */
 export async function importRecommendedDictionary(
     dictionaries: Pick<LocalDictionaryStore, 'importFromUrl'>,
     card: RecommendedDictionary,
     setStatus: (message: string) => void,
+    { firstInstall = false }: { firstInstall?: boolean } = {},
 ): Promise<ImportSummary> {
-    const dictionary = recommendedDictionaryBuildHere(card);
+    const build = recommendedDictionaryBuildHere(card);
+    try {
+        return await importRecommendedBuild(dictionaries, build, setStatus);
+    } catch (error) {
+        if (!firstInstall || build === card || isAbortError(error) || isDictionaryStorageFull(error)) throw error;
+        log.warn('Newest dictionary build unavailable; installing the mirror copy', { dictionary: card.id }, error);
+        return importRecommendedBuild(dictionaries, card, setStatus);
+    }
+}
+
+function importRecommendedBuild(
+    dictionaries: Pick<LocalDictionaryStore, 'importFromUrl'>,
+    dictionary: RecommendedDictionary,
+    setStatus: (message: string) => void,
+): Promise<ImportSummary> {
     const downloadUrl = dictionary.downloadUrl ?? '';
     const importOptions = recommendedDictionaryImportOptions(dictionary);
     return importOptions
-        ? await dictionaries.importFromUrl(downloadUrl, recommendedDictionaryFilename(dictionary), setStatus, importOptions)
-        : await dictionaries.importFromUrl(downloadUrl, recommendedDictionaryFilename(dictionary), setStatus);
+        ? dictionaries.importFromUrl(downloadUrl, recommendedDictionaryFilename(dictionary), setStatus, importOptions)
+        : dictionaries.importFromUrl(downloadUrl, recommendedDictionaryFilename(dictionary), setStatus);
 }
 
 export function recommendedDictionaryFailureText(language: InterfaceLanguage, error: unknown): string {

@@ -66,9 +66,6 @@ export class PracticeSessionPanel {
         else await this.home();
     }
 
-    // Called through a local alias in NewTabController.leavePracticeSessions,
-    // which the member graph does not follow.
-    // fallow-ignore-next-line unused-class-member
     async pause(): Promise<boolean> {
         const session = this.session;
         if (session && session.view().status !== 'complete' && session.view().status !== 'paused') {
@@ -78,7 +75,6 @@ export class PracticeSessionPanel {
         return true;
     }
 
-    // fallow-ignore-next-line unused-class-member
     hide(): void {
         this.visible = false;
         this.operation += 1;
@@ -123,6 +119,24 @@ export class PracticeSessionPanel {
         const selection = this.options.selection();
         const purpose = el('select', { 'aria-label': this.text('practicePurpose'), dataset: { practicePurpose: true } },
             TEXT_PURPOSES.map(value => el('option', { value }, this.text(PURPOSE_LABELS[value]))));
+        const start = this.button('practiceStart', () => { void this.start(purpose.value as PracticePurpose, selection); }, 'start');
+        let readinessRevision = 0;
+        const syncReadiness = async () => {
+            const revision = ++readinessRevision;
+            start.disabled = true;
+            try {
+                const selectedPurpose = purpose.value as PracticePurpose;
+                const ready = await this.manager().countReady(this.sourceSessionId
+                    ? { purpose: selectedPurpose, fromSession: this.sourceSessionId }
+                    : { purpose: selectedPurpose, ...selection });
+                if (!this.visible || operation !== this.operation || revision !== readinessRevision) return;
+                start.disabled = ready === 0;
+                this.element.querySelector('[data-practice-status]')?.replaceChildren(ready ? '' : this.text('practiceNoMaterial'));
+            } catch {
+                if (this.visible && operation === this.operation && revision === readinessRevision) this.showError('practiceUnavailable');
+            }
+        };
+        purpose.addEventListener('change', () => { void syncReadiness(); });
         const saved = el('div', { class: 'yomu-practice-saved' });
         const sourceTitle = el('p', {}, this.sourceSessionId ? this.sourceSummary?.title ?? this.text('practicePreparing') : selection.title);
         const sourceCount = el('p', {}, this.text('practiceWordsCount').replace('{count}', String(this.sourceSessionId ? this.sourceSummary?.sourceTotal ?? 0 : selection.material.length)));
@@ -133,11 +147,12 @@ export class PracticeSessionPanel {
                 this.sourceSessionId = undefined; this.sourceSummary = undefined; void this.home();
             }, 'current-selection') : null,
             el('label', {}, this.text('practicePurpose'), purpose),
-            this.button('practiceStart', () => { void this.start(purpose.value as PracticePurpose, selection); }, 'start'),
+            start,
             el('small', {}, this.text('practiceScheduleUnchanged')),
             this.status(), saved,
             this.button('practiceBack', () => this.options.leave(), 'exit'),
         );
+        await syncReadiness();
         if (error) this.showError(error);
         try {
             const sessions = await this.manager().list();

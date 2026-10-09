@@ -1,12 +1,10 @@
 import type { ReaderSettings } from '../app/types';
-import { formatUiText, uiText } from '../app/i18n';
+import { uiText } from '../app/i18n';
 import { setInnerHtml } from '../dom/index';
-import { isLearningTargetRosterId, type LearningTargetRosterId } from '../languages';
-import { isLearnerLanguageId, type LearnerLanguageId } from '../locales';
+import type { LearningTargetRosterId } from '../languages';
+import type { LearnerLanguageId } from '../locales';
 import type { LocalDictionaryStore } from '../dictionaries/local-store';
 import {
-    activeLearnerLanguageId,
-    activeTargetLanguageId,
     readFormSettings,
     renderDictionarySourceRows,
     renderKanjiSourceRows,
@@ -57,8 +55,9 @@ export function liveDictionaryPanelContext(
 ): DictionaryPanelRenderContext {
     return {
         settings: liveDictionarySettings(form, settings),
-        learnerLanguage: selectedLearnerLanguage(form, settings),
-        targetLanguage: selectedTargetLanguage(form, settings),
+        // Japanese dictionaries with English definitions (ADR-0024).
+        learnerLanguage: 'en',
+        targetLanguage: 'ja',
     };
 }
 
@@ -72,7 +71,7 @@ export function renderDictionaryStatusElements(
 ): void {
     renderDictionaryStatusLine(elements.status, summary, settings);
     renderDictionaryPriorities(elements, settings);
-    renderDictionaryLookupPills(elements.lookupPills, summary, settings, targetLanguage);
+    renderDictionaryLookupPills(elements.lookupPills, summary, settings);
     renderDictionaryRecommendations(
         elements.recommended,
         summary,
@@ -88,13 +87,10 @@ function renderDictionaryStatusLine(
     settings: ReaderSettings,
 ): void {
     if (!element) return;
+    // Installed dictionaries already appear in the source rows. Keep this live
+    // region for the empty state and failures, rather than duplicate technical counts.
     element.textContent = summary.dictionaries.length
-        ? formatUiText(settings.interfaceLanguage, 'dictionaryStatusSummary', {
-            dictionaries: summary.dictionaries.length.toLocaleString(),
-            terms: summary.terms.toLocaleString(),
-            kanji: summary.kanji.toLocaleString(),
-            metadata: summary.termMeta.toLocaleString(),
-        })
+        ? ''
         : uiText(settings.interfaceLanguage, 'noLocalDictionariesImported');
 }
 
@@ -112,10 +108,9 @@ function renderDictionaryLookupPills(
     element: HTMLElement | null,
     summary: DictionaryStatusSummary,
     settings: ReaderSettings,
-    targetLanguage: LearningTargetRosterId,
 ): void {
     if (!element) return;
-    setInnerHtml(element, renderLookupPillsEditor(settings, summary.dictionaries, targetLanguage));
+    setInnerHtml(element, renderLookupPillsEditor(settings, summary.dictionaries));
 }
 
 function renderDictionaryRecommendations(
@@ -136,14 +131,4 @@ function renderDictionaryRecommendations(
             expandCatalogBrowse,
         ),
     );
-}
-
-function selectedLearnerLanguage(form: HTMLFormElement, settings: ReaderSettings): LearnerLanguageId {
-    const value = form.querySelector<HTMLSelectElement>('select[name="learnerLanguage"]')?.value;
-    return value && isLearnerLanguageId(value) ? value : activeLearnerLanguageId(settings);
-}
-
-export function selectedTargetLanguage(form: HTMLFormElement, settings: ReaderSettings): LearningTargetRosterId {
-    const value = form.querySelector<HTMLSelectElement>('select[name="targetLanguage"]')?.value;
-    return value && isLearningTargetRosterId(value) ? value : activeTargetLanguageId(settings);
 }

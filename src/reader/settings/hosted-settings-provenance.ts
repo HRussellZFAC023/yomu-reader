@@ -8,7 +8,7 @@ export async function persistHostedSharedSettingsPatch(patch: Record<string, unk
         const read = hasAsyncGmStorageBackend() ? gmStorageGetSharedStrict : gmStorageGetStrict;
         const view = await readSettingsPersistenceViewStrictFrom(read);
         if (view.settings == null && !userChoice) return;
-        const shared = view.settings ?? { learningTargetChosen: false, onboardingSeen: false };
+        const shared = view.settings ?? {};
         if (typeof shared !== 'object' || Array.isArray(shared)) throw new Error('Invalid hosted settings authority.');
         const merged = { ...shared, ...patch };
         const ledger = recordSettingsIntent(view.intentLedger, userChoice ? Object.keys(patch) as (keyof ReaderSettings)[] : [], merged);

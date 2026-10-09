@@ -495,7 +495,7 @@ describe('audio module boundaries', () => {
             const player = new AudioPlayer(() => ({
                 ...DEFAULT_SETTINGS,
                 audioEnableDefaultSources: false,
-                audioSelectionMode: 'first',
+
                 audioViaBlob: false,
                 audioFallbackChimeEnabled: false,
                 audioSources: [{ type: 'custom', url: 'http://x.test/hover-word.mp3', voice: '', enabled: true }],
@@ -555,7 +555,7 @@ describe('audio module boundaries', () => {
             const player = new AudioPlayer(() => ({
                 ...DEFAULT_SETTINGS,
                 audioEnableDefaultSources: false,
-                audioSelectionMode: 'first',
+
                 audioViaBlob: false,
                 audioFallbackChimeEnabled: false,
                 audioSources: [{ type: 'custom', url: 'http://x.test/repeated-hover.mp3', voice: '', enabled: true }],
@@ -641,7 +641,7 @@ describe('audio module boundaries', () => {
             const player = new AudioPlayer(() => ({
                 ...DEFAULT_SETTINGS,
                 audioEnableDefaultSources: false,
-                audioSelectionMode: 'first',
+
                 audioViaBlob: false,
                 audioFallbackChimeEnabled: false,
                 audioSources: [{ type: 'custom', url: 'http://x.test/pencil-hover.mp3', voice: '', enabled: true }],
@@ -1071,7 +1071,7 @@ function jitenThenBrowserTtsSettings(overrides: Partial<ReaderSettings> = {}): R
         ...DEFAULT_SETTINGS,
         audioEnabled: true,
         audioEnableDefaultSources: false,
-        audioSelectionMode: 'random',
+
         audioTtsMode: 'fallback',
         audioViaBlob: false,
         audioFallbackChimeEnabled: false,

@@ -2,12 +2,13 @@ import {
     HIDE_STATE_GROUP_CONTROL_LABELS,
     renderWordColorHiddenStateGroupControls,
 } from './hide-state-groups';
-import { ANKI_CONNECT_ADDON_URL, BUNPRO_DEFINITION_SOURCE_ID, DISCORD_INVITE_URL, DOCS_BASE_URL, DONATE_URL, GITHUB_REPOSITORY_URL, JITEN_DEFINITION_SOURCE_ID, JPDB_DEFINITION_SOURCE_ID, NADESHIKO_DEVELOPER_URL, NEW_TAB_PAGE_URL, PDF_READER_PAGE_URL, SUPPORT_COPY, SUPPORT_COPY_EXTRA, VIDEO_PLAYER_PAGE_URL, WANIKANI_DEFINITION_SOURCE_ID } from '../app/constants';
+import { ANKI_CONNECT_ADDON_URL, DISCORD_INVITE_URL, DOCS_BASE_URL, DONATE_URL, GITHUB_REPOSITORY_URL, NADESHIKO_DEVELOPER_URL, NEW_TAB_PAGE_URL, PDF_READER_PAGE_URL, SUPPORT_COPY, SUPPORT_COPY_EXTRA, VIDEO_PLAYER_PAGE_URL } from '../app/constants';
 import { escapeHtml, setInnerHtml, unwrapReaderWords } from '../dom/index';
 import { audioSourceLabel, formatUiText, resolveUiLanguage, uiText } from '../app/i18n';
 import { CURRENT_YOMU_VERSION } from '../app/version';
-import { detectYomuUpdateFlow, updateFlowNoteKey } from '../app/userscript-update';
+import { detectYomuUpdateFlow, installedAsBrowserExtension, updateFlowNoteKey } from '../app/userscript-update';
 import { externalLinkIcon } from '../ui/icons';
+import { menuIconMarkup } from '../ui/menu-icons';
 import { dispatchAuthorizedReaderControlEvent } from '../ui/trusted-interaction';
 import { AUDIO_GUIDE_URL, formatShortcutEvent, hasStatusColorSource, isPopupLookupEnabled, sanitizeAccentColor } from './index';
 import { SETTINGS_LABEL_TEXT_CLASS, checkbox, input, radioGroup, select, settingsTabButton, shortcutInput } from './form-controls';
@@ -37,43 +38,22 @@ import { WANIKANI_TOKEN_SETTINGS_URL } from '../wanikani/wanikani';
 import { RECOMMENDED_JAPANESE_DICTIONARIES, type RecommendedDictionaryCategory } from '../dictionaries/recommended';
 import { applySettingsSearch } from './settings-navigation';
 export { activateSettingsPanel, applySettingsSearch } from './settings-navigation';
-import { localizeSettingsDisclosures, renderAppearanceTuning } from './settings-disclosures';
-import { FROZEN_DICTIONARY_CATALOG } from '../dictionaries/catalog';
+import { localizeSettingsDisclosures, renderAppearanceTuning, renderSettingsDisclosure } from './settings-disclosures';
 import { definitionSourceRows, kanjiSourceRows } from '../sources/sections';
 import type { YomitanDictionaryInfo } from '../dictionaries/yomitan';
 import { settingsText, type SettingsText } from './settings-text';
 import { renderYoutubeSettingsPanel } from './youtube-panel';
-import {
-    activeLanguageProfile,
-    learningTargetRosterIdForTag,
-    slice1LanguageIdForTag,
-    type LearningTargetRosterId,
-} from '../languages';
-import {
-    INTERFACE_LOCALES,
-    LEARNER_LANGUAGES,
-    isolate,
-    learnerLanguageById,
-    resolveMessage,
-    setupMessageIdFor,
-    setupPackFor,
-    type InterfaceLocale,
-    type LearnerLanguageId,
-} from '../locales';
-import { dictionaryDefinitionLanguage } from '../dictionaries/definition-language';
-import { googleTranslationLanguageCapability } from '../translation/google';
-import { STUDY_TARGET_READINESS_ATTRIBUTE, studyTargetOptions } from '../app/study-target-picker';
 import { nativeSubtitleDisplayMode, type NativeSubtitleDisplayMode } from '../subtitles/native-subtitle-display';
 import { renderLocalDictionaryStorageControls } from './local-dictionary-storage-form';
 import { renderReadingAnnotationControls, syncReadingAnnotationControls } from './reading-annotation-controls';
 import { localizeCatalogBrowse } from './catalog-browse-localization';
-import { renderRecommendedDictionaries } from './dictionary-recommendations-view';
+import { localizeCatalogRecommendationSeed, renderRecommendedDictionaries } from './dictionary-recommendations-view';
 import { recommendedDictionaryActionKey } from './recommended-dictionary-card';
 import { PROTECTED_CREDENTIAL_INPUT_ATTRIBUTES, storedCredentialClearName } from './credential-form';
 
-export { lookupLinkRows, readDictionaryLookupLinks, readFormSettings } from './form-read';
+export { readDictionaryLookupLinks, readFormSettings } from './form-read';
 export { syncSubtitlePreview } from './subtitle-preview';
-export { lookupPillEditorRows, mergeAudioSubSources, renderAudioSourceEditor, renderAudioSubSourceList, renderDictionaryLookupLinkEditor, syncAudioSourceRow, syncBrowserTtsVoiceOptions, updateAudioSourceEditor, updateDictionaryLookupLinkEditor } from './form-editors';
+export { mergeAudioSubSources, renderAudioSourceEditor, renderAudioSubSourceList, renderDictionaryLookupLinkEditor, syncAudioSourceRow, syncBrowserTtsVoiceOptions, updateAudioSourceEditor, updateDictionaryLookupLinkEditor } from './form-editors';
 export { installSourceRowDrag, updateSourceRowEditor } from './form-order';
 export { renderAnkiDeckLibraryOptions, renderAnkiFieldMappingEditor, renderAnkiLibraryOptions, renderAnkiTemplatePreview, renderDeckControls } from './anki-mining-panel';
 export { ankiStatusLineForSettings, bunproStatusLineForSettings, formatSettingsStatusLine, jpdbStatusLineForSettings, renderAnkiStatusHtml, wanikaniStatusLineForSettings } from './status-lines';
@@ -83,14 +63,13 @@ export type { AnkiAdapterState, SettingsStatusAction, SettingsStatusDetail, Sett
 const DEFAULT_JITEN_SETTINGS_URL = 'https://jiten.moe/settings';
 const DEFAULT_BUNPRO_SETTINGS_URL = 'https://bunpro.jp/settings/api';
 const ACADEMY_ACCOUNT_SYNC_URL = 'https://yomureader.com/academy/?view=profile-sync';
-const PROXY_WORKER_SOURCE_URL = `${GITHUB_REPOSITORY_URL}/blob/main/workers/jpdb-public-proxy/src/index.ts`;
 const PROXY_WORKER_README_URL = `${GITHUB_REPOSITORY_URL}/tree/main/workers/jpdb-public-proxy`;
 type FontFamilySettingName = 'readerFontFamily' | 'popupFontFamily' | 'subtitleFontFamily';
 type StringReaderSettingName = {
     [K in keyof ReaderSettings & string]: ReaderSettings[K] extends string ? K : never;
 }[keyof ReaderSettings & string];
 type ColorInputField = readonly [StringReaderSettingName, SettingsTextKey];
-type PageScanMode = 'off' | 'auto' | 'manual';
+type PageScanMode = 'auto' | 'manual';
 type SettingsOptionTable<V extends string = string> = readonly (readonly [V, SettingsTextKey])[];
 
 // Turn a value→i18n-key option table into localized [value, label] pairs. Shared
@@ -99,191 +78,18 @@ function localizedOptions<V extends string>(text: SettingsText, table: SettingsO
     return table.map(([value, key]) => [value, text(key)]);
 }
 
-type MultilingualSettingsCopy = {
-    languageProfileTitle: string;
-    learnerLanguage: string;
-    targetLanguage: string;
-    languageProfileHelp: string;
-    translationTitle: string;
-    translationHelp: string;
-    translationEmpty: string;
-    translationUnavailable: string;
-    translateAutomatically: (language: string) => string;
-};
+const INTERFACE_LANGUAGE_OPTIONS = [
+    ['auto', 'automatic'],
+    ['en', 'english'],
+    ['ja', 'japanese'],
+] as const satisfies SettingsOptionTable;
 
-const DEFINITION_TRANSLATION_API_SOURCE_IDS = new Set<string>([JITEN_DEFINITION_SOURCE_ID, JPDB_DEFINITION_SOURCE_ID, BUNPRO_DEFINITION_SOURCE_ID, WANIKANI_DEFINITION_SOURCE_ID]);
-
-const CATALOG_DEFINITION_LANGUAGES = new Map<string, readonly string[]>(FROZEN_DICTIONARY_CATALOG.entries.flatMap((entry) => [[normalizeDictionaryIdentity(entry.id), entry.definitionLanguages] as const, [normalizeDictionaryIdentity(entry.title), entry.definitionLanguages] as const]));
-
-function multilingualSettingsCopy(language: InterfaceLanguage): MultilingualSettingsCopy {
-    return language === 'ja'
-        ? {
-              languageProfileTitle: '言語プロフィール',
-              learnerLanguage: '定義・翻訳の言語（出力）',
-              targetLanguage: '学習する言語（対象）',
-              languageProfileHelp: '対象はページで読む言語、出力は辞書の定義と翻訳の言語です。画面の表示言語は別に選べます。',
-              translationTitle: '定義の自動翻訳',
-              translationHelp: '有効にすると、選んだ情報源の定義テキストだけが Google 翻訳に送信されます。元の定義も保持されます。',
-              translationEmpty: '現在の情報源はすでにあなたの言語で定義されています。',
-              translationUnavailable: 'Google 翻訳は古代ギリシャ語への自動翻訳に対応していません。元の定義と古代ギリシャ語の辞書は引き続き利用できます。',
-              translateAutomatically: (learnerLanguage) => `${learnerLanguage}へ自動翻訳`,
-          }
-        : {
-              languageProfileTitle: 'Language profile',
-              learnerLanguage: 'Definition and translation language (output)',
-              targetLanguage: 'Language you are reading (target)',
-              languageProfileHelp: 'Target controls page text and lookup. Output controls definitions and translations. Interface controls Yomu labels.',
-              translationTitle: 'Automatic definition translation',
-              translationHelp: 'When enabled, only definition text from the sources you select is sent to Google Translate. The original definition remains available.',
-              translationEmpty: 'Your current definition sources already use your language.',
-              translationUnavailable: 'Google Translate does not support automatic translation into Ancient Greek. Original definitions and Ancient Greek dictionaries remain available.',
-              translateAutomatically: (learnerLanguage) => `Translate automatically into ${learnerLanguage}`,
-          };
-}
-
-export function activeLearnerLanguageId(settings: ReaderSettings): LearnerLanguageId {
-    const profile = activeLanguageProfile(settings.languageProfiles, settings.activeLanguageProfileId);
-    return slice1LanguageIdForTag(profile?.outputLanguage) ?? 'en';
-}
-
-export function activeTargetLanguageId(settings: ReaderSettings): LearningTargetRosterId {
-    const profile = activeLanguageProfile(settings.languageProfiles, settings.activeLanguageProfileId);
-    return learningTargetRosterIdForTag(profile?.targetLanguage) ?? 'ja';
-}
-
-function languageOptionLabel(language: { nativeName: string; englishName: string }): string {
-    return language.nativeName === language.englishName ? language.nativeName : `${language.nativeName} — ${language.englishName}`;
-}
-
-function renderLanguageOptions(
-    languages: readonly { id: string; runtimeLocale: string; direction: string; nativeName: string; englishName: string }[],
-    selected: string,
-): string {
-    return languages.map(item => `
-        <option value="${escapeHtml(item.id)}" lang="${escapeHtml(item.runtimeLocale)}" dir="${item.direction}" ${item.id === selected ? 'selected' : ''}>${escapeHtml(languageOptionLabel(item))}</option>
-    `).join('');
-}
-
-function renderStudyTargetOptions(
-    language: InterfaceLanguage,
-    selected: LearningTargetRosterId,
-): string {
-    return studyTargetOptions(language).map(item => `
-        <option value="${escapeHtml(item.id)}" lang="${escapeHtml(item.runtimeLocale)}" dir="${item.direction}" title="${escapeHtml(item.reason)}" ${STUDY_TARGET_READINESS_ATTRIBUTE}="${item.readiness}" ${item.disabled ? 'disabled aria-disabled="true"' : ''} ${item.id === selected ? 'selected' : ''}>${escapeHtml(item.label)}</option>
-    `).join('');
-}
-
-const INTERFACE_LOCALE_BLOCKED_ATTRIBUTE = 'data-interface-locale-blocked';
-
-/**
- * D43 — the interface-language picker over the full 33-locale manifest.
- *
- * The rule this control exists to enforce: a locale Yomu is not ready to speak
- * is shown, named, and DISABLED with the reason. It is never selectable and then
- * silently answered in English, which is the failure the ticket forbids and the
- * one a learner cannot distinguish from a bug.
- *
- * Three localisations meet here, on purpose:
- *
- *  - the option label is the locale's own `nativeName — englishName`, so it is
- *    findable by someone who does not read the current interface language;
- *  - the reason on the option is in the CURRENT interface language, because that
- *    is the language the person operating the dialog is reading;
- *  - the `title` carries the same reason in the BLOCKED locale's own language,
- *    from its `setup.*` catalogue, for the person who came looking for it.
- */
-function renderInterfaceLocaleSelect(settings: ReaderSettings): string {
-    const language = settings.interfaceLanguage;
-    const label = uiText(language, 'settingsLanguage');
-    const ready = INTERFACE_LOCALES.filter(locale => locale.available);
-    const blocked = INTERFACE_LOCALES.filter(locale => !locale.available);
-    const automatic = `<option value="auto" ${settings.interfaceLanguage === 'auto' ? 'selected' : ''}>${escapeHtml(uiText(language, 'automatic'))}</option>`;
-    const readyOptions = ready.map(locale => `
-                            <option value="${escapeHtml(locale.tag)}" lang="${escapeHtml(locale.tag)}" dir="${locale.direction}" ${settings.interfaceLanguage === locale.tag ? 'selected' : ''}>${escapeHtml(interfaceLocaleOptionLabel(locale))}</option>`).join('');
-    const blockedOptions = blocked.map(locale => renderBlockedInterfaceLocaleOption(locale, language)).join('');
-    return `<label>${escapeHtml(label)}<select name="interfaceLanguage">
-                            <optgroup label="${escapeHtml(uiText(language, 'interfaceLocalesReady'))}" data-interface-locale-group="ready">${automatic}${readyOptions}
-                            </optgroup>
-                            <optgroup label="${escapeHtml(uiText(language, 'interfaceLocalesInProgress'))}" data-interface-locale-group="in-progress">${blockedOptions}
-                            </optgroup>
-                        </select></label>`;
-}
-
-function interfaceLocaleOptionLabel(locale: InterfaceLocale): string {
-    // Each side is bidi-isolated. The option carries dir="rtl" for Arabic and
-    // Farsi, so an unisolated "العربية — Arabic" reorders: the Latin half moves
-    // and the whole label detaches to the right. FSI/PDI is the only isolation
-    // available inside an <option>, which is the case direction.ts's isolate()
-    // was written for.
-    return locale.nativeName === locale.englishName
-        ? isolate(locale.nativeName)
-        : `${isolate(locale.nativeName)} — ${isolate(locale.englishName)}`;
-}
-
-function renderBlockedInterfaceLocaleOption(locale: InterfaceLocale, language: InterfaceLanguage): string {
-    const reason = uiText(language, interfaceLocaleBlockerCopyKey(locale));
-    const nativeReason = blockedReasonInLocale(locale);
+/** Yomu's own interface language: Automatic, English or 日本語. */
+function renderInterfaceLanguageControl(settings: ReaderSettings): string {
+    const text = settingsText(settings.interfaceLanguage);
     return `
-                            <option value="${escapeHtml(locale.tag)}" lang="${escapeHtml(locale.tag)}" dir="${locale.direction}" disabled aria-disabled="true" title="${escapeHtml(nativeReason)}" ${INTERFACE_LOCALE_BLOCKED_ATTRIBUTE}="${escapeHtml(locale.blockers[0] ?? 'translation-incomplete')}">${escapeHtml(`${interfaceLocaleOptionLabel(locale)} · ${isolate(reason)}`)}</option>`;
-}
-
-function interfaceLocaleBlockerCopyKey(locale: InterfaceLocale): 'interfaceLocaleRtlPending' | 'interfaceLocaleTranslationPending' {
-    // The ledger orders blockers most-specific-first, so Arabic and Farsi report
-    // the RTL gate rather than the translation backlog they also have: the RTL
-    // gate is the one that has to pass before the locale can be offered at all.
-    return locale.blockers[0] === 'rtl-verification-pending'
-        ? 'interfaceLocaleRtlPending'
-        : 'interfaceLocaleTranslationPending';
-}
-
-/**
- * The blocker reason in the blocked locale's own words, resolved through the
- * unified fallback chain so a locale with no catalogue entry reads as English
- * instead of as a missing-key placeholder.
- */
-function blockedReasonInLocale(locale: InterfaceLocale): string {
-    const key = locale.blockers[0] === 'rtl-verification-pending'
-        ? 'interfaceRtlVerificationPending'
-        : 'interfaceTranslationPending';
-    const packs: Record<string, ReturnType<typeof setupPackFor>> = { en: setupPackFor('en') };
-    for (const tag of [locale.tag, ...locale.fallbacks]) packs[tag] ??= setupPackFor(tag);
-    return resolveMessage(setupMessageIdFor(key), locale, packs).value;
-}
-
-function renderInterfaceLocaleAvailabilityNote(language: InterfaceLanguage): string {
-    const ready = INTERFACE_LOCALES.filter(locale => locale.available).length;
-    const count = formatUiText(language, 'interfaceLocaleReadyCount', {
-        ready,
-        total: INTERFACE_LOCALES.length,
-    });
-    return `<div class="jpdb-reader-help" data-interface-locale-note>${escapeHtml(count)} ${escapeHtml(uiText(language, 'interfaceLocaleBlockedNote'))}</div>`;
-}
-
-function renderLanguageProfileControls(settings: ReaderSettings): string {
-    const copy = multilingualSettingsCopy(settings.interfaceLanguage);
-    const learnerLanguage = activeLearnerLanguageId(settings);
-    const targetLanguage = activeTargetLanguageId(settings);
-    return `
-                <div class="jpdb-reader-settings-subsection jpdb-reader-language-profile" data-language-profile-controls>
-                    <div class="jpdb-reader-local-title" data-multilingual-copy="languageProfileTitle">${escapeHtml(copy.languageProfileTitle)}</div>
-                    <div class="grid">
-                        <label>
-                            <span class="${SETTINGS_LABEL_TEXT_CLASS}" data-multilingual-copy="learnerLanguage">${escapeHtml(copy.learnerLanguage)}</span>
-                            <select name="learnerLanguage" autocomplete="language">
-                                ${renderLanguageOptions(LEARNER_LANGUAGES, learnerLanguage)}
-                            </select>
-                        </label>
-                        <label>
-                            <span class="${SETTINGS_LABEL_TEXT_CLASS}" data-multilingual-copy="targetLanguage">${escapeHtml(copy.targetLanguage)}</span>
-                            <select name="targetLanguage" autocomplete="language">
-                                ${renderStudyTargetOptions(settings.interfaceLanguage, targetLanguage)}
-                            </select>
-                        </label>
-                        ${renderInterfaceLocaleSelect(settings)}
-                    </div>
-                    <div class="jpdb-reader-help" data-multilingual-copy="languageProfileHelp">${escapeHtml(copy.languageProfileHelp)}</div>
-                    ${renderInterfaceLocaleAvailabilityNote(settings.interfaceLanguage)}
-                    <div class="jpdb-reader-help jpdb-reader-target-dictionary-state" data-target-dictionary-state role="status" aria-live="polite" hidden></div>
+                <div class="grid">
+                    ${select('interfaceLanguage', text('settingsLanguage'), settings.interfaceLanguage, localizedOptions(text, INTERFACE_LANGUAGE_OPTIONS))}
                 </div>
     `;
 }
@@ -328,24 +134,26 @@ function colorSourceSelectOptions(text: SettingsText): Array<[string, string, st
         ['status', text('colorSourceStatus')],
         ['jpdb', text('colorSourceJpdb')],
         ['anki', text('colorSourceAnki')],
-        ['pitch', text('colorSourcePitch'), 'jp-only'],
+        ['pitch', text('colorSourcePitch')],
         ['off', text('colorSourceNone')],
     ];
 }
 const DISABLED_SETTINGS_CONTROL_DESCRIPTION_ID = 'jpdb-reader-disabled-control-description';
 const AUTOFILL_IGNORE_ATTRIBUTE_HTML = ' data-1p-ignore="true" data-lpignore="true" data-bwignore="true" data-protonpass-ignore="true" data-form-type="other"';
 function protectedCredentialInput(
-    name: string, label: string, storedValue: string, language: InterfaceLanguage, emptyPlaceholder = '',
+    name: string, label: string, storedValue: string, language: InterfaceLanguage,
+    link?: { url: string; label: string },
 ): string {
     const configured = Boolean(storedValue.trim());
     const field = input(name, label, '', 'text', {
         ...PROTECTED_CREDENTIAL_INPUT_ATTRIBUTES,
         class: 'jpdb-reader-masked-input',
-        placeholder: configured ? uiText(language, 'storedCredentialPlaceholder') : emptyPlaceholder,
+        placeholder: configured ? uiText(language, 'storedCredentialPlaceholder') : '',
         ...(configured ? { 'data-stored-credential-placeholder': 'true' } : {}),
     });
-    if (!configured) return field;
-    return `<div class="jpdb-reader-protected-credential" data-stored-credential="true">${field}<label class="inline"><input name="${escapeHtml(storedCredentialClearName(name))}" type="checkbox"><span data-clear-stored-credential>${escapedUiText(language, 'clearStoredCredential')}</span></label></div>`;
+    const help = link ? `<a href="${escapeHtml(link.url)}" target="_blank" rel="noopener">${escapeHtml(link.label)}</a>` : '';
+    const clear = configured ? `<label class="inline"><input name="${escapeHtml(storedCredentialClearName(name))}" type="checkbox"><span data-clear-stored-credential>${escapedUiText(language, 'clearStoredCredential')}</span></label>` : '';
+    return `<div class="jpdb-reader-protected-credential"${configured ? ' data-stored-credential="true"' : ''}>${field}${help}${clear}</div>`;
 }
 const SETTINGS_TABS: readonly {
     panel: string;
@@ -369,9 +177,9 @@ const PITCH_COLOR_FIELDS = [
     ['pitchColorOdaka', 'pitchColorOdaka'],
     ['pitchColorUnknown', 'pitchColorUnknown'],
 ] as const satisfies readonly ColorInputField[];
-// No ocrBackgroundColor field: the highlight background is derived from the
-// accent color on every normalize (accessibleOcrBackgroundColor), so a picker
-// for it was a dead control whose pick was silently discarded.
+// No ocrBackgroundColor field: the highlight background is the overlay ink,
+// derived on every normalize (accessibleOcrBackgroundColor), so a picker for it
+// was a dead control whose pick was silently discarded.
 const OCR_COLOR_FIELDS = [
     ['ocrTextColor', 'ocrTextColor'],
     ['ocrOutlineColor', 'ocrOutlineColor'],
@@ -394,6 +202,16 @@ function escapedUiText(language: InterfaceLanguage, key: Parameters<typeof uiTex
     return escapeHtml(uiText(language, key));
 }
 
+/**
+ * The title row's way out: a quiet icon button at the trailing edge, the same
+ * dismissal as Cancel and Escape. The desktop window hides it in favour of its
+ * native window close.
+ */
+function settingsCloseButton(language: InterfaceLanguage): string {
+    const label = escapedUiText(language, 'closeSettings');
+    return `<button type="button" class="jpdb-reader-settings-close" data-settings-close aria-label="${label}" title="${label}">${menuIconMarkup('close')}</button>`;
+}
+
 export function renderHelpLinksPanel(language: InterfaceLanguage = 'en'): string {
     return `
         <div class="jpdb-reader-help-links-card">
@@ -407,7 +225,7 @@ export function renderHelpLinksPanel(language: InterfaceLanguage = 'en'): string
                 </div>
                 <div class="jpdb-reader-help-update-meta">
                     <div class="jpdb-reader-help jpdb-reader-help-update-status" data-yomu-update-status data-status-tone="pending" role="status" aria-live="polite" data-help-update-status>${escapeHtml(formatUiText('en', 'updateStatusIdle', { current: CURRENT_YOMU_VERSION }))}</div>
-                    <div class="jpdb-reader-help jpdb-reader-help-update-status" data-yomu-duplicate-status data-status-tone="success" role="status" data-help-duplicate-status>${escapeHtml(duplicateRuntimeStatusText('en'))}</div>
+                    <div class="jpdb-reader-help jpdb-reader-help-update-status" data-yomu-duplicate-status data-status-tone="success" role="status" data-help-duplicate-status${duplicateRuntimeStatusText('en') ? '' : ' hidden'}>${escapeHtml(duplicateRuntimeStatusText('en'))}</div>
                 </div>
                 <div class="jpdb-reader-help jpdb-reader-help-update-note" data-help-update-notes>${escapeHtml(uiText(language, updateFlowNoteKey(detectYomuUpdateFlow().kind)))}</div>
             </div>
@@ -467,6 +285,7 @@ export function renderSettingsForm(
             <div class="jpdb-reader-settings-head">
                 <div class="jpdb-reader-settings-drag-handle"></div>
                 <h2>${escapedUiText(settings.interfaceLanguage, 'settingsTitle')}</h2>
+                ${settingsCloseButton(settings.interfaceLanguage)}
             </div>
             ${renderSettingsTabs(settings.interfaceLanguage)}
             ${renderSettingsSearch(settings.interfaceLanguage)}
@@ -516,8 +335,7 @@ function renderSettingsSearch(language: InterfaceLanguage): string {
     return `
             <div class="jpdb-reader-settings-search">
                 <label>
-                    <span class="jpdb-reader-settings-label-text">${escapedUiText(language, 'settingsSearch')}</span>
-                    <input type="search" name="yomu-settings-search" data-settings-search placeholder="${escapedUiText(language, 'settingsSearchPlaceholder')}" autocomplete="off"${AUTOFILL_IGNORE_ATTRIBUTE_HTML}>
+                    <input type="search" name="yomu-settings-search" data-settings-search aria-label="${escapedUiText(language, 'settingsSearch')}" placeholder="${escapedUiText(language, 'settingsSearchPlaceholder')}" autocomplete="off"${AUTOFILL_IGNORE_ATTRIBUTE_HTML}>
                 </label>
             </div>
             <div class="jpdb-reader-settings-search-empty" data-settings-search-empty hidden>${escapedUiText(language, 'settingsSearchNoResults')}</div>
@@ -545,7 +363,6 @@ function renderJpdbPageEnhancementControls(settings: ReaderSettings, text = sett
                         ${checkbox('jpdbPageWordEnhancementsEnabled', text('jpdbPageWordEnhancementsEnabled'), settings.jpdbPageEnhancementsEnabled && settings.jpdbPageWordEnhancementsEnabled, { disabled: !settings.jpdbPageEnhancementsEnabled })}
                         ${checkbox('jpdbPageKanjiEnhancementsEnabled', text('jpdbPageKanjiEnhancementsEnabled'), settings.jpdbPageEnhancementsEnabled && settings.jpdbPageKanjiEnhancementsEnabled, { disabled: !settings.jpdbPageEnhancementsEnabled })}
                     </div>
-                    <div class="jpdb-reader-help">Adds your dictionaries, Immersion Kit, kanji practice, and other sources to jpdb.io and jiten.moe vocabulary, kanji, and parse pages. Toggle individual sources under Dictionaries and Reading.</div>
                 </div>`;
 }
 
@@ -557,11 +374,11 @@ function renderApiSettingsPanel(settings: ReaderSettings, jpdbSettingsUrl: strin
                 <div class="jpdb-reader-settings-subsection">
                     <div class="jpdb-reader-local-title">${escapedUiText(language, 'apiAccess')}</div>
                     <div class="grid">
-                        ${protectedCredentialInput('apiCredentialJiten', `${escapedUiText(language, 'apiCredentialJiten')} <a href="${jitenSettingsUrl}" target="_blank" rel="noopener">${escapedUiText(language, 'jitenSettings')}</a>`, effectiveJitenApiKey(settings), language)}
-                        ${protectedCredentialInput('apiCredentialJpdb', `${escapedUiText(language, 'apiCredentialJpdb')} <a href="${jpdbSettingsUrl}" target="_blank" rel="noopener">${escapedUiText(language, 'jpdbSettings')}</a>`, effectiveJpdbApiKey(settings), language)}
-                        ${protectedCredentialInput('apiCredentialBunpro', `${escapedUiText(language, 'apiCredentialBunpro')} <a href="${DEFAULT_BUNPRO_SETTINGS_URL}" target="_blank" rel="noopener">${escapedUiText(language, 'bunproSettings')}</a>`, settings.bunproFrontendApiToken, language, 'frontend_api_token')}
+                        ${protectedCredentialInput('apiCredentialJiten', escapedUiText(language, 'apiCredentialJiten'), effectiveJitenApiKey(settings), language, { url: jitenSettingsUrl, label: uiText(language, 'jitenSettings') })}
+                        ${protectedCredentialInput('apiCredentialJpdb', escapedUiText(language, 'apiCredentialJpdb'), effectiveJpdbApiKey(settings), language, { url: jpdbSettingsUrl, label: uiText(language, 'jpdbSettings') })}
+                        ${protectedCredentialInput('apiCredentialBunpro', escapedUiText(language, 'apiCredentialBunpro'), settings.bunproFrontendApiToken, language, { url: DEFAULT_BUNPRO_SETTINGS_URL, label: uiText(language, 'bunproSettings') })}
                         <input type="hidden" name="bunproFrontendApiTokenExpiresAt" value="${escapeHtml(settings.bunproFrontendApiTokenExpiresAt)}">
-                        ${protectedCredentialInput('apiCredentialWanikani', `${escapedUiText(language, 'apiCredentialWanikani')} <a href="${WANIKANI_TOKEN_SETTINGS_URL}" target="_blank" rel="noopener">${escapedUiText(language, 'wanikaniSettings')}</a>`, settings.wanikaniApiToken, language, 'wanikani personal access token')}
+                        ${protectedCredentialInput('apiCredentialWanikani', escapedUiText(language, 'apiCredentialWanikani'), settings.wanikaniApiToken, language, { url: WANIKANI_TOKEN_SETTINGS_URL, label: uiText(language, 'wanikaniSettings') })}
                     </div>
                     <div class="jpdb-reader-help" data-jpdb-api-key-help>${escapedUiText(language, 'apiAccessHelp')}</div>
                     <div class="jpdb-reader-help" data-wanikani-api-key-help>${escapedUiText(language, 'wanikaniTokenHelp')}</div>
@@ -583,18 +400,18 @@ function renderInterfaceSettingsPanel(settings: ReaderSettings): string {
     return `
             <fieldset id="jpdb-reader-settings-panel-appearance" role="tabpanel" data-settings-panel="appearance" data-legend-key="appearance">
                 <legend>${escapedUiText(settings.interfaceLanguage, 'appearance')}</legend>
-                ${renderLanguageProfileControls(settings)}
+                ${renderInterfaceLanguageControl(settings)}
                 <div class="grid">
                     ${themeSegmentedControl(settings.theme, text)}
                     ${select('popupMode', text('popupMode'), settings.popupMode, localizedOptions(text, POPUP_MODE_OPTIONS))}
                     ${select('hoverPopupMode', text('hoverPopupMode'), settings.hoverPopupMode, localizedOptions(text, POPUP_MODE_OPTIONS))}
                     ${renderStickyBottomSheetControl(settings)}
-                    ${checkbox('popoverBackdropEnabled', text('popoverBackdropEnabled'), settings.popoverBackdropEnabled)}
+                </div>
+                ${renderAppearancePreview(settings.interfaceLanguage)}
+                ${renderAppearanceTuning(settings.interfaceLanguage, `<div class="grid">
                     ${fontFamilyControl('readerFontFamily', text('readerFontFamily'), settings.readerFontFamily, text)}
                     ${fontFamilyControl('popupFontFamily', text('popupFontFamily'), settings.popupFontFamily, text)}
                     ${input('accentColor', text('accentColor'), sanitizeAccentColor(settings.accentColor), 'color')}
-                </div>
-                ${renderAppearanceTuning(settings.interfaceLanguage, `<div class="grid">
                     ${input('popoverWidth', text('popoverWidth'), String(settings.popoverWidth), 'number', { min: 280, max: 900, step: 10 })}
                     ${input('popoverHeight', text('popoverHeight'), String(settings.popoverHeight), 'number', { min: 220, max: 900, step: 10 })}
                     ${select('popoverHeightMode', text('popoverHeightMode'), settings.popoverHeightMode, localizedOptions(text, POPOVER_HEIGHT_MODE_OPTIONS))}
@@ -602,7 +419,6 @@ function renderInterfaceSettingsPanel(settings: ReaderSettings): string {
                 </div>
                 ${renderWordColorSettingsSubsection(settings)}
                 ${renderColorChannelSettingsSubsection(settings)}`)}
-                ${renderAppearancePreview(settings.interfaceLanguage)}
             </fieldset>
     `;
 }
@@ -654,13 +470,7 @@ function renderNewTabSettingsSubsection(settings: ReaderSettings): string {
                     <div class="grid jpdb-reader-settings-cgrid jpdb-reader-settings-study-options">
                         ${input('newTabOfflineLimit', text('newTabOfflineLimit'), String(settings.newTabOfflineLimit), 'number', { min: 0, max: 500, step: 10 })}
                         ${input('newTabDailyGoalMinutes', text('newTabDailyGoalMinutes'), String(settings.newTabDailyGoalMinutes), 'number', { min: 0, max: 1440, step: 5 })}
-                        <label>${escapedUiText(language, 'newTabUrl')}<input name="newTabUrl" type="text" value="${escapeHtml(NEW_TAB_PAGE_URL)}" readonly autocomplete="off"></label>
                     </div>
-                    <div class="jpdb-reader-settings-actions">
-                        <a class="jpdb-reader-btn" href="${NEW_TAB_PAGE_URL}" target="_blank" rel="noopener" data-newtab-url-link>${escapedUiText(language, 'openNewTabPage')}</a>
-                        <button class="jpdb-reader-btn" type="button" data-action="copy-newtab-url">${escapedUiText(language, 'copyAddress')}</button>
-                    </div>
-                    <div class="jpdb-reader-help" data-newtab-address-help>${escapedUiText(language, 'newTabAddressHelp')}</div>
                     <div class="jpdb-reader-help" data-newtab-offline-help>${escapedUiText(language, 'newTabOfflineHelp')}</div>
                 </div>
     `;
@@ -670,7 +480,7 @@ function renderNewTabSettingsSubsection(settings: ReaderSettings): string {
 function kanjiKeywordSourceOptions(settings: Pick<ReaderSettings, 'apiKey' | 'jitenApiKey'>, text?: SettingsText): [ReaderSettings['newTabKanjiKeywordSource'], string][] {
     const apiLabel = combinedApiCredentialLabel(settings);
     const auto = text
-        ? text('newTabKanjiKeywordAuto').replace('{service}', apiLabel)
+        ? text('newTabKanjiKeywordAuto')
         : `Auto: RTK, then ${apiLabel} kanji facts, then local`;
     const apiFacts = text
         ? text('newTabKanjiKeywordApiFacts').replace('{service}', apiLabel)
@@ -751,11 +561,6 @@ function isAnkiSubdeckOf(deck: string, parent: string): boolean {
 // key. renderSettingsForm localizes them on first paint (no English flash before
 // localizeSettingsForm runs) and localizeSettingsForm re-applies the same table
 // on live language switches — one source, two consumers.
-//
-// The interface language is no longer one of them: D43 renders it from the
-// 33-locale manifest, grouped into what is ready and what is on the way, so a
-// blocked locale is visible and disabled rather than absent. See
-// renderInterfaceLocaleSelect / localizeInterfaceLocaleSelect.
 
 const POPUP_MODE_OPTIONS = [
     ['auto', 'auto'],
@@ -800,31 +605,15 @@ const WORD_COLOR_STATE_OPTIONS = [
 ] as const satisfies readonly (readonly [ReaderSettings['wordColorStates'], SettingsTextKey])[];
 
 const AUDIO_AUTO_PLAY_MODE_OPTIONS = [
+    ['off', 'off'],
     ['all', 'audioAutoPlayAll'],
     ['hover', 'audioAutoPlayHover'],
     ['tap', 'audioAutoPlayTap'],
 ] as const satisfies SettingsOptionTable;
 
-const AUDIO_SELECTION_MODE_OPTIONS = [
-    ['first', 'firstAudio'],
-    ['random', 'randomAudio'],
-] as const satisfies SettingsOptionTable;
-
 const AUDIO_TTS_MODE_OPTIONS = [
     ['fallback', 'audioTtsFallback'],
     ['source-order', 'audioTtsSourceOrder'],
-] as const satisfies SettingsOptionTable;
-
-const IMMERSION_KIT_CATEGORY_OPTIONS = [
-    ['all', 'allCategories'],
-    ['anime', 'anime'],
-    ['drama', 'drama'],
-    ['games', 'games'],
-] as const satisfies SettingsOptionTable;
-
-const IMMERSION_KIT_SORT_OPTIONS = [
-    ['sentence_length:asc', 'shortestFirst'],
-    ['sentence_length:desc', 'longestFirst'],
 ] as const satisfies SettingsOptionTable;
 
 const SUBTITLE_CONTROLS_MODE_OPTIONS = [
@@ -875,7 +664,7 @@ const OCR_MAX_IMAGE_PIXELS_OPTIONS = [
 // unwrapReaderWords pass from stripping the sample word spans.
 function renderAppearancePreview(language: InterfaceLanguage): string {
     return `
-                <div class="jpdb-reader-settings-subsection jpdb-reader-settings-preview-section jp-only" data-language-family="pitch-legend">
+                <div class="jpdb-reader-settings-subsection jpdb-reader-settings-preview-section" data-language-family="pitch-legend">
                     <div class="jpdb-reader-local-title" data-settings-preview-title>${escapedUiText(language, 'preview')}</div>
                     <div class="jpdb-reader-settings-appearance-preview" data-yomu-appearance-preview data-settings-preview-lookup lang="ja" aria-hidden="true">${appearancePreviewContentHtml()}</div>
                 </div>`;
@@ -894,7 +683,7 @@ export function appearancePreviewHtml(): string {
 }
 
 function renderPitchColorSettingsSubsection(settings: ReaderSettings): string {
-    return `<div class="jp-only" data-language-family="pitch-colouring">${renderColorSettingsSubsection('pitchAccentColors', PITCH_COLOR_FIELDS, settings)}</div>`;
+    return `<div data-language-family="pitch-colouring">${renderColorSettingsSubsection('pitchAccentColors', PITCH_COLOR_FIELDS, settings)}</div>`;
 }
 
 function renderColorChannelSettingsSubsection(settings: ReaderSettings): string {
@@ -933,7 +722,7 @@ function renderColorInputs(fields: readonly ColorInputField[], settings: ReaderS
 function renderAudioSettingsPanel(settings: ReaderSettings): string {
     const language = settings.interfaceLanguage;
     const text = settingsText(language);
-    const autoPlayMode = settings.audioAutoPlayMode === 'off' ? 'all' : settings.audioAutoPlayMode;
+    const autoPlayMode = settings.autoPlayAudio ? settings.audioAutoPlayMode : 'off';
     return `
             <fieldset id="jpdb-reader-settings-panel-audio" role="tabpanel" data-settings-panel="media" data-legend-key="audio" aria-describedby="settings-help-audio" hidden>
                 <legend>${escapedUiText(language, 'audio')}</legend>
@@ -944,58 +733,19 @@ function renderAudioSettingsPanel(settings: ReaderSettings): string {
                     ${checkbox('audioFallbackChimeEnabled', uiText(language, 'audioFallbackChimeEnabled'), settings.audioFallbackChimeEnabled)}
                 </div>
                 <div class="grid jpdb-reader-settings-cgrid">
-                    ${checkbox('autoPlayAudio', uiText(language, 'autoPlayAudio'), settings.autoPlayAudio)}
-                    ${audioAutoPlayModeSelect(language, autoPlayMode, !settings.autoPlayAudio)}
-                    ${select('audioSelectionMode', uiText(language, 'audioSelectionMode'), settings.audioSelectionMode, localizedOptions(text, AUDIO_SELECTION_MODE_OPTIONS))}
+                    ${select('audioAutoPlayMode', uiText(language, 'audioAutoPlayMode'), autoPlayMode, localizedOptions(text, AUDIO_AUTO_PLAY_MODE_OPTIONS))}
                     ${select('audioTtsMode', uiText(language, 'audioTtsMode'), settings.audioTtsMode, localizedOptions(text, AUDIO_TTS_MODE_OPTIONS))}
-                    ${input('audioTimeoutMs', uiText(language, 'audioTimeoutMs'), String(settings.audioTimeoutMs), 'number', { min: 1000, max: 30000, step: 500 })}
-                    ${input('corsProxyUrl', uiText(language, 'corsProxyUrl'), settings.corsProxyUrl, 'url', { placeholder: 'https://your-worker.workers.dev' })}
                 </div>
-                ${renderProxySetupGuide(language)}
-                <div class="jpdb-reader-audio-sources" data-source-editor data-audio-source-editor>
-                    ${renderAudioSourceEditor(settings.audioSources, language)}
-                </div>
-                <div id="settings-help-audio" class="jpdb-reader-help" data-help-key="audioHelp">${audioHelpHtml(language)}</div>
-            </fieldset>
-    `;
-}
-
-function audioAutoPlayModeSelect(language: InterfaceLanguage, value: Exclude<ReaderSettings['audioAutoPlayMode'], 'off'>, disabled: boolean): string {
-    const options = localizedOptions(settingsText(language), AUDIO_AUTO_PLAY_MODE_OPTIONS);
-    return `<label>${escapedUiText(language, 'audioAutoPlayMode')}<select name="audioAutoPlayMode" ${disabled ? 'disabled' : ''}>${options.map(([optionValue, text]) =>
-        `<option value="${escapeHtml(optionValue)}" ${optionValue === value ? 'selected' : ''}>${escapeHtml(text)}</option>`,
-    ).join('')}</select>${disabled ? `<input type="hidden" name="audioAutoPlayMode" value="${escapeHtml(value)}">` : ''}</label>`;
-}
-
-function renderProxySetupGuide(language: InterfaceLanguage): string {
-    return `
-                <details class="jpdb-reader-proxy-guide">
-                    <summary>
-                        <span data-proxy-guide-summary>${escapedUiText(language, 'audioProxyGuideSummary')}</span>
-                        <span class="jpdb-reader-proxy-guide-toggle" aria-hidden="true">
-                            <span data-proxy-guide-show>${escapedUiText(language, 'show')}</span>
-                            <span data-proxy-guide-hide>${escapedUiText(language, 'hide')}</span>
-                        </span>
-                    </summary>
-                    <div class="jpdb-reader-proxy-guide-body">
-                        <p>${escapedUiText(language, 'audioProxyGuideIntro')}</p>
-                        <ol>
-                            <li>${escapedUiText(language, 'audioProxyGuideCloudflare')}</li>
-                            <li>${escapedUiText(language, 'audioProxyGuideWorkers')}</li>
-                            <li>${escapedUiText(language, 'audioProxyGuideCreateWorker')}</li>
-                            <li>${escapedUiText(language, 'audioProxyGuideEditCode')}</li>
-                            <li>${escapedUiText(language, 'audioProxyGuideDeploy')}</li>
-                            <li>${escapedUiText(language, 'audioProxyGuideCopyUrl')}</li>
-                            <li>${escapedUiText(language, 'audioProxyGuidePasteUrl')}</li>
-                            <li>${escapedUiText(language, 'audioProxyGuideTest')}</li>
-                        </ol>
-                        <p>${escapedUiText(language, 'audioProxyGuideNote')}</p>
-                        <div class="jpdb-reader-help-actions">
-                            <a class="jpdb-reader-btn" href="${PROXY_WORKER_SOURCE_URL}" target="_blank" rel="noopener">${externalButtonLabel(uiText(language, 'audioProxyWorkerSource'))}</a>
-                            <a class="jpdb-reader-btn" href="${PROXY_WORKER_README_URL}" target="_blank" rel="noopener">${externalButtonLabel(uiText(language, 'audioProxyDeployGuide'))}</a>
-                        </div>
+                ${renderSettingsDisclosure(uiText(language, 'audioSourcesTitle'), `
+                    <div class="jpdb-reader-audio-sources" data-source-editor data-audio-source-editor>
+                        ${renderAudioSourceEditor(settings.audioSources, language)}
                     </div>
-                </details>
+                    <div class="grid jpdb-reader-settings-cgrid">
+                        ${input('corsProxyUrl', uiText(language, 'corsProxyUrl'), settings.corsProxyUrl, 'url', { placeholder: 'https://your-worker.workers.dev' })}
+                    </div>
+                    <div id="settings-help-audio" class="jpdb-reader-help" data-help-key="audioHelp">${audioHelpHtml(language)}</div>
+                    <a href="${PROXY_WORKER_README_URL}" target="_blank" rel="noopener" data-proxy-setup-link>${escapedUiText(language, 'audioProxyDeployGuide')}</a>`, ' data-audio-sources-title')}
+            </fieldset>
     `;
 }
 
@@ -1010,17 +760,11 @@ function renderImmersionKitSettingsPanel(settings: ReaderSettings): string {
                     ${checkbox('immersionKitShowTranslation', uiText(language, 'immersionKitShowTranslation'), settings.immersionKitShowTranslation)}
                     ${checkbox('immersionKitRevealTranslationOnClick', uiText(language, 'immersionKitRevealTranslationOnClick'), settings.immersionKitRevealTranslationOnClick, { disabled: !settings.immersionKitShowTranslation })}
                     ${checkbox('immersionKitShowImages', uiText(language, 'immersionKitShowImages'), settings.immersionKitShowImages)}
-                    ${checkbox('immersionKitExactMatch', uiText(language, 'immersionKitExactMatch'), settings.immersionKitExactMatch)}
                 </div>
                 <div class="grid jpdb-reader-settings-cgrid">
                     ${select('immersionKitExampleSource', uiText(language, 'immersionKitExampleSource'), settings.immersionKitExampleSource, immersionKitExampleSourceOptions(text))}
                     ${renderNadeshikoApiKeyField(settings)}
-                    ${select('immersionKitCategory', uiText(language, 'immersionKitCategory'), settings.immersionKitCategory, localizedOptions(text, IMMERSION_KIT_CATEGORY_OPTIONS))}
-                    ${select('immersionKitSort', uiText(language, 'immersionKitSort'), settings.immersionKitSort, localizedOptions(text, IMMERSION_KIT_SORT_OPTIONS))}
-                    ${radioGroup('immersionKitLimitEnabled', uiText(language, 'immersionKitLimitEnabled'), settings.immersionKitLimitEnabled ? 'on' : 'off', [['off', uiText(language, 'allExamples')], ['on', uiText(language, 'limitExamples')]])}
-                    ${input('immersionKitLimit', uiText(language, 'immersionKitLimit'), String(settings.immersionKitLimit), 'number', { min: 1, max: 12, step: 1 })}
-                    ${input('immersionKitMinLength', uiText(language, 'immersionKitMinLength'), String(settings.immersionKitMinLength), 'number', { min: 0, max: 120, step: 1 })}
-                    ${input('immersionKitMaxLength', uiText(language, 'immersionKitMaxLength'), String(settings.immersionKitMaxLength), 'number', { min: 0, max: 240, step: 1 })}
+                    ${input('immersionKitLimit', uiText(language, 'immersionKitLimit'), String(settings.immersionKitLimitEnabled ? settings.immersionKitLimit : 0), 'number', { min: 0, max: 12, step: 1 })}
                     ${input('immersionKitPlaybackRate', uiText(language, 'immersionKitPlaybackRate'), String(settings.immersionKitPlaybackRate), 'number', { min: 0.5, max: 2, step: 0.05 })}
                 </div>
                 <div class="jpdb-reader-settings-subsection">
@@ -1040,7 +784,7 @@ function renderNadeshikoApiKeyField(settings: ReaderSettings): string {
     const language = settings.interfaceLanguage;
     return `
                     <div data-nadeshiko-api-key-field ${usesNadeshikoExamples(settings.immersionKitExampleSource) ? '' : 'hidden'}>
-                        ${protectedCredentialInput('nadeshikoApiKey', `${escapedUiText(language, 'nadeshikoApiKey')} <a href="${NADESHIKO_DEVELOPER_URL}" target="_blank" rel="noopener">${externalButtonLabel(uiText(language, 'getNadeshikoKey'))}</a>`, settings.nadeshikoApiKey, language)}
+                        ${protectedCredentialInput('nadeshikoApiKey', escapedUiText(language, 'nadeshikoApiKey'), settings.nadeshikoApiKey, language, { url: NADESHIKO_DEVELOPER_URL, label: uiText(language, 'getNadeshikoKey') })}
                     </div>`;
 }
 
@@ -1052,7 +796,6 @@ function renderReaderSettingsPanel(settings: ReaderSettings): string {
     const language = settings.interfaceLanguage;
     const text = settingsText(language);
     const pageScanMode = pageScanModeFromSettings(settings);
-    const targetLanguage = activeTargetLanguageId(settings);
     return `
             <fieldset id="jpdb-reader-settings-panel-reader" role="tabpanel" data-settings-panel="appearance" data-legend-key="reader" aria-describedby="settings-help-reader" hidden>
                 <legend>${escapedUiText(language, 'reader')}</legend>
@@ -1069,7 +812,6 @@ function renderReaderSettingsPanel(settings: ReaderSettings): string {
                     ${checkbox('lookupOnMiddleMouse', text('lookupOnMiddleMouse'), settings.lookupOnMiddleMouse)}
                     ${checkbox('showFloatingButton', text('showFloatingButton'), settings.showFloatingButton)}
                     ${radioGroup('pageScanMode', text('pageScanMode'), pageScanMode, [
-                        ['off', text('pageScanModeOff')],
                         ['auto', text('pageScanModeAuto')],
                         ['manual', text('pageScanModeManual')],
                     ])}
@@ -1077,7 +819,7 @@ function renderReaderSettingsPanel(settings: ReaderSettings): string {
                         <div data-manual-page-scan-shortcut-label>${shortcutInput('shortcuts.scanPage', text('manualPageScanShortcut'), settings.shortcuts.scanPage)}</div>
                     </div>
                     ${select('appearancePreset', text('appearancePreset'), '', localizedOptions(text, APPEARANCE_PRESET_OPTIONS))}
-                    ${renderReadingAnnotationControls(settings, targetLanguage)}
+                    ${renderReadingAnnotationControls(settings)}
                     ${select('wordColorStates', text('wordColorStates'), settings.wordColorStates, localizedOptions(text, WORD_COLOR_STATE_OPTIONS))}
                     ${renderWordColorHiddenStateGroupControls(settings)}
                     <div data-language-family="pronunciation">
@@ -1093,8 +835,9 @@ function renderReaderSettingsPanel(settings: ReaderSettings): string {
     `;
 }
 
+// "Yomu off" is the puck's and toolbar's three-state control, not a Settings
+// default, so the scan choice here is only how Yomu reads a page while on.
 function pageScanModeFromSettings(settings: ReaderSettings): PageScanMode {
-    if (settings.annotationsPaused) return 'off';
     return settings.manualScanEnabled ? 'manual' : 'auto';
 }
 
@@ -1245,41 +988,32 @@ function renderDictionariesSettingsPanel(
     expandCatalogBrowse: boolean,
 ): string {
     const language = settings.interfaceLanguage; const text = settingsText(language);
+    // The popup order stays the tab's first, findable line (Leia, 2026-10-02);
+    // its rows and the lookup-link editor open on request.
     return `
             <fieldset id="jpdb-reader-settings-panel-dictionaries" role="tabpanel" data-settings-panel="dictionaries" data-legend-key="sources" hidden>
                 <legend>${escapedUiText(language, 'sources')}</legend>
-                <div data-target-dictionary-content hidden>
-                <div class="jpdb-reader-settings-subsection">
-                    <div class="jpdb-reader-local-title" data-help-key="popupOrderTitle">${escapedUiText(language, 'popupOrderTitle')}</div>
-                    <div class="jpdb-reader-help" data-help-key="popupOrderHelp">${escapedUiText(language, 'popupOrderHelp')}</div>
+                <div data-target-dictionary-content>
+                ${renderSettingsDisclosure(uiText(language, 'popupOrderTitle'), `
                     <div class="jpdb-reader-dictionary-priorities" data-source-editor data-definition-source-editor>
                         ${renderDictionarySourceRows(settings)}
-                    </div>
-                </div>
+                    </div>`, ' data-help-key="popupOrderTitle"')}
                 <div class="jpdb-reader-dictionary-status" data-dictionary-status role="status" aria-live="polite">${escapedUiText(language, 'checkingDictionaries')}</div>
+                <div class="jpdb-reader-recommended-dictionaries" data-recommended-dictionaries>
+                    ${renderRecommendedDictionaries([], 'en', includeCatalogBrowse, 'ja', expandCatalogBrowse)}
+                </div>
+                <div class="jpdb-reader-help" data-import-status hidden></div>
                 ${renderLocalDictionaryStorageControls(settings)}
-                <div class="jpdb-reader-settings-subsection jp-only" data-language-family="provider-pills">
+                <div class="jpdb-reader-settings-subsection" data-language-family="provider-pills">
                     <div class="jpdb-reader-help" data-help-key="parserProviderHelp">${escapedUiText(language, 'parserProviderHelp')}</div>
                     ${select('parserProvider', text('parserProvider'), settings.parserProvider, localizedOptions(text, PARSER_PROVIDER_OPTIONS))}
                 </div>
-                <div class="jpdb-reader-settings-subsection">
-                    <div class="jpdb-reader-local-title">${escapedUiText(language, 'lookupPills')}</div>
+                ${renderSettingsDisclosure(uiText(language, 'lookupPills'), `
                     <div class="jpdb-reader-help">${escapedUiText(language, 'lookupPillsHelp')}</div>
                     ${checkbox('showLookupPillFrequency', text('showLookupPillFrequency'), settings.showLookupPillFrequency)}
                     <div class="jpdb-reader-lookup-links" data-source-editor>
-                        ${renderDictionaryLookupLinkEditor(settings.dictionaryLookupLinks, [], activeTargetLanguageId(settings))}
-                    </div>
-                </div>
-                <div class="jpdb-reader-recommended-dictionaries" data-recommended-dictionaries>
-                    ${renderRecommendedDictionaries(
-                        [],
-                        activeLearnerLanguageId(settings),
-                        includeCatalogBrowse,
-                        activeTargetLanguageId(settings),
-                        expandCatalogBrowse,
-                    )}
-                </div>
-                <div class="jpdb-reader-help" data-import-status hidden></div>
+                        ${renderDictionaryLookupLinkEditor(settings.dictionaryLookupLinks, [])}
+                    </div>`)}
                 </div>
             </fieldset>
     `;
@@ -1290,7 +1024,6 @@ function renderBackupSettingsPanel(settings: ReaderSettings): string {
     return `
             <fieldset id="jpdb-reader-settings-panel-backup" role="tabpanel" data-settings-panel="backup" data-legend-key="backupSync" hidden>
                 <legend>${escapedUiText(language, 'backupSync')}</legend>
-                <div class="jpdb-reader-help" data-help-key="backupSyncHelp">${escapedUiText(language, 'backupSyncHelp')}</div>
                 ${renderAcademyAccountSyncSection(settings)}
                 ${CLOUD_SETTINGS_SYNC_ENABLED ? renderCloudSettingsSyncSection(settings) : ''}
                 <div class="jpdb-reader-settings-actions">
@@ -1487,7 +1220,7 @@ export function localizeSettingsForm(form: HTMLFormElement, language: InterfaceL
         localizeSettingsDisclosures(form, language);
         localizeSettingsLabels(form, text);
         localizeSettingsSectionTitles(form, text);
-        localizeSettingsSelects(form, language, text);
+        localizeSettingsSelects(form, text);
         localizeSettingsShortcuts(form, text);
         localizeSettingsHelpText(form, text);
         localizeSettingsActions(form, text);
@@ -1497,77 +1230,6 @@ export function localizeSettingsForm(form: HTMLFormElement, language: InterfaceL
         normalizeSettingsLabelTextContainers(form);
         syncDisabledSettingsControlDescriptions(form, language);
     });
-    syncLanguageProfileControls(form, language);
-    installLanguageProfileControlSync(form);
-}
-
-function syncLanguageProfileControls(form: HTMLFormElement, language: InterfaceLanguage): void {
-    const copy = multilingualSettingsCopy(language);
-    const copyValues: Record<string, string> = {
-        languageProfileTitle: copy.languageProfileTitle,
-        learnerLanguage: copy.learnerLanguage,
-        targetLanguage: copy.targetLanguage,
-        languageProfileHelp: copy.languageProfileHelp,
-        translationTitle: copy.translationTitle,
-        translationHelp: copy.translationHelp,
-    };
-    form.querySelectorAll<HTMLElement>('[data-multilingual-copy]').forEach((element) => {
-        const key = element.dataset.multilingualCopy;
-        const value = key ? copyValues[key] : undefined;
-        if (value !== undefined) element.replaceChildren(value);
-    });
-
-    const targetSelect = form.querySelector<HTMLSelectElement>('select[name="targetLanguage"]');
-    const selectedTarget = targetSelect && learningTargetRosterIdForTag(targetSelect.value);
-    if (targetSelect && selectedTarget) {
-        setInnerHtml(targetSelect, renderStudyTargetOptions(language, selectedTarget));
-    }
-
-    const learnerSelect = form.querySelector<HTMLSelectElement>('select[name="learnerLanguage"]');
-    const learnerLanguageId = learnerSelect && learnerLanguageByIdOrNull(learnerSelect.value) ? (learnerSelect.value as LearnerLanguageId) : 'en';
-    const learnerLanguage = learnerLanguageById(learnerLanguageId);
-    const translationAvailable = googleTranslationLanguageCapability(learnerLanguage.runtimeLocale).supported;
-    if (learnerSelect) {
-        learnerSelect.lang = learnerLanguage.runtimeLocale;
-        learnerSelect.dir = learnerLanguage.direction;
-    }
-
-    let visibleCount = 0;
-    form.querySelectorAll<HTMLLabelElement>('[data-definition-translation-row]').forEach((row) => {
-        const definitionLanguages = new Set((row.dataset.definitionLanguages ?? '').split(/\s+/u).filter(Boolean));
-        const native = definitionLanguages.has(learnerLanguageId);
-        row.hidden = native || !translationAvailable;
-        const input = row.querySelector<HTMLInputElement>('input[name="definitionTranslationProviderIds"]');
-        if (input) input.disabled = native || !translationAvailable;
-        row.querySelector<HTMLElement>('[data-definition-translation-label]')?.replaceChildren(copy.translateAutomatically(learnerLanguage.nativeName));
-        if (!native && translationAvailable) visibleCount += 1;
-    });
-    const empty = form.querySelector<HTMLElement>('[data-definition-translation-empty]');
-    if (empty) {
-        empty.replaceChildren(copy.translationEmpty);
-        empty.hidden = !translationAvailable || visibleCount > 0;
-    }
-    const unavailable = form.querySelector<HTMLElement>('[data-definition-translation-unavailable]');
-    if (unavailable) {
-        unavailable.replaceChildren(copy.translationUnavailable);
-        unavailable.hidden = translationAvailable;
-    }
-}
-
-function installLanguageProfileControlSync(form: HTMLFormElement): void {
-    if (form.dataset.languageProfileControlSync === 'true') return;
-    form.dataset.languageProfileControlSync = 'true';
-    form.querySelector<HTMLSelectElement>('select[name="learnerLanguage"]')?.addEventListener('change', () => {
-        syncLanguageProfileControls(form, getFormInterfaceLanguage(form, 'en'));
-    });
-}
-
-function learnerLanguageByIdOrNull(value: string): ReturnType<typeof learnerLanguageById> | null {
-    try {
-        return learnerLanguageById(value as LearnerLanguageId);
-    } catch {
-        return null;
-    }
 }
 
 export function syncDisabledSettingsControlDescriptions(form: HTMLFormElement, language: InterfaceLanguage): void {
@@ -1623,9 +1285,8 @@ const SELECTOR_TEXT_KEYS = [
     ['[data-grading-provider-help]', 'apiGradingProviderHelp'],
     ['[data-subtitle-preview] .jpdb-subtitle-secondary', 'subtitlePreview'],
     ['[data-settings-preview-title]', 'preview'],
-    ['[data-proxy-guide-summary]', 'audioProxyGuideSummary'],
-    ['[data-proxy-guide-show]', 'show'],
-    ['[data-proxy-guide-hide]', 'hide'],
+    ['[data-proxy-setup-link]', 'audioProxyDeployGuide'],
+    ['[data-audio-sources-title]', 'audioSourcesTitle'],
     ['[data-cloud-settings-sync-title]', 'cloudSettingsSync'],
     ['[data-academy-account-title]', 'academyAccountSync'],
     ['[data-academy-pairing-code-label]', 'academyPairingCode'],
@@ -1637,8 +1298,6 @@ const SETTINGS_ACTION_TEXT_KEYS = [
     ['[data-action="test-anki"]', 'testAnki'],
     ['[data-action="prepare-anki"]', 'prepareAnki'],
     ['[data-action="update-anki-model"]', 'updateAnkiModel'],
-    ['[data-action="copy-newtab-url"]', 'copyAddress'],
-    ['[data-newtab-url-link]', 'openNewTabPage'],
     ['[data-action="import-reader-settings"]', 'importSettings'],
     ['[data-action="export-reader-settings"]', 'exportSettings'],
     ['[data-action="import-yomitan-dictionary"]', 'importDictionaries'],
@@ -1694,6 +1353,9 @@ function localizeSettingsShell(form: HTMLFormElement, language: InterfaceLanguag
     form.lang = resolveUiLanguage(language);
     form.setAttribute('aria-label', text('settingsTitle'));
     form.querySelector('h2')?.replaceChildren(text('settingsTitle'));
+    const close = form.querySelector<HTMLButtonElement>('[data-settings-close]');
+    close?.setAttribute('aria-label', text('closeSettings'));
+    if (close) close.title = text('closeSettings');
     form.querySelector<HTMLElement>('.jpdb-reader-settings-tabs')?.setAttribute('aria-label', text('settingsSections'));
     form.querySelector<HTMLElement>('.jpdb-reader-settings-drag-handle')?.setAttribute('aria-label', text('resizeSettings'));
     localizeThemeSwitch(form, text);
@@ -1720,7 +1382,6 @@ function localizeSettingsTabs(form: HTMLFormElement, text: SettingsText): void {
 
 function localizeSettingsSearch(form: HTMLFormElement, text: SettingsText): void {
     const input = form.querySelector<HTMLInputElement>('[data-settings-search]');
-    input?.closest('label')?.querySelector<HTMLElement>(':scope > .jpdb-reader-settings-label-text')?.replaceChildren(text('settingsSearch'));
     if (input) {
         input.placeholder = text('settingsSearchPlaceholder');
         input.setAttribute('aria-label', text('settingsSearch'));
@@ -1739,13 +1400,13 @@ function localizeSettingsLegends(form: HTMLFormElement, text: SettingsText): voi
 
 function localizeSettingsLabels(form: HTMLFormElement, text: SettingsText): void {
     SETTINGS_CONTROL_LABELS.forEach(([name, key]) => setControlLabel(form, name, text(key)));
-    const jpdbSettings = form.querySelector<HTMLAnchorElement>('label a[href*="jpdb.io/settings"]');
+    const jpdbSettings = form.querySelector<HTMLAnchorElement>('.jpdb-reader-protected-credential > a[href*="jpdb.io/settings"]');
     if (jpdbSettings) jpdbSettings.textContent = text('jpdbSettings');
-    const jitenSettings = form.querySelector<HTMLAnchorElement>('label a[href*="jiten.moe/settings"]');
+    const jitenSettings = form.querySelector<HTMLAnchorElement>('.jpdb-reader-protected-credential > a[href*="jiten.moe/settings"]');
     if (jitenSettings) jitenSettings.textContent = text('jitenSettings');
-    const bunproSettings = form.querySelector<HTMLAnchorElement>('label a[href*="bunpro.jp/settings"]');
+    const bunproSettings = form.querySelector<HTMLAnchorElement>('.jpdb-reader-protected-credential > a[href*="bunpro.jp/settings"]');
     if (bunproSettings) bunproSettings.textContent = text('bunproSettings');
-    const nadeshikoKeyLink = form.querySelector<HTMLAnchorElement>('label a[href*="nadeshiko.co/user/developer"]');
+    const nadeshikoKeyLink = form.querySelector<HTMLAnchorElement>('.jpdb-reader-protected-credential > a[href*="nadeshiko.co/user/developer"]');
     if (nadeshikoKeyLink) nadeshikoKeyLink.textContent = text('getNadeshikoKey');
     localizeBlockControlLabel(form, 'ocrEndpointUrl', text('ocrEndpointUrl'));
     localizeBlockControlLabel(form, 'ocrCloudVisionApiKey', text('cloudVisionApiKey'));
@@ -1779,50 +1440,15 @@ function replaceLocalTitle(form: HTMLFormElement, pattern: RegExp, value: string
     title?.replaceChildren(value);
 }
 
-function localizeSettingsSelects(form: HTMLFormElement, language: InterfaceLanguage, text: SettingsText): void {
-    localizeBasicSettingsSelects(form, language, text);
+function localizeSettingsSelects(form: HTMLFormElement, text: SettingsText): void {
+    localizeBasicSettingsSelects(form, text);
     localizeColorAndReaderSelects(form, text);
     localizeMediaSettingsSelects(form, text);
     localizeMiningSettingsSelects(form, text);
 }
 
-/**
- * Re-localize the interface-locale picker on a live language switch.
- *
- * `setSelectOptionLabels` cannot do this: the labels are not a fixed table any
- * more, the option list is grouped, and a blocked option's label is a locale
- * name plus a reason that has to move to the new interface language while the
- * `title` keeps the reason in the blocked locale's own language.
- */
-function localizeInterfaceLocaleSelect(form: HTMLFormElement, language: InterfaceLanguage, text: SettingsText): void {
-    const selectElement = namedFormControls(form, 'interfaceLanguage').find(
-        (element): element is HTMLSelectElement => element instanceof HTMLSelectElement,
-    );
-    if (!selectElement) return;
-    form.querySelectorAll<HTMLElement>('[data-interface-locale-group="ready"]')
-        .forEach(group => group.setAttribute('label', text('interfaceLocalesReady')));
-    form.querySelectorAll<HTMLElement>('[data-interface-locale-group="in-progress"]')
-        .forEach(group => group.setAttribute('label', text('interfaceLocalesInProgress')));
-    for (const option of Array.from(selectElement.options)) {
-        if (option.value === 'auto') {
-            option.textContent = text('automatic');
-            continue;
-        }
-        const locale = INTERFACE_LOCALES.find(candidate => candidate.tag === option.value);
-        if (!locale) continue;
-        option.textContent = locale.available
-            ? interfaceLocaleOptionLabel(locale)
-            : `${interfaceLocaleOptionLabel(locale)} · ${text(interfaceLocaleBlockerCopyKey(locale))}`;
-    }
-    const note = form.querySelector<HTMLElement>('[data-interface-locale-note]');
-    if (note) {
-        const ready = INTERFACE_LOCALES.filter(locale => locale.available).length;
-        note.textContent = `${formatUiText(language, 'interfaceLocaleReadyCount', { ready, total: INTERFACE_LOCALES.length })} ${text('interfaceLocaleBlockedNote')}`;
-    }
-}
-
-function localizeBasicSettingsSelects(form: HTMLFormElement, language: InterfaceLanguage, text: SettingsText): void {
-    localizeInterfaceLocaleSelect(form, language, text);
+function localizeBasicSettingsSelects(form: HTMLFormElement, text: SettingsText): void {
+    setSelectOptionLabels(form, 'interfaceLanguage', localizedOptions(text, INTERFACE_LANGUAGE_OPTIONS));
     form.querySelector<HTMLElement>('[data-theme-title]')?.replaceChildren(text('theme'));
     setSelectOptionLabels(form, 'popupMode', localizedOptions(text, POPUP_MODE_OPTIONS));
     setSelectOptionLabels(form, 'hoverPopupMode', localizedOptions(text, POPUP_MODE_OPTIONS));
@@ -1850,11 +1476,8 @@ function localizeColorSourceSelects(form: HTMLFormElement, text: SettingsText): 
 
 function localizeMediaSettingsSelects(form: HTMLFormElement, text: SettingsText): void {
     setSelectOptionLabels(form, 'audioAutoPlayMode', localizedOptions(text, AUDIO_AUTO_PLAY_MODE_OPTIONS));
-    setSelectOptionLabels(form, 'audioSelectionMode', localizedOptions(text, AUDIO_SELECTION_MODE_OPTIONS));
     setSelectOptionLabels(form, 'audioTtsMode', localizedOptions(text, AUDIO_TTS_MODE_OPTIONS));
-    setSelectOptionLabels(form, 'immersionKitCategory', localizedOptions(text, IMMERSION_KIT_CATEGORY_OPTIONS));
     setSelectOptionLabels(form, 'immersionKitExampleSource', immersionKitExampleSourceOptions(text));
-    setSelectOptionLabels(form, 'immersionKitSort', localizedOptions(text, IMMERSION_KIT_SORT_OPTIONS));
     localizeOcrSettingsSelects(form, text);
     setSelectOptionLabels(form, 'subtitleControlsMode', localizedOptions(text, SUBTITLE_CONTROLS_MODE_OPTIONS));
     setSelectOptionLabels(form, 'subtitleNativeDisplay', localizedOptions(text, NATIVE_SUBTITLE_DISPLAY_OPTIONS));
@@ -1901,7 +1524,6 @@ function localizeSettingsShortcuts(form: HTMLFormElement, text: SettingsText): v
         ?.closest<HTMLFieldSetElement>('.jpdb-reader-radio-group')
         ?.querySelector('legend');
     pageScanLegend?.replaceChildren(text('pageScanMode'));
-    setRadioLabel(form, 'pageScanMode', 'off', text('pageScanModeOff'));
     setRadioLabel(form, 'pageScanMode', 'auto', text('pageScanModeAuto'));
     setRadioLabel(form, 'pageScanMode', 'manual', text('pageScanModeManual'));
     const manualPageScanShortcutLabel = form.querySelector<HTMLLabelElement>('[data-manual-page-scan-shortcut-label] label');
@@ -1913,12 +1535,6 @@ function localizeSettingsShortcuts(form: HTMLFormElement, text: SettingsText): v
     setRadioLabel(form, 'ocrInteractionMode', 'auto', text('ocrInteractionModeAuto'));
     setRadioLabel(form, 'ocrInteractionMode', 'manual', text('ocrInteractionModeManual'));
     setRadioLabel(form, 'ocrInteractionMode', 'off', text('ocrInteractionModeOff'));
-    const immersionLimitLegend = getNamedControl<HTMLInputElement>(form, 'immersionKitLimitEnabled')
-        ?.closest<HTMLFieldSetElement>('.jpdb-reader-radio-group')
-        ?.querySelector('legend');
-    immersionLimitLegend?.replaceChildren(text('immersionKitLimitEnabled'));
-    setRadioLabel(form, 'immersionKitLimitEnabled', 'off', text('allExamples'));
-    setRadioLabel(form, 'immersionKitLimitEnabled', 'on', text('limitExamples'));
 }
 
 function localizeSettingsHelpText(form: HTMLFormElement, text: SettingsText): void {
@@ -1933,7 +1549,6 @@ function localizeSettingsHelpText(form: HTMLFormElement, text: SettingsText): vo
 }
 
 function localizeNewTabHelp(form: HTMLFormElement, text: SettingsText): void {
-    form.querySelector<HTMLElement>('[data-newtab-address-help]')?.replaceChildren(text('newTabAddressHelp'));
     form.querySelector<HTMLElement>('[data-newtab-offline-help]')?.replaceChildren(text('newTabOfflineHelp'));
     form.querySelector<HTMLElement>('[data-newtab-anki-decks-title]')?.replaceChildren(text('newTabAnkiReviewDecks'));
     form.querySelector<HTMLElement>('[data-newtab-anki-decks-help]')?.replaceChildren(text('newTabAnkiReviewDecksHelp'));
@@ -2065,45 +1680,20 @@ function localizeDeckControls(form: HTMLFormElement, text: SettingsText): void {
 }
 
 function localizeSourceRows(form: HTMLFormElement, text: SettingsText): void {
+    form.querySelectorAll<HTMLElement>('[data-source-description-key]').forEach(row => {
+        const key = row.dataset.sourceDescriptionKey;
+        if (isSettingsTextKey(key)) row.title = text(key);
+    });
     form.querySelectorAll('.jpdb-reader-dictionary-head').forEach(head => localizeSourceHead(head, text));
     form.querySelectorAll<HTMLElement>('[data-source-name-key]').forEach(element => {
         const key = element.dataset.sourceNameKey;
         if (isSettingsTextKey(key)) element.replaceChildren(text(key));
     });
-    form.querySelectorAll<HTMLInputElement>('[data-source-placeholder-key]').forEach(input => {
-        const key = input.dataset.sourcePlaceholderKey;
-        if (isSettingsTextKey(key)) input.placeholder = text(key);
-    });
-    form.querySelectorAll<HTMLElement>('[data-source-help-key]').forEach(element => {
-        const key = element.dataset.sourceHelpKey;
-        if (isSettingsTextKey(key)) element.replaceChildren(text(key));
-    });
-    // Keep these fallback English names paired with the sourceName*/sourceHelp* i18n keys.
-    const rows: Array<[string, SettingsTextKey, SettingsTextKey]> = [
-        ['Translation', 'sourceNameTranslation', 'sourceHelpTranslation'],
-        ['Grammar', 'sourceNameGrammar', 'sourceHelpGrammar'],
-        ['Immersion Kit', 'sourceNameImmersionKit', 'sourceHelpImmersionKit'],
-        ['Stroke practice', 'sourceNameStrokePractice', 'sourceHelpStrokePractice'],
-        ['Readings and components', 'readingsComponents', 'sourceHelpReadingsComponents'],
-        ['Imported kanji dictionaries', 'sourceNameImportedKanjiDictionaries', 'sourceHelpImportedKanjiDictionaries'],
-        ['Component graph', 'originStructure', 'sourceHelpComponentGraph'],
-    ];
-    rows.forEach(([sourceName, nameKey, helpKey]) => {
-        form.querySelectorAll<HTMLElement>('[data-dictionary-source-row]').forEach(row => {
-            const display = row.querySelector<HTMLElement>('.jpdb-reader-field-display');
-            if (display?.textContent === sourceName) display.replaceChildren(text(nameKey));
-            const help = row.querySelector<HTMLElement>('.jpdb-reader-dictionary-row-help');
-            if (help && !help.dataset.sourceHelpKey && sourceRowHelpMatches(help.textContent ?? '', sourceName)) help.replaceChildren(text(helpKey));
-        });
-    });
-    replaceSourceHelp(form, /JPDB meanings shown/, text('sourceHelpJpdb'));
-    replaceSourceHelp(form, /Example sentences, images, and audio/, text('sourceHelpImmersionKit'));
-    replaceSourceHelp(form, /Remembering the Kanji/, text('sourceHelpRtk'));
-    replaceSourceHelp(form, /Imported Yomitan kanji dictionary/, text('sourceHelpImportedKanjiDictionary'));
     form.querySelectorAll<HTMLInputElement>('[data-source-enable-toggle]').forEach(input => {
         const row = input.closest<HTMLElement>('[data-dictionary-source-row]');
         const name = row?.querySelector<HTMLInputElement>('input[name$=".alias"]')?.value.trim()
             || row?.querySelector<HTMLElement>('.jpdb-reader-field-display')?.textContent?.trim()
+            || row?.querySelector<HTMLInputElement>('input[name$=".name"]')?.value.trim()
             || input.closest('label')?.textContent?.trim()
             || '';
         input.setAttribute('aria-label', text('enableSourceName').replace('{name}', name));
@@ -2113,33 +1703,11 @@ function localizeSourceRows(form: HTMLFormElement, text: SettingsText): void {
 
 function localizeSourceHead(head: Element, text: SettingsText): void {
     const spans = head.querySelectorAll('span');
-    const hasDisplayName = !head.classList.contains('compact');
     spans[0]?.replaceChildren(text('enabledHeader'));
-    const sourceLabel = sourceHeadLabel(spans[1]?.textContent ?? '', text);
+    const sourceLabel = text(head.getAttribute('data-source-label-key') === 'kanjiSection' ? 'kanjiSection' : 'definitionSource');
     spans[1]?.replaceChildren(sourceLabel);
-    if (hasDisplayName) {
-        spans[2]?.replaceChildren(text('displayName'));
-        spans[3]?.replaceChildren(text('orderHeader'));
-        spans[4]?.replaceChildren(text('removeHeader'));
-    } else {
-        spans[2]?.replaceChildren(text('orderHeader'));
-        spans[3]?.replaceChildren(text('removeHeader'));
-    }
-}
-
-function sourceHeadLabel(value: string, text: SettingsText): string {
-    if (value === 'Kanji section') return text('kanjiSection');
-    return text('definitionSource');
-}
-
-function replaceSourceHelp(form: HTMLFormElement, pattern: RegExp, value: string): void {
-    form.querySelectorAll<HTMLElement>('.jpdb-reader-help, .jpdb-reader-dictionary-row-help').forEach(help => {
-        if (pattern.test(help.textContent ?? '')) help.replaceChildren(value);
-    });
-}
-
-function sourceRowHelpMatches(value: string, sourceName: string): boolean {
-    return value.includes(sourceName);
+    spans[2]?.replaceChildren(text('orderHeader'));
+    spans[3]?.replaceChildren(text('removeHeader'));
 }
 
 function localizeRecommendedDictionaryGroups(form: HTMLFormElement, text: SettingsText): void {
@@ -2163,6 +1731,9 @@ function localizeRecommendedDictionaryGroups(form: HTMLFormElement, text: Settin
  * chrome with English is exactly the regression this panel had.
  */
 function localizeCatalogBrowseSection(form: HTMLFormElement, text: SettingsText): void {
+    form.querySelectorAll<HTMLElement>('[data-catalog-recommendation-seed]').forEach(seed => {
+        localizeCatalogRecommendationSeed(seed, resolveUiLanguageFromText(text));
+    });
     const section = form.querySelector<HTMLElement>('[data-catalog-browse]');
     if (!section) return;
     localizeCatalogBrowse(section, text, resolveUiLanguageFromText(text));
@@ -2246,7 +1817,10 @@ function localizeRecommendedDictionaryButtons(form: HTMLFormElement, text: Setti
 
 function localizeDictionaryStatus(form: HTMLFormElement, text: SettingsText): void {
     const dictionaryStatus = form.querySelector<HTMLElement>('[data-dictionary-status]');
-    if (dictionaryStatus && /Checking imported|インポート済み辞書を確認/.test(dictionaryStatus.textContent ?? '')) {
+    if (dictionaryStatus && ['en', 'ja'].some(language =>
+        dictionaryStatus.textContent === uiText(language as InterfaceLanguage, 'noLocalDictionariesImported'))) {
+        dictionaryStatus.textContent = text('noLocalDictionariesImported');
+    } else if (dictionaryStatus && /Checking imported|インポート済み辞書を確認/.test(dictionaryStatus.textContent ?? '')) {
         dictionaryStatus.textContent = text('checkingDictionaries');
     }
 }
@@ -2254,21 +1828,21 @@ function localizeDictionaryStatus(form: HTMLFormElement, text: SettingsText): vo
 const DIRECT_SETTINGS_CONTROL_LABEL_KEYS = [
     'apiCredential', 'apiCredentialJpdb', 'apiCredentialJiten', 'apiCredentialBunproLegacy', 'apiCredentialBunpro', 'apiCredentialWanikani', 'miningDeck', 'newTabJpdbDeck', 'neverForgetDeck', 'blacklistDeck',
     'jpdbMiningEnabled', 'bunproMiningEnabled', 'wanikaniReviewEnabled', 'yomuLocalSrsEnabled', 'addToForq', 'enableReviews', 'apiGradingProvider', 'jpdbPageEnhancementsEnabled', 'jpdbPageWordEnhancementsEnabled',
-    'jpdbPageKanjiEnhancementsEnabled', 'popupMode', 'hoverPopupMode', 'stickyBottomSheet', 'popoverBackdropEnabled', 'popoverWidth',
+    'jpdbPageKanjiEnhancementsEnabled', 'popupMode', 'hoverPopupMode', 'stickyBottomSheet', 'popoverWidth',
     'popoverHeight', 'popoverHeightMode', 'readerFontFamily', 'popupFontFamily', 'popupFontWeight',
     'enableLogging', 'accentColor', 'newTabAnkiEnabled', 'newTabSource',
     'newTabJpdbReviewMode', 'corsProxyUrl', 'newTabKanjiKeywordSource', 'newTabParsingEnabled', 'newTabFrontSentenceEnabled',
-    'newTabKanjiAutogradeEnabled', 'newTabOfflineEnabled', 'newTabOfflineLimit', 'newTabDailyGoalMinutes', 'newTabKanjiUnlockEnabled', 'newTabStopAtBatchEnd', 'newTabSwipeReviews', 'newTabShortcutHintsEnabled', 'newTabUrl',
+    'newTabKanjiAutogradeEnabled', 'newTabOfflineEnabled', 'newTabOfflineLimit', 'newTabDailyGoalMinutes', 'newTabKanjiUnlockEnabled', 'newTabStopAtBatchEnd', 'newTabSwipeReviews', 'newTabShortcutHintsEnabled',
     'wordColorNew', 'wordColorLearning', 'wordColorKnown', 'wordColorDue', 'wordColorFailed',
     'wordColorIgnored', 'localDictionariesEnabled', 'parserProvider', 'pitchColorHeiban', 'pitchColorAtamadaka', 'pitchColorNakadaka', 'pitchColorOdaka',
     'pitchColorUnknown', 'wordHighlightColorSource', 'wordUnderlineColorSource', 'wordTextColorSource',
     'subtitleHighlightColorSource', 'subtitleUnderlineColorSource', 'subtitleTextColorSource', 'lookupOnClick',
     'popupLookupEnabled', 'lookupOnHover', 'lookupOnMiddleMouse', 'showFloatingButton', 'pageScanMode', 'appearancePreset', 'clampedRowReadings', 'wordColorStates', 'showPitchAccent', 'showLookupPillFrequency', 'suppressRedundantWordUi', 'sheetCloseButtonOnLeft',
     'audioEnabled', 'autoPlayAudio', 'suppressAutoAudioOnVideo', 'audioAutoPlayMode', 'audioEnableDefaultSources', 'audioFallbackChimeEnabled',
-    'audioSelectionMode', 'audioTtsMode', 'audioTimeoutMs', 'immersionKitEnabled', 'immersionKitExampleSource',
+    'audioTtsMode', 'immersionKitEnabled', 'immersionKitExampleSource',
     'nadeshikoApiKey', 'immersionKitShowTranslation', 'immersionKitRevealTranslationOnClick', 'immersionKitShowImages', 'immersionKitAutoPlayAudio',
-    'immersionKitPlayOnHover', 'immersionKitPlayOnImageClick', 'immersionKitCategory', 'immersionKitSort', 'immersionKitLimit',
-    'immersionKitMinLength', 'immersionKitMaxLength', 'immersionKitPlaybackRate', 'immersionKitExactMatch', 'ocrInteractionMode',
+    'immersionKitPlayOnHover', 'immersionKitPlayOnImageClick', 'immersionKitLimit',
+    'immersionKitPlaybackRate', 'ocrInteractionMode',
     'ocrShowTextOverlay', 'ocrVideoPauseFrames', 'ocrInvertDarkPanels', 'ocrProvider', 'ocrOverlayTheme', 'ocrMaxImagesPerPage', 'ocrMinImageArea',
     'ocrMaxImagePixels', 'ocrTextColor', 'ocrOutlineColor', 'ocrBackgroundOpacity',
     'ocrFontScale', 'ocrEndpointUrl', 'ocrEngine', 'subtitlePlayerEnabled', 'subtitleAutoDetect',
@@ -2278,7 +1852,7 @@ const DIRECT_SETTINGS_CONTROL_LABEL_KEYS = [
     'subtitleBackgroundColor', 'subtitleBackgroundOpacity', 'subtitleFontFamily', 'subtitleFontWeight', 'subtitleSeekPadding',
     'ankiEnabled', 'ankiMineWithJpdb', 'ankiCaptureScreenshot', 'ankiConnectUrl', 'ankiDeck',
     'ankiModel', 'ankiTemplateMode', 'ankiFrontReading', 'ankiFrontSentence', 'ankiFrontImage',
-    'ankiTags', 'youtubeImmersionEnabled', 'preferJapaneseSiteLanguage', 'youtubeShowChannelRecommendations', 'youtubeShowFilterNotice',
+    'ankiTags', 'youtubeImmersionEnabled', 'youtubeShowChannelRecommendations', 'youtubeShowFilterNotice',
     'hoverOpenDelayMs', 'hoverCloseDelayMs',
 ] as const satisfies readonly SettingsTextKey[];
 
@@ -2532,7 +2106,10 @@ function localizeHelpLinksPanel(form: HTMLFormElement, language: InterfaceLangua
         });
     }
     const duplicateStatus = panel.querySelector<HTMLElement>('[data-yomu-duplicate-status]');
-    if (duplicateStatus) duplicateStatus.textContent = duplicateRuntimeStatusText(language);
+    if (duplicateStatus) {
+        duplicateStatus.textContent = duplicateRuntimeStatusText(language);
+        duplicateStatus.hidden = !duplicateStatus.textContent;
+    }
     const updateFlow = detectYomuUpdateFlow();
     const updateNotes = panel.querySelector<HTMLElement>('[data-help-update-notes]');
     if (updateNotes) updateNotes.textContent = uiText(language, updateFlowNoteKey(updateFlow.kind));
@@ -2547,11 +2124,12 @@ function renderCurrentVersionElement(): HTMLElement {
     return element;
 }
 
+// The extension outranks any userscript on the same page, so "disable the
+// older script" is advice only for userscript installs.
 function duplicateRuntimeStatusText(language: InterfaceLanguage): string {
     const kind = currentYomuRuntimeKind();
-    return kind
-        ? formatUiText(language, 'duplicateStatusSingle', { kind })
-        : uiText(language, 'duplicateStatusUnknown');
+    if (kind) return formatUiText(language, 'duplicateStatusSingle', { kind });
+    return installedAsBrowserExtension() ? '' : uiText(language, 'duplicateStatusUnknown');
 }
 
 function currentYomuRuntimeKind(): string {
@@ -2698,100 +2276,23 @@ export function renderDictionarySourceRows(settings: ReaderSettings): string {
         `).join('');
     const importHelp = visibleNames.size ? '' : renderSourceRowsHelp(settings.interfaceLanguage, 'importLocalDefinitionsHelp');
     const metadataHelp = settings.dictionaryPreferences.length > visibleNames.size ? renderSourceRowsHelp(settings.interfaceLanguage, 'metadataDictionariesHelp') : '';
-    return `${importHelp}${renderSourceRowsList(rows, { sourceLabel: 'Definition source', countName: 'dictionaryPreferenceCount', countValue: settings.dictionaryPreferences.length, showAlias: true })}${metadataHelp}${hidden}${renderDefinitionTranslationControls(settings)}`;
-}
-
-function renderDefinitionTranslationControls(settings: ReaderSettings): string {
-    const copy = multilingualSettingsCopy(settings.interfaceLanguage);
-    const learnerLanguageId = activeLearnerLanguageId(settings);
-    const learnerLanguage = learnerLanguageById(learnerLanguageId);
-    const translationAvailable = googleTranslationLanguageCapability(learnerLanguage.runtimeLocale).supported;
-    const activeProfile = activeLanguageProfile(settings.languageProfiles, settings.activeLanguageProfileId);
-    const enabled = new Set(activeProfile?.definitionTranslationProviderIds ?? []);
-    const sources = definitionTranslationSources(settings);
-    const visibleCount = translationAvailable
-        ? sources.filter((source) => !source.definitionLanguages.includes(learnerLanguageId)).length
-        : 0;
-    return `
-        <div class="jpdb-reader-settings-subsection jpdb-reader-definition-translation" data-definition-translation-controls>
-            <div class="jpdb-reader-local-title" data-multilingual-copy="translationTitle">${escapeHtml(copy.translationTitle)}</div>
-            <div class="jpdb-reader-help" data-multilingual-copy="translationHelp">${escapeHtml(copy.translationHelp)}</div>
-            <input type="hidden" name="definitionTranslationControlsPresent" value="1">
-            <div class="jpdb-reader-definition-translation-list">
-                ${sources
-                    .map((source) => {
-                        const isNative = source.definitionLanguages.includes(learnerLanguageId);
-                        const disabled = isNative || !translationAvailable;
-                        return `
-                        <label class="inline" data-definition-translation-row data-definition-languages="${escapeHtml(source.definitionLanguages.join(' '))}" ${disabled ? 'hidden' : ''}>
-                            <input name="definitionTranslationProviderIds" type="checkbox" value="${escapeHtml(source.id)}" ${enabled.has(source.id) ? 'checked' : ''} ${disabled ? 'disabled' : ''}>
-                            <span>
-                                <strong>${escapeHtml(source.name)}</strong>
-                                <span aria-hidden="true"> — </span>
-                                <span data-definition-translation-label>${escapeHtml(copy.translateAutomatically(learnerLanguage.nativeName))}</span>
-                            </span>
-                        </label>
-                    `;
-                    })
-                    .join('')}
-            </div>
-            <div class="jpdb-reader-help" data-definition-translation-empty ${!translationAvailable || visibleCount ? 'hidden' : ''}>${escapeHtml(copy.translationEmpty)}</div>
-            <div class="jpdb-reader-help" data-definition-translation-unavailable ${translationAvailable ? 'hidden' : ''}>${escapeHtml(copy.translationUnavailable)}</div>
-        </div>
-    `;
-}
-
-function definitionTranslationSources(settings: ReaderSettings): Array<{
-    id: string;
-    name: string;
-    definitionLanguages: readonly string[];
-}> {
-    const seen = new Set<string>();
-    return definitionSourceRows(settings)
-        .filter((row) => DEFINITION_TRANSLATION_API_SOURCE_IDS.has(row.id) || row.removable)
-        .filter((row) => {
-            if (seen.has(row.id)) return false;
-            seen.add(row.id);
-            return true;
-        })
-        .map((row) => ({
-            id: row.id,
-            name: row.alias || row.name,
-            definitionLanguages: definitionLanguagesForSource(row.id, row.name),
-        }));
-}
-
-function definitionLanguagesForSource(id: string, name: string): readonly string[] {
-    if (DEFINITION_TRANSLATION_API_SOURCE_IDS.has(id)) return ['en'];
-    return CATALOG_DEFINITION_LANGUAGES.get(normalizeDictionaryIdentity(id))
-        ?? CATALOG_DEFINITION_LANGUAGES.get(normalizeDictionaryIdentity(name))
-        ?? [dictionaryDefinitionLanguage(name)];
-}
-
-function normalizeDictionaryIdentity(value: string): string {
-    return value
-        .trim()
-        .toLocaleLowerCase('en-US')
-        .replace(/[^a-z0-9]+/gu, '-')
-        .replace(/^-|-$/gu, '');
+    return `${importHelp}${renderSourceRowsList(rows, { sourceLabelKey: 'definitionSource', countName: 'dictionaryPreferenceCount', countValue: settings.dictionaryPreferences.length, language: settings.interfaceLanguage })}${metadataHelp}${hidden}`;
 }
 
 export function renderKanjiSourceRows(settings: ReaderSettings): string {
     return renderSourceRowsList(kanjiSourceRows(settings), {
-        sourceLabel: 'Kanji section',
-        showAlias: true,
+        sourceLabelKey: 'kanjiSection',
+        language: settings.interfaceLanguage,
     });
 }
 
 export function renderLookupPillsEditor(
     settings: ReaderSettings,
     installed: YomitanDictionaryInfo[] = installedDictionariesFromPreferences(settings.dictionaryPreferences),
-    targetLanguage = activeTargetLanguageId(settings),
 ): string {
     return renderDictionaryLookupLinkEditor(
         settings.dictionaryLookupLinks,
         installedFrequencyDictionaryPreferences(settings, installed),
-        targetLanguage,
     );
 }
 

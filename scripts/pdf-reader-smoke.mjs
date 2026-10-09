@@ -795,13 +795,13 @@ async function verifyEmptyLayouts(browser, origin) {
 
 async function verifyLearningTargetRuntime(browser, origin, textPdf) {
     // This ephemeral loopback fixture is intentionally not a trusted
-    // hosted-storage origin. Seed private shared settings and prove the split
-    // runtime adopts them through its target singleton.
+    // hosted-storage origin. A retired Korean profile must load safely while
+    // the core and companion graph use the supported Japanese target.
     const settings = pdfSmokeSettingsForTarget(origin, 'ko');
     const { page } = await openInReader(browser, origin, textPdf, 'target-runtime.pdf', settings);
     const state = await readState(page);
     assert(state.runtimeLoaded, 'split core and companions did not boot the よむ runtime', state);
-    assert(state.learningTargetLanguage === 'ko', 'split core and companion target state diverged', state);
+    assert(state.learningTargetLanguage === 'ja', 'legacy profile did not resolve to the shared Japanese target', state);
     await page.close();
     return {
         runtimeLoaded: state.runtimeLoaded,

@@ -9,6 +9,7 @@ import { createRequire } from 'node:module';
 import { readFileSync, existsSync, mkdirSync } from 'node:fs';
 import path from 'node:path';
 import { loadLocalEnv } from './lib/qa-env.mjs';
+import { annotationDefaultsIntentLedger, SETTINGS_INTENT_LEDGER_KEY } from './lib/smoke-harness.mjs';
 
 const require = createRequire(import.meta.url);
 const { chromium } = require('playwright');
@@ -757,7 +758,7 @@ await ctx.exposeFunction('__yomuReq', async (opts) => {
 
 const initScript = `
 (() => {
-  const store = new Map(Object.entries(${JSON.stringify({ 'jpdb-popup-reader-settings': SETTINGS })}));
+  const store = new Map(Object.entries(${JSON.stringify({ 'jpdb-popup-reader-settings': SETTINGS, [SETTINGS_INTENT_LEDGER_KEY]: annotationDefaultsIntentLedger(SETTINGS) })}));
   const listeners = new Map();
   const enc = v => JSON.stringify(v);
   const dec = v => { try { return JSON.parse(v); } catch { return v; } };

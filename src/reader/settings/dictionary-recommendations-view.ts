@@ -1,5 +1,6 @@
-import { uiText } from '../app/i18n';
+import { resolveUiLanguage, uiText } from '../app/i18n';
 import { escapeHtml } from '../dom/index';
+import type { InterfaceLanguage } from '../app/types';
 import type { DictionaryCategory } from '../dictionaries/catalog';
 import {
     catalogBrowseDescription,
@@ -12,7 +13,6 @@ import {
 } from '../dictionaries/catalog-browse';
 import {
     catalogBrowseCopy,
-    catalogBrowseLanguageNote,
     type CatalogBrowseCopy,
 } from '../dictionaries/catalog-browse-copy';
 import {
@@ -28,6 +28,7 @@ import { yomitanDictionaryIdentity } from '../dictionaries/yomitan/zip-normalize
 import type { LearningTargetRosterId } from '../languages';
 import {
     LOCALE_CATALOGS,
+    isLearnerLanguageId,
     learnerLanguageById,
     type LearnerLanguageId,
 } from '../locales';
@@ -172,8 +173,6 @@ function renderCatalogBrowseLanguage(
     const language = section.headwordLanguage;
     return `
         <div class="jpdb-reader-recommended-group jpdb-reader-catalog-browse-language" data-catalog-browse-language="${escapeHtml(language)}" data-catalog-browse-language-endonym="${escapeHtml(headwordLanguageEndonym(language))}"${section.isTargetLanguage ? ' data-catalog-browse-language-target' : ''}>
-            <div class="jpdb-reader-recommended-title" data-catalog-browse-language-title>${escapeHtml(headwordLanguageName(language, locale))}</div>
-            <div class="jpdb-reader-help" data-catalog-browse-language-note>${escapeHtml(catalogBrowseLanguageNote(copy, headwordLanguageName(language, locale)))}</div>
             ${section.groups
                 .map(group => `
                     <div class="jpdb-reader-recommended-group" data-catalog-browse-group="${escapeHtml(group.category)}">
@@ -233,7 +232,6 @@ function catalogBrowseCopyForLocale(learnerLanguageId: LearnerLanguageId, locale
         summary: uiText('ja', 'mirroredDictionariesSummary'),
         searchLabel: uiText('ja', 'mirroredDictionarySearch'),
         noResults: uiText('ja', 'mirroredDictionarySearchNoResults'),
-        languageNote: uiText('ja', 'mirroredDictionaryLanguageNote'),
         categories: Object.fromEntries(
             (Object.keys(CATALOG_BROWSE_CATEGORY_TEXT_KEYS) as DictionaryCategory[])
                 .map(category => [category, uiText('ja', CATALOG_BROWSE_CATEGORY_TEXT_KEYS[category])]),
@@ -270,6 +268,23 @@ function renderCatalogRecommendationSeed(
     `;
 }
 
+/** Presentation follows the interface; dictionary selection still follows definition language. */
+export function localizeCatalogRecommendationSeed(section: HTMLElement, language: InterfaceLanguage): void {
+    const locale = resolveUiLanguage(language);
+    const learner = section.dataset.catalogRecommendationSeed ?? 'en';
+    const dictionaries = recommendedDictionariesForLanguageProfile(isLearnerLanguageId(learner) ? learner : 'en', 'ja');
+    section.lang = locale;
+    section.dir = 'ltr';
+    section.querySelector('.jpdb-reader-catalog-seed-title')?.replaceChildren(uiText(locale, 'recommendedJapaneseDictionaries'));
+    section.querySelector('.jpdb-reader-catalog-seed-summary')?.replaceChildren(
+        formatDictionaryCountAndSize(uiText(locale, 'recommendedDictionaryCountAndSize'), dictionaries.length, completeDictionarySeedSize(dictionaries, locale), locale),
+    );
+    for (const item of section.querySelectorAll<HTMLElement>('[data-catalog-recommendation]')) {
+        const dictionary = dictionaries.find(candidate => candidate.catalogDictionaryId === item.dataset.catalogRecommendation);
+        if (dictionary) item.querySelector('.jpdb-reader-help')?.replaceChildren(recommendedDictionaryDescription(dictionary, locale));
+    }
+}
+
 function renderRecommendedDictionary(
     dictionary: RecommendedDictionary,
     installed: YomitanDictionaryInfo[] | boolean,
@@ -278,13 +293,14 @@ function renderRecommendedDictionary(
     const alreadyInstalled = typeof installed === 'boolean'
         ? installed
         : recommendedDictionaryInstallState(dictionary, installed);
+    const description = recommendedDictionaryDescription(dictionary, locale);
     return `
         <div class="jpdb-reader-recommended-item"${catalogRecommendationAttributes(dictionary)}>
             <div>
                 <div class="jpdb-reader-recommended-name">
                     <span>${escapeHtml(dictionary.name)}</span>
                 </div>
-                <div class="jpdb-reader-help">${escapeHtml(recommendedDictionaryDescription(dictionary, locale))}</div>
+                ${description ? `<div class="jpdb-reader-help">${escapeHtml(description)}</div>` : ''}
                 <div class="jpdb-reader-recommended-status" data-recommended-dictionary-status role="status" aria-live="polite" hidden></div>
             </div>
             ${recommendedDictionaryAction(dictionary, alreadyInstalled)}
@@ -304,9 +320,16 @@ function recommendedDictionaryAction(dictionary: RecommendedDictionary, alreadyI
 }
 
 function recommendedDictionaryDescription(dictionary: RecommendedDictionary, locale?: string): string {
+    // "JMdict (en)" over "Original English" said the language twice.
+    if (dictionary.translationMode === 'off' && nameStatesDefinitionLanguage(dictionary)) return '';
     const localized = localizedCatalogBrowseDescription(dictionary, locale);
     if (localized !== undefined) return localized;
     return staticRecommendedDictionaryDescription(dictionary);
+}
+
+function nameStatesDefinitionLanguage(dictionary: RecommendedDictionary): boolean {
+    const language = dictionary.definitionLanguage;
+    return Boolean(language) && new RegExp(`\\(${language}\\)\\s*$`, 'iu').test(dictionary.name);
 }
 
 function localizedCatalogBrowseDescription(

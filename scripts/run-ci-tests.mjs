@@ -35,9 +35,6 @@ const DEDICATED_PASS_FILES = [
     // backstop that reports the runtime death instead of calling it a test red.
     join(ROOT, 'tests/reader/dictionary-catalog-browse.test.ts'),
     join(ROOT, 'tests/reader/catalog-browse-search-and-locale.test.ts'),
-    // Selects the active learning target through mocked modules; retain its
-    // measured graph in the dedicated release schedule.
-    join(ROOT, 'tests/reader/languages/learning-target-selection.test.ts'),
     // Builds a live overlay and asserts a reading reaches it. Passes alone; inherits
     // overlay/document state in the historical fork-reuse pass. Retained here as
     // a known lifecycle-heavy scheduling outlier.

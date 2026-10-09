@@ -69,10 +69,6 @@ export type SubtitleTranscriptPlacement = 'right' | 'left' | 'bottom';
 
 export type InterfaceLanguage = 'auto' | 'en' | 'ja';
 
-export type ImmersionKitCategory = 'all' | 'anime' | 'drama' | 'games';
-
-export type ImmersionKitSort = 'sentence_length:asc' | 'sentence_length:desc' | 'random';
-
 export type ImmersionExampleSource = 'immersion-kit' | 'nadeshiko' | 'combined';
 
 export type AnkiTemplateMode = 'recognition' | 'context';
@@ -320,14 +316,6 @@ export interface ReaderSettings {
     bunproFrontendApiToken: string;
     bunproFrontendApiTokenExpiresAt: string;
     wanikaniApiToken: string;
-    onboardingSeen: boolean;
-    /**
-     * True only after the learner has explicitly confirmed a learning target.
-     * Pre-1.9 records with substantive Reader/subtitle state migrate to true so
-     * their existing target remains authoritative. Passive hosted/bootstrap and
-     * metadata-only records stay false, as does a genuinely fresh profile.
-     */
-    learningTargetChosen: boolean;
     interfaceLanguage: InterfaceLanguage;
     /**
      * Versioned multilingual profiles. Root-level language/parser settings
@@ -354,37 +342,27 @@ export interface ReaderSettings {
     subtitleUnderlineColorSource: ReaderColorSource;
     subtitleTextColorSource: ReaderColorSource;
     jpdbDefinitionsEnabled: boolean;
-    jpdbDefinitionsAlias: string;
     jpdbDefinitionsPriority: number;
     jitenDefinitionsEnabled: boolean;
-    jitenDefinitionsAlias: string;
     jitenDefinitionsPriority: number;
     bunproDefinitionsEnabled: boolean;
-    bunproDefinitionsAlias: string;
     bunproDefinitionsPriority: number;
     wanikaniDefinitionsEnabled: boolean;
-    wanikaniDefinitionsAlias: string;
     wanikaniDefinitionsPriority: number;
     jpdbPageEnhancementsEnabled: boolean;
     jpdbPageWordEnhancementsEnabled: boolean;
     jpdbPageKanjiEnhancementsEnabled: boolean;
     jpdbKanjiEnabled: boolean;
-    jpdbKanjiAlias: string;
     jpdbKanjiPriority: number;
     kanjiImmersionKitEnabled: boolean;
-    kanjiImmersionKitAlias: string;
     kanjiImmersionKitPriority: number;
     wanikaniKanjiEnabled: boolean;
-    wanikaniKanjiAlias: string;
     wanikaniKanjiPriority: number;
     rtkEnabled: boolean;
-    rtkAlias: string;
     rtkPriority: number;
     kanjivgEnabled: boolean;
-    kanjivgAlias: string;
     kanjivgPriority: number;
     kanjiOriginsEnabled: boolean;
-    kanjiOriginsAlias: string;
     kanjiOriginsPriority: number;
     kanjiOriginKanjiMapEnabled: boolean;
     kanjiOriginGraphEnabled: boolean;
@@ -398,21 +376,13 @@ export interface ReaderSettings {
     audioSourceUrl?: string;
     audioViaBlob: boolean;
     audioFallbackChimeEnabled: boolean;
-    audioTimeoutMs: number;
-    audioSelectionMode: AudioSelectionMode;
     audioTtsMode: AudioTtsMode;
     immersionKitEnabled: boolean;
-    immersionKitAlias: string;
     immersionKitExampleSource: ImmersionExampleSource;
     nadeshikoApiKey: string;
     immersionKitPriority: number;
     immersionKitLimitEnabled: boolean;
     immersionKitLimit: number;
-    immersionKitMinLength: number;
-    immersionKitMaxLength: number;
-    immersionKitCategory: ImmersionKitCategory;
-    immersionKitSort: ImmersionKitSort;
-    immersionKitExactMatch: boolean;
     immersionKitShowTranslation: boolean;
     immersionKitRevealTranslationOnClick: boolean;
     immersionKitShowImages: boolean;
@@ -512,9 +482,7 @@ export interface ReaderSettings {
     parserProvider: ParserProvider;
     localDictionaryMaxResults: number;
     localDictionaryShowKanji: boolean;
-    kanjiDictionariesAlias: string;
     kanjiDictionariesPriority: number;
-    dictionarySourcesInitiallyExpanded: boolean;
     dictionaryPreferences: DictionaryPreference[];
     dictionaryLookupLinks: DictionaryLookupLink[];
     yomitanSettingsBackup?: unknown;
@@ -562,7 +530,6 @@ export interface ReaderSettings {
     preferJapaneseSiteLanguage: boolean;
     ankiEnabled: boolean;
     ankiSectionEnabled: boolean;
-    ankiSectionAlias: string;
     ankiSectionPriority: number;
     ankiConnectUrl: string;
     ankiDeck: string;
@@ -577,17 +544,14 @@ export interface ReaderSettings {
     ankiFrontImage: boolean;
     ankiMobileHandoff: boolean;
     studyTranslationEnabled: boolean;
-    studyTranslationAlias: string;
     studyTranslationPriority: number;
     studyGrammarEnabled: boolean;
-    studyGrammarAlias: string;
     studyGrammarPriority: number;
     enableLogging: boolean;
     theme: 'auto' | 'light' | 'dark';
     popupMode: 'auto' | 'sheet' | 'popover';
     hoverPopupMode: 'auto' | 'sheet' | 'popover';
     stickyBottomSheet: boolean;
-    popoverBackdropEnabled: boolean;
     popoverWidth: number;
     popoverHeight: number;
     popoverHeightMode: 'available' | 'fixed';
@@ -595,7 +559,6 @@ export interface ReaderSettings {
     popupFontFamily: string;
     popupFontWeight: number;
     miningDeck: string;
-    autoMineOnReview: boolean;
     jpdbMiningEnabled: boolean;
     bunproMiningEnabled: boolean;
     wanikaniReviewEnabled: boolean;
@@ -690,6 +653,7 @@ declare global {
         xmlhttpRequest?: UserscriptHttpRequest;
         openInTab?: (url: string, options?: { active?: boolean; insert?: boolean; setParent?: boolean } | boolean) => unknown;
         registerMenuCommand?: (name: string, fn: () => void) => void;
+        info?: Record<string, unknown>;
     };
     const GM_info: undefined | Record<string, unknown>;
     const GM_setValue: undefined | ((key: string, value: unknown) => void | Promise<void>);

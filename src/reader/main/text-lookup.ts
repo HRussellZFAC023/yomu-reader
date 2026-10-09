@@ -65,6 +65,7 @@ export function textLookupParseOptions(apiKey: string): ReaderParserParseOptions
     const apiKeyActive = Boolean(apiKey.trim());
     return jpdbFirstParseOptions({
         allowSegmentedFallback: true,
+        publicJitenPriority: 'lookup',
         ...(apiKeyActive ? {
             requireJpdb: false,
             jpdbTimeoutMs: TEXT_LOOKUP_JPDB_TIMEOUT_MS,

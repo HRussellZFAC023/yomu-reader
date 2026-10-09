@@ -1,3 +1,5 @@
+import { DEFAULT_SETTINGS } from '../../src/reader/settings';
+import { serializeSettingsPersistencePair } from '../../src/reader/settings/settings-persistence-transaction';
 import { afterEach, expect, it, vi } from 'vitest';
 import { gmStorageGet, gmStorageSet, gmStorageDelete, gmStorageGetSync, gmStorageSetSync, gmStorageDeleteSync, clearManagedBrowserCaches, unregisterManagedServiceWorkers } from '../../src/reader/app/storage';
 import { HOSTED_STUDY_LOCATION, installGmStorageFixture } from './helpers/settings-persistence-fixture';
@@ -48,7 +50,7 @@ it('clears only Yomu page caches and service workers when an installed runtime r
     expect(deleteCache).not.toHaveBeenCalledWith('foreign-cache');
 });
 
-it('adopts a website-only learner record into an installed store without a chosen target', async () => {
+it('adopts a website-only learner record into a fresh installed store without recorded learner choices', async () => {
     vi.stubGlobal('location', HOSTED_STUDY_LOCATION);
     localStorage.setItem(key, standalone);
     const { values } = installGmStorageFixture();
@@ -57,11 +59,14 @@ it('adopts a website-only learner record into an installed store without a chose
     expect(localStorage.getItem(key)).toBe(standalone);
 });
 
-it.each(['chosen', 'failed'] as const)('does not adopt website-only learner records into a %s installed store', async mode => {
+it.each(['established', 'failed'] as const)('does not adopt website-only learner records into a %s installed store', async mode => {
     vi.stubGlobal('location', HOSTED_STUDY_LOCATION);
     localStorage.setItem(key, standalone);
-    const chosen = mode === 'chosen' ? [['jpdb-popup-reader-settings', { learningTargetChosen: true }]] as const : [];
-    const { getValue, setValue } = installGmStorageFixture(new Map(chosen));
+    const installed = mode === 'established' ? serializeSettingsPersistencePair(
+        { ...DEFAULT_SETTINGS, theme: 'dark' },
+        { revision: 1, records: { theme: { seq: 1, value: 'dark' } } },
+    ) : {};
+    const { getValue, setValue } = installGmStorageFixture(new Map(Object.entries(installed)));
     if (mode === 'failed') getValue.mockImplementation(async (requested, fallback) => {
         if (requested === key) throw new Error('unavailable');
         return fallback;

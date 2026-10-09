@@ -1,32 +1,9 @@
 import type { LanguageTag, LanguageTextSegment } from './types';
 
 /**
- * Word boundaries from ICU, which every browser already ships.
- *
- * This is the right answer for far more targets than it looks. Thai, Lao,
- * Khmer and Burmese write without spaces, and ICU carries dictionary-based
- * boundaries for all four — so a target that states nothing beyond its language
- * tag gets real words in a script whitespace cannot touch. For space-delimited
- * languages ICU is whitespace minus the punctuation, which is strictly what a
- * dictionary lookup wants: `comer,` stops being a term nobody can find.
- *
- * Where ICU is NOT the right answer, it is worth naming precisely, because a
- * target that silently accepts these boundaries is claiming a quality of
- * segmentation it does not have:
- *
- * - Japanese: ICU has no kana dictionary and over-splits kana on phonetic
- *   guesses. The Japanese target supplies its own segmenter and never reaches
- *   this code.
- * - Korean: ICU splits on spaces, which is eojeol — real orthographic words,
- *   but a whole phrase-plus-particle each. Sub-eojeol morphology needs a
- *   Korean analyser Yomu does not have.
- * - Vietnamese: ICU splits on spaces, and a Vietnamese word is routinely
- *   several space-separated syllables (`cơm rang`). Compounds are lost.
- * - Cantonese: ICU splits Han runs a character at a time in many builds
- *   (鍾意 -> 鍾 + 意), so compounds are lost the other way round.
- *
- * `tests/reader/languages/icu-segmentation.test.ts` pins all four holes so that
- * closing one is a test that flips, not a silent behaviour change.
+ * Word boundaries from ICU, which every browser already ships. Japanese text
+ * is segmented by Yomu's own segmenter; ICU only splits an already-confirmed
+ * compound into the components whose pitch is shown (pitch-components.ts).
  */
 
 const SEGMENTER_BY_LOCALE = new Map<string, Intl.Segmenter | null>();
@@ -44,11 +21,6 @@ function wordSegmenter(locale: LanguageTag): Intl.Segmenter | null {
     }
     SEGMENTER_BY_LOCALE.set(locale, segmenter);
     return segmenter;
-}
-
-/** Whether this build can answer word boundaries for `locale` through ICU. */
-export function hasIcuWordSegmentation(locale: LanguageTag): boolean {
-    return wordSegmenter(locale) !== null;
 }
 
 /**

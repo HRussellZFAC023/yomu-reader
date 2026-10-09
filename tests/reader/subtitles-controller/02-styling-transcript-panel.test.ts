@@ -1,6 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { positionSubtitleStylePopover } from '../../../src/reader/subtitles/subtitle-style-popover';
-import { resetActiveLearningTargetLanguage, setActiveLearningTargetLanguage } from '../../../src/reader/languages/active';
 import {
     allowSyntheticReaderInteractionsForTests,
     installTrustedReaderRootBoundary,
@@ -483,6 +482,22 @@ describe('SubtitlePlayerController — styling & transcript panel', () => {
         expect(normalizedCss).toMatch(/\.jpdb-subtitle-primary \{[^}]*font-size: var\(--subtitle-font-size\) !important;/);
         expect(normalizedCss).toMatch(/\.jpdb-subtitle-primary :is\([^}]*\.jpdb-reader-word,[^}]*ruby,[^}]*\.jpdb-reader-ruby-base[^}]*\) \{[^}]*font-size: inherit !important;/);
         expect(normalizedCss).toMatch(/\.jpdb-subtitle-primary \.jpdb-reader-furi \{[^}]*font-size: \.58em !important;/);
+        // Page readings are regular weight; a caption's reading over footage stays bold.
+        expect(normalizedCss).toMatch(/\.jpdb-subtitle-primary \.jpdb-reader-furi \{[^}]*font-weight: 700;/);
+    });
+
+    // The phone track sheet let YouTube thumbnails show through its controls,
+    // and the puck sat on its lower track choices. Only a puck resting in the
+    // bottom half gives way: one the learner moved up stays usable.
+    it('paints the transcript sheet opaque and keeps a bottom-resting puck off a bottom sheet', () => {
+        const normalizedCss = SUBTITLES_YOUTUBE_CSS.replace(/\s+/g, ' ');
+        const panel = normalizedCss.match(/\.jpdb-subtitle-list \{ position: fixed;[^}]*\}/)?.[0] ?? '';
+        expect(panel).toContain('background: var(--jpdb-reader-surface);');
+        expect(panel).not.toContain('transparent');
+        expect(normalizedCss).toContain('body:has(.jpdb-subtitle-list.jpdb-subtitle-transcript-bottom:not([hidden])) .jpdb-reader-fab[data-puck-rest="bottom"] { display: none !important; }');
+        expect(normalizedCss).toContain('@media (max-width: 519px) {');
+        expect(normalizedCss).toContain('body:has(.jpdb-subtitle-list:not([hidden])) .jpdb-reader-fab[data-puck-rest="bottom"] { display: none !important; }');
+        expect(normalizedCss).not.toMatch(/:not\(\[hidden\]\)\) \.jpdb-reader-fab \{/);
     });
 
     it('keeps plain overlay and transcript captions selectable while annotations are paused', () => {
@@ -609,10 +624,9 @@ describe('SubtitlePlayerController — styling & transcript panel', () => {
         }
     });
 
-    it('stamps TARGET and OUTPUT language direction across overlay, transcript, and shadow surfaces', () => {
-        expect(setActiveLearningTargetLanguage('ar')).not.toBeNull();
+    it('stamps the Japanese TARGET and an RTL OUTPUT language direction across overlay, transcript, and shadow surfaces', () => {
         const { controller } = createInstalledSubtitleController({ subtitleOverlayVisible: true, subtitleSecondaryVisible: true });
-        const cue = { start: 0, end: 2, text: 'نقرأ اليوم.', transcriptEligible: true };
+        const cue = { start: 0, end: 2, text: '今日は読む。', transcriptEligible: true };
         const secondary = { start: 0, end: 2, text: 'امروز می‌خوانیم.', transcriptEligible: false };
         const internals = controllerInternals<{
             tracks: Array<{ id: string; label: string; kind: 'file'; language: string }>;
@@ -628,10 +642,10 @@ describe('SubtitlePlayerController — styling & transcript panel', () => {
             showNativeFullscreenCueTrack: (video: HTMLVideoElement) => void;
         }>(controller);
         internals.tracks = [
-            { id: 'arabic', label: 'العربية', kind: 'file', language: 'ar' },
+            { id: 'japanese', label: '日本語', kind: 'file', language: 'ja' },
             { id: 'persian', label: 'فارسی', kind: 'file', language: 'fa' },
         ];
-        internals.selectedTrackId = 'arabic';
+        internals.selectedTrackId = 'japanese';
         internals.secondaryTrackId = 'persian';
         internals.cues = [cue];
         internals.secondaryCues = [secondary];
@@ -640,16 +654,16 @@ describe('SubtitlePlayerController — styling & transcript panel', () => {
 
         try {
             internals.render();
-            expect(document.querySelector('.jpdb-subtitle-primary')).toMatchObject({ lang: 'ar', dir: 'rtl' });
+            expect(document.querySelector('.jpdb-subtitle-primary')).toMatchObject({ lang: 'ja', dir: 'ltr' });
             expect(document.querySelector('.jpdb-subtitle-secondary')).toMatchObject({ lang: 'fa', dir: 'rtl' });
 
             internals.openLinesPanel();
-            expect(document.querySelector('.jpdb-subtitle-row-text')).toMatchObject({ lang: 'ar', dir: 'rtl' });
+            expect(document.querySelector('.jpdb-subtitle-row-text')).toMatchObject({ lang: 'ja', dir: 'ltr' });
             document.querySelector<HTMLButtonElement>('[data-action="peek-row"]')!.click();
             expect(document.querySelector('.jpdb-subtitle-row-secondary')).toMatchObject({ lang: 'fa', dir: 'rtl' });
 
             document.querySelector<HTMLButtonElement>('[data-action="panel-shadow"]')!.click();
-            expect(document.querySelector('.jpdb-subtitle-shadow-line')).toMatchObject({ lang: 'ar', dir: 'rtl' });
+            expect(document.querySelector('.jpdb-subtitle-shadow-line')).toMatchObject({ lang: 'ja', dir: 'ltr' });
             expect(document.querySelector('.jpdb-subtitle-shadow-secondary')).toMatchObject({ lang: 'fa', dir: 'rtl' });
 
             vi.stubGlobal('VTTCue', class {
@@ -662,15 +676,10 @@ describe('SubtitlePlayerController — styling & transcript panel', () => {
             Object.defineProperty(video, 'webkitDisplayingFullscreen', { configurable: true, value: true });
             internals.video = video;
             internals.showNativeFullscreenCueTrack(video);
-            expect(addTextTrack).toHaveBeenCalledWith('subtitles', 'Yomu', 'ar');
-
-            expect(setActiveLearningTargetLanguage('es')).not.toBeNull();
-            controller.refresh();
-            expect(addTextTrack).toHaveBeenLastCalledWith('subtitles', 'Yomu', 'es');
+            expect(addTextTrack).toHaveBeenCalledWith('subtitles', 'Yomu', 'ja');
         } finally {
             vi.unstubAllGlobals();
             controller.destroy();
-            resetActiveLearningTargetLanguage();
         }
     });
 
@@ -946,19 +955,17 @@ describe('SubtitlePlayerController — styling & transcript panel', () => {
         }
     });
 
-    it('names TARGET and OUTPUT uploads in Japanese UI and only offers Jimaku for Japanese', () => {
-        expect(setActiveLearningTargetLanguage('es')).not.toBeNull();
+    it('names TARGET and OUTPUT uploads in Japanese UI and offers Jimaku for Japanese', () => {
         const { controller } = createInstalledSubtitleController({ interfaceLanguage: 'ja' as const });
         try {
             controllerInternals<{ openTracksPanel: () => void }>(controller).openTracksPanel();
             const panel = document.querySelector<HTMLElement>('.jpdb-subtitle-list')!;
 
-            expect(panel.textContent).toContain('スペイン語字幕を読み込む');
+            expect(panel.textContent).toContain('日本語字幕を読み込む');
             expect(panel.textContent).toContain('英語字幕を読み込む');
-            expect(panel.querySelector('[data-jimaku-anime-search]')).toBeNull();
+            expect(panel.querySelector('[data-jimaku-anime-search]')).not.toBeNull();
         } finally {
             controller.destroy();
-            resetActiveLearningTargetLanguage();
         }
     });
 

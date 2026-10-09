@@ -1,3 +1,6 @@
+import { IDBFactory } from 'fake-indexeddb';
+import { PracticeSessions, type PracticeMaterial } from '../../../src/reader/study/practice-session';
+import { bareFallbackCardFromText } from '../../../src/reader/lookup/japanese-segments';
 import { describe, expect, it, vi } from 'vitest';
 import {
     registerNewTabReviewCleanup,
@@ -39,10 +42,6 @@ import type {
 } from './fixtures';
 import { DOCS_BASE_URL } from '../../../src/reader/app/constants';
 import { studyShellNavRoutes } from '../../../src/reader/app/site-nav';
-import {
-    resetActiveLearningTargetLanguage,
-    setActiveLearningTargetLanguage,
-} from '../../../src/reader/languages/target-runtime';
 
 describe('new tab review — dictionary fallbacks, refresh & shared-URL history', () => {
     registerNewTabReviewCleanup();
@@ -486,6 +485,91 @@ describe('new tab review — dictionary fallbacks, refresh & shared-URL history'
         }
     });
 
+    it('localizes the built-in Practice selection after a locale change without renaming user sources', async () => {
+        const settings = { interfaceLanguage: 'en' as 'en' | 'ja' };
+        const { controller, fallbackCardFromText } = newTabBuiltInFallbackFixture('auto', settings);
+        fallbackCardFromText.mockImplementation(text => bareFallbackCardFromText(text, 'ja'));
+        const view = controller as unknown as {
+            practiceSelection(): { title: string };
+            applyLoadedWordState(result: { cards: JPDBCard[]; sourceLabel: string }, filter: null): void;
+            visibleWords: JPDBCard[];
+        };
+        try {
+            await controller.renderPage();
+            expect(view.practiceSelection().title).toBe('Starter words');
+            settings.interfaceLanguage = 'ja';
+            expect(view.practiceSelection().title).toBe('入門単語');
+            view.applyLoadedWordState({ cards: view.visibleWords, sourceLabel: 'Starter words' }, null);
+            expect(view.practiceSelection().title).toBe('Starter words');
+        } finally { controller.destroy(); resetNewTabReviewStorage(); }
+    });
+
+    it('leaves timed study off for a fresh keyless default profile', async () => {
+        const { controller, fallbackCardFromText } = newTabBuiltInFallbackFixture('auto');
+        fallbackCardFromText.mockImplementation(text => bareFallbackCardFromText(text, 'ja'));
+        try {
+            await controller.renderPage();
+            expect(document.querySelector('[data-newtab-session-clock-host]')).toBeNull();
+            expect(document.querySelector('[data-study-clock="countdown"]')).toBeNull();
+            expect(document.querySelector('[data-newtab-count]')?.textContent).not.toMatch(/\d+:\d{2}|\d+\/60/);
+            expect((controller as unknown as { sessionClock: { snapshot(): { state: string } } }).sessionClock.snapshot().state).toBe('paused');
+        } finally { controller.destroy(); resetNewTabReviewStorage(); }
+    });
+
+    it('applies a chosen daily goal without overriding a manual clock pause', async () => {
+        const settings = { newTabDailyGoalMinutes: 0 };
+        const { controller, fallbackCardFromText } = newTabBuiltInFallbackFixture('auto', settings);
+        fallbackCardFromText.mockImplementation(text => bareFallbackCardFromText(text, 'ja'));
+        const clock = (controller as unknown as { sessionClock: import('../../../src/reader/newtab/session-clock').StudySessionClock }).sessionClock;
+        try {
+            await controller.renderPage();
+            expect(document.querySelector('[data-study-clock="countdown"]')).toBeNull();
+            settings.newTabDailyGoalMinutes = 30;
+            await controller.renderPage();
+            expect(document.querySelector('[data-study-clock="countdown"]')).not.toBeNull();
+            expect(clock.snapshot().state).toBe('running');
+            clock.pause();
+            settings.newTabDailyGoalMinutes = 0;
+            await controller.renderPage();
+            expect(document.querySelector('[data-study-clock="countdown"]')).toBeNull();
+            settings.newTabDailyGoalMinutes = 30;
+            await controller.renderPage();
+            expect(clock.snapshot()).toMatchObject({ state: 'paused', pausedByUser: true });
+            expect(document.querySelector('[data-study-clock-action="toggle"]')?.textContent).toBe('Resume');
+        } finally { controller.destroy(); resetNewTabReviewStorage(); }
+    });
+
+    it('opens actual single-kanji starter vocabulary as a word, not a synthetic unlock exercise', async () => {
+        const { controller, fallbackCardFromText } = newTabBuiltInFallbackFixture('auto');
+        fallbackCardFromText.mockImplementation(text => bareFallbackCardFromText(text, 'ja'));
+        const restoreCanvas = stubKanjiDoodleBrowserApis();
+        try {
+            await controller.renderPage();
+            expect(document.querySelector('.jpdb-reader-doodle-canvas')).toBeNull();
+            expect(document.querySelector('[data-newtab-prompt] [data-expression="水"]')).not.toBeNull();
+            expect(document.querySelector('[data-newtab-action="reveal"]')).not.toBeNull();
+        } finally { restoreCanvas(); controller.destroy(); resetNewTabReviewStorage(); }
+    });
+
+    it.each(['recognition', 'cloze', 'writing'] as const)('starts %s practice from the actual keyless built-in Study loader', async purpose => {
+        const { controller, publicSearch, fallbackCardFromText } = newTabBuiltInFallbackFixture('auto');
+        fallbackCardFromText.mockImplementation(text => bareFallbackCardFromText(text, 'ja'));
+        try {
+            await controller.renderPage();
+            const selection = (controller as unknown as {
+                practiceSelection(): { title: string; material: PracticeMaterial[] };
+            }).practiceSelection();
+            expect(selection.material).toHaveLength(12);
+            expect(selection.material.every(word => word.meaning && word.reading && word.sentence?.includes(word.spelling))).toBe(true);
+            const sessions = new PracticeSessions(new IDBFactory());
+            const session = await sessions.start({ purpose, ...selection });
+            expect(session.view()).toMatchObject({ status: 'ready', total: 12, ineligible: 0 });
+            expect(session.view().current?.prompt).toBeTruthy();
+            expect(publicSearch).not.toHaveBeenCalled();
+            session.close();
+        } finally { controller.destroy(); resetNewTabReviewStorage(); }
+    });
+
     it('uses built-in study words when auto has no local dictionaries installed without public JPDB fallback', async () => {
         const { controller, publicSearch, fallbackCardFromText } = newTabBuiltInFallbackFixture('auto');
         await expectBuiltInFallbackWords(controller, fallbackCardFromText);
@@ -522,7 +606,8 @@ describe('new tab review — dictionary fallbacks, refresh & shared-URL history'
             const state = controller as unknown as { visibleWords: JPDBCard[]; index: number };
             const current = state.visibleWords[state.index]!;
             expect(current).toBeDefined();
-            expect(document.querySelector('[data-newtab-prompt] .jpdb-reader-word')?.textContent).toBe(current.spelling);
+            expect(document.querySelector('[data-newtab-prompt] .jpdb-reader-word')?.getAttribute('data-expression')).toBe(current.spelling);
+            expect(document.querySelector('[data-newtab-prompt] .jpdb-reader-word')?.textContent).toContain(current.reading);
             expect(document.querySelector('.jpdb-reader-doodle-canvas')).toBeNull();
             expect(document.querySelector('[data-newtab-answer]')?.textContent).not.toBe('Looking for more kanji...');
         } finally {
@@ -1192,7 +1277,7 @@ describe('new tab review — dictionary fallbacks, refresh & shared-URL history'
         // (user-requested session timer).
         // Yomu local SRS is now the default no-account path, so first-run
         // study stays unblocked without a provider-connection nudge.
-        expect(root.querySelector('[data-newtab-count]')?.textContent).toMatch(/^\d\d:\d\d · 0\/60 min/);
+        expect(root.querySelector('[data-newtab-count]')?.textContent).toBe('');
         expect(root.querySelector('[data-newtab-count] .jpdb-reader-newtab-connect-cta')).toBeNull();
         sessionStorage.removeItem('jpdb-reader-newtab-current-word');
     });
@@ -1357,39 +1442,6 @@ describe('new tab review — dictionary fallbacks, refresh & shared-URL history'
             expect(lookupStudyCard).not.toHaveBeenCalled();
         } finally {
             root.remove();
-        }
-    });
-
-    it('does not turn a target-change lookup rejection into an ambient portable fallback card', async () => {
-        localStorage.removeItem('jpdb-reader-newtab-ui');
-        window.history.replaceState(null, '', `/newtab/index.html#card=${encodeURIComponent('999:1:図鑑:ずかん')}&w=${encodeURIComponent('図鑑')}&r=${encodeURIComponent('ずかん')}`);
-        const queued = newTabTestCard({ vid: 1, spelling: '読む', reading: 'よむ', source: 'jpdb', reviewSource: 'jpdb-api' });
-        let rejectLookup!: (error: Error) => void;
-        const lookupPromise = new Promise<JPDBCard | null>((_resolve, reject) => { rejectLookup = reject; });
-        const lookupStudyCard = vi.fn(() => lookupPromise);
-        const fallbackCardFromText = vi.fn(() => newTabTestCard({ spelling: '図鑑', reading: 'ずかん', source: 'fallback' }));
-        const controller = newTabBareController(() => ({ ...DEFAULT_SETTINGS, newTabSource: 'jpdb', immersionKitEnabled: false }), {
-            lookupStudyCard,
-            parser: {
-                cacheCards: vi.fn(),
-                fallbackCardFromText,
-            } as never,
-        });
-        const internals = controller as unknown as {
-            withPortableUrlCard(cards: JPDBCard[]): Promise<JPDBCard[]>;
-        };
-
-        try {
-            const resolved = internals.withPortableUrlCard([queued]);
-            await waitForExpect(() => expect(lookupStudyCard).toHaveBeenCalledWith('図鑑', 'ずかん'));
-            expect(setActiveLearningTargetLanguage('ko')).not.toBeNull();
-            expect(setActiveLearningTargetLanguage('ja')).not.toBeNull();
-            rejectLookup(new Error('target changed'));
-
-            await expect(resolved).resolves.toEqual([queued]);
-            expect(fallbackCardFromText).not.toHaveBeenCalled();
-        } finally {
-            resetActiveLearningTargetLanguage();
         }
     });
 

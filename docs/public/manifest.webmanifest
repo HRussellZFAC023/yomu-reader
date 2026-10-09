@@ -1,13 +1,13 @@
 {
-  "name": "よむ Language Reader",
+  "name": "よむ Japanese Reader",
   "short_name": "よむ",
-  "description": "Read web pages, manga, PDFs, subtitles, and study cards in your selected learning language with one よむ reader shell.",
+  "description": "Read Japanese web pages, manga, PDFs and subtitles, and review the words you save, with one よむ reader shell.",
   "id": "/",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
   "background_color": "#ffffff",
-  "theme_color": "#5ea780",
+  "theme_color": "#ffffff",
   "icons": [
     {
       "src": "/favicon-16x16.png",
@@ -53,7 +53,7 @@
     {
       "name": "Install Guide",
       "short_name": "Install",
-      "url": "/getting-started",
+      "url": "/learn/#install-yomu",
       "icons": [{ "src": "/favicon-32x32.png", "sizes": "32x32", "type": "image/png" }]
     }
   ]

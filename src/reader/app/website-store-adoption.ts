@@ -11,16 +11,17 @@ import { localStorageGet } from './storage-local-values';
 
 // Website-only Store: what a visitor saved on a Yomu website before installing
 // the Reader (settings, local cards, progress). As in v1.9.3, a freshly
-// installed Reader adopts it: only while the installed store has no settings
-// or settings that say no learning target was chosen, only keys the installed
-// store lacks, and only records this epoch wrote. Settings and their intent
-// ledger are one unit: they are adopted only into a store holding neither.
-// Nothing is merged back into the website.
+// installed Reader adopts it: only while the installed store holds no
+// learner choice (no settings, no recorded settings intent, or the explicit
+// `learningTargetChosen: false` builds before 2.1 wrote), only keys the
+// installed store lacks, and only records this epoch wrote. Settings and their
+// intent ledger are one unit: they are adopted only into a store holding
+// neither. Nothing is merged back into the website.
 
 const SETTINGS_KEY = 'jpdb-popup-reader-settings';
 const INTENT_LEDGER_KEY = 'yomu:settings-intent:v2';
 const LOCAL_SRS_V2_INDEX_KEY = 'yomu:srs-local:v2:index';
-// Settings publish last, so an interrupted adoption keeps the store unchosen and resumes.
+// Settings publish last, so an interrupted adoption keeps the store fresh and resumes.
 const LAST_KEYS = [LOCAL_SRS_V2_INDEX_KEY, 'yomu:prefer-japanese-site-language:v1', INTENT_LEDGER_KEY, SETTINGS_KEY];
 const COORDINATION_FIELDS = ['__yomuSettingsPersistenceTransactionV1', '__yomuSettingsPersistenceCommitV1'];
 const HOSTED_PATCH_FIELD = '__yomuHostedPendingGmPatch';
@@ -36,7 +37,7 @@ export function websiteOnlyValuePresent(key: string, epoch: ManagedStateEpoch): 
     return isHostedYomuOrigin() && isWebsiteStoreKey(key) && localMirrorBelongsToEpoch(key, epoch);
 }
 
-/** Adopt the Website-only Store into an unchosen installed store. */
+/** Adopt the Website-only Store into a fresh installed store. */
 export function adoptWebsiteOnlyStore(getValue: GmGetValue, epoch: ManagedStateEpoch, write: Write): Promise<void> {
     const token = managedStateEpochToken(epoch);
     if (adoption?.token === token) return adoption.done;
@@ -50,9 +51,9 @@ export function adoptWebsiteOnlyStore(getValue: GmGetValue, epoch: ManagedStateE
 async function runAdoption(getValue: GmGetValue, epoch: ManagedStateEpoch, write: Write): Promise<void> {
     if (!isHostedYomuOrigin()) return;
     const installed = await readManagedGmValue<unknown>(getValue, SETTINGS_KEY, epoch);
-    if (installed.kind === 'found' && !saysNoTargetChosen(installed.value)) return;
-    const settingsUnitAbsent = installed.kind === 'missing'
-        && (await readManagedGmValue<unknown>(getValue, INTENT_LEDGER_KEY, epoch)).kind === 'missing';
+    const ledger = await readManagedGmValue<unknown>(getValue, INTENT_LEDGER_KEY, epoch);
+    if (installed.kind === 'found' && !saysNoTargetChosen(installed.value) && recordsChoices(ledger)) return;
+    const settingsUnitAbsent = installed.kind === 'missing' && ledger.kind === 'missing';
     for (const key of websiteOnlyKeys(epoch)) {
         if (isSettingsAuthorityStorageKey(key) && !settingsUnitAbsent) continue;
         if ((await readManagedGmValue<unknown>(getValue, key, epoch)).kind !== 'missing') continue;
@@ -96,8 +97,14 @@ function withoutFields(record: Record<string, unknown>, fields: readonly string[
     return copy;
 }
 
-// Only an explicit `false` lets website records in. A record without the flag
-// predates it; it is left alone rather than judged, so nothing is merged into it.
+// Builds before 2.1 stamped an untouched install `learningTargetChosen: false`.
 function saysNoTargetChosen(settings: unknown): boolean {
     return isRecord(settings) && settings.learningTargetChosen === false;
+}
+
+// A learner who changed any setting has an intent record; a fresh install has none.
+function recordsChoices(ledger: { kind: string; value?: unknown }): boolean {
+    if (ledger.kind !== 'found' || !isRecord(ledger.value)) return false;
+    const records = ledger.value.records;
+    return isRecord(records) && Object.keys(records).length > 0;
 }

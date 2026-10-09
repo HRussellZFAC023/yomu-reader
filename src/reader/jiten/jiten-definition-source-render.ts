@@ -8,6 +8,7 @@ import type { JitenVocabularyDefinition, JitenVocabularyExample, JitenVocabulary
 import { renderProviderExamples, type ProviderExampleView } from '../sources/provider-examples';
 import { renderAnnotatedReadingRuby, renderPassiveReference } from '../sources/passive-reference';
 import { privateCommandAttributes, type CardCommandCapability } from '../dom/private-command-capabilities';
+import { renderMoreDisclosure, VISIBLE_SENSE_COUNT } from '../sources/more-disclosure';
 
 type SourceAttributes = (sourceStateKey: string, initiallyExpanded?: boolean) => string;
 interface JitenMeaningGroup {
@@ -37,13 +38,13 @@ export function renderJitenDefinitionSource(
     language: InterfaceLanguage = 'en',
     title = 'Jiten',
 ): string {
-    const meanings = jitenDefinitionMeanings(card, info);
+    const meanings = jitenDefinitionMeanings(card, info, language);
     const extras = renderJitenVocabularyExtras(info, sourceAttributes, language, card);
     if (info && !meanings && !extras) return '';
     const hasDetails = Boolean(meanings || extras);
     if (!hasDetails) return '';
     const headword = renderJitenDefinitionHeadword(card, info);
-    const body = `${headword}${meanings ? `<div class="jpdb-reader-meanings" data-definition-translation-text>${meanings}</div>` : ''}${extras}`;
+    const body = `${headword}${meanings ? `<div class="jpdb-reader-meanings">${meanings}</div>` : ''}${extras}`;
     if (!body.trim()) return '';
     return `
         <details class="jpdb-reader-local jpdb-reader-source-card" data-source="jiten" ${cardHighlightScopeAttributes(card)} ${sourceAttributes(definitionSourceStateKey(JITEN_DEFINITION_SOURCE_ID), true)}>
@@ -55,7 +56,9 @@ export function renderJitenDefinitionSource(
 
 function renderJitenDefinitionHeadword(card: JPDBCard, info: JitenVocabularyInfo | null): string {
     const reference = jitenDefinitionHeadwordReference(card, info);
-    if (!reference) return '';
+    // The popup header already shows this word and reading; repeat it only
+    // when Jiten's entry is a different spelling or reading.
+    if (!reference || repeatsLookupHeadword(reference, card)) return '';
     // mainReading.text is furigana-annotated (e.g. "以[い]前[ぜん]"); pass it so
     // the ruby is distributed per kanji instead of the bracket form leaking
     // into the base text under the reading.
@@ -75,21 +78,30 @@ function jitenDefinitionHeadwordReference(card: JPDBCard, info: JitenVocabularyI
     };
 }
 
-function jitenDefinitionMeanings(card: JPDBCard, info: JitenVocabularyInfo | null): string {
+function repeatsLookupHeadword(reference: JitenTextReference, card: JPDBCard): boolean {
+    return reference.text === card.spelling && (!card.reading || reference.reading === card.reading);
+}
+
+// The first part-of-speech group's first senses stay visible; every later
+// sense waits behind one "More meanings" disclosure.
+function jitenDefinitionMeanings(card: JPDBCard, info: JitenVocabularyInfo | null, language: InterfaceLanguage): string {
     const groups = jitenDefinitionMeaningGroups(card, info);
     const references = jitenDefinitionTextReferences(card, info);
-    let visibleIndex = 0;
-    return groups.map(group => {
-        const meanings = group.meanings.slice(0, 10).map(meaning => {
-            visibleIndex += 1;
-            return `<div class="jpdb-reader-meaning jpdb-reader-jiten-meaning">
-                ${groups.length > 1 || group.meanings.length > 1 ? `<span class="jpdb-reader-local-sense-index">${visibleIndex}</span>` : ''}
-                <span>${renderJitenTextWithReferences(meaning, references)}</span>
-            </div>`;
-        }).join('');
-        if (!meanings) return '';
-        return `<div class="jpdb-reader-jiten-meaning-group">${meanings}</div>`;
-    }).join('');
+    const numbered = groups.length > 1 || (groups[0]?.meanings.length ?? 0) > 1;
+    let senseNumber = 0;
+    const renderedGroups = groups.map(group => group.meanings.slice(0, 10).map(meaning => {
+        senseNumber += 1;
+        return `<div class="jpdb-reader-meaning jpdb-reader-jiten-meaning">
+            ${numbered ? `<span class="jpdb-reader-local-sense-index">${senseNumber}</span>` : ''}
+            <span>${renderJitenTextWithReferences(meaning, references)}</span>
+        </div>`;
+    })).filter(senses => senses.length);
+    const [first = [], ...rest] = renderedGroups;
+    const hidden = [first.slice(VISIBLE_SENSE_COUNT), ...rest].filter(senses => senses.length);
+    const hiddenCount = hidden.reduce((count, senses) => count + senses.length, 0);
+    const group = (senses: string[]): string => `<div class="jpdb-reader-jiten-meaning-group">${senses.join('')}</div>`;
+    if (hiddenCount <= 1) return renderedGroups.map(group).join('');
+    return `${group(first.slice(0, VISIBLE_SENSE_COUNT))}${renderMoreDisclosure(hidden.map(group).join(''), uiText(language, 'moreMeanings'))}`;
 }
 
 function jitenDefinitionMeaningGroups(card: JPDBCard, info: JitenVocabularyInfo | null): JitenMeaningGroup[] {
@@ -152,12 +164,9 @@ function dedupeText(values: string[]): string[] {
 
 function renderJitenVocabularyExtras(info: JitenVocabularyInfo | null, sourceAttributes: SourceAttributes, language: InterfaceLanguage, card: CardHighlightTarget): string {
     if (!info || (!info.composedOf.length && !info.usedIn.length && !info.examples.length)) return '';
-    return `<div class="jpdb-reader-jpdb-extras jpdb-reader-jiten-extras">${renderJitenRelatedWords(info.composedOf, 'jitenCompositeWords', `${JITEN_DEFINITION_SOURCE_ID}:composite`, sourceAttributes, language)}${renderJitenUsedIn(info, sourceAttributes, language)}${renderJitenExamples(info.examples, sourceAttributes, language, card, info)}</div>`;
-}
-
-function renderJitenUsedIn(info: JitenVocabularyInfo, sourceAttributes: SourceAttributes, language: InterfaceLanguage): string {
-    const status = info.usedInTotal > info.usedIn.length ? `${info.usedIn.length}/${info.usedInTotal}` : String(info.usedIn.length);
-    return info.usedIn.length ? renderJitenRelatedWords(info.usedIn, 'usedInVocabulary', `${JITEN_DEFINITION_SOURCE_ID}:used-in-vocabulary`, sourceAttributes, language, status) : '';
+    // An example sentence comes straight after the meaning; related-word lists
+    // follow, collapsed and without counts.
+    return `<div class="jpdb-reader-jpdb-extras jpdb-reader-jiten-extras">${renderJitenExamples(info.examples, sourceAttributes, language, card, info)}${renderJitenRelatedWords(info.composedOf, 'jitenCompositeWords', `${JITEN_DEFINITION_SOURCE_ID}:composite`, sourceAttributes, language)}${renderJitenRelatedWords(info.usedIn, 'usedInVocabulary', `${JITEN_DEFINITION_SOURCE_ID}:used-in-vocabulary`, sourceAttributes, language)}</div>`;
 }
 
 function renderJitenRelatedWords(
@@ -166,14 +175,12 @@ function renderJitenRelatedWords(
     stateKey: string,
     sourceAttributes: SourceAttributes,
     language: InterfaceLanguage,
-    status = String(entries.length),
 ): string {
     if (!entries.length) return '';
     return `
-        <details class="jpdb-reader-local-entry jpdb-reader-dictionary-group jpdb-reader-jpdb-used-in-group jpdb-reader-jiten-related-group" ${sourceAttributes(definitionSourceStateKey(stateKey))}>
+        <details class="jpdb-reader-local-entry jpdb-reader-dictionary-group jpdb-reader-jpdb-used-in-group jpdb-reader-jiten-related-group" ${sourceAttributes(definitionSourceStateKey(stateKey), false)}>
             <summary class="jpdb-reader-local-title jpdb-reader-example-summary">
                 <span class="jpdb-reader-example-source">${escapeHtml(uiText(language, titleKey))}</span>
-                <span class="jpdb-reader-source-status jpdb-reader-example-count">${escapeHtml(status)}</span>
             </summary>
             <div class="jpdb-reader-local-glossary">
                 <ul class="jpdb-reader-jpdb-used-in jpdb-reader-jiten-related-words">

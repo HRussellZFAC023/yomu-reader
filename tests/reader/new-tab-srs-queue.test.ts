@@ -1,13 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { JPDBCard, ReaderSettings } from '../../src/reader/app/types';
-import {
-    resetActiveLearningTargetLanguage,
-    setActiveLearningTargetLanguage,
-} from '../../src/reader/languages/active';
 import { NewTabController, selectNewTabStudyPool } from '../../src/reader/newtab/controller';
 import { newTabCardFromSrsReviewable } from '../../src/reader/newtab/srs-card-adapter';
-import { newTabCardTarget } from '../../src/reader/newtab/study-queue';
 import { DEFAULT_SETTINGS } from '../../src/reader/settings';
 import { rebuildReaderDeckEventStream } from '../../src/reader/srs/account-sync';
 import { createYomuLocalSrsAdapter, LocalYomuSrsRepository } from '../../src/reader/srs/local-yomu';
@@ -212,24 +207,24 @@ describe('Academy Reader Study queue selection', () => {
     });
 });
 
-describe('multilingual Academy Reader Study loop', () => {
+describe('Japanese-only Academy Reader Study loop', () => {
     let mountedController: NewTabController | undefined;
 
     beforeEach(() => {
         localStorage.clear();
         sessionStorage.clear();
         document.body.replaceChildren();
-        expect(setActiveLearningTargetLanguage('es')).not.toBeNull();
     });
 
     afterEach(() => {
         mountedController?.destroy();
         mountedController = undefined;
-        resetActiveLearningTargetLanguage();
         document.body.replaceChildren();
     });
 
-    it('queues, clozes, grades, syncs, and reloads one exact Spanish card identity', async () => {
+    // Study lists Japanese cards only. A card an earlier Yomu stored for
+    // another language stays in the deck untouched; it is simply not listed.
+    it('queues and grades the Japanese card of a mixed deck and leaves a stored Spanish card untouched', async () => {
         const now = 1_000_000;
         const repository = new LocalYomuSrsRepository(() => now);
         await repository.importBatch({
@@ -258,16 +253,15 @@ describe('multilingual Academy Reader Study loop', () => {
         });
         const unscoped = await repository.queue(2);
         expect(unscoped.cards.map(card => card.expression)).toEqual(['読む', 'agua']);
+        const spanishKey = canonicalStudyCardKey('agua', 'agua', { partOfSpeech: 'noun', language: 'es' });
+        expect(spanishKey).toBe('agua\u0000agua\u0000noun\u0000es');
+        const japaneseKey = canonicalStudyCardKey('読む', 'よむ', { partOfSpeech: 'verb', language: 'ja' });
+        expect(japaneseKey).toBe('読む\u0000よむ\u0000verb');
+        const storedSpanish = (await repository.snapshot()).cards[spanishKey];
+        expect(storedSpanish).toMatchObject({ expression: 'agua', language: 'es' });
 
         const adapter = createYomuLocalSrsAdapter(repository);
-        const controller = controllerWithAdapters({
-            newTabSource: 'yomu-local',
-
-
-
-        }, {
-            'yomu-local': adapter,
-        });
+        const controller = controllerWithAdapters({ newTabSource: 'yomu-local' }, { 'yomu-local': adapter });
         mountedController = controller;
         const internals = controller as unknown as {
             allWords: JPDBCard[];
@@ -277,7 +271,6 @@ describe('multilingual Academy Reader Study loop', () => {
             renderEnabledContent(): DocumentFragment;
             renderWord(root: HTMLElement, card: JPDBCard): void;
             bindRootEvents(root: HTMLElement): void;
-            setStudyStepOverrideForCurrentCard(id: string): void;
             loadSrsAdapterWords(source: 'yomu-local', limit?: number): Promise<{ cards: JPDBCard[] }>;
             gradeCurrentCard(grade: 'pass'): Promise<boolean>;
         };
@@ -288,65 +281,27 @@ describe('multilingual Academy Reader Study loop', () => {
         document.body.append(root);
         internals.bindRootEvents(root);
 
-        expect.soft(selectNewTabStudyPool(unscoped.cards.map(card => newTabCardFromSrsReviewable(card)!))
-                .map(cardLanguage)).toEqual(['es']);
-            const loaded = await internals.loadSrsAdapterWords('yomu-local', 1);
-            expect.soft(loaded.cards.map(card => card.spelling)).toEqual(['agua']);
-            const spanishReviewable = unscoped.cards.find(card => card.language === 'es')!;
-            const spanish = newTabCardFromSrsReviewable(spanishReviewable)!;
-            internals.allWords = [spanish];
-            internals.visibleWords = [spanish];
-            internals.sourceLabel = 'Academy';
-            internals.reviewCountMode = true;
-            internals.setStudyStepOverrideForCurrentCard('recall-cloze');
-            internals.renderWord(root, spanish);
+        expect(selectNewTabStudyPool(unscoped.cards.map(card => newTabCardFromSrsReviewable(card)!))
+            .map(cardLanguage)).toEqual(['ja']);
+        const loaded = await internals.loadSrsAdapterWords('yomu-local', 2);
+        expect(loaded.cards.map(card => card.spelling)).toEqual(['読む']);
 
-            const study = root.querySelector<HTMLElement>('[data-newtab-study]')!;
-            const prompt = root.querySelector<HTMLElement>('[data-newtab-prompt]')!;
-            expect.soft(study.dataset.newtabStudyFlow?.split(' ')).toEqual(['word', 'final-reveal']);
-            expect.soft(study.dataset.newtabActivity).toBe('practice');
-            expect.soft(study.dataset.newtabStudyStep).toBe('recall-cloze');
-            expect.soft(prompt.lang).toBe('es');
-            expect.soft(prompt.textContent).toContain('Bebo ');
-            expect.soft(prompt.textContent).toContain('.');
-            expect.soft(prompt.textContent).not.toContain('agua');
-            expect.soft(prompt.querySelector('.jpdb-reader-newtab-recall-gap')).not.toBeNull();
-            expect.soft(study.querySelector('[data-study-step-kind="listen-pitch"]')).toBeNull();
-            expect.soft(study.querySelector('[data-study-step-kind="speaking"]')).toBeNull();
-            // Listen/Speak are pitch drills and this card has no pitch contour;
-            // that is not an audio capability gap because Spanish owns TTS.
-            const spanishTarget = newTabCardTarget(spanish);
-            expect.soft(spanishTarget.capabilities.audio).toBe(true);
-            expect.soft(spanishTarget.experiences.audio).toBe('speech-synthesis');
-            expect.soft(spanishTarget.audio.recordedWordAudio).toBe(false);
-            expect.soft(study.querySelector('[data-study-unavailable-modes]')).toBeNull();
+        const japanese = loaded.cards[0]!;
+        internals.allWords = [japanese];
+        internals.visibleWords = [japanese];
+        internals.sourceLabel = 'Academy';
+        internals.reviewCountMode = true;
+        internals.renderWord(root, japanese);
+        expect(root.querySelector<HTMLElement>('[data-newtab-prompt]')?.lang).toBe('ja');
+        root.querySelector<HTMLButtonElement>('[data-newtab-controls] [data-newtab-action="reveal"]')!.click();
+        expect(await internals.gradeCurrentCard('pass')).toBe(true);
 
-            const beforePracticeGrade = await repository.snapshot();
-            expect(await internals.gradeCurrentCard('pass')).toBe(false);
-            expect(await repository.snapshot()).toEqual(beforePracticeGrade);
-            root.querySelector<HTMLButtonElement>('[data-newtab-action="return-to-review"]')!.click();
-            root.querySelector<HTMLButtonElement>('[data-newtab-controls] [data-newtab-action="reveal"]')!.click();
-            expect(await internals.gradeCurrentCard('pass')).toBe(true);
-
-            const exactKey = canonicalStudyCardKey('agua', 'agua', { partOfSpeech: 'noun', language: 'es' });
-            expect(exactKey).toBe('agua\u0000agua\u0000noun\u0000es');
-            const reloaded = new LocalYomuSrsRepository(() => now);
-            const snapshot = await reloaded.snapshot();
-            const spanishKeys = Object.keys(snapshot.cards).filter(key => snapshot.cards[key]?.language === 'es');
-            expect.soft(spanishKeys).toEqual([exactKey]);
-            expect.soft(snapshot.cards[exactKey]).toMatchObject({
-                id: exactKey,
-                expression: 'agua',
-                reading: 'agua',
-                partOfSpeech: 'noun',
-                language: 'es',
-                reviews: 1,
-                intervalDays: 2,
-            });
-            expect.soft(snapshot.cards[canonicalStudyCardKey('agua', 'agua', { language: 'es' })]).toBeUndefined();
-            expect.soft((await reloaded.queue(1, { language: 'es' })).cards).toEqual([]);
-
-            const eventStream = Object.values(snapshot.cards).map(card => ({ version: 1, kind: 'card', card }));
-            expect.soft(rebuildReaderDeckEventStream(eventStream)).toEqual(snapshot);
+        const snapshot = await new LocalYomuSrsRepository(() => now).snapshot();
+        expect(Object.keys(snapshot.cards).sort()).toEqual([spanishKey, japaneseKey].sort());
+        expect(snapshot.cards[japaneseKey]).toMatchObject({ id: japaneseKey, expression: '読む', reviews: 1 });
+        expect(snapshot.cards[japaneseKey]?.language).toBeUndefined();
+        expect(snapshot.cards[spanishKey]).toEqual(storedSpanish);
+        const eventStream = Object.values(snapshot.cards).map(card => ({ version: 1, kind: 'card', card }));
+        expect(rebuildReaderDeckEventStream(eventStream)).toEqual(snapshot);
     });
 });

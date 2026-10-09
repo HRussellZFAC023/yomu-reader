@@ -515,9 +515,12 @@ function syncProjectedReadingStyle(record: ProjectionRecord): void {
     setImportantStyleIfChanged(clone, 'font-family', sourceStyle.fontFamily || baseStyle.fontFamily);
     setImportantStyleIfChanged(clone, 'font-size', sourceStyle.fontSize || '10px');
     setImportantStyleIfChanged(clone, 'font-style', sourceStyle.fontStyle || baseStyle.fontStyle);
-    setImportantStyleIfChanged(clone, 'font-weight', sourceStyle.fontWeight || '700');
+    setImportantStyleIfChanged(clone, 'font-weight', sourceStyle.fontWeight || '400');
     setImportantStyleIfChanged(clone, 'letter-spacing', sourceStyle.letterSpacing || baseStyle.letterSpacing);
-    setImportantStyleIfChanged(clone, 'color', baseStyle.color || sourceStyle.color || 'currentColor');
+    // The source reading resolves the page's one reading colour
+    // (--jpdb-reader-furi-color), so a projected reading over a link matches
+    // every in-flow reading instead of taking the link's colour.
+    setImportantStyleIfChanged(clone, 'color', sourceStyle.color || baseStyle.color || 'currentColor');
     setImportantStyleIfChanged(clone, 'text-shadow', baseStyle.textShadow || 'none');
     // Only the kana and their size decide how wide the reading wants to be, so
     // the measured natural width survives every other repaint.

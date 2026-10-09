@@ -724,18 +724,27 @@ describe('reader raster OCR surfaces', { timeout: 20_000 }, () => {
                 const status = document.querySelector<HTMLElement>('.jpdb-ocr-video-frame-status');
                 expect(status).not.toBeNull();
                 expect(status!.dataset.status).toBe('empty');
-                expect(status!.classList.contains('jpdb-ocr-canvas-status')).toBe(true);
-                // Dead-end fix: the empty pill must visibly advertise the retry
-                // click, not just via title/aria (Discord: BookWalker "text not
-                // detected" forced page reloads).
+                // Empty reader pages retain an accessible retry icon even
+                // though scanning/ready labels no longer occupy the page.
                 expect(status!.dataset.yomuOcrRetry).toBe('true');
-                expect(status!.textContent).toContain('No text found');
-                expect(status!.textContent).toContain('Scan again');
+                expect(status!.getAttribute('aria-label')).toBe('No text found. Scan again');
+                expect(status!.getAttribute('role')).toBe('button');
+                expect(status!.tabIndex).toBe(0);
+                expect(status!.querySelector('svg')).not.toBeNull();
+                expect(status!.textContent).toBe('');
             }, 5_000);
             const contentKey = frame!.dataset.ocrContentKey!;
             const internals = controller as unknown as { cache: Map<string, OcrResult | null> };
             expect(contentKey).toMatch(/^cv:/);
             expect(internals.cache.get(ocrTargetCacheKey(contentKey))).toBeNull();
+            const originalFrame = frame;
+            document.querySelector<HTMLElement>('.jpdb-ocr-video-frame-status')!
+                .dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+            await waitForExpect(() => {
+                const retriedFrame = document.querySelector('.jpdb-ocr-canvas-frame');
+                expect(retriedFrame).not.toBeNull();
+                expect(retriedFrame).not.toBe(originalFrame);
+            });
         } finally {
             window.clearInterval(decodeFrames);
             controller.destroy();
@@ -800,7 +809,7 @@ describe('reader raster OCR surfaces', { timeout: 20_000 }, () => {
         document.body.append(viewport);
 
         const controller = createController(
-            { ocrInvertDarkPanels: false, audioTimeoutMs: 120 },
+            { ocrInvertDarkPanels: false, },
             undefined, undefined, undefined, undefined, undefined,
             { ocrAttemptTimeoutFloorMs: 120 },
         );
@@ -836,7 +845,7 @@ describe('reader raster OCR surfaces', { timeout: 20_000 }, () => {
         document.body.append(viewport);
 
         const controller = createController(
-            { audioTimeoutMs: 120 },
+            { },
             undefined, undefined, undefined, undefined, undefined,
             { ocrAttemptTimeoutFloorMs: 120 },
         );
@@ -862,7 +871,7 @@ describe('reader raster OCR surfaces', { timeout: 20_000 }, () => {
         }
     });
 
-    it('lets a scan slower than the audio timeout finish instead of failing it (iPad-slow provider)', async () => {
+    it('lets a delayed OCR response finish within the scan budget', async () => {
         stubLocation('viewer.bookwalker.jp');
         stubReadableCanvas();
         pageCounter('5/13');
@@ -871,9 +880,8 @@ describe('reader raster OCR surfaces', { timeout: 20_000 }, () => {
         viewport.append(pageCanvas(24, 20));
         document.body.append(viewport);
 
-        // audioTimeoutMs is an audio-sized budget (6s default, 50ms here); a slow
-        // userscript bridge routinely needs longer than that for one healthy scan.
-        const controller = createController({ audioTimeoutMs: 50 });
+        // A delayed native-messaging response is still a healthy scan.
+        const controller = createController();
         const recognizeImage = vi.fn(() => new Promise<OcrResult | null>(resolve => {
             setTimeout(() => resolve({ width: 1200, height: 1600, lines: [
                 { text: '再スキャン', box: { left: 144, top: 288, width: 552, height: 128 }, vertical: false },
@@ -1279,7 +1287,7 @@ describe('reader raster OCR surfaces', { timeout: 20_000 }, () => {
         }
     }, 16_000);
 
-    it('keeps the BookWalker canvas ready pill visible while the OCR frame is alive', async () => {
+    it('fades the BookWalker ready indicator while retaining the OCR frame and status ownership', async () => {
         stubLocation('viewer.bookwalker.jp');
         stubTaintedCanvas();
         pageCounter('13 / 195');
@@ -1308,14 +1316,18 @@ describe('reader raster OCR surfaces', { timeout: 20_000 }, () => {
             await waitForExpect(() => {
                 const status = document.querySelector<HTMLElement>('.jpdb-ocr-video-frame-status');
                 expect(status?.dataset.status).toBe('ready');
-                expect(status?.textContent).toContain('Text ready');
+                expect(status?.textContent).toBe('');
+                expect(status?.dataset.yomuOcrRetry).toBeUndefined();
             });
             await new Promise(resolve => setTimeout(resolve, 1600));
 
             const status = document.querySelector<HTMLElement>('.jpdb-ocr-video-frame-status');
             expect(status?.dataset.status).toBe('ready');
-            expect(status?.classList.contains('jpdb-ocr-video-frame-status-fade-out')).toBe(false);
-            expect(status?.textContent).toContain('Text ready');
+            expect(status?.classList.contains('jpdb-ocr-video-frame-status-fade-out')).toBe(true);
+            expect(status?.textContent).toBe('');
+            expect(document.querySelector('.jpdb-ocr-canvas-frame')).toBe(frame);
+            expect(document.querySelector('.jpdb-ocr-line')).not.toBeNull();
+            expect(document.querySelector('.jpdb-ocr-status-announcer')?.textContent).toBe('Text ready');
         } finally {
             controller.destroy();
         }
@@ -1644,7 +1656,7 @@ describe('reader raster OCR surfaces', { timeout: 20_000 }, () => {
         }
     });
 
-    it('retries the current BookWalker page when the reader status pill is clicked', async () => {
+    it('recaptures the current BookWalker page through the explicit scan action after a successful read', async () => {
         stubLocation('viewer.bookwalker.jp');
         stubReadableCanvas();
         stubCanvasDataUrl('data:image/jpeg;base64,VISIBLE_CROP');
@@ -1690,11 +1702,10 @@ describe('reader raster OCR surfaces', { timeout: 20_000 }, () => {
                 expect(staleLine?.textContent).toBe('');
                 const status = document.querySelector<HTMLElement>('.jpdb-ocr-video-frame-status');
                 expect(status?.dataset.status).toBe('ready');
-                expect(status?.dataset.yomuOcrRetry).toBe('true');
+                expect(status?.dataset.yomuOcrRetry).toBeUndefined();
             });
 
-            document.querySelector<HTMLElement>('.jpdb-ocr-video-frame-status')!
-                .dispatchEvent(new MouseEvent('click', { bubbles: true }));
+            await controller.scanVisible();
 
             let secondFrame: HTMLImageElement | null = null;
             await waitForExpect(() => {
@@ -3327,7 +3338,7 @@ describe('reader raster OCR surfaces', { timeout: 20_000 }, () => {
         try {
             await waitForExpect(() => {
                 expect(captureCanvasMirror).toHaveBeenCalledTimes(3);
-                expect(document.querySelector<HTMLElement>('.jpdb-ocr-canvas-status')?.dataset.status).toBe('failed');
+                expect(document.querySelector<HTMLElement>('.jpdb-ocr-video-frame-status')?.dataset.status).toBe('failed');
             });
 
             await new Promise(resolve => window.setTimeout(resolve, 1350));
@@ -3410,18 +3421,18 @@ describe('reader raster OCR surfaces', { timeout: 20_000 }, () => {
         try {
             await waitForExpect(() => {
                 expect(captureCanvasMirror).toHaveBeenCalledTimes(3);
-                expect(document.querySelector<HTMLElement>('.jpdb-ocr-canvas-status')?.dataset.status).toBe('failed');
+                expect(document.querySelector<HTMLElement>('.jpdb-ocr-video-frame-status')?.dataset.status).toBe('failed');
             });
 
             const internals = controller as unknown as { positionCanvasFrames(): void };
             rect = new DOMRect(32, 900, 400, 520);
             internals.positionCanvasFrames();
-            expect(document.querySelector('.jpdb-ocr-canvas-status')).toBeNull();
+            expect(document.querySelector('.jpdb-ocr-video-frame-status')).toBeNull();
 
             rect = new DOMRect(32, 40, 400, 520);
             controller.refresh();
             await waitForExpect(() => {
-                expect(document.querySelector<HTMLElement>('.jpdb-ocr-canvas-status')?.dataset.status).toBe('failed');
+                expect(document.querySelector<HTMLElement>('.jpdb-ocr-video-frame-status')?.dataset.status).toBe('failed');
             });
             expect(captureCanvasMirror).toHaveBeenCalledTimes(3);
 
@@ -3487,7 +3498,7 @@ describe('reader raster OCR surfaces', { timeout: 20_000 }, () => {
         const controller = createController({}, async () => undefined, captureCanvasMirror);
         try {
             await vi.advanceTimersByTimeAsync(4_000);
-            expect(document.querySelector<HTMLElement>('.jpdb-ocr-canvas-status')?.dataset.status).toBe('loading');
+            expect(document.querySelector<HTMLElement>('.jpdb-ocr-video-frame-status')?.dataset.status).toBe('loading');
             expect(captureCanvasMirror.mock.calls.length).toBeLessThanOrEqual(7);
 
             document.documentElement.setAttribute('data-yomu-mirror-recorder', '1');
@@ -3500,7 +3511,7 @@ describe('reader raster OCR surfaces', { timeout: 20_000 }, () => {
             expect(frame?.getAttribute('src')).toBe('data:image/jpeg;base64,RECORDER_READY');
             frame?.dispatchEvent(new Event('load'));
             await vi.advanceTimersByTimeAsync(0);
-            expect(document.querySelector<HTMLElement>('.jpdb-ocr-canvas-status')?.dataset.status).not.toBe('failed');
+            expect(document.querySelector<HTMLElement>('.jpdb-ocr-video-frame-status')?.dataset.status).not.toBe('failed');
         } finally {
             controller.destroy();
             vi.useRealTimers();
@@ -3569,10 +3580,10 @@ describe('reader raster OCR surfaces', { timeout: 20_000 }, () => {
         const controller = createController({}, async () => undefined, captureCanvasMirror);
         try {
             await vi.advanceTimersByTimeAsync(14_000);
-            expect(document.querySelector<HTMLElement>('.jpdb-ocr-canvas-status')?.dataset.status).toBe('loading');
+            expect(document.querySelector<HTMLElement>('.jpdb-ocr-video-frame-status')?.dataset.status).toBe('loading');
 
             await vi.advanceTimersByTimeAsync(2_000);
-            expect(document.querySelector<HTMLElement>('.jpdb-ocr-canvas-status')?.dataset.status).toBe('failed');
+            expect(document.querySelector<HTMLElement>('.jpdb-ocr-video-frame-status')?.dataset.status).toBe('failed');
             expect(captureCanvasMirror.mock.calls.length).toBeLessThanOrEqual(24);
         } finally {
             controller.destroy();
@@ -3686,7 +3697,7 @@ describe('reader raster OCR surfaces', { timeout: 20_000 }, () => {
 
         try {
             await waitForExpect(() => {
-                expect(document.querySelector('.jpdb-ocr-canvas-status')).not.toBeNull();
+                expect(document.querySelector('.jpdb-ocr-video-frame-status')).not.toBeNull();
             });
             const internals = controller as unknown as {
                 pendingCanvasSnapshots: WeakMap<HTMLCanvasElement, { key: string; startedAt: number; cancelled: boolean }>;
@@ -3699,7 +3710,7 @@ describe('reader raster OCR surfaces', { timeout: 20_000 }, () => {
             rect = new DOMRect(32, 900, 400, 520);
             internals.positionCanvasFrames();
 
-            expect(document.querySelector('.jpdb-ocr-canvas-status')).toBeNull();
+            expect(document.querySelector('.jpdb-ocr-video-frame-status')).toBeNull();
             expect(internals.pendingCanvasSnapshots.has(canvas)).toBe(true);
         } finally {
             controller.destroy();
@@ -3722,7 +3733,7 @@ describe('reader raster OCR surfaces', { timeout: 20_000 }, () => {
         try {
             await waitForExpect(() => {
                 expect(captureCanvasMirror).toHaveBeenCalledTimes(1);
-                expect(document.querySelector('.jpdb-ocr-canvas-status')).not.toBeNull();
+                expect(document.querySelector('.jpdb-ocr-video-frame-status')).not.toBeNull();
             });
             const internals = controller as unknown as {
                 pendingCanvasSnapshots: WeakMap<HTMLCanvasElement, unknown>;
@@ -3730,7 +3741,7 @@ describe('reader raster OCR surfaces', { timeout: 20_000 }, () => {
             };
             rect = new DOMRect(32, 900, 400, 520);
             internals.positionCanvasFrames();
-            expect(document.querySelector<HTMLElement>('.jpdb-ocr-canvas-status')?.hidden).toBe(true);
+            expect(document.querySelector<HTMLElement>('.jpdb-ocr-video-frame-status')?.hidden).toBe(true);
             expect(internals.pendingCanvasSnapshots.has(canvas)).toBe(true);
 
             resolveCapture?.(mirrorCanvas('LANDED_AFTER_STATUS_FLICKER'));

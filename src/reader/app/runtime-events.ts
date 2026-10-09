@@ -5,7 +5,6 @@ import {
     USERSCRIPT_HTTP_BRIDGE_READY_EVENT,
 } from './constants';
 import type { InterfaceLanguage, ReaderSettings } from './types';
-import { adoptLearningTargetFromSettings } from '../languages/target-selection';
 import { addWindowEventListener } from '../platform/window-events';
 import { subscribeToSettingsChanges, type SettingsChangeDetail } from '../settings/settings-change-bus';
 import { isHostedYomuOrigin } from './storage';
@@ -84,16 +83,7 @@ function handleSettingsChange(
     detail: SettingsChangeDetail,
 ): void {
     if (handlers.isDestroyed()) return;
-    const settings = handlers.getSettings();
-    adoptChosenLearningTarget(settings);
-    applyChangedTheme(handlers, settings, detail);
-}
-
-// Every persisted settings write dispatches this, so this hook covers the
-// dialog, onboarding, and cross-tab sync alike. The compatibility profile is
-// not learner intent while the required first-run target chooser is open.
-function adoptChosenLearningTarget(settings: ReaderSettings): void {
-    if (settings.learningTargetChosen) adoptLearningTargetFromSettings(settings);
+    applyChangedTheme(handlers, handlers.getSettings(), detail);
 }
 
 function applyChangedTheme(

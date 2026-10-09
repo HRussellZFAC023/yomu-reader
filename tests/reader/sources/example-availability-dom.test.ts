@@ -1,15 +1,16 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
+import type { ImmersionKitExample } from '../../../src/reader/immersion/kit';
 import type { ReaderSettings } from '../../../src/reader/app/types';
 import { DEFAULT_SETTINGS, normalizeReaderSettings } from '../../../src/reader/settings';
 import { renderExampleSourceRow } from '../../../src/reader/sources/examples/availability-render';
 import { installTargetExampleSources, renderTargetExampleSourceMounts } from '../../../src/reader/sources/examples/mount';
 import { createTatoebaExampleSource, tatoebaCapabilitiesFor } from '../../../src/reader/sources/examples/tatoeba';
-import { immersionKitCapabilitiesFor } from '../../../src/reader/sources/examples/immersion-kit';
+import { createImmersionKitExampleSource, immersionKitCapabilitiesFor } from '../../../src/reader/sources/examples/immersion-kit';
 import { renderDefinitionSourceImmersionMount } from '../../../src/reader/sources/definition-stack';
 import { renderProviderExamples, type ProviderExampleView } from '../../../src/reader/sources/provider-examples';
 import type { ExampleCollection, ExampleRecord } from '../../../src/reader/sources/examples/types';
-import { TATOEBA_EMPTY_PAYLOAD, TATOEBA_SPANISH_PAYLOAD, TATOEBA_THAI_PAYLOAD } from './tatoeba-fixtures';
+import { TATOEBA_SPANISH_PAYLOAD, TATOEBA_THAI_PAYLOAD } from './tatoeba-fixtures';
 
 const sourceAttributes = (key: string, open?: boolean) => `data-source-state-key="${key}"${open ? ' open' : ''}`;
 
@@ -170,7 +171,7 @@ describe('U46 reverses the silent hiding in the shared provider renderer', () =>
         expect(details.querySelector('.jpdb-reader-jpdb-examples')).toBeNull();
     });
 
-    it('leaves a loaded Japanese collection exactly as it renders today', () => {
+    it('renders a loaded Japanese collection without a count', () => {
         const example: ProviderExampleView = {
             id: 'example-1',
             sentence: '毎日復習する。',
@@ -180,7 +181,8 @@ describe('U46 reverses the silent hiding in the shared provider renderer', () =>
         document.body.innerHTML = renderProviderExamples('jiten', 'jiten', { availability: 'loaded', items: [example] }, sourceAttributes, 'en');
         const details = document.body.querySelector<HTMLElement>('details')!;
         expect(details.dataset.examplesAvailability).toBe('loaded');
-        expect(details.querySelector('.jpdb-reader-example-count')?.textContent).toBe('1');
+        // The sentences speak for themselves: no count beside the header.
+        expect(details.querySelector('.jpdb-reader-example-count')).toBeNull();
         expect(details.querySelectorAll('.jpdb-reader-jpdb-example')).toHaveLength(1);
         expect(details.querySelector('[data-example-reason]')).toBeNull();
     });
@@ -197,28 +199,17 @@ describe('U46 target example mounts in the definition stack', () => {
         expect(html).not.toContain('data-example-source');
     });
 
-    it('replaces it for a Spanish target with a visible refusal and a real source', () => {
+    it('ignores a legacy Spanish profile and keeps the Japanese mount', () => {
         document.body.innerHTML = renderDefinitionSourceImmersionMount(spanishTarget(), sourceAttributes);
-        expect(document.body.querySelector('[data-immersion-kit]')).toBeNull();
-        const cards = Array.from(document.body.querySelectorAll<HTMLElement>('[data-example-source]'));
-        expect(cards.map(card => card.dataset.exampleSource)).toEqual(['immersion-kit', 'tatoeba']);
-        expect(cards[0]?.dataset.availability).toBe('unsupported');
-        expect(cards[0]?.textContent).toContain('This source has no Spanish sentences.');
-        expect(cards[1]?.dataset.availability).toBe('pending');
+        expect(document.body.querySelector('[data-immersion-kit]')).not.toBeNull();
+        expect(document.body.querySelector('[data-example-source]')).toBeNull();
+        expect(document.body.textContent).not.toContain('Spanish');
     });
 
-    // b15: both existing cases pin `immersionKitEnabled: true`, which is why this
-    // shipped. ImmersionKit is one Japanese anime-subtitle source; unticking it used
-    // to delete Tatoeba, the ONLY example source the other 31 targets have, because
-    // the toggle was read before anyone asked whether ImmersionKit covers the target.
-    it('keeps a Spanish learner\'s examples when the Japanese anime source is off', () => {
-        document.body.innerHTML = renderDefinitionSourceImmersionMount(
-            { ...spanishTarget(), immersionKitEnabled: false },
-            sourceAttributes,
-        );
-        const cards = Array.from(document.body.querySelectorAll<HTMLElement>('[data-example-source]'));
-        expect(cards.map(card => card.dataset.exampleSource)).toEqual(['immersion-kit', 'tatoeba']);
-        expect(cards[1]?.dataset.availability).toBe('pending');
+    it('respects the disabled Japanese source even with a legacy Spanish profile', () => {
+        expect(renderDefinitionSourceImmersionMount(
+            { ...spanishTarget(), immersionKitEnabled: false }, sourceAttributes,
+        )).toBe('');
     });
 
     it('still renders nothing for Japanese when the learner turns ImmersionKit off', () => {
@@ -230,40 +221,39 @@ describe('U46 target example mounts in the definition stack', () => {
     });
 
     it('fills the pending card, and a retry re-runs only that source', async () => {
-        document.body.innerHTML = renderTargetExampleSourceMounts(spanishTarget(), sourceAttributes);
+        document.body.innerHTML = renderTargetExampleSourceMounts(japaneseTarget(), sourceAttributes);
         const root = document.body;
         const fetchJson = vi.fn()
             .mockRejectedValueOnce(new Error('network down'))
-            .mockResolvedValueOnce(TATOEBA_SPANISH_PAYLOAD);
-        const adapter = createTatoebaExampleSource({ fetchJson: (url, signal) => fetchJson(url, signal) });
+            .mockResolvedValueOnce(JAPANESE_EXAMPLES);
+        const adapter = createImmersionKitExampleSource((term, signal) => fetchJson(term, signal));
 
         installTargetExampleSources(root, {
-            settings: spanishTarget(),
-            term: 'agua',
+            settings: japaneseTarget(),
+            term: '水',
             sourceAttributes,
             adapters: [adapter],
         });
-        await vi.waitFor(() => expect(root.querySelector('[data-example-source="tatoeba"]')?.getAttribute('data-availability')).toBe('unavailable'));
+        await vi.waitFor(() => expect(root.querySelector('[data-example-source="immersion-kit"]')?.getAttribute('data-availability')).toBe('unavailable'));
         expect(fetchJson).toHaveBeenCalledTimes(1);
 
         root.querySelector<HTMLElement>('[data-action="retry-example-source"]')!.click();
-        await vi.waitFor(() => expect(root.querySelector('[data-example-source="tatoeba"]')?.getAttribute('data-availability')).toBe('loaded'));
+        await vi.waitFor(() => expect(root.querySelector('[data-example-source="immersion-kit"]')?.getAttribute('data-availability')).toBe('loaded'));
         expect(fetchJson).toHaveBeenCalledTimes(2);
         expect(root.querySelectorAll('.jpdb-reader-jpdb-example')).toHaveLength(2);
-        // The refusal row is still there beside the loaded one.
-        expect(root.querySelector('[data-example-source="immersion-kit"]')?.getAttribute('data-availability')).toBe('unsupported');
+        // The independently rendered unsupported source stays untouched.
+        expect(root.querySelector('[data-example-source="tatoeba"]')?.getAttribute('data-availability')).toBe('unsupported');
+        expect(fetchJson.mock.calls[0]?.[0]).toBe('水');
     });
 
     it('retries one source without aborting a sibling still in flight', async () => {
         // A single per-root controller made a retry cancel every other source on
         // the popover, which left the sibling card stuck on its loading copy.
-        let releaseSlow: (value: unknown) => void = () => undefined;
-        const slow = createTatoebaExampleSource({
-            fetchJson: () => new Promise(resolve => {
-                releaseSlow = resolve;
-            }),
-        });
-        const failing = createTatoebaExampleSource({ fetchJson: async () => { throw new Error('network down'); } });
+        let releaseSlow: (value: ImmersionKitExample[]) => void = () => undefined;
+        const slow = createImmersionKitExampleSource(() => new Promise(resolve => {
+            releaseSlow = resolve;
+        }));
+        const failing = createImmersionKitExampleSource(async () => { throw new Error('network down'); });
         const adapters = [
             { ...slow, id: 'slow-source', name: 'Slow' },
             { ...failing, id: 'failing-source', name: 'Failing' },
@@ -272,49 +262,49 @@ describe('U46 target example mounts in the definition stack', () => {
             .map(adapter => `<details data-example-source="${adapter.id}" data-availability="pending"></details>`)
             .join('');
 
-        installTargetExampleSources(document.body, { settings: spanishTarget(), term: 'agua', sourceAttributes, adapters });
+        installTargetExampleSources(document.body, { settings: japaneseTarget(), term: '水', sourceAttributes, adapters });
         await vi.waitFor(() => expect(document.body.querySelector('[data-example-source="failing-source"]')?.getAttribute('data-availability')).toBe('unavailable'));
 
         document.body.querySelector<HTMLElement>('[data-action="retry-example-source"]')!.click();
-        releaseSlow(TATOEBA_SPANISH_PAYLOAD);
+        releaseSlow(JAPANESE_EXAMPLES);
         await vi.waitFor(() => expect(document.body.querySelector('[data-example-source="slow-source"]')?.getAttribute('data-availability')).toBe('loaded'));
     });
 
     it('renders an empty result rather than leaving the loading copy in place', async () => {
-        document.body.innerHTML = renderTargetExampleSourceMounts(spanishTarget(), sourceAttributes);
+        document.body.innerHTML = renderTargetExampleSourceMounts(japaneseTarget(), sourceAttributes);
         installTargetExampleSources(document.body, {
-            settings: spanishTarget(),
+            settings: japaneseTarget(),
             term: 'zzqqx',
             sourceAttributes,
-            adapters: [createTatoebaExampleSource({ fetchJson: async () => TATOEBA_EMPTY_PAYLOAD })],
+            adapters: [createImmersionKitExampleSource(async () => [])],
         });
-        await vi.waitFor(() => expect(document.body.querySelector('[data-example-source="tatoeba"]')?.getAttribute('data-availability')).toBe('empty'));
+        await vi.waitFor(() => expect(document.body.querySelector('[data-example-source="immersion-kit"]')?.getAttribute('data-availability')).toBe('empty'));
         expect(document.body.textContent).not.toContain('Loading');
     });
 
     it('sanitizes the loaded replacement before it enters the live document', async () => {
-        document.body.innerHTML = '<details data-example-source="tatoeba" data-availability="pending"></details>';
-        const baseAdapter = createTatoebaExampleSource({ fetchJson: async () => TATOEBA_EMPTY_PAYLOAD });
+        document.body.innerHTML = '<details data-example-source="immersion-kit" data-availability="pending"></details>';
+        const baseAdapter = createImmersionKitExampleSource(async () => []);
         const adapter = {
             ...baseAdapter,
             search: async () => ({
                 availability: 'loaded' as const,
                 items: [{
                     ...record(),
-                    text: { value: '<img src=x onerror="window.__yomuUnsafe = true">', language: 'spa' },
+                    text: { value: '<img src=x onerror="window.__yomuUnsafe = true">', language: 'ja' },
                     source: { ...record().source, url: 'javascript:alert(1)' },
                 }],
             }),
         };
         installTargetExampleSources(document.body, {
-            settings: spanishTarget(),
-            term: 'agua',
+            settings: japaneseTarget(),
+            term: '水',
             sourceAttributes: () => 'data-safe-marker="kept" onclick="window.__yomuUnsafe = true"',
             adapters: [adapter],
         });
 
-        await vi.waitFor(() => expect(document.body.querySelector('[data-example-source="tatoeba"]')?.getAttribute('data-availability')).toBe('loaded'));
-        const loaded = document.body.querySelector<HTMLElement>('[data-example-source="tatoeba"]')!;
+        await vi.waitFor(() => expect(document.body.querySelector('[data-example-source="immersion-kit"]')?.getAttribute('data-availability')).toBe('loaded'));
+        const loaded = document.body.querySelector<HTMLElement>('[data-example-source="immersion-kit"]')!;
         expect(loaded.dataset.safeMarker).toBe('kept');
         expect(loaded.getAttribute('onclick')).toBeNull();
         expect(loaded.querySelector('[data-example-provenance] a')?.getAttribute('href')).toBeNull();
@@ -322,6 +312,14 @@ describe('U46 target example mounts in the definition stack', () => {
         expect(loaded.querySelector('img')).toBeNull();
     });
 });
+
+// A deterministic Japanese backend response for retry/ownership tests. These
+// are fixture sentences, not claims about a live ImmersionKit corpus.
+const JAPANESE_EXAMPLES: ImmersionKitExample[] = ['水を飲む。', '水が冷たい。'].map((sentence, index) => ({
+    id: String(index), sentence, sentenceWithFurigana: sentence, translation: '',
+    sourceTitle: 'Fixture', titleSlug: 'fixture', category: '',
+    soundFile: '', imageFile: '', soundUrl: '', imageUrl: '',
+}));
 
 function record(): ExampleRecord {
     return {

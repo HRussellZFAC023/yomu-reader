@@ -1,5 +1,5 @@
 import { activeLearningTarget } from './target-runtime';
-import { languageDisplayName, languageSubtag } from './locale';
+import { languageSubtag } from './locale';
 import type { LanguageTag } from './types';
 
 /**
@@ -56,16 +56,6 @@ export function isTargetDefaultOcrLanguageTag(value: string | null | undefined):
 }
 
 const LEGACY_MACHINE_WRITTEN_OCR_DEFAULTS = new Set(['ja-jp', 'ko-kr']);
-
-/**
- * The name of the language being studied, written in `locale`, for copy that
- * used to name Japanese in a string literal. Interface copy that says the
- * target out loud stays true when the reader switches target instead of
- * quietly describing a product they are not using.
- */
-export function targetLanguageName(locale = 'en'): string {
-    return languageDisplayName(activeLearningTarget().language, locale);
-}
 
 /** `SpeechSynthesisUtterance.lang` for target-language playback. */
 export function targetSpeechSynthesisLocale(): LanguageTag {

@@ -20,7 +20,7 @@ type SourceAttributes = (key: string, initiallyExpanded?: boolean) => string;
 export function renderWanikaniDefinitionMount(card: JPDBCard, settings: ReaderSettings, sourceAttributes: SourceAttributes): string {
     if (!settings.wanikaniDefinitionsEnabled || !settings.wanikaniApiToken.trim()) return '';
     return `<div data-wanikani-definition-mount data-wanikani-expression="${escapeHtml(card.spelling)}" data-wanikani-reading="${escapeHtml(card.reading)}">
-        ${renderLoadingSource(settings.wanikaniDefinitionsAlias || 'WaniKani', sourceAttributes(definitionSourceStateKey(WANIKANI_DEFINITION_SOURCE_ID)))}
+        ${renderLoadingSource('WaniKani', sourceAttributes(definitionSourceStateKey(WANIKANI_DEFINITION_SOURCE_ID)))}
     </div>`;
 }
 
@@ -48,7 +48,7 @@ export class WanikaniSourceController {
                     settings,
                     this.sourceAttributes(definitionSourceStateKey(WANIKANI_DEFINITION_SOURCE_ID)),
                     // fallow-ignore-next-line code-duplication
-                    settings.wanikaniDefinitionsAlias || 'WaniKani',
+                    'WaniKani',
                 ));
                 mount.dataset.wanikaniLoaded = 'true';
                 this.onRendered?.(mount);
@@ -67,7 +67,7 @@ export class WanikaniSourceController {
             return;
         }
         mount.dataset.wanikaniLoading = 'true';
-        setInnerHtml(mount, renderLoadingSource(settings.wanikaniKanjiAlias || 'WaniKani', this.sourceAttributes(kanjiSourceStateKey(KANJI_WANIKANI_SOURCE_ID))));
+        setInnerHtml(mount, renderLoadingSource('WaniKani', this.sourceAttributes(kanjiSourceStateKey(KANJI_WANIKANI_SOURCE_ID))));
         void this.lookup.lookupKanji(kanji).then(info => {
             if (!mount.isConnected) return;
             if (!info || info.subject.type !== 'kanji') {
@@ -79,7 +79,7 @@ export class WanikaniSourceController {
                 settings,
                 this.sourceAttributes(kanjiSourceStateKey(KANJI_WANIKANI_SOURCE_ID)),
                 // fallow-ignore-next-line code-duplication
-                settings.wanikaniKanjiAlias || 'WaniKani',
+                'WaniKani',
             ));
             mount.dataset.wanikaniLoaded = 'true';
             this.onRendered?.(mount);
@@ -140,8 +140,7 @@ function renderWanikaniAccuracy(info: WanikaniLookupInfo): string {
 }
 
 function renderWanikaniPublicDefinitions(subject: WanikaniSubject): string {
-    const payload = wanikaniPublicDefinitionPayload(subject);
-    return `<div class="yomu-wanikani-public-definitions"${wanikaniDefinitionPayloadAttributes(payload)}>
+    return `<div class="yomu-wanikani-public-definitions">
         <p><strong>Meanings:</strong> ${subject.meanings.map(renderWanikaniMeaning).join(', ')}</p>
         ${renderWanikaniAlternatives('Also accepted', subject.auxiliaryMeanings, 'whitelist')}
         ${renderWanikaniAlternatives('Not accepted', subject.auxiliaryMeanings, 'blacklist')}
@@ -157,16 +156,6 @@ function renderWanikaniMeaning(item: WanikaniMeaning): string {
 function renderWanikaniAlternatives(label: string, items: WanikaniAuxiliaryMeaning[], type: WanikaniAuxiliaryMeaning['type']): string {
     const values = items.filter(item => item.type === type).map(item => escapeHtml(item.meaning)).join(', ');
     return renderWanikaniParagraph(label, values);
-}
-
-function wanikaniPublicDefinitionPayload(subject: WanikaniSubject): string {
-    const publicAlternativeTypes = new Set<WanikaniAuxiliaryMeaning['type']>(['whitelist', 'blacklist']);
-    const alternatives = subject.auxiliaryMeanings.filter(item => publicAlternativeTypes.has(item.type));
-    return [...subject.meanings, ...alternatives].map(item => item.meaning).filter(Boolean).join('\n');
-}
-
-function wanikaniDefinitionPayloadAttributes(payload: string): string {
-    return payload ? ` data-definition-translation-text data-definition-translation-payload="${escapeHtml(payload)}"` : '';
 }
 
 function renderWanikaniReadings(subject: WanikaniSubject): string {

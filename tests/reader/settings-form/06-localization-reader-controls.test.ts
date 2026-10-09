@@ -142,7 +142,15 @@ describe('settings form localization', () => {
         expect(audioToggleGrid.querySelector('input[name="audioEnabled"]')).not.toBeNull();
         expect(audioToggleGrid.querySelector('select[name="audioAutoPlayMode"]')).toBeNull();
         expect(audioControlGrid.querySelector('select[name="audioAutoPlayMode"]')).not.toBeNull();
-        expect(audioControlGrid.querySelector('input[name="corsProxyUrl"]')).not.toBeNull();
+        // The source list and its proxy are setup most learners never touch:
+        // they wait in a closed disclosure under the everyday choices.
+        const audioSources = audioPanel.querySelector<HTMLDetailsElement>('details[data-settings-tuning]')!;
+        expect(audioSources.open).toBe(false);
+        expect(audioSources.querySelector('[data-audio-source-editor]')).not.toBeNull();
+        expect(audioSources.querySelector('input[name="corsProxyUrl"]')).not.toBeNull();
+        // The URL-token help describes those sources, so it opens with them.
+        expect(audioSources.querySelector('[data-help-key="audioHelp"]')).not.toBeNull();
+        expect(audioControlGrid.querySelector('input[name="corsProxyUrl"]')).toBeNull();
 
         const immersionPanel = form.querySelector<HTMLElement>('[data-legend-key="immersionKit"]')!;
         const immersionGrids = Array.from(immersionPanel.querySelectorAll<HTMLElement>('.jpdb-reader-settings-tgrid, .jpdb-reader-settings-cgrid'));
@@ -151,19 +159,20 @@ describe('settings form localization', () => {
         expect(immersionGrids[0]?.querySelector('input[name="immersionKitEnabled"]')).not.toBeNull();
         expect(immersionGrids[1]?.classList.contains('jpdb-reader-settings-cgrid')).toBe(true);
         expect(immersionGrids[1]?.querySelector('select[name="immersionKitExampleSource"]')).not.toBeNull();
-        expect(immersionGrids[1]?.querySelector('select[name="immersionKitSort"]')).not.toBeNull();
+        expect(immersionGrids[1]?.querySelector('select[name="immersionKitSort"]')).toBeNull();
         expect(immersionGrids[2]?.querySelector('input[name="immersionKitPlayOnImageClick"]')).not.toBeNull();
     });
 
     it('keeps mobile settings text controls at iOS no-zoom size after base input styling', () => {
         const normalizedCss = SETTINGS_CSS.replace(/\s+/g, ' ');
-        const baseControlFontIndex = normalizedCss.indexOf('.jpdb-reader-settings input, .jpdb-reader-settings select, .jpdb-reader-settings textarea, .jpdb-reader-field-display');
+        const baseControlFontIndex = normalizedCss.indexOf('.jpdb-reader-settings input, .jpdb-reader-settings select, .jpdb-reader-settings textarea {');
         const noZoomFontIndex = normalizedCss.indexOf('@media (hover: none), (pointer: coarse) { .jpdb-reader-settings input:not([type="checkbox"]):not([type="radio"]):not([type="color"]), .jpdb-reader-settings select, .jpdb-reader-settings textarea { font-size: max(16px, 1em) !important; } }');
 
         expect(baseControlFontIndex).toBeGreaterThanOrEqual(0);
         expect(noZoomFontIndex).toBeGreaterThan(baseControlFontIndex);
         expect(normalizedCss).toContain('.jpdb-reader-settings .jpdb-reader-tag-chip-list, .jpdb-reader-settings .jpdb-reader-tag-add-row { display: flex; flex-wrap: wrap;');
-        expect(normalizedCss).toContain('.jpdb-reader-settings .jpdb-reader-tag-chip:hover, .jpdb-reader-settings .jpdb-reader-tag-chip:focus-visible { border-color: var(--jpdb-reader-accent);');
+        expect(normalizedCss).toContain('.jpdb-reader-settings .jpdb-reader-tag-chip:hover, .jpdb-reader-settings .jpdb-reader-tag-chip:focus-visible { border-color: color-mix(in srgb, var(--jpdb-reader-text) 40%, var(--jpdb-reader-border));');
+        expect(normalizedCss).toContain('.jpdb-reader-settings .jpdb-reader-tag-chip:focus-visible { box-shadow: 0 0 0 3px var(--jpdb-reader-accent-soft);');
         expect(normalizedCss).toContain('.jpdb-reader-settings .jpdb-reader-tag-add-row input, .jpdb-reader-settings .jpdb-reader-tag-add-row .jpdb-reader-btn { flex-basis: 100%; }');
     });
 
@@ -179,36 +188,40 @@ describe('settings form localization', () => {
         expect(toggle?.closest('label')?.textContent).toContain('reveal');
     });
 
-    it('places auto-play trigger under the auto-play toggle and disables it when off', () => {
-        const form = document.createElement('form');
-        form.innerHTML = renderSettingsForm({ ...DEFAULT_SETTINGS, autoPlayAudio: false, audioAutoPlayMode: 'hover' }, 'https://jpdb.io/settings');
-        const toggle = form.querySelector<HTMLInputElement>('input[name="autoPlayAudio"]')!;
+    it('uses one autoplay selector while preserving an old silent profile on Save', () => {
+        const current = { ...DEFAULT_SETTINGS, autoPlayAudio: false, audioAutoPlayMode: 'hover' as const };
+        const form = renderSettingsTestForm(current);
         const select = form.querySelector<HTMLSelectElement>('select[name="audioAutoPlayMode"]')!;
-        const timeout = form.querySelector<HTMLInputElement>('input[name="audioTimeoutMs"]')!;
-        const proxyUrl = form.querySelector<HTMLInputElement>('input[name="corsProxyUrl"]')!;
 
-        expect(toggle.checked).toBe(false);
-        expect(toggle.closest('label')?.nextElementSibling).toBe(select.closest('label'));
-        expect(optionText(form, 'audioAutoPlayMode', 'off')).toBe('');
-        expect(select.disabled).toBe(true);
-        expect(select.value).toBe('hover');
-        expect(timeout.min).toBe('1000');
-        expect(timeout.max).toBe('30000');
-        expect(timeout.step).toBe('500');
-        expect(proxyUrl.placeholder).toBe('https://your-worker.workers.dev');
+        expect(form.querySelector('input[name="autoPlayAudio"]')).toBeNull();
+        expect(form.querySelector('input[name="audioTimeoutMs"]')).toBeNull();
+        expect(form.querySelector('select[name="audioSelectionMode"]')).toBeNull();
+        expect(optionText(form, 'audioAutoPlayMode', 'off')).toBe('Off');
+        expect(select.disabled).toBe(false);
+        expect(select.value).toBe('off');
+        expect(readFormSettings(new FormData(form), current)).toMatchObject({ autoPlayAudio: false, audioAutoPlayMode: 'hover' });
 
-        let saved = readFormSettings(new FormData(form), DEFAULT_SETTINGS);
-        expect(saved.autoPlayAudio).toBe(false);
-        expect(saved.audioAutoPlayMode).toBe('hover');
+        for (const mode of ['all', 'hover', 'tap'] as const) {
+            select.value = mode;
+            expect(readFormSettings(new FormData(form), current)).toMatchObject({ autoPlayAudio: true, audioAutoPlayMode: mode });
+        }
+        select.value = 'off';
+        expect(readFormSettings(new FormData(form), DEFAULT_SETTINGS).autoPlayAudio).toBe(false);
+    });
 
-        toggle.checked = true;
-        select.disabled = false;
-        select.value = 'tap';
-        timeout.value = '99999';
-        saved = readFormSettings(new FormData(form), DEFAULT_SETTINGS);
-        expect(saved.autoPlayAudio).toBe(true);
-        expect(saved.audioAutoPlayMode).toBe('tap');
-        expect(saved.audioTimeoutMs).toBe(30000);
+    it('uses zero to disable the example cap and keeps old capped backups editable', () => {
+        const current = { ...DEFAULT_SETTINGS, immersionKitLimitEnabled: true, immersionKitLimit: 3 };
+        const form = renderSettingsTestForm(current);
+        const count = form.querySelector<HTMLInputElement>('input[name="immersionKitLimit"]')!;
+        expect(form.querySelector('input[name="immersionKitLimitEnabled"]')).toBeNull();
+        expect(count.value).toBe('3');
+        expect(readFormSettings(new FormData(form), current)).toMatchObject({ immersionKitLimitEnabled: true, immersionKitLimit: 3 });
+        count.value = '0';
+        expect(readFormSettings(new FormData(form), current)).toMatchObject({ immersionKitLimitEnabled: false, immersionKitLimit: 3 });
+        count.value = '5';
+        expect(readFormSettings(new FormData(form), current)).toMatchObject({ immersionKitLimitEnabled: true, immersionKitLimit: 5 });
+        const uncapped = renderSettingsTestForm(DEFAULT_SETTINGS);
+        expect(uncapped.querySelector<HTMLInputElement>('input[name="immersionKitLimit"]')?.value).toBe('0');
     });
 
     it('renders ready JPDB and disabled Anki status lights in settings', () => {
@@ -256,9 +269,9 @@ describe('settings form localization', () => {
         localizeSettingsForm(form, 'en');
         localizeSettingsForm(bothKeysForm, 'en');
 
-        expect(settingsText(form, '[data-source-id="__kanji_stroke__"] .jpdb-reader-dictionary-row-help')).toBe('Stroke order preview and drawing pad.');
-        expect(settingsText(form, '[data-source-id="__kanji_jpdb__"] .jpdb-reader-dictionary-row-help')).toBe('Jiten kanji facts, frequency, readings, words.');
-        expect(settingsText(bothKeysForm, '[data-source-id="__kanji_jpdb__"] .jpdb-reader-dictionary-row-help')).toBe('Jiten kanji facts, frequency, readings, words.');
+        expect(form.querySelector<HTMLElement>('[data-source-id="__kanji_stroke__"]')?.title).toBe('Stroke order preview and drawing pad.');
+        expect(form.querySelector<HTMLElement>('[data-source-id="__kanji_jpdb__"]')?.title).toBe('Jiten kanji facts, frequency, readings, words.');
+        expect(bothKeysForm.querySelector<HTMLElement>('[data-source-id="__kanji_jpdb__"]')?.title).toBe('Jiten kanji facts, frequency, readings, words.');
         expect(form.querySelector('[data-source-id="__kanji_similar_words__"]')).toBeNull();
         expect(form.textContent).not.toContain('Related vocabulary');
         expect(form.textContent).not.toContain('Words using this kanji');
@@ -375,7 +388,7 @@ describe('settings form localization', () => {
 
         expect(optionText(jitenForm, 'wordTextColorSource', 'status')).toBe('All study statuses');
         expect(optionText(jitenForm, 'wordHighlightColorSource', 'jpdb')).toBe('Primary deck status');
-        expect(optionText(jitenForm, 'newTabKanjiKeywordSource', 'auto')).toBe('Auto: RTK, then Jiten kanji facts, then local');
+        expect(optionText(jitenForm, 'newTabKanjiKeywordSource', 'auto')).toBe('Automatic');
         expect(optionText(jitenForm, 'newTabKanjiKeywordSource', 'jpdb')).toBe('Jiten kanji facts (Jiten / JPDB)');
         expect(labelForControl(jitenForm, 'jpdbDefinitionsEnabled')).toBe('');
         expect(labelForControl(jitenForm, 'localDictionariesEnabled')).toBe('Show imported dictionary definitions');
@@ -492,23 +505,21 @@ describe('settings form localization', () => {
         expect(strength.closest<HTMLElement>('label')?.hidden).toBe(true);
     });
 
-    it('exposes video-safe autoplay and popover dimming settings', () => {
+    it('exposes video-safe autoplay and no page-dimming setting', () => {
         const form = document.createElement('form');
         form.innerHTML = renderSettingsForm(DEFAULT_SETTINGS, 'https://jpdb.io/settings');
         const videoAudio = form.querySelector<HTMLInputElement>('input[name="suppressAutoAudioOnVideo"]')!;
-        const backdrop = form.querySelector<HTMLInputElement>('input[name="popoverBackdropEnabled"]')!;
 
         expect(DEFAULT_SETTINGS.suppressAutoAudioOnVideo).toBe(true);
-        expect(DEFAULT_SETTINGS.popoverBackdropEnabled).toBe(true);
         expect(videoAudio.checked).toBe(true);
-        expect(backdrop.checked).toBe(true);
+        // A lookup never dims the page, so there is nothing to switch off.
+        expect(form.querySelector('input[name="popoverBackdropEnabled"]')).toBeNull();
+        expect('popoverBackdropEnabled' in DEFAULT_SETTINGS).toBe(false);
 
         videoAudio.checked = false;
-        backdrop.checked = false;
 
         const saved = readFormSettings(new FormData(form), DEFAULT_SETTINGS);
         expect(saved.suppressAutoAudioOnVideo).toBe(false);
-        expect(saved.popoverBackdropEnabled).toBe(false);
     });
 
     it('persists font presets, custom font stacks, pause panel, and navigation shortcuts', () => {

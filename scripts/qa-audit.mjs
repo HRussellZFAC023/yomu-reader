@@ -1267,6 +1267,7 @@ function summarizeRequestBody(body) {
     return {
         action: requestActionSummary(json),
         ankiSentence: requestNoteFieldText(note, 'Sentence'),
+        ankiDeck: note?.deckName,
         ankiSource: requestNoteField(note, 'Source'),
         ankiHasPicture: requestHasPicture(note),
     };
@@ -1782,48 +1783,52 @@ async function seedLocalKanjiDictionaries(page) {
     });
 }
 
-// Since 1.9.1 an ordinary page never hosts the setup chooser: a fresh install
-// gets a no-input launcher that hands setup to Yomu-owned Study
-// (app/onboarding-surface.ts; CHANGELOG 1.9.1 "Sensitive setup opens on
-// Yomu-owned Study"). smoke:onboarding-popover and tests/reader/onboarding.test.ts
-// cover the chooser itself on Study; this check keeps the launcher usable on an
-// iPhone-width page.
+// Fresh 2.1 installs read Japanese immediately. No chooser or setup launcher
+// may intercept the page or the keyless starter Practice route.
 async function auditOnboardingMobile(browser, server) {
-    // learningTargetChosen: false is a fresh install. Without it the seed's
-    // Reader and subtitle settings read as a pre-1.9 learner who keeps the
-    // Japanese target (settings/learning-target-choice.ts), and no onboarding runs.
-    const { page } = await newAuditedPage(browser, { ...baseSettings, onboardingSeen: false, learningTargetChosen: false, apiKey: '' }, { width: 390, height: 844 });
+    const fresh = { interfaceLanguage: 'en', apiKey: '', jitenApiKey: '', ankiEnabled: false,
+        onboardingSeen: false, learningTargetChosen: false, preferJapaneseSiteLanguage: false, autoPlayAudio: false };
+    const { page } = await newAuditedPage(browser, fresh, { width: 390, height: 844 });
     await page.goto(`${server.origin}${QA_READER_PATH}`, { waitUntil: 'domcontentloaded' });
     await injectUserscript(page);
-    await page.waitForSelector('.jpdb-reader-onboarding-trusted-launcher', { timeout: 6000 });
-    const snapshot = await page.locator('.jpdb-reader-onboarding-trusted-launcher').evaluate(panel => ({
-        title: panel.querySelector('h2')?.textContent?.trim(),
-        formControls: panel.querySelectorAll('form, input, select, textarea, output').length,
-        actions: [...panel.querySelectorAll('[data-onboarding-action]')].map(button => ({ action: button.getAttribute('data-onboarding-action'), ...button.getBoundingClientRect().toJSON() })),
-        viewport: { width: innerWidth, height: innerHeight },
+    await waitForAudit(page, () => document.querySelectorAll('main .jpdb-reader-word, p .jpdb-reader-word').length > 0,
+        10000, 'fresh keyless page never produced Japanese lookup words');
+    const snapshot = await page.evaluate(() => ({
+        language: globalThis.__yomuCompanions?.learningTargets?.activeLearningTargetLanguage?.(),
+        gate: Boolean(document.querySelector('.jpdb-reader-onboarding, .jpdb-reader-onboarding-trusted-launcher')),
+        words: [...document.querySelectorAll('.jpdb-reader-word')].map(word => word.textContent),
     }));
-    const onScreen = rect => rect.top >= 0 && rect.left >= 0 && rect.bottom <= snapshot.viewport.height && rect.right <= snapshot.viewport.width;
-    assertAudit(snapshot.title === 'よむ', 'onboarding launcher title is missing');
-    assertAudit(snapshot.formControls === 0, `the onboarding launcher on an ordinary page must not hold page-writable controls: ${JSON.stringify(snapshot)}`);
-    assertAudit(['open-trusted-setup', 'close'].every(action => snapshot.actions.some(rect => rect.action === action && onScreen(rect))), `onboarding launcher actions are not visible on the first mobile screen: ${JSON.stringify(snapshot)}`);
-    await assertAccessibleSurface(page, 'mobile onboarding', '.jpdb-reader-onboarding-trusted-launcher');
-    await page.screenshot({ path: path.join(ARTIFACTS, 'onboarding-mobile.png'), fullPage: false });
-    await page.locator('[data-onboarding-action="close"]').click();
-    await waitForAudit(page, () => !document.querySelector('.jpdb-reader-onboarding'), 3000, 'closing the onboarding launcher did not remove it');
+    assertAudit(snapshot.language === 'ja' && !snapshot.gate, `fresh reading needs a Japanese runtime without a setup gate: ${JSON.stringify(snapshot)}`);
+    await page.locator('.jpdb-reader-word').first().click();
+    await page.waitForSelector('.jpdb-reader-popover', { timeout: 6000 });
+    await assertFreshStarterPractice(browser, fresh);
+    await assertAccessibleSurface(page, 'fresh mobile lookup', '.jpdb-reader-popover');
     await page.close();
-    await assertStudySetupActionsOnScreen(browser);
-    record('mobile onboarding', 'pass', 'the setup launcher has no page-writable controls, and it and Study\'s chooser keep their actions on an iPhone screen');
+    record('mobile onboarding', 'pass', 'fresh Japanese lookup and keyless starter Practice work without a setup gate');
 }
 
-// The launcher hands a fresh install to Study, whose chooser is taller than an
-// iPhone screen: its setup actions stay pinned at the foot of the panel.
-async function assertStudySetupActionsOnScreen(browser) {
-    const study = await openHostedStudy(browser, { ...baseSettings, onboardingSeen: false, learningTargetChosen: false, apiKey: '' }, { width: 390, height: 844 });
-    await study.waitForSelector('.jpdb-reader-onboarding-actions .jpdb-reader-btn', { timeout: 10000 });
-    const actions = await study.evaluate(() => [...document.querySelectorAll('.jpdb-reader-onboarding-actions .jpdb-reader-btn')]
-        .map(button => ({ label: button.textContent?.trim(), top: button.getBoundingClientRect().top, bottom: button.getBoundingClientRect().bottom, height: innerHeight })));
-    assertAudit(actions.length >= 2 && actions.every(action => action.top >= 0 && action.bottom <= action.height), `Study's setup actions are not all on an iPhone's first screen: ${JSON.stringify(actions)}`);
-    await study.screenshot({ path: path.join(ARTIFACTS, 'onboarding-study-chooser-mobile.png'), fullPage: false });
+async function assertFreshStarterPractice(browser, fresh) {
+    const study = await openHostedStudy(browser, fresh, { width: 390, height: 844 });
+    await waitForAudit(study, () => Boolean(document.querySelector('[data-newtab-expression]')?.textContent.trim()),
+        10000, 'fresh Study did not offer a starter word');
+    assertAudit(await study.locator('.jpdb-reader-onboarding, .jpdb-reader-onboarding-trusted-launcher').count() === 0,
+        'fresh Study opened a retired setup gate');
+    await revealNewTabDictionaryCard(study);
+    assertAudit(Boolean((await study.locator('[data-newtab-meaning]').textContent())?.trim()), 'starter word has no meaning');
+    await study.locator('[data-newtab-app-navigation] [data-newtab-action="practice-sessions"]').click();
+    await study.locator('[data-practice-purpose]').selectOption('writing');
+    const start = study.locator('[data-practice-action="start"]');
+    await waitForAudit(study, () => document.querySelector('[data-practice-action="start"]')?.disabled === false,
+        6000, 'starter words provided no usable writing practice');
+    const rect = await start.boundingBox();
+    assertAudit(rect && rect.height >= 44 && rect.y >= 0 && rect.y + rect.height <= 844,
+        `Practice Start is not a visible mobile touch target: ${JSON.stringify(rect)}`);
+    await start.click();
+    await study.locator('[data-practice-input]').fill('てすと');
+    await study.locator('[data-practice-command="answer"]').click();
+    await study.locator('[data-practice-feedback]').waitFor({ state: 'visible', timeout: 6000 });
+    assertAudit(Boolean((await study.locator('.yomu-practice-prompt').textContent())?.trim()), 'Practice has no usable prompt');
+    await assertAccessibleSurface(study, 'fresh starter Practice', '[data-practice-panel]');
     await study.close();
 }
 
@@ -2088,9 +2093,12 @@ async function auditSettingsMobile(browser) {
     assertAudit(snapshot.apiKeyTop < snapshot.viewportHeight * 0.55, 'API key field is too far down after opening settings');
 
     await page.locator('[data-action="settings-panel"][data-panel="media"]').click();
+    await page.locator('[data-audio-sources-title]').click();
     snapshot = await page.evaluate(mobileAudioSourceToolsSnapshotFromDom);
     assertAudit(snapshot.tools.length > 0, 'mobile audio source tools are missing');
-    assertAudit(snapshot.tools.every(tool => tool.left >= 0 && tool.buttons.every(button => button.left >= 0 && button.width >= 34 && button.height >= 34)), 'mobile audio source controls are cramped or clipped');
+    // Subtracting fractional DOMRect edges can report a 44px control as 43.99994px.
+    const geometryEpsilon = 1 / 1024;
+    assertAudit(snapshot.tools.every(tool => tool.left >= 0 && tool.buttons.length > 0 && tool.buttons.every(button => button.left >= 0 && button.right <= snapshot.viewportWidth && button.width + geometryEpsilon >= 44 && button.height + geometryEpsilon >= 44)), `mobile audio source controls are cramped or clipped: ${JSON.stringify(snapshot)}`);
 
     await page.locator('[data-action="settings-panel"][data-panel="help"]').click();
     await assertAccessibleSurface(page, 'mobile settings help', '.jpdb-reader-settings');
@@ -2157,13 +2165,14 @@ function mobileAudioSourceToolsSnapshotFromDom() {
         const rect = row.getBoundingClientRect();
         return {
             left: rect.left,
-            buttons: [...row.querySelectorAll('button')].map(buttonRectSnapshot),
+            // Coarse-pointer layouts use the arrows and hide the drag handle.
+            buttons: [...row.querySelectorAll('button')].filter(button => button.getClientRects().length > 0).map(buttonRectSnapshot),
         };
     }
 
     function buttonRectSnapshot(button) {
         const rect = button.getBoundingClientRect();
-        return { width: rect.width, height: rect.height, left: rect.left };
+        return { width: rect.width, height: rect.height, left: rect.left, right: rect.right };
     }
 }
 
@@ -2479,8 +2488,8 @@ async function assertHostedTryMeFreshProfile(browser, server) {
         ankiEnabled: false,
         // A20 (fd56739bf, 1.8.28): Yomu's own deck, on by default, feeds the
         // state colour channel too. Only a profile with no deck at all falls
-        // back to pitch underline with text colour off, which is what this
-        // pre-check is about.
+        // back to the default underline, which since 2.1 is none (ADR-0026),
+        // with text colour off, which is what this pre-check is about.
         yomuLocalSrsEnabled: false,
         wordHighlightColorSource: 'jpdb',
         wordUnderlineColorSource: 'jpdb',
@@ -2496,7 +2505,7 @@ async function assertHostedTryMeFreshProfile(browser, server) {
         const snapshot = await hostedTryMeVisualSnapshot(page);
         assertAudit(snapshot.down?.expression === '下', `fresh hosted Try Me 下 word has wrong expression: ${JSON.stringify(snapshot)}`);
         assertAudit(snapshot.pointSurface === '下' && snapshot.pointExpression === '下', `fresh hosted Try Me center point misses 下: ${JSON.stringify(snapshot)}`);
-        assertAudit(snapshot.rootClasses.includes('jpdb-reader-word-underline-pitch'), `fresh hosted Try Me should keep pitch styling without login: ${JSON.stringify(snapshot)}`);
+        assertAudit(snapshot.rootClasses.includes('jpdb-reader-word-underline-off'), `fresh hosted Try Me should draw no underline without login: ${JSON.stringify(snapshot)}`);
         assertAudit(snapshot.rootClasses.includes('jpdb-reader-word-text-off'), `fresh hosted Try Me text color should stay off without login: ${JSON.stringify(snapshot)}`);
         assertAudit(snapshot.jpdbWord?.color === snapshot.hostTextColor, `fresh hosted Try Me text should inherit host copy color without login: ${JSON.stringify(snapshot)}`);
     } finally {
@@ -3653,25 +3662,17 @@ function immersionExampleHoverSnapshotFromDom() {
 }
 
 function immersionAnkiDebugSnapshotFromDom() {
+    const text = node => node?.textContent?.replace(/\s+/g, ' ').trim() ?? '';
     return {
-        buttons: [...document.querySelectorAll('.jpdb-reader-popover [data-action="add-default"], .jpdb-reader-popover [data-action^="anki"]')].map(actionButtonSnapshot),
-        popoverText: spacedText(document.querySelector('.jpdb-reader-popover')).slice(0, 700),
+        controls: [...document.querySelectorAll('.jpdb-reader-popover .jpdb-reader-deck-select, .jpdb-reader-popover [data-action^="anki"]')].map(control => ({
+            text: text(control), action: control.getAttribute('data-action'), disabled: control.hasAttribute('disabled'),
+            classes: control.className, closed: control.shadowRoot === null,
+            focused: document.activeElement === control,
+            visible: control instanceof HTMLElement && !control.hidden && getComputedStyle(control).display !== 'none' && getComputedStyle(control).visibility !== 'hidden',
+        })),
+        popoverText: text(document.querySelector('.jpdb-reader-popover')).slice(0, 700),
+        toasts: [...document.querySelectorAll('.jpdb-reader-toast')].map(text),
     };
-}
-
-function actionButtonSnapshot(button) {
-    return {
-        text: spacedText(button),
-        action: button.getAttribute('data-action') ?? '',
-        disabled: button.hasAttribute('disabled'),
-        classes: button.getAttribute('class') ?? '',
-        visible: button instanceof HTMLElement && visibleElementStyle(button),
-    };
-}
-
-function visibleElementStyle(element) {
-    const style = getComputedStyle(element);
-    return !element.hidden && style.display !== 'none' && style.visibility !== 'hidden';
 }
 
 function compactText(node) {
@@ -4246,8 +4247,10 @@ async function auditImmersionKitPopover(browser, server) {
             parserProvider: 'jpdb',
             localDictionariesEnabled: true,
             ankiEnabled: true,
-            // Anki is the "Add to deck +" destination while JPDB mining is off.
+            // One explicit, private Anki destination in this save fixture.
             jpdbMiningEnabled: false,
+            yomuLocalSrsEnabled: false,
+            ankiDeck: 'QA private Anki deck',
             audioEnabled: true,
             immersionKitEnabled: true,
             immersionKitShowTranslation: false,
@@ -4331,11 +4334,11 @@ async function auditImmersionKitPopover(browser, server) {
     await waitForAudit(page, () => !document.querySelector('[data-card-details-loading]'), 6000, 'nested Immersion lookup kept showing dictionary loading details');
     const nestedBack = await page.evaluate(nestedImmersionBackSnapshotFromDom);
     assertAudit(nestedBack.visible && /読/.test(nestedBack.title), `nested Immersion lookup did not expose a back arrow to the source word: ${JSON.stringify(nestedBack)}`);
-    await page.locator('.jpdb-reader-popover [data-action="add-default"]:visible').last().click();
-    await waitForNodeAudit(() => requests.some(request => request.action === 'addNote'), 6000, 'Add to deck + did not send AnkiConnect addNote').catch(async error => {
+    await choosePrivateAnkiDeck(page, requests);
+    await waitForNodeAudit(() => requests.some(request => request.action === 'addNote'), 6000, 'Private deck choice did not send AnkiConnect addNote').catch(async error => {
         const debug = await page.evaluate(immersionAnkiDebugSnapshotFromDom);
         const ankiRequests = requests.filter(request => request.url?.includes('127.0.0.1:8765')).slice(-20);
-        throw new Error(`Add to deck + did not send AnkiConnect addNote: ${JSON.stringify({ debug, selectedImmersion, ankiRequests })}: ${error instanceof Error ? error.message : String(error)}`);
+        throw new Error(`Private deck choice did not send AnkiConnect addNote: ${JSON.stringify({ debug, selectedImmersion, ankiRequests })}: ${error instanceof Error ? error.message : String(error)}`);
     });
     assertImmersionKitRequests(requests, selectedImmersion);
     await assertAccessibleSurface(page, 'Immersion Kit popup examples', '.jpdb-reader-popover');
@@ -4382,7 +4385,7 @@ function immersionKitFirstSnapshotFromDom() {
         localDefinitionSurfaces: [...document.querySelectorAll('.jpdb-reader-local-glossary .jpdb-reader-word')]
             .map(word => helpers?.surface?.(word)?.trim() ?? word.textContent?.replace(/\s+/g, '').trim() ?? ''),
         ankiActions: [...document.querySelectorAll('.jpdb-reader-popover [data-action^="anki"]')].map(node => node.getAttribute('data-action')),
-        hasAddToDeck: Boolean(document.querySelector('.jpdb-reader-popover [data-action="add-default"]')),
+        hasAddToDeck: Boolean(document.querySelector('.jpdb-reader-popover .jpdb-reader-deck-select')),
         parseState: popover instanceof HTMLElement ? {
             key: popover.dataset.jpdbReaderParseKey ?? '',
             loadingKey: popover.dataset.jpdbReaderParseLoadingKey ?? '',
@@ -4484,10 +4487,30 @@ function assertImmersionKitFirstSnapshot(snapshot) {
     assertAudit(snapshot.imageVisible, 'Immersion Kit thumbnail did not render');
     assertAudit(hasRecursivelyParsedLocalDefinitions(snapshot), `local dictionary recursive parsing did not run: ${JSON.stringify(snapshot)}`);
     // Since 1.9.1 an ordinary page gets no Anki account detail (ADR-0020): the
-    // mocked existing note stays off it, and saving is the provider-neutral
-    // "Add to deck +" (2.0.5, ADR-0021). Edit, merge and the rendered note live
+    // mocked existing note stays off it, and deck choices stay in the private
+    // dropdown. Edit, merge and the rendered note live
     // on Study; smoke:anki covers that contract in full.
-    assertAudit(!snapshot.ankiActions.length && snapshot.hasAddToDeck, `ordinary-page popup should offer only "Add to deck +", no Anki actions: ${JSON.stringify(snapshot)}`);
+    assertAudit(!snapshot.ankiActions.length && snapshot.hasAddToDeck, `ordinary-page popup should offer only a private deck dropdown, no Anki account actions: ${JSON.stringify(snapshot)}`);
+}
+
+async function choosePrivateAnkiDeck(page, requests) {
+    const dropdown = page.locator('.jpdb-reader-popover .jpdb-reader-deck-select').last();
+    await dropdown.waitFor({ state: 'visible', timeout: 6000 });
+    const privateState = await dropdown.evaluate(host => ({
+        closed: host.shadowRoot === null,
+        empty: host.textContent === '' && host.querySelector('select, option') === null,
+        leaked: document.body.innerHTML.includes('QA private Anki deck'),
+    }));
+    assertAudit(privateState.closed && privateState.empty && !privateState.leaked,
+        `ordinary-page deck names escaped the private control: ${JSON.stringify(privateState)}`);
+    const before = requests.filter(request => request.action === 'addNote').length;
+    await dropdown.evaluate(host => host.focus({ preventScroll: true }));
+    assertAudit(await dropdown.evaluate(host => document.activeElement === host), 'private dropdown did not receive keyboard focus');
+    // Type-ahead browses the closed native select without opening an OS menu.
+    await page.keyboard.type('Anki: QA');
+    await page.waitForTimeout(100);
+    assertAudit(requests.filter(request => request.action === 'addNote').length === before, 'browsing decks saved before Enter');
+    await page.keyboard.press('Enter');
 }
 
 function hasRecursivelyParsedLocalDefinitions(snapshot) {
@@ -4499,6 +4522,8 @@ function assertImmersionKitRequests(requests, selectedImmersion) {
     const addNoteRequests = requests.filter(request => request.action === 'addNote');
     assertAudit(requests.some(request => /apiv2(?:express)?\.immersionkit\.com\/search/.test(request.url)), 'Immersion Kit API was not requested');
     assertAudit(requests.some(request => request.url.includes('127.0.0.1:8765')), 'AnkiConnect was not queried for existing card state');
+    assertAudit(addNoteRequests.length === 1 && addNoteRequests[0].ankiDeck === 'QA private Anki deck',
+        `private deck choice did not save exactly once to the chosen deck: ${JSON.stringify(addNoteRequests)}`);
     assertAudit(
         addNoteRequests.some(request => immersionAddNoteMatchesSelection(request, selectedImmersion)),
         `Anki addNote did not include the selected Immersion Kit sentence and image: ${JSON.stringify({ selectedImmersion, addNoteRequests })}`,
@@ -4808,7 +4833,12 @@ function ocrFixtureDebugSnapshotFromDom() {
 }
 
 async function auditVideoFixture(browser, server) {
-    const { page } = await newAuditedPage(browser, { ...baseSettings, subtitlePlayerEnabled: true, subtitleAutoDetect: true, showFloatingButton: false });
+    const { page } = await newAuditedPage(browser, { ...baseSettings, subtitlePlayerEnabled: true, subtitleAutoDetect: true, showFloatingButton: false,
+        // This fixture checks opted-in paint containment, not the quiet defaults.
+        // The storage bridge declares these explicit channel choices in its intent ledger.
+        subtitleHighlightColorSource: 'jpdb', subtitleUnderlineColorSource: 'pitch', subtitleTextColorSource: 'off',
+        wordColorHiddenStateGroups: [],
+    });
     await page.goto(`${server.origin}${QA_VIDEO_PATH}`, { waitUntil: 'domcontentloaded' });
     await injectUserscript(page);
     await page.waitForSelector('.jpdb-subtitle-player', { timeout: 6000 });
@@ -5299,7 +5329,9 @@ async function main() {
 
     const failed = results.filter(result => result.status === 'fail');
     console.log(`\nQA artifacts: ${ARTIFACTS}`);
-    console.log(`QA summary: ${results.length - failed.length}/${results.length} passed${OVERRIDE_NOTE}`);
+    const passed = results.filter(result => result.status === 'pass').length;
+    const skipped = results.filter(result => result.status === 'skip').length;
+    console.log(`QA summary: ${passed}/${results.length} passed, ${skipped} skipped${OVERRIDE_NOTE}`);
     if (failed.length) process.exitCode = 1;
 }
 

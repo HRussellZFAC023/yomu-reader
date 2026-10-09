@@ -200,14 +200,35 @@ function isExactHostedAppPath(appUrl, route) {
   return appUrl.path === `/${route}/` || appUrl.originKind === "loopback" && appUrl.path === `/${APP_REPOSITORY_NAME}/${route}/`;
 }
 
+// src/reader/userscript/gm-api.ts
+function userscriptGmApi() {
+  const lexical = typeof GM === "object" && GM ? GM : void 0;
+  return lexical ?? globalRecord("GM");
+}
+function userscriptGmInfo() {
+  const lexical = typeof GM_info === "object" && GM_info ? GM_info : void 0;
+  return lexical ?? globalRecord("GM_info") ?? userscriptGmApi()?.info;
+}
+function globalRecord(name) {
+  const value = globalThis[name];
+  return value && typeof value === "object" ? value : void 0;
+}
+
+// src/reader/app/runtime-env.ts
+function extensionRuntimeMayBeYomu() {
+  return !(typeof __YOMU_EXTENSION_BUILD__ === "boolean" && !__YOMU_EXTENSION_BUILD__);
+}
+
 // src/reader/app/runtime-presence.ts
 var INSTALLED_READER_RUNTIME_MARKER_ID = "jpdb-reader-installed-runtime";
 function detectInstalledReaderRuntime(globals = globalThis) {
-  if (globals.chrome?.runtime?.id || globals.browser?.runtime?.id) return "extension";
-  if (globals === globalThis && typeof GM_getValue === "function" || typeof globals.GM_getValue === "function" || typeof globals.GM?.getValue === "function" || typeof globals.GM?.xmlHttpRequest === "function" || typeof globals.GM?.xmlhttpRequest === "function" || Boolean(globals.GM_info)) {
-    return "userscript";
-  }
-  return null;
+  if (extensionRuntimeMayBeYomu() && (globals.chrome?.runtime?.id || globals.browser?.runtime?.id)) return "extension";
+  return userscriptManagerApi(globals) ? "userscript" : null;
+}
+function userscriptManagerApi(globals) {
+  const ambient = globals === globalThis;
+  const gm = ambient ? userscriptGmApi() : globals.GM;
+  return ambient && typeof GM_getValue === "function" || typeof globals.GM_getValue === "function" || typeof gm?.getValue === "function" || typeof gm?.xmlHttpRequest === "function" || typeof gm?.xmlhttpRequest === "function" || Boolean(ambient ? userscriptGmInfo() : globals.GM_info);
 }
 function announcedInstalledReaderRuntime(root = document) {
   const kind = root.getElementById(INSTALLED_READER_RUNTIME_MARKER_ID)?.dataset?.yomuInstalledRuntimeKind;
@@ -864,6 +885,8 @@ var MANAGED_STATE_MANIFEST = [
   // The one-time reader-canvas tap hint appears once per site. Each site's record
   // is private and keyed by a hash of its origin, so no page can read it.
   { owner: "ocr/reader-canvas-tap-hint", kind: "gm", prefix: "yomu:private:ocr-canvas-tap-hint-seen:v1:" },
+  // The popup grade keycaps retire after the learner's first popup grade.
+  { owner: "cards/grade-key-hints", kind: "gm", key: "yomu:private:grade-key-hints-retired:v1" },
   // Reader CSS last-good cache. v3 is deliberately version-independent (see
   // styles/index) so an upgrade does not start cold; the v2 prefix family
   // stays registered so the per-version entries older installs left behind
@@ -1911,8 +1934,9 @@ function adoptWebsiteOnlyStore(getValue, epoch, write) {
 async function runAdoption(getValue, epoch, write) {
   if (!isHostedYomuOrigin()) return;
   const installed = await readManagedGmValue(getValue, SETTINGS_KEY, epoch);
-  if (installed.kind === "found" && !saysNoTargetChosen(installed.value)) return;
-  const settingsUnitAbsent = installed.kind === "missing" && (await readManagedGmValue(getValue, INTENT_LEDGER_KEY, epoch)).kind === "missing";
+  const ledger = await readManagedGmValue(getValue, INTENT_LEDGER_KEY, epoch);
+  if (installed.kind === "found" && !saysNoTargetChosen(installed.value) && recordsChoices(ledger)) return;
+  const settingsUnitAbsent = installed.kind === "missing" && ledger.kind === "missing";
   for (const key of websiteOnlyKeys(epoch)) {
     if (isSettingsAuthorityStorageKey(key) && !settingsUnitAbsent) continue;
     if ((await readManagedGmValue(getValue, key, epoch)).kind !== "missing") continue;
@@ -1948,6 +1972,11 @@ function withoutFields(record2, fields) {
 }
 function saysNoTargetChosen(settings) {
   return isRecord(settings) && settings.learningTargetChosen === false;
+}
+function recordsChoices(ledger) {
+  if (ledger.kind !== "found" || !isRecord(ledger.value)) return false;
+  const records = ledger.value.records;
+  return isRecord(records) && Object.keys(records).length > 0;
 }
 
 // src/reader/app/managed-write-journal.ts
@@ -2200,8 +2229,8 @@ function legacyGmGetValue() {
   return typeof GM_getValue === "function" ? GM_getValue : null;
 }
 function modernGmGetValue() {
-  const modern = globalThis.GM?.getValue;
-  return typeof modern === "function" ? modern.bind(globalThis.GM) : null;
+  const gm = userscriptGmApi();
+  return typeof gm?.getValue === "function" ? gm.getValue.bind(gm) : null;
 }
 function asyncGmSetValue() {
   if (packagedExtensionStorageAdapterMissing()) return null;
@@ -2218,8 +2247,8 @@ function legacyGmSetValue() {
   return typeof GM_setValue === "function" ? GM_setValue : null;
 }
 function modernGmSetValue() {
-  const modern = globalThis.GM?.setValue;
-  return typeof modern === "function" ? modern.bind(globalThis.GM) : null;
+  const gm = userscriptGmApi();
+  return typeof gm?.setValue === "function" ? gm.setValue.bind(gm) : null;
 }
 function extensionGmSetValue() {
   const extension = extensionStorageArea();
@@ -2244,8 +2273,8 @@ function legacyGmDeleteValue() {
   return typeof GM_deleteValue === "function" ? GM_deleteValue : null;
 }
 function modernGmDeleteValue() {
-  const modern = globalThis.GM?.deleteValue;
-  return typeof modern === "function" ? modern.bind(globalThis.GM) : null;
+  const gm = userscriptGmApi();
+  return typeof gm?.deleteValue === "function" ? gm.deleteValue.bind(gm) : null;
 }
 function extensionGmDeleteValue() {
   const extension = extensionStorageArea();
@@ -2271,8 +2300,8 @@ function legacyGmListValues() {
   return typeof directListValues === "function" ? directListValues : null;
 }
 function modernGmListValues() {
-  const modern = globalThis.GM?.listValues;
-  return typeof modern === "function" ? modern.bind(globalThis.GM) : null;
+  const gm = userscriptGmApi();
+  return typeof gm?.listValues === "function" ? gm.listValues.bind(gm) : null;
 }
 function extensionGmListValues() {
   const extension = extensionStorageArea();
@@ -2291,7 +2320,7 @@ function extensionCapability(select) {
   return activeExtensionCapability(candidate.browser, select) ?? activeExtensionCapability(candidate.chrome, select) ?? null;
 }
 function activeExtensionCapability(extension, select) {
-  return extension?.runtime?.id ? select(extension) : void 0;
+  return extension?.runtime?.id && extensionRuntimeMayBeYomu() ? select(extension) : void 0;
 }
 function packagedExtensionStorageAdapterMissing() {
   if (!isPackagedExtensionDocument()) return false;
@@ -2805,8 +2834,6 @@ function transactionRecord(settings, intentLedger) {
   const previous = objectRecord3(settings.previousValue) ?? {};
   return {
     ...previous,
-    learningTargetChosen: previous.learningTargetChosen === true,
-    onboardingSeen: typeof previous.onboardingSeen === "boolean" ? previous.onboardingSeen : false,
     [TRANSACTION_FIELD2]: {
       version: 1,
       settings: serializeSnapshot(settings),
@@ -2842,7 +2869,7 @@ async function persistHostedSharedSettingsPatch(patch, userChoice) {
     const read = hasAsyncGmStorageBackend() ? gmStorageGetSharedStrict : gmStorageGetStrict;
     const view = await readSettingsPersistenceViewStrictFrom(read);
     if (view.settings == null && !userChoice) return;
-    const shared = view.settings ?? { learningTargetChosen: false, onboardingSeen: false };
+    const shared = view.settings ?? {};
     if (typeof shared !== "object" || Array.isArray(shared)) throw new Error("Invalid hosted settings authority.");
     const merged = { ...shared, ...patch };
     const ledger = recordSettingsIntent(view.intentLedger, userChoice ? Object.keys(patch) : [], merged);

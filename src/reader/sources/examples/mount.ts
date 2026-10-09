@@ -1,6 +1,6 @@
 import { escapeHtml, htmlToFirstElement } from '../../dom/index';
 import { uiText } from '../../app/i18n';
-import { outputLanguageOf, targetLanguageOf } from '../../languages/selection';
+import { OUTPUT_LANGUAGE, TARGET_LANGUAGE } from '../../languages/selection';
 import { installProviderTranslationReveal } from '../provider-examples';
 import { exampleSourceStateKey, renderExampleSourceRow } from './availability-render';
 import { declaredExampleCapabilities, exampleSourcesForTarget } from './registry';
@@ -20,8 +20,8 @@ const DEFAULT_EXAMPLE_LIMIT = 8;
  * The sources that do cover the target render a card the loader fills.
  */
 export function renderTargetExampleSourceMounts(settings: ReaderSettings, sourceAttributes: SourceAttributes): string {
-    const targetLanguage = targetLanguageOf(settings);
-    const outputLanguage = outputLanguageOf(settings);
+    const targetLanguage = TARGET_LANGUAGE;
+    const outputLanguage = OUTPUT_LANGUAGE;
     return declaredExampleCapabilities(targetLanguage).map(row => {
         if (!row.capabilities.supported) {
             return renderExampleSourceRow({
@@ -78,7 +78,7 @@ const ROOT_ABORT_CONTROLLERS = new WeakMap<HTMLElement, Map<string, AbortControl
  * below the popover fold.
  */
 export function installTargetExampleSources(root: HTMLElement, options: TargetExampleLoadOptions): void {
-    const targetLanguage = targetLanguageOf(options.settings);
+    const targetLanguage = TARGET_LANGUAGE;
     const adapters = options.adapters ?? exampleSourcesForTarget(targetLanguage);
     if (!adapters.length) return;
     installExampleSourceControls(root, options);
@@ -115,8 +115,8 @@ async function loadOneSource(
     options: TargetExampleLoadOptions,
     controller: AbortController,
 ): Promise<void> {
-    const targetLanguage = targetLanguageOf(options.settings);
-    const outputLanguage = outputLanguageOf(options.settings);
+    const targetLanguage = TARGET_LANGUAGE;
+    const outputLanguage = OUTPUT_LANGUAGE;
     let collection: ExampleCollection<ExampleRecord>;
     try {
         collection = await adapter.search({
@@ -164,7 +164,7 @@ function installExampleSourceControls(root: HTMLElement, options: TargetExampleL
         if (trigger.dataset.action === 'retry-example-source') {
             event.preventDefault();
             const sourceId = trigger.dataset.exampleSourceId ?? '';
-            const adapters = (options.adapters ?? exampleSourcesForTarget(targetLanguageOf(options.settings)))
+            const adapters = (options.adapters ?? exampleSourcesForTarget(TARGET_LANGUAGE))
                 .filter(adapter => adapter.id === sourceId);
             if (adapters.length) installTargetExampleSources(root, { ...options, adapters });
             return;

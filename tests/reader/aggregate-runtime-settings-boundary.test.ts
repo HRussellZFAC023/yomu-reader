@@ -2,7 +2,6 @@ import { existsSync, readFileSync, statSync } from 'node:fs';
 import path from 'node:path';
 import ts from 'typescript';
 import { describe, expect, it } from 'vitest';
-import { aggregateOfflineStarterReplacement } from '../../config/vite/offline-starter-provider';
 
 const repoRoot = path.resolve(import.meta.dirname, '..', '..');
 const sourceRoot = path.join(repoRoot, 'src');
@@ -10,22 +9,25 @@ const sourceRoot = path.join(repoRoot, 'src');
 function productionImportGraph(entry: string): Set<string> {
     const pending = [path.join(repoRoot, entry)];
     const visited = new Set<string>();
-    while (pending.length) visitImportedSource(pending, visited, entry === 'src/reader/companions/runtime.ts');
+    while (pending.length) visitImportedSource(pending, visited);
     return visited;
 }
 
-function visitImportedSource(pending: string[], visited: Set<string>, aggregate: boolean): void {
+function visitImportedSource(pending: string[], visited: Set<string>): void {
     const file = pending.pop()!;
     const relative = path.relative(repoRoot, file);
     if (visited.has(relative)) return;
     visited.add(relative);
     for (const specifier of transpiledRelativeImports(file)) {
-        const resolved = (aggregate && aggregateOfflineStarterReplacement(specifier, file)) || resolveSourceImport(file, specifier);
+        const resolved = resolveSourceImport(file, specifier);
         if (resolved?.startsWith(sourceRoot)) pending.push(resolved);
     }
 }
 
 function transpiledRelativeImports(file: string): string[] {
+    // A JSON module (the shared menu icon shapes) has no imports, and
+    // transpileModule cannot emit it.
+    if (!/\.tsx?$/u.test(file)) return [];
     const output = ts.transpileModule(readFileSync(file, 'utf8'), {
         compilerOptions: {
             module: ts.ModuleKind.ESNext,
@@ -54,14 +56,8 @@ describe('aggregate runtime Settings launcher boundary', () => {
 
         for (const required of [
             'src/reader/companions/settings-services.ts',
-            'src/reader/app/onboarding.ts',
-            'src/reader/dictionaries/offline-setup.ts',
-            'src/reader/dictionaries/offline-starters-projection.ts',
             'src/reader/dictionaries/yomitan/index.ts',
-            'src/reader/lookup/nested-text-parse.ts',
-            'src/reader/lookup/settings-parse-render.ts',
             'src/reader/popup/modal-accessibility-impl.ts',
-            'src/reader/sources/definition-translation.ts',
             'src/reader/srs/account-sync.ts',
         ]) expect(graph, `${required} must remain in yomu-runtime`).toContain(required);
 
@@ -109,9 +105,6 @@ describe('aggregate runtime Settings launcher boundary', () => {
         expect(artifact).toContain('const NEW_TAB_PAGE_URL = `${DOCS_BASE_URL}study/`;');
         expect(settingsSurface).toContain(`const CURRENT_YOMU_VERSION = "${packageVersion}"`);
         expect(artifact).toContain('class LookupModalAccessibility');
-        expect(artifact).toContain('class OnboardingController');
-        expect(artifact).toContain('function installOfflineParsingDictionaries');
-        expect(artifact).toContain('function installDefinitionTranslationBehaviors');
         expect(artifact).toContain('function installAcademyReaderSrsSync');
     });
 });

@@ -102,17 +102,17 @@ try {
     });
     await assertHostedLocaleIsolation(page, '/ja/', 'ja', 'Japanese homepage');
 
-    await navigateLocaleProof(page, '/learn/reading', 'English reading route');
-    await assertRoute(page, '/learn/reading', 'en');
-    await assertLocaleHref(page, '日本語', '/ja/learn/reading');
-    await assertRouteMetadata(page, '/learn/reading', 'en');
-    await chooseLocale(page, 'Change language', '/ja/learn/reading');
-    await assertRoute(page, '/ja/learn/reading', 'ja');
-    await assertRouteMetadata(page, '/ja/learn/reading', 'ja');
+    await navigateLocaleProof(page, '/learn/', 'English learning route');
+    await assertRoute(page, '/learn/', 'en');
+    await assertLocaleHref(page, '日本語', '/ja/learn/');
+    await assertRouteMetadata(page, '/learn/', 'en');
+    await chooseLocale(page, 'Change language', '/ja/learn/');
+    await assertRoute(page, '/ja/learn/', 'ja');
+    await assertRouteMetadata(page, '/ja/learn/', 'ja');
     await assertJapaneseThemeAccessibility(page);
 
-    await navigateLocaleProof(page, '/privacy/', 'English privacy route');
-    await assertRoute(page, '/privacy/', 'en');
+    await navigateLocaleProof(page, '/library/', 'English library route');
+    await assertRoute(page, '/library/', 'en');
     await assertLocaleHref(page, '日本語', '/ja/');
     await chooseLocale(page, 'Change language', '/ja/');
     await assertHomepage(page, '/ja/', 'ja');

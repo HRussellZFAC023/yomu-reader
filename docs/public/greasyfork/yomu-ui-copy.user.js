@@ -8,7 +8,7 @@ const GITHUB_OWNER = "HRussellZFAC023";
 const GITHUB_PAGES_ORIGIN = `https://${GITHUB_OWNER.toLowerCase()}.github.io`;
 const DOCS_ORIGIN = "https://yomureader.com";
 const DOCS_BASE_URL = `${DOCS_ORIGIN}/`;
-const SUPPORT_COPY = "よむ is a free userscript for popup lookup, dictionaries, OCR, subtitles, study, and Anki.";
+const SUPPORT_COPY = "よむ is free: popup lookup, dictionaries, OCR, subtitles, study and Anki in one place.";
 const SUPPORT_COPY_EXTRA = "Donations are optional and help cover development, devices, services, maintenance, and API costs.";
 const USERSCRIPT_HTTP_BRIDGE_READY_EVENT = "yomu-userscript-http-bridge-ready";
 const USERSCRIPT_STORAGE_BRIDGE_READY_EVENT = "yomu-userscript-storage-bridge-ready";
@@ -560,6 +560,18 @@ function isExactHostedAppPath(appUrl, route) {
 function bridgeEventId(event) {
   return safeReadString(normalizedBridgeEventDetail(event), "id");
 }
+function bridgeProgressEventDetail(event) {
+  const detail = normalizedBridgeEventDetail(event);
+  const id = safeReadString(detail, "id");
+  const loaded = safeReadNumber(detail, "loaded");
+  if (!id || loaded === void 0) return void 0;
+  return {
+  id,
+  loaded,
+  total: safeReadNumber(detail, "total") ?? 0,
+  lengthComputable: safeReadProperty(detail, "lengthComputable") === true
+  };
+}
 function bridgeResponseEventDetail(event) {
   const detail = normalizedBridgeEventDetail(event);
   const id = safeReadString(detail, "id");
@@ -635,6 +647,10 @@ function safeReadProperty(source, key) {
 function safeReadString(source, key) {
   const value = safeReadProperty(source, key);
   return typeof value === "string" ? value : void 0;
+}
+function safeReadNumber(source, key) {
+  const value = safeReadProperty(source, key);
+  return typeof value === "number" ? value : void 0;
 }
 function userscriptRequestCandidates() {
   const candidates = [];
@@ -946,13 +962,26 @@ function normalizedPropertyDescriptor(descriptor) {
   };
   }
 }
+function userscriptGmApi() {
+  const lexical = typeof GM === "object" && GM ? GM : void 0;
+  return lexical ?? globalRecord("GM");
+}
+function userscriptGmInfo() {
+  const lexical = typeof GM_info === "object" && GM_info ? GM_info : void 0;
+  return lexical ?? globalRecord("GM_info") ?? userscriptGmApi()?.info;
+}
+function globalRecord(name) {
+  const value = globalThis[name];
+  return value && typeof value === "object" ? value : void 0;
+}
 const INSTALLED_READER_RUNTIME_MARKER_ID = "jpdb-reader-installed-runtime";
 function detectInstalledReaderRuntime(globals = globalThis) {
-  if (globals.chrome?.runtime?.id || globals.browser?.runtime?.id) return "extension";
-  if (globals === globalThis && typeof GM_getValue === "function" || typeof globals.GM_getValue === "function" || typeof globals.GM?.getValue === "function" || typeof globals.GM?.xmlHttpRequest === "function" || typeof globals.GM?.xmlhttpRequest === "function" || Boolean(globals.GM_info)) {
-  return "userscript";
-  }
-  return null;
+  return userscriptManagerApi(globals) ? "userscript" : null;
+}
+function userscriptManagerApi(globals) {
+  const ambient = globals === globalThis;
+  const gm = ambient ? userscriptGmApi() : globals.GM;
+  return ambient && typeof GM_getValue === "function" || typeof globals.GM_getValue === "function" || typeof gm?.getValue === "function" || typeof gm?.xmlHttpRequest === "function" || typeof gm?.xmlhttpRequest === "function" || Boolean(ambient ? userscriptGmInfo() : globals.GM_info);
 }
 function announcedInstalledReaderRuntime(root = document) {
   const kind = root.getElementById(INSTALLED_READER_RUNTIME_MARKER_ID)?.dataset?.yomuInstalledRuntimeKind;
@@ -998,6 +1027,7 @@ const BRIDGE_REQUEST_EVENT = "yomu-userscript-http-request";
 const BRIDGE_RESPONSE_EVENT = "yomu-userscript-http-response";
 const BRIDGE_PROBE_EVENT = "yomu-userscript-http-probe";
 const BRIDGE_PROBE_RESPONSE_EVENT = "yomu-userscript-http-probe-response";
+const BRIDGE_PROGRESS_EVENT = "yomu-userscript-http-progress";
 const BRIDGE_MARKER = "yomuUserscriptHttpBridge";
 const BRIDGE_KEYS = { ready: BRIDGE_MARKER, owner: "yomuHttpBridgeOwner", kind: "yomuHttpBridgeKind" };
 const BRIDGE_TIMEOUT_MS = 3e4;
@@ -1101,18 +1131,26 @@ function userscriptHttpEventBridge() {
   if (currentHttpBridgeOwner() === null) return void 0;
   return tagEventBridgeRequest((options) => new Promise((resolve, reject) => {
   const id = `yomu-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
-  const timeout = window.setTimeout(() => {
+  const onTimeout = () => {
     cleanup();
     options.ontimeout?.();
     reject(new Error("Request timed out."));
-  }, options.timeout ?? BRIDGE_TIMEOUT_MS);
-  let cleanupBridgeResponseListener = noop;
+  };
+  let timeout = window.setTimeout(onTimeout, options.timeout ?? BRIDGE_TIMEOUT_MS);
+  let cleanupBridgeListeners = noop;
   const cleanup = () => {
     window.clearTimeout(timeout);
-    cleanupBridgeResponseListener();
+    cleanupBridgeListeners();
   };
   const onResponse = (event) => {
     handleBridgeResponseEvent(event, id, options, cleanup, resolve, reject);
+  };
+  const onProgress = (event) => {
+    const progress = bridgeProgressEventDetail(event);
+    if (progress?.id !== id) return;
+    window.clearTimeout(timeout);
+    timeout = window.setTimeout(onTimeout, options.timeout ?? BRIDGE_TIMEOUT_MS);
+    options.onprogress?.(progress);
   };
   void httpBridgeOwner().then((owner) => {
     if (!owner) {
@@ -1122,8 +1160,15 @@ function userscriptHttpEventBridge() {
       reject(error);
       return;
     }
-    cleanupBridgeResponseListener = addBridgeEventListener(BRIDGE_RESPONSE_EVENT, onResponse);
-    dispatchBridgeEvent(BRIDGE_REQUEST_EVENT, { id, ownerId: owner.ownerId, options: withoutCallbacks(options) });
+    const reportProgress = typeof options.onprogress === "function";
+    const cleanups = [addBridgeEventListener(BRIDGE_RESPONSE_EVENT, onResponse)];
+    if (reportProgress) cleanups.push(addBridgeEventListener(BRIDGE_PROGRESS_EVENT, onProgress));
+    cleanupBridgeListeners = () => cleanups.forEach((cleanupListener) => cleanupListener());
+    dispatchBridgeEvent(BRIDGE_REQUEST_EVENT, {
+      id,
+      ownerId: owner.ownerId,
+      options: { ...withoutCallbacks(options), ...reportProgress ? { reportProgress: true } : {} }
+    });
   });
   }));
 }
@@ -1337,7 +1382,9 @@ function requestViaUserscript(url, options, userscriptRequest) {
     return normalizeUserscriptResponse(response, options.responseType ?? "text");
   },
   onError: (error) => error instanceof Error ? error : new Error(formatFailure(options)),
-  onTimeout: () => new Error(options.timeoutLabel ?? `${options.failureLabel ?? "Request"} timed out.`)
+  // Typed like the page fetch's own timeout, so a caller can tell a host
+  // that stopped answering from one that refused, whatever the label says.
+  onTimeout: () => new RetryableTimeoutError(options.timeoutLabel ?? `${options.failureLabel ?? "Request"} timed out.`)
   });
 }
 function normalizeUserscriptResponse(response, responseType) {
@@ -2376,9 +2423,7 @@ function formatIsolated(message, values) {
 const GRAMMAR_UI_COPY = {
   en: {
   findingGrammar: "Finding grammar...",
-  grammarNoLocalMatch: "No built-in {language} grammar patterns matched this sentence.",
-  grammarDetectionPending: "Built-in {language} grammar detection is still being prepared.",
-  grammarReferenceOnly: "Built-in {language} grammar detection is still being prepared. Use the reference below.",
+  grammarNoLocalMatch: "No built-in Japanese grammar patterns matched this sentence.",
   grammarCheckUnavailable: "Grammar could not be checked.",
   grammarReference: "Open grammar reference",
   grammarKnown: "Known",
@@ -2390,7 +2435,6 @@ const GRAMMAR_UI_COPY = {
   grammarHideKnown: "Hide known",
   grammarShowKnown: "Show known",
   allDetectedGrammarKnown: "All detected grammar is marked known.",
-  grammarShown: "shown",
   grammarKnownHidden: "known hidden",
   grammarGenericShort: "Grammar point: {name}",
   grammarGenericDetail: "Uses {name} in 「{match}」.",
@@ -2398,9 +2442,7 @@ const GRAMMAR_UI_COPY = {
   },
   ja: {
   findingGrammar: "文法を検索中...",
-  grammarNoLocalMatch: "内蔵の{language}文法パターンはこの文に一致しませんでした。",
-  grammarDetectionPending: "内蔵の{language}文法検出は準備中です。",
-  grammarReferenceOnly: "内蔵の{language}文法検出は準備中です。下のリファレンスを利用できます。",
+  grammarNoLocalMatch: "内蔵の日本語文法パターンはこの文に一致しませんでした。",
   grammarCheckUnavailable: "文法を確認できませんでした。",
   grammarReference: "文法リファレンスを開く",
   grammarKnown: "既知",
@@ -2412,7 +2454,6 @@ const GRAMMAR_UI_COPY = {
   grammarHideKnown: "既知を隠す",
   grammarShowKnown: "既知を表示",
   allDetectedGrammarKnown: "検出文法はすべて既知です。",
-  grammarShown: "件表示",
   grammarKnownHidden: "件の既知を非表示",
   grammarGenericShort: "文法項目: {name}",
   grammarGenericDetail: "「{match}」に「{name}」。",
@@ -2425,7 +2466,7 @@ const EN_SUBTITLE_SETTINGS_COPY = {
   subtitleOverlayVisible: "Show subtitle overlay",
   // Not a control label: no checkbox writes this any more, the three-way
   // `subtitleNativeDisplay` select does. It stays because a stored setting with
-  // no control of its own takes its wording in docs/reference/settings.md from
+  // no control of its own takes its wording in docs/dev/settings-reference.md from
   // the i18n entry keyed by its own name, and this sentence is what the stored
   // boolean means.
   subtitleSecondaryVisible: "Show native subtitles",
@@ -2499,7 +2540,7 @@ const LOCAL_DICTIONARY_STORAGE_COPY = {
   extensionDictionaryUnavailable: "The extension dictionary service is unavailable. Retry, or reload the Yomu extension.",
   extensionDictionaryConnectionLost: "The extension dictionary connection was lost. Check whether the operation completed before retrying.",
   localDictionariesEnabled: "Show imported dictionary definitions",
-  localDictionarySiteStorageHelp: "Imported dictionaries are stored by the site where you import them. Other sites answer from Jiten and your online sources.",
+  localDictionarySiteStorageHelp: "Imported dictionaries stay on your device.",
   clearLocalDictionarySiteStorage: "Disable and remove stored dictionaries",
   clearLocalDictionarySiteStorageConfirm: "Disable imported dictionaries and delete this site's stored copy?\n\nSites that still hold a copy from earlier versions remove it the next time you visit them. You can re-import dictionaries at any time.",
   clearLocalDictionarySiteStorageClearing: "Disabling imported dictionaries and clearing this site's copy...",
@@ -2517,39 +2558,13 @@ const LOCAL_DICTIONARY_STORAGE_COPY = {
   extensionDictionaryUnavailable: "拡張機能の辞書サービスを利用できません。再試行するか、よむ拡張機能を再読み込みしてください。",
   extensionDictionaryConnectionLost: "拡張機能の辞書サービスとの接続が切れました。再試行する前に、操作が完了していないか確認してください。",
   localDictionariesEnabled: "インポート済み辞書の定義を表示",
-  localDictionarySiteStorageHelp: "インポート済み辞書は、インポートしたサイトに保存されます。他のサイトではJitenなどのオンラインソースが使われます。",
+  localDictionarySiteStorageHelp: "インポートした辞書は端末内に保存されます。",
   clearLocalDictionarySiteStorage: "無効にして保存済み辞書を削除",
   clearLocalDictionarySiteStorageConfirm: "インポート済み辞書を無効にし、このサイトの保存コピーを削除しますか？\n\n以前のバージョンのコピーが残っているサイトは、次回訪問時に自動的に削除されます。辞書はいつでも再インポートできます。",
   clearLocalDictionarySiteStorageClearing: "インポート済み辞書を無効にし、このサイトのコピーを削除中...",
   clearLocalDictionarySiteStorageDone: "インポート済み辞書を無効にしました。このサイトのコピーは削除され、他のサイトも訪問時に順次削除されます。"
   }
 };
-const TARGET_AWARE_UI_COPY = Object.freeze({
-  en: Object.freeze({
-  puckStudyTarget: "Study {language}",
-  puckLearningTarget: `${APP_NAME} — learning target: {language}`,
-  puckAutoDetectTargetSubtitles: "Auto-detect {language} subtitles",
-  puckFilterYoutubeTarget: "Filter YouTube for {language}",
-  popupLanguageAxes: "Reading {target} · Definitions/translation: {output}",
-  contextOccurrences: "In context ×{count}",
-  loadTargetSubtitles: "Load {language} subtitles",
-  loadOutputSubtitles: "Load {language} subtitles",
-  readingAnnotations: "Reading annotations",
-  hideReadingsFor: "Hide readings for"
-  }),
-  ja: Object.freeze({
-  puckStudyTarget: "{language}を学習",
-  puckLearningTarget: `${APP_NAME} — 学習対象：{language}`,
-  puckAutoDetectTargetSubtitles: "{language}の字幕を自動検出",
-  puckFilterYoutubeTarget: "YouTubeを{language}向けに絞る",
-  popupLanguageAxes: "学習対象：{target}・定義/翻訳：{output}",
-  contextOccurrences: "文脈内 ×{count}",
-  loadTargetSubtitles: "{language}字幕を読み込む",
-  loadOutputSubtitles: "{language}字幕を読み込む",
-  readingAnnotations: "読みの注釈",
-  hideReadingsFor: "読みを隠す対象"
-  })
-});
 const SETTINGS_RECOVERY_COPY = {
   en: {
   settingsImportUnsupportedFormat: "This settings backup format is not supported.",
@@ -2753,50 +2768,17 @@ const COPY = {
   ...PRACTICE_SESSION_COPY.en,
   ...COLLECTION_COPY.en,
   settingsTitle: `${APP_NAME} Settings`,
-  welcomeLabel: `${APP_NAME} welcome`,
-  onboardingEyebrow: "{language}, wherever it appears",
-  onboardingCopy: "Make {language} text, subtitles, and images tappable.",
-  onboardingLanguage: "Settings language",
-  onboardingOutputLanguage: "Definition and translation language (output)",
-  onboardingTargetLanguage: "Language you are reading (target)",
-  onboardingChooseTarget: "Choose a learning language…",
-  onboardingTargetRequired: "Choose a learning language before continuing.",
-  onboardingUnselectedTargetName: "your learning language",
-  onboardingAccentColor: "Accent color",
-  customAccentColor: "Custom color",
-  onboardingImmersionOptions: "Immersion defaults",
-  onboardingInstallOfflineDictionaries: "Download starter dictionaries for this language",
-  studyTargetReadinessFull: "Full Yomu support",
-  // All 33 targets have the whole loop; Japanese differs by DEPTH, not by
-  // whether it can be studied. See learning-target-contract.test.ts.
-  studyTargetReadinessReadingOnly: "Read, mine and review",
-  studyTargetReadinessPlanned: "Planned",
-  studyTargetReadinessFullReason: "Everything, including pitch accent, kanji and grammar.",
-  studyTargetReadinessReadingOnlyReason: "Reading, lookup, mining and review are ready.",
-  studyTargetReadinessPlannedReason: "Support is planned.",
-  onboardingHoverShortcut: "Lookup hover modifier",
   manualPageScanShortcut: "Manual page scan shortcut",
-  onboardingAddApiKey: "Add API key",
-  onboardingUseWithoutApiKey: "Use without API key",
-  closeOnboarding: "Close welcome",
-  featureText: "Text",
-  featureTextBody: "Hover or tap scanned {language}.",
-  featureImages: "Images",
-  featureImagesBody: "Read any image by tapping it.",
-  featureVideo: "Video",
-  featureVideoBody: "Make subtitle words tappable.",
-  featureControl: "Control",
-  featureControlBody: "Tune features, shortcuts, and color.",
-  featureStudy: "Study",
-  featureStudyBody: "Review words and characters on the study page.",
-  featureGame: "Game",
-  featureGameBody: "Install the Yomu app to use in games or anywhere on the PC.",
-  gamingChooseTargetTitle: "Choose the language you want to read",
-  gamingChooseTargetBody: "Yomu can read any supported language on your screen after you choose it.",
-  gamingChooseTargetAction: "Choose a language",
-  gamingTargetRequired: "Choose the language you want to read before capturing your screen.",
   scanPage: "Scan page",
-  noUnscannedJapaneseText: "No unscanned {language} text found.",
+  noUnscannedJapaneseText: "No unscanned Japanese text found.",
+  statsEmptyHelp: "Your reviews and progress show up here after your first session.",
+  libraryEmpty: "Save a word while you read and it shows up here.",
+  moreLookupLinks: "More links",
+  audioSourcesTitle: "Audio sources",
+  contextOccurrences: "In context ×{count}",
+  puckAutoDetectSubtitles: "Auto-detect subtitles",
+  loadTargetSubtitles: "Load Japanese subtitles",
+  loadOutputSubtitles: "Load English subtitles",
   jpdbScanFailed: "Page scan failed.",
   pageCoverageSummary: "{percent}% known · {known}/{total} · {unknown} new · {iPlusOne} i+1",
   settings: "Settings",
@@ -2814,11 +2796,11 @@ const COPY = {
   accountSettingsTrustedSurfaceTitle: "Open Settings in Study",
   accountSettingsTrustedSurfaceHelp: "This page can read and change its own controls, so Yomu does not put settings, account details, imports, or recovery codes here. Open the Yomu-owned Study page to edit and save them safely.",
   openAccountSettingsTrustedSurface: "Open Study settings",
-  onboardingTrustedSurfaceEyebrow: "Finish setup in Study",
-  onboardingTrustedSurfaceCopy: "This website can change anything shown here. Choose your learning language and preferences on the Yomu-owned Study page.",
-  openOnboardingTrustedSurface: "Continue setup in Study",
   save: "Save",
   cancel: "Cancel",
+  closeSettings: "Close settings",
+  settingsLauncherHelp: "Settings open in Study, where this site can't read them.",
+  openInStudy: "Open in Study",
   show: "Show",
   hide: "Hide",
   appearance: "Appearance",
@@ -2826,7 +2808,6 @@ const COPY = {
   dictionaries: "Dictionaries",
   sources: "Sources",
   backupSync: "Backup & sync",
-  backupSyncHelp: "Save or move your Yomu setup: export and import settings as plain JSON, back up dictionaries, or sync through Google Drive.",
   media: "Media",
   mining: "Mining",
   shortcuts: "Shortcuts",
@@ -2888,7 +2869,7 @@ const COPY = {
   gradeTargetYomuLocalAndAnki: `Grades ${ACADEMY_SRS_LABEL} + Anki card: {target}`,
   missingAnkiCardId: "Missing Anki card id.",
   jpdbPageEnhancements: "Dictionary site enhancements",
-  jpdbPageEnhancementsEnabled: "Enhance dictionary pages",
+  jpdbPageEnhancementsEnabled: "Enhance JPDB and Jiten pages",
   jpdbPageWordEnhancementsEnabled: "Add sources to word/search pages",
   jpdbPageKanjiEnhancementsEnabled: "Add sources to kanji pages",
   fivePoint: "Provider default",
@@ -2909,7 +2890,6 @@ const COPY = {
   bottomSheet: "Bottom sheet",
   popover: "Popover",
   stickyBottomSheet: "Keep sheet open after lookup",
-  popoverBackdropEnabled: "Dim page behind popover",
   popoverWidth: "Popover width (px)",
   popoverHeight: "Popover height (px)",
   popoverHeightMode: "Popover height behavior",
@@ -2935,19 +2915,19 @@ const COPY = {
   newTabAnkiReviewDecks: "Anki review decks",
   newTabAnkiReviewDecksHelp: "Uncheck decks to skip.",
   newTabSource: "Study review source",
-  newTabAuto: `Auto: ${ACADEMY_SRS_LABEL}, accounts, then study words`,
+  newTabAuto: "Automatic",
   newTabApiSrs: "API SRS (Jiten / JPDB)",
   newTabBunpro: "Bunpro",
   newTabWanikani: "WaniKani",
   newTabYomuLocal: ACADEMY_SRS_LABEL,
   dictionaryFallback: "Dictionary fallback",
   newTabJpdbReviewMode: "API review mode",
-  newTabJpdbReviewAuto: "Auto: live kanji + API vocabulary",
+  newTabJpdbReviewAuto: "Automatic",
   newTabLiveReview: "Live JPDB review session",
   newTabApiVocabulary: "API vocabulary only",
   corsProxyUrl: "Cross-origin proxy URL",
   newTabKanjiKeywordSource: "Kanji keyword source",
-  newTabKanjiKeywordAuto: "Auto: RTK, then {service} kanji facts, then local",
+  newTabKanjiKeywordAuto: "Automatic",
   newTabKanjiKeywordRtk: "RTK / Heisig",
   newTabKanjiKeywordApiFacts: "{service} kanji facts (Jiten / JPDB)",
   newTabKanjiKeywordLocal: "Local card meaning",
@@ -2961,12 +2941,8 @@ const COPY = {
   newTabStopAtBatchEnd: "Stop at the end of each batch",
   newTabSwipeReviews: "Swipe cards to grade (left = fail, right = pass)",
   newTabShortcutHintsEnabled: "Show Study keyboard shortcut hints",
-  newTabUrl: "Study address",
   newTabOfflineHelp: "Caches due cards and queued grades.",
-  newTabAddressHelp: "Use as a start page or iPad shortcut.",
   newTabJpdbDeck: "Study JPDB deck",
-  openNewTabPage: "Open Study",
-  copyAddress: "Copy address",
   wordColors: "Word colors",
   wordColorNew: "New and in deck",
   wordColorLearning: "Learning",
@@ -3001,9 +2977,8 @@ const COPY = {
   lookupOnHover: "Look up on hover",
   lookupOnMiddleMouse: "Look up with middle-mouse hold",
   showFloatingButton: "Show settings puck",
-  pageScanMode: "{language} text on webpages",
-  pageScanModeOff: "Leave pages unchanged",
-  pageScanModeAuto: "Scan {language} automatically",
+  pageScanMode: "Japanese text on webpages",
+  pageScanModeAuto: "Scan Japanese automatically",
   pageScanModeManual: "Scan only when I ask",
   manualScanEnabled: "Manual page scanning",
   ocrInteractionMode: "Image OCR scanning",
@@ -3011,30 +2986,24 @@ const COPY = {
   ocrInteractionModeManual: "Tap or hover",
   ocrInteractionModeOff: "Off",
   puckMenuLabel: `${APP_NAME} menu`,
-  ...TARGET_AWARE_UI_COPY.en,
-  puckPauseAnnotations: "Pause annotations",
-  puckResumeAnnotations: "Resume annotations",
+  puckPowerOnFurigana: `${APP_NAME} on · furigana shown`,
+  puckPowerOnNoFurigana: `${APP_NAME} on · furigana hidden`,
+  puckPowerOff: `${APP_NAME} off`,
   puckOcrAuto: "OCR: Auto",
   puckOcrManual: "OCR: Tap/Hover",
   puckOcrOff: "OCR: Off",
-  annotationsPausedToast: "Annotations paused.",
-  annotationsResumedToast: "Annotations resumed.",
-  puckMuteAudio: "Mute auto-play audio",
-  puckUnmuteAudio: "Unmute auto-play audio",
-  autoplayAudioOnToast: "Auto-play audio on.",
-  autoplayAudioOffToast: "Auto-play audio muted.",
-  puckHideFurigana: "Hide furigana",
-  furiganaOffToast: "Furigana off. Lookups stay active.",
+  autoplayAudioOn: "Auto-play audio on",
+  autoplayAudioOff: "Auto-play audio off",
   showFurigana: "Enable furigana annotations",
   furiganaMode: "Furigana",
   wordColorStates: "Color words",
   appearancePreset: "Quick setup",
-  appearancePresetCustom: "Keep current custom settings",
+  appearancePresetCustom: "Custom",
   appearancePresetBalanced: "Balanced reading",
   appearancePresetNoColors: "Plain text",
   appearancePresetNewOnly: "Focus on new words",
   appearancePresetUnderlineNew: "Minimal highlights",
-  wordColorStatesAll: "Use all learning states",
+  wordColorStatesAll: "All learning states",
   wordColorStatesNewOnly: "Only new / not-in-deck words",
   hideFuriganaFor: "Hide furigana for",
   hideColorFor: "Hide color for",
@@ -3043,7 +3012,7 @@ const COPY = {
   statusColorNoSourceHelp: `Status colors read from a deck. Enable ${ACADEMY_SRS_LABEL} in Study, or add a JPDB, Jiten, or Anki source, and words take the color of their learning state.`,
   furiganaHideKnown: "Hide familiar words",
   furiganaHoverOnly: "Show on hover",
-  furiganaAllParsed: "Show on every parsed word",
+  furiganaAllParsed: "All parsed words",
   clampedRowReadings: "Readings on clamped rows",
   clampedRowReadingsShow: "Show (row grows)",
   clampedRowReadingsHover: "Hover only",
@@ -3061,17 +3030,13 @@ const COPY = {
   audioEnabled: "Enable term audio",
   autoPlayAudio: "Auto-play term audio",
   suppressAutoAudioOnVideo: "Disable lookup audio on video pages",
-  audioAutoPlayMode: "Auto-play trigger",
+  audioAutoPlayMode: "Auto-play term audio",
   audioEnableDefaultSources: "Enable built-in audio sources",
   audioFallbackChimeEnabled: "Enable fallback chime",
-  audioSelectionMode: "When several sources or clips exist",
   audioPlayback: "Audio playback",
-  firstAudio: "First audio",
-  randomAudio: "Shuffle audio",
   audioTtsMode: "Text-to-speech handling",
   audioTtsFallback: "Fallback after recorded audio",
   audioTtsSourceOrder: "Follow source order / shuffle",
-  audioTimeoutMs: "Audio timeout (ms)",
   previewAudio: "Preview audio",
   audioHelp: "URL tokens: {term}, {reading}, {language}.",
   audioSource: "Audio source",
@@ -3109,19 +3074,7 @@ const COPY = {
   audioSubSourceOverlapHint: "also listed as its own source",
   defaultVoiceSuffix: "default",
   audioGuideLinkLabel: "Yomitan audio guide",
-  audioProxyGuideSummary: "Make your own Cloudflare proxy",
-  audioProxyGuideIntro: "Use a Worker when you want a private proxy.",
-  audioProxyGuideCloudflare: "Open Cloudflare.",
-  audioProxyGuideWorkers: "Open Workers & Pages, then Create.",
-  audioProxyGuideCreateWorker: "Choose Worker, name it, deploy.",
-  audioProxyGuideEditCode: "Paste the Yomu Worker source.",
-  audioProxyGuideDeploy: "Deploy.",
-  audioProxyGuideCopyUrl: "Copy the Worker URL.",
-  audioProxyGuidePasteUrl: "Paste it into Cross-origin proxy URL.",
-  audioProxyGuideTest: "Save, then test lookup/import/audio.",
-  audioProxyGuideNote: "Limit hosts before sharing.",
-  audioProxyWorkerSource: "Worker source",
-  audioProxyDeployGuide: "Deploy guide",
+  audioProxyDeployGuide: "Proxy setup",
   immersionKit: "Immersion Kit",
   immersionKitEnabled: "Show Immersion Kit examples",
   immersionKitExampleSource: "Example provider",
@@ -3134,16 +3087,9 @@ const COPY = {
   immersionKitAutoPlayAudio: "Play example audio after reveal or next/previous",
   immersionKitPlayOnHover: "Play example audio when hovering thumbnails",
   immersionKitPlayOnImageClick: "Play example audio when clicking thumbnails",
-  immersionKitCategory: "Immersion Kit category",
-  immersionKitSort: "Example order",
   immersionKitLimitEnabled: "Examples per word limit",
-  allExamples: "All examples",
-  limitExamples: "Limit examples",
-  immersionKitLimit: "Examples per word",
-  immersionKitMinLength: "Minimum sentence length",
-  immersionKitMaxLength: "Maximum sentence length",
+  immersionKitLimit: "Examples per word (0 = all)",
   immersionKitPlaybackRate: "Example audio speed",
-  immersionKitExactMatch: "Prefer exact matches",
   immersionKitHelp: "Examples appear in popups. Nadeshiko needs a key.",
   loadingExamples: "Loading examples...",
   noImmersionExamplesCompact: "No examples",
@@ -3166,12 +3112,9 @@ const COPY = {
   previousExample: "Previous example",
   nextExample: "Next example",
   playExampleAudio: "Play example audio",
-  allCategories: "All",
   anime: "Anime",
   drama: "Drama",
   games: "Games",
-  shortestFirst: "Shortest first",
-  longestFirst: "Longest first",
   ocrEnabled: "Read text in images",
   ocrAutoScanImages: "Read images automatically",
   ocrShowTextOverlay: "Show recognized text areas",
@@ -3217,17 +3160,17 @@ const COPY = {
   hideControls: "Hide controls",
   alwaysVisible: "Always visible",
   preview: "Preview",
-  youtubeImmersionEnabled: "{language} YouTube only",
-  preferJapaneseSiteLanguage: "Open {language} versions of sites",
+  youtubeImmersionEnabled: "Japanese YouTube only",
+  preferJapaneseSiteLanguage: "Request Japanese sites",
   youtubeShowChannelRecommendations: "Show Japanese channel suggestions",
   youtubeShowFilterNotice: "Show hidden-video notice",
-  youtubeHelp: "Filter YouTube for {language} and open {language} versions of sites.",
+  youtubeHelp: "Filter YouTube for Japanese.",
   youtubeShowHiddenVideos: "Show hidden videos",
   youtubeHideHiddenVideos: "Hide hidden videos",
   youtubeHideNotice: "Hide notice",
   youtubeFilterShowing: "{appName} shows {count} hidden item{plural}",
   youtubeFilterHid: "{appName} hid {count} other-language item{plural}",
-  youtubeFilterVisible: "{count} {language} items stayed visible.",
+  youtubeFilterVisible: "{count} Japanese items stayed visible.",
   youtubeToggleToastOn: "YouTube immersion filter enabled.",
   youtubeToggleToastOff: "YouTube immersion filter disabled.",
   ankiEnabled: "Enable Anki mining",
@@ -3306,7 +3249,6 @@ const COPY = {
   ankiHelp: "Install AnkiConnect and keep desktop Anki open. If CORS appears, add this site to webCorsOriginList. Mobile handoff creates notes only.",
   jpdbDefinitionsEnabled: "Show JPDB definitions",
   ...LOCAL_DICTIONARY_STORAGE_COPY.enSettings,
-  dictionarySourcesInitiallyExpanded: "Open sources by default",
   localDictionaryMaxResults: "Dictionary result limit",
   cloudSettingsSync: "Google Drive settings sync",
   cloudSettingsSyncHelp: "Stores your Yomu settings and local SRS progress in Google Drive app data. Dictionaries stay local.",
@@ -3348,8 +3290,6 @@ const COPY = {
   parserProviderJpdb: "JPDB API",
   parserProviderAuto: "Automatic (Jiten/JPDB)",
   parserProviderHelp: "Local parses with imported dictionaries, offline. Jiten and JPDB always use that API when its key is set. Automatic uses your preferred grading service when both keys are set, otherwise Jiten, then JPDB.",
-  offlineDictionarySetupComplete: "Offline dictionaries installed.",
-  offlineDictionarySetupFailed: "Offline dictionary setup failed. Retry from Settings → Sources.",
   copiesCurrentWord: "Copies the current word",
   plaintextHttpLink: "Opens over plaintext HTTP.",
   lookupPillLabelNumber: "Lookup pill {number} label",
@@ -3358,6 +3298,8 @@ const COPY = {
   lookupPillOrder: "Lookup pill order",
   builtInAction: "Built-in action",
   recommendedDownloads: "Dictionaries",
+  recommendedJapaneseDictionaries: "Recommended Japanese dictionaries",
+  recommendedDictionaryCountAndSize: "Dictionaries: {count} · {size}",
   termDictionaries: "Term dictionaries",
   kanjiDictionaries: "Kanji dictionaries",
   pitchDictionaries: "Pitch dictionaries",
@@ -3373,7 +3315,6 @@ const COPY = {
   mirroredDictionariesSummary: "{count} more dictionaries · {size} total",
   mirroredDictionarySearch: "Search dictionaries",
   mirroredDictionarySearchNoResults: "No dictionaries match your search.",
-  mirroredDictionaryLanguageNote: "Dictionaries for reading {language}.",
   install: "Install",
   installing: "Installing",
   installed: "Installed",
@@ -3383,8 +3324,6 @@ const COPY = {
   download: "Download",
   update: "Update",
   checkingDictionaries: "Checking imported dictionaries...",
-  targetDictionaryUnavailable: "Dictionaries for {language} are not available yet.",
-  targetDictionaryAvailabilityUnavailable: "Dictionary availability could not be checked.",
   dictionaryDownloading: "Downloading",
   dictionaryReadingZip: "Reading dictionary ZIP...",
   dictionaryCheckingIndex: "Checking index...",
@@ -3401,7 +3340,6 @@ const COPY = {
   dictionaryEntries: "entries",
   dictionaryTotal: "total",
   dictionaryDownloadProgress: "Downloading",
-  dictionaryStatusSummary: "Dicts {dictionaries}, terms {terms}, kanji {kanji}, meta {metadata}",
   dictionaryStatusUnavailable: "Unavailable.",
   noLocalDictionariesImported: "No dictionaries imported yet. Start with a term dictionary for definitions.",
   dictionaryDownloadFailed: "Dictionary download failed.",
@@ -3416,6 +3354,7 @@ const COPY = {
   dictionaryInstallQueued: "{dictionary} queued.",
   dictionaryInstallSaveBlocked: "Import running. Save unlocks when done.",
   dictionaryImportQueueStatus: "{count} install{plural} running.",
+  dictionaryInstallRunning: "{count} install{plural} running.",
   dictionaryRemoveConfirm: 'Remove "{dictionary}"?',
   dictionaryRemoving: "Removing {dictionary}...",
   dictionaryRemoved: "Removed {dictionary}.",
@@ -3594,7 +3533,7 @@ const COPY = {
   updateHelpNotesManagerDashboard: "On Chrome or Edge, Update opens the Tampermonkey dashboard instructions: Utilities → Check for userscript updates. This avoids the browser’s blocked website-install banner.",
   updateHelpNotesExternalManager: "Keep one Yomu script enabled. Update opens the script source; your userscript app reads it from the open tab to update. If updates stall on iPhone/iPad, open this link in Safari and leave the tab open.",
   updateHelpNotesNoManager: "No userscript manager was detected here, and browsers block direct script installs — Update opens the install guide with per-browser steps.",
-  updateHelpNotesExtensionStore: "You are running the Yomu browser extension. Update opens your browser’s extension store, where installs update automatically and you can trigger a manual update check.",
+  updateHelpNotesExtensionStore: "Updates come from the browser extension store.",
   updateUserscript: "Update",
   duplicateStatusSingle: "One Yomu runtime active ({kind}).",
   duplicateStatusUnknown: "Duplicate check unavailable. If Yomu appears twice, disable the older script.",
@@ -3612,7 +3551,6 @@ const COPY = {
   github: "GitHub",
   word: "Word",
   search: "Search",
-  newTabAddressCopied: "Study address copied.",
   loading: "Loading...",
   reveal: "Reveal",
   revealTranslation: "Reveal translation",
@@ -3621,8 +3559,8 @@ const COPY = {
   loadingKanjiDetails: "Loading kanji details...",
   lookupDialog: `${APP_NAME} lookup`,
   resizeLookupSheet: "Drag to resize lookup sheet, or tap to close",
-  showMiningActions: "Show mining actions",
-  hideMiningActions: "Hide mining actions",
+  showMiningActions: "More actions",
+  hideMiningActions: "Fewer actions",
   ...GRADING_SERVICE_COPY.en,
   jpdbKanjiUpdated: "JPDB kanji updated.",
   jpdbKanjiUpdateFailedRuntime: "Could not update JPDB kanji. Check kanji reviews.",
@@ -3687,7 +3625,6 @@ const COPY = {
   openOnJpdb: "Open on JPDB",
   openOnLookup: "Open on {label}",
   viewOnLookup: "View on {label}",
-  copyWord: "Copy",
   copyWordTitle: "Copy word",
   copiedWord: "Copied word.",
   backToWord: "Back to word",
@@ -3719,10 +3656,9 @@ const COPY = {
   heisigComment: "Heisig comment",
   koohiiStories: "Koohii stories",
   add: "Add",
-  addToDeck: "Add to deck",
+  addToDeck: "Add to deck…",
   deck: "Deck",
   deckActions: "Deck actions",
-  reviewAddsToDeck: "Reviewing will add new words to",
   reviewBlockedBlacklisted: "Blacklisted. Unlist before reviewing.",
   reviewBlockedNeverForget: "Never-forget. Remove before reviewing.",
   reviewBlockedRedundant: "JPDB marks this redundant.",
@@ -3747,7 +3683,6 @@ const COPY = {
   ankiNewCard: "New card",
   ankiMatches: "Anki matches",
   gradeAnkiCardTarget: "Grades Anki card: {target}",
-  gradeJpdbCardTarget: "Grades API SRS card",
   ankiNoteNotFound: "Anki note not found.",
   mergeYomu: "Merge Yomu",
   mergeYomuTitle: "Update matching fields and add Yomu media to this note",
@@ -3812,6 +3747,8 @@ const COPY = {
   jitenCompositeWords: "Composite words",
   usedInVocabulary: "Used in vocabulary",
   exampleSentences: "Example sentences",
+  moreMeanings: "More meanings",
+  moreExamples: "More examples",
   // U46: every one of these is a state a learner can reach. They exist
   // because an example source with nothing to show used to render nothing
   // at all, so an unsupported language looked exactly like a broken one.
@@ -3856,7 +3793,6 @@ const COPY = {
   removeHeader: "Remove",
   definitionSource: "Definition source",
   popupOrderTitle: "Popup order",
-  popupOrderHelp: "This list sets the order of sections in the popup. Reorder it with the arrows or by dragging, then press Save.",
   kanjiSection: "Kanji section",
   dragToReorder: "Drag to reorder",
   moveUp: "Move up",
@@ -3911,15 +3847,7 @@ const COPY = {
   openSectionToTranslate: "Open this section to translate.",
   translationUnavailable: "Translation unavailable.",
   translating: "Translating...",
-  ...GRAMMAR_UI_COPY.en,
-  // D43 interface-locale picker: Yomu ships two of 33 in-scope interface languages.
-  // The picker names what the other 31 are waiting on instead of silently replacing them with English.
-  interfaceLocalesReady: "Ready now",
-  interfaceLocalesInProgress: "On the way",
-  interfaceLocaleRtlPending: "Right-to-left layout checks are still running",
-  interfaceLocaleTranslationPending: "Translation is still in progress",
-  interfaceLocaleBlockedNote: "These are coming. Each one shows what it is waiting on.",
-  interfaceLocaleReadyCount: "{ready} of {total} interface languages are ready."
+  ...GRAMMAR_UI_COPY.en
   }
 };
 const CARD_STATE_LABEL_KEYS = {
@@ -3943,7 +3871,7 @@ const CARD_STATE_LABEL_KEYS = {
 };
 function parseUiCopyTable(rows) {
   const copy = {};
-  rows.trim().split("\n").forEach((row) => {
+  rows.trim().split("\n").map((row) => row.replace(/^ +/u, "")).forEach((row) => {
   const tab = row.indexOf("	");
   if (tab < 0) {
     const key = row.trim();
@@ -3956,60 +3884,17 @@ function parseUiCopyTable(rows) {
   return copy;
 }
 const JA_COPY = {
-  gamingChooseTargetTitle: "読みたい言語を選んでください",
-  gamingChooseTargetBody: "言語を選ぶと、画面上の対応言語を読み取れるようになります。",
-  gamingChooseTargetAction: "言語を選ぶ",
-  gamingTargetRequired: "画面をキャプチャする前に、読みたい言語を選んでください。",
   ...parseUiCopyTable(String.raw`
-interfaceLocalesReady	今すぐ使えます
-interfaceLocalesInProgress	準備中
-interfaceLocaleRtlPending	右から左へのレイアウト確認が進行中です
-interfaceLocaleTranslationPending	翻訳が進行中です
-interfaceLocaleBlockedNote	これらの言語も準備中です。それぞれ何を待っているか表示します。
-interfaceLocaleReadyCount	表示言語{total}件のうち{ready}件が使えます。
 settingsTitle	{APP_NAME} 設定
-welcomeLabel	{APP_NAME} ようこそ
-onboardingEyebrow	{language}がある場所ならどこでも
-onboardingCopy	本文、字幕、画像の{language}をタップ可能にします。
-onboardingLanguage	表示言語
-onboardingOutputLanguage	定義・翻訳の言語（出力）
-onboardingTargetLanguage	ページで読む言語（対象）
-onboardingChooseTarget	学習する言語を選ぶ…
-onboardingTargetRequired	続ける前に学習する言語を選んでください。
-onboardingUnselectedTargetName	学習中の言語
-onboardingAccentColor	アクセントカラー
-customAccentColor	カスタムカラー
-onboardingImmersionOptions	没入設定の初期値
-onboardingInstallOfflineDictionaries	この言語のスターター辞書をダウンロード
-studyTargetReadinessFull	よむの全機能
-studyTargetReadinessReadingOnly	読んで、集めて、復習
-studyTargetReadinessPlanned	準備中
-studyTargetReadinessFullReason	ピッチアクセント、漢字、文法まですべて使えます。
-studyTargetReadinessReadingOnlyReason	読解、検索、マイニング、復習が使えます。
-studyTargetReadinessPlannedReason	対応を準備中です。
-offlineDictionarySetupComplete	オフライン辞書をインストールしました。
-offlineDictionarySetupFailed	オフライン辞書のセットアップに失敗しました。設定→ソースから再試行してください。
-onboardingHoverShortcut	ホバー検索の修飾キー
-onboardingAddApiKey	APIキーを追加
-onboardingUseWithoutApiKey	APIキーなしで使う
-closeOnboarding	ようこそ画面を閉じる
-featureText	テキスト
-featureTextBody	スキャンした{language}をホバー/タップできます。
-featureImages	画像
-featureImagesBody	画像をタップして読み取れます。
-featureVideo	動画
-featureVideoBody	字幕内の語もタップできます。
-featureControl	調整
-featureControlBody	機能、キー、色を調整できます。
-featureStudy	学習
-featureStudyBody	学習ページで単語と文字を復習。
-featureGame	ゲーム
-featureGameBody	Yomuアプリをインストールすると、ゲームやPC上のどこでも使えます。
 automatic	自動
 english	英語
 japanese	日本語
 settings	設定
 settingsSaved	設定を保存しました。
+statsEmptyHelp	最初の学習のあと、復習の記録と進み具合がここに表示されます。
+libraryEmpty	読みながら単語を保存すると、ここに表示されます。
+moreLookupLinks	その他のリンク
+audioSourcesTitle	音声ソース
 settingsSaveFailed	設定を保存できませんでした。
 settingsCompanionUnavailable	設定を開けませんでした。
 firefoxAuthenticationInfoDenied	Firefoxの許可がなかったため、アカウント情報は保存しませんでした。
@@ -4027,7 +3912,6 @@ word	単語
 search	検索
 switchToLightTheme	ライトテーマに切り替え
 switchToDarkTheme	ダークテーマに切り替え
-newTabAddressCopied	学習ページのアドレスをコピーしました。
 loading	読み込み中...
 reveal	表示
 revealTranslation	翻訳を表示
@@ -4036,8 +3920,8 @@ exampleSearchLinks	例文検索リンク
 loadingKanjiDetails	漢字情報を読み込み中...
 lookupDialog	{APP_NAME}検索
 resizeLookupSheet	検索シートをリサイズ。タップで閉じる
-showMiningActions	マイニング操作を表示
-hideMiningActions	マイニング操作を隠す
+showMiningActions	その他の操作
+hideMiningActions	操作を閉じる
 closeDrawer	ドロワーを閉じる
 copiedWord	単語をコピーしました。
 jpdbKanjiUpdated	JPDB漢字を更新しました。
@@ -4068,10 +3952,7 @@ dictionaryRecords	辞書レコード
 dictionaryEntries	件
 dictionaryTotal	合計
 dictionaryDownloadProgress	辞書をダウンロード中
-dictionaryStatusSummary	辞書{dictionaries}、語{terms}、漢字{kanji}、メタ{metadata}
 dictionaryStatusUnavailable	辞書状態を取得不可。
-targetDictionaryUnavailable	{language}の辞書はまだ利用できません。
-targetDictionaryAvailabilityUnavailable	辞書の提供状況を確認できませんでした。
 noLocalDictionariesImported	辞書は未追加です。まず定義用の語句辞書を追加してください。
 dictionaryDownloadFailed	辞書のダウンロードに失敗しました。
 storageRuntimeUnavailable	よむの保存機能を利用できません。ページを再読み込みし、解決しない場合はよむを再インストールしてください。
@@ -4085,6 +3966,7 @@ dictionaryInstallQueueHelp	まず定義用の語句辞書をインストール�
 dictionaryInstallQueued	{dictionary}待機中。
 dictionaryInstallSaveBlocked	インポート中。完了後に保存できます。
 dictionaryImportQueueStatus	{count}件インストール中。完了後に保存。
+dictionaryInstallRunning	{count}件インストール中。
 dictionaryRemoveConfirm	「{dictionary}」を削除？
 dictionaryRemoving	{dictionary}を削除中...
 dictionaryRemoved	{dictionary}を削除しました。
@@ -4101,7 +3983,11 @@ dictionaryZipMissingIndex	ZIPにindex.jsonがありません。
 local	ローカル
 dict	辞書
 scanPage	ページをスキャン
-noUnscannedJapaneseText	未スキャンの{language}テキストはありません。
+noUnscannedJapaneseText	未スキャンの日本語テキストはありません。
+contextOccurrences	文脈内 ×{count}
+puckAutoDetectSubtitles	字幕を自動検出
+loadTargetSubtitles	日本語字幕を読み込む
+loadOutputSubtitles	英語字幕を読み込む
 jpdbScanFailed	ページスキャンに失敗しました。
 pageCoverageSummary	{percent}%・{known}/{total}・新{unknown}・i+1 {iPlusOne}
 noImmersionExamplesCompact	例文なし
@@ -4135,7 +4021,6 @@ stateUnparsed	未解析
 stateInDeck	デッキ内
 stateNotInDeck	デッキ外
 gradeAnkiCardTarget	Ankiカードを採点: {target}
-gradeJpdbCardTarget	API SRSカードを採点
 ankiReviewSingular	回復習
 ankiReviewPlural	回復習
 ankiLapseSingular	回失敗
@@ -4193,7 +4078,6 @@ playExampleAudio	例文音声を再生
 openOnJpdb	JPDBで開く
 openOnLookup	{label}で開く
 viewOnLookup	{label}で見る
-copyWord	コピー
 copyWordTitle	単語をコピー
 backToWord	単語に戻る
 backToKanji	漢字に戻る
@@ -4312,10 +4196,9 @@ heisigStory	Heisigストーリー
 heisigComment	Heisigコメント
 koohiiStories	Koohiiストーリー
 add	追加
-addToDeck	デッキに追加
+addToDeck	デッキに追加…
 deck	デッキ
 deckActions	デッキ操作
-reviewAddsToDeck	レビューすると新しい単語を追加します:
 reviewBlockedBlacklisted	ブラックリスト入りです。解除するとレビューできます。
 reviewBlockedNeverForget	「忘れない」設定です。解除するとレビューできます。
 reviewBlockedRedundant	JPDBで冗長のためレビューできません。
@@ -4404,6 +4287,8 @@ loadingDictionaryDetails	辞書詳細を読み込み中...
 jitenCompositeWords	複合語
 usedInVocabulary	使われる単語
 exampleSentences	例文
+moreMeanings	ほかの意味
+moreExamples	ほかの例文
 exampleSourceEmpty	この語の例文はまだありません。
 exampleSourceEmptyShort	例文なし
 exampleSourceLimitedCorpus	コーパスが小さいため、例文がまだない語もあります。
@@ -4460,9 +4345,6 @@ const JA_SETTINGS_COPY = {
   accountSettingsTrustedSurfaceTitle: "Studyで設定を開く",
   accountSettingsTrustedSurfaceHelp: "このページは自身の入力欄を読み書きできるため、よむは設定、アカウント情報、インポート、復旧コードをここに表示しません。よむが管理するStudyページで安全に編集・保存してください。",
   openAccountSettingsTrustedSurface: "Studyの設定を開く",
-  onboardingTrustedSurfaceEyebrow: "Studyで初期設定を完了",
-  onboardingTrustedSurfaceCopy: "このウェブサイトは、ここに表示された内容を変更できます。よむが管理するStudyページで学習言語と設定を安全に選んでください。",
-  openOnboardingTrustedSurface: "Studyで初期設定を続ける",
   ...parseUiCopyTable(String.raw`
 settingsTitle	{APP_NAME} 設定
 settingsSections	設定セクション
@@ -4471,13 +4353,15 @@ settingsSearchPlaceholder	設定を検索
 settingsSearchNoResults	一致なし。
 save	保存
 cancel	キャンセル
+closeSettings	設定を閉じる
+settingsLauncherHelp	設定は、このサイトから読み取れないStudyで開きます。
+openInStudy	Studyで開く
 show	表示
 hide	隠す
 appearance	外観
 reading	読解
 sources	ソース
 backupSync	バックアップと同期
-backupSyncHelp	Yomuの設定を保存・移行できます。設定をJSONでエクスポート/インポート、辞書のバックアップ、Google Drive同期に対応しています。
 media	メディア
 mining	採掘
 shortcuts	ショートカット
@@ -4492,7 +4376,7 @@ api	API
 apiCredential	APIキー
 apiCredentialJpdb	JPDB APIキー
 apiCredentialJiten	Jiten APIキー
-apiCredentialBunpro	Bunpro frontend API token
+apiCredentialBunpro	BunproフロントエンドAPIトークン
 apiCredentialWanikani	WaniKaniパーソナルアクセストークン
 wanikaniTokenHelp	WaniKaniでread/write権限のパーソナルアクセストークンを作成し、ここに貼り付けてください。ブラウザ内にのみ保存され、プロキシを経由せずapi.wanikani.comへ直接送信され、ログに残ることはありません。
 apiCredentialBunproLegacy	Bunpro APIキー
@@ -4536,7 +4420,7 @@ gradeTargetBunproAndAnki	Bunpro + Ankiカードを採点: {target}
 gradeTargetYomuLocalAndAnki	Academy + Ankiカードに記録: {target}
 missingAnkiCardId	AnkiカードIDがありません。
 jpdbPageEnhancements	辞書サイト拡張
-jpdbPageEnhancementsEnabled	辞書ページを拡張
+jpdbPageEnhancementsEnabled	JPDB・Jitenのページを拡張
 jpdbPageWordEnhancementsEnabled	単語・検索ページにソースを追加
 jpdbPageKanjiEnhancementsEnabled	漢字ページにソースを追加
 fivePoint	サービスの標準評価
@@ -4552,7 +4436,6 @@ hoverPopupMode	ホバー時の表示
 bottomSheet	下部シート
 popover	ポップオーバー
 stickyBottomSheet	検索後も開く
-popoverBackdropEnabled	背後を暗くする
 popoverWidth	ポップオーバー幅 (px)
 popoverHeight	ポップオーバー高さ (px)
 popoverHeightMode	ポップオーバー高さの動作
@@ -4578,19 +4461,19 @@ newTabAnkiEnabled	学習でAnkiカードを使う
 newTabAnkiReviewDecks	Anki復習デッキ
 newTabAnkiReviewDecksHelp	不要なデッキを外します。
 newTabSource	学習の復習ソース
-newTabAuto	自動: Academy・アカウント後に学習語
+newTabAuto	自動
 newTabApiSrs	API SRS（Jiten / JPDB）
 newTabBunpro	Bunpro
 newTabWanikani	WaniKani
 newTabYomuLocal	Academy
 dictionaryFallback	辞書フォールバック
 newTabJpdbReviewMode	API復習モード
-newTabJpdbReviewAuto	自動: ライブ漢字+API語彙
+newTabJpdbReviewAuto	自動
 newTabLiveReview	ライブJPDB復習セッション
 newTabApiVocabulary	API語彙のみ（デッキ順）
 corsProxyUrl	クロスオリジンプロキシURL
 newTabKanjiKeywordSource	漢字キーワードのソース
-newTabKanjiKeywordAuto	自動: RTK、{service}、ローカル
+newTabKanjiKeywordAuto	自動
 newTabKanjiKeywordRtk	RTK / Heisig
 newTabKanjiKeywordApiFacts	{service}漢字情報（Jiten / JPDB）
 newTabKanjiKeywordLocal	ローカルカードの意味
@@ -4604,12 +4487,8 @@ newTabKanjiUnlockEnabled	漢字後に単語を解放
 newTabStopAtBatchEnd	バッチの終わりで停止
 newTabSwipeReviews	スワイプ採点（左=失敗、右=合格）
 newTabShortcutHintsEnabled	学習のキーボードショートカットヒントを表示
-newTabUrl	学習ページのアドレス
 newTabOfflineHelp	カードと未送信採点を保存。
-newTabAddressHelp	新規タブやiPadホーム画面用。
 newTabJpdbDeck	学習のJPDBデッキ
-openNewTabPage	学習を開く
-copyAddress	アドレスをコピー
 wordColors	単語の色
 wordColorNew	新規・デッキ内
 wordColorLearning	学習中
@@ -4644,10 +4523,9 @@ lookupOnClick	タップまたはクリックで検索
 lookupOnHover	ホバーで検索
 lookupOnMiddleMouse	中央ボタン長押しで検索
 showFloatingButton	設定ボタンを表示
-pageScanMode	ウェブページの{language}
-pageScanModeOff	ページを変更しない
-pageScanModeAuto	{language}を自動で検出
-pageScanModeManual	指示したときだけ{language}を検出
+pageScanMode	ウェブページの日本語
+pageScanModeAuto	日本語を自動で検出
+pageScanModeManual	指示したときだけ日本語を検出
 manualPageScanShortcut	手動ページスキャンのショートカット
 manualScanEnabled	手動ページスキャン
 ocrInteractionMode	画像OCRスキャン
@@ -4655,24 +4533,19 @@ ocrInteractionModeAuto	自動
 ocrInteractionModeManual	タップ/ホバー
 ocrInteractionModeOff	オフ
 puckMenuLabel	よむ メニュー
-puckPauseAnnotations	注釈を一時停止
-puckResumeAnnotations	注釈を再開
+puckPowerOnFurigana	{APP_NAME} オン・ふりがな表示
+puckPowerOnNoFurigana	{APP_NAME} オン・ふりがな非表示
+puckPowerOff	{APP_NAME} オフ
 puckOcrAuto	OCR: 自動
 puckOcrManual	OCR: タップ/ホバー
 puckOcrOff	OCR: オフ
-annotationsPausedToast	注釈を一時停止しました。
-annotationsResumedToast	注釈を再開しました。
-puckMuteAudio	音声の自動再生をミュート
-puckUnmuteAudio	音声の自動再生のミュートを解除
-puckHideFurigana	ふりがなを隠す
-furiganaOffToast	ふりがなを非表示にしました。単語の検索は引き続き使えます。
-autoplayAudioOnToast	音声の自動再生をオンにしました。
-autoplayAudioOffToast	音声の自動再生をミュートしました。
+autoplayAudioOn	音声の自動再生 オン
+autoplayAudioOff	音声の自動再生 オフ
 showFurigana	ふりがな注釈を有効にする
 furiganaMode	ふりがな
 wordColorStates	色を付ける単語
 appearancePreset	かんたん設定
-appearancePresetCustom	現在のカスタム設定を保持
+appearancePresetCustom	カスタム
 appearancePresetBalanced	読みやすいバランス
 appearancePresetNoColors	プレーンテキスト
 appearancePresetNewOnly	新規単語に集中
@@ -4686,7 +4559,7 @@ furiganaDifficultKanjiHelp	Yomuは初級漢字の固定リストを持ち、そ�
 statusColorNoSourceHelp	学習状態の色はデッキから読み取ります。StudyでAcademyを有効にするか、JPDB・Jiten・Ankiのいずれかを追加すると、単語が学習状態の色になります。
 furiganaHideKnown	なじみのある語を非表示
 furiganaHoverOnly	ホバー時に表示
-furiganaAllParsed	解析済みの全単語に表示
+furiganaAllParsed	解析済みの全単語
 clampedRowReadings	省略行の読み
 clampedRowReadingsShow	表示（行が広がる）
 clampedRowReadingsHover	ホバー時のみ
@@ -4703,17 +4576,13 @@ kanjiOriginRadicalImagesEnabled	部首画像を表示
 audioEnabled	語句の音声を有効にする
 autoPlayAudio	語句の音声を自動再生
 suppressAutoAudioOnVideo	動画では検索音声オフ
-audioAutoPlayMode	自動再生のきっかけ
+audioAutoPlayMode	単語音声の自動再生
 audioEnableDefaultSources	内蔵音声ソースを有効
 audioFallbackChimeEnabled	フォールバック音を有効
-audioSelectionMode	複数音声があるとき
 audioPlayback	音声再生
-firstAudio	最初の音声
-randomAudio	シャッフル音声
 audioTtsMode	読み上げの扱い
 audioTtsFallback	録音音声の後のフォールバック
 audioTtsSourceOrder	ソース順/シャッフルに含める
-audioTimeoutMs	音声タイムアウト (ms)
 previewAudio	音声を試聴
 audioHelp	URL: {term}、{reading}、{language}。
 audioSource	音声ソース
@@ -4751,19 +4620,7 @@ audioSubSourcesHelp	このURLが提供するソース。不要なものはオフ
 audioSubSourceOverlapHint	下の単独ソースと重複
 defaultVoiceSuffix	標準
 audioGuideLinkLabel	Yomitan音声ガイド
-audioProxyGuideSummary	Cloudflareプロキシ
-audioProxyGuideIntro	専用プロキシにはWorkerを使います。
-audioProxyGuideCloudflare	Cloudflareを開きます。
-audioProxyGuideWorkers	Workers & PagesでCreateします。
-audioProxyGuideCreateWorker	Workerを選び、名前を付けてDeploy。
-audioProxyGuideEditCode	Yomu Workerソースを貼ります。
-audioProxyGuideDeploy	Deployします。
-audioProxyGuideCopyUrl	Worker URLをコピーします。
-audioProxyGuidePasteUrl	Cross-origin proxy URLに貼ります。
-audioProxyGuideTest	保存後、検索・インポート・音声で確認。
-audioProxyGuideNote	共有前にホストを絞ります。
-audioProxyWorkerSource	Workerソース
-audioProxyDeployGuide	デプロイガイド
+audioProxyDeployGuide	プロキシの設定
 immersionKitEnabled	イマージョンキット例文を表示
 immersionKitExampleSource	例文プロバイダー
 immersionKitAndNadeshiko	イマージョンキット + なでしこ
@@ -4775,23 +4632,13 @@ immersionKitShowImages	例文サムネイルを表示
 immersionKitAutoPlayAudio	表示後や移動時に音声再生
 immersionKitPlayOnHover	ホバーで例文音声を再生
 immersionKitPlayOnImageClick	クリックで例文音声を再生
-immersionKitCategory	例文ソース
-immersionKitSort	例文の並び順
 immersionKitLimitEnabled	単語ごとの例文数制限
-allExamples	すべての例文
-limitExamples	例文数を制限
-immersionKitLimit	単語ごとの例文数
-immersionKitMinLength	最小文長
-immersionKitMaxLength	最大文長
+immersionKitLimit	単語ごとの例文数（0 = すべて）
 immersionKitPlaybackRate	例文音声速度
-immersionKitExactMatch	完全一致を優先
 immersionKitHelp	例文を表示。Nadeshikoはキー必須。
-allCategories	すべて
 anime	アニメ
 drama	ドラマ
 games	ゲーム
-shortestFirst	短い順
-longestFirst	長い順
 ocrEnabled	画像内テキストを読む
 ocrAutoScanImages	画像を自動で読む
 ocrShowTextOverlay	認識した画像テキスト領域を表示
@@ -4841,17 +4688,17 @@ showWhenNeeded	コンパクト表示
 hideControls	コントロールを隠す
 alwaysVisible	常に表示
 preview	プレビュー
-youtubeImmersionEnabled	{language}のYouTubeのみ
-preferJapaneseSiteLanguage	{language}版のサイトを開く
+youtubeImmersionEnabled	日本語のYouTubeのみ
+preferJapaneseSiteLanguage	日本語版サイトをリクエスト
 youtubeShowChannelRecommendations	日本語チャンネル候補を表示
 youtubeShowFilterNotice	非表示動画の通知を表示
-youtubeHelp	YouTubeを{language}向けに絞り、{language}版のサイトを開きます。
+youtubeHelp	YouTubeを日本語向けに絞ります。
 youtubeShowHiddenVideos	非表示動画を表示
 youtubeHideHiddenVideos	非表示動画を隠す
 youtubeHideNotice	通知を隠す
 youtubeFilterShowing	{appName}は非表示のYouTube項目{count}件を表示中
 youtubeFilterHid	{appName}は他の言語のYouTube項目{count}件を非表示
-youtubeFilterVisible	{language}らしい項目{count}件は表示したままです。
+youtubeFilterVisible	日本語らしい項目{count}件は表示したままです。
 youtubeToggleToastOn	YouTube没入フィルターをオンにしました。
 youtubeToggleToastOff	YouTube没入フィルターをオフにしました。
 ankiEnabled	Anki採掘を有効にする
@@ -4927,7 +4774,6 @@ ankiMappingLowConfidence	低
 ankiHelp	AnkiConnectを入れてデスクトップ版Ankiを開きます。CORS表示が出る場合はこのサイトをwebCorsOriginListに追加してください。モバイル受け渡しは新規ノート作成のみです。
 jpdbDefinitionsEnabled	JPDB定義を表示
 ${Object.entries(LOCAL_DICTIONARY_STORAGE_COPY.jaSettings).map(([key, value]) => `${key}	${value}`).join("\n")}
-dictionarySourcesInitiallyExpanded	ポップアップのソースを標準で開く
 localDictionaryMaxResults	辞書結果の上限
 cloudSettingsSync	Google Drive設定同期
 cloudSettingsSyncHelp	Yomuの設定をGoogle Driveのアプリデータに保存します。辞書は端末内に残ります。
@@ -4977,6 +4823,8 @@ lookupUrlTemplateNumber	ピル{number} URL
 lookupPillOrder	検索ピルの順序
 builtInAction	内蔵アクション
 recommendedDownloads	辞書
+recommendedJapaneseDictionaries	おすすめの日本語辞書
+recommendedDictionaryCountAndSize	辞書{count}件 · {size}
 termDictionaries	語句辞書
 kanjiDictionaries	漢字辞書
 pitchDictionaries	ピッチ辞書
@@ -4992,7 +4840,6 @@ mirroredDictionaries	配信中のすべての辞書
 mirroredDictionariesSummary	他{count}件の辞書 · 合計{size}
 mirroredDictionarySearch	辞書を検索
 mirroredDictionarySearchNoResults	検索に一致する辞書がありません。
-mirroredDictionaryLanguageNote	{language}を読むための辞書です。
 install	インストール
 installing	インストール中
 installed	インストール済み
@@ -5061,7 +4908,7 @@ updateHelpNotesManager	よむスクリプトは1つだけ有効にしてくだ�
 updateHelpNotesManagerDashboard	Chrome または Edge では、「更新」を押すと Tampermonkey の更新手順が開きます。ダッシュボードの「ユーティリティ」→「ユーザースクリプトの更新を確認」を使うため、ウェブサイトからのインストールをブロックする警告を回避できます。
 updateHelpNotesExternalManager	よむスクリプトは1つだけ有効にしてください。「更新」でスクリプトのソースが開き、ユーザースクリプトアプリが開いたタブから読み取って更新します。iPhone/iPadで更新が止まる場合は、このリンクをSafariで開いてタブを開いたままにしてください。
 updateHelpNotesNoManager	この環境ではユーザースクリプトマネージャーが検出されませんでした。ブラウザはスクリプトの直接インストールをブロックするため、「更新」ではブラウザ別の手順があるインストールガイドを開きます。
-updateHelpNotesExtensionStore	よむのブラウザ拡張機能版を実行中です。「更新」を押すとブラウザの拡張機能ストアが開きます。ストア版は自動的に更新され、手動での更新確認も行えます。
+updateHelpNotesExtensionStore	更新はブラウザの拡張機能ストアから届きます。
 updateUserscript	更新
 duplicateStatusSingle	有効なYomuランタイムは1つです（{kind}）。
 duplicateStatusUnknown	重複確認はできません。よむが2つ表示される場合は古いスクリプトを無効にしてください。
@@ -5071,7 +4918,7 @@ ankiConnectSetupConfig	AnkiConnectのwebCorsOriginListに次のオリジンを�
 ankiConnectSetupMobile	スマホやiPadでは、デスクトップPCのLANまたはTailscale URLを使います。スマホ上のlocalhostはPCではなくスマホ自身を指します。
 ankiConnectSetupBrave	BraveでローカルAnki確認がブロックされる場合は、StudyページのShieldsをオフにしてください。
 helpSupportTitle	よむをサポート
-helpSupportCopy	よむは検索、OCR、字幕、辞書、学習、Ankiをまとめた無料ユーザースクリプトです。
+helpSupportCopy	よむは検索、OCR、字幕、辞書、学習、Ankiをまとめた無料のツールです。
 helpSupportCopyExtra	寄付は開発とサービス費用を支えます。
 videoPlayer	動画プレイヤー
 pdfReader	PDFリーダー
@@ -5093,7 +4940,6 @@ orderHeader	順序
 removeHeader	削除
 definitionSource	定義ソース
 popupOrderTitle	ポップアップの順序
-popupOrderHelp	この一覧の順にポップアップの項目が並びます。矢印かドラッグで並べ替えてから「保存」を押してください。
 kanjiSection	漢字セクション
 dragToReorder	ドラッグして並べ替え
 moveUp	上へ移動
@@ -5136,8 +4982,7 @@ recommendedKanjiumPitch	ピッチアクセント専用です。定義には語�
 recommendedBccwj	BCCWJ由来の頻度バッジです。
 recommendedJiten	Jiten由来の頻度バッジです。
 `),
-  ...SUBTITLE_SETTINGS_COPY.ja,
-  ...TARGET_AWARE_UI_COPY.ja
+  ...SUBTITLE_SETTINGS_COPY.ja
 };
 function resolveUiLanguage(language) {
   if (language === "ja" || language === "en") return language;

@@ -74,14 +74,14 @@ describe('userscript request sites hand the manager the right details', () => {
         expect(calls[0].timeout).toBeUndefined();
     });
 
-    it('keeps the dictionary download on its 120 s budget and its progress callback', async () => {
+    it('keeps a 20 minute manager ceiling and download progress for the local idle deadline', async () => {
         const { calls } = captureManagerDetails();
         const progress = vi.fn();
         park(requestDictionaryBlob('https://cdn.example/dict.zip', '', progress));
         await flush();
 
         expect(calls).toHaveLength(1);
-        expect(calls[0].timeout).toBe(120_000);
+        expect(calls[0].timeout).toBe(20 * 60_000);
         expect(calls[0].responseType).toBe('blob');
         // The import dialog's only sign of life during a multi-megabyte archive.
         expect(typeof calls[0].onprogress).toBe('function');

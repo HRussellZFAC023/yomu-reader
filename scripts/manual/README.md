@@ -36,7 +36,6 @@ the area it covers.
 | `manual:lookup-popover-strip`           | Popover action-strip guard, currently red; needs live enrichment/triage.                                                                                                                                                               |
 | `manual:overlay-scroll-lock`            | Overlay scroll-lock guard, currently red on both engines; kept for manual triage.                                                                                                                                                      |
 | `manual:popover-actions`                | Depends on live enrichment to render the action pills.                                                                                                                                                                                 |
-| `quality:multilingual-capabilities`     | Offline, fail-closed 33-target × 18-capability behavior audit. Prints delivered, adapted, data-backed, fallback, unavailable, and readiness evidence as JSON; a passing row is not automatically a support claim.                    |
 | `manual:reader-sites`                   | Injects into real Ttsu/Yatsu/YouTube pages.                                                                                                                                                                                            |
 | `manual:screenshots-real`               | Captures real manga/reader pages in a persistent signed-in Chrome profile.                                                                                                                                                             |
 | `manual:screenshots-settings`           | Recaptures the docs settings shots from the built userscript on a loopback server; needs no operator.                                                                                                                                  |
@@ -144,3 +143,17 @@ node scripts/manual/youtube-performance-comparison-smoke.mjs
 ```
 
 `YOMU_PROFILE_SOAK_MS` replaces `YOMU_PROFILE_AMBIENT_MS`; the old ambient and hover-stress names remain compatibility aliases for the non-comparable soak only.
+
+## Public parser network profile
+
+Run `node_modules/.bin/vite-node scripts/manual/parser-network-profile.ts -- --text '冒険を始めよう。夜明けまでに港へ行くよ。'`.
+This measures the real ReaderParser source against live public Jiten with an empty
+simulated dictionary store, no account keys, and no DOM painting. `--stage public`
+measures only the public vocabulary client. It caps input at 6,000 characters,
+requests at 40, and each request at five seconds. Reports go to
+`artifacts/parser-performance/profile.json` by default. This does not measure an
+installed desktop app, local dictionary performance, or annotation paint timing.
+
+### Settings visual QA
+
+After building, run `YOMU_VISUAL_OUTPUT=/tmp/yomu-settings-visual node scripts/manual/settings-visual-qa.mjs` to capture the built Study and Settings screens in Chromium and WebKit. Screenshots and the manifest stay outside the repository. Optional `YOMU_VISUAL_ENGINES`, `YOMU_VISUAL_SIZES`, `YOMU_VISUAL_THEMES` and `YOMU_VISUAL_LANGUAGES` select the matrix.

@@ -3,7 +3,6 @@ import { NEW_TAB_PAGE_URL } from '../app/constants';
 import { activeLanguageProfile } from '../languages';
 import { yomitanDictionaryIdentity } from '../dictionaries/yomitan/zip-normalize';
 import { IMMERSION_KIT_SEARCH_URL_TEMPLATE, NADESHIKO_SEARCH_URL_TEMPLATE } from '../immersion/search-links';
-import { hasTargetLookupSites, isTargetLookupLinkId, targetLookupLinks } from './lookup-links';
 import type { DictionaryLookupLink, DictionaryPreference, ReaderSettings } from '../app/types';
 import { languageProfileDictionariesFromPreferences } from './language-profile-dictionaries';
 
@@ -243,17 +242,15 @@ const PREVIOUS_DEFAULT_LOOKUP_LINK_ID_ORDERS = [[
 
 export function normalizeDictionaryLookupLinkSettings(
     value: Partial<ReaderSettings> | null,
-    targetLanguage = 'ja',
 ): ReaderSettings['dictionaryLookupLinks'] {
     const links = normalizeDictionaryLookupLinks(
         value?.dictionaryLookupLinks,
         !hasOwn(value, 'dictionaryLookupLinks') && Boolean(value?.apiKey?.trim()),
-        targetLanguage,
     );
-    if (targetLanguage === 'ja' && isPreviousDefaultLookupLinkSet(value?.dictionaryLookupLinks)) {
+    if (isPreviousDefaultLookupLinkSet(value?.dictionaryLookupLinks)) {
         return savedLookupLinksInDefaultOrder(links);
     }
-    return targetLanguage === 'ja' && isLegacyDefaultLookupLinkSet(value?.dictionaryLookupLinks)
+    return isLegacyDefaultLookupLinkSet(value?.dictionaryLookupLinks)
         ? legacyDefaultLookupLinksWithNewBuiltIns(links)
         : links;
 }
@@ -296,28 +293,8 @@ function normalizeDictionaryPreference(item: unknown, index: number): Dictionary
     };
 }
 
-/**
- * The built-in pill row for a target.
- *
- * Japanese returns `DEFAULT_DICTIONARY_LOOKUP_LINKS` unchanged — same entries,
- * same order, same enabled flags — because every existing install is Japanese
- * and none of them may see their row move. Any other target gets the verified
- * hotlink set from `config/multilingual/lookup-links.json`, wrapped in the same
- * two pills that are language-neutral: Yomu's own search at the front and Copy
- * at the back. The Jiten/JPDB/Bunpro pills are deliberately absent — those are
- * Japanese services and pointing a Spanish word at them returns nothing.
- */
-export function defaultDictionaryLookupLinks(
-    mode: 'jpdb' | 'local' = 'local',
-    targetLanguage = 'ja',
-): DictionaryLookupLink[] {
-    // `jpdb` mode narrows the row to the parser's own pills, which only exist for
-    // Japanese. Applying it to another target would leave that learner with just
-    // the Yomu pill and no dictionary at all.
-    if (targetLanguage !== 'ja' && hasTargetLookupSites(targetLanguage)) {
-        return [YOMU_LOOKUP_LINK, ...targetLookupLinks(targetLanguage), COPY_LOOKUP_LINK]
-            .map((link, index) => ({ ...link, priority: index }));
-    }
+/** The built-in pill row. */
+export function defaultDictionaryLookupLinks(mode: 'jpdb' | 'local' = 'local'): DictionaryLookupLink[] {
     return DEFAULT_DICTIONARY_LOOKUP_LINKS.map((link, index) => ({
         ...link,
         priority: index,
@@ -326,53 +303,20 @@ export function defaultDictionaryLookupLinks(
 }
 
 /**
- * The pill row rebuilt for a different target.
- *
- * Switching target replaces the built-in rows with the incoming target's
- * verified hotlinks, because the outgoing target's sites cannot answer for it —
- * a Spanish word is a definition in `dle.rae.es` and a 404 in `words.hk`. Two
- * things survive the switch: every learner-owned or locally discovered row, and
- * the on/off state of any built-in both sets share (Wiktionary, Tatoeba, Forvo,
- * Glosbe, Yomu, Copy). That includes `frequency-local:*` rows: auto-discovering
- * an installed frequency dictionary must not turn a badge back on after the
- * learner disabled it.
+ * Built-in pills earlier Yomu versions gave the other learning targets
+ * (ADR-0024). A stored row with one of these ids is not the learner's own link,
+ * so it is left out of the Japanese row, as it always was for Japanese.
  */
-export function dictionaryLookupLinksForTarget(
-    previous: DictionaryLookupLink[],
-    targetLanguage: string,
-): DictionaryLookupLink[] {
-    const previousById = new Map(previous.map(link => [link.id, link]));
-    const defaults = defaultDictionaryLookupLinks('local', targetLanguage).map(link => {
-        const saved = previousById.get(link.id);
-        return saved ? { ...link, enabled: saved.enabled } : link;
-    });
-    const defaultIds = new Set(defaults.map(link => link.id));
-    const japaneseDefaultIds = new Set(DEFAULT_DICTIONARY_LOOKUP_LINKS.map(link => link.id));
-    const portable = previous.filter(link => (
-        !defaultIds.has(link.id)
-        && !japaneseDefaultIds.has(link.id)
-        && !isTargetLookupLinkId(link.id)
-    ));
-    return normalizeDictionaryLookupLinks(
-        insertPortableLookupLinks(defaults, portable),
-        false,
-        targetLanguage,
-    );
-}
-
-function insertPortableLookupLinks(
-    defaults: DictionaryLookupLink[],
-    portable: DictionaryLookupLink[],
-): DictionaryLookupLink[] {
-    const links = [...defaults];
-    for (const link of portable) {
-        const requestedIndex = typeof link.priority === 'number' && Number.isFinite(link.priority)
-            ? Math.max(0, link.priority)
-            : links.length;
-        links.splice(Math.min(requestedIndex, links.length), 0, link);
-    }
-    return links;
-}
+const RETIRED_TARGET_LOOKUP_LINK_IDS = new Set([
+    'abadis', 'cambridge', 'cantodict', 'cantowords', 'cccanto', 'cnrtl', 'daum', 'ddo', 'dehkhoda', 'demauro',
+    'dexonline', 'dicio', 'diksiyonaryo-ph', 'duden', 'dwds', 'fjalorthi', 'forvo', 'glosbe', 'gramota', 'kartaslov',
+    'kbbi-co', 'kbbi-web', 'khmerdict', 'kotus', 'krdict', 'laoswords', 'larousse', 'linguee', 'logeion', 'longdo',
+    'lsj', 'maajim', 'mdbg', 'mijnwoordenboek', 'mongoltoli', 'naver', 'olivetti', 'openrussian', 'pinoydictionary',
+    'priberam', 'purpleculture', 'rae', 'reverso', 'rjecnik-hr', 'scaife', 'seslisozluk', 'sjp-pwn', 'spanishdict',
+    'suomisanakirja', 'svenska-se', 'tagalog-com', 'tatoeba', 'tdk', 'toli-query', 'tratu-soha', 'treccani',
+    'triantafyllides', 'tureng', 'vajehyab', 'vdict', 'vtudien', 'wikiszotar', 'wiktionary-en', 'wiktionary-native',
+    'woorden', 'wordreference', 'words-hk', 'youglish', 'zdic',
+]);
 
 function legacyDefaultLookupLinksWithNewBuiltIns(links: DictionaryLookupLink[]): DictionaryLookupLink[] {
     const linkById = new Map(links.map(link => [link.id, link]));
@@ -428,9 +372,8 @@ function matchesLegacyLookupLink(link: DictionaryLookupLink | undefined, expecte
 export function normalizeDictionaryLookupLinks(
     value: unknown,
     preferJpdb = false,
-    targetLanguage = 'ja',
 ): DictionaryLookupLink[] {
-    const builtIns = defaultDictionaryLookupLinks(defaultLookupLinkMode(preferJpdb), targetLanguage);
+    const builtIns = defaultDictionaryLookupLinks(defaultLookupLinkMode(preferJpdb));
     if (!Array.isArray(value)) return builtIns;
 
     const normalized: DictionaryLookupLink[] = [];
@@ -442,23 +385,13 @@ export function normalizeDictionaryLookupLinks(
         if (!id || seen.has(id)) return;
         const builtIn = defaults.get(id);
         const known = Boolean(builtIn);
-        // A built-in belongs to the target whose catalogue/default row names
-        // it.  Before target-aware lookup links shipped, every stored payload
-        // already carried Japanese defaults.  Merely changing `builtIns` above
-        // caused those old rows to be counted as learner-owned extras, so an
-        // upgraded Spanish profile rendered RAE beside Jiten, JPDB, Jisho and
-        // Bunpro.  The settings dialog rebuilt the row when the target changed
-        // there, but startup normalization never reconciled a target selected
-        // by an older build or another browser tab.
-        //
-        // Filter only known Yomu catalogue/default ids.  Truly custom rows —
+        // Filter only known Yomu catalogue/default ids. Truly custom rows —
         // including local frequency pills — remain portable exactly as before.
         if (!known && isBuiltInLookupLinkForAnotherTarget(id)) return;
         if (!known && extras >= MAX_EXTRA_LOOKUP_LINKS) return;
         seen.add(id);
-        // Stored built-ins carry only learner choices. Their provider payload
-        // belongs to the active target's checked catalogue: otherwise a shared
-        // ID such as Wiktionary or Tatoeba keeps the outgoing target's URL.
+        // Stored built-ins carry only learner choices; their provider payload
+        // comes from the current built-in row.
         normalized.push(builtIn
             ? { ...builtIn, enabled: link.enabled, priority: link.priority }
             : { ...link, id });
@@ -477,7 +410,7 @@ export function normalizeDictionaryLookupLinks(
 
 function isBuiltInLookupLinkForAnotherTarget(id: string): boolean {
     return DEFAULT_DICTIONARY_LOOKUP_LINKS.some(link => link.id === id)
-        || isTargetLookupLinkId(id);
+        || RETIRED_TARGET_LOOKUP_LINK_IDS.has(id);
 }
 
 function isRemovedBuiltInLookupLink(link: DictionaryLookupLink): boolean {

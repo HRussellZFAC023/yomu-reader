@@ -1,5 +1,21 @@
 # Changelog
 
+## [2.1.0] - 2026-10-09
+
+### Changed
+
+- Page annotations keep the original typeface, skip footnote markers, and use smaller muted readings. Study-state lines replace pitch colours by default; failed words keep their readings. Saved custom choices are preserved.
+- Yomu reads Japanese immediately after installation, without a language picker or setup gate.
+- Save to a chosen deck from one dropdown. Grading appears only with a connected review service.
+- Settings have fewer controls and repeated labels. Yomu no longer annotates its own settings or source headings.
+- Desktop opens from the tray and captures the screen with one shortcut. The home screen and region selector are removed.
+- Desktop uses the original screen text for hover lookup instead of drawing a second copy. Settings use the same portable backup format as the browser.
+- Study starts untimed by default. Starter words work offline, and ordinary vocabulary no longer opens as a kanji-writing drill.
+- Fixed dictionary lookups that preferred reading homophones or guessed conjugations over the original Japanese. Large public parsing requests are split before they exceed the server limit.
+- Subtitles stay within their cue times and do not use the playback clock of YouTube ads. Image OCR has a smaller accessible status indicator.
+- Safari Userscripts settings reach Study correctly. Dictionary downloads keep reporting progress and can use a checked mirror for a failed first download.
+- The extension toolbar now uses one working set of page actions and opens Settings in the packaged Study page.
+
 ## [2.0.12] - 2026-10-05
 
 ### Changed

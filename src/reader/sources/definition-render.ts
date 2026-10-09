@@ -2,10 +2,11 @@ import { HAS_JAPANESE, escapeHtml } from '../dom/index';
 import { uiText } from '../app/i18n';
 import { cardHighlightScopeAttributes, type CardHighlightTarget } from '../cards/highlight';
 import { KANJI_DICTIONARIES_SOURCE_ID } from './sections';
-import { hasRichStructuredGlossary, localTermTags, normalizeFrequencyChipValue, pillStyle } from '../dictionaries/display';
+import { hasRichStructuredGlossary, localTermTags, normalizeFrequencyChipValue } from '../dictionaries/display';
 import { formatMetaFrequency, groupTermEntriesByHeadword, summarizeLearnerGlossary, type LearnerTermGroup } from '../dictionaries/groups';
 import type { InterfaceLanguage, ReaderSettings } from '../app/types';
 import { glossaryToHtml, glossaryToText, type YomitanKanjiEntry, type YomitanMetaEntry, type YomitanTermEntry } from '../dictionaries/yomitan';
+import { renderWithMoreDisclosure, VISIBLE_SENSE_COUNT } from './more-disclosure';
 
 export { renderJpdbDefinitionSource } from '../jpdb/jpdb-definition-source-render';
 
@@ -55,9 +56,6 @@ export function renderKanjiDefinitions(
                     <div
                         class="jpdb-reader-local-glossary jpdb-reader-parseable"
                         data-dictionary="${escapeHtml(entry.dictionary)}"
-                        data-definition-translation-text
-                        data-definition-translation-source-id="${escapeHtml(entry.dictionary)}"
-                        data-definition-translation-payload="${escapeHtml(entry.meanings.slice(0, 6).join('\n'))}"
                     >
                         ${entry.meanings.slice(0, 6).map(meaning => `<div>${escapeHtml(meaning)}</div>`).join('')}
                     </div>
@@ -103,10 +101,10 @@ function renderLocalDictionaryGroup(dictionary: string, groups: LearnerTermGroup
 
 function renderLocalTermGroup(dictionary: string, group: LearnerTermGroup, dictionaryLabel: DictionaryLabel, language: InterfaceLanguage, reference?: CardHighlightTarget, options: { showDictionaryTag?: boolean } = {}): string {
     return `
-        <article class="jpdb-reader-local-entry jpdb-reader-local-term">
+        <article class="jpdb-reader-local-entry jpdb-reader-local-term" data-more-entry-key="${escapeHtml(JSON.stringify([group.expression, group.reading]))}">
             ${renderLocalTermHead(group, reference)}
             ${renderLocalTermTags(dictionary, group, dictionaryLabel, options.showDictionaryTag ?? true, language)}
-            ${renderLocalTermMeaning(dictionary, group)}
+            ${renderLocalTermMeaning(dictionary, group, language)}
         </article>
     `;
 }
@@ -150,17 +148,16 @@ function renderLocalTermTags(dictionary: string, group: LearnerTermGroup, dictio
     return tagItems.length ? `<div class="jpdb-reader-local-tags">${tagItems.join('')}</div>` : '';
 }
 
-function renderLocalTermMeaning(dictionary: string, group: LearnerTermGroup): string {
+function renderLocalTermMeaning(dictionary: string, group: LearnerTermGroup, language: InterfaceLanguage): string {
     if (group.entries.some(hasAdditionalLocalDictionaryText)) return renderLocalGlossaryEntries(dictionary, group.entries, { showIndex: false });
     if (!group.meanings.length) return renderLocalGlossaryEntries(dictionary, group.entries);
-    return `<div class="jpdb-reader-local-senses" data-definition-translation-text>
-        ${group.meanings.slice(0, 8).map((meaning, index) => `
-            <div class="jpdb-reader-local-sense">
-                ${group.meanings.length > 1 ? `<span class="jpdb-reader-local-sense-index">${index + 1}</span>` : ''}
-                <span>${escapeHtml(meaning)}</span>
-            </div>
-        `).join('')}
-    </div>`;
+    const senses = group.meanings.slice(0, 8).map((meaning, index) => `
+        <div class="jpdb-reader-local-sense">
+            ${group.meanings.length > 1 ? `<span class="jpdb-reader-local-sense-index">${index + 1}</span>` : ''}
+            <span>${escapeHtml(meaning)}</span>
+        </div>
+    `);
+    return `<div class="jpdb-reader-local-senses">${renderWithMoreDisclosure(senses, VISIBLE_SENSE_COUNT, uiText(language, 'moreMeanings'))}</div>`;
 }
 
 function renderLocalTermFrequency(group: LearnerTermGroup): string {
@@ -185,7 +182,7 @@ function renderLocalGlossaryEntries(dictionary: string, entries: YomitanTermEntr
     }).filter(Boolean).join('');
     if (!entryHtml) return '';
     return `
-        <div class="jpdb-reader-local-glossary jpdb-reader-parseable" data-dictionary="${escapeHtml(dictionary)}" data-definition-translation-text>
+        <div class="jpdb-reader-local-glossary jpdb-reader-parseable" data-dictionary="${escapeHtml(dictionary)}">
             ${entryHtml}
         </div>
     `;
@@ -213,5 +210,5 @@ function hasAdditionalLocalDictionaryText(entry: YomitanTermEntry): boolean {
 export function renderFrequencyPill(entry: YomitanMetaEntry, dictionaryLabel: DictionaryLabel): string {
     const label = dictionaryLabel(entry.dictionary);
     const value = normalizeFrequencyChipValue(label, formatMetaFrequency(entry.data));
-    return value ? `<span class="jpdb-reader-pill jpdb-reader-frequency-pill" data-dictionary="${escapeHtml(entry.dictionary)}" data-frequency-source="local" style="${pillStyle(`frequency:${entry.dictionary}`)}" title="${escapeHtml(`${label} local frequency`)}">${escapeHtml(label)} ${escapeHtml(value)}</span>` : '';
+    return value ? `<span class="jpdb-reader-pill jpdb-reader-frequency-pill" data-dictionary="${escapeHtml(entry.dictionary)}" data-frequency-source="local" title="${escapeHtml(`${label} local frequency`)}">${escapeHtml(label)} ${escapeHtml(value)}</span>` : '';
 }

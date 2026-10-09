@@ -1,4 +1,4 @@
-import { COPY_LOOKUP_LINK, DEFAULT_AUDIO_SOURCES, DEFAULT_SETTINGS, dictionaryLookupLinksForTarget, MAX_LOOKUP_LINK_ROWS, normalizeAudioSource, normalizeDictionaryLookupLinks, normalizeOcrProvider, normalizeReaderSettings, sanitizeAccentColor } from './index';
+import { COPY_LOOKUP_LINK, DEFAULT_AUDIO_SOURCES, DEFAULT_COLOR_CHANNELS, DEFAULT_SETTINGS, MAX_LOOKUP_LINK_ROWS, effectiveFuriganaMode, furiganaStyle, normalizeAudioSource, normalizeDictionaryLookupLinks, normalizeOcrProvider, normalizeReaderSettings, sanitizeAccentColor } from './index';
 import { normalizeAnkiFieldMappings } from './anki-field-mappings';
 import { readApiCredentialsFromFormData } from './api-credential';
 import { createSettingsFormReader, type SettingsFormReader } from './form-data';
@@ -10,45 +10,16 @@ import {
     nativeSubtitleDisplayMode,
     NATIVE_SUBTITLE_DISPLAY_MODES,
 } from '../subtitles/native-subtitle-display';
-import {
-    activateLanguageProfileForOutputLanguage,
-    activeLanguageProfile,
-    canonicalTagForLearningTarget,
-    canonicalTagForSlice1Language,
-    isLearningTargetRosterId,
-    learningTargetRosterIdForTag,
-    slice1LanguageIdForTag,
-    type LearningTargetRosterId,
-} from '../languages';
-import { availableInterfaceLocales, isLearnerLanguageId, type LearnerLanguageId } from '../locales';
-import { readingAnnotationModeForTarget } from './reading-annotation-mode';
+import { activeLanguageProfile } from '../languages/profiles';
 import { languageProfileDictionariesFromPreferences } from './language-profile-dictionaries';
 import { credentialValueFromReader } from './credential-form';
 
 
-/**
- * D43 — what may be STORED as the interface language is exactly what the locale
- * manifest says is available, plus `auto`.
- *
- * The picker already renders a blocked locale as a disabled option, but
- * `disabled` only stops a *user* from choosing it: assigning `select.value` in
- * script, a hand-edited settings export, or a profile written by a build with a
- * different ledger all reach this function with a tag we cannot speak. Any of
- * those falls back to the value already in effect, so the one outcome D43
- * forbids — a locale accepted and then silently answered in English — cannot
- * happen through the settings form.
- *
- * `tests/reader/locales/rtl-interim.test.ts` pins this list to `auto/en/ja`, so
- * enabling a locale in the ledger without widening `InterfaceLanguage` fails
- * loudly instead of storing a value the type says is impossible.
- */
-export const SELECTABLE_INTERFACE_LANGUAGES = Object.freeze([
-    'auto',
-    ...availableInterfaceLocales().map(locale => locale.tag),
-]) as readonly ReaderSettings['interfaceLanguage'][];
+/** What may be stored as Yomu's own interface language. */
+const SELECTABLE_INTERFACE_LANGUAGES = Object.freeze(['auto', 'en', 'ja']) as readonly ReaderSettings['interfaceLanguage'][];
 export const CUSTOM_FONT_FAMILY_VALUE = '__custom_font_family__';
 type FontFamilySettingName = 'readerFontFamily' | 'popupFontFamily' | 'subtitleFontFamily';
-type SourcePriorityFormRow = readonly [string, keyof ReaderSettings, keyof ReaderSettings, (keyof ReaderSettings)?];
+type SourcePriorityFormRow = readonly [string, keyof ReaderSettings, keyof ReaderSettings];
 export type SelectableReaderColorSource = Exclude<ReaderColorSource, 'auto'>;
 export type ColorSourceSettingName =
     | 'wordHighlightColorSource'
@@ -59,15 +30,8 @@ export type ColorSourceSettingName =
     | 'subtitleTextColorSource';
 
 export const COLOR_SOURCE_VALUES: readonly SelectableReaderColorSource[] = ['status', 'jpdb', 'anki', 'pitch', 'off'];
-type PageScanMode = 'off' | 'auto' | 'manual';
-const DEFAULT_COLOR_SOURCE_VALUES: Record<ColorSourceSettingName, SelectableReaderColorSource> = {
-    wordHighlightColorSource: 'jpdb',
-    wordUnderlineColorSource: 'pitch',
-    wordTextColorSource: 'anki',
-    subtitleHighlightColorSource: 'jpdb',
-    subtitleUnderlineColorSource: 'pitch',
-    subtitleTextColorSource: 'anki',
-};
+type PageScanMode = 'auto' | 'manual';
+const DEFAULT_COLOR_SOURCE_VALUES: Readonly<Record<ColorSourceSettingName, SelectableReaderColorSource>> = DEFAULT_COLOR_CHANNELS;
 const ACCENT_COLOR_SETTING_NAMES = [
     'accentColor',
     'wordColorNew',
@@ -124,12 +88,12 @@ const SHORTCUT_SETTING_NAMES = [
     'gradePass',
 ] as const satisfies readonly ShortcutSettingName[];
 const KANJI_ADDON_SOURCE_ROWS = [
-    ['jpdbKanji', 'jpdbKanjiEnabled', 'jpdbKanjiPriority', 'jpdbKanjiAlias'],
-    ['kanjiImmersionKit', 'kanjiImmersionKitEnabled', 'kanjiImmersionKitPriority', 'kanjiImmersionKitAlias'],
-    ['wanikaniKanji', 'wanikaniKanjiEnabled', 'wanikaniKanjiPriority', 'wanikaniKanjiAlias'],
-    ['rtk', 'rtkEnabled', 'rtkPriority', 'rtkAlias'],
-    ['kanjivg', 'kanjivgEnabled', 'kanjivgPriority', 'kanjivgAlias'],
-    ['kanjiOrigins', 'kanjiOriginsEnabled', 'kanjiOriginsPriority', 'kanjiOriginsAlias'],
+    ['jpdbKanji', 'jpdbKanjiEnabled', 'jpdbKanjiPriority'],
+    ['kanjiImmersionKit', 'kanjiImmersionKitEnabled', 'kanjiImmersionKitPriority'],
+    ['wanikaniKanji', 'wanikaniKanjiEnabled', 'wanikaniKanjiPriority'],
+    ['rtk', 'rtkEnabled', 'rtkPriority'],
+    ['kanjivg', 'kanjivgEnabled', 'kanjivgPriority'],
+    ['kanjiOrigins', 'kanjiOriginsEnabled', 'kanjiOriginsPriority'],
 ] as const satisfies readonly SourcePriorityFormRow[];
 
 export function settingsColorSourceValue(settings: ReaderSettings, name: ColorSourceSettingName): SelectableReaderColorSource {
@@ -143,14 +107,14 @@ export function readFormSettings(data: FormData, current: ReaderSettings): Reade
     const reader = createSettingsFormReader(data, colorSource);
     const { get, has } = reader;
     const audioSources = readAudioSources(data);
-    const furiganaMode = readOption(get('furiganaMode'), ['all', 'difficult-kanji', 'known-status', 'hover', 'off'] as const, current.furiganaMode === 'auto' ? DEFAULT_SETTINGS.furiganaMode : current.furiganaMode);
+    const furiganaMode = readOption(get('furiganaMode'), ['all', 'difficult-kanji', 'known-status', 'hover'] as const, furiganaStyle(current));
     const apiDefinitionRowsPresent = {
         jpdb: hasSourceRow(has, 'jpdbDefinitions'),
         jiten: hasSourceRow(has, 'jitenDefinitions'),
         bunpro: hasSourceRow(has, 'bunproDefinitions'),
         wanikani: hasSourceRow(has, 'wanikaniDefinitions'),
     };
-    const dictionaryLookupLinks = readTargetAwareDictionaryLookupLinks(data, current);
+    const dictionaryLookupLinks = readDictionaryLookupLinks(data);
     const dictionaryPreferences = reorderLocalFrequencyDictionaryPreferences(
         readDictionaryPreferences(data, current.dictionaryPreferences, reader),
         dictionaryLookupLinks,
@@ -198,7 +162,6 @@ export function readFormSettings(data: FormData, current: ReaderSettings): Reade
         shortcuts: readShortcutFormSettings(reader, current),
     };
     preserveDetachedJapaneseSettings(settings, current, data);
-    enforceTargetReadingAnnotationMode(settings);
     return normalizeReaderSettings(settings);
 }
 
@@ -216,74 +179,20 @@ function readLanguageProfileFormSettings(
         };
     }
 
-    // OUTPUT axis. The control is still named `learnerLanguage` in the form,
-    // because a form field name is part of the rendered contract the dialog
-    // controller and its tests already speak; the persisted axis is
-    // `outputLanguage`.
-    const fallbackOutputLanguage = slice1LanguageIdForTag(active.outputLanguage) ?? 'en';
-    const outputLanguage = readOutputLanguage(data, fallbackOutputLanguage);
-    const outputLanguageTag = outputLanguage === fallbackOutputLanguage
-        ? active.outputLanguage
-        : canonicalTagForSlice1Language(outputLanguage);
-    const fallbackTargetLanguage = learningTargetRosterIdForTag(active.targetLanguage) ?? 'ja';
-    const targetLanguageId = readTargetLanguage(data, fallbackTargetLanguage);
-    const targetLanguage = canonicalTagForLearningTarget(targetLanguageId);
     const parserProvider = readOption(
         String(data.get('parserProvider') ?? ''),
         ['local', 'jiten', 'jpdb', 'auto'] as const,
         current.parserProvider,
     );
-    const definitionTranslationProviderIds = data.has('definitionTranslationControlsPresent')
-        ? normalizedStringIds(data.getAll('definitionTranslationProviderIds'))
-        : [...active.definitionTranslationProviderIds];
     const dictionaries = languageProfileDictionariesFromPreferences(dictionaryPreferences);
-
-    if (outputLanguage !== fallbackOutputLanguage) {
-        const activated = activateLanguageProfileForOutputLanguage(
-            current.languageProfiles,
-            current.activeLanguageProfileId,
-            outputLanguageTag,
-            {
-                uiLocale: interfaceLanguage,
-                parserProvider,
-                targetLanguage,
-                dictionaries,
-                definitionTranslationProviderIds,
-            },
-        );
-        return {
-            languageProfiles: activated.profiles,
-            activeLanguageProfileId: activated.activeProfileId,
-        };
-    }
-
+    // The stored target, definition language and translation choices are kept
+    // exactly as an earlier Yomu wrote them (ADR-0024): nothing reads them.
     return {
         languageProfiles: current.languageProfiles.map(profile => profile.id === active.id
-            ? {
-                ...profile,
-                // Keep an existing supported script/region variant when the
-                // roster selection did not change (zh-Hant-TW, pt-BR, ko-KR).
-                outputLanguage: outputLanguageTag,
-                learnerLanguage: outputLanguageTag,
-                targetLanguage,
-                uiLocale: interfaceLanguage,
-                parserProvider,
-                dictionaries,
-                definitionTranslationProviderIds,
-            }
+            ? { ...profile, uiLocale: interfaceLanguage, parserProvider, dictionaries }
             : profile),
         activeLanguageProfileId: active.id,
     };
-}
-
-function readOutputLanguage(data: FormData, fallback: LearnerLanguageId): LearnerLanguageId {
-    const value = String(data.get('learnerLanguage') ?? '');
-    return isLearnerLanguageId(value) ? value : fallback;
-}
-
-function readTargetLanguage(data: FormData, fallback: LearningTargetRosterId): LearningTargetRosterId {
-    const value = String(data.get('targetLanguage') ?? '');
-    return isLearningTargetRosterId(value) ? value : fallback;
 }
 
 function preserveDetachedJapaneseSettings(
@@ -303,37 +212,6 @@ function preserveDetachedJapaneseSettings(
         settings.pitchColorOdaka = current.pitchColorOdaka;
         settings.pitchColorUnknown = current.pitchColorUnknown;
     }
-    // Pitch remains a Japanese-only colour channel. Its <option> is physically
-    // detached for another target, so the browser selects the first remaining
-    // option; keep the stored Japanese choice until that option exists again.
-    if (readTargetLanguage(data, 'ja') !== 'ja') {
-        for (const name of COLOR_SOURCE_SETTING_NAMES) {
-            if (current[name] === 'pitch') settings[name] = current[name];
-        }
-    }
-}
-
-function enforceTargetReadingAnnotationMode(settings: ReaderSettings): void {
-    const active = activeLanguageProfile(settings.languageProfiles, settings.activeLanguageProfileId);
-    const targetLanguage = learningTargetRosterIdForTag(active?.targetLanguage) ?? 'ja';
-    const mode = readingAnnotationModeForTarget(settings.furiganaMode, targetLanguage);
-    if (mode === settings.furiganaMode) return;
-    settings.furiganaMode = mode;
-    settings.showFurigana = mode !== 'off';
-    settings.hideKnownFurigana = mode === 'known-status';
-}
-
-function normalizedStringIds(values: FormDataEntryValue[]): string[] {
-    const seen = new Set<string>();
-    const result: string[] = [];
-    values.forEach(value => {
-        if (typeof value !== 'string') return;
-        const id = value.trim();
-        if (!id || id.length > 160 || seen.has(id)) return;
-        seen.add(id);
-        result.push(id);
-    });
-    return result;
 }
 
 function colorSourceFallback(key: string, fallback: ReaderColorSource): SelectableReaderColorSource {
@@ -358,16 +236,12 @@ function readApiDefinitionFormSettings(
     const jpdbPageEnhancementsEnabled = has('jpdbPageEnhancementsEnabled');
     return {
         jpdbDefinitionsEnabled: rowsPresent.jpdb ? has('jpdbDefinitions.enabled') : current.jpdbDefinitionsEnabled,
-        jpdbDefinitionsAlias: readSourceAlias(reader, 'jpdbDefinitions', current.jpdbDefinitionsAlias),
         jpdbDefinitionsPriority: clamped('jpdbDefinitions.priority', 0, 999, current.jpdbDefinitionsPriority),
         jitenDefinitionsEnabled: rowsPresent.jiten ? has('jitenDefinitions.enabled') : current.jitenDefinitionsEnabled,
-        jitenDefinitionsAlias: readSourceAlias(reader, 'jitenDefinitions', current.jitenDefinitionsAlias),
         jitenDefinitionsPriority: clamped('jitenDefinitions.priority', 0, 999, current.jitenDefinitionsPriority),
         bunproDefinitionsEnabled: rowsPresent.bunpro ? has('bunproDefinitions.enabled') : current.bunproDefinitionsEnabled,
-        bunproDefinitionsAlias: readSourceAlias(reader, 'bunproDefinitions', current.bunproDefinitionsAlias),
         bunproDefinitionsPriority: clamped('bunproDefinitions.priority', 0, 999, current.bunproDefinitionsPriority),
         wanikaniDefinitionsEnabled: rowsPresent.wanikani ? has('wanikaniDefinitions.enabled') : current.wanikaniDefinitionsEnabled,
-        wanikaniDefinitionsAlias: readSourceAlias(reader, 'wanikaniDefinitions', current.wanikaniDefinitionsAlias),
         wanikaniDefinitionsPriority: clamped('wanikaniDefinitions.priority', 0, 999, current.wanikaniDefinitionsPriority),
         jpdbPageEnhancementsEnabled,
         jpdbPageWordEnhancementsEnabled: jpdbPageEnhancementsEnabled && has('jpdbPageWordEnhancementsEnabled'),
@@ -392,34 +266,26 @@ function readSourcePriorityRows(
 ): Partial<ReaderSettings> {
     const settings: Partial<ReaderSettings> = {};
     const out = settings as Record<string, unknown>;
-    for (const [rowName, enabledKey, priorityKey, aliasKey] of rows) {
+    for (const [rowName, enabledKey, priorityKey] of rows) {
         out[enabledKey] = reader.has(`${rowName}.enabled`);
         out[priorityKey] = reader.clamped(`${rowName}.priority`, 0, 999, Number(current[priorityKey]));
-        if (aliasKey) out[aliasKey] = readSourceAlias(reader, rowName, String(current[aliasKey] ?? ''));
     }
     return settings;
 }
 
-function readSourceAlias(reader: SettingsFormReader, prefix: string, current: string): string {
-    const key = `${prefix}.alias`;
-    return reader.has(key) ? reader.get(key).trim() : current;
-}
-
 function readAudioFormSettings(reader: SettingsFormReader, current: ReaderSettings, audioSources: AudioSourceSetting[]): Partial<ReaderSettings> {
-    const { get, has, clamped } = reader;
+    const { get, has } = reader;
     const audioAutoPlayMode = readOption(get('audioAutoPlayMode'), ['off', 'all', 'hover', 'tap'] as const, current.audioAutoPlayMode);
     return {
         audioEnabled: has('audioEnabled'),
-        autoPlayAudio: has('autoPlayAudio') && audioAutoPlayMode !== 'off',
+        autoPlayAudio: audioAutoPlayMode !== 'off',
         suppressAutoAudioOnVideo: has('suppressAutoAudioOnVideo'),
-        audioAutoPlayMode,
+        audioAutoPlayMode: audioAutoPlayMode === 'off' ? current.audioAutoPlayMode : audioAutoPlayMode,
         audioSources,
         audioEnableDefaultSources: has('audioEnableDefaultSources'),
         audioSourceUrl: audioSources.find(source => source.url.trim())?.url.trim() ?? current.audioSourceUrl,
         audioViaBlob: current.audioViaBlob,
         audioFallbackChimeEnabled: has('audioFallbackChimeEnabled'),
-        audioTimeoutMs: clamped('audioTimeoutMs', 1000, 30000, current.audioTimeoutMs),
-        audioSelectionMode: readOption(get('audioSelectionMode'), ['first', 'random'] as const, current.audioSelectionMode),
         audioTtsMode: readOption(get('audioTtsMode'), ['fallback', 'source-order'] as const, current.audioTtsMode),
     };
 }
@@ -449,7 +315,7 @@ function readColorSourceSettings(reader: SettingsFormReader, current: ReaderSett
 
 function readLookupBehaviorFormSettings(reader: SettingsFormReader, current: ReaderSettings): Partial<ReaderSettings> {
     const { get, has, clamped } = reader;
-    const pageScanMode = readOption(get('pageScanMode'), ['off', 'auto', 'manual'] as const, pageScanModeFromSettings(current));
+    const pageScanMode = readOption(get('pageScanMode'), ['auto', 'manual'] as const, pageScanModeFromSettings(current));
     return {
         lookupOnClick: has('lookupOnClick'),
         lookupOnHover: has('lookupOnHover'),
@@ -461,13 +327,13 @@ function readLookupBehaviorFormSettings(reader: SettingsFormReader, current: Rea
             : 'off',
         scanModifierKey: current.scanModifierKey,
         showFloatingButton: has('showFloatingButton'),
-        annotationsPaused: pageScanMode === 'off',
+        // Yomu on/off belongs to the puck and toolbar; Settings keeps it as saved.
+        annotationsPaused: current.annotationsPaused,
         manualScanEnabled: pageScanMode === 'manual',
     };
 }
 
 function pageScanModeFromSettings(settings: ReaderSettings): PageScanMode {
-    if (settings.annotationsPaused) return 'off';
     return settings.manualScanEnabled ? 'manual' : 'auto';
 }
 
@@ -495,16 +361,36 @@ function readNewTabFormSettings(reader: SettingsFormReader, current: ReaderSetti
 }
 
 
+/**
+ * The furigana select chooses a style, never "off": shown or hidden is the
+ * puck and toolbar's state. While hidden, a new style becomes the one those
+ * controls bring back, and furigana stays hidden.
+ */
+function readFuriganaFormSettings(
+    current: ReaderSettings,
+    style: ReturnType<typeof furiganaStyle>,
+): Pick<ReaderSettings, 'showFurigana' | 'furiganaMode' | 'puckFuriganaModeBeforeHide'> {
+    if (effectiveFuriganaMode(current) !== 'off') {
+        return { showFurigana: true, furiganaMode: style, puckFuriganaModeBeforeHide: current.puckFuriganaModeBeforeHide };
+    }
+    return {
+        showFurigana: current.showFurigana,
+        furiganaMode: current.furiganaMode,
+        puckFuriganaModeBeforeHide: style === furiganaStyle(current) ? current.puckFuriganaModeBeforeHide : style,
+    };
+}
+
 function readReadingDisplayFormSettings(
     reader: SettingsFormReader,
     current: ReaderSettings,
-    furiganaMode: ReaderSettings['furiganaMode'],
+    style: ReturnType<typeof furiganaStyle>,
 ): Partial<ReaderSettings> {
     const { has } = reader;
     const { get } = reader;
+    const furigana = readFuriganaFormSettings(current, style);
+    const furiganaMode = furigana.furiganaMode;
     return {
-        showFurigana: furiganaMode !== 'off',
-        furiganaMode,
+        ...furigana,
         furiganaHiddenStateGroups: FURIGANA_HIDE_STATE_GROUPS.filter(group => has(`furiganaHide-${group}`)),
         wordColorStates: readOption(get('wordColorStates'), ['all', 'new-only'] as const, 'all'),
         clampedRowReadings: readOption(get('clampedRowReadings'), ['show', 'hover'] as const, 'show'),
@@ -525,9 +411,7 @@ function readLocalDictionaryFormSettings(reader: SettingsFormReader, current: Re
         localDictionariesEnabled: has('localDictionariesEnabled'),
         parserProvider: readOption(get('parserProvider'), ['local', 'jiten', 'jpdb', 'auto'] as const, current.parserProvider),
         localDictionaryShowKanji: has('kanjiDictionaries.enabled') || kanjiPreferences.some(preference => preference.enabled),
-        kanjiDictionariesAlias: readSourceAlias(reader, 'kanjiDictionaries', current.kanjiDictionariesAlias),
         kanjiDictionariesPriority: clamped('kanjiDictionaries.priority', 0, 999, current.kanjiDictionariesPriority),
-        dictionarySourcesInitiallyExpanded: true,
         localDictionaryMaxResults: DEFAULT_SETTINGS.localDictionaryMaxResults,
     };
 }
@@ -557,17 +441,15 @@ function readAnkiSectionFormSettings(
     reader: SettingsFormReader,
     current: ReaderSettings,
     ankiEnabled: boolean,
-): Pick<ReaderSettings, 'ankiSectionEnabled' | 'ankiSectionAlias' | 'ankiSectionPriority'> {
+): Pick<ReaderSettings, 'ankiSectionEnabled' | 'ankiSectionPriority'> {
     if (!ankiSectionRowPresent(reader)) {
         return {
             ankiSectionEnabled: current.ankiSectionEnabled,
-            ankiSectionAlias: current.ankiSectionAlias,
             ankiSectionPriority: current.ankiSectionPriority,
         };
     }
     return {
         ankiSectionEnabled: reader.has('ankiSection.enabled') || shouldAutoEnableAnkiSection(ankiEnabled, current),
-        ankiSectionAlias: readSourceAlias(reader, 'ankiSection', current.ankiSectionAlias),
         ankiSectionPriority: reader.clamped('ankiSection.priority', 0, 999, current.ankiSectionPriority),
     };
 }
@@ -600,10 +482,8 @@ function readStudyToolFormSettings(reader: SettingsFormReader, current: ReaderSe
     const { has, clamped } = reader;
     return {
         studyTranslationEnabled: has('studyTranslation.enabled'),
-        studyTranslationAlias: readSourceAlias(reader, 'studyTranslation', current.studyTranslationAlias),
         studyTranslationPriority: clamped('studyTranslation.priority', 0, 999, current.studyTranslationPriority),
         studyGrammarEnabled: has('studyGrammar.enabled'),
-        studyGrammarAlias: readSourceAlias(reader, 'studyGrammar', current.studyGrammarAlias),
         studyGrammarPriority: clamped('studyGrammar.priority', 0, 999, current.studyGrammarPriority),
     };
 }
@@ -616,7 +496,6 @@ function readPopupFormSettings(reader: SettingsFormReader, current: ReaderSettin
         popupMode,
         hoverPopupMode: readOption(get('hoverPopupMode'), ['auto', 'sheet', 'popover'] as const, current.hoverPopupMode),
         stickyBottomSheet: has('stickyBottomSheet'),
-        popoverBackdropEnabled: has('popoverBackdropEnabled'),
         popoverWidth: clamped('popoverWidth', 280, 900, current.popoverWidth),
         popoverHeight: clamped('popoverHeight', 220, 900, current.popoverHeight),
         popoverHeightMode: readOption(get('popoverHeightMode'), ['available', 'fixed'] as const, current.popoverHeightMode),
@@ -639,7 +518,6 @@ function readMiningFormSettings(reader: SettingsFormReader, current: ReaderSetti
         bunproMiningEnabled: has('bunproMiningEnabled'),
         wanikaniReviewEnabled: has('wanikaniReviewEnabled'),
         yomuLocalSrsEnabled: has('yomuLocalSrsEnabled'),
-        autoMineOnReview: has('autoMineOnReview'),
         miningDeck: get('miningDeck').trim() || 'forq',
         neverForgetDeck: get('neverForgetDeck').trim() || 'never-forget',
         blacklistDeck: get('blacklistDeck').trim() || 'blacklist',
@@ -736,19 +614,14 @@ function readSubtitleFormSettings(reader: SettingsFormReader, current: ReaderSet
 
 function readImmersionKitFormSettings(reader: SettingsFormReader, current: ReaderSettings): Partial<ReaderSettings> {
     const { get, has, clamped } = reader;
+    const limit = clamped('immersionKitLimit', 0, 12, current.immersionKitLimitEnabled ? current.immersionKitLimit : 0);
     return {
         immersionKitEnabled: readImmersionKitEnabled(reader),
-        immersionKitAlias: readSourceAlias(reader, 'immersionKit', current.immersionKitAlias),
         immersionKitExampleSource: readOption(get('immersionKitExampleSource'), ['immersion-kit', 'nadeshiko', 'combined'] as const, current.immersionKitExampleSource),
         nadeshikoApiKey: credentialValueFromReader(reader, 'nadeshikoApiKey', current.nadeshikoApiKey),
         immersionKitPriority: clamped('immersionKit.priority', 0, 999, current.immersionKitPriority),
-        immersionKitLimitEnabled: get('immersionKitLimitEnabled') === 'on',
-        immersionKitLimit: clamped('immersionKitLimit', 1, 12, current.immersionKitLimit),
-        immersionKitMinLength: clamped('immersionKitMinLength', 0, 120, current.immersionKitMinLength),
-        immersionKitMaxLength: clamped('immersionKitMaxLength', 0, 240, current.immersionKitMaxLength),
-        immersionKitCategory: readOption(get('immersionKitCategory'), ['all', 'anime', 'drama', 'games'] as const, current.immersionKitCategory),
-        immersionKitSort: readOption(get('immersionKitSort'), ['sentence_length:asc', 'sentence_length:desc'] as const, current.immersionKitSort),
-        immersionKitExactMatch: has('immersionKitExactMatch'),
+        immersionKitLimitEnabled: limit > 0,
+        immersionKitLimit: limit || current.immersionKitLimit,
         immersionKitShowTranslation: has('immersionKitShowTranslation'),
         immersionKitRevealTranslationOnClick: readEnabledChildCheckbox(reader, 'immersionKitShowTranslation', 'immersionKitRevealTranslationOnClick'),
         immersionKitShowImages: has('immersionKitShowImages'),
@@ -789,16 +662,11 @@ function readYoutubeFormSettings(reader: SettingsFormReader, current: ReaderSett
     const channelRecommendations = channelControlsPresent
         ? has('youtubeShowChannelRecommendations')
         : current.youtubeShowChannelRecommendations;
-    const siteLanguageSettingPresent = has('preferJapaneseSiteLanguageSettingPresent');
     return {
-        // Site-language navigation is opt-in. The checkbox renders the effective
-        // state, so an unchanged save preserves it while a real toggle records
-        // the submitted value as an explicit choice.
         youtubeImmersionEnabled: immersionChanged ? immersionEnabled : current.youtubeImmersionEnabled,
         youtubeImmersionEnabledChosen: current.youtubeImmersionEnabledChosen || immersionChanged,
-        preferJapaneseSiteLanguage: siteLanguageSettingPresent
-            ? has('preferJapaneseSiteLanguage')
-            : current.preferJapaneseSiteLanguage,
+        // Request Japanese sites is toggled from the puck and toolbar; Settings keeps it as saved.
+        preferJapaneseSiteLanguage: current.preferJapaneseSiteLanguage,
         youtubeShowChannelRecommendations: channelRecommendations,
         youtubeShowChannelRecommendationsChosen: current.youtubeShowChannelRecommendationsChosen
             || (channelControlsPresent && channelRecommendations !== current.youtubeShowChannelRecommendations),
@@ -832,14 +700,19 @@ function readDictionaryPreferences(data: FormData, current: DictionaryPreference
     const count = Math.max(0, Number(get('dictionaryPreferenceCount')) || 0);
     if (!count) return current;
 
-    return Array.from({ length: count }, (_, index) => ({
+    const submitted = Array.from({ length: count }, (_, index) => ({
         name: get(`dictionaryPreferences.${index}.name`).trim(),
         alias: get(`dictionaryPreferences.${index}.alias`).trim() || get(`dictionaryPreferences.${index}.name`).trim(),
         enabled: data.has(`dictionaryPreferences.${index}.enabled`),
         priority: reader.number(`dictionaryPreferences.${index}.priority`, index),
         type: readDictionaryType(get(`dictionaryPreferences.${index}.type`)),
     }))
-        .filter(item => item.name)
+        .filter(item => item.name);
+    // A dictionary installed after this form was drawn has no row in it yet
+    // (removing one deletes it at once, so a missing row is never a removal).
+    // Keep its stored preference, so a Save during an install cannot drop it.
+    const submittedNames = new Set(submitted.map(item => item.name));
+    return [...submitted, ...current.filter(preference => !submittedNames.has(preference.name))]
         .sort((a, b) => a.priority - b.priority || a.name.localeCompare(b.name));
 }
 
@@ -918,20 +791,11 @@ function shouldSkipAudioSourceRow(source: AudioSourceSetting, builtInTypes: Set<
     return !source.enabled && !source.url && !source.voice && !builtInTypes.has(source.type);
 }
 
-/**
- * The submitted pill row, normalized against the TARGET the same form declares.
- *
- * The target is read out of the FormData rather than passed in, so every caller
- * — the dialog, the row editor, Yomu Gaming — stays a one-argument call and none
- * of them can accidentally normalize a Spanish row against Japanese built-ins
- * and have Jiten, JPDB and Bunpro appended to it. A form with no target select
- * (the gaming surface, older fixtures) reads as Japanese, which is what it is.
- */
 export function readDictionaryLookupLinks(data: FormData): DictionaryLookupLink[] {
-    return normalizeDictionaryLookupLinks(lookupLinkRows(data), false, readTargetLanguage(data, 'ja'));
+    return normalizeDictionaryLookupLinks(lookupLinkRows(data), false);
 }
 
-export function lookupLinkRows(data: FormData): DictionaryLookupLink[] {
+function lookupLinkRows(data: FormData): DictionaryLookupLink[] {
     const get = (key: string) => String(data.get(key) ?? '');
     const count = Math.max(0, Math.min(MAX_LOOKUP_LINK_ROWS, Number(get('dictionaryLookupLinkCount')) || 0));
     const links: DictionaryLookupLink[] = [];
@@ -942,24 +806,6 @@ export function lookupLinkRows(data: FormData): DictionaryLookupLink[] {
     }
 
     return links;
-}
-
-/**
- * The pill row this submit should persist, given the target it also declares.
- *
- * When the target is unchanged the submitted rows win, exactly as before. When
- * it changed, the row is rebuilt from the new target's verified hotlinks, which
- * is the whole point of a per-target set: the outgoing target's sites cannot
- * answer for the incoming one, so keeping them would leave a Spanish learner
- * clicking `dict.naver.com`.
- */
-function readTargetAwareDictionaryLookupLinks(data: FormData, current: ReaderSettings): DictionaryLookupLink[] {
-    const active = activeLanguageProfile(current.languageProfiles, current.activeLanguageProfileId);
-    const previous = learningTargetRosterIdForTag(active?.targetLanguage) ?? 'ja';
-    const next = readTargetLanguage(data, previous);
-    return next === previous
-        ? readDictionaryLookupLinks(data)
-        : dictionaryLookupLinksForTarget(lookupLinkRows(data), next);
 }
 
 function readDictionaryLookupLinkRow(

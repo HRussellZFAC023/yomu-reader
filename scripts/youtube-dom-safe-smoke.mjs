@@ -103,7 +103,11 @@ try {
     writeFileSync(join(outputDir, 'evidence.json'), `${JSON.stringify(evidence, null, 2)}\n`);
 
     assert(home.inlineReaderWords === 0, 'Home/feed YouTube-owned text was inline-mutated outside a mirror', home);
-    assert(home.mirrorReaderWords > 0, 'Home/feed YouTube text did not receive mirrored parsed words', home);
+    // Feed titles and channel names are painted through the document annotation
+    // layer; the filter chips are the page's buttons and stay as drawn (ADR-0025).
+    assert(home.mirrorReaderWords + home.paintedReaderWords > 0, 'Home/feed YouTube text did not receive parsed words', home);
+    assert(home.chipHtml.join('|') === '日本語|最近アップロードされた動画', 'Home/feed chip buttons were not left as drawn', home);
+    assert(home.chipMirrors === 0 && home.chipWordsPainted.length === 0, 'Home/feed chip buttons were annotated', home);
     assert(home.chipClicks === 1, 'Native YouTube chip click did not dispatch', home);
     assert(home.visibleJapaneseTitles >= 3, 'Japanese feed titles did not remain visible', home);
     assert(home.maxVisibleBlankGap < 120, 'Home/feed has a large blank gap after filtering', home);
@@ -167,6 +171,8 @@ function homeEvidence() {
         for (let node = walker.nextNode(); node; node = walker.nextNode()) text += node.textContent || '';
         return text.replace(/\s+/g, ' ').trim();
     };
+    const paintedWords = [...document.querySelectorAll('.jpdb-reader-document-annotation-paint .jpdb-reader-word')]
+        .map(word => word.textContent || '');
     const visibleCards = [...document.querySelectorAll('ytd-rich-item-renderer')].filter(visible);
     const visibleRects = visibleCards.map(card => card.getBoundingClientRect()).sort((a, b) => a.top - b.top);
     const gaps = visibleRects.slice(1).map((rect, index) => Math.max(0, rect.top - visibleRects[index].bottom));
@@ -174,6 +180,11 @@ function homeEvidence() {
         inlineReaderWords: document.querySelectorAll('ytd-app .jpdb-reader-word:not(.jpdb-reader-text-mirror .jpdb-reader-word):not([data-jpdb-reader-root] .jpdb-reader-word)').length,
         mirrorReaderWords: document.querySelectorAll('ytd-app .jpdb-reader-text-mirror .jpdb-reader-word').length,
         mirrors: document.querySelectorAll('ytd-app .jpdb-reader-text-mirror').length,
+        paintedReaderWords: paintedWords.length,
+        chipHtml: [...document.querySelectorAll('ytd-feed-filter-chip-bar-renderer button')].map(chip => chip.innerHTML),
+        chipMirrors: document.querySelectorAll('ytd-feed-filter-chip-bar-renderer .jpdb-reader-text-mirror').length,
+        // Words that occur only in the second chip's label.
+        chipWordsPainted: paintedWords.filter(word => /最近|アップロード/u.test(word)),
         chipClicks: window.__chipClicks ?? 0,
         visibleJapaneseTitles: [...document.querySelectorAll('ytd-rich-item-renderer:not(.jpdb-youtube-filtered) #video-title')]
             .filter(title => title.textContent?.includes('日本語') || title.textContent?.includes('東京')).length,

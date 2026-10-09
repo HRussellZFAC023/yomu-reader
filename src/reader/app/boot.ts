@@ -10,8 +10,6 @@ import {
 } from './runtime-health';
 import { ensureManagedWebStorageCurrent, ensureManagedWebStorageCurrentSync } from './storage';
 import { detectInstalledReaderRuntime } from './runtime-presence';
-import { loadSettings, subscribeToSettingsStorageChanges } from '../settings/index';
-import { adoptLearningTargetFromSettings } from '../languages/target-selection';
 import { offerSettingsRecovery, resetSettingsRecoveryForTests, withdrawSettingsRecovery } from '../ui/fab-settings-recovery';
 import { isYomuHostedAppUrl } from './pages-url';
 import { isReaderSettingsUnavailable } from './settings-unavailable-error';
@@ -65,11 +63,6 @@ export function resetReaderBootStateForTests(): void {
     if (activeRuntime) releaseActiveRuntime(activeRuntime);
     embeddedFrameEligibilityObserver?.disconnect();
     embeddedFrameEligibilityObserver = undefined;
-    disposeEmbeddedFrameTargetPolicySubscription();
-    embeddedFrameTargetTextEligible = false;
-    embeddedFrameLearningTargetChosen = false;
-    embeddedFrameTargetPolicyRevision += 1;
-    embeddedFrameTargetPolicyInFlight = undefined;
     storageBootInFlight = undefined;
     retainedStartupSettings = undefined;
     retainedSettingsSurface = undefined;
@@ -169,11 +162,7 @@ function bootResolvedContext(context: BootContext): Promise<boolean> {
 
 function resolveBootContext(): BootContext | undefined {
     const embeddedFrame = isEmbeddedFrameWindow();
-    if (embeddedFrame) {
-        ensureEmbeddedFrameTargetPolicySubscription();
-        prepareEmbeddedFrameTargetTextEligibility();
-    }
-    if (embeddedFrame && !embeddedFrameHasImmediateMediaSignal()) {
+    if (embeddedFrame && !embeddedFrameHasImmediateMediaSignal() && !embeddedFrameHasTargetText()) {
         watchEmbeddedFrameForEligibleContent();
         return undefined;
     }
@@ -297,9 +286,6 @@ function startRuntime(runtime: ActiveRuntime, embeddedFrame: boolean): Promise<b
     const { app, ownerId, kind: runtimeKind, startupSettings, settingsSurface } = runtime;
     const initOptions: ReaderAppInitOptions = {
         embeddedFrame,
-        // Both real installs (userscript manager and browser extension) get the
-        // first-run welcome/onboarding. The page/dev runtimes never do.
-        showWelcome: runtimeKind === 'userscript' || runtimeKind === 'extension',
         ...(startupSettings ? { startupSettings } : {}),
         ...(settingsSurface ? { settingsSurface } : {}),
     };
@@ -375,80 +361,6 @@ function embeddedFrameHasTargetText(): boolean {
 // Booting the full reader in every ad/analytics frame would waste work, so keep
 // only this tiny wake-up observer until either eligible signal appears.
 let embeddedFrameEligibilityObserver: MutationObserver | undefined;
-let embeddedFrameTargetTextEligible = false;
-let embeddedFrameTargetPolicyInFlight: Promise<void> | undefined;
-let embeddedFrameSettingsUnsubscribe: (() => void) | undefined;
-let embeddedFrameLearningTargetChosen = false;
-let embeddedFrameTargetPolicyRevision = 0;
-
-function ensureEmbeddedFrameTargetPolicySubscription(): void {
-    if (embeddedFrameSettingsUnsubscribe) return;
-    embeddedFrameSettingsUnsubscribe = subscribeToSettingsStorageChanges(settings => {
-        embeddedFrameTargetPolicyRevision += 1;
-        applyEmbeddedFrameTargetPolicy(settings, true);
-    });
-}
-
-function prepareEmbeddedFrameTargetTextEligibility(): void {
-    if (embeddedFrameTargetPolicyInFlight) return;
-    const revision = embeddedFrameTargetPolicyRevision;
-    embeddedFrameTargetPolicyInFlight = loadSettings()
-        .then(settings => {
-            if (revision === embeddedFrameTargetPolicyRevision) {
-                applyEmbeddedFrameTargetPolicy(settings, false);
-            }
-        })
-        .catch(error => console.error('[Yomu Reader] Failed to resolve embedded-frame learning target', error))
-        .finally(() => {
-            embeddedFrameTargetPolicyInFlight = undefined;
-        });
-}
-
-function applyEmbeddedFrameTargetPolicy(settings: ReaderSettings, persistedChange: boolean): void {
-    if (!embeddedFramePolicyContextIsLive()) return;
-    const previouslyChosen = embeddedFrameLearningTargetChosen;
-    embeddedFrameLearningTargetChosen = settings.learningTargetChosen;
-    if (!settings.learningTargetChosen) {
-        embeddedFrameTargetTextEligible = false;
-        return;
-    }
-
-    adoptLearningTargetFromSettings(settings);
-    embeddedFrameTargetTextEligible = true;
-    if (reconcileActiveEmbeddedFrameRuntime(persistedChange, previouslyChosen)) return;
-    bootEmbeddedFrameIfEligible();
-}
-
-function embeddedFramePolicyContextIsLive(): boolean {
-    if (isEmbeddedFrameWindow()) return true;
-    disposeEmbeddedFrameTargetPolicySubscription();
-    return false;
-}
-
-function reconcileActiveEmbeddedFrameRuntime(persistedChange: boolean, previouslyChosen: boolean): boolean {
-    if (!activeRuntime) return false;
-    // A video/YouTube frame can create its restricted Reader before the top
-    // frame's first chooser completes. That Reader intentionally returned
-    // inert and installed no settings subscription, so replace it exactly on
-    // the persisted false -> true transition; dormant text-only frames simply
-    // take their first ownership claim below.
-    if (persistedChange && !previouslyChosen) {
-        releaseActiveRuntime(activeRuntime);
-        return false;
-    }
-    disposeEmbeddedFrameTargetPolicySubscription();
-    return true;
-}
-
-function bootEmbeddedFrameIfEligible(): void {
-    if (embeddedFrameHasImmediateMediaSignal() || embeddedFrameHasTargetText()) bootPreparedEmbeddedFrame();
-}
-
-function disposeEmbeddedFrameTargetPolicySubscription(): void {
-    embeddedFrameSettingsUnsubscribe?.();
-    embeddedFrameSettingsUnsubscribe = undefined;
-}
-
 function watchEmbeddedFrameForEligibleContent(): void {
     if (embeddedFrameEligibilityObserver) return;
     const observer = new MutationObserver(mutations => {
@@ -458,7 +370,6 @@ function watchEmbeddedFrameForEligibleContent(): void {
         if (!mutations.some(mutationContainsEmbeddedFrameEligibilitySignal)) return;
         observer.disconnect();
         embeddedFrameEligibilityObserver = undefined;
-        embeddedFrameTargetTextEligible = false;
         bootPreparedEmbeddedFrame();
     });
     embeddedFrameEligibilityObserver = observer;
@@ -473,7 +384,6 @@ function watchEmbeddedFrameForEligibleContent(): void {
 
 function mutationContainsEmbeddedFrameEligibilitySignal(mutation: MutationRecord): boolean {
     if (mutationAddsVideo(mutation)) return true;
-    if (!embeddedFrameTargetTextEligible) return false;
     return mutationContainsTargetText(mutation);
 }
 
@@ -506,11 +416,6 @@ function bootPreparedEmbeddedFrame(): void {
     embeddedFrameEligibilityObserver?.disconnect();
     embeddedFrameEligibilityObserver = undefined;
     void bootResolvedContext(context);
-    disposeEmbeddedFrameTargetPolicyAfterChosenBoot();
-}
-
-function disposeEmbeddedFrameTargetPolicyAfterChosenBoot(): void {
-    if (activeRuntime && embeddedFrameLearningTargetChosen) disposeEmbeddedFrameTargetPolicySubscription();
 }
 
 function isYouTubeMediaFrame(): boolean {

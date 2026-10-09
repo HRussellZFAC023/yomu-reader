@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import type { JPDBCard } from '../../src/reader/app/types';
-import { autoReviewSourceResults } from '../../src/reader/newtab/source-orchestrator';
+import { appendNewTabLoadResult, autoReviewSourceResults, emptyNewTabLoadAccumulator, interleavedNewTabLoadAccumulator, newTabLoadResult } from '../../src/reader/newtab/source-orchestrator';
 import { newTabSourceLoadPlan } from '../../src/reader/newtab/source';
 
 function card(overrides: Partial<JPDBCard>): JPDBCard {
@@ -22,6 +22,18 @@ function card(overrides: Partial<JPDBCard>): JPDBCard {
 }
 
 describe('new-tab source orchestration', () => {
+    it('retains a built-in collection identity only while every loaded card comes from that collection', () => {
+        const starter = { cards: [card({ source: 'fallback' })], sourceLabel: 'Starter words', sourceId: 'starter-words' as const };
+        const namedDeck = { cards: [card({ vid: 2, source: 'anki' })], sourceLabel: 'Starter words' };
+        const accumulated = emptyNewTabLoadAccumulator();
+        appendNewTabLoadResult(accumulated, starter);
+        expect(newTabLoadResult(accumulated, 'en').sourceId).toBe('starter-words');
+        appendNewTabLoadResult(accumulated, namedDeck);
+        expect(newTabLoadResult(accumulated, 'en').sourceId).toBeUndefined();
+        expect(newTabLoadResult(interleavedNewTabLoadAccumulator([starter]), 'en').sourceId).toBe('starter-words');
+        expect(newTabLoadResult(interleavedNewTabLoadAccumulator([starter, namedDeck]), 'en').sourceId).toBeUndefined();
+    });
+
     it('keeps auto local-first before optional account sources', () => {
         expect(newTabSourceLoadPlan('auto', 12).primarySources).toEqual(['yomu-local', 'jpdb', 'bunpro', 'wanikani', 'anki']);
     });

@@ -1,3 +1,4 @@
+import { AUDIO_REQUEST_TIMEOUT_MS } from '../audio/request';
 import type { ReaderSettings } from '../app/types';
 import { shouldFetchMediaUrlAsBlobBeforePlayback } from '../audio/candidates';
 import { uniqueTrimmedStrings } from '../core/string-utils';
@@ -79,7 +80,7 @@ export class NewTabImmersionAudioPlayer {
     private fetchBlob(urls: string[]): Promise<string> {
         const settings = this.deps.getSettings();
         return this.deps.immersionKit
-            .fetchBlobUrl(urls, settings.audioTimeoutMs, settings.corsProxyUrl, settings.interfaceLanguage)
+            .fetchBlobUrl(urls, AUDIO_REQUEST_TIMEOUT_MS, settings.corsProxyUrl, settings.interfaceLanguage)
             .catch(() => '');
     }
 

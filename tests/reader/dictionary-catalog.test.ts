@@ -4,9 +4,9 @@ import { describe, expect, it } from 'vitest';
 import {
     FROZEN_DICTIONARY_CATALOG,
     SLICE1_LEARNER_LANGUAGES,
-    SLICE1_TARGET_LANGUAGES,
     assertDictionaryObjectIntegrity,
     assertRecommendationReferencesCatalog,
+    dictionaryEntryDownload,
     dictionaryObjectKey,
     dictionaryRecommendationFilename,
     parseDictionaryCatalogManifest,
@@ -35,11 +35,8 @@ describe('dictionary catalogue manifests', () => {
         expect(manifest.languages.filter(language => language.direction === 'rtl').map(language => language.tag)).toEqual(['ar', 'fa']);
     });
 
-    it('keeps the packaged runtime projection complete and materially smaller', async () => {
-        const published = await json(resolve(PUBLISHED_ROOT, 'catalog.json')) as {
-            revision: string;
-            entries: Array<{ id: string }>;
-        };
+    it('keeps the Japanese runtime projection complete, source-faithful and materially smaller', async () => {
+        const published = parseDictionaryCatalogManifest(await json(resolve(PUBLISHED_ROOT, 'catalog.json')));
         const runtime = await json(resolve(PUBLISHED_ROOT, 'runtime-catalog.json')) as {
             revision: string;
             entries: Array<[string, ...unknown[]]>;
@@ -48,7 +45,19 @@ describe('dictionary catalogue manifests', () => {
         const runtimeBytes = (await stat(resolve(PUBLISHED_ROOT, 'runtime-catalog.json'))).size;
 
         expect(runtime.revision).toBe(published.revision);
-        expect(runtime.entries.map(entry => entry[0])).toEqual(published.entries.map(entry => entry.id));
+        expect(runtime.entries.map(entry => entry[0])).toEqual(published.entries
+            .filter(entry => entry.headwordLanguages.includes('ja')).map(entry => entry.id));
+        const projectedEntries = (catalog: typeof published) => catalog.entries
+            .filter(entry => entry.headwordLanguages.includes('ja'))
+            .map(entry => ({
+                id: entry.id,
+                categories: entry.categories,
+                headwordLanguages: entry.headwordLanguages,
+                definitionLanguages: entry.definitionLanguages,
+                sourceProject: entry.source.projectUrl,
+                download: dictionaryEntryDownload(entry, catalog.objectsBaseUrl),
+            }));
+        expect(projectedEntries(FROZEN_DICTIONARY_CATALOG)).toEqual(projectedEntries(published));
         expect(runtimeBytes).toBeLessThan(publishedBytes / 2);
     });
 
@@ -76,57 +85,36 @@ describe('dictionary catalogue manifests', () => {
         // Not the catalogue's "2026-07-23": KANJIDIC numbers the days of a year.
         expect(revisions.get('kanjidic-en')).toBe('kanjidic2.2026-204');
         // Not the dataset commit "95a9151c1beb": each WTY archive stamps its build day.
-        expect(revisions.get('wty-fr-en')).toBe('2026.07.15');
-        expect(revisions.get('wty-da-id')).toBe('2026.03.05');
+        expect(recorded.get('wty-fr-en')).toBe('2026.07.15');
+        expect(revisions.has('wty-fr-en')).toBe(false);
+        expect(recorded.get('wty-da-id')).toBe('2026.03.05');
+        expect(revisions.has('wty-da-id')).toBe(false);
         // Drive copies record theirs too, but their seed cards rely on title tokens.
         for (const id of ['drive-japanese-ja-ja-ukmi3vhk6', 'drive-japanese-ja-freq-jpdb-v2-2-frequency-kana-2024-10-13-p5yytox4s0']) {
             expect(recorded.get(id), id).toBeTruthy();
             expect(revisions.has(id), id).toBe(false);
         }
         expect([...revisions.keys()].filter(id => !projected.test(id))).toEqual([]);
-        // A family's shared revision is stored once: 1,428 WTY archives share one build day.
-        expect(runtime.archiveRevisions.wty).toBe('2026.07.15');
+        // Non-Japanese WTY revisions stay in published provenance, not the runtime.
+        expect(runtime.archiveRevisions).not.toHaveProperty('wty');
+        expect(runtime.archiveRevisions.jmdict).toBe('JMdict.2026-07-23');
         const repeated = runtime.entries.filter(entry =>
             typeof entry[9] === 'string' && entry[9] === runtime.archiveRevisions[(entry[0] as string).split('-')[0]!]);
         expect(repeated.map(entry => entry[0])).toEqual([]);
     });
 
-    it('ships one valid, catalogue-linked recommendation manifest per learner-target pair', async () => {
+    it('ships a valid catalogue-linked Japanese manifest for every definition language', async () => {
         const catalog = parseDictionaryCatalogManifest(await json(resolve(MANIFEST_ROOT, 'catalog.json')));
         const files = (await readdir(resolve(MANIFEST_ROOT, 'recommendations')))
-            .filter(filename => filename.endsWith('.json'))
-            .sort();
-
-        expect(files).toHaveLength(32 * 33);
-        for (const targetLanguage of SLICE1_TARGET_LANGUAGES) {
-            for (const learnerLanguage of SLICE1_LEARNER_LANGUAGES) {
-                const filename = dictionaryRecommendationFilename(learnerLanguage, targetLanguage);
-                expect(parseDictionaryRecommendationFilename(filename)).toEqual({ learnerLanguage, targetLanguage });
-                const recommendation = parseDictionaryRecommendationManifest(
-                    await json(resolve(MANIFEST_ROOT, 'recommendations', filename)),
-                );
-                expect(recommendation).toMatchObject({ learnerLanguage, targetLanguage });
-                expect(() => assertRecommendationReferencesCatalog(recommendation, catalog)).not.toThrow();
-            }
+            .filter(filename => filename.endsWith('-ja.json')).sort();
+        expect(files).toEqual(SLICE1_LEARNER_LANGUAGES.map(language => `${language}-ja.json`).sort());
+        for (const learnerLanguage of SLICE1_LEARNER_LANGUAGES) {
+            const filename = dictionaryRecommendationFilename(learnerLanguage, 'ja');
+            expect(parseDictionaryRecommendationFilename(filename)).toEqual({ learnerLanguage, targetLanguage: 'ja' });
+            const recommendation = parseDictionaryRecommendationManifest(await json(resolve(MANIFEST_ROOT, 'recommendations', filename)));
+            expect(recommendation).toMatchObject({ learnerLanguage, targetLanguage: 'ja' });
+            expect(() => assertRecommendationReferencesCatalog(recommendation, catalog)).not.toThrow();
         }
-    }, 30_000);
-
-    it('selects Spanish-headword terms and IPA using the deterministic learner-first ranking', async () => {
-        const english = parseDictionaryRecommendationManifest(
-            await json(resolve(PUBLISHED_ROOT, 'recommendations/en-es.json')),
-        );
-        const spanish = parseDictionaryRecommendationManifest(
-            await json(resolve(PUBLISHED_ROOT, 'recommendations/es-es.json')),
-        );
-
-        expect(english.dictionaries).toEqual([
-            expect.objectContaining({ dictionaryId: 'wty-es-en', role: 'primary-terms', priority: 10 }),
-            expect.objectContaining({ dictionaryId: 'wty-es-en-ipa', role: 'pronunciation', priority: 20 }),
-        ]);
-        expect(spanish.dictionaries).toEqual([
-            expect.objectContaining({ dictionaryId: 'wty-es-es', role: 'primary-terms', priority: 10 }),
-            expect.objectContaining({ dictionaryId: 'wty-es-es-ipa', role: 'pronunciation', priority: 20 }),
-        ]);
     });
 
     it('keeps non-native fallback dictionaries explicit and opt-in for translation', async () => {

@@ -123,13 +123,13 @@ describe('mirror visibility heals after a transient page hide', () => {
 });
 
 // Interactive chrome rendered through the MIRROR channel is out-of-flow and
-// paint-invariant: readings cannot distort the control's own layout. The
-// sealed interactive-passive decision must therefore suppress ruby only for
-// IN-PLACE renders — a mirrored control keeps its furigana (2026-07-11
-// "furigana is missing" report: 作成 / もっと見る / feed chips).
+// paint-invariant: readings cannot distort the row's own layout. The sealed
+// interactive-passive decision must therefore suppress ruby only for IN-PLACE
+// renders — a mirrored toolbar link keeps its furigana (2026-07-11 "furigana
+// is missing" report). Page buttons themselves are never annotated (YQ-07).
 describe('mirrored interactive chrome keeps furigana', () => {
-    it('renders detached readings inside a mirrored button', () => {
-        document.body.innerHTML = `<button id="host">${TEXT}</button>`;
+    it('renders detached readings inside a mirrored toolbar link', () => {
+        document.body.innerHTML = `<div role="toolbar"><a id="host" href="/create">${TEXT}</a></div>`;
         const host = document.getElementById('host')!;
         paintMirror(host);
         const mirror = host.querySelector<HTMLElement>('.jpdb-reader-text-mirror')!;
@@ -137,19 +137,19 @@ describe('mirrored interactive chrome keeps furigana', () => {
         expect(mirror.querySelector('rt')).toBeNull();
         expect(mirror.querySelector('.jpdb-reader-detached-furi')?.textContent).toBe('にほんご');
         expect(mirror.dataset.yomuDetachedReadings).toBe('true');
-        // Detached readings stay out of the button's line box while the
+        // Detached readings stay out of the link's line box while the
         // control-mirror stamp keeps the base glyph on the exact native
         // metrics instead of the roomier prose mirror metrics. The reading is
         // painted at rest — the out-of-flow lane is what protects the control.
         expect(mirror.dataset.yomuControlMirror).toBe('true');
     });
 
-    it('uses the same detached-reading channel on YouTube controls', () => {
+    it('uses the same detached-reading channel on YouTube toolbar links', () => {
         vi.stubGlobal('location', {
             hostname: 'www.youtube.com',
             href: 'https://www.youtube.com/watch?v=test',
         });
-        document.body.innerHTML = `<button id="host">${TEXT}</button>`;
+        document.body.innerHTML = `<div role="toolbar"><a id="host" href="/create">${TEXT}</a></div>`;
         const host = document.getElementById('host')!;
         paintMirror(host);
         const mirror = host.querySelector<HTMLElement>('.jpdb-reader-text-mirror')!;

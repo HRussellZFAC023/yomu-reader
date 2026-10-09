@@ -159,4 +159,49 @@ describe('tracked secret detection', () => {
         expect(result.status).toBe(0);
         expect(JSON.parse(result.stdout).findings).toEqual([]);
     });
+    describe('reviewed fixture literal allowlist', () => {
+        const CORPUS_FILE = 'scripts/upgrade-corpus/lib/learner-story.ts';
+        // The documented fake upgrade-corpus key, assembled so this file holds no literal.
+        const corpusKey = ['corpus', '0'.repeat(22), 'jpdb'].join('');
+        const assignment = (value: string) => `export const CORPUS_JPDB_API_KEY = '${value}';`;
+        const atLine = (line: number, content: string) => `${'// filler\n'.repeat(line - 1)}${content}\n`;
+
+        it('accepts the exact reviewed literal at its recorded file and line, and reports it', () => {
+            const result = scan(repository({ [CORPUS_FILE]: atLine(12, assignment(corpusKey)) }));
+            expect(result.status).toBe(0);
+            expect(JSON.parse(result.stdout).findings).toEqual([
+                expect.objectContaining({ severity: 'reviewed-fixture', rule: 'credential-assignment', file: CORPUS_FILE, line: 12 }),
+            ]);
+            expect(result.stdout).not.toContain(corpusKey);
+        });
+
+        it('blocks the same literal when it moves line, file, or is copied elsewhere', () => {
+            for (const files of ([
+                { [CORPUS_FILE]: atLine(13, assignment(corpusKey)) },
+                { 'scripts/upgrade-corpus/lib/other-story.ts': atLine(12, assignment(corpusKey)) },
+                { 'src/reader/jpdb/key.ts': atLine(12, assignment(corpusKey)) },
+            ] as Record<string, string>[])) {
+                const result = scan(repository(files));
+                expect(result.status).toBe(1);
+                expect(JSON.parse(result.stdout).findings).toEqual([
+                    expect.objectContaining({ severity: 'blocker', rule: 'credential-assignment' }),
+                ]);
+            }
+        });
+
+        it('still blocks a real-looking key at the reviewed location and elsewhere', () => {
+            const realLooking = ['9f3b2c71', 'a04e5d88', 'c61f0b2e', '7d94a356'].join('');
+            for (const files of ([
+                { [CORPUS_FILE]: atLine(12, assignment(realLooking)) },
+                { 'src/reader/jpdb/settings.ts': `const JPDB_API_KEY = '${realLooking}';\nconst settings = { apiKey: '${realLooking}' };\n` },
+            ] as Record<string, string>[])) {
+                const result = scan(repository(files));
+                const report = JSON.parse(result.stdout);
+                expect(result.status).toBe(1);
+                expect(report.findings.length).toBeGreaterThan(0);
+                expect(report.findings.every((finding: { severity: string }) => finding.severity === 'blocker')).toBe(true);
+                expect(result.stdout).not.toContain(realLooking);
+            }
+        });
+    });
 });

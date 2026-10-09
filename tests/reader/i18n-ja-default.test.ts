@@ -12,10 +12,10 @@ describe('Japanese interface copy', () => {
     });
 
     it('renders a Japanese UI string distinct from the English copy', () => {
-        const ja = uiText('ja', 'onboardingAddApiKey');
-        const en = uiText('en', 'onboardingAddApiKey');
-        expect(en).toBe('Add API key');
-        expect(ja).toBe('APIキーを追加');
+        const ja = uiText('ja', 'addAudioSource');
+        const en = uiText('en', 'addAudioSource');
+        expect(en).toBe('Add audio source');
+        expect(ja).toBe('音声ソースを追加');
         expect(ja).not.toBe(en);
         expect(ja).not.toBe('未翻訳');
     });

@@ -5,7 +5,7 @@ import 'fake-indexeddb/auto';
 import { SETTINGS_CHANGE_EVENT } from '../../src/reader/app/constants';
 import { publishSettingsChange } from '../../src/reader/settings/settings-change-bus';
 import { ReaderApp } from '../../src/reader/app/main';
-import { blendRgba, contrastRatio, cssColorToRgba, mixHex, rgbaToHex } from '../../src/reader/theme/color-utils';
+import { blendRgba, contrastRatio, cssColorToRgba, rgbaToHex } from '../../src/reader/theme/color-utils';
 import { READER_THEME_COLOR_TOKENS } from '../../src/reader/theme/color-tokens';
 import { resetCssColorProbeForTests } from '../../src/reader/theme/color-rgba';
 import { applyReaderTheme, applyResolvedReaderTheme, resetReaderRootClassGuardForTests } from '../../src/reader/theme/reader-theme';
@@ -82,14 +82,6 @@ function expectPitchUnderlineOnlyApplied(applied: AppliedReaderTheme, options: {
     }
 }
 
-function expectPitchUnderlineOnlySettings(settings: ReaderSettings, applied: AppliedReaderTheme, options: { subtitle?: boolean } = {}): void {
-    expect(settings.wordHighlightColorSource).toBe('jpdb');
-    expect(settings.wordUnderlineColorSource).toBe('pitch');
-    expect(settings.subtitleHighlightColorSource).toBe('jpdb');
-    expect(settings.subtitleUnderlineColorSource).toBe('pitch');
-    expectPitchUnderlineOnlyApplied(applied, options);
-}
-
 function expectLoadedColorChannels(settings: ReaderSettings, expected: LoadedColorChannels, options: { stripsLegacyHighlightMode?: boolean } = {}): void {
     expect(settings).toMatchObject(expected);
     if (options.stripsLegacyHighlightMode) {
@@ -133,8 +125,8 @@ describe('reader theme', () => {
         try {
             const applied = applyReaderTheme({ ...DEFAULT_SETTINGS, apiKey: 'test-api-key' });
 
-            expect(applied.wordColorSources).toMatchObject({ highlight: 'jpdb', underline: 'pitch', text: 'off' });
-            expect(applied.subtitleColorSources).toMatchObject({ highlight: 'jpdb', underline: 'pitch', text: 'off' });
+            expect(applied.wordColorSources).toMatchObject({ highlight: 'off', underline: 'jpdb', text: 'off' });
+            expect(applied.subtitleColorSources).toMatchObject({ highlight: 'off', underline: 'jpdb', text: 'off' });
         } finally {
             rootSpy.mockRestore();
         }
@@ -177,7 +169,7 @@ describe('reader theme', () => {
         expect(root.classList.contains('yomu-word-color-new-only')).toBe(false);
         root.className = 'host-shell';
         await new Promise(resolve => setTimeout(resolve, 20));
-        expect(root.classList.contains('jpdb-reader-word-underline-pitch')).toBe(true);
+        expect(root.classList.contains('jpdb-reader-word-underline-jpdb')).toBe(true);
         expect(root.classList.contains('yomu-word-color-new-only')).toBe(false);
     });
 
@@ -190,12 +182,17 @@ describe('reader theme', () => {
         expect(root.classList.contains('yomu-word-color-hide-new')).toBe(false);
         expect(root.classList.contains('yomu-word-color-hide-learning')).toBe(false);
         expect(root.classList.contains('yomu-word-color-hide-failed')).toBe(false);
-        // Default (empty) colours every state — no hide classes, and toggling a group
-        // off drops its stale class.
-        applyReaderTheme({ ...DEFAULT_SETTINGS, apiKey: 'test-api-key' }, root);
+        // Empty colours every state — no hide classes, and toggling a group off
+        // drops its stale class.
+        applyReaderTheme({ ...DEFAULT_SETTINGS, apiKey: 'test-api-key', wordColorHiddenStateGroups: [] }, root);
         for (const group of ['new', 'learning', 'known', 'due', 'failed'] as const) {
             expect(root.classList.contains(`yomu-word-color-hide-${group}`)).toBe(false);
         }
+        // The default leaves known and ignored words plain (ADR-0026).
+        applyReaderTheme({ ...DEFAULT_SETTINGS, apiKey: 'test-api-key' }, root);
+        expect(root.classList.contains('yomu-word-color-hide-known')).toBe(true);
+        expect(root.classList.contains('yomu-word-color-hide-ignored')).toBe(true);
+        expect(root.classList.contains('yomu-word-color-hide-new')).toBe(false);
     });
 
     // GitHub #37 (mirrormc): the colour opt-out borrowed the FURIGANA taxonomy, a
@@ -225,22 +222,29 @@ describe('reader theme', () => {
         // One switch, not three: these states already share one colour and one picker.
         expect(root.classList.contains('yomu-word-color-hide-known')).toBe(false);
 
-        applyReaderTheme({ ...DEFAULT_SETTINGS, apiKey: 'test-api-key' }, root);
+        applyReaderTheme({ ...DEFAULT_SETTINGS, apiKey: 'test-api-key', wordColorHiddenStateGroups: [] }, root);
         expect(root.classList.contains('yomu-word-color-hide-ignored')).toBe(false);
     });
 
+    // ADR-0026: one channel at rest. The state underline resolves to the one
+    // study source present (JPDB here); nothing is painted behind a word.
     it('applies concrete default color channels', () => {
         const applied = applyReaderTheme({ ...DEFAULT_SETTINGS, apiKey: 'test-api-key' });
         const root = document.documentElement;
 
-        expect(root.classList.contains('jpdb-reader-word-highlight-jpdb')).toBe(true);
-        expect(root.classList.contains('jpdb-reader-word-underline-pitch')).toBe(true);
+        expect(root.classList.contains('jpdb-reader-word-highlight-off')).toBe(true);
+        expect(root.classList.contains('jpdb-reader-word-underline-jpdb')).toBe(true);
         expect(root.classList.contains('jpdb-reader-word-text-off')).toBe(true);
-        expect(root.classList.contains('jpdb-reader-subtitle-highlight-jpdb')).toBe(true);
-        expect(root.classList.contains('jpdb-reader-subtitle-underline-pitch')).toBe(true);
+        expect(root.classList.contains('jpdb-reader-subtitle-highlight-off')).toBe(true);
+        expect(root.classList.contains('jpdb-reader-subtitle-underline-jpdb')).toBe(true);
         expect(root.classList.contains('jpdb-reader-subtitle-text-off')).toBe(true);
-        expect(applied.wordColorSources).toMatchObject({ highlight: 'jpdb', underline: 'pitch', text: 'off' });
-        expect(applied.subtitleColorSources).toMatchObject({ highlight: 'jpdb', underline: 'pitch', text: 'off' });
+        expect(applied.wordColorSources).toMatchObject({ highlight: 'off', underline: 'jpdb', text: 'off' });
+        expect(applied.subtitleColorSources).toMatchObject({ highlight: 'off', underline: 'jpdb', text: 'off' });
+
+        // With no study source the defaults paint nothing at all.
+        const keyless = applyReaderTheme({ ...DEFAULT_SETTINGS, yomuLocalSrsEnabled: false });
+        expect(keyless.wordColorSources).toMatchObject({ highlight: 'off', underline: 'off', text: 'off' });
+        expect(keyless.subtitleColorSources).toMatchObject({ highlight: 'off', underline: 'off', text: 'off' });
     });
 
     it('parses modern OKLab computed colors from dark app shells', () => {
@@ -360,6 +364,23 @@ describe('reader theme', () => {
         expect(contrastRatio(highlight, '#ffffff')).toBeGreaterThanOrEqual(1.45);
         expect(contrastRatio(text, highlight)).toBeGreaterThanOrEqual(4.5);
         expect(contrastRatio(underline, highlight)).toBeGreaterThanOrEqual(3);
+    });
+
+    it('draws a default study-state underline in the ink-and-paper token for its page', () => {
+        // White New and yellow Learning seeds read loud on a dark page; the
+        // page token is one quiet hue per state, and a learner's own colour
+        // is only held at 3:1.
+        const underlineOn = (paper: string, ink: string, word: string, color: string) => {
+            document.body.innerHTML = `<p style="background: ${paper}; color: ${ink};"><span class="jpdb-reader-word ${word}" style="color: ${ink}; text-decoration-color: ${color};">読む</span></p>`;
+            const element = document.querySelector<HTMLElement>('.jpdb-reader-word')!;
+            refreshReaderWordContrastForWord(element);
+            return element.style.getPropertyValue('--jpdb-reader-word-accessible-underline');
+        };
+        expect(underlineOn('rgb(255, 255, 255)', 'rgb(32, 33, 34)', 'jpdb-new', 'rgb(255, 255, 255)')).toBe('#687384');
+        expect(underlineOn('rgb(16, 20, 24)', 'rgb(234, 236, 240)', 'jpdb-new', 'rgb(255, 255, 255)')).toBe('#aab2c0');
+        expect(underlineOn('rgb(16, 20, 24)', 'rgb(234, 236, 240)', 'jpdb-learning', 'rgb(255, 209, 102)')).toBe('#d6b65e');
+        expect(underlineOn('rgb(255, 255, 255)', 'rgb(32, 33, 34)', 'jpdb-due', 'rgb(95, 179, 179)')).toBe('#216f7a');
+        expect(underlineOn('rgb(255, 255, 255)', 'rgb(32, 33, 34)', 'jpdb-failed', 'rgb(233, 30, 99)')).toBe('#e91e63');
     });
 
     it('measures variable-backed first-render highlights without repainting them darker', () => {
@@ -938,7 +959,9 @@ describe('reader theme', () => {
         expect(root.classList.contains('jpdb-reader-word-highlight-jpdb')).toBe(false);
         expect(root.classList.contains('jpdb-reader-word-highlight-off')).toBe(true);
         expect(root.classList.contains('jpdb-reader-word-underline-jpdb')).toBe(false);
-        expect(root.classList.contains('jpdb-reader-word-underline-pitch')).toBe(true);
+        // An unavailable channel falls back to the default, which is the state
+        // underline (ADR-0026), and with no state source that is off.
+        expect(root.classList.contains('jpdb-reader-word-underline-off')).toBe(true);
         expect(root.classList.contains('jpdb-reader-word-text-jpdb')).toBe(false);
         expect(root.classList.contains('jpdb-reader-word-text-off')).toBe(true);
         expect(root.classList.contains('jpdb-reader-subtitle-highlight-jpdb')).toBe(false);
@@ -948,7 +971,7 @@ describe('reader theme', () => {
         expect(root.classList.contains('jpdb-reader-subtitle-text-jpdb')).toBe(false);
         expect(root.classList.contains('jpdb-reader-subtitle-text-off')).toBe(true);
         expect(withoutKey.wordColorSources.highlight).toBe('off');
-        expect(withoutKey.wordColorSources.underline).toBe('pitch');
+        expect(withoutKey.wordColorSources.underline).toBe('off');
         expect(withoutKey.wordColorSources.text).toBe('off');
         expect(withoutKey.subtitleColorSources.highlight).toBe('off');
         expect(withoutKey.subtitleColorSources.underline).toBe('off');
@@ -1144,7 +1167,10 @@ describe('reader theme', () => {
         expect(root.style.getPropertyValue('--jpdb-ocr-text-color')).toBe('#fafafa');
         expect(root.style.getPropertyValue('--jpdb-ocr-outline-color')).toBe('#010203');
         const ocrOpacity = accessibleOcrBackgroundOpacity(settings.ocrBackgroundOpacity);
-        const ocrBackground = accessibleOcrBackgroundColor(settings.accentColor, ocrOpacity);
+        const ocrBackground = accessibleOcrBackgroundColor(ocrOpacity);
+        // The text band over images is neutral overlay ink whatever the accent (#336699 here).
+        const [red, green, blue] = [1, 3, 5].map(index => parseInt(ocrBackground.slice(index, index + 2), 16));
+        expect(Math.max(red, green, blue) - Math.min(red, green, blue)).toBeLessThanOrEqual(12);
         const ocrBackgroundRgba = accentToRgba(ocrBackground, ocrOpacity);
         expect(contrastRatio(compositeOverWhiteHex(ocrBackgroundRgba), '#ffffff')).toBeGreaterThanOrEqual(4.5);
         expect(root.style.getPropertyValue('--jpdb-ocr-background-rgba')).toBe(ocrBackgroundRgba);
@@ -1247,19 +1273,36 @@ describe('reader theme', () => {
         expect([...root.classList].some(className => className.startsWith('yomu-page-theme-'))).toBe(false);
     });
 
-    // Dictionary tags (N5, noun, ...) paint the readable accent on an accent tint.
-    // That tint must be one the readable accent is computed against, or the label
-    // lands under 4.5:1 (4.41:1 measured on light Study, lower on light popups).
-    it.each(['light', 'dark'] as const)('keeps dictionary tag labels readable on their tint in the %s theme', theme => {
+    // 2.1's palette is ink and paper with the icon's red. Every saved record
+    // carries its accent, so the retired green default must read as the new one.
+    it('reads the retired green default accent as the brand red and keeps chosen accents', () => {
+        expect(DEFAULT_SETTINGS.accentColor).toBe('#b8324e');
+        expect(normalizeReaderSettings({ accentColor: '#5ea780' }).accentColor).toBe('#b8324e');
+        expect(normalizeReaderSettings({ accentColor: '#336699' }).accentColor).toBe('#336699');
+    });
+
+    // Mixing the brand red toward white washes it pink-grey on dark surfaces; it
+    // pairs with its own light tint there instead, still at AA.
+    it('pairs the brand red with its light tint on dark surfaces', () => {
+        applyReaderTheme({ ...DEFAULT_SETTINGS, theme: 'dark' });
+        const readable = document.documentElement.style.getPropertyValue('--jpdb-reader-accent-readable');
+
+        expect(readable.slice(0, 3)).toBe('#ff');
+        for (const surface of [READER_THEME_COLOR_TOKENS.dark.surface, READER_THEME_COLOR_TOKENS.dark.surface2]) {
+            expect(contrastRatio(readable, surface)).toBeGreaterThanOrEqual(4.5);
+        }
+        expect(document.documentElement.style.getPropertyValue('--jpdb-reader-accent-text')).toBe('#ffffff');
+    });
+
+    // Dictionary labels use neutral ink on paper, independently of the brand
+    // accent. Their actual foreground/background tokens still need 4.5:1.
+    it.each(['light', 'dark'] as const)('keeps neutral dictionary tags readable in the %s theme', theme => {
         const tagRule = readFileSync('src/reader/styles/local-dictionaries.css', 'utf8').match(/\.jpdb-reader-dict-tag \{([^}]*)\}/)![1];
-        const [, percent, surface] = tagRule.replace(/\/\*[\s\S]*?\*\//g, '')
-            .match(/background:\s*color-mix\(\s*in srgb,\s*var\(--jpdb-reader-accent\) (\d+)%,\s*var\(--jpdb-reader-(surface|surface-2)\)\s*\)/)!;
+        const backgroundToken = tagRule.match(/background:\s*var\(--jpdb-reader-(surface|surface-2)\)/)![1] as 'surface' | 'surface-2';
+        const foregroundToken = tagRule.match(/(?:^|;)\s*color:\s*var\(--jpdb-reader-(text|muted|faint)\)/)![1] as 'text' | 'muted' | 'faint';
         const tokens = READER_THEME_COLOR_TOKENS[theme];
-        const background = mixHex({ surface: tokens.surface, 'surface-2': tokens.surface2 }[surface]!, DEFAULT_SETTINGS.accentColor, Number(percent) / 100);
-
-        applyReaderTheme({ ...DEFAULT_SETTINGS, theme });
-
-        expect(contrastRatio(document.documentElement.style.getPropertyValue('--jpdb-reader-accent-readable'), background)).toBeGreaterThanOrEqual(4.5);
+        const background = backgroundToken === 'surface' ? tokens.surface : tokens.surface2;
+        expect(contrastRatio(tokens[foregroundToken], background)).toBeGreaterThanOrEqual(4.5);
     });
 
     // Example counts double as source status text ("Not loaded"). Faint is a
@@ -1352,6 +1395,7 @@ describe('reader theme', () => {
 
         const settings = await loadSettings();
 
+        // Neither channel set is the 2.0 default set, so both stay as chosen.
         expectLoadedColorChannels(settings, {
             wordHighlightColorSource: 'auto',
             wordUnderlineColorSource: 'anki',
@@ -1385,9 +1429,12 @@ describe('reader theme', () => {
         });
     });
 
-    it('migrates the historical automatic default channel tuple to current concrete defaults', async () => {
-        localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify({
+    // These four read real (GM) storage. Through localStorage they never read
+    // the stored blob at all and only re-checked the defaults.
+    it('resolves the historical automatic channel tuple through the current defaults', async () => {
+        installSharedSettingsStore([[SETTINGS_STORAGE_KEY, {
             ...DEFAULT_SETTINGS,
+            apiKey: 'test-api-key',
             wordHighlightMode: 'auto',
             wordHighlightColorSource: 'auto',
             wordUnderlineColorSource: 'auto',
@@ -1395,22 +1442,18 @@ describe('reader theme', () => {
             subtitleHighlightColorSource: 'off',
             subtitleUnderlineColorSource: 'pitch',
             subtitleTextColorSource: 'auto',
-        }));
+        }]]);
 
         const settings = await loadSettings();
+        const applied = applyReaderTheme(settings);
 
-        expectLoadedColorChannels(settings, {
-            wordHighlightColorSource: 'jpdb',
-            wordUnderlineColorSource: 'pitch',
-            wordTextColorSource: 'anki',
-            subtitleHighlightColorSource: 'jpdb',
-            subtitleUnderlineColorSource: 'pitch',
-            subtitleTextColorSource: 'anki',
-        }, { stripsLegacyHighlightMode: true });
+        expect(Object.prototype.hasOwnProperty.call(settings, 'wordHighlightMode')).toBe(false);
+        expect(applied.wordColorSources).toMatchObject({ highlight: 'off', underline: 'jpdb', text: 'off' });
+        expect(applied.subtitleColorSources).toMatchObject({ highlight: 'off', underline: 'pitch', text: 'off' });
     });
 
-    it('migrates legacy pitch highlight mode to pitch underline without double pitch highlighting', async () => {
-        localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify({
+    it('never paints a pitch highlight for a retired pitch highlight mode', async () => {
+        installSharedSettingsStore([[SETTINGS_STORAGE_KEY, {
             ...DEFAULT_SETTINGS,
             apiKey: 'test-api-key',
             wordHighlightMode: 'pitch',
@@ -1418,42 +1461,44 @@ describe('reader theme', () => {
             wordUnderlineColorSource: 'auto',
             subtitleHighlightColorSource: 'auto',
             subtitleUnderlineColorSource: 'pitch',
-        }));
+        }]]);
 
-        const settings = await loadSettings();
-        const applied = applyReaderTheme(settings);
+        const applied = applyReaderTheme(await loadSettings());
+        const root = document.documentElement;
 
-        expectPitchUnderlineOnlySettings(settings, applied);
+        expect(root.classList.contains('jpdb-reader-word-highlight-pitch')).toBe(false);
+        expect(root.classList.contains('jpdb-reader-subtitle-highlight-pitch')).toBe(false);
+        expect(applied.wordColorSources.highlight).not.toBe('pitch');
+        expect(applied.subtitleColorSources).toMatchObject({ highlight: 'off', underline: 'pitch' });
     });
 
     it('cleans up stale saved double-pitch channel tuples from earlier builds', async () => {
-        localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify({
+        installSharedSettingsStore([[SETTINGS_STORAGE_KEY, {
             apiKey: 'test-api-key',
             wordHighlightColorSource: 'pitch',
             wordUnderlineColorSource: 'pitch',
             subtitleHighlightColorSource: 'pitch',
             subtitleUnderlineColorSource: 'pitch',
-        }));
+        }]]);
 
         const settings = await loadSettings();
-        const applied = applyReaderTheme(settings);
-
-        expectPitchUnderlineOnlySettings(settings, applied);
+        // A changed channel set is the learner's, so the pitch underline stays
+        // (ADR-0026); only the doubled pitch highlight is dropped when applied.
+        expect(settings).toMatchObject({ wordUnderlineColorSource: 'pitch', subtitleUnderlineColorSource: 'pitch' });
+        expectPitchUnderlineOnlyApplied(applyReaderTheme(settings));
     });
 
     it('cleans up partial stale word pitch highlight tuples without requiring subtitle settings to match', async () => {
-        localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify({
+        installSharedSettingsStore([[SETTINGS_STORAGE_KEY, {
             apiKey: 'test-api-key',
             wordHighlightColorSource: 'pitch',
             wordUnderlineColorSource: 'pitch',
             subtitleHighlightColorSource: 'jpdb',
             subtitleUnderlineColorSource: 'pitch',
-        }));
+        }]]);
 
         const settings = await loadSettings();
-        const applied = applyReaderTheme(settings);
-
-        expectPitchUnderlineOnlySettings(settings, applied, { subtitle: false });
+        expectPitchUnderlineOnlyApplied(applyReaderTheme(settings), { subtitle: false });
     });
 
     it('ignores appearance settings under retired storage keys', async () => {
@@ -1548,22 +1593,21 @@ describe('reader theme', () => {
 
         expect(stored.wordHighlightMode).toBeUndefined();
         expect(stored.wordHighlightColorSource).toBe('pitch');
-        expect(stored.wordUnderlineColorSource).toBe('pitch');
+        expect(stored.wordUnderlineColorSource).toBe(DEFAULT_SETTINGS.wordUnderlineColorSource);
     });
 
-    it('loads saved furigana/onboarding state when GM storage round-trips the default (message-based managers)', async () => {
+    it('loads saved furigana state when GM storage round-trips the default (message-based managers)', async () => {
         // Reproduces the reported bug: Safari Userscripts / FireMonkey hand back
         // a structured clone of the default value, so a naive identity check
-        // treats every read as "unset" — settings appear unsaved and onboarding
-        // re-opens on every new site. loadSettings must still recover the value.
+        // treats every read as "unset" — settings appear unsaved and reset on
+        // every new site. loadSettings must still recover the value.
         const store = new Map<string, unknown>([
-            [SETTINGS_STORAGE_KEY, { ...DEFAULT_SETTINGS, showFurigana: false, furiganaMode: 'off', onboardingSeen: true }],
+            [SETTINGS_STORAGE_KEY, { ...DEFAULT_SETTINGS, showFurigana: false, furiganaMode: 'off' }],
         ]);
         vi.stubGlobal('GM_getValue', vi.fn(async (key: string, fallback: unknown) =>
             JSON.parse(JSON.stringify(store.has(key) ? store.get(key) : fallback))));
         try {
             const settings = await loadSettings();
-            expect(settings.onboardingSeen).toBe(true);
             expect(settings.showFurigana).toBe(false);
             expect(settings.furiganaMode).toBe('off');
         } finally {

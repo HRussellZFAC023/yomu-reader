@@ -4,13 +4,15 @@ import { isMissingProxyTransportError } from '../network/proxy-fetch';
 import { cardKey } from '../cards/utils';
 import { runLimited } from '../core/async-utils';
 import { fallbackLookupTermsForCard } from './japanese-segments';
+import { deinflectJapaneseTerm, termRulesMatch } from './deinflect';
 
 const log = Logger.scope('PublicLookupFallback');
 
 interface FallbackLookupEntry {
     key: string;
+    surface: string;
     terms: string[];
-    validationTerms: string[];
+    spellingTerms: string[];
 }
 
 export interface PublicLookupFallbackDeps {
@@ -45,6 +47,39 @@ function jitenFallbackCardMatchesTerm(term: string, card: JPDBCard): boolean {
         || normalizedJitenLookupKey(card.reading) === normalizedTerm;
 }
 
+// Jiten details carry JMdict codes (v5r, exp), but JPDB's public pages render
+// prose labels ("Godan verb", "Verb (する)"). Translate the prose conjugation
+// classes so both sources face the same POS check; a prose verb label with no
+// recognised class is conjugable-but-unclassified, not proof of a mismatch.
+const JMDICT_CODE_RE = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+const PROSE_VERB_RE = /\bverb|動詞/i;
+const PROSE_CONJUGATION_RULES: ReadonlyArray<readonly [RegExp, string]> = [
+    [/godan/i, 'v5'],
+    [/ichidan/i, 'v1'],
+    [/\bsuru\b|する/i, 'vs'],
+    [/\bkuru\b|来る/i, 'vk'],
+    [/\bi-adjective|形容詞/i, 'adj-i'],
+];
+
+function cardConjugationRules(card: JPDBCard): { rules: string; classUnknown: boolean } {
+    const labels = [...card.partOfSpeech, ...card.meanings.flatMap(meaning => meaning.partOfSpeech)];
+    const codes = labels.filter(label => JMDICT_CODE_RE.test(label));
+    const prose = labels.filter(label => !JMDICT_CODE_RE.test(label));
+    const translated = prose.flatMap(label => PROSE_CONJUGATION_RULES
+        .filter(([pattern]) => pattern.test(label))
+        .map(([, rule]) => rule));
+    const rules = [...codes, ...translated];
+    return { rules: rules.join(' '), classUnknown: !rules.length && prose.some(label => PROSE_VERB_RE.test(label)) };
+}
+
+function cardCanAnalyzeSurface(surface: string, card: JPDBCard): boolean {
+    if (jitenFallbackCardMatchesTerm(surface, card)) return true;
+    const { rules, classUnknown } = cardConjugationRules(card);
+    return deinflectJapaneseTerm(surface).some(candidate => candidate.depth > 0
+        && jitenFallbackCardMatchesTerm(candidate.term, card)
+        && (classUnknown || termRulesMatch(rules, candidate.rules)));
+}
+
 function uniqueFallbackLookupEntries(cards: readonly JPDBCard[], termLimit?: number): FallbackLookupEntry[] {
     const seen = new Set<string>();
     const entries: FallbackLookupEntry[] = [];
@@ -52,11 +87,16 @@ function uniqueFallbackLookupEntries(cards: readonly JPDBCard[], termLimit?: num
         const key = cardKey(card);
         if (seen.has(key)) continue;
         seen.add(key);
-        const allTerms = fallbackLookupTermsForCard(card);
+        // Public /parse understands inflected source text; exact-dictionary
+        // candidate ordering would spend its first detail slot on a guess.
+        const surface = normalizedJitenLookupKey(card.spelling);
+        const dictionaryTerms = fallbackLookupTermsForCard(card);
+        const allTerms = [...new Set([surface, ...dictionaryTerms])].filter(Boolean);
         const terms = typeof termLimit === 'number'
             ? allTerms.slice(0, Math.max(card.spelling.endsWith('ながら') ? 2 : 1, Math.floor(termLimit)))
             : allTerms;
-        if (terms.length) entries.push({ key, terms, validationTerms: allTerms });
+        const spellingTerms = dictionaryTerms.slice(0, terms.length);
+        if (terms.length) entries.push({ key, surface, terms, spellingTerms });
     }
     return entries;
 }
@@ -158,16 +198,17 @@ export async function publicLookupFallbackCards(
         let resolved: JPDBCard | undefined;
         for (const term of entry.terms) {
             const card = jitenCards.get(normalizedJitenLookupKey(term));
-            if (!card) continue;
-            if (jitenFallbackCardMatchesTerm(term, card)) {
+            if (!card || !cardCanAnalyzeSurface(entry.surface, card)) continue;
+            // A validated analysis of the actual source outranks a different
+            // lemma obtained by parsing one of our speculative dictionary forms.
+            if (term === entry.surface || jitenFallbackCardMatchesTerm(term, card)) {
                 resolved = card;
                 break;
             }
-            // Keyless Jiten parses an inflected surface before hydrating it,
-            // so keep a validated lemma as a fallback while still allowing a
-            // later exact candidate to win (言いたくない -> 言う). Unrelated
-            // partial parses still fail this entry check (訪る -> surname 訪).
-            if (!resolved && entry.validationTerms.some(candidate => jitenFallbackCardMatchesTerm(candidate, card))) resolved = card;
+            // A speculative candidate can itself parse to a different valid
+            // lemma. Keep it only until an exact candidate answer arrives;
+            // source/POS validation above has already rejected unrelated hits.
+            resolved ??= card;
         }
         if (resolved) result.set(entry.key, resolved);
     }
@@ -175,9 +216,9 @@ export async function publicLookupFallbackCards(
     if (options.jpdbPublicLookup === false) return result;
     const unresolved = entries.filter(entry => !result.has(entry.key));
     await runLimited(unresolved, options.concurrency, async entry => {
-        for (const term of entry.terms) {
+        for (const term of entry.spellingTerms) {
             const publicCard = await deps.publicSpellingCard(term);
-            if (!publicCard) continue;
+            if (!publicCard || !cardCanAnalyzeSurface(entry.surface, publicCard)) continue;
             result.set(entry.key, publicCard);
             return;
         }

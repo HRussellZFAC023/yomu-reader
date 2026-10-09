@@ -10,7 +10,6 @@ interface LiveSettingsSyncDependencies {
     isActive: () => boolean;
     getSettings: () => ReaderSettings;
     adoptSettings: (settings: ReaderSettings) => void;
-    syncAdoptedLanguageProfile: (previousSettings: ReaderSettings, settings: ReaderSettings) => void;
     applyTheme: (theme: ReaderSettings['theme']) => void;
 }
 
@@ -117,7 +116,6 @@ export function bindLiveSettingsSync(
             const settings = { ...previousSettings, ...detail.settings };
             dependencies.adoptSettings(settings);
             syncFormFromSettings(form, previousSettings, settings);
-            dependencies.syncAdoptedLanguageProfile(previousSettings, settings);
             syncSubtitlePreview(form);
             syncFontFamilyControls(form);
             adoptedSettings = snapshotDurableSettings(settings);

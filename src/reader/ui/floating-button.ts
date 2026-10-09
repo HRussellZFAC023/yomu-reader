@@ -1,23 +1,8 @@
 import { APP_NAME, APP_PUCK } from '../app/constants';
-import { formatUiText, uiText } from '../app/i18n';
-import { targetLanguageDisplayName } from '../app/target-language-name';
-import { activeLearningTargetLanguage } from '../languages/target-runtime';
-import { usesJapaneseProviders } from '../languages/character-lookup';
+import { uiText } from '../app/i18n';
 import type { ReaderSettings } from '../app/types';
-import {
-    RadialMenuController,
-    radialAudioMutedIcon,
-    radialAudioOnIcon,
-    radialCaptionsIcon,
-    radialFuriganaHiddenIcon,
-    radialOcrIcon,
-    radialOcrOnIcon,
-    radialPausedIcon,
-    radialPowerIcon,
-    radialSettingsIcon,
-    radialYoutubeIcon,
-    type RadialAction,
-} from './radial-menu';
+import { RadialMenuController, type RadialAction } from './radial-menu';
+import { menuIcon, type MenuIconName } from './menu-icons';
 import type { OcrInteractionMode } from '../ocr/mode';
 import { isTrustedReaderInteraction } from './trusted-interaction';
 import {
@@ -37,15 +22,21 @@ const VIDEO_AVOIDANCE_SETTLE_MS = 120;
 // settling after a rotation. Reconcile once more after that short transition so
 // a transient 2x reading cannot leave the puck stuck at inverse (half) scale.
 const VIEWPORT_SCALE_SETTLE_MS = 240;
+// The puck's CSS size, for placement maths before it has laid out.
+const PUCK_FALLBACK_SIZE = 52;
 
 function hostHasBottomActionDock(): boolean {
     return location.hostname === 'jiten.moe' && location.pathname.startsWith('/srs/');
 }
 
-function puckStateLabel(language: ReaderSettings['interfaceLanguage'], state: PuckPowerState): string {
-    if (state === 'no-furigana') return `${APP_NAME}: ${uiText(language, 'furiganaOffToast')}`;
-    if (state === 'paused') return `${APP_NAME}: ${uiText(language, 'annotationsPausedToast')}`;
-    return APP_NAME;
+/** Names a reading state the way the puck, its menu and the toolbar do. */
+export function puckPowerStateLabel(language: ReaderSettings['interfaceLanguage'], state: PuckPowerState): string {
+    return uiText(language, POWER_ACTION[state].label);
+}
+
+/** Names the auto-play audio state the way the puck, its menu and the toolbar do. */
+export function autoPlayAudioLabel(language: ReaderSettings['interfaceLanguage'], enabled: boolean): string {
+    return uiText(language, enabled ? 'autoplayAudioOn' : 'autoplayAudioOff');
 }
 
 /**
@@ -63,7 +54,7 @@ export interface FloatingButtonActions {
     isPaused(): boolean;
     toggleOcrMode(): void;
     ocrMode(): OcrInteractionMode;
-    toggleAutoPlayAudio(): void;
+    toggleAutoPlayAudio(): Promise<void>;
     isAutoPlayAudioEnabled(): boolean;
     toggleJapaneseSiteLanguage(): void;
     isYouTube(): boolean;
@@ -85,21 +76,16 @@ interface PuckPosition {
 }
 
 interface PowerActionPresentation {
-    label: 'puckHideFurigana' | 'puckPauseAnnotations' | 'puckResumeAnnotations';
-    icon: () => string;
+    /** Names the current state; pressing steps to the next one. */
+    label: 'puckPowerOnFurigana' | 'puckPowerOnNoFurigana' | 'puckPowerOff';
+    icon: MenuIconName;
     tone: 'on' | 'off' | 'partial';
 }
 
-const JAPANESE_POWER_ACTION: Readonly<Record<PuckPowerState, PowerActionPresentation>> = Object.freeze({
-    on: { label: 'puckHideFurigana', icon: radialPowerIcon, tone: 'on' },
-    'no-furigana': { label: 'puckPauseAnnotations', icon: radialFuriganaHiddenIcon, tone: 'partial' },
-    paused: { label: 'puckResumeAnnotations', icon: radialPausedIcon, tone: 'off' },
-});
-
-const GENERIC_POWER_ACTION: Readonly<Record<PuckPowerState, PowerActionPresentation>> = Object.freeze({
-    on: { label: 'puckPauseAnnotations', icon: radialPowerIcon, tone: 'on' },
-    'no-furigana': { label: 'puckPauseAnnotations', icon: radialPowerIcon, tone: 'on' },
-    paused: { label: 'puckResumeAnnotations', icon: radialPausedIcon, tone: 'off' },
+const POWER_ACTION: Readonly<Record<PuckPowerState, PowerActionPresentation>> = Object.freeze({
+    on: { label: 'puckPowerOnFurigana', icon: 'power', tone: 'on' },
+    'no-furigana': { label: 'puckPowerOnNoFurigana', icon: 'furigana-hidden', tone: 'partial' },
+    paused: { label: 'puckPowerOff', icon: 'power', tone: 'off' },
 });
 
 function floatingButtonRadialActions(
@@ -112,7 +98,7 @@ function floatingButtonRadialActions(
         audioRadialAction(settings, actions),
         ocrRadialAction(settings, actions),
     ];
-    if (usesJapaneseProviders()) items.push(japaneseSiteRadialAction(settings, actions));
+    items.push(japaneseSiteRadialAction(settings, actions));
     items.push(settingsRadialAction(settings, actions), studyRadialAction(settings, actions));
     if (actions.hasSubtitleVideo()) items.push(subtitleRadialAction(settings, actions));
     if (actions.isYouTube()) items.push(youtubeRadialAction(settings, actions));
@@ -125,15 +111,15 @@ function powerRadialAction(
     syncButtonState: () => void,
 ): RadialAction {
     const state = actions.powerState();
-    const presentation = (usesJapaneseProviders() ? JAPANESE_POWER_ACTION : GENERIC_POWER_ACTION)[state];
+    const presentation = POWER_ACTION[state];
     return {
         id: 'power',
         label: uiText(settings.interfaceLanguage, presentation.label),
-        icon: presentation.icon(),
+        icon: presentation.icon,
         tone: presentation.tone,
         primary: true,
         keepOpen: true,
-        run: () => void actions.cyclePowerState().finally(syncButtonState),
+        run: () => actions.cyclePowerState().finally(syncButtonState),
     };
 }
 
@@ -141,8 +127,8 @@ function audioRadialAction(settings: ReaderSettings, actions: FloatingButtonActi
     const enabled = actions.isAutoPlayAudioEnabled();
     return {
         id: 'audio',
-        label: uiText(settings.interfaceLanguage, enabled ? 'puckMuteAudio' : 'puckUnmuteAudio'),
-        icon: enabled ? radialAudioOnIcon() : radialAudioMutedIcon(),
+        label: autoPlayAudioLabel(settings.interfaceLanguage, enabled),
+        icon: enabled ? 'audio' : 'audio-muted',
         tone: enabled ? 'on' : 'off',
         keepOpen: true,
         run: () => actions.toggleAutoPlayAudio(),
@@ -154,7 +140,7 @@ function ocrRadialAction(settings: ReaderSettings, actions: FloatingButtonAction
     return {
         id: 'ocr',
         label: ocrModeLabel(settings.interfaceLanguage, mode),
-        icon: mode === 'manual' ? radialOcrOnIcon() : radialOcrIcon(),
+        icon: mode === 'manual' ? 'ocr-manual' : 'ocr',
         tone: ocrRadialTone(mode, actions.powerState()),
         keepOpen: true,
         run: () => actions.toggleOcrMode(),
@@ -169,11 +155,8 @@ function ocrRadialTone(mode: OcrInteractionMode, powerState: PuckPowerState): 'o
 function japaneseSiteRadialAction(settings: ReaderSettings, actions: FloatingButtonActions): RadialAction {
     return {
         id: 'japanese-site',
-        label: formatUiText(settings.interfaceLanguage, 'preferJapaneseSiteLanguage', {
-            language: targetLanguageDisplayName(settings),
-        }),
-        icon: '日',
-        glyph: true,
+        label: uiText(settings.interfaceLanguage, 'preferJapaneseSiteLanguage'),
+        icon: 'japanese-site',
         tone: settings.preferJapaneseSiteLanguage ? 'on' : 'off',
         keepOpen: true,
         run: () => actions.toggleJapaneseSiteLanguage(),
@@ -184,7 +167,7 @@ function settingsRadialAction(settings: ReaderSettings, actions: FloatingButtonA
     return {
         id: 'settings',
         label: uiText(settings.interfaceLanguage, 'settings'),
-        icon: radialSettingsIcon(),
+        icon: 'settings',
         run: () => actions.openSettings(),
     };
 }
@@ -192,9 +175,8 @@ function settingsRadialAction(settings: ReaderSettings, actions: FloatingButtonA
 function studyRadialAction(settings: ReaderSettings, actions: FloatingButtonActions): RadialAction {
     return {
         id: 'study',
-        label: targetActionLabel(settings, 'puckStudyTarget'),
-        icon: 'よ',
-        glyph: true,
+        label: uiText(settings.interfaceLanguage, 'newTab'),
+        icon: 'study',
         run: () => actions.openStudyPage(),
     };
 }
@@ -203,8 +185,8 @@ function subtitleRadialAction(settings: ReaderSettings, actions: FloatingButtonA
     const enabled = actions.isAutoSubtitlesEnabled();
     return {
         id: 'subtitles',
-        label: targetActionLabel(settings, 'puckAutoDetectTargetSubtitles'),
-        icon: radialCaptionsIcon(),
+        label: uiText(settings.interfaceLanguage, 'puckAutoDetectSubtitles'),
+        icon: 'subtitles',
         tone: enabled ? 'on' : 'off',
         keepOpen: true,
         run: () => actions.toggleAutoSubtitles(),
@@ -215,21 +197,12 @@ function youtubeRadialAction(settings: ReaderSettings, actions: FloatingButtonAc
     const enabled = actions.isYoutubeFilterEnabled();
     return {
         id: 'youtube',
-        label: targetActionLabel(settings, 'puckFilterYoutubeTarget'),
-        icon: radialYoutubeIcon(),
+        label: uiText(settings.interfaceLanguage, 'youtubeImmersionEnabled'),
+        icon: 'youtube',
         tone: enabled ? 'on' : 'off',
         keepOpen: true,
         run: () => actions.toggleYoutubeFilter(),
     };
-}
-
-function targetActionLabel(
-    settings: ReaderSettings,
-    key: 'puckStudyTarget' | 'puckAutoDetectTargetSubtitles' | 'puckFilterYoutubeTarget',
-): string {
-    return formatUiText(settings.interfaceLanguage, key, {
-        language: targetLanguageDisplayName(settings),
-    });
 }
 
 export class FloatingButtonController {
@@ -263,6 +236,9 @@ export class FloatingButtonController {
             .forEach(element => { if (element !== this.button) element.remove(); });
         if (this.button?.isConnected) {
             this.syncButtonState();
+            // A saved toggle echoes back through here, sometimes after a later
+            // write; the open menu must show where the settings landed.
+            this.radial?.refresh();
             return;
         }
         this.build(settings);
@@ -281,16 +257,25 @@ export class FloatingButtonController {
         const button = document.createElement('button');
         button.className = 'jpdb-reader-fab';
         button.type = 'button';
-        button.textContent = APP_PUCK;
+        const mark = document.createElement('span');
+        mark.className = 'jpdb-reader-fab-mark';
+        mark.textContent = APP_PUCK;
+        // The state badge: an icon from the menu set, so the puck and its menu agree.
+        const badge = document.createElement('span');
+        badge.className = 'jpdb-reader-fab-state';
+        badge.setAttribute('aria-hidden', 'true');
+        button.append(mark, badge);
         button.title = APP_NAME;
         button.setAttribute('aria-haspopup', 'menu');
         button.dataset.jpdbReaderRoot = 'true';
+        // Unplaced, the puck rests in the bottom corner (CSS right/bottom).
+        button.dataset.puckRest = 'bottom';
         restoreButtonPosition(button, settings);
         this.button = button;
         this.syncButtonState();
         this.radial = new RadialMenuController({
             getButton: () => this.button,
-            buildActions: () => this.buildRadialActions(),
+            buildActions: () => this.pageActions(),
             menuLabel: () => uiText(this.settings?.interfaceLanguage ?? 'en', 'puckMenuLabel'),
         });
         this.installDragHandlers(button);
@@ -318,7 +303,6 @@ export class FloatingButtonController {
         if (!button) return;
         const powerState = this.actions?.powerState() ?? 'on';
         const language = this.settings?.interfaceLanguage ?? 'en';
-        const targetName = this.settings ? targetLanguageDisplayName(this.settings) : '';
         // Sites with their own bottom action dock (Jiten's study grade bar +
         // Blacklist/Master row) collide with the default bottom-right spot;
         // raise the FAB above them (mobile UX finding, 2026-06-11).
@@ -326,14 +310,16 @@ export class FloatingButtonController {
         button.classList.toggle('jpdb-reader-fab--on', powerState === 'on');
         button.classList.toggle('jpdb-reader-fab--no-furigana', powerState === 'no-furigana');
         button.classList.toggle('jpdb-reader-fab--paused', powerState === 'paused');
-        button.dataset.targetLanguage = activeLearningTargetLanguage();
-        button.title = powerState === 'on' && targetName
-            ? formatUiText(language, 'puckLearningTarget', { language: targetName })
-            : puckStateLabel(language, powerState);
+        const badge = button.querySelector<HTMLElement>('.jpdb-reader-fab-state');
+        if (badge && badge.dataset.state !== powerState) {
+            badge.dataset.state = powerState;
+            badge.replaceChildren(menuIcon(POWER_ACTION[powerState].icon));
+        }
+        button.title = puckPowerStateLabel(language, powerState);
         button.setAttribute('aria-label', button.title);
     }
 
-    private buildRadialActions(): RadialAction[] {
+    pageActions(): RadialAction[] {
         const settings = this.settings;
         const actions = this.actions;
         if (!settings || !actions) return [];
@@ -614,6 +600,10 @@ function clampRestoredButtonPosition(button: HTMLButtonElement, settings: Reader
 function applyPuckPosition(button: HTMLButtonElement, x: number, y: number): void {
     button.style.setProperty('left', `${x}px`);
     button.style.setProperty('top', `${y}px`);
+    // A bottom sheet (the phone transcript) covers the lower half, so only a
+    // puck resting there gives way to it; one moved up out of its way stays.
+    const middle = y + (button.offsetHeight || PUCK_FALLBACK_SIZE) / 2;
+    button.dataset.puckRest = middle > window.innerHeight / 2 ? 'bottom' : 'top';
     // .jpdb-reader-fab uses !important default right/bottom rules to survive
     // hostile page CSS. Restored/dragged positions must clear those with the
     // same priority; otherwise fixed layout gets both left and right and the

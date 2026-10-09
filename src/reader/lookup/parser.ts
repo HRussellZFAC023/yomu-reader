@@ -15,7 +15,7 @@ import {
     type TermSpanLookupCandidate,
     type TermSpanPreconfirmCandidate,
 } from './term-span-resolver';
-import { activeLearningTarget, activeLearningTargetGeneration } from '../languages';
+import { activeLearningTarget } from '../languages/target-runtime';
 import type { LearningTargetModule } from '../languages/types';
 import { splitReadingAcrossKanji } from './kanji-ruby-split';
 import { getPitchClass } from '../jpdb/jpdb-parser';
@@ -25,6 +25,7 @@ import { localPitchResolutionFromMetaLookup, type LocalPitchResolution } from '.
 import { stablePositiveHashId } from '../core/stable-hash';
 import { chosenWordGradingService, hasJitenApiCredential, hasJpdbApiCredential } from '../settings/api-credential';
 import type { JitenApiClient } from '../dictionaries/jiten';
+import type { JitenPublicLookupManyOptions, JitenRequestPriority } from '../dictionaries/jiten-public-vocabulary';
 import type { JPDBCard, JPDBToken, ReaderSettings } from '../app/types';
 import { glossaryToText, type YomitanMetaEntry, type YomitanTermEntry, type YomitanTermMatch } from '../dictionaries/yomitan';
 import { dictionaryReadConcurrency, type LocalDictionaryStore } from '../dictionaries/local-store';
@@ -96,6 +97,9 @@ export interface ReaderParserParseOptions {
     requireJpdb?: boolean;
     allowSegmentedFallback?: boolean;
     publicJitenDetailLimit?: number;
+    // What the public Jiten requests of this parse are for: a lookup the
+    // learner is waiting on goes ahead of page annotation and enrichment.
+    publicJitenPriority?: JitenRequestPriority;
 }
 
 export interface ReaderParserDependencies {
@@ -103,8 +107,8 @@ export interface ReaderParserDependencies {
     jpdb: JpdbClient;
     jiten?: JitenApiClient;
     jitenPublicVocabulary?: {
-        parse: (paragraphs: readonly string[], options?: { detailLimit?: number }) => Promise<JPDBToken[][]>;
-        lookupMany?: (terms: readonly string[], options?: { detailLimit?: number }) => Promise<Map<string, JPDBCard>>;
+        parse: (paragraphs: readonly string[], options?: Pick<JitenPublicLookupManyOptions, 'detailLimit' | 'priority'>) => Promise<JPDBToken[][]>;
+        lookupMany?: (terms: readonly string[], options?: Pick<JitenPublicLookupManyOptions, 'detailLimit' | 'priority'>) => Promise<Map<string, JPDBCard>>;
     };
     dictionaries: LocalDictionaryStore;
     yomuLocalSrs?: Pick<YomuSrsAdapter, 'lookupCards'>;
@@ -143,7 +147,6 @@ export class ReaderParser {
         const { getSettings } = this.dependencies;
         const settings = getSettings();
         const target = activeLearningTarget();
-        const targetGeneration = activeLearningTargetGeneration();
         const done = log.time('parse', {
             paragraphs: paragraphs.length,
             hasApiKey: hasJpdbApiCredential(settings),
@@ -152,9 +155,7 @@ export class ReaderParser {
         });
         try {
             const parsed = await this.parseWithPreferredSource(paragraphs, options, settings, target);
-            if (!isCurrentLearningTarget(target, targetGeneration)) return emptyParseResult(paragraphs);
             const authoritative = await this.withAuthoritativeTermSpans(paragraphs, parsed, options, target);
-            if (!isCurrentLearningTarget(target, targetGeneration)) return emptyParseResult(paragraphs);
             // Public/detail enrichment and page scanning can overlap. Once a
             // card has acquired a real reading or pitch pattern, a later
             // sparse parse of the same provider id must not replace that
@@ -164,7 +165,6 @@ export class ReaderParser {
             // but returns when pressed" split.
             const evidenceReconciled = this.withCachedCardEvidence(paragraphs, authoritative);
             const rubyAligned = await this.reconcileLocalParse(paragraphs, evidenceReconciled, options, target);
-            if (!isCurrentLearningTarget(target, targetGeneration)) return emptyParseResult(paragraphs);
             const normalized = this.withNormalizedMetricParseResult(paragraphs, rubyAligned);
             if (!settings.yomuLocalSrsEnabled || !this.dependencies.yomuLocalSrs) return normalized;
             try {
@@ -176,12 +176,10 @@ export class ReaderParser {
                     LOCAL_PARSE_TIMEOUT_MS,
                     () => new Error('Academy SRS state hydration timed out.'),
                 );
-                return isCurrentLearningTarget(target, targetGeneration) ? hydrated : emptyParseResult(paragraphs);
+                return hydrated;
             } catch (error) {
                 log.warn('Academy SRS state hydration failed; keeping provider states', error);
-                return isCurrentLearningTarget(target, targetGeneration)
-                    ? normalized
-                    : emptyParseResult(paragraphs);
+                return normalized;
             }
         } finally {
             done();
@@ -255,6 +253,9 @@ export class ReaderParser {
             // way (a provider echoing a whole clause back as one token).
             plan: candidate => !segmentsContainInternalParticle(text, fallbackSegments, candidate.start, candidate.end),
             admit: rejectUntrustworthySpanShapes(text, fallbackSegments, target),
+            compareMatches: (a, b) => a.match.dictionary && a.match.dictionary === b.match.dictionary
+                ? (b.match.score ?? 0) - (a.match.score ?? 0)
+                : 0,
         });
         const spans = (await Promise.all(target.pointerWordSegments(text).map(run => (
             resolver.resolveAll({ text, start: run.start, end: run.end })
@@ -333,7 +334,7 @@ export class ReaderParser {
                 const term = target.normalizeText(match.request.lookupCandidate.term);
                 if (cardMatchesLookupTerm(card, term, target)
                     && parserSpanRulesMatch(card, match.request, target)) {
-                    confirmed.set(match.request, { card });
+                    confirmed.set(match.request, { card, dictionary: match.entry.dictionary, score: match.entry.score });
                 }
             }
             return true;
@@ -428,16 +429,15 @@ export class ReaderParser {
         const client = this.dependencies.jitenPublicVocabulary;
         if (!client) return new Map();
         if (typeof client.lookupMany === 'function') {
-            const found = await client.lookupMany(terms, {
-                detailLimit: Math.max(options.publicJitenDetailLimit ?? 0, terms.length),
-            });
+            // Each confirmation is a detail request from api.jiten.moe's
+            // anonymous budget, and one sentence's candidates hold dozens of
+            // words: the caller's detail budget holds here too.
+            const found = await client.lookupMany(terms, publicJitenOptions(options));
             const cards = new Map<string, JPDBCard[]>();
             found.forEach((card, term) => cards.set(target.normalizeText(term), [card]));
             return cards;
         }
-        const parsed = await client.parse(terms, {
-            detailLimit: Math.max(options.publicJitenDetailLimit ?? 0, terms.length),
-        });
+        const parsed = await client.parse(terms, publicJitenOptions(options));
         return authoritativeCardsFromParsedTerms(terms, parsed, target);
     }
 
@@ -614,9 +614,9 @@ export class ReaderParser {
         const parser = this.dependencies.jitenPublicVocabulary;
         if (typeof parser?.parse !== 'function') return null;
         try {
-            const parsed = options.publicJitenDetailLimit === undefined
+            const parsed = options.publicJitenDetailLimit === undefined && options.publicJitenPriority === undefined
                 ? await parser.parse(paragraphs)
-                : await parser.parse(paragraphs, { detailLimit: options.publicJitenDetailLimit });
+                : await parser.parse(paragraphs, publicJitenOptions(options));
             if (!parsed.some(tokens => tokens.length)) return null;
             return this.withSegmentedFallbackGaps(paragraphs, parsed, options, target);
         } catch (error) {
@@ -1199,8 +1199,14 @@ export class ReaderParser {
 
 type ParserSpanLookupSource = 'jpdb' | 'jiten' | 'local' | 'public-jiten';
 
+function publicJitenOptions(options: ReaderParserParseOptions): Pick<JitenPublicLookupManyOptions, 'detailLimit' | 'priority'> {
+    return { detailLimit: options.publicJitenDetailLimit, priority: options.publicJitenPriority };
+}
+
 interface ParserSpanMatch {
     card: JPDBCard;
+    dictionary?: string;
+    score?: number;
 }
 
 interface PendingParserSpanLookup {
@@ -1347,12 +1353,6 @@ function rejectUntrustworthySpanShapes(
     segments: readonly { start: number; end: number }[],
     target: LearningTargetModule,
 ): (candidate: TermSpanPreconfirmCandidate, match: ParserSpanMatch, context: TermSpanAdmitContext) => boolean {
-    // The interior-end tell requires segments to be real word covers: the
-    // Japanese segmenter is grammar-aware and spaced languages segment on
-    // words, but unspaced non-Japanese text (Han, Korean) gets statistical
-    // ICU chunks — there a dictionary-confirmed span crossing a chunk edge
-    // is the dictionary correcting the guess, not a stem cut.
-    const segmentsAreWordCovers = target.language === 'ja' || target.lookupStartsAtSegmentBoundary;
     return (candidate, match, context) => {
         const term = target.normalizeText(candidate.lookupCandidate.term);
         const identity = term === target.normalizeText(candidate.surface);
@@ -1367,8 +1367,7 @@ function rejectUntrustworthySpanShapes(
                 || hasInternalKanaToKanjiTransition(text, candidate.start, candidate.end))) {
             return false;
         }
-        if (segmentsAreWordCovers
-            && endsStrictlyInsideSegment(segments, candidate.end)
+        if (endsStrictlyInsideSegment(segments, candidate.end)
             && !context.hasConfirmedSpanAt(candidate.end)
             && !KANA_CASE_PARTICLE_CONTINUATIONS.some(particle => text.startsWith(particle, candidate.end))) {
             return false;
@@ -1827,15 +1826,6 @@ function cardEvidenceCacheKey(card: JPDBCard): string {
 
 function cardCacheKey(vid: number, sid: number): string {
     return `${vid}:${sid}`;
-}
-
-function isCurrentLearningTarget(target: LearningTargetModule, generation: number): boolean {
-    return activeLearningTarget() === target
-        && activeLearningTargetGeneration() === generation;
-}
-
-function emptyParseResult(paragraphs: readonly string[]): JPDBToken[][] {
-    return paragraphs.map(() => []);
 }
 
 function withTimeout<T>(promise: Promise<T>, timeoutMs: number, errorFactory: () => Error): Promise<T> {

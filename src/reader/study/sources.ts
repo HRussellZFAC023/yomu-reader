@@ -16,7 +16,7 @@ import {
     type SentenceTranslationResult,
 } from './tools';
 import type { JPDBToken, ReaderSettings } from '../app/types';
-import { activeLearningTarget, localeDirection, outputLanguageOf } from '../languages';
+import { activeLearningTarget, localeDirection, OUTPUT_LANGUAGE } from '../languages';
 import { currentGrammarAvailability, renderGrammarAvailability } from './grammar-availability';
 
 const log = Logger.scope('StudySources');
@@ -113,7 +113,7 @@ export class StudySourceController {
         const translation = popover.querySelector<HTMLElement>('[data-study-translation]');
         if (!translation) return;
         const requestKey = this.studyCacheKey(sentence);
-        preloadTargetSentenceTranslation(sentence, outputLanguageOf(settings));
+        preloadTargetSentenceTranslation(sentence, OUTPUT_LANGUAGE);
         // Same async-empty rule as grammar: an untranslatable sentence hides
         // the whole section instead of leaving a header shell.
         void this.cachedTranslationContent(sentence, requestKey)
@@ -275,7 +275,7 @@ export class StudySourceController {
         // "Translating..." forever and the empty-translation hide never ran.
         // Parse now runs only when there is a translation to enrich, and its
         // tokens are handed back as a promise applied without blocking.
-        const translation = await translateTargetSentence(sentence, outputLanguageOf(this.settings()));
+        const translation = await translateTargetSentence(sentence, OUTPUT_LANGUAGE);
         const tokens = translation ? this.parseTranslationTokens(sentence) : Promise.resolve<JPDBToken[]>([]);
         return { tokens, translation };
     }
@@ -313,7 +313,7 @@ export class StudySourceController {
     }
 
     private studyCacheKey(sentence: string): string {
-        return `${activeLearningTarget().id}\u0001${this.settings().interfaceLanguage}\u0001${outputLanguageOf(this.settings())}\u0001${sentence.trim()}`;
+        return `${activeLearningTarget().id}\u0001${this.settings().interfaceLanguage}\u0001${OUTPUT_LANGUAGE}\u0001${sentence.trim()}`;
     }
 
     private applyTranslation(

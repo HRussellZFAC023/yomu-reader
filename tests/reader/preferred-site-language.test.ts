@@ -22,7 +22,7 @@ const SITE_PREFERENCE_CACHE_KEY = 'yomu:prefer-japanese-site-language';
 function installCurrentPreference(preferJapaneseSiteLanguage: boolean, dedicated: Record<string, unknown> = {}): void {
     const stored: Record<string, unknown> = {
         ...serializeSettingsPersistencePair({
-            ...DEFAULT_SETTINGS, learningTargetChosen: true, preferJapaneseSiteLanguage,
+            ...DEFAULT_SETTINGS, preferJapaneseSiteLanguage,
         }, { revision: 0, records: {} }),
         ...dedicated,
     };
@@ -43,8 +43,7 @@ function expectOptOutCacheReconciled(): void {
     expect(localStorage.getItem(SITE_PREFERENCE_CACHE_KEY)).toBeNull();
 }
 
-async function expectTargetlessOptInIgnored(storedSettings: unknown, storedIntentLedger?: unknown): Promise<void> {
-    const language = navigator.language;
+async function expectExplicitOptInApplied(storedSettings: unknown, storedIntentLedger?: unknown): Promise<void> {
     const pageWindow = window as typeof window & { __yomuJapaneseSiteLanguagePreference?: unknown };
     delete pageWindow.__yomuJapaneseSiteLanguagePreference;
     const cookieWrite = vi.fn();
@@ -63,10 +62,7 @@ async function expectTargetlessOptInIgnored(storedSettings: unknown, storedInten
     await installPreferredJapaneseSiteLanguageFromStoredSettings();
     await settleAsyncHandlers();
 
-    expect(navigator.language).toBe(language);
-    expect(cookieWrite).not.toHaveBeenCalled();
-    expect(localStorage.getItem('yomu:prefer-japanese-site-language')).toBeNull();
-    expect(pageWindow.__yomuJapaneseSiteLanguagePreference).toBeUndefined();
+    expect(navigator.language).toBe('ja-JP');
 }
 
 describe('preferred Japanese site language', () => {
@@ -146,58 +142,15 @@ describe('preferred Japanese site language', () => {
         expect(navigator.geolocation).toBe(browserLocation.geolocation);
     });
 
-    it('leaves browser location signals untouched for a stored Spanish target', async () => {
-        const browserSignals = {
-            language: navigator.language,
-            languages: [...navigator.languages],
-            intlLocale: Intl.DateTimeFormat().resolvedOptions().locale,
-            timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-            offset: new Date().getTimezoneOffset(),
-            geolocation: navigator.geolocation,
-        };
-        const replace = vi.fn();
-        const spanishSettings = {
+    it('honors Japanese site preference even when a legacy profile named Spanish', async () => {
+        const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+        const geolocation = navigator.geolocation;
+        await expectExplicitOptInApplied({
             ...DEFAULT_SETTINGS,
-            preferJapaneseSiteLanguage: true,
-            languageProfiles: DEFAULT_SETTINGS.languageProfiles.map(profile =>
-                profile.id === DEFAULT_SETTINGS.activeLanguageProfileId
-                    ? { ...profile, targetLanguage: 'es' }
-                    : profile),
-        };
-        vi.stubGlobal('GM_getValue', (key: string, fallback: unknown) => {
-            if (key === PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY) return true;
-            // The dedicated scalar can be synchronous while the profile-bearing
-            // settings blob is still resolving through a userscript bridge.
-            if (key === SETTINGS_STORAGE_KEY) return Promise.resolve(spanishSettings);
-            return fallback;
+            languageProfiles: [{ ...DEFAULT_SETTINGS.languageProfiles[0]!, targetLanguage: 'es' }],
         });
-        vi.stubGlobal('unsafeWindow', window);
-        vi.stubGlobal('location', {
-            href: 'https://www.google.com/search?q=hola',
-            hostname: 'www.google.com',
-            protocol: 'https:',
-            replace,
-        });
-
-        installPreferredJapaneseSiteLanguageFromStoredSettings();
-        await settleAsyncHandlers();
-
-        expect({
-            language: navigator.language,
-            languages: [...navigator.languages],
-            intlLocale: Intl.DateTimeFormat().resolvedOptions().locale,
-            timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-            offset: new Date().getTimezoneOffset(),
-            geolocation: navigator.geolocation,
-        }).toEqual(browserSignals);
-        expect(replace).not.toHaveBeenCalled();
-
-        applyPreferredJapaneseSiteLanguage(true, false, false, 'es');
-
-        expect(navigator.language).toBe(browserSignals.language);
-        expect(Intl.DateTimeFormat().resolvedOptions().timeZone).toBe(browserSignals.timeZone);
-        expect(navigator.geolocation).toBe(browserSignals.geolocation);
-        expect(replace).not.toHaveBeenCalled();
+        expect(Intl.DateTimeFormat().resolvedOptions().timeZone).toBe(timeZone);
+        expect(navigator.geolocation).toBe(geolocation);
     });
 
     it('does not wrap page fetch requests while applying locale hints', () => {
@@ -430,7 +383,7 @@ describe('preferred Japanese site language', () => {
 
     it('leaves a fresh install and the host site locale state completely untouched', async () => {
         const language = navigator.language;
-        const pageWindow = window as typeof window & { __yomuJapaneseSiteLanguagePreference?: unknown };
+            const pageWindow = window as typeof window & { __yomuJapaneseSiteLanguagePreference?: unknown };
         delete pageWindow.__yomuJapaneseSiteLanguagePreference;
         const nativePreference = 'PREF=hl=en&gl=GB&tz=Europe%2FLondon&keep=1';
         const cookieWrite = vi.fn();
@@ -473,7 +426,6 @@ describe('preferred Japanese site language', () => {
         localStorage.setItem(PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY, 'true');
         localStorage.setItem('yomu:prefer-japanese-site-language', 'true');
         localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify({
-            learningTargetChosen: true,
             preferJapaneseSiteLanguage: true,
         }));
 
@@ -485,14 +437,13 @@ describe('preferred Japanese site language', () => {
         expect(store.size).toBe(0);
     });
 
-    it('ignores an orphaned opt-in scalar without a durable target choice', async () => {
-        await expectTargetlessOptInIgnored({ ...DEFAULT_SETTINGS, preferJapaneseSiteLanguage: true });
+    it('honors an explicit opt-in scalar without a removed target choice', async () => {
+        await expectExplicitOptInApplied({ ...DEFAULT_SETTINGS, preferJapaneseSiteLanguage: true });
     });
 
-    it('ignores a target whose settings and intent commit witnesses do not match', async () => {
-        await expectTargetlessOptInIgnored({
+    it('does not gate an explicit site-language scalar on retired target provenance', async () => {
+        await expectExplicitOptInApplied({
             ...DEFAULT_SETTINGS,
-            learningTargetChosen: true,
             preferJapaneseSiteLanguage: true,
             __yomuSettingsPersistenceCommitV1: 'settings-c2',
         }, {
@@ -506,8 +457,8 @@ describe('preferred Japanese site language', () => {
     it.each([
         ['synchronous', [{ theme: 'dark' }]],
         ['asynchronous', Promise.resolve([{ theme: 'dark' }])],
-    ])('rejects a malformed %s settings array as target provenance', async (_mode, malformedSettings) => {
-        await expectTargetlessOptInIgnored(malformedSettings);
+    ])('honors the explicit scalar independently of a malformed %s retired profile', async (_mode, malformedSettings) => {
+        await expectExplicitOptInApplied(malformedSettings);
     });
 
     // The reported bug: the cache is per origin, so every site opened while the
@@ -515,7 +466,7 @@ describe('preferred Japanese site language', () => {
     // could never reach them — "every new page has defaulted to having that on".
     it('lets a stored opt-out override a stale enabled cache left by an earlier visit', () => {
         const language = navigator.language;
-        const replace = vi.fn();
+            const replace = vi.fn();
         seedV193EnabledCache();
         installCurrentPreference(false);
         vi.stubGlobal('unsafeWindow', window);
@@ -535,7 +486,7 @@ describe('preferred Japanese site language', () => {
 
     it('lets a stored opt-out override a stale owner-scoped enabled cache', () => {
         const language = navigator.language;
-        const replace = vi.fn();
+            const replace = vi.fn();
         installCurrentPreference(false);
         ensureManagedWebStorageCurrentSync();
         managedLocalStorage.setItem(SITE_PREFERENCE_CACHE_KEY, 'true');
@@ -583,7 +534,7 @@ describe('preferred Japanese site language', () => {
 
     it('lets the dedicated opt-out outrank a stale whole-settings save at document-start', () => {
         const language = navigator.language;
-        seedV193EnabledCache();
+            seedV193EnabledCache();
         installCurrentPreference(true, { [PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY]: false });
         vi.stubGlobal('unsafeWindow', window);
 
@@ -595,7 +546,7 @@ describe('preferred Japanese site language', () => {
 
     it('reconciles a stale enabled cache with async-only storage without redirecting on the cache', async () => {
         const language = navigator.language;
-        const replace = vi.fn();
+            const replace = vi.fn();
         localStorage.setItem('yomu:prefer-japanese-site-language', 'true');
         vi.stubGlobal('GM_getValue', undefined);
         vi.stubGlobal('GM', {
@@ -624,7 +575,7 @@ describe('preferred Japanese site language', () => {
 
     it('does not let a stale per-origin settings record bypass an async shared opt-out', async () => {
         const language = navigator.language;
-        const replace = vi.fn();
+            const replace = vi.fn();
         localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify({ preferJapaneseSiteLanguage: true }));
         vi.stubGlobal('GM_getValue', undefined);
         vi.stubGlobal('GM', {
@@ -653,7 +604,7 @@ describe('preferred Japanese site language', () => {
 
     it('ignores an obsolete async enabled read after a newer opt-out', async () => {
         const language = navigator.language;
-        const replace = vi.fn();
+            const replace = vi.fn();
         let resolveStoredPreference!: (value: unknown) => void;
         const storedPreference = new Promise<unknown>(resolve => {
             resolveStoredPreference = resolve;
@@ -938,7 +889,7 @@ describe('preferred Japanese site language', () => {
 
     it('waits for async-only userscript storage before applying the default', async () => {
         const language = navigator.language;
-        vi.stubGlobal('GM_getValue', undefined);
+            vi.stubGlobal('GM_getValue', undefined);
         vi.stubGlobal('GM', {
             getValue: vi.fn(async (key: string, fallback: unknown) => (
                 key === SETTINGS_STORAGE_KEY ? { preferJapaneseSiteLanguage: false } : fallback
@@ -1039,7 +990,7 @@ describe('preferred Japanese site language', () => {
 
     it('skips inline page injection in WebExtension content scripts (MV3 CSP refuses it)', () => {
         const language = navigator.language;
-        const appendedScripts: string[] = [];
+            const appendedScripts: string[] = [];
         const appendSpy = vi.spyOn(document.head, 'append').mockImplementation((...nodes: Array<Node | string>) => {
             for (const node of nodes) {
                 if (node instanceof HTMLScriptElement) appendedScripts.push(node.textContent ?? '');

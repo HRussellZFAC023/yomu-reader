@@ -1,3 +1,5 @@
+import type { AudioSelectionMode } from '../app/types';
+import { AUDIO_REQUEST_TIMEOUT_MS } from '../audio/request';
 import {
     blobToDataUrl,
     fetchAudioBlob,
@@ -42,10 +44,10 @@ async function resolveAnkiWordAudioFromSource(
     settings: ReaderSettings,
     triedUrls: Set<string>,
 ): Promise<AnkiWordAudioMedia | null> {
-    const candidates = await getAudioCandidates(source, card, settings.audioTimeoutMs, settings.corsProxyUrl);
+    const candidates = await getAudioCandidates(source, card, AUDIO_REQUEST_TIMEOUT_MS, settings.corsProxyUrl);
     const bagKey = getAudioBagKey(source, card);
     const shuffled = new ShuffledAudioDeck();
-    for (const { candidate } of orderAudioCandidates(candidates, settings.audioSelectionMode, bagKey, shuffled)) {
+    for (const { candidate } of orderAudioCandidates(candidates, 'random', bagKey, shuffled)) {
         if (!registerAudioAttempt(triedUrls, candidate)) continue;
         const audio = await ankiAudioMediaFromCandidate(candidate, source.type, settings).catch(() => null);
         if (audio) return audio;
@@ -57,7 +59,7 @@ async function ankiAudioMediaFromCandidate(candidate: AudioCandidate, sourceType
     if (candidate.url.startsWith('data:audio/')) return { dataUrl: candidate.url };
     if (candidate.jpdbAudioId) return { dataUrl: await jpdbAudioDataUrl(candidate.jpdbAudioId, settings) };
     try {
-        const dataUrl = await fetchAudioDataUrl(candidate.url, candidate.sourceUrl, settings.audioTimeoutMs, settings.audioSelectionMode, settings.corsProxyUrl, settings.interfaceLanguage);
+        const dataUrl = await fetchAudioDataUrl(candidate.url, candidate.sourceUrl, AUDIO_REQUEST_TIMEOUT_MS, 'random', settings.corsProxyUrl, settings.interfaceLanguage);
         if (dataUrl) return { dataUrl };
     } catch (error) {
         if (!canUseAnkiRemoteAudioFallback(candidate, sourceType, error)) return null;
@@ -77,6 +79,6 @@ async function jpdbAudioDataUrl(audioId: string, settings: ReaderSettings): Prom
     return blobToDataUrl(await fetchJpdbAudioBlob(audioId, settings), settings.interfaceLanguage);
 }
 
-async function fetchAudioDataUrl(url: string, sourceUrl: string, timeoutMs: number, mode: ReaderSettings['audioSelectionMode'], proxyUrl: string, language: ReaderSettings['interfaceLanguage']): Promise<string> {
+async function fetchAudioDataUrl(url: string, sourceUrl: string, timeoutMs: number, mode: AudioSelectionMode, proxyUrl: string, language: ReaderSettings['interfaceLanguage']): Promise<string> {
     return blobToDataUrl(await fetchAudioBlob(url, sourceUrl, timeoutMs, mode, proxyUrl, language), language);
 }

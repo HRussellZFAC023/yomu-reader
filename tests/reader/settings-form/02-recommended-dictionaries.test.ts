@@ -1,10 +1,12 @@
 import { readFileSync } from 'node:fs';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { userFacingError } from '../../../src/reader/app/user-facing-errors';
 import {
     RECOMMENDED_JAPANESE_DICTIONARIES,
     catalogBrowseLanguageSectionsForLearnerLanguage,
     catalogRecommendedDictionaryId,
     recommendedDictionaryImportOptions,
+    recommendedDictionaryInstallIsCurrent,
 } from '../../../src/reader/dictionaries/recommended';
 import type { ImportSummary, YomitanDictionaryInfo } from '../../../src/reader/dictionaries/yomitan';
 import { renderRecommendedDictionaries } from '../../../src/reader/settings/dictionary-recommendations-view';
@@ -221,6 +223,43 @@ describe('the newest Jitendex and Jiten a page can reach', () => {
         expect(await install('jiten')).toEqual({ url: JITEN_LATEST, options: undefined });
     });
 
+    // Leia, 2026-10-05: "the jiten frequency badges one times out". With the
+    // Reader, the Jiten card fetched api.jiten.moe through it and, when that host
+    // answered slowly, ended on "Dictionary download timed out." with nothing
+    // installed, although the mirror holds a digest-checked copy.
+    it('installs the mirror copy when the newest build cannot be downloaded on a first install', async () => {
+        studyWithReader();
+        const timedOut = userFacingError('dictionaryDownloadTimedOut');
+        const importFromUrl = vi.fn(async (url: string, _filename?: string, _onProgress?: unknown, _options?: unknown): Promise<ImportSummary> => {
+            if (url === JITEN_LATEST) throw timedOut;
+            return { dictionaries: ['Jiten'], entries: 1, terms: 0, kanji: 0, termMeta: 1, kanjiMeta: 0 };
+        });
+        const jiten = findRecommendedDictionary('jiten')!;
+
+        await expect(importRecommendedDictionary({ importFromUrl }, jiten, () => undefined, { firstInstall: true }))
+            .resolves.toMatchObject({ dictionaries: ['Jiten'] });
+        expect(importFromUrl.mock.calls.map(([url, , , options]) => [url, options])).toEqual([
+            [JITEN_LATEST, undefined],
+            [`${MIRROR}${jiten.sha256}.zip`, { integrity: { sha256: jiten.sha256, bytes: jiten.bytes } }],
+        ]);
+    });
+
+    it('keeps the failure on an update, a cancel or a full disk', async () => {
+        studyWithReader();
+        const jiten = findRecommendedDictionary('jiten')!;
+        const fullDisk = Object.assign(new Error('Quota'), { name: 'QuotaExceededError' });
+        const cancelled = Object.assign(new Error('Aborted'), { name: 'AbortError' });
+        for (const [error, firstInstall] of [
+            [userFacingError('dictionaryDownloadTimedOut'), false],
+            [cancelled, true],
+            [fullDisk, true],
+        ] as const) {
+            const importFromUrl = vi.fn(async (): Promise<ImportSummary> => { throw error; });
+            await expect(importRecommendedDictionary({ importFromUrl }, jiten, () => undefined, { firstInstall })).rejects.toBe(error);
+            expect(importFromUrl).toHaveBeenCalledTimes(1);
+        }
+    });
+
     it('installs the latest build from an extension page, which holds host permission', async () => {
         vi.stubGlobal('location', new URL('chrome-extension://yomuextensionid/newtab/index.html'));
         expect(await install('jitendex')).toEqual({ url: JITENDEX_LATEST, options: undefined });
@@ -293,16 +332,12 @@ describe('catalogue seed cards over an install of the same dictionary', () => {
         expect(seedButton('kanjidic-en', installed('KANJIDIC', 'kanjidic2'))).toEqual(['Update', false]);
     });
 
-    // WTY cards match only the archive's own title, "wty-fr-en", and every
-    // wty build stamps its build day; the catalogue's dataset commit is no date.
-    it('compares a WTY card by the build day its archive records', () => {
-        expect(seedButton('wty-fr-en', installed('wty-fr-en', '2026.08.29'), 'fr')).toEqual(['Installed', true]);
-        expect(findRecommendedDictionary(catalogRecommendedDictionaryId('en', 'fr', 'wty-fr-en'))?.revision).toBe('2026.07.15');
-        expect(seedButton('wty-fr-en', installed('wty-fr-en', '2026.07.15'), 'fr')).toEqual(['Installed', true]);
-        expect(seedButton('wty-fr-en', installed('wty-fr-en', '2026.03.05'), 'fr')).toEqual(['Update', false]);
-        expect(seedButton('wty-fr-en-ipa', installed('wty-fr-en-ipa', '2026.09.01'), 'fr')).toEqual(['Installed', true]);
-        // Another pair's newer build is not this card's install.
-        expect(seedButton('wty-fr-en', installed('wty-fr-fr', '2026.09.01'), 'fr')).toEqual(['Install', false]);
+    it('compares dotted build days numerically without offering a downgrade', () => {
+        const build = { ...RECOMMENDED_JAPANESE_DICTIONARIES[0]!, revision: '2026.07.15' };
+        expect(recommendedDictionaryInstallIsCurrent(build, '2026.08.29')).toBe(true);
+        expect(recommendedDictionaryInstallIsCurrent(build, '2026.07.15')).toBe(true);
+        expect(recommendedDictionaryInstallIsCurrent(build, '2026.03.05')).toBe(false);
+        expect(recommendedDictionaryInstallIsCurrent(build, undefined)).toBe(false);
     });
 
     // The JPDB Kana lesson, enforced: a newer revision on a title that only
@@ -310,7 +345,6 @@ describe('catalogue seed cards over an install of the same dictionary', () => {
     it('matches a card that compares revisions only by its URL or exact identity', () => {
         expect(seedButton('kanjidic-en', installed('kanjidic_en', 'kanjidic2.2027-001'))).toEqual(['Install', false]);
         expect(seedButton('jmdict-en', installed('JMdict (en) Forms', 'JMdict.2026-10-04'))).toEqual(['Install', false]);
-        expect(seedButton('wty-fr-en', installed('Wiktionary FR-EN terms', '2026.09.01'), 'fr')).toEqual(['Install', false]);
     });
 
     it('still installs the JPDB Kana card over a different JPDB v2.2 build', () => {

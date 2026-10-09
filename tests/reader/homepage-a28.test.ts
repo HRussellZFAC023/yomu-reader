@@ -47,7 +47,7 @@ describe('editorial homepage contract', () => {
         expect(page.querySelectorAll('main')).toHaveLength(1);
         expect(page.querySelector('main > .yomu-fold')).not.toBeNull();
         expect(page.querySelector('main > .yomu-next')).not.toBeNull();
-        expect([...page.querySelectorAll('.yomu-home-more > section')].map(section => section.id)).toEqual(['gaming', 'academy']);
+        expect([...page.querySelectorAll('.yomu-home-more > section')].map(section => section.id)).toEqual(['desktop']);
     });
 
     it('passes the real VitePress Markdown and Vue SSR parser for both locales', () => {
@@ -58,8 +58,11 @@ describe('editorial homepage contract', () => {
         expect(output).toContain('Homepage SSR passed: EN and JA.');
     }, 35_000);
 
-    it('keeps language support explicit without client heading replacement or hidden content', () => {
-        expect(homepage).toContain('Reading and lookup in 33 learning languages.');
+    it('says Japanese without client heading replacement or hidden content', () => {
+        // Yomu is for learning Japanese (owner decision, 2026-10-07): the fold
+        // no longer carries a count of other learning languages.
+        expect(homepage).not.toMatch(/learning languages?/iu);
+        expect(homepage).not.toContain('yomu-fold-scope');
         const theme = readFileSync('docs/.vitepress/theme/index.ts', 'utf8');
         const config = readFileSync('docs/.vitepress/config.mts', 'utf8');
         expect(theme).not.toContain('installHostedHeroLanguageRotator');
@@ -73,13 +76,52 @@ describe('editorial homepage contract', () => {
         expect(homeCss).not.toMatch(/rotate\(|clip-path|@keyframes/);
     });
 
-    it('preserves the corrected learning advice and the existing captures', () => {
-        expect(homepage).toContain('You decide what to add to your deck.');
-        expect(homepage).toContain('Use definitions and grammar explanations when you need them.');
-        expect(homepage).toContain('Connect a review service you already use, or keep a local Yomu deck.');
-        for (const image of ['popover', 'wikipedia', 'youtube', 'keep-press', 'study', 'phone', 'ipad']) {
-            expect(homepage).toContain(`/home/${image}.webp`);
+    it('says each section in one line and keeps live demos without obsolete captures', () => {
+        // Owner, 2026-10-07: less is more, and no labels that state the
+        // obvious. One line of what よむ is, one install button, then one
+        // heading and one line per place it works. The method lives on /learn/,
+        // linked from the letter; the old essays, the kicker labels above each
+        // heading and the competitor comparison do not come back.
+        const page = new DOMParser().parseFromString(homepage.replace(/^---[\s\S]*?---/, ''), 'text/html');
+        for (const band of page.querySelectorAll('.yomu-band')) {
+            expect(band.querySelectorAll('.yomu-band-lead'), band.id).toHaveLength(1);
+            expect(band.querySelector('.yomu-band-lead')!.textContent!.split(/\s+/u).length, band.id).toBeLessThanOrEqual(25);
         }
+        expect(homepage).not.toContain('yomu-band-kicker');
+        expect(homepage).not.toContain('yomu-fits');
+        expect(homepage).not.toContain('#how-yomu-compares-with-migaku-and-duolingo');
+        expect(page.querySelector('.yomu-letter a[href="/learn/"]')).not.toBeNull();
+        for (const image of ['popover', 'wikipedia', 'youtube', 'keep-press', 'study', 'phone', 'ipad']) {
+            expect(homepage).not.toContain(`/home/${image}.webp`);
+        }
+        expect([...page.querySelectorAll('main img')].map(image => image.getAttribute('src')))
+            .toEqual(['/media/manga-ocr-sample.png']);
+        const video = page.querySelector('[data-yomu-demo-player] video')!;
+        expect(video.hasAttribute('controls')).toBe(true);
+        expect(video.querySelectorAll('source')).toHaveLength(2);
+        expect(video.querySelector('track[kind="subtitles"][srclang="ja"]')).not.toBeNull();
+    });
+
+    it('gives the promoted install button at most one short line of help', () => {
+        const page = new DOMParser().parseFromString(homepage.replace(/^---[\s\S]*?---/, ''), 'text/html');
+        for (const routes of page.querySelectorAll('.yomu-install-routes')) {
+            const hints = [...routes.querySelectorAll<HTMLElement>('.yomu-install-hint')];
+            expect(hints.map(hint => hint.dataset.yomuHint)).toEqual(['chrome', 'firefox', 'android', 'userscript']);
+            for (const hint of hints) expect(hint.textContent!.split(/\s+/u).length).toBeLessThanOrEqual(8);
+            expect(routes.querySelector('[data-yomu-route="userscript"]')?.getAttribute('href')).toBe('/install#safari');
+            expect(routes.querySelector('a[href="/desktop"]')).not.toBeNull();
+        }
+        expect(homepageStyles).toContain(":root[data-yomu-install='chrome'] [data-yomu-hint='chrome']");
+    });
+
+    it('never promises that a saved word comes back for review on its own', () => {
+        // Saving to the local deck stores the card with reviewEnabled = false
+        // (src/reader/srs/local-yomu.ts) until "Add to review" in Study → Library,
+        // so a homepage line saying saved words "come back" sets up a broken promise.
+        expect(readFileSync('src/reader/srs/local-yomu.ts', 'utf8')).toContain('candidate.reviewEnabled = false;');
+        const studyBand = homepage.slice(homepage.indexOf('id="study"'), homepage.indexOf('id="mobile"'));
+        expect(studyBand).toContain('Save the words worth keeping');
+        expect(studyBand).not.toMatch(/come back|comes back|return/iu);
     });
 
     it('drops the "nothing installed" duplicate CTA section', () => {
@@ -100,24 +142,23 @@ describe('editorial homepage contract', () => {
     });
 
     it('links the three retained proof bands to their hosted apps', () => {
-        expect(homepage).toContain('<a class="yomu-band-action" href="/pdf-reader/">Read</a>');
-        expect(homepage).toContain('<a class="yomu-band-action" href="/video-player/">Watch</a>');
-        expect(homepage).toContain('<a class="yomu-band-action" href="/study/">Study</a>');
+        expect(homepage).toContain('<a class="yomu-band-action" href="/pdf-reader/">Open a PDF</a>');
+        expect(homepage).toContain('<a class="yomu-band-action" href="/video-player/">Play your own video</a>');
+        expect(homepage).toContain('<a class="yomu-band-action" href="/study/">Open Study</a>');
     });
 
     it('uses one shared Apps category label', () => {
         // The v2 primary nav is task-focused (Read, Watch, Study; asserted in
-        // hosted-overflow-menu.test.ts), so Apps now sits under More. The contract
-        // is the label: one constant names the nav entry and the sidebar group on
-        // every surface, in both locales, and the retired 'Tools' label is gone.
+        // hosted-overflow-menu.test.ts). The Apps overview page was folded into
+        // Start here on 2026-10-07, so Apps names only the sidebar group now,
+        // while the desktop app — the one app that needs a download — has its
+        // own entry under More. The retired 'Tools' label stays gone.
         expect(APPS_NAV_LABEL).toBe('Apps');
         const routes = siteNavRoutes();
-        expect(routes.filter(route => route.text === APPS_NAV_LABEL)).toEqual([
-            { text: APPS_NAV_LABEL, ja: 'アプリ', link: '/learn/reference#apps' },
-        ]);
+        expect(routes.some(route => route.text === APPS_NAV_LABEL)).toBe(false);
         expect(routes.some(route => route.text === 'Tools')).toBe(false);
         const more = (docsNav() as Array<{ items?: Array<{ text: string; link: string }> }>).find(entry => entry.items);
-        expect(more?.items).toContainEqual({ text: APPS_NAV_LABEL, link: '/learn/reference#apps' });
+        expect(more?.items).toContainEqual({ text: 'Desktop app', link: '/desktop' });
         expect(websiteNavigationLabel(APPS_NAV_LABEL, 'ja')).toBe('アプリ');
         const config = readFileSync('docs/.vitepress/config.mts', 'utf8');
         expect(config).toContain('text: APPS_NAV_LABEL,');

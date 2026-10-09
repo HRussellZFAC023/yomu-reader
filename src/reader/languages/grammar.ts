@@ -255,5 +255,3 @@ function grammarMatchContains(outer: LearningTargetGrammarMatch, inner: Learning
     return inner.index >= outer.index
         && inner.index + inner.match.length <= outer.index + outer.match.length;
 }
-
-export const EMPTY_LEARNING_TARGET_GRAMMAR = createLearningTargetGrammar();

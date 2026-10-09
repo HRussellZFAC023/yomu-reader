@@ -3,26 +3,26 @@
   --jpdb-reader-theme-dark-surface: #20242b;
   --jpdb-reader-theme-dark-surface-2: #282e37;
   --jpdb-reader-theme-dark-text: #f2f4f8;
-  --jpdb-reader-theme-dark-muted: #aab2c0;
-  --jpdb-reader-theme-dark-faint: #6f7a89;
+  --jpdb-reader-theme-dark-muted: #b0b8c4;
+  --jpdb-reader-theme-dark-faint: #8993a2;
   --jpdb-reader-theme-dark-border: rgba(255,255,255,.12);
-  --jpdb-reader-theme-dark-accent-readable: #76bd99;
+  --jpdb-reader-theme-dark-accent-readable: #ff7892;
   --jpdb-reader-theme-dark-danger-readable: #ff8c8c;
-  --jpdb-reader-theme-dark-success: #6bc58a;
-  --jpdb-reader-theme-dark-warning: #f2b84b;
-  --jpdb-reader-theme-accent-text: #11161d;
-  --jpdb-reader-theme-light-bg: #fbfcfe;
-  --jpdb-reader-theme-light-surface: #f4f7fa;
-  --jpdb-reader-theme-light-surface-2: #e8edf3;
-  --jpdb-reader-theme-light-text: #17202a;
-  --jpdb-reader-theme-light-muted: #4f5968;
+  --jpdb-reader-theme-dark-success: #80b99a;
+  --jpdb-reader-theme-dark-warning: #d6b65e;
+  --jpdb-reader-theme-accent-text: #ffffff;
+  --jpdb-reader-theme-light-bg: #f8f9fb;
+  --jpdb-reader-theme-light-surface: #ffffff;
+  --jpdb-reader-theme-light-surface-2: #f0f2f5;
+  --jpdb-reader-theme-light-text: #20242b;
+  --jpdb-reader-theme-light-muted: #59616d;
   --jpdb-reader-theme-light-faint: #687384;
-  --jpdb-reader-theme-light-border: rgba(37,52,73,.18);
-  --jpdb-reader-theme-light-accent-readable: #245c42;
+  --jpdb-reader-theme-light-border: #dfe3e8;
+  --jpdb-reader-theme-light-accent-readable: #b8324e;
   --jpdb-reader-theme-light-danger-readable: #b42318;
-  --jpdb-reader-theme-light-success: #2e9b57;
-  --jpdb-reader-theme-light-warning: #9a5a00;
-  --jpdb-reader-theme-accent: #5ea780;
+  --jpdb-reader-theme-light-success: #347a57;
+  --jpdb-reader-theme-light-warning: #806200;
+  --jpdb-reader-theme-accent: #b8324e;
   --jpdb-reader-theme-danger: #e55353;
   --jpdb-reader-white: #ffffff;
   --jpdb-reader-black: #000000;
@@ -89,7 +89,6 @@
   --jpdb-reader-video-shadow: color-mix(in srgb, var(--jpdb-reader-black) 72%, transparent);
   --jpdb-reader-video-shadow-soft: color-mix(in srgb, var(--jpdb-reader-black) 58%, transparent);
   --jpdb-reader-video-shadow-faint: color-mix(in srgb, var(--jpdb-reader-black) 38%, transparent);
-  --jpdb-reader-video-shadow-subtle: color-mix(in srgb, var(--jpdb-reader-black) 30%, transparent);
   --jpdb-reader-ocr-line-bg: rgba(24, 27, 32, 0.14);
   --jpdb-reader-ocr-bg: rgba(24, 27, 32, 0.32);
   --jpdb-reader-ocr-active-bg: rgba(24, 27, 32, 0.44);
@@ -111,7 +110,6 @@
   --jpdb-reader-paper-inset-strong: color-mix(in srgb, var(--jpdb-reader-white) 78%, transparent);
   --jpdb-reader-surface-inset: color-mix(in srgb, var(--jpdb-reader-white) 5%, transparent);
   --jpdb-reader-surface-inset-soft: color-mix(in srgb, var(--jpdb-reader-white) 3%, transparent);
-  --jpdb-reader-shadow-soft: color-mix(in srgb, var(--jpdb-reader-shadow) 54%, transparent);
   --jpdb-reader-shadow-subtle: color-mix(in srgb, var(--jpdb-reader-shadow) 48%, transparent);
   --jpdb-reader-bg: var(--jpdb-reader-theme-dark-bg);
   --jpdb-reader-surface: var(--jpdb-reader-theme-dark-surface);
@@ -358,16 +356,6 @@
   padding: revert;
 }
 
-/* Language-family visibility follows Yomitan's data-language vocabulary. */
-[data-jpdb-reader-root]:not([data-language="ja"]):not([data-language="zh"]):not([data-language="yue"]) .jpzhyue-only,
-[data-jpdb-reader-root]:not([data-language="ja"]):not([data-language="zh"]):not([data-language="yue"]):not([data-language="ko"]) .jpzhyueko-only,
-[data-jpdb-reader-root]:not([data-language="ja"]) .jp-only {
-  display: none !important;
-}
-
-[data-jpdb-reader-root]:is([data-language="ja"], [data-language="zh"], [data-language="yue"], [data-language="ko"]) .not-jpzhyueko {
-  display: none !important;
-}
 [data-jpdb-reader-root]:where(table),
 [data-jpdb-reader-root] :where(table) {
   border-collapse: revert;

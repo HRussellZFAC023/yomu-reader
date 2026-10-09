@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { nextExplicitUiLanguage, resolveUiLanguage } from '../../src/reader/app/i18n';
+import { nextExplicitUiLanguage, parseUiCopyTable, resolveUiLanguage } from '../../src/reader/app/i18n';
 import { publishedWebsiteRouteDefinitions } from '../../docs/.vitepress/locales/route-catalog';
 
 describe('interface language resolution', () => {
@@ -70,7 +70,7 @@ describe('interface language resolution', () => {
 
     it('keeps hosted support actions covered by Japanese docs copy', () => {
         const themeSource = readFileSync('docs/.vitepress/locales/docs-prose-catalog.ts', 'utf8');
-        const supportSource = readFileSync('docs/support.md', 'utf8');
+        const supportSource = readFileSync('docs/faq.md', 'utf8');
         const supportCopy = uniqueEnglishCopy([
             ...frontmatterTextCopy(supportSource),
             ...markdownHeadings(supportSource),
@@ -79,39 +79,6 @@ describe('interface language resolution', () => {
         ]);
 
         expect(supportCopy.filter(copy => !hasHostedDocsJaCopy(themeSource, copy))).toEqual([]);
-    });
-
-    it('keeps Study source guidance covered by Japanese docs copy', () => {
-        const themeSource = readFileSync('docs/.vitepress/locales/docs-prose-catalog.ts', 'utf8');
-        const calloutCopy = ['Study reviews Anki when it is reachable, connected Japanese services when selected, and local dictionary words without an account. Library searches the words. Stats shows the work over time.'];
-
-        expect(calloutCopy.filter(copy => !hasHostedDocsJaCopy(themeSource, copy))).toEqual([]);
-    });
-
-    it('keeps Study setup and offline guidance covered by Japanese docs copy', () => {
-        const themeSource = readFileSync('docs/.vitepress/locales/docs-prose-catalog.ts', 'utf8');
-        const studySource = readFileSync('docs/learn/keeping-words.md', 'utf8');
-        const studySection = between(studySource, '## Open Study', '## Review by doing');
-        const studyCopy = [
-            ...markdownHeadings(studySection),
-            ...markdownParagraphs(studySection),
-            ...markdownListTextNodes(studySection),
-        ];
-
-        expect(studyCopy.filter(copy => !hasHostedDocsJaCopy(themeSource, copy))).toEqual([]);
-    });
-
-    it('keeps the hosted apps overview covered by Japanese docs copy', () => {
-        const themeSource = readFileSync('docs/.vitepress/locales/docs-prose-catalog.ts', 'utf8');
-        const referenceSource = readFileSync('docs/learn/reference.md', 'utf8');
-        const appsSection = between(referenceSource, '## Apps', '## Feature map');
-        const appsCopy = [
-            ...markdownHeadings(appsSection),
-            ...markdownParagraphs(appsSection),
-            ...markdownListTextNodes(appsSection),
-        ];
-
-        expect(appsCopy.filter(copy => !hasHostedDocsJaCopy(themeSource, copy))).toEqual([]);
     });
 
     it('keeps dynamic hosted docs attributes in the build-time locale pipeline', () => {
@@ -237,7 +204,9 @@ describe('interface language resolution', () => {
         const { entries, unparsed } = hostedDocsJaCopyEntries(themeSource);
 
         expect(unparsed).toEqual([]);
-        expect(entries.length).toBeGreaterThan(3000);
+        // About 1,250 since the 2026-10-07 rewrite pruned keys no page asks for;
+        // a sudden drop below this means the catalogue failed to parse.
+        expect(entries.length).toBeGreaterThan(1000);
 
         const untranslated = entries
             .filter(([english]) => !HOSTED_DOCS_JA_COPY_VERBATIM.has(english))
@@ -272,83 +241,23 @@ describe('interface language resolution', () => {
 // ranges so they cannot pass as translated copy.
 const JAPANESE_CHARACTER = /[\u3000-\u30ff\u3400-\u4dbf\u4e00-\u9fff\uff01-\uff20\uff3b-\uff40\uff5b-\uff9f]/u;
 
-// Keys whose Japanese value is deliberately not Japanese text: brand and
-// product names, hosts and URLs, literal menu paths and button labels the
-// Japanese interface also shows verbatim, and a few English function words
-// ('A', 'Open ') that the Japanese sentence carries in a neighbouring segment.
+// Keys whose Japanese value is deliberately not Japanese text: brand, product
+// and host names a published Japanese page shows as a text node of its own.
 const HOSTED_DOCS_JA_COPY_VERBATIM = new Set([
-    // FAQ: brand names, and the 'Okay' grade whose Japanese button label is
-    // literally 'OK' in the product (gradeOkayLabel in src/reader/app/i18n.ts).
     'Discord',
     'GitHub',
     'Ko-fi',
     'Patreon',
-    'Okay',
-    'https://yomureader.com/yomu.user.js',
-    'yomureader.com',
-    'yomureader.com/study/#settings=dictionaries',
-    'tampermonkey.net',
     'tadoku.org',
-    'nyaa.si/view/1957972',
-    'localhost:',
-    'Utilities → Install from URL',
-    '+ → Install from URL',
-    'Script list → Create → Install from URL',
-    'Reader -> Show Yomu lookup popup',
-    'Hard / Good',
-    'Again / Hard / Good / Easy',
-    'Fail / Pass',
-    'Kanji 1',
-    'wideScreen',
-    'AA',
-    '/',
-    'OCR',
-    'OCR:',
-    'PDF',
-    'PDFs',
-    'API',
-    'Anki',
-    'Anki / AnkiConnect:',
     'AnkiConnect',
-    'AnkiMobile',
-    'AnkiDroid',
     'Bunpro',
     'Jiten',
-    'Jiten:',
-    'Jiten/JPDB',
     'JPDB',
-    'JPDB:',
     'Kotu',
-    'Tailscale',
-    'oEmbed',
-    'MangaOCR',
-    'PaddleOCR',
-    'Apple Vision',
     'Ultimate Yomitan Audio',
-    'Ultimate Yomitan Audio Source',
-    'Yomu Gaming',
-    'Gaming Text Bridge',
-    'Chrome',
-    'Firefox',
-    'Safari',
     'Windows',
     'Linux',
-    'Intel Mac',
-    'Apple Silicon Mac',
-    'Tampermonkey',
-    'Userscripts',
-    'YouTube',
     'NHK News Web Easy',
-    'Satori Reader',
-    'Watanoc',
-    'MATCHA Easy Japanese',
-    'Ttsu Reader',
-    'Learn Natively',
-    'A',
-    'Open ',
-    '— install',
-    '— with',
-    '— open the',
 ]);
 
 function hostedDocsJaCopyEntries(themeSource: string): {
@@ -502,15 +411,6 @@ function markdownHeadings(source: string): string[] {
     return [...source.matchAll(/^#{1,6}\s+(.+)$/gm)].map(match => match[1].trim());
 }
 
-function markdownParagraphs(source: string): string[] {
-    return source
-        .split(/\n{2,}/)
-        .map(block => block.trim())
-        .filter(block => block && !block.startsWith('---') && !block.startsWith('#') && !block.startsWith('<') && !block.startsWith('- ') && !/^\d+\.\s+/.test(block))
-        .map(block => decodeMarkdownLinks(block).replace(/\*\*(.*?)\*\*/g, '$1'))
-        .filter(Boolean);
-}
-
 function markdownListTextNodes(source: string): string[] {
     return [...source.matchAll(/^(?:-|\d+\.)\s+(.+)$/gm)]
         .flatMap(match => markdownTextNodeSegments(match[1]))
@@ -585,3 +485,20 @@ function uniqueEnglishCopy(values: string[]): string[] {
 function decodeMarkdownLinks(value: string): string {
     return value.replace(/\[([^\]]+)\]\([^)]+\)/g, '$1');
 }
+
+describe('copy tables survive the extension compiler', () => {
+    // UserScript Compiler indents the whole userscript body by four spaces,
+    // template-literal text included. The packaged toolbar reported
+    // language=ja yet labelled Study, Settings and every action in English
+    // because every table key after the first carried that indentation.
+    it('reads keys from rows indented the way the compiled content script indents them', () => {
+        const authored = '\nsettings\t設定\nnewTab\t学習\n';
+        const compiled = authored.split('\n').map(line => `    ${line}`).join('\n');
+        expect(parseUiCopyTable(compiled)).toEqual({ settings: '設定', newTab: '学習' });
+        expect(parseUiCopyTable(compiled)).toEqual(parseUiCopyTable(authored));
+    });
+
+    it('still ignores a row that starts with a tab', () => {
+        expect(parseUiCopyTable('settings\t設定\n\tstray')).toEqual({ settings: '設定' });
+    });
+});

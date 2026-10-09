@@ -8,7 +8,7 @@ import { userFacingCopyKeyOf } from '../app/user-facing-errors';
  * error), so the reason is no longer thrown away. A full disk gets its own copy.
  */
 export function dictionaryInstallFailureText(language: InterfaceLanguage, error: unknown): string {
-    if (isStorageFull(error)) return uiText(language, 'dictionaryStorageFull');
+    if (isDictionaryStorageFull(error)) return uiText(language, 'dictionaryStorageFull');
     const copyKey = userFacingCopyKeyOf(error) ?? 'dictionaryDownloadFailed';
     const copy = uiText(language, copyKey);
     const diagnostic = error instanceof Error ? error.message.trim() : '';
@@ -19,7 +19,7 @@ export function dictionaryInstallFailureText(language: InterfaceLanguage, error:
     return diagnostic && copy === uiText('en', copyKey) ? `${copy} ${diagnostic}` : copy;
 }
 
-function isStorageFull(error: unknown): boolean {
+export function isDictionaryStorageFull(error: unknown): boolean {
     let current = error;
     for (let depth = 0; current && depth < 4; depth++) {
         if ((current as { name?: unknown }).name === 'QuotaExceededError') return true;

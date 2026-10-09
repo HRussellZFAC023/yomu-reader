@@ -2,11 +2,6 @@ import { isUnifiedIdeograph } from './han';
 import { activeLearningTarget } from './target-runtime';
 import type { LearningTargetModule } from './types';
 
-/** Whether the active target offers character lookup through either Adapter. */
-export function targetSupportsCharacterLookup(): boolean {
-    return activeLearningTarget().capabilities['character-lookup'];
-}
-
 /** Whether the active target has a dedicated character-bank surface. */
 export function targetUsesCharacterDictionary(): boolean {
     const target = activeLearningTarget();
@@ -61,23 +56,6 @@ export function targetSupportsHandwriting(): boolean {
 }
 
 /**
- * Whether text is one target-language writing unit that can be sent through
- * the ordinary term dictionary.
- *
- * A writing unit is a grapheme cluster, not a UTF-16 code unit: supplementary
- * Han characters and joined/combining scripts must remain intact. This is the
- * universal character-lookup Adapter for targets without a dedicated character
- * bank.
- */
-export function targetCanLookupWritingUnit(
-    value: string,
-    target: LearningTargetModule = activeLearningTarget(),
-): boolean {
-    const unit = singleGrapheme(value);
-    return Boolean(unit) && target.isLookupableText(unit);
-}
-
-/**
  * Whether target-aware recognition may accept this handwriting prediction.
  * Reference-backed Japanese stroke grading is deliberately a narrower
  * question (`targetCanHandwriteCharacter`); every other target uses an explicit
@@ -111,17 +89,4 @@ export function targetCanHandwriteCharacter(value: string): boolean {
     return target.capabilities.handwriting
         && target.experiences.handwriting === 'stroke-feedback'
         && isUnifiedIdeograph(value);
-}
-
-function singleGrapheme(value: string): string {
-    const units = segmentGraphemes(value.trim());
-    return units.length === 1 ? units[0] ?? '' : '';
-}
-
-function segmentGraphemes(value: string): string[] {
-    if (typeof Intl.Segmenter !== 'function') return Array.from(value);
-    return Array.from(
-        new Intl.Segmenter(undefined, { granularity: 'grapheme' }).segment(value),
-        segment => segment.segment,
-    );
 }

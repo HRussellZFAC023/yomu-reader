@@ -11,7 +11,6 @@ import {
     loadJitenDailyStats,
     recordJitenDailyStats,
 } from '../../src/reader/dictionaries/jiten-stats-cache';
-import { resetActiveLearningTargetLanguage } from '../../src/reader/languages/target-runtime';
 import { NEW_TAB_CACHE_KEY } from '../../src/reader/newtab/cache';
 import {
     newTabProviderContexts,
@@ -26,7 +25,6 @@ const JITEN_DAILY_STATS_KEY = 'jpdb-reader-jiten-daily-stats';
 const MANAGED_KEYS = [NEW_TAB_CACHE_KEY, JITEN_DAILY_STATS_KEY] as const;
 
 beforeEach(async () => {
-    resetActiveLearningTargetLanguage();
     await Promise.all(MANAGED_KEYS.map(key => gmStorageDelete(key)));
 });
 

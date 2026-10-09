@@ -1,13 +1,7 @@
-import { afterEach, describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vitest';
 
-import {
-    resetActiveLearningTargetLanguage,
-    setActiveLearningTargetLanguage,
-} from '../../src/reader/languages/target-runtime';
 import { uncoveredJapaneseRanges } from '../../src/reader/lookup/uncovered-japanese-ranges';
-import { captureOcrTargetContext, ocrFallbackCardFromText } from '../../src/reader/ocr/target-context';
-
-afterEach(() => resetActiveLearningTargetLanguage());
+import { ocrFallbackCardFromText } from '../../src/reader/ocr/target-context';
 
 describe('lookup scope modules', () => {
     it('reports uncovered Japanese runs in UTF-16 coordinates without splitting supplementary kanji', () => {
@@ -23,33 +17,10 @@ describe('lookup scope modules', () => {
         ]);
     });
 
-    it('invalidates OCR work across an away-and-back target switch', () => {
-        const context = captureOcrTargetContext();
-        const cacheKey = context.cacheKey('image');
-        const workKey = context.workKey('image');
-        const stale = Symbol('stale');
-
-        expect(setActiveLearningTargetLanguage('ko')).not.toBeNull();
-        expect(setActiveLearningTargetLanguage('ja')).not.toBeNull();
-        let thrown: unknown;
-        try {
-            context.requireCurrent(stale);
-        } catch (error) {
-            thrown = error;
-        }
-        expect(thrown).toBe(stale);
-        const current = captureOcrTargetContext();
-        expect(current.cacheKey('image')).toBe(cacheKey);
-        expect(current.workKey('image')).not.toBe(workKey);
-    });
-
-    it('scopes OCR fallback identity and language to the active target', () => {
+    it('scopes OCR fallback identity and language to the Japanese target', () => {
         const japanese = ocrFallbackCardFromText('  word  ');
-        expect(setActiveLearningTargetLanguage('ko')).not.toBeNull();
-        const korean = ocrFallbackCardFromText('  word  ');
 
         expect(japanese).toMatchObject({ spelling: 'word', language: 'ja' });
-        expect(korean).toMatchObject({ spelling: 'word', language: 'ko' });
-        expect(korean.vid).not.toBe(japanese.vid);
+        expect(ocrFallbackCardFromText('word').vid).toBe(japanese.vid);
     });
 });

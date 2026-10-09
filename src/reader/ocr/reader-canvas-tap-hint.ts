@@ -2,7 +2,7 @@
 //
 // With a cloud OCR provider, a reader canvas on a page image OCR does not
 // auto-scan waits for a tap (canvas-auto-read.ts). The first such canvas gets
-// this hint instead of a background upload. It wears the canvas status pill,
+// this hint instead of a background upload. It is a small labelled pill that
 // lets taps fall through to the page, captures nothing, stays clear of the
 // host's controls, and appears once per site. That record lives in Yomu's own
 // GM/extension storage under a hash of the origin, never in the page's storage:
@@ -91,13 +91,13 @@ export class ReaderCanvasTapHint {
 
 function createHint(settings: ReaderSettings, onDismiss: () => void): HTMLElement {
     const element = document.createElement('div');
-    element.className = 'jpdb-ocr-video-frame-status jpdb-ocr-canvas-status jpdb-ocr-canvas-tap-hint';
+    element.className = 'jpdb-ocr-canvas-tap-hint';
     element.dataset.jpdbReaderRoot = 'true';
     element.dataset.jpdbReaderSurfaceIgnore = 'true';
     element.setAttribute('role', 'status');
     element.hidden = true;
     const label = document.createElement('span');
-    label.className = 'jpdb-ocr-video-frame-status-label';
+    label.className = 'jpdb-ocr-canvas-tap-hint-label';
     label.textContent = uiText(settings.interfaceLanguage, 'ocrCanvasTapHint');
     const dismiss = document.createElement('button');
     const dismissLabel = uiText(settings.interfaceLanguage, 'ocrCanvasTapHintDismiss');
@@ -116,7 +116,7 @@ function createHint(settings: ReaderSettings, onDismiss: () => void): HTMLElemen
     return element;
 }
 
-// Where Yomu's scan status pill sits first, then the top centre, then the page
+// The page's top-left corner first, then the top centre, then the page
 // centre; the first spot whose whole box, dismiss target included, covers no
 // host control wins.
 function spotClearOfHostControls(canvas: HTMLCanvasElement, hint: HTMLElement): HintSpot | undefined {
