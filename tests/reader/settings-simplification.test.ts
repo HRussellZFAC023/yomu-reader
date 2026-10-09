@@ -47,7 +47,13 @@ describe('simplified settings model', () => {
         expect(view).not.toBeNull();
         const settings = witnessedSettingsRestoreCandidate(previous, normalizeReaderSettings(backup.settings), view);
         const original = normalizeReaderSettings(view!.settings as Partial<ReaderSettings>);
-        expect(settings).toEqual(original);
+        // A restore reads the backup's undeclared 2.0 annotation defaults as
+        // 2.1's (ADR-0025); every other value is the backup's own.
+        expect(settings).toEqual(adoptCurrentDefaults(original, view!.intentLedger, DEFAULT_SETTINGS));
+        const retiredKeys = new Set<string>(RETIRED_DEFAULT_SETTING_KEYS);
+        const differs = (left: ReaderSettings, right: ReaderSettings) => Object.keys(left)
+            .filter(key => JSON.stringify(left[key as keyof ReaderSettings]) !== JSON.stringify(right[key as keyof ReaderSettings]));
+        expect(differs(settings, original).filter(key => !retiredKeys.has(key))).toEqual([]);
         for (const key of retired) expect(settings).not.toHaveProperty(key);
         const values = new Map<string, unknown>();
         installGmStorageFixture(values);
@@ -58,9 +64,7 @@ describe('simplified settings model', () => {
         const loaded = await loadSettings();
         const { intentLedger } = await readSettingsPersistenceViewStrict();
         expect(loaded).toEqual(adoptCurrentDefaults(settings, intentLedger, DEFAULT_SETTINGS));
-        const retiredKeys = new Set<string>(RETIRED_DEFAULT_SETTING_KEYS);
-        const changed = Object.keys(loaded).filter(key => JSON.stringify(loaded[key as keyof ReaderSettings]) !== JSON.stringify(settings[key as keyof ReaderSettings]));
-        expect(changed.filter(key => !retiredKeys.has(key))).toEqual([]);
+        expect(differs(loaded, settings).filter(key => !retiredKeys.has(key))).toEqual([]);
         const exported = await exportSettingsBackupSnapshot(settings);
         expect(exported.settings).toEqual(settings);
         const serialized = JSON.stringify(exported);
