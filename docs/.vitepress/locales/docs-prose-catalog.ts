@@ -9,6 +9,8 @@ export interface ReviewedDocsMessage {
 }
 
 const HOSTED_DOCS_JA_COPY: Record<string, string> = {
+    "What do the readings and underlines mean?": "読みと下線は何を表していますか？",
+    "Readings stay visible until a study source tells よむ which words you know. Known and due words lose their readings; missed words keep them. Underlines are solid for new or missed words, dashed while learning, and dotted when due. Known words stay plain.": "学習サービスで習得状況が分かるまでは、漢字に読みが表示されます。習得済みや復習予定の単語では読みが消え、間違えた単語では残ります。新しい単語や間違えた単語は実線、学習中は破線、復習予定は点線です。習得済みの単語には下線が付きません。",
     // Keys are the English text nodes the Markdown localizer sees on a rendered
     // page (markdown-localization.ts), so a sentence with inline links or code
     // yields one key per text node and its Japanese fragments are written to

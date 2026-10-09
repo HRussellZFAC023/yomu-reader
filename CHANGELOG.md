@@ -4,6 +4,7 @@
 
 ### Changed
 
+- Page annotations keep the original typeface, skip footnote markers, and use smaller muted readings. Study-state lines replace pitch colours by default; failed words keep their readings. Saved custom choices are preserved.
 - Yomu reads Japanese immediately after installation, without a language picker or setup gate.
 - Popup actions are grouped under More actions. Saving lets you choose a deck; grading appears only with a connected review service.
 - Settings have fewer controls and repeated labels. Yomu no longer annotates its own settings or source headings.

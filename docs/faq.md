@@ -30,6 +30,10 @@ Yes. On Android, use Firefox. On iPhone and iPad, use Safari: [install steps](/i
 
 No. Until you install one, Jiten's free online dictionary splits each page into words. To do that on your device, install the recommended one in <a href="/study/#settings=dictionaries" target="_self">Settings → Sources</a>
 
+## What do the readings and underlines mean? {#readings-and-underlines}
+
+Readings stay visible until a study source tells よむ which words you know. Known and due words lose their readings; missed words keep them. Underlines are solid for new or missed words, dashed while learning, and dotted when due. Known words stay plain.
+
 ## Where did my saved words go? {#saved-words}
 
 To Study → Library. Press Add to review there and they come back for review.

@@ -62,6 +62,8 @@ Store versions can lag a GitHub release by a few days while the stores review it
 
 No account and no setup. [How to learn Japanese with よむ](https://yomureader.com/learn/) is one page.
 
+Readings are small and muted. With a study source, known and due words lose their readings; missed words keep them.
+
 ## Privacy
 
 Settings, dictionaries and saved words stay on your device. No ads, no analytics, nothing sold. よむ contacts a service only when a feature needs it:
