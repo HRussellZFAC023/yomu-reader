@@ -1,12 +1,12 @@
 # Changelog
 
-## [2.1.0] - 2026-10-07
+## [2.1.0] - 2026-10-09
 
 ### Changed
 
 - Page annotations keep the original typeface, skip footnote markers, and use smaller muted readings. Study-state lines replace pitch colours by default; failed words keep their readings. Saved custom choices are preserved.
 - Yomu reads Japanese immediately after installation, without a language picker or setup gate.
-- Popup actions are grouped under More actions. Saving lets you choose a deck; grading appears only with a connected review service.
+- Save to a chosen deck from one dropdown. Grading appears only with a connected review service.
 - Settings have fewer controls and repeated labels. Yomu no longer annotates its own settings or source headings.
 - Desktop opens from the tray and captures the screen with one shortcut. The home screen and region selector are removed.
 - Desktop uses the original screen text for hover lookup instead of drawing a second copy. Settings use the same portable backup format as the browser.

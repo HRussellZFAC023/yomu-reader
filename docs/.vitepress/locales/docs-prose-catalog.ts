@@ -9,6 +9,9 @@ export interface ReviewedDocsMessage {
 }
 
 const HOSTED_DOCS_JA_COPY: Record<string, string> = {
+    "What do the readings and underlines mean? {#readings-and-underlines}": "読みと下線は何を表していますか？ {#readings-and-underlines}",
+    "Permalink to \"What do the readings and underlines mean? {#readings-and-underlines}\"": "「読みと下線は何を表していますか？」へのパーマリンク",
+    "Page annotations keep the original typeface, skip footnote markers, and use smaller muted readings. Study-state lines replace pitch colours by default; failed words keep their readings. Saved custom choices are preserved.": "ページの注釈は元の書体を保ち、脚注の記号を除外し、小さく落ち着いた色で読みを表示します。下線は初期設定でピッチではなく学習状況を示し、間違えた単語には読みが残ります。保存済みの選択は保たれます。",
     "Permalink to \"What do the readings and underlines mean?\"": "「読みと下線は何を表していますか？」へのパーマリンク",
     "What do the readings and underlines mean?": "読みと下線は何を表していますか？",
     "Readings stay visible until a study source tells よむ which words you know. Known and due words lose their readings; missed words keep them. Underlines are solid for new or missed words, dashed while learning, and dotted when due. Known words stay plain.": "学習サービスで習得状況が分かるまでは、漢字に読みが表示されます。習得済みや復習予定の単語では読みが消え、間違えた単語では残ります。新しい単語や間違えた単語は実線、学習中は破線、復習予定は点線です。習得済みの単語には下線が付きません。",
@@ -18,7 +21,7 @@ const HOSTED_DOCS_JA_COPY: Record<string, string> = {
     // read naturally when concatenated in DOM order. Only keys a published
     // Japanese page or the changelog can ask for belong here.
     "Yomu reads Japanese immediately after installation, without a language picker or setup gate.": "よむは言語の選択や初期設定を待たず、インストール後すぐに日本語を読めます。",
-    "Popup actions are grouped under More actions. Saving lets you choose a deck; grading appears only with a connected review service.": "ポップアップの操作を「その他」にまとめました。保存時にデッキを選べ、評価ボタンは復習サービスとの連携時だけ表示されます。",
+    "Save to a chosen deck from one dropdown. Grading appears only with a connected review service.": "保存先のデッキは一つのドロップダウンから選べます。評価ボタンは復習サービスとの連携時だけ表示されます。",
     "Settings have fewer controls and repeated labels. Yomu no longer annotates its own settings or source headings.": "設定の項目と重複する説明を減らしました。設定や情報源の見出しに、よむ自身が注釈を付けることもなくなりました。",
     "Desktop opens from the tray and captures the screen with one shortcut. The home screen and region selector are removed.": "Desktopはトレイから操作でき、ショートカット一つで画面を読み取ります。ホーム画面と範囲選択を削除しました。",
     "Desktop uses the original screen text for hover lookup instead of drawing a second copy. Settings use the same portable backup format as the browser.": "Desktopは文字を重ねて描き直さず、元の画面の文字にマウスを合わせて検索できます。設定にはブラウザーと共通のバックアップ形式を使います。",
