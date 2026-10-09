@@ -456,7 +456,8 @@ describe('settings form localization', () => {
         expect(DEFAULT_SETTINGS.ankiMineWithJpdb).toBe(false);
         expect(DEFAULT_SETTINGS.popupMode).toBe('auto');
         expect(DEFAULT_SETTINGS.furiganaMode).toBe('known-status');
-        expect(DEFAULT_SETTINGS.furiganaHiddenStateGroups).toEqual(['known', 'due', 'failed']);
+        // A word the learner just failed keeps its reading (ADR-0025).
+        expect(DEFAULT_SETTINGS.furiganaHiddenStateGroups).toEqual(['known', 'due']);
         expect(DEFAULT_SETTINGS.wordColorStates).toBe('all');
         // Known and ignored words stay plain by default (ADR-0025); normalize
         // drops invalid/duplicate groups and keeps an explicit empty list.
