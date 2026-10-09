@@ -372,17 +372,28 @@ async function assertHomepageDemo(page, label) {
     assertAudit(popoverText.length > 0, `${label} pressing a fold word opened no lookup popover`);
     await page.keyboard.press('Escape').catch(() => undefined);
 
-    await page.evaluate(() => {
-        document.querySelector('.yomu-band-video')?.scrollIntoView({ block: 'center', inline: 'nearest' });
+    const sampleVideo = page.locator('.yomu-band-video');
+    await sampleVideo.scrollIntoViewIfNeeded();
+    await sampleVideo.evaluate(video => video.play());
+    // The preview server has no Range support, so seeking before metadata can
+    // reset to zero. Let the real video reach its first spoken caption.
+    await page.waitForFunction(() => {
         const video = document.querySelector('.yomu-band-video');
-        if (video instanceof HTMLVideoElement) {
-            video.currentTime = 0.25;
-            void video.play().catch(() => undefined);
-        }
-    });
-    await page.waitForFunction(() => (
-        document.querySelector('.jpdb-subtitle-player.jpdb-subtitle-has-lines .jpdb-subtitle-primary .jpdb-reader-word')
-    ), null, { timeout: 15000 });
+        const cue = [...(video?.textTracks ?? [])].flatMap(track => [...(track.cues ?? [])])
+            .find(cue => /[\u3040-\u30ff]/u.test(cue.text ?? ''));
+        return cue && !video.paused && video.currentTime >= cue.startTime + 0.1;
+    }, null, { timeout: 15000 });
+    await sampleVideo.evaluate(video => video.pause());
+    await sampleVideo.hover();
+    const subtitlePlayer = page.locator('.jpdb-subtitle-player').first();
+    if (await subtitlePlayer.evaluate(player => player.classList.contains('jpdb-subtitle-hidden'))) {
+        await page.locator('.jpdb-subtitle-rail [data-action="visibility"]').first().click();
+    }
+    await page.waitForFunction(() => {
+        const player = document.querySelector('.jpdb-subtitle-player');
+        return player && !player.classList.contains('jpdb-subtitle-hidden')
+            && player.querySelector('.jpdb-subtitle-primary .jpdb-reader-word');
+    }, null, { timeout: 15000 });
 
     const band = await page.evaluate(() => {
         const sampleVideo = document.querySelector('.yomu-band-video');
@@ -427,7 +438,7 @@ async function assertHomepageDemo(page, label) {
     assertAudit(band.sampleVideo?.sourceCount >= 2 && band.sampleVideo?.trackCount >= 1, `${label} video sample is missing sources or subtitles: ${JSON.stringify(band.sampleVideo)}`);
     assertAudit(band.hasVideoFrame && band.hasSubtitlePlayer, `${label} video sample should be owned by the real subtitle runtime: ${JSON.stringify(band)}`);
     assertAudit(band.subtitleWords >= 1, `${label} video sample captions were not parsed into reader words: ${JSON.stringify(band)}`);
-    assertAudit(band.subtitleVisible && band.subtitleControlsAlways && band.subtitleRailVisible, `${label} video sample subtitles/controls should be visibly on for the demo: ${JSON.stringify(band)}`);
+    assertAudit(band.subtitleVisible && band.subtitleTextVisible && band.subtitleRailVisible, `${label} enabled demo captions and hovered controls must be visible: ${JSON.stringify(band)}`);
     assertAudit(band.mangaTextLayerCount === 0 && band.ocrRegionCount === 0 && band.ocrCardCount === 0, `${label} should not render fake OCR chrome: ${JSON.stringify(band)}`);
     assertAudit(band.transcriptButtonCount === 0 && band.captionCardCount === 0, `${label} should not render custom caption buttons/cards: ${JSON.stringify(band)}`);
     assertAudit(!band.hasYoutubeFrame && !band.hasLiteButton && !band.hasYoutubeFallback, `${label} homepage should not render YouTube chrome: ${JSON.stringify(band)}`);
@@ -438,81 +449,62 @@ async function assertHomepageDemo(page, label) {
 }
 
 async function profileHomepageSubtitleClick(page) {
+    await page.mouse.move(0, 0);
+    const word = page.locator('.jpdb-subtitle-player .jpdb-subtitle-primary .jpdb-reader-word').first();
+    await word.waitFor({ state: 'visible', timeout: 6000 });
+    const point = await word.evaluate(element => {
+        const rect = element.getBoundingClientRect();
+        const x = rect.left + rect.width / 2, y = rect.top + rect.height / 2;
+        const plainWord = element.cloneNode(true);
+        plainWord.querySelectorAll('rt, rp').forEach(node => node.remove());
+        return { x, y, hit: document.elementFromPoint(x, y)?.closest('.jpdb-reader-word') === element,
+            word: element.getAttribute('data-expression') || plainWord.textContent.trim() };
+    });
+    assertAudit(point.hit, `visible caption word is not the pointer hit target: ${JSON.stringify(point)}`);
     await page.evaluate(() => {
         const video = document.querySelector('.yomu-band-video');
-        if (!(video instanceof HTMLVideoElement)) throw new Error('Sample video missing');
-        let paused = false;
-        window.__yomuDemoCaptionProfile = {
-            startedAt: 0,
-            pauseAt: null,
-            shellAt: null,
-            textAt: null,
-            text: '',
-        };
-        Object.defineProperty(video, 'paused', { configurable: true, get: () => paused });
-        Object.defineProperty(video, 'ended', { configurable: true, value: false });
-        Object.defineProperty(video, 'pause', {
-            configurable: true,
-            value: () => {
-                paused = true;
-                const profile = window.__yomuDemoCaptionProfile;
-                if (profile && profile.startedAt && profile.pauseAt === null) profile.pauseAt = performance.now();
-                video.dispatchEvent(new Event('pause'));
-            },
-        });
-        Object.defineProperty(video, 'play', {
-            configurable: true,
-            value: () => {
-                paused = false;
-                video.dispatchEvent(new Event('play'));
-                return Promise.resolve();
-            },
-        });
+        window.__yomuDemoCaptionProfile = { startedAt: 0, pauseAt: null, shellAt: null, textAt: null, text: '' };
+        video.addEventListener('pause', () => {
+            const profile = window.__yomuDemoCaptionProfile;
+            if (profile.startedAt && profile.pauseAt === null) profile.pauseAt = performance.now();
+        }, { once: true });
         const observer = new MutationObserver(() => {
             const profile = window.__yomuDemoCaptionProfile;
-            if (!profile?.startedAt) return;
+            if (!profile.startedAt) return;
             const popover = document.querySelector('.jpdb-reader-popover');
             if (popover && profile.shellAt === null) profile.shellAt = performance.now();
             const text = popover?.textContent?.replace(/\s+/g, ' ').trim() ?? '';
-            if (text && profile.textAt === null) {
-                profile.textAt = performance.now();
-                profile.text = text.slice(0, 180);
-            }
+            profile.text = text.slice(0, 180);
+            if (text && profile.textAt === null) profile.textAt = performance.now();
         });
         observer.observe(document.body, { childList: true, subtree: true });
         window.__yomuDemoCaptionProfileObserver = observer;
-        void video.play();
     });
-
-    const word = page.locator('.jpdb-subtitle-player .jpdb-subtitle-primary .jpdb-reader-word').first();
-    await word.waitFor({ state: 'visible', timeout: 6000 });
-    await page.evaluate(() => { window.__yomuDemoCaptionProfile.startedAt = performance.now(); });
-    await word.evaluate(element => {
-        const rect = element.getBoundingClientRect();
-        element.dispatchEvent(new MouseEvent('click', {
-            bubbles: true,
-            cancelable: true,
-            clientX: rect.left + rect.width / 2,
-            clientY: rect.top + rect.height / 2,
-            button: 0,
-        }));
-    });
-    await page.waitForFunction(() => {
+    await page.evaluate(() => document.addEventListener('pointerdown', event => {
+        if (!event.target.closest('.jpdb-subtitle-primary .jpdb-reader-word')) return;
         const profile = window.__yomuDemoCaptionProfile;
-        return Boolean(profile?.pauseAt && profile?.shellAt);
-    }, null, { timeout: 2000 });
+        profile.startedAt = performance.now();
+        // Desktop hover can legitimately pause and open the word before down.
+        if (document.querySelector('.yomu-band-video').paused) profile.pauseAt = profile.startedAt;
+        const popover = document.querySelector('.jpdb-reader-popover');
+        if (popover) { profile.shellAt = profile.startedAt; profile.text = popover.textContent.trim().slice(0, 180); }
+    }, { capture: true, once: true }));
+    await page.locator('.yomu-band-video').evaluate(video => video.play());
+    await page.mouse.click(point.x, point.y);
+    await page.waitForFunction(word => {
+        const profile = window.__yomuDemoCaptionProfile;
+        return profile?.pauseAt !== null && profile?.shellAt !== null && profile?.text.includes(word);
+    }, point.word, { timeout: 2000 }).catch(async error => {
+        throw new Error(`${error.message}: ${JSON.stringify(await page.evaluate(() => ({ profile: window.__yomuDemoCaptionProfile, paused: document.querySelector('.yomu-band-video').paused })))}`);
+    });
     const profile = await page.evaluate(() => {
-        window.__yomuDemoCaptionProfileObserver?.disconnect?.();
+        window.__yomuDemoCaptionProfileObserver?.disconnect();
         const profile = window.__yomuDemoCaptionProfile;
         const delta = value => value === null ? null : Math.round((value - profile.startedAt) * 10) / 10;
-        return {
-            pauseMs: delta(profile.pauseAt),
-            popoverShellMs: delta(profile.shellAt),
-            popoverTextMs: delta(profile.textAt),
-            text: profile.text,
-        };
+        return { pauseMs: delta(profile.pauseAt), popoverShellMs: delta(profile.shellAt),
+            popoverTextMs: delta(profile.textAt), text: profile.text };
     });
-    await page.keyboard.press('Escape').catch(() => undefined);
+    await page.keyboard.press('Escape');
     return profile;
 }
 
@@ -552,13 +544,27 @@ async function installDocsAuditNetworkMocks(context) {
         status: 200,
         contentType: 'application/json; charset=utf-8',
         headers: { 'Access-Control-Allow-Origin': '*' },
-        body: '{"tokens":[],"vocabulary":[]}',
+        body: docsAuditJitenResponse(new URL(route.request().url())),
     }));
     await context.route(/^https:\/\/assets\.languagepod101\.com\//, route => route.fulfill({
         status: 204,
         headers: { 'Access-Control-Allow-Origin': '*' },
         body: '',
     }));
+}
+
+// Give the first real VTT cue a dictionary answer. Empty API stubs can paint
+// fallback spans, but cannot prove authoritative word lookup from a pointer.
+function docsAuditJitenResponse(url) {
+    if (url.pathname.endsWith('/vocabulary/parse')) {
+        return JSON.stringify((url.searchParams.get('text') ?? '').includes('私')
+            ? [{ wordId: 900001, readingIndex: 0, originalText: '私' }] : []);
+    }
+    if (url.pathname.endsWith('/vocabulary/900001/0/info')) {
+        return JSON.stringify({ wordId: 900001, mainReading: { text: '私[わたし]' },
+            partsOfSpeech: ['pn'], definitions: [{ meanings: ['I; me'], partsOfSpeech: ['pronoun'] }], pitchAccents: [0] });
+    }
+    return '{"tokens":[],"vocabulary":[]}';
 }
 
 function fulfillDocsAuditProxyRequest(route) {
@@ -569,7 +575,7 @@ function fulfillDocsAuditProxyRequest(route) {
         status: 200,
         contentType: isApiRequest ? 'application/json; charset=utf-8' : 'text/html; charset=utf-8',
         headers: { 'Access-Control-Allow-Origin': '*' },
-        body: isApiRequest ? '{"tokens":[],"vocabulary":[]}' : '<!doctype html><html><body></body></html>',
+        body: isApiRequest ? docsAuditJitenResponse(targetUrl) : '<!doctype html><html><body></body></html>',
     });
 }
 
