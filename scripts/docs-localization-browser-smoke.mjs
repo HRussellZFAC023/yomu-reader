@@ -779,21 +779,30 @@ async function assertStudyDoesNotContaminateRoot(browser) {
         await navigateLocaleProof(page, '/study/', 'Study');
         await page.waitForFunction(() => window.__YOMU_READER_RUNTIME__ === 'newtab'
             && document.documentElement.dataset.yomuHosted !== undefined);
-        await assertStudyPreviewUsesTrustedOnboardingLauncher(page);
+        await assertStudyPreviewStartsImmediatelyAndProtectsSettings(page);
         await assertEnglishHostedHomepage(page, 'Study-to-English homepage', { fresh: true });
     });
 }
 
-async function assertStudyPreviewUsesTrustedOnboardingLauncher(page) {
-    const launcher = page.locator('.jpdb-reader-onboarding-trusted-launcher');
+async function assertStudyPreviewStartsImmediatelyAndProtectsSettings(page) {
+    await page.locator('[data-newtab-expression]').waitFor({ state: 'visible', timeout: 20_000 });
+    assert.match((await page.locator('[data-newtab-expression]').textContent()) || '', /[\u3040-\u30ff\u3400-\u9fff]/,
+        'Fresh Study has no Japanese starter word');
+    assert.equal(await page.locator('.jpdb-reader-onboarding, .jpdb-reader-onboarding-trusted-launcher').count(), 0,
+        'Fresh Japanese Study opened the retired setup gate');
+    await page.locator('[data-newtab-action="reveal"]').click();
+    await page.locator('[data-newtab-action="grade"]').first().waitFor({ state: 'visible' });
+    assert.ok((await page.locator('[data-newtab-meaning]').textContent())?.trim(),
+        'Fresh Study starter has no meaning');
+    // The requested panel is consumed during startup. Leave the document first
+    // so the hash request cannot be consumed by an in-flight same-page runtime.
+    await page.goto('about:blank');
+    await page.goto(`${ORIGIN}/study/#settings=appearance`, { waitUntil: 'domcontentloaded' });
+    const launcher = page.locator('.jpdb-reader-settings-launcher');
     await launcher.waitFor({ state: 'visible', timeout: 20_000 });
-    await launcher.locator('[data-onboarding-action="open-trusted-setup"]')
-        .waitFor({ state: 'visible' });
-    assert.equal(
-        await launcher.locator('form, input, select, textarea, output').count(),
-        0,
-        'Untrusted docs preview exposed onboarding controls',
-    );
+    await launcher.locator('[data-trusted-settings-launcher]').waitFor({ state: 'visible' });
+    assert.equal(await launcher.locator('form, input, select, textarea, output, [data-file]').count(), 0,
+        'Untrusted docs preview exposed private Settings controls');
 }
 
 async function assertAcademyDoesNotContaminateRoot(browser) {
