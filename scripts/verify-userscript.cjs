@@ -637,16 +637,17 @@ function assertKanjiStudySplitBoundary() {
     ['Japanese grammar pattern table', 'const GRAMMAR_PATTERN_DATA'],
     ['Japanese grammar pattern parser', 'function parseGrammarRule'],
     ['grammar false-positive filters', 'const BARE_MITAI_DESIRE_FALSE_POSITIVE_RE'],
-    ['Spanish target grammar module', 'const SPANISH_GRAMMAR'],
-    ['French target grammar module', 'const FRENCH_GRAMMAR'],
-    ['German target grammar module', 'const GERMAN_GRAMMAR'],
-    ['Russian target grammar module', 'const RUSSIAN_GRAMMAR'],
     ['grammar hint example renderer', 'function renderGrammarHintExamples'],
   ];
 
   for (const [label, signature] of extractedSignatures) {
     if (code.includes(signature)) fail(`ADR-0003 split regression: ${label} implementation leaked into ${USERSCRIPT_RELATIVE_PATH}.`);
     if (!companionCode.includes(signature)) fail(`ADR-0003 split regression: ${label} is missing from dist/${greasyForkLibraryPath(kanjiStudyLibrary.fileName)}.`);
+  }
+  for (const name of ['SPANISH_GRAMMAR', 'FRENCH_GRAMMAR', 'GERMAN_GRAMMAR', 'RUSSIAN_GRAMMAR']) {
+    if (code.includes(`const ${name}`) || companionCode.includes(`const ${name}`)) {
+      fail(`Japanese-only regression: retired ${name} shipped in the userscript graph.`);
+    }
   }
 }
 
