@@ -871,13 +871,63 @@ describe('reader helpers', () => {
         // remains a genuine 44px one-tap target.
         expect(normalizedNewTabCss).toContain('.jpdb-reader-newtab-immersion .jpdb-reader-icon-mini { width: 44px !important; min-width: 44px !important; height: 44px !important; min-height: 44px !important; }');
         expect(normalizedNewTabCss).not.toContain('.jpdb-reader-newtab-revealed .jpdb-reader-newtab-shell { padding-bottom: max(148px');
-        expect(normalizedNewTabCss).toContain('.jpdb-reader-newtab .jpdb-reader-newtab-overflow, .jpdb-reader-newtab-more-menu .jpdb-reader-newtab-menu-item, .jpdb-reader-newtab-mode button, button.jpdb-reader-newtab-status:not(:disabled), .jpdb-reader-newtab-source-select, .jpdb-reader-newtab-searchbox button, .jpdb-reader-newtab-grade-target-select, .jpdb-reader-newtab-controls button:not([data-grade]), .jpdb-reader-newtab-search-links a, .jpdb-reader-newtab-search-links button, .jpdb-reader-newtab-handwriting summary, .jpdb-reader-newtab-handwriting-candidates button, .jpdb-reader-newtab-doodle-actions button, .jpdb-reader-newtab-search-card, .jpdb-reader-newtab-kanji-details .jpdb-reader-source-card > summary.jpdb-reader-local-title, .jpdb-reader-newtab-kanji-details .jpdb-reader-component-button, .jpdb-reader-newtab-kanji-vocab > button, .jpdb-reader-newtab-mini-action { min-height: 44px !important; }');
+        // The pencil is a searchbox button; handwriting is now a plain
+        // panel, so there is no separate summary control. Keep every surviving
+        // control under the same coarse-pointer 44px minimum.
+        const touchSelectors = [
+            '.jpdb-reader-newtab .jpdb-reader-newtab-overflow',
+            '.jpdb-reader-newtab-more-menu .jpdb-reader-newtab-menu-item',
+            '.jpdb-reader-newtab-mode button',
+            'button.jpdb-reader-newtab-status:not(:disabled)',
+            '.jpdb-reader-newtab-source-select',
+            '.jpdb-reader-newtab-searchbox button',
+            '.jpdb-reader-newtab-grade-target-select',
+            '.jpdb-reader-newtab-controls button:not([data-grade])',
+            '.jpdb-reader-newtab-search-links a',
+            '.jpdb-reader-newtab-search-links button',
+            '.jpdb-reader-newtab-handwriting-candidates button',
+            '.jpdb-reader-newtab-doodle-actions button',
+            '.jpdb-reader-newtab-search-card',
+            '.jpdb-reader-newtab-kanji-details .jpdb-reader-source-card > summary.jpdb-reader-local-title',
+            '.jpdb-reader-newtab-kanji-details .jpdb-reader-component-button',
+            '.jpdb-reader-newtab-kanji-vocab > button',
+            '.jpdb-reader-newtab-mini-action',
+        ];
+        const style = document.createElement('style');
+        style.textContent = `${NEW_TAB_CSS}\n${STATS_CSS}`;
+        document.head.append(style);
+        try {
+            const topLevelRules = Array.from(style.sheet!.cssRules);
+            const rules = topLevelRules
+                .filter(rule => rule.type === CSSRule.MEDIA_RULE && (rule as CSSMediaRule).media.mediaText === '(pointer: coarse)')
+                .flatMap(rule => Array.from((rule as CSSMediaRule).cssRules))
+                .filter(rule => rule.type === CSSRule.STYLE_RULE) as CSSStyleRule[];
+            // Palette contract: an install hint is descriptive text, not a
+            // selected/focused/primary action that should use the red accent.
+            const installDescription = topLevelRules.find(rule => rule.type === CSSRule.STYLE_RULE
+                && (rule as CSSStyleRule).selectorText.replace(/\s+/g, ' ').trim()
+                    === '.jpdb-reader-newtab-install-app[data-install-prompt-available="true"] .jpdb-reader-newtab-menu-description') as CSSStyleRule | undefined;
+            expect(installDescription?.style.getPropertyValue('color')).toBe('var(--jpdb-reader-muted)');
+            const rulesFor = (selector: string) => rules.filter(rule => rule.selectorText.split(',')
+                .some(value => value.replace(/\s+/g, ' ').trim() === selector));
+            for (const selector of touchSelectors) {
+                const matching = rulesFor(selector);
+                expect(matching.some(rule => rule.style.getPropertyValue('min-height') === '44px'
+                    && rule.style.getPropertyPriority('min-height') === 'important'), selector).toBe(true);
+            }
+            // Refresh and the new chart-view toggle share this sizing rule.
+            for (const selector of ['.jpdb-reader-stats-refresh', '.jpdb-reader-stats-view-toggle']) {
+                for (const property of ['width', 'min-width', 'height']) {
+                    expect(rulesFor(selector).some(rule => rule.style.getPropertyValue(property) === '44px'), `${selector}: ${property}`).toBe(true);
+                }
+            }
+        } finally {
+            style.remove();
+        }
         expect(normalizedNewTabCss).toContain('min-height: 44px !important; overflow: visible; touch-action: manipulation; }');
         expect(normalizedNewTabCss).toContain('.jpdb-reader-newtab-controls.jpdb-reader-newtab-grade-controls button::after { content: ""; position: absolute; inset: 0; border-radius: 10px; }');
         expect(normalizedNewTabCss).not.toContain('.jpdb-reader-newtab-theme-controls .jpdb-reader-theme-switch { min-height: 24px !important; }');
-        expect(normalizedNewTabCss).toContain('.jpdb-reader-newtab-install-app[data-install-prompt-available="true"] .jpdb-reader-newtab-menu-description { color: var(--jpdb-reader-accent-readable, var(--jpdb-reader-text)); }');
         expect(normalizedStatsCss).toContain('@media (pointer: coarse) { .jpdb-reader-stats-refresh, .jpdb-reader-stats-tabs button, .jpdb-reader-stats-activity-tabs button, .jpdb-reader-stats-panel-button, .jpdb-reader-stats-deck-toggle, .jpdb-reader-stats-connection-actions button { min-height: 44px; touch-action: manipulation; }');
-        expect(normalizedStatsCss).toContain('.jpdb-reader-stats-refresh { width: 44px; min-width: 44px; height: 44px; }');
         expect(normalizedStatsCss).not.toContain('.jpdb-reader-stats-bars { grid-template-columns: repeat(30, minmax(24px, 1fr)); overflow-x: auto; }');
         expect(normalizedStatsCss).not.toContain('.jpdb-reader-stats-month-strip { grid-auto-columns: 180px; }');
         expect(normalizedStatsCss).toContain('.jpdb-reader-stats-bar, .jpdb-reader-stats-heatmap-cell { touch-action: manipulation; }');

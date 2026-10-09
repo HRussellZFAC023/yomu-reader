@@ -655,6 +655,7 @@ describe('reader helpers', () => {
 
             expect(parse).toHaveBeenCalledWith([sentence], {
                 allowSegmentedFallback: true,
+                publicJitenPriority: 'lookup',
                 includeLocalPitch: false,
                 requireApi: true,
                 requireJpdb: true,
@@ -704,6 +705,7 @@ describe('reader helpers', () => {
 
             expect(parse).toHaveBeenCalledWith([sentence], {
                 allowSegmentedFallback: true,
+                publicJitenPriority: 'lookup',
                 includeLocalPitch: false,
                 requireApi: true,
                 requireJpdb: true,
