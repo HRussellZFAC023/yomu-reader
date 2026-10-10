@@ -6041,7 +6041,11 @@ button.jpdb-reader-newtab-study-hint-btn:active {
 }
 
 /* Loading: the refresh mark turns (it is the one place that says so). */
-.jpdb-reader-stats[aria-busy="true"] .jpdb-reader-stats-refresh {
+.jpdb-reader-stats-refresh-icon {
+  display: inline-block;
+}
+
+.jpdb-reader-stats[aria-busy="true"] .jpdb-reader-stats-refresh-icon {
   animation: jpdb-reader-stats-turn 1s linear infinite;
 }
 
@@ -6052,7 +6056,7 @@ button.jpdb-reader-newtab-study-hint-btn:active {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .jpdb-reader-stats[aria-busy="true"] .jpdb-reader-stats-refresh {
+  .jpdb-reader-stats[aria-busy="true"] .jpdb-reader-stats-refresh-icon {
     animation: none;
     color: var(--jpdb-reader-muted);
   }

@@ -69,7 +69,7 @@ export function renderNewTabStatsContent(options: NewTabStatsContentOptions): HT
                 dataset: { newtabAction: newTabAction('stats-refresh') },
                 'aria-label': text('statsRefresh'),
                 title: text('statsRefresh'),
-            }, '↻'),
+            }, el('span', { class: 'jpdb-reader-stats-refresh-icon', 'aria-hidden': 'true' }, '↻')),
         ),
         ...(empty
             ? [renderStatsSourceTabs(context), renderStatsEmpty(text), renderStatsConnections(context, 'actionable')]

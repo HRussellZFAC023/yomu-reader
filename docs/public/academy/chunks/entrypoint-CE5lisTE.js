@@ -264465,7 +264465,7 @@ function padClockPart(value) {
 const DEFAULT_ACADEMY_STUDY_DURATION_MS = DEFAULT_STUDY_DURATION_MS;
 class StudyRuntimeLoadFailure extends Error {
 }
-function createCanonicalAcademyStudyModule(loadRuntime = () => import("./runtime-DfCkje1B.js")) {
+function createCanonicalAcademyStudyModule(loadRuntime = () => import("./runtime-DEpf4eUD.js")) {
   return {
     async mount(host2, context2) {
       let runtime;

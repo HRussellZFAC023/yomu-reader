@@ -4,6 +4,7 @@
 
 ### Fixed
 
+- The Study refresh icon turns while loading, with the button staying still.
 - Request Japanese site keeps working after later Google searches and other navigation that drops locale markers. YouTube retains its reload-loop protection.
 - Image OCR taps reuse existing recognized text. Automatic image scans show a corner mark only after text is ready, and hidden or overlapping image copies no longer keep duplicate marks.
 - Words without a study state no longer pick up grey underlines on website controls. Reddit reply and timestamp labels receive annotations; hold a word in a native control to open lookup while a quick tap keeps its action.

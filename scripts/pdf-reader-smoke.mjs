@@ -1014,7 +1014,21 @@ async function turnToSecondScannedPage(page) {
     await page.waitForFunction(() => {
         const rect = document.querySelector('.pdf-page[data-page-number="2"]')?.getBoundingClientRect();
         return rect && rect.top >= 0 && rect.top <= 180;
-    }, undefined, { timeout: 8000 });
+    }, undefined, { timeout: 8000 }).catch(async error => {
+        const geometry = await page.evaluate(() => {
+            const element = document.querySelector('.pdf-page[data-page-number="2"]');
+            const rect = element?.getBoundingClientRect();
+            return {
+                page: rect && { top: rect.top, bottom: rect.bottom, height: rect.height },
+                scrollY: window.scrollY,
+                scrolling: [...document.querySelectorAll('body,main,.viewer,.pages')].map(node => ({
+                    name: node.tagName, className: node.className,
+                    top: node.scrollTop, height: node.clientHeight, content: node.scrollHeight,
+                })),
+            };
+        });
+        throw new Error(`scanned page 2 did not settle in view: ${error.message}\n${JSON.stringify({ geometry, nav: await readNavState(page) })}`);
+    });
     await waitForPageCanvas(page, 2);
     await waitForScannedPageReady(page, 2);
     const pageTurnMs = Date.now() - pageTurnStart;

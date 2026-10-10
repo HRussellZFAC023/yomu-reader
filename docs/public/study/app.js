@@ -106299,7 +106299,7 @@ ${newTabCardReading(card)}`;
           dataset: { newtabAction: newTabAction("stats-refresh") },
           "aria-label": text2("statsRefresh"),
           title: text2("statsRefresh")
-        }, "↻")
+        }, el("span", { class: "jpdb-reader-stats-refresh-icon", "aria-hidden": "true" }, "↻"))
       ),
       ...empty ? [renderStatsSourceTabs(context), renderStatsEmpty(text2), renderStatsConnections(context, "actionable")] : sourceEmpty ? [renderStatsSourceTabs(context), renderStatsConnections(context, "selected")] : [...renderStatsDashboard(context), renderStatsConnections(context, "informative")]
     );

@@ -9,6 +9,7 @@ export interface ReviewedDocsMessage {
 }
 
 const HOSTED_DOCS_JA_COPY: Record<string, string> = {
+    "The Study refresh icon turns while loading, with the button staying still.": "Studyの更新中はアイコンだけが回転し、ボタンは動かないようにしました。",
     "Request Japanese site keeps working after later Google searches and other navigation that drops locale markers. YouTube retains its reload-loop protection.": "Googleで続けて検索した場合や、移動先のURLから言語指定が消えた場合も、「日本語のサイトを要求」が働くようにしました。YouTubeで読み込みが繰り返されるのを防ぐ仕組みは保っています。",
     "Image OCR taps reuse existing recognized text. Automatic image scans show a corner mark only after text is ready, and hidden or overlapping image copies no longer keep duplicate marks.": "画像内の文字をタップすると、すでに読み取った文字で検索します。自動読み取りのマークは文字を読み取った後だけ表示し、非表示または重なった画像のマークが二重に残らないようにしました。",
     "Words without a study state no longer pick up grey underlines on website controls. Reddit reply and timestamp labels receive annotations; hold a word in a native control to open lookup while a quick tap keeps its action.": "学習状況のない単語がウェブサイトのコントロール上で灰色の下線を付けられる問題を修正しました。Redditの返信や時刻のラベルにも注釈を付け、コントロール内の単語を長押しすると検索できます。短いタップでは元の操作を行えます。",
