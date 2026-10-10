@@ -12,7 +12,7 @@
 // @match *://*/*
 // @match file:///*
 // @require https://yomureader.com/greasyfork/yomu-runtime.d9964be094f3.user.js#sha256=2ZZL4JTzfovbSmOm2D243AQ9fN3M55nNmn5P2Qsa5Dc=
-// @resource yomuCss  https://yomureader.com/yomu.812cde48cb3b.css#sha256=gSzeSMs7tbvhQ/7kKOMMm9sG26zreaxWQMlgKfUqq2E=
+// @resource yomuCss  https://yomureader.com/yomu.3502c5e73d8a.css#sha256=NQLF5z2K6KHu/xkRuDI2jJ3+La9JnKW1CGQtDSNr6gc=
 // @connect api.jiten.moe
 // @connect api.tatoeba.org
 // @connect tatoeba.org

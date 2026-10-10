@@ -7911,15 +7911,18 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
    No sibling selector here: one over page words made Chromium annotate a
    one-root page ten times slower. WebKit stops centring a reading whose
    margins make it narrower than its kanji, so the margin is never more than
-   that half character: solid kana and shared tracking (above) keep the
-   reading at least that much wider. Page words only, in flow or passive
+   that half character: ic follows the font's CJK glyph advance, with em
+   retained for engines without ic support. Solid kana and shared tracking
+   (above) keep the reading at least that much wider. Page words only, in flow or passive
    (prose with links); a text mirror lays its copy over the host's own text
    and must keep the host's widths. */
 .jpdb-reader-scan-word:not(:is(.jpdb-reader-text-mirror, .jpdb-reader-control-text-mirror) *) > ruby:is(.jpdb-reader-ruby-overhang:not(.jpdb-reader-ruby-at-start, .jpdb-reader-ruby-at-end), .jpdb-reader-ruby-start-overhang):not(.jpdb-reader-ruby-line-edge) > rt.jpdb-reader-furi {
   margin-inline-start: -0.5em;
+  margin-inline-start: -0.5ic;
 }
 .jpdb-reader-scan-word:not(:is(.jpdb-reader-text-mirror, .jpdb-reader-control-text-mirror) *) > ruby:is(.jpdb-reader-ruby-overhang:not(.jpdb-reader-ruby-at-start, .jpdb-reader-ruby-at-end), .jpdb-reader-ruby-end-overhang):not(.jpdb-reader-ruby-line-edge) > rt.jpdb-reader-furi {
   margin-inline-end: -0.5em;
+  margin-inline-end: -0.5ic;
 }
 .jpdb-reader-word ruby {
   position: static !important;
