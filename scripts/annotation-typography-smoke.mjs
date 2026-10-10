@@ -185,7 +185,9 @@ async function checkScenario(browser, engine, theme) {
                             const range = document.createRange();
                             range.setStart(node, offset);
                             range.setEnd(node, offset + 1);
-                            return range.getBoundingClientRect();
+                            const rect = range.getClientRects()[0];
+                            if (!rect) throw new Error('Native glyph has no visible client rectangle');
+                            return rect;
                         }
                         offset -= node.data.length;
                     }
@@ -318,8 +320,11 @@ function fail(message, details) {
 }
 
 function fixturePage(paper, ink) {
+    // Match an installed Japanese face on each runner. An unnamed serif
+    // fallback can choose different glyph metrics in plain and ruby runs.
+    // IPAGothic is installed by Playwright's Linux browser dependencies.
     return `<!doctype html><html lang="ja"><head><meta charset="utf-8"><title>Yomu annotation typography smoke</title>
-<style>body{margin:0;padding:24px;background:${paper};color:${ink};font:20px/1.9 "Hiragino Mincho ProN","Noto Serif JP",serif}a{color:${ink === '#202122' ? '#3366cc' : '#88a3e8'}}${HOSTILE_CSS}</style>
+<style>body{margin:0;padding:24px;background:${paper};color:${ink};font:20px/1.9 "Hiragino Mincho ProN","Noto Serif CJK JP","IPAGothic",serif}a{color:${ink === '#202122' ? '#3366cc' : '#88a3e8'}}${HOSTILE_CSS}</style>
 </head><body><main><p id="sentence" class="tracked">${SENTENCE}</p><p id="linked">${LINKED}</p><p id="overhang">${OVERHANG}</p><p id="one-sided">${ONE_SIDED}</p><p id="line-head" style="width:6.5em">${LINE_HEAD}</p></main></body></html>`;
 }
 
