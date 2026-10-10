@@ -100,10 +100,10 @@ const pages = [
                   <div id="chips-content">
                     <iron-selector id="chips" role="tablist" selected-attribute="selected">
                       <yt-chip-cloud-chip-renderer selected="" chip-style="STYLE_HOME_FILTER">
-                        <button role="tab" aria-selected="true" data-proof-page-owned data-proof-text="観光">観光</button>
+                        <button role="tab" aria-selected="true" data-proof-page-owned data-proof-label-required data-proof-text="観光">観光</button>
                       </yt-chip-cloud-chip-renderer>
                       <yt-chip-cloud-chip-renderer chip-style="STYLE_HOME_FILTER">
-                        <button role="tab" aria-selected="false" data-proof-page-owned data-proof-text="関連動画">関連動画</button>
+                        <button role="tab" aria-selected="false" data-proof-page-owned data-proof-label-required data-proof-text="関連動画">関連動画</button>
                       </yt-chip-cloud-chip-renderer>
                     </iron-selector>
                   </div>
@@ -206,8 +206,8 @@ const pages = [
         html: youtubeShell(`
             <ytd-app>
               <ytd-mini-guide-renderer class="mini-guide">
-                <ytd-mini-guide-entry-renderer><a class="guide-entry" href="/"><span data-proof-page-owned data-proof-text="ホーム">ホーム</span></a></ytd-mini-guide-entry-renderer>
-                <ytd-mini-guide-entry-renderer><a class="guide-entry" href="/feed/subscriptions"><span data-proof-page-owned data-proof-text="登録チャンネル">登録チャンネル</span></a></ytd-mini-guide-entry-renderer>
+                <ytd-mini-guide-entry-renderer><a class="guide-entry" href="/"><span data-proof-page-owned data-proof-label-required data-proof-text="ホーム">ホーム</span></a></ytd-mini-guide-entry-renderer>
+                <ytd-mini-guide-entry-renderer><a class="guide-entry" href="/feed/subscriptions"><span data-proof-page-owned data-proof-label-required data-proof-text="登録チャンネル">登録チャンネル</span></a></ytd-mini-guide-entry-renderer>
                 <ytd-mini-guide-entry-renderer><a class="guide-entry" href="/feed/you"><span>マイページ</span></a></ytd-mini-guide-entry-renderer>
               </ytd-mini-guide-renderer>
               <ytd-browse page-subtype="channels" class="channel">
@@ -423,7 +423,9 @@ try {
         const result = await runProofAcrossScroll(page);
         const clipHover = await auditClipHoverMirrors(page);
         result.clipHover = clipHover;
-        result.failures.push(...clipHover.failures);
+        const nativeActions = await auditNativeChromeActions(page);
+        result.nativeActions = nativeActions;
+        result.failures.push(...clipHover.failures, ...nativeActions.failures);
         result.pass = result.failures.length === 0;
         const screenshotPath = join(outputRoot, `${spec.name}.png`);
         await page.screenshot({ path: screenshotPath, fullPage: true });
@@ -456,6 +458,29 @@ console.log(JSON.stringify({
 }, null, 2));
 
 if (!report.pass) process.exitCode = 1;
+
+async function auditNativeChromeActions(page) {
+    const failures = [];
+    let clicked = 0;
+    for (const label of await page.locator('[data-proof-page-owned]').all()) {
+        const point = await label.evaluate(element => {
+            const rect = element.getBoundingClientRect();
+            const control = element.closest('button,a[href],[role="button"],[role="tab"]');
+            if (!control || rect.width <= 0 || rect.height <= 0 || rect.top < 50 || rect.bottom > innerHeight) return null;
+            const x = (rect.left + rect.right) / 2;
+            const y = (rect.top + rect.bottom) / 2;
+            const hit = document.elementFromPoint(x, y);
+            return { x, y, label: element.dataset.proofText, nativeHit: control.contains(hit), before: window.__yomuProofNativeClicks(element) };
+        });
+        if (!point) continue;
+        if (!point.nativeHit) { failures.push(point.label + ': annotation intercepted native hit target'); continue; }
+        await page.mouse.click(point.x, point.y);
+        const after = await label.evaluate(element => window.__yomuProofNativeClicks(element));
+        if (after !== point.before + 1) failures.push(point.label + ': native click did not reach its authored control exactly once');
+        else clicked++;
+    }
+    return { clicked, failures };
+}
 
 function word(surface, reading, pitchClass) {
     const index = vocabularyIndexSeed.next().value;
@@ -830,18 +855,30 @@ let nextProofTargetId = 0;
 const proofAppliedScanParents = new WeakSet();
 const proofPageOwnedInitialSnapshots = new WeakMap();
 const proofPageOwnedScanAdmissions = new WeakMap();
+const proofNativeTargetSnapshots = new WeakMap();
+const proofNativeClicks = new WeakMap();
 
+window.__yomuProofNativeClicks = element => proofNativeClicks.get(element.closest('button,a[href],[role="button"],[role="tab"]'));
 window.__yomuRubyCoverageProof = async function runRubyCoverageProof(options) {
     const vocabulary = [...options.vocabulary].sort((a, b) => b.surface.length - a.surface.length);
     document.documentElement.classList.add('jpdb-reader-word-underline-pitch', 'jpdb-reader-word-text-jpdb');
     const allProofTargets = Array.from(document.querySelectorAll('[data-proof-target]'));
     const pageOwnedChromeElements = Array.from(document.querySelectorAll('[data-proof-page-owned]'));
     pageOwnedChromeElements.forEach(element => {
+        const control = element.closest('button,a[href],[role="button"],[role="tab"]');
+        if (control && !proofNativeClicks.has(control)) {
+            proofNativeClicks.set(control, 0);
+            control.addEventListener('click', event => {
+                event.preventDefault(); // Fixture navigation records its action without leaving the proof page.
+                proofNativeClicks.set(control, proofNativeClicks.get(control) + 1);
+            });
+        }
         if (!proofPageOwnedInitialSnapshots.has(element)) {
             proofPageOwnedInitialSnapshots.set(element, pageOwnedChromeSnapshot(element));
         }
     });
     allProofTargets.forEach(element => {
+        if (!proofNativeTargetSnapshots.has(element)) proofNativeTargetSnapshots.set(element, pageOwnedChromeSnapshot(element));
         if (element.dataset.proofTargetId === undefined) {
             element.dataset.proofTargetId = String(nextProofTargetId);
             nextProofTargetId += 1;
@@ -897,7 +934,7 @@ window.__yomuRubyCoverageProof = async function runRubyCoverageProof(options) {
     }
     proofInitialized = true;
     const proofTargets = visibleProofTargets().map(element => auditProofTarget(element, vocabulary));
-    const pageOwnedChrome = pageOwnedChromeElements.map(auditPageOwnedChrome);
+    const pageOwnedChrome = pageOwnedChromeElements.map(element => auditPageOwnedChrome(element, vocabulary));
     const hiddenFeedback = auditHiddenFeedback(proofTargetSnapshots);
     const nativeCaptions = auditNativeCaptionOverlays(proofTargetSnapshots);
     const projectedReadingInventory = auditProjectedReadingInventory();
@@ -958,39 +995,81 @@ const PAGE_OWNED_ANNOTATION_SELECTOR = [
     '[data-yomu-source-projected]',
 ].join(',');
 
+function proofWordScope(element) {
+    const portal = documentPortalReaderWordScopeForSource(element);
+    if (portal) return portal;
+    return element.matches('.jpdb-reader-text-mirror') ? element
+        : Array.from(element.querySelectorAll('.jpdb-reader-text-mirror')).find(mirror => mirror.parentElement === element) || element;
+}
+
 function pageOwnedChromeSnapshot(element) {
     const rect = element.getBoundingClientRect();
+    const authored = element.cloneNode(true);
+    authored.querySelectorAll('.jpdb-reader-text-mirror').forEach(mirror => mirror.remove());
+    const readerAttribute = name => name.startsWith('data-yomu-') || name.startsWith('data-jpdb-reader-');
+    [authored, ...authored.querySelectorAll('*')].forEach(node => {
+        Array.from(node.attributes).forEach(attribute => {
+            if (readerAttribute(attribute.name)) node.removeAttribute(attribute.name);
+        });
+        Array.from(node.classList).filter(name => name.startsWith('jpdb-reader-')).forEach(name => node.classList.remove(name));
+        if (!node.className) node.removeAttribute('class');
+        Array.from(node.style).filter(name => name.startsWith('--jpdb-') || name.startsWith('--yomu-'))
+            .forEach(name => node.style.removeProperty(name));
+        // A mirror's containing block does not change its authored text/box.
+        if (node === authored && element.querySelector('.jpdb-reader-text-mirror')) {
+            node.style.removeProperty('position');
+            node.style.removeProperty('visibility');
+        }
+        if (!node.style.cssText) node.removeAttribute('style');
+    });
+    const style = getComputedStyle(element);
+    const paint = ['visibility', 'opacity', 'color', 'webkitTextFillColor', 'fontFamily', 'fontSize', 'fontWeight', 'lineHeight', 'whiteSpace']
+        .map(name => style[name]);
+    const glyphRects = [];
+    const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT);
+    const range = document.createRange();
+    while (walker.nextNode()) {
+        const node = walker.currentNode;
+        if (!node.textContent.trim() || node.parentElement.closest('rt,rp,.jpdb-reader-text-mirror,.jpdb-reader-detached-furi,[data-yomu-projected-reading]')) continue;
+        range.selectNodeContents(node);
+        for (const box of range.getClientRects()) glyphRects.push([box.left - rect.left, box.top - rect.top, box.width, box.height]);
+    }
     return {
-        text: compactText(element.textContent || ''),
-        html: element.innerHTML,
-        attributes: Array.from(element.attributes)
-            .map(attribute => attribute.name + '=' + attribute.value)
-            .sort(),
-        width: rect.width,
-        height: rect.height,
+        paint, glyphRects,
+        text: compactText(authored.textContent || ''),
+        html: authored.innerHTML,
+        attributes: Array.from(authored.attributes).map(attribute => attribute.name + '=' + attribute.value).sort(),
+        width: rect.width, height: rect.height,
+        scrollWidth: element.scrollWidth, scrollHeight: element.scrollHeight,
+        clientWidth: element.clientWidth, clientHeight: element.clientHeight,
     };
 }
 
-function auditPageOwnedChrome(element) {
+function auditPageOwnedChrome(element, vocabulary) {
     const label = element.getAttribute('data-proof-text') || compactText(element.textContent || '');
     const initial = proofPageOwnedInitialSnapshots.get(element);
     const current = pageOwnedChromeSnapshot(element);
-    const sourceElements = [element, ...element.querySelectorAll('*')];
-    const documentPortal = sourceElements.some(source => {
-        const wordScope = documentPortalReaderWordScopeForSource(source);
-        return Boolean(wordScope?.classList.contains('jpdb-reader-document-annotation-portal'));
-    });
+    const wordScope = proofWordScope(element);
+    const words = renderedWordDetails(wordScope, true);
     const productionScanTexts = [...(proofPageOwnedScanAdmissions.get(element) ?? [])];
-    const nativeAnnotationCount = element.querySelectorAll(PAGE_OWNED_ANNOTATION_SELECTOR).length;
+    const nativeAnnotationCount = Array.from(element.querySelectorAll(PAGE_OWNED_ANNOTATION_SELECTOR))
+        .filter(node => !node.closest('.jpdb-reader-text-mirror')).length;
     const failures = [];
     if (!initial) failures.push('missing initial page-owned snapshot');
-    if (initial && JSON.stringify(current) !== JSON.stringify(initial)) {
-        failures.push('native page-owned subtree or geometry changed');
-    }
-    if (productionScanTexts.length) failures.push('page-owned chrome entered the production scan');
-    if (documentPortal) failures.push('page-owned chrome received a document annotation portal');
-    if (nativeAnnotationCount) failures.push('page-owned chrome received inline reader annotations');
-    return { label, productionScanTexts, documentPortal, nativeAnnotationCount, initial, current, failures };
+    if (initial && JSON.stringify(current) !== JSON.stringify(initial)) failures.push('authored native text, attributes or geometry changed');
+    if (nativeAnnotationCount) failures.push('reader markup entered the authored subtree outside its mirror');
+    const required = element.hasAttribute('data-proof-label-required');
+    const expected = tokensForText(label, vocabulary).map(token => token.card.spelling);
+    if (required && (!productionScanTexts.length || !words.length)) failures.push('required native label was not admitted for lookup');
+    if (required && missingExpectedSurfaces(expected, words.map(word => word.surface)).length) failures.push('required native label lost expected lookup surfaces');
+    if (!required && (productionScanTexts.length || words.length)) failures.push('excluded native action was annotated');
+    const readingSources = Array.from(wordScope.querySelectorAll('.jpdb-reader-detached-furi'))
+        .filter(reading => detachedReadingNeedsProjection(reading, element));
+    const projections = associateProjectedReadings(readingSources, element);
+    if (required && projections.length !== readingSources.length) failures.push('native label lost readable projected kana');
+    if (words.some(word => !word.privateJpdbIdentity)) failures.push('native label lacks coherent private lookup identity');
+    if (words.some(word => word.publicPrivateAttributes.length)) failures.push('native label leaked private lookup attributes');
+    return { label, required, productionScanTexts, nativeAnnotationCount, initial, current, words, failures };
 }
 
 function scanTargetTouchesElement(target, element) {
@@ -1075,12 +1154,12 @@ function auditProofTarget(element, vocabulary) {
     // reader words in a body portal, outside the framework-owned source DOM.
     // Audit the registered source scope instead of mistaking that ownership
     // boundary for missing annotation coverage.
-    const wordScope = documentPortalReaderWordScopeForSource(element) ?? element;
+    const wordScope = proofWordScope(element);
     const expectsDocumentPortal = element.dataset.proofExpectDocumentPortal === 'true';
     const documentPortal = wordScope !== element
         && wordScope.classList.contains('jpdb-reader-document-annotation-portal');
     const portalScopeMatchesTarget = wordScope === element
-        || compactText(wordScope.dataset.sourceText || '') === compactText(element.textContent || '');
+        || compactText(wordScope.dataset.sourceText || '') === pageOwnedChromeSnapshot(element).text;
     const sourceFragmentCount = wordScope.querySelectorAll('.jpdb-reader-source-fragment').length;
     const nativeAnnotationWordCount = element.querySelectorAll('.jpdb-reader-word').length;
     // Audit every word inside an admitted visible target. Words on a later
@@ -1108,7 +1187,7 @@ function auditProofTarget(element, vocabulary) {
     const currentHeight = element.getBoundingClientRect().height;
     const detachedReadings = Array.from(wordScope.querySelectorAll('.jpdb-reader-detached-furi'));
     const detachedReadingCount = detachedReadings.length;
-    const expectedProjectedReadingSources = detachedReadings.filter(detachedReadingNeedsProjection);
+    const expectedProjectedReadingSources = detachedReadings.filter(reading => detachedReadingNeedsProjection(reading, element));
     const projectedReadingAssociations = associateProjectedReadings(expectedProjectedReadingSources, element);
     const associatedSources = new Set(projectedReadingAssociations.map(association => association.source));
     const missingProjectedReadings = expectedProjectedReadingSources.filter(source => !associatedSources.has(source));
@@ -1128,8 +1207,7 @@ function auditProofTarget(element, vocabulary) {
     const clippedProjectedReadings = projectedReadingAssociations.filter(association => association.clipped);
     const projectedReadingMisaligned = misalignedProjectedReadings.length > 0;
     const detachedReadingClipped = clippedProjectedReadings.length > 0;
-    const projectedReadingsComplete = expectedProjectedReadingSources.length > 0
-        && missingProjectedReadingCount === 0
+    const projectedReadingsComplete = missingProjectedReadingCount === 0
         && !projectedReadingMisaligned
         && !detachedReadingClipped;
     // A native line clamp intentionally clips paint outside its authored box.
@@ -1137,9 +1215,14 @@ function auditProofTarget(element, vocabulary) {
     // source ranges have live, aligned, unclipped projected readings. Merely
     // retaining hidden source spans would let disappeared-but-clickable
     // furigana pass this release proof.
+    const nativeLayout = proofNativeTargetSnapshots.get(element);
+    const nativeLayoutPreserved = !nativeLayout || (Math.abs(currentHeight - nativeLayout.height) <= 1
+        && Math.abs(element.getBoundingClientRect().width - nativeLayout.width) <= 1
+        && element.scrollHeight <= nativeLayout.scrollHeight + 1
+        && element.scrollWidth <= nativeLayout.scrollWidth + 1
+        && JSON.stringify(pageOwnedChromeSnapshot(element).glyphRects) === JSON.stringify(nativeLayout.glyphRects));
     const layoutNeutralDetached = detachedReadingCount > 0
-        && projectedReadingsComplete
-        && (initialHeight <= 0 || currentHeight <= initialHeight + 1);
+        && projectedReadingsComplete && nativeLayoutPreserved;
     const clipMirrorHiddenAtRest = !clipMirror || getComputedStyle(clipMirror).visibility === 'hidden';
     const nativeHostVisibleAtRest = !clipMirror || Boolean(clipMirror.parentElement && isVisibleElement(clipMirror.parentElement));
     const nativeHostGlyphsPaintedAtRest = !clipMirror || (() => {
@@ -1194,6 +1277,7 @@ function auditProofTarget(element, vocabulary) {
     }
     if (rubyOutOfBounds) failures.push(rubyOutOfBounds + ' ruby annotations sit outside target bounds');
     if (clipConstrained && rubyRoomOwner) failures.push('clip-constrained target received forbidden ruby-room growth');
+    if (expectedClipInvariant && !nativeLayoutPreserved) failures.push('annotations grew the authored clip box or scroll overflow');
     if (expectedClipInvariant && !clipConstrained && !layoutNeutralDetached) failures.push('expected clipped target to use a layout-neutral render path');
     if (expectedClipInvariant && !clipMirror && !layoutNeutralDetached) failures.push('expected clipped target to retain either detached readings or an annotated hover mirror');
     if (clipMirror && !clipMirrorHiddenAtRest) failures.push('clip-constrained hover mirror is visible at rest');
@@ -1286,20 +1370,42 @@ function isVisibleProofTarget(element) {
             .find(isProofContentViewportVisibleElement));
 }
 
-function detachedReadingNeedsProjection(reading) {
+function detachedReadingNeedsProjection(reading, target) {
     const word = reading.closest('.jpdb-reader-word');
     if (!word) return false;
     const base = reading.closest('.jpdb-reader-detached-ruby') || word;
     const baseRect = base.getBoundingClientRect();
-    const readingFontSize = Number.parseFloat(getComputedStyle(reading).fontSize)
-        || Math.max(1, baseRect.height / 2);
+    const readingFontSize = Math.max(9, Number.parseFloat(getComputedStyle(reading).fontSize)
+        || Math.max(1, baseRect.height / 2));
     // The reading paints above its base. A base glyph can peek out below the
     // sticky proof header while the entire kana lane is still correctly
     // occluded; only demand a clone once that lane reaches usable content.
     if (baseRect.top - readingFontSize < proofContentViewportTop() - 0.5) return false;
+    if (readingCollidesWithAuthoredText(reading, target, baseRect, readingFontSize)) return false;
     const fragments = Array.from(word.querySelectorAll('.jpdb-reader-source-fragment'));
     if (fragments.length) return fragments.some(isProofContentViewportVisibleElement);
     return isProofContentViewportVisibleElement(word);
+}
+
+// Independent geometry oracle: waive paint only when preceding native text
+// occupies the base centre, which every readable projection must still cover.
+// Do not import the production crowding solver or trust its hidden-clone flag.
+function readingCollidesWithAuthoredText(reading, target, base, height) {
+    if (!target) return false;
+    const centre = (base.left + base.right) / 2;
+    const top = base.top - height;
+    const walker = document.createTreeWalker(target, NodeFilter.SHOW_TEXT);
+    const range = document.createRange();
+    while (walker.nextNode()) {
+        const node = walker.currentNode;
+        if (!node.textContent.trim() || node.parentElement.closest('rt,rp,.jpdb-reader-text-mirror,.jpdb-reader-detached-furi,[data-yomu-projected-reading]')) continue;
+        range.selectNodeContents(node);
+        for (const rect of range.getClientRects()) {
+            const precedingLine = (rect.top + rect.bottom) / 2 < base.top;
+            if (precedingLine && rect.bottom > top && rect.top < base.top && rect.left < centre && rect.right > centre) return true;
+        }
+    }
+    return false;
 }
 
 function associateProjectedReadings(sources, target) {
