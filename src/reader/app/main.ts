@@ -9318,7 +9318,6 @@ export class ReaderApp {
     }
 
     private showSettings(panel?: string, event?: Event): void {
-        if (openSettingsFromTrustedInteraction(event, this.settings.interfaceLanguage, message => this.toast(message), panel)) return;
         const settingsSurface = this.settingsSurface;
         if (settingsSurface) {
             void Promise.resolve()
@@ -9329,6 +9328,7 @@ export class ReaderApp {
                 });
             return;
         }
+        if (openSettingsFromTrustedInteraction(event, this.settings.interfaceLanguage, message => this.toast(message), panel)) return;
         const dialog = this.getSettingsDialog();
         if (dialog) {
             dialog.open(panel);

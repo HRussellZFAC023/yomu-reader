@@ -44947,7 +44947,6 @@ fetchAudioDataUrl: (audioUrls, timeoutMs) => this.immersionKit ? this.immersionK
 return context;
 }
 showSettings(panel, event) {
-if (openSettingsFromTrustedInteraction(event, this.settings.interfaceLanguage, (message) => this.toast(message), panel)) return;
 const settingsSurface = this.settingsSurface;
 if (settingsSurface) {
 void Promise.resolve().then(() => settingsSurface.open(panel)).catch((error) => {
@@ -44956,6 +44955,7 @@ this.toast(uiText(this.settings.interfaceLanguage, "settingsCompanionUnavailable
 });
 return;
 }
+if (openSettingsFromTrustedInteraction(event, this.settings.interfaceLanguage, (message) => this.toast(message), panel)) return;
 const dialog = this.getSettingsDialog();
 if (dialog) {
 dialog.open(panel);

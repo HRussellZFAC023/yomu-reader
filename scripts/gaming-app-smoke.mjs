@@ -789,7 +789,7 @@ async function inDeckDropdownWhileEnrichmentLands(overlay, leave) {
             `Desktop popup rebuilt under the open deck dropdown when enrichment landed: ${JSON.stringify(during)}`);
 
         // Typing a deck's name browses to it and saves nothing.
-        await overlay.keyboard.type('Academy');
+        await overlay.keyboard.type('Default');
         await overlay.waitForTimeout(600);
         assertSmoke(await savedToDeckToast(overlay).count() === 0 && (await wordsSavedToLocalDeck(overlay)).length === 0,
             'Typing in the closed deck dropdown saved the word before the learner pressed Enter.');
@@ -824,7 +824,7 @@ function wordsSavedToLocalDeck(overlay) {
 }
 
 function savedToDeckToast(overlay) {
-    return overlay.locator('.jpdb-reader-toast').filter({ hasText: /^Added to (deck|Academy)\.$/ });
+    return overlay.locator('.jpdb-reader-toast').filter({ hasText: /^Added to (deck|your default deck)\.$/ });
 }
 
 // Tab from the dropdown, the popup's last control, moves on past it (a dialog wraps it to
@@ -882,7 +882,7 @@ async function assertShiftTabOutOfDeckDropdownThenSave(overlay, popup) {
     await overlay.keyboard.press('Tab');
     assertSmoke(await popup.evaluate(root => document.activeElement?.matches('.jpdb-reader-deck-select') === true && root.contains(document.activeElement)),
         `Tab from ${beforeNow} did not return to the rebuilt deck dropdown.`);
-    await overlay.keyboard.type('Academy');
+    await overlay.keyboard.type('Default');
     await overlay.keyboard.press('Enter');
     await savedToDeckToast(overlay).first().waitFor({ state: 'attached', timeout: 15_000 });
     const saved = await wordsSavedToLocalDeck(overlay);

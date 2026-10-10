@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { openSettingsFromTrustedInteraction } from '../../src/reader/settings/sensitive-settings-surface';
+import { ReaderApp } from '../../src/reader/app/main';
 import { allowSyntheticReaderInteractionsForTests } from '../../src/reader/ui/trusted-interaction';
 
 afterEach(() => {
@@ -10,6 +11,21 @@ afterEach(() => {
 });
 
 describe('direct Settings handoff', () => {
+    it('keeps an injected native Settings surface authoritative for a trusted shortcut', async () => {
+        vi.stubGlobal('location', new URL('file:///yomu/overlay.html'));
+        allowSyntheticReaderInteractionsForTests(true);
+        const nativeOpen = vi.fn(async () => {});
+        const openTab = vi.fn();
+        vi.stubGlobal('GM_openInTab', openTab);
+        const app = new ReaderApp(undefined, false) as unknown as {
+            settingsSurface: { open: typeof nativeOpen };
+            showSettings(panel: string | undefined, event: Event): void;
+        };
+        app.settingsSurface = { open: nativeOpen };
+        app.showSettings(undefined, new KeyboardEvent('keydown'));
+        await vi.waitFor(() => expect(nativeOpen).toHaveBeenCalledWith(undefined));
+        expect(openTab).not.toHaveBeenCalled();
+    });
     it('opens synchronously from the original authorized gesture without mounting a dialog', () => {
         vi.stubGlobal('location', new URL('https://example.com/article'));
         const open = vi.fn();
