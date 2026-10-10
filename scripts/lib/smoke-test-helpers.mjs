@@ -1,6 +1,16 @@
 import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 
+// Deck names stay inside a closed shadow root. Exercise its native keyboard
+// selection rather than exposing that root or dispatching a synthetic change.
+export async function choosePrivateDeck(page, picker, prefix) {
+    await picker.waitFor({ state: 'visible', timeout: 15_000 });
+    await picker.focus();
+    if (!prefix) throw new Error('A native deck choice needs its visible label prefix');
+    await page.keyboard.type(prefix);
+    await page.keyboard.press('Enter');
+}
+
 export async function installUserscriptCssResource(page, cssPath, resourceName = 'yomuCss') {
     const css = readFileSync(cssPath, 'utf8');
     await withNavigationRetry(page, async () => {

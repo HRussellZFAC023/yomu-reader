@@ -17999,6 +17999,9 @@ html.jpdb-reader-doodle-active * {
   --subtitle-family: var(--jpdb-reader-font);
   --subtitle-weight: 760;
 }
+.jpdb-subtitle-player[hidden] {
+  display: none !important;
+}
 .jpdb-subtitle-list {
   -webkit-user-select: none;
   user-select: none;

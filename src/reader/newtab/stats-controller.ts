@@ -8,11 +8,10 @@ import type { NewTabConcreteSource } from './source';
 import type { NewTabUiState } from './state';
 import { Logger } from '../app/logger';
 import { gmStorageGet, gmStorageSet } from '../app/storage';
-import { OperationTracker } from '../core/operation-token';
+import { OperationTracker, type OperationToken } from '../core/operation-token';
 import { nearestElementByPoint, pointerPointFromEvent } from '../dom/pointer-geometry';
 import { effectiveJitenApiKey, hasJpdbApiCredential, hasJitenApiCredential } from '../settings/api-credential';
 import { loadJitenDailyStats } from '../dictionaries/jiten-stats-cache';
-import { ACADEMY_SRS_LABEL } from '../app/constants';
 import { dedupeWords } from './card-selection';
 import { canBrowseNewTabSrsSource, isSavedOnlyNewTabCard } from './srs-card-adapter';
 import { activeLearningTargetLanguage } from '../languages/target-runtime';
@@ -172,10 +171,12 @@ export class NewTabStatsController {
     private activityView: StatsActivityView = 'bars';
     private selectedDate = '';
     private loaded = false;
+    private loading = false;
+    private pendingUpdate?: { root: HTMLElement; promise: Promise<void> };
     private deckPrefsLoaded = false;
     private disabledAnkiDecks = new Set<string>();
     private deckPrefsContext = '';
-    // Latest-wins guard for in-flight loads (the 1.6.173 'stats' scope).
+    // Loads and imports share the existing latest-wins dashboard scope.
     private readonly operations = new OperationTracker();
 
     private readonly clickHandlers: Partial<Record<NewTabStatsAction, StatsClickHandler>> = {
@@ -184,7 +185,7 @@ export class NewTabStatsController {
         'stats-activity-view': root => this.toggleActivityView(root),
         'stats-select-day': (root, target, request) => this.selectDay(root, target, request.chartDayTarget),
         'stats-study-trouble': root => this.deps.studyTroubleCards(root),
-        'stats-refresh': root => { void this.loadInto(root, true); },
+        'stats-refresh': root => { if (!this.loading) void this.loadInto(root, true); },
         'stats-toggle-anki-deck': (root, target) => this.toggleAnkiDeck(root, target),
         'stats-connect-anki': root => { void this.connectAnki(root); },
         'stats-open-api-settings': () => this.deps.showSettings('api'),
@@ -202,6 +203,8 @@ export class NewTabStatsController {
     reset(): void {
         this.snapshot = emptyStatsDashboardSnapshot();
         this.loaded = false;
+        this.loading = false;
+        this.pendingUpdate = undefined;
         this.selectedDate = '';
         this.operations.begin('stats'); // invalidate any in-flight stats load
     }
@@ -229,25 +232,60 @@ export class NewTabStatsController {
         this.deps.syncThemeToggle(root);
         const study = root.querySelector<HTMLElement>('[data-newtab-study]');
         if (!study) return;
+        const tree = study.getRootNode();
+        const active = tree instanceof ShadowRoot ? tree.activeElement : study.ownerDocument.activeElement;
+        const focused = active instanceof HTMLElement && study.contains(active) && active.hasAttribute('data-newtab-action') ? active : null;
         study.removeAttribute('data-newtab-card');
         study.replaceChildren(renderNewTabStatsContent({
             activityMetric: this.activityMetric,
             activityView: this.activityView,
+            busy: this.loading,
             language: this.deps.resolvedLanguage(),
             selectedDate: this.selectedDate,
             selectedSource: this.selectedSource,
             snapshot: this.snapshot,
             text: key => this.deps.text(key),
         }));
+        if (focused) {
+            Array.from(study.querySelectorAll<HTMLElement>('[data-newtab-action]'))
+                .find(candidate => sameStatsControl(candidate, focused))?.focus({ preventScroll: true });
+        }
     }
 
-    async loadInto(root: HTMLElement, force = false): Promise<void> {
-        if (this.shouldSkipLoad(force)) return;
-        await this.loadDeckPrefs();
-        const settings = this.deps.getSettings();
-        const statsOp = this.operations.begin('stats');
-        this.snapshot = this.loadingSnapshot(settings);
-        if (this.deps.statsVisible()) this.render(root);
+    loadInto(root: HTMLElement, force = false): Promise<void> {
+        if (!force && this.pendingUpdate?.root === root) return this.pendingUpdate.promise;
+        if (this.shouldSkipLoad(force)) return Promise.resolve();
+        return this.updateStats(root, operation => this.loadSnapshotInto(root, operation));
+    }
+
+    private updateStats(root: HTMLElement, perform: (operation: OperationToken) => Promise<void>): Promise<void> {
+        const operation = this.operations.begin('stats');
+        this.loading = true;
+        if (this.deps.statsVisible()) {
+            if (!this.loaded) this.render(root);
+            else {
+                const surface = root.querySelector<HTMLElement>('.jpdb-reader-stats');
+                if (surface) {
+                    surface.setAttribute('aria-busy', 'true');
+                    surface.dataset.statsStatus = 'loading';
+                }
+                root.querySelector('.jpdb-reader-stats-refresh')?.setAttribute('aria-disabled', 'true');
+            }
+        }
+        const promise = perform(operation).finally(() => {
+            if (!operation.superseded) {
+                this.loading = false;
+                if (root.isConnected && this.deps.statsVisible()) this.render(root);
+            }
+            if (this.pendingUpdate?.promise === promise) this.pendingUpdate = undefined;
+        });
+        this.pendingUpdate = { root, promise };
+        return promise;
+    }
+
+    private async loadSnapshotInto(root: HTMLElement, statsOp: OperationToken): Promise<void> {
+        await this.loadDeckPrefs(statsOp);
+        if (!this.isCurrentLoad(statsOp.superseded, root)) return;
         const [history, jpdb, jiten, bunpro, wanikani, yomuLocal, anki] = await Promise.all([
             this.readJpdbHistory(),
             this.loadJpdbSource(),
@@ -270,7 +308,6 @@ export class NewTabStatsController {
             combined: combineStatsSources(jpdbWithHistory, jitenWithHistory, yomuLocal, bunpro, wanikani, anki),
         };
         this.loaded = true;
-        if (this.deps.statsVisible()) this.render(root);
     }
 
     private shouldSkipLoad(force: boolean): boolean {
@@ -279,22 +316,6 @@ export class NewTabStatsController {
 
     private isCurrentLoad(superseded: boolean, root: HTMLElement): boolean {
         return !superseded && root.isConnected;
-    }
-
-    private loadingSnapshot(settings: ReaderSettings): StatsDashboardSnapshot {
-        return {
-            jpdb: this.loadingOrUnavailable(hasJpdbApiCredential(settings), this.snapshot.jpdb, emptyStatsSource('jpdb', 'JPDB', this.deps.text('statsApiKeyMissing'), 'setup')),
-            jiten: this.loadingOrUnavailable(hasJitenApiCredential(settings), this.snapshot.jiten, emptyStatsSource('jiten', 'Jiten', this.deps.text('statsApiKeyMissing'), 'setup')),
-            bunpro: this.loadingOrUnavailable(this.deps.canUseBunproSource(), this.snapshot.bunpro, emptyStatsSource('bunpro', 'Bunpro', this.deps.text('statsApiKeyMissing'), 'setup')),
-            wanikani: this.loadingOrUnavailable(this.deps.canUseWanikaniSource(), this.snapshot.wanikani, emptyStatsSource('wanikani', 'WaniKani', this.deps.text('statsApiKeyMissing'), 'setup')),
-            yomuLocal: this.loadingOrUnavailable(this.deps.canUseYomuLocalSource(), this.snapshot.yomuLocal, emptyStatsSource('yomu-local', ACADEMY_SRS_LABEL, this.deps.text('statsNoData'), 'setup')),
-            anki: this.loadingOrUnavailable(this.shouldLoadAnki(settings), this.snapshot.anki, emptyStatsSource('anki', 'Anki', this.deps.text('statsConnectAnki'), 'setup')),
-            combined: this.loadingSource(this.snapshot.combined),
-        };
-    }
-
-    private loadingOrUnavailable<T extends StatsSourceSnapshot>(available: boolean, source: T, unavailable: T): T {
-        return available ? this.loadingSource(source) : unavailable;
     }
 
     // --- click handling ---
@@ -359,10 +380,6 @@ export class NewTabStatsController {
     }
 
     // --- per-source data loading ---
-
-    private loadingSource<T extends StatsSourceSnapshot | StatsDashboardSnapshot['combined']>(source: T): T {
-        return { ...source, status: 'loading', message: this.deps.text('statsLoading') };
-    }
 
     private async loadJpdbSource(): Promise<StatsSourceSnapshot> {
         const providers = this.jpdbStatsApiProviders(this.deps.getSettings());
@@ -575,10 +592,16 @@ export class NewTabStatsController {
 
     // --- JPDB review-history import ---
 
-    async importJpdbFile(root: HTMLElement, file: File): Promise<void> {
+    importJpdbFile(root: HTMLElement, file: File): Promise<void> {
+        return this.updateStats(root, operation => this.importJpdbSnapshot(root, file, operation));
+    }
+
+    private async importJpdbSnapshot(root: HTMLElement, file: File, operation: OperationToken): Promise<void> {
         try {
             const imported = parseJpdbReviewExportText(await file.text());
+            if (!this.isCurrentLoad(operation.superseded, root)) return;
             await gmStorageSet(NEW_TAB_STATS_JPDB_HISTORY_KEY, imported);
+            if (!this.isCurrentLoad(operation.superseded, root)) return;
             const jpdb = applyJpdbReviewImport({
                 ...this.snapshot.jpdb,
                 message: this.deps.text('statsImportReady'),
@@ -596,6 +619,7 @@ export class NewTabStatsController {
             this.selectedSource = this.selectedSource === 'anki' ? 'combined' : this.selectedSource;
             this.loaded = true;
         } catch (error) {
+            if (!this.isCurrentLoad(operation.superseded, root)) return;
             log.warn('JPDB stats import failed', error);
             this.snapshot = {
                 ...this.snapshot,
@@ -607,7 +631,6 @@ export class NewTabStatsController {
             };
             this.snapshot.combined = combineStatsSources(this.snapshot.jpdb, this.snapshot.jiten, this.snapshot.yomuLocal, this.snapshot.bunpro, this.snapshot.wanikani, this.snapshot.anki);
         }
-        this.render(root);
     }
 
     private async readJpdbHistory(): Promise<JpdbReviewImport | null> {
@@ -619,11 +642,11 @@ export class NewTabStatsController {
         }
     }
 
-    private async loadDeckPrefs(): Promise<void> {
+    private async loadDeckPrefs(operation?: OperationToken): Promise<void> {
         const context = this.deps.ankiProviderContext();
         if (this.hasDeckPrefsFor(context)) return;
         const disabled = await this.readDeckPrefs(context);
-        if (!this.isCurrentDeckPrefsContext(context)) return;
+        if (operation?.superseded || !this.isCurrentDeckPrefsContext(context)) return;
         this.disabledAnkiDecks = disabled;
         this.deckPrefsContext = context;
         this.deckPrefsLoaded = true;
@@ -654,6 +677,14 @@ export class NewTabStatsController {
         accounts[context] = disabledDecks;
         await gmStorageSet(NEW_TAB_STATS_DISABLED_ANKI_DECKS_KEY, { version: 2, accounts } satisfies StoredAnkiDeckPreferences);
     }
+}
+
+function sameStatsControl(candidate: HTMLElement, previous: HTMLElement): boolean {
+    return candidate.tagName === previous.tagName
+        && ['newtabAction', 'statsSource', 'statsActivityMetric', 'statsDay', 'statsAnkiDeck']
+            .every(key => candidate.dataset[key] === previous.dataset[key])
+        && candidate.closest<HTMLElement>('[data-stats-connection]')?.dataset.statsConnection
+            === previous.closest<HTMLElement>('[data-stats-connection]')?.dataset.statsConnection;
 }
 
 function storedAnkiDecksForContext(stored: StoredAnkiDeckPreferences | string[], context: string): string[] {

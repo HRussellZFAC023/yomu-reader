@@ -19,6 +19,8 @@ Read and watch Japanese you enjoy, every day. Look up what blocks you. Keep a fe
 4. **Save only the words you'll meet again.** Five to ten a day is plenty.
 5. **Put them in review.** In Study → Library, press Add to review.
 
+In Study, open Stats to check your review progress. Refresh keeps the current figures visible while loading.
+
 ## Rules {#rules}
 
 - **Pick what you enjoy over what's good for you.** A show you finish teaches more than a textbook you drop.

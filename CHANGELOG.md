@@ -1,5 +1,18 @@
 # Changelog
 
+## [2.1.2] - 2026-10-10
+
+### Fixed
+
+- Stats keeps its current figures and charts visible while refreshing. A first load shows a short loading message instead of empty charts.
+- Repeated refresh taps reuse the current load, and changing review services prevents old responses from replacing current statistics.
+- Stats keeps keyboard focus when choosing an activity metric, switching charts, selecting a day or refreshing.
+- Importing review history during a refresh keeps the imported result when the older refresh finishes.
+- The book library keeps its filter controls in place as you search. Clear filters sits beside the result count and stays hidden until needed.
+- Browser history navigation closes the donation chooser and releases the page behind it.
+- Subtitle controls start hidden and respect their hidden state, so pages without a video do not show or announce an empty player.
+- Updated nightly smoke checks for the private deck chooser, quiet Stats, current Study navigation and OCR hints, while preserving saving, privacy and layout assertions.
+
 ## [2.1.1] - 2026-10-10
 
 ### Fixed

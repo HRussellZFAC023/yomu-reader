@@ -333,7 +333,7 @@ async function verifyLateHostedAuthorityRegression({ browser }) {
         await page.exposeFunction('__yomuLateAuthoritySmokeRequest', request => mockedUserscriptRequest(request, requests));
         await page.route('**/*', route => fulfillLateAuthorityRequest(route, requests));
         await page.goto(HOSTED_STUDY_URL, { waitUntil: 'domcontentloaded' });
-        await page.waitForSelector('.jpdb-reader-onboarding', { state: 'visible', timeout: 20_000 });
+        await page.waitForSelector('.jpdb-reader-newtab-shell [data-newtab-study]', { state: 'visible', timeout: 20_000 });
 
         const beforeBridge = await page.evaluate(({ key, gmKey }) => {
             window.__yomuLateAuthorityChooserClicks = 0;
@@ -351,10 +351,10 @@ async function verifyLateHostedAuthorityRegression({ browser }) {
                 authoritativeRaw: localStorage.getItem(gmKey),
             };
         }, { key: YOMU_SETTINGS_KEY, gmKey: GM_SETTINGS_STORAGE_KEY });
-        assert(beforeBridge.url === HOSTED_STUDY_URL,
+        assert(beforeBridge.url.split('#')[0] === HOSTED_STUDY_URL,
             'Late-authority regression did not run on the exact intercepted hosted Study URL', beforeBridge);
-        assert([beforeBridge.runtimeMarker === 'newtab', beforeBridge.chooserVisible].every(Boolean),
-            'Hosted Study did not reach provisional onboarding before the bridge arrived', beforeBridge);
+        assert(beforeBridge.runtimeMarker === 'newtab' && !beforeBridge.chooserVisible,
+            'Hosted Study did not render directly without the retired chooser before the bridge arrived', beforeBridge);
         assert(beforeBridge.localSettingsAbsentAtSeed,
             'Late-authority regression was contaminated by a website-local settings copy', beforeBridge);
         assert(beforeBridge.authoritativeRaw === authoritativeRaw,
@@ -368,7 +368,7 @@ async function verifyLateHostedAuthorityRegression({ browser }) {
         const afterBridge = await lateAuthoritySnapshot(page);
         const chooserRetired = [afterBridge.chooserClicks === 0, !afterBridge.chooserVisible].every(Boolean);
         assert(chooserRetired,
-            'Authoritative settings did not retire provisional onboarding without a chooser click', afterBridge);
+            'Authoritative settings did not recover without a retired chooser interaction', afterBridge);
         assert([afterBridge.studyRendered, afterBridge.appliedTheme === 'dark'].every(Boolean),
             'Hosted Study did not render with the authoritative dark sentinel', afterBridge);
         assert([afterBridge.activeTarget === 'ja', afterBridge.profileSchemaVersion === 2].every(Boolean),
@@ -379,7 +379,7 @@ async function verifyLateHostedAuthorityRegression({ browser }) {
         const backupImport = await verifyCredentialFreeBackupImport({ page, authoritativeRaw });
         return {
             url: beforeBridge.url,
-            exactHostedOriginIntercepted: beforeBridge.url === HOSTED_STUDY_URL,
+            exactHostedOriginIntercepted: beforeBridge.url.split('#')[0] === HOSTED_STUDY_URL,
             localSettingsAbsentBeforeBridge: beforeBridge.localSettingsAbsentAtSeed,
             provisionalLocalBaselineObserved: beforeBridge.provisionalLocalRaw !== null,
             provisionalOnboardingObserved: beforeBridge.chooserVisible,

@@ -17,7 +17,7 @@ import {
     startLoopbackServer,
     YOMU_SETTINGS_KEY,
 } from './lib/smoke-harness.mjs';
-import { addScriptTagWithCspFallback, userscriptCompanionPaths } from './lib/smoke-test-helpers.mjs';
+import { choosePrivateDeck, addScriptTagWithCspFallback, userscriptCompanionPaths } from './lib/smoke-test-helpers.mjs';
 import { assertPopoverHeadwordMatchesLookup } from './lib/smoke-wait-helpers.mjs';
 
 const { root: ROOT, dist: DIST, artifacts: ARTIFACTS, scriptPath: SCRIPT_PATH, cssPath: CSS_PATH, newTabDir: NEWTAB_DIR } = createSmokePaths(import.meta.dirname);
@@ -229,7 +229,7 @@ async function runPopoverSurface(browser, fixture, scenario, settings) {
 // Since 1.9.1 an ordinary page's popover carries no account-backed deck
 // choices: the deck picker, and the Bunpro option in it, lives on Yomu-owned
 // Study surfaces (unit-covered with a trusted renderer). Off-host, a popover
-// offers one provider-neutral "Add to deck +" beside the grades for every word
+// offers one provider-neutral "Add to deck" dropdown beside the grades for every word
 // an enabled collection destination can take. Here JPDB/Jiten mining is off and
 // Bunpro is the learner's only destination: Bunpro adds vocabulary, so this
 // JPDB-parsed word still gets the save, and it lands in Bunpro exactly once.
@@ -242,7 +242,7 @@ async function assertOffhostPopoverMiningIsPrivate(popover, requests) {
         loading: Boolean(node.querySelector('[data-card-details-loading]')),
         bunproSource: Boolean(node.querySelector('[data-source="bunpro"]')),
         drawerHandle: Boolean(node.querySelector('[data-action="mining-collapse"]')),
-        save: node.querySelector('.jpdb-reader-collect [data-action="add-default"]')?.outerHTML ?? '',
+        save: node.querySelector('.jpdb-reader-actions .jpdb-reader-deck-select')?.outerHTML ?? '',
         deckAuthority: Array.from(
             node.querySelectorAll('[data-add-deck-select], [data-action="deck-picker"], [data-deck-source], [data-deck-id]'),
             control => control.outerHTML,
@@ -255,9 +255,9 @@ async function assertOffhostPopoverMiningIsPrivate(popover, requests) {
     const bunproWrites = () => requests.filter(request => request.host === 'api.bunpro.jp' && request.method !== 'GET' && request.path.startsWith('/api/frontend/reviews/'));
     assert(bunproWrites().length === 0, 'Generic popup changed Bunpro reviews without a learner action', summarizeRequests(bunproWrites()));
 
-    const save = popover.locator('.jpdb-reader-collect [data-action="add-default"]');
-    assert(actions.save && await save.isVisible(), 'A Bunpro-only learner had no visible "Add to deck +" for a word Bunpro can take', actions);
-    await save.click();
+    const save = popover.locator('.jpdb-reader-actions .jpdb-reader-deck-select');
+    assert(actions.save && await save.isVisible(), 'A Bunpro-only learner had no visible "Add to deck" dropdown for a word Bunpro can take', actions);
+    await choosePrivateDeck(popover.page(), save, 'Bunpro');
     // The page can read the confirmation, so it says where the word went no more than the button does.
     await popover.page().waitForFunction(() => /デッキに追加しました/u.test(document.body.textContent ?? ''), null, { timeout: 10_000 });
     const toasts = await popover.page().locator('.jpdb-reader-toast').allTextContents();

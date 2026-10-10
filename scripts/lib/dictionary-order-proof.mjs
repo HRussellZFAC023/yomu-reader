@@ -270,8 +270,15 @@ async function openSettingsFromStudyMenu(page) {
 
 async function waitForSourceRows(page) {
     for (const editor of [SOURCES_EDITOR, KANJI_EDITOR]) {
-        await page.locator(`[data-settings-panel="dictionaries"]:not([hidden]) ${editor} [data-source-row]`).first()
-            .waitFor({ state: 'visible', timeout: 30_000 });
+        const rows = page.locator(`[data-settings-panel="dictionaries"]:not([hidden]) ${editor} [data-source-row]`).first();
+        // The Settings form is mounted after navigation. Inspecting a disclosure
+        // before its editor exists can skip the click on a busy runner.
+        await rows.waitFor({ state: 'attached', timeout: 30_000 });
+        const disclosure = page.locator(`.jpdb-reader-settings details:has(${editor})`);
+        if (await disclosure.count() && await disclosure.getAttribute('open') === null) {
+            await disclosure.locator(':scope > summary').click();
+        }
+        await rows.waitFor({ state: 'visible', timeout: 30_000 });
     }
     return sourceRows(page);
 }

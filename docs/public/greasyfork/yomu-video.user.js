@@ -11973,6 +11973,7 @@ const SUBTITLE_STYLE_FONT_FAMILY_VALUES = SUBTITLE_STYLE_FONT_PRESETS.map((prese
 function createSubtitlePlayerSurface(settings) {
   const root = document.createElement("div");
   root.className = "jpdb-subtitle-player";
+  root.hidden = true;
   root.dataset.jpdbReaderRoot = "true";
   setInnerHtml(root, renderSubtitlePlayerSurface(settings));
   return {

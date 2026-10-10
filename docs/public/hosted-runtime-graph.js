@@ -1,14 +1,14 @@
 globalThis.__yomuHostedRuntimeGraph = {
   "schemaVersion": 1,
-  "revision": "435dd75bbc6c",
+  "revision": "1f7b4e725fd4",
   "dependencies": [
     {
-      "path": "greasyfork/yomu-runtime.4dd297515a89.user.js",
-      "integrity": "sha256-TdKXUVqJdgI2n/U/wMN7Jg/S4qwC8wqL1pOPVMT/KQs="
+      "path": "greasyfork/yomu-runtime.d9964be094f3.user.js",
+      "integrity": "sha256-2ZZL4JTzfovbSmOm2D243AQ9fN3M55nNmn5P2Qsa5Dc="
     }
   ],
   "core": {
     "path": "yomu.user.js",
-    "integrity": "sha256-Q13XW7xsoKkB/GbOqK01vmrp1KiB1xyINeQ4g0ZC2WY="
+    "integrity": "sha256-H3tOcl/Ui5xDBp/MEU0sD7yKtyOIJmKXTqSGg/hkz8k="
   }
 };

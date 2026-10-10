@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 2.1.1
+// @version 2.1.2
 // @author Henry Russell
 // @description Japanese pop-up dictionary with furigana, pitch accent, audio, subtitles, OCR and Study.
 // @license MIT
@@ -11,8 +11,8 @@
 // @updateURL https://update.greasyfork.org/scripts/581653/%E3%82%88%E3%82%80.meta.js
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-runtime.4dd297515a89.user.js#sha256=TdKXUVqJdgI2n/U/wMN7Jg/S4qwC8wqL1pOPVMT/KQs=
-// @resource yomuCss  https://yomureader.com/yomu.8f8569af11f4.css#sha256=j4VprxH0idmthSAwxa81CMV6/Qs5ZGCFXyzY4QRjWz0=
+// @require https://yomureader.com/greasyfork/yomu-runtime.d9964be094f3.user.js#sha256=2ZZL4JTzfovbSmOm2D243AQ9fN3M55nNmn5P2Qsa5Dc=
+// @resource yomuCss  https://yomureader.com/yomu.812cde48cb3b.css#sha256=gSzeSMs7tbvhQ/7kKOMMm9sG26zreaxWQMlgKfUqq2E=
 // @connect api.jiten.moe
 // @connect api.tatoeba.org
 // @connect tatoeba.org
@@ -35313,8 +35313,8 @@ function collapseWhitespace(value) {
 return value.replace(/\/\*[\s\S]*?\*\//gu, " ").replace(/\s+/gu, " ").trim();
 }
 const READER_CSS_RESOURCE = "yomuCss";
-const READER_CSS_HOSTED_FALLBACK_URL = `https://yomureader.com/yomu.css?v=${"2.1.1"}`;
-const READER_CSS_RAW_FALLBACK_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"2.1.1"}`;
+const READER_CSS_HOSTED_FALLBACK_URL = `https://yomureader.com/yomu.css?v=${"2.1.2"}`;
+const READER_CSS_RAW_FALLBACK_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"2.1.2"}`;
 const READER_CSS_CACHE_KEY = "yomu:reader-css-cache:v3";
 const READER_CSS = resourceReaderCss();
 function criticalWordCss() {
@@ -35457,7 +35457,7 @@ try {
 const url = new URL(href);
 if (!isHostedYomuPage(url)) return null;
 const path = url.hostname === "hrussellzfac023.github.io" ? "/yomu-reader/yomu.css" : "/yomu.css";
-return `${new URL(path, url.origin).href}?v=${"2.1.1"}`;
+return `${new URL(path, url.origin).href}?v=${"2.1.2"}`;
 } catch {
 return null;
 }

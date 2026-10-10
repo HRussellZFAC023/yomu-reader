@@ -3,6 +3,8 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
     controllerInternals,
     createSubtitleController,
+    createInstalledSubtitleController,
+    attachVideo,
     makeSubtitleSettings,
     SubtitlePlayerController,
 } from './fixtures';
@@ -38,6 +40,14 @@ afterEach(() => {
 });
 
 describe('subtitle runtime idle gating', () => {
+    it('keeps the initial surface hidden until a player is attached', () => {
+        const { controller } = createInstalledSubtitleController({ subtitlePlayerEnabled: true });
+        const internals = controllerInternals<{ root: HTMLElement }>(controller);
+        expect(internals.root.hidden).toBe(true);
+        attachVideo(controller);
+        controller.refresh();
+        expect(internals.root.hidden).toBe(false);
+    });
     it('installs no observer and parks the tick when disabled with no video', () => {
         const { internals } = initController(makeSubtitleSettings({ subtitlePlayerEnabled: false }));
 

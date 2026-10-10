@@ -33,6 +33,7 @@ export type StatsActivityView = 'bars' | 'calendar';
 export interface NewTabStatsContentOptions {
     activityMetric: StatsActivityMetric;
     activityView?: StatsActivityView;
+    busy?: boolean;
     language: string;
     selectedDate?: string;
     selectedSource: StatsSourceId;
@@ -58,8 +59,8 @@ export function renderNewTabStatsContent(options: NewTabStatsContentOptions): HT
     // All) and says what that source itself reports instead.
     const empty = isEmptyStatsSource(options.snapshot.combined) || (visibleSources.length <= 1 && isEmptyStatsSource(source));
     const sourceEmpty = !empty && isEmptyStatsSource(source);
-    const loading = source.status === 'loading';
-    return el('div', { class: 'jpdb-reader-stats', dataset: { statsStatus: source.status, statsEmpty: empty }, 'aria-busy': String(loading) },
+    const loading = context.busy ?? source.status === 'loading';
+    return el('div', { class: 'jpdb-reader-stats', dataset: { statsStatus: loading ? 'loading' : source.status, statsEmpty: empty }, 'aria-busy': String(loading) },
         el('div', { class: 'jpdb-reader-stats-header' },
             el('h1', { class: 'jpdb-reader-stats-title' }, text('stats')),
             // Turns while stats load; each source's own state is on its card.
@@ -68,11 +69,12 @@ export function renderNewTabStatsContent(options: NewTabStatsContentOptions): HT
                 class: 'jpdb-reader-stats-refresh',
                 dataset: { newtabAction: newTabAction('stats-refresh') },
                 'aria-label': text('statsRefresh'),
+                'aria-disabled': String(loading),
                 title: text('statsRefresh'),
             }, el('span', { class: 'jpdb-reader-stats-refresh-icon', 'aria-hidden': 'true' }, '↻')),
         ),
         ...(empty
-            ? [renderStatsSourceTabs(context), renderStatsEmpty(text), renderStatsConnections(context, 'actionable')]
+            ? [renderStatsSourceTabs(context), renderStatsEmpty(text, loading), renderStatsConnections(context, 'actionable')]
             : sourceEmpty
                 ? [renderStatsSourceTabs(context), renderStatsConnections(context, 'selected')]
                 : [...renderStatsDashboard(context), renderStatsConnections(context, 'informative')]),
@@ -82,8 +84,7 @@ export function renderNewTabStatsContent(options: NewTabStatsContentOptions): HT
 // Nothing reviewed, saved or loaded yet: a screen of zeros, empty charts and
 // calendars says nothing, so one line says what will appear and how to start.
 function isEmptyStatsSource(source: StatsRenderSource): boolean {
-    return source.status !== 'loading'
-        && source.reviewsToday === 0
+    return source.reviewsToday === 0
         && !source.reviewedCardsToday
         && source.totalReviews === 0
         && source.cards.total === 0
@@ -91,9 +92,9 @@ function isEmptyStatsSource(source: StatsRenderSource): boolean {
         && source.daily.every(point => !point.reviews && !point.newCards && !point.minutes);
 }
 
-function renderStatsEmpty(text: NewTabStatsText): HTMLElement {
+function renderStatsEmpty(text: NewTabStatsText, loading: boolean): HTMLElement {
     return el('section', { class: 'jpdb-reader-stats-empty' },
-        el('p', {}, text('statsEmptyHelp')),
+        el('p', {}, text(loading ? 'statsLoading' : 'statsEmptyHelp')),
         el('div', { class: 'jpdb-reader-stats-empty-actions' },
             el('button', { type: 'button', class: 'is-primary', dataset: { newtabAction: newTabAction('mode'), mode: 'word' } }, text('study')),
             el('button', { type: 'button', dataset: { newtabAction: newTabAction('practice-sessions') } }, text('practiceTitle')),
@@ -429,7 +430,7 @@ function renderStatsConnections(context: NewTabStatsRenderContext, filter: Stats
 
 function renderStatsConnectionCard(source: StatsSourceSnapshot, context: NewTabStatsRenderContext): HTMLElement {
     const actions = statsConnectionActions(source, context.text);
-    return el('article', { class: `jpdb-reader-stats-connection is-${source.id}`, dataset: { statsStatus: source.status } },
+    return el('article', { class: `jpdb-reader-stats-connection is-${source.id}`, dataset: { statsStatus: source.status, statsConnection: source.id } },
         renderStatsConnectionMain(source, context),
         actions.length ? el('div', { class: 'jpdb-reader-stats-connection-actions' }, actions) : null,
         renderStatsConnectionDropzone(source.id === 'jpdb', context.text),

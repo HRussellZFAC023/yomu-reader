@@ -62119,6 +62119,7 @@ ${reading}`);
   function createSubtitlePlayerSurface(settings2) {
     const root = document.createElement("div");
     root.className = "jpdb-subtitle-player";
+    root.hidden = true;
     root.dataset.jpdbReaderRoot = "true";
     setInnerHtml(root, renderSubtitlePlayerSurface(settings2));
     return {
@@ -81786,7 +81787,7 @@ ${reading}`);
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "2.1.1".trim() ? "2.1.1".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "2.1.2".trim() ? "2.1.2".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record2 = value;
@@ -106284,10 +106285,10 @@ ${newTabCardReading(card)}`;
     const visibleSources = visibleStatsSources(options.snapshot);
     const empty = isEmptyStatsSource(options.snapshot.combined) || visibleSources.length <= 1 && isEmptyStatsSource(source);
     const sourceEmpty = !empty && isEmptyStatsSource(source);
-    const loading = source.status === "loading";
+    const loading = context.busy ?? source.status === "loading";
     return el(
       "div",
-      { class: "jpdb-reader-stats", dataset: { statsStatus: source.status, statsEmpty: empty }, "aria-busy": String(loading) },
+      { class: "jpdb-reader-stats", dataset: { statsStatus: loading ? "loading" : source.status, statsEmpty: empty }, "aria-busy": String(loading) },
       el(
         "div",
         { class: "jpdb-reader-stats-header" },
@@ -106298,20 +106299,21 @@ ${newTabCardReading(card)}`;
           class: "jpdb-reader-stats-refresh",
           dataset: { newtabAction: newTabAction("stats-refresh") },
           "aria-label": text2("statsRefresh"),
+          "aria-disabled": String(loading),
           title: text2("statsRefresh")
         }, el("span", { class: "jpdb-reader-stats-refresh-icon", "aria-hidden": "true" }, "↻"))
       ),
-      ...empty ? [renderStatsSourceTabs(context), renderStatsEmpty(text2), renderStatsConnections(context, "actionable")] : sourceEmpty ? [renderStatsSourceTabs(context), renderStatsConnections(context, "selected")] : [...renderStatsDashboard(context), renderStatsConnections(context, "informative")]
+      ...empty ? [renderStatsSourceTabs(context), renderStatsEmpty(text2, loading), renderStatsConnections(context, "actionable")] : sourceEmpty ? [renderStatsSourceTabs(context), renderStatsConnections(context, "selected")] : [...renderStatsDashboard(context), renderStatsConnections(context, "informative")]
     );
   }
   function isEmptyStatsSource(source) {
-    return source.status !== "loading" && source.reviewsToday === 0 && !source.reviewedCardsToday && source.totalReviews === 0 && source.cards.total === 0 && !source.savedOnly && source.daily.every((point) => !point.reviews && !point.newCards && !point.minutes);
+    return source.reviewsToday === 0 && !source.reviewedCardsToday && source.totalReviews === 0 && source.cards.total === 0 && !source.savedOnly && source.daily.every((point) => !point.reviews && !point.newCards && !point.minutes);
   }
-  function renderStatsEmpty(text2) {
+  function renderStatsEmpty(text2, loading) {
     return el(
       "section",
       { class: "jpdb-reader-stats-empty" },
-      el("p", {}, text2("statsEmptyHelp")),
+      el("p", {}, text2(loading ? "statsLoading" : "statsEmptyHelp")),
       el(
         "div",
         { class: "jpdb-reader-stats-empty-actions" },
@@ -106637,7 +106639,7 @@ ${newTabCardReading(card)}`;
     const actions = statsConnectionActions(source, context.text);
     return el(
       "article",
-      { class: `jpdb-reader-stats-connection is-${source.id}`, dataset: { statsStatus: source.status } },
+      { class: `jpdb-reader-stats-connection is-${source.id}`, dataset: { statsStatus: source.status, statsConnection: source.id } },
       renderStatsConnectionMain(source, context),
       actions.length ? el("div", { class: "jpdb-reader-stats-connection-actions" }, actions) : null,
       renderStatsConnectionDropzone(source.id === "jpdb", context.text)
@@ -106868,10 +106870,12 @@ ${newTabCardReading(card)}`;
     activityView = "bars";
     selectedDate = "";
     loaded = false;
+    loading = false;
+    pendingUpdate;
     deckPrefsLoaded = false;
     disabledAnkiDecks = /* @__PURE__ */ new Set();
     deckPrefsContext = "";
-    // Latest-wins guard for in-flight loads (the 1.6.173 'stats' scope).
+    // Loads and imports share the existing latest-wins dashboard scope.
     operations = new OperationTracker();
     clickHandlers = {
       "stats-source": (root, target) => this.selectSource(root, target),
@@ -106880,7 +106884,7 @@ ${newTabCardReading(card)}`;
       "stats-select-day": (root, target, request) => this.selectDay(root, target, request.chartDayTarget),
       "stats-study-trouble": (root) => this.deps.studyTroubleCards(root),
       "stats-refresh": (root) => {
-        void this.loadInto(root, true);
+        if (!this.loading) void this.loadInto(root, true);
       },
       "stats-toggle-anki-deck": (root, target) => this.toggleAnkiDeck(root, target),
       "stats-connect-anki": (root) => {
@@ -106898,6 +106902,8 @@ ${newTabCardReading(card)}`;
     reset() {
       this.snapshot = emptyStatsDashboardSnapshot();
       this.loaded = false;
+      this.loading = false;
+      this.pendingUpdate = void 0;
       this.selectedDate = "";
       this.operations.begin("stats");
     }
@@ -106922,24 +106928,56 @@ ${newTabCardReading(card)}`;
       this.deps.syncThemeToggle(root);
       const study2 = root.querySelector("[data-newtab-study]");
       if (!study2) return;
+      const tree = study2.getRootNode();
+      const active = tree instanceof ShadowRoot ? tree.activeElement : study2.ownerDocument.activeElement;
+      const focused = active instanceof HTMLElement && study2.contains(active) && active.hasAttribute("data-newtab-action") ? active : null;
       study2.removeAttribute("data-newtab-card");
       study2.replaceChildren(renderNewTabStatsContent({
         activityMetric: this.activityMetric,
         activityView: this.activityView,
+        busy: this.loading,
         language: this.deps.resolvedLanguage(),
         selectedDate: this.selectedDate,
         selectedSource: this.selectedSource,
         snapshot: this.snapshot,
         text: (key) => this.deps.text(key)
       }));
+      if (focused) {
+        Array.from(study2.querySelectorAll("[data-newtab-action]")).find((candidate) => sameStatsControl(candidate, focused))?.focus({ preventScroll: true });
+      }
     }
-    async loadInto(root, force = false) {
-      if (this.shouldSkipLoad(force)) return;
-      await this.loadDeckPrefs();
-      const settings2 = this.deps.getSettings();
-      const statsOp = this.operations.begin("stats");
-      this.snapshot = this.loadingSnapshot(settings2);
-      if (this.deps.statsVisible()) this.render(root);
+    loadInto(root, force = false) {
+      if (!force && this.pendingUpdate?.root === root) return this.pendingUpdate.promise;
+      if (this.shouldSkipLoad(force)) return Promise.resolve();
+      return this.updateStats(root, (operation) => this.loadSnapshotInto(root, operation));
+    }
+    updateStats(root, perform) {
+      const operation = this.operations.begin("stats");
+      this.loading = true;
+      if (this.deps.statsVisible()) {
+        if (!this.loaded) this.render(root);
+        else {
+          const surface = root.querySelector(".jpdb-reader-stats");
+          if (surface) {
+            surface.setAttribute("aria-busy", "true");
+            surface.dataset.statsStatus = "loading";
+          }
+          root.querySelector(".jpdb-reader-stats-refresh")?.setAttribute("aria-disabled", "true");
+        }
+      }
+      const promise = perform(operation).finally(() => {
+        if (!operation.superseded) {
+          this.loading = false;
+          if (root.isConnected && this.deps.statsVisible()) this.render(root);
+        }
+        if (this.pendingUpdate?.promise === promise) this.pendingUpdate = void 0;
+      });
+      this.pendingUpdate = { root, promise };
+      return promise;
+    }
+    async loadSnapshotInto(root, statsOp) {
+      await this.loadDeckPrefs(statsOp);
+      if (!this.isCurrentLoad(statsOp.superseded, root)) return;
       const [history2, jpdb, jiten, bunpro, wanikani, yomuLocal, anki] = await Promise.all([
         this.readJpdbHistory(),
         this.loadJpdbSource(),
@@ -106962,27 +107000,12 @@ ${newTabCardReading(card)}`;
         combined: combineStatsSources(jpdbWithHistory, jitenWithHistory, yomuLocal, bunpro, wanikani, anki)
       };
       this.loaded = true;
-      if (this.deps.statsVisible()) this.render(root);
     }
     shouldSkipLoad(force) {
       return this.loaded && !force;
     }
     isCurrentLoad(superseded, root) {
       return !superseded && root.isConnected;
-    }
-    loadingSnapshot(settings2) {
-      return {
-        jpdb: this.loadingOrUnavailable(hasJpdbApiCredential(settings2), this.snapshot.jpdb, emptyStatsSource("jpdb", "JPDB", this.deps.text("statsApiKeyMissing"), "setup")),
-        jiten: this.loadingOrUnavailable(hasJitenApiCredential(settings2), this.snapshot.jiten, emptyStatsSource("jiten", "Jiten", this.deps.text("statsApiKeyMissing"), "setup")),
-        bunpro: this.loadingOrUnavailable(this.deps.canUseBunproSource(), this.snapshot.bunpro, emptyStatsSource("bunpro", "Bunpro", this.deps.text("statsApiKeyMissing"), "setup")),
-        wanikani: this.loadingOrUnavailable(this.deps.canUseWanikaniSource(), this.snapshot.wanikani, emptyStatsSource("wanikani", "WaniKani", this.deps.text("statsApiKeyMissing"), "setup")),
-        yomuLocal: this.loadingOrUnavailable(this.deps.canUseYomuLocalSource(), this.snapshot.yomuLocal, emptyStatsSource("yomu-local", ACADEMY_SRS_LABEL, this.deps.text("statsNoData"), "setup")),
-        anki: this.loadingOrUnavailable(this.shouldLoadAnki(settings2), this.snapshot.anki, emptyStatsSource("anki", "Anki", this.deps.text("statsConnectAnki"), "setup")),
-        combined: this.loadingSource(this.snapshot.combined)
-      };
-    }
-    loadingOrUnavailable(available, source, unavailable) {
-      return available ? this.loadingSource(source) : unavailable;
     }
     // --- click handling ---
     handleClick(root, target, event, action) {
@@ -107034,9 +107057,6 @@ ${newTabCardReading(card)}`;
       return Array.from(chart.querySelectorAll(newTabActionSelector("stats-select-day", "[data-stats-day]")));
     }
     // --- per-source data loading ---
-    loadingSource(source) {
-      return { ...source, status: "loading", message: this.deps.text("statsLoading") };
-    }
     async loadJpdbSource() {
       const providers = this.jpdbStatsApiProviders(this.deps.getSettings());
       if (!providers.length) return emptyStatsSource("jpdb", "JPDB", this.deps.text("statsApiKeyMissing"), "setup");
@@ -107227,10 +107247,15 @@ ${newTabCardReading(card)}`;
       });
     }
     // --- JPDB review-history import ---
-    async importJpdbFile(root, file) {
+    importJpdbFile(root, file) {
+      return this.updateStats(root, (operation) => this.importJpdbSnapshot(root, file, operation));
+    }
+    async importJpdbSnapshot(root, file, operation) {
       try {
         const imported = parseJpdbReviewExportText(await file.text());
+        if (!this.isCurrentLoad(operation.superseded, root)) return;
         await gmStorageSet(NEW_TAB_STATS_JPDB_HISTORY_KEY, imported);
+        if (!this.isCurrentLoad(operation.superseded, root)) return;
         const jpdb = applyJpdbReviewImport({
           ...this.snapshot.jpdb,
           message: this.deps.text("statsImportReady"),
@@ -107248,6 +107273,7 @@ ${newTabCardReading(card)}`;
         this.selectedSource = this.selectedSource === "anki" ? "combined" : this.selectedSource;
         this.loaded = true;
       } catch (error) {
+        if (!this.isCurrentLoad(operation.superseded, root)) return;
         log$4.warn("JPDB stats import failed", error);
         this.snapshot = {
           ...this.snapshot,
@@ -107259,7 +107285,6 @@ ${newTabCardReading(card)}`;
         };
         this.snapshot.combined = combineStatsSources(this.snapshot.jpdb, this.snapshot.jiten, this.snapshot.yomuLocal, this.snapshot.bunpro, this.snapshot.wanikani, this.snapshot.anki);
       }
-      this.render(root);
     }
     async readJpdbHistory() {
       try {
@@ -107269,11 +107294,11 @@ ${newTabCardReading(card)}`;
         return null;
       }
     }
-    async loadDeckPrefs() {
+    async loadDeckPrefs(operation) {
       const context = this.deps.ankiProviderContext();
       if (this.hasDeckPrefsFor(context)) return;
       const disabled = await this.readDeckPrefs(context);
-      if (!this.isCurrentDeckPrefsContext(context)) return;
+      if (operation?.superseded || !this.isCurrentDeckPrefsContext(context)) return;
       this.disabledAnkiDecks = disabled;
       this.deckPrefsContext = context;
       this.deckPrefsLoaded = true;
@@ -107300,6 +107325,9 @@ ${newTabCardReading(card)}`;
       accounts[context] = disabledDecks;
       await gmStorageSet(NEW_TAB_STATS_DISABLED_ANKI_DECKS_KEY, { version: 2, accounts });
     }
+  }
+  function sameStatsControl(candidate, previous) {
+    return candidate.tagName === previous.tagName && ["newtabAction", "statsSource", "statsActivityMetric", "statsDay", "statsAnkiDeck"].every((key) => candidate.dataset[key] === previous.dataset[key]) && candidate.closest("[data-stats-connection]")?.dataset.statsConnection === previous.closest("[data-stats-connection]")?.dataset.statsConnection;
   }
   function storedAnkiDecksForContext(stored, context) {
     if (Array.isArray(stored)) return [];

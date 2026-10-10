@@ -53,4 +53,14 @@ describe('donation chooser navigation', () => {
         expect(document.activeElement).toBe(trigger);
         expect(existing.inert).toBe(true);
     });
+    it('releases the page on history navigation without refocusing the old trigger', () => {
+        const trigger = open();
+        const main = document.querySelector('main')!;
+        window.history.replaceState({}, '', '/library/');
+        window.dispatchEvent(new PopStateEvent('popstate'));
+        expect(main.inert).toBe(false);
+        expect(document.documentElement.hasAttribute('data-yomu-membership-open')).toBe(false);
+        expect(document.querySelector<HTMLElement>('.yomu-membership-backdrop')!.hidden).toBe(true);
+        expect(document.activeElement).not.toBe(trigger);
+    });
 });

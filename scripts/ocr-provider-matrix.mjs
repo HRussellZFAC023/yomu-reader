@@ -129,7 +129,7 @@ async function tapHintState(page) {
         const overlaps = (a, b) => Boolean(a && b) && a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom;
         const hintBox = box(hint);
         const controls = Array.from(document.querySelectorAll('#toolbar button')).map(box);
-        const label = hint?.querySelector('.jpdb-ocr-video-frame-status-label');
+        const label = hint?.querySelector('.jpdb-ocr-canvas-tap-hint-label');
         return {
             text: hint?.textContent ?? '',
             labelFits: Boolean(label) && label.scrollWidth <= label.clientWidth,
@@ -145,7 +145,7 @@ async function tapHintState(page) {
 // (text and fill colour) rather than the theme's text colour.
 async function tapHintInk(page) {
     return page.evaluate(selector => {
-        const ink = [...document.querySelectorAll(`${selector} :is(.jpdb-ocr-video-frame-status-label, .jpdb-ocr-canvas-tap-hint-dismiss)`)]
+        const ink = [...document.querySelectorAll(`${selector} :is(.jpdb-ocr-canvas-tap-hint-label, .jpdb-ocr-canvas-tap-hint-dismiss)`)]
             .map(element => `${getComputedStyle(element).color} / ${getComputedStyle(element).webkitTextFillColor}`);
         return { ink: ink.join(', '), light: ink.length === 2 && ink.every(colours => colours === 'rgb(245, 247, 255) / rgb(245, 247, 255)') };
     }, TAP_HINT);

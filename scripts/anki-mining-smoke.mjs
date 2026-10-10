@@ -26,7 +26,7 @@ import {
     serveFile,
     YOMU_SETTINGS_KEY,
 } from './lib/smoke-harness.mjs';
-import { addScriptTagWithCspFallback, userscriptCompanionPaths } from './lib/smoke-test-helpers.mjs';
+import { choosePrivateDeck, addScriptTagWithCspFallback, userscriptCompanionPaths } from './lib/smoke-test-helpers.mjs';
 import { assertPopoverHeadwordMatchesLookup } from './lib/smoke-wait-helpers.mjs';
 
 const {
@@ -234,9 +234,9 @@ const FUTURE_MULTI_DECK_CARD_INFO = { note: 7206, deckName: 'Core', due: 999999,
 const READING_WORD_SELECTOR = 'main .jpdb-reader-word[data-expression="読む"]';
 const WRITING_WORD_SELECTOR = 'main .jpdb-reader-word[data-expression="書く"][data-reading="かきます"]';
 const VISIBLE_WRITING_POPOVER_SELECTOR = '.jpdb-reader-popover:visible';
-// Off-host the popover offers one provider-neutral "Add to deck +"; the Anki
+// Off-host the popover offers one provider-neutral "Add to deck" dropdown; the Anki
 // action row (and its "Send to AnkiMobile" label) renders only on Study.
-const ACTIVE_ADD_BUTTON_SELECTOR = '[data-action="add-default"]:not([disabled])';
+const ACTIVE_ADD_BUTTON_SELECTOR = '.jpdb-reader-deck-select';
 const NEWTAB_VIEWPORT = { width: 1280, height: 820 };
 const MOBILE_NEWTAB_VIEWPORT = { width: 390, height: 844 };
 const READER_FIXTURE_TEXT = '今日は日本語の記事を読みました。明日は例文を書きます。難波を歩きます。';
@@ -258,7 +258,7 @@ const PRIVATE_ANKI_DETAIL_TERMS = ['Mining', 'よむ Japanese', 'to read', '今�
 // state is projected into the provider-neutral jpdb-* state family plus
 // yomu-deck-member, and onto the provider-neutral review lane
 // (yomu-review-<state>) that the "Anki" colour channel paints. The
-// existing-card section is one Study launcher, and one "Add to deck +" reaches
+// existing-card section is one Study launcher, and one "Add to deck" dropdown reaches
 // the learner's default destination. Merge, edit and the rendered card live on
 // Study.
 const ORDINARY_PAGE_ANKI_SETTINGS = {
@@ -739,17 +739,17 @@ function writingAddButtonLocator(page) {
     return writingPopoverLocator(page).locator(ACTIVE_ADD_BUTTON_SELECTOR).first();
 }
 
-// "Add to deck +" sits beside the grades, outside the collapsed mining
+// "Add to deck" dropdown sits beside the grades, outside the collapsed mining
 // drawer: the learner reaches it without opening anything first.
 async function visibleAddButton(popover) {
-    const addButton = popover.locator(`.jpdb-reader-collect ${ACTIVE_ADD_BUTTON_SELECTOR}`).first();
+    const addButton = popover.locator(ACTIVE_ADD_BUTTON_SELECTOR).first();
     await addButton.waitFor({ state: 'visible', timeout: 12000 });
     return addButton;
 }
 
-// A real pointer click: the reader ignores synthetic element.click() events.
+// Native keyboard selection: the reader ignores synthetic change events.
 async function clickVisibleWritingAddButton(page) {
-    await writingAddButtonLocator(page).click();
+    await choosePrivateDeck(page, writingAddButtonLocator(page), 'Anki');
 }
 
 // The launcher opens Study in a new tab; Study itself is stubbed so the smoke
@@ -994,7 +994,7 @@ async function runMobileHandoffSmoke(browser, baseUrl, spec) {
     const addButton = await visibleAddButton(page.locator('.jpdb-reader-popover').first());
 
     const mobilePopover = await page.evaluate(() => ({
-        hasButton: Boolean(document.querySelector('.jpdb-reader-popover [data-action="add-default"]')),
+        hasButton: Boolean(document.querySelector('.jpdb-reader-popover .jpdb-reader-deck-select')),
         hasAnkiActionRow: Boolean(document.querySelector('.jpdb-reader-popover [data-action="anki"]')),
         text: document.querySelector('.jpdb-reader-popover')?.textContent?.replace(/\s+/g, ' ').trim() ?? '',
     }));
@@ -1007,7 +1007,7 @@ async function runMobileHandoffSmoke(browser, baseUrl, spec) {
     if (spec.screenshotBeforeClick) await screenshotHandoff(page, spec);
 
     const actionCountBefore = requests.length;
-    await addButton.click();
+    await choosePrivateDeck(page, addButton, 'Anki');
     await waitForRecordedRequest(dialogs, () => true, 8000);
     assert(dialogs.some(message => message.includes(`Open ${spec.appName} to add "書く"`)), spec.handoffMessage, { dialogs, requests: requests.slice(actionCountBefore) });
     await page.waitForTimeout(250);
@@ -1057,7 +1057,7 @@ async function waitForVisibleAddButton(page, requests) {
 
 function hasVisibleWritingAddButton() {
     const popover = visibleWritingPopover();
-    const button = popover?.querySelector('[data-action="add-default"]');
+    const button = popover?.querySelector('.jpdb-reader-deck-select');
     return isActiveSmokeButton(button);
 
     function visibleWritingPopover() {
@@ -1109,7 +1109,7 @@ async function collectAddButtonDebug(page) {
             text: word.textContent,
             classes: word.className,
         })),
-        addButtons: [...document.querySelectorAll('[data-action="add-default"], [data-action="anki"]')].map(button => button.textContent),
+        addButtons: [...document.querySelectorAll('.jpdb-reader-deck-select, [data-action="anki"]')].map(button => button.textContent),
     }));
 }
 
@@ -1586,7 +1586,7 @@ function readMobileNewTabTopbarLayout(page) {
     return readNewTabModeLayout(page, {
         modeSelector: '.jpdb-reader-newtab-app-nav',
         buttonSelector: '.jpdb-reader-newtab-app-nav-item',
-        expectedButtonCount: 4,
+        expectedButtonCount: 5,
     });
 }
 

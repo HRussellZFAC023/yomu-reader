@@ -176,6 +176,8 @@ try {
     await installCounters(page);
     const word = page.locator('[data-gate-sentence] .jpdb-reader-word', { hasText: HOVER_WORD }).first();
     assert(await word.count() > 0, `The gate fixture never annotated "${HOVER_WORD}".`);
+    const wordBox = await word.boundingBox();
+    assert(wordBox?.width > 0 && wordBox?.height > 0, 'The hovered word has no visible hit target');
 
     // An idle window of the same length first. Background polls and settle timers
     // also touch storage and the DOM, and a gate that folded those into the hover
@@ -185,7 +187,9 @@ try {
     const idle = await page.evaluate(() => window.__yomuLookupPerfCounters.read());
 
     await page.evaluate(() => window.__yomuLookupPerfCounters.reset());
-    await word.hover();
+    // One native move, with no locator actionability/scroll retries inside the
+    // counted window. Those retries can produce extra activity on a busy runner.
+    await page.mouse.move(wordBox.x + wordBox.width / 2, wordBox.y + wordBox.height / 2);
     await page.waitForFunction(() => Boolean(document.querySelector('.jpdb-reader-popover')), null, { timeout: 15_000 });
     // The popover shell can paint before the definition body resolves; give the
     // remaining reads a moment so they are counted rather than missed.
@@ -272,13 +276,15 @@ function scannerDelayedSweepMs() {
 // Wrapper injection rather than a source-level counter: the gate must measure
 // the SHIPPED bundle, including work added by a call site nobody remembered.
 async function installCounters(page) {
-    await page.evaluate(() => {
+    await page.evaluate(trace => {
         const counters = {
             gmReads: 0,
             gmReadsByKey: {},
             idbTransactions: 0,
             elementFromPoint: 0,
             readerQuerySelectorAll: 0,
+            readerSelectors: {},
+            selectorTraces: [],
         };
         const originalGetValue = window.GM_getValue;
         if (typeof originalGetValue === 'function') {
@@ -301,6 +307,8 @@ async function installCounters(page) {
         const originalQuerySelectorAll = Document.prototype.querySelectorAll;
         Document.prototype.querySelectorAll = function countedQuerySelectorAll(selector) {
             counters.readerQuerySelectorAll++;
+            counters.readerSelectors[selector] = (counters.readerSelectors[selector] ?? 0) + 1;
+            if (trace) counters.selectorTraces.push({ selector, stack: new Error().stack });
             return originalQuerySelectorAll.call(this, selector);
         };
         window.__yomuLookupPerfCounters = {
@@ -310,10 +318,12 @@ async function installCounters(page) {
                 counters.idbTransactions = 0;
                 counters.elementFromPoint = 0;
                 counters.readerQuerySelectorAll = 0;
+                counters.readerSelectors = {};
+                counters.selectorTraces = [];
             },
             read() {
-                return { ...counters, gmReadsByKey: { ...counters.gmReadsByKey } };
+                return { ...counters, gmReadsByKey: { ...counters.gmReadsByKey }, readerSelectors: { ...counters.readerSelectors }, selectorTraces: [...counters.selectorTraces] };
             },
         };
-    });
+    }, process.env.YOMU_LOOKUP_PERF_TRACE === '1');
 }

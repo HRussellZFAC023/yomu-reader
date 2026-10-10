@@ -29,7 +29,7 @@ import {
     startLoopbackServer,
     YOMU_SETTINGS_KEY,
 } from './lib/smoke-harness.mjs';
-import { addScriptTagWithCspFallback, userscriptCompanionPaths } from './lib/smoke-test-helpers.mjs';
+import { choosePrivateDeck, addScriptTagWithCspFallback, userscriptCompanionPaths } from './lib/smoke-test-helpers.mjs';
 import { assertPopoverHeadwordMatchesLookup } from './lib/smoke-wait-helpers.mjs';
 
 const { root: ROOT, artifacts: ARTIFACTS, scriptPath: SCRIPT_PATH, cssPath: CSS_PATH } = createSmokePaths(import.meta.dirname);
@@ -131,7 +131,7 @@ try {
     const resolvedRun = await runGradingProviderPhase({ name: 'jiten-parser-jpdb', grading: 'jpdb', parser: 'jiten', pageParsedBy: 'jiten', resolvesOn: 'jpdb' });
     // ...and when JPDB does not have it, nothing is graded anywhere.
     const unmatchedRun = await runGradingProviderPhase({ name: 'jiten-parser-jpdb-unmatched', grading: 'jpdb', parser: 'jiten', pageParsedBy: 'jiten', resolvesOn: 'jpdb', unmatched: true });
-    // "Add to deck +" with Jiten grading: the first word list, past a media deck;
+    // "Add to deck" dropdown with Jiten grading: the first word list, past a media deck;
     // with no word list, the next destination (the Yomu deck) and no Jiten write.
     const wordListSave = await runJitenSavePhase({ name: 'jiten-save-word-list', decks: [MEDIA_DECK, WORD_LIST], savedTo: WORD_LIST });
     const noWordListSave = await runJitenSavePhase({ name: 'jiten-save-no-word-list', decks: [MEDIA_DECK], savedTo: null });
@@ -239,12 +239,12 @@ async function openPhasePage(phase) {
     return { context, page, word };
 }
 
-// The ordinary page's provider-neutral "Add to deck +": a Jiten save reaches
+// The ordinary page's provider-neutral "Add to deck" dropdown: a Jiten save reaches
 // only the learner's first word list, and without one the word goes to the
 // next destination with no Jiten write. Either way the page hears "Added to deck."
 async function runJitenSavePhase(phase) {
     const { context, page } = await openPhasePage({ ...phase, grading: 'jiten', parser: 'default' });
-    await page.locator('.jpdb-reader-actions [data-action="add-default"]').first().click();
+    await choosePrivateDeck(page, page.locator('.jpdb-reader-actions .jpdb-reader-deck-select').first(), phase.savedTo ? 'Jiten' : 'Default');
     await page.waitForFunction(() => [...document.querySelectorAll('.jpdb-reader-toast')].some(toast => (toast.textContent ?? '').includes('Added to deck.')), null, { timeout: 8_000 });
     await page.screenshot({ path: path.join(ARTIFACT_DIR, `${phase.name}.png`), fullPage: false });
     const writes = requests.filter(request => request.method === 'POST' && /\/srs\/study-decks\/\d+\/words$/.test(request.path)).map(request => request.path);
@@ -310,7 +310,7 @@ function assertOrdinaryPageGradingControls(state, label) {
     assert(!state.hasReviewTargetSelect, 'A review-target selector rendered on an ordinary page', state);
     assert(!state.hasAddDeckSelect, 'The account deck selector rendered on an ordinary page', state);
     assert(!/data-action="(?:deck-picker|neverforget|blacklist|jiten-(?:mining|suspend|forget))"/.test(state.actionsHtml), 'Account deck-state actions rendered on an ordinary page', actions);
-    assert(/data-action="add-default"/.test(state.actionsHtml), 'The provider-neutral Add to deck action is missing', actions);
+    assert(/jpdb-reader-deck-select/.test(state.actionsHtml), 'The provider-neutral Add to deck action is missing', actions);
 }
 
 async function waitForReviewRequest(provider) {

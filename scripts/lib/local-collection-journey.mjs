@@ -1,7 +1,7 @@
 // Built-browser proof of deliberate local collection (BACKLOG-V2 C04): a
 // keyless learner saves words from the lookup popup on an ordinary page, sees
 // them in Stats' Saved tile, follows it to Study's Library, adds exactly one to
-// review (Stats then counts it in Cards), exports a backup from
+// review (Stats then counts it in Words), exports a backup from
 // Settings → Backup & sync, restores it into a fresh profile, reloads, and
 // survives interrupted saves.
 //
@@ -24,7 +24,7 @@ import {
     jsonHttpResponse,
     YOMU_SETTINGS_KEY,
 } from './smoke-harness.mjs';
-import { addScriptTagWithCspFallback, installUserscriptCssResource, newTabModeButton, userscriptCompanionPaths } from './smoke-test-helpers.mjs';
+import { addScriptTagWithCspFallback, choosePrivateDeck, installUserscriptCssResource, newTabModeButton, userscriptCompanionPaths } from './smoke-test-helpers.mjs';
 
 const { root: ROOT, dist: DIST, newTabDir: NEWTAB_DIR, scriptPath: SCRIPT_PATH, cssPath: CSS_PATH } = createSmokePaths(path.join(import.meta.dirname, '..'));
 const ARTICLE_URL = 'https://reader-fixture.example/articles/evening-reading.html';
@@ -153,21 +153,30 @@ class Journey {
         return page;
     }
 
-    // "Add to deck +" sits beside the grades: the learner never opens the
-    // mining drawer to save, and the action row fits the popup at any width.
+    // The native deck chooser sits beside the grades. Its private choices
+    // remain usable by keyboard, and the action row fits at any width.
     async openSaveAction(page, word) {
         await closePopup(page);
         await page.locator(wordSelector(word.surface)).first().click();
         const popover = page.locator('.jpdb-reader-popover');
-        const save = popover.locator('.jpdb-reader-collect [data-action="add-default"]');
+        const save = popover.locator('.jpdb-reader-actions .jpdb-reader-deck-select');
         await save.waitFor({ state: 'visible', timeout: 12_000 });
-        // Grades appear once the card details settle; the layout is read then.
-        await popover.locator('[data-action="grade"]').first().waitFor({ state: 'visible', timeout: 12_000 });
-        assert(await popover.getByRole('button', { name: 'Add to deck', exact: true }).count() === 1,
-            'The visible save has no "Add to deck" accessible name', { html: await save.evaluate(node => node.outerHTML) });
+        // Read the final control layout once the card details settle.
+        await page.waitForFunction(() => !document.querySelector('.jpdb-reader-popover [data-card-details-loading]'));
+        // The native select is deliberately in a closed shadow root. Its
+        // accessible name is inspected through Chromium's accessibility tree,
+        // without publishing deck names or opening the private root.
+        const session = await page.context().newCDPSession(page);
+        let label;
+        try {
+            const { nodes } = await session.send('Accessibility.getFullAXTree');
+            const pickers = nodes.filter(node => node.role?.value === 'combobox' && node.name?.value === 'Add to deck…');
+            assert(pickers.length === 1, 'The visible deck chooser has no unique Add to deck accessible name', { count: pickers.length });
+            label = pickers[0].name.value;
+        } finally { await session.detach(); }
         const layout = await actionRowLayout(popover);
         assert(layout.fits, 'The popup action row overflowed, cut off a label or grade key, or hid the save behind the grades', layout);
-        return { save, label: (await save.textContent())?.replace(/\s+/gu, ' ').trim() ?? '', layout };
+        return { save, label, layout };
     }
 
     // A successful save is observed as a committed deck revision (the index is
@@ -176,27 +185,35 @@ class Journey {
         const action = await this.openSaveAction(page, word);
         const revision = readDeck(profile).revision;
         if (keyboard) await this.saveWithKeyboard(page, action);
-        else await action.save.click();
+        else await choosePrivateDeck(page, action.save, 'Default');
         action.pending = await whilePending?.(action.save);
         if (fails) {
             await waitForToast(page, /This word was not saved/u, timeout);
             return action;
         }
-        await waitUntil(() => readDeck(profile).revision > revision, timeout, `saving ${word.surface}`);
+        await waitUntil(() => readDeck(profile).revision > revision, timeout, `saving ${word.surface}`).catch(async error => {
+            const controls = await page.evaluate(() => ({
+                active: document.activeElement?.outerHTML.slice(0, 200),
+                toasts: [...document.querySelectorAll('.jpdb-reader-toast')].map(node => node.textContent),
+                pickers: [...document.querySelectorAll('.jpdb-reader-deck-select')].map(node => ({ connected: node.isConnected, html: node.outerHTML })),
+            }));
+            throw new Error(`${error.message}: ${JSON.stringify(controls)}`);
+        });
         await waitForToast(page, /Added to deck/u);
         if (keyboard) action.keyboard.focusAfterSave = await focusAfterSave(page);
         return action;
     }
 
-    // Tab order puts the save directly before the grades; Enter on it is a
-    // real keyboard activation, not a synthetic page click.
+    // Tab stays in the popup and returns to the native chooser. Type the
+    // destination and press Enter as a keyboard learner does.
     async saveWithKeyboard(page, action) {
         await action.save.focus();
         await page.keyboard.press('Tab');
-        const afterSave = await page.evaluate(() => document.activeElement?.getAttribute('data-action') ?? '');
+        const afterSave = await page.evaluate(() => ({ action: document.activeElement?.getAttribute('data-action') ?? '', inPopup: Boolean(document.activeElement?.closest('.jpdb-reader-popover')) }));
         await page.keyboard.press('Shift+Tab');
         const backOnSave = await action.save.evaluate(node => node === document.activeElement);
-        assert(afterSave === 'grade' && backOnSave, 'Tab did not move between the save and the grades', { afterSave, backOnSave });
+        assert(afterSave.inPopup && backOnSave, 'Tab left the popup or could not return to the native deck chooser', { afterSave, backOnSave });
+        await page.keyboard.type('Default');
         await page.keyboard.press('Enter');
         action.keyboard = { afterSave, backOnSave };
     }
@@ -204,9 +221,9 @@ class Journey {
     async collect(profile) {
         const baseline = await this.withStudy(profile, async study => ({ ...await this.studyCounts(study), connections: await statsConnectionButtons(study) }));
         assert(baseline.statsDueNow === 0 && baseline.statsSaved === 0, 'A fresh keyless profile did not start with nothing due or saved', baseline);
-        // Academy is a keyless learner's only source, and it is local: its card once offered "Anki settings".
-        assert(JSON.stringify(baseline.connections) === JSON.stringify({ 'yomu-local': [] }),
-            'Stats showed a keyless learner a connection button that is not Academy\'s', baseline);
+        // An empty local collection has no account connection to configure.
+        assert(JSON.stringify(baseline.connections) === JSON.stringify({}),
+            'Empty Stats showed a keyless learner unnecessary connection controls', baseline);
 
         const page = await this.openArticle(profile);
         const first = await this.saveFromPopup(profile, page, WORDS.read, { keyboard: true });
@@ -246,7 +263,7 @@ class Journey {
             && study.library.every(row => row.addToReview), 'Library did not list both saved words with Add to review', study);
         return {
             saveLabel: first.label,
-            saveVisibleBesideGrades: { desktop: first.layout, phone: phone.layout, keyboard: first.keyboard },
+            deckChooserLayout: { desktop: first.layout, phone: phone.layout, keyboard: first.keyboard },
             savedCard: pick(read, ['expression', 'reading', 'sentence', 'sourceUrl', 'sourceTitle', 'reviewEnabled', 'reviews']),
             duplicateSave: { cards: afterSecond.ids.length, dueAtUnchanged: readAgain.dueAt === read.dueAt },
             studyBefore: baseline,
@@ -430,7 +447,7 @@ class Journey {
         page = await this.openArticle(profile);
         const closed = new Promise(resolve => page.once('close', resolve));
         await installIndexWriteFault(page, 'close');
-        await (await this.openSaveAction(page, WORDS.like)).save.click();
+        await choosePrivateDeck(page, (await this.openSaveAction(page, WORDS.like)).save, 'Default');
         await withTimeout(closed, 30_000, 'the save to reach its index commit');
         const afterClose = readDeck(profile);
         assertDeckIntact(afterClose, restored, 'A save interrupted by closing the page');
@@ -450,11 +467,11 @@ class Journey {
         const dying = await this.openArticle(profile);
         const dyingClosed = new Promise(resolve => dying.once('close', resolve));
         await installIndexWriteFault(dying, 'close');
-        await (await this.openSaveAction(dying, WORDS.like)).save.click();
+        await choosePrivateDeck(dying, (await this.openSaveAction(dying, WORDS.like)).save, 'Default');
         await withTimeout(dyingClosed, 30_000, 'the other tab to reach its index commit');
         const revision = readDeck(profile).revision;
         const started = Date.now();
-        await recovery.save.click();
+        await choosePrivateDeck(page, recovery.save, 'Default');
         const waitingStatus = await waitForToast(page, SAVE_WAITING_STATUS, DEAD_TAB_SAVE_BOUND_MS)
             .then(() => toastTexts(page), () => []);
         // The bound counts from the click, not from when the status appeared.
@@ -523,6 +540,7 @@ class Journey {
     async studyCounts(page) {
         await newTabModeButton(page, 'stats').click();
         const refresh = page.locator('[data-newtab-action="stats-refresh"]');
+        await page.waitForFunction(() => document.querySelector('.jpdb-reader-stats')?.getAttribute('aria-busy') === 'false');
         await refresh.waitFor({ state: 'attached', timeout: 15_000 });
         await page.evaluate(() => {
             const statuses = [];
@@ -533,7 +551,7 @@ class Journey {
             });
             window.__yomuJourneyStatsObserver.observe(document.body, { subtree: true, childList: true, attributes: true, attributeFilter: ['data-stats-status'] });
         });
-        await refresh.evaluate(button => button.click());
+        await refresh.click();
         await page.waitForFunction(() => {
             const statuses = window.__yomuJourneyStatsStatuses;
             return statuses.includes('loading') && statuses.at(-1) !== 'loading';
@@ -637,7 +655,7 @@ function wordSelector(surface) {
 async function actionRowLayout(popover) {
     return popover.locator('.jpdb-reader-actions').evaluate(actions => {
         const row = actions.getBoundingClientRect();
-        const controls = [...actions.querySelectorAll('button')].filter(control => control.getClientRects().length);
+        const controls = [...actions.querySelectorAll('button, .jpdb-reader-deck-select')].filter(control => control.getClientRects().length);
         const outside = controls.filter(control => {
             const box = control.getBoundingClientRect();
             return box.left < row.left - 0.5 || box.right > row.right + 0.5 || box.bottom > innerHeight + 0.5;
@@ -653,19 +671,19 @@ async function actionRowLayout(popover) {
             return (label.width > 0 && (label.left < box.left - 0.5 || label.right > box.right + 0.5))
                 || control.scrollWidth > control.clientWidth || control.scrollHeight > control.clientHeight;
         });
-        const saveButton = actions.querySelector('.jpdb-reader-collect [data-action="add-default"]');
+        const saveButton = actions.querySelector('.jpdb-reader-actions .jpdb-reader-deck-select');
         const save = saveButton?.getBoundingClientRect();
         const firstGrade = actions.querySelector('[data-action="grade"]')?.getBoundingClientRect();
         // Nothing, such as a target bar over the row, sits on top of the save.
         const saveUncovered = Boolean(save && [save.top + 2, save.top + save.height / 2]
             .every(y => saveButton.contains(document.elementFromPoint(save.left + save.width / 2, y))));
-        const label = control => control.textContent.replace(/\s+/gu, ' ').trim();
+        const label = control => control.matches('.jpdb-reader-deck-select') ? 'Add to deck' : control.textContent.replace(/\s+/gu, ' ').trim();
         const layout = {
             viewport: { width: innerWidth, height: innerHeight },
             row: { left: Math.round(row.left), right: Math.round(row.right), bottom: Math.round(row.bottom), scrollOverflow: actions.scrollWidth - actions.clientWidth },
             lowestControlBottom: Math.round(Math.max(...controls.map(control => control.getBoundingClientRect().bottom))),
             save: save && { width: Math.round(save.width), height: Math.round(save.height) },
-            saveAboveGrades: Boolean(save && firstGrade && save.bottom <= firstGrade.top + 0.5),
+            saveAboveGrades: Boolean(save && (!firstGrade || save.bottom <= firstGrade.top + 0.5)),
             saveUncovered,
             outside: outside.map(label),
             clipped: clipped.map(control => [label(control), control.dataset.gradeKey].filter(Boolean).join(' ')),
@@ -678,10 +696,13 @@ async function actionRowLayout(popover) {
     });
 }
 
-// The save re-renders the popup, replacing the button; a keyboard learner stays
-// on the save instead of starting again from the top of the page.
+// A save refreshes the popup. A keyboard learner keeps their place in the
+// chooser, or its overflow toggle if that refreshed section is collapsed.
 async function focusAfterSave(page) {
-    const onSave = () => Boolean(document.activeElement?.matches('.jpdb-reader-popover .jpdb-reader-collect [data-action="add-default"]'));
+    const onSave = () => {
+        const active = document.activeElement;
+        return Boolean(active?.getClientRects().length && active.matches('.jpdb-reader-popover .jpdb-reader-actions .jpdb-reader-deck-select, .jpdb-reader-popover [data-action="mining-collapse"]'));
+    };
     await page.waitForFunction(onSave, null, { timeout: 5_000 }).catch(() => undefined);
     const focused = await page.evaluate(() => document.activeElement?.outerHTML.slice(0, 160) ?? '');
     assert(await page.evaluate(onSave), 'Keyboard focus left the save after the popup refreshed', { focused });
@@ -704,9 +725,19 @@ async function waitForLibraryRows(page, expectedRows) {
 // Cards counts every word in review, due or not; saved words wait in Library,
 // and Stats shows them only in its Saved tile, which is absent at zero.
 async function statsMetrics(page) {
-    const metrics = await page.evaluate(() => Object.fromEntries([...document.querySelectorAll('.jpdb-reader-stats-metric')]
-        .map(metric => [metric.querySelector('.jpdb-reader-stats-metric-label')?.textContent?.trim() ?? '', metric.querySelector('strong')?.textContent?.trim() ?? ''])));
-    return { statsDueNow: Number(metrics['Due now']), statsCards: Number(metrics.Cards), statsSaved: Number(metrics.Saved ?? 0) };
+    await page.waitForFunction(() => document.querySelector('.jpdb-reader-stats')?.getAttribute('aria-busy') === 'false');
+    return page.evaluate(() => {
+        const root = document.querySelector('.jpdb-reader-stats');
+        if (!root || !['ready', 'partial', 'setup'].includes(root.dataset.statsStatus) || root.querySelector('[data-stats-status="error"]')) {
+            throw new Error(`Statistics are not a successful settled snapshot: ${root?.dataset.statsStatus}`);
+        }
+        if (root.dataset.statsEmpty === 'true' && root.querySelector('.jpdb-reader-stats-empty')) return { statsDueNow: 0, statsCards: 0, statsSaved: 0 };
+        const values = Object.fromEntries([...root.querySelectorAll('.jpdb-reader-stats-metric, .jpdb-reader-stats-progress-item')]
+            .map(metric => [metric.querySelector('.jpdb-reader-stats-metric-label, .jpdb-reader-stats-progress-item-label')?.textContent?.trim() ?? '', metric.querySelector('strong')?.textContent?.trim() ?? '']));
+        const counts = { statsDueNow: Number(values['Due now'] ?? values['現在の期限'] ?? 0), statsCards: Number(values.Words ?? values['単語'] ?? 0), statsSaved: Number(values.Saved ?? values['保存済み'] ?? 0) };
+        if (!Object.values(counts).every(Number.isFinite)) throw new Error(`Invalid painted statistics: ${JSON.stringify(values)}`);
+        return counts;
+    });
 }
 
 // Each Stats connection card's button labels, keyed by its source.

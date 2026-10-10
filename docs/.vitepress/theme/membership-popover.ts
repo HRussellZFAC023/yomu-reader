@@ -52,6 +52,7 @@ export function installMembershipPopover(): void {
     // handlers for lookups. Listening later meant arriving at an event another
     // listener had already cancelled, and the popover never opened.
     window.addEventListener('click', handleDocumentClick, { capture: true });
+    window.addEventListener('popstate', () => closeMembershipDialog(false));
 }
 
 function handleDocumentClick(event: MouseEvent): void {
@@ -116,12 +117,12 @@ function openMembershipDialog(trigger: HTMLElement): void {
     dialog.querySelector<HTMLElement>(FOCUSABLE)?.focus();
 }
 
-function closeMembershipDialog(): void {
+function closeMembershipDialog(restoreFocus = true): void {
     if (!dialog || dialog.hidden) return;
     dialog.hidden = true;
     delete document.documentElement.dataset.yomuMembershipOpen;
     setBackgroundInert(false);
-    lastTrigger?.focus();
+    if (restoreFocus) lastTrigger?.focus({ preventScroll: true });
     lastTrigger = undefined;
 }
 
@@ -244,7 +245,7 @@ function buildDialog(): HTMLElement {
     close.type = 'button';
     close.className = 'yomu-membership-close';
     close.textContent = copy.donationClose;
-    close.addEventListener('click', closeMembershipDialog);
+    close.addEventListener('click', () => closeMembershipDialog());
 
     panel.append(close, title, lead, list, more);
     root.append(panel);

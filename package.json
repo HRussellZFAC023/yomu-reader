@@ -1,6 +1,6 @@
 {
   "name": "yomu-reader",
-  "version": "2.1.1",
+  "version": "2.1.2",
   "private": true,
   "type": "module",
   "description": "よむ: Japanese pop-up dictionary with furigana, pitch accent, subtitles, OCR, and Study.",

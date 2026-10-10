@@ -167,6 +167,36 @@ async function checkScenario(browser, engine, theme) {
         await addGmStorageBridgeInitScript(page, { key: YOMU_SETTINGS_KEY, value: SETTINGS, requestBridgeName: bridge });
         await page.goto(`${server.origin}/annotation-typography.html`, { waitUntil: 'domcontentloaded' });
         await installUserscriptCssResource(page, CSS_PATH);
+        await page.evaluate(() => document.fonts.ready);
+        const sourceSpans = await page.evaluate(definitions => {
+            const measured = {};
+            for (const [id, before, after, count] of definitions) {
+                const paragraph = document.getElementById(id);
+                const text = paragraph.textContent;
+                let start = -1;
+                while ((start = text.indexOf(before, start + 1)) >= 0 && text.slice(start + before.length + count, start + before.length + count + after.length) !== after) {}
+                if (start < 0) throw new Error(`Missing native span ${id}: ${before}/${after}`);
+                const nodes = [];
+                const walker = document.createTreeWalker(paragraph, NodeFilter.SHOW_TEXT);
+                for (let node = walker.nextNode(); node; node = walker.nextNode()) nodes.push(node);
+                const glyph = offset => {
+                    for (const node of nodes) {
+                        if (offset < node.data.length) {
+                            const range = document.createRange();
+                            range.setStart(node, offset);
+                            range.setEnd(node, offset + 1);
+                            return range.getBoundingClientRect();
+                        }
+                        offset -= node.data.length;
+                    }
+                    throw new Error('Native glyph offset is out of range');
+                };
+                const left = glyph(start + before.length - 1);
+                const right = glyph(start + before.length + count);
+                (measured[id] ??= {})[`${before}${after}`] = right.left - left.left;
+            }
+            return measured;
+        }, OVERHANG_SPANS);
         await addScriptTagWithCspFallback(page, SCRIPT_PATH);
         await page.waitForFunction(() => document.querySelectorAll('#sentence .jpdb-reader-word').length >= 10
             && document.querySelectorAll('#linked .jpdb-reader-word').length >= 5
@@ -179,6 +209,7 @@ async function checkScenario(browser, engine, theme) {
         await page.waitForTimeout(200);
         await page.locator('main').screenshot({ path: path.join(OUT, `${id}.png`) });
         const measured = await page.evaluate(measurePage);
+        measured.sourceSpans = sourceSpans;
         report.runs[id] = measured;
         judge(id, measured, paper);
         // Changing the page theme must update readings and state lines without
@@ -260,8 +291,9 @@ function judgeStudyState(id, measured, paper) {
 function judgeOverhang(id, measured) {
     for (const [paragraph, before, after, kanji] of OVERHANG_SPANS) {
         const span = measured.spans[paragraph]?.[`${before}${after}`];
-        const width = kanji * measured.advances[paragraph];
-        if (span === undefined || Math.abs(span - width) > 1) fail(`${id}: the ${kanji} kanji between ${before} and ${after} in #${paragraph} take ${span?.toFixed(1)}px, not ${width.toFixed(1)}px: a wide reading opened a gap.`, measured.spans);
+        const width = measured.sourceSpans[paragraph]?.[`${before}${after}`];
+        if (!Number.isFinite(width)) fail(`${id}: missing source glyph-span measurement for ${paragraph}/${before}${after}.`, measured.sourceSpans);
+        if (!Number.isFinite(span) || Math.abs(span - width) > 1) fail(`${id}: the ${kanji} kanji between ${before} and ${after} in #${paragraph} advance ${span?.toFixed(1)}px from ${before} to ${after}, not ${width?.toFixed(1)}px: a wide reading opened a gap.`, measured.spans);
     }
     for (const [text, side] of [['じゅうみん', 'marginEnd'], ['くらい', 'marginStart']]) {
         const reading = measured.readings.find(item => item.text === text);
@@ -368,7 +400,9 @@ function measurePage() {
         if (sorted[index].top === sorted[index - 1].top) readingNeighbours.push([sorted[index - 1], sorted[index]]);
     }
     // Plain characters (not readings), in order, with where each one starts and
-    // ends; spans[p][ab] is the room between plain a and the next plain b.
+    // ends; spans[p][ab] is the advance from plain a to the next plain b.
+    // Range ink boxes may overlap by one pixel in WebKit, so compare glyph
+    // starts in both the original and annotated text, not their ink edges.
     const spans = {};
     const advances = {};
     for (const paragraph of document.querySelectorAll('main p')) {
@@ -389,7 +423,7 @@ function measurePage() {
         spans[paragraph.id] = {};
         for (let index = 1; index < glyphs.length; index += 1) {
             const [left, right] = [glyphs[index - 1], glyphs[index]];
-            if (left.top === right.top) spans[paragraph.id][`${left.text}${right.text}`] ??= right.left - left.right;
+            if (left.top === right.top) spans[paragraph.id][`${left.text}${right.text}`] ??= right.left - left.left;
         }
     }
     const lineHeadParagraph = document.querySelector('#line-head');

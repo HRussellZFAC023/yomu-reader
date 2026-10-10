@@ -39,6 +39,7 @@ export type SubtitlePanelMode = 'lines' | 'shadow' | 'tracks' | 'mine';
 export function createSubtitlePlayerSurface(settings: ReaderSettings): SubtitlePlayerSurfaceElements {
     const root = document.createElement('div');
     root.className = 'jpdb-subtitle-player';
+    root.hidden = true;
     root.dataset.jpdbReaderRoot = 'true';
     setInnerHtml(root, renderSubtitlePlayerSurface(settings));
     return {

@@ -200,10 +200,13 @@ describe('new tab stats for an account with nothing yet', () => {
         expect(Array.from(root.querySelectorAll('.jpdb-reader-stats-connection')).map(card => card.className)).toEqual(['jpdb-reader-stats-connection is-anki']);
     });
 
-    it('keeps the dashboard while stats are still loading', () => {
+    it('keeps a first load quiet while no statistics have arrived', () => {
         const snapshot = emptySnapshot();
         snapshot.combined = { ...snapshot.combined, status: 'loading' };
-        expect(render(snapshot).querySelector('.jpdb-reader-stats-empty')).toBeNull();
+        const root = render(snapshot);
+        expect(root.querySelector('.jpdb-reader-stats-empty')?.textContent).toContain('statsLoading');
+        expect(root.querySelector('.jpdb-reader-stats-bars')).toBeNull();
+        expect(root.getAttribute('aria-busy')).toBe('true');
     });
 });
 

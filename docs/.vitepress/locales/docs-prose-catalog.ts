@@ -9,6 +9,15 @@ export interface ReviewedDocsMessage {
 }
 
 const HOSTED_DOCS_JA_COPY: Record<string, string> = {
+    "Updated nightly smoke checks for the private deck chooser, quiet Stats, current Study navigation and OCR hints, while preserving saving, privacy and layout assertions.": "保存・プライバシー・レイアウトの検証を維持しつつ、デッキ選択、静かな統計表示、現在のStudyの画面移動、OCRのヒントに合わせて夜間のスモークテストを更新しました。",
+    "Stats keeps its current figures and charts visible while refreshing. A first load shows a short loading message instead of empty charts.": "統計の更新中も、現在の数値やグラフを表示したままにします。初回の読み込みでは、空のグラフではなく短い読み込みメッセージを表示します。",
+    "Repeated refresh taps reuse the current load, and changing review services prevents old responses from replacing current statistics.": "更新を続けてタップしても読み込みを重複して始めず、復習サービスを変更した後に古い応答が現在の統計を上書きしないようにしました。",
+    "Stats keeps keyboard focus when choosing an activity metric, switching charts, selecting a day or refreshing.": "統計で表示項目やグラフを切り替えたり、日を選んだり、更新したりしても、キーボードのフォーカスを保つようにしました。",
+    "Importing review history during a refresh keeps the imported result when the older refresh finishes.": "統計の更新中に復習履歴を読み込んでも、先に始めた更新の完了で読み込み結果が消えないようにしました。",
+    "The book library keeps its filter controls in place as you search. Clear filters sits beside the result count and stays hidden until needed.": "本の検索中に絞り込みの操作欄が動かないようにしました。絞り込みの解除は結果の冊数の横に置き、必要なときだけ表示します。",
+    "Browser history navigation closes the donation chooser and releases the page behind it.": "ブラウザーの履歴で移動すると寄付の選択画面を閉じ、背後のページを再び操作できるようにしました。",
+    "Subtitle controls start hidden and respect their hidden state, so pages without a video do not show or announce an empty player.": "字幕の操作欄を初めは非表示にし、非表示の指定を正しく反映します。動画のないページで空のプレーヤーを表示したり読み上げたりしないようにしました。",
+    "In Study, open Stats to check your review progress. Refresh keeps the current figures visible while loading.": "Studyの「統計」で復習の進み具合を確認できます。更新中も現在の数値を表示したままにします。",
     "The Study refresh icon turns while loading, with the button staying still.": "Studyの更新中はアイコンだけが回転し、ボタンは動かないようにしました。",
     "Request Japanese site keeps working after later Google searches and other navigation that drops locale markers. YouTube retains its reload-loop protection.": "Googleで続けて検索した場合や、移動先のURLから言語指定が消えた場合も、「日本語のサイトを要求」が働くようにしました。YouTubeで読み込みが繰り返されるのを防ぐ仕組みは保っています。",
     "Image OCR taps reuse existing recognized text. Automatic image scans show a corner mark only after text is ready, and hidden or overlapping image copies no longer keep duplicate marks.": "画像内の文字をタップすると、すでに読み取った文字で検索します。自動読み取りのマークは文字を読み取った後だけ表示し、非表示または重なった画像のマークが二重に残らないようにしました。",

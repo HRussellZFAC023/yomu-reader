@@ -76,7 +76,20 @@ async function runCase(engineName) {
     const restart = Date.now();
     while (Date.now() - restart < 6000) { if (await page.evaluate(() => document.querySelectorAll('.jpdb-ocr-line .jpdb-reader-word').length) >= 1) break; await page.waitForTimeout(100); }
     await page.evaluate(() => { window.__turns = 0; });
-    const w = await page.evaluate(() => { const el = document.querySelector('.jpdb-ocr-line .jpdb-reader-word[data-expression="秘密"]'); if (!el) return null; const r = el.getBoundingClientRect(); return { x: Math.round(r.left + r.width / 2), y: Math.round(r.top + r.height / 2) }; });
+    const w = await page.evaluate(() => {
+        const baseText = word => {
+            const copy = word.cloneNode(true);
+            copy.querySelectorAll('.jpdb-reader-furi, rt, rp').forEach(node => node.remove());
+            if (copy.hasAttribute('data-yomu-ocr-visual-text')) return copy.getAttribute('data-yomu-ocr-visual-text');
+            for (const glyph of copy.querySelectorAll('[data-yomu-ocr-visual-text]')) glyph.textContent = glyph.getAttribute('data-yomu-ocr-visual-text');
+            return copy.textContent?.trim();
+        };
+        const el = [...document.querySelectorAll('.jpdb-ocr-line .jpdb-reader-word')].find(word => baseText(word) === '秘密');
+        if (!el) return null;
+        const r = el.getBoundingClientRect();
+        return { x: Math.round(r.left + r.width / 2), y: Math.round(r.top + r.height / 2) };
+    });
+    if (!w) throw new Error(`${engineName}: recognized 秘密 has no visible word tap target`);
     const scannerIsolated = await page.evaluate(() => {
         const line = document.querySelector('.jpdb-ocr-line');
         if (!line) return false;
@@ -87,7 +100,7 @@ async function runCase(engineName) {
         return walker.nextNode() === null && visualText === 'ずっと秘密にしていた';
     });
     // 2) Tap the WORD: must NOT turn, must open the lookup, must keep the overlay.
-    if (w) await page.touchscreen.tap(w.x, w.y);
+    await page.touchscreen.tap(w.x, w.y);
     let popover = false;
     try {
         await page.waitForFunction(s => {

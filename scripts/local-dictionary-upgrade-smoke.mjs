@@ -166,7 +166,7 @@ async function importRevisionsOnStudy() {
     // detail is not evidence that the upgraded definition is absent.
     const upgradedCard = detail.locator(`[data-source="local-dictionary"][data-dictionary="${JUNE_TITLE}"]`);
     await upgradedCard.waitFor({ state: 'attached', timeout: 15_000 });
-    const upgradedDefinitions = upgradedCard.locator('[data-definition-translation-text]', { hasText: 'library (June)' });
+    const upgradedDefinitions = upgradedCard.getByText('library (June)', { exact: true });
     await upgradedDefinitions.waitFor({ state: 'attached', timeout: 15_000 });
 
     const dom = {

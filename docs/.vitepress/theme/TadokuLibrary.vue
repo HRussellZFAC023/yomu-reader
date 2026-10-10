@@ -82,9 +82,11 @@ const levelLabel = (value: string) => value === 'l-start' ? text.value.start : `
           <option v-for="item in catalog.genres" :key="item.id" :value="item.id">{{ item.label[props.language] }}</option>
         </select>
       </label>
-      <button v-if="filtered" class="library-reset" type="button" @click="clearFilters">{{ SITE_INTERACTION_COPY[props.language].libraryResetFilters }}</button>
     </form>
-    <p class="library-count" role="status">{{ text.count(books.length) }}</p>
+    <div class="library-results-status">
+      <p class="library-count" role="status">{{ text.count(books.length) }}</p>
+      <button class="library-reset" type="button" :disabled="!filtered" @click="clearFilters">{{ SITE_INTERACTION_COPY[props.language].libraryResetFilters }}</button>
+    </div>
     <span id="library-open-hint" class="library-sr-only">{{ text.open }}</span>
     <ul class="library-books">
       <li v-for="book in books" :key="book.id">
@@ -115,13 +117,15 @@ a { color: var(--vp-c-brand-1); }
 label { display: flex; flex-direction: column; gap: .35rem; font-size: .875rem; }
 .library-query { flex: 1 1 15rem; }
 input, select, .library-reset { min-height: 44px; min-width: 0; border: 1px solid var(--vp-c-divider); border-radius: .4rem; background: var(--vp-c-bg-alt); padding: .5rem .7rem; color: var(--vp-c-text-1); font: inherit; font-size: 16px; }
-.library-reset { align-self: end; cursor: pointer; }
+.library-reset { cursor: pointer; }
+.library-reset:disabled { visibility: hidden; }
+.library-results-status { display: flex; align-items: center; justify-content: space-between; gap: .75rem; min-height: 44px; margin: 1.25rem 0 .5rem; }
 .library-sr-only { position: absolute; width: 1px; height: 1px; padding: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 select { max-width: 100%; }
 input:focus-visible, select:focus-visible, button:focus-visible, a:focus-visible { outline: 2px solid var(--vp-c-brand-1); outline-offset: 3px; }
 .library-count, .library-level, .library-credit, footer { color: var(--vp-c-text-2); font-size: .875rem; }
 .library-credit { max-width: 46rem; margin: 1.25rem 0 0; line-height: 1.6; }
-.library-count { margin: 1.25rem 0 .5rem; }
+.library-count { margin: 0; }
 .library-books { display: grid; grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr)); gap: .75rem 1.25rem; padding: 0; margin: 1rem 0 0; list-style: none; }
 .library-books a { display: flex; justify-content: space-between; align-items: baseline; gap: .75rem; min-height: 44px; padding: .6rem .75rem; border: 1px solid var(--vp-c-divider); border-radius: .45rem; color: var(--vp-c-text-1); }
 .library-book-title { font-size: 1rem; line-height: 1.65; font-weight: 500; overflow-wrap: anywhere; }
