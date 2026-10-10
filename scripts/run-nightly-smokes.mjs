@@ -112,6 +112,8 @@ function runOne(name) {
 }
 
 const only = process.argv.slice(2);
+const unknown = only.filter(name => !NIGHTLY_SMOKES.includes(name));
+if (unknown.length) throw new Error(`Unknown nightly smoke script(s): ${unknown.join(', ')}`);
 const toRun = only.length ? NIGHTLY_SMOKES.filter((n) => only.includes(n)) : NIGHTLY_SMOKES;
 
 console.log(`\n=== nightly smokes: running ${toRun.length} guard(s), ${TIMEOUT_MS / 1000}s timeout each ===\n`);

@@ -10,6 +10,12 @@ on:
     # 03:17 UTC daily — off the hour to avoid the top-of-hour scheduler surge.
     - cron: '17 3 * * *'
   workflow_dispatch:
+    inputs:
+      smokes:
+        description: 'Optional smoke script names, separated by spaces. Empty runs the complete suite.'
+        required: false
+        type: string
+        default: ''
 
 permissions:
   contents: read
@@ -34,4 +40,16 @@ jobs:
           npm run build
           node scripts/sync-docs-userscript.cjs
       - name: Run nightly smokes
-        run: npm run smoke:nightly
+        env:
+          NIGHTLY_SMOKE_NAMES: ${{ inputs.smokes || '' }}
+        run: |
+          read -r -a requested_smokes <<< "$NIGHTLY_SMOKE_NAMES"
+          npm run smoke:nightly -- "${requested_smokes[@]}"
+      - name: Upload typography failure diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: nightly-typography-diagnostics
+          path: qa-artifacts/yomu-reader/annotation-typography/report.json
+          if-no-files-found: ignore
+          retention-days: 7
