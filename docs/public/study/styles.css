@@ -7771,6 +7771,20 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
   --jpdb-reader-jpdb-underline: var(--jpdb-reader-state-new);
   --jpdb-reader-status-underline: var(--jpdb-reader-state-new);
 }
+/* An unparsed word has no study state to underline. */
+.jpdb-reader-word:where(:is(.jpdb-unparsed, .jiten-unparsed):not(
+  .jpdb-new, .jpdb-in-deck, .jpdb-learning, .jpdb-young, .jpdb-known,
+  .jpdb-mature, .jpdb-mastered, .jpdb-never-forget, .jpdb-redundant, .jpdb-due,
+  .jpdb-failed, .jpdb-suspended, .jpdb-blacklisted, .jpdb-locked, .jpdb-frequent,
+  .jiten-new, .jiten-in-deck, .jiten-learning, .jiten-young, .jiten-known,
+  .jiten-mature, .jiten-mastered, .jiten-never-forget, .jiten-redundant, .jiten-due,
+  .jiten-failed, .jiten-suspended, .jiten-blacklisted, .jiten-locked, .jiten-frequent,
+  .anki-new, .anki-in-deck, .anki-learning, .anki-known, .anki-due,
+  .anki-failed, .anki-suspended
+)) {
+  --jpdb-reader-jpdb-underline: transparent;
+  --jpdb-reader-status-underline: transparent;
+}
 .jpdb-reader-word-underline-status .jpdb-reader-word {
   --jpdb-reader-word-decoration-source: var(--jpdb-reader-status-underline, transparent);
 }
@@ -7861,7 +7875,7 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
      (dom/index.ts styleDetachedReadingElements) sits in a line gap and is a
      little smaller. */
   font-family: inherit;
-  font-size: max(6px, 0.5em);
+  font-size: max(8px, 0.5em);
   font-style: inherit;
   font-weight: normal;
   font-feature-settings: normal;
@@ -10573,7 +10587,10 @@ html.jpdb-reader-suppress-redundant .jpdb-reader-word.jpdb-redundant {
   font-weight: var(--jpdb-reader-popup-font-weight, 450);
   line-height: 1.16;
   text-decoration: none;
-  word-break: keep-all;
+  min-width: 0;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  word-break: normal;
 }
 .jpdb-reader-spelling:has(rt.jpdb-reader-furi) {
   line-height: 1.55;
@@ -10791,22 +10808,22 @@ span.jpdb-reader-action-pill[aria-disabled="true"] {
   }
 }
 
-@container (max-width: 400px) {
-  .jpdb-reader-card-tools:has(.jpdb-reader-pitch-variants) {
+@container (max-width: 440px) {
+  .jpdb-reader-card-tools:has(.jpdb-reader-pitch, .jpdb-reader-pitch-variants, .jpdb-reader-pitch-components) {
     display: contents;
   }
-  .jpdb-reader-card-tools .jpdb-reader-pitch-variants {
+  .jpdb-reader-card-tools :is(.jpdb-reader-pitch, .jpdb-reader-pitch-variants, .jpdb-reader-pitch-components) {
     grid-column: 1 / -1;
     grid-row: 2;
     width: 100%;
     margin-block: 4px 0;
   }
-  .jpdb-reader-header:has(.jpdb-reader-pitch-variants) .jpdb-reader-word-actions {
+  .jpdb-reader-header:has(.jpdb-reader-pitch, .jpdb-reader-pitch-variants, .jpdb-reader-pitch-components) .jpdb-reader-word-actions {
     grid-column: 2;
     grid-row: 1;
     justify-self: end;
   }
-  .jpdb-reader-header:has(.jpdb-reader-pitch-variants) .jpdb-reader-word-pills {
+  .jpdb-reader-header:has(.jpdb-reader-pitch, .jpdb-reader-pitch-variants, .jpdb-reader-pitch-components) .jpdb-reader-word-pills {
     grid-row: 3;
   }
 }
@@ -10814,19 +10831,6 @@ span.jpdb-reader-action-pill[aria-disabled="true"] {
 @container (max-width: 340px) {
   .jpdb-reader-header {
     gap: 0 8px;
-  }
-  .jpdb-reader-card-tools {
-    display: contents;
-  }
-  .jpdb-reader-pitch {
-    grid-column: 1 / -1;
-    grid-row: 2;
-    margin-top: -3px;
-  }
-  .jpdb-reader-word-actions {
-    grid-column: 2;
-    grid-row: 1;
-    justify-self: end;
   }
   .jpdb-reader-header .jpdb-reader-word-pills {
     grid-row: 3;
@@ -20461,6 +20465,20 @@ body:has(.jpdb-subtitle-list.jpdb-subtitle-transcript-bottom:not([hidden])) .jpd
   display: none !important;
 }
 
+:is(.jpdb-reader-subtitle-underline-jpdb, .jpdb-reader-subtitle-underline-status)
+  .jpdb-reader-word:where(:is(.jpdb-unparsed, .jiten-unparsed):not(
+  .jpdb-new, .jpdb-in-deck, .jpdb-learning, .jpdb-young, .jpdb-known,
+  .jpdb-mature, .jpdb-mastered, .jpdb-never-forget, .jpdb-redundant, .jpdb-due,
+  .jpdb-failed, .jpdb-suspended, .jpdb-blacklisted, .jpdb-locked, .jpdb-frequent,
+  .jiten-new, .jiten-in-deck, .jiten-learning, .jiten-young, .jiten-known,
+  .jiten-mature, .jiten-mastered, .jiten-never-forget, .jiten-redundant, .jiten-due,
+  .jiten-failed, .jiten-suspended, .jiten-blacklisted, .jiten-locked, .jiten-frequent,
+  .anki-new, .anki-in-deck, .anki-learning, .anki-known, .anki-due,
+  .anki-failed, .anki-suspended
+)) {
+  --jpdb-reader-word-underline: transparent;
+}
+
 
 /* Source: src/reader/styles/youtube-filter.css */
 .jpdb-youtube-filter-pending[data-yomu-youtube-pending-hidden="true"],
@@ -20519,66 +20537,6 @@ html.jpdb-youtube-filter-active ytd-rich-item-renderer.jpdb-youtube-first-in-row
    cards take the same width as real feed cards. */
 html.jpdb-youtube-filter-active ytd-rich-grid-renderer ytd-continuation-item-renderer {
     flex-basis: 100% !important;
-}
-
-.jpdb-youtube-filter-bar {
-    position: fixed;
-    left: 50%;
-    bottom: max(18px, env(safe-area-inset-bottom));
-    z-index: 2147483645;
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    box-sizing: border-box;
-    max-width: min(560px, calc(100vw - 24px));
-    /* Mobile browsers inflate small text inside wide fixed elements, which
-       pushed the action buttons outside the pill. Pin the declared size. */
-    -webkit-text-size-adjust: 100%;
-    text-size-adjust: 100%;
-    padding: 8px 10px 8px 12px;
-    border: 1px solid var(--jpdb-reader-border);
-    border-radius: 999px;
-    background: var(--jpdb-reader-bg);
-    color: var(--jpdb-reader-muted);
-    box-shadow: 0 12px 34px var(--jpdb-reader-shadow);
-    font: 750 12px/1.3 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-    transform: translateX(-50%);
-}
-
-.jpdb-youtube-filter-bar span {
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-.jpdb-youtube-filter-actions {
-    display: flex;
-    flex: 1 1 auto;
-    flex-wrap: wrap;
-    justify-content: center;
-    min-width: 0;
-    align-items: center;
-    gap: 6px;
-}
-
-.jpdb-youtube-filter-bar button {
-    flex: 0 1 auto;
-    min-width: 0;
-    min-height: 30px;
-    white-space: nowrap;
-    padding: 0 12px;
-    border: 1px solid var(--jpdb-reader-text);
-    border-radius: 999px;
-    background: transparent;
-    color: var(--jpdb-reader-text);
-    font: inherit;
-    cursor: pointer;
-}
-
-.jpdb-youtube-filter-bar [data-action="hide-notice"] {
-    border-color: var(--jpdb-reader-border);
-    color: var(--jpdb-reader-muted);
 }
 
 .jpdb-youtube-channel-shelf {
@@ -20850,16 +20808,6 @@ html[dark] .jpdb-youtube-channel-shelf,
 }
 
 @media (max-width: 768px), (pointer: coarse) {
-    .jpdb-youtube-filter-bar {
-        bottom: max(76px, calc(60px + env(safe-area-inset-bottom)));
-        border-radius: 16px;
-        width: max-content;
-    }
-
-    .jpdb-youtube-filter-bar button {
-        min-height: 38px;
-    }
-
     .jpdb-youtube-channel-shelf {
         margin-bottom: 16px;
         padding-top: 12px;

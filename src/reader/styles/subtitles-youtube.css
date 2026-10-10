@@ -2493,3 +2493,17 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
 body:has(.jpdb-subtitle-list.jpdb-subtitle-transcript-bottom:not([hidden])) .jpdb-reader-fab[data-puck-rest="bottom"] {
   display: none !important;
 }
+
+:is(.jpdb-reader-subtitle-underline-jpdb, .jpdb-reader-subtitle-underline-status)
+  .jpdb-reader-word:where(:is(.jpdb-unparsed, .jiten-unparsed):not(
+  .jpdb-new, .jpdb-in-deck, .jpdb-learning, .jpdb-young, .jpdb-known,
+  .jpdb-mature, .jpdb-mastered, .jpdb-never-forget, .jpdb-redundant, .jpdb-due,
+  .jpdb-failed, .jpdb-suspended, .jpdb-blacklisted, .jpdb-locked, .jpdb-frequent,
+  .jiten-new, .jiten-in-deck, .jiten-learning, .jiten-young, .jiten-known,
+  .jiten-mature, .jiten-mastered, .jiten-never-forget, .jiten-redundant, .jiten-due,
+  .jiten-failed, .jiten-suspended, .jiten-blacklisted, .jiten-locked, .jiten-frequent,
+  .anki-new, .anki-in-deck, .anki-learning, .anki-known, .anki-due,
+  .anki-failed, .anki-suspended
+)) {
+  --jpdb-reader-word-underline: transparent;
+}

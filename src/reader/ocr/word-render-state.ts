@@ -5,6 +5,7 @@ import { renderedWordPrivateValue } from '../dom/rendered-word-private-state';
 interface OcrWordRenderState {
     surface: string;
     token: JPDBToken;
+    markupKey?: string;
 }
 
 /** Canonical token state retained for OCR words that reactivate on interaction. */

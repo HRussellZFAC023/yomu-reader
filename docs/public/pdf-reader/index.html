@@ -204,6 +204,10 @@
       display: grid;
       gap: 2px;
       min-width: 190px;
+      max-width: calc(100vw - 32px);
+      max-height: calc(100dvh - 100px);
+      overflow-y: auto;
+      overscroll-behavior: contain;
       padding: 8px;
       border: 1px solid var(--line);
       border-radius: var(--radius);
@@ -609,6 +613,8 @@
       line-height: 1.15;
     }
 
+    .shell-status { margin: 0; padding: 8px 16px; color: var(--muted); font-size: 13px; line-height: 1.45; overflow-wrap: anywhere; }
+
     .status {
       display: block;
       min-width: 0;
@@ -707,6 +713,7 @@
       .viewer { padding: 12px 6px 40px; }
     }
   </style>
+  <script defer src="../hosted-shell-controls.js"></script>
 </head>
 <body class="yomu-pdf-reader-page">
   <main class="app" data-app>
@@ -734,7 +741,7 @@
             <span class="more-icon" aria-hidden="true"></span>
           </summary>
           <div class="overflow-panel">
-            <button type="button" data-settings-trigger>Settings</button>
+            <a href="../study/#settings=appearance" target="_blank" rel="noopener" data-settings-trigger>Settings</a>
             <!-- Site navigation, stamped from src/reader/app/site-nav.ts by
                  scripts/sync-docs-userscript.cjs. Edit the list there. -->
             <!-- yomu:site-nav:start -->
@@ -781,12 +788,14 @@
     </nav>
     </div>
 
+    <p class="status shell-status" data-status data-jpdb-reader-surface-ignore="true" role="status" aria-live="polite" aria-atomic="true">Pick a PDF and read it with よむ.</p>
+
     <section class="viewer" data-viewer aria-label="PDF document"></section>
 
     <button class="empty" type="button" data-empty-open>
       <div>
         <strong>Open or drop a PDF</strong>
-        <span class="status" data-status>Pick a PDF and read it with よむ.</span>
+
       </div>
     </button>
   </main>
@@ -822,7 +831,6 @@
     const settingsKey = 'jpdb-popup-reader-settings';
     const positionKeyPrefix = 'yomu-pdf-position:';
     const settingsChangeEvent = 'yomu-settings-change';
-    const openSettingsEvent = 'yomu-open-settings';
     const languageEvent = 'yomu-interface-language-change';
     const runtimeScriptId = 'yomu-hosted-pdf-runtime';
     const runtimeCssAttribute = 'data-yomu-hosted-pdf-css';
@@ -833,7 +841,7 @@
     const installedRuntimeMarkerId = 'jpdb-reader-installed-runtime';
     const runtimeCompanionFiles = [
       // yomu:runtime-companions:start
-      'greasyfork/yomu-runtime.6889f8299c2c.user.js',
+      'greasyfork/yomu-runtime.4dd297515a89.user.js',
       // yomu:runtime-companions:end
     ];
     const colorTokens = { accent: '#b8324e', retiredAccent: '#5ea780', readableInk: '#11161d', white: '#ffffff' };
@@ -969,7 +977,7 @@
     function themePreference() {
       const settings = readSettings();
       if (Object.prototype.hasOwnProperty.call(settings, 'theme')) return normalizeTheme(settings.theme);
-      return normalizeTheme(localStorage.getItem(themeKey));
+      return normalizeTheme(readLocalPreference(themeKey));
     }
     function effectiveTheme(preference = themePreference()) {
       if (preference === 'dark' || preference === 'light') return preference;
@@ -1238,21 +1246,6 @@
       if (!ready && !options.silent) setStatus(text().runtimeMissing);
       return ready;
     }
-    function settingsVisible() { return Boolean(document.querySelector('.jpdb-reader-settings')); }
-    function dispatchSettingsOpen() {
-      if (settingsVisible()) return true;
-      window.dispatchEvent(new CustomEvent(openSettingsEvent, { detail: { panel: 'basics' } }));
-      return settingsVisible();
-    }
-    async function openSettings() {
-      overflowMenu?.removeAttribute('open');
-      if (dispatchSettingsOpen()) return;
-      await ensureYomuRuntime({ message: text().loadingSettings });
-      if (dispatchSettingsOpen()) return;
-      [120, 360, 900].forEach(delay => window.setTimeout(dispatchSettingsOpen, delay));
-      window.setTimeout(() => { if (!dispatchSettingsOpen()) setStatus(text().runtimeMissing); }, 1350);
-    }
-
     /* ---- PDF rendering ---- */
     function fileKeyFor(file) { return `${positionKeyPrefix}${file.name}:${file.size}`; }
 
@@ -1291,7 +1284,7 @@
       pageTotal.textContent = `/ ${pdfDoc.numPages}`;
       buildPlaceholders();
       setStatus(text().ready(file.name, pdfDoc.numPages));
-      const savedPage = clampPage(Number(localStorage.getItem(currentFileKey)) || 1);
+      const savedPage = clampPage(Number(readLocalPreference(currentFileKey)) || 1);
       currentPage = savedPage;
       requestRender(savedPage); // render just the first page now; the observer pulls in the rest
       if (savedPage > 1) goToPage(savedPage, 'auto');
@@ -1731,10 +1724,19 @@
       schedulePositionSave();
     }
 
+    // Reading still works when Safari private mode or a full quota denies storage.
+    function readLocalPreference(key) {
+      try { return localStorage.getItem(key); } catch { return null; }
+    }
+    function saveReadingPosition() {
+      if (!currentFileKey) return;
+      try { localStorage.setItem(currentFileKey, String(currentPage)); } catch {}
+    }
+
     function schedulePositionSave() {
       if (positionSaveTimer) window.clearTimeout(positionSaveTimer);
       positionSaveTimer = window.setTimeout(() => {
-        if (currentFileKey) localStorage.setItem(currentFileKey, String(currentPage));
+        saveReadingPosition();
       }, 400);
     }
 
@@ -1784,7 +1786,6 @@
     emptyOpen?.addEventListener('click', () => pdfInput.click());
     themeToggle?.addEventListener('click', () => saveThemePreference(effectiveTheme() === 'dark' ? 'light' : 'dark'));
     languageToggle?.addEventListener('click', () => saveInterfaceLanguage(nextInterfaceLanguage()));
-    settingsTrigger?.addEventListener('click', openSettings);
     prevPageBtn?.addEventListener('click', () => goToPage(currentPage - 1));
     nextPageBtn?.addEventListener('click', () => goToPage(currentPage + 1));
     pageInput?.addEventListener('change', () => goToPage(Number(pageInput.value)));
@@ -1795,7 +1796,7 @@
 
     window.addEventListener(settingsChangeEvent, syncFromSettingsEvent);
     window.addEventListener('storage', (event) => {
-      if (event.key === settingsKey || event.key === themeKey || event.key === null) { applyTheme(); applyAccent(); }
+      if (event.key === settingsKey || event.key === themeKey || event.key === null) { applyTheme(); applyAccent(); applyInterfaceLanguage(effectiveInterfaceLanguage()); }
     });
     matchMedia('(prefers-color-scheme: light)').addEventListener('change', () => {
       if (themePreference() === 'auto') { applyTheme(); applyAccent(); }
@@ -1823,7 +1824,7 @@
     });
 
     window.addEventListener('pagehide', () => {
-      if (currentFileKey) localStorage.setItem(currentFileKey, String(currentPage));
+      saveReadingPosition();
     });
 
     applyTheme();

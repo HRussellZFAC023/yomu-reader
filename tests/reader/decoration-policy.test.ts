@@ -239,7 +239,7 @@ describe('classifyDecoration acceptance matrix', () => {
         expect(classifyText('#label')).toBe('skip');
     });
 
-    it('leaves YouTube ellipsis-constrained action and mini-guide labels undecorated', () => {
+    it('keeps YouTube action controls native and annotates mini-guide labels passively', () => {
         stubYouTube();
         document.body.innerHTML = `
             <ytd-mini-guide-renderer role="navigation">
@@ -256,7 +256,7 @@ describe('classifyDecoration acceptance matrix', () => {
             </ytd-reel-player-overlay-renderer>
         `;
 
-        expect(classifyText('#home')).toBe('skip');
+        expect(classifyText('#home')).toBe('interactive-passive');
         expect(classifyText('#share')).toBe('skip');
     });
 
@@ -1388,13 +1388,10 @@ describe('interactive-passive under furigana-mode=all', () => {
     });
 });
 
-// A detached reading is quiet like an in-flow one, at regular weight; it was
-// bold, a second furigana style beside the page's in-flow readings. It stays
-// at 0.46 of its host text: at half, WebKit's crowding solver pushed the edge
-// readings of Reddit's sort menu more than 3px off their words
-// (smoke:reddit-chrome).
+// Readings retain the host typeface and grow with enlarged page text, while
+// keeping a legible minimum for small controls.
 describe('detached reading typography', () => {
-    it.each([[16, '7.36px'], [30, '10px'], [10, '6px']])('uses the host font and a bounded 0.46-size reading for an opted-in %ipx control', (fontSize, expectedReadingSize) => {
+    it.each([[16, '9px'], [30, '15px'], [10, '9px']])('keeps readings legible beside an opted-in %ipx control', (fontSize, expectedReadingSize) => {
         const font = `font:italic small-caps 700 ${fontSize}px/24px Georgia,serif;letter-spacing:0.4px`;
         document.body.innerHTML = `<div>
             <button id="ordinary" style="${font}">通常の設定</button>
@@ -1963,5 +1960,30 @@ describe('page buttons stay as drawn; toolbar links are annotated at rest', () =
         `;
         expect(classifyDecoration(document.querySelector('#post-title')!)).toBe('content-ruby');
         expect(classifyDecoration(document.querySelector('#promo')!)).toBe('prose-full');
+    });
+});
+
+
+describe('Reddit readable control labels', () => {
+    it('collects replies, expanders and relative timestamps without touching editables', () => {
+        vi.stubGlobal('location', new URL('https://www.reddit.com/r/linux/comments/example/'));
+        document.body.innerHTML = `<shreddit-comment>
+            <button><span id="reply">返信</span></button>
+            <button><span id="more">その他の8件の返信</span></button>
+            <faceplate-timeago><time datetime="2026-10-08">2日前</time></faceplate-timeago>
+            <textarea>編集中の日本語</textarea>
+        </shreddit-comment>`;
+        const targets = collectTargets();
+        expect(targets.map(target => target.text)).toEqual(expect.arrayContaining(['返信', 'その他の8件の返信', '2日前']));
+        expect(targets.some(target => target.text.includes('編集中'))).toBe(false);
+        expect(classifyDecoration(document.querySelector('#reply')!)).toBe('interactive-passive');
+    });
+
+    it('recognizes labels through Reddit component shadow boundaries', () => {
+        vi.stubGlobal('location', new URL('https://www.reddit.com/r/linux/'));
+        document.body.innerHTML = '<div role="button" id="control"></div>';
+        const root = document.querySelector('#control')!.attachShadow({ mode: 'open' });
+        root.innerHTML = '<span id="label">その他の返信</span>';
+        expect(classifyDecoration(root.querySelector('#label')!)).toBe('interactive-passive');
     });
 });

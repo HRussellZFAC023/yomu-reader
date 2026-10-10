@@ -56,66 +56,6 @@ html.jpdb-youtube-filter-active ytd-rich-grid-renderer ytd-continuation-item-ren
     flex-basis: 100% !important;
 }
 
-.jpdb-youtube-filter-bar {
-    position: fixed;
-    left: 50%;
-    bottom: max(18px, env(safe-area-inset-bottom));
-    z-index: 2147483645;
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    box-sizing: border-box;
-    max-width: min(560px, calc(100vw - 24px));
-    /* Mobile browsers inflate small text inside wide fixed elements, which
-       pushed the action buttons outside the pill. Pin the declared size. */
-    -webkit-text-size-adjust: 100%;
-    text-size-adjust: 100%;
-    padding: 8px 10px 8px 12px;
-    border: 1px solid var(--jpdb-reader-border);
-    border-radius: 999px;
-    background: var(--jpdb-reader-bg);
-    color: var(--jpdb-reader-muted);
-    box-shadow: 0 12px 34px var(--jpdb-reader-shadow);
-    font: 750 12px/1.3 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-    transform: translateX(-50%);
-}
-
-.jpdb-youtube-filter-bar span {
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-.jpdb-youtube-filter-actions {
-    display: flex;
-    flex: 1 1 auto;
-    flex-wrap: wrap;
-    justify-content: center;
-    min-width: 0;
-    align-items: center;
-    gap: 6px;
-}
-
-.jpdb-youtube-filter-bar button {
-    flex: 0 1 auto;
-    min-width: 0;
-    min-height: 30px;
-    white-space: nowrap;
-    padding: 0 12px;
-    border: 1px solid var(--jpdb-reader-text);
-    border-radius: 999px;
-    background: transparent;
-    color: var(--jpdb-reader-text);
-    font: inherit;
-    cursor: pointer;
-}
-
-.jpdb-youtube-filter-bar [data-action="hide-notice"] {
-    border-color: var(--jpdb-reader-border);
-    color: var(--jpdb-reader-muted);
-}
-
 .jpdb-youtube-channel-shelf {
     /* The shelf sits inline in the YouTube feed, so it must follow the PAGE
        theme (html[dark]) — not the extension theme — or light-extension +
@@ -385,16 +325,6 @@ html[dark] .jpdb-youtube-channel-shelf,
 }
 
 @media (max-width: 768px), (pointer: coarse) {
-    .jpdb-youtube-filter-bar {
-        bottom: max(76px, calc(60px + env(safe-area-inset-bottom)));
-        border-radius: 16px;
-        width: max-content;
-    }
-
-    .jpdb-youtube-filter-bar button {
-        min-height: 38px;
-    }
-
     .jpdb-youtube-channel-shelf {
         margin-bottom: 16px;
         padding-top: 12px;

@@ -950,7 +950,10 @@
   font-weight: var(--jpdb-reader-popup-font-weight, 450);
   line-height: 1.16;
   text-decoration: none;
-  word-break: keep-all;
+  min-width: 0;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  word-break: normal;
 }
 .jpdb-reader-spelling:has(rt.jpdb-reader-furi) {
   line-height: 1.55;
@@ -1168,22 +1171,22 @@ span.jpdb-reader-action-pill[aria-disabled="true"] {
   }
 }
 
-@container (max-width: 400px) {
-  .jpdb-reader-card-tools:has(.jpdb-reader-pitch-variants) {
+@container (max-width: 440px) {
+  .jpdb-reader-card-tools:has(.jpdb-reader-pitch, .jpdb-reader-pitch-variants, .jpdb-reader-pitch-components) {
     display: contents;
   }
-  .jpdb-reader-card-tools .jpdb-reader-pitch-variants {
+  .jpdb-reader-card-tools :is(.jpdb-reader-pitch, .jpdb-reader-pitch-variants, .jpdb-reader-pitch-components) {
     grid-column: 1 / -1;
     grid-row: 2;
     width: 100%;
     margin-block: 4px 0;
   }
-  .jpdb-reader-header:has(.jpdb-reader-pitch-variants) .jpdb-reader-word-actions {
+  .jpdb-reader-header:has(.jpdb-reader-pitch, .jpdb-reader-pitch-variants, .jpdb-reader-pitch-components) .jpdb-reader-word-actions {
     grid-column: 2;
     grid-row: 1;
     justify-self: end;
   }
-  .jpdb-reader-header:has(.jpdb-reader-pitch-variants) .jpdb-reader-word-pills {
+  .jpdb-reader-header:has(.jpdb-reader-pitch, .jpdb-reader-pitch-variants, .jpdb-reader-pitch-components) .jpdb-reader-word-pills {
     grid-row: 3;
   }
 }
@@ -1191,19 +1194,6 @@ span.jpdb-reader-action-pill[aria-disabled="true"] {
 @container (max-width: 340px) {
   .jpdb-reader-header {
     gap: 0 8px;
-  }
-  .jpdb-reader-card-tools {
-    display: contents;
-  }
-  .jpdb-reader-pitch {
-    grid-column: 1 / -1;
-    grid-row: 2;
-    margin-top: -3px;
-  }
-  .jpdb-reader-word-actions {
-    grid-column: 2;
-    grid-row: 1;
-    justify-self: end;
   }
   .jpdb-reader-header .jpdb-reader-word-pills {
     grid-row: 3;

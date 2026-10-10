@@ -45,7 +45,7 @@ description: Hover any Japanese word on a web page, a YouTube subtitle or a mang
     <p class="yomu-band-lead">Pause, hover the word, carry on. Try it on this clip.</p>
     <a class="yomu-band-action" href="/video-player/">Play your own video</a>
     <figure class="yomu-band-player" data-yomu-video-frame data-yomu-runtime-surface data-yomu-demo-player aria-label="Captioned Peppa Pig Japanese sample video">
-      <video class="yomu-band-video" controls playsinline preload="none" poster="/media/yomu-peppa-shopping-poster.jpg" aria-label="Captioned Peppa Pig Japanese shopping sample video">
+      <video width="1280" height="720" class="yomu-band-video" controls playsinline preload="none" poster="/media/yomu-peppa-shopping-poster.jpg" aria-label="Captioned Peppa Pig Japanese shopping sample video">
         <source src="/media/yomu-peppa-shopping.webm" type="video/webm" />
         <source src="/media/yomu-peppa-shopping.mp4" type="video/mp4" />
         <track kind="subtitles" src="/media/yomu-peppa-shopping-ja.vtt" srclang="ja" label="Japanese" default />

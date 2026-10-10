@@ -110,6 +110,25 @@ function stableCssPixels(value) {
   const rounded = Number(value.toFixed(decimalPlaces));
   return `${Object.is(rounded, -0) ? 0 : rounded}px`;
 }
+function nativeTextRects(anchor) {
+  const document2 = anchor.ownerDocument;
+  const walker = document2.createTreeWalker(anchor, NodeFilter.SHOW_TEXT);
+  const range = document2.createRange();
+  if (typeof range.getClientRects !== "function") return [];
+  const rects = [];
+  while (walker.nextNode()) {
+  const node = walker.currentNode;
+  if (!node.textContent?.trim() || node.parentElement?.closest(
+    "rt,rp,.jpdb-reader-text-mirror,.jpdb-reader-detached-furi,[data-yomu-projected-reading]"
+  )) continue;
+  range.selectNodeContents(node);
+  rects.push(...Array.from(range.getClientRects()).filter((rect) => rect.width > 0 && rect.height > 0));
+  }
+  return rects;
+}
+function readingOverlapsPreviousLine(source, native, centre, width, height) {
+  return native.some((rect) => rect.top < source.top - source.height / 2 && rect.bottom > source.top - height && rect.left < centre + width / 2 && rect.right > centre - width / 2);
+}
 const overlays = /* @__PURE__ */ new WeakMap();
 const ownerRecords = /* @__PURE__ */ new WeakMap();
 const PROJECTED_READING_ATTRIBUTE = "data-yomu-projected-reading";
@@ -123,6 +142,7 @@ function syncProjectedReadings(owner, projections) {
   const currentSources = new Set(projections.map((projection) => projection.source));
   const context = {
   overlay,
+  nativeRects: /* @__PURE__ */ new Map(),
   anchorPaint: /* @__PURE__ */ new Map(),
   elementPaint: /* @__PURE__ */ new Map(),
   occludingPaint: /* @__PURE__ */ new Map(),
@@ -162,6 +182,7 @@ function syncProjectedReadings(owner, projections) {
     trackProjectionAnchor(record, overlay);
   }
   record.measure = projection.measure;
+  if (projection.nativeRects) context.nativeRects.set(projection.anchor, projection.nativeRects);
   refreshProjectionAnchorRoot(record.anchor, overlay);
   syncProjectedReadingStyle(record);
   adoptProjectionLayer(record, context);
@@ -260,6 +281,7 @@ function documentOverlay(document2) {
   occlusionEpoch: 0,
   scrollContextEpoch: 0,
   hitTestBudgetRemaining: 12,
+  hitTestCursor: 0,
   refreshing: false,
   graceRefreshNeeded: false,
   occlusionRefreshNeeded: false,
@@ -427,7 +449,7 @@ function readProjectedReadingPaint(record, rect, context) {
   };
 }
 function applyProjectionPaints(paints, context) {
-  resolveProjectedReadingCrowding(paints);
+  resolveProjectedReadingCrowding(paints, context);
   paints.forEach((paint) => applyProjectedReadingPaint(paint, context));
 }
 function applyProjectedReadingPaint(paint, context) {
@@ -463,10 +485,27 @@ function setDatasetIfChanged(element, key, value) {
   if (element.dataset[key] === value) return;
   element.dataset[key] = value;
 }
-function resolveProjectedReadingCrowding(paints) {
+function resolveProjectedReadingCrowding(paints, context) {
   const placed = paints.filter(isPlacedProjectionPaint);
-  if (placed.length < 2) return;
-  for (const lane of projectedReadingLanes(placed)) fitProjectedReadingLane(lane);
+  const nativeRects = context?.nativeRects ?? /* @__PURE__ */ new Map();
+  for (const lane of projectedReadingLanes(placed)) {
+  fitProjectedReadingLane(lane);
+  for (const paint of lane) {
+    if (!paint.visible) continue;
+    const anchor = paint.record.anchor;
+    let rects = nativeRects.get(anchor);
+    if (!rects) {
+      rects = nativeTextRects(anchor);
+      nativeRects.set(anchor, rects);
+    }
+    const height = paint.record.footprintHeight || paint.rect.height / 2;
+    const width = naturalReadingWidth(paint.record) * (paint.layout?.scaleX ?? 1);
+    const centre = paint.layout?.centre ?? readingAnchorCentre(paint);
+    if (readingOverlapsPreviousLine(paint.rect, rects, centre, width, height)) {
+      paint.visible = false;
+    }
+  }
+  }
 }
 function isPlacedProjectionPaint(paint) {
   return paint.visible && paint.rect !== null;
@@ -498,6 +537,7 @@ function fitProjectedReadingLane(lane) {
     previous ? (previous.right + paint.rect.left) / 2 : Number.NEGATIVE_INFINITY,
     next ? (paint.rect.right + next.left) / 2 : Number.POSITIVE_INFINITY
   );
+  if (paint.layout.scaleX === 0) paint.visible = false;
   }
 }
 function readingAnchorCentre(paint) {
@@ -508,7 +548,7 @@ function fitReadingBetween(centre, width, left, right) {
   const available = right - left;
   const scaleX = available >= width ? 1 : Math.max(PROJECTED_READING_MIN_SCALE_X, available / width);
   const painted = width * scaleX;
-  if (painted > available) return { centre, scaleX };
+  if (painted > available) return { centre, scaleX: 0 };
   if (centre - painted / 2 < left) return { centre: left + painted / 2, scaleX };
   if (centre + painted / 2 > right) return { centre: right - painted / 2, scaleX };
   return { centre, scaleX };
@@ -762,6 +802,7 @@ function runProjectionRefreshPass(overlay) {
   }
   const context = {
   overlay,
+  nativeRects: /* @__PURE__ */ new Map(),
   anchorPaint: /* @__PURE__ */ new Map(),
   elementPaint: /* @__PURE__ */ new Map(),
   occludingPaint: /* @__PURE__ */ new Map(),
@@ -773,6 +814,9 @@ function runProjectionRefreshPass(overlay) {
   styleReads: /* @__PURE__ */ new Map()
   };
   const records = refreshableRecords(overlay);
+  const start = overlay.hitTestCursor % Math.max(1, records.length);
+  records.push(...records.splice(0, start));
+  overlay.hitTestCursor = (start + 12) % Math.max(1, records.length);
   records.forEach((record) => adoptProjectionLayer(record, context));
   const paints = records.map((record) => {
   if (!visibleAnchor(record.anchor, context)) {

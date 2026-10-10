@@ -17,7 +17,7 @@ export interface RadialAction {
     /** Keep the menu open after activation (toggles re-render their state). */
     keepOpen?: boolean;
     /** A returned promise settles when the new state is in place. */
-    run: () => void | Promise<void>;
+    run: (event?: Event) => void | Promise<void>;
 }
 
 export interface RadialMenuHost {
@@ -208,7 +208,7 @@ export class RadialMenuController {
             event.preventDefault();
             event.stopPropagation();
             if (action.disabled) return;
-            const settled = action.run();
+            const settled = action.run(event);
             if (!action.keepOpen) {
                 this.close();
                 return;

@@ -353,7 +353,7 @@ import {
     hasJpdbApiCredential,
     isBunproFrontendCredentialExpired,
 } from '../settings/api-credential';
-import { mountSettingsSurfaceLauncher } from '../settings/sensitive-settings-surface';
+import { mountSettingsSurfaceLauncher, openSettingsFromTrustedInteraction } from '../settings/sensitive-settings-surface';
 
 import { createYomuLocalSrsAdapter, LocalYomuSrsRepository } from '../srs/local-yomu';
 import { installAcademyReaderSrsSync } from '../srs/account-sync';
@@ -1046,7 +1046,6 @@ export class ReaderApp {
         if (!Controller) return this.missingCompanionSurface('Video companion', 'youtube');
         return new Controller({
             getSettings: () => this.settings,
-            setShowFilterNotice: visible => void this.setYoutubeFilterNoticeVisible(visible),
             setShowChannelRecommendations: visible => void this.setYoutubeChannelRecommendationsVisible(visible),
             parseShelfJapanese: root => void this.parseYoutubeShelfJapanese(root),
             scheduleAnnotationLayoutRefresh: () => scheduleProjectedAnnotationLayoutRefresh(),
@@ -1443,12 +1442,6 @@ export class ReaderApp {
 
     private isYoutubeImmersionEnabled(): boolean {
         return this.settings.youtubeImmersionEnabled;
-    }
-
-    private async setYoutubeFilterNoticeVisible(visible: boolean): Promise<void> {
-        this.settings.youtubeShowFilterNotice = visible;
-        await this.persistSettings(this.settings, { explicitUserChoiceKeys: ['youtubeShowFilterNotice'] });
-        this.youtube.refresh();
     }
 
     private async togglePreferredJapaneseSiteLanguage(): Promise<void> {
@@ -2266,7 +2259,7 @@ export class ReaderApp {
             this.settings,
             () => void this.persistSettings(this.settings, { explicitUserChoiceKeys: NO_EXPLICIT_USER_CHOICE }),
             {
-                openSettings: () => this.showSettings(),
+                openSettings: event => this.showSettings(undefined, event),
                 openStudyPage: () => this.openStudyPage(),
                 cyclePowerState: () => this.cyclePowerState(),
                 powerState: () => this.puckPowerState(),
@@ -3335,10 +3328,8 @@ export class ReaderApp {
         if (tap && tap.id === event.pointerId) this.tapLookup = undefined;
     }
 
-    // Words inside real links are passive: a click/tap must navigate, so the
-    // popover has no click path there. Hover covers desktop; on touch (no
-    // hover) a stationary long-press opens the lookup instead, and suppresses
-    // the trailing click so the link does not also navigate.
+    // Native controls keep their short tap. A stationary hold opens lookup
+    // and suppresses the trailing click; movement remains ordinary scrolling.
     private beginLinkPressLookup(event: PointerEvent): void {
         this.clearLinkPressLookup();
         if (this.isDestroyed
@@ -3359,9 +3350,8 @@ export class ReaderApp {
         if (!word || this.isNativeWord(word)) return null;
         if (word.dataset.jpdbReaderPassive === 'true' && !canClickLookupPassiveReaderWordElement(word)) return null;
         if (word.closest('.jpdb-reader-popover') || word.closest(SUBTITLE_SURFACE_SELECTOR)) return null;
-        return nativeClickableAncestor(documentPortalSourceHostForReaderWord(word) ?? word) instanceof HTMLAnchorElement
-            ? word
-            : null;
+        const control = nativeClickableAncestor(documentPortalSourceHostForReaderWord(word) ?? word);
+        return control && !control.matches('input,textarea,select,[contenteditable="true"]') ? word : null;
     }
 
     private updateLinkPressLookup(event: PointerEvent): void {
@@ -3704,7 +3694,7 @@ export class ReaderApp {
         }
         if (matchesShortcut(event, this.settings.shortcuts.openSettings)) {
             event.preventDefault();
-            this.showSettings();
+            this.showSettings(undefined, event);
             return true;
         }
         if (matchesShortcut(event, this.settings.shortcuts.toggleOcr)) {
@@ -9327,7 +9317,8 @@ export class ReaderApp {
         return context;
     }
 
-    private showSettings(panel?: string): void {
+    private showSettings(panel?: string, event?: Event): void {
+        if (openSettingsFromTrustedInteraction(event, this.settings.interfaceLanguage, message => this.toast(message), panel)) return;
         const settingsSurface = this.settingsSurface;
         if (settingsSurface) {
             void Promise.resolve()

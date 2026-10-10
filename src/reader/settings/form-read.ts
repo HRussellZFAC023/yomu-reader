@@ -670,9 +670,8 @@ function readYoutubeFormSettings(reader: SettingsFormReader, current: ReaderSett
         youtubeShowChannelRecommendations: channelRecommendations,
         youtubeShowChannelRecommendationsChosen: current.youtubeShowChannelRecommendationsChosen
             || (channelControlsPresent && channelRecommendations !== current.youtubeShowChannelRecommendations),
-        youtubeShowFilterNotice: youtubeControlsPresent
-            ? has('youtubeShowFilterNotice')
-            : current.youtubeShowFilterNotice,
+        // Retain the imported legacy value; the notice is no longer a UI feature.
+        youtubeShowFilterNotice: current.youtubeShowFilterNotice,
     };
 }
 

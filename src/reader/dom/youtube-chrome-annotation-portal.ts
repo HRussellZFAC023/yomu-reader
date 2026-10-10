@@ -64,12 +64,13 @@ const structurallyStyledPortalMirrors = new WeakSet<HTMLElement>();
 const CLIPPED_PORTAL_SCROLL_SETTLE_MS = 96;
 let portalClipTopologyStyleReadCount = 0;
 let portalClipRectReadCount = 0;
+let portalAlignmentReadCount = 0;
 
 /** Focused real-browser counters for the clip topology/geometry budget. */
 // Loaded by source-preserving-prose-portal-smoke.mjs through a generated data URL.
 // fallow-ignore-next-line unused-export
-export function documentPortalClipMeasurementCountsForTest(): { styles: number; rects: number } {
-    return { styles: portalClipTopologyStyleReadCount, rects: portalClipRectReadCount };
+export function documentPortalClipMeasurementCountsForTest(): { styles: number; rects: number; alignments: number } {
+    return { styles: portalClipTopologyStyleReadCount, rects: portalClipRectReadCount, alignments: portalAlignmentReadCount };
 }
 
 /**
@@ -125,7 +126,37 @@ export function styleDocumentAnnotationPortalMirror(mirror: HTMLElement, host: H
     mirror.style.setProperty('direction', style.direction, 'important');
     mirror.style.setProperty('writing-mode', style.writingMode, 'important');
     mirror.style.setProperty('color', style.color, 'important');
+    syncPortalScrollMode(mirror, host);
     setImportantStyle(mirror, 'z-index', documentPortalStackingLevel(host));
+}
+
+function syncPortalScrollMode(mirror: HTMLElement, source: HTMLElement): void {
+    const documentFlow = sourceSharesDocumentScroll(source);
+    mirror.dataset.yomuPortalScroll = documentFlow ? 'document' : 'viewport';
+    setImportantStyle(mirror, 'position', documentFlow ? 'absolute' : 'fixed');
+}
+
+/** Ordinary page content and its annotations scroll in the compositor together.
+ * Only independent scrollers and fixed/sticky surfaces need viewport tracking. */
+function sourceSharesDocumentScroll(source: HTMLElement): boolean {
+    const roots = [source.ownerDocument.body, source.ownerDocument.documentElement];
+    return !composedAncestors(source).some(element => {
+        const style = safeComputedStyle(element);
+        return roots.includes(element) ? rootChangesPortalCoordinates(style) : scrollsIndependently(style);
+    });
+}
+
+function rootChangesPortalCoordinates(style: CSSStyleDeclaration): boolean {
+    const transforms = ['transform', 'filter', 'backdrop-filter', 'perspective'];
+    return !['', 'static'].includes(style.position)
+        || transforms.some(property => !['', 'none'].includes(style.getPropertyValue(property)))
+        || /transform|filter|perspective/.test(style.willChange)
+        || /layout|paint|strict|content/.test(style.contain);
+}
+
+function scrollsIndependently(style: CSSStyleDeclaration): boolean {
+    return ['fixed', 'sticky'].includes(style.position)
+        || [style.overflowX, style.overflowY].some(value => /^(auto|scroll|overlay)$/.test(value));
 }
 
 /** The stable paint plane all portal words live under. */
@@ -196,8 +227,9 @@ function createPortalWatch(document: Document): DocumentAnnotationPortalWatch {
         if (document.hidden) return [];
         return pruneAndCollectEntries(document, watch);
     };
-    const alignForScroll = (): void => {
-        const live = visibleEntries();
+    const alignForScroll = (event: Event): void => {
+        const documentScroll = event.target === document || event.target === view;
+        const live = visibleEntries().filter(entry => !documentScroll || entry.mirror.dataset.yomuPortalScroll !== 'document');
         if (!live.length) return;
         const alignments = alignPortalEntries(live);
         scheduleClippedPortalScrollSettle(document, watch, alignments);
@@ -233,6 +265,22 @@ function createPortalWatch(document: Document): DocumentAnnotationPortalWatch {
         // affected portals rather than scheduling a whole-document Range pass.
         affected.forEach(entry => entry.projectImmediately());
     };
+
+    // A responsive wrapper can acquire sticky/fixed positioning without
+    // changing the source node. Reclassify only sources beneath changed native
+    // ancestors; annotation output cannot trigger this path.
+    const topologyObserver = new MutationObserver(records => {
+        const ancestors = records.map(record => record.target).filter((node): node is Element =>
+            node instanceof Element && !node.closest('.jpdb-reader-text-mirror,.jpdb-reader-detached-reading-overlay,[data-jpdb-reader-root]'));
+        if (!ancestors.length) return;
+        const affected = visibleEntries().filter(entry => ancestors.some(node => node !== entry.source && node.contains(entry.source)));
+        if (!affected.length) return;
+        affected.forEach(entry => { entry.clipTopologyEpoch = -1; });
+        alignPortalEntries(affected);
+        affected.forEach(entry => entry.scheduleProjection());
+    });
+    topologyObserver.observe(document.documentElement, { attributes: true, subtree: true, attributeFilter: ['class', 'style'] });
+    lifecycle.signal.addEventListener('abort', () => topologyObserver.disconnect(), { once: true });
 
     view?.addEventListener('scroll', alignForScroll, {
         capture: true,
@@ -350,6 +398,7 @@ function alignPortalEntries(entries: readonly DocumentAnnotationPortalEntry[]): 
 function readPortalAlignments(entries: readonly DocumentAnnotationPortalEntry[]): PendingAlignment[] {
     const clips = measurePortalClipBounds(entries);
     return entries.map((entry, index) => {
+        portalAlignmentReadCount += 1;
         const source = portalSourcePoint(entry);
         const rootRect = entry.mirror.getBoundingClientRect();
         // The current root rect includes no paint-plane transform; the transform
@@ -463,10 +512,11 @@ function measurePortalClipBounds(
         const watch = portalWatches.get(entry.source.ownerDocument);
         const epoch = watch?.topologyEpoch ?? 0;
         if (entry.clipTopologyEpoch !== epoch) {
+            syncPortalScrollMode(entry.mirror, entry.source);
             entry.clipChain = portalClipChain(entry.source, styles);
             entry.clipTopologyEpoch = epoch;
         }
-        return clipBoundsFromChain(entry.source, entry.clipChain, rects);
+        return clipBoundsFromChain(entry.source, entry.clipChain, rects, entry.mirror.dataset.yomuPortalScroll === 'document');
     });
 }
 
@@ -494,15 +544,10 @@ function clipBoundsFromChain(
     source: HTMLElement,
     chain: readonly PortalClipAncestor[],
     rects: Map<HTMLElement, DOMRect>,
+    documentFlow: boolean,
 ): DocumentAnnotationPortalClipBounds | null {
     if (!chain.length) return null;
-    const view = source.ownerDocument.defaultView;
-    let bounds: DocumentAnnotationPortalClipBounds = {
-        left: 0,
-        top: 0,
-        right: view?.innerWidth ?? source.ownerDocument.documentElement.clientWidth,
-        bottom: view?.innerHeight ?? source.ownerDocument.documentElement.clientHeight,
-    };
+    const bounds = portalClipFrame(source.ownerDocument, documentFlow);
     for (const { element, clipsX, clipsY } of chain) {
         let rect = rects.get(element);
         if (!rect) {
@@ -520,6 +565,17 @@ function clipBoundsFromChain(
         }
     }
     return bounds;
+}
+
+function portalClipFrame(document: Document, documentFlow: boolean): DocumentAnnotationPortalClipBounds {
+    const root = document.documentElement;
+    const view = document.defaultView;
+    if (!view) return { left: 0, top: 0, right: root.clientWidth, bottom: root.clientHeight };
+    if (!documentFlow) return { left: 0, top: 0, right: view.innerWidth, bottom: view.innerHeight };
+    return {
+        left: -view.scrollX, top: -view.scrollY,
+        right: root.scrollWidth - view.scrollX, bottom: root.scrollHeight - view.scrollY,
+    };
 }
 
 /**
@@ -630,8 +686,10 @@ function applyPortalClipGeometry(
         setImportantStyle(mirror, 'overflow', 'visible');
         return;
     }
-    setImportantStyle(mirror, 'left', stableCssPixels(clip.left));
-    setImportantStyle(mirror, 'top', stableCssPixels(clip.top));
+    const view = mirror.ownerDocument.defaultView;
+    const documentFlow = mirror.dataset.yomuPortalScroll === 'document';
+    setImportantStyle(mirror, 'left', stableCssPixels(clip.left + (documentFlow ? view?.scrollX ?? 0 : 0)));
+    setImportantStyle(mirror, 'top', stableCssPixels(clip.top + (documentFlow ? view?.scrollY ?? 0 : 0)));
     setImportantStyle(mirror, 'width', stableCssPixels(Math.max(0, clip.right - clip.left)));
     setImportantStyle(mirror, 'height', stableCssPixels(Math.max(0, clip.bottom - clip.top)));
     setImportantStyle(mirror, 'overflow', 'hidden');

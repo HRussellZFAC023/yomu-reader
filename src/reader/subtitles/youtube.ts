@@ -166,7 +166,6 @@ const YOUTUBE_FILTER_COLLAPSE_DELAY_MS = 80;
 const YOUTUBE_FILTER_SCROLL_COLLAPSE_DELAY_MS = 650;
 const YOUTUBE_FILTER_SCROLL_SETTLE_MS = 280;
 const YOUTUBE_FILTER_COLLAPSE_DURATION_MS = 240;
-const YOUTUBE_FILTER_NOTICE_AUTO_HIDE_MS = 10_000;
 const YOUTUBE_VISIBLE_BACKFILL_TARGET = 24;
 const YOUTUBE_BACKFILL_THROTTLE_MS = 1200;
 const YOUTUBE_SEARCH_AUTO_REVEAL_MIN_FILTERED = 8;
@@ -201,12 +200,6 @@ type YouTubeCardInfo = {
 type StoredOEmbedTitle = {
     title: string | null;
     cachedAt: number;
-};
-
-type YouTubeFilterNoticeElements = {
-    summary: HTMLElement;
-    toggleHidden: HTMLButtonElement;
-    hideNotice: HTMLButtonElement;
 };
 
 type YouTubeChannelShelfElements = {
@@ -306,21 +299,10 @@ export class YoutubeImmersionFilter {
     private events?: AbortController;
     private timer?: number;
     private metadataRescanTimer?: number;
-    private bar?: HTMLElement;
-    private noticeAutoHideTimer?: number;
-    private noticeAutoHideScope = '';
     private channelShelf?: HTMLElement;
     private revealed = false;
-    private dismissedNoticeScope = '';
-    // "Hide notice" is a SESSION dismissal: it must never persist — the
-    // permanent switch lives in the settings dialog only (2026-07-11 report:
-    // one tap on the notice silently disabled it forever).
-    private noticeSessionHidden = false;
-    // Route scope that was auto-revealed because the user's own search came
-    // back all non-Japanese; cleared when the route changes or the user
-    // toggles manually.
+    // All-filtered searches are revealed only for their current route.
     private autoRevealedScope = '';
-    private noticeRouteKey = '';
     private channelShelfRouteKey = '';
     private channelShelfExpanded = false;
     private channelShelfFilter: YouTubeChannelRecommendationFilter = 'all';
@@ -407,7 +389,6 @@ export class YoutubeImmersionFilter {
 
     constructor(private readonly options: {
         getSettings: () => ReaderSettings;
-        setShowFilterNotice?: (visible: boolean) => void;
         setShowChannelRecommendations?: (visible: boolean) => void;
         parseShelfJapanese?: (root: HTMLElement) => void;
         scheduleAnnotationLayoutRefresh?: () => void;
@@ -529,22 +510,16 @@ export class YoutubeImmersionFilter {
         // loader in view, which loads more results, which we hide again —
         // unbounded DOM growth that saturates the page (and made the puck
         // toggle unresponsive). The user typed that query: reveal the
-        // results for THIS route and let the notice explain.
+        // results for THIS route.
         if (this.shouldAutoRevealSearchResults(result)) {
             this.revealed = true;
-            this.autoRevealedScope = this.currentNoticeScope();
+            this.autoRevealedScope = this.currentRouteKey();
             this.schedule(0);
             return;
         }
         result.decisions.forEach(decision => this.applyFilterDecision(decision));
         this.syncFilterableVideoShelves();
 
-        if (settings.youtubeShowFilterNotice && !this.noticeSessionHidden && shouldShowFilterNoticeForRoute()) {
-            this.renderNotice(result.filteredCount, result.shownCount, settings);
-        } else {
-            this.bar?.remove();
-            this.bar = undefined;
-        }
         this.syncChannelShelf(result.filteredCount, settings);
         this.maybeBackfillFeed(result.filteredCount, result.shownCount, result.visibleVideoIds.size);
     }
@@ -872,131 +847,18 @@ export class YoutubeImmersionFilter {
         this.cardTimers.delete(card);
     }
 
-    private renderNotice(filteredCount: number, shownCount: number, settings: ReaderSettings): void {
-        if (!filteredCount) {
-            this.removeNotice();
-            return;
-        }
-
-        const noticeScope = this.currentNoticeScope();
-        if (!this.bar && this.dismissedNoticeScope === noticeScope) return;
-
-        const notice = this.ensureNoticeBar();
-        this.updateNoticeSummary(notice.summary, filteredCount, shownCount, settings);
-        this.updateNoticeActions(notice, settings);
-        this.armNoticeAutoHide(noticeScope);
-    }
-
-    // The notice must not squat over the feed forever: after a grace period it
-    // dismisses itself for the current scope, and comes back on the next route.
-    private armNoticeAutoHide(scope: string): void {
-        if (this.noticeAutoHideTimer !== undefined && this.noticeAutoHideScope === scope) return;
-        window.clearTimeout(this.noticeAutoHideTimer);
-        this.noticeAutoHideScope = scope;
-        this.noticeAutoHideTimer = window.setTimeout(() => {
-            this.noticeAutoHideTimer = undefined;
-            this.dismissedNoticeScope = scope;
-            this.removeNotice();
-        }, YOUTUBE_FILTER_NOTICE_AUTO_HIDE_MS);
-    }
-
-    private ensureNoticeBar(): YouTubeFilterNoticeElements {
-        if (!this.bar) {
-            this.bar = this.createNoticeBar();
-            document.body.append(this.bar);
-        }
-        return this.noticeElements(this.bar);
-    }
-
-    private createNoticeBar(): HTMLElement {
-        const bar = document.createElement('div');
-        bar.className = 'jpdb-youtube-filter-bar';
-        bar.dataset.jpdbReaderRoot = 'true';
-        bar.role = 'status';
-        bar.ariaLive = 'polite';
-
-        const summary = document.createElement('span');
-        summary.dataset.role = 'summary';
-        summary.className = 'jpdb-reader-sr-only';
-        const actions = document.createElement('div');
-        actions.className = 'jpdb-youtube-filter-actions';
-
-        actions.append(noticeButton('toggle-hidden'), noticeButton('hide-notice'));
-        bar.append(summary, actions);
-        bar.addEventListener('click', event => this.handleNoticeClick(event));
-        return bar;
-    }
-
-    private noticeElements(bar: HTMLElement): YouTubeFilterNoticeElements {
-        return {
-            summary: bar.querySelector<HTMLElement>('[data-role="summary"]')!,
-            toggleHidden: bar.querySelector<HTMLButtonElement>('[data-action="toggle-hidden"]')!,
-            hideNotice: bar.querySelector<HTMLButtonElement>('[data-action="hide-notice"]')!,
-        };
-    }
-
-    private handleNoticeClick(event: MouseEvent): void {
-        const action = (event.target as HTMLElement).closest<HTMLButtonElement>('[data-action]')?.dataset.action;
-        if (action === 'toggle-hidden') this.toggleHiddenVideos();
-        if (action === 'hide-notice') this.dismissFilterNotice();
-    }
-
-    private toggleHiddenVideos(): void {
-        this.revealed = !this.revealed;
-        this.autoRevealedScope = '';
-        this.schedule(0);
-    }
-
     private shouldAutoRevealSearchResults(result: YouTubeFilterScanDecision): boolean {
         if (this.revealed) return false;
         if (location.pathname !== '/results') return false;
         return result.shownCount === 0 && result.filteredCount >= YOUTUBE_SEARCH_AUTO_REVEAL_MIN_FILTERED;
     }
 
-    // Auto-reveal is scoped to the search route it rescued: navigating away
-    // restores normal filtering. A manual toggle (autoRevealedScope cleared)
-    // is never touched.
+    // Navigating away restores normal filtering after a rescued search.
     private resetStaleAutoReveal(): void {
         if (!this.autoRevealedScope) return;
-        if (this.currentNoticeScope().split(':')[0] === this.autoRevealedScope.split(':')[0]) return;
+        if (this.currentRouteKey() === this.autoRevealedScope) return;
         this.autoRevealedScope = '';
         this.revealed = false;
-    }
-
-    private dismissFilterNotice(): void {
-        this.noticeSessionHidden = true;
-        this.dismissedNoticeScope = this.currentNoticeScope();
-        this.removeNotice();
-    }
-
-    private updateNoticeSummary(summary: HTMLElement, filteredCount: number, shownCount: number, settings: ReaderSettings): void {
-        const summaryText = this.noticeSummaryText(filteredCount, settings);
-        const values = { count: String(shownCount) };
-        const visibleText = shownCount ? formatYoutubeText(uiText(settings.interfaceLanguage, 'youtubeFilterVisible'), values) : '';
-        const bar = summary.closest<HTMLElement>('.jpdb-youtube-filter-bar');
-        summary.textContent = summaryText;
-        summary.title = visibleText;
-        if (bar) {
-            bar.setAttribute('aria-label', visibleText ? `${summaryText}. ${visibleText}` : summaryText);
-            bar.title = visibleText;
-        }
-    }
-
-    private noticeSummaryText(filteredCount: number, settings: ReaderSettings): string {
-        const plural = filteredCount === 1 ? '' : 's';
-        const key = this.revealed ? 'youtubeFilterShowing' : 'youtubeFilterHid';
-        return formatYoutubeText(uiText(settings.interfaceLanguage, key), {
-            appName: APP_NAME,
-            count: String(filteredCount),
-            plural,
-        });
-    }
-
-    private updateNoticeActions(notice: YouTubeFilterNoticeElements, settings: ReaderSettings): void {
-        notice.toggleHidden.textContent = this.revealed
-            ? uiText(settings.interfaceLanguage, 'youtubeHideHiddenVideos')
-            : uiText(settings.interfaceLanguage, 'youtubeShowHiddenVideos');
-        notice.hideNotice.textContent = uiText(settings.interfaceLanguage, 'youtubeHideNotice');
     }
 
     private syncChannelShelf(filteredCount: number, settings: ReaderSettings): void {
@@ -1618,10 +1480,7 @@ export class YoutubeImmersionFilter {
         this.channelSubscriptionProbeComplete = false;
         this.revealed = false;
         this.clearFilteredCards();
-        this.removeNotice();
         this.removeChannelShelf();
-        this.dismissedNoticeScope = '';
-        this.noticeRouteKey = '';
         this.channelShelfRouteKey = '';
         this.channelShelfExpanded = false;
         this.channelShelfFilter = 'all';
@@ -1683,14 +1542,6 @@ export class YoutubeImmersionFilter {
         }, OEMBED_BATCH_RESCAN_DELAY_MS);
     }
 
-    private removeNotice(): void {
-        window.clearTimeout(this.noticeAutoHideTimer);
-        this.noticeAutoHideTimer = undefined;
-        this.noticeAutoHideScope = '';
-        this.bar?.remove();
-        this.bar = undefined;
-    }
-
     private clearFilteredCards(): void {
         document
             .querySelectorAll<HTMLElement>(YOUTUBE_FILTERED_SELECTOR)
@@ -1698,16 +1549,6 @@ export class YoutubeImmersionFilter {
         document
             .querySelectorAll<HTMLElement>(`.${YOUTUBE_FIRST_IN_ROW_CLASS}`)
             .forEach(card => card.classList.remove(YOUTUBE_FIRST_IN_ROW_CLASS));
-    }
-
-    private currentNoticeScope(): string {
-        const routeKey = this.currentRouteKey();
-        if (this.noticeRouteKey !== routeKey) {
-            this.noticeRouteKey = routeKey;
-            this.dismissedNoticeScope = '';
-            this.removeNotice();
-        }
-        return `${routeKey}:${this.revealed ? 'revealed' : 'hidden'}`;
     }
 
     private currentRouteKey(): string {
@@ -1746,17 +1587,6 @@ export function youtubeImmersionFilterEnabled(settings: ReaderSettings): boolean
 
 function youtubeChannelRecommendationsEnabled(settings: ReaderSettings): boolean {
     return settings.youtubeShowChannelRecommendations;
-}
-
-function formatYoutubeText(template: string, values: Record<string, string>): string {
-    return template.replace(/\{(\w+)\}/g, (_match: string, key: string) => values[key] ?? '');
-}
-
-function noticeButton(action: string): HTMLButtonElement {
-    const button = document.createElement('button');
-    button.type = 'button';
-    button.dataset.action = action;
-    return button;
 }
 
 function channelShelfButton(action: string): HTMLButtonElement {
@@ -2572,10 +2402,6 @@ function shouldHidePendingYouTubeCard(card: HTMLElement): boolean {
     if (viewportHeight <= 0) return false;
     const preloadMargin = Math.max(360, viewportHeight * 0.75);
     return rect.bottom < -preloadMargin || rect.top > viewportHeight + preloadMargin;
-}
-
-function shouldShowFilterNoticeForRoute(): boolean {
-    return !isYouTubeWatchPage() && !isYouTubeShortsWatchPage();
 }
 
 function isYouTubePlaylistLikeCard(card: HTMLElement): boolean {

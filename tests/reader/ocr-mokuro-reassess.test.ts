@@ -160,7 +160,8 @@ describe('OCR reassessAutoScan (mokuro OCR toggle)', () => {
         let defer = false; // mokuro OCR off → reader scans
         const controller = makeController(() => !defer);
         const pending = controlledResult();
-        (controller as unknown as { recognizeImage: () => Promise<OcrResult> }).recognizeImage = vi.fn(() => pending.promise);
+        const recognize = vi.fn(() => pending.promise);
+        (controller as unknown as { recognizeImage: () => Promise<OcrResult> }).recognizeImage = recognize;
         const image = makeImage('/page-1.png');
         document.body.replaceChildren(image);
         try {
@@ -201,13 +202,15 @@ describe('OCR reassessAutoScan (mokuro OCR toggle)', () => {
     it('does not paint an OCR result that completes after the image content key changes', async () => {
         const controller = makeController(() => true, { ocrShowTextOverlay: true });
         const pending = controlledResult();
-        (controller as unknown as { recognizeImage: () => Promise<OcrResult> }).recognizeImage = vi.fn(() => pending.promise);
+        const recognize = vi.fn(() => pending.promise);
+        (controller as unknown as { recognizeImage: () => Promise<OcrResult> }).recognizeImage = recognize;
         const image = makeImage('/page-1.png');
         image.dataset.ocrContentKey = 'page-1';
         document.body.replaceChildren(image);
         try {
             const scan = scanImage(controller, image);
-            await waitForExpect(() => expect(document.querySelector('.jpdb-ocr-video-frame-status-loading')).not.toBeNull());
+            await waitForExpect(() => expect(recognize).toHaveBeenCalled());
+            expect(document.querySelector('.jpdb-ocr-video-frame-status')).toBeNull();
 
             image.dataset.ocrContentKey = 'page-2';
             image.dispatchEvent(new Event('load'));

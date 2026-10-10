@@ -211,6 +211,10 @@
       display: grid;
       gap: 2px;
       min-width: 190px;
+      max-width: calc(100vw - 32px);
+      max-height: calc(100dvh - 100px);
+      overflow-y: auto;
+      overscroll-behavior: contain;
       padding: 8px;
       border: 1px solid var(--line);
       border-radius: var(--radius);
@@ -414,7 +418,7 @@
       min-height: 100dvh;
       margin: 0;
       display: grid;
-      grid-template-rows: auto 1fr;
+      grid-template-rows: auto auto 1fr;
       align-content: stretch;
       gap: 0;
     }
@@ -727,10 +731,12 @@
       display: none;
     }
 
+    .shell-status { margin: 0; padding: 8px 16px; color: var(--muted); font-size: 13px; line-height: 1.45; overflow-wrap: anywhere; }
+
     .status {
       display: block;
       min-width: 0;
-      color: var(--stage-empty-strong);
+      color: var(--muted);
       font-size: 13px;
       line-height: 1.45;
       overflow: hidden;
@@ -813,6 +819,7 @@
       }
     }
   </style>
+  <script defer src="../hosted-shell-controls.js"></script>
 </head>
 <body>
   <main class="app" data-app>
@@ -839,7 +846,7 @@
             <span class="more-icon" aria-hidden="true"></span>
           </summary>
           <div class="overflow-panel">
-            <button type="button" data-settings-trigger>Settings</button>
+            <a href="../study/#settings=appearance" target="_blank" rel="noopener" data-settings-trigger>Settings</a>
             <!-- Site navigation, stamped from src/reader/app/site-nav.ts by
                  scripts/sync-docs-userscript.cjs. Edit the list there. -->
             <!-- yomu:site-nav:start -->
@@ -869,6 +876,7 @@
         </label>
       </div>
     </header>
+    <p class="status shell-status" data-status data-jpdb-reader-surface-ignore="true" role="status" aria-live="polite" aria-atomic="true">Open a video with .srt, .vtt, .ass, or .ssa files.</p>
 
     <div class="stage-area">
       <section class="stage" data-stage data-yomu-video-frame aria-label="Video">
@@ -890,7 +898,7 @@
         <button class="empty" type="button" data-empty-open>
           <div>
             <strong>Drop anime and subtitles</strong>
-            <span class="status" data-status>Open a video with .srt, .vtt, .ass, or .ssa files.</span>
+
             <span class="empty-file-row" aria-hidden="true">
               <span class="empty-file-chip"><span data-empty-video-chip>Video</span><span>MP4 / MKV</span></span>
               <span class="empty-file-chip"><span data-empty-subtitle-chip>Subtitles</span><span>SRT / VTT / ASS</span></span>
@@ -922,8 +930,7 @@
       const themeKey = 'yomu-page-theme';
       const settingsKey = 'jpdb-popup-reader-settings';
       const settingsChangeEvent = 'yomu-settings-change';
-      const openSettingsEvent = 'yomu-open-settings';
-      const openSubtitleTracksEvent = 'yomu-open-subtitle-tracks';
+        const openSubtitleTracksEvent = 'yomu-open-subtitle-tracks';
       const loadSubtitleFilesEvent = 'yomu-load-subtitle-files';
       const languageEvent = 'yomu-interface-language-change';
       const runtimeScriptId = 'yomu-hosted-video-runtime';
@@ -932,7 +939,7 @@
       const runtimeCompanionAttribute = 'data-yomu-hosted-video-companion';
       const runtimeCompanionScripts = [
         // yomu:runtime-companions:start
-        'greasyfork/yomu-runtime.6889f8299c2c.user.js',
+        'greasyfork/yomu-runtime.4dd297515a89.user.js',
         // yomu:runtime-companions:end
       ];
       const runtimeReadyTimeoutMs = 2600;
@@ -969,6 +976,7 @@
           loadingSettings: 'Loading Yomu settings...',
           loadingSubtitles: 'Loading subtitle controls...',
           runtimeMissing: 'Yomu controls could not load from this server. Serve yomu.user.js and yomu.css next to the video player, or enable the Yomu userscript.',
+          loadFailed: 'This video could not be played. Try another file or a format your browser supports.',
           opening: name => `Opening ${name}...`,
           openingWithSubtitles: (name, count) => `Opening ${name} with ${count} subtitle ${count === 1 ? 'file' : 'files'}...`,
           subtitlesQueued: (name, count) => `${name} · loaded ${count} subtitle ${count === 1 ? 'file' : 'files'}`,
@@ -985,6 +993,7 @@
           exitFullscreen: 'Exit fullscreen',
         },
         ja: {
+          loadFailed: 'この動画を再生できませんでした。別のファイルか、ブラウザーが対応する形式をお試しください。',
           title: 'よむ 動画',
           brand: 'よむ 動画',
           openHome: 'よむホームを開く',
@@ -1372,18 +1381,8 @@
         return ready;
       }
 
-      function settingsVisible() {
-        return Boolean(document.querySelector('.jpdb-reader-settings'));
-      }
-
       function subtitleTracksVisible() {
         return Boolean(document.querySelector('.jpdb-subtitle-list.jpdb-subtitle-tracks-panel:not([hidden])'));
-      }
-
-      function dispatchSettingsOpen() {
-        if (settingsVisible()) return true;
-        window.dispatchEvent(new CustomEvent(openSettingsEvent, { detail: { panel: 'basics' } }));
-        return settingsVisible();
       }
 
       function dispatchSubtitleTracksOpen() {
@@ -1398,14 +1397,6 @@
         window.setTimeout(() => {
           if (!dispatch()) setStatus(missingMessage);
         }, 1350);
-      }
-
-      async function openSettings() {
-        overflowMenu?.removeAttribute('open');
-        if (dispatchSettingsOpen()) return;
-        const text = copy[effectiveInterfaceLanguage()];
-        await ensureYomuRuntime({ message: text.loadingSettings });
-        retryYomuAction(dispatchSettingsOpen, text.runtimeMissing);
       }
 
       async function openSubtitleTracks() {
@@ -1434,8 +1425,11 @@
         return Boolean(file && /\.(srt|vtt|ass|ssa)$/i.test(file.name));
       }
 
+      let videoLoadGeneration = 0;
+
       function loadVideo(file, options = {}) {
         if (!file) return;
+        videoLoadGeneration += 1;
         revokeObjectUrl();
         stage.classList.add('has-video');
         currentVideoName = file.name;
@@ -1452,11 +1446,12 @@
       }
 
       async function loadSubtitleFiles(files) {
+        const generation = videoLoadGeneration;
         const subtitleFiles = Array.from(files || []).filter(isSubtitleFile);
         if (!subtitleFiles.length) return false;
         const text = copy[effectiveInterfaceLanguage()];
         const ready = await ensureYomuRuntime({ message: text.loadingSubtitles });
-        if (!ready) return false;
+        if (!ready || generation !== videoLoadGeneration) return false;
         window.dispatchEvent(new CustomEvent(loadSubtitleFilesEvent, {
           detail: {
             files: subtitleFiles,
@@ -1468,7 +1463,10 @@
       }
 
       function loadSubtitleFilesSoon(files) {
-        window.setTimeout(() => { void loadSubtitleFiles(files); }, 90);
+        const generation = videoLoadGeneration;
+        window.setTimeout(() => {
+          if (generation === videoLoadGeneration) void loadSubtitleFiles(files);
+        }, 90);
       }
 
       function handleFiles(files) {
@@ -1579,6 +1577,16 @@
         }
       }
 
+      video.addEventListener('error', () => {
+        if (!currentVideoName) return;
+        videoLoadGeneration += 1;
+        if (stageIsFullscreen()) void Promise.resolve(exitStageFullscreen()).catch(() => undefined);
+        stage.classList.remove('has-video');
+        currentVideoName = '';
+        delete video.dataset.yomuAnimeSearch;
+        revokeObjectUrl();
+        setStatus(copy[effectiveInterfaceLanguage()].loadFailed);
+      });
       video.addEventListener('loadedmetadata', applyVideoAspect);
       video.addEventListener('resize', applyVideoAspect);
 
@@ -1592,7 +1600,6 @@
         saveThemePreference(effectiveTheme() === 'dark' ? 'light' : 'dark');
       });
       languageToggle?.addEventListener('click', () => saveInterfaceLanguage(nextInterfaceLanguage()));
-      settingsTrigger?.addEventListener('click', openSettings);
       subtitleOpen?.addEventListener('click', openSubtitleTracks);
       fullscreenToggle?.addEventListener('click', toggleFullscreen);
       document.addEventListener('fullscreenchange', syncFullscreenButtonLabel);
@@ -1608,6 +1615,7 @@
         if (event.key === settingsKey || event.key === themeKey || event.key === null) {
           applyTheme();
           applyAccent();
+          applyInterfaceLanguage(effectiveInterfaceLanguage());
         }
       });
       matchMedia('(prefers-color-scheme: light)').addEventListener('change', () => {

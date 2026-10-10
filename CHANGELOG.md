@@ -1,5 +1,23 @@
 # Changelog
 
+## [2.1.1] - 2026-10-10
+
+### Fixed
+
+- Request Japanese site keeps working after later Google searches and other navigation that drops locale markers. YouTube retains its reload-loop protection.
+- Image OCR taps reuse existing recognized text. Automatic image scans show a corner mark only after text is ready, and hidden or overlapping image copies no longer keep duplicate marks.
+- Words without a study state no longer pick up grey underlines on website controls. Reddit reply and timestamp labels receive annotations; hold a word in a native control to open lookup while a quick tap keeps its action.
+- The local deck in “Add to deck” is called “Default”. YouTube filtering no longer shows its hidden-video notice.
+- Shorts caption fallback reads captions beside the player within the active reel, without mixing in neighboring videos.
+- Furigana is larger and has stronger contrast, including when page text is enlarged. Narrow word popups put the pitch graph below the headword and keep long spellings clear of the audio controls.
+- Fixed homepage edge spacing on phones and tablets, and reserved the video’s space before it loads.
+- Settings opened from a website now go straight to Study from the original tap or keyboard shortcut.
+- Colour visibility settings no longer reveal duplicate annotation text. Ordinary document annotations scroll with the page; busy pages give every reading a visibility check.
+- YouTube navigation and filter labels receive passive annotations without changing their actions. Readings that cannot fit without covering text stay available in the word lookup.
+- Library search matches hiragana, katakana and half-width kana, remembers filters in the page address, and offers a clear-filters action. Results appear before the full attribution, and book links expose their level to screen readers.
+- The donation chooser works in Japanese, fits short screens, and releases the page when following its running-costs link. Language switching keeps the current section on translated pages.
+- PDF and video menus close with Escape or an outside press and scroll on short screens. File status stays visible and is announced; open tabs follow language changes. Unsupported video files report an error and return to the file picker. PDFs remain readable when position storage is unavailable.
+
 ## [2.1.0] - 2026-10-09
 
 ### Changed

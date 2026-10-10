@@ -1548,14 +1548,15 @@
 .yomu-band-frame { margin: 0; }
 .yomu-band-frame > img { border: 1px solid var(--home-line); }
 .yomu-band-player { margin: 24px 0 0; }
-.yomu-band-video { display: block; width: 100%; border-radius: 4px; background: #111; }
+.yomu-band-video { display: block; width: 100%; aspect-ratio: 16 / 9; border-radius: 4px; background: #111; }
 .yomu-manga-figure { max-width: 420px; justify-self: center; }
 
 .yomu-letter { max-width: 780px; margin: 0 auto; }
 .yomu-letter > p { margin: 24px 0 0; font-size: 18px; line-height: 1.8; color: var(--home-muted); }
 .yomu-letter .yomu-letter-sign { color: var(--home-text); font-family: var(--home-serif); font-style: italic; }
 .yomu-home-more { display: grid; grid-template-columns: minmax(0, 1fr); gap: 48px; }
-.yomu-home .yomu-band-concept { display: block; padding-inline: 0; }
+.yomu-home .yomu-band-concept { display: block; }
+.yomu-home .yomu-home-more > .yomu-band { padding-inline: 0; }
 .yomu-band-concept .yomu-band-copy { max-width: 780px; }
 .yomu-install-inner { max-width: 740px; }
 .yomu-next { padding-block: 24px 48px; border-top: 1px solid var(--home-line); }
@@ -1594,6 +1595,8 @@ body:has(.yomu-home) .jpdb-reader-fab { bottom: max(72px, calc(env(safe-area-ins
   --letter-accent: var(--jpdb-reader-accent, #b8324e);
 }
 
+html[data-yomu-membership-open] { overflow: hidden; }
+
 .yomu-membership-backdrop {
   position: fixed;
   inset: 0;
@@ -1611,6 +1614,9 @@ body:has(.yomu-home) .jpdb-reader-fab { bottom: max(72px, calc(env(safe-area-ins
 .yomu-membership-panel {
   position: relative;
   width: min(420px, 100%);
+  max-height: calc(100dvh - 48px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
   /* Asymmetric corners are the paper grammar; a uniform radius reads as a card. */
   border-radius: 3px 14px 4px 12px;
   padding: 30px 28px 26px;
@@ -1701,6 +1707,8 @@ body:has(.yomu-home) .jpdb-reader-fab { bottom: max(72px, calc(env(safe-area-ins
   border-color: var(--letter-accent);
   transform: translate(-1px, -1px);
 }
+
+.yomu-membership-method strong { flex-shrink: 0; }
 
 .yomu-membership-method span {
   color: var(--paper-pencil);

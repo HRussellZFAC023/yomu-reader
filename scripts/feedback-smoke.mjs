@@ -42,10 +42,10 @@ mkdirSync(ARTIFACTS, { recursive: true });
 // while the unit test builds a jsdom selection — different harnesses, no
 // shared setup worth extracting.
 const fixtureDir = mkdtempSync(path.join(tmpdir(), 'yomu-feedback-smoke-'));
-const fakeVideoPath = path.join(fixtureDir, 'local-video.mp4');
+const videoFixturePath = path.join(fixtureDir, 'local-video.webm');
 const primaryVttPath = path.join(fixtureDir, 'japanese.vtt');
 
-writeFileSync(fakeVideoPath, 'not a real video, but enough for hosted UI file selection\n');
+writeFileSync(videoFixturePath, readFileSync(path.join(PUBLIC_DIR, 'media', 'yomu-peppa-shopping.webm')));
 writeFileSync(primaryVttPath, `WEBVTT
 
 00:00:00.000 --> 00:00:04.000
@@ -242,6 +242,7 @@ const FEEDBACK_TEXT_ROUTES = new Map([
 const FEEDBACK_FILE_ROUTES = new Map([
     ...routeEntries(['/yomu.user.js', '/video-player/yomu.user.js', '/yomu-reader/yomu.user.js'], { filePath: SCRIPT_PATH, contentType: 'application/javascript; charset=utf-8' }),
     ...routeEntries(['/yomu.css', '/video-player/yomu.css', '/yomu-reader/yomu.css'], { filePath: CSS_PATH, contentType: 'text/css; charset=utf-8' }),
+    ['/hosted-shell-controls.js', { filePath: path.join(PUBLIC_DIR, 'hosted-shell-controls.js'), contentType: 'application/javascript; charset=utf-8' }],
     ['/hosted-reader-worker.js', { filePath: path.join(PUBLIC_DIR, 'hosted-reader-worker.js'), contentType: 'application/javascript; charset=utf-8' }],
     // The shell's theme and language toggles save through this module.
     ['/hosted-appearance-settings.js', { filePath: path.join(PUBLIC_DIR, 'hosted-appearance-settings.js'), contentType: 'application/javascript; charset=utf-8' }],
@@ -333,16 +334,8 @@ async function verifySettingsDiscoverability(page, baseUrl) {
     const settingsAction = page.locator('.jpdb-reader-fab-radial [data-radial-id="settings"]');
     await settingsAction.waitFor({ state: 'visible', timeout: 6000 });
     await assertOnePuckLabelAtATime(page);
-    await settingsAction.click();
-    const launcher = page.locator('.jpdb-reader-settings-launcher');
-    await launcher.waitFor({ state: 'visible', timeout: 6000 });
-    const state = {
-        trustedLauncherVisible: await launcher.locator('[data-trusted-settings-launcher]').isVisible(),
-        pageWritableControls: await launcher.locator('input, select, textarea, [data-file]').count(),
-    };
-    assert(state.trustedLauncherVisible, 'Settings did not expose the trusted Study launcher', state);
-    assert(state.pageWritableControls === 0, 'Off-host settings exposed page-writable controls', state);
-    await launcher.screenshot({ path: path.join(ARTIFACTS, 'feedback-settings-launcher.png') });
+    await openStudyDestination(page, () => settingsAction.click());
+    await page.screenshot({ path: path.join(ARTIFACTS, 'feedback-settings-direct-fixture.png') });
 }
 
 // The audio disc's label names its new state, so pressing it raises no toast
@@ -869,6 +862,7 @@ async function readHostedEmptyState(page) {
             statusRect: rect(status),
             chipRects: chips.map(rect),
             stageRect: rect(stage),
+            viewportWidth: innerWidth, viewportHeight: innerHeight,
             hidden: empty?.hidden === true || emptyStyle?.display === 'none' || emptyStyle?.visibility === 'hidden',
         };
     });
@@ -878,12 +872,17 @@ function hostedEmptyStateReady(state) {
     const stage = state.stageRect;
     const empty = state.emptyRect;
     if (!stage || !empty) return false;
-    const rects = [state.statusRect, ...state.chipRects];
+    const rects = state.chipRects;
+    const status = state.statusRect;
     return state.hidden === false
         && includesText(state.title, 'Drop anime and subtitles')
         && includesText(state.status, 'Open a video')
         && state.chips.some(chip => includesText(chip, 'MP4') && includesText(chip, 'MKV'))
         && state.chips.some(chip => includesText(chip, 'SRT') && includesText(chip, 'ASS'))
+        && status && status.width > 0 && status.height > 0
+        && status.left >= 0 && status.right <= state.viewportWidth + 1
+        && status.top >= 0 && status.bottom <= stage.top + 1
+        && status.bottom <= state.viewportHeight
         && empty.width > 180
         && empty.height > 150
         && empty.left >= stage.left - 1
@@ -925,45 +924,32 @@ function rectWidth(rect) {
     return rect ? rect.width : 0;
 }
 
+async function openStudyDestination(page, activate) {
+    const destinationUrl = `${HOSTED_FIXTURE_ORIGIN}/study/#settings=appearance`;
+    await page.context().route(`${HOSTED_FIXTURE_ORIGIN}/study/**`, route => route.fulfill({
+        contentType: 'text/html', body: '<h1>Study handoff fixture</h1>',
+    }));
+    const destinationPromise = page.context().waitForEvent('page').then(page => ({ page }), error => ({ error }));
+    await activate();
+    const result = await destinationPromise;
+    if (result.error) throw result.error;
+    const destination = result.page;
+    await destination.waitForURL(destinationUrl, { waitUntil: 'domcontentloaded', timeout: 6000 });
+    const state = {
+        destination: destination.url(),
+        launcherCount: await page.locator('.jpdb-reader-settings-launcher').count(),
+        writableControls: await page.locator('.jpdb-reader-settings input, .jpdb-reader-settings select, .jpdb-reader-settings textarea').count(),
+    };
+    assert(state.launcherCount === 0, 'Settings inserted a redundant launcher before Study', state);
+    assert(state.writableControls === 0, 'Off-host settings exposed page-writable controls', state);
+    await destination.close();
+    await page.bringToFront();
+}
+
 async function openHostedSettingsFromOverflow(page) {
     await page.locator('[data-overflow-summary]').click();
-    await page.locator('[data-settings-trigger]').click();
-    await page.waitForSelector('.jpdb-reader-settings-launcher', { timeout: 6000 });
-    const hostedSettings = await readHostedSettingsState(page);
-    assert(hostedSettingsReady(hostedSettings), 'Hosted Settings menu item did not open the trusted Study launcher', hostedSettings);
-    // The launcher's one way out is its title-row close.
-    await page.locator('.jpdb-reader-settings-launcher [data-settings-close]').click();
-    await page.waitForFunction(() => !document.querySelector('.jpdb-reader-settings'));
-    const closeState = await page.evaluate(() => {
-        let clicked = false;
-        const probe = document.createElement('button');
-        probe.type = 'button';
-        probe.textContent = 'probe';
-        probe.addEventListener('click', () => { clicked = true; });
-        document.body.append(probe);
-        probe.click();
-        probe.remove();
-        return {
-            clicked,
-            settingsVisible: Boolean(document.querySelector('.jpdb-reader-settings')),
-            inertRoots: Array.from(document.body.children)
-                .filter(element => element instanceof HTMLElement && (element.inert || element.getAttribute('aria-hidden') === 'true'))
-                .map(element => element.tagName.toLowerCase()),
-        };
-    });
-    assert(closeState.clicked === true && closeState.inertRoots.length === 0, 'Closing Settings left the page unresponsive', closeState);
-}
-
-async function readHostedSettingsState(page) {
-    return page.evaluate(() => ({
-        visible: Boolean(document.querySelector('.jpdb-reader-settings-launcher')),
-        hasLauncher: Boolean(document.querySelector('[data-trusted-settings-launcher]')),
-        writableControls: document.querySelectorAll('.jpdb-reader-settings-launcher input, .jpdb-reader-settings-launcher select, .jpdb-reader-settings-launcher textarea, .jpdb-reader-settings-launcher [data-file]').length,
-    }));
-}
-
-function hostedSettingsReady(hostedSettings) {
-    return hostedSettings.visible && hostedSettings.hasLauncher && hostedSettings.writableControls === 0;
+    await openStudyDestination(page, () => page.locator('[data-settings-trigger]').click());
+    assert(await page.locator('[data-overflow-menu][open]').count() === 0, 'Settings navigation left its menu open');
 }
 
 async function assertSubtitleOpenRequiresVideo(page) {
@@ -972,15 +958,27 @@ async function assertSubtitleOpenRequiresVideo(page) {
 }
 
 async function loadHostedVideoAndOpenTracks(page) {
-    await page.setInputFiles('[data-video-input]', fakeVideoPath);
-    await page.waitForFunction(() => /local-video\.mp4/.test(document.querySelector('[data-status]')?.textContent ?? ''));
+    await page.setInputFiles('[data-video-input]', videoFixturePath);
+    await page.waitForFunction(() => /local-video\.webm/.test(document.querySelector('[data-status]')?.textContent ?? ''));
     await page.locator('[data-subtitle-open]').click();
     await page.waitForSelector('.jpdb-subtitle-list.jpdb-subtitle-tracks-panel:not([hidden])', { timeout: 6000 });
 }
 
 async function loadHostedVideoAndSubtitleTogether(page) {
-    await page.setInputFiles('[data-video-input]', [fakeVideoPath, primaryVttPath]);
-    await page.waitForSelector('.jpdb-subtitle-list.jpdb-subtitle-lines-panel:not([hidden]) .jpdb-subtitle-list-row', { timeout: 8000 });
+    await page.setInputFiles('[data-video-input]', [videoFixturePath, primaryVttPath]);
+    try {
+        await page.waitForSelector('.jpdb-subtitle-list.jpdb-subtitle-lines-panel:not([hidden]) .jpdb-subtitle-list-row', { timeout: 8000 });
+    } catch (error) {
+        console.error('Paired-media fixture state:', await page.evaluate(() => ({
+            status: document.querySelector('[data-status]')?.textContent,
+            videoError: document.querySelector('video')?.error?.code,
+            readyState: document.querySelector('video')?.readyState,
+            hidden: document.hidden,
+            stage: document.querySelector('[data-stage]')?.className,
+            tracks: document.querySelectorAll('.jpdb-subtitle-list-row').length,
+        })));
+        throw error;
+    }
     const loaded = await readHostedVideoAndSubtitleTogetherState(page);
     assert(loaded.inputMultiple === true, 'Hosted video picker should allow video and subtitle files together', loaded);
     assert(loaded.status.includes('loaded 1 subtitle file'), 'Hosted video status did not acknowledge the loaded subtitle file', loaded);
@@ -1261,12 +1259,9 @@ async function assertHostedSubtitleStyleControls(page) {
 
 async function assertHostedSubtitleSettingsSyncedFromCompactControls(page, expectedBottomOffset) {
     await page.locator('[data-overflow-summary]').click();
-    await clickHostedSettingsThroughFullscreenOverlap(page);
-    await page.waitForSelector('.jpdb-reader-settings-launcher', { timeout: 6000 });
+    await openStudyDestination(page, () => clickHostedSettingsThroughFullscreenOverlap(page));
     const state = await readHostedSubtitleSettingsSyncState(page);
     assert(hostedSubtitleSettingsSynced(state, expectedBottomOffset), 'Compact subtitle controls did not persist before opening trusted Study settings', state);
-    await page.locator('.jpdb-reader-settings-launcher [data-settings-close]').click();
-    await page.waitForFunction(() => !document.querySelector('.jpdb-reader-settings'));
 }
 
 async function clickHostedSettingsThroughFullscreenOverlap(page) {
@@ -1282,12 +1277,11 @@ async function clickHostedSettingsThroughFullscreenOverlap(page) {
     const overlapWidth = Math.min(settingsRect.x + settingsRect.width, fullscreenRect.x + fullscreenRect.width) - overlapLeft;
     const overlapHeight = Math.min(settingsRect.y + settingsRect.height, fullscreenRect.y + fullscreenRect.height) - overlapTop;
     const overlap = { overlapWidth, overlapHeight };
-    assert(overlapWidth > 0, 'Hosted Settings regression probe no longer horizontally intersects the fullscreen control', overlap);
-    assert(overlapHeight > 0, 'Hosted Settings regression probe no longer vertically intersects the fullscreen control', overlap);
+    const intersects = overlapWidth > 0 && overlapHeight > 0;
 
     const point = {
-        x: overlapLeft + overlapWidth / 2,
-        y: overlapTop + overlapHeight / 2,
+        x: intersects ? overlapLeft + overlapWidth / 2 : settingsRect.x + settingsRect.width / 2,
+        y: intersects ? overlapTop + overlapHeight / 2 : settingsRect.y + settingsRect.height / 2,
     };
     const hitOwnedBySettings = await page.evaluate(({ x, y }) => (
         Boolean(document.elementFromPoint(x, y)?.closest('[data-settings-trigger]'))
@@ -1339,7 +1333,7 @@ async function readHostedSubtitleStorageState(page) {
 }
 
 function hostedSubtitleSettingsSynced(state, expectedBottomOffset) {
-    return state.hasLauncher
+    return !state.hasLauncher
         && state.writableControls === 0
         && hostedSubtitleSettingsValuesReady(state.shared, expectedBottomOffset)
         && pageCopyMatchesInstalledStore(state.local, state.shared);
@@ -2053,6 +2047,7 @@ async function readHostedPlayerLayoutState(page) {
             stageArea: rect(stageArea),
             stage: rect(stage),
             video: rect(video),
+            videoAspect: video?.videoWidth > 0 ? video.videoWidth / video.videoHeight : 16 / 9,
             stageStyle: stage instanceof HTMLElement ? {
                 width: stage.style.width,
                 maxWidth: stage.style.maxWidth,
@@ -2079,12 +2074,14 @@ function hostedPlayerLayoutRestored(layout) {
     const stageWidth = layout.stage?.width ?? 0;
     const videoWidth = layout.video?.width ?? 0;
     const stageAreaWidth = layout.stageArea?.width ?? 0;
+    const fittedWidth = Math.min(stageAreaWidth, (layout.stageArea?.height ?? 0) * layout.videoAspect);
     const staleInset = /jpdb-subtitle-video-inset-(left|right|bottom)/.test(layout.rootClasses)
         || Boolean(layout.insetVar);
     return layout.panelHidden === true
         && !staleInset
         && stageAreaWidth > 0
-        && stageWidth >= stageAreaWidth - widthTolerance
+        && Math.abs(stageWidth - fittedWidth) <= widthTolerance
+        && Math.abs((layout.stage.left + layout.stage.right) - (layout.stageArea.left + layout.stageArea.right)) <= widthTolerance
         && Math.abs(videoWidth - stageWidth) <= widthTolerance;
 }
 

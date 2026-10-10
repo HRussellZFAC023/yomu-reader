@@ -84,7 +84,7 @@ describe('reader stylesheet loading', () => {
         expect(css).toContain('.jpdb-reader-word ruby{');
         expect(css).toContain('ruby-align:center!important');
         expect(css).toContain('ruby-position:over!important');
-        expect(css).toContain('.jpdb-reader-furi{font-family:inherit;font-size:max(6px,.5em);font-style:inherit;font-weight:normal;font-feature-settings:normal;font-variant-east-asian:normal;letter-spacing:inherit;');
+        expect(css).toContain('.jpdb-reader-furi{font-family:inherit;font-size:max(8px,.5em);font-style:inherit;font-weight:normal;font-feature-settings:normal;font-variant-east-asian:normal;letter-spacing:inherit;');
         expect(css).toContain('.jpdb-reader-word.jpdb-reader-has-furi{line-height:2.15}');
         // `-webkit-ruby-align` never existed in any engine and only parse-fails;
         // it must not reappear in the critical subset.
@@ -325,7 +325,7 @@ describe('reader stylesheet loading', () => {
             .find(rule => rule.includes('font-size')) ?? '';
         // Half the base in the page's face at regular weight: a bold 0.58em
         // reading read as a second typeface stacked over the word.
-        expect(furiRule).toContain('font-size: max(6px, 0.5em)');
+        expect(furiRule).toContain('font-size: max(8px, 0.5em)');
         expect(furiRule).toContain('font-weight: normal');
         expect(furiRule).toContain('font-family: inherit');
         // Solid kana in the paragraph's tracking: a wide reading keeps the

@@ -20,6 +20,10 @@ import { CORE_COLOR_TOKENS } from '../theme/color-tokens';
 import { READER_ROOT_SELECTOR } from './constants';
 import { isTargetLanguageText } from '../lookup/target-text';
 import { isYouTubeAppHostname } from '../app/youtube-host';
+import { isYouTubeReadableLabel } from '../app/youtube-readable-labels';
+import { isRedditReadableLabel } from '../app/reddit-readable-labels';
+import { composedAncestorElement } from './composed-tree';
+export { composedAncestorElement } from './composed-tree';
 import { ANNOTATION_SCOPE_SURFACE_SELECTOR } from '../app/annotation-scope';
 
 export type DecorationState = 'prose-full' | 'content-ruby' | 'interactive-passive' | 'skip';
@@ -252,13 +256,6 @@ export function closestRubyFragileConstrainedRow(element: HTMLElement): HTMLElem
 }
 
 // Shadow-aware parent step shared by the fragile-row walk.
-export function composedAncestorElement(element: HTMLElement): HTMLElement | null {
-    if (element.assignedSlot) return element.assignedSlot;
-    if (element.parentElement) return element.parentElement;
-    const root = element.getRootNode();
-    return typeof ShadowRoot !== 'undefined' && root instanceof ShadowRoot && root.host instanceof HTMLElement ? root.host : null;
-}
-
 // The style-only clip-capability fact used by ruby-room's ancestor walk.
 export function boxStyleIsClipCapable(box: HTMLElement): boolean {
     const facts = constrainedRowStyleFacts(box);
@@ -1061,6 +1058,7 @@ export function classifyDecoration(element: Element): DecorationState {
     // rendering; they are content by definition.
     if (element.closest(READER_ROOT_SELECTOR)) return 'content-ruby';
     if (decorationMustBeSkipped(element)) return 'skip';
+    if (isYouTubeReadableLabel(element) || isRedditReadableLabel(element)) return 'interactive-passive';
     // YouTube owns these compact labels as controls, not reading content. Its
     // Shorts rail actively measures and ellipsizes Share/Remix labels; even an
     // out-of-tree annotation portal paints over those native glyphs and makes
@@ -1145,6 +1143,7 @@ export function youtubeShelfExpansionChromeMustRemainPageOwned(element: HTMLElem
 }
 
 export function youtubeNativeChromeMustRemainPageOwned(element: HTMLElement): boolean {
+    if (isYouTubeReadableLabel(element)) return false;
     if (youtubeShelfExpansionChromeMustRemainPageOwned(element)) return true;
     if (!isYouTubeAppHostname()) return false;
     // Ownership is structural, not a transient computed-style fact. YouTube

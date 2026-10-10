@@ -80,6 +80,8 @@ const SETTINGS = {
     ankiEnabled: false,
     audioEnabled: false,
     enableLogging: false,
+    lookupOnHover: false,
+    popupActivationMode: 'click',
     ocrEnabled: true,
     ocrAutoScanImages: false,
     ocrShowTextOverlay: true,
@@ -329,6 +331,7 @@ async function runCase(engineName, mode) {
         && settingsChrome.ruby === 0
         && settingsChrome.mirrors === 0
         && settingsChrome.overflowedLabels === 0;
+    const { firstTapLookup, pressedGlyphSurvived } = await verifyFirstOcrWordTap(page, wordHitGeometry);
     const statusCount = finalReadiness.status;
     const readyStatusCount = finalReadiness.readyStatus;
     const frameCount = finalReadiness.frames;
@@ -339,12 +342,22 @@ async function runCase(engineName, mode) {
     frameSeen ||= frameCount >= 1;
     const videoPath = await closeContextWithVideo(context, video, `${engineName}-${mode}.webm`);
     await browser.close();
-    const ok = overlayMs >= 0 && ocrHits === 1 && statusSeen && readyStatusCount >= 1 && frameSeen && lineCount >= 1 && wordHitGeometry.ok && frameSurvived && removals === 0 && settingsChromeClean;
+    const ok = overlayMs >= 0 && ocrHits === 1 && statusSeen && readyStatusCount >= 1 && frameSeen && lineCount >= 1 && wordHitGeometry.ok && frameSurvived && removals === 0 && settingsChromeClean && firstTapLookup && pressedGlyphSurvived;
     const statusChanges = compressTimeline(timeline);
     console.log(`${ok ? 'PASS' : 'FAIL'}: ${label} — overlay ${overlayMs >= 0 ? overlayMs + 'ms' : 'NEVER'}, ocrHits=${ocrHits}, statusSeen=${statusSeen}, finalReadyStatus=${readyStatusCount}, finalStatus=${statusCount}, frameSeen=${frameSeen}, finalFrames=${frameCount}, lines=${lineCount}, wordGeometry=${wordHitGeometry.ok}, frameSurvived=${frameSurvived}, removals=${removals}, settingsChromeClean=${settingsChromeClean}`);
     console.log(`  status timeline: ${statusChanges.map(item => `${item.t}ms:${item.phase}:${item.summary}`).join(' | ') || 'empty'}`);
-    rows.push({ label, ok, overlayMs, ocrHits, statusSeen, statusCount, readyStatusCount, frameSeen, frameCount, lineCount, wordHitGeometry, frameSurvived, removals, settingsChrome, screenshot, video: videoPath, timeline });
+    rows.push({ label, ok, overlayMs, ocrHits, statusSeen, statusCount, readyStatusCount, frameSeen, frameCount, lineCount, wordHitGeometry, frameSurvived, removals, settingsChrome, firstTapLookup, pressedGlyphSurvived, screenshot, video: videoPath, timeline });
     if (!ok) failures.push(label);
+}
+
+async function verifyFirstOcrWordTap(page, geometry) {
+    if (!geometry.ok) return { firstTapLookup: false, pressedGlyphSurvived: false };
+    const glyph = await page.$('.jpdb-ocr-line .jpdb-reader-word .jpdb-ocr-visual-text');
+    await page.touchscreen.tap(geometry.center.x, geometry.center.y);
+    const firstTapLookup = await page.locator('.jpdb-reader-popover').waitFor({ state: 'visible', timeout: 8000 })
+        .then(() => true).catch(() => false);
+    const pressedGlyphSurvived = await glyph?.evaluate(node => node.isConnected).catch(() => false);
+    return { firstTapLookup, pressedGlyphSurvived };
 }
 
 async function closeContextWithVideo(context, video, fileName) {

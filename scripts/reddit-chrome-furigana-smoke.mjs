@@ -375,6 +375,12 @@ async function runEngine(engineName, browser) {
             settings,
             css: readFileSync(CSS_PATH, 'utf8'),
         });
+        await page.addInitScript(() => {
+            window.__yomuFixtureMenus = [];
+            const register = (label, run) => window.__yomuFixtureMenus.push({ label, run });
+            window.GM_registerMenuCommand = register;
+            window.GM.registerMenuCommand = register;
+        });
         await page.goto(`https://www.reddit.com${PAGE_PATH}`, { waitUntil: 'domcontentloaded' });
         await page.evaluate(installProjectedReadingDiagnostics);
         const baseline = await page.evaluate(snapshotRedditLayout);
@@ -457,7 +463,7 @@ async function runEngine(engineName, browser) {
             && lateLocalizedSignIn.words === 0
             && lateLocalizedSignIn.mirrors === 0,
         `${engineName}: a localized embedded button was annotated`, lateLocalizedSignIn);
-        const untouchedControls = await page.evaluate(() => {
+        const annotatedControls = await page.evaluate(() => {
             const join = document.querySelector('reddit-header-shell').shadowRoot
                 .querySelector('reddit-join-control').shadowRoot.querySelector('#join');
             const sort = document.querySelector('reddit-sort-control').shadowRoot.querySelector('#sort');
@@ -468,10 +474,10 @@ async function runEngine(engineName, browser) {
                 sort,
                 award,
                 share: document.querySelector('#share'),
-            }).map(([name, control]) => [name, control.querySelectorAll('.jpdb-reader-word,.jpdb-reader-text-mirror,.jpdb-reader-furi,rt').length]));
+            }).map(([name, control]) => [name, { words: control.querySelectorAll('.jpdb-reader-word').length, ruby: control.querySelectorAll('ruby,rt').length }]));
         });
-        assert(Object.values(untouchedControls).every(count => count === 0),
-            `${engineName}: a Reddit button was annotated`, untouchedControls);
+        assert(Object.values(annotatedControls).every(control => control.words > 0 && control.ruby === 0),
+            `${engineName}: a Reddit label lost its passive annotations or gained in-flow ruby`, annotatedControls);
         await page.waitForTimeout(400);
         const responsiveness = await page.evaluate(stopRedditResponsivenessProbe);
         // Let Yomu's deliberately delayed 1.5s clamp/readings sweep finish,
@@ -593,7 +599,7 @@ async function runEngine(engineName, browser) {
             puckDrag,
             mirrorRemovalFallback,
             lateLocalizedSignIn,
-            untouchedControls,
+            annotatedControls,
             performance: {
                 responsiveness,
                 steadyState,
@@ -791,7 +797,22 @@ function userscriptCompanionPaths(userscriptPath) {
 
 async function exerciseCompensatedFixedChrome(page) {
     const radialSurface = await snapshotFixedSurface(page, '.jpdb-reader-fab-radial.is-open');
+    await page.evaluate(() => {
+        window.__yomuDirectSettingsLaunch = null;
+        window.open = (url, target, features) => {
+            window.__yomuDirectSettingsLaunch = { url: String(url), target, features };
+            return null;
+        };
+    });
     await clickSettledRadialAction(page, 'settings');
+    const directSettingsLaunch = await page.evaluate(() => window.__yomuDirectSettingsLaunch);
+    assertTrustedSettingsLaunch('direct radial', directSettingsLaunch);
+    assert(await page.locator('[data-sensitive-settings-launcher]').count() === 0,
+        'Trusted settings tap inserted a redundant launcher');
+
+    // Eventless userscript-manager requests retain the recovery launcher.
+    // Keep its page-scale and DOM-tampering boundary coverage.
+    await page.evaluate(() => window.__yomuFixtureMenus.find(menu => / settings$/u.test(menu.label)).run());
     const settingsRoot = page.locator('[data-sensitive-settings-launcher]');
     await settingsRoot.waitFor({ timeout: 10_000 });
     await page.waitForTimeout(250);
@@ -868,6 +889,7 @@ async function exerciseCompensatedFixedChrome(page) {
         settings: settingsSurface,
         settingsBoundary,
         trustedSettingsLaunch,
+        directSettingsLaunch,
         popover: popoverSurface,
         popupControlClick,
     };

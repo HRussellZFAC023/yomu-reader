@@ -474,6 +474,28 @@ describe('SubtitlePlayerController — page-caption detection & tracks panel', (
         }
     });
 
+    it.each(['shorts-video', 'ytd-reel-video-renderer', 'ytm-reel-video-renderer'])(
+        'reads hidden caption siblings only from the active %s reel', reel => {
+            const originalLocation = window.location;
+            Object.defineProperty(window, 'location', {
+                configurable: true, value: new URL('https://m.youtube.com/shorts/abc123'),
+            });
+            document.body.innerHTML = `<shorts-carousel>
+                <${reel}><div class="html5-video-player"><video></video></div>
+                    <div class="caption-window" style="display:none"><span class="ytp-caption-segment">毎日前向きに生きる。</span></div>
+                </${reel}>
+                <${reel}><div class="caption-window" style="display:none"><span class="ytp-caption-segment">別の動画です。</span></div></${reel}>
+            </shorts-carousel>`;
+            const video = document.querySelector('video')!;
+            readySubtitleCandidate(video, new DOMRect(0, 0, 390, 690));
+            try {
+                expect(readPageCaptionText(video)).toBe('毎日前向きに生きる。');
+            } finally {
+                Object.defineProperty(window, 'location', { configurable: true, value: originalLocation });
+            }
+        },
+    );
+
     it('still reads scoped YouTube watch captions from the owned movie player', () => {
         const originalLocation = window.location;
         const settings = {

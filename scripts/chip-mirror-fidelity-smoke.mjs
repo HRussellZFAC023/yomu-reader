@@ -39,6 +39,7 @@ writeFileSync(entryPath, `
     import { setRenderedWordPitchComponents } from ${JSON.stringify(path.join(ROOT, 'src/reader/dom/rendered-word-state.ts'))};
     import type { JPDBCard, JPDBToken } from ${JSON.stringify(path.join(ROOT, 'src/reader/app/types.ts'))};
 
+    Object.assign(window, { reprojectReaderMirrors: () => projectAdditiveTextMirrors(document) });
     const TEXT = '新しい順';
     const ASK_TEXT = '質問する';
     const VIEW_TEXT = '視聴';
@@ -1555,6 +1556,56 @@ async function runPrimaryProbes(name, browser) {
     const chip = await page.evaluate(() => window.runChipMirrorProbe());
     logProbe(name, 'chip', chip);
     verifyChip(name, chip);
+
+    const duplicatePaint = await page.evaluate(() => {
+        const root = document.documentElement;
+        const originalRootClass = root.className;
+        const words = [...document.querySelectorAll('.jpdb-reader-additive-text-mirror .jpdb-reader-word')];
+        const originalClasses = words.map(word => word.className);
+        const modes = [
+            ['yomu-word-color-new-only', 'known'], ['yomu-word-color-hide-known', 'known'],
+            ['yomu-word-color-hide-due', 'due'], ['yomu-word-color-hide-failed', 'failed'],
+            ['yomu-word-color-hide-learning', 'learning'], ['yomu-word-color-hide-ignored', 'blacklisted'],
+            ['yomu-word-color-hide-new', 'new'],
+        ];
+        const failures = [];
+        for (const [mode, state] of modes) {
+            root.className = `${originalRootClass} ${mode}`;
+            words.forEach(word => { word.className = `jpdb-reader-word jpdb-reader-scan-word jpdb-${state}`; });
+            if (words.some(word => getComputedStyle(word).webkitTextFillColor !== 'rgba(0, 0, 0, 0)')) failures.push(mode);
+        }
+        root.className = originalRootClass;
+        words.forEach((word, index) => { word.className = originalClasses[index]; });
+        return { count: words.length, failures };
+    });
+    if (!duplicatePaint.count || duplicatePaint.failures.length) fail(`${name}: colour settings repaint duplicate native glyphs`, duplicatePaint);
+
+    const neutralPaint = await page.evaluate(() => {
+        const root = document.documentElement;
+        const originalRootClass = root.className;
+        const words = [...document.querySelectorAll('.jpdb-reader-additive-text-mirror .jpdb-reader-word')];
+        const originalClasses = words.map(word => word.className);
+        const colors = () => words.flatMap(word => [...word.querySelectorAll('.jpdb-reader-source-fragment')]
+            .map(fragment => getComputedStyle(fragment, '::after').borderBottomColor));
+        const states = [];
+        for (const source of ['status', 'jpdb']) {
+            root.className = `jpdb-reader-word-underline-${source}`;
+            for (const state of ['not-in-deck', 'learning', 'not-in-deck']) {
+                words.forEach(word => { word.className = `jpdb-reader-word jpdb-reader-scan-word jpdb-${state}`; });
+                window.reprojectReaderMirrors();
+                states.push({ source, state, colors: colors() });
+            }
+        }
+        root.className = originalRootClass;
+        words.forEach((word, index) => { word.className = originalClasses[index]; });
+        window.reprojectReaderMirrors();
+        return states;
+    });
+    for (const state of neutralPaint) {
+        if (!state.colors.length || state.colors.some(color => transparentPaint(color) !== (state.state === 'not-in-deck'))) {
+            fail(`${name}: mirror leaked or lost a study-state underline`, state);
+        }
+    }
 
     const youtube = await page.evaluate(() => window.runYouTubeGeometryProbe());
     logProbe(name, 'youtube geometry', youtube);

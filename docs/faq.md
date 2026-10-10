@@ -14,6 +14,8 @@ description: Short answers to the questions people ask about よむ.
 
 Allow よむ on that site in your browser's extension menu, then reload the page. On a phone, tap the word.
 
+Hold a word in a link or button to look it up. A quick tap keeps the website’s action.
+
 ## Is it free? Do I need an account? {#free}
 
 Free, no account, nothing locked. Source code: [GitHub](https://github.com/HRussellZFAC023/yomu-reader)
@@ -36,9 +38,15 @@ No. Until you install one, Jiten's free online dictionary splits each page into 
 
 Readings stay visible until a study source tells よむ which words you know. Known and due words lose their readings; missed words keep them. Underlines are solid for new or missed words, dashed while learning, and dotted when due. Known words stay plain.
 
+Readings follow the page’s typeface and scale with its text, with stronger contrast for small kana.
+
+On another website, the Settings action opens Study settings directly. If a reading would cover nearby text, open that word’s lookup to see it.
+
 ## Where did my saved words go? {#saved-words}
 
 To Study → Library. Press Add to review there and they come back for review.
+
+Words saved without a connected service go to the Default deck in Study.
 
 ## Do I need Anki? {#anki}
 
@@ -79,6 +87,8 @@ To turn it off everywhere, set the よむ button to よむ off.
 ## How does it read manga? {#manga}
 
 よむ finds the Japanese in pictures with Google Lens, no key needed. On some sites, tap the page first. Switch to Cloud Vision or a local OCR server under Settings → Media.
+
+An image gets a small corner mark after よむ finds text. Tap the recognized text to look it up.
 
 ## How do I put my dictionary first in the popup? {#popup-order}
 

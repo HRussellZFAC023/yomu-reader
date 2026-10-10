@@ -16,6 +16,7 @@ type OcrPointerEvent = Event & Pick<PointerEvent, 'button' | 'clientX' | 'client
 /** The <img> a read-requesting pointer event points at, before OCR's own candidate checks. */
 export function ocrPointerImage(event: Event): HTMLImageElement | null {
     if (!isPointerLikeEvent(event) || !shouldHandleOcrPointerEvent(event)) return null;
+    if (pointerEventOverOcrOverlay(event)) return null;
     return pointerEventImageTarget(event) ?? pointerEventImageAtPoint(event);
 }
 

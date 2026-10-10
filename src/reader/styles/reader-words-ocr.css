@@ -823,6 +823,20 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
   --jpdb-reader-jpdb-underline: var(--jpdb-reader-state-new);
   --jpdb-reader-status-underline: var(--jpdb-reader-state-new);
 }
+/* An unparsed word has no study state to underline. */
+.jpdb-reader-word:where(:is(.jpdb-unparsed, .jiten-unparsed):not(
+  .jpdb-new, .jpdb-in-deck, .jpdb-learning, .jpdb-young, .jpdb-known,
+  .jpdb-mature, .jpdb-mastered, .jpdb-never-forget, .jpdb-redundant, .jpdb-due,
+  .jpdb-failed, .jpdb-suspended, .jpdb-blacklisted, .jpdb-locked, .jpdb-frequent,
+  .jiten-new, .jiten-in-deck, .jiten-learning, .jiten-young, .jiten-known,
+  .jiten-mature, .jiten-mastered, .jiten-never-forget, .jiten-redundant, .jiten-due,
+  .jiten-failed, .jiten-suspended, .jiten-blacklisted, .jiten-locked, .jiten-frequent,
+  .anki-new, .anki-in-deck, .anki-learning, .anki-known, .anki-due,
+  .anki-failed, .anki-suspended
+)) {
+  --jpdb-reader-jpdb-underline: transparent;
+  --jpdb-reader-status-underline: transparent;
+}
 .jpdb-reader-word-underline-status .jpdb-reader-word {
   --jpdb-reader-word-decoration-source: var(--jpdb-reader-status-underline, transparent);
 }
@@ -913,7 +927,7 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
      (dom/index.ts styleDetachedReadingElements) sits in a line gap and is a
      little smaller. */
   font-family: inherit;
-  font-size: max(6px, 0.5em);
+  font-size: max(8px, 0.5em);
   font-style: inherit;
   font-weight: normal;
   font-feature-settings: normal;

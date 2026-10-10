@@ -3,7 +3,20 @@ export function isVisibleOcrImage(image: HTMLImageElement): boolean {
 }
 
 export function isImageVisibleForOcr(image: HTMLImageElement, rect: DOMRect): boolean {
-    return rectIntersectsViewport(rect) && !isImageOccludedByVideo(image, rect);
+    return rectIntersectsViewport(rect) && isVisibleOcrImage(image)
+        && !isImageOccludedByVideo(image, rect) && !isImageOccludedByPeerImage(image, rect);
+}
+
+// Image viewers keep thumbnail and full-resolution copies in the same place.
+// Only the painted foreground copy should own a lookup layer and corner mark.
+function isImageOccludedByPeerImage(image: HTMLImageElement, rect: DOMRect): boolean {
+    if (image.getRootNode() !== document || typeof document.elementsFromPoint !== 'function') return false;
+    const visible = visibleViewportIntersection(rect);
+    if (!visible) return false;
+    const front = document.elementsFromPoint(visible.left + visible.width / 2, visible.top + visible.height / 2)
+        .find((element): element is HTMLImageElement => element instanceof HTMLImageElement && isVisibleOcrImage(element));
+    return Boolean(front && front !== image
+        && intersectionArea(rect, front.getBoundingClientRect()) >= rect.width * rect.height * 0.8);
 }
 
 export function isInsideHiddenAncestor(element: Element, includeAriaHidden = true): boolean {
@@ -22,7 +35,9 @@ function ariaHidden(element: Element, included: boolean): boolean {
 }
 
 function rectIntersectsViewport(rect: DOMRect): boolean {
-    return rect.width > 0 && rect.height > 0 && rect.bottom >= 0 && rect.top <= window.innerHeight;
+    return rect.width > 0 && rect.height > 0
+        && rect.bottom > 0 && rect.top < window.innerHeight
+        && rect.right > 0 && rect.left < window.innerWidth;
 }
 
 export function isHiddenByCss(element: Element): boolean {

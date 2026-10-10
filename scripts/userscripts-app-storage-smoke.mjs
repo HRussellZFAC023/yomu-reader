@@ -104,6 +104,11 @@ async function configuredReaderBoots() {
     const reader = await readerState(manager.page);
     assert(!reader.setupPrompt, 'A configured Userscripts app Reader asked to finish setup in Study', reader);
     assert(reader.health === 'ready' && reader.fab, 'A configured Userscripts app Reader did not start', reader);
+    await manager.page.locator('.jpdb-reader-fab').click();
+    await manager.page.locator('[data-radial-id="settings"]').click();
+    const settingsUrl = await waitFor(() => manager.opened[0], 5_000);
+    assert(settingsUrl === `${STUDY_URL}#settings=appearance`, 'Settings did not go directly to Study through the manager API', { settingsUrl });
+    assert(await manager.page.locator('[data-sensitive-settings-launcher]').count() === 0, 'A redundant Settings launcher was mounted');
     await manager.page.context().close();
     return reader;
 }
@@ -130,13 +135,15 @@ async function openManagedPage(initialStore) {
     await installRoutes(page);
     const store = new Map(Object.entries(initialStore));
     const extensionStore = new Map();
+    const opened = [];
     const cdp = await context.newCDPSession(page);
     await cdp.send('Runtime.enable');
     await cdp.send('Page.enable');
     await cdp.send('Runtime.addBinding', { name: '__userscriptsAppWrite', executionContextName: WORLD });
     cdp.on('Runtime.bindingCalled', ({ name, payload }) => {
         if (name !== '__userscriptsAppWrite') return;
-        const { area, op, key, value } = JSON.parse(payload);
+        const { area, op, key, value, url } = JSON.parse(payload);
+        if (area === 'tab' && op === 'open') { opened.push(url); return; }
         const target = area === 'extension' ? extensionStore : store;
         if (op === 'set') target.set(key, value);
         else if (op === 'delete') target.delete(key);
@@ -150,7 +157,7 @@ async function openManagedPage(initialStore) {
         }));
         await page.goto(url, { waitUntil: 'domcontentloaded' });
     };
-    return { page, store, goto };
+    return { page, store, goto, opened };
 }
 
 // The Userscripts app's content-world injection, reduced to what Yomu sees.
@@ -176,7 +183,7 @@ function managerSource(gmSnapshot, extensionSnapshot) {
     setValue: async (key, value) => { store.set(key, clone(value)); report({ area: 'gm', op: 'set', key, value }); },
     deleteValue: async key => { store.delete(key); report({ area: 'gm', op: 'delete', key }); },
     listValues: async () => [...store.keys()],
-    openInTab: async url => ({ url }),
+    openInTab: async url => { report({ area: 'tab', op: 'open', url }); return { url }; },
     xmlHttpRequest,
   };
   // Not shadowed by the manager: the content world's own extension API, whose

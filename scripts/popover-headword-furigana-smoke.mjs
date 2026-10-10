@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
-import { chromium } from 'playwright';
+import { chromium, webkit } from 'playwright';
 import {
     addGmStorageBridgeInitScript,
     assert,
@@ -20,7 +20,9 @@ import { assertPopoverHeadwordMatchesLookup } from './lib/smoke-wait-helpers.mjs
 const { root: ROOT, artifacts: ARTIFACTS, scriptPath: SCRIPT_PATH, cssPath: CSS_PATH } = createSmokePaths(import.meta.dirname);
 const PAGE_PATH = '/popover-headword-furigana.html';
 const LOOKUP_WORD = '大変';
+const LONG_WORD = 'ニュース速報';
 const VOCABULARY = [
+    [LONG_WORD, LONG_WORD, 'ニュースそくほう', 'breaking news', ['n'], 66411, ['not-in-deck'], ['LHHHLLLL']],
     [LOOKUP_WORD, LOOKUP_WORD, 'たいへん', 'difficult; serious', ['adj-na'], 1500, ['not-in-deck'], ['LHHH', 'HLLL']],
 ];
 
@@ -69,11 +71,12 @@ const server = await startLoopbackServer((request, response) => {
     }
     response.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
     response.end(`<!doctype html><html lang="ja"><head><meta charset="utf-8"><title>popover headword furigana</title></head>
-<body><main><p data-smoke-sentence style="font: 28px/1.8 system-ui; margin: 80px;">今日は大変な日です。</p></main></body></html>`);
+<body><main><p data-smoke-sentence style="font: 28px/1.8 system-ui; margin: 80px;">今日は大変な日です。<span data-long-word>ニュース速報</span></p></main></body></html>`);
 }, 'Could not bind popover headword furigana smoke server');
 
 const requests = [];
-const browser = await chromium.launch({ headless: true });
+const browserType = process.env.YOMU_SMOKE_BROWSER === 'webkit' ? webkit : chromium;
+const browser = await browserType.launch({ headless: true });
 
 try {
     // Match the wide touch-triggered iPad sheet in the acceptance screenshot;
@@ -125,9 +128,10 @@ try {
     }));
     assert(kanji.display === '変', 'Clicking a ruby-wrapped kanji button did not open kanji details', { headword, kanji });
 
+    const narrowHeaders = await verifyNarrowHeaders(page);
     const screenshot = path.join(ARTIFACTS, 'popover-headword-furigana.png');
     await page.screenshot({ path: screenshot, fullPage: false });
-    const report = { ok: true, headword, widePitchLayout, widePitchScreenshot, kanji, requests, screenshot };
+    const report = { ok: true, headword, widePitchLayout, widePitchScreenshot, kanji, narrowHeaders, requests, screenshot };
     writeFileSync(path.join(ARTIFACTS, 'popover-headword-furigana-smoke.json'), JSON.stringify(report, null, 2));
     console.log(JSON.stringify(report, null, 2));
     await context.close();
@@ -186,13 +190,46 @@ async function waitForWidePitchLayout(page) {
     return await handle.jsonValue();
 }
 
+async function verifyNarrowHeaders(page) {
+    const layouts = [];
+    for (const width of [390, 320]) {
+        await page.keyboard.press('Escape');
+        await page.setViewportSize({ width, height: 844 });
+        if (width === 320) await page.addStyleTag({ content: '.jpdb-reader-spelling { font-size: 32px !important; }' });
+        const word = page.locator(`[data-smoke-sentence] .jpdb-reader-word[data-expression="${LONG_WORD}"]`).first();
+        await word.click();
+        await assertPopoverHeadwordMatchesLookup(page, word, { label: 'long mobile headword' });
+        const layout = await page.evaluate(() => {
+            const header = document.querySelector('.jpdb-reader-popover .jpdb-reader-header');
+            const box = selector => {
+                const rect = header.querySelector(selector).getBoundingClientRect();
+                return { left: rect.left, right: rect.right, top: rect.top, bottom: rect.bottom, width: rect.width };
+            };
+            return {
+                title: box('.jpdb-reader-spelling'), pitch: box('.jpdb-reader-pitch'),
+                actions: box('.jpdb-reader-word-actions'), pills: box('.jpdb-reader-word-pills'),
+                header: { left: header.getBoundingClientRect().left, right: header.getBoundingClientRect().right },
+            };
+        });
+        assert(layout.pitch.top >= layout.title.bottom - 1, 'Mobile pitch chart overlaps the headword', layout);
+        assert(layout.title.right <= layout.actions.left + 1, 'Mobile headword overlaps copy/audio', layout);
+        assert(layout.pitch.left >= layout.header.left - 1 && layout.pitch.right <= layout.header.right + 1,
+            'Mobile pitch chart escapes its header', layout);
+        assert(layout.pills.top >= layout.pitch.bottom - 1, 'Mobile pitch chart overlaps dictionary links', layout);
+        layouts.push({ width, ...layout });
+    }
+    return layouts;
+}
+
 function handleYomuRequest(request, requestsLog) {
     const url = new URL(request.url);
     if (url.origin === 'https://jpdb.io' && url.pathname === '/api/v1/parse') {
         const body = readJsonBody(request.data);
         requestsLog.push({ kind: 'jpdb-parse', text: body.text });
         return jsonHttpResponse(mockJpdbParseFromVocabulary(body, VOCABULARY, {
-            tokenReading: () => [['大', 'たい'], ['変', 'へん']],
+            tokenReading: entry => entry.surface === LONG_WORD
+                ? [['ニュース', 'ニュース'], ['速報', 'そくほう']]
+                : [['大', 'たい'], ['変', 'へん']],
         }));
     }
     requestsLog.push({ kind: 'unexpected', url: request.url });

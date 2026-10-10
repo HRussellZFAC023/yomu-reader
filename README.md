@@ -54,9 +54,15 @@ Store versions can lag a GitHub release by a few days while the stores review it
 2. Hover the word you don't know. Tap on a phone.
 3. Save the words worth keeping, then review them in [Study](https://yomureader.com/study/) or send them to Anki, JPDB or Jiten.
 
+Hold a word in a link or button to look it up. A quick tap keeps the website’s action.
+
+Words saved without a connected service go to the Default deck in Study.
+
 No account and no setup. [How to learn Japanese with よむ](https://yomureader.com/learn/) is one page.
 
-Readings are small and muted. With a study source, known and due words lose their readings; missed words keep them.
+Readings follow the page’s typeface and scale with its text, with stronger contrast for small kana. With a study source, known and due words lose their readings; missed words keep them.
+
+On another website, the Settings action opens Study settings directly. If a reading would cover nearby text, open that word’s lookup to see it.
 
 ## Privacy
 

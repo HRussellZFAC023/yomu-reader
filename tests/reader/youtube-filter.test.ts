@@ -231,9 +231,6 @@ async function startYoutubeFilter({
     }
 
     const filter = createYoutubeFilter(() => settings, {
-        setShowFilterNotice: visible => {
-            settings.youtubeShowFilterNotice = visible;
-        },
         ...filterOptions,
     });
     filter.init();
@@ -632,7 +629,7 @@ describe('YouTube immersion filter', () => {
         expect(collectYouTubeVideoCards(document)).toEqual([card('outer-modern')]);
         expect(card('outer-modern').classList.contains('jpdb-youtube-filtered')).toBe(true);
         expect(card('inner-modern').classList.contains('jpdb-youtube-filtered')).toBe(false);
-        expect(document.querySelector('.jpdb-youtube-filter-bar')?.textContent).toContain('hid 1');
+        expect(document.querySelector('.jpdb-youtube-filter-bar')).toBeNull();
 
         filter.destroy();
     });
@@ -815,7 +812,7 @@ describe('YouTube immersion filter', () => {
         expect(card('jp').classList.contains('jpdb-youtube-filtered')).toBe(false);
         expect(card('playlist').classList.contains('jpdb-youtube-filtered')).toBe(true);
         expect(card('mix-lockup').classList.contains('jpdb-youtube-filtered')).toBe(true);
-        expect(document.querySelector('.jpdb-youtube-filter-bar')?.textContent).toContain('hid 2');
+        expect(document.querySelector('.jpdb-youtube-filter-bar')).toBeNull();
 
         filter.destroy();
     });
@@ -898,36 +895,15 @@ describe('YouTube immersion filter', () => {
         expect(card('channel-only').classList.contains('jpdb-youtube-filtered')).toBe(true);
         expect(card('translated-english').classList.contains('jpdb-youtube-filtered')).toBe(true);
         expect(card('modern-lockup').classList.contains('jpdb-youtube-filtered')).toBe(false);
-        const bar = document.querySelector<HTMLElement>('.jpdb-youtube-filter-bar')!;
-        expect(bar.getAttribute('aria-label')).toContain('hid 3');
-        expect(bar.querySelector<HTMLElement>('[data-role="summary"]')?.classList.contains('jpdb-reader-sr-only')).toBe(true);
-        expect(Array.from(bar.querySelectorAll('button')).map(button => button.textContent)).toEqual([
-            'Show hidden videos',
-            'Hide notice',
-        ]);
-        const refreshesAfterInitialFilter = scheduleAnnotationLayoutRefresh.mock.calls.length;
-        expect(refreshesAfterInitialFilter).toBeGreaterThan(0);
-
-        document.querySelector<HTMLButtonElement>('[data-action="toggle-hidden"]')!.click();
-        await vi.advanceTimersByTimeAsync(0);
-
+        expect(document.querySelector('.jpdb-youtube-filter-bar')).toBeNull();
+        expect(scheduleAnnotationLayoutRefresh).toHaveBeenCalled();
+        settings.youtubeImmersionEnabled = false;
+        filter.refresh();
+        await flushPendingFilterWork();
         expect(card('english').classList.contains('jpdb-youtube-filtered')).toBe(false);
-        expect(scheduleAnnotationLayoutRefresh.mock.calls.length).toBeGreaterThan(refreshesAfterInitialFilter);
-        expect(document.querySelector<HTMLElement>('.jpdb-youtube-filter-bar')?.getAttribute('aria-label')).toContain('shows 3');
-        expect(document.querySelector('.jpdb-youtube-filter-bar [data-action="toggle-hidden"]')?.textContent).toBe('Hide hidden videos');
-
-        document.querySelector<HTMLButtonElement>('[data-action="toggle-hidden"]')!.click();
-        await vi.advanceTimersByTimeAsync(0);
-
-        expect(card('english').classList.contains('jpdb-youtube-filtered')).toBe(true);
-
-        document.querySelector<HTMLButtonElement>('[data-action="hide-notice"]')!.click();
-        await vi.advanceTimersByTimeAsync(0);
-
-        expect(settings.youtubeImmersionEnabled).toBe(true);
-        // 2026-07-11: "Hide notice" is a session dismissal — it must never
-        // silently persist the notice off (the settings dialog owns that).
-        expect(settings.youtubeShowFilterNotice).toBe(true);
+        settings.youtubeImmersionEnabled = true;
+        filter.refresh();
+        await flushPendingFilterWork();
         expect(card('english').classList.contains('jpdb-youtube-filtered')).toBe(true);
         expect(document.querySelector('.jpdb-youtube-filter-bar')).toBeNull();
 
@@ -1589,125 +1565,6 @@ describe('YouTube immersion filter', () => {
         await flushPendingFilterWork();
 
         expect(fetchMock).toHaveBeenCalledTimes(1);
-
-        filter.destroy();
-    });
-
-    it('auto-hides the hidden-video notice after a grace period', async () => {
-        renderYouTubeCards();
-        const { filter } = await startYoutubeFilter({
-            oEmbedTitles: {
-                jp: '日本語で花の名前を覚える',
-                en: '10 habits for studying',
-                channel: 'study with me',
-                translated: '37,000 Lines of Slop',
-                modern: '東京カフェで朝ごはん',
-            },
-        });
-
-        expect(document.querySelector('.jpdb-youtube-filter-bar')).not.toBeNull();
-
-        await vi.advanceTimersByTimeAsync(10_500);
-
-        expect(document.querySelector('.jpdb-youtube-filter-bar')).toBeNull();
-        expect(card('english').classList.contains('jpdb-youtube-filtered')).toBe(true);
-
-        // Auto-hide is per route scope: further filtering on the same route
-        // must not resurrect the bar.
-        filter.refresh();
-        await flushPendingFilterWork();
-        expect(document.querySelector('.jpdb-youtube-filter-bar')).toBeNull();
-
-        filter.destroy();
-    });
-
-    it('keeps the hidden-video notice visible through the grace period', async () => {
-        renderYouTubeCards();
-        const { filter } = await startYoutubeFilter({
-            oEmbedTitles: {
-                jp: '日本語で花の名前を覚える',
-                en: '10 habits for studying',
-                channel: 'study with me',
-                translated: '37,000 Lines of Slop',
-                modern: '東京カフェで朝ごはん',
-            },
-        });
-
-        expect(document.querySelector('.jpdb-youtube-filter-bar')).not.toBeNull();
-
-        await vi.advanceTimersByTimeAsync(4200);
-
-        expect(document.querySelector('.jpdb-youtube-filter-bar')).not.toBeNull();
-        expect(card('english').classList.contains('jpdb-youtube-filtered')).toBe(true);
-
-        filter.destroy();
-    });
-
-    it('dismisses the hidden-video notice for the session without persisting it off', async () => {
-        renderYouTubeCards();
-        const { filter, settings } = await startYoutubeFilter({
-            oEmbedTitles: {
-                jp: '日本語で花の名前を覚える',
-                en: '10 habits for studying',
-                channel: 'study with me',
-                translated: '37,000 Lines of Slop',
-                modern: '東京カフェで朝ごはん',
-            },
-        });
-
-        document.querySelector<HTMLButtonElement>('[data-action="hide-notice"]')!.click();
-        await vi.advanceTimersByTimeAsync(0);
-
-        expect(document.querySelector('.jpdb-youtube-filter-bar')).toBeNull();
-        // Session dismissal only: the persisted setting stays on.
-        expect(settings.youtubeShowFilterNotice).toBe(true);
-        expect(card('english').classList.contains('jpdb-youtube-filtered')).toBe(true);
-
-        // The dismissal survives refreshes within the same session…
-        filter.refresh();
-        await flushPendingFilterWork();
-        expect(document.querySelector('.jpdb-youtube-filter-bar')).toBeNull();
-        filter.destroy();
-
-        // …but a fresh session (new filter instance) shows the notice again.
-        const fresh = createYoutubeFilter(() => settings);
-        fresh.refresh();
-        await flushPendingFilterWork();
-        expect(document.querySelector('.jpdb-youtube-filter-bar')).not.toBeNull();
-        fresh.destroy();
-    });
-
-    it('does not keep reopening the notice as more cards are filtered on the same route', async () => {
-        const { filter } = await startYoutubeFilter({
-            oEmbedTitles: {},
-            html: `
-            <main>
-                <ytd-rich-item-renderer data-case="english">
-                    <a id="video-title" href="/watch?v=en">10 habits for studying</a>
-                </ytd-rich-item-renderer>
-            </main>
-        `,
-        });
-
-        expect(document.querySelector('.jpdb-youtube-filter-bar')).not.toBeNull();
-
-        document.querySelector<HTMLButtonElement>('[data-action="hide-notice"]')!.click();
-        await vi.advanceTimersByTimeAsync(0);
-
-        expect(document.querySelector('.jpdb-youtube-filter-bar')).toBeNull();
-
-        document.querySelector('main')!.insertAdjacentHTML('beforeend', `
-            <ytd-rich-item-renderer data-case="english-2">
-                <a id="video-title" href="/watch?v=en2">more study tips</a>
-            </ytd-rich-item-renderer>
-        `);
-        expect(collectYouTubeVideoCards(document).map(element => element.dataset.case)).toContain('english-2');
-        filter.refresh();
-        await vi.advanceTimersByTimeAsync(0);
-        await flushPendingFilterWork();
-
-        expect(card('english-2').classList.contains('jpdb-youtube-filtered')).toBe(true);
-        expect(document.querySelector('.jpdb-youtube-filter-bar')).toBeNull();
 
         filter.destroy();
     });
@@ -2506,25 +2363,14 @@ describe('whole-card title fallback ignores UI metadata', () => {
     });
 });
 
-// 2026-07-11: the notice's "hide" button must be a SESSION dismissal, not a
-// silent permanent opt-out — and a search whose results are all non-Japanese
-// must auto-reveal instead of spinning a hide/continuation filtering loop.
-describe('notice dismissal and search auto-reveal', () => {
-    it('hide-notice does not persist the setting off', async () => {
-        const { filter, settings } = await startYoutubeFilter({
-            html: `
-            <main>
-                <ytd-rich-item-renderer data-case="en">
-                    <a id="video-title" href="/watch?v=en1">English only video</a>
-                </ytd-rich-item-renderer>
-            </main>
-        `,
+describe('quiet filtering and search auto-reveal', () => {
+    it('does not render a hidden-video notice even with a legacy saved opt-in', async () => {
+        const { filter } = await startYoutubeFilter({
+            html: '<main><ytd-rich-item-renderer data-case="en"><a id="video-title" href="/watch?v=en1">English only video</a></ytd-rich-item-renderer></main>',
+            settings: { ...youtubeFilterSettings(), youtubeShowFilterNotice: true },
         });
-        const hide = document.querySelector<HTMLButtonElement>('.jpdb-youtube-filter-bar [data-action="hide-notice"]');
-        expect(hide).toBeTruthy();
-        hide!.click();
-        expect(settings.youtubeShowFilterNotice).toBe(true);
         expect(document.querySelector('.jpdb-youtube-filter-bar')).toBeNull();
+        expect(card('en').classList.contains('jpdb-youtube-filtered')).toBe(true);
         filter.destroy();
     });
 

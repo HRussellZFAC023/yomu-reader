@@ -1,3 +1,4 @@
+import { SITE_INTERACTION_COPY } from './site-interaction-copy';
 import { ACADEMY_SRS_LABEL, APP_NAME, SUPPORT_COPY, SUPPORT_COPY_EXTRA } from './constants';
 import { loadJaGrammarRuleCopy } from './ja-grammar-rule-copy';
 import { formatIsolated, isRtlInterface } from '../locales/direction';
@@ -16,7 +17,7 @@ export type { AcademyCopyKey, AcademyLanguage } from './academy-copy';
 type UiLanguage = 'en' | 'ja';
 const COPY = {
     en: {
-        ...PRACTICE_SESSION_COPY.en, ...COLLECTION_COPY.en,
+        ...PRACTICE_SESSION_COPY.en, ...COLLECTION_COPY.en, ...SITE_INTERACTION_COPY.en,
         settingsTitle: `${APP_NAME} Settings`,
         manualPageScanShortcut: 'Manual page scan shortcut',
         scanPage: 'Scan page',
@@ -411,12 +412,6 @@ const COPY = {
         youtubeShowChannelRecommendations: 'Show Japanese channel suggestions',
         youtubeShowFilterNotice: 'Show hidden-video notice',
         youtubeHelp: 'Filter YouTube for Japanese.',
-        youtubeShowHiddenVideos: 'Show hidden videos',
-        youtubeHideHiddenVideos: 'Hide hidden videos',
-        youtubeHideNotice: 'Hide notice',
-        youtubeFilterShowing: '{appName} shows {count} hidden item{plural}',
-        youtubeFilterHid: '{appName} hid {count} other-language item{plural}',
-        youtubeFilterVisible: '{count} Japanese items stayed visible.',
         youtubeToggleToastOn: 'YouTube immersion filter enabled.',
         youtubeToggleToastOff: 'YouTube immersion filter disabled.',
         ankiEnabled: 'Enable Anki mining',
@@ -1140,6 +1135,7 @@ export function parseUiCopyTable(rows: string): Partial<Record<UiCopyKey, string
     return copy;
 }
 const JA_COPY: Partial<Record<UiCopyKey, string>> = {
+    ...SITE_INTERACTION_COPY.ja,
     ...parseUiCopyTable(String.raw`
 settingsTitle	{APP_NAME} 設定
 automatic	自動
@@ -1942,12 +1938,6 @@ preferJapaneseSiteLanguage	日本語版サイトをリクエスト
 youtubeShowChannelRecommendations	日本語チャンネル候補を表示
 youtubeShowFilterNotice	非表示動画の通知を表示
 youtubeHelp	YouTubeを日本語向けに絞ります。
-youtubeShowHiddenVideos	非表示動画を表示
-youtubeHideHiddenVideos	非表示動画を隠す
-youtubeHideNotice	通知を隠す
-youtubeFilterShowing	{appName}は非表示のYouTube項目{count}件を表示中
-youtubeFilterHid	{appName}は他の言語のYouTube項目{count}件を非表示
-youtubeFilterVisible	日本語らしい項目{count}件は表示したままです。
 youtubeToggleToastOn	YouTube没入フィルターをオンにしました。
 youtubeToggleToastOff	YouTube没入フィルターをオフにしました。
 ankiEnabled	Anki採掘を有効にする

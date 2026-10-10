@@ -323,12 +323,13 @@ describe('additive text-mirror source projection', () => {
         projectAdditiveTextMirror(mirror, host);
 
         const firstWrite = events.findIndex(event => event.startsWith('write:'));
-        expect(firstWrite).toBe(3);
-        expect(events.slice(0, firstWrite)).toEqual(['read:0:2', 'read:1:2', 'read:2:4']);
+        expect(firstWrite).toBe(4);
+        expect(events.slice(0, firstWrite)).toEqual(['read:0:4', 'read:0:2', 'read:1:2', 'read:2:4']);
         expect(events.slice(firstWrite)).not.toContainEqual(expect.stringMatching(/^read:/));
         // 日本's full-word ruby reuses its word Range instead of forcing a
         // second layout read for the exact same source geometry.
-        expect(events.filter(event => event.startsWith('read:'))).toHaveLength(3);
+        // One native-text measurement also protects unannotated preceding lines.
+        expect(events.filter(event => event.startsWith('read:'))).toHaveLength(4);
         expect(word.querySelectorAll('.jpdb-reader-source-fragment')).toHaveLength(1);
         expect(second.querySelectorAll('.jpdb-reader-source-fragment')).toHaveLength(1);
     });

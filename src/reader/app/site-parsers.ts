@@ -14,6 +14,7 @@ import { annotationScopeActive, queryWithinAnnotationScope, scanScopeRoots } fro
 import { isJitenStudyFrontPrompt } from '../jiten/jiten-page-targets';
 import { isJpdbReviewFrontPrompt } from '../jpdb/jpdb-page-targets';
 import { isYouTubeAppHostname } from './youtube-host';
+import { YOUTUBE_READABLE_LABEL_ROOTS } from './youtube-readable-labels';
 import { isBunproReviewFrontPrompt } from '../bunpro/page-targets';
 
 export interface SiteParserProfile {
@@ -177,6 +178,7 @@ const GENERIC_PROSE_EXCLUDE = [
     '[aria-label*="聞"]',
     '[aria-label*="音声"]',
     'time',
+    'faceplate-timeago',
 ].join(',');
 const SAFE_UI_CHROME_SCOPE_SELECTORS = [
     'nav',
@@ -806,6 +808,7 @@ export const SITE_PARSER_PROFILES: SiteParserProfile[] = [
     {
         id: 'youtube-comments-parser',
         roots: [
+            ...YOUTUBE_READABLE_LABEL_ROOTS,
             // High-value watch text comes first so huge virtualized grids or
             // recommendation rails cannot starve the visible title,
             // description, transcript panel, or watch sidebar inside one

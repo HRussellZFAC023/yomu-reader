@@ -272,38 +272,27 @@ async function runMobileSettingsSmoke(browser, fixtureServer) {
 
         await page.locator('.jpdb-reader-fab').tap();
         await page.waitForSelector('.jpdb-reader-fab-radial [data-radial-id="settings"]', { timeout: 8_000 });
-        await page.locator('.jpdb-reader-fab-radial [data-radial-id="settings"]').tap();
-        await page.waitForSelector('.jpdb-reader-settings', { timeout: 8_000 });
-        assert(await page.locator('.jpdb-reader-quick').count() === 0, 'Mobile puck settings action opened removed quick controls instead of settings');
-
-        // Since 1.9.1 a host page owns its DOM and could read or rewrite form
-        // controls, so it only gets the no-input Study launcher; the editable
-        // settings form lives on the Yomu-owned Study surface.
-        const launcher = await page.evaluate(settingsLauncherSnapshotFromDom);
-        assert(launcher.isLauncher && launcher.pageWritableControls === 0, 'Host-page settings exposed editable controls instead of the Study launcher', launcher);
-        assert(launcher.openButton.withinViewport, 'Study settings launcher is not fully visible on iPhone', launcher);
-        await page.screenshot({ path: path.join(ARTIFACTS, 'mobile-settings-launcher-smoke.png'), fullPage: false });
-
         const [studyPage] = await Promise.all([
             context.waitForEvent('page', { timeout: 8_000 }),
-            page.locator('[data-trusted-settings-launcher]').tap(),
+            page.locator('.jpdb-reader-fab-radial [data-radial-id="settings"]').tap(),
         ]);
+        assert(await page.locator('.jpdb-reader-settings, .jpdb-reader-quick').count() === 0,
+            'Mobile settings inserted an intermediary or page-writable settings controls');
         await studyPage.waitForSelector('form.jpdb-reader-settings', { state: 'visible', timeout: 12_000 });
         await studyPage.waitForFunction(() => document.querySelector('form.jpdb-reader-settings .jpdb-reader-word'), null, { timeout: 8_000 })
             .catch(() => undefined);
         const studyUrl = new URL(studyPage.url());
-        assert(studyUrl.origin === HOSTED_STUDY_ORIGIN && studyUrl.pathname === HOSTED_STUDY_PATH, 'Study settings launcher did not open hosted Study', { url: studyPage.url() });
+        assert(studyUrl.origin === HOSTED_STUDY_ORIGIN && studyUrl.pathname === HOSTED_STUDY_PATH, 'Direct Settings tap did not open hosted Study', { url: studyPage.url() });
 
         const form = await studyPage.evaluate(mobileSettingsSnapshotFromDom);
-        assert(form.controlCount >= 1, 'Study settings opened from the launcher showed no editable controls', form);
+        assert(form.controlCount >= 1, 'Study settings showed no editable controls', form);
         assert(form.riskyControls.length === 0, 'Mobile settings have controls below 16px and may trigger iOS zoom', form);
-        assert(form.parsedSettingsWords >= 1, 'Settings dialog no longer exposes parseable reader-word content for AJATT-style ruby', form);
+        assert(form.parsedSettingsWords >= 1, 'Settings appearance preview lost its Japanese word samples', form);
         assert(form.visualViewportScaleStable, 'Focusing a settings input changed visual viewport scale in mobile smoke', form);
 
         await studyPage.screenshot({ path: path.join(ARTIFACTS, 'mobile-settings-puck-smoke.png'), fullPage: false });
         return {
             puck,
-            launcher: { pageWritableControls: launcher.pageWritableControls, openButton: launcher.openButton },
             studySettingsPath: studyUrl.pathname,
             controlCount: form.controlCount,
             parsedSettingsWords: form.parsedSettingsWords,
@@ -702,28 +691,6 @@ function visiblePuckSnapshotFromDom() {
     function roundRectValue(value) {
         return Math.round(value * 100) / 100;
     }
-}
-
-// Browser-serialized DOM snapshot must stay self-contained for page.evaluate.
-function settingsLauncherSnapshotFromDom() {
-    const button = document.querySelector('.jpdb-reader-settings [data-trusted-settings-launcher]');
-    const rect = button?.getBoundingClientRect() ?? new DOMRect();
-    return {
-        isLauncher: Boolean(document.querySelector('.jpdb-reader-settings[data-sensitive-settings-launcher="true"]')),
-        pageWritableControls: document.querySelectorAll('.jpdb-reader-settings :is(form, input, select, textarea, output, [contenteditable])').length,
-        openButton: {
-            width: Math.round(rect.width),
-            height: Math.round(rect.height),
-            withinViewport: [
-                rect.width > 0,
-                rect.height > 0,
-                rect.left >= 0,
-                rect.top >= 0,
-                rect.right <= innerWidth,
-                rect.bottom <= innerHeight,
-            ].every(Boolean),
-        },
-    };
 }
 
 // Browser-serialized DOM snapshot must stay self-contained for page.evaluate.

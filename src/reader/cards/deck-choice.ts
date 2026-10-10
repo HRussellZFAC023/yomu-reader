@@ -1,4 +1,4 @@
-import { ACADEMY_SRS_LABEL } from '../app/constants';
+import { uiText } from '../app/i18n';
 import type { ApiDeck, JPDBDeck, ReaderSettings } from '../app/types';
 import type { CollectionDestinationId } from './srs-providers';
 
@@ -47,7 +47,7 @@ export function deckChoices(settings: ReaderSettings, destinations: readonly Col
         } else if (destination === 'bunpro') {
             add('bunpro', 'bunpro', 'Bunpro');
         } else if (destination === 'yomu-local') {
-            add('yomu-local', 'yomu-local', ACADEMY_SRS_LABEL);
+            add('yomu-local', 'yomu-local', uiText(settings.interfaceLanguage, 'defaultDeck'));
         }
     }
     return choices;

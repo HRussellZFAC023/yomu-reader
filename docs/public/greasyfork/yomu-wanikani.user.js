@@ -7271,12 +7271,6 @@ preferJapaneseSiteLanguage	日本語版サイトをリクエスト
 youtubeShowChannelRecommendations	日本語チャンネル候補を表示
 youtubeShowFilterNotice	非表示動画の通知を表示
 youtubeHelp	YouTubeを日本語向けに絞ります。
-youtubeShowHiddenVideos	非表示動画を表示
-youtubeHideHiddenVideos	非表示動画を隠す
-youtubeHideNotice	通知を隠す
-youtubeFilterShowing	{appName}は非表示のYouTube項目{count}件を表示中
-youtubeFilterHid	{appName}は他の言語のYouTube項目{count}件を非表示
-youtubeFilterVisible	日本語らしい項目{count}件は表示したままです。
 youtubeToggleToastOn	YouTube没入フィルターをオンにしました。
 youtubeToggleToastOff	YouTube没入フィルターをオフにしました。
 ankiEnabled	Anki採掘を有効にする

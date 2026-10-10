@@ -23,7 +23,6 @@ export function renderYoutubeSettingsPanel(settings: ReaderSettings): string {
                         <input type="hidden" name="youtubeImmersionSettingsPresent" value="on">
                         <input type="hidden" name="youtubeImmersionEnabledInitial" value="${immersionEnabled ? 'on' : 'off'}">
                         ${checkbox('youtubeImmersionEnabled', text('youtubeImmersionEnabled'), immersionEnabled)}
-                        ${checkbox('youtubeShowFilterNotice', text('youtubeShowFilterNotice'), settings.youtubeShowFilterNotice)}
                     </div>
                     <div data-language-family="youtube-channel-suggestions">
                         <input type="hidden" name="youtubeChannelSuggestionSettingsPresent" value="on">

@@ -1,5 +1,7 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue';
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
+import { libraryFilterUrl, normalizeLibraryQuery, readLibraryFilters } from './library-filters';
+import { SITE_INTERACTION_COPY } from '../../../src/reader/app/site-interaction-copy';
 import catalog from '../../../config/library/tadoku.catalog.json';
 
 const props = withDefaults(defineProps<{ language?: 'en' | 'ja' }>(), { language: 'en' });
@@ -26,7 +28,28 @@ const query = ref('');
 const level = ref('');
 const genre = ref('');
 const levels = ['l-start', 'l0', 'l1', 'l2', 'l3', 'l4', 'l5'];
-const normalize = (value: string) => value.normalize('NFKC').toLocaleLowerCase().trim();
+const normalize = normalizeLibraryQuery;
+const queryInput = ref<HTMLInputElement>();
+const filtered = computed(() => Boolean(query.value || level.value || genre.value));
+function restoreFilters() {
+    const filters = readLibraryFilters(location.search, levels, catalog.genres.map(item => item.id));
+    query.value = filters.query;
+    level.value = filters.level;
+    genre.value = filters.genre;
+}
+function clearFilters() {
+    query.value = level.value = genre.value = '';
+    queryInput.value?.focus();
+}
+onMounted(() => {
+    restoreFilters();
+    window.addEventListener('popstate', restoreFilters);
+});
+onUnmounted(() => window.removeEventListener('popstate', restoreFilters));
+watch([query, level, genre], () => {
+    const url = libraryFilterUrl(location.href, { query: query.value, level: level.value, genre: genre.value });
+    if (url !== location.href) history.replaceState(history.state, '', url);
+});
 const books = computed(() => catalog.books.filter(book =>
     (!level.value || book.level === level.value)
     && (!genre.value || book.genreIds.includes(genre.value))
@@ -43,7 +66,7 @@ const levelLabel = (value: string) => value === 'l-start' ? text.value.start : `
     <form class="library-search" role="search" @submit.prevent>
       <label class="library-query">
         <span>{{ text.search }}</span>
-        <input v-model="query" type="search" autocomplete="off" />
+        <input ref="queryInput" v-model="query" type="search" autocomplete="off" />
       </label>
       <label>
         <span>{{ text.level }}</span>
@@ -59,22 +82,24 @@ const levelLabel = (value: string) => value === 'l-start' ? text.value.start : `
           <option v-for="item in catalog.genres" :key="item.id" :value="item.id">{{ item.label[props.language] }}</option>
         </select>
       </label>
+      <button v-if="filtered" class="library-reset" type="button" @click="clearFilters">{{ SITE_INTERACTION_COPY[props.language].libraryResetFilters }}</button>
     </form>
-    <p class="library-credit" data-library-credit>
-      <a :href="catalog.sourceUrl" target="_blank" rel="noopener noreferrer">{{ text.source }}</a>
-      {{ text.credit }} <a :href="text.licenseUrl" target="_blank" rel="noopener noreferrer license">{{ text.license }}</a>{{ text.stop }}
-      {{ text.linksOnly }}
-    </p>
     <p class="library-count" role="status">{{ text.count(books.length) }}</p>
+    <span id="library-open-hint" class="library-sr-only">{{ text.open }}</span>
     <ul class="library-books">
       <li v-for="book in books" :key="book.id">
-        <a :href="book.sourceUrl + '#bd-look-inside'" target="_blank" rel="noopener noreferrer" :aria-label="`${book.title} · ${text.open}`">
+        <a :href="book.sourceUrl + '#bd-look-inside'" target="_blank" rel="noopener noreferrer" :aria-describedby="'library-open-hint'">
           <span class="library-book-title" lang="ja">{{ book.title }}</span>
           <span class="library-level">{{ levelLabel(book.level) }}</span>
         </a>
       </li>
     </ul>
     <p v-if="!books.length">{{ text.empty }}</p>
+    <p class="library-credit" data-library-credit>
+      <a :href="catalog.sourceUrl" target="_blank" rel="noopener noreferrer">{{ text.source }}</a>
+      {{ text.credit }} <a :href="text.licenseUrl" target="_blank" rel="noopener noreferrer license">{{ text.license }}</a>{{ text.stop }}
+      {{ text.linksOnly }}
+    </p>
     <footer>
       <span>{{ text.open }} · {{ text.checked }} {{ catalog.checkedAt.slice(0, 10) }}</span>
     </footer>
@@ -89,9 +114,11 @@ a { color: var(--vp-c-brand-1); }
 .library-search { display: flex; flex-wrap: wrap; gap: .75rem; }
 label { display: flex; flex-direction: column; gap: .35rem; font-size: .875rem; }
 .library-query { flex: 1 1 15rem; }
-input, select { min-height: 44px; min-width: 0; border: 1px solid var(--vp-c-divider); border-radius: .4rem; background: var(--vp-c-bg-alt); padding: .5rem .7rem; color: var(--vp-c-text-1); font: inherit; }
+input, select, .library-reset { min-height: 44px; min-width: 0; border: 1px solid var(--vp-c-divider); border-radius: .4rem; background: var(--vp-c-bg-alt); padding: .5rem .7rem; color: var(--vp-c-text-1); font: inherit; font-size: 16px; }
+.library-reset { align-self: end; cursor: pointer; }
+.library-sr-only { position: absolute; width: 1px; height: 1px; padding: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 select { max-width: 100%; }
-input:focus-visible, select:focus-visible, a:focus-visible { outline: 2px solid var(--vp-c-brand-1); outline-offset: 3px; }
+input:focus-visible, select:focus-visible, button:focus-visible, a:focus-visible { outline: 2px solid var(--vp-c-brand-1); outline-offset: 3px; }
 .library-count, .library-level, .library-credit, footer { color: var(--vp-c-text-2); font-size: .875rem; }
 .library-credit { max-width: 46rem; margin: 1.25rem 0 0; line-height: 1.6; }
 .library-count { margin: 1.25rem 0 .5rem; }

@@ -197,15 +197,17 @@ function hoverPointerEvent(
     return event;
 }
 
-function linkTitleMirrorFixture(): string {
+function linkTitleMirrorFixture(controlKind: 'link' | 'button' = 'link'): string {
+    const tag = controlKind === 'button' ? 'button' : 'a';
+    const action = controlKind === 'button' ? 'type="button"' : 'href="/watch?v=abc123"';
     return `
-        <a class="video-title" href="/watch?v=abc123">
+        <${tag} class="video-title" ${action}>
             <span class="title-host">
                 <span class="jpdb-reader-text-mirror" data-jpdb-reader-text-mirror="true" data-source-text="【初見】">
                     【<span class="jpdb-reader-word jpdb-reader-scan-word jpdb-reader-passive-word" data-vid="1798820" data-sid="0" data-card-source="jiten" data-card-id="1798820" data-reading-index="0" data-token-start="1" data-token-end="3" data-sentence="【初見】" data-expression="初見" data-jpdb-reader-passive="true">初見</span>】
                 </span>
             </span>
-        </a>
+        </${tag}>
     `;
 }
 
@@ -2940,14 +2942,14 @@ describe('hover lookup', () => {
         }
     });
 
-    it('opens link words from a stationary touch long-press and suppresses the navigation click', () => {
+    it.each(['link', 'button'] as const)('opens %s words from a stationary hold and suppresses the native click', controlKind => {
         vi.useFakeTimers();
         vi.stubGlobal('location', {
             href: 'https://www.youtube.com/',
             origin: 'https://www.youtube.com',
             hostname: 'www.youtube.com',
         });
-        document.body.innerHTML = linkTitleMirrorFixture();
+        document.body.innerHTML = linkTitleMirrorFixture(controlKind);
         const app = new ReaderApp();
         const word = document.querySelector<HTMLElement>('.jpdb-reader-word')!;
         const linkClick = vi.fn();
@@ -2960,7 +2962,7 @@ describe('hover lookup', () => {
         };
         internals.showLookupCandidate = showLookupCandidate;
         internals.bindEvents();
-        document.querySelector<HTMLAnchorElement>('a.video-title')?.addEventListener('click', linkClick);
+        document.querySelector<HTMLElement>('.video-title')?.addEventListener('click', linkClick);
 
         try {
             word.dispatchEvent(hoverPointerEvent(word, 'touch', 'pointerdown'));
@@ -2986,14 +2988,14 @@ describe('hover lookup', () => {
         }
     });
 
-    it('lets a quick tap on a link word navigate without opening the popover', () => {
+    it.each(['link', 'button'] as const)('keeps a quick tap on a %s word native', controlKind => {
         vi.useFakeTimers();
         vi.stubGlobal('location', {
             href: 'https://www.youtube.com/',
             origin: 'https://www.youtube.com',
             hostname: 'www.youtube.com',
         });
-        document.body.innerHTML = linkTitleMirrorFixture();
+        document.body.innerHTML = linkTitleMirrorFixture(controlKind);
         const app = new ReaderApp();
         const word = document.querySelector<HTMLElement>('.jpdb-reader-word')!;
         const linkClick = vi.fn();
@@ -3005,7 +3007,7 @@ describe('hover lookup', () => {
         };
         internals.showWord = showWord;
         internals.bindEvents();
-        document.querySelector<HTMLAnchorElement>('a.video-title')?.addEventListener('click', linkClick);
+        document.querySelector<HTMLElement>('.video-title')?.addEventListener('click', linkClick);
 
         try {
             word.dispatchEvent(hoverPointerEvent(word, 'touch', 'pointerdown'));

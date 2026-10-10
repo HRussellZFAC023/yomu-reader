@@ -98,7 +98,7 @@ function picker(): HTMLSelectElement {
     return pickerRoot!.querySelector('select')!;
 }
 function chooseLocalDeck(): void {
-    picker().selectedIndex = [...picker().options].findIndex(option => option.textContent?.includes('Academy'));
+    picker().selectedIndex = [...picker().options].findIndex(option => option.textContent?.includes('Default'));
     dispatchAuthorizedReaderControlEvent(picker(), new Event('change'));
 }
 // What a browser does with keys typed into the focused, closed dropdown: each letter moves
@@ -166,7 +166,7 @@ describe('popup collect action', () => {
         expect(collect.textContent).toBe('');
         expect(picker().getAttribute('aria-label')).toBe('Add to deck…');
         expect([...picker().options].map(option => [option.textContent, option.disabled])).toEqual([
-            ['Add to deck…', true], [expect.stringContaining('Anki'), false], [expect.stringContaining('Academy'), false],
+            ['Add to deck…', true], [expect.stringContaining('Anki'), false], [expect.stringContaining('Default'), false],
         ]);
         expect(picker().selectedIndex).toBe(0);
         expect(perform).not.toHaveBeenCalled();
@@ -185,15 +185,15 @@ describe('popup collect action', () => {
 
     // A closed dropdown moves to a deck on each typed letter and reports each move as a
     // change. Saving on that change sent a keyboard learner's word to whichever deck their
-    // first letter reached: Anki is listed ahead of Academy, so typing "Academy" saved to Anki.
+    // first letter reached: Anki is listed ahead of Default, so typing "Default" saved to Anki.
     it.each([
-        ['Academy', 'yomu-local', 'yomu-local'],
+        ['Default', 'yomu-local', 'yomu-local'],
         ['Anki: Core', 'anki', 'Core'],
     ])('saves a deck reached by typing "%s" only on Enter, and only to that deck', (typed, deckSource, deckId) => {
         const actions = renderActions({ ...KEYLESS, apiKey: 'jpdb-key', jpdbMiningEnabled: false, ankiEnabled: true, ankiDeck: 'よむ' }, {}, emptyCardRenderData({ ankiDecks: ['Core'] }));
         const perform = vi.fn();
         mountDeckSelects(actions, WORD, SENTENCE, perform);
-        expect([...picker().options].map(option => option.text)).toEqual(['Add to deck…', 'Anki: よむ', 'Anki: Core', 'Academy']);
+        expect([...picker().options].map(option => option.text)).toEqual(['Add to deck…', 'Anki: よむ', 'Anki: Core', 'Default']);
 
         typeIntoClosedDropdown(typed);
         expect(perform).not.toHaveBeenCalled();
@@ -210,12 +210,12 @@ describe('popup collect action', () => {
         const perform = vi.fn();
         mountDeckSelects(actions, WORD, SENTENCE, perform);
         picker().focus();
-        typeIntoClosedDropdown('Academy');
+        typeIntoClosedDropdown('Default');
         // Leaving the dropdown, or pressing it to open its list, shows its label again:
         // the list opens on no deck, so picking the browsed deck there is still a change.
         picker().blur();
         expect(picker().selectedIndex).toBe(0);
-        typeIntoClosedDropdown('Academy');
+        typeIntoClosedDropdown('Default');
         picker().dispatchEvent(new Event('pointerdown'));
         expect(picker().selectedIndex).toBe(0);
         expect(perform).not.toHaveBeenCalled();
@@ -508,8 +508,8 @@ describe('popup collect action', () => {
     });
 
     // Study's lookup popup is a trusted surface: a learner whose only deck is
-    // Academy saves there with one press, as on an ordinary page.
-    it('saves to Academy from the Study popup after an explicit deck choice', async () => {
+    // Default saves there with one press, as on an ordinary page.
+    it('saves to Default from the Study popup after an explicit deck choice', async () => {
         vi.stubGlobal('location', new URL('https://yomureader.com/study/'));
         const runtime = new NewTabRuntime();
         const internals = setupNewTabLookupRuntime(runtime, newTabLookupRenderData(), {
@@ -523,7 +523,7 @@ describe('popup collect action', () => {
             chooseLocalDeck();
 
             await vi.waitFor(async () => expect(Object.values((await new LocalYomuSrsRepository().snapshot()).cards)).toHaveLength(1));
-            await vi.waitFor(() => expect([...document.querySelectorAll('.jpdb-reader-toast')].map(toast => toast.textContent)).toContain('Added to Academy.'));
+            await vi.waitFor(() => expect([...document.querySelectorAll('.jpdb-reader-toast')].map(toast => toast.textContent)).toContain('Added to your default deck.'));
             expect(document.querySelector('.jpdb-reader-add-deck-select-open, [data-add-deck-select]')).toBeNull();
         } finally {
             runtime.destroy();
@@ -552,7 +552,7 @@ describe('popup collect action', () => {
             // The refreshed popup opens with ⋯ closed, so the learner lands on its toggle.
             const toggle = (): Element | null => internals.activeLookupPopover!.querySelector('[data-action="mining-collapse"]');
             await vi.waitFor(() => expect(document.activeElement).toBe(toggle()));
-            expect([...document.querySelectorAll('.jpdb-reader-toast')].map(toast => toast.textContent)).toEqual(['Added to Academy.']);
+            expect([...document.querySelectorAll('.jpdb-reader-toast')].map(toast => toast.textContent)).toEqual(['Added to your default deck.']);
         } finally {
             runtime.destroy();
             vi.unstubAllGlobals();

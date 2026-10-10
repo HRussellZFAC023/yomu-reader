@@ -836,6 +836,113 @@ describe('preferred Japanese site language', () => {
         expect(replace).not.toHaveBeenCalled();
     });
 
+    it('keeps Reddit Japanese across a later route without toggling the saved preference', async () => {
+        vi.useFakeTimers();
+        const siteLocation = {
+            href: 'https://www.reddit.com/r/linux/', hostname: 'www.reddit.com', protocol: 'https:',
+            replace: vi.fn(),
+        };
+        vi.stubGlobal('unsafeWindow', window);
+        vi.stubGlobal('location', siteLocation);
+        applyPreferredJapaneseSiteLanguage(true);
+        expect(siteLocation.replace).toHaveBeenCalledWith('https://www.reddit.com/r/linux/?locale=ja-JP');
+        siteLocation.href = 'https://www.reddit.com/r/linux/?locale=ja-JP';
+        applyPreferredJapaneseSiteLanguage(true);
+        await vi.advanceTimersByTimeAsync(11_000);
+        siteLocation.href = 'https://www.reddit.com/r/linux/comments/next/';
+        document.body.append(document.createElement('div'));
+        await vi.advanceTimersByTimeAsync(0);
+        expect(siteLocation.replace).toHaveBeenLastCalledWith('https://www.reddit.com/r/linux/comments/next/?locale=ja-JP');
+    });
+
+    it('reapplies Japanese after a later Google search drops its URL markers', async () => {
+        vi.useFakeTimers();
+        const siteLocation = {
+            href: 'https://www.google.com/search?q=manga', hostname: 'www.google.com', protocol: 'https:',
+            replace: vi.fn(),
+        };
+        vi.stubGlobal('unsafeWindow', window);
+        vi.stubGlobal('location', siteLocation);
+        applyPreferredJapaneseSiteLanguage(true);
+        expect(siteLocation.replace).toHaveBeenCalledWith('https://www.google.com/search?q=manga&hl=ja&gl=JP');
+        siteLocation.href = 'https://www.google.com/search?q=manga&hl=ja&gl=JP';
+        applyPreferredJapaneseSiteLanguage(true);
+        await vi.advanceTimersByTimeAsync(11_000);
+        siteLocation.href = 'https://www.google.com/search?q=nihongo';
+        document.body.append(document.createElement('div'));
+        await vi.advanceTimersByTimeAsync(0);
+        expect(siteLocation.replace).toHaveBeenLastCalledWith('https://www.google.com/search?q=nihongo&hl=ja&gl=JP');
+        expect(siteLocation.replace).toHaveBeenCalledTimes(2);
+        applyPreferredJapaneseSiteLanguage(true);
+        expect(siteLocation.replace).toHaveBeenCalledTimes(2);
+    });
+
+    it('retains YouTube cookie-based reload-loop protection on later routes', async () => {
+        vi.useFakeTimers();
+        const siteLocation = {
+            href: 'https://m.youtube.com/', hostname: 'm.youtube.com', protocol: 'https:', replace: vi.fn(),
+        };
+        vi.stubGlobal('unsafeWindow', window);
+        vi.stubGlobal('location', siteLocation);
+        applyPreferredJapaneseSiteLanguage(true);
+        siteLocation.href = 'https://m.youtube.com/watch?v=next';
+        applyPreferredJapaneseSiteLanguage(true);
+        document.body.append(document.createElement('div'));
+        await vi.advanceTimersByTimeAsync(11_000);
+        expect(siteLocation.replace).toHaveBeenCalledTimes(1);
+    });
+
+    it('restarts bounded alternate discovery on a new route and respects a subsequent opt-out', async () => {
+        vi.useFakeTimers();
+        const siteLocation = {
+            href: 'https://example.com/first', hostname: 'example.com', protocol: 'https:', replace: vi.fn(),
+        };
+        vi.stubGlobal('unsafeWindow', window);
+        vi.stubGlobal('location', siteLocation);
+        applyPreferredJapaneseSiteLanguage(true);
+        await vi.advanceTimersByTimeAsync(11_000);
+        siteLocation.href = 'https://example.com/next';
+        document.body.append(document.createElement('div'));
+        await vi.advanceTimersByTimeAsync(0);
+        const alternate = document.createElement('link');
+        alternate.dataset.testJapaneseAlternate = '';
+        alternate.rel = 'alternate'; alternate.hreflang = 'ja'; alternate.href = 'https://example.com/ja/next';
+        document.head.append(alternate);
+        await vi.advanceTimersByTimeAsync(0);
+        expect(siteLocation.replace).toHaveBeenCalledWith('https://example.com/ja/next');
+        siteLocation.href = 'https://example.com/another';
+        alternate.remove();
+        applyPreferredJapaneseSiteLanguage(true);
+        applyPreferredJapaneseSiteLanguage(false);
+        siteLocation.replace.mockClear();
+        alternate.href = 'https://example.com/ja/another';
+        document.head.append(alternate);
+        await vi.advanceTimersByTimeAsync(1000);
+        expect(siteLocation.replace).not.toHaveBeenCalled();
+    });
+
+    it('does not follow a stale alternate from the previous SPA route', async () => {
+        vi.useFakeTimers();
+        const siteLocation = {
+            href: 'https://example.com/ja/first', hostname: 'example.com', protocol: 'https:', replace: vi.fn(),
+        };
+        vi.stubGlobal('unsafeWindow', window);
+        vi.stubGlobal('location', siteLocation);
+        const alternate = document.createElement('link');
+        alternate.dataset.testJapaneseAlternate = '';
+        alternate.rel = 'alternate'; alternate.hreflang = 'ja'; alternate.href = siteLocation.href;
+        document.head.append(alternate);
+        applyPreferredJapaneseSiteLanguage(true);
+        await vi.advanceTimersByTimeAsync(11_000);
+        siteLocation.href = 'https://example.com/next';
+        document.body.append(document.createElement('div'));
+        await vi.advanceTimersByTimeAsync(250);
+        expect(siteLocation.replace).not.toHaveBeenCalled();
+        alternate.href = 'https://example.com/ja/next';
+        await vi.advanceTimersByTimeAsync(250);
+        expect(siteLocation.replace).toHaveBeenCalledWith('https://example.com/ja/next');
+    });
+
     it('can redirect the same host again after the preference is turned off and back on', () => {
         const replace = vi.fn();
         const atReddit = (href: string) => vi.stubGlobal('location', {

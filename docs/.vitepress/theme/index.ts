@@ -46,7 +46,6 @@ type HostedYomuRuntimeWindow = typeof window & {
 const SETTINGS_STORAGE_KEY = 'jpdb-popup-reader-settings';
 const VITEPRESS_APPEARANCE_KEY = 'vitepress-theme-appearance';
 const SETTINGS_CHANGE_EVENT = 'yomu-settings-change';
-const OPEN_SETTINGS_EVENT = 'yomu-open-settings';
 const YOMU_HOSTED_RUNTIME_SCRIPT_ID_PREFIX = 'yomu-hosted-runtime';
 const HOSTED_RUNTIME_VERSION = pkg.version;
 const LEGACY_YOMU_HOSTED_RUNTIME_SCRIPT_ID = 'yomu-hosted-demo-runtime';
@@ -213,40 +212,29 @@ function createHostedOverflowGroup(): HTMLElement {
     return group;
 }
 
-function createHostedSettingsItem(): HTMLButtonElement {
-    const locale = activeWebsiteLocale();
-    const button = document.createElement('button');
-    button.className = 'yomu-hosted-overflow-link';
-    configureHostedSettingsButton(button, locale, openHostedSettings);
-    return button;
+function createHostedSettingsItem(): HTMLAnchorElement {
+    return createHostedSettingsLink('yomu-hosted-overflow-link');
 }
 
 function createHostedMobileSettingsItem(): HTMLElement {
-    const locale = activeWebsiteLocale();
     const item = document.createElement('div');
     item.className = 'item yomu-hosted-mobile-settings-item';
     item.dataset.yomuHostedMobileSettings = 'true';
-
-    const button = document.createElement('button');
-    button.className = 'yomu-hosted-mobile-settings-button';
-    configureHostedSettingsButton(button, locale, () => {
-        closeHostedMobileNavScreen();
-        openHostedSettings();
-    });
-    item.append(button);
+    item.append(createHostedSettingsLink('yomu-hosted-mobile-settings-button'));
     return item;
 }
 
-function configureHostedSettingsButton(
-    button: HTMLButtonElement,
-    locale: InterfaceLanguage,
-    open: () => void,
-): void {
-    button.type = 'button';
-    button.textContent = websiteNavigationLabel('Settings reference', locale);
-    button.setAttribute('aria-label', locale === 'ja' ? '設定を開く' : 'Open settings');
-    bindHostedSettingsWarmup(button);
-    button.addEventListener('click', open);
+function createHostedSettingsLink(className: string): HTMLAnchorElement {
+    const locale = activeWebsiteLocale();
+    const link = document.createElement('a');
+    link.className = className;
+    link.href = '/study/#settings=appearance';
+    link.target = '_blank';
+    link.rel = 'noopener';
+    link.textContent = websiteNavigationLabel('Settings reference', locale);
+    link.setAttribute('aria-label', locale === 'ja' ? '設定を開く' : 'Open settings');
+    link.addEventListener('click', closeHostedMobileNavScreen);
+    return link;
 }
 
 function closeHostedMobileNavScreen(): void {
@@ -264,30 +252,6 @@ function createHostedOverflowLink(item: typeof HOSTED_OVERFLOW_LINKS[number]): H
     return link;
 }
 
-function bindHostedSettingsWarmup(button: HTMLElement): void {
-    const warm = () => warmHostedSettingsRuntime();
-    const options = { passive: true, once: true } as AddEventListenerOptions;
-    button.addEventListener('pointerenter', warm, options);
-    button.addEventListener('pointerdown', warm, options);
-    button.addEventListener('touchstart', warm, options);
-    button.addEventListener('focusin', warm, { once: true });
-}
-
-function warmHostedSettingsRuntime(): Promise<HostedRuntimeLoadResult> | undefined {
-    return loadHostedYomuRuntime();
-}
-
-function openHostedSettings(): void {
-    const runtime = warmHostedSettingsRuntime();
-    const dispatch = () => {
-        if (document.querySelector('.jpdb-reader-settings')) return true;
-        window.dispatchEvent(new CustomEvent(OPEN_SETTINGS_EVENT, { detail: { panel: 'basics' } }));
-        return Boolean(document.querySelector('.jpdb-reader-settings'));
-    };
-    if (dispatch()) return;
-    void runtime?.then(() => window.requestAnimationFrame(dispatch)).catch(() => undefined);
-    [50, 120, 240, 480, 900, 1500].forEach(delay => window.setTimeout(dispatch, delay));
-}
 function readStoredSettings(): Record<string, any> {
     return parseHostedSettings(localStorage.getItem(SETTINGS_STORAGE_KEY) ?? '{}');
 }

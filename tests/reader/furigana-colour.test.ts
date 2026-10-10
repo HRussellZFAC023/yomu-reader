@@ -32,7 +32,7 @@ describe('furigana colour', () => {
         const colour = furiganaColour('plain');
         expect(colour).toMatch(/^#[0-9a-f]{6}$/);
         expect(furiganaColour('linked')).toBe(colour);
-        expect(contrastRatio(colour, paper)).toBeGreaterThanOrEqual(4.5);
+        expect(contrastRatio(colour, paper)).toBeGreaterThanOrEqual(7);
         expect(contrastRatio(colour, paper)).toBeLessThan(contrastRatio(ink, paper));
         expect(furiganaColour('particle')).toBe('');
     });
@@ -47,6 +47,6 @@ describe('furigana colour', () => {
 
     it('stays text-readable when the page ink is already faint', () => {
         mountParagraph('#8a8a8a', '#ffffff');
-        expect(contrastRatio(furiganaColour('plain'), '#ffffff')).toBeGreaterThanOrEqual(4.5);
+        expect(contrastRatio(furiganaColour('plain'), '#ffffff')).toBeGreaterThanOrEqual(7);
     });
 });

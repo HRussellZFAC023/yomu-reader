@@ -1,4 +1,5 @@
 import { isJpdbHost } from '../jpdb/jpdb-page-targets';
+import { composedClosestElement } from '../dom/composed-tree';
 
 const READER_DOCUMENT_CLICK_IGNORE_SELECTOR = [
     '[data-jpdb-reader-surface-ignore]',
@@ -70,7 +71,7 @@ export function nativeClickableAncestor(target: EventTarget | null): HTMLElement
     if (link) return link;
     if (target && isJpdbHost() && isActiveNativePageReaderWord(target)) return null;
     const clickable = closestTarget<HTMLElement>(target, NATIVE_CLICKABLE_SELECTOR);
-    if (!clickable || clickable.closest(READER_SURFACE_SELECTOR)) return null;
+    if (!clickable || closestTarget(clickable, READER_SURFACE_SELECTOR)) return null;
     if (clickable instanceof HTMLAnchorElement && !hasNavigableHref(clickable)) return null;
     return clickable;
 }
@@ -105,6 +106,7 @@ function isActiveNativePageReaderWord(target: EventTarget): boolean {
 }
 
 function closestTarget<T extends Element = Element>(target: EventTarget | null, selector: string): T | null {
+    if (target instanceof Element) return composedClosestElement(target, selector) as T | null;
     const closest = (target as { closest?: (selector: string) => T | null } | null)?.closest;
     return typeof closest === 'function' ? closest.call(target, selector) : null;
 }

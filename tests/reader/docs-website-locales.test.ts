@@ -78,6 +78,20 @@ describe('reviewed website locale contract', () => {
         expect(correspondingWebsiteLocaleHref('/ja/faq', 'en')).toBe('/faq');
     });
 
+    it('keeps the current section when switching a published route, including a hash changed after mount', () => {
+        window.history.replaceState({}, '', '/install?from=home#safari');
+        document.body.innerHTML = '<div class="VPNavBarTranslations"><a href="/ja/install">日本語</a></div>';
+        syncWebsiteRouteLocalization(undefined);
+        const link = document.querySelector('a')!;
+        expect(link.getAttribute('href')).toBe('/ja/install?from=home#safari');
+        window.history.replaceState({}, '', '/install?from=home#firefox');
+        link.dispatchEvent(new Event('pointerdown', { bubbles: true }));
+        expect(link.getAttribute('href')).toBe('/ja/install?from=home#firefox');
+        window.history.replaceState({}, '', '/library/?q=猫#books');
+        link.dispatchEvent(new Event('pointerdown', { bubbles: true }));
+        expect(link.getAttribute('href')).toBe('/ja/');
+    });
+
     it('reconciles SPA locale links, route metadata, and hardcoded theme labels', () => {
         window.history.replaceState({}, '', '/ja/faq');
         document.head.innerHTML = '<link rel="canonical" href="https://yomureader.com/faq" data-yomu-route-head>';

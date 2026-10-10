@@ -358,9 +358,11 @@ writeFileSync(entryPath, `
             // counters begin so each ratchet continues measuring one stimulus.
             await frames(3);
             const projectionBeforeDocumentScroll = documentPortalProjectionCountsForTest();
+            const alignmentBeforeDocumentScroll = documentPortalClipMeasurementCountsForTest().alignments;
             window.scrollBy(0, 56);
             window.dispatchEvent(new Event('scroll'));
             const documentScrollImmediate = firstFragmentAlignment(host, retained!);
+            const nativeDocumentScrollAlignmentReads = documentPortalClipMeasurementCountsForTest().alignments - alignmentBeforeDocumentScroll;
             await frames(2);
             const documentScrollSettled = firstFragmentAlignment(host, retained!);
             const projectionAfterDocumentScroll = documentPortalProjectionCountsForTest();
@@ -478,6 +480,23 @@ writeFileSync(entryPath, `
             await frames(2);
             const retiredSettleAfter = documentPortalProjectionCountsForTest();
             const scopedPortalCountAfter = document.querySelectorAll('.jpdb-reader-document-annotation-portal').length;
+            const wrapper = host.parentElement!;
+            const wrapperStyle = wrapper.getAttribute('style');
+            const oldScroll = window.scrollY;
+            window.scrollTo(0, 120);
+            wrapper.style.position = 'fixed';
+            wrapper.style.top = '80px';
+            await frames(3);
+            const responsiveFixedMode = retained!.dataset.yomuPortalScroll;
+            window.scrollBy(0, 35);
+            window.dispatchEvent(new Event('scroll'));
+            const responsiveFixedAlignment = firstFragmentAlignment(host, retained!);
+            if (wrapperStyle === null) wrapper.removeAttribute('style');
+            else wrapper.setAttribute('style', wrapperStyle);
+            await frames(3);
+            const responsiveRestoredMode = retained!.dataset.yomuPortalScroll;
+            window.scrollTo(0, oldScroll);
+            await frames(2);
             return {
                 before,
                 after: geometry(host),
@@ -515,6 +534,9 @@ writeFileSync(entryPath, `
                     left: rounded(nestedClipImmediate.left), top: rounded(nestedClipImmediate.top),
                     width: rounded(nestedClipImmediate.width), height: rounded(nestedClipImmediate.height),
                 },
+                responsiveFixedMode, responsiveFixedAlignment, responsiveRestoredMode,
+                nativeDocumentScrollAlignmentReads,
+                documentScrollMode: retained!.dataset.yomuPortalScroll,
                 nestedClipSettled: {
                     left: rounded(nestedClipSettled.left), top: rounded(nestedClipSettled.top),
                     width: rounded(nestedClipSettled.width), height: rounded(nestedClipSettled.height),
@@ -712,6 +734,13 @@ function verifyPortalVisibilityAndViewport(name, result) {
 }
 
 function verifyMultiPortalWorkBounds(name, result) {
+    if (result.responsiveFixedMode !== 'viewport' || result.responsiveRestoredMode !== 'document'
+        || Math.abs(result.responsiveFixedAlignment.left) > 0.5 || Math.abs(result.responsiveFixedAlignment.top) > 0.5) {
+        fail(name, 'portal did not follow an ancestor changing into and out of fixed positioning', result);
+    }
+    if (result.documentScrollMode !== 'document' || result.nativeDocumentScrollAlignmentReads !== 0) {
+        fail(name, 'ordinary prose did not scroll natively without alignment reads', result);
+    }
     if (result.portalCountForPerf < 24
         || result.unrelatedProjectionPasses !== 0
         || result.unrelatedMirrorProjections !== 0

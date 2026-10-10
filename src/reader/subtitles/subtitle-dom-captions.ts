@@ -128,7 +128,12 @@ function readHiddenYouTubeCaptionText(video: HTMLVideoElement, readerRoot?: HTML
 }
 
 function youtubeCaptionSearchRoot(video: HTMLVideoElement): ParentNode {
-    return video.closest('#movie_player, .html5-video-player, ytd-player, ytd-watch-flexy, ytd-reel-video-renderer, ytd-shorts') ?? video.parentElement ?? document;
+    // Shorts can render captions beside the player inside the active reel.
+    // Scope to that reel before the inner player, never the whole carousel
+    // (which also holds captions for neighboring videos).
+    return video.closest('shorts-video, ytd-reel-video-renderer, ytm-reel-video-renderer')
+        ?? video.closest('#movie_player, .html5-video-player, ytm-player, ytd-player, ytd-watch-flexy')
+        ?? video.parentElement ?? document;
 }
 
 function hiddenYouTubeCaptionLine(element: HTMLElement, readerRoot?: HTMLElement, options: PageCaptionReadOptions = {}): string {

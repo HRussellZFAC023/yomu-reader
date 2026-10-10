@@ -1474,6 +1474,9 @@ export class ImageOcrController {
     ): HTMLElement {
         const element = createOcrLineElement(result, line, tokens, sentence, showText, settings);
         this.rememberOcrWordRenderStates(element, tokens);
+        // Prepare the final glyph nodes before mounting. Replacing the pressed
+        // child on pointerenter/down can make the browser discard its click.
+        this.activateOcrMarkup(element);
         element.addEventListener('pointerenter', () => this.activateOcrLineMarkup(state, element));
         element.addEventListener('focusin', () => this.activateOcrLineMarkup(state, element));
         element.addEventListener('pointerdown', event => this.activateOcrLineFromPointer(state, element, event), true);
@@ -2012,8 +2015,9 @@ export class ImageOcrController {
             this.releaseReaderRasterFrameForImage(image);
             return;
         }
-        // No recognizable text on an incidental inline image: drop the indicator quietly.
-        if (status === 'empty' && !isReaderRasterFrame) {
+        // Automatic inline scans stay visually quiet until usable text exists.
+        // Reader surfaces keep their explicit progress/retry feedback.
+        if (status !== 'ready' && !isReaderRasterFrame) {
             this.removeImageStatusCard(image);
             return;
         }
@@ -3522,6 +3526,8 @@ export class ImageOcrController {
         if (this.pageScannerIsolationEnabled === enabled) return;
         this.pageScannerIsolationEnabled = enabled;
         for (const state of this.states.values()) {
+            state.overlay.querySelectorAll<HTMLElement>('.jpdb-ocr-line')
+                .forEach(line => this.activateOcrLineMarkup(state, line));
             state.overlay.querySelectorAll<HTMLElement>('.jpdb-ocr-line-text')
                 .forEach(lineText => normalizeOcrRenderedText(lineText, enabled));
         }
@@ -3549,14 +3555,16 @@ export class ImageOcrController {
             const state = this.ocrWordRenderStates.get(word);
             if (!state) return;
             this.applyOcrPitchClass(word, state.token);
-            if (!shouldRenderRuby(state.surface, state.token, settings)) {
-                this.setOcrWordPlainText(word, state.surface, isolatePageScanners);
-                return;
+            const ruby = shouldRenderRuby(state.surface, state.token, settings);
+            const html = ruby ? renderRuby(state.surface, state.token) : escapeHtml(state.surface);
+            const markupKey = JSON.stringify([html, isolatePageScanners]);
+            if (state.markupKey !== markupKey) {
+                setInnerHtml(word, html);
+                normalizeOcrRenderedText(word, isolatePageScanners);
+                state.markupKey = markupKey;
             }
-            setInnerHtml(word, renderRuby(state.surface, state.token));
-            normalizeOcrRenderedText(word, isolatePageScanners);
-            word.classList.add('jpdb-reader-has-furi');
-            hasFurigana = true;
+            word.classList.toggle('jpdb-reader-has-furi', ruby);
+            hasFurigana ||= ruby;
         });
         line.dataset.hasFuri = String(hasFurigana);
         line.dataset.ocrMarkupActivated = 'true';
@@ -3575,12 +3583,6 @@ export class ImageOcrController {
             if (/^jpdb-pitch-/u.test(className)) word.classList.remove(className);
         });
         word.dataset.pitchClass = '';
-    }
-
-    private setOcrWordPlainText(word: HTMLElement, surface: string, isolatePageScanners: boolean): void {
-        word.classList.remove('jpdb-reader-has-furi');
-        setInnerHtml(word, escapeHtml(surface));
-        normalizeOcrRenderedText(word, isolatePageScanners);
     }
 
     // Drop every paused-frame and image overlay when YouTube navigates so no

@@ -110,6 +110,25 @@
     const rounded = Number(value.toFixed(decimalPlaces));
     return `${Object.is(rounded, -0) ? 0 : rounded}px`;
   }
+  function nativeTextRects(anchor) {
+    const document2 = anchor.ownerDocument;
+    const walker = document2.createTreeWalker(anchor, NodeFilter.SHOW_TEXT);
+    const range = document2.createRange();
+    if (typeof range.getClientRects !== "function") return [];
+    const rects = [];
+    while (walker.nextNode()) {
+      const node = walker.currentNode;
+      if (!node.textContent?.trim() || node.parentElement?.closest(
+        "rt,rp,.jpdb-reader-text-mirror,.jpdb-reader-detached-furi,[data-yomu-projected-reading]"
+      )) continue;
+      range.selectNodeContents(node);
+      rects.push(...Array.from(range.getClientRects()).filter((rect) => rect.width > 0 && rect.height > 0));
+    }
+    return rects;
+  }
+  function readingOverlapsPreviousLine(source, native, centre, width, height) {
+    return native.some((rect) => rect.top < source.top - source.height / 2 && rect.bottom > source.top - height && rect.left < centre + width / 2 && rect.right > centre - width / 2);
+  }
   const overlays = /* @__PURE__ */ new WeakMap();
   const ownerRecords = /* @__PURE__ */ new WeakMap();
   const PROJECTED_READING_ATTRIBUTE = "data-yomu-projected-reading";
@@ -123,6 +142,7 @@
     const currentSources = new Set(projections.map((projection) => projection.source));
     const context = {
       overlay,
+      nativeRects: /* @__PURE__ */ new Map(),
       anchorPaint: /* @__PURE__ */ new Map(),
       elementPaint: /* @__PURE__ */ new Map(),
       occludingPaint: /* @__PURE__ */ new Map(),
@@ -162,6 +182,7 @@
         trackProjectionAnchor(record2, overlay);
       }
       record2.measure = projection.measure;
+      if (projection.nativeRects) context.nativeRects.set(projection.anchor, projection.nativeRects);
       refreshProjectionAnchorRoot(record2.anchor, overlay);
       syncProjectedReadingStyle(record2);
       adoptProjectionLayer(record2, context);
@@ -260,6 +281,7 @@
       occlusionEpoch: 0,
       scrollContextEpoch: 0,
       hitTestBudgetRemaining: 12,
+      hitTestCursor: 0,
       refreshing: false,
       graceRefreshNeeded: false,
       occlusionRefreshNeeded: false,
@@ -427,7 +449,7 @@
     };
   }
   function applyProjectionPaints(paints, context) {
-    resolveProjectedReadingCrowding(paints);
+    resolveProjectedReadingCrowding(paints, context);
     paints.forEach((paint) => applyProjectedReadingPaint(paint, context));
   }
   function applyProjectedReadingPaint(paint, context) {
@@ -463,10 +485,27 @@
     if (element.dataset[key] === value) return;
     element.dataset[key] = value;
   }
-  function resolveProjectedReadingCrowding(paints) {
+  function resolveProjectedReadingCrowding(paints, context) {
     const placed = paints.filter(isPlacedProjectionPaint);
-    if (placed.length < 2) return;
-    for (const lane of projectedReadingLanes(placed)) fitProjectedReadingLane(lane);
+    const nativeRects = context?.nativeRects ?? /* @__PURE__ */ new Map();
+    for (const lane of projectedReadingLanes(placed)) {
+      fitProjectedReadingLane(lane);
+      for (const paint of lane) {
+        if (!paint.visible) continue;
+        const anchor = paint.record.anchor;
+        let rects = nativeRects.get(anchor);
+        if (!rects) {
+          rects = nativeTextRects(anchor);
+          nativeRects.set(anchor, rects);
+        }
+        const height = paint.record.footprintHeight || paint.rect.height / 2;
+        const width = naturalReadingWidth(paint.record) * (paint.layout?.scaleX ?? 1);
+        const centre = paint.layout?.centre ?? readingAnchorCentre(paint);
+        if (readingOverlapsPreviousLine(paint.rect, rects, centre, width, height)) {
+          paint.visible = false;
+        }
+      }
+    }
   }
   function isPlacedProjectionPaint(paint) {
     return paint.visible && paint.rect !== null;
@@ -498,6 +537,7 @@
         previous ? (previous.right + paint.rect.left) / 2 : Number.NEGATIVE_INFINITY,
         next ? (paint.rect.right + next.left) / 2 : Number.POSITIVE_INFINITY
       );
+      if (paint.layout.scaleX === 0) paint.visible = false;
     }
   }
   function readingAnchorCentre(paint) {
@@ -508,7 +548,7 @@
     const available = right - left;
     const scaleX = available >= width ? 1 : Math.max(PROJECTED_READING_MIN_SCALE_X, available / width);
     const painted = width * scaleX;
-    if (painted > available) return { centre, scaleX };
+    if (painted > available) return { centre, scaleX: 0 };
     if (centre - painted / 2 < left) return { centre: left + painted / 2, scaleX };
     if (centre + painted / 2 > right) return { centre: right - painted / 2, scaleX };
     return { centre, scaleX };
@@ -607,9 +647,9 @@
       const style = memoizedComputedStyle(current, styles);
       const coordinateSpaceIsSafe = elementCoordinateSpacePreservesCssPixels(style);
       const clipsReading = elementClipsDetachedReading(style);
-      const scrollsIndependently = elementScrollsIndependently(current, style, context.overlay);
-      if (!coordinateSpaceIsSafe || clipsReading && !scrollsIndependently) positionedHost = null;
-      if (scrollsIndependently) {
+      const scrollsIndependently2 = elementScrollsIndependently(current, style, context.overlay);
+      if (!coordinateSpaceIsSafe || clipsReading && !scrollsIndependently2) positionedHost = null;
+      if (scrollsIndependently2) {
         if (!(current instanceof HTMLElement)) break;
         if (!scrollLayerCoordinatesPreserveCssPixels(current, context)) break;
         if (elementCanMountProjectionLayer(current, style) && elementCreatesAbsoluteContainingBlock(style)) {
@@ -762,6 +802,7 @@
     }
     const context = {
       overlay,
+      nativeRects: /* @__PURE__ */ new Map(),
       anchorPaint: /* @__PURE__ */ new Map(),
       elementPaint: /* @__PURE__ */ new Map(),
       occludingPaint: /* @__PURE__ */ new Map(),
@@ -773,6 +814,9 @@
       styleReads: /* @__PURE__ */ new Map()
     };
     const records = refreshableRecords(overlay);
+    const start = overlay.hitTestCursor % Math.max(1, records.length);
+    records.push(...records.splice(0, start));
+    overlay.hitTestCursor = (start + 12) % Math.max(1, records.length);
     records.forEach((record2) => adoptProjectionLayer(record2, context));
     const paints = records.map((record2) => {
       if (!visibleAnchor(record2.anchor, context)) {
@@ -1474,6 +1518,34 @@
     context.drawImage(video, 0, 0, canvas.width, canvas.height);
     return canvas.toDataURL("image/jpeg", VIDEO_FRAME_JPEG_QUALITY);
   }
+  const SITE_INTERACTION_COPY = {
+    en: {
+      settingsPopupHelp: "If Settings did not open, allow pop-ups and try again.",
+      donationTitle: "Donate",
+      donationLead: "Yomu is free. Donations help pay its running costs and do not unlock anything.",
+      donationOnceOrMonthly: "One-off or monthly.",
+      donationMonthly: "Monthly.",
+      donationCard: "Card",
+      donationCurrencies: "One-off in GBP, USD, EUR, CAD, AUD or JPY.",
+      donationCosts: "Where the money goes",
+      donationClose: "Close",
+      libraryResetFilters: "Clear filters",
+      videoLoadFailed: "This video could not be played. Try another file or a format your browser supports."
+    },
+    ja: {
+      settingsPopupHelp: "設定が開かなかった場合は、ポップアップを許可してもう一度お試しください。",
+      donationTitle: "寄付",
+      donationLead: "よむは無料です。寄付は運営費に使われ、寄付で使えるようになる機能はありません。",
+      donationOnceOrMonthly: "一回または毎月。",
+      donationMonthly: "毎月。",
+      donationCard: "カード",
+      donationCurrencies: "GBP・USD・EUR・CAD・AUD・JPYで一回の寄付。",
+      donationCosts: "寄付の使い道",
+      donationClose: "閉じる",
+      libraryResetFilters: "絞り込みを解除",
+      videoLoadFailed: "この動画を再生できませんでした。別のファイルか、ブラウザーが対応する形式をお試しください。"
+    }
+  };
   const FURIGANA_HIDE_STATE_GROUPS = ["known", "due", "failed", "learning", "new"];
   const WORD_COLOR_HIDE_STATE_GROUPS = [...FURIGANA_HIDE_STATE_GROUPS, "ignored"];
   const APP_NAME = "よむ";
@@ -4602,6 +4674,7 @@
     }
   };
   const EN = {
+    defaultDeck: "Default",
     collectNoDestination: "None of your decks can take this word. Turn one on in Settings.",
     collectWordNotFound: "Not saved: this word was not found in your preferred grading service.",
     // An ordinary page can read these, so they name no service, deck or Anki state (ADR-0020).
@@ -4620,11 +4693,12 @@
     yomuLocalSrsDisabled: `Enable ${ACADEMY_SRS_LABEL} in Settings first.`,
     yomuLocalSrsStorageFailed: "Your Academy deck could not be saved. Browser storage may be full. Free some site storage, then try again.",
     yomuLocalSrsSaveInterrupted: "Your Academy deck was not saved because saving was interrupted. Try again.",
-    addedToYomuLocal: `Added to ${ACADEMY_SRS_LABEL}.`,
+    addedToYomuLocal: "Added to your default deck.",
     // An Academy word kept without a schedule (Library, Stats and the popups).
     savedWord: "Saved"
   };
   const JA = {
+    defaultDeck: "デフォルト",
     collectNoDestination: "この単語を追加できるデッキがありません。設定でデッキを有効にしてください。",
     collectWordNotFound: "優先採点サービスでこの単語が見つからなかったため、保存していません。",
     collectAlreadySaved: "すでにデッキにあります。編集はStudyで行えます。",
@@ -4641,7 +4715,7 @@
     yomuLocalSrsDisabled: "先に設定でAcademyを有効にしてください。",
     yomuLocalSrsStorageFailed: "Academyデッキを保存できませんでした。ブラウザーの保存容量が不足している可能性があります。サイトの保存容量を空けてから、もう一度お試しください。",
     yomuLocalSrsSaveInterrupted: "保存が中断されたため、Academyデッキに保存されませんでした。もう一度お試しください。",
-    addedToYomuLocal: "Academyに追加しました。",
+    addedToYomuLocal: "デフォルトのデッキに追加しました。",
     savedWord: "保存済み"
   };
   const COLLECTION_COPY = { en: EN, ja: JA };
@@ -4675,6 +4749,7 @@
     en: {
       ...PRACTICE_SESSION_COPY.en,
       ...COLLECTION_COPY.en,
+      ...SITE_INTERACTION_COPY.en,
       settingsTitle: `${APP_NAME} Settings`,
       manualPageScanShortcut: "Manual page scan shortcut",
       scanPage: "Scan page",
@@ -5073,12 +5148,6 @@
       youtubeShowChannelRecommendations: "Show Japanese channel suggestions",
       youtubeShowFilterNotice: "Show hidden-video notice",
       youtubeHelp: "Filter YouTube for Japanese.",
-      youtubeShowHiddenVideos: "Show hidden videos",
-      youtubeHideHiddenVideos: "Hide hidden videos",
-      youtubeHideNotice: "Hide notice",
-      youtubeFilterShowing: "{appName} shows {count} hidden item{plural}",
-      youtubeFilterHid: "{appName} hid {count} other-language item{plural}",
-      youtubeFilterVisible: "{count} Japanese items stayed visible.",
       youtubeToggleToastOn: "YouTube immersion filter enabled.",
       youtubeToggleToastOff: "YouTube immersion filter disabled.",
       ankiEnabled: "Enable Anki mining",
@@ -5792,6 +5861,7 @@
     return copy2;
   }
   const JA_COPY = {
+    ...SITE_INTERACTION_COPY.ja,
     ...parseUiCopyTable(String.raw`
 settingsTitle	{APP_NAME} 設定
 automatic	自動
@@ -6601,12 +6671,6 @@ preferJapaneseSiteLanguage	日本語版サイトをリクエスト
 youtubeShowChannelRecommendations	日本語チャンネル候補を表示
 youtubeShowFilterNotice	非表示動画の通知を表示
 youtubeHelp	YouTubeを日本語向けに絞ります。
-youtubeShowHiddenVideos	非表示動画を表示
-youtubeHideHiddenVideos	非表示動画を隠す
-youtubeHideNotice	通知を隠す
-youtubeFilterShowing	{appName}は非表示のYouTube項目{count}件を表示中
-youtubeFilterHid	{appName}は他の言語のYouTube項目{count}件を非表示
-youtubeFilterVisible	日本語らしい項目{count}件は表示したままです。
 youtubeToggleToastOn	YouTube没入フィルターをオンにしました。
 youtubeToggleToastOff	YouTube没入フィルターをオフにしました。
 ankiEnabled	Anki採掘を有効にする
@@ -18809,6 +18873,35 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   function isYouTubeAppHostname(hostname = location.hostname) {
     return YOUTUBE_APP_HOSTS.has(hostname.toLowerCase());
   }
+  const YOUTUBE_READABLE_LABEL_ROOTS = [
+    '.ytChipShapeButtonReset[role="tab"]',
+    "yt-chip-cloud-chip-renderer",
+    "ytd-guide-entry-renderer",
+    "ytd-guide-collapsible-section-entry-renderer",
+    "ytd-mini-guide-entry-renderer",
+    "ytd-masthead #buttons .ytSpecButtonShapeNextButtonTextContent"
+  ];
+  const LABEL_SELECTOR = YOUTUBE_READABLE_LABEL_ROOTS.join(",");
+  function isYouTubeReadableLabel(element) {
+    return isYouTubeAppHostname() && Boolean(element.closest(LABEL_SELECTOR));
+  }
+  function composedAncestorElement(element) {
+    if (element.assignedSlot) return element.assignedSlot;
+    if (element.parentElement) return element.parentElement;
+    const root = element.getRootNode();
+    return typeof ShadowRoot !== "undefined" && root instanceof ShadowRoot && root.host instanceof HTMLElement ? root.host : null;
+  }
+  function composedClosestElement(element, selector) {
+    let current = element;
+    while (current) {
+      if (current.matches(selector)) return current;
+      current = current instanceof HTMLElement ? composedAncestorElement(current) : current.parentElement;
+    }
+    return null;
+  }
+  function isRedditReadableLabel(element) {
+    return /(^|\.)reddit\.com$/i.test(location.hostname) && Boolean(composedClosestElement(element, 'button,[role="button"],summary,time,faceplate-timeago'));
+  }
   const ANNOTATION_SCOPE_SURFACE_ATTRIBUTE = "data-yomu-runtime-surface";
   const ANNOTATION_SCOPE_SURFACE_SELECTOR = `[${ANNOTATION_SCOPE_SURFACE_ATTRIBUTE}], .yomu-try-me-text`;
   const DECORATION_STATE_ATTRIBUTE = "data-yomu-decoration";
@@ -18916,12 +19009,6 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       current = composedAncestorElement(current);
     }
     return null;
-  }
-  function composedAncestorElement(element) {
-    if (element.assignedSlot) return element.assignedSlot;
-    if (element.parentElement) return element.parentElement;
-    const root = element.getRootNode();
-    return typeof ShadowRoot !== "undefined" && root instanceof ShadowRoot && root.host instanceof HTMLElement ? root.host : null;
   }
   function boxStyleIsClipCapable(box) {
     const facts = constrainedRowStyleFacts(box);
@@ -19406,6 +19493,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   function classifyDecoration(element) {
     if (element.closest(READER_ROOT_SELECTOR)) return "content-ruby";
     if (decorationMustBeSkipped(element)) return "skip";
+    if (isYouTubeReadableLabel(element) || isRedditReadableLabel(element)) return "interactive-passive";
     if (element instanceof HTMLElement && youtubeNativeChromeMustRemainPageOwned(element)) {
       return "skip";
     }
@@ -19459,6 +19547,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     return Boolean(composedClosestMatching(element, YOUTUBE_SHELF_EXPANSION_CONTROL_SELECTOR));
   }
   function youtubeNativeChromeMustRemainPageOwned(element) {
+    if (isYouTubeReadableLabel(element)) return false;
     if (youtubeShelfExpansionChromeMustRemainPageOwned(element)) return true;
     if (!isYouTubeAppHostname()) return false;
     return Boolean(youtubeNativeChromeControl(element));
@@ -19622,7 +19711,27 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     mirror.style.setProperty("direction", style.direction, "important");
     mirror.style.setProperty("writing-mode", style.writingMode, "important");
     mirror.style.setProperty("color", style.color, "important");
+    syncPortalScrollMode(mirror, host);
     setImportantStyleIfChanged(mirror, "z-index", documentPortalStackingLevel(host));
+  }
+  function syncPortalScrollMode(mirror, source) {
+    const documentFlow = sourceSharesDocumentScroll(source);
+    mirror.dataset.yomuPortalScroll = documentFlow ? "document" : "viewport";
+    setImportantStyleIfChanged(mirror, "position", documentFlow ? "absolute" : "fixed");
+  }
+  function sourceSharesDocumentScroll(source) {
+    const roots = [source.ownerDocument.body, source.ownerDocument.documentElement];
+    return !composedAncestors(source).some((element) => {
+      const style = safeComputedStyle(element);
+      return roots.includes(element) ? rootChangesPortalCoordinates(style) : scrollsIndependently(style);
+    });
+  }
+  function rootChangesPortalCoordinates(style) {
+    const transforms = ["transform", "filter", "backdrop-filter", "perspective"];
+    return !["", "static"].includes(style.position) || transforms.some((property) => !["", "none"].includes(style.getPropertyValue(property))) || /transform|filter|perspective/.test(style.willChange) || /layout|paint|strict|content/.test(style.contain);
+  }
+  function scrollsIndependently(style) {
+    return ["fixed", "sticky"].includes(style.position) || [style.overflowX, style.overflowY].some((value) => /^(auto|scroll|overlay)$/.test(value));
   }
   function documentAnnotationPortalPaint(mirror) {
     const existing = Array.from(mirror.children).find(
@@ -19675,8 +19784,9 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       if (document2.hidden) return [];
       return pruneAndCollectEntries(document2, watch);
     };
-    const alignForScroll = () => {
-      const live = visibleEntries();
+    const alignForScroll = (event) => {
+      const documentScroll = event.target === document2 || event.target === view;
+      const live = visibleEntries().filter((entry) => !documentScroll || entry.mirror.dataset.yomuPortalScroll !== "document");
       if (!live.length) return;
       const alignments = alignPortalEntries(live);
       scheduleClippedPortalScrollSettle(document2, watch, alignments);
@@ -19712,6 +19822,19 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       alignPortalEntries(affected);
       affected.forEach((entry) => entry.projectImmediately());
     };
+    const topologyObserver = new MutationObserver((records) => {
+      const ancestors = records.map((record2) => record2.target).filter((node) => node instanceof Element && !node.closest(".jpdb-reader-text-mirror,.jpdb-reader-detached-reading-overlay,[data-jpdb-reader-root]"));
+      if (!ancestors.length) return;
+      const affected = visibleEntries().filter((entry) => ancestors.some((node) => node !== entry.source && node.contains(entry.source)));
+      if (!affected.length) return;
+      affected.forEach((entry) => {
+        entry.clipTopologyEpoch = -1;
+      });
+      alignPortalEntries(affected);
+      affected.forEach((entry) => entry.scheduleProjection());
+    });
+    topologyObserver.observe(document2.documentElement, { attributes: true, subtree: true, attributeFilter: ["class", "style"] });
+    lifecycle.signal.addEventListener("abort", () => topologyObserver.disconnect(), { once: true });
     view?.addEventListener("scroll", alignForScroll, {
       capture: true,
       passive: true,
@@ -19877,10 +20000,11 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       const watch = portalWatches.get(entry.source.ownerDocument);
       const epoch = watch?.topologyEpoch ?? 0;
       if (entry.clipTopologyEpoch !== epoch) {
+        syncPortalScrollMode(entry.mirror, entry.source);
         entry.clipChain = portalClipChain(entry.source, styles);
         entry.clipTopologyEpoch = epoch;
       }
-      return clipBoundsFromChain(entry.source, entry.clipChain, rects);
+      return clipBoundsFromChain(entry.source, entry.clipChain, rects, entry.mirror.dataset.yomuPortalScroll === "document");
     });
   }
   function portalClipChain(source, styles) {
@@ -19898,15 +20022,9 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     }
     return chain;
   }
-  function clipBoundsFromChain(source, chain, rects) {
+  function clipBoundsFromChain(source, chain, rects, documentFlow) {
     if (!chain.length) return null;
-    const view = source.ownerDocument.defaultView;
-    let bounds = {
-      left: 0,
-      top: 0,
-      right: view?.innerWidth ?? source.ownerDocument.documentElement.clientWidth,
-      bottom: view?.innerHeight ?? source.ownerDocument.documentElement.clientHeight
-    };
+    const bounds = portalClipFrame(source.ownerDocument, documentFlow);
     for (const { element, clipsX, clipsY } of chain) {
       let rect = rects.get(element);
       if (!rect) {
@@ -19923,6 +20041,18 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       }
     }
     return bounds;
+  }
+  function portalClipFrame(document2, documentFlow) {
+    const root = document2.documentElement;
+    const view = document2.defaultView;
+    if (!view) return { left: 0, top: 0, right: root.clientWidth, bottom: root.clientHeight };
+    if (!documentFlow) return { left: 0, top: 0, right: view.innerWidth, bottom: view.innerHeight };
+    return {
+      left: -view.scrollX,
+      top: -view.scrollY,
+      right: root.scrollWidth - view.scrollX,
+      bottom: root.scrollHeight - view.scrollY
+    };
   }
   function documentAnnotationPortalHasNonTranslationTransform(source) {
     for (const element of composedAncestors(source)) {
@@ -20008,8 +20138,10 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       setImportantStyleIfChanged(mirror, "overflow", "visible");
       return;
     }
-    setImportantStyleIfChanged(mirror, "left", stableCssPixels(clip.left));
-    setImportantStyleIfChanged(mirror, "top", stableCssPixels(clip.top));
+    const view = mirror.ownerDocument.defaultView;
+    const documentFlow = mirror.dataset.yomuPortalScroll === "document";
+    setImportantStyleIfChanged(mirror, "left", stableCssPixels(clip.left + (documentFlow ? view?.scrollX ?? 0 : 0)));
+    setImportantStyleIfChanged(mirror, "top", stableCssPixels(clip.top + (documentFlow ? view?.scrollY ?? 0 : 0)));
     setImportantStyleIfChanged(mirror, "width", stableCssPixels(Math.max(0, clip.right - clip.left)));
     setImportantStyleIfChanged(mirror, "height", stableCssPixels(Math.max(0, clip.bottom - clip.top)));
     setImportantStyleIfChanged(mirror, "overflow", "hidden");
@@ -20178,7 +20310,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     if (!detachedRubies.length) return;
     const hostStyle = safeComputedStyle(host);
     const hostFontSize = Number.parseFloat(hostStyle.fontSize) || 16;
-    const readingFontSize = Math.min(10, Math.max(6, hostFontSize * 0.46));
+    const readingFontSize = Math.max(9, hostFontSize * 0.5);
     for (const wrapper of detachedRubies) {
       setInlineStyleIfChanged(wrapper, "position", "relative", "important");
       setInlineStyleIfChanged(wrapper, "display", "inline-block", "important");
@@ -22166,6 +22298,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       ".jpdb-reader-detached-ruby[data-yomu-source-start][data-yomu-source-end] .jpdb-reader-detached-furi"
     ) !== null;
     const readingsConcealed = !hasReadings || !context.host.isConnected || pageConcealsTextMirrorHost(context.host) || Boolean(context.documentPortal && context.topLayerConcealed);
+    context.nativeRects = readingsConcealed ? [] : nativeTextRects(host);
     const projections = Array.from(words).map((word) => readAdditiveMirrorWordProjection(
       word,
       context,
@@ -22404,7 +22537,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     };
     const rect = initiallyConcealed ? null : sourceRectsFor(start, end).find((candidate) => !context.readingClipRect || rectsIntersect(candidate, context.readingClipRect)) ?? null;
     if (!rect) return null;
-    return { source: reading, anchor: context.host, rect, measure };
+    return { source: reading, anchor: context.host, rect, measure, nativeRects: context.nativeRects };
   }
   function sourceClientRects(host, nodeOffsets, start, end) {
     if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) return [];
@@ -22653,7 +22786,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     const documentElement = root.ownerDocument.documentElement;
     const source = selectedWordColorSourceToken(documentElement, ["highlight", "underline", "text"], ADDITIVE_DECORATION_SOURCES);
     const words = root.querySelectorAll(".jpdb-reader-word");
-    const paint = source ? `var(--jpdb-reader-source-${source}-decoration, transparent)` : "transparent";
+    const paint = source === "status" || source === "jpdb" ? `var(--jpdb-reader-${source}-underline, transparent)` : source ? `var(--jpdb-reader-source-${source}-decoration, transparent)` : "transparent";
     const highlightSource = selectedWordColorSourceToken(documentElement, ["highlight"], ADDITIVE_HIGHLIGHT_SOURCES);
     const softPaint = highlightSource ? `var(--jpdb-reader-source-${highlightSource}-soft, transparent)` : "";
     for (const word of words) {
@@ -22662,6 +22795,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     }
   }
   function styleAdditiveMirrorWordPaint(word, paint, softPaint, visible) {
+    setInlineStyleIfChanged(word, "-webkit-text-fill-color", "transparent", "important");
     removeInlineStyleIfPresent(word, "text-decoration-color");
     removeInlineStyleIfPresent(word, "--jpdb-reader-additive-decoration");
     setInlineStyleIfChanged(word, "--jpdb-reader-word-decoration-source", visible ? paint : "transparent");
@@ -46397,7 +46531,8 @@ ${normalizedReading}`;
   const TEXT_CONTRAST = 4.5;
   const DECORATION_CONTRAST = 3;
   const HIGHLIGHT_CONTRAST = 1.45;
-  const FURIGANA_INK_EASE = 0.3;
+  const FURIGANA_INK_EASE = 0.12;
+  const FURIGANA_CONTRAST = 7;
   const FURIGANA_COLOR_VAR = "--jpdb-reader-furi-color";
   const FURIGANA_WORD_SELECTOR = ".jpdb-reader-has-furi, .jpdb-reader-detached-reading-word";
   const LINK_SELECTOR = "a[href]";
@@ -46756,7 +46891,7 @@ ${normalizedReading}`;
       let color = colorByInk.get(key);
       if (color === void 0) {
         const opaqueInk = cssColorToHex(ink, cssColorToRgba(backdropHex) ?? void 0) ?? bestTextColor(backdropHex);
-        color = readableOn(mixHex(opaqueInk, backdropHex, FURIGANA_INK_EASE), backdropHex, TEXT_CONTRAST);
+        color = readableOn(mixHex(opaqueInk, backdropHex, FURIGANA_INK_EASE), backdropHex, FURIGANA_CONTRAST);
         colorByInk.set(key, color);
       }
       return color;
@@ -56145,7 +56280,14 @@ ${spelling}`);
     return !isHiddenByCss(image) && !isInsideHiddenAncestor(image);
   }
   function isImageVisibleForOcr(image, rect) {
-    return rectIntersectsViewport(rect) && !isImageOccludedByVideo(image, rect);
+    return rectIntersectsViewport(rect) && isVisibleOcrImage(image) && !isImageOccludedByVideo(image, rect) && !isImageOccludedByPeerImage(image, rect);
+  }
+  function isImageOccludedByPeerImage(image, rect) {
+    if (image.getRootNode() !== document || typeof document.elementsFromPoint !== "function") return false;
+    const visible = visibleViewportIntersection(rect);
+    if (!visible) return false;
+    const front = document.elementsFromPoint(visible.left + visible.width / 2, visible.top + visible.height / 2).find((element) => element instanceof HTMLImageElement && isVisibleOcrImage(element));
+    return Boolean(front && front !== image && intersectionArea(rect, front.getBoundingClientRect()) >= rect.width * rect.height * 0.8);
   }
   function isInsideHiddenAncestor(element, includeAriaHidden = true) {
     for (let current = element.parentElement; current && current !== document.body; current = current.parentElement) {
@@ -56160,7 +56302,7 @@ ${spelling}`);
     return included && element.getAttribute("aria-hidden") === "true";
   }
   function rectIntersectsViewport(rect) {
-    return rect.width > 0 && rect.height > 0 && rect.bottom >= 0 && rect.top <= window.innerHeight;
+    return rect.width > 0 && rect.height > 0 && rect.bottom > 0 && rect.top < window.innerHeight && rect.right > 0 && rect.left < window.innerWidth;
   }
   function isHiddenByCss(element) {
     const style = getComputedStyle(element);
@@ -56869,6 +57011,7 @@ ${spelling}`);
   }
   function ocrPointerImage(event) {
     if (!isPointerLikeEvent(event) || !shouldHandleOcrPointerEvent(event)) return null;
+    if (pointerEventOverOcrOverlay(event)) return null;
     return pointerEventImageTarget(event) ?? pointerEventImageAtPoint(event);
   }
   function ocrReaderSurfaceFromPointerEvent(event, settings2, rasterFreePage) {
@@ -58445,6 +58588,7 @@ ${spelling}`);
     renderOcrLineElement(state2, result, line, tokens, sentence, showText, settings2) {
       const element = createOcrLineElement(result, line, tokens, sentence, showText, settings2);
       this.rememberOcrWordRenderStates(element, tokens);
+      this.activateOcrMarkup(element);
       element.addEventListener("pointerenter", () => this.activateOcrLineMarkup(state2, element));
       element.addEventListener("focusin", () => this.activateOcrLineMarkup(state2, element));
       element.addEventListener("pointerdown", (event) => this.activateOcrLineFromPointer(state2, element, event), true);
@@ -58889,7 +59033,7 @@ ${spelling}`);
         this.releaseReaderRasterFrameForImage(image);
         return;
       }
-      if (status === "empty" && !isReaderRasterFrame) {
+      if (status !== "ready" && !isReaderRasterFrame) {
         this.removeImageStatusCard(image);
         return;
       }
@@ -60057,6 +60201,7 @@ ${spelling}`);
       if (this.pageScannerIsolationEnabled === enabled) return;
       this.pageScannerIsolationEnabled = enabled;
       for (const state2 of this.states.values()) {
+        state2.overlay.querySelectorAll(".jpdb-ocr-line").forEach((line) => this.activateOcrLineMarkup(state2, line));
         state2.overlay.querySelectorAll(".jpdb-ocr-line-text").forEach((lineText) => normalizeOcrRenderedText(lineText, enabled));
       }
     }
@@ -60079,14 +60224,16 @@ ${spelling}`);
         const state2 = this.ocrWordRenderStates.get(word);
         if (!state2) return;
         this.applyOcrPitchClass(word, state2.token);
-        if (!shouldRenderRuby(state2.surface, state2.token, settings2)) {
-          this.setOcrWordPlainText(word, state2.surface, isolatePageScanners);
-          return;
+        const ruby = shouldRenderRuby(state2.surface, state2.token, settings2);
+        const html = ruby ? renderRuby(state2.surface, state2.token) : escapeHtml$2(state2.surface);
+        const markupKey = JSON.stringify([html, isolatePageScanners]);
+        if (state2.markupKey !== markupKey) {
+          setInnerHtml(word, html);
+          normalizeOcrRenderedText(word, isolatePageScanners);
+          state2.markupKey = markupKey;
         }
-        setInnerHtml(word, renderRuby(state2.surface, state2.token));
-        normalizeOcrRenderedText(word, isolatePageScanners);
-        word.classList.add("jpdb-reader-has-furi");
-        hasFurigana = true;
+        word.classList.toggle("jpdb-reader-has-furi", ruby);
+        hasFurigana ||= ruby;
       });
       line.dataset.hasFuri = String(hasFurigana);
       line.dataset.ocrMarkupActivated = "true";
@@ -60103,11 +60250,6 @@ ${spelling}`);
         if (/^jpdb-pitch-/u.test(className)) word.classList.remove(className);
       });
       word.dataset.pitchClass = "";
-    }
-    setOcrWordPlainText(word, surface, isolatePageScanners) {
-      word.classList.remove("jpdb-reader-has-furi");
-      setInnerHtml(word, escapeHtml$2(surface));
-      normalizeOcrRenderedText(word, isolatePageScanners);
     }
     // Drop every paused-frame and image overlay when YouTube navigates so no
     // stale OCR artifact (rail resume button, overlay over the player) carries
@@ -66678,7 +66820,7 @@ ${reading}`);
     return lines.join(" ").replace(/\s+/g, " ").trim();
   }
   function youtubeCaptionSearchRoot(video) {
-    return video.closest("#movie_player, .html5-video-player, ytd-player, ytd-watch-flexy, ytd-reel-video-renderer, ytd-shorts") ?? video.parentElement ?? document;
+    return video.closest("shorts-video, ytd-reel-video-renderer, ytm-reel-video-renderer") ?? video.closest("#movie_player, .html5-video-player, ytm-player, ytd-player, ytd-watch-flexy") ?? video.parentElement ?? document;
   }
   function hiddenYouTubeCaptionLine(element, readerRoot, options = {}) {
     if (isCaptionElementExcluded(element, readerRoot)) return "";
@@ -77683,7 +77825,6 @@ ${reading}`);
   const YOUTUBE_FILTER_SCROLL_COLLAPSE_DELAY_MS = 650;
   const YOUTUBE_FILTER_SCROLL_SETTLE_MS = 280;
   const YOUTUBE_FILTER_COLLAPSE_DURATION_MS = 240;
-  const YOUTUBE_FILTER_NOTICE_AUTO_HIDE_MS = 1e4;
   const YOUTUBE_VISIBLE_BACKFILL_TARGET = 24;
   const YOUTUBE_BACKFILL_THROTTLE_MS = 1200;
   const YOUTUBE_SEARCH_AUTO_REVEAL_MIN_FILTERED = 8;
@@ -77754,21 +77895,10 @@ ${reading}`);
     events;
     timer;
     metadataRescanTimer;
-    bar;
-    noticeAutoHideTimer;
-    noticeAutoHideScope = "";
     channelShelf;
     revealed = false;
-    dismissedNoticeScope = "";
-    // "Hide notice" is a SESSION dismissal: it must never persist — the
-    // permanent switch lives in the settings dialog only (2026-07-11 report:
-    // one tap on the notice silently disabled it forever).
-    noticeSessionHidden = false;
-    // Route scope that was auto-revealed because the user's own search came
-    // back all non-Japanese; cleared when the route changes or the user
-    // toggles manually.
+    // All-filtered searches are revealed only for their current route.
     autoRevealedScope = "";
-    noticeRouteKey = "";
     channelShelfRouteKey = "";
     channelShelfExpanded = false;
     channelShelfFilter = "all";
@@ -77945,18 +78075,12 @@ ${reading}`);
       });
       if (this.shouldAutoRevealSearchResults(result)) {
         this.revealed = true;
-        this.autoRevealedScope = this.currentNoticeScope();
+        this.autoRevealedScope = this.currentRouteKey();
         this.schedule(0);
         return;
       }
       result.decisions.forEach((decision) => this.applyFilterDecision(decision));
       this.syncFilterableVideoShelves();
-      if (settings2.youtubeShowFilterNotice && !this.noticeSessionHidden && shouldShowFilterNoticeForRoute()) {
-        this.renderNotice(result.filteredCount, result.shownCount, settings2);
-      } else {
-        this.bar?.remove();
-        this.bar = void 0;
-      }
       this.syncChannelShelf(result.filteredCount, settings2);
       this.maybeBackfillFeed(result.filteredCount, result.shownCount, result.visibleVideoIds.size);
     }
@@ -78213,113 +78337,17 @@ ${reading}`);
       timers.forEach((timer) => window.clearTimeout(timer));
       this.cardTimers.delete(card);
     }
-    renderNotice(filteredCount, shownCount, settings2) {
-      if (!filteredCount) {
-        this.removeNotice();
-        return;
-      }
-      const noticeScope = this.currentNoticeScope();
-      if (!this.bar && this.dismissedNoticeScope === noticeScope) return;
-      const notice = this.ensureNoticeBar();
-      this.updateNoticeSummary(notice.summary, filteredCount, shownCount, settings2);
-      this.updateNoticeActions(notice, settings2);
-      this.armNoticeAutoHide(noticeScope);
-    }
-    // The notice must not squat over the feed forever: after a grace period it
-    // dismisses itself for the current scope, and comes back on the next route.
-    armNoticeAutoHide(scope) {
-      if (this.noticeAutoHideTimer !== void 0 && this.noticeAutoHideScope === scope) return;
-      window.clearTimeout(this.noticeAutoHideTimer);
-      this.noticeAutoHideScope = scope;
-      this.noticeAutoHideTimer = window.setTimeout(() => {
-        this.noticeAutoHideTimer = void 0;
-        this.dismissedNoticeScope = scope;
-        this.removeNotice();
-      }, YOUTUBE_FILTER_NOTICE_AUTO_HIDE_MS);
-    }
-    ensureNoticeBar() {
-      if (!this.bar) {
-        this.bar = this.createNoticeBar();
-        document.body.append(this.bar);
-      }
-      return this.noticeElements(this.bar);
-    }
-    createNoticeBar() {
-      const bar = document.createElement("div");
-      bar.className = "jpdb-youtube-filter-bar";
-      bar.dataset.jpdbReaderRoot = "true";
-      bar.role = "status";
-      bar.ariaLive = "polite";
-      const summary = document.createElement("span");
-      summary.dataset.role = "summary";
-      summary.className = "jpdb-reader-sr-only";
-      const actions = document.createElement("div");
-      actions.className = "jpdb-youtube-filter-actions";
-      actions.append(noticeButton("toggle-hidden"), noticeButton("hide-notice"));
-      bar.append(summary, actions);
-      bar.addEventListener("click", (event) => this.handleNoticeClick(event));
-      return bar;
-    }
-    noticeElements(bar) {
-      return {
-        summary: bar.querySelector('[data-role="summary"]'),
-        toggleHidden: bar.querySelector('[data-action="toggle-hidden"]'),
-        hideNotice: bar.querySelector('[data-action="hide-notice"]')
-      };
-    }
-    handleNoticeClick(event) {
-      const action = event.target.closest("[data-action]")?.dataset.action;
-      if (action === "toggle-hidden") this.toggleHiddenVideos();
-      if (action === "hide-notice") this.dismissFilterNotice();
-    }
-    toggleHiddenVideos() {
-      this.revealed = !this.revealed;
-      this.autoRevealedScope = "";
-      this.schedule(0);
-    }
     shouldAutoRevealSearchResults(result) {
       if (this.revealed) return false;
       if (location.pathname !== "/results") return false;
       return result.shownCount === 0 && result.filteredCount >= YOUTUBE_SEARCH_AUTO_REVEAL_MIN_FILTERED;
     }
-    // Auto-reveal is scoped to the search route it rescued: navigating away
-    // restores normal filtering. A manual toggle (autoRevealedScope cleared)
-    // is never touched.
+    // Navigating away restores normal filtering after a rescued search.
     resetStaleAutoReveal() {
       if (!this.autoRevealedScope) return;
-      if (this.currentNoticeScope().split(":")[0] === this.autoRevealedScope.split(":")[0]) return;
+      if (this.currentRouteKey() === this.autoRevealedScope) return;
       this.autoRevealedScope = "";
       this.revealed = false;
-    }
-    dismissFilterNotice() {
-      this.noticeSessionHidden = true;
-      this.dismissedNoticeScope = this.currentNoticeScope();
-      this.removeNotice();
-    }
-    updateNoticeSummary(summary, filteredCount, shownCount, settings2) {
-      const summaryText = this.noticeSummaryText(filteredCount, settings2);
-      const values = { count: String(shownCount) };
-      const visibleText = shownCount ? formatYoutubeText(uiText(settings2.interfaceLanguage, "youtubeFilterVisible"), values) : "";
-      const bar = summary.closest(".jpdb-youtube-filter-bar");
-      summary.textContent = summaryText;
-      summary.title = visibleText;
-      if (bar) {
-        bar.setAttribute("aria-label", visibleText ? `${summaryText}. ${visibleText}` : summaryText);
-        bar.title = visibleText;
-      }
-    }
-    noticeSummaryText(filteredCount, settings2) {
-      const plural = filteredCount === 1 ? "" : "s";
-      const key = this.revealed ? "youtubeFilterShowing" : "youtubeFilterHid";
-      return formatYoutubeText(uiText(settings2.interfaceLanguage, key), {
-        appName: APP_NAME,
-        count: String(filteredCount),
-        plural
-      });
-    }
-    updateNoticeActions(notice, settings2) {
-      notice.toggleHidden.textContent = this.revealed ? uiText(settings2.interfaceLanguage, "youtubeHideHiddenVideos") : uiText(settings2.interfaceLanguage, "youtubeShowHiddenVideos");
-      notice.hideNotice.textContent = uiText(settings2.interfaceLanguage, "youtubeHideNotice");
     }
     syncChannelShelf(filteredCount, settings2) {
       if (!this.shouldShowChannelShelf(filteredCount, settings2)) {
@@ -78841,10 +78869,7 @@ ${reading}`);
       this.channelSubscriptionProbeComplete = false;
       this.revealed = false;
       this.clearFilteredCards();
-      this.removeNotice();
       this.removeChannelShelf();
-      this.dismissedNoticeScope = "";
-      this.noticeRouteKey = "";
       this.channelShelfRouteKey = "";
       this.channelShelfExpanded = false;
       this.channelShelfFilter = "all";
@@ -78897,25 +78922,9 @@ ${reading}`);
         this.schedule(0);
       }, OEMBED_BATCH_RESCAN_DELAY_MS);
     }
-    removeNotice() {
-      window.clearTimeout(this.noticeAutoHideTimer);
-      this.noticeAutoHideTimer = void 0;
-      this.noticeAutoHideScope = "";
-      this.bar?.remove();
-      this.bar = void 0;
-    }
     clearFilteredCards() {
       document.querySelectorAll(YOUTUBE_FILTERED_SELECTOR).forEach((card) => this.showCard(card));
       document.querySelectorAll(`.${YOUTUBE_FIRST_IN_ROW_CLASS}`).forEach((card) => card.classList.remove(YOUTUBE_FIRST_IN_ROW_CLASS));
-    }
-    currentNoticeScope() {
-      const routeKey = this.currentRouteKey();
-      if (this.noticeRouteKey !== routeKey) {
-        this.noticeRouteKey = routeKey;
-        this.dismissedNoticeScope = "";
-        this.removeNotice();
-      }
-      return `${routeKey}:${this.revealed ? "revealed" : "hidden"}`;
     }
     currentRouteKey() {
       return `${location.pathname}${location.search}`;
@@ -78946,15 +78955,6 @@ ${reading}`);
   }
   function youtubeChannelRecommendationsEnabled(settings2) {
     return settings2.youtubeShowChannelRecommendations;
-  }
-  function formatYoutubeText(template, values) {
-    return template.replace(/\{(\w+)\}/g, (_match, key) => values[key] ?? "");
-  }
-  function noticeButton(action) {
-    const button = document.createElement("button");
-    button.type = "button";
-    button.dataset.action = action;
-    return button;
   }
   function channelShelfButton(action) {
     const button = document.createElement("button");
@@ -79564,9 +79564,6 @@ ${reading}`);
     const preloadMargin = Math.max(360, viewportHeight2 * 0.75);
     return rect.bottom < -preloadMargin || rect.top > viewportHeight2 + preloadMargin;
   }
-  function shouldShowFilterNoticeForRoute() {
-    return !isYouTubeWatchPage() && !isYouTubeShortsWatchPage();
-  }
   function isYouTubePlaylistLikeCard(card) {
     if (card.matches(NON_VIDEO_CONTAINER_SELECTOR)) return true;
     if (card.querySelector("yt-collection-thumbnail-view-model, ytd-playlist-thumbnail")) return true;
@@ -79764,6 +79761,7 @@ ${reading}`);
   }
   function enablePreferredJapaneseSiteLanguage(revision2) {
     deferredCookieResponseReload = false;
+    cancelPreferredJapaneseSiteRedirectWatcher();
     applySitePreferenceCookies();
     schedulePreferredJapaneseSiteRedirect(revision2);
   }
@@ -79784,9 +79782,12 @@ ${reading}`);
     reloadCurrentLocation();
   }
   function preferredJapaneseSiteUrl(sourceHref, root) {
+    return resolvePreferredJapaneseSiteUrl(sourceHref, root);
+  }
+  function resolvePreferredJapaneseSiteUrl(sourceHref, root, ignoredAlternates) {
     const current = parseHttpUrl(sourceHref);
     if (!current || isLocalDevelopmentUrl(current)) return null;
-    const alternate = japaneseAlternateLinkUrl(current, root);
+    const alternate = japaneseAlternateLinkUrl(current, root, ignoredAlternates);
     const target = alternate ?? siteRuleJapaneseUrl(current) ?? genericUrl(current, root);
     if (target) applyParams(target);
     if (!target || target.href === current.href) return null;
@@ -80021,10 +80022,10 @@ ${reading}`);
     if (attemptPreferredJapaneseSiteRedirect(revision2)) return;
     installAlternateRedirectWatcher(revision2);
   }
-  function attemptPreferredJapaneseSiteRedirect(revision2) {
+  function attemptPreferredJapaneseSiteRedirect(revision2, ignoredAlternates) {
     if (!preferenceIsCurrent(true, revision2)) return false;
     const href = currentLocationHref();
-    const target = href ? preferredJapaneseSiteUrl(href, document) : null;
+    const target = href ? resolvePreferredJapaneseSiteUrl(href, document, ignoredAlternates) : null;
     if (!target || hostAlreadyRedirectedThisSession() || recentlyAttemptedRedirect(href, target)) return false;
     rememberRedirectAttempt(href, target);
     markHostRedirectedThisSession();
@@ -80039,6 +80040,7 @@ ${reading}`);
     }
   }
   function hostAlreadyRedirectedThisSession() {
+    if (!siteNeedsSessionRedirectLimit()) return false;
     const host = currentLocationHost();
     if (!host) return false;
     try {
@@ -80049,6 +80051,7 @@ ${reading}`);
     }
   }
   function markHostRedirectedThisSession() {
+    if (!siteNeedsSessionRedirectLimit()) return;
     const host = currentLocationHost();
     if (!host) return;
     try {
@@ -80060,6 +80063,10 @@ ${reading}`);
       }
     } catch {
     }
+  }
+  function siteNeedsSessionRedirectLimit() {
+    const hostname = currentLocationHostname();
+    return /(^|\.)youtube\.com$/.test(hostname);
   }
   function attemptPreferredDefaultSiteRedirect() {
     if (!isTopLevelFrame()) return false;
@@ -80096,6 +80103,10 @@ ${reading}`);
       return;
     }
     let checks = 0;
+    let routeHref = currentLocationHref();
+    let routeAlternates = alternateHrefs();
+    let ignoredAlternates;
+    let timer;
     const stop = () => {
       cleanup();
       alternateRedirectCleanup = void 0;
@@ -80105,11 +80116,24 @@ ${reading}`);
         stop();
         return;
       }
+      const nextHref = currentLocationHref();
+      if (nextHref !== routeHref) {
+        ignoredAlternates = routeAlternates;
+        routeHref = nextHref;
+        checks = 0;
+        if (timer === void 0) timer = window.setInterval(check, ALTERNATE_REDIRECT_RETRY_MS);
+      }
+      if (checks >= ALTERNATE_REDIRECT_RETRY_LIMIT) return;
+      routeAlternates = alternateHrefs();
       checks += 1;
-      if (attemptPreferredJapaneseSiteRedirect(revision2) || checks >= ALTERNATE_REDIRECT_RETRY_LIMIT) stop();
+      if (attemptPreferredJapaneseSiteRedirect(revision2, ignoredAlternates)) stop();
+      else if (checks >= ALTERNATE_REDIRECT_RETRY_LIMIT) {
+        window.clearInterval(timer);
+        timer = void 0;
+      }
     };
     const observer = new MutationObserver(check);
-    const timer = window.setInterval(check, ALTERNATE_REDIRECT_RETRY_MS);
+    timer = window.setInterval(check, ALTERNATE_REDIRECT_RETRY_MS);
     const cleanup = () => {
       observer.disconnect();
       window.clearInterval(timer);
@@ -80194,18 +80218,22 @@ ${reading}`);
       IPV4_MAPPED_LOOPBACK_HOST_RE.test(hostname)
     ].some(Boolean);
   }
-  function japaneseAlternateLinkUrl(current, root) {
-    return alternateLinkUrl(current, root, /^ja(?:[-_]|$)/i, alts);
+  function japaneseAlternateLinkUrl(current, root, ignored) {
+    return alternateLinkUrl(current, root, /^ja(?:[-_]|$)/i, alts, ignored);
+  }
+  function alternateHrefs() {
+    return new Set(Array.from(alts(document), (element) => element.getAttribute("href") ?? ""));
   }
   function defaultAlternateLinkUrl(current, root) {
     return alternateLinkUrl(current, root, /^x-default$/i, metadataAlts) ?? alternateLinkUrl(current, root, EN_LOCALE_RE, metadataAlts);
   }
-  function alternateLinkUrl(current, root, hreflang, candidates) {
+  function alternateLinkUrl(current, root, hreflang, candidates, ignored) {
     if (!root) return null;
     try {
       for (const element of candidates(root)) {
         if (!hreflang.test(element.getAttribute("hreflang") ?? "")) continue;
         const href = element.getAttribute("href");
+        if (href && ignored?.has(href)) continue;
         const candidate = href ? parseHttpUrl(new URL(href, current.href).href) : null;
         if (candidate && candidate.href !== current.href) return candidate;
       }
@@ -81758,7 +81786,7 @@ ${reading}`);
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "2.1.0".trim() ? "2.1.0".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "2.1.1".trim() ? "2.1.1".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record2 = value;
@@ -82412,7 +82440,8 @@ ${reading}`);
       preferJapaneseSiteLanguage: current.preferJapaneseSiteLanguage,
       youtubeShowChannelRecommendations: channelRecommendations,
       youtubeShowChannelRecommendationsChosen: current.youtubeShowChannelRecommendationsChosen || channelControlsPresent && channelRecommendations !== current.youtubeShowChannelRecommendations,
-      youtubeShowFilterNotice: youtubeControlsPresent ? has("youtubeShowFilterNotice") : current.youtubeShowFilterNotice
+      // Retain the imported legacy value; the notice is no longer a UI feature.
+      youtubeShowFilterNotice: current.youtubeShowFilterNotice
     };
   }
   function readShortcutFormSettings(reader, current) {
@@ -89622,7 +89651,6 @@ ${reading}`);
                         <input type="hidden" name="youtubeImmersionSettingsPresent" value="on">
                         <input type="hidden" name="youtubeImmersionEnabledInitial" value="${immersionEnabled ? "on" : "off"}">
                         ${checkbox("youtubeImmersionEnabled", text2("youtubeImmersionEnabled"), immersionEnabled)}
-                        ${checkbox("youtubeShowFilterNotice", text2("youtubeShowFilterNotice"), settings2.youtubeShowFilterNotice)}
                     </div>
                     <div data-language-family="youtube-channel-suggestions">
                         <input type="hidden" name="youtubeChannelSuggestionSettingsPresent" value="on">
@@ -99235,7 +99263,7 @@ ${reading}`);
       } else if (destination === "bunpro") {
         add("bunpro", "bunpro", "Bunpro");
       } else if (destination === "yomu-local") {
-        add("yomu-local", "yomu-local", ACADEMY_SRS_LABEL);
+        add("yomu-local", "yomu-local", uiText(settings2.interfaceLanguage, "defaultDeck"));
       }
     }
     return choices;

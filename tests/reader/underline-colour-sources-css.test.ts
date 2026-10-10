@@ -78,6 +78,11 @@ function evaluate(word: HTMLElement, value: string | undefined): string {
 // What the channel's colour cascade picks once not-in-deck ranks last: the
 // winning state among the others, or nothing.
 function expectedUnderline(word: HTMLElement, channel: Channel): string {
+    const isUnparsed = word.matches('.jpdb-unparsed,.jiten-unparsed');
+    const tracked = [...word.classList].some(name => /^(?:jpdb|jiten|anki)-/.test(name)
+        && CARD_STATES.includes(name.replace(/^(?:jpdb|jiten|anki)-/, ''))
+        && !name.endsWith('-unparsed') && !name.endsWith('-not-in-deck'));
+    if (isUnparsed && !tracked) return 'transparent';
     const colour = winner(word, `--jpdb-reader-${channel}-color`, WORD_CSS.filter(rule => (
         declared(rule, `--jpdb-reader-${channel}-color`) !== 'var(--jpdb-reader-state-not-in-deck)'
     )));

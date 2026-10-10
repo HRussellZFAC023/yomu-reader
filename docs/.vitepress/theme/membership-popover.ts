@@ -1,3 +1,6 @@
+import { SITE_INTERACTION_COPY } from '../../../src/reader/app/site-interaction-copy';
+import { websiteLocaleForPathname } from '../locales/site-locales';
+
 /**
  * The donation chooser, opened from the nav instead of navigating away.
  *
@@ -25,19 +28,16 @@ interface MembershipMethod {
     id: string;
     name: string;
     href: string;
-    /** What the visitor is choosing, in plain terms. No selling. */
-    detail: string;
 }
 
 /** Each option hands off to the same live payment destination as /membership. */
 const METHODS: readonly MembershipMethod[] = Object.freeze([
-    { id: 'kofi', name: 'Ko-fi', href: 'https://ko-fi.com/yomureader', detail: 'One-off or monthly.' },
-    { id: 'patreon', name: 'Patreon', href: 'https://www.patreon.com/yomureader', detail: 'Monthly.' },
+    { id: 'kofi', name: 'Ko-fi', href: 'https://ko-fi.com/yomureader' },
+    { id: 'patreon', name: 'Patreon', href: 'https://www.patreon.com/yomureader' },
     {
         id: 'card',
         name: 'Card',
         href: 'https://support.yomureader.com/donate',
-        detail: 'One-off in GBP, USD, EUR, CAD, AUD or JPY.',
     },
 ]);
 
@@ -85,7 +85,9 @@ function membershipTriggerFrom(target: EventTarget | null): HTMLElement | undefi
     if (link.closest(`#${DIALOG_ID}`)) return undefined;
     // A visitor already reading /membership gets the page, not a layer over it.
     if (routeOf(window.location.pathname) === MEMBERSHIP_ROUTE) return undefined;
-    return routeOf(link.getAttribute('href') ?? '') === MEMBERSHIP_ROUTE ? link : undefined;
+    const url = new URL(link.href);
+    if (url.hash || link.target === '_blank' || link.hasAttribute('download')) return undefined;
+    return routeOf(url.href) === MEMBERSHIP_ROUTE ? link : undefined;
 }
 
 /** `/membership`, `/membership/`, `/membership.html` and absolute forms all match. */
@@ -93,7 +95,7 @@ function routeOf(value: string): string | undefined {
     try {
         const url = new URL(value, window.location.origin);
         if (url.origin !== window.location.origin) return undefined;
-        return url.pathname.replace(/\.html$/, '').replace(/\/$/, '') || '/';
+        return url.pathname.replace(/^\/ja(?=\/|$)/, '').replace(/\.html$/, '').replace(/\/$/, '') || '/';
     } catch {
         return undefined;
     }
@@ -101,7 +103,8 @@ function routeOf(value: string): string | undefined {
 
 function openMembershipDialog(trigger: HTMLElement): void {
     lastTrigger = trigger;
-    dialog ??= buildDialog();
+    dialog?.remove();
+    dialog = buildDialog();
     if (!dialog.isConnected) document.body.append(dialog);
     dialog.hidden = false;
     document.documentElement.dataset.yomuMembershipOpen = 'true';
@@ -177,8 +180,11 @@ function handleKeydown(event: KeyboardEvent): void {
 }
 
 function buildDialog(): HTMLElement {
+    const locale = websiteLocaleForPathname(window.location.pathname);
+    const copy = SITE_INTERACTION_COPY[locale];
     const root = document.createElement('div');
     root.className = 'yomu-membership-backdrop';
+    root.dataset.jpdbReaderSurfaceIgnore = 'true';
     root.hidden = true;
     root.addEventListener('click', event => {
         if (event.target === root) closeMembershipDialog();
@@ -194,13 +200,13 @@ function buildDialog(): HTMLElement {
     const title = document.createElement('h2');
     title.id = `${DIALOG_ID}-title`;
     title.className = 'yomu-membership-title';
-    title.textContent = 'Donate';
+    title.textContent = copy.donationTitle;
 
     const lead = document.createElement('p');
     lead.className = 'yomu-membership-lead';
     // A donation pays running costs and unlocks nothing (owner decision,
     // 2026-10-07). This used to promise Academy to members.
-    lead.textContent = 'Yomu is free. Donations help pay its running costs and do not unlock anything.';
+    lead.textContent = copy.donationLead;
 
     const list = document.createElement('ul');
     list.className = 'yomu-membership-methods';
@@ -215,9 +221,10 @@ function buildDialog(): HTMLElement {
             link.target = '_blank';
         }
         const name = document.createElement('strong');
-        name.textContent = method.name;
+        name.textContent = method.id === 'card' ? copy.donationCard : method.name;
         const detail = document.createElement('span');
-        detail.textContent = method.detail;
+        detail.textContent = method.id === 'kofi' ? copy.donationOnceOrMonthly
+            : method.id === 'patreon' ? copy.donationMonthly : copy.donationCurrencies;
         link.append(name, detail);
         item.append(link);
         list.append(item);
@@ -225,13 +232,18 @@ function buildDialog(): HTMLElement {
 
     const more = document.createElement('a');
     more.className = 'yomu-membership-more';
-    more.href = `${MEMBERSHIP_ROUTE}#monthly-running-costs`;
-    more.textContent = 'Where the money goes';
+    more.href = `${locale === 'ja' ? '/ja' : ''}${MEMBERSHIP_ROUTE}#monthly-running-costs`;
+    more.addEventListener('click', event => {
+        if (event.button === 0 && !event.metaKey && !event.ctrlKey && !event.shiftKey && !event.altKey) {
+            closeMembershipDialog();
+        }
+    });
+    more.textContent = copy.donationCosts;
 
     const close = document.createElement('button');
     close.type = 'button';
     close.className = 'yomu-membership-close';
-    close.textContent = 'Close';
+    close.textContent = copy.donationClose;
     close.addEventListener('click', closeMembershipDialog);
 
     panel.append(close, title, lead, list, more);

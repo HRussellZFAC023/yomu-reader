@@ -36918,6 +36918,34 @@ function normalizeZipKanjiMetaRow(row2, dictionary) {
   const [character, mode, data] = row2;
   return typeof character === "string" && typeof mode === "string" ? { character, mode, data, dictionary } : null;
 }
+const SITE_INTERACTION_COPY = {
+  en: {
+    settingsPopupHelp: "If Settings did not open, allow pop-ups and try again.",
+    donationTitle: "Donate",
+    donationLead: "Yomu is free. Donations help pay its running costs and do not unlock anything.",
+    donationOnceOrMonthly: "One-off or monthly.",
+    donationMonthly: "Monthly.",
+    donationCard: "Card",
+    donationCurrencies: "One-off in GBP, USD, EUR, CAD, AUD or JPY.",
+    donationCosts: "Where the money goes",
+    donationClose: "Close",
+    libraryResetFilters: "Clear filters",
+    videoLoadFailed: "This video could not be played. Try another file or a format your browser supports."
+  },
+  ja: {
+    settingsPopupHelp: "設定が開かなかった場合は、ポップアップを許可してもう一度お試しください。",
+    donationTitle: "寄付",
+    donationLead: "よむは無料です。寄付は運営費に使われ、寄付で使えるようになる機能はありません。",
+    donationOnceOrMonthly: "一回または毎月。",
+    donationMonthly: "毎月。",
+    donationCard: "カード",
+    donationCurrencies: "GBP・USD・EUR・CAD・AUD・JPYで一回の寄付。",
+    donationCosts: "寄付の使い道",
+    donationClose: "閉じる",
+    libraryResetFilters: "絞り込みを解除",
+    videoLoadFailed: "この動画を再生できませんでした。別のファイルか、ブラウザーが対応する形式をお試しください。"
+  }
+};
 function isAppleTouchBrowser() {
   if (typeof navigator === "undefined") return false;
   const userAgent = navigator.userAgent ?? "";
@@ -37746,6 +37774,7 @@ const GRADING_SERVICE_COPY = {
   }
 };
 const EN = {
+  defaultDeck: "Default",
   collectNoDestination: "None of your decks can take this word. Turn one on in Settings.",
   collectWordNotFound: "Not saved: this word was not found in your preferred grading service.",
   // An ordinary page can read these, so they name no service, deck or Anki state (ADR-0020).
@@ -37764,11 +37793,12 @@ const EN = {
   yomuLocalSrsDisabled: `Enable ${ACADEMY_SRS_LABEL} in Settings first.`,
   yomuLocalSrsStorageFailed: "Your Academy deck could not be saved. Browser storage may be full. Free some site storage, then try again.",
   yomuLocalSrsSaveInterrupted: "Your Academy deck was not saved because saving was interrupted. Try again.",
-  addedToYomuLocal: `Added to ${ACADEMY_SRS_LABEL}.`,
+  addedToYomuLocal: "Added to your default deck.",
   // An Academy word kept without a schedule (Library, Stats and the popups).
   savedWord: "Saved"
 };
 const JA = {
+  defaultDeck: "デフォルト",
   collectNoDestination: "この単語を追加できるデッキがありません。設定でデッキを有効にしてください。",
   collectWordNotFound: "優先採点サービスでこの単語が見つからなかったため、保存していません。",
   collectAlreadySaved: "すでにデッキにあります。編集はStudyで行えます。",
@@ -37785,7 +37815,7 @@ const JA = {
   yomuLocalSrsDisabled: "先に設定でAcademyを有効にしてください。",
   yomuLocalSrsStorageFailed: "Academyデッキを保存できませんでした。ブラウザーの保存容量が不足している可能性があります。サイトの保存容量を空けてから、もう一度お試しください。",
   yomuLocalSrsSaveInterrupted: "保存が中断されたため、Academyデッキに保存されませんでした。もう一度お試しください。",
-  addedToYomuLocal: "Academyに追加しました。",
+  addedToYomuLocal: "デフォルトのデッキに追加しました。",
   savedWord: "保存済み"
 };
 const COLLECTION_COPY = { en: EN, ja: JA };
@@ -37819,6 +37849,7 @@ const COPY$c = {
   en: {
     ...PRACTICE_SESSION_COPY.en,
     ...COLLECTION_COPY.en,
+    ...SITE_INTERACTION_COPY.en,
     settingsTitle: `${APP_NAME} Settings`,
     manualPageScanShortcut: "Manual page scan shortcut",
     scanPage: "Scan page",
@@ -38217,12 +38248,6 @@ const COPY$c = {
     youtubeShowChannelRecommendations: "Show Japanese channel suggestions",
     youtubeShowFilterNotice: "Show hidden-video notice",
     youtubeHelp: "Filter YouTube for Japanese.",
-    youtubeShowHiddenVideos: "Show hidden videos",
-    youtubeHideHiddenVideos: "Hide hidden videos",
-    youtubeHideNotice: "Hide notice",
-    youtubeFilterShowing: "{appName} shows {count} hidden item{plural}",
-    youtubeFilterHid: "{appName} hid {count} other-language item{plural}",
-    youtubeFilterVisible: "{count} Japanese items stayed visible.",
     youtubeToggleToastOn: "YouTube immersion filter enabled.",
     youtubeToggleToastOff: "YouTube immersion filter disabled.",
     ankiEnabled: "Enable Anki mining",
@@ -38936,6 +38961,7 @@ function parseUiCopyTable(rows) {
   return copy2;
 }
 const JA_COPY = {
+  ...SITE_INTERACTION_COPY.ja,
   ...parseUiCopyTable(String.raw`
 settingsTitle	{APP_NAME} 設定
 automatic	自動
@@ -39745,12 +39771,6 @@ preferJapaneseSiteLanguage	日本語版サイトをリクエスト
 youtubeShowChannelRecommendations	日本語チャンネル候補を表示
 youtubeShowFilterNotice	非表示動画の通知を表示
 youtubeHelp	YouTubeを日本語向けに絞ります。
-youtubeShowHiddenVideos	非表示動画を表示
-youtubeHideHiddenVideos	非表示動画を隠す
-youtubeHideNotice	通知を隠す
-youtubeFilterShowing	{appName}は非表示のYouTube項目{count}件を表示中
-youtubeFilterHid	{appName}は他の言語のYouTube項目{count}件を非表示
-youtubeFilterVisible	日本語らしい項目{count}件は表示したままです。
 youtubeToggleToastOn	YouTube没入フィルターをオンにしました。
 youtubeToggleToastOff	YouTube没入フィルターをオフにしました。
 ankiEnabled	Anki採掘を有効にする
@@ -43753,6 +43773,35 @@ const YOUTUBE_APP_HOSTS = /* @__PURE__ */ new Set([
 function isYouTubeAppHostname(hostname = location.hostname) {
   return YOUTUBE_APP_HOSTS.has(hostname.toLowerCase());
 }
+const YOUTUBE_READABLE_LABEL_ROOTS = [
+  '.ytChipShapeButtonReset[role="tab"]',
+  "yt-chip-cloud-chip-renderer",
+  "ytd-guide-entry-renderer",
+  "ytd-guide-collapsible-section-entry-renderer",
+  "ytd-mini-guide-entry-renderer",
+  "ytd-masthead #buttons .ytSpecButtonShapeNextButtonTextContent"
+];
+const LABEL_SELECTOR = YOUTUBE_READABLE_LABEL_ROOTS.join(",");
+function isYouTubeReadableLabel(element2) {
+  return isYouTubeAppHostname() && Boolean(element2.closest(LABEL_SELECTOR));
+}
+function composedAncestorElement(element2) {
+  if (element2.assignedSlot) return element2.assignedSlot;
+  if (element2.parentElement) return element2.parentElement;
+  const root = element2.getRootNode();
+  return typeof ShadowRoot !== "undefined" && root instanceof ShadowRoot && root.host instanceof HTMLElement ? root.host : null;
+}
+function composedClosestElement(element2, selector) {
+  let current = element2;
+  while (current) {
+    if (current.matches(selector)) return current;
+    current = current instanceof HTMLElement ? composedAncestorElement(current) : current.parentElement;
+  }
+  return null;
+}
+function isRedditReadableLabel(element2) {
+  return /(^|\.)reddit\.com$/i.test(location.hostname) && Boolean(composedClosestElement(element2, 'button,[role="button"],summary,time,faceplate-timeago'));
+}
 const ANNOTATION_SCOPE_SURFACE_ATTRIBUTE = "data-yomu-runtime-surface";
 const ANNOTATION_SCOPE_SURFACE_SELECTOR = `[${ANNOTATION_SCOPE_SURFACE_ATTRIBUTE}], .yomu-try-me-text`;
 const DECORATION_STATE_ATTRIBUTE = "data-yomu-decoration";
@@ -43859,12 +43908,6 @@ function closestRubyFragileConstrainedRow(element2) {
     current = composedAncestorElement(current);
   }
   return null;
-}
-function composedAncestorElement(element2) {
-  if (element2.assignedSlot) return element2.assignedSlot;
-  if (element2.parentElement) return element2.parentElement;
-  const root = element2.getRootNode();
-  return typeof ShadowRoot !== "undefined" && root instanceof ShadowRoot && root.host instanceof HTMLElement ? root.host : null;
 }
 function contentClipRowShowsRestReadings(decoration, clipRow) {
   if (decoration !== "prose-full") return false;
@@ -44329,6 +44372,7 @@ function mediaElementIsThumbnailSized(media) {
 function classifyDecoration(element2) {
   if (element2.closest(READER_ROOT_SELECTOR)) return "content-ruby";
   if (decorationMustBeSkipped(element2)) return "skip";
+  if (isYouTubeReadableLabel(element2) || isRedditReadableLabel(element2)) return "interactive-passive";
   if (element2 instanceof HTMLElement && youtubeNativeChromeMustRemainPageOwned(element2)) {
     return "skip";
   }
@@ -44381,6 +44425,7 @@ function youtubeShelfExpansionChromeMustRemainPageOwned(element2) {
   return Boolean(composedClosestMatching(element2, YOUTUBE_SHELF_EXPANSION_CONTROL_SELECTOR));
 }
 function youtubeNativeChromeMustRemainPageOwned(element2) {
+  if (isYouTubeReadableLabel(element2)) return false;
   if (youtubeShelfExpansionChromeMustRemainPageOwned(element2)) return true;
   if (!isYouTubeAppHostname()) return false;
   return Boolean(youtubeNativeChromeControl(element2));
@@ -44505,7 +44550,27 @@ function styleDocumentAnnotationPortalMirror(mirror, host2) {
   mirror.style.setProperty("direction", style.direction, "important");
   mirror.style.setProperty("writing-mode", style.writingMode, "important");
   mirror.style.setProperty("color", style.color, "important");
+  syncPortalScrollMode(mirror, host2);
   setImportantStyleIfChanged(mirror, "z-index", documentPortalStackingLevel(host2));
+}
+function syncPortalScrollMode(mirror, source2) {
+  const documentFlow = sourceSharesDocumentScroll(source2);
+  mirror.dataset.yomuPortalScroll = documentFlow ? "document" : "viewport";
+  setImportantStyleIfChanged(mirror, "position", documentFlow ? "absolute" : "fixed");
+}
+function sourceSharesDocumentScroll(source2) {
+  const roots = [source2.ownerDocument.body, source2.ownerDocument.documentElement];
+  return !composedAncestors(source2).some((element2) => {
+    const style = safeComputedStyle(element2);
+    return roots.includes(element2) ? rootChangesPortalCoordinates(style) : scrollsIndependently(style);
+  });
+}
+function rootChangesPortalCoordinates(style) {
+  const transforms = ["transform", "filter", "backdrop-filter", "perspective"];
+  return !["", "static"].includes(style.position) || transforms.some((property) => !["", "none"].includes(style.getPropertyValue(property))) || /transform|filter|perspective/.test(style.willChange) || /layout|paint|strict|content/.test(style.contain);
+}
+function scrollsIndependently(style) {
+  return ["fixed", "sticky"].includes(style.position) || [style.overflowX, style.overflowY].some((value) => /^(auto|scroll|overlay)$/.test(value));
 }
 function documentAnnotationPortalPaint(mirror) {
   const existing = Array.from(mirror.children).find(
@@ -44558,8 +44623,9 @@ function createPortalWatch(document2) {
     if (document2.hidden) return [];
     return pruneAndCollectEntries(document2, watch);
   };
-  const alignForScroll = () => {
-    const live = visibleEntries();
+  const alignForScroll = (event) => {
+    const documentScroll = event.target === document2 || event.target === view;
+    const live = visibleEntries().filter((entry2) => !documentScroll || entry2.mirror.dataset.yomuPortalScroll !== "document");
     if (!live.length) return;
     const alignments = alignPortalEntries(live);
     scheduleClippedPortalScrollSettle(document2, watch, alignments);
@@ -44595,6 +44661,19 @@ function createPortalWatch(document2) {
     alignPortalEntries(affected);
     affected.forEach((entry2) => entry2.projectImmediately());
   };
+  const topologyObserver = new MutationObserver((records2) => {
+    const ancestors = records2.map((record2) => record2.target).filter((node2) => node2 instanceof Element && !node2.closest(".jpdb-reader-text-mirror,.jpdb-reader-detached-reading-overlay,[data-jpdb-reader-root]"));
+    if (!ancestors.length) return;
+    const affected = visibleEntries().filter((entry2) => ancestors.some((node2) => node2 !== entry2.source && node2.contains(entry2.source)));
+    if (!affected.length) return;
+    affected.forEach((entry2) => {
+      entry2.clipTopologyEpoch = -1;
+    });
+    alignPortalEntries(affected);
+    affected.forEach((entry2) => entry2.scheduleProjection());
+  });
+  topologyObserver.observe(document2.documentElement, { attributes: true, subtree: true, attributeFilter: ["class", "style"] });
+  lifecycle.signal.addEventListener("abort", () => topologyObserver.disconnect(), { once: true });
   view?.addEventListener("scroll", alignForScroll, {
     capture: true,
     passive: true,
@@ -44760,10 +44839,11 @@ function measurePortalClipBounds(entries2) {
     const watch = portalWatches.get(entry2.source.ownerDocument);
     const epoch = watch?.topologyEpoch ?? 0;
     if (entry2.clipTopologyEpoch !== epoch) {
+      syncPortalScrollMode(entry2.mirror, entry2.source);
       entry2.clipChain = portalClipChain(entry2.source, styles);
       entry2.clipTopologyEpoch = epoch;
     }
-    return clipBoundsFromChain(entry2.source, entry2.clipChain, rects);
+    return clipBoundsFromChain(entry2.source, entry2.clipChain, rects, entry2.mirror.dataset.yomuPortalScroll === "document");
   });
 }
 function portalClipChain(source2, styles) {
@@ -44781,15 +44861,9 @@ function portalClipChain(source2, styles) {
   }
   return chain;
 }
-function clipBoundsFromChain(source2, chain, rects) {
+function clipBoundsFromChain(source2, chain, rects, documentFlow) {
   if (!chain.length) return null;
-  const view = source2.ownerDocument.defaultView;
-  let bounds = {
-    left: 0,
-    top: 0,
-    right: view?.innerWidth ?? source2.ownerDocument.documentElement.clientWidth,
-    bottom: view?.innerHeight ?? source2.ownerDocument.documentElement.clientHeight
-  };
+  const bounds = portalClipFrame(source2.ownerDocument, documentFlow);
   for (const { element: element2, clipsX, clipsY } of chain) {
     let rect = rects.get(element2);
     if (!rect) {
@@ -44806,6 +44880,18 @@ function clipBoundsFromChain(source2, chain, rects) {
     }
   }
   return bounds;
+}
+function portalClipFrame(document2, documentFlow) {
+  const root = document2.documentElement;
+  const view = document2.defaultView;
+  if (!view) return { left: 0, top: 0, right: root.clientWidth, bottom: root.clientHeight };
+  if (!documentFlow) return { left: 0, top: 0, right: view.innerWidth, bottom: view.innerHeight };
+  return {
+    left: -view.scrollX,
+    top: -view.scrollY,
+    right: root.scrollWidth - view.scrollX,
+    bottom: root.scrollHeight - view.scrollY
+  };
 }
 function documentAnnotationPortalHasNonTranslationTransform(source2) {
   for (const element2 of composedAncestors(source2)) {
@@ -44891,8 +44977,10 @@ function applyPortalClipGeometry(mirror, clip) {
     setImportantStyleIfChanged(mirror, "overflow", "visible");
     return;
   }
-  setImportantStyleIfChanged(mirror, "left", stableCssPixels(clip.left));
-  setImportantStyleIfChanged(mirror, "top", stableCssPixels(clip.top));
+  const view = mirror.ownerDocument.defaultView;
+  const documentFlow = mirror.dataset.yomuPortalScroll === "document";
+  setImportantStyleIfChanged(mirror, "left", stableCssPixels(clip.left + (documentFlow ? view?.scrollX ?? 0 : 0)));
+  setImportantStyleIfChanged(mirror, "top", stableCssPixels(clip.top + (documentFlow ? view?.scrollY ?? 0 : 0)));
   setImportantStyleIfChanged(mirror, "width", stableCssPixels(Math.max(0, clip.right - clip.left)));
   setImportantStyleIfChanged(mirror, "height", stableCssPixels(Math.max(0, clip.bottom - clip.top)));
   setImportantStyleIfChanged(mirror, "overflow", "hidden");
@@ -44992,6 +45080,22 @@ function isDocumentPortalProseAncestor(current, host2) {
     current === host2 && VOLATILE_PROSE_IDENTITY_RE.test(identity2)
   ].some(Boolean);
 }
+function nativeTextRects(anchor2) {
+  const document2 = anchor2.ownerDocument;
+  const walker = document2.createTreeWalker(anchor2, NodeFilter.SHOW_TEXT);
+  const range2 = document2.createRange();
+  if (typeof range2.getClientRects !== "function") return [];
+  const rects = [];
+  while (walker.nextNode()) {
+    const node2 = walker.currentNode;
+    if (!node2.textContent?.trim() || node2.parentElement?.closest(
+      "rt,rp,.jpdb-reader-text-mirror,.jpdb-reader-detached-furi,[data-yomu-projected-reading]"
+    )) continue;
+    range2.selectNodeContents(node2);
+    rects.push(...Array.from(range2.getClientRects()).filter((rect) => rect.width > 0 && rect.height > 0));
+  }
+  return rects;
+}
 const FORCES_ALL_SELECTOR = '[data-yomu-furigana-mode="all"]';
 const KEEPS_IN_FLOW_SELECTOR = `${FORCES_ALL_SELECTOR},[data-yomu-furigana-mode="known-status"]`;
 function targetForcesAllFurigana(target2) {
@@ -45061,7 +45165,7 @@ function styleDetachedReadingElements(root, host2) {
   if (!detachedRubies.length) return;
   const hostStyle = safeComputedStyle(host2);
   const hostFontSize = Number.parseFloat(hostStyle.fontSize) || 16;
-  const readingFontSize = Math.min(10, Math.max(6, hostFontSize * 0.46));
+  const readingFontSize = Math.max(9, hostFontSize * 0.5);
   for (const wrapper of detachedRubies) {
     setInlineStyleIfChanged(wrapper, "position", "relative", "important");
     setInlineStyleIfChanged(wrapper, "display", "inline-block", "important");
@@ -47043,6 +47147,7 @@ function projectPreparedAdditiveTextMirror(mirror, host2, topLayerConcealed = fa
     ".jpdb-reader-detached-ruby[data-yomu-source-start][data-yomu-source-end] .jpdb-reader-detached-furi"
   ) !== null;
   const readingsConcealed = !hasReadings || !context2.host.isConnected || pageConcealsTextMirrorHost(context2.host) || Boolean(context2.documentPortal && context2.topLayerConcealed);
+  context2.nativeRects = readingsConcealed ? [] : nativeTextRects(host2);
   const projections = Array.from(words).map((word) => readAdditiveMirrorWordProjection(
     word,
     context2,
@@ -47281,7 +47386,7 @@ function projectedRubyReading(ruby, context2, sourceRectsFor, initiallyConcealed
   };
   const rect = initiallyConcealed ? null : sourceRectsFor(start, end).find((candidate2) => !context2.readingClipRect || rectsIntersect(candidate2, context2.readingClipRect)) ?? null;
   if (!rect) return null;
-  return { source: reading, anchor: context2.host, rect, measure };
+  return { source: reading, anchor: context2.host, rect, measure, nativeRects: context2.nativeRects };
 }
 function sourceClientRects(host2, nodeOffsets, start, end) {
   if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) return [];
@@ -47530,7 +47635,7 @@ function styleAdditiveMirrorPaint(root, projectedWordsOnly = false) {
   const documentElement = root.ownerDocument.documentElement;
   const source2 = selectedWordColorSourceToken(documentElement, ["highlight", "underline", "text"], ADDITIVE_DECORATION_SOURCES);
   const words = root.querySelectorAll(".jpdb-reader-word");
-  const paint = source2 ? `var(--jpdb-reader-source-${source2}-decoration, transparent)` : "transparent";
+  const paint = source2 === "status" || source2 === "jpdb" ? `var(--jpdb-reader-${source2}-underline, transparent)` : source2 ? `var(--jpdb-reader-source-${source2}-decoration, transparent)` : "transparent";
   const highlightSource = selectedWordColorSourceToken(documentElement, ["highlight"], ADDITIVE_HIGHLIGHT_SOURCES);
   const softPaint = highlightSource ? `var(--jpdb-reader-source-${highlightSource}-soft, transparent)` : "";
   for (const word of words) {
@@ -47539,6 +47644,7 @@ function styleAdditiveMirrorPaint(root, projectedWordsOnly = false) {
   }
 }
 function styleAdditiveMirrorWordPaint(word, paint, softPaint, visible) {
+  setInlineStyleIfChanged(word, "-webkit-text-fill-color", "transparent", "important");
   removeInlineStyleIfPresent(word, "text-decoration-color");
   removeInlineStyleIfPresent(word, "--jpdb-reader-additive-decoration");
   setInlineStyleIfChanged(word, "--jpdb-reader-word-decoration-source", visible ? paint : "transparent");
@@ -264359,7 +264465,7 @@ function padClockPart(value) {
 const DEFAULT_ACADEMY_STUDY_DURATION_MS = DEFAULT_STUDY_DURATION_MS;
 class StudyRuntimeLoadFailure extends Error {
 }
-function createCanonicalAcademyStudyModule(loadRuntime = () => import("./runtime-DhooKz3E.js")) {
+function createCanonicalAcademyStudyModule(loadRuntime = () => import("./runtime-DfCkje1B.js")) {
   return {
     async mount(host2, context2) {
       let runtime;

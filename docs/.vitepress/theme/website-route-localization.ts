@@ -5,6 +5,10 @@ import {
     websiteMessage,
     type WebsiteLocaleId,
 } from '../locales/site-locales';
+import { websiteRouteIsPublished } from '../locales/route-catalog';
+
+const LOCALE_MENU = '.VPNavBarTranslations, .VPNavBarExtra, .VPNavScreenTranslations';
+let localeMenuBound = false;
 
 type RouteHeadEntry = readonly [
     tag: 'link' | 'meta' | 'script',
@@ -23,6 +27,14 @@ const LOCALE_BY_MENU_LABEL: Readonly<Record<string, WebsiteLocaleId>> = {
  * not update custom metadata during client-side navigation.
  */
 export function syncWebsiteRouteLocalization(routeHead: unknown): void {
+    if (!localeMenuBound) {
+        const refresh = (event: Event): void => {
+            if (event.target instanceof Element && event.target.closest(LOCALE_MENU)) syncPublishedLocaleLinks();
+        };
+        document.addEventListener('pointerdown', refresh, true);
+        document.addEventListener('focusin', refresh, true);
+        localeMenuBound = true;
+    }
     syncDocumentLocale();
     syncPublishedLocaleLinks();
     syncDefaultThemeAccessibleCopy();
@@ -38,9 +50,7 @@ function syncDocumentLocale(): void {
 }
 
 function syncPublishedLocaleLinks(): void {
-    const containers = document.querySelectorAll(
-        '.VPNavBarTranslations, .VPNavBarExtra, .VPNavScreenTranslations',
-    );
+    const containers = document.querySelectorAll(LOCALE_MENU);
     const links = new Set<HTMLAnchorElement>();
     containers.forEach(container => {
         container.querySelectorAll<HTMLAnchorElement>('a[href]').forEach(link => links.add(link));
@@ -48,9 +58,13 @@ function syncPublishedLocaleLinks(): void {
     links.forEach(link => {
         const targetLocale = LOCALE_BY_MENU_LABEL[link.textContent?.trim() ?? ''];
         if (!targetLocale) return;
+        const route = window.location.pathname.replace(/^\/ja(?=\/|$)/, '') || '/';
+        const suffix = websiteRouteIsPublished(route, targetLocale)
+            ? window.location.search + window.location.hash : '';
         link.setAttribute(
             'href',
-            correspondingWebsiteLocaleHref(window.location.pathname, targetLocale),
+            correspondingWebsiteLocaleHref(window.location.pathname, targetLocale)
+                + suffix,
         );
         // Locale routes have complete reviewed SSR documents. VitePress skips
         // links with an explicit target, allowing the browser to load that

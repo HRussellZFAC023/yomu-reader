@@ -499,7 +499,7 @@ describe('reader helpers', () => {
         // The lone save sits in the row: no drawer folds it away.
         expect(collect.closest('.jpdb-reader-mining-panel')).toBeNull();
         expect(document.querySelector('[data-action="mining-collapse"]')).toBeNull();
-        expect(readCardUiCommandCapability(collect)?.choices).toEqual([{ source: 'yomu-local', id: 'yomu-local', label: 'Academy' }]);
+        expect(readCardUiCommandCapability(collect)?.choices).toEqual([{ source: 'yomu-local', id: 'yomu-local', label: 'Default' }]);
         expect(document.querySelector('[data-deck-source], [data-deck-id], [data-add-deck-select]')).toBeNull();
     });
 

@@ -2,12 +2,15 @@
 // companion facade in detached-reading-overlay.ts.
 import { ParkableObserver, parkableMutationObserver } from '../platform/page-activity';
 import { setImportantStyleIfChanged, stableCssPixels } from './inline-style';
+import { nativeTextRects, readingOverlapsPreviousLine } from './reading-collision';
 
 export interface DetachedReadingProjection {
     source: HTMLElement;
     anchor: HTMLElement;
     rect: DOMRect;
     measure: () => DOMRect | null;
+    /** Initial native line measurements from the source renderer's read phase. */
+    nativeRects?: readonly DOMRect[];
 }
 
 interface ProjectionRecord {
@@ -99,6 +102,7 @@ interface DocumentOverlay {
     occlusionEpoch: number;
     scrollContextEpoch: number;
     hitTestBudgetRemaining: number;
+    hitTestCursor: number;
     // True for the duration of a pass. A realm without animation frames runs
     // scheduled passes inline, and the grace follow-up would then re-enter the
     // pass that asked for it.
@@ -117,6 +121,7 @@ interface DocumentOverlay {
 
 interface ProjectionReadContext {
     overlay: DocumentOverlay;
+    nativeRects: Map<HTMLElement, readonly DOMRect[]>;
     anchorPaint: Map<HTMLElement, boolean>;
     elementPaint: Map<Element, boolean>;
     occludingPaint: Map<Element, boolean>;
@@ -137,9 +142,8 @@ const PROJECTED_READING_ATTRIBUTE = 'data-yomu-projected-reading';
 // Grace may bridge a measurement gap for a few frames, never longer: past this
 // age a missing rect means the word is gone, not mid-relayout.
 const PROJECTION_GRACE_MAX_AGE_MS = 250;
-// How far a reading may be condensed to stay off its neighbour. Past this the
-// kana stop being readable, so an extremely tight lane keeps a little overlap
-// rather than trading one unreadable rendering for another.
+// Beyond this the kana stop being readable. Keep an overfull reading available
+// in lookup instead of painting it on top of its neighbour.
 const PROJECTED_READING_MIN_SCALE_X = 0.55;
 // Stands in for an animation-frame handle while a pass waits on a microtask, so
 // further events coalesce into it exactly as they would into a frame.
@@ -161,6 +165,7 @@ export function syncProjectedReadings(
     const currentSources = new Set(projections.map(projection => projection.source));
     const context: ProjectionReadContext = {
         overlay,
+        nativeRects: new Map(),
         anchorPaint: new Map(),
         elementPaint: new Map(),
         occludingPaint: new Map(),
@@ -202,6 +207,7 @@ export function syncProjectedReadings(
             trackProjectionAnchor(record, overlay);
         }
         record.measure = projection.measure;
+        if (projection.nativeRects) context.nativeRects.set(projection.anchor, projection.nativeRects);
         refreshProjectionAnchorRoot(record.anchor, overlay);
         syncProjectedReadingStyle(record);
         adoptProjectionLayer(record, context);
@@ -360,6 +366,7 @@ function documentOverlay(document: Document): DocumentOverlay {
         occlusionEpoch: 0,
         scrollContextEpoch: 0,
         hitTestBudgetRemaining: 12,
+        hitTestCursor: 0,
         refreshing: false,
         graceRefreshNeeded: false,
         occlusionRefreshNeeded: false,
@@ -560,11 +567,8 @@ function readProjectedReadingPaint(
             && record.cachedTopmost !== undefined) {
             topmost = record.cachedTopmost;
         } else if (overlay && overlay.hitTestBudgetRemaining <= 0) {
-            // Never let the stable first records monopolise the budget. Keep
-            // a previous decision for the current frame (or conservatively
-            // defer a new clone) and ask for a follow-up whenever geometry or
-            // topology is stale. Refreshed records no longer spend budget next
-            // frame, so each bounded pass advances to the next batch.
+            // The next pass starts at the following batch, even while every
+            // source rectangle keeps changing during momentum scrolling.
             topmost = record.cachedTopmost ?? false;
             overlay.occlusionRefreshNeeded = true;
         } else {
@@ -610,7 +614,7 @@ function readProjectedReadingPaint(
  * follows a sync sees the page's whole record set and settles the rest.
  */
 function applyProjectionPaints(paints: readonly ProjectionPaint[], context?: ProjectionReadContext): void {
-    resolveProjectedReadingCrowding(paints);
+    resolveProjectedReadingCrowding(paints, context);
     paints.forEach(paint => applyProjectedReadingPaint(paint, context));
 }
 
@@ -674,10 +678,24 @@ function setDatasetIfChanged(element: HTMLElement, key: string, value: string): 
  * so an isolated reading still overhangs freely — then condense only the part
  * that still does not fit.
  */
-function resolveProjectedReadingCrowding(paints: readonly ProjectionPaint[]): void {
+function resolveProjectedReadingCrowding(paints: readonly ProjectionPaint[], context?: ProjectionReadContext): void {
     const placed = paints.filter(isPlacedProjectionPaint);
-    if (placed.length < 2) return;
-    for (const lane of projectedReadingLanes(placed)) fitProjectedReadingLane(lane);
+    const nativeRects = context?.nativeRects ?? new Map<HTMLElement, readonly DOMRect[]>();
+    for (const lane of projectedReadingLanes(placed)) {
+        fitProjectedReadingLane(lane);
+        for (const paint of lane) {
+            if (!paint.visible) continue;
+            const anchor = paint.record.anchor;
+            let rects = nativeRects.get(anchor);
+            if (!rects) { rects = nativeTextRects(anchor); nativeRects.set(anchor, rects); }
+            const height = paint.record.footprintHeight || paint.rect.height / 2;
+            const width = naturalReadingWidth(paint.record) * (paint.layout?.scaleX ?? 1);
+            const centre = paint.layout?.centre ?? readingAnchorCentre(paint);
+            if (readingOverlapsPreviousLine(paint.rect, rects, centre, width, height)) {
+                paint.visible = false;
+            }
+        }
+    }
 }
 
 function isPlacedProjectionPaint(paint: ProjectionPaint): paint is PlacedProjectionPaint {
@@ -716,6 +734,7 @@ function fitProjectedReadingLane(lane: PlacedProjectionPaint[]): void {
             previous ? (previous.right + paint.rect.left) / 2 : Number.NEGATIVE_INFINITY,
             next ? (paint.rect.right + next.left) / 2 : Number.POSITIVE_INFINITY,
         );
+        if (paint.layout.scaleX === 0) paint.visible = false;
     }
 }
 
@@ -728,10 +747,7 @@ function fitReadingBetween(centre: number, width: number, left: number, right: n
     const available = right - left;
     const scaleX = available >= width ? 1 : Math.max(PROJECTED_READING_MIN_SCALE_X, available / width);
     const painted = width * scaleX;
-    // A lane too tight even for the condense floor keeps every reading centred
-    // on its own word: sharing the remaining overlap evenly beats sliding one
-    // reading off the word it belongs to.
-    if (painted > available) return { centre, scaleX };
+    if (painted > available) return { centre, scaleX: 0 };
     if (centre - painted / 2 < left) return { centre: left + painted / 2, scaleX };
     if (centre + painted / 2 > right) return { centre: right - painted / 2, scaleX };
     return { centre, scaleX };
@@ -1176,6 +1192,7 @@ function runProjectionRefreshPass(overlay: DocumentOverlay): void {
     // a scroll frame cannot alternate forced layout and style invalidation.
     const context: ProjectionReadContext = {
         overlay,
+        nativeRects: new Map(),
         anchorPaint: new Map(),
         elementPaint: new Map(),
         occludingPaint: new Map(),
@@ -1187,6 +1204,9 @@ function runProjectionRefreshPass(overlay: DocumentOverlay): void {
         styleReads: new Map(),
     };
     const records = refreshableRecords(overlay);
+    const start = overlay.hitTestCursor % Math.max(1, records.length);
+    records.push(...records.splice(0, start));
+    overlay.hitTestCursor = (start + 12) % Math.max(1, records.length);
     // Layer migration/repair is a write phase. Finish it for the whole batch
     // before measuring any source or clone geometry below.
     records.forEach(record => adoptProjectionLayer(record, context));

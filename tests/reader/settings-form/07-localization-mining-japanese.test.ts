@@ -312,7 +312,7 @@ describe('settings form localization', () => {
         form.innerHTML = renderSettingsForm(DEFAULT_SETTINGS, 'https://jpdb.io/settings');
         const filter = form.querySelector<HTMLInputElement>('input[name="youtubeImmersionEnabled"]')!;
         const channelSuggestions = form.querySelector<HTMLInputElement>('input[name="youtubeShowChannelRecommendations"]')!;
-        const notice = form.querySelector<HTMLInputElement>('input[name="youtubeShowFilterNotice"]')!;
+        const notice = form.querySelector<HTMLInputElement>('input[name="youtubeShowFilterNotice"]');
         const shortcut = form.querySelector<HTMLInputElement>('input[name="shortcuts.toggleYoutubeImmersion"]')!;
 
         expect(DEFAULT_SETTINGS.youtubeImmersionEnabled).toBe(true);
@@ -323,12 +323,11 @@ describe('settings form localization', () => {
         expect(filter.checked).toBe(true);
         expect(form.querySelector('[name="preferJapaneseSiteLanguage"]')).toBeNull();
         expect(channelSuggestions.checked).toBe(true);
-        expect(notice.checked).toBe(true);
+        expect(notice).toBeNull();
         expect(shortcut.value).toBe('Shift+Y');
 
         filter.checked = false;
         channelSuggestions.checked = false;
-        notice.checked = false;
         shortcut.value = 'Ctrl+Y';
 
         const saved = readFormSettings(new FormData(form), DEFAULT_SETTINGS);
@@ -339,7 +338,7 @@ describe('settings form localization', () => {
         expect(readFormSettings(new FormData(form), { ...DEFAULT_SETTINGS, preferJapaneseSiteLanguage: true }).preferJapaneseSiteLanguage).toBe(true);
         expect(saved.youtubeShowChannelRecommendations).toBe(false);
         expect(saved.youtubeShowChannelRecommendationsChosen).toBe(true);
-        expect(saved.youtubeShowFilterNotice).toBe(false);
+        expect(saved.youtubeShowFilterNotice).toBe(DEFAULT_SETTINGS.youtubeShowFilterNotice);
         expect(saved.shortcuts.toggleYoutubeImmersion).toBe('Ctrl+Y');
     });
 

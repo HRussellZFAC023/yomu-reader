@@ -24,8 +24,7 @@ const JA_COUNTRY = 'JP';
 const JA_LOCALE = 'ja-JP';
 const PREFERENCE_CACHE_KEY = 'yomu:prefer-japanese-site-language';
 const REDIRECT_CACHE_KEY = 'yomu:jps';
-// Hosts already auto-redirected to their Japanese URL in this tab session — used
-// to redirect at most once per host so SPA URL rewrites cannot cause a loop.
+// YouTube hosts already redirected in this tab; its SPA rewrites must not reload.
 const REDIRECT_HOSTS_KEY = 'yomu:jps:hosts';
 const INJECTION_RETRY_LIMIT = 12;
 const ALTERNATE_REDIRECT_RETRY_LIMIT = 80;
@@ -178,6 +177,7 @@ function hasJapaneseSitePreferenceProvenance(revertOnDisable: boolean): boolean 
 
 function enablePreferredJapaneseSiteLanguage(revision: number): void {
     deferredCookieResponseReload = false;
+    cancelPreferredJapaneseSiteRedirectWatcher();
     applySitePreferenceCookies();
     schedulePreferredJapaneseSiteRedirect(revision);
 }
@@ -213,9 +213,13 @@ function finishDisabledSiteNavigation(shouldRevert: boolean, shouldReloadCookieS
 }
 
 export function preferredJapaneseSiteUrl(sourceHref: string, root?: QueryRoot): string | null {
+    return resolvePreferredJapaneseSiteUrl(sourceHref, root);
+}
+
+function resolvePreferredJapaneseSiteUrl(sourceHref: string, root?: QueryRoot, ignoredAlternates?: ReadonlySet<string>): string | null {
     const current = parseHttpUrl(sourceHref);
     if (!current || isLocalDevelopmentUrl(current)) return null;
-    const alternate = japaneseAlternateLinkUrl(current, root);
+    const alternate = japaneseAlternateLinkUrl(current, root, ignoredAlternates);
     const target = alternate ?? siteRuleJapaneseUrl(current) ?? genericUrl(current, root);
     if (target) applyParams(target);
     if (!target || target.href === current.href) return null;
@@ -538,8 +542,8 @@ function isTopLevelFrame(): boolean {
 function schedulePreferredJapaneseSiteRedirect(revision: number): void {
     if (!preferenceIsCurrent(true, revision)) return;
     if (!isTopLevelFrame()) return;
-    // Redirect at most ONCE per host per tab session. SPA sites (notably
-    // m.youtube.com) rewrite their URL on every in-app navigation without keeping
+    // Redirect YouTube at most once per host per tab session. Its SPA routes
+    // rewrite the URL on in-app navigation without keeping
     // hl=ja, so the alternate-redirect watcher would keep computing a "more
     // Japanese" URL and full-reloading back to it forever ("A problem repeatedly
     // occurred on https://m.youtube.com/?ra=m&hl=ja&gl=JP"). The language cookie
@@ -550,10 +554,10 @@ function schedulePreferredJapaneseSiteRedirect(revision: number): void {
     installAlternateRedirectWatcher(revision);
 }
 
-function attemptPreferredJapaneseSiteRedirect(revision: number): boolean {
+function attemptPreferredJapaneseSiteRedirect(revision: number, ignoredAlternates?: ReadonlySet<string>): boolean {
     if (!preferenceIsCurrent(true, revision)) return false;
     const href = currentLocationHref();
-    const target = href ? preferredJapaneseSiteUrl(href, document) : null;
+    const target = href ? resolvePreferredJapaneseSiteUrl(href, document, ignoredAlternates) : null;
     if (!target || hostAlreadyRedirectedThisSession() || recentlyAttemptedRedirect(href, target)) return false;
     rememberRedirectAttempt(href, target);
     markHostRedirectedThisSession();
@@ -570,6 +574,7 @@ function currentLocationHost(): string {
 }
 
 function hostAlreadyRedirectedThisSession(): boolean {
+    if (!siteNeedsSessionRedirectLimit()) return false;
     const host = currentLocationHost();
     if (!host) return false;
     try {
@@ -581,6 +586,7 @@ function hostAlreadyRedirectedThisSession(): boolean {
 }
 
 function markHostRedirectedThisSession(): void {
+    if (!siteNeedsSessionRedirectLimit()) return;
     const host = currentLocationHost();
     if (!host) return;
     try {
@@ -593,6 +599,11 @@ function markHostRedirectedThisSession(): void {
     } catch {
         // Loop suppression is best-effort; failure should not block the redirect.
     }
+}
+
+function siteNeedsSessionRedirectLimit(): boolean {
+    const hostname = currentLocationHostname();
+    return /(^|\.)youtube\.com$/.test(hostname);
 }
 
 function attemptPreferredDefaultSiteRedirect(): boolean {
@@ -641,6 +652,10 @@ function installAlternateRedirectWatcher(revision: number, attempt = 0): void {
     }
 
     let checks = 0;
+    let routeHref = currentLocationHref();
+    let routeAlternates = alternateHrefs();
+    let ignoredAlternates: ReadonlySet<string> | undefined;
+    let timer: number | undefined;
     const stop = () => {
         cleanup();
         alternateRedirectCleanup = undefined;
@@ -650,11 +665,24 @@ function installAlternateRedirectWatcher(revision: number, attempt = 0): void {
             stop();
             return;
         }
+        const nextHref = currentLocationHref();
+        if (nextHref !== routeHref) {
+            ignoredAlternates = routeAlternates;
+            routeHref = nextHref;
+            checks = 0;
+            if (timer === undefined) timer = window.setInterval(check, ALTERNATE_REDIRECT_RETRY_MS);
+        }
+        if (checks >= ALTERNATE_REDIRECT_RETRY_LIMIT) return;
+        routeAlternates = alternateHrefs();
         checks += 1;
-        if (attemptPreferredJapaneseSiteRedirect(revision) || checks >= ALTERNATE_REDIRECT_RETRY_LIMIT) stop();
+        if (attemptPreferredJapaneseSiteRedirect(revision, ignoredAlternates)) stop();
+        else if (checks >= ALTERNATE_REDIRECT_RETRY_LIMIT) {
+            window.clearInterval(timer);
+            timer = undefined;
+        }
     };
     const observer = new MutationObserver(check);
-    const timer = window.setInterval(check, ALTERNATE_REDIRECT_RETRY_MS);
+    timer = window.setInterval(check, ALTERNATE_REDIRECT_RETRY_MS);
     const cleanup = () => {
         observer.disconnect();
         window.clearInterval(timer);
@@ -754,8 +782,12 @@ function isLocalDevelopmentUrl(url: URL): boolean {
     ].some(Boolean);
 }
 
-function japaneseAlternateLinkUrl(current: URL, root: QueryRoot | undefined): URL | null {
-    return alternateLinkUrl(current, root, /^ja(?:[-_]|$)/i, alts);
+function japaneseAlternateLinkUrl(current: URL, root: QueryRoot | undefined, ignored?: ReadonlySet<string>): URL | null {
+    return alternateLinkUrl(current, root, /^ja(?:[-_]|$)/i, alts, ignored);
+}
+
+function alternateHrefs(): Set<string> {
+    return new Set(Array.from(alts(document), element => element.getAttribute('href') ?? ''));
 }
 
 // x-default is the page's own answer to "which URL for a visitor with no
@@ -774,12 +806,14 @@ function alternateLinkUrl(
     root: QueryRoot | undefined,
     hreflang: RegExp,
     candidates: (root: QueryRoot) => NodeListOf<HTMLLinkElement | HTMLAnchorElement>,
+    ignored?: ReadonlySet<string>,
 ): URL | null {
     if (!root) return null;
     try {
         for (const element of candidates(root)) {
             if (!hreflang.test(element.getAttribute('hreflang') ?? '')) continue;
             const href = element.getAttribute('href');
+            if (href && ignored?.has(href)) continue;
             const candidate = href ? parseHttpUrl(new URL(href, current.href).href) : null;
             if (candidate && candidate.href !== current.href) return candidate;
         }

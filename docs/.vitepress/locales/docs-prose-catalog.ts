@@ -9,6 +9,26 @@ export interface ReviewedDocsMessage {
 }
 
 const HOSTED_DOCS_JA_COPY: Record<string, string> = {
+    "Request Japanese site keeps working after later Google searches and other navigation that drops locale markers. YouTube retains its reload-loop protection.": "Googleで続けて検索した場合や、移動先のURLから言語指定が消えた場合も、「日本語のサイトを要求」が働くようにしました。YouTubeで読み込みが繰り返されるのを防ぐ仕組みは保っています。",
+    "Image OCR taps reuse existing recognized text. Automatic image scans show a corner mark only after text is ready, and hidden or overlapping image copies no longer keep duplicate marks.": "画像内の文字をタップすると、すでに読み取った文字で検索します。自動読み取りのマークは文字を読み取った後だけ表示し、非表示または重なった画像のマークが二重に残らないようにしました。",
+    "Words without a study state no longer pick up grey underlines on website controls. Reddit reply and timestamp labels receive annotations; hold a word in a native control to open lookup while a quick tap keeps its action.": "学習状況のない単語がウェブサイトのコントロール上で灰色の下線を付けられる問題を修正しました。Redditの返信や時刻のラベルにも注釈を付け、コントロール内の単語を長押しすると検索できます。短いタップでは元の操作を行えます。",
+    "The local deck in “Add to deck” is called “Default”. YouTube filtering no longer shows its hidden-video notice.": "「デッキに追加」のローカルデッキ名を「デフォルト」にしました。YouTubeのフィルターによる非表示動画の通知は表示しなくなりました。",
+    "Hold a word in a link or button to look it up. A quick tap keeps the website’s action.": "リンクやボタンの単語を長押しすると検索できます。短いタップではウェブサイトの元の操作を行えます。",
+    "An image gets a small corner mark after よむ finds text. Tap the recognized text to look it up.": "画像に文字が見つかると、角に小さなマークが表示されます。読み取った文字をタップすると検索できます。",
+    "Words saved without a connected service go to the Default deck in Study.": "サービスを連携せずに保存した単語は、Studyのデフォルトデッキに入ります。",
+
+    "Readings follow the page’s typeface and scale with its text, with stronger contrast for small kana.": "読みはページの書体に合わせて本文と一緒に拡大し、小さな仮名もくっきり表示します。",
+    "Shorts caption fallback reads captions beside the player within the active reel, without mixing in neighboring videos.": "Shortsの字幕を補う処理で、再生中の動画内にあるプレーヤー横の字幕も読み取り、前後の動画の字幕が混ざらないようにしました。",
+    "Furigana is larger and has stronger contrast, including when page text is enlarged. Narrow word popups put the pitch graph below the headword and keep long spellings clear of the audio controls.": "ふりがなを大きく、くっきり表示し、本文を拡大した場合も読みやすくしました。幅の狭い単語ポップアップではピッチ図を見出し語の下に置き、長い表記が音声ボタンに重ならないようにしました。",
+    "Fixed homepage edge spacing on phones and tablets, and reserved the video’s space before it loads.": "スマートフォンとタブレットでホームページの左右の余白を修正し、動画の読み込み前から表示領域を確保しました。",
+    "Settings opened from a website now go straight to Study from the original tap or keyboard shortcut.": "ウェブサイトで設定をタップするかショートカットを押すと、その操作で直接Studyの設定が開きます。",
+    "Colour visibility settings no longer reveal duplicate annotation text. Ordinary document annotations scroll with the page; busy pages give every reading a visibility check.": "単語の色の表示設定によって注釈の文字が二重に表示される問題を修正しました。通常のページの注釈は本文と一緒にスクロールし、注釈が多いページでもすべての読みの表示状態を確認します。",
+    "YouTube navigation and filter labels receive passive annotations without changing their actions. Readings that cannot fit without covering text stay available in the word lookup.": "YouTubeのナビゲーションと絞り込みラベルは、元の操作を保ったまま注釈が付きます。文字に重ならずに表示できない読みは、単語のポップアップで確認できます。",
+    "Library search matches hiragana, katakana and half-width kana, remembers filters in the page address, and offers a clear-filters action. Results appear before the full attribution, and book links expose their level to screen readers.": "本の検索でひらがな・カタカナ・半角カナを区別せずに検索でき、絞り込み条件をページのURLに保存して解除できるようになりました。検索結果は出典の説明より前に表示し、本のリンクでは読み上げソフトにもレベルを伝えます。",
+    "The donation chooser works in Japanese, fits short screens, and releases the page when following its running-costs link. Language switching keeps the current section on translated pages.": "寄付の選択画面を日本語に対応し、高さの低い画面でも操作できるようにしました。運営費へのリンクを開くと選択画面が閉じ、翻訳済みのページで言語を切り替えても現在の節を維持します。",
+    "PDF and video menus close with Escape or an outside press and scroll on short screens. File status stays visible and is announced; open tabs follow language changes. Unsupported video files report an error and return to the file picker. PDFs remain readable when position storage is unavailable.": "PDFと動画のメニューはEscまたは外側のタップで閉じ、高さの低い画面ではスクロールできます。ファイルの状態は開いた後も表示して読み上げ、別タブでの言語変更も反映します。再生できない動画はエラーを表示してファイル選択に戻り、読書位置を保存できなくてもPDFを読めます。",
+    "On another website, the Settings action opens Study settings directly. If a reading would cover nearby text, open that word’s lookup to see it.": "他のウェブサイトで設定を選ぶと、Studyの設定が直接開きます。周囲の文字に重なる読みは、その単語のポップアップで確認できます。",
+
     "What do the readings and underlines mean? {#readings-and-underlines}": "読みと下線は何を表していますか？ {#readings-and-underlines}",
     "Permalink to \"What do the readings and underlines mean? {#readings-and-underlines}\"": "「読みと下線は何を表していますか？」へのパーマリンク",
     "Page annotations keep the original typeface, skip footnote markers, and use smaller muted readings. Study-state lines replace pitch colours by default; failed words keep their readings. Saved custom choices are preserved.": "ページの注釈は元の書体を保ち、脚注の記号を除外し、小さく落ち着いた色で読みを表示します。下線は初期設定でピッチではなく学習状況を示し、間違えた単語には読みが残ります。保存済みの選択は保たれます。",

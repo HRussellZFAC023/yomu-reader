@@ -275,7 +275,6 @@ Filter YouTube for Japanese.
 | --- | --- | --- | --- |
 | Japanese YouTube only | — | on | `youtubeImmersionEnabled` |
 | Not yet described | — | off | `youtubeImmersionEnabledChosen` |
-| Show hidden-video notice | — | on | `youtubeShowFilterNotice` |
 | Show Japanese channel suggestions | — | on | `youtubeShowChannelRecommendations` |
 | Not yet described | — | off | `youtubeShowChannelRecommendationsChosen` |
 
@@ -357,4 +356,5 @@ Yomu stores these the same way, and a settings export carries them. Some are wri
 | Dictionary result limit | — | `12` | `localDictionaryMaxResults` |
 | Not yet described | — | empty list | `dictionaryPreferences` |
 | Transcript panel position | — | `right` | `subtitleTranscriptPlacement` |
+| Show hidden-video notice | — | on | `youtubeShowFilterNotice` |
 | Request Japanese sites | — | off | `preferJapaneseSiteLanguage` |

@@ -50,6 +50,26 @@ export function currentSensitiveSettingsSurfaceIsTrusted(host: SensitiveSettings
     return currentSensitiveSettingsSurfaceAccess(host).trusted;
 }
 
+/** Keep the original gesture alive: an external-page Settings tap goes straight
+ * to the owned Study surface. Eventless requests retain the recovery launcher. */
+export function openSettingsFromTrustedInteraction(
+    event: Event | undefined,
+    language: InterfaceLanguage,
+    toast: (message: string) => void,
+    panel?: string,
+): boolean {
+    if (!event || !isDirectTrustedReaderInteraction(event)) return false;
+    const access = sensitiveSettingsSurfaceAccess(location.href, firefoxAuthenticationInfoSettingsPageUrl());
+    if (access.trusted) return false;
+    const url = sensitiveSettingsLauncherForPanel(access.launcherUrl, panel);
+    // Calling before the first await is required by Safari's popup policy.
+    void openTrustedSettingsSurface(url).then(opened => {
+        if (!opened) toast(uiText(language, WEB_SETTINGS_PROTOCOLS.has(new URL(url).protocol)
+            ? 'settingsPopupHelp' : 'settingsCompanionUnavailable'));
+    }, () => toast(uiText(language, 'settingsCompanionUnavailable')));
+    return true;
+}
+
 export function mountSensitiveSettingsLauncher(
     host: SensitiveSettingsLauncherHost,
     modal: LookupModalAccessibility,

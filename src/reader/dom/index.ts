@@ -66,6 +66,7 @@ import {
     unregisterDocumentAnnotationPortalMirror,
 } from './youtube-chrome-annotation-portal';
 import { sourcePreservingProseNeedsDocumentPortal } from './document-portal-prose-policy';
+import { nativeTextRects } from './reading-collision';
 import { furiganaSettingsForTarget, targetForcesAllFurigana, targetKeepsInFlowReadings } from './furigana-mode-stamp';
 import { syncRubyEdgeOverhang } from './ruby-overhang';
 import { commonFragmentTextHost, scanTargetPaintRoots, scanTargetSourceScope } from './scan-paint-roots';
@@ -3200,6 +3201,7 @@ const SOURCE_FRAGMENT_CLASS = 'jpdb-reader-source-fragment';
 
 interface AdditiveMirrorProjectionContext {
     host: HTMLElement;
+    nativeRects?: readonly DOMRect[];
     source: ReturnType<typeof hostOriginalTextWithNodeOffsets>;
     mirrorRect: DOMRect;
     scaleX: number;
@@ -3265,6 +3267,7 @@ function projectPreparedAdditiveTextMirror(
         || !context.host.isConnected
         || pageConcealsTextMirrorHost(context.host)
         || Boolean(context.documentPortal && context.topLayerConcealed);
+    context.nativeRects = readingsConcealed ? [] : nativeTextRects(host);
     const projections = Array.from(words).map(word => readAdditiveMirrorWordProjection(
         word,
         context,
@@ -3684,7 +3687,7 @@ function projectedRubyReading(
         : sourceRectsFor(start, end)
             .find(candidate => !context.readingClipRect || rectsIntersect(candidate, context.readingClipRect)) ?? null;
     if (!rect) return null;
-    return { source: reading, anchor: context.host, rect, measure };
+    return { source: reading, anchor: context.host, rect, measure, nativeRects: context.nativeRects };
 }
 
 function sourceClientRects(
@@ -4203,9 +4206,9 @@ function styleAdditiveMirrorPaint(root: HTMLElement, projectedWordsOnly = false)
     // boundary, so bridge the selected semantic source onto the word. Painting
     // a native text-decoration here would create a second engine-dependent
     // baseline beside the exact source-fragment underline.
-    const paint = source
-        ? `var(--jpdb-reader-source-${source}-decoration, transparent)`
-        : 'transparent';
+    const paint = source === 'status' || source === 'jpdb'
+        ? `var(--jpdb-reader-${source}-underline, transparent)`
+        : source ? `var(--jpdb-reader-source-${source}-decoration, transparent)` : 'transparent';
     const highlightSource = selectedWordColorSourceToken(documentElement, ['highlight'], ADDITIVE_HIGHLIGHT_SOURCES);
     const softPaint = highlightSource
         ? `var(--jpdb-reader-source-${highlightSource}-soft, transparent)`
@@ -4222,6 +4225,9 @@ function styleAdditiveMirrorWordPaint(
     softPaint: string,
     visible: boolean,
 ): void {
+    // Colour opt-outs restore native glyph colour with !important. A mirror
+    // never owns those glyphs, including kana with no ruby-base child.
+    setInlineStyleIfChanged(word, '-webkit-text-fill-color', 'transparent', 'important');
     removeInlineStyleIfPresent(word, 'text-decoration-color');
     removeInlineStyleIfPresent(word, '--jpdb-reader-additive-decoration');
     setInlineStyleIfChanged(word, '--jpdb-reader-word-decoration-source', visible ? paint : 'transparent');

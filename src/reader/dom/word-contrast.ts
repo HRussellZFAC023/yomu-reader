@@ -10,8 +10,9 @@ const TEXT_CONTRAST = 4.5;
 const DECORATION_CONTRAST = 3;
 const HIGHLIGHT_CONTRAST = 1.45;
 // How far a reading eases from the prose ink toward the backdrop. Readings are
-// text, so the result is still held at TEXT_CONTRAST.
-const FURIGANA_INK_EASE = 0.3;
+// small text, so readings need stronger contrast than the full-size prose.
+const FURIGANA_INK_EASE = 0.12;
+const FURIGANA_CONTRAST = 7;
 const FURIGANA_COLOR_VAR = '--jpdb-reader-furi-color';
 const FURIGANA_WORD_SELECTOR = '.jpdb-reader-has-furi, .jpdb-reader-detached-reading-word';
 const LINK_SELECTOR = 'a[href]';
@@ -514,7 +515,7 @@ function clearContrastVars(word: HTMLElement): void {
 /**
  * One quiet colour for every reading on a page: the ink of the prose the word
  * sits in (the nearest ancestor outside any link, so a linked word's reading
- * is not blue), eased toward the sampled backdrop and held at 4.5:1. Readings
+ * is not blue), eased toward the sampled backdrop and held at 7:1. Readings
  * are text; muted must never mean unreadable.
  */
 function applyFuriganaColor(word: HTMLElement, backdropHex: string, furiganaColor: FuriganaColorReader): void {
@@ -544,7 +545,7 @@ function furiganaColorReader(): FuriganaColorReader {
         let color = colorByInk.get(key);
         if (color === undefined) {
             const opaqueInk = cssColorToHex(ink, cssColorToRgba(backdropHex) ?? undefined) ?? bestTextColor(backdropHex);
-            color = readableOn(mixHex(opaqueInk, backdropHex, FURIGANA_INK_EASE), backdropHex, TEXT_CONTRAST);
+            color = readableOn(mixHex(opaqueInk, backdropHex, FURIGANA_INK_EASE), backdropHex, FURIGANA_CONTRAST);
             colorByInk.set(key, color);
         }
         return color;

@@ -40,6 +40,15 @@ function openFloatingButton(options: {
 }
 
 describe('floating button actions', () => {
+    it('forwards the original Settings click so Study can open within that gesture', () => {
+        const openSettings = vi.fn();
+        const mounted = openFloatingButton({ actions: { openSettings } });
+        try {
+            const event = new MouseEvent('click', { bubbles: true, cancelable: true });
+            document.querySelector('[data-radial-id="settings"]')!.dispatchEvent(event);
+            expect(openSettings).toHaveBeenCalledWith(event);
+        } finally { mounted.dispose(); }
+    });
     it('names its actions without restating the language', () => {
         const mounted = openFloatingButton({ actions: { hasSubtitleVideo: () => true, isYouTube: () => true } });
         try {

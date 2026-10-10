@@ -47,7 +47,7 @@ export type PuckPowerState = 'on' | 'no-furigana' | 'paused';
 
 /** Context actions surfaced by the puck's radial menu. */
 export interface FloatingButtonActions {
-    openSettings(): void;
+    openSettings(event?: Event): void;
     openStudyPage(): void;
     cyclePowerState(): Promise<void>;
     powerState(): PuckPowerState;
@@ -168,7 +168,7 @@ function settingsRadialAction(settings: ReaderSettings, actions: FloatingButtonA
         id: 'settings',
         label: uiText(settings.interfaceLanguage, 'settings'),
         icon: 'settings',
-        run: () => actions.openSettings(),
+        run: event => actions.openSettings(event),
     };
 }
 

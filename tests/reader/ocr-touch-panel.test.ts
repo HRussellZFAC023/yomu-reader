@@ -500,6 +500,33 @@ describe('OCR sentence focus', () => {
         }
     });
 
+    it.each(['all', 'off'] as const)('preserves pressed OCR glyphs across activation with %s furigana', async furiganaMode => {
+        stubInstantIntersectionObserver();
+        const { controller } = createOcrImageControllerFixture({
+            settings: { furiganaMode },
+            parseJapanese: vi.fn(async text => [richOcrToken(text)]),
+        });
+        try {
+            controller.init();
+            await waitForExpect(() => expect(document.querySelector('.jpdb-ocr-line .jpdb-reader-word')).not.toBeNull());
+            const line = document.querySelector<HTMLElement>('.jpdb-ocr-line')!;
+            const word = line.querySelector<HTMLElement>('.jpdb-reader-word')!;
+            const glyph = word.querySelector<HTMLElement>('.jpdb-ocr-visual-text')!;
+            expect(glyph).not.toBeNull();
+            line.dispatchEvent(new Event('pointerenter'));
+            glyph.dispatchEvent(new FocusEvent('focusin', { bubbles: true }));
+            dispatchPointerEvent(glyph, 'pointerdown', { pointerType: 'touch', clientX: 120, clientY: 120 });
+            glyph.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, clientX: 120, clientY: 120 }));
+            expect(glyph.isConnected).toBe(true);
+            expect(word.querySelector('.jpdb-ocr-visual-text')).toBe(glyph);
+            expect(line.dataset.pinned).toBe('true');
+        } finally {
+            controller.destroy();
+            vi.unstubAllGlobals();
+            document.body.replaceChildren();
+        }
+    });
+
     it('keeps OCR furigana and pitch prepared while selection changes the active line', async () => {
         stubInstantIntersectionObserver();
         const image = document.createElement('img');
@@ -1085,6 +1112,16 @@ describe('OCR sentence focus', () => {
 
             expect(line.textContent).toBe(sentence);
             expect(line.querySelector('.jpdb-ocr-visual-text')).toBeNull();
+
+            settings.popupActivationMode = 'click';
+            controller.refresh();
+            const word = line.querySelector<HTMLElement>('.jpdb-reader-word')!;
+            const glyph = word.querySelector<HTMLElement>('.jpdb-ocr-visual-text')!;
+            expect(glyph).not.toBeNull();
+            line.dispatchEvent(new Event('pointerenter'));
+            dispatchPointerEvent(glyph, 'pointerdown', { pointerType: 'touch', clientX: 120, clientY: 120 });
+            expect(glyph.isConnected).toBe(true);
+            expect(word.querySelector('.jpdb-ocr-visual-text')).toBe(glyph);
         } finally {
             controller.destroy();
             document.body.replaceChildren();

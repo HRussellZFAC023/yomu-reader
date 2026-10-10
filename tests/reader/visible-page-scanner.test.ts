@@ -1239,7 +1239,7 @@ describe('VisiblePageScanner', () => {
     // comment-scan test (1.6.122) so busy build machines don't flake.
     }, 40000);
 
-    it('leaves YouTube filter chips as drawn without stealing clicks', async () => {
+    it('annotates YouTube filter labels without changing native text or stealing clicks', async () => {
         const restoreRects = mockVisibleElementRects();
         vi.stubGlobal('location', {
             href: 'https://www.youtube.com/',
@@ -1282,8 +1282,10 @@ describe('VisiblePageScanner', () => {
         try {
             await scanner.scanVisiblePage({ silent: true });
 
-            // Chips are YouTube's own tab controls: no words, no mirrors.
-            expect(document.querySelector('ytd-feed-filter-chip-bar-renderer .jpdb-reader-word, ytd-feed-filter-chip-bar-renderer .jpdb-reader-text-mirror')).toBeNull();
+            const mirrors = document.querySelectorAll('ytd-feed-filter-chip-bar-renderer .jpdb-reader-text-mirror');
+            expect(mirrors.length).toBeGreaterThan(0);
+            expect(document.querySelector('button')?.getAttribute('aria-selected')).toBe('true');
+            expect(document.querySelector('button .ytChipShapeChip > div')?.firstChild?.textContent).toBe('すべて');
 
             document.querySelectorAll<HTMLButtonElement>('button')[0]?.click();
             document.querySelectorAll<HTMLButtonElement>('button')[1]?.click();
@@ -1296,7 +1298,7 @@ describe('VisiblePageScanner', () => {
         }
     });
 
-    it('leaves YouTube mini-guide labels page-owned while preserving native link dispatch', async () => {
+    it('adds passive readings to mini-guide labels while preserving native link dispatch', async () => {
         const restoreRects = mockVisibleElementRects();
         vi.stubGlobal('location', {
             href: 'https://www.youtube.com/',
@@ -1344,12 +1346,12 @@ describe('VisiblePageScanner', () => {
         try {
             const guide = document.querySelector<HTMLElement>('ytd-mini-guide-renderer')!;
             const labels = [...guide.querySelectorAll<HTMLElement>('a#endpoint .title')];
-            const nativeHtml = guide.innerHTML;
+            const nativeTexts = labels.map(label => label.firstChild);
             await scanner.scanVisiblePage({ silent: true });
 
-            expect(parseJapanese).not.toHaveBeenCalled();
-            expect(guide.innerHTML).toBe(nativeHtml);
-            expect(guide.querySelector('.jpdb-reader-word,.jpdb-reader-text-mirror')).toBeNull();
+            expect(parseJapanese).toHaveBeenCalled();
+            expect(labels.map(label => label.firstChild)).toEqual(nativeTexts);
+            expect(guide.querySelector('.jpdb-reader-text-mirror')).not.toBeNull();
             expect(labels.every(label => documentPortalReaderWordScopeForSource(label) === null)).toBe(true);
             expect(guide.textContent).toContain('ホーム');
             expect(guide.textContent).toContain('登録チャンネル');
@@ -1367,7 +1369,7 @@ describe('VisiblePageScanner', () => {
         }
     });
 
-    it('leaves the YouTube topbar create button as drawn while preserving button dispatch', async () => {
+    it('annotates the live YouTube Create label while preserving button dispatch', async () => {
         const restoreRects = mockVisibleElementRects();
         vi.stubGlobal('location', {
             href: 'https://www.youtube.com/',
@@ -1376,13 +1378,14 @@ describe('VisiblePageScanner', () => {
         });
         document.body.innerHTML = `
             <ytd-app>
-                <ytd-masthead>
+                <ytd-masthead><div id="buttons">
                     <yt-button-shape>
                         <button class="ytSpecButtonShapeNextHost" type="button" aria-label="作成">
-                            <span class="yt-core-attributed-string ytAttributedStringHost">作成</span>
+                            <svg aria-hidden="true"></svg>
+                            <div class="ytSpecButtonShapeNextButtonTextContent"><span class="ytAttributedStringHost" role="text">作成</span></div>
                         </button>
                     </yt-button-shape>
-                </ytd-masthead>
+                </div></ytd-masthead>
             </ytd-app>
         `;
         let clicked = false;
@@ -1396,8 +1399,10 @@ describe('VisiblePageScanner', () => {
         try {
             await scanner.scanVisiblePage({ silent: true });
 
-            expect(parseJapanese).not.toHaveBeenCalled();
-            expect(document.querySelector('ytd-masthead .jpdb-reader-word, ytd-masthead .jpdb-reader-text-mirror')).toBeNull();
+            expect(parseJapanese).toHaveBeenCalled();
+            expect(document.querySelector('ytd-masthead .jpdb-reader-text-mirror')).not.toBeNull();
+            expect(document.querySelector('button')?.getAttribute('aria-label')).toBe('作成');
+            expect(document.querySelector('button > svg')).not.toBeNull();
 
             document.querySelector<HTMLButtonElement>('button')?.click();
             expect(clicked).toBe(true);

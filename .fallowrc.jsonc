@@ -116,6 +116,8 @@
     // Both standalone hosted reader workers load this classic-worker Module
     // through importScripts(), which the static module graph cannot follow.
     "docs/public/hosted-reader-worker.js",
+    // Shared menu entry point loaded by both standalone HTML readers.
+    "docs/public/hosted-shell-controls.js",
     // Generated hosted appearance module, loaded by a module <script> in the
     // hosted HTML shells (scripts/sync-docs-userscript.cjs writes it).
     "docs/public/hosted-appearance-settings.js",

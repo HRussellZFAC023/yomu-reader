@@ -1931,6 +1931,35 @@ const YOUTUBE_APP_HOSTS = /* @__PURE__ */ new Set([
 function isYouTubeAppHostname(hostname = location.hostname) {
   return YOUTUBE_APP_HOSTS.has(hostname.toLowerCase());
 }
+const YOUTUBE_READABLE_LABEL_ROOTS = [
+  '.ytChipShapeButtonReset[role="tab"]',
+  "yt-chip-cloud-chip-renderer",
+  "ytd-guide-entry-renderer",
+  "ytd-guide-collapsible-section-entry-renderer",
+  "ytd-mini-guide-entry-renderer",
+  "ytd-masthead #buttons .ytSpecButtonShapeNextButtonTextContent"
+];
+const LABEL_SELECTOR = YOUTUBE_READABLE_LABEL_ROOTS.join(",");
+function isYouTubeReadableLabel(element) {
+  return isYouTubeAppHostname() && Boolean(element.closest(LABEL_SELECTOR));
+}
+function composedAncestorElement(element) {
+  if (element.assignedSlot) return element.assignedSlot;
+  if (element.parentElement) return element.parentElement;
+  const root = element.getRootNode();
+  return typeof ShadowRoot !== "undefined" && root instanceof ShadowRoot && root.host instanceof HTMLElement ? root.host : null;
+}
+function composedClosestElement(element, selector) {
+  let current = element;
+  while (current) {
+  if (current.matches(selector)) return current;
+  current = current instanceof HTMLElement ? composedAncestorElement(current) : current.parentElement;
+  }
+  return null;
+}
+function isRedditReadableLabel(element) {
+  return /(^|\.)reddit\.com$/i.test(location.hostname) && Boolean(composedClosestElement(element, 'button,[role="button"],summary,time,faceplate-timeago'));
+}
 const ANNOTATION_SCOPE_SURFACE_ATTRIBUTE = "data-yomu-runtime-surface";
 const ANNOTATION_SCOPE_SURFACE_SELECTOR = `[${ANNOTATION_SCOPE_SURFACE_ATTRIBUTE}], .yomu-try-me-text`;
 const DECORATION_STATE_ATTRIBUTE = "data-yomu-decoration";
@@ -2038,12 +2067,6 @@ function closestRubyFragileConstrainedRow(element) {
   current = composedAncestorElement(current);
   }
   return null;
-}
-function composedAncestorElement(element) {
-  if (element.assignedSlot) return element.assignedSlot;
-  if (element.parentElement) return element.parentElement;
-  const root = element.getRootNode();
-  return typeof ShadowRoot !== "undefined" && root instanceof ShadowRoot && root.host instanceof HTMLElement ? root.host : null;
 }
 function boxStyleIsClipCapable(box) {
   const facts = constrainedRowStyleFacts(box);
@@ -2528,6 +2551,7 @@ function setReviewCardFrontPredicate(predicate) {
 function classifyDecoration(element) {
   if (element.closest(READER_ROOT_SELECTOR)) return "content-ruby";
   if (decorationMustBeSkipped(element)) return "skip";
+  if (isYouTubeReadableLabel(element) || isRedditReadableLabel(element)) return "interactive-passive";
   if (element instanceof HTMLElement && youtubeNativeChromeMustRemainPageOwned(element)) {
   return "skip";
   }
@@ -2581,6 +2605,7 @@ function youtubeShelfExpansionChromeMustRemainPageOwned(element) {
   return Boolean(composedClosestMatching(element, YOUTUBE_SHELF_EXPANSION_CONTROL_SELECTOR));
 }
 function youtubeNativeChromeMustRemainPageOwned(element) {
+  if (isYouTubeReadableLabel(element)) return false;
   if (youtubeShelfExpansionChromeMustRemainPageOwned(element)) return true;
   if (!isYouTubeAppHostname()) return false;
   return Boolean(youtubeNativeChromeControl(element));
@@ -2696,6 +2721,34 @@ function registerDecorationPolicyRuntimeApi(api) {
   });
 }
 registerDecorationPolicyRuntimeApi(decorationPolicy);
+const SITE_INTERACTION_COPY = {
+  en: {
+  settingsPopupHelp: "If Settings did not open, allow pop-ups and try again.",
+  donationTitle: "Donate",
+  donationLead: "Yomu is free. Donations help pay its running costs and do not unlock anything.",
+  donationOnceOrMonthly: "One-off or monthly.",
+  donationMonthly: "Monthly.",
+  donationCard: "Card",
+  donationCurrencies: "One-off in GBP, USD, EUR, CAD, AUD or JPY.",
+  donationCosts: "Where the money goes",
+  donationClose: "Close",
+  libraryResetFilters: "Clear filters",
+  videoLoadFailed: "This video could not be played. Try another file or a format your browser supports."
+  },
+  ja: {
+  settingsPopupHelp: "設定が開かなかった場合は、ポップアップを許可してもう一度お試しください。",
+  donationTitle: "寄付",
+  donationLead: "よむは無料です。寄付は運営費に使われ、寄付で使えるようになる機能はありません。",
+  donationOnceOrMonthly: "一回または毎月。",
+  donationMonthly: "毎月。",
+  donationCard: "カード",
+  donationCurrencies: "GBP・USD・EUR・CAD・AUD・JPYで一回の寄付。",
+  donationCosts: "寄付の使い道",
+  donationClose: "閉じる",
+  libraryResetFilters: "絞り込みを解除",
+  videoLoadFailed: "この動画を再生できませんでした。別のファイルか、ブラウザーが対応する形式をお試しください。"
+  }
+};
 const FURIGANA_HIDE_STATE_GROUPS = ["known", "due", "failed", "learning", "new"];
 const WORD_COLOR_HIDE_STATE_GROUPS = [...FURIGANA_HIDE_STATE_GROUPS, "ignored"];
 const APP_NAME = "よむ";
@@ -5671,6 +5724,7 @@ const GRADING_SERVICE_COPY = {
   }
 };
 const EN = {
+  defaultDeck: "Default",
   collectNoDestination: "None of your decks can take this word. Turn one on in Settings.",
   collectWordNotFound: "Not saved: this word was not found in your preferred grading service.",
   // An ordinary page can read these, so they name no service, deck or Anki state (ADR-0020).
@@ -5689,11 +5743,12 @@ const EN = {
   yomuLocalSrsDisabled: `Enable ${ACADEMY_SRS_LABEL} in Settings first.`,
   yomuLocalSrsStorageFailed: "Your Academy deck could not be saved. Browser storage may be full. Free some site storage, then try again.",
   yomuLocalSrsSaveInterrupted: "Your Academy deck was not saved because saving was interrupted. Try again.",
-  addedToYomuLocal: `Added to ${ACADEMY_SRS_LABEL}.`,
+  addedToYomuLocal: "Added to your default deck.",
   // An Academy word kept without a schedule (Library, Stats and the popups).
   savedWord: "Saved"
 };
 const JA = {
+  defaultDeck: "デフォルト",
   collectNoDestination: "この単語を追加できるデッキがありません。設定でデッキを有効にしてください。",
   collectWordNotFound: "優先採点サービスでこの単語が見つからなかったため、保存していません。",
   collectAlreadySaved: "すでにデッキにあります。編集はStudyで行えます。",
@@ -5710,7 +5765,7 @@ const JA = {
   yomuLocalSrsDisabled: "先に設定でAcademyを有効にしてください。",
   yomuLocalSrsStorageFailed: "Academyデッキを保存できませんでした。ブラウザーの保存容量が不足している可能性があります。サイトの保存容量を空けてから、もう一度お試しください。",
   yomuLocalSrsSaveInterrupted: "保存が中断されたため、Academyデッキに保存されませんでした。もう一度お試しください。",
-  addedToYomuLocal: "Academyに追加しました。",
+  addedToYomuLocal: "デフォルトのデッキに追加しました。",
   savedWord: "保存済み"
 };
 const COLLECTION_COPY = { en: EN, ja: JA };
@@ -5744,6 +5799,7 @@ const COPY = {
   en: {
   ...PRACTICE_SESSION_COPY.en,
   ...COLLECTION_COPY.en,
+  ...SITE_INTERACTION_COPY.en,
   settingsTitle: `${APP_NAME} Settings`,
   manualPageScanShortcut: "Manual page scan shortcut",
   scanPage: "Scan page",
@@ -6142,12 +6198,6 @@ const COPY = {
   youtubeShowChannelRecommendations: "Show Japanese channel suggestions",
   youtubeShowFilterNotice: "Show hidden-video notice",
   youtubeHelp: "Filter YouTube for Japanese.",
-  youtubeShowHiddenVideos: "Show hidden videos",
-  youtubeHideHiddenVideos: "Hide hidden videos",
-  youtubeHideNotice: "Hide notice",
-  youtubeFilterShowing: "{appName} shows {count} hidden item{plural}",
-  youtubeFilterHid: "{appName} hid {count} other-language item{plural}",
-  youtubeFilterVisible: "{count} Japanese items stayed visible.",
   youtubeToggleToastOn: "YouTube immersion filter enabled.",
   youtubeToggleToastOff: "YouTube immersion filter disabled.",
   ankiEnabled: "Enable Anki mining",
@@ -6861,6 +6911,7 @@ function parseUiCopyTable(rows) {
   return copy;
 }
 const JA_COPY = {
+  ...SITE_INTERACTION_COPY.ja,
   ...parseUiCopyTable(String.raw`
 settingsTitle	{APP_NAME} 設定
 automatic	自動
@@ -7670,12 +7721,6 @@ preferJapaneseSiteLanguage	日本語版サイトをリクエスト
 youtubeShowChannelRecommendations	日本語チャンネル候補を表示
 youtubeShowFilterNotice	非表示動画の通知を表示
 youtubeHelp	YouTubeを日本語向けに絞ります。
-youtubeShowHiddenVideos	非表示動画を表示
-youtubeHideHiddenVideos	非表示動画を隠す
-youtubeHideNotice	通知を隠す
-youtubeFilterShowing	{appName}は非表示のYouTube項目{count}件を表示中
-youtubeFilterHid	{appName}は他の言語のYouTube項目{count}件を非表示
-youtubeFilterVisible	日本語らしい項目{count}件は表示したままです。
 youtubeToggleToastOn	YouTube没入フィルターをオンにしました。
 youtubeToggleToastOff	YouTube没入フィルターをオフにしました。
 ankiEnabled	Anki採掘を有効にする
@@ -14316,7 +14361,7 @@ const NEW_TAB_CACHE_KEY = "jpdb-reader-newtab-card-cache";
 function clearNewTabOfflineCache() {
   return gmStorageDelete(NEW_TAB_CACHE_KEY);
 }
-const CURRENT_YOMU_VERSION = "2.1.0".trim() ? "2.1.0".trim() : "dev";
+const CURRENT_YOMU_VERSION = "2.1.1".trim() ? "2.1.1".trim() : "dev";
 function latestYomuVersionFromVersionJson(value) {
   if (!value || typeof value !== "object") return null;
   const record2 = value;
@@ -15364,7 +15409,8 @@ function readYoutubeFormSettings(reader, current) {
   preferJapaneseSiteLanguage: current.preferJapaneseSiteLanguage,
   youtubeShowChannelRecommendations: channelRecommendations,
   youtubeShowChannelRecommendationsChosen: current.youtubeShowChannelRecommendationsChosen || channelControlsPresent && channelRecommendations !== current.youtubeShowChannelRecommendations,
-  youtubeShowFilterNotice: youtubeControlsPresent ? has("youtubeShowFilterNotice") : current.youtubeShowFilterNotice
+  // Retain the imported legacy value; the notice is no longer a UI feature.
+  youtubeShowFilterNotice: current.youtubeShowFilterNotice
   };
 }
 function readShortcutFormSettings(reader, current) {
@@ -23450,7 +23496,6 @@ function renderYoutubeSettingsPanel(settings2) {
                         <input type="hidden" name="youtubeImmersionSettingsPresent" value="on">
                         <input type="hidden" name="youtubeImmersionEnabledInitial" value="${immersionEnabled ? "on" : "off"}">
                         ${checkbox("youtubeImmersionEnabled", text2("youtubeImmersionEnabled"), immersionEnabled)}
-                        ${checkbox("youtubeShowFilterNotice", text2("youtubeShowFilterNotice"), settings2.youtubeShowFilterNotice)}
                     </div>
                     <div data-language-family="youtube-channel-suggestions">
                         <input type="hidden" name="youtubeChannelSuggestionSettingsPresent" value="on">

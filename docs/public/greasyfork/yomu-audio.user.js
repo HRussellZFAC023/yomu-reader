@@ -1,5 +1,33 @@
 (function() {
 "use strict";
+const SITE_INTERACTION_COPY = {
+  en: {
+  settingsPopupHelp: "If Settings did not open, allow pop-ups and try again.",
+  donationTitle: "Donate",
+  donationLead: "Yomu is free. Donations help pay its running costs and do not unlock anything.",
+  donationOnceOrMonthly: "One-off or monthly.",
+  donationMonthly: "Monthly.",
+  donationCard: "Card",
+  donationCurrencies: "One-off in GBP, USD, EUR, CAD, AUD or JPY.",
+  donationCosts: "Where the money goes",
+  donationClose: "Close",
+  libraryResetFilters: "Clear filters",
+  videoLoadFailed: "This video could not be played. Try another file or a format your browser supports."
+  },
+  ja: {
+  settingsPopupHelp: "設定が開かなかった場合は、ポップアップを許可してもう一度お試しください。",
+  donationTitle: "寄付",
+  donationLead: "よむは無料です。寄付は運営費に使われ、寄付で使えるようになる機能はありません。",
+  donationOnceOrMonthly: "一回または毎月。",
+  donationMonthly: "毎月。",
+  donationCard: "カード",
+  donationCurrencies: "GBP・USD・EUR・CAD・AUD・JPYで一回の寄付。",
+  donationCosts: "寄付の使い道",
+  donationClose: "閉じる",
+  libraryResetFilters: "絞り込みを解除",
+  videoLoadFailed: "この動画を再生できませんでした。別のファイルか、ブラウザーが対応する形式をお試しください。"
+  }
+};
 const APP_NAME = "よむ";
 const ACADEMY_SRS_LABEL = "Academy";
 const APP_SLUG = "yomu";
@@ -2811,6 +2839,7 @@ const GRADING_SERVICE_COPY = {
   }
 };
 const EN = {
+  defaultDeck: "Default",
   collectNoDestination: "None of your decks can take this word. Turn one on in Settings.",
   collectWordNotFound: "Not saved: this word was not found in your preferred grading service.",
   // An ordinary page can read these, so they name no service, deck or Anki state (ADR-0020).
@@ -2829,11 +2858,12 @@ const EN = {
   yomuLocalSrsDisabled: `Enable ${ACADEMY_SRS_LABEL} in Settings first.`,
   yomuLocalSrsStorageFailed: "Your Academy deck could not be saved. Browser storage may be full. Free some site storage, then try again.",
   yomuLocalSrsSaveInterrupted: "Your Academy deck was not saved because saving was interrupted. Try again.",
-  addedToYomuLocal: `Added to ${ACADEMY_SRS_LABEL}.`,
+  addedToYomuLocal: "Added to your default deck.",
   // An Academy word kept without a schedule (Library, Stats and the popups).
   savedWord: "Saved"
 };
 const JA = {
+  defaultDeck: "デフォルト",
   collectNoDestination: "この単語を追加できるデッキがありません。設定でデッキを有効にしてください。",
   collectWordNotFound: "優先採点サービスでこの単語が見つからなかったため、保存していません。",
   collectAlreadySaved: "すでにデッキにあります。編集はStudyで行えます。",
@@ -2850,7 +2880,7 @@ const JA = {
   yomuLocalSrsDisabled: "先に設定でAcademyを有効にしてください。",
   yomuLocalSrsStorageFailed: "Academyデッキを保存できませんでした。ブラウザーの保存容量が不足している可能性があります。サイトの保存容量を空けてから、もう一度お試しください。",
   yomuLocalSrsSaveInterrupted: "保存が中断されたため、Academyデッキに保存されませんでした。もう一度お試しください。",
-  addedToYomuLocal: "Academyに追加しました。",
+  addedToYomuLocal: "デフォルトのデッキに追加しました。",
   savedWord: "保存済み"
 };
 const COLLECTION_COPY = { en: EN, ja: JA };
@@ -2884,6 +2914,7 @@ const COPY = {
   en: {
   ...PRACTICE_SESSION_COPY.en,
   ...COLLECTION_COPY.en,
+  ...SITE_INTERACTION_COPY.en,
   settingsTitle: `${APP_NAME} Settings`,
   manualPageScanShortcut: "Manual page scan shortcut",
   scanPage: "Scan page",
@@ -3282,12 +3313,6 @@ const COPY = {
   youtubeShowChannelRecommendations: "Show Japanese channel suggestions",
   youtubeShowFilterNotice: "Show hidden-video notice",
   youtubeHelp: "Filter YouTube for Japanese.",
-  youtubeShowHiddenVideos: "Show hidden videos",
-  youtubeHideHiddenVideos: "Hide hidden videos",
-  youtubeHideNotice: "Hide notice",
-  youtubeFilterShowing: "{appName} shows {count} hidden item{plural}",
-  youtubeFilterHid: "{appName} hid {count} other-language item{plural}",
-  youtubeFilterVisible: "{count} Japanese items stayed visible.",
   youtubeToggleToastOn: "YouTube immersion filter enabled.",
   youtubeToggleToastOff: "YouTube immersion filter disabled.",
   ankiEnabled: "Enable Anki mining",
@@ -3982,6 +4007,7 @@ function parseUiCopyTable(rows) {
   return copy;
 }
 const JA_COPY = {
+  ...SITE_INTERACTION_COPY.ja,
   ...parseUiCopyTable(String.raw`
 settingsTitle	{APP_NAME} 設定
 automatic	自動
@@ -4791,12 +4817,6 @@ preferJapaneseSiteLanguage	日本語版サイトをリクエスト
 youtubeShowChannelRecommendations	日本語チャンネル候補を表示
 youtubeShowFilterNotice	非表示動画の通知を表示
 youtubeHelp	YouTubeを日本語向けに絞ります。
-youtubeShowHiddenVideos	非表示動画を表示
-youtubeHideHiddenVideos	非表示動画を隠す
-youtubeHideNotice	通知を隠す
-youtubeFilterShowing	{appName}は非表示のYouTube項目{count}件を表示中
-youtubeFilterHid	{appName}は他の言語のYouTube項目{count}件を非表示
-youtubeFilterVisible	日本語らしい項目{count}件は表示したままです。
 youtubeToggleToastOn	YouTube没入フィルターをオンにしました。
 youtubeToggleToastOff	YouTube没入フィルターをオフにしました。
 ankiEnabled	Anki採掘を有効にする

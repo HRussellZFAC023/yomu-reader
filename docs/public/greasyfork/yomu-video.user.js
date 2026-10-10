@@ -5546,6 +5546,34 @@ function isTargetSubtitleLanguage(value) {
   if (subtitles.languageAliases.includes(value.toLowerCase())) return true;
   return /[-_]/.test(value) && languageSubtag(value) === subtitles.languageTag;
 }
+const SITE_INTERACTION_COPY = {
+  en: {
+  settingsPopupHelp: "If Settings did not open, allow pop-ups and try again.",
+  donationTitle: "Donate",
+  donationLead: "Yomu is free. Donations help pay its running costs and do not unlock anything.",
+  donationOnceOrMonthly: "One-off or monthly.",
+  donationMonthly: "Monthly.",
+  donationCard: "Card",
+  donationCurrencies: "One-off in GBP, USD, EUR, CAD, AUD or JPY.",
+  donationCosts: "Where the money goes",
+  donationClose: "Close",
+  libraryResetFilters: "Clear filters",
+  videoLoadFailed: "This video could not be played. Try another file or a format your browser supports."
+  },
+  ja: {
+  settingsPopupHelp: "設定が開かなかった場合は、ポップアップを許可してもう一度お試しください。",
+  donationTitle: "寄付",
+  donationLead: "よむは無料です。寄付は運営費に使われ、寄付で使えるようになる機能はありません。",
+  donationOnceOrMonthly: "一回または毎月。",
+  donationMonthly: "毎月。",
+  donationCard: "カード",
+  donationCurrencies: "GBP・USD・EUR・CAD・AUD・JPYで一回の寄付。",
+  donationCosts: "寄付の使い道",
+  donationClose: "閉じる",
+  libraryResetFilters: "絞り込みを解除",
+  videoLoadFailed: "この動画を再生できませんでした。別のファイルか、ブラウザーが対応する形式をお試しください。"
+  }
+};
 function isAbortError(error) {
   return (error instanceof Error || error instanceof DOMException) && error.name === "AbortError";
 }
@@ -7259,6 +7287,7 @@ const GRADING_SERVICE_COPY = {
   }
 };
 const EN = {
+  defaultDeck: "Default",
   collectNoDestination: "None of your decks can take this word. Turn one on in Settings.",
   collectWordNotFound: "Not saved: this word was not found in your preferred grading service.",
   // An ordinary page can read these, so they name no service, deck or Anki state (ADR-0020).
@@ -7277,11 +7306,12 @@ const EN = {
   yomuLocalSrsDisabled: `Enable ${ACADEMY_SRS_LABEL} in Settings first.`,
   yomuLocalSrsStorageFailed: "Your Academy deck could not be saved. Browser storage may be full. Free some site storage, then try again.",
   yomuLocalSrsSaveInterrupted: "Your Academy deck was not saved because saving was interrupted. Try again.",
-  addedToYomuLocal: `Added to ${ACADEMY_SRS_LABEL}.`,
+  addedToYomuLocal: "Added to your default deck.",
   // An Academy word kept without a schedule (Library, Stats and the popups).
   savedWord: "Saved"
 };
 const JA = {
+  defaultDeck: "デフォルト",
   collectNoDestination: "この単語を追加できるデッキがありません。設定でデッキを有効にしてください。",
   collectWordNotFound: "優先採点サービスでこの単語が見つからなかったため、保存していません。",
   collectAlreadySaved: "すでにデッキにあります。編集はStudyで行えます。",
@@ -7298,7 +7328,7 @@ const JA = {
   yomuLocalSrsDisabled: "先に設定でAcademyを有効にしてください。",
   yomuLocalSrsStorageFailed: "Academyデッキを保存できませんでした。ブラウザーの保存容量が不足している可能性があります。サイトの保存容量を空けてから、もう一度お試しください。",
   yomuLocalSrsSaveInterrupted: "保存が中断されたため、Academyデッキに保存されませんでした。もう一度お試しください。",
-  addedToYomuLocal: "Academyに追加しました。",
+  addedToYomuLocal: "デフォルトのデッキに追加しました。",
   savedWord: "保存済み"
 };
 const COLLECTION_COPY = { en: EN, ja: JA };
@@ -7332,6 +7362,7 @@ const COPY = {
   en: {
   ...PRACTICE_SESSION_COPY.en,
   ...COLLECTION_COPY.en,
+  ...SITE_INTERACTION_COPY.en,
   settingsTitle: `${APP_NAME} Settings`,
   manualPageScanShortcut: "Manual page scan shortcut",
   scanPage: "Scan page",
@@ -7730,12 +7761,6 @@ const COPY = {
   youtubeShowChannelRecommendations: "Show Japanese channel suggestions",
   youtubeShowFilterNotice: "Show hidden-video notice",
   youtubeHelp: "Filter YouTube for Japanese.",
-  youtubeShowHiddenVideos: "Show hidden videos",
-  youtubeHideHiddenVideos: "Hide hidden videos",
-  youtubeHideNotice: "Hide notice",
-  youtubeFilterShowing: "{appName} shows {count} hidden item{plural}",
-  youtubeFilterHid: "{appName} hid {count} other-language item{plural}",
-  youtubeFilterVisible: "{count} Japanese items stayed visible.",
   youtubeToggleToastOn: "YouTube immersion filter enabled.",
   youtubeToggleToastOff: "YouTube immersion filter disabled.",
   ankiEnabled: "Enable Anki mining",
@@ -8449,6 +8474,7 @@ function parseUiCopyTable(rows) {
   return copy;
 }
 const JA_COPY = {
+  ...SITE_INTERACTION_COPY.ja,
   ...parseUiCopyTable(String.raw`
 settingsTitle	{APP_NAME} 設定
 automatic	自動
@@ -9258,12 +9284,6 @@ preferJapaneseSiteLanguage	日本語版サイトをリクエスト
 youtubeShowChannelRecommendations	日本語チャンネル候補を表示
 youtubeShowFilterNotice	非表示動画の通知を表示
 youtubeHelp	YouTubeを日本語向けに絞ります。
-youtubeShowHiddenVideos	非表示動画を表示
-youtubeHideHiddenVideos	非表示動画を隠す
-youtubeHideNotice	通知を隠す
-youtubeFilterShowing	{appName}は非表示のYouTube項目{count}件を表示中
-youtubeFilterHid	{appName}は他の言語のYouTube項目{count}件を非表示
-youtubeFilterVisible	日本語らしい項目{count}件は表示したままです。
 youtubeToggleToastOn	YouTube没入フィルターをオンにしました。
 youtubeToggleToastOff	YouTube没入フィルターをオフにしました。
 ankiEnabled	Anki採掘を有効にする
@@ -16899,7 +16919,7 @@ function readHiddenYouTubeCaptionText(video, readerRoot, options = {}) {
   return lines.join(" ").replace(/\s+/g, " ").trim();
 }
 function youtubeCaptionSearchRoot(video) {
-  return video.closest("#movie_player, .html5-video-player, ytd-player, ytd-watch-flexy, ytd-reel-video-renderer, ytd-shorts") ?? video.parentElement ?? document;
+  return video.closest("shorts-video, ytd-reel-video-renderer, ytm-reel-video-renderer") ?? video.closest("#movie_player, .html5-video-player, ytm-player, ytd-player, ytd-watch-flexy") ?? video.parentElement ?? document;
 }
 function hiddenYouTubeCaptionLine(element, readerRoot, options = {}) {
   if (isCaptionElementExcluded(element, readerRoot)) return "";
@@ -26293,7 +26313,6 @@ const YOUTUBE_FILTER_COLLAPSE_DELAY_MS = 80;
 const YOUTUBE_FILTER_SCROLL_COLLAPSE_DELAY_MS = 650;
 const YOUTUBE_FILTER_SCROLL_SETTLE_MS = 280;
 const YOUTUBE_FILTER_COLLAPSE_DURATION_MS = 240;
-const YOUTUBE_FILTER_NOTICE_AUTO_HIDE_MS = 1e4;
 const YOUTUBE_VISIBLE_BACKFILL_TARGET = 24;
 const YOUTUBE_BACKFILL_THROTTLE_MS = 1200;
 const YOUTUBE_SEARCH_AUTO_REVEAL_MIN_FILTERED = 8;
@@ -26364,21 +26383,10 @@ class YoutubeImmersionFilter {
   events;
   timer;
   metadataRescanTimer;
-  bar;
-  noticeAutoHideTimer;
-  noticeAutoHideScope = "";
   channelShelf;
   revealed = false;
-  dismissedNoticeScope = "";
-  // "Hide notice" is a SESSION dismissal: it must never persist — the
-  // permanent switch lives in the settings dialog only (2026-07-11 report:
-  // one tap on the notice silently disabled it forever).
-  noticeSessionHidden = false;
-  // Route scope that was auto-revealed because the user's own search came
-  // back all non-Japanese; cleared when the route changes or the user
-  // toggles manually.
+  // All-filtered searches are revealed only for their current route.
   autoRevealedScope = "";
-  noticeRouteKey = "";
   channelShelfRouteKey = "";
   channelShelfExpanded = false;
   channelShelfFilter = "all";
@@ -26555,18 +26563,12 @@ class YoutubeImmersionFilter {
   });
   if (this.shouldAutoRevealSearchResults(result)) {
     this.revealed = true;
-    this.autoRevealedScope = this.currentNoticeScope();
+    this.autoRevealedScope = this.currentRouteKey();
     this.schedule(0);
     return;
   }
   result.decisions.forEach((decision) => this.applyFilterDecision(decision));
   this.syncFilterableVideoShelves();
-  if (settings.youtubeShowFilterNotice && !this.noticeSessionHidden && shouldShowFilterNoticeForRoute()) {
-    this.renderNotice(result.filteredCount, result.shownCount, settings);
-  } else {
-    this.bar?.remove();
-    this.bar = void 0;
-  }
   this.syncChannelShelf(result.filteredCount, settings);
   this.maybeBackfillFeed(result.filteredCount, result.shownCount, result.visibleVideoIds.size);
   }
@@ -26823,113 +26825,17 @@ class YoutubeImmersionFilter {
   timers.forEach((timer) => window.clearTimeout(timer));
   this.cardTimers.delete(card);
   }
-  renderNotice(filteredCount, shownCount, settings) {
-  if (!filteredCount) {
-    this.removeNotice();
-    return;
-  }
-  const noticeScope = this.currentNoticeScope();
-  if (!this.bar && this.dismissedNoticeScope === noticeScope) return;
-  const notice = this.ensureNoticeBar();
-  this.updateNoticeSummary(notice.summary, filteredCount, shownCount, settings);
-  this.updateNoticeActions(notice, settings);
-  this.armNoticeAutoHide(noticeScope);
-  }
-  // The notice must not squat over the feed forever: after a grace period it
-  // dismisses itself for the current scope, and comes back on the next route.
-  armNoticeAutoHide(scope) {
-  if (this.noticeAutoHideTimer !== void 0 && this.noticeAutoHideScope === scope) return;
-  window.clearTimeout(this.noticeAutoHideTimer);
-  this.noticeAutoHideScope = scope;
-  this.noticeAutoHideTimer = window.setTimeout(() => {
-    this.noticeAutoHideTimer = void 0;
-    this.dismissedNoticeScope = scope;
-    this.removeNotice();
-  }, YOUTUBE_FILTER_NOTICE_AUTO_HIDE_MS);
-  }
-  ensureNoticeBar() {
-  if (!this.bar) {
-    this.bar = this.createNoticeBar();
-    document.body.append(this.bar);
-  }
-  return this.noticeElements(this.bar);
-  }
-  createNoticeBar() {
-  const bar = document.createElement("div");
-  bar.className = "jpdb-youtube-filter-bar";
-  bar.dataset.jpdbReaderRoot = "true";
-  bar.role = "status";
-  bar.ariaLive = "polite";
-  const summary = document.createElement("span");
-  summary.dataset.role = "summary";
-  summary.className = "jpdb-reader-sr-only";
-  const actions = document.createElement("div");
-  actions.className = "jpdb-youtube-filter-actions";
-  actions.append(noticeButton("toggle-hidden"), noticeButton("hide-notice"));
-  bar.append(summary, actions);
-  bar.addEventListener("click", (event) => this.handleNoticeClick(event));
-  return bar;
-  }
-  noticeElements(bar) {
-  return {
-    summary: bar.querySelector('[data-role="summary"]'),
-    toggleHidden: bar.querySelector('[data-action="toggle-hidden"]'),
-    hideNotice: bar.querySelector('[data-action="hide-notice"]')
-  };
-  }
-  handleNoticeClick(event) {
-  const action = event.target.closest("[data-action]")?.dataset.action;
-  if (action === "toggle-hidden") this.toggleHiddenVideos();
-  if (action === "hide-notice") this.dismissFilterNotice();
-  }
-  toggleHiddenVideos() {
-  this.revealed = !this.revealed;
-  this.autoRevealedScope = "";
-  this.schedule(0);
-  }
   shouldAutoRevealSearchResults(result) {
   if (this.revealed) return false;
   if (location.pathname !== "/results") return false;
   return result.shownCount === 0 && result.filteredCount >= YOUTUBE_SEARCH_AUTO_REVEAL_MIN_FILTERED;
   }
-  // Auto-reveal is scoped to the search route it rescued: navigating away
-  // restores normal filtering. A manual toggle (autoRevealedScope cleared)
-  // is never touched.
+  // Navigating away restores normal filtering after a rescued search.
   resetStaleAutoReveal() {
   if (!this.autoRevealedScope) return;
-  if (this.currentNoticeScope().split(":")[0] === this.autoRevealedScope.split(":")[0]) return;
+  if (this.currentRouteKey() === this.autoRevealedScope) return;
   this.autoRevealedScope = "";
   this.revealed = false;
-  }
-  dismissFilterNotice() {
-  this.noticeSessionHidden = true;
-  this.dismissedNoticeScope = this.currentNoticeScope();
-  this.removeNotice();
-  }
-  updateNoticeSummary(summary, filteredCount, shownCount, settings) {
-  const summaryText = this.noticeSummaryText(filteredCount, settings);
-  const values = { count: String(shownCount) };
-  const visibleText = shownCount ? formatYoutubeText(uiText(settings.interfaceLanguage, "youtubeFilterVisible"), values) : "";
-  const bar = summary.closest(".jpdb-youtube-filter-bar");
-  summary.textContent = summaryText;
-  summary.title = visibleText;
-  if (bar) {
-    bar.setAttribute("aria-label", visibleText ? `${summaryText}. ${visibleText}` : summaryText);
-    bar.title = visibleText;
-  }
-  }
-  noticeSummaryText(filteredCount, settings) {
-  const plural = filteredCount === 1 ? "" : "s";
-  const key = this.revealed ? "youtubeFilterShowing" : "youtubeFilterHid";
-  return formatYoutubeText(uiText(settings.interfaceLanguage, key), {
-    appName: APP_NAME,
-    count: String(filteredCount),
-    plural
-  });
-  }
-  updateNoticeActions(notice, settings) {
-  notice.toggleHidden.textContent = this.revealed ? uiText(settings.interfaceLanguage, "youtubeHideHiddenVideos") : uiText(settings.interfaceLanguage, "youtubeShowHiddenVideos");
-  notice.hideNotice.textContent = uiText(settings.interfaceLanguage, "youtubeHideNotice");
   }
   syncChannelShelf(filteredCount, settings) {
   if (!this.shouldShowChannelShelf(filteredCount, settings)) {
@@ -27451,10 +27357,7 @@ class YoutubeImmersionFilter {
   this.channelSubscriptionProbeComplete = false;
   this.revealed = false;
   this.clearFilteredCards();
-  this.removeNotice();
   this.removeChannelShelf();
-  this.dismissedNoticeScope = "";
-  this.noticeRouteKey = "";
   this.channelShelfRouteKey = "";
   this.channelShelfExpanded = false;
   this.channelShelfFilter = "all";
@@ -27507,25 +27410,9 @@ class YoutubeImmersionFilter {
     this.schedule(0);
   }, OEMBED_BATCH_RESCAN_DELAY_MS);
   }
-  removeNotice() {
-  window.clearTimeout(this.noticeAutoHideTimer);
-  this.noticeAutoHideTimer = void 0;
-  this.noticeAutoHideScope = "";
-  this.bar?.remove();
-  this.bar = void 0;
-  }
   clearFilteredCards() {
   document.querySelectorAll(YOUTUBE_FILTERED_SELECTOR).forEach((card) => this.showCard(card));
   document.querySelectorAll(`.${YOUTUBE_FIRST_IN_ROW_CLASS}`).forEach((card) => card.classList.remove(YOUTUBE_FIRST_IN_ROW_CLASS));
-  }
-  currentNoticeScope() {
-  const routeKey = this.currentRouteKey();
-  if (this.noticeRouteKey !== routeKey) {
-    this.noticeRouteKey = routeKey;
-    this.dismissedNoticeScope = "";
-    this.removeNotice();
-  }
-  return `${routeKey}:${this.revealed ? "revealed" : "hidden"}`;
   }
   currentRouteKey() {
   return `${location.pathname}${location.search}`;
@@ -27556,15 +27443,6 @@ function youtubeImmersionFilterEnabled(settings) {
 }
 function youtubeChannelRecommendationsEnabled(settings) {
   return settings.youtubeShowChannelRecommendations;
-}
-function formatYoutubeText(template, values) {
-  return template.replace(/\{(\w+)\}/g, (_match, key) => values[key] ?? "");
-}
-function noticeButton(action) {
-  const button = document.createElement("button");
-  button.type = "button";
-  button.dataset.action = action;
-  return button;
 }
 function channelShelfButton(action) {
   const button = document.createElement("button");
@@ -28174,9 +28052,6 @@ function shouldHidePendingYouTubeCard(card) {
   const preloadMargin = Math.max(360, viewportHeight2 * 0.75);
   return rect.bottom < -preloadMargin || rect.top > viewportHeight2 + preloadMargin;
 }
-function shouldShowFilterNoticeForRoute() {
-  return !isYouTubeWatchPage() && !isYouTubeShortsWatchPage();
-}
 function isYouTubePlaylistLikeCard(card) {
   if (card.matches(NON_VIDEO_CONTAINER_SELECTOR)) return true;
   if (card.querySelector("yt-collection-thumbnail-view-model, ytd-playlist-thumbnail")) return true;
@@ -28374,6 +28249,7 @@ function hasJapaneseSitePreferenceProvenance(revertOnDisable) {
 }
 function enablePreferredJapaneseSiteLanguage(revision) {
   deferredCookieResponseReload = false;
+  cancelPreferredJapaneseSiteRedirectWatcher();
   applySitePreferenceCookies();
   schedulePreferredJapaneseSiteRedirect(revision);
 }
@@ -28394,9 +28270,12 @@ function finishDisabledSiteNavigation(shouldRevert, shouldReloadCookieShapedResp
   reloadCurrentLocation();
 }
 function preferredJapaneseSiteUrl(sourceHref, root) {
+  return resolvePreferredJapaneseSiteUrl(sourceHref, root);
+}
+function resolvePreferredJapaneseSiteUrl(sourceHref, root, ignoredAlternates) {
   const current = parseHttpUrl(sourceHref);
   if (!current || isLocalDevelopmentUrl(current)) return null;
-  const alternate = japaneseAlternateLinkUrl(current, root);
+  const alternate = japaneseAlternateLinkUrl(current, root, ignoredAlternates);
   const target = alternate ?? siteRuleJapaneseUrl(current) ?? genericUrl(current, root);
   if (target) applyParams(target);
   if (!target || target.href === current.href) return null;
@@ -28631,10 +28510,10 @@ function schedulePreferredJapaneseSiteRedirect(revision) {
   if (attemptPreferredJapaneseSiteRedirect(revision)) return;
   installAlternateRedirectWatcher(revision);
 }
-function attemptPreferredJapaneseSiteRedirect(revision) {
+function attemptPreferredJapaneseSiteRedirect(revision, ignoredAlternates) {
   if (!preferenceIsCurrent(true, revision)) return false;
   const href = currentLocationHref();
-  const target = href ? preferredJapaneseSiteUrl(href, document) : null;
+  const target = href ? resolvePreferredJapaneseSiteUrl(href, document, ignoredAlternates) : null;
   if (!target || hostAlreadyRedirectedThisSession() || recentlyAttemptedRedirect(href, target)) return false;
   rememberRedirectAttempt(href, target);
   markHostRedirectedThisSession();
@@ -28649,6 +28528,7 @@ function currentLocationHost() {
   }
 }
 function hostAlreadyRedirectedThisSession() {
+  if (!siteNeedsSessionRedirectLimit()) return false;
   const host = currentLocationHost();
   if (!host) return false;
   try {
@@ -28659,6 +28539,7 @@ function hostAlreadyRedirectedThisSession() {
   }
 }
 function markHostRedirectedThisSession() {
+  if (!siteNeedsSessionRedirectLimit()) return;
   const host = currentLocationHost();
   if (!host) return;
   try {
@@ -28670,6 +28551,10 @@ function markHostRedirectedThisSession() {
   }
   } catch {
   }
+}
+function siteNeedsSessionRedirectLimit() {
+  const hostname = currentLocationHostname();
+  return /(^|\.)youtube\.com$/.test(hostname);
 }
 function attemptPreferredDefaultSiteRedirect() {
   if (!isTopLevelFrame()) return false;
@@ -28706,6 +28591,10 @@ function installAlternateRedirectWatcher(revision, attempt2 = 0) {
   return;
   }
   let checks = 0;
+  let routeHref = currentLocationHref();
+  let routeAlternates = alternateHrefs();
+  let ignoredAlternates;
+  let timer;
   const stop = () => {
   cleanup();
   alternateRedirectCleanup = void 0;
@@ -28715,11 +28604,24 @@ function installAlternateRedirectWatcher(revision, attempt2 = 0) {
     stop();
     return;
   }
+  const nextHref = currentLocationHref();
+  if (nextHref !== routeHref) {
+    ignoredAlternates = routeAlternates;
+    routeHref = nextHref;
+    checks = 0;
+    if (timer === void 0) timer = window.setInterval(check, ALTERNATE_REDIRECT_RETRY_MS);
+  }
+  if (checks >= ALTERNATE_REDIRECT_RETRY_LIMIT) return;
+  routeAlternates = alternateHrefs();
   checks += 1;
-  if (attemptPreferredJapaneseSiteRedirect(revision) || checks >= ALTERNATE_REDIRECT_RETRY_LIMIT) stop();
+  if (attemptPreferredJapaneseSiteRedirect(revision, ignoredAlternates)) stop();
+  else if (checks >= ALTERNATE_REDIRECT_RETRY_LIMIT) {
+    window.clearInterval(timer);
+    timer = void 0;
+  }
   };
   const observer = new MutationObserver(check);
-  const timer = window.setInterval(check, ALTERNATE_REDIRECT_RETRY_MS);
+  timer = window.setInterval(check, ALTERNATE_REDIRECT_RETRY_MS);
   const cleanup = () => {
   observer.disconnect();
   window.clearInterval(timer);
@@ -28804,18 +28706,22 @@ function isLocalDevelopmentUrl(url) {
   IPV4_MAPPED_LOOPBACK_HOST_RE.test(hostname)
   ].some(Boolean);
 }
-function japaneseAlternateLinkUrl(current, root) {
-  return alternateLinkUrl(current, root, /^ja(?:[-_]|$)/i, alts);
+function japaneseAlternateLinkUrl(current, root, ignored) {
+  return alternateLinkUrl(current, root, /^ja(?:[-_]|$)/i, alts, ignored);
+}
+function alternateHrefs() {
+  return new Set(Array.from(alts(document), (element) => element.getAttribute("href") ?? ""));
 }
 function defaultAlternateLinkUrl(current, root) {
   return alternateLinkUrl(current, root, /^x-default$/i, metadataAlts) ?? alternateLinkUrl(current, root, EN_LOCALE_RE, metadataAlts);
 }
-function alternateLinkUrl(current, root, hreflang, candidates) {
+function alternateLinkUrl(current, root, hreflang, candidates, ignored) {
   if (!root) return null;
   try {
   for (const element of candidates(root)) {
     if (!hreflang.test(element.getAttribute("hreflang") ?? "")) continue;
     const href = element.getAttribute("href");
+    if (href && ignored?.has(href)) continue;
     const candidate = href ? parseHttpUrl(new URL(href, current.href).href) : null;
     if (candidate && candidate.href !== current.href) return candidate;
   }
