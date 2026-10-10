@@ -84,7 +84,7 @@ describe('reader stylesheet loading', () => {
         expect(css).toContain('.jpdb-reader-word ruby{');
         expect(css).toContain('ruby-align:center!important');
         expect(css).toContain('ruby-position:over!important');
-        expect(css).toContain('.jpdb-reader-furi{font-family:inherit;font-size:max(8px,.5em);font-style:inherit;font-weight:normal;font-feature-settings:normal;font-variant-east-asian:normal;letter-spacing:inherit;');
+        expect(css).toContain('.jpdb-reader-furi{font-family:inherit;font-size:max(8px,.5em);font-style:inherit;font-weight:normal;font-feature-settings:normal;font-variant-east-asian:normal;letter-spacing:normal;');
         expect(css).toContain('.jpdb-reader-word.jpdb-reader-has-furi{line-height:2.15}');
         // `-webkit-ruby-align` never existed in any engine and only parse-fails;
         // it must not reappear in the critical subset.
@@ -328,10 +328,10 @@ describe('reader stylesheet loading', () => {
         expect(furiRule).toContain('font-size: max(8px, 0.5em)');
         expect(furiRule).toContain('font-weight: normal');
         expect(furiRule).toContain('font-family: inherit');
-        // Solid kana in the paragraph's tracking: a wide reading keeps the
-        // width its kana count says, which the WebKit overhang relies on.
+        // Readings stay solid while the base keeps paragraph tracking, so a
+        // wide reading cannot stretch the base or collide with its neighbours.
         expect(furiRule).toContain('font-feature-settings: normal');
-        expect(furiRule).toContain('letter-spacing: inherit');
+        expect(furiRule).toContain('letter-spacing: normal');
         expect(furiRule).toContain('line-height: 1.08');
     });
 
@@ -341,10 +341,10 @@ describe('reader stylesheet loading', () => {
         const rules = Array.from(css.matchAll(/([^{}]*ruby[^{}]*overhang[^{}]*)\{([^}]*)\}/g), match => ({ selector: match[1].trim(), body: match[2].trim() }));
         expect(rules).toEqual([{
             selector: '.jpdb-reader-scan-word:not(:is(.jpdb-reader-text-mirror, .jpdb-reader-control-text-mirror) *) > ruby:is(.jpdb-reader-ruby-overhang:not(.jpdb-reader-ruby-at-start, .jpdb-reader-ruby-at-end), .jpdb-reader-ruby-start-overhang):not(.jpdb-reader-ruby-line-edge) > rt.jpdb-reader-furi',
-            body: 'margin-inline-start: -0.5em;',
+            body: 'margin-inline-start: -0.5em;\n  margin-inline-start: calc(-1 * var(--jpdb-reader-ruby-overhang, 0.5em));',
         }, {
             selector: '.jpdb-reader-scan-word:not(:is(.jpdb-reader-text-mirror, .jpdb-reader-control-text-mirror) *) > ruby:is(.jpdb-reader-ruby-overhang:not(.jpdb-reader-ruby-at-start, .jpdb-reader-ruby-at-end), .jpdb-reader-ruby-end-overhang):not(.jpdb-reader-ruby-line-edge) > rt.jpdb-reader-furi',
-            body: 'margin-inline-end: -0.5em;',
+            body: 'margin-inline-end: -0.5em;\n  margin-inline-end: calc(-1 * var(--jpdb-reader-ruby-overhang, 0.5em));',
         }]);
     });
 

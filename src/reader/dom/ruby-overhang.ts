@@ -30,6 +30,7 @@ const AT_END_CLASS = 'jpdb-reader-ruby-at-end';
 const START_OVERHANG_CLASS = 'jpdb-reader-ruby-start-overhang';
 const END_OVERHANG_CLASS = 'jpdb-reader-ruby-end-overhang';
 const LINE_EDGE_CLASS = 'jpdb-reader-ruby-line-edge';
+const OVERHANG_PROPERTY = '--jpdb-reader-ruby-overhang';
 const EDGE_RUBY_SELECTOR = `:scope > ruby.${OVERHANG_CLASS}:is(.${AT_START_CLASS}, .${AT_END_CLASS})`;
 // The readings reader-words-ocr.css lets overhang: page words, not a text
 // mirror, which keeps the host's own widths.
@@ -110,40 +111,72 @@ function scheduleLineEdgeCheck(): void {
 function checkLineEdges(): void {
     lineEdgeFrame = 0;
     for (const root of layoutRoots) if (!root.isConnected) layoutRoots.delete(root);
-    const verdicts: Array<[Element, boolean]> = [];
+    const verdicts: Array<[HTMLElement, boolean, number | undefined]> = [];
     for (const root of dirtyLayoutRoots) {
         if (!root.isConnected) continue;
-        const rubies = [...root.querySelectorAll(PAGE_OVERHANG_RUBY_SELECTOR)]
+        const rubies = [...root.querySelectorAll<HTMLElement>(PAGE_OVERHANG_RUBY_SELECTOR)]
             .filter(ruby => layoutRoot(ruby) === root);
         if (rubies.length) layoutRoots.add(root);
         else layoutRoots.delete(root);
-        for (const ruby of rubies) verdicts.push([ruby, atLineEdge(ruby)]);
+        for (const ruby of rubies) {
+            const base = glyphRects(ruby);
+            const reading = ruby.querySelector('rt');
+            const style = getComputedStyle(reading ?? ruby);
+            const vertical = /^(vertical|sideways)/.test(style.writingMode);
+            verdicts.push([ruby, atLineEdge(ruby, base, vertical), reading ? rubyOverhangLimit(reading, base, style.fontSize, vertical) : undefined]);
+        }
     }
     dirtyLayoutRoots.clear();
-    for (const [ruby, edge] of verdicts) {
+    for (const [ruby, edge, limit] of verdicts) {
         if (ruby.classList.contains(LINE_EDGE_CLASS) !== edge) ruby.classList.toggle(LINE_EDGE_CLASS, edge);
+        const current = ruby.style.getPropertyValue(OVERHANG_PROPERTY);
+        if (limit === undefined) {
+            if (current) ruby.style.removeProperty(OVERHANG_PROPERTY);
+        } else if (current !== `${limit}px`) ruby.style.setProperty(OVERHANG_PROPERTY, `${limit}px`);
     }
+}
+
+// WebKit stops centring an annotation if negative margins reserve less room
+// than its base. Cap the existing half-character allowance at the reading's
+// actual excess width, in the same read-then-write layout pass.
+function rubyOverhangLimit(reading: Element, base: ReturnType<typeof glyphRects>, fontSize: string, vertical: boolean): number | undefined {
+    if (!base) return undefined;
+    const nominal = Number.parseFloat(fontSize) / 2;
+    if (!Number.isFinite(nominal)) return undefined;
+    const range = reading.ownerDocument.createRange();
+    range.selectNodeContents(reading);
+    const ink = range.getClientRects()[0];
+    if (!ink) return undefined;
+    const available = Math.max(0, ((vertical ? ink.height : ink.width) - (vertical ? base.height : base.width)) / 2);
+    return available < nominal - 0.01 ? available : undefined;
 }
 
 /** Whether the line breaks right before or right after this ruby's kanji. */
-function atLineEdge(ruby: Element): boolean {
-    const base = glyphRects(ruby);
+function atLineEdge(ruby: Element, base: ReturnType<typeof glyphRects>, vertical: boolean): boolean {
     if (!base) return false;
     const before = facingGlyph(ruby, 'before');
     const after = facingGlyph(ruby, 'after');
-    return Boolean((before && !sameLine(before, base.first)) || (after && !sameLine(after, base.last)));
+    return Boolean((before && !sameLine(before, base.first, vertical)) || (after && !sameLine(after, base.last, vertical)));
 }
 
-// The ruby's first and last kanji, without its reading.
-function glyphRects(ruby: Element): { first: DOMRect; last: DOMRect } | null {
+// Rectangles of the base text, without its reading.
+function glyphRects(ruby: Element): { first: DOMRect; last: DOMRect; width: number; height: number } | null {
     const walker = glyphWalker(ruby);
     const firstText = walker.nextNode() as Text | null;
     if (!firstText) return null;
     let lastText = firstText;
     for (let node = walker.nextNode(); node; node = walker.nextNode()) lastText = node as Text;
-    const first = glyphRect(firstText, 'after');
-    const last = glyphRect(lastText, 'before');
-    return first && last ? { first, last } : null;
+    const range = ruby.ownerDocument.createRange();
+    if (typeof range.getClientRects !== 'function') return null;
+    range.setStart(firstText, firstText.data.length - firstText.data.trimStart().length);
+    range.setEnd(lastText, lastText.data.trimEnd().length);
+    const rects = Array.from(range.getClientRects());
+    if (!rects.length) return null;
+    return {
+        first: rects[0]!, last: rects[rects.length - 1]!,
+        width: Math.max(...rects.map(rect => rect.right)) - Math.min(...rects.map(rect => rect.left)),
+        height: Math.max(...rects.map(rect => rect.bottom)) - Math.min(...rects.map(rect => rect.top)),
+    };
 }
 
 // The nearest page glyph before or after the ruby in its paragraph, skipping
@@ -190,11 +223,12 @@ function glyphRect(text: Text, side: Side): DOMRect | null {
 
 // Two glyphs share a line when they overlap across it: vertically in
 // horizontal text, horizontally in vertical text.
-function sameLine(left: DOMRect, right: DOMRect): boolean {
+function sameLine(left: DOMRect, right: DOMRect, vertical: boolean): boolean {
     const overlap = (start: number, end: number, otherStart: number, otherEnd: number, size: number): boolean =>
         Math.min(end, otherEnd) - Math.max(start, otherStart) > size / 2;
-    return overlap(left.top, left.bottom, right.top, right.bottom, Math.min(left.height, right.height))
-        || overlap(left.left, left.right, right.left, right.right, Math.min(left.width, right.width));
+    return vertical
+        ? overlap(left.left, left.right, right.left, right.right, Math.min(left.width, right.width))
+        : overlap(left.top, left.bottom, right.top, right.bottom, Math.min(left.height, right.height));
 }
 
 function syncWord(word: Element): void {

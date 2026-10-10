@@ -11,6 +11,7 @@
 - The book library keeps its filter controls in place as you search. Clear filters sits beside the result count and stays hidden until needed.
 - Browser history navigation closes the donation chooser and releases the page behind it.
 - Subtitle controls start hidden and respect their hidden state, so pages without a video do not show or announce an empty player.
+- Furigana no longer inherits extra letter spacing from page text. Wide readings remain centered without stretching the kanji on tracked pages.
 - Updated nightly smoke checks for the private deck chooser, quiet Stats, current Study navigation and OCR hints, while preserving saving, privacy and layout assertions.
 
 ## [2.1.1] - 2026-10-10

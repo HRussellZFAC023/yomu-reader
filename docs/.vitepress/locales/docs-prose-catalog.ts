@@ -9,6 +9,8 @@ export interface ReviewedDocsMessage {
 }
 
 const HOSTED_DOCS_JA_COPY: Record<string, string> = {
+    "Furigana stays compact; the Japanese text keeps the page’s font and spacing.": "ふりがなは詰めて読みやすく表示し、日本語の本文はページの書体と文字間隔を保ちます。",
+    "Furigana no longer inherits extra letter spacing from page text. Wide readings remain centered without stretching the kanji on tracked pages.": "ふりがなが本文の広い文字間隔を引き継がないようにしました。文字間隔の広いページでも、長い読みが漢字を引き伸ばさず中央に収まります。",
     "Updated nightly smoke checks for the private deck chooser, quiet Stats, current Study navigation and OCR hints, while preserving saving, privacy and layout assertions.": "保存・プライバシー・レイアウトの検証を維持しつつ、デッキ選択、静かな統計表示、現在のStudyの画面移動、OCRのヒントに合わせて夜間のスモークテストを更新しました。",
     "Stats keeps its current figures and charts visible while refreshing. A first load shows a short loading message instead of empty charts.": "統計の更新中も、現在の数値やグラフを表示したままにします。初回の読み込みでは、空のグラフではなく短い読み込みメッセージを表示します。",
     "Repeated refresh taps reuse the current load, and changing review services prevents old responses from replacing current statistics.": "更新を続けてタップしても読み込みを重複して始めず、復習サービスを変更した後に古い応答が現在の統計を上書きしないようにしました。",

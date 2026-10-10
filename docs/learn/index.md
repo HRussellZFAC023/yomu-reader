@@ -21,6 +21,8 @@ Read and watch Japanese you enjoy, every day. Look up what blocks you. Keep a fe
 
 In Study, open Stats to check your review progress. Refresh keeps the current figures visible while loading.
 
+Furigana stays compact; the Japanese text keeps the page’s font and spacing.
+
 ## Rules {#rules}
 
 - **Pick what you enjoy over what's good for you.** A show you finish teaches more than a textbook you drop.

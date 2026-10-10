@@ -1308,10 +1308,9 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
   /* Half the base size, JLREQ's ruby convention, in the page's own face at
      regular weight: a bold reading at 0.58em read as a second, louder
      typeface stacked over the word. A host `rt` rule must not restyle it. The
-     kana are set solid, without proportional `palt` widths or extra tracking.
-     Inheriting the full-size paragraph's tracking stretched ruby and made
-     neighbouring readings collide; the base keeps its own tracking. The
-     detached lane
+     kana are set solid (no proportional `palt` widths) and take the
+     paragraph's own tracking, so a reading is as wide as its kana count says,
+     which the overhang below relies on in WebKit. The detached lane
      (dom/index.ts styleDetachedReadingElements) sits in a line gap and is a
      little smaller. */
   font-family: inherit;
@@ -1320,7 +1319,7 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
   font-weight: normal;
   font-feature-settings: normal;
   font-variant-east-asian: normal;
-  letter-spacing: normal;
+  letter-spacing: inherit;
   /* One quiet reading colour for every word, links included:
      --jpdb-reader-furi-color is the paragraph's own ink eased toward the
      sampled backdrop and held at 4.5:1 (dom/word-contrast.ts). Without a
@@ -1346,17 +1345,19 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
    the line and an overhang would stick out of the column.
    No sibling selector here: one over page words made Chromium annotate a
    one-root page ten times slower. WebKit stops centring a reading whose
-   margins reserve less room than its kanji. The batched layout pass caps
-   that half-character allowance at the reading's actual excess width. Page words only, in flow or passive
+   margins make it narrower than its kanji, so the margin is never more than
+   that half character: ic follows the font's CJK glyph advance, with em
+   retained for engines without ic support. Solid kana and shared tracking
+   (above) keep the reading at least that much wider. Page words only, in flow or passive
    (prose with links); a text mirror lays its copy over the host's own text
    and must keep the host's widths. */
 .jpdb-reader-scan-word:not(:is(.jpdb-reader-text-mirror, .jpdb-reader-control-text-mirror) *) > ruby:is(.jpdb-reader-ruby-overhang:not(.jpdb-reader-ruby-at-start, .jpdb-reader-ruby-at-end), .jpdb-reader-ruby-start-overhang):not(.jpdb-reader-ruby-line-edge) > rt.jpdb-reader-furi {
   margin-inline-start: -0.5em;
-  margin-inline-start: calc(-1 * var(--jpdb-reader-ruby-overhang, 0.5em));
+  margin-inline-start: -0.5ic;
 }
 .jpdb-reader-scan-word:not(:is(.jpdb-reader-text-mirror, .jpdb-reader-control-text-mirror) *) > ruby:is(.jpdb-reader-ruby-overhang:not(.jpdb-reader-ruby-at-start, .jpdb-reader-ruby-at-end), .jpdb-reader-ruby-end-overhang):not(.jpdb-reader-ruby-line-edge) > rt.jpdb-reader-furi {
   margin-inline-end: -0.5em;
-  margin-inline-end: calc(-1 * var(--jpdb-reader-ruby-overhang, 0.5em));
+  margin-inline-end: -0.5ic;
 }
 .jpdb-reader-word ruby {
   position: static !important;

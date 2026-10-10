@@ -11,7 +11,7 @@
 // computed result in real engines:
 //   * each word's base glyphs compute the same font as the host text around it;
 //   * each reading is half the base size, regular weight, the page's face and
-//     tracking with solid kana, one muted colour for linked and plain words
+//     kana set solid, one muted colour for linked and plain words
 //     alike, at 4.5:1;
 //   * each reading is centred over its own word and clear of its neighbours;
 //   * a reading wider than its kanji overhangs the plain words and text beside
@@ -97,7 +97,7 @@ const OVERHANG = 'の間で学習を行う。頭体、<a href="/wiki/学校教�
 // wraps to the head of line 2, where its reading must not stick out.
 const ONE_SIDED = '一部住民など、10位以内';
 const LINE_HEAD = 'あいうえおか間で';
-const OVERHANG_SPANS = [['sentence', 'で', 'し', 1], ['overhang', 'の', 'で', 1], ['overhang', 'で', 'を', 2], ['overhang', 'を', 'う', 1], ['overhang', '、', 'で', 4]];
+const OVERHANG_SPANS = [['vertical', 'の', 'で', 1], ['vertical', 'で', 'を', 2], ['vertical', 'を', 'う', 1], ['tracked-overhang', 'の', 'で', 1], ['tracked-overhang', 'で', 'を', 2], ['tracked-overhang', 'を', 'う', 1], ['tracked-overhang', '、', 'で', 4], ['sentence', 'で', 'し', 1], ['overhang', 'の', 'で', 1], ['overhang', 'で', 'を', 2], ['overhang', 'を', 'う', 1], ['overhang', '、', 'で', 4]];
 
 const LINKED = '日本語は<a href="/wiki/日本">日本</a>国内で使用されている言語。'
     + '<sup class="mw-ref reference" id="cite_ref-3"><a href="#cite_note-3"><span class="cite-bracket">[</span>注釈 3<span class="cite-bracket">]</span></a></sup>';
@@ -159,7 +159,7 @@ async function checkScenario(browser, engine, theme) {
     const id = `${engine}-${theme}`;
     const { paper, ink } = THEMES[theme];
     currentPage = fixturePage(paper, ink);
-    const context = await browser.newContext({ bypassCSP: true, viewport: { width: 760, height: 420 }, deviceScaleFactor: 2, colorScheme: theme });
+    const context = await browser.newContext({ bypassCSP: true, viewport: { width: 760, height: 1400 }, deviceScaleFactor: 2, colorScheme: theme });
     try {
         const page = await context.newPage();
         const bridge = `__yomuTypographySmoke_${id.replace(/\W/g, '_')}`;
@@ -172,6 +172,7 @@ async function checkScenario(browser, engine, theme) {
             const measured = {};
             for (const [id, before, after, count] of definitions) {
                 const paragraph = document.getElementById(id);
+                const vertical = /^(vertical|sideways)/.test(getComputedStyle(paragraph).writingMode);
                 const text = paragraph.textContent;
                 let start = -1;
                 while ((start = text.indexOf(before, start + 1)) >= 0 && text.slice(start + before.length + count, start + before.length + count + after.length) !== after) {}
@@ -195,7 +196,7 @@ async function checkScenario(browser, engine, theme) {
                 };
                 const left = glyph(start + before.length - 1);
                 const right = glyph(start + before.length + count);
-                (measured[id] ??= {})[`${before}${after}`] = right.left - left.left;
+                (measured[id] ??= {})[`${before}${after}`] = vertical ? right.top - left.top : right.left - left.left;
             }
             return measured;
         }, OVERHANG_SPANS);
@@ -204,6 +205,8 @@ async function checkScenario(browser, engine, theme) {
             && document.querySelectorAll('#linked .jpdb-reader-word').length >= 5
             && document.querySelectorAll('#overhang rt').length >= 6
             && document.querySelector('#line-head rt')
+            && document.querySelector('#line-tail rt')
+            && document.querySelector('#vertical rt')
             && document.querySelector('#sentence .jpdb-reader-word.jpdb-new')?.style.getPropertyValue('--jpdb-reader-word-accessible-underline'),
         null, { timeout: 30_000 });
         await page.waitForTimeout(600);
@@ -259,13 +262,13 @@ function judgeReadings(id, measured, paper) {
         if (Math.abs(reading.fontSize - expectedSize) > 0.6) fail(`${id}: reading ${reading.text} is ${reading.fontSize}px over ${reading.baseFontSize}px text, not half.`, reading);
         if (reading.fontWeight !== '400') fail(`${id}: reading ${reading.text} has weight ${reading.fontWeight}.`, reading);
         if (reading.fontFamily !== reading.baseFontFamily) fail(`${id}: reading ${reading.text} is set in ${reading.fontFamily}.`, reading);
-        if (reading.letterSpacing !== reading.baseLetterSpacing) fail(`${id}: reading ${reading.text} is tracked ${reading.letterSpacing}, its paragraph ${reading.baseLetterSpacing}.`, reading);
+        if (reading.letterSpacing !== 'normal' && Number.parseFloat(reading.letterSpacing) !== 0) fail(`${id}: reading ${reading.text} is not set solid (${reading.letterSpacing}).`, reading);
         if (reading.fontFeatureSettings !== 'normal') fail(`${id}: reading ${reading.text} takes host font features (${reading.fontFeatureSettings}).`, reading);
         if (contrast(reading.color, paper) < 4.5) fail(`${id}: reading ${reading.text} (${reading.color}) is below 4.5:1 on ${paper}.`, reading);
         if (Math.abs(reading.centre - reading.baseCentre - (reading.marginStart - reading.marginEnd) / 2) > 1.5) fail(`${id}: reading ${reading.text} is off its word's centre by ${(reading.centre - reading.baseCentre).toFixed(1)}px.`, reading);
     }
     for (const [left, right] of measured.readingNeighbours) {
-        if (left.right > right.left + 0.5) fail(`${id}: readings ${left.text} and ${right.text} overlap.`, { left, right });
+        if (left.inlineEnd > right.inlineStart + 0.5) fail(`${id}: readings ${left.text} and ${right.text} overlap.`, { left, right });
     }
     if (!measured.readings.some(reading => reading.word === '日本' && reading.inFlow)) fail(`${id}: the linked word's reading should sit in flow like its neighbours'.`, measured.readings);
 }
@@ -308,6 +311,8 @@ function judgeOverhang(id, measured) {
 }
 
 function judgeLineEdges(id, measured) {
+    const tail = measured.lineTail;
+    if (!tail.edge || tail.reading.left < tail.column.left - 0.5 || tail.reading.right > tail.column.right + 0.5) fail(`${id}: a multi-kanji reading at the line end must stay inside the column.`, tail);
     const { column, readings, wrapped } = measured.lineHead;
     if (!wrapped) fail(`${id}: 間 should wrap to the head of line 2 in #line-head.`, measured.lineHead);
     for (const reading of readings) {
@@ -325,7 +330,7 @@ function fixturePage(paper, ink) {
     // IPAGothic is installed by Playwright's Linux browser dependencies.
     return `<!doctype html><html lang="ja"><head><meta charset="utf-8"><title>Yomu annotation typography smoke</title>
 <style>body{margin:0;padding:24px;background:${paper};color:${ink};font:20px/1.9 "Hiragino Mincho ProN","Noto Serif CJK JP","IPAGothic",serif}a{color:${ink === '#202122' ? '#3366cc' : '#88a3e8'}}${HOSTILE_CSS}</style>
-</head><body><main><p id="sentence" class="tracked">${SENTENCE}</p><p id="linked">${LINKED}</p><p id="overhang">${OVERHANG}</p><p id="one-sided">${ONE_SIDED}</p><p id="line-head" style="width:6.5em">${LINE_HEAD}</p></main></body></html>`;
+</head><body><main><p id="sentence" class="tracked">${SENTENCE}</p><p id="linked">${LINKED}</p><p id="overhang">${OVERHANG}</p><p id="tracked-overhang" class="tracked">${OVERHANG}</p><p id="one-sided">${ONE_SIDED}</p><p id="line-head" style="width:6.5em">${LINE_HEAD}</p><p id="line-tail" style="width:4.6em">学校教育で</p><p id="vertical" style="writing-mode:vertical-rl;height:16em">の間で学習を行う</p></main></body></html>`;
 }
 
 function handleRequest(request) {
@@ -370,6 +375,7 @@ function measurePage() {
         const base = ruby?.querySelector('.jpdb-reader-ruby-base, rb') ?? word;
         const style = getComputedStyle(reading);
         const baseStyle = getComputedStyle(base);
+        const vertical = /^(vertical|sideways)/.test(style.writingMode);
         // Where the kana are drawn, not the rt box: WebKit can size the box of
         // an overhanging reading narrower than its text.
         const inkRange = document.createRange();
@@ -393,16 +399,20 @@ function measurePage() {
             left: rect.left,
             right: rect.right,
             top: Math.round(rect.top),
-            centre: (rect.left + rect.right) / 2,
-            baseCentre: (baseRect.left + baseRect.right) / 2,
+            vertical,
+            column: Math.round(vertical ? rect.left : rect.top),
+            inlineStart: vertical ? rect.top : rect.left,
+            inlineEnd: vertical ? rect.bottom : rect.right,
+            centre: vertical ? (rect.top + rect.bottom) / 2 : (rect.left + rect.right) / 2,
+            baseCentre: vertical ? (baseRect.top + baseRect.bottom) / 2 : (baseRect.left + baseRect.right) / 2,
             marginStart: Number.parseFloat(style.marginInlineStart) || 0,
             marginEnd: Number.parseFloat(style.marginInlineEnd) || 0,
         };
     });
     const readingNeighbours = [];
-    const sorted = [...readings].sort((a, b) => a.top - b.top || a.left - b.left);
+    const sorted = [...readings].sort((a, b) => Number(a.vertical) - Number(b.vertical) || a.column - b.column || a.inlineStart - b.inlineStart);
     for (let index = 1; index < sorted.length; index += 1) {
-        if (sorted[index].top === sorted[index - 1].top) readingNeighbours.push([sorted[index - 1], sorted[index]]);
+        if (sorted[index].vertical === sorted[index - 1].vertical && sorted[index].column === sorted[index - 1].column) readingNeighbours.push([sorted[index - 1], sorted[index]]);
     }
     // Plain characters (not readings), in order, with where each one starts and
     // ends; spans[p][ab] is the advance from plain a to the next plain b.
@@ -412,6 +422,7 @@ function measurePage() {
     const advances = {};
     for (const paragraph of document.querySelectorAll('main p')) {
         const style = getComputedStyle(paragraph);
+        const vertical = /^(vertical|sideways)/.test(style.writingMode);
         advances[paragraph.id] = Number.parseFloat(style.fontSize) + (Number.parseFloat(style.letterSpacing) || 0);
         const glyphs = [];
         const walker = document.createTreeWalker(paragraph, NodeFilter.SHOW_TEXT);
@@ -422,13 +433,13 @@ function measurePage() {
                 range.setStart(node, index);
                 range.setEnd(node, index + 1);
                 const rect = range.getClientRects()[0];
-                if (rect) glyphs.push({ text: node.data[index], left: rect.left, right: rect.right, top: Math.round(rect.top) });
+                if (rect) glyphs.push({ text: node.data[index], left: rect.left, right: rect.right, top: Math.round(rect.top), column: Math.round(vertical ? rect.left : rect.top), inlineStart: vertical ? rect.top : rect.left });
             }
         }
         spans[paragraph.id] = {};
         for (let index = 1; index < glyphs.length; index += 1) {
             const [left, right] = [glyphs[index - 1], glyphs[index]];
-            if (left.top === right.top) spans[paragraph.id][`${left.text}${right.text}`] ??= right.left - left.left;
+            if (left.column === right.column) spans[paragraph.id][`${left.text}${right.text}`] ??= right.inlineStart - left.inlineStart;
         }
     }
     const lineHeadParagraph = document.querySelector('#line-head');
@@ -449,8 +460,14 @@ function measurePage() {
             return { text: rt.textContent, left: rect.left, right: rect.right, rubyClasses: rt.parentElement.className };
         }),
     };
+    const tail = document.querySelector('#line-tail');
+    const tailRuby = tail.querySelector('ruby');
+    const tailInk = document.createRange();
+    tailInk.selectNodeContents(tail.querySelector('rt'));
+    const lineTail = { column: tail.getBoundingClientRect().toJSON(), reading: tailInk.getBoundingClientRect().toJSON(), edge: tailRuby.classList.contains('jpdb-reader-ruby-line-edge') };
     return {
         lineHead,
+        lineTail,
         words,
         readings,
         readingNeighbours,

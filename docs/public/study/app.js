@@ -17691,6 +17691,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   const START_OVERHANG_CLASS = "jpdb-reader-ruby-start-overhang";
   const END_OVERHANG_CLASS = "jpdb-reader-ruby-end-overhang";
   const LINE_EDGE_CLASS = "jpdb-reader-ruby-line-edge";
+  const OVERHANG_PROPERTY = "--jpdb-reader-ruby-overhang";
   const EDGE_RUBY_SELECTOR = `:scope > ruby.${OVERHANG_CLASS}:is(.${AT_START_CLASS}, .${AT_END_CLASS})`;
   const PAGE_OVERHANG_RUBY_SELECTOR = `.jpdb-reader-scan-word:not(:is(.jpdb-reader-text-mirror, .jpdb-reader-control-text-mirror) *) > ruby.${OVERHANG_CLASS}`;
   const WORD_CLASS = "jpdb-reader-word";
@@ -17752,19 +17753,39 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       const rubies = [...root.querySelectorAll(PAGE_OVERHANG_RUBY_SELECTOR)].filter((ruby) => layoutRoot(ruby) === root);
       if (rubies.length) layoutRoots.add(root);
       else layoutRoots.delete(root);
-      for (const ruby of rubies) verdicts.push([ruby, atLineEdge(ruby)]);
+      for (const ruby of rubies) {
+        const base = glyphRects(ruby);
+        const reading = ruby.querySelector("rt");
+        const style = getComputedStyle(reading ?? ruby);
+        const vertical = /^(vertical|sideways)/.test(style.writingMode);
+        verdicts.push([ruby, atLineEdge(ruby, base, vertical), reading ? rubyOverhangLimit(reading, base, style.fontSize, vertical) : void 0]);
+      }
     }
     dirtyLayoutRoots.clear();
-    for (const [ruby, edge] of verdicts) {
+    for (const [ruby, edge, limit] of verdicts) {
       if (ruby.classList.contains(LINE_EDGE_CLASS) !== edge) ruby.classList.toggle(LINE_EDGE_CLASS, edge);
+      const current = ruby.style.getPropertyValue(OVERHANG_PROPERTY);
+      if (limit === void 0) {
+        if (current) ruby.style.removeProperty(OVERHANG_PROPERTY);
+      } else if (current !== `${limit}px`) ruby.style.setProperty(OVERHANG_PROPERTY, `${limit}px`);
     }
   }
-  function atLineEdge(ruby) {
-    const base = glyphRects(ruby);
+  function rubyOverhangLimit(reading, base, fontSize, vertical) {
+    if (!base) return void 0;
+    const nominal = Number.parseFloat(fontSize) / 2;
+    if (!Number.isFinite(nominal)) return void 0;
+    const range = reading.ownerDocument.createRange();
+    range.selectNodeContents(reading);
+    const ink = range.getClientRects()[0];
+    if (!ink) return void 0;
+    const available = Math.max(0, ((vertical ? ink.height : ink.width) - (vertical ? base.height : base.width)) / 2);
+    return available < nominal - 0.01 ? available : void 0;
+  }
+  function atLineEdge(ruby, base, vertical) {
     if (!base) return false;
     const before = facingGlyph(ruby, "before");
     const after = facingGlyph(ruby, "after");
-    return Boolean(before && !sameLine(before, base.first) || after && !sameLine(after, base.last));
+    return Boolean(before && !sameLine(before, base.first, vertical) || after && !sameLine(after, base.last, vertical));
   }
   function glyphRects(ruby) {
     const walker = glyphWalker(ruby);
@@ -17772,9 +17793,18 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     if (!firstText2) return null;
     let lastText = firstText2;
     for (let node = walker.nextNode(); node; node = walker.nextNode()) lastText = node;
-    const first2 = glyphRect(firstText2, "after");
-    const last = glyphRect(lastText, "before");
-    return first2 && last ? { first: first2, last } : null;
+    const range = ruby.ownerDocument.createRange();
+    if (typeof range.getClientRects !== "function") return null;
+    range.setStart(firstText2, firstText2.data.length - firstText2.data.trimStart().length);
+    range.setEnd(lastText, lastText.data.trimEnd().length);
+    const rects = Array.from(range.getClientRects());
+    if (!rects.length) return null;
+    return {
+      first: rects[0],
+      last: rects[rects.length - 1],
+      width: Math.max(...rects.map((rect) => rect.right)) - Math.min(...rects.map((rect) => rect.left)),
+      height: Math.max(...rects.map((rect) => rect.bottom)) - Math.min(...rects.map((rect) => rect.top))
+    };
   }
   function facingGlyph(ruby, side) {
     const walker = glyphWalker(layoutRoot(ruby) ?? ruby.ownerDocument.body);
@@ -17807,9 +17837,9 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     const rects = range.getClientRects();
     return rects[side === "before" ? rects.length - 1 : 0] ?? null;
   }
-  function sameLine(left, right) {
+  function sameLine(left, right, vertical) {
     const overlap = (start, end, otherStart, otherEnd, size) => Math.min(end, otherEnd) - Math.max(start, otherStart) > size / 2;
-    return overlap(left.top, left.bottom, right.top, right.bottom, Math.min(left.height, right.height)) || overlap(left.left, left.right, right.left, right.right, Math.min(left.width, right.width));
+    return vertical ? overlap(left.left, left.right, right.left, right.right, Math.min(left.width, right.width)) : overlap(left.top, left.bottom, right.top, right.bottom, Math.min(left.height, right.height));
   }
   function syncWord(word) {
     if (!word.classList.contains("jpdb-reader-has-furi")) return;

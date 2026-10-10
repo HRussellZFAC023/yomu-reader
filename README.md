@@ -60,6 +60,8 @@ Words saved without a connected service go to the Default deck in Study.
 
 In Study, open Stats to check your review progress. Refresh keeps the current figures visible while loading.
 
+Furigana stays compact; the Japanese text keeps the page’s font and spacing.
+
 No account and no setup. [How to learn Japanese with よむ](https://yomureader.com/learn/) is one page.
 
 Readings follow the page’s typeface and scale with its text, with stronger contrast for small kana. With a study source, known and due words lose their readings; missed words keep them.
