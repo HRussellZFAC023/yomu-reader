@@ -81,7 +81,7 @@ export class RadialMenuController {
         backdrop.setAttribute('aria-label', this.host.menuLabel());
         const viewportRoot = button.closest<HTMLElement>('.jpdb-reader-puck-viewport');
         (viewportRoot ?? document.body).appendChild(backdrop);
-        applyOverlayPageScale(backdrop);
+        if (!viewportRoot) applyOverlayPageScale(backdrop);
         this.backdrop = backdrop;
 
         this.layout(button, backdrop, actions);

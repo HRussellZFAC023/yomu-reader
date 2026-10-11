@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import sharp from 'sharp';
 import { readFileSync } from 'node:fs';
 import { build } from 'esbuild';
 import { chromium, webkit } from 'playwright';
@@ -12,15 +13,16 @@ const bundle = await build({
     bundle: true, write: false, format: 'iife', globalName: 'YomuViewportFixture', platform: 'browser', define: { 'import.meta.env': '{}' }, logLevel:'silent',
 });
 const css = readFileSync('dist/yomu.css', 'utf8');
+const pageZoom = Number(process.env.YOMU_OCR_VIEWPORT_PAGE_ZOOM ?? 1);
 for (const [name, type] of [['chromium', chromium], ['webkit', webkit]]) {
     const browser = await type.launch();
     try {
-        const page = await browser.newPage({ viewport: { width: 390, height: 700 }, hasTouch: true });
+        const page = await browser.newPage(pageZoom===1 ? {viewport:{width:390,height:700},hasTouch:true} : {viewport:{width:760,height:980},hasTouch:true,isMobile:true,userAgent:'Mozilla/5.0 (iPad; CPU OS 18_0 like Mac OS X) AppleWebKit/605.1.15 Version/18.0 Mobile/15E148 Safari/604.1'});
         await page.route('http*/**', route=>route.abort());
         const errors = [];
         page.on('pageerror', error => errors.push(error.message));
         page.on('console', event=>{ if(event.type()==='error') console.error(event.text()); });
-        await page.setContent(`<style>${css}</style><style>
+        await page.setContent(`${pageZoom===1 ? '' : '<meta name="viewport" content="width=475">'}<style>${css}</style><style>
           body { margin:0; padding-top:100px; min-height:2400px; }
           .media { position:relative; width:330px; height:260px; margin:0 30px; }
           img { position:absolute; width:330px; height:260px; }
@@ -84,11 +86,21 @@ for (const [name, type] of [['chromium', chromium], ['webkit', webkit]]) {
         assert.equal(reused.dots,0, `${name}: tap resurrects ready dot`);
         // Deterministic pinch metrics, since Playwright WebKit cannot drive a real iOS pinch.
         // Applying those metrics exercises the real rendering/containing block, not just arithmetic.
+        await page.addStyleTag({content: '.jpdb-reader-puck-viewport > .jpdb-reader-fab { background:rgb(1,255,0)!important; opacity:1!important; border:0!important; box-shadow:none!important; transform:none!important; } .jpdb-reader-fab-state {display:none!important;}'});
+        await paintPuck(page);
+        const startPixels=await puckPixels(page);
+        const fit=await page.evaluate(()=>outerWidth/innerWidth);
         const pinch = await page.evaluate(async () => {
             window.scrollTo(0,0);
             const button = document.querySelector('.jpdb-reader-fab');
-            const start = button.getBoundingClientRect();
-            const visual = Object.assign(new EventTarget(), { width:195, height:350, scale:2, offsetLeft:35, offsetTop:60 });
+            const raw=button.getBoundingClientRect();
+            const startRatio=button.parentElement.getBoundingClientRect().width/button.parentElement.offsetWidth;
+            const initialFit=outerWidth/innerWidth;
+            const startScale=Math.abs(startRatio-1/initialFit)<Math.abs(startRatio-1)?initialFit:1;
+            const start={x:raw.x*startScale,y:raw.y*startScale,width:raw.width*startScale,height:raw.height*startScale};
+            const native=window.visualViewport;
+            const fit=outerWidth/innerWidth;
+            const visual = Object.assign(new EventTarget(), { width:innerWidth/2, height:(native?.height??innerHeight)/2, scale:fit*2, offsetLeft:35, offsetTop:60 });
             Object.defineProperty(window, 'visualViewport', { configurable:true, value:visual });
             // Remount so controller listeners own this fixture's event source.
             window.fixtureCleanup();
@@ -98,8 +110,12 @@ for (const [name, type] of [['chromium', chromium], ['webkit', webkit]]) {
             puck.install({ ...DEFAULT_SETTINGS, showFloatingButton:true }, no, { openSettings:no,openStudyPage:no,cyclePowerState:async()=>{},powerState:()=> 'on',isPaused:()=>false,toggleOcrMode:no,ocrMode:()=> 'off',toggleAutoPlayAudio:async()=>{},isAutoPlayAudioEnabled:()=>false,toggleJapaneseSiteLanguage:no,isYouTube:()=>false,toggleYoutubeFilter:no,isYoutubeFilterEnabled:()=>false,toggleAutoSubtitles:no,isAutoSubtitlesEnabled:()=>false,hasSubtitleVideo:()=>false });
             await new Promise(requestAnimationFrame);
             const read = () => {
-                const r = document.querySelector('.jpdb-reader-fab').getBoundingClientRect();
-                return { x:(r.x-visual.offsetLeft)*visual.scale, y:(r.y-visual.offsetTop)*visual.scale, width:r.width*visual.scale, height:r.height*visual.scale };
+                const button=document.querySelector('.jpdb-reader-fab');
+                const r=button.getBoundingClientRect();
+                const plane=button.parentElement;
+                const ratio=plane.getBoundingClientRect().width/plane.offsetWidth;
+                const rectScale=Math.abs(ratio-1/(fit*2))<Math.abs(ratio-1)?fit*2:1;
+                return { x:r.x*rectScale-visual.offsetLeft*fit*2, y:r.y*rectScale-visual.offsetTop*fit*2, width:r.width*rectScale, height:r.height*rectScale };
             };
             const zoomed = read();
             Object.assign(visual,{ offsetLeft:90,offsetTop:110 });
@@ -110,10 +126,16 @@ for (const [name, type] of [['chromium', chromium], ['webkit', webkit]]) {
             return { start:{ x:start.x,y:start.y,width:start.width,height:start.height }, zoomed,panned, roots:document.querySelectorAll('.jpdb-reader-puck-viewport').length };
         });
         for (const key of ['x','y','width','height']) {
-            assert(Math.abs(pinch.zoomed[key]-pinch.start[key])<.5, `${name}: pinch changes puck ${key}: ${JSON.stringify(pinch)}`);
-            assert(Math.abs(pinch.panned[key]-pinch.start[key])<.5, `${name}: pan changes puck ${key}`);
+            assert(Math.abs(pinch.zoomed[key]-pinch.start[key])<=1, `${name}: pinch changes puck ${key}: ${JSON.stringify(pinch)}`);
+            assert(Math.abs(pinch.panned[key]-pinch.start[key])<=1, `${name}: pan changes puck ${key}`);
         }
-        await page.locator('.jpdb-reader-fab').click();
+        await paintPuck(page);
+        const pannedPixels=await puckPixels(page);
+        for (const key of ['x','y','width','height']) {
+            const rendered=['x','y'].includes(key) ? (pannedPixels[key]-({x:90,y:110}[key])*fit)*2 : pannedPixels[key]*2;
+            assert(Math.abs(rendered-startPixels[key])<=2, `${name}: rendered puck pixels drift for ${key}`);
+        }
+        await page.mouse.click((pannedPixels.x+pannedPixels.width/2)/fit,(pannedPixels.y+pannedPixels.height/2)/fit);
         await page.locator('.jpdb-reader-fab-radial.is-open').waitFor();
         // WebKit can start a staggered transition after the first paint. Wait
         // for the animation lifecycle, then independently assert physical bounds.
@@ -123,15 +145,22 @@ for (const [name, type] of [['chromium', chromium], ['webkit', webkit]]) {
         });
         const menu = await page.evaluate(() => {
             const v=window.pinchFixture.visual;
+            const fit=outerWidth/innerWidth;
+            const plane=document.querySelector('.jpdb-reader-puck-viewport');
+            const ratio=plane.getBoundingClientRect().width/plane.offsetWidth;
+                const rectScale=Math.abs(ratio-1/(fit*2))<Math.abs(ratio-1)?fit*2:1;
             return [...document.querySelectorAll('.jpdb-reader-fab-radial-item')].map(e=>{
                 const r=e.getBoundingClientRect();
-                return { x:(r.x-v.offsetLeft)*v.scale, y:(r.y-v.offsetTop)*v.scale, width:r.width*v.scale,height:r.height*v.scale };
+                const x=r.x*rectScale-v.offsetLeft*fit*2, y=r.y*rectScale-v.offsetTop*fit*2;
+                const hit=document.elementFromPoint((r.x+r.width/2)*rectScale/(fit*2),(r.y+r.height/2)*rectScale/(fit*2));
+                return {x,y,width:r.width*rectScale,height:r.height*rectScale,hit:hit?.closest('.jpdb-reader-fab-radial-item')===e};
             });
         });
         assert(menu.length>=5, `${name}: pinch menu did not open`);
         for (const item of menu) {
+            assert(item.hit, `${name}: menu has an incorrect click target`);
             assert(item.width>=45 && item.width<=56, `${name}: pinch magnifies menu button: ${JSON.stringify(item)}`);
-            assert(item.x>=0 && item.y>=0 && item.x+item.width<=391 && item.y+item.height<=701, `${name}: pinch menu leaves visible viewport`);
+            assert(item.x>=0 && item.y>=0 && item.x+item.width<=startPixels.x+startPixels.width+15 && item.y+item.height<=startPixels.y+startPixels.height+15, `${name}: pinch menu leaves visible viewport`);
         }
         const cleanup = await page.evaluate(() => {
             const { visual,puck }=window.pinchFixture;
@@ -159,6 +188,26 @@ for (const [name, type] of [['chromium', chromium], ['webkit', webkit]]) {
         assert(sheetVisibility.covered.every(display=>display==='none'), `${name}: Shorts controls cover comments`);
         assert(sheetVisibility.restored.every(display=>display!=='none'), `${name}: Shorts controls fail to return`);
         assert.deepEqual(errors, [], `${name}: browser errors`);
-        console.log(`${name}: PASS one foreground OCR owner; synchronous scroll registration; rendered glyph scroll registration; pinch/pan puck and menu geometry/teardown`);
+        console.log(`${name} page-fit=${pageZoom}: PASS one foreground OCR owner; synchronous scroll registration; rendered glyph scroll registration; pinch/pan puck and menu geometry/teardown`);
     } finally { await browser.close(); }
+}
+
+async function puckPixels(page) {
+    const {data,info}=await sharp(await page.screenshot()).ensureAlpha().raw().toBuffer({resolveWithObject:true});
+    let left=info.width,top=info.height,right=-1,bottom=-1;
+    for(let y=0;y<info.height;y++) for(let x=0;x<info.width;x++) {
+        const i=(y*info.width+x)*4;
+        if(data[i]<15&&data[i+1]>240&&data[i+2]<15) { left=Math.min(left,x);top=Math.min(top,y);right=Math.max(right,x);bottom=Math.max(bottom,y); }
+    }
+    if(right<left) console.error(await page.evaluate(()=>{const b=document.querySelector('.jpdb-reader-fab'),s=getComputedStyle(b);return {box:b.getBoundingClientRect().toJSON(),bg:s.backgroundColor,opacity:s.opacity,display:s.display,style:b.style.cssText}}));
+    assert(right>=left,'Puck did not paint its fixture colour');
+    return {x:left,y:top,width:right-left+1,height:bottom-top+1};
+}
+
+async function paintPuck(page) {
+    await page.evaluate(()=>{
+        const b=document.querySelector('.jpdb-reader-fab');
+        for(const [key,value] of Object.entries({background:'rgb(1,255,0)',opacity:'1',border:'0', 'box-shadow':'none',transform:'none',transition:'none'})) b.style.setProperty(key,value,'important');
+        b.querySelector('.jpdb-reader-fab-state').style.setProperty('display','none','important');
+    });
 }

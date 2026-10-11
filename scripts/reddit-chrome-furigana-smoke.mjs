@@ -981,6 +981,7 @@ async function snapshotFixedSurface(page, selector) {
             width: rect.width * scale,
             height: rect.height * scale,
         });
+        const scaleRoot = root.closest('[data-jpdb-reader-scale-adapter]') ?? root;
         const textRect = firstTextRect(root);
         const backdrop = document.querySelector('.jpdb-reader-backdrop');
         const backdropRect = backdrop?.getBoundingClientRect();
@@ -988,9 +989,9 @@ async function snapshotFixedSurface(page, selector) {
             rect: plainRect(rawRootRect, compensatedRectScale),
             textRect: textRect ? plainRect(textRect, compensatedRectScale) : null,
             fontSize: Number.parseFloat(getComputedStyle(root).fontSize),
-            inlineZoom: root.style.getPropertyValue('zoom'),
-            zoomPriority: root.style.getPropertyPriority('zoom'),
-            adapter: root.dataset.jpdbReaderScaleAdapter ?? '',
+            inlineZoom: scaleRoot.style.getPropertyValue('zoom'),
+            zoomPriority: scaleRoot.style.getPropertyPriority('zoom'),
+            adapter: scaleRoot.dataset.jpdbReaderScaleAdapter ?? '',
             pageScale,
             compensatedRectScale,
             browser: { width: outerWidth, height: innerHeight * pageScale },
@@ -1974,6 +1975,7 @@ function snapshotRedditPageSummary() {
     const card = document.querySelector('#highlight-card').getBoundingClientRect();
     const post = document.querySelector('#post').getBoundingClientRect();
     const puck = document.querySelector('.jpdb-reader-fab');
+    const scaleRoot = puck.closest('[data-jpdb-reader-scale-adapter]') ?? puck;
     const join = document.querySelector('reddit-header-shell').shadowRoot
         .querySelector('reddit-join-control').shadowRoot.querySelector('#join');
     const sort = document.querySelector('reddit-sort-control').shadowRoot.querySelector('#sort');
@@ -2034,12 +2036,12 @@ function snapshotRedditPageSummary() {
         overlay: {
             hostname: location.hostname,
             bodyZoom: getComputedStyle(document.body).zoom,
-            puckZoom: getComputedStyle(puck).zoom,
-            puckInlineZoom: puck.style.getPropertyValue('zoom'),
-            puckZoomPriority: puck.style.getPropertyPriority('zoom'),
-            scaleAdapter: puck.dataset.jpdbReaderScaleAdapter ?? '',
-            stampedPageScale: Number(puck.dataset.jpdbReaderPageScale || 1),
-            stampedCompensation: Number(puck.dataset.jpdbReaderScaleCompensation || 1),
+            puckZoom: getComputedStyle(scaleRoot).zoom,
+            puckInlineZoom: scaleRoot.style.getPropertyValue('zoom'),
+            puckZoomPriority: scaleRoot.style.getPropertyPriority('zoom'),
+            scaleAdapter: scaleRoot.dataset.jpdbReaderScaleAdapter ?? '',
+            stampedPageScale: Number(scaleRoot.dataset.jpdbReaderPageScale || 1),
+            stampedCompensation: Number(scaleRoot.dataset.jpdbReaderScaleCompensation || 1),
             compensatedRectScale,
             rawPuckWidth: rawPuckRect.width,
             puckWidth: puckRect.width,

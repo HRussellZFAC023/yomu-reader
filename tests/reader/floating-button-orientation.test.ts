@@ -73,7 +73,7 @@ describe('floating button iPad orientation scale', () => {
 
         try {
             const button = puck();
-            expect(button.dataset.jpdbReaderScaleAdapter).toBeUndefined();
+            expect(button.parentElement!.dataset.jpdbReaderScaleAdapter).toBeUndefined();
 
             setViewportMetrics({
                 innerWidth: 1180,
@@ -84,7 +84,7 @@ describe('floating button iPad orientation scale', () => {
             });
             window.dispatchEvent(new Event('resize'));
             flushFrames();
-            expect(button.dataset.jpdbReaderScaleAdapter).toBeUndefined();
+            expect(button.parentElement!.dataset.jpdbReaderScaleAdapter).toBeUndefined();
 
             // During the return to portrait, iPadOS can briefly expose a layout
             // width that looks exactly like 200% Safari page zoom.
@@ -99,7 +99,7 @@ describe('floating button iPad orientation scale', () => {
             window.dispatchEvent(new Event('resize'));
             expect(pendingFrames).toHaveLength(1);
             flushFrames();
-            expect(button.dataset.jpdbReaderScaleCompensation).toBe('0.5');
+            expect(button.parentElement!.dataset.jpdbReaderScaleCompensation).toBe('0.5');
 
             // The metrics settle without another reliable window resize.
             setViewportMetrics({
@@ -112,9 +112,9 @@ describe('floating button iPad orientation scale', () => {
             vi.advanceTimersByTime(240);
             flushFrames();
 
-            expect(button.style.getPropertyValue('zoom')).toBe('');
-            expect(button.dataset.jpdbReaderScaleAdapter).toBeUndefined();
-            expect(button.dataset.jpdbReaderPageScale).toBeUndefined();
+            expect(button.parentElement!.style.getPropertyValue('zoom')).toBe('');
+            expect(button.parentElement!.dataset.jpdbReaderScaleAdapter).toBeUndefined();
+            expect(button.parentElement!.dataset.jpdbReaderPageScale).toBeUndefined();
         } finally {
             controller.destroy();
         }
@@ -130,20 +130,20 @@ describe('floating button iPad orientation scale', () => {
             visual.dispatchEvent(new Event('resize'));
             expect(pendingFrames).toHaveLength(1);
             flushFrames();
-            expect(root.style.transform).toBe('scale(0.5)');
+            expect(root.dataset.jpdbReaderScaleCompensation).toBe('0.5');
             expect(root.style.width).toBe('390px');
             expect(root.style.height).toBe('700px');
-            expect(root.style.left).toBe('40px');
-            expect(root.style.top).toBe('80px');
+            expect(root.style.left).toBe('80px');
+            expect(root.style.top).toBe('160px');
             Object.assign(visual, { offsetLeft: 75, offsetTop: 130 });
             visual.dispatchEvent(new Event('scroll'));
             flushFrames();
-            expect(root.style.left).toBe('75px');
-            expect(root.style.top).toBe('130px');
+            expect(root.style.left).toBe('150px');
+            expect(root.style.top).toBe('260px');
             Object.assign(visual, { width: 390, height: 700, scale: 1, offsetLeft: 0, offsetTop: 0 });
             visual.dispatchEvent(new Event('resize'));
             flushFrames();
-            expect(root.style.transform).toBe('scale(1)');
+            expect(root.style.getPropertyValue('zoom')).toBe('');
             controller.destroy();
             expect(root.isConnected).toBe(false);
             visual.dispatchEvent(new Event('scroll'));
@@ -162,7 +162,7 @@ describe('floating button iPad orientation scale', () => {
 
         try {
             const button = puck();
-            expect(button.dataset.jpdbReaderScaleCompensation).toBe('0.5');
+            expect(button.parentElement!.dataset.jpdbReaderScaleCompensation).toBe('0.5');
 
             // Reproduce the stale adapter window: layout metrics are back to
             // normal, but the earlier inverse zoom is still stamped on the puck.
@@ -175,8 +175,8 @@ describe('floating button iPad orientation scale', () => {
             });
             button.dispatchEvent(pointerEvent('pointerdown', 210, 310, 41));
 
-            expect(button.dataset.jpdbReaderScaleAdapter).toBeUndefined();
-            expect(button.dataset.jpdbReaderScaleCompensation).toBeUndefined();
+            expect(button.parentElement!.dataset.jpdbReaderScaleAdapter).toBeUndefined();
+            expect(button.parentElement!.dataset.jpdbReaderScaleCompensation).toBeUndefined();
 
             button.dispatchEvent(pointerEvent('pointermove', 310, 410, 41));
             flushFrames();

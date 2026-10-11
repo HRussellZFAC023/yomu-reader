@@ -2702,7 +2702,10 @@ html.jpdb-reader-suppress-redundant .jpdb-reader-word.jpdb-redundant {
   position: fixed !important;
   z-index: 2147483646 !important;
   pointer-events: none !important;
-  transform-origin: 0 0 !important;
+  transform: none !important;
+}
+.jpdb-reader-puck-viewport > :is(.jpdb-reader-fab, .jpdb-reader-fab-radial) {
+  position: absolute !important;
 }
 .jpdb-reader-puck-viewport > .jpdb-reader-fab {
   pointer-events: auto !important;

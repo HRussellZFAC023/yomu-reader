@@ -8182,8 +8182,8 @@ function compensatedOverlayRoot(source) {
   const root = element?.closest(`[data-jpdb-reader-scale-adapter="${APPLE_TOUCH_ADAPTER}"]`);
   return root instanceof HTMLElement ? root : null;
 }
-function applyOverlayPageScale(element, environment = currentEnvironment()) {
-  const pageScale = overlayPageScale(environment);
+function applyOverlayPageScale(element, environment = currentEnvironment(), pinchScale = 1) {
+  const pageScale = overlayPageScale(environment) * pinchScale;
   if (pageScale === 1) {
   clearOwnedScale(element);
   return pageScale;

@@ -7,7 +7,6 @@ import { menuIcon, type MenuIconName } from './menu-icons';
 import type { OcrInteractionMode } from '../ocr/mode';
 import { isTrustedReaderInteraction } from './trusted-interaction';
 import {
-    applyOverlayPageScale,
     hasOverlayPageScale,
     layoutRectToOverlay,
     overlayViewport,
@@ -294,7 +293,6 @@ export class FloatingButtonController {
             this.radial?.toggle();
         });
         this.viewportRoot = mountPuckViewport(button);
-        applyOverlayPageScale(button);
         clampRestoredButtonPosition(button, settings);
         this.installVideoAvoidance(button);
     }
@@ -343,7 +341,6 @@ export class FloatingButtonController {
             if (frame !== undefined) return;
             frame = requestAnimationFrame(() => {
                 frame = undefined;
-                applyOverlayPageScale(button);
                 if (this.viewportRoot) syncPuckViewport(this.viewportRoot);
                 const avoid = avoidanceRequested;
                 avoidanceRequested = false;
@@ -366,7 +363,7 @@ export class FloatingButtonController {
         // getBoundingClientRect walk it guards.
         const avoidanceCouldChange = (): boolean =>
             overlayViewport().pageScale !== 1
-            || hasOverlayPageScale(button)
+            || hasOverlayPageScale(this.viewportRoot)
             || button.classList.contains('jpdb-reader-fab-over-video')
             || Boolean(document.querySelector('video'));
         // Scroll fires continuously during a fling, and each recompute reads the
@@ -451,7 +448,8 @@ export class FloatingButtonController {
             // Apply and consume one scale snapshot. Reading the environment
             // independently here used to let a stale inverse zoom and newly
             // settled pointer coordinates disagree after iPad rotation.
-            dragPageScale = applyOverlayPageScale(button);
+            if (this.viewportRoot) syncPuckViewport(this.viewportRoot);
+            dragPageScale = overlayViewport().pageScale;
             const start = puckPoint({ x: event.clientX, y: event.clientY }, dragPageScale);
             startX = start.x;
             startY = start.y;

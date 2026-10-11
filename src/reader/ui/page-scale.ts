@@ -221,14 +221,16 @@ function compensatedOverlayRoot(source: Node | null | undefined): HTMLElement | 
 
 /**
  * Keep a Yomu-owned fixed content root at its intended physical size when
- * the host page has a non-default iPad Safari page zoom. Full-screen
+ * the host page has a non-default iPad Safari page zoom. A viewport-pinned
+ * control plane can include an additional pinch factor. Full-screen
  * host-facing scrims deliberately stay outside this adapter.
  */
 export function applyOverlayPageScale(
     element: HTMLElement,
     environment = currentEnvironment(),
+    pinchScale = 1,
 ): number {
-    const pageScale = overlayPageScale(environment);
+    const pageScale = overlayPageScale(environment) * pinchScale;
     if (pageScale === 1) {
         clearOwnedScale(element);
         return pageScale;

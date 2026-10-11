@@ -1,4 +1,4 @@
-import { layoutPointToOverlay, overlayViewport, sourceRectToOverlay, type OverlayPoint } from './page-scale';
+import { applyOverlayPageScale, layoutPointToOverlay, overlayViewport, sourceRectToOverlay, type OverlayPoint } from './page-scale';
 
 /** The puck lives in visible-screen coordinates, including pinch zoom and pan.
  * The host document and its OCR layers keep their normal page coordinates. */
@@ -15,12 +15,12 @@ export function mountPuckViewport(button: HTMLButtonElement): HTMLElement {
 export function syncPuckViewport(root: HTMLElement): void {
     const viewport = window.visualViewport;
     const pinch = pinchScale();
+    const scale = applyOverlayPageScale(root, undefined, pinch);
     const values = {
-        left: `${viewport?.offsetLeft ?? 0}px`,
-        top: `${viewport?.offsetTop ?? 0}px`,
-        width: `${(viewport?.width ?? window.innerWidth) * pinch}px`,
-        height: `${(viewport?.height ?? window.innerHeight) * pinch}px`,
-        transform: `scale(${1 / pinch})`,
+        left: `${(viewport?.offsetLeft ?? 0) * scale}px`,
+        top: `${(viewport?.offsetTop ?? 0) * scale}px`,
+        width: `${(viewport?.width ?? window.innerWidth) * scale}px`,
+        height: `${(viewport?.height ?? window.innerHeight) * scale}px`,
     };
     for (const [property, value] of Object.entries(values)) {
         if (root.style.getPropertyValue(property) !== value) root.style.setProperty(property, value, 'important');
@@ -59,6 +59,9 @@ export function puckRect(button: HTMLButtonElement, pageScale = overlayViewport(
 }
 
 function pinchScale(): number {
-    const scale = window.visualViewport?.scale ?? 1;
+    // Initial viewport fitting/page zoom can also report visualViewport.scale.
+    // Only a narrower visible width represents additional pinch magnification.
+    const width = window.visualViewport?.width ?? window.innerWidth;
+    const scale = window.innerWidth / width;
     return Number.isFinite(scale) && scale > 0 ? scale : 1;
 }

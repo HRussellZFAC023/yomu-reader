@@ -12,7 +12,7 @@
 // @match *://*/*
 // @match file:///*
 // @require https://yomureader.com/greasyfork/yomu-runtime.4bcf7480f160.user.js#sha256=S890gPFgJbhQJY1nC2Zb9cAFtlCtmH4rxkvaLZPC52Y=
-// @resource yomuCss  https://yomureader.com/yomu.179c84bc6015.css#sha256=F5yEvGAVE25XhpkKHQdpv/Suyww3tudF2EY6dvlIF1c=
+// @resource yomuCss  https://yomureader.com/yomu.74a660b74f66.css#sha256=dKZgt09mA8DgqfwUAexqkLeCLAWgAj+Q9kNK+NpY2j8=
 // @connect api.jiten.moe
 // @connect api.tatoeba.org
 // @connect tatoeba.org
@@ -14206,8 +14206,8 @@ const element = source instanceof Element ? source : source?.parentElement;
 const root = element?.closest(`[data-jpdb-reader-scale-adapter="${APPLE_TOUCH_ADAPTER}"]`);
 return root instanceof HTMLElement ? root : null;
 }
-function applyOverlayPageScale(element, environment = currentEnvironment()) {
-const pageScale = overlayPageScale(environment);
+function applyOverlayPageScale(element, environment = currentEnvironment(), pinchScale2 = 1) {
+const pageScale = overlayPageScale(environment) * pinchScale2;
 if (pageScale === 1) {
 clearOwnedScale(element);
 return pageScale;
@@ -29629,12 +29629,12 @@ return root;
 function syncPuckViewport(root) {
 const viewport = window.visualViewport;
 const pinch = pinchScale();
+const scale = applyOverlayPageScale(root, void 0, pinch);
 const values = {
-left: `${viewport?.offsetLeft ?? 0}px`,
-top: `${viewport?.offsetTop ?? 0}px`,
-width: `${(viewport?.width ?? window.innerWidth) * pinch}px`,
-height: `${(viewport?.height ?? window.innerHeight) * pinch}px`,
-transform: `scale(${1 / pinch})`
+left: `${(viewport?.offsetLeft ?? 0) * scale}px`,
+top: `${(viewport?.offsetTop ?? 0) * scale}px`,
+width: `${(viewport?.width ?? window.innerWidth) * scale}px`,
+height: `${(viewport?.height ?? window.innerHeight) * scale}px`
 };
 for (const [property, value] of Object.entries(values)) {
 if (root.style.getPropertyValue(property) !== value) root.style.setProperty(property, value, "important");
@@ -29669,7 +29669,8 @@ rect.height
 );
 }
 function pinchScale() {
-const scale = window.visualViewport?.scale ?? 1;
+const width = window.visualViewport?.width ?? window.innerWidth;
+const scale = window.innerWidth / width;
 return Number.isFinite(scale) && scale > 0 ? scale : 1;
 }
 const power = [
@@ -29953,7 +29954,7 @@ backdrop.setAttribute("role", "menu");
 backdrop.setAttribute("aria-label", this.host.menuLabel());
 const viewportRoot = button.closest(".jpdb-reader-puck-viewport");
 (viewportRoot ?? document.body).appendChild(backdrop);
-applyOverlayPageScale(backdrop);
+if (!viewportRoot) applyOverlayPageScale(backdrop);
 this.backdrop = backdrop;
 this.layout(button, backdrop, actions);
 button.classList.add("jpdb-reader-fab--menu-open");
@@ -30312,7 +30313,6 @@ event.stopPropagation();
 this.radial?.toggle();
 });
 this.viewportRoot = mountPuckViewport(button);
-applyOverlayPageScale(button);
 clampRestoredButtonPosition(button, settings2);
 this.installVideoAvoidance(button);
 }
@@ -30352,7 +30352,6 @@ avoidanceRequested ||= avoidance;
 if (frame !== void 0) return;
 frame = requestAnimationFrame(() => {
 frame = void 0;
-applyOverlayPageScale(button);
 if (this.viewportRoot) syncPuckViewport(this.viewportRoot);
 const avoid = avoidanceRequested;
 avoidanceRequested = false;
@@ -30366,7 +30365,7 @@ const handleVisualViewportChange = () => {
 updateViewport();
 scheduleSettle();
 };
-const avoidanceCouldChange = () => overlayViewport().pageScale !== 1 || hasOverlayPageScale(button) || button.classList.contains("jpdb-reader-fab-over-video") || Boolean(document.querySelector("video"));
+const avoidanceCouldChange = () => overlayViewport().pageScale !== 1 || hasOverlayPageScale(this.viewportRoot) || button.classList.contains("jpdb-reader-fab-over-video") || Boolean(document.querySelector("video"));
 const scheduleSettle = () => {
 if (!avoidanceCouldChange()) return;
 window.clearTimeout(settleTimer);
@@ -30429,7 +30428,8 @@ if (event.button !== 0) return;
 dragging = true;
 moved = false;
 button.dataset.jpdbReaderMoved = "false";
-dragPageScale = applyOverlayPageScale(button);
+if (this.viewportRoot) syncPuckViewport(this.viewportRoot);
+dragPageScale = overlayViewport().pageScale;
 const start = puckPoint({ x: event.clientX, y: event.clientY }, dragPageScale);
 startX = start.x;
 startY = start.y;

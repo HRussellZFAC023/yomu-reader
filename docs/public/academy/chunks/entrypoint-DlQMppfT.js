@@ -126814,8 +126814,8 @@ function compensatedOverlayRoot(source2) {
   const root = element2?.closest(`[data-jpdb-reader-scale-adapter="${APPLE_TOUCH_ADAPTER}"]`);
   return root instanceof HTMLElement ? root : null;
 }
-function applyOverlayPageScale(element2, environment = currentEnvironment()) {
-  const pageScale = overlayPageScale(environment);
+function applyOverlayPageScale(element2, environment = currentEnvironment(), pinchScale = 1) {
+  const pageScale = overlayPageScale(environment) * pinchScale;
   if (pageScale === 1) {
     clearOwnedScale(element2);
     return pageScale;
@@ -264500,7 +264500,7 @@ function padClockPart(value) {
 const DEFAULT_ACADEMY_STUDY_DURATION_MS = DEFAULT_STUDY_DURATION_MS;
 class StudyRuntimeLoadFailure extends Error {
 }
-function createCanonicalAcademyStudyModule(loadRuntime = () => import("./runtime-CZWcpk5F.js")) {
+function createCanonicalAcademyStudyModule(loadRuntime = () => import("./runtime-BApJZM2k.js")) {
   return {
     async mount(host2, context2) {
       let runtime;
