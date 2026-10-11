@@ -149,4 +149,37 @@ describe('filtered YouTube continuations', () => {
             guard.clear();
         }
     });
+
+    it.each(['remove', 'transfer', 'transfer-with-replacement'])('preserves independent nested loader ownership (%s)', async action => {
+        const inner = page();
+        const outer = document.createElement('ytd-continuation-item-renderer');
+        document.querySelector('#secondary')!.append(outer);
+        sync(); intersect(inner); intersect(outer);
+        await vi.advanceTimersByTimeAsync(8000);
+        expect(inner.classList.contains('jpdb-youtube-continuation-paused')).toBe(true);
+        expect(outer.classList.contains('jpdb-youtube-continuation-paused')).toBe(true);
+        if (action === 'remove') outer.remove();
+        else document.querySelector('#contents')!.append(outer);
+        if (action === 'transfer-with-replacement') document.querySelector('#secondary')!.append(document.createElement('ytd-continuation-item-renderer'));
+        sync();
+        const terminal = action === 'remove' ? inner : outer;
+        expect(terminal.classList.contains('jpdb-youtube-continuation-paused')).toBe(true);
+        expect(document.querySelectorAll('.jpdb-youtube-load-more')).toHaveLength(action === 'transfer-with-replacement' ? 2 : 1);
+    });
+
+    it('releases the old pause presentation when a marker enters a fresh list', async () => {
+        page().remove();
+        const marker = document.createElement('ytd-continuation-item-renderer');
+        document.querySelector('#secondary')!.append(marker);
+        sync(); intersect(marker);
+        await vi.advanceTimersByTimeAsync(8000);
+        expect(marker.classList.contains('jpdb-youtube-continuation-paused')).toBe(true);
+        document.querySelector('#contents')!.append(marker);
+        const replacement = document.createElement('ytd-continuation-item-renderer');
+        document.querySelector('#secondary')!.append(replacement);
+        sync();
+        expect(marker.classList.contains('jpdb-youtube-continuation-paused')).toBe(false);
+        expect(replacement.classList.contains('jpdb-youtube-continuation-paused')).toBe(true);
+        expect(document.querySelectorAll('.jpdb-youtube-load-more')).toHaveLength(1);
+    });
 });

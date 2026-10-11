@@ -27,6 +27,7 @@ interface ContinuationList {
  * YouTube still owns the requests and response DOM. */
 export class YouTubeContinuationGuard {
     private readonly lists = new Map<HTMLElement, ContinuationList>();
+    private readonly markerOwners = new Map<HTMLElement, ContinuationList>();
     private readonly stale = new Set<HTMLElement>();
     private observer?: IntersectionObserver;
     private route = '';
@@ -55,10 +56,10 @@ export class YouTubeContinuationGuard {
             live.add(root);
             terminals.set(root, marker);
         }
-        for (const [root, marker] of terminals) this.syncList(root, marker, language);
         for (const [root, list] of this.lists) {
             if (!live.has(root)) this.releaseList(list);
         }
+        for (const [root, marker] of terminals) this.syncList(root, marker, language);
         for (const marker of this.stale) {
             if (!stale.has(marker)) marker.classList.remove(STALE_CLASS);
         }
@@ -76,8 +77,7 @@ export class YouTubeContinuationGuard {
             const terminal = markers.at(-1);
             // Count replacements before the debounced card scan. A fast native
             // response can otherwise mount several sentinels within one scan.
-            if (terminal && terminal !== list.marker) this.syncList(list.root, terminal, list.language);
-            if (list.paused) markers.forEach(marker => marker.classList.add(PAUSED_CLASS));
+            if (terminal) this.syncList(list.root, terminal, list.language);
         }
     }
 
@@ -85,6 +85,7 @@ export class YouTubeContinuationGuard {
         for (const list of this.lists.values()) this.releaseList(list);
         this.observer?.disconnect();
         this.observer = undefined;
+        this.markerOwners.clear();
         for (const marker of this.stale) marker.classList.remove(STALE_CLASS);
         this.stale.clear();
         this.route = '';
@@ -95,26 +96,27 @@ export class YouTubeContinuationGuard {
         if (!list) {
             list = { root, marker, pages: 0, paused: false, language };
             this.lists.set(root, list);
-            this.observe(marker);
+            this.observe(list);
         } else if (list.marker !== marker) {
-            this.observer?.unobserve(list.marker);
-            list.marker.classList.remove(PAUSED_CLASS);
-            window.clearTimeout(list.timeout);
-            list.timeout = undefined;
+            this.detachMarker(list);
             list.marker = marker;
             list.pages += 1;
-            this.observe(marker);
+            this.observe(list);
         }
         list.language = language;
         if (list.pages >= AUTOMATIC_PAGE_LIMIT || list.paused) this.pause(list);
-        if (list.button) list.button.textContent = uiText(language, 'youtubeLoadMore');
+        const label = uiText(language, 'youtubeLoadMore');
+        if (list.button && list.button.textContent !== label) list.button.textContent = label;
     }
 
-    private observe(marker: HTMLElement): void {
+    private observe(list: ContinuationList): void {
+        const previousOwner = this.markerOwners.get(list.marker);
+        if (previousOwner && previousOwner !== list) list.marker.classList.remove(PAUSED_CLASS);
+        this.markerOwners.set(list.marker, list);
         if (typeof IntersectionObserver === 'undefined') return;
         this.observer ??= new IntersectionObserver(entries => {
             for (const entry of entries) {
-                const list = [...this.lists.values()].find(candidate => candidate.marker === entry.target);
+                const list = this.markerOwners.get(entry.target as HTMLElement);
                 if (!list || list.paused) continue;
                 window.clearTimeout(list.timeout);
                 list.timeout = undefined;
@@ -122,11 +124,11 @@ export class YouTubeContinuationGuard {
                 list.timeout = window.setTimeout(() => this.pause(list), LOADER_DEADLINE_MS);
             }
         });
-        this.observer.observe(marker);
+        this.observer.observe(list.marker);
     }
 
     private pause(list: ContinuationList): void {
-        if (!list.marker.isConnected) return;
+        if (!list.marker.isConnected || this.markerOwners.get(list.marker) !== list) return;
         window.clearTimeout(list.timeout);
         list.timeout = undefined;
         list.paused = true;
@@ -140,13 +142,14 @@ export class YouTubeContinuationGuard {
             button.addEventListener('click', event => {
                 if (!isDirectTrustedReaderInteraction(event)) return;
                 if (this.lists.get(list.root) !== list) return;
+                if (this.markerOwners.get(list.marker) !== list) return;
                 list.pages = 0;
                 list.paused = false;
-                list.root.querySelectorAll<HTMLElement>(`.${PAUSED_CLASS}`).forEach(marker => marker.classList.remove(PAUSED_CLASS));
+                list.marker.classList.remove(PAUSED_CLASS);
                 list.button?.remove();
                 list.button = undefined;
                 this.observer?.unobserve(list.marker);
-                this.observe(list.marker);
+                this.observe(list);
             });
             list.button = button;
         }
@@ -156,12 +159,20 @@ export class YouTubeContinuationGuard {
     }
 
     private releaseList(list: ContinuationList): void {
+        this.detachMarker(list);
+        list.button?.remove();
+        this.lists.delete(list.root);
+    }
+
+    private detachMarker(list: ContinuationList): void {
         window.clearTimeout(list.timeout);
+        list.timeout = undefined;
+        // A framework can move a terminal to another still-live list. Its new
+        // owner must survive the old binding's cleanup, in either scan order.
+        if (this.markerOwners.get(list.marker) !== list) return;
         this.observer?.unobserve(list.marker);
         list.marker.classList.remove(PAUSED_CLASS);
-        list.button?.remove();
-        list.root.querySelectorAll<HTMLElement>(`.${PAUSED_CLASS}`).forEach(marker => marker.classList.remove(PAUSED_CLASS));
-        this.lists.delete(list.root);
+        this.markerOwners.delete(list.marker);
     }
 }
 

@@ -77752,6 +77752,7 @@ ${reading}`);
   const LOADER_DEADLINE_MS = 8e3;
   class YouTubeContinuationGuard {
     lists = /* @__PURE__ */ new Map();
+    markerOwners = /* @__PURE__ */ new Map();
     stale = /* @__PURE__ */ new Set();
     observer;
     route = "";
@@ -77779,10 +77780,10 @@ ${reading}`);
         live.add(root);
         terminals.set(root, marker);
       }
-      for (const [root, marker] of terminals) this.syncList(root, marker, language2);
       for (const [root, list] of this.lists) {
         if (!live.has(root)) this.releaseList(list);
       }
+      for (const [root, marker] of terminals) this.syncList(root, marker, language2);
       for (const marker of this.stale) {
         if (!stale.has(marker)) marker.classList.remove(STALE_CLASS);
       }
@@ -77796,14 +77797,14 @@ ${reading}`);
       for (const list of this.lists.values()) {
         const markers = [...list.root.querySelectorAll(MARKER_SELECTOR)].filter((marker) => continuationVideoList(marker) === list.root);
         const terminal = markers.at(-1);
-        if (terminal && terminal !== list.marker) this.syncList(list.root, terminal, list.language);
-        if (list.paused) markers.forEach((marker) => marker.classList.add(PAUSED_CLASS));
+        if (terminal) this.syncList(list.root, terminal, list.language);
       }
     }
     clear() {
       for (const list of this.lists.values()) this.releaseList(list);
       this.observer?.disconnect();
       this.observer = void 0;
+      this.markerOwners.clear();
       for (const marker of this.stale) marker.classList.remove(STALE_CLASS);
       this.stale.clear();
       this.route = "";
@@ -77813,36 +77814,37 @@ ${reading}`);
       if (!list) {
         list = { root, marker, pages: 0, paused: false, language: language2 };
         this.lists.set(root, list);
-        this.observe(marker);
+        this.observe(list);
       } else if (list.marker !== marker) {
-        this.observer?.unobserve(list.marker);
-        list.marker.classList.remove(PAUSED_CLASS);
-        window.clearTimeout(list.timeout);
-        list.timeout = void 0;
+        this.detachMarker(list);
         list.marker = marker;
         list.pages += 1;
-        this.observe(marker);
+        this.observe(list);
       }
       list.language = language2;
       if (list.pages >= AUTOMATIC_PAGE_LIMIT || list.paused) this.pause(list);
-      if (list.button) list.button.textContent = uiText(language2, "youtubeLoadMore");
+      const label = uiText(language2, "youtubeLoadMore");
+      if (list.button && list.button.textContent !== label) list.button.textContent = label;
     }
-    observe(marker) {
+    observe(list) {
+      const previousOwner = this.markerOwners.get(list.marker);
+      if (previousOwner && previousOwner !== list) list.marker.classList.remove(PAUSED_CLASS);
+      this.markerOwners.set(list.marker, list);
       if (typeof IntersectionObserver === "undefined") return;
       this.observer ??= new IntersectionObserver((entries2) => {
         for (const entry of entries2) {
-          const list = [...this.lists.values()].find((candidate) => candidate.marker === entry.target);
-          if (!list || list.paused) continue;
-          window.clearTimeout(list.timeout);
-          list.timeout = void 0;
+          const list2 = this.markerOwners.get(entry.target);
+          if (!list2 || list2.paused) continue;
+          window.clearTimeout(list2.timeout);
+          list2.timeout = void 0;
           if (!entry.isIntersecting || entry.boundingClientRect.width <= 0 || entry.boundingClientRect.height <= 0) continue;
-          list.timeout = window.setTimeout(() => this.pause(list), LOADER_DEADLINE_MS);
+          list2.timeout = window.setTimeout(() => this.pause(list2), LOADER_DEADLINE_MS);
         }
       });
-      this.observer.observe(marker);
+      this.observer.observe(list.marker);
     }
     pause(list) {
-      if (!list.marker.isConnected) return;
+      if (!list.marker.isConnected || this.markerOwners.get(list.marker) !== list) return;
       window.clearTimeout(list.timeout);
       list.timeout = void 0;
       list.paused = true;
@@ -77856,13 +77858,14 @@ ${reading}`);
         button.addEventListener("click", (event) => {
           if (!isDirectTrustedReaderInteraction(event)) return;
           if (this.lists.get(list.root) !== list) return;
+          if (this.markerOwners.get(list.marker) !== list) return;
           list.pages = 0;
           list.paused = false;
-          list.root.querySelectorAll(`.${PAUSED_CLASS}`).forEach((marker) => marker.classList.remove(PAUSED_CLASS));
+          list.marker.classList.remove(PAUSED_CLASS);
           list.button?.remove();
           list.button = void 0;
           this.observer?.unobserve(list.marker);
-          this.observe(list.marker);
+          this.observe(list);
         });
         list.button = button;
       }
@@ -77871,12 +77874,17 @@ ${reading}`);
       }
     }
     releaseList(list) {
+      this.detachMarker(list);
+      list.button?.remove();
+      this.lists.delete(list.root);
+    }
+    detachMarker(list) {
       window.clearTimeout(list.timeout);
+      list.timeout = void 0;
+      if (this.markerOwners.get(list.marker) !== list) return;
       this.observer?.unobserve(list.marker);
       list.marker.classList.remove(PAUSED_CLASS);
-      list.button?.remove();
-      list.root.querySelectorAll(`.${PAUSED_CLASS}`).forEach((marker) => marker.classList.remove(PAUSED_CLASS));
-      this.lists.delete(list.root);
+      this.markerOwners.delete(list.marker);
     }
   }
   function continuationVideoList(marker) {
