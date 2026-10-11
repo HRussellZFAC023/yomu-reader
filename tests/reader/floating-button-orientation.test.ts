@@ -120,6 +120,37 @@ describe('floating button iPad orientation scale', () => {
         }
     });
 
+    it('updates its visible-screen plane within a frame of pinch resize and pan', () => {
+        const visual = Object.assign(new EventTarget(), { width: 390, height: 700, scale: 1, offsetLeft: 0, offsetTop: 0 });
+        setMetric(window, 'visualViewport', visual);
+        const controller = installPuck({ innerWidth: 390, innerHeight: 700, outerWidth: 390, screenWidth: 390, screenHeight: 844 });
+        try {
+            const root = puck().parentElement!;
+            Object.assign(visual, { width: 195, height: 350, scale: 2, offsetLeft: 40, offsetTop: 80 });
+            visual.dispatchEvent(new Event('resize'));
+            expect(pendingFrames).toHaveLength(1);
+            flushFrames();
+            expect(root.style.transform).toBe('scale(0.5)');
+            expect(root.style.width).toBe('390px');
+            expect(root.style.height).toBe('700px');
+            expect(root.style.left).toBe('40px');
+            expect(root.style.top).toBe('80px');
+            Object.assign(visual, { offsetLeft: 75, offsetTop: 130 });
+            visual.dispatchEvent(new Event('scroll'));
+            flushFrames();
+            expect(root.style.left).toBe('75px');
+            expect(root.style.top).toBe('130px');
+            Object.assign(visual, { width: 390, height: 700, scale: 1, offsetLeft: 0, offsetTop: 0 });
+            visual.dispatchEvent(new Event('resize'));
+            flushFrames();
+            expect(root.style.transform).toBe('scale(1)');
+            controller.destroy();
+            expect(root.isConnected).toBe(false);
+            visual.dispatchEvent(new Event('scroll'));
+            expect(pendingFrames).toHaveLength(0);
+        } finally { controller.destroy(); }
+    });
+
     it('reconciles rendered scale before deriving drag coordinates after rotation', () => {
         const controller = installPuck({
             innerWidth: 410,

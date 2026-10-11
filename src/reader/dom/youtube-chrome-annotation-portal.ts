@@ -1,3 +1,4 @@
+import { sourceSharesDocumentScroll } from './composed-tree';
 import { safeComputedStyle } from './decoration-policy';
 import { setImportantStyleIfChanged as setImportantStyle, stableCssPixels } from './inline-style';
 
@@ -134,29 +135,6 @@ function syncPortalScrollMode(mirror: HTMLElement, source: HTMLElement): void {
     const documentFlow = sourceSharesDocumentScroll(source);
     mirror.dataset.yomuPortalScroll = documentFlow ? 'document' : 'viewport';
     setImportantStyle(mirror, 'position', documentFlow ? 'absolute' : 'fixed');
-}
-
-/** Ordinary page content and its annotations scroll in the compositor together.
- * Only independent scrollers and fixed/sticky surfaces need viewport tracking. */
-function sourceSharesDocumentScroll(source: HTMLElement): boolean {
-    const roots = [source.ownerDocument.body, source.ownerDocument.documentElement];
-    return !composedAncestors(source).some(element => {
-        const style = safeComputedStyle(element);
-        return roots.includes(element) ? rootChangesPortalCoordinates(style) : scrollsIndependently(style);
-    });
-}
-
-function rootChangesPortalCoordinates(style: CSSStyleDeclaration): boolean {
-    const transforms = ['transform', 'filter', 'backdrop-filter', 'perspective'];
-    return !['', 'static'].includes(style.position)
-        || transforms.some(property => !['', 'none'].includes(style.getPropertyValue(property)))
-        || /transform|filter|perspective/.test(style.willChange)
-        || /layout|paint|strict|content/.test(style.contain);
-}
-
-function scrollsIndependently(style: CSSStyleDeclaration): boolean {
-    return ['fixed', 'sticky'].includes(style.position)
-        || [style.overflowX, style.overflowY].some(value => /^(auto|scroll|overlay)$/.test(value));
 }
 
 /** The stable paint plane all portal words live under. */

@@ -1,5 +1,15 @@
 # Changelog
 
+## [2.1.4] - 2026-10-11
+
+### Fixed
+
+- Tapping an already scanned image reuses its lookup text without restarting parsing or showing the faded ready dot again. A changed image can still show a new scan result.
+- YouTube Shorts subtitle controls and the text-move handle hide while native comments or another mobile sheet is open, including inline fullscreen reels and sheets mounted outside the app root.
+- Reddit’s blurred image backdrops no longer get a second OCR dot or text layer. Overlapping image copies inside open shadow roots also share foreground ownership.
+- OCR text and corner marks on ordinary page images now scroll with the document, keeping their position before JavaScript scroll updates. Fixed surfaces and independent scrollers retain viewport tracking.
+- The よむ button keeps its visible-screen size and position during pinch zoom and pan. Its menu uses the same coordinates and closes when the visible viewport changes.
+
 ## [2.1.3] - 2026-10-11
 
 ### Fixed

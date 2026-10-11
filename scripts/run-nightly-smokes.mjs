@@ -55,6 +55,7 @@ export const NIGHTLY_SMOKES = [
     // models.
     'smoke:modal-reading-register',
     'smoke:ocr-provider-matrix',
+    'smoke:ocr-viewport-scroll',
     'smoke:pitch-underline',
     'smoke:pitch-underline:webkit',
     'smoke:popover-headword-furigana',

@@ -1,12 +1,58 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import {
     positionOcrSurfaces,
+    forgetOcrArtifactScrollMode,
+    ocrArtifactSharesDocumentScroll,
+    setOcrArtifactScrollMode,
+    setOcrArtifactPosition,
     type OcrPositionSources,
     type OcrPositionSurface,
 } from '../../src/reader/ocr/ocr-position-pass';
 
+afterEach(() => { vi.unstubAllGlobals(); forgetOcrArtifactScrollMode(); document.body.replaceChildren(); });
+
 describe('OCR position pass', () => {
+    it('stamps document coordinates and invalidates ancestry when a source becomes sticky', () => {
+        const { image, overlay } = surface('flow', []);
+        vi.stubGlobal('scrollX', 25);
+        vi.stubGlobal('scrollY', 100);
+        const flow = ocrArtifactSharesDocumentScroll(overlay, image);
+        expect(flow).toBe(true);
+        setOcrArtifactScrollMode(overlay, flow);
+        setOcrArtifactPosition(overlay, 10, -60);
+        expect(overlay.style.left).toBe('35px');
+        expect(overlay.style.top).toBe('40px');
+        image.style.position = 'sticky';
+        forgetOcrArtifactScrollMode();
+        const pinned = ocrArtifactSharesDocumentScroll(overlay, image);
+        expect(pinned).toBe(false);
+        setOcrArtifactScrollMode(overlay, pinned);
+        setOcrArtifactPosition(overlay, 10, 20);
+        expect(overlay.style.left).toBe('10px');
+        expect(overlay.style.top).toBe('20px');
+    });
+
+    it('keeps independent scrollers and fixed shadow hosts on viewport tracking', () => {
+        const { image, overlay } = surface('panel', []);
+        const panel = document.createElement('div');
+        panel.style.overflowY = 'auto';
+        document.body.append(panel);
+        panel.append(image);
+        expect(ocrArtifactSharesDocumentScroll(overlay, image)).toBe(false);
+        panel.style.overflowY = '';
+        const shadow = panel.attachShadow({ mode:'open' });
+        shadow.append(image);
+        panel.style.position = 'fixed';
+        forgetOcrArtifactScrollMode();
+        expect(ocrArtifactSharesDocumentScroll(overlay, image)).toBe(false);
+        panel.style.position = '';
+        document.body.style.position = 'relative';
+        forgetOcrArtifactScrollMode();
+        expect(ocrArtifactSharesDocumentScroll(overlay, image)).toBe(false);
+        document.body.style.position = '';
+    });
+
     it('gathers every surface measurement before the first overlay write', () => {
         const events: string[] = [];
         const surfaces = [surface('one', events), surface('two', events)];

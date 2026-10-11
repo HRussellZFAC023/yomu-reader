@@ -132,6 +132,39 @@ describe('SubtitlePlayerController — page-caption detection & tracks panel', (
         }
     });
 
+    it.each(['bottom-sheet-container', 'ytm-bottom-sheet-renderer', 'yt-sheet-view-model'])('recognizes a portaled Shorts comments sheet in %s and releases it when hidden', tag => {
+        const { controller } = createInstalledSubtitleController();
+        const internals = controllerInternals<{ syncYouTubeMobileBottomSheetState: () => void }>(controller);
+        const sheet = document.createElement(tag);
+        sheet.setAttribute('aria-modal','true');
+        document.body.append(sheet);
+        try {
+            internals.syncYouTubeMobileBottomSheetState();
+            expect(document.documentElement.classList.contains('jpdb-subtitle-yt-sheet-open')).toBe(true);
+            sheet.setAttribute('aria-hidden','true');
+            internals.syncYouTubeMobileBottomSheetState();
+            expect(document.documentElement.classList.contains('jpdb-subtitle-yt-sheet-open')).toBe(false);
+            sheet.removeAttribute('aria-hidden');
+            sheet.style.display='none';
+            internals.syncYouTubeMobileBottomSheetState();
+            expect(document.documentElement.classList.contains('jpdb-subtitle-yt-sheet-open')).toBe(false);
+            sheet.style.display='';
+            const wrapper=document.createElement('div');
+            document.body.append(wrapper);
+            wrapper.append(sheet);
+            wrapper.hidden=true;
+            internals.syncYouTubeMobileBottomSheetState();
+            expect(document.documentElement.classList.contains('jpdb-subtitle-yt-sheet-open')).toBe(false);
+            wrapper.hidden=false;
+            wrapper.style.display='none';
+            internals.syncYouTubeMobileBottomSheetState();
+            expect(document.documentElement.classList.contains('jpdb-subtitle-yt-sheet-open')).toBe(false);
+            wrapper.style.display='';
+            internals.syncYouTubeMobileBottomSheetState();
+            expect(document.documentElement.classList.contains('jpdb-subtitle-yt-sheet-open')).toBe(true);
+        } finally { controller.destroy(); }
+    });
+
     it('toggles the mobile YouTube bottom sheet class without selector :has()', () => {
         const originalLocation = window.location;
         Object.defineProperty(window, 'location', {

@@ -10106,6 +10106,27 @@ const YOUTUBE_APP_HOSTS = /* @__PURE__ */ new Set([
 function isYouTubeAppHostname(hostname = location.hostname) {
   return YOUTUBE_APP_HOSTS.has(hostname.toLowerCase());
 }
+function composedAncestorElement(element) {
+  if (element.assignedSlot) return element.assignedSlot;
+  if (element.parentElement) return element.parentElement;
+  const root = element.getRootNode();
+  return typeof ShadowRoot !== "undefined" && root instanceof ShadowRoot && root.host instanceof HTMLElement ? root.host : null;
+}
+function sourceSharesDocumentScroll(source) {
+  const document2 = source.ownerDocument;
+  for (let element = source; element; element = composedAncestorElement(element)) {
+  const style = getComputedStyle(element);
+  if (element === document2.body || element === document2.documentElement) {
+    if (style.position && style.position !== "static") return false;
+    if (["transform", "filter", "backdrop-filter", "perspective"].some((property) => {
+      const value = style.getPropertyValue(property);
+      return value && value !== "none";
+    })) return false;
+    if (/transform|filter|perspective/.test(style.willChange) || /layout|paint|strict|content/.test(style.contain)) return false;
+  } else if (["fixed", "sticky"].includes(style.position) || [style.overflowX, style.overflowY].some((value) => /^(auto|scroll|overlay)$/.test(value))) return false;
+  }
+  return true;
+}
 const selectorPairs = (names, attributes = ["class", "id"]) => names.split(",").flatMap((name) => attributes.map((attribute) => `[${attribute}*="${name}" i]`)).join(",");
 const roleSelectors = (names) => names.split(",").map((name) => `[role="${name}"]`).join(",");
 `a[href],button,summary,label,${roleSelectors("button,link,menuitem,option,tab,checkbox,radio,switch")},[aria-controls],[aria-expanded],[slot="more-button"],.more-button,#more,#less`;
@@ -10899,6 +10920,7 @@ function cssAngleRadians(value) {
   if (value.endsWith("grad")) return amount * Math.PI / 200;
   return amount * Math.PI / 180;
 }
+let documentScrollModes = /* @__PURE__ */ new WeakMap();
 const positionedLayoutKeys = /* @__PURE__ */ new WeakMap();
 function setOcrOverlayAccessibility(overlay, visible) {
   overlay.setAttribute("aria-hidden", String(!visible));
@@ -10935,7 +10957,22 @@ function setOcrArtifactPosition(element, viewportLeft, viewportTop, offset = ocr
   element.style.left = `${viewportLeft - offset.left}px`;
   element.style.top = `${viewportTop - offset.top}px`;
 }
-function ocrArtifactRootOffset(element) {
+function ocrArtifactSharesDocumentScroll(element, source) {
+  if (element.parentElement !== document.body) return false;
+  const cached = documentScrollModes.get(source);
+  if (cached !== void 0) return cached;
+  const documentFlow = sourceSharesDocumentScroll(source);
+  documentScrollModes.set(source, documentFlow);
+  return documentFlow;
+}
+function forgetOcrArtifactScrollMode() {
+  documentScrollModes = /* @__PURE__ */ new WeakMap();
+}
+function setOcrArtifactScrollMode(element, documentFlow) {
+  element.dataset.yomuOcrDocumentFlow = String(documentFlow);
+}
+function ocrArtifactRootOffset(element, documentFlow = element.dataset.yomuOcrDocumentFlow === "true") {
+  if (documentFlow) return { left: -window.scrollX, top: -window.scrollY };
   if (element.dataset.yomuOcrFullscreenHosted !== "true") return { left: 0, top: 0 };
   const root = element.parentElement;
   if (!root || root === document.body || root === document.documentElement) return { left: 0, top: 0 };
@@ -12834,6 +12871,70 @@ function firstCssBackgroundUrl(value) {
   const raw = match?.[1] ?? match?.[2] ?? match?.[3] ?? "";
   return raw.trim() || void 0;
 }
+const presentationsByImage = /* @__PURE__ */ new WeakMap();
+const imagesByHost = /* @__PURE__ */ new WeakMap();
+function createPrivateRasterImage(className) {
+  const host = document.createElement("div");
+  host.className = className;
+  host.dataset.yomuPrivateRasterHost = "true";
+  host.setAttribute("aria-hidden", "true");
+  const root = host.attachShadow({ mode: "closed" });
+  const style = document.createElement("style");
+  style.textContent = ":host{display:block}img{display:block;width:100%;height:100%;margin:0;padding:0;border:0;object-fit:fill;pointer-events:none}";
+  const image = document.createElement("img");
+  image.alt = "";
+  root.append(style, image);
+  const presentation = { host, image, root };
+  presentationsByImage.set(image, presentation);
+  imagesByHost.set(host, image);
+  return image;
+}
+function privateRasterHost(image) {
+  const host = presentationsByImage.get(image)?.host;
+  if (!host) throw new Error("OCR raster image has no private presentation.");
+  return host;
+}
+function setPrivateRasterClass(image, className, enabled) {
+  image.classList.toggle(className, enabled);
+  privateRasterHost(image).classList.toggle(className, enabled);
+}
+function setPrivateRasterSource(image, source, options = {}) {
+  const presentation = presentationsByImage.get(image);
+  if (!presentation) throw new Error("OCR raster image has no private presentation.");
+  releaseOwnedObjectUrl(presentation);
+  image.src = source;
+  if (options.revokeOnRelease && source.startsWith("blob:")) presentation.ownedObjectUrl = source;
+}
+function positionPrivateRasterImage(image, rect) {
+  for (const element of [privateRasterHost(image), image]) {
+  element.style.left = `${rect.left}px`;
+  element.style.top = `${rect.top}px`;
+  element.style.width = `${rect.width}px`;
+  element.style.height = `${rect.height}px`;
+  }
+}
+function releasePrivateRasterImage(image) {
+  const presentation = presentationsByImage.get(image);
+  if (!presentation) {
+  image.removeAttribute("src");
+  image.remove();
+  return;
+  }
+  releaseOwnedObjectUrl(presentation);
+  image.removeAttribute("src");
+  presentation.root.replaceChildren();
+  presentation.host.remove();
+  presentationsByImage.delete(image);
+  imagesByHost.delete(presentation.host);
+}
+function releaseOwnedObjectUrl(presentation) {
+  const url = presentation.ownedObjectUrl;
+  presentation.ownedObjectUrl = void 0;
+  if (url && typeof URL.revokeObjectURL === "function") URL.revokeObjectURL(url);
+}
+function privateRasterImageForHost(host) {
+  return host ? imagesByHost.get(host) : void 0;
+}
 function isVisibleOcrImage(image) {
   return !isHiddenByCss(image) && !isInsideHiddenAncestor(image);
 }
@@ -12841,19 +12942,33 @@ function isImageVisibleForOcr(image, rect) {
   return rectIntersectsViewport(rect) && isVisibleOcrImage(image) && !isImageOccludedByVideo(image, rect) && !isImageOccludedByPeerImage(image, rect);
 }
 function isImageOccludedByPeerImage(image, rect) {
-  if (image.getRootNode() !== document || typeof document.elementsFromPoint !== "function") return false;
+  if (typeof document.elementsFromPoint !== "function") return false;
   const visible = visibleViewportIntersection(rect);
   if (!visible) return false;
-  const front = document.elementsFromPoint(visible.left + visible.width / 2, visible.top + visible.height / 2).find((element) => element instanceof HTMLImageElement && isVisibleOcrImage(element));
-  return Boolean(front && front !== image && intersectionArea(rect, front.getBoundingClientRect()) >= rect.width * rect.height * 0.8);
+  const front = document.elementsFromPoint(visible.left + visible.width / 2, visible.top + visible.height / 2).flatMap((element) => imageHitStack(element, visible.left + visible.width / 2, visible.top + visible.height / 2)).find((element) => element instanceof HTMLImageElement && isVisibleOcrImage(element));
+  if (!front || front === image) return false;
+  const foreground = front.getBoundingClientRect();
+  const covered = intersectionArea(rect, foreground);
+  if (covered >= rect.width * rect.height * 0.8) return true;
+  return /blur\(/.test(getComputedStyle(image).filter) && covered >= foreground.width * foreground.height * 0.8;
+}
+function imageHitStack(element, x, y, seen = /* @__PURE__ */ new Set()) {
+  if (seen.has(element)) return [];
+  seen.add(element);
+  const root = element.shadowRoot;
+  if (!root) return [element];
+  const hitRoot = root;
+  const hits = hitRoot.elementsFromPoint?.(x, y) ?? (root.elementFromPoint?.(x, y) ? [root.elementFromPoint(x, y)] : []);
+  return [...hits.filter((hit) => hit !== element).flatMap((hit) => imageHitStack(hit, x, y, seen)), element];
 }
 function isInsideHiddenAncestor(element, includeAriaHidden = true) {
-  for (let current = element.parentElement; current && current !== document.body; current = current.parentElement) {
+  for (let current = element instanceof HTMLElement ? composedAncestorElement(element) : element.parentElement; current && current !== document.body; current = composedAncestorElement(current)) {
   if (hiddenAncestor(current, includeAriaHidden)) return true;
   }
   return false;
 }
 function hiddenAncestor(element, includeAriaHidden) {
+  if (privateRasterImageForHost(element)) return false;
   return isHiddenByCss(element) || element.hasAttribute("hidden") || ariaHidden(element, includeAriaHidden);
 }
 function ariaHidden(element, included) {
@@ -13122,67 +13237,6 @@ function videoFrameDataUrl(video) {
   context.drawImage(video, 0, 0, canvas.width, canvas.height);
   return canvas.toDataURL("image/jpeg", VIDEO_FRAME_JPEG_QUALITY);
 }
-const presentationsByImage = /* @__PURE__ */ new WeakMap();
-const imagesByHost = /* @__PURE__ */ new WeakMap();
-function createPrivateRasterImage(className) {
-  const host = document.createElement("div");
-  host.className = className;
-  host.dataset.yomuPrivateRasterHost = "true";
-  host.setAttribute("aria-hidden", "true");
-  const root = host.attachShadow({ mode: "closed" });
-  const style = document.createElement("style");
-  style.textContent = ":host{display:block}img{display:block;width:100%;height:100%;margin:0;padding:0;border:0;object-fit:fill;pointer-events:none}";
-  const image = document.createElement("img");
-  image.alt = "";
-  root.append(style, image);
-  const presentation = { host, image, root };
-  presentationsByImage.set(image, presentation);
-  imagesByHost.set(host, image);
-  return image;
-}
-function privateRasterHost(image) {
-  const host = presentationsByImage.get(image)?.host;
-  if (!host) throw new Error("OCR raster image has no private presentation.");
-  return host;
-}
-function setPrivateRasterClass(image, className, enabled) {
-  image.classList.toggle(className, enabled);
-  privateRasterHost(image).classList.toggle(className, enabled);
-}
-function setPrivateRasterSource(image, source, options = {}) {
-  const presentation = presentationsByImage.get(image);
-  if (!presentation) throw new Error("OCR raster image has no private presentation.");
-  releaseOwnedObjectUrl(presentation);
-  image.src = source;
-  if (options.revokeOnRelease && source.startsWith("blob:")) presentation.ownedObjectUrl = source;
-}
-function positionPrivateRasterImage(image, rect) {
-  for (const element of [privateRasterHost(image), image]) {
-  element.style.left = `${rect.left}px`;
-  element.style.top = `${rect.top}px`;
-  element.style.width = `${rect.width}px`;
-  element.style.height = `${rect.height}px`;
-  }
-}
-function releasePrivateRasterImage(image) {
-  const presentation = presentationsByImage.get(image);
-  if (!presentation) {
-  image.removeAttribute("src");
-  image.remove();
-  return;
-  }
-  releaseOwnedObjectUrl(presentation);
-  image.removeAttribute("src");
-  presentation.root.replaceChildren();
-  presentation.host.remove();
-  presentationsByImage.delete(image);
-  imagesByHost.delete(presentation.host);
-}
-function releaseOwnedObjectUrl(presentation) {
-  const url = presentation.ownedObjectUrl;
-  presentation.ownedObjectUrl = void 0;
-  if (url && typeof URL.revokeObjectURL === "function") URL.revokeObjectURL(url);
-}
 const VIDEO_FRAME_PLAYER_SELECTOR = [
   "#movie_player",
   ".html5-video-player",
@@ -13298,7 +13352,8 @@ function positionVideoFrameStatus(status, rect, video) {
   positionOcrImageStatus(status, content);
 }
 function positionOcrImageStatus(status, rect) {
-  setOcrArtifactPosition(status, Math.max(4, rect.left + 6), Math.max(4, rect.top + 6));
+  const documentFlow = status.dataset.yomuOcrDocumentFlow === "true";
+  setOcrArtifactPosition(status, documentFlow ? rect.left + 6 : Math.max(4, rect.left + 6), documentFlow ? rect.top + 6 : Math.max(4, rect.top + 6));
 }
 function appendOcrArtifactToRoot(element, root) {
   const oldRoot = element.parentElement;
@@ -14326,16 +14381,19 @@ class ImageOcrController {
   handleWindowScroll = () => this.handleOcrViewportShift(240);
   handleWindowResize = () => {
   forgetAllComposedOcrSurfaceTransforms();
+  forgetOcrArtifactScrollMode();
   this.handleOcrViewportShift(300);
   };
   handleVisualViewportResize = () => {
   forgetAllComposedOcrSurfaceTransforms();
+  forgetOcrArtifactScrollMode();
   this.handleOcrViewportShift(120);
   };
   handleSpaNavigation = () => this.teardownForNavigation();
   init() {
   this.destroyed = false;
   forgetAllComposedOcrSurfaceTransforms();
+  forgetOcrArtifactScrollMode();
   this.readerRasterFreeMemo = void 0;
   const body = document.body;
   if (!body) {
@@ -14515,6 +14573,7 @@ class ImageOcrController {
   }
   }
   invalidatePositionTransformsForMutations(batch) {
+  if (batch.touchesRenderableMedia) forgetOcrArtifactScrollMode();
   if (batch.restylesEverySurface) {
     forgetAllComposedOcrSurfaceTransforms();
     return;
@@ -14725,19 +14784,13 @@ class ImageOcrController {
   }
   shouldQueueOcrRequest(state2, image, userRequested) {
   if (shouldSkipOcrRequest(state2, userRequested)) return false;
-  const forceExistingOverlay = userRequested && !state2.overlayRequested;
   updateOcrRequestFlags(state2, image, userRequested);
-  if (this.renderExistingOcrResult(state2, forceExistingOverlay)) return false;
+  if (state2.result) return false;
   return !state2.loading;
   }
   queueOcrRequest(image) {
   this.queueImageForOcr(image);
   this.drainQueue();
-  }
-  renderExistingOcrResult(state2, userRequested) {
-  if (!state2.result) return false;
-  if (userRequested) void this.renderResult(state2, state2.result, true);
-  return true;
   }
   requestOcrFromPointerEvent(event) {
   if (this.isDuplicateTouchPointerOcrEvent(event)) return false;
@@ -15671,6 +15724,7 @@ class ImageOcrController {
     return;
   }
   card.hidden = false;
+  setOcrArtifactScrollMode(card, ocrArtifactSharesDocumentScroll(card, this.ocrLayerTransformSurface(image) ?? image));
   positionOcrImageStatus(card, rect);
   }
   removeImageStatusCard(image) {
@@ -16651,6 +16705,7 @@ class ImageOcrController {
       linear,
       { width: surface?.offsetWidth ?? 0, height: surface?.offsetHeight ?? 0 }
     );
+    const documentFlow = ocrArtifactSharesDocumentScroll(overlay, surface ?? image);
     plans.push([
       overlay,
       placement,
@@ -16660,15 +16715,17 @@ class ImageOcrController {
         state2.result,
         rect.bottom
       ),
-      ocrArtifactRootOffset(overlay),
-      ocrOverlayTypeface(overlay)
+      ocrArtifactRootOffset(overlay, documentFlow),
+      ocrOverlayTypeface(overlay),
+      documentFlow
     ]);
   }
-  for (const [overlay, placement, frame, offset, typeface] of plans) {
+  for (const [overlay, placement, frame, offset, typeface, documentFlow] of plans) {
     const visible = Boolean(placement && frame);
     overlay.hidden = !visible;
     setOcrOverlayAccessibility(overlay, visible);
     if (!placement || !frame) continue;
+    setOcrArtifactScrollMode(overlay, documentFlow ?? false);
     setOcrArtifactPosition(overlay, placement.left, placement.top, offset);
     overlay.style.width = `${placement.width}px`;
     overlay.style.height = `${placement.height}px`;

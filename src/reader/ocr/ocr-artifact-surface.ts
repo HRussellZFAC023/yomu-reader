@@ -148,7 +148,8 @@ export function positionVideoFrameStatus(status: HTMLElement, rect: DOMRect, vid
 // The status indicator sits just inside the top-left corner, clear of a player's
 // bottom controls and never pushed off-screen by a partly scrolled image.
 export function positionOcrImageStatus(status: HTMLElement, rect: DOMRect): void {
-    setOcrArtifactPosition(status, Math.max(4, rect.left + 6), Math.max(4, rect.top + 6));
+    const documentFlow = status.dataset.yomuOcrDocumentFlow === 'true';
+    setOcrArtifactPosition(status, documentFlow ? rect.left + 6 : Math.max(4, rect.left + 6), documentFlow ? rect.top + 6 : Math.max(4, rect.top + 6));
 }
 
 export function appendOcrArtifactToRoot(element: HTMLElement, root: HTMLElement): void {

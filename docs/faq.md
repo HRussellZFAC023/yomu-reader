@@ -90,6 +90,12 @@ To turn it off everywhere, set the よむ button to よむ off.
 
 An image gets a small corner mark after よむ finds text. Tap the recognized text to look it up.
 
+Once the ready mark fades, tapping the same scanned image does not show it again.
+
+OCR text and corner marks on ordinary page images scroll with the image. Decorative blurred copies do not get a second mark.
+
+The よむ button and its menu keep their screen size during pinch zoom. The menu closes when you pan or change the visible viewport.
+
 ## How do I put my dictionary first in the popup? {#popup-order}
 
 Settings → Sources → Popup order. Move it up, then press Save.

@@ -204,8 +204,9 @@
   display: none !important;
   pointer-events: none !important;
 }
-html.jpdb-subtitle-yt-sheet-open .jpdb-subtitle-player:not(.jpdb-subtitle-fullscreen) .jpdb-subtitle-text,
-html.jpdb-subtitle-yt-sheet-open .jpdb-subtitle-player:not(.jpdb-subtitle-fullscreen) .jpdb-subtitle-rail {
+html.jpdb-subtitle-yt-sheet-open .jpdb-subtitle-player .jpdb-subtitle-text,
+html.jpdb-subtitle-yt-sheet-open .jpdb-subtitle-player .jpdb-subtitle-rail,
+html.jpdb-subtitle-yt-sheet-open .asbplayer-subtitles-container-bottom.jpdb-subtitle-asb-movable {
   display: none !important;
   pointer-events: none !important;
 }

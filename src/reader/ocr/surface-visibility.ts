@@ -1,3 +1,6 @@
+import { privateRasterImageForHost } from './private-raster-presenter';
+import { composedAncestorElement } from '../dom/composed-tree';
+
 export function isVisibleOcrImage(image: HTMLImageElement): boolean {
     return !isHiddenByCss(image) && !isInsideHiddenAncestor(image);
 }
@@ -10,23 +13,42 @@ export function isImageVisibleForOcr(image: HTMLImageElement, rect: DOMRect): bo
 // Image viewers keep thumbnail and full-resolution copies in the same place.
 // Only the painted foreground copy should own a lookup layer and corner mark.
 function isImageOccludedByPeerImage(image: HTMLImageElement, rect: DOMRect): boolean {
-    if (image.getRootNode() !== document || typeof document.elementsFromPoint !== 'function') return false;
+    if (typeof document.elementsFromPoint !== 'function') return false;
     const visible = visibleViewportIntersection(rect);
     if (!visible) return false;
     const front = document.elementsFromPoint(visible.left + visible.width / 2, visible.top + visible.height / 2)
+        .flatMap(element => imageHitStack(element, visible.left + visible.width / 2, visible.top + visible.height / 2))
         .find((element): element is HTMLImageElement => element instanceof HTMLImageElement && isVisibleOcrImage(element));
-    return Boolean(front && front !== image
-        && intersectionArea(rect, front.getBoundingClientRect()) >= rect.width * rect.height * 0.8);
+    if (!front || front === image) return false;
+    const foreground = front.getBoundingClientRect();
+    const covered = intersectionArea(rect, foreground);
+    if (covered >= rect.width * rect.height * 0.8) return true;
+    // Reddit's decorative backdrop is an enlarged, blurred copy of the same
+    // picture. It extends beyond the foreground, but must not own a second dot.
+    return /blur\(/.test(getComputedStyle(image).filter)
+        && covered >= foreground.width * foreground.height * 0.8;
+}
+
+function imageHitStack(element: Element, x: number, y: number, seen = new Set<Element>()): Element[] {
+    if (seen.has(element)) return [];
+    seen.add(element);
+    const root = element.shadowRoot;
+    if (!root) return [element];
+    const hitRoot = root as ShadowRoot & { elementsFromPoint?: (x: number, y: number) => Element[] };
+    const hits = hitRoot.elementsFromPoint?.(x, y) ?? (root.elementFromPoint?.(x, y) ? [root.elementFromPoint(x, y)!] : []);
+    return [...hits.filter(hit => hit !== element).flatMap(hit => imageHitStack(hit, x, y, seen)), element];
 }
 
 export function isInsideHiddenAncestor(element: Element, includeAriaHidden = true): boolean {
-    for (let current: Element | null = element.parentElement; current && current !== document.body; current = current.parentElement) {
+    for (let current: HTMLElement | null = element instanceof HTMLElement ? composedAncestorElement(element) : element.parentElement; current && current !== document.body; current = composedAncestorElement(current)) {
         if (hiddenAncestor(current, includeAriaHidden)) return true;
     }
     return false;
 }
 
 function hiddenAncestor(element: Element, includeAriaHidden: boolean): boolean {
+    // Private capture hosts are deliberately invisible; the real source owns visibility.
+    if (privateRasterImageForHost(element)) return false;
     return isHiddenByCss(element) || element.hasAttribute('hidden') || ariaHidden(element, includeAriaHidden);
 }
 

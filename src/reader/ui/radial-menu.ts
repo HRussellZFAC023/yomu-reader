@@ -1,5 +1,6 @@
 import { menuIcon, type MenuIconName } from './menu-icons';
-import { applyOverlayPageScale, overlayViewport, sourceRectToOverlay } from './page-scale';
+import { applyOverlayPageScale } from './page-scale';
+import { puckRect, puckViewport } from './puck-viewport';
 import { isTrustedReaderInteraction } from './trusted-interaction';
 
 export type RadialActionTone = 'on' | 'off' | 'partial' | 'neutral';
@@ -78,7 +79,8 @@ export class RadialMenuController {
         backdrop.dataset.jpdbReaderRoot = 'true';
         backdrop.setAttribute('role', 'menu');
         backdrop.setAttribute('aria-label', this.host.menuLabel());
-        document.body.appendChild(backdrop);
+        const viewportRoot = button.closest<HTMLElement>('.jpdb-reader-puck-viewport');
+        (viewportRoot ?? document.body).appendChild(backdrop);
         applyOverlayPageScale(backdrop);
         this.backdrop = backdrop;
 
@@ -100,6 +102,8 @@ export class RadialMenuController {
         // viewport change rather than chase the puck.
         window.addEventListener('scroll', this.close, { signal, passive: true });
         window.addEventListener('resize', this.close, { signal, passive: true });
+        window.visualViewport?.addEventListener('scroll', this.close, { signal, passive: true });
+        window.visualViewport?.addEventListener('resize', this.close, { signal, passive: true });
 
         this.state = 'open';
         // Two frames so the collapsed-at-hub start state is painted before the
@@ -136,10 +140,10 @@ export class RadialMenuController {
     }
 
     private layout(button: HTMLButtonElement, backdrop: HTMLDivElement, actions: RadialAction[]): void {
-        const rect = sourceRectToOverlay(button.getBoundingClientRect(), button);
+        const rect = puckRect(button);
         const cx = rect.left + rect.width / 2;
         const cy = rect.top + rect.height / 2;
-        const { width: vw, height: vh } = overlayViewport();
+        const { width: vw, height: vh } = puckViewport();
 
         // Fan into the quadrant with the most room: the arc runs from the open
         // vertical edge (straight up/down) to the open horizontal edge

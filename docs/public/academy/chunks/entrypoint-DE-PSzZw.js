@@ -43831,6 +43831,21 @@ function composedClosestElement(element2, selector) {
   }
   return null;
 }
+function sourceSharesDocumentScroll(source2) {
+  const document2 = source2.ownerDocument;
+  for (let element2 = source2; element2; element2 = composedAncestorElement(element2)) {
+    const style = getComputedStyle(element2);
+    if (element2 === document2.body || element2 === document2.documentElement) {
+      if (style.position && style.position !== "static") return false;
+      if (["transform", "filter", "backdrop-filter", "perspective"].some((property) => {
+        const value = style.getPropertyValue(property);
+        return value && value !== "none";
+      })) return false;
+      if (/transform|filter|perspective/.test(style.willChange) || /layout|paint|strict|content/.test(style.contain)) return false;
+    } else if (["fixed", "sticky"].includes(style.position) || [style.overflowX, style.overflowY].some((value) => /^(auto|scroll|overlay)$/.test(value))) return false;
+  }
+  return true;
+}
 function isRedditReadableLabel(element2) {
   return /(^|\.)reddit\.com$/i.test(location.hostname) && Boolean(composedClosestElement(element2, 'button,[role="button"],summary,time,faceplate-timeago'));
 }
@@ -44590,20 +44605,6 @@ function syncPortalScrollMode(mirror, source2) {
   const documentFlow = sourceSharesDocumentScroll(source2);
   mirror.dataset.yomuPortalScroll = documentFlow ? "document" : "viewport";
   setImportantStyleIfChanged(mirror, "position", documentFlow ? "absolute" : "fixed");
-}
-function sourceSharesDocumentScroll(source2) {
-  const roots = [source2.ownerDocument.body, source2.ownerDocument.documentElement];
-  return !composedAncestors(source2).some((element2) => {
-    const style = safeComputedStyle(element2);
-    return roots.includes(element2) ? rootChangesPortalCoordinates(style) : scrollsIndependently(style);
-  });
-}
-function rootChangesPortalCoordinates(style) {
-  const transforms = ["transform", "filter", "backdrop-filter", "perspective"];
-  return !["", "static"].includes(style.position) || transforms.some((property) => !["", "none"].includes(style.getPropertyValue(property))) || /transform|filter|perspective/.test(style.willChange) || /layout|paint|strict|content/.test(style.contain);
-}
-function scrollsIndependently(style) {
-  return ["fixed", "sticky"].includes(style.position) || [style.overflowX, style.overflowY].some((value) => /^(auto|scroll|overlay)$/.test(value));
 }
 function documentAnnotationPortalPaint(mirror) {
   const existing = Array.from(mirror.children).find(
@@ -264499,7 +264500,7 @@ function padClockPart(value) {
 const DEFAULT_ACADEMY_STUDY_DURATION_MS = DEFAULT_STUDY_DURATION_MS;
 class StudyRuntimeLoadFailure extends Error {
 }
-function createCanonicalAcademyStudyModule(loadRuntime = () => import("./runtime-6TmW59F7.js")) {
+function createCanonicalAcademyStudyModule(loadRuntime = () => import("./runtime-CZWcpk5F.js")) {
   return {
     async mount(host2, context2) {
       let runtime;

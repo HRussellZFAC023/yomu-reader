@@ -1,3 +1,4 @@
+import { mountPuckViewport, puckPoint, puckRect, puckViewport, syncPuckViewport } from './puck-viewport';
 import { APP_NAME, APP_PUCK } from '../app/constants';
 import { uiText } from '../app/i18n';
 import type { ReaderSettings } from '../app/types';
@@ -8,10 +9,8 @@ import { isTrustedReaderInteraction } from './trusted-interaction';
 import {
     applyOverlayPageScale,
     hasOverlayPageScale,
-    layoutPointToOverlay,
     layoutRectToOverlay,
     overlayViewport,
-    sourceRectToOverlay,
 } from './page-scale';
 
 // Trailing-edge settle delay for the puck's video-avoidance recompute. Long
@@ -206,6 +205,7 @@ function youtubeRadialAction(settings: ReaderSettings, actions: FloatingButtonAc
 }
 
 export class FloatingButtonController {
+    private viewportRoot?: HTMLElement;
     private button?: HTMLButtonElement;
     private abortController?: AbortController;
     private radial?: RadialMenuController;
@@ -250,6 +250,8 @@ export class FloatingButtonController {
         this.abortController?.abort();
         this.abortController = undefined;
         this.button?.remove();
+        this.viewportRoot?.remove();
+        this.viewportRoot = undefined;
         this.button = undefined;
     }
 
@@ -291,7 +293,7 @@ export class FloatingButtonController {
             event.stopPropagation();
             this.radial?.toggle();
         });
-        document.body.appendChild(button);
+        this.viewportRoot = mountPuckViewport(button);
         applyOverlayPageScale(button);
         clampRestoredButtonPosition(button, settings);
         this.installVideoAvoidance(button);
@@ -333,17 +335,27 @@ export class FloatingButtonController {
         let settleTimer: number | undefined;
         let viewportSettleTimer: number | undefined;
         let frame: number | undefined;
-        const recompute = (): void => {
+        let avoidanceRequested = false;
+        const updateViewport = (avoidance = false): void => {
+            avoidanceRequested ||= avoidance;
             // rAF-coalesced: a burst of resize events (window drag-resize) folds
             // into one layout read per frame instead of stacking callbacks.
             if (frame !== undefined) return;
             frame = requestAnimationFrame(() => {
                 frame = undefined;
                 applyOverlayPageScale(button);
-                if (this.settings && avoidanceCouldChange()) {
+                if (this.viewportRoot) syncPuckViewport(this.viewportRoot);
+                const avoid = avoidanceRequested;
+                avoidanceRequested = false;
+                if (avoid && this.settings && avoidanceCouldChange()) {
                     avoidVideoOverlap(button, this.settings, this.save);
                 }
             });
+        };
+        const recompute = (): void => updateViewport(true);
+        const handleVisualViewportChange = (): void => {
+            updateViewport();
+            scheduleSettle();
         };
         // When the overlay is unscaled, the page has no <video> at all, and the
         // puck is not currently displaced by one, there is nothing to reposition
@@ -382,7 +394,8 @@ export class FloatingButtonController {
         };
         window.addEventListener('resize', handleViewportChange, { passive: true, signal: controller.signal });
         window.addEventListener('orientationchange', handleViewportChange, { passive: true, signal: controller.signal });
-        window.visualViewport?.addEventListener('resize', handleViewportChange, { passive: true, signal: controller.signal });
+        window.visualViewport?.addEventListener('resize', handleVisualViewportChange, { passive: true, signal: controller.signal });
+        window.visualViewport?.addEventListener('scroll', handleVisualViewportChange, { passive: true, signal: controller.signal });
         window.addEventListener('scroll', scheduleSettle, { passive: true, signal: controller.signal });
         // Entering/leaving fullscreen changes the avoidance rules this frame
         // (the puck may need to clear a now-fullscreen video, or return once it
@@ -439,7 +452,7 @@ export class FloatingButtonController {
             // independently here used to let a stale inverse zoom and newly
             // settled pointer coordinates disagree after iPad rotation.
             dragPageScale = applyOverlayPageScale(button);
-            const start = layoutPointToOverlay({ x: event.clientX, y: event.clientY }, dragPageScale);
+            const start = puckPoint({ x: event.clientX, y: event.clientY }, dragPageScale);
             startX = start.x;
             startY = start.y;
             const rect = overlayPuckRect(button, dragPageScale);
@@ -454,7 +467,7 @@ export class FloatingButtonController {
         });
         button.addEventListener('pointermove', event => {
             if (!dragging || !puckBox) return;
-            const pointer = layoutPointToOverlay({ x: event.clientX, y: event.clientY }, dragPageScale);
+            const pointer = puckPoint({ x: event.clientX, y: event.clientY }, dragPageScale);
             const dx = pointer.x - startX;
             const dy = pointer.y - startY;
             if (Math.hypot(dx, dy) > 4) moved = true;
@@ -548,13 +561,17 @@ function shouldMoveAwayFromVideo(button: HTMLButtonElement, video: HTMLVideoElem
 }
 
 function overlayPuckRect(button: HTMLButtonElement, pageScale = overlayViewport().pageScale): DOMRect {
-    return sourceRectToOverlay(button.getBoundingClientRect(), button, pageScale);
+    return puckRect(button, pageScale);
 }
 
 function overlappingVideo(rect: DOMRect): { video: HTMLVideoElement; rect: DOMRect } | undefined {
     const { pageScale } = overlayViewport();
     for (const video of visibleVideos()) {
-        const videoRect = layoutRectToOverlay(video.getBoundingClientRect(), pageScale);
+        const layoutRect = video.getBoundingClientRect();
+        const origin = puckPoint({ x: layoutRect.left, y: layoutRect.top }, pageScale);
+        const videoRect = layoutRectToOverlay(layoutRect, puckViewport().pageScale);
+        videoRect.x = origin.x;
+        videoRect.y = origin.y;
         if (intersects(rect, videoRect)) return { video, rect: videoRect };
     }
     return undefined;
@@ -627,7 +644,7 @@ function clampPuck(button: HTMLButtonElement, x: number, y: number): { x: number
 
 function clampPuckToViewport(box: PuckBox, x: number, y: number): { x: number; y: number } | null {
     const margin = 8;
-    const viewport = overlayViewport();
+    const viewport = puckViewport();
     if (!canClampPuck(box, x, y, margin, viewport)) return null;
     return {
         x: Math.max(margin, Math.min(viewport.width - box.width - margin, x)),

@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 2.1.3
+// @version 2.1.4
 // @author Henry Russell
 // @description Japanese pop-up dictionary with furigana, pitch accent, audio, subtitles, OCR and Study.
 // @license MIT
@@ -11,8 +11,8 @@
 // @updateURL https://update.greasyfork.org/scripts/581653/%E3%82%88%E3%82%80.meta.js
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-runtime.6d70f98f29c9.user.js#sha256=bXD5jynJyMIGPXGUrngYxIgr703uTcbeAqavCs1tnQM=
-// @resource yomuCss  https://yomureader.com/yomu.bb91e93066d2.css#sha256=u5HpMGbSI5v2cySnbwTkUwTAFtZVnuZDpmltb9PYLbY=
+// @require https://yomureader.com/greasyfork/yomu-runtime.3d8e3c4d07da.user.js#sha256=PY48TQfaNWxpSgGqRz0SN2LtFd2II54z3jjsVmpM0hg=
+// @resource yomuCss  https://yomureader.com/yomu.179c84bc6015.css#sha256=F5yEvGAVE25XhpkKHQdpv/Suyww3tudF2EY6dvlIF1c=
 // @connect api.jiten.moe
 // @connect api.tatoeba.org
 // @connect tatoeba.org
@@ -6431,6 +6431,35 @@ const current = cssPixels(style.lineHeight);
 if (alreadyReserved) return `${Math.ceil(Math.max(current, minimum))}px`;
 return current >= minimum ? "" : `${minimum}px`;
 }
+function composedAncestorElement(element) {
+if (element.assignedSlot) return element.assignedSlot;
+if (element.parentElement) return element.parentElement;
+const root = element.getRootNode();
+return typeof ShadowRoot !== "undefined" && root instanceof ShadowRoot && root.host instanceof HTMLElement ? root.host : null;
+}
+function composedClosestElement(element, selector) {
+let current = element;
+while (current) {
+if (current.matches(selector)) return current;
+current = current instanceof HTMLElement ? composedAncestorElement(current) : current.parentElement;
+}
+return null;
+}
+function sourceSharesDocumentScroll(source) {
+const document2 = source.ownerDocument;
+for (let element = source; element; element = composedAncestorElement(element)) {
+const style = getComputedStyle(element);
+if (element === document2.body || element === document2.documentElement) {
+if (style.position && style.position !== "static") return false;
+if (["transform", "filter", "backdrop-filter", "perspective"].some((property) => {
+const value = style.getPropertyValue(property);
+return value && value !== "none";
+})) return false;
+if (/transform|filter|perspective/.test(style.willChange) || /layout|paint|strict|content/.test(style.contain)) return false;
+} else if (["fixed", "sticky"].includes(style.position) || [style.overflowX, style.overflowY].some((value) => /^(auto|scroll|overlay)$/.test(value))) return false;
+}
+return true;
+}
 function setImportantStyleIfChanged(element, property, value) {
 setInlineStyleIfChanged(element, property, value, "important");
 }
@@ -6500,20 +6529,6 @@ function syncPortalScrollMode(mirror, source) {
 const documentFlow = sourceSharesDocumentScroll(source);
 mirror.dataset.yomuPortalScroll = documentFlow ? "document" : "viewport";
 setImportantStyleIfChanged(mirror, "position", documentFlow ? "absolute" : "fixed");
-}
-function sourceSharesDocumentScroll(source) {
-const roots = [source.ownerDocument.body, source.ownerDocument.documentElement];
-return !composedAncestors(source).some((element) => {
-const style = safeComputedStyle(element);
-return roots.includes(element) ? rootChangesPortalCoordinates(style) : scrollsIndependently(style);
-});
-}
-function rootChangesPortalCoordinates(style) {
-const transforms = ["transform", "filter", "backdrop-filter", "perspective"];
-return !["", "static"].includes(style.position) || transforms.some((property) => !["", "none"].includes(style.getPropertyValue(property))) || /transform|filter|perspective/.test(style.willChange) || /layout|paint|strict|content/.test(style.contain);
-}
-function scrollsIndependently(style) {
-return ["fixed", "sticky"].includes(style.position) || [style.overflowX, style.overflowY].some((value) => /^(auto|scroll|overlay)$/.test(value));
 }
 function documentAnnotationPortalPaint(mirror) {
 const existing = Array.from(mirror.children).find(
@@ -22685,20 +22700,6 @@ result.push(text2);
 }
 return result;
 }
-function composedAncestorElement(element) {
-if (element.assignedSlot) return element.assignedSlot;
-if (element.parentElement) return element.parentElement;
-const root = element.getRootNode();
-return typeof ShadowRoot !== "undefined" && root instanceof ShadowRoot && root.host instanceof HTMLElement ? root.host : null;
-}
-function composedClosestElement(element, selector) {
-let current = element;
-while (current) {
-if (current.matches(selector)) return current;
-current = current instanceof HTMLElement ? composedAncestorElement(current) : current.parentElement;
-}
-return null;
-}
 const READER_DOCUMENT_CLICK_IGNORE_SELECTOR = [
 "[data-jpdb-reader-surface-ignore]",
 "[data-jpdb-reader-interaction-ignore]",
@@ -29616,6 +29617,61 @@ const element = node.nodeType === Node.ELEMENT_NODE ? node : node.parentElement;
 return Boolean(element?.closest?.(selector));
 });
 }
+function mountPuckViewport(button) {
+const root = document.createElement("div");
+root.className = "jpdb-reader-puck-viewport";
+root.dataset.jpdbReaderRoot = "true";
+root.append(button);
+document.body.append(root);
+syncPuckViewport(root);
+return root;
+}
+function syncPuckViewport(root) {
+const viewport = window.visualViewport;
+const pinch = pinchScale();
+const values = {
+left: `${viewport?.offsetLeft ?? 0}px`,
+top: `${viewport?.offsetTop ?? 0}px`,
+width: `${(viewport?.width ?? window.innerWidth) * pinch}px`,
+height: `${(viewport?.height ?? window.innerHeight) * pinch}px`,
+transform: `scale(${1 / pinch})`
+};
+for (const [property, value] of Object.entries(values)) {
+if (root.style.getPropertyValue(property) !== value) root.style.setProperty(property, value, "important");
+}
+}
+function puckViewport() {
+const { pageScale } = overlayViewport();
+const scale = pageScale * pinchScale();
+const viewport = window.visualViewport;
+return {
+width: (viewport?.width ?? window.innerWidth) * scale,
+height: (viewport?.height ?? window.innerHeight) * scale,
+pageScale: scale
+};
+}
+function puckPoint(point, pageScale = overlayViewport().pageScale) {
+const viewport = window.visualViewport;
+return layoutPointToOverlay({
+x: point.x - (viewport?.offsetLeft ?? 0),
+y: point.y - (viewport?.offsetTop ?? 0)
+}, pageScale * pinchScale());
+}
+function puckRect(button, pageScale = overlayViewport().pageScale) {
+const scale = pageScale * pinchScale();
+const rect = sourceRectToOverlay(button.getBoundingClientRect(), button, scale);
+const viewport = window.visualViewport;
+return new DOMRect(
+rect.left - (viewport?.offsetLeft ?? 0) * scale,
+rect.top - (viewport?.offsetTop ?? 0) * scale,
+rect.width,
+rect.height
+);
+}
+function pinchScale() {
+const scale = window.visualViewport?.scale ?? 1;
+return Number.isFinite(scale) && scale > 0 ? scale : 1;
+}
 const power = [
 [
 "path",
@@ -29895,7 +29951,8 @@ backdrop.className = "jpdb-reader-fab-radial";
 backdrop.dataset.jpdbReaderRoot = "true";
 backdrop.setAttribute("role", "menu");
 backdrop.setAttribute("aria-label", this.host.menuLabel());
-document.body.appendChild(backdrop);
+const viewportRoot = button.closest(".jpdb-reader-puck-viewport");
+(viewportRoot ?? document.body).appendChild(backdrop);
 applyOverlayPageScale(backdrop);
 this.backdrop = backdrop;
 this.layout(button, backdrop, actions);
@@ -29913,6 +29970,8 @@ this.close();
 }, { signal, capture: true });
 window.addEventListener("scroll", this.close, { signal, passive: true });
 window.addEventListener("resize", this.close, { signal, passive: true });
+window.visualViewport?.addEventListener("scroll", this.close, { signal, passive: true });
+window.visualViewport?.addEventListener("resize", this.close, { signal, passive: true });
 this.state = "open";
 requestAnimationFrame(() => requestAnimationFrame(() => {
 if (this.state === "open") backdrop.classList.add("is-open");
@@ -29942,10 +30001,10 @@ this.items.clear();
 this.state = "closed";
 }
 layout(button, backdrop, actions) {
-const rect = sourceRectToOverlay(button.getBoundingClientRect(), button);
+const rect = puckRect(button);
 const cx = rect.left + rect.width / 2;
 const cy = rect.top + rect.height / 2;
-const { width: vw, height: vh } = overlayViewport();
+const { width: vw, height: vh } = puckViewport();
 const vAngle = cy > vh / 2 ? -PI / 2 : PI / 2;
 let hAngle = cx > vw / 2 ? PI : 0;
 while (hAngle - vAngle > PI) hAngle -= 2 * PI;
@@ -30180,6 +30239,7 @@ run: () => actions.toggleYoutubeFilter()
 };
 }
 class FloatingButtonController {
+viewportRoot;
 button;
 abortController;
 radial;
@@ -30211,6 +30271,8 @@ this.radial = void 0;
 this.abortController?.abort();
 this.abortController = void 0;
 this.button?.remove();
+this.viewportRoot?.remove();
+this.viewportRoot = void 0;
 this.button = void 0;
 }
 build(settings2) {
@@ -30249,7 +30311,7 @@ event.preventDefault();
 event.stopPropagation();
 this.radial?.toggle();
 });
-document.body.appendChild(button);
+this.viewportRoot = mountPuckViewport(button);
 applyOverlayPageScale(button);
 clampRestoredButtonPosition(button, settings2);
 this.installVideoAvoidance(button);
@@ -30284,15 +30346,25 @@ this.abortController = controller;
 let settleTimer;
 let viewportSettleTimer;
 let frame;
-const recompute = () => {
+let avoidanceRequested = false;
+const updateViewport = (avoidance = false) => {
+avoidanceRequested ||= avoidance;
 if (frame !== void 0) return;
 frame = requestAnimationFrame(() => {
 frame = void 0;
 applyOverlayPageScale(button);
-if (this.settings && avoidanceCouldChange()) {
+if (this.viewportRoot) syncPuckViewport(this.viewportRoot);
+const avoid = avoidanceRequested;
+avoidanceRequested = false;
+if (avoid && this.settings && avoidanceCouldChange()) {
 avoidVideoOverlap(button, this.settings, this.save);
 }
 });
+};
+const recompute = () => updateViewport(true);
+const handleVisualViewportChange = () => {
+updateViewport();
+scheduleSettle();
 };
 const avoidanceCouldChange = () => overlayViewport().pageScale !== 1 || hasOverlayPageScale(button) || button.classList.contains("jpdb-reader-fab-over-video") || Boolean(document.querySelector("video"));
 const scheduleSettle = () => {
@@ -30307,7 +30379,8 @@ viewportSettleTimer = window.setTimeout(recompute, VIEWPORT_SCALE_SETTLE_MS);
 };
 window.addEventListener("resize", handleViewportChange, { passive: true, signal: controller.signal });
 window.addEventListener("orientationchange", handleViewportChange, { passive: true, signal: controller.signal });
-window.visualViewport?.addEventListener("resize", handleViewportChange, { passive: true, signal: controller.signal });
+window.visualViewport?.addEventListener("resize", handleVisualViewportChange, { passive: true, signal: controller.signal });
+window.visualViewport?.addEventListener("scroll", handleVisualViewportChange, { passive: true, signal: controller.signal });
 window.addEventListener("scroll", scheduleSettle, { passive: true, signal: controller.signal });
 document.addEventListener("fullscreenchange", recompute, { signal: controller.signal });
 controller.signal.addEventListener("abort", () => {
@@ -30357,7 +30430,7 @@ dragging = true;
 moved = false;
 button.dataset.jpdbReaderMoved = "false";
 dragPageScale = applyOverlayPageScale(button);
-const start = layoutPointToOverlay({ x: event.clientX, y: event.clientY }, dragPageScale);
+const start = puckPoint({ x: event.clientX, y: event.clientY }, dragPageScale);
 startX = start.x;
 startY = start.y;
 const rect = overlayPuckRect(button, dragPageScale);
@@ -30372,7 +30445,7 @@ button.setPointerCapture?.(event.pointerId);
 });
 button.addEventListener("pointermove", (event) => {
 if (!dragging || !puckBox) return;
-const pointer = layoutPointToOverlay({ x: event.clientX, y: event.clientY }, dragPageScale);
+const pointer = puckPoint({ x: event.clientX, y: event.clientY }, dragPageScale);
 const dx = pointer.x - startX;
 const dy = pointer.y - startY;
 if (Math.hypot(dx, dy) > 4) moved = true;
@@ -30457,12 +30530,16 @@ function shouldMoveAwayFromVideo(button, video) {
 return Boolean(video && !button.matches(":hover, :focus, :focus-visible"));
 }
 function overlayPuckRect(button, pageScale = overlayViewport().pageScale) {
-return sourceRectToOverlay(button.getBoundingClientRect(), button, pageScale);
+return puckRect(button, pageScale);
 }
 function overlappingVideo(rect) {
 const { pageScale } = overlayViewport();
 for (const video of visibleVideos()) {
-const videoRect = layoutRectToOverlay(video.getBoundingClientRect(), pageScale);
+const layoutRect = video.getBoundingClientRect();
+const origin = puckPoint({ x: layoutRect.left, y: layoutRect.top }, pageScale);
+const videoRect = layoutRectToOverlay(layoutRect, puckViewport().pageScale);
+videoRect.x = origin.x;
+videoRect.y = origin.y;
 if (intersects(rect, videoRect)) return { video, rect: videoRect };
 }
 return void 0;
@@ -30517,7 +30594,7 @@ return clampPuckToViewport(rect, x, y);
 }
 function clampPuckToViewport(box, x, y) {
 const margin = 8;
-const viewport = overlayViewport();
+const viewport = puckViewport();
 if (!canClampPuck(box, x, y, margin, viewport)) return null;
 return {
 x: Math.max(margin, Math.min(viewport.width - box.width - margin, x)),
@@ -35346,8 +35423,8 @@ function collapseWhitespace(value) {
 return value.replace(/\/\*[\s\S]*?\*\//gu, " ").replace(/\s+/gu, " ").trim();
 }
 const READER_CSS_RESOURCE = "yomuCss";
-const READER_CSS_HOSTED_FALLBACK_URL = `https://yomureader.com/yomu.css?v=${"2.1.3"}`;
-const READER_CSS_RAW_FALLBACK_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"2.1.3"}`;
+const READER_CSS_HOSTED_FALLBACK_URL = `https://yomureader.com/yomu.css?v=${"2.1.4"}`;
+const READER_CSS_RAW_FALLBACK_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"2.1.4"}`;
 const READER_CSS_CACHE_KEY = "yomu:reader-css-cache:v3";
 const READER_CSS = resourceReaderCss();
 function criticalWordCss() {
@@ -35490,7 +35567,7 @@ try {
 const url = new URL(href);
 if (!isHostedYomuPage(url)) return null;
 const path = url.hostname === "hrussellzfac023.github.io" ? "/yomu-reader/yomu.css" : "/yomu.css";
-return `${new URL(path, url.origin).href}?v=${"2.1.3"}`;
+return `${new URL(path, url.origin).href}?v=${"2.1.4"}`;
 } catch {
 return null;
 }

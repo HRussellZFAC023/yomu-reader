@@ -1,3 +1,4 @@
+import { hasOpenYouTubeMobileBottomSheet } from './youtube-mobile-sheet';
 import { currentFullscreenElement } from '../core/fullscreen';
 import { READER_ROOT_SELECTOR } from '../dom/constants';
 import { escapeHtml, remintRenderedWordPrivateTokens, renderTokensToHtml, setInnerHtml, unwrapReaderWords } from '../dom/index';
@@ -344,14 +345,6 @@ function isYouTubeTheaterMode(): boolean {
     return isYouTubePage() && Boolean(document.querySelector('ytd-watch-flexy[theater], ytd-watch-flexy[fullscreen]'));
 }
 
-function hasOpenYouTubeMobileBottomSheet(): boolean {
-    for (const app of Array.from(document.getElementsByTagName('ytm-app'))) {
-        for (const sheet of Array.from(app.getElementsByTagName('bottom-sheet-container'))) {
-            if (sheet.getAttribute('aria-modal') === 'true' && !sheet.hasAttribute('hidden')) return true;
-        }
-    }
-    return false;
-}
 
 type FullscreenVideoElement = HTMLVideoElement & {
     webkitDisplayingFullscreen?: boolean;
@@ -1095,7 +1088,7 @@ export class SubtitlePlayerController {
         // the per-delivery bottom-sheet + fullscreen sync the full observer
         // runs is meaningless with no video to sync against.
         observer.observe(body, mode === 'full'
-            ? { attributeFilter: ['aria-modal', 'class', 'data-yomu-inline-fullscreen', 'fullscreen', 'hidden'], attributes: true, childList: true, subtree: true }
+            ? { attributeFilter: ['aria-modal', 'aria-hidden', 'class', 'data-yomu-inline-fullscreen', 'fullscreen', 'hidden'], attributes: true, childList: true, subtree: true }
             : { childList: true, subtree: true });
         this.observer = observer;
     }

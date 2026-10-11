@@ -1,5 +1,23 @@
 (function() {
 "use strict";
+function composedAncestorElement(element) {
+  if (element.assignedSlot) return element.assignedSlot;
+  if (element.parentElement) return element.parentElement;
+  const root = element.getRootNode();
+  return typeof ShadowRoot !== "undefined" && root instanceof ShadowRoot && root.host instanceof HTMLElement ? root.host : null;
+}
+function hasOpenYouTubeMobileBottomSheet() {
+  return Array.from(document.querySelectorAll(
+  'bottom-sheet-container[aria-modal="true"],ytm-bottom-sheet-renderer[aria-modal="true"],yt-sheet-view-model[aria-modal="true"]'
+  )).some((sheet) => {
+  for (let element = sheet; element; element = composedAncestorElement(element)) {
+    if (element.hidden || element.getAttribute("aria-hidden") === "true") return false;
+    const style = getComputedStyle(element);
+    if (style.display === "none" || style.visibility === "hidden") return false;
+  }
+  return true;
+  });
+}
 function currentFullscreenElement() {
   const fullscreenDocument = document;
   return document.fullscreenElement ?? fullscreenDocument.webkitFullscreenElement ?? fullscreenDocument.mozFullScreenElement ?? fullscreenDocument.msFullscreenElement ?? null;
@@ -19381,14 +19399,6 @@ const PANEL_PRESS_RENDER_HOLD_MAX_MS = 700;
 function isYouTubeTheaterMode() {
   return isYouTubePage() && Boolean(document.querySelector("ytd-watch-flexy[theater], ytd-watch-flexy[fullscreen]"));
 }
-function hasOpenYouTubeMobileBottomSheet() {
-  for (const app of Array.from(document.getElementsByTagName("ytm-app"))) {
-  for (const sheet of Array.from(app.getElementsByTagName("bottom-sheet-container"))) {
-    if (sheet.getAttribute("aria-modal") === "true" && !sheet.hasAttribute("hidden")) return true;
-  }
-  }
-  return false;
-}
 function subtitleViewportRect() {
   return new DOMRect(0, 0, window.innerWidth, window.innerHeight);
 }
@@ -20004,7 +20014,7 @@ class SubtitlePlayerController {
   const body = document.body;
   if (mode === "off" || !body) return;
   const observer = new MutationObserver((mutations) => this.handleRuntimeMutations(mutations));
-  observer.observe(body, mode === "full" ? { attributeFilter: ["aria-modal", "class", "data-yomu-inline-fullscreen", "fullscreen", "hidden"], attributes: true, childList: true, subtree: true } : { childList: true, subtree: true });
+  observer.observe(body, mode === "full" ? { attributeFilter: ["aria-modal", "aria-hidden", "class", "data-yomu-inline-fullscreen", "fullscreen", "hidden"], attributes: true, childList: true, subtree: true } : { childList: true, subtree: true });
   this.observer = observer;
   }
   handleRuntimeMutations(mutations) {

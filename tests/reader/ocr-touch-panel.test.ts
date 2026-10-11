@@ -235,6 +235,28 @@ describe('OCR sentence focus', () => {
         }
     });
 
+    it('reuses scanned markup without resurrecting a faded ready dot, and notifies for changed image content', async () => {
+        stubInstantIntersectionObserver();
+        const { controller, image, parseJapanese } = createOcrImageControllerFixture();
+        try {
+            controller.init();
+            await waitForExpect(() => expect(document.querySelector('.jpdb-ocr-video-frame-status')).not.toBeNull());
+            const line=document.querySelector('.jpdb-ocr-line');
+            expect(line).not.toBeNull();
+            const parsed=vi.mocked(parseJapanese).mock.calls.length;
+            await waitForExpect(() => expect(document.querySelector('.jpdb-ocr-video-frame-status')).toBeNull(), 3000);
+            dispatchPointerEvent(image, 'pointerdown', {pointerType:'touch',clientX:350,clientY:250});
+            await new Promise(resolve=>setTimeout(resolve,50));
+            expect(vi.mocked(parseJapanese).mock.calls.length).toBe(parsed);
+            expect(document.querySelector('.jpdb-ocr-line')).toBe(line);
+            expect(document.querySelector('.jpdb-ocr-video-frame-status')).toBeNull();
+            image.src='/ocr-replacement.png';
+            image.dispatchEvent(new Event('load'));
+            await waitForExpect(() => expect(document.querySelector('.jpdb-ocr-video-frame-status')).not.toBeNull());
+            expect(vi.mocked(parseJapanese).mock.calls.length).toBeGreaterThan(parsed);
+        } finally { controller.destroy(); vi.unstubAllGlobals(); document.body.replaceChildren(); }
+    });
+
     it('toggles OCR sentence focus from the keyboard', async () => {
         stubInstantIntersectionObserver();
         const { controller } = createOcrImageControllerFixture();
@@ -294,16 +316,16 @@ describe('OCR sentence focus', () => {
 
             await controller.scanVisible();
             await waitForExpect(() => {
-                const replacement = document.querySelector<HTMLElement>('.jpdb-ocr-line');
-                expect(replacement).not.toBe(line);
-                expect(replacement?.classList.contains('jpdb-ocr-line-active')).toBe(true);
-                expect(replacement?.getAttribute('aria-pressed')).toBe('false');
+                const retained = document.querySelector<HTMLElement>('.jpdb-ocr-line');
+                expect(retained).toBe(line);
+                expect(retained?.classList.contains('jpdb-ocr-line-active')).toBe(true);
+                expect(retained?.getAttribute('aria-pressed')).toBe('false');
             });
-            const replacement = document.querySelector<HTMLElement>('.jpdb-ocr-line')!;
+            const retained = document.querySelector<HTMLElement>('.jpdb-ocr-line')!;
 
             release?.();
-            expect(replacement.classList.contains('jpdb-ocr-line-active')).toBe(false);
-            expect(replacement.getAttribute('aria-pressed')).toBe('false');
+            expect(retained.classList.contains('jpdb-ocr-line-active')).toBe(false);
+            expect(retained.getAttribute('aria-pressed')).toBe('false');
         } finally {
             controller.destroy();
             restoreCanvas();
@@ -335,23 +357,23 @@ describe('OCR sentence focus', () => {
 
             await controller.scanVisible();
             await waitForExpect(() => {
-                const replacement = document.querySelector<HTMLElement>('.jpdb-ocr-line');
-                expect(replacement).not.toBe(line);
-                expect(replacement?.classList.contains('jpdb-ocr-line-active')).toBe(true);
-                expect(replacement?.dataset.pinned).toBe('true');
-                expect(replacement?.getAttribute('aria-pressed')).toBe('true');
+                const retained = document.querySelector<HTMLElement>('.jpdb-ocr-line');
+                expect(retained).toBe(line);
+                expect(retained?.classList.contains('jpdb-ocr-line-active')).toBe(true);
+                expect(retained?.dataset.pinned).toBe('true');
+                expect(retained?.getAttribute('aria-pressed')).toBe('true');
             });
-            const replacement = document.querySelector<HTMLElement>('.jpdb-ocr-line')!;
+            const retained = document.querySelector<HTMLElement>('.jpdb-ocr-line')!;
 
             release?.();
-            expect(replacement.classList.contains('jpdb-ocr-line-active')).toBe(true);
-            expect(replacement.dataset.pinned).toBe('true');
-            expect(replacement.getAttribute('aria-pressed')).toBe('true');
+            expect(retained.classList.contains('jpdb-ocr-line-active')).toBe(true);
+            expect(retained.dataset.pinned).toBe('true');
+            expect(retained.getAttribute('aria-pressed')).toBe('true');
 
             controller.unpinLineForElement(line);
-            expect(replacement.classList.contains('jpdb-ocr-line-active')).toBe(false);
-            expect(replacement.dataset.pinned).toBe('false');
-            expect(replacement.getAttribute('aria-pressed')).toBe('false');
+            expect(retained.classList.contains('jpdb-ocr-line-active')).toBe(false);
+            expect(retained.dataset.pinned).toBe('false');
+            expect(retained.getAttribute('aria-pressed')).toBe('false');
         } finally {
             controller.destroy();
             restoreCanvas();

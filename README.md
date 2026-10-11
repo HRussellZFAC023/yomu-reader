@@ -66,6 +66,10 @@ On filtered YouTube recommendation lists, Load more appears after two automatic 
 
 Words can still be looked up without a coloured underline. Search and comment fields keep their normal typing behavior.
 
+OCR text and corner marks on ordinary page images scroll with the image. Decorative blurred copies do not get a second mark.
+
+The よむ button and its menu keep their screen size during pinch zoom. The menu closes when you pan or change the visible viewport.
+
 No account and no setup. [How to learn Japanese with よむ](https://yomureader.com/learn/) is one page.
 
 Readings follow the page’s typeface and scale with its text, with stronger contrast for small kana. With a study source, known and due words lose their readings; missed words keep them.

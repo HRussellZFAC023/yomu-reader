@@ -9,6 +9,14 @@ export interface ReviewedDocsMessage {
 }
 
 const HOSTED_DOCS_JA_COPY: Record<string, string> = {
+    "Once the ready mark fades, tapping the same scanned image does not show it again.": "完了マークが消えた後は、同じ読み取り済みの画像をタップしても再表示しません。",
+    "Tapping an already scanned image reuses its lookup text without restarting parsing or showing the faded ready dot again. A changed image can still show a new scan result.": "読み取り済みの画像をタップしても、解析をやり直したり、消えた完了マークを再表示したりせず、すでにある検索用の文字を使います。画像が変わった場合は、新しい読み取り結果を表示します。",
+    "YouTube Shorts subtitle controls and the text-move handle hide while native comments or another mobile sheet is open, including inline fullscreen reels and sheets mounted outside the app root.": "YouTube Shortsでコメントなどのシートを開いている間は、字幕の操作欄と文字を動かすハンドルを隠すようにしました。インライン全画面の動画や、アプリの外側に表示されるシートにも対応します。",
+    "Reddit’s blurred image backdrops no longer get a second OCR dot or text layer. Overlapping image copies inside open shadow roots also share foreground ownership.": "Redditのぼかした背景画像に、二つ目のOCRマークや文字のレイヤーを表示しないようにしました。開いたシャドウDOM内で重なる画像も、手前の画像だけに表示します。",
+    "OCR text and corner marks on ordinary page images now scroll with the document, keeping their position before JavaScript scroll updates. Fixed surfaces and independent scrollers retain viewport tracking.": "通常のページ画像のOCR文字とマークは、本文と一緒にスクロールするようにしました。JavaScriptのスクロール処理を待たずに位置を保ち、固定表示や独立したスクロール領域は引き続き画面の位置を追います。",
+    "The よむ button keeps its visible-screen size and position during pinch zoom and pan. Its menu uses the same coordinates and closes when the visible viewport changes.": "ピンチ拡大や画面の移動中も、よむボタンの画面上の大きさと位置を保つようにしました。メニューも同じ座標を使い、表示領域が変わると閉じます。",
+    "OCR text and corner marks on ordinary page images scroll with the image. Decorative blurred copies do not get a second mark.": "通常のページ画像のOCR文字とマークは、画像と一緒にスクロールします。ぼかした背景用の複製には二つ目のマークを表示しません。",
+    "The よむ button and its menu keep their screen size during pinch zoom. The menu closes when you pan or change the visible viewport.": "ピンチ拡大中も、よむボタンとメニューの画面上の大きさを保ちます。画面を移動したり表示領域を変えたりすると、メニューは閉じます。",
     "Filtered YouTube recommendation lists stop loading repeatedly when hidden videos keep the loader in view. After two automatic batches, or eight seconds with an unfinished visible loader, Load more lets you continue. Completed loaders between videos no longer leave spinning circles.": "非表示にした動画のため読み込み表示が画面内に残る場合も、YouTubeのおすすめを延々と読み込まないようにしました。自動で2回読み込んだ後、または画面内の読み込みが8秒経っても終わらない場合は、「もっと読み込む」で続けられます。動画の間に残った、読み込み済みの回転表示も消えます。",
     "Hidden YouTube player announcements remain available to screen readers without appearing as stray annotation text. Visible messages still receive annotations.": "YouTubeプレーヤーの非表示の通知を、画面に余計な注釈として表示しないようにしました。スクリーンリーダー向けの通知はそのまま保ち、画面に表示されているメッセージには引き続き注釈を付けます。",
     "Added Chromium and WebKit regression checks for fast recommendation loading, separate loader hydration, touch recovery and loaders that never finish.": "おすすめが高速で読み込まれる場合、読み込み表示が後から追加される場合、タップでの再開、読み込みが終わらない場合を、ChromiumとWebKitで検証するテストを追加しました。",

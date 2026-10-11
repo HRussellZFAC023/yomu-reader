@@ -1,3 +1,4 @@
+import { sourceSharesDocumentScroll } from '../dom/composed-tree';
 // Where every OCR layer on the page goes, once per animation frame.
 //
 // A35.22. The scroll path used to interleave DOM reads and writes for each recognized
@@ -39,12 +40,15 @@ export interface OcrPositionPlan {
     rootOffset?: OcrArtifactOffset;
     typeface?: string;
     fontScale?: number;
+    documentFlow?: boolean;
 }
 
 export interface OcrArtifactOffset {
     left: number;
     top: number;
 }
+
+let documentScrollModes = new WeakMap<HTMLElement, boolean>();
 
 const positionedLayoutKeys = new WeakMap<HTMLElement, string>();
 
@@ -57,11 +61,13 @@ export function planOcrSurfacePosition(
     const rect = sources.sourceRect(image) ?? image.getBoundingClientRect();
     if (!sources.isVisible(image, rect)) return { overlay };
     const placement = ocrLayerPlacement(image, rect, overlay, sources);
+    const documentFlow = ocrArtifactSharesDocumentScroll(overlay, sources.transformSurface(image) ?? image);
     return {
         overlay,
         placement,
         frame: sources.renderedFrame(image, ocrPlacedSurfaceRect(rect, placement), rect.bottom),
-        rootOffset: ocrArtifactRootOffset(overlay),
+        rootOffset: ocrArtifactRootOffset(overlay, documentFlow),
+        documentFlow,
         typeface: ocrOverlayTypeface(overlay),
         fontScale: sources.fontScale(),
     };
@@ -74,6 +80,7 @@ export function applyOcrSurfacePosition(plan: OcrPositionPlan): void {
     plan.overlay.hidden = !visible;
     setOcrOverlayAccessibility(plan.overlay, visible);
     if (!placement || !frame) return;
+    setOcrArtifactScrollMode(plan.overlay, plan.documentFlow ?? false);
     setOcrArtifactPosition(plan.overlay, placement.left, placement.top, plan.rootOffset);
     plan.overlay.style.width = `${placement.width}px`;
     plan.overlay.style.height = `${placement.height}px`;
@@ -171,7 +178,29 @@ export function setOcrArtifactPosition(
     element.style.top = `${viewportTop - offset.top}px`;
 }
 
-export function ocrArtifactRootOffset(element: HTMLElement): OcrArtifactOffset {
+export function ocrArtifactSharesDocumentScroll(element: HTMLElement, source: HTMLElement): boolean {
+    if (element.parentElement !== document.body) return false;
+    const cached = documentScrollModes.get(source);
+    if (cached !== undefined) return cached;
+    const documentFlow = sourceSharesDocumentScroll(source);
+    documentScrollModes.set(source, documentFlow);
+    return documentFlow;
+}
+
+/** Shares the transform cache's invalidation boundaries: scroll never changes ancestry. */
+export function forgetOcrArtifactScrollMode(): void {
+    documentScrollModes = new WeakMap();
+}
+
+export function setOcrArtifactScrollMode(element: HTMLElement, documentFlow: boolean): void {
+    element.dataset.yomuOcrDocumentFlow = String(documentFlow);
+}
+
+export function ocrArtifactRootOffset(
+    element: HTMLElement,
+    documentFlow = element.dataset.yomuOcrDocumentFlow === 'true',
+): OcrArtifactOffset {
+    if (documentFlow) return { left: -window.scrollX, top: -window.scrollY };
     if (element.dataset.yomuOcrFullscreenHosted !== 'true') return { left: 0, top: 0 };
     const root = element.parentElement;
     if (!root || root === document.body || root === document.documentElement) return { left: 0, top: 0 };

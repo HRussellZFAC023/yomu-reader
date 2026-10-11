@@ -29,6 +29,9 @@ import {
 import {
     layoutOcrOverlayIfChanged,
     ocrArtifactRootOffset,
+    ocrArtifactSharesDocumentScroll,
+    forgetOcrArtifactScrollMode,
+    setOcrArtifactScrollMode,
     ocrPlacedSurfaceRect,
     setOcrArtifactPosition,
     setOcrLayerTransform,
@@ -276,6 +279,7 @@ type OcrPositionPlan = [
     OcrOverlayFrame?,
     OcrArtifactOffset?,
     string?,
+    boolean?,
 ];
 
 class LocalOcrUnavailableError extends Error {
@@ -451,10 +455,12 @@ export class ImageOcrController {
     private readonly handleWindowScroll = () => this.handleOcrViewportShift(240);
     private readonly handleWindowResize = () => {
         forgetAllComposedOcrSurfaceTransforms();
+        forgetOcrArtifactScrollMode();
         this.handleOcrViewportShift(300);
     };
     private readonly handleVisualViewportResize = () => {
         forgetAllComposedOcrSurfaceTransforms();
+        forgetOcrArtifactScrollMode();
         this.handleOcrViewportShift(120);
     };
     private readonly handleSpaNavigation = () => this.teardownForNavigation();
@@ -466,6 +472,7 @@ export class ImageOcrController {
     init(): void {
         this.destroyed = false;
         forgetAllComposedOcrSurfaceTransforms();
+        forgetOcrArtifactScrollMode();
         this.readerRasterFreeMemo = undefined;
         const body = document.body;
         if (!body) {
@@ -654,6 +661,7 @@ export class ImageOcrController {
     }
 
     private invalidatePositionTransformsForMutations(batch: RenderableMediaMutationBatch): void {
+        if (batch.touchesRenderableMedia) forgetOcrArtifactScrollMode();
         if (batch.restylesEverySurface) {
             forgetAllComposedOcrSurfaceTransforms();
             return;
@@ -920,21 +928,16 @@ export class ImageOcrController {
 
     private shouldQueueOcrRequest(state: ImageState, image: HTMLImageElement, userRequested: boolean): boolean {
         if (shouldSkipOcrRequest(state, userRequested)) return false;
-        const forceExistingOverlay = userRequested && !state.overlayRequested;
         updateOcrRequestFlags(state, image, userRequested);
-        if (this.renderExistingOcrResult(state, forceExistingOverlay)) return false;
+        // A tap activates existing lookup markup; it is not a completed scan.
+        // Keep the original nodes and let the result notification finish fading.
+        if (state.result) return false;
         return !state.loading;
     }
 
     private queueOcrRequest(image: HTMLImageElement): void {
         this.queueImageForOcr(image);
         this.drainQueue();
-    }
-
-    private renderExistingOcrResult(state: ImageState, userRequested: boolean): boolean {
-        if (!state.result) return false;
-        if (userRequested) void this.renderResult(state, state.result, true);
-        return true;
     }
 
     private requestOcrFromPointerEvent(event: Event): boolean {
@@ -2095,6 +2098,7 @@ export class ImageOcrController {
         const rect = this.readerRasterSourceRect(image) ?? image.getBoundingClientRect();
         if (!isImageVisibleForOcr(image, rect)) { card.hidden = true; return; }
         card.hidden = false;
+        setOcrArtifactScrollMode(card, ocrArtifactSharesDocumentScroll(card, this.ocrLayerTransformSurface(image) ?? image));
         positionOcrImageStatus(card, rect);
     }
 
@@ -3397,6 +3401,7 @@ export class ImageOcrController {
                 linear,
                 { width: surface?.offsetWidth ?? 0, height: surface?.offsetHeight ?? 0 },
             );
+            const documentFlow = ocrArtifactSharesDocumentScroll(overlay, surface ?? image);
             plans.push([
                 overlay,
                 placement,
@@ -3406,15 +3411,17 @@ export class ImageOcrController {
                     state.result,
                     rect.bottom,
                 ),
-                ocrArtifactRootOffset(overlay),
+                ocrArtifactRootOffset(overlay, documentFlow),
                 ocrOverlayTypeface(overlay),
+                documentFlow,
             ]);
         }
-        for (const [overlay, placement, frame, offset, typeface] of plans) {
+        for (const [overlay, placement, frame, offset, typeface, documentFlow] of plans) {
             const visible = Boolean(placement && frame);
             overlay.hidden = !visible;
             setOcrOverlayAccessibility(overlay, visible);
             if (!placement || !frame) continue;
+            setOcrArtifactScrollMode(overlay, documentFlow ?? false);
             setOcrArtifactPosition(overlay, placement.left, placement.top, offset);
             overlay.style.width = `${placement.width}px`;
             overlay.style.height = `${placement.height}px`;

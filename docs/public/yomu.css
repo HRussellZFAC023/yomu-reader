@@ -3074,6 +3074,27 @@ html.jpdb-reader-suppress-redundant .jpdb-reader-word.jpdb-redundant {
   visibility: visible;
 }
 
+/* Ordinary image marks and text share the document's native scroll movement. */
+:is(.jpdb-ocr-layer, .jpdb-ocr-video-frame-status)[data-yomu-ocr-document-flow="true"] {
+  position: absolute;
+}
+
+/* Pinch compensation belongs only to the visible-screen puck plane. */
+.jpdb-reader-puck-viewport {
+  display: block !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+  box-sizing: border-box !important;
+  position: fixed !important;
+  z-index: 2147483646 !important;
+  pointer-events: none !important;
+  transform-origin: 0 0 !important;
+}
+.jpdb-reader-puck-viewport > .jpdb-reader-fab {
+  pointer-events: auto !important;
+}
+
 
 /* Source: src/reader/styles/popover-core.css */
 .jpdb-reader-backdrop {
@@ -11616,8 +11637,9 @@ html.jpdb-reader-doodle-active * {
   display: none !important;
   pointer-events: none !important;
 }
-html.jpdb-subtitle-yt-sheet-open .jpdb-subtitle-player:not(.jpdb-subtitle-fullscreen) .jpdb-subtitle-text,
-html.jpdb-subtitle-yt-sheet-open .jpdb-subtitle-player:not(.jpdb-subtitle-fullscreen) .jpdb-subtitle-rail {
+html.jpdb-subtitle-yt-sheet-open .jpdb-subtitle-player .jpdb-subtitle-text,
+html.jpdb-subtitle-yt-sheet-open .jpdb-subtitle-player .jpdb-subtitle-rail,
+html.jpdb-subtitle-yt-sheet-open .asbplayer-subtitles-container-bottom.jpdb-subtitle-asb-movable {
   display: none !important;
   pointer-events: none !important;
 }
