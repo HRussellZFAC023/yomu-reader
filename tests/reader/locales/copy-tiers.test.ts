@@ -153,7 +153,9 @@ describe('D43 copy tiers are a property of the string', () => {
         const humanCritical = messages.filter((message) => message.tier === 'human-critical');
         const byIdAlone = humanCritical.filter((message) => copyTierOf(message.id).tier === 'human-critical');
         expect({ total: messages.length, critical: humanCritical.length, byId: byIdAlone.length })
-            .toEqual({ total: 1213, critical: 414, byId: 408 });
+            .toEqual({ total: 1214, critical: 414, byId: 408 });
+        // 2.1.3 adds a supplementary action for native YouTube paging.
+        expect(copyTierOf(legacyChromeMessageId('youtubeLoadMore')).tier).toBe('machine-draft-ok');
         // 2.1.1 adds eleven shared website messages and Default deck copy; two new IDs are critical.
         // Japanese-only/setup/settings removal changed the message inventory;
         // all ten classification rules and surviving critical keys remain pinned.
