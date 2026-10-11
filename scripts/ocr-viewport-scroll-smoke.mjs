@@ -13,7 +13,7 @@ const bundle = await build({
     bundle: true, write: false, format: 'iife', globalName: 'YomuViewportFixture', platform: 'browser', define: { 'import.meta.env': '{}' }, logLevel:'silent',
 });
 const css = readFileSync('dist/yomu.css', 'utf8');
-const pageZoom = Number(process.env.YOMU_OCR_VIEWPORT_PAGE_ZOOM ?? 1);
+for (const pageZoom of [1, 1.6]) {
 for (const [name, type] of [['chromium', chromium], ['webkit', webkit]]) {
     const browser = await type.launch();
     try {
@@ -190,6 +190,8 @@ for (const [name, type] of [['chromium', chromium], ['webkit', webkit]]) {
         assert.deepEqual(errors, [], `${name}: browser errors`);
         console.log(`${name} page-fit=${pageZoom}: PASS one foreground OCR owner; synchronous scroll registration; rendered glyph scroll registration; pinch/pan puck and menu geometry/teardown`);
     } finally { await browser.close(); }
+}
+
 }
 
 async function puckPixels(page) {

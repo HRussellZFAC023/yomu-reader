@@ -302,7 +302,7 @@
     "smoke:host-css-armour": "node scripts/host-css-armour-smoke.mjs",
     "smoke:ruby-overhang-scope": "node scripts/ruby-overhang-scope-smoke.mjs",
     "smoke:reading-collision": "node scripts/reading-collision-smoke.mjs",
-    "smoke:ocr-viewport-scroll": "node scripts/ocr-viewport-scroll-smoke.mjs && YOMU_OCR_VIEWPORT_PAGE_ZOOM=1.6 node scripts/ocr-viewport-scroll-smoke.mjs"
+    "smoke:ocr-viewport-scroll": "node scripts/ocr-viewport-scroll-smoke.mjs"
   },
   "dependencies": {
     "aws4fetch": "^1.0.20",
