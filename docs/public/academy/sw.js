@@ -1,8 +1,8 @@
-importScripts('/hosted-runtime-graph.js?v=s1-3488ac9440ef');
+importScripts('/hosted-runtime-graph.js?v=s1-66b7764cb6fc');
 
-const VERSION = 'yomu-academy-shell-s1-3488ac9440ef';
-const ACADEMY_REVISION = 's1-3488ac9440ef';
-const CODE_ASSETS = ["/academy/manifest.json?v=s1-3488ac9440ef","/academy/app.js?v=s1-3488ac9440ef","/academy/assets/entrypoint-yLrwYxeH.css","/academy/chunks/entrypoint-DE-PSzZw.js","/academy/chunks/runtime-CZWcpk5F.js"];
+const VERSION = 'yomu-academy-shell-s1-66b7764cb6fc';
+const ACADEMY_REVISION = 's1-66b7764cb6fc';
+const CODE_ASSETS = ["/academy/manifest.json?v=s1-66b7764cb6fc","/academy/app.js?v=s1-66b7764cb6fc","/academy/assets/entrypoint-yLrwYxeH.css","/academy/chunks/entrypoint-DE-PSzZw.js","/academy/chunks/runtime-CZWcpk5F.js"];
 const OFFLINE_READY = '/academy/.offline-ready';
 const AUDIO_CACHE = 'yomu-academy-audio-v2-demand';
 const STORY_VOICE_CATALOG = '/academy/audio/story-voice-playback.json';

@@ -31,6 +31,8 @@ describe('OCR source ownership', () => {
         wrapper.append(host);
         document.body.append(wrapper);
         capture.getBoundingClientRect = box;
+        const pageImage=image();
+        Object.defineProperty(document, 'elementsFromPoint', { configurable:true, value:()=>[pageImage] });
         try {
             expect(isImageVisibleForOcr(capture, box())).toBe(true);
             wrapper.hidden = true;

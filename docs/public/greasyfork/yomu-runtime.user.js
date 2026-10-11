@@ -44271,6 +44271,8 @@ function isImageVisibleForOcr(image, rect) {
 return rectIntersectsViewport(rect) && isVisibleOcrImage(image) && !isImageOccludedByVideo(image, rect) && !isImageOccludedByPeerImage(image, rect);
 }
 function isImageOccludedByPeerImage(image, rect) {
+const root = image.getRootNode();
+if (root instanceof ShadowRoot && privateRasterImageForHost(root.host) === image) return false;
 if (typeof document.elementsFromPoint !== "function") return false;
 const visible = visibleViewportIntersection(rect);
 if (!visible) return false;

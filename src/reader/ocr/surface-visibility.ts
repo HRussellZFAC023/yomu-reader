@@ -13,6 +13,8 @@ export function isImageVisibleForOcr(image: HTMLImageElement, rect: DOMRect): bo
 // Image viewers keep thumbnail and full-resolution copies in the same place.
 // Only the painted foreground copy should own a lookup layer and corner mark.
 function isImageOccludedByPeerImage(image: HTMLImageElement, rect: DOMRect): boolean {
+    const root = image.getRootNode();
+    if (root instanceof ShadowRoot && privateRasterImageForHost(root.host) === image) return false;
     if (typeof document.elementsFromPoint !== 'function') return false;
     const visible = visibleViewportIntersection(rect);
     if (!visible) return false;
