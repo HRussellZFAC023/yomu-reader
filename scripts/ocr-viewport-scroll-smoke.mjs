@@ -115,7 +115,12 @@ for (const [name, type] of [['chromium', chromium], ['webkit', webkit]]) {
         }
         await page.locator('.jpdb-reader-fab').click();
         await page.locator('.jpdb-reader-fab-radial.is-open').waitFor();
-        await page.waitForTimeout(250);
+        // WebKit can start a staggered transition after the first paint. Wait
+        // for the animation lifecycle, then independently assert physical bounds.
+        await page.waitForFunction(() => {
+            const items=[...document.querySelectorAll('.jpdb-reader-fab-radial-item')];
+            return items.length>0 && items.every(item => item.getAnimations().every(animation => !animation.pending && animation.playState!=='running'));
+        });
         const menu = await page.evaluate(() => {
             const v=window.pinchFixture.visual;
             return [...document.querySelectorAll('.jpdb-reader-fab-radial-item')].map(e=>{
