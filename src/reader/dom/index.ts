@@ -1350,7 +1350,7 @@ function fragmentElementMustRemainPageOwned(element: HTMLElement, isRoot: boolea
     // keeps the boundary independent of both UI language and CSS hydration
     // without running YouTube ancestor policy for every ordinary content node.
     if (!isYouTubeAppHostname()) return false;
-    if (!isRoot && !safeElementMatches(element, PASSIVE_INTERACTION_SELECTOR)) return false;
+    if (!isRoot && !safeElementMatches(element, `${PASSIVE_INTERACTION_SELECTOR},.ytp-sr-only`)) return false;
     return youtubeNativeChromeMustRemainPageOwned(element);
 }
 
@@ -2457,12 +2457,15 @@ function hostOriginalTextWithNodeOffsets(host: HTMLElement): {
     const nodeOffsets = new Map<Text, number>();
     const whitespaceJoints: number[] = [];
     const styles = new MirrorPlanStyleProbe(host);
+    const skipSelector = isYouTubeAppHostname()
+        ? `${MIRROR_PLAN_TEXT_SKIP_SELECTOR},.ytp-sr-only`
+        : MIRROR_PLAN_TEXT_SKIP_SELECTOR;
     let hostText = '';
     let previousNode: Text | null = null;
     const walker = document.createTreeWalker(host, NodeFilter.SHOW_TEXT, {
         acceptNode: node => {
             const parent = node.parentElement;
-            if (!parent || parent.closest(MIRROR_PLAN_TEXT_SKIP_SELECTOR)) return NodeFilter.FILTER_REJECT;
+            if (!parent || parent.closest(skipSelector)) return NodeFilter.FILTER_REJECT;
             if (styles.isComputedHidden(parent)) return NodeFilter.FILTER_REJECT;
             if (!(node as Text).data.trim() && styles.dropsWhitespaceOnlyChild(parent)) return NodeFilter.FILTER_REJECT;
             return NodeFilter.FILTER_ACCEPT;

@@ -37884,6 +37884,7 @@ const COPY$c = {
     closeSettings: "Close settings",
     settingsLauncherHelp: "Settings open in Study, where this site can't read them.",
     openInStudy: "Open in Study",
+    youtubeLoadMore: "Load more",
     show: "Show",
     hide: "Hide",
     appearance: "Appearance",
@@ -39434,6 +39435,7 @@ cancel	キャンセル
 closeSettings	設定を閉じる
 settingsLauncherHelp	設定は、このサイトから読み取れないStudyで開きます。
 openInStudy	Studyで開く
+youtubeLoadMore	もっと読み込む
 show	表示
 hide	隠す
 appearance	外観
@@ -44455,6 +44457,7 @@ function youtubeShelfExpansionChromeMustRemainPageOwned(element2) {
   return Boolean(composedClosestMatching(element2, YOUTUBE_SHELF_EXPANSION_CONTROL_SELECTOR));
 }
 function youtubeNativeChromeMustRemainPageOwned(element2) {
+  if (isYouTubeAppHostname() && composedClosestMatching(element2, ".ytp-sr-only")) return true;
   if (isYouTubeReadableLabel(element2)) return false;
   if (youtubeShelfExpansionChromeMustRemainPageOwned(element2)) return true;
   if (!isYouTubeAppHostname()) return false;
@@ -45995,7 +45998,7 @@ function isFootnoteMarker(element2) {
 }
 function fragmentElementMustRemainPageOwned(element2, isRoot) {
   if (!isYouTubeAppHostname()) return false;
-  if (!isRoot && !safeElementMatches(element2, PASSIVE_INTERACTION_SELECTOR)) return false;
+  if (!isRoot && !safeElementMatches(element2, `${PASSIVE_INTERACTION_SELECTOR},.ytp-sr-only`)) return false;
   return youtubeNativeChromeMustRemainPageOwned(element2);
 }
 function matchesSkippedFragmentElement(element2, state, isRoot) {
@@ -46642,12 +46645,13 @@ function hostOriginalTextWithNodeOffsets(host2) {
   const nodeOffsets = /* @__PURE__ */ new Map();
   const whitespaceJoints = [];
   const styles = new MirrorPlanStyleProbe(host2);
+  const skipSelector = isYouTubeAppHostname() ? `${MIRROR_PLAN_TEXT_SKIP_SELECTOR},.ytp-sr-only` : MIRROR_PLAN_TEXT_SKIP_SELECTOR;
   let hostText = "";
   let previousNode = null;
   const walker = document.createTreeWalker(host2, NodeFilter.SHOW_TEXT, {
     acceptNode: (node2) => {
       const parent = node2.parentElement;
-      if (!parent || parent.closest(MIRROR_PLAN_TEXT_SKIP_SELECTOR)) return NodeFilter.FILTER_REJECT;
+      if (!parent || parent.closest(skipSelector)) return NodeFilter.FILTER_REJECT;
       if (styles.isComputedHidden(parent)) return NodeFilter.FILTER_REJECT;
       if (!node2.data.trim() && styles.dropsWhitespaceOnlyChild(parent)) return NodeFilter.FILTER_REJECT;
       return NodeFilter.FILTER_ACCEPT;
@@ -264495,7 +264499,7 @@ function padClockPart(value) {
 const DEFAULT_ACADEMY_STUDY_DURATION_MS = DEFAULT_STUDY_DURATION_MS;
 class StudyRuntimeLoadFailure extends Error {
 }
-function createCanonicalAcademyStudyModule(loadRuntime = () => import("./runtime-C6z3L_Ax.js")) {
+function createCanonicalAcademyStudyModule(loadRuntime = () => import("./runtime-6TmW59F7.js")) {
   return {
     async mount(host2, context2) {
       let runtime;

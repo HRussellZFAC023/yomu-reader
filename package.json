@@ -1,6 +1,6 @@
 {
   "name": "yomu-reader",
-  "version": "2.1.2",
+  "version": "2.1.3",
   "private": true,
   "type": "module",
   "description": "よむ: Japanese pop-up dictionary with furigana, pitch accent, subtitles, OCR, and Study.",
@@ -270,6 +270,7 @@
     "manual:extension-port-census": "node scripts/manual/extension-port-census-smoke.mjs",
     "manual:extension-youtube": "node scripts/manual/extension-youtube-boot-smoke.mjs",
     "smoke:youtube-dom-safe": "node scripts/youtube-dom-safe-smoke.mjs",
+    "smoke:youtube-continuation": "node scripts/youtube-continuation-smoke.mjs",
     "manual:youtube-fullscreen": "node scripts/manual/youtube-fullscreen-smoke.mjs",
     "manual:youtube-homepage-performance": "node scripts/manual/youtube-homepage-performance-profile.mjs",
     "manual:youtube-live-watch-performance": "node scripts/manual/youtube-live-watch-performance-profile.mjs",

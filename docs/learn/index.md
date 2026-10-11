@@ -43,6 +43,10 @@ Furigana stays compact; the Japanese text keeps the page’s font and spacing.
 - **PDFs:** <a href="/pdf-reader/" target="_self">PDF Reader</a>
 - **Games:** [よむ Desktop](/desktop)
 
+On filtered YouTube recommendation lists, Load more appears after two automatic batches or an unfinished visible loader. Tap it to continue loading videos.
+
+Words can still be looked up without a coloured underline. Search and comment fields keep their normal typing behavior.
+
 ## Already use Anki, JPDB or Jiten? {#already-use-anki}
 
 Keep it. Connect it in Settings and よむ saves your words there. Review in one place, not two.

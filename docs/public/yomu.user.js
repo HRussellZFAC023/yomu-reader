@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 2.1.2
+// @version 2.1.3
 // @author Henry Russell
 // @description Japanese pop-up dictionary with furigana, pitch accent, audio, subtitles, OCR and Study.
 // @license MIT
@@ -11,8 +11,8 @@
 // @updateURL https://update.greasyfork.org/scripts/581653/%E3%82%88%E3%82%80.meta.js
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-runtime.d9964be094f3.user.js#sha256=2ZZL4JTzfovbSmOm2D243AQ9fN3M55nNmn5P2Qsa5Dc=
-// @resource yomuCss  https://yomureader.com/yomu.ae3cf0474d38.css#sha256=rjzwR004QbBWcHbvClRUxZLZyv/dvUVEmDdbzXQyePs=
+// @require https://yomureader.com/greasyfork/yomu-runtime.e91df6c37af6.user.js#sha256=6R32w3r2jukihKkND1bVB/eWKPWBmAaPHq3EifpH8sQ=
+// @resource yomuCss  https://yomureader.com/yomu.bb91e93066d2.css#sha256=u5HpMGbSI5v2cySnbwTkUwTAFtZVnuZDpmltb9PYLbY=
 // @connect api.jiten.moe
 // @connect api.tatoeba.org
 // @connect tatoeba.org
@@ -8872,7 +8872,7 @@ return Boolean(element.closest(FOOTNOTE_MARKER_SELECTOR));
 }
 function fragmentElementMustRemainPageOwned(element, isRoot) {
 if (!isYouTubeAppHostname()) return false;
-if (!isRoot && !safeElementMatches$1(element, PASSIVE_INTERACTION_SELECTOR)) return false;
+if (!isRoot && !safeElementMatches$1(element, `${PASSIVE_INTERACTION_SELECTOR},.ytp-sr-only`)) return false;
 return youtubeNativeChromeMustRemainPageOwned(element);
 }
 function matchesSkippedFragmentElement(element, state, isRoot) {
@@ -9525,12 +9525,13 @@ function hostOriginalTextWithNodeOffsets(host) {
 const nodeOffsets = new Map();
 const whitespaceJoints = [];
 const styles = new MirrorPlanStyleProbe(host);
+const skipSelector = isYouTubeAppHostname() ? `${MIRROR_PLAN_TEXT_SKIP_SELECTOR},.ytp-sr-only` : MIRROR_PLAN_TEXT_SKIP_SELECTOR;
 let hostText = "";
 let previousNode = null;
 const walker = document.createTreeWalker(host, NodeFilter.SHOW_TEXT, {
 acceptNode: (node) => {
 const parent = node.parentElement;
-if (!parent || parent.closest(MIRROR_PLAN_TEXT_SKIP_SELECTOR)) return NodeFilter.FILTER_REJECT;
+if (!parent || parent.closest(skipSelector)) return NodeFilter.FILTER_REJECT;
 if (styles.isComputedHidden(parent)) return NodeFilter.FILTER_REJECT;
 if (!node.data.trim() && styles.dropsWhitespaceOnlyChild(parent)) return NodeFilter.FILTER_REJECT;
 return NodeFilter.FILTER_ACCEPT;
@@ -27188,6 +27189,7 @@ const SAFE_UI_CHROME_ARIA_MENU_ROOTS = [
 '[role="menuitemradio"]'
 ].join(",");
 const YT_PLAYER_CHROME_EXCLUDE_ENTRIES = [
+".ytp-sr-only",
 ".ytp-caption-window-container",
 ".caption-window",
 ".captions-text"
@@ -33691,6 +33693,7 @@ cancel	キャンセル
 closeSettings	設定を閉じる
 settingsLauncherHelp	設定は、このサイトから読み取れないStudyで開きます。
 openInStudy	Studyで開く
+youtubeLoadMore	もっと読み込む
 show	表示
 hide	隠す
 appearance	外観
@@ -35343,8 +35346,8 @@ function collapseWhitespace(value) {
 return value.replace(/\/\*[\s\S]*?\*\//gu, " ").replace(/\s+/gu, " ").trim();
 }
 const READER_CSS_RESOURCE = "yomuCss";
-const READER_CSS_HOSTED_FALLBACK_URL = `https://yomureader.com/yomu.css?v=${"2.1.2"}`;
-const READER_CSS_RAW_FALLBACK_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"2.1.2"}`;
+const READER_CSS_HOSTED_FALLBACK_URL = `https://yomureader.com/yomu.css?v=${"2.1.3"}`;
+const READER_CSS_RAW_FALLBACK_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"2.1.3"}`;
 const READER_CSS_CACHE_KEY = "yomu:reader-css-cache:v3";
 const READER_CSS = resourceReaderCss();
 function criticalWordCss() {
@@ -35487,7 +35490,7 @@ try {
 const url = new URL(href);
 if (!isHostedYomuPage(url)) return null;
 const path = url.hostname === "hrussellzfac023.github.io" ? "/yomu-reader/yomu.css" : "/yomu.css";
-return `${new URL(path, url.origin).href}?v=${"2.1.2"}`;
+return `${new URL(path, url.origin).href}?v=${"2.1.3"}`;
 } catch {
 return null;
 }

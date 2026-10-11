@@ -289,6 +289,7 @@ const SAFE_UI_CHROME_ARIA_MENU_ROOTS = [
 // the caption window only — the player settings menu (画質/再生速度/字幕 …) is a
 // sibling subtree and must still be scanned.
 const YT_PLAYER_CHROME_EXCLUDE_ENTRIES = [
+    '.ytp-sr-only',
     '.ytp-caption-window-container',
     '.caption-window',
     '.captions-text',

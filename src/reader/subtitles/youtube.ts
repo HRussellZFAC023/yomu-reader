@@ -25,11 +25,11 @@ import { escapeRegExp, readYouTubeConfigStringFromScripts } from './youtube-conf
 import {
     isYouTubeHomePage,
     isYouTubeShortsWatchPage,
-    isYouTubeWatchPage,
     shouldShowChannelRecommendationsForRoute,
 } from './youtube-routes';
 import { isYouTubeAppHostname } from '../app/youtube-host';
 import { withYouTubeFeedScrollAnchor } from './youtube-feed-scroll-anchor';
+import { YouTubeContinuationGuard, YOUTUBE_CONTINUATION_MARKER_SELECTOR } from './youtube-continuation';
 const YOUTUBE_READER_ROOT_SELECTOR = '[data-jpdb-reader-root]';
 const YOUTUBE_FILTERED_CLASS = 'jpdb-youtube-filtered';
 const YOUTUBE_UNRENDERED_SLOT_CLASS = 'jpdb-youtube-unrendered-slot';
@@ -166,8 +166,6 @@ const YOUTUBE_FILTER_COLLAPSE_DELAY_MS = 80;
 const YOUTUBE_FILTER_SCROLL_COLLAPSE_DELAY_MS = 650;
 const YOUTUBE_FILTER_SCROLL_SETTLE_MS = 280;
 const YOUTUBE_FILTER_COLLAPSE_DURATION_MS = 240;
-const YOUTUBE_VISIBLE_BACKFILL_TARGET = 24;
-const YOUTUBE_BACKFILL_THROTTLE_MS = 1200;
 const YOUTUBE_SEARCH_AUTO_REVEAL_MIN_FILTERED = 8;
 const YOUTUBE_SHORTS_ADVANCE_THROTTLE_MS = 800;
 // How long to wait before re-advancing the SAME short. Long enough to let an
@@ -308,7 +306,7 @@ export class YoutubeImmersionFilter {
     private channelShelfFilter: YouTubeChannelRecommendationFilter = 'all';
     private subscriptionBusy = false;
     private channelShelfStatusOverride = '';
-    private lastBackfillAt = Number.NEGATIVE_INFINITY;
+    private readonly continuations = new YouTubeContinuationGuard();
     private lastScrollAt = Number.NEGATIVE_INFINITY;
     private destroyed = true;
     private readonly oembedTitleCache = new Map<string, string | null>();
@@ -416,6 +414,7 @@ export class YoutubeImmersionFilter {
             if (mutations.every(mutationInsideReaderRoot)) return;
             if (!mutations.some(mutationMayAffectYouTubeCards)) return;
             this.maskAddedYouTubeCards(mutations);
+            this.continuations.holdAddedMarkers();
             this.schedule(YOUTUBE_FILTER_MUTATION_RESCAN_DELAY_MS);
         });
         this.observer.observe(document.body, {
@@ -521,7 +520,7 @@ export class YoutubeImmersionFilter {
         this.syncFilterableVideoShelves();
 
         this.syncChannelShelf(result.filteredCount, settings);
-        this.maybeBackfillFeed(result.filteredCount, result.shownCount, result.visibleVideoIds.size);
+        this.continuations.sync(result.decisions, this.revealed, settings.interfaceLanguage, this.currentRouteKey());
     }
 
     private collectFilterCandidates(): YouTubeFilterCandidate[] {
@@ -1480,13 +1479,13 @@ export class YoutubeImmersionFilter {
         this.channelSubscriptionProbeComplete = false;
         this.revealed = false;
         this.clearFilteredCards();
+        this.continuations.clear();
         this.removeChannelShelf();
         this.channelShelfRouteKey = '';
         this.channelShelfExpanded = false;
         this.channelShelfFilter = 'all';
         this.subscriptionBusy = false;
         this.channelShelfStatusOverride = '';
-        this.lastBackfillAt = Number.NEGATIVE_INFINITY;
         this.lastScrollAt = Number.NEGATIVE_INFINITY;
         this.lastAdvancedShortKey = '';
         this.lastShortAdvanceAt = Number.NEGATIVE_INFINITY;
@@ -1553,22 +1552,6 @@ export class YoutubeImmersionFilter {
 
     private currentRouteKey(): string {
         return `${location.pathname}${location.search}`;
-    }
-
-    private maybeBackfillFeed(filteredCount: number, shownCount: number, visibleUniqueCount: number): void {
-        const now = performance.now();
-        if (!shouldBackfillYouTubeFeed({
-            filteredCount,
-            lastBackfillAt: this.lastBackfillAt,
-            now,
-            revealed: this.revealed,
-            shownCount,
-            visibleUniqueCount,
-        })) return;
-
-        const continuation = findYouTubeContinuationItem();
-        if (!continuation) return;
-        if (nudgeYouTubeContinuationItem(continuation)) this.lastBackfillAt = now;
     }
 
     private setFilterActiveClass(active: boolean): void {
@@ -2360,39 +2343,6 @@ function isNearPageBottom(): boolean {
     return window.scrollY + window.innerHeight >= page.scrollHeight - Math.max(900, window.innerHeight);
 }
 
-function shouldBackfillYouTubeFeed(options: {
-    filteredCount: number;
-    lastBackfillAt: number;
-    now: number;
-    revealed: boolean;
-    shownCount: number;
-    visibleUniqueCount: number;
-}): boolean {
-    if (options.revealed) return false;
-    if (!options.filteredCount) return false;
-    if (isYouTubeWatchPage()) return false;
-    if (isYouTubeShortsWatchPage()) return false;
-    if (Math.max(options.shownCount, options.visibleUniqueCount) >= YOUTUBE_VISIBLE_BACKFILL_TARGET) return false;
-    return options.now - options.lastBackfillAt >= YOUTUBE_BACKFILL_THROTTLE_MS;
-}
-
-function findYouTubeContinuationItem(): HTMLElement | null {
-    const continuation = document.querySelector<HTMLElement>('ytd-continuation-item-renderer, ytm-continuation-item-renderer, tp-yt-paper-spinner-lite');
-    return continuation?.isConnected ? continuation : null;
-}
-
-function nudgeYouTubeContinuationItem(continuation: HTMLElement): boolean {
-    // Let YouTube's own intersection observer load continuations when the user
-    // scrolls them into view. Older builds used scrollIntoView() here as an
-    // eager backfill nudge, but on mobile it could jump the home feed to the
-    // Shorts/continuation area, and on desktop it could leave YouTube stuck on
-    // skeleton placeholders while we repeatedly poked and restored scroll.
-    // Return true only to throttle this no-op path while the loader is already
-    // close enough that native YouTube should see it naturally.
-    const rect = continuation.getBoundingClientRect();
-    return rect.bottom >= 0 && rect.top <= window.innerHeight * 1.25;
-}
-
 
 function shouldHidePendingYouTubeCard(card: HTMLElement): boolean {
     if (typeof window === 'undefined') return false;
@@ -2485,7 +2435,7 @@ function nodeMayAffectYouTubeCards(node: Node): boolean {
     const element = elementForYouTubeCardMutation(node);
     if (!element) return false;
     if (isYouTubeCardOrFeedElement(element)) return true;
-    if (element.querySelector(VIDEO_CARD_SELECTOR)) return true;
+    if (element.querySelector(`${VIDEO_CARD_SELECTOR},${YOUTUBE_CONTINUATION_MARKER_SELECTOR}`)) return true;
     return Boolean(element.querySelector(VIDEO_ANCHOR_SELECTOR));
 }
 
@@ -2499,5 +2449,6 @@ function isYouTubeCardOrFeedElement(element: Element): boolean {
     if (element.matches(VIDEO_CARD_SELECTOR)) return true;
     if (element.matches(NON_VIDEO_CONTAINER_SELECTOR)) return true;
     if (element.matches(YOUTUBE_FEED_CONTAINER_SELECTOR)) return true;
+    if (element.matches(YOUTUBE_CONTINUATION_MARKER_SELECTOR)) return true;
     return Boolean(element.closest(VIDEO_CARD_SELECTOR));
 }

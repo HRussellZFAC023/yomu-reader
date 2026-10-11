@@ -1143,6 +1143,9 @@ export function youtubeShelfExpansionChromeMustRemainPageOwned(element: HTMLElem
 }
 
 export function youtubeNativeChromeMustRemainPageOwned(element: HTMLElement): boolean {
+    // Player live announcements are clipped accessibility text. Mirroring
+    // their one-pixel boxes paints the message as a stray vertical column.
+    if (isYouTubeAppHostname() && composedClosestMatching(element, '.ytp-sr-only')) return true;
     if (isYouTubeReadableLabel(element)) return false;
     if (youtubeShelfExpansionChromeMustRemainPageOwned(element)) return true;
     if (!isYouTubeAppHostname()) return false;

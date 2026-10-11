@@ -7149,6 +7149,7 @@ const COPY = {
   closeSettings: "Close settings",
   settingsLauncherHelp: "Settings open in Study, where this site can't read them.",
   openInStudy: "Open in Study",
+  youtubeLoadMore: "Load more",
   show: "Show",
   hide: "Hide",
   appearance: "Appearance",
@@ -8680,6 +8681,7 @@ cancel	キャンセル
 closeSettings	設定を閉じる
 settingsLauncherHelp	設定は、このサイトから読み取れないStudyで開きます。
 openInStudy	Studyで開く
+youtubeLoadMore	もっと読み込む
 show	表示
 hide	隠す
 appearance	外観

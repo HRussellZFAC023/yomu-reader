@@ -76,6 +76,7 @@ export const NIGHTLY_SMOKES = [
     // bypass (ADR-0022).
     'smoke:userscript-csp',
     'smoke:youtube-dom-safe',
+    'smoke:youtube-continuation',
 ];
 
 const TIMEOUT_MS = Number(process.env.NIGHTLY_SMOKE_TIMEOUT_MS || 240000);

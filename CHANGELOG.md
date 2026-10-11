@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.1.3] - 2026-10-11
+
+### Fixed
+
+- Filtered YouTube recommendation lists stop loading repeatedly when hidden videos keep the loader in view. After two automatic batches, or eight seconds with an unfinished visible loader, Load more lets you continue. Completed loaders between videos no longer leave spinning circles.
+- Hidden YouTube player announcements remain available to screen readers without appearing as stray annotation text. Visible messages still receive annotations.
+- Added Chromium and WebKit regression checks for fast recommendation loading, separate loader hydration, touch recovery and loaders that never finish.
+
 ## [2.1.2] - 2026-10-10
 
 ### Fixed

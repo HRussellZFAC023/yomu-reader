@@ -9,6 +9,11 @@ export interface ReviewedDocsMessage {
 }
 
 const HOSTED_DOCS_JA_COPY: Record<string, string> = {
+    "Filtered YouTube recommendation lists stop loading repeatedly when hidden videos keep the loader in view. After two automatic batches, or eight seconds with an unfinished visible loader, Load more lets you continue. Completed loaders between videos no longer leave spinning circles.": "非表示にした動画のため読み込み表示が画面内に残る場合も、YouTubeのおすすめを延々と読み込まないようにしました。自動で2回読み込んだ後、または画面内の読み込みが8秒経っても終わらない場合は、「もっと読み込む」で続けられます。動画の間に残った、読み込み済みの回転表示も消えます。",
+    "Hidden YouTube player announcements remain available to screen readers without appearing as stray annotation text. Visible messages still receive annotations.": "YouTubeプレーヤーの非表示の通知を、画面に余計な注釈として表示しないようにしました。スクリーンリーダー向けの通知はそのまま保ち、画面に表示されているメッセージには引き続き注釈を付けます。",
+    "Added Chromium and WebKit regression checks for fast recommendation loading, separate loader hydration, touch recovery and loaders that never finish.": "おすすめが高速で読み込まれる場合、読み込み表示が後から追加される場合、タップでの再開、読み込みが終わらない場合を、ChromiumとWebKitで検証するテストを追加しました。",
+    "On filtered YouTube recommendation lists, Load more appears after two automatic batches or an unfinished visible loader. Tap it to continue loading videos.": "YouTubeのおすすめを絞り込んでいるときは、自動で2回読み込んだ後、または画面内の読み込みが終わらない場合に、「もっと読み込む」を表示します。タップすると動画の読み込みを続けられます。",
+    "Words can still be looked up without a coloured underline. Search and comment fields keep their normal typing behavior.": "色付きの下線がなくても単語を調べられます。検索欄やコメント欄では、通常どおり文字を入力できます。",
     "Furigana stays compact; the Japanese text keeps the page’s font and spacing.": "ふりがなは詰めて読みやすく表示し、日本語の本文はページの書体と文字間隔を保ちます。",
     "Furigana no longer inherits extra letter spacing from page text. Wide readings remain centered without stretching the kanji on tracked pages.": "ふりがなが本文の広い文字間隔を引き継がないようにしました。文字間隔の広いページでも、長い読みが漢字を引き伸ばさず中央に収まります。",
     "Updated nightly smoke checks for the private deck chooser, quiet Stats, current Study navigation and OCR hints, while preserving saving, privacy and layout assertions.": "保存・プライバシー・レイアウトの検証を維持しつつ、デッキ選択、静かな統計表示、現在のStudyの画面移動、OCRのヒントに合わせて夜間のスモークテストを更新しました。",

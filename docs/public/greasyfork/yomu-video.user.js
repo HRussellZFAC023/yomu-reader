@@ -7397,6 +7397,7 @@ const COPY = {
   closeSettings: "Close settings",
   settingsLauncherHelp: "Settings open in Study, where this site can't read them.",
   openInStudy: "Open in Study",
+  youtubeLoadMore: "Load more",
   show: "Show",
   hide: "Hide",
   appearance: "Appearance",
@@ -8947,6 +8948,7 @@ cancel	キャンセル
 closeSettings	設定を閉じる
 settingsLauncherHelp	設定は、このサイトから読み取れないStudyで開きます。
 openInStudy	Studyで開く
+youtubeLoadMore	もっと読み込む
 show	表示
 hide	隠す
 appearance	外観
@@ -26196,6 +26198,152 @@ function usableFeedScrollAnchor(probe, mutated) {
 function isMutationRelative(probe, mutated) {
   return [probe === mutated, mutated.contains(probe), probe.contains(mutated)].some(Boolean);
 }
+const YOUTUBE_CONTINUATION_MARKER_SELECTOR = "ytd-continuation-item-renderer,ytm-continuation-item-renderer";
+const MARKER_SELECTOR = YOUTUBE_CONTINUATION_MARKER_SELECTOR;
+const VIDEO_LIST_SELECTOR = "ytd-rich-grid-renderer,ytd-watch-next-secondary-results-renderer,ytd-watch-flexy #secondary,ytm-item-section-renderer";
+const NON_VIDEO_LIST_SELECTOR = "ytd-comments,ytm-comments,ytd-live-chat-frame,yt-live-chat-item-list-renderer";
+const PAUSED_CLASS = "jpdb-youtube-continuation-paused";
+const STALE_CLASS = "jpdb-youtube-continuation-stale";
+const AUTOMATIC_PAGE_LIMIT = 2;
+const LOADER_DEADLINE_MS = 8e3;
+class YouTubeContinuationGuard {
+  lists = /* @__PURE__ */ new Map();
+  stale = /* @__PURE__ */ new Set();
+  observer;
+  route = "";
+  sync(decisions, revealed, language, route) {
+  if (route !== this.route || revealed) this.clear();
+  this.route = route;
+  if (revealed) return;
+  const live = /* @__PURE__ */ new Set();
+  const terminals = /* @__PURE__ */ new Map();
+  const cardsByRoot = /* @__PURE__ */ new Map();
+  const stale = /* @__PURE__ */ new Set();
+  for (const marker of document.querySelectorAll(MARKER_SELECTOR)) {
+    const root = continuationVideoList(marker);
+    if (!root) continue;
+    let cards = cardsByRoot.get(root);
+    if (!cards) {
+      cards = decisions.filter((decision) => root.contains(decision.candidate.card));
+      cardsByRoot.set(root, cards);
+    }
+    if (!cards.some((decision) => decision.kind === "hide")) continue;
+    if (markerHasFollowingCard(marker, cards)) {
+      stale.add(marker);
+      continue;
+    }
+    live.add(root);
+    terminals.set(root, marker);
+  }
+  for (const [root, marker] of terminals) this.syncList(root, marker, language);
+  for (const [root, list] of this.lists) {
+    if (!live.has(root)) this.releaseList(list);
+  }
+  for (const marker of this.stale) {
+    if (!stale.has(marker)) marker.classList.remove(STALE_CLASS);
+  }
+  for (const marker of stale) marker.classList.add(STALE_CLASS);
+  this.stale.clear();
+  for (const marker of stale) this.stale.add(marker);
+  }
+  /** Runs in the mutation microtask, before native IntersectionObserver can
+   * request another page from a newly appended sentinel. */
+  holdAddedMarkers() {
+  for (const list of this.lists.values()) {
+    const markers = [...list.root.querySelectorAll(MARKER_SELECTOR)].filter((marker) => continuationVideoList(marker) === list.root);
+    const terminal = markers.at(-1);
+    if (terminal && terminal !== list.marker) this.syncList(list.root, terminal, list.language);
+    if (list.paused) markers.forEach((marker) => marker.classList.add(PAUSED_CLASS));
+  }
+  }
+  clear() {
+  for (const list of this.lists.values()) this.releaseList(list);
+  this.observer?.disconnect();
+  this.observer = void 0;
+  for (const marker of this.stale) marker.classList.remove(STALE_CLASS);
+  this.stale.clear();
+  this.route = "";
+  }
+  syncList(root, marker, language) {
+  let list = this.lists.get(root);
+  if (!list) {
+    list = { root, marker, pages: 0, paused: false, language };
+    this.lists.set(root, list);
+    this.observe(marker);
+  } else if (list.marker !== marker) {
+    this.observer?.unobserve(list.marker);
+    list.marker.classList.remove(PAUSED_CLASS);
+    window.clearTimeout(list.timeout);
+    list.timeout = void 0;
+    list.marker = marker;
+    list.pages += 1;
+    this.observe(marker);
+  }
+  list.language = language;
+  if (list.pages >= AUTOMATIC_PAGE_LIMIT || list.paused) this.pause(list);
+  if (list.button) list.button.textContent = uiText(language, "youtubeLoadMore");
+  }
+  observe(marker) {
+  if (typeof IntersectionObserver === "undefined") return;
+  this.observer ??= new IntersectionObserver((entries2) => {
+    for (const entry of entries2) {
+      const list = [...this.lists.values()].find((candidate) => candidate.marker === entry.target);
+      if (!list || list.paused) continue;
+      window.clearTimeout(list.timeout);
+      list.timeout = void 0;
+      if (!entry.isIntersecting || entry.boundingClientRect.width <= 0 || entry.boundingClientRect.height <= 0) continue;
+      list.timeout = window.setTimeout(() => this.pause(list), LOADER_DEADLINE_MS);
+    }
+  });
+  this.observer.observe(marker);
+  }
+  pause(list) {
+  if (!list.marker.isConnected) return;
+  window.clearTimeout(list.timeout);
+  list.timeout = void 0;
+  list.paused = true;
+  list.marker.classList.add(PAUSED_CLASS);
+  if (!list.button) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "jpdb-youtube-load-more";
+    button.setAttribute("data-jpdb-reader-root", "youtube-continuation");
+    button.textContent = uiText(list.language, "youtubeLoadMore");
+    button.addEventListener("click", (event) => {
+      if (!isDirectTrustedReaderInteraction(event)) return;
+      if (this.lists.get(list.root) !== list) return;
+      list.pages = 0;
+      list.paused = false;
+      list.root.querySelectorAll(`.${PAUSED_CLASS}`).forEach((marker) => marker.classList.remove(PAUSED_CLASS));
+      list.button?.remove();
+      list.button = void 0;
+      this.observer?.unobserve(list.marker);
+      this.observe(list.marker);
+    });
+    list.button = button;
+  }
+  if (list.marker.parentElement && list.button.nextElementSibling !== list.marker) {
+    list.marker.before(list.button);
+  }
+  }
+  releaseList(list) {
+  window.clearTimeout(list.timeout);
+  this.observer?.unobserve(list.marker);
+  list.marker.classList.remove(PAUSED_CLASS);
+  list.button?.remove();
+  list.root.querySelectorAll(`.${PAUSED_CLASS}`).forEach((marker) => marker.classList.remove(PAUSED_CLASS));
+  this.lists.delete(list.root);
+  }
+}
+function continuationVideoList(marker) {
+  if (marker.closest(NON_VIDEO_LIST_SELECTOR)) return null;
+  const root = marker.closest(VIDEO_LIST_SELECTOR);
+  return marker.closest("[hidden]") ? null : root;
+}
+function markerHasFollowingCard(marker, decisions) {
+  const parent = marker.parentElement;
+  return decisions.some(({ candidate }) => parent?.contains(candidate.card) && Boolean(marker.compareDocumentPosition(candidate.card) & Node.DOCUMENT_POSITION_FOLLOWING));
+}
 const YOUTUBE_READER_ROOT_SELECTOR = "[data-jpdb-reader-root]";
 const YOUTUBE_FILTERED_CLASS = "jpdb-youtube-filtered";
 const YOUTUBE_UNRENDERED_SLOT_CLASS = "jpdb-youtube-unrendered-slot";
@@ -26314,8 +26462,6 @@ const YOUTUBE_FILTER_COLLAPSE_DELAY_MS = 80;
 const YOUTUBE_FILTER_SCROLL_COLLAPSE_DELAY_MS = 650;
 const YOUTUBE_FILTER_SCROLL_SETTLE_MS = 280;
 const YOUTUBE_FILTER_COLLAPSE_DURATION_MS = 240;
-const YOUTUBE_VISIBLE_BACKFILL_TARGET = 24;
-const YOUTUBE_BACKFILL_THROTTLE_MS = 1200;
 const YOUTUBE_SEARCH_AUTO_REVEAL_MIN_FILTERED = 8;
 const YOUTUBE_SHORTS_ADVANCE_THROTTLE_MS = 800;
 const YOUTUBE_SHORTS_ADVANCE_RETRY_MS = 1e3;
@@ -26393,7 +26539,7 @@ class YoutubeImmersionFilter {
   channelShelfFilter = "all";
   subscriptionBusy = false;
   channelShelfStatusOverride = "";
-  lastBackfillAt = Number.NEGATIVE_INFINITY;
+  continuations = new YouTubeContinuationGuard();
   lastScrollAt = Number.NEGATIVE_INFINITY;
   destroyed = true;
   oembedTitleCache = /* @__PURE__ */ new Map();
@@ -26484,6 +26630,7 @@ class YoutubeImmersionFilter {
     if (mutations.every(mutationInsideReaderRoot)) return;
     if (!mutations.some(mutationMayAffectYouTubeCards)) return;
     this.maskAddedYouTubeCards(mutations);
+    this.continuations.holdAddedMarkers();
     this.schedule(YOUTUBE_FILTER_MUTATION_RESCAN_DELAY_MS);
   });
   this.observer.observe(document.body, {
@@ -26571,7 +26718,7 @@ class YoutubeImmersionFilter {
   result.decisions.forEach((decision) => this.applyFilterDecision(decision));
   this.syncFilterableVideoShelves();
   this.syncChannelShelf(result.filteredCount, settings);
-  this.maybeBackfillFeed(result.filteredCount, result.shownCount, result.visibleVideoIds.size);
+  this.continuations.sync(result.decisions, this.revealed, settings.interfaceLanguage, this.currentRouteKey());
   }
   collectFilterCandidates() {
   return collectYouTubeFilterItems().map((card) => this.filterCandidateForCard(card));
@@ -27358,13 +27505,13 @@ class YoutubeImmersionFilter {
   this.channelSubscriptionProbeComplete = false;
   this.revealed = false;
   this.clearFilteredCards();
+  this.continuations.clear();
   this.removeChannelShelf();
   this.channelShelfRouteKey = "";
   this.channelShelfExpanded = false;
   this.channelShelfFilter = "all";
   this.subscriptionBusy = false;
   this.channelShelfStatusOverride = "";
-  this.lastBackfillAt = Number.NEGATIVE_INFINITY;
   this.lastScrollAt = Number.NEGATIVE_INFINITY;
   this.lastAdvancedShortKey = "";
   this.lastShortAdvanceAt = Number.NEGATIVE_INFINITY;
@@ -27417,20 +27564,6 @@ class YoutubeImmersionFilter {
   }
   currentRouteKey() {
   return `${location.pathname}${location.search}`;
-  }
-  maybeBackfillFeed(filteredCount, shownCount, visibleUniqueCount) {
-  const now = performance.now();
-  if (!shouldBackfillYouTubeFeed({
-    filteredCount,
-    lastBackfillAt: this.lastBackfillAt,
-    now,
-    revealed: this.revealed,
-    shownCount,
-    visibleUniqueCount
-  })) return;
-  const continuation = findYouTubeContinuationItem();
-  if (!continuation) return;
-  if (nudgeYouTubeContinuationItem(continuation)) this.lastBackfillAt = now;
   }
   setFilterActiveClass(active) {
   document.documentElement.classList.toggle("jpdb-youtube-filter-active", active);
@@ -28028,22 +28161,6 @@ function isNearPageBottom() {
   const page = document.scrollingElement ?? document.documentElement;
   return window.scrollY + window.innerHeight >= page.scrollHeight - Math.max(900, window.innerHeight);
 }
-function shouldBackfillYouTubeFeed(options) {
-  if (options.revealed) return false;
-  if (!options.filteredCount) return false;
-  if (isYouTubeWatchPage()) return false;
-  if (isYouTubeShortsWatchPage()) return false;
-  if (Math.max(options.shownCount, options.visibleUniqueCount) >= YOUTUBE_VISIBLE_BACKFILL_TARGET) return false;
-  return options.now - options.lastBackfillAt >= YOUTUBE_BACKFILL_THROTTLE_MS;
-}
-function findYouTubeContinuationItem() {
-  const continuation = document.querySelector("ytd-continuation-item-renderer, ytm-continuation-item-renderer, tp-yt-paper-spinner-lite");
-  return continuation?.isConnected ? continuation : null;
-}
-function nudgeYouTubeContinuationItem(continuation) {
-  const rect = continuation.getBoundingClientRect();
-  return rect.bottom >= 0 && rect.top <= window.innerHeight * 1.25;
-}
 function shouldHidePendingYouTubeCard(card) {
   if (typeof window === "undefined") return false;
   const rect = card.getBoundingClientRect();
@@ -28116,7 +28233,7 @@ function nodeMayAffectYouTubeCards(node) {
   const element = elementForYouTubeCardMutation(node);
   if (!element) return false;
   if (isYouTubeCardOrFeedElement(element)) return true;
-  if (element.querySelector(VIDEO_CARD_SELECTOR)) return true;
+  if (element.querySelector(`${VIDEO_CARD_SELECTOR},${YOUTUBE_CONTINUATION_MARKER_SELECTOR}`)) return true;
   return Boolean(element.querySelector(VIDEO_ANCHOR_SELECTOR));
 }
 function elementForYouTubeCardMutation(node) {
@@ -28128,6 +28245,7 @@ function isYouTubeCardOrFeedElement(element) {
   if (element.matches(VIDEO_CARD_SELECTOR)) return true;
   if (element.matches(NON_VIDEO_CONTAINER_SELECTOR)) return true;
   if (element.matches(YOUTUBE_FEED_CONTAINER_SELECTOR)) return true;
+  if (element.matches(YOUTUBE_CONTINUATION_MARKER_SELECTOR)) return true;
   return Boolean(element.closest(VIDEO_CARD_SELECTOR));
 }
 const JA_LANG = "ja";

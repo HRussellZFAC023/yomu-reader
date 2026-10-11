@@ -10,7 +10,7 @@ export function isYouTubeHomePage(): boolean {
     return location.pathname === '/' || location.pathname === '/feed/explore';
 }
 
-export function isYouTubeWatchPage(): boolean {
+function isYouTubeWatchPage(): boolean {
     return location.pathname === '/watch';
 }
 

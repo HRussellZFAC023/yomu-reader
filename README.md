@@ -62,6 +62,10 @@ In Study, open Stats to check your review progress. Refresh keeps the current fi
 
 Furigana stays compact; the Japanese text keeps the page’s font and spacing.
 
+On filtered YouTube recommendation lists, Load more appears after two automatic batches or an unfinished visible loader. Tap it to continue loading videos.
+
+Words can still be looked up without a coloured underline. Search and comment fields keep their normal typing behavior.
+
 No account and no setup. [How to learn Japanese with よむ](https://yomureader.com/learn/) is one page.
 
 Readings follow the page’s typeface and scale with its text, with stronger contrast for small kana. With a study source, known and due words lose their readings; missed words keep them.

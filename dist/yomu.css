@@ -13983,6 +13983,40 @@ html.jpdb-youtube-filter-active ytd-rich-grid-renderer ytd-continuation-item-ren
     flex-basis: 100% !important;
 }
 
+.jpdb-youtube-continuation-stale {
+    display: none !important;
+}
+
+/* Keep a paused native sentinel outside its observer's viewport. Merely
+   hiding the spinner's paint would leave it intersecting and loading pages. */
+.jpdb-youtube-continuation-paused {
+    position: absolute !important;
+    top: -10000px !important;
+    left: -10000px !important;
+    width: 1px !important;
+    height: 1px !important;
+    visibility: hidden !important;
+    pointer-events: none !important;
+}
+
+.jpdb-youtube-load-more {
+    display: block;
+    margin: 8px auto;
+    min-height: 40px;
+    padding: 0 18px;
+    border: 0;
+    border-radius: 20px;
+    background: var(--yt-spec-badge-chip-background, #303134);
+    color: var(--yt-spec-text-primary, #f1f3f4);
+    font: 500 14px/1 Roboto, Arial, sans-serif;
+    cursor: pointer;
+}
+
+.jpdb-youtube-load-more:focus-visible {
+    outline: 2px solid var(--yt-spec-call-to-action, #3ea6ff);
+    outline-offset: 2px;
+}
+
 .jpdb-youtube-channel-shelf {
     /* The shelf sits inline in the YouTube feed, so it must follow the PAGE
        theme (html[dark]) — not the extension theme — or light-extension +

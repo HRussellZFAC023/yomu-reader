@@ -2605,6 +2605,7 @@ function youtubeShelfExpansionChromeMustRemainPageOwned(element) {
   return Boolean(composedClosestMatching(element, YOUTUBE_SHELF_EXPANSION_CONTROL_SELECTOR));
 }
 function youtubeNativeChromeMustRemainPageOwned(element) {
+  if (isYouTubeAppHostname() && composedClosestMatching(element, ".ytp-sr-only")) return true;
   if (isYouTubeReadableLabel(element)) return false;
   if (youtubeShelfExpansionChromeMustRemainPageOwned(element)) return true;
   if (!isYouTubeAppHostname()) return false;
@@ -5834,6 +5835,7 @@ const COPY = {
   closeSettings: "Close settings",
   settingsLauncherHelp: "Settings open in Study, where this site can't read them.",
   openInStudy: "Open in Study",
+  youtubeLoadMore: "Load more",
   show: "Show",
   hide: "Hide",
   appearance: "Appearance",
@@ -7384,6 +7386,7 @@ cancel	キャンセル
 closeSettings	設定を閉じる
 settingsLauncherHelp	設定は、このサイトから読み取れないStudyで開きます。
 openInStudy	Studyで開く
+youtubeLoadMore	もっと読み込む
 show	表示
 hide	隠す
 appearance	外観
@@ -14361,7 +14364,7 @@ const NEW_TAB_CACHE_KEY = "jpdb-reader-newtab-card-cache";
 function clearNewTabOfflineCache() {
   return gmStorageDelete(NEW_TAB_CACHE_KEY);
 }
-const CURRENT_YOMU_VERSION = "2.1.2".trim() ? "2.1.2".trim() : "dev";
+const CURRENT_YOMU_VERSION = "2.1.3".trim() ? "2.1.3".trim() : "dev";
 function latestYomuVersionFromVersionJson(value) {
   if (!value || typeof value !== "object") return null;
   const record2 = value;
