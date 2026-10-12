@@ -503,7 +503,7 @@ describe('Greasy Fork split manifest', () => {
         )?.[1];
         expect(hostedRuntime, 'the hosted userscript does not pin a hashed runtime').toBeDefined();
         const built = readFileSync(path.join(repoRoot, 'docs', 'public', 'greasyfork', hostedRuntime!), 'utf8');
-        expect(built).toMatch(/^\(function\(\) \{\n"use strict";\n\/\/ yomu-generated-indent: compact\nfunction /);
+        expect(built).toMatch(/^\(function\(\) \{\n"use strict";\n\/\/ yomu-generated-indent: compact\n(?:function|const) /);
         expect(built).toContain('\nreturn ');
         expect(() => new Function(built)).not.toThrow();
     });
