@@ -1,5 +1,19 @@
 # Changelog
 
+## [2.1.5] - 2026-10-12
+
+### Fixed
+
+- Neighboring readings are fitted together before they are painted, preventing one-frame flashes while page annotations refresh. Edge readings stay closer to their own words without narrowing the page text.
+- Playing from YouTube’s native controls dismisses a word lookup without toggling playback twice or re-pausing it.
+- Hiding the subtitle overlay keeps native captions available, including when a transcript is open.
+- YouTube’s seek bar follows the player width as the subtitle panel opens, expands and closes.
+- The subtitle toolbar stays clear of the fullscreen video title.
+- YouTube watch actions and settings-menu text receive passive annotations; their normal taps still work. Furigana in native fullscreen follows its source labels.
+- Small detached readings are larger and avoid heavy horizontal compression. Readings that cannot fit cleanly remain available in word lookup.
+- Subtitle housekeeping skips unchanged toolbar writes, native-control marks and checks triggered by its own rendering. Individual reading updates share one layout pass, and invisible readings cannot intercept taps.
+- Subtitle controls hide when their video is removed. Offline PDF and video menus retain their close behavior, and incoming theme changes work when browser storage is unavailable.
+
 ## [2.1.4] - 2026-10-11
 
 ### Fixed

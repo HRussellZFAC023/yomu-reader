@@ -4817,12 +4817,13 @@ export class ReaderApp {
         if (this.isDestroyed || this.activePopoverMode !== 'modal' || !this.activePopover) return;
         if (this.isInsideActivePopover(event.target as Node | null)) return;
         if (this.shouldKeepModalPopoverForOutsidePointer(event.target as Node | null)) return;
+        const nativePlayerPointer = this.releaseMiningPauseForNativePlayerPointer(event.target);
         // preventDefault keeps the press from starting a fresh native selection or
         // caret drag on whatever it landed on; the explicit clear then retires the
         // selection the popup was showing. Without the clear the highlight (and, on
         // touch, its selection handles and system callout) outlives the popup.
         if (getSelectionText()) {
-            event.preventDefault();
+            if (!nativePlayerPointer) event.preventDefault();
             clearDocumentSelection();
         }
         this.dismiss({ suppressHoverTarget: true });
@@ -4848,7 +4849,22 @@ export class ReaderApp {
         if (this.isDestroyed || this.activePopoverMode !== 'hover') return;
         const target = event.target as Node | null;
         if (!this.shouldDismissHoverForPointerTarget(target)) return;
+        this.releaseMiningPauseForNativePlayerPointer(event.target);
         this.dismiss({ suppressHoverTarget: false });
+    }
+
+    private releaseMiningPauseForNativePlayerPointer(target: EventTarget | null): boolean {
+        const video = this.subtitleMiningPausedVideo ?? this.boundSubtitleVideo();
+        if (!video || !(target instanceof Element) || target.closest('[data-jpdb-reader-root]')) return false;
+        const player = video.closest('#movie_player, .html5-video-player, ytm-player, media-player, .plyr, .video-js, .jwplayer, .mejs-container');
+        if (target !== video && !(player?.contains(target) && target.closest('button, [role="button"], input, .ytp-chrome-bottom'))) return false;
+        // A native control owns the next play/seek operation. Resuming while
+        // dismissing on pointerdown would make its subsequent click pause again.
+        this.clearMiningPauseReassert();
+        this.clearSubtitleHoverMiningResumeTimer();
+        this.clearMiningPause(video);
+        this.subtitleMiningPausedVideo = undefined;
+        return true;
     }
 
     private shouldDismissHoverForPointerTarget(target: Node | null): boolean {

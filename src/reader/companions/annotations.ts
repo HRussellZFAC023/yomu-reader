@@ -4,6 +4,7 @@ import {
     projectedReadingWordAtPoint,
     pruneProjectedReadings,
     syncProjectedReadings,
+    withProjectedReadingBatch,
 } from '../dom/detached-reading-overlay-impl';
 import { registerYomuCompanion } from './registry';
 
@@ -13,4 +14,5 @@ registerYomuCompanion('annotations', {
     projectedReadingWordAtPoint,
     pruneProjectedReadings,
     syncProjectedReadings,
+    withProjectedReadingBatch,
 });

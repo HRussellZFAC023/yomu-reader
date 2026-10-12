@@ -260,6 +260,25 @@ describe('classifyDecoration acceptance matrix', () => {
         expect(classifyText('#share')).toBe('skip');
     });
 
+    it('collects watch actions and native settings text without admitting play buttons or inputs', () => {
+        stubYouTube();
+        document.body.innerHTML = `<ytd-watch-metadata>
+            <button><span id="subscribe" class="ytSpecButtonShapeNextButtonTextContent">チャンネル登録</span></button>
+            <button><span id="ask" class="ytSpecButtonShapeNextButtonTextContent">質問する</span></button>
+            <button><span id="save" class="ytSpecButtonShapeNextButtonTextContent">保存</span></button>
+            </ytd-watch-metadata><div class="html5-video-player">
+            <button class="ytp-play-button"><span id="play">再生</span></button>
+            <div class="ytp-settings-menu"><div role="menuitem"><div id="speed" class="ytp-menuitem-label">再生速度</div>
+            <div id="normal" class="ytp-menuitem-content">標準</div></div>
+            <div class="ytp-menuitem-content"><input value="音量"></div></div></div>`;
+        for (const id of ['subscribe', 'ask', 'save', 'speed', 'normal']) expect(classifyText(`#${id}`)).toBe('interactive-passive');
+        expect(classifyText('#play')).toBe('skip');
+        const texts = collectTargets().map(target => target.text);
+        for (const text of ['チャンネル登録', '質問する', '保存', '再生速度', '標準']) expect(texts).toContain(text);
+        expect(texts).not.toContain('再生');
+        expect(document.querySelector('input')?.value).toBe('音量');
+    });
+
     it('recognizes only the explicit ytm-shorts action rail outside a reel overlay', () => {
         stubYouTube();
         document.body.innerHTML = `
@@ -1391,7 +1410,7 @@ describe('interactive-passive under furigana-mode=all', () => {
 // Readings retain the host typeface and grow with enlarged page text, while
 // keeping a legible minimum for small controls.
 describe('detached reading typography', () => {
-    it.each([[16, '9px'], [30, '15px'], [10, '9px']])('keeps readings legible beside an opted-in %ipx control', (fontSize, expectedReadingSize) => {
+    it.each([[16, '10px'], [30, '18px'], [10, '10px']])('keeps readings legible beside an opted-in %ipx control', (fontSize, expectedReadingSize) => {
         const font = `font:italic small-caps 700 ${fontSize}px/24px Georgia,serif;letter-spacing:0.4px`;
         document.body.innerHTML = `<div>
             <button id="ordinary" style="${font}">通常の設定</button>
@@ -1544,7 +1563,7 @@ describe('interactive-passive mirror channel under furigana-mode=all', () => {
         expect(button.style.getPropertyValue('overflow')).toBe('hidden');
     });
 
-    it('leaves a subscribe button as the page drew it under furigana-mode=all', () => {
+    it('admits the legacy subscribe label passively without changing native source text', () => {
         stubYouTube();
         document.body.innerHTML = `
             <div data-yomu-furigana-mode="all">
@@ -1562,9 +1581,15 @@ describe('interactive-passive mirror channel under furigana-mode=all', () => {
         const button = document.querySelector<HTMLElement>('button.yt-spec-button-shape-next')!;
         const nativeHtml = button.innerHTML;
 
-        expect(collectTargets().find(candidate => candidate.text === 'チャンネル登録')).toBeUndefined();
+        const target = collectTargets().find(candidate => candidate.text === 'チャンネル登録')!;
+        expect(target.decoration).toBe('interactive-passive');
         expect(button.innerHTML).toBe(nativeHtml);
-        expect(button.querySelector('.jpdb-reader-text-mirror')).toBeNull();
+        const action = vi.fn();
+        button.addEventListener('click', action);
+        applyTokensToScanTarget({ ...target, nonDestructive:true, passiveInteraction:true }, [token('登録', 5, 'チャンネル登録', 'とうろく')], FURIGANA_SETTINGS);
+        expect(baseText(button).trim()).toBe('チャンネル登録');
+        button.click();
+        expect(action).toHaveBeenCalledOnce();
     });
 
     it('preserves detached readings plus compound and multiple pitch patterns on a toolbar link word', () => {

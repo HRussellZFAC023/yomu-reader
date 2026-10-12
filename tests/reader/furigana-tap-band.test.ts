@@ -23,10 +23,16 @@ import { applyTokensToScanTarget, collectTextTargetsIn, removeNonDestructiveScan
 import {
     clearProjectedReadings,
     projectedReadingWordAtPoint,
-    syncProjectedReadings,
+    syncProjectedReadings as scheduleProjectedReadings,
+    withProjectedReadingBatch,
 } from '../../src/reader/dom/detached-reading-overlay-impl';
 import { registerYomuCompanion, yomuAnnotationsCompanion } from '../../src/reader/companions/registry';
 import { DEFAULT_SETTINGS } from '../../src/reader/settings';
+
+// Inspect the completed paint; standalone frame scheduling has its own guard.
+function syncProjectedReadings(...args: Parameters<typeof scheduleProjectedReadings>): void {
+    withProjectedReadingBatch(args[0].ownerDocument, () => scheduleProjectedReadings(...args));
+}
 
 const CARD: JPDBCard = {
     vid: 1,

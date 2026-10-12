@@ -1,9 +1,11 @@
 import { createWindowEvent, dispatchWindowEvent } from '../platform/window-events';
 import { isYouTubeAppHostname } from '../app/youtube-host';
 import { rectArea, setStylePropertyIfChanged } from './subtitle-surface';
+import { setClassState } from './subtitle-dom-state';
 
 export type SubtitleVideoInsetSide = 'left' | 'right' | 'bottom';
 export type SubtitleVideoInsetResizeEventMode = 'immediate' | 'none' | 'settled';
+export const YOUTUBE_FLUID_CONTROLS_CLASS = 'jpdb-subtitle-youtube-fluid-controls';
 
 export interface ApplySubtitleVideoInsetOptions {
     video?: HTMLVideoElement;
@@ -56,6 +58,7 @@ export class SubtitleVideoInsetAdapter {
         if (shouldPreserveYouTubeNativePlayerSize(options)) {
             return this.clear(options.video);
         }
+        if (isYouTubePage() && options.side !== 'bottom') setClassState(document.documentElement, YOUTUBE_FLUID_CONTROLS_CLASS, true);
         const metrics = videoInsetMetrics(options);
         if (metrics.signature === this.lastSignature) {
             rememberYouTubeVideoElementInsetBeforeResize(options.video, options.side);
@@ -599,6 +602,7 @@ export function resizeYouTubePlayerForSubtitleLayout(
 
 export function applyStableYouTubePlayerVideoSize(video: HTMLVideoElement | undefined, width: number, height: number): boolean {
     if (!isYouTubePage() || width <= 0 || height <= 0) return clearStableYouTubePlayerVideoSize();
+    setClassState(document.documentElement, YOUTUBE_FLUID_CONTROLS_CLASS, true);
     let changed = false;
     const widthValue = `${Math.round(width)}px`;
     const heightValue = `${Math.round(height)}px`;

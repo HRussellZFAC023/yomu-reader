@@ -4,9 +4,9 @@ type FullscreenDocument = Document & {
     msFullscreenElement?: Element | null;
 };
 
-export function currentFullscreenElement(): Element | null {
-    const fullscreenDocument = document as FullscreenDocument;
-    return document.fullscreenElement
+export function currentFullscreenElement(sourceDocument: Document = document): Element | null {
+    const fullscreenDocument = sourceDocument as FullscreenDocument;
+    return sourceDocument.fullscreenElement
         ?? fullscreenDocument.webkitFullscreenElement
         ?? fullscreenDocument.mozFullScreenElement
         ?? fullscreenDocument.msFullscreenElement

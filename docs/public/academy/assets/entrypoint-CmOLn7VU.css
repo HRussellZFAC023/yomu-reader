@@ -20904,6 +20904,23 @@ html.jpdb-subtitle-youtube-stable-side ytd-watch-flexy #movie_player video.html5
   object-fit: contain !important;
 }
 
+/* The private setSize API may be unavailable to a userscript/content world.
+   Follow the actual player box, including after a drawer closes, without
+   sending window resize events that keep touch player chrome awake. */
+
+html.jpdb-subtitle-youtube-fluid-controls #movie_player:not(.ytp-player-minimized) .ytp-chrome-bottom {
+  width: auto !important;
+  right: 12px !important;
+}
+
+html.jpdb-subtitle-youtube-fluid-controls #movie_player.ytp-big-mode:not(.ytp-player-minimized) .ytp-chrome-bottom {
+  right: 24px !important;
+}
+
+html.jpdb-subtitle-youtube-fluid-controls #movie_player:not(.ytp-player-minimized) .ytp-progress-bar-container {
+  width: 100% !important;
+}
+
 html.jpdb-subtitle-youtube-stable-left ytd-watch-flexy #primary {
   margin-left: var(--jpdb-subtitle-youtube-stable-offset, 0px) !important;
   margin-right: 0 !important;

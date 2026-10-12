@@ -1,5 +1,62 @@
 (function() {
 "use strict";
+function currentFullscreenElement(sourceDocument = document) {
+  const fullscreenDocument = sourceDocument;
+  return sourceDocument.fullscreenElement ?? fullscreenDocument.webkitFullscreenElement ?? fullscreenDocument.mozFullScreenElement ?? fullscreenDocument.msFullscreenElement ?? null;
+}
+function setImportantStyleIfChanged(element, property, value) {
+  setInlineStyleIfChanged(element, property, value, "important");
+}
+function setInlineStyleIfChanged(element, property, value, priority = "") {
+  if (element.style.getPropertyValue(property) === value && element.style.getPropertyPriority(property) === priority) return;
+  element.style.setProperty(property, value, priority);
+}
+const CSS_PIXEL_SIGNIFICANT_DIGITS = 6;
+const CSS_PIXEL_MINIMUM = 1e-6;
+function stableCssPixels(value) {
+  if (!Number.isFinite(value) || Math.abs(value) < CSS_PIXEL_MINIMUM) return "0px";
+  const magnitude = Math.floor(Math.log10(Math.abs(value)));
+  const decimalPlaces = Math.max(0, Math.min(12, CSS_PIXEL_SIGNIFICANT_DIGITS - magnitude - 1));
+  const rounded = Number(value.toFixed(decimalPlaces));
+  return `${Object.is(rounded, -0) ? 0 : rounded}px`;
+}
+function syncProjectedReadingTypography(source, clone, readStyle) {
+  const sourceStyle = readStyle(source);
+  const base = source.closest(".jpdb-reader-word") ?? source;
+  const baseStyle = readStyle(base);
+  const text = source.textContent ?? "";
+  if (clone.textContent !== text) clone.textContent = text;
+  const expression = base.dataset.expression ?? base.dataset.surface ?? "";
+  if (clone.dataset.yomuExpression !== expression) clone.dataset.yomuExpression = expression;
+  const typography = {
+  "font-family": sourceStyle.fontFamily || baseStyle.fontFamily,
+  "font-size": sourceStyle.fontSize || "10px",
+  "font-style": sourceStyle.fontStyle || baseStyle.fontStyle,
+  "font-weight": sourceStyle.fontWeight || "400",
+  // Page tracking belongs to the base glyphs, not the compact reading.
+  "letter-spacing": "normal"
+  };
+  for (const [property, value] of Object.entries(typography)) setImportantStyleIfChanged(clone, property, value);
+  setImportantStyleIfChanged(clone, "color", sourceStyle.color || baseStyle.color || "currentColor");
+  setImportantStyleIfChanged(clone, "text-shadow", baseStyle.textShadow || "none");
+  return [text, ...Object.values(typography)].join("\0");
+}
+function fitReadingLane(items) {
+  return items.map((item, index) => {
+  const centre = (item.left + item.right) / 2;
+  if (!(item.width > 0)) return { centre, scaleX: 1 };
+  const previous = items[index - 1];
+  const next = items[index + 1];
+  const left = previous ? (previous.right + item.left) / 2 : Number.NEGATIVE_INFINITY;
+  const right = next ? (item.right + next.left) / 2 : Number.POSITIVE_INFINITY;
+  const available = right - left;
+  const centeredWidth = Math.max(0, 2 * Math.min(centre - left, right - centre));
+  const scaleX = Math.min(1, Math.max(0.8, Math.min(available, centeredWidth) / item.width));
+  const painted = item.width * scaleX;
+  if (painted > available) return { centre, scaleX: 0 };
+  return { centre: Math.min(right - painted / 2, Math.max(left + painted / 2, centre)), scaleX };
+  });
+}
 function scopedDocument(scope = {}) {
   if (scope.document) return scope.document;
   return typeof document === "undefined" ? null : document;
@@ -94,22 +151,6 @@ function parkableMutationObserver(callback, options = {}) {
   const observer = new Observer(callback);
   return new ParkableObserver(observer, options);
 }
-function setImportantStyleIfChanged(element, property, value) {
-  setInlineStyleIfChanged(element, property, value, "important");
-}
-function setInlineStyleIfChanged(element, property, value, priority = "") {
-  if (element.style.getPropertyValue(property) === value && element.style.getPropertyPriority(property) === priority) return;
-  element.style.setProperty(property, value, priority);
-}
-const CSS_PIXEL_SIGNIFICANT_DIGITS = 6;
-const CSS_PIXEL_MINIMUM = 1e-6;
-function stableCssPixels(value) {
-  if (!Number.isFinite(value) || Math.abs(value) < CSS_PIXEL_MINIMUM) return "0px";
-  const magnitude = Math.floor(Math.log10(Math.abs(value)));
-  const decimalPlaces = Math.max(0, Math.min(12, CSS_PIXEL_SIGNIFICANT_DIGITS - magnitude - 1));
-  const rounded = Number(value.toFixed(decimalPlaces));
-  return `${Object.is(rounded, -0) ? 0 : rounded}px`;
-}
 function nativeTextRects(anchor) {
   const document2 = anchor.ownerDocument;
   const walker = document2.createTreeWalker(anchor, NodeFilter.SHOW_TEXT);
@@ -130,24 +171,33 @@ function readingOverlapsPreviousLine(source, native, centre, width, height) {
   return native.some((rect) => rect.top < source.top - source.height / 2 && rect.bottom > source.top - height && rect.left < centre + width / 2 && rect.right > centre - width / 2);
 }
 const overlays = /* @__PURE__ */ new WeakMap();
+const projectionBatchDepths = /* @__PURE__ */ new WeakMap();
 const ownerRecords = /* @__PURE__ */ new WeakMap();
 const PROJECTED_READING_ATTRIBUTE = "data-yomu-projected-reading";
 const PROJECTION_GRACE_MAX_AGE_MS = 250;
-const PROJECTED_READING_MIN_SCALE_X = 0.55;
+function withProjectedReadingBatch(document2, callback) {
+  projectionBatchDepths.set(document2, (projectionBatchDepths.get(document2) ?? 0) + 1);
+  try {
+  return callback();
+  } finally {
+  const depth = (projectionBatchDepths.get(document2) ?? 1) - 1;
+  if (depth) projectionBatchDepths.set(document2, depth);
+  else {
+    projectionBatchDepths.delete(document2);
+    const overlay = overlays.get(document2);
+    if (overlay?.pendingSyncRects.size) refreshProjectedReadingPositions(overlay, true);
+  }
+  }
+}
 function syncProjectedReadings(owner, projections) {
   const document2 = owner.ownerDocument;
   const overlay = documentOverlay(document2);
-  pruneDisconnectedRecords(overlay);
   const records = ownerRecords.get(owner) ?? /* @__PURE__ */ new Map();
   const currentSources = new Set(projections.map((projection) => projection.source));
   const context = {
   overlay,
   nativeRects: /* @__PURE__ */ new Map(),
-  anchorPaint: /* @__PURE__ */ new Map(),
-  elementPaint: /* @__PURE__ */ new Map(),
-  occludingPaint: /* @__PURE__ */ new Map(),
   projectionLayers: /* @__PURE__ */ new Map(),
-  layerOrigins: /* @__PURE__ */ new Map(),
   viewportCoordinateSafety: /* @__PURE__ */ new Map(),
   styleReads: /* @__PURE__ */ new Map()
   };
@@ -156,7 +206,6 @@ function syncProjectedReadings(owner, projections) {
   removeRecord(record, overlay);
   records.delete(source);
   }
-  const paints = [];
   for (const projection of projections) {
   let record = records.get(projection.source);
   if (!record) {
@@ -186,13 +235,10 @@ function syncProjectedReadings(owner, projections) {
   refreshProjectionAnchorRoot(record.anchor, overlay);
   syncProjectedReadingStyle(record);
   adoptProjectionLayer(record, context);
-  paints.push(readProjectedReadingPaint(record, projection.rect, context));
+  overlay.pendingSyncRects.set(record, projection.rect);
   }
-  applyProjectionPaints(paints, context);
   if (records.size) ownerRecords.set(owner, records);
   else ownerRecords.delete(owner);
-  pruneDisconnectedRecords(overlay);
-  overlay.occlusionEpoch += 1;
   scheduleProjectionRefresh(document2, overlay);
 }
 function clearProjectedReadings(owner) {
@@ -239,7 +285,7 @@ function projectedReadingWordAtPoint(document2, x, y, accepts = () => true) {
 }
 function projectedReadingPaintedRect(record) {
   const { clone } = record;
-  if (!clone.isConnected) return null;
+  if (!clone.isConnected || clone.style.display === "none" || clone.style.visibility === "hidden") return null;
   const rect = clone.getBoundingClientRect();
   return validRect(rect) ? rect : null;
 }
@@ -264,6 +310,7 @@ function documentOverlay(document2) {
   "jpdb-reader-detached-reading-overlay jpdb-reader-detached-reading-document-layer"
   );
   const overlay = {
+  pendingSyncRects: /* @__PURE__ */ new Map(),
   layer,
   documentLayer,
   scrollLayers: /* @__PURE__ */ new Map(),
@@ -309,6 +356,7 @@ function documentOverlay(document2) {
   document2.addEventListener("pointerout", overlay.scheduleRefresh, { capture: true, passive: true });
   document2.addEventListener("focusin", overlay.scheduleRefresh, { capture: true, passive: true });
   document2.addEventListener("focusout", overlay.scheduleRefresh, { capture: true, passive: true });
+  for (const event of ["fullscreenchange", "webkitfullscreenchange"]) document2.addEventListener(event, overlay.scheduleTopologyRefresh, { passive: true });
   const viewport = document2.defaultView;
   viewport?.addEventListener("resize", overlay.scheduleTopologyRefresh, { passive: true });
   viewport?.addEventListener("orientationchange", overlay.scheduleTopologyRefresh, { passive: true });
@@ -381,30 +429,19 @@ function createProjectedReading(source, layer) {
   clone.setAttribute("aria-hidden", "true");
   clone.setAttribute(PROJECTED_READING_ATTRIBUTE, "true");
   clone.textContent = source.textContent ?? "";
-  clone.style.cssText = "all:initial!important;display:block!important;width:max-content!important;line-height:1!important;white-space:nowrap!important;word-break:keep-all!important;-webkit-text-fill-color:currentColor!important;pointer-events:none!important;user-select:none!important;-webkit-user-select:none!important";
+  clone.style.cssText = "all:initial!important;display:block!important;visibility:hidden!important;width:max-content!important;line-height:1!important;white-space:nowrap!important;word-break:keep-all!important;-webkit-text-fill-color:currentColor!important;pointer-events:none!important;user-select:none!important;-webkit-user-select:none!important";
   layer.append(clone);
   return clone;
 }
 function syncProjectedReadingStyle(record) {
-  const { clone, source } = record;
-  const sourceStyle = safeComputedStyle(source);
-  const base = source.closest(".jpdb-reader-word") ?? source;
-  const baseStyle = safeComputedStyle(base);
-  const text = source.textContent ?? "";
-  if (clone.textContent !== text) clone.textContent = text;
-  const expression = base.dataset.expression ?? base.dataset.surface ?? "";
-  if (clone.dataset.yomuExpression !== expression) clone.dataset.yomuExpression = expression;
-  setImportantStyleIfChanged(clone, "font-family", sourceStyle.fontFamily || baseStyle.fontFamily);
-  setImportantStyleIfChanged(clone, "font-size", sourceStyle.fontSize || "10px");
-  setImportantStyleIfChanged(clone, "font-style", sourceStyle.fontStyle || baseStyle.fontStyle);
-  setImportantStyleIfChanged(clone, "font-weight", sourceStyle.fontWeight || "400");
-  setImportantStyleIfChanged(clone, "letter-spacing", sourceStyle.letterSpacing || baseStyle.letterSpacing);
-  setImportantStyleIfChanged(clone, "color", sourceStyle.color || baseStyle.color || "currentColor");
-  setImportantStyleIfChanged(clone, "text-shadow", baseStyle.textShadow || "none");
-  const key = `${clone.textContent ?? ""}\0${clone.style.getPropertyValue("font-size")}`;
+  const key = syncProjectedReadingTypography(record.source, record.clone, safeComputedStyle);
   if (record.naturalReadingKey !== key) {
   record.naturalReadingKey = key;
   record.naturalReadingWidth = void 0;
+  if (record.clone.style.display === "none") {
+    setImportantStyleIfChanged(record.clone, "visibility", "hidden");
+    setImportantStyleIfChanged(record.clone, "display", "block");
+  }
   }
 }
 function readProjectedReadingPaint(record, rect, context) {
@@ -466,6 +503,7 @@ function positionProjectedReading(record, rect, context, layout) {
   const scaleX = layout?.scaleX ?? 1;
   record.readingScaleX = scaleX;
   setImportantStyleIfChanged(clone, "display", "block");
+  clone.style.removeProperty("visibility");
   setImportantStyleIfChanged(clone, "left", stableCssPixels(centre + origin.x));
   setImportantStyleIfChanged(clone, "top", stableCssPixels(rect.top + origin.y));
   setImportantStyleIfChanged(clone, "right", "auto");
@@ -528,30 +566,14 @@ function projectedReadingLanes(paints) {
 function fitProjectedReadingLane(lane) {
   if (lane.length < 2) return;
   lane.sort((first, second) => readingAnchorCentre(first) - readingAnchorCentre(second));
-  for (const [index, paint] of lane.entries()) {
-  const previous = lane[index - 1]?.rect;
-  const next = lane[index + 1]?.rect;
-  paint.layout = fitReadingBetween(
-    readingAnchorCentre(paint),
-    naturalReadingWidth(paint.record),
-    previous ? (previous.right + paint.rect.left) / 2 : Number.NEGATIVE_INFINITY,
-    next ? (paint.rect.right + next.left) / 2 : Number.POSITIVE_INFINITY
-  );
+  const placements = fitReadingLane(lane.map((paint) => ({ left: paint.rect.left, right: paint.rect.right, width: naturalReadingWidth(paint.record) })));
+  lane.forEach((paint, index) => {
+  paint.layout = placements[index];
   if (paint.layout.scaleX === 0) paint.visible = false;
-  }
+  });
 }
 function readingAnchorCentre(paint) {
   return paint.rect.left + paint.rect.width / 2;
-}
-function fitReadingBetween(centre, width, left, right) {
-  if (!(width > 0)) return { centre, scaleX: 1 };
-  const available = right - left;
-  const scaleX = available >= width ? 1 : Math.max(PROJECTED_READING_MIN_SCALE_X, available / width);
-  const painted = width * scaleX;
-  if (painted > available) return { centre, scaleX: 0 };
-  if (centre - painted / 2 < left) return { centre: left + painted / 2, scaleX };
-  if (centre + painted / 2 > right) return { centre: right - painted / 2, scaleX };
-  return { centre, scaleX };
 }
 function naturalReadingWidth(record) {
   if (record.naturalReadingWidth) return record.naturalReadingWidth;
@@ -636,6 +658,10 @@ function projectionLayerTarget(element, context) {
   const document2 = element.ownerDocument;
   const view = document2.defaultView;
   if (!view) return { mode: "viewport" };
+  const fullscreen = currentFullscreenElement(document2);
+  if (fullscreen instanceof HTMLElement && fullscreen.contains(element)) {
+  return { mode: "scroll", scrollLayerHost: fullscreen };
+  }
   let current = element;
   let positionedHost = null;
   let target = { mode: "viewport" };
@@ -784,15 +810,18 @@ function scheduleFramelessProjectionRefresh(view, overlay) {
   refreshProjectedReadingPositions(overlay);
   });
 }
-function refreshProjectedReadingPositions(overlay) {
+function refreshProjectedReadingPositions(overlay, useSyncRects = false) {
   overlay.refreshing = true;
   try {
-  runProjectionRefreshPass(overlay);
+  runProjectionRefreshPass(overlay, useSyncRects);
   } finally {
   overlay.refreshing = false;
   }
 }
-function runProjectionRefreshPass(overlay) {
+function runProjectionRefreshPass(overlay, useSyncRects) {
+  const syncedRects = overlay.pendingSyncRects;
+  overlay.pendingSyncRects = /* @__PURE__ */ new Map();
+  if (syncedRects.size) overlay.occlusionEpoch += 1;
   pruneDisconnectedRecords(overlay);
   overlay.hitTestBudgetRemaining = 12;
   overlay.occlusionRefreshNeeded = false;
@@ -818,11 +847,12 @@ function runProjectionRefreshPass(overlay) {
   records.push(...records.splice(0, start));
   overlay.hitTestCursor = (start + 12) % Math.max(1, records.length);
   records.forEach((record) => adoptProjectionLayer(record, context));
+  records.forEach(naturalReadingWidth);
   const paints = records.map((record) => {
   if (!visibleAnchor(record.anchor, context)) {
     return { record, rect: null, visible: false };
   }
-  return readProjectedReadingPaint(record, safeMeasure(record), context);
+  return readProjectedReadingPaint(record, (useSyncRects ? syncedRects.get(record) : void 0) ?? safeMeasure(record), context);
   });
   applyProjectionPaints(paints, context);
   if (overlay.graceRefreshNeeded) {
@@ -1419,6 +1449,7 @@ registerYomuCompanion("annotations", {
   clearProjectedReadingsWithin,
   projectedReadingWordAtPoint,
   pruneProjectedReadings,
-  syncProjectedReadings
+  syncProjectedReadings,
+  withProjectedReadingBatch
 });
 })();

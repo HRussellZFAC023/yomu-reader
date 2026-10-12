@@ -82,6 +82,28 @@ describe('movable subtitle control rail', () => {
         binding.destroy();
     });
 
+    it('does not rewrite or reposition a stationary rail on housekeeping ticks', () => {
+        const root = document.getElementById('root')!;
+        const rail = root.querySelector<HTMLElement>('.jpdb-subtitle-rail')!;
+        const positioned = vi.fn();
+        const binding = bindSubtitleControlRail(root, vi.fn(), { onPositionChange: positioned })!;
+        binding.syncPosition();
+        const rootReads = vi.spyOn(root, 'getBoundingClientRect');
+        const railReads = vi.spyOn(rail, 'getBoundingClientRect');
+        const writes = vi.spyOn(rail.style, 'setProperty');
+        positioned.mockClear();
+        for (let i = 0; i < 100; i++) binding.syncPosition();
+        expect(rootReads).toHaveBeenCalledTimes(100);
+        expect(railReads).toHaveBeenCalledTimes(100);
+        expect(writes).not.toHaveBeenCalled();
+        expect(positioned).not.toHaveBeenCalled();
+        rootReads.mockReturnValue(new DOMRect(30, 50, 400, 220));
+        binding.syncPosition();
+        expect(writes).not.toHaveBeenCalled();
+        expect(positioned).toHaveBeenCalledOnce();
+        binding.destroy();
+    });
+
     it('treats a small finger-jitter tap as a tap so the pin/expand toggle still fires', () => {
         const root = document.getElementById('root')!;
         const rail = root.querySelector<HTMLElement>('.jpdb-subtitle-rail')!;

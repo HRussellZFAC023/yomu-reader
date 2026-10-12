@@ -19,6 +19,7 @@ function hostedReaderCachePolicy({ cacheName, runtimeGraph, appearanceRevision, 
   const commonAssets = [
     '/yomu.css',
     '/yomu.user.js',
+    '/hosted-shell-controls.js',
     ...(appearanceRevision ? ['/hosted-appearance-settings.js'] : []),
     ...runtimePaths,
     '/yomu-icon.svg',

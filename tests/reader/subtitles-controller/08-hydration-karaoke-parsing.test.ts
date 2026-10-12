@@ -735,6 +735,7 @@ describe('SubtitlePlayerController — transcript hydration, karaoke & authorita
             settings: {
                 apiKey: '',
                 jitenApiKey: '',
+                subtitleOverlayVisible: true,
                 furiganaMode: 'all',
                 showPitchAccent: true,
                 subtitleKaraokeMode: false,
@@ -825,7 +826,7 @@ describe('SubtitlePlayerController — transcript hydration, karaoke & authorita
         }>([firstCue, secondCue], {
             hooks: { parseJapanese },
             selectedTrackId: 'native-primary',
-            settings: { subtitleKaraokeMode: false },
+            settings: { subtitleKaraokeMode: false, subtitleOverlayVisible: true },
         });
         internals.tracks = [{
             id: 'native-primary',

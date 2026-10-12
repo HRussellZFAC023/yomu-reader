@@ -1,4 +1,5 @@
 import { sourceSharesDocumentScroll } from './composed-tree';
+import { withProjectedReadingBatch } from './detached-reading-overlay';
 import { safeComputedStyle } from './decoration-policy';
 import { setImportantStyleIfChanged as setImportantStyle, stableCssPixels } from './inline-style';
 
@@ -241,7 +242,7 @@ function createPortalWatch(document: Document): DocumentAnnotationPortalWatch {
         alignPortalEntries(affected);
         // transitionend is already the settled boundary. Reproject only the
         // affected portals rather than scheduling a whole-document Range pass.
-        affected.forEach(entry => entry.projectImmediately());
+        withProjectedReadingBatch(document, () => affected.forEach(entry => entry.projectImmediately()));
     };
 
     // A responsive wrapper can acquire sticky/fixed positioning without

@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { projectAdditiveTextMirror } from '../../src/reader/dom';
+import { clearProjectedReadingsWithin } from '../../src/reader/dom/detached-reading-overlay-impl';
 import { stableCssPixels } from '../../src/reader/dom/inline-style';
 import { colorSourceClassName } from '../../src/reader/theme/color-source-classes';
 
@@ -58,6 +59,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+    clearProjectedReadingsWithin(document);
     if (!hadNativeRangeRects) delete rangeProto.getClientRects;
     document.body.innerHTML = '';
 });
@@ -334,7 +336,7 @@ describe('additive text-mirror source projection', () => {
         expect(second.querySelectorAll('.jpdb-reader-source-fragment')).toHaveLength(1);
     });
 
-    it('anchors a detached reading to its own source characters', () => {
+    it('anchors a detached reading to its own source characters', async () => {
         const { host, mirror, word } = scene();
         word.innerHTML = '<span class="jpdb-reader-detached-ruby" data-yomu-source-start="1" data-yomu-source-end="2"><span class="jpdb-reader-ruby-base">票</span><span class="jpdb-reader-detached-furi">ひょう</span></span>';
         sourceRectsForRange = range => range.startOffset === 1
@@ -349,6 +351,7 @@ describe('additive text-mirror source projection', () => {
         expect(ruby?.style.width).toBe('16px');
         expect(ruby?.style.height).toBe('16px');
         expect(ruby?.querySelector<HTMLElement>('.jpdb-reader-detached-furi')?.style.display).toBe('');
+        await new Promise<void>(resolve => requestAnimationFrame(() => resolve()));
         const projected = document.querySelector<HTMLElement>('[data-yomu-projected-reading="true"]');
         expect(projected?.textContent).toBe('ひょう');
         expect(projected?.style.left).toBe('158px');
@@ -411,7 +414,7 @@ describe('additive text-mirror source projection', () => {
         }
     });
 
-    it('centres ばい over the 倍 range rather than the complete 1.00 倍 label', () => {
+    it('centres ばい over the 倍 range rather than the complete 1.00 倍 label', async () => {
         const { host, mirror, word } = scene();
         host.firstChild!.textContent = '1.00 倍';
         mirror.dataset.sourceText = '1.00 倍';
@@ -428,6 +431,7 @@ describe('additive text-mirror source projection', () => {
 
         projectAdditiveTextMirror(mirror, host);
 
+        await new Promise<void>(resolve => requestAnimationFrame(() => resolve()));
         const projected = document.querySelector<HTMLElement>('[data-yomu-projected-reading="true"]');
         expect(measuredRanges).toEqual(expect.arrayContaining([[0, 6], [5, 6]]));
         expect(projected?.textContent).toBe('ばい');
@@ -443,12 +447,14 @@ describe('additive text-mirror source projection', () => {
             : [rect(130, 54, 32, 16)];
         projectAdditiveTextMirror(mirror, host);
 
+        await new Promise<void>(resolve => requestAnimationFrame(() => resolve()));
         sourceRectsForRange = range => range.startOffset === 1
             ? [rect(150, 94, 16, 16)]
             : [rect(130, 94, 32, 16)];
         document.dispatchEvent(new Event('scroll'));
         await new Promise<void>(resolve => requestAnimationFrame(() => resolve()));
 
+        await new Promise<void>(resolve => requestAnimationFrame(() => resolve()));
         const projected = document.querySelector<HTMLElement>('[data-yomu-projected-reading="true"]');
         expect(projected?.style.left).toBe('158px');
         expect(projected?.style.top).toBe('94px');

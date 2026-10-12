@@ -135,6 +135,7 @@ describe('SubtitlePlayerController — page-caption detection & tracks panel', (
     it.each(['bottom-sheet-container', 'ytm-bottom-sheet-renderer', 'yt-sheet-view-model'])('recognizes a portaled Shorts comments sheet in %s and releases it when hidden', tag => {
         const { controller } = createInstalledSubtitleController();
         const internals = controllerInternals<{ syncYouTubeMobileBottomSheetState: () => void }>(controller);
+        vi.stubGlobal('location', new URL('https://m.youtube.com/shorts/fixture'));
         const sheet = document.createElement(tag);
         sheet.setAttribute('aria-modal','true');
         document.body.append(sheet);
@@ -162,7 +163,8 @@ describe('SubtitlePlayerController — page-caption detection & tracks panel', (
             wrapper.style.display='';
             internals.syncYouTubeMobileBottomSheetState();
             expect(document.documentElement.classList.contains('jpdb-subtitle-yt-sheet-open')).toBe(true);
-        } finally { controller.destroy(); }
+        } finally { controller.destroy();
+            vi.unstubAllGlobals(); }
     });
 
     it('toggles the mobile YouTube bottom sheet class without selector :has()', () => {
@@ -866,7 +868,9 @@ describe('SubtitlePlayerController — page-caption detection & tracks panel', (
             const panel = document.querySelector<HTMLElement>('.jpdb-subtitle-list')!;
             const linesButton = panel.querySelector<HTMLButtonElement>('[data-action="panel-lines"]')!;
             expect(internals.currentCue?.text).toBe('今日は映画を見ます。');
-            expect(document.documentElement.classList.contains('jpdb-subtitle-native-captions-suppressed')).toBe(true);
+            // A transcript is not a painted video caption. Turning the overlay
+            // off must leave the host's native captions available.
+            expect(document.documentElement.classList.contains('jpdb-subtitle-native-captions-suppressed')).toBe(false);
             expect(panel.hidden).toBe(false);
             expect(linesButton.disabled).toBe(false);
         } finally {

@@ -359,6 +359,7 @@ describe('committed standalone hosted runtime consumers', () => {
             './manifest.webmanifest',
             '../yomu.css',
             '../yomu.user.js',
+            '../hosted-shell-controls.js',
             '../hosted-appearance-settings.js',
             ...FINAL_GRAPH.serviceWorkerPaths.map(pathname => `..${pathname}`),
             '../yomu-icon.svg',
@@ -380,6 +381,9 @@ describe('committed standalone hosted runtime consumers', () => {
         await dispatchHostedWorkerFetch(fetchListener, 'https://yomureader.com/pdf-reader/online', 'navigate');
         await dispatchHostedWorkerFetch(fetchListener, 'https://yomureader.com/yomu.user.js');
         await dispatchHostedWorkerFetch(fetchListener, 'https://yomureader.com/yomu.css');
+        harness.networkFetch.mockRejectedValueOnce(new Error('offline'));
+        const menu = await dispatchHostedWorkerFetch(fetchListener, 'https://yomureader.com/hosted-shell-controls.js');
+        expect(await menu.response.text()).toBe('current cache');
         await dispatchHostedWorkerFetch(fetchListener, `https://yomureader.com${FINAL_GRAPH.serviceWorkerPaths[0]}`);
         expect(harness.put).not.toHaveBeenCalled();
 

@@ -83,6 +83,7 @@ import {
     clearProjectedReadings,
     pruneProjectedReadings,
     syncProjectedReadings,
+    withProjectedReadingBatch,
     styleDetachedReadingElements,
     type DetachedReadingProjection,
 } from './detached-reading-overlay';
@@ -3767,6 +3768,12 @@ function rectsIntersect(left: DocumentAnnotationPortalClipBounds, right: Documen
 // virtualized reflow). Reads always come from the live source ranges.
 // fallow-ignore-next-line complexity
 export function projectAdditiveTextMirrors(root: ParentNode = document): void {
+    const sourceDocument = root instanceof Document ? root : (root as Node).ownerDocument;
+    if (sourceDocument) withProjectedReadingBatch(sourceDocument, () => projectAdditiveTextMirrorBatch(root));
+    else projectAdditiveTextMirrorBatch(root);
+}
+
+function projectAdditiveTextMirrorBatch(root: ParentNode): void {
     const entries: Array<{ mirror: HTMLElement; host: HTMLElement }> = [];
     const mirrors = new Set(queryAllInAnnotationRoots(root, '.jpdb-reader-additive-text-mirror'));
     // A scoped source-root projection cannot query its body-mounted portals.
@@ -3989,6 +3996,7 @@ const documentPortalProjectionPass = createPostPaintPass(() => {
         byDocument.set(host.ownerDocument, documentEntries);
     }
     for (const [document, documentEntries] of byDocument) {
+        withProjectedReadingBatch(document, () => {
         const mirrors = documentEntries.map(({ mirror }) => mirror);
         prepareDocumentAnnotationPortalMirrors(mirrors);
         const topLayerConcealed = documentTopLayerConcealsPortal(document);
@@ -3998,6 +4006,7 @@ const documentPortalProjectionPass = createPostPaintPass(() => {
         }
         settleDocumentAnnotationPortalMirrors(mirrors);
         pruneProjectedReadings(document);
+        });
     }
 });
 
@@ -5251,6 +5260,10 @@ const liveTextMirrorObservers = new Map<MutationObserver, WeakRef<HTMLElement>>(
 let mirrorTokenApplyDepth = 0;
 
 export function withMirrorTokenApply<T>(callback: () => T): T {
+    return withProjectedReadingBatch(document, () => runMirrorTokenApply(callback));
+}
+
+function runMirrorTokenApply<T>(callback: () => T): T {
     mirrorTokenApplyDepth += 1;
     try {
         return callback();
@@ -5304,6 +5317,10 @@ function healStuckHiddenTextMirror(host: HTMLElement): void {
 // Called from every visible-page scan settle (including empty/skipped scans,
 // where no guarded token apply runs and the sweep above never fires).
 export function healTextMirrorPageVisibility(): void {
+    return withProjectedReadingBatch(document, () => healTextMirrorPageVisibilityBatch());
+}
+
+function healTextMirrorPageVisibilityBatch(): void {
     for (const [observer, hostRef] of liveTextMirrorObservers) {
         const host = hostRef.deref();
         if (!host || !host.isConnected) {

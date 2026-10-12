@@ -5,6 +5,11 @@ import type { DetachedReadingProjection } from './detached-reading-overlay-impl'
 
 export type { DetachedReadingProjection } from './detached-reading-overlay-impl';
 
+export function withProjectedReadingBatch<T>(document: Document, callback: () => T): T {
+    const companion = yomuAnnotationsCompanion();
+    return companion ? companion.withProjectedReadingBatch(document, callback) : callback();
+}
+
 export function syncProjectedReadings(
     owner: HTMLElement,
     projections: readonly DetachedReadingProjection[],
@@ -47,7 +52,7 @@ export function styleDetachedReadingElements(root: HTMLElement, host: HTMLElemen
     // Follow the source type size, including enlarged mobile text. The
     // collision pass suppresses readings that cannot fit without covering
     // native text instead of making every reading microscopic.
-    const readingFontSize = Math.max(9, hostFontSize * 0.5);
+    const readingFontSize = Math.max(10, hostFontSize * 0.6);
 
     for (const wrapper of detachedRubies) {
         setInlineStyleIfChanged(wrapper, 'position', 'relative', 'important');

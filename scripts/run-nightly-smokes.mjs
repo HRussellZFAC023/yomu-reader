@@ -27,6 +27,7 @@ import path from 'node:path';
 // `git show 75644853b:docs/nuclear-backlog-2026-07-16.md` if the provenance of an
 // entry is ever in question.
 export const NIGHTLY_SMOKES = [
+    'smoke:youtube-ipad-playback',
     'smoke:anki',
     'smoke:anki-template',
     'smoke:annotation-typography',

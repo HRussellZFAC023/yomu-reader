@@ -1270,6 +1270,51 @@ describe('hover lookup', () => {
         }
     });
 
+    it.each([['modal', false], ['hover', false], ['modal', true], ['hover', true]] as const)('leaves native Play in charge for %s lookup on touch (video target: %s)', (mode, videoTarget) => {
+        const app = new ReaderApp();
+        const internals = app as unknown as HoverLookupInternals;
+        internals.settings = { ...DEFAULT_SETTINGS, subtitleMiningPause: true, subtitleHoverPause: true };
+        const { video, pause, play } = appendPlayingVideo();
+        const player = document.createElement('div');
+        player.id = 'movie_player';
+        const button = document.createElement('button');
+        button.className = 'ytp-play-button';
+        player.append(video, button);
+        document.body.append(player);
+        const word = document.createElement('span');
+        word.className = 'jpdb-reader-word';
+        word.textContent = '読む';
+        const caption = document.createElement('div');
+        caption.className = 'asbplayer-subtitles-container-bottom';
+        caption.append(word);
+        document.body.append(caption);
+        const popover = document.createElement('div');
+        popover.className = 'jpdb-reader-popover';
+        const target = videoTarget ? video : button;
+        target.addEventListener('click', () => video.paused ? void video.play() : video.pause());
+        try {
+            internals.mountPopover(popover, word, { mode, focusOnMount: false });
+            expect(pause).toHaveBeenCalledOnce();
+            const range = document.createRange();
+            range.selectNodeContents(word);
+            document.getSelection()?.addRange(range);
+            const event = hoverPointerEvent(target, 'touch', 'pointerdown');
+            if (mode === 'modal') internals.dismissModalPopoverForOutsidePointer(event);
+            else (internals as unknown as { dismissHoverPopoverForOutsidePointer: (event: PointerEvent) => void }).dismissHoverPopoverForOutsidePointer(event);
+            expect(popover.isConnected).toBe(false);
+            expect(event.defaultPrevented).toBe(false);
+            expect(play).not.toHaveBeenCalled();
+            target.click();
+            expect(play).toHaveBeenCalledOnce();
+            expect(pause).toHaveBeenCalledOnce();
+            expect(video.paused).toBe(false);
+            expect(video.dataset.jpdbReaderMiningPause).toBeUndefined();
+        } finally {
+            document.getSelection()?.removeAllRanges();
+            cleanupReaderApp(app);
+        }
+    });
+
     it('re-asserts the mining pause when the page re-plays the video, then stops once the popover closes', () => {
         const app = new ReaderApp();
         const internals = app as unknown as HoverLookupInternals;

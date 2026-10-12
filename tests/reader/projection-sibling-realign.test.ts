@@ -2,8 +2,14 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import {
     clearProjectedReadings,
-    syncProjectedReadings,
+    syncProjectedReadings as scheduleProjectedReadings,
+    withProjectedReadingBatch,
 } from '../../src/reader/dom/detached-reading-overlay-impl';
+
+// Inspect the completed paint; standalone frame scheduling has its own guard.
+function syncProjectedReadings(...args: Parameters<typeof scheduleProjectedReadings>): void {
+    withProjectedReadingBatch(args[0].ownerDocument, () => scheduleProjectedReadings(...args));
+}
 
 function rect(left = 20, top = 20, width = 40, height = 16): DOMRect {
     return {

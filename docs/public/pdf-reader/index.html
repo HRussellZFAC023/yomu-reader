@@ -841,7 +841,7 @@
     const installedRuntimeMarkerId = 'jpdb-reader-installed-runtime';
     const runtimeCompanionFiles = [
       // yomu:runtime-companions:start
-      'greasyfork/yomu-runtime.4bcf7480f160.user.js',
+      'greasyfork/yomu-runtime.5369728d7d9d.user.js',
       // yomu:runtime-companions:end
     ];
     const colorTokens = { accent: '#b8324e', retiredAccent: '#5ea780', readableInk: '#11161d', white: '#ffffff' };
@@ -1004,8 +1004,10 @@
       const theme = event?.detail?.settings?.theme;
       if (theme === 'dark' || theme === 'light' || theme === 'auto') {
         if (event?.detail?.preview !== true) {
-          if (theme === 'auto') localStorage.removeItem(themeKey);
-          else localStorage.setItem(themeKey, theme);
+          try {
+            if (theme === 'auto') localStorage.removeItem(themeKey);
+            else localStorage.setItem(themeKey, theme);
+          } catch {}
         }
         applyTheme(theme);
       } else {

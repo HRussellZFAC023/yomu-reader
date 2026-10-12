@@ -19,6 +19,25 @@ describe.each([
     ['PDF', 'docs/public/pdf-reader/index.html'],
     ['Video', 'docs/public/video-player/index.html'],
 ])('%s appearance authority', (_name, file) => {
+    it('starts with the automatic theme when reading browser storage throws', () => {
+        const source = readFileSync(file, 'utf8');
+        const functions = ['readLocalPreference', 'normalizeTheme', 'themePreference'].filter(name => source.includes(`function ${name}(`)).map(name => extractFunction(source, name)).join('\n');
+        const storage = { getItem() { throw new Error('denied'); } };
+        const read = Function('localStorage', `const themeKey = 'theme'; const readSettings = () => ({}); ${functions}; return themePreference;`)(storage);
+        expect(read()).toBe('auto');
+    });
+
+    it.each(['dark', 'auto'])('applies an incoming %s theme when browser storage is denied', theme => {
+        const source = readFileSync(file, 'utf8');
+        const functions = ['themePreferenceFromEvent', 'syncFromSettingsEvent'].filter(name => source.includes(`function ${name}(`)).map(name => extractFunction(source, name)).join('\n');
+        const paint = vi.fn(), accent = vi.fn();
+        const storage = { setItem() { throw new Error('denied'); }, removeItem() { throw new Error('denied'); } };
+        const run = Function('localStorage', 'applyTheme', 'applyAccent', `const themeKey = 'theme'; ${functions}; return syncFromSettingsEvent;`)(storage, paint, accent);
+        expect(() => run({ detail: { settings: { theme } } })).not.toThrow();
+        expect(paint).toHaveBeenCalledWith(theme);
+        expect(accent).toHaveBeenCalledOnce();
+    });
+
     it.each(['en', 'ja'])('leaves the UI unchanged on failure, unlocks controls and allows retry (%s)', async language => {
         const source = readFileSync(file, 'utf8');
         const functions = ['saveAppearanceChoice', 'saveThemePreference'].map(name => extractFunction(source, name)).join('\n');

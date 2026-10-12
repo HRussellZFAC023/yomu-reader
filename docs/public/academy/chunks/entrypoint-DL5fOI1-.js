@@ -43811,7 +43811,11 @@ const YOUTUBE_READABLE_LABEL_ROOTS = [
   "ytd-guide-entry-renderer",
   "ytd-guide-collapsible-section-entry-renderer",
   "ytd-mini-guide-entry-renderer",
-  "ytd-masthead #buttons .ytSpecButtonShapeNextButtonTextContent"
+  "ytd-masthead #buttons .ytSpecButtonShapeNextButtonTextContent",
+  "ytd-watch-metadata .ytSpecButtonShapeNextButtonTextContent",
+  "ytd-watch-metadata .yt-spec-button-shape-next__button-text-content",
+  ".ytp-settings-menu .ytp-menuitem-label",
+  ".ytp-settings-menu .ytp-menuitem-content:not(:has(input))"
 ];
 const LABEL_SELECTOR = YOUTUBE_READABLE_LABEL_ROOTS.join(",");
 function isYouTubeReadableLabel(element2) {
@@ -44552,6 +44556,47 @@ function stableCssPixels(value) {
   const rounded = Number(value.toFixed(decimalPlaces));
   return `${Object.is(rounded, -0) ? 0 : rounded}px`;
 }
+function withProjectedReadingBatch(document2, callback2) {
+  const companion = yomuAnnotationsCompanion();
+  return companion ? companion.withProjectedReadingBatch(document2, callback2) : callback2();
+}
+function syncProjectedReadings(owner, projections) {
+  yomuAnnotationsCompanion()?.syncProjectedReadings(owner, projections);
+}
+function clearProjectedReadings(owner) {
+  yomuAnnotationsCompanion()?.clearProjectedReadings(owner);
+}
+function clearProjectedReadingsWithin(root) {
+  return yomuAnnotationsCompanion()?.clearProjectedReadingsWithin(root) ?? 0;
+}
+function pruneProjectedReadings(document2) {
+  yomuAnnotationsCompanion()?.pruneProjectedReadings(document2);
+}
+function styleDetachedReadingElements(root, host2) {
+  const detachedRubies = Array.from(root.querySelectorAll(".jpdb-reader-detached-ruby"));
+  if (!detachedRubies.length) return;
+  const hostStyle = safeComputedStyle(host2);
+  const hostFontSize = Number.parseFloat(hostStyle.fontSize) || 16;
+  const readingFontSize = Math.max(10, hostFontSize * 0.6);
+  for (const wrapper of detachedRubies) {
+    setInlineStyleIfChanged(wrapper, "position", "relative", "important");
+    setInlineStyleIfChanged(wrapper, "display", "inline-block", "important");
+    setInlineStyleIfChanged(wrapper, "line-height", "1", "important");
+    setInlineStyleIfChanged(wrapper, "vertical-align", "baseline", "important");
+    setInlineStyleIfChanged(wrapper, "white-space", "nowrap", "important");
+  }
+  for (const reading of root.querySelectorAll(".jpdb-reader-detached-furi")) {
+    setInlineStyleIfChanged(reading, "display", "none", "important");
+    setInlineStyleIfChanged(reading, "font-size", `${readingFontSize}px`);
+    setInlineStyleIfChanged(reading, "font-weight", "normal");
+    setInlineStyleIfChanged(reading, "line-height", "1", "important");
+    setInlineStyleIfChanged(reading, "text-decoration", "none", "important");
+    setInlineStyleIfChanged(reading, "user-select", "none");
+    setInlineStyleIfChanged(reading, "-webkit-user-select", "none");
+    if (reading.style.getPropertyValue("color")) reading.style.removeProperty("color");
+    setInlineStyleIfChanged(reading, "-webkit-text-fill-color", "currentColor", "important");
+  }
+}
 const DOCUMENT_ANNOTATION_PORTAL_MIRROR_CLASS = "jpdb-reader-document-annotation-portal";
 const DOCUMENT_ANNOTATION_PORTAL_PAINT_CLASS = "jpdb-reader-document-annotation-paint";
 const portalWatches = /* @__PURE__ */ new WeakMap();
@@ -44693,7 +44738,7 @@ function createPortalWatch(document2) {
       entry2.clipTopologyEpoch = -1;
     });
     alignPortalEntries(affected);
-    affected.forEach((entry2) => entry2.projectImmediately());
+    withProjectedReadingBatch(document2, () => affected.forEach((entry2) => entry2.projectImmediately()));
   };
   const topologyObserver = new MutationObserver((records2) => {
     const ancestors = records2.map((record2) => record2.target).filter((node2) => node2 instanceof Element && !node2.closest(".jpdb-reader-text-mirror,.jpdb-reader-detached-reading-overlay,[data-jpdb-reader-root]"));
@@ -45181,43 +45226,6 @@ function selectedWordColorSourceToken(root, channels, sources) {
     }
   }
   return selected2;
-}
-function syncProjectedReadings(owner, projections) {
-  yomuAnnotationsCompanion()?.syncProjectedReadings(owner, projections);
-}
-function clearProjectedReadings(owner) {
-  yomuAnnotationsCompanion()?.clearProjectedReadings(owner);
-}
-function clearProjectedReadingsWithin(root) {
-  return yomuAnnotationsCompanion()?.clearProjectedReadingsWithin(root) ?? 0;
-}
-function pruneProjectedReadings(document2) {
-  yomuAnnotationsCompanion()?.pruneProjectedReadings(document2);
-}
-function styleDetachedReadingElements(root, host2) {
-  const detachedRubies = Array.from(root.querySelectorAll(".jpdb-reader-detached-ruby"));
-  if (!detachedRubies.length) return;
-  const hostStyle = safeComputedStyle(host2);
-  const hostFontSize = Number.parseFloat(hostStyle.fontSize) || 16;
-  const readingFontSize = Math.max(9, hostFontSize * 0.5);
-  for (const wrapper of detachedRubies) {
-    setInlineStyleIfChanged(wrapper, "position", "relative", "important");
-    setInlineStyleIfChanged(wrapper, "display", "inline-block", "important");
-    setInlineStyleIfChanged(wrapper, "line-height", "1", "important");
-    setInlineStyleIfChanged(wrapper, "vertical-align", "baseline", "important");
-    setInlineStyleIfChanged(wrapper, "white-space", "nowrap", "important");
-  }
-  for (const reading of root.querySelectorAll(".jpdb-reader-detached-furi")) {
-    setInlineStyleIfChanged(reading, "display", "none", "important");
-    setInlineStyleIfChanged(reading, "font-size", `${readingFontSize}px`);
-    setInlineStyleIfChanged(reading, "font-weight", "normal");
-    setInlineStyleIfChanged(reading, "line-height", "1", "important");
-    setInlineStyleIfChanged(reading, "text-decoration", "none", "important");
-    setInlineStyleIfChanged(reading, "user-select", "none");
-    setInlineStyleIfChanged(reading, "-webkit-user-select", "none");
-    if (reading.style.getPropertyValue("color")) reading.style.removeProperty("color");
-    setInlineStyleIfChanged(reading, "-webkit-text-fill-color", "currentColor", "important");
-  }
 }
 function createPostPaintPass(run) {
   let pendingScheduler = null;
@@ -47475,6 +47483,11 @@ function rectsIntersect(left, right) {
   return left.right > right.left + 0.5 && left.left < right.right - 0.5 && left.bottom > right.top + 0.5 && left.top < right.bottom - 0.5;
 }
 function projectAdditiveTextMirrors(root = document) {
+  const sourceDocument = root instanceof Document ? root : root.ownerDocument;
+  if (sourceDocument) withProjectedReadingBatch(sourceDocument, () => projectAdditiveTextMirrorBatch(root));
+  else projectAdditiveTextMirrorBatch(root);
+}
+function projectAdditiveTextMirrorBatch(root) {
   const entries2 = [];
   const mirrors = new Set(queryAllInAnnotationRoots(root, ".jpdb-reader-additive-text-mirror"));
   documentAnnotationPortalMirrorsWithin(root).forEach((mirror) => mirrors.add(mirror));
@@ -47615,15 +47628,17 @@ const documentPortalProjectionPass = createPostPaintPass(() => {
     byDocument.set(host2.ownerDocument, documentEntries);
   }
   for (const [document2, documentEntries] of byDocument) {
-    const mirrors = documentEntries.map(({ mirror }) => mirror);
-    prepareDocumentAnnotationPortalMirrors(mirrors);
-    const topLayerConcealed = documentTopLayerConcealsPortal(document2);
-    for (const { mirror, host: host2 } of documentEntries) {
-      syncTextMirrorVisibilityToPage(host2, mirror, topLayerConcealed);
-      projectPreparedAdditiveTextMirror(mirror, host2, topLayerConcealed);
-    }
-    settleDocumentAnnotationPortalMirrors(mirrors);
-    pruneProjectedReadings(document2);
+    withProjectedReadingBatch(document2, () => {
+      const mirrors = documentEntries.map(({ mirror }) => mirror);
+      prepareDocumentAnnotationPortalMirrors(mirrors);
+      const topLayerConcealed = documentTopLayerConcealsPortal(document2);
+      for (const { mirror, host: host2 } of documentEntries) {
+        syncTextMirrorVisibilityToPage(host2, mirror, topLayerConcealed);
+        projectPreparedAdditiveTextMirror(mirror, host2, topLayerConcealed);
+      }
+      settleDocumentAnnotationPortalMirrors(mirrors);
+      pruneProjectedReadings(document2);
+    });
   }
 });
 function projectOneDocumentPortalTextMirror(mirror, host2) {
@@ -48249,6 +48264,9 @@ function observeTextMirrorHost(host2) {
 const liveTextMirrorObservers = /* @__PURE__ */ new Map();
 let mirrorTokenApplyDepth = 0;
 function withMirrorTokenApply(callback2) {
+  return withProjectedReadingBatch(document, () => runMirrorTokenApply(callback2));
+}
+function runMirrorTokenApply(callback2) {
   mirrorTokenApplyDepth += 1;
   try {
     return callback2();
@@ -264500,7 +264518,7 @@ function padClockPart(value) {
 const DEFAULT_ACADEMY_STUDY_DURATION_MS = DEFAULT_STUDY_DURATION_MS;
 class StudyRuntimeLoadFailure extends Error {
 }
-function createCanonicalAcademyStudyModule(loadRuntime = () => import("./runtime-BApJZM2k.js")) {
+function createCanonicalAcademyStudyModule(loadRuntime = () => import("./runtime-CfYsgkoY.js")) {
   return {
     async mount(host2, context2) {
       let runtime;

@@ -6,7 +6,6 @@
   ],
   "retainedPaths": [
     "docs/public/greasyfork/yomu-runtime.03c424534b12.user.js",
-    "docs/public/greasyfork/yomu-runtime.0c7958a11a04.user.js",
     "docs/public/greasyfork/yomu-runtime.10fd026e774e.user.js",
     "docs/public/greasyfork/yomu-runtime.1da5ece71162.user.js",
     "docs/public/greasyfork/yomu-runtime.2e692f54d841.user.js",
@@ -16,6 +15,7 @@
     "docs/public/greasyfork/yomu-runtime.4bcf7480f160.user.js",
     "docs/public/greasyfork/yomu-runtime.4dd297515a89.user.js",
     "docs/public/greasyfork/yomu-runtime.516742644369.user.js",
+    "docs/public/greasyfork/yomu-runtime.5369728d7d9d.user.js",
     "docs/public/greasyfork/yomu-runtime.53c42ff3dd51.user.js",
     "docs/public/greasyfork/yomu-runtime.53fe5ee72751.user.js",
     "docs/public/greasyfork/yomu-runtime.589023dbb459.user.js",
@@ -43,7 +43,6 @@
     "docs/public/greasyfork/yomu-runtime.b657dfe8ce10.user.js",
     "docs/public/greasyfork/yomu-runtime.c1d9ce1c3757.user.js",
     "docs/public/greasyfork/yomu-runtime.c378e8ee5a78.user.js",
-    "docs/public/greasyfork/yomu-runtime.c6d629bc568a.user.js",
     "docs/public/greasyfork/yomu-runtime.cdca4a75f1b1.user.js",
     "docs/public/greasyfork/yomu-runtime.d36ec25fa390.user.js",
     "docs/public/greasyfork/yomu-runtime.d863112aed7c.user.js",
@@ -68,13 +67,13 @@
     "docs/public/yomu.812cde48cb3b.css",
     "docs/public/yomu.853032b5cdfb.css",
     "docs/public/yomu.8f8569af11f4.css",
-    "docs/public/yomu.9643433aba2a.css",
     "docs/public/yomu.98ece4dc43de.css",
     "docs/public/yomu.ae3cf0474d38.css",
     "docs/public/yomu.bb91e93066d2.css",
     "docs/public/yomu.d378ade3078c.css",
     "docs/public/yomu.d39386bf1849.css",
     "docs/public/yomu.e471590f21ac.css",
-    "docs/public/yomu.ebfeb8423b4e.css"
+    "docs/public/yomu.ebfeb8423b4e.css",
+    "docs/public/yomu.f71447acc8ae.css"
   ]
 }
