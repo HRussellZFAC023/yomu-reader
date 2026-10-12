@@ -691,6 +691,7 @@ describe('SubtitlePlayerController — parse cache, warmup & seek', () => {
             return 1;
         }) as typeof window.requestAnimationFrame;
 
+        let controller: SubtitlePlayerController | undefined;
         try {
             const settings = {
                 ...DEFAULT_SETTINGS,
@@ -699,7 +700,7 @@ describe('SubtitlePlayerController — parse cache, warmup & seek', () => {
                 localDictionariesEnabled: false,
             };
             const parseJapanese = vi.fn(async () => []);
-            const controller = new SubtitlePlayerController({
+            controller = new SubtitlePlayerController({
                 getSettings: () => settings,
                 parseJapanese,
                 onSettingsChange: () => undefined,
@@ -731,6 +732,7 @@ describe('SubtitlePlayerController — parse cache, warmup & seek', () => {
 
             expect(parseJapanese).toHaveBeenCalledWith('字幕23', AUTHORITATIVE_SUBTITLE_PARSE_OPTIONS);
         } finally {
+            controller?.destroy();
             window.requestAnimationFrame = originalRequestAnimationFrame;
         }
     });
