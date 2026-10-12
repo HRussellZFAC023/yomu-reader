@@ -150,13 +150,28 @@ describe('projected reading crowding', () => {
 
     it('hides a boxed reading that would need unreadable compression and retains its source', () => {
         const { owner, readings } = lane([
-            { reading:'しげ', rect:rect(100,40,14), fontSize:6 },
+            { reading:'しげる', rect:rect(100,40,14), fontSize:6 },
             { reading:'からだ', rect:rect(114,40,14), fontSize:6 },
             { reading:'ちゅうぶん', rect:rect(128,40,28), fontSize:6 },
         ]);
         expect(clone(readings[1].source).style.display).toBe('none');
         expect(readings[1].source.isConnected).toBe(true);
         expect(readings[1].source.textContent).toBe('からだ');
+        clearProjectedReadings(owner);
+    });
+
+    it('uses short-neighbor slack for a readable middle reading', () => {
+        const { owner, readings } = lane([
+            { reading:'しげ', rect:rect(100,40,14), fontSize:6 },
+            { reading:'からだ', rect:rect(114,40,14), fontSize:6 },
+            { reading:'ちゅうぶん', rect:rect(128,40,28), fontSize:6 },
+        ]);
+        const first = paintedSpan(readings[0]), middle = paintedSpan(readings[1]), last = paintedSpan(readings[2]);
+        expect(clone(readings[1].source).style.display).toBe('block');
+        expect(middle.scaleX).toBeGreaterThanOrEqual(.8);
+        expect(first.right).toBeLessThanOrEqual(middle.left);
+        expect(middle.right).toBeLessThanOrEqual(last.left);
+        expect(Math.abs((middle.left + middle.right) / 2 - 121)).toBeLessThanOrEqual(3);
         clearProjectedReadings(owner);
     });
 

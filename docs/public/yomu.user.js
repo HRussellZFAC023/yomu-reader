@@ -11,7 +11,7 @@
 // @updateURL https://update.greasyfork.org/scripts/581653/%E3%82%88%E3%82%80.meta.js
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-runtime.5369728d7d9d.user.js#sha256=U2lyjX2d/x3ZhiGf88nMt3Wax7hOEZ97W7D+32RkZ4M=
+// @require https://yomureader.com/greasyfork/yomu-runtime.da2ccaf08683.user.js#sha256=2izK8IaDhLvZ1A/TUv7ee8TmfcbsO2Tb7Vv4jmptbSY=
 // @resource yomuCss  https://yomureader.com/yomu.f71447acc8ae.css#sha256=9xRHrMiuO8m0p4MjEl8eGjuum9RdgICwQcGxuWYMQw8=
 // @connect api.jiten.moe
 // @connect api.tatoeba.org

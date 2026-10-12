@@ -135,7 +135,7 @@ describe('synthetic mirror source ranges', () => {
 
     // The furigana half: projection bails wholesale when the guard fails, so a
     // synthetic mirror painted no reading at all.
-    it('projects a synthetic mirror word onto its host glyphs', () => {
+    it('projects a synthetic mirror word onto its host glyphs', async () => {
         const { host, mirror } = mount(SYNTHETIC);
 
         projectAdditiveTextMirror(mirror, host);
@@ -143,6 +143,7 @@ describe('synthetic mirror source ranges', () => {
         expect(mirror.dataset.yomuSourceProjected).toBe('true');
         const word = wordFor(mirror, '視聴');
         expect(word.querySelectorAll('.jpdb-reader-source-fragment').length).toBeGreaterThan(0);
+        await new Promise<void>(resolve => requestAnimationFrame(() => resolve()));
         const reading = [...document.querySelectorAll<HTMLElement>('[data-yomu-projected-reading="true"]')]
             .find(clone => clone.textContent === 'しちょう');
         expect(reading).toBeTruthy();
