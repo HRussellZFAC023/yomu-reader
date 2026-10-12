@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { mkdirSync, readFileSync } from 'node:fs';
 import { build } from 'esbuild';
 import { chromium, webkit } from 'playwright';
+import { newTouchSmokePage } from './lib/smoke-harness.mjs';
 
 // Stream-free behavior fixture. Real controllers, annotation implementation,
 // browser layout and native fullscreen; it does not prove physical iPad heat.
@@ -50,9 +51,7 @@ ytd-watch-metadata { display:flex; gap:12px; padding-top:30px; }
 for (const [engineName, engine] of [['chromium', chromium], ['webkit', webkit]]) {
     const browser = await engine.launch();
     try {
-        const page = await browser.newPage({ viewport: { width:1024, height:768 }, hasTouch:true });
-        const errors = [];
-        page.on('pageerror', error => { errors.push(error.message); console.error(`${engineName}: ${error.message}`); });
+        const { page, errors } = await newTouchSmokePage(browser, { width:1024, height:768 }, error => console.error(`${engineName}: ${error.message}`));
         await page.route('**/*', route => route.request().url().startsWith('https://www.youtube.com/watch?')
             ? route.fulfill({ contentType:'text/html', body:html }) : route.abort());
         await page.goto('https://www.youtube.com/watch?v=fixture123');
@@ -123,7 +122,7 @@ for (const [engineName, engine] of [['chromium', chromium], ['webkit', webkit]])
             const f = window.YomuPlaybackFixture;
             const readings = { 保存:'ほぞん', 質問する:'しつもんする', チャンネル登録:'とうろく', 再生速度:'さいせいそくど', 標準:'ひょうじゅん', 画質:'がしつ', 自動:'じどう' };
             const settings = { ...f.DEFAULT_SETTINGS, annotationsPaused:false, showFurigana:true, furiganaMode:'all' };
-            const targets = f.collectSiteScanTargets(80, location.href) ?? [];
+            const targets = f.collectSiteScanTargets(80, location.href);
             window.actionCounts = {};
             for (const target of targets) {
                 const text = target.text;

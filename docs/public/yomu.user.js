@@ -11,7 +11,7 @@
 // @updateURL https://update.greasyfork.org/scripts/581653/%E3%82%88%E3%82%80.meta.js
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-runtime.da2ccaf08683.user.js#sha256=2izK8IaDhLvZ1A/TUv7ee8TmfcbsO2Tb7Vv4jmptbSY=
+// @require https://yomureader.com/greasyfork/yomu-runtime.c2fee11b6b9e.user.js#sha256=wv7hG2ue3fLFAxCAps2xkfGcEHMSQYQ69FWGoM5zLXg=
 // @resource yomuCss  https://yomureader.com/yomu.f71447acc8ae.css#sha256=9xRHrMiuO8m0p4MjEl8eGjuum9RdgICwQcGxuWYMQw8=
 // @connect api.jiten.moe
 // @connect api.tatoeba.org
@@ -11291,6 +11291,12 @@ sweepAndDrainTextMirrorObservers();
 }
 }
 function sweepAndDrainTextMirrorObservers() {
+visitLiveTextMirrorHosts((host, observer) => {
+observer.takeRecords();
+healStuckHiddenTextMirror(host);
+});
+}
+function visitLiveTextMirrorHosts(visit) {
 for (const [observer, hostRef] of liveTextMirrorObservers) {
 const host = hostRef.deref();
 if (!host || !host.isConnected) {
@@ -11299,8 +11305,7 @@ observer.disconnect();
 if (host) removeTextMirror(host);
 continue;
 }
-observer.takeRecords();
-healStuckHiddenTextMirror(host);
+visit(host, observer);
 }
 }
 function healStuckHiddenTextMirror(host) {
@@ -11313,17 +11318,10 @@ function healTextMirrorPageVisibility() {
 return withProjectedReadingBatch(document, () => healTextMirrorPageVisibilityBatch());
 }
 function healTextMirrorPageVisibilityBatch() {
-for (const [observer, hostRef] of liveTextMirrorObservers) {
-const host = hostRef.deref();
-if (!host || !host.isConnected) {
-liveTextMirrorObservers.delete(observer);
-observer.disconnect();
-if (host) removeTextMirror(host);
-continue;
-}
+visitLiveTextMirrorHosts((host) => {
 healStuckHiddenTextMirror(host);
 refreshConstrainedMirrorProjection(host);
-}
+});
 }
 function refreshConstrainedMirrorProjection(host) {
 const mirror = currentTextMirror(host);

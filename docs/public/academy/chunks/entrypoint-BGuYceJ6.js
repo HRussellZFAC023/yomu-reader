@@ -48278,6 +48278,12 @@ function runMirrorTokenApply(callback2) {
   }
 }
 function sweepAndDrainTextMirrorObservers() {
+  visitLiveTextMirrorHosts((host2, observer) => {
+    observer.takeRecords();
+    healStuckHiddenTextMirror(host2);
+  });
+}
+function visitLiveTextMirrorHosts(visit2) {
   for (const [observer, hostRef] of liveTextMirrorObservers) {
     const host2 = hostRef.deref();
     if (!host2 || !host2.isConnected) {
@@ -48286,8 +48292,7 @@ function sweepAndDrainTextMirrorObservers() {
       if (host2) removeTextMirror(host2);
       continue;
     }
-    observer.takeRecords();
-    healStuckHiddenTextMirror(host2);
+    visit2(host2, observer);
   }
 }
 function healStuckHiddenTextMirror(host2) {
@@ -264518,7 +264523,7 @@ function padClockPart(value) {
 const DEFAULT_ACADEMY_STUDY_DURATION_MS = DEFAULT_STUDY_DURATION_MS;
 class StudyRuntimeLoadFailure extends Error {
 }
-function createCanonicalAcademyStudyModule(loadRuntime = () => import("./runtime-CfYsgkoY.js")) {
+function createCanonicalAcademyStudyModule(loadRuntime = () => import("./runtime-DA_aeSBb.js")) {
   return {
     async mount(host2, context2) {
       let runtime;

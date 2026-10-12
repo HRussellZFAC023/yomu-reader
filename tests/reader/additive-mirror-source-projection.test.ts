@@ -43,6 +43,13 @@ function scene(): { host: HTMLElement; mirror: HTMLElement; word: HTMLElement } 
     return { host, mirror, word };
 }
 
+function detachedVoteScene(): ReturnType<typeof scene> {
+    const target = scene();
+    target.word.innerHTML = '<span class="jpdb-reader-detached-ruby" data-yomu-source-start="1" data-yomu-source-end="2"><span class="jpdb-reader-ruby-base">票</span><span class="jpdb-reader-detached-furi">ひょう</span></span>';
+    sourceRectsForRange = range => range.startOffset === 1 ? [rect(150, 54, 16, 16)] : [rect(130, 54, 32, 16)];
+    return target;
+}
+
 function expectSourceProjectionCleared(mirror: HTMLElement, word: HTMLElement): void {
     expect(word.querySelector('.jpdb-reader-source-fragment')).toBeNull();
     expect(word.hasAttribute('data-yomu-source-projected')).toBe(false);
@@ -337,11 +344,7 @@ describe('additive text-mirror source projection', () => {
     });
 
     it('anchors a detached reading to its own source characters', async () => {
-        const { host, mirror, word } = scene();
-        word.innerHTML = '<span class="jpdb-reader-detached-ruby" data-yomu-source-start="1" data-yomu-source-end="2"><span class="jpdb-reader-ruby-base">票</span><span class="jpdb-reader-detached-furi">ひょう</span></span>';
-        sourceRectsForRange = range => range.startOffset === 1
-            ? [rect(150, 54, 16, 16)]
-            : [rect(130, 54, 32, 16)];
+        const { host, mirror, word } = detachedVoteScene();
 
         projectAdditiveTextMirror(mirror, host);
 
@@ -360,11 +363,7 @@ describe('additive text-mirror source projection', () => {
     });
 
     it('hides an unmeasurable reading instead of retaining stale coordinates', () => {
-        const { host, mirror, word } = scene();
-        word.innerHTML = '<span class="jpdb-reader-detached-ruby" data-yomu-source-start="1" data-yomu-source-end="2"><span class="jpdb-reader-ruby-base">票</span><span class="jpdb-reader-detached-furi">ひょう</span></span>';
-        sourceRectsForRange = range => range.startOffset === 1
-            ? [rect(150, 54, 16, 16)]
-            : [rect(130, 54, 32, 16)];
+        const { host, mirror } = detachedVoteScene();
         projectAdditiveTextMirror(mirror, host);
         expect(document.querySelector('[data-yomu-projected-reading="true"]')).toBeTruthy();
 
@@ -440,11 +439,7 @@ describe('additive text-mirror source projection', () => {
     });
 
     it('remeasures the live source range when the page scrolls', async () => {
-        const { host, mirror, word } = scene();
-        word.innerHTML = '<span class="jpdb-reader-detached-ruby" data-yomu-source-start="1" data-yomu-source-end="2"><span class="jpdb-reader-ruby-base">票</span><span class="jpdb-reader-detached-furi">ひょう</span></span>';
-        sourceRectsForRange = range => range.startOffset === 1
-            ? [rect(150, 54, 16, 16)]
-            : [rect(130, 54, 32, 16)];
+        const { host, mirror } = detachedVoteScene();
         projectAdditiveTextMirror(mirror, host);
 
         await new Promise<void>(resolve => requestAnimationFrame(() => resolve()));

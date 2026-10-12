@@ -8,22 +8,10 @@ import {
     documentPortalReaderWordScopeForSource,
     removeNonDestructiveScanMirrors,
 } from '../../src/reader/dom';
+import { mirrorToken } from './helpers/japanese-token-fixtures';
 import { DEFAULT_SETTINGS } from '../../src/reader/settings';
 
-const CARD: JPDBCard = {
-    vid: 1,
-    sid: 1,
-    rid: 0,
-    spelling: '',
-    reading: '',
-    frequencyRank: null,
-    partOfSpeech: [],
-    meanings: [],
-    cardState: ['not-in-deck'],
-    pitchAccent: [],
-    wordWithReading: null,
-    source: 'jpdb',
-};
+const CARD: JPDBCard = mirrorToken('', '').card;
 
 afterEach(() => {
     removeNonDestructiveScanMirrors(document);

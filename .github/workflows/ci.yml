@@ -45,7 +45,10 @@ jobs:
       # `fallow:dead-code` failed on every commit for months, including docs-only
       # ones, so the job stopped carrying information (U63).
       - run: npm run quality:dead-code
+      - run: npm run quality:reader-coverage
       - run: npm run fallow:audit
+        env:
+          FALLOW_COVERAGE: artifacts/fallow-coverage/coverage-final.json
 
   typecheck:
     runs-on: ubuntu-latest

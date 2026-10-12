@@ -5,7 +5,7 @@ import { readFileSync, mkdirSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { build } from 'esbuild';
 import { chromium, webkit } from 'playwright';
-import { assert } from './lib/smoke-harness.mjs';
+import { assert, newTouchSmokePage } from './lib/smoke-harness.mjs';
 
 const root = resolve(import.meta.dirname, '..');
 const output = resolve(root, 'artifacts/youtube-continuation');
@@ -51,9 +51,7 @@ const results = [];
 for (const [name, browserType] of [['chromium', chromium], ['webkit', webkit]]) {
     const browser = await browserType.launch({ headless: true });
     try {
-        const page = await browser.newPage({ viewport: { width: 1024, height: 768 }, hasTouch: true });
-        const errors = [];
-        page.on('pageerror', error => errors.push(error.message));
+        const { page, errors } = await newTouchSmokePage(browser, { width:1024, height:768 });
         await page.route('**/*', route => route.fulfill({ contentType: 'text/html', body: fixture }));
         await page.goto('https://www.youtube.com/watch?v=fixture');
         await page.addScriptTag({ content: bundle.outputFiles[0].text });

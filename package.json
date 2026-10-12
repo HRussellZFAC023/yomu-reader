@@ -303,7 +303,8 @@
     "smoke:host-css-armour": "node scripts/host-css-armour-smoke.mjs",
     "smoke:ruby-overhang-scope": "node scripts/ruby-overhang-scope-smoke.mjs",
     "smoke:reading-collision": "node scripts/reading-collision-smoke.mjs",
-    "smoke:ocr-viewport-scroll": "node scripts/ocr-viewport-scroll-smoke.mjs"
+    "smoke:ocr-viewport-scroll": "node scripts/ocr-viewport-scroll-smoke.mjs",
+    "quality:reader-coverage": "vitest run --coverage.enabled --coverage.provider=istanbul --coverage.reporter=json --coverage.include='src/reader/**/*.ts' --coverage.include='docs/public/hosted-reader-worker.js' --coverage.reportsDirectory=artifacts/fallow-coverage tests/reader/reading-media-boundary.test.ts tests/reader/detached-reading-overlay.test.ts tests/reader/reading-lane-layout.test.ts tests/reader/projected-reading-crowding.test.ts tests/reader/projected-reading-scheduling.test.ts tests/reader/additive-mirror-source-projection.test.ts tests/reader/synthetic-mirror-source-ranges.test.ts tests/reader/projection-sibling-realign.test.ts tests/reader/furigana-tap-band.test.ts tests/reader/subtitles-controller tests/reader/subtitle-control-rail.test.ts tests/reader/hover-lookup.test.ts tests/reader/decoration-policy.test.ts tests/reader/mirror-page-reveal.test.ts tests/reader/mirror-observer-leak.test.ts tests/reader/repaint-loop-mirror.test.ts tests/reader/recycled-mirror-projection.test.ts tests/reader/hosted-runtime-graph.test.ts"
   },
   "dependencies": {
     "aws4fetch": "^1.0.20",
@@ -313,12 +314,14 @@
     "@axe-core/playwright": "^4.11.3",
     "@electron/packager": "^18.4.4",
     "@types/node": "^25.1.0",
+    "@vitest/coverage-istanbul": "1.6.1",
     "axe-core": "^4.11.4",
     "electron": "^38.8.6",
     "electron-builder": "^26.15.3",
     "esbuild": "^0.21.5",
     "fake-indexeddb": "^6.2.5",
     "fallow": "^2.88.3",
+    "istanbul-lib-instrument": "6.0.3",
     "jsdom": "^24.0.0",
     "parse5": "^7.3.0",
     "playwright": "^1.56.1",

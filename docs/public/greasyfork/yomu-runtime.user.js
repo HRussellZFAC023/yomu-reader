@@ -1,6 +1,27 @@
 (function() {
 "use strict";
 // yomu-generated-indent: compact
+const CARDS = "ytd-reel-item-renderer,ytm-shorts-lockup-view-model,yt-shorts-lockup-view-model,ytm-video-with-context-renderer,ytd-rich-item-renderer,ytd-video-renderer,ytd-compact-video-renderer";
+const MEDIA = ".short-thumb,.media-item-thumbnail-container,ytd-thumbnail,#thumbnail";
+function ownMediaReadingBoundary(anchor, source) {
+const card = anchor.closest(CARDS);
+if (!card) return void 0;
+for (const media of card.querySelectorAll(MEDIA)) {
+const bounds = media.getBoundingClientRect();
+if (bounds.width <= 0 || bounds.height <= 0 || source.top < bounds.bottom) continue;
+return { media, bounds, allowance: Math.min(3, source.height / 8) };
+}
+return void 0;
+}
+function pointTouchesOwnMediaBoundary(boundary, hit, x2, y) {
+if (!boundary) return false;
+if (!(hit === boundary.media || hit.matches("img,video,canvas,picture"))) return false;
+if (!boundary.media.contains(hit)) return false;
+const control = hit.closest("button,[role=button],[role=dialog]");
+if (control && control !== boundary.media && boundary.media.contains(control)) return false;
+const { bounds, allowance } = boundary;
+return y >= bounds.bottom - allowance && y <= bounds.bottom && x2 >= bounds.left && x2 <= bounds.right;
+}
 function currentFullscreenElement(sourceDocument = document) {
 const fullscreenDocument = sourceDocument;
 return sourceDocument.fullscreenElement ?? fullscreenDocument.webkitFullscreenElement ?? fullscreenDocument.mozFullScreenElement ?? fullscreenDocument.msFullscreenElement ?? null;
@@ -204,6 +225,7 @@ const overlays = /* @__PURE__ */ new WeakMap();
 const projectionBatchDepths = /* @__PURE__ */ new WeakMap();
 const ownerRecords = /* @__PURE__ */ new WeakMap();
 const PROJECTED_READING_ATTRIBUTE = "data-yomu-projected-reading";
+const VIEWPORT_ATTACHED_POSITIONS = /* @__PURE__ */ new Set(["fixed", "sticky"]);
 const PROJECTION_GRACE_MAX_AGE_MS = 250;
 function withProjectedReadingBatch(document2, callback) {
 projectionBatchDepths.set(document2, (projectionBatchDepths.get(document2) ?? 0) + 1);
@@ -224,13 +246,6 @@ const document2 = owner.ownerDocument;
 const overlay = documentOverlay(document2);
 const records = ownerRecords.get(owner) ?? /* @__PURE__ */ new Map();
 const currentSources = new Set(projections.map((projection) => projection.source));
-const context = {
-overlay,
-nativeRects: /* @__PURE__ */ new Map(),
-projectionLayers: /* @__PURE__ */ new Map(),
-viewportCoordinateSafety: /* @__PURE__ */ new Map(),
-styleReads: /* @__PURE__ */ new Map()
-};
 for (const [source, record2] of records) {
 if (currentSources.has(source)) continue;
 removeRecord(record2, overlay);
@@ -261,10 +276,9 @@ record2.cachedOcclusionRect = void 0;
 trackProjectionAnchor(record2, overlay);
 }
 record2.measure = projection.measure;
-if (projection.nativeRects) context.nativeRects.set(projection.anchor, projection.nativeRects);
+if (projection.nativeRects) overlay.pendingNativeRects.set(projection.anchor, projection.nativeRects);
 refreshProjectionAnchorRoot(record2.anchor, overlay);
 syncProjectedReadingStyle(record2);
-adoptProjectionLayer(record2, context);
 overlay.pendingSyncRects.set(record2, projection.rect);
 }
 if (records.size) ownerRecords.set(owner, records);
@@ -341,6 +355,7 @@ document2,
 );
 const overlay = {
 pendingSyncRects: /* @__PURE__ */ new Map(),
+pendingNativeRects: /* @__PURE__ */ new Map(),
 layer,
 documentLayer,
 scrollLayers: /* @__PURE__ */ new Map(),
@@ -521,9 +536,11 @@ paints.forEach((paint) => applyProjectedReadingPaint(paint, context));
 }
 function applyProjectedReadingPaint(paint, context) {
 if (!paint.visible || !paint.rect) {
+setDatasetIfChanged(paint.record.clone, "yomuReadingHiddenReason", paint.blockedForSpace ? "spacing" : "visibility");
 setImportantStyleIfChanged(paint.record.clone, "display", "none");
 return;
 }
+setDatasetIfChanged(paint.record.clone, "yomuReadingHiddenReason", "");
 positionProjectedReading(paint.record, paint.rect, context, paint.layout);
 }
 function positionProjectedReading(record2, rect, context, layout) {
@@ -560,20 +577,24 @@ for (const lane of projectedReadingLanes(placed)) {
 fitProjectedReadingLane(lane);
 for (const paint of lane) {
 if (!paint.visible) continue;
-const anchor = paint.record.anchor;
-let rects = nativeRects.get(anchor);
-if (!rects) {
-rects = nativeTextRects(anchor);
-nativeRects.set(anchor, rects);
-}
-const height = paint.record.footprintHeight || paint.rect.height / 2;
-const width = naturalReadingWidth(paint.record) * (paint.layout?.scaleX ?? 1);
-const centre = paint.layout?.centre ?? readingAnchorCentre(paint);
-if (readingOverlapsPreviousLine(paint.rect, rects, centre, width, height)) {
+if (projectionOverlapsAuthoredLine(paint, nativeRects)) {
+paint.blockedForSpace = true;
 paint.visible = false;
 }
 }
 }
+}
+function projectionOverlapsAuthoredLine(paint, nativeRects) {
+const { record: record2, rect, layout } = paint;
+let rects = nativeRects.get(record2.anchor);
+if (!rects) {
+rects = nativeTextRects(record2.anchor);
+nativeRects.set(record2.anchor, rects);
+}
+const height = record2.footprintHeight || rect.height / 2;
+const width = naturalReadingWidth(record2) * (layout?.scaleX ?? 1);
+const centre = layout?.centre ?? readingAnchorCentre(paint);
+return readingOverlapsPreviousLine(rect, rects, centre, width, height);
 }
 function isPlacedProjectionPaint(paint) {
 return paint.visible && paint.rect !== null;
@@ -599,7 +620,10 @@ lane.sort((first2, second) => readingAnchorCentre(first2) - readingAnchorCentre(
 const placements = fitReadingLane(lane.map((paint) => ({ left: paint.rect.left, right: paint.rect.right, width: naturalReadingWidth(paint.record) })));
 lane.forEach((paint, index) => {
 paint.layout = placements[index];
-if (paint.layout.scaleX === 0) paint.visible = false;
+if (paint.layout.scaleX === 0) {
+paint.blockedForSpace = true;
+paint.visible = false;
+}
 });
 }
 function readingAnchorCentre(paint) {
@@ -688,15 +712,13 @@ if (cached) return cached;
 const document2 = element.ownerDocument;
 const view = document2.defaultView;
 if (!view) return { mode: "viewport" };
-const fullscreen = currentFullscreenElement(document2);
-if (fullscreen instanceof HTMLElement && fullscreen.contains(element)) {
-return { mode: "scroll", scrollLayerHost: fullscreen };
-}
+const fullscreen = fullscreenProjectionHost(element);
+if (fullscreen) return { mode: "scroll", scrollLayerHost: fullscreen };
 let current = element;
 let positionedHost = null;
 let target = { mode: "viewport" };
 while (current) {
-if (current === document2.documentElement || current === document2.body) {
+if (isDocumentProjectionRoot(current, document2)) {
 target = { mode: "document" };
 break;
 }
@@ -704,37 +726,41 @@ const style = memoizedComputedStyle(current, styles);
 const coordinateSpaceIsSafe = elementCoordinateSpacePreservesCssPixels(style);
 const clipsReading = elementClipsDetachedReading(style);
 const scrollsIndependently = elementScrollsIndependently(current, style, context.overlay);
-if (!coordinateSpaceIsSafe || clipsReading && !scrollsIndependently) positionedHost = null;
+if (!projectionHostContextIsUsable(coordinateSpaceIsSafe, clipsReading, scrollsIndependently)) positionedHost = null;
 if (scrollsIndependently) {
-if (!(current instanceof HTMLElement)) break;
-if (!scrollLayerCoordinatesPreserveCssPixels(current, context)) break;
-if (elementCanMountProjectionLayer(current, style) && elementCreatesAbsoluteContainingBlock(style)) {
-target = {
-mode: "scroll",
-scrollLayerHost: current
-};
-} else if (positionedHost) {
-target = {
-mode: "scroll",
-scrollLayerHost: positionedHost
-};
-} else if (elementCanMountProjectionLayer(current, style) && scrollContainerSupportsFlowLayer(style)) {
-target = {
-mode: "scroll",
-scrollLayerHost: current,
-flowScrollContainer: true
-};
-}
+target = independentScrollProjectionTarget(current, style, positionedHost, context);
 break;
 }
-if (style.position === "fixed" || style.position === "sticky") break;
-if (coordinateSpaceIsSafe && !clipsReading && current instanceof HTMLElement && elementCanMountProjectionLayer(current, style) && elementCreatesAbsoluteContainingBlock(style)) {
-positionedHost = current;
-}
+if (VIEWPORT_ATTACHED_POSITIONS.has(style.position)) break;
+const candidate = positionedProjectionHost(current, style, coordinateSpaceIsSafe, clipsReading);
+if (candidate) positionedHost = candidate;
 current = composedParentElement$1(current);
 }
 cache2.set(element, target);
 return target;
+}
+function fullscreenProjectionHost(element) {
+const fullscreen = currentFullscreenElement(element.ownerDocument);
+return fullscreen instanceof HTMLElement && fullscreen.contains(element) ? fullscreen : null;
+}
+function isDocumentProjectionRoot(element, document2) {
+return element === document2.documentElement || element === document2.body;
+}
+function projectionHostContextIsUsable(safe, clips, scrolls) {
+return safe && (!clips || scrolls);
+}
+function positionedProjectionHost(element, style, safe, clips) {
+if (!safe || clips || !(element instanceof HTMLElement)) return null;
+if (!elementCanMountProjectionLayer(element, style) || !elementCreatesAbsoluteContainingBlock(style)) return null;
+return element;
+}
+function independentScrollProjectionTarget(current, style, positionedHost, context) {
+if (!(current instanceof HTMLElement) || !scrollLayerCoordinatesPreserveCssPixels(current, context)) return { mode: "viewport" };
+const canMount = elementCanMountProjectionLayer(current, style);
+if (canMount && elementCreatesAbsoluteContainingBlock(style)) return { mode: "scroll", scrollLayerHost: current };
+if (positionedHost) return { mode: "scroll", scrollLayerHost: positionedHost };
+if (canMount && scrollContainerSupportsFlowLayer(style)) return { mode: "scroll", scrollLayerHost: current, flowScrollContainer: true };
+return { mode: "viewport" };
 }
 function elementCreatesAbsoluteContainingBlock(style) {
 return Boolean(style.position && style.position !== "static");
@@ -850,7 +876,9 @@ overlay.refreshing = false;
 }
 function runProjectionRefreshPass(overlay, useSyncRects) {
 const syncedRects = overlay.pendingSyncRects;
+const nativeRects = overlay.pendingNativeRects;
 overlay.pendingSyncRects = /* @__PURE__ */ new Map();
+overlay.pendingNativeRects = /* @__PURE__ */ new Map();
 if (syncedRects.size) overlay.occlusionEpoch += 1;
 pruneDisconnectedRecords(overlay);
 overlay.hitTestBudgetRemaining = 12;
@@ -861,7 +889,7 @@ overlay.rootsDirty = false;
 }
 const context = {
 overlay,
-nativeRects: /* @__PURE__ */ new Map(),
+nativeRects: useSyncRects ? nativeRects : /* @__PURE__ */ new Map(),
 anchorPaint: /* @__PURE__ */ new Map(),
 elementPaint: /* @__PURE__ */ new Map(),
 occludingPaint: /* @__PURE__ */ new Map(),
@@ -1189,6 +1217,7 @@ surface: projectionRenderSurface(record2),
 // Resolved once per record: the control and its size decide the same
 // way at every probe point.
 chrome: ownChromeControl(record2.anchor, sourceRect),
+mediaBoundary: ownMediaReadingBoundary(record2.anchor, sourceRect),
 portalControl: ownPortalControl(record2, sourceRect),
 occludingPaint
 };
@@ -1252,22 +1281,29 @@ function controlIsOwnChromeSized(control, sourceRect) {
 return control.getBoundingClientRect().height <= sourceRect.height * OWN_CHROME_MAX_CONTROL_LINES;
 }
 function anchorOwnsTopmostPoint(probe, x2, y, allowPortalControlContent = false) {
-const { anchor, surface } = probe;
+const { anchor } = probe;
 const document2 = anchor.ownerDocument;
 if (typeof document2.elementsFromPoint !== "function") return true;
 for (const hit of document2.elementsFromPoint(x2, y)) {
 if (hit.closest(".jpdb-reader-detached-reading-overlay") || hit === document2.body || hit === document2.documentElement) continue;
 const deepest = deepestOpenShadowHit(hit, x2, y);
-if (composedContains(anchor, deepest) || composedContains(surface, deepest)) return true;
-if (composedContains(deepest, anchor) || composedContains(deepest, surface)) return true;
+if (pointBelongsToProjectionSource(deepest, probe)) return true;
 if (allowPortalControlContent && probe.portalControl && composedContains(probe.portalControl, deepest)) return true;
-for (let element = deepest; element; element = composedParentElement$1(element)) {
-if (composedContains(element, anchor) || composedContains(element, surface)) break;
-if (elementIsOwnControlChrome(element, probe)) continue;
-if (elementPaintsOccludingSurface(element, probe.occludingPaint)) return false;
-}
+if (allowPortalControlContent && pointTouchesOwnMediaBoundary(probe.mediaBoundary, deepest, x2, y)) continue;
+if (pointHasUnrelatedOccludingSurface(deepest, probe)) return false;
 }
 return true;
+}
+function pointBelongsToProjectionSource(hit, probe) {
+return [probe.anchor, probe.surface].some((source) => composedContains(source, hit) || composedContains(hit, source));
+}
+function pointHasUnrelatedOccludingSurface(deepest, probe) {
+for (let element = deepest; element; element = composedParentElement$1(element)) {
+if (composedContains(element, probe.anchor) || composedContains(element, probe.surface)) break;
+if (elementIsOwnControlChrome(element, probe)) continue;
+if (elementPaintsOccludingSurface(element, probe.occludingPaint)) return true;
+}
+return false;
 }
 function elementIsOwnControlChrome(element, probe) {
 const { chrome } = probe;
@@ -52705,18 +52741,18 @@ const widthValue = `${Math.round(width)}px`;
 const heightValue = `${Math.round(height)}px`;
 for (const element of stableYouTubePlayerVideoSizeTargets(video)) {
 rememberStableYouTubePlayerVideoSizeStyles(element);
-changed = setStableYouTubePlayerStyleIfChanged(element, "width", widthValue) || changed;
-changed = setStableYouTubePlayerStyleIfChanged(element, "height", heightValue) || changed;
-changed = setStableYouTubePlayerStyleIfChanged(element, "max-width", widthValue) || changed;
-changed = setStableYouTubePlayerStyleIfChanged(element, "max-height", heightValue) || changed;
-changed = setStableYouTubePlayerStyleIfChanged(element, "min-width", "0px") || changed;
-changed = setStableYouTubePlayerStyleIfChanged(element, "min-height", "0px") || changed;
-if (element.matches(".html5-video-container, video")) {
-changed = setStableYouTubePlayerStyleIfChanged(element, "left", "0px") || changed;
-changed = setStableYouTubePlayerStyleIfChanged(element, "top", "0px") || changed;
-}
-if (element instanceof HTMLVideoElement) {
-changed = setStableYouTubePlayerStyleIfChanged(element, "object-fit", "contain") || changed;
+const styles = {
+width: widthValue,
+height: heightValue,
+"max-width": widthValue,
+"max-height": heightValue,
+"min-width": "0px",
+"min-height": "0px"
+};
+if (element.matches(".html5-video-container, video")) Object.assign(styles, { left: "0px", top: "0px" });
+if (element instanceof HTMLVideoElement) styles["object-fit"] = "contain";
+for (const [property, value] of Object.entries(styles)) {
+changed = setStableYouTubePlayerStyleIfChanged(element, property, value) || changed;
 }
 }
 return changed;

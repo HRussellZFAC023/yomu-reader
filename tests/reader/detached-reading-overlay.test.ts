@@ -1,9 +1,9 @@
+import { syncFittedReadings as syncProjectedReadings, readingRect as rect } from './helpers/projected-reading-frame';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import {
     clearProjectedReadings,
     clearProjectedReadingsWithin,
-    syncProjectedReadings as scheduleProjectedReadings,
     withProjectedReadingBatch,
 } from '../../src/reader/dom/detached-reading-overlay-impl';
 import { collectTextTargetsIn } from '../../src/reader/dom';
@@ -11,18 +11,7 @@ import { unwrapReaderWords } from '../../src/reader/dom/reader-word';
 
 // These geometry cases inspect a completed fitted frame; standalone scheduling
 // is covered separately below rather than relying on an intermediate paint.
-function syncProjectedReadings(...args: Parameters<typeof scheduleProjectedReadings>): void {
-    withProjectedReadingBatch(args[0].ownerDocument, () => scheduleProjectedReadings(...args));
-}
 
-function rect(left = 20, top = 20, width = 40, height = 16): DOMRect {
-    return {
-        left, top, width, height,
-        right: left + width, bottom: top + height,
-        x: left, y: top,
-        toJSON: () => ({}),
-    } as DOMRect;
-}
 
 function readingOwner(text: string): {
     anchor: HTMLElement;

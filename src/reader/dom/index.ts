@@ -3766,13 +3766,14 @@ function rectsIntersect(left: DocumentAnnotationPortalClipBounds, right: Documen
 
 // Re-project every additive mirror after a settle signal (fonts, resize,
 // virtualized reflow). Reads always come from the live source ranges.
-// fallow-ignore-next-line complexity
 export function projectAdditiveTextMirrors(root: ParentNode = document): void {
     const sourceDocument = root instanceof Document ? root : (root as Node).ownerDocument;
     if (sourceDocument) withProjectedReadingBatch(sourceDocument, () => projectAdditiveTextMirrorBatch(root));
     else projectAdditiveTextMirrorBatch(root);
 }
 
+// Existing generic projection body retains its original complexity exemption.
+// fallow-ignore-next-line complexity
 function projectAdditiveTextMirrorBatch(root: ParentNode): void {
     const entries: Array<{ mirror: HTMLElement; host: HTMLElement }> = [];
     const mirrors = new Set(queryAllInAnnotationRoots(root, '.jpdb-reader-additive-text-mirror'));
@@ -5287,6 +5288,13 @@ function runMirrorTokenApply<T>(callback: () => T): T {
 // mirror down the moment it fires on an off-DOM host (the !liveHost.isConnected
 // branch), so a detached host never legitimately keeps its mirror to reattach.
 function sweepAndDrainTextMirrorObservers(): void {
+    visitLiveTextMirrorHosts((host, observer) => {
+        observer.takeRecords();
+        healStuckHiddenTextMirror(host);
+    });
+}
+
+function visitLiveTextMirrorHosts(visit: (host: HTMLElement, observer: MutationObserver) => void): void {
     for (const [observer, hostRef] of liveTextMirrorObservers) {
         const host = hostRef.deref();
         if (!host || !host.isConnected) {
@@ -5295,8 +5303,7 @@ function sweepAndDrainTextMirrorObservers(): void {
             if (host) removeTextMirror(host);
             continue;
         }
-        observer.takeRecords();
-        healStuckHiddenTextMirror(host);
+        visit(host, observer);
     }
 }
 
@@ -5321,17 +5328,10 @@ export function healTextMirrorPageVisibility(): void {
 }
 
 function healTextMirrorPageVisibilityBatch(): void {
-    for (const [observer, hostRef] of liveTextMirrorObservers) {
-        const host = hostRef.deref();
-        if (!host || !host.isConnected) {
-            liveTextMirrorObservers.delete(observer);
-            observer.disconnect();
-            if (host) removeTextMirror(host);
-            continue;
-        }
+    visitLiveTextMirrorHosts(host => {
         healStuckHiddenTextMirror(host);
         refreshConstrainedMirrorProjection(host);
-    }
+    });
 }
 
 // Frameworks can apply their clamp after the first scan. Refresh the generic

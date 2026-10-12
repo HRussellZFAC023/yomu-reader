@@ -14613,18 +14613,18 @@ function applyStableYouTubePlayerVideoSize(video, width, height) {
   const heightValue = `${Math.round(height)}px`;
   for (const element of stableYouTubePlayerVideoSizeTargets(video)) {
   rememberStableYouTubePlayerVideoSizeStyles(element);
-  changed = setStableYouTubePlayerStyleIfChanged(element, "width", widthValue) || changed;
-  changed = setStableYouTubePlayerStyleIfChanged(element, "height", heightValue) || changed;
-  changed = setStableYouTubePlayerStyleIfChanged(element, "max-width", widthValue) || changed;
-  changed = setStableYouTubePlayerStyleIfChanged(element, "max-height", heightValue) || changed;
-  changed = setStableYouTubePlayerStyleIfChanged(element, "min-width", "0px") || changed;
-  changed = setStableYouTubePlayerStyleIfChanged(element, "min-height", "0px") || changed;
-  if (element.matches(".html5-video-container, video")) {
-    changed = setStableYouTubePlayerStyleIfChanged(element, "left", "0px") || changed;
-    changed = setStableYouTubePlayerStyleIfChanged(element, "top", "0px") || changed;
-  }
-  if (element instanceof HTMLVideoElement) {
-    changed = setStableYouTubePlayerStyleIfChanged(element, "object-fit", "contain") || changed;
+  const styles = {
+    width: widthValue,
+    height: heightValue,
+    "max-width": widthValue,
+    "max-height": heightValue,
+    "min-width": "0px",
+    "min-height": "0px"
+  };
+  if (element.matches(".html5-video-container, video")) Object.assign(styles, { left: "0px", top: "0px" });
+  if (element instanceof HTMLVideoElement) styles["object-fit"] = "contain";
+  for (const [property, value] of Object.entries(styles)) {
+    changed = setStableYouTubePlayerStyleIfChanged(element, property, value) || changed;
   }
   }
   return changed;

@@ -1382,6 +1382,7 @@ function detachedReadingNeedsProjection(reading, target) {
     // occluded; only demand a clone once that lane reaches usable content.
     if (baseRect.top - readingFontSize < proofContentViewportTop() - 0.5) return false;
     if (readingCollidesWithAuthoredText(reading, target, baseRect, readingFontSize)) return false;
+    if (readingCannotFitBetweenPaintedNeighbors(reading, baseRect)) return false;
     const fragments = Array.from(word.querySelectorAll('.jpdb-reader-source-fragment'));
     if (fragments.length) return fragments.some(isProofContentViewportVisibleElement);
     return isProofContentViewportVisibleElement(word);
@@ -1406,6 +1407,33 @@ function readingCollidesWithAuthoredText(reading, target, base, height) {
         }
     }
     return false;
+}
+
+// Measure real font advances and neighboring paint independently. A missing
+// clone is waived only if readable kana cannot fit without overlapping an
+// already-painted reading or moving more than the documented 3px limit.
+// Hidden-clone state and production layout functions do not decide this oracle.
+function readingCannotFitBetweenPaintedNeighbors(reading, base) {
+    const style = getComputedStyle(reading);
+    const canvas = document.createElement('canvas').getContext('2d');
+    canvas.font = style.fontStyle + ' ' + style.fontWeight + ' ' + style.fontSize + ' ' + style.fontFamily;
+    const minimum = canvas.measureText(reading.textContent || '').width * 0.8;
+    const centre = (base.left + base.right) / 2;
+    let left = Number.NEGATIVE_INFINITY, right = Number.POSITIVE_INFINITY;
+    for (const clone of document.querySelectorAll('[data-yomu-projected-reading="true"]')) {
+        if (!isPaintedProjectedReading(clone)) continue;
+        const sourceTop = Number(clone.dataset.yomuSourceTop);
+        if (!Number.isFinite(sourceTop) || Math.abs(sourceTop - base.top) > 1) continue;
+        const sourceLeft = Number(clone.dataset.yomuSourceLeft);
+        const sourceWidth = Number(clone.dataset.yomuSourceWidth);
+        if (Math.abs(sourceLeft - base.left) <= 1 && Math.abs(sourceWidth - base.width) <= 1) continue;
+        const rect = clone.getBoundingClientRect();
+        if ((rect.left + rect.right) / 2 < centre) left = Math.max(left, rect.right);
+        else right = Math.min(right, rect.left);
+    }
+    if (minimum > right - left) return true;
+    const fittedCentre = Math.min(right - minimum / 2, Math.max(left + minimum / 2, centre));
+    return Math.abs(fittedCentre - centre) > 3;
 }
 
 function associateProjectedReadings(sources, target) {
@@ -1583,6 +1611,7 @@ function projectedReadingCandidateDetails(clone) {
     const style = getComputedStyle(clone);
     return {
         reading: clone.textContent || '',
+        hiddenReason: clone.dataset.yomuReadingHiddenReason || '',
         surface: clone.dataset.yomuExpression || '',
         rect: rectSnapshot(clone.getBoundingClientRect()),
         sourceStamp: {

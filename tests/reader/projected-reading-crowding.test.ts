@@ -1,16 +1,13 @@
+import { syncFittedReadings as syncProjectedReadings } from './helpers/projected-reading-frame';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import {
     clearProjectedReadings,
-    syncProjectedReadings as scheduleProjectedReadings,
     withProjectedReadingBatch,
 } from '../../src/reader/dom/detached-reading-overlay-impl';
 
 // These geometry cases inspect a completed fitted frame; standalone scheduling
 // is covered separately below rather than relying on an intermediate paint.
-function syncProjectedReadings(...args: Parameters<typeof scheduleProjectedReadings>): void {
-    withProjectedReadingBatch(args[0].ownerDocument, () => scheduleProjectedReadings(...args));
-}
 
 /**
  * A detached reading is painted over page-owned glyphs the reader may not

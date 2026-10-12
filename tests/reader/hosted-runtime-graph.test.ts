@@ -1,4 +1,5 @@
 import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { createHash } from 'node:crypto';
 import { createRequire } from 'node:module';
 import { runInNewContext } from 'node:vm';
@@ -70,7 +71,14 @@ function hostedWorkerHarness(scopePath: string, wrapperSource = '') {
     };
     const networkFetch = vi.fn(async (..._args: unknown[]) => new Response('network'));
     const importScripts = vi.fn();
-    runInNewContext(`${HOSTED_WORKER_RUNTIME}\n${wrapperSource}`, {
+    // The worker runs in a VM, outside Vite's transform hook. During coverage
+    // collection, instrument the exact saved worker and share the reporter map.
+    const coverage = (globalThis as typeof globalThis & { __VITEST_COVERAGE__?: Record<string, unknown> }).__VITEST_COVERAGE__;
+    const runtime = coverage
+        ? require('istanbul-lib-instrument').createInstrumenter({ coverageVariable: '__VITEST_COVERAGE__', coverageGlobalScope: 'globalThis', coverageGlobalScopeFunc: false }).instrumentSync(HOSTED_WORKER_RUNTIME, resolve('docs/public/hosted-reader-worker.js'))
+        : HOSTED_WORKER_RUNTIME;
+    runInNewContext(`${runtime}\n${wrapperSource}`, {
+        __VITEST_COVERAGE__: coverage,
         self: worker,
         caches: cacheStorage,
         fetch: networkFetch,
