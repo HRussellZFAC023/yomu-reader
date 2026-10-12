@@ -1,18 +1,12 @@
+import { syncFittedReadings as syncProjectedReadings, readingRect as rect } from './helpers/projected-reading-frame';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import {
     clearProjectedReadings,
-    syncProjectedReadings,
 } from '../../src/reader/dom/detached-reading-overlay-impl';
 
-function rect(left = 20, top = 20, width = 40, height = 16): DOMRect {
-    return {
-        left, top, width, height,
-        right: left + width, bottom: top + height,
-        x: left, y: top,
-        toJSON: () => ({}),
-    } as DOMRect;
-}
+// Inspect the completed paint; standalone frame scheduling has its own guard.
+
 
 function projectedReading(text: string): HTMLElement | undefined {
     return [...document.querySelectorAll<HTMLElement>('[data-yomu-projected-reading="true"]')]

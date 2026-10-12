@@ -40,6 +40,21 @@ afterEach(() => {
 });
 
 describe('subtitle runtime idle gating', () => {
+    it('does not probe native sheets for reader-only mutation batches', () => {
+        const { controller } = initController(makeSubtitleSettings());
+        attachVideo(controller);
+        const internals = controllerInternals<{
+            root: HTMLElement;
+            handleRuntimeMutations: (records: MutationRecord[]) => void;
+            syncYouTubeMobileBottomSheetState: () => void;
+        }>(controller);
+        const probe = vi.spyOn(internals, 'syncYouTubeMobileBottomSheetState');
+        const record = { target: internals.root, type: 'attributes', attributeName: 'class', addedNodes: [], removedNodes: [] } as unknown as MutationRecord;
+        for (let i = 0; i < 100; i++) internals.handleRuntimeMutations([record]);
+        expect(probe).not.toHaveBeenCalled();
+        internals.handleRuntimeMutations([{ ...record, target: document.body } as MutationRecord]);
+        expect(probe).toHaveBeenCalledOnce();
+    });
     it('keeps the initial surface hidden until a player is attached', () => {
         const { controller } = createInstalledSubtitleController({ subtitlePlayerEnabled: true });
         const internals = controllerInternals<{ root: HTMLElement }>(controller);
@@ -47,6 +62,8 @@ describe('subtitle runtime idle gating', () => {
         attachVideo(controller);
         controller.refresh();
         expect(internals.root.hidden).toBe(false);
+        controllerInternals<{ clearDiscoveredVideoCandidate(): void }>(controller).clearDiscoveredVideoCandidate();
+        expect(internals.root.hidden).toBe(true);
     });
     it('installs no observer and parks the tick when disabled with no video', () => {
         const { internals } = initController(makeSubtitleSettings({ subtitlePlayerEnabled: false }));

@@ -35,6 +35,10 @@ function notFoundResponse(): Response {
     return { ok: false, status: 404, text: async () => 'Not Found' } as Response;
 }
 
+it('keeps hidden subtitle surfaces out of the painted layout', () => {
+    expect(readFileSync('src/reader/styles/subtitles-youtube.css', 'utf8')).toMatch(/\.jpdb-subtitle-player\[hidden\]\s*\{\s*display:\s*none\s*!important;/u);
+});
+
 describe('reader stylesheet loading', () => {
     afterEach(() => {
         vi.unstubAllGlobals();

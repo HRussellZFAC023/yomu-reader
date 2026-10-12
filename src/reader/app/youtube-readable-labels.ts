@@ -1,7 +1,6 @@
 import { isYouTubeAppHostname } from './youtube-host';
 
-/** Visible navigation/filter labels, verified against the desktop/tablet DOM.
- * Player actions, inputs, icons and hidden tooltip copies are not label roots. */
+/** Visible label text; controls, inputs, icons and hidden tooltip copies stay native. */
 export const YOUTUBE_READABLE_LABEL_ROOTS = [
     '.ytChipShapeButtonReset[role="tab"]',
     'yt-chip-cloud-chip-renderer',
@@ -9,6 +8,10 @@ export const YOUTUBE_READABLE_LABEL_ROOTS = [
     'ytd-guide-collapsible-section-entry-renderer',
     'ytd-mini-guide-entry-renderer',
     'ytd-masthead #buttons .ytSpecButtonShapeNextButtonTextContent',
+    'ytd-watch-metadata .ytSpecButtonShapeNextButtonTextContent',
+    'ytd-watch-metadata .yt-spec-button-shape-next__button-text-content',
+    '.ytp-settings-menu .ytp-menuitem-label',
+    '.ytp-settings-menu .ytp-menuitem-content:not(:has(input))',
 ];
 
 const LABEL_SELECTOR = YOUTUBE_READABLE_LABEL_ROOTS.join(',');

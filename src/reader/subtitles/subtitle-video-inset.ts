@@ -1,9 +1,11 @@
 import { createWindowEvent, dispatchWindowEvent } from '../platform/window-events';
 import { isYouTubeAppHostname } from '../app/youtube-host';
 import { rectArea, setStylePropertyIfChanged } from './subtitle-surface';
+import { setClassState } from './subtitle-dom-state';
 
 export type SubtitleVideoInsetSide = 'left' | 'right' | 'bottom';
 export type SubtitleVideoInsetResizeEventMode = 'immediate' | 'none' | 'settled';
+export const YOUTUBE_FLUID_CONTROLS_CLASS = 'jpdb-subtitle-youtube-fluid-controls';
 
 export interface ApplySubtitleVideoInsetOptions {
     video?: HTMLVideoElement;
@@ -56,6 +58,7 @@ export class SubtitleVideoInsetAdapter {
         if (shouldPreserveYouTubeNativePlayerSize(options)) {
             return this.clear(options.video);
         }
+        if (isYouTubePage() && options.side !== 'bottom') setClassState(document.documentElement, YOUTUBE_FLUID_CONTROLS_CLASS, true);
         const metrics = videoInsetMetrics(options);
         if (metrics.signature === this.lastSignature) {
             rememberYouTubeVideoElementInsetBeforeResize(options.video, options.side);
@@ -599,23 +602,20 @@ export function resizeYouTubePlayerForSubtitleLayout(
 
 export function applyStableYouTubePlayerVideoSize(video: HTMLVideoElement | undefined, width: number, height: number): boolean {
     if (!isYouTubePage() || width <= 0 || height <= 0) return clearStableYouTubePlayerVideoSize();
+    setClassState(document.documentElement, YOUTUBE_FLUID_CONTROLS_CLASS, true);
     let changed = false;
     const widthValue = `${Math.round(width)}px`;
     const heightValue = `${Math.round(height)}px`;
     for (const element of stableYouTubePlayerVideoSizeTargets(video)) {
         rememberStableYouTubePlayerVideoSizeStyles(element);
-        changed = setStableYouTubePlayerStyleIfChanged(element, 'width', widthValue) || changed;
-        changed = setStableYouTubePlayerStyleIfChanged(element, 'height', heightValue) || changed;
-        changed = setStableYouTubePlayerStyleIfChanged(element, 'max-width', widthValue) || changed;
-        changed = setStableYouTubePlayerStyleIfChanged(element, 'max-height', heightValue) || changed;
-        changed = setStableYouTubePlayerStyleIfChanged(element, 'min-width', '0px') || changed;
-        changed = setStableYouTubePlayerStyleIfChanged(element, 'min-height', '0px') || changed;
-        if (element.matches('.html5-video-container, video')) {
-            changed = setStableYouTubePlayerStyleIfChanged(element, 'left', '0px') || changed;
-            changed = setStableYouTubePlayerStyleIfChanged(element, 'top', '0px') || changed;
-        }
-        if (element instanceof HTMLVideoElement) {
-            changed = setStableYouTubePlayerStyleIfChanged(element, 'object-fit', 'contain') || changed;
+        const styles: Partial<Record<YouTubeStablePlayerSizeProperty, string>> = {
+            width: widthValue, height: heightValue, 'max-width': widthValue, 'max-height': heightValue,
+            'min-width': '0px', 'min-height': '0px',
+        };
+        if (element.matches('.html5-video-container, video')) Object.assign(styles, { left: '0px', top: '0px' });
+        if (element instanceof HTMLVideoElement) styles['object-fit'] = 'contain';
+        for (const [property, value] of Object.entries(styles)) {
+            changed = setStableYouTubePlayerStyleIfChanged(element, property as YouTubeStablePlayerSizeProperty, value) || changed;
         }
     }
     return changed;

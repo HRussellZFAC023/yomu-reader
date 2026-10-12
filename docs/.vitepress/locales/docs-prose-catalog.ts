@@ -9,6 +9,17 @@ export interface ReviewedDocsMessage {
 }
 
 const HOSTED_DOCS_JA_COPY: Record<string, string> = {
+    "Subtitle controls hide when their video is removed. Offline PDF and video menus retain their close behavior, and incoming theme changes work when browser storage is unavailable.": "動画が取り除かれた場合は字幕操作を隠します。PDFと動画のメニューはオフラインでも閉じられ、ブラウザの保存領域を使えない場合も他の画面からのテーマ変更を反映します。",
+    "Neighboring readings are fitted together before they are painted, preventing one-frame flashes while page annotations refresh. Edge readings stay closer to their own words without narrowing the page text.": "隣り合うふりがなは、表示する前にまとめて配置を調整し、注釈の更新中に一瞬ちらつかないようにしました。本文の幅を変えず、端の読みも元の単語に近い位置を保ちます。",
+    "Playing from YouTube’s native controls dismisses a word lookup without toggling playback twice or re-pausing it.": "YouTubeの再生ボタンを押すと単語の検索画面を閉じ、再生を二重に切り替えたり、もう一度一時停止したりせずに再開します。",
+    "Hiding the subtitle overlay keeps native captions available, including when a transcript is open.": "字幕の重ね表示を隠しているときは、字幕一覧を開いていても動画側の字幕を表示できるようにしました。",
+    "YouTube’s seek bar follows the player width as the subtitle panel opens, expands and closes.": "字幕パネルを開く、広げる、閉じるときに、YouTubeのシークバーもプレーヤーの幅に合わせるようにしました。",
+    "The subtitle toolbar stays clear of the fullscreen video title.": "全画面の動画タイトルに字幕の操作欄が重ならないようにしました。",
+    "YouTube watch actions and settings-menu text receive passive annotations; their normal taps still work. Furigana in native fullscreen follows its source labels.": "YouTubeの動画操作と設定メニューの文字に、通常のタップ操作を保ったまま注釈を付けます。ブラウザの全画面表示でも、ふりがなを元の文字に合わせて表示します。",
+    "Small detached readings are larger and avoid heavy horizontal compression. Readings that cannot fit cleanly remain available in word lookup.": "小さな文字のふりがなを大きくし、横幅を強く縮めないようにしました。きれいに収まらない読みは、単語の検索画面で確認できます。",
+    "Subtitle housekeeping skips unchanged toolbar writes, native-control marks and checks triggered by its own rendering. Individual reading updates share one layout pass, and invisible readings cannot intercept taps.": "字幕の操作欄や動画操作の保護マークが変わっていない場合は書き直さず、字幕自身の描画による不要な確認処理も省くようにしました。ふりがなの個別更新は一度の配置処理にまとめ、見えない読みがタップを受け取らないようにしました。",
+    "Hiding the よむ subtitle overlay leaves YouTube’s native captions available. The native Play button resumes from a word lookup, and the seek bar follows the resized player.": "よむの字幕の重ね表示を隠しても、YouTube側の字幕は表示できます。動画の再生ボタンで単語の検索画面から再開でき、プレーヤーの幅を変えるとシークバーも追従します。",
+    "Furigana stays readable without changing the page’s font or spacing. Readings that cannot fit remain available in word lookup.": "ページの書体や文字間隔を変えずに、ふりがなを読みやすく表示します。収まらない読みは単語の検索画面で確認できます。",
     "Once the ready mark fades, tapping the same scanned image does not show it again.": "完了マークが消えた後は、同じ読み取り済みの画像をタップしても再表示しません。",
     "Tapping an already scanned image reuses its lookup text without restarting parsing or showing the faded ready dot again. A changed image can still show a new scan result.": "読み取り済みの画像をタップしても、解析をやり直したり、消えた完了マークを再表示したりせず、すでにある検索用の文字を使います。画像が変わった場合は、新しい読み取り結果を表示します。",
     "YouTube Shorts subtitle controls and the text-move handle hide while native comments or another mobile sheet is open, including inline fullscreen reels and sheets mounted outside the app root.": "YouTube Shortsでコメントなどのシートを開いている間は、字幕の操作欄と文字を動かすハンドルを隠すようにしました。インライン全画面の動画や、アプリの外側に表示されるシートにも対応します。",

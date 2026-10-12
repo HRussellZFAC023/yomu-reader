@@ -1,9 +1,13 @@
+import { syncFittedReadings as syncProjectedReadings } from './helpers/projected-reading-frame';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import {
     clearProjectedReadings,
-    syncProjectedReadings,
+    withProjectedReadingBatch,
 } from '../../src/reader/dom/detached-reading-overlay-impl';
+
+// These geometry cases inspect a completed fitted frame; standalone scheduling
+// is covered separately below rather than relying on an intermediate paint.
 
 /**
  * A detached reading is painted over page-owned glyphs the reader may not
@@ -124,20 +128,73 @@ describe('projected reading crowding', () => {
     // sides, so there is nowhere to shift it to and it has to be condensed.
     it('condenses a reading boxed in by annotated neighbours on both sides', () => {
         const { owner, readings } = lane([
-            { reading: 'しげ', rect: rect(100, 40, 14), fontSize: 6 },
-            { reading: 'からだ', rect: rect(114, 40, 14), fontSize: 6 },
-            { reading: 'ちゅうぶん', rect: rect(128, 40, 28), fontSize: 6 },
+            { reading: 'しげ', rect: rect(100, 40, 16), fontSize: 6 },
+            { reading: 'からだ', rect: rect(116, 40, 16), fontSize: 6 },
+            { reading: 'ちゅうぶん', rect: rect(132, 40, 28), fontSize: 6 },
         ]);
 
         const [first, middle, last] = readings.map(paintedSpan);
         expect(middle.scaleX).toBeLessThan(1);
         // Condensed exactly into its own base, and still centred on it.
-        expect(middle.right - middle.left).toBeLessThanOrEqual(14.01);
-        expect((middle.left + middle.right) / 2).toBeCloseTo(121, 5);
+        expect(middle.scaleX).toBeGreaterThanOrEqual(.8);
+        expect(middle.right - middle.left).toBeLessThanOrEqual(16.01);
+        expect((middle.left + middle.right) / 2).toBeCloseTo(124, 5);
         expect(middle.left).toBeGreaterThanOrEqual(first.right - 0.01);
         expect(last.left).toBeGreaterThanOrEqual(middle.right - 0.01);
 
         clearProjectedReadings(owner);
+    });
+
+    it('hides a boxed reading that would need unreadable compression and retains its source', () => {
+        const { owner, readings } = lane([
+            { reading:'しげる', rect:rect(100,40,14), fontSize:6 },
+            { reading:'からだ', rect:rect(114,40,14), fontSize:6 },
+            { reading:'ちゅうぶん', rect:rect(128,40,28), fontSize:6 },
+        ]);
+        expect(clone(readings[1].source).style.display).toBe('none');
+        expect(readings[1].source.isConnected).toBe(true);
+        expect(readings[1].source.textContent).toBe('からだ');
+        clearProjectedReadings(owner);
+    });
+
+    it('uses short-neighbor slack for a readable middle reading', () => {
+        const { owner, readings } = lane([
+            { reading:'しげ', rect:rect(100,40,14), fontSize:6 },
+            { reading:'からだ', rect:rect(114,40,14), fontSize:6 },
+            { reading:'ちゅうぶん', rect:rect(128,40,28), fontSize:6 },
+        ]);
+        const first = paintedSpan(readings[0]), middle = paintedSpan(readings[1]), last = paintedSpan(readings[2]);
+        expect(clone(readings[1].source).style.display).toBe('block');
+        expect(middle.scaleX).toBeGreaterThanOrEqual(.8);
+        expect(first.right).toBeLessThanOrEqual(middle.left);
+        expect(middle.right).toBeLessThanOrEqual(last.left);
+        expect(Math.abs((middle.left + middle.right) / 2 - 121)).toBeLessThanOrEqual(3);
+        clearProjectedReadings(owner);
+    });
+
+    it('fits neighbors from separate owners before publishing and keeps them fitted on re-sync', () => {
+        let first!: ReturnType<typeof lane>;
+        let second!: ReturnType<typeof lane>;
+        withProjectedReadingBatch(document, () => {
+            first=lane([{reading:'じかん',rect:rect(100,40,28)}]);
+            second=lane([{reading:'まえ',rect:rect(128,40,14)}]);
+            expect(clone(first.readings[0].source).style.visibility).toBe('hidden');
+        });
+        const assertFitted = () => {
+            const a=paintedSpan(first.readings[0]);
+            const b=paintedSpan(second.readings[0]);
+            expect(a.right).toBeLessThanOrEqual(b.left+.01);
+            expect(Math.abs((a.left+a.right)/2-114)).toBeLessThan(1.01);
+            expect(Math.abs((b.left+b.right)/2-135)).toBeLessThan(1.01);
+            expect(clone(first.readings[0].source).style.visibility).toBe('');
+        };
+        assertFitted();
+        for(let i=0;i<20;i++) {
+            syncProjectedReadings(first.owner,[{source:first.readings[0].source,anchor:first.owner.parentElement!,rect:rect(100,40,28),measure:()=>rect(100,40,28)}]);
+            assertFitted();
+        }
+        clearProjectedReadings(first.owner);
+        clearProjectedReadings(second.owner);
     });
 
     // Overhang is only limited by a NEIGHBOURING reading. A reading with room

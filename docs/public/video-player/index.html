@@ -939,7 +939,7 @@
       const runtimeCompanionAttribute = 'data-yomu-hosted-video-companion';
       const runtimeCompanionScripts = [
         // yomu:runtime-companions:start
-        'greasyfork/yomu-runtime.4bcf7480f160.user.js',
+        'greasyfork/yomu-runtime.c2fee11b6b9e.user.js',
         // yomu:runtime-companions:end
       ];
       const runtimeReadyTimeoutMs = 2600;
@@ -1037,7 +1037,8 @@
       function themePreference() {
         const settings = readSettings();
         if (Object.prototype.hasOwnProperty.call(settings, 'theme')) return normalizeTheme(settings.theme);
-        return normalizeTheme(localStorage.getItem(themeKey));
+        try { return normalizeTheme(localStorage.getItem(themeKey)); }
+        catch { return 'auto'; }
       }
 
       function effectiveTheme(preference = themePreference()) {
@@ -1074,8 +1075,10 @@
         const theme = themePreferenceFromEvent(event);
         if (theme) {
           if (event?.detail?.preview !== true) {
-            if (theme === 'auto') localStorage.removeItem(themeKey);
-            else localStorage.setItem(themeKey, theme);
+            try {
+              if (theme === 'auto') localStorage.removeItem(themeKey);
+              else localStorage.setItem(themeKey, theme);
+            } catch {}
           }
           applyTheme(theme);
         } else {
@@ -1083,7 +1086,6 @@
         }
         applyAccent();
       }
-
       applyTheme();
       applyInterfaceLanguage(effectiveInterfaceLanguage());
 

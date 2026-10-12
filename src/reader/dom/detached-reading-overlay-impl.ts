@@ -1,3 +1,7 @@
+import { ownMediaReadingBoundary, pointTouchesOwnMediaBoundary, type MediaReadingBoundary } from './reading-media-boundary';
+import { currentFullscreenElement } from '../core/fullscreen';
+import { syncProjectedReadingTypography } from './projected-reading-typography';
+import { fitReadingLane, type ReadingPlacement as ProjectionLayout } from './reading-lane-layout';
 // Runtime implementation. Product code reaches this through the annotations
 // companion facade in detached-reading-overlay.ts.
 import { ParkableObserver, parkableMutationObserver } from '../platform/page-activity';
@@ -51,18 +55,12 @@ interface ScrollProjectionLayer {
     flowAnchored: boolean;
 }
 
-/** Where a reading lands after crowding is resolved: viewport-space centre and
- * the horizontal condense factor needed to keep it off its neighbours. */
-interface ProjectionLayout {
-    centre: number;
-    scaleX: number;
-}
-
 interface ProjectionPaint {
     record: ProjectionRecord;
     rect: DOMRect | null;
     visible: boolean;
     layout?: ProjectionLayout;
+    blockedForSpace?: boolean;
 }
 
 /** A paint that will actually reach the page, so it competes for lane space. */
@@ -73,6 +71,8 @@ type ProjectionEnvironmentObserver = ParkableObserver<Node, MutationObserverInit
 type FrameScheduler = (callback: FrameRequestCallback) => number;
 
 interface DocumentOverlay {
+    pendingSyncRects: Map<ProjectionRecord, DOMRect>;
+    pendingNativeRects: Map<HTMLElement, readonly DOMRect[]>;
     layer: HTMLElement;
     documentLayer: HTMLElement;
     scrollLayers: Map<HTMLElement, ScrollProjectionLayer>;
@@ -137,16 +137,32 @@ interface ProjectionReadContext {
 }
 
 const overlays = new WeakMap<Document, DocumentOverlay>();
+const projectionBatchDepths = new WeakMap<Document, number>();
 const ownerRecords = new WeakMap<HTMLElement, Map<HTMLElement, ProjectionRecord>>();
 const PROJECTED_READING_ATTRIBUTE = 'data-yomu-projected-reading';
+const VIEWPORT_ATTACHED_POSITIONS = new Set(['fixed', 'sticky']);
 // Grace may bridge a measurement gap for a few frames, never longer: past this
 // age a missing rect means the word is gone, not mid-relayout.
 const PROJECTION_GRACE_MAX_AGE_MS = 250;
 // Beyond this the kana stop being readable. Keep an overfull reading available
 // in lookup instead of painting it on top of its neighbour.
-const PROJECTED_READING_MIN_SCALE_X = 0.55;
 // Stands in for an animation-frame handle while a pass waits on a microtask, so
 // further events coalesce into it exactly as they would into a frame.
+
+/** Publish one fitted page-wide reading frame at the end of a synchronous batch. */
+export function withProjectedReadingBatch<T>(document: Document, callback: () => T): T {
+    projectionBatchDepths.set(document, (projectionBatchDepths.get(document) ?? 0) + 1);
+    try { return callback(); }
+    finally {
+        const depth = (projectionBatchDepths.get(document) ?? 1) - 1;
+        if (depth) projectionBatchDepths.set(document, depth);
+        else {
+            projectionBatchDepths.delete(document);
+            const overlay = overlays.get(document);
+            if (overlay?.pendingSyncRects.size) refreshProjectedReadingPositions(overlay, true);
+        }
+    }
+}
 
 /**
  * Paint detached readings in reader-owned layers that share their source's
@@ -160,20 +176,8 @@ export function syncProjectedReadings(
 ): void {
     const document = owner.ownerDocument;
     const overlay = documentOverlay(document);
-    pruneDisconnectedRecords(overlay);
     const records = ownerRecords.get(owner) ?? new Map<HTMLElement, ProjectionRecord>();
     const currentSources = new Set(projections.map(projection => projection.source));
-    const context: ProjectionReadContext = {
-        overlay,
-        nativeRects: new Map(),
-        anchorPaint: new Map(),
-        elementPaint: new Map(),
-        occludingPaint: new Map(),
-        projectionLayers: new Map(),
-        layerOrigins: new Map(),
-        viewportCoordinateSafety: new Map(),
-        styleReads: new Map(),
-    };
 
     for (const [source, record] of records) {
         if (currentSources.has(source)) continue;
@@ -181,7 +185,6 @@ export function syncProjectedReadings(
         records.delete(source);
     }
 
-    const paints: ProjectionPaint[] = [];
     for (const projection of projections) {
         let record = records.get(projection.source);
         if (!record) {
@@ -207,20 +210,16 @@ export function syncProjectedReadings(
             trackProjectionAnchor(record, overlay);
         }
         record.measure = projection.measure;
-        if (projection.nativeRects) context.nativeRects.set(projection.anchor, projection.nativeRects);
+        if (projection.nativeRects) overlay.pendingNativeRects.set(projection.anchor, projection.nativeRects);
         refreshProjectionAnchorRoot(record.anchor, overlay);
         syncProjectedReadingStyle(record);
-        adoptProjectionLayer(record, context);
-        paints.push(readProjectedReadingPaint(record, projection.rect, context));
+        overlay.pendingSyncRects.set(record, projection.rect);
     }
-    // Crowding is a property of the WHOLE batch, so no clone may be written
-    // before every rect in it has been read.
-    applyProjectionPaints(paints, context);
-
     if (records.size) ownerRecords.set(owner, records);
     else ownerRecords.delete(owner);
-    pruneDisconnectedRecords(overlay);
-    overlay.occlusionEpoch += 1;
+    // Standalone updates keep their last fitted paint until the coalesced
+    // frame; new clones stay hidden. Only an explicit complete batch flushes
+    // synchronously, so individual callers cannot force one page pass per word.
     // Annotation can appear inside an already-open shadow root that the
     // document MutationObserver cannot see. One coalesced refresh after sync
     // lets the new foreground surface immediately occlude older projections.
@@ -311,7 +310,7 @@ export function projectedReadingWordAtPoint(
 /** The band a clone actually paints, or null when it is not painting at all. */
 function projectedReadingPaintedRect(record: ProjectionRecord): DOMRect | null {
     const { clone } = record;
-    if (!clone.isConnected) return null;
+    if (!clone.isConnected || clone.style.display === 'none' || clone.style.visibility === 'hidden') return null;
     const rect = clone.getBoundingClientRect();
     return validRect(rect) ? rect : null;
 }
@@ -349,6 +348,8 @@ function documentOverlay(document: Document): DocumentOverlay {
     );
 
     const overlay: DocumentOverlay = {
+        pendingSyncRects: new Map(),
+        pendingNativeRects: new Map(),
         layer,
         documentLayer,
         scrollLayers: new Map(),
@@ -397,6 +398,7 @@ function documentOverlay(document: Document): DocumentOverlay {
     document.addEventListener('pointerout', overlay.scheduleRefresh, { capture: true, passive: true });
     document.addEventListener('focusin', overlay.scheduleRefresh, { capture: true, passive: true });
     document.addEventListener('focusout', overlay.scheduleRefresh, { capture: true, passive: true });
+    for (const event of ['fullscreenchange', 'webkitfullscreenchange']) document.addEventListener(event, overlay.scheduleTopologyRefresh, { passive:true });
     const viewport = document.defaultView;
     // A resize can make an inner box start or stop scrolling, so it has to
     // re-decide scroll contexts rather than just re-measure.
@@ -505,36 +507,20 @@ function createProjectedReading(
     clone.textContent = source.textContent ?? '';
     // Keep the projection paint contract intact when the clone is adopted by
     // a scroller inside a shadow root, beyond document stylesheet reach.
-    clone.style.cssText = 'all:initial!important;display:block!important;width:max-content!important;line-height:1!important;white-space:nowrap!important;word-break:keep-all!important;-webkit-text-fill-color:currentColor!important;pointer-events:none!important;user-select:none!important;-webkit-user-select:none!important';
+    clone.style.cssText = 'all:initial!important;display:block!important;visibility:hidden!important;width:max-content!important;line-height:1!important;white-space:nowrap!important;word-break:keep-all!important;-webkit-text-fill-color:currentColor!important;pointer-events:none!important;user-select:none!important;-webkit-user-select:none!important';
     layer.append(clone);
     return clone;
 }
 
 function syncProjectedReadingStyle(record: ProjectionRecord): void {
-    const { clone, source } = record;
-    const sourceStyle = safeComputedStyle(source);
-    const base = source.closest<HTMLElement>('.jpdb-reader-word') ?? source;
-    const baseStyle = safeComputedStyle(base);
-    const text = source.textContent ?? '';
-    if (clone.textContent !== text) clone.textContent = text;
-    const expression = base.dataset.expression ?? base.dataset.surface ?? '';
-    if (clone.dataset.yomuExpression !== expression) clone.dataset.yomuExpression = expression;
-    setImportantStyleIfChanged(clone, 'font-family', sourceStyle.fontFamily || baseStyle.fontFamily);
-    setImportantStyleIfChanged(clone, 'font-size', sourceStyle.fontSize || '10px');
-    setImportantStyleIfChanged(clone, 'font-style', sourceStyle.fontStyle || baseStyle.fontStyle);
-    setImportantStyleIfChanged(clone, 'font-weight', sourceStyle.fontWeight || '400');
-    setImportantStyleIfChanged(clone, 'letter-spacing', sourceStyle.letterSpacing || baseStyle.letterSpacing);
-    // The source reading resolves the page's one reading colour
-    // (--jpdb-reader-furi-color), so a projected reading over a link matches
-    // every in-flow reading instead of taking the link's colour.
-    setImportantStyleIfChanged(clone, 'color', sourceStyle.color || baseStyle.color || 'currentColor');
-    setImportantStyleIfChanged(clone, 'text-shadow', baseStyle.textShadow || 'none');
-    // Only the kana and their size decide how wide the reading wants to be, so
-    // the measured natural width survives every other repaint.
-    const key = `${clone.textContent ?? ''}\u0000${clone.style.getPropertyValue('font-size')}`;
+    const key = syncProjectedReadingTypography(record.source, record.clone, safeComputedStyle);
     if (record.naturalReadingKey !== key) {
         record.naturalReadingKey = key;
         record.naturalReadingWidth = undefined;
+        if (record.clone.style.display === 'none') {
+            setImportantStyleIfChanged(record.clone, 'visibility', 'hidden');
+            setImportantStyleIfChanged(record.clone, 'display', 'block');
+        }
     }
 }
 
@@ -620,9 +606,11 @@ function applyProjectionPaints(paints: readonly ProjectionPaint[], context?: Pro
 
 function applyProjectedReadingPaint(paint: ProjectionPaint, context?: ProjectionReadContext): void {
     if (!paint.visible || !paint.rect) {
+        setDatasetIfChanged(paint.record.clone, 'yomuReadingHiddenReason', paint.blockedForSpace ? 'spacing' : 'visibility');
         setImportantStyleIfChanged(paint.record.clone, 'display', 'none');
         return;
     }
+    setDatasetIfChanged(paint.record.clone, 'yomuReadingHiddenReason', '');
     positionProjectedReading(paint.record, paint.rect, context, paint.layout);
 }
 
@@ -638,6 +626,7 @@ function positionProjectedReading(
     const scaleX = layout?.scaleX ?? 1;
     record.readingScaleX = scaleX;
     setImportantStyleIfChanged(clone, 'display', 'block');
+    clone.style.removeProperty('visibility');
     setImportantStyleIfChanged(clone, 'left', stableCssPixels(centre + origin.x));
     setImportantStyleIfChanged(clone, 'top', stableCssPixels(rect.top + origin.y));
     setImportantStyleIfChanged(clone, 'right', 'auto');
@@ -685,17 +674,22 @@ function resolveProjectedReadingCrowding(paints: readonly ProjectionPaint[], con
         fitProjectedReadingLane(lane);
         for (const paint of lane) {
             if (!paint.visible) continue;
-            const anchor = paint.record.anchor;
-            let rects = nativeRects.get(anchor);
-            if (!rects) { rects = nativeTextRects(anchor); nativeRects.set(anchor, rects); }
-            const height = paint.record.footprintHeight || paint.rect.height / 2;
-            const width = naturalReadingWidth(paint.record) * (paint.layout?.scaleX ?? 1);
-            const centre = paint.layout?.centre ?? readingAnchorCentre(paint);
-            if (readingOverlapsPreviousLine(paint.rect, rects, centre, width, height)) {
+            if (projectionOverlapsAuthoredLine(paint, nativeRects)) {
+                paint.blockedForSpace = true;
                 paint.visible = false;
             }
         }
     }
+}
+
+function projectionOverlapsAuthoredLine(paint: PlacedProjectionPaint, nativeRects: Map<HTMLElement, readonly DOMRect[]>): boolean {
+    const { record, rect, layout } = paint;
+    let rects = nativeRects.get(record.anchor);
+    if (!rects) { rects = nativeTextRects(record.anchor); nativeRects.set(record.anchor, rects); }
+    const height = record.footprintHeight || rect.height / 2;
+    const width = naturalReadingWidth(record) * (layout?.scaleX ?? 1);
+    const centre = layout?.centre ?? readingAnchorCentre(paint);
+    return readingOverlapsPreviousLine(rect, rects, centre, width, height);
 }
 
 function isPlacedProjectionPaint(paint: ProjectionPaint): paint is PlacedProjectionPaint {
@@ -725,32 +719,15 @@ function projectedReadingLanes(paints: readonly PlacedProjectionPaint[]): Placed
 function fitProjectedReadingLane(lane: PlacedProjectionPaint[]): void {
     if (lane.length < 2) return;
     lane.sort((first, second) => readingAnchorCentre(first) - readingAnchorCentre(second));
-    for (const [index, paint] of lane.entries()) {
-        const previous = lane[index - 1]?.rect;
-        const next = lane[index + 1]?.rect;
-        paint.layout = fitReadingBetween(
-            readingAnchorCentre(paint),
-            naturalReadingWidth(paint.record),
-            previous ? (previous.right + paint.rect.left) / 2 : Number.NEGATIVE_INFINITY,
-            next ? (paint.rect.right + next.left) / 2 : Number.POSITIVE_INFINITY,
-        );
-        if (paint.layout.scaleX === 0) paint.visible = false;
-    }
+    const placements = fitReadingLane(lane.map(paint => ({ left:paint.rect.left, right:paint.rect.right, width:naturalReadingWidth(paint.record) })));
+    lane.forEach((paint, index) => {
+        paint.layout = placements[index];
+        if (paint.layout.scaleX === 0) { paint.blockedForSpace = true; paint.visible = false; }
+    });
 }
 
 function readingAnchorCentre(paint: PlacedProjectionPaint): number {
     return paint.rect.left + paint.rect.width / 2;
-}
-
-function fitReadingBetween(centre: number, width: number, left: number, right: number): ProjectionLayout {
-    if (!(width > 0)) return { centre, scaleX: 1 };
-    const available = right - left;
-    const scaleX = available >= width ? 1 : Math.max(PROJECTED_READING_MIN_SCALE_X, available / width);
-    const painted = width * scaleX;
-    if (painted > available) return { centre, scaleX: 0 };
-    if (centre - painted / 2 < left) return { centre: left + painted / 2, scaleX };
-    if (centre + painted / 2 > right) return { centre: right - painted / 2, scaleX };
-    return { centre, scaleX };
 }
 
 /**
@@ -918,6 +895,10 @@ function projectionLayerTarget(element: Element, context: ProjectionReadContext)
     const document = element.ownerDocument;
     const view = document.defaultView;
     if (!view) return { mode: 'viewport' };
+    // Body-owned paint is behind the native fullscreen top layer. Reuse the
+    // local containing-block lane so these readings paint with their labels.
+    const fullscreen = fullscreenProjectionHost(element);
+    if (fullscreen) return { mode: 'scroll', scrollLayerHost: fullscreen };
 
     let current: Element | null = element;
     // Prefer the outermost safe containing block within the nearest scroller.
@@ -927,7 +908,7 @@ function projectionLayerTarget(element: Element, context: ProjectionReadContext)
     let positionedHost: HTMLElement | null = null;
     let target: ProjectionLayerTarget = { mode: 'viewport' };
     while (current) {
-        if (current === document.documentElement || current === document.body) {
+        if (isDocumentProjectionRoot(current, document)) {
             target = { mode: 'document' };
             break;
         }
@@ -939,43 +920,46 @@ function projectionLayerTarget(element: Element, context: ProjectionReadContext)
         const coordinateSpaceIsSafe = elementCoordinateSpacePreservesCssPixels(style);
         const clipsReading = elementClipsDetachedReading(style);
         const scrollsIndependently = elementScrollsIndependently(current, style, context.overlay);
-        if (!coordinateSpaceIsSafe || (clipsReading && !scrollsIndependently)) positionedHost = null;
+        if (!projectionHostContextIsUsable(coordinateSpaceIsSafe, clipsReading, scrollsIndependently)) positionedHost = null;
         if (scrollsIndependently) {
-            if (!(current instanceof HTMLElement)) break;
-            if (!scrollLayerCoordinatesPreserveCssPixels(current, context)) break;
-            if (elementCanMountProjectionLayer(current, style)
-                && elementCreatesAbsoluteContainingBlock(style)) {
-                target = {
-                    mode: 'scroll',
-                    scrollLayerHost: current,
-                };
-            } else if (positionedHost) {
-                target = {
-                    mode: 'scroll',
-                    scrollLayerHost: positionedHost,
-                };
-            } else if (elementCanMountProjectionLayer(current, style)
-                && scrollContainerSupportsFlowLayer(style)) {
-                target = {
-                    mode: 'scroll',
-                    scrollLayerHost: current,
-                    flowScrollContainer: true,
-                };
-            }
+            target = independentScrollProjectionTarget(current, style, positionedHost, context);
             break;
         }
-        if (style.position === 'fixed' || style.position === 'sticky') break;
-        if (coordinateSpaceIsSafe
-            && !clipsReading
-            && current instanceof HTMLElement
-            && elementCanMountProjectionLayer(current, style)
-            && elementCreatesAbsoluteContainingBlock(style)) {
-            positionedHost = current;
-        }
+        if (VIEWPORT_ATTACHED_POSITIONS.has(style.position)) break;
+        const candidate = positionedProjectionHost(current, style, coordinateSpaceIsSafe, clipsReading);
+        if (candidate) positionedHost = candidate;
         current = composedParentElement(current);
     }
     cache.set(element, target);
     return target;
+}
+
+function fullscreenProjectionHost(element: Element): HTMLElement | null {
+    const fullscreen = currentFullscreenElement(element.ownerDocument);
+    return fullscreen instanceof HTMLElement && fullscreen.contains(element) ? fullscreen : null;
+}
+
+function isDocumentProjectionRoot(element: Element, document: Document): boolean {
+    return element === document.documentElement || element === document.body;
+}
+
+function projectionHostContextIsUsable(safe: boolean, clips: boolean, scrolls: boolean): boolean {
+    return safe && (!clips || scrolls);
+}
+
+function positionedProjectionHost(element: Element, style: CSSStyleDeclaration, safe: boolean, clips: boolean): HTMLElement | null {
+    if (!safe || clips || !(element instanceof HTMLElement)) return null;
+    if (!elementCanMountProjectionLayer(element, style) || !elementCreatesAbsoluteContainingBlock(style)) return null;
+    return element;
+}
+
+function independentScrollProjectionTarget(current: Element, style: CSSStyleDeclaration, positionedHost: HTMLElement | null, context: ProjectionReadContext): ProjectionLayerTarget {
+    if (!(current instanceof HTMLElement) || !scrollLayerCoordinatesPreserveCssPixels(current, context)) return { mode: 'viewport' };
+    const canMount = elementCanMountProjectionLayer(current, style);
+    if (canMount && elementCreatesAbsoluteContainingBlock(style)) return { mode: 'scroll', scrollLayerHost: current };
+    if (positionedHost) return { mode: 'scroll', scrollLayerHost: positionedHost };
+    if (canMount && scrollContainerSupportsFlowLayer(style)) return { mode: 'scroll', scrollLayerHost: current, flowScrollContainer: true };
+    return { mode: 'viewport' };
 }
 
 function elementCreatesAbsoluteContainingBlock(style: CSSStyleDeclaration): boolean {
@@ -1164,16 +1148,21 @@ function scheduleFramelessProjectionRefresh(view: Window | null | undefined, ove
     });
 }
 
-function refreshProjectedReadingPositions(overlay: DocumentOverlay): void {
+function refreshProjectedReadingPositions(overlay: DocumentOverlay, useSyncRects = false): void {
     overlay.refreshing = true;
     try {
-        runProjectionRefreshPass(overlay);
+        runProjectionRefreshPass(overlay, useSyncRects);
     } finally {
         overlay.refreshing = false;
     }
 }
 
-function runProjectionRefreshPass(overlay: DocumentOverlay): void {
+function runProjectionRefreshPass(overlay: DocumentOverlay, useSyncRects: boolean): void {
+    const syncedRects = overlay.pendingSyncRects;
+    const nativeRects = overlay.pendingNativeRects;
+    overlay.pendingSyncRects = new Map();
+    overlay.pendingNativeRects = new Map();
+    if (syncedRects.size) overlay.occlusionEpoch += 1;
     pruneDisconnectedRecords(overlay);
     overlay.hitTestBudgetRemaining = 12;
     // A queued pass is itself the chance to drain prior deferred work. Only a
@@ -1192,7 +1181,7 @@ function runProjectionRefreshPass(overlay: DocumentOverlay): void {
     // a scroll frame cannot alternate forced layout and style invalidation.
     const context: ProjectionReadContext = {
         overlay,
-        nativeRects: new Map(),
+        nativeRects: useSyncRects ? nativeRects : new Map(),
         anchorPaint: new Map(),
         elementPaint: new Map(),
         occludingPaint: new Map(),
@@ -1210,11 +1199,12 @@ function runProjectionRefreshPass(overlay: DocumentOverlay): void {
     // Layer migration/repair is a write phase. Finish it for the whole batch
     // before measuring any source or clone geometry below.
     records.forEach(record => adoptProjectionLayer(record, context));
+    records.forEach(naturalReadingWidth);
     const paints = records.map(record => {
         if (!visibleAnchor(record.anchor, context)) {
             return { record, rect: null, visible: false };
         }
-        return readProjectedReadingPaint(record, safeMeasure(record), context);
+        return readProjectedReadingPaint(record, (useSyncRects ? syncedRects.get(record) : undefined) ?? safeMeasure(record), context);
     });
     applyProjectionPaints(paints, context);
     // A pass that consumed grace owes the follow-up pass that retires it; the
@@ -1613,6 +1603,7 @@ function projectionIsTopmost(
         // Resolved once per record: the control and its size decide the same
         // way at every probe point.
         chrome: ownChromeControl(record.anchor, sourceRect),
+        mediaBoundary: ownMediaReadingBoundary(record.anchor, sourceRect),
         portalControl: ownPortalControl(record, sourceRect),
         occludingPaint,
     };
@@ -1665,6 +1656,7 @@ interface OcclusionProbe {
     anchor: HTMLElement;
     surface: Element;
     chrome: Element | null;
+    mediaBoundary?: MediaReadingBoundary;
     portalControl: Element | null;
     occludingPaint: Map<Element, boolean>;
 }
@@ -1728,7 +1720,7 @@ function anchorOwnsTopmostPoint(
     y: number,
     allowPortalControlContent = false,
 ): boolean {
-    const { anchor, surface } = probe;
+    const { anchor } = probe;
     const document = anchor.ownerDocument;
     if (typeof document.elementsFromPoint !== 'function') return true;
     for (const hit of document.elementsFromPoint(x, y)) {
@@ -1736,18 +1728,27 @@ function anchorOwnsTopmostPoint(
             || hit === document.body
             || hit === document.documentElement) continue;
         const deepest = deepestOpenShadowHit(hit, x, y);
-        if (composedContains(anchor, deepest) || composedContains(surface, deepest)) return true;
-        if (composedContains(deepest, anchor) || composedContains(deepest, surface)) return true;
+        if (pointBelongsToProjectionSource(deepest, probe)) return true;
         if (allowPortalControlContent
             && probe.portalControl
             && composedContains(probe.portalControl, deepest)) return true;
-        for (let element: Element | null = deepest; element; element = composedParentElement(element)) {
-            if (composedContains(element, anchor) || composedContains(element, surface)) break;
-            if (elementIsOwnControlChrome(element, probe)) continue;
-            if (elementPaintsOccludingSurface(element, probe.occludingPaint)) return false;
-        }
+        if (allowPortalControlContent && pointTouchesOwnMediaBoundary(probe.mediaBoundary, deepest, x, y)) continue;
+        if (pointHasUnrelatedOccludingSurface(deepest, probe)) return false;
     }
     return true;
+}
+
+function pointBelongsToProjectionSource(hit: Element, probe: OcclusionProbe): boolean {
+    return [probe.anchor, probe.surface].some(source => composedContains(source, hit) || composedContains(hit, source));
+}
+
+function pointHasUnrelatedOccludingSurface(deepest: Element, probe: OcclusionProbe): boolean {
+    for (let element: Element | null = deepest; element; element = composedParentElement(element)) {
+        if (composedContains(element, probe.anchor) || composedContains(element, probe.surface)) break;
+        if (elementIsOwnControlChrome(element, probe)) continue;
+        if (elementPaintsOccludingSurface(element, probe.occludingPaint)) return true;
+    }
+    return false;
 }
 
 /**

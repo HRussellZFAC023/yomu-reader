@@ -179,6 +179,14 @@ export async function closeSmokeBrowserAndServer(browser, server) {
     await closeServer(server);
 }
 
+/** Consistent touch viewport and page-error capture for native-control fixtures. */
+export async function newTouchSmokePage(browser, viewport, onError) {
+    const page = await browser.newPage({ viewport, hasTouch: true });
+    const errors = [];
+    page.on('pageerror', error => { errors.push(error.message); onError?.(error); });
+    return { page, errors };
+}
+
 export async function newAutoClosingPage(browser, contextOptions) {
     const context = await browser.newContext(contextOptions);
     await maskAutomationSignals(context);

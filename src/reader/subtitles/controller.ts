@@ -1,3 +1,4 @@
+import { nativePlayerControlRects, subtitleRailReservedRects, syncSubtitleNativeControlHitProtection } from './subtitle-native-control-geometry';
 import { hasOpenYouTubeMobileBottomSheet } from './youtube-mobile-sheet';
 import { currentFullscreenElement } from '../core/fullscreen';
 import { READER_ROOT_SELECTOR } from '../dom/constants';
@@ -31,6 +32,7 @@ import { setClassState, shouldHonorExplicitYouTubeSideLayout, shouldPreservePlai
 import { collectPageSubtitleSources, normalizedSubtitleUrl, sameSubtitleUrl, type PageSubtitleSource } from './subtitle-sources';
 import {
     applyStableYouTubePlayerVideoSize,
+    YOUTUBE_FLUID_CONTROLS_CLASS,
     clearStableYouTubePlayerVideoSize,
     createSubtitleVideoInsetAdapter,
     isYouTubeShortsLikePlayer,
@@ -108,7 +110,6 @@ import {
     subtitleSourceContextKey,
 } from './subtitle-player-context';
 import {
-    SUBTITLE_SECONDARY_CLASS,
     TOGGLE_NATIVE_BLUR_ACTION,
     reconcileSubtitlePrimaryRow,
     reconcileSubtitleSecondaryLine,
@@ -283,12 +284,9 @@ const ASBPLAYER_SUBTITLE_DRAG_CLASSES = [
 ] as const;
 const YOUTUBE_MOBILE_BOTTOM_SHEET_OPEN_CLASS = 'jpdb-subtitle-yt-sheet-open';
 const NATIVE_FULLSCREEN_CUE_TRACK_LABEL = 'Yomu';
-const SUBTITLE_NATIVE_CONTROL_SAFE_ZONE_ATTRIBUTE = 'data-jpdb-subtitle-native-control-safe-zone';
 const SUBTITLE_ANNOTATIONS_PAUSED_CLASS = 'jpdb-subtitle-annotations-paused';
 // Everything inside the click-through overlay that opts back into pointer
 // events, and so has to stand down over a native player control.
-const SUBTITLE_HIT_TESTED_OVERLAY_SELECTOR = `.jpdb-subtitle-primary,.jpdb-subtitle-primary .jpdb-reader-word,.${SUBTITLE_SECONDARY_CLASS},.${SUBTITLE_SECONDARY_CLASS} .jpdb-reader-word`;
-const NATIVE_PLAYER_CONTROL_SELECTOR = 'button,[role="button"],a[href],[tabindex]:not([tabindex="-1"])';
 const NATIVE_SUBTITLE_BLUR_CONTROL_SELECTOR = `[data-action="${TOGGLE_NATIVE_BLUR_ACTION}"]`;
 // A drawer control under a finger must survive until its tap is delivered, but
 // a stuck press must not freeze the drawer: past this the finger is resting,
@@ -387,25 +385,6 @@ function subtitleSecondaryFontSize(target: number): number {
 
 function pointInRect(x: number, y: number, rect: DOMRect): boolean {
     return x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom;
-}
-
-function rectsOverlap(first: DOMRect, second: DOMRect): boolean {
-    return first.right > second.left
-        && second.right > first.left
-        && first.bottom > second.top
-        && second.bottom > first.top;
-}
-
-function nativePlayerControlIsInteractive(control: HTMLElement): boolean {
-    if (control.hidden
-        || control.getAttribute('aria-hidden') === 'true'
-        || control.getAttribute('aria-disabled') === 'true'
-        || control.matches(':disabled')) return false;
-    const style = getComputedStyle(control);
-    return style.display !== 'none'
-        && style.visibility !== 'hidden'
-        && style.pointerEvents !== 'none'
-        && Number.parseFloat(style.opacity || '1') > .01;
 }
 
 // Position + size signature of the video's on-screen box, rounded so sub-pixel
@@ -1101,12 +1080,12 @@ export class SubtitlePlayerController {
             if (mutations.some(mutationCouldAffectVideoDiscovery)) this.scheduleDiscoverVideo();
             return;
         }
-        this.syncYouTubeMobileBottomSheetState();
         // Reader-root-only batches (Yomu's own overlay re-renders, the most
         // common kind during playback) cannot change fullscreen state: the
         // inline-fullscreen marker lives on the video-player host outside the
         // reader root. Bail before the per-mutation fullscreen walk.
         if (mutations.every(mutationInsideReaderRoot)) return;
+        this.syncYouTubeMobileBottomSheetState();
         if (mutations.some(mutation => this.mutationCouldAffectFullscreenState(mutation))) {
             this.fullscreenHost.invalidateHostCache();
             this.syncFullscreenState();
@@ -1162,6 +1141,7 @@ export class SubtitlePlayerController {
         this.abortController?.abort();
         this.abortController = undefined;
         this.releaseNativeCaptionOwnership();
+        document.documentElement.classList.remove(YOUTUBE_FLUID_CONTROLS_CLASS);
         this.observer?.disconnect();
         this.observer = undefined;
         this.observerMode = 'off';
@@ -1404,7 +1384,7 @@ export class SubtitlePlayerController {
             surface.root,
             () => this.showControlsTemporarily({ independentOfPlayerChrome: true }),
             {
-                getReservedRects: () => this.nativePlayerControlSafeZones(),
+                getReservedRects: () => this.subtitleRailReservedRects(),
                 onPositionChange: () => {
                     if (this.subtitleStylePanelOpen) this.syncSubtitleStyleControls();
                 },
@@ -1543,6 +1523,7 @@ export class SubtitlePlayerController {
         this.setNativeTrackModes();
         this.render();
         this.syncControls();
+        this.syncRootVisibility(this.options.getSettings());
         // Losing the video drops the observer back to discovery/off mode.
         if (this.runtimeSignalsInitialized) this.syncRuntimeSignals();
     }
@@ -2146,7 +2127,6 @@ export class SubtitlePlayerController {
         this.syncPlayerChromeIdleState();
         this.syncNativeControlsInset();
         this.syncNativePlayerControlHitProtection();
-        this.subtitleControlRail?.syncPosition();
         this.syncAsbPlayerSubtitleMoveHandles(settings);
         if (settings.subtitleKaraokeMode && cueHasExactWordTimings(this.currentCue)) this.render();
         if (this.shouldUpdateFromDomCaptions()) this.updateFromDomCaptions();
@@ -2156,7 +2136,7 @@ export class SubtitlePlayerController {
         setClassState(
             document.documentElement,
             YOUTUBE_MOBILE_BOTTOM_SHEET_OPEN_CLASS,
-            hasOpenYouTubeMobileBottomSheet(),
+            isYouTubePage() && hasOpenYouTubeMobileBottomSheet(),
         );
     }
 
@@ -2408,7 +2388,6 @@ export class SubtitlePlayerController {
         this.positionTranscriptPanel({ realignAfterInset: true });
         this.syncSubtitleTextSize();
         this.syncNativePlayerControlHitProtection();
-        this.subtitleControlRail?.syncPosition();
     }
 
     private updateFromLoadedCues(): void {
@@ -4531,45 +4510,16 @@ export class SubtitlePlayerController {
     }
 
     private syncNativePlayerControlHitProtection(): void {
-        // Native player controls must win when a moved/long subtitle crosses them.
-        // The overlay frame is already click-through, but everything in it that a
-        // finger can act on opts back into pointer events: lookup words, and the
-        // native caption line, which is a toggle with a finger-sized box on touch.
-        // Sweep all of them — a control left out of this sweep is an invisible strip
-        // of the overlay stealing taps meant for the seek bar. Mark only boxes that
-        // overlap a small, visible native control; CSS then returns just those to
-        // the player while the rest of the subtitle stays interactive.
-        const targets = Array.from(this.root?.querySelectorAll<HTMLElement>(SUBTITLE_HIT_TESTED_OVERLAY_SELECTOR) ?? []);
-        targets.forEach(target => target.removeAttribute(SUBTITLE_NATIVE_CONTROL_SAFE_ZONE_ATTRIBUTE));
-        const safeZones = this.nativePlayerControlSafeZones();
-        if (!safeZones.length) return;
-        for (const target of targets) {
-            const rect = target.getBoundingClientRect();
-            if (rect.width <= 0 || rect.height <= 0) continue;
-            if (safeZones.some(zone => rectsOverlap(rect, zone))) {
-                target.setAttribute(SUBTITLE_NATIVE_CONTROL_SAFE_ZONE_ATTRIBUTE, 'true');
-            }
-        }
+        const surfaces = this.video && isYouTubePage() ? this.youtubeNativeControlSurfaces() : [];
+        const rect = surfaces.length ? this.videoLayoutRect() : new DOMRect();
+        const controls = nativePlayerControlRects(surfaces, rect);
+        syncSubtitleNativeControlHitProtection(this.root, controls);
+        this.subtitleControlRail?.syncPosition(subtitleRailReservedRects(surfaces, rect, controls));
     }
 
-    private nativePlayerControlSafeZones(): DOMRect[] {
-        if (!this.video || !isYouTubePage()) return [];
-        const surfaces = this.youtubeNativeControlSurfaces();
-        if (!surfaces.length) return [];
-        const videoRect = this.videoLayoutRect();
-        const maxWidth = Math.min(240, Math.max(72, videoRect.width * .42));
-        const maxHeight = Math.min(180, Math.max(56, videoRect.height * .28));
-        const controls = new Set(surfaces.flatMap(surface =>
-            Array.from(surface.querySelectorAll<HTMLElement>(NATIVE_PLAYER_CONTROL_SELECTOR))));
-        return Array.from(controls)
-            .filter(control => !control.closest('[data-jpdb-reader-root="true"]'))
-            .filter(control => nativePlayerControlIsInteractive(control))
-            .map(control => control.getBoundingClientRect())
-            .filter(rect => rect.width > 0
-                && rect.height > 0
-                && rect.width <= maxWidth
-                && rect.height <= maxHeight
-                && rectsOverlap(rect, videoRect));
+    private subtitleRailReservedRects(): DOMRect[] {
+        return this.video && isYouTubePage()
+            ? subtitleRailReservedRects(this.youtubeNativeControlSurfaces(), this.videoLayoutRect()) : [];
     }
 
     private youtubeNativeControlSurfaces(): HTMLElement[] {
@@ -5234,6 +5184,7 @@ export class SubtitlePlayerController {
 
     private shouldSuppressNativeCaptions(settings: ReaderSettings): boolean {
         return Boolean(settings.subtitlePlayerEnabled
+            && settings.subtitleOverlayVisible
             && this.video
             && this.hasVisualCommitForCurrentCue(settings));
     }

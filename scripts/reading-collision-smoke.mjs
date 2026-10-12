@@ -12,7 +12,7 @@ const temporary = mkdtempSync(path.join(tmpdir(), 'yomu-reading-collision-'));
 const entry = path.join(temporary, 'probe.ts');
 const bundle = path.join(temporary, 'probe.js');
 writeFileSync(entry, `
-import { syncProjectedReadings, clearProjectedReadings } from ${JSON.stringify(path.join(root, 'src/reader/dom/detached-reading-overlay-impl.ts'))};
+import { syncProjectedReadings, clearProjectedReadings, withProjectedReadingBatch } from ${JSON.stringify(path.join(root, 'src/reader/dom/detached-reading-overlay-impl.ts'))};
 import { nativeTextRects } from ${JSON.stringify(path.join(root, 'src/reader/dom/reading-collision.ts'))};
 const frames = () => new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
 function measure(element: HTMLElement) {
@@ -37,7 +37,7 @@ function owner(anchor: HTMLElement, texts: string[]) {
 }
 function visible(text: string) {
     return [...document.querySelectorAll<HTMLElement>('[data-yomu-projected-reading]')]
-        .some(clone => clone.textContent === text && getComputedStyle(clone).display !== 'none');
+        .some(clone => clone.textContent === text && getComputedStyle(clone).display !== 'none' && getComputedStyle(clone).visibility !== 'hidden');
 }
 Object.assign(window, { async collisionProbe() {
     const anchor = document.querySelector<HTMLElement>('#vertical')!;
@@ -66,7 +66,31 @@ Object.assign(window, { async collisionProbe() {
     const wideVisible = visible('ちゅうおうのながいよみ');
     clearProjectedReadings(crowded.element);
     const nativeRectCount = nativeTextRects(document.querySelector<HTMLElement>('#exclusions')!).length;
-    return { crowdedHidden, spacedVisible, sourceRetained, narrowHidden, wideVisible, nativeRectCount };
+    const stable = document.createElement('div');
+    stable.style.cssText='position:relative;margin-top:60px;line-height:40px';
+    stable.innerHTML='<b>基</b><b>準</b><b>順</b>';
+    document.body.append(stable);
+    const words=[...stable.querySelectorAll<HTMLElement>('b')];
+    const labels=['き','ながいちゅうおうのよみ','じゅん'];
+    const owners=words.map((word,index)=>owner(word,[labels[index]]));
+    const syncOwner=(index:number)=>syncProjectedReadings(owners[index].element,[{
+        source:owners[index].sources[0],anchor:stable,rect:measure(words[index]),measure:()=>measure(words[index]),
+    }]);
+    withProjectedReadingBatch(document,()=>owners.forEach((_,index)=>syncOwner(index)));
+    const snapshot=()=>[...document.querySelectorAll<HTMLElement>('[data-yomu-projected-reading]')]
+        .filter(clone=>['き','ながいちゅうおうのよみ','じゅん'].includes(clone.textContent??''))
+        .map(clone=>[clone.textContent,clone.style.display,clone.style.left,clone.style.transform,clone.style.visibility]);
+    const settled=JSON.stringify(snapshot());
+    const atomicHidden=!visible('ながいちゅうおうのよみ');
+    let stableFrames=true;
+    for(let frame=0;frame<20;frame++) await new Promise<void>(resolve=>requestAnimationFrame(()=>{
+        syncOwner(1);
+        stableFrames &&= JSON.stringify(snapshot())===settled;
+        resolve();
+    }));
+    owners.forEach(reading=>clearProjectedReadings(reading.element));
+    stable.remove();
+    return { crowdedHidden, spacedVisible, sourceRetained, narrowHidden, wideVisible, nativeRectCount, atomicHidden, stableFrames };
 } });
 `);
 buildSync({ entryPoints: [entry], outfile: bundle, bundle: true, format: 'iife', platform: 'browser', target: 'es2022' });

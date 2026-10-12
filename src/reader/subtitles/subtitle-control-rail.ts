@@ -13,7 +13,7 @@ const RAIL_KEY_STEP_PX = 12;
 const RAIL_TAP_SLOP_PX = 8;
 
 export interface SubtitleControlRailBinding {
-    syncPosition(): void;
+    syncPosition(reservedRects?: readonly DOMRect[]): void;
     destroy(): void;
 }
 
@@ -41,12 +41,15 @@ export function bindSubtitleControlRail(
 
     const abort = new AbortController();
     let position = loadSubtitleControlRailPosition();
+    let lastBoundsKey = '';
     let drag: { pointerId: number; startX: number; startY: number; left: number; top: number; moved: boolean } | null = null;
 
     const railBounds = (): {
         rootRect: DOMRect;
         railWidth: number;
         railHeight: number;
+        railLeft: number;
+        railTop: number;
         maxLeft: number;
         maxTop: number;
     } | null => {
@@ -57,13 +60,14 @@ export function bindSubtitleControlRail(
             rootRect,
             railWidth: railRect.width,
             railHeight: railRect.height,
+            railLeft: railRect.left - rootRect.left,
+            railTop: railRect.top - rootRect.top,
             maxLeft: Math.max(RAIL_MARGIN_PX, rootRect.width - railRect.width - RAIL_MARGIN_PX),
             maxTop: Math.max(RAIL_MARGIN_PX, rootRect.height - railRect.height - RAIL_MARGIN_PX),
         };
     };
 
-    const setPixels = (left: number, top: number, persist = false): void => {
-        const bounds = railBounds();
+    const setPixels = (left: number, top: number, persist = false, bounds = railBounds(), reservedRects?: readonly DOMRect[]): void => {
         if (!bounds) return;
         const clampedLeft = Math.min(bounds.maxLeft, Math.max(RAIL_MARGIN_PX, left));
         const clampedTop = Math.min(bounds.maxTop, Math.max(RAIL_MARGIN_PX, top));
@@ -71,26 +75,39 @@ export function bindSubtitleControlRail(
             clampedLeft,
             clampedTop,
             bounds,
-            options.getReservedRects?.() ?? [],
+            reservedRects ?? options.getReservedRects?.() ?? [],
         );
-        rail.style.setProperty('left', `${Math.round(safePosition.left)}px`);
-        rail.style.setProperty('right', 'auto');
-        rail.style.setProperty('top', `${Math.round(safePosition.top)}px`);
+        const styles = { left: `${Math.round(safePosition.left)}px`, right: 'auto', top: `${Math.round(safePosition.top)}px` };
+        let changed = false;
+        for (const [property, value] of Object.entries(styles)) {
+            if (rail.style.getPropertyValue(property) === value) continue;
+            rail.style.setProperty(property, value);
+            changed = true;
+        }
         position = {
             x: fractionWithinRailAxis(safePosition.left, bounds.maxLeft),
             y: fractionWithinRailAxis(safePosition.top, bounds.maxTop),
         };
-        options.onPositionChange?.();
+        const viewport = window.visualViewport;
+        const boundsKey = [bounds.rootRect.left, bounds.rootRect.top, bounds.rootRect.width, bounds.rootRect.height,
+            bounds.railWidth, bounds.railHeight, viewport?.width ?? window.innerWidth, viewport?.height ?? window.innerHeight,
+            viewport?.offsetLeft ?? 0, viewport?.offsetTop ?? 0].map(Math.round).join(',');
+        // A page scroll or viewport change can move the rail without changing
+        // its local pixels. Its open style menu still needs fresh edge bounds.
+        if (changed || boundsKey !== lastBoundsKey) options.onPositionChange?.();
+        lastBoundsKey = boundsKey;
         if (persist) saveSubtitleControlRailPosition(position);
     };
 
-    const syncPosition = (): void => {
+    const syncPosition = (reservedRects?: readonly DOMRect[]): void => {
         const bounds = railBounds();
         if (!bounds) return;
-        const railRect = rail.getBoundingClientRect();
         setPixels(
-            position ? railAxisPosition(position.x, bounds.maxLeft) : railRect.left - bounds.rootRect.left,
-            position ? railAxisPosition(position.y, bounds.maxTop) : railRect.top - bounds.rootRect.top,
+            position ? railAxisPosition(position.x, bounds.maxLeft) : bounds.railLeft,
+            position ? railAxisPosition(position.y, bounds.maxTop) : bounds.railTop,
+            false,
+            bounds,
+            reservedRects,
         );
     };
 
@@ -185,10 +202,10 @@ export function bindSubtitleControlRail(
     window.addEventListener('pointerup', trustedReaderEventHandler(finishPointer), { passive: false, signal: abort.signal });
     window.addEventListener('pointercancel', trustedReaderEventHandler(finishPointer), { passive: false, signal: abort.signal });
 
-    const resizeObserver = typeof ResizeObserver === 'function' ? new ResizeObserver(syncPosition) : null;
+    const resizeObserver = typeof ResizeObserver === 'function' ? new ResizeObserver(() => syncPosition()) : null;
     resizeObserver?.observe(root);
     resizeObserver?.observe(rail);
-    requestAnimationFrame(syncPosition);
+    requestAnimationFrame(() => syncPosition());
 
     return {
         syncPosition,
@@ -221,7 +238,7 @@ function railPositionOutsideReservedRects(
     requestedLeft: number,
     requestedTop: number,
     bounds: RailBounds,
-    reservedRects: DOMRect[],
+    reservedRects: readonly DOMRect[],
 ): { left: number; top: number } {
     if (!reservedRects.length) return { left: requestedLeft, top: requestedTop };
     const clamp = (left: number, top: number): { left: number; top: number } => ({

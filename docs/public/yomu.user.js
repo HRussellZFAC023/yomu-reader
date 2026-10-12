@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 2.1.4
+// @version 2.1.5
 // @author Henry Russell
 // @description Japanese pop-up dictionary with furigana, pitch accent, audio, subtitles, OCR and Study.
 // @license MIT
@@ -11,8 +11,8 @@
 // @updateURL https://update.greasyfork.org/scripts/581653/%E3%82%88%E3%82%80.meta.js
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-runtime.4bcf7480f160.user.js#sha256=S890gPFgJbhQJY1nC2Zb9cAFtlCtmH4rxkvaLZPC52Y=
-// @resource yomuCss  https://yomureader.com/yomu.74a660b74f66.css#sha256=dKZgt09mA8DgqfwUAexqkLeCLAWgAj+Q9kNK+NpY2j8=
+// @require https://yomureader.com/greasyfork/yomu-runtime.c2fee11b6b9e.user.js#sha256=wv7hG2ue3fLFAxCAps2xkfGcEHMSQYQ69FWGoM5zLXg=
+// @resource yomuCss  https://yomureader.com/yomu.f71447acc8ae.css#sha256=9xRHrMiuO8m0p4MjEl8eGjuum9RdgICwQcGxuWYMQw8=
 // @connect api.jiten.moe
 // @connect api.tatoeba.org
 // @connect tatoeba.org
@@ -6476,6 +6476,50 @@ const decimalPlaces = Math.max(0, Math.min(12, CSS_PIXEL_SIGNIFICANT_DIGITS - ma
 const rounded = Number(value.toFixed(decimalPlaces));
 return `${Object.is(rounded, -0) ? 0 : rounded}px`;
 }
+function withProjectedReadingBatch(document2, callback) {
+const companion = yomuAnnotationsCompanion();
+return companion ? companion.withProjectedReadingBatch(document2, callback) : callback();
+}
+function syncProjectedReadings(owner, projections) {
+yomuAnnotationsCompanion()?.syncProjectedReadings(owner, projections);
+}
+function clearProjectedReadings(owner) {
+yomuAnnotationsCompanion()?.clearProjectedReadings(owner);
+}
+function clearProjectedReadingsWithin(root) {
+return yomuAnnotationsCompanion()?.clearProjectedReadingsWithin(root) ?? 0;
+}
+function pruneProjectedReadings(document2) {
+yomuAnnotationsCompanion()?.pruneProjectedReadings(document2);
+}
+function projectedReadingWordAtPoint(document2, x, y, accepts) {
+return yomuAnnotationsCompanion()?.projectedReadingWordAtPoint(document2, x, y, accepts) ?? null;
+}
+function styleDetachedReadingElements(root, host) {
+const detachedRubies = Array.from(root.querySelectorAll(".jpdb-reader-detached-ruby"));
+if (!detachedRubies.length) return;
+const hostStyle = safeComputedStyle(host);
+const hostFontSize = Number.parseFloat(hostStyle.fontSize) || 16;
+const readingFontSize = Math.max(10, hostFontSize * 0.6);
+for (const wrapper of detachedRubies) {
+setInlineStyleIfChanged(wrapper, "position", "relative", "important");
+setInlineStyleIfChanged(wrapper, "display", "inline-block", "important");
+setInlineStyleIfChanged(wrapper, "line-height", "1", "important");
+setInlineStyleIfChanged(wrapper, "vertical-align", "baseline", "important");
+setInlineStyleIfChanged(wrapper, "white-space", "nowrap", "important");
+}
+for (const reading of root.querySelectorAll(".jpdb-reader-detached-furi")) {
+setInlineStyleIfChanged(reading, "display", "none", "important");
+setInlineStyleIfChanged(reading, "font-size", `${readingFontSize}px`);
+setInlineStyleIfChanged(reading, "font-weight", "normal");
+setInlineStyleIfChanged(reading, "line-height", "1", "important");
+setInlineStyleIfChanged(reading, "text-decoration", "none", "important");
+setInlineStyleIfChanged(reading, "user-select", "none");
+setInlineStyleIfChanged(reading, "-webkit-user-select", "none");
+if (reading.style.getPropertyValue("color")) reading.style.removeProperty("color");
+setInlineStyleIfChanged(reading, "-webkit-text-fill-color", "currentColor", "important");
+}
+}
 const DOCUMENT_ANNOTATION_PORTAL_MIRROR_CLASS = "jpdb-reader-document-annotation-portal";
 const DOCUMENT_ANNOTATION_PORTAL_PAINT_CLASS = "jpdb-reader-document-annotation-paint";
 const portalWatches = new WeakMap();
@@ -6617,7 +6661,7 @@ affected.forEach((entry) => {
 entry.clipTopologyEpoch = -1;
 });
 alignPortalEntries(affected);
-affected.forEach((entry) => entry.projectImmediately());
+withProjectedReadingBatch(document2, () => affected.forEach((entry) => entry.projectImmediately()));
 };
 const topologyObserver = new MutationObserver((records) => {
 const ancestors = records.map((record2) => record2.target).filter((node) => node instanceof Element && !node.closest(".jpdb-reader-text-mirror,.jpdb-reader-detached-reading-overlay,[data-jpdb-reader-root]"));
@@ -7527,46 +7571,6 @@ try {
 return factory.createPolicy?.("yomu-reader", options) ?? null;
 } catch {
 return null;
-}
-}
-function syncProjectedReadings(owner, projections) {
-yomuAnnotationsCompanion()?.syncProjectedReadings(owner, projections);
-}
-function clearProjectedReadings(owner) {
-yomuAnnotationsCompanion()?.clearProjectedReadings(owner);
-}
-function clearProjectedReadingsWithin(root) {
-return yomuAnnotationsCompanion()?.clearProjectedReadingsWithin(root) ?? 0;
-}
-function pruneProjectedReadings(document2) {
-yomuAnnotationsCompanion()?.pruneProjectedReadings(document2);
-}
-function projectedReadingWordAtPoint(document2, x, y, accepts) {
-return yomuAnnotationsCompanion()?.projectedReadingWordAtPoint(document2, x, y, accepts) ?? null;
-}
-function styleDetachedReadingElements(root, host) {
-const detachedRubies = Array.from(root.querySelectorAll(".jpdb-reader-detached-ruby"));
-if (!detachedRubies.length) return;
-const hostStyle = safeComputedStyle(host);
-const hostFontSize = Number.parseFloat(hostStyle.fontSize) || 16;
-const readingFontSize = Math.max(9, hostFontSize * 0.5);
-for (const wrapper of detachedRubies) {
-setInlineStyleIfChanged(wrapper, "position", "relative", "important");
-setInlineStyleIfChanged(wrapper, "display", "inline-block", "important");
-setInlineStyleIfChanged(wrapper, "line-height", "1", "important");
-setInlineStyleIfChanged(wrapper, "vertical-align", "baseline", "important");
-setInlineStyleIfChanged(wrapper, "white-space", "nowrap", "important");
-}
-for (const reading of root.querySelectorAll(".jpdb-reader-detached-furi")) {
-setInlineStyleIfChanged(reading, "display", "none", "important");
-setInlineStyleIfChanged(reading, "font-size", `${readingFontSize}px`);
-setInlineStyleIfChanged(reading, "font-weight", "normal");
-setInlineStyleIfChanged(reading, "line-height", "1", "important");
-setInlineStyleIfChanged(reading, "text-decoration", "none", "important");
-setInlineStyleIfChanged(reading, "user-select", "none");
-setInlineStyleIfChanged(reading, "-webkit-user-select", "none");
-if (reading.style.getPropertyValue("color")) reading.style.removeProperty("color");
-setInlineStyleIfChanged(reading, "-webkit-text-fill-color", "currentColor", "important");
 }
 }
 function createPostPaintPass(run) {
@@ -10336,6 +10340,11 @@ function rectsIntersect(left, right) {
 return left.right > right.left + 0.5 && left.left < right.right - 0.5 && left.bottom > right.top + 0.5 && left.top < right.bottom - 0.5;
 }
 function projectAdditiveTextMirrors(root = document) {
+const sourceDocument = root instanceof Document ? root : root.ownerDocument;
+if (sourceDocument) withProjectedReadingBatch(sourceDocument, () => projectAdditiveTextMirrorBatch(root));
+else projectAdditiveTextMirrorBatch(root);
+}
+function projectAdditiveTextMirrorBatch(root) {
 const entries2 = [];
 const mirrors = new Set(queryAllInAnnotationRoots(root, ".jpdb-reader-additive-text-mirror"));
 documentAnnotationPortalMirrorsWithin(root).forEach((mirror) => mirrors.add(mirror));
@@ -10479,6 +10488,7 @@ documentEntries.push({ mirror, host });
 byDocument.set(host.ownerDocument, documentEntries);
 }
 for (const [document2, documentEntries] of byDocument) {
+withProjectedReadingBatch(document2, () => {
 const mirrors = documentEntries.map(({ mirror }) => mirror);
 prepareDocumentAnnotationPortalMirrors(mirrors);
 const topLayerConcealed = documentTopLayerConcealsPortal(document2);
@@ -10488,6 +10498,7 @@ projectPreparedAdditiveTextMirror(mirror, host, topLayerConcealed);
 }
 settleDocumentAnnotationPortalMirrors(mirrors);
 pruneProjectedReadings(document2);
+});
 }
 });
 function projectOneDocumentPortalTextMirror(mirror, host) {
@@ -11266,6 +11277,9 @@ lifecycle.signal.addEventListener("abort", () => liveTextMirrorObservers.delete(
 const liveTextMirrorObservers = new Map();
 let mirrorTokenApplyDepth = 0;
 function withMirrorTokenApply(callback) {
+return withProjectedReadingBatch(document, () => runMirrorTokenApply(callback));
+}
+function runMirrorTokenApply(callback) {
 mirrorTokenApplyDepth += 1;
 try {
 return callback();
@@ -11277,6 +11291,12 @@ sweepAndDrainTextMirrorObservers();
 }
 }
 function sweepAndDrainTextMirrorObservers() {
+visitLiveTextMirrorHosts((host, observer) => {
+observer.takeRecords();
+healStuckHiddenTextMirror(host);
+});
+}
+function visitLiveTextMirrorHosts(visit) {
 for (const [observer, hostRef] of liveTextMirrorObservers) {
 const host = hostRef.deref();
 if (!host || !host.isConnected) {
@@ -11285,8 +11305,7 @@ observer.disconnect();
 if (host) removeTextMirror(host);
 continue;
 }
-observer.takeRecords();
-healStuckHiddenTextMirror(host);
+visit(host, observer);
 }
 }
 function healStuckHiddenTextMirror(host) {
@@ -11296,17 +11315,13 @@ if (pageConcealsTextMirrorHostMemoized(host)) return;
 syncTextMirrorVisibilityToPage(host, mirror);
 }
 function healTextMirrorPageVisibility() {
-for (const [observer, hostRef] of liveTextMirrorObservers) {
-const host = hostRef.deref();
-if (!host || !host.isConnected) {
-liveTextMirrorObservers.delete(observer);
-observer.disconnect();
-if (host) removeTextMirror(host);
-continue;
+return withProjectedReadingBatch(document, () => healTextMirrorPageVisibilityBatch());
 }
+function healTextMirrorPageVisibilityBatch() {
+visitLiveTextMirrorHosts((host) => {
 healStuckHiddenTextMirror(host);
 refreshConstrainedMirrorProjection(host);
-}
+});
 }
 function refreshConstrainedMirrorProjection(host) {
 const mirror = currentTextMirror(host);
@@ -26843,7 +26858,11 @@ const YOUTUBE_READABLE_LABEL_ROOTS = [
 "ytd-guide-entry-renderer",
 "ytd-guide-collapsible-section-entry-renderer",
 "ytd-mini-guide-entry-renderer",
-"ytd-masthead #buttons .ytSpecButtonShapeNextButtonTextContent"
+"ytd-masthead #buttons .ytSpecButtonShapeNextButtonTextContent",
+"ytd-watch-metadata .ytSpecButtonShapeNextButtonTextContent",
+"ytd-watch-metadata .yt-spec-button-shape-next__button-text-content",
+".ytp-settings-menu .ytp-menuitem-label",
+".ytp-settings-menu .ytp-menuitem-content:not(:has(input))"
 ];
 const READER_OWNED_SELECTOR = "[data-jpdb-reader-root], [data-yomu-jpdb-addon]";
 const REVIEW_HEADER_SELECTOR = '#js-rev-header h1[id^="rev-id-"]';
@@ -35423,8 +35442,8 @@ function collapseWhitespace(value) {
 return value.replace(/\/\*[\s\S]*?\*\//gu, " ").replace(/\s+/gu, " ").trim();
 }
 const READER_CSS_RESOURCE = "yomuCss";
-const READER_CSS_HOSTED_FALLBACK_URL = `https://yomureader.com/yomu.css?v=${"2.1.4"}`;
-const READER_CSS_RAW_FALLBACK_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"2.1.4"}`;
+const READER_CSS_HOSTED_FALLBACK_URL = `https://yomureader.com/yomu.css?v=${"2.1.5"}`;
+const READER_CSS_RAW_FALLBACK_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"2.1.5"}`;
 const READER_CSS_CACHE_KEY = "yomu:reader-css-cache:v3";
 const READER_CSS = resourceReaderCss();
 function criticalWordCss() {
@@ -35567,7 +35586,7 @@ try {
 const url = new URL(href);
 if (!isHostedYomuPage(url)) return null;
 const path = url.hostname === "hrussellzfac023.github.io" ? "/yomu-reader/yomu.css" : "/yomu.css";
-return `${new URL(path, url.origin).href}?v=${"2.1.4"}`;
+return `${new URL(path, url.origin).href}?v=${"2.1.5"}`;
 } catch {
 return null;
 }
@@ -37334,9 +37353,9 @@ textLookupCardOptions(context)
 );
 }
 }
-function currentFullscreenElement() {
-const fullscreenDocument = document;
-return document.fullscreenElement ?? fullscreenDocument.webkitFullscreenElement ?? fullscreenDocument.mozFullScreenElement ?? fullscreenDocument.msFullscreenElement ?? null;
+function currentFullscreenElement(sourceDocument = document) {
+const fullscreenDocument = sourceDocument;
+return sourceDocument.fullscreenElement ?? fullscreenDocument.webkitFullscreenElement ?? fullscreenDocument.mozFullScreenElement ?? fullscreenDocument.msFullscreenElement ?? null;
 }
 const READER_ROOT_GESTURE_EVENTS = ["touchstart", "touchend", "pointerdown", "pointerup", "mousedown", "mouseup", "click"];
 const READER_ROOT_SELECTOR = "[data-jpdb-reader-root]";
@@ -41690,8 +41709,9 @@ dismissModalPopoverForOutsidePointer(event) {
 if (this.isDestroyed || this.activePopoverMode !== "modal" || !this.activePopover) return;
 if (this.isInsideActivePopover(event.target)) return;
 if (this.shouldKeepModalPopoverForOutsidePointer(event.target)) return;
+const nativePlayerPointer = this.releaseMiningPauseForNativePlayerPointer(event.target);
 if (getSelectionText()) {
-event.preventDefault();
+if (!nativePlayerPointer) event.preventDefault();
 clearDocumentSelection();
 }
 this.dismiss({ suppressHoverTarget: true });
@@ -41710,7 +41730,19 @@ dismissHoverPopoverForOutsidePointer(event) {
 if (this.isDestroyed || this.activePopoverMode !== "hover") return;
 const target = event.target;
 if (!this.shouldDismissHoverForPointerTarget(target)) return;
+this.releaseMiningPauseForNativePlayerPointer(event.target);
 this.dismiss({ suppressHoverTarget: false });
+}
+releaseMiningPauseForNativePlayerPointer(target) {
+const video = this.subtitleMiningPausedVideo ?? this.boundSubtitleVideo();
+if (!video || !(target instanceof Element) || target.closest("[data-jpdb-reader-root]")) return false;
+const player = video.closest("#movie_player, .html5-video-player, ytm-player, media-player, .plyr, .video-js, .jwplayer, .mejs-container");
+if (target !== video && !(player?.contains(target) && target.closest('button, [role="button"], input, .ytp-chrome-bottom'))) return false;
+this.clearMiningPauseReassert();
+this.clearSubtitleHoverMiningResumeTimer();
+this.clearMiningPause(video);
+this.subtitleMiningPausedVideo = void 0;
+return true;
 }
 shouldDismissHoverForPointerTarget(target) {
 if (this.isInsideActivePopover(target)) return false;

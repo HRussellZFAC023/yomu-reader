@@ -518,6 +518,11 @@ describe('SubtitlePlayerController — idle controls, overlay drag & rail visibi
             expect(fullscreenWord.dataset.jpdbSubtitleNativeControlSafeZone).toBe('true');
             expect(clearWord.dataset.jpdbSubtitleNativeControlSafeZone).toBeUndefined();
             expect(nativeLine.dataset.jpdbSubtitleNativeControlSafeZone).toBe('true');
+            const mark = vi.spyOn(shareWord, 'setAttribute');
+            const unmark = vi.spyOn(shareWord, 'removeAttribute');
+            for (let i = 0; i < 100; i++) internals.syncNativePlayerControlHitProtection();
+            expect(mark).not.toHaveBeenCalled();
+            expect(unmark).not.toHaveBeenCalled();
             expect(SUBTITLES_YOUTUBE_CSS).toContain(
                 '.jpdb-subtitle-player [data-jpdb-subtitle-native-control-safe-zone="true"]',
             );
@@ -525,7 +530,10 @@ describe('SubtitlePlayerController — idle controls, overlay drag & rail visibi
 
             mockElementRect(share, new DOMRect(500, 610, 48, 48));
             mockElementRect(fullscreen, new DOMRect(500, 680, 48, 48));
+            const targetMeasurements = vi.spyOn(shareWord, 'getBoundingClientRect');
             internals.syncNativePlayerControlHitProtection();
+            for (let i = 0; i < 100; i++) internals.syncNativePlayerControlHitProtection();
+            expect(targetMeasurements).not.toHaveBeenCalled();
             expect(shareWord.dataset.jpdbSubtitleNativeControlSafeZone).toBeUndefined();
             expect(fullscreenWord.dataset.jpdbSubtitleNativeControlSafeZone).toBeUndefined();
             expect(nativeLine.dataset.jpdbSubtitleNativeControlSafeZone).toBeUndefined();

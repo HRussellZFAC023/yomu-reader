@@ -1937,7 +1937,11 @@ const YOUTUBE_READABLE_LABEL_ROOTS = [
   "ytd-guide-entry-renderer",
   "ytd-guide-collapsible-section-entry-renderer",
   "ytd-mini-guide-entry-renderer",
-  "ytd-masthead #buttons .ytSpecButtonShapeNextButtonTextContent"
+  "ytd-masthead #buttons .ytSpecButtonShapeNextButtonTextContent",
+  "ytd-watch-metadata .ytSpecButtonShapeNextButtonTextContent",
+  "ytd-watch-metadata .yt-spec-button-shape-next__button-text-content",
+  ".ytp-settings-menu .ytp-menuitem-label",
+  ".ytp-settings-menu .ytp-menuitem-content:not(:has(input))"
 ];
 const LABEL_SELECTOR = YOUTUBE_READABLE_LABEL_ROOTS.join(",");
 function isYouTubeReadableLabel(element) {
@@ -14298,6 +14302,9 @@ createPrivateElementStateSlot(
   (state) => Object.freeze({ ...state }),
   { replayable: true }
 );
+function clearProjectedReadingsWithin(root) {
+  return yomuAnnotationsCompanion()?.clearProjectedReadingsWithin(root) ?? 0;
+}
 const COLOR_SOURCE_CLASS_TOKENS = {
   status: "status",
   jpdb: "jpdb",
@@ -14307,9 +14314,6 @@ const COLOR_SOURCE_CLASS_TOKENS = {
 };
 function colorSourceClassName(scope, channel, source) {
   return `jpdb-reader-${scope}-${channel}-${COLOR_SOURCE_CLASS_TOKENS[source]}`;
-}
-function clearProjectedReadingsWithin(root) {
-  return yomuAnnotationsCompanion()?.clearProjectedReadingsWithin(root) ?? 0;
 }
 const READABLE_IGNORED_TAGS = /* @__PURE__ */ new Set(["RT", "RP", "SCRIPT", "STYLE"]);
 function unwrapReaderWords(root = document, options = {}) {
@@ -14364,7 +14368,7 @@ const NEW_TAB_CACHE_KEY = "jpdb-reader-newtab-card-cache";
 function clearNewTabOfflineCache() {
   return gmStorageDelete(NEW_TAB_CACHE_KEY);
 }
-const CURRENT_YOMU_VERSION = "2.1.4".trim() ? "2.1.4".trim() : "dev";
+const CURRENT_YOMU_VERSION = "2.1.5".trim() ? "2.1.5".trim() : "dev";
 function latestYomuVersionFromVersionJson(value) {
   if (!value || typeof value !== "object") return null;
   const record2 = value;

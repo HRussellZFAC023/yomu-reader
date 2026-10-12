@@ -127,10 +127,18 @@ writeFileSync(entryPath, `
             if (wordRect.bottom < 0 || wordRect.top > innerHeight) continue;
             checked += 1;
             const clone = cloneFor(target.key);
-            const painted = Boolean(clone) && getComputedStyle(clone!).display !== 'none';
+            const style = clone ? getComputedStyle(clone) : null;
+            const painted = Boolean(clone) && style!.display !== 'none' && style!.visibility !== 'hidden';
+            const canvas = document.createElement('canvas').getContext('2d')!;
+            if (style) canvas.font = style.fontStyle + ' ' + style.fontWeight + ' ' + style.fontSize + ' ' + style.fontFamily;
             const cloneRect = painted ? clone!.getBoundingClientRect() : null;
             const sample = {
                 key: target.key,
+                base: { left: wordRect.left, right: wordRect.right, width: wordRect.width },
+                naturalCanvasWidth: canvas.measureText(clone?.textContent ?? '').width,
+                font: style ? { size:style.fontSize, weight:style.fontWeight, family:style.fontFamily } : null,
+                transform: clone?.style.transform,
+                visibility: style?.visibility,
                 alignment: round(cloneRect ? cloneRect.bottom - wordRect.top : 0),
                 mode: clone ? layerMode(clone) : 'none',
                 painted,

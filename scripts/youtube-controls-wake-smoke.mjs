@@ -177,8 +177,19 @@ function readRailActivation(control, settingsKey) {
 
 async function exposeStyleControl(page) {
     const styleButton = page.locator('.jpdb-subtitle-rail [data-action="style"]');
-    const displayed = await styleButton.evaluate(button => getComputedStyle(button).display !== 'none');
-    if (!displayed) await page.locator('.jpdb-subtitle-rail [data-action="rail-expand"]').click({ force: true });
+    // The first tap on faded chrome can only wake it: its grip is still
+    // click-through at that instant. Wait for the real hit target, then pin it.
+    const pinned = await styleButton.evaluate(button => button.closest('.jpdb-subtitle-player').classList.contains('jpdb-subtitle-controls-always'));
+    if (!pinned) {
+        const grip = page.locator('.jpdb-subtitle-rail [data-action="rail-expand"]');
+        await grip.tap({ force: true });
+        await page.waitForFunction(() => {
+            const rail = document.querySelector('.jpdb-subtitle-rail');
+            return getComputedStyle(rail).pointerEvents !== 'none' && Number(getComputedStyle(rail).opacity) >= .5;
+        });
+        const activated = await grip.evaluate(button => button.closest('.jpdb-subtitle-player').classList.contains('jpdb-subtitle-controls-always'));
+        if (!activated) await grip.tap();
+    }
     await page.waitForFunction(() => getComputedStyle(document.querySelector('.jpdb-subtitle-rail [data-action="style"]')).display !== 'none');
     return styleButton;
 }

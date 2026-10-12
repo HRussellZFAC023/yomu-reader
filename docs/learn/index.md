@@ -21,7 +21,7 @@ Read and watch Japanese you enjoy, every day. Look up what blocks you. Keep a fe
 
 In Study, open Stats to check your review progress. Refresh keeps the current figures visible while loading.
 
-Furigana stays compact; the Japanese text keeps the page’s font and spacing.
+Furigana stays readable without changing the page’s font or spacing. Readings that cannot fit remain available in word lookup.
 
 ## Rules {#rules}
 
@@ -44,6 +44,8 @@ Furigana stays compact; the Japanese text keeps the page’s font and spacing.
 - **Games:** [よむ Desktop](/desktop)
 
 On filtered YouTube recommendation lists, Load more appears after two automatic batches or an unfinished visible loader. Tap it to continue loading videos.
+
+Hiding the よむ subtitle overlay leaves YouTube’s native captions available. The native Play button resumes from a word lookup, and the seek bar follows the resized player.
 
 Words can still be looked up without a coloured underline. Search and comment fields keep their normal typing behavior.
 

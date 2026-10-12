@@ -1,21 +1,17 @@
+import { syncFittedReadings as syncProjectedReadings, readingRect as rect } from './helpers/projected-reading-frame';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import {
     clearProjectedReadings,
     clearProjectedReadingsWithin,
-    syncProjectedReadings,
+    withProjectedReadingBatch,
 } from '../../src/reader/dom/detached-reading-overlay-impl';
 import { collectTextTargetsIn } from '../../src/reader/dom';
 import { unwrapReaderWords } from '../../src/reader/dom/reader-word';
 
-function rect(left = 20, top = 20, width = 40, height = 16): DOMRect {
-    return {
-        left, top, width, height,
-        right: left + width, bottom: top + height,
-        x: left, y: top,
-        toJSON: () => ({}),
-    } as DOMRect;
-}
+// These geometry cases inspect a completed fitted frame; standalone scheduling
+// is covered separately below rather than relying on an intermediate paint.
+
 
 function readingOwner(text: string): {
     anchor: HTMLElement;
@@ -58,6 +54,35 @@ afterEach(() => {
 });
 
 describe('detached reading overlay occlusion', () => {
+    it('moves readable control projections into and out of native fullscreen', async () => {
+        const reading = readingOwner('さいせいそくど');
+        const player = document.createElement('div');
+        player.style.position = 'fixed';
+        player.append(reading.anchor);
+        document.body.append(player);
+        mockElementsFromPoint([reading.anchor]);
+        const descriptor = Object.getOwnPropertyDescriptor(document, 'fullscreenElement');
+        let fullscreen: Element | null = null;
+        Object.defineProperty(document, 'fullscreenElement', { configurable:true, get:()=>fullscreen });
+        try {
+            syncProjectedReadings(reading.owner, [{ source:reading.source, anchor:reading.anchor, rect:rect(), measure:()=>rect() }]);
+            expect(player.contains(projectedReading('さいせいそくど')!)).toBe(false);
+            fullscreen = player;
+            document.dispatchEvent(new Event('fullscreenchange'));
+            await nextProjectionFrame();
+            expect(player.contains(projectedReading('さいせいそくど')!)).toBe(true);
+            expect(projectedReading('さいせいそくど')!.style.display).toBe('block');
+            fullscreen = null;
+            document.dispatchEvent(new Event('fullscreenchange'));
+            await nextProjectionFrame();
+            expect(player.contains(projectedReading('さいせいそくど')!)).toBe(false);
+            expect(player.querySelector('.jpdb-reader-detached-reading-scroll-layer')).toBeNull();
+        } finally {
+            clearProjectedReadings(reading.owner);
+            if (descriptor) Object.defineProperty(document, 'fullscreenElement', descriptor);
+            else Reflect.deleteProperty(document, 'fullscreenElement');
+        }
+    });
     it('hides a projection covered by an unrelated page surface', () => {
         const background = readingOwner('はいけい');
         const menu = document.createElement('div');
@@ -504,6 +529,7 @@ describe('detached reading overlay occlusion', () => {
             value: vi.fn((x: number) => [x < 60 ? first.anchor : second.anchor]),
         });
         const events: string[] = [];
+        withProjectedReadingBatch(document, () => {
         syncProjectedReadings(first.owner, [{
             source: first.source,
             anchor: first.anchor,
@@ -522,6 +548,7 @@ describe('detached reading overlay occlusion', () => {
                 return rect(80);
             },
         }]);
+        });
         for (const text of ['ひとつ', 'ふたつ']) {
             const style = projectedReading(text)!.style;
             const setProperty = style.setProperty.bind(style);
@@ -1053,7 +1080,7 @@ describe('detached reading overlay occlusion', () => {
             value: elementsFromPoint,
         });
 
-        targets.forEach((target, index) => {
+        withProjectedReadingBatch(document, () => targets.forEach((target, index) => {
             const measured = (): DOMRect | null => index === targets.length - 1
                 ? (lateMeasurable ? rect(400, lateTop) : null)
                 : rect(20 + index * 24, 120 + scrollDelta);
@@ -1066,7 +1093,7 @@ describe('detached reading overlay occlusion', () => {
                 rect: measured()!,
                 measure: measured,
             }]);
-        });
+        }));
 
         expect(projectedReading('よみ12')?.style.display).toBe('none');
         expect(elementsFromPoint.mock.calls.length).toBe(12 * 6);

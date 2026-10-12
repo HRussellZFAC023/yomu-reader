@@ -146,6 +146,7 @@ export function createSubtitleController<TSettings extends ReaderSettings>(
 
 export function installController(controller: SubtitlePlayerController): void {
     controllerInternals<{ install: () => void }>(controller).install();
+    installedSubtitleControllers.add(controller);
 }
 
 export function createInstalledSubtitleController<TOverrides extends Partial<ReaderSettings> = Record<string, never>>(
@@ -155,7 +156,6 @@ export function createInstalledSubtitleController<TOverrides extends Partial<Rea
     const settings = makeSubtitleSettings(overrides);
     const setup = createSubtitleController(settings, hooks);
     installController(setup.controller);
-    installedSubtitleControllers.add(setup.controller);
     return setup;
 }
 

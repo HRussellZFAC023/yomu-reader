@@ -1,3 +1,4 @@
+import { syncFittedReadings as syncProjectedReadings } from './helpers/projected-reading-frame';
 // The furigana dead tap band.
 //
 // A reader aims at what a reader can see, and above every annotated word that is
@@ -23,25 +24,14 @@ import { applyTokensToScanTarget, collectTextTargetsIn, removeNonDestructiveScan
 import {
     clearProjectedReadings,
     projectedReadingWordAtPoint,
-    syncProjectedReadings,
 } from '../../src/reader/dom/detached-reading-overlay-impl';
 import { registerYomuCompanion, yomuAnnotationsCompanion } from '../../src/reader/companions/registry';
+import { mirrorToken } from './helpers/japanese-token-fixtures';
 import { DEFAULT_SETTINGS } from '../../src/reader/settings';
 
-const CARD: JPDBCard = {
-    vid: 1,
-    sid: 1,
-    rid: 0,
-    spelling: '',
-    reading: '',
-    frequencyRank: null,
-    partOfSpeech: [],
-    meanings: [],
-    cardState: ['not-in-deck'],
-    pitchAccent: [],
-    wordWithReading: null,
-    source: 'jpdb',
-};
+// Inspect the completed paint; standalone frame scheduling has its own guard.
+
+const CARD: JPDBCard = mirrorToken('', '').card;
 
 afterEach(() => {
     removeNonDestructiveScanMirrors(document);

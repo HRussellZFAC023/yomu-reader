@@ -92,6 +92,7 @@ interface YomuCompanionRegistry {
         projectedReadingWordAtPoint: typeof import('../dom/detached-reading-overlay-impl').projectedReadingWordAtPoint;
         pruneProjectedReadings: typeof import('../dom/detached-reading-overlay-impl').pruneProjectedReadings;
         syncProjectedReadings: typeof import('../dom/detached-reading-overlay-impl').syncProjectedReadings;
+        withProjectedReadingBatch: typeof import('../dom/detached-reading-overlay-impl').withProjectedReadingBatch;
     };
     // The Bunpro provider suite (client, SRS adapter, word-state colouring,
     // token importer, definition section) ships in the Yomu Bunpro companion;

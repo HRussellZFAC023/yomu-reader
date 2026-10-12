@@ -1,6 +1,113 @@
 (function() {
 "use strict";
 // yomu-generated-indent: compact
+const CARDS = "ytd-reel-item-renderer,ytm-shorts-lockup-view-model,yt-shorts-lockup-view-model,ytm-video-with-context-renderer,ytd-rich-item-renderer,ytd-video-renderer,ytd-compact-video-renderer";
+const MEDIA = ".short-thumb,.media-item-thumbnail-container,ytd-thumbnail,#thumbnail";
+function ownMediaReadingBoundary(anchor, source) {
+const card = anchor.closest(CARDS);
+if (!card) return void 0;
+for (const media of card.querySelectorAll(MEDIA)) {
+const bounds = media.getBoundingClientRect();
+if (bounds.width <= 0 || bounds.height <= 0 || source.top < bounds.bottom) continue;
+return { media, bounds, allowance: Math.min(3, source.height / 8) };
+}
+return void 0;
+}
+function pointTouchesOwnMediaBoundary(boundary, hit, x2, y) {
+if (!boundary) return false;
+if (!(hit === boundary.media || hit.matches("img,video,canvas,picture"))) return false;
+if (!boundary.media.contains(hit)) return false;
+const control = hit.closest("button,[role=button],[role=dialog]");
+if (control && control !== boundary.media && boundary.media.contains(control)) return false;
+const { bounds, allowance } = boundary;
+return y >= bounds.bottom - allowance && y <= bounds.bottom && x2 >= bounds.left && x2 <= bounds.right;
+}
+function currentFullscreenElement(sourceDocument = document) {
+const fullscreenDocument = sourceDocument;
+return sourceDocument.fullscreenElement ?? fullscreenDocument.webkitFullscreenElement ?? fullscreenDocument.mozFullScreenElement ?? fullscreenDocument.msFullscreenElement ?? null;
+}
+function setImportantStyleIfChanged(element, property, value) {
+setInlineStyleIfChanged(element, property, value, "important");
+}
+function setInlineStyleIfChanged(element, property, value, priority = "") {
+if (element.style.getPropertyValue(property) === value && element.style.getPropertyPriority(property) === priority) return;
+element.style.setProperty(property, value, priority);
+}
+const CSS_PIXEL_SIGNIFICANT_DIGITS = 6;
+const CSS_PIXEL_MINIMUM = 1e-6;
+function stableCssPixels(value) {
+if (!Number.isFinite(value) || Math.abs(value) < CSS_PIXEL_MINIMUM) return "0px";
+const magnitude = Math.floor(Math.log10(Math.abs(value)));
+const decimalPlaces = Math.max(0, Math.min(12, CSS_PIXEL_SIGNIFICANT_DIGITS - magnitude - 1));
+const rounded = Number(value.toFixed(decimalPlaces));
+return `${Object.is(rounded, -0) ? 0 : rounded}px`;
+}
+function syncProjectedReadingTypography(source, clone, readStyle) {
+const sourceStyle = readStyle(source);
+const base = source.closest(".jpdb-reader-word") ?? source;
+const baseStyle = readStyle(base);
+const text2 = source.textContent ?? "";
+if (clone.textContent !== text2) clone.textContent = text2;
+const expression = base.dataset.expression ?? base.dataset.surface ?? "";
+if (clone.dataset.yomuExpression !== expression) clone.dataset.yomuExpression = expression;
+const typography = {
+"font-family": sourceStyle.fontFamily || baseStyle.fontFamily,
+"font-size": sourceStyle.fontSize || "10px",
+"font-style": sourceStyle.fontStyle || baseStyle.fontStyle,
+"font-weight": sourceStyle.fontWeight || "400",
+// Page tracking belongs to the base glyphs, not the compact reading.
+"letter-spacing": "normal"
+};
+for (const [property, value] of Object.entries(typography)) setImportantStyleIfChanged(clone, property, value);
+setImportantStyleIfChanged(clone, "color", sourceStyle.color || baseStyle.color || "currentColor");
+setImportantStyleIfChanged(clone, "text-shadow", baseStyle.textShadow || "none");
+return [text2, ...Object.values(typography)].join("\0");
+}
+function fitReadingLane(items) {
+const placements = items.map((item, index) => {
+const centre = (item.left + item.right) / 2;
+if (!(item.width > 0)) return { centre, scaleX: 1 };
+const previous = items[index - 1];
+const next2 = items[index + 1];
+const left = previous ? (previous.right + item.left) / 2 : Number.NEGATIVE_INFINITY;
+const right = next2 ? (item.right + next2.left) / 2 : Number.POSITIVE_INFINITY;
+const available = right - left;
+const centeredWidth = Math.max(0, 2 * Math.min(centre - left, right - centre));
+const scaleX = Math.min(1, Math.max(0.8, Math.min(available, centeredWidth) / item.width));
+const painted = item.width * scaleX;
+if (painted > available) return { centre, scaleX: 0 };
+return { centre: Math.min(right - painted / 2, Math.max(left + painted / 2, centre)), scaleX };
+});
+const nextPainted = new Array(items.length);
+let next = -1;
+for (let index = items.length - 1; index >= 0; index--) {
+nextPainted[index] = next;
+if (placements[index].scaleX > 0 && items[index].width > 0) next = index;
+}
+let previousRight = Number.NEGATIVE_INFINITY;
+for (const [index, item] of items.entries()) {
+let placement = placements[index];
+if (placement.scaleX === 0) {
+const neighbor = nextPainted[index];
+const right = neighbor < 0 ? Number.POSITIVE_INFINITY : placements[neighbor].centre - items[neighbor].width * placements[neighbor].scaleX / 2;
+placement = fitUnusedPaintSpace(item, previousRight, right);
+placements[index] = placement;
+}
+if (placement.scaleX > 0 && item.width > 0) {
+previousRight = placement.centre + item.width * placement.scaleX / 2;
+}
+}
+return placements;
+}
+function fitUnusedPaintSpace(item, left, right) {
+const centre = (item.left + item.right) / 2;
+const minimum = item.width * 0.8;
+if (minimum > right - left) return { centre, scaleX: 0 };
+const centeredWidth = Math.max(0, 2 * Math.min(centre - left, right - centre));
+if (minimum <= centeredWidth) return { centre, scaleX: Math.min(1, centeredWidth / item.width) };
+const shifted = Math.min(right - minimum / 2, Math.max(left + minimum / 2, centre));
+return Math.abs(shifted - centre) <= 3 ? { centre: shifted, scaleX: 0.8 } : { centre, scaleX: 0 };
+}
 function scopedDocument(scope = {}) {
 if (scope.document) return scope.document;
 return typeof document === "undefined" ? null : document;
@@ -95,22 +202,6 @@ if (!Observer) return null;
 const observer = new Observer(callback);
 return new ParkableObserver(observer, options);
 }
-function setImportantStyleIfChanged(element, property, value) {
-setInlineStyleIfChanged(element, property, value, "important");
-}
-function setInlineStyleIfChanged(element, property, value, priority = "") {
-if (element.style.getPropertyValue(property) === value && element.style.getPropertyPriority(property) === priority) return;
-element.style.setProperty(property, value, priority);
-}
-const CSS_PIXEL_SIGNIFICANT_DIGITS = 6;
-const CSS_PIXEL_MINIMUM = 1e-6;
-function stableCssPixels(value) {
-if (!Number.isFinite(value) || Math.abs(value) < CSS_PIXEL_MINIMUM) return "0px";
-const magnitude = Math.floor(Math.log10(Math.abs(value)));
-const decimalPlaces = Math.max(0, Math.min(12, CSS_PIXEL_SIGNIFICANT_DIGITS - magnitude - 1));
-const rounded = Number(value.toFixed(decimalPlaces));
-return `${Object.is(rounded, -0) ? 0 : rounded}px`;
-}
 function nativeTextRects(anchor) {
 const document2 = anchor.ownerDocument;
 const walker = document2.createTreeWalker(anchor, NodeFilter.SHOW_TEXT);
@@ -131,33 +222,35 @@ function readingOverlapsPreviousLine(source, native, centre, width, height) {
 return native.some((rect) => rect.top < source.top - source.height / 2 && rect.bottom > source.top - height && rect.left < centre + width / 2 && rect.right > centre - width / 2);
 }
 const overlays = /* @__PURE__ */ new WeakMap();
+const projectionBatchDepths = /* @__PURE__ */ new WeakMap();
 const ownerRecords = /* @__PURE__ */ new WeakMap();
 const PROJECTED_READING_ATTRIBUTE = "data-yomu-projected-reading";
+const VIEWPORT_ATTACHED_POSITIONS = /* @__PURE__ */ new Set(["fixed", "sticky"]);
 const PROJECTION_GRACE_MAX_AGE_MS = 250;
-const PROJECTED_READING_MIN_SCALE_X = 0.55;
+function withProjectedReadingBatch(document2, callback) {
+projectionBatchDepths.set(document2, (projectionBatchDepths.get(document2) ?? 0) + 1);
+try {
+return callback();
+} finally {
+const depth = (projectionBatchDepths.get(document2) ?? 1) - 1;
+if (depth) projectionBatchDepths.set(document2, depth);
+else {
+projectionBatchDepths.delete(document2);
+const overlay = overlays.get(document2);
+if (overlay?.pendingSyncRects.size) refreshProjectedReadingPositions(overlay, true);
+}
+}
+}
 function syncProjectedReadings(owner, projections) {
 const document2 = owner.ownerDocument;
 const overlay = documentOverlay(document2);
-pruneDisconnectedRecords(overlay);
 const records = ownerRecords.get(owner) ?? /* @__PURE__ */ new Map();
 const currentSources = new Set(projections.map((projection) => projection.source));
-const context = {
-overlay,
-nativeRects: /* @__PURE__ */ new Map(),
-anchorPaint: /* @__PURE__ */ new Map(),
-elementPaint: /* @__PURE__ */ new Map(),
-occludingPaint: /* @__PURE__ */ new Map(),
-projectionLayers: /* @__PURE__ */ new Map(),
-layerOrigins: /* @__PURE__ */ new Map(),
-viewportCoordinateSafety: /* @__PURE__ */ new Map(),
-styleReads: /* @__PURE__ */ new Map()
-};
 for (const [source, record2] of records) {
 if (currentSources.has(source)) continue;
 removeRecord(record2, overlay);
 records.delete(source);
 }
-const paints = [];
 for (const projection of projections) {
 let record2 = records.get(projection.source);
 if (!record2) {
@@ -183,17 +276,13 @@ record2.cachedOcclusionRect = void 0;
 trackProjectionAnchor(record2, overlay);
 }
 record2.measure = projection.measure;
-if (projection.nativeRects) context.nativeRects.set(projection.anchor, projection.nativeRects);
+if (projection.nativeRects) overlay.pendingNativeRects.set(projection.anchor, projection.nativeRects);
 refreshProjectionAnchorRoot(record2.anchor, overlay);
 syncProjectedReadingStyle(record2);
-adoptProjectionLayer(record2, context);
-paints.push(readProjectedReadingPaint(record2, projection.rect, context));
+overlay.pendingSyncRects.set(record2, projection.rect);
 }
-applyProjectionPaints(paints, context);
 if (records.size) ownerRecords.set(owner, records);
 else ownerRecords.delete(owner);
-pruneDisconnectedRecords(overlay);
-overlay.occlusionEpoch += 1;
 scheduleProjectionRefresh(document2, overlay);
 }
 function clearProjectedReadings(owner) {
@@ -240,7 +329,7 @@ return best?.word ?? null;
 }
 function projectedReadingPaintedRect(record2) {
 const { clone } = record2;
-if (!clone.isConnected) return null;
+if (!clone.isConnected || clone.style.display === "none" || clone.style.visibility === "hidden") return null;
 const rect = clone.getBoundingClientRect();
 return validRect(rect) ? rect : null;
 }
@@ -265,6 +354,8 @@ document2,
 "jpdb-reader-detached-reading-overlay jpdb-reader-detached-reading-document-layer"
 );
 const overlay = {
+pendingSyncRects: /* @__PURE__ */ new Map(),
+pendingNativeRects: /* @__PURE__ */ new Map(),
 layer,
 documentLayer,
 scrollLayers: /* @__PURE__ */ new Map(),
@@ -310,6 +401,7 @@ document2.addEventListener("pointerover", overlay.scheduleRefresh, { capture: tr
 document2.addEventListener("pointerout", overlay.scheduleRefresh, { capture: true, passive: true });
 document2.addEventListener("focusin", overlay.scheduleRefresh, { capture: true, passive: true });
 document2.addEventListener("focusout", overlay.scheduleRefresh, { capture: true, passive: true });
+for (const event of ["fullscreenchange", "webkitfullscreenchange"]) document2.addEventListener(event, overlay.scheduleTopologyRefresh, { passive: true });
 const viewport = document2.defaultView;
 viewport?.addEventListener("resize", overlay.scheduleTopologyRefresh, { passive: true });
 viewport?.addEventListener("orientationchange", overlay.scheduleTopologyRefresh, { passive: true });
@@ -382,30 +474,19 @@ clone.className = "jpdb-reader-furi jpdb-reader-detached-furi jpdb-reader-projec
 clone.setAttribute("aria-hidden", "true");
 clone.setAttribute(PROJECTED_READING_ATTRIBUTE, "true");
 clone.textContent = source.textContent ?? "";
-clone.style.cssText = "all:initial!important;display:block!important;width:max-content!important;line-height:1!important;white-space:nowrap!important;word-break:keep-all!important;-webkit-text-fill-color:currentColor!important;pointer-events:none!important;user-select:none!important;-webkit-user-select:none!important";
+clone.style.cssText = "all:initial!important;display:block!important;visibility:hidden!important;width:max-content!important;line-height:1!important;white-space:nowrap!important;word-break:keep-all!important;-webkit-text-fill-color:currentColor!important;pointer-events:none!important;user-select:none!important;-webkit-user-select:none!important";
 layer.append(clone);
 return clone;
 }
 function syncProjectedReadingStyle(record2) {
-const { clone, source } = record2;
-const sourceStyle = safeComputedStyle$1(source);
-const base = source.closest(".jpdb-reader-word") ?? source;
-const baseStyle = safeComputedStyle$1(base);
-const text2 = source.textContent ?? "";
-if (clone.textContent !== text2) clone.textContent = text2;
-const expression = base.dataset.expression ?? base.dataset.surface ?? "";
-if (clone.dataset.yomuExpression !== expression) clone.dataset.yomuExpression = expression;
-setImportantStyleIfChanged(clone, "font-family", sourceStyle.fontFamily || baseStyle.fontFamily);
-setImportantStyleIfChanged(clone, "font-size", sourceStyle.fontSize || "10px");
-setImportantStyleIfChanged(clone, "font-style", sourceStyle.fontStyle || baseStyle.fontStyle);
-setImportantStyleIfChanged(clone, "font-weight", sourceStyle.fontWeight || "400");
-setImportantStyleIfChanged(clone, "letter-spacing", sourceStyle.letterSpacing || baseStyle.letterSpacing);
-setImportantStyleIfChanged(clone, "color", sourceStyle.color || baseStyle.color || "currentColor");
-setImportantStyleIfChanged(clone, "text-shadow", baseStyle.textShadow || "none");
-const key = `${clone.textContent ?? ""}\0${clone.style.getPropertyValue("font-size")}`;
+const key = syncProjectedReadingTypography(record2.source, record2.clone, safeComputedStyle$1);
 if (record2.naturalReadingKey !== key) {
 record2.naturalReadingKey = key;
 record2.naturalReadingWidth = void 0;
+if (record2.clone.style.display === "none") {
+setImportantStyleIfChanged(record2.clone, "visibility", "hidden");
+setImportantStyleIfChanged(record2.clone, "display", "block");
+}
 }
 }
 function readProjectedReadingPaint(record2, rect, context) {
@@ -455,9 +536,11 @@ paints.forEach((paint) => applyProjectedReadingPaint(paint, context));
 }
 function applyProjectedReadingPaint(paint, context) {
 if (!paint.visible || !paint.rect) {
+setDatasetIfChanged(paint.record.clone, "yomuReadingHiddenReason", paint.blockedForSpace ? "spacing" : "visibility");
 setImportantStyleIfChanged(paint.record.clone, "display", "none");
 return;
 }
+setDatasetIfChanged(paint.record.clone, "yomuReadingHiddenReason", "");
 positionProjectedReading(paint.record, paint.rect, context, paint.layout);
 }
 function positionProjectedReading(record2, rect, context, layout) {
@@ -467,6 +550,7 @@ const centre = layout?.centre ?? rect.left + rect.width / 2;
 const scaleX = layout?.scaleX ?? 1;
 record2.readingScaleX = scaleX;
 setImportantStyleIfChanged(clone, "display", "block");
+clone.style.removeProperty("visibility");
 setImportantStyleIfChanged(clone, "left", stableCssPixels(centre + origin.x));
 setImportantStyleIfChanged(clone, "top", stableCssPixels(rect.top + origin.y));
 setImportantStyleIfChanged(clone, "right", "auto");
@@ -493,20 +577,24 @@ for (const lane of projectedReadingLanes(placed)) {
 fitProjectedReadingLane(lane);
 for (const paint of lane) {
 if (!paint.visible) continue;
-const anchor = paint.record.anchor;
-let rects = nativeRects.get(anchor);
-if (!rects) {
-rects = nativeTextRects(anchor);
-nativeRects.set(anchor, rects);
-}
-const height = paint.record.footprintHeight || paint.rect.height / 2;
-const width = naturalReadingWidth(paint.record) * (paint.layout?.scaleX ?? 1);
-const centre = paint.layout?.centre ?? readingAnchorCentre(paint);
-if (readingOverlapsPreviousLine(paint.rect, rects, centre, width, height)) {
+if (projectionOverlapsAuthoredLine(paint, nativeRects)) {
+paint.blockedForSpace = true;
 paint.visible = false;
 }
 }
 }
+}
+function projectionOverlapsAuthoredLine(paint, nativeRects) {
+const { record: record2, rect, layout } = paint;
+let rects = nativeRects.get(record2.anchor);
+if (!rects) {
+rects = nativeTextRects(record2.anchor);
+nativeRects.set(record2.anchor, rects);
+}
+const height = record2.footprintHeight || rect.height / 2;
+const width = naturalReadingWidth(record2) * (layout?.scaleX ?? 1);
+const centre = layout?.centre ?? readingAnchorCentre(paint);
+return readingOverlapsPreviousLine(rect, rects, centre, width, height);
 }
 function isPlacedProjectionPaint(paint) {
 return paint.visible && paint.rect !== null;
@@ -529,30 +617,17 @@ return lanes;
 function fitProjectedReadingLane(lane) {
 if (lane.length < 2) return;
 lane.sort((first2, second) => readingAnchorCentre(first2) - readingAnchorCentre(second));
-for (const [index, paint] of lane.entries()) {
-const previous = lane[index - 1]?.rect;
-const next = lane[index + 1]?.rect;
-paint.layout = fitReadingBetween(
-readingAnchorCentre(paint),
-naturalReadingWidth(paint.record),
-previous ? (previous.right + paint.rect.left) / 2 : Number.NEGATIVE_INFINITY,
-next ? (paint.rect.right + next.left) / 2 : Number.POSITIVE_INFINITY
-);
-if (paint.layout.scaleX === 0) paint.visible = false;
+const placements = fitReadingLane(lane.map((paint) => ({ left: paint.rect.left, right: paint.rect.right, width: naturalReadingWidth(paint.record) })));
+lane.forEach((paint, index) => {
+paint.layout = placements[index];
+if (paint.layout.scaleX === 0) {
+paint.blockedForSpace = true;
+paint.visible = false;
 }
+});
 }
 function readingAnchorCentre(paint) {
 return paint.rect.left + paint.rect.width / 2;
-}
-function fitReadingBetween(centre, width, left, right) {
-if (!(width > 0)) return { centre, scaleX: 1 };
-const available = right - left;
-const scaleX = available >= width ? 1 : Math.max(PROJECTED_READING_MIN_SCALE_X, available / width);
-const painted = width * scaleX;
-if (painted > available) return { centre, scaleX: 0 };
-if (centre - painted / 2 < left) return { centre: left + painted / 2, scaleX };
-if (centre + painted / 2 > right) return { centre: right - painted / 2, scaleX };
-return { centre, scaleX };
 }
 function naturalReadingWidth(record2) {
 if (record2.naturalReadingWidth) return record2.naturalReadingWidth;
@@ -637,11 +712,13 @@ if (cached) return cached;
 const document2 = element.ownerDocument;
 const view = document2.defaultView;
 if (!view) return { mode: "viewport" };
+const fullscreen = fullscreenProjectionHost(element);
+if (fullscreen) return { mode: "scroll", scrollLayerHost: fullscreen };
 let current = element;
 let positionedHost = null;
 let target = { mode: "viewport" };
 while (current) {
-if (current === document2.documentElement || current === document2.body) {
+if (isDocumentProjectionRoot(current, document2)) {
 target = { mode: "document" };
 break;
 }
@@ -649,37 +726,41 @@ const style = memoizedComputedStyle(current, styles);
 const coordinateSpaceIsSafe = elementCoordinateSpacePreservesCssPixels(style);
 const clipsReading = elementClipsDetachedReading(style);
 const scrollsIndependently = elementScrollsIndependently(current, style, context.overlay);
-if (!coordinateSpaceIsSafe || clipsReading && !scrollsIndependently) positionedHost = null;
+if (!projectionHostContextIsUsable(coordinateSpaceIsSafe, clipsReading, scrollsIndependently)) positionedHost = null;
 if (scrollsIndependently) {
-if (!(current instanceof HTMLElement)) break;
-if (!scrollLayerCoordinatesPreserveCssPixels(current, context)) break;
-if (elementCanMountProjectionLayer(current, style) && elementCreatesAbsoluteContainingBlock(style)) {
-target = {
-mode: "scroll",
-scrollLayerHost: current
-};
-} else if (positionedHost) {
-target = {
-mode: "scroll",
-scrollLayerHost: positionedHost
-};
-} else if (elementCanMountProjectionLayer(current, style) && scrollContainerSupportsFlowLayer(style)) {
-target = {
-mode: "scroll",
-scrollLayerHost: current,
-flowScrollContainer: true
-};
-}
+target = independentScrollProjectionTarget(current, style, positionedHost, context);
 break;
 }
-if (style.position === "fixed" || style.position === "sticky") break;
-if (coordinateSpaceIsSafe && !clipsReading && current instanceof HTMLElement && elementCanMountProjectionLayer(current, style) && elementCreatesAbsoluteContainingBlock(style)) {
-positionedHost = current;
-}
+if (VIEWPORT_ATTACHED_POSITIONS.has(style.position)) break;
+const candidate = positionedProjectionHost(current, style, coordinateSpaceIsSafe, clipsReading);
+if (candidate) positionedHost = candidate;
 current = composedParentElement$1(current);
 }
 cache2.set(element, target);
 return target;
+}
+function fullscreenProjectionHost(element) {
+const fullscreen = currentFullscreenElement(element.ownerDocument);
+return fullscreen instanceof HTMLElement && fullscreen.contains(element) ? fullscreen : null;
+}
+function isDocumentProjectionRoot(element, document2) {
+return element === document2.documentElement || element === document2.body;
+}
+function projectionHostContextIsUsable(safe, clips, scrolls) {
+return safe && (!clips || scrolls);
+}
+function positionedProjectionHost(element, style, safe, clips) {
+if (!safe || clips || !(element instanceof HTMLElement)) return null;
+if (!elementCanMountProjectionLayer(element, style) || !elementCreatesAbsoluteContainingBlock(style)) return null;
+return element;
+}
+function independentScrollProjectionTarget(current, style, positionedHost, context) {
+if (!(current instanceof HTMLElement) || !scrollLayerCoordinatesPreserveCssPixels(current, context)) return { mode: "viewport" };
+const canMount = elementCanMountProjectionLayer(current, style);
+if (canMount && elementCreatesAbsoluteContainingBlock(style)) return { mode: "scroll", scrollLayerHost: current };
+if (positionedHost) return { mode: "scroll", scrollLayerHost: positionedHost };
+if (canMount && scrollContainerSupportsFlowLayer(style)) return { mode: "scroll", scrollLayerHost: current, flowScrollContainer: true };
+return { mode: "viewport" };
 }
 function elementCreatesAbsoluteContainingBlock(style) {
 return Boolean(style.position && style.position !== "static");
@@ -785,15 +866,20 @@ overlay.framelessRefreshPending = false;
 refreshProjectedReadingPositions(overlay);
 });
 }
-function refreshProjectedReadingPositions(overlay) {
+function refreshProjectedReadingPositions(overlay, useSyncRects = false) {
 overlay.refreshing = true;
 try {
-runProjectionRefreshPass(overlay);
+runProjectionRefreshPass(overlay, useSyncRects);
 } finally {
 overlay.refreshing = false;
 }
 }
-function runProjectionRefreshPass(overlay) {
+function runProjectionRefreshPass(overlay, useSyncRects) {
+const syncedRects = overlay.pendingSyncRects;
+const nativeRects = overlay.pendingNativeRects;
+overlay.pendingSyncRects = /* @__PURE__ */ new Map();
+overlay.pendingNativeRects = /* @__PURE__ */ new Map();
+if (syncedRects.size) overlay.occlusionEpoch += 1;
 pruneDisconnectedRecords(overlay);
 overlay.hitTestBudgetRemaining = 12;
 overlay.occlusionRefreshNeeded = false;
@@ -803,7 +889,7 @@ overlay.rootsDirty = false;
 }
 const context = {
 overlay,
-nativeRects: /* @__PURE__ */ new Map(),
+nativeRects: useSyncRects ? nativeRects : /* @__PURE__ */ new Map(),
 anchorPaint: /* @__PURE__ */ new Map(),
 elementPaint: /* @__PURE__ */ new Map(),
 occludingPaint: /* @__PURE__ */ new Map(),
@@ -819,11 +905,12 @@ const start = overlay.hitTestCursor % Math.max(1, records.length);
 records.push(...records.splice(0, start));
 overlay.hitTestCursor = (start + 12) % Math.max(1, records.length);
 records.forEach((record2) => adoptProjectionLayer(record2, context));
+records.forEach(naturalReadingWidth);
 const paints = records.map((record2) => {
 if (!visibleAnchor(record2.anchor, context)) {
 return { record: record2, rect: null, visible: false };
 }
-return readProjectedReadingPaint(record2, safeMeasure(record2), context);
+return readProjectedReadingPaint(record2, (useSyncRects ? syncedRects.get(record2) : void 0) ?? safeMeasure(record2), context);
 });
 applyProjectionPaints(paints, context);
 if (overlay.graceRefreshNeeded) {
@@ -1130,6 +1217,7 @@ surface: projectionRenderSurface(record2),
 // Resolved once per record: the control and its size decide the same
 // way at every probe point.
 chrome: ownChromeControl(record2.anchor, sourceRect),
+mediaBoundary: ownMediaReadingBoundary(record2.anchor, sourceRect),
 portalControl: ownPortalControl(record2, sourceRect),
 occludingPaint
 };
@@ -1193,22 +1281,29 @@ function controlIsOwnChromeSized(control, sourceRect) {
 return control.getBoundingClientRect().height <= sourceRect.height * OWN_CHROME_MAX_CONTROL_LINES;
 }
 function anchorOwnsTopmostPoint(probe, x2, y, allowPortalControlContent = false) {
-const { anchor, surface } = probe;
+const { anchor } = probe;
 const document2 = anchor.ownerDocument;
 if (typeof document2.elementsFromPoint !== "function") return true;
 for (const hit of document2.elementsFromPoint(x2, y)) {
 if (hit.closest(".jpdb-reader-detached-reading-overlay") || hit === document2.body || hit === document2.documentElement) continue;
 const deepest = deepestOpenShadowHit(hit, x2, y);
-if (composedContains(anchor, deepest) || composedContains(surface, deepest)) return true;
-if (composedContains(deepest, anchor) || composedContains(deepest, surface)) return true;
+if (pointBelongsToProjectionSource(deepest, probe)) return true;
 if (allowPortalControlContent && probe.portalControl && composedContains(probe.portalControl, deepest)) return true;
-for (let element = deepest; element; element = composedParentElement$1(element)) {
-if (composedContains(element, anchor) || composedContains(element, surface)) break;
-if (elementIsOwnControlChrome(element, probe)) continue;
-if (elementPaintsOccludingSurface(element, probe.occludingPaint)) return false;
-}
+if (allowPortalControlContent && pointTouchesOwnMediaBoundary(probe.mediaBoundary, deepest, x2, y)) continue;
+if (pointHasUnrelatedOccludingSurface(deepest, probe)) return false;
 }
 return true;
+}
+function pointBelongsToProjectionSource(hit, probe) {
+return [probe.anchor, probe.surface].some((source) => composedContains(source, hit) || composedContains(hit, source));
+}
+function pointHasUnrelatedOccludingSurface(deepest, probe) {
+for (let element = deepest; element; element = composedParentElement$1(element)) {
+if (composedContains(element, probe.anchor) || composedContains(element, probe.surface)) break;
+if (elementIsOwnControlChrome(element, probe)) continue;
+if (elementPaintsOccludingSurface(element, probe.occludingPaint)) return true;
+}
+return false;
 }
 function elementIsOwnControlChrome(element, probe) {
 const { chrome } = probe;
@@ -1435,7 +1530,8 @@ clearProjectedReadings,
 clearProjectedReadingsWithin: clearProjectedReadingsWithin$1,
 projectedReadingWordAtPoint,
 pruneProjectedReadings,
-syncProjectedReadings
+syncProjectedReadings,
+withProjectedReadingBatch
 });
 function delay(ms) {
 return new Promise((resolve) => window.setTimeout(resolve, ms));
@@ -16014,7 +16110,11 @@ const YOUTUBE_READABLE_LABEL_ROOTS = [
 "ytd-guide-entry-renderer",
 "ytd-guide-collapsible-section-entry-renderer",
 "ytd-mini-guide-entry-renderer",
-"ytd-masthead #buttons .ytSpecButtonShapeNextButtonTextContent"
+"ytd-masthead #buttons .ytSpecButtonShapeNextButtonTextContent",
+"ytd-watch-metadata .ytSpecButtonShapeNextButtonTextContent",
+"ytd-watch-metadata .yt-spec-button-shape-next__button-text-content",
+".ytp-settings-menu .ytp-menuitem-label",
+".ytp-settings-menu .ytp-menuitem-content:not(:has(input))"
 ];
 const LABEL_SELECTOR = YOUTUBE_READABLE_LABEL_ROOTS.join(",");
 function isYouTubeReadableLabel(element) {
@@ -17080,9 +17180,9 @@ return Number.isFinite(rank) ? rank : void 0;
 function nonOverlappingMatches(matches, limit, rank) {
 const selected = [];
 const occupied = [];
-const overlaps = (match) => occupied.some(([start, end]) => match.start < end && match.end > start);
+const overlaps2 = (match) => occupied.some(([start, end]) => match.start < end && match.end > start);
 for (const match of matches.sort((left, right) => compareTermMatchesForSelection(left, right, rank))) {
-if (overlaps(match)) continue;
+if (overlaps2(match)) continue;
 selected.push(match);
 occupied.push([match.start, match.end]);
 if (selected.length >= limit) break;
@@ -49012,22 +49112,6 @@ resolveUiLanguage,
 uiList,
 uiText
 });
-function hasOpenYouTubeMobileBottomSheet() {
-return Array.from(document.querySelectorAll(
-'bottom-sheet-container[aria-modal="true"],ytm-bottom-sheet-renderer[aria-modal="true"],yt-sheet-view-model[aria-modal="true"]'
-)).some((sheet) => {
-for (let element = sheet; element; element = composedAncestorElement(element)) {
-if (element.hidden || element.getAttribute("aria-hidden") === "true") return false;
-const style = getComputedStyle(element);
-if (style.display === "none" || style.visibility === "hidden") return false;
-}
-return true;
-});
-}
-function currentFullscreenElement() {
-const fullscreenDocument = document;
-return document.fullscreenElement ?? fullscreenDocument.webkitFullscreenElement ?? fullscreenDocument.mozFullScreenElement ?? fullscreenDocument.msFullscreenElement ?? null;
-}
 function clampNumber(value, min, max2) {
 return Math.min(Math.max(value, min), Math.max(min, max2));
 }
@@ -49864,6 +49948,1374 @@ return withBreaks(escapeHtml$2(value));
 function withBreaks(value) {
 return value.replace(/\n/g, "<br>");
 }
+const SUBTITLE_COMPATIBILITY_ALIASES = Object.freeze({
+ja: Object.freeze(["jp", "nihongo", "nihon-go", "日文", "日語", "日本字幕"]),
+en: Object.freeze(["英文"])
+});
+const SUBTITLE_LANGUAGE_DESCRIPTORS = Object.freeze(
+LEARNING_TARGET_ROSTER.map((target) => {
+const tag = languageSubtag(target.runtimeLocale) ?? target.runtimeLocale;
+const compatibilityAliases = SUBTITLE_COMPATIBILITY_ALIASES[target.id] ?? [];
+const nativeNameWithoutQualifier = target.nativeName.replace(/\s*[（(][^）)]*[）)]\s*/gu, "").trim();
+return Object.freeze({
+id: target.id,
+tag,
+exactAliases: uniqueAliases([
+target.id,
+target.runtimeLocale,
+tag,
+target.englishName,
+target.nativeName,
+nativeNameWithoutQualifier,
+...compatibilityAliases
+]),
+nameHints: uniqueAliases([
+target.englishName,
+target.nativeName,
+nativeNameWithoutQualifier,
+languageDisplayName(tag, "ja"),
+...compatibilityAliases.filter((alias) => alias.length > 3 || /[^\x00-\x7f]/u.test(alias))
+])
+});
+})
+);
+const SUBTITLE_LANGUAGE_BY_ID = new Map(
+SUBTITLE_LANGUAGE_DESCRIPTORS.map((descriptor) => [descriptor.id, descriptor])
+);
+const SUBTITLE_LANGUAGE_BY_EXACT_ALIAS = /* @__PURE__ */ new Map();
+for (const descriptor of SUBTITLE_LANGUAGE_DESCRIPTORS) {
+for (const alias of descriptor.exactAliases) {
+SUBTITLE_LANGUAGE_BY_EXACT_ALIAS.set(foldSubtitleLanguageText(alias), descriptor.tag);
+}
+}
+const SUBTITLE_LANGUAGE_NAME_HINTS = SUBTITLE_LANGUAGE_DESCRIPTORS.flatMap((descriptor) => descriptor.nameHints.map((alias) => {
+const folded = foldSubtitleLanguageText(alias);
+return { alias: folded, tag: descriptor.tag, pattern: subtitleLanguageNamePattern(folded) };
+})).filter((hint) => hint.alias).sort((a, b) => b.alias.length - a.alias.length);
+const SUBTITLE_LANGUAGE_TAGS = new Set(SUBTITLE_LANGUAGE_DESCRIPTORS.map((descriptor) => descriptor.tag));
+function inferSubtitleLanguage(label, url = "") {
+const urlHint = subtitleUrlHintText(url);
+return [
+inferNamedSubtitleLanguage(label),
+inferNamedSubtitleLanguage(urlHint),
+inferSubtitleLanguageCode(label, hasSubtitleMarker(label)),
+inferSubtitleLanguageCode(urlHint, true),
+inferKanaSubtitleLanguage(label)
+].find((language) => Boolean(language));
+}
+function inferKanaSubtitleLanguage(value) {
+return /[\u3040-\u30ff]/u.test(value) ? "ja" : void 0;
+}
+function normalizeSubtitleLanguage(language) {
+if (!language) return void 0;
+return [
+SUBTITLE_LANGUAGE_BY_EXACT_ALIAS.get(foldSubtitleLanguageText(language)),
+normalizedRosterSubtitleLanguage(language),
+language
+].find((candidate) => Boolean(candidate));
+}
+function normalizedRosterSubtitleLanguage(language) {
+const rosterId = learningTargetRosterIdForTag(language);
+return rosterId ? SUBTITLE_LANGUAGE_BY_ID.get(rosterId)?.tag : void 0;
+}
+function isGenericSubtitleLabel(value) {
+const cleaned = value.trim();
+return /^(?:vtt|srt|ass|ssa|subtitles?|captions?|cc|closed captions?)$/iu.test(cleaned) || SUBTITLE_LANGUAGE_BY_EXACT_ALIAS.has(foldSubtitleLanguageText(cleaned));
+}
+function inferNamedSubtitleLanguage(value) {
+const text2 = foldSubtitleLanguageText(decodeSubtitleLanguageText(value));
+if (!text2) return void 0;
+const candidates = SUBTITLE_LANGUAGE_NAME_HINTS.flatMap((hint) => languageNameMatches(text2, hint.pattern).map((index) => ({
+tag: hint.tag,
+score: subtitleLanguageCueScore(text2, index, index + hint.alias.length),
+index,
+length: hint.alias.length
+})));
+return candidates.sort((left, right) => right.score - left.score || left.index - right.index || right.length - left.length)[0]?.tag;
+}
+function subtitleLanguageNamePattern(alias) {
+const value = escapeRegExp(alias);
+return /[^\x00-\x7f]/u.test(alias) ? new RegExp(`(${value})`, "gu") : new RegExp(`(?:^|[^\\p{Script=Latin}\\p{Number}])(${value})(?![\\p{Script=Latin}\\p{Number}])`, "gu");
+}
+function languageNameMatches(text2, pattern) {
+return [...text2.matchAll(pattern)].map((match) => match.index + match[0].length - (match[1]?.length ?? 0));
+}
+function subtitleLanguageCueScore(text2, start, end) {
+if (isWholeSubtitleLabelMatch(text2, start, end)) return 120;
+const before = text2.slice(Math.max(0, start - 28), start);
+const after = text2.slice(end, Math.min(text2.length, end + 28));
+return contextualSubtitleLanguageScore(before, after);
+}
+function isWholeSubtitleLabelMatch(text2, start, end) {
+return start === 0 && end === text2.length;
+}
+function contextualSubtitleLanguageScore(before, after) {
+if (hasSubtitleDeclarationCue(before, after)) return 100;
+if (hasContentDescriptionCue(before, after)) return -40;
+return 10;
+}
+function hasSubtitleDeclarationCue(before, after) {
+return /^\s*(?:[-–—:()[\]]*\s*)?(?:subtitles?|captions?|closed[ -]captions?|cc|language|lang)\b/iu.test(after) || /\b(?:subtitles?|captions?|closed[ -]captions?|cc|language|lang)\s*(?:[-–—:()[\]]*\s*)?$/iu.test(before);
+}
+function hasContentDescriptionCue(before, after) {
+return /\b(?:for|learn|learning|lesson|course|movie|film|drama|show|video|anime)\s*$/iu.test(before) || /^\s*(?:movie|film|drama|show|video|anime|lesson|course)\b/iu.test(after);
+}
+function escapeRegExp(value) {
+return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+function inferSubtitleLanguageCode(value, allowWhitespaceDelimited) {
+const text2 = decodeSubtitleLanguageText(value);
+return [...text2.matchAll(/[a-z]{2,3}/giu)].map((match) => subtitleLanguageCodeCandidate(text2, match, allowWhitespaceDelimited)).find((language) => Boolean(language));
+}
+function subtitleLanguageCodeCandidate(text2, match, allowWhitespaceDelimited) {
+const start = Number(match.index);
+const end = start + match[0].length;
+if (!hasSubtitleLanguageCodeBoundary(text2, start, end, allowWhitespaceDelimited)) return void 0;
+return knownSubtitleLanguageCode(normalizeSubtitleLanguage(match[0]));
+}
+function knownSubtitleLanguageCode(language) {
+if (!language) return void 0;
+return SUBTITLE_LANGUAGE_TAGS.has(language) ? language : void 0;
+}
+function hasSubtitleLanguageCodeBoundary(text2, start, end, allowWhitespaceDelimited) {
+const adjacent = [text2.charAt(start - 1), text2.charAt(end)];
+if (adjacent.some(isLatinLetterOrNumber)) return false;
+return allowWhitespaceDelimited || hasStructuredCodeBoundary(text2, start, end);
+}
+function hasStructuredCodeBoundary(text2, start, end) {
+return [text2.charAt(start - 1), text2.charAt(end)].some((character) => /[._/()[\]{}-]/u.test(character)) || isWholeSubtitleLabelMatch(text2, start, end);
+}
+function hasSubtitleMarker(value) {
+return /\b(?:subtitles?|captions?|closed[ -]captions?|cc|language|lang)\b/iu.test(value);
+}
+function subtitleUrlHintText(value) {
+if (!value) return "";
+try {
+const parsed = new URL(value, document.baseURI);
+return decodeSubtitleLanguageText([
+parsed.pathname,
+...parsed.searchParams.values()
+].join(" "));
+} catch {
+return decodeSubtitleLanguageText(value);
+}
+}
+function decodeSubtitleLanguageText(value) {
+try {
+return decodeURIComponent(value.replace(/\+/g, " "));
+} catch {
+return value;
+}
+}
+function foldSubtitleLanguageText(value) {
+return value.normalize("NFKD").replace(/\p{Mark}/gu, "").trim().toLocaleLowerCase().replace(/_/g, "-");
+}
+function isLatinLetterOrNumber(value) {
+return Boolean(value && /[\p{Script=Latin}\p{Number}]/u.test(value));
+}
+function uniqueAliases(values) {
+return Object.freeze([...new Set(values.filter(Boolean))]);
+}
+function unescapeYouTubeConfigString(value) {
+try {
+return JSON.parse(`"${value}"`);
+} catch {
+return value;
+}
+}
+function readYouTubeConfigStringFromScripts(key) {
+const escapedKey = escapeRegExp$1(key);
+const patterns = [
+new RegExp(`"${escapedKey}"\\s*:\\s*"((?:\\\\.|[^"\\\\])*)"`, "u"),
+new RegExp(`${escapedKey}\\s*:\\s*"((?:\\\\.|[^"\\\\])*)"`, "u")
+];
+for (const script of Array.from(document.scripts)) {
+const text2 = script.textContent ?? "";
+const raw = patterns.map((pattern) => text2.match(pattern)?.[1]).find(Boolean);
+if (raw) return unescapeYouTubeConfigString(raw);
+}
+return "";
+}
+const YOUTUBE_VIDEO_PLAYER_SELECTOR = "#movie_player, .html5-video-player";
+const YOUTUBE_VIDEO_OWNER_SELECTOR = `${YOUTUBE_VIDEO_PLAYER_SELECTOR}, ytd-player, ytd-watch-flexy, #player, #player-container, #player-container-outer, .html5-video-container`;
+const YOUTUBE_CAPTION_SEMANTIC_MISS_TTL_MS = 15e3;
+const YOUTUBE_CAPTION_SEMANTIC_MISS_MAX_ENTRIES = 96;
+const YOUTUBE_CAPTION_SEMANTIC_MISS = Symbol("youtube-caption-semantic-miss");
+const youtubeCaptionLoadStates = /* @__PURE__ */ new WeakMap();
+async function discoverCurrentYouTubeCaptionTracks(options) {
+if (!isYouTubePage$1()) return null;
+const videoId = getYouTubeVideoId();
+if (!videoId) return null;
+options.onVideoId(videoId);
+const tracks = await discoverYouTubeCaptionTracks(options);
+return getYouTubeVideoId() === videoId ? currentYouTubeDiscoveryTracks(tracks, options) : null;
+}
+function currentYouTubeDiscoveryTracks(tracks, options) {
+if (!tracks.length) return null;
+return options.contextKey === options.currentContextKey() ? tracks : null;
+}
+async function discoverYouTubeCaptionTracks(options = {}) {
+const pageTracks = getYouTubeCaptionTracks(options);
+const androidTracks = await getAndroidYouTubeCaptionTracks(options.preferredTranslationLanguages);
+return uniqueYouTubeCaptionTrackCandidates([
+...pageTracks,
+...androidTracks
+]);
+}
+async function loadYouTubeTrackCues(track, options) {
+const initialUrl = track.url;
+if (!initialUrl) return [];
+throwIfYouTubeCaptionLoadAborted(options.signal);
+applyPreferredYouTubeCaptionCandidate(track);
+return resolveYouTubeCaptionLoad(track, options, track.url ?? initialUrl);
+}
+function resolveYouTubeCaptionLoad(track, options, sourceUrl) {
+const state2 = youtubeCaptionLoadState(options.requestText);
+const loadKey = youtubeCaptionLoadKey(track);
+if (freshYouTubeCaptionSemanticMiss(state2, loadKey)) return Promise.resolve([]);
+const existing = state2.loads.get(loadKey);
+if (existing) return existing.subscribe(options.signal);
+return startYouTubeCaptionLoad(track, options, sourceUrl, state2, loadKey);
+}
+function startYouTubeCaptionLoad(track, options, sourceUrl, state2, loadKey) {
+let operation;
+operation = new SharedAbortableOperation(
+(signal) => loadYouTubeTrackCuesUncached(track, { ...options, signal }, state2, loadKey, sourceUrl),
+() => {
+if (state2.loads.get(loadKey) === operation) state2.loads.delete(loadKey);
+}
+);
+state2.loads.set(loadKey, operation);
+return operation.subscribe(options.signal);
+}
+async function loadYouTubeTrackCuesUncached(track, options, state2, loadKey, sourceUrl) {
+throwIfYouTubeCaptionLoadAborted(options.signal);
+const tried = /* @__PURE__ */ new Set();
+const primary = await loadYouTubeCueUrls(track, youtubeSubtitleRequestUrls(sourceUrl), options, tried);
+throwIfYouTubeCaptionLoadAborted(options.signal);
+if (primary === YOUTUBE_CAPTION_SEMANTIC_MISS) {
+rememberYouTubeCaptionSemanticMiss(state2, loadKey);
+return [];
+}
+if (primary.length) return primary;
+return loadFallbackYouTubeTrackCues(track, options, state2, tried);
+}
+async function loadFallbackYouTubeTrackCues(track, options, state2, tried) {
+const candidates = await fallbackYouTubeCaptionCandidates(track, options.signal);
+throwIfYouTubeCaptionLoadAborted(options.signal);
+for (const candidate of candidates) {
+throwIfYouTubeCaptionLoadAborted(options.signal);
+const cues = await loadYouTubeCueUrls(track, youtubeSubtitleRequestUrls(candidate.url), options, tried);
+throwIfYouTubeCaptionLoadAborted(options.signal);
+if (cues === YOUTUBE_CAPTION_SEMANTIC_MISS) {
+track.url = candidate.url;
+track.youtubeTrack = candidate.raw;
+rememberYouTubeCaptionSemanticMiss(state2, youtubeCaptionLoadKey(track));
+return [];
+}
+if (!cues.length) continue;
+track.url = candidate.url;
+track.youtubeTrack = candidate.raw;
+return cues;
+}
+return [];
+}
+async function loadYouTubeCueUrls(track, urls, options, tried) {
+for (const url of urls) {
+throwIfYouTubeCaptionLoadAborted(options.signal);
+if (tried.has(url)) continue;
+tried.add(url);
+const cues = await loadYouTubeCueUrl(track, url, options);
+if (youtubeCueLoadSettled(cues)) return cues;
+}
+return [];
+}
+function youtubeCueLoadSettled(cues) {
+return cues === YOUTUBE_CAPTION_SEMANTIC_MISS || cues.length > 0;
+}
+async function loadYouTubeCueUrl(track, url, options) {
+try {
+const text2 = await options.requestText(url, options.signal);
+throwIfYouTubeCaptionLoadAborted(options.signal);
+return parseYouTubeCaptionResponse(track, text2);
+} catch (error) {
+return settleYouTubeCaptionRequestError(track, url, options, error);
+}
+}
+function parseYouTubeCaptionResponse(track, text2) {
+if (!text2.trim()) return YOUTUBE_CAPTION_SEMANTIC_MISS;
+return normalizeSubtitleCues(parseSubtitleText(text2, {
+smoothYouTubeFragments: true,
+youtubeAutoGenerated: isAutoGeneratedSubtitleTrack(track)
+}));
+}
+function settleYouTubeCaptionRequestError(track, url, options, error) {
+throwIfYouTubeCaptionRequestAborted(options.signal, error);
+options.onRequestError?.(track, url, error);
+return [];
+}
+function hasFreshYouTubeCaptionSemanticMiss(track, requestText2) {
+return Boolean(track.url) && freshYouTubeCaptionSemanticMiss(youtubeCaptionLoadState(requestText2), youtubeCaptionLoadKey(track));
+}
+function youtubeCaptionLoadState(requestText2) {
+const existing = youtubeCaptionLoadStates.get(requestText2);
+if (existing) return existing;
+const created = { semanticMisses: /* @__PURE__ */ new Map(), loads: /* @__PURE__ */ new Map() };
+youtubeCaptionLoadStates.set(requestText2, created);
+return created;
+}
+function throwIfYouTubeCaptionLoadAborted(signal) {
+if (signal?.aborted) throw youtubeCaptionAbortReason(signal);
+}
+function youtubeCaptionAbortReason(signal) {
+return abortSignalReason(signal);
+}
+function youtubeCaptionLoadKey(track) {
+return `${youtubeCaptionTrackIdentity(track)}|${youtubeCaptionSourceVersion(track.url)}`;
+}
+function youtubeCaptionSourceVersion(url) {
+if (!url) return "";
+try {
+const parsed = new URL(url, typeof location === "undefined" ? "https://www.youtube.com/" : location.href);
+parsed.hash = "";
+parsed.searchParams.delete("fmt");
+parsed.searchParams.sort();
+return parsed.href;
+} catch {
+return url;
+}
+}
+function freshYouTubeCaptionSemanticMiss(state2, key, now = Date.now()) {
+pruneYouTubeCaptionSemanticMisses(state2, now);
+return (state2.semanticMisses.get(key) ?? 0) > now;
+}
+function rememberYouTubeCaptionSemanticMiss(state2, key, now = Date.now()) {
+state2.semanticMisses.delete(key);
+state2.semanticMisses.set(key, now + YOUTUBE_CAPTION_SEMANTIC_MISS_TTL_MS);
+pruneYouTubeCaptionSemanticMisses(state2, now);
+while (state2.semanticMisses.size > YOUTUBE_CAPTION_SEMANTIC_MISS_MAX_ENTRIES) {
+state2.semanticMisses.delete(state2.semanticMisses.keys().next().value ?? "");
+}
+}
+function pruneYouTubeCaptionSemanticMisses(state2, now) {
+for (const [key, expiresAt] of state2.semanticMisses) {
+if (expiresAt <= now) state2.semanticMisses.delete(key);
+}
+}
+function applyPreferredYouTubeCaptionCandidate(track) {
+const preferred = findPreferredYouTubeCaptionCandidate(track);
+if (!preferred) return;
+if (!track.url || !shouldRefreshYouTubeTrackUrl(preferred.url, track.url)) return;
+track.url = preferred.url;
+track.youtubeTrack = preferred.raw;
+}
+async function loadFirstUsableYouTubeSibling(track, tracks, options) {
+const siblings = tracks.filter((candidate) => isUsableYouTubeSibling(candidate, track));
+for (const sibling of siblings) {
+throwIfYouTubeCaptionLoadAborted(options.signal);
+const cues = await usableYouTubeSiblingCues(sibling, options);
+throwIfYouTubeCaptionLoadAborted(options.signal);
+if (!cues.length) continue;
+sibling.cues = cues;
+return { track: sibling, cues };
+}
+return null;
+}
+function isUsableYouTubeSibling(candidate, track) {
+return [
+candidate.kind === "youtube",
+candidate !== track,
+compatibleYouTubeCaptionTracks(candidate, track),
+Boolean(candidate.url)
+].every(Boolean);
+}
+async function usableYouTubeSiblingCues(sibling, options) {
+if (sibling.cues?.length) return sibling.cues;
+return loadYouTubeTrackCues(sibling, options);
+}
+function getYouTubeCaptionTracks(options = {}) {
+const playerTracks = getYouTubePlayerCaptionTracks();
+const renderer = getYouTubePlayerResponse()?.captions?.playerCaptionsTracklistRenderer;
+return uniqueYouTubeCaptionTracks([
+...playerTracks,
+...extractYouTubeTrackArray(renderer?.captionTracks)
+], renderer?.translationLanguages, options.preferredTranslationLanguages);
+}
+function youtubeVideoHasNativeCaptions() {
+if (getYouTubeCaptionTracks().length) return true;
+const button = document.querySelector("#movie_player .ytp-subtitles-button");
+if (!button) return false;
+return button.getAttribute("aria-disabled") !== "true" && button.style.display !== "none";
+}
+async function fallbackYouTubeCaptionCandidates(track, signal) {
+if (track.kind !== "youtube") return [];
+const candidates = await getAndroidYouTubeCaptionTracks([track.targetLanguage ?? "", track.language ?? ""], signal);
+return candidates.filter((candidate) => youtubeCaptionCandidateMatchesTrack(candidate, track)).sort((a, b) => youtubeTrackUrlScore(b.url) - youtubeTrackUrlScore(a.url));
+}
+function youtubeCaptionCandidateMatchesTrack(candidate, track) {
+return compatibleYouTubeCaptionTracks(candidate, track);
+}
+function activateYouTubeCaptionTrack(track) {
+const player = activeYouTubeCaptionPlayer();
+if (!player) return;
+activateYouTubeCaptionPlayer(track, player);
+}
+function activateYouTubeCaptionPlayer(track, player) {
+try {
+player.loadModule?.("captions");
+setYouTubeCaptionTrack(player, preferredYouTubePlayerTrack(track, player));
+player.setOption("captions", "reload", true);
+} catch {
+}
+}
+function activeYouTubeCaptionPlayer() {
+if (!isYouTubePage$1()) return null;
+const player = youtubeCaptionPlayer();
+return player?.setOption ? player : null;
+}
+function preferredYouTubePlayerTrack(track, player) {
+return [findMatchingYouTubePlayerTrack(track, player), track.youtubeTrack].find(Boolean);
+}
+function youtubeCaptionPlayer() {
+return document.querySelector("#movie_player");
+}
+function setYouTubeCaptionTrack(player, candidate) {
+if (candidate) player.setOption?.("captions", "track", candidate);
+}
+function getYouTubeVideoId() {
+const url = new URL(location.href);
+return url.searchParams.get("v") ?? url.pathname.match(/\/(?:shorts|embed)\/([^/?]+)/)?.[1] ?? "";
+}
+function isYouTubePage$1() {
+return isYouTubeAppHostname();
+}
+const YOUTUBE_PREVIEW_CONTAINER_SELECTOR = "ytd-video-preview, #inline-preview-player, ytd-moving-thumbnail-renderer, ytm-video-preview";
+function isYouTubeFeedPreviewVideo(video) {
+return Boolean(video?.closest(YOUTUBE_PREVIEW_CONTAINER_SELECTOR));
+}
+function isYouTubeAdPlaying(video) {
+return Boolean(video?.closest(YOUTUBE_VIDEO_PLAYER_SELECTOR)?.matches(".ad-showing, .ad-interrupting"));
+}
+function isYouTubeOwnedVideoElement(video) {
+if (!isYouTubePage$1()) return true;
+const context = youtubeVideoOwnershipContext(video);
+if (!context) return false;
+return youtubeVideoOwnership(context);
+}
+function youtubeVideoOwnershipContext(video) {
+if (!video) return null;
+if (isYouTubeFeedPreviewVideo(video)) return null;
+const currentVideoId = getYouTubeVideoId();
+if (!currentVideoId) return null;
+const player = video.closest(YOUTUBE_VIDEO_PLAYER_SELECTOR);
+const owner = video.closest(YOUTUBE_VIDEO_OWNER_SELECTOR);
+return { video, currentVideoId, playerVideoId: getYouTubePlayerVideoId(youtubePlayerOrOwner(player, owner)), owner };
+}
+function youtubePlayerOrOwner(player, owner) {
+return player ?? owner;
+}
+function youtubeVideoOwnership(context) {
+if (youtubePlayerVideoIdIsStale(context)) return staleYouTubeVideoOwnership(context.video);
+return [Boolean(context.owner), isLikelyVisibleYouTubeWatchVideo(context.video)].some(Boolean);
+}
+function youtubePlayerVideoIdIsStale(context) {
+return Boolean(context.playerVideoId) && context.playerVideoId !== context.currentVideoId;
+}
+function staleYouTubeVideoOwnership(video) {
+if (video.classList.contains("html5-main-video")) return true;
+return isLikelyVisibleYouTubeWatchVideo(video);
+}
+function shouldRefreshYouTubeTrackUrl(next, current) {
+if (!next || next === current) return false;
+return youtubeTrackUrlScore(next) >= youtubeTrackUrlScore(current);
+}
+function isAutoGeneratedSubtitleTrack(track) {
+return [
+track.sourceType === "asr",
+track.sourceType === "translation",
+Boolean(track.autoGenerated),
+/asr|auto(?:matic)?|auto-generated|自動生成|自動字幕/i.test(`${track.label} ${track.language ?? ""}`)
+].some(Boolean);
+}
+function youtubeCaptionTrackIdentity(track) {
+if (track.youtubeIdentity) return track.youtubeIdentity;
+const language = normalizedYouTubeLanguageCode(track.language);
+const sourceType = youtubeCaptionSourceType(track);
+const sourceLanguage = firstYouTubeLanguage(track.sourceLanguage, language);
+const targetLanguage = youtubeCaptionTargetLanguage(track.targetLanguage, sourceType, language);
+return [
+sourceType,
+sourceLanguage,
+firstYouTubeLanguage(targetLanguage, language),
+track.vssId ?? "",
+youtubeCaptionLabelIdentity(track)
+].join(":");
+}
+function youtubeCaptionSourceType(track) {
+if (track.sourceType) return track.sourceType;
+return track.autoGenerated ? "asr" : "manual";
+}
+function firstYouTubeLanguage(primary, fallback) {
+return [normalizedYouTubeLanguageCode(primary), fallback].find(Boolean) ?? "";
+}
+function youtubeCaptionTargetLanguage(targetLanguage, sourceType, language) {
+const explicit = normalizedYouTubeLanguageCode(targetLanguage);
+if (explicit) return explicit;
+return sourceType === "translation" ? language : "";
+}
+function youtubeCaptionLabelIdentity(track) {
+if (track.vssId) return "";
+return normalizedYouTubeCaptionLabel(track.label);
+}
+function compatibleYouTubeCaptionTracks(candidate, track) {
+if (youtubeCaptionTrackIdentity(candidate) === youtubeCaptionTrackIdentity(track)) return true;
+if (hasSpecificYouTubeCaptionIdentity(track)) return false;
+return youtubeTrackLanguagesMatch(candidate, track);
+}
+function hasSpecificYouTubeCaptionIdentity(track) {
+return [track.youtubeIdentity, track.sourceType, track.sourceLanguage, track.targetLanguage, track.vssId].some(Boolean);
+}
+function youtubeTrackLanguagesMatch(candidate, track) {
+if (!candidate.language) return false;
+if (!track.language) return false;
+return normalizedYouTubeLanguageCode(candidate.language) === normalizedYouTubeLanguageCode(track.language);
+}
+function normalizedYouTubeLanguageCode(language) {
+return (language ?? "").trim().toLowerCase();
+}
+function normalizedYouTubeCaptionLabel(label) {
+return label.replace(/\s+·\s+auto-generated$/iu, "").replace(/\s+·\s+auto-translated from .+$/iu, "").replace(/\([^)]*\)\s*$/u, "").replace(/\s+/g, " ").trim().toLowerCase();
+}
+function getYouTubePlayerCaptionTracks() {
+const player = document.querySelector("#movie_player");
+const videoId = getYouTubeVideoId();
+if (!videoId) return [];
+const playerVideoId = getYouTubePlayerVideoId(player);
+if (playerVideoId && playerVideoId !== videoId) return [];
+return playerCaptionTracks(player).filter((track) => youtubeRawCaptionTrackMatchesVideo(track, videoId));
+}
+function playerCaptionTracks(player) {
+const tracks = player?.getAudioTrack?.()?.captionTracks;
+return Array.isArray(tracks) ? tracks : [];
+}
+function getYouTubePlayerVideoId(player) {
+try {
+return player?.getVideoData?.()?.video_id ?? "";
+} catch {
+return "";
+}
+}
+function isLikelyVisibleYouTubeWatchVideo(video) {
+if ([!video.isConnected, Boolean(video.closest("[data-jpdb-reader-root], [data-yomu-jpdb-addon]"))].some(Boolean)) return false;
+const rect = video.getBoundingClientRect();
+const width = Math.max(rect.width, video.clientWidth);
+const height = Math.max(rect.height, video.clientHeight);
+if (width >= 240 && height >= 135) return true;
+return recoverableYouTubeMainVideo(video, width, height);
+}
+function recoverableYouTubeMainVideo(video, width, height) {
+if (!video.classList.contains("html5-main-video")) return false;
+return [video.readyState >= 1, width > 0, height > 0].some(Boolean);
+}
+function uniqueYouTubeCaptionTracks(rawTracks, rawTranslationLanguages = [], preferredTranslationLanguages = []) {
+return uniqueYouTubeCaptionTrackCandidates(youtubeCaptionTracksWithTranslations(
+rawTracks,
+rawTranslationLanguages,
+preferredTranslationLanguages
+));
+}
+function uniqueYouTubeCaptionTrackCandidates(candidates) {
+const tracks = /* @__PURE__ */ new Map();
+for (const parsed of candidates) {
+const key = youtubeCaptionTrackIdentity(parsed);
+const existing = tracks.get(key);
+if (!existing || shouldRefreshYouTubeTrackUrl(parsed.url, existing.url)) tracks.set(key, parsed);
+}
+return [...tracks.values()];
+}
+function youtubeCaptionTracksWithTranslations(rawTracks, rawTranslationLanguages, preferredLanguages) {
+const baseTracks = rawTracks.map(parseYouTubeCaptionTrack).filter((track) => Boolean(track));
+const translationLanguages = preferredYouTubeTranslationLanguages(rawTranslationLanguages, preferredLanguages);
+if (!translationLanguages.length) return baseTracks;
+return [
+...baseTracks,
+...baseTracks.flatMap((track) => translationLanguages.filter((language) => language.code !== normalizedYouTubeLanguageCode(track.language)).map((language) => translatedYouTubeCaptionTrack(track, language)))
+];
+}
+function parseYouTubeCaptionTrack(track) {
+const record2 = track;
+const url = normalizedYouTubeCaptionUrl(record2);
+if (!url) return null;
+const language = record2.languageCode;
+const label = youtubeCaptionTrackLabel(record2, language);
+const autoGenerated = isAutoGeneratedYouTubeCaptionTrack(record2, label);
+const autoSuffix = youtubeCaptionAutoSuffix(autoGenerated, label);
+const sourceType = autoGenerated ? "asr" : "manual";
+const parsed = {
+label: `${label}${language ? ` (${language})` : ""}${autoSuffix}`,
+language,
+autoGenerated,
+url: url.toString(),
+raw: track,
+sourceType,
+sourceLanguage: language,
+vssId: record2.vssId
+};
+return { ...parsed, youtubeIdentity: youtubeCaptionTrackIdentity(parsed) };
+}
+function preferredYouTubeTranslationLanguages(rawLanguages, preferredLanguages) {
+const languages = rawLanguages.map(parseYouTubeTranslationLanguage).filter((language) => Boolean(language));
+if (!languages.length) return [];
+const byCode = new Map(languages.map((language) => [language.code, language]));
+const preferred = uniqueNonEmptyStrings$1([
+...preferredLanguages.map((language) => normalizedYouTubeLanguageCode(language)),
+"ja",
+"en",
+normalizedYouTubeLanguageCode(readYouTubeConfigString$1("HL"))
+]);
+return preferred.flatMap((code) => {
+const language = byCode.get(code);
+return language ? [language] : [];
+});
+}
+function parseYouTubeTranslationLanguage(value) {
+const record2 = value;
+const code = normalizedYouTubeLanguageCode(record2.languageCode);
+if (!code) return null;
+return { code, label: firstYouTubeCaptionTrackLabel(record2, code) || code, raw: value };
+}
+function translatedYouTubeCaptionTrack(source, language) {
+const url = new URL(source.url, location.href);
+url.searchParams.set("tlang", language.code);
+const sourceLabel = sourceLabelForTranslation(source);
+const label = `${language.label} (${language.code}) · auto-translated from ${sourceLabel}`;
+const translated = {
+label,
+language: language.code,
+autoGenerated: true,
+url: url.toString(),
+raw: {
+source: source.raw,
+translationLanguage: language.raw
+},
+sourceType: "translation",
+sourceLanguage: source.language,
+targetLanguage: language.code,
+vssId: `${source.vssId ?? source.language ?? "source"}>${language.code}`
+};
+return { ...translated, youtubeIdentity: youtubeCaptionTrackIdentity(translated) };
+}
+function sourceLabelForTranslation(source) {
+return source.label.replace(/\s+·\s+auto-generated$/iu, "").replace(/\([^)]*\)\s*$/u, "").trim() || source.language || "source";
+}
+function normalizedYouTubeCaptionUrl(record2) {
+const rawUrl = rawYouTubeCaptionUrl(record2);
+if (!rawUrl) return null;
+const url = new URL(rawUrl, location.href);
+url.searchParams.set("fmt", "srv3");
+if (record2.languageCode && !url.searchParams.has("lang")) url.searchParams.set("lang", record2.languageCode);
+applyYouTubeCaptionClientName(url, readYouTubeClientName());
+return url;
+}
+function rawYouTubeCaptionUrl(record2) {
+return typeof record2.url === "string" ? record2.url : typeof record2.baseUrl === "string" ? record2.baseUrl : "";
+}
+function applyYouTubeCaptionClientName(url, clientName) {
+if (clientName && !url.searchParams.has("c")) url.searchParams.set("c", clientName);
+}
+async function getAndroidYouTubeCaptionTracks(preferredTranslationLanguages = [], signal) {
+throwIfYouTubeCaptionLoadAborted(signal);
+const request = androidYouTubeCaptionRequest();
+if (!request) return [];
+try {
+return await fetchAndroidYouTubeCaptionTracks(request, preferredTranslationLanguages, signal);
+} catch (error) {
+throwIfYouTubeCaptionRequestAborted(signal, error);
+return [];
+}
+}
+function throwIfYouTubeCaptionRequestAborted(signal, error) {
+if (signal?.aborted) throw youtubeCaptionAbortReason(signal);
+if (isAbortError(error)) throw error;
+}
+function androidYouTubeCaptionRequest() {
+const videoId = getYouTubeVideoId();
+const apiKey = readYouTubeConfigString$1("INNERTUBE_API_KEY");
+if (!videoId || !apiKey) return null;
+return {
+url: `${location.origin}/youtubei/v1/player?key=${encodeURIComponent(apiKey)}`,
+init: {
+method: "POST",
+credentials: "include",
+headers: { "Content-Type": "application/json" },
+body: androidYouTubeCaptionRequestBody(videoId)
+},
+videoId
+};
+}
+async function fetchAndroidYouTubeCaptionTracks(request, preferredTranslationLanguages, signal) {
+const response = await fetch(request.url, { ...request.init, signal });
+if (!response.ok) return [];
+const payload = await response.json();
+return androidYouTubeCaptionTracksFromPayload(payload, request.videoId, preferredTranslationLanguages);
+}
+function androidYouTubeCaptionRequestBody(videoId) {
+return JSON.stringify({
+context: {
+client: {
+clientName: "ANDROID",
+clientVersion: "20.10.38",
+hl: readYouTubeConfigString$1("HL") || "en"
+}
+},
+videoId
+});
+}
+function androidYouTubeCaptionTracksFromPayload(payload, videoId, preferredTranslationLanguages) {
+if (!isMatchingYouTubePlayerResponse(payload, videoId)) return [];
+const renderer = youtubeCaptionRenderer(payload);
+return uniqueYouTubeCaptionTracks(
+extractYouTubeTrackArray(rendererCaptionTracks(renderer)),
+rendererTranslationLanguages(renderer),
+preferredTranslationLanguages
+);
+}
+function youtubeCaptionRenderer(payload) {
+return payload.captions?.playerCaptionsTracklistRenderer;
+}
+function rendererCaptionTracks(renderer) {
+return renderer?.captionTracks;
+}
+function rendererTranslationLanguages(renderer) {
+return renderer?.translationLanguages;
+}
+function youtubeCaptionTrackLabel(record2, language) {
+return firstYouTubeCaptionTrackLabel(record2, language) || "YouTube subtitles";
+}
+function firstYouTubeCaptionTrackLabel(record2, language) {
+return [
+youtubeCaptionText(record2.name),
+youtubeCaptionText(record2.displayName),
+youtubeCaptionText(record2.languageName),
+language
+].find((label) => Boolean(label)) ?? "";
+}
+function youtubeCaptionText(value) {
+if (typeof value === "string") return value;
+const record2 = youtubeCaptionTextRecord(value);
+if (!record2) return "";
+return youtubeCaptionTextFromRecord(record2);
+}
+function youtubeCaptionTextFromRecord(record2) {
+if (typeof record2.simpleText === "string") return record2.simpleText;
+if (!Array.isArray(record2.runs)) return "";
+return record2.runs.map(youtubeCaptionRunText).filter((text2) => typeof text2 === "string").join("");
+}
+function youtubeCaptionTextRecord(value) {
+if (!value) return null;
+return typeof value === "object" ? value : null;
+}
+function youtubeCaptionRunText(run) {
+if (!run) return "";
+return typeof run === "object" ? run.text : "";
+}
+function youtubeCaptionAutoSuffix(autoGenerated, label) {
+return autoGenerated && !/asr|auto(?:matic)?|auto-generated|自動生成|自動字幕/i.test(label) ? " · auto-generated" : "";
+}
+function isAutoGeneratedYouTubeCaptionTrack(track, label = "") {
+return youtubeAutoGeneratedSignals(track, label).some((signal) => signal.matches(signal.value));
+}
+function youtubeAutoGeneratedSignals(track, label) {
+return [
+{ value: track.kind ?? "", matches: (value) => /asr/i.test(value) },
+{ value: track.vssId ?? "", matches: (value) => /^a\./i.test(value) },
+{ value: `${label} ${track.languageCode ?? ""}`, matches: (value) => /asr|auto(?:matic)?|auto-generated|自動生成|自動字幕/i.test(value) }
+];
+}
+function findMatchingYouTubePlayerTrack(track, player) {
+const rawTracks = youtubePlayerRawTracks(player);
+const targetIdentity = youtubeCaptionTrackIdentity(track);
+const exact = rawTracks.find((raw) => youtubePlayerTrackHasIdentity(raw, targetIdentity));
+if (exact) return exact;
+if (track.sourceType === "translation") return matchingYouTubeTranslationTrack(track, rawTracks);
+return rawTracks.find((raw) => youtubePlayerTrackHasLanguage(raw, track.language)) ?? null;
+}
+function youtubePlayerRawTracks(player) {
+return [
+...extractYouTubeTrackArray(player.getAudioTrack?.()?.captionTracks),
+...extractYouTubeTrackArray(player.getOption?.("captions", "tracklist"))
+];
+}
+function youtubePlayerTrackHasIdentity(raw, identity) {
+const parsed = parseYouTubeCaptionTrack(raw);
+return Boolean(parsed) && youtubeCaptionTrackIdentity(parsed) === identity;
+}
+function matchingYouTubeTranslationTrack(track, rawTracks) {
+const source = rawTracks.find((raw) => youtubePlayerTrackHasLanguage(raw, track.sourceLanguage)) ?? youtubePlayerTranslationSource(track);
+return source ? translatedYouTubePlayerTrack(track, source) : null;
+}
+function youtubePlayerTrackHasLanguage(raw, language) {
+if (!language) return false;
+const parsed = parseYouTubeCaptionTrack(raw);
+if (!parsed?.language) return false;
+return normalizedYouTubeLanguageCode(parsed.language) === normalizedYouTubeLanguageCode(language);
+}
+function translatedYouTubePlayerTrack(track, source) {
+const translationLanguage = youtubePlayerTranslationLanguage(track);
+if (!translationLanguage) return source;
+if (!isNonNullObject(source)) return track.youtubeTrack ?? source;
+return {
+...source,
+translationLanguage
+};
+}
+function youtubePlayerTranslationLanguage(track) {
+const raw = track.youtubeTrack;
+const existing = youtubeTrackTranslationLanguage(raw);
+if (existing) return existing;
+const languageCode = firstYouTubeLanguage(track.targetLanguage, normalizedYouTubeLanguageCode(track.language));
+if (!languageCode) return null;
+return {
+languageCode,
+languageName: { simpleText: languageCode }
+};
+}
+function youtubeTrackTranslationLanguage(value) {
+if (!isNonNullObject(value)) return void 0;
+return value.translationLanguage;
+}
+function youtubePlayerTranslationSource(track) {
+const raw = track.youtubeTrack;
+if (!isNonNullObject(raw)) return null;
+return raw.source ?? null;
+}
+function findPreferredYouTubeCaptionCandidate(track) {
+if (track.kind !== "youtube") return null;
+const candidates = preferredYouTubeCaptionCandidates(track);
+const targetIdentity = youtubeCaptionTrackIdentity(track);
+return candidates.filter((candidate) => youtubeCaptionTrackIdentity(candidate) === targetIdentity).sort((a, b) => youtubeTrackUrlScore(b.url) - youtubeTrackUrlScore(a.url))[0] ?? null;
+}
+function preferredYouTubeCaptionCandidates(track) {
+const renderer = getYouTubePlayerResponse()?.captions?.playerCaptionsTracklistRenderer;
+return uniqueYouTubeCaptionTracks([
+...getYouTubePlayerCaptionTracks(),
+...extractYouTubeTrackArray(renderer?.captionTracks)
+], renderer?.translationLanguages, youtubeTrackPreferredLanguages(track));
+}
+function youtubeTrackPreferredLanguages(track) {
+return [track.targetLanguage, track.language].map((language) => language ?? "");
+}
+function extractYouTubeTrackArray(value) {
+if (Array.isArray(value)) return value;
+const record2 = value;
+return Array.isArray(record2?.captionTracks) ? record2.captionTracks : [];
+}
+function getYouTubePlayerResponse() {
+const videoId = getYouTubeVideoId();
+if (!videoId) return null;
+const fromWindow = window.ytInitialPlayerResponse;
+if (isMatchingYouTubePlayerResponse(fromWindow, videoId)) return fromWindow;
+const fromConfig = readYouTubePlayerResponseFromConfig(videoId);
+if (fromConfig) return fromConfig;
+return readYouTubePlayerResponseFromScripts(videoId);
+}
+function readYouTubePlayerResponseFromScripts(videoId) {
+for (const script of Array.from(document.scripts)) {
+const parsed = readYouTubePlayerResponseFromScript(script.textContent ?? "", videoId);
+if (parsed) return parsed;
+}
+return null;
+}
+function readYouTubePlayerResponseFromScript(text2, videoId) {
+return readYouTubeInitialPlayerResponse(text2, videoId) ?? readEscapedYouTubePlayerResponse(text2, videoId);
+}
+function readYouTubeInitialPlayerResponse(text2, videoId) {
+for (const marker of ["ytInitialPlayerResponse = ", "ytInitialPlayerResponse=", "var ytInitialPlayerResponse = "]) {
+const parsed = parseYouTubePlayerResponseMarker(text2, marker, videoId);
+if (parsed) return parsed;
+}
+return null;
+}
+function parseYouTubePlayerResponseMarker(text2, marker, videoId) {
+const start = text2.indexOf(marker);
+if (start < 0) return null;
+const raw = extractJsonObject(text2, start + marker.length);
+return raw ? parseMatchingYouTubePlayerResponse(raw, videoId) : null;
+}
+function readEscapedYouTubePlayerResponse(text2, videoId) {
+const escaped = text2.match(/"playerResponse"\s*:\s*"((?:\\.|[^"\\])+)"/);
+if (!escaped?.[1]) return null;
+try {
+return parseMatchingYouTubePlayerResponse(JSON.parse(`"${escaped[1]}"`), videoId);
+} catch {
+return null;
+}
+}
+function parseMatchingYouTubePlayerResponse(raw, videoId) {
+try {
+const parsed = JSON.parse(raw);
+return isMatchingYouTubePlayerResponse(parsed, videoId) ? parsed : null;
+} catch {
+return null;
+}
+}
+function readYouTubePlayerResponseFromConfig(videoId) {
+const ytcfg = window.ytcfg;
+const candidates = [
+ytcfg?.get?.("PLAYER_RESPONSE"),
+ytcfg?.get?.("PLAYER_VARS"),
+ytcfg?.data_?.PLAYER_RESPONSE,
+ytcfg?.data_?.PLAYER_VARS
+];
+for (const candidate of candidates) {
+const response = readYouTubePlayerResponseCandidate(candidate);
+if (isMatchingYouTubePlayerResponse(response, videoId)) return response;
+}
+return null;
+}
+function readYouTubePlayerResponseCandidate(candidate) {
+if (!candidate) return null;
+if (typeof candidate === "string") return parseYouTubePlayerResponseJson(candidate);
+if (typeof candidate === "object") return readYouTubePlayerResponseObject(candidate);
+return null;
+}
+function parseYouTubePlayerResponseJson(candidate) {
+try {
+return JSON.parse(candidate);
+} catch {
+return null;
+}
+}
+function readYouTubePlayerResponseObject(candidate) {
+const record2 = candidate;
+return readYouTubePlayerResponseCandidate(record2.player_response ?? record2.raw_player_response) ?? candidate;
+}
+function isMatchingYouTubePlayerResponse(value, videoId) {
+const response = youtubePlayerResponseRecord(value);
+return Boolean(response && hasYouTubeCaptionTracks(response) && youtubePlayerResponseMatchesVideo(response, videoId));
+}
+function youtubePlayerResponseRecord(value) {
+return value && typeof value === "object" ? value : null;
+}
+function hasYouTubeCaptionTracks(response) {
+return Boolean(response.captions?.playerCaptionsTracklistRenderer?.captionTracks);
+}
+function youtubePlayerResponseMatchesVideo(response, videoId) {
+if (!videoId) return false;
+const responseVideoId = response.videoDetails?.videoId;
+if (responseVideoId) return responseVideoId === videoId;
+return youtubePlayerResponseCaptionUrlsMatchVideo(response, videoId);
+}
+function youtubePlayerResponseCaptionUrlsMatchVideo(response, videoId) {
+const tracks = response.captions?.playerCaptionsTracklistRenderer?.captionTracks;
+return Array.isArray(tracks) && tracks.some((track) => youtubeRawCaptionTrackMatchesVideo(track, videoId));
+}
+function youtubeRawCaptionTrackMatchesVideo(track, videoId) {
+try {
+const rawUrl = rawYouTubeCaptionUrl(track);
+if (!rawUrl) return false;
+return new URL(rawUrl, location.href).searchParams.get("v") === videoId;
+} catch {
+return false;
+}
+}
+function extractJsonObject(text2, start) {
+const objectStart = text2.indexOf("{", start);
+if (objectStart < 0) return null;
+const state2 = createJsonObjectScanState();
+for (let index = objectStart; index < text2.length; index++) {
+if (scanJsonObjectCharacter(state2, text2[index])) return text2.slice(objectStart, index + 1);
+}
+return null;
+}
+function createJsonObjectScanState() {
+return { depth: 0, inString: false, escaped: false };
+}
+function scanJsonObjectCharacter(state2, char) {
+if (state2.inString) {
+scanJsonStringCharacter(state2, char);
+return false;
+}
+if (char === '"') {
+state2.inString = true;
+return false;
+}
+if (char === "{") state2.depth += 1;
+if (char !== "}") return false;
+state2.depth -= 1;
+return state2.depth === 0;
+}
+function scanJsonStringCharacter(state2, char) {
+if (state2.escaped) {
+state2.escaped = false;
+return;
+}
+if (char === "\\") state2.escaped = true;
+if (char === '"') state2.inString = false;
+}
+function youtubeSubtitleRequestUrls(url) {
+return uniqueNonEmptyStrings$1([
+withYouTubeSubtitleFormat(url, "srv3"),
+withYouTubeSubtitleFormat(url, "json3"),
+withYouTubeSubtitleFormat(url, "vtt"),
+url
+]);
+}
+function withYouTubeSubtitleFormat(url, format) {
+const parsed = new URL(url);
+parsed.searchParams.set("fmt", format);
+const clientName = readYouTubeClientName();
+if (clientName && !parsed.searchParams.has("c")) parsed.searchParams.set("c", clientName);
+return parsed.href;
+}
+function readYouTubeClientName() {
+return readYouTubeConfigString$1("INNERTUBE_CLIENT_NAME");
+}
+function readYouTubeConfigString$1(key) {
+const ytcfg = window.ytcfg;
+const value = ytcfg?.get?.(key) ?? ytcfg?.data_?.[key];
+if (typeof value === "string" && value) return value;
+return readYouTubeConfigStringFromScripts(key);
+}
+function youtubeTrackUrlScore(value) {
+if (!value) return 0;
+try {
+const url = new URL(value, location.href);
+return youtubeTrackSearchParamScore(url.searchParams);
+} catch {
+return 0;
+}
+}
+function youtubeTrackSearchParamScore(params) {
+return [
+params.has("pot") ? 8 : 0,
+params.has("potc") ? 4 : 0,
+params.has("signature") ? 2 : 0,
+params.has("kind") ? 1 : 0
+].reduce((sum, item) => sum + item, 0);
+}
+function trackStatusText(track, language = "en") {
+if (track.loadingState === "loading") return ` · ${uiText(language, "trackStatusLoading")}`;
+if (track.loadingState === "waiting") return ` · ${uiText(language, "trackStatusWaiting")}`;
+if (track.loadingState === "error") return ` · ${uiText(language, "trackStatusFailed")}`;
+return "";
+}
+function formatTrackKind(kind, language = "en") {
+if (kind === "native") return uiText(language, "trackKindPageTrack");
+if (kind === "remote") return uiText(language, "trackKindPageFile");
+if (kind === "youtube") return uiText(language, "trackKindYouTubeCaptions");
+return uiText(language, "trackKindLoadedFile");
+}
+function compareSubtitleTrackOptions(a, b) {
+return subtitleTrackRank(a) - subtitleTrackRank(b) || (a.language ?? "").localeCompare(b.language ?? "", void 0, { sensitivity: "base" }) || a.label.localeCompare(b.label, void 0, { sensitivity: "base" });
+}
+function isTargetLanguageSubtitleTrack(track) {
+const language = subtitleTrackLanguage(track);
+if (language) return isTargetSubtitleLanguage(language);
+return isTargetSubtitleLanguage(inferSubtitleLanguage(track.label, track.language));
+}
+function isEnglishSubtitleTrack(track) {
+return isSubtitleTrackLanguage(track, "en");
+}
+function subtitleTrackLanguage(track) {
+if (!track) return void 0;
+const language = track.targetLanguage ?? track.language;
+if (isLanguageCode(language)) return normalizeSubtitleLanguage(language);
+return inferSubtitleLanguage(track.label, track.language);
+}
+function isSubtitleTrackLanguage(track, expectedLanguage) {
+const expected = normalizeSubtitleLanguage(expectedLanguage);
+return Boolean(expected && subtitleTrackLanguage(track) === expected);
+}
+function isOutputLanguageSubtitleTrack(track, outputLanguage) {
+return isSubtitleTrackLanguage(track, outputLanguage) || !subtitleTrackLanguage(track) && isGenericOutputSubtitleLabel(track.label);
+}
+function shouldReplaceWaitingNativeTrack(selected, replacement, cues, expectedLanguage, expectedRole = "target") {
+if (!isWaitingNativeTrack(selected, cues)) return false;
+return expectedLanguage ? tracksHaveLanguage(selected, replacement, expectedLanguage, expectedRole) : tracksHaveSameRoleOrLanguage(selected, replacement);
+}
+function tracksHaveLanguage(selected, replacement, language, role) {
+const matches = role === "output" ? isOutputLanguageSubtitleTrack : isSubtitleTrackLanguage;
+return matches(selected, language) && matches(replacement, language);
+}
+function tracksHaveSameRoleOrLanguage(selected, replacement) {
+return hasSameSubtitleRole(selected, replacement) || hasSameNormalizedSubtitleLanguage(selected, replacement);
+}
+function isWaitingNativeTrack(selected, cues) {
+return Boolean(selected && selected.kind === "native" && !cues.length);
+}
+function hasSameSubtitleRole(selected, replacement) {
+return isTargetLanguageSubtitleTrack(selected) && isTargetLanguageSubtitleTrack(replacement) || isEnglishSubtitleTrack(selected) && isEnglishSubtitleTrack(replacement);
+}
+function hasSameNormalizedSubtitleLanguage(selected, replacement) {
+const selectedLanguage = normalizeSubtitleLanguage(selected.language);
+const replacementLanguage = normalizeSubtitleLanguage(replacement.language);
+return Boolean(selectedLanguage && replacementLanguage && selectedLanguage === replacementLanguage);
+}
+function isLanguageCode(language) {
+return Boolean(language?.trim().match(/^[a-z]{2,3}(?:[-_][a-z0-9]{2,8})*$/i));
+}
+function isGenericOutputSubtitleLabel(label) {
+return /(^|[.\-_\s()[\]])(?:native|translation|translated)(?=$|[.\-_\s()[\]])/iu.test(label);
+}
+function subtitleTrackRank(track) {
+return SUBTITLE_TRACK_RANKS.find((rule) => rule.matches(track))?.rank ?? 5;
+}
+const SUBTITLE_TRACK_RANKS = [
+{ rank: 0, matches: (track) => track.kind === "file" },
+{ rank: 1, matches: isManualTargetLanguageSubtitleTrack },
+{ rank: 2, matches: isTargetLanguageSubtitleTrack },
+{ rank: 3, matches: isAutoGeneratedSubtitleTrack },
+{ rank: 4, matches: isEnglishOrNativeSubtitleTrack }
+];
+function isManualTargetLanguageSubtitleTrack(track) {
+return isTargetLanguageSubtitleTrack(track) && !isAutoGeneratedSubtitleTrack(track);
+}
+function isEnglishOrNativeSubtitleTrack(track) {
+return isEnglishSubtitleTrack(track) || track.kind === "native";
+}
+function resolveSubtitleLanguageContext(_settings) {
+const target = activeLearningTarget();
+const targetContent = contentLanguage(target.typography.contentLocale, target.subtitles.languageTag);
+const output = OUTPUT_LANGUAGE;
+const outputContent = contentLanguage(output, output);
+return {
+targetLanguage: target.subtitles.languageTag,
+outputLanguage: languageSubtag(output) ?? output,
+targetContent,
+outputContent,
+preferredTranslationLanguages: uniqueLanguages([
+target.subtitles.languageTag,
+languageSubtag(output) ?? output
+])
+};
+}
+function sameSubtitleLanguageContext(left, right) {
+return subtitleLanguageContextKey(left) === subtitleLanguageContextKey(right);
+}
+function subtitleLanguageContextKey(context) {
+return [
+context.targetLanguage,
+context.outputLanguage,
+context.targetContent.lang,
+context.outputContent.lang
+].join(":");
+}
+function subtitleContentLanguage(track, fallback) {
+const language = subtitleTrackLanguage(track);
+return language ? contentLanguage(language, language) : fallback;
+}
+function subtitleContentAttributes(content) {
+return `lang="${content.lang}" dir="${content.dir}"`;
+}
+function syncSubtitleContentLanguage(element, content) {
+if (element.lang !== content.lang) element.lang = content.lang;
+if (element.dir !== content.dir) element.dir = content.dir;
+}
+function contentLanguage(locale, fallback) {
+const lang = canonicalLanguageTag(locale) ?? canonicalLanguageTag(fallback) ?? fallback;
+return { lang, dir: localeDirection(lang) };
+}
+function uniqueLanguages(languages) {
+return [...new Set(languages.map((language) => language.trim().toLowerCase()).filter(Boolean))];
+}
+function renderSubtitlePrimary(input) {
+const parsedHasReaderWords = subtitlePrimaryHasReaderWords(input.parsedHtml);
+const karaokeEligible = subtitleKaraokeEligible(input);
+const mode = subtitlePrimaryRenderMode(input, karaokeEligible, parsedHasReaderWords);
+return {
+html: renderSubtitlePrimaryHtml(input, mode),
+karaokeActive: subtitleKaraokeIsActive(karaokeEligible, mode),
+shouldRequestParse: subtitlePrimaryNeedsParse(input),
+nextRenderedPrimary: nextRenderedPrimaryCache(input, mode)
+};
+}
+function subtitlePrimaryHasReaderWords(html) {
+return html?.includes("jpdb-reader-word") === true;
+}
+function subtitleKaraokeEligible(input) {
+if (!input.karaokeMode) return false;
+return cueHasExactWordTimings(input.cue);
+}
+function subtitleKaraokeIsActive(eligible, mode) {
+return eligible && mode !== "pending-parser";
+}
+function subtitlePrimaryNeedsParse(input) {
+return input.hasParser && input.parsedHtml === void 0;
+}
+function subtitlePrimaryRenderMode(input, karaokeActive, parsedHasReaderWords) {
+if (parsedHasReaderWords) return "parsed";
+if (input.parsedHtml !== void 0) return "parsed";
+if (hasReusablePrimaryParserCache(input)) return "cached-parser";
+if (input.hasParser) return "pending-parser";
+if (hasPlainKaraokeRender(input, karaokeActive)) return "karaoke";
+return "plain";
+}
+function hasPlainKaraokeRender(input, karaokeActive) {
+return Boolean(karaokeActive && input.cue);
+}
+function hasReusablePrimaryParserCache(input) {
+return Boolean(input.hasParser && input.lastRenderedText === input.text && input.lastRenderedHtml);
+}
+function renderSubtitlePrimaryHtml(input, mode) {
+return SUBTITLE_PRIMARY_RENDERERS[mode](input);
+}
+const SUBTITLE_PRIMARY_RENDERERS = {
+parsed: (input) => input.parsedHtml ?? "",
+karaoke: (input) => renderSubtitleKaraokeCue(input.cue, input.time),
+"cached-parser": (input) => input.lastRenderedHtml,
+"pending-parser": () => "",
+plain: (input) => escapeWithBreaks(input.text)
+};
+function nextRenderedPrimaryCache(input, mode) {
+if (input.parsedHtml !== void 0) return { text: input.text, html: input.parsedHtml };
+return mode === "karaoke" ? { text: input.text, html: "" } : void 0;
+}
+const SUBTITLE_SECONDARY_CLASS = "jpdb-subtitle-secondary";
+const SUBTITLE_SECONDARY_BLURRED_CLASS = "jpdb-subtitle-secondary-blurred";
+const SUBTITLE_SECONDARY_CLEAR_CLASS = "jpdb-subtitle-secondary-clear";
+const TOGGLE_NATIVE_BLUR_ACTION = "toggle-native-blur";
+function syncSubtitleSecondaryBlurState(button, nativeBlurred, language = "en") {
+button.classList.toggle(SUBTITLE_SECONDARY_BLURRED_CLASS, nativeBlurred);
+button.classList.toggle(SUBTITLE_SECONDARY_CLEAR_CLASS, !nativeBlurred);
+setAttributeIfChanged(button, "aria-pressed", String(nativeBlurred));
+const label = uiText(language, "toggleNativeSubtitleBlur");
+setAttributeIfChanged(button, "title", label);
+setAttributeIfChanged(button, "aria-label", label);
+}
+function setAttributeIfChanged(element, name, value) {
+if (element.getAttribute(name) === value) return;
+element.setAttribute(name, value);
+}
+function createSubtitleSecondaryLine() {
+const button = document.createElement("button");
+button.className = SUBTITLE_SECONDARY_CLASS;
+button.type = "button";
+button.dataset.action = TOGGLE_NATIVE_BLUR_ACTION;
+bindPrivateCommandCapability(button, { kind: "subtitle-action", action: "toggle-native-blur" });
+return button;
+}
+function reconcileSubtitleSecondaryLine(options) {
+if (!options.host) return;
+const existing = options.host.querySelector(`.${SUBTITLE_SECONDARY_CLASS}`);
+const text2 = visibleSubtitleSecondaryText(options.visible, options.text);
+if (!text2) return removeSubtitleSecondaryLine(existing);
+const line = existingSubtitleSecondaryLine(existing);
+syncSubtitleContentLanguage(line, options.content);
+syncSubtitleSecondaryText(line, text2);
+syncSubtitleSecondaryBlurState(line, options.blurred, options.language);
+if (!existing) options.host.append(line);
+}
+function visibleSubtitleSecondaryText(visible, text2) {
+if (!visible) return "";
+return text2 ?? "";
+}
+function removeSubtitleSecondaryLine(existing) {
+existing?.remove();
+}
+function existingSubtitleSecondaryLine(existing) {
+return existing ?? createSubtitleSecondaryLine();
+}
+function createSubtitlePrimaryRow(primaryHtml, content) {
+const row = document.createElement("div");
+row.className = "jpdb-subtitle-primary-row";
+const primary = document.createElement("div");
+primary.className = "jpdb-subtitle-primary";
+syncSubtitleContentLanguage(primary, content);
+setInnerHtml(primary, remintRenderedWordPrivateTokens(primaryHtml));
+row.append(primary);
+return row;
+}
+function reconcileSubtitlePrimaryRow(input) {
+if (!input.host) return { changed: false, appliedHtml: input.appliedHtml };
+const row = input.host.querySelector(".jpdb-subtitle-primary-row");
+if (input.html === null) return clearSubtitlePrimaryRow(row);
+return reconcileVisibleSubtitlePrimaryRow({
+host: input.host,
+html: input.html,
+appliedHtml: input.appliedHtml,
+content: input.content
+}, row);
+}
+function clearSubtitlePrimaryRow(row) {
+if (!row) return { changed: false, appliedHtml: "" };
+row.remove();
+return { changed: true, appliedHtml: "" };
+}
+function reconcileVisibleSubtitlePrimaryRow(input, row) {
+const primary = row?.querySelector(".jpdb-subtitle-primary");
+if (!primary) return createVisibleSubtitlePrimaryRow(input, row);
+syncSubtitleContentLanguage(primary, input.content);
+if (input.appliedHtml === input.html) return { changed: false, appliedHtml: input.appliedHtml };
+setInnerHtml(primary, remintRenderedWordPrivateTokens(input.html));
+return { changed: true, appliedHtml: input.html };
+}
+function createVisibleSubtitlePrimaryRow(input, row) {
+row?.remove();
+input.host.prepend(createSubtitlePrimaryRow(input.html, input.content));
+return { changed: true, appliedHtml: input.html };
+}
+function syncSubtitleSecondaryText(button, text2) {
+if (button.dataset.subtitleSecondaryText === text2) return;
+button.dataset.subtitleSecondaryText = text2;
+setInnerHtml(button, escapeWithBreaks(text2));
+}
+function renderSubtitleKaraokeCue(cue, time) {
+if (!cue?.text.trim()) return "";
+if (!cueHasExactWordTimings(cue)) return escapeWithBreaks(cue.text);
+const words = cue.words;
+if (!words.length) return "";
+const progress = karaokeCharacterProgress(cue, words, time);
+return renderKaraokeTextParts(cue.text, progress);
+}
+const SAFE_ZONE_ATTRIBUTE = "data-jpdb-subtitle-native-control-safe-zone";
+const OVERLAY_TARGETS = `.jpdb-subtitle-primary,.jpdb-subtitle-primary .jpdb-reader-word,.${SUBTITLE_SECONDARY_CLASS},.${SUBTITLE_SECONDARY_CLASS} .jpdb-reader-word`;
+const NATIVE_CONTROLS = 'button,[role="button"],a[href],[tabindex]:not([tabindex="-1"])';
+function overlaps(first2, second) {
+return first2.right > second.left && second.right > first2.left && first2.bottom > second.top && second.bottom > first2.top;
+}
+function isPainted(element, style = getComputedStyle(element)) {
+return !element.hidden && element.getAttribute("aria-hidden") !== "true" && style.display !== "none" && style.visibility !== "hidden" && Number.parseFloat(style.opacity || "1") > 0.01;
+}
+function nativePlayerControlRects(surfaces, videoRect) {
+const maxWidth = Math.min(240, Math.max(72, videoRect.width * 0.42));
+const maxHeight = Math.min(180, Math.max(56, videoRect.height * 0.28));
+const controls = new Set(surfaces.flatMap((surface) => Array.from(surface.querySelectorAll(NATIVE_CONTROLS))));
+return Array.from(controls).filter((control) => {
+if (control.closest('[data-jpdb-reader-root="true"]') || control.getAttribute("aria-disabled") === "true" || control.matches(":disabled")) return false;
+const style = getComputedStyle(control);
+return isPainted(control, style) && style.pointerEvents !== "none";
+}).map((control) => control.getBoundingClientRect()).filter((rect) => rect.width > 0 && rect.height > 0 && rect.width <= maxWidth && rect.height <= maxHeight && overlaps(rect, videoRect));
+}
+function syncSubtitleNativeControlHitProtection(root, zones) {
+const targets = Array.from(root?.querySelectorAll(OVERLAY_TARGETS) ?? []);
+const protectedTargets = targets.map((target) => {
+if (!zones.length) return false;
+const rect = target.getBoundingClientRect();
+return rect.width > 0 && rect.height > 0 && zones.some((zone) => overlaps(rect, zone));
+});
+for (const [index, target] of targets.entries()) {
+if (protectedTargets[index]) {
+if (!target.hasAttribute(SAFE_ZONE_ATTRIBUTE)) target.setAttribute(SAFE_ZONE_ATTRIBUTE, "true");
+} else if (target.hasAttribute(SAFE_ZONE_ATTRIBUTE)) target.removeAttribute(SAFE_ZONE_ATTRIBUTE);
+}
+}
+function subtitleRailReservedRects(surfaces, videoRect, controls = nativePlayerControlRects(surfaces, videoRect)) {
+const titles = surfaces.flatMap((surface) => Array.from(surface.querySelectorAll(".ytp-title, .ytp-chrome-top")));
+return [...controls, ...titles.filter((title) => isPainted(title)).map((title) => title.getBoundingClientRect()).filter((rect) => rect.width > 0 && rect.height > 0 && overlaps(rect, videoRect))];
+}
+function hasOpenYouTubeMobileBottomSheet() {
+return Array.from(document.querySelectorAll(
+'bottom-sheet-container[aria-modal="true"],ytm-bottom-sheet-renderer[aria-modal="true"],yt-sheet-view-model[aria-modal="true"]'
+)).some((sheet) => {
+for (let element = sheet; element; element = composedAncestorElement(element)) {
+if (element.hidden || element.getAttribute("aria-hidden") === "true") return false;
+const style = getComputedStyle(element);
+if (style.display === "none" || style.visibility === "hidden") return false;
+}
+return true;
+});
+}
 const JAPANESE_SANS_FONT_FAMILY = '"Noto Sans JP", "Noto Sans CJK JP", "Hiragino Sans", "Yu Gothic", "Meiryo", sans-serif';
 const HIRAGINO_YU_GOTHIC_FONT_FAMILY = '"Hiragino Sans", "Hiragino Kaku Gothic ProN", "Yu Gothic", Meiryo, sans-serif';
 const JAPANESE_ROUNDED_FONT_FAMILY = '"Hiragino Maru Gothic ProN", "Yu Gothic", "Noto Sans JP", Meiryo, sans-serif';
@@ -50540,174 +51992,6 @@ return surface.contains(selection.anchorNode) || surface.contains(selection.focu
 function shouldHonorExplicitYouTubeSideLayout(layout) {
 return layout.margin > 0 && layout.viewportWidth >= 900;
 }
-const SUBTITLE_COMPATIBILITY_ALIASES = Object.freeze({
-ja: Object.freeze(["jp", "nihongo", "nihon-go", "日文", "日語", "日本字幕"]),
-en: Object.freeze(["英文"])
-});
-const SUBTITLE_LANGUAGE_DESCRIPTORS = Object.freeze(
-LEARNING_TARGET_ROSTER.map((target) => {
-const tag = languageSubtag(target.runtimeLocale) ?? target.runtimeLocale;
-const compatibilityAliases = SUBTITLE_COMPATIBILITY_ALIASES[target.id] ?? [];
-const nativeNameWithoutQualifier = target.nativeName.replace(/\s*[（(][^）)]*[）)]\s*/gu, "").trim();
-return Object.freeze({
-id: target.id,
-tag,
-exactAliases: uniqueAliases([
-target.id,
-target.runtimeLocale,
-tag,
-target.englishName,
-target.nativeName,
-nativeNameWithoutQualifier,
-...compatibilityAliases
-]),
-nameHints: uniqueAliases([
-target.englishName,
-target.nativeName,
-nativeNameWithoutQualifier,
-languageDisplayName(tag, "ja"),
-...compatibilityAliases.filter((alias) => alias.length > 3 || /[^\x00-\x7f]/u.test(alias))
-])
-});
-})
-);
-const SUBTITLE_LANGUAGE_BY_ID = new Map(
-SUBTITLE_LANGUAGE_DESCRIPTORS.map((descriptor) => [descriptor.id, descriptor])
-);
-const SUBTITLE_LANGUAGE_BY_EXACT_ALIAS = /* @__PURE__ */ new Map();
-for (const descriptor of SUBTITLE_LANGUAGE_DESCRIPTORS) {
-for (const alias of descriptor.exactAliases) {
-SUBTITLE_LANGUAGE_BY_EXACT_ALIAS.set(foldSubtitleLanguageText(alias), descriptor.tag);
-}
-}
-const SUBTITLE_LANGUAGE_NAME_HINTS = SUBTITLE_LANGUAGE_DESCRIPTORS.flatMap((descriptor) => descriptor.nameHints.map((alias) => {
-const folded = foldSubtitleLanguageText(alias);
-return { alias: folded, tag: descriptor.tag, pattern: subtitleLanguageNamePattern(folded) };
-})).filter((hint) => hint.alias).sort((a, b) => b.alias.length - a.alias.length);
-const SUBTITLE_LANGUAGE_TAGS = new Set(SUBTITLE_LANGUAGE_DESCRIPTORS.map((descriptor) => descriptor.tag));
-function inferSubtitleLanguage(label, url = "") {
-const urlHint = subtitleUrlHintText(url);
-return [
-inferNamedSubtitleLanguage(label),
-inferNamedSubtitleLanguage(urlHint),
-inferSubtitleLanguageCode(label, hasSubtitleMarker(label)),
-inferSubtitleLanguageCode(urlHint, true),
-inferKanaSubtitleLanguage(label)
-].find((language) => Boolean(language));
-}
-function inferKanaSubtitleLanguage(value) {
-return /[\u3040-\u30ff]/u.test(value) ? "ja" : void 0;
-}
-function normalizeSubtitleLanguage(language) {
-if (!language) return void 0;
-return [
-SUBTITLE_LANGUAGE_BY_EXACT_ALIAS.get(foldSubtitleLanguageText(language)),
-normalizedRosterSubtitleLanguage(language),
-language
-].find((candidate) => Boolean(candidate));
-}
-function normalizedRosterSubtitleLanguage(language) {
-const rosterId = learningTargetRosterIdForTag(language);
-return rosterId ? SUBTITLE_LANGUAGE_BY_ID.get(rosterId)?.tag : void 0;
-}
-function isGenericSubtitleLabel(value) {
-const cleaned = value.trim();
-return /^(?:vtt|srt|ass|ssa|subtitles?|captions?|cc|closed captions?)$/iu.test(cleaned) || SUBTITLE_LANGUAGE_BY_EXACT_ALIAS.has(foldSubtitleLanguageText(cleaned));
-}
-function inferNamedSubtitleLanguage(value) {
-const text2 = foldSubtitleLanguageText(decodeSubtitleLanguageText(value));
-if (!text2) return void 0;
-const candidates = SUBTITLE_LANGUAGE_NAME_HINTS.flatMap((hint) => languageNameMatches(text2, hint.pattern).map((index) => ({
-tag: hint.tag,
-score: subtitleLanguageCueScore(text2, index, index + hint.alias.length),
-index,
-length: hint.alias.length
-})));
-return candidates.sort((left, right) => right.score - left.score || left.index - right.index || right.length - left.length)[0]?.tag;
-}
-function subtitleLanguageNamePattern(alias) {
-const value = escapeRegExp(alias);
-return /[^\x00-\x7f]/u.test(alias) ? new RegExp(`(${value})`, "gu") : new RegExp(`(?:^|[^\\p{Script=Latin}\\p{Number}])(${value})(?![\\p{Script=Latin}\\p{Number}])`, "gu");
-}
-function languageNameMatches(text2, pattern) {
-return [...text2.matchAll(pattern)].map((match) => match.index + match[0].length - (match[1]?.length ?? 0));
-}
-function subtitleLanguageCueScore(text2, start, end) {
-if (isWholeSubtitleLabelMatch(text2, start, end)) return 120;
-const before = text2.slice(Math.max(0, start - 28), start);
-const after = text2.slice(end, Math.min(text2.length, end + 28));
-return contextualSubtitleLanguageScore(before, after);
-}
-function isWholeSubtitleLabelMatch(text2, start, end) {
-return start === 0 && end === text2.length;
-}
-function contextualSubtitleLanguageScore(before, after) {
-if (hasSubtitleDeclarationCue(before, after)) return 100;
-if (hasContentDescriptionCue(before, after)) return -40;
-return 10;
-}
-function hasSubtitleDeclarationCue(before, after) {
-return /^\s*(?:[-–—:()[\]]*\s*)?(?:subtitles?|captions?|closed[ -]captions?|cc|language|lang)\b/iu.test(after) || /\b(?:subtitles?|captions?|closed[ -]captions?|cc|language|lang)\s*(?:[-–—:()[\]]*\s*)?$/iu.test(before);
-}
-function hasContentDescriptionCue(before, after) {
-return /\b(?:for|learn|learning|lesson|course|movie|film|drama|show|video|anime)\s*$/iu.test(before) || /^\s*(?:movie|film|drama|show|video|anime|lesson|course)\b/iu.test(after);
-}
-function escapeRegExp(value) {
-return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
-function inferSubtitleLanguageCode(value, allowWhitespaceDelimited) {
-const text2 = decodeSubtitleLanguageText(value);
-return [...text2.matchAll(/[a-z]{2,3}/giu)].map((match) => subtitleLanguageCodeCandidate(text2, match, allowWhitespaceDelimited)).find((language) => Boolean(language));
-}
-function subtitleLanguageCodeCandidate(text2, match, allowWhitespaceDelimited) {
-const start = Number(match.index);
-const end = start + match[0].length;
-if (!hasSubtitleLanguageCodeBoundary(text2, start, end, allowWhitespaceDelimited)) return void 0;
-return knownSubtitleLanguageCode(normalizeSubtitleLanguage(match[0]));
-}
-function knownSubtitleLanguageCode(language) {
-if (!language) return void 0;
-return SUBTITLE_LANGUAGE_TAGS.has(language) ? language : void 0;
-}
-function hasSubtitleLanguageCodeBoundary(text2, start, end, allowWhitespaceDelimited) {
-const adjacent = [text2.charAt(start - 1), text2.charAt(end)];
-if (adjacent.some(isLatinLetterOrNumber)) return false;
-return allowWhitespaceDelimited || hasStructuredCodeBoundary(text2, start, end);
-}
-function hasStructuredCodeBoundary(text2, start, end) {
-return [text2.charAt(start - 1), text2.charAt(end)].some((character) => /[._/()[\]{}-]/u.test(character)) || isWholeSubtitleLabelMatch(text2, start, end);
-}
-function hasSubtitleMarker(value) {
-return /\b(?:subtitles?|captions?|closed[ -]captions?|cc|language|lang)\b/iu.test(value);
-}
-function subtitleUrlHintText(value) {
-if (!value) return "";
-try {
-const parsed = new URL(value, document.baseURI);
-return decodeSubtitleLanguageText([
-parsed.pathname,
-...parsed.searchParams.values()
-].join(" "));
-} catch {
-return decodeSubtitleLanguageText(value);
-}
-}
-function decodeSubtitleLanguageText(value) {
-try {
-return decodeURIComponent(value.replace(/\+/g, " "));
-} catch {
-return value;
-}
-}
-function foldSubtitleLanguageText(value) {
-return value.normalize("NFKD").replace(/\p{Mark}/gu, "").trim().toLocaleLowerCase().replace(/_/g, "-");
-}
-function isLatinLetterOrNumber(value) {
-return Boolean(value && /[\p{Script=Latin}\p{Number}]/u.test(value));
-}
-function uniqueAliases(values) {
-return Object.freeze([...new Set(values.filter(Boolean))]);
-}
 function collectPageSubtitleSources(root = document) {
 const pageTitle = pageSubtitleTitle(root);
 return dedupeSubtitleSources([
@@ -51003,6 +52287,7 @@ return value;
 function sameSubtitleUrl(a, b) {
 return normalizedSubtitleUrl(a) === normalizedSubtitleUrl(b);
 }
+const YOUTUBE_FLUID_CONTROLS_CLASS = "jpdb-subtitle-youtube-fluid-controls";
 class SubtitleVideoInsetAdapter {
 lastSignature = "";
 lastResizeSignature = "";
@@ -51025,6 +52310,7 @@ apply(options) {
 if (shouldPreserveYouTubeNativePlayerSize(options)) {
 return this.clear(options.video);
 }
+if (isYouTubePage() && options.side !== "bottom") setClassState(document.documentElement, YOUTUBE_FLUID_CONTROLS_CLASS, true);
 const metrics = videoInsetMetrics(options);
 if (metrics.signature === this.lastSignature) {
 rememberYouTubeVideoElementInsetBeforeResize(options.video, options.side);
@@ -51106,7 +52392,7 @@ const currentHeight = Math.max(180, Math.round(options.videoRect.height));
 return Math.max(180, Math.min(currentHeight, aspectHeight));
 }
 function applyGenericVideoInsetIfNeeded(options, metrics) {
-if (isYouTubePage$1() || !options.video) return;
+if (isYouTubePage() || !options.video) return;
 applyGenericVideoInset(options.video, options.side, options.side === "bottom" ? metrics.height : metrics.width, metrics.height);
 }
 const GENERIC_TARGET_INSET_PROPS = ["width", "height", "max-width", "max-height", "min-width", "min-height", "margin-left", "margin-right", "justify-self", "object-fit", "box-sizing"];
@@ -51186,7 +52472,7 @@ function visibleViewportHeight() {
 return subtitleVisibleViewportSize().height;
 }
 function subtitleVideoLayoutRect(video) {
-if (isYouTubePage$1()) {
+if (isYouTubePage()) {
 const scopedRect = video ? youtubePlayerRectForVideo(video) : void 0;
 if (scopedRect) return scopedRect;
 const rect = youtubeVisiblePlayerRect();
@@ -51215,7 +52501,7 @@ return void 0;
 }
 function subtitleVideoLayoutTarget(video) {
 if (!video) return void 0;
-if (isYouTubePage$1()) return youtubePlayerFrameForVideo(video) ?? video;
+if (isYouTubePage()) return youtubePlayerFrameForVideo(video) ?? video;
 return genericVideoLayoutTarget(video);
 }
 function transcriptAvoidanceTarget(video) {
@@ -51293,7 +52579,7 @@ youtubePlayerContainerBaseRects.set(element, { left: rect.left, right: rect.righ
 }
 }
 function youtubePlayerContainers(side) {
-if (!isYouTubePage$1()) return [];
+if (!isYouTubePage()) return [];
 if (side === "bottom") {
 return uniqueElements([
 "ytd-watch-flexy #player",
@@ -51343,7 +52629,7 @@ if (element) return element;
 return void 0;
 }
 function youtubeInsetTargets() {
-if (!isYouTubePage$1()) return [];
+if (!isYouTubePage()) return [];
 return uniqueElements([
 document.querySelector("ytd-watch-flexy #columns"),
 ...youtubePlayerContainers("left"),
@@ -51426,7 +52712,7 @@ const bottom = Math.max(top, Math.min(viewportHeight2, rect.bottom));
 return Math.max(0, right - left) * Math.max(0, bottom - top);
 }
 function scheduleYouTubePlayerResize(width, height, mode) {
-if (!isYouTubePage$1()) return;
+if (!isYouTubePage()) return;
 if (pendingYouTubePlayerResize !== void 0) window.clearTimeout(pendingYouTubePlayerResize);
 pendingYouTubePlayerResize = void 0;
 pendingYouTubePlayerResizeSize = void 0;
@@ -51443,29 +52729,30 @@ if (size) resizeYouTubePlayer(size.width, size.height);
 }, 80);
 }
 function resizeYouTubePlayerForSubtitleLayout(width, height, mode = "immediate") {
-if (mode === "none" || !isYouTubePage$1()) return;
+if (mode === "none" || !isYouTubePage()) return;
 scheduleYouTubePlayerResize(width, height, mode);
 dispatchSubtitleVideoLayoutResize(mode);
 }
 function applyStableYouTubePlayerVideoSize(video, width, height) {
-if (!isYouTubePage$1() || width <= 0 || height <= 0) return clearStableYouTubePlayerVideoSize();
+if (!isYouTubePage() || width <= 0 || height <= 0) return clearStableYouTubePlayerVideoSize();
+setClassState(document.documentElement, YOUTUBE_FLUID_CONTROLS_CLASS, true);
 let changed = false;
 const widthValue = `${Math.round(width)}px`;
 const heightValue = `${Math.round(height)}px`;
 for (const element of stableYouTubePlayerVideoSizeTargets(video)) {
 rememberStableYouTubePlayerVideoSizeStyles(element);
-changed = setStableYouTubePlayerStyleIfChanged(element, "width", widthValue) || changed;
-changed = setStableYouTubePlayerStyleIfChanged(element, "height", heightValue) || changed;
-changed = setStableYouTubePlayerStyleIfChanged(element, "max-width", widthValue) || changed;
-changed = setStableYouTubePlayerStyleIfChanged(element, "max-height", heightValue) || changed;
-changed = setStableYouTubePlayerStyleIfChanged(element, "min-width", "0px") || changed;
-changed = setStableYouTubePlayerStyleIfChanged(element, "min-height", "0px") || changed;
-if (element.matches(".html5-video-container, video")) {
-changed = setStableYouTubePlayerStyleIfChanged(element, "left", "0px") || changed;
-changed = setStableYouTubePlayerStyleIfChanged(element, "top", "0px") || changed;
-}
-if (element instanceof HTMLVideoElement) {
-changed = setStableYouTubePlayerStyleIfChanged(element, "object-fit", "contain") || changed;
+const styles = {
+width: widthValue,
+height: heightValue,
+"max-width": widthValue,
+"max-height": heightValue,
+"min-width": "0px",
+"min-height": "0px"
+};
+if (element.matches(".html5-video-container, video")) Object.assign(styles, { left: "0px", top: "0px" });
+if (element instanceof HTMLVideoElement) styles["object-fit"] = "contain";
+for (const [property, value] of Object.entries(styles)) {
+changed = setStableYouTubePlayerStyleIfChanged(element, property, value) || changed;
 }
 }
 return changed;
@@ -51523,7 +52810,7 @@ element.style.setProperty(property, value, "important");
 return true;
 }
 function resizeYouTubePlayer(width, height) {
-if (!isYouTubePage$1()) return;
+if (!isYouTubePage()) return;
 const signature = youtubeResizeSignature(width, height);
 if (signature === lastYouTubePlayerResizeSignature) return;
 const player = youtubeMoviePlayer();
@@ -51568,7 +52855,7 @@ dispatchWindowEvent(createWindowEvent("resize"));
 }, 80);
 }
 function shouldSuppressSyntheticVideoLayoutResize() {
-return isYouTubePage$1();
+return isYouTubePage();
 }
 function resetYouTubePlayerResizeTracking() {
 lastYouTubePlayerResizeSignature = "";
@@ -51585,10 +52872,10 @@ function canResizeYouTubePlayer(player, width, height) {
 return Boolean(player?.setSize && width > 0 && height > 0);
 }
 function shouldPreserveYouTubeNativePlayerSize(options) {
-return options.side !== "bottom" && isYouTubePage$1() && isYouTubeShortsLikePlayer(options.video, options.videoRect);
+return options.side !== "bottom" && isYouTubePage() && isYouTubeShortsLikePlayer(options.video, options.videoRect);
 }
 function shouldPreserveYouTubeBottomPlayerSize(side) {
-return side === "bottom" && isYouTubePage$1();
+return side === "bottom" && isYouTubePage();
 }
 function isYouTubeShortsLikePlayer(video, videoRect) {
 if (location.pathname.startsWith("/shorts/")) return true;
@@ -51614,7 +52901,7 @@ function clearYouTubeInsetTargets() {
 for (const element of youtubeInsetTargets()) clearYouTubePlayerContainerInset(element);
 }
 function applyYouTubeVideoElementInset(video, side, width, height) {
-if (side === "bottom" || !video || !isYouTubePage$1()) {
+if (side === "bottom" || !video || !isYouTubePage()) {
 clearYouTubeVideoElementInset(video);
 return;
 }
@@ -51630,7 +52917,7 @@ setStylePropertyIfChanged(video, "top", "0px");
 setStylePropertyIfChanged(video, "object-fit", "contain");
 }
 function rememberYouTubeVideoElementInsetBeforeResize(video, side) {
-if (side === "bottom" || !video || !isYouTubePage$1()) return;
+if (side === "bottom" || !video || !isYouTubePage()) return;
 rememberYouTubeVideoElementInsetStyles(video);
 }
 function rememberYouTubeVideoElementInsetStyles(video) {
@@ -51876,886 +53163,8 @@ element.style.removeProperty(property);
 function usableVideoRect(rect) {
 return Boolean(rect && rect.width >= 120 && rect.height >= 80);
 }
-function isYouTubePage$1() {
-return isYouTubeAppHostname();
-}
-function unescapeYouTubeConfigString(value) {
-try {
-return JSON.parse(`"${value}"`);
-} catch {
-return value;
-}
-}
-function readYouTubeConfigStringFromScripts(key) {
-const escapedKey = escapeRegExp$1(key);
-const patterns = [
-new RegExp(`"${escapedKey}"\\s*:\\s*"((?:\\\\.|[^"\\\\])*)"`, "u"),
-new RegExp(`${escapedKey}\\s*:\\s*"((?:\\\\.|[^"\\\\])*)"`, "u")
-];
-for (const script of Array.from(document.scripts)) {
-const text2 = script.textContent ?? "";
-const raw = patterns.map((pattern) => text2.match(pattern)?.[1]).find(Boolean);
-if (raw) return unescapeYouTubeConfigString(raw);
-}
-return "";
-}
-const YOUTUBE_VIDEO_PLAYER_SELECTOR = "#movie_player, .html5-video-player";
-const YOUTUBE_VIDEO_OWNER_SELECTOR = `${YOUTUBE_VIDEO_PLAYER_SELECTOR}, ytd-player, ytd-watch-flexy, #player, #player-container, #player-container-outer, .html5-video-container`;
-const YOUTUBE_CAPTION_SEMANTIC_MISS_TTL_MS = 15e3;
-const YOUTUBE_CAPTION_SEMANTIC_MISS_MAX_ENTRIES = 96;
-const YOUTUBE_CAPTION_SEMANTIC_MISS = Symbol("youtube-caption-semantic-miss");
-const youtubeCaptionLoadStates = /* @__PURE__ */ new WeakMap();
-async function discoverCurrentYouTubeCaptionTracks(options) {
-if (!isYouTubePage()) return null;
-const videoId = getYouTubeVideoId();
-if (!videoId) return null;
-options.onVideoId(videoId);
-const tracks = await discoverYouTubeCaptionTracks(options);
-return getYouTubeVideoId() === videoId ? currentYouTubeDiscoveryTracks(tracks, options) : null;
-}
-function currentYouTubeDiscoveryTracks(tracks, options) {
-if (!tracks.length) return null;
-return options.contextKey === options.currentContextKey() ? tracks : null;
-}
-async function discoverYouTubeCaptionTracks(options = {}) {
-const pageTracks = getYouTubeCaptionTracks(options);
-const androidTracks = await getAndroidYouTubeCaptionTracks(options.preferredTranslationLanguages);
-return uniqueYouTubeCaptionTrackCandidates([
-...pageTracks,
-...androidTracks
-]);
-}
-async function loadYouTubeTrackCues(track, options) {
-const initialUrl = track.url;
-if (!initialUrl) return [];
-throwIfYouTubeCaptionLoadAborted(options.signal);
-applyPreferredYouTubeCaptionCandidate(track);
-return resolveYouTubeCaptionLoad(track, options, track.url ?? initialUrl);
-}
-function resolveYouTubeCaptionLoad(track, options, sourceUrl) {
-const state2 = youtubeCaptionLoadState(options.requestText);
-const loadKey = youtubeCaptionLoadKey(track);
-if (freshYouTubeCaptionSemanticMiss(state2, loadKey)) return Promise.resolve([]);
-const existing = state2.loads.get(loadKey);
-if (existing) return existing.subscribe(options.signal);
-return startYouTubeCaptionLoad(track, options, sourceUrl, state2, loadKey);
-}
-function startYouTubeCaptionLoad(track, options, sourceUrl, state2, loadKey) {
-let operation;
-operation = new SharedAbortableOperation(
-(signal) => loadYouTubeTrackCuesUncached(track, { ...options, signal }, state2, loadKey, sourceUrl),
-() => {
-if (state2.loads.get(loadKey) === operation) state2.loads.delete(loadKey);
-}
-);
-state2.loads.set(loadKey, operation);
-return operation.subscribe(options.signal);
-}
-async function loadYouTubeTrackCuesUncached(track, options, state2, loadKey, sourceUrl) {
-throwIfYouTubeCaptionLoadAborted(options.signal);
-const tried = /* @__PURE__ */ new Set();
-const primary = await loadYouTubeCueUrls(track, youtubeSubtitleRequestUrls(sourceUrl), options, tried);
-throwIfYouTubeCaptionLoadAborted(options.signal);
-if (primary === YOUTUBE_CAPTION_SEMANTIC_MISS) {
-rememberYouTubeCaptionSemanticMiss(state2, loadKey);
-return [];
-}
-if (primary.length) return primary;
-return loadFallbackYouTubeTrackCues(track, options, state2, tried);
-}
-async function loadFallbackYouTubeTrackCues(track, options, state2, tried) {
-const candidates = await fallbackYouTubeCaptionCandidates(track, options.signal);
-throwIfYouTubeCaptionLoadAborted(options.signal);
-for (const candidate of candidates) {
-throwIfYouTubeCaptionLoadAborted(options.signal);
-const cues = await loadYouTubeCueUrls(track, youtubeSubtitleRequestUrls(candidate.url), options, tried);
-throwIfYouTubeCaptionLoadAborted(options.signal);
-if (cues === YOUTUBE_CAPTION_SEMANTIC_MISS) {
-track.url = candidate.url;
-track.youtubeTrack = candidate.raw;
-rememberYouTubeCaptionSemanticMiss(state2, youtubeCaptionLoadKey(track));
-return [];
-}
-if (!cues.length) continue;
-track.url = candidate.url;
-track.youtubeTrack = candidate.raw;
-return cues;
-}
-return [];
-}
-async function loadYouTubeCueUrls(track, urls, options, tried) {
-for (const url of urls) {
-throwIfYouTubeCaptionLoadAborted(options.signal);
-if (tried.has(url)) continue;
-tried.add(url);
-const cues = await loadYouTubeCueUrl(track, url, options);
-if (youtubeCueLoadSettled(cues)) return cues;
-}
-return [];
-}
-function youtubeCueLoadSettled(cues) {
-return cues === YOUTUBE_CAPTION_SEMANTIC_MISS || cues.length > 0;
-}
-async function loadYouTubeCueUrl(track, url, options) {
-try {
-const text2 = await options.requestText(url, options.signal);
-throwIfYouTubeCaptionLoadAborted(options.signal);
-return parseYouTubeCaptionResponse(track, text2);
-} catch (error) {
-return settleYouTubeCaptionRequestError(track, url, options, error);
-}
-}
-function parseYouTubeCaptionResponse(track, text2) {
-if (!text2.trim()) return YOUTUBE_CAPTION_SEMANTIC_MISS;
-return normalizeSubtitleCues(parseSubtitleText(text2, {
-smoothYouTubeFragments: true,
-youtubeAutoGenerated: isAutoGeneratedSubtitleTrack(track)
-}));
-}
-function settleYouTubeCaptionRequestError(track, url, options, error) {
-throwIfYouTubeCaptionRequestAborted(options.signal, error);
-options.onRequestError?.(track, url, error);
-return [];
-}
-function hasFreshYouTubeCaptionSemanticMiss(track, requestText2) {
-return Boolean(track.url) && freshYouTubeCaptionSemanticMiss(youtubeCaptionLoadState(requestText2), youtubeCaptionLoadKey(track));
-}
-function youtubeCaptionLoadState(requestText2) {
-const existing = youtubeCaptionLoadStates.get(requestText2);
-if (existing) return existing;
-const created = { semanticMisses: /* @__PURE__ */ new Map(), loads: /* @__PURE__ */ new Map() };
-youtubeCaptionLoadStates.set(requestText2, created);
-return created;
-}
-function throwIfYouTubeCaptionLoadAborted(signal) {
-if (signal?.aborted) throw youtubeCaptionAbortReason(signal);
-}
-function youtubeCaptionAbortReason(signal) {
-return abortSignalReason(signal);
-}
-function youtubeCaptionLoadKey(track) {
-return `${youtubeCaptionTrackIdentity(track)}|${youtubeCaptionSourceVersion(track.url)}`;
-}
-function youtubeCaptionSourceVersion(url) {
-if (!url) return "";
-try {
-const parsed = new URL(url, typeof location === "undefined" ? "https://www.youtube.com/" : location.href);
-parsed.hash = "";
-parsed.searchParams.delete("fmt");
-parsed.searchParams.sort();
-return parsed.href;
-} catch {
-return url;
-}
-}
-function freshYouTubeCaptionSemanticMiss(state2, key, now = Date.now()) {
-pruneYouTubeCaptionSemanticMisses(state2, now);
-return (state2.semanticMisses.get(key) ?? 0) > now;
-}
-function rememberYouTubeCaptionSemanticMiss(state2, key, now = Date.now()) {
-state2.semanticMisses.delete(key);
-state2.semanticMisses.set(key, now + YOUTUBE_CAPTION_SEMANTIC_MISS_TTL_MS);
-pruneYouTubeCaptionSemanticMisses(state2, now);
-while (state2.semanticMisses.size > YOUTUBE_CAPTION_SEMANTIC_MISS_MAX_ENTRIES) {
-state2.semanticMisses.delete(state2.semanticMisses.keys().next().value ?? "");
-}
-}
-function pruneYouTubeCaptionSemanticMisses(state2, now) {
-for (const [key, expiresAt] of state2.semanticMisses) {
-if (expiresAt <= now) state2.semanticMisses.delete(key);
-}
-}
-function applyPreferredYouTubeCaptionCandidate(track) {
-const preferred = findPreferredYouTubeCaptionCandidate(track);
-if (!preferred) return;
-if (!track.url || !shouldRefreshYouTubeTrackUrl(preferred.url, track.url)) return;
-track.url = preferred.url;
-track.youtubeTrack = preferred.raw;
-}
-async function loadFirstUsableYouTubeSibling(track, tracks, options) {
-const siblings = tracks.filter((candidate) => isUsableYouTubeSibling(candidate, track));
-for (const sibling of siblings) {
-throwIfYouTubeCaptionLoadAborted(options.signal);
-const cues = await usableYouTubeSiblingCues(sibling, options);
-throwIfYouTubeCaptionLoadAborted(options.signal);
-if (!cues.length) continue;
-sibling.cues = cues;
-return { track: sibling, cues };
-}
-return null;
-}
-function isUsableYouTubeSibling(candidate, track) {
-return [
-candidate.kind === "youtube",
-candidate !== track,
-compatibleYouTubeCaptionTracks(candidate, track),
-Boolean(candidate.url)
-].every(Boolean);
-}
-async function usableYouTubeSiblingCues(sibling, options) {
-if (sibling.cues?.length) return sibling.cues;
-return loadYouTubeTrackCues(sibling, options);
-}
-function getYouTubeCaptionTracks(options = {}) {
-const playerTracks = getYouTubePlayerCaptionTracks();
-const renderer = getYouTubePlayerResponse()?.captions?.playerCaptionsTracklistRenderer;
-return uniqueYouTubeCaptionTracks([
-...playerTracks,
-...extractYouTubeTrackArray(renderer?.captionTracks)
-], renderer?.translationLanguages, options.preferredTranslationLanguages);
-}
-function youtubeVideoHasNativeCaptions() {
-if (getYouTubeCaptionTracks().length) return true;
-const button = document.querySelector("#movie_player .ytp-subtitles-button");
-if (!button) return false;
-return button.getAttribute("aria-disabled") !== "true" && button.style.display !== "none";
-}
-async function fallbackYouTubeCaptionCandidates(track, signal) {
-if (track.kind !== "youtube") return [];
-const candidates = await getAndroidYouTubeCaptionTracks([track.targetLanguage ?? "", track.language ?? ""], signal);
-return candidates.filter((candidate) => youtubeCaptionCandidateMatchesTrack(candidate, track)).sort((a, b) => youtubeTrackUrlScore(b.url) - youtubeTrackUrlScore(a.url));
-}
-function youtubeCaptionCandidateMatchesTrack(candidate, track) {
-return compatibleYouTubeCaptionTracks(candidate, track);
-}
-function activateYouTubeCaptionTrack(track) {
-const player = activeYouTubeCaptionPlayer();
-if (!player) return;
-activateYouTubeCaptionPlayer(track, player);
-}
-function activateYouTubeCaptionPlayer(track, player) {
-try {
-player.loadModule?.("captions");
-setYouTubeCaptionTrack(player, preferredYouTubePlayerTrack(track, player));
-player.setOption("captions", "reload", true);
-} catch {
-}
-}
-function activeYouTubeCaptionPlayer() {
-if (!isYouTubePage()) return null;
-const player = youtubeCaptionPlayer();
-return player?.setOption ? player : null;
-}
-function preferredYouTubePlayerTrack(track, player) {
-return [findMatchingYouTubePlayerTrack(track, player), track.youtubeTrack].find(Boolean);
-}
-function youtubeCaptionPlayer() {
-return document.querySelector("#movie_player");
-}
-function setYouTubeCaptionTrack(player, candidate) {
-if (candidate) player.setOption?.("captions", "track", candidate);
-}
-function getYouTubeVideoId() {
-const url = new URL(location.href);
-return url.searchParams.get("v") ?? url.pathname.match(/\/(?:shorts|embed)\/([^/?]+)/)?.[1] ?? "";
-}
 function isYouTubePage() {
 return isYouTubeAppHostname();
-}
-const YOUTUBE_PREVIEW_CONTAINER_SELECTOR = "ytd-video-preview, #inline-preview-player, ytd-moving-thumbnail-renderer, ytm-video-preview";
-function isYouTubeFeedPreviewVideo(video) {
-return Boolean(video?.closest(YOUTUBE_PREVIEW_CONTAINER_SELECTOR));
-}
-function isYouTubeAdPlaying(video) {
-return Boolean(video?.closest(YOUTUBE_VIDEO_PLAYER_SELECTOR)?.matches(".ad-showing, .ad-interrupting"));
-}
-function isYouTubeOwnedVideoElement(video) {
-if (!isYouTubePage()) return true;
-const context = youtubeVideoOwnershipContext(video);
-if (!context) return false;
-return youtubeVideoOwnership(context);
-}
-function youtubeVideoOwnershipContext(video) {
-if (!video) return null;
-if (isYouTubeFeedPreviewVideo(video)) return null;
-const currentVideoId = getYouTubeVideoId();
-if (!currentVideoId) return null;
-const player = video.closest(YOUTUBE_VIDEO_PLAYER_SELECTOR);
-const owner = video.closest(YOUTUBE_VIDEO_OWNER_SELECTOR);
-return { video, currentVideoId, playerVideoId: getYouTubePlayerVideoId(youtubePlayerOrOwner(player, owner)), owner };
-}
-function youtubePlayerOrOwner(player, owner) {
-return player ?? owner;
-}
-function youtubeVideoOwnership(context) {
-if (youtubePlayerVideoIdIsStale(context)) return staleYouTubeVideoOwnership(context.video);
-return [Boolean(context.owner), isLikelyVisibleYouTubeWatchVideo(context.video)].some(Boolean);
-}
-function youtubePlayerVideoIdIsStale(context) {
-return Boolean(context.playerVideoId) && context.playerVideoId !== context.currentVideoId;
-}
-function staleYouTubeVideoOwnership(video) {
-if (video.classList.contains("html5-main-video")) return true;
-return isLikelyVisibleYouTubeWatchVideo(video);
-}
-function shouldRefreshYouTubeTrackUrl(next, current) {
-if (!next || next === current) return false;
-return youtubeTrackUrlScore(next) >= youtubeTrackUrlScore(current);
-}
-function isAutoGeneratedSubtitleTrack(track) {
-return [
-track.sourceType === "asr",
-track.sourceType === "translation",
-Boolean(track.autoGenerated),
-/asr|auto(?:matic)?|auto-generated|自動生成|自動字幕/i.test(`${track.label} ${track.language ?? ""}`)
-].some(Boolean);
-}
-function youtubeCaptionTrackIdentity(track) {
-if (track.youtubeIdentity) return track.youtubeIdentity;
-const language = normalizedYouTubeLanguageCode(track.language);
-const sourceType = youtubeCaptionSourceType(track);
-const sourceLanguage = firstYouTubeLanguage(track.sourceLanguage, language);
-const targetLanguage = youtubeCaptionTargetLanguage(track.targetLanguage, sourceType, language);
-return [
-sourceType,
-sourceLanguage,
-firstYouTubeLanguage(targetLanguage, language),
-track.vssId ?? "",
-youtubeCaptionLabelIdentity(track)
-].join(":");
-}
-function youtubeCaptionSourceType(track) {
-if (track.sourceType) return track.sourceType;
-return track.autoGenerated ? "asr" : "manual";
-}
-function firstYouTubeLanguage(primary, fallback) {
-return [normalizedYouTubeLanguageCode(primary), fallback].find(Boolean) ?? "";
-}
-function youtubeCaptionTargetLanguage(targetLanguage, sourceType, language) {
-const explicit = normalizedYouTubeLanguageCode(targetLanguage);
-if (explicit) return explicit;
-return sourceType === "translation" ? language : "";
-}
-function youtubeCaptionLabelIdentity(track) {
-if (track.vssId) return "";
-return normalizedYouTubeCaptionLabel(track.label);
-}
-function compatibleYouTubeCaptionTracks(candidate, track) {
-if (youtubeCaptionTrackIdentity(candidate) === youtubeCaptionTrackIdentity(track)) return true;
-if (hasSpecificYouTubeCaptionIdentity(track)) return false;
-return youtubeTrackLanguagesMatch(candidate, track);
-}
-function hasSpecificYouTubeCaptionIdentity(track) {
-return [track.youtubeIdentity, track.sourceType, track.sourceLanguage, track.targetLanguage, track.vssId].some(Boolean);
-}
-function youtubeTrackLanguagesMatch(candidate, track) {
-if (!candidate.language) return false;
-if (!track.language) return false;
-return normalizedYouTubeLanguageCode(candidate.language) === normalizedYouTubeLanguageCode(track.language);
-}
-function normalizedYouTubeLanguageCode(language) {
-return (language ?? "").trim().toLowerCase();
-}
-function normalizedYouTubeCaptionLabel(label) {
-return label.replace(/\s+·\s+auto-generated$/iu, "").replace(/\s+·\s+auto-translated from .+$/iu, "").replace(/\([^)]*\)\s*$/u, "").replace(/\s+/g, " ").trim().toLowerCase();
-}
-function getYouTubePlayerCaptionTracks() {
-const player = document.querySelector("#movie_player");
-const videoId = getYouTubeVideoId();
-if (!videoId) return [];
-const playerVideoId = getYouTubePlayerVideoId(player);
-if (playerVideoId && playerVideoId !== videoId) return [];
-return playerCaptionTracks(player).filter((track) => youtubeRawCaptionTrackMatchesVideo(track, videoId));
-}
-function playerCaptionTracks(player) {
-const tracks = player?.getAudioTrack?.()?.captionTracks;
-return Array.isArray(tracks) ? tracks : [];
-}
-function getYouTubePlayerVideoId(player) {
-try {
-return player?.getVideoData?.()?.video_id ?? "";
-} catch {
-return "";
-}
-}
-function isLikelyVisibleYouTubeWatchVideo(video) {
-if ([!video.isConnected, Boolean(video.closest("[data-jpdb-reader-root], [data-yomu-jpdb-addon]"))].some(Boolean)) return false;
-const rect = video.getBoundingClientRect();
-const width = Math.max(rect.width, video.clientWidth);
-const height = Math.max(rect.height, video.clientHeight);
-if (width >= 240 && height >= 135) return true;
-return recoverableYouTubeMainVideo(video, width, height);
-}
-function recoverableYouTubeMainVideo(video, width, height) {
-if (!video.classList.contains("html5-main-video")) return false;
-return [video.readyState >= 1, width > 0, height > 0].some(Boolean);
-}
-function uniqueYouTubeCaptionTracks(rawTracks, rawTranslationLanguages = [], preferredTranslationLanguages = []) {
-return uniqueYouTubeCaptionTrackCandidates(youtubeCaptionTracksWithTranslations(
-rawTracks,
-rawTranslationLanguages,
-preferredTranslationLanguages
-));
-}
-function uniqueYouTubeCaptionTrackCandidates(candidates) {
-const tracks = /* @__PURE__ */ new Map();
-for (const parsed of candidates) {
-const key = youtubeCaptionTrackIdentity(parsed);
-const existing = tracks.get(key);
-if (!existing || shouldRefreshYouTubeTrackUrl(parsed.url, existing.url)) tracks.set(key, parsed);
-}
-return [...tracks.values()];
-}
-function youtubeCaptionTracksWithTranslations(rawTracks, rawTranslationLanguages, preferredLanguages) {
-const baseTracks = rawTracks.map(parseYouTubeCaptionTrack).filter((track) => Boolean(track));
-const translationLanguages = preferredYouTubeTranslationLanguages(rawTranslationLanguages, preferredLanguages);
-if (!translationLanguages.length) return baseTracks;
-return [
-...baseTracks,
-...baseTracks.flatMap((track) => translationLanguages.filter((language) => language.code !== normalizedYouTubeLanguageCode(track.language)).map((language) => translatedYouTubeCaptionTrack(track, language)))
-];
-}
-function parseYouTubeCaptionTrack(track) {
-const record2 = track;
-const url = normalizedYouTubeCaptionUrl(record2);
-if (!url) return null;
-const language = record2.languageCode;
-const label = youtubeCaptionTrackLabel(record2, language);
-const autoGenerated = isAutoGeneratedYouTubeCaptionTrack(record2, label);
-const autoSuffix = youtubeCaptionAutoSuffix(autoGenerated, label);
-const sourceType = autoGenerated ? "asr" : "manual";
-const parsed = {
-label: `${label}${language ? ` (${language})` : ""}${autoSuffix}`,
-language,
-autoGenerated,
-url: url.toString(),
-raw: track,
-sourceType,
-sourceLanguage: language,
-vssId: record2.vssId
-};
-return { ...parsed, youtubeIdentity: youtubeCaptionTrackIdentity(parsed) };
-}
-function preferredYouTubeTranslationLanguages(rawLanguages, preferredLanguages) {
-const languages = rawLanguages.map(parseYouTubeTranslationLanguage).filter((language) => Boolean(language));
-if (!languages.length) return [];
-const byCode = new Map(languages.map((language) => [language.code, language]));
-const preferred = uniqueNonEmptyStrings$1([
-...preferredLanguages.map((language) => normalizedYouTubeLanguageCode(language)),
-"ja",
-"en",
-normalizedYouTubeLanguageCode(readYouTubeConfigString$1("HL"))
-]);
-return preferred.flatMap((code) => {
-const language = byCode.get(code);
-return language ? [language] : [];
-});
-}
-function parseYouTubeTranslationLanguage(value) {
-const record2 = value;
-const code = normalizedYouTubeLanguageCode(record2.languageCode);
-if (!code) return null;
-return { code, label: firstYouTubeCaptionTrackLabel(record2, code) || code, raw: value };
-}
-function translatedYouTubeCaptionTrack(source, language) {
-const url = new URL(source.url, location.href);
-url.searchParams.set("tlang", language.code);
-const sourceLabel = sourceLabelForTranslation(source);
-const label = `${language.label} (${language.code}) · auto-translated from ${sourceLabel}`;
-const translated = {
-label,
-language: language.code,
-autoGenerated: true,
-url: url.toString(),
-raw: {
-source: source.raw,
-translationLanguage: language.raw
-},
-sourceType: "translation",
-sourceLanguage: source.language,
-targetLanguage: language.code,
-vssId: `${source.vssId ?? source.language ?? "source"}>${language.code}`
-};
-return { ...translated, youtubeIdentity: youtubeCaptionTrackIdentity(translated) };
-}
-function sourceLabelForTranslation(source) {
-return source.label.replace(/\s+·\s+auto-generated$/iu, "").replace(/\([^)]*\)\s*$/u, "").trim() || source.language || "source";
-}
-function normalizedYouTubeCaptionUrl(record2) {
-const rawUrl = rawYouTubeCaptionUrl(record2);
-if (!rawUrl) return null;
-const url = new URL(rawUrl, location.href);
-url.searchParams.set("fmt", "srv3");
-if (record2.languageCode && !url.searchParams.has("lang")) url.searchParams.set("lang", record2.languageCode);
-applyYouTubeCaptionClientName(url, readYouTubeClientName());
-return url;
-}
-function rawYouTubeCaptionUrl(record2) {
-return typeof record2.url === "string" ? record2.url : typeof record2.baseUrl === "string" ? record2.baseUrl : "";
-}
-function applyYouTubeCaptionClientName(url, clientName) {
-if (clientName && !url.searchParams.has("c")) url.searchParams.set("c", clientName);
-}
-async function getAndroidYouTubeCaptionTracks(preferredTranslationLanguages = [], signal) {
-throwIfYouTubeCaptionLoadAborted(signal);
-const request = androidYouTubeCaptionRequest();
-if (!request) return [];
-try {
-return await fetchAndroidYouTubeCaptionTracks(request, preferredTranslationLanguages, signal);
-} catch (error) {
-throwIfYouTubeCaptionRequestAborted(signal, error);
-return [];
-}
-}
-function throwIfYouTubeCaptionRequestAborted(signal, error) {
-if (signal?.aborted) throw youtubeCaptionAbortReason(signal);
-if (isAbortError(error)) throw error;
-}
-function androidYouTubeCaptionRequest() {
-const videoId = getYouTubeVideoId();
-const apiKey = readYouTubeConfigString$1("INNERTUBE_API_KEY");
-if (!videoId || !apiKey) return null;
-return {
-url: `${location.origin}/youtubei/v1/player?key=${encodeURIComponent(apiKey)}`,
-init: {
-method: "POST",
-credentials: "include",
-headers: { "Content-Type": "application/json" },
-body: androidYouTubeCaptionRequestBody(videoId)
-},
-videoId
-};
-}
-async function fetchAndroidYouTubeCaptionTracks(request, preferredTranslationLanguages, signal) {
-const response = await fetch(request.url, { ...request.init, signal });
-if (!response.ok) return [];
-const payload = await response.json();
-return androidYouTubeCaptionTracksFromPayload(payload, request.videoId, preferredTranslationLanguages);
-}
-function androidYouTubeCaptionRequestBody(videoId) {
-return JSON.stringify({
-context: {
-client: {
-clientName: "ANDROID",
-clientVersion: "20.10.38",
-hl: readYouTubeConfigString$1("HL") || "en"
-}
-},
-videoId
-});
-}
-function androidYouTubeCaptionTracksFromPayload(payload, videoId, preferredTranslationLanguages) {
-if (!isMatchingYouTubePlayerResponse(payload, videoId)) return [];
-const renderer = youtubeCaptionRenderer(payload);
-return uniqueYouTubeCaptionTracks(
-extractYouTubeTrackArray(rendererCaptionTracks(renderer)),
-rendererTranslationLanguages(renderer),
-preferredTranslationLanguages
-);
-}
-function youtubeCaptionRenderer(payload) {
-return payload.captions?.playerCaptionsTracklistRenderer;
-}
-function rendererCaptionTracks(renderer) {
-return renderer?.captionTracks;
-}
-function rendererTranslationLanguages(renderer) {
-return renderer?.translationLanguages;
-}
-function youtubeCaptionTrackLabel(record2, language) {
-return firstYouTubeCaptionTrackLabel(record2, language) || "YouTube subtitles";
-}
-function firstYouTubeCaptionTrackLabel(record2, language) {
-return [
-youtubeCaptionText(record2.name),
-youtubeCaptionText(record2.displayName),
-youtubeCaptionText(record2.languageName),
-language
-].find((label) => Boolean(label)) ?? "";
-}
-function youtubeCaptionText(value) {
-if (typeof value === "string") return value;
-const record2 = youtubeCaptionTextRecord(value);
-if (!record2) return "";
-return youtubeCaptionTextFromRecord(record2);
-}
-function youtubeCaptionTextFromRecord(record2) {
-if (typeof record2.simpleText === "string") return record2.simpleText;
-if (!Array.isArray(record2.runs)) return "";
-return record2.runs.map(youtubeCaptionRunText).filter((text2) => typeof text2 === "string").join("");
-}
-function youtubeCaptionTextRecord(value) {
-if (!value) return null;
-return typeof value === "object" ? value : null;
-}
-function youtubeCaptionRunText(run) {
-if (!run) return "";
-return typeof run === "object" ? run.text : "";
-}
-function youtubeCaptionAutoSuffix(autoGenerated, label) {
-return autoGenerated && !/asr|auto(?:matic)?|auto-generated|自動生成|自動字幕/i.test(label) ? " · auto-generated" : "";
-}
-function isAutoGeneratedYouTubeCaptionTrack(track, label = "") {
-return youtubeAutoGeneratedSignals(track, label).some((signal) => signal.matches(signal.value));
-}
-function youtubeAutoGeneratedSignals(track, label) {
-return [
-{ value: track.kind ?? "", matches: (value) => /asr/i.test(value) },
-{ value: track.vssId ?? "", matches: (value) => /^a\./i.test(value) },
-{ value: `${label} ${track.languageCode ?? ""}`, matches: (value) => /asr|auto(?:matic)?|auto-generated|自動生成|自動字幕/i.test(value) }
-];
-}
-function findMatchingYouTubePlayerTrack(track, player) {
-const rawTracks = youtubePlayerRawTracks(player);
-const targetIdentity = youtubeCaptionTrackIdentity(track);
-const exact = rawTracks.find((raw) => youtubePlayerTrackHasIdentity(raw, targetIdentity));
-if (exact) return exact;
-if (track.sourceType === "translation") return matchingYouTubeTranslationTrack(track, rawTracks);
-return rawTracks.find((raw) => youtubePlayerTrackHasLanguage(raw, track.language)) ?? null;
-}
-function youtubePlayerRawTracks(player) {
-return [
-...extractYouTubeTrackArray(player.getAudioTrack?.()?.captionTracks),
-...extractYouTubeTrackArray(player.getOption?.("captions", "tracklist"))
-];
-}
-function youtubePlayerTrackHasIdentity(raw, identity) {
-const parsed = parseYouTubeCaptionTrack(raw);
-return Boolean(parsed) && youtubeCaptionTrackIdentity(parsed) === identity;
-}
-function matchingYouTubeTranslationTrack(track, rawTracks) {
-const source = rawTracks.find((raw) => youtubePlayerTrackHasLanguage(raw, track.sourceLanguage)) ?? youtubePlayerTranslationSource(track);
-return source ? translatedYouTubePlayerTrack(track, source) : null;
-}
-function youtubePlayerTrackHasLanguage(raw, language) {
-if (!language) return false;
-const parsed = parseYouTubeCaptionTrack(raw);
-if (!parsed?.language) return false;
-return normalizedYouTubeLanguageCode(parsed.language) === normalizedYouTubeLanguageCode(language);
-}
-function translatedYouTubePlayerTrack(track, source) {
-const translationLanguage = youtubePlayerTranslationLanguage(track);
-if (!translationLanguage) return source;
-if (!isNonNullObject(source)) return track.youtubeTrack ?? source;
-return {
-...source,
-translationLanguage
-};
-}
-function youtubePlayerTranslationLanguage(track) {
-const raw = track.youtubeTrack;
-const existing = youtubeTrackTranslationLanguage(raw);
-if (existing) return existing;
-const languageCode = firstYouTubeLanguage(track.targetLanguage, normalizedYouTubeLanguageCode(track.language));
-if (!languageCode) return null;
-return {
-languageCode,
-languageName: { simpleText: languageCode }
-};
-}
-function youtubeTrackTranslationLanguage(value) {
-if (!isNonNullObject(value)) return void 0;
-return value.translationLanguage;
-}
-function youtubePlayerTranslationSource(track) {
-const raw = track.youtubeTrack;
-if (!isNonNullObject(raw)) return null;
-return raw.source ?? null;
-}
-function findPreferredYouTubeCaptionCandidate(track) {
-if (track.kind !== "youtube") return null;
-const candidates = preferredYouTubeCaptionCandidates(track);
-const targetIdentity = youtubeCaptionTrackIdentity(track);
-return candidates.filter((candidate) => youtubeCaptionTrackIdentity(candidate) === targetIdentity).sort((a, b) => youtubeTrackUrlScore(b.url) - youtubeTrackUrlScore(a.url))[0] ?? null;
-}
-function preferredYouTubeCaptionCandidates(track) {
-const renderer = getYouTubePlayerResponse()?.captions?.playerCaptionsTracklistRenderer;
-return uniqueYouTubeCaptionTracks([
-...getYouTubePlayerCaptionTracks(),
-...extractYouTubeTrackArray(renderer?.captionTracks)
-], renderer?.translationLanguages, youtubeTrackPreferredLanguages(track));
-}
-function youtubeTrackPreferredLanguages(track) {
-return [track.targetLanguage, track.language].map((language) => language ?? "");
-}
-function extractYouTubeTrackArray(value) {
-if (Array.isArray(value)) return value;
-const record2 = value;
-return Array.isArray(record2?.captionTracks) ? record2.captionTracks : [];
-}
-function getYouTubePlayerResponse() {
-const videoId = getYouTubeVideoId();
-if (!videoId) return null;
-const fromWindow = window.ytInitialPlayerResponse;
-if (isMatchingYouTubePlayerResponse(fromWindow, videoId)) return fromWindow;
-const fromConfig = readYouTubePlayerResponseFromConfig(videoId);
-if (fromConfig) return fromConfig;
-return readYouTubePlayerResponseFromScripts(videoId);
-}
-function readYouTubePlayerResponseFromScripts(videoId) {
-for (const script of Array.from(document.scripts)) {
-const parsed = readYouTubePlayerResponseFromScript(script.textContent ?? "", videoId);
-if (parsed) return parsed;
-}
-return null;
-}
-function readYouTubePlayerResponseFromScript(text2, videoId) {
-return readYouTubeInitialPlayerResponse(text2, videoId) ?? readEscapedYouTubePlayerResponse(text2, videoId);
-}
-function readYouTubeInitialPlayerResponse(text2, videoId) {
-for (const marker of ["ytInitialPlayerResponse = ", "ytInitialPlayerResponse=", "var ytInitialPlayerResponse = "]) {
-const parsed = parseYouTubePlayerResponseMarker(text2, marker, videoId);
-if (parsed) return parsed;
-}
-return null;
-}
-function parseYouTubePlayerResponseMarker(text2, marker, videoId) {
-const start = text2.indexOf(marker);
-if (start < 0) return null;
-const raw = extractJsonObject(text2, start + marker.length);
-return raw ? parseMatchingYouTubePlayerResponse(raw, videoId) : null;
-}
-function readEscapedYouTubePlayerResponse(text2, videoId) {
-const escaped = text2.match(/"playerResponse"\s*:\s*"((?:\\.|[^"\\])+)"/);
-if (!escaped?.[1]) return null;
-try {
-return parseMatchingYouTubePlayerResponse(JSON.parse(`"${escaped[1]}"`), videoId);
-} catch {
-return null;
-}
-}
-function parseMatchingYouTubePlayerResponse(raw, videoId) {
-try {
-const parsed = JSON.parse(raw);
-return isMatchingYouTubePlayerResponse(parsed, videoId) ? parsed : null;
-} catch {
-return null;
-}
-}
-function readYouTubePlayerResponseFromConfig(videoId) {
-const ytcfg = window.ytcfg;
-const candidates = [
-ytcfg?.get?.("PLAYER_RESPONSE"),
-ytcfg?.get?.("PLAYER_VARS"),
-ytcfg?.data_?.PLAYER_RESPONSE,
-ytcfg?.data_?.PLAYER_VARS
-];
-for (const candidate of candidates) {
-const response = readYouTubePlayerResponseCandidate(candidate);
-if (isMatchingYouTubePlayerResponse(response, videoId)) return response;
-}
-return null;
-}
-function readYouTubePlayerResponseCandidate(candidate) {
-if (!candidate) return null;
-if (typeof candidate === "string") return parseYouTubePlayerResponseJson(candidate);
-if (typeof candidate === "object") return readYouTubePlayerResponseObject(candidate);
-return null;
-}
-function parseYouTubePlayerResponseJson(candidate) {
-try {
-return JSON.parse(candidate);
-} catch {
-return null;
-}
-}
-function readYouTubePlayerResponseObject(candidate) {
-const record2 = candidate;
-return readYouTubePlayerResponseCandidate(record2.player_response ?? record2.raw_player_response) ?? candidate;
-}
-function isMatchingYouTubePlayerResponse(value, videoId) {
-const response = youtubePlayerResponseRecord(value);
-return Boolean(response && hasYouTubeCaptionTracks(response) && youtubePlayerResponseMatchesVideo(response, videoId));
-}
-function youtubePlayerResponseRecord(value) {
-return value && typeof value === "object" ? value : null;
-}
-function hasYouTubeCaptionTracks(response) {
-return Boolean(response.captions?.playerCaptionsTracklistRenderer?.captionTracks);
-}
-function youtubePlayerResponseMatchesVideo(response, videoId) {
-if (!videoId) return false;
-const responseVideoId = response.videoDetails?.videoId;
-if (responseVideoId) return responseVideoId === videoId;
-return youtubePlayerResponseCaptionUrlsMatchVideo(response, videoId);
-}
-function youtubePlayerResponseCaptionUrlsMatchVideo(response, videoId) {
-const tracks = response.captions?.playerCaptionsTracklistRenderer?.captionTracks;
-return Array.isArray(tracks) && tracks.some((track) => youtubeRawCaptionTrackMatchesVideo(track, videoId));
-}
-function youtubeRawCaptionTrackMatchesVideo(track, videoId) {
-try {
-const rawUrl = rawYouTubeCaptionUrl(track);
-if (!rawUrl) return false;
-return new URL(rawUrl, location.href).searchParams.get("v") === videoId;
-} catch {
-return false;
-}
-}
-function extractJsonObject(text2, start) {
-const objectStart = text2.indexOf("{", start);
-if (objectStart < 0) return null;
-const state2 = createJsonObjectScanState();
-for (let index = objectStart; index < text2.length; index++) {
-if (scanJsonObjectCharacter(state2, text2[index])) return text2.slice(objectStart, index + 1);
-}
-return null;
-}
-function createJsonObjectScanState() {
-return { depth: 0, inString: false, escaped: false };
-}
-function scanJsonObjectCharacter(state2, char) {
-if (state2.inString) {
-scanJsonStringCharacter(state2, char);
-return false;
-}
-if (char === '"') {
-state2.inString = true;
-return false;
-}
-if (char === "{") state2.depth += 1;
-if (char !== "}") return false;
-state2.depth -= 1;
-return state2.depth === 0;
-}
-function scanJsonStringCharacter(state2, char) {
-if (state2.escaped) {
-state2.escaped = false;
-return;
-}
-if (char === "\\") state2.escaped = true;
-if (char === '"') state2.inString = false;
-}
-function youtubeSubtitleRequestUrls(url) {
-return uniqueNonEmptyStrings$1([
-withYouTubeSubtitleFormat(url, "srv3"),
-withYouTubeSubtitleFormat(url, "json3"),
-withYouTubeSubtitleFormat(url, "vtt"),
-url
-]);
-}
-function withYouTubeSubtitleFormat(url, format) {
-const parsed = new URL(url);
-parsed.searchParams.set("fmt", format);
-const clientName = readYouTubeClientName();
-if (clientName && !parsed.searchParams.has("c")) parsed.searchParams.set("c", clientName);
-return parsed.href;
-}
-function readYouTubeClientName() {
-return readYouTubeConfigString$1("INNERTUBE_CLIENT_NAME");
-}
-function readYouTubeConfigString$1(key) {
-const ytcfg = window.ytcfg;
-const value = ytcfg?.get?.(key) ?? ytcfg?.data_?.[key];
-if (typeof value === "string" && value) return value;
-return readYouTubeConfigStringFromScripts(key);
-}
-function youtubeTrackUrlScore(value) {
-if (!value) return 0;
-try {
-const url = new URL(value, location.href);
-return youtubeTrackSearchParamScore(url.searchParams);
-} catch {
-return 0;
-}
-}
-function youtubeTrackSearchParamScore(params) {
-return [
-params.has("pot") ? 8 : 0,
-params.has("potc") ? 4 : 0,
-params.has("signature") ? 2 : 0,
-params.has("kind") ? 1 : 0
-].reduce((sum, item) => sum + item, 0);
 }
 const REDIRECT_FLAG = "__yomuSubtitleFullscreenRedirect";
 const STYLE_ID = "yomu-subtitle-fullscreen-redirect-style";
@@ -53296,86 +53705,6 @@ function throwIfSubtitleTrackLoadAborted(signal) {
 if (!signal?.aborted) return;
 throw signal.reason ?? new DOMException("Aborted", "AbortError");
 }
-function trackStatusText(track, language = "en") {
-if (track.loadingState === "loading") return ` · ${uiText(language, "trackStatusLoading")}`;
-if (track.loadingState === "waiting") return ` · ${uiText(language, "trackStatusWaiting")}`;
-if (track.loadingState === "error") return ` · ${uiText(language, "trackStatusFailed")}`;
-return "";
-}
-function formatTrackKind(kind, language = "en") {
-if (kind === "native") return uiText(language, "trackKindPageTrack");
-if (kind === "remote") return uiText(language, "trackKindPageFile");
-if (kind === "youtube") return uiText(language, "trackKindYouTubeCaptions");
-return uiText(language, "trackKindLoadedFile");
-}
-function compareSubtitleTrackOptions(a, b) {
-return subtitleTrackRank(a) - subtitleTrackRank(b) || (a.language ?? "").localeCompare(b.language ?? "", void 0, { sensitivity: "base" }) || a.label.localeCompare(b.label, void 0, { sensitivity: "base" });
-}
-function isTargetLanguageSubtitleTrack(track) {
-const language = subtitleTrackLanguage(track);
-if (language) return isTargetSubtitleLanguage(language);
-return isTargetSubtitleLanguage(inferSubtitleLanguage(track.label, track.language));
-}
-function isEnglishSubtitleTrack(track) {
-return isSubtitleTrackLanguage(track, "en");
-}
-function subtitleTrackLanguage(track) {
-if (!track) return void 0;
-const language = track.targetLanguage ?? track.language;
-if (isLanguageCode(language)) return normalizeSubtitleLanguage(language);
-return inferSubtitleLanguage(track.label, track.language);
-}
-function isSubtitleTrackLanguage(track, expectedLanguage) {
-const expected = normalizeSubtitleLanguage(expectedLanguage);
-return Boolean(expected && subtitleTrackLanguage(track) === expected);
-}
-function isOutputLanguageSubtitleTrack(track, outputLanguage) {
-return isSubtitleTrackLanguage(track, outputLanguage) || !subtitleTrackLanguage(track) && isGenericOutputSubtitleLabel(track.label);
-}
-function shouldReplaceWaitingNativeTrack(selected, replacement, cues, expectedLanguage, expectedRole = "target") {
-if (!isWaitingNativeTrack(selected, cues)) return false;
-return expectedLanguage ? tracksHaveLanguage(selected, replacement, expectedLanguage, expectedRole) : tracksHaveSameRoleOrLanguage(selected, replacement);
-}
-function tracksHaveLanguage(selected, replacement, language, role) {
-const matches = role === "output" ? isOutputLanguageSubtitleTrack : isSubtitleTrackLanguage;
-return matches(selected, language) && matches(replacement, language);
-}
-function tracksHaveSameRoleOrLanguage(selected, replacement) {
-return hasSameSubtitleRole(selected, replacement) || hasSameNormalizedSubtitleLanguage(selected, replacement);
-}
-function isWaitingNativeTrack(selected, cues) {
-return Boolean(selected && selected.kind === "native" && !cues.length);
-}
-function hasSameSubtitleRole(selected, replacement) {
-return isTargetLanguageSubtitleTrack(selected) && isTargetLanguageSubtitleTrack(replacement) || isEnglishSubtitleTrack(selected) && isEnglishSubtitleTrack(replacement);
-}
-function hasSameNormalizedSubtitleLanguage(selected, replacement) {
-const selectedLanguage = normalizeSubtitleLanguage(selected.language);
-const replacementLanguage = normalizeSubtitleLanguage(replacement.language);
-return Boolean(selectedLanguage && replacementLanguage && selectedLanguage === replacementLanguage);
-}
-function isLanguageCode(language) {
-return Boolean(language?.trim().match(/^[a-z]{2,3}(?:[-_][a-z0-9]{2,8})*$/i));
-}
-function isGenericOutputSubtitleLabel(label) {
-return /(^|[.\-_\s()[\]])(?:native|translation|translated)(?=$|[.\-_\s()[\]])/iu.test(label);
-}
-function subtitleTrackRank(track) {
-return SUBTITLE_TRACK_RANKS.find((rule) => rule.matches(track))?.rank ?? 5;
-}
-const SUBTITLE_TRACK_RANKS = [
-{ rank: 0, matches: (track) => track.kind === "file" },
-{ rank: 1, matches: isManualTargetLanguageSubtitleTrack },
-{ rank: 2, matches: isTargetLanguageSubtitleTrack },
-{ rank: 3, matches: isAutoGeneratedSubtitleTrack },
-{ rank: 4, matches: isEnglishOrNativeSubtitleTrack }
-];
-function isManualTargetLanguageSubtitleTrack(track) {
-return isTargetLanguageSubtitleTrack(track) && !isAutoGeneratedSubtitleTrack(track);
-}
-function isEnglishOrNativeSubtitleTrack(track) {
-return isEnglishSubtitleTrack(track) || track.kind === "native";
-}
 function renderSubtitleTrackPanel(state2) {
 const language = state2.language;
 return `
@@ -53585,51 +53914,6 @@ primary || uiText(language, "transcript"),
 secondary ? `${uiText(language, "nativeSubtitles")}: ${secondary}` : ""
 ];
 }
-function resolveSubtitleLanguageContext(_settings) {
-const target = activeLearningTarget();
-const targetContent = contentLanguage(target.typography.contentLocale, target.subtitles.languageTag);
-const output = OUTPUT_LANGUAGE;
-const outputContent = contentLanguage(output, output);
-return {
-targetLanguage: target.subtitles.languageTag,
-outputLanguage: languageSubtag(output) ?? output,
-targetContent,
-outputContent,
-preferredTranslationLanguages: uniqueLanguages([
-target.subtitles.languageTag,
-languageSubtag(output) ?? output
-])
-};
-}
-function sameSubtitleLanguageContext(left, right) {
-return subtitleLanguageContextKey(left) === subtitleLanguageContextKey(right);
-}
-function subtitleLanguageContextKey(context) {
-return [
-context.targetLanguage,
-context.outputLanguage,
-context.targetContent.lang,
-context.outputContent.lang
-].join(":");
-}
-function subtitleContentLanguage(track, fallback) {
-const language = subtitleTrackLanguage(track);
-return language ? contentLanguage(language, language) : fallback;
-}
-function subtitleContentAttributes(content) {
-return `lang="${content.lang}" dir="${content.dir}"`;
-}
-function syncSubtitleContentLanguage(element, content) {
-if (element.lang !== content.lang) element.lang = content.lang;
-if (element.dir !== content.dir) element.dir = content.dir;
-}
-function contentLanguage(locale, fallback) {
-const lang = canonicalLanguageTag(locale) ?? canonicalLanguageTag(fallback) ?? fallback;
-return { lang, dir: localeDirection(lang) };
-}
-function uniqueLanguages(languages) {
-return [...new Set(languages.map((language) => language.trim().toLowerCase()).filter(Boolean))];
-}
 function planSubtitleLanguageReconciliation(tracks, selectedTrackId, secondaryTrackId, previous, next) {
 if (sameSubtitleLanguageContext(previous, next)) return null;
 const removedTrackIds = translatedTrackIdsForChangedSelection(tracks, previous, next);
@@ -53706,155 +53990,6 @@ return [...tracks].filter((track) => isSubtitleTrackLanguage(track, language)).s
 }
 function preferredOutputTrack(tracks, language) {
 return [...tracks].filter((track) => isOutputLanguageSubtitleTrack(track, language)).sort((left, right) => Number(!isSubtitleTrackLanguage(left, language)) - Number(!isSubtitleTrackLanguage(right, language)) || compareSubtitleTrackOptions(left, right))[0];
-}
-function renderSubtitlePrimary(input) {
-const parsedHasReaderWords = subtitlePrimaryHasReaderWords(input.parsedHtml);
-const karaokeEligible = subtitleKaraokeEligible(input);
-const mode = subtitlePrimaryRenderMode(input, karaokeEligible, parsedHasReaderWords);
-return {
-html: renderSubtitlePrimaryHtml(input, mode),
-karaokeActive: subtitleKaraokeIsActive(karaokeEligible, mode),
-shouldRequestParse: subtitlePrimaryNeedsParse(input),
-nextRenderedPrimary: nextRenderedPrimaryCache(input, mode)
-};
-}
-function subtitlePrimaryHasReaderWords(html) {
-return html?.includes("jpdb-reader-word") === true;
-}
-function subtitleKaraokeEligible(input) {
-if (!input.karaokeMode) return false;
-return cueHasExactWordTimings(input.cue);
-}
-function subtitleKaraokeIsActive(eligible, mode) {
-return eligible && mode !== "pending-parser";
-}
-function subtitlePrimaryNeedsParse(input) {
-return input.hasParser && input.parsedHtml === void 0;
-}
-function subtitlePrimaryRenderMode(input, karaokeActive, parsedHasReaderWords) {
-if (parsedHasReaderWords) return "parsed";
-if (input.parsedHtml !== void 0) return "parsed";
-if (hasReusablePrimaryParserCache(input)) return "cached-parser";
-if (input.hasParser) return "pending-parser";
-if (hasPlainKaraokeRender(input, karaokeActive)) return "karaoke";
-return "plain";
-}
-function hasPlainKaraokeRender(input, karaokeActive) {
-return Boolean(karaokeActive && input.cue);
-}
-function hasReusablePrimaryParserCache(input) {
-return Boolean(input.hasParser && input.lastRenderedText === input.text && input.lastRenderedHtml);
-}
-function renderSubtitlePrimaryHtml(input, mode) {
-return SUBTITLE_PRIMARY_RENDERERS[mode](input);
-}
-const SUBTITLE_PRIMARY_RENDERERS = {
-parsed: (input) => input.parsedHtml ?? "",
-karaoke: (input) => renderSubtitleKaraokeCue(input.cue, input.time),
-"cached-parser": (input) => input.lastRenderedHtml,
-"pending-parser": () => "",
-plain: (input) => escapeWithBreaks(input.text)
-};
-function nextRenderedPrimaryCache(input, mode) {
-if (input.parsedHtml !== void 0) return { text: input.text, html: input.parsedHtml };
-return mode === "karaoke" ? { text: input.text, html: "" } : void 0;
-}
-const SUBTITLE_SECONDARY_CLASS = "jpdb-subtitle-secondary";
-const SUBTITLE_SECONDARY_BLURRED_CLASS = "jpdb-subtitle-secondary-blurred";
-const SUBTITLE_SECONDARY_CLEAR_CLASS = "jpdb-subtitle-secondary-clear";
-const TOGGLE_NATIVE_BLUR_ACTION = "toggle-native-blur";
-function syncSubtitleSecondaryBlurState(button, nativeBlurred, language = "en") {
-button.classList.toggle(SUBTITLE_SECONDARY_BLURRED_CLASS, nativeBlurred);
-button.classList.toggle(SUBTITLE_SECONDARY_CLEAR_CLASS, !nativeBlurred);
-setAttributeIfChanged(button, "aria-pressed", String(nativeBlurred));
-const label = uiText(language, "toggleNativeSubtitleBlur");
-setAttributeIfChanged(button, "title", label);
-setAttributeIfChanged(button, "aria-label", label);
-}
-function setAttributeIfChanged(element, name, value) {
-if (element.getAttribute(name) === value) return;
-element.setAttribute(name, value);
-}
-function createSubtitleSecondaryLine() {
-const button = document.createElement("button");
-button.className = SUBTITLE_SECONDARY_CLASS;
-button.type = "button";
-button.dataset.action = TOGGLE_NATIVE_BLUR_ACTION;
-bindPrivateCommandCapability(button, { kind: "subtitle-action", action: "toggle-native-blur" });
-return button;
-}
-function reconcileSubtitleSecondaryLine(options) {
-if (!options.host) return;
-const existing = options.host.querySelector(`.${SUBTITLE_SECONDARY_CLASS}`);
-const text2 = visibleSubtitleSecondaryText(options.visible, options.text);
-if (!text2) return removeSubtitleSecondaryLine(existing);
-const line = existingSubtitleSecondaryLine(existing);
-syncSubtitleContentLanguage(line, options.content);
-syncSubtitleSecondaryText(line, text2);
-syncSubtitleSecondaryBlurState(line, options.blurred, options.language);
-if (!existing) options.host.append(line);
-}
-function visibleSubtitleSecondaryText(visible, text2) {
-if (!visible) return "";
-return text2 ?? "";
-}
-function removeSubtitleSecondaryLine(existing) {
-existing?.remove();
-}
-function existingSubtitleSecondaryLine(existing) {
-return existing ?? createSubtitleSecondaryLine();
-}
-function createSubtitlePrimaryRow(primaryHtml, content) {
-const row = document.createElement("div");
-row.className = "jpdb-subtitle-primary-row";
-const primary = document.createElement("div");
-primary.className = "jpdb-subtitle-primary";
-syncSubtitleContentLanguage(primary, content);
-setInnerHtml(primary, remintRenderedWordPrivateTokens(primaryHtml));
-row.append(primary);
-return row;
-}
-function reconcileSubtitlePrimaryRow(input) {
-if (!input.host) return { changed: false, appliedHtml: input.appliedHtml };
-const row = input.host.querySelector(".jpdb-subtitle-primary-row");
-if (input.html === null) return clearSubtitlePrimaryRow(row);
-return reconcileVisibleSubtitlePrimaryRow({
-host: input.host,
-html: input.html,
-appliedHtml: input.appliedHtml,
-content: input.content
-}, row);
-}
-function clearSubtitlePrimaryRow(row) {
-if (!row) return { changed: false, appliedHtml: "" };
-row.remove();
-return { changed: true, appliedHtml: "" };
-}
-function reconcileVisibleSubtitlePrimaryRow(input, row) {
-const primary = row?.querySelector(".jpdb-subtitle-primary");
-if (!primary) return createVisibleSubtitlePrimaryRow(input, row);
-syncSubtitleContentLanguage(primary, input.content);
-if (input.appliedHtml === input.html) return { changed: false, appliedHtml: input.appliedHtml };
-setInnerHtml(primary, remintRenderedWordPrivateTokens(input.html));
-return { changed: true, appliedHtml: input.html };
-}
-function createVisibleSubtitlePrimaryRow(input, row) {
-row?.remove();
-input.host.prepend(createSubtitlePrimaryRow(input.html, input.content));
-return { changed: true, appliedHtml: input.html };
-}
-function syncSubtitleSecondaryText(button, text2) {
-if (button.dataset.subtitleSecondaryText === text2) return;
-button.dataset.subtitleSecondaryText = text2;
-setInnerHtml(button, escapeWithBreaks(text2));
-}
-function renderSubtitleKaraokeCue(cue, time) {
-if (!cue?.text.trim()) return "";
-if (!cueHasExactWordTimings(cue)) return escapeWithBreaks(cue.text);
-const words = cue.words;
-if (!words.length) return "";
-const progress = karaokeCharacterProgress(cue, words, time);
-return renderKaraokeTextParts(cue.text, progress);
 }
 const SHADOW_ACTION_LABELS = {
 replay: { en: "Replay", ja: "再生" },
@@ -54040,7 +54175,7 @@ releaseDepartedSubtitleNativeTrackModes(snapshot, tracks);
 snapshotSubtitleNativeTrackModes(snapshot, tracks);
 }
 function applySubtitleNativeTrackModes(state2) {
-const youtubePage = isYouTubePage();
+const youtubePage = isYouTubePage$1();
 const hasYomuCaptionContent = Boolean(state2.hasPrimaryCues || state2.currentCueText);
 const yomuCaptionsActive = state2.suppressNativeCaptions === void 0 ? Boolean(state2.overlayVisible && (state2.selectedTrackId || hasYomuCaptionContent)) : state2.suppressNativeCaptions;
 if (!youtubePage) return applyGenericNativeTrackModes(state2, yomuCaptionsActive);
@@ -54315,7 +54450,7 @@ if (open && rail) positionSubtitleStylePopover(popover, rail);
 function subtitleSourceContextKey(video) {
 const url = new URL(location.href);
 url.hash = "";
-if (isYouTubePage()) return getYouTubeVideoId() ? `youtube:${getYouTubeVideoId()}` : "";
+if (isYouTubePage$1()) return getYouTubeVideoId() ? `youtube:${getYouTubeVideoId()}` : "";
 if (isCijVideoPage()) return `cij:${url.origin}${url.pathname}${url.search}`;
 const videoSource = videoSourceKey(video);
 return `page:${url.origin}${url.pathname}${url.search}${videoSource ? `|video:${videoSource}` : ""}`;
@@ -54346,7 +54481,7 @@ function shouldKeepIdleControlClass(root, settings2) {
 return settings2.subtitleControlsMode === "auto" && root.classList.contains("jpdb-subtitle-controls-idle");
 }
 function canUseDomCaptionFallback(options) {
-if (isYouTubePage()) {
+if (isYouTubePage$1()) {
 return Boolean(getYouTubeVideoId()) && isYouTubeOwnedVideoElement(options.video) && Boolean(options.selectedTrackId || !options.tracks.some((track) => track.kind === "youtube"));
 }
 const selectedNativeTrackNeedsDomFallback = Boolean(options.selected?.kind === "native" && options.selected.track && !options.cues.length);
@@ -54751,7 +54886,7 @@ const PAGE_METADATA_TEXT_NAME_PATTERN = /(^|[-_\s])(?:title|metadata|meta|tag|ta
 function readPageCaptionText(video, readerRoot, options = {}) {
 const direct = readDirectPageCaptionText(video, readerRoot, options);
 if (direct || !video) return direct;
-return isYouTubePage() ? readHiddenYouTubeCaptionText(video, readerRoot, options) : readNearbyPageCaptionText(video, readerRoot, options);
+return isYouTubePage$1() ? readHiddenYouTubeCaptionText(video, readerRoot, options) : readNearbyPageCaptionText(video, readerRoot, options);
 }
 function readDirectPageCaptionText(video, readerRoot, options = {}) {
 return collectCaptionTexts([...document.querySelectorAll(CAPTION_SELECTORS)], video, readerRoot, false, options);
@@ -56382,7 +56517,7 @@ return false;
 }
 }
 function isYouTubeTimedTextUrl(url) {
-if (!isYouTubePage()) return false;
+if (!isYouTubePage$1()) return false;
 try {
 const parsed = new URL(url, location.href);
 return /(^|\.)youtube\.com$/i.test(parsed.hostname) && /\/api\/timedtext$/i.test(parsed.pathname);
@@ -56770,6 +56905,7 @@ const handle = rail?.querySelector("[data-subtitle-rail-drag-handle]");
 if (!rail || !handle) return null;
 const abort = new AbortController();
 let position = loadSubtitleControlRailPosition();
+let lastBoundsKey = "";
 let drag = null;
 const railBounds = () => {
 const rootRect = root.getBoundingClientRect();
@@ -56779,12 +56915,13 @@ return {
 rootRect,
 railWidth: railRect.width,
 railHeight: railRect.height,
+railLeft: railRect.left - rootRect.left,
+railTop: railRect.top - rootRect.top,
 maxLeft: Math.max(RAIL_MARGIN_PX, rootRect.width - railRect.width - RAIL_MARGIN_PX),
 maxTop: Math.max(RAIL_MARGIN_PX, rootRect.height - railRect.height - RAIL_MARGIN_PX)
 };
 };
-const setPixels = (left, top, persist = false) => {
-const bounds = railBounds();
+const setPixels = (left, top, persist = false, bounds = railBounds(), reservedRects) => {
 if (!bounds) return;
 const clampedLeft = Math.min(bounds.maxLeft, Math.max(RAIL_MARGIN_PX, left));
 const clampedTop = Math.min(bounds.maxTop, Math.max(RAIL_MARGIN_PX, top));
@@ -56792,25 +56929,45 @@ const safePosition = railPositionOutsideReservedRects(
 clampedLeft,
 clampedTop,
 bounds,
-options.getReservedRects?.() ?? []
+reservedRects ?? options.getReservedRects?.() ?? []
 );
-rail.style.setProperty("left", `${Math.round(safePosition.left)}px`);
-rail.style.setProperty("right", "auto");
-rail.style.setProperty("top", `${Math.round(safePosition.top)}px`);
+const styles = { left: `${Math.round(safePosition.left)}px`, right: "auto", top: `${Math.round(safePosition.top)}px` };
+let changed = false;
+for (const [property, value] of Object.entries(styles)) {
+if (rail.style.getPropertyValue(property) === value) continue;
+rail.style.setProperty(property, value);
+changed = true;
+}
 position = {
 x: fractionWithinRailAxis(safePosition.left, bounds.maxLeft),
 y: fractionWithinRailAxis(safePosition.top, bounds.maxTop)
 };
-options.onPositionChange?.();
+const viewport = window.visualViewport;
+const boundsKey = [
+bounds.rootRect.left,
+bounds.rootRect.top,
+bounds.rootRect.width,
+bounds.rootRect.height,
+bounds.railWidth,
+bounds.railHeight,
+viewport?.width ?? window.innerWidth,
+viewport?.height ?? window.innerHeight,
+viewport?.offsetLeft ?? 0,
+viewport?.offsetTop ?? 0
+].map(Math.round).join(",");
+if (changed || boundsKey !== lastBoundsKey) options.onPositionChange?.();
+lastBoundsKey = boundsKey;
 if (persist) saveSubtitleControlRailPosition(position);
 };
-const syncPosition = () => {
+const syncPosition = (reservedRects) => {
 const bounds = railBounds();
 if (!bounds) return;
-const railRect = rail.getBoundingClientRect();
 setPixels(
-position ? railAxisPosition(position.x, bounds.maxLeft) : railRect.left - bounds.rootRect.left,
-position ? railAxisPosition(position.y, bounds.maxTop) : railRect.top - bounds.rootRect.top
+position ? railAxisPosition(position.x, bounds.maxLeft) : bounds.railLeft,
+position ? railAxisPosition(position.y, bounds.maxTop) : bounds.railTop,
+false,
+bounds,
+reservedRects
 );
 };
 const pointerDown = (event) => {
@@ -56891,10 +57048,10 @@ handle.addEventListener("keydown", trustedReaderEventHandler(keyDown), { signal:
 window.addEventListener("pointermove", trustedReaderEventHandler(pointerMove), { passive: false, signal: abort.signal });
 window.addEventListener("pointerup", trustedReaderEventHandler(finishPointer), { passive: false, signal: abort.signal });
 window.addEventListener("pointercancel", trustedReaderEventHandler(finishPointer), { passive: false, signal: abort.signal });
-const resizeObserver = typeof ResizeObserver === "function" ? new ResizeObserver(syncPosition) : null;
+const resizeObserver = typeof ResizeObserver === "function" ? new ResizeObserver(() => syncPosition()) : null;
 resizeObserver?.observe(root);
 resizeObserver?.observe(rail);
-requestAnimationFrame(syncPosition);
+requestAnimationFrame(() => syncPosition());
 return {
 syncPosition,
 destroy: () => {
@@ -57821,7 +57978,7 @@ function elementContainsVideo(element, video) {
 return Boolean(element && video && (element === video || element.contains(video)));
 }
 function youtubeFullscreenHostForVideo(video) {
-if (!isYouTubePage()) return null;
+if (!isYouTubePage$1()) return null;
 const scopedHost = video?.closest(YOUTUBE_FULLSCREEN_HOST_SELECTOR);
 if (scopedHost) return scopedHost;
 return Array.from(document.querySelectorAll(YOUTUBE_FULLSCREEN_HOST_SELECTOR)).find((element) => elementContainsVideo(element, video) || isYouTubeMobileFullscreenHost(element) || isVisibleYouTubeFullscreenHost(element)) ?? null;
@@ -57967,14 +58124,11 @@ const ASBPLAYER_SUBTITLE_DRAG_CLASSES = [
 ];
 const YOUTUBE_MOBILE_BOTTOM_SHEET_OPEN_CLASS = "jpdb-subtitle-yt-sheet-open";
 const NATIVE_FULLSCREEN_CUE_TRACK_LABEL = "Yomu";
-const SUBTITLE_NATIVE_CONTROL_SAFE_ZONE_ATTRIBUTE = "data-jpdb-subtitle-native-control-safe-zone";
 const SUBTITLE_ANNOTATIONS_PAUSED_CLASS = "jpdb-subtitle-annotations-paused";
-const SUBTITLE_HIT_TESTED_OVERLAY_SELECTOR = `.jpdb-subtitle-primary,.jpdb-subtitle-primary .jpdb-reader-word,.${SUBTITLE_SECONDARY_CLASS},.${SUBTITLE_SECONDARY_CLASS} .jpdb-reader-word`;
-const NATIVE_PLAYER_CONTROL_SELECTOR = 'button,[role="button"],a[href],[tabindex]:not([tabindex="-1"])';
 const NATIVE_SUBTITLE_BLUR_CONTROL_SELECTOR = `[data-action="${TOGGLE_NATIVE_BLUR_ACTION}"]`;
 const PANEL_PRESS_RENDER_HOLD_MAX_MS = 700;
 function isYouTubeTheaterMode() {
-return isYouTubePage() && Boolean(document.querySelector("ytd-watch-flexy[theater], ytd-watch-flexy[fullscreen]"));
+return isYouTubePage$1() && Boolean(document.querySelector("ytd-watch-flexy[theater], ytd-watch-flexy[fullscreen]"));
 }
 function subtitleViewportRect() {
 return new DOMRect(0, 0, window.innerWidth, window.innerHeight);
@@ -58004,14 +58158,6 @@ return Math.max(13, Math.min(22, Math.round(target * 0.62)));
 }
 function pointInRect(x2, y, rect) {
 return x2 >= rect.left && x2 <= rect.right && y >= rect.top && y <= rect.bottom;
-}
-function rectsOverlap(first2, second) {
-return first2.right > second.left && second.right > first2.left && first2.bottom > second.top && second.bottom > first2.top;
-}
-function nativePlayerControlIsInteractive(control) {
-if (control.hidden || control.getAttribute("aria-hidden") === "true" || control.getAttribute("aria-disabled") === "true" || control.matches(":disabled")) return false;
-const style = getComputedStyle(control);
-return style.display !== "none" && style.visibility !== "hidden" && style.pointerEvents !== "none" && Number.parseFloat(style.opacity || "1") > 0.01;
 }
 function videoRectKey(rect) {
 return `${Math.round(rect.left)},${Math.round(rect.top)},${Math.round(rect.width)},${Math.round(rect.height)}`;
@@ -58600,8 +58746,8 @@ if (!this.video) {
 if (mutations.some(mutationCouldAffectVideoDiscovery)) this.scheduleDiscoverVideo();
 return;
 }
-this.syncYouTubeMobileBottomSheetState();
 if (mutations.every(mutationInsideReaderRoot$1)) return;
+this.syncYouTubeMobileBottomSheetState();
 if (mutations.some((mutation) => this.mutationCouldAffectFullscreenState(mutation))) {
 this.fullscreenHost.invalidateHostCache();
 this.syncFullscreenState();
@@ -58618,7 +58764,7 @@ if (!(target instanceof HTMLElement)) return false;
 return target.matches("ytd-watch-flexy, ytd-player, ytm-player, #movie_player, .html5-video-player, [data-yomu-inline-fullscreen]") || Boolean(target.closest("ytd-watch-flexy, ytd-player, ytm-player, #movie_player, .html5-video-player, [data-yomu-inline-fullscreen]"));
 }
 handleYouTubeNavigation() {
-if (!isYouTubePage()) return;
+if (!isYouTubePage$1()) return;
 this.fullscreenHost.invalidateHostCache();
 this.markNativeCueListsDirty();
 this.lastYouTubeTrackDiscoveryAt = 0;
@@ -58648,6 +58794,7 @@ this.trackSelections.abortAll();
 this.abortController?.abort();
 this.abortController = void 0;
 this.releaseNativeCaptionOwnership();
+document.documentElement.classList.remove(YOUTUBE_FLUID_CONTROLS_CLASS);
 this.observer?.disconnect();
 this.observer = void 0;
 this.observerMode = "off";
@@ -58731,7 +58878,7 @@ const pair = automaticSubtitleLanguagePair(this.tracks, next);
 for (const action of subtitleLanguageActions(plan, pair, this.selectedTrackId, this.secondaryTrackId)) this.applySubtitleLanguageAction(action);
 this.refreshNativeFullscreenCueMirror();
 this.lastYouTubeTrackDiscoveryAt = 0;
-if (isYouTubePage()) void this.discoverYouTubeTracksThrottled(true);
+if (isYouTubePage$1()) void this.discoverYouTubeTracksThrottled(true);
 }
 applySubtitleLanguageAction(action) {
 const actions = {
@@ -58828,7 +58975,7 @@ removeStaleSubtitleSurfaces() {
 document.querySelectorAll('.jpdb-subtitle-player[data-jpdb-reader-root="true"], .jpdb-subtitle-list[data-jpdb-reader-root="true"]').forEach((element) => element.remove());
 }
 installFullscreenRedirectForCurrentPage() {
-if (isYouTubePage() || document.querySelector("[data-yomu-video-frame]")) installSubtitleFullscreenRedirect();
+if (isYouTubePage$1() || document.querySelector("[data-yomu-video-frame]")) installSubtitleFullscreenRedirect();
 }
 bindSubtitleSurface(surface) {
 surface.root.addEventListener("click", trustedReaderEventHandler((event) => this.handleClick(event)));
@@ -58858,7 +59005,7 @@ this.subtitleControlRail = bindSubtitleControlRail(
 surface.root,
 () => this.showControlsTemporarily({ independentOfPlayerChrome: true }),
 {
-getReservedRects: () => this.nativePlayerControlSafeZones(),
+getReservedRects: () => this.subtitleRailReservedRects(),
 onPositionChange: () => {
 if (this.subtitleStylePanelOpen) this.syncSubtitleStyleControls();
 }
@@ -58936,7 +59083,7 @@ hasDiscoverableVideoCandidate() {
 return Boolean(this.discoverVideoCandidate());
 }
 isSubtitleVideoCandidate(video) {
-if (isYouTubePage() && !isYouTubeOwnedVideoElement(video)) return false;
+if (isYouTubePage$1() && !isYouTubeOwnedVideoElement(video)) return false;
 if (video.closest("[data-jpdb-reader-surface-ignore]")) return false;
 return video.readyState >= 1 || video.clientWidth > 120 || video.getBoundingClientRect().width > 120;
 }
@@ -58946,7 +59093,7 @@ return video.readyState >= 1 || video.clientWidth > 120 || video.getBoundingClie
 // Discord promos) have neither, so the rail stays away.
 videoHasPlayerAffordances() {
 if (!this.video) return false;
-if (this.video.controls || isYouTubePage()) return true;
+if (this.video.controls || isYouTubePage$1()) return true;
 if (this.video.closest("#movie_player, .html5-video-player, [data-yomu-video-frame]")) return true;
 const fullscreenElement = currentFullscreenElement();
 if (this.fullscreenHost.shouldHostSubtitleRootInFullscreenElement(fullscreenElement) && frameHasPlayerControls(fullscreenElement)) return true;
@@ -58968,6 +59115,7 @@ this.removeSubtitleTracks((track) => track.kind !== "file");
 this.setNativeTrackModes();
 this.render();
 this.syncControls();
+this.syncRootVisibility(this.options.getSettings());
 if (this.runtimeSignalsInitialized) this.syncRuntimeSignals();
 }
 useDiscoveredVideoCandidate(candidate, options = {}) {
@@ -58992,7 +59140,7 @@ if (track) this.addNativeTrack(track);
 }, this.eventOptions());
 }
 reconcileReplacementNativeTracks(video) {
-if (isYouTubePage()) return;
+if (isYouTubePage$1()) return;
 const candidates = Array.from(video.textTracks).filter((track) => track !== this.nativeFullscreenCueTrack && track.label !== NATIVE_FULLSCREEN_CUE_TRACK_LABEL);
 const candidateSet = new Set(candidates);
 const claimed = /* @__PURE__ */ new Set();
@@ -59184,7 +59332,7 @@ this.syncControls();
 }
 shouldIgnoreNativeTrack(track) {
 return [
-isYouTubePage(),
+isYouTubePage$1(),
 track === this.nativeFullscreenCueTrack,
 track.label === NATIVE_FULLSCREEN_CUE_TRACK_LABEL,
 this.tracks.some((item) => item.track === track)
@@ -59467,7 +59615,6 @@ this.realignIfVideoMoved();
 this.syncPlayerChromeIdleState();
 this.syncNativeControlsInset();
 this.syncNativePlayerControlHitProtection();
-this.subtitleControlRail?.syncPosition();
 this.syncAsbPlayerSubtitleMoveHandles(settings2);
 if (settings2.subtitleKaraokeMode && cueHasExactWordTimings(this.currentCue)) this.render();
 if (this.shouldUpdateFromDomCaptions()) this.updateFromDomCaptions();
@@ -59476,7 +59623,7 @@ syncYouTubeMobileBottomSheetState() {
 setClassState(
 document.documentElement,
 YOUTUBE_MOBILE_BOTTOM_SHEET_OPEN_CLASS,
-hasOpenYouTubeMobileBottomSheet()
+isYouTubePage$1() && hasOpenYouTubeMobileBottomSheet()
 );
 }
 // The rail follows the player's own chrome: on phones there is no hover,
@@ -59539,10 +59686,10 @@ this.discoverPageSubtitleTracks();
 void this.discoverYouTubeTracksThrottled(true);
 }
 shouldRefreshYouTubeTracks() {
-return isYouTubePage() && Boolean(getYouTubeVideoId()) && (!this.video || isYouTubeOwnedVideoElement(this.video)) && (!this.selectedTrackId || !this.cues.length);
+return isYouTubePage$1() && Boolean(getYouTubeVideoId()) && (!this.video || isYouTubeOwnedVideoElement(this.video)) && (!this.selectedTrackId || !this.cues.length);
 }
 shouldUpdateFromDomCaptions() {
-if (!isYouTubePage()) return true;
+if (!isYouTubePage$1()) return true;
 const selected = this.tracks.find((track) => track.id === this.selectedTrackId);
 if (selected?.loadingState === "loading") return false;
 return Boolean(getYouTubeVideoId()) && isYouTubeOwnedVideoElement(this.video) && !isYouTubeAdPlaying(this.video) && !this.cues.length && (Boolean(this.selectedTrackId) || !this.tracks.some((track) => track.kind === "youtube"));
@@ -59637,7 +59784,7 @@ if (!firstSync) this.handleYouTubeNavigation();
 // the content the reader left behind.
 isVideoOverlayVisible(rect) {
 const gateRect = this.fullscreen ? rect : this.pinnedPlayer.visibilityRect(this.video, rect);
-return isSubtitleOverlayVideoVisible(gateRect) && (!isYouTubePage() || this.fullscreen || youtubeWatchPlayerMeaningfullyVisible(gateRect)) && (!this.video || isSubtitleVideoElementRenderable(this.video)) && this.videoHasPlayerAffordances();
+return isSubtitleOverlayVideoVisible(gateRect) && (!isYouTubePage$1() || this.fullscreen || youtubeWatchPlayerMeaningfullyVisible(gateRect)) && (!this.video || isSubtitleVideoElementRenderable(this.video)) && this.videoHasPlayerAffordances();
 }
 applyVideoLayout(rect) {
 if (!this.root) return;
@@ -59667,7 +59814,6 @@ applyElementLayout(this.root, layout);
 this.positionTranscriptPanel({ realignAfterInset: true });
 this.syncSubtitleTextSize();
 this.syncNativePlayerControlHitProtection();
-this.subtitleControlRail?.syncPosition();
 }
 updateFromLoadedCues() {
 if (!this.video) return;
@@ -59797,7 +59943,7 @@ video: this.video
 });
 }
 ensureDomCaptionFallbackTrack(selected) {
-if (!isYouTubePage() || selected || this.tracks.some((track2) => track2.kind === "youtube")) return selected;
+if (!isYouTubePage$1() || selected || this.tracks.some((track2) => track2.kind === "youtube")) return selected;
 if (!youtubeVideoHasNativeCaptions()) return selected;
 const track = this.createYouTubeDomCaptionFallbackTrack();
 this.tracks.push(track);
@@ -60427,7 +60573,7 @@ this.htmlCache.parsedTokenNotifiedAt.set(key, now);
 this.options.afterParseTokens(tokens, roots);
 }
 shouldUseProvisionalSubtitleParse(_settings) {
-return isYouTubePage();
+return isYouTubePage$1();
 }
 freshEmptyParsedHtml(key) {
 return this.htmlCache.freshEmptyParsedHtml(key);
@@ -60464,7 +60610,7 @@ await this.prewarmPriorityYouTubeCue(priorityIndex, settings2, serial);
 }
 }
 supportsPriorityYouTubeWarmup(settings2) {
-return isYouTubePage() && this.shouldUseProvisionalSubtitleParse(settings2);
+return isYouTubePage$1() && this.shouldUseProvisionalSubtitleParse(settings2);
 }
 async prewarmPriorityYouTubeCue(index, settings2, serial) {
 const target = this.priorityYouTubeCueWarmupTarget(index, settings2);
@@ -61282,30 +61428,17 @@ const player = this.video?.closest("#movie_player, .html5-video-player");
 return Boolean(player?.classList.contains("ytp-autohide") || player?.classList.contains("ytp-hide-controls") || player?.classList.contains("ytp-player-minimized"));
 }
 isYouTubeShortsControlSurface() {
-return Boolean(this.video && isYouTubePage() && isYouTubeShortsLikePlayer(this.video, this.videoLayoutRect()));
+return Boolean(this.video && isYouTubePage$1() && isYouTubeShortsLikePlayer(this.video, this.videoLayoutRect()));
 }
 syncNativePlayerControlHitProtection() {
-const targets = Array.from(this.root?.querySelectorAll(SUBTITLE_HIT_TESTED_OVERLAY_SELECTOR) ?? []);
-targets.forEach((target) => target.removeAttribute(SUBTITLE_NATIVE_CONTROL_SAFE_ZONE_ATTRIBUTE));
-const safeZones = this.nativePlayerControlSafeZones();
-if (!safeZones.length) return;
-for (const target of targets) {
-const rect = target.getBoundingClientRect();
-if (rect.width <= 0 || rect.height <= 0) continue;
-if (safeZones.some((zone) => rectsOverlap(rect, zone))) {
-target.setAttribute(SUBTITLE_NATIVE_CONTROL_SAFE_ZONE_ATTRIBUTE, "true");
+const surfaces = this.video && isYouTubePage$1() ? this.youtubeNativeControlSurfaces() : [];
+const rect = surfaces.length ? this.videoLayoutRect() : new DOMRect();
+const controls = nativePlayerControlRects(surfaces, rect);
+syncSubtitleNativeControlHitProtection(this.root, controls);
+this.subtitleControlRail?.syncPosition(subtitleRailReservedRects(surfaces, rect, controls));
 }
-}
-}
-nativePlayerControlSafeZones() {
-if (!this.video || !isYouTubePage()) return [];
-const surfaces = this.youtubeNativeControlSurfaces();
-if (!surfaces.length) return [];
-const videoRect = this.videoLayoutRect();
-const maxWidth = Math.min(240, Math.max(72, videoRect.width * 0.42));
-const maxHeight = Math.min(180, Math.max(56, videoRect.height * 0.28));
-const controls = new Set(surfaces.flatMap((surface) => Array.from(surface.querySelectorAll(NATIVE_PLAYER_CONTROL_SELECTOR))));
-return Array.from(controls).filter((control) => !control.closest('[data-jpdb-reader-root="true"]')).filter((control) => nativePlayerControlIsInteractive(control)).map((control) => control.getBoundingClientRect()).filter((rect) => rect.width > 0 && rect.height > 0 && rect.width <= maxWidth && rect.height <= maxHeight && rectsOverlap(rect, videoRect));
+subtitleRailReservedRects() {
+return this.video && isYouTubePage$1() ? subtitleRailReservedRects(this.youtubeNativeControlSurfaces(), this.videoLayoutRect()) : [];
 }
 youtubeNativeControlSurfaces() {
 if (!this.video) return [];
@@ -61421,7 +61554,7 @@ else video.pause();
 this.armPlaybackPauseReassert(video);
 }
 youTubePlayerApi(video) {
-if (!isYouTubePage()) return null;
+if (!isYouTubePage$1()) return null;
 const player = document.getElementById("movie_player");
 if (!player?.contains(video)) return null;
 const api = player;
@@ -61851,7 +61984,7 @@ this.nativeCaptionOwnership = void 0;
 this.lastYomuCaptionsActive = false;
 }
 shouldSuppressNativeCaptions(settings2) {
-return Boolean(settings2.subtitlePlayerEnabled && this.video && this.hasVisualCommitForCurrentCue(settings2));
+return Boolean(settings2.subtitlePlayerEnabled && settings2.subtitleOverlayVisible && this.video && this.hasVisualCommitForCurrentCue(settings2));
 }
 hasVisualCommitForCurrentCue(settings2) {
 const text2 = this.currentCue?.text.trim() ?? "";
@@ -63712,7 +63845,7 @@ enrichBeforeRender: true
 };
 }
 shouldUseCheapYouTubeTranscriptWarmup(totalRows) {
-return isYouTubePage() && totalRows > YOUTUBE_TRANSCRIPT_CHEAP_WARMUP_ROW_THRESHOLD;
+return isYouTubePage$1() && totalRows > YOUTUBE_TRANSCRIPT_CHEAP_WARMUP_ROW_THRESHOLD;
 }
 nextTranscriptWarmupBatch(planned, settings2, takeNextIndex) {
 const batchSize = this.options.parseJapaneseBatch ? TRANSCRIPT_BACKGROUND_PARSE_BATCH : 1;
@@ -63739,10 +63872,10 @@ if (plan.length >= limit) break;
 return plan;
 }
 transcriptBackgroundParseLimit(rowCount) {
-if (isYouTubePage() && rowCount > YOUTUBE_TRANSCRIPT_CHEAP_WARMUP_ROW_THRESHOLD) {
+if (isYouTubePage$1() && rowCount > YOUTUBE_TRANSCRIPT_CHEAP_WARMUP_ROW_THRESHOLD) {
 return Math.min(YOUTUBE_TRANSCRIPT_BACKGROUND_PARSE_LIMIT, TRANSCRIPT_VIRTUAL_MIN_RENDERED_ROWS);
 }
-if (isYouTubePage() && rowCount > YOUTUBE_TRANSCRIPT_BACKGROUND_PARSE_LIMIT) {
+if (isYouTubePage$1() && rowCount > YOUTUBE_TRANSCRIPT_BACKGROUND_PARSE_LIMIT) {
 return YOUTUBE_TRANSCRIPT_BACKGROUND_PARSE_LIMIT;
 }
 return TRANSCRIPT_BACKGROUND_PARSE_LIMIT;
@@ -63757,7 +63890,7 @@ seen.add(key);
 plan.push({ rowIndex, text: text2, key });
 }
 transcriptBackgroundParsePauseMs() {
-return isYouTubePage() ? YOUTUBE_TRANSCRIPT_BACKGROUND_PARSE_PAUSE_MS : 0;
+return isYouTubePage$1() ? YOUTUBE_TRANSCRIPT_BACKGROUND_PARSE_PAUSE_MS : 0;
 }
 updateTranscriptRowsForParseKey(key, html, options = {}) {
 const panel = this.transcriptPanelForParsedUpdate();
@@ -63967,7 +64100,7 @@ this.panelMode = "tracks";
 this.renderTrackPanel();
 }
 suppressYouTubeAutoSelectForCurrentVideo() {
-if (!isYouTubePage()) return;
+if (!isYouTubePage$1()) return;
 this.youtubeAutoSelectSuppressedVideoId = this.youtubeVideoId || getYouTubeVideoId();
 }
 clearSecondaryTrack() {
@@ -64069,7 +64202,7 @@ return resolvedLayout;
 }
 shouldUseStableYouTubeTranscriptLayout() {
 if (!this.video) return false;
-if (!isYouTubePage()) return false;
+if (!isYouTubePage$1()) return false;
 return !isYouTubeShortsLikePlayer(this.video, this.videoLayoutRect());
 }
 stableVideoTranscriptDrawerLayout(options, videoRect) {
@@ -64089,7 +64222,7 @@ preferredPlacement: "bottom"
 });
 }
 stableSideTranscriptDrawerLayout(placement, options, videoRect) {
-if (isYouTubePage()) return this.stableYouTubeSideTranscriptDrawerLayout(placement, options, videoRect);
+if (isYouTubePage$1()) return this.stableYouTubeSideTranscriptDrawerLayout(placement, options, videoRect);
 if (videoRect.width <= 0 || videoRect.height <= 0) return null;
 const margin = TRANSCRIPT_PANEL_MARGIN;
 const availableWidth = Math.floor(placement === "left" ? videoRect.left - margin * 2 : options.viewportWidth - videoRect.right - margin * 2);
@@ -64189,7 +64322,7 @@ transcriptViewportHeight() {
 return this.transcriptViewportSize().height;
 }
 shouldUseBottomTranscriptLayout(layout, videoRect = this.videoLayoutRect()) {
-if (!isYouTubePage()) return false;
+if (!isYouTubePage$1()) return false;
 if (layout.placement === "bottom" || !this.video) return false;
 if (shouldHonorExplicitYouTubeSideLayout(layout)) return false;
 if (isYouTubeTheaterMode()) return true;
@@ -64322,7 +64455,7 @@ if (videoIsInNativeFullscreen(this.video)) return subtitleViewportRect();
 return subtitleVideoLayoutRect(this.video);
 }
 transcriptAnchorRect() {
-if (isYouTubePage()) return this.videoLayoutRect();
+if (isYouTubePage$1()) return this.videoLayoutRect();
 if (!this.video) return this.videoLayoutRect();
 return transcriptAvoidanceTarget(this.video).getBoundingClientRect();
 }
@@ -64344,7 +64477,7 @@ const insetChanged = this.videoInset.clear(this.video);
 return stableChanged || insetChanged;
 }
 applyStableYouTubeTranscriptLayout(layout, videoRect, resizeEventMode = "immediate") {
-if (!isYouTubePage() || layout.placement === "bottom") return this.clearStableYouTubeTranscriptLayout();
+if (!isYouTubePage$1() || layout.placement === "bottom") return this.clearStableYouTubeTranscriptLayout();
 const root = document.documentElement;
 if (!root) return false;
 let changed = false;
@@ -64378,7 +64511,7 @@ resizeEventMode
 return changed || mediaChanged;
 }
 stableYouTubePlayerOffsetTarget() {
-if (!isYouTubePage()) return null;
+if (!isYouTubePage$1()) return null;
 const fullBleed = document.querySelector("ytd-watch-flexy[is-single-column] #full-bleed-container #player-container");
 if (fullBleed) {
 const position = getComputedStyle(fullBleed).position;
