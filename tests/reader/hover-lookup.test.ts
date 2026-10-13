@@ -1814,6 +1814,31 @@ describe('hover lookup', () => {
         }
     });
 
+    it('finds a word inside an open shadow root for middle-button scanning', () => {
+        const app = new ReaderApp();
+        const internals = app as unknown as { settings: ReaderSettings; wordFromPoint: (x: number, y: number) => HTMLElement | null };
+        internals.settings = { ...DEFAULT_SETTINGS, lookupOnClick: false, lookupOnHover: false, lookupOnMiddleMouse: true };
+        const host = document.createElement('div');
+        document.body.append(host);
+        const shadow = host.attachShadow({ mode: 'open' });
+        const paragraph = document.createElement('p');
+        const word = document.createElement('span');
+        word.className = 'jpdb-reader-word';
+        Object.assign(word.dataset, { vid: '1', sid: '2', sentence: '今日は読む' });
+        word.textContent = '今日';
+        paragraph.append(word);
+        shadow.append(paragraph);
+        // A document hit stack stops at the host; only the root sees the word.
+        Object.defineProperty(document, 'elementsFromPoint', { configurable: true, value: () => [host, document.body, document.documentElement] });
+        Object.defineProperty(shadow, 'elementsFromPoint', { configurable: true, value: () => [word, paragraph, host, document.body] });
+        try {
+            expect(internals.wordFromPoint(10, 10)).toBe(word);
+        } finally {
+            Reflect.deleteProperty(document, 'elementsFromPoint');
+            cleanupReaderApp(app);
+        }
+    });
+
     it('keeps parsed words inside the active popover click-only on hover', () => {
         const app = new ReaderApp();
         const { popover, word } = activePopoverWordFixture();

@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.1.6] - 2026-10-13
+
+### Fixed
+
+- On desktops with always-visible scrollbars, the よむ button and its menu keep their normal size instead of shrinking as if the page were zoomed.
+- Middle-button scanning finds words inside web components (shadow DOM), as hover and click already did.
+
 ## [2.1.5] - 2026-10-12
 
 ### Fixed

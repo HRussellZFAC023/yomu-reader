@@ -1,6 +1,7 @@
 import { AUDIO_REQUEST_TIMEOUT_MS } from '../audio/request';
 import { AudioPlayer } from '../audio/player';
 import { isYomuHostedAppUrl } from './pages';
+import { composedElementsFromPoint } from '../dom/composed-tree';
 import { AnkiConnectClient, ankiLookupWithUnavailableDetails, captureActiveVideoFrame, untrustedAnkiLookupResult, type AnkiLookupResult } from '../anki/index';
 import { renderReviewButtons } from '../anki/render';
 import { promiseWithTimeout, runLimited } from '../core/async-utils';
@@ -4099,8 +4100,7 @@ export class ReaderApp {
         surface: HTMLElement | null = null,
         canUseWord: (word: HTMLElement) => boolean = word => this.canLookupReaderWord(word),
     ): HTMLElement | null {
-        if (typeof document.elementsFromPoint !== 'function') return null;
-        for (const element of document.elementsFromPoint(x, y)) {
+        for (const element of composedElementsFromPoint(document, x, y)) {
             const word = element.closest?.('.jpdb-reader-word') as HTMLElement | null;
             if (word
                 && this.readerWordBelongsToPointerSurface(word, surface)
@@ -4111,8 +4111,7 @@ export class ReaderApp {
     }
 
     private hoverReaderWordFromPointStack(x: number, y: number, surface: HTMLElement | null = null): HTMLElement | null {
-        if (typeof document.elementsFromPoint !== 'function') return null;
-        for (const element of document.elementsFromPoint(x, y)) {
+        for (const element of composedElementsFromPoint(document, x, y)) {
             const word = element.closest?.('.jpdb-reader-word') as HTMLElement | null;
             if (word
                 && this.readerWordBelongsToPointerSurface(word, surface)

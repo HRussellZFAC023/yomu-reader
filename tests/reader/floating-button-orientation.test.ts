@@ -151,6 +151,27 @@ describe('floating button iPad orientation scale', () => {
         } finally { controller.destroy(); }
     });
 
+    it('does not treat a classic desktop scrollbar as pinch zoom', () => {
+        // A 15px always-visible scrollbar (desktop Linux/Windows, or macOS set to
+        // always show them): innerWidth includes it; the visual viewport and the
+        // root's client width do not. The pinch arithmetic is platform-neutral.
+        setMetric(document.documentElement, 'clientWidth', 1009);
+        const visual = Object.assign(new EventTarget(), { width: 1009, height: 768, scale: 1, offsetLeft: 0, offsetTop: 0 });
+        setMetric(window, 'visualViewport', visual);
+        const controller = installPuck({ innerWidth: 1024, innerHeight: 768, outerWidth: 1024, screenWidth: 1024, screenHeight: 768 });
+        try {
+            const root = puck().parentElement!;
+            expect(root.dataset.jpdbReaderScaleCompensation).toBeUndefined();
+            expect(root.style.getPropertyValue('zoom')).toBe('');
+            expect(root.style.width).toBe('1009px');
+            // A real pinch on the same page is still compensated.
+            Object.assign(visual, { width: 504.5, height: 384, scale: 2 });
+            visual.dispatchEvent(new Event('resize'));
+            flushFrames();
+            expect(root.dataset.jpdbReaderScaleCompensation).toBe('0.5');
+        } finally { controller.destroy(); }
+    });
+
     it('reconciles rendered scale before deriving drag coordinates after rotation', () => {
         const controller = installPuck({
             innerWidth: 410,
