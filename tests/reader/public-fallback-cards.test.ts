@@ -10,6 +10,7 @@ import {
     batchJitenFallbackCards,
     normalizedJitenLookupKey,
     publicLookupFallbackCards,
+    publicSearchCardForSurface,
     type PublicLookupFallbackDeps,
 } from '../../src/reader/lookup/public-fallback-cards';
 
@@ -338,24 +339,35 @@ describe('publicLookupFallbackCards', () => {
         expect(result.get(cardKey(visited))).not.toBe(surname);
     });
 
-    it('sweeps only jiten misses through the bounded public lookup and stops at the first hit per entry', async () => {
+    it('sweeps only jiten misses through one public search of the text the learner sees', async () => {
         const resolvedByJiten = fallbackCard({ vid: -1, sid: -1, spelling: '青空' });
         const missed = fallbackCard({ vid: -2, sid: -2, spelling: '食べました', fallbackLookupTerms: ['食べる', '食う'] });
-        const missedTerms = fallbackLookupTermsForCard(missed);
-        expect(missedTerms.length).toBeGreaterThanOrEqual(3);
         const jitenHit = jitenCard({ vid: 1381470, spelling: '青空', reading: 'あおぞら' });
-        const publicHit = jitenCard({ vid: 2000, spelling: missedTerms[1], reading: 'よみ', source: 'jpdb' });
+        const publicHit = jitenCard({ vid: 2000, spelling: '食べる', reading: 'たべる', source: 'jpdb' });
         const lookupMany = vi.fn(async () => new Map([[normalizedJitenLookupKey('青空'), jitenHit]]));
-        const publicSpellingCard = vi.fn(async (term: string) => term === missedTerms[1] ? publicHit : undefined);
+        const publicSpellingCard = vi.fn(async (surface: string) => surface === '食べました' ? publicHit : undefined);
 
         const result = await publicLookupFallbackCards([resolvedByJiten, missed], keylessDeps({ lookupMany, publicSpellingCard }), { concurrency: 2 });
 
         expect(result.get(cardKey(resolvedByJiten))).toBe(jitenHit);
         expect(result.get(cardKey(missed))).toBe(publicHit);
-        expect(publicSpellingCard).toHaveBeenCalledWith(missedTerms[0]);
-        expect(publicSpellingCard).toHaveBeenCalledWith(missedTerms[1]);
-        expect(publicSpellingCard).not.toHaveBeenCalledWith(missedTerms[2]);
-        expect(publicSpellingCard).not.toHaveBeenCalledWith('青空');
+        // jpdb.io reads inflected text itself: the segmenter's dictionary-form
+        // guesses (食う, or 見まする for 見ました) are never sent.
+        expect(publicSpellingCard.mock.calls).toEqual([['食べました']]);
+    });
+
+    it('asks jpdb.io only for the surfaces the caller lets it', async () => {
+        const kana = fallbackCard({ vid: -4, sid: -4, spelling: 'ありがと' });
+        const kanji = fallbackCard({ vid: -5, sid: -5, spelling: '会話' });
+        const publicSpellingCard = noPublicSweep();
+
+        await publicLookupFallbackCards([kana, kanji], keylessDeps({ publicSpellingCard }), {
+            concurrency: 2,
+            jpdbSearchSurface: surface => /\p{Script=Han}/u.test(surface),
+        });
+
+        expect(publicSpellingCard).toHaveBeenCalledTimes(1);
+        expect(publicSpellingCard).toHaveBeenCalledWith('会話');
     });
 
     it('validates public JPDB lemmas whose POS is prose rather than JMdict codes', async () => {
@@ -363,7 +375,7 @@ describe('publicLookupFallbackCards', () => {
         // (see the 07-source-drag-proxy HTML fixture); Jiten sends v5m.
         const missed = fallbackCard({ vid: -3, sid: -3, spelling: '読みました', fallbackLookupTerms: ['読む'] });
         const sweep = async (partOfSpeech: string[]) => publicLookupFallbackCards([missed], keylessDeps({
-            publicSpellingCard: async term => term === '読む'
+            publicSpellingCard: async surface => surface === '読みました'
                 ? jitenCard({ vid: 1556420, spelling: '読む', reading: 'よむ', source: 'jpdb', partOfSpeech })
                 : undefined,
         }), { concurrency: 1 });
@@ -400,8 +412,9 @@ describe('publicLookupFallbackCards', () => {
         await publicLookupFallbackCards([card], keylessDeps({ lookupMany, publicSpellingCard }), { concurrency: 2, termLimit: 1 });
 
         expect(lookupMany).toHaveBeenCalledWith([card.spelling], undefined);
+        // One jpdb.io search per entry, for the surface, whatever the term limit.
         expect(publicSpellingCard).toHaveBeenCalledTimes(1);
-        expect(publicSpellingCard).toHaveBeenCalledWith(allTerms[0]);
+        expect(publicSpellingCard).toHaveBeenCalledWith(card.spelling);
     });
 
     it('uses the provider analysis of ながら without widening the background term budget', async () => {
@@ -472,6 +485,19 @@ describe('publicLookupFallbackCards', () => {
 
         expect(publicSpellingCard).toHaveBeenCalledTimes(6);
         expect(maxActive).toBeLessThanOrEqual(2);
+    });
+});
+
+describe('publicSearchCardForSurface', () => {
+    it('takes the result spelled as the surface or as the dictionary form it inflects, never a homophone', () => {
+        const under = jitenCard({ vid: 1217010, spelling: '下', reading: 'した', partOfSpeech: ['Noun'], source: 'jpdb' });
+        const suru = jitenCard({ vid: 1157170, spelling: 'する', reading: 'する', partOfSpeech: ['Verb (する)'], source: 'jpdb' });
+        const eat = jitenCard({ vid: 1358280, spelling: '食べる', reading: 'たべる', source: 'jpdb' });
+
+        expect(publicSearchCardForSurface('した', [under])).toBeUndefined();
+        expect(publicSearchCardForSurface('した', [under, suru])).toBe(suru);
+        expect(publicSearchCardForSurface('食べました', [under, eat])).toBe(eat);
+        expect(publicSearchCardForSurface('下', [suru, under])).toBe(under);
     });
 });
 

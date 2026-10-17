@@ -6,7 +6,7 @@ import type { LocalDictionaryStore } from '../dictionaries/local-store';
 import type { JpdbVocabularyClient } from '../jpdb/jpdb-vocabulary';
 import { usesJapaneseProviders } from '../languages/character-lookup';
 import { jpdbFirstParseOptions, type ReaderParser } from '../lookup/parser';
-import { publicLookupFallbackCards } from '../lookup/public-fallback-cards';
+import { publicLookupFallbackCards, publicSearchCardForSurface } from '../lookup/public-fallback-cards';
 import { pickTokenForSelection } from '../popup/render';
 import type { LookupTargetSnapshot, NewTabLookupTargetScope } from './target-scope';
 
@@ -74,15 +74,13 @@ export class NewTabTargetLookupResolver {
             jitenApiActive: () => current() && this.dependencies.isJitenApiActive(),
             parse: terms => current() ? this.dependencies.getJiten().parse(terms) : Promise.resolve(terms.map(() => [])),
             lookupMany: terms => current() ? this.dependencies.getJitenPublicVocabulary().lookupMany(terms) : Promise.resolve(new Map()),
-            publicSpellingCard: async term => {
+            publicSpellingCard: async surface => {
                 if (!current()) return undefined;
-                const found = await this.dependencies.getJpdbVocabulary().search(term, 1).then(result => result.cards).catch(error => {
-                    this.dependencies.warnPublicSearch(term, error);
+                const found = await this.dependencies.getJpdbVocabulary().search(surface, 1).then(result => result.cards).catch(error => {
+                    this.dependencies.warnPublicSearch(surface, error);
                     return [];
                 });
-                return current()
-                    ? found.find(candidate => candidate.spelling === term)
-                    : undefined;
+                return current() ? publicSearchCardForSurface(surface, found) : undefined;
             },
         }, {
             concurrency: this.dependencies.publicFallbackConcurrency,

@@ -12,20 +12,25 @@ interface FallbackLookupEntry {
     key: string;
     surface: string;
     terms: string[];
-    spellingTerms: string[];
 }
 
 export interface PublicLookupFallbackDeps {
     jitenApiActive(): boolean;
     parse(terms: string[]): Promise<JPDBToken[][]>;
     lookupMany(terms: string[], options?: { detailLimit?: number }): Promise<Map<string, JPDBCard>>;
-    publicSpellingCard(term: string): Promise<JPDBCard | undefined>;
+    // jpdb.io's public search for the text the learner sees
+    // (publicSearchCardForSurface picks its card). jpdb.io reads inflected
+    // text itself, so the segmenter's dictionary-form guesses (見まする,
+    // ありがつ) are never sent to it.
+    publicSpellingCard(surface: string): Promise<JPDBCard | undefined>;
 }
 
 export interface PublicLookupFallbackOptions {
     concurrency: number;
     termLimit?: number;
     jpdbPublicLookup?: boolean;
+    // Which surfaces may go to jpdb.io's search at all (all when unset).
+    jpdbSearchSurface?: (surface: string) => boolean;
     detailLimit?: (entryCount: number) => number;
 }
 
@@ -72,11 +77,25 @@ function cardConjugationRules(card: JPDBCard): { rules: string; classUnknown: bo
     return { rules: rules.join(' '), classUnknown: !rules.length && prose.some(label => PROSE_VERB_RE.test(label)) };
 }
 
+/**
+ * The search result spelled as the surface, or as the dictionary form the
+ * surface inflects. A homophone that only shares the reading (下 for した) is
+ * not the word.
+ */
+export function publicSearchCardForSurface(surface: string, cards: readonly JPDBCard[]): JPDBCard | undefined {
+    const spelledAs = (term: string, card: JPDBCard) => normalizedJitenLookupKey(card.spelling) === normalizedJitenLookupKey(term);
+    return cards.find(card => spelledAs(surface, card))
+        ?? cards.find(card => inflectsTo(surface, card, spelledAs));
+}
+
 function cardCanAnalyzeSurface(surface: string, card: JPDBCard): boolean {
-    if (jitenFallbackCardMatchesTerm(surface, card)) return true;
+    return jitenFallbackCardMatchesTerm(surface, card) || inflectsTo(surface, card, jitenFallbackCardMatchesTerm);
+}
+
+function inflectsTo(surface: string, card: JPDBCard, matches: (term: string, card: JPDBCard) => boolean): boolean {
     const { rules, classUnknown } = cardConjugationRules(card);
     return deinflectJapaneseTerm(surface).some(candidate => candidate.depth > 0
-        && jitenFallbackCardMatchesTerm(candidate.term, card)
+        && matches(candidate.term, card)
         && (classUnknown || termRulesMatch(rules, candidate.rules)));
 }
 
@@ -95,8 +114,7 @@ function uniqueFallbackLookupEntries(cards: readonly JPDBCard[], termLimit?: num
         const terms = typeof termLimit === 'number'
             ? allTerms.slice(0, Math.max(card.spelling.endsWith('ながら') ? 2 : 1, Math.floor(termLimit)))
             : allTerms;
-        const spellingTerms = dictionaryTerms.slice(0, terms.length);
-        if (terms.length) entries.push({ key, surface, terms, spellingTerms });
+        if (terms.length) entries.push({ key, surface, terms });
     }
     return entries;
 }
@@ -214,14 +232,11 @@ export async function publicLookupFallbackCards(
     }
 
     if (options.jpdbPublicLookup === false) return result;
-    const unresolved = entries.filter(entry => !result.has(entry.key));
+    const searchable = options.jpdbSearchSurface ?? (() => true);
+    const unresolved = entries.filter(entry => !result.has(entry.key) && searchable(entry.surface));
     await runLimited(unresolved, options.concurrency, async entry => {
-        for (const term of entry.spellingTerms) {
-            const publicCard = await deps.publicSpellingCard(term);
-            if (!publicCard || !cardCanAnalyzeSurface(entry.surface, publicCard)) continue;
-            result.set(entry.key, publicCard);
-            return;
-        }
+        const publicCard = await deps.publicSpellingCard(entry.surface);
+        if (publicCard && cardCanAnalyzeSurface(entry.surface, publicCard)) result.set(entry.key, publicCard);
     });
     return result;
 }
