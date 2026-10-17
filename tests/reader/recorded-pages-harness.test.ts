@@ -10,6 +10,7 @@ import { createHarWriter, readHarIndex } from '../../scripts/lib/recorded-har.mj
 import { json3ToSrv3, json3ToVtt } from '../../scripts/lib/recorded-hosts.mjs';
 import { blankPng, imageSize } from '../../scripts/lib/recorded-media.mjs';
 import { captionFlashFrames } from '../../scripts/lib/recorded-page-probes.mjs';
+import { productTrafficVerdict } from '../../scripts/lib/recorded-product-traffic.mjs';
 import { attributeSelectorIndex, findRedactionLeaks, hashTextRun, isHiddenCopy, normalizeTextRun, redactionHashList, siteCodeInHtml, textRunsFromHtml } from '../../scripts/lib/recorded-redaction.mjs';
 import { aozoraLetterStreams, characterClass, createTextRedactor } from '../../scripts/lib/text-redactor.mjs';
 import { asrCaptionTracksMechanismFixture } from '../../scripts/lib/youtube-caption-mechanism-fixture.mjs';
@@ -80,6 +81,15 @@ describe('network ledger', () => {
         expect(ledger.entries().map(entry => entry.lastInteraction?.target ?? null)).toEqual(['document', 'img.thumbimage', null]);
         expect(ledger.requests({ host: 'lens.example', beforeInteraction: false })).toHaveLength(2);
         expect(ledger.requests({ host: 'lens.example', noInteractionWithinMs: 1000 }).map(entry => entry.at)).toEqual([3000, 50]);
+    });
+
+    it('never reads a tap delivered after the request as one shortly before it', () => {
+        const ledger = createNetworkLedger({ startedAt: 0 });
+        ledger.recordInteraction({ type: 'pointerdown', at: 400, target: 'img.thumbimage' });
+        ledger.recordRequest({ channel: 'gm', method: 'POST', url: 'https://lens.example/upload', at: 300, trustedInteractionBefore: true, served: 'offline' });
+
+        expect(ledger.entries()[0].lastInteraction).toEqual(expect.objectContaining({ at: 400 }));
+        expect(ledger.requests({ host: 'lens.example', noInteractionWithinMs: 3000 })).toHaveLength(1);
     });
 
     it('pairs a GM answer with its request by ledger id, not by URL order', () => {
@@ -267,6 +277,21 @@ describe('recorded page plumbing', () => {
         expect(writer.lookup('GET', 'https://api.example/parse?text=c')).toBeNull();
         expect(writer.write(dir, 'traffic.har')).toBe(2);
         expect(readHarIndex(join(dir, 'traffic.har')).lookup('GET', 'https://api.example/parse?text=a', null)?.body.toString()).toBe('1');
+    });
+
+    it('tells a scan-order gap in the recorded build from another build asking for answers the recording lacks', () => {
+        const recorded = { product: 'v2.1.6' };
+        const replay = (productLabel: string) => ({ recorded, gmNetwork: 'replay', productLabel });
+        const mostlyDropped = { served: { 'recorded-product': 10, offline: 40 }, dropped: 40 };
+        const fewDropped = { served: { 'recorded-product': 48, offline: 2 }, dropped: 2 };
+        const someDropped = { served: { 'recorded-product': 40, offline: 10 }, dropped: 10 };
+
+        expect(productTrafficVerdict(replay('v2.1.6'), mostlyDropped)).toBe('scan-order-gap');
+        expect(productTrafficVerdict(replay('v2.1.6'), fewDropped)).toBe('answered');
+        expect(productTrafficVerdict(replay('worktree'), mostlyDropped)).toBe('other-build-outage');
+        expect(productTrafficVerdict(replay('worktree'), someDropped)).toBe('answered');
+        expect(productTrafficVerdict({ recorded, gmNetwork: 'offline', productLabel: 'worktree' }, mostlyDropped)).toBe('answered');
+        expect(productTrafficVerdict({ recorded: null, gmNetwork: 'replay', productLabel: 'worktree' }, mostlyDropped)).toBe('answered');
     });
 
     it('finds the frames where YouTube\'s caption shows in a gap after the first commit', () => {

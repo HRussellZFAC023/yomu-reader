@@ -53,11 +53,12 @@
       "chromium recorded viewport",
       "webkit recorded viewport",
       "firefox recorded viewport",
-      "webkit-ipad 1024x1366"
+      "webkit-ipad 1024x1366",
+      "webkit-iphone 390x844"
     ],
     "hosts": [
       "api.jiten.moe"
     ],
-    "recordedAt": "2026-10-17T18:48:55.093Z"
+    "recordedAt": "2026-10-17T20:31:46.078Z"
   }
 }

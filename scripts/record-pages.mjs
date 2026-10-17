@@ -5,7 +5,7 @@
 //   node scripts/record-pages.mjs                         # every target
 //   node scripts/record-pages.mjs ja-wikipedia-nihongo    # one or more slugs
 //   node scripts/record-pages.mjs ja-wikipedia-nihongo --product-traffic-only --product-traffic=v2.1.6
-//       [--product-seconds=25] [--product-runs=40] [--product-settled-cycles=2] [--product-backoff-seconds=60]
+//       [--product-seconds=25] [--product-runs=60] [--product-settled-cycles=2] [--product-backoff-seconds=60]
 //   node scripts/record-pages.mjs piccoma-web --keep-staging   # keep the staging copies to debug a refusal
 //   node scripts/record-pages.mjs youtube-watch --captions-from=<dir>   # json3 tracks saved elsewhere (see prepareYouTubeWatch)
 //   node scripts/record-pages.mjs youtube-watch --caption-timings=mechanism-fixture   # YouTube refuses captions here
@@ -40,17 +40,19 @@ const PRODUCT_RUNS = {
     seconds: Number(options['product-seconds'] ?? 25),
     // A service that rate-limited a run gets this long before the next one.
     backoffSeconds: Number(options['product-backoff-seconds'] ?? 60),
-    max: Number(options['product-runs'] ?? 40),
+    max: Number(options['product-runs'] ?? 60),
     settledCycles: Number(options['product-settled-cycles'] ?? 2),
 };
 // The scan order, and so the requests, depend on the engine and the viewport:
 // a Chromium-only recording answered almost nothing in WebKit. Product traffic
-// runs take these profiles in turn. iPad is WebKit at iPad size with touch.
+// runs take these profiles in turn. iPad is WebKit at iPad size with touch;
+// iPhone is WebKit at phone width with touch and the meta viewport honoured.
 const PRODUCT_PROFILES = [
     { name: 'chromium', engine: chromium },
     { name: 'webkit', engine: webkit },
     { name: 'firefox', engine: firefox },
     { name: 'webkit-ipad', engine: webkit, contextOptions: { viewport: { width: 1024, height: 1366 }, hasTouch: true } },
+    { name: 'webkit-iphone', engine: webkit, contextOptions: { viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true } },
 ];
 
 for (const target of targets) {

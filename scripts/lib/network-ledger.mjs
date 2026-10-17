@@ -154,8 +154,11 @@ const FILTER_TESTS = [
     (entry, filter) => filter.noInteractionWithinMs === undefined || !interactionWithin(entry, filter.noInteractionWithinMs),
 ];
 
+// An interaction after the request (the page saw a tap the binding had not
+// delivered yet) never counts as having caused it.
 function interactionWithin(entry, ms) {
-    return entry.lastInteraction !== null && entry.at - entry.lastInteraction.at <= Number(ms);
+    const sinceInteraction = entry.lastInteraction === null ? -1 : entry.at - entry.lastInteraction.at;
+    return sinceInteraction >= 0 && sinceInteraction <= Number(ms);
 }
 
 /**

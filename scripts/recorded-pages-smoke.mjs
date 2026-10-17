@@ -115,13 +115,18 @@ async function wikipediaLoad(browser, product, report, first) {
     try {
         if (first) await reportFirstLoadCost(run, product, report, sampler);
         const coverage = await kanjiReadingCoverage(run.page, { root: '#mw-content-text' });
-        // Sparse readings must come from the product, not from a replay that answered nothing.
-        report(coverage.painted >= 1, `${product.label} ja-wikipedia-nihongo: the recorded jiten traffic answered the product ${JSON.stringify(run.productTraffic().served)}, ${coverage.painted} kanji word(s) painted`);
+        reportAnswered(run, product, report, coverage);
         if (first) await checkTrustedInteraction(run);
         return coverage;
     } finally {
         await run.close();
     }
+}
+
+// Sparse readings must come from the product, not from a replay that answered nothing.
+function reportAnswered(run, product, report, coverage) {
+    const { served, verdict } = run.productTraffic();
+    report(verdict === 'answered' && coverage.painted >= 1, `${product.label} ja-wikipedia-nihongo: the recorded jiten traffic answered the product (${verdict} ${JSON.stringify(served)}), ${coverage.painted} kanji word(s) painted`);
 }
 
 async function answeredWikipediaLoad(browser, product, report, first) {

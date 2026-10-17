@@ -225,7 +225,11 @@ would need a recording run on Linux.
 - Product traffic is what one build asked for. The `ja-wikipedia-*` answers
   were recorded from 2.1.6's requests, so a build that asks jiten for other
   URLs gets dropped connections there, and a 2.1.6 against worktree comparison
-  is not like for like on reading coverage.
+  is not like for like on reading coverage. When most of another build's
+  requests to the recorded hosts drop, `run.productTraffic().verdict` is
+  `'other-build-outage'` and `run.close()` warns; a gate that judges that
+  build's readings must check the verdict, record product traffic for the
+  build, or run on the live network.
 - One build does not always ask for the same URLs. 2.1.6 batches its parse
   requests in the order its scan met the page, and that order changes from
   load to load (in one order the first batch starts with 「コンテンツに…」, in
@@ -234,8 +238,9 @@ would need a recording run on Linux.
   jiten request dropped and no reading painted, in about half of all replays,
   and WebKit, at the recorded size or at iPad size, dropped all of them. The
   recorder therefore runs the product again and again in fresh contexts,
-  taking Chromium, WebKit and Firefox at the recorded viewport and WebKit at
-  1024×1366 with touch in turn, merging new requests, until two whole cycles
+  taking Chromium, WebKit and Firefox at the recorded viewport, WebKit at
+  1024×1366 with touch (iPad) and WebKit at 390×844 with touch and the mobile
+  viewport (iPhone) in turn, merging new requests, until two whole cycles
   add nothing (`--product-runs`, `--product-settled-cycles`;
   `manifest.productTraffic` records the runs, the profiles and whether it
   settled, and `npm run check` fails product traffic that did not settle).
@@ -243,8 +248,9 @@ would need a recording run on Linux.
   as a replay does, so it also meets the requests that only a replay's timing
   makes (a word's `info` lookup that depends on where a batch was cut). A
   settled recording can still miss a rare order, and other viewports may take
-  one it does not hold; `run.productTraffic()` and the warning from
-  `run.close()` say so, and `openAnsweredRecordedPage` loads again.
+  one it does not hold; `run.productTraffic().verdict` (`'scan-order-gap'`)
+  and the warning from `run.close()` say so, and `openAnsweredRecordedPage`
+  loads again.
 - jiten rate-limits (429) a machine that records two pages at once. The
   recorder keeps no 429 or 5xx answer, does not count a rate-limited run
   towards settling, and waits a minute before the next run; `npm run check`
@@ -280,14 +286,17 @@ Serif JP), so replays use the system's Japanese font. Recording rejects consent
 walls (the privacy-preserving answer), scrolls the page once so lazy content
 loads, and records at 1280×900 with `ja-JP` and Asia/Tokyo. Re-recording a
 page drops its product traffic, so record that again after it. Product traffic
-takes several minutes: 25 s a run, at least eight runs, up to 40.
+takes several minutes: 25 s a run, at least ten runs, up to 60.
 
 Fidelity is gated in Chromium, where the live page was rendered and the widths
 were matched. Width matching is best effort: now and then a replaced title
 wraps onto one more line and the recorder refuses the page. Record it again;
 the next load usually fits. WebKit and Firefox shape the same replacement text a little
 differently. Their numbers are written to `manifest.json` (`fidelity`) but do
-not block a recording. Sites change: re-record when a nightly live canary says
+not block a recording. A verbatim page is not gated on its distance from the
+live page either, since nothing in it was replaced: `aozora-wagahai` replays
+up to 6 px from its live boxes in Chromium (7 blocks over 2 px), which the
+replay case does not judge. Sites change: re-record when a nightly live canary says
 the real page has moved on.
 
 ## Follow-ups
@@ -303,5 +312,9 @@ the real page has moved on.
   `node scripts/record-pages.mjs youtube-watch` (or pass `--captions-from`
   with the player's two json3 responses) to replace them with recorded
   timings, then drop the two fixture rows from `ATTRIBUTION.md`.
+- Weight: the 12 recordings take about 35 MB in a checkout but about 5.4 MB
+  in git, which stores a file shared by two recordings once and compresses
+  the rest. Move recordings to Git LFS, or share site stylesheets between
+  them, before the checkout passes about 100 MB.
 - Width matching runs in Chromium only. A WebKit-aware redaction would measure
   glyph pairs in each engine.

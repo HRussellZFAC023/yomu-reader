@@ -31,24 +31,40 @@ function lineTimings(totalMs) {
     let word = 0;
     for (let index = 0; at < totalMs; index += 1) {
         const count = LINE_WORDS[index % LINE_WORDS.length];
-        const segs = [];
-        let offset = 0;
-        for (let n = 0; n < count; n += 1, word += 1) {
-            segs.push({ utf8: WORDS[word % WORDS.length], ...(n ? { tOffsetMs: offset } : {}), acAsrConf: 0 });
-            offset += WORD_MS[word % WORD_MS.length];
-        }
-        lines.push({ start: at, speechMs: offset, segs, pauseAfter: (index + 1) % PAUSE_EVERY === 0 });
-        at += offset + (lines.at(-1).pauseAfter ? PAUSE_MS : LINE_GAP_MS);
+        const { segs, speechMs } = lineSegs(count, word);
+        const pauseAfter = (index + 1) % PAUSE_EVERY === 0;
+        lines.push({ start: at, speechMs, segs, pauseAfter });
+        word += count;
+        at += speechMs + (pauseAfter ? PAUSE_MS : LINE_GAP_MS);
     }
     return lines;
 }
 
+// `count` words from WORDS[firstWord], rolling in at tOffsetMs.
+function lineSegs(count, firstWord) {
+    const segs = [];
+    let speechMs = 0;
+    for (let n = 0; n < count; n += 1) {
+        const word = firstWord + n;
+        segs.push({ utf8: WORDS[word % WORDS.length], ...(n ? { tOffsetMs: speechMs } : {}), acAsrConf: 0 });
+        speechMs += WORD_MS[word % WORD_MS.length];
+    }
+    return { segs, speechMs };
+}
+
+// A pause, or the end of the track, clears the window after this line.
+function clearsWindow(lines, index) {
+    return lines[index].pauseAfter || !lines[index + 1];
+}
+
+function endOfSpeech(line) {
+    return line.start + line.speechMs + 400;
+}
+
 // A line stays up until the line after next starts, unless a pause clears the window first.
 function lineEnd(lines, index) {
-    const line = lines[index];
-    if (line.pauseAfter || !lines[index + 1]) return line.start + line.speechMs + 400;
-    const next = lines[index + 1];
-    if (next.pauseAfter || !lines[index + 2]) return next.start + next.speechMs + 400;
+    if (clearsWindow(lines, index)) return endOfSpeech(lines[index]);
+    if (clearsWindow(lines, index + 1)) return endOfSpeech(lines[index + 1]);
     return lines[index + 2].start;
 }
 
@@ -71,8 +87,7 @@ function japaneseTrack(lines, totalMs) {
 
 function englishTrack(lines) {
     const events = lines.map((line, index) => {
-        const next = lines[index + 1];
-        const end = line.pauseAfter || !next ? line.start + line.speechMs + 400 : next.start;
+        const end = clearsWindow(lines, index) ? endOfSpeech(line) : lines[index + 1].start;
         const words = line.segs.map((_, n) => ENGLISH[(index * 3 + n) % ENGLISH.length]);
         return { tStartMs: line.start, dDurationMs: end - line.start, segs: [{ utf8: words.join(' ') }] };
     });
