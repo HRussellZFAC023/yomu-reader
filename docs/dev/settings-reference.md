@@ -80,7 +80,7 @@ Some rows say Not yet described. That marks a real stored setting whose wording 
 | Use Anki cards in Study | — | off | `newTabAnkiEnabled` |
 | Not yet described | — | empty list | `newTabAnkiDisabledDecks` |
 | Study review source | — | Automatic (`auto`) | `newTabSource` |
-| API review mode | — | Automatic (`auto`) | `newTabJpdbReviewMode` |
+| JPDB review mode | — | Automatic (`auto`) | `newTabJpdbReviewMode` |
 | Kanji keyword source | — | Automatic (`auto`) | `newTabKanjiKeywordSource` |
 | Enable sentence parsing on Study | — | on | `newTabParsingEnabled` |
 | Show sentence on word fronts | — | on | `newTabFrontSentenceEnabled` |
@@ -293,7 +293,7 @@ Filter YouTube for Japanese.
 | Show image on front | — | on | `ankiFrontImage` |
 | Mobile Anki add-note fallback | — | off | `ankiMobileHandoff` |
 | Not yet described | — | `yomu` | `ankiTags` |
-| Also add to Anki when adding via API | — | off | `ankiMineWithJpdb` |
+| Also add to Anki when adding to JPDB or Jiten | — | off | `ankiMineWithJpdb` |
 | Attach context image when possible | — | on | `ankiCaptureScreenshot` |
 | Not yet described | — | empty | `ankiFieldMappings` |
 

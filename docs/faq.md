@@ -46,7 +46,7 @@ On another website, the Settings action opens Study settings directly. If a read
 
 To Study → Library. Press Add to review there and they come back for review.
 
-Words saved without a connected service go to the Default deck in Study.
+Words saved without a connected service go to the よむ deck in Study.
 
 ## Do I need Anki? {#anki}
 

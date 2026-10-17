@@ -198,9 +198,9 @@ describe('settings form localization', () => {
         // The grade scale sits beside "Show review buttons" in Reviews.
         expect(topLevelLegendsForControl(form, 'twoButtonReviews')).toEqual(['Reviews']);
         expect(labelForControl(form, 'twoButtonReviews')).toContain('Review rating scale');
-        expect(labelForControl(form, 'newTabJpdbReviewMode')).toContain('API review mode');
+        expect(labelForControl(form, 'newTabJpdbReviewMode')).toContain('JPDB review mode');
         expect(optionText(form, 'newTabSource', 'auto')).toBe('Automatic');
-        expect(optionText(form, 'newTabSource', 'jpdb')).toBe('API SRS (Jiten / JPDB)');
+        expect(optionText(form, 'newTabSource', 'jpdb')).toBe('Jiten / JPDB');
         expect(optionText(form, 'twoButtonReviews', 'true')).toBe('Two point: FAIL / PASS');
         expect(optionText(form, 'twoButtonReviews', 'false')).toBe('Provider default');
         expect(optionText(form, 'newTabKanjiKeywordSource', 'auto')).toBe('Automatic');
@@ -325,11 +325,13 @@ describe('settings form localization', () => {
         expect(form.querySelector<HTMLInputElement>('input[name="jitenApiKey"]')).toBeNull();
         expect(jpdbInput.getAttribute('autocapitalize')).toBe('off');
         expect(jpdbInput.getAttribute('spellcheck')).toBe('false');
-        // A connected service offers no Connect link; its row's dot says it is connected.
+        // A service with a key offers no Connect link; its row's dot says a key
+        // is there, not that it is verified (the status line says that).
         const jitenConnect = form.querySelector<HTMLAnchorElement>('a[href="https://jiten.moe/settings"]');
         expect(jitenConnect?.textContent?.trim()).toBe('Connect');
+        expect(jitenConnect?.getAttribute('aria-label')).toBe('Connect Jiten');
         expect(jitenConnect?.hidden).toBe(true);
-        expect(form.querySelector('[data-review-service="jiten"] [data-review-service-dot]')?.getAttribute('aria-label')).toBe('Connected');
+        expect(form.querySelector('[data-review-service="jiten"] [data-review-service-dot]')?.getAttribute('aria-label')).toBe('Key added');
         expect(settingsText(form, '[data-review-service-text="bunproTokenHelp"]')).toContain('treat it like a password');
         expect(settingsText(form, '[data-review-service-text="bunproTokenHelp"]')).toContain('saved before it is verified');
 

@@ -143,11 +143,12 @@ function renderServiceRow(
     }).join('');
     const dotLabel = escapeHtml(text(stateTextKey(service.id, state)));
     const connectUrl = serviceConnectUrl(service.id, urls);
+    const connectName = escapeHtml(connectLabel(service.id, text));
     const connect = connectUrl
-        ? `<a class="jpdb-reader-btn jpdb-reader-review-service-connect" href="${escapeHtml(connectUrl)}" target="_blank" rel="noopener" data-review-service-connect${state === 'off' || state === 'error' ? '' : ' hidden'}><span data-review-service-text="reviewServiceConnect">${escapeHtml(text('reviewServiceConnect'))}</span>${externalLinkIcon()}</a>`
+        ? `<a class="jpdb-reader-btn jpdb-reader-review-service-connect" href="${escapeHtml(connectUrl)}" target="_blank" rel="noopener" aria-label="${connectName}" data-review-service-connect${state === 'off' || state === 'error' ? '' : ' hidden'}><span data-review-service-text="reviewServiceConnect">${escapeHtml(text('reviewServiceConnect'))}</span>${externalLinkIcon()}</a>`
         : '';
     const enableAnki = service.id === 'anki'
-        ? `<button class="jpdb-reader-btn jpdb-reader-review-service-connect" type="button" data-review-service-enable="anki"${state === 'available' ? '' : ' hidden'}><span data-review-service-text="reviewServiceConnect">${escapeHtml(text('reviewServiceConnect'))}</span></button>`
+        ? `<button class="jpdb-reader-btn jpdb-reader-review-service-connect" type="button" aria-label="${connectName}" data-review-service-enable="anki"${state === 'available' ? '' : ' hidden'}><span data-review-service-text="reviewServiceConnect">${escapeHtml(text('reviewServiceConnect'))}</span></button>`
         : '';
     return `
                     <div class="jpdb-reader-review-service" role="group" aria-labelledby="${nameId}" data-review-service="${service.id}" data-service-state="${state}">
@@ -187,8 +188,7 @@ function serviceExtras(id: ReviewServiceId, settings: ReaderSettings, text: Sett
                             <div data-jpdb-decks${hasKey ? '' : ' hidden'}>${renderDeckControls(settings, [], hasKey, settings.interfaceLanguage)}</div>`;
     }
     if (id === 'wanikani') {
-        return `<div class="jpdb-reader-help" data-wanikani-api-key-help>${escapeHtml(text('wanikaniTokenHelp'))}</div>
-                            <div class="jpdb-reader-help" data-wanikani-grade-mapping-help>${escapeHtml(text('wanikaniGradeMappingHelp'))}</div>
+        return `<div class="jpdb-reader-help" data-review-service-text="wanikaniTokenHelp">${escapeHtml(text('wanikaniTokenHelp'))}</div>
                             ${renderWanikaniStatusLine(settings)}`;
     }
     if (id === 'bunpro') {
@@ -214,9 +214,17 @@ function serviceConnectUrl(id: ReviewServiceId, urls: { jpdb: string; jiten: str
     return id === 'anki' ? ANKI_CONNECT_ADDON_URL : '';
 }
 
+// A key or token in the field is not a verified connection; the row's status
+// line carries the live answer.
 function stateTextKey(id: ReviewServiceId, state: ReviewServiceState): TextKey {
     if (id === 'yomu') return state === 'on' ? 'reviewServiceBuiltIn' : 'reviewServiceDisabled';
+    const credential = REVIEW_SERVICES.find(service => service.id === id)?.credential;
+    if (state === 'on' && credential) return credential.label === 'reviewServiceKey' ? 'reviewServiceKeyAdded' : 'reviewServiceTokenAdded';
     return ({ on: 'reviewServiceOn', off: 'reviewServiceOff', available: 'reviewServiceAvailable', error: 'reviewServiceError' } as const)[state];
+}
+
+function connectLabel(id: ReviewServiceId, text: SettingsText): string {
+    return text('reviewServiceConnectTo').replace('{service}', REVIEW_SERVICES.find(service => service.id === id)?.brand ?? '');
 }
 
 function credentialLabel(service: ReviewService, text: SettingsText): string {
@@ -286,6 +294,10 @@ export function localizeReviewServices(form: HTMLFormElement, text: SettingsText
     });
     form.querySelectorAll<HTMLElement>('[data-review-service-feature]').forEach(icon => {
         setAccessibleName(icon, text(FEATURE_TEXT[icon.dataset.reviewServiceFeature as ReviewServiceFeature]));
+    });
+    form.querySelectorAll<HTMLElement>('[data-review-service-connect], [data-review-service-enable]').forEach(action => {
+        const id = action.closest<HTMLElement>('[data-review-service]')?.dataset.reviewService as ReviewServiceId;
+        action.setAttribute('aria-label', connectLabel(id, text));
     });
     syncReviewServices(form, text);
 }

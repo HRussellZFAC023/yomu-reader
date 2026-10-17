@@ -70,18 +70,13 @@ const COPY = {
         youTube: 'YouTube',
         anki: 'Anki',
         jpdb: 'JPDB',
-        api: 'API',
         apiCredential: 'API key',
-        apiCredentialJpdb: 'JPDB API key',
-        apiCredentialJiten: 'Jiten API key',
-        apiCredentialBunpro: 'Bunpro frontend API token',
         apiCredentialBunproLegacy: 'Bunpro API key',
-        apiCredentialWanikani: 'WaniKani personal access token',
         apiKey: 'API key',
         jitenApiKey: 'Jiten API key',
         storedCredentialPlaceholder: 'Saved — enter a replacement',
         clearStoredCredential: 'Remove saved credential',
-        wanikaniTokenHelp: 'Create a read/write personal access token on WaniKani and paste it here. It is stored only in your browser, sent directly to api.wanikani.com (never through a proxy), and never logged.',
+        wanikaniTokenHelp: 'A read/write personal access token. It goes only to api.wanikani.com.',
         jpdbApiKeyConfigured: 'JPDB key set.',
         jpdbAndJitenApiKeysConfigured: 'Jiten and JPDB keys are set.',
         jpdbConnected: 'Connected to JPDB.',
@@ -91,9 +86,6 @@ const COPY = {
         statusAttention: 'Needs setup',
         statusError: 'Error',
         disabledControlDescription: 'Controlled by another setting.',
-        jpdbMiningEnabled: 'Allow API review/deck changes',
-        bunproMiningEnabled: 'Allow Bunpro review/mining',
-        wanikaniReviewEnabled: 'Allow WaniKani review (due assignments only)',
         wanikaniGradeMappingHelp: 'Yomu maps its grade to WaniKani’s pass/fail answer counts: Okay, Good, and Easy submit a clean pass. Anything below Okay submits one incorrect meaning answer and, unless the subject is a radical, one incorrect reading answer.',
         yomuLocalSrsEnabled: `Enable ${YOMU_DECK_LABEL}`,
         addToForq: 'Also copy JPDB adds to forq',
@@ -160,15 +152,15 @@ const COPY = {
         newTabAnkiReviewDecksHelp: 'Uncheck decks to skip.',
         newTabSource: 'Study review source',
         newTabAuto: 'Automatic',
-        newTabApiSrs: 'API SRS (Jiten / JPDB)',
+        newTabApiSrs: 'Jiten / JPDB',
         newTabBunpro: 'Bunpro',
         newTabWanikani: 'WaniKani',
         newTabYomuLocal: YOMU_DECK_LABEL,
         dictionaryFallback: 'Dictionary fallback',
-        newTabJpdbReviewMode: 'API review mode',
+        newTabJpdbReviewMode: 'JPDB review mode',
         newTabJpdbReviewAuto: 'Automatic',
         newTabLiveReview: 'Live JPDB review session',
-        newTabApiVocabulary: 'API vocabulary only',
+        newTabApiVocabulary: 'JPDB vocabulary only',
         corsProxyUrl: 'Cross-origin proxy URL',
         newTabKanjiKeywordSource: 'Kanji keyword source',
         newTabKanjiKeywordAuto: 'Automatic',
@@ -253,7 +245,7 @@ const COPY = {
         hideColorFor: 'Hide color for',
         furiganaDifficultKanji: 'Hard kanji only',
         furiganaDifficultKanjiHelp: `${APP_NAME} keeps a fixed beginner kanji list and shows readings on everything outside it. A bare kanji means that character sits on the list.`,
-        statusColorNoSourceHelp: `Status colors read from a deck. Enable ${YOMU_DECK_LABEL} in Study, or add a JPDB, Jiten, or Anki source, and words take the color of their learning state.`,
+        statusColorNoSourceHelp: `Status colors read from a deck. Turn on the ${YOMU_DECK_LABEL} in Reviews, or add a JPDB, Jiten, or Anki source, and words take the color of their learning state.`,
         furiganaHideKnown: 'Hide familiar words',
         furiganaHoverOnly: 'Show on hover',
         furiganaAllParsed: 'All parsed words',
@@ -412,7 +404,7 @@ const COPY = {
         youtubeToggleToastOn: 'YouTube immersion filter enabled.',
         youtubeToggleToastOff: 'YouTube immersion filter disabled.',
         ankiEnabled: 'Enable Anki mining',
-        ankiMineWithJpdb: 'Also add to Anki when adding via API',
+        ankiMineWithJpdb: 'Also add to Anki when adding to JPDB or Jiten',
         ankiCaptureScreenshot: 'Attach context image when possible',
         ankiConnectUrl: 'AnkiConnect URL',
         ankiDeck: 'Anki deck',
@@ -490,8 +482,8 @@ const COPY = {
         localDictionaryMaxResults: 'Dictionary result limit',
         cloudSettingsSync: 'Google Drive settings sync',
         cloudSettingsSyncHelp: 'Stores your Yomu settings and local SRS progress in Google Drive app data. Dictionaries stay local.',
-        academyAccountSync: 'Academy account sync',
-        academyAccountSyncHelp: 'Keep Academy SRS progress in sync across the Reader and your signed-in Yomu account. Create or manage your account on the website, then generate a one-time pairing code.',
+        academyAccountSync: 'Account sync',
+        academyAccountSyncHelp: `Keep your ${YOMU_DECK_LABEL} in sync across the Reader and your signed-in Yomu account. Create or manage your account on the website, then generate a one-time pairing code.`,
         academyAccountManage: 'Manage account & pairing code',
         academyPairingCode: 'One-time pairing code',
         academyPairingCodePlaceholder: 'XXXX-XXXX-XXXX-XXXX-XXXX',
@@ -502,20 +494,20 @@ const COPY = {
         academyRecoveryCodeReady: 'Website recovery code: {code}. Enter it in Profile & sync within 10 minutes.',
         academyRecoveryCodeDone: 'Website recovery code created.',
         academyAccountDisconnect: 'Disconnect',
-        academyAccountChecking: 'Checking Academy account connection...',
-        academyAccountDisconnected: 'Not connected. Academy reviews stay on this device until you connect an account.',
+        academyAccountChecking: 'Checking account connection...',
+        academyAccountDisconnected: `Not connected. Your ${YOMU_DECK_LABEL} stays on this device until you connect an account.`,
         academyAccountConnected: 'Connected as {name}.',
-        academyAccountConnectedNoName: 'Academy account connected.',
+        academyAccountConnectedNoName: 'Account connected.',
         academyAccountLastSynced: 'Last synced {time}.',
         academyAccountNeverSynced: 'Not synced yet.',
         academyAccountConnectionProblem: 'Could not refresh the account status: {message}',
-        academyAccountConnecting: 'Connecting and syncing Academy progress...',
-        academyAccountSyncing: 'Syncing Academy progress...',
+        academyAccountConnecting: `Connecting and syncing your ${YOMU_DECK_LABEL}...`,
+        academyAccountSyncing: `Syncing your ${YOMU_DECK_LABEL}...`,
         academyAccountDisconnecting: 'Disconnecting this Reader...',
         academyPairingCodeRequired: 'Enter the one-time pairing code from your Yomu account.',
-        academyAccountConnectedDone: 'Academy account connected and progress synced.',
-        academyAccountSyncedDone: 'Academy progress synced.',
-        academyAccountDisconnectedDone: 'This Reader is disconnected. Local Academy progress is still available.',
+        academyAccountConnectedDone: `Account connected and ${YOMU_DECK_LABEL} synced.`,
+        academyAccountSyncedDone: `${YOMU_DECK_LABEL} synced.`,
+        academyAccountDisconnectedDone: `This Reader is disconnected. Your ${YOMU_DECK_LABEL} is still on this device.`,
         importSettings: 'Import settings JSON',
         exportSettings: 'Export settings JSON',
         importDictionaries: 'Import dictionaries',
@@ -524,10 +516,10 @@ const COPY = {
         lookupPillsHelp: 'External links and frequency badges in one order. Local frequency dictionaries replace matching live Jiten/JPDB badges. Tokens: {query}, {word}, {reading}.',
         parserProvider: 'Parsing source',
         parserProviderLocal: 'Local dictionaries (offline)',
-        parserProviderJiten: 'Jiten API',
-        parserProviderJpdb: 'JPDB API',
+        parserProviderJiten: 'Jiten',
+        parserProviderJpdb: 'JPDB',
         parserProviderAuto: 'Automatic (Jiten/JPDB)',
-        parserProviderHelp: 'Local parses with imported dictionaries, offline. Jiten and JPDB always use that API when its key is set. Automatic uses your preferred grading service when both keys are set, otherwise Jiten, then JPDB.',
+        parserProviderHelp: 'Local parses with imported dictionaries, offline. Jiten and JPDB always parse with that service when its key is set. Automatic uses your preferred grading service when both keys are set, otherwise Jiten, then JPDB.',
         copiesCurrentWord: 'Copies the current word',
         plaintextHttpLink: 'Opens over plaintext HTTP.',
         lookupPillLabelNumber: 'Lookup pill {number} label',
@@ -1617,13 +1609,8 @@ video	動画
 youTube	YouTube
 anki	Anki
 jpdb	JPDB
-api	API
 apiCredential	APIキー
-apiCredentialJpdb	JPDB APIキー
-apiCredentialJiten	Jiten APIキー
-apiCredentialBunpro	BunproフロントエンドAPIトークン
-apiCredentialWanikani	WaniKaniパーソナルアクセストークン
-wanikaniTokenHelp	WaniKaniでread/write権限のパーソナルアクセストークンを作成し、ここに貼り付けてください。ブラウザ内にのみ保存され、プロキシを経由せずapi.wanikani.comへ直接送信され、ログに残ることはありません。
+wanikaniTokenHelp	read/write権限のパーソナルアクセストークン。送信先はapi.wanikani.comだけです。
 apiCredentialBunproLegacy	Bunpro APIキー
 apiKey	APIキー
 jitenApiKey	Jiten APIキー
@@ -1637,9 +1624,6 @@ statusReady	準備完了
 statusAttention	設定が必要
 statusError	エラー
 disabledControlDescription	別設定で制御中。
-jpdbMiningEnabled	APIの復習・デッキ変更を許可
-bunproMiningEnabled	Bunproの復習・採掘を許可
-wanikaniReviewEnabled	WaniKaniの復習を許可(期限が来た課題のみ)
 wanikaniGradeMappingHelp	よむの採点結果はWaniKaniの正誤カウントに変換されます。Okay、Good、Easyは正解として送信します。Okay未満は意味を1回不正解として送信し、ラジカル以外では読みも1回不正解として送信します。
 yomuLocalSrsEnabled	よむデッキを有効化
 addToForq	JPDB追加時にforqにもコピー
@@ -1701,15 +1685,15 @@ newTabAnkiReviewDecks	Anki復習デッキ
 newTabAnkiReviewDecksHelp	不要なデッキを外します。
 newTabSource	学習の復習ソース
 newTabAuto	自動
-newTabApiSrs	API SRS（Jiten / JPDB）
+newTabApiSrs	Jiten / JPDB
 newTabBunpro	Bunpro
 newTabWanikani	WaniKani
 newTabYomuLocal	よむデッキ
 dictionaryFallback	辞書フォールバック
-newTabJpdbReviewMode	API復習モード
+newTabJpdbReviewMode	JPDB復習モード
 newTabJpdbReviewAuto	自動
 newTabLiveReview	ライブJPDB復習セッション
-newTabApiVocabulary	API語彙のみ（デッキ順）
+newTabApiVocabulary	JPDB語彙のみ（デッキ順）
 corsProxyUrl	クロスオリジンプロキシURL
 newTabKanjiKeywordSource	漢字キーワードのソース
 newTabKanjiKeywordAuto	自動
@@ -1795,7 +1779,7 @@ hideFuriganaFor	ふりがなを隠す対象
 hideColorFor	色を隠す対象
 furiganaDifficultKanji	難しい漢字のみ
 furiganaDifficultKanjiHelp	Yomuは初級漢字の固定リストを持ち、その外側の漢字にふりがなを表示します。ふりがなのない漢字は、そのリストに載っています。
-statusColorNoSourceHelp	学習状態の色はデッキから読み取ります。Studyでよむデッキを有効にするか、JPDB・Jiten・Ankiのいずれかを追加すると、単語が学習状態の色になります。
+statusColorNoSourceHelp	学習状態の色はデッキから読み取ります。「復習」でよむデッキをオンにするか、JPDB・Jiten・Ankiのいずれかを追加すると、単語が学習状態の色になります。
 furiganaHideKnown	なじみのある語を非表示
 furiganaHoverOnly	ホバー時に表示
 furiganaAllParsed	解析済みの全単語
@@ -1935,7 +1919,7 @@ youtubeHelp	YouTubeを日本語向けに絞ります。
 youtubeToggleToastOn	YouTube没入フィルターをオンにしました。
 youtubeToggleToastOff	YouTube没入フィルターをオフにしました。
 ankiEnabled	Anki採掘を有効にする
-ankiMineWithJpdb	API経由で追加するときAnkiにも追加
+ankiMineWithJpdb	JPDBやJitenに追加するときAnkiにも追加
 ankiCaptureScreenshot	可能なら文脈画像を添付
 ankiConnectUrl	AnkiConnect URL
 ankiDeck	Ankiデッキ
@@ -2010,8 +1994,8 @@ ${Object.entries(LOCAL_DICTIONARY_STORAGE_COPY.jaSettings).map(([key, value]) =>
 localDictionaryMaxResults	辞書結果の上限
 cloudSettingsSync	Google Drive設定同期
 cloudSettingsSyncHelp	Yomuの設定をGoogle Driveのアプリデータに保存します。辞書は端末内に残ります。
-academyAccountSync	Academyアカウント同期
-academyAccountSyncHelp	ReaderのAcademy SRS進捗を、ログイン中のYomuアカウントと端末間で同期します。Webサイトでアカウントを作成または管理し、1回限りのペアリングコードを発行してください。
+academyAccountSync	アカウント同期
+academyAccountSyncHelp	よむデッキを、ログイン中のYomuアカウントと端末間で同期します。Webサイトでアカウントを作成または管理し、1回限りのペアリングコードを発行してください。
 academyAccountManage	アカウントとペアリングコードを管理
 academyPairingCode	1回限りのペアリングコード
 academyPairingCodePlaceholder	XXXX-XXXX-XXXX-XXXX-XXXX
@@ -2022,20 +2006,20 @@ academyRecoveryCodeCreating	1回限りのWebサイト復旧コードを作成中
 academyRecoveryCodeReady	Webサイト復旧コード: {code}。10分以内に「プロフィールと同期」で入力してください。
 academyRecoveryCodeDone	Webサイト復旧コードを作成しました。
 academyAccountDisconnect	接続解除
-academyAccountChecking	Academyアカウントの接続を確認中...
-academyAccountDisconnected	未接続です。アカウントに接続するまで、Academyの復習データはこの端末に保存されます。
+academyAccountChecking	アカウントの接続を確認中...
+academyAccountDisconnected	未接続です。アカウントに接続するまで、よむデッキはこの端末に保存されます。
 academyAccountConnected	{name}として接続中です。
-academyAccountConnectedNoName	Academyアカウントに接続中です。
+academyAccountConnectedNoName	アカウントに接続中です。
 academyAccountLastSynced	最終同期: {time}。
 academyAccountNeverSynced	まだ同期していません。
 academyAccountConnectionProblem	アカウント状態を更新できませんでした: {message}
-academyAccountConnecting	接続してAcademyの進捗を同期中...
-academyAccountSyncing	Academyの進捗を同期中...
+academyAccountConnecting	接続してよむデッキを同期中...
+academyAccountSyncing	よむデッキを同期中...
 academyAccountDisconnecting	このReaderの接続を解除中...
 academyPairingCodeRequired	Yomuアカウントで1回限りのペアリングコードを発行し、入力してください。
-academyAccountConnectedDone	Academyアカウントに接続し、進捗を同期しました。
-academyAccountSyncedDone	Academyの進捗を同期しました。
-academyAccountDisconnectedDone	このReaderの接続を解除しました。Academyの進捗は端末に残ります。
+academyAccountConnectedDone	アカウントに接続し、よむデッキを同期しました。
+academyAccountSyncedDone	よむデッキを同期しました。
+academyAccountDisconnectedDone	このReaderの接続を解除しました。よむデッキは端末に残ります。
 importSettings	設定JSONをインポート
 exportSettings	設定JSONをエクスポート
 importDictionaries	辞書をインポート
@@ -2043,10 +2027,10 @@ exportDictionaries	辞書をエクスポート
 lookupPills	検索ピル
 parserProvider	解析ソース
 parserProviderLocal	ローカル辞書（オフライン）
-parserProviderJiten	Jiten API
-parserProviderJpdb	JPDB API
+parserProviderJiten	Jiten
+parserProviderJpdb	JPDB
 parserProviderAuto	自動（Jiten/JPDB）
-parserProviderHelp	ローカルはインポート済み辞書でオフライン解析します。JitenとJPDBはキー設定時に必ずそのAPIを使います。自動は両方のキーがあれば優先採点サービスを使い、それ以外はJiten、次にJPDBを優先します。
+parserProviderHelp	ローカルはインポート済み辞書でオフライン解析します。JitenとJPDBはキー設定時に必ずそのサービスで解析します。自動は両方のキーがあれば優先採点サービスを使い、それ以外はJiten、次にJPDBを優先します。
 lookupPillsHelp	外部リンクと頻度バッジを同じ順序で表示します。ローカル頻度辞書は一致するJiten/JPDBライブバッジを置き換えます。トークン: {query}、{word}、{reading}。
 copiesCurrentWord	現在の単語をコピーします
 plaintextHttpLink	プレーンテキストHTTPで開きます。

@@ -35,7 +35,7 @@ export function renderAnkiMiningSettingsPanel(settings: ReaderSettings, ankiStat
                     <div class="jpdb-reader-anki-main">
                         <div class="grid jpdb-reader-anki-connection-grid">
                             ${checkbox('ankiEnabled', 'Enable Anki mining', settings.ankiEnabled)}
-                            ${checkbox('ankiMineWithJpdb', 'Also add to Anki when adding via API', apiAdds && settings.ankiMineWithJpdb, { disabled: !apiAdds })}
+                            ${checkbox('ankiMineWithJpdb', 'Also add to Anki when adding to JPDB or Jiten', apiAdds && settings.ankiMineWithJpdb, { disabled: !apiAdds })}
                             ${checkbox('ankiCaptureScreenshot', 'Attach context image when possible', settings.ankiCaptureScreenshot)}
                             ${checkbox('ankiMobileHandoff', 'Mobile Anki add-note fallback', settings.ankiMobileHandoff)}
                             ${input('ankiConnectUrl', 'AnkiConnect URL', settings.ankiConnectUrl)}

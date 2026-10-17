@@ -5,9 +5,10 @@
 // the way a learner sets up grading: Settings → Reviews, in English and
 // Japanese, in Chromium at desktop size and in WebKit at iPad size with touch.
 //
-//   * The tab says Reviews / 復習, and nothing visible in the tab strip or the
-//     Reviews panel (text, accessible names, titles) says "API" or "Academy" or
-//     is untranslated (未翻訳).
+//   * The tab says Reviews / 復習, and nothing visible on any Settings tab
+//     (text, accessible names, titles) says "API" or "Academy" or is
+//     untranslated (未翻訳). Nadeshiko and Google Cloud Vision really take API
+//     keys, so their own fields may say so.
 //   * One row per service, in order: よむ deck, JPDB, Jiten, Anki, WaniKani,
 //     Bunpro, each with a named status dot and named "adds" icons.
 //   * "Preferred grading service" is absent with no key and with one key, and
@@ -55,6 +56,9 @@ const CONFIGS = [
     { name: 'webkit-ipad-ja', engine: 'webkit', viewport: { width: 820, height: 1180 }, language: 'ja', touch: true },
 ];
 const ENGINES = new Set((process.env.YOMU_REVIEW_SERVICES_SMOKE_ENGINES ?? 'chromium,webkit').split(',').map(value => value.trim()));
+// Nadeshiko and Google Cloud Vision are services whose own keys are API keys.
+const REAL_API_KEY_COPY = /Nadeshiko|Cloud Vision/u;
+
 const TEXT = {
     en: { tab: 'Reviews', yomuDeck: 'よむ deck', preferred: 'Preferred grading service', reviewButtons: 'Show review buttons' },
     ja: { tab: '復習', yomuDeck: 'よむデッキ', preferred: '優先採点サービス', reviewButtons: '復習ボタンを表示' },
@@ -143,6 +147,7 @@ async function runStudy(browser, config) {
         await page.screenshot({ path: path.join(ARTIFACT_DIR, `${config.name}-keyless.png`), fullPage: false });
         assert(keyless.tabLabel === text.tab, 'The integrations tab is not called Reviews', { tabLabel: keyless.tabLabel });
         assertCleanCopy(keyless, config);
+        const tabsScanned = await assertEveryTabClean(page, config);
         assert(keyless.rows.map(row => row.id).join() === SERVICE_ORDER.join(), 'Reviews does not list one row per service in order', keyless.rows);
         assert(keyless.rows[0].name === text.yomuDeck, 'The local deck row is not called よむ deck', keyless.rows[0]);
         assert(keyless.rows.every(row => row.dot && row.adds.length > 0 && row.adds.every(Boolean)),
@@ -193,6 +198,7 @@ async function runStudy(browser, config) {
         return {
             config: config.name,
             tab: keyless.tabLabel,
+            tabsScanned,
             rows: keyless.rows.map(row => ({ id: row.id, name: row.name, dot: row.dot, adds: row.adds })),
             ankiPingsBeforeConnect: pingsWhenReady,
             preferred: { keyless: keyless.preferredVisible, oneKey: oneKey.preferredVisible, twoKeys: twoKeys.preferredVisible, reloaded: reloaded.preferredVisible },
@@ -218,13 +224,69 @@ async function typeKey(page, name, value, config) {
     await field.dispatchEvent('change');
 }
 
+function offendingCopy(texts) {
+    return texts.filter(text => /Academy|未翻訳/u.test(text) || (/API/u.test(text) && !REAL_API_KEY_COPY.test(text)));
+}
+
 function assertCleanCopy(state, config) {
-    const offending = state.visibleText.filter(text => /API|Academy|未翻訳/u.test(text));
+    const offending = offendingCopy(state.visibleText);
     assert(offending.length === 0, `Reviews shows "API", "Academy" or untranslated copy (${config.language})`, { offending });
 }
 
-function reviewsState(page) {
-    return page.evaluate(() => {
+// Every Settings tab, opened as a learner opens it; Reviews is left open again.
+async function assertEveryTabClean(page, config) {
+    const panels = await page.locator('.jpdb-reader-settings-tabs [data-panel]').evaluateAll(tabs => tabs.map(tab => tab.getAttribute('data-panel')));
+    const offending = {};
+    for (const panel of panels) {
+        await activate(page.locator(`.jpdb-reader-settings-tabs [data-panel="${panel}"]`), config);
+        await page.waitForSelector(`.jpdb-reader-settings [data-settings-panel="${panel}"]:not([hidden])`, { timeout: 5_000 });
+        const found = offendingCopy(await visibleCopy(page, [`[data-settings-panel="${panel}"]`]));
+        if (found.length) offending[panel] = found;
+    }
+    await activate(page.locator('.jpdb-reader-settings-tabs [data-panel="api"]'), config);
+    assert(Object.keys(offending).length === 0, `A Settings tab shows "API", "Academy" or untranslated copy (${config.language})`, { offending });
+    return panels.length;
+}
+
+// Everything a learner can see or hear under these roots: rendered text, the
+// options of visible selects, and the names and tooltips of controls and icons.
+function visibleCopy(page, selectors) {
+    return page.evaluate(rootSelectors => {
+        const settings = document.querySelector('.jpdb-reader-settings');
+        const visible = element => {
+            if (!(element instanceof HTMLElement || element instanceof SVGElement)) return false;
+            if (element.closest('[hidden]')) return false;
+            const style = getComputedStyle(element);
+            if (style.display === 'none' || style.visibility === 'hidden') return false;
+            const box = element.getBoundingClientRect();
+            return box.width > 0 && box.height > 0;
+        };
+        const texts = [];
+        for (const root of rootSelectors.map(selector => settings?.querySelector(selector))) {
+            if (!root) continue;
+            const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+            for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+                const value = node.textContent?.trim();
+                if (value && visible(node.parentElement) && !node.parentElement.closest('select')) texts.push(value);
+            }
+            for (const select of root.querySelectorAll('select')) {
+                if (visible(select)) texts.push(...[...select.options].map(option => option.textContent?.trim() ?? ''));
+            }
+            for (const element of root.querySelectorAll('[aria-label], [title], [placeholder]')) {
+                if (!visible(element)) continue;
+                for (const attribute of ['aria-label', 'title', 'placeholder']) {
+                    const value = element.getAttribute(attribute)?.trim();
+                    if (value) texts.push(value);
+                }
+            }
+        }
+        return texts;
+    }, selectors);
+}
+
+async function reviewsState(page) {
+    const visibleText = await visibleCopy(page, ['.jpdb-reader-settings-tabs', '[data-settings-panel="api"]']);
+    const state = await page.evaluate(() => {
         const settings = document.querySelector('.jpdb-reader-settings');
         const panel = settings?.querySelector('[data-settings-panel="api"]');
         const tabs = settings?.querySelector('.jpdb-reader-settings-tabs');
@@ -236,27 +298,6 @@ function reviewsState(page) {
             const box = element.getBoundingClientRect();
             return box.width > 0 && box.height > 0;
         };
-        // Everything a learner can see or hear in the tab strip and the panel:
-        // rendered text, the names of controls and icons, and their tooltips.
-        const visibleText = [];
-        for (const root of [tabs, panel]) {
-            if (!root) continue;
-            const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
-            for (let node = walker.nextNode(); node; node = walker.nextNode()) {
-                const value = node.textContent?.trim();
-                if (value && visible(node.parentElement) && !node.parentElement.closest('select')) visibleText.push(value);
-            }
-            for (const select of root.querySelectorAll('select')) {
-                if (visible(select)) visibleText.push(...[...select.options].map(option => option.textContent?.trim() ?? ''));
-            }
-            for (const element of root.querySelectorAll('[aria-label], [title], [placeholder]')) {
-                if (!visible(element)) continue;
-                for (const attribute of ['aria-label', 'title', 'placeholder']) {
-                    const value = element.getAttribute(attribute)?.trim();
-                    if (value) visibleText.push(value);
-                }
-            }
-        }
         const rows = [...(panel?.querySelectorAll('[data-review-service]') ?? [])].map(row => ({
             id: row.getAttribute('data-review-service'),
             state: row.getAttribute('data-service-state'),
@@ -268,7 +309,6 @@ function reviewsState(page) {
         const preferred = panel?.querySelector('select[name="apiGradingProvider"]');
         return {
             tabLabel: tabs?.querySelector('[data-panel="api"]')?.textContent?.trim() ?? '',
-            visibleText,
             rows,
             preferredVisible: visible(preferred),
             preferredLabel: preferred?.closest('label')?.textContent?.trim() ?? '',
@@ -276,6 +316,7 @@ function reviewsState(page) {
             gradeScaleInPanel: Boolean(panel?.querySelector('select[name="twoButtonReviews"]')),
         };
     });
+    return { ...state, visibleText };
 }
 
 function studyAssetPath(pathname) {

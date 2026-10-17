@@ -347,10 +347,10 @@ describe('settings form localization', () => {
 
         expect(form.lang).toBe('ja');
         expect(settingsText(form, 'h2')).toBe('よむ 設定');
-        expect(labelForControl(form, 'newTabJpdbReviewMode')).toContain('API復習モード');
+        expect(labelForControl(form, 'newTabJpdbReviewMode')).toContain('JPDB復習モード');
         expect(optionText(form, 'newTabSource', 'auto')).toBe('自動');
-        expect(optionText(form, 'newTabSource', 'jpdb')).toBe('API SRS（Jiten / JPDB）');
-        expect(optionText(form, 'newTabJpdbReviewMode', 'api-vocabulary')).toBe('API語彙のみ（デッキ順）');
+        expect(optionText(form, 'newTabSource', 'jpdb')).toBe('Jiten / JPDB');
+        expect(optionText(form, 'newTabJpdbReviewMode', 'api-vocabulary')).toBe('JPDB語彙のみ（デッキ順）');
         expect(settingsText(form, '[data-review-service-text="bunproTokenHelp"]')).toContain('Bunpro設定からフロントエンドトークンを取り込み');
         expect(settingsText(form, '[data-review-service-text="bunproTokenHelp"]')).toContain('パスワードと同様に扱ってください');
         expect(settingsText(form, '[data-review-service-text="bunproTokenHelp"]')).toContain('保存時点では未確認');

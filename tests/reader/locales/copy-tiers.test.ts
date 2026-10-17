@@ -153,7 +153,7 @@ describe('D43 copy tiers are a property of the string', () => {
         const humanCritical = messages.filter((message) => message.tier === 'human-critical');
         const byIdAlone = humanCritical.filter((message) => copyTierOf(message.id).tier === 'human-critical');
         expect({ total: messages.length, critical: humanCritical.length, byId: byIdAlone.length })
-            .toEqual({ total: 1234, critical: 429, byId: 424 });
+            .toEqual({ total: 1229, critical: 428, byId: 423 });
         // 2.1.3 adds a supplementary action for native YouTube paging.
         expect(copyTierOf(legacyChromeMessageId('youtubeLoadMore')).tier).toBe('machine-draft-ok');
         // 2.1.1 adds eleven shared website messages and Default deck copy; two new IDs are critical.
@@ -168,7 +168,10 @@ describe('D43 copy tiers are a property of the string', () => {
         // none critical). Settings → Reviews names each service's row, state and
         // what it adds (seventeen messages, sixteen critical: grading and
         // credentials), and the local deck's "Default" became "よむ deck"; the
-        // tab's old access heading, help and four key-page link labels went.
+        // tab's old access heading, help and four key-page link labels went. Its
+        // review fixes name each Connect action and say a key is added, not
+        // connected (three messages), and the old key labels and shared switch
+        // labels that no control used any more went (eight).
         for (const key of ['backupMovedHelp', 'helpLinksCopy', 'extensionSettingsRecoveryGuidance', 'dictionaryImportHelp', 'yomitanSettingsInvalid']) {
             expect(chromeMessageSource()).not.toHaveProperty(key);
         }

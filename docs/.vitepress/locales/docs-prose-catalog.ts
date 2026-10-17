@@ -53,7 +53,7 @@ const HOSTED_DOCS_JA_COPY: Record<string, string> = {
     "The local deck in “Add to deck” is called “Default”. YouTube filtering no longer shows its hidden-video notice.": "「デッキに追加」のローカルデッキ名を「デフォルト」にしました。YouTubeのフィルターによる非表示動画の通知は表示しなくなりました。",
     "Hold a word in a link or button to look it up. A quick tap keeps the website’s action.": "リンクやボタンの単語を長押しすると検索できます。短いタップではウェブサイトの元の操作を行えます。",
     "An image gets a small corner mark after よむ finds text. Tap the recognized text to look it up.": "画像に文字が見つかると、角に小さなマークが表示されます。読み取った文字をタップすると検索できます。",
-    "Words saved without a connected service go to the Default deck in Study.": "サービスを連携せずに保存した単語は、Studyのデフォルトデッキに入ります。",
+    "Words saved without a connected service go to the よむ deck in Study.": "サービスを連携せずに保存した単語は、Studyのよむデッキに入ります。",
 
     "Readings follow the page’s typeface and scale with its text, with stronger contrast for small kana.": "読みはページの書体に合わせて本文と一緒に拡大し、小さな仮名もくっきり表示します。",
     "Shorts caption fallback reads captions beside the player within the active reel, without mixing in neighboring videos.": "Shortsの字幕を補う処理で、再生中の動画内にあるプレーヤー横の字幕も読み取り、前後の動画の字幕が混ざらないようにしました。",
