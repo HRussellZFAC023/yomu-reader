@@ -11,6 +11,7 @@ import { SAVE_WAIT_COPY } from './save-wait-copy';
 import { GRADING_SERVICE_COPY } from './grading-service-copy';
 import { COLLECTION_COPY } from './collection-copy';
 import { OCR_STATUS_COPY } from './ocr-status-copy';
+import { APPEARANCE_QUICK_COPY } from './appearance-quick-copy';
 import type { AudioSourceType, InterfaceLanguage } from './types';
 export { academyCopyHasMissingJapanese, academyText } from './academy-copy';
 export type { AcademyCopyKey, AcademyLanguage } from './academy-copy';
@@ -1090,6 +1091,7 @@ const COPY = {
         translationUnavailable: 'Translation unavailable.',
         translating: 'Translating...',
         ...GRAMMAR_UI_COPY.en,
+        ...APPEARANCE_QUICK_COPY.en,
     },
 } as const;
 export type UiCopyKey = keyof typeof COPY.en;
@@ -2224,6 +2226,7 @@ recommendedBccwj	BCCWJ由来の頻度バッジです。
 recommendedJiten	Jiten由来の頻度バッジです。
 `),
     ...SUBTITLE_SETTINGS_COPY.ja,
+    ...APPEARANCE_QUICK_COPY.ja,
 };
 
 export interface GrammarRuleCopy {

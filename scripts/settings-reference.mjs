@@ -154,14 +154,14 @@ function withoutLinks(element) {
     return collapse(clone.textContent);
 }
 
-// The theme switch is a control with a title instead of a label, so its own title
-// is the name a learner sees. Deliberately narrow: a subsection heading or a
+// The theme switch and the accent swatches are controls with a title instead of
+// a label, so that title is the name a learner sees. Deliberately narrow: a subsection heading or a
 // section legend would also sit above an unlabelled control, and lending one of
 // those to a hidden field puts a name on a setting that never had one.
 function groupTitle(control) {
     let scope = control.parentElement;
     for (let depth = 0; scope && depth < 2; depth += 1, scope = scope.parentElement) {
-        const title = scope.querySelector(':scope > .jpdb-reader-theme-title');
+        const title = scope.querySelector(':scope > .jpdb-reader-theme-title, :scope > .jpdb-reader-quick-title');
         if (title) return collapse(title.textContent);
     }
     return '';

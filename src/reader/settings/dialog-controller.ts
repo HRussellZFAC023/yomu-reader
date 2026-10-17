@@ -106,6 +106,7 @@ import {
 } from './recommended-dictionary-card';
 import { AcademyAccountSyncSettingsController } from './academy-account-sync';
 import { installFocusedControlScrolling } from './focused-control-scrolling';
+import { bindAppearanceQuickRow } from './appearance-quick-row';
 import { runCredentialDependentSettingsRefreshes, settingsDialogTrigger } from './dialog-open-policy';
 import { dictionaryActionBlockedDuringSiteClear } from './local-dictionary-storage-form';
 import {
@@ -801,6 +802,7 @@ export class SettingsDialogController {
             const accentColor = (event.currentTarget as HTMLInputElement).value;
             commitAccentPreview(accentColor);
         });
+        bindAppearanceQuickRow(form, { commitAccent: commitAccentPreview });
         let wordColorPreviewFrame: number | undefined;
         const scheduleWordColorPreview = () => {
             if (wordColorPreviewFrame !== undefined) return;

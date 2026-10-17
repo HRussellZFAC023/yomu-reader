@@ -18,6 +18,7 @@ import { uiText } from '../../reader/app/i18n';
 import { escapeHtml } from '../../reader/dom/index';
 import { DEFAULT_SETTINGS, formatShortcutEvent, normalizeReaderSettings } from '../../reader/settings';
 import { pickFile, downloadBlob, dateStamp } from '../../reader/settings/file-io';
+import { bindAppearanceQuickRow } from '../../reader/settings/appearance-quick-row';
 import {
     activateSettingsPanel,
     applySettingsSearch,
@@ -195,6 +196,9 @@ function renderShell(): void {
     activateSettingsPanel(form, shellState.settingsPanel);
     scrollToInitialSettingsSection(form);
     installShortcutCapture(form);
+    // The desktop shell saves on every change; the row only has to drive the
+    // accent input and the underline selects that the save reads.
+    bindAppearanceQuickRow(form, { commitAccent: () => undefined });
     clearSettingsSaveStatus(form);
     syncOcrProviderFields(form);
     hideUnsupportedSettingsActions(form);
