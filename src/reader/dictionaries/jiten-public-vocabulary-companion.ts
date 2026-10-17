@@ -50,7 +50,7 @@ export const JITEN_BACKGROUND_DETAIL_TIMEOUT_MS = 4000;
 export const parsedCardHydrationKey: typeof parsedCardHydrationKeyImpl = card =>
     yomuJitenCompanion()?.parsedCardHydrationKey?.(card) ?? `${card.vid}:${card.sid}`;
 
-export const publicJitenBackoffRemainingMs: typeof publicJitenBackoffRemainingMsImpl = () =>
-    yomuJitenCompanion()?.publicJitenBackoffRemainingMs?.() ?? 0;
+export const publicJitenBackoffRemainingMs: typeof publicJitenBackoffRemainingMsImpl = priority =>
+    yomuJitenCompanion()?.publicJitenBackoffRemainingMs?.(priority) ?? 0;
 
 export { CompanionBackedJitenPublicVocabularyClient as JitenPublicVocabularyClient };

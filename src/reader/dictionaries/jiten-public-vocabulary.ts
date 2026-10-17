@@ -6,6 +6,7 @@ import { getPitchClass } from '../jpdb/jpdb-parser';
 import { pitchPatternFromPosition } from '../lookup/pitch-accent';
 import { requestJson } from '../network/http';
 import { readPublicJitenCache, writePublicJitenCache } from './jiten-public-cache';
+import { cardWithRememberedReading, forgetRememberedReadingsForTests, rememberReading } from './jiten-reading-memory';
 
 const JITEN_PUBLIC_API_BASE_URL = 'https://api.jiten.moe/api';
 const REQUEST_TIMEOUT_MS = 1500;
@@ -65,10 +66,13 @@ let sharedRequestBackoffArmedAt = Number.NEGATIVE_INFINITY;
 //   the popup's own Jiten requests (rank badge search, word info), which the
 //   definition client sends.
 // - annotation: the word boundaries of the page being read.
-// - enrichment: page readings and pitch, and the popup's example sentences.
-export type JitenRequestPriority = 'lookup' | 'annotation' | 'enrichment';
-const REQUEST_CEILINGS: Readonly<Record<JitenRequestPriority, number>> = { lookup: 105, annotation: 70, enrichment: 50 };
-const PRIORITY_RANKS: Readonly<Record<JitenRequestPriority, number>> = { lookup: 2, annotation: 1, enrichment: 0 };
+// - reading: the readings of the words on screen, ahead of everything else
+//   the page wants.
+// - enrichment: the rest (fallback words' identity, the popup's example
+//   sentences).
+export type JitenRequestPriority = 'lookup' | 'annotation' | 'reading' | 'enrichment';
+const REQUEST_CEILINGS: Readonly<Record<JitenRequestPriority, number>> = { lookup: 105, annotation: 70, reading: 60, enrichment: 40 };
+const PRIORITY_RANKS: Readonly<Record<JitenRequestPriority, number>> = { lookup: 3, annotation: 2, reading: 1, enrichment: 0 };
 const REQUEST_WINDOW_MS = 60_000;
 const sentRequests: number[] = [];
 
@@ -90,14 +94,15 @@ export function resetJitenPublicVocabularyBackoffForTests(): void {
     sharedRequestBackoffMs = REQUEST_BACKOFF_INITIAL_MS;
     sharedRequestBackoffArmedAt = Number.NEGATIVE_INFINITY;
     sentRequests.length = 0;
+    forgetRememberedReadingsForTests();
 }
 
-// The background lanes (deferred readings and pitch) wait this long before
-// asking again: while the shared backoff runs, or until enrichment's share of
+// The background lanes (readings, and the rest of enrichment) wait this long
+// before asking again: while the shared backoff runs, or until their share of
 // the last minute has room.
-export function publicJitenBackoffRemainingMs(): number {
+export function publicJitenBackoffRemainingMs(priority: JitenRequestPriority = 'enrichment'): number {
     const now = Date.now();
-    return Math.max(0, sharedRequestBackoffUntil - now, ceilingWaitMs('enrichment', now));
+    return Math.max(0, sharedRequestBackoffUntil - now, ceilingWaitMs(priority, now));
 }
 
 // How long until fewer requests than the priority's ceiling were sent in the
@@ -240,6 +245,7 @@ export class JitenPublicVocabularyClient {
             const card = await pending;
             if (!card) return;
             result.set(term, card);
+            rememberReading(card);
             if (persist) writePublicJitenCache('card', term, card);
         }));
         return result;
@@ -272,7 +278,8 @@ export class JitenPublicVocabularyClient {
             const key = parsedCardHydrationKey(card);
             if (seen.has(key)) continue;
             seen.add(key);
-            const persisted = readPublicJitenCache<JPDBCard>('card', normalizeLookupText(card.spelling), now);
+            const persisted = readPublicJitenCache<JPDBCard>('card', normalizeLookupText(card.spelling), now)
+                ?? cardWithRememberedReading(card);
             if (persisted) {
                 result.set(key, persisted);
                 continue;
@@ -284,6 +291,7 @@ export class JitenPublicVocabularyClient {
             const card = await this.lookupDetail(item.word, item.requestedTerm, options.detailTimeoutMs ?? JITEN_BACKGROUND_DETAIL_TIMEOUT_MS);
             if (!card) return;
             result.set(item.key, card);
+            rememberReading(card);
             writePublicJitenCache('card', normalizeLookupText(card.spelling), card);
         });
         return result;
@@ -342,6 +350,13 @@ export class JitenPublicVocabularyClient {
 
     private async hydrateParsedTokens(result: JPDBToken[][], limit: number, priority: JitenRequestPriority): Promise<void> {
         const tokens = result.flat();
+        // Every word read on an earlier page gets its reading now, unasked.
+        for (const token of tokens) {
+            const remembered = token.card.reading ? null : cardWithRememberedReading(token.card);
+            if (!remembered) continue;
+            token.card = remembered;
+            token.pitchClass = getPitchClass(remembered.pitchAccent, remembered.reading) || token.pitchClass;
+        }
         if (!tokens.length || limit <= 0) return;
         const hydrationCards = parsedCardsWithinTargetBoundary(result, limit);
         const cards = await this.hydrateCards(hydrationCards, { detailLimit: hydrationCards.length, priority });
@@ -461,7 +476,7 @@ function parsedCardsWithinTargetBoundary(result: readonly JPDBToken[][], limit: 
         const targetSeen = new Set<string>();
         for (const { card } of tokens) {
             const key = parsedCardHydrationKey(card);
-            if (seen.has(key) || targetSeen.has(key)) continue;
+            if (card.reading || seen.has(key) || targetSeen.has(key)) continue;
             targetSeen.add(key);
             targetCards.push(card);
         }
