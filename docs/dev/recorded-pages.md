@@ -22,7 +22,8 @@ companions and its `@resource` CSS.
 | `host/` | YouTube only: the redacted player response, the json3 caption tracks (timings kept, words replaced) and a blank clip. |
 
 Current set: ja.wikipedia 日本語 and 東京都, Aozora 『こころ』 and 『吾輩は猫である』,
-a Wikimedia Commons photo page, reader.ttsu.app paging 『こころ』 vertically and
+two Wikimedia Commons photo pages (a street sign, and a sushi bar signboard
+whose photo the OCR honesty gate also opens on its own), reader.ttsu.app paging 『こころ』 vertically and
 horizontally, a YouTube watch page and YouTube search results, note.com,
 asahi.com and the piccoma.com web store. The watch page's caption timings are
 a Mechanism Fixture (see Follow-ups).
@@ -106,6 +107,11 @@ await run.close();
   an OCR service.
 - `onGmRequest(request)`: answer first, for example with a 429, to model a
   failing service.
+- `gmStoragePrefix`: the bridge keeps GM storage in the page origin's
+  localStorage; a prefix keeps it apart from the page's own keys, as a real
+  manager's storage is. A gate that reloads and expects private GM values to
+  survive needs it, because the product deletes `yomu:private:*` keys from
+  page storage.
 - `pageNetwork`: `'offline'` (default) or `'live'`.
 - `hostOptions`: for YouTube, `{ captions, autoplay, startSeconds }`.
 - `contextOptions`: viewport, `isMobile`, `hasTouch`, user agent (iPad runs).
@@ -312,7 +318,7 @@ the real page has moved on.
   `node scripts/record-pages.mjs youtube-watch` (or pass `--captions-from`
   with the player's two json3 responses) to replace them with recorded
   timings, then drop the two fixture rows from `ATTRIBUTION.md`.
-- Weight: the 12 recordings take about 35 MB in a checkout but about 5.4 MB
+- Weight: the 13 recordings take about 37 MB in a checkout but about 5.4 MB
   in git, which stores a file shared by two recordings once and compresses
   the rest. Move recordings to Git LFS, or share site stylesheets between
   them, before the checkout passes about 100 MB.

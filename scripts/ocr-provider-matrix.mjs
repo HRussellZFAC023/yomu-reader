@@ -43,10 +43,9 @@ const BRIDGE = '__yomuOcrMatrixRequest';
 const LENS_REAL = process.env.LENS_REAL !== '0';
 const HAS_JP = /[぀-ヿ㐀-鿿]/;
 const MOCK_RESULT_TIMEOUT_MS = 9_000;
-// The production provider spends one 30s attempt budget across protobuf and
-// upload transports (src/reader/ocr/ocr-shared.ts). Leave startup/paint
-// headroom around that budget: a fixed 14s snapshot used to close the page
-// while the protobuf request was still pending, before the upload fallback.
+// The production provider gives its one protobuf request a 30s attempt budget
+// (src/reader/ocr/ocr-shared.ts). Leave startup/paint headroom around it: a
+// fixed 14s snapshot used to close the page while a slow request was pending.
 const LENS_RESULT_TIMEOUT_MS = 35_000;
 
 const MOCK_OCR = { width: 800, height: 1130, lines: [
@@ -70,7 +69,7 @@ async function openReaderPage({ url, settings, real, device = ipad }) {
         requests.push(url);
         if (/vision\.googleapis\.com/.test(url)) return { status: 200, responseText: JSON.stringify(MOCK_OCR) };
         if (/127\.0\.0\.1:7331|\/ocr(\?|$)/.test(url)) return { status: 200, responseText: JSON.stringify(MOCK_OCR) };
-        if (real && /lensfrontend-pa\.googleapis\.com|lens\.google\.com/.test(url)) {
+        if (real && /lensfrontend-pa\.googleapis\.com/.test(url)) {
             try {
                 const res = await fetch(url, { method: request.method || 'POST', headers: request.headers || {}, body: gmRequestFetchBody(request) });
                 const buf = Buffer.from(await res.arrayBuffer());
@@ -111,6 +110,9 @@ async function readOcrResult(page, { label, requests, expectUrl, real }) {
     const hitExpected = requests.some(u => expectUrl.test(u));
     console.log(`\n[${label}] frames=${r.canvasFrames} lines=${r.ocrLines} text=${JSON.stringify(r.text.slice(0, 4))} reqs=${requests.length} wait=${Date.now() - resultStartedAt}ms/${resultTimeoutMs}ms`);
     pass(`${label}: request hit ${expectUrl}`, hitExpected, requests.find(u => expectUrl.test(u))?.slice(0, 70));
+    // The retired Lens web upload sent the page with the learner's Google cookies.
+    const googleWeb = requests.filter(u => /^https?:\/\/(lens|www)\.google\.com\//.test(u));
+    pass(`${label}: nothing sent to lens.google.com or www.google.com`, !googleWeb.length, googleWeb.join(' ').slice(0, 120));
     pass(`${label}: OCR overlay rendered`, r.ocrLines >= 1);
     pass(`${label}: overlay text is Japanese`, r.text.some(t => HAS_JP.test(t)), r.text[0] || '(none)');
 }
@@ -261,7 +263,7 @@ const base = { onboardingSeen: true, interfaceLanguage: 'en', apiKey: '', ankiEn
 
 await runProvider({ label: 'local-service', expectUrl: /127\.0\.0\.1:7331\/ocr/, settings: { ...base, ocrProvider: 'local-service', ocrEndpointUrl: 'http://127.0.0.1:7331/ocr' } });
 await runProvider({ label: 'cloud-vision', expectUrl: /vision\.googleapis\.com.*key=test-key/, settings: { ...base, ocrProvider: 'cloud-vision', ocrCloudVisionApiKey: 'test-key' } });
-await runProvider({ label: 'google-lens', real: LENS_REAL, expectUrl: /lensfrontend-pa\.googleapis\.com|lens\.google\.com/, settings: { ...base, ocrProvider: 'google-lens' } });
+await runProvider({ label: 'google-lens', real: LENS_REAL, expectUrl: /lensfrontend-pa\.googleapis\.com/, settings: { ...base, ocrProvider: 'google-lens' } });
 
 await runGenericLocalService({ label: 'generic-canvas-local-service', expectUrl: /127\.0\.0\.1:7331\/ocr/, settings: { ...base, ocrProvider: 'local-service', ocrEndpointUrl: 'http://127.0.0.1:7331/ocr' } });
 await runGenericCloudProvider({ label: 'generic-canvas-cloud-vision', expectUrl: /vision\.googleapis\.com.*key=test-key/, settings: { ...base, ocrProvider: 'cloud-vision', ocrCloudVisionApiKey: 'test-key' } });
@@ -269,9 +271,9 @@ await runGenericCloudProvider({ label: 'generic-canvas-cloud-vision', expectUrl:
 await runGenericCloudProvider({ label: 'generic-canvas-cloud-vision-ja', expectUrl: /vision\.googleapis\.com.*key=test-key/, settings: { ...base, interfaceLanguage: 'ja', ocrProvider: 'cloud-vision', ocrCloudVisionApiKey: 'test-key' } });
 // The light theme's text colour is dark: the pill must not inherit it.
 await runGenericCloudProvider({ label: 'generic-canvas-cloud-vision-light', expectUrl: /vision\.googleapis\.com.*key=test-key/, settings: { ...base, theme: 'light', ocrProvider: 'cloud-vision', ocrCloudVisionApiKey: 'test-key' } });
-await runGenericCloudProvider({ label: 'generic-canvas-google-lens', real: LENS_REAL, expectUrl: /lensfrontend-pa\.googleapis\.com|lens\.google\.com/, settings: { ...base, ocrProvider: 'google-lens' } });
+await runGenericCloudProvider({ label: 'generic-canvas-google-lens', real: LENS_REAL, expectUrl: /lensfrontend-pa\.googleapis\.com/, settings: { ...base, ocrProvider: 'google-lens' } });
 await runGenericCloudProviderWithMouse({ label: 'generic-canvas-cloud-vision-mouse', expectUrl: /vision\.googleapis\.com.*key=test-key/, settings: { ...base, ocrProvider: 'cloud-vision', ocrCloudVisionApiKey: 'test-key' } });
-await runGenericCloudProviderWithMouse({ label: 'generic-canvas-google-lens-mouse', real: LENS_REAL, expectUrl: /lensfrontend-pa\.googleapis\.com|lens\.google\.com/, settings: { ...base, ocrProvider: 'google-lens' } });
+await runGenericCloudProviderWithMouse({ label: 'generic-canvas-google-lens-mouse', real: LENS_REAL, expectUrl: /lensfrontend-pa\.googleapis\.com/, settings: { ...base, ocrProvider: 'google-lens' } });
 
 await browser.close();
 console.log(failures.length ? `\nFAILURES: ${failures.join('; ')}` : '\nALL PROVIDERS PASS');

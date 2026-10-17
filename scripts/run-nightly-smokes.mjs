@@ -66,6 +66,9 @@ export const NIGHTLY_SMOKES = [
     // dialog is decided by real containing-block resolution, which no jsdom test
     // models.
     'smoke:modal-reading-register',
+    // Chromium + WebKit on recorded Commons pages: a Lens 429 is a failed mark
+    // that a tap retries, never a cached "no text"; one request per photo.
+    'smoke:ocr-honesty',
     'smoke:ocr-provider-matrix',
     'smoke:ocr-viewport-scroll',
     'smoke:pitch-underline',
