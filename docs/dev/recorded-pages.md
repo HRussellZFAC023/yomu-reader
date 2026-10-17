@@ -39,13 +39,22 @@ web store. The YouTube watch page is not recorded yet (see Follow-ups).
   by lorem-ipsum letters. Each replacement has the same advance width in that
   text's own font, measured in place (error diffusion, then a check of the
   rendered width), so lines break where they did. Web addresses, digits,
-  punctuation and symbols stay. Pictures become blank PNGs of the same pixel
+  punctuation and symbols stay. Every other attribute with a letter in it is
+  redacted the same way (sites keep copy in `data-*`: headlines, campaign
+  labels, consent text), except structural ones (`class`, `id`, `href`,
+  `src`, `lang`, presentational attributes and the rest of
+  `STRUCTURAL_ATTRIBUTES` in `recorded-redaction.mjs`) and values a
+  stylesheet selects on, such as `[data-state="open"]`. Pictures become blank PNGs of the same pixel
   size, inline SVG artwork is emptied, and only open-licensed Google Fonts
   families are kept.
 - The recorder refuses to write a redacted page that still holds an original
   text run, or whose sampled block boxes moved more than 2 px from the live
   page in Chromium. `npm run check` re-runs the text check on every commit
-  (`scripts/check-recorded-pages.mjs`).
+  (`scripts/check-recorded-pages.mjs`). The check reads text nodes, the visible
+  attributes and every other attribute value that reads as copy (non-ASCII
+  letters or several words); one-word ASCII values such as `true` or an id are
+  vocabulary and are not compared. It also fails when `ATTRIBUTION.md` credits
+  a recording that is not committed.
 - Hand-made files beside the recordings are Mechanism Fixtures, named
   `*-mechanism-fixture.*`. Today there is one,
   `hosts/youtube-player-mechanism-fixture.js`. A frozen YouTube page has no
@@ -81,6 +90,9 @@ await run.close();
   from the page's own HAR, then from this build's `docs/public` for
   `yomureader.com`; anything else fails like a dropped connection.
   `'offline'`, `'live'` (canaries) and `'record'` are the alternatives.
+  `'record'` reaches the network only for the target's `productTrafficHosts`;
+  every other GM request fails, so recording never uploads a page picture to
+  an OCR service.
 - `onGmRequest(request)`: answer first, for example with a 429, to model a
   failing service.
 - `pageNetwork`: `'offline'` (default) or `'live'`.
@@ -97,8 +109,11 @@ returns entries with host, method, body bytes, time since start, the channel
 Interaction came first. GM requests carry that flag from the page itself, at
 the moment they were sent. `assertLedgerCount` and
 `assertNoRequestsBeforeInteraction` throw with the offending requests listed.
-The recording's own stylesheets and pictures are left out unless
-`includeRecording` is set.
+Page-channel requests the recording answered (the page's own document,
+stylesheets and pictures) are left out unless `includeRecording` is set. GM
+requests always count, whoever answered them: `recorded-product` for this
+page's recorded product traffic, `recording` for the page's own HAR,
+`hosted`, `override`, `live` or `offline`.
 
 ### Geometry Signature (`scripts/lib/geometry-signature.mjs`)
 
@@ -123,8 +138,11 @@ the page" take a signature before the product runs and one after.
 
 ### Probes (`scripts/lib/recorded-page-probes.mjs`)
 
-- `kanjiReadingCoverage(page, { root })`: of the product's visible words with
-  kanji, how many carry a reading.
+- `kanjiReadingCoverage(page, { root })`: of the visible kanji runs in the
+  page's own text (readings excluded), how many sit in a product word that
+  paints a reading. The denominator does not depend on how many words the
+  build wraps. The product's kanji words, the painted ones and those with only
+  `data-reading` are reported beside it.
 - `startCaptionFrameLog` / `readCaptionFrames` / `captionFlashFrames`: a
   per-frame log of the subtitle lines and of whether YouTube's own caption is
   painted.
@@ -139,10 +157,33 @@ the page" take a signature before the product runs and one after.
   fonts differ.
 - `reproduce`: on the built 2.1.6 product read out of git, the harness sees the
   failures that release shipped with. It sees at least one Google Lens upload
-  before any interaction and fewer than 20% of kanji words with a reading after
-  15 s on ja.wikipedia 日本語, and YouTube's own caption painted in an inter-cue
-  gap after the first commit. 2.1.6 never changes, so these stay true. Run with
-  `--product=worktree` to print the same numbers for your build.
+  before any interaction and fewer than 20% of visible kanji runs under a
+  painted reading after 15 s on ja.wikipedia 日本語, and YouTube's own caption
+  painted in an inter-cue gap after the first commit. 2.1.6 never changes, so
+  these stay true. It also checks that a real key press turns later page and
+  GM requests into requests after a Trusted Interaction. Run with
+  `--product=worktree` to print the same numbers for your build. Until
+  `youtube-watch` is recorded the caption case warns, and from 2026-11-01 it
+  fails.
+
+Geometry baselines are per platform. Every recording was made on macOS, so on
+the Linux nightly the replay case only checks that each recording loads and
+its sampled blocks exist; the 2 px comparisons run on macOS. A Linux baseline
+would need a recording run on Linux.
+
+### Limits of a replay
+
+- Product traffic is what one build asked for. The `ja-wikipedia-*` answers
+  were recorded from 2.1.6's requests, so a build that asks jiten for other
+  URLs gets dropped connections there, and a 2.1.6 against worktree comparison
+  is not like for like on reading coverage.
+- `yomureader.com` is answered from `docs/public` of the build being run.
+  `releaseProduct()` extracts only the release's Greasy Fork companions, so
+  the 2.1.6 product's other `yomureader.com` requests go offline while a
+  worktree build's are answered.
+- Redacted pages keep their link targets. A URL is an address, not copy, and
+  stylesheets select on `href`; YouTube channel handles and note.com tag and
+  creator paths therefore stay in `href` values.
 
 ## Recording
 
@@ -168,7 +209,9 @@ loads, and records at 1280×900 with `ja-JP` and Asia/Tokyo. Re-recording a
 page drops its product traffic, so record that again after it.
 
 Fidelity is gated in Chromium, where the live page was rendered and the widths
-were matched. WebKit and Firefox shape the same replacement text a little
+were matched. Width matching is best effort: now and then a replaced title
+wraps onto one more line and the recorder refuses the page. Record it again;
+the next load usually fits. WebKit and Firefox shape the same replacement text a little
 differently. Their numbers are written to `manifest.json` (`fidelity`) but do
 not block a recording. Sites change: re-record when a nightly live canary says
 the real page has moved on.
@@ -180,7 +223,9 @@ the real page has moved on.
   three engines. Run `node scripts/record-pages.mjs youtube-watch` from
   another network. Alternatively, save the video's two json3 tracks (the
   player's own `/api/timedtext` responses, Japanese and `tlang=en`) and pass
-  `--captions-from`. The words are redacted either way. The replay, the
+  `--captions-from`. The words are redacted either way. Add its row back to
+  `ATTRIBUTION.md` with the recording (the check fails on a credit for a
+  recording that is not committed). The replay, the
   mechanism fixture and the caption-flash probe are ready for it.
 - Width matching runs in Chromium only. A WebKit-aware redaction would measure
   glyph pairs in each engine.

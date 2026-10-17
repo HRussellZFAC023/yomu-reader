@@ -95,32 +95,75 @@ export function serializePageInPage() {
 }
 
 /**
- * Every place a reader sees text — text nodes, including in open shadow roots,
- * and the visible attributes named — returned in document order. The nodes
- * are kept on window for redactTextSlotsInPage (text-redactor.mjs).
+ * Every place a page keeps words, returned in document order as
+ * { text, kind }: text nodes, including in open shadow roots ('text'), the
+ * visible attributes named ('visible') and every other attribute that holds a
+ * letter ('hidden': a headline in data-realizer-title, a campaign in
+ * data-gtm-label). Structural attributes stay, and so does a hidden value a
+ * stylesheet selects on ([data-state="open"]): redacting it would restyle the
+ * page. cssTexts: the linked stylesheets' bodies (a cross-origin sheet is
+ * closed to the CSSOM). The slots are kept on window for
+ * redactTextSlotsInPage (text-redactor.mjs).
  */
-export function collectTextSlotsInPage({ visibleAttributes }) {
+export function collectTextSlotsInPage({ visibleAttributes, structuralAttributes, cssTexts = [] }) {
     const SKIPPED = new Set(['SCRIPT', 'STYLE', 'NOSCRIPT']);
-    const slots = [];
-    const metaContent = element => (element.localName === 'meta' && element.hasAttribute('content') ? [{ element, name: 'content' }] : []);
-    const attributeSlots = element => [
-        ...visibleAttributes.filter(name => element.hasAttribute(name)).map(name => ({ element, name })),
-        ...metaContent(element),
-    ];
-    const visitText = node => {
-        if (!SKIPPED.has(node.parentNode?.nodeName)) slots.push({ node });
-    };
-    const visitElement = element => {
-        slots.push(...attributeSlots(element));
-        if (element.shadowRoot) visit(element.shadowRoot);
-    };
-    const visit = root => {
+    const visible = new Set(visibleAttributes);
+    const structural = new Set(structuralAttributes);
+    // Document order, each open shadow root right after its host.
+    const walk = (root, onNode) => {
         const walker = document.createTreeWalker(root, NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_TEXT);
-        for (let node = walker.nextNode(); node; node = walker.nextNode()) (node.nodeType === Node.TEXT_NODE ? visitText : visitElement)(node);
+        for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+            onNode(node);
+            if (node.shadowRoot) walk(node.shadowRoot, onNode);
+        }
     };
-    visit(document);
+    // After freezePageInPage, inserted and adopted rules are <style> text too.
+    const styleTexts = [...cssTexts];
+    walk(document, node => node.localName === 'style' && styleTexts.push(node.textContent));
+    // [name op= "value" i]: the attribute values some rule selects on.
+    const SELECTOR = /\[\s*(?:[\w*-]*\|)?([\w:-]+)\s*([~|^$*]?)=\s*(?:"((?:[^"\\]|\\.)*)"|'((?:[^'\\]|\\.)*)'|([^\s\]]+))\s*([is])?\s*\]/giu;
+    const selected = new Map();
+    const addSelector = match => {
+        const name = match[1].toLowerCase();
+        const value = match.slice(3, 6).find(part => part !== undefined).replace(/\\(.)/gu, '$1');
+        selected.set(name, [...(selected.get(name) ?? []), { op: match[2], value, insensitive: String(match[6]).toLowerCase() === 'i' }]);
+    };
+    [...styleTexts.join('\n').matchAll(SELECTOR)].forEach(addSelector);
+    const OPERATORS = {
+        '': (value, wanted) => value === wanted,
+        '~': (value, wanted) => value.split(/\s+/u).includes(wanted),
+        '|': (value, wanted) => value === wanted || value.startsWith(`${wanted}-`),
+        '^': (value, wanted) => wanted !== '' && value.startsWith(wanted),
+        $: (value, wanted) => wanted !== '' && value.endsWith(wanted),
+        '*': (value, wanted) => wanted !== '' && value.includes(wanted),
+    };
+    const fold = (text, rule) => (rule.insensitive ? text.toLowerCase() : text);
+    const isSelectedOn = (name, value) => (selected.get(name) ?? []).some(rule => OPERATORS[rule.op](fold(value, rule), fold(rule.value, rule)));
+    const isVisible = (element, name) => visible.has(name) || (element.localName === 'meta' && name === 'content');
+    const KEPT = [
+        name => structural.has(name),
+        name => name.startsWith('on'),
+        (name, value) => !/\p{L}/u.test(value),
+        isSelectedOn,
+    ];
+    const attributeKind = (element, attribute) => {
+        const name = attribute.name.toLowerCase();
+        if (isVisible(element, name)) return 'visible';
+        return KEPT.some(keep => keep(name, attribute.value)) ? null : 'hidden';
+    };
+    const slots = [];
+    const visitElement = element => {
+        for (const attribute of element.attributes) {
+            const kind = attributeKind(element, attribute);
+            if (kind) slots.push({ element, name: attribute.name, kind });
+        }
+    };
+    const visitText = node => {
+        if (!SKIPPED.has(node.parentNode?.nodeName)) slots.push({ node, kind: 'text' });
+    };
+    walk(document, node => (node.nodeType === Node.TEXT_NODE ? visitText : visitElement)(node));
     window.__yomuTextSlots = slots;
-    return slots.map(slot => (slot.node ? slot.node.nodeValue : slot.element.getAttribute(slot.name)));
+    return slots.map(slot => ({ text: slot.node ? slot.node.nodeValue : slot.element.getAttribute(slot.name), kind: slot.kind }));
 }
 
 /**

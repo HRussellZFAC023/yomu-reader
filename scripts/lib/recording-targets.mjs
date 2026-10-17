@@ -58,7 +58,7 @@ export const RECORDING_TARGETS = Object.freeze([
         url: 'https://www.youtube.com/watch?v=TAorfFcb8_g',
         content: 'redacted',
         licence: REDACTED,
-        attribution: 'Structure and caption timings of a YouTube watch page (video TAorfFcb8_g), recorded for testing. No YouTube text, image, video or code is included.',
+        attribution: 'Structure and caption timings of a YouTube watch page (video TAorfFcb8_g), recorded for testing. Its stylesheets are kept as served; no YouTube text, image or video is included.',
         viewport: DESKTOP,
         prepare: 'youtubeWatch',
         host: 'youtube-player',
@@ -69,7 +69,7 @@ export const RECORDING_TARGETS = Object.freeze([
         url: 'https://www.youtube.com/results?search_query=%E6%97%A5%E6%9C%AC%E8%AA%9E+%E5%8B%89%E5%BC%B7',
         content: 'redacted',
         licence: REDACTED,
-        attribution: 'Structure of a YouTube search results page, recorded for testing. No YouTube text, image or code is included.',
+        attribution: 'Structure of a YouTube search results page, recorded for testing. Its stylesheets are kept as served; no YouTube text or image is included.',
         viewport: DESKTOP,
     },
     {
@@ -77,7 +77,7 @@ export const RECORDING_TARGETS = Object.freeze([
         url: 'https://note.com/',
         content: 'redacted',
         licence: REDACTED,
-        attribution: 'Structure of the note.com top page, recorded for testing. No note.com text or image is included.',
+        attribution: 'Structure of the note.com top page, recorded for testing. Its stylesheets are kept as served; no note.com text or image is included.',
         viewport: DESKTOP,
     },
     {
@@ -85,7 +85,7 @@ export const RECORDING_TARGETS = Object.freeze([
         url: 'https://www.asahi.com/',
         content: 'redacted',
         licence: REDACTED,
-        attribution: 'Structure of the asahi.com top page, recorded for testing. No Asahi Shimbun text or image is included.',
+        attribution: 'Structure of the asahi.com top page, recorded for testing. Its stylesheets are kept as served; no Asahi Shimbun text or image is included.',
         viewport: DESKTOP,
     },
     {
@@ -116,7 +116,7 @@ export const RECORDING_TARGETS = Object.freeze([
         url: 'https://piccoma.com/web/',
         content: 'redacted',
         licence: REDACTED,
-        attribution: 'Structure of the piccoma.com web store top page, recorded for testing. No Piccoma text or image is included.',
+        attribution: 'Structure of the piccoma.com web store top page, recorded for testing. Its stylesheets are kept as served; no Piccoma text or image is included.',
         viewport: DESKTOP,
     },
 ]);

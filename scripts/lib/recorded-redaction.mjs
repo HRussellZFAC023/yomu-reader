@@ -11,6 +11,26 @@ const REDACTION_HASH_LENGTH = 20;
 const MIN_RUN_LENGTH = 2;
 /** Attributes whose values a reader sees or hears. */
 export const VISIBLE_ATTRIBUTES = Object.freeze(['alt', 'title', 'aria-label', 'aria-description', 'aria-roledescription', 'aria-valuetext', 'placeholder', 'value', 'label']);
+/**
+ * Attributes the browser lays out, links or styles by, kept verbatim. Every
+ * other attribute holding a letter is redacted unless a stylesheet selects on
+ * its value (page-freeze.mjs collectTextSlotsInPage).
+ */
+export const STRUCTURAL_ATTRIBUTES = Object.freeze([
+    // identity, links and references
+    'class', 'id', 'style', 'href', 'src', 'srcset', 'sizes', 'rel', 'type', 'name', 'for', 'form', 'list', 'headers', 'usemap', 'action', 'formaction', 'method', 'enctype', 'target', 'download', 'ping', 'cite', 'poster', 'xmlns', 'xmlns:xlink', 'xlink:href', 'popovertarget', 'anchor',
+    'aria-labelledby', 'aria-describedby', 'aria-controls', 'aria-owns', 'aria-activedescendant', 'aria-details', 'aria-errormessage', 'aria-flowto',
+    // document, language and loading
+    'lang', 'xml:lang', 'dir', 'translate', 'charset', 'http-equiv', 'media', 'crossorigin', 'integrity', 'referrerpolicy', 'loading', 'decoding', 'fetchpriority', 'as', 'blocking', 'property', 'itemprop', 'itemtype', 'itemscope', 'datetime',
+    // custom elements and shadow DOM
+    'role', 'slot', 'part', 'exportparts', 'is', 'shadowrootmode', 'shadowrootdelegatesfocus', 'shadowrootclonable', 'shadowrootserializable',
+    // form and element state
+    'hidden', 'popover', 'inert', 'open', 'contenteditable', 'draggable', 'spellcheck', 'autocapitalize', 'autocomplete', 'inputmode', 'enterkeyhint', 'tabindex', 'accesskey', 'autofocus', 'disabled', 'readonly', 'required', 'checked', 'selected', 'multiple', 'controls', 'muted', 'loop', 'playsinline', 'preload', 'accept', 'pattern', 'min', 'max', 'step', 'minlength', 'maxlength',
+    // legacy presentational attributes, still honoured by layout
+    'width', 'height', 'align', 'valign', 'bgcolor', 'background', 'color', 'face', 'size', 'border', 'cellpadding', 'cellspacing', 'nowrap', 'clear', 'frameborder', 'scrolling', 'shape', 'coords', 'wrap', 'cols', 'rows', 'colspan', 'rowspan', 'span', 'scope', 'start', 'reversed', 'hspace', 'vspace', 'marginwidth', 'marginheight', 'noshade', 'compact', 'text', 'link', 'vlink', 'alink',
+    // inline SVG (artwork inside is emptied; the outer element keeps its box)
+    'viewbox', 'preserveaspectratio', 'focusable', 'version', 'fill', 'stroke', 'stroke-width', 'stroke-linecap', 'stroke-linejoin', 'fill-rule', 'clip-rule', 'transform', 'opacity', 'x', 'y', 'overflow', 'display', 'visibility',
+]);
 const SKIPPED_ELEMENTS = new Set(['script', 'style', 'noscript']);
 // Written by the recorder from its own target list, never from the page.
 const HARNESS_FILES = new Set(['manifest.json', 'geometry.json', 'redaction-hashes.json']);
@@ -27,6 +47,17 @@ export function hashTextRun(run) {
     return createHash('sha256').update(run, 'utf8').digest('hex').slice(0, REDACTION_HASH_LENGTH);
 }
 
+/**
+ * A redacted hidden attribute's original goes on the hash list when it reads
+ * as copy: non-ASCII letters or several words. A one-word ASCII token
+ * ("true", "ranking_top") is redacted too but not listed, so a class or role
+ * that happens to spell it does not count as a leak.
+ */
+export function isHiddenCopy(text) {
+    const run = normalizeTextRun(text);
+    return Boolean(run) && (/[^\x00-\x7f]/u.test(run) || run.includes(' '));
+}
+
 export function redactionHashList(originalRuns) {
     return {
         algorithm: `sha256, first ${REDACTION_HASH_LENGTH} hex digits`,
@@ -36,17 +67,22 @@ export function redactionHashList(originalRuns) {
 }
 
 const runsOf = values => values.map(normalizeTextRun).filter(Boolean);
-const isVisibleAttribute = (node, attribute) => VISIBLE_ATTRIBUTES.includes(attribute.name) || (node.nodeName === 'meta' && attribute.name === 'content');
 const childrenOf = node => [...(node.childNodes ?? []), ...(node.content ? [node.content] : [])];
 
 function htmlNodeRuns(node) {
     if (node.nodeName === '#text') return runsOf([node.value]);
     if (SKIPPED_ELEMENTS.has(node.nodeName)) return [];
-    const attributes = (node.attrs ?? []).filter(attribute => isVisibleAttribute(node, attribute)).map(attribute => attribute.value);
-    return [...runsOf(attributes), ...childrenOf(node).flatMap(htmlNodeRuns)];
+    const attributes = (node.attrs ?? []).filter(attribute => VISIBLE_ATTRIBUTES.includes(attribute.name) || isHiddenCopy(attribute.value));
+    return [...runsOf(attributes.map(attribute => attribute.value)), ...childrenOf(node).flatMap(htmlNodeRuns)];
 }
 
-/** Text runs of an HTML document: text nodes (declarative shadow DOM included) and visible attributes. */
+/**
+ * Text runs of an HTML document: text nodes (declarative shadow DOM included),
+ * visible attributes and every other attribute value that reads as copy. A
+ * site keeps copy in data-* attributes (a headline in data-realizer-title, a
+ * campaign in data-gtm-label), so the check reads all of them. One-word ASCII
+ * values ("true", an id, a datetime) are vocabulary, not copy.
+ */
 export function textRunsFromHtml(html) {
     return htmlNodeRuns(parse(html, { scriptingEnabled: false }));
 }

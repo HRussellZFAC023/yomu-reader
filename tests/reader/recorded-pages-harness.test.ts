@@ -10,7 +10,7 @@ import { createHarWriter, readHarIndex } from '../../scripts/lib/recorded-har.mj
 import { json3ToSrv3, json3ToVtt } from '../../scripts/lib/recorded-hosts.mjs';
 import { blankPng, imageSize } from '../../scripts/lib/recorded-media.mjs';
 import { captionFlashFrames } from '../../scripts/lib/recorded-page-probes.mjs';
-import { findRedactionLeaks, hashTextRun, normalizeTextRun, redactionHashList, textRunsFromHtml } from '../../scripts/lib/recorded-redaction.mjs';
+import { findRedactionLeaks, hashTextRun, isHiddenCopy, normalizeTextRun, redactionHashList, textRunsFromHtml } from '../../scripts/lib/recorded-redaction.mjs';
 import { aozoraLetterStreams, characterClass, createTextRedactor } from '../../scripts/lib/text-redactor.mjs';
 
 const temporaryDirectories: string[] = [];
@@ -41,6 +41,20 @@ describe('network ledger', () => {
         expect(ledger.summary().hosts['lensfrontend-pa.googleapis.com']).toMatchObject({ requests: 1, beforeInteraction: 1, bodyBytes: 900 });
         expect(() => assertNoRequestsBeforeInteraction(ledger, 'googleapis.com')).toThrow(/crupload/);
         expect(() => assertLedgerCount(ledger, { host: 'yomureader.com' }, { min: 1, max: 1 })).not.toThrow();
+    });
+
+    it('counts the product\'s GM requests however the recording answered them', () => {
+        const ledger = createNetworkLedger({ startedAt: 0 });
+        for (const served of ['recorded-product', 'recording']) {
+            ledger.recordRequest({ channel: 'gm', url: `https://api.jiten.moe/api/${served}`, at: 10, trustedInteractionBefore: false, served: 'pending' });
+            ledger.markServed({ channel: 'gm', url: `https://api.jiten.moe/api/${served}` }, served);
+        }
+        ledger.recordRequest({ channel: 'gm', url: 'https://upload.wikimedia.org/a.jpg', at: 20, trustedInteractionBefore: false, served: 'recording' });
+        ledger.recordRequest({ channel: 'page', url: 'https://upload.wikimedia.org/a.jpg', at: 5, served: 'recording' });
+
+        expect(ledger.requests({ host: 'jiten.moe' })).toHaveLength(2);
+        expect(ledger.requests({ host: 'wikimedia.org' })).toEqual([expect.objectContaining({ channel: 'gm' })]);
+        expect(ledger.requests({ host: 'wikimedia.org', includeRecording: true })).toHaveLength(2);
     });
 
     it('does not count a host that only shares a suffix', () => {
@@ -102,6 +116,21 @@ describe('redaction', () => {
     it('reads text runs from text, visible attributes and declarative shadow roots, not from scripts or styles', () => {
         const runs = textRunsFromHtml('<html><head><title>見出し</title><style>.a{content:"表示"}</style><script>var x = "秘密";</script></head><body><img alt="写真の説明"><p>本文です</p><div><template shadowrootmode="open"><span>影の中</span></template></div></body></html>');
         expect(runs).toEqual(['見出し', '写真の説明', '本文です', '影の中']);
+    });
+
+    it('reads copy kept in any attribute, and not one-word ASCII vocabulary', () => {
+        const runs = textRunsFromHtml('<a class="headline" data-state="true" data-id="a1b2" data-realizer-title="弟を溺愛する母の見出し" data-gtm-label="Spring campaign banner" href="/articles/1"><time datetime="2026-10-10T12:00">10/10</time></a>');
+        expect(runs).toEqual(['弟を溺愛する母の見出し', 'Spring campaign banner']);
+        expect(isHiddenCopy('true')).toBe(false);
+        expect(isHiddenCopy('ranking_top')).toBe(false);
+        expect(isHiddenCopy('ランキング')).toBe(true);
+    });
+
+    it('finds an original run left in a data-* attribute', () => {
+        const dir = temporaryDirectory();
+        const hashList = redactionHashList(['元の記事の見出しです']);
+        writeFileSync(join(dir, 'page.html'), '<a data-realizer-title="元の記事の見出しです">私はその人を常に</a>');
+        expect(findRedactionLeaks(dir, hashList)).toEqual([{ file: 'page.html', hash: hashTextRun('元の記事の見出しです'), length: 10 }]);
     });
 
     it('finds a committed original run and ignores the files the recorder writes itself', () => {
@@ -196,5 +225,14 @@ describe('check-recorded-pages', () => {
         const result = run(leaking);
         expect(result.code).toBe(1);
         expect(result.output).toContain('page.html holds a 8-character text run from the original page');
+    });
+
+    it('fails a credit for a recording that is not committed', () => {
+        const root = temporaryDirectory();
+        writeRecording(root, '私はその人を常に');
+        writeFileSync(join(root, 'ATTRIBUTION.md'), '| `example-redacted` | structure only |\n| `youtube-watch` | not recorded |\n');
+        const result = run(root);
+        expect(result.code).toBe(1);
+        expect(result.output).toContain('ATTRIBUTION.md credits youtube-watch, which is not committed');
     });
 });

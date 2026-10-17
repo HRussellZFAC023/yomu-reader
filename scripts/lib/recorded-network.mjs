@@ -8,7 +8,8 @@
 // GM requests: a test's own answer (to model a failing service), the product
 // traffic recorded for this page, the page's HAR (a manager fetching the
 // page's own picture gets the bytes the page got), docs/public, then the
-// network ('live'/'record') or a failure like a dropped connection.
+// network ('live', or 'record' for the hosts being recorded) or a failure like
+// a dropped connection.
 import { hostMatches, hostOf } from './network-ledger.mjs';
 import { mimeTypeOf } from './recorded-har.mjs';
 import { hostedAnswer, hostedFile } from './recorded-products.mjs';
@@ -67,9 +68,11 @@ async function overrideAnswer(request, scope) {
     return override ? { served: 'override', status: 200, contentType: 'text/plain', ...override, body: Buffer.from(override.body ?? '') } : null;
 }
 
+// 'recorded-product': this page's recorded product traffic; 'recording': the page's own HAR.
 function recordedAnswer(request, scope) {
-    const hit = scope.productTraffic?.lookup(request.method, request.url, request.bodyText) ?? scope.har.lookup(request.method, request.url, request.bodyText);
-    return hit && { served: 'recording', status: hit.status, body: hit.body, contentType: hit.contentType };
+    const product = scope.productTraffic?.lookup(request.method, request.url, request.bodyText);
+    const hit = product ?? scope.har.lookup(request.method, request.url, request.bodyText);
+    return hit && { served: product ? 'recorded-product' : 'recording', status: hit.status, body: hit.body, contentType: hit.contentType };
 }
 
 function hostedGmAnswer(request, scope) {
@@ -81,8 +84,19 @@ const GM_ANSWERERS = [
     overrideAnswer,
     async (request, scope) => recordedAnswer(request, scope),
     async (request, scope) => hostedGmAnswer(request, scope),
-    async (request, scope) => (['live', 'record'].includes(scope.gmNetwork) ? liveGmAnswer(request, scope) : null),
+    async (request, scope) => (goesLive(request, scope) ? liveGmAnswer(request, scope) : null),
 ];
+
+// 'record' sends only the hosts whose answers it keeps: a recording run must
+// not upload a page's pictures to an OCR service or ask jpdb.io for anything.
+function goesLive(request, scope) {
+    if (scope.gmNetwork === 'live') return true;
+    return scope.gmNetwork === 'record' && isRecordHost(request.url, scope);
+}
+
+function isRecordHost(url, scope) {
+    return scope.recordHosts.some(host => hostMatches(hostOf(url), host));
+}
 
 export async function answerGmRequest(raw, scope) {
     const request = { ...raw, method: String(raw.method || 'GET').toUpperCase(), bodyText: gmBodyText(raw.data) };
@@ -109,7 +123,7 @@ async function liveGmAnswer(request, scope) {
 
 // Only hosts whose answers may be committed (recording-targets.mjs names them).
 function keepRecordable(request, answer, scope) {
-    if (!scope.recorder || !scope.recordHosts.some(host => hostMatches(hostOf(request.url), host))) return;
+    if (!scope.recorder || !isRecordHost(request.url, scope)) return;
     scope.recorder.add({ method: request.method, url: request.url, status: answer.status, contentType: answer.contentType, body: answer.body, requestBody: request.bodyText });
 }
 

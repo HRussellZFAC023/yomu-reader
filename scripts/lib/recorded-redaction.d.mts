@@ -1,6 +1,8 @@
 export interface RedactionHashList { algorithm: string; normalization: string; hashes: string[] }
 
 export const VISIBLE_ATTRIBUTES: readonly string[];
+export const STRUCTURAL_ATTRIBUTES: readonly string[];
+export function isHiddenCopy(text: string | null | undefined): boolean;
 export function normalizeTextRun(text: string | null | undefined): string | null;
 export function hashTextRun(run: string): string;
 export function redactionHashList(originalRuns: string[]): RedactionHashList;

@@ -83,7 +83,7 @@ export function hostOf(url) {
 
 // One predicate per filter field; an absent field matches everything.
 const FILTER_TESTS = [
-    (entry, filter) => Boolean(filter.includeRecording) || entry.served !== 'recording',
+    (entry, filter) => Boolean(filter.includeRecording) || !isPageOwnResource(entry),
     (entry, filter) => filter.host === undefined || hostMatches(entry.host, filter.host),
     (entry, filter) => !filter.method || entry.method === String(filter.method).toUpperCase(),
     (entry, filter) => !filter.channel || entry.channel === filter.channel,
@@ -94,11 +94,17 @@ const FILTER_TESTS = [
 /**
  * host: exact host or a parent domain ('googleapis.com' matches
  * 'lensfrontend-pa.googleapis.com'), or a RegExp tested against the host.
- * Entries the recording itself served (the page's own CSS and images) are left
- * out unless includeRecording is set: they are the page, not the product.
+ * The page channel's requests the recording answered (the page's own document,
+ * CSS and images) are left out unless includeRecording is set: they are the
+ * page, not the product. GM requests are the product's own and always count,
+ * whoever answered them.
  */
 function ledgerEntryMatches(entry, filter) {
     return FILTER_TESTS.every(test => test(entry, filter));
+}
+
+function isPageOwnResource(entry) {
+    return entry.channel === 'page' && entry.served === 'recording';
 }
 
 export function hostMatches(host, pattern) {

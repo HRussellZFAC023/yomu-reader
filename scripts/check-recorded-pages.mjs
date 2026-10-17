@@ -3,7 +3,7 @@
 // without a browser:
 //   - every recording has a manifest naming its licence, attribution, document
 //     and HAR, and every body the HAR names is committed (nothing else is);
-//   - ATTRIBUTION.md credits every recording;
+//   - ATTRIBUTION.md credits every recording, and nothing that is not committed;
 //   - a redacted recording (a copyrighted site) carries the recorder's hash
 //     list and NO committed file holds a text run whose hash is on it;
 //   - hand-made files beside the recordings are named *-mechanism-fixture.*.
@@ -36,9 +36,16 @@ function checkRecordedPages(dir) {
     const attribution = readText(path.join(dir, 'ATTRIBUTION.md'));
     return [
         ...(attribution ? [] : ['ATTRIBUTION.md is missing']),
+        ...absentCredits(dir, attribution),
         ...handMadeFileProblems(dir),
         ...recordingDirectories(dir).flatMap(slug => checkRecording(path.join(dir, slug), slug, attribution)),
     ];
+}
+
+// A table row's first cell names what it credits: a recording or a hand-made file.
+function absentCredits(dir, attribution) {
+    const credited = attribution.split('\n').filter(line => line.startsWith('| `')).flatMap(line => [...line.split('|')[1].matchAll(/`([^`]+)`/gu)].map(match => match[1]));
+    return credited.filter(name => !existsSync(path.join(dir, name))).map(name => `ATTRIBUTION.md credits ${name}, which is not committed`);
 }
 
 function handMadeFileProblems(dir) {

@@ -21,6 +21,10 @@ import { captionFlashFrames, kanjiReadingCoverage, readCaptionFrames, startCapti
 import { listRecordings, loadRecording, openRecordedPage, releaseProduct, worktreeProduct } from './lib/recorded-page.mjs';
 
 const TOLERANCE_PX = 2;
+// YouTube refused the recording machine's caption requests (docs/dev/recorded-pages.md,
+// Follow-ups). Until youtube-watch lands the caption case warns; after this date
+// it fails, so the gate the W1 caption items rely on cannot stay missing unnoticed.
+const YOUTUBE_WATCH_DUE = '2026-10-31';
 const STORED_LINES = 24;
 const ENGINES = { chromium, webkit, firefox };
 const args = process.argv.slice(2);
@@ -86,12 +90,17 @@ async function reproduceShippedFailures() {
     const browser = await chromium.launch({ args: ['--autoplay-policy=no-user-gesture-required'] });
     try {
         await reproduceOnWikipedia(browser, product, report);
-        // YouTube refused the recording machine's caption requests (docs/dev/recorded-pages.md, Follow-ups).
         if (listRecordings().includes('youtube-watch')) await reproduceCaptionFlash(browser, product, report);
-        else console.log('SKIP youtube-watch is not recorded yet: node scripts/record-pages.mjs youtube-watch');
+        else missingYouTubeWatch();
     } finally {
         await browser.close();
     }
+}
+
+function missingYouTubeWatch() {
+    const message = `youtube-watch is not recorded, so 2.1.6's caption flash is not reproduced (due ${YOUTUBE_WATCH_DUE}): node scripts/record-pages.mjs youtube-watch`;
+    if (new Date().toISOString().slice(0, 10) > YOUTUBE_WATCH_DUE) check(false, message);
+    else console.log(`${process.env.GITHUB_ACTIONS ? '::warning::' : 'WARN '}${message}`);
 }
 
 async function reproduceOnWikipedia(browser, product, report) {
@@ -104,14 +113,29 @@ async function reproduceOnWikipedia(browser, product, report) {
         const lens = run.ledger.requests({ host: 'lensfrontend-pa.googleapis.com', method: 'POST', beforeInteraction: true });
         report(lens.length >= 1, `${product.label} ja-wikipedia-nihongo: ${lens.length} Lens upload(s) before any interaction (2.1.6 uploads page images)`);
         const coverage = await kanjiReadingCoverage(run.page, { root: '#mw-content-text' });
-        report(coverage.ratio < 0.2, `${product.label} ja-wikipedia-nihongo: ${coverage.withReading}/${coverage.kanjiWords} kanji words with a reading after 15 s (2.1.6: under 20%)`);
-        // The ledger sees a learner's key press as a trusted interaction, and only from then on.
-        await run.page.keyboard.press('Shift');
-        await run.page.waitForTimeout(200);
-        check(run.ledger.interactions().some(interaction => interaction.type === 'keydown') && lens.every(entry => !entry.trustedInteractionBefore), 'ledger: a real key press is recorded as a trusted interaction after the uploads');
+        report(coverage.ratio < 0.2, `${product.label} ja-wikipedia-nihongo: ${coverage.covered}/${coverage.kanjiRuns} visible kanji runs under a painted reading after 15 s (2.1.6: under 20%; ${coverage.painted}/${coverage.kanjiWords} of the product's kanji words painted, ${coverage.dataReadingOnly} with data-reading only)`);
+        await checkTrustedInteraction(run);
     } finally {
         await run.close();
     }
+}
+
+// The ledger marks a request from either channel as after a trusted
+// interaction only once a real key press has happened.
+async function checkTrustedInteraction(run) {
+    const sendProbes = tag => run.page.evaluate(url => {
+        fetch(`${url}-page`).catch(() => undefined);
+        window.GM_xmlhttpRequest?.({ url: `${url}-gm`, onload() {}, onerror() {} });
+    }, `https://ledger-probe.invalid/${tag}`);
+    await sendProbes('before');
+    await run.page.waitForTimeout(200);
+    await run.page.keyboard.press('Shift');
+    await sendProbes('after');
+    await run.page.waitForTimeout(500);
+    const probes = run.ledger.requests({ host: 'ledger-probe.invalid' });
+    const flags = Object.fromEntries(probes.map(entry => [new URL(entry.url).pathname.slice(1), entry.trustedInteractionBefore]));
+    const expected = { 'before-page': false, 'before-gm': false, 'after-page': true, 'after-gm': true };
+    check(JSON.stringify(flags, Object.keys(expected)) === JSON.stringify(expected), `ledger: a real key press makes later page and GM requests count as after a trusted interaction ${JSON.stringify(flags)}`);
 }
 
 async function reproduceCaptionFlash(browser, product, report) {

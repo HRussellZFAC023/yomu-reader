@@ -6,7 +6,7 @@ import { blankPicturesInPage, collectTextSlotsInPage, freezePageInPage, serializ
 import { prepareTtsuBook } from './record-ttsu-host.mjs';
 import { prepareYouTubeWatch, youtubeHostFiles, youtubeHostOriginalRuns } from './record-youtube-host.mjs';
 import { loadRecording } from './recorded-page.mjs';
-import { VISIBLE_ATTRIBUTES, normalizeTextRun, redactionHashList } from './recorded-redaction.mjs';
+import { STRUCTURAL_ATTRIBUTES, VISIBLE_ATTRIBUTES, isHiddenCopy, normalizeTextRun, redactionHashList } from './recorded-redaction.mjs';
 import { loadLazyContent, rejectConsent } from './recording-targets.mjs';
 import { CHARACTER_CLASS_RULES, aozoraLetterStreams, createTextRedactor, redactTextSlotsInPage } from './text-redactor.mjs';
 
@@ -74,12 +74,18 @@ async function freezeLivePage(page, target, { host, responses }) {
     const keys = await selectGeometryKeys(page);
     const liveSignature = await captureGeometrySignature(page, { keys, maxLines: STORED_LINES });
     const frozen = await page.evaluate(freezePageInPage);
-    const texts = await page.evaluate(collectTextSlotsInPage, { visibleAttributes: VISIBLE_ATTRIBUTES });
+    const slots = await page.evaluate(collectTextSlotsInPage, { visibleAttributes: VISIBLE_ATTRIBUTES, structuralAttributes: STRUCTURAL_ATTRIBUTES, cssTexts: stylesheetTexts(responses) });
     const originalHtml = await page.evaluate(serializePageInPage);
+    const texts = slots.filter(slot => slot.kind !== 'hidden' || isHiddenCopy(slot.text)).map(slot => slot.text);
     const originalRuns = [...texts, ...(host ? youtubeHostOriginalRuns(host) : [])].map(normalizeTextRun).filter(Boolean);
     const redacted = target.content === 'redacted' ? await redactLivePage(page, target, originalRuns, host) : null;
-    console.log(`[record-pages]   live: ${keys.length} geometry keys, ${responses.size} resources, ${texts.length} text slots, ${frozen.shadowRoots} shadow roots`);
+    console.log(`[record-pages]   live: ${keys.length} geometry keys, ${responses.size} resources, ${slots.length} text slots (${slots.filter(slot => slot.kind === 'hidden').length} hidden attributes), ${frozen.shadowRoots} shadow roots`);
     return { title: frozen.title, keys, liveSignature, responses, originalHtml, redacted, host, originalRuns };
+}
+
+// Cross-origin stylesheets are closed to the CSSOM; their selectors still decide which attribute values stay.
+function stylesheetTexts(responses) {
+    return [...responses.values()].filter(response => response.resourceType === 'stylesheet').map(response => response.body.toString('utf8'));
 }
 
 async function redactLivePage(page, target, originalRuns, host) {

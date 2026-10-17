@@ -62,7 +62,7 @@ export function loadRecording(slug) {
  *   'replay'  recorded answers (default); anything else fails like a dropped connection
  *   'offline' nothing answers
  *   'live'    the real network (APIRequestContext), for canaries
- *   'record'  the real network, keeping recordHosts' answers for saveProductTraffic()
+ *   'record'  the real network for recordHosts only (kept for saveProductTraffic()); every other host fails
  * pageNetwork: what the page's own unrecorded requests reach ('offline' | 'live').
  * onGmRequest(request) may answer first ({ status, body, contentType }) to model
  *   a failing service; return undefined to fall through.

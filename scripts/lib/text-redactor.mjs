@@ -92,7 +92,7 @@ export function createTextRedactor({ streams, avoidRuns = [] }) {
  * renders at another width retries other stretches of the streams. avoidRuns
  * are original runs a replacement must not spell by chance. Returns the texts.
  */
-export function redactTextSlotsInPage({ streams, rules, avoidRuns = [], maxScan = 120, retries = 12 }) {
+export function redactTextSlotsInPage({ streams, rules, avoidRuns = [], maxScan = 120, retries = 32 }) {
     const slots = window.__yomuTextSlots ?? [];
     const compiled = rules.map(([source, name]) => [new RegExp(source, 'u'), name]);
     const classOf = char => compiled.find(([pattern]) => pattern.test(char))?.[1] ?? null;

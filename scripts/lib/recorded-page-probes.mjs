@@ -3,29 +3,52 @@
 // the readings into numbers a gate can compare.
 
 /**
- * Of the product's words with kanji in their base text (readings excluded),
- * how many carry a reading — painted furigana (rt or a detached reading) or a
- * reading the word knows (data-reading). visibleOnly limits it to the viewport.
+ * How much of the visible Japanese carries a painted reading. The
+ * denominator is the page's own text, not the product's words: every run of
+ * kanji in the text nodes under root (readings excluded), so a build that
+ * wraps fewer words cannot score higher. A run is covered when the product's
+ * word around it paints a reading (rt or a detached reading). The product's
+ * own word counts, and words that only know a reading (data-reading, nothing
+ * painted), are reported beside it. visibleOnly limits it to the viewport.
  */
 export async function kanjiReadingCoverage(page, { root = 'body', visibleOnly = true } = {}) {
     return page.evaluate(({ rootSelector, visible }) => {
         const scope = document.querySelector(rootSelector) ?? document.body;
         const READINGS = 'rt, rp, .jpdb-reader-detached-furi';
-        const inView = word => {
-            const rect = word.getBoundingClientRect();
-            return rect.width > 0 && rect.bottom > 0 && rect.top < innerHeight;
+        const range = document.createRange();
+        const inView = rect => rect.width > 0 && rect.bottom > 0 && rect.top < innerHeight;
+        const textInView = node => {
+            range.selectNodeContents(node);
+            return [...range.getClientRects()].some(inView);
         };
+        const paintsReading = word => [...word.querySelectorAll('rt, .jpdb-reader-detached-furi')].some(element => element.textContent.trim());
+        const isPageText = node => Boolean(node.parentElement) && !node.parentElement.closest(`${READINGS}, script, style, noscript`) && (!visible || textInView(node));
+        const textNodes = [];
+        const walker = document.createTreeWalker(scope, NodeFilter.SHOW_TEXT);
+        for (let node = walker.nextNode(); node; node = walker.nextNode()) textNodes.push(node);
+        const runs = textNodes.filter(isPageText).map(node => ({
+            count: node.nodeValue.match(/\p{Script=Han}+/gu)?.length ?? 0,
+            word: node.parentElement.closest('.jpdb-reader-word'),
+        }));
+        const kanjiRuns = runs.reduce((total, run) => total + run.count, 0);
+        const covered = runs.filter(run => run.word && paintsReading(run.word)).reduce((total, run) => total + run.count, 0);
         const baseText = word => {
             const copy = word.cloneNode(true);
             copy.querySelectorAll(READINGS).forEach(element => element.remove());
             return copy.textContent;
         };
-        const paintsReading = word => [...word.querySelectorAll('rt, .jpdb-reader-detached-furi')].some(element => element.textContent.trim());
-        const hasReading = word => Boolean(word.dataset.reading?.trim()) || paintsReading(word);
-        const words = [...scope.querySelectorAll('.jpdb-reader-word')].filter(word => !visible || inView(word));
-        const kanji = words.filter(word => /\p{Script=Han}/u.test(baseText(word)));
-        const withReading = kanji.filter(hasReading).length;
-        return { words: words.length, kanjiWords: kanji.length, withReading, ratio: kanji.length ? withReading / kanji.length : 0 };
+        const words = [...scope.querySelectorAll('.jpdb-reader-word')].filter(word => !visible || inView(word.getBoundingClientRect()));
+        const kanjiWords = words.filter(word => /\p{Script=Han}/u.test(baseText(word)));
+        const dataReadingOnly = word => !paintsReading(word) && Boolean(word.dataset.reading?.trim());
+        return {
+            kanjiRuns,
+            covered,
+            ratio: kanjiRuns ? covered / kanjiRuns : 0,
+            words: words.length,
+            kanjiWords: kanjiWords.length,
+            painted: kanjiWords.filter(paintsReading).length,
+            dataReadingOnly: kanjiWords.filter(dataReadingOnly).length,
+        };
     }, { rootSelector: root, visible: visibleOnly });
 }
 
