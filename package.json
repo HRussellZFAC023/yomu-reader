@@ -167,6 +167,7 @@
     "smoke:bookwalker-tap-retry": "node scripts/bookwalker-tap-retry-smoke.mjs",
     "manual:overlay-scroll-lock": "node scripts/manual/overlay-scroll-lock-smoke.mjs",
     "smoke:accent-quick-row": "node scripts/accent-quick-row-smoke.mjs",
+    "smoke:review-services": "node scripts/review-services-smoke.mjs",
     "smoke:anki": "node scripts/anki-mining-smoke.mjs",
     "smoke:anki-template": "node scripts/anki-template-render-smoke.mjs",
     "manual:anki-wikipedia": "node scripts/manual/anki-wikipedia-smoke.mjs",

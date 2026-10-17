@@ -3747,6 +3747,10 @@ export class ReaderApp {
             this.toast(uiText(this.settings.interfaceLanguage, 'massReviewNoKey'));
             return;
         }
+        if (!this.settings.jitenMiningEnabled) {
+            this.toast(uiText(this.settings.interfaceLanguage, 'apiSrsActionsDisabled'));
+            return;
+        }
         const words = visibleJitenReviewableWords();
         if (!words.length) {
             this.toast(uiText(this.settings.interfaceLanguage, 'massReviewNoWords'));

@@ -47,10 +47,18 @@ export function hasJitenApiCredential(settings: ApiCredentialSettings): boolean 
  * the connected service grades what it can identify.
  */
 export function chosenWordGradingService(
-    settings: ApiCredentialSettings & Pick<ReaderSettings, 'apiGradingProvider'>,
+    settings: ApiCredentialSettings & Pick<ReaderSettings, 'apiGradingProvider'> & Partial<Pick<ReaderSettings, 'jpdbMiningEnabled' | 'jitenMiningEnabled'>>,
 ): 'jpdb' | 'jiten' | null {
     if (!hasJpdbApiCredential(settings) || !hasJitenApiCredential(settings)) return null;
-    return settings.apiGradingProvider === 'jpdb' ? 'jpdb' : 'jiten';
+    const preferred = settings.apiGradingProvider === 'jpdb' ? 'jpdb' : 'jiten';
+    const other = preferred === 'jpdb' ? 'jiten' : 'jpdb';
+    // Settings shows the preference only while both services grade from よむ;
+    // with one switched off, the other one is the grading service.
+    return !gradesFromYomu(settings, preferred) && gradesFromYomu(settings, other) ? other : preferred;
+}
+
+function gradesFromYomu(settings: Partial<Pick<ReaderSettings, 'jpdbMiningEnabled' | 'jitenMiningEnabled'>>, service: 'jpdb' | 'jiten'): boolean {
+    return (service === 'jpdb' ? settings.jpdbMiningEnabled : settings.jitenMiningEnabled) !== false;
 }
 
 export function effectiveBunproFrontendApiToken(settings: BunproCredentialSettings): string {

@@ -78,7 +78,7 @@ describe('Academy account sync settings', () => {
         const link = panel.querySelector<HTMLAnchorElement>('[data-academy-account-link]')!;
         const input = panel.querySelector<HTMLInputElement>('[data-academy-pairing-code]')!;
 
-        expect(panel.querySelector('[data-academy-account-title]')?.textContent).toBe('Academy account sync');
+        expect(panel.querySelector('[data-academy-account-title]')?.textContent).toBe('Account sync');
         expect(link.href).toBe('https://yomureader.com/academy/?view=profile-sync');
         expect(link.target).toBe('_blank');
         expect(link.rel).toContain('noopener');
@@ -96,7 +96,7 @@ describe('Academy account sync settings', () => {
         localizeSettingsForm(form, 'ja');
 
         const section = form.querySelector<HTMLElement>('[data-academy-reader-account]')!;
-        expect(section.textContent).toContain('Academyアカウント同期');
+        expect(section.textContent).toContain('アカウント同期');
         expect(section.textContent).toContain('1回限りのペアリングコード');
         expect(section.querySelector('[data-action="connect-academy-account"]')?.textContent).toBe('接続');
         expect(section.querySelector('[data-action="sync-academy-account"]')?.textContent).toBe('今すぐ同期');
@@ -119,7 +119,7 @@ describe('Academy account sync settings', () => {
         expect(form.querySelector('[data-academy-reader-connected-controls]')?.hasAttribute('hidden')).toBe(false);
         expect(form.querySelector('[data-academy-reader-status]')?.textContent).toContain('Connected as Henry.');
         expect(form.querySelector('[data-academy-reader-status]')?.textContent).toContain('Last synced');
-        expect(toast).toHaveBeenCalledWith('Academy account connected and progress synced.');
+        expect(toast).toHaveBeenCalledWith('Account connected and よむ deck synced.');
 
         await instance.handle(form, 'create-academy-recovery-code', 'en');
         expect(accountSync.recovery).toHaveBeenCalledOnce();

@@ -44,8 +44,8 @@ interface StoredYomuSrsIndex {
 export class LocalYomuSrsStorageError extends Error {
     constructor(options?: ErrorOptions) {
         super(isStorageLeaseLapsed(options?.cause)
-            ? 'Your Academy deck was not saved because saving was interrupted. Try again.'
-            : 'Your Academy deck could not be saved. Browser storage may be full. Free some site storage, then try again.', options);
+            ? 'Your よむ deck was not saved because saving was interrupted. Try again.'
+            : 'Your よむ deck could not be saved. Browser storage may be full. Free some site storage, then try again.', options);
         this.name = 'LocalYomuSrsStorageError';
     }
 }

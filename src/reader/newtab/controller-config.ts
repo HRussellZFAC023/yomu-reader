@@ -1,6 +1,6 @@
 import type { CardState } from '../app/types';
 import type { NewTabConcreteSource } from './source';
-import { ACADEMY_SRS_LABEL } from '../app/constants';
+import { YOMU_DECK_LABEL } from '../app/constants';
 
 export { CARD_STATE_LABEL_KEYS as SEARCH_CARD_STATE_LABEL_KEYS } from '../app/i18n';
 
@@ -24,11 +24,14 @@ export const NEW_TAB_WORD_STATE_CLASSES: CardState[] = [
     'unparsed',
 ];
 
+/** What 2.1 named the よむ deck in the source labels it cached for offline Study. */
+export const LEGACY_YOMU_DECK_LABEL = 'Academy';
+
 export const NEW_TAB_SOURCE_LABELS: Record<NewTabConcreteSource, string> = {
     jpdb: 'JPDB',
     bunpro: 'Bunpro',
     wanikani: 'WaniKani',
-    'yomu-local': ACADEMY_SRS_LABEL,
+    'yomu-local': YOMU_DECK_LABEL,
     anki: 'Anki',
     dictionary: 'Dictionary',
 };

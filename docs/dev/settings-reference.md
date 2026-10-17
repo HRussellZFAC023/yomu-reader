@@ -18,27 +18,30 @@ This page is generated from the reader source, so it stays in step with the vers
 
 Some rows say Not yet described. That marks a real stored setting whose wording is still to be written, shown as a gap rather than filled with a guess.
 
-## API
+## Reviews
 
 | Setting | What it does | Default | Stored as |
 | --- | --- | --- | --- |
 | API key | — | empty | `apiKey` |
-| Bunpro frontend API token | — | empty | `bunproFrontendApiToken` |
+| Bunpro token | — | empty | `bunproFrontendApiToken` |
 | Not yet described | — | empty | `bunproFrontendApiTokenExpiresAt` |
-| WaniKani personal access token | — | empty | `wanikaniApiToken` |
+| WaniKani token | — | empty | `wanikaniApiToken` |
 | Enhance JPDB and Jiten pages | — | on | `jpdbPageEnhancementsEnabled` |
 | Add sources to word/search pages | — | on | `jpdbPageWordEnhancementsEnabled` |
 | Add sources to kanji pages | — | on | `jpdbPageKanjiEnhancementsEnabled` |
 | New tab JPDB deck | — | All study decks (`all`) | `newTabJpdbDeck` |
-| Allow API review/deck changes | — | on | `jpdbMiningEnabled` |
-| Allow Bunpro review/mining | — | on | `bunproMiningEnabled` |
-| Allow WaniKani review (due assignments only) | — | on | `wanikaniReviewEnabled` |
+| Grade from よむ | — | on | `jpdbMiningEnabled` |
+| Grade from よむ | — | on | `jitenMiningEnabled` |
+| Grade from よむ | — | on | `bunproMiningEnabled` |
+| Grade from よむ | — | on | `wanikaniReviewEnabled` |
+| Enable よむ deck | — | on | `yomuLocalSrsEnabled` |
 | Preferred grading service | — | Jiten (`jiten`) | `apiGradingProvider` |
 | Mining deck | — | FORQ (`forq`) | `miningDeck` |
 | Never forget deck | — | Saved: never-forget (`never-forget`) | `neverForgetDeck` |
 | Blacklist deck | — | Saved: blacklist (`blacklist`) | `blacklistDeck` |
 | Also copy JPDB adds to forq | — | off | `addToForq` |
 | Show review buttons | — | on | `enableReviews` |
+| Review rating scale | — | off | `twoButtonReviews` |
 
 ## Appearance
 
@@ -77,7 +80,7 @@ Some rows say Not yet described. That marks a real stored setting whose wording 
 | Use Anki cards in Study | — | off | `newTabAnkiEnabled` |
 | Not yet described | — | empty list | `newTabAnkiDisabledDecks` |
 | Study review source | — | Automatic (`auto`) | `newTabSource` |
-| API review mode | — | Automatic (`auto`) | `newTabJpdbReviewMode` |
+| JPDB review mode | — | Automatic (`auto`) | `newTabJpdbReviewMode` |
 | Kanji keyword source | — | Automatic (`auto`) | `newTabKanjiKeywordSource` |
 | Enable sentence parsing on Study | — | on | `newTabParsingEnabled` |
 | Show sentence on word fronts | — | on | `newTabFrontSentenceEnabled` |
@@ -89,8 +92,6 @@ Some rows say Not yet described. That marks a real stored setting whose wording 
 | Swipe cards to grade (left = fail, right = pass) | — | on | `newTabSwipeReviews` |
 | Show Study keyboard shortcut hints | — | on | `newTabShortcutHintsEnabled` |
 | Auto-grade kanji drawing | — | on | `newTabKanjiAutogradeEnabled` |
-| Enable Academy | — | on | `yomuLocalSrsEnabled` |
-| Review rating scale | — | off | `twoButtonReviews` |
 
 ## Audio (Media tab)
 
@@ -292,7 +293,7 @@ Filter YouTube for Japanese.
 | Show image on front | — | on | `ankiFrontImage` |
 | Mobile Anki add-note fallback | — | off | `ankiMobileHandoff` |
 | Not yet described | — | `yomu` | `ankiTags` |
-| Also add to Anki when adding via API | — | off | `ankiMineWithJpdb` |
+| Also add to Anki when adding to JPDB or Jiten | — | off | `ankiMineWithJpdb` |
 | Attach context image when possible | — | on | `ankiCaptureScreenshot` |
 | Not yet described | — | empty | `ankiFieldMappings` |
 

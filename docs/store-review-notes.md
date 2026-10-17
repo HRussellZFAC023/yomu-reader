@@ -26,7 +26,7 @@ Study is a normal bundled extension page. The user opens it deliberately from th
 - `contextMenus`/`menus` exposes reader shortcuts.
 - The package does not request the `tabs` browsing-history permission.
 - `identity` and the Google Drive application-data scope are included only in a Chrome build produced with an approved OAuth client ID. They are absent from ordinary packages.
-- Firefox declares required `websiteContent` and optional `authenticationInfo` data categories. Its native account-information prompt is requested directly from Save, credential import, or **Connect** for Academy account sync on the bundled Study settings page. Ordinary content scripts cannot call Firefox's permission API, so credential saves, settings imports, and first-time Reader pairing fail closed there and tell the user to open Study. The Bunpro page helper does not read the token in the Firefox extension; it opens Study settings instead. If permission is denied, the credential is not stored and that integration remains off.
+- Firefox declares required `websiteContent` and optional `authenticationInfo` data categories. Its native account-information prompt is requested directly from Save, credential import, or **Connect** for Account sync on the bundled Study settings page. Ordinary content scripts cannot call Firefox's permission API, so credential saves, settings imports, and first-time Reader pairing fail closed there and tell the user to open Study. The Bunpro page helper does not read the token in the Firefox extension; it opens Study settings instead. If permission is denied, the credential is not stored and that integration remains off.
 
 ## Optional account sync
 

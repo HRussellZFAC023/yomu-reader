@@ -134,6 +134,7 @@ export function newTabSourceCacheSignature(identity: NewTabSourceCacheIdentity):
         targetLanguage: identity.targetLanguage,
         providerContext: newTabProviderContext(settings),
         jpdbMiningEnabled: settings.jpdbMiningEnabled,
+        jitenMiningEnabled: settings.jitenMiningEnabled,
         jpdbReviewMode: settings.newTabJpdbReviewMode,
         jpdbDeck: settings.newTabJpdbDeck,
         activeJpdbDeck: identity.activeJpdbDeck,

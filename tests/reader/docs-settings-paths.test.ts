@@ -43,7 +43,7 @@ function namedSettingsTabs(text: string): string[] {
 describe('docs name only Settings tabs that exist', () => {
     it('finds no stale panel names in the public docs or the README', () => {
         const tabs = settingsTabLabels();
-        expect(tabs).toEqual(new Set(['Appearance', 'Backup & sync', 'API', 'Sources', 'Media', 'Mining', 'Study', 'Shortcuts', 'Help']));
+        expect(tabs).toEqual(new Set(['Appearance', 'Backup & sync', 'Reviews', 'Sources', 'Media', 'Mining', 'Study', 'Shortcuts', 'Help']));
         const files = [path.join(ROOT, 'README.md'), ...publicMarkdown(path.join(ROOT, 'docs'))];
         const stale = files.flatMap(file => namedSettingsTabs(readFileSync(file, 'utf8'))
             .filter(tab => !tabs.has(tab))

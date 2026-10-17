@@ -81,9 +81,9 @@ describe('prepared batch mutations', () => {
 
     it('does not display review grades for a disabled resolved provider or blocked card', () => {
         const f = fixture();
-        f.settings = { ...f.settings, jpdbMiningEnabled: false };
+        f.settings = { ...f.settings, jpdbMiningEnabled: false, jitenMiningEnabled: false };
         expect(f.batch.prepare([{ card: card() }])[0]!.grades).toEqual([]);
-        f.settings = { ...f.settings, jpdbMiningEnabled: true };
+        f.settings = { ...f.settings, jpdbMiningEnabled: true, jitenMiningEnabled: true };
         expect(f.batch.prepare([{ card: card(42, { cardState: ['blacklisted'] }) }])[0]!.grades).toEqual([]);
     });
 

@@ -6,6 +6,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { deflateSync } from 'node:zlib';
 import { _electron as electron } from 'playwright';
+import { typeIntoFocusedControl } from './lib/smoke-test-helpers.mjs';
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const appRoot = path.resolve(scriptDir, '..');
@@ -789,7 +790,7 @@ async function inDeckDropdownWhileEnrichmentLands(overlay, leave) {
             `Desktop popup rebuilt under the open deck dropdown when enrichment landed: ${JSON.stringify(during)}`);
 
         // Typing a deck's name browses to it and saves nothing.
-        await overlay.keyboard.type('Default');
+        await typeIntoFocusedControl(overlay, 'よむ deck');
         await overlay.waitForTimeout(600);
         assertSmoke(await savedToDeckToast(overlay).count() === 0 && (await wordsSavedToLocalDeck(overlay)).length === 0,
             'Typing in the closed deck dropdown saved the word before the learner pressed Enter.');
@@ -882,7 +883,7 @@ async function assertShiftTabOutOfDeckDropdownThenSave(overlay, popup) {
     await overlay.keyboard.press('Tab');
     assertSmoke(await popup.evaluate(root => document.activeElement?.matches('.jpdb-reader-deck-select') === true && root.contains(document.activeElement)),
         `Tab from ${beforeNow} did not return to the rebuilt deck dropdown.`);
-    await overlay.keyboard.type('Default');
+    await typeIntoFocusedControl(overlay, 'よむ deck');
     await overlay.keyboard.press('Enter');
     await savedToDeckToast(overlay).first().waitFor({ state: 'attached', timeout: 15_000 });
     const saved = await wordsSavedToLocalDeck(overlay);

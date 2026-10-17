@@ -1,4 +1,4 @@
-import { ACADEMY_SRS_LABEL, ANKI_SOURCE_ID } from '../app/constants';
+import { YOMU_DECK_LABEL, ANKI_SOURCE_ID } from '../app/constants';
 import { collectAnkiReviewTargetLabels, compactAnkiReviewTargetLabel } from '../anki/review-targets';
 import { renderAnkiActionRow, renderAnkiExistingSection, renderAnkiNewCardPreview, renderReviewButtons } from '../anki/render';
 import { gradeKeyHintAttributes, reviewGradeProfile, reviewGradeScale, type ReviewGradeProfile } from './grade-scale';
@@ -9,7 +9,7 @@ import { renderCardSpellingWithFurigana, renderHeadwordComponentPitchSpans } fro
 import { escapeHtml, renderRuby } from '../dom/index';
 import { renderKanjiDefinitions } from '../sources/definition-render';
 import { cardStateLabel, formatUiText, uiText } from '../app/i18n';
-import { providerCardStateLabel } from '../app/provider-state-label';
+import { providerStatusText } from '../app/provider-state-label';
 import { speakerIcon } from '../ui/icons';
 import { loadMiningContext } from '../study/mining-context';
 import { yomuKanjiStudyCompanion } from '../companions/registry';
@@ -472,7 +472,7 @@ export class CardPopoverRenderer {
         if (target.kind === 'jiten') return { id: 'jiten', label: 'Jiten', deckSource: 'jiten', hasApiKey: true };
         if (target.kind === 'bunpro') return { id: 'bunpro', label: 'Bunpro', deckSource: 'bunpro', hasApiKey: true };
         if (target.kind === 'wanikani') return { id: 'wanikani', label: 'WaniKani', deckSource: 'wanikani', hasApiKey: true };
-        if (target.kind === 'yomu-local') return { id: 'yomu-local', label: ACADEMY_SRS_LABEL, deckSource: 'yomu-local', hasApiKey: true };
+        if (target.kind === 'yomu-local') return { id: 'yomu-local', label: YOMU_DECK_LABEL, deckSource: 'yomu-local', hasApiKey: true };
         return fallback;
     }
 
@@ -652,7 +652,7 @@ function renderPopoverFrequencyMeta(card: JPDBCard, provider: ApiSrsProviderView
 
 function renderPopoverProviderMeta(card: JPDBCard, provider: ApiSrsProviderView | null, state: string, settings: ReaderSettings, trusted: boolean): string {
     if (!provider || !popoverProviderStatusIsVisible(card, provider, trusted)) return '';
-    return `<span class="jpdb-reader-provider-status"><span class="jpdb-reader-state-dot jpdb-${state}"></span>${escapeHtml(provider.label)} ${escapeHtml(providerCardStateLabel(provider.id, state, settings.interfaceLanguage))}</span>`;
+    return `<span class="jpdb-reader-provider-status"><span class="jpdb-reader-state-dot jpdb-${state}"></span>${escapeHtml(providerStatusText(provider, state, settings.interfaceLanguage))}</span>`;
 }
 
 function popoverProviderStatusIsVisible(card: JPDBCard, provider: ApiSrsProviderView, trusted: boolean): boolean {

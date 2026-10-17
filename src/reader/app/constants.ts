@@ -15,7 +15,8 @@ export const WORD_COLOR_HIDE_STATE_GROUPS = [...FURIGANA_HIDE_STATE_GROUPS, 'ign
 
 export const APP_NAME = 'よむ';
 export const APP_PUCK = 'よむ';
-export const ACADEMY_SRS_LABEL = 'Academy';
+/** The built-in local deck, as learners see it (stored provider id stays yomu-local). */
+export const YOMU_DECK_LABEL = 'よむ deck';
 const APP_SLUG = 'yomu';
 export const APP_REPOSITORY_NAME = `${APP_SLUG}-reader`;
 export const SETTINGS_TITLE = `${APP_NAME} Settings`;
@@ -45,7 +46,7 @@ export const NEW_TAB_VERSION_URL = `${NEW_TAB_PAGE_URL}version.json`;
 export const VIDEO_PLAYER_PAGE_URL = `${DOCS_BASE_URL}video-player/`;
 export const PDF_READER_PAGE_URL = `${DOCS_BASE_URL}pdf-reader/`;
 export const SUPPORT_COPY = 'よむ is free: popup lookup, dictionaries, OCR, subtitles, study and Anki in one place.';
-export const SUPPORT_COPY_EXTRA = 'Donations are optional and help cover development, devices, services, maintenance, and API costs.';
+export const SUPPORT_COPY_EXTRA = 'Donations are optional and help cover development, devices, services, and maintenance.';
 const NADESHIKO_URL = 'https://nadeshiko.co/';
 export const NADESHIKO_DEVELOPER_URL = `${NADESHIKO_URL}user/developer`;
 export const USERSCRIPT_HTTP_BRIDGE_READY_EVENT = 'yomu-userscript-http-bridge-ready';

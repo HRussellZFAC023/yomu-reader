@@ -71,7 +71,7 @@ describe('A20 status colour has a source or an explanation', () => {
     });
 
     it('names the local deck rather than JPDB when the local deck is the source', () => {
-        expect(statusColorSourceLabel(keyless({ yomuLocalSrsEnabled: true }))).toBe('Academy');
+        expect(statusColorSourceLabel(keyless({ yomuLocalSrsEnabled: true }))).toBe('よむ deck');
         expect(statusColorSourceLabel(keyless({ apiKey: 'jpdb-key', yomuLocalSrsEnabled: true }))).toBe('JPDB');
     });
 

@@ -580,7 +580,7 @@ describe('new tab review — offline grades, Bunpro & dual-source grading', () =
         try {
             await (controller as unknown as { gradeCurrentCard(grade: JPDBGrade): Promise<boolean> }).gradeCurrentCard('okay');
             expect(review).toHaveBeenCalledTimes(1);
-            expect(toast).toHaveBeenCalledWith('Your Academy deck was not saved because saving was interrupted. Try again.');
+            expect(toast).toHaveBeenCalledWith('Your よむ deck was not saved because saving was interrupted. Try again.');
             expect(toast).not.toHaveBeenCalledWith(expect.stringContaining('storage may be full'));
             expect(localStorage.getItem(NEW_TAB_GRADE_QUEUE_KEY)).toBeNull();
         } finally {

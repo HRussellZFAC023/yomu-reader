@@ -559,7 +559,10 @@ export interface ReaderSettings {
     popupFontFamily: string;
     popupFontWeight: number;
     miningDeck: string;
+    /** "Grade from よむ" for JPDB: grades and deck changes may reach JPDB. */
     jpdbMiningEnabled: boolean;
+    /** "Grade from よむ" for Jiten. Before 2.2 jpdbMiningEnabled gated both. */
+    jitenMiningEnabled: boolean;
     bunproMiningEnabled: boolean;
     wanikaniReviewEnabled: boolean;
     yomuLocalSrsEnabled: boolean;

@@ -1,6 +1,6 @@
 import { isRecord } from '../core/object-utils';
 import { primaryCardState } from '../cards/state';
-import { ACADEMY_SRS_LABEL } from './constants';
+import { YOMU_DECK_LABEL } from './constants';
 import type { CardState, JPDBCard } from './types';
 
 export type StatsSourceId = 'combined' | 'jpdb' | 'jiten' | 'bunpro' | 'wanikani' | 'yomu-local' | 'anki';
@@ -141,7 +141,7 @@ export function emptyStatsDashboardSnapshot(): StatsDashboardSnapshot {
     const jiten = emptyStatsSource('jiten', 'Jiten', 'Add Jiten data to see stats.');
     const bunpro = emptyStatsSource('bunpro', 'Bunpro', 'Connect Bunpro to see stats.');
     const wanikani = emptyStatsSource('wanikani', 'WaniKani', 'Connect WaniKani to see stats.');
-    const yomuLocal = emptyStatsSource('yomu-local', ACADEMY_SRS_LABEL, 'Academy reviews are ready.');
+    const yomuLocal = emptyStatsSource('yomu-local', YOMU_DECK_LABEL, `${YOMU_DECK_LABEL} reviews are ready.`);
     const anki = emptyStatsSource('anki', 'Anki', 'Connect Anki to see stats.');
     return {
         jpdb,

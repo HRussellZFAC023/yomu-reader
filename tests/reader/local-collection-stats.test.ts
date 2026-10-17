@@ -180,7 +180,7 @@ it('opens Library from the Saved tile, and Add to review moves the word to Cards
         expect(root.classList.contains('jpdb-reader-newtab-search-mode')).toBe(true);
         // Library names the words as Stats did, and shows Academy's words.
         expect([libraryState(root, '読む'), libraryState(root, '書く')]).toEqual(['Saved', 'Saved']);
-        expect(pressedChips(root)).toEqual(['Academy 2', 'Saved 2']);
+        expect(pressedChips(root)).toEqual(['よむ deck 2', 'Saved 2']);
         addToReview.click();
         await vi.waitFor(() => expect(libraryAddToReview(root, '読む')).toBeNull());
         expect(libraryAddToReview(root, '書く')).not.toBeNull();
@@ -291,7 +291,7 @@ it('opens Library on the saved words whatever chip or search narrowed it before'
             expect(libraryAddToReview(root, '書く')).not.toBeNull();
             expect(libraryAddToReview(root, '見る')).not.toBeNull();
         });
-        expect(pressedChips(root)).toEqual(['Academy 3', 'Saved 2']);
+        expect(pressedChips(root)).toEqual(['よむ deck 3', 'Saved 2']);
         // The word already in review is not one the tile promised.
         expect(libraryRow(root, '読む')).toBeUndefined();
         expect(root.querySelector<HTMLInputElement>('[data-newtab-search-input]')?.value).toBe('');
@@ -313,7 +313,7 @@ it('opens Library on the saved words behind more than a page of scheduled Academ
         await vi.waitFor(() => expect(libraryAddToReview(root, '書く')).not.toBeNull());
         expect(libraryAddToReview(root, '見る')).not.toBeNull();
         expect(root.querySelectorAll('.jpdb-reader-newtab-browse-item')).toHaveLength(2);
-        expect(pressedChips(root)).toEqual(['Academy 57', 'Saved 2']);
+        expect(pressedChips(root)).toEqual(['よむ deck 57', 'Saved 2']);
     } finally { controller.destroy(); }
 });
 

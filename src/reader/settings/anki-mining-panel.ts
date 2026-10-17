@@ -24,6 +24,7 @@ function escapedUiText(language: InterfaceLanguage, key: SettingsTextKey): strin
 }
 
 export function renderAnkiMiningSettingsPanel(settings: ReaderSettings, ankiStatus: AnkiStatusRender): string {
+    const apiAdds = settings.jpdbMiningEnabled || settings.jitenMiningEnabled;
     return `
             <fieldset id="jpdb-reader-settings-panel-mining" role="tabpanel" data-settings-panel="mining" data-legend-key="anki" aria-describedby="settings-help-anki" hidden>
                 <legend>Anki</legend>
@@ -34,7 +35,7 @@ export function renderAnkiMiningSettingsPanel(settings: ReaderSettings, ankiStat
                     <div class="jpdb-reader-anki-main">
                         <div class="grid jpdb-reader-anki-connection-grid">
                             ${checkbox('ankiEnabled', 'Enable Anki mining', settings.ankiEnabled)}
-                            ${checkbox('ankiMineWithJpdb', 'Also add to Anki when adding via API', settings.jpdbMiningEnabled && settings.ankiMineWithJpdb, { disabled: !settings.jpdbMiningEnabled })}
+                            ${checkbox('ankiMineWithJpdb', 'Also add to Anki when adding to JPDB or Jiten', apiAdds && settings.ankiMineWithJpdb, { disabled: !apiAdds })}
                             ${checkbox('ankiCaptureScreenshot', 'Attach context image when possible', settings.ankiCaptureScreenshot)}
                             ${checkbox('ankiMobileHandoff', 'Mobile Anki add-note fallback', settings.ankiMobileHandoff)}
                             ${input('ankiConnectUrl', 'AnkiConnect URL', settings.ankiConnectUrl)}

@@ -25,7 +25,7 @@ import { isJitenBackedCard } from '../cards/srs-providers';
 import type { CardRenderData, CardRenderDataLoadOptions } from '../cards/render-data';
 import { isCardHighlightWord } from '../cards/highlight';
 import { loadCachedParsedTokens, type ParsedTokenCacheEntry } from '../core/parsed-token-cache';
-import { ACADEMY_SRS_LABEL, APP_NAME, DISCORD_INVITE_URL, DOCS_BASE_URL, GITHUB_REPOSITORY_URL, IMMERSION_KIT_SOURCE_ID, JITEN_DEFINITION_SOURCE_ID, JPDB_DEFINITION_SOURCE_ID, SUPPORT_STATUS_URL } from '../app/constants';
+import { YOMU_DECK_LABEL, APP_NAME, DISCORD_INVITE_URL, DOCS_BASE_URL, GITHUB_REPOSITORY_URL, IMMERSION_KIT_SOURCE_ID, JITEN_DEFINITION_SOURCE_ID, JPDB_DEFINITION_SOURCE_ID, SUPPORT_STATUS_URL } from '../app/constants';
 import { studyShellNavRoutes, type HostedShellNavLink } from '../app/site-nav';
 import { escapeHtml, htmlToFirstElement, renderedWordPrivateValue, setInnerHtml } from '../dom';
 import { el, replaceChildrenWith } from '../dom/builder';
@@ -347,6 +347,7 @@ import {
     NEW_TAB_PUBLIC_STAGE_TIMEOUT_MS,
     NEW_TAB_REMOTE_SOURCE_TIMEOUT_MS,
     NEW_TAB_REVIEW_SOURCE_TIMEOUT_MS,
+    LEGACY_YOMU_DECK_LABEL,
     NEW_TAB_SOURCE_LABELS,
     NEW_TAB_BROWSE_DECK_LIMIT,
     NEW_TAB_UNDO_REVIEW_WINDOW_MS,
@@ -1228,7 +1229,13 @@ export class NewTabController {
         if (label === 'Cached reviews') return this.text('cachedReviews');
         if (label === 'No source') return this.text('noSource');
         if (label === 'JPDB live review') return `JPDB ${this.text('liveReview')}`;
-        return label;
+        // Caches written before 2.2 name the よむ deck by its old name.
+        return label.replace(LEGACY_YOMU_DECK_LABEL, YOMU_DECK_LABEL);
+    }
+
+    /** The source label as the learner reads it; the stored one stays the parse key. */
+    private displaySourceLabel(label: string): string {
+        return label.replace(YOMU_DECK_LABEL, this.text('newTabYomuLocal'));
     }
 
     private syncProviderContext(settings: ReaderSettings): boolean {
@@ -1358,7 +1365,7 @@ export class NewTabController {
     private practiceSelection(): { title: string; material: PracticeMaterial[] } {
         const cards = new Map(this.visibleWords.filter(newTabCardMatchesActiveTarget).map(card => [this.cardSelectionKey(card), card]));
         return {
-            title: this.sourceId === 'starter-words' ? this.text('starterWords') : this.sourceLabel || uiText(this.language(), 'practiceTitle'),
+            title: this.sourceId === 'starter-words' ? this.text('starterWords') : this.displaySourceLabel(this.sourceLabel) || uiText(this.language(), 'practiceTitle'),
             material: [...cards].map(([id, card]) => ({
                 id, language: newTabCardTarget(card).language, spelling: card.spelling, reading: newTabCardReading(card),
                 meaning: firstCardMeaning(card), sentence: this.recallSentenceFromCard(card),
@@ -3962,7 +3969,7 @@ export class NewTabController {
         if (source === 'jpdb') return result.sourceLabel.startsWith('JPDB') || result.sourceLabel.startsWith('Jiten');
         if (source === 'bunpro') return result.sourceLabel.startsWith('Bunpro');
         if (source === 'wanikani') return result.sourceLabel.startsWith('WaniKani');
-        if (source === 'yomu-local') return result.sourceLabel.startsWith(ACADEMY_SRS_LABEL);
+        if (source === 'yomu-local') return result.sourceLabel.startsWith(YOMU_DECK_LABEL);
         return result.sourceLabel === this.text('dictionary');
     }
 
@@ -5109,7 +5116,7 @@ export class NewTabController {
         if (summary.hasJiten) add('Jiten');
         if (summary.hasJpdb) add('JPDB');
         if (summary.hasBunpro) add('Bunpro');
-        if (summary.hasYomuLocal) add(ACADEMY_SRS_LABEL);
+        if (summary.hasYomuLocal) add(this.text('yomuDeck'));
         if (summary.hasAnki) add(summary.hasJpdb || summary.hasJiten || summary.hasBunpro || summary.hasYomuLocal ? 'Anki' : this.ankiReviewSourceLabel(card));
         return labels;
     }
@@ -5544,7 +5551,7 @@ export class NewTabController {
         if (source === 'jpdb') return this.jpdbSourceToggleLabel();
         if (source === 'bunpro') return 'Bunpro';
         if (source === 'wanikani') return 'WaniKani';
-        if (source === 'yomu-local') return ACADEMY_SRS_LABEL;
+        if (source === 'yomu-local') return this.text('yomuDeck');
         if (source === 'anki') return 'Anki';
         return this.text('dictionary');
     }
@@ -7817,7 +7824,7 @@ export class NewTabController {
                 jiten: 'Jiten',
                 bunpro: 'Bunpro',
                 wanikani: 'WaniKani',
-                yomuLocal: ACADEMY_SRS_LABEL,
+                yomuLocal: this.text('yomuDeck'),
                 anki: 'Anki',
             }),
             renderBrowseChips(cards, this.browseFilters, language, this.text('browseAllChip')),
@@ -8170,7 +8177,7 @@ export class NewTabController {
     }
 
     private apiGradeTargetShortLabel(card: JPDBCard): string {
-        return newTabApiGradeTargetShortLabel(this.reviewSourceSummary(card));
+        return newTabApiGradeTargetShortLabel(this.reviewSourceSummary(card), this.text('newTabYomuLocal'));
     }
 
     private ankiReviewTargetLabel(card: JPDBCard): string {

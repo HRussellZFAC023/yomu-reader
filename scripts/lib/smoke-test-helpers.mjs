@@ -7,8 +7,28 @@ export async function choosePrivateDeck(page, picker, prefix) {
     await picker.waitFor({ state: 'visible', timeout: 15_000 });
     await picker.focus();
     if (!prefix) throw new Error('A native deck choice needs its visible label prefix');
-    await page.keyboard.type(prefix);
+    await typeIntoFocusedControl(page, prefix);
     await page.keyboard.press('Enter');
+}
+
+/**
+ * Types as a keyboard does into the focused native control, so a closed
+ * <select> browses to the option the text names. Playwright sends characters
+ * outside the US layout (the よむ deck's よ) as inserted text, which a select
+ * ignores; Chromium's DevTools protocol sends them as the key events a Japanese
+ * keyboard produces.
+ */
+export async function typeIntoFocusedControl(page, text) {
+    if (/^[\x20-\x7e]*$/u.test(text)) return page.keyboard.type(text);
+    const client = await page.context().newCDPSession(page);
+    try {
+        for (const character of text) {
+            await client.send('Input.dispatchKeyEvent', { type: 'keyDown', key: character, text: character, unmodifiedText: character });
+            await client.send('Input.dispatchKeyEvent', { type: 'keyUp', key: character });
+        }
+    } finally {
+        await client.detach().catch(() => undefined);
+    }
 }
 
 export async function installUserscriptCssResource(page, cssPath, resourceName = 'yomuCss') {

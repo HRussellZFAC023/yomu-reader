@@ -252,7 +252,7 @@ describe('reader helpers', () => {
             },
         });
 
-        await expect(controller.reviewGrade('okay', card)).rejects.toThrow('API mining actions are disabled in settings.');
+        await expect(controller.reviewGrade('okay', card)).rejects.toThrow('Grade from よむ is off for this service in Settings.');
         expect(reviewCard).not.toHaveBeenCalled();
         expect(invalidateCardData).not.toHaveBeenCalled();
         expect(onAnkiStatusChanged).not.toHaveBeenCalled();
@@ -499,7 +499,7 @@ describe('reader helpers', () => {
         // The lone save sits in the row: no drawer folds it away.
         expect(collect.closest('.jpdb-reader-mining-panel')).toBeNull();
         expect(document.querySelector('[data-action="mining-collapse"]')).toBeNull();
-        expect(readCardUiCommandCapability(collect)?.choices).toEqual([{ source: 'yomu-local', id: 'yomu-local', label: 'Default' }]);
+        expect(readCardUiCommandCapability(collect)?.choices).toEqual([{ source: 'yomu-local', id: 'yomu-local', label: 'よむ deck' }]);
         expect(document.querySelector('[data-deck-source], [data-deck-id], [data-add-deck-select]')).toBeNull();
     });
 

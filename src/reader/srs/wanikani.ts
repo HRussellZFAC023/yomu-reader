@@ -182,7 +182,7 @@ interface WanikaniReviewInput {
 
 // WaniKani grades on correct/incorrect counts per component, not a 5-point
 // scale. This is a deliberately conservative mapping documented in the
-// settings copy (see i18n wanikaniGradeMappingHelp): anything short of a
+// Study's grade copy (see i18n wanikaniGradeMappingHelp): anything short of a
 // clean pass records one incorrect attempt on both components a subject has.
 // A radical has no reading component and must never record a reading error.
 export function wanikaniReviewInput(card: YomuSrsReviewable, grade: YomuSrsReviewRequest['grade']): WanikaniReviewInput {

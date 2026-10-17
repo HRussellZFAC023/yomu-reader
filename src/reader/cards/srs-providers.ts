@@ -13,7 +13,7 @@ import type {
     YomuSrsReviewableKind,
 } from '../srs/types';
 import { applyYomuLocalReviewableToCard } from '../srs/local-yomu-state';
-import { ACADEMY_SRS_LABEL } from '../app/constants';
+import { YOMU_DECK_LABEL } from '../app/constants';
 import { activeLearningTargetLanguage } from '../languages';
 
 export type ApiSrsProviderId = 'jpdb' | 'jiten' | 'bunpro' | 'wanikani' | 'yomu-local';
@@ -129,7 +129,7 @@ function apiSrsProviderView(id: ApiSrsProviderId, settings: ReaderSettings): Api
     if (id === 'yomu-local') {
         return {
             id: 'yomu-local',
-            label: ACADEMY_SRS_LABEL,
+            label: YOMU_DECK_LABEL,
             deckSource: 'yomu-local',
             hasApiKey: settings.yomuLocalSrsEnabled,
         };
@@ -183,10 +183,7 @@ export function apiSrsProviderViewForCard(
     // jiten-backed via keyless enrichment, so the fallback must be gated on the
     // key actually being set. A stored 'bunpro' preference can never grade a
     // card without a Bunpro identity, so it falls back to the jiten default.
-    if (jpdbUsable && jitenUsable) {
-        const preferred = apiGradingProviderPreference(settings);
-        return apiSrsProviderView(preferred === 'jpdb' ? 'jpdb' : 'jiten', settings);
-    }
+    if (jpdbUsable && jitenUsable) return apiSrsProviderView(chosenWordGradingService(settings) ?? 'jiten', settings);
     if (jpdbUsable) return apiSrsProviderView('jpdb', settings);
     if (jitenUsable) return apiSrsProviderView('jiten', settings);
     // Local-first fallback: when no external SRS can act on this word, Yomu
@@ -289,12 +286,13 @@ function canCollectTo(id: CollectionDestinationId, settings: ReaderSettings, acc
 }
 
 export function isApiMiningEnabled(settings: ReaderSettings): boolean {
-    return settings.jpdbMiningEnabled || settings.bunproMiningEnabled || settings.yomuLocalSrsEnabled;
+    return settings.jpdbMiningEnabled || settings.jitenMiningEnabled || settings.bunproMiningEnabled || settings.yomuLocalSrsEnabled;
 }
 
 export function isApiSrsProviderEnabled(settings: ReaderSettings, providerId: ApiSrsProviderId | undefined): boolean {
     if (providerId === 'yomu-local') return settings.yomuLocalSrsEnabled;
     if (providerId === 'wanikani') return settings.wanikaniReviewEnabled;
+    if (providerId === 'jiten') return settings.jitenMiningEnabled;
     return providerId === 'bunpro' ? settings.bunproMiningEnabled : settings.jpdbMiningEnabled;
 }
 
@@ -466,7 +464,7 @@ function applyBunproReviewableToCard(card: JPDBCard, reviewable: YomuSrsReviewab
 function createYomuLocalSrsProviderAdapter(adapter: YomuSrsAdapter, settings: ReaderSettings): ApiSrsProviderAdapter {
     return {
         id: 'yomu-local',
-        label: ACADEMY_SRS_LABEL,
+        label: YOMU_DECK_LABEL,
         deckSource: 'yomu-local',
         hasApiKey: settings.yomuLocalSrsEnabled && adapter.hasCredential(),
         addApiKeyRequiredKey: 'yomuLocalSrsDisabled',

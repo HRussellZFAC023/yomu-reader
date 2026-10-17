@@ -347,15 +347,15 @@ describe('settings form localization', () => {
 
         expect(form.lang).toBe('ja');
         expect(settingsText(form, 'h2')).toBe('よむ 設定');
-        expect(labelForControl(form, 'newTabJpdbReviewMode')).toContain('API復習モード');
+        expect(labelForControl(form, 'newTabJpdbReviewMode')).toContain('JPDB復習モード');
         expect(optionText(form, 'newTabSource', 'auto')).toBe('自動');
-        expect(optionText(form, 'newTabSource', 'jpdb')).toBe('API SRS（Jiten / JPDB）');
-        expect(optionText(form, 'newTabJpdbReviewMode', 'api-vocabulary')).toBe('API語彙のみ（デッキ順）');
-        expect(settingsText(form, '[data-jpdb-api-key-help]')).toContain('Bunproに必要なのはフロントエンドトークンだけです');
-        expect(settingsText(form, '[data-jpdb-api-key-help]')).toContain('Academyの復習はアカウントなしでも使えます');
-        expect(settingsText(form, '[data-jpdb-api-key-help]')).toContain('Bunpro設定から取り込み');
-        expect(settingsText(form, '[data-jpdb-api-key-help]')).toContain('パスワードと同様に扱ってください');
-        expect(settingsText(form, '[data-jpdb-api-key-help]')).toContain('保存時点では未確認');
+        expect(optionText(form, 'newTabSource', 'jpdb')).toBe('Jiten / JPDB');
+        expect(optionText(form, 'newTabJpdbReviewMode', 'api-vocabulary')).toBe('JPDB語彙のみ（デッキ順）');
+        expect(settingsText(form, '[data-review-service-text="bunproTokenHelp"]')).toContain('Bunpro設定からフロントエンドトークンを取り込み');
+        expect(settingsText(form, '[data-review-service-text="bunproTokenHelp"]')).toContain('パスワードと同様に扱ってください');
+        expect(settingsText(form, '[data-review-service-text="bunproTokenHelp"]')).toContain('保存時点では未確認');
+        expect(settingsText(form, '[data-review-service="yomu"] .jpdb-reader-review-service-name')).toBe('よむデッキ');
+        expect(labelForControl(form, 'jitenMiningEnabled')).toContain('よむから採点');
         expect(labelForControl(form, 'newTabKanjiKeywordSource')).toContain('漢字キーワードのソース');
         expect(optionText(form, 'newTabKanjiKeywordSource', 'auto')).toBe('自動');
         expect(optionText(form, 'newTabKanjiKeywordSource', 'jpdb')).toBe('JPDB漢字情報（Jiten / JPDB）');
@@ -390,10 +390,10 @@ describe('settings form localization', () => {
         expect(sharedJapaneseSettingsTestForm().querySelector('[data-settings-close]')?.getAttribute('aria-label')).toBe('設定を閉じる');
     });
 
-    it('names the Bunpro frontend API token in Japanese', () => {
+    it('names the Bunpro token in Japanese', () => {
         const form = sharedJapaneseSettingsTestForm();
-        expect(labelForControl(form, 'apiCredentialBunpro')).toContain('BunproフロントエンドAPIトークン');
-        expect(labelForControl(form, 'apiCredentialBunpro')).not.toContain('frontend API token');
+        expect(labelForControl(form, 'apiCredentialBunpro')).toContain('Bunproのトークン');
+        expect(labelForControl(form, 'apiCredentialBunpro')).not.toContain('token');
     });
 
     it('localizes Japanese font family option metadata', () => {

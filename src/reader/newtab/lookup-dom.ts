@@ -1,7 +1,7 @@
 import type { AnkiLookupResult } from '../anki/index';
 import { escapeHtml } from '../dom/index';
 import { cardStateLabel, uiText } from '../app/i18n';
-import { providerCardStateLabel } from '../app/provider-state-label';
+import { providerStatusText } from '../app/provider-state-label';
 import { updateKanjiMiningControlsMount } from '../kanji/mining-controls';
 import type { ApiSrsProviderView } from '../cards/srs-providers';
 import type { PopoverReviewControls } from '../cards/popover-renderer';
@@ -158,7 +158,7 @@ function newLookupMetaLabel(label: string, stateClass = ''): HTMLElement {
 // Bunpro — whatever apiSrsProviderViewForCard resolved), not hardcoded JPDB.
 function newTabLookupProviderStatusLabel(card: JPDBCard, provider: ApiSrsProviderView | null, settings: ReaderSettings, state: string): string {
     if (!provider?.hasApiKey || !providerOwnsCard(provider, card)) return '';
-    return `${provider.label} ${providerCardStateLabel(provider.id, state, settings.interfaceLanguage)}`;
+    return providerStatusText(provider, state, settings.interfaceLanguage);
 }
 
 // Academy is named only on a card it holds.

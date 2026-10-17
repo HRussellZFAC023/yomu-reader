@@ -486,6 +486,7 @@ export class NewTabRuntime {
             this.settingsPreviewOriginalAccent = undefined;
             this.settingsPreviewOriginalTheme = undefined;
         },
+        probeAnkiAvailability: true,
     });
 
     constructor(private readonly options: NewTabRuntimeOptions = {}) {}

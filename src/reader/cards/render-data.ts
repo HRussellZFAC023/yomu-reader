@@ -686,7 +686,7 @@ export class CardRenderDataLoader {
 
     private loadJitenDecks(card: JPDBCard): Promise<ApiDeck[] | undefined> {
         const settings = this.settings();
-        if (!settings.jpdbMiningEnabled || !jitenCanTakeWord(card, settings, this.dependencies.isJpdbBackedCard) || !hasJitenApiCredential(settings)) return Promise.resolve(undefined);
+        if (!settings.jitenMiningEnabled || !jitenCanTakeWord(card, settings, this.dependencies.isJpdbBackedCard) || !hasJitenApiCredential(settings)) return Promise.resolve(undefined);
         return this.withFallback(card, CARD_RENDER_DECK_TIMEOUT_MS, 'Jiten deck list', this.cachedJitenDecks(settings).catch(error => {
             log.warn('Jiten deck list failed', { term: card.spelling }, error);
             return undefined;
@@ -974,7 +974,7 @@ export class CardRenderDataLoader {
             },
             bunproDefinitions: settings.bunproDefinitionsEnabled,
             includeBunproDefinition: options.includeBunproDefinition !== false,
-            apiMining: settings.jpdbMiningEnabled || settings.bunproMiningEnabled,
+            apiMining: settings.jpdbMiningEnabled || settings.jitenMiningEnabled || settings.bunproMiningEnabled,
             hasApiKey: hasJpdbApiCredential(settings),
             hasJitenApiKey: hasJitenApiCredential(settings),
             hasBunproToken: hasBunproFrontendCredential(settings) && !isBunproFrontendCredentialExpired(settings),

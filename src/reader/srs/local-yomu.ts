@@ -3,7 +3,7 @@ import { reportSaveWaitingForAnotherTab } from '../app/save-wait';
 import { subscribeToStoredValueChanges, withGmStorageLease } from '../app/storage';
 import { uniqueTrimmedStrings as uniqueStrings } from '../core/string-utils';
 import type { CardState, JPDBMeaning } from '../app/types';
-import { ACADEMY_SRS_LABEL } from '../app/constants';
+import { YOMU_DECK_LABEL } from '../app/constants';
 import { canonicalLanguageTag } from '../languages/locale';
 import { canonicalStudyCardIdentity } from './shared';
 import {
@@ -502,7 +502,7 @@ export function createYomuLocalSrsAdapter(repository = new LocalYomuSrsRepositor
     return {
         id: 'yomu-local',
         // The stored provider id stays yomu-local for migration compatibility.
-        label: ACADEMY_SRS_LABEL,
+        label: YOMU_DECK_LABEL,
         capabilities: { stats: true, queue: true, review: true, mine: true, import: true },
         hasCredential: () => true,
         verify: async () => true,

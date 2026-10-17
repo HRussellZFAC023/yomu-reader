@@ -1,6 +1,5 @@
 import { uiText } from '../app/i18n';
 import { reviewGradeProfile, reviewGradeScale } from '../cards/grade-scale';
-import { ACADEMY_SRS_LABEL } from '../app/constants';
 import { hasBunproFrontendCredential, hasJitenApiCredential, hasJpdbApiCredential, hasWanikaniApiCredential, isBunproFrontendCredentialExpired } from '../settings/api-credential';
 import type { JPDBCard, JPDBGrade, ReaderSettings } from '../app/types';
 
@@ -49,7 +48,7 @@ export function newTabCardSourceLabel(card: JPDBCard, language: ReaderSettings['
     if (card.source === 'anki' || card.reviewSource === 'anki') return ankiReviewSourceLabel(card, language);
     if (card.source === 'bunpro' || card.reviewSource === 'bunpro-api') return 'Bunpro';
     if (card.source === 'wanikani' || card.reviewSource === 'wanikani-api') return 'WaniKani';
-    if (card.source === 'yomu-local' || card.reviewSource === 'yomu-local') return ACADEMY_SRS_LABEL;
+    if (card.source === 'yomu-local' || card.reviewSource === 'yomu-local') return uiText(language, 'yomuDeck');
     // Built-in starter/practice words belong to Yomu, not an imported
     // dictionary — labeling them "Dictionary" made the keyless surface look
     // like it was reviewing a dictionary the user never added. Genuine local
@@ -97,7 +96,7 @@ export function reviewTargetsForNewTabCard(card: JPDBCard, settings: ReaderSetti
     // both API targets, exactly like the jpdb+anki pairing already does.
     if (card.reviewSource !== 'jpdb-live'
         && isJitenGradableCard(card)
-        && settings.jpdbMiningEnabled
+        && settings.jitenMiningEnabled
         && hasJitenApiCredential(settings)) {
         add('jiten-api');
     }
