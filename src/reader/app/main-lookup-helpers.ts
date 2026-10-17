@@ -74,13 +74,14 @@ export function isCompactPitchEnrichmentViewport(): boolean {
     return window.innerWidth <= 700 || navigator.maxTouchPoints > 1;
 }
 
-export function pitchEnrichmentQueueOptions(
-    options: Pick<PitchEnrichmentOptions, 'publicLookup' | 'publicLookupTermLimit' | 'jpdbPublicLookup' | 'urgent'>,
-): Pick<PitchEnrichmentOptions, 'publicLookup' | 'publicLookupTermLimit' | 'jpdbPublicLookup' | 'urgent'> {
+export type QueuedPitchEnrichmentOptions = Pick<PitchEnrichmentOptions, 'publicLookup' | 'publicLookupTermLimit' | 'jpdbPublicLookup' | 'publicPitch' | 'urgent'>;
+
+export function pitchEnrichmentQueueOptions(options: QueuedPitchEnrichmentOptions): QueuedPitchEnrichmentOptions {
     return {
         publicLookup: options.publicLookup,
         publicLookupTermLimit: options.publicLookupTermLimit,
         jpdbPublicLookup: options.jpdbPublicLookup,
+        publicPitch: options.publicPitch,
         urgent: options.urgent,
     };
 }
