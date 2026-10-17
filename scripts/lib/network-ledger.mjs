@@ -4,7 +4,10 @@
 //
 // Each entry carries the host, method, body size, a timestamp and whether a
 // trusted user activation (pointerdown, mousedown, touchstart, keydown, click
-// with isTrusted) had happened before the request left. That last bit is what
+// with isTrusted) had happened before the request left. GM requests and the
+// page's fetch and XHR calls are stamped in the page as they leave; any other
+// page request (<img>, <audio>, CSS) is stamped when Playwright routes it,
+// a few milliseconds later. That last bit is what
 // privacy rules are written against: "no cloud OCR request without a tap" is
 // `requests({ host: 'googleapis.com', beforeInteraction: true })` being empty.
 //
@@ -16,8 +19,12 @@ const TRUSTED_ACTIVATION_EVENTS = Object.freeze(['pointerdown', 'mousedown', 'to
 export function createNetworkLedger({ startedAt = Date.now() } = {}) {
     const entries = [];
     const interactions = [];
+    const pageStamps = [];
     const firstInteractionAt = () => interactions[0]?.at ?? null;
-    const settled = () => entries.map(entry => withInteractionState(entry, firstInteractionAt()));
+    const settled = () => {
+        entries.forEach(entry => claimPageStamp(entry, pageStamps));
+        return entries.map(entry => withInteractionState(entry, firstInteractionAt()));
+    };
 
     return {
         startedAt,
@@ -25,6 +32,10 @@ export function createNetworkLedger({ startedAt = Date.now() } = {}) {
             const entry = ledgerEntry(request, startedAt);
             entries.push(entry);
             return entry;
+        },
+        /** The page's own stamp for a fetch or XHR it sent: { url, at, trustedInteractionBefore }. */
+        recordPageStamp(stamp) {
+            pageStamps.push({ url: withoutFragment(stamp.url), at: Number(stamp.at), trustedInteractionBefore: Boolean(stamp.trustedInteractionBefore) });
         },
         /** The GM bridge learns how a request was answered after the page reported it. */
         markServed(request, served) {
@@ -45,6 +56,20 @@ export function createNetworkLedger({ startedAt = Date.now() } = {}) {
 
 function isPendingMatch(entry, { channel = 'gm', method = 'GET', url }) {
     return entry.served === 'pending' && entry.channel === channel && entry.method === String(method).toUpperCase() && entry.url === url;
+}
+
+// A routed page request takes the first unclaimed stamp the page wrote for
+// its URL, so it is judged by when it left the page, not when it was routed.
+function claimPageStamp(entry, stamps) {
+    if (entry.channel !== 'page' || typeof entry.trustedInteractionBefore === 'boolean') return;
+    const index = stamps.findIndex(stamp => stamp.url === withoutFragment(entry.url));
+    if (index < 0) return;
+    const [stamp] = stamps.splice(index, 1);
+    Object.assign(entry, { at: stamp.at, trustedInteractionBefore: stamp.trustedInteractionBefore });
+}
+
+function withoutFragment(url) {
+    return String(url).split('#')[0];
 }
 
 function withInteractionState(entry, firstInteraction) {
@@ -155,17 +180,38 @@ function describeFilter(filter) {
 }
 
 /**
- * The in-page half: a program string that reports trusted activations and
- * every GM_xmlhttpRequest call to the Node bindings named here. It must run
- * after the GM bridge is installed and before the userscript graph, so it is
- * concatenated into the same init program (Playwright does not order
- * separately registered init scripts).
+ * The in-page half: a program string that reports trusted activations, every
+ * GM_xmlhttpRequest call and a stamp for every fetch and XHR the page sends to
+ * the Node bindings named here. It must run after the GM bridge is installed
+ * and before the userscript graph, so it is concatenated into the same init
+ * program (Playwright does not order separately registered init scripts).
  */
-export function networkLedgerPageProgram({ requestBinding, interactionBinding }) {
-    return `(${installLedgerProbes.toString()})(${JSON.stringify({ requestBinding, interactionBinding, events: TRUSTED_ACTIVATION_EVENTS })});`;
+export function networkLedgerPageProgram({ requestBinding, interactionBinding, pageStampBinding }) {
+    const options = JSON.stringify({ requestBinding, interactionBinding, pageStampBinding, events: TRUSTED_ACTIVATION_EVENTS });
+    return `(${installLedgerProbes.toString()})(${options}, ${stampPageRequests.toString()});`;
 }
 
-function installLedgerProbes({ requestBinding, interactionBinding, events }) {
+// fetch() and XHR send() report when they leave, with the trusted state then.
+function stampPageRequests(stamp) {
+    const absolute = url => URL.parse(String(url), location.href)?.href ?? String(url);
+    const originalFetch = window.fetch;
+    window.fetch = function fetch(input) {
+        stamp(absolute(input instanceof Request ? input.url : input));
+        return originalFetch.apply(this, arguments);
+    };
+    const urls = new WeakMap();
+    const { open: originalOpen, send: originalSend } = XMLHttpRequest.prototype;
+    XMLHttpRequest.prototype.open = function open(method, url) {
+        urls.set(this, absolute(url));
+        return Reflect.apply(originalOpen, this, arguments);
+    };
+    XMLHttpRequest.prototype.send = function send() {
+        if (urls.has(this)) stamp(urls.get(this));
+        return Reflect.apply(originalSend, this, arguments);
+    };
+}
+
+function installLedgerProbes({ requestBinding, interactionBinding, pageStampBinding, events }, stampPageRequests) {
     let trusted = false;
     const report = (name, payload) => {
         // The ledger must never change what the product sees.
@@ -209,4 +255,5 @@ function installLedgerProbes({ requestBinding, interactionBinding, events }) {
     wrapMethod(window, 'GM_xmlhttpRequest');
     wrapMethod(window.GM, 'xmlHttpRequest');
     wrapMethod(window.GM, 'xmlhttpRequest');
+    stampPageRequests(url => report(pageStampBinding, { url, at: Date.now(), trustedInteractionBefore: trusted }));
 }

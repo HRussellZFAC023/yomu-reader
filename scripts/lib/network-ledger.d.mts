@@ -36,6 +36,7 @@ export interface NetworkLedger {
     startedAt: number;
     recordRequest(request: LedgerRequest): LedgerEntry;
     markServed(request: { channel?: 'gm' | 'page'; method?: string; url: string }, served: string): void;
+    recordPageStamp(stamp: { url: string; at: number; trustedInteractionBefore: boolean }): void;
     recordInteraction(interaction: { type: string; at?: number }): void;
     firstInteractionAt(): number | null;
     interactions(): Array<{ type: string; at: number }>;
@@ -49,4 +50,4 @@ export function hostOf(url: string): string;
 export function hostMatches(host: string, pattern: string | RegExp): boolean;
 export function assertLedgerCount(ledger: NetworkLedger, filter: LedgerFilter, options?: { min?: number; max?: number; label?: string }): LedgerEntry[];
 export function assertNoRequestsBeforeInteraction(ledger: NetworkLedger, host: string | RegExp, label?: string): LedgerEntry[];
-export function networkLedgerPageProgram(options: { requestBinding: string; interactionBinding: string }): string;
+export function networkLedgerPageProgram(options: { requestBinding: string; interactionBinding: string; pageStampBinding: string }): string;

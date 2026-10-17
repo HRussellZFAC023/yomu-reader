@@ -4,6 +4,7 @@
 //   - every recording has a manifest naming its licence, attribution, document
 //     and HAR, and every body the HAR names is committed (nothing else is);
 //   - ATTRIBUTION.md credits every recording, and nothing that is not committed;
+//   - no recorded document carries site code (<script>, <noscript>, on*=);
 //   - a redacted recording (a copyrighted site) carries the recorder's hash
 //     list and NO committed file holds a text run whose hash is on it;
 //   - hand-made files beside the recordings are named *-mechanism-fixture.*.
@@ -12,7 +13,7 @@
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { findRedactionLeaks } from './lib/recorded-redaction.mjs';
+import { findRedactionLeaks, siteCodeInHtml } from './lib/recorded-redaction.mjs';
 
 const DEFAULT_ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), 'fixtures', 'recorded');
 const root = process.argv.find(arg => arg.startsWith('--root='))?.slice('--root='.length) ?? DEFAULT_ROOT;
@@ -60,7 +61,13 @@ const MANIFEST_RULES = [
     (manifest, slug) => (manifest.slug === slug ? [] : [`${slug}: manifest slug is ${manifest.slug}`]),
     (manifest, slug) => (['verbatim', 'redacted'].includes(manifest.content) ? [] : [`${slug}: content must be verbatim or redacted`]),
     (manifest, slug, dir) => committedFiles(manifest).filter(file => !existsSync(path.join(dir, file))).map(file => `${slug}: ${file} is missing`),
+    (manifest, slug, dir) => siteCodeProblems(path.join(dir, manifest.document ?? ''), slug, manifest.document),
 ];
+
+function siteCodeProblems(file, slug, name) {
+    const found = existsSync(file) && statSync(file).isFile() ? siteCodeInHtml(readFileSync(file, 'utf8')) : [];
+    return found.length ? [`${slug}: ${name} carries site code the freeze removes (${[...new Set(found)].join(', ')}; ${found.length} in all)`] : [];
+}
 
 function committedFiles(manifest) {
     return [manifest.document, manifest.har, manifest.geometry, manifest.productTraffic?.har].filter(Boolean);

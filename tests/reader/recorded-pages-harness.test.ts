@@ -10,7 +10,7 @@ import { createHarWriter, readHarIndex } from '../../scripts/lib/recorded-har.mj
 import { json3ToSrv3, json3ToVtt } from '../../scripts/lib/recorded-hosts.mjs';
 import { blankPng, imageSize } from '../../scripts/lib/recorded-media.mjs';
 import { captionFlashFrames } from '../../scripts/lib/recorded-page-probes.mjs';
-import { findRedactionLeaks, hashTextRun, isHiddenCopy, normalizeTextRun, redactionHashList, textRunsFromHtml } from '../../scripts/lib/recorded-redaction.mjs';
+import { attributeSelectorIndex, findRedactionLeaks, hashTextRun, isHiddenCopy, normalizeTextRun, redactionHashList, siteCodeInHtml, textRunsFromHtml } from '../../scripts/lib/recorded-redaction.mjs';
 import { aozoraLetterStreams, characterClass, createTextRedactor } from '../../scripts/lib/text-redactor.mjs';
 
 const temporaryDirectories: string[] = [];
@@ -55,6 +55,17 @@ describe('network ledger', () => {
         expect(ledger.requests({ host: 'jiten.moe' })).toHaveLength(2);
         expect(ledger.requests({ host: 'wikimedia.org' })).toEqual([expect.objectContaining({ channel: 'gm' })]);
         expect(ledger.requests({ host: 'wikimedia.org', includeRecording: true })).toHaveLength(2);
+    });
+
+    it('judges a page request by when the page sent it, not when it was routed', () => {
+        const ledger = createNetworkLedger({ startedAt: 0 });
+        ledger.recordPageStamp({ url: 'https://ocr.example/upload#x', at: 90, trustedInteractionBefore: false });
+        ledger.recordInteraction({ type: 'pointerdown', at: 100 });
+        ledger.recordRequest({ channel: 'page', method: 'POST', url: 'https://ocr.example/upload', at: 110, served: 'offline' });
+        ledger.recordRequest({ channel: 'page', url: 'https://audio.example/a.mp3', at: 120, served: 'offline' });
+
+        expect(ledger.requests({ host: 'ocr.example', beforeInteraction: true })).toEqual([expect.objectContaining({ at: 90 })]);
+        expect(ledger.requests({ host: 'audio.example', beforeInteraction: false })).toHaveLength(1);
     });
 
     it('does not count a host that only shares a suffix', () => {
@@ -126,6 +137,19 @@ describe('redaction', () => {
         expect(isHiddenCopy('ランキング')).toBe(true);
     });
 
+    it('indexes the attribute values stylesheets select on', () => {
+        expect(attributeSelectorIndex(['.a[data-state="open"]{}', "b[data-tab='a\\'b' i], [lang|=ja]{}"])).toEqual({
+            'data-state': [{ op: '', value: 'open', insensitive: false }],
+            'data-tab': [{ op: '', value: "a'b", insensitive: true }],
+            lang: [{ op: '|', value: 'ja', insensitive: false }],
+        });
+    });
+
+    it('finds site code a frozen document must not carry, templates included', () => {
+        expect(siteCodeInHtml('<p onclick="x()">本文</p><template><script>1</script></template><noscript>案内</noscript>')).toEqual(['onclick=', '<script>', '<noscript>']);
+        expect(siteCodeInHtml('<p data-on="1">本文</p>')).toEqual([]);
+    });
+
     it('finds an original run left in a data-* attribute', () => {
         const dir = temporaryDirectory();
         const hashList = redactionHashList(['元の記事の見出しです']);
@@ -183,6 +207,18 @@ describe('recorded page plumbing', () => {
         expect(index.lookup('POST', 'https://api.example/info', '{"id":2}')).toBeNull();
     });
 
+    it('merges runs into one HAR, keeping and answering the first answer for each request', () => {
+        const dir = temporaryDirectory();
+        const writer = createHarWriter({ unique: true });
+        expect(writer.add({ url: 'https://api.example/parse?text=a', body: '1' })).toBe(true);
+        expect(writer.add({ url: 'https://api.example/parse?text=a', body: '2' })).toBe(false);
+        expect(writer.add({ url: 'https://api.example/parse?text=b', body: '3' })).toBe(true);
+        expect(writer.lookup('GET', 'https://api.example/parse?text=a')?.body.toString()).toBe('1');
+        expect(writer.lookup('GET', 'https://api.example/parse?text=c')).toBeNull();
+        expect(writer.write(dir, 'traffic.har')).toBe(2);
+        expect(readHarIndex(join(dir, 'traffic.har')).lookup('GET', 'https://api.example/parse?text=a', null)?.body.toString()).toBe('1');
+    });
+
     it('finds the frames where YouTube\'s caption shows in a gap after the first commit', () => {
         const frames = [
             { at: 0, time: 0.1, primary: '', secondary: '', native: true },
@@ -225,6 +261,14 @@ describe('check-recorded-pages', () => {
         const result = run(leaking);
         expect(result.code).toBe(1);
         expect(result.output).toContain('page.html holds a 8-character text run from the original page');
+    });
+
+    it('fails a recorded document that still carries site code', () => {
+        const root = temporaryDirectory();
+        writeRecording(root, '私はその人を常に</p><noscript>案内</noscript><p>');
+        const result = run(root);
+        expect(result.code).toBe(1);
+        expect(result.output).toContain('page.html carries site code the freeze removes (<noscript>');
     });
 
     it('fails a credit for a recording that is not committed', () => {

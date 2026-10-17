@@ -4,12 +4,14 @@
 
 /**
  * How much of the visible Japanese carries a painted reading. The
- * denominator is the page's own text, not the product's words: every run of
- * kanji in the text nodes under root (readings excluded), so a build that
- * wraps fewer words cannot score higher. A run is covered when the product's
- * word around it paints a reading (rt or a detached reading). The product's
- * own word counts, and words that only know a reading (data-reading, nothing
- * painted), are reported beside it. visibleOnly limits it to the viewport.
+ * denominator is the page's own text, not the product's words: the runs of
+ * kanji in each block's text with the readings taken out, so it is the same
+ * whichever way a build splits or wraps the words (a run the product cut into
+ * two words is still one run). A run is covered when every kanji in it sits
+ * in a product word that paints a reading (rt or a detached reading). The
+ * product's own word counts, and words that only know a reading (data-reading,
+ * nothing painted), are reported beside it. visibleOnly limits it to text in
+ * the viewport.
  */
 export async function kanjiReadingCoverage(page, { root = 'body', visibleOnly = true } = {}) {
     return page.evaluate(({ rootSelector, visible }) => {
@@ -23,27 +25,47 @@ export async function kanjiReadingCoverage(page, { root = 'body', visibleOnly = 
         };
         const paintsReading = word => [...word.querySelectorAll('rt, .jpdb-reader-detached-furi')].some(element => element.textContent.trim());
         const isPageText = node => Boolean(node.parentElement) && !node.parentElement.closest(`${READINGS}, script, style, noscript`) && (!visible || textInView(node));
-        const textNodes = [];
-        const walker = document.createTreeWalker(scope, NodeFilter.SHOW_TEXT);
-        for (let node = walker.nextNode(); node; node = walker.nextNode()) textNodes.push(node);
-        const runs = textNodes.filter(isPageText).map(node => ({
-            count: node.nodeValue.match(/\p{Script=Han}+/gu)?.length ?? 0,
-            word: node.parentElement.closest('.jpdb-reader-word'),
-        }));
-        const kanjiRuns = runs.reduce((total, run) => total + run.count, 0);
-        const covered = runs.filter(run => run.word && paintsReading(run.word)).reduce((total, run) => total + run.count, 0);
+        const flows = element => /^(inline|ruby|contents)/u.test(getComputedStyle(element).display);
+        const blockOf = node => {
+            let element = node.parentElement;
+            while (element !== scope && flows(element)) element = element.parentElement;
+            return element;
+        };
+        const pageTextNodes = () => {
+            const nodes = [];
+            const walker = document.createTreeWalker(scope, NodeFilter.SHOW_TEXT);
+            for (let node = walker.nextNode(); node; node = walker.nextNode()) if (isPageText(node)) nodes.push(node);
+            return nodes;
+        };
+        // One text per block in document order; each character knows whether a painted word holds it.
+        const addToBlock = (blocks, node) => {
+            const block = blockOf(node);
+            if (blocks.at(-1)?.block !== block) blocks.push({ block, text: '', covered: [] });
+            const word = node.parentElement.closest('.jpdb-reader-word');
+            const painted = Boolean(word) && paintsReading(word);
+            blocks.at(-1).text += node.nodeValue;
+            blocks.at(-1).covered.push(...[...node.nodeValue].map(() => painted));
+            return blocks;
+        };
+        const runCoverage = ({ text, covered }) => [...text.matchAll(/\p{Script=Han}+/gu)].map(match => {
+            const start = [...text.slice(0, match.index)].length;
+            return covered.slice(start, start + [...match[0]].length).every(Boolean);
+        });
+        const runs = pageTextNodes().reduce(addToBlock, []).flatMap(runCoverage);
         const baseText = word => {
             const copy = word.cloneNode(true);
             copy.querySelectorAll(READINGS).forEach(element => element.remove());
             return copy.textContent;
         };
-        const words = [...scope.querySelectorAll('.jpdb-reader-word')].filter(word => !visible || inView(word.getBoundingClientRect()));
+        const wordInView = word => !visible || inView(word.getBoundingClientRect());
+        const words = [...scope.querySelectorAll('.jpdb-reader-word')].filter(wordInView);
         const kanjiWords = words.filter(word => /\p{Script=Han}/u.test(baseText(word)));
         const dataReadingOnly = word => !paintsReading(word) && Boolean(word.dataset.reading?.trim());
+        const covered = runs.filter(Boolean).length;
         return {
-            kanjiRuns,
+            kanjiRuns: runs.length,
             covered,
-            ratio: kanjiRuns ? covered / kanjiRuns : 0,
+            ratio: runs.length ? covered / runs.length : 0,
             words: words.length,
             kanjiWords: kanjiWords.length,
             painted: kanjiWords.filter(paintsReading).length,

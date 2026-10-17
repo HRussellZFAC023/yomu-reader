@@ -13,8 +13,10 @@
 
 export function freezePageInPage() {
     const REMOVED = 'script, noscript, link[rel="modulepreload"], link[rel="preload"][as="script"], link[rel="prefetch"], meta[http-equiv="Content-Security-Policy" i], meta[http-equiv="refresh" i]';
-    const openRoots = root => [...root.querySelectorAll('*')].filter(element => element.shadowRoot).flatMap(element => [element.shadowRoot, ...openRoots(element.shadowRoot)]);
-    const roots = [document, ...openRoots(document)];
+    // Open shadow roots and inert <template> contents: querySelectorAll enters neither.
+    const innerRoot = element => element.shadowRoot ?? (element.localName === 'template' ? element.content : null);
+    const nestedRoots = root => [...root.querySelectorAll('*')].map(innerRoot).filter(Boolean).flatMap(inner => [inner, ...nestedRoots(inner)]);
+    const roots = [document, ...nestedRoots(document)];
     const ruleText = sheet => {
         try {
             return [...sheet.cssRules].map(rule => rule.cssText).join('\n');
@@ -76,7 +78,7 @@ export function freezePageInPage() {
     roots.forEach(writeAdoptedSheets);
     for (const [selector, step] of STEPS) roots.forEach(root => root.querySelectorAll(selector).forEach(step));
     roots.forEach(root => root.normalize());
-    return { shadowRoots: roots.length - 1, title: document.title };
+    return { shadowRoots: roots.filter(root => root.host).length, title: document.title };
 }
 
 export function serializePageInPage() {
@@ -94,41 +96,45 @@ export function serializePageInPage() {
     return `<!DOCTYPE html>\n<html${attributes}>${inner}</html>\n`;
 }
 
+/** The <style> texts of the frozen page, shadow roots and templates included. */
+export function styleTextsInPage() {
+    const texts = [];
+    const innerRootOf = element => element.shadowRoot ?? (element.localName === 'template' ? element.content : null);
+    const walk = root => root.querySelectorAll('*').forEach(element => {
+        if (element.localName === 'style') texts.push(element.textContent);
+        if (innerRootOf(element)) walk(innerRootOf(element));
+    });
+    walk(document);
+    return texts;
+}
+
 /**
  * Every place a page keeps words, returned in document order as
- * { text, kind }: text nodes, including in open shadow roots ('text'), the
- * visible attributes named ('visible') and every other attribute that holds a
- * letter ('hidden': a headline in data-realizer-title, a campaign in
- * data-gtm-label). Structural attributes stay, and so does a hidden value a
- * stylesheet selects on ([data-state="open"]): redacting it would restyle the
- * page. cssTexts: the linked stylesheets' bodies (a cross-origin sheet is
- * closed to the CSSOM). The slots are kept on window for
+ * { text, kind }: text nodes, including in open shadow roots and <template>
+ * contents ('text'), the visible attributes named ('visible') and every other
+ * attribute that holds a letter ('hidden': a headline in data-realizer-title,
+ * a campaign in data-gtm-label). Kept verbatim: structural attributes, an
+ * ARIA state's keyword (aria-hidden="true": the product reads
+ * [aria-disabled="true"]) and a hidden value a stylesheet selects on
+ * (selectedValues, from attributeSelectorIndex: redacting [data-state="open"]
+ * would restyle the page). The slots are kept on window for
  * redactTextSlotsInPage (text-redactor.mjs).
  */
-export function collectTextSlotsInPage({ visibleAttributes, structuralAttributes, cssTexts = [] }) {
+export function collectTextSlotsInPage({ visibleAttributes, structuralAttributes, ariaStateAttributes, selectedValues }) {
     const SKIPPED = new Set(['SCRIPT', 'STYLE', 'NOSCRIPT']);
     const visible = new Set(visibleAttributes);
     const structural = new Set(structuralAttributes);
-    // Document order, each open shadow root right after its host.
+    const ariaStates = new Set(ariaStateAttributes);
+    // Document order, each open shadow root and <template> content right after
+    // its host (a TreeWalker enters neither, and a template's text ships too).
+    const innerRootOf = node => node.shadowRoot ?? (node.localName === 'template' ? node.content : null);
     const walk = (root, onNode) => {
         const walker = document.createTreeWalker(root, NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_TEXT);
         for (let node = walker.nextNode(); node; node = walker.nextNode()) {
             onNode(node);
-            if (node.shadowRoot) walk(node.shadowRoot, onNode);
+            if (innerRootOf(node)) walk(innerRootOf(node), onNode);
         }
     };
-    // After freezePageInPage, inserted and adopted rules are <style> text too.
-    const styleTexts = [...cssTexts];
-    walk(document, node => node.localName === 'style' && styleTexts.push(node.textContent));
-    // [name op= "value" i]: the attribute values some rule selects on.
-    const SELECTOR = /\[\s*(?:[\w*-]*\|)?([\w:-]+)\s*([~|^$*]?)=\s*(?:"((?:[^"\\]|\\.)*)"|'((?:[^'\\]|\\.)*)'|([^\s\]]+))\s*([is])?\s*\]/giu;
-    const selected = new Map();
-    const addSelector = match => {
-        const name = match[1].toLowerCase();
-        const value = match.slice(3, 6).find(part => part !== undefined).replace(/\\(.)/gu, '$1');
-        selected.set(name, [...(selected.get(name) ?? []), { op: match[2], value, insensitive: String(match[6]).toLowerCase() === 'i' }]);
-    };
-    [...styleTexts.join('\n').matchAll(SELECTOR)].forEach(addSelector);
     const OPERATORS = {
         '': (value, wanted) => value === wanted,
         '~': (value, wanted) => value.split(/\s+/u).includes(wanted),
@@ -138,12 +144,13 @@ export function collectTextSlotsInPage({ visibleAttributes, structuralAttributes
         '*': (value, wanted) => wanted !== '' && value.includes(wanted),
     };
     const fold = (text, rule) => (rule.insensitive ? text.toLowerCase() : text);
-    const isSelectedOn = (name, value) => (selected.get(name) ?? []).some(rule => OPERATORS[rule.op](fold(value, rule), fold(rule.value, rule)));
+    const isSelectedOn = (name, value) => (selectedValues[name] ?? []).some(rule => OPERATORS[rule.op](fold(value, rule), fold(rule.value, rule)));
     const isVisible = (element, name) => visible.has(name) || (element.localName === 'meta' && name === 'content');
     const KEPT = [
         name => structural.has(name),
         name => name.startsWith('on'),
         (name, value) => !/\p{L}/u.test(value),
+        (name, value) => ariaStates.has(name) && /^[a-z]+(?: [a-z]+)*$/u.test(value.trim()),
         isSelectedOn,
     ];
     const attributeKind = (element, attribute) => {

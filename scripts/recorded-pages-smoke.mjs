@@ -113,11 +113,20 @@ async function reproduceOnWikipedia(browser, product, report) {
         const lens = run.ledger.requests({ host: 'lensfrontend-pa.googleapis.com', method: 'POST', beforeInteraction: true });
         report(lens.length >= 1, `${product.label} ja-wikipedia-nihongo: ${lens.length} Lens upload(s) before any interaction (2.1.6 uploads page images)`);
         const coverage = await kanjiReadingCoverage(run.page, { root: '#mw-content-text' });
+        const jiten = servedCounts(run.ledger.requests({ host: 'jiten.moe', channel: 'gm' }));
+        // Sparse readings must come from the product, not from a replay that answered nothing.
+        report((jiten.offline ?? 0) <= 2 && coverage.painted >= 1, `${product.label} ja-wikipedia-nihongo: the recorded jiten traffic answered the product ${JSON.stringify(jiten)}, ${coverage.painted} kanji word(s) painted`);
         report(coverage.ratio < 0.2, `${product.label} ja-wikipedia-nihongo: ${coverage.covered}/${coverage.kanjiRuns} visible kanji runs under a painted reading after 15 s (2.1.6: under 20%; ${coverage.painted}/${coverage.kanjiWords} of the product's kanji words painted, ${coverage.dataReadingOnly} with data-reading only)`);
         await checkTrustedInteraction(run);
     } finally {
         await run.close();
     }
+}
+
+function servedCounts(entries) {
+    const counts = {};
+    for (const entry of entries) counts[entry.served] = (counts[entry.served] ?? 0) + 1;
+    return counts;
 }
 
 // The ledger marks a request from either channel as after a trusted

@@ -68,9 +68,13 @@ async function overrideAnswer(request, scope) {
     return override ? { served: 'override', status: 200, contentType: 'text/plain', ...override, body: Buffer.from(override.body ?? '') } : null;
 }
 
-// 'recorded-product': this page's recorded product traffic; 'recording': the page's own HAR.
+// 'recorded-product': this page's recorded product traffic (while recording,
+// what earlier runs kept, so later runs take a replay's timing and reach the
+// requests only a replay makes); 'recording': the page's own HAR.
+const productTrafficOf = scope => scope.productTraffic ?? scope.recorder;
+
 function recordedAnswer(request, scope) {
-    const product = scope.productTraffic?.lookup(request.method, request.url, request.bodyText);
+    const product = productTrafficOf(scope)?.lookup(request.method, request.url, request.bodyText);
     const hit = product ?? scope.har.lookup(request.method, request.url, request.bodyText);
     return hit && { served: product ? 'recorded-product' : 'recording', status: hit.status, body: hit.body, contentType: hit.contentType };
 }

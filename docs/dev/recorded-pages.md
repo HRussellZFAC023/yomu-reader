@@ -14,10 +14,10 @@ companions and its `@resource` CSS.
 | File | What it is |
 | --- | --- |
 | `manifest.json` | URL, licence, attribution, viewport and platform, and the redaction fidelity numbers. |
-| `page.html` | The DOM as the reader saw it, with the site's scripts, script preloads, inline handlers and iframe contents removed. Open shadow roots are kept as declarative shadow DOM. Rules a CSS-in-JS library inserted through the CSSOM, and adopted stylesheets, are written out as `<style>`. |
+| `page.html` | The DOM as the reader saw it, with the site's scripts, script preloads, inline handlers and iframe contents removed (inside `<template>` contents too). Open shadow roots are kept as declarative shadow DOM. Rules a CSS-in-JS library inserted through the CSSOM, and adopted stylesheets, are written out as `<style>`. |
 | `network.har` + `resources/` | HAR 1.2 for every stylesheet, picture and font the frozen page asks for. Bodies are plain files (`content._file`), so `context.routeFromHAR` can replay them too. |
 | `geometry.json` | The sample keys, the live page's Geometry Signature at record time, and each engine's replay signature. |
-| `product-traffic.har` | Optional: the product's own GM answers for the hosts a target allows (`api.jiten.moe` for the Wikipedia pages), so a replay answers them offline. |
+| `product-traffic.har` | Optional: the product's own GM answers for the hosts a target allows (`api.jiten.moe` for the Wikipedia pages), merged from several runs, so a replay answers them offline. |
 | `redaction-hashes.json` | Redacted pages only: SHA-256 prefixes of every original text run. Never the text. |
 | `host/` | YouTube only: the redacted player response, the json3 caption tracks (timings kept, words replaced) and a blank clip. |
 
@@ -43,8 +43,11 @@ web store. The YouTube watch page is not recorded yet (see Follow-ups).
   redacted the same way (sites keep copy in `data-*`: headlines, campaign
   labels, consent text), except structural ones (`class`, `id`, `href`,
   `src`, `lang`, presentational attributes and the rest of
-  `STRUCTURAL_ATTRIBUTES` in `recorded-redaction.mjs`) and values a
-  stylesheet selects on, such as `[data-state="open"]`. Pictures become blank PNGs of the same pixel
+  `STRUCTURAL_ATTRIBUTES` in `recorded-redaction.mjs`), the keyword values of
+  ARIA states (`aria-hidden="true"`, `aria-current="page"`;
+  `ARIA_STATE_ATTRIBUTES`), because the product and page styles select on
+  them, and values a stylesheet selects on, such as `[data-state="open"]`.
+  Text inside `<template>` elements is redacted too. Pictures become blank PNGs of the same pixel
   size, inline SVG artwork is emptied, and only open-licensed Google Fonts
   families are kept.
 - The recorder refuses to write a redacted page that still holds an original
@@ -54,7 +57,9 @@ web store. The YouTube watch page is not recorded yet (see Follow-ups).
   attributes and every other attribute value that reads as copy (non-ASCII
   letters or several words); one-word ASCII values such as `true` or an id are
   vocabulary and are not compared. It also fails when `ATTRIBUTION.md` credits
-  a recording that is not committed.
+  a recording that is not committed, and when a recorded document still holds
+  `<script>`, `<noscript>` or an inline `on*` handler, since the text check
+  does not read those.
 - Hand-made files beside the recordings are Mechanism Fixtures, named
   `*-mechanism-fixture.*`. Today there is one,
   `hosts/youtube-player-mechanism-fixture.js`. A frozen YouTube page has no
@@ -106,8 +111,11 @@ Chromium, WebKit and Firefox all replay every recording.
 `run.ledger.requests({ host, method, channel, path, beforeInteraction })`
 returns entries with host, method, body bytes, time since start, the channel
 (`gm` or `page`), how the request was answered, and whether a Trusted
-Interaction came first. GM requests carry that flag from the page itself, at
-the moment they were sent. `assertLedgerCount` and
+Interaction came first. GM requests, and page `fetch` and XHR calls, carry
+that flag from the page itself, at the moment they were sent. Other page
+requests (`<img>`, `<audio>`, stylesheets) are timed when Playwright routes
+them, a few milliseconds after they leave, so one sent just before a tap can
+count as after it. `assertLedgerCount` and
 `assertNoRequestsBeforeInteraction` throw with the offending requests listed.
 Page-channel requests the recording answered (the page's own document,
 stylesheets and pictures) are left out unless `includeRecording` is set. GM
@@ -139,9 +147,9 @@ the page" take a signature before the product runs and one after.
 ### Probes (`scripts/lib/recorded-page-probes.mjs`)
 
 - `kanjiReadingCoverage(page, { root })`: of the visible kanji runs in the
-  page's own text (readings excluded), how many sit in a product word that
-  paints a reading. The denominator does not depend on how many words the
-  build wraps. The product's kanji words, the painted ones and those with only
+  page's own text, how many sit wholly in product words that paint a reading.
+  Runs are read from each block's text with the readings taken out, so the
+  denominator is the same however a build splits or wraps the words. The product's kanji words, the painted ones and those with only
   `data-reading` are reported beside it.
 - `startCaptionFrameLog` / `readCaptionFrames` / `captionFlashFrames`: a
   per-frame log of the subtitle lines and of whether YouTube's own caption is
@@ -161,7 +169,10 @@ the page" take a signature before the product runs and one after.
   painted reading after 15 s on ja.wikipedia 日本語, and YouTube's own caption
   painted in an inter-cue gap after the first commit. 2.1.6 never changes, so
   these stay true. It also checks that a real key press turns later page and
-  GM requests into requests after a Trusted Interaction. Run with
+  GM requests into requests after a Trusted Interaction. The sparse-readings
+  case first checks that the recorded jiten traffic answered the product (at
+  most 2 jiten requests dropped, at least one kanji word painted), so a replay
+  that answered nothing cannot pass as sparse readings. Run with
   `--product=worktree` to print the same numbers for your build. Until
   `youtube-watch` is recorded the caption case warns, and from 2026-11-01 it
   fails.
@@ -177,6 +188,18 @@ would need a recording run on Linux.
   were recorded from 2.1.6's requests, so a build that asks jiten for other
   URLs gets dropped connections there, and a 2.1.6 against worktree comparison
   is not like for like on reading coverage.
+- One build does not always ask for the same URLs. 2.1.6 batches its parse
+  requests in the order its scan met the page, and that order changes from
+  load to load (in one order the first batch starts with 「コンテンツに…」, in
+  another with 「日本語。この項目では…」). A recording of one run answered the
+  other order with nothing: every jiten request dropped and no reading painted,
+  in about half of all replays. The recorder therefore runs the product again
+  and again in fresh contexts, merging new requests, until four runs in a row
+  add nothing (`--product-runs`, `--product-settled-runs`;
+  `manifest.productTraffic` records the runs and whether it settled). After
+  the first run it answers the requests it already holds from the HAR, as a
+  replay does, so it also meets the requests that only a replay's timing makes
+  (a word's `info` lookup that depends on where a batch was cut).
 - `yomureader.com` is answered from `docs/public` of the build being run.
   `releaseProduct()` extracts only the release's Greasy Fork companions, so
   the 2.1.6 product's other `yomureader.com` requests go offline while a
@@ -206,7 +229,8 @@ Targets live in `scripts/lib/recording-targets.mjs`. A target with
 Serif JP), so replays use the system's Japanese font. Recording rejects consent
 walls (the privacy-preserving answer), scrolls the page once so lazy content
 loads, and records at 1280×900 with `ja-JP` and Asia/Tokyo. Re-recording a
-page drops its product traffic, so record that again after it.
+page drops its product traffic, so record that again after it. Product traffic
+takes a few minutes: 25 s a run, up to 20 runs.
 
 Fidelity is gated in Chromium, where the live page was rendered and the widths
 were matched. Width matching is best effort: now and then a replaced title

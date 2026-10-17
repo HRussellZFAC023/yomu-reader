@@ -42,12 +42,27 @@ function requestKey(method, url, body) {
     return `${String(method || 'GET').toUpperCase()} ${url} ${bodyKey(body)}`;
 }
 
-/** Collects entries in memory; write() lays them out under dir. */
-export function createHarWriter({ creator = 'yomu record-pages' } = {}) {
+/**
+ * Collects entries in memory; write() lays them out under dir. unique keeps
+ * the first answer per method, URL and request body, so several runs of the
+ * product can be merged into one HAR; add() says whether the entry was new,
+ * and lookup() answers a request already kept, as a replay would.
+ */
+export function createHarWriter({ creator = 'yomu record-pages', unique = false } = {}) {
     const entries = [];
+    const byKey = new Map();
     return {
-        add({ method = 'GET', url, status = 200, contentType = 'application/octet-stream', body, requestBody, headers = [] }) {
-            entries.push({ method: method.toUpperCase(), url, status, contentType, body: Buffer.from(body ?? ''), requestBody, headers });
+        add(fields) {
+            const entry = harWriterEntry(fields);
+            const key = requestKey(entry.method, entry.url, entry.requestBody);
+            if (unique && byKey.has(key)) return false;
+            if (!byKey.has(key)) byKey.set(key, entry);
+            entries.push(entry);
+            return true;
+        },
+        lookup(method, url, requestBody) {
+            const entry = byKey.get(requestKey(method, url, requestBody));
+            return entry ? { status: entry.status, headers: { 'content-type': entry.contentType }, body: entry.body, contentType: entry.contentType } : null;
         },
         size: () => entries.length,
         write(dir, harName, resourceDir = 'resources') {
@@ -62,6 +77,14 @@ export function createHarWriter({ creator = 'yomu record-pages' } = {}) {
             return log.entries.length;
         },
     };
+}
+
+const HAR_ENTRY_DEFAULTS = Object.freeze({ method: 'GET', status: 200, contentType: 'application/octet-stream', body: '', headers: [] });
+
+function harWriterEntry(fields) {
+    const given = Object.fromEntries(Object.entries(fields).filter(([, value]) => value !== undefined && value !== null));
+    const entry = { ...HAR_ENTRY_DEFAULTS, ...given };
+    return { ...entry, method: entry.method.toUpperCase(), body: Buffer.from(entry.body) };
 }
 
 function writeBody(entry, dir, resourceDir) {

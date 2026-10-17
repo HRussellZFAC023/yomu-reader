@@ -31,6 +31,34 @@ export const STRUCTURAL_ATTRIBUTES = Object.freeze([
     // inline SVG (artwork inside is emptied; the outer element keeps its box)
     'viewbox', 'preserveaspectratio', 'focusable', 'version', 'fill', 'stroke', 'stroke-width', 'stroke-linecap', 'stroke-linejoin', 'fill-rule', 'clip-rule', 'transform', 'opacity', 'x', 'y', 'overflow', 'display', 'visibility',
 ]);
+/**
+ * ARIA states and properties whose values are keywords ("true", "page",
+ * "polite"), not copy. Their keyword values stay: a product or a page style
+ * reads [aria-disabled="true"].
+ */
+export const ARIA_STATE_ATTRIBUTES = Object.freeze([
+    'aria-atomic', 'aria-autocomplete', 'aria-busy', 'aria-checked', 'aria-current', 'aria-disabled', 'aria-dropeffect', 'aria-expanded', 'aria-grabbed', 'aria-haspopup', 'aria-hidden', 'aria-invalid',
+    'aria-live', 'aria-modal', 'aria-multiline', 'aria-multiselectable', 'aria-orientation', 'aria-pressed', 'aria-readonly', 'aria-relevant', 'aria-required', 'aria-selected', 'aria-sort',
+]);
+
+// [name op= "value" i]: an attribute selector with a value.
+const ATTRIBUTE_SELECTOR = /\[\s*(?:[\w*-]*\|)?([\w:-]+)\s*([~|^$*]?)=\s*(?:"((?:[^"\\]|\\.)*)"|'((?:[^'\\]|\\.)*)'|([^\s\]]+))\s*([is])?\s*\]/giu;
+
+/**
+ * The attribute values the stylesheets select on, by attribute name:
+ * { 'data-state': [{ op: '', value: 'open', insensitive: false }] }. The
+ * recorder keeps a value one of these matches (page-freeze.mjs
+ * collectTextSlotsInPage), since redacting it would restyle the page.
+ */
+export function attributeSelectorIndex(cssTexts) {
+    const index = {};
+    for (const match of cssTexts.join('\n').matchAll(ATTRIBUTE_SELECTOR)) {
+        const value = match.slice(3, 6).find(part => part !== undefined).replace(/\\(.)/gu, '$1');
+        (index[match[1].toLowerCase()] ??= []).push({ op: match[2], value, insensitive: String(match[6]).toLowerCase() === 'i' });
+    }
+    return index;
+}
+
 const SKIPPED_ELEMENTS = new Set(['script', 'style', 'noscript']);
 // Written by the recorder from its own target list, never from the page.
 const HARNESS_FILES = new Set(['manifest.json', 'geometry.json', 'redaction-hashes.json']);
@@ -85,6 +113,25 @@ function htmlNodeRuns(node) {
  */
 export function textRunsFromHtml(html) {
     return htmlNodeRuns(parse(html, { scriptingEnabled: false }));
+}
+
+const SITE_CODE_ELEMENTS = new Set(['script', 'noscript']);
+
+function siteCodeOf(node) {
+    const own = [
+        ...(SITE_CODE_ELEMENTS.has(node.nodeName) ? [`<${node.nodeName}>`] : []),
+        ...(node.attrs ?? []).filter(attribute => /^on/iu.test(attribute.name)).map(attribute => `${attribute.name}=`),
+    ];
+    return [...own, ...childrenOf(node).flatMap(siteCodeOf)];
+}
+
+/**
+ * Site code a frozen document must not carry: <script>, <noscript> (its text
+ * is neither redacted nor checked) and inline event handlers, <template>
+ * contents included. One entry per occurrence; empty means clean.
+ */
+export function siteCodeInHtml(html) {
+    return siteCodeOf(parse(html, { scriptingEnabled: false }));
 }
 
 // JSON fields that carry words a reader sees (caption segments, video title and

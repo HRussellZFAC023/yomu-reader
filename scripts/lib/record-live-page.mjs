@@ -2,11 +2,11 @@
 // learner reads it in, measure it, freeze it and (for a copyrighted site)
 // redact it in place. Nothing is written here; recording-writer.mjs does that.
 import { captureGeometrySignature, selectGeometryKeys } from './geometry-signature.mjs';
-import { blankPicturesInPage, collectTextSlotsInPage, freezePageInPage, serializePageInPage } from './page-freeze.mjs';
+import { blankPicturesInPage, collectTextSlotsInPage, freezePageInPage, serializePageInPage, styleTextsInPage } from './page-freeze.mjs';
 import { prepareTtsuBook } from './record-ttsu-host.mjs';
 import { prepareYouTubeWatch, youtubeHostFiles, youtubeHostOriginalRuns } from './record-youtube-host.mjs';
 import { loadRecording } from './recorded-page.mjs';
-import { STRUCTURAL_ATTRIBUTES, VISIBLE_ATTRIBUTES, isHiddenCopy, normalizeTextRun, redactionHashList } from './recorded-redaction.mjs';
+import { ARIA_STATE_ATTRIBUTES, STRUCTURAL_ATTRIBUTES, VISIBLE_ATTRIBUTES, attributeSelectorIndex, isHiddenCopy, normalizeTextRun, redactionHashList } from './recorded-redaction.mjs';
 import { loadLazyContent, rejectConsent } from './recording-targets.mjs';
 import { CHARACTER_CLASS_RULES, aozoraLetterStreams, createTextRedactor, redactTextSlotsInPage } from './text-redactor.mjs';
 
@@ -74,7 +74,9 @@ async function freezeLivePage(page, target, { host, responses }) {
     const keys = await selectGeometryKeys(page);
     const liveSignature = await captureGeometrySignature(page, { keys, maxLines: STORED_LINES });
     const frozen = await page.evaluate(freezePageInPage);
-    const slots = await page.evaluate(collectTextSlotsInPage, { visibleAttributes: VISIBLE_ATTRIBUTES, structuralAttributes: STRUCTURAL_ATTRIBUTES, cssTexts: stylesheetTexts(responses) });
+    // After the freeze, inserted and adopted rules are <style> text too.
+    const selectedValues = attributeSelectorIndex([...stylesheetTexts(responses), ...await page.evaluate(styleTextsInPage)]);
+    const slots = await page.evaluate(collectTextSlotsInPage, { visibleAttributes: VISIBLE_ATTRIBUTES, structuralAttributes: STRUCTURAL_ATTRIBUTES, ariaStateAttributes: ARIA_STATE_ATTRIBUTES, selectedValues });
     const originalHtml = await page.evaluate(serializePageInPage);
     const texts = slots.filter(slot => slot.kind !== 'hidden' || isHiddenCopy(slot.text)).map(slot => slot.text);
     const originalRuns = [...texts, ...(host ? youtubeHostOriginalRuns(host) : [])].map(normalizeTextRun).filter(Boolean);

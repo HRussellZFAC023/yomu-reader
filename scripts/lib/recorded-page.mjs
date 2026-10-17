@@ -15,7 +15,7 @@ import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createNetworkLedger, networkLedgerPageProgram } from './network-ledger.mjs';
-import { createHarWriter, readHarIndex } from './recorded-har.mjs';
+import { readHarIndex } from './recorded-har.mjs';
 import { recordedHostAdapter } from './recorded-hosts.mjs';
 import { answerGmRequest, routePageRequest } from './recorded-network.mjs';
 import { worktreeProduct } from './recorded-products.mjs';
@@ -26,7 +26,7 @@ export { releaseProduct, worktreeProduct } from './recorded-products.mjs';
 
 export const RECORDINGS_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', 'fixtures', 'recorded');
 const REQUEST_BINDING = '__yomuRecordedGmRequest';
-const LEDGER_BINDINGS = { requestBinding: '__yomuLedgerRequest', interactionBinding: '__yomuLedgerInteraction' };
+const LEDGER_BINDINGS = { requestBinding: '__yomuLedgerRequest', interactionBinding: '__yomuLedgerInteraction', pageStampBinding: '__yomuLedgerPageStamp' };
 
 export function listRecordings() {
     return readdirSync(RECORDINGS_ROOT, { withFileTypes: true })
@@ -62,7 +62,8 @@ export function loadRecording(slug) {
  *   'replay'  recorded answers (default); anything else fails like a dropped connection
  *   'offline' nothing answers
  *   'live'    the real network (APIRequestContext), for canaries
- *   'record'  the real network for recordHosts only (kept for saveProductTraffic()); every other host fails
+ *   'record'  the real network for recordHosts only, their answers added to recorder
+ *             (createHarWriter; the caller writes it); every other host fails
  * pageNetwork: what the page's own unrecorded requests reach ('offline' | 'live').
  * onGmRequest(request) may answer first ({ status, body, contentType }) to model
  *   a failing service; return undefined to fall through.
@@ -74,6 +75,7 @@ export async function openRecordedPage(options) {
     scope.context = context;
     await context.exposeFunction(LEDGER_BINDINGS.requestBinding, request => void scope.ledger.recordRequest(request));
     await context.exposeFunction(LEDGER_BINDINGS.interactionBinding, interaction => scope.ledger.recordInteraction(interaction));
+    await context.exposeFunction(LEDGER_BINDINGS.pageStampBinding, stamp => scope.ledger.recordPageStamp(stamp));
     await context.route('**/*', route => routePageRequest(route, scope));
     await installProduct(context, scope, settings);
     const page = await context.newPage();
@@ -87,16 +89,11 @@ export async function openRecordedPage(options) {
         page,
         ledger: scope.ledger,
         pageErrors,
-        /** Writes what gmNetwork 'record' kept into the recording; returns the entry count. */
-        saveProductTraffic(harName = 'product-traffic.har') {
-            if (!scope.recorder) throw new Error('saveProductTraffic needs gmNetwork: "record".');
-            return scope.recorder.write(scope.recording.dir, harName, 'product-resources');
-        },
         close: () => context.close(),
     };
 }
 
-function recordedPageScope({ browser, slug, product, gmNetwork = 'replay', pageNetwork = 'offline', hosted = true, onGmRequest, recordHosts = [], hostOptions = {} }) {
+function recordedPageScope({ browser, slug, product, gmNetwork = 'replay', pageNetwork = 'offline', hosted = true, onGmRequest, recordHosts = [], recorder, hostOptions = {} }) {
     const recording = loadRecording(slug);
     const engine = browser.browserType().name();
     return {
@@ -106,7 +103,7 @@ function recordedPageScope({ browser, slug, product, gmNetwork = 'replay', pageN
         ledger: createNetworkLedger(),
         har: recording.har(),
         productTraffic: gmNetwork === 'replay' ? recording.productTraffic() : null,
-        recorder: gmNetwork === 'record' ? createHarWriter({ creator: 'yomu recorded-page product traffic' }) : null,
+        recorder: gmNetwork === 'record' ? recordingWriter(recorder) : null,
         host: recordedHostAdapter(recording, { engine, ...hostOptions }),
         gmNetwork,
         pageNetwork,
@@ -114,6 +111,11 @@ function recordedPageScope({ browser, slug, product, gmNetwork = 'replay', pageN
         onGmRequest,
         recordHosts,
     };
+}
+
+function recordingWriter(recorder) {
+    if (!recorder) throw new Error('gmNetwork "record" needs a recorder (createHarWriter) to keep the answers in.');
+    return recorder;
 }
 
 async function installProduct(context, scope, settings) {
