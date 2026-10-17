@@ -17,16 +17,17 @@ describe('appearance progressive disclosure', () => {
         expect(saved.popupFontWeight).toBe(650);
     });
 
-    // Fonts and colour are expert tuning; language, theme, popup behaviour and
-    // a plain preview lead the panel.
-    it('leads with everyday choices and a plain preview, with fonts and colour tucked away', () => {
+    // Fonts and per-channel colour are expert tuning; the accent and the
+    // underline choice, language, theme, popup behaviour and a plain preview
+    // lead the panel.
+    it('leads with everyday choices and a plain preview, with fonts and channel colours tucked away', () => {
         const form = renderSettingsTestForm(DEFAULT_SETTINGS);
         const panel = form.querySelector<HTMLElement>('[data-settings-panel="appearance"]')!;
         const details = panel.querySelector<HTMLDetailsElement>('[data-settings-tuning="appearance"]')!;
-        for (const name of ['readerFontFamily', 'popupFontFamily', 'accentColor']) {
+        for (const name of ['readerFontFamily', 'popupFontFamily', 'wordUnderlineColorSource', 'subtitleUnderlineColorSource']) {
             expect(details.querySelector(`[name="${name}"]`), name).not.toBeNull();
         }
-        for (const name of ['theme', 'popupMode', 'hoverPopupMode']) {
+        for (const name of ['theme', 'popupMode', 'hoverPopupMode', 'accentColor', 'accentSwatch', 'underlineQuick']) {
             expect(panel.querySelector(`[name="${name}"]`)?.closest('details'), name).toBeNull();
         }
         expect(panel.querySelector('[name="popoverBackdropEnabled"]')).toBeNull();

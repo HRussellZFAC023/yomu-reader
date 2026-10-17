@@ -10,7 +10,7 @@ import { detectYomuUpdateFlow, installedAsBrowserExtension, updateFlowNoteKey } 
 import { externalLinkIcon } from '../ui/icons';
 import { menuIconMarkup } from '../ui/menu-icons';
 import { dispatchAuthorizedReaderControlEvent } from '../ui/trusted-interaction';
-import { AUDIO_GUIDE_URL, formatShortcutEvent, hasStatusColorSource, isPopupLookupEnabled, sanitizeAccentColor } from './index';
+import { AUDIO_GUIDE_URL, formatShortcutEvent, hasStatusColorSource, isPopupLookupEnabled } from './index';
 import { SETTINGS_LABEL_TEXT_CLASS, checkbox, input, radioGroup, select, settingsTabButton, shortcutInput } from './form-controls';
 import { audioUrlPlaceholderKey, isAudioSourceTypeValue, renderAudioSourceEditor, renderDictionaryLookupLinkEditor } from './form-editors';
 import { combinedApiCredentialLabel, effectiveJitenApiKey, effectiveJpdbApiKey, hasJpdbApiCredential, redactedApiCredentialsFromForm } from './api-credential';
@@ -50,6 +50,7 @@ import { localizeCatalogBrowse } from './catalog-browse-localization';
 import { localizeCatalogRecommendationSeed, renderRecommendedDictionaries } from './dictionary-recommendations-view';
 import { recommendedDictionaryActionKey } from './recommended-dictionary-card';
 import { PROTECTED_CREDENTIAL_INPUT_ATTRIBUTES, storedCredentialClearName } from './credential-form';
+import { localizeAppearanceQuickRow, renderAppearanceQuickRow } from './appearance-quick-row';
 
 export { readDictionaryLookupLinks, readFormSettings } from './form-read';
 export { syncSubtitlePreview } from './subtitle-preview';
@@ -400,6 +401,7 @@ function renderInterfaceSettingsPanel(settings: ReaderSettings): string {
     return `
             <fieldset id="jpdb-reader-settings-panel-appearance" role="tabpanel" data-settings-panel="appearance" data-legend-key="appearance">
                 <legend>${escapedUiText(settings.interfaceLanguage, 'appearance')}</legend>
+                ${renderAppearanceQuickRow(settings, text)}
                 ${renderInterfaceLanguageControl(settings)}
                 <div class="grid">
                     ${themeSegmentedControl(settings.theme, text)}
@@ -411,7 +413,6 @@ function renderInterfaceSettingsPanel(settings: ReaderSettings): string {
                 ${renderAppearanceTuning(settings.interfaceLanguage, `<div class="grid">
                     ${fontFamilyControl('readerFontFamily', text('readerFontFamily'), settings.readerFontFamily, text)}
                     ${fontFamilyControl('popupFontFamily', text('popupFontFamily'), settings.popupFontFamily, text)}
-                    ${input('accentColor', text('accentColor'), sanitizeAccentColor(settings.accentColor), 'color')}
                     ${input('popoverWidth', text('popoverWidth'), String(settings.popoverWidth), 'number', { min: 280, max: 900, step: 10 })}
                     ${input('popoverHeight', text('popoverHeight'), String(settings.popoverHeight), 'number', { min: 220, max: 900, step: 10 })}
                     ${select('popoverHeightMode', text('popoverHeightMode'), settings.popoverHeightMode, localizedOptions(text, POPOVER_HEIGHT_MODE_OPTIONS))}
@@ -1219,6 +1220,7 @@ export function localizeSettingsForm(form: HTMLFormElement, language: InterfaceL
         localizeSettingsShell(form, language, text);
         localizeSettingsDisclosures(form, language);
         localizeSettingsLabels(form, text);
+        localizeAppearanceQuickRow(form, text);
         localizeSettingsSectionTitles(form, text);
         localizeSettingsSelects(form, text);
         localizeSettingsShortcuts(form, text);
