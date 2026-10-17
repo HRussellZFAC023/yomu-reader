@@ -261,7 +261,7 @@ function formFacts(form: HTMLFormElement): ReviewServiceFacts {
 }
 
 /** Repaints every row's dot and Connect action, and the preference, from what the form holds now. */
-export function syncReviewServices(form: HTMLFormElement, text: SettingsText): void {
+function syncReviewServices(form: HTMLFormElement, text: SettingsText): void {
     const facts = formFacts(form);
     form.querySelectorAll<HTMLElement>('[data-review-service]').forEach(row => {
         const id = row.dataset.reviewService as ReviewServiceId;
