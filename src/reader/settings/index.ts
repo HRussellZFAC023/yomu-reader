@@ -14,6 +14,7 @@ import {
     NO_EXPLICIT_USER_CHOICE,
     recordSettingsIntent,
     SETTINGS_INTENT_LEDGER_STORAGE_KEY,
+    type SettingsIntentLedger,
 } from './intent-ledger';
 import { createDefaultSubtitleSettings } from './subtitle-defaults';
 import { adoptCurrentDefaults } from './retired-defaults';
@@ -1212,10 +1213,20 @@ async function loadSettingsFromStorage(): Promise<ReaderSettings> {
         undefined,
     );
     const view = await readSettingsPersistenceViewStrictFrom(readSettingsOwnedValueStrict);
-    const current = mergeSettings(settingsRecord(view.settings));
+    const record = settingsRecord(view.settings);
+    const current = mergeSettings(record);
     const withSitePreference = applyStoredSitePreference(current, storedSitePreference);
-    const settings = mergeSettings(applySettingsIntent(withSitePreference, view.intentLedger) as Partial<ReaderSettings>);
+    const intended = applySettingsIntent(withSitePreference, view.intentLedger);
+    const settings = mergeSettings(withLegacyJitenSwitch(intended, record, view.intentLedger) as Partial<ReaderSettings>);
     return adoptCurrentDefaults(settings, view.intentLedger, DEFAULT_SETTINGS);
+}
+
+// A record written before Jiten had its own switch takes Jiten's answer from
+// the learner's JPDB answer after intent applies, so a stale whole-object
+// writer cannot turn Jiten grading back on behind a declared "off".
+function withLegacyJitenSwitch(settings: ReaderSettings, record: Partial<ReaderSettings> | null, ledger: SettingsIntentLedger): ReaderSettings {
+    if (typeof record?.jitenMiningEnabled === 'boolean' || hasOwn(ledger.records, 'jitenMiningEnabled')) return settings;
+    return settings.jitenMiningEnabled === settings.jpdbMiningEnabled ? settings : { ...settings, jitenMiningEnabled: settings.jpdbMiningEnabled };
 }
 
 function applyStoredSitePreference(

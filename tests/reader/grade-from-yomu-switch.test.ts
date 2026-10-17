@@ -1,5 +1,8 @@
-import { describe, expect, it } from 'vitest';
-import { DEFAULT_SETTINGS, normalizeReaderSettings } from '../../src/reader/settings/index';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { DEFAULT_SETTINGS, loadSettings, normalizeReaderSettings } from '../../src/reader/settings/index';
+import { recordSettingsIntent } from '../../src/reader/settings/intent-ledger';
+import { serializeSettingsPersistencePair } from '../../src/reader/settings/settings-persistence-transaction';
+import { installGmStorageFixture } from './helpers/settings-persistence-fixture';
 import { apiSrsProviderViewForCard, isApiMiningEnabled, isApiSrsProviderEnabled } from '../../src/reader/cards/srs-providers';
 import { chosenWordGradingService } from '../../src/reader/settings/api-credential';
 import { reviewServiceState, showsPreferredGradingService, type ReviewServiceFacts } from '../../src/reader/settings/review-services-panel';
@@ -8,6 +11,8 @@ import type { JPDBCard, ReaderSettings } from '../../src/reader/app/types';
 // "Allow API review/deck changes" (jpdbMiningEnabled) gated JPDB AND Jiten until
 // 2.2. It became one "Grade from よむ" switch per service; a stored record
 // written before then keeps its answer for both.
+afterEach(() => { vi.unstubAllGlobals(); });
+
 describe('Grade from よむ, per service', () => {
     it('migrates a stored shared switch to both JPDB and Jiten', () => {
         const off = normalizeReaderSettings({ jpdbMiningEnabled: false });
@@ -22,6 +27,16 @@ describe('Grade from よむ, per service', () => {
 
         const fresh = normalizeReaderSettings({});
         expect([fresh.jpdbMiningEnabled, fresh.jitenMiningEnabled]).toEqual([true, true]);
+    });
+
+    it('takes Jiten\'s answer from the declared JPDB answer, not a stale settings record', async () => {
+        // A 2.1 tab saved the whole object with the shared switch on after the
+        // learner had declared it off.
+        const { jitenMiningEnabled: _unsplit, ...stale } = { ...DEFAULT_SETTINGS, jpdbMiningEnabled: true };
+        const declaredOff = recordSettingsIntent({ revision: 0, records: {} }, ['jpdbMiningEnabled'], { jpdbMiningEnabled: false });
+        installGmStorageFixture(new Map(Object.entries(serializeSettingsPersistencePair(stale as ReaderSettings, declaredOff))));
+        const loaded = await loadSettings();
+        expect([loaded.jpdbMiningEnabled, loaded.jitenMiningEnabled]).toEqual([false, false]);
     });
 
     it('keeps a saved per-service answer over the shared one', () => {
