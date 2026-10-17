@@ -1,4 +1,6 @@
 import { bindAppearanceQuickRow } from '../../../src/reader/settings/appearance-quick-row';
+import { bindLiveSettingsSync } from '../../../src/reader/settings/live-settings-sync';
+import { publishSettingsChange } from '../../../src/reader/settings/settings-change-bus';
 import { ACCENT_SWATCHES } from '../../../src/reader/theme/accent-swatches';
 import { DEFAULT_SETTINGS, localizeSettingsForm, readFormSettings, renderSettingsTestForm, registerSettingsFormCleanup } from './fixtures';
 
@@ -77,6 +79,29 @@ describe('appearance quick row', () => {
         select(form, 'wordUnderlineColorSource').value = 'pitch';
         select(form, 'wordUnderlineColorSource').dispatchEvent(new Event('change', { bubbles: true }));
         expect(form.querySelector<HTMLInputElement>('input[name="underlineQuick"]:checked')?.value).toBe('pitch');
+    });
+
+    it('follows a save from another tab, so the saved choice is selected and the old one can be picked again', () => {
+        const { form, commitAccent } = quickForm();
+        const sync = new AbortController();
+        let settings = DEFAULT_SETTINGS;
+        bindLiveSettingsSync(form, {
+            isActive: () => form.isConnected,
+            getSettings: () => settings,
+            adoptSettings: next => { settings = next; },
+            applyTheme: () => undefined,
+        }, sync.signal);
+        publishSettingsChange({
+            settings: { ...DEFAULT_SETTINGS, accentColor: AI, wordUnderlineColorSource: 'pitch', subtitleUnderlineColorSource: 'pitch' },
+            remote: true,
+        });
+        expect(form.querySelector<HTMLInputElement>('input[name="accentSwatch"]:checked')?.dataset.accentSwatch).toBe('ai');
+        expect(form.querySelector<HTMLInputElement>('input[name="underlineQuick"]:checked')?.value).toBe('pitch');
+        form.querySelector<HTMLInputElement>('[data-accent-swatch="kurenai"]')!.click();
+        expect(commitAccent).toHaveBeenCalledWith(DEFAULT_SETTINGS.accentColor);
+        form.querySelector<HTMLInputElement>('input[name="underlineQuick"][value="status"]')!.click();
+        expect(select(form, 'wordUnderlineColorSource').value).toBe('status');
+        sync.abort();
     });
 
     it('relabels in Japanese with no untranslated text', () => {

@@ -5,7 +5,9 @@
 // like a learner: Settings → Appearance must lead with the accent swatches and
 // the Underline choice, a tap on 藍 must repaint within one frame, Pitch must
 // paint pitch underlines on page and subtitle words without opening Tuning,
-// Save must persist both, and a reload must keep them. Then the BUILT
+// Save must persist both, a second open Appearance tab must follow that Save
+// (and still let the learner pick the old choice), and a reload must keep them.
+// Then the BUILT
 // userscript graph reads those saved values on a reader page and paints the
 // puck, the popup and the word underlines with them. Runs in Chromium at desktop
 // size and in WebKit at iPad size with touch, in light and dark, English and
@@ -141,6 +143,11 @@ async function runStudy(browser, config) {
         const pageErrors = [];
         page.on('pageerror', error => pageErrors.push(error.message));
         await openAppearance(page, false);
+        // A second Study tab with Appearance open: it must follow this tab's Save.
+        const otherTab = await context.newPage();
+        otherTab.on('pageerror', error => pageErrors.push(`other tab: ${error.message}`));
+        await openAppearance(otherTab, false);
+        await page.bringToFront();
 
         const row = await quickRowState(page);
         assert(row.firstRowIsQuick, 'Appearance does not lead with the accent and underline row', row);
@@ -201,6 +208,7 @@ async function runStudy(browser, config) {
             } catch { return null; }
         }, { key: YOMU_SETTINGS_KEY, accent: AI }, { timeout: 10_000 })).jsonValue();
 
+        const crossTab = await crossTabState(otherTab, config);
         await openAppearance(page, true);
         const reloaded = await page.evaluate(() => ({
             accent: getComputedStyle(document.documentElement).getPropertyValue('--jpdb-reader-accent').trim(),
@@ -211,10 +219,34 @@ async function runStudy(browser, config) {
             '藍 and Pitch did not survive a reload', reloaded);
         assert(pageErrors.length === 0, 'Study threw while choosing an accent', { pageErrors });
         await page.screenshot({ path: path.join(ARTIFACTS, `accent-quick-row-${config.name}-saved.png`), clip: paddedClip(await page.locator('[data-appearance-quick]').boundingBox(), config.viewport) });
-        return { saved, report: { swatches: row.swatches.map(swatch => swatch.name), frame, reloaded } };
+        return { saved, report: { swatches: row.swatches.map(swatch => swatch.name), frame, crossTab, reloaded } };
     } finally {
         await context.close();
     }
+}
+
+async function crossTabState(page, config) {
+    await page.bringToFront();
+    const selection = () => page.evaluate(() => ({
+        accent: getComputedStyle(document.documentElement).getPropertyValue('--jpdb-reader-accent').trim(),
+        swatch: document.querySelector('input[name="accentSwatch"]:checked')?.getAttribute('data-accent-swatch') ?? null,
+        underline: document.querySelector('input[name="underlineQuick"]:checked')?.getAttribute('value') ?? null,
+        channels: ['wordUnderlineColorSource', 'subtitleUnderlineColorSource'].map(name => document.querySelector(`select[name="${name}"]`)?.value),
+    }));
+    const synced = await page.waitForFunction(() => document.querySelector('input[name="accentSwatch"]:checked')?.getAttribute('data-accent-swatch') === 'ai'
+        && document.querySelector('input[name="underlineQuick"]:checked')?.getAttribute('value') === 'pitch', undefined, { timeout: 5_000 })
+        .then(() => true, () => false);
+    const remote = await selection();
+    assert(synced && remote.accent === AI && remote.channels.every(channel => channel === 'pitch'),
+        'An open Appearance tab still shows the old choice after another tab saved 藍 and Pitch', remote);
+    // The previous choice must be selectable again, not stuck as an already-checked control.
+    await activate(page.locator('[data-accent-swatch="kurenai"]'), config);
+    await activate(page.locator('[data-underline-quick] input[value="status"]'), config);
+    const repicked = await selection();
+    assert(repicked.swatch === 'kurenai' && repicked.accent !== AI && repicked.channels.every(channel => channel === 'status'),
+        'The other tab cannot pick 紅 and Status again after the remote save', repicked);
+    await page.close();
+    return { remote, repicked };
 }
 
 async function openAppearance(page, reload) {

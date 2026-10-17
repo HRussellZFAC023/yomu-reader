@@ -156,6 +156,7 @@ import { translateJapaneseSentence } from '../study/tools';
 import type { JPDBCard, JPDBGrade, JPDBToken, ReaderSettings } from '../app/types';
 import { addWindowEventListener } from '../platform/window-events';
 import { subscribeToReaderSettingsChanges } from '../app/settings-storage-subscription';
+import { publishSettingsChange } from '../settings/settings-change-bus';
 import { renderWordPills, updateHeadingWordPills } from '../sources/word-pills';
 import type { RtkInfo } from '../kanji/rtk';
 import { createNoopJpdbKanjiClient, createNoopKanjiVGClient, createNoopRtkClient, noopKanjiPracticeDoodle } from './missing-kanji-study-clients';
@@ -577,6 +578,9 @@ export class NewTabRuntime {
         this.applyInterfaceLocale();
         this.applyTheme(effectiveSettings);
         this.applyWordColors(effectiveSettings);
+        // An open Settings form follows the other tab's save at once, so its
+        // controls never show a choice that is no longer the saved one.
+        publishSettingsChange({ settings: effectiveSettings, remote: true });
         await this.refreshDictionaryStyles();
         if (this.newTab?.isCurrentPage()) await this.newTab.renderPage();
         this.scheduleAnkiStatusWarmup();
