@@ -110,6 +110,9 @@ try {
     await runStage(stage('content-addressed-retention', 'node scripts/prune-content-addressed-assets.mjs --check'));
     await runStage(stage('committed-artifacts', 'npm run -s check:artifacts'));
     await runStage(stage('smoke-workflow-coverage', 'node scripts/check-smoke-workflow-coverage.mjs'));
+    // A body-anchored or combinator-followed :has() in the injected sheet made
+    // Chromium restyle every host page on each DOM insertion (W1-40). Milliseconds.
+    await runStage(stage('css-has-invalidation', 'npm run -s check:css-has'));
 } catch {
     printSummary(false);
     process.exit(1);
