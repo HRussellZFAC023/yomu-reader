@@ -219,6 +219,7 @@ import {
 } from './parsed-html-cache';
 import {
     SubtitleTranscriptPanel,
+    syncTranscriptPageState,
     type TranscriptPanelRenderState,
     type TranscriptPanelVirtualWindow,
     type TranscriptRow,
@@ -1183,6 +1184,7 @@ export class SubtitlePlayerController {
         this.root = undefined;
         this.subtitleEl = undefined;
         this.transcriptPanel = undefined;
+        syncTranscriptPageState(undefined);
         this.video = undefined;
         this.fullscreenHost.invalidateHostCache();
     }
@@ -5521,14 +5523,10 @@ export class SubtitlePlayerController {
             setClassState(element, 'jpdb-subtitle-transcript-right', this.effectiveTranscriptPlacement === 'right');
             setClassState(element, 'jpdb-subtitle-transcript-left', this.effectiveTranscriptPlacement === 'left');
             setClassState(element, 'jpdb-subtitle-transcript-bottom', this.effectiveTranscriptPlacement === 'bottom');
-        }
-        if (this.root.dataset.transcriptPlacement !== this.effectiveTranscriptPlacement) {
-            this.root.dataset.transcriptPlacement = this.effectiveTranscriptPlacement;
-        }
-        if (this.transcriptPanel && this.transcriptPanel.dataset.transcriptPlacement !== this.effectiveTranscriptPlacement) {
-            this.transcriptPanel.dataset.transcriptPlacement = this.effectiveTranscriptPlacement;
+            if (element.dataset.transcriptPlacement !== this.effectiveTranscriptPlacement) element.dataset.transcriptPlacement = this.effectiveTranscriptPlacement;
         }
         this.syncPanelPlacementButtons();
+        syncTranscriptPageState(this.transcriptPanel);
     }
 
     private syncPanelPlacementButtons(): void {
@@ -8115,6 +8113,7 @@ export class SubtitlePlayerController {
 
     private syncTranscriptPanelFullscreenDisplayOverride(): void {
         const panel = this.transcriptPanel;
+        syncTranscriptPageState(panel); // this method runs after every panel.hidden flip
         if (!panel) return;
         const shouldOverride = this.fullscreen && !panel.hidden && !this.transcriptPanelClosing;
         if (shouldOverride) {

@@ -96,7 +96,7 @@
   user-select: none;
 }
 
-.jpdb-reader-popover.jpdb-reader-sheet:has(.jpdb-reader-popover-body) {
+.jpdb-reader-popover.jpdb-reader-sheet.jpdb-reader-sheet-has-body {
   display: grid;
   grid-template-rows: auto minmax(0, 1fr) auto;
   overflow: hidden;
@@ -104,7 +104,7 @@
   scrollbar-gutter: auto;
 }
 
-.jpdb-reader-popover.jpdb-reader-sheet:has(.jpdb-reader-popover-body) .jpdb-reader-popover-body {
+.jpdb-reader-popover.jpdb-reader-sheet.jpdb-reader-sheet-has-body .jpdb-reader-popover-body {
   min-height: 0;
   min-width: 0;
   max-width: 100%;
@@ -117,20 +117,20 @@
   -webkit-overflow-scrolling: touch;
 }
 
-.jpdb-reader-popover.jpdb-reader-sheet:has(.jpdb-reader-popover-body) .jpdb-reader-popover-body > * {
+.jpdb-reader-popover.jpdb-reader-sheet.jpdb-reader-sheet-has-body .jpdb-reader-popover-body > * {
   min-width: 0;
   max-width: 100%;
 }
 
-.jpdb-reader-popover.jpdb-reader-sheet:has(.jpdb-reader-popover-body) .jpdb-reader-actions {
+.jpdb-reader-popover.jpdb-reader-sheet.jpdb-reader-sheet-has-body .jpdb-reader-actions {
   padding: 6px 16px calc(18px + env(safe-area-inset-bottom));
 }
 
-.jpdb-reader-popover.jpdb-reader-sheet:has(.jpdb-reader-popover-body) .jpdb-reader-actions.jpdb-reader-actions-has-mining {
+.jpdb-reader-popover.jpdb-reader-sheet.jpdb-reader-sheet-has-body .jpdb-reader-actions.jpdb-reader-actions-has-mining {
   padding-top: 31px;
 }
 
-.jpdb-reader-popover.jpdb-reader-sheet:has(.jpdb-reader-popover-body) .jpdb-reader-actions.jpdb-reader-actions-quiet {
+.jpdb-reader-popover.jpdb-reader-sheet.jpdb-reader-sheet-has-body .jpdb-reader-actions.jpdb-reader-actions-quiet {
   padding-block: 10px calc(10px + env(safe-area-inset-bottom));
 }
 
@@ -1161,11 +1161,13 @@ span.jpdb-reader-action-pill[aria-disabled="true"] {
     width: 100%;
     margin-block: 4px 0;
   }
+  /* has-invalidation-allow: anchored on the popover header, whose pitch is drawn with the card */
   .jpdb-reader-header:has(.jpdb-reader-pitch-components, .jpdb-reader-pitch-variants[data-pitch-fit="wide"]) .jpdb-reader-word-actions {
     grid-column: 2;
     grid-row: 1;
     justify-self: end;
   }
+  /* has-invalidation-allow: anchored on the popover header, whose pitch is drawn with the card */
   .jpdb-reader-header:has(.jpdb-reader-pitch-components, .jpdb-reader-pitch-variants[data-pitch-fit="wide"]) .jpdb-reader-word-pills {
     grid-row: 3;
   }
@@ -1181,11 +1183,13 @@ span.jpdb-reader-action-pill[aria-disabled="true"] {
     width: 100%;
     margin-block: 4px 0;
   }
+  /* has-invalidation-allow: anchored on the popover header, whose pitch is drawn with the card */
   .jpdb-reader-header:has(.jpdb-reader-pitch, .jpdb-reader-pitch-variants, .jpdb-reader-pitch-components) .jpdb-reader-word-actions {
     grid-column: 2;
     grid-row: 1;
     justify-self: end;
   }
+  /* has-invalidation-allow: anchored on the popover header, whose pitch is drawn with the card */
   .jpdb-reader-header:has(.jpdb-reader-pitch, .jpdb-reader-pitch-variants, .jpdb-reader-pitch-components) .jpdb-reader-word-pills {
     grid-row: 3;
   }

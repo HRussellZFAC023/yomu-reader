@@ -142,6 +142,16 @@ export function createReaderPopover(appName: string, settings: ReaderSettings, t
     return popover;
 }
 
+/**
+ * Every popover content swap. The sheet's scrolling-body layout keys on
+ * `jpdb-reader-sheet-has-body` set here, not on `:has(.jpdb-reader-popover-body)`:
+ * in Chromium that rule restyled the whole page on every host DOM insertion.
+ */
+export function setReaderPopoverHtml(popover: HTMLElement, html: string): void {
+    setInnerHtml(popover, html);
+    popover.classList.toggle('jpdb-reader-sheet-has-body', Boolean(popover.querySelector('.jpdb-reader-popover-body')));
+}
+
 export function forceReaderPopoverSurface(popover: HTMLElement, settings: ReaderSettings): void {
     popover.dataset[FORCED_POPOVER_SURFACE_DATA_KEY] = 'true';
     refreshForcedReaderPopoverSurface(popover, settings);

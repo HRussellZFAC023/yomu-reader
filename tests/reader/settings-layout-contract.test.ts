@@ -8,7 +8,7 @@ describe('Settings layout contract', () => {
     it('keeps toasts off the open radial menu and lets toast.ts lift them above control bars', () => {
         expect(settingsCss).toContain('bottom: max(18px, env(safe-area-inset-bottom), var(--jpdb-reader-toast-clearance, 0px));');
         expect(settingsCss).not.toContain('bottom: calc(84px + env(safe-area-inset-bottom));');
-        expect(settingsCss).toContain('@media (max-width: 699px) { body:has(.jpdb-reader-fab-radial.is-open) .jpdb-reader-toast-stack { top: calc(72px + env(safe-area-inset-top)); bottom: auto; } }');
+        expect(settingsCss).toContain('@media (max-width: 699px) { .jpdb-reader-fab-radial-open .jpdb-reader-toast-stack { top: calc(72px + env(safe-area-inset-top)); bottom: auto; } }');
     });
 
     it('lines Quick setup, Furigana, Readings and Color words up on one row (YQ-13)', () => {

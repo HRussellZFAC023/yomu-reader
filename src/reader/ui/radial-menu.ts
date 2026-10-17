@@ -40,6 +40,13 @@ const MIN_GAP = 62;
 const MAX_R = 320;
 const EDGE = 32;
 
+// The page-level copy on <html> lets the toast stack step aside (settings.css)
+// without body:has(), which made Chromium restyle the page on every host insertion.
+function setRadialOpen(backdrop: HTMLElement, open: boolean): void {
+    backdrop.classList.toggle('is-open', open);
+    document.documentElement.classList.toggle('jpdb-reader-fab-radial-open', open);
+}
+
 /**
  * A floating radial menu that grows out of the Yomu puck. Items spring out along
  * a quarter-arc that always points into the open screen quadrant (so a corner
@@ -109,7 +116,7 @@ export class RadialMenuController {
         // Two frames so the collapsed-at-hub start state is painted before the
         // open transition runs — otherwise items snap straight to their slots.
         requestAnimationFrame(() => requestAnimationFrame(() => {
-            if (this.state === 'open') backdrop.classList.add('is-open');
+            if (this.state === 'open') setRadialOpen(backdrop, true);
         }));
     }
 
@@ -119,7 +126,7 @@ export class RadialMenuController {
         this.host.getButton()?.classList.remove('jpdb-reader-fab--menu-open');
         this.listeners?.abort();
         this.listeners = undefined;
-        this.backdrop?.classList.remove('is-open');
+        if (this.backdrop) setRadialOpen(this.backdrop, false);
         this.backdrop?.classList.add('is-closing');
         this.closeTimer = window.setTimeout(() => this.teardownDom(), ITEM_EXIT_MS + 40);
     };
@@ -133,6 +140,7 @@ export class RadialMenuController {
     }
 
     private teardownDom(): void {
+        if (this.backdrop) setRadialOpen(this.backdrop, false);
         this.backdrop?.remove();
         this.backdrop = undefined;
         this.items.clear();

@@ -286,7 +286,7 @@ describe('reader helpers', () => {
         expect(normalizedKanjiCss).toContain('.jpdb-reader-actions:not(.jpdb-reader-actions-mining-collapsed) .jpdb-reader-mining-collapse::before { transform: translateY(-2px) rotate(225deg); }');
         expect(normalizedKanjiCss).toContain('.jpdb-reader-mining-collapse::after { content: ""; position: absolute; inset: -16px 0 0; border-radius: 999px; }');
         expect(normalizedKanjiCss).not.toContain('.jpdb-reader-actions-has-mining { padding-top: 45px; }');
-        expect(normalizedPopoverCss).toContain('.jpdb-reader-popover.jpdb-reader-sheet:has(.jpdb-reader-popover-body) .jpdb-reader-actions.jpdb-reader-actions-has-mining { padding-top: 31px; }');
+        expect(normalizedPopoverCss).toContain('.jpdb-reader-popover.jpdb-reader-sheet.jpdb-reader-sheet-has-body .jpdb-reader-actions.jpdb-reader-actions-has-mining { padding-top: 31px; }');
     });
 
     it('marks the card headword with its pitch class so it can show the pitch underline', () => {

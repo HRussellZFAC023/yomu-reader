@@ -94,7 +94,7 @@ import {
 } from '../dom/private-command-capabilities';
 import { trustedReaderEventHandler } from '../ui/trusted-interaction';
 import { LookupModalAccessibility } from '../popup/modal-accessibility-impl';
-import { createReaderBackdrop, createReaderPopover, forceReaderPopoverSurface, installMiningDrawerHandle, installSheetCloseButton, installSheetHandle, refreshForcedReaderPopoverSurface } from '../popup/shell';
+import { createReaderBackdrop, createReaderPopover, forceReaderPopoverSurface, installMiningDrawerHandle, installSheetCloseButton, installSheetHandle, refreshForcedReaderPopoverSurface, setReaderPopoverHtml } from '../popup/shell';
 import { PopupNavigationController, renderModalNavigation, type CardNavigationMode, type PopupNavigationEntry } from '../popup/navigation';
 import {
     buildKanjiFacts,
@@ -1017,7 +1017,7 @@ export class NewTabRuntime {
         data: CardRenderData & { loading: boolean },
     ): void {
         clearNestedParseState(popover);
-        setInnerHtml(popover, this.lookupPopoverRenderer.render(card, sentence, 'modal', data));
+        setReaderPopoverHtml(popover, this.lookupPopoverRenderer.render(card, sentence, 'modal', data));
         mountDeckSelects(popover, card, sentence, (control, actionCard, actionSentence, command) => this.handleCardAction(control, actionCard, actionSentence, undefined, command));
         this.wanikaniSources.installDefinitionMounts(popover, card);
         this.refreshNewTabLookupHeader(popover, card, data);
@@ -1148,7 +1148,7 @@ export class NewTabRuntime {
         this.navigation.updateKanji(card, kanji, sentence, navigation);
         const { popover, reused } = this.lookupRenderSurface(options.reuseActivePopover === true);
         clearNestedParseState(popover);
-        setInnerHtml(popover, this.renderKanjiLookupShell(card, kanji));
+        setReaderPopoverHtml(popover, this.renderKanjiLookupShell(card, kanji));
         this.localizeLookupPopoverChrome(popover);
         this.activateLookupRenderSurface(popover, anchor, reused);
         this.installKanjiLookupHandlers(popover, card, kanji, sentence);

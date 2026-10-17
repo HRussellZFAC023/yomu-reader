@@ -71,6 +71,19 @@ export interface SubtitleTranscriptPanelDeps {
     handleClick(event: MouseEvent): void;
 }
 
+/**
+ * Mirrors the transcript list's visibility onto <html>, where the puck reads it
+ * (subtitles-youtube.css). This was `body:has(.jpdb-subtitle-list:not([hidden]))`,
+ * and a body-anchored :has() makes Chromium restyle the whole page on every host
+ * DOM insertion, such as YouTube's 4 Hz time text.
+ */
+export function syncTranscriptPageState(panel: HTMLElement | undefined): void {
+    const open = Boolean(panel && !panel.hidden);
+    const root = document.documentElement.classList;
+    root.toggle('jpdb-subtitle-transcript-open', open);
+    root.toggle('jpdb-subtitle-transcript-bottom-open', open && Boolean(panel?.classList.contains('jpdb-subtitle-transcript-bottom')));
+}
+
 // Transcript (Lines) drawer surface extracted from the controller: owns the
 // drawer/panel HTML construction, per-row rendering, the row translation-peek
 // toggle, and the transcript list's DOM event handlers (click/keydown/pointer

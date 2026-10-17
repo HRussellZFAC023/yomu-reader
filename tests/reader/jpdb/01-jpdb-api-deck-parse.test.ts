@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { hostedAccentCssVariables } from '../../../src/reader/core/hosted-accent-css';
+import { setReaderPopoverHtml } from '../../../src/reader/popup/shell';
 import {
     registerReaderHelpersCleanup,
     DEFAULT_SETTINGS,
@@ -1289,6 +1290,19 @@ describe('reader helpers', () => {
             expect(normalizedCss).toContain('.jpdb-reader-popover.jpdb-reader-sheet { left: 0 !important; right: 0 !important; top: auto !important; bottom: var(--jpdb-reader-sheet-bottom, 0px) !important;');
             expect(normalizedCss).toContain('.jpdb-reader-sheet .jpdb-reader-sheet-handle { display: block; }');
         });
+    });
+
+    // The sheet's scrolling-body layout keys on a class set with the content;
+    // .jpdb-reader-sheet:has(.jpdb-reader-popover-body) restyled whole host pages.
+    it('marks a popover whose content has a scroll body, for the sheet layout', () => {
+        const popover = createReaderPopover('よむ', { ...DEFAULT_SETTINGS, popupMode: 'sheet' as const });
+        setReaderPopoverHtml(popover, '<div class="jpdb-reader-sheet-handle"></div><div class="jpdb-reader-popover-body"><p>本</p></div>');
+        expect(popover.classList.contains('jpdb-reader-sheet-has-body')).toBe(true);
+        setReaderPopoverHtml(popover, '<p>loading</p>');
+        expect(popover.classList.contains('jpdb-reader-sheet-has-body')).toBe(false);
+        const normalizedCss = POPOVER_CORE_CSS.replace(/\s+/g, ' ');
+        expect(normalizedCss).toContain('.jpdb-reader-popover.jpdb-reader-sheet.jpdb-reader-sheet-has-body { display: grid; grid-template-rows: auto minmax(0, 1fr) auto;');
+        expect(normalizedCss).not.toContain('.jpdb-reader-sheet:has(');
     });
 
     it('uses the auto drawer on portrait tablet viewports', () => {

@@ -494,9 +494,9 @@ describe('SubtitlePlayerController — styling & transcript panel', () => {
         const panel = normalizedCss.match(/\.jpdb-subtitle-list \{ position: fixed;[^}]*\}/)?.[0] ?? '';
         expect(panel).toContain('background: var(--jpdb-reader-surface);');
         expect(panel).not.toContain('transparent');
-        expect(normalizedCss).toContain('body:has(.jpdb-subtitle-list.jpdb-subtitle-transcript-bottom:not([hidden])) .jpdb-reader-fab[data-puck-rest="bottom"] { display: none !important; }');
+        expect(normalizedCss).toContain('.jpdb-subtitle-transcript-bottom-open .jpdb-reader-fab[data-puck-rest="bottom"] { display: none !important; }');
         expect(normalizedCss).toContain('@media (max-width: 519px) {');
-        expect(normalizedCss).toContain('body:has(.jpdb-subtitle-list:not([hidden])) .jpdb-reader-fab[data-puck-rest="bottom"] { display: none !important; }');
+        expect(normalizedCss).toContain('.jpdb-subtitle-transcript-open .jpdb-reader-fab[data-puck-rest="bottom"] { display: none !important; }');
         expect(normalizedCss).not.toMatch(/:not\(\[hidden\]\)\) \.jpdb-reader-fab \{/);
     });
 
@@ -1236,6 +1236,30 @@ Watch the cat
         } finally {
             controller.destroy();
         }
+    });
+
+    // The puck reads the drawer's state from <html> classes; body:has() over the
+    // list made Chromium restyle the whole page on every host DOM insertion.
+    it('mirrors the open drawer and its placement onto <html> for the puck', () => {
+        const { controller } = createInstalledSubtitleController({ subtitleTranscriptVisible: false, subtitleTranscriptPlacement: 'bottom' });
+        const pageState = () => ['jpdb-subtitle-transcript-open', 'jpdb-subtitle-transcript-bottom-open']
+            .filter(name => document.documentElement.classList.contains(name));
+        try {
+            const { internals, panel } = primeTranscriptDrawer(controller);
+            expect(pageState()).toEqual([]);
+            internals.openLinesPanel();
+            expect(panel.hidden).toBe(false);
+            expect(panel.classList.contains('jpdb-subtitle-transcript-bottom')).toBe(true);
+            expect(pageState()).toEqual(['jpdb-subtitle-transcript-open', 'jpdb-subtitle-transcript-bottom-open']);
+            (internals as unknown as { closeTranscriptPanel: (options: { immediate: boolean }) => void }).closeTranscriptPanel({ immediate: true });
+            expect(panel.hidden).toBe(true);
+            expect(pageState()).toEqual([]);
+            internals.openLinesPanel();
+            expect(pageState()).toContain('jpdb-subtitle-transcript-open');
+        } finally {
+            controller.destroy();
+        }
+        expect(pageState()).toEqual([]);
     });
 
     it('does not auto-open the drawer when opened elsewhere: default stays off (no cross-tab/homepage leak)', () => {
