@@ -8,3 +8,9 @@ import type { InterfaceLanguage } from './types';
 export function providerCardStateLabel(providerId: string, state: string, language: InterfaceLanguage): string {
     return providerId === 'yomu-local' && state === 'in-deck' ? uiText(language, 'savedWord') : cardStateLabel(state, language);
 }
+
+/** A word's provider status, "<service> <state>"; the よむ deck takes its name in the learner's language. */
+export function providerStatusText(provider: { id: string; label: string }, state: string, language: InterfaceLanguage): string {
+    const name = provider.id === 'yomu-local' ? uiText(language, 'yomuDeck') : provider.label;
+    return `${name} ${providerCardStateLabel(provider.id, state, language)}`;
+}

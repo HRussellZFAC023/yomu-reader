@@ -1,5 +1,5 @@
 import { SITE_INTERACTION_COPY } from './site-interaction-copy';
-import { ACADEMY_SRS_LABEL, APP_NAME, SUPPORT_COPY, SUPPORT_COPY_EXTRA } from './constants';
+import { YOMU_DECK_LABEL, APP_NAME, SUPPORT_COPY, SUPPORT_COPY_EXTRA } from './constants';
 import { loadJaGrammarRuleCopy } from './ja-grammar-rule-copy';
 import { formatIsolated, isRtlInterface } from '../locales/direction';
 import { GRAMMAR_UI_COPY } from '../study/grammar-copy';
@@ -12,6 +12,7 @@ import { GRADING_SERVICE_COPY } from './grading-service-copy';
 import { COLLECTION_COPY } from './collection-copy';
 import { OCR_STATUS_COPY } from './ocr-status-copy';
 import { APPEARANCE_QUICK_COPY } from './appearance-quick-copy';
+import { REVIEW_SERVICES_COPY } from './review-services-copy';
 import type { AudioSourceType, InterfaceLanguage } from './types';
 export { academyCopyHasMissingJapanese, academyText } from './academy-copy';
 export type { AcademyCopyKey, AcademyLanguage } from './academy-copy';
@@ -78,15 +79,9 @@ const COPY = {
         apiCredentialWanikani: 'WaniKani personal access token',
         apiKey: 'API key',
         jitenApiKey: 'Jiten API key',
-        apiAccess: 'API access',
         storedCredentialPlaceholder: 'Saved — enter a replacement',
         clearStoredCredential: 'Remove saved credential',
-        apiAccessHelp: 'Add each service credential here. Bunpro only needs the frontend token: import it from Bunpro settings, treat it like a password, and note that it is saved before it is verified. Academy reviews work locally without an account.',
         wanikaniTokenHelp: 'Create a read/write personal access token on WaniKani and paste it here. It is stored only in your browser, sent directly to api.wanikani.com (never through a proxy), and never logged.',
-        jpdbSettings: 'JPDB settings',
-        jitenSettings: 'Jiten settings',
-        bunproSettings: 'Bunpro settings',
-        wanikaniSettings: 'WaniKani settings',
         jpdbApiKeyConfigured: 'JPDB key set.',
         jpdbAndJitenApiKeysConfigured: 'Jiten and JPDB keys are set.',
         jpdbConnected: 'Connected to JPDB.',
@@ -100,7 +95,7 @@ const COPY = {
         bunproMiningEnabled: 'Allow Bunpro review/mining',
         wanikaniReviewEnabled: 'Allow WaniKani review (due assignments only)',
         wanikaniGradeMappingHelp: 'Yomu maps its grade to WaniKani’s pass/fail answer counts: Okay, Good, and Easy submit a clean pass. Anything below Okay submits one incorrect meaning answer and, unless the subject is a radical, one incorrect reading answer.',
-        yomuLocalSrsEnabled: `Enable ${ACADEMY_SRS_LABEL}`,
+        yomuLocalSrsEnabled: `Enable ${YOMU_DECK_LABEL}`,
         addToForq: 'Also copy JPDB adds to forq',
         enableReviews: 'Show review buttons',
         reviewRatingScale: 'Review rating scale',
@@ -110,12 +105,12 @@ const COPY = {
         gradeTargetJiten: 'Grades Jiten',
         gradeTargetBunpro: 'Grades Bunpro',
         gradeTargetWanikani: 'Grades WaniKani',
-        gradeTargetYomuLocal: `Grades ${ACADEMY_SRS_LABEL}`,
+        gradeTargetYomuLocal: `Grades ${YOMU_DECK_LABEL}`,
         gradeTargetAnki: 'Grades Anki card: {target}',
         gradeTargetJpdbAndAnki: 'Grades JPDB + Anki card: {target}',
         gradeTargetJitenAndAnki: 'Grades Jiten + Anki card: {target}',
         gradeTargetBunproAndAnki: 'Grades Bunpro + Anki card: {target}',
-        gradeTargetYomuLocalAndAnki: `Grades ${ACADEMY_SRS_LABEL} + Anki card: {target}`,
+        gradeTargetYomuLocalAndAnki: `Grades ${YOMU_DECK_LABEL} + Anki card: {target}`,
         missingAnkiCardId: 'Missing Anki card id.',
         jpdbPageEnhancements: 'Dictionary site enhancements',
         jpdbPageEnhancementsEnabled: 'Enhance JPDB and Jiten pages',
@@ -168,7 +163,7 @@ const COPY = {
         newTabApiSrs: 'API SRS (Jiten / JPDB)',
         newTabBunpro: 'Bunpro',
         newTabWanikani: 'WaniKani',
-        newTabYomuLocal: ACADEMY_SRS_LABEL,
+        newTabYomuLocal: YOMU_DECK_LABEL,
         dictionaryFallback: 'Dictionary fallback',
         newTabJpdbReviewMode: 'API review mode',
         newTabJpdbReviewAuto: 'Automatic',
@@ -258,7 +253,7 @@ const COPY = {
         hideColorFor: 'Hide color for',
         furiganaDifficultKanji: 'Hard kanji only',
         furiganaDifficultKanjiHelp: `${APP_NAME} keeps a fixed beginner kanji list and shows readings on everything outside it. A bare kanji means that character sits on the list.`,
-        statusColorNoSourceHelp: `Status colors read from a deck. Enable ${ACADEMY_SRS_LABEL} in Study, or add a JPDB, Jiten, or Anki source, and words take the color of their learning state.`,
+        statusColorNoSourceHelp: `Status colors read from a deck. Enable ${YOMU_DECK_LABEL} in Study, or add a JPDB, Jiten, or Anki source, and words take the color of their learning state.`,
         furiganaHideKnown: 'Hide familiar words',
         furiganaHoverOnly: 'Show on hover',
         furiganaAllParsed: 'All parsed words',
@@ -807,7 +802,7 @@ const COPY = {
         ...GRADING_SERVICE_COPY.en,
         jpdbKanjiUpdated: 'JPDB kanji updated.',
         jpdbKanjiUpdateFailedRuntime: 'Could not update JPDB kanji. Check kanji reviews.',
-        apiSrsActionsDisabled: 'API mining actions are disabled in settings.',
+        apiSrsActionsDisabled: 'Grading from よむ is off for this service in Settings.',
         addJpdbApiKeyReview: 'Add a JPDB API key to review JPDB cards.',
         addJitenApiKeyReview: 'Add a Jiten API key to review Jiten cards.',
         addBunproApiKeyReview: 'Add a Bunpro frontend API token to review Bunpro cards.',
@@ -1092,6 +1087,7 @@ const COPY = {
         translating: 'Translating...',
         ...GRAMMAR_UI_COPY.en,
         ...APPEARANCE_QUICK_COPY.en,
+        ...REVIEW_SERVICES_COPY.en,
     },
 } as const;
 export type UiCopyKey = keyof typeof COPY.en;
@@ -1181,7 +1177,7 @@ closeDrawer	ドロワーを閉じる
 copiedWord	単語をコピーしました。
 jpdbKanjiUpdated	JPDB漢字を更新しました。
 jpdbKanjiUpdateFailedRuntime	JPDB漢字を更新できません。
-apiSrsActionsDisabled	設定でAPI採掘操作が無効です。
+apiSrsActionsDisabled	設定でこのサービスへのよむからの採点がオフです。
 addJpdbApiKeyReview	JPDBレビューにはAPIキーが必要です。
 addJitenApiKeyReview	JitenレビューにはAPIキーが必要です。
 addBunproApiKeyReview	Bunproレビューにはfrontend_api_tokenが必要です。
@@ -1631,14 +1627,8 @@ wanikaniTokenHelp	WaniKaniでread/write権限のパーソナルアクセスト�
 apiCredentialBunproLegacy	Bunpro APIキー
 apiKey	APIキー
 jitenApiKey	Jiten APIキー
-apiAccess	APIアクセス
 storedCredentialPlaceholder	保存済み — 変更する場合のみ入力
 clearStoredCredential	保存済みの認証情報を削除
-apiAccessHelp	各サービスの認証情報を設定します。Bunproに必要なのはフロントエンドトークンだけです。Bunpro設定から取り込み、パスワードと同様に扱ってください。保存時点では未確認です。Academyの復習はアカウントなしでも使えます。
-jpdbSettings	JPDB設定
-jitenSettings	Jiten設定
-bunproSettings	Bunpro設定
-wanikaniSettings	WaniKani設定
 jpdbApiKeyConfigured	JPDBキーあり。
 jpdbConnected	JPDBに接続しました。
 jpdbAndJitenConnected	JitenとJPDBに接続しました。
@@ -1651,7 +1641,7 @@ jpdbMiningEnabled	APIの復習・デッキ変更を許可
 bunproMiningEnabled	Bunproの復習・採掘を許可
 wanikaniReviewEnabled	WaniKaniの復習を許可(期限が来た課題のみ)
 wanikaniGradeMappingHelp	よむの採点結果はWaniKaniの正誤カウントに変換されます。Okay、Good、Easyは正解として送信します。Okay未満は意味を1回不正解として送信し、ラジカル以外では読みも1回不正解として送信します。
-yomuLocalSrsEnabled	Academyを有効化
+yomuLocalSrsEnabled	よむデッキを有効化
 addToForq	JPDB追加時にforqにもコピー
 enableReviews	復習ボタンを表示
 reviewRatingScale	復習評価の段階
@@ -1661,12 +1651,12 @@ gradeTargetJpdb	JPDBを採点
 gradeTargetJiten	Jitenを採点
 gradeTargetBunpro	Bunproを採点
 gradeTargetWanikani	WaniKaniを採点
-gradeTargetYomuLocal	Academyに記録
+gradeTargetYomuLocal	よむデッキに記録
 gradeTargetAnki	Ankiカードを採点: {target}
 gradeTargetJpdbAndAnki	JPDB + Ankiカードを採点: {target}
 gradeTargetJitenAndAnki	Jiten + Ankiカードを採点: {target}
 gradeTargetBunproAndAnki	Bunpro + Ankiカードを採点: {target}
-gradeTargetYomuLocalAndAnki	Academy + Ankiカードに記録: {target}
+gradeTargetYomuLocalAndAnki	よむデッキ + Ankiカードに記録: {target}
 missingAnkiCardId	AnkiカードIDがありません。
 jpdbPageEnhancements	辞書サイト拡張
 jpdbPageEnhancementsEnabled	JPDB・Jitenのページを拡張
@@ -1714,7 +1704,7 @@ newTabAuto	自動
 newTabApiSrs	API SRS（Jiten / JPDB）
 newTabBunpro	Bunpro
 newTabWanikani	WaniKani
-newTabYomuLocal	Academy
+newTabYomuLocal	よむデッキ
 dictionaryFallback	辞書フォールバック
 newTabJpdbReviewMode	API復習モード
 newTabJpdbReviewAuto	自動
@@ -1805,7 +1795,7 @@ hideFuriganaFor	ふりがなを隠す対象
 hideColorFor	色を隠す対象
 furiganaDifficultKanji	難しい漢字のみ
 furiganaDifficultKanjiHelp	Yomuは初級漢字の固定リストを持ち、その外側の漢字にふりがなを表示します。ふりがなのない漢字は、そのリストに載っています。
-statusColorNoSourceHelp	学習状態の色はデッキから読み取ります。StudyでAcademyを有効にするか、JPDB・Jiten・Ankiのいずれかを追加すると、単語が学習状態の色になります。
+statusColorNoSourceHelp	学習状態の色はデッキから読み取ります。Studyでよむデッキを有効にするか、JPDB・Jiten・Ankiのいずれかを追加すると、単語が学習状態の色になります。
 furiganaHideKnown	なじみのある語を非表示
 furiganaHoverOnly	ホバー時に表示
 furiganaAllParsed	解析済みの全単語
@@ -2227,6 +2217,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
 `),
     ...SUBTITLE_SETTINGS_COPY.ja,
     ...APPEARANCE_QUICK_COPY.ja,
+    ...REVIEW_SERVICES_COPY.ja,
 };
 
 export interface GrammarRuleCopy {

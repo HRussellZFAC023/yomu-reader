@@ -71,7 +71,7 @@ Never open port 8765 to the internet. Without a computer, よむ can still hand 
 
 ## I already use JPDB, Jiten, Bunpro or WaniKani. {#other-services}
 
-Keep using it. Add your key under Settings → API and よむ colours words by what you know there and sends your grades back.
+Keep using it. Add your key under Settings → Reviews and よむ colours words by what you know there and sends your grades back.
 
 ## How do I turn よむ off on one website? {#one-site}
 

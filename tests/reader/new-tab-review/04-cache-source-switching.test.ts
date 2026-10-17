@@ -693,7 +693,7 @@ describe('new tab review — cache reuse & source switching', () => {
         expect(status.disabled).toBe(true);
         expect(newTabSourceSelect(root).value).toBe('anki');
         expect(newTabSourceSelectValues(root)).toEqual(['yomu-local', 'anki']);
-        expect(Array.from(newTabSourceSelect(root).options, option => option.textContent)).toEqual(['Academy', 'Anki']);
+        expect(Array.from(newTabSourceSelect(root).options, option => option.textContent)).toEqual(['よむ deck', 'Anki']);
     });
 
     it('does not offer JPDB without an API key and never exposes Dictionary beside Bunpro', () => {
@@ -722,7 +722,7 @@ describe('new tab review — cache reuse & source switching', () => {
         (controller as unknown as { renderWord(root: HTMLElement, card: JPDBCard): void }).renderWord(root, bunproCard);
 
         expect(newTabSourceSelectValues(root)).toEqual(['yomu-local', 'bunpro']);
-        expect(Array.from(newTabSourceSelect(root).options, option => option.textContent)).toEqual(['Academy', 'Bunpro']);
+        expect(Array.from(newTabSourceSelect(root).options, option => option.textContent)).toEqual(['よむ deck', 'Bunpro']);
     });
 
     it('falls back to study words when the selected Anki source has no card lister', async () => {

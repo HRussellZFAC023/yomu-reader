@@ -49,7 +49,7 @@ async function openTab() {
 
 type Tab = Awaited<ReturnType<typeof openTab>>;
 
-/** "Add to deck +" saving to the Academy deck, as the popup does. */
+/** "Add to deck +" saving to the よむ deck, as the popup does. */
 function saveToAcademy(tab: Tab, spelling: string, reading: string): Promise<void> {
     const academy = tab.providers.createApiSrsProviderAdapters({
         jpdb: {} as never,
@@ -66,8 +66,8 @@ function learnerText(tab: Tab, error: unknown): string[] {
 }
 
 const SAVE_INTERRUPTED = [
-    'Your Academy deck was not saved because saving was interrupted. Try again.',
-    '保存が中断されたため、Academyデッキに保存されませんでした。もう一度お試しください。',
+    'Your よむ deck was not saved because saving was interrupted. Try again.',
+    '保存が中断されたため、よむデッキに保存されませんでした。もう一度お試しください。',
 ];
 
 /** The OS suspends the tab for longer than its lease right after its next card record lands. */

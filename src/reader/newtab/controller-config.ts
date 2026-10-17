@@ -1,6 +1,6 @@
 import type { CardState } from '../app/types';
 import type { NewTabConcreteSource } from './source';
-import { ACADEMY_SRS_LABEL } from '../app/constants';
+import { YOMU_DECK_LABEL } from '../app/constants';
 
 export { CARD_STATE_LABEL_KEYS as SEARCH_CARD_STATE_LABEL_KEYS } from '../app/i18n';
 
@@ -28,7 +28,7 @@ export const NEW_TAB_SOURCE_LABELS: Record<NewTabConcreteSource, string> = {
     jpdb: 'JPDB',
     bunpro: 'Bunpro',
     wanikani: 'WaniKani',
-    'yomu-local': ACADEMY_SRS_LABEL,
+    'yomu-local': YOMU_DECK_LABEL,
     anki: 'Anki',
     dictionary: 'Dictionary',
 };

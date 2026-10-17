@@ -1,5 +1,5 @@
 import { Logger } from '../app/logger';
-import { ACADEMY_SRS_LABEL, FURIGANA_HIDE_STATE_GROUPS, WORD_COLOR_HIDE_STATE_GROUPS } from '../app/constants';
+import { YOMU_DECK_LABEL, FURIGANA_HIDE_STATE_GROUPS, WORD_COLOR_HIDE_STATE_GROUPS } from '../app/constants';
 import { publishSettingsChange } from './settings-change-bus';
 import { DEFAULT_PITCH_COLOR_TOKENS, DEFAULT_WORD_COLOR_TOKENS, OVERLAY_COLOR_TOKENS } from '../theme/color-tokens';
 import { normalizeAnkiFieldMappings } from './anki-field-mappings';
@@ -393,6 +393,7 @@ export const DEFAULT_SETTINGS: ReaderSettings = {
     popupFontFamily: DEFAULT_POPUP_FONT_FAMILY,
     popupFontWeight: 450,
     jpdbMiningEnabled: true,
+    jitenMiningEnabled: true,
     // JPDB parity: the credential is the real gate, so importing a Bunpro
     // token makes grading work without hunting for a second checkbox.
     bunproMiningEnabled: true,
@@ -683,6 +684,9 @@ function normalizeMiningSettings(value: Partial<ReaderSettings> | null): Partial
         blacklistDeck: normalizeDeckIdSetting(value?.blacklistDeck, DEFAULT_SETTINGS.blacklistDeck),
         apiGradingProvider: normalizeApiGradingProvider(value?.apiGradingProvider),
         ...normalizeBooleanSettingGroup(value, MINING_BOOLEAN_SETTING_KEYS),
+        // One stored "Allow API review/deck changes" switch gated JPDB and Jiten
+        // until 2.2, so a record without its own Jiten switch keeps that answer.
+        jitenMiningEnabled: booleanSettingWithFallback(value, 'jitenMiningEnabled', booleanSetting(value, 'jpdbMiningEnabled')),
     };
 }
 
@@ -1062,7 +1066,7 @@ export function hasStatusColorSource(settings: Partial<ReaderSettings>): boolean
 /** Names whichever deck feeds the state colour channel, for the picker labels. */
 export function statusColorSourceLabel(settings: Partial<ReaderSettings>): string {
     if (hasJpdbStatusSource(settings)) return combinedApiCredentialLabel(apiCredentials(settings));
-    if (hasLocalSrsStatusSource(settings)) return ACADEMY_SRS_LABEL;
+    if (hasLocalSrsStatusSource(settings)) return YOMU_DECK_LABEL;
     if (hasAnkiStatusSource(settings)) return 'Anki';
     return '';
 }

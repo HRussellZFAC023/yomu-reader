@@ -15,7 +15,8 @@ export const WORD_COLOR_HIDE_STATE_GROUPS = [...FURIGANA_HIDE_STATE_GROUPS, 'ign
 
 export const APP_NAME = 'よむ';
 export const APP_PUCK = 'よむ';
-export const ACADEMY_SRS_LABEL = 'Academy';
+/** The built-in local deck, as learners see it (stored provider id stays yomu-local). */
+export const YOMU_DECK_LABEL = 'よむ deck';
 const APP_SLUG = 'yomu';
 export const APP_REPOSITORY_NAME = `${APP_SLUG}-reader`;
 export const SETTINGS_TITLE = `${APP_NAME} Settings`;

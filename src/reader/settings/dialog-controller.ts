@@ -109,6 +109,8 @@ import { installFocusedControlScrolling } from './focused-control-scrolling';
 import { bindAppearanceQuickRow } from './appearance-quick-row';
 import { runCredentialDependentSettingsRefreshes, settingsDialogTrigger } from './dialog-open-policy';
 import { dictionaryActionBlockedDuringSiteClear } from './local-dictionary-storage-form';
+import { bindReviewServices, markAnkiAvailability } from './review-services-panel';
+import { settingsText } from './settings-text';
 import {
     firefoxAuthenticationInfoRequiresExtensionPage,
     requestFirefoxAuthenticationInfoForChangedSettings,
@@ -166,6 +168,8 @@ interface SettingsDialogDependencies {
     resetAllData: () => void | Promise<void>;
     beginSettingsPreview: (accent: string, language: InterfaceLanguage, theme: ReaderSettings['theme']) => void;
     clearSettingsPreview: () => void;
+    /** Study only: one AnkiConnect ping per open marks a reachable Anki ready to connect. Never on an ordinary page. */
+    probeAnkiAvailability?: boolean;
 }
 
 function isSettingsCommandWord(word: HTMLElement): boolean {
@@ -447,6 +451,8 @@ export class SettingsDialogController {
         installCatalogBrowseFilter(form);
         this.bindSettingsTabs(form);
         this.bindEditorControls(form);
+        const formText = () => settingsText(getFormInterfaceLanguage(form, this.settings.interfaceLanguage));
+        bindReviewServices(form, formText);
         this.dependencies.mountDialog(backdrop, form);
         // Production mount tears down the old form before returning.
         this.currentForm = form;
@@ -460,6 +466,7 @@ export class SettingsDialogController {
         this.syncJpdbStatus(form);
         void this.academyAccountSync.refresh(form, this.settings.interfaceLanguage);
         void this.refreshAnkiConnectionStatus(form);
+        if (this.dependencies.probeAnkiAvailability) void markAnkiAvailability(form, () => this.dependencies.anki.isConnected(), formText);
         runCredentialDependentSettingsRefreshes(firefoxAuthenticationInfoRequiresExtensionPage(), [
             () => void this.refreshJpdbConnectionStatus(form), () => void this.refreshWanikaniConnectionStatus(form),
         ]);
@@ -936,11 +943,11 @@ export class SettingsDialogController {
             this.syncJpdbStatus(form);
         });
         form.querySelector<HTMLSelectElement>('select[name="twoButtonReviews"]')?.addEventListener('change', () => syncReviewSettingsVisibility(form));
-        form.querySelector<HTMLInputElement>('input[name="jpdbMiningEnabled"]')?.addEventListener('change', () => {
+        form.querySelectorAll<HTMLInputElement>('input[name="jpdbMiningEnabled"], input[name="jitenMiningEnabled"]').forEach(input => input.addEventListener('change', () => {
             syncJpdbMiningDependentSettings(form);
             syncDisabledSettingsControlDescriptions(form, getFormInterfaceLanguage(form, this.settings.interfaceLanguage));
             this.syncJpdbStatus(form);
-        });
+        }));
         syncJpdbMiningDependentSettings(form);
         syncDisabledSettingsControlDescriptions(form, getFormInterfaceLanguage(form, this.settings.interfaceLanguage));
     }

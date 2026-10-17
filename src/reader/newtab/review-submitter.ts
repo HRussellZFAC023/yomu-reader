@@ -111,7 +111,7 @@ export class NewTabReviewSubmitter {
             },
             'jiten-api': {
                 hasCredential: card => isJitenGradableCard(card)
-                    && this.deps.getSettings().jpdbMiningEnabled
+                    && this.deps.getSettings().jitenMiningEnabled
                     && hasJitenApiCredential(this.deps.getSettings())
                     && typeof this.deps.jiten?.reviewCard === 'function',
                 review: (card, grade) => this.reviewJitenApi(card, grade),
@@ -162,7 +162,7 @@ export class NewTabReviewSubmitter {
         const reviewCard = this.deps.jiten?.reviewCard;
         assertReviewAccess(this.deps, [
             [isJitenGradableCard(card), 'couldNotSubmitGrade'],
-            [settings.jpdbMiningEnabled, 'apiSrsActionsDisabled'],
+            [settings.jitenMiningEnabled, 'apiSrsActionsDisabled'],
             [hasJitenApiCredential(settings), 'addJitenApiKeyReview'],
             [typeof reviewCard === 'function', 'couldNotSubmitGrade'],
         ]);

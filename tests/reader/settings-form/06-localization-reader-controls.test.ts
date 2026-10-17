@@ -115,7 +115,7 @@ describe('settings form localization', () => {
 
         expect(audio.querySelector('legend')?.textContent).toBe('音声');
         expect(audio.querySelector<HTMLElement>('[data-help-key="audioHelp"]')?.textContent).toContain('{term}');
-        expect(form.querySelector<HTMLFieldSetElement>('fieldset[data-legend-key="api"] legend')?.textContent).toBe('API');
+        expect(form.querySelector<HTMLFieldSetElement>('fieldset[data-legend-key="reviews"] legend')?.textContent).toBe('復習');
         expect(form.querySelector<HTMLElement>('[data-help-key="readerHelp"]')?.textContent).toContain('通常ホバー');
     });
 

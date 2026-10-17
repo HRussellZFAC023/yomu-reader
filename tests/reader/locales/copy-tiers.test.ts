@@ -153,7 +153,7 @@ describe('D43 copy tiers are a property of the string', () => {
         const humanCritical = messages.filter((message) => message.tier === 'human-critical');
         const byIdAlone = humanCritical.filter((message) => copyTierOf(message.id).tier === 'human-critical');
         expect({ total: messages.length, critical: humanCritical.length, byId: byIdAlone.length })
-            .toEqual({ total: 1224, critical: 414, byId: 408 });
+            .toEqual({ total: 1234, critical: 429, byId: 424 });
         // 2.1.3 adds a supplementary action for native YouTube paging.
         expect(copyTierOf(legacyChromeMessageId('youtubeLoadMore')).tier).toBe('machine-draft-ok');
         // 2.1.1 adds eleven shared website messages and Default deck copy; two new IDs are critical.
@@ -165,7 +165,10 @@ describe('D43 copy tiers are a property of the string', () => {
         // (autoplayAudioOn/Off, still human-critical). The "Dim page behind
         // popover" setting went with the page dim. 2.2 names the six accent
         // swatches, the custom picker and the Underline choice (ten messages,
-        // none critical).
+        // none critical). Settings → Reviews names each service's row, state and
+        // what it adds (seventeen messages, sixteen critical: grading and
+        // credentials), and the local deck's "Default" became "よむ deck"; the
+        // tab's old access heading, help and four key-page link labels went.
         for (const key of ['backupMovedHelp', 'helpLinksCopy', 'extensionSettingsRecoveryGuidance', 'dictionaryImportHelp', 'yomitanSettingsInvalid']) {
             expect(chromeMessageSource()).not.toHaveProperty(key);
         }
@@ -177,7 +180,8 @@ describe('D43 copy tiers are a property of the string', () => {
             expect(chromeMessageSource()).not.toHaveProperty(key);
         }
 
-        expect(humanCritical.length - byIdAlone.length).toBe(6);
+        // The old API access help escalated by its text; its Bunpro line is critical by ID now.
+        expect(humanCritical.length - byIdAlone.length).toBe(5);
     });
 
     it('gives hosted-docs prose a stable ID that moves when the prose is edited', () => {

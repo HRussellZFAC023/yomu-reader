@@ -1684,13 +1684,15 @@ describe('reader helpers', () => {
         expect(deckNames).toHaveBeenCalledTimes(1);
     });
 
-    it('loads Jiten study decks through the shared API mining gate', async () => {
+    it('loads Jiten study decks only while Jiten grades from よむ', async () => {
         const listReaderStudyDecks = vi.fn(async () => [{ userStudyDeckId: 12, name: 'Mining', deckType: 2 }]);
         const enabledLoader = testCardRenderDataLoader({
             settings: cardDetailLoaderSettings({
                 apiKey: '',
                 jitenApiKey: 'jiten-key',
-                jpdbMiningEnabled: true,
+                // JPDB's switch does not gate Jiten (it did until 2.2).
+                jpdbMiningEnabled: false,
+                jitenMiningEnabled: true,
             }),
             jiten: { listReaderStudyDecks },
             isJpdbBackedCard: () => false,
@@ -1706,7 +1708,8 @@ describe('reader helpers', () => {
             settings: cardDetailLoaderSettings({
                 apiKey: '',
                 jitenApiKey: 'jiten-key',
-                jpdbMiningEnabled: false,
+                jpdbMiningEnabled: true,
+                jitenMiningEnabled: false,
             }),
             jiten: { listReaderStudyDecks: disabledListReaderStudyDecks },
             isJpdbBackedCard: () => false,

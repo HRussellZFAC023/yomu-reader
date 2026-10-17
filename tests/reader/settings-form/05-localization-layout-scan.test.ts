@@ -62,7 +62,7 @@ describe('settings form localization', () => {
 
         expect(form.querySelector<HTMLButtonElement>('[data-action="settings-panel"][data-panel="appearance"]')?.getAttribute('aria-selected')).toBe('true');
         expect(form.querySelector<HTMLFieldSetElement>('fieldset[data-legend-key="appearance"]')?.hidden).toBe(false);
-        expect(form.querySelector<HTMLFieldSetElement>('fieldset[data-legend-key="api"]')?.hidden).toBe(true);
+        expect(form.querySelector<HTMLFieldSetElement>('fieldset[data-legend-key="reviews"]')?.hidden).toBe(true);
         expect(form.querySelector<HTMLFieldSetElement>('fieldset[data-legend-key="audio"]')?.hidden).toBe(true);
     });
 
@@ -79,7 +79,8 @@ describe('settings form localization', () => {
         }
         const credential = form.querySelector<HTMLInputElement>('[name="apiCredentialJiten"]')!;
         expect(credential.labels?.[0]?.textContent).toContain('Jiten');
-        const link = credential.closest('.jpdb-reader-protected-credential')!.querySelector('a')!;
+        // Reviews: each service's Connect link opens its key page, outside the field's label.
+        const link = credential.closest('[data-review-service="jiten"]')!.querySelector('a[data-review-service-connect]')!;
         expect(link.getAttribute('href')).toBe('https://jiten.moe/settings');
         expect(link.closest('label')).toBeNull();
     });
@@ -194,7 +195,8 @@ describe('settings form localization', () => {
         expect(form.querySelector('[name="newTabEnabled"]')).toBeNull();
         expect(topLevelLegendForControl(form, 'newTabAnkiEnabled')).toBe('Study');
         expect(topLevelLegendForControl(form, 'newTabJpdbReviewMode')).toBe('Study');
-        expect(topLevelLegendsForControl(form, 'twoButtonReviews')).toEqual(['Study']);
+        // The grade scale sits beside "Show review buttons" in Reviews.
+        expect(topLevelLegendsForControl(form, 'twoButtonReviews')).toEqual(['Reviews']);
         expect(labelForControl(form, 'twoButtonReviews')).toContain('Review rating scale');
         expect(labelForControl(form, 'newTabJpdbReviewMode')).toContain('API review mode');
         expect(optionText(form, 'newTabSource', 'auto')).toBe('Automatic');
@@ -253,11 +255,11 @@ describe('settings form localization', () => {
             .toEqual(['ignored']);
     });
 
-    it('splits the old Basics bucket into API, Appearance, and Sources sections', () => {
+    it('splits the old Basics bucket into Reviews, Appearance, and Sources sections', () => {
         const form = document.createElement('form');
         form.innerHTML = renderSettingsForm(DEFAULT_SETTINGS, 'https://jpdb.io/settings');
 
-        expect(topLevelLegendForControl(form, 'apiCredentialJpdb')).toBe('API');
+        expect(topLevelLegendForControl(form, 'apiCredentialJpdb')).toBe('Reviews');
         expect(topLevelLegendForControl(form, 'accentColor')).toBe('Appearance');
         expect(topLevelLegendForControl(form, 'popupLookupEnabled')).toBe('Reader');
         expect(topLevelLegendForControl(form, 'lookupOnHover')).toBe('Reader');
@@ -312,8 +314,8 @@ describe('settings form localization', () => {
         const jpdbInput = form.querySelector<HTMLInputElement>('input[name="apiCredentialJpdb"]')!;
         const jitenInput = form.querySelector<HTMLInputElement>('input[name="apiCredentialJiten"]')!;
 
-        expect(labelForControl(form, 'apiCredentialJpdb')).toContain('JPDB API key');
-        expect(labelForControl(form, 'apiCredentialJiten')).toContain('Jiten API key');
+        expect(labelForControl(form, 'apiCredentialJpdb')).toContain('JPDB key');
+        expect(labelForControl(form, 'apiCredentialJiten')).toContain('Jiten key');
         expect(jpdbInput.value).toBe('');
         expect(jitenInput.value).toBe('');
         expect(jpdbInput.placeholder).toContain('Saved');
@@ -323,12 +325,13 @@ describe('settings form localization', () => {
         expect(form.querySelector<HTMLInputElement>('input[name="jitenApiKey"]')).toBeNull();
         expect(jpdbInput.getAttribute('autocapitalize')).toBe('off');
         expect(jpdbInput.getAttribute('spellcheck')).toBe('false');
-        expect(form.querySelector<HTMLAnchorElement>('a[href="https://jiten.moe/settings"]')?.textContent).toBe('Jiten settings');
-        expect(settingsText(form, '[data-jpdb-api-key-help]')).toContain('Add each service credential here');
-        expect(settingsText(form, '[data-jpdb-api-key-help]')).toContain('import it from Bunpro settings');
-        expect(settingsText(form, '[data-jpdb-api-key-help]')).toContain('treat it like a password');
-        expect(settingsText(form, '[data-jpdb-api-key-help]')).toContain('saved before it is verified');
-        expect(settingsText(form, '[data-jpdb-api-key-help]')).toContain('Academy reviews work locally without an account');
+        // A connected service offers no Connect link; its row's dot says it is connected.
+        const jitenConnect = form.querySelector<HTMLAnchorElement>('a[href="https://jiten.moe/settings"]');
+        expect(jitenConnect?.textContent?.trim()).toBe('Connect');
+        expect(jitenConnect?.hidden).toBe(true);
+        expect(form.querySelector('[data-review-service="jiten"] [data-review-service-dot]')?.getAttribute('aria-label')).toBe('Connected');
+        expect(settingsText(form, '[data-review-service-text="bunproTokenHelp"]')).toContain('treat it like a password');
+        expect(settingsText(form, '[data-review-service-text="bunproTokenHelp"]')).toContain('saved before it is verified');
 
         let saved = readFormSettings(new FormData(form), configured);
         expect(saved.apiKey).toBe('jpdb-key');

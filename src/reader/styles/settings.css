@@ -2813,3 +2813,88 @@
     width: min(440px, calc(100vw - 48px));
   }
 }
+/* Settings → Reviews: one row per service. The dot carries the state (its
+   accessible name says it in words), the icons say what the service adds, and
+   the body holds its key and its own "Grade from よむ" switch. */
+.jpdb-reader-settings .jpdb-reader-review-services {
+  display: grid;
+  gap: 8px;
+  margin: 0 0 14px;
+}
+.jpdb-reader-settings .jpdb-reader-review-service {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+  padding: 6px 12px 10px;
+  border: 1px solid var(--jpdb-reader-border);
+  border-radius: 10px;
+}
+.jpdb-reader-settings .jpdb-reader-review-service-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
+  min-height: 36px;
+}
+/* The built-in deck needs no key: one line. */
+.jpdb-reader-settings .jpdb-reader-review-service:not(:has(.jpdb-reader-review-service-body)) {
+  padding-bottom: 6px;
+}
+.jpdb-reader-settings .jpdb-reader-review-service-dot {
+  flex: none;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: 1.5px solid var(--jpdb-reader-muted);
+}
+.jpdb-reader-settings .jpdb-reader-review-service[data-service-state="on"] .jpdb-reader-review-service-dot {
+  border-color: var(--jpdb-reader-success);
+  background: var(--jpdb-reader-success);
+}
+.jpdb-reader-settings .jpdb-reader-review-service[data-service-state="available"] .jpdb-reader-review-service-dot {
+  border-color: var(--jpdb-reader-success);
+}
+.jpdb-reader-settings .jpdb-reader-review-service[data-service-state="error"] .jpdb-reader-review-service-dot {
+  border-color: var(--jpdb-reader-warning);
+  background: var(--jpdb-reader-warning);
+}
+.jpdb-reader-settings .jpdb-reader-review-service-name {
+  font: 600 14px/1.2 var(--jpdb-reader-font);
+}
+.jpdb-reader-settings .jpdb-reader-review-service-adds {
+  display: inline-flex;
+  gap: 6px;
+  color: var(--jpdb-reader-muted);
+}
+.jpdb-reader-settings .jpdb-reader-review-service-adds-icon,
+.jpdb-reader-settings .jpdb-reader-review-service-adds-icon svg {
+  display: block;
+  width: 16px;
+  height: 16px;
+}
+.jpdb-reader-settings .jpdb-reader-review-service-connect {
+  margin-inline-start: auto;
+  min-height: 32px;
+}
+.jpdb-reader-settings .jpdb-reader-review-service-connect[hidden] {
+  display: none;
+}
+.jpdb-reader-settings .jpdb-reader-review-service-body {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
+  gap: 8px 16px;
+  align-items: end;
+  min-width: 0;
+}
+.jpdb-reader-settings .jpdb-reader-review-service-body > .jpdb-reader-help,
+.jpdb-reader-settings .jpdb-reader-review-service-body > .jpdb-reader-status-line,
+.jpdb-reader-settings .jpdb-reader-review-service-body > [data-jpdb-decks] {
+  grid-column: 1 / -1;
+}
+/* With no key, the dot already says so; the row's status line is for answers. */
+.jpdb-reader-settings .jpdb-reader-review-service[data-service-state="off"] .jpdb-reader-status-line {
+  display: none;
+}
+.jpdb-reader-settings .jpdb-reader-review-service-head > label.inline {
+  margin: 0 0 0 auto;
+}

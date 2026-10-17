@@ -466,7 +466,7 @@ describe('new tab review — stats, My Cards & kanji-doodle grading', () => {
                 expect(text).toContain('文法');
                 expect(text).toContain('自習');
                 expect(root.querySelector('[data-browse-source-filter="bunpro"]')?.textContent).toBe('Bunpro 1');
-                expect(root.querySelector('[data-browse-source-filter="yomu-local"]')?.textContent).toBe('Academy 1');
+                expect(root.querySelector('[data-browse-source-filter="yomu-local"]')?.textContent).toBe('よむ deck 1');
             });
         } finally {
             controller.destroy();

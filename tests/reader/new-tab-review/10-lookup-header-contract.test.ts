@@ -20,14 +20,14 @@ describe('new tab review — lookup header contract', () => {
             settings: { ...DEFAULT_SETTINGS, ankiEnabled: false, yomuLocalSrsEnabled: true },
         });
 
-        expect(items.map(item => item.textContent)).toEqual(['Academy Due']);
+        expect(items.map(item => item.textContent)).toEqual(['よむ deck Due']);
         expect(items[0]?.querySelector('.jpdb-reader-state-dot.jpdb-due')).not.toBeNull();
         expect(items.some(item => item.textContent?.includes('#400'))).toBe(false);
     });
 
     // Library and Stats call an Academy word saved but not in review "Saved";
     // its Study lookup popup names it the same way, keeping the in-deck swatch.
-    it.each([['en', 'Academy Saved'], ['ja', 'Academy 保存済み']] as const)('names a saved Academy word as Library does (%s)', async (interfaceLanguage, label) => {
+    it.each([['en', 'よむ deck Saved'], ['ja', 'よむデッキ 保存済み']] as const)('names a saved Academy word as Library does (%s)', async (interfaceLanguage, label) => {
         const repository = new LocalYomuSrsRepository();
         await repository.mine({ expression: '読む', reading: 'よむ', meaning: 'to read' });
         const [saved] = await repository.collection();

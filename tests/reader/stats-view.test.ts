@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { ACADEMY_SRS_LABEL } from '../../src/reader/app/constants';
+import { YOMU_DECK_LABEL } from '../../src/reader/app/constants';
 import { renderNewTabStatsContent } from '../../src/reader/newtab/stats-view';
 import { combineStatsSources, emptyStatsSource, statsFromApiCards, type StatsCardBreakdown, type StatsDailyPoint, type StatsDashboardSnapshot, type StatsSourceSnapshot, type StatsSourceStatus } from '../../src/reader/app/stats';
 
@@ -101,7 +101,7 @@ describe('new tab stats connection cards', () => {
     // "Anki settings" button: every source that was not JPDB or Jiten fell
     // through to Anki's actions.
     function connectionSnapshot(ankiStatus: StatsSourceStatus): StatsDashboardSnapshot {
-        const yomuLocal = emptyStatsSource('yomu-local', ACADEMY_SRS_LABEL, 'No stats yet.', 'ready');
+        const yomuLocal = emptyStatsSource('yomu-local', YOMU_DECK_LABEL, 'No stats yet.', 'ready');
         return {
             jpdb: emptyStatsSource('jpdb', 'JPDB', 'JPDB card states loaded.', 'ready'),
             jiten: emptyStatsSource('jiten', 'Jiten', 'Jiten SRS loaded.', 'ready'),
@@ -162,7 +162,7 @@ describe('new tab stats connection cards', () => {
 
 describe('new tab stats for an account with nothing yet', () => {
     function emptySnapshot(): StatsDashboardSnapshot {
-        const yomuLocal = emptyStatsSource('yomu-local', ACADEMY_SRS_LABEL, '', 'setup');
+        const yomuLocal = emptyStatsSource('yomu-local', YOMU_DECK_LABEL, '', 'setup');
         return {
             jpdb: emptyStatsSource('jpdb', 'JPDB', ''),
             jiten: emptyStatsSource('jiten', 'Jiten', ''),
@@ -373,7 +373,7 @@ describe('new tab stats on an empty source tab', () => {
             jiten: empty('jiten', 'Jiten'),
             bunpro: empty('bunpro', 'Bunpro'),
             wanikani: empty('wanikani', 'WaniKani'),
-            yomuLocal: empty('yomu-local', ACADEMY_SRS_LABEL),
+            yomuLocal: empty('yomu-local', YOMU_DECK_LABEL),
             anki,
             combined: { ...jpdb, id: 'combined' },
         };

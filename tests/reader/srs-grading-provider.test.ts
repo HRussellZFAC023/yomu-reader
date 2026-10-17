@@ -128,7 +128,7 @@ describe('apiSrsProviderViewForCard', () => {
         expect(apiSrsProviderViewForCard(jpdbOnlyCard, settings({ apiKey: 'jpdb-key' }), isJpdbBackedCard)?.hasApiKey).toBe(true);
         expect(apiSrsProviderViewForCard(jpdbOnlyCard, settings({ apiKey: '' }), isJpdbBackedCard)).toMatchObject({
             id: 'yomu-local',
-            label: 'Academy',
+            label: 'よむ deck',
             hasApiKey: true,
         });
         expect(apiSrsProviderViewForCard(jpdbOnlyCard, settings({ apiKey: '', yomuLocalSrsEnabled: false }), isJpdbBackedCard)).toMatchObject({
@@ -216,7 +216,7 @@ describe('Academy provider mutation state', () => {
             jpdb: {} as never,
             yomuLocal: {
                 id: 'yomu-local',
-                label: 'Academy',
+                label: 'よむ deck',
                 capabilities: { stats: true, queue: true, review: true, mine: true, import: true },
                 hasCredential: () => true,
                 verify: async () => true,
@@ -267,7 +267,7 @@ describe('Academy provider mutation state', () => {
             jpdb: {} as never,
             yomuLocal: {
                 id: 'yomu-local',
-                label: 'Academy',
+                label: 'よむ deck',
                 capabilities: { stats: true, queue: true, review: true, mine: true, import: true },
                 hasCredential: () => true,
                 verify: async () => true,
@@ -287,10 +287,10 @@ describe('Academy provider mutation state', () => {
         const reviewError = await provider!.reviewCard({ ...baseCard }, 'okay').catch(error => error);
 
         expect(addError).toBeInstanceOf(Error);
-        expect(addError.message).toContain('Your Academy deck could not be saved.');
+        expect(addError.message).toContain('Your よむ deck could not be saved.');
         expect(userFacingErrorText('ja', 'actionFailed', addError))
-            .toContain('Academyデッキを保存できませんでした。');
+            .toContain('よむデッキを保存できませんでした。');
         expect(userFacingErrorText('ja', 'actionFailed', reviewError))
-            .toContain('Academyデッキを保存できませんでした。');
+            .toContain('よむデッキを保存できませんでした。');
     });
 });

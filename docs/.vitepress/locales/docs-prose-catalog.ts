@@ -1083,7 +1083,7 @@ const HOSTED_DOCS_JA_COPY: Record<string, string> = {
     'On the phone, enter that address under Settings → Mining, such as': 'スマホで、そのアドレスを「設定」→「採掘」に入力し（例：',
     ', and press Check AnkiConnect.': '）、「AnkiConnectを確認」を押します。',
     "Never open port 8765 to the internet. Without a computer, よむ can still hand new cards to AnkiMobile or AnkiDroid, but it can't see your decks or reviews.": 'ポート8765をインターネットに公開してはいけません。パソコンがなくても、新しいカードをAnkiMobileやAnkiDroidに渡すことはできますが、デッキや復習の中身は見られません。',
-    'Keep using it. Add your key under Settings → API and よむ colours words by what you know there and sends your grades back.': 'そのまま使い続けてください。「設定」→「API」でキーを入れると、よむはそのサービスでの習熟度で単語に色を付け、採点も送り返します。',
+    'Keep using it. Add your key under Settings → Reviews and よむ colours words by what you know there and sends your grades back.': 'そのまま使い続けてください。「設定」→「復習」でキーを入れると、よむはそのサービスでの習熟度で単語に色を付け、採点も送り返します。',
     "There's no switch inside よむ yet. Use your browser or userscript manager, then reload:": 'よむの中にはまだ切り替えがありません。ブラウザかユーザースクリプトマネージャーで設定し、再読み込みします：',
     'Chrome, Edge, Brave:': 'Chrome、Edge、Brave：',
     '→ よむ → Details → Site access → On specific sites.': '→ よむ →「詳細」→「サイトへのアクセス」→「特定のサイトで」。',

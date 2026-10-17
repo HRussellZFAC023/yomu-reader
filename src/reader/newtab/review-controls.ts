@@ -1,5 +1,5 @@
 import { el } from '../dom/builder';
-import { ACADEMY_SRS_LABEL } from '../app/constants';
+import { YOMU_DECK_LABEL } from '../app/constants';
 import type { JPDBCard, JPDBGrade, ReaderSettings } from '../app/types';
 import { reviewGradeScale, type ReviewGradeProfile } from '../cards/grade-scale';
 import type { NewTabReviewTarget } from './review-targets';
@@ -110,7 +110,7 @@ export function newTabGradeTargetLabel(summary: NewTabReviewSourceSummary, label
 export function newTabApiGradeTargetShortLabel(summary: NewTabReviewSourceSummary): string {
     if (summary.hasBunpro) return 'Bunpro';
     if (summary.hasWanikani) return 'WaniKani';
-    if (summary.hasYomuLocal) return ACADEMY_SRS_LABEL;
+    if (summary.hasYomuLocal) return YOMU_DECK_LABEL;
     if (summary.hasJpdb && summary.hasJiten) return 'Jiten + JPDB';
     return summary.hasJiten ? 'Jiten' : 'JPDB';
 }

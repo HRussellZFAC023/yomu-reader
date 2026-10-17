@@ -515,6 +515,7 @@ function readMiningFormSettings(reader: SettingsFormReader, current: ReaderSetti
     const { get, has } = reader;
     return {
         jpdbMiningEnabled: has('jpdbMiningEnabled'),
+        jitenMiningEnabled: has('jitenMiningEnabled'),
         bunproMiningEnabled: has('bunproMiningEnabled'),
         wanikaniReviewEnabled: has('wanikaniReviewEnabled'),
         yomuLocalSrsEnabled: has('yomuLocalSrsEnabled'),

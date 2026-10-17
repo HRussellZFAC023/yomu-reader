@@ -47,7 +47,7 @@ export function deckChoices(settings: ReaderSettings, destinations: readonly Col
         } else if (destination === 'bunpro') {
             add('bunpro', 'bunpro', 'Bunpro');
         } else if (destination === 'yomu-local') {
-            add('yomu-local', 'yomu-local', uiText(settings.interfaceLanguage, 'defaultDeck'));
+            add('yomu-local', 'yomu-local', uiText(settings.interfaceLanguage, 'yomuDeck'));
         }
     }
     return choices;

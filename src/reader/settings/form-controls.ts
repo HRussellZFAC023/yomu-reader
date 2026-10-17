@@ -1,4 +1,7 @@
 import { escapeHtml } from '../dom/index';
+import { uiText } from '../app/i18n';
+import type { InterfaceLanguage } from '../app/types';
+import { PROTECTED_CREDENTIAL_INPUT_ATTRIBUTES, storedCredentialClearName } from './credential-form';
 
 export const SETTINGS_LABEL_TEXT_CLASS = 'jpdb-reader-settings-label-text';
 
@@ -73,4 +76,24 @@ function booleanAttributeHtml(attributes: BooleanAttributes): string {
         .filter(([, value]) => value)
         .map(([key]) => ` ${key}`)
         .join('');
+}
+
+/**
+ * A credential field that stays blank in the page DOM: a saved value shows as a
+ * placeholder, a typed value replaces it, and the checkbox beside it removes it.
+ */
+export function protectedCredentialInput(
+    name: string, label: string, storedValue: string, language: InterfaceLanguage,
+    link?: { url: string; label: string },
+): string {
+    const configured = Boolean(storedValue.trim());
+    const field = input(name, label, '', 'text', {
+        ...PROTECTED_CREDENTIAL_INPUT_ATTRIBUTES,
+        class: 'jpdb-reader-masked-input',
+        placeholder: configured ? uiText(language, 'storedCredentialPlaceholder') : '',
+        ...(configured ? { 'data-stored-credential-placeholder': 'true' } : {}),
+    });
+    const help = link ? `<a href="${escapeHtml(link.url)}" target="_blank" rel="noopener">${escapeHtml(link.label)}</a>` : '';
+    const clear = configured ? `<label class="inline"><input name="${escapeHtml(storedCredentialClearName(name))}" type="checkbox"><span data-clear-stored-credential>${escapeHtml(uiText(language, 'clearStoredCredential'))}</span></label>` : '';
+    return `<div class="jpdb-reader-protected-credential"${configured ? ' data-stored-credential="true"' : ''}>${field}${help}${clear}</div>`;
 }

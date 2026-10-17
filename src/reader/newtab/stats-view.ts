@@ -20,7 +20,7 @@ import {
     type StatsSourceSnapshot,
 } from '../app/stats';
 import type { NewTabCopyKey } from './i18n';
-import { ACADEMY_SRS_LABEL } from '../app/constants';
+import { YOMU_DECK_LABEL } from '../app/constants';
 import { newTabAction, type NewTabAction } from './actions';
 
 type NewTabStatsTextKey = UiCopyKey | NewTabCopyKey;
@@ -509,7 +509,7 @@ function fallbackStatsSourceLabel(source: Exclude<StatsSourceId, 'combined'>): s
     if (source === 'jiten') return 'Jiten';
     if (source === 'bunpro') return 'Bunpro';
     if (source === 'wanikani') return 'WaniKani';
-    if (source === 'yomu-local') return ACADEMY_SRS_LABEL;
+    if (source === 'yomu-local') return YOMU_DECK_LABEL;
     return 'Anki';
 }
 
