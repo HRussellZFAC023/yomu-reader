@@ -44,7 +44,9 @@ type VocabularyRequest = { scope: VocabularyScope; failure: Error | null };
 type QueryEntry<T> = { expiresAt: number; promise: Promise<T>; result?: T };
 const QUERY_CACHE_LIMIT = 160;
 const COMPLETE_QUERY_TTL_MS = 300_000;
-const EMPTY_QUERY_TTL_MS = 10_000;
+// jpdb.io answering "nothing" is an answer: a page that asks for the same
+// word again later in the visit is not sent twice.
+const EMPTY_QUERY_TTL_MS = 600_000;
 const INCOMPLETE_QUERY_TTL_MS = 1_000;
 
 export class JpdbVocabularyClient {
