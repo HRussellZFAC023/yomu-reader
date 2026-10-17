@@ -2090,7 +2090,7 @@ async function auditSettingsMobile(browser) {
     await page.locator('[data-action="settings-panel"][data-panel="api"]').click();
     await page.waitForSelector('#jpdb-reader-settings-panel-api:not([hidden])', { timeout: 3000 });
     snapshot = await page.evaluate(mobileSettingsTabsSnapshotFromDom);
-    assertAudit(snapshot.apiKeyTop < snapshot.viewportHeight * 0.55, 'API key field is too far down after opening settings');
+    assertAudit(snapshot.apiKeyTop < snapshot.viewportHeight * 0.55, `The first keyed review service is too far down after opening Reviews: ${JSON.stringify({ top: snapshot.apiKeyTop, viewport: snapshot.viewportHeight })}`);
 
     await page.locator('[data-action="settings-panel"][data-panel="media"]').click();
     await page.locator('[data-audio-sources-title]').click();
@@ -2127,7 +2127,10 @@ async function auditSettingsMobile(browser) {
 
 function mobileSettingsTabsSnapshotFromDom() {
     const tabBar = document.querySelector('.jpdb-reader-settings-tabs');
-    const apiKey = document.querySelector('input[name="apiCredentialJiten"], input[name="apiCredentialJpdb"], input[name="apiKey"]');
+    // Reviews: connecting starts at the first keyed service's row, whose head
+    // holds its Connect link and whose body its key field (older builds: the
+    // first key field).
+    const apiKey = document.querySelector('[data-review-service="jpdb"], input[name="apiCredentialJiten"], input[name="apiCredentialJpdb"], input[name="apiKey"]');
     return {
         tabs: [...document.querySelectorAll('.jpdb-reader-settings-tab')].map(settingsTabSnapshot),
         viewportWidth: innerWidth,

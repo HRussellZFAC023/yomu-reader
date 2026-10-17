@@ -24,7 +24,7 @@ import {
     jsonHttpResponse,
     YOMU_SETTINGS_KEY,
 } from './smoke-harness.mjs';
-import { addScriptTagWithCspFallback, choosePrivateDeck, installUserscriptCssResource, newTabModeButton, userscriptCompanionPaths } from './smoke-test-helpers.mjs';
+import { addScriptTagWithCspFallback, choosePrivateDeck, installUserscriptCssResource, newTabModeButton, typeIntoFocusedControl, userscriptCompanionPaths } from './smoke-test-helpers.mjs';
 
 const { root: ROOT, dist: DIST, newTabDir: NEWTAB_DIR, scriptPath: SCRIPT_PATH, cssPath: CSS_PATH } = createSmokePaths(path.join(import.meta.dirname, '..'));
 const ARTICLE_URL = 'https://reader-fixture.example/articles/evening-reading.html';
@@ -185,7 +185,7 @@ class Journey {
         const action = await this.openSaveAction(page, word);
         const revision = readDeck(profile).revision;
         if (keyboard) await this.saveWithKeyboard(page, action);
-        else await choosePrivateDeck(page, action.save, 'Default');
+        else await choosePrivateDeck(page, action.save, 'よむ deck');
         action.pending = await whilePending?.(action.save);
         if (fails) {
             await waitForToast(page, /This word was not saved/u, timeout);
@@ -213,7 +213,7 @@ class Journey {
         await page.keyboard.press('Shift+Tab');
         const backOnSave = await action.save.evaluate(node => node === document.activeElement);
         assert(afterSave.inPopup && backOnSave, 'Tab left the popup or could not return to the native deck chooser', { afterSave, backOnSave });
-        await page.keyboard.type('Default');
+        await typeIntoFocusedControl(page, 'よむ deck');
         await page.keyboard.press('Enter');
         action.keyboard = { afterSave, backOnSave };
     }
@@ -292,7 +292,7 @@ class Journey {
         assert(library.length === 2 && library.every(row => row.addToReview && row.label === 'Saved'),
             'The Saved tile did not open Library on the saved words, named as Stats names them', library);
         const libraryChips = (await page.locator('.jpdb-reader-newtab-browse-chip[aria-pressed="true"]').allTextContents()).map(chip => chip.trim());
-        assert(libraryChips.join('|') === 'Academy 2|Saved 2', 'The Saved tile did not open Library on the saved Academy words', { libraryChips });
+        assert(libraryChips.join('|') === 'よむ deck 2|Saved 2', 'The Saved tile did not open Library on the saved よむ deck words', { libraryChips });
         await libraryRow(page, WORDS.read.surface).locator('[data-newtab-action="browse-start-review"]').click();
         await waitForToast(page, /Added to review/u);
         // The word in review leaves the Saved list; the other is still offered.
@@ -447,7 +447,7 @@ class Journey {
         page = await this.openArticle(profile);
         const closed = new Promise(resolve => page.once('close', resolve));
         await installIndexWriteFault(page, 'close');
-        await choosePrivateDeck(page, (await this.openSaveAction(page, WORDS.like)).save, 'Default');
+        await choosePrivateDeck(page, (await this.openSaveAction(page, WORDS.like)).save, 'よむ deck');
         await withTimeout(closed, 30_000, 'the save to reach its index commit');
         const afterClose = readDeck(profile);
         assertDeckIntact(afterClose, restored, 'A save interrupted by closing the page');
@@ -467,11 +467,11 @@ class Journey {
         const dying = await this.openArticle(profile);
         const dyingClosed = new Promise(resolve => dying.once('close', resolve));
         await installIndexWriteFault(dying, 'close');
-        await choosePrivateDeck(dying, (await this.openSaveAction(dying, WORDS.like)).save, 'Default');
+        await choosePrivateDeck(dying, (await this.openSaveAction(dying, WORDS.like)).save, 'よむ deck');
         await withTimeout(dyingClosed, 30_000, 'the other tab to reach its index commit');
         const revision = readDeck(profile).revision;
         const started = Date.now();
-        await choosePrivateDeck(page, recovery.save, 'Default');
+        await choosePrivateDeck(page, recovery.save, 'よむ deck');
         const waitingStatus = await waitForToast(page, SAVE_WAITING_STATUS, DEAD_TAB_SAVE_BOUND_MS)
             .then(() => toastTexts(page), () => []);
         // The bound counts from the click, not from when the status appeared.

@@ -32,6 +32,10 @@ export const NIGHTLY_SMOKES = [
     // the Underline choice lead Settings → Appearance in the built Study app,
     // and what they save reaches the puck, popup and underlines of a page.
     'smoke:accent-quick-row',
+    // Chromium desktop EN/JA + WebKit iPad JA: Settings → Reviews in the built
+    // Study app names no "API" or "Academy", lists one row per service, shows
+    // the preferred grading service only with two keys, and pings Anki once.
+    'smoke:review-services',
     'smoke:anki',
     'smoke:anki-template',
     'smoke:annotation-typography',

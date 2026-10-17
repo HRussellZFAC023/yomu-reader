@@ -14,6 +14,13 @@
 // resolves the word on JPDB; either way exactly one review reaches only the
 // chosen service. When JPDB does not have the word, the grade reaches neither
 // service and the page says so without naming one.
+//
+// Grade from よむ (W1-61): until 2.2 one stored "Allow API review/deck changes"
+// switch (jpdbMiningEnabled) gated JPDB AND Jiten; it is now one switch per
+// service. Every phase above stores only that old switch, on, so each grading
+// phase proves a stored "on" still grades both services. The switch phases
+// prove a stored "off" still keeps both from grading, and that Jiten's own
+// switch grades Jiten with JPDB's off (2.1.6 ignores it: no grade row).
 import { mkdirSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { chromium } from 'playwright';
@@ -32,7 +39,10 @@ import {
 import { choosePrivateDeck, addScriptTagWithCspFallback, userscriptCompanionPaths } from './lib/smoke-test-helpers.mjs';
 import { assertPopoverHeadwordMatchesLookup } from './lib/smoke-wait-helpers.mjs';
 
-const { root: ROOT, artifacts: ARTIFACTS, scriptPath: SCRIPT_PATH, cssPath: CSS_PATH } = createSmokePaths(import.meta.dirname);
+const { root: ROOT, artifacts: ARTIFACTS, scriptPath: BUILT_SCRIPT_PATH, cssPath: BUILT_CSS_PATH } = createSmokePaths(import.meta.dirname);
+// An older release's dist/yomu.user.js (beside its docs/public/greasyfork), to prove a phase fails there.
+const SCRIPT_PATH = process.env.YOMU_GRADING_PROVIDER_SMOKE_SCRIPT ? path.resolve(process.env.YOMU_GRADING_PROVIDER_SMOKE_SCRIPT) : BUILT_SCRIPT_PATH;
+const CSS_PATH = process.env.YOMU_GRADING_PROVIDER_SMOKE_CSS ? path.resolve(process.env.YOMU_GRADING_PROVIDER_SMOKE_CSS) : BUILT_CSS_PATH;
 const SMOKE_VIEWPORT = smokeViewportName(process.env.YOMU_GRADING_PROVIDER_SMOKE_VIEWPORT);
 const ARTIFACT_DIR = path.join(ARTIFACTS, 'grading-provider-popover', SMOKE_VIEWPORT);
 const PAGE_PATH = '/grading-provider.html';
@@ -135,7 +145,9 @@ try {
     // with no word list, the next destination (the Yomu deck) and no Jiten write.
     const wordListSave = await runJitenSavePhase({ name: 'jiten-save-word-list', decks: [MEDIA_DECK, WORD_LIST], savedTo: WORD_LIST });
     const noWordListSave = await runJitenSavePhase({ name: 'jiten-save-no-word-list', decks: [MEDIA_DECK], savedTo: null });
-    const report = { ok: true, viewport: SMOKE_VIEWPORT, term: TERM, jpdbRun, jitenRun, defaultParserJpdbRun, defaultParserJitenRun, resolvedRun, unmatchedRun, wordListSave, noWordListSave, browserEvents };
+    const storedSwitchOff = await runSwitchedOffPhase({ name: 'stored-shared-switch-off', grading: 'jiten', parser: 'jpdb', switches: { jpdbMiningEnabled: false } });
+    const jitenOwnSwitch = await runGradingProviderPhase({ name: 'jiten-own-switch', grading: 'jiten', parser: 'jpdb', switches: { jpdbMiningEnabled: false, jitenMiningEnabled: true } });
+    const report = { ok: true, viewport: SMOKE_VIEWPORT, term: TERM, jpdbRun, jitenRun, defaultParserJpdbRun, defaultParserJitenRun, resolvedRun, unmatchedRun, wordListSave, noWordListSave, storedSwitchOff, jitenOwnSwitch, browserEvents };
     writeFileSync(path.join(ARTIFACT_DIR, 'report.json'), JSON.stringify(report, null, 2));
     console.log(JSON.stringify({
         ok: true,
@@ -153,6 +165,7 @@ try {
         jitenParserJpdbGrading: { pageParsedBy: resolvedRun.pageParsedBy, resolvedWith: resolvedRun.resolvedWith, reviewRequests: resolvedRun.reviewRequests },
         unmatchedJpdbGrading: { toast: unmatchedRun.toast, reviewRequests: unmatchedRun.reviewRequests },
         jitenSaves: { wordList: wordListSave, noWordList: noWordListSave },
+        gradeFromYomu: { storedSharedSwitchOff: storedSwitchOff, jitenOwnSwitchReviews: jitenOwnSwitch.reviewRequests },
     }, null, 2));
 } finally {
     await closeSmokeBrowserAndServer(browser, server.server);
@@ -235,8 +248,25 @@ async function openPhasePage(phase) {
     await page.waitForFunction(() => document.querySelectorAll('[data-smoke-sentence] .jpdb-reader-word').length >= 2, null, { timeout: 20_000 });
     const word = page.locator(`[data-smoke-sentence] .jpdb-reader-word[data-expression="${TERM}"]`).first();
     assert(await word.count() === 1, 'jpdb parse did not render the 復習 reader word');
-    await ensurePopover(page, word);
+    await ensurePopover(page, word, phase.expectGrades !== false);
     return { context, page, word };
+}
+
+// A stored "Allow API review/deck changes" off, read by a release with one
+// switch per service: neither service shows a grade row, and a grade key
+// pressed over the open popup reaches neither.
+async function runSwitchedOffPhase(phase) {
+    const { context, page } = await openPhasePage({ ...phase, expectGrades: false });
+    await page.waitForTimeout(600);
+    const state = await readPopoverState(page);
+    await page.screenshot({ path: path.join(ARTIFACT_DIR, `${phase.name}.png`), fullPage: false });
+    assert(state.gradeCount === 0, 'A stored shared switch that is off still shows grade buttons', state);
+    await page.keyboard.press('4');
+    await page.waitForTimeout(800);
+    assert(reviewRequestCount('jpdb') === 0 && reviewRequestCount('jiten') === 0, 'A stored shared switch that is off still sent a grade', { requests: summarizeRequests() });
+    assert(browserEvents.length === 0, 'Browser console/page errors occurred with grading switched off', { browserEvents });
+    await context.close();
+    return { gradeButtons: state.gradeCount, jpdbReviews: 0, jitenReviews: 0 };
 }
 
 // The ordinary page's provider-neutral "Add to deck" dropdown: a Jiten save reaches
@@ -244,7 +274,7 @@ async function openPhasePage(phase) {
 // next destination with no Jiten write. Either way the page hears "Added to deck."
 async function runJitenSavePhase(phase) {
     const { context, page } = await openPhasePage({ ...phase, grading: 'jiten', parser: 'default' });
-    await choosePrivateDeck(page, page.locator('.jpdb-reader-actions .jpdb-reader-deck-select').first(), phase.savedTo ? 'Jiten' : 'Default');
+    await choosePrivateDeck(page, page.locator('.jpdb-reader-actions .jpdb-reader-deck-select').first(), phase.savedTo ? 'Jiten' : 'よむ deck');
     await page.waitForFunction(() => [...document.querySelectorAll('.jpdb-reader-toast')].some(toast => (toast.textContent ?? '').includes('Added to deck.')), null, { timeout: 8_000 });
     await page.screenshot({ path: path.join(ARTIFACT_DIR, `${phase.name}.png`), fullPage: false });
     const writes = requests.filter(request => request.method === 'POST' && /\/srs\/study-decks\/\d+\/words$/.test(request.path)).map(request => request.path);
@@ -282,7 +312,7 @@ async function assertNothingGraded(page) {
 function phaseSettings(phase) {
     const { parserProvider: _pinned, ...unpinned } = settings;
     const parser = phase.parser === 'default' ? {} : { parserProvider: phase.parser };
-    return { ...unpinned, ...parser, apiGradingProvider: phase.grading };
+    return { ...unpinned, ...parser, apiGradingProvider: phase.grading, ...phase.switches };
 }
 
 // The page sentence itself (not a single term) reached exactly one service.
@@ -343,12 +373,17 @@ async function readJitenKanjiSourceTitle(page, word) {
     return kanjiSourceTitle;
 }
 
-async function ensurePopover(page, word) {
+async function ensurePopover(page, word, expectGrades = true) {
     if (!(await page.locator('.jpdb-reader-popover').count() && await page.locator('.jpdb-reader-popover').first().isVisible())) {
         await word.click();
         await page.waitForSelector('.jpdb-reader-popover', { state: 'visible', timeout: 8_000 });
     }
-    await waitForGradesReady(page);
+    if (expectGrades) await waitForGradesReady(page);
+    else await withPopoverTimeoutReport(page, 'switched-off-ready-timeout', () => page.waitForFunction(
+        rank => [...document.querySelectorAll('.jpdb-reader-popover .jpdb-reader-pill')].some(pill => (pill.textContent ?? '').includes(rank)),
+        JITEN_RANK_LABEL,
+        { timeout: 10_000 },
+    ));
 }
 
 // Grades are ready once they render and the Jiten identity (its #rank pill,
