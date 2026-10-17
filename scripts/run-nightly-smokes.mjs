@@ -39,6 +39,9 @@ export const NIGHTLY_SMOKES = [
     'smoke:bookwalker-tap-passthrough',
     'smoke:bookwalker-tap-retry',
     'smoke:bookwalker-modes-ocr',
+    // Chromium trace + CDP metrics: host DOM churn must not restyle the whole
+    // page through a body-anchored or descendant-invalidating :has() (W1-40).
+    'smoke:css-has-invalidation',
     'smoke:definition-sources',
     'smoke:enrichment-concurrency',
     // Chromium + Firefox: the furigana band is a pure cascade/geometry contract,

@@ -295,7 +295,7 @@ import {
     type ActivePointerTextLookup,
     type PointerTextLookup,
 } from '../lookup/pointer-text-lookup';
-import { capturePopoverScrollOffset, clearDocumentSelection, createReaderBackdrop, createReaderPopover, eventHasPointTarget, forceReaderPopoverSurface, installMiningDrawerHandle, installSheetCloseButton, installSheetHandle, miningDrawerHandleForPointerEvent, refreshForcedReaderPopoverSurface, restorePopoverScrollOffsetSoon, shouldUseSheet } from '../popup/shell';
+import { capturePopoverScrollOffset, clearDocumentSelection, createReaderBackdrop, createReaderPopover, eventHasPointTarget, forceReaderPopoverSurface, installMiningDrawerHandle, installSheetCloseButton, installSheetHandle, miningDrawerHandleForPointerEvent, refreshForcedReaderPopoverSurface, restorePopoverScrollOffsetSoon, setReaderPopoverHtml, shouldUseSheet } from '../popup/shell';
 import { addViewportChangeListeners } from '../popup/handle-drag';
 import { HOVER_POPOVER_TRANSIT_SETTLE_DELAY_MS, isActiveHoverPopoverPointerContext, isHoverPopoverTransitActive, type HoverPopoverPointerState } from '../popup/hover-transit';
 import { domHoverCloseTimers, HoverCloseController, type HoverContextQuery } from '../popup/hover-close';
@@ -6043,7 +6043,7 @@ export class ReaderApp {
         const previousNavigationEntry = trigger === 'modal' ? options.previousNavigationEntry : undefined;
         this.prepareTokenListNavigation(trigger, navigation);
         const popover = this.createPopover(trigger);
-        setInnerHtml(popover, this.renderTokenListHtml(tokens, selected, previousNavigationEntry));
+        setReaderPopoverHtml(popover, this.renderTokenListHtml(tokens, selected, previousNavigationEntry));
         this.installTokenListHandlers(popover, tokens, anchor, { trigger, navigation, previousNavigationEntry, stackOverSettings: options.stackOverSettings });
         this.mountPopover(popover, anchor, {
             mode: trigger,
@@ -6348,7 +6348,7 @@ export class ReaderApp {
         if (!context.isCurrentHoverCard()) {
             return null;
         }
-        setInnerHtml(popover, this.cardPopoverRenderer.render(
+        setReaderPopoverHtml(popover, this.cardPopoverRenderer.render(
             card,
             sentence,
             context.trigger,
@@ -6721,7 +6721,7 @@ export class ReaderApp {
         const preservedImmersion = this.preserveImmersionMountForRerender(popover);
         const scrollOffset = capturePopoverScrollOffset(popover);
         clearNestedParseState(popover);
-        setInnerHtml(popover, html);
+        setReaderPopoverHtml(popover, html);
         this.restorePreservedImmersionMount(popover, preservedImmersion);
         this.mountDeckSelects(popover, card, sentence);
         restorePopoverScrollOffsetSoon(scrollOffset);
@@ -7139,7 +7139,7 @@ export class ReaderApp {
     }
 
     private renderKanjiCardShell(popover: HTMLElement, card: JPDBCard, kanji: string, kanjiCharacters: string[], jpdbUrl: string, language: InterfaceLanguage): void {
-        setInnerHtml(popover, `
+        setReaderPopoverHtml(popover, `
             <div class="jpdb-reader-sheet-handle"></div>
             <div class="jpdb-reader-popover-body">
                 ${renderModalNavigation({

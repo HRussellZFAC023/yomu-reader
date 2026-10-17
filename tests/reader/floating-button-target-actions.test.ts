@@ -49,6 +49,21 @@ describe('floating button actions', () => {
             expect(openSettings).toHaveBeenCalledWith(event);
         } finally { mounted.dispose(); }
     });
+    // Toasts step aside from the open menu through an <html> class, not body:has().
+    it('mirrors the open radial menu onto <html> until it closes', () => {
+        const pageClass = () => document.documentElement.classList.contains('jpdb-reader-fab-radial-open');
+        const mounted = openFloatingButton();
+        try {
+            expect(document.querySelector('.jpdb-reader-fab-radial.is-open')).not.toBeNull();
+            expect(pageClass()).toBe(true);
+            document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+            expect(document.querySelector('.jpdb-reader-fab-radial.is-open')).toBeNull();
+            expect(pageClass()).toBe(false);
+            withImmediateAnimationFrame(() => document.querySelector<HTMLButtonElement>('.jpdb-reader-fab')?.click());
+            expect(pageClass()).toBe(true);
+        } finally { mounted.dispose(); }
+        expect(pageClass()).toBe(false);
+    });
     it('names its actions without restating the language', () => {
         const mounted = openFloatingButton({ actions: { hasSubtitleVideo: () => true, isYouTube: () => true } });
         try {

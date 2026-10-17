@@ -480,10 +480,12 @@
   stroke-width: 1.15;
   stroke-dasharray: 1.6 4;
 }
+/* has-invalidation-allow: anchored on the kanji origin graph inside the popover; the state is a native checkbox */
 .jpdb-reader-origin-graph-wrap:has([data-origin-outbound-toggle]:not(:checked))
   [data-origin-outbound="true"] {
   display: none;
 }
+/* has-invalidation-allow: anchored on the kanji origin graph inside the popover; the state is a native checkbox */
 .jpdb-reader-origin-graph-wrap:has([data-origin-subcomponent-toggle]:not(:checked))
   [data-origin-subcomponent="true"] {
   display: none;

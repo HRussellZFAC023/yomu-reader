@@ -34,7 +34,7 @@
 }
 
 @media (max-width: 699px) {
-  body:has(.jpdb-reader-fab-radial.is-open) .jpdb-reader-toast-stack {
+  .jpdb-reader-fab-radial-open .jpdb-reader-toast-stack {
     top: calc(72px + env(safe-area-inset-top));
     bottom: auto;
   }

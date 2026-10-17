@@ -2641,6 +2641,7 @@ html.jpdb-reader-suppress-redundant .jpdb-reader-word.jpdb-redundant {
 }
 /* One label at a time: the power disc's state label steps aside while a
    neighbour shows its own in the same slot above the arc. */
+/* has-invalidation-allow: anchored on the radial menu, which exists only while open; the state is the browser's :hover/:focus-visible */
 .jpdb-reader-fab-radial.is-open:has(.jpdb-reader-fab-radial-item:not(.is-primary):is(:hover, :focus-visible)) .jpdb-reader-fab-radial-item.is-primary .jpdb-reader-fab-radial-label {
   opacity: 0 !important;
 }
@@ -2682,6 +2683,7 @@ html.jpdb-reader-suppress-redundant .jpdb-reader-word.jpdb-redundant {
 }
 .jpdb-reader-text-mirror[data-yomu-control-mirror="true"]:hover rt.jpdb-reader-furi,
 .jpdb-reader-text-mirror[data-yomu-control-mirror="true"]:focus-within rt.jpdb-reader-furi,
+/* has-invalidation-allow: anchored on one control's text mirror, a few Yomu-owned nodes */
 .jpdb-reader-text-mirror[data-yomu-control-mirror="true"]:has(.jpdb-reader-keyboard-active) rt.jpdb-reader-furi {
   display: ruby-text !important;
   visibility: visible;

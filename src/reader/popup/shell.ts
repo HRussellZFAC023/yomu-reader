@@ -90,7 +90,7 @@ export interface PopoverScrollOffset {
  *
  * `capturePopoverScrollFrame` pins the body NODE, which is what you want when a
  * re-render only swaps the body's children. A card popover is rebuilt with
- * `setInnerHtml(popover, ...)` instead, so the pinned `.jpdb-reader-popover-body`
+ * `setReaderPopoverHtml(popover, ...)` instead, so the pinned `.jpdb-reader-popover-body`
  * is detached by the time the restore runs: the guard sees `isConnected === false`,
  * gives up, and the fresh body keeps its default scrollTop of 0. That is the whole
  * mechanism behind "the popup sent me back to the top" — a card hydrates from six
@@ -140,6 +140,16 @@ export function createReaderPopover(appName: string, settings: ReaderSettings, t
     if (shouldUseSheet(settings, trigger)) popover.classList.add('jpdb-reader-sheet');
     else popover.style.width = `${settings.popoverWidth}px`;
     return popover;
+}
+
+/**
+ * Every popover content swap. The sheet's scrolling-body layout keys on
+ * `jpdb-reader-sheet-has-body` set here, not on `:has(.jpdb-reader-popover-body)`:
+ * in Chromium that rule restyled the whole page on every host DOM insertion.
+ */
+export function setReaderPopoverHtml(popover: HTMLElement, html: string): void {
+    setInnerHtml(popover, html);
+    popover.classList.toggle('jpdb-reader-sheet-has-body', Boolean(popover.querySelector('.jpdb-reader-popover-body')));
 }
 
 export function forceReaderPopoverSurface(popover: HTMLElement, settings: ReaderSettings): void {

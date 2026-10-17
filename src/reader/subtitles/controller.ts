@@ -219,6 +219,7 @@ import {
 } from './parsed-html-cache';
 import {
     SubtitleTranscriptPanel,
+    syncTranscriptPageState,
     type TranscriptPanelRenderState,
     type TranscriptPanelVirtualWindow,
     type TranscriptRow,
@@ -1183,6 +1184,7 @@ export class SubtitlePlayerController {
         this.root = undefined;
         this.subtitleEl = undefined;
         this.transcriptPanel = undefined;
+        syncTranscriptPageState(undefined);
         this.video = undefined;
         this.fullscreenHost.invalidateHostCache();
     }
@@ -5521,14 +5523,10 @@ export class SubtitlePlayerController {
             setClassState(element, 'jpdb-subtitle-transcript-right', this.effectiveTranscriptPlacement === 'right');
             setClassState(element, 'jpdb-subtitle-transcript-left', this.effectiveTranscriptPlacement === 'left');
             setClassState(element, 'jpdb-subtitle-transcript-bottom', this.effectiveTranscriptPlacement === 'bottom');
-        }
-        if (this.root.dataset.transcriptPlacement !== this.effectiveTranscriptPlacement) {
-            this.root.dataset.transcriptPlacement = this.effectiveTranscriptPlacement;
-        }
-        if (this.transcriptPanel && this.transcriptPanel.dataset.transcriptPlacement !== this.effectiveTranscriptPlacement) {
-            this.transcriptPanel.dataset.transcriptPlacement = this.effectiveTranscriptPlacement;
+            if (element.dataset.transcriptPlacement !== this.effectiveTranscriptPlacement) element.dataset.transcriptPlacement = this.effectiveTranscriptPlacement;
         }
         this.syncPanelPlacementButtons();
+        syncTranscriptPageState(this.transcriptPanel);
     }
 
     private syncPanelPlacementButtons(): void {
@@ -5573,6 +5571,7 @@ export class SubtitlePlayerController {
         this.transcriptPanelClosing = false;
         this.prepareTranscriptPanelPlacementForOpen();
         panel.hidden = false;
+        syncTranscriptPageState(panel);
         this.syncTranscriptPanelFullscreenDisplayOverride();
         panel.classList.remove('jpdb-subtitle-panel-entering', 'jpdb-subtitle-panel-closing');
         panel.classList.add('jpdb-subtitle-panel-opened');
@@ -5605,6 +5604,7 @@ export class SubtitlePlayerController {
         const revealedPageContent = !panel.hidden;
         this.clearTranscriptPanelAnimation();
         panel.hidden = true;
+        syncTranscriptPageState(panel);
         this.syncTranscriptPanelFullscreenDisplayOverride();
         panel.classList.remove('jpdb-subtitle-panel-entering', 'jpdb-subtitle-panel-opened', 'jpdb-subtitle-panel-closing');
         this.transcriptPanelClosing = false;
