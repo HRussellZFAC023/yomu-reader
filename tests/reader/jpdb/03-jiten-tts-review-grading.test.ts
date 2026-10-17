@@ -252,7 +252,7 @@ describe('reader helpers', () => {
             },
         });
 
-        await expect(controller.reviewGrade('okay', card)).rejects.toThrow('Grading from よむ is off for this service in Settings.');
+        await expect(controller.reviewGrade('okay', card)).rejects.toThrow('Grade from よむ is off for this service in Settings.');
         expect(reviewCard).not.toHaveBeenCalled();
         expect(invalidateCardData).not.toHaveBeenCalled();
         expect(onAnkiStatusChanged).not.toHaveBeenCalled();

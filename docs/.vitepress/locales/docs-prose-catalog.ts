@@ -508,7 +508,7 @@ const HOSTED_DOCS_JA_COPY: Record<string, string> = {
     'Sign in': 'サインイン',
     'Profile & sync': 'プロフィールと同期',
     'Study → Settings → Backup & sync': 'Study → 設定 → バックアップと同期',
-    'Academy account sync': 'Academyアカウント同期',
+    'Account sync': 'アカウント同期',
     ', and choose': 'にコードを貼り付け、',
     'Connected as _your name_': '「_あなたの名前_として接続中」',
     'Uchisen is now an optional outbound lookup link only. よむ no longer downloads or displays Uchisen pages, mnemonic stories, images, keywords, or components, and no longer sends image-generation or mnemonic-publishing requests. No imported or learner-owned data is deleted.': 'Uchisenは任意の外部検索リンクのみになりました。よむはUchisenのページ、ニーモニック文、画像、キーワード、構成要素をダウンロードまたは表示せず、画像生成やニーモニック公開のリクエストも送信しません。取り込んだデータや学習者が所有するデータは削除しません。',

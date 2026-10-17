@@ -2090,7 +2090,7 @@ async function auditSettingsMobile(browser) {
     await page.locator('[data-action="settings-panel"][data-panel="api"]').click();
     await page.waitForSelector('#jpdb-reader-settings-panel-api:not([hidden])', { timeout: 3000 });
     snapshot = await page.evaluate(mobileSettingsTabsSnapshotFromDom);
-    assertAudit(snapshot.apiKeyTop < snapshot.viewportHeight * 0.55, `The first keyed review service is too far down after opening Reviews: ${JSON.stringify({ top: snapshot.apiKeyTop, viewport: snapshot.viewportHeight })}`);
+    assertAudit(snapshot.firstConnectBottom < snapshot.viewportHeight * 0.55, `JPDB's Connect action is too far down after opening Reviews: ${JSON.stringify({ bottom: snapshot.firstConnectBottom, viewport: snapshot.viewportHeight })}`);
 
     await page.locator('[data-action="settings-panel"][data-panel="media"]').click();
     await page.locator('[data-audio-sources-title]').click();
@@ -2127,17 +2127,16 @@ async function auditSettingsMobile(browser) {
 
 function mobileSettingsTabsSnapshotFromDom() {
     const tabBar = document.querySelector('.jpdb-reader-settings-tabs');
-    // Reviews: connecting starts at the first keyed service's row, whose head
-    // holds its Connect link and whose body its key field (older builds: the
-    // first key field).
-    const apiKey = document.querySelector('[data-review-service="jpdb"], input[name="apiCredentialJiten"], input[name="apiCredentialJpdb"], input[name="apiKey"]');
+    // Connecting a keyed service starts at JPDB's Connect link, which opens its
+    // key page (older builds: the first key field).
+    const firstConnect = document.querySelector('[data-review-service="jpdb"] [data-review-service-connect], input[name="apiCredentialJiten"], input[name="apiCredentialJpdb"], input[name="apiKey"]');
     return {
         tabs: [...document.querySelectorAll('.jpdb-reader-settings-tab')].map(settingsTabSnapshot),
         viewportWidth: innerWidth,
         viewportHeight: innerHeight,
         tabBarWidth: numericProperty(tabBar, 'scrollWidth'),
         tabBarClientWidth: numericProperty(tabBar, 'clientWidth'),
-        apiKeyTop: elementTop(apiKey, 9999),
+        firstConnectBottom: firstConnect?.getBoundingClientRect().bottom ?? 9999,
     };
 
     function settingsTabSnapshot(tab) {
@@ -2147,10 +2146,6 @@ function mobileSettingsTabsSnapshotFromDom() {
 
     function numericProperty(node, property) {
         return node?.[property] ?? 0;
-    }
-
-    function elementTop(node, fallback) {
-        return node?.getBoundingClientRect().top ?? fallback;
     }
 
     function text(node) {

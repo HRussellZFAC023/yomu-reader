@@ -794,7 +794,7 @@ const COPY = {
         ...GRADING_SERVICE_COPY.en,
         jpdbKanjiUpdated: 'JPDB kanji updated.',
         jpdbKanjiUpdateFailedRuntime: 'Could not update JPDB kanji. Check kanji reviews.',
-        apiSrsActionsDisabled: 'Grading from よむ is off for this service in Settings.',
+        apiSrsActionsDisabled: 'Grade from よむ is off for this service in Settings.',
         addJpdbApiKeyReview: 'Add a JPDB API key to review JPDB cards.',
         addJitenApiKeyReview: 'Add a Jiten API key to review Jiten cards.',
         addBunproApiKeyReview: 'Add a Bunpro frontend API token to review Bunpro cards.',
@@ -1169,7 +1169,7 @@ closeDrawer	ドロワーを閉じる
 copiedWord	単語をコピーしました。
 jpdbKanjiUpdated	JPDB漢字を更新しました。
 jpdbKanjiUpdateFailedRuntime	JPDB漢字を更新できません。
-apiSrsActionsDisabled	設定でこのサービスへのよむからの採点がオフです。
+apiSrsActionsDisabled	設定でこのサービスの「よむから採点」がオフです。
 addJpdbApiKeyReview	JPDBレビューにはAPIキーが必要です。
 addJitenApiKeyReview	JitenレビューにはAPIキーが必要です。
 addBunproApiKeyReview	Bunproレビューにはfrontend_api_tokenが必要です。

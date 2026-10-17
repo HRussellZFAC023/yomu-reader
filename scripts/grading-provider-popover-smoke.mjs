@@ -55,7 +55,7 @@ const JITEN_FREQUENCY_RANK = 12435;
 // Only the Jiten mocks report this rank (JPDB's mock rank is 1200), so
 // its pill proves the Jiten identity was enriched onto the JPDB-parsed card.
 const JITEN_RANK_LABEL = `#${JITEN_FREQUENCY_RANK}`;
-const GRADING_OFF = 'Grading from よむ is off for this service in Settings.';
+const GRADING_OFF = 'Grade from よむ is off for this service in Settings.';
 const NOT_GRADED = 'Not graded: this word was not found in your preferred grading service.';
 const NATIVE_GRADES = {
     jpdb: ['nothing', 'something', 'hard', 'okay', 'easy'],
