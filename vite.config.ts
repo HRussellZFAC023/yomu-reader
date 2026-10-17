@@ -54,6 +54,11 @@ const userscriptConnect = [
     'viewer.bookwalker.jp',
     'c.bookwalker.jp',
     'bw-bv-epubs.bookwalker.jp',
+    // AnkiConnect's default address. Study checks once whether Anki is
+    // running when Settings opens; an undeclared host would make the manager
+    // ask about a cross-origin request the learner never made.
+    '127.0.0.1',
+    'localhost',
     '*',
 ];
 const userscriptGrant: NonNullable<MonkeyUserScript['grant']> = [

@@ -15,7 +15,10 @@
 //     present once the learner has typed both a JPDB and a Jiten key; after
 //     Save and a reload the stored keys still show it.
 //   * Study pings AnkiConnect exactly once when Settings opens, which marks
-//     Anki ready to connect; Connect turns on Anki mining.
+//     Anki ready to connect; Connect turns on Anki mining. The script's
+//     @connect header names AnkiConnect's host: Tampermonkey asks the learner
+//     about any host it does not name (`@connect *` only adds an "allow all"
+//     button to that question), and nobody asked for this ping.
 //   * "Show review buttons" and the grade scale sit in Reviews.
 //
 // Study runs as learners have it: the built userscript graph is installed and
@@ -58,6 +61,7 @@ const CONFIGS = [
 const ENGINES = new Set((process.env.YOMU_REVIEW_SERVICES_SMOKE_ENGINES ?? 'chromium,webkit').split(',').map(value => value.trim()));
 // Nadeshiko and Google Cloud Vision are services whose own keys are API keys.
 const REAL_API_KEY_COPY = /Nadeshiko|Cloud Vision/u;
+const DECLARED_CONNECT_HOSTS = declaredConnectHosts(readFileSync(SCRIPT_PATH, 'utf8'));
 
 const TEXT = {
     en: { tab: 'Reviews', yomuDeck: 'よむ deck', preferred: 'Preferred grading service', reviewButtons: 'Show review buttons' },
@@ -106,6 +110,7 @@ async function activate(locator, config) {
 async function runStudy(browser, config) {
     const context = await browser.newContext(contextOptions(config));
     const ankiPings = [];
+    const undeclaredHosts = new Set();
     try {
         await context.route('**/*', route => {
             const url = new URL(route.request().url());
@@ -119,6 +124,7 @@ async function runStudy(browser, config) {
         // other userscript request (key checks, deck lists) finds nothing.
         await page.exposeFunction(REQUEST_BRIDGE_NAME, request => {
             const url = new URL(request.url);
+            if (!isDeclaredConnectHost(url.hostname)) undeclaredHosts.add(url.hostname);
             if (url.origin !== ANKI_ORIGIN) return { status: 404, responseText: '' };
             ankiPings.push(JSON.parse(request.data || '{}').action ?? '');
             return jsonHttpResponse({ result: 6, error: null });
@@ -195,12 +201,14 @@ async function runStudy(browser, config) {
         assert(reloaded.preferredVisible, 'Preferred grading service is absent after a reload with both keys stored', reloaded);
         assert(['jpdb', 'jiten', 'anki'].every(id => reloaded.rows.find(row => row.id === id).state === 'on'), 'Saved services do not show connected after a reload', reloaded.rows);
         assert(pageErrors.length === 0, 'Study threw while connecting review services', { pageErrors });
+        assert(!undeclaredHosts.has(new URL(ANKI_ORIGIN).hostname), 'The userscript does not declare AnkiConnect\'s host in @connect, so Tampermonkey would ask the learner about Study\'s ping', { undeclaredHosts: [...undeclaredHosts], declared: DECLARED_CONNECT_HOSTS });
         return {
             config: config.name,
             tab: keyless.tabLabel,
             tabsScanned,
             rows: keyless.rows.map(row => ({ id: row.id, name: row.name, dot: row.dot, adds: row.adds })),
             ankiPingsBeforeConnect: pingsWhenReady,
+            undeclaredHosts: [...undeclaredHosts],
             preferred: { keyless: keyless.preferredVisible, oneKey: oneKey.preferredVisible, twoKeys: twoKeys.preferredVisible, reloaded: reloaded.preferredVisible },
         };
     } finally {
@@ -335,4 +343,14 @@ function contentTypeFor(file) {
         '.webmanifest': 'application/manifest+json',
         '.svg': 'image/svg+xml',
     }[path.extname(file)] ?? 'application/octet-stream';
+}
+
+// Tampermonkey's @connect rule: a named domain also allows its subdomains.
+function declaredConnectHosts(script) {
+    const header = script.slice(0, script.indexOf('// ==/UserScript=='));
+    return [...header.matchAll(/^\/\/ @connect\s+(\S+)/gmu)].map(match => match[1]).filter(host => host !== '*');
+}
+
+function isDeclaredConnectHost(hostname) {
+    return DECLARED_CONNECT_HOSTS.some(host => hostname === host || hostname.endsWith(`.${host}`));
 }
