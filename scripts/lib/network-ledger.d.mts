@@ -7,6 +7,12 @@ export interface LedgerRequest {
     served?: string;
     trustedInteractionBefore?: boolean;
     resourceType?: string;
+    ledgerId?: string;
+}
+export interface LedgerInteraction {
+    type: string;
+    at: number;
+    target: string;
 }
 export interface LedgerEntry {
     channel: 'gm' | 'page';
@@ -18,7 +24,12 @@ export interface LedgerEntry {
     sinceStartMs: number;
     served: string;
     trustedInteractionBefore: boolean;
+    /** The latest trusted activation before the request; null when none came first. */
+    lastInteraction: LedgerInteraction | null;
     resourceType?: string;
+    ledgerId?: string;
+    /** A page fetch or XHR the page stamped as it left: the product's own. */
+    sentByScript?: boolean;
 }
 export interface LedgerFilter {
     host?: string | RegExp;
@@ -26,6 +37,8 @@ export interface LedgerFilter {
     channel?: 'gm' | 'page';
     path?: string | RegExp;
     beforeInteraction?: boolean;
+    /** Requests with no trusted activation in this many ms before them. */
+    noInteractionWithinMs?: number;
     includeRecording?: boolean;
 }
 export interface LedgerSummary {
@@ -35,16 +48,17 @@ export interface LedgerSummary {
 export interface NetworkLedger {
     startedAt: number;
     recordRequest(request: LedgerRequest): LedgerEntry;
-    markServed(request: { channel?: 'gm' | 'page'; method?: string; url: string }, served: string): void;
+    markServed(request: { channel?: 'gm' | 'page'; method?: string; url: string; ledgerId?: string }, served: string): void;
     recordPageStamp(stamp: { url: string; at: number; trustedInteractionBefore: boolean }): void;
-    recordInteraction(interaction: { type: string; at?: number }): void;
+    recordInteraction(interaction: { type: string; at?: number; target?: string }): void;
     firstInteractionAt(): number | null;
-    interactions(): Array<{ type: string; at: number }>;
+    interactions(): LedgerInteraction[];
     entries(): LedgerEntry[];
     requests(filter?: LedgerFilter): LedgerEntry[];
     summary(filter?: LedgerFilter): LedgerSummary;
 }
 
+export const LEDGER_ID_HEADER: string;
 export function createNetworkLedger(options?: { startedAt?: number }): NetworkLedger;
 export function hostOf(url: string): string;
 export function hostMatches(host: string, pattern: string | RegExp): boolean;

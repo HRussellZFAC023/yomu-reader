@@ -6,7 +6,8 @@
 // shadow DOM); stylesheets, including rules a CSS-in-JS library inserted
 // through the CSSOM and adopted stylesheets; form state; the image candidate
 // the browser actually chose. What goes: <script>, <noscript>, script
-// preloads, inline event handlers, CSP/refresh metas and iframe contents.
+// preloads, inline event handlers, CSP/refresh metas, iframe contents, and
+// unrendered elements nested where the HTML parser cannot nest them.
 //
 // freezePageInPage mutates the live DOM; serializePageInPage writes it out.
 // A redaction runs between the two.
@@ -63,9 +64,17 @@ export function freezePageInPage() {
         if (String(media.getAttribute('src')).startsWith('blob:')) media.removeAttribute('src');
         media.removeAttribute('autoplay');
     };
+    // A script can put a <button> in a <button> (or <a> in <a>); the HTML parser
+    // cannot, and closes the outer one early, which reparents everything after it.
+    // Such an element that renders nothing is left out; one that renders stays,
+    // and the recorder's live-geometry check refuses the recording.
+    const dropUnrenderedNesting = element => {
+        if (!element.getClientRects().length) element.remove();
+    };
     const STEPS = [
         ['style', writeInsertedRules],
         [REMOVED, element => element.remove()],
+        ['button button, a a, form form', dropUnrenderedNesting],
         ['*', neutraliseAttributes],
         ['iframe, frame', blankFrame],
         ['input', keepInputState],

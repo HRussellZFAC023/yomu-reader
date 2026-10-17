@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -12,6 +12,7 @@ import { blankPng, imageSize } from '../../scripts/lib/recorded-media.mjs';
 import { captionFlashFrames } from '../../scripts/lib/recorded-page-probes.mjs';
 import { attributeSelectorIndex, findRedactionLeaks, hashTextRun, isHiddenCopy, normalizeTextRun, redactionHashList, siteCodeInHtml, textRunsFromHtml } from '../../scripts/lib/recorded-redaction.mjs';
 import { aozoraLetterStreams, characterClass, createTextRedactor } from '../../scripts/lib/text-redactor.mjs';
+import { asrCaptionTracksMechanismFixture } from '../../scripts/lib/youtube-caption-mechanism-fixture.mjs';
 
 const temporaryDirectories: string[] = [];
 const temporaryDirectory = () => {
@@ -66,6 +67,39 @@ describe('network ledger', () => {
 
         expect(ledger.requests({ host: 'ocr.example', beforeInteraction: true })).toEqual([expect.objectContaining({ at: 90 })]);
         expect(ledger.requests({ host: 'audio.example', beforeInteraction: false })).toHaveLength(1);
+    });
+
+    it('names the latest interaction before each request, so a later background upload is not read as caused by a tap', () => {
+        const ledger = createNetworkLedger({ startedAt: 0 });
+        ledger.recordInteraction({ type: 'keydown', at: 100, target: 'document' });
+        ledger.recordInteraction({ type: 'pointerdown', at: 5000, target: 'img.thumbimage' });
+        ledger.recordRequest({ channel: 'gm', method: 'POST', url: 'https://lens.example/upload', at: 3000, trustedInteractionBefore: true, served: 'offline' });
+        ledger.recordRequest({ channel: 'gm', method: 'POST', url: 'https://lens.example/upload', at: 5200, trustedInteractionBefore: true, served: 'offline' });
+        ledger.recordRequest({ channel: 'gm', method: 'POST', url: 'https://lens.example/upload', at: 50, trustedInteractionBefore: false, served: 'offline' });
+
+        expect(ledger.entries().map(entry => entry.lastInteraction?.target ?? null)).toEqual(['document', 'img.thumbimage', null]);
+        expect(ledger.requests({ host: 'lens.example', beforeInteraction: false })).toHaveLength(2);
+        expect(ledger.requests({ host: 'lens.example', noInteractionWithinMs: 1000 }).map(entry => entry.at)).toEqual([3000, 50]);
+    });
+
+    it('pairs a GM answer with its request by ledger id, not by URL order', () => {
+        const ledger = createNetworkLedger({ startedAt: 0 });
+        const url = 'https://lens.example/upload';
+        ledger.recordRequest({ ledgerId: '1', channel: 'gm', method: 'POST', url, at: 10, trustedInteractionBefore: false, served: 'pending' });
+        ledger.recordRequest({ ledgerId: '2', channel: 'gm', method: 'POST', url, at: 11, trustedInteractionBefore: false, served: 'pending' });
+        ledger.markServed({ method: 'POST', url, ledgerId: '2' }, 'override');
+        ledger.markServed({ method: 'POST', url, ledgerId: '1' }, 'offline');
+
+        expect(ledger.entries().map(entry => entry.served)).toEqual(['offline', 'override']);
+    });
+
+    it('always counts a fetch the page stamped, even when the page HAR answered it', () => {
+        const ledger = createNetworkLedger({ startedAt: 0 });
+        ledger.recordPageStamp({ url: 'https://upload.wikimedia.org/a.jpg', at: 40, trustedInteractionBefore: false });
+        ledger.recordRequest({ channel: 'page', url: 'https://upload.wikimedia.org/a.jpg', at: 45, served: 'recording' });
+        ledger.recordRequest({ channel: 'page', url: 'https://upload.wikimedia.org/b.jpg', at: 46, served: 'recording' });
+
+        expect(ledger.requests({ host: 'wikimedia.org' })).toEqual([expect.objectContaining({ url: 'https://upload.wikimedia.org/a.jpg', sentByScript: true, sinceStartMs: 40 })]);
     });
 
     it('does not count a host that only shares a suffix', () => {
@@ -188,6 +222,22 @@ describe('recorded page plumbing', () => {
         expect(json3ToVtt(json3)).toBe('WEBVTT\n\n00:00:00.000 --> 00:00:01.500\n今日は<晴れ>\n');
     });
 
+    it('hand-makes caption timings in the shape of a YouTube auto-generated track, the same every time', () => {
+        const { ja, jaEn } = asrCaptionTracksMechanismFixture({ seconds: 60 });
+        expect(asrCaptionTracksMechanismFixture({ seconds: 60 })).toEqual({ ja, jaEn, mechanismFixture: true });
+        const [windowEvent, ...events] = ja.events;
+        expect(windowEvent).toMatchObject({ tStartMs: 0, dDurationMs: 60_000, wpWinPosId: 1, wsWinStyleId: 1 });
+        const lines = events.filter(event => !event.aAppend);
+        expect(lines.every(line => line.wWinId === 1 && (line.segs?.slice(1).every(seg => (seg.tOffsetMs ?? 0) > 0) ?? false))).toBe(true);
+        expect(events.filter(event => event.aAppend).every(event => event.segs?.[0]?.utf8 === '\n')).toBe(true);
+        const shownAt = (ms: number) => lines.filter(line => ms >= line.tStartMs && ms < line.tStartMs + line.dDurationMs).length;
+        const instants = Array.from({ length: 600 }, (_, index) => index * 100);
+        // A two-row roll-up: two lines up at once, and pauses where none is.
+        expect(Math.max(...instants.map(shownAt))).toBe(2);
+        expect(instants.filter(ms => ms > lines[0].tStartMs && shownAt(ms) === 0).length).toBeGreaterThan(10);
+        expect(jaEn.events.map(event => event.tStartMs)).toEqual(lines.map(line => line.tStartMs));
+    });
+
     it('makes blank pictures of the size it was asked for', () => {
         expect(imageSize(blankPng(321, 123))).toEqual([321, 123]);
         expect(imageSize(Buffer.from('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 16">'))).toEqual([24, 16]);
@@ -269,6 +319,25 @@ describe('check-recorded-pages', () => {
         const result = run(root);
         expect(result.code).toBe(1);
         expect(result.output).toContain('page.html carries site code the freeze removes (<noscript>');
+    });
+
+    it('fails product traffic that did not settle over several runs or kept a rate limit', () => {
+        const root = temporaryDirectory();
+        writeRecording(root, '私はその人を常に');
+        const dir = join(root, 'example-redacted');
+        const manifestPath = join(dir, 'manifest.json');
+        const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'));
+        writeFileSync(join(dir, 'product-traffic.har'), JSON.stringify({ log: { entries: [] } }));
+        writeFileSync(manifestPath, JSON.stringify({ ...manifest, productTraffic: { har: 'product-traffic.har', product: 'v2.1.6', hosts: ['api.jiten.moe'] } }));
+        const result = run(root);
+        expect(result.code).toBe(1);
+        expect(result.output).toContain('example-redacted: productTraffic did not settle (runs: 1)');
+        writeFileSync(manifestPath, JSON.stringify({ ...manifest, productTraffic: { har: 'product-traffic.har', product: 'v2.1.6', hosts: ['api.jiten.moe'], runs: 9, settled: true } }));
+        expect(run(root).code).toBe(0);
+        writeFileSync(join(dir, 'product-traffic.har'), JSON.stringify({ log: { entries: [{ request: { method: 'GET', url: 'https://api.jiten.moe/x' }, response: { status: 429, content: { text: '' } } }] } }));
+        const limited = run(root);
+        expect(limited.code).toBe(1);
+        expect(limited.output).toContain('example-redacted: product-traffic.har keeps 1 rate-limited or failed answer(s)');
     });
 
     it('fails a credit for a recording that is not committed', () => {

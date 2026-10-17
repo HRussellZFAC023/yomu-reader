@@ -10,7 +10,7 @@
 // page's own picture gets the bytes the page got), docs/public, then the
 // network ('live', or 'record' for the hosts being recorded) or a failure like
 // a dropped connection.
-import { hostMatches, hostOf } from './network-ledger.mjs';
+import { LEDGER_ID_HEADER, hostMatches, hostOf } from './network-ledger.mjs';
 import { mimeTypeOf } from './recorded-har.mjs';
 import { hostedAnswer, hostedFile } from './recorded-products.mjs';
 
@@ -103,11 +103,17 @@ function isRecordHost(url, scope) {
 }
 
 export async function answerGmRequest(raw, scope) {
-    const request = { ...raw, method: String(raw.method || 'GET').toUpperCase(), bodyText: gmBodyText(raw.data) };
+    const { request, ledgerId } = gmRequest(raw);
     const answer = await firstAnswer(GM_ANSWERERS, request, scope);
-    scope.ledger.markServed({ channel: 'gm', method: request.method, url: request.url }, answer ? answer.served : 'offline');
+    scope.ledger.markServed({ channel: 'gm', method: request.method, url: request.url, ledgerId }, answer ? answer.served : 'offline');
     if (!answer) throw new Error(`Recorded page: no recorded answer for ${request.method} ${request.url}`);
     return bridgeResponse(answer.status, answer.body, answer.contentType);
+}
+
+// The ledger id header is the harness's own; no answerer or service sees it.
+function gmRequest({ headers: rawHeaders = {}, method = 'GET', ...raw }) {
+    const { [LEDGER_ID_HEADER]: ledgerId, ...headers } = rawHeaders;
+    return { ledgerId, request: { ...raw, headers, method: String(method).toUpperCase(), bodyText: gmBodyText(raw.data) } };
 }
 
 const BODYLESS = new Set(['GET', 'HEAD']);
@@ -125,10 +131,20 @@ async function liveGmAnswer(request, scope) {
     return answer;
 }
 
-// Only hosts whose answers may be committed (recording-targets.mjs names them).
+// Only hosts whose answers may be committed (recording-targets.mjs names them),
+// and only answers the service meant: a 429 or 5xx kept would replay a rate
+// limit as the page's answer, so it is counted (productTraffic().refused) instead.
 function keepRecordable(request, answer, scope) {
     if (!scope.recorder || !isRecordHost(request.url, scope)) return;
+    if (isRefusal(answer.status)) {
+        scope.refusedAnswers += 1;
+        return;
+    }
     scope.recorder.add({ method: request.method, url: request.url, status: answer.status, contentType: answer.contentType, body: answer.body, requestBody: request.bodyText });
+}
+
+function isRefusal(status) {
+    return status === 429 || status >= 500;
 }
 
 function gmBodyText(data) {

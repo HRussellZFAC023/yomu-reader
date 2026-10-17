@@ -5,6 +5,9 @@
 //     and HAR, and every body the HAR names is committed (nothing else is);
 //   - ATTRIBUTION.md credits every recording, and nothing that is not committed;
 //   - no recorded document carries site code (<script>, <noscript>, on*=);
+//   - product traffic was merged over runs until it settled (one run's HAR
+//     answers only one scan order, and replays of another drop everything),
+//     and keeps no 429 or 5xx answer;
 //   - a redacted recording (a copyrighted site) carries the recorder's hash
 //     list and NO committed file holds a text run whose hash is on it;
 //   - hand-made files beside the recordings are named *-mechanism-fixture.*.
@@ -62,7 +65,30 @@ const MANIFEST_RULES = [
     (manifest, slug) => (['verbatim', 'redacted'].includes(manifest.content) ? [] : [`${slug}: content must be verbatim or redacted`]),
     (manifest, slug, dir) => committedFiles(manifest).filter(file => !existsSync(path.join(dir, file))).map(file => `${slug}: ${file} is missing`),
     (manifest, slug, dir) => siteCodeProblems(path.join(dir, manifest.document ?? ''), slug, manifest.document),
+    (manifest, slug, dir) => productTrafficProblems(manifest.productTraffic, slug, dir),
 ];
+
+// One run's HAR answers one scan order, and a kept 429 or 5xx replays a rate
+// limit as the service's answer; either makes a replay look like sparse readings.
+function productTrafficProblems(traffic, slug, dir) {
+    if (!traffic) return [];
+    const again = `record it again with node scripts/record-pages.mjs ${slug} --product-traffic-only --product-traffic=${traffic.product}`;
+    const refused = refusedAnswerCount(path.join(dir, traffic.har));
+    return [
+        ...unsettledProblem(traffic, slug, again),
+        ...(refused ? [`${slug}: ${traffic.har} keeps ${refused} rate-limited or failed answer(s) (429/5xx); ${again}`] : []),
+    ];
+}
+
+function unsettledProblem({ settled, runs = 1 }, slug, again) {
+    return settled === true ? [] : [`${slug}: productTraffic did not settle (runs: ${runs}); ${again}`];
+}
+
+function refusedAnswerCount(harPath) {
+    if (!existsSync(harPath)) return 0;
+    const statuses = JSON.parse(readFileSync(harPath, 'utf8')).log.entries.map(entry => entry.response.status);
+    return statuses.filter(status => status === 429 || status >= 500).length;
+}
 
 function siteCodeProblems(file, slug, name) {
     const found = existsSync(file) && statSync(file).isFile() ? siteCodeInHtml(readFileSync(file, 'utf8')) : [];

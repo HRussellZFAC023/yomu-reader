@@ -26,6 +26,9 @@ export { releaseProduct, worktreeProduct } from './recorded-products.mjs';
 
 export const RECORDINGS_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', 'fixtures', 'recorded');
 const REQUEST_BINDING = '__yomuRecordedGmRequest';
+// More dropped product-traffic answers than this means the replay met a scan
+// order the recording does not hold (docs/dev/recorded-pages.md, Limits of a replay).
+const PRODUCT_TRAFFIC_DROP_LIMIT = 2;
 const LEDGER_BINDINGS = { requestBinding: '__yomuLedgerRequest', interactionBinding: '__yomuLedgerInteraction', pageStampBinding: '__yomuLedgerPageStamp' };
 
 export function listRecordings() {
@@ -71,7 +74,9 @@ export function loadRecording(slug) {
 export async function openRecordedPage(options) {
     const { settings = null, navigate = true, waitUntil = 'load', contextOptions = {} } = options;
     const scope = recordedPageScope(options);
-    const context = await options.browser.newContext({ viewport: scope.recording.manifest.recorder.viewport, locale: 'ja-JP', timezoneId: 'Asia/Tokyo', ...contextOptions });
+    const contextSettings = { viewport: scope.recording.manifest.recorder.viewport, locale: 'ja-JP', timezoneId: 'Asia/Tokyo', ...contextOptions };
+    scope.viewport = contextSettings.viewport;
+    const context = await options.browser.newContext(contextSettings);
     scope.context = context;
     await context.exposeFunction(LEDGER_BINDINGS.requestBinding, request => void scope.ledger.recordRequest(request));
     await context.exposeFunction(LEDGER_BINDINGS.interactionBinding, interaction => scope.ledger.recordInteraction(interaction));
@@ -85,12 +90,75 @@ export async function openRecordedPage(options) {
     return {
         engine: scope.engine,
         recording: scope.recording,
+        product: scope.product,
+        gmNetwork: scope.gmNetwork,
         context,
         page,
         ledger: scope.ledger,
         pageErrors,
-        close: () => context.close(),
+        productTraffic: () => productTrafficReport(scope),
+        close: async () => {
+            warnOnProductTrafficGap(scope);
+            await context.close();
+        },
     };
+}
+
+/**
+ * openRecordedPage for a gate that judges what the product painted: with the
+ * build the page's product traffic was recorded from, it waits settleMs and,
+ * when the load took a scan order the recording does not hold (more than
+ * PRODUCT_TRAFFIC_DROP_LIMIT answers dropped, an outage rather than the
+ * product), closes it and loads again, up to `attempts` loads. onOpen(run)
+ * runs right after each load opens (a sampler, a frame log). Resolves to
+ * { run, discarded }; run is null when every load dropped (record the product
+ * traffic again). Another build asks for other URLs, so its first load is kept.
+ */
+export async function openAnsweredRecordedPage(options, { settleMs, attempts = 4, onOpen = async () => undefined }) {
+    for (let discarded = 0; discarded < attempts; discarded += 1) {
+        const run = await openRecordedPage(options);
+        const context = await onOpen(run);
+        await run.page.waitForTimeout(settleMs);
+        if (!hasProductTrafficGap(run, run.productTraffic())) return { run, context, discarded };
+        await run.close();
+    }
+    return { run: null, context: null, discarded: attempts };
+}
+
+// Another build asks for other URLs and is expected to miss; the recorded build missing is a gap.
+// subject: a run or a scope (both carry recording, product and gmNetwork).
+function hasProductTrafficGap(subject, report) {
+    const recorded = subject.recording.manifest.productTraffic;
+    const replaysRecordedBuild = [subject.gmNetwork === 'replay', Boolean(recorded), subject.product?.label === recorded?.product].every(Boolean);
+    return replaysRecordedBuild && report.dropped > PRODUCT_TRAFFIC_DROP_LIMIT;
+}
+
+/**
+ * How the GM requests to the recorded product-traffic hosts were answered:
+ * { hosts, served: { 'recorded-product': n, offline: n, ... }, dropped, refused }.
+ * Gates that judge readings open with openAnsweredRecordedPage, so a replay
+ * that answered nothing is never read as sparse readings.
+ * refused: while recording, live answers not kept (a 429 or 5xx).
+ */
+function productTrafficReport(scope) {
+    const hosts = productTrafficHosts(scope);
+    const served = {};
+    for (const entry of hosts.flatMap(host => scope.ledger.requests({ host, channel: 'gm' }))) served[entry.served] = 1 + (served[entry.served] ?? 0);
+    const { offline: dropped = 0 } = served;
+    return { hosts, served, dropped, refused: scope.refusedAnswers };
+}
+
+// Replays ask about the recorded hosts; a recording run about the hosts it keeps.
+function productTrafficHosts(scope) {
+    return scope.recording.manifest.productTraffic?.hosts ?? scope.recordHosts;
+}
+
+function warnOnProductTrafficGap(scope) {
+    const { dropped, served } = productTrafficReport(scope);
+    if (!hasProductTrafficGap(scope, { dropped })) return;
+    const recorded = scope.recording.manifest.productTraffic;
+    const { width, height } = scope.viewport;
+    console.warn(`[recorded-page] WARN ${scope.recording.slug} (${scope.engine} ${width}x${height}): ${dropped} of ${recorded.product}'s ${recorded.hosts.join(', ')} requests had no recorded answer ${JSON.stringify(served)}. Product traffic was recorded for ${(recorded.profiles ?? ['chromium']).join(', ')}; this load took a scan order the recording does not hold, so what it painted is an outage, not the product.`);
 }
 
 function recordedPageScope({ browser, slug, product, gmNetwork = 'replay', pageNetwork = 'offline', hosted = true, onGmRequest, recordHosts = [], recorder, hostOptions = {} }) {
@@ -110,6 +178,7 @@ function recordedPageScope({ browser, slug, product, gmNetwork = 'replay', pageN
         hosted,
         onGmRequest,
         recordHosts,
+        refusedAnswers: 0,
     };
 }
 

@@ -59,16 +59,18 @@ async function engineFidelity(engine, staging, original, live, diffSample) {
     }
 }
 
-// A block the freeze or a host fixture removed (YouTube's own caption window is
-// rebuilt by the player fixture) is not the redaction's doing; the
-// redacted-against-unredacted comparison still catches anything missing there.
+// A sampled block the live page had and the replay lacks (the frozen HTML did
+// not parse back into the same tree) is counted as liveMissing and refused;
+// the boxes of the blocks both have are compared.
 function liveFidelity(live, signature) {
     const replayed = new Set(signature.blocks.filter(block => !block.missing).map(block => block.key));
-    const comparable = { ...live.liveSignature, blocks: live.liveSignature.blocks.filter(block => replayed.has(block.key)) };
+    const livePresent = live.liveSignature.blocks.filter(block => !block.missing);
+    const comparable = { ...live.liveSignature, blocks: livePresent.filter(block => replayed.has(block.key)) };
     // Scroll extents of a script-driven app (YouTube) differ once its scripts are gone;
     // the acceptance rule is about sampled block boxes.
     const versusLive = compareGeometrySignatures(comparable, signature, { tolerancePx: FIDELITY_TOLERANCE_PX, ignore: ['paragraphs', 'document', 'paged'] });
-    return { liveMaxDeltaPx: versusLive.maxDelta, liveDiffs: versusLive.diffs.length, liveDiffSample: versusLive.diffs.slice(0, 3) };
+    const liveMissing = livePresent.filter(block => !replayed.has(block.key)).map(block => block.key);
+    return { liveMaxDeltaPx: versusLive.maxDelta, liveDiffs: versusLive.diffs.length, liveMissing: liveMissing.length, liveDiffSample: versusLive.diffs.slice(0, 3), liveMissingSample: liveMissing.slice(0, 2) };
 }
 
 async function replaySignature(browser, dir, keys) {
@@ -99,6 +101,11 @@ export function refuseUnsafeRecording(dir, target, live, fidelity) {
     refuseLeaks(dir, target, live);
     const chromiumResult = fidelity.chromium;
     if (!chromiumResult) throw new Error(`[record-pages] refusing to write ${target.slug}: fidelity needs a Chromium replay.`);
+    refuseUnfaithfulGeometry(target, chromiumResult);
+}
+
+function refuseUnfaithfulGeometry(target, chromiumResult) {
+    if (chromiumResult.liveMissing) throw new Error(`[record-pages] refusing to write ${target.slug}: ${chromiumResult.liveMissing} sampled block(s) of the live page are missing from the Chromium replay (the frozen HTML parses into another tree): ${JSON.stringify(chromiumResult.liveMissingSample)}`);
     const worst = Math.max(chromiumResult.redactionMaxDeltaPx, chromiumResult.liveMaxDeltaPx);
     if (worst > FIDELITY_TOLERANCE_PX) throw new Error(`[record-pages] refusing to write ${target.slug}: a sampled block box moved by ${worst} px in Chromium (limit ${FIDELITY_TOLERANCE_PX}). ${JSON.stringify([...chromiumResult.diffSample, ...chromiumResult.liveDiffSample])}`);
 }

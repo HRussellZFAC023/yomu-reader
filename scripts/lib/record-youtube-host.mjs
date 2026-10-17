@@ -6,6 +6,7 @@ import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { rejectConsent } from './recording-targets.mjs';
 import { normalizeTextRun } from './recorded-redaction.mjs';
+import { asrCaptionTracksMechanismFixture } from './youtube-caption-mechanism-fixture.mjs';
 
 const KEPT_TIMEDTEXT_PARAMS = ['v', 'lang', 'kind', 'caps', 'xoaf', 'hl'];
 
@@ -52,18 +53,28 @@ async function waitForResponse(page, observed, matches) {
  * ask for captions at once). captionsFrom: a folder holding ja.json3 and
  * ja.tlang-en.json3 saved from this video elsewhere, for a network where
  * YouTube refuses the player's own caption requests (429 "automated queries").
+ * captionTimings: 'mechanism-fixture' when neither is possible (see captionTracks).
  */
-export async function prepareYouTubeWatch(page, observed, { captionsFrom } = {}) {
+export async function prepareYouTubeWatch(page, observed, { captionsFrom, captionTimings, captionSeconds } = {}) {
     await rejectConsent(page);
     await page.locator('#movie_player video').first().waitFor({ state: 'attached', timeout: 30_000 });
     await page.waitForTimeout(3000);
-    const json3 = captionsFrom ? savedCaptionTracks(captionsFrom) : await playerCaptionTracks(page, observed);
+    const json3 = await captionTracks(page, observed, { captionsFrom, captionTimings, captionSeconds });
     await page.evaluate(PLAYER_STEPS.stillAtStart);
     // YouTube raises its consent dialog over the player a few seconds in; it gets the same answer.
     await rejectConsent(page);
     const playerResponse = await page.evaluate(PLAYER_STEPS.playerResponse);
     requireCaptions(playerResponse, json3);
     return { playerResponse, json3 };
+}
+
+// captionTimings 'mechanism-fixture': YouTube refuses this network's caption
+// requests, so the tracks are hand-made ASR-shaped timings, named and flagged
+// as a Mechanism Fixture (youtube-caption-mechanism-fixture.mjs).
+async function captionTracks(page, observed, { captionsFrom, captionTimings, captionSeconds }) {
+    if (captionTimings === 'mechanism-fixture') return asrCaptionTracksMechanismFixture({ seconds: captionSeconds });
+    if (captionTimings) throw new Error(`--caption-timings takes only mechanism-fixture, not ${captionTimings}`);
+    return captionsFrom ? savedCaptionTracks(captionsFrom) : playerCaptionTracks(page, observed);
 }
 
 function requireCaptions(playerResponse, json3) {
@@ -110,19 +121,23 @@ export function youtubeHostOriginalRuns({ playerResponse, json3 }) {
  */
 export function youtubeHostFiles({ playerResponse, json3 }, { redact, captionSeconds }) {
     const cutoff = captionSeconds * 1000;
+    const suffix = json3.mechanismFixture ? '-mechanism-fixture' : '';
+    const jaFile = `host/timedtext.ja${suffix}.json3`;
+    const enFile = `host/timedtext.ja.tlang-en${suffix}.json3`;
     return {
         files: {
             'host/player.json': redactedPlayerResponse(playerResponse, { redact, captionSeconds }),
-            'host/timedtext.ja.json3': redactedTrack(json3.ja, { redact, cutoff }),
-            'host/timedtext.ja.tlang-en.json3': redactedTrack(json3.jaEn, { redact, cutoff }),
+            [jaFile]: redactedTrack(json3.ja, { redact, cutoff }),
+            [enFile]: redactedTrack(json3.jaEn, { redact, cutoff }),
         },
         manifestHost: {
             kind: 'youtube-player',
             player: 'host/player.json',
             captionsOn: true,
+            ...(json3.mechanismFixture ? { captionTimings: 'mechanism-fixture' } : {}),
             tracks: [
-                { lang: 'ja', file: 'host/timedtext.ja.json3' },
-                { lang: 'ja', tlang: 'en', file: 'host/timedtext.ja.tlang-en.json3' },
+                { lang: 'ja', file: jaFile },
+                { lang: 'ja', tlang: 'en', file: enFile },
             ],
             clip: { webm: 'host/clip.webm', mp4: 'host/clip.mp4', seconds: captionSeconds },
         },

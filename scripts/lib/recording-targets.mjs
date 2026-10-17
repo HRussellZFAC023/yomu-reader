@@ -58,7 +58,7 @@ export const RECORDING_TARGETS = Object.freeze([
         url: 'https://www.youtube.com/watch?v=TAorfFcb8_g',
         content: 'redacted',
         licence: REDACTED,
-        attribution: 'Structure and caption timings of a YouTube watch page (video TAorfFcb8_g), recorded for testing. Its stylesheets are kept as served; no YouTube text, image or video is included.',
+        attribution: 'Structure and caption track list of a YouTube watch page (video TAorfFcb8_g), recorded for testing. Its stylesheets are kept as served; no YouTube text, image or video is included. Caption timings are recorded, or a hand-made mechanism fixture when host.captionTimings says so.',
         viewport: DESKTOP,
         prepare: 'youtubeWatch',
         host: 'youtube-player',

@@ -5,9 +5,10 @@
 //   node scripts/record-pages.mjs                         # every target
 //   node scripts/record-pages.mjs ja-wikipedia-nihongo    # one or more slugs
 //   node scripts/record-pages.mjs ja-wikipedia-nihongo --product-traffic-only --product-traffic=v2.1.6
-//       [--product-seconds=25] [--product-runs=20] [--product-settled-runs=4]
+//       [--product-seconds=25] [--product-runs=40] [--product-settled-cycles=2] [--product-backoff-seconds=60]
 //   node scripts/record-pages.mjs piccoma-web --keep-staging   # keep the staging copies to debug a refusal
 //   node scripts/record-pages.mjs youtube-watch --captions-from=<dir>   # json3 tracks saved elsewhere (see prepareYouTubeWatch)
+//   node scripts/record-pages.mjs youtube-watch --caption-timings=mechanism-fixture   # YouTube refuses captions here
 //
 // For each page: load it live in Chromium, bring it to its reading state,
 // pick geometry sample keys and measure the live page, freeze the DOM (no
@@ -19,7 +20,7 @@
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { chromium } from 'playwright';
+import { chromium, firefox, webkit } from 'playwright';
 import { captureLivePage } from './lib/record-live-page.mjs';
 import { createHarWriter } from './lib/recorded-har.mjs';
 import { RECORDINGS_ROOT, openRecordedPage, releaseProduct, worktreeProduct } from './lib/recorded-page.mjs';
@@ -37,9 +38,20 @@ const targets = slugs.length ? slugs.map(recordingTarget) : RECORDING_TARGETS;
 const engines = (options.engines ?? 'chromium,webkit,firefox').split(',');
 const PRODUCT_RUNS = {
     seconds: Number(options['product-seconds'] ?? 25),
-    max: Number(options['product-runs'] ?? 20),
-    settled: Number(options['product-settled-runs'] ?? 4),
+    // A service that rate-limited a run gets this long before the next one.
+    backoffSeconds: Number(options['product-backoff-seconds'] ?? 60),
+    max: Number(options['product-runs'] ?? 40),
+    settledCycles: Number(options['product-settled-cycles'] ?? 2),
 };
+// The scan order, and so the requests, depend on the engine and the viewport:
+// a Chromium-only recording answered almost nothing in WebKit. Product traffic
+// runs take these profiles in turn. iPad is WebKit at iPad size with touch.
+const PRODUCT_PROFILES = [
+    { name: 'chromium', engine: chromium },
+    { name: 'webkit', engine: webkit },
+    { name: 'firefox', engine: firefox },
+    { name: 'webkit-ipad', engine: webkit, contextOptions: { viewport: { width: 1024, height: 1366 }, hasTouch: true } },
+];
 
 for (const target of targets) {
     if (!options['product-traffic-only']) await recordTarget(target);
@@ -49,7 +61,7 @@ for (const target of targets) {
 async function recordTarget(target) {
     console.log(`\n[record-pages] ${target.slug}: ${decodeURI(target.url)}`);
     const browser = await chromium.launch();
-    const live = await captureLivePage(browser, target, { captionsFrom: options['captions-from'] }).finally(() => browser.close());
+    const live = await captureLivePage(browser, target, { captionsFrom: options['captions-from'], captionTimings: options['caption-timings'] }).finally(() => browser.close());
     const staging = mkdtempSync(path.join(tmpdir(), `yomu-recording-${target.slug}-`));
     const original = mkdtempSync(path.join(tmpdir(), `yomu-recording-${target.slug}-original-`));
     try {
@@ -81,9 +93,11 @@ function removeStaging(dirs) {
  * One run is not enough: the product batches its parse requests in whatever
  * order its scan met the page, and a replay of one order answers nothing when
  * the next run takes another (every request goes 'offline', which looks like
- * sparse readings but is an outage). So it runs the product again, each time
- * in a fresh context, merging new requests into one HAR, until settledRuns runs
- * in a row add nothing (or maxRuns; the manifest says whether it settled).
+ * sparse readings but is an outage). That order changes from load to load and
+ * with the engine and viewport. So it runs the product again, each time in a
+ * fresh context and the next of PRODUCT_PROFILES, merging new requests into
+ * one HAR, until settledCycles whole cycles of profiles in a row add nothing
+ * (or max runs; the manifest says whether it settled and for which profiles).
  * After the first run, requests already kept are answered from the HAR as a
  * replay would answer them, so later runs take a replay's timing and the
  * requests only that timing makes reach the network and are kept too.
@@ -98,27 +112,49 @@ async function recordProductTraffic(target, productRef) {
     const dir = path.join(RECORDINGS_ROOT, target.slug);
     rmSync(path.join(dir, 'product-resources'), { recursive: true, force: true });
     const count = recorder.write(dir, 'product-traffic.har', 'product-resources');
-    const productTraffic = { har: 'product-traffic.har', product: product.label, seconds: PRODUCT_RUNS.seconds, runs, settled, hosts: target.productTrafficHosts, recordedAt: new Date().toISOString() };
+    const profiles = PRODUCT_PROFILES.map(profileDescription);
+    const productTraffic = { har: 'product-traffic.har', product: product.label, seconds: PRODUCT_RUNS.seconds, runs, settled, profiles, hosts: target.productTrafficHosts, recordedAt: new Date().toISOString() };
     writeJson(path.join(dir, 'manifest.json'), { ...readJson(path.join(dir, 'manifest.json')), productTraffic }, 2);
     console.log(`[record-pages]   kept ${count} product request(s) from ${runs} runs`);
 }
 
+function profileDescription({ name, contextOptions }) {
+    return contextOptions?.viewport ? `${name} ${contextOptions.viewport.width}x${contextOptions.viewport.height}` : `${name} recorded viewport`;
+}
+
 async function runProductUntilSettled(target, product, recorder) {
-    const browser = await chromium.launch();
-    let runs = 0;
-    let quiet = 0;
+    const browsers = new Map();
+    const state = { runs: 0, quiet: 0, quietNeeded: PRODUCT_RUNS.settledCycles * PRODUCT_PROFILES.length };
     try {
-        for (; runs < PRODUCT_RUNS.max && quiet < PRODUCT_RUNS.settled; runs += 1) {
-            const before = recorder.size();
-            const run = await openRecordedPage({ browser, slug: target.slug, product, gmNetwork: 'record', recordHosts: target.productTrafficHosts, recorder });
-            await run.page.waitForTimeout(PRODUCT_RUNS.seconds * 1000);
-            await run.close();
-            const added = recorder.size() - before;
-            quiet = added ? 0 : quiet + 1;
-            console.log(`[record-pages]   run ${runs + 1}: ${added} new request(s), ${recorder.size()} in all`);
-        }
+        while (state.runs < PRODUCT_RUNS.max && state.quiet < state.quietNeeded) await settleStep({ target, product, recorder, browsers }, state);
     } finally {
-        await browser.close();
+        await Promise.all([...browsers.values()].map(browser => browser.close()));
     }
-    return { runs, settled: quiet >= PRODUCT_RUNS.settled };
+    return { runs: state.runs, settled: state.quiet >= state.quietNeeded };
+}
+
+// One run of the next profile. A rate-limited run saw fewer answers than the
+// product asked for, so it proves nothing about settling: it is not counted.
+async function settleStep({ target, product, recorder, browsers }, state) {
+    const profile = PRODUCT_PROFILES[state.runs % PRODUCT_PROFILES.length];
+    const { added, refused } = await productRun(target, product, recorder, await profileBrowser(browsers, profile), profile);
+    state.runs += 1;
+    const refusedNote = refused ? `, ${refused} refused (rate limit), not counted` : '';
+    console.log(`[record-pages]   run ${state.runs} (${profileDescription(profile)}): ${added} new request(s), ${recorder.size()} in all${refusedNote}`);
+    if (refused) await new Promise(resolve => setTimeout(resolve, PRODUCT_RUNS.backoffSeconds * 1000));
+    else state.quiet = added ? 0 : state.quiet + 1;
+}
+
+async function profileBrowser(browsers, { engine }) {
+    if (!browsers.has(engine)) browsers.set(engine, await engine.launch());
+    return browsers.get(engine);
+}
+
+async function productRun(target, product, recorder, browser, profile) {
+    const before = recorder.size();
+    const run = await openRecordedPage({ browser, slug: target.slug, product, gmNetwork: 'record', recordHosts: target.productTrafficHosts, recorder, contextOptions: profile.contextOptions });
+    await run.page.waitForTimeout(PRODUCT_RUNS.seconds * 1000);
+    const { refused } = run.productTraffic();
+    await run.close();
+    return { added: recorder.size() - before, refused };
 }

@@ -47,11 +47,17 @@
     "har": "product-traffic.har",
     "product": "v2.1.6",
     "seconds": 25,
-    "runs": 11,
+    "runs": 33,
     "settled": true,
+    "profiles": [
+      "chromium recorded viewport",
+      "webkit recorded viewport",
+      "firefox recorded viewport",
+      "webkit-ipad 1024x1366"
+    ],
     "hosts": [
       "api.jiten.moe"
     ],
-    "recordedAt": "2026-10-17T17:14:27.376Z"
+    "recordedAt": "2026-10-17T18:39:57.444Z"
   }
 }

@@ -18,8 +18,8 @@ const RECORDED_RESOURCE_TYPES = new Set(['stylesheet', 'image', 'font']);
 // How each target reaches its reading state. A paged reader turns pages on
 // scroll, so only flowing documents are scrolled through.
 const PREPARERS = {
-    youtubeWatch: async (page, observed, options) => {
-        const host = await prepareYouTubeWatch(page, observed, options);
+    youtubeWatch: async (page, observed, options, target) => {
+        const host = await prepareYouTubeWatch(page, observed, { ...options, captionSeconds: target.captionSeconds });
         await loadLazyContent(page);
         return host;
     },
@@ -28,14 +28,14 @@ const PREPARERS = {
     document: page => loadLazyContent(page).then(() => null),
 };
 
-/** options.captionsFrom: see prepareYouTubeWatch. */
+/** options.captionsFrom, options.captionTimings: see prepareYouTubeWatch. */
 export async function captureLivePage(browser, target, options = {}) {
     const context = await browser.newContext({ viewport: target.viewport, locale: 'ja-JP', timezoneId: 'Asia/Tokyo' });
     try {
         const page = await context.newPage();
         const capture = captureResponses(page);
         await openTarget(page, target);
-        const host = await PREPARERS[target.prepare ?? 'document'](page, capture.observed, options);
+        const host = await PREPARERS[target.prepare ?? 'document'](page, capture.observed, options, target);
         if (page.url() !== target.url) throw new Error(`[record-pages] ${target.slug} ended on ${page.url()}, not ${target.url}`);
         await page.waitForLoadState('networkidle', { timeout: 10_000 }).catch(() => undefined);
         return await freezeLivePage(page, target, { host, responses: capture.responses });

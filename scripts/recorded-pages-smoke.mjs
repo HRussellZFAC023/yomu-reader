@@ -18,14 +18,15 @@ import { chromium, firefox, webkit } from 'playwright';
 import { captureGeometrySignature, compareGeometrySignatures } from './lib/geometry-signature.mjs';
 import { startMainThreadSampler } from './lib/main-thread-sampler.mjs';
 import { captionFlashFrames, kanjiReadingCoverage, readCaptionFrames, startCaptionFrameLog } from './lib/recorded-page-probes.mjs';
-import { listRecordings, loadRecording, openRecordedPage, releaseProduct, worktreeProduct } from './lib/recorded-page.mjs';
+import { listRecordings, loadRecording, openAnsweredRecordedPage, openRecordedPage, releaseProduct, worktreeProduct } from './lib/recorded-page.mjs';
 
 const TOLERANCE_PX = 2;
-// YouTube refused the recording machine's caption requests (docs/dev/recorded-pages.md,
-// Follow-ups). Until youtube-watch lands the caption case warns; after this date
-// it fails, so the gate the W1 caption items rely on cannot stay missing unnoticed.
-const YOUTUBE_WATCH_DUE = '2026-10-31';
 const STORED_LINES = 24;
+// 2.1.6's scan order changes from load to load, and with it its coverage
+// (7.5% to 19.4% of runs on 日本語); the median of three answered loads is judged.
+const COVERAGE_LOADS = 3;
+// A load whose scan order the recording does not hold is discarded and loaded again.
+const LOAD_ATTEMPTS = 4;
 const ENGINES = { chromium, webkit, firefox };
 const args = process.argv.slice(2);
 const option = name => args.find(arg => arg.startsWith(`--${name}=`))?.split('=')[1];
@@ -90,43 +91,60 @@ async function reproduceShippedFailures() {
     const browser = await chromium.launch({ args: ['--autoplay-policy=no-user-gesture-required'] });
     try {
         await reproduceOnWikipedia(browser, product, report);
-        if (listRecordings().includes('youtube-watch')) await reproduceCaptionFlash(browser, product, report);
-        else missingYouTubeWatch();
+        await reproduceCaptionFlash(browser, product, report);
     } finally {
         await browser.close();
     }
 }
 
-function missingYouTubeWatch() {
-    const message = `youtube-watch is not recorded, so 2.1.6's caption flash is not reproduced (due ${YOUTUBE_WATCH_DUE}): node scripts/record-pages.mjs youtube-watch`;
-    if (new Date().toISOString().slice(0, 10) > YOUTUBE_WATCH_DUE) check(false, message);
-    else console.log(`${process.env.GITHUB_ACTIONS ? '::warning::' : 'WARN '}${message}`);
+async function reproduceOnWikipedia(browser, product, report) {
+    const loads = [];
+    for (let load = 0; load < COVERAGE_LOADS; load += 1) loads.push(await wikipediaLoad(browser, product, report, load === 0));
+    if (loads.includes(null)) return;
+    const median = [...loads].sort((left, right) => left.ratio - right.ratio)[Math.floor(loads.length / 2)];
+    const all = loads.map(coverage => `${coverage.covered}/${coverage.kanjiRuns}`).join(', ');
+    report(median.ratio < 0.2, `${product.label} ja-wikipedia-nihongo: median ${median.covered}/${median.kanjiRuns} visible kanji runs under a painted reading after 15 s over ${loads.length} loads (${all}; 2.1.6: under 20%; ${median.painted}/${median.kanjiWords} of the product's kanji words painted, ${median.dataReadingOnly} with data-reading only)`);
 }
 
-async function reproduceOnWikipedia(browser, product, report) {
-    const run = await openRecordedPage({ browser, slug: 'ja-wikipedia-nihongo', product });
+// One 15 s load the recorded jiten traffic answered: its coverage. The first
+// load also measures main-thread cost, Lens uploads and the ledger's
+// trusted-interaction flag. null when no load in LOAD_ATTEMPTS was answered.
+async function wikipediaLoad(browser, product, report, first) {
+    const { run, sampler } = await answeredWikipediaLoad(browser, product, report, first);
+    if (!run) return null;
     try {
-        const sampler = await startMainThreadSampler(run.page, { engine: 'chromium', spin: false });
-        await run.page.waitForTimeout(15_000);
-        const cost = await sampler.stop();
-        console.log(`INFO ${product.label} ja-wikipedia-nihongo: main thread ${cost.cdp.taskMsPerSec} ms/s of tasks over the first 15 s (style ${cost.cdp.recalcStyleMsPerSec}, layout ${cost.cdp.layoutMsPerSec})`);
-        const lens = run.ledger.requests({ host: 'lensfrontend-pa.googleapis.com', method: 'POST', beforeInteraction: true });
-        report(lens.length >= 1, `${product.label} ja-wikipedia-nihongo: ${lens.length} Lens upload(s) before any interaction (2.1.6 uploads page images)`);
+        if (first) await reportFirstLoadCost(run, product, report, sampler);
         const coverage = await kanjiReadingCoverage(run.page, { root: '#mw-content-text' });
-        const jiten = servedCounts(run.ledger.requests({ host: 'jiten.moe', channel: 'gm' }));
         // Sparse readings must come from the product, not from a replay that answered nothing.
-        report((jiten.offline ?? 0) <= 2 && coverage.painted >= 1, `${product.label} ja-wikipedia-nihongo: the recorded jiten traffic answered the product ${JSON.stringify(jiten)}, ${coverage.painted} kanji word(s) painted`);
-        report(coverage.ratio < 0.2, `${product.label} ja-wikipedia-nihongo: ${coverage.covered}/${coverage.kanjiRuns} visible kanji runs under a painted reading after 15 s (2.1.6: under 20%; ${coverage.painted}/${coverage.kanjiWords} of the product's kanji words painted, ${coverage.dataReadingOnly} with data-reading only)`);
-        await checkTrustedInteraction(run);
+        report(coverage.painted >= 1, `${product.label} ja-wikipedia-nihongo: the recorded jiten traffic answered the product ${JSON.stringify(run.productTraffic().served)}, ${coverage.painted} kanji word(s) painted`);
+        if (first) await checkTrustedInteraction(run);
+        return coverage;
     } finally {
         await run.close();
     }
 }
 
-function servedCounts(entries) {
-    const counts = {};
-    for (const entry of entries) counts[entry.served] = (counts[entry.served] ?? 0) + 1;
-    return counts;
+async function answeredWikipediaLoad(browser, product, report, first) {
+    const onOpen = run => (first ? startMainThreadSampler(run.page, { engine: 'chromium', spin: false }) : null);
+    const { run, context: sampler, discarded } = await openAnsweredRecordedPage({ browser, slug: 'ja-wikipedia-nihongo', product }, { settleMs: 15_000, attempts: LOAD_ATTEMPTS, onOpen });
+    if (discarded) console.log(`INFO ${product.label} ja-wikipedia-nihongo: ${discarded} load(s) took a scan order the recorded jiten traffic does not hold and were loaded again`);
+    if (!run) report(false, `${product.label} ja-wikipedia-nihongo: none of ${LOAD_ATTEMPTS} loads was answered by the recorded jiten traffic; record it again (docs/dev/recorded-pages.md, Limits of a replay)`);
+    return { run, sampler };
+}
+
+// Main-thread cost over the first 15 s, and Lens uploads before any interaction.
+async function reportFirstLoadCost(run, product, report, sampler) {
+    logMainThreadCost(product, await sampler.stop());
+    reportLensUploads(run, product, report);
+}
+
+function logMainThreadCost(product, cost) {
+    console.log(`INFO ${product.label} ja-wikipedia-nihongo: main thread ${cost.cdp.taskMsPerSec} ms/s of tasks over the first 15 s (style ${cost.cdp.recalcStyleMsPerSec}, layout ${cost.cdp.layoutMsPerSec})`);
+}
+
+function reportLensUploads(run, product, report) {
+    const lens = run.ledger.requests({ host: 'lensfrontend-pa.googleapis.com', method: 'POST', beforeInteraction: true });
+    report(lens.length >= 1, `${product.label} ja-wikipedia-nihongo: ${lens.length} Lens upload(s) before any interaction (2.1.6 uploads page images)`);
 }
 
 // The ledger marks a request from either channel as after a trusted
@@ -142,19 +160,21 @@ async function checkTrustedInteraction(run) {
     await sendProbes('after');
     await run.page.waitForTimeout(500);
     const probes = run.ledger.requests({ host: 'ledger-probe.invalid' });
-    const flags = Object.fromEntries(probes.map(entry => [new URL(entry.url).pathname.slice(1), entry.trustedInteractionBefore]));
-    const expected = { 'before-page': false, 'before-gm': false, 'after-page': true, 'after-gm': true };
-    check(JSON.stringify(flags, Object.keys(expected)) === JSON.stringify(expected), `ledger: a real key press makes later page and GM requests count as after a trusted interaction ${JSON.stringify(flags)}`);
+    const flags = Object.fromEntries(probes.map(entry => [new URL(entry.url).pathname.slice(1), entry.trustedInteractionBefore && entry.lastInteraction?.type]));
+    const expected = { 'before-page': false, 'before-gm': false, 'after-page': 'keydown', 'after-gm': 'keydown' };
+    check(JSON.stringify(flags, Object.keys(expected)) === JSON.stringify(expected), `ledger: a real key press makes later page and GM requests count as after a trusted interaction, naming it ${JSON.stringify(flags)}`);
 }
 
 async function reproduceCaptionFlash(browser, product, report) {
     const run = await openRecordedPage({ browser, slug: 'youtube-watch', product, hostOptions: { captions: true } });
     try {
         await startCaptionFrameLog(run.page);
-        await run.page.waitForTimeout(30_000);
+        // 2.1.6 commits its first line about 8 s in, and flashes for a frame or two in some gaps: 45 s sees several.
+        await run.page.waitForTimeout(45_000);
         const flash = captionFlashFrames(await readCaptionFrames(run.page));
         const committedAt = flash.firstCommitAt === null ? 'never' : `${flash.firstCommitAt.toFixed(2)} s`;
-        report(flash.flashFrames.length >= 1, `${product.label} youtube-watch: YouTube's caption painted in ${flash.flashFrames.length} of ${flash.gapFrames} inter-cue gap frame(s) after the first commit at ${committedAt} (2.1.6 flashes)`);
+        const timings = run.recording.manifest.host.captionTimings ?? 'recorded';
+        report(flash.flashFrames.length >= 1, `${product.label} youtube-watch: YouTube's caption painted in ${flash.flashFrames.length} of ${flash.gapFrames} inter-cue gap frame(s) after the first commit at ${committedAt} (2.1.6 flashes; caption timings ${timings})`);
     } finally {
         await run.close();
     }
