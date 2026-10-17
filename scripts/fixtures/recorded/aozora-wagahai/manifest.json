@@ -1,0 +1,46 @@
+{
+  "slug": "aozora-wagahai",
+  "url": "https://www.aozora.gr.jp/cards/000148/files/789_14547.html",
+  "content": "verbatim",
+  "licence": "Public domain",
+  "attribution": "夏目漱石『吾輩は猫である』, 青空文庫 (Aozora Bunko) electronic text. Public domain; credit lines kept in the page footer.",
+  "title": "夏目漱石 吾輩は猫である",
+  "recordedAt": "2026-10-17T15:38:21.305Z",
+  "recorder": {
+    "engine": "chromium",
+    "viewport": {
+      "width": 1280,
+      "height": 900
+    },
+    "platform": "darwin",
+    "locale": "ja-JP"
+  },
+  "document": "page.html",
+  "har": "network.har",
+  "geometry": "geometry.json",
+  "fidelity": {
+    "chromium": {
+      "redactionMaxDeltaPx": 0,
+      "redactionDiffs": 0,
+      "paragraphsWithMovedLines": 0,
+      "unrecordedRequests": 0,
+      "liveMaxDeltaPx": 6,
+      "liveDiffs": 7,
+      "diffSample": []
+    },
+    "webkit": {
+      "redactionMaxDeltaPx": 0,
+      "redactionDiffs": 0,
+      "paragraphsWithMovedLines": 0,
+      "unrecordedRequests": 0,
+      "diffSample": []
+    },
+    "firefox": {
+      "redactionMaxDeltaPx": 0,
+      "redactionDiffs": 0,
+      "paragraphsWithMovedLines": 0,
+      "unrecordedRequests": 0,
+      "diffSample": []
+    }
+  }
+}

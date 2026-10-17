@@ -1,0 +1,162 @@
+#!/usr/bin/env node
+// (Re)records the Recorded Pages under scripts/fixtures/recorded/ from the
+// live sites. Needs the network, and ffmpeg for the YouTube clip.
+//
+//   node scripts/record-pages.mjs                         # every target
+//   node scripts/record-pages.mjs ja-wikipedia-nihongo    # one or more slugs
+//   node scripts/record-pages.mjs ja-wikipedia-nihongo --product-traffic-only --product-traffic=v2.1.6
+//       [--product-seconds=25] [--product-runs=60] [--product-settled-cycles=2] [--product-backoff-seconds=60]
+//   node scripts/record-pages.mjs piccoma-web --keep-staging   # keep the staging copies to debug a refusal
+//   node scripts/record-pages.mjs youtube-watch --captions-from=<dir>   # json3 tracks saved elsewhere (see prepareYouTubeWatch)
+//   node scripts/record-pages.mjs youtube-watch --caption-timings=mechanism-fixture   # YouTube refuses captions here
+//
+// For each page: load it live in Chromium, bring it to its reading state,
+// pick geometry sample keys and measure the live page, freeze the DOM (no
+// site scripts), redact it if the site is copyrighted, then replay what would
+// be committed in Chromium, WebKit and Firefox next to the unredacted freeze
+// and refuse to write when the redaction moved a sampled block box by more
+// than 2 px or a committed file still holds an original text run.
+// docs/dev/recorded-pages.md has the rules.
+import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
+import { chromium, firefox, webkit } from 'playwright';
+import { captureLivePage } from './lib/record-live-page.mjs';
+import { createHarWriter } from './lib/recorded-har.mjs';
+import { RECORDINGS_ROOT, openRecordedPage, releaseProduct, worktreeProduct } from './lib/recorded-page.mjs';
+import { measureFidelity, refuseUnsafeRecording } from './lib/recording-fidelity.mjs';
+import { RECORDING_TARGETS, recordingTarget } from './lib/recording-targets.mjs';
+import { publishRecording, readJson, writeJson, writeRecording } from './lib/recording-writer.mjs';
+
+const args = process.argv.slice(2);
+const options = Object.fromEntries(args.filter(arg => arg.startsWith('--')).map(arg => {
+    const [name, value = true] = arg.slice(2).split('=');
+    return [name, value];
+}));
+const slugs = args.filter(arg => !arg.startsWith('--'));
+const targets = slugs.length ? slugs.map(recordingTarget) : RECORDING_TARGETS;
+const engines = (options.engines ?? 'chromium,webkit,firefox').split(',');
+const PRODUCT_RUNS = {
+    seconds: Number(options['product-seconds'] ?? 25),
+    // A service that rate-limited a run gets this long before the next one.
+    backoffSeconds: Number(options['product-backoff-seconds'] ?? 60),
+    max: Number(options['product-runs'] ?? 60),
+    settledCycles: Number(options['product-settled-cycles'] ?? 2),
+};
+// The scan order, and so the requests, depend on the engine and the viewport:
+// a Chromium-only recording answered almost nothing in WebKit. Product traffic
+// runs take these profiles in turn. iPad is WebKit at iPad size with touch;
+// iPhone is WebKit at phone width with touch and the meta viewport honoured.
+const PRODUCT_PROFILES = [
+    { name: 'chromium', engine: chromium },
+    { name: 'webkit', engine: webkit },
+    { name: 'firefox', engine: firefox },
+    { name: 'webkit-ipad', engine: webkit, contextOptions: { viewport: { width: 1024, height: 1366 }, hasTouch: true } },
+    { name: 'webkit-iphone', engine: webkit, contextOptions: { viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true } },
+];
+
+for (const target of targets) {
+    if (!options['product-traffic-only']) await recordTarget(target);
+    if (options['product-traffic'] && target.productTrafficHosts) await recordProductTraffic(target, options['product-traffic']);
+}
+
+async function recordTarget(target) {
+    console.log(`\n[record-pages] ${target.slug}: ${decodeURI(target.url)}`);
+    const browser = await chromium.launch();
+    const live = await captureLivePage(browser, target, { captionsFrom: options['captions-from'], captionTimings: options['caption-timings'] }).finally(() => browser.close());
+    const staging = mkdtempSync(path.join(tmpdir(), `yomu-recording-${target.slug}-`));
+    const original = mkdtempSync(path.join(tmpdir(), `yomu-recording-${target.slug}-original-`));
+    try {
+        writeRecording(staging, target, live, { redacted: target.content === 'redacted' });
+        writeRecording(original, target, live, { redacted: false });
+        const fidelity = await measureFidelity(staging, original, live, { engines, diffSample: options['keep-staging'] ? 40 : 5 });
+        const manifestPath = path.join(staging, 'manifest.json');
+        writeJson(manifestPath, { ...readJson(manifestPath), fidelity }, 2);
+        refuseUnsafeRecording(staging, target, live, fidelity);
+        publishRecording(staging, target.slug);
+    } finally {
+        removeStaging([staging, original]);
+    }
+}
+
+function removeStaging(dirs) {
+    if (options['keep-staging']) {
+        console.log(`[record-pages]   staging kept: ${dirs.join(' ')}`);
+        return;
+    }
+    for (const dir of dirs) rmSync(dir, { recursive: true, force: true });
+}
+
+/**
+ * The product's own GM traffic on the recorded page, from the live services,
+ * for the hosts a target allows (their answers may be committed). Replays then
+ * answer the same requests offline.
+ *
+ * One run is not enough: the product batches its parse requests in whatever
+ * order its scan met the page, and a replay of one order answers nothing when
+ * the next run takes another (every request goes 'offline', which looks like
+ * sparse readings but is an outage). That order changes from load to load and
+ * with the engine and viewport. So it runs the product again, each time in a
+ * fresh context and the next of PRODUCT_PROFILES, merging new requests into
+ * one HAR, until settledCycles whole cycles of profiles in a row add nothing
+ * (or max runs; the manifest says whether it settled and for which profiles).
+ * After the first run, requests already kept are answered from the HAR as a
+ * replay would answer them, so later runs take a replay's timing and the
+ * requests only that timing makes reach the network and are kept too.
+ */
+async function recordProductTraffic(target, productRef) {
+    const product = productRef === 'worktree' ? worktreeProduct() : releaseProduct(productRef);
+    console.log(`[record-pages] ${target.slug}: product traffic of ${product.label}, ${PRODUCT_RUNS.seconds} s a run (${target.productTrafficHosts.join(', ')})`);
+    const recorder = createHarWriter({ creator: 'yomu recorded-page product traffic', unique: true });
+    const { runs, settled } = await runProductUntilSettled(target, product, recorder);
+    // A rare request left out costs a replay one dropped answer, which the reproduce smoke counts.
+    if (!settled) console.warn(`[record-pages]   WARN product traffic still changing after ${runs} runs; replays may drop a rare request (raise --product-runs)`);
+    const dir = path.join(RECORDINGS_ROOT, target.slug);
+    rmSync(path.join(dir, 'product-resources'), { recursive: true, force: true });
+    const count = recorder.write(dir, 'product-traffic.har', 'product-resources');
+    const profiles = PRODUCT_PROFILES.map(profileDescription);
+    const productTraffic = { har: 'product-traffic.har', product: product.label, seconds: PRODUCT_RUNS.seconds, runs, settled, profiles, hosts: target.productTrafficHosts, recordedAt: new Date().toISOString() };
+    writeJson(path.join(dir, 'manifest.json'), { ...readJson(path.join(dir, 'manifest.json')), productTraffic }, 2);
+    console.log(`[record-pages]   kept ${count} product request(s) from ${runs} runs`);
+}
+
+function profileDescription({ name, contextOptions }) {
+    return contextOptions?.viewport ? `${name} ${contextOptions.viewport.width}x${contextOptions.viewport.height}` : `${name} recorded viewport`;
+}
+
+async function runProductUntilSettled(target, product, recorder) {
+    const browsers = new Map();
+    const state = { runs: 0, quiet: 0, quietNeeded: PRODUCT_RUNS.settledCycles * PRODUCT_PROFILES.length };
+    try {
+        while (state.runs < PRODUCT_RUNS.max && state.quiet < state.quietNeeded) await settleStep({ target, product, recorder, browsers }, state);
+    } finally {
+        await Promise.all([...browsers.values()].map(browser => browser.close()));
+    }
+    return { runs: state.runs, settled: state.quiet >= state.quietNeeded };
+}
+
+// One run of the next profile. A rate-limited run saw fewer answers than the
+// product asked for, so it proves nothing about settling: it is not counted.
+async function settleStep({ target, product, recorder, browsers }, state) {
+    const profile = PRODUCT_PROFILES[state.runs % PRODUCT_PROFILES.length];
+    const { added, refused } = await productRun(target, product, recorder, await profileBrowser(browsers, profile), profile);
+    state.runs += 1;
+    const refusedNote = refused ? `, ${refused} refused (rate limit), not counted` : '';
+    console.log(`[record-pages]   run ${state.runs} (${profileDescription(profile)}): ${added} new request(s), ${recorder.size()} in all${refusedNote}`);
+    if (refused) await new Promise(resolve => setTimeout(resolve, PRODUCT_RUNS.backoffSeconds * 1000));
+    else state.quiet = added ? 0 : state.quiet + 1;
+}
+
+async function profileBrowser(browsers, { engine }) {
+    if (!browsers.has(engine)) browsers.set(engine, await engine.launch());
+    return browsers.get(engine);
+}
+
+async function productRun(target, product, recorder, browser, profile) {
+    const before = recorder.size();
+    const run = await openRecordedPage({ browser, slug: target.slug, product, gmNetwork: 'record', recordHosts: target.productTrafficHosts, recorder, contextOptions: profile.contextOptions });
+    await run.page.waitForTimeout(PRODUCT_RUNS.seconds * 1000);
+    const { refused } = run.productTraffic();
+    await run.close();
+    return { added: recorder.size() - before, refused };
+}

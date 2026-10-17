@@ -1,0 +1,26 @@
+@charset "utf-8";
+
+/* ログイン履歴なし cookiを消してしまった状況等　CSS
+update 2021-08-13
+==================== */
+.Member,
+.MemberDigiW,
+.MemberSimple,
+.MemberStandard,
+.MemberTeikeiPre,
+.Coupon,
+.Lite,
+.AsahiID,
+.MemberOut,
+.LiteOut,
+.OutRegi {
+  display: none!important;
+}
+
+
+.Guest,
+.Logout,
+.NonRegi,
+.NonRegiSnsLogin {
+  display: block !important;
+}

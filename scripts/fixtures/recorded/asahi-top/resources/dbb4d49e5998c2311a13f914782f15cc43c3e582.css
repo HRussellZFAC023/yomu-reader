@@ -1,0 +1,12 @@
+@charset "utf-8";
+
+/* 非紙面ビューアー会員　CSS
+update 2021-09-08
+==================== */
+.shimenviewer_f {
+  display: none!important;
+}
+
+.shimenviewer_n {
+  display: block;
+}

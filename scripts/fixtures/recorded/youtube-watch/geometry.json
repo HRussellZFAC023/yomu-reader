@@ -1,0 +1,754 @@
+{
+ "keys": [
+  "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > div:nth-of-type(1) > ytd-page-manager:nth-of-type(1) > ytd-watch-flexy:nth-of-type(1) > div:nth-of-type(4) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(2) > ytd-watch-metadata:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(1) > ytd-video-owner-renderer:nth-of-type(1) > div:nth-of-type(1) > yt-formatted-string:nth-of-type(1)",
+  "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > div:nth-of-type(1) > ytd-page-manager:nth-of-type(1) > ytd-watch-flexy:nth-of-type(1) > div:nth-of-type(4) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(2) > ytd-watch-metadata:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(2) > div:nth-of-type(1) > div:nth-of-type(1) > ytd-menu-renderer:nth-of-type(1) > div:nth-of-type(1) > segmented-like-dislike-button-view-model:nth-of-type(1) > yt-smartimation:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > like-button-view-model:nth-of-type(1) > toggle-button-view-model:nth-of-type(1) > button-view-model:nth-of-type(1) > button:nth-of-type(1) > div:nth-of-type(2)",
+  "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > div:nth-of-type(1) > ytd-page-manager:nth-of-type(1) > ytd-watch-flexy:nth-of-type(1) > div:nth-of-type(4) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(2) > ytd-watch-metadata:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(2) > div:nth-of-type(1) > div:nth-of-type(1) > ytd-menu-renderer:nth-of-type(1) > div:nth-of-type(1) > yt-button-view-model:nth-of-type(1) > button-view-model:nth-of-type(1) > button:nth-of-type(1) > div:nth-of-type(2)",
+  "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > div:nth-of-type(1) > ytd-page-manager:nth-of-type(1) > ytd-watch-flexy:nth-of-type(1) > div:nth-of-type(4) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(2) > ytd-watch-metadata:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(4) > div:nth-of-type(1) > div:nth-of-type(1) > ytd-text-inline-expander:nth-of-type(1) > tp-yt-paper-button:nth-of-type(1)",
+  "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > div:nth-of-type(1) > ytd-page-manager:nth-of-type(1) > ytd-watch-flexy:nth-of-type(1) > div:nth-of-type(4) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(2) > ytd-watch-metadata:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(4) > div:nth-of-type(4) > yt-video-metadata-carousel-view-model:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(1) > yt-carousel-item-view-model:nth-of-type(1) > yt-text-carousel-item-view-model:nth-of-type(1) > button-view-model:nth-of-type(1) > button:nth-of-type(1) > div:nth-of-type(1)",
+  "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > div:nth-of-type(1) > ytd-page-manager:nth-of-type(1) > ytd-watch-flexy:nth-of-type(1) > div:nth-of-type(4) > div:nth-of-type(2) > div:nth-of-type(2) > div:nth-of-type(6) > ytd-watch-next-secondary-results-renderer:nth-of-type(1) > div:nth-of-type(2) > ytd-item-section-renderer:nth-of-type(1) > div:nth-of-type(3) > yt-lockup-view-model:nth-of-type(20) > div:nth-of-type(1) > div:nth-of-type(1) > yt-lockup-metadata-view-model:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(1) > yt-content-metadata-view-model:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > yt-badge-view-model:nth-of-type(1) > badge-shape:nth-of-type(1) > div:nth-of-type(2)",
+  "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > div:nth-of-type(1) > ytd-page-manager:nth-of-type(1) > ytd-watch-flexy:nth-of-type(1) > div:nth-of-type(4) > div:nth-of-type(2) > div:nth-of-type(2) > div:nth-of-type(6) > ytd-watch-next-secondary-results-renderer:nth-of-type(1) > div:nth-of-type(2) > ytd-item-section-renderer:nth-of-type(1) > div:nth-of-type(3) > yt-lockup-view-model:nth-of-type(31) > div:nth-of-type(1) > div:nth-of-type(1) > yt-lockup-metadata-view-model:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(1) > yt-content-metadata-view-model:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > yt-badge-view-model:nth-of-type(1) > badge-shape:nth-of-type(1) > div:nth-of-type(2)",
+  "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > ytd-consent-bump-v2-lightbox:nth-of-type(1) > tp-yt-paper-dialog:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > yt-formatted-string:nth-of-type(1)"
+ ],
+ "live": {
+  "viewport": {
+   "width": 1280,
+   "height": 900
+  },
+  "document": {
+   "scrollWidth": 1280,
+   "scrollHeight": 6013,
+   "clientWidth": 1280,
+   "clientHeight": 900
+  },
+  "blocks": [
+   {
+    "key": "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > div:nth-of-type(1) > ytd-page-manager:nth-of-type(1) > ytd-watch-flexy:nth-of-type(1) > div:nth-of-type(4) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(2) > ytd-watch-metadata:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(1) > ytd-video-owner-renderer:nth-of-type(1) > div:nth-of-type(1) > yt-formatted-string:nth-of-type(1)",
+    "box": [
+     68,
+     662,
+     157.91,
+     18
+    ]
+   },
+   {
+    "key": "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > div:nth-of-type(1) > ytd-page-manager:nth-of-type(1) > ytd-watch-flexy:nth-of-type(1) > div:nth-of-type(4) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(2) > ytd-watch-metadata:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(2) > div:nth-of-type(1) > div:nth-of-type(1) > ytd-menu-renderer:nth-of-type(1) > div:nth-of-type(1) > segmented-like-dislike-button-view-model:nth-of-type(1) > yt-smartimation:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > like-button-view-model:nth-of-type(1) > toggle-button-view-model:nth-of-type(1) > button-view-model:nth-of-type(1) > button:nth-of-type(1) > div:nth-of-type(2)",
+    "box": [
+     636,
+     642,
+     42,
+     40
+    ]
+   },
+   {
+    "key": "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > div:nth-of-type(1) > ytd-page-manager:nth-of-type(1) > ytd-watch-flexy:nth-of-type(1) > div:nth-of-type(4) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(2) > ytd-watch-metadata:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(2) > div:nth-of-type(1) > div:nth-of-type(1) > ytd-menu-renderer:nth-of-type(1) > div:nth-of-type(1) > yt-button-view-model:nth-of-type(1) > button-view-model:nth-of-type(1) > button:nth-of-type(1) > div:nth-of-type(2)",
+    "box": [
+     804,
+     642,
+     28,
+     40
+    ]
+   },
+   {
+    "key": "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > div:nth-of-type(1) > ytd-page-manager:nth-of-type(1) > ytd-watch-flexy:nth-of-type(1) > div:nth-of-type(4) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(2) > ytd-watch-metadata:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(4) > div:nth-of-type(1) > div:nth-of-type(1) > ytd-text-inline-expander:nth-of-type(1) > tp-yt-paper-button:nth-of-type(1)",
+    "box": [
+     365,
+     745,
+     70,
+     20
+    ]
+   },
+   {
+    "key": "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > div:nth-of-type(1) > ytd-page-manager:nth-of-type(1) > ytd-watch-flexy:nth-of-type(1) > div:nth-of-type(4) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(2) > ytd-watch-metadata:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(4) > div:nth-of-type(4) > yt-video-metadata-carousel-view-model:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(1) > yt-carousel-item-view-model:nth-of-type(1) > yt-text-carousel-item-view-model:nth-of-type(1) > button-view-model:nth-of-type(1) > button:nth-of-type(1) > div:nth-of-type(1)",
+    "box": [
+     801,
+     741,
+     72,
+     24
+    ]
+   },
+   {
+    "key": "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > div:nth-of-type(1) > ytd-page-manager:nth-of-type(1) > ytd-watch-flexy:nth-of-type(1) > div:nth-of-type(4) > div:nth-of-type(2) > div:nth-of-type(2) > div:nth-of-type(6) > ytd-watch-next-secondary-results-renderer:nth-of-type(1) > div:nth-of-type(2) > ytd-item-section-renderer:nth-of-type(1) > div:nth-of-type(3) > yt-lockup-view-model:nth-of-type(20) > div:nth-of-type(1) > div:nth-of-type(1) > yt-lockup-metadata-view-model:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(1) > yt-content-metadata-view-model:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > yt-badge-view-model:nth-of-type(1) > badge-shape:nth-of-type(1) > div:nth-of-type(2)",
+    "box": [
+     1158,
+     3285.25,
+     96,
+     18
+    ]
+   },
+   {
+    "key": "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > div:nth-of-type(1) > ytd-page-manager:nth-of-type(1) > ytd-watch-flexy:nth-of-type(1) > div:nth-of-type(4) > div:nth-of-type(2) > div:nth-of-type(2) > div:nth-of-type(6) > ytd-watch-next-secondary-results-renderer:nth-of-type(1) > div:nth-of-type(2) > ytd-item-section-renderer:nth-of-type(1) > div:nth-of-type(3) > yt-lockup-view-model:nth-of-type(31) > div:nth-of-type(1) > div:nth-of-type(1) > yt-lockup-metadata-view-model:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(1) > yt-content-metadata-view-model:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > yt-badge-view-model:nth-of-type(1) > badge-shape:nth-of-type(1) > div:nth-of-type(2)",
+    "box": [
+     1158,
+     4735.75,
+     36,
+     18
+    ]
+   },
+   {
+    "key": "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > ytd-consent-bump-v2-lightbox:nth-of-type(1) > tp-yt-paper-dialog:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > yt-formatted-string:nth-of-type(1)",
+    "box": [
+     439,
+     34.98,
+     89.67,
+     20
+    ]
+   }
+  ],
+  "paragraphs": [
+   {
+    "key": "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > div:nth-of-type(1) > ytd-page-manager:nth-of-type(1) > ytd-watch-flexy:nth-of-type(1) > div:nth-of-type(4) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(2) > ytd-watch-metadata:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(1) > ytd-video-owner-renderer:nth-of-type(1) > div:nth-of-type(1) > yt-formatted-string:nth-of-type(1)",
+    "lineCount": 1,
+    "lines": [
+     [
+      68,
+      664,
+      225.91,
+      678
+     ]
+    ]
+   },
+   {
+    "key": "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > div:nth-of-type(1) > ytd-page-manager:nth-of-type(1) > ytd-watch-flexy:nth-of-type(1) > div:nth-of-type(4) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(2) > ytd-watch-metadata:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(2) > div:nth-of-type(1) > div:nth-of-type(1) > ytd-menu-renderer:nth-of-type(1) > div:nth-of-type(1) > segmented-like-dislike-button-view-model:nth-of-type(1) > yt-smartimation:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > like-button-view-model:nth-of-type(1) > toggle-button-view-model:nth-of-type(1) > button-view-model:nth-of-type(1) > button:nth-of-type(1) > div:nth-of-type(2)",
+    "lineCount": 1,
+    "lines": [
+     [
+      636,
+      654,
+      678,
+      670
+     ]
+    ]
+   },
+   {
+    "key": "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > div:nth-of-type(1) > ytd-page-manager:nth-of-type(1) > ytd-watch-flexy:nth-of-type(1) > div:nth-of-type(4) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(2) > ytd-watch-metadata:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(2) > div:nth-of-type(1) > div:nth-of-type(1) > ytd-menu-renderer:nth-of-type(1) > div:nth-of-type(1) > yt-button-view-model:nth-of-type(1) > button-view-model:nth-of-type(1) > button:nth-of-type(1) > div:nth-of-type(2)",
+    "lineCount": 1,
+    "lines": [
+     [
+      804,
+      654,
+      832,
+      670
+     ]
+    ]
+   },
+   {
+    "key": "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > div:nth-of-type(1) > ytd-page-manager:nth-of-type(1) > ytd-watch-flexy:nth-of-type(1) > div:nth-of-type(4) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(2) > ytd-watch-metadata:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(4) > div:nth-of-type(1) > div:nth-of-type(1) > ytd-text-inline-expander:nth-of-type(1) > tp-yt-paper-button:nth-of-type(1)",
+    "lineCount": 1,
+    "lines": [
+     [
+      365,
+      747,
+      435,
+      763
+     ]
+    ]
+   },
+   {
+    "key": "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > div:nth-of-type(1) > ytd-page-manager:nth-of-type(1) > ytd-watch-flexy:nth-of-type(1) > div:nth-of-type(4) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(2) > ytd-watch-metadata:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(4) > div:nth-of-type(4) > yt-video-metadata-carousel-view-model:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(1) > yt-carousel-item-view-model:nth-of-type(1) > yt-text-carousel-item-view-model:nth-of-type(1) > button-view-model:nth-of-type(1) > button:nth-of-type(1) > div:nth-of-type(1)",
+    "lineCount": 1,
+    "lines": [
+     [
+      801,
+      746,
+      873,
+      760
+     ]
+    ]
+   },
+   {
+    "key": "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > div:nth-of-type(1) > ytd-page-manager:nth-of-type(1) > ytd-watch-flexy:nth-of-type(1) > div:nth-of-type(4) > div:nth-of-type(2) > div:nth-of-type(2) > div:nth-of-type(6) > ytd-watch-next-secondary-results-renderer:nth-of-type(1) > div:nth-of-type(2) > ytd-item-section-renderer:nth-of-type(1) > div:nth-of-type(3) > yt-lockup-view-model:nth-of-type(20) > div:nth-of-type(1) > div:nth-of-type(1) > yt-lockup-metadata-view-model:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(1) > yt-content-metadata-view-model:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > yt-badge-view-model:nth-of-type(1) > badge-shape:nth-of-type(1) > div:nth-of-type(2)",
+    "lineCount": 1,
+    "lines": [
+     [
+      1158,
+      3287.25,
+      1254,
+      3301.25
+     ]
+    ]
+   },
+   {
+    "key": "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > div:nth-of-type(1) > ytd-page-manager:nth-of-type(1) > ytd-watch-flexy:nth-of-type(1) > div:nth-of-type(4) > div:nth-of-type(2) > div:nth-of-type(2) > div:nth-of-type(6) > ytd-watch-next-secondary-results-renderer:nth-of-type(1) > div:nth-of-type(2) > ytd-item-section-renderer:nth-of-type(1) > div:nth-of-type(3) > yt-lockup-view-model:nth-of-type(31) > div:nth-of-type(1) > div:nth-of-type(1) > yt-lockup-metadata-view-model:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(1) > yt-content-metadata-view-model:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > yt-badge-view-model:nth-of-type(1) > badge-shape:nth-of-type(1) > div:nth-of-type(2)",
+    "lineCount": 1,
+    "lines": [
+     [
+      1158,
+      4737.75,
+      1194,
+      4751.75
+     ]
+    ]
+   },
+   {
+    "key": "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > ytd-consent-bump-v2-lightbox:nth-of-type(1) > tp-yt-paper-dialog:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > yt-formatted-string:nth-of-type(1)",
+    "lineCount": 1,
+    "lines": [
+     [
+      439,
+      36.98,
+      528.67,
+      52.98
+     ]
+    ]
+   }
+  ],
+  "paged": []
+ },
+ "replay": {
+  "chromium": {
+   "viewport": {
+    "width": 1280,
+    "height": 900
+   },
+   "document": {
+    "scrollWidth": 1280,
+    "scrollHeight": 6013,
+    "clientWidth": 1280,
+    "clientHeight": 900
+   },
+   "blocks": [
+    {
+     "key": "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > div:nth-of-type(1) > ytd-page-manager:nth-of-type(1) > ytd-watch-flexy:nth-of-type(1) > div:nth-of-type(4) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(2) > ytd-watch-metadata:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(1) > ytd-video-owner-renderer:nth-of-type(1) > div:nth-of-type(1) > yt-formatted-string:nth-of-type(1)",
+     "box": [
+      68,
+      662,
+      158.38,
+      18
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > div:nth-of-type(1) > ytd-page-manager:nth-of-type(1) > ytd-watch-flexy:nth-of-type(1) > div:nth-of-type(4) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(2) > ytd-watch-metadata:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(2) > div:nth-of-type(1) > div:nth-of-type(1) > ytd-menu-renderer:nth-of-type(1) > div:nth-of-type(1) > segmented-like-dislike-button-view-model:nth-of-type(1) > yt-smartimation:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > like-button-view-model:nth-of-type(1) > toggle-button-view-model:nth-of-type(1) > button-view-model:nth-of-type(1) > button:nth-of-type(1) > div:nth-of-type(2)",
+     "box": [
+      636,
+      642,
+      42,
+      40
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > div:nth-of-type(1) > ytd-page-manager:nth-of-type(1) > ytd-watch-flexy:nth-of-type(1) > div:nth-of-type(4) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(2) > ytd-watch-metadata:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(2) > div:nth-of-type(1) > div:nth-of-type(1) > ytd-menu-renderer:nth-of-type(1) > div:nth-of-type(1) > yt-button-view-model:nth-of-type(1) > button-view-model:nth-of-type(1) > button:nth-of-type(1) > div:nth-of-type(2)",
+     "box": [
+      804,
+      642,
+      28,
+      40
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > div:nth-of-type(1) > ytd-page-manager:nth-of-type(1) > ytd-watch-flexy:nth-of-type(1) > div:nth-of-type(4) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(2) > ytd-watch-metadata:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(4) > div:nth-of-type(1) > div:nth-of-type(1) > ytd-text-inline-expander:nth-of-type(1) > tp-yt-paper-button:nth-of-type(1)",
+     "box": [
+      365,
+      745,
+      69.59,
+      20
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > div:nth-of-type(1) > ytd-page-manager:nth-of-type(1) > ytd-watch-flexy:nth-of-type(1) > div:nth-of-type(4) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(2) > ytd-watch-metadata:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(4) > div:nth-of-type(4) > yt-video-metadata-carousel-view-model:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(1) > yt-carousel-item-view-model:nth-of-type(1) > yt-text-carousel-item-view-model:nth-of-type(1) > button-view-model:nth-of-type(1) > button:nth-of-type(1) > div:nth-of-type(1)",
+     "box": [
+      801,
+      741,
+      72,
+      24
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > div:nth-of-type(1) > ytd-page-manager:nth-of-type(1) > ytd-watch-flexy:nth-of-type(1) > div:nth-of-type(4) > div:nth-of-type(2) > div:nth-of-type(2) > div:nth-of-type(6) > ytd-watch-next-secondary-results-renderer:nth-of-type(1) > div:nth-of-type(2) > ytd-item-section-renderer:nth-of-type(1) > div:nth-of-type(3) > yt-lockup-view-model:nth-of-type(20) > div:nth-of-type(1) > div:nth-of-type(1) > yt-lockup-metadata-view-model:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(1) > yt-content-metadata-view-model:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > yt-badge-view-model:nth-of-type(1) > badge-shape:nth-of-type(1) > div:nth-of-type(2)",
+     "box": [
+      1158,
+      3285.25,
+      96,
+      18
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > div:nth-of-type(1) > ytd-page-manager:nth-of-type(1) > ytd-watch-flexy:nth-of-type(1) > div:nth-of-type(4) > div:nth-of-type(2) > div:nth-of-type(2) > div:nth-of-type(6) > ytd-watch-next-secondary-results-renderer:nth-of-type(1) > div:nth-of-type(2) > ytd-item-section-renderer:nth-of-type(1) > div:nth-of-type(3) > yt-lockup-view-model:nth-of-type(31) > div:nth-of-type(1) > div:nth-of-type(1) > yt-lockup-metadata-view-model:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(1) > yt-content-metadata-view-model:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > yt-badge-view-model:nth-of-type(1) > badge-shape:nth-of-type(1) > div:nth-of-type(2)",
+     "box": [
+      1158,
+      4735.75,
+      36,
+      18
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > ytd-consent-bump-v2-lightbox:nth-of-type(1) > tp-yt-paper-dialog:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > yt-formatted-string:nth-of-type(1)",
+     "box": [
+      439,
+      34.98,
+      89.56,
+      20
+     ]
+    }
+   ],
+   "paragraphs": [
+    {
+     "key": "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > div:nth-of-type(1) > ytd-page-manager:nth-of-type(1) > ytd-watch-flexy:nth-of-type(1) > div:nth-of-type(4) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(2) > ytd-watch-metadata:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(1) > ytd-video-owner-renderer:nth-of-type(1) > div:nth-of-type(1) > yt-formatted-string:nth-of-type(1)",
+     "lineCount": 1,
+     "lines": [
+      [
+       68,
+       664,
+       226.38,
+       678
+      ]
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > div:nth-of-type(1) > ytd-page-manager:nth-of-type(1) > ytd-watch-flexy:nth-of-type(1) > div:nth-of-type(4) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(2) > ytd-watch-metadata:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(2) > div:nth-of-type(1) > div:nth-of-type(1) > ytd-menu-renderer:nth-of-type(1) > div:nth-of-type(1) > segmented-like-dislike-button-view-model:nth-of-type(1) > yt-smartimation:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > like-button-view-model:nth-of-type(1) > toggle-button-view-model:nth-of-type(1) > button-view-model:nth-of-type(1) > button:nth-of-type(1) > div:nth-of-type(2)",
+     "lineCount": 1,
+     "lines": [
+      [
+       636,
+       654,
+       678,
+       670
+      ]
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > div:nth-of-type(1) > ytd-page-manager:nth-of-type(1) > ytd-watch-flexy:nth-of-type(1) > div:nth-of-type(4) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(2) > ytd-watch-metadata:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(2) > div:nth-of-type(1) > div:nth-of-type(1) > ytd-menu-renderer:nth-of-type(1) > div:nth-of-type(1) > yt-button-view-model:nth-of-type(1) > button-view-model:nth-of-type(1) > button:nth-of-type(1) > div:nth-of-type(2)",
+     "lineCount": 1,
+     "lines": [
+      [
+       804,
+       654,
+       832,
+       670
+      ]
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > div:nth-of-type(1) > ytd-page-manager:nth-of-type(1) > ytd-watch-flexy:nth-of-type(1) > div:nth-of-type(4) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(2) > ytd-watch-metadata:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(4) > div:nth-of-type(1) > div:nth-of-type(1) > ytd-text-inline-expander:nth-of-type(1) > tp-yt-paper-button:nth-of-type(1)",
+     "lineCount": 1,
+     "lines": [
+      [
+       365,
+       747,
+       434.59,
+       763
+      ]
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > div:nth-of-type(1) > ytd-page-manager:nth-of-type(1) > ytd-watch-flexy:nth-of-type(1) > div:nth-of-type(4) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(2) > ytd-watch-metadata:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(4) > div:nth-of-type(4) > yt-video-metadata-carousel-view-model:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(1) > yt-carousel-item-view-model:nth-of-type(1) > yt-text-carousel-item-view-model:nth-of-type(1) > button-view-model:nth-of-type(1) > button:nth-of-type(1) > div:nth-of-type(1)",
+     "lineCount": 1,
+     "lines": [
+      [
+       801,
+       746,
+       873,
+       760
+      ]
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > div:nth-of-type(1) > ytd-page-manager:nth-of-type(1) > ytd-watch-flexy:nth-of-type(1) > div:nth-of-type(4) > div:nth-of-type(2) > div:nth-of-type(2) > div:nth-of-type(6) > ytd-watch-next-secondary-results-renderer:nth-of-type(1) > div:nth-of-type(2) > ytd-item-section-renderer:nth-of-type(1) > div:nth-of-type(3) > yt-lockup-view-model:nth-of-type(20) > div:nth-of-type(1) > div:nth-of-type(1) > yt-lockup-metadata-view-model:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(1) > yt-content-metadata-view-model:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > yt-badge-view-model:nth-of-type(1) > badge-shape:nth-of-type(1) > div:nth-of-type(2)",
+     "lineCount": 1,
+     "lines": [
+      [
+       1158,
+       3287.25,
+       1254,
+       3301.25
+      ]
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > div:nth-of-type(1) > ytd-page-manager:nth-of-type(1) > ytd-watch-flexy:nth-of-type(1) > div:nth-of-type(4) > div:nth-of-type(2) > div:nth-of-type(2) > div:nth-of-type(6) > ytd-watch-next-secondary-results-renderer:nth-of-type(1) > div:nth-of-type(2) > ytd-item-section-renderer:nth-of-type(1) > div:nth-of-type(3) > yt-lockup-view-model:nth-of-type(31) > div:nth-of-type(1) > div:nth-of-type(1) > yt-lockup-metadata-view-model:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(1) > yt-content-metadata-view-model:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > yt-badge-view-model:nth-of-type(1) > badge-shape:nth-of-type(1) > div:nth-of-type(2)",
+     "lineCount": 1,
+     "lines": [
+      [
+       1158,
+       4737.75,
+       1194,
+       4751.75
+      ]
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > ytd-consent-bump-v2-lightbox:nth-of-type(1) > tp-yt-paper-dialog:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > yt-formatted-string:nth-of-type(1)",
+     "lineCount": 1,
+     "lines": [
+      [
+       439,
+       36.98,
+       528.56,
+       52.98
+      ]
+     ]
+    }
+   ],
+   "paged": []
+  },
+  "webkit": {
+   "viewport": {
+    "width": 1280,
+    "height": 900
+   },
+   "document": {
+    "scrollWidth": 1264,
+    "scrollHeight": 6013,
+    "clientWidth": 1264,
+    "clientHeight": 900
+   },
+   "blocks": [
+    {
+     "key": "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > div:nth-of-type(1) > ytd-page-manager:nth-of-type(1) > ytd-watch-flexy:nth-of-type(1) > div:nth-of-type(4) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(2) > ytd-watch-metadata:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(1) > ytd-video-owner-renderer:nth-of-type(1) > div:nth-of-type(1) > yt-formatted-string:nth-of-type(1)",
+     "box": [
+      68,
+      653,
+      158.38,
+      18
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > div:nth-of-type(1) > ytd-page-manager:nth-of-type(1) > ytd-watch-flexy:nth-of-type(1) > div:nth-of-type(4) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(2) > ytd-watch-metadata:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(2) > div:nth-of-type(1) > div:nth-of-type(1) > ytd-menu-renderer:nth-of-type(1) > div:nth-of-type(1) > segmented-like-dislike-button-view-model:nth-of-type(1) > yt-smartimation:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > like-button-view-model:nth-of-type(1) > toggle-button-view-model:nth-of-type(1) > button-view-model:nth-of-type(1) > button:nth-of-type(1) > div:nth-of-type(2)",
+     "box": [
+      620,
+      633,
+      42,
+      40
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > div:nth-of-type(1) > ytd-page-manager:nth-of-type(1) > ytd-watch-flexy:nth-of-type(1) > div:nth-of-type(4) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(2) > ytd-watch-metadata:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(2) > div:nth-of-type(1) > div:nth-of-type(1) > ytd-menu-renderer:nth-of-type(1) > div:nth-of-type(1) > yt-button-view-model:nth-of-type(1) > button-view-model:nth-of-type(1) > button:nth-of-type(1) > div:nth-of-type(2)",
+     "box": [
+      788,
+      633,
+      28,
+      40
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > div:nth-of-type(1) > ytd-page-manager:nth-of-type(1) > ytd-watch-flexy:nth-of-type(1) > div:nth-of-type(4) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(2) > ytd-watch-metadata:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(4) > div:nth-of-type(1) > div:nth-of-type(1) > ytd-text-inline-expander:nth-of-type(1) > tp-yt-paper-button:nth-of-type(1)",
+     "box": [
+      365,
+      736,
+      70,
+      20
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > div:nth-of-type(1) > ytd-page-manager:nth-of-type(1) > ytd-watch-flexy:nth-of-type(1) > div:nth-of-type(4) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(2) > ytd-watch-metadata:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(4) > div:nth-of-type(4) > yt-video-metadata-carousel-view-model:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(1) > yt-carousel-item-view-model:nth-of-type(1) > yt-text-carousel-item-view-model:nth-of-type(1) > button-view-model:nth-of-type(1) > button:nth-of-type(1) > div:nth-of-type(1)",
+     "box": [
+      793,
+      732,
+      72,
+      24
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > div:nth-of-type(1) > ytd-page-manager:nth-of-type(1) > ytd-watch-flexy:nth-of-type(1) > div:nth-of-type(4) > div:nth-of-type(2) > div:nth-of-type(2) > div:nth-of-type(6) > ytd-watch-next-secondary-results-renderer:nth-of-type(1) > div:nth-of-type(2) > ytd-item-section-renderer:nth-of-type(1) > div:nth-of-type(3) > yt-lockup-view-model:nth-of-type(20) > div:nth-of-type(1) > div:nth-of-type(1) > yt-lockup-metadata-view-model:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(1) > yt-content-metadata-view-model:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > yt-badge-view-model:nth-of-type(1) > badge-shape:nth-of-type(1) > div:nth-of-type(2)",
+     "box": [
+      1142,
+      3285.25,
+      96,
+      18
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > div:nth-of-type(1) > ytd-page-manager:nth-of-type(1) > ytd-watch-flexy:nth-of-type(1) > div:nth-of-type(4) > div:nth-of-type(2) > div:nth-of-type(2) > div:nth-of-type(6) > ytd-watch-next-secondary-results-renderer:nth-of-type(1) > div:nth-of-type(2) > ytd-item-section-renderer:nth-of-type(1) > div:nth-of-type(3) > yt-lockup-view-model:nth-of-type(31) > div:nth-of-type(1) > div:nth-of-type(1) > yt-lockup-metadata-view-model:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(1) > yt-content-metadata-view-model:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > yt-badge-view-model:nth-of-type(1) > badge-shape:nth-of-type(1) > div:nth-of-type(2)",
+     "box": [
+      1142,
+      4735.75,
+      36,
+      18
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > ytd-consent-bump-v2-lightbox:nth-of-type(1) > tp-yt-paper-dialog:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > yt-formatted-string:nth-of-type(1)",
+     "box": [
+      439,
+      34.98,
+      89.56,
+      20
+     ]
+    }
+   ],
+   "paragraphs": [
+    {
+     "key": "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > div:nth-of-type(1) > ytd-page-manager:nth-of-type(1) > ytd-watch-flexy:nth-of-type(1) > div:nth-of-type(4) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(2) > ytd-watch-metadata:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(1) > ytd-video-owner-renderer:nth-of-type(1) > div:nth-of-type(1) > yt-formatted-string:nth-of-type(1)",
+     "lineCount": 1,
+     "lines": [
+      [
+       68,
+       655,
+       226.37,
+       669
+      ]
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > div:nth-of-type(1) > ytd-page-manager:nth-of-type(1) > ytd-watch-flexy:nth-of-type(1) > div:nth-of-type(4) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(2) > ytd-watch-metadata:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(2) > div:nth-of-type(1) > div:nth-of-type(1) > ytd-menu-renderer:nth-of-type(1) > div:nth-of-type(1) > segmented-like-dislike-button-view-model:nth-of-type(1) > yt-smartimation:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > like-button-view-model:nth-of-type(1) > toggle-button-view-model:nth-of-type(1) > button-view-model:nth-of-type(1) > button:nth-of-type(1) > div:nth-of-type(2)",
+     "lineCount": 1,
+     "lines": [
+      [
+       620,
+       645,
+       662,
+       661
+      ]
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > div:nth-of-type(1) > ytd-page-manager:nth-of-type(1) > ytd-watch-flexy:nth-of-type(1) > div:nth-of-type(4) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(2) > ytd-watch-metadata:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(2) > div:nth-of-type(1) > div:nth-of-type(1) > ytd-menu-renderer:nth-of-type(1) > div:nth-of-type(1) > yt-button-view-model:nth-of-type(1) > button-view-model:nth-of-type(1) > button:nth-of-type(1) > div:nth-of-type(2)",
+     "lineCount": 1,
+     "lines": [
+      [
+       788,
+       645,
+       816,
+       661
+      ]
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > div:nth-of-type(1) > ytd-page-manager:nth-of-type(1) > ytd-watch-flexy:nth-of-type(1) > div:nth-of-type(4) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(2) > ytd-watch-metadata:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(4) > div:nth-of-type(1) > div:nth-of-type(1) > ytd-text-inline-expander:nth-of-type(1) > tp-yt-paper-button:nth-of-type(1)",
+     "lineCount": 1,
+     "lines": [
+      [
+       365,
+       738,
+       435,
+       754
+      ]
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > div:nth-of-type(1) > ytd-page-manager:nth-of-type(1) > ytd-watch-flexy:nth-of-type(1) > div:nth-of-type(4) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(2) > ytd-watch-metadata:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(4) > div:nth-of-type(4) > yt-video-metadata-carousel-view-model:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(1) > yt-carousel-item-view-model:nth-of-type(1) > yt-text-carousel-item-view-model:nth-of-type(1) > button-view-model:nth-of-type(1) > button:nth-of-type(1) > div:nth-of-type(1)",
+     "lineCount": 1,
+     "lines": [
+      [
+       793,
+       737,
+       865,
+       751
+      ]
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > div:nth-of-type(1) > ytd-page-manager:nth-of-type(1) > ytd-watch-flexy:nth-of-type(1) > div:nth-of-type(4) > div:nth-of-type(2) > div:nth-of-type(2) > div:nth-of-type(6) > ytd-watch-next-secondary-results-renderer:nth-of-type(1) > div:nth-of-type(2) > ytd-item-section-renderer:nth-of-type(1) > div:nth-of-type(3) > yt-lockup-view-model:nth-of-type(20) > div:nth-of-type(1) > div:nth-of-type(1) > yt-lockup-metadata-view-model:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(1) > yt-content-metadata-view-model:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > yt-badge-view-model:nth-of-type(1) > badge-shape:nth-of-type(1) > div:nth-of-type(2)",
+     "lineCount": 1,
+     "lines": [
+      [
+       1142,
+       3287.25,
+       1238,
+       3301.25
+      ]
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > div:nth-of-type(1) > ytd-page-manager:nth-of-type(1) > ytd-watch-flexy:nth-of-type(1) > div:nth-of-type(4) > div:nth-of-type(2) > div:nth-of-type(2) > div:nth-of-type(6) > ytd-watch-next-secondary-results-renderer:nth-of-type(1) > div:nth-of-type(2) > ytd-item-section-renderer:nth-of-type(1) > div:nth-of-type(3) > yt-lockup-view-model:nth-of-type(31) > div:nth-of-type(1) > div:nth-of-type(1) > yt-lockup-metadata-view-model:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(1) > yt-content-metadata-view-model:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > yt-badge-view-model:nth-of-type(1) > badge-shape:nth-of-type(1) > div:nth-of-type(2)",
+     "lineCount": 1,
+     "lines": [
+      [
+       1142,
+       4737.75,
+       1178,
+       4751.75
+      ]
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > ytd-consent-bump-v2-lightbox:nth-of-type(1) > tp-yt-paper-dialog:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > yt-formatted-string:nth-of-type(1)",
+     "lineCount": 1,
+     "lines": [
+      [
+       439,
+       36.98,
+       528.55,
+       52.98
+      ]
+     ]
+    }
+   ],
+   "paged": []
+  },
+  "firefox": {
+   "viewport": {
+    "width": 1280,
+    "height": 900
+   },
+   "document": {
+    "scrollWidth": 1280,
+    "scrollHeight": 6015,
+    "clientWidth": 1280,
+    "clientHeight": 900
+   },
+   "blocks": [
+    {
+     "key": "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > div:nth-of-type(1) > ytd-page-manager:nth-of-type(1) > ytd-watch-flexy:nth-of-type(1) > div:nth-of-type(4) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(2) > ytd-watch-metadata:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(1) > ytd-video-owner-renderer:nth-of-type(1) > div:nth-of-type(1) > yt-formatted-string:nth-of-type(1)",
+     "box": [
+      68,
+      662.5,
+      158.4,
+      18
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > div:nth-of-type(1) > ytd-page-manager:nth-of-type(1) > ytd-watch-flexy:nth-of-type(1) > div:nth-of-type(4) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(2) > ytd-watch-metadata:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(2) > div:nth-of-type(1) > div:nth-of-type(1) > ytd-menu-renderer:nth-of-type(1) > div:nth-of-type(1) > segmented-like-dislike-button-view-model:nth-of-type(1) > yt-smartimation:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > like-button-view-model:nth-of-type(1) > toggle-button-view-model:nth-of-type(1) > button-view-model:nth-of-type(1) > button:nth-of-type(1) > div:nth-of-type(2)",
+     "box": [
+      636,
+      642.5,
+      42,
+      40
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > div:nth-of-type(1) > ytd-page-manager:nth-of-type(1) > ytd-watch-flexy:nth-of-type(1) > div:nth-of-type(4) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(2) > ytd-watch-metadata:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(2) > div:nth-of-type(1) > div:nth-of-type(1) > ytd-menu-renderer:nth-of-type(1) > div:nth-of-type(1) > yt-button-view-model:nth-of-type(1) > button-view-model:nth-of-type(1) > button:nth-of-type(1) > div:nth-of-type(2)",
+     "box": [
+      804,
+      642.5,
+      28,
+      40
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > div:nth-of-type(1) > ytd-page-manager:nth-of-type(1) > ytd-watch-flexy:nth-of-type(1) > div:nth-of-type(4) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(2) > ytd-watch-metadata:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(4) > div:nth-of-type(1) > div:nth-of-type(1) > ytd-text-inline-expander:nth-of-type(1) > tp-yt-paper-button:nth-of-type(1)",
+     "box": [
+      365,
+      746,
+      70,
+      20
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > div:nth-of-type(1) > ytd-page-manager:nth-of-type(1) > ytd-watch-flexy:nth-of-type(1) > div:nth-of-type(4) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(2) > ytd-watch-metadata:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(4) > div:nth-of-type(4) > yt-video-metadata-carousel-view-model:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(1) > yt-carousel-item-view-model:nth-of-type(1) > yt-text-carousel-item-view-model:nth-of-type(1) > button-view-model:nth-of-type(1) > button:nth-of-type(1) > div:nth-of-type(1)",
+     "box": [
+      801,
+      742,
+      72,
+      24
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > div:nth-of-type(1) > ytd-page-manager:nth-of-type(1) > ytd-watch-flexy:nth-of-type(1) > div:nth-of-type(4) > div:nth-of-type(2) > div:nth-of-type(2) > div:nth-of-type(6) > ytd-watch-next-secondary-results-renderer:nth-of-type(1) > div:nth-of-type(2) > ytd-item-section-renderer:nth-of-type(1) > div:nth-of-type(3) > yt-lockup-view-model:nth-of-type(20) > div:nth-of-type(1) > div:nth-of-type(1) > yt-lockup-metadata-view-model:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(1) > yt-content-metadata-view-model:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > yt-badge-view-model:nth-of-type(1) > badge-shape:nth-of-type(1) > div:nth-of-type(2)",
+     "box": [
+      1158,
+      3285.25,
+      96,
+      18
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > div:nth-of-type(1) > ytd-page-manager:nth-of-type(1) > ytd-watch-flexy:nth-of-type(1) > div:nth-of-type(4) > div:nth-of-type(2) > div:nth-of-type(2) > div:nth-of-type(6) > ytd-watch-next-secondary-results-renderer:nth-of-type(1) > div:nth-of-type(2) > ytd-item-section-renderer:nth-of-type(1) > div:nth-of-type(3) > yt-lockup-view-model:nth-of-type(31) > div:nth-of-type(1) > div:nth-of-type(1) > yt-lockup-metadata-view-model:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(1) > yt-content-metadata-view-model:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > yt-badge-view-model:nth-of-type(1) > badge-shape:nth-of-type(1) > div:nth-of-type(2)",
+     "box": [
+      1158,
+      4736.75,
+      36,
+      18
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > ytd-consent-bump-v2-lightbox:nth-of-type(1) > tp-yt-paper-dialog:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > yt-formatted-string:nth-of-type(1)",
+     "box": [
+      439,
+      35,
+      89.55,
+      20
+     ]
+    }
+   ],
+   "paragraphs": [
+    {
+     "key": "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > div:nth-of-type(1) > ytd-page-manager:nth-of-type(1) > ytd-watch-flexy:nth-of-type(1) > div:nth-of-type(4) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(2) > ytd-watch-metadata:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(1) > ytd-video-owner-renderer:nth-of-type(1) > div:nth-of-type(1) > yt-formatted-string:nth-of-type(1)",
+     "lineCount": 1,
+     "lines": [
+      [
+       68,
+       664,
+       226.4,
+       679
+      ]
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > div:nth-of-type(1) > ytd-page-manager:nth-of-type(1) > ytd-watch-flexy:nth-of-type(1) > div:nth-of-type(4) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(2) > ytd-watch-metadata:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(2) > div:nth-of-type(1) > div:nth-of-type(1) > ytd-menu-renderer:nth-of-type(1) > div:nth-of-type(1) > segmented-like-dislike-button-view-model:nth-of-type(1) > yt-smartimation:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > like-button-view-model:nth-of-type(1) > toggle-button-view-model:nth-of-type(1) > button-view-model:nth-of-type(1) > button:nth-of-type(1) > div:nth-of-type(2)",
+     "lineCount": 1,
+     "lines": [
+      [
+       636,
+       654,
+       678,
+       671
+      ]
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > div:nth-of-type(1) > ytd-page-manager:nth-of-type(1) > ytd-watch-flexy:nth-of-type(1) > div:nth-of-type(4) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(2) > ytd-watch-metadata:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(2) > div:nth-of-type(1) > div:nth-of-type(1) > ytd-menu-renderer:nth-of-type(1) > div:nth-of-type(1) > yt-button-view-model:nth-of-type(1) > button-view-model:nth-of-type(1) > button:nth-of-type(1) > div:nth-of-type(2)",
+     "lineCount": 1,
+     "lines": [
+      [
+       804,
+       654,
+       832,
+       671
+      ]
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > div:nth-of-type(1) > ytd-page-manager:nth-of-type(1) > ytd-watch-flexy:nth-of-type(1) > div:nth-of-type(4) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(2) > ytd-watch-metadata:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(4) > div:nth-of-type(1) > div:nth-of-type(1) > ytd-text-inline-expander:nth-of-type(1) > tp-yt-paper-button:nth-of-type(1)",
+     "lineCount": 1,
+     "lines": [
+      [
+       365,
+       747.5,
+       435,
+       764.5
+      ]
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > div:nth-of-type(1) > ytd-page-manager:nth-of-type(1) > ytd-watch-flexy:nth-of-type(1) > div:nth-of-type(4) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(2) > ytd-watch-metadata:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(4) > div:nth-of-type(4) > yt-video-metadata-carousel-view-model:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(1) > yt-carousel-item-view-model:nth-of-type(1) > yt-text-carousel-item-view-model:nth-of-type(1) > button-view-model:nth-of-type(1) > button:nth-of-type(1) > div:nth-of-type(1)",
+     "lineCount": 1,
+     "lines": [
+      [
+       801,
+       746.5,
+       873,
+       761.5
+      ]
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > div:nth-of-type(1) > ytd-page-manager:nth-of-type(1) > ytd-watch-flexy:nth-of-type(1) > div:nth-of-type(4) > div:nth-of-type(2) > div:nth-of-type(2) > div:nth-of-type(6) > ytd-watch-next-secondary-results-renderer:nth-of-type(1) > div:nth-of-type(2) > ytd-item-section-renderer:nth-of-type(1) > div:nth-of-type(3) > yt-lockup-view-model:nth-of-type(20) > div:nth-of-type(1) > div:nth-of-type(1) > yt-lockup-metadata-view-model:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(1) > yt-content-metadata-view-model:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > yt-badge-view-model:nth-of-type(1) > badge-shape:nth-of-type(1) > div:nth-of-type(2)",
+     "lineCount": 1,
+     "lines": [
+      [
+       1158,
+       3286.75,
+       1254,
+       3301.75
+      ]
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > div:nth-of-type(1) > ytd-page-manager:nth-of-type(1) > ytd-watch-flexy:nth-of-type(1) > div:nth-of-type(4) > div:nth-of-type(2) > div:nth-of-type(2) > div:nth-of-type(6) > ytd-watch-next-secondary-results-renderer:nth-of-type(1) > div:nth-of-type(2) > ytd-item-section-renderer:nth-of-type(1) > div:nth-of-type(3) > yt-lockup-view-model:nth-of-type(31) > div:nth-of-type(1) > div:nth-of-type(1) > yt-lockup-metadata-view-model:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(1) > yt-content-metadata-view-model:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > yt-badge-view-model:nth-of-type(1) > badge-shape:nth-of-type(1) > div:nth-of-type(2)",
+     "lineCount": 1,
+     "lines": [
+      [
+       1158,
+       4738.25,
+       1194,
+       4753.25
+      ]
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > ytd-consent-bump-v2-lightbox:nth-of-type(1) > tp-yt-paper-dialog:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > yt-formatted-string:nth-of-type(1)",
+     "lineCount": 1,
+     "lines": [
+      [
+       439,
+       36.5,
+       528.55,
+       53.5
+      ]
+     ]
+    }
+   ],
+   "paged": []
+  }
+ }
+}

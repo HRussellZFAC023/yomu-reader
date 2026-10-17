@@ -1,0 +1,46 @@
+{
+  "slug": "commons-sign-photo",
+  "url": "https://commons.wikimedia.org/wiki/File:%E3%81%A1%E3%81%8B%E3%82%93%E6%B3%A8%E6%84%8F%E3%80%81%E5%A4%A7%E5%B4%8E%E8%AD%A6%E5%AF%9F%E7%BD%B2%E3%81%AE%E7%9C%8B%E6%9D%BF.jpg",
+  "content": "verbatim",
+  "licence": "CC0 1.0 (photo); page text CC BY-SA 4.0",
+  "attribution": "File:ちかん注意、大崎警察署の看板.jpg, Wikimedia Commons, released under CC0 1.0 by its author (see the file page). Page text: Wikimedia Commons contributors, CC BY-SA 4.0. Map data © OpenStreetMap contributors, ODbL 1.0. Map icon sprite from mapbox.js, © Mapbox, BSD-3-Clause. MediaWiki stylesheets GPL-2.0-or-later, interface icons MIT/GPL, Wikimedia logos are trademarks of the Wikimedia Foundation (ATTRIBUTION.md, Wikimedia site files).",
+  "title": "File:ちかん注意、大崎警察署の看板.jpg - Wikimedia Commons",
+  "recordedAt": "2026-10-17T15:39:34.566Z",
+  "recorder": {
+    "engine": "chromium",
+    "viewport": {
+      "width": 1280,
+      "height": 900
+    },
+    "platform": "darwin",
+    "locale": "ja-JP"
+  },
+  "document": "page.html",
+  "har": "network.har",
+  "geometry": "geometry.json",
+  "fidelity": {
+    "chromium": {
+      "redactionMaxDeltaPx": 0,
+      "redactionDiffs": 0,
+      "paragraphsWithMovedLines": 0,
+      "unrecordedRequests": 0,
+      "liveMaxDeltaPx": 0,
+      "liveDiffs": 0,
+      "diffSample": []
+    },
+    "webkit": {
+      "redactionMaxDeltaPx": 0,
+      "redactionDiffs": 0,
+      "paragraphsWithMovedLines": 0,
+      "unrecordedRequests": 0,
+      "diffSample": []
+    },
+    "firefox": {
+      "redactionMaxDeltaPx": 0,
+      "redactionDiffs": 0,
+      "paragraphsWithMovedLines": 0,
+      "unrecordedRequests": 2,
+      "diffSample": []
+    }
+  }
+}

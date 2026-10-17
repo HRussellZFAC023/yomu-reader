@@ -113,6 +113,7 @@ try {
     // A body-anchored or combinator-followed :has() in the injected sheet made
     // Chromium restyle every host page on each DOM insertion (W1-40). Milliseconds.
     await runStage(stage('css-has-invalidation', 'npm run -s check:css-has'));
+    await runStage(stage('recorded-pages', 'npm run -s check:recorded-pages'));
 } catch {
     printSummary(false);
     process.exit(1);

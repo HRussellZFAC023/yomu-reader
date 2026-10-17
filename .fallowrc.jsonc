@@ -228,6 +228,10 @@
     "docs/public/yomu.*.css",
     "docs/public/yomu.user.js",
     "tests/reader/.vitest-*/**",
+    // Recorded Pages: saved third-party pages and their stylesheets, replayed by
+    // scripts/lib/recorded-page.mjs. Data, not source (fallow's template scan
+    // also panics on their size).
+    "scripts/fixtures/recorded/**",
     "public/academy/**",
     // Private standalone Remotion package with its own lockfile, tsconfig, and
     // validation commands. It is intentionally outside the reader release gate.

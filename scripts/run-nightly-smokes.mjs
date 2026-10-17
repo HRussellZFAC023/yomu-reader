@@ -73,6 +73,8 @@ export const NIGHTLY_SMOKES = [
     'smoke:popover-headword-furigana',
     'smoke:popup-lifecycle',
     'smoke:popup-header-phone',
+    'smoke:recorded-pages',
+    'smoke:recorded-pages:reproduce',
     'smoke:study-personas',
     'smoke:subtitle-network',
     // Live api.tatoeba.org contract. Network-dependent, so it stays out of

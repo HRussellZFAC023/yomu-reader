@@ -1,0 +1,71 @@
+{
+  "slug": "youtube-watch",
+  "url": "https://www.youtube.com/watch?v=TAorfFcb8_g",
+  "content": "redacted",
+  "licence": "Redacted structure of a copyrighted page (text replaced with public-domain text, pictures blanked)",
+  "attribution": "Structure and caption track list of a YouTube watch page (video TAorfFcb8_g), recorded for testing. Its stylesheets are kept as served; no YouTube text, image or video is included. Caption timings are recorded, or a hand-made mechanism fixture when host.captionTimings says so.",
+  "redactionHashes": "redaction-hashes.json",
+  "recordedAt": "2026-10-17T19:01:45.042Z",
+  "recorder": {
+    "engine": "chromium",
+    "viewport": {
+      "width": 1280,
+      "height": 900
+    },
+    "platform": "darwin",
+    "locale": "ja-JP"
+  },
+  "document": "page.html",
+  "har": "network.har",
+  "geometry": "geometry.json",
+  "host": {
+    "kind": "youtube-player",
+    "player": "host/player.json",
+    "captionsOn": true,
+    "captionTimings": "mechanism-fixture",
+    "tracks": [
+      {
+        "lang": "ja",
+        "file": "host/timedtext.ja-mechanism-fixture.json3"
+      },
+      {
+        "lang": "ja",
+        "tlang": "en",
+        "file": "host/timedtext.ja.tlang-en-mechanism-fixture.json3"
+      }
+    ],
+    "clip": {
+      "webm": "host/clip.webm",
+      "mp4": "host/clip.mp4",
+      "seconds": 120
+    }
+  },
+  "fidelity": {
+    "chromium": {
+      "redactionMaxDeltaPx": 0,
+      "redactionDiffs": 0,
+      "paragraphsWithMovedLines": 0,
+      "unrecordedRequests": 8,
+      "liveMaxDeltaPx": 0,
+      "liveDiffs": 0,
+      "liveMissing": 0,
+      "liveDiffSample": [],
+      "liveMissingSample": [],
+      "diffSample": []
+    },
+    "webkit": {
+      "redactionMaxDeltaPx": 0,
+      "redactionDiffs": 0,
+      "paragraphsWithMovedLines": 0,
+      "unrecordedRequests": 37,
+      "diffSample": []
+    },
+    "firefox": {
+      "redactionMaxDeltaPx": 0,
+      "redactionDiffs": 0,
+      "paragraphsWithMovedLines": 0,
+      "unrecordedRequests": 10,
+      "diffSample": []
+    }
+  }
+}

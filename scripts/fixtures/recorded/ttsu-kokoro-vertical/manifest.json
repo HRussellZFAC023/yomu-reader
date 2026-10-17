@@ -1,0 +1,46 @@
+{
+  "slug": "ttsu-kokoro-vertical",
+  "url": "https://reader.ttsu.app/b?id=1",
+  "content": "verbatim",
+  "licence": "App: BSD-3-Clause (ッツ Ebook Reader); text: public domain",
+  "attribution": "ッツ Ebook Reader (reader.ttsu.app), Copyright (c) 2024, ッツ Reader Authors, BSD-3-Clause, showing 夏目漱石『こころ』 (public domain, from the aozora-kokoro recording) in its default vertical paged view.",
+  "title": "こころ | ッツ Ebook Reader",
+  "recordedAt": "2026-10-17T15:40:05.343Z",
+  "recorder": {
+    "engine": "chromium",
+    "viewport": {
+      "width": 1280,
+      "height": 900
+    },
+    "platform": "darwin",
+    "locale": "ja-JP"
+  },
+  "document": "page.html",
+  "har": "network.har",
+  "geometry": "geometry.json",
+  "fidelity": {
+    "chromium": {
+      "redactionMaxDeltaPx": 0,
+      "redactionDiffs": 0,
+      "paragraphsWithMovedLines": 0,
+      "unrecordedRequests": 4,
+      "liveMaxDeltaPx": 0,
+      "liveDiffs": 0,
+      "diffSample": []
+    },
+    "webkit": {
+      "redactionMaxDeltaPx": 0,
+      "redactionDiffs": 0,
+      "paragraphsWithMovedLines": 0,
+      "unrecordedRequests": 13,
+      "diffSample": []
+    },
+    "firefox": {
+      "redactionMaxDeltaPx": 0,
+      "redactionDiffs": 0,
+      "paragraphsWithMovedLines": 0,
+      "unrecordedRequests": 6,
+      "diffSample": []
+    }
+  }
+}
