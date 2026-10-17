@@ -11,7 +11,9 @@
 // Chromium (the engine with the cost; WebKit measured flat) and checks:
 //   1. trace: one host text-node insertion under <body> raises no
 //      StyleInvalidatorInvalidationTracking event that invalidates all of BODY's (or HTML's)
-//      descendants, also when the HOST page has its own body:has() rule;
+//      descendants, also when the HOST page has its own body:has() rule with a
+//      matching target. A control run appends one known-bad rule to the sheet and
+//      must see that invalidation, or the scenario cannot catch a regression;
 //   2. CDP metrics: 4 Hz host churn (time text, progress style, aria value) costs
 //      at most 5 ms/s of style recalculation;
 //   3. the popover sheet at iPhone and iPad sizes carries .jpdb-reader-sheet-has-body
@@ -51,6 +53,8 @@ const RECALC_BUDGET_MS_PER_S = 5;
 const CHURN_SECONDS = Number(process.env.YOMU_HAS_CHURN_SECONDS || 6);
 const LOOKUP_WORD = '日本語';
 const VOCABULARY = [[LOOKUP_WORD, LOOKUP_WORD, 'にほんご', 'Japanese (language)', ['n'], 400, ['not-in-deck'], ['LHHH']]];
+// Gave 20 whole-BODY invalidations beside the host body:has() rule (W1-40 review).
+const CONTROL_RULE = ':is(.yomu-has-control:has(.yomu-has-control-inner) > :not(.yomu-has-control-skip)) { outline: 0; }';
 const SHEET_VIEWPORTS = { iphone: { width: 390, height: 844 }, ipad: { width: 820, height: 1180 } };
 const SETTINGS = {
     onboardingSeen: true,
@@ -94,8 +98,8 @@ const server = await startLoopbackServer((request, response) => {
 const browser = await launchSmokeBrowser(chromium, 'chromium', { headless: true });
 const report = { build: build.label, compare: compare?.label ?? null, invalidation: {}, churn: {}, sheet: {} };
 try {
-    for (const variant of ['plain', 'host-has']) {
-        const page = await openPage(build, { width: 1280, height: 800 }, variant === 'host-has');
+    for (const variant of ['plain', 'host-has', 'control']) {
+        const page = await openPage(build, { width: 1280, height: 800 }, variant !== 'plain', {}, variant === 'control' ? CONTROL_RULE : '');
         await page.locator('.jpdb-reader-fab').first().waitFor({ state: 'visible', timeout: 15_000 });
         report.invalidation[variant] = await bodyInvalidationOnHostInsertion(page);
         if (variant === 'plain') report.churn = await hostChurnRecalc(page);
@@ -114,7 +118,9 @@ try {
 }
 console.log(JSON.stringify(report, null, 2));
 
-for (const [variant, result] of Object.entries(report.invalidation)) {
+const { control, ...variants } = report.invalidation;
+assert(control.rootWholeSubtree > 0, 'control: a known-bad rule beside the host body:has() rule caused no whole-BODY invalidation, so this smoke cannot detect one', control);
+for (const [variant, result] of Object.entries(variants)) {
     assert(result.rootWholeSubtree === 0, `${variant}: a host text insertion invalidated every element under <body> or <html>`, result);
 }
 assert(report.churn.recalcStyleMsPerSecond <= RECALC_BUDGET_MS_PER_S,
@@ -132,11 +138,11 @@ for (const [name, sheet] of Object.entries(report.sheet)) {
 }
 console.log(`css-has invalidation smoke passed (${build.label}).`);
 
-async function openPage(target, viewport, hostHas, contextOptions = {}) {
+async function openPage(target, viewport, hostHas, contextOptions = {}, extraCss = '') {
     const context = await browser.newContext({ bypassCSP: true, viewport, ...contextOptions });
     const page = await context.newPage();
     await page.exposeFunction('__yomuHasRequest', request => handleYomuRequest(request));
-    const css = readFileSync(target.cssPath, 'utf8');
+    const css = `${readFileSync(target.cssPath, 'utf8')}\n${extraCss}`;
     await addGmStorageBridgeInitScript(page, { key: YOMU_SETTINGS_KEY, value: SETTINGS, css, requestBridgeName: '__yomuHasRequest' });
     await page.goto(`${server.origin}${PAGE_PATH}${hostHas ? '?host-has' : ''}`, { waitUntil: 'domcontentloaded' });
     await addScriptTagWithCspFallback(page, target.scriptPath);
@@ -291,7 +297,7 @@ function buildUnderTest(release) {
 
 function fixtureHtml({ hostHas }) {
     // ~1,250 host elements, shaped like a watch page's chrome and feed.
-    const feed = Array.from({ length: 150 }, (_, index) => `<div class="host-card"><a href="#v${index}"><span class="host-thumb"></span></a><div class="host-meta"><h3><span>Video ${index}</span></h3><p><span>Channel</span><span>${index}K views</span></p><div class="host-badges"><span>New</span></div></div></div>`).join('');
+    const feed = Array.from({ length: 150 }, (_, index) => `<div class="host-card"><a href="#v${index}"><span class="host-thumb"></span></a><div class="host-meta"><h3><span>Video ${index}</span></h3><p><span>Channel</span><span>${index}K views</span></p><div class="host-badges"><span class="host-target">New</span></div></div></div>`).join('');
     return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <title>css-has-invalidation-mechanism-fixture</title>
 <style>

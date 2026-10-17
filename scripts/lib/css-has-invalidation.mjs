@@ -14,8 +14,11 @@
 // needs one anyway names its reason in a comment on the :has( line or the line
 // directly above it:  /* has-invalidation-allow: <why the anchor stays small> */
 //
-// The root test also looks inside :is()/:where() (`:is(body):has(.x)`), but not
-// inside :has()/:not(), whose arguments are not the anchor. A :has() in a nested
+// A combinator inside :is()/:where()/:not() counts too: `:is(.a:has(.b) > .c)`
+// is `.a:has(.b) > .c`. And a combinator into a subject with no type, class, id
+// or attribute (`> *`, `> :not(.x)`) restyles every descendant of the anchor, so
+// no comment can allow it. The root test looks inside :is()/:where()
+// (`:is(body):has(.x)`), but not inside :has()/:not(). A :has() in a nested
 // style rule (CSS nesting), or under a parent rule that has one, is reported as is:
 // this reader does not resolve `&`, so such a rule must be flattened or allowed.
 import { readFileSync } from 'node:fs';
@@ -57,27 +60,90 @@ export function findHasInvalidationRisks(css) {
             continue;
         }
         for (const selector of splitTopLevel(text, ',', offset)) {
-            const compounds = splitCompounds(selector.text, selector.offset);
-            compounds.forEach((compound, index) => {
-                const hasIndex = compound.text.search(/:has\(/i);
-                if (hasIndex < 0) return;
-                const reasons = [];
-                if (/^:has\(/i.test(compound.text) || ROOT_TYPE.test(withoutArguments(compound.text, /:(?:has|not)\($/i))) {
-                    reasons.push('anchored on the document root');
-                }
-                if (index < compounds.length - 1) reasons.push('followed by a combinator');
-                if (!reasons.length) return;
-                const line = lineAt(compound.offset + hasIndex);
+            const whole = selector.text.replace(/\s+/g, ' ').trim();
+            for (const risk of complexRisks(selector.text, selector.offset, { followed: false, subject: '', outer: '' })) {
+                const line = lineAt(risk.offset);
                 findings.push({
                     line,
-                    selector: selector.text.replace(/\s+/g, ' ').trim(),
-                    reason: reasons.join(' and '),
-                    allowed: allowLines.has(line) || allowLines.has(line - 1),
+                    selector: whole,
+                    reason: risk.reasons.join(' and '),
+                    allowed: !risk.hard && (allowLines.has(line) || allowLines.has(line - 1)),
                 });
-            });
+            }
         }
     }
     return findings;
+}
+
+// Selector-list pseudo-classes whose arguments sit in the same complex selector
+// as their host compound: a combinator inside one (`:is(.a:has(.b) > .c)`) is a
+// combinator after the :has() all the same. :has() arguments are not walked.
+const LIST_PSEUDO = /^:(?:is|where|not|matches|-webkit-any|nth-child|nth-last-child)\($/i;
+
+// Every :has() in one complex selector, at any :is()/:where()/:not() depth, with
+// why it is a risk. `followed`: a combinator follows an enclosing compound.
+// `subject`: the compound that combinator leads to. `outer`: the enclosing
+// compound the last compound here is matched together with (same element).
+function complexRisks(text, offset, context) {
+    const risks = [];
+    const compounds = splitCompounds(text, offset);
+    const last = compounds.length - 1;
+    compounds.forEach((compound, index) => {
+        const followed = context.followed || index < last;
+        const subject = index < last ? compounds[last].text : context.subject;
+        const anchor = withoutArguments(index === last ? `${context.outer} ${compound.text}` : compound.text, /:(?:has|not)\($/i);
+        for (const pseudo of topLevelPseudos(compound.text)) {
+            if (/^:has\($/i.test(pseudo.name)) {
+                const reasons = [];
+                if (ROOT_TYPE.test(anchor) || !KEYED.test(anchor)) reasons.push('anchored on the document root');
+                if (followed) reasons.push('followed by a combinator');
+                const hard = followed && !KEYED.test(withoutArguments(subject, /:(?:has|not)\($/i));
+                if (hard) reasons.push('its subject has no type, class, id or attribute, so every descendant is restyled (cannot be allowed)');
+                if (reasons.length) risks.push({ offset: compound.offset + pseudo.start, reasons, hard });
+                continue;
+            }
+            if (!LIST_PSEUDO.test(pseudo.name)) continue;
+            let argument = compound.text.slice(pseudo.argStart, pseudo.argEnd);
+            let argumentOffset = compound.offset + pseudo.argStart;
+            if (/^:nth-/i.test(pseudo.name)) {
+                const of = argument.search(/\bof\s/i);
+                if (of < 0) continue;
+                argumentOffset += of + 2;
+                argument = argument.slice(of + 2);
+            }
+            const rest = compound.text.slice(0, pseudo.argStart) + compound.text.slice(pseudo.argEnd);
+            const outer = withoutArguments(`${index === last ? context.outer : ''} ${rest}`, /:(?:has|not)\($/i);
+            for (const inner of splitTopLevel(argument, ',', argumentOffset)) {
+                risks.push(...complexRisks(inner.text, inner.offset, { followed, subject, outer }));
+            }
+        }
+    });
+    return risks;
+}
+
+// A compound Chromium can key an invalidation on: a type, class, id or attribute.
+const KEYED = /(?:^|[\s(,])[a-z][-\w]*|[.#[]/i;
+
+// The functional pseudo-classes at the top level of one compound, with argument bounds.
+function topLevelPseudos(text) {
+    const found = [];
+    let depth = 0;
+    for (let index = 0; index < text.length; index++) {
+        const char = text[index];
+        if (char === '[') depth++;
+        else if (char === ']') depth--;
+        if (char !== ':' || depth) continue;
+        const name = /^::?[-\w]+\(/.exec(text.slice(index))?.[0];
+        if (!name) continue;
+        let end = index + name.length;
+        for (let open = 1; end < text.length; end++) {
+            open += text[end] === '(' ? 1 : text[end] === ')' ? -1 : 0;
+            if (!open) break;
+        }
+        found.push({ name, start: index, argStart: index + name.length, argEnd: end });
+        index = end;
+    }
+    return found;
 }
 
 /** The files `scripts/build-reader-css.mjs` bundles into dist/yomu.css, in order. */
