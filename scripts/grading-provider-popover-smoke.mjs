@@ -55,6 +55,7 @@ const JITEN_FREQUENCY_RANK = 12435;
 // Only the Jiten mocks report this rank (JPDB's mock rank is 1200), so
 // its pill proves the Jiten identity was enriched onto the JPDB-parsed card.
 const JITEN_RANK_LABEL = `#${JITEN_FREQUENCY_RANK}`;
+const GRADING_OFF = 'Grading from よむ is off for this service in Settings.';
 const NOT_GRADED = 'Not graded: this word was not found in your preferred grading service.';
 const NATIVE_GRADES = {
     jpdb: ['nothing', 'something', 'hard', 'okay', 'easy'],
@@ -147,7 +148,11 @@ try {
     const noWordListSave = await runJitenSavePhase({ name: 'jiten-save-no-word-list', decks: [MEDIA_DECK], savedTo: null });
     const storedSwitchOff = await runSwitchedOffPhase({ name: 'stored-shared-switch-off', grading: 'jiten', parser: 'jpdb', switches: { jpdbMiningEnabled: false } });
     const jitenOwnSwitch = await runGradingProviderPhase({ name: 'jiten-own-switch', grading: 'jiten', parser: 'jpdb', switches: { jpdbMiningEnabled: false, jitenMiningEnabled: true } });
-    const report = { ok: true, viewport: SMOKE_VIEWPORT, term: TERM, jpdbRun, jitenRun, defaultParserJpdbRun, defaultParserJitenRun, resolvedRun, unmatchedRun, wordListSave, noWordListSave, storedSwitchOff, jitenOwnSwitch, browserEvents };
+    // The preferred service switched off: the other one grades (the hidden
+    // preference must never stop grading), in both directions.
+    const preferredJpdbOff = await runGradingProviderPhase({ name: 'preferred-jpdb-switched-off', grading: 'jiten', preferred: 'jpdb', parser: 'jpdb', switches: { jpdbMiningEnabled: false, jitenMiningEnabled: true } });
+    const preferredJitenOff = await runGradingProviderPhase({ name: 'preferred-jiten-switched-off', grading: 'jpdb', preferred: 'jiten', parser: 'jpdb', switches: { jpdbMiningEnabled: true, jitenMiningEnabled: false } });
+    const report = { ok: true, viewport: SMOKE_VIEWPORT, term: TERM, jpdbRun, jitenRun, defaultParserJpdbRun, defaultParserJitenRun, resolvedRun, unmatchedRun, wordListSave, noWordListSave, storedSwitchOff, jitenOwnSwitch, preferredJpdbOff, preferredJitenOff, browserEvents };
     writeFileSync(path.join(ARTIFACT_DIR, 'report.json'), JSON.stringify(report, null, 2));
     console.log(JSON.stringify({
         ok: true,
@@ -165,7 +170,12 @@ try {
         jitenParserJpdbGrading: { pageParsedBy: resolvedRun.pageParsedBy, resolvedWith: resolvedRun.resolvedWith, reviewRequests: resolvedRun.reviewRequests },
         unmatchedJpdbGrading: { toast: unmatchedRun.toast, reviewRequests: unmatchedRun.reviewRequests },
         jitenSaves: { wordList: wordListSave, noWordList: noWordListSave },
-        gradeFromYomu: { storedSharedSwitchOff: storedSwitchOff, jitenOwnSwitchReviews: jitenOwnSwitch.reviewRequests },
+        gradeFromYomu: {
+            storedSharedSwitchOff: storedSwitchOff,
+            jitenOwnSwitchReviews: jitenOwnSwitch.reviewRequests,
+            preferredJpdbSwitchedOffJitenReviews: preferredJpdbOff.reviewRequests,
+            preferredJitenSwitchedOffJpdbReviews: preferredJitenOff.reviewRequests,
+        },
     }, null, 2));
 } finally {
     await closeSmokeBrowserAndServer(browser, server.server);
@@ -264,9 +274,15 @@ async function runSwitchedOffPhase(phase) {
     await page.keyboard.press('4');
     await page.waitForTimeout(800);
     assert(reviewRequestCount('jpdb') === 0 && reviewRequestCount('jiten') === 0, 'A stored shared switch that is off still sent a grade', { requests: summarizeRequests() });
+    // Shift+M (mass review of visible Jiten words) is refused too, and says so.
+    await page.keyboard.press('Escape');
+    await page.keyboard.press('Shift+M');
+    await page.waitForFunction(text => [...document.querySelectorAll('.jpdb-reader-toast')].some(toast => toast.textContent?.includes(text)), GRADING_OFF, { timeout: 5_000 })
+        .catch(() => assert(false, 'Shift+M with Jiten grading switched off did not say grading is off', { requests: summarizeRequests() }));
+    assert(reviewRequestCount('jiten') === 0 && requestCount('api.jiten.moe', '/srs/batch-review') === 0, 'Shift+M with Jiten grading switched off still sent a Jiten review', { requests: summarizeRequests() });
     assert(browserEvents.length === 0, 'Browser console/page errors occurred with grading switched off', { browserEvents });
     await context.close();
-    return { gradeButtons: state.gradeCount, jpdbReviews: 0, jitenReviews: 0 };
+    return { gradeButtons: state.gradeCount, jpdbReviews: 0, jitenReviews: 0, massReviewToast: GRADING_OFF };
 }
 
 // The ordinary page's provider-neutral "Add to deck" dropdown: a Jiten save reaches
@@ -312,7 +328,7 @@ async function assertNothingGraded(page) {
 function phaseSettings(phase) {
     const { parserProvider: _pinned, ...unpinned } = settings;
     const parser = phase.parser === 'default' ? {} : { parserProvider: phase.parser };
-    return { ...unpinned, ...parser, apiGradingProvider: phase.grading, ...phase.switches };
+    return { ...unpinned, ...parser, apiGradingProvider: phase.preferred ?? phase.grading, ...phase.switches };
 }
 
 // The page sentence itself (not a single term) reached exactly one service.

@@ -16,6 +16,7 @@ import { userFacingCopyKeyOf, userFacingError } from '../app/user-facing-errors'
 import { currentAccountDataSurfaceIsTrusted } from '../app/account-data-surface';
 import type { MiningContext } from '../study/mining-context';
 import { firstJitenWordListId, type JitenApiClient } from '../dictionaries/jiten';
+import { chosenWordGradingService } from '../settings/api-credential';
 import {
     apiGradingProviderPreference,
     apiGradingServiceToResolve,
@@ -390,7 +391,10 @@ export class CardActionController {
         const bunpro = external.find(provider => provider.id === 'bunpro');
         if (bunpro) return bunpro;
         if (external.length > 1) {
-            const preferred = external.find(provider => provider.id === apiGradingProviderPreference(settings));
+            // chosenWordGradingService falls back to the other service when the
+            // preferred one's "Grade from よむ" switch is off, as the popover does.
+            const chosen = chosenWordGradingService(settings) ?? apiGradingProviderPreference(settings);
+            const preferred = external.find(provider => provider.id === chosen);
             if (preferred) return preferred;
         }
         if (keyed.length) return external[0] ?? keyed[0] ?? null;
