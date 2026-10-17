@@ -132,11 +132,20 @@ function stubReadableCanvas(): void {
     });
 }
 
+// A case that calls scanImage itself keeps the frame undecoded, so the
+// controller's own queue (which reads only decoded images) does not read it too.
+function drivenByHand(frame: HTMLImageElement): void {
+    Object.defineProperty(frame, 'complete', { value: false, configurable: true });
+}
+
 function stubCanvasEncoding(): void {
     Object.defineProperty(HTMLCanvasElement.prototype, 'toBlob', {
         configurable: true,
         value(callback: BlobCallback) {
-            callback(new Blob(['image'], { type: 'image/jpeg' }));
+            // jsdom's Blob has no arrayBuffer(); the Lens request body reads one.
+            const blob = new Blob(['image'], { type: 'image/jpeg' });
+            Object.defineProperty(blob, 'arrayBuffer', { value: async () => new TextEncoder().encode('image').buffer });
+            callback(blob);
         },
     });
 }
@@ -734,9 +743,9 @@ describe('reader raster OCR surfaces', { timeout: 20_000 }, () => {
                 expect(status!.textContent).toBe('');
             }, 5_000);
             const contentKey = frame!.dataset.ocrContentKey!;
-            const internals = controller as unknown as { cache: Map<string, OcrResult | null> };
+            const internals = controller as unknown as { answers: { get(key: string): OcrResult | null | undefined; answers: Map<string, OcrResult | null> } };
             expect(contentKey).toMatch(/^cv:/);
-            expect(internals.cache.get(ocrTargetCacheKey(contentKey))).toBeNull();
+            expect(internals.answers.get(ocrTargetCacheKey(contentKey))).toBeNull();
             const originalFrame = frame;
             document.querySelector<HTMLElement>('.jpdb-ocr-video-frame-status')!
                 .dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
@@ -1392,9 +1401,10 @@ describe('reader raster OCR surfaces', { timeout: 20_000 }, () => {
             });
             Object.defineProperty(frame!, 'naturalWidth', { value: 1200, configurable: true });
             Object.defineProperty(frame!, 'naturalHeight', { value: 1600, configurable: true });
+            drivenByHand(frame!);
 
-            const internals = controller as unknown as { cache: Map<string, OcrResult | null> };
-            internals.cache.clear();
+            const internals = controller as unknown as { answers: { get(key: string): OcrResult | null | undefined; answers: Map<string, OcrResult | null> } };
+            internals.answers.answers.clear();
             const scanImage = (controller as unknown as { scanImage: (image: HTMLImageElement) => Promise<void> }).scanImage.bind(controller);
             await scanImage(frame!);
             await scanImage(frame!);
@@ -1402,7 +1412,7 @@ describe('reader raster OCR surfaces', { timeout: 20_000 }, () => {
 
             const contentKey = frame!.dataset.ocrContentKey!;
             expect(recognizeImage).toHaveBeenCalledTimes(3);
-            expect(internals.cache.get(ocrTargetCacheKey(contentKey))).toBeNull();
+            expect(internals.answers.get(ocrTargetCacheKey(contentKey))).toBeNull();
 
             await scanImage(frame!);
             expect(recognizeImage).toHaveBeenCalledTimes(3);
@@ -1418,6 +1428,7 @@ describe('reader raster OCR surfaces', { timeout: 20_000 }, () => {
             });
             Object.defineProperty(retryFrame!, 'naturalWidth', { value: 1200, configurable: true });
             Object.defineProperty(retryFrame!, 'naturalHeight', { value: 1600, configurable: true });
+            drivenByHand(retryFrame!);
             await scanImage(retryFrame!);
 
             expect(recognizeImage).toHaveBeenCalledTimes(4);
@@ -1563,7 +1574,7 @@ describe('reader raster OCR surfaces', { timeout: 20_000 }, () => {
             });
             Object.defineProperty(frame!, 'naturalWidth', { value: 1200, configurable: true });
             Object.defineProperty(frame!, 'naturalHeight', { value: 1600, configurable: true });
-            (controller as unknown as { cache: Map<string, OcrResult | null> }).cache.clear();
+            (controller as unknown as { answers: { answers: Map<string, OcrResult | null> } }).answers.answers.clear();
 
             const scanImage = (controller as unknown as { scanImage: (image: HTMLImageElement) => Promise<void> }).scanImage.bind(controller);
             await scanImage(frame!);
@@ -1687,7 +1698,8 @@ describe('reader raster OCR surfaces', { timeout: 20_000 }, () => {
             });
             Object.defineProperty(firstFrame!, 'naturalWidth', { value: 1200, configurable: true });
             Object.defineProperty(firstFrame!, 'naturalHeight', { value: 1600, configurable: true });
-            (controller as unknown as { cache: Map<string, OcrResult | null> }).cache.clear();
+            drivenByHand(firstFrame!);
+            (controller as unknown as { answers: { answers: Map<string, OcrResult | null> } }).answers.answers.clear();
             const scanImage = (controller as unknown as { scanImage: (image: HTMLImageElement) => Promise<void> }).scanImage.bind(controller);
             await scanImage(firstFrame!);
 
@@ -1719,6 +1731,7 @@ describe('reader raster OCR surfaces', { timeout: 20_000 }, () => {
             });
             Object.defineProperty(secondFrame!, 'naturalWidth', { value: 1200, configurable: true });
             Object.defineProperty(secondFrame!, 'naturalHeight', { value: 1600, configurable: true });
+            drivenByHand(secondFrame!);
             await scanImage(secondFrame!);
 
             await waitForExpect(() => {

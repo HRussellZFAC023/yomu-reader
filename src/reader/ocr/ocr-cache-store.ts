@@ -1,76 +1,91 @@
-// Persistent OCR result cache. The controller keeps an in-memory Map of OCR
-// results keyed by image (src + natural size); this module mirrors that Map to
-// localStorage so a page refresh re-renders recognized text instantly instead of
-// re-running every recognizer request. Keyed by the same stable image key, so it
-// only persists stable-`src` images (manga reader pages, article images) — not
-// data: frames (paused-video / canvas snapshots), which the controller already
-// excludes. Bounded by entry count and serialized byte size so it can't grow the
-// origin's storage without limit.
+// Persistent OCR answers. The controller keeps provider answers in memory
+// (ocr-scan-outcome.ts); this module mirrors the ones with text to Yomu's own
+// GM/extension storage so a page refresh re-renders recognized text without
+// another provider request.
+//
+// The store is private: image URLs and recognized text never go into the page's
+// own localStorage, where every script on the site could read them. It is
+// sharded per origin under a key that names no site, and each shard is capped
+// by entry count and serialized size so iOS userscript managers, whose GM
+// storage is one message round trip per value, keep a small value per site.
+// Only answers with text are kept. An empty answer is remembered for the page
+// visit only, and a failed scan is never remembered at all.
 import { managedStateWritesSuppressed } from '../app/managed-state-registry';
-import { managedLocalStorage } from '../app/storage';
+import { gmPrivateStorageGet, gmPrivateStorageSet, managedLocalStorage } from '../app/storage';
+import { sensitiveFingerprint } from '../core/sensitive-fingerprint';
 import type { OcrResult } from './response-shared';
 
-const STORE_KEY = 'yomu-ocr-cache-v2';
-const LEGACY_STORE_KEYS = ['yomu-ocr-cache-v1'] as const;
-const MAX_ENTRIES = 300;
-const MAX_BYTES = 1_500_000;
+const OCR_CACHE_SHARD_PREFIX = 'yomu:private:ocr-cache:v3:';
+// Earlier releases kept one cache in the host page's localStorage.
+const LEGACY_PAGE_KEY = 'yomu-ocr-cache-v2';
+const LEGACY_PAGE_KEYS = ['yomu-ocr-cache-v1', LEGACY_PAGE_KEY] as const;
+const MAX_ENTRIES = 36;
+const MAX_SHARD_BYTES = 256_000;
 const PERSIST_DELAY_MS = 1200;
 
-interface StoredEntry { r: OcrResult | null; at: number }
+interface StoredEntry { r: OcrResult; at: number }
+type StoredShard = Record<string, StoredEntry>;
 
-function storage(): Pick<Storage, 'getItem' | 'setItem' | 'removeItem'> | null {
-    try {
-        return typeof localStorage !== 'undefined' ? managedLocalStorage : null;
-    } catch {
-        return null; // localStorage can throw in sandboxed/3rd-party contexts
-    }
+function shardKey(): string {
+    return `${OCR_CACHE_SHARD_PREFIX}${sensitiveFingerprint(location.origin)}`;
 }
 
-function isPersistableOcrCacheKey(key: string): boolean {
+function isPersistableKey(key: string): boolean {
     return !key.startsWith('data:') && !key.startsWith('blob:');
 }
 
-function isPersistableOcrCacheEntry(key: string, result: OcrResult | null): boolean {
-    if (!isPersistableOcrCacheKey(key)) return false;
-    if (result === null && (key.startsWith('cv:') || key.startsWith('src:'))) return false;
-    return true;
+function hasLines(result: OcrResult | null | undefined): result is OcrResult {
+    return Boolean(result?.lines?.length);
 }
 
-/** Hydrate the controller's in-memory cache from a previous session. */
-export function loadPersistedOcrCache(): Map<string, OcrResult | null> {
-    const map = new Map<string, OcrResult | null>();
-    const store = storage();
-    if (!store) return map;
+/**
+ * This origin's remembered answers, oldest first. The first load after an
+ * upgrade moves the old page-storage cache in (answers with text only, under
+ * `legacyKey`) and deletes it from the page.
+ */
+export async function loadPersistedOcrCache(legacyKey: (key: string) => string): Promise<Map<string, OcrResult>> {
+    const map = new Map<string, OcrResult>();
+    let stored: StoredShard = {};
     try {
-        // v1 could contain homepage demo results synthesized from the removed
-        // hand-authored boxes. Drop it once so existing installs use provider
-        // geometry immediately after upgrading.
-        for (const key of LEGACY_STORE_KEYS) store.removeItem(key);
-        const raw = store.getItem(STORE_KEY);
-        if (!raw) return map;
-        const parsed = JSON.parse(raw) as Record<string, StoredEntry>;
-        // Oldest first so Map insertion order tracks recency (newest last) — the
-        // controller's own eviction keeps the freshest entries.
-        for (const [key, entry] of Object.entries(parsed).sort((a, b) => (a[1]?.at ?? 0) - (b[1]?.at ?? 0))) {
-            const result = entry?.r ?? null;
-            if (!isPersistableOcrCacheEntry(key, result)) continue;
-            map.set(key, result);
-        }
+        stored = await gmPrivateStorageGet<StoredShard>(shardKey(), {}) ?? {};
     } catch {
-        // Corrupt cache — drop it rather than block OCR.
-        try { store.removeItem(STORE_KEY); } catch { /* ignore */ }
+        // Without private storage the cache lasts for this page visit.
     }
+    const legacy = takeLegacyPageCache();
+    const migrated = Object.entries(legacy).map(([key, entry]) => [legacyKey(key), entry] as const);
+    const entries = [...Object.entries(stored), ...migrated]
+        .filter(([key, entry]) => isPersistableKey(key) && hasLines(entry?.r))
+        .sort((a, b) => (a[1].at ?? 0) - (b[1].at ?? 0));
+    for (const [key, entry] of entries) map.set(key, entry.r);
+    if (migrated.some(([, entry]) => hasLines(entry?.r))) persistOcrCacheSoon(map, Date.now());
     return map;
 }
 
+function takeLegacyPageCache(): StoredShard {
+    let legacy: StoredShard = {};
+    try {
+        const raw = managedLocalStorage.getItem(LEGACY_PAGE_KEY);
+        if (raw) legacy = JSON.parse(raw) as StoredShard;
+    } catch {
+        // Unreadable or corrupt: there is nothing worth moving.
+    }
+    for (const key of LEGACY_PAGE_KEYS) {
+        try {
+            managedLocalStorage.removeItem(key);
+        } catch {
+            // Storage barrier not passed or storage blocked; the next load retries.
+        }
+    }
+    return legacy && typeof legacy === 'object' ? legacy : {};
+}
+
 let persistTimer: ReturnType<typeof setTimeout> | undefined;
-let pendingCache: Map<string, OcrResult | null> | undefined;
+let pendingCache: ReadonlyMap<string, OcrResult | null> | undefined;
 let pendingNow = 0;
 let flushListenersInstalled = false;
 
-/** Schedule a write of the cache to storage; coalesces bursts of remember() calls. */
-export function persistOcrCacheSoon(cache: Map<string, OcrResult | null>, now: number): void {
-    if (!storage()) return;
+/** Schedule a write of the cache to storage; coalesces bursts of answers. */
+export function persistOcrCacheSoon(cache: ReadonlyMap<string, OcrResult | null>, now: number): void {
     installFlushListeners();
     pendingCache = cache;
     pendingNow = now;
@@ -90,15 +105,12 @@ export function flushPersistedOcrCache(): void {
     const now = pendingNow || Date.now();
     pendingCache = undefined;
     pendingNow = 0;
-    writeOcrCache(cache, now);
+    void writeOcrCache(cache, now);
 }
 
 // Test-only: cancel any pending debounced write and clear the install-once
 // flag so the pagehide/visibilitychange flush listeners re-attach to each test
-// file's fresh jsdom window under Vitest fork reuse (isolate:false). Without
-// this, flushListenersInstalled stays true across the realm boundary and a
-// later file's flush listeners are never wired to its window; clearing the
-// timer also stops a leaked debounce from writing stale OCR into the next file.
+// file's fresh jsdom window under Vitest fork reuse (isolate:false).
 export function resetOcrCacheStoreForTests(): void {
     if (persistTimer) {
         clearTimeout(persistTimer);
@@ -126,28 +138,29 @@ function installFlushListeners(): void {
     }
 }
 
-function writeOcrCache(cache: Map<string, OcrResult | null>, now: number): void {
+/** Newest answers with text first, capped by count and bytes. */
+function ocrCacheShard(cache: ReadonlyMap<string, OcrResult | null>, now: number): StoredShard {
+    const out: StoredShard = {};
+    let bytes = 0;
+    let count = 0;
+    for (const key of [...cache.keys()].reverse()) {
+        const result = cache.get(key);
+        if (!isPersistableKey(key) || !hasLines(result)) continue;
+        bytes += key.length + JSON.stringify(result).length + 24;
+        if (bytes > MAX_SHARD_BYTES || count >= MAX_ENTRIES) break;
+        out[key] = { r: result, at: now };
+        count += 1;
+    }
+    return out;
+}
+
+async function writeOcrCache(cache: ReadonlyMap<string, OcrResult | null>, now: number): Promise<void> {
     // A factory-reset reload fires pagehide/visibilitychange; a flush here would
-    // re-create the just-cleared OCR cache key.
+    // re-create the just-cleared shard.
     if (managedStateWritesSuppressed()) return;
-    const store = storage();
-    if (!store) return;
     try {
-        // Newest entries first (Map preserves insertion order), capped by count and
-        // total bytes so the cache stays small even after long reading sessions.
-        const keys = [...cache.keys()].filter(isPersistableOcrCacheKey).reverse().slice(0, MAX_ENTRIES);
-        const out: Record<string, StoredEntry> = {};
-        let bytes = 0;
-        for (const key of keys) {
-            const result = cache.get(key) ?? null;
-            if (!isPersistableOcrCacheEntry(key, result)) continue;
-            const serialized = JSON.stringify(result);
-            bytes += key.length + serialized.length + 24;
-            if (bytes > MAX_BYTES) break;
-            out[key] = { r: result, at: now };
-        }
-        store.setItem(STORE_KEY, JSON.stringify(out));
+        await gmPrivateStorageSet(shardKey(), ocrCacheShard(cache, now));
     } catch {
-        // Quota exceeded / disabled — best-effort, never throw into OCR.
+        // No private storage, quota or reset in progress: best-effort, never throw into OCR.
     }
 }

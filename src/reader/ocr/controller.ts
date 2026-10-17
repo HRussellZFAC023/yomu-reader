@@ -1,11 +1,12 @@
 import { escapeHtml, renderedWordsInRoot, renderRuby, renderTokensToHtml, setInnerHtml, shouldRenderRuby } from '../dom/index';
-import { captureOcrTargetContext, claimOcrScan, ocrFallbackCardFromText, ocrTargetWork, ocrTargetWorkKey,
+import { captureOcrTargetContext, claimOcrScan, ocrFallbackCardFromText, ocrTargetCacheKey, ocrTargetWork, ocrTargetWorkKey,
     releaseOcrScan, type OcrTargetContext, type OcrTargetWork } from './target-context';
 import { ocrRuntimeActive } from './mode';
 import {
     DARK_REGION_TRIGGER,
     buildLuminanceField,
     darkAreaIsRead,
+    darkPassWanted,
     loadImage,
     loadedImageSize,
     luminanceFieldDarkFraction,
@@ -39,9 +40,10 @@ import {
     type OcrArtifactOffset,
 } from './ocr-position-pass';
 import { isOcrProviderConfigured, ocrRecognizer, requestBlob, type OcrRecognizer } from './ocr-providers';
-import { imageCacheKey, isOcrRequestTimeout, localOcrEndpointUrl, ocrAttemptTimeoutMs } from './ocr-shared';
+import { imageCacheKey, imageSourceKey, isOcrRequestTimeout, localOcrEndpointUrl, OcrProviderError, ocrAttemptTimeoutMs } from './ocr-shared';
+import { isDecodedImage, OcrDecodeGate } from './ocr-decode-gate';
 import { normalizeOcrRenderedText } from './rendered-text';
-import { loadPersistedOcrCache, persistOcrCacheSoon } from './ocr-cache-store';
+import { OcrAnswerCache } from './ocr-scan-outcome';
 import {
     backgroundImageReaderUrl,
     canUseReaderCanvasSourceImageFallback,
@@ -99,7 +101,6 @@ import {
     cleanOcrLookupLines,
     normalizeOcrResult,
     ocrLinesChanged,
-    parseGoogleLensUploadHtml,
     type OcrLine,
     type OcrRect,
     type OcrResult,
@@ -246,7 +247,7 @@ const OCR_PROVIDER_LABELS: Partial<Record<ReaderSettings['ocrProvider'], (settin
     'cloud-vision': settings => settings.ocrCloudVisionApiKey.trim() ? 'cloud-vision' : null,
     'local-service': localServiceProviderLabel,
 };
-export { normalizeOcrResult, parseGoogleLensUploadHtml };
+export { normalizeOcrResult };
 export type { OcrResult };
 
 function shouldSkipOcrRequest(state: ImageState, userRequested: boolean): boolean {
@@ -369,7 +370,9 @@ function pausedVideoSnapshotAreaEligible(rect: DOMRect, settings: ReaderSettings
 
 export class ImageOcrController {
     private states = new Map<HTMLImageElement, ImageState>();
-    private cache = new Map<string, OcrResult | null>();
+    // Provider answers per image, target language and provider (ocr-scan-outcome.ts).
+    private readonly answers: OcrAnswerCache;
+    private readonly decodeGate: OcrDecodeGate;
     private localOcrUnavailable?: { endpointUrl: string; retryAt: number };
     private observer?: IntersectionObserver;
     private observerMargin = '';
@@ -379,6 +382,9 @@ export class ImageOcrController {
     private activeScans = 0;
     // Tokens stop a stale scan deleting a newer job's marker.
     private readonly inFlightJobs = new Map<string, symbol>();
+    // The content key each image's started scan reads, so a second request for
+    // the same content waits for that scan's answer instead of sending again.
+    private readonly startedScans = new Map<HTMLImageElement, string>();
     private positionFrame = 0;
     private refreshTimer = 0;
     private destroyed = false;
@@ -466,7 +472,10 @@ export class ImageOcrController {
     private readonly handleSpaNavigation = () => this.teardownForNavigation();
 
     constructor(private readonly options: OcrControllerOptions) {
-        for (const [key, result] of loadPersistedOcrCache()) this.cache.set(key, result);
+        this.answers = new OcrAnswerCache(() => this.options.getSettings().ocrProvider);
+        this.decodeGate = new OcrDecodeGate((image, userRequested) => {
+            if (!this.destroyed) this.enqueue(image, userRequested);
+        });
     }
 
     init(): void {
@@ -803,7 +812,10 @@ export class ImageOcrController {
             }
             return;
         }
-        images.forEach(image => this.enqueue(image, true));
+        images.forEach(image => {
+            this.forgetEmptyAnswer(image);
+            this.enqueue(image, true);
+        });
         log.info('Manual OCR scan queued images', { images: images.length });
     }
 
@@ -921,6 +933,10 @@ export class ImageOcrController {
     private enqueue(image: HTMLImageElement, userRequested = false): void {
         if (isYouTubeThumbnailImage(image)) return;
         const state = this.states.get(image) ?? this.ensureState(image);
+        if (!isDecodedImage(image)) {
+            this.decodeGate.hold(image, userRequested);
+            return;
+        }
         this.resetStateIfImageChanged(state);
         if (!this.shouldQueueOcrRequest(state, image, userRequested)) return;
         this.queueOcrRequest(image);
@@ -932,7 +948,7 @@ export class ImageOcrController {
         // A tap activates existing lookup markup; it is not a completed scan.
         // Keep the original nodes and let the result notification finish fading.
         if (state.result) return false;
-        return !state.loading;
+        return !state.loading && this.startedScans.get(image) !== state.key;
     }
 
     private queueOcrRequest(image: HTMLImageElement): void {
@@ -951,6 +967,7 @@ export class ImageOcrController {
             else this.lastPointerMoveImage = undefined;
             this.lastPointerMoveReaderSurface = undefined;
             this.lastPointerMoveReaderSurfaceKey = undefined;
+            if (event.type !== 'pointerover' && event.type !== 'pointermove') this.forgetEmptyAnswer(image);
             this.enqueue(image, true);
             return true;
         }
@@ -1039,7 +1056,7 @@ export class ImageOcrController {
     private takeNextQueuedImage(): HTMLImageElement | undefined {
         for (let index = 0; index < this.queue.length; index++) {
             const candidate = this.queue[index];
-            if (this.inFlightJobs.has(ocrTargetWorkKey(imageCacheKey(candidate)))) continue;
+            if (this.inFlightJobs.has(ocrTargetWorkKey(imageSourceKey(candidate)))) continue;
             this.queue.splice(index, 1);
             return candidate;
         }
@@ -1050,14 +1067,17 @@ export class ImageOcrController {
         if (this.destroyed) return;
         const target = captureOcrTargetContext();
         const work = ocrTargetWork(imageCacheKey(image), target);
-        const key = work.workKey;
+        // One request per image source: a size change mid-load must not start a second.
+        const key = target.workKey(imageSourceKey(image));
         const job = Symbol(key);
+        const contentKey = imageCacheKey(image);
         this.activeScans++;
         this.inFlightJobs.set(key, job);
+        this.startedScans.set(image, contentKey);
         const hasFastText = Boolean(readFallbackOcrResult(image, false));
         // Dedicated manga frames skip the idle used to batch incidental page images.
         const isReaderRasterFrame = this.isReaderRasterFrame(image);
-        const delay = this.cache.has(work.cacheKey) || this.states.get(image)?.overlayRequested || hasFastText || isReaderRasterFrame || this.videoFrameVideos.has(image) ? 0 : 900;
+        const delay = this.answers.has(work.cacheKey) || this.states.get(image)?.overlayRequested || hasFastText || isReaderRasterFrame || this.videoFrameVideos.has(image) ? 0 : 900;
         void waitForIdle(delay, delay)
             .then(() => this.scanImage(image, target))
             .catch(error => {
@@ -1067,6 +1087,7 @@ export class ImageOcrController {
             .finally(() => {
                 this.activeScans = Math.max(0, this.activeScans - 1);
                 if (this.inFlightJobs.get(key) === job) this.inFlightJobs.delete(key);
+                if (this.startedScans.get(image) === contentKey) this.startedScans.delete(image);
                 if (!this.destroyed) this.drainQueue();
             });
     }
@@ -1120,12 +1141,12 @@ export class ImageOcrController {
             state.manualRequested = false;
             return true;
         }
-        if (!this.cache.has(work.cacheKey)) return false;
+        if (!this.answers.has(work.cacheKey)) return false;
         if (this.shouldSuppressAutoRenderedResult(state, false)) {
             this.clearAutoScannedOverlays();
             return true;
         }
-        const cached = this.cache.get(work.cacheKey);
+        const cached = this.answers.get(work.cacheKey);
         this.requireCurrentContentState(state, work.contentKey);
         if (!cached) {
             if (this.isReaderRasterFrame(state.image)) {
@@ -1152,6 +1173,8 @@ export class ImageOcrController {
 
     private async tryRenderCachedOcrResult(state: ImageState, work: OcrTargetWork): Promise<boolean> {
         try {
+            // A reload's first tap must meet the answers stored by the last visit.
+            await this.answers.ready();
             return await this.renderCachedOcrResult(state, work);
         } catch (error) {
             if (isStaleOcrState(error)) return true;
@@ -1170,7 +1193,7 @@ export class ImageOcrController {
         const inlineFallback = readFallbackOcrResult(image, false);
         // Bound canvas encoding plus fallback transports; an HTTP timer alone misses a hung WebKit encode.
         const providerResult = inlineFallback ? null : await promiseWithTimeout(
-            this.recognizeImage(image, settings),
+            this.recognizeImage(image, settings, manualRequested),
             ocrAttemptTimeoutMs(this.options.ocrAttemptTimeoutFloorMs),
             'OCR timed out.',
         );
@@ -1264,11 +1287,11 @@ export class ImageOcrController {
         this.updateOcrStatus(image, 'failed');
     }
 
-    private recognizeImage(image: HTMLImageElement, settings: ReaderSettings): Promise<OcrResult | null> {
+    private recognizeImage(image: HTMLImageElement, settings: ReaderSettings, manualRequested: boolean): Promise<OcrResult | null> {
         const recognizer = ocrRecognizer(settings);
         if (!recognizer) return Promise.resolve(null);
-        if (this.shouldSplitBookwalkerSpreadFrame(image)) return this.recognizeBookwalkerSpreadFrame(image, settings, recognizer);
-        return this.recognizeWithDarkPass(image, settings, recognizer);
+        if (this.shouldSplitBookwalkerSpreadFrame(image)) return this.recognizeBookwalkerSpreadFrame(image, settings, recognizer, manualRequested);
+        return this.recognizeWithDarkPass(image, settings, recognizer, manualRequested);
     }
 
     private shouldSplitBookwalkerSpreadFrame(image: HTMLImageElement): boolean {
@@ -1286,28 +1309,37 @@ export class ImageOcrController {
         image: HTMLImageElement,
         settings: ReaderSettings,
         recognizer: OcrRecognizer,
+        manualRequested: boolean,
     ): Promise<OcrResult | null> {
         const slices = await splitImageIntoPageColumns(image);
-        const results = await Promise.all(slices.map(async slice => {
-            const result = await this.recognizeWithDarkPass(slice.image, settings, recognizer).catch(() => null);
-            return result ? offsetOcrResult(result, slice.left, 0, slice.totalWidth, slice.totalHeight) : null;
-        }));
-        return mergeOcrResults(slices[0]?.totalWidth ?? 0, slices[0]?.totalHeight ?? 0, results);
+        const outcomes = await Promise.allSettled(slices.map(slice => this.recognizeWithDarkPass(slice.image, settings, recognizer, manualRequested)));
+        const results = outcomes.map((outcome, index) => {
+            const slice = slices[index];
+            return outcome.status === 'fulfilled' && outcome.value
+                ? offsetOcrResult(outcome.value, slice.left, 0, slice.totalWidth, slice.totalHeight)
+                : null;
+        });
+        const merged = mergeOcrResults(slices[0]?.totalWidth ?? 0, slices[0]?.totalHeight ?? 0, results);
+        // A half that failed is not a half without text: with nothing read, the scan failed.
+        const failure = outcomes.find(outcome => outcome.status === 'rejected');
+        if (!merged && failure) throw failure.reason;
+        return merged;
     }
 
     // Normal recognition always runs. A second, inverted pass is spent only when
-    // the image has a dark region (where white-on-black text could hide) AND that
-    // region came back unread by the normal pass. Full-page reader canvases are
-    // the latency-sensitive path: if the normal pass found text on a manga page,
-    // don't double the provider round-trip just to search dark art regions. If a
-    // reader page comes back empty, the inverted recovery still gets a chance.
+    // darkPassWanted allows it, the image has a dark region (where white-on-black
+    // text could hide) AND that region came back unread by the normal pass.
+    // Full-page reader canvases are the latency-sensitive path: if the normal pass
+    // found text on a manga page, don't double the provider round-trip just to
+    // search dark art regions.
     private async recognizeWithDarkPass(
         image: HTMLImageElement,
         settings: ReaderSettings,
         recognizer: OcrRecognizer,
+        manualRequested: boolean,
     ): Promise<OcrResult | null> {
         const normal = await this.runRecognizer(image, settings, recognizer, false);
-        if (!settings.ocrInvertDarkPanels) return normal;
+        if (!darkPassWanted(settings, manualRequested, normal)) return normal;
         const field = buildLuminanceField(image);
         if (!field || luminanceFieldDarkFraction(field) < DARK_REGION_TRIGGER) return normal;
         if ((this.canvasFrameSources.has(image) || this.backgroundFrameSources.has(image)) && normal?.lines.length) return normal;
@@ -1726,6 +1758,8 @@ export class ImageOcrController {
         userRequested: boolean,
         error: unknown,
     ): boolean {
+        // A refusal that will not pass (a 400, a 403) is not retried.
+        if (error instanceof OcrProviderError && !error.retryable) return false;
         // A full-budget timeout gets one retry; charging two slots still converges quickly to failure.
         const attemptCost = isOcrRequestTimeout(error) ? 2 : 1;
         const attempts = (this.readerRasterProviderFailures.get(work.workKey) ?? 0) + attemptCost;
@@ -1768,22 +1802,18 @@ export class ImageOcrController {
         }
     }
 
+    // Only provider answers reach here; a failed scan is never remembered.
     private remember(key: string, result: OcrResult | null): void {
-        // Paused-video frames key by their data: URL — far too large to keep.
-        if (key.startsWith('data:')) return;
-        this.cache.set(key, result);
-        while (this.cache.size > MAX_CACHE_ITEMS) {
-            const oldest = this.cache.keys().next().value;
-            if (!oldest) break;
-            this.cache.delete(oldest);
-        }
-        // Mirror to storage so the result survives a page refresh.
-        persistOcrCacheSoon(this.cache, Date.now());
+        this.answers.remember(key, result);
     }
 
     private forget(key: string): void {
-        if (!this.cache.delete(key)) return;
-        persistOcrCacheSoon(this.cache, Date.now());
+        this.answers.forget(key);
+    }
+
+    // A press reads the image again rather than settle for a remembered empty answer.
+    private forgetEmptyAnswer(image: HTMLImageElement): void {
+        this.answers.forgetEmpty(ocrTargetCacheKey(imageCacheKey(image)));
     }
 
     private schedulePosition(): void {
@@ -2019,15 +2049,17 @@ export class ImageOcrController {
             return;
         }
         // Automatic inline scans stay visually quiet until usable text exists.
-        // Reader surfaces keep their explicit progress/retry feedback.
-        if (status !== 'ready' && !isReaderRasterFrame) {
+        // A scan the learner asked for shows it is reading, and a failure stays
+        // as the mark that reads again; reader surfaces always give that feedback.
+        const asked = !isReaderRasterFrame && this.states.get(image)?.manualRequested === true;
+        if (status !== 'ready' && !isReaderRasterFrame && !asked) {
             this.removeImageStatusCard(image);
             return;
         }
         const card = existing ?? this.createVideoFrameStatus(status);
         if (existing) this.setVideoFrameStatus(card, status);
         else this.imageStatuses.set(image, card);
-        const retryable = isReaderRasterFrame && isTerminalOcrStatus(status);
+        const retryable = (isReaderRasterFrame && isTerminalOcrStatus(status)) || (asked && status === 'failed');
         this.setStatusRetry(card, status, retryable);
         this.positionImageStatusCard(image, card);
         if (status === 'ready' && isReaderRasterFrame) this.releaseTerminalReaderRasterSiblings(image);
@@ -2148,7 +2180,9 @@ export class ImageOcrController {
             return;
         }
         const image = [...this.imageStatuses].find(([, candidate]) => candidate === card)?.[0];
-        if (image) this.retryReaderRasterImage(image);
+        if (!image) return;
+        if (this.isReaderRasterFrame(image)) this.retryReaderRasterImage(image);
+        else this.enqueue(image, true);
     }
 
     private refreshVideoFrameAfterSeek(target: EventTarget | null): void {
@@ -3483,6 +3517,7 @@ export class ImageOcrController {
         this.releaseAllBackgroundFrames();
         this.queue = [];
         this.inFlightJobs.clear();
+        this.startedScans.clear();
         for (const timer of this.readerRasterProviderRetryTimers.values()) window.clearTimeout(timer);
         this.readerRasterProviderRetryTimers.clear();
         this.readerRasterProviderFailures.clear();
@@ -3502,7 +3537,7 @@ export class ImageOcrController {
     // Drop only the overlays the reader auto-painted, keeping panels the user
     // scanned by hand (those carry overlayRequested/manualRequested). Used when
     // we start deferring to a page's native text layer mid-session. The cached
-    // results stay in `this.cache`, so flipping back re-renders them instantly
+    // results stay in `this.answers`, so flipping back re-renders them instantly
     // without re-OCRing.
     private clearAutoScannedOverlays(): void {
         for (const [image, state] of [...this.states]) {

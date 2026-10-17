@@ -50,7 +50,7 @@ function scan(controller: ImageOcrController, target: HTMLImageElement): Promise
 }
 
 function cacheKeys(controller: ImageOcrController): string[] {
-    return [...(controller as unknown as { cache: Map<string, OcrResult | null> }).cache.keys()]
+    return [...(controller as unknown as { answers: { answers: Map<string, OcrResult | null> } }).answers.answers.keys()]
         .filter(key => key.includes('ocr-target-scope.png'));
 }
 
@@ -78,7 +78,7 @@ describe('OCR target scope', () => {
         await scan(ocr, target);
 
         expect(recognizeImage).toHaveBeenCalledTimes(1);
-        expect(cacheKeys(ocr)).toEqual([expect.stringMatching(/\n@yomu-target:ja$/u)]);
+        expect(cacheKeys(ocr)).toEqual([expect.stringMatching(/\n@yomu-target:ja\n@ocr-provider:google-lens$/u)]);
         expect(document.querySelector('.jpdb-ocr-line')).not.toBeNull();
         ocr.destroy();
     });

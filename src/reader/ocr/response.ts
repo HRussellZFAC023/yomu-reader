@@ -1,7 +1,6 @@
 import { isTargetLanguageText } from '../lookup/target-text';
 import { normalizeCloudVisionResponse } from './cloud-vision';
-import { googleLensUploadCallbackLiteral, parseJsDataLiteral } from './google-lens-data';
-import { cleanOcrText, clampBox, isVerticalOcrBox, numberFrom, pushJapaneseOcrLine, unionBoxes } from './response-shared';
+import { cleanOcrText, clampBox, isVerticalOcrBox, numberFrom, unionBoxes } from './response-shared';
 import type { OcrLine, OcrRect, OcrResult } from './response-shared';
 import type { JPDBToken } from '../app/types';
 import { KANJI_LIKE_RE as OCR_KANJI_RE, READING_KANA_ONLY_RE as OCR_KANA_ONLY_RE } from '../lookup/japanese-script';
@@ -268,67 +267,6 @@ function googleLensLineBox(lineBox: OcrRect | null, words: LensWord[], paragraph
     return lineBox
         ?? unionBoxes(words.map(word => word.box).filter((item): item is OcrRect => Boolean(item)))
         ?? paragraphBox;
-}
-
-export function parseGoogleLensUploadHtml(html: string, width: number, height: number): OcrResult | null {
-    const literal = googleLensUploadCallbackLiteral(html, 'ds:1');
-    if (!literal) return null;
-    try {
-        const callback = parseJsDataLiteral(literal) as { data?: unknown[] };
-        const lines: OcrLine[] = [];
-        for (const item of googleLensUploadLineItems(callback.data)) {
-            const { text, box } = googleLensUploadLine(item, width, height);
-            pushJapaneseOcrLine(lines, text, box);
-        }
-        return lines.length ? { width, height, lines } : null;
-    } catch {
-        return null;
-    }
-}
-
-function googleLensUploadLineItems(data: unknown[] | undefined): unknown[] {
-    return googleLensUploadBlocks(data).flatMap(block => googleLensUploadBlockLineItems(block));
-}
-
-function googleLensUploadBlocks(data: unknown[] | undefined): unknown[] {
-    const blocks = (((data?.[2] as unknown[])?.[3] as unknown[])?.[0] as unknown[]) ?? [];
-    return Array.isArray(blocks) ? blocks : [];
-}
-
-function googleLensUploadBlockLineItems(block: unknown): unknown[] {
-    const blockData = Array.isArray(block) ? block : [];
-    const rawLines = (((blockData[2] as unknown[])?.[0] as unknown[])?.[5] as unknown[])?.[3] as unknown[] | undefined;
-    const lineItems = rawLines?.[0] as unknown[] | undefined;
-    return Array.isArray(lineItems) ? lineItems : [];
-}
-
-function googleLensUploadLine(item: unknown, width: number, height: number): { text: string; box: OcrRect | null } {
-    const lineData = Array.isArray(item) ? item : [];
-    return {
-        text: googleLensUploadLineText(lineData[0]),
-        box: googleLensUploadLineBox(lineData[1], width, height),
-    };
-}
-
-function googleLensUploadLineText(value: unknown): string {
-    const words = Array.isArray(value) ? value : [];
-    return cleanOcrText(words.map(googleLensUploadWordText).join(''));
-}
-
-function googleLensUploadWordText(word: unknown): string {
-    const wordData = Array.isArray(word) ? word : [];
-    return `${wordData[0] ?? ''}${wordData[3] ?? ''}`;
-}
-
-function googleLensUploadLineBox(value: unknown, width: number, height: number): OcrRect | null {
-    const boxData = Array.isArray(value) ? value : [];
-    if (boxData.length < 4) return null;
-    return clampBox({
-        top: Number(boxData[0]) * height,
-        left: Number(boxData[1]) * width,
-        width: Number(boxData[2]) * width,
-        height: Number(boxData[3]) * height,
-    }, width, height);
 }
 
 function normalizeSimpleLine(value: unknown, width: number, height: number): OcrLine | null {

@@ -33,7 +33,6 @@ const connects = [
     'api.jiten.moe',
     'jpdb.io',
     'api.wanikani.com',
-    'lens.google.com',
     'lensfrontend-pa.googleapis.com',
     'www.google.com',
     'yomureader.com',

@@ -1,3 +1,4 @@
+import type { ReaderSettings } from '../app/types';
 import { markCanvasMirrorSkip } from './canvas-mirror';
 import type { OcrRect, OcrResult } from './response';
 
@@ -33,6 +34,19 @@ export const DARK_REGION_TRIGGER = 0.1;      // ≥10% of the page is dark → w
 const DARK_LINE_MEAN_LUMINANCE = 110; // only trust inverted lines over dark originals
 
 export interface LuminanceField { size: number; lum: Uint8Array }
+
+// The inverted pass is a second provider round trip and a second encode. Google
+// Lens and Cloud Vision read light-on-dark text themselves, and on photos and
+// video frames the pass doubled their requests for no extra text. It runs for
+// the Learner OCR Service, or for a scan the learner asked for that found nothing.
+export function darkPassWanted(
+    settings: Pick<ReaderSettings, 'ocrInvertDarkPanels' | 'ocrProvider'>,
+    manualRequested: boolean,
+    normal: OcrResult | null,
+): boolean {
+    if (!settings.ocrInvertDarkPanels) return false;
+    return settings.ocrProvider === 'local-service' || (manualRequested && !normal?.lines.length);
+}
 
 export function buildLuminanceField(image: HTMLImageElement): LuminanceField | null {
     try {
@@ -197,9 +211,10 @@ export function mergeOcrResults(width: number, height: number, results: Array<Oc
     return width && height && lines.length ? { width, height, lines } : null;
 }
 
+// Decoded pixels only: a layout size without them draws a blank canvas.
 export function loadedImageSize(image: HTMLImageElement): { width: number; height: number } {
-    const width = image.naturalWidth || image.width;
-    const height = image.naturalHeight || image.height;
+    const width = image.naturalWidth;
+    const height = image.naturalHeight;
     if (!width || !height) throw new Error('Image is not loaded yet.');
     return { width, height };
 }

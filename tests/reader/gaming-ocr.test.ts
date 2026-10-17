@@ -50,4 +50,15 @@ describe('Yomu Gaming OCR provider routing', () => {
         expect(fetchSpy).toHaveBeenCalledTimes(1);
         fetchSpy.mockRestore();
     });
+
+    it('reports a Google Lens refusal as an error, not as an empty read', async () => {
+        const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response('', { status: 429 }));
+        const response = await requestGamingOcr({ ...localRequest(''), provider: 'google-lens' });
+        expect(response.ok).toBe(false);
+        expect(response.error).toContain('429');
+        // One protobuf call: nothing is uploaded to lens.google.com to hide the error.
+        expect(fetchSpy).toHaveBeenCalledTimes(1);
+        expect(String(fetchSpy.mock.calls[0][0])).toContain('lensfrontend-pa.googleapis.com');
+        fetchSpy.mockRestore();
+    });
 });
