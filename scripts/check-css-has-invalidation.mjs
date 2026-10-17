@@ -2,7 +2,8 @@
 // Fails on :has() rules in the reader stylesheet that make Chromium restyle a
 // whole host page on every DOM insertion (see scripts/lib/css-has-invalidation.mjs).
 //
-//   node scripts/check-css-has-invalidation.mjs            the sheet in dist/yomu.css
+//   node scripts/check-css-has-invalidation.mjs            src/reader/styles-reader.css and its @imports
+//                                                          (the sources of dist/yomu.css)
 //   node scripts/check-css-has-invalidation.mjs a.css ...  the named files
 //
 // Scope is the sheet Yomu injects into other people's pages. The Study app and

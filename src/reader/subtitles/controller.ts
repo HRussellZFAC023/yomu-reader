@@ -5571,6 +5571,7 @@ export class SubtitlePlayerController {
         this.transcriptPanelClosing = false;
         this.prepareTranscriptPanelPlacementForOpen();
         panel.hidden = false;
+        syncTranscriptPageState(panel);
         this.syncTranscriptPanelFullscreenDisplayOverride();
         panel.classList.remove('jpdb-subtitle-panel-entering', 'jpdb-subtitle-panel-closing');
         panel.classList.add('jpdb-subtitle-panel-opened');
@@ -5603,6 +5604,7 @@ export class SubtitlePlayerController {
         const revealedPageContent = !panel.hidden;
         this.clearTranscriptPanelAnimation();
         panel.hidden = true;
+        syncTranscriptPageState(panel);
         this.syncTranscriptPanelFullscreenDisplayOverride();
         panel.classList.remove('jpdb-subtitle-panel-entering', 'jpdb-subtitle-panel-opened', 'jpdb-subtitle-panel-closing');
         this.transcriptPanelClosing = false;
@@ -8113,7 +8115,6 @@ export class SubtitlePlayerController {
 
     private syncTranscriptPanelFullscreenDisplayOverride(): void {
         const panel = this.transcriptPanel;
-        syncTranscriptPageState(panel); // this method runs after every panel.hidden flip
         if (!panel) return;
         const shouldOverride = this.fullscreen && !panel.hidden && !this.transcriptPanelClosing;
         if (shouldOverride) {

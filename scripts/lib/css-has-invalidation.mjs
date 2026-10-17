@@ -13,11 +13,17 @@
 // html/body/:root/* and may not be followed by a combinator. A selector that
 // needs one anyway names its reason in a comment on the :has( line or the line
 // directly above it:  /* has-invalidation-allow: <why the anchor stays small> */
+//
+// The root test also looks inside :is()/:where() (`:is(body):has(.x)`), but not
+// inside :has()/:not(), whose arguments are not the anchor. A :has() in a nested
+// style rule (CSS nesting), or under a parent rule that has one, is reported as is:
+// this reader does not resolve `&`, so such a rule must be flattened or allowed.
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 
 const ALLOW_PATTERN = /has-invalidation-allow:\s*[^\s*]/;
-const ROOT_ANCHOR = /^(?:html|body|:root|\*)(?![-\w])|^:has\(/i;
+const ROOT_TYPE = /(?:^|[(,\s])(?:html|body|:root|\*)(?![-\w])/i;
+const HAS = /:has\(/i;
 
 /**
  * @param {string} css
@@ -38,14 +44,27 @@ export function findHasInvalidationRisks(css) {
         return low + 1;
     };
     const findings = [];
-    for (const { text, offset } of stylePreludes(clean)) {
+    for (const { text, offset, parentHas, nested } of stylePreludes(clean)) {
+        if (nested && (parentHas || HAS.test(text))) {
+            const at = text.search(HAS);
+            const line = lineAt(offset + (at >= 0 ? at : text.search(/\S/)));
+            findings.push({
+                line,
+                selector: text.replace(/\s+/g, ' ').trim(),
+                reason: 'nested in a style rule that this check cannot resolve',
+                allowed: allowLines.has(line) || allowLines.has(line - 1),
+            });
+            continue;
+        }
         for (const selector of splitTopLevel(text, ',', offset)) {
             const compounds = splitCompounds(selector.text, selector.offset);
             compounds.forEach((compound, index) => {
                 const hasIndex = compound.text.search(/:has\(/i);
                 if (hasIndex < 0) return;
                 const reasons = [];
-                if (ROOT_ANCHOR.test(compound.text)) reasons.push('anchored on the document root');
+                if (/^:has\(/i.test(compound.text) || ROOT_TYPE.test(withoutArguments(compound.text, /:(?:has|not)\($/i))) {
+                    reasons.push('anchored on the document root');
+                }
                 if (index < compounds.length - 1) reasons.push('followed by a combinator');
                 if (!reasons.length) return;
                 const line = lineAt(compound.offset + hasIndex);
@@ -111,10 +130,25 @@ function stripComments(css) {
     return { clean, allowLines };
 }
 
-// Every style-rule prelude (the selector list before `{`), at any nesting depth.
-// At-rule preludes (@media, @container, @supports, ...) are skipped; their blocks
-// are still walked.
+// `:not(body).x:has(.y)` -> `:not().x:has()` for the pseudo-classes `pattern` names.
+function withoutArguments(text, pattern) {
+    let out = '';
+    for (let index = 0; index < text.length; index++) {
+        out += text[index];
+        if (text[index] !== '(' || !pattern.test(out)) continue;
+        let depth = 1;
+        while (depth && ++index < text.length) depth += text[index] === '(' ? 1 : text[index] === ')' ? -1 : 0;
+        out += ')';
+    }
+    return out;
+}
+
+// Every style-rule prelude (the selector list before `{`), at any nesting depth,
+// with whether it sits inside another style rule (`nested`) and whether one of
+// those parent rules has a :has() (`parentHas`). At-rule preludes (@media,
+// @container, @supports, ...) are skipped; their blocks are still walked.
 function* stylePreludes(clean) {
+    const blocks = [];
     let start = 0;
     let quote = '';
     for (let index = 0; index < clean.length; index++) {
@@ -131,9 +165,13 @@ function* stylePreludes(clean) {
         if (char === '{') {
             const text = clean.slice(start, index);
             const lead = text.search(/\S/);
-            if (lead >= 0 && text[lead] !== '@') yield { text, offset: start };
+            const style = lead >= 0 && text[lead] !== '@';
+            const parents = blocks.filter(block => block.style);
+            if (style) yield { text, offset: start, nested: parents.length > 0, parentHas: parents.some(block => block.has) };
+            blocks.push({ style, has: style && HAS.test(text) });
             start = index + 1;
         } else if (char === '}' || char === ';') {
+            if (char === '}') blocks.pop();
             start = index + 1;
         }
     }

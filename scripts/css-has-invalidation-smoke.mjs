@@ -10,12 +10,12 @@
 // playback. This drives the BUILT userscript graph and its @resource CSS in
 // Chromium (the engine with the cost; WebKit measured flat) and checks:
 //   1. trace: one host text-node insertion under <body> raises no
-//      StyleInvalidatorInvalidationTracking event that invalidates all of BODY's
+//      StyleInvalidatorInvalidationTracking event that invalidates all of BODY's (or HTML's)
 //      descendants, also when the HOST page has its own body:has() rule;
 //   2. CDP metrics: 4 Hz host churn (time text, progress style, aria value) costs
 //      at most 5 ms/s of style recalculation;
-//   3. the popover sheet at iPhone and iPad sizes keeps its scrolling-body layout
-//      (now keyed on .jpdb-reader-sheet-has-body), and with
+//   3. the popover sheet at iPhone and iPad sizes carries .jpdb-reader-sheet-has-body
+//      and keeps the handle / scroll body / actions grid that class alone gives it, and with
 //      YOMU_HAS_COMPARE=v2.1.6 its geometry is within 1 px of that release.
 //
 // The page is css-has-invalidation-mechanism-fixture: the cost is a property of
@@ -115,14 +115,19 @@ try {
 console.log(JSON.stringify(report, null, 2));
 
 for (const [variant, result] of Object.entries(report.invalidation)) {
-    assert(result.bodyWholeSubtree === 0, `${variant}: a host text insertion invalidated every element under <body>`, result);
+    assert(result.rootWholeSubtree === 0, `${variant}: a host text insertion invalidated every element under <body> or <html>`, result);
 }
 assert(report.churn.recalcStyleMsPerSecond <= RECALC_BUDGET_MS_PER_S,
     `4 Hz host churn cost ${report.churn.recalcStyleMsPerSecond} ms/s of style recalculation (budget ${RECALC_BUDGET_MS_PER_S})`, report.churn);
 for (const [name, sheet] of Object.entries(report.sheet)) {
     const { layout } = sheet.current;
-    assert(layout.display === 'grid' && layout.padding === '0px', `${name}: the sheet lost its grid layout around the scroll body`, layout);
-    assert(layout.bodyOverflowY === 'auto' && layout.bodyScrolls, `${name}: the sheet body is not the scroller`, layout);
+    // Each of these holds on the sheet only through .jpdb-reader-sheet-has-body,
+    // so a popover write that skips setReaderPopoverHtml() fails here.
+    assert(layout.hasBodyClass, `${name}: the sheet was rendered without setReaderPopoverHtml()`, layout);
+    assert(layout.display === 'grid' && layout.padding === '0px' && layout.gridRowTracks === 3,
+        `${name}: the sheet lost its handle / scroll body / actions grid`, layout);
+    assert(layout.bodyOverflowY === 'auto' && layout.bodyGapBelowHandle !== null && Math.abs(layout.bodyGapBelowHandle) <= 1,
+        `${name}: the sheet body is not the scroller directly under the handle`, layout);
     if (sheet.baseline) assert(sheet.maxDeltaPx <= 1, `${name}: sheet geometry moved more than 1 px from ${compare.label}`, sheet);
 }
 console.log(`css-has invalidation smoke passed (${build.label}).`);
@@ -162,13 +167,13 @@ async function bodyInvalidationOnHostInsertion(page) {
     const trace = JSON.parse((await browser.stopTracing()).toString('utf8'));
     const events = trace.traceEvents ?? trace;
     const invalidations = events.filter(event => event.name === 'StyleInvalidatorInvalidationTracking');
-    const onBody = invalidations.filter(event => /^BODY\b/i.test(event.args?.data?.nodeName ?? ''));
-    const wholeSubtree = onBody.filter(event => JSON.stringify(event.args?.data ?? {}).includes('allDescendantsMightBeInvalid'));
+    const onRoot = invalidations.filter(event => /^(?:BODY|HTML)\b/i.test(event.args?.data?.nodeName ?? ''));
+    const wholeSubtree = onRoot.filter(event => JSON.stringify(event.args?.data ?? {}).includes('allDescendantsMightBeInvalid'));
     return {
         forcedStyleMsPerInsertion: Number(forcedMs.toFixed(3)),
-        bodyInvalidations: onBody.length,
-        bodyWholeSubtree: wholeSubtree.length,
-        sample: wholeSubtree[0]?.args?.data ?? onBody[0]?.args?.data ?? null,
+        rootInvalidations: onRoot.length,
+        rootWholeSubtree: wholeSubtree.length,
+        sample: wholeSubtree[0]?.args?.data ?? onRoot[0]?.args?.data ?? null,
     };
 }
 
@@ -226,12 +231,14 @@ async function sheetSignature(target, viewport, name) {
             return { top: rect.top, left: rect.left, width: rect.width, height: rect.height };
         };
         const style = getComputedStyle(popover);
+        const handle = popover.querySelector('.jpdb-reader-sheet-handle');
         return {
             layout: {
                 display: style.display,
                 padding: style.padding,
+                gridRowTracks: style.gridTemplateRows.trim().split(/\s+/).length,
                 bodyOverflowY: getComputedStyle(body).overflowY,
-                bodyScrolls: body.scrollHeight >= body.clientHeight && body.clientHeight > 0,
+                bodyGapBelowHandle: handle ? body.getBoundingClientRect().top - handle.getBoundingClientRect().bottom : null,
                 hasBodyClass: popover.classList.contains('jpdb-reader-sheet-has-body'),
             },
             geometry: {
