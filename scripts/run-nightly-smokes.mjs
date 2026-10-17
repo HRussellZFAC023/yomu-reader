@@ -80,6 +80,11 @@ export const NIGHTLY_SMOKES = [
     'smoke:recorded-pages',
     'smoke:recorded-pages:reproduce',
     'smoke:recorded-pages:probes',
+    // Recorded ja.wikipedia and YouTube, built product, keyless defaults: no
+    // jpdb.io pitch page or caption-time jpdb.io request unless a colour
+    // channel paints pitch, and the popover of a hovered word is not queued
+    // behind background lookups (W1-50).
+    'smoke:background-network',
     'smoke:study-personas',
     'smoke:subtitle-network',
     // Live api.tatoeba.org contract. Network-dependent, so it stays out of

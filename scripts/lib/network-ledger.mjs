@@ -132,6 +132,7 @@ function optionalFields(request) {
     if (typeof request.trustedInteractionBefore === 'boolean') fields.trustedInteractionBefore = request.trustedInteractionBefore;
     if (request.resourceType) fields.resourceType = String(request.resourceType);
     if (request.ledgerId !== undefined) fields.ledgerId = String(request.ledgerId);
+    if (request.caller) fields.caller = String(request.caller);
     return fields;
 }
 
@@ -152,7 +153,12 @@ const FILTER_TESTS = [
     (entry, filter) => filter.path === undefined || pathMatches(entry.url, filter.path),
     (entry, filter) => typeof filter.beforeInteraction !== 'boolean' || filter.beforeInteraction !== entry.trustedInteractionBefore,
     (entry, filter) => filter.noInteractionWithinMs === undefined || !interactionWithin(entry, filter.noInteractionWithinMs),
+    (entry, filter) => filter.caller === undefined || callerMatches(entry.caller ?? '', filter.caller),
 ];
+
+function callerMatches(caller, pattern) {
+    return pattern instanceof RegExp ? pattern.test(caller) : caller.split(' < ').includes(String(pattern));
+}
 
 // An interaction after the request (the page saw a tap the binding had not
 // delivered yet) never counts as having caused it.
@@ -171,6 +177,10 @@ function interactionWithin(entry, ms) {
  * always count, whoever answered them.
  * noInteractionWithinMs: requests with no trusted activation in that many ms
  * before them (or none at all).
+ * caller: GM requests whose call stack names this function ('fetchPitch'), or
+ * a RegExp tested against the whole stack ('fetchPitch < lookup < ...'). Two
+ * product lanes that ask one host for the same URL shape are told apart this
+ * way; the built product is not minified, so its function names survive.
  */
 function ledgerEntryMatches(entry, filter) {
     return FILTER_TESTS.every(test => test(entry, filter));
@@ -296,8 +306,26 @@ function installLedgerProbes({ requestBinding, interactionBinding, pageStampBind
         [data => data instanceof FormData, formDataBytes],
     ];
     const bodyBytes = data => (sizers.find(([matches]) => matches(data))?.[1] ?? encodedLength)(data);
+    // Function names on the call stack, innermost first, async frames included
+    // (Chromium and WebKit keep them): 'fetchPitch < lookup < ensureCardPitchAccent'.
+    const probeFrames = new Set(['stackOf', 'callerOf', 'describe', 'ledgerGmRequest']);
+    const stackOf = () => {
+        const limit = Error.stackTraceLimit;
+        Error.stackTraceLimit = 60;
+        try {
+            return String(new Error().stack ?? '');
+        } finally {
+            Error.stackTraceLimit = limit;
+        }
+    };
+    const callerOf = () => stackOf().split('\n')
+        .map(line => /^\s*at (?:async )?(?:[\w$]+\.)*([\w$]+)\s/u.exec(line)?.[1] ?? /^(?:[\w$]+\.)*([\w$]+)@/u.exec(line.trim())?.[1] ?? '')
+        .filter(name => name && !probeFrames.has(name))
+        .slice(0, 40)
+        .join(' < ');
     const describe = ({ method = 'GET', url = '', data } = {}) => ({
         ledgerId: String((nextId += 1)),
+        caller: callerOf(),
         channel: 'gm',
         method,
         url: String(url),

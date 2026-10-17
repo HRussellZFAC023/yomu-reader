@@ -249,6 +249,7 @@
     "smoke:recorded-pages": "node scripts/recorded-pages-smoke.mjs replay",
     "smoke:recorded-pages:reproduce": "node scripts/recorded-pages-smoke.mjs reproduce",
     "smoke:recorded-pages:probes": "node scripts/recorded-pages-smoke.mjs probes",
+    "smoke:background-network": "node scripts/background-network-smoke.mjs",
     "record:pages": "node scripts/record-pages.mjs",
     "smoke:pitch-underline": "node scripts/pitch-underline-smoke.mjs",
     "smoke:pitch-underline:webkit": "YOMU_PITCH_UNDERLINE_ENGINE=webkit node scripts/pitch-underline-smoke.mjs",
