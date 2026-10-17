@@ -158,6 +158,15 @@ describe('new tab stats connection cards', () => {
         expect(academy?.querySelector('.jpdb-reader-stats-connection-actions')).toBeNull();
         expect(root.querySelector('.jpdb-reader-stats-connection.is-anki .jpdb-reader-stats-connection-actions')).not.toBeNull();
     });
+    it('names the よむ deck in the learner\'s language, and services by their brand', () => {
+        const ja = (key: string) => (key === 'newTabYomuLocal' ? 'よむデッキ' : key);
+        const snapshot = connectionSnapshot('ready');
+        snapshot.yomuLocal = { ...snapshot.yomuLocal, status: 'error', message: 'x' };
+        const root = renderNewTabStatsContent({ activityMetric: 'reviews', language: 'ja', selectedSource: 'combined', snapshot, text: ja });
+        expect(root.querySelector('.jpdb-reader-stats-connection.is-yomu-local strong')?.textContent).toBe('よむデッキ');
+        expect(root.querySelector('[data-stats-source="yomu-local"]')?.textContent).toBe('よむデッキ');
+        expect(root.querySelector('.jpdb-reader-stats-connection.is-jpdb strong')?.textContent).toBe('JPDB');
+    });
 });
 
 describe('new tab stats for an account with nothing yet', () => {

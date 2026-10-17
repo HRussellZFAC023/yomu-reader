@@ -20,7 +20,6 @@ import {
     type StatsSourceSnapshot,
 } from '../app/stats';
 import type { NewTabCopyKey } from './i18n';
-import { YOMU_DECK_LABEL } from '../app/constants';
 import { newTabAction, type NewTabAction } from './actions';
 
 type NewTabStatsTextKey = UiCopyKey | NewTabCopyKey;
@@ -128,7 +127,7 @@ function renderStatsSourceTabs(context: NewTabStatsRenderContext): HTMLElement {
     const tabs: Array<[StatsSourceId, string]> = sources.length > 1
         ? [
             ['combined', text('statsCombined')],
-            ...sources.map(([source, snapshot]) => [source, snapshot.label || fallbackStatsSourceLabel(source)] as [StatsSourceId, string]),
+            ...sources.map(([source, snapshot]) => [source, statsSourceName(snapshot, text)] as [StatsSourceId, string]),
         ]
         : [];
     return el('div', { class: 'jpdb-reader-stats-tabs', role: 'group', 'aria-label': text('stats'), hidden: tabs.length === 0, style: `--stats-tabs-count:${Math.max(1, tabs.length)}` },
@@ -172,7 +171,7 @@ function statsMeasures(context: NewTabStatsRenderContext): StatsMeasure[] {
     const hasHistory = source.reviewHistoryAvailable !== false;
     const speed = hasHistory ? averageReviewSpeed(source) : null;
     const measures: Array<StatsMeasure | null> = [
-        source.reviewedCardsToday ? { label: text('statsWordsReviewedToday'), value: formatCompactNumber(source.reviewedCardsToday), detail: source.id === 'combined' ? context.snapshot.yomuLocal.label : undefined } : null,
+        source.reviewedCardsToday ? { label: text('statsWordsReviewedToday'), value: formatCompactNumber(source.reviewedCardsToday), detail: source.id === 'combined' ? statsSourceName(context.snapshot.yomuLocal, text) : undefined } : null,
         source.reviewsToday > 0 ? { label: text('statsReviewsToday'), value: formatCompactNumber(source.reviewsToday), detail: reviewsTodayDetail(context) } : null,
         // Jiten Today-panel parity (SH-7): due-now with the time estimate.
         source.cards.due > 0 ? { label: text('statsDueNow'), value: formatCompactNumber(source.cards.due), detail: statsDueTimeDetail(hasHistory ? estimatedDueMinutes(source) : null, context) } : null,
@@ -439,7 +438,7 @@ function renderStatsConnectionCard(source: StatsSourceSnapshot, context: NewTabS
 
 function renderStatsConnectionMain(source: StatsSourceSnapshot, context: NewTabStatsRenderContext): HTMLElement {
     return el('div', { class: 'jpdb-reader-stats-connection-main' },
-        el('strong', {}, source.label),
+        el('strong', {}, statsSourceName(source, context.text)),
         el('span', {}, source.message),
         statsConnectionDeckToggles(source, context),
     );
@@ -504,12 +503,17 @@ function resolvedStatsSourceId(snapshot: StatsDashboardSnapshot, requested: Stat
     return 'combined';
 }
 
-function fallbackStatsSourceLabel(source: Exclude<StatsSourceId, 'combined'>): string {
+// Service names are brands; the よむ deck is named in the learner's language.
+function statsSourceName(source: StatsSourceSnapshot, text: NewTabStatsText): string {
+    if (source.id === 'yomu-local') return text('newTabYomuLocal');
+    return source.label || fallbackStatsSourceLabel(source.id);
+}
+
+function fallbackStatsSourceLabel(source: StatsSourceSnapshot['id']): string {
     if (source === 'jpdb') return 'JPDB';
     if (source === 'jiten') return 'Jiten';
     if (source === 'bunpro') return 'Bunpro';
     if (source === 'wanikani') return 'WaniKani';
-    if (source === 'yomu-local') return YOMU_DECK_LABEL;
     return 'Anki';
 }
 

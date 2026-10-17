@@ -107,10 +107,10 @@ export function newTabGradeTargetLabel(summary: NewTabReviewSourceSummary, label
     return labels.jpdb;
 }
 
-export function newTabApiGradeTargetShortLabel(summary: NewTabReviewSourceSummary): string {
+export function newTabApiGradeTargetShortLabel(summary: NewTabReviewSourceSummary, yomuDeck = YOMU_DECK_LABEL): string {
     if (summary.hasBunpro) return 'Bunpro';
     if (summary.hasWanikani) return 'WaniKani';
-    if (summary.hasYomuLocal) return YOMU_DECK_LABEL;
+    if (summary.hasYomuLocal) return yomuDeck;
     if (summary.hasJpdb && summary.hasJiten) return 'Jiten + JPDB';
     return summary.hasJiten ? 'Jiten' : 'JPDB';
 }

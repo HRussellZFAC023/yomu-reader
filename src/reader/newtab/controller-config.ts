@@ -24,6 +24,9 @@ export const NEW_TAB_WORD_STATE_CLASSES: CardState[] = [
     'unparsed',
 ];
 
+/** What 2.1 named the よむ deck in the source labels it cached for offline Study. */
+export const LEGACY_YOMU_DECK_LABEL = 'Academy';
+
 export const NEW_TAB_SOURCE_LABELS: Record<NewTabConcreteSource, string> = {
     jpdb: 'JPDB',
     bunpro: 'Bunpro',
