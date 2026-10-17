@@ -1,0 +1,47 @@
+{
+  "slug": "youtube-search",
+  "url": "https://www.youtube.com/results?search_query=%E6%97%A5%E6%9C%AC%E8%AA%9E+%E5%8B%89%E5%BC%B7",
+  "content": "redacted",
+  "licence": "Redacted structure of a copyrighted page (text replaced with public-domain text, pictures blanked)",
+  "attribution": "Structure of a YouTube search results page, recorded for testing. Its stylesheets are kept as served; no YouTube text or image is included.",
+  "redactionHashes": "redaction-hashes.json",
+  "recordedAt": "2026-10-17T17:17:32.829Z",
+  "recorder": {
+    "engine": "chromium",
+    "viewport": {
+      "width": 1280,
+      "height": 900
+    },
+    "platform": "darwin",
+    "locale": "ja-JP"
+  },
+  "document": "page.html",
+  "har": "network.har",
+  "geometry": "geometry.json",
+  "fidelity": {
+    "chromium": {
+      "redactionMaxDeltaPx": 0,
+      "redactionDiffs": 0,
+      "paragraphsWithMovedLines": 0,
+      "unrecordedRequests": 8,
+      "liveMaxDeltaPx": 0,
+      "liveDiffs": 0,
+      "liveDiffSample": [],
+      "diffSample": []
+    },
+    "webkit": {
+      "redactionMaxDeltaPx": 0,
+      "redactionDiffs": 0,
+      "paragraphsWithMovedLines": 0,
+      "unrecordedRequests": 23,
+      "diffSample": []
+    },
+    "firefox": {
+      "redactionMaxDeltaPx": 0,
+      "redactionDiffs": 0,
+      "paragraphsWithMovedLines": 0,
+      "unrecordedRequests": 9,
+      "diffSample": []
+    }
+  }
+}

@@ -1,0 +1,47 @@
+{
+  "slug": "asahi-top",
+  "url": "https://www.asahi.com/",
+  "content": "redacted",
+  "licence": "Redacted structure of a copyrighted page (text replaced with public-domain text, pictures blanked)",
+  "attribution": "Structure of the asahi.com top page, recorded for testing. Its stylesheets are kept as served; no Asahi Shimbun text or image is included.",
+  "redactionHashes": "redaction-hashes.json",
+  "recordedAt": "2026-10-17T17:18:32.652Z",
+  "recorder": {
+    "engine": "chromium",
+    "viewport": {
+      "width": 1280,
+      "height": 900
+    },
+    "platform": "darwin",
+    "locale": "ja-JP"
+  },
+  "document": "page.html",
+  "har": "network.har",
+  "geometry": "geometry.json",
+  "fidelity": {
+    "chromium": {
+      "redactionMaxDeltaPx": 0,
+      "redactionDiffs": 0,
+      "paragraphsWithMovedLines": 2,
+      "unrecordedRequests": 1,
+      "liveMaxDeltaPx": 0,
+      "liveDiffs": 0,
+      "liveDiffSample": [],
+      "diffSample": []
+    },
+    "webkit": {
+      "redactionMaxDeltaPx": 0,
+      "redactionDiffs": 0,
+      "paragraphsWithMovedLines": 1,
+      "unrecordedRequests": 0,
+      "diffSample": []
+    },
+    "firefox": {
+      "redactionMaxDeltaPx": 0,
+      "redactionDiffs": 0,
+      "paragraphsWithMovedLines": 3,
+      "unrecordedRequests": 1,
+      "diffSample": []
+    }
+  }
+}

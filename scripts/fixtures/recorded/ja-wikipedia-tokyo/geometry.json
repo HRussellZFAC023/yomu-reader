@@ -1,0 +1,4834 @@
+{
+ "keys": [
+  "html > body:nth-of-type(1) > div:nth-of-type(2) > header:nth-of-type(1) > div:nth-of-type(1) > nav:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1)",
+  "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(1) > table:nth-of-type(1) > tbody:nth-of-type(1) > tr:nth-of-type(2) > td:nth-of-type(1) > div:nth-of-type(2) > table:nth-of-type(1) > tbody:nth-of-type(1) > tr:nth-of-type(1) > td:nth-of-type(1)",
+  "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(1) > table:nth-of-type(1) > tbody:nth-of-type(1) > tr:nth-of-type(18) > th:nth-of-type(1)",
+  "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(2) > section:nth-of-type(2) > div:nth-of-type(2)",
+  "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(3) > section:nth-of-type(2) > p:nth-of-type(1)",
+  "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(3) > section:nth-of-type(3) > table:nth-of-type(1) > tbody:nth-of-type(1) > tr:nth-of-type(3) > td:nth-of-type(1) > table:nth-of-type(1) > tbody:nth-of-type(1) > tr:nth-of-type(1) > td:nth-of-type(10)",
+  "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(3) > section:nth-of-type(3) > p:nth-of-type(6)",
+  "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(3) > section:nth-of-type(3) > table:nth-of-type(2) > tbody:nth-of-type(1) > tr:nth-of-type(2) > th:nth-of-type(5)",
+  "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(3) > section:nth-of-type(3) > table:nth-of-type(2) > tbody:nth-of-type(1) > tr:nth-of-type(5) > td:nth-of-type(9)",
+  "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(3) > section:nth-of-type(3) > table:nth-of-type(2) > tbody:nth-of-type(1) > tr:nth-of-type(6) > td:nth-of-type(9)",
+  "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(3) > section:nth-of-type(3) > table:nth-of-type(2) > tbody:nth-of-type(1) > tr:nth-of-type(7) > td:nth-of-type(11)",
+  "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(3) > section:nth-of-type(3) > table:nth-of-type(2) > tbody:nth-of-type(1) > tr:nth-of-type(8) > td:nth-of-type(9)",
+  "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(3) > section:nth-of-type(3) > table:nth-of-type(2) > tbody:nth-of-type(1) > tr:nth-of-type(9) > td:nth-of-type(8)",
+  "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(3) > section:nth-of-type(3) > table:nth-of-type(2) > tbody:nth-of-type(1) > tr:nth-of-type(10) > td:nth-of-type(6)",
+  "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(3) > section:nth-of-type(3) > table:nth-of-type(2) > tbody:nth-of-type(1) > tr:nth-of-type(11) > td:nth-of-type(4)",
+  "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(3) > section:nth-of-type(4) > section:nth-of-type(2) > p:nth-of-type(1)",
+  "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(3) > section:nth-of-type(4) > section:nth-of-type(4) > figure:nth-of-type(1) > figcaption:nth-of-type(1)",
+  "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(4) > section:nth-of-type(1) > figure:nth-of-type(2) > figcaption:nth-of-type(1)",
+  "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(5) > section:nth-of-type(1) > section:nth-of-type(2) > p:nth-of-type(2)",
+  "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(5) > section:nth-of-type(1) > section:nth-of-type(3) > table:nth-of-type(1) > tbody:nth-of-type(1) > tr:nth-of-type(6) > td:nth-of-type(2)",
+  "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(6) > section:nth-of-type(1) > table:nth-of-type(1) > thead:nth-of-type(1) > tr:nth-of-type(1) > th:nth-of-type(3)",
+  "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(6) > section:nth-of-type(2) > table:nth-of-type(1) > thead:nth-of-type(1) > tr:nth-of-type(1) > th:nth-of-type(2)",
+  "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(7) > section:nth-of-type(1) > section:nth-of-type(1) > p:nth-of-type(2)",
+  "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(7) > section:nth-of-type(3) > div:nth-of-type(2)",
+  "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(7) > section:nth-of-type(6) > section:nth-of-type(2) > p:nth-of-type(2)",
+  "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(8) > section:nth-of-type(1) > dl:nth-of-type(4) > dt:nth-of-type(1)",
+  "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(11) > section:nth-of-type(1) > section:nth-of-type(1) > p:nth-of-type(2)",
+  "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(11) > section:nth-of-type(2) > section:nth-of-type(1) > p:nth-of-type(2)",
+  "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(13) > section:nth-of-type(1) > table:nth-of-type(1) > tbody:nth-of-type(1) > tr:nth-of-type(2) > td:nth-of-type(2)",
+  "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(13) > section:nth-of-type(1) > table:nth-of-type(1) > tbody:nth-of-type(1) > tr:nth-of-type(5) > td:nth-of-type(1) > table:nth-of-type(1) > tbody:nth-of-type(1) > tr:nth-of-type(6) > td:nth-of-type(2)",
+  "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(13) > section:nth-of-type(1) > figure:nth-of-type(1) > figcaption:nth-of-type(1) > table:nth-of-type(1) > tbody:nth-of-type(1) > tr:nth-of-type(1) > td:nth-of-type(1) > div:nth-of-type(2)",
+  "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(13) > section:nth-of-type(1) > section:nth-of-type(1) > table:nth-of-type(1) > tbody:nth-of-type(1) > tr:nth-of-type(2) > th:nth-of-type(1)",
+  "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(13) > section:nth-of-type(1) > section:nth-of-type(1) > table:nth-of-type(1) > tbody:nth-of-type(1) > tr:nth-of-type(5) > th:nth-of-type(1)",
+  "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(13) > section:nth-of-type(1) > section:nth-of-type(1) > table:nth-of-type(1) > tbody:nth-of-type(1) > tr:nth-of-type(8) > td:nth-of-type(1)",
+  "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(13) > section:nth-of-type(1) > section:nth-of-type(1) > table:nth-of-type(1) > tbody:nth-of-type(1) > tr:nth-of-type(11) > td:nth-of-type(2)",
+  "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(13) > section:nth-of-type(1) > section:nth-of-type(1) > table:nth-of-type(1) > tbody:nth-of-type(1) > tr:nth-of-type(14) > td:nth-of-type(3)",
+  "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(14) > section:nth-of-type(3) > div:nth-of-type(2)",
+  "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(14) > section:nth-of-type(7) > figure:nth-of-type(1) > figcaption:nth-of-type(1)",
+  "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(16) > section:nth-of-type(5) > p:nth-of-type(1)",
+  "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(20) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(2)"
+ ],
+ "live": {
+  "viewport": {
+   "width": 1280,
+   "height": 900
+  },
+  "document": {
+   "scrollWidth": 1280,
+   "scrollHeight": 43988,
+   "clientWidth": 1280,
+   "clientHeight": 900
+  },
+  "blocks": [
+   {
+    "key": "html > body:nth-of-type(1) > div:nth-of-type(2) > header:nth-of-type(1) > div:nth-of-type(1) > nav:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1)",
+    "box": [
+     53,
+     462.5,
+     200,
+     34
+    ]
+   },
+   {
+    "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(1) > table:nth-of-type(1) > tbody:nth-of-type(1) > tr:nth-of-type(2) > td:nth-of-type(1) > div:nth-of-type(2) > table:nth-of-type(1) > tbody:nth-of-type(1) > tr:nth-of-type(1) > td:nth-of-type(1)",
+    "box": [
+     714.5,
+     1136.48,
+     279,
+     24.13
+    ]
+   },
+   {
+    "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(1) > table:nth-of-type(1) > tbody:nth-of-type(1) > tr:nth-of-type(18) > th:nth-of-type(1)",
+    "box": [
+     692.5,
+     1980.27,
+     102.97,
+     232.63
+    ]
+   },
+   {
+    "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(2) > section:nth-of-type(2) > div:nth-of-type(2)",
+    "box": [
+     264,
+     1966.39,
+     752,
+     23.41
+    ]
+   },
+   {
+    "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(3) > section:nth-of-type(2) > p:nth-of-type(1)",
+    "box": [
+     264,
+     4814.72,
+     752,
+     130
+    ]
+   },
+   {
+    "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(3) > section:nth-of-type(3) > table:nth-of-type(1) > tbody:nth-of-type(1) > tr:nth-of-type(3) > td:nth-of-type(1) > table:nth-of-type(1) > tbody:nth-of-type(1) > tr:nth-of-type(1) > td:nth-of-type(10)",
+    "box": [
+     466.66,
+     5437.45,
+     21.81,
+     19.02
+    ]
+   },
+   {
+    "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(3) > section:nth-of-type(3) > p:nth-of-type(6)",
+    "box": [
+     264,
+     6063.03,
+     752,
+     78
+    ]
+   },
+   {
+    "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(3) > section:nth-of-type(3) > table:nth-of-type(2) > tbody:nth-of-type(1) > tr:nth-of-type(2) > th:nth-of-type(5)",
+    "box": [
+     757.39,
+     6320.94,
+     160.11,
+     27.97
+    ]
+   },
+   {
+    "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(3) > section:nth-of-type(3) > table:nth-of-type(2) > tbody:nth-of-type(1) > tr:nth-of-type(5) > td:nth-of-type(9)",
+    "box": [
+     809.39,
+     6404.84,
+     56.11,
+     27.97
+    ]
+   },
+   {
+    "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(3) > section:nth-of-type(3) > table:nth-of-type(2) > tbody:nth-of-type(1) > tr:nth-of-type(6) > td:nth-of-type(9)",
+    "box": [
+     809.39,
+     6432.81,
+     56.11,
+     49.63
+    ]
+   },
+   {
+    "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(3) > section:nth-of-type(3) > table:nth-of-type(2) > tbody:nth-of-type(1) > tr:nth-of-type(7) > td:nth-of-type(11)",
+    "box": [
+     917.5,
+     6482.44,
+     68.39,
+     49.63
+    ]
+   },
+   {
+    "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(3) > section:nth-of-type(3) > table:nth-of-type(2) > tbody:nth-of-type(1) > tr:nth-of-type(8) > td:nth-of-type(9)",
+    "box": [
+     809.39,
+     6532.06,
+     56.11,
+     49.63
+    ]
+   },
+   {
+    "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(3) > section:nth-of-type(3) > table:nth-of-type(2) > tbody:nth-of-type(1) > tr:nth-of-type(9) > td:nth-of-type(8)",
+    "box": [
+     757.39,
+     6581.69,
+     52,
+     49.63
+    ]
+   },
+   {
+    "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(3) > section:nth-of-type(3) > table:nth-of-type(2) > tbody:nth-of-type(1) > tr:nth-of-type(10) > td:nth-of-type(6)",
+    "box": [
+     655.78,
+     6631.31,
+     49.95,
+     49.63
+    ]
+   },
+   {
+    "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(3) > section:nth-of-type(3) > table:nth-of-type(2) > tbody:nth-of-type(1) > tr:nth-of-type(11) > td:nth-of-type(4)",
+    "box": [
+     553.89,
+     6680.94,
+     49.89,
+     49.63
+    ]
+   },
+   {
+    "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(3) > section:nth-of-type(4) > section:nth-of-type(2) > p:nth-of-type(1)",
+    "box": [
+     264,
+     7401.89,
+     752,
+     130
+    ]
+   },
+   {
+    "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(3) > section:nth-of-type(4) > section:nth-of-type(4) > figure:nth-of-type(1) > figcaption:nth-of-type(1)",
+    "box": [
+     264,
+     9279.36,
+     610,
+     56.59
+    ]
+   },
+   {
+    "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(4) > section:nth-of-type(1) > figure:nth-of-type(2) > figcaption:nth-of-type(1)",
+    "box": [
+     756,
+     11574.77,
+     260,
+     26.8
+    ]
+   },
+   {
+    "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(5) > section:nth-of-type(1) > section:nth-of-type(2) > p:nth-of-type(2)",
+    "box": [
+     264,
+     13269,
+     752,
+     104
+    ]
+   },
+   {
+    "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(5) > section:nth-of-type(1) > section:nth-of-type(3) > table:nth-of-type(1) > tbody:nth-of-type(1) > tr:nth-of-type(6) > td:nth-of-type(2)",
+    "box": [
+     438.28,
+     13989.97,
+     258.88,
+     33.38
+    ]
+   },
+   {
+    "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(6) > section:nth-of-type(1) > table:nth-of-type(1) > thead:nth-of-type(1) > tr:nth-of-type(1) > th:nth-of-type(3)",
+    "box": [
+     624.41,
+     15321.81,
+     246.97,
+     33.38
+    ]
+   },
+   {
+    "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(6) > section:nth-of-type(2) > table:nth-of-type(1) > thead:nth-of-type(1) > tr:nth-of-type(1) > th:nth-of-type(2)",
+    "box": [
+     438.61,
+     15888.38,
+     189.31,
+     33.38
+    ]
+   },
+   {
+    "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(7) > section:nth-of-type(1) > section:nth-of-type(1) > p:nth-of-type(2)",
+    "box": [
+     264,
+     17050.03,
+     752,
+     104
+    ]
+   },
+   {
+    "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(7) > section:nth-of-type(3) > div:nth-of-type(2)",
+    "box": [
+     264,
+     18857.84,
+     752,
+     23.41
+    ]
+   },
+   {
+    "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(7) > section:nth-of-type(6) > section:nth-of-type(2) > p:nth-of-type(2)",
+    "box": [
+     264,
+     21780.95,
+     752,
+     104
+    ]
+   },
+   {
+    "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(8) > section:nth-of-type(1) > dl:nth-of-type(4) > dt:nth-of-type(1)",
+    "box": [
+     264,
+     23403.45,
+     752,
+     26
+    ]
+   },
+   {
+    "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(11) > section:nth-of-type(1) > section:nth-of-type(1) > p:nth-of-type(2)",
+    "box": [
+     264,
+     24672.91,
+     752,
+     234
+    ]
+   },
+   {
+    "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(11) > section:nth-of-type(2) > section:nth-of-type(1) > p:nth-of-type(2)",
+    "box": [
+     264,
+     26961.61,
+     752,
+     234
+    ]
+   },
+   {
+    "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(13) > section:nth-of-type(1) > table:nth-of-type(1) > tbody:nth-of-type(1) > tr:nth-of-type(2) > td:nth-of-type(2)",
+    "box": [
+     570,
+     29563.92,
+     302,
+     23.66
+    ]
+   },
+   {
+    "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(13) > section:nth-of-type(1) > table:nth-of-type(1) > tbody:nth-of-type(1) > tr:nth-of-type(5) > td:nth-of-type(1) > table:nth-of-type(1) > tbody:nth-of-type(1) > tr:nth-of-type(6) > td:nth-of-type(2)",
+    "box": [
+     429.84,
+     29839.55,
+     98.91,
+     21
+    ]
+   },
+   {
+    "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(13) > section:nth-of-type(1) > figure:nth-of-type(1) > figcaption:nth-of-type(1) > table:nth-of-type(1) > tbody:nth-of-type(1) > tr:nth-of-type(1) > td:nth-of-type(1) > div:nth-of-type(2)",
+    "box": [
+     272,
+     30528.5,
+     225.8,
+     25.2
+    ]
+   },
+   {
+    "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(13) > section:nth-of-type(1) > section:nth-of-type(1) > table:nth-of-type(1) > tbody:nth-of-type(1) > tr:nth-of-type(2) > th:nth-of-type(1)",
+    "box": [
+     277.3,
+     31478.06,
+     60.48,
+     26.88
+    ]
+   },
+   {
+    "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(13) > section:nth-of-type(1) > section:nth-of-type(1) > table:nth-of-type(1) > tbody:nth-of-type(1) > tr:nth-of-type(5) > th:nth-of-type(1)",
+    "box": [
+     277.3,
+     31558.69,
+     60.48,
+     26.88
+    ]
+   },
+   {
+    "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(13) > section:nth-of-type(1) > section:nth-of-type(1) > table:nth-of-type(1) > tbody:nth-of-type(1) > tr:nth-of-type(8) > td:nth-of-type(1)",
+    "box": [
+     337.78,
+     31639.31,
+     84.8,
+     26.88
+    ]
+   },
+   {
+    "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(13) > section:nth-of-type(1) > section:nth-of-type(1) > table:nth-of-type(1) > tbody:nth-of-type(1) > tr:nth-of-type(11) > td:nth-of-type(2)",
+    "box": [
+     422.58,
+     31719.94,
+     100.83,
+     26.88
+    ]
+   },
+   {
+    "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(13) > section:nth-of-type(1) > section:nth-of-type(1) > table:nth-of-type(1) > tbody:nth-of-type(1) > tr:nth-of-type(14) > td:nth-of-type(3)",
+    "box": [
+     523.41,
+     31800.56,
+     97.59,
+     26.88
+    ]
+   },
+   {
+    "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(14) > section:nth-of-type(3) > div:nth-of-type(2)",
+    "box": [
+     264,
+     33443.73,
+     752,
+     23.41
+    ]
+   },
+   {
+    "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(14) > section:nth-of-type(7) > figure:nth-of-type(1) > figcaption:nth-of-type(1)",
+    "box": [
+     806,
+     35670.98,
+     210,
+     46.59
+    ]
+   },
+   {
+    "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(16) > section:nth-of-type(5) > p:nth-of-type(1)",
+    "box": [
+     264,
+     36209.59,
+     752,
+     78
+    ]
+   },
+   {
+    "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(20) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(2)",
+    "box": [
+     759.92,
+     42968.67,
+     255.08,
+     42.22
+    ]
+   }
+  ],
+  "paragraphs": [
+   {
+    "key": "html > body:nth-of-type(1) > div:nth-of-type(2) > header:nth-of-type(1) > div:nth-of-type(1) > nav:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1)",
+    "lineCount": 1,
+    "lines": [
+     [
+      53,
+      471.5,
+      93.89,
+      485.5
+     ]
+    ]
+   },
+   {
+    "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(1) > table:nth-of-type(1) > tbody:nth-of-type(1) > tr:nth-of-type(2) > td:nth-of-type(1) > div:nth-of-type(2) > table:nth-of-type(1) > tbody:nth-of-type(1) > tr:nth-of-type(1) > td:nth-of-type(1)",
+    "lineCount": 1,
+    "lines": [
+     [
+      790.63,
+      1140.98,
+      917.38,
+      1154.98
+     ]
+    ]
+   },
+   {
+    "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(1) > table:nth-of-type(1) > tbody:nth-of-type(1) > tr:nth-of-type(18) > th:nth-of-type(1)",
+    "lineCount": 1,
+    "lines": [
+     [
+      722.86,
+      1984.77,
+      765.11,
+      1998.77
+     ]
+    ]
+   },
+   {
+    "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(2) > section:nth-of-type(2) > div:nth-of-type(2)",
+    "lineCount": 1,
+    "lines": [
+     [
+      292.8,
+      1970.39,
+      604.69,
+      1985.39
+     ]
+    ]
+   },
+   {
+    "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(3) > section:nth-of-type(2) > p:nth-of-type(1)",
+    "lineCount": 5,
+    "lines": [
+     [
+      264,
+      4819.72,
+      1007.06,
+      4835.72
+     ],
+     [
+      264,
+      4845.72,
+      1014.91,
+      4861.72
+     ],
+     [
+      264,
+      4871.72,
+      1014.25,
+      4887.72
+     ],
+     [
+      264,
+      4897.72,
+      1014.27,
+      4913.72
+     ],
+     [
+      264,
+      4923.72,
+      790.56,
+      4939.72
+     ]
+    ]
+   },
+   {
+    "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(3) > section:nth-of-type(3) > table:nth-of-type(1) > tbody:nth-of-type(1) > tr:nth-of-type(3) > td:nth-of-type(1) > table:nth-of-type(1) > tbody:nth-of-type(1) > tr:nth-of-type(1) > td:nth-of-type(10)",
+    "lineCount": 1,
+    "lines": [
+     [
+      466.66,
+      5440.45,
+      483.31,
+      5453.45
+     ]
+    ]
+   },
+   {
+    "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(3) > section:nth-of-type(3) > p:nth-of-type(6)",
+    "lineCount": 3,
+    "lines": [
+     [
+      264,
+      6068.03,
+      1008.48,
+      6084.03
+     ],
+     [
+      264,
+      6094.03,
+      1004.66,
+      6110.03
+     ],
+     [
+      264,
+      6120.03,
+      426.91,
+      6136.03
+     ]
+    ]
+   },
+   {
+    "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(3) > section:nth-of-type(3) > table:nth-of-type(2) > tbody:nth-of-type(1) > tr:nth-of-type(2) > th:nth-of-type(5)",
+    "lineCount": 1,
+    "lines": [
+     [
+      824.11,
+      6327.09,
+      850.78,
+      6341.09
+     ]
+    ]
+   },
+   {
+    "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(3) > section:nth-of-type(3) > table:nth-of-type(2) > tbody:nth-of-type(1) > tr:nth-of-type(5) > td:nth-of-type(9)",
+    "lineCount": 1,
+    "lines": [
+     [
+      836.36,
+      6411,
+      859.67,
+      6425
+     ]
+    ]
+   },
+   {
+    "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(3) > section:nth-of-type(3) > table:nth-of-type(2) > tbody:nth-of-type(1) > tr:nth-of-type(6) > td:nth-of-type(9)",
+    "lineCount": 2,
+    "lines": [
+     [
+      830.19,
+      6438.97,
+      859.67,
+      6452.97
+     ],
+     [
+      828.08,
+      6460.63,
+      859.67,
+      6474.63
+     ]
+    ]
+   },
+   {
+    "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(3) > section:nth-of-type(3) > table:nth-of-type(2) > tbody:nth-of-type(1) > tr:nth-of-type(7) > td:nth-of-type(11)",
+    "lineCount": 2,
+    "lines": [
+     [
+      959.34,
+      6488.59,
+      980.06,
+      6502.59
+     ],
+     [
+      948.47,
+      6510.25,
+      980.06,
+      6524.25
+     ]
+    ]
+   },
+   {
+    "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(3) > section:nth-of-type(3) > table:nth-of-type(2) > tbody:nth-of-type(1) > tr:nth-of-type(8) > td:nth-of-type(9)",
+    "lineCount": 2,
+    "lines": [
+     [
+      821.44,
+      6538.22,
+      859.67,
+      6552.22
+     ],
+     [
+      828.08,
+      6559.88,
+      859.67,
+      6573.88
+     ]
+    ]
+   },
+   {
+    "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(3) > section:nth-of-type(3) > table:nth-of-type(2) > tbody:nth-of-type(1) > tr:nth-of-type(9) > td:nth-of-type(8)",
+    "lineCount": 2,
+    "lines": [
+     [
+      773.97,
+      6587.84,
+      803.56,
+      6601.84
+     ],
+     [
+      763.22,
+      6609.5,
+      803.56,
+      6623.5
+     ]
+    ]
+   },
+   {
+    "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(3) > section:nth-of-type(3) > table:nth-of-type(2) > tbody:nth-of-type(1) > tr:nth-of-type(10) > td:nth-of-type(6)",
+    "lineCount": 2,
+    "lines": [
+     [
+      670.42,
+      6637.47,
+      699.91,
+      6651.47
+     ],
+     [
+      668.31,
+      6659.13,
+      699.91,
+      6673.13
+     ]
+    ]
+   },
+   {
+    "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(3) > section:nth-of-type(3) > table:nth-of-type(2) > tbody:nth-of-type(1) > tr:nth-of-type(11) > td:nth-of-type(4)",
+    "lineCount": 2,
+    "lines": [
+     [
+      577.23,
+      6687.09,
+      597.95,
+      6701.09
+     ],
+     [
+      566.36,
+      6708.75,
+      597.95,
+      6722.75
+     ]
+    ]
+   },
+   {
+    "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(3) > section:nth-of-type(4) > section:nth-of-type(2) > p:nth-of-type(1)",
+    "lineCount": 5,
+    "lines": [
+     [
+      264,
+      7406.89,
+      1015.53,
+      7422.89
+     ],
+     [
+      264,
+      7432.89,
+      1013.61,
+      7448.89
+     ],
+     [
+      264,
+      7458.89,
+      1014.25,
+      7474.89
+     ],
+     [
+      264,
+      7484.89,
+      1015.53,
+      7500.89
+     ],
+     [
+      264,
+      7510.89,
+      759.53,
+      7526.89
+     ]
+    ]
+   },
+   {
+    "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(3) > section:nth-of-type(4) > section:nth-of-type(4) > figure:nth-of-type(1) > figcaption:nth-of-type(1)",
+    "lineCount": 2,
+    "lines": [
+     [
+      271,
+      9281.36,
+      409.09,
+      9295.36
+     ],
+     [
+      757.05,
+      9313.16,
+      867,
+      9324.16
+     ]
+    ]
+   },
+   {
+    "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(4) > section:nth-of-type(1) > figure:nth-of-type(2) > figcaption:nth-of-type(1)",
+    "lineCount": 1,
+    "lines": [
+     [
+      763,
+      11576.77,
+      861.98,
+      11590.77
+     ]
+    ]
+   },
+   {
+    "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(5) > section:nth-of-type(1) > section:nth-of-type(2) > p:nth-of-type(2)",
+    "lineCount": 4,
+    "lines": [
+     [
+      264,
+      13274,
+      728,
+      13290
+     ],
+     [
+      264,
+      13300,
+      728,
+      13316
+     ],
+     [
+      264,
+      13326,
+      726.89,
+      13342
+     ],
+     [
+      264,
+      13352,
+      328,
+      13368
+     ]
+    ]
+   },
+   {
+    "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(5) > section:nth-of-type(1) > section:nth-of-type(3) > table:nth-of-type(1) > tbody:nth-of-type(1) > tr:nth-of-type(6) > td:nth-of-type(2)",
+    "lineCount": 1,
+    "lines": [
+     [
+      445.17,
+      13998.66,
+      588.25,
+      14014.66
+     ]
+    ]
+   },
+   {
+    "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(6) > section:nth-of-type(1) > table:nth-of-type(1) > thead:nth-of-type(1) > tr:nth-of-type(1) > th:nth-of-type(3)",
+    "lineCount": 1,
+    "lines": [
+     [
+      716.58,
+      15330.5,
+      764.58,
+      15346.5
+     ]
+    ]
+   },
+   {
+    "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(6) > section:nth-of-type(2) > table:nth-of-type(1) > thead:nth-of-type(1) > tr:nth-of-type(1) > th:nth-of-type(2)",
+    "lineCount": 1,
+    "lines": [
+     [
+      493.95,
+      15897.06,
+      557.95,
+      15913.06
+     ]
+    ]
+   },
+   {
+    "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(7) > section:nth-of-type(1) > section:nth-of-type(1) > p:nth-of-type(2)",
+    "lineCount": 4,
+    "lines": [
+     [
+      264,
+      17055.03,
+      1015.53,
+      17071.03
+     ],
+     [
+      264,
+      17081.03,
+      1015.05,
+      17097.03
+     ],
+     [
+      264,
+      17107.03,
+      1016,
+      17123.03
+     ],
+     [
+      264,
+      17133.03,
+      775.05,
+      17149.03
+     ]
+    ]
+   },
+   {
+    "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(7) > section:nth-of-type(3) > div:nth-of-type(2)",
+    "lineCount": 1,
+    "lines": [
+     [
+      292.8,
+      18861.84,
+      764.58,
+      18876.84
+     ]
+    ]
+   },
+   {
+    "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(7) > section:nth-of-type(6) > section:nth-of-type(2) > p:nth-of-type(2)",
+    "lineCount": 4,
+    "lines": [
+     [
+      264,
+      21785.95,
+      1015.53,
+      21801.95
+     ],
+     [
+      264,
+      21811.95,
+      1015.2,
+      21827.95
+     ],
+     [
+      264,
+      21837.95,
+      1006.66,
+      21853.95
+     ],
+     [
+      264,
+      21863.95,
+      488,
+      21879.95
+     ]
+    ]
+   },
+   {
+    "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(8) > section:nth-of-type(1) > dl:nth-of-type(4) > dt:nth-of-type(1)",
+    "lineCount": 1,
+    "lines": [
+     [
+      264,
+      23408.45,
+      360,
+      23424.45
+     ]
+    ]
+   },
+   {
+    "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(11) > section:nth-of-type(1) > section:nth-of-type(1) > p:nth-of-type(2)",
+    "lineCount": 9,
+    "lines": [
+     [
+      264,
+      24677.91,
+      775.53,
+      24693.91
+     ],
+     [
+      264,
+      24703.91,
+      776,
+      24719.91
+     ],
+     [
+      264,
+      24729.91,
+      773.3,
+      24745.91
+     ],
+     [
+      264,
+      24755.91,
+      765.33,
+      24771.91
+     ],
+     [
+      264,
+      24781.91,
+      776,
+      24797.91
+     ],
+     [
+      264,
+      24807.91,
+      776,
+      24823.91
+     ],
+     [
+      264,
+      24833.91,
+      1008.78,
+      24849.91
+     ],
+     [
+      264,
+      24859.91,
+      1014.73,
+      24875.91
+     ],
+     [
+      264,
+      24885.91,
+      296,
+      24901.91
+     ]
+    ]
+   },
+   {
+    "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(11) > section:nth-of-type(2) > section:nth-of-type(1) > p:nth-of-type(2)",
+    "lineCount": 9,
+    "lines": [
+     [
+      264,
+      26966.61,
+      728,
+      26982.61
+     ],
+     [
+      264,
+      26992.61,
+      732.56,
+      27008.61
+     ],
+     [
+      264,
+      27018.61,
+      726.13,
+      27034.61
+     ],
+     [
+      264,
+      27044.61,
+      720.44,
+      27060.61
+     ],
+     [
+      264,
+      27070.61,
+      727.38,
+      27086.61
+     ],
+     [
+      264,
+      27096.61,
+      728,
+      27112.61
+     ],
+     [
+      264,
+      27122.61,
+      726.42,
+      27138.61
+     ],
+     [
+      264,
+      27148.61,
+      1013.14,
+      27164.61
+     ],
+     [
+      264,
+      27174.61,
+      806.42,
+      27190.61
+     ]
+    ]
+   },
+   {
+    "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(13) > section:nth-of-type(1) > table:nth-of-type(1) > tbody:nth-of-type(1) > tr:nth-of-type(2) > td:nth-of-type(2)",
+    "lineCount": 1,
+    "lines": [
+     [
+      590.17,
+      29567.92,
+      851.83,
+      29581.92
+     ]
+    ]
+   },
+   {
+    "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(13) > section:nth-of-type(1) > table:nth-of-type(1) > tbody:nth-of-type(1) > tr:nth-of-type(5) > td:nth-of-type(1) > table:nth-of-type(1) > tbody:nth-of-type(1) > tr:nth-of-type(6) > td:nth-of-type(2)",
+    "lineCount": 1,
+    "lines": [
+     [
+      434.45,
+      29843.05,
+      524.25,
+      29857.05
+     ]
+    ]
+   },
+   {
+    "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(13) > section:nth-of-type(1) > figure:nth-of-type(1) > figcaption:nth-of-type(1) > table:nth-of-type(1) > tbody:nth-of-type(1) > tr:nth-of-type(1) > td:nth-of-type(1) > div:nth-of-type(2)",
+    "lineCount": 1,
+    "lines": [
+     [
+      299.92,
+      30532.5,
+      384.8,
+      30546.5
+     ]
+    ]
+   },
+   {
+    "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(13) > section:nth-of-type(1) > section:nth-of-type(1) > table:nth-of-type(1) > tbody:nth-of-type(1) > tr:nth-of-type(2) > th:nth-of-type(1)",
+    "lineCount": 1,
+    "lines": [
+     [
+      282.91,
+      31484.11,
+      332.17,
+      31497.11
+     ]
+    ]
+   },
+   {
+    "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(13) > section:nth-of-type(1) > section:nth-of-type(1) > table:nth-of-type(1) > tbody:nth-of-type(1) > tr:nth-of-type(5) > th:nth-of-type(1)",
+    "lineCount": 1,
+    "lines": [
+     [
+      282.91,
+      31564.73,
+      332.17,
+      31577.73
+     ]
+    ]
+   },
+   {
+    "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(13) > section:nth-of-type(1) > section:nth-of-type(1) > table:nth-of-type(1) > tbody:nth-of-type(1) > tr:nth-of-type(8) > td:nth-of-type(1)",
+    "lineCount": 1,
+    "lines": [
+     [
+      343.55,
+      31645.36,
+      416.97,
+      31658.36
+     ]
+    ]
+   },
+   {
+    "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(13) > section:nth-of-type(1) > section:nth-of-type(1) > table:nth-of-type(1) > tbody:nth-of-type(1) > tr:nth-of-type(11) > td:nth-of-type(2)",
+    "lineCount": 1,
+    "lines": [
+     [
+      460,
+      31725.98,
+      517.8,
+      31738.98
+     ]
+    ]
+   },
+   {
+    "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(13) > section:nth-of-type(1) > section:nth-of-type(1) > table:nth-of-type(1) > tbody:nth-of-type(1) > tr:nth-of-type(14) > td:nth-of-type(3)",
+    "lineCount": 1,
+    "lines": [
+     [
+      591.23,
+      31806.61,
+      615.39,
+      31819.61
+     ]
+    ]
+   },
+   {
+    "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(14) > section:nth-of-type(3) > div:nth-of-type(2)",
+    "lineCount": 1,
+    "lines": [
+     [
+      292.8,
+      33447.73,
+      534.77,
+      33462.73
+     ]
+    ]
+   },
+   {
+    "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(14) > section:nth-of-type(7) > figure:nth-of-type(1) > figcaption:nth-of-type(1)",
+    "lineCount": 2,
+    "lines": [
+     [
+      813,
+      35672.98,
+      973.25,
+      35686.98
+     ],
+     [
+      813,
+      35692.78,
+      1012.38,
+      35706.78
+     ]
+    ]
+   },
+   {
+    "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(16) > section:nth-of-type(5) > p:nth-of-type(1)",
+    "lineCount": 3,
+    "lines": [
+     [
+      264,
+      36214.59,
+      1006.81,
+      36230.59
+     ],
+     [
+      264,
+      36240.59,
+      981.47,
+      36256.59
+     ],
+     [
+      264,
+      36262.27,
+      331.53,
+      36282.59
+     ]
+    ]
+   },
+   {
+    "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(20) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(2)",
+    "lineCount": 2,
+    "lines": [
+     [
+      772.59,
+      42973.19,
+      993.67,
+      42987.19
+     ],
+     [
+      772.59,
+      42990.78,
+      897.92,
+      43004.78
+     ]
+    ]
+   }
+  ],
+  "paged": [
+   {
+    "key": "paged#0:div",
+    "columnCount": "auto",
+    "columnWidth": "80px",
+    "scrollWidth": 726,
+    "scrollHeight": 54,
+    "clientWidth": 726,
+    "clientHeight": 54,
+    "pages": 1
+   },
+   {
+    "key": "paged#1:div",
+    "columnCount": "auto",
+    "columnWidth": "80px",
+    "scrollWidth": 726,
+    "scrollHeight": 26,
+    "clientWidth": 726,
+    "clientHeight": 26,
+    "pages": 1
+   },
+   {
+    "key": "paged#2:div",
+    "columnCount": "auto",
+    "columnWidth": "480px",
+    "scrollWidth": 726,
+    "scrollHeight": 110,
+    "clientWidth": 726,
+    "clientHeight": 110,
+    "pages": 1
+   },
+   {
+    "key": "paged#3:div",
+    "columnCount": "auto",
+    "columnWidth": "240px",
+    "scrollWidth": 726,
+    "scrollHeight": 28,
+    "clientWidth": 726,
+    "clientHeight": 28,
+    "pages": 1
+   },
+   {
+    "key": "paged#4:div",
+    "columnCount": "2",
+    "columnWidth": "288px",
+    "scrollWidth": 752,
+    "scrollHeight": 1251,
+    "clientWidth": 752,
+    "clientHeight": 1251,
+    "pages": 1
+   },
+   {
+    "key": "paged#5:div",
+    "columnCount": "auto",
+    "columnWidth": "432px",
+    "scrollWidth": 752,
+    "scrollHeight": 3323,
+    "clientWidth": 752,
+    "clientHeight": 3323,
+    "pages": 1
+   }
+  ]
+ },
+ "replay": {
+  "chromium": {
+   "viewport": {
+    "width": 1280,
+    "height": 900
+   },
+   "document": {
+    "scrollWidth": 1280,
+    "scrollHeight": 43988,
+    "clientWidth": 1280,
+    "clientHeight": 900
+   },
+   "blocks": [
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(2) > header:nth-of-type(1) > div:nth-of-type(1) > nav:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1)",
+     "box": [
+      53,
+      462.5,
+      200,
+      34
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(1) > table:nth-of-type(1) > tbody:nth-of-type(1) > tr:nth-of-type(2) > td:nth-of-type(1) > div:nth-of-type(2) > table:nth-of-type(1) > tbody:nth-of-type(1) > tr:nth-of-type(1) > td:nth-of-type(1)",
+     "box": [
+      714.5,
+      1136.48,
+      279,
+      24.13
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(1) > table:nth-of-type(1) > tbody:nth-of-type(1) > tr:nth-of-type(18) > th:nth-of-type(1)",
+     "box": [
+      692.5,
+      1980.27,
+      102.97,
+      232.63
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(2) > section:nth-of-type(2) > div:nth-of-type(2)",
+     "box": [
+      264,
+      1966.39,
+      752,
+      23.41
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(3) > section:nth-of-type(2) > p:nth-of-type(1)",
+     "box": [
+      264,
+      4814.72,
+      752,
+      130
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(3) > section:nth-of-type(3) > table:nth-of-type(1) > tbody:nth-of-type(1) > tr:nth-of-type(3) > td:nth-of-type(1) > table:nth-of-type(1) > tbody:nth-of-type(1) > tr:nth-of-type(1) > td:nth-of-type(10)",
+     "box": [
+      466.66,
+      5437.45,
+      21.81,
+      19.02
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(3) > section:nth-of-type(3) > p:nth-of-type(6)",
+     "box": [
+      264,
+      6063.03,
+      752,
+      78
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(3) > section:nth-of-type(3) > table:nth-of-type(2) > tbody:nth-of-type(1) > tr:nth-of-type(2) > th:nth-of-type(5)",
+     "box": [
+      757.39,
+      6320.94,
+      160.11,
+      27.97
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(3) > section:nth-of-type(3) > table:nth-of-type(2) > tbody:nth-of-type(1) > tr:nth-of-type(5) > td:nth-of-type(9)",
+     "box": [
+      809.39,
+      6404.84,
+      56.11,
+      27.97
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(3) > section:nth-of-type(3) > table:nth-of-type(2) > tbody:nth-of-type(1) > tr:nth-of-type(6) > td:nth-of-type(9)",
+     "box": [
+      809.39,
+      6432.81,
+      56.11,
+      49.63
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(3) > section:nth-of-type(3) > table:nth-of-type(2) > tbody:nth-of-type(1) > tr:nth-of-type(7) > td:nth-of-type(11)",
+     "box": [
+      917.5,
+      6482.44,
+      68.39,
+      49.63
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(3) > section:nth-of-type(3) > table:nth-of-type(2) > tbody:nth-of-type(1) > tr:nth-of-type(8) > td:nth-of-type(9)",
+     "box": [
+      809.39,
+      6532.06,
+      56.11,
+      49.63
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(3) > section:nth-of-type(3) > table:nth-of-type(2) > tbody:nth-of-type(1) > tr:nth-of-type(9) > td:nth-of-type(8)",
+     "box": [
+      757.39,
+      6581.69,
+      52,
+      49.63
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(3) > section:nth-of-type(3) > table:nth-of-type(2) > tbody:nth-of-type(1) > tr:nth-of-type(10) > td:nth-of-type(6)",
+     "box": [
+      655.78,
+      6631.31,
+      49.95,
+      49.63
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(3) > section:nth-of-type(3) > table:nth-of-type(2) > tbody:nth-of-type(1) > tr:nth-of-type(11) > td:nth-of-type(4)",
+     "box": [
+      553.89,
+      6680.94,
+      49.89,
+      49.63
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(3) > section:nth-of-type(4) > section:nth-of-type(2) > p:nth-of-type(1)",
+     "box": [
+      264,
+      7401.89,
+      752,
+      130
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(3) > section:nth-of-type(4) > section:nth-of-type(4) > figure:nth-of-type(1) > figcaption:nth-of-type(1)",
+     "box": [
+      264,
+      9279.36,
+      610,
+      56.59
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(4) > section:nth-of-type(1) > figure:nth-of-type(2) > figcaption:nth-of-type(1)",
+     "box": [
+      756,
+      11574.77,
+      260,
+      26.8
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(5) > section:nth-of-type(1) > section:nth-of-type(2) > p:nth-of-type(2)",
+     "box": [
+      264,
+      13269,
+      752,
+      104
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(5) > section:nth-of-type(1) > section:nth-of-type(3) > table:nth-of-type(1) > tbody:nth-of-type(1) > tr:nth-of-type(6) > td:nth-of-type(2)",
+     "box": [
+      438.28,
+      13989.97,
+      258.88,
+      33.38
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(6) > section:nth-of-type(1) > table:nth-of-type(1) > thead:nth-of-type(1) > tr:nth-of-type(1) > th:nth-of-type(3)",
+     "box": [
+      624.41,
+      15321.81,
+      246.97,
+      33.38
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(6) > section:nth-of-type(2) > table:nth-of-type(1) > thead:nth-of-type(1) > tr:nth-of-type(1) > th:nth-of-type(2)",
+     "box": [
+      438.61,
+      15888.38,
+      189.31,
+      33.38
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(7) > section:nth-of-type(1) > section:nth-of-type(1) > p:nth-of-type(2)",
+     "box": [
+      264,
+      17050.03,
+      752,
+      104
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(7) > section:nth-of-type(3) > div:nth-of-type(2)",
+     "box": [
+      264,
+      18857.84,
+      752,
+      23.41
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(7) > section:nth-of-type(6) > section:nth-of-type(2) > p:nth-of-type(2)",
+     "box": [
+      264,
+      21780.95,
+      752,
+      104
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(8) > section:nth-of-type(1) > dl:nth-of-type(4) > dt:nth-of-type(1)",
+     "box": [
+      264,
+      23403.45,
+      752,
+      26
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(11) > section:nth-of-type(1) > section:nth-of-type(1) > p:nth-of-type(2)",
+     "box": [
+      264,
+      24672.91,
+      752,
+      234
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(11) > section:nth-of-type(2) > section:nth-of-type(1) > p:nth-of-type(2)",
+     "box": [
+      264,
+      26961.61,
+      752,
+      234
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(13) > section:nth-of-type(1) > table:nth-of-type(1) > tbody:nth-of-type(1) > tr:nth-of-type(2) > td:nth-of-type(2)",
+     "box": [
+      570,
+      29563.92,
+      302,
+      23.66
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(13) > section:nth-of-type(1) > table:nth-of-type(1) > tbody:nth-of-type(1) > tr:nth-of-type(5) > td:nth-of-type(1) > table:nth-of-type(1) > tbody:nth-of-type(1) > tr:nth-of-type(6) > td:nth-of-type(2)",
+     "box": [
+      429.84,
+      29839.55,
+      98.91,
+      21
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(13) > section:nth-of-type(1) > figure:nth-of-type(1) > figcaption:nth-of-type(1) > table:nth-of-type(1) > tbody:nth-of-type(1) > tr:nth-of-type(1) > td:nth-of-type(1) > div:nth-of-type(2)",
+     "box": [
+      272,
+      30528.5,
+      225.8,
+      25.2
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(13) > section:nth-of-type(1) > section:nth-of-type(1) > table:nth-of-type(1) > tbody:nth-of-type(1) > tr:nth-of-type(2) > th:nth-of-type(1)",
+     "box": [
+      277.3,
+      31478.06,
+      60.48,
+      26.88
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(13) > section:nth-of-type(1) > section:nth-of-type(1) > table:nth-of-type(1) > tbody:nth-of-type(1) > tr:nth-of-type(5) > th:nth-of-type(1)",
+     "box": [
+      277.3,
+      31558.69,
+      60.48,
+      26.88
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(13) > section:nth-of-type(1) > section:nth-of-type(1) > table:nth-of-type(1) > tbody:nth-of-type(1) > tr:nth-of-type(8) > td:nth-of-type(1)",
+     "box": [
+      337.78,
+      31639.31,
+      84.8,
+      26.88
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(13) > section:nth-of-type(1) > section:nth-of-type(1) > table:nth-of-type(1) > tbody:nth-of-type(1) > tr:nth-of-type(11) > td:nth-of-type(2)",
+     "box": [
+      422.58,
+      31719.94,
+      100.83,
+      26.88
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(13) > section:nth-of-type(1) > section:nth-of-type(1) > table:nth-of-type(1) > tbody:nth-of-type(1) > tr:nth-of-type(14) > td:nth-of-type(3)",
+     "box": [
+      523.41,
+      31800.56,
+      97.59,
+      26.88
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(14) > section:nth-of-type(3) > div:nth-of-type(2)",
+     "box": [
+      264,
+      33443.73,
+      752,
+      23.41
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(14) > section:nth-of-type(7) > figure:nth-of-type(1) > figcaption:nth-of-type(1)",
+     "box": [
+      806,
+      35670.98,
+      210,
+      46.59
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(16) > section:nth-of-type(5) > p:nth-of-type(1)",
+     "box": [
+      264,
+      36209.59,
+      752,
+      78
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(20) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(2)",
+     "box": [
+      759.92,
+      42968.67,
+      255.08,
+      42.22
+     ]
+    }
+   ],
+   "paragraphs": [
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(2) > header:nth-of-type(1) > div:nth-of-type(1) > nav:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1)",
+     "lineCount": 1,
+     "lines": [
+      [
+       53,
+       471.5,
+       93.89,
+       485.5
+      ]
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(1) > table:nth-of-type(1) > tbody:nth-of-type(1) > tr:nth-of-type(2) > td:nth-of-type(1) > div:nth-of-type(2) > table:nth-of-type(1) > tbody:nth-of-type(1) > tr:nth-of-type(1) > td:nth-of-type(1)",
+     "lineCount": 1,
+     "lines": [
+      [
+       790.63,
+       1140.98,
+       917.38,
+       1154.98
+      ]
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(1) > table:nth-of-type(1) > tbody:nth-of-type(1) > tr:nth-of-type(18) > th:nth-of-type(1)",
+     "lineCount": 1,
+     "lines": [
+      [
+       722.86,
+       1984.77,
+       765.11,
+       1998.77
+      ]
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(2) > section:nth-of-type(2) > div:nth-of-type(2)",
+     "lineCount": 1,
+     "lines": [
+      [
+       292.8,
+       1970.39,
+       604.69,
+       1985.39
+      ]
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(3) > section:nth-of-type(2) > p:nth-of-type(1)",
+     "lineCount": 5,
+     "lines": [
+      [
+       264,
+       4819.72,
+       1007.06,
+       4835.72
+      ],
+      [
+       264,
+       4845.72,
+       1014.91,
+       4861.72
+      ],
+      [
+       264,
+       4871.72,
+       1014.25,
+       4887.72
+      ],
+      [
+       264,
+       4897.72,
+       1014.27,
+       4913.72
+      ],
+      [
+       264,
+       4923.72,
+       790.56,
+       4939.72
+      ]
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(3) > section:nth-of-type(3) > table:nth-of-type(1) > tbody:nth-of-type(1) > tr:nth-of-type(3) > td:nth-of-type(1) > table:nth-of-type(1) > tbody:nth-of-type(1) > tr:nth-of-type(1) > td:nth-of-type(10)",
+     "lineCount": 1,
+     "lines": [
+      [
+       466.66,
+       5440.45,
+       483.31,
+       5453.45
+      ]
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(3) > section:nth-of-type(3) > p:nth-of-type(6)",
+     "lineCount": 3,
+     "lines": [
+      [
+       264,
+       6068.03,
+       1008.48,
+       6084.03
+      ],
+      [
+       264,
+       6094.03,
+       1004.66,
+       6110.03
+      ],
+      [
+       264,
+       6120.03,
+       426.91,
+       6136.03
+      ]
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(3) > section:nth-of-type(3) > table:nth-of-type(2) > tbody:nth-of-type(1) > tr:nth-of-type(2) > th:nth-of-type(5)",
+     "lineCount": 1,
+     "lines": [
+      [
+       824.11,
+       6327.09,
+       850.78,
+       6341.09
+      ]
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(3) > section:nth-of-type(3) > table:nth-of-type(2) > tbody:nth-of-type(1) > tr:nth-of-type(5) > td:nth-of-type(9)",
+     "lineCount": 1,
+     "lines": [
+      [
+       836.36,
+       6411,
+       859.67,
+       6425
+      ]
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(3) > section:nth-of-type(3) > table:nth-of-type(2) > tbody:nth-of-type(1) > tr:nth-of-type(6) > td:nth-of-type(9)",
+     "lineCount": 2,
+     "lines": [
+      [
+       830.19,
+       6438.97,
+       859.67,
+       6452.97
+      ],
+      [
+       828.08,
+       6460.63,
+       859.67,
+       6474.63
+      ]
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(3) > section:nth-of-type(3) > table:nth-of-type(2) > tbody:nth-of-type(1) > tr:nth-of-type(7) > td:nth-of-type(11)",
+     "lineCount": 2,
+     "lines": [
+      [
+       959.34,
+       6488.59,
+       980.06,
+       6502.59
+      ],
+      [
+       948.47,
+       6510.25,
+       980.06,
+       6524.25
+      ]
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(3) > section:nth-of-type(3) > table:nth-of-type(2) > tbody:nth-of-type(1) > tr:nth-of-type(8) > td:nth-of-type(9)",
+     "lineCount": 2,
+     "lines": [
+      [
+       821.44,
+       6538.22,
+       859.67,
+       6552.22
+      ],
+      [
+       828.08,
+       6559.88,
+       859.67,
+       6573.88
+      ]
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(3) > section:nth-of-type(3) > table:nth-of-type(2) > tbody:nth-of-type(1) > tr:nth-of-type(9) > td:nth-of-type(8)",
+     "lineCount": 2,
+     "lines": [
+      [
+       773.97,
+       6587.84,
+       803.56,
+       6601.84
+      ],
+      [
+       763.22,
+       6609.5,
+       803.56,
+       6623.5
+      ]
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(3) > section:nth-of-type(3) > table:nth-of-type(2) > tbody:nth-of-type(1) > tr:nth-of-type(10) > td:nth-of-type(6)",
+     "lineCount": 2,
+     "lines": [
+      [
+       670.42,
+       6637.47,
+       699.91,
+       6651.47
+      ],
+      [
+       668.31,
+       6659.13,
+       699.91,
+       6673.13
+      ]
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(3) > section:nth-of-type(3) > table:nth-of-type(2) > tbody:nth-of-type(1) > tr:nth-of-type(11) > td:nth-of-type(4)",
+     "lineCount": 2,
+     "lines": [
+      [
+       577.23,
+       6687.09,
+       597.95,
+       6701.09
+      ],
+      [
+       566.36,
+       6708.75,
+       597.95,
+       6722.75
+      ]
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(3) > section:nth-of-type(4) > section:nth-of-type(2) > p:nth-of-type(1)",
+     "lineCount": 5,
+     "lines": [
+      [
+       264,
+       7406.89,
+       1015.53,
+       7422.89
+      ],
+      [
+       264,
+       7432.89,
+       1013.61,
+       7448.89
+      ],
+      [
+       264,
+       7458.89,
+       1014.25,
+       7474.89
+      ],
+      [
+       264,
+       7484.89,
+       1015.53,
+       7500.89
+      ],
+      [
+       264,
+       7510.89,
+       759.53,
+       7526.89
+      ]
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(3) > section:nth-of-type(4) > section:nth-of-type(4) > figure:nth-of-type(1) > figcaption:nth-of-type(1)",
+     "lineCount": 2,
+     "lines": [
+      [
+       271,
+       9281.36,
+       409.09,
+       9295.36
+      ],
+      [
+       757.05,
+       9313.16,
+       867,
+       9324.16
+      ]
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(4) > section:nth-of-type(1) > figure:nth-of-type(2) > figcaption:nth-of-type(1)",
+     "lineCount": 1,
+     "lines": [
+      [
+       763,
+       11576.77,
+       861.98,
+       11590.77
+      ]
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(5) > section:nth-of-type(1) > section:nth-of-type(2) > p:nth-of-type(2)",
+     "lineCount": 4,
+     "lines": [
+      [
+       264,
+       13274,
+       728,
+       13290
+      ],
+      [
+       264,
+       13300,
+       728,
+       13316
+      ],
+      [
+       264,
+       13326,
+       726.89,
+       13342
+      ],
+      [
+       264,
+       13352,
+       328,
+       13368
+      ]
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(5) > section:nth-of-type(1) > section:nth-of-type(3) > table:nth-of-type(1) > tbody:nth-of-type(1) > tr:nth-of-type(6) > td:nth-of-type(2)",
+     "lineCount": 1,
+     "lines": [
+      [
+       445.17,
+       13998.66,
+       588.25,
+       14014.66
+      ]
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(6) > section:nth-of-type(1) > table:nth-of-type(1) > thead:nth-of-type(1) > tr:nth-of-type(1) > th:nth-of-type(3)",
+     "lineCount": 1,
+     "lines": [
+      [
+       716.58,
+       15330.5,
+       764.58,
+       15346.5
+      ]
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(6) > section:nth-of-type(2) > table:nth-of-type(1) > thead:nth-of-type(1) > tr:nth-of-type(1) > th:nth-of-type(2)",
+     "lineCount": 1,
+     "lines": [
+      [
+       493.95,
+       15897.06,
+       557.95,
+       15913.06
+      ]
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(7) > section:nth-of-type(1) > section:nth-of-type(1) > p:nth-of-type(2)",
+     "lineCount": 4,
+     "lines": [
+      [
+       264,
+       17055.03,
+       1015.53,
+       17071.03
+      ],
+      [
+       264,
+       17081.03,
+       1015.05,
+       17097.03
+      ],
+      [
+       264,
+       17107.03,
+       1016,
+       17123.03
+      ],
+      [
+       264,
+       17133.03,
+       775.05,
+       17149.03
+      ]
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(7) > section:nth-of-type(3) > div:nth-of-type(2)",
+     "lineCount": 1,
+     "lines": [
+      [
+       292.8,
+       18861.84,
+       764.58,
+       18876.84
+      ]
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(7) > section:nth-of-type(6) > section:nth-of-type(2) > p:nth-of-type(2)",
+     "lineCount": 4,
+     "lines": [
+      [
+       264,
+       21785.95,
+       1015.53,
+       21801.95
+      ],
+      [
+       264,
+       21811.95,
+       1015.2,
+       21827.95
+      ],
+      [
+       264,
+       21837.95,
+       1006.66,
+       21853.95
+      ],
+      [
+       264,
+       21863.95,
+       488,
+       21879.95
+      ]
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(8) > section:nth-of-type(1) > dl:nth-of-type(4) > dt:nth-of-type(1)",
+     "lineCount": 1,
+     "lines": [
+      [
+       264,
+       23408.45,
+       360,
+       23424.45
+      ]
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(11) > section:nth-of-type(1) > section:nth-of-type(1) > p:nth-of-type(2)",
+     "lineCount": 9,
+     "lines": [
+      [
+       264,
+       24677.91,
+       775.53,
+       24693.91
+      ],
+      [
+       264,
+       24703.91,
+       776,
+       24719.91
+      ],
+      [
+       264,
+       24729.91,
+       773.3,
+       24745.91
+      ],
+      [
+       264,
+       24755.91,
+       765.33,
+       24771.91
+      ],
+      [
+       264,
+       24781.91,
+       776,
+       24797.91
+      ],
+      [
+       264,
+       24807.91,
+       776,
+       24823.91
+      ],
+      [
+       264,
+       24833.91,
+       1008.78,
+       24849.91
+      ],
+      [
+       264,
+       24859.91,
+       1014.73,
+       24875.91
+      ],
+      [
+       264,
+       24885.91,
+       296,
+       24901.91
+      ]
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(11) > section:nth-of-type(2) > section:nth-of-type(1) > p:nth-of-type(2)",
+     "lineCount": 9,
+     "lines": [
+      [
+       264,
+       26966.61,
+       728,
+       26982.61
+      ],
+      [
+       264,
+       26992.61,
+       732.56,
+       27008.61
+      ],
+      [
+       264,
+       27018.61,
+       726.13,
+       27034.61
+      ],
+      [
+       264,
+       27044.61,
+       720.44,
+       27060.61
+      ],
+      [
+       264,
+       27070.61,
+       727.38,
+       27086.61
+      ],
+      [
+       264,
+       27096.61,
+       728,
+       27112.61
+      ],
+      [
+       264,
+       27122.61,
+       726.42,
+       27138.61
+      ],
+      [
+       264,
+       27148.61,
+       1013.14,
+       27164.61
+      ],
+      [
+       264,
+       27174.61,
+       806.42,
+       27190.61
+      ]
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(13) > section:nth-of-type(1) > table:nth-of-type(1) > tbody:nth-of-type(1) > tr:nth-of-type(2) > td:nth-of-type(2)",
+     "lineCount": 1,
+     "lines": [
+      [
+       590.17,
+       29567.92,
+       851.83,
+       29581.92
+      ]
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(13) > section:nth-of-type(1) > table:nth-of-type(1) > tbody:nth-of-type(1) > tr:nth-of-type(5) > td:nth-of-type(1) > table:nth-of-type(1) > tbody:nth-of-type(1) > tr:nth-of-type(6) > td:nth-of-type(2)",
+     "lineCount": 1,
+     "lines": [
+      [
+       434.45,
+       29843.05,
+       524.25,
+       29857.05
+      ]
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(13) > section:nth-of-type(1) > figure:nth-of-type(1) > figcaption:nth-of-type(1) > table:nth-of-type(1) > tbody:nth-of-type(1) > tr:nth-of-type(1) > td:nth-of-type(1) > div:nth-of-type(2)",
+     "lineCount": 1,
+     "lines": [
+      [
+       299.92,
+       30532.5,
+       384.8,
+       30546.5
+      ]
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(13) > section:nth-of-type(1) > section:nth-of-type(1) > table:nth-of-type(1) > tbody:nth-of-type(1) > tr:nth-of-type(2) > th:nth-of-type(1)",
+     "lineCount": 1,
+     "lines": [
+      [
+       282.91,
+       31484.11,
+       332.17,
+       31497.11
+      ]
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(13) > section:nth-of-type(1) > section:nth-of-type(1) > table:nth-of-type(1) > tbody:nth-of-type(1) > tr:nth-of-type(5) > th:nth-of-type(1)",
+     "lineCount": 1,
+     "lines": [
+      [
+       282.91,
+       31564.73,
+       332.17,
+       31577.73
+      ]
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(13) > section:nth-of-type(1) > section:nth-of-type(1) > table:nth-of-type(1) > tbody:nth-of-type(1) > tr:nth-of-type(8) > td:nth-of-type(1)",
+     "lineCount": 1,
+     "lines": [
+      [
+       343.55,
+       31645.36,
+       416.97,
+       31658.36
+      ]
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(13) > section:nth-of-type(1) > section:nth-of-type(1) > table:nth-of-type(1) > tbody:nth-of-type(1) > tr:nth-of-type(11) > td:nth-of-type(2)",
+     "lineCount": 1,
+     "lines": [
+      [
+       460,
+       31725.98,
+       517.8,
+       31738.98
+      ]
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(13) > section:nth-of-type(1) > section:nth-of-type(1) > table:nth-of-type(1) > tbody:nth-of-type(1) > tr:nth-of-type(14) > td:nth-of-type(3)",
+     "lineCount": 1,
+     "lines": [
+      [
+       591.23,
+       31806.61,
+       615.39,
+       31819.61
+      ]
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(14) > section:nth-of-type(3) > div:nth-of-type(2)",
+     "lineCount": 1,
+     "lines": [
+      [
+       292.8,
+       33447.73,
+       534.77,
+       33462.73
+      ]
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(14) > section:nth-of-type(7) > figure:nth-of-type(1) > figcaption:nth-of-type(1)",
+     "lineCount": 2,
+     "lines": [
+      [
+       813,
+       35672.98,
+       973.25,
+       35686.98
+      ],
+      [
+       813,
+       35692.78,
+       1012.38,
+       35706.78
+      ]
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(16) > section:nth-of-type(5) > p:nth-of-type(1)",
+     "lineCount": 3,
+     "lines": [
+      [
+       264,
+       36214.59,
+       1006.81,
+       36230.59
+      ],
+      [
+       264,
+       36240.59,
+       981.47,
+       36256.59
+      ],
+      [
+       264,
+       36262.27,
+       331.53,
+       36282.59
+      ]
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(20) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(2)",
+     "lineCount": 2,
+     "lines": [
+      [
+       772.59,
+       42973.19,
+       993.67,
+       42987.19
+      ],
+      [
+       772.59,
+       42990.78,
+       897.92,
+       43004.78
+      ]
+     ]
+    }
+   ],
+   "paged": [
+    {
+     "key": "paged#0:div",
+     "columnCount": "auto",
+     "columnWidth": "80px",
+     "scrollWidth": 726,
+     "scrollHeight": 54,
+     "clientWidth": 726,
+     "clientHeight": 54,
+     "pages": 1
+    },
+    {
+     "key": "paged#1:div",
+     "columnCount": "auto",
+     "columnWidth": "80px",
+     "scrollWidth": 726,
+     "scrollHeight": 26,
+     "clientWidth": 726,
+     "clientHeight": 26,
+     "pages": 1
+    },
+    {
+     "key": "paged#2:div",
+     "columnCount": "auto",
+     "columnWidth": "480px",
+     "scrollWidth": 726,
+     "scrollHeight": 110,
+     "clientWidth": 726,
+     "clientHeight": 110,
+     "pages": 1
+    },
+    {
+     "key": "paged#3:div",
+     "columnCount": "auto",
+     "columnWidth": "240px",
+     "scrollWidth": 726,
+     "scrollHeight": 28,
+     "clientWidth": 726,
+     "clientHeight": 28,
+     "pages": 1
+    },
+    {
+     "key": "paged#4:div",
+     "columnCount": "2",
+     "columnWidth": "288px",
+     "scrollWidth": 752,
+     "scrollHeight": 1251,
+     "clientWidth": 752,
+     "clientHeight": 1251,
+     "pages": 1
+    },
+    {
+     "key": "paged#5:div",
+     "columnCount": "auto",
+     "columnWidth": "432px",
+     "scrollWidth": 752,
+     "scrollHeight": 3323,
+     "clientWidth": 752,
+     "clientHeight": 3323,
+     "pages": 1
+    }
+   ]
+  },
+  "webkit": {
+   "viewport": {
+    "width": 1280,
+    "height": 900
+   },
+   "document": {
+    "scrollWidth": 1280,
+    "scrollHeight": 43808,
+    "clientWidth": 1280,
+    "clientHeight": 900
+   },
+   "blocks": [
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(2) > header:nth-of-type(1) > div:nth-of-type(1) > nav:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1)",
+     "box": [
+      53,
+      458.77,
+      200,
+      34
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(1) > table:nth-of-type(1) > tbody:nth-of-type(1) > tr:nth-of-type(2) > td:nth-of-type(1) > div:nth-of-type(2) > table:nth-of-type(1) > tbody:nth-of-type(1) > tr:nth-of-type(1) > td:nth-of-type(1)",
+     "box": [
+      714,
+      1131.36,
+      279,
+      24
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(1) > table:nth-of-type(1) > tbody:nth-of-type(1) > tr:nth-of-type(18) > th:nth-of-type(1)",
+     "box": [
+      692,
+      1971.48,
+      105.5,
+      254
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(2) > section:nth-of-type(2) > div:nth-of-type(2)",
+     "box": [
+      264,
+      1958.36,
+      752,
+      23
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(3) > section:nth-of-type(2) > p:nth-of-type(1)",
+     "box": [
+      264,
+      4826.41,
+      752,
+      130
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(3) > section:nth-of-type(3) > table:nth-of-type(1) > tbody:nth-of-type(1) > tr:nth-of-type(3) > td:nth-of-type(1) > table:nth-of-type(1) > tbody:nth-of-type(1) > tr:nth-of-type(1) > td:nth-of-type(10)",
+     "box": [
+      466.8,
+      5448.17,
+      21.83,
+      19
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(3) > section:nth-of-type(3) > p:nth-of-type(6)",
+     "box": [
+      264,
+      6074,
+      752,
+      78
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(3) > section:nth-of-type(3) > table:nth-of-type(2) > tbody:nth-of-type(1) > tr:nth-of-type(2) > th:nth-of-type(5)",
+     "box": [
+      759.69,
+      6329.66,
+      161.73,
+      27.31
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(3) > section:nth-of-type(3) > table:nth-of-type(2) > tbody:nth-of-type(1) > tr:nth-of-type(5) > td:nth-of-type(9)",
+     "box": [
+      812.5,
+      6411.59,
+      56.11,
+      27.31
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(3) > section:nth-of-type(3) > table:nth-of-type(2) > tbody:nth-of-type(1) > tr:nth-of-type(6) > td:nth-of-type(9)",
+     "box": [
+      812.5,
+      6438.91,
+      56.11,
+      48.31
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(3) > section:nth-of-type(3) > table:nth-of-type(2) > tbody:nth-of-type(1) > tr:nth-of-type(7) > td:nth-of-type(11)",
+     "box": [
+      921.42,
+      6487.22,
+      69.56,
+      48.31
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(3) > section:nth-of-type(3) > table:nth-of-type(2) > tbody:nth-of-type(1) > tr:nth-of-type(8) > td:nth-of-type(9)",
+     "box": [
+      812.5,
+      6535.53,
+      56.11,
+      48.31
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(3) > section:nth-of-type(3) > table:nth-of-type(2) > tbody:nth-of-type(1) > tr:nth-of-type(9) > td:nth-of-type(8)",
+     "box": [
+      759.69,
+      6583.84,
+      52.81,
+      48.31
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(3) > section:nth-of-type(3) > table:nth-of-type(2) > tbody:nth-of-type(1) > tr:nth-of-type(10) > td:nth-of-type(6)",
+     "box": [
+      657.11,
+      6632.16,
+      50.92,
+      48.31
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(3) > section:nth-of-type(3) > table:nth-of-type(2) > tbody:nth-of-type(1) > tr:nth-of-type(11) > td:nth-of-type(4)",
+     "box": [
+      553.41,
+      6680.47,
+      50.89,
+      48.31
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(3) > section:nth-of-type(4) > section:nth-of-type(2) > p:nth-of-type(1)",
+     "box": [
+      264,
+      7398.7,
+      752,
+      130
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(3) > section:nth-of-type(4) > section:nth-of-type(4) > figure:nth-of-type(1) > figcaption:nth-of-type(1)",
+     "box": [
+      264,
+      9273.8,
+      610,
+      56
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(4) > section:nth-of-type(1) > figure:nth-of-type(2) > figcaption:nth-of-type(1)",
+     "box": [
+      756,
+      11568.2,
+      260,
+      26
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(5) > section:nth-of-type(1) > section:nth-of-type(2) > p:nth-of-type(2)",
+     "box": [
+      264,
+      13257.25,
+      752,
+      104
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(5) > section:nth-of-type(1) > section:nth-of-type(3) > table:nth-of-type(1) > tbody:nth-of-type(1) > tr:nth-of-type(6) > td:nth-of-type(2)",
+     "box": [
+      437.78,
+      13977.13,
+      259.36,
+      33.38
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(6) > section:nth-of-type(1) > table:nth-of-type(1) > thead:nth-of-type(1) > tr:nth-of-type(1) > th:nth-of-type(3)",
+     "box": [
+      627.89,
+      15305.94,
+      249.5,
+      33.38
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(6) > section:nth-of-type(2) > table:nth-of-type(1) > thead:nth-of-type(1) > tr:nth-of-type(1) > th:nth-of-type(2)",
+     "box": [
+      438.11,
+      15871.78,
+      189.78,
+      33.38
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(7) > section:nth-of-type(1) > section:nth-of-type(1) > p:nth-of-type(2)",
+     "box": [
+      264,
+      17032.63,
+      752,
+      104
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(7) > section:nth-of-type(3) > div:nth-of-type(2)",
+     "box": [
+      264,
+      18837.61,
+      752,
+      23
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(7) > section:nth-of-type(6) > section:nth-of-type(2) > p:nth-of-type(2)",
+     "box": [
+      264,
+      21755.78,
+      752,
+      104
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(8) > section:nth-of-type(1) > dl:nth-of-type(4) > dt:nth-of-type(1)",
+     "box": [
+      264,
+      23375.03,
+      752,
+      26
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(11) > section:nth-of-type(1) > section:nth-of-type(1) > p:nth-of-type(2)",
+     "box": [
+      264,
+      24636.27,
+      752,
+      234
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(11) > section:nth-of-type(2) > section:nth-of-type(1) > p:nth-of-type(2)",
+     "box": [
+      264,
+      26921.66,
+      752,
+      234
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(13) > section:nth-of-type(1) > table:nth-of-type(1) > tbody:nth-of-type(1) > tr:nth-of-type(2) > td:nth-of-type(2)",
+     "box": [
+      570,
+      29517.44,
+      302,
+      23
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(13) > section:nth-of-type(1) > table:nth-of-type(1) > tbody:nth-of-type(1) > tr:nth-of-type(5) > td:nth-of-type(1) > table:nth-of-type(1) > tbody:nth-of-type(1) > tr:nth-of-type(6) > td:nth-of-type(2)",
+     "box": [
+      429.02,
+      29783.41,
+      100.84,
+      20
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(13) > section:nth-of-type(1) > figure:nth-of-type(1) > figcaption:nth-of-type(1) > table:nth-of-type(1) > tbody:nth-of-type(1) > tr:nth-of-type(1) > td:nth-of-type(1) > div:nth-of-type(2)",
+     "box": [
+      272,
+      30471.61,
+      225.8,
+      25.2
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(13) > section:nth-of-type(1) > section:nth-of-type(1) > table:nth-of-type(1) > tbody:nth-of-type(1) > tr:nth-of-type(2) > th:nth-of-type(1)",
+     "box": [
+      276.8,
+      31419.52,
+      61.97,
+      26.09
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(13) > section:nth-of-type(1) > section:nth-of-type(1) > table:nth-of-type(1) > tbody:nth-of-type(1) > tr:nth-of-type(5) > th:nth-of-type(1)",
+     "box": [
+      276.8,
+      31497.8,
+      61.97,
+      26.09
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(13) > section:nth-of-type(1) > section:nth-of-type(1) > table:nth-of-type(1) > tbody:nth-of-type(1) > tr:nth-of-type(8) > td:nth-of-type(1)",
+     "box": [
+      338.77,
+      31576.08,
+      86.63,
+      26.09
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(13) > section:nth-of-type(1) > section:nth-of-type(1) > table:nth-of-type(1) > tbody:nth-of-type(1) > tr:nth-of-type(11) > td:nth-of-type(2)",
+     "box": [
+      425.39,
+      31654.36,
+      100.83,
+      26.09
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(13) > section:nth-of-type(1) > section:nth-of-type(1) > table:nth-of-type(1) > tbody:nth-of-type(1) > tr:nth-of-type(14) > td:nth-of-type(3)",
+     "box": [
+      526.22,
+      31732.64,
+      98.44,
+      26.09
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(14) > section:nth-of-type(3) > div:nth-of-type(2)",
+     "box": [
+      264,
+      33372.19,
+      752,
+      23
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(14) > section:nth-of-type(7) > figure:nth-of-type(1) > figcaption:nth-of-type(1)",
+     "box": [
+      806,
+      35584.91,
+      210,
+      64
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(16) > section:nth-of-type(5) > p:nth-of-type(1)",
+     "box": [
+      264,
+      36123.11,
+      752,
+      78
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(20) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(2)",
+     "box": [
+      759.92,
+      42798.5,
+      255.08,
+      41.03
+     ]
+    }
+   ],
+   "paragraphs": [
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(2) > header:nth-of-type(1) > div:nth-of-type(1) > nav:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1)",
+     "lineCount": 1,
+     "lines": [
+      [
+       53,
+       467.77,
+       95,
+       482.77
+      ]
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(1) > table:nth-of-type(1) > tbody:nth-of-type(1) > tr:nth-of-type(2) > td:nth-of-type(1) > div:nth-of-type(2) > table:nth-of-type(1) > tbody:nth-of-type(1) > tr:nth-of-type(1) > td:nth-of-type(1)",
+     "lineCount": 1,
+     "lines": [
+      [
+       790.64,
+       1136.36,
+       917.36,
+       1151.36
+      ]
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(1) > table:nth-of-type(1) > tbody:nth-of-type(1) > tr:nth-of-type(18) > th:nth-of-type(1)",
+     "lineCount": 1,
+     "lines": [
+      [
+       724.13,
+       1976.48,
+       766.37,
+       1991.48
+      ]
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(2) > section:nth-of-type(2) > div:nth-of-type(2)",
+     "lineCount": 1,
+     "lines": [
+      [
+       292.8,
+       1961.36,
+       604.92,
+       1977.36
+      ]
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(3) > section:nth-of-type(2) > p:nth-of-type(1)",
+     "lineCount": 5,
+     "lines": [
+      [
+       264,
+       4830.41,
+       1016,
+       4847.41
+      ],
+      [
+       264,
+       4856.41,
+       1016,
+       4873.41
+      ],
+      [
+       264,
+       4882.41,
+       1015.36,
+       4899.41
+      ],
+      [
+       264,
+       4908.41,
+       1015.36,
+       4925.41
+      ],
+      [
+       264,
+       4934.41,
+       792,
+       4951.41
+      ]
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(3) > section:nth-of-type(3) > table:nth-of-type(1) > tbody:nth-of-type(1) > tr:nth-of-type(3) > td:nth-of-type(1) > table:nth-of-type(1) > tbody:nth-of-type(1) > tr:nth-of-type(1) > td:nth-of-type(10)",
+     "lineCount": 1,
+     "lines": [
+      [
+       466.8,
+       5450.17,
+       483.85,
+       5464.17
+      ]
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(3) > section:nth-of-type(3) > p:nth-of-type(6)",
+     "lineCount": 3,
+     "lines": [
+      [
+       264,
+       6078,
+       1011.68,
+       6095
+      ],
+      [
+       264,
+       6104,
+       1007.68,
+       6121
+      ],
+      [
+       264,
+       6130,
+       428.3,
+       6147
+      ]
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(3) > section:nth-of-type(3) > table:nth-of-type(2) > tbody:nth-of-type(1) > tr:nth-of-type(2) > th:nth-of-type(5)",
+     "lineCount": 1,
+     "lines": [
+      [
+       827.72,
+       6336.31,
+       854.39,
+       6351.31
+      ]
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(3) > section:nth-of-type(3) > table:nth-of-type(2) > tbody:nth-of-type(1) > tr:nth-of-type(5) > td:nth-of-type(9)",
+     "lineCount": 1,
+     "lines": [
+      [
+       839.39,
+       6418.25,
+       863.28,
+       6433.25
+      ]
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(3) > section:nth-of-type(3) > table:nth-of-type(2) > tbody:nth-of-type(1) > tr:nth-of-type(6) > td:nth-of-type(9)",
+     "lineCount": 2,
+     "lines": [
+      [
+       833.03,
+       6445.56,
+       863.28,
+       6460.56
+      ],
+      [
+       831.11,
+       6466.56,
+       863.28,
+       6481.56
+      ]
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(3) > section:nth-of-type(3) > table:nth-of-type(2) > tbody:nth-of-type(1) > tr:nth-of-type(7) > td:nth-of-type(11)",
+     "lineCount": 2,
+     "lines": [
+      [
+       964.38,
+       6493.88,
+       985.66,
+       6508.88
+      ],
+      [
+       953.48,
+       6514.88,
+       985.66,
+       6529.88
+      ]
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(3) > section:nth-of-type(3) > table:nth-of-type(2) > tbody:nth-of-type(1) > tr:nth-of-type(8) > td:nth-of-type(9)",
+     "lineCount": 2,
+     "lines": [
+      [
+       824.05,
+       6542.19,
+       863.28,
+       6557.19
+      ],
+      [
+       831.11,
+       6563.19,
+       863.28,
+       6578.19
+      ]
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(3) > section:nth-of-type(3) > table:nth-of-type(2) > tbody:nth-of-type(1) > tr:nth-of-type(9) > td:nth-of-type(8)",
+     "lineCount": 2,
+     "lines": [
+      [
+       776.87,
+       6590.5,
+       807.17,
+       6605.5
+      ],
+      [
+       766.03,
+       6611.5,
+       807.17,
+       6626.5
+      ]
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(3) > section:nth-of-type(3) > table:nth-of-type(2) > tbody:nth-of-type(1) > tr:nth-of-type(10) > td:nth-of-type(6)",
+     "lineCount": 2,
+     "lines": [
+      [
+       672.45,
+       6638.81,
+       702.7,
+       6653.81
+      ],
+      [
+       670.53,
+       6659.81,
+       702.7,
+       6674.81
+      ]
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(3) > section:nth-of-type(3) > table:nth-of-type(2) > tbody:nth-of-type(1) > tr:nth-of-type(11) > td:nth-of-type(4)",
+     "lineCount": 2,
+     "lines": [
+      [
+       577.69,
+       6687.13,
+       598.97,
+       6702.13
+      ],
+      [
+       566.8,
+       6708.13,
+       598.97,
+       6723.13
+      ]
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(3) > section:nth-of-type(4) > section:nth-of-type(2) > p:nth-of-type(1)",
+     "lineCount": 5,
+     "lines": [
+      [
+       264,
+       7402.7,
+       1016,
+       7419.7
+      ],
+      [
+       264,
+       7428.7,
+       1016,
+       7445.7
+      ],
+      [
+       264,
+       7454.7,
+       1016,
+       7471.7
+      ],
+      [
+       264,
+       7480.7,
+       1016,
+       7497.7
+      ],
+      [
+       264,
+       7506.7,
+       760,
+       7523.7
+      ]
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(3) > section:nth-of-type(4) > section:nth-of-type(4) > figure:nth-of-type(1) > figcaption:nth-of-type(1)",
+     "lineCount": 2,
+     "lines": [
+      [
+       271,
+       9275.8,
+       409.45,
+       9290.8
+      ],
+      [
+       757,
+       9306.8,
+       867,
+       9319.8
+      ]
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(4) > section:nth-of-type(1) > figure:nth-of-type(2) > figcaption:nth-of-type(1)",
+     "lineCount": 1,
+     "lines": [
+      [
+       763,
+       11570.2,
+       862.01,
+       11585.2
+      ]
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(5) > section:nth-of-type(1) > section:nth-of-type(2) > p:nth-of-type(2)",
+     "lineCount": 4,
+     "lines": [
+      [
+       264,
+       13261.25,
+       728,
+       13278.25
+      ],
+      [
+       264,
+       13287.25,
+       728,
+       13304.25
+      ],
+      [
+       264,
+       13313.25,
+       728,
+       13330.25
+      ],
+      [
+       264,
+       13339.25,
+       328,
+       13356.25
+      ]
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(5) > section:nth-of-type(1) > section:nth-of-type(3) > table:nth-of-type(1) > tbody:nth-of-type(1) > tr:nth-of-type(6) > td:nth-of-type(2)",
+     "lineCount": 1,
+     "lines": [
+      [
+       445.17,
+       13985.31,
+       589.78,
+       14002.31
+      ]
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(6) > section:nth-of-type(1) > table:nth-of-type(1) > thead:nth-of-type(1) > tr:nth-of-type(1) > th:nth-of-type(3)",
+     "lineCount": 1,
+     "lines": [
+      [
+       721.84,
+       15314.13,
+       769.84,
+       15331.13
+      ]
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(6) > section:nth-of-type(2) > table:nth-of-type(1) > thead:nth-of-type(1) > tr:nth-of-type(1) > th:nth-of-type(2)",
+     "lineCount": 1,
+     "lines": [
+      [
+       494.2,
+       15879.97,
+       558.2,
+       15896.97
+      ]
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(7) > section:nth-of-type(1) > section:nth-of-type(1) > p:nth-of-type(2)",
+     "lineCount": 4,
+     "lines": [
+      [
+       264,
+       17036.63,
+       1016,
+       17053.63
+      ],
+      [
+       264,
+       17062.63,
+       1016,
+       17079.63
+      ],
+      [
+       264,
+       17088.63,
+       1016,
+       17105.63
+      ],
+      [
+       264,
+       17114.63,
+       776,
+       17131.63
+      ]
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(7) > section:nth-of-type(3) > div:nth-of-type(2)",
+     "lineCount": 1,
+     "lines": [
+      [
+       292.8,
+       18840.61,
+       766.95,
+       18856.61
+      ]
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(7) > section:nth-of-type(6) > section:nth-of-type(2) > p:nth-of-type(2)",
+     "lineCount": 4,
+     "lines": [
+      [
+       264,
+       21759.78,
+       1016,
+       21776.78
+      ],
+      [
+       264,
+       21785.78,
+       1016,
+       21802.78
+      ],
+      [
+       264,
+       21811.78,
+       1012.66,
+       21828.78
+      ],
+      [
+       264,
+       21837.78,
+       488,
+       21854.78
+      ]
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(8) > section:nth-of-type(1) > dl:nth-of-type(4) > dt:nth-of-type(1)",
+     "lineCount": 1,
+     "lines": [
+      [
+       264,
+       23379.03,
+       360,
+       23396.03
+      ]
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(11) > section:nth-of-type(1) > section:nth-of-type(1) > p:nth-of-type(2)",
+     "lineCount": 9,
+     "lines": [
+      [
+       264,
+       24640.27,
+       776,
+       24657.27
+      ],
+      [
+       264,
+       24666.27,
+       776,
+       24683.27
+      ],
+      [
+       264,
+       24692.27,
+       776,
+       24709.27
+      ],
+      [
+       264,
+       24718.27,
+       765.33,
+       24735.27
+      ],
+      [
+       264,
+       24744.27,
+       776,
+       24761.27
+      ],
+      [
+       264,
+       24770.27,
+       776,
+       24787.27
+      ],
+      [
+       264,
+       24796.27,
+       1011.07,
+       24813.27
+      ],
+      [
+       264,
+       24822.27,
+       1016,
+       24839.27
+      ],
+      [
+       264,
+       24848.27,
+       296,
+       24865.27
+      ]
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(11) > section:nth-of-type(2) > section:nth-of-type(1) > p:nth-of-type(2)",
+     "lineCount": 9,
+     "lines": [
+      [
+       264,
+       26925.66,
+       728,
+       26942.66
+      ],
+      [
+       264,
+       26951.66,
+       717.84,
+       26968.66
+      ],
+      [
+       264,
+       26977.66,
+       728.61,
+       26994.66
+      ],
+      [
+       264,
+       27003.66,
+       722.77,
+       27020.66
+      ],
+      [
+       264,
+       27029.66,
+       727.36,
+       27046.66
+      ],
+      [
+       264,
+       27055.66,
+       728,
+       27072.66
+      ],
+      [
+       264,
+       27081.66,
+       728,
+       27098.66
+      ],
+      [
+       264,
+       27107.66,
+       1016,
+       27124.66
+      ],
+      [
+       264,
+       27133.66,
+       824,
+       27150.66
+      ]
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(13) > section:nth-of-type(1) > table:nth-of-type(1) > tbody:nth-of-type(1) > tr:nth-of-type(2) > td:nth-of-type(2)",
+     "lineCount": 1,
+     "lines": [
+      [
+       589.72,
+       29521.44,
+       852.28,
+       29536.44
+      ]
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(13) > section:nth-of-type(1) > table:nth-of-type(1) > tbody:nth-of-type(1) > tr:nth-of-type(5) > td:nth-of-type(1) > table:nth-of-type(1) > tbody:nth-of-type(1) > tr:nth-of-type(6) > td:nth-of-type(2)",
+     "lineCount": 1,
+     "lines": [
+      [
+       434.07,
+       29786.41,
+       525.86,
+       29801.41
+      ]
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(13) > section:nth-of-type(1) > figure:nth-of-type(1) > figcaption:nth-of-type(1) > table:nth-of-type(1) > tbody:nth-of-type(1) > tr:nth-of-type(1) > td:nth-of-type(1) > div:nth-of-type(2)",
+     "lineCount": 1,
+     "lines": [
+      [
+       299.91,
+       30475.61,
+       386.64,
+       30490.61
+      ]
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(13) > section:nth-of-type(1) > section:nth-of-type(1) > table:nth-of-type(1) > tbody:nth-of-type(1) > tr:nth-of-type(2) > th:nth-of-type(1)",
+     "lineCount": 1,
+     "lines": [
+      [
+       282.91,
+       31426.06,
+       333.65,
+       31440.06
+      ]
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(13) > section:nth-of-type(1) > section:nth-of-type(1) > table:nth-of-type(1) > tbody:nth-of-type(1) > tr:nth-of-type(5) > th:nth-of-type(1)",
+     "lineCount": 1,
+     "lines": [
+      [
+       282.91,
+       31504.34,
+       333.65,
+       31518.34
+      ]
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(13) > section:nth-of-type(1) > section:nth-of-type(1) > table:nth-of-type(1) > tbody:nth-of-type(1) > tr:nth-of-type(8) > td:nth-of-type(1)",
+     "lineCount": 1,
+     "lines": [
+      [
+       344.97,
+       31582.63,
+       420.28,
+       31596.63
+      ]
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(13) > section:nth-of-type(1) > section:nth-of-type(1) > table:nth-of-type(1) > tbody:nth-of-type(1) > tr:nth-of-type(11) > td:nth-of-type(2)",
+     "lineCount": 1,
+     "lines": [
+      [
+       461.96,
+       31660.91,
+       521.11,
+       31674.91
+      ]
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(13) > section:nth-of-type(1) > section:nth-of-type(1) > table:nth-of-type(1) > tbody:nth-of-type(1) > tr:nth-of-type(14) > td:nth-of-type(3)",
+     "lineCount": 1,
+     "lines": [
+      [
+       594.86,
+       31739.19,
+       619.55,
+       31753.19
+      ]
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(14) > section:nth-of-type(3) > div:nth-of-type(2)",
+     "lineCount": 1,
+     "lines": [
+      [
+       292.8,
+       33375.19,
+       536.55,
+       33391.19
+      ]
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(14) > section:nth-of-type(7) > figure:nth-of-type(1) > figcaption:nth-of-type(1)",
+     "lineCount": 3,
+     "lines": [
+      [
+       813,
+       35586.91,
+       973.29,
+       35601.91
+      ],
+      [
+       813,
+       35605.91,
+       992.78,
+       35620.91
+      ],
+      [
+       813,
+       35624.91,
+       841.29,
+       35639.91
+      ]
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(16) > section:nth-of-type(5) > p:nth-of-type(1)",
+     "lineCount": 3,
+     "lines": [
+      [
+       264,
+       36127.11,
+       1011.41,
+       36144.11
+      ],
+      [
+       264,
+       36153.11,
+       1000,
+       36170.11
+      ],
+      [
+       264,
+       36174.78,
+       316.6,
+       36196.11
+      ]
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(20) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(2)",
+     "lineCount": 2,
+     "lines": [
+      [
+       772.59,
+       42803.02,
+       997.87,
+       42818.02
+      ],
+      [
+       772.59,
+       42820.02,
+       897.91,
+       42835.02
+      ]
+     ]
+    }
+   ],
+   "paged": [
+    {
+     "key": "paged#0:div",
+     "columnCount": "auto",
+     "columnWidth": "80px",
+     "scrollWidth": 726,
+     "scrollHeight": 55,
+     "clientWidth": 726,
+     "clientHeight": 55,
+     "pages": 1
+    },
+    {
+     "key": "paged#1:div",
+     "columnCount": "auto",
+     "columnWidth": "80px",
+     "scrollWidth": 726,
+     "scrollHeight": 26,
+     "clientWidth": 726,
+     "clientHeight": 26,
+     "pages": 1
+    },
+    {
+     "key": "paged#2:div",
+     "columnCount": "auto",
+     "columnWidth": "480px",
+     "scrollWidth": 726,
+     "scrollHeight": 111,
+     "clientWidth": 726,
+     "clientHeight": 111,
+     "pages": 1
+    },
+    {
+     "key": "paged#3:div",
+     "columnCount": "auto",
+     "columnWidth": "240px",
+     "scrollWidth": 726,
+     "scrollHeight": 28,
+     "clientWidth": 726,
+     "clientHeight": 28,
+     "pages": 1
+    },
+    {
+     "key": "paged#4:div",
+     "columnCount": "2",
+     "columnWidth": "288px",
+     "scrollWidth": 752,
+     "scrollHeight": 1229,
+     "clientWidth": 752,
+     "clientHeight": 1229,
+     "pages": 1
+    },
+    {
+     "key": "paged#5:div",
+     "columnCount": "auto",
+     "columnWidth": "432px",
+     "scrollWidth": 752,
+     "scrollHeight": 3268,
+     "clientWidth": 752,
+     "clientHeight": 3268,
+     "pages": 1
+    }
+   ]
+  },
+  "firefox": {
+   "viewport": {
+    "width": 1280,
+    "height": 900
+   },
+   "document": {
+    "scrollWidth": 1280,
+    "scrollHeight": 44023,
+    "clientWidth": 1280,
+    "clientHeight": 900
+   },
+   "blocks": [
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(2) > header:nth-of-type(1) > div:nth-of-type(1) > nav:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1)",
+     "box": [
+      53,
+      470.98,
+      200,
+      35
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(1) > table:nth-of-type(1) > tbody:nth-of-type(1) > tr:nth-of-type(2) > td:nth-of-type(1) > div:nth-of-type(2) > table:nth-of-type(1) > tbody:nth-of-type(1) > tr:nth-of-type(1) > td:nth-of-type(1)",
+     "box": [
+      714.5,
+      1135.45,
+      279,
+      24.12
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(1) > table:nth-of-type(1) > tbody:nth-of-type(1) > tr:nth-of-type(18) > th:nth-of-type(1)",
+     "box": [
+      692.5,
+      1982.1,
+      102.95,
+      233.08
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(2) > section:nth-of-type(2) > div:nth-of-type(2)",
+     "box": [
+      264,
+      1968.37,
+      752,
+      23.4
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(3) > section:nth-of-type(2) > p:nth-of-type(1)",
+     "box": [
+      264,
+      4817.72,
+      752,
+      130
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(3) > section:nth-of-type(3) > table:nth-of-type(1) > tbody:nth-of-type(1) > tr:nth-of-type(3) > td:nth-of-type(1) > table:nth-of-type(1) > tbody:nth-of-type(1) > tr:nth-of-type(1) > td:nth-of-type(10)",
+     "box": [
+      466.75,
+      5440.45,
+      21.82,
+      19
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(3) > section:nth-of-type(3) > p:nth-of-type(6)",
+     "box": [
+      264,
+      6068.53,
+      752,
+      78
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(3) > section:nth-of-type(3) > table:nth-of-type(2) > tbody:nth-of-type(1) > tr:nth-of-type(2) > th:nth-of-type(5)",
+     "box": [
+      757.58,
+      6326.53,
+      160.2,
+      28
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(3) > section:nth-of-type(3) > table:nth-of-type(2) > tbody:nth-of-type(1) > tr:nth-of-type(5) > td:nth-of-type(9)",
+     "box": [
+      809.62,
+      6410.53,
+      56.13,
+      28
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(3) > section:nth-of-type(3) > table:nth-of-type(2) > tbody:nth-of-type(1) > tr:nth-of-type(6) > td:nth-of-type(9)",
+     "box": [
+      809.62,
+      6438.53,
+      56.13,
+      49.67
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(3) > section:nth-of-type(3) > table:nth-of-type(2) > tbody:nth-of-type(1) > tr:nth-of-type(7) > td:nth-of-type(11)",
+     "box": [
+      917.78,
+      6488.2,
+      68.43,
+      49.67
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(3) > section:nth-of-type(3) > table:nth-of-type(2) > tbody:nth-of-type(1) > tr:nth-of-type(8) > td:nth-of-type(9)",
+     "box": [
+      809.62,
+      6537.87,
+      56.13,
+      49.67
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(3) > section:nth-of-type(3) > table:nth-of-type(2) > tbody:nth-of-type(1) > tr:nth-of-type(9) > td:nth-of-type(8)",
+     "box": [
+      757.58,
+      6587.53,
+      52.03,
+      49.67
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(3) > section:nth-of-type(3) > table:nth-of-type(2) > tbody:nth-of-type(1) > tr:nth-of-type(10) > td:nth-of-type(6)",
+     "box": [
+      655.93,
+      6637.2,
+      49.98,
+      49.67
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(3) > section:nth-of-type(3) > table:nth-of-type(2) > tbody:nth-of-type(1) > tr:nth-of-type(11) > td:nth-of-type(4)",
+     "box": [
+      553.97,
+      6686.87,
+      49.93,
+      49.67
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(3) > section:nth-of-type(4) > section:nth-of-type(2) > p:nth-of-type(1)",
+     "box": [
+      264,
+      7407.88,
+      752,
+      130
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(3) > section:nth-of-type(4) > section:nth-of-type(4) > figure:nth-of-type(1) > figcaption:nth-of-type(1)",
+     "box": [
+      264,
+      9285.57,
+      610,
+      57.12
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(4) > section:nth-of-type(1) > figure:nth-of-type(2) > figcaption:nth-of-type(1)",
+     "box": [
+      756,
+      11586.45,
+      260,
+      26.8
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(5) > section:nth-of-type(1) > section:nth-of-type(2) > p:nth-of-type(2)",
+     "box": [
+      264,
+      13280.72,
+      752,
+      104
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(5) > section:nth-of-type(1) > section:nth-of-type(3) > table:nth-of-type(1) > tbody:nth-of-type(1) > tr:nth-of-type(6) > td:nth-of-type(2)",
+     "box": [
+      438.3,
+      14001.82,
+      258.9,
+      33.4
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(6) > section:nth-of-type(1) > table:nth-of-type(1) > thead:nth-of-type(1) > tr:nth-of-type(1) > th:nth-of-type(3)",
+     "box": [
+      628.43,
+      15334.23,
+      247.03,
+      33.4
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(6) > section:nth-of-type(2) > table:nth-of-type(1) > thead:nth-of-type(1) > tr:nth-of-type(1) > th:nth-of-type(2)",
+     "box": [
+      438.63,
+      15901.15,
+      189.8,
+      33.4
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(7) > section:nth-of-type(1) > section:nth-of-type(1) > p:nth-of-type(2)",
+     "box": [
+      264,
+      17063.2,
+      752,
+      104
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(7) > section:nth-of-type(3) > div:nth-of-type(2)",
+     "box": [
+      264,
+      18871.03,
+      752,
+      23.4
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(7) > section:nth-of-type(6) > section:nth-of-type(2) > p:nth-of-type(2)",
+     "box": [
+      264,
+      21794.18,
+      752,
+      104
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(8) > section:nth-of-type(1) > dl:nth-of-type(4) > dt:nth-of-type(1)",
+     "box": [
+      264,
+      23416.7,
+      752,
+      26
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(11) > section:nth-of-type(1) > section:nth-of-type(1) > p:nth-of-type(2)",
+     "box": [
+      264,
+      24688.27,
+      752,
+      234
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(11) > section:nth-of-type(2) > section:nth-of-type(1) > p:nth-of-type(2)",
+     "box": [
+      264,
+      26976.98,
+      752,
+      234
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(13) > section:nth-of-type(1) > table:nth-of-type(1) > tbody:nth-of-type(1) > tr:nth-of-type(2) > td:nth-of-type(2)",
+     "box": [
+      570,
+      29579.37,
+      302,
+      23.67
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(13) > section:nth-of-type(1) > table:nth-of-type(1) > tbody:nth-of-type(1) > tr:nth-of-type(5) > td:nth-of-type(1) > table:nth-of-type(1) > tbody:nth-of-type(1) > tr:nth-of-type(6) > td:nth-of-type(2)",
+     "box": [
+      429.83,
+      29855.03,
+      98.97,
+      21
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(13) > section:nth-of-type(1) > figure:nth-of-type(1) > figcaption:nth-of-type(1) > table:nth-of-type(1) > tbody:nth-of-type(1) > tr:nth-of-type(1) > td:nth-of-type(1) > div:nth-of-type(2)",
+     "box": [
+      272,
+      30552.82,
+      225.78,
+      25.22
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(13) > section:nth-of-type(1) > section:nth-of-type(1) > table:nth-of-type(1) > tbody:nth-of-type(1) > tr:nth-of-type(2) > th:nth-of-type(1)",
+     "box": [
+      277.3,
+      31502.02,
+      60.5,
+      26.93
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(13) > section:nth-of-type(1) > section:nth-of-type(1) > table:nth-of-type(1) > tbody:nth-of-type(1) > tr:nth-of-type(5) > th:nth-of-type(1)",
+     "box": [
+      277.3,
+      31582.82,
+      60.5,
+      26.93
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(13) > section:nth-of-type(1) > section:nth-of-type(1) > table:nth-of-type(1) > tbody:nth-of-type(1) > tr:nth-of-type(8) > td:nth-of-type(1)",
+     "box": [
+      337.8,
+      31663.62,
+      84.85,
+      26.93
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(13) > section:nth-of-type(1) > section:nth-of-type(1) > table:nth-of-type(1) > tbody:nth-of-type(1) > tr:nth-of-type(11) > td:nth-of-type(2)",
+     "box": [
+      422.65,
+      31744.42,
+      100.83,
+      26.93
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(13) > section:nth-of-type(1) > section:nth-of-type(1) > table:nth-of-type(1) > tbody:nth-of-type(1) > tr:nth-of-type(14) > td:nth-of-type(3)",
+     "box": [
+      523.48,
+      31825.22,
+      97.6,
+      26.93
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(14) > section:nth-of-type(3) > div:nth-of-type(2)",
+     "box": [
+      264,
+      33468.48,
+      752,
+      23.4
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(14) > section:nth-of-type(7) > figure:nth-of-type(1) > figcaption:nth-of-type(1)",
+     "box": [
+      806,
+      35696.83,
+      210,
+      66.4
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(16) > section:nth-of-type(5) > p:nth-of-type(1)",
+     "box": [
+      264,
+      36235.5,
+      752,
+      78
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(20) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(2)",
+     "box": [
+      759.9,
+      43002.96,
+      255.1,
+      42.23
+     ]
+    }
+   ],
+   "paragraphs": [
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(2) > header:nth-of-type(1) > div:nth-of-type(1) > nav:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1)",
+     "lineCount": 1,
+     "lines": [
+      [
+       53,
+       480.48,
+       95,
+       495.48
+      ]
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(1) > table:nth-of-type(1) > tbody:nth-of-type(1) > tr:nth-of-type(2) > td:nth-of-type(1) > div:nth-of-type(2) > table:nth-of-type(1) > tbody:nth-of-type(1) > tr:nth-of-type(1) > td:nth-of-type(1)",
+     "lineCount": 1,
+     "lines": [
+      [
+       790.62,
+       1140,
+       917.37,
+       1155
+      ]
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(1) > table:nth-of-type(1) > tbody:nth-of-type(1) > tr:nth-of-type(18) > th:nth-of-type(1)",
+     "lineCount": 1,
+     "lines": [
+      [
+       722.85,
+       1986.65,
+       765.1,
+       2001.65
+      ]
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(2) > section:nth-of-type(2) > div:nth-of-type(2)",
+     "lineCount": 1,
+     "lines": [
+      [
+       292.8,
+       1972.57,
+       604.67,
+       1987.57
+      ]
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(3) > section:nth-of-type(2) > p:nth-of-type(1)",
+     "lineCount": 5,
+     "lines": [
+      [
+       264,
+       4822.22,
+       1016,
+       4839.22
+      ],
+      [
+       264,
+       4848.22,
+       1016,
+       4865.22
+      ],
+      [
+       264,
+       4874.22,
+       1016,
+       4891.22
+      ],
+      [
+       264,
+       4900.22,
+       1016,
+       4917.22
+      ],
+      [
+       264,
+       4926.22,
+       792,
+       4943.22
+      ]
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(3) > section:nth-of-type(3) > table:nth-of-type(1) > tbody:nth-of-type(1) > tr:nth-of-type(3) > td:nth-of-type(1) > table:nth-of-type(1) > tbody:nth-of-type(1) > tr:nth-of-type(1) > td:nth-of-type(10)",
+     "lineCount": 1,
+     "lines": [
+      [
+       466.75,
+       5442.95,
+       483.38,
+       5456.95
+      ]
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(3) > section:nth-of-type(3) > p:nth-of-type(6)",
+     "lineCount": 3,
+     "lines": [
+      [
+       264,
+       6073.03,
+       1008.5,
+       6090.03
+      ],
+      [
+       264,
+       6099.03,
+       1004.67,
+       6116.03
+      ],
+      [
+       264,
+       6125.03,
+       427.38,
+       6142.03
+      ]
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(3) > section:nth-of-type(3) > table:nth-of-type(2) > tbody:nth-of-type(1) > tr:nth-of-type(2) > th:nth-of-type(5)",
+     "lineCount": 1,
+     "lines": [
+      [
+       824.35,
+       6333.53,
+       851.02,
+       6347.53
+      ]
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(3) > section:nth-of-type(3) > table:nth-of-type(2) > tbody:nth-of-type(1) > tr:nth-of-type(5) > td:nth-of-type(9)",
+     "lineCount": 1,
+     "lines": [
+      [
+       836.6,
+       6417.53,
+       859.92,
+       6431.53
+      ]
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(3) > section:nth-of-type(3) > table:nth-of-type(2) > tbody:nth-of-type(1) > tr:nth-of-type(6) > td:nth-of-type(9)",
+     "lineCount": 2,
+     "lines": [
+      [
+       830.42,
+       6445.53,
+       859.92,
+       6459.53
+      ],
+      [
+       828.32,
+       6467.2,
+       859.92,
+       6481.2
+      ]
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(3) > section:nth-of-type(3) > table:nth-of-type(2) > tbody:nth-of-type(1) > tr:nth-of-type(7) > td:nth-of-type(11)",
+     "lineCount": 2,
+     "lines": [
+      [
+       959.65,
+       6495.2,
+       980.38,
+       6509.2
+      ],
+      [
+       948.78,
+       6516.87,
+       980.38,
+       6530.87
+      ]
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(3) > section:nth-of-type(3) > table:nth-of-type(2) > tbody:nth-of-type(1) > tr:nth-of-type(8) > td:nth-of-type(9)",
+     "lineCount": 2,
+     "lines": [
+      [
+       821.65,
+       6544.87,
+       859.92,
+       6558.87
+      ],
+      [
+       828.32,
+       6566.53,
+       859.92,
+       6580.53
+      ]
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(3) > section:nth-of-type(3) > table:nth-of-type(2) > tbody:nth-of-type(1) > tr:nth-of-type(9) > td:nth-of-type(8)",
+     "lineCount": 2,
+     "lines": [
+      [
+       774.18,
+       6594.53,
+       803.78,
+       6608.53
+      ],
+      [
+       763.42,
+       6616.2,
+       803.78,
+       6630.2
+      ]
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(3) > section:nth-of-type(3) > table:nth-of-type(2) > tbody:nth-of-type(1) > tr:nth-of-type(10) > td:nth-of-type(6)",
+     "lineCount": 2,
+     "lines": [
+      [
+       670.58,
+       6644.2,
+       700.08,
+       6658.2
+      ],
+      [
+       668.48,
+       6665.87,
+       700.08,
+       6679.87
+      ]
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(3) > section:nth-of-type(3) > table:nth-of-type(2) > tbody:nth-of-type(1) > tr:nth-of-type(11) > td:nth-of-type(4)",
+     "lineCount": 2,
+     "lines": [
+      [
+       577.33,
+       6693.87,
+       598.07,
+       6707.87
+      ],
+      [
+       566.47,
+       6715.53,
+       598.07,
+       6729.53
+      ]
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(3) > section:nth-of-type(4) > section:nth-of-type(2) > p:nth-of-type(1)",
+     "lineCount": 5,
+     "lines": [
+      [
+       264,
+       7412.38,
+       1016,
+       7429.38
+      ],
+      [
+       264,
+       7438.38,
+       1016,
+       7455.38
+      ],
+      [
+       264,
+       7464.38,
+       1016,
+       7481.38
+      ],
+      [
+       264,
+       7490.38,
+       1016,
+       7507.38
+      ],
+      [
+       264,
+       7516.38,
+       760,
+       7533.38
+      ]
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(3) > section:nth-of-type(4) > section:nth-of-type(4) > figure:nth-of-type(1) > figcaption:nth-of-type(1)",
+     "lineCount": 2,
+     "lines": [
+      [
+       271,
+       9287.97,
+       409.1,
+       9302.97
+      ],
+      [
+       757.03,
+       9319.28,
+       867,
+       9332.28
+      ]
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(4) > section:nth-of-type(1) > figure:nth-of-type(2) > figcaption:nth-of-type(1)",
+     "lineCount": 1,
+     "lines": [
+      [
+       763,
+       11588.85,
+       862.05,
+       11603.85
+      ]
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(5) > section:nth-of-type(1) > section:nth-of-type(2) > p:nth-of-type(2)",
+     "lineCount": 4,
+     "lines": [
+      [
+       264,
+       13285.22,
+       728,
+       13302.22
+      ],
+      [
+       264,
+       13311.22,
+       728,
+       13328.22
+      ],
+      [
+       264,
+       13337.22,
+       728,
+       13354.22
+      ],
+      [
+       264,
+       13363.22,
+       328,
+       13380.22
+      ]
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(5) > section:nth-of-type(1) > section:nth-of-type(3) > table:nth-of-type(1) > tbody:nth-of-type(1) > tr:nth-of-type(6) > td:nth-of-type(2)",
+     "lineCount": 1,
+     "lines": [
+      [
+       445.2,
+       14010.02,
+       588.3,
+       14027.02
+      ]
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(6) > section:nth-of-type(1) > table:nth-of-type(1) > thead:nth-of-type(1) > tr:nth-of-type(1) > th:nth-of-type(3)",
+     "lineCount": 1,
+     "lines": [
+      [
+       720.65,
+       15342.43,
+       768.65,
+       15359.43
+      ]
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(6) > section:nth-of-type(2) > table:nth-of-type(1) > thead:nth-of-type(1) > tr:nth-of-type(1) > th:nth-of-type(2)",
+     "lineCount": 1,
+     "lines": [
+      [
+       494.23,
+       15909.35,
+       558.23,
+       15926.35
+      ]
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(7) > section:nth-of-type(1) > section:nth-of-type(1) > p:nth-of-type(2)",
+     "lineCount": 4,
+     "lines": [
+      [
+       264,
+       17067.7,
+       1016,
+       17084.7
+      ],
+      [
+       264,
+       17093.7,
+       1016,
+       17110.7
+      ],
+      [
+       264,
+       17119.7,
+       1016,
+       17136.7
+      ],
+      [
+       264,
+       17145.7,
+       776,
+       17162.7
+      ]
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(7) > section:nth-of-type(3) > div:nth-of-type(2)",
+     "lineCount": 1,
+     "lines": [
+      [
+       292.8,
+       18875.23,
+       765.15,
+       18890.23
+      ]
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(7) > section:nth-of-type(6) > section:nth-of-type(2) > p:nth-of-type(2)",
+     "lineCount": 4,
+     "lines": [
+      [
+       264,
+       21798.68,
+       1016,
+       21815.68
+      ],
+      [
+       264,
+       21824.68,
+       1016,
+       21841.68
+      ],
+      [
+       264,
+       21850.68,
+       1012.05,
+       21867.68
+      ],
+      [
+       264,
+       21876.68,
+       488,
+       21893.68
+      ]
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(8) > section:nth-of-type(1) > dl:nth-of-type(4) > dt:nth-of-type(1)",
+     "lineCount": 1,
+     "lines": [
+      [
+       264,
+       23421.2,
+       360,
+       23438.2
+      ]
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(11) > section:nth-of-type(1) > section:nth-of-type(1) > p:nth-of-type(2)",
+     "lineCount": 9,
+     "lines": [
+      [
+       264,
+       24692.77,
+       776,
+       24709.77
+      ],
+      [
+       264,
+       24718.77,
+       776,
+       24735.77
+      ],
+      [
+       264,
+       24744.77,
+       776,
+       24761.77
+      ],
+      [
+       264,
+       24770.77,
+       765.33,
+       24787.77
+      ],
+      [
+       264,
+       24796.77,
+       776,
+       24813.77
+      ],
+      [
+       264,
+       24822.77,
+       776,
+       24839.77
+      ],
+      [
+       264,
+       24848.77,
+       1010.07,
+       24865.77
+      ],
+      [
+       264,
+       24874.77,
+       1016,
+       24891.77
+      ],
+      [
+       264,
+       24900.77,
+       296,
+       24917.77
+      ]
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(11) > section:nth-of-type(2) > section:nth-of-type(1) > p:nth-of-type(2)",
+     "lineCount": 9,
+     "lines": [
+      [
+       264,
+       26981.48,
+       728,
+       26998.48
+      ],
+      [
+       264,
+       27007.48,
+       732.58,
+       27024.48
+      ],
+      [
+       264,
+       27033.48,
+       727.1,
+       27050.48
+      ],
+      [
+       264,
+       27059.48,
+       722.52,
+       27076.48
+      ],
+      [
+       264,
+       27085.48,
+       728,
+       27102.48
+      ],
+      [
+       264,
+       27111.48,
+       728,
+       27128.48
+      ],
+      [
+       264,
+       27137.48,
+       728,
+       27154.48
+      ],
+      [
+       264,
+       27163.48,
+       1016,
+       27180.48
+      ],
+      [
+       264,
+       27189.48,
+       808,
+       27206.48
+      ]
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(13) > section:nth-of-type(1) > table:nth-of-type(1) > tbody:nth-of-type(1) > tr:nth-of-type(2) > td:nth-of-type(2)",
+     "lineCount": 1,
+     "lines": [
+      [
+       590.13,
+       29584.2,
+       851.87,
+       29598.2
+      ]
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(13) > section:nth-of-type(1) > table:nth-of-type(1) > tbody:nth-of-type(1) > tr:nth-of-type(5) > td:nth-of-type(1) > table:nth-of-type(1) > tbody:nth-of-type(1) > tr:nth-of-type(6) > td:nth-of-type(2)",
+     "lineCount": 1,
+     "lines": [
+      [
+       434.43,
+       29858.53,
+       524.3,
+       29872.53
+      ]
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(13) > section:nth-of-type(1) > figure:nth-of-type(1) > figcaption:nth-of-type(1) > table:nth-of-type(1) > tbody:nth-of-type(1) > tr:nth-of-type(1) > td:nth-of-type(1) > div:nth-of-type(2)",
+     "lineCount": 1,
+     "lines": [
+      [
+       299.93,
+       30557.22,
+       384.88,
+       30572.22
+      ]
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(13) > section:nth-of-type(1) > section:nth-of-type(1) > table:nth-of-type(1) > tbody:nth-of-type(1) > tr:nth-of-type(2) > th:nth-of-type(1)",
+     "lineCount": 1,
+     "lines": [
+      [
+       282.92,
+       31508.48,
+       332.18,
+       31522.48
+      ]
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(13) > section:nth-of-type(1) > section:nth-of-type(1) > table:nth-of-type(1) > tbody:nth-of-type(1) > tr:nth-of-type(5) > th:nth-of-type(1)",
+     "lineCount": 1,
+     "lines": [
+      [
+       282.92,
+       31589.28,
+       332.18,
+       31603.28
+      ]
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(13) > section:nth-of-type(1) > section:nth-of-type(1) > table:nth-of-type(1) > tbody:nth-of-type(1) > tr:nth-of-type(8) > td:nth-of-type(1)",
+     "lineCount": 1,
+     "lines": [
+      [
+       343.57,
+       31670.08,
+       417.03,
+       31684.08
+      ]
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(13) > section:nth-of-type(1) > section:nth-of-type(1) > table:nth-of-type(1) > tbody:nth-of-type(1) > tr:nth-of-type(11) > td:nth-of-type(2)",
+     "lineCount": 1,
+     "lines": [
+      [
+       460.03,
+       31750.88,
+       517.87,
+       31764.88
+      ]
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(13) > section:nth-of-type(1) > section:nth-of-type(1) > table:nth-of-type(1) > tbody:nth-of-type(1) > tr:nth-of-type(14) > td:nth-of-type(3)",
+     "lineCount": 1,
+     "lines": [
+      [
+       591.3,
+       31831.68,
+       615.47,
+       31845.68
+      ]
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(14) > section:nth-of-type(3) > div:nth-of-type(2)",
+     "lineCount": 1,
+     "lines": [
+      [
+       292.8,
+       33472.68,
+       534.75,
+       33487.68
+      ]
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(14) > section:nth-of-type(7) > figure:nth-of-type(1) > figcaption:nth-of-type(1)",
+     "lineCount": 3,
+     "lines": [
+      [
+       813,
+       35699.23,
+       973.37,
+       35714.23
+      ],
+      [
+       813,
+       35719.04,
+       991.3,
+       35734.04
+      ],
+      [
+       813,
+       35738.83,
+       841.3,
+       35753.83
+      ]
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(16) > section:nth-of-type(5) > p:nth-of-type(1)",
+     "lineCount": 3,
+     "lines": [
+      [
+       264,
+       36240,
+       1009.68,
+       36257
+      ],
+      [
+       264,
+       36266,
+       1000,
+       36283
+      ],
+      [
+       264,
+       36289.57,
+       315.53,
+       36309
+      ]
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(20) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(2)",
+     "lineCount": 2,
+     "lines": [
+      [
+       772.57,
+       43007.79,
+       997.9,
+       43022.79
+      ],
+      [
+       772.57,
+       43025.38,
+       899.32,
+       43040.38
+      ]
+     ]
+    }
+   ],
+   "paged": [
+    {
+     "key": "paged#0:div",
+     "columnCount": "auto",
+     "columnWidth": "80px",
+     "scrollWidth": 726,
+     "scrollHeight": 55,
+     "clientWidth": 726,
+     "clientHeight": 55,
+     "pages": 1
+    },
+    {
+     "key": "paged#1:div",
+     "columnCount": "auto",
+     "columnWidth": "80px",
+     "scrollWidth": 726,
+     "scrollHeight": 27,
+     "clientWidth": 726,
+     "clientHeight": 27,
+     "pages": 1
+    },
+    {
+     "key": "paged#2:div",
+     "columnCount": "auto",
+     "columnWidth": "480px",
+     "scrollWidth": 726,
+     "scrollHeight": 112,
+     "clientWidth": 726,
+     "clientHeight": 112,
+     "pages": 1
+    },
+    {
+     "key": "paged#3:div",
+     "columnCount": "auto",
+     "columnWidth": "240px",
+     "scrollWidth": 726,
+     "scrollHeight": 28,
+     "clientWidth": 726,
+     "clientHeight": 28,
+     "pages": 1
+    },
+    {
+     "key": "paged#4:div",
+     "columnCount": "2",
+     "columnWidth": "288px",
+     "scrollWidth": 752,
+     "scrollHeight": 1251,
+     "clientWidth": 752,
+     "clientHeight": 1251,
+     "pages": 1
+    },
+    {
+     "key": "paged#5:div",
+     "columnCount": "auto",
+     "columnWidth": "432px",
+     "scrollWidth": 752,
+     "scrollHeight": 3321,
+     "clientWidth": 752,
+     "clientHeight": 3321,
+     "pages": 1
+    }
+   ]
+  }
+ }
+}

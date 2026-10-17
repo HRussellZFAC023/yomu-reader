@@ -1,0 +1,57 @@
+{
+  "slug": "ja-wikipedia-nihongo",
+  "url": "https://ja.wikipedia.org/wiki/%E6%97%A5%E6%9C%AC%E8%AA%9E",
+  "content": "verbatim",
+  "licence": "CC BY-SA 4.0",
+  "attribution": "Wikipedia contributors, 「日本語」, ウィキペディア日本語版. Text CC BY-SA 4.0; each image under the licence on its Wikimedia Commons file page. MediaWiki stylesheets GPL-2.0-or-later, interface icons MIT/GPL, Wikimedia logos are trademarks of the Wikimedia Foundation (ATTRIBUTION.md, Wikimedia site files).",
+  "title": "日本語 - Wikipedia",
+  "recordedAt": "2026-10-17T15:38:48.183Z",
+  "recorder": {
+    "engine": "chromium",
+    "viewport": {
+      "width": 1280,
+      "height": 900
+    },
+    "platform": "darwin",
+    "locale": "ja-JP"
+  },
+  "document": "page.html",
+  "har": "network.har",
+  "geometry": "geometry.json",
+  "fidelity": {
+    "chromium": {
+      "redactionMaxDeltaPx": 0,
+      "redactionDiffs": 0,
+      "paragraphsWithMovedLines": 0,
+      "unrecordedRequests": 0,
+      "liveMaxDeltaPx": 0,
+      "liveDiffs": 0,
+      "diffSample": []
+    },
+    "webkit": {
+      "redactionMaxDeltaPx": 0,
+      "redactionDiffs": 0,
+      "paragraphsWithMovedLines": 0,
+      "unrecordedRequests": 0,
+      "diffSample": []
+    },
+    "firefox": {
+      "redactionMaxDeltaPx": 0,
+      "redactionDiffs": 0,
+      "paragraphsWithMovedLines": 0,
+      "unrecordedRequests": 2,
+      "diffSample": []
+    }
+  },
+  "productTraffic": {
+    "har": "product-traffic.har",
+    "product": "v2.1.6",
+    "seconds": 25,
+    "runs": 11,
+    "settled": true,
+    "hosts": [
+      "api.jiten.moe"
+    ],
+    "recordedAt": "2026-10-17T17:14:27.376Z"
+  }
+}

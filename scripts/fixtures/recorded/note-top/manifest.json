@@ -1,0 +1,47 @@
+{
+  "slug": "note-top",
+  "url": "https://note.com/",
+  "content": "redacted",
+  "licence": "Redacted structure of a copyrighted page (text replaced with public-domain text, pictures blanked)",
+  "attribution": "Structure of the note.com top page, recorded for testing. Its stylesheets are kept as served; no note.com text or image is included.",
+  "redactionHashes": "redaction-hashes.json",
+  "recordedAt": "2026-10-17T17:17:59.053Z",
+  "recorder": {
+    "engine": "chromium",
+    "viewport": {
+      "width": 1280,
+      "height": 900
+    },
+    "platform": "darwin",
+    "locale": "ja-JP"
+  },
+  "document": "page.html",
+  "har": "network.har",
+  "geometry": "geometry.json",
+  "fidelity": {
+    "chromium": {
+      "redactionMaxDeltaPx": 0,
+      "redactionDiffs": 0,
+      "paragraphsWithMovedLines": 5,
+      "unrecordedRequests": 0,
+      "liveMaxDeltaPx": 0,
+      "liveDiffs": 0,
+      "liveDiffSample": [],
+      "diffSample": []
+    },
+    "webkit": {
+      "redactionMaxDeltaPx": 0,
+      "redactionDiffs": 0,
+      "paragraphsWithMovedLines": 4,
+      "unrecordedRequests": 0,
+      "diffSample": []
+    },
+    "firefox": {
+      "redactionMaxDeltaPx": 0,
+      "redactionDiffs": 0,
+      "paragraphsWithMovedLines": 5,
+      "unrecordedRequests": 2,
+      "diffSample": []
+    }
+  }
+}

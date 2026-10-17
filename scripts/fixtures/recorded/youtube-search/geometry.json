@@ -1,0 +1,1774 @@
+{
+ "keys": [
+  "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > div:nth-of-type(1) > ytd-page-manager:nth-of-type(1) > ytd-search:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > ytd-search-header-renderer:nth-of-type(1) > div:nth-of-type(2) > yt-chip-cloud-renderer:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > iron-selector:nth-of-type(1) > yt-chip-cloud-chip-renderer:nth-of-type(1) > div:nth-of-type(1) > chip-shape:nth-of-type(1) > button:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1)",
+  "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > div:nth-of-type(1) > ytd-page-manager:nth-of-type(1) > ytd-search:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > ytd-search-header-renderer:nth-of-type(1) > div:nth-of-type(2) > yt-chip-cloud-renderer:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > iron-selector:nth-of-type(1) > yt-chip-cloud-chip-renderer:nth-of-type(2) > div:nth-of-type(1) > chip-shape:nth-of-type(1) > button:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1)",
+  "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > div:nth-of-type(1) > ytd-page-manager:nth-of-type(1) > ytd-search:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > ytd-search-header-renderer:nth-of-type(1) > div:nth-of-type(2) > yt-chip-cloud-renderer:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > iron-selector:nth-of-type(1) > yt-chip-cloud-chip-renderer:nth-of-type(3) > div:nth-of-type(1) > chip-shape:nth-of-type(1) > button:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1)",
+  "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > div:nth-of-type(1) > ytd-page-manager:nth-of-type(1) > ytd-search:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > ytd-search-header-renderer:nth-of-type(1) > div:nth-of-type(2) > yt-chip-cloud-renderer:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > iron-selector:nth-of-type(1) > yt-chip-cloud-chip-renderer:nth-of-type(4) > div:nth-of-type(1) > chip-shape:nth-of-type(1) > button:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1)",
+  "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > div:nth-of-type(1) > ytd-page-manager:nth-of-type(1) > ytd-search:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > ytd-search-header-renderer:nth-of-type(1) > div:nth-of-type(2) > yt-chip-cloud-renderer:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > iron-selector:nth-of-type(1) > yt-chip-cloud-chip-renderer:nth-of-type(5) > div:nth-of-type(1) > chip-shape:nth-of-type(1) > button:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1)",
+  "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > div:nth-of-type(1) > ytd-page-manager:nth-of-type(1) > ytd-search:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > ytd-search-header-renderer:nth-of-type(1) > div:nth-of-type(2) > yt-chip-cloud-renderer:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > iron-selector:nth-of-type(1) > yt-chip-cloud-chip-renderer:nth-of-type(6) > div:nth-of-type(1) > chip-shape:nth-of-type(1) > button:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1)",
+  "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > div:nth-of-type(1) > ytd-page-manager:nth-of-type(1) > ytd-search:nth-of-type(1) > div:nth-of-type(1) > ytd-two-column-search-results-renderer:nth-of-type(1) > div:nth-of-type(1) > ytd-section-list-renderer:nth-of-type(1) > div:nth-of-type(2) > ytd-item-section-renderer:nth-of-type(1) > div:nth-of-type(3) > ytd-video-renderer:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > ytd-badge-supported-renderer:nth-of-type(1) > yt-badge-supported-renderer:nth-of-type(1) > div:nth-of-type(1) > yt-metadata-badge-renderer:nth-of-type(1) > badge-shape:nth-of-type(1) > div:nth-of-type(1)",
+  "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > div:nth-of-type(1) > ytd-page-manager:nth-of-type(1) > ytd-search:nth-of-type(1) > div:nth-of-type(1) > ytd-two-column-search-results-renderer:nth-of-type(1) > div:nth-of-type(1) > ytd-section-list-renderer:nth-of-type(1) > div:nth-of-type(2) > ytd-item-section-renderer:nth-of-type(1) > div:nth-of-type(3) > ytd-video-renderer:nth-of-type(2) > div:nth-of-type(1) > div:nth-of-type(1) > ytd-badge-supported-renderer:nth-of-type(1) > yt-badge-supported-renderer:nth-of-type(1) > div:nth-of-type(1) > yt-metadata-badge-renderer:nth-of-type(1) > badge-shape:nth-of-type(1) > div:nth-of-type(1)",
+  "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > div:nth-of-type(1) > ytd-page-manager:nth-of-type(1) > ytd-search:nth-of-type(1) > div:nth-of-type(1) > ytd-two-column-search-results-renderer:nth-of-type(1) > div:nth-of-type(1) > ytd-section-list-renderer:nth-of-type(1) > div:nth-of-type(2) > ytd-item-section-renderer:nth-of-type(1) > div:nth-of-type(3) > grid-shelf-view-model:nth-of-type(2) > div:nth-of-type(2) > div:nth-of-type(1) > button-view-model:nth-of-type(1) > button:nth-of-type(1) > div:nth-of-type(1)",
+  "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > div:nth-of-type(1) > ytd-page-manager:nth-of-type(1) > ytd-search:nth-of-type(1) > div:nth-of-type(1) > ytd-two-column-search-results-renderer:nth-of-type(1) > div:nth-of-type(1) > ytd-section-list-renderer:nth-of-type(1) > div:nth-of-type(2) > ytd-item-section-renderer:nth-of-type(1) > div:nth-of-type(3) > ytd-video-renderer:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(1) > ytd-badge-supported-renderer:nth-of-type(1) > yt-badge-supported-renderer:nth-of-type(1) > div:nth-of-type(1) > yt-metadata-badge-renderer:nth-of-type(1) > badge-shape:nth-of-type(1) > div:nth-of-type(1)",
+  "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > div:nth-of-type(1) > ytd-page-manager:nth-of-type(1) > ytd-search:nth-of-type(1) > div:nth-of-type(1) > ytd-two-column-search-results-renderer:nth-of-type(1) > div:nth-of-type(1) > ytd-section-list-renderer:nth-of-type(1) > div:nth-of-type(2) > ytd-item-section-renderer:nth-of-type(1) > div:nth-of-type(3) > ytd-video-renderer:nth-of-type(5) > div:nth-of-type(1) > div:nth-of-type(1) > ytd-badge-supported-renderer:nth-of-type(1) > yt-badge-supported-renderer:nth-of-type(1) > div:nth-of-type(1) > yt-metadata-badge-renderer:nth-of-type(1) > badge-shape:nth-of-type(1) > div:nth-of-type(1)",
+  "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > div:nth-of-type(1) > ytd-page-manager:nth-of-type(1) > ytd-search:nth-of-type(1) > div:nth-of-type(1) > ytd-two-column-search-results-renderer:nth-of-type(1) > div:nth-of-type(1) > ytd-section-list-renderer:nth-of-type(1) > div:nth-of-type(2) > ytd-item-section-renderer:nth-of-type(1) > div:nth-of-type(3) > ytd-video-renderer:nth-of-type(6) > div:nth-of-type(1) > div:nth-of-type(1) > ytd-badge-supported-renderer:nth-of-type(1) > yt-badge-supported-renderer:nth-of-type(1) > div:nth-of-type(1) > yt-metadata-badge-renderer:nth-of-type(1) > badge-shape:nth-of-type(1) > div:nth-of-type(1)",
+  "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > div:nth-of-type(1) > ytd-page-manager:nth-of-type(1) > ytd-search:nth-of-type(1) > div:nth-of-type(1) > ytd-two-column-search-results-renderer:nth-of-type(1) > div:nth-of-type(1) > ytd-section-list-renderer:nth-of-type(1) > div:nth-of-type(2) > ytd-item-section-renderer:nth-of-type(1) > div:nth-of-type(3) > ytd-video-renderer:nth-of-type(7) > div:nth-of-type(1) > div:nth-of-type(1) > ytd-badge-supported-renderer:nth-of-type(1) > yt-badge-supported-renderer:nth-of-type(1) > div:nth-of-type(1) > yt-metadata-badge-renderer:nth-of-type(1) > badge-shape:nth-of-type(1) > div:nth-of-type(1)",
+  "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > div:nth-of-type(1) > ytd-page-manager:nth-of-type(1) > ytd-search:nth-of-type(1) > div:nth-of-type(1) > ytd-two-column-search-results-renderer:nth-of-type(1) > div:nth-of-type(1) > ytd-section-list-renderer:nth-of-type(1) > div:nth-of-type(2) > ytd-item-section-renderer:nth-of-type(1) > div:nth-of-type(3) > ytd-video-renderer:nth-of-type(9) > div:nth-of-type(1) > div:nth-of-type(1) > ytd-badge-supported-renderer:nth-of-type(1) > yt-badge-supported-renderer:nth-of-type(1) > div:nth-of-type(1) > yt-metadata-badge-renderer:nth-of-type(1) > badge-shape:nth-of-type(1) > div:nth-of-type(1)",
+  "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > div:nth-of-type(1) > ytd-page-manager:nth-of-type(1) > ytd-search:nth-of-type(1) > div:nth-of-type(1) > ytd-two-column-search-results-renderer:nth-of-type(1) > div:nth-of-type(1) > ytd-section-list-renderer:nth-of-type(1) > div:nth-of-type(2) > ytd-item-section-renderer:nth-of-type(1) > div:nth-of-type(3) > ytd-video-renderer:nth-of-type(11) > div:nth-of-type(1) > div:nth-of-type(1) > ytd-badge-supported-renderer:nth-of-type(1) > yt-badge-supported-renderer:nth-of-type(1) > div:nth-of-type(1) > yt-metadata-badge-renderer:nth-of-type(1) > badge-shape:nth-of-type(1) > div:nth-of-type(1)",
+  "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > div:nth-of-type(1) > ytd-page-manager:nth-of-type(1) > ytd-search:nth-of-type(1) > div:nth-of-type(1) > ytd-two-column-search-results-renderer:nth-of-type(1) > div:nth-of-type(1) > ytd-section-list-renderer:nth-of-type(1) > div:nth-of-type(2) > ytd-item-section-renderer:nth-of-type(2) > div:nth-of-type(3) > ytd-video-renderer:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(1) > ytd-badge-supported-renderer:nth-of-type(1) > yt-badge-supported-renderer:nth-of-type(1) > div:nth-of-type(1) > yt-metadata-badge-renderer:nth-of-type(1) > badge-shape:nth-of-type(1) > div:nth-of-type(1)",
+  "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > div:nth-of-type(1) > ytd-page-manager:nth-of-type(1) > ytd-search:nth-of-type(1) > div:nth-of-type(1) > ytd-two-column-search-results-renderer:nth-of-type(1) > div:nth-of-type(1) > ytd-section-list-renderer:nth-of-type(1) > div:nth-of-type(2) > ytd-item-section-renderer:nth-of-type(2) > div:nth-of-type(3) > grid-shelf-view-model:nth-of-type(2) > div:nth-of-type(2) > div:nth-of-type(1) > button-view-model:nth-of-type(1) > button:nth-of-type(1) > div:nth-of-type(1)",
+  "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > div:nth-of-type(1) > ytd-page-manager:nth-of-type(1) > ytd-search:nth-of-type(1) > div:nth-of-type(1) > ytd-two-column-search-results-renderer:nth-of-type(1) > div:nth-of-type(1) > ytd-section-list-renderer:nth-of-type(1) > div:nth-of-type(2) > ytd-item-section-renderer:nth-of-type(2) > div:nth-of-type(3) > ytd-video-renderer:nth-of-type(5) > div:nth-of-type(1) > div:nth-of-type(1) > ytd-badge-supported-renderer:nth-of-type(1) > yt-badge-supported-renderer:nth-of-type(1) > div:nth-of-type(1) > yt-metadata-badge-renderer:nth-of-type(1) > badge-shape:nth-of-type(1) > div:nth-of-type(1)",
+  "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > div:nth-of-type(1) > ytd-page-manager:nth-of-type(1) > ytd-search:nth-of-type(1) > div:nth-of-type(1) > ytd-two-column-search-results-renderer:nth-of-type(1) > div:nth-of-type(1) > ytd-section-list-renderer:nth-of-type(1) > div:nth-of-type(2) > ytd-item-section-renderer:nth-of-type(2) > div:nth-of-type(3) > ytd-video-renderer:nth-of-type(10) > div:nth-of-type(1) > div:nth-of-type(1) > ytd-badge-supported-renderer:nth-of-type(1) > yt-badge-supported-renderer:nth-of-type(1) > div:nth-of-type(1) > yt-metadata-badge-renderer:nth-of-type(1) > badge-shape:nth-of-type(1) > div:nth-of-type(1)",
+  "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > ytd-consent-bump-v2-lightbox:nth-of-type(1) > tp-yt-paper-dialog:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > yt-formatted-string:nth-of-type(1)"
+ ],
+ "live": {
+  "viewport": {
+   "width": 1280,
+   "height": 900
+  },
+  "document": {
+   "scrollWidth": 1280,
+   "scrollHeight": 12759,
+   "clientWidth": 1280,
+   "clientHeight": 900
+  },
+  "blocks": [
+   {
+    "key": "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > div:nth-of-type(1) > ytd-page-manager:nth-of-type(1) > ytd-search:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > ytd-search-header-renderer:nth-of-type(1) > div:nth-of-type(2) > yt-chip-cloud-renderer:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > iron-selector:nth-of-type(1) > yt-chip-cloud-chip-renderer:nth-of-type(1) > div:nth-of-type(1) > chip-shape:nth-of-type(1) > button:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1)",
+    "box": [
+     108,
+     73,
+     41.03,
+     20
+    ]
+   },
+   {
+    "key": "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > div:nth-of-type(1) > ytd-page-manager:nth-of-type(1) > ytd-search:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > ytd-search-header-renderer:nth-of-type(1) > div:nth-of-type(2) > yt-chip-cloud-renderer:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > iron-selector:nth-of-type(1) > yt-chip-cloud-chip-renderer:nth-of-type(2) > div:nth-of-type(1) > chip-shape:nth-of-type(1) > button:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1)",
+    "box": [
+     181.03,
+     73,
+     56,
+     20
+    ]
+   },
+   {
+    "key": "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > div:nth-of-type(1) > ytd-page-manager:nth-of-type(1) > ytd-search:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > ytd-search-header-renderer:nth-of-type(1) > div:nth-of-type(2) > yt-chip-cloud-renderer:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > iron-selector:nth-of-type(1) > yt-chip-cloud-chip-renderer:nth-of-type(3) > div:nth-of-type(1) > chip-shape:nth-of-type(1) > button:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1)",
+    "box": [
+     269.03,
+     73,
+     42,
+     20
+    ]
+   },
+   {
+    "key": "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > div:nth-of-type(1) > ytd-page-manager:nth-of-type(1) > ytd-search:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > ytd-search-header-renderer:nth-of-type(1) > div:nth-of-type(2) > yt-chip-cloud-renderer:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > iron-selector:nth-of-type(1) > yt-chip-cloud-chip-renderer:nth-of-type(4) > div:nth-of-type(1) > chip-shape:nth-of-type(1) > button:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1)",
+    "box": [
+     343.03,
+     73,
+     28,
+     20
+    ]
+   },
+   {
+    "key": "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > div:nth-of-type(1) > ytd-page-manager:nth-of-type(1) > ytd-search:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > ytd-search-header-renderer:nth-of-type(1) > div:nth-of-type(2) > yt-chip-cloud-renderer:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > iron-selector:nth-of-type(1) > yt-chip-cloud-chip-renderer:nth-of-type(5) > div:nth-of-type(1) > chip-shape:nth-of-type(1) > button:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1)",
+    "box": [
+     403.03,
+     73,
+     181.17,
+     20
+    ]
+   },
+   {
+    "key": "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > div:nth-of-type(1) > ytd-page-manager:nth-of-type(1) > ytd-search:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > ytd-search-header-renderer:nth-of-type(1) > div:nth-of-type(2) > yt-chip-cloud-renderer:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > iron-selector:nth-of-type(1) > yt-chip-cloud-chip-renderer:nth-of-type(6) > div:nth-of-type(1) > chip-shape:nth-of-type(1) > button:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1)",
+    "box": [
+     616.2,
+     73,
+     42,
+     20
+    ]
+   },
+   {
+    "key": "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > div:nth-of-type(1) > ytd-page-manager:nth-of-type(1) > ytd-search:nth-of-type(1) > div:nth-of-type(1) > ytd-two-column-search-results-renderer:nth-of-type(1) > div:nth-of-type(1) > ytd-section-list-renderer:nth-of-type(1) > div:nth-of-type(2) > ytd-item-section-renderer:nth-of-type(1) > div:nth-of-type(3) > ytd-video-renderer:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > ytd-badge-supported-renderer:nth-of-type(1) > yt-badge-supported-renderer:nth-of-type(1) > div:nth-of-type(1) > yt-metadata-badge-renderer:nth-of-type(1) > badge-shape:nth-of-type(1) > div:nth-of-type(1)",
+    "box": [
+     616,
+     1218.03,
+     24,
+     18
+    ]
+   },
+   {
+    "key": "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > div:nth-of-type(1) > ytd-page-manager:nth-of-type(1) > ytd-search:nth-of-type(1) > div:nth-of-type(1) > ytd-two-column-search-results-renderer:nth-of-type(1) > div:nth-of-type(1) > ytd-section-list-renderer:nth-of-type(1) > div:nth-of-type(2) > ytd-item-section-renderer:nth-of-type(1) > div:nth-of-type(3) > ytd-video-renderer:nth-of-type(2) > div:nth-of-type(1) > div:nth-of-type(1) > ytd-badge-supported-renderer:nth-of-type(1) > yt-badge-supported-renderer:nth-of-type(1) > div:nth-of-type(1) > yt-metadata-badge-renderer:nth-of-type(1) > badge-shape:nth-of-type(1) > div:nth-of-type(1)",
+    "box": [
+     616,
+     1532.58,
+     24,
+     18
+    ]
+   },
+   {
+    "key": "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > div:nth-of-type(1) > ytd-page-manager:nth-of-type(1) > ytd-search:nth-of-type(1) > div:nth-of-type(1) > ytd-two-column-search-results-renderer:nth-of-type(1) > div:nth-of-type(1) > ytd-section-list-renderer:nth-of-type(1) > div:nth-of-type(2) > ytd-item-section-renderer:nth-of-type(1) > div:nth-of-type(3) > grid-shelf-view-model:nth-of-type(2) > div:nth-of-type(2) > div:nth-of-type(1) > button-view-model:nth-of-type(1) > button:nth-of-type(1) > div:nth-of-type(1)",
+    "box": [
+     626,
+     2578.69,
+     70,
+     40
+    ]
+   },
+   {
+    "key": "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > div:nth-of-type(1) > ytd-page-manager:nth-of-type(1) > ytd-search:nth-of-type(1) > div:nth-of-type(1) > ytd-two-column-search-results-renderer:nth-of-type(1) > div:nth-of-type(1) > ytd-section-list-renderer:nth-of-type(1) > div:nth-of-type(2) > ytd-item-section-renderer:nth-of-type(1) > div:nth-of-type(3) > ytd-video-renderer:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(1) > ytd-badge-supported-renderer:nth-of-type(1) > yt-badge-supported-renderer:nth-of-type(1) > div:nth-of-type(1) > yt-metadata-badge-renderer:nth-of-type(1) > badge-shape:nth-of-type(1) > div:nth-of-type(1)",
+    "box": [
+     616,
+     2767.69,
+     24,
+     18
+    ]
+   },
+   {
+    "key": "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > div:nth-of-type(1) > ytd-page-manager:nth-of-type(1) > ytd-search:nth-of-type(1) > div:nth-of-type(1) > ytd-two-column-search-results-renderer:nth-of-type(1) > div:nth-of-type(1) > ytd-section-list-renderer:nth-of-type(1) > div:nth-of-type(2) > ytd-item-section-renderer:nth-of-type(1) > div:nth-of-type(3) > ytd-video-renderer:nth-of-type(5) > div:nth-of-type(1) > div:nth-of-type(1) > ytd-badge-supported-renderer:nth-of-type(1) > yt-badge-supported-renderer:nth-of-type(1) > div:nth-of-type(1) > yt-metadata-badge-renderer:nth-of-type(1) > badge-shape:nth-of-type(1) > div:nth-of-type(1)",
+    "box": [
+     616,
+     3360.78,
+     24,
+     18
+    ]
+   },
+   {
+    "key": "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > div:nth-of-type(1) > ytd-page-manager:nth-of-type(1) > ytd-search:nth-of-type(1) > div:nth-of-type(1) > ytd-two-column-search-results-renderer:nth-of-type(1) > div:nth-of-type(1) > ytd-section-list-renderer:nth-of-type(1) > div:nth-of-type(2) > ytd-item-section-renderer:nth-of-type(1) > div:nth-of-type(3) > ytd-video-renderer:nth-of-type(6) > div:nth-of-type(1) > div:nth-of-type(1) > ytd-badge-supported-renderer:nth-of-type(1) > yt-badge-supported-renderer:nth-of-type(1) > div:nth-of-type(1) > yt-metadata-badge-renderer:nth-of-type(1) > badge-shape:nth-of-type(1) > div:nth-of-type(1)",
+    "box": [
+     616,
+     4469.36,
+     24,
+     18
+    ]
+   },
+   {
+    "key": "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > div:nth-of-type(1) > ytd-page-manager:nth-of-type(1) > ytd-search:nth-of-type(1) > div:nth-of-type(1) > ytd-two-column-search-results-renderer:nth-of-type(1) > div:nth-of-type(1) > ytd-section-list-renderer:nth-of-type(1) > div:nth-of-type(2) > ytd-item-section-renderer:nth-of-type(1) > div:nth-of-type(3) > ytd-video-renderer:nth-of-type(7) > div:nth-of-type(1) > div:nth-of-type(1) > ytd-badge-supported-renderer:nth-of-type(1) > yt-badge-supported-renderer:nth-of-type(1) > div:nth-of-type(1) > yt-metadata-badge-renderer:nth-of-type(1) > badge-shape:nth-of-type(1) > div:nth-of-type(1)",
+    "box": [
+     616,
+     4773.91,
+     24,
+     18
+    ]
+   },
+   {
+    "key": "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > div:nth-of-type(1) > ytd-page-manager:nth-of-type(1) > ytd-search:nth-of-type(1) > div:nth-of-type(1) > ytd-two-column-search-results-renderer:nth-of-type(1) > div:nth-of-type(1) > ytd-section-list-renderer:nth-of-type(1) > div:nth-of-type(2) > ytd-item-section-renderer:nth-of-type(1) > div:nth-of-type(3) > ytd-video-renderer:nth-of-type(9) > div:nth-of-type(1) > div:nth-of-type(1) > ytd-badge-supported-renderer:nth-of-type(1) > yt-badge-supported-renderer:nth-of-type(1) > div:nth-of-type(1) > yt-metadata-badge-renderer:nth-of-type(1) > badge-shape:nth-of-type(1) > div:nth-of-type(1)",
+    "box": [
+     616,
+     5989.5,
+     14.41,
+     18
+    ]
+   },
+   {
+    "key": "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > div:nth-of-type(1) > ytd-page-manager:nth-of-type(1) > ytd-search:nth-of-type(1) > div:nth-of-type(1) > ytd-two-column-search-results-renderer:nth-of-type(1) > div:nth-of-type(1) > ytd-section-list-renderer:nth-of-type(1) > div:nth-of-type(2) > ytd-item-section-renderer:nth-of-type(1) > div:nth-of-type(3) > ytd-video-renderer:nth-of-type(11) > div:nth-of-type(1) > div:nth-of-type(1) > ytd-badge-supported-renderer:nth-of-type(1) > yt-badge-supported-renderer:nth-of-type(1) > div:nth-of-type(1) > yt-metadata-badge-renderer:nth-of-type(1) > badge-shape:nth-of-type(1) > div:nth-of-type(1)",
+    "box": [
+     616,
+     6582.59,
+     24,
+     18
+    ]
+   },
+   {
+    "key": "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > div:nth-of-type(1) > ytd-page-manager:nth-of-type(1) > ytd-search:nth-of-type(1) > div:nth-of-type(1) > ytd-two-column-search-results-renderer:nth-of-type(1) > div:nth-of-type(1) > ytd-section-list-renderer:nth-of-type(1) > div:nth-of-type(2) > ytd-item-section-renderer:nth-of-type(2) > div:nth-of-type(3) > ytd-video-renderer:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(1) > ytd-badge-supported-renderer:nth-of-type(1) > yt-badge-supported-renderer:nth-of-type(1) > div:nth-of-type(1) > yt-metadata-badge-renderer:nth-of-type(1) > badge-shape:nth-of-type(1) > div:nth-of-type(1)",
+    "box": [
+     616,
+     9133.2,
+     24,
+     18
+    ]
+   },
+   {
+    "key": "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > div:nth-of-type(1) > ytd-page-manager:nth-of-type(1) > ytd-search:nth-of-type(1) > div:nth-of-type(1) > ytd-two-column-search-results-renderer:nth-of-type(1) > div:nth-of-type(1) > ytd-section-list-renderer:nth-of-type(1) > div:nth-of-type(2) > ytd-item-section-renderer:nth-of-type(2) > div:nth-of-type(3) > grid-shelf-view-model:nth-of-type(2) > div:nth-of-type(2) > div:nth-of-type(1) > button-view-model:nth-of-type(1) > button:nth-of-type(1) > div:nth-of-type(1)",
+    "box": [
+     626,
+     10527.86,
+     70,
+     40
+    ]
+   },
+   {
+    "key": "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > div:nth-of-type(1) > ytd-page-manager:nth-of-type(1) > ytd-search:nth-of-type(1) > div:nth-of-type(1) > ytd-two-column-search-results-renderer:nth-of-type(1) > div:nth-of-type(1) > ytd-section-list-renderer:nth-of-type(1) > div:nth-of-type(2) > ytd-item-section-renderer:nth-of-type(2) > div:nth-of-type(3) > ytd-video-renderer:nth-of-type(5) > div:nth-of-type(1) > div:nth-of-type(1) > ytd-badge-supported-renderer:nth-of-type(1) > yt-badge-supported-renderer:nth-of-type(1) > div:nth-of-type(1) > yt-metadata-badge-renderer:nth-of-type(1) > badge-shape:nth-of-type(1) > div:nth-of-type(1)",
+    "box": [
+     616,
+     10726.86,
+     24,
+     18
+    ]
+   },
+   {
+    "key": "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > div:nth-of-type(1) > ytd-page-manager:nth-of-type(1) > ytd-search:nth-of-type(1) > div:nth-of-type(1) > ytd-two-column-search-results-renderer:nth-of-type(1) > div:nth-of-type(1) > ytd-section-list-renderer:nth-of-type(1) > div:nth-of-type(2) > ytd-item-section-renderer:nth-of-type(2) > div:nth-of-type(3) > ytd-video-renderer:nth-of-type(10) > div:nth-of-type(1) > div:nth-of-type(1) > ytd-badge-supported-renderer:nth-of-type(1) > yt-badge-supported-renderer:nth-of-type(1) > div:nth-of-type(1) > yt-metadata-badge-renderer:nth-of-type(1) > badge-shape:nth-of-type(1) > div:nth-of-type(1)",
+    "box": [
+     616,
+     12191.59,
+     14.41,
+     18
+    ]
+   },
+   {
+    "key": "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > ytd-consent-bump-v2-lightbox:nth-of-type(1) > tp-yt-paper-dialog:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > yt-formatted-string:nth-of-type(1)",
+    "box": [
+     415,
+     44.98,
+     89.67,
+     20
+    ]
+   }
+  ],
+  "paragraphs": [
+   {
+    "key": "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > div:nth-of-type(1) > ytd-page-manager:nth-of-type(1) > ytd-search:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > ytd-search-header-renderer:nth-of-type(1) > div:nth-of-type(2) > yt-chip-cloud-renderer:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > iron-selector:nth-of-type(1) > yt-chip-cloud-chip-renderer:nth-of-type(1) > div:nth-of-type(1) > chip-shape:nth-of-type(1) > button:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1)",
+    "lineCount": 1,
+    "lines": [
+     [
+      108,
+      75,
+      149.03,
+      91
+     ]
+    ]
+   },
+   {
+    "key": "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > div:nth-of-type(1) > ytd-page-manager:nth-of-type(1) > ytd-search:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > ytd-search-header-renderer:nth-of-type(1) > div:nth-of-type(2) > yt-chip-cloud-renderer:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > iron-selector:nth-of-type(1) > yt-chip-cloud-chip-renderer:nth-of-type(2) > div:nth-of-type(1) > chip-shape:nth-of-type(1) > button:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1)",
+    "lineCount": 1,
+    "lines": [
+     [
+      181.03,
+      75,
+      237.03,
+      91
+     ]
+    ]
+   },
+   {
+    "key": "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > div:nth-of-type(1) > ytd-page-manager:nth-of-type(1) > ytd-search:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > ytd-search-header-renderer:nth-of-type(1) > div:nth-of-type(2) > yt-chip-cloud-renderer:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > iron-selector:nth-of-type(1) > yt-chip-cloud-chip-renderer:nth-of-type(3) > div:nth-of-type(1) > chip-shape:nth-of-type(1) > button:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1)",
+    "lineCount": 1,
+    "lines": [
+     [
+      269.03,
+      75,
+      311.03,
+      91
+     ]
+    ]
+   },
+   {
+    "key": "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > div:nth-of-type(1) > ytd-page-manager:nth-of-type(1) > ytd-search:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > ytd-search-header-renderer:nth-of-type(1) > div:nth-of-type(2) > yt-chip-cloud-renderer:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > iron-selector:nth-of-type(1) > yt-chip-cloud-chip-renderer:nth-of-type(4) > div:nth-of-type(1) > chip-shape:nth-of-type(1) > button:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1)",
+    "lineCount": 1,
+    "lines": [
+     [
+      343.03,
+      75,
+      371.03,
+      91
+     ]
+    ]
+   },
+   {
+    "key": "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > div:nth-of-type(1) > ytd-page-manager:nth-of-type(1) > ytd-search:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > ytd-search-header-renderer:nth-of-type(1) > div:nth-of-type(2) > yt-chip-cloud-renderer:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > iron-selector:nth-of-type(1) > yt-chip-cloud-chip-renderer:nth-of-type(5) > div:nth-of-type(1) > chip-shape:nth-of-type(1) > button:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1)",
+    "lineCount": 1,
+    "lines": [
+     [
+      403.03,
+      75,
+      584.2,
+      91
+     ]
+    ]
+   },
+   {
+    "key": "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > div:nth-of-type(1) > ytd-page-manager:nth-of-type(1) > ytd-search:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > ytd-search-header-renderer:nth-of-type(1) > div:nth-of-type(2) > yt-chip-cloud-renderer:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > iron-selector:nth-of-type(1) > yt-chip-cloud-chip-renderer:nth-of-type(6) > div:nth-of-type(1) > chip-shape:nth-of-type(1) > button:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1)",
+    "lineCount": 1,
+    "lines": [
+     [
+      616.2,
+      75,
+      658.2,
+      91
+     ]
+    ]
+   },
+   {
+    "key": "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > div:nth-of-type(1) > ytd-page-manager:nth-of-type(1) > ytd-search:nth-of-type(1) > div:nth-of-type(1) > ytd-two-column-search-results-renderer:nth-of-type(1) > div:nth-of-type(1) > ytd-section-list-renderer:nth-of-type(1) > div:nth-of-type(2) > ytd-item-section-renderer:nth-of-type(1) > div:nth-of-type(3) > ytd-video-renderer:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > ytd-badge-supported-renderer:nth-of-type(1) > yt-badge-supported-renderer:nth-of-type(1) > div:nth-of-type(1) > yt-metadata-badge-renderer:nth-of-type(1) > badge-shape:nth-of-type(1) > div:nth-of-type(1)",
+    "lineCount": 1,
+    "lines": [
+     [
+      616,
+      1220.03,
+      640,
+      1234.03
+     ]
+    ]
+   },
+   {
+    "key": "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > div:nth-of-type(1) > ytd-page-manager:nth-of-type(1) > ytd-search:nth-of-type(1) > div:nth-of-type(1) > ytd-two-column-search-results-renderer:nth-of-type(1) > div:nth-of-type(1) > ytd-section-list-renderer:nth-of-type(1) > div:nth-of-type(2) > ytd-item-section-renderer:nth-of-type(1) > div:nth-of-type(3) > ytd-video-renderer:nth-of-type(2) > div:nth-of-type(1) > div:nth-of-type(1) > ytd-badge-supported-renderer:nth-of-type(1) > yt-badge-supported-renderer:nth-of-type(1) > div:nth-of-type(1) > yt-metadata-badge-renderer:nth-of-type(1) > badge-shape:nth-of-type(1) > div:nth-of-type(1)",
+    "lineCount": 1,
+    "lines": [
+     [
+      616,
+      1534.58,
+      640,
+      1548.58
+     ]
+    ]
+   },
+   {
+    "key": "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > div:nth-of-type(1) > ytd-page-manager:nth-of-type(1) > ytd-search:nth-of-type(1) > div:nth-of-type(1) > ytd-two-column-search-results-renderer:nth-of-type(1) > div:nth-of-type(1) > ytd-section-list-renderer:nth-of-type(1) > div:nth-of-type(2) > ytd-item-section-renderer:nth-of-type(1) > div:nth-of-type(3) > grid-shelf-view-model:nth-of-type(2) > div:nth-of-type(2) > div:nth-of-type(1) > button-view-model:nth-of-type(1) > button:nth-of-type(1) > div:nth-of-type(1)",
+    "lineCount": 1,
+    "lines": [
+     [
+      626,
+      2590.69,
+      696,
+      2606.69
+     ]
+    ]
+   },
+   {
+    "key": "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > div:nth-of-type(1) > ytd-page-manager:nth-of-type(1) > ytd-search:nth-of-type(1) > div:nth-of-type(1) > ytd-two-column-search-results-renderer:nth-of-type(1) > div:nth-of-type(1) > ytd-section-list-renderer:nth-of-type(1) > div:nth-of-type(2) > ytd-item-section-renderer:nth-of-type(1) > div:nth-of-type(3) > ytd-video-renderer:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(1) > ytd-badge-supported-renderer:nth-of-type(1) > yt-badge-supported-renderer:nth-of-type(1) > div:nth-of-type(1) > yt-metadata-badge-renderer:nth-of-type(1) > badge-shape:nth-of-type(1) > div:nth-of-type(1)",
+    "lineCount": 1,
+    "lines": [
+     [
+      616,
+      2769.69,
+      640,
+      2783.69
+     ]
+    ]
+   },
+   {
+    "key": "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > div:nth-of-type(1) > ytd-page-manager:nth-of-type(1) > ytd-search:nth-of-type(1) > div:nth-of-type(1) > ytd-two-column-search-results-renderer:nth-of-type(1) > div:nth-of-type(1) > ytd-section-list-renderer:nth-of-type(1) > div:nth-of-type(2) > ytd-item-section-renderer:nth-of-type(1) > div:nth-of-type(3) > ytd-video-renderer:nth-of-type(5) > div:nth-of-type(1) > div:nth-of-type(1) > ytd-badge-supported-renderer:nth-of-type(1) > yt-badge-supported-renderer:nth-of-type(1) > div:nth-of-type(1) > yt-metadata-badge-renderer:nth-of-type(1) > badge-shape:nth-of-type(1) > div:nth-of-type(1)",
+    "lineCount": 1,
+    "lines": [
+     [
+      616,
+      3362.78,
+      640,
+      3376.78
+     ]
+    ]
+   },
+   {
+    "key": "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > div:nth-of-type(1) > ytd-page-manager:nth-of-type(1) > ytd-search:nth-of-type(1) > div:nth-of-type(1) > ytd-two-column-search-results-renderer:nth-of-type(1) > div:nth-of-type(1) > ytd-section-list-renderer:nth-of-type(1) > div:nth-of-type(2) > ytd-item-section-renderer:nth-of-type(1) > div:nth-of-type(3) > ytd-video-renderer:nth-of-type(6) > div:nth-of-type(1) > div:nth-of-type(1) > ytd-badge-supported-renderer:nth-of-type(1) > yt-badge-supported-renderer:nth-of-type(1) > div:nth-of-type(1) > yt-metadata-badge-renderer:nth-of-type(1) > badge-shape:nth-of-type(1) > div:nth-of-type(1)",
+    "lineCount": 1,
+    "lines": [
+     [
+      616,
+      4471.36,
+      640,
+      4485.36
+     ]
+    ]
+   },
+   {
+    "key": "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > div:nth-of-type(1) > ytd-page-manager:nth-of-type(1) > ytd-search:nth-of-type(1) > div:nth-of-type(1) > ytd-two-column-search-results-renderer:nth-of-type(1) > div:nth-of-type(1) > ytd-section-list-renderer:nth-of-type(1) > div:nth-of-type(2) > ytd-item-section-renderer:nth-of-type(1) > div:nth-of-type(3) > ytd-video-renderer:nth-of-type(7) > div:nth-of-type(1) > div:nth-of-type(1) > ytd-badge-supported-renderer:nth-of-type(1) > yt-badge-supported-renderer:nth-of-type(1) > div:nth-of-type(1) > yt-metadata-badge-renderer:nth-of-type(1) > badge-shape:nth-of-type(1) > div:nth-of-type(1)",
+    "lineCount": 1,
+    "lines": [
+     [
+      616,
+      4775.91,
+      640,
+      4789.91
+     ]
+    ]
+   },
+   {
+    "key": "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > div:nth-of-type(1) > ytd-page-manager:nth-of-type(1) > ytd-search:nth-of-type(1) > div:nth-of-type(1) > ytd-two-column-search-results-renderer:nth-of-type(1) > div:nth-of-type(1) > ytd-section-list-renderer:nth-of-type(1) > div:nth-of-type(2) > ytd-item-section-renderer:nth-of-type(1) > div:nth-of-type(3) > ytd-video-renderer:nth-of-type(9) > div:nth-of-type(1) > div:nth-of-type(1) > ytd-badge-supported-renderer:nth-of-type(1) > yt-badge-supported-renderer:nth-of-type(1) > div:nth-of-type(1) > yt-metadata-badge-renderer:nth-of-type(1) > badge-shape:nth-of-type(1) > div:nth-of-type(1)",
+    "lineCount": 1,
+    "lines": [
+     [
+      616,
+      5991.5,
+      630.41,
+      6005.5
+     ]
+    ]
+   },
+   {
+    "key": "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > div:nth-of-type(1) > ytd-page-manager:nth-of-type(1) > ytd-search:nth-of-type(1) > div:nth-of-type(1) > ytd-two-column-search-results-renderer:nth-of-type(1) > div:nth-of-type(1) > ytd-section-list-renderer:nth-of-type(1) > div:nth-of-type(2) > ytd-item-section-renderer:nth-of-type(1) > div:nth-of-type(3) > ytd-video-renderer:nth-of-type(11) > div:nth-of-type(1) > div:nth-of-type(1) > ytd-badge-supported-renderer:nth-of-type(1) > yt-badge-supported-renderer:nth-of-type(1) > div:nth-of-type(1) > yt-metadata-badge-renderer:nth-of-type(1) > badge-shape:nth-of-type(1) > div:nth-of-type(1)",
+    "lineCount": 1,
+    "lines": [
+     [
+      616,
+      6584.59,
+      640,
+      6598.59
+     ]
+    ]
+   },
+   {
+    "key": "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > div:nth-of-type(1) > ytd-page-manager:nth-of-type(1) > ytd-search:nth-of-type(1) > div:nth-of-type(1) > ytd-two-column-search-results-renderer:nth-of-type(1) > div:nth-of-type(1) > ytd-section-list-renderer:nth-of-type(1) > div:nth-of-type(2) > ytd-item-section-renderer:nth-of-type(2) > div:nth-of-type(3) > ytd-video-renderer:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(1) > ytd-badge-supported-renderer:nth-of-type(1) > yt-badge-supported-renderer:nth-of-type(1) > div:nth-of-type(1) > yt-metadata-badge-renderer:nth-of-type(1) > badge-shape:nth-of-type(1) > div:nth-of-type(1)",
+    "lineCount": 1,
+    "lines": [
+     [
+      616,
+      9135.2,
+      640,
+      9149.2
+     ]
+    ]
+   },
+   {
+    "key": "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > div:nth-of-type(1) > ytd-page-manager:nth-of-type(1) > ytd-search:nth-of-type(1) > div:nth-of-type(1) > ytd-two-column-search-results-renderer:nth-of-type(1) > div:nth-of-type(1) > ytd-section-list-renderer:nth-of-type(1) > div:nth-of-type(2) > ytd-item-section-renderer:nth-of-type(2) > div:nth-of-type(3) > grid-shelf-view-model:nth-of-type(2) > div:nth-of-type(2) > div:nth-of-type(1) > button-view-model:nth-of-type(1) > button:nth-of-type(1) > div:nth-of-type(1)",
+    "lineCount": 1,
+    "lines": [
+     [
+      626,
+      10539.86,
+      696,
+      10555.86
+     ]
+    ]
+   },
+   {
+    "key": "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > div:nth-of-type(1) > ytd-page-manager:nth-of-type(1) > ytd-search:nth-of-type(1) > div:nth-of-type(1) > ytd-two-column-search-results-renderer:nth-of-type(1) > div:nth-of-type(1) > ytd-section-list-renderer:nth-of-type(1) > div:nth-of-type(2) > ytd-item-section-renderer:nth-of-type(2) > div:nth-of-type(3) > ytd-video-renderer:nth-of-type(5) > div:nth-of-type(1) > div:nth-of-type(1) > ytd-badge-supported-renderer:nth-of-type(1) > yt-badge-supported-renderer:nth-of-type(1) > div:nth-of-type(1) > yt-metadata-badge-renderer:nth-of-type(1) > badge-shape:nth-of-type(1) > div:nth-of-type(1)",
+    "lineCount": 1,
+    "lines": [
+     [
+      616,
+      10728.86,
+      640,
+      10742.86
+     ]
+    ]
+   },
+   {
+    "key": "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > div:nth-of-type(1) > ytd-page-manager:nth-of-type(1) > ytd-search:nth-of-type(1) > div:nth-of-type(1) > ytd-two-column-search-results-renderer:nth-of-type(1) > div:nth-of-type(1) > ytd-section-list-renderer:nth-of-type(1) > div:nth-of-type(2) > ytd-item-section-renderer:nth-of-type(2) > div:nth-of-type(3) > ytd-video-renderer:nth-of-type(10) > div:nth-of-type(1) > div:nth-of-type(1) > ytd-badge-supported-renderer:nth-of-type(1) > yt-badge-supported-renderer:nth-of-type(1) > div:nth-of-type(1) > yt-metadata-badge-renderer:nth-of-type(1) > badge-shape:nth-of-type(1) > div:nth-of-type(1)",
+    "lineCount": 1,
+    "lines": [
+     [
+      616,
+      12193.59,
+      630.41,
+      12207.59
+     ]
+    ]
+   },
+   {
+    "key": "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > ytd-consent-bump-v2-lightbox:nth-of-type(1) > tp-yt-paper-dialog:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > yt-formatted-string:nth-of-type(1)",
+    "lineCount": 1,
+    "lines": [
+     [
+      415,
+      46.98,
+      504.67,
+      62.98
+     ]
+    ]
+   }
+  ],
+  "paged": []
+ },
+ "replay": {
+  "chromium": {
+   "viewport": {
+    "width": 1280,
+    "height": 900
+   },
+   "document": {
+    "scrollWidth": 1280,
+    "scrollHeight": 12759,
+    "clientWidth": 1280,
+    "clientHeight": 900
+   },
+   "blocks": [
+    {
+     "key": "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > div:nth-of-type(1) > ytd-page-manager:nth-of-type(1) > ytd-search:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > ytd-search-header-renderer:nth-of-type(1) > div:nth-of-type(2) > yt-chip-cloud-renderer:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > iron-selector:nth-of-type(1) > yt-chip-cloud-chip-renderer:nth-of-type(1) > div:nth-of-type(1) > chip-shape:nth-of-type(1) > button:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1)",
+     "box": [
+      108,
+      73,
+      41.03,
+      20
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > div:nth-of-type(1) > ytd-page-manager:nth-of-type(1) > ytd-search:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > ytd-search-header-renderer:nth-of-type(1) > div:nth-of-type(2) > yt-chip-cloud-renderer:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > iron-selector:nth-of-type(1) > yt-chip-cloud-chip-renderer:nth-of-type(2) > div:nth-of-type(1) > chip-shape:nth-of-type(1) > button:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1)",
+     "box": [
+      181.03,
+      73,
+      56,
+      20
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > div:nth-of-type(1) > ytd-page-manager:nth-of-type(1) > ytd-search:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > ytd-search-header-renderer:nth-of-type(1) > div:nth-of-type(2) > yt-chip-cloud-renderer:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > iron-selector:nth-of-type(1) > yt-chip-cloud-chip-renderer:nth-of-type(3) > div:nth-of-type(1) > chip-shape:nth-of-type(1) > button:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1)",
+     "box": [
+      269.03,
+      73,
+      42,
+      20
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > div:nth-of-type(1) > ytd-page-manager:nth-of-type(1) > ytd-search:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > ytd-search-header-renderer:nth-of-type(1) > div:nth-of-type(2) > yt-chip-cloud-renderer:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > iron-selector:nth-of-type(1) > yt-chip-cloud-chip-renderer:nth-of-type(4) > div:nth-of-type(1) > chip-shape:nth-of-type(1) > button:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1)",
+     "box": [
+      343.03,
+      73,
+      28,
+      20
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > div:nth-of-type(1) > ytd-page-manager:nth-of-type(1) > ytd-search:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > ytd-search-header-renderer:nth-of-type(1) > div:nth-of-type(2) > yt-chip-cloud-renderer:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > iron-selector:nth-of-type(1) > yt-chip-cloud-chip-renderer:nth-of-type(5) > div:nth-of-type(1) > chip-shape:nth-of-type(1) > button:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1)",
+     "box": [
+      403.03,
+      73,
+      181.45,
+      20
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > div:nth-of-type(1) > ytd-page-manager:nth-of-type(1) > ytd-search:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > ytd-search-header-renderer:nth-of-type(1) > div:nth-of-type(2) > yt-chip-cloud-renderer:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > iron-selector:nth-of-type(1) > yt-chip-cloud-chip-renderer:nth-of-type(6) > div:nth-of-type(1) > chip-shape:nth-of-type(1) > button:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1)",
+     "box": [
+      616.48,
+      73,
+      42,
+      20
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > div:nth-of-type(1) > ytd-page-manager:nth-of-type(1) > ytd-search:nth-of-type(1) > div:nth-of-type(1) > ytd-two-column-search-results-renderer:nth-of-type(1) > div:nth-of-type(1) > ytd-section-list-renderer:nth-of-type(1) > div:nth-of-type(2) > ytd-item-section-renderer:nth-of-type(1) > div:nth-of-type(3) > ytd-video-renderer:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > ytd-badge-supported-renderer:nth-of-type(1) > yt-badge-supported-renderer:nth-of-type(1) > div:nth-of-type(1) > yt-metadata-badge-renderer:nth-of-type(1) > badge-shape:nth-of-type(1) > div:nth-of-type(1)",
+     "box": [
+      616,
+      1218.03,
+      24,
+      18
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > div:nth-of-type(1) > ytd-page-manager:nth-of-type(1) > ytd-search:nth-of-type(1) > div:nth-of-type(1) > ytd-two-column-search-results-renderer:nth-of-type(1) > div:nth-of-type(1) > ytd-section-list-renderer:nth-of-type(1) > div:nth-of-type(2) > ytd-item-section-renderer:nth-of-type(1) > div:nth-of-type(3) > ytd-video-renderer:nth-of-type(2) > div:nth-of-type(1) > div:nth-of-type(1) > ytd-badge-supported-renderer:nth-of-type(1) > yt-badge-supported-renderer:nth-of-type(1) > div:nth-of-type(1) > yt-metadata-badge-renderer:nth-of-type(1) > badge-shape:nth-of-type(1) > div:nth-of-type(1)",
+     "box": [
+      616,
+      1532.58,
+      24,
+      18
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > div:nth-of-type(1) > ytd-page-manager:nth-of-type(1) > ytd-search:nth-of-type(1) > div:nth-of-type(1) > ytd-two-column-search-results-renderer:nth-of-type(1) > div:nth-of-type(1) > ytd-section-list-renderer:nth-of-type(1) > div:nth-of-type(2) > ytd-item-section-renderer:nth-of-type(1) > div:nth-of-type(3) > grid-shelf-view-model:nth-of-type(2) > div:nth-of-type(2) > div:nth-of-type(1) > button-view-model:nth-of-type(1) > button:nth-of-type(1) > div:nth-of-type(1)",
+     "box": [
+      626,
+      2578.69,
+      70,
+      40
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > div:nth-of-type(1) > ytd-page-manager:nth-of-type(1) > ytd-search:nth-of-type(1) > div:nth-of-type(1) > ytd-two-column-search-results-renderer:nth-of-type(1) > div:nth-of-type(1) > ytd-section-list-renderer:nth-of-type(1) > div:nth-of-type(2) > ytd-item-section-renderer:nth-of-type(1) > div:nth-of-type(3) > ytd-video-renderer:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(1) > ytd-badge-supported-renderer:nth-of-type(1) > yt-badge-supported-renderer:nth-of-type(1) > div:nth-of-type(1) > yt-metadata-badge-renderer:nth-of-type(1) > badge-shape:nth-of-type(1) > div:nth-of-type(1)",
+     "box": [
+      616,
+      2767.69,
+      24,
+      18
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > div:nth-of-type(1) > ytd-page-manager:nth-of-type(1) > ytd-search:nth-of-type(1) > div:nth-of-type(1) > ytd-two-column-search-results-renderer:nth-of-type(1) > div:nth-of-type(1) > ytd-section-list-renderer:nth-of-type(1) > div:nth-of-type(2) > ytd-item-section-renderer:nth-of-type(1) > div:nth-of-type(3) > ytd-video-renderer:nth-of-type(5) > div:nth-of-type(1) > div:nth-of-type(1) > ytd-badge-supported-renderer:nth-of-type(1) > yt-badge-supported-renderer:nth-of-type(1) > div:nth-of-type(1) > yt-metadata-badge-renderer:nth-of-type(1) > badge-shape:nth-of-type(1) > div:nth-of-type(1)",
+     "box": [
+      616,
+      3360.78,
+      24,
+      18
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > div:nth-of-type(1) > ytd-page-manager:nth-of-type(1) > ytd-search:nth-of-type(1) > div:nth-of-type(1) > ytd-two-column-search-results-renderer:nth-of-type(1) > div:nth-of-type(1) > ytd-section-list-renderer:nth-of-type(1) > div:nth-of-type(2) > ytd-item-section-renderer:nth-of-type(1) > div:nth-of-type(3) > ytd-video-renderer:nth-of-type(6) > div:nth-of-type(1) > div:nth-of-type(1) > ytd-badge-supported-renderer:nth-of-type(1) > yt-badge-supported-renderer:nth-of-type(1) > div:nth-of-type(1) > yt-metadata-badge-renderer:nth-of-type(1) > badge-shape:nth-of-type(1) > div:nth-of-type(1)",
+     "box": [
+      616,
+      4469.36,
+      24,
+      18
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > div:nth-of-type(1) > ytd-page-manager:nth-of-type(1) > ytd-search:nth-of-type(1) > div:nth-of-type(1) > ytd-two-column-search-results-renderer:nth-of-type(1) > div:nth-of-type(1) > ytd-section-list-renderer:nth-of-type(1) > div:nth-of-type(2) > ytd-item-section-renderer:nth-of-type(1) > div:nth-of-type(3) > ytd-video-renderer:nth-of-type(7) > div:nth-of-type(1) > div:nth-of-type(1) > ytd-badge-supported-renderer:nth-of-type(1) > yt-badge-supported-renderer:nth-of-type(1) > div:nth-of-type(1) > yt-metadata-badge-renderer:nth-of-type(1) > badge-shape:nth-of-type(1) > div:nth-of-type(1)",
+     "box": [
+      616,
+      4773.91,
+      24,
+      18
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > div:nth-of-type(1) > ytd-page-manager:nth-of-type(1) > ytd-search:nth-of-type(1) > div:nth-of-type(1) > ytd-two-column-search-results-renderer:nth-of-type(1) > div:nth-of-type(1) > ytd-section-list-renderer:nth-of-type(1) > div:nth-of-type(2) > ytd-item-section-renderer:nth-of-type(1) > div:nth-of-type(3) > ytd-video-renderer:nth-of-type(9) > div:nth-of-type(1) > div:nth-of-type(1) > ytd-badge-supported-renderer:nth-of-type(1) > yt-badge-supported-renderer:nth-of-type(1) > div:nth-of-type(1) > yt-metadata-badge-renderer:nth-of-type(1) > badge-shape:nth-of-type(1) > div:nth-of-type(1)",
+     "box": [
+      616,
+      5989.5,
+      14.41,
+      18
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > div:nth-of-type(1) > ytd-page-manager:nth-of-type(1) > ytd-search:nth-of-type(1) > div:nth-of-type(1) > ytd-two-column-search-results-renderer:nth-of-type(1) > div:nth-of-type(1) > ytd-section-list-renderer:nth-of-type(1) > div:nth-of-type(2) > ytd-item-section-renderer:nth-of-type(1) > div:nth-of-type(3) > ytd-video-renderer:nth-of-type(11) > div:nth-of-type(1) > div:nth-of-type(1) > ytd-badge-supported-renderer:nth-of-type(1) > yt-badge-supported-renderer:nth-of-type(1) > div:nth-of-type(1) > yt-metadata-badge-renderer:nth-of-type(1) > badge-shape:nth-of-type(1) > div:nth-of-type(1)",
+     "box": [
+      616,
+      6582.59,
+      24,
+      18
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > div:nth-of-type(1) > ytd-page-manager:nth-of-type(1) > ytd-search:nth-of-type(1) > div:nth-of-type(1) > ytd-two-column-search-results-renderer:nth-of-type(1) > div:nth-of-type(1) > ytd-section-list-renderer:nth-of-type(1) > div:nth-of-type(2) > ytd-item-section-renderer:nth-of-type(2) > div:nth-of-type(3) > ytd-video-renderer:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(1) > ytd-badge-supported-renderer:nth-of-type(1) > yt-badge-supported-renderer:nth-of-type(1) > div:nth-of-type(1) > yt-metadata-badge-renderer:nth-of-type(1) > badge-shape:nth-of-type(1) > div:nth-of-type(1)",
+     "box": [
+      616,
+      9133.2,
+      24,
+      18
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > div:nth-of-type(1) > ytd-page-manager:nth-of-type(1) > ytd-search:nth-of-type(1) > div:nth-of-type(1) > ytd-two-column-search-results-renderer:nth-of-type(1) > div:nth-of-type(1) > ytd-section-list-renderer:nth-of-type(1) > div:nth-of-type(2) > ytd-item-section-renderer:nth-of-type(2) > div:nth-of-type(3) > grid-shelf-view-model:nth-of-type(2) > div:nth-of-type(2) > div:nth-of-type(1) > button-view-model:nth-of-type(1) > button:nth-of-type(1) > div:nth-of-type(1)",
+     "box": [
+      626.2,
+      10527.86,
+      69.59,
+      40
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > div:nth-of-type(1) > ytd-page-manager:nth-of-type(1) > ytd-search:nth-of-type(1) > div:nth-of-type(1) > ytd-two-column-search-results-renderer:nth-of-type(1) > div:nth-of-type(1) > ytd-section-list-renderer:nth-of-type(1) > div:nth-of-type(2) > ytd-item-section-renderer:nth-of-type(2) > div:nth-of-type(3) > ytd-video-renderer:nth-of-type(5) > div:nth-of-type(1) > div:nth-of-type(1) > ytd-badge-supported-renderer:nth-of-type(1) > yt-badge-supported-renderer:nth-of-type(1) > div:nth-of-type(1) > yt-metadata-badge-renderer:nth-of-type(1) > badge-shape:nth-of-type(1) > div:nth-of-type(1)",
+     "box": [
+      616,
+      10726.86,
+      24,
+      18
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > div:nth-of-type(1) > ytd-page-manager:nth-of-type(1) > ytd-search:nth-of-type(1) > div:nth-of-type(1) > ytd-two-column-search-results-renderer:nth-of-type(1) > div:nth-of-type(1) > ytd-section-list-renderer:nth-of-type(1) > div:nth-of-type(2) > ytd-item-section-renderer:nth-of-type(2) > div:nth-of-type(3) > ytd-video-renderer:nth-of-type(10) > div:nth-of-type(1) > div:nth-of-type(1) > ytd-badge-supported-renderer:nth-of-type(1) > yt-badge-supported-renderer:nth-of-type(1) > div:nth-of-type(1) > yt-metadata-badge-renderer:nth-of-type(1) > badge-shape:nth-of-type(1) > div:nth-of-type(1)",
+     "box": [
+      616,
+      12191.59,
+      14.41,
+      18
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > ytd-consent-bump-v2-lightbox:nth-of-type(1) > tp-yt-paper-dialog:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > yt-formatted-string:nth-of-type(1)",
+     "box": [
+      415,
+      44.98,
+      89.56,
+      20
+     ]
+    }
+   ],
+   "paragraphs": [
+    {
+     "key": "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > div:nth-of-type(1) > ytd-page-manager:nth-of-type(1) > ytd-search:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > ytd-search-header-renderer:nth-of-type(1) > div:nth-of-type(2) > yt-chip-cloud-renderer:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > iron-selector:nth-of-type(1) > yt-chip-cloud-chip-renderer:nth-of-type(1) > div:nth-of-type(1) > chip-shape:nth-of-type(1) > button:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1)",
+     "lineCount": 1,
+     "lines": [
+      [
+       108,
+       75,
+       149.03,
+       91
+      ]
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > div:nth-of-type(1) > ytd-page-manager:nth-of-type(1) > ytd-search:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > ytd-search-header-renderer:nth-of-type(1) > div:nth-of-type(2) > yt-chip-cloud-renderer:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > iron-selector:nth-of-type(1) > yt-chip-cloud-chip-renderer:nth-of-type(2) > div:nth-of-type(1) > chip-shape:nth-of-type(1) > button:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1)",
+     "lineCount": 1,
+     "lines": [
+      [
+       181.03,
+       75,
+       237.03,
+       91
+      ]
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > div:nth-of-type(1) > ytd-page-manager:nth-of-type(1) > ytd-search:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > ytd-search-header-renderer:nth-of-type(1) > div:nth-of-type(2) > yt-chip-cloud-renderer:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > iron-selector:nth-of-type(1) > yt-chip-cloud-chip-renderer:nth-of-type(3) > div:nth-of-type(1) > chip-shape:nth-of-type(1) > button:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1)",
+     "lineCount": 1,
+     "lines": [
+      [
+       269.03,
+       75,
+       311.03,
+       91
+      ]
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > div:nth-of-type(1) > ytd-page-manager:nth-of-type(1) > ytd-search:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > ytd-search-header-renderer:nth-of-type(1) > div:nth-of-type(2) > yt-chip-cloud-renderer:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > iron-selector:nth-of-type(1) > yt-chip-cloud-chip-renderer:nth-of-type(4) > div:nth-of-type(1) > chip-shape:nth-of-type(1) > button:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1)",
+     "lineCount": 1,
+     "lines": [
+      [
+       343.03,
+       75,
+       371.03,
+       91
+      ]
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > div:nth-of-type(1) > ytd-page-manager:nth-of-type(1) > ytd-search:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > ytd-search-header-renderer:nth-of-type(1) > div:nth-of-type(2) > yt-chip-cloud-renderer:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > iron-selector:nth-of-type(1) > yt-chip-cloud-chip-renderer:nth-of-type(5) > div:nth-of-type(1) > chip-shape:nth-of-type(1) > button:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1)",
+     "lineCount": 1,
+     "lines": [
+      [
+       403.03,
+       75,
+       584.48,
+       91
+      ]
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > div:nth-of-type(1) > ytd-page-manager:nth-of-type(1) > ytd-search:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > ytd-search-header-renderer:nth-of-type(1) > div:nth-of-type(2) > yt-chip-cloud-renderer:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > iron-selector:nth-of-type(1) > yt-chip-cloud-chip-renderer:nth-of-type(6) > div:nth-of-type(1) > chip-shape:nth-of-type(1) > button:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1)",
+     "lineCount": 1,
+     "lines": [
+      [
+       616.48,
+       75,
+       658.48,
+       91
+      ]
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > div:nth-of-type(1) > ytd-page-manager:nth-of-type(1) > ytd-search:nth-of-type(1) > div:nth-of-type(1) > ytd-two-column-search-results-renderer:nth-of-type(1) > div:nth-of-type(1) > ytd-section-list-renderer:nth-of-type(1) > div:nth-of-type(2) > ytd-item-section-renderer:nth-of-type(1) > div:nth-of-type(3) > ytd-video-renderer:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > ytd-badge-supported-renderer:nth-of-type(1) > yt-badge-supported-renderer:nth-of-type(1) > div:nth-of-type(1) > yt-metadata-badge-renderer:nth-of-type(1) > badge-shape:nth-of-type(1) > div:nth-of-type(1)",
+     "lineCount": 1,
+     "lines": [
+      [
+       616,
+       1220.03,
+       640,
+       1234.03
+      ]
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > div:nth-of-type(1) > ytd-page-manager:nth-of-type(1) > ytd-search:nth-of-type(1) > div:nth-of-type(1) > ytd-two-column-search-results-renderer:nth-of-type(1) > div:nth-of-type(1) > ytd-section-list-renderer:nth-of-type(1) > div:nth-of-type(2) > ytd-item-section-renderer:nth-of-type(1) > div:nth-of-type(3) > ytd-video-renderer:nth-of-type(2) > div:nth-of-type(1) > div:nth-of-type(1) > ytd-badge-supported-renderer:nth-of-type(1) > yt-badge-supported-renderer:nth-of-type(1) > div:nth-of-type(1) > yt-metadata-badge-renderer:nth-of-type(1) > badge-shape:nth-of-type(1) > div:nth-of-type(1)",
+     "lineCount": 1,
+     "lines": [
+      [
+       616,
+       1534.58,
+       640,
+       1548.58
+      ]
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > div:nth-of-type(1) > ytd-page-manager:nth-of-type(1) > ytd-search:nth-of-type(1) > div:nth-of-type(1) > ytd-two-column-search-results-renderer:nth-of-type(1) > div:nth-of-type(1) > ytd-section-list-renderer:nth-of-type(1) > div:nth-of-type(2) > ytd-item-section-renderer:nth-of-type(1) > div:nth-of-type(3) > grid-shelf-view-model:nth-of-type(2) > div:nth-of-type(2) > div:nth-of-type(1) > button-view-model:nth-of-type(1) > button:nth-of-type(1) > div:nth-of-type(1)",
+     "lineCount": 1,
+     "lines": [
+      [
+       626,
+       2590.69,
+       696,
+       2606.69
+      ]
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > div:nth-of-type(1) > ytd-page-manager:nth-of-type(1) > ytd-search:nth-of-type(1) > div:nth-of-type(1) > ytd-two-column-search-results-renderer:nth-of-type(1) > div:nth-of-type(1) > ytd-section-list-renderer:nth-of-type(1) > div:nth-of-type(2) > ytd-item-section-renderer:nth-of-type(1) > div:nth-of-type(3) > ytd-video-renderer:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(1) > ytd-badge-supported-renderer:nth-of-type(1) > yt-badge-supported-renderer:nth-of-type(1) > div:nth-of-type(1) > yt-metadata-badge-renderer:nth-of-type(1) > badge-shape:nth-of-type(1) > div:nth-of-type(1)",
+     "lineCount": 1,
+     "lines": [
+      [
+       616,
+       2769.69,
+       640,
+       2783.69
+      ]
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > div:nth-of-type(1) > ytd-page-manager:nth-of-type(1) > ytd-search:nth-of-type(1) > div:nth-of-type(1) > ytd-two-column-search-results-renderer:nth-of-type(1) > div:nth-of-type(1) > ytd-section-list-renderer:nth-of-type(1) > div:nth-of-type(2) > ytd-item-section-renderer:nth-of-type(1) > div:nth-of-type(3) > ytd-video-renderer:nth-of-type(5) > div:nth-of-type(1) > div:nth-of-type(1) > ytd-badge-supported-renderer:nth-of-type(1) > yt-badge-supported-renderer:nth-of-type(1) > div:nth-of-type(1) > yt-metadata-badge-renderer:nth-of-type(1) > badge-shape:nth-of-type(1) > div:nth-of-type(1)",
+     "lineCount": 1,
+     "lines": [
+      [
+       616,
+       3362.78,
+       640,
+       3376.78
+      ]
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > div:nth-of-type(1) > ytd-page-manager:nth-of-type(1) > ytd-search:nth-of-type(1) > div:nth-of-type(1) > ytd-two-column-search-results-renderer:nth-of-type(1) > div:nth-of-type(1) > ytd-section-list-renderer:nth-of-type(1) > div:nth-of-type(2) > ytd-item-section-renderer:nth-of-type(1) > div:nth-of-type(3) > ytd-video-renderer:nth-of-type(6) > div:nth-of-type(1) > div:nth-of-type(1) > ytd-badge-supported-renderer:nth-of-type(1) > yt-badge-supported-renderer:nth-of-type(1) > div:nth-of-type(1) > yt-metadata-badge-renderer:nth-of-type(1) > badge-shape:nth-of-type(1) > div:nth-of-type(1)",
+     "lineCount": 1,
+     "lines": [
+      [
+       616,
+       4471.36,
+       640,
+       4485.36
+      ]
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > div:nth-of-type(1) > ytd-page-manager:nth-of-type(1) > ytd-search:nth-of-type(1) > div:nth-of-type(1) > ytd-two-column-search-results-renderer:nth-of-type(1) > div:nth-of-type(1) > ytd-section-list-renderer:nth-of-type(1) > div:nth-of-type(2) > ytd-item-section-renderer:nth-of-type(1) > div:nth-of-type(3) > ytd-video-renderer:nth-of-type(7) > div:nth-of-type(1) > div:nth-of-type(1) > ytd-badge-supported-renderer:nth-of-type(1) > yt-badge-supported-renderer:nth-of-type(1) > div:nth-of-type(1) > yt-metadata-badge-renderer:nth-of-type(1) > badge-shape:nth-of-type(1) > div:nth-of-type(1)",
+     "lineCount": 1,
+     "lines": [
+      [
+       616,
+       4775.91,
+       640,
+       4789.91
+      ]
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > div:nth-of-type(1) > ytd-page-manager:nth-of-type(1) > ytd-search:nth-of-type(1) > div:nth-of-type(1) > ytd-two-column-search-results-renderer:nth-of-type(1) > div:nth-of-type(1) > ytd-section-list-renderer:nth-of-type(1) > div:nth-of-type(2) > ytd-item-section-renderer:nth-of-type(1) > div:nth-of-type(3) > ytd-video-renderer:nth-of-type(9) > div:nth-of-type(1) > div:nth-of-type(1) > ytd-badge-supported-renderer:nth-of-type(1) > yt-badge-supported-renderer:nth-of-type(1) > div:nth-of-type(1) > yt-metadata-badge-renderer:nth-of-type(1) > badge-shape:nth-of-type(1) > div:nth-of-type(1)",
+     "lineCount": 1,
+     "lines": [
+      [
+       616,
+       5991.5,
+       630.41,
+       6005.5
+      ]
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > div:nth-of-type(1) > ytd-page-manager:nth-of-type(1) > ytd-search:nth-of-type(1) > div:nth-of-type(1) > ytd-two-column-search-results-renderer:nth-of-type(1) > div:nth-of-type(1) > ytd-section-list-renderer:nth-of-type(1) > div:nth-of-type(2) > ytd-item-section-renderer:nth-of-type(1) > div:nth-of-type(3) > ytd-video-renderer:nth-of-type(11) > div:nth-of-type(1) > div:nth-of-type(1) > ytd-badge-supported-renderer:nth-of-type(1) > yt-badge-supported-renderer:nth-of-type(1) > div:nth-of-type(1) > yt-metadata-badge-renderer:nth-of-type(1) > badge-shape:nth-of-type(1) > div:nth-of-type(1)",
+     "lineCount": 1,
+     "lines": [
+      [
+       616,
+       6584.59,
+       640,
+       6598.59
+      ]
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > div:nth-of-type(1) > ytd-page-manager:nth-of-type(1) > ytd-search:nth-of-type(1) > div:nth-of-type(1) > ytd-two-column-search-results-renderer:nth-of-type(1) > div:nth-of-type(1) > ytd-section-list-renderer:nth-of-type(1) > div:nth-of-type(2) > ytd-item-section-renderer:nth-of-type(2) > div:nth-of-type(3) > ytd-video-renderer:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(1) > ytd-badge-supported-renderer:nth-of-type(1) > yt-badge-supported-renderer:nth-of-type(1) > div:nth-of-type(1) > yt-metadata-badge-renderer:nth-of-type(1) > badge-shape:nth-of-type(1) > div:nth-of-type(1)",
+     "lineCount": 1,
+     "lines": [
+      [
+       616,
+       9135.2,
+       640,
+       9149.2
+      ]
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > div:nth-of-type(1) > ytd-page-manager:nth-of-type(1) > ytd-search:nth-of-type(1) > div:nth-of-type(1) > ytd-two-column-search-results-renderer:nth-of-type(1) > div:nth-of-type(1) > ytd-section-list-renderer:nth-of-type(1) > div:nth-of-type(2) > ytd-item-section-renderer:nth-of-type(2) > div:nth-of-type(3) > grid-shelf-view-model:nth-of-type(2) > div:nth-of-type(2) > div:nth-of-type(1) > button-view-model:nth-of-type(1) > button:nth-of-type(1) > div:nth-of-type(1)",
+     "lineCount": 1,
+     "lines": [
+      [
+       626.2,
+       10539.86,
+       695.8,
+       10555.86
+      ]
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > div:nth-of-type(1) > ytd-page-manager:nth-of-type(1) > ytd-search:nth-of-type(1) > div:nth-of-type(1) > ytd-two-column-search-results-renderer:nth-of-type(1) > div:nth-of-type(1) > ytd-section-list-renderer:nth-of-type(1) > div:nth-of-type(2) > ytd-item-section-renderer:nth-of-type(2) > div:nth-of-type(3) > ytd-video-renderer:nth-of-type(5) > div:nth-of-type(1) > div:nth-of-type(1) > ytd-badge-supported-renderer:nth-of-type(1) > yt-badge-supported-renderer:nth-of-type(1) > div:nth-of-type(1) > yt-metadata-badge-renderer:nth-of-type(1) > badge-shape:nth-of-type(1) > div:nth-of-type(1)",
+     "lineCount": 1,
+     "lines": [
+      [
+       616,
+       10728.86,
+       640,
+       10742.86
+      ]
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > div:nth-of-type(1) > ytd-page-manager:nth-of-type(1) > ytd-search:nth-of-type(1) > div:nth-of-type(1) > ytd-two-column-search-results-renderer:nth-of-type(1) > div:nth-of-type(1) > ytd-section-list-renderer:nth-of-type(1) > div:nth-of-type(2) > ytd-item-section-renderer:nth-of-type(2) > div:nth-of-type(3) > ytd-video-renderer:nth-of-type(10) > div:nth-of-type(1) > div:nth-of-type(1) > ytd-badge-supported-renderer:nth-of-type(1) > yt-badge-supported-renderer:nth-of-type(1) > div:nth-of-type(1) > yt-metadata-badge-renderer:nth-of-type(1) > badge-shape:nth-of-type(1) > div:nth-of-type(1)",
+     "lineCount": 1,
+     "lines": [
+      [
+       616,
+       12193.59,
+       630.41,
+       12207.59
+      ]
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > ytd-consent-bump-v2-lightbox:nth-of-type(1) > tp-yt-paper-dialog:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > yt-formatted-string:nth-of-type(1)",
+     "lineCount": 1,
+     "lines": [
+      [
+       415,
+       46.98,
+       504.56,
+       62.98
+      ]
+     ]
+    }
+   ],
+   "paged": []
+  },
+  "webkit": {
+   "viewport": {
+    "width": 1280,
+    "height": 900
+   },
+   "document": {
+    "scrollWidth": 1264,
+    "scrollHeight": 12726,
+    "clientWidth": 1264,
+    "clientHeight": 900
+   },
+   "blocks": [
+    {
+     "key": "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > div:nth-of-type(1) > ytd-page-manager:nth-of-type(1) > ytd-search:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > ytd-search-header-renderer:nth-of-type(1) > div:nth-of-type(2) > yt-chip-cloud-renderer:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > iron-selector:nth-of-type(1) > yt-chip-cloud-chip-renderer:nth-of-type(1) > div:nth-of-type(1) > chip-shape:nth-of-type(1) > button:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1)",
+     "box": [
+      108,
+      73,
+      42,
+      20
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > div:nth-of-type(1) > ytd-page-manager:nth-of-type(1) > ytd-search:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > ytd-search-header-renderer:nth-of-type(1) > div:nth-of-type(2) > yt-chip-cloud-renderer:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > iron-selector:nth-of-type(1) > yt-chip-cloud-chip-renderer:nth-of-type(2) > div:nth-of-type(1) > chip-shape:nth-of-type(1) > button:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1)",
+     "box": [
+      182,
+      73,
+      56,
+      20
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > div:nth-of-type(1) > ytd-page-manager:nth-of-type(1) > ytd-search:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > ytd-search-header-renderer:nth-of-type(1) > div:nth-of-type(2) > yt-chip-cloud-renderer:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > iron-selector:nth-of-type(1) > yt-chip-cloud-chip-renderer:nth-of-type(3) > div:nth-of-type(1) > chip-shape:nth-of-type(1) > button:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1)",
+     "box": [
+      270,
+      73,
+      42,
+      20
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > div:nth-of-type(1) > ytd-page-manager:nth-of-type(1) > ytd-search:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > ytd-search-header-renderer:nth-of-type(1) > div:nth-of-type(2) > yt-chip-cloud-renderer:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > iron-selector:nth-of-type(1) > yt-chip-cloud-chip-renderer:nth-of-type(4) > div:nth-of-type(1) > chip-shape:nth-of-type(1) > button:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1)",
+     "box": [
+      344,
+      73,
+      28,
+      20
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > div:nth-of-type(1) > ytd-page-manager:nth-of-type(1) > ytd-search:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > ytd-search-header-renderer:nth-of-type(1) > div:nth-of-type(2) > yt-chip-cloud-renderer:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > iron-selector:nth-of-type(1) > yt-chip-cloud-chip-renderer:nth-of-type(5) > div:nth-of-type(1) > chip-shape:nth-of-type(1) > button:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1)",
+     "box": [
+      404,
+      73,
+      182,
+      20
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > div:nth-of-type(1) > ytd-page-manager:nth-of-type(1) > ytd-search:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > ytd-search-header-renderer:nth-of-type(1) > div:nth-of-type(2) > yt-chip-cloud-renderer:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > iron-selector:nth-of-type(1) > yt-chip-cloud-chip-renderer:nth-of-type(6) > div:nth-of-type(1) > chip-shape:nth-of-type(1) > button:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1)",
+     "box": [
+      618,
+      73,
+      42,
+      20
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > div:nth-of-type(1) > ytd-page-manager:nth-of-type(1) > ytd-search:nth-of-type(1) > div:nth-of-type(1) > ytd-two-column-search-results-renderer:nth-of-type(1) > div:nth-of-type(1) > ytd-section-list-renderer:nth-of-type(1) > div:nth-of-type(2) > ytd-item-section-renderer:nth-of-type(1) > div:nth-of-type(3) > ytd-video-renderer:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > ytd-badge-supported-renderer:nth-of-type(1) > yt-badge-supported-renderer:nth-of-type(1) > div:nth-of-type(1) > yt-metadata-badge-renderer:nth-of-type(1) > badge-shape:nth-of-type(1) > div:nth-of-type(1)",
+     "box": [
+      616,
+      1239.25,
+      24,
+      18
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > div:nth-of-type(1) > ytd-page-manager:nth-of-type(1) > ytd-search:nth-of-type(1) > div:nth-of-type(1) > ytd-two-column-search-results-renderer:nth-of-type(1) > div:nth-of-type(1) > ytd-section-list-renderer:nth-of-type(1) > div:nth-of-type(2) > ytd-item-section-renderer:nth-of-type(1) > div:nth-of-type(3) > ytd-video-renderer:nth-of-type(2) > div:nth-of-type(1) > div:nth-of-type(1) > ytd-badge-supported-renderer:nth-of-type(1) > yt-badge-supported-renderer:nth-of-type(1) > div:nth-of-type(1) > yt-metadata-badge-renderer:nth-of-type(1) > badge-shape:nth-of-type(1) > div:nth-of-type(1)",
+     "box": [
+      616,
+      1527.8,
+      24,
+      18
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > div:nth-of-type(1) > ytd-page-manager:nth-of-type(1) > ytd-search:nth-of-type(1) > div:nth-of-type(1) > ytd-two-column-search-results-renderer:nth-of-type(1) > div:nth-of-type(1) > ytd-section-list-renderer:nth-of-type(1) > div:nth-of-type(2) > ytd-item-section-renderer:nth-of-type(1) > div:nth-of-type(3) > grid-shelf-view-model:nth-of-type(2) > div:nth-of-type(2) > div:nth-of-type(1) > button-view-model:nth-of-type(1) > button:nth-of-type(1) > div:nth-of-type(1)",
+     "box": [
+      618,
+      2564.34,
+      70,
+      40
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > div:nth-of-type(1) > ytd-page-manager:nth-of-type(1) > ytd-search:nth-of-type(1) > div:nth-of-type(1) > ytd-two-column-search-results-renderer:nth-of-type(1) > div:nth-of-type(1) > ytd-section-list-renderer:nth-of-type(1) > div:nth-of-type(2) > ytd-item-section-renderer:nth-of-type(1) > div:nth-of-type(3) > ytd-video-renderer:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(1) > ytd-badge-supported-renderer:nth-of-type(1) > yt-badge-supported-renderer:nth-of-type(1) > div:nth-of-type(1) > yt-metadata-badge-renderer:nth-of-type(1) > badge-shape:nth-of-type(1) > div:nth-of-type(1)",
+     "box": [
+      616,
+      2753.34,
+      24,
+      18
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > div:nth-of-type(1) > ytd-page-manager:nth-of-type(1) > ytd-search:nth-of-type(1) > div:nth-of-type(1) > ytd-two-column-search-results-renderer:nth-of-type(1) > div:nth-of-type(1) > ytd-section-list-renderer:nth-of-type(1) > div:nth-of-type(2) > ytd-item-section-renderer:nth-of-type(1) > div:nth-of-type(3) > ytd-video-renderer:nth-of-type(5) > div:nth-of-type(1) > div:nth-of-type(1) > ytd-badge-supported-renderer:nth-of-type(1) > yt-badge-supported-renderer:nth-of-type(1) > div:nth-of-type(1) > yt-metadata-badge-renderer:nth-of-type(1) > badge-shape:nth-of-type(1) > div:nth-of-type(1)",
+     "box": [
+      616,
+      3346.44,
+      24,
+      18
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > div:nth-of-type(1) > ytd-page-manager:nth-of-type(1) > ytd-search:nth-of-type(1) > div:nth-of-type(1) > ytd-two-column-search-results-renderer:nth-of-type(1) > div:nth-of-type(1) > ytd-section-list-renderer:nth-of-type(1) > div:nth-of-type(2) > ytd-item-section-renderer:nth-of-type(1) > div:nth-of-type(3) > ytd-video-renderer:nth-of-type(6) > div:nth-of-type(1) > div:nth-of-type(1) > ytd-badge-supported-renderer:nth-of-type(1) > yt-badge-supported-renderer:nth-of-type(1) > div:nth-of-type(1) > yt-metadata-badge-renderer:nth-of-type(1) > badge-shape:nth-of-type(1) > div:nth-of-type(1)",
+     "box": [
+      616,
+      4450.23,
+      24,
+      18
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > div:nth-of-type(1) > ytd-page-manager:nth-of-type(1) > ytd-search:nth-of-type(1) > div:nth-of-type(1) > ytd-two-column-search-results-renderer:nth-of-type(1) > div:nth-of-type(1) > ytd-section-list-renderer:nth-of-type(1) > div:nth-of-type(2) > ytd-item-section-renderer:nth-of-type(1) > div:nth-of-type(3) > ytd-video-renderer:nth-of-type(7) > div:nth-of-type(1) > div:nth-of-type(1) > ytd-badge-supported-renderer:nth-of-type(1) > yt-badge-supported-renderer:nth-of-type(1) > div:nth-of-type(1) > yt-metadata-badge-renderer:nth-of-type(1) > badge-shape:nth-of-type(1) > div:nth-of-type(1)",
+     "box": [
+      616,
+      4754.78,
+      24,
+      18
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > div:nth-of-type(1) > ytd-page-manager:nth-of-type(1) > ytd-search:nth-of-type(1) > div:nth-of-type(1) > ytd-two-column-search-results-renderer:nth-of-type(1) > div:nth-of-type(1) > ytd-section-list-renderer:nth-of-type(1) > div:nth-of-type(2) > ytd-item-section-renderer:nth-of-type(1) > div:nth-of-type(3) > ytd-video-renderer:nth-of-type(9) > div:nth-of-type(1) > div:nth-of-type(1) > ytd-badge-supported-renderer:nth-of-type(1) > yt-badge-supported-renderer:nth-of-type(1) > div:nth-of-type(1) > yt-metadata-badge-renderer:nth-of-type(1) > badge-shape:nth-of-type(1) > div:nth-of-type(1)",
+     "box": [
+      616,
+      5970.38,
+      14.41,
+      18
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > div:nth-of-type(1) > ytd-page-manager:nth-of-type(1) > ytd-search:nth-of-type(1) > div:nth-of-type(1) > ytd-two-column-search-results-renderer:nth-of-type(1) > div:nth-of-type(1) > ytd-section-list-renderer:nth-of-type(1) > div:nth-of-type(2) > ytd-item-section-renderer:nth-of-type(1) > div:nth-of-type(3) > ytd-video-renderer:nth-of-type(11) > div:nth-of-type(1) > div:nth-of-type(1) > ytd-badge-supported-renderer:nth-of-type(1) > yt-badge-supported-renderer:nth-of-type(1) > div:nth-of-type(1) > yt-metadata-badge-renderer:nth-of-type(1) > badge-shape:nth-of-type(1) > div:nth-of-type(1)",
+     "box": [
+      616,
+      6563.47,
+      24,
+      18
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > div:nth-of-type(1) > ytd-page-manager:nth-of-type(1) > ytd-search:nth-of-type(1) > div:nth-of-type(1) > ytd-two-column-search-results-renderer:nth-of-type(1) > div:nth-of-type(1) > ytd-section-list-renderer:nth-of-type(1) > div:nth-of-type(2) > ytd-item-section-renderer:nth-of-type(2) > div:nth-of-type(3) > ytd-video-renderer:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(1) > ytd-badge-supported-renderer:nth-of-type(1) > yt-badge-supported-renderer:nth-of-type(1) > div:nth-of-type(1) > yt-metadata-badge-renderer:nth-of-type(1) > badge-shape:nth-of-type(1) > div:nth-of-type(1)",
+     "box": [
+      616,
+      9109.3,
+      24,
+      18
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > div:nth-of-type(1) > ytd-page-manager:nth-of-type(1) > ytd-search:nth-of-type(1) > div:nth-of-type(1) > ytd-two-column-search-results-renderer:nth-of-type(1) > div:nth-of-type(1) > ytd-section-list-renderer:nth-of-type(1) > div:nth-of-type(2) > ytd-item-section-renderer:nth-of-type(2) > div:nth-of-type(3) > grid-shelf-view-model:nth-of-type(2) > div:nth-of-type(2) > div:nth-of-type(1) > button-view-model:nth-of-type(1) > button:nth-of-type(1) > div:nth-of-type(1)",
+     "box": [
+      618,
+      10494.39,
+      70,
+      40
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > div:nth-of-type(1) > ytd-page-manager:nth-of-type(1) > ytd-search:nth-of-type(1) > div:nth-of-type(1) > ytd-two-column-search-results-renderer:nth-of-type(1) > div:nth-of-type(1) > ytd-section-list-renderer:nth-of-type(1) > div:nth-of-type(2) > ytd-item-section-renderer:nth-of-type(2) > div:nth-of-type(3) > ytd-video-renderer:nth-of-type(5) > div:nth-of-type(1) > div:nth-of-type(1) > ytd-badge-supported-renderer:nth-of-type(1) > yt-badge-supported-renderer:nth-of-type(1) > div:nth-of-type(1) > yt-metadata-badge-renderer:nth-of-type(1) > badge-shape:nth-of-type(1) > div:nth-of-type(1)",
+     "box": [
+      616,
+      10693.39,
+      24,
+      18
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > div:nth-of-type(1) > ytd-page-manager:nth-of-type(1) > ytd-search:nth-of-type(1) > div:nth-of-type(1) > ytd-two-column-search-results-renderer:nth-of-type(1) > div:nth-of-type(1) > ytd-section-list-renderer:nth-of-type(1) > div:nth-of-type(2) > ytd-item-section-renderer:nth-of-type(2) > div:nth-of-type(3) > ytd-video-renderer:nth-of-type(10) > div:nth-of-type(1) > div:nth-of-type(1) > ytd-badge-supported-renderer:nth-of-type(1) > yt-badge-supported-renderer:nth-of-type(1) > div:nth-of-type(1) > yt-metadata-badge-renderer:nth-of-type(1) > badge-shape:nth-of-type(1) > div:nth-of-type(1)",
+     "box": [
+      616,
+      12158.13,
+      14.41,
+      18
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > ytd-consent-bump-v2-lightbox:nth-of-type(1) > tp-yt-paper-dialog:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > yt-formatted-string:nth-of-type(1)",
+     "box": [
+      415,
+      44.98,
+      89.56,
+      20
+     ]
+    }
+   ],
+   "paragraphs": [
+    {
+     "key": "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > div:nth-of-type(1) > ytd-page-manager:nth-of-type(1) > ytd-search:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > ytd-search-header-renderer:nth-of-type(1) > div:nth-of-type(2) > yt-chip-cloud-renderer:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > iron-selector:nth-of-type(1) > yt-chip-cloud-chip-renderer:nth-of-type(1) > div:nth-of-type(1) > chip-shape:nth-of-type(1) > button:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1)",
+     "lineCount": 1,
+     "lines": [
+      [
+       108,
+       75,
+       150,
+       91
+      ]
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > div:nth-of-type(1) > ytd-page-manager:nth-of-type(1) > ytd-search:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > ytd-search-header-renderer:nth-of-type(1) > div:nth-of-type(2) > yt-chip-cloud-renderer:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > iron-selector:nth-of-type(1) > yt-chip-cloud-chip-renderer:nth-of-type(2) > div:nth-of-type(1) > chip-shape:nth-of-type(1) > button:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1)",
+     "lineCount": 1,
+     "lines": [
+      [
+       182,
+       75,
+       238,
+       91
+      ]
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > div:nth-of-type(1) > ytd-page-manager:nth-of-type(1) > ytd-search:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > ytd-search-header-renderer:nth-of-type(1) > div:nth-of-type(2) > yt-chip-cloud-renderer:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > iron-selector:nth-of-type(1) > yt-chip-cloud-chip-renderer:nth-of-type(3) > div:nth-of-type(1) > chip-shape:nth-of-type(1) > button:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1)",
+     "lineCount": 1,
+     "lines": [
+      [
+       270,
+       75,
+       312,
+       91
+      ]
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > div:nth-of-type(1) > ytd-page-manager:nth-of-type(1) > ytd-search:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > ytd-search-header-renderer:nth-of-type(1) > div:nth-of-type(2) > yt-chip-cloud-renderer:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > iron-selector:nth-of-type(1) > yt-chip-cloud-chip-renderer:nth-of-type(4) > div:nth-of-type(1) > chip-shape:nth-of-type(1) > button:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1)",
+     "lineCount": 1,
+     "lines": [
+      [
+       344,
+       75,
+       372,
+       91
+      ]
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > div:nth-of-type(1) > ytd-page-manager:nth-of-type(1) > ytd-search:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > ytd-search-header-renderer:nth-of-type(1) > div:nth-of-type(2) > yt-chip-cloud-renderer:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > iron-selector:nth-of-type(1) > yt-chip-cloud-chip-renderer:nth-of-type(5) > div:nth-of-type(1) > chip-shape:nth-of-type(1) > button:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1)",
+     "lineCount": 1,
+     "lines": [
+      [
+       404,
+       75,
+       586,
+       91
+      ]
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > div:nth-of-type(1) > ytd-page-manager:nth-of-type(1) > ytd-search:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > ytd-search-header-renderer:nth-of-type(1) > div:nth-of-type(2) > yt-chip-cloud-renderer:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > iron-selector:nth-of-type(1) > yt-chip-cloud-chip-renderer:nth-of-type(6) > div:nth-of-type(1) > chip-shape:nth-of-type(1) > button:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1)",
+     "lineCount": 1,
+     "lines": [
+      [
+       618,
+       75,
+       660,
+       91
+      ]
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > div:nth-of-type(1) > ytd-page-manager:nth-of-type(1) > ytd-search:nth-of-type(1) > div:nth-of-type(1) > ytd-two-column-search-results-renderer:nth-of-type(1) > div:nth-of-type(1) > ytd-section-list-renderer:nth-of-type(1) > div:nth-of-type(2) > ytd-item-section-renderer:nth-of-type(1) > div:nth-of-type(3) > ytd-video-renderer:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > ytd-badge-supported-renderer:nth-of-type(1) > yt-badge-supported-renderer:nth-of-type(1) > div:nth-of-type(1) > yt-metadata-badge-renderer:nth-of-type(1) > badge-shape:nth-of-type(1) > div:nth-of-type(1)",
+     "lineCount": 1,
+     "lines": [
+      [
+       616,
+       1241.25,
+       640,
+       1255.25
+      ]
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > div:nth-of-type(1) > ytd-page-manager:nth-of-type(1) > ytd-search:nth-of-type(1) > div:nth-of-type(1) > ytd-two-column-search-results-renderer:nth-of-type(1) > div:nth-of-type(1) > ytd-section-list-renderer:nth-of-type(1) > div:nth-of-type(2) > ytd-item-section-renderer:nth-of-type(1) > div:nth-of-type(3) > ytd-video-renderer:nth-of-type(2) > div:nth-of-type(1) > div:nth-of-type(1) > ytd-badge-supported-renderer:nth-of-type(1) > yt-badge-supported-renderer:nth-of-type(1) > div:nth-of-type(1) > yt-metadata-badge-renderer:nth-of-type(1) > badge-shape:nth-of-type(1) > div:nth-of-type(1)",
+     "lineCount": 1,
+     "lines": [
+      [
+       616,
+       1529.8,
+       640,
+       1543.8
+      ]
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > div:nth-of-type(1) > ytd-page-manager:nth-of-type(1) > ytd-search:nth-of-type(1) > div:nth-of-type(1) > ytd-two-column-search-results-renderer:nth-of-type(1) > div:nth-of-type(1) > ytd-section-list-renderer:nth-of-type(1) > div:nth-of-type(2) > ytd-item-section-renderer:nth-of-type(1) > div:nth-of-type(3) > grid-shelf-view-model:nth-of-type(2) > div:nth-of-type(2) > div:nth-of-type(1) > button-view-model:nth-of-type(1) > button:nth-of-type(1) > div:nth-of-type(1)",
+     "lineCount": 1,
+     "lines": [
+      [
+       618,
+       2576.34,
+       688,
+       2592.34
+      ]
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > div:nth-of-type(1) > ytd-page-manager:nth-of-type(1) > ytd-search:nth-of-type(1) > div:nth-of-type(1) > ytd-two-column-search-results-renderer:nth-of-type(1) > div:nth-of-type(1) > ytd-section-list-renderer:nth-of-type(1) > div:nth-of-type(2) > ytd-item-section-renderer:nth-of-type(1) > div:nth-of-type(3) > ytd-video-renderer:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(1) > ytd-badge-supported-renderer:nth-of-type(1) > yt-badge-supported-renderer:nth-of-type(1) > div:nth-of-type(1) > yt-metadata-badge-renderer:nth-of-type(1) > badge-shape:nth-of-type(1) > div:nth-of-type(1)",
+     "lineCount": 1,
+     "lines": [
+      [
+       616,
+       2755.34,
+       640,
+       2769.34
+      ]
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > div:nth-of-type(1) > ytd-page-manager:nth-of-type(1) > ytd-search:nth-of-type(1) > div:nth-of-type(1) > ytd-two-column-search-results-renderer:nth-of-type(1) > div:nth-of-type(1) > ytd-section-list-renderer:nth-of-type(1) > div:nth-of-type(2) > ytd-item-section-renderer:nth-of-type(1) > div:nth-of-type(3) > ytd-video-renderer:nth-of-type(5) > div:nth-of-type(1) > div:nth-of-type(1) > ytd-badge-supported-renderer:nth-of-type(1) > yt-badge-supported-renderer:nth-of-type(1) > div:nth-of-type(1) > yt-metadata-badge-renderer:nth-of-type(1) > badge-shape:nth-of-type(1) > div:nth-of-type(1)",
+     "lineCount": 1,
+     "lines": [
+      [
+       616,
+       3348.44,
+       640,
+       3362.44
+      ]
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > div:nth-of-type(1) > ytd-page-manager:nth-of-type(1) > ytd-search:nth-of-type(1) > div:nth-of-type(1) > ytd-two-column-search-results-renderer:nth-of-type(1) > div:nth-of-type(1) > ytd-section-list-renderer:nth-of-type(1) > div:nth-of-type(2) > ytd-item-section-renderer:nth-of-type(1) > div:nth-of-type(3) > ytd-video-renderer:nth-of-type(6) > div:nth-of-type(1) > div:nth-of-type(1) > ytd-badge-supported-renderer:nth-of-type(1) > yt-badge-supported-renderer:nth-of-type(1) > div:nth-of-type(1) > yt-metadata-badge-renderer:nth-of-type(1) > badge-shape:nth-of-type(1) > div:nth-of-type(1)",
+     "lineCount": 1,
+     "lines": [
+      [
+       616,
+       4452.23,
+       640,
+       4466.23
+      ]
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > div:nth-of-type(1) > ytd-page-manager:nth-of-type(1) > ytd-search:nth-of-type(1) > div:nth-of-type(1) > ytd-two-column-search-results-renderer:nth-of-type(1) > div:nth-of-type(1) > ytd-section-list-renderer:nth-of-type(1) > div:nth-of-type(2) > ytd-item-section-renderer:nth-of-type(1) > div:nth-of-type(3) > ytd-video-renderer:nth-of-type(7) > div:nth-of-type(1) > div:nth-of-type(1) > ytd-badge-supported-renderer:nth-of-type(1) > yt-badge-supported-renderer:nth-of-type(1) > div:nth-of-type(1) > yt-metadata-badge-renderer:nth-of-type(1) > badge-shape:nth-of-type(1) > div:nth-of-type(1)",
+     "lineCount": 1,
+     "lines": [
+      [
+       616,
+       4756.78,
+       640,
+       4770.78
+      ]
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > div:nth-of-type(1) > ytd-page-manager:nth-of-type(1) > ytd-search:nth-of-type(1) > div:nth-of-type(1) > ytd-two-column-search-results-renderer:nth-of-type(1) > div:nth-of-type(1) > ytd-section-list-renderer:nth-of-type(1) > div:nth-of-type(2) > ytd-item-section-renderer:nth-of-type(1) > div:nth-of-type(3) > ytd-video-renderer:nth-of-type(9) > div:nth-of-type(1) > div:nth-of-type(1) > ytd-badge-supported-renderer:nth-of-type(1) > yt-badge-supported-renderer:nth-of-type(1) > div:nth-of-type(1) > yt-metadata-badge-renderer:nth-of-type(1) > badge-shape:nth-of-type(1) > div:nth-of-type(1)",
+     "lineCount": 1,
+     "lines": [
+      [
+       616,
+       5972.38,
+       630.4,
+       5986.38
+      ]
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > div:nth-of-type(1) > ytd-page-manager:nth-of-type(1) > ytd-search:nth-of-type(1) > div:nth-of-type(1) > ytd-two-column-search-results-renderer:nth-of-type(1) > div:nth-of-type(1) > ytd-section-list-renderer:nth-of-type(1) > div:nth-of-type(2) > ytd-item-section-renderer:nth-of-type(1) > div:nth-of-type(3) > ytd-video-renderer:nth-of-type(11) > div:nth-of-type(1) > div:nth-of-type(1) > ytd-badge-supported-renderer:nth-of-type(1) > yt-badge-supported-renderer:nth-of-type(1) > div:nth-of-type(1) > yt-metadata-badge-renderer:nth-of-type(1) > badge-shape:nth-of-type(1) > div:nth-of-type(1)",
+     "lineCount": 1,
+     "lines": [
+      [
+       616,
+       6565.47,
+       640,
+       6579.47
+      ]
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > div:nth-of-type(1) > ytd-page-manager:nth-of-type(1) > ytd-search:nth-of-type(1) > div:nth-of-type(1) > ytd-two-column-search-results-renderer:nth-of-type(1) > div:nth-of-type(1) > ytd-section-list-renderer:nth-of-type(1) > div:nth-of-type(2) > ytd-item-section-renderer:nth-of-type(2) > div:nth-of-type(3) > ytd-video-renderer:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(1) > ytd-badge-supported-renderer:nth-of-type(1) > yt-badge-supported-renderer:nth-of-type(1) > div:nth-of-type(1) > yt-metadata-badge-renderer:nth-of-type(1) > badge-shape:nth-of-type(1) > div:nth-of-type(1)",
+     "lineCount": 1,
+     "lines": [
+      [
+       616,
+       9111.3,
+       640,
+       9125.3
+      ]
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > div:nth-of-type(1) > ytd-page-manager:nth-of-type(1) > ytd-search:nth-of-type(1) > div:nth-of-type(1) > ytd-two-column-search-results-renderer:nth-of-type(1) > div:nth-of-type(1) > ytd-section-list-renderer:nth-of-type(1) > div:nth-of-type(2) > ytd-item-section-renderer:nth-of-type(2) > div:nth-of-type(3) > grid-shelf-view-model:nth-of-type(2) > div:nth-of-type(2) > div:nth-of-type(1) > button-view-model:nth-of-type(1) > button:nth-of-type(1) > div:nth-of-type(1)",
+     "lineCount": 1,
+     "lines": [
+      [
+       618,
+       10506.39,
+       688,
+       10522.39
+      ]
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > div:nth-of-type(1) > ytd-page-manager:nth-of-type(1) > ytd-search:nth-of-type(1) > div:nth-of-type(1) > ytd-two-column-search-results-renderer:nth-of-type(1) > div:nth-of-type(1) > ytd-section-list-renderer:nth-of-type(1) > div:nth-of-type(2) > ytd-item-section-renderer:nth-of-type(2) > div:nth-of-type(3) > ytd-video-renderer:nth-of-type(5) > div:nth-of-type(1) > div:nth-of-type(1) > ytd-badge-supported-renderer:nth-of-type(1) > yt-badge-supported-renderer:nth-of-type(1) > div:nth-of-type(1) > yt-metadata-badge-renderer:nth-of-type(1) > badge-shape:nth-of-type(1) > div:nth-of-type(1)",
+     "lineCount": 1,
+     "lines": [
+      [
+       616,
+       10695.39,
+       640,
+       10709.39
+      ]
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > div:nth-of-type(1) > ytd-page-manager:nth-of-type(1) > ytd-search:nth-of-type(1) > div:nth-of-type(1) > ytd-two-column-search-results-renderer:nth-of-type(1) > div:nth-of-type(1) > ytd-section-list-renderer:nth-of-type(1) > div:nth-of-type(2) > ytd-item-section-renderer:nth-of-type(2) > div:nth-of-type(3) > ytd-video-renderer:nth-of-type(10) > div:nth-of-type(1) > div:nth-of-type(1) > ytd-badge-supported-renderer:nth-of-type(1) > yt-badge-supported-renderer:nth-of-type(1) > div:nth-of-type(1) > yt-metadata-badge-renderer:nth-of-type(1) > badge-shape:nth-of-type(1) > div:nth-of-type(1)",
+     "lineCount": 1,
+     "lines": [
+      [
+       616,
+       12160.13,
+       630.4,
+       12174.13
+      ]
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > ytd-consent-bump-v2-lightbox:nth-of-type(1) > tp-yt-paper-dialog:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > yt-formatted-string:nth-of-type(1)",
+     "lineCount": 1,
+     "lines": [
+      [
+       415,
+       46.98,
+       504.55,
+       62.98
+      ]
+     ]
+    }
+   ],
+   "paged": []
+  },
+  "firefox": {
+   "viewport": {
+    "width": 1280,
+    "height": 900
+   },
+   "document": {
+    "scrollWidth": 1280,
+    "scrollHeight": 12767,
+    "clientWidth": 1280,
+    "clientHeight": 900
+   },
+   "blocks": [
+    {
+     "key": "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > div:nth-of-type(1) > ytd-page-manager:nth-of-type(1) > ytd-search:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > ytd-search-header-renderer:nth-of-type(1) > div:nth-of-type(2) > yt-chip-cloud-renderer:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > iron-selector:nth-of-type(1) > yt-chip-cloud-chip-renderer:nth-of-type(1) > div:nth-of-type(1) > chip-shape:nth-of-type(1) > button:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1)",
+     "box": [
+      108,
+      72.5,
+      42,
+      20
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > div:nth-of-type(1) > ytd-page-manager:nth-of-type(1) > ytd-search:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > ytd-search-header-renderer:nth-of-type(1) > div:nth-of-type(2) > yt-chip-cloud-renderer:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > iron-selector:nth-of-type(1) > yt-chip-cloud-chip-renderer:nth-of-type(2) > div:nth-of-type(1) > chip-shape:nth-of-type(1) > button:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1)",
+     "box": [
+      182,
+      72.5,
+      56,
+      20
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > div:nth-of-type(1) > ytd-page-manager:nth-of-type(1) > ytd-search:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > ytd-search-header-renderer:nth-of-type(1) > div:nth-of-type(2) > yt-chip-cloud-renderer:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > iron-selector:nth-of-type(1) > yt-chip-cloud-chip-renderer:nth-of-type(3) > div:nth-of-type(1) > chip-shape:nth-of-type(1) > button:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1)",
+     "box": [
+      270,
+      72.5,
+      42,
+      20
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > div:nth-of-type(1) > ytd-page-manager:nth-of-type(1) > ytd-search:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > ytd-search-header-renderer:nth-of-type(1) > div:nth-of-type(2) > yt-chip-cloud-renderer:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > iron-selector:nth-of-type(1) > yt-chip-cloud-chip-renderer:nth-of-type(4) > div:nth-of-type(1) > chip-shape:nth-of-type(1) > button:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1)",
+     "box": [
+      344,
+      72.5,
+      28,
+      20
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > div:nth-of-type(1) > ytd-page-manager:nth-of-type(1) > ytd-search:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > ytd-search-header-renderer:nth-of-type(1) > div:nth-of-type(2) > yt-chip-cloud-renderer:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > iron-selector:nth-of-type(1) > yt-chip-cloud-chip-renderer:nth-of-type(5) > div:nth-of-type(1) > chip-shape:nth-of-type(1) > button:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1)",
+     "box": [
+      404,
+      72.5,
+      182,
+      20
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > div:nth-of-type(1) > ytd-page-manager:nth-of-type(1) > ytd-search:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > ytd-search-header-renderer:nth-of-type(1) > div:nth-of-type(2) > yt-chip-cloud-renderer:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > iron-selector:nth-of-type(1) > yt-chip-cloud-chip-renderer:nth-of-type(6) > div:nth-of-type(1) > chip-shape:nth-of-type(1) > button:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1)",
+     "box": [
+      618,
+      72.5,
+      42,
+      20
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > div:nth-of-type(1) > ytd-page-manager:nth-of-type(1) > ytd-search:nth-of-type(1) > div:nth-of-type(1) > ytd-two-column-search-results-renderer:nth-of-type(1) > div:nth-of-type(1) > ytd-section-list-renderer:nth-of-type(1) > div:nth-of-type(2) > ytd-item-section-renderer:nth-of-type(1) > div:nth-of-type(3) > ytd-video-renderer:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > ytd-badge-supported-renderer:nth-of-type(1) > yt-badge-supported-renderer:nth-of-type(1) > div:nth-of-type(1) > yt-metadata-badge-renderer:nth-of-type(1) > badge-shape:nth-of-type(1) > div:nth-of-type(1)",
+     "box": [
+      616,
+      1220.05,
+      24,
+      18
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > div:nth-of-type(1) > ytd-page-manager:nth-of-type(1) > ytd-search:nth-of-type(1) > div:nth-of-type(1) > ytd-two-column-search-results-renderer:nth-of-type(1) > div:nth-of-type(1) > ytd-section-list-renderer:nth-of-type(1) > div:nth-of-type(2) > ytd-item-section-renderer:nth-of-type(1) > div:nth-of-type(3) > ytd-video-renderer:nth-of-type(2) > div:nth-of-type(1) > div:nth-of-type(1) > ytd-badge-supported-renderer:nth-of-type(1) > yt-badge-supported-renderer:nth-of-type(1) > div:nth-of-type(1) > yt-metadata-badge-renderer:nth-of-type(1) > badge-shape:nth-of-type(1) > div:nth-of-type(1)",
+     "box": [
+      616,
+      1534.6,
+      24,
+      18
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > div:nth-of-type(1) > ytd-page-manager:nth-of-type(1) > ytd-search:nth-of-type(1) > div:nth-of-type(1) > ytd-two-column-search-results-renderer:nth-of-type(1) > div:nth-of-type(1) > ytd-section-list-renderer:nth-of-type(1) > div:nth-of-type(2) > ytd-item-section-renderer:nth-of-type(1) > div:nth-of-type(3) > grid-shelf-view-model:nth-of-type(2) > div:nth-of-type(2) > div:nth-of-type(1) > button-view-model:nth-of-type(1) > button:nth-of-type(1) > div:nth-of-type(1)",
+     "box": [
+      626,
+      2581.75,
+      70,
+      40
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > div:nth-of-type(1) > ytd-page-manager:nth-of-type(1) > ytd-search:nth-of-type(1) > div:nth-of-type(1) > ytd-two-column-search-results-renderer:nth-of-type(1) > div:nth-of-type(1) > ytd-section-list-renderer:nth-of-type(1) > div:nth-of-type(2) > ytd-item-section-renderer:nth-of-type(1) > div:nth-of-type(3) > ytd-video-renderer:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(1) > ytd-badge-supported-renderer:nth-of-type(1) > yt-badge-supported-renderer:nth-of-type(1) > div:nth-of-type(1) > yt-metadata-badge-renderer:nth-of-type(1) > badge-shape:nth-of-type(1) > div:nth-of-type(1)",
+     "box": [
+      616,
+      2771.75,
+      24,
+      18
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > div:nth-of-type(1) > ytd-page-manager:nth-of-type(1) > ytd-search:nth-of-type(1) > div:nth-of-type(1) > ytd-two-column-search-results-renderer:nth-of-type(1) > div:nth-of-type(1) > ytd-section-list-renderer:nth-of-type(1) > div:nth-of-type(2) > ytd-item-section-renderer:nth-of-type(1) > div:nth-of-type(3) > ytd-video-renderer:nth-of-type(5) > div:nth-of-type(1) > div:nth-of-type(1) > ytd-badge-supported-renderer:nth-of-type(1) > yt-badge-supported-renderer:nth-of-type(1) > div:nth-of-type(1) > yt-metadata-badge-renderer:nth-of-type(1) > badge-shape:nth-of-type(1) > div:nth-of-type(1)",
+     "box": [
+      616,
+      3364.85,
+      24,
+      18
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > div:nth-of-type(1) > ytd-page-manager:nth-of-type(1) > ytd-search:nth-of-type(1) > div:nth-of-type(1) > ytd-two-column-search-results-renderer:nth-of-type(1) > div:nth-of-type(1) > ytd-section-list-renderer:nth-of-type(1) > div:nth-of-type(2) > ytd-item-section-renderer:nth-of-type(1) > div:nth-of-type(3) > ytd-video-renderer:nth-of-type(6) > div:nth-of-type(1) > div:nth-of-type(1) > ytd-badge-supported-renderer:nth-of-type(1) > yt-badge-supported-renderer:nth-of-type(1) > div:nth-of-type(1) > yt-metadata-badge-renderer:nth-of-type(1) > badge-shape:nth-of-type(1) > div:nth-of-type(1)",
+     "box": [
+      616,
+      4474.45,
+      24,
+      18
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > div:nth-of-type(1) > ytd-page-manager:nth-of-type(1) > ytd-search:nth-of-type(1) > div:nth-of-type(1) > ytd-two-column-search-results-renderer:nth-of-type(1) > div:nth-of-type(1) > ytd-section-list-renderer:nth-of-type(1) > div:nth-of-type(2) > ytd-item-section-renderer:nth-of-type(1) > div:nth-of-type(3) > ytd-video-renderer:nth-of-type(7) > div:nth-of-type(1) > div:nth-of-type(1) > ytd-badge-supported-renderer:nth-of-type(1) > yt-badge-supported-renderer:nth-of-type(1) > div:nth-of-type(1) > yt-metadata-badge-renderer:nth-of-type(1) > badge-shape:nth-of-type(1) > div:nth-of-type(1)",
+     "box": [
+      616,
+      4779,
+      24,
+      18
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > div:nth-of-type(1) > ytd-page-manager:nth-of-type(1) > ytd-search:nth-of-type(1) > div:nth-of-type(1) > ytd-two-column-search-results-renderer:nth-of-type(1) > div:nth-of-type(1) > ytd-section-list-renderer:nth-of-type(1) > div:nth-of-type(2) > ytd-item-section-renderer:nth-of-type(1) > div:nth-of-type(3) > ytd-video-renderer:nth-of-type(9) > div:nth-of-type(1) > div:nth-of-type(1) > ytd-badge-supported-renderer:nth-of-type(1) > yt-badge-supported-renderer:nth-of-type(1) > div:nth-of-type(1) > yt-metadata-badge-renderer:nth-of-type(1) > badge-shape:nth-of-type(1) > div:nth-of-type(1)",
+     "box": [
+      616,
+      5994.6,
+      14.4,
+      18
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > div:nth-of-type(1) > ytd-page-manager:nth-of-type(1) > ytd-search:nth-of-type(1) > div:nth-of-type(1) > ytd-two-column-search-results-renderer:nth-of-type(1) > div:nth-of-type(1) > ytd-section-list-renderer:nth-of-type(1) > div:nth-of-type(2) > ytd-item-section-renderer:nth-of-type(1) > div:nth-of-type(3) > ytd-video-renderer:nth-of-type(11) > div:nth-of-type(1) > div:nth-of-type(1) > ytd-badge-supported-renderer:nth-of-type(1) > yt-badge-supported-renderer:nth-of-type(1) > div:nth-of-type(1) > yt-metadata-badge-renderer:nth-of-type(1) > badge-shape:nth-of-type(1) > div:nth-of-type(1)",
+     "box": [
+      616,
+      6587.7,
+      24,
+      18
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > div:nth-of-type(1) > ytd-page-manager:nth-of-type(1) > ytd-search:nth-of-type(1) > div:nth-of-type(1) > ytd-two-column-search-results-renderer:nth-of-type(1) > div:nth-of-type(1) > ytd-section-list-renderer:nth-of-type(1) > div:nth-of-type(2) > ytd-item-section-renderer:nth-of-type(2) > div:nth-of-type(3) > ytd-video-renderer:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(1) > ytd-badge-supported-renderer:nth-of-type(1) > yt-badge-supported-renderer:nth-of-type(1) > div:nth-of-type(1) > yt-metadata-badge-renderer:nth-of-type(1) > badge-shape:nth-of-type(1) > div:nth-of-type(1)",
+     "box": [
+      616,
+      9138.35,
+      24,
+      18
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > div:nth-of-type(1) > ytd-page-manager:nth-of-type(1) > ytd-search:nth-of-type(1) > div:nth-of-type(1) > ytd-two-column-search-results-renderer:nth-of-type(1) > div:nth-of-type(1) > ytd-section-list-renderer:nth-of-type(1) > div:nth-of-type(2) > ytd-item-section-renderer:nth-of-type(2) > div:nth-of-type(3) > grid-shelf-view-model:nth-of-type(2) > div:nth-of-type(2) > div:nth-of-type(1) > button-view-model:nth-of-type(1) > button:nth-of-type(1) > div:nth-of-type(1)",
+     "box": [
+      626,
+      10535.05,
+      70,
+      40
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > div:nth-of-type(1) > ytd-page-manager:nth-of-type(1) > ytd-search:nth-of-type(1) > div:nth-of-type(1) > ytd-two-column-search-results-renderer:nth-of-type(1) > div:nth-of-type(1) > ytd-section-list-renderer:nth-of-type(1) > div:nth-of-type(2) > ytd-item-section-renderer:nth-of-type(2) > div:nth-of-type(3) > ytd-video-renderer:nth-of-type(5) > div:nth-of-type(1) > div:nth-of-type(1) > ytd-badge-supported-renderer:nth-of-type(1) > yt-badge-supported-renderer:nth-of-type(1) > div:nth-of-type(1) > yt-metadata-badge-renderer:nth-of-type(1) > badge-shape:nth-of-type(1) > div:nth-of-type(1)",
+     "box": [
+      616,
+      10734.05,
+      24,
+      18
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > div:nth-of-type(1) > ytd-page-manager:nth-of-type(1) > ytd-search:nth-of-type(1) > div:nth-of-type(1) > ytd-two-column-search-results-renderer:nth-of-type(1) > div:nth-of-type(1) > ytd-section-list-renderer:nth-of-type(1) > div:nth-of-type(2) > ytd-item-section-renderer:nth-of-type(2) > div:nth-of-type(3) > ytd-video-renderer:nth-of-type(10) > div:nth-of-type(1) > div:nth-of-type(1) > ytd-badge-supported-renderer:nth-of-type(1) > yt-badge-supported-renderer:nth-of-type(1) > div:nth-of-type(1) > yt-metadata-badge-renderer:nth-of-type(1) > badge-shape:nth-of-type(1) > div:nth-of-type(1)",
+     "box": [
+      616,
+      12198.8,
+      14.4,
+      18
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > ytd-consent-bump-v2-lightbox:nth-of-type(1) > tp-yt-paper-dialog:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > yt-formatted-string:nth-of-type(1)",
+     "box": [
+      415,
+      45,
+      89.55,
+      20
+     ]
+    }
+   ],
+   "paragraphs": [
+    {
+     "key": "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > div:nth-of-type(1) > ytd-page-manager:nth-of-type(1) > ytd-search:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > ytd-search-header-renderer:nth-of-type(1) > div:nth-of-type(2) > yt-chip-cloud-renderer:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > iron-selector:nth-of-type(1) > yt-chip-cloud-chip-renderer:nth-of-type(1) > div:nth-of-type(1) > chip-shape:nth-of-type(1) > button:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1)",
+     "lineCount": 1,
+     "lines": [
+      [
+       108,
+       74,
+       150,
+       91
+      ]
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > div:nth-of-type(1) > ytd-page-manager:nth-of-type(1) > ytd-search:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > ytd-search-header-renderer:nth-of-type(1) > div:nth-of-type(2) > yt-chip-cloud-renderer:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > iron-selector:nth-of-type(1) > yt-chip-cloud-chip-renderer:nth-of-type(2) > div:nth-of-type(1) > chip-shape:nth-of-type(1) > button:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1)",
+     "lineCount": 1,
+     "lines": [
+      [
+       182,
+       74,
+       238,
+       91
+      ]
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > div:nth-of-type(1) > ytd-page-manager:nth-of-type(1) > ytd-search:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > ytd-search-header-renderer:nth-of-type(1) > div:nth-of-type(2) > yt-chip-cloud-renderer:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > iron-selector:nth-of-type(1) > yt-chip-cloud-chip-renderer:nth-of-type(3) > div:nth-of-type(1) > chip-shape:nth-of-type(1) > button:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1)",
+     "lineCount": 1,
+     "lines": [
+      [
+       270,
+       74,
+       312,
+       91
+      ]
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > div:nth-of-type(1) > ytd-page-manager:nth-of-type(1) > ytd-search:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > ytd-search-header-renderer:nth-of-type(1) > div:nth-of-type(2) > yt-chip-cloud-renderer:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > iron-selector:nth-of-type(1) > yt-chip-cloud-chip-renderer:nth-of-type(4) > div:nth-of-type(1) > chip-shape:nth-of-type(1) > button:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1)",
+     "lineCount": 1,
+     "lines": [
+      [
+       344,
+       74,
+       372,
+       91
+      ]
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > div:nth-of-type(1) > ytd-page-manager:nth-of-type(1) > ytd-search:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > ytd-search-header-renderer:nth-of-type(1) > div:nth-of-type(2) > yt-chip-cloud-renderer:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > iron-selector:nth-of-type(1) > yt-chip-cloud-chip-renderer:nth-of-type(5) > div:nth-of-type(1) > chip-shape:nth-of-type(1) > button:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1)",
+     "lineCount": 1,
+     "lines": [
+      [
+       404,
+       74,
+       586,
+       91
+      ]
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > div:nth-of-type(1) > ytd-page-manager:nth-of-type(1) > ytd-search:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > ytd-search-header-renderer:nth-of-type(1) > div:nth-of-type(2) > yt-chip-cloud-renderer:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > iron-selector:nth-of-type(1) > yt-chip-cloud-chip-renderer:nth-of-type(6) > div:nth-of-type(1) > chip-shape:nth-of-type(1) > button:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1)",
+     "lineCount": 1,
+     "lines": [
+      [
+       618,
+       74,
+       660,
+       91
+      ]
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > div:nth-of-type(1) > ytd-page-manager:nth-of-type(1) > ytd-search:nth-of-type(1) > div:nth-of-type(1) > ytd-two-column-search-results-renderer:nth-of-type(1) > div:nth-of-type(1) > ytd-section-list-renderer:nth-of-type(1) > div:nth-of-type(2) > ytd-item-section-renderer:nth-of-type(1) > div:nth-of-type(3) > ytd-video-renderer:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > ytd-badge-supported-renderer:nth-of-type(1) > yt-badge-supported-renderer:nth-of-type(1) > div:nth-of-type(1) > yt-metadata-badge-renderer:nth-of-type(1) > badge-shape:nth-of-type(1) > div:nth-of-type(1)",
+     "lineCount": 1,
+     "lines": [
+      [
+       616,
+       1221.55,
+       640,
+       1236.55
+      ]
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > div:nth-of-type(1) > ytd-page-manager:nth-of-type(1) > ytd-search:nth-of-type(1) > div:nth-of-type(1) > ytd-two-column-search-results-renderer:nth-of-type(1) > div:nth-of-type(1) > ytd-section-list-renderer:nth-of-type(1) > div:nth-of-type(2) > ytd-item-section-renderer:nth-of-type(1) > div:nth-of-type(3) > ytd-video-renderer:nth-of-type(2) > div:nth-of-type(1) > div:nth-of-type(1) > ytd-badge-supported-renderer:nth-of-type(1) > yt-badge-supported-renderer:nth-of-type(1) > div:nth-of-type(1) > yt-metadata-badge-renderer:nth-of-type(1) > badge-shape:nth-of-type(1) > div:nth-of-type(1)",
+     "lineCount": 1,
+     "lines": [
+      [
+       616,
+       1536.1,
+       640,
+       1551.1
+      ]
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > div:nth-of-type(1) > ytd-page-manager:nth-of-type(1) > ytd-search:nth-of-type(1) > div:nth-of-type(1) > ytd-two-column-search-results-renderer:nth-of-type(1) > div:nth-of-type(1) > ytd-section-list-renderer:nth-of-type(1) > div:nth-of-type(2) > ytd-item-section-renderer:nth-of-type(1) > div:nth-of-type(3) > grid-shelf-view-model:nth-of-type(2) > div:nth-of-type(2) > div:nth-of-type(1) > button-view-model:nth-of-type(1) > button:nth-of-type(1) > div:nth-of-type(1)",
+     "lineCount": 1,
+     "lines": [
+      [
+       626,
+       2593.25,
+       696,
+       2610.25
+      ]
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > div:nth-of-type(1) > ytd-page-manager:nth-of-type(1) > ytd-search:nth-of-type(1) > div:nth-of-type(1) > ytd-two-column-search-results-renderer:nth-of-type(1) > div:nth-of-type(1) > ytd-section-list-renderer:nth-of-type(1) > div:nth-of-type(2) > ytd-item-section-renderer:nth-of-type(1) > div:nth-of-type(3) > ytd-video-renderer:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(1) > ytd-badge-supported-renderer:nth-of-type(1) > yt-badge-supported-renderer:nth-of-type(1) > div:nth-of-type(1) > yt-metadata-badge-renderer:nth-of-type(1) > badge-shape:nth-of-type(1) > div:nth-of-type(1)",
+     "lineCount": 1,
+     "lines": [
+      [
+       616,
+       2773.25,
+       640,
+       2788.25
+      ]
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > div:nth-of-type(1) > ytd-page-manager:nth-of-type(1) > ytd-search:nth-of-type(1) > div:nth-of-type(1) > ytd-two-column-search-results-renderer:nth-of-type(1) > div:nth-of-type(1) > ytd-section-list-renderer:nth-of-type(1) > div:nth-of-type(2) > ytd-item-section-renderer:nth-of-type(1) > div:nth-of-type(3) > ytd-video-renderer:nth-of-type(5) > div:nth-of-type(1) > div:nth-of-type(1) > ytd-badge-supported-renderer:nth-of-type(1) > yt-badge-supported-renderer:nth-of-type(1) > div:nth-of-type(1) > yt-metadata-badge-renderer:nth-of-type(1) > badge-shape:nth-of-type(1) > div:nth-of-type(1)",
+     "lineCount": 1,
+     "lines": [
+      [
+       616,
+       3366.35,
+       640,
+       3381.35
+      ]
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > div:nth-of-type(1) > ytd-page-manager:nth-of-type(1) > ytd-search:nth-of-type(1) > div:nth-of-type(1) > ytd-two-column-search-results-renderer:nth-of-type(1) > div:nth-of-type(1) > ytd-section-list-renderer:nth-of-type(1) > div:nth-of-type(2) > ytd-item-section-renderer:nth-of-type(1) > div:nth-of-type(3) > ytd-video-renderer:nth-of-type(6) > div:nth-of-type(1) > div:nth-of-type(1) > ytd-badge-supported-renderer:nth-of-type(1) > yt-badge-supported-renderer:nth-of-type(1) > div:nth-of-type(1) > yt-metadata-badge-renderer:nth-of-type(1) > badge-shape:nth-of-type(1) > div:nth-of-type(1)",
+     "lineCount": 1,
+     "lines": [
+      [
+       616,
+       4475.95,
+       640,
+       4490.95
+      ]
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > div:nth-of-type(1) > ytd-page-manager:nth-of-type(1) > ytd-search:nth-of-type(1) > div:nth-of-type(1) > ytd-two-column-search-results-renderer:nth-of-type(1) > div:nth-of-type(1) > ytd-section-list-renderer:nth-of-type(1) > div:nth-of-type(2) > ytd-item-section-renderer:nth-of-type(1) > div:nth-of-type(3) > ytd-video-renderer:nth-of-type(7) > div:nth-of-type(1) > div:nth-of-type(1) > ytd-badge-supported-renderer:nth-of-type(1) > yt-badge-supported-renderer:nth-of-type(1) > div:nth-of-type(1) > yt-metadata-badge-renderer:nth-of-type(1) > badge-shape:nth-of-type(1) > div:nth-of-type(1)",
+     "lineCount": 1,
+     "lines": [
+      [
+       616,
+       4780.5,
+       640,
+       4795.5
+      ]
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > div:nth-of-type(1) > ytd-page-manager:nth-of-type(1) > ytd-search:nth-of-type(1) > div:nth-of-type(1) > ytd-two-column-search-results-renderer:nth-of-type(1) > div:nth-of-type(1) > ytd-section-list-renderer:nth-of-type(1) > div:nth-of-type(2) > ytd-item-section-renderer:nth-of-type(1) > div:nth-of-type(3) > ytd-video-renderer:nth-of-type(9) > div:nth-of-type(1) > div:nth-of-type(1) > ytd-badge-supported-renderer:nth-of-type(1) > yt-badge-supported-renderer:nth-of-type(1) > div:nth-of-type(1) > yt-metadata-badge-renderer:nth-of-type(1) > badge-shape:nth-of-type(1) > div:nth-of-type(1)",
+     "lineCount": 1,
+     "lines": [
+      [
+       616,
+       5996.1,
+       630.4,
+       6011.1
+      ]
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > div:nth-of-type(1) > ytd-page-manager:nth-of-type(1) > ytd-search:nth-of-type(1) > div:nth-of-type(1) > ytd-two-column-search-results-renderer:nth-of-type(1) > div:nth-of-type(1) > ytd-section-list-renderer:nth-of-type(1) > div:nth-of-type(2) > ytd-item-section-renderer:nth-of-type(1) > div:nth-of-type(3) > ytd-video-renderer:nth-of-type(11) > div:nth-of-type(1) > div:nth-of-type(1) > ytd-badge-supported-renderer:nth-of-type(1) > yt-badge-supported-renderer:nth-of-type(1) > div:nth-of-type(1) > yt-metadata-badge-renderer:nth-of-type(1) > badge-shape:nth-of-type(1) > div:nth-of-type(1)",
+     "lineCount": 1,
+     "lines": [
+      [
+       616,
+       6589.2,
+       640,
+       6604.2
+      ]
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > div:nth-of-type(1) > ytd-page-manager:nth-of-type(1) > ytd-search:nth-of-type(1) > div:nth-of-type(1) > ytd-two-column-search-results-renderer:nth-of-type(1) > div:nth-of-type(1) > ytd-section-list-renderer:nth-of-type(1) > div:nth-of-type(2) > ytd-item-section-renderer:nth-of-type(2) > div:nth-of-type(3) > ytd-video-renderer:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(1) > ytd-badge-supported-renderer:nth-of-type(1) > yt-badge-supported-renderer:nth-of-type(1) > div:nth-of-type(1) > yt-metadata-badge-renderer:nth-of-type(1) > badge-shape:nth-of-type(1) > div:nth-of-type(1)",
+     "lineCount": 1,
+     "lines": [
+      [
+       616,
+       9139.85,
+       640,
+       9154.85
+      ]
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > div:nth-of-type(1) > ytd-page-manager:nth-of-type(1) > ytd-search:nth-of-type(1) > div:nth-of-type(1) > ytd-two-column-search-results-renderer:nth-of-type(1) > div:nth-of-type(1) > ytd-section-list-renderer:nth-of-type(1) > div:nth-of-type(2) > ytd-item-section-renderer:nth-of-type(2) > div:nth-of-type(3) > grid-shelf-view-model:nth-of-type(2) > div:nth-of-type(2) > div:nth-of-type(1) > button-view-model:nth-of-type(1) > button:nth-of-type(1) > div:nth-of-type(1)",
+     "lineCount": 1,
+     "lines": [
+      [
+       626,
+       10546.55,
+       696,
+       10563.55
+      ]
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > div:nth-of-type(1) > ytd-page-manager:nth-of-type(1) > ytd-search:nth-of-type(1) > div:nth-of-type(1) > ytd-two-column-search-results-renderer:nth-of-type(1) > div:nth-of-type(1) > ytd-section-list-renderer:nth-of-type(1) > div:nth-of-type(2) > ytd-item-section-renderer:nth-of-type(2) > div:nth-of-type(3) > ytd-video-renderer:nth-of-type(5) > div:nth-of-type(1) > div:nth-of-type(1) > ytd-badge-supported-renderer:nth-of-type(1) > yt-badge-supported-renderer:nth-of-type(1) > div:nth-of-type(1) > yt-metadata-badge-renderer:nth-of-type(1) > badge-shape:nth-of-type(1) > div:nth-of-type(1)",
+     "lineCount": 1,
+     "lines": [
+      [
+       616,
+       10735.55,
+       640,
+       10750.55
+      ]
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > div:nth-of-type(1) > ytd-page-manager:nth-of-type(1) > ytd-search:nth-of-type(1) > div:nth-of-type(1) > ytd-two-column-search-results-renderer:nth-of-type(1) > div:nth-of-type(1) > ytd-section-list-renderer:nth-of-type(1) > div:nth-of-type(2) > ytd-item-section-renderer:nth-of-type(2) > div:nth-of-type(3) > ytd-video-renderer:nth-of-type(10) > div:nth-of-type(1) > div:nth-of-type(1) > ytd-badge-supported-renderer:nth-of-type(1) > yt-badge-supported-renderer:nth-of-type(1) > div:nth-of-type(1) > yt-metadata-badge-renderer:nth-of-type(1) > badge-shape:nth-of-type(1) > div:nth-of-type(1)",
+     "lineCount": 1,
+     "lines": [
+      [
+       616,
+       12200.3,
+       630.4,
+       12215.3
+      ]
+     ]
+    },
+    {
+     "key": "html > body:nth-of-type(1) > ytd-app:nth-of-type(1) > ytd-consent-bump-v2-lightbox:nth-of-type(1) > tp-yt-paper-dialog:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > yt-formatted-string:nth-of-type(1)",
+     "lineCount": 1,
+     "lines": [
+      [
+       415,
+       46.5,
+       504.55,
+       63.5
+      ]
+     ]
+    }
+   ],
+   "paged": []
+  }
+ }
+}

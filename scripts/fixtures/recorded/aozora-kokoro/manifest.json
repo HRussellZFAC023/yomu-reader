@@ -1,0 +1,46 @@
+{
+  "slug": "aozora-kokoro",
+  "url": "https://www.aozora.gr.jp/cards/000148/files/773_14560.html",
+  "content": "verbatim",
+  "licence": "Public domain",
+  "attribution": "夏目漱石『こころ』, 青空文庫 (Aozora Bunko) electronic text. The work is in the public domain; Aozora Bunko asks that its credit lines stay with the text, and they do (page footer).",
+  "title": "夏目漱石 こころ",
+  "recordedAt": "2026-10-17T15:37:52.780Z",
+  "recorder": {
+    "engine": "chromium",
+    "viewport": {
+      "width": 1280,
+      "height": 900
+    },
+    "platform": "darwin",
+    "locale": "ja-JP"
+  },
+  "document": "page.html",
+  "har": "network.har",
+  "geometry": "geometry.json",
+  "fidelity": {
+    "chromium": {
+      "redactionMaxDeltaPx": 0,
+      "redactionDiffs": 0,
+      "paragraphsWithMovedLines": 0,
+      "unrecordedRequests": 0,
+      "liveMaxDeltaPx": 0,
+      "liveDiffs": 0,
+      "diffSample": []
+    },
+    "webkit": {
+      "redactionMaxDeltaPx": 0,
+      "redactionDiffs": 0,
+      "paragraphsWithMovedLines": 0,
+      "unrecordedRequests": 0,
+      "diffSample": []
+    },
+    "firefox": {
+      "redactionMaxDeltaPx": 0,
+      "redactionDiffs": 0,
+      "paragraphsWithMovedLines": 0,
+      "unrecordedRequests": 0,
+      "diffSample": []
+    }
+  }
+}
