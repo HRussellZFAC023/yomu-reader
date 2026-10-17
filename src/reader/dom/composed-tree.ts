@@ -6,6 +6,27 @@ export function composedAncestorElement(element: HTMLElement): HTMLElement | nul
     return typeof ShadowRoot !== 'undefined' && root instanceof ShadowRoot && root.host instanceof HTMLElement ? root.host : null;
 }
 
+type PointHitRoot = { elementsFromPoint?: (x: number, y: number) => Element[] };
+
+/** The document hit stack, with each open shadow root's own hits placed before
+ * its host. A document-level stack stops at the host, so text inside a web
+ * component is otherwise never under the pointer. */
+export function composedElementsFromPoint(document: Document, x: number, y: number): Element[] {
+    const hits: Element[] = [];
+    const visit = (root: Document | ShadowRoot, seen: Set<Node>): void => {
+        if (seen.has(root)) return;
+        seen.add(root);
+        const stack = (root as PointHitRoot).elementsFromPoint?.(x, y) ?? [];
+        for (const hit of stack) {
+            if (root !== document && hit.getRootNode() !== root) continue;
+            if (hit.shadowRoot) visit(hit.shadowRoot, seen);
+            hits.push(hit);
+        }
+    };
+    visit(document, new Set());
+    return hits;
+}
+
 export function composedClosestElement<T extends HTMLElement = HTMLElement>(element: Element, selector: string): T | null {
     let current: Element | null = element;
     while (current) {

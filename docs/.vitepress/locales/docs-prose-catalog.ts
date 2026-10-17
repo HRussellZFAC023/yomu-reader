@@ -9,6 +9,8 @@ export interface ReviewedDocsMessage {
 }
 
 const HOSTED_DOCS_JA_COPY: Record<string, string> = {
+    "On desktops with always-visible scrollbars, the よむ button and its menu keep their normal size instead of shrinking as if the page were zoomed.": "スクロールバーが常に表示されるデスクトップでも、よむボタンとメニューがページを拡大したときのように縮まず、通常の大きさで表示されるようにしました。",
+    "Middle-button scanning finds words inside web components (shadow DOM), as hover and click already did.": "マウスの中ボタンで単語を調べる機能でも、ホバーやクリックと同じように、Webコンポーネント（シャドウDOM）内の単語を見つけられるようにしました。",
     "Subtitle controls hide when their video is removed. Offline PDF and video menus retain their close behavior, and incoming theme changes work when browser storage is unavailable.": "動画が取り除かれた場合は字幕操作を隠します。PDFと動画のメニューはオフラインでも閉じられ、ブラウザの保存領域を使えない場合も他の画面からのテーマ変更を反映します。",
     "Neighboring readings are fitted together before they are painted, preventing one-frame flashes while page annotations refresh. Edge readings stay closer to their own words without narrowing the page text.": "隣り合うふりがなは、表示する前にまとめて配置を調整し、注釈の更新中に一瞬ちらつかないようにしました。本文の幅を変えず、端の読みも元の単語に近い位置を保ちます。",
     "Playing from YouTube’s native controls dismisses a word lookup without toggling playback twice or re-pausing it.": "YouTubeの再生ボタンを押すと単語の検索画面を閉じ、再生を二重に切り替えたり、もう一度一時停止したりせずに再開します。",

@@ -61,7 +61,11 @@ export function puckRect(button: HTMLButtonElement, pageScale = overlayViewport(
 function pinchScale(): number {
     // Initial viewport fitting/page zoom can also report visualViewport.scale.
     // Only a narrower visible width represents additional pinch magnification.
+    // Compare against the layout width WITHOUT a classic scrollbar: innerWidth
+    // includes it and visualViewport.width does not, so desktop Linux/Windows
+    // pages read as ~1.5% "pinched" and shrank the puck and its menu.
     const width = window.visualViewport?.width ?? window.innerWidth;
-    const scale = window.innerWidth / width;
+    const layoutWidth = document.documentElement?.clientWidth || window.innerWidth;
+    const scale = layoutWidth / width;
     return Number.isFinite(scale) && scale > 0 ? scale : 1;
 }

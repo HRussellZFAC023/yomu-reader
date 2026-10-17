@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 2.1.5
+// @version 2.1.6
 // @author Henry Russell
 // @description Japanese pop-up dictionary with furigana, pitch accent, audio, subtitles, OCR and Study.
 // @license MIT
@@ -6436,6 +6436,21 @@ if (element.assignedSlot) return element.assignedSlot;
 if (element.parentElement) return element.parentElement;
 const root = element.getRootNode();
 return typeof ShadowRoot !== "undefined" && root instanceof ShadowRoot && root.host instanceof HTMLElement ? root.host : null;
+}
+function composedElementsFromPoint(document2, x, y) {
+const hits = [];
+const visit = (root, seen) => {
+if (seen.has(root)) return;
+seen.add(root);
+const stack = root.elementsFromPoint?.(x, y) ?? [];
+for (const hit of stack) {
+if (root !== document2 && hit.getRootNode() !== root) continue;
+if (hit.shadowRoot) visit(hit.shadowRoot, seen);
+hits.push(hit);
+}
+};
+visit(document2, new Set());
+return hits;
 }
 function composedClosestElement(element, selector) {
 let current = element;
@@ -29689,7 +29704,8 @@ rect.height
 }
 function pinchScale() {
 const width = window.visualViewport?.width ?? window.innerWidth;
-const scale = window.innerWidth / width;
+const layoutWidth = document.documentElement?.clientWidth || window.innerWidth;
+const scale = layoutWidth / width;
 return Number.isFinite(scale) && scale > 0 ? scale : 1;
 }
 const power = [
@@ -35442,8 +35458,8 @@ function collapseWhitespace(value) {
 return value.replace(/\/\*[\s\S]*?\*\//gu, " ").replace(/\s+/gu, " ").trim();
 }
 const READER_CSS_RESOURCE = "yomuCss";
-const READER_CSS_HOSTED_FALLBACK_URL = `https://yomureader.com/yomu.css?v=${"2.1.5"}`;
-const READER_CSS_RAW_FALLBACK_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"2.1.5"}`;
+const READER_CSS_HOSTED_FALLBACK_URL = `https://yomureader.com/yomu.css?v=${"2.1.6"}`;
+const READER_CSS_RAW_FALLBACK_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"2.1.6"}`;
 const READER_CSS_CACHE_KEY = "yomu:reader-css-cache:v3";
 const READER_CSS = resourceReaderCss();
 function criticalWordCss() {
@@ -35586,7 +35602,7 @@ try {
 const url = new URL(href);
 if (!isHostedYomuPage(url)) return null;
 const path = url.hostname === "hrussellzfac023.github.io" ? "/yomu-reader/yomu.css" : "/yomu.css";
-return `${new URL(path, url.origin).href}?v=${"2.1.5"}`;
+return `${new URL(path, url.origin).href}?v=${"2.1.6"}`;
 } catch {
 return null;
 }
@@ -41173,16 +41189,14 @@ const word = element?.closest?.(".jpdb-reader-word");
 return word && this.canLookupReaderWord(word) ? word : null;
 }
 wordFromPoint(x, y, surface = null, canUseWord = (word) => this.canLookupReaderWord(word)) {
-if (typeof document.elementsFromPoint !== "function") return null;
-for (const element of document.elementsFromPoint(x, y)) {
+for (const element of composedElementsFromPoint(document, x, y)) {
 const word = element.closest?.(".jpdb-reader-word");
 if (word && this.readerWordBelongsToPointerSurface(word, surface) && canUseWord(word) && this.readerWordMatchesPointerGeometry(word, x, y)) return word;
 }
 return null;
 }
 hoverReaderWordFromPointStack(x, y, surface = null) {
-if (typeof document.elementsFromPoint !== "function") return null;
-for (const element of document.elementsFromPoint(x, y)) {
+for (const element of composedElementsFromPoint(document, x, y)) {
 const word = element.closest?.(".jpdb-reader-word");
 if (word && this.readerWordBelongsToPointerSurface(word, surface) && this.canHoverLookupReaderWord(word) && this.readerWordMatchesPointerGeometry(word, x, y)) return word;
 }
