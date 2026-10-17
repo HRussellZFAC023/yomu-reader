@@ -9,14 +9,16 @@
 //     answers only one scan order, and replays of another drop everything),
 //     and keeps no 429 or 5xx answer;
 //   - a redacted recording (a copyrighted site) carries the recorder's hash
-//     list and NO committed file holds a text run whose hash is on it;
+//     list and NO committed file holds a text run whose hash is on it (as
+//     text, in an attribute, or painted by a stylesheet), and its stylesheets
+//     paint no copy of their own through CSS content;
 //   - hand-made files beside the recordings are named *-mechanism-fixture.*.
 //
 //   node scripts/check-recorded-pages.mjs [--root=<dir>]
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { findRedactionLeaks, siteCodeInHtml } from './lib/recorded-redaction.mjs';
+import { findGeneratedCopy, findRedactionLeaks, siteCodeInHtml } from './lib/recorded-redaction.mjs';
 
 const DEFAULT_ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), 'fixtures', 'recorded');
 const root = process.argv.find(arg => arg.startsWith('--root='))?.slice('--root='.length) ?? DEFAULT_ROOT;
@@ -112,8 +114,12 @@ function checkRecording(dir, slug, attribution) {
 function redactionProblems(dir, slug) {
     const hashPath = path.join(dir, 'redaction-hashes.json');
     if (!existsSync(hashPath)) return [`${slug}: a redacted recording needs the recorder's redaction-hashes.json`];
-    return findRedactionLeaks(dir, JSON.parse(readFileSync(hashPath, 'utf8')))
-        .map(leak => `${slug}: ${leak.file} holds a ${leak.length}-character text run from the original page (hash ${leak.hash})`);
+    return [
+        ...findRedactionLeaks(dir, JSON.parse(readFileSync(hashPath, 'utf8')))
+            .map(leak => `${slug}: ${leak.file} holds a ${leak.length}-character text run from the original page (hash ${leak.hash})`),
+        ...findGeneratedCopy(dir)
+            .map(copy => `${slug}: ${copy.file} paints ${copy.length} characters of copy through CSS content, which the redactor does not replace (hash ${copy.hash})`),
+    ];
 }
 
 function namedBodies(dir, harFiles) {
