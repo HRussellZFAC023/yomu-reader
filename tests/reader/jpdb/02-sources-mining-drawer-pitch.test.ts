@@ -1833,7 +1833,6 @@ describe('reader helpers', () => {
             anki: { mediaFileDataUrl } as unknown as AnkiConnectClient,
             playAudio,
             playMediaUrl,
-            detectGrammarHints: vi.fn(async () => []),
         });
         const button = document.createElement('button');
         button.dataset.ankiMediaName = 'h2k-167.mp3';

@@ -652,7 +652,6 @@ export class ReaderApp {
         playMediaUrl: audioUrl => this.audioActions.playMediaUrl(audioUrl),
         playSentenceAudio: sentence => this.audioActions.playSentenceAudio(sentence),
         playJpdbExampleAudio: (audioIds, fallbackSentence) => this.audioActions.playJpdbExampleAudio(audioIds, fallbackSentence),
-        detectGrammarHints: sentence => this.studySources.detectGrammarHints(sentence),
         parsePopoverJapanese: popover => this.parsePopoverJapanese(popover),
         toast: message => this.toast(message),
         invalidateCardData: () => this.cardRenderData.clear(),

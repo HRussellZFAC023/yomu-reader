@@ -1303,36 +1303,39 @@ describe('reader helpers', () => {
         expect(html).not.toContain('>ている<');
     });
 
-    it('re-parses popup Japanese after rendering grammar study panels', async () => {
+    it('re-parses popup Japanese after rerendering the grammar panel', async () => {
         const sentence = '毎日読んでいるので、もっと読みたい。';
+        localStorage.removeItem('yomu.grammarPreferences.v1');
+        const html = await renderGrammarHints(detectGrammarHints(sentence), sentence);
         document.body.innerHTML = `
             <div class="jpdb-reader-popover" data-jpdb-reader-root="true" data-jpdb-reader-parse-key="${sentence}">
-                <div class="jpdb-reader-study-tools">
-                    <button type="button" data-action="study-grammar">Grammar</button>
-                    <div class="jpdb-reader-study-panel" data-study-panel hidden></div>
-                </div>
+                <div class="jpdb-reader-study-panel" data-study-grammar-panel>${html}</div>
             </div>
         `;
         const popover = document.querySelector<HTMLElement>('.jpdb-reader-popover')!;
-        const button = document.querySelector<HTMLButtonElement>('[data-action="study-grammar"]')!;
+        const button = document.querySelector<HTMLButtonElement>('[data-action="study-grammar-toggle-known"][data-grammar-rule-id="aspect-te-iru"]')!;
         const parsePopoverJapanese = vi.fn(async (target: HTMLElement) => {
             expect(target).toBe(popover);
             expect(target.dataset.jpdbReaderParseKey).toBeUndefined();
         });
         const controller = new CardActionController({
             getSettings: () => DEFAULT_SETTINGS,
-            detectGrammarHints: async (value: string) => detectGrammarHints(value),
             parsePopoverJapanese,
             playAudio: vi.fn(),
             playSentenceAudio: vi.fn(),
             toast: vi.fn(),
         } as unknown as ConstructorParameters<typeof CardActionController>[0]);
 
-        await controller.perform({ kind: 'card-action', action: 'study-grammar' }, button, card, sentence);
+        try {
+            await controller.perform({ kind: 'card-action', action: 'study-grammar-toggle-known', grammarRuleId: 'aspect-te-iru', grammarKnown: false }, button, card, sentence);
 
-        expect(parsePopoverJapanese).toHaveBeenCalledTimes(1);
-        expect(document.querySelector('.jpdb-reader-study-original')?.textContent).toBe(sentence);
-        expect(document.querySelector<HTMLElement>('[data-study-panel]')?.hidden).toBe(false);
+            expect(parsePopoverJapanese).toHaveBeenCalledTimes(1);
+            await waitForExpect(() => {
+                expect(document.querySelector('.jpdb-reader-study-original')?.textContent).toBe(sentence);
+            });
+        } finally {
+            localStorage.removeItem('yomu.grammarPreferences.v1');
+        }
     });
 
     it('keeps popover body scroll stable after grammar known rerenders', async () => {
@@ -1343,15 +1346,13 @@ describe('reader helpers', () => {
             <div class="jpdb-reader-popover" data-jpdb-reader-root="true">
                 <div class="jpdb-reader-popover-body">
                     <div style="height: 900px"></div>
-                    <div class="jpdb-reader-study-tools">
-                        <div class="jpdb-reader-study-panel" data-study-panel>${html}</div>
-                    </div>
+                    <div class="jpdb-reader-study-panel" data-study-grammar-panel>${html}</div>
                 </div>
             </div>
         `;
         const popover = document.querySelector<HTMLElement>('.jpdb-reader-popover')!;
         const body = document.querySelector<HTMLElement>('.jpdb-reader-popover-body')!;
-        const panel = document.querySelector<HTMLElement>('[data-study-panel]')!;
+        const panel = document.querySelector<HTMLElement>('[data-study-grammar-panel]')!;
         const button = panel.querySelector<HTMLButtonElement>('[data-action="study-grammar-toggle-known"][data-grammar-rule-id="aspect-te-iru"]')!;
         const nativeInnerHtml = Object.getOwnPropertyDescriptor(Element.prototype, 'innerHTML')
             ?? Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'innerHTML');
@@ -1370,7 +1371,6 @@ describe('reader helpers', () => {
         });
         const controller = new CardActionController({
             getSettings: () => DEFAULT_SETTINGS,
-            detectGrammarHints: async (value: string) => detectGrammarHints(value),
             parsePopoverJapanese,
             playAudio: vi.fn(),
             playSentenceAudio: vi.fn(),

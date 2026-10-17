@@ -950,7 +950,6 @@ describe('reader helpers', () => {
             getActivePopoverMode: () => 'modal',
             playAudio: vi.fn(),
             playSentenceAudio: vi.fn(),
-            detectGrammarHints: vi.fn(async () => []),
             parsePopoverJapanese: vi.fn(),
             toast,
         });
@@ -1484,7 +1483,6 @@ describe('reader helpers', () => {
                 getActivePopoverMode: () => undefined,
                 playAudio: vi.fn(async () => undefined),
                 playSentenceAudio: vi.fn(async () => undefined),
-                detectGrammarHints: vi.fn(async () => []),
                 parsePopoverJapanese: vi.fn(),
                 toast,
             });
