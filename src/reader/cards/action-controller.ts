@@ -10,7 +10,7 @@ import { normalizeCardStates } from './state';
 import { readerWordSurfaceText } from '../dom/index';
 import { JpdbClient } from '../jpdb/jpdb';
 import { jitenSentenceTtsUrl, jitenTtsVoicesForSettings, jitenWordTtsUrl } from '../audio/jiten-tts';
-import { handleStudyGrammarAction, renderStudyToolResult } from '../study/render';
+import { handleStudyGrammarAction } from '../study/render';
 import { formatUiText, uiList, uiText, type UiCopyKey } from '../app/i18n';
 import { userFacingCopyKeyOf, userFacingError } from '../app/user-facing-errors';
 import { currentAccountDataSurfaceIsTrusted } from '../app/account-data-surface';
@@ -34,8 +34,6 @@ import {
 import type { JPDBCard, JPDBGrade, JPDBToken, ReaderSettings } from '../app/types';
 import type { LocalDictionaryStore } from '../dictionaries/local-store';
 import type { YomuSrsAdapter } from '../srs';
-import type { GrammarHint } from '../study/tools';
-import { OUTPUT_LANGUAGE } from '../languages';
 import { targetUsesCharacterDictionary } from '../languages/character-lookup';
 import {
     readAnkiAudioMergeCapability,
@@ -69,7 +67,6 @@ interface CardActionControllerOptions {
     playMediaUrl?: (audioUrl: string) => Promise<boolean | void>;
     playSentenceAudio: (sentence?: string) => Promise<void>;
     playJpdbExampleAudio?: (audioIds: string | string[], fallbackSentence?: string) => Promise<void>;
-    detectGrammarHints: (sentence: string) => Promise<GrammarHint[]>;
     parsePopoverJapanese: (popover: HTMLElement) => void | Promise<void>;
     toast: (message: string) => void;
     invalidateCardData?: () => void;
@@ -156,8 +153,6 @@ export class CardActionController {
         const handlers: Record<string, StudyActionHandler> = {
             'study-grammar-toggle-known': () => this.performStudyGrammarToggle(button, command, sentence),
             'study-grammar-toggle-known-visibility': () => this.performStudyGrammarToggle(button, command, sentence),
-            'study-translate': () => this.performStudyTool(button, action, sentence),
-            'study-grammar': () => this.performStudyGrammarTool(button, sentence),
             'study-read-sentence': () => this.performStudyReadSentence(button, command, sentence),
             'jpdb-example-audio': () => this.performJpdbExampleAudio(command),
             'jiten-audio': () => this.performJitenAudio(command, sentence),
@@ -171,23 +166,6 @@ export class CardActionController {
     private performStudyGrammarToggle(button: HTMLButtonElement, command: CardCommandCapability, sentence?: string): boolean {
         const settings = this.options.getSettings();
         handleStudyGrammarAction(button, sentence, settings.interfaceLanguage, { audioEnabled: settings.audioEnabled, command });
-        void this.reparsePopoverJapanese(button);
-        return false;
-    }
-
-    private async performStudyTool(button: HTMLButtonElement, action: string, sentence?: string): Promise<boolean> {
-        const settings = this.options.getSettings();
-        await renderStudyToolResult(button, action, sentence, undefined, settings.interfaceLanguage, {
-            audioEnabled: settings.audioEnabled,
-            outputLanguage: OUTPUT_LANGUAGE,
-        });
-        void this.reparsePopoverJapanese(button);
-        return false;
-    }
-
-    private async performStudyGrammarTool(button: HTMLButtonElement, sentence?: string): Promise<boolean> {
-        const settings = this.options.getSettings();
-        await renderStudyToolResult(button, 'study-grammar', sentence, sentence ? await this.options.detectGrammarHints(sentence) : undefined, settings.interfaceLanguage, { audioEnabled: settings.audioEnabled });
         void this.reparsePopoverJapanese(button);
         return false;
     }

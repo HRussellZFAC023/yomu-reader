@@ -238,7 +238,6 @@ interface YomuCompanionRegistry {
         setKnownGrammarVisible?: SetKnownGrammarVisibleFn;
         translateTargetSentence?: TranslateTargetSentenceFn;
         renderGrammarHints?: RenderGrammarHintsFn;
-        renderStudyToolResult?: typeof import('../study/render-impl').renderStudyToolResult;
         handleStudyGrammarAction?: typeof import('../study/render-impl').handleStudyGrammarAction;
         toggleMiningControls?: typeof import('../study/mining-controls-impl').toggleMiningControls;
         setMiningControlsExpanded?: typeof import('../study/mining-controls-impl').setMiningControlsExpanded;

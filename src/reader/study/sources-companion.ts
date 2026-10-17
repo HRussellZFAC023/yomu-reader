@@ -15,10 +15,6 @@ class DisabledStudySourceController {
     }
 
     installLoaders(): void {}
-
-    detectGrammarHints(): Promise<[]> {
-        return Promise.resolve([]);
-    }
 }
 
 const CompanionBackedStudySourceController = class {

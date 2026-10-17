@@ -87,10 +87,6 @@ export class StudySourceController {
         this.installGrammarLoader(popover, sentence);
     }
 
-    async detectGrammarHints(sentence: string): Promise<GrammarHint[]> {
-        return detectLocalGrammarHints(sentence);
-    }
-
     private preloadStudySources(popover: HTMLElement, sentence?: string): void {
         if (!sentence) return;
         const settings = this.settings();

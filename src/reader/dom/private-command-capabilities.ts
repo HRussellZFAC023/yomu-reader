@@ -18,11 +18,9 @@ export type CardCommandAction =
     | 'jiten-audio'
     | 'jpdb-example-audio'
     | 'neverforget'
-    | 'study-grammar'
     | 'study-grammar-toggle-known'
     | 'study-grammar-toggle-known-visibility'
     | 'study-read-sentence'
-    | 'study-translate'
     | 'wanikani-audio';
 
 export type CardCommandCapability = Readonly<{

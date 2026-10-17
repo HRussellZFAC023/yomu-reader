@@ -589,11 +589,6 @@ mark.jpdb-reader-example-target {
     grid-template-columns: minmax(0, 1fr) auto;
   }
 }
-.jpdb-reader-study-tools {
-  display: grid;
-  gap: 8px;
-  margin: 10px 0;
-}
 .jpdb-reader-study-panel {
   display: grid;
   gap: 10px;

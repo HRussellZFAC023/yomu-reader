@@ -1,29 +1,42 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { activeLearningTarget } from '../../src/reader/languages';
-import { renderStudyToolResult } from '../../src/reader/study/render-impl';
+import { DEFAULT_SETTINGS } from '../../src/reader/settings/index';
+import { StudySourceController } from '../../src/reader/study/sources';
 import { renderGrammarHints } from '../../src/reader/study/tools-impl';
+import type { ReaderSettings } from '../../src/reader/app/types';
 
 afterEach(() => {
     document.body.replaceChildren();
     vi.restoreAllMocks();
 });
 
+function grammarController(): StudySourceController {
+    const settings = { ...DEFAULT_SETTINGS, interfaceLanguage: 'en', studyGrammarEnabled: true } as ReaderSettings;
+    return new StudySourceController({
+        getSettings: () => settings,
+        dictionarySourceAttributes: () => '',
+        parseJapanese: async () => [],
+        parsePopoverJapanese: () => undefined,
+        enrichPitchWords: () => undefined,
+        enrichAnkiWords: () => undefined,
+        isCurrentPopoverRoot: () => true,
+    });
+}
+
 describe('grammar availability stays visible', () => {
     it('replaces the pending state with an honest no-match answer for a target with rules', async () => {
-        document.body.innerHTML = `
-            <section class="jpdb-reader-study-tools">
-                <button type="button">Grammar</button>
-                <div data-study-panel hidden></div>
-            </section>`;
-        const button = document.querySelector<HTMLButtonElement>('button')!;
-        const panel = document.querySelector<HTMLElement>('[data-study-panel]')!;
+        const controller = grammarController();
+        document.body.innerHTML = `<div class="popover">${controller.renderGrammarSource('猫。')}</div>`;
+        const popover = document.querySelector<HTMLElement>('.popover')!;
+        const details = popover.querySelector<HTMLDetailsElement>('[data-study-grammar]')!;
+        const panel = details.querySelector<HTMLElement>('[data-study-grammar-panel]')!;
+        details.open = true;
 
         expect(activeLearningTarget().grammar.rules.length).toBeGreaterThan(0);
-        await renderStudyToolResult(button, 'study-grammar', '猫。', [], 'en');
+        controller.installLoaders(popover, '猫。');
 
-        expect(panel.hidden).toBe(false);
-        expect(panel.dataset.grammarAvailability).toBe('empty');
+        await vi.waitFor(() => expect(details.dataset.availability).toBe('empty'));
         expect(panel.textContent).toContain('No built-in Japanese grammar patterns matched this sentence.');
         expect(panel.textContent).not.toContain('Finding grammar');
     });

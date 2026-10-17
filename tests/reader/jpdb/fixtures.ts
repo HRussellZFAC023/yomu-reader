@@ -759,7 +759,6 @@ export function testCardActionController(
         getActivePopoverMode: () => undefined,
         playAudio: vi.fn(),
         playSentenceAudio: vi.fn(),
-        detectGrammarHints: vi.fn(),
         parsePopoverJapanese: vi.fn(),
         toast: vi.fn(),
         ...overrides,
