@@ -12,7 +12,8 @@ import {
     storageWriteError,
 } from './storage-local-values';
 
-const PROVENANCE_KEY = 'yomu:local-storage-provenance:v1';
+export const LOCAL_MIRROR_PROVENANCE_KEY = 'yomu:local-storage-provenance:v1';
+const PROVENANCE_KEY = LOCAL_MIRROR_PROVENANCE_KEY;
 const JAPANESE_SITE_LANGUAGE_KEY = 'yomu:prefer-japanese-site-language:v1';
 
 interface LocalMirrorProvenanceEntry {

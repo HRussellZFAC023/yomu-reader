@@ -55,7 +55,7 @@ import { isSettingsAuthorityStorageKey } from '../settings/settings-authority-st
 import { isPassiveHostedSettingsJson } from '../settings/passive-hosted-settings-record';
 import { adoptWebsiteOnlyStore, websiteOnlyValuePresent } from './website-store-adoption';
 import {
-    localMirrorBelongsToEpoch, localMirrorEpochMatches,
+    LOCAL_MIRROR_PROVENANCE_KEY, localMirrorBelongsToEpoch, localMirrorEpochMatches,
     removeLocalManagedValue, removeLocalMirrorProvenance,
     restoreLocalFallbackStoredValueAtEpoch, writeLocalManagedValueOrThrow,
 } from './local-mirror-provenance';
@@ -1364,11 +1364,20 @@ export function subscribeToStoredValueChanges(
             enqueueManagedChange(newValue, { remote, transport: 'gm-storage' });
         }, 'GM stored value listener failed');
     }
-    addWebStorageCleanup(cleanups, key, event => {
+    // Another tab writes the value before its provenance, so the value's own
+    // event can arrive while this tab still holds the old provenance and must
+    // reject it. The provenance event then admits it; each value is delivered once.
+    let deliveredLocalMirror: string | null | undefined;
+    const deliverLocalMirror = (): void => {
         const epoch = managedStateEpochForSynchronousLocalRead();
         if (!epoch || !localMirrorBelongsToEpoch(key, epoch)) return;
-        onChange(JSON.parse(event.newValue || 'null'), { remote: true, transport: 'web-storage' });
-    });
+        const serialized = localStorage.getItem(key);
+        if (serialized === deliveredLocalMirror) return;
+        deliveredLocalMirror = serialized;
+        onChange(JSON.parse(serialized || 'null'), { remote: true, transport: 'web-storage' });
+    };
+    addWebStorageCleanup(cleanups, key, deliverLocalMirror);
+    addWebStorageCleanup(cleanups, LOCAL_MIRROR_PROVENANCE_KEY, deliverLocalMirror);
     const extensionChanges = extensionStorageChangedEvent();
     if (extensionChanges) {
         const listener = (changes: Record<string, ExtensionStorageChange>, areaName: string): void => {
