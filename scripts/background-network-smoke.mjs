@@ -30,7 +30,7 @@ import { kanjiReadingCoverage } from './lib/recorded-page-probes.mjs';
 import { openRecordedPage, releaseProduct, worktreeProduct } from './lib/recorded-page.mjs';
 
 const IDLE_MS = 20_000;
-const LOAD_ATTEMPTS = 3;
+const LOAD_ATTEMPTS = 5;
 const HOVER_IDLE_MS = 15_000;
 const YOUTUBE_MS = 40_000;
 const MAX_IDLE_SEARCHES = 10;
@@ -143,8 +143,9 @@ async function pitchChannelWikipedia() {
 
 // The first popup on a page pays for code the page has not run yet, and on a
 // saturated machine that one hover can cross the budget by itself. A load
-// whose p90 is over budget is measured once more on a fresh load; both are
-// logged, and the second decides. 2.1.6 fails both (words that never show).
+// whose p90 is over budget, or that left fewer than five words to judge, is
+// measured once more on a fresh load; both are logged, and the second
+// decides. 2.1.6 fails both (words that never show).
 async function hoverWikipedia() {
     for (let attempt = 1; attempt <= HOVER_LOADS; attempt += 1) {
         const run = await answeredWikipedia('hover', HOVER_IDLE_MS);
@@ -152,8 +153,8 @@ async function hoverWikipedia() {
         try {
             const result = await hoverMeasure(run);
             const last = attempt === HOVER_LOADS;
-            if (!last && result.judged.length >= 5 && !result.withinBudget) {
-                console.log(`INFO ${product.label} hover: load ${attempt} p90 ${result.p90} ms is over budget; measuring a fresh load`);
+            if (!last && (result.judged.length < 5 || !result.withinBudget)) {
+                console.log(`INFO ${product.label} hover: load ${attempt} judged ${result.judged.length} word(s), p90 ${result.p90} ms; measuring a fresh load`);
                 continue;
             }
             const { judged, p90 } = result;
@@ -200,7 +201,9 @@ async function youtubePlayback() {
 // A load whose Jiten requests the recording mostly could not answer measures
 // a Jiten outage (every word with kanji then rightly asks jpdb.io for its
 // reading, and no hovered word can be answered): load again, up to
-// LOAD_ATTEMPTS times.
+// LOAD_ATTEMPTS times. It happens when a load scans the article before the
+// page chrome, an order the recording does not hold; a busy machine takes it
+// more often (three loads running in a row were seen).
 async function answeredWikipedia(name, settleMs, settings = null) {
     for (let attempt = 1; attempt <= LOAD_ATTEMPTS; attempt += 1) {
         const run = await openWikipedia(settings);
