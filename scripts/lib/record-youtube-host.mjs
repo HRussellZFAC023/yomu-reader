@@ -99,8 +99,10 @@ async function responseJson(response) {
     if (!response) return null;
     const format = new URL(response.url()).searchParams.get('fmt');
     if (format !== 'json3') throw new Error(`The player asked for fmt=${format}, not json3; teach the recorder that format.`);
-    if (response.status() !== 200) throw new Error(`YouTube answered its own caption request with ${response.status()}; record from another network later.`);
-    return JSON.parse(await response.text());
+    const body = response.status() === 200 ? await response.text() : '';
+    // YouTube refuses with a 429, or with an empty 200 when the player's proof-of-origin token is not accepted.
+    if (!body.trim()) throw new Error(`YouTube answered its own caption request with ${response.status()} and ${body.length ? 'a blank' : 'no'} body; record from another network later, or pass --captions-from.`);
+    return JSON.parse(body);
 }
 
 const segmentTexts = event => {

@@ -357,11 +357,14 @@ the real page has moved on.
   Chrome without automation flags, and in an ordinary browser on the same
   network, and the transcript panel's `get_transcript` failed too. The page,
   stylesheets and caption track list are recorded; only the json3 timings
-  are hand-made. From a network YouTube answers, run
+  are hand-made. On 2026-10-18 the 429s had stopped, but the player's own
+  caption request came back 200 with an empty body (the recorder now says so
+  rather than failing to parse it) and `yt-dlp` 2025.10.14 could not read the
+  watch page either. From a network YouTube answers, run
   `node scripts/record-pages.mjs youtube-watch` (or pass `--captions-from`
   with the player's two json3 responses) to replace them with recorded
   timings, then drop the two fixture rows from `ATTRIBUTION.md`.
-- Weight: the 12 recordings take about 35 MB in a checkout but about 5.4 MB
+- Weight: the 12 recordings take about 42 MB in a checkout but about 6 MB
   in git, which stores a file shared by two recordings once and compresses
   the rest. Move recordings to Git LFS, or share site stylesheets between
   them, before the checkout passes about 100 MB.
