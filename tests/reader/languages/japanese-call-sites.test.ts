@@ -95,8 +95,9 @@ function stubCanvasEncoding(): void {
 
 function ocrImage(): HTMLImageElement {
     const image = document.createElement('img');
-    image.width = 40;
-    image.height = 20;
+    // OCR reads decoded pixels only; jsdom never decodes, so give it a natural size.
+    Object.defineProperty(image, 'naturalWidth', { configurable: true, value: 40 });
+    Object.defineProperty(image, 'naturalHeight', { configurable: true, value: 20 });
     return image;
 }
 
