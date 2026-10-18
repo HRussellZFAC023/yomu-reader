@@ -71,7 +71,7 @@ function productFor(ref) {
 }
 
 async function idleWikipedia() {
-    const run = await answeredIdleWikipedia();
+    const run = await answeredWikipedia('idle', IDLE_MS);
     if (!run) return;
     try {
         const { pitch, search } = jpdbLanes(run.ledger);
@@ -90,9 +90,9 @@ async function idleWikipedia() {
 }
 
 async function pitchChannelWikipedia() {
-    const run = await openWikipedia({ wordUnderlineColorSource: 'pitch' });
+    const run = await answeredWikipedia('pitch', IDLE_MS, { wordUnderlineColorSource: 'pitch' });
+    if (!run) return;
     try {
-        await run.page.waitForTimeout(IDLE_MS);
         const { pitch } = jpdbLanes(run.ledger);
         const painted = await run.page.evaluate(pattern => [...document.querySelectorAll('#mw-content-text .jpdb-reader-word')]
             .filter(word => new RegExp(pattern, 'u').test(word.className)).length, PITCH_CLASS.source);
@@ -104,9 +104,9 @@ async function pitchChannelWikipedia() {
 }
 
 async function hoverWikipedia() {
-    const run = await openWikipedia();
+    const run = await answeredWikipedia('hover', HOVER_IDLE_MS);
+    if (!run) return;
     try {
-        await run.page.waitForTimeout(HOVER_IDLE_MS);
         const samples = [];
         for (const word of await hoverTargets(run.page)) {
             samples.push(await hoverSample(run.page, word));
@@ -139,18 +139,19 @@ async function youtubePlayback() {
 }
 
 // A load whose Jiten requests the recording mostly could not answer measures
-// a Jiten outage, in which every word with kanji rightly asks jpdb.io for its
-// reading: load again, up to LOAD_ATTEMPTS times.
-async function answeredIdleWikipedia() {
+// a Jiten outage (every word with kanji then rightly asks jpdb.io for its
+// reading, and no hovered word can be answered): load again, up to
+// LOAD_ATTEMPTS times.
+async function answeredWikipedia(name, settleMs, settings = null) {
     for (let attempt = 1; attempt <= LOAD_ATTEMPTS; attempt += 1) {
-        const run = await openWikipedia();
-        await run.page.waitForTimeout(IDLE_MS);
+        const run = await openWikipedia(settings);
+        await run.page.waitForTimeout(settleMs);
         const { verdict, served } = run.productTraffic();
         if (verdict === 'answered') return run;
-        console.log(`INFO ${product.label} idle ja-wikipedia-nihongo: load ${attempt} was a Jiten outage (${verdict} ${JSON.stringify(served)}), loading again`);
+        console.log(`INFO ${product.label} ${name} ja-wikipedia-nihongo: load ${attempt} was a Jiten outage (${verdict} ${JSON.stringify(served)}), loading again`);
         await run.close();
     }
-    check(false, `idle ja-wikipedia-nihongo: none of ${LOAD_ATTEMPTS} loads was answered by the recorded Jiten traffic; record it again (docs/dev/recorded-pages.md)`);
+    check(false, `${name} ja-wikipedia-nihongo: none of ${LOAD_ATTEMPTS} loads was answered by the recorded Jiten traffic; record it again (docs/dev/recorded-pages.md)`);
     return null;
 }
 
