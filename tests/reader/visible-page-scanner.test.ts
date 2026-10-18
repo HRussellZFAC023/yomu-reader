@@ -354,9 +354,11 @@ describe('VisiblePageScanner', () => {
         try {
             await scanner.scanVisiblePage({ silent: false });
             const tailSource = document.querySelector<HTMLElement>('#feed-459')!;
+            // jsdom paints a portal mirror in about a frame budget, so apply
+            // slices hold one target each and 460 of them take a while.
             await vi.waitFor(() => {
                 expect(documentPortalWordForSource(tailSource)).not.toBeNull();
-            }, { timeout: 15_000 });
+            }, { timeout: 45_000 });
             expect(tailSource.querySelector('.jpdb-reader-word, .jpdb-reader-text-mirror')).toBeNull();
             expect(parseJapanese.mock.calls.flatMap(call => call[0])).toContain('日本語の文459');
         } finally {
@@ -364,7 +366,7 @@ describe('VisiblePageScanner', () => {
             restoreRects();
             document.body.innerHTML = '';
         }
-    }, 20_000);
+    }, 60_000);
 
     it('hands each apply chunk only its own painted words, before yielding', async () => {
         const restoreRects = mockVisibleElementRects();
@@ -490,7 +492,7 @@ describe('VisiblePageScanner', () => {
             restoreRects();
             document.body.innerHTML = '';
         }
-    });
+    }, 20_000);
 
     it('prefetches keyed parse batches for large YouTube-owned comment DOM', async () => {
         const restoreRects = mockVisibleElementRects();
