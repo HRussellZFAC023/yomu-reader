@@ -3,6 +3,7 @@ import { blendRgba, contrastRatio, cssColorToHex, cssColorToRgba, mixHex, readab
 import { probePageBackground, type PageBackground, type ProbedPageBackground } from './page-background';
 import { RENDERED_WORD_CONTRAST_VARS, RENDERED_WORD_CONTRAST_VARS_WITHOUT_SHADOW } from './rendered-word-contrast-vars';
 import { renderedWordHasAnkiState } from './rendered-word-state';
+import { wordPaintChannels, wordPaintsNothingAtRest, type WordPaintChannels } from './word-paint-facts';
 
 const PAGE_WORD_SELECTOR = '.jpdb-reader-word';
 const YOMU_SURFACE_SELECTOR = '[data-jpdb-reader-root], .jpdb-ocr-layer, .jpdb-subtitle-player, .jpdb-subtitle-list, .asbplayer-subtitles-container-bottom, .asbplayer-offscreen';
@@ -80,6 +81,10 @@ interface ReaderWordContrastPlan {
     neutralWords: HTMLElement[];
     neutralPageWords: HTMLElement[];
     neutralPageBackgrounds: PageBackground[];
+    // Page words that paint nothing at rest (word-paint-facts.ts): no
+    // backdrop is sampled for them, and stale derived colours are cleared.
+    quietWords: HTMLElement[];
+    channels: WordPaintChannels;
     furiganaColor: FuriganaColorReader;
 }
 
@@ -92,6 +97,8 @@ function readerWordContrastPlan(words: HTMLElement[]): ReaderWordContrastPlan {
         neutralWords: [],
         neutralPageWords: [],
         neutralPageBackgrounds: [],
+        quietWords: [],
+        channels: wordPaintChannels(),
         furiganaColor: furiganaColorReader(),
     };
     // probePageBackground walks the word's ancestors calling getComputedStyle on
@@ -123,12 +130,17 @@ function classifyReaderWordContrast(
     const hasAccessibleColor = hasAnkiAccessibleWordColor(word);
     const hasInlineTextColor = Boolean(word.style.getPropertyValue('color'));
     if (preserveExistingAnkiContrast(word, hasAccessibleColor, hasInlineTextColor)) return;
+    const surface = readerWordContrastSurface(word);
+    if (surface !== 'reader' && wordPaintsNothingAtRest(word, plan.channels)) {
+        plan.quietWords.push(word);
+        return;
+    }
     const handlers: Record<ReaderWordContrastSurface, () => void> = {
         reader: () => plan.neutralWords.push(word),
         'neutral-page': () => addNeutralPageWord(plan, word, pageBackgroundFor(word).background),
         'active-page': () => addActivePageWord(plan, word, pageBackgroundFor(word), hasAccessibleColor, hasInlineTextColor),
     };
-    handlers[readerWordContrastSurface(word)]();
+    handlers[surface]();
 }
 
 function hasAnkiAccessibleWordColor(word: HTMLElement): boolean {
@@ -288,6 +300,10 @@ function applyReaderWordContrastPlan(
     measurements: WordContrastMeasurement[],
 ): void {
     plan.neutralWords.forEach(word => clearContrastVars(word));
+    plan.quietWords.forEach(word => {
+        clearContrastVars(word);
+        appliedContrastState.delete(word);
+    });
     plan.neutralPageWords.forEach((word, index) => {
         applyNeutralPageBackdrop(word, plan.neutralPageBackgrounds[index]);
         applyFuriganaColor(word, plan.neutralPageBackgrounds[index].hex, plan.furiganaColor);
