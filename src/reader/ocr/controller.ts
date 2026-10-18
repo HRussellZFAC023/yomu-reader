@@ -66,6 +66,7 @@ import {
 } from './canvas-readers';
 import { captureReaderSurfaceViaExtensionScreenshot } from './extension-screenshot';
 import { canAutoRefreshOcrAfterMutation, hasCanvasOcrOptInSurface, readsReaderCanvasWithoutTap } from './canvas-auto-read';
+import { hoverMayReadImage, readsImagesWithoutTap } from './ocr-upload-policy';
 import { ReaderCanvasTapHint } from './reader-canvas-tap-hint';
 import { eventWithPoint, isPointerLikeEvent, ocrPointerImage, ocrReaderSurfaceFromPointerEvent, touchPointFromEvent } from './pointer-targets';
 import {
@@ -763,7 +764,7 @@ export class ImageOcrController {
     }
 
     private canAutoScanImage(settings: ReaderSettings): boolean {
-        return settings.ocrAutoScanImages && this.options.shouldAutoScan?.() !== false;
+        return readsImagesWithoutTap(settings) && this.options.shouldAutoScan?.() !== false;
     }
 
     private canScanInlineImages(userRequested: boolean): boolean {
@@ -920,6 +921,10 @@ export class ImageOcrController {
 
     private enqueue(image: HTMLImageElement, userRequested = false): void {
         if (isYouTubeThumbnailImage(image)) return;
+        // The one place an inline image reaches a provider without a tap. A cloud
+        // provider never gets it; the page's own data-ocr-lines need no upload.
+        if (!userRequested && !this.isReaderRasterFrame(image) && !this.videoFrameVideos.has(image)
+            && !readsImagesWithoutTap(this.options.getSettings()) && !hasInlineOcrFallback(image)) return;
         const state = this.states.get(image) ?? this.ensureState(image);
         this.resetStateIfImageChanged(state);
         if (!this.shouldQueueOcrRequest(state, image, userRequested)) return;
@@ -945,6 +950,7 @@ export class ImageOcrController {
         const settings = this.options.getSettings();
         const image = ocrImageFromPointerEvent(event, settings);
         if (image) {
+            if (event.type !== 'pointerdown' && !hoverMayReadImage(settings) && !hasInlineOcrFallback(image)) return false;
             if (!this.canScanInlineImages(true)) return false;
             if (event.type === 'pointermove' && image === this.lastPointerMoveImage) return false;
             if (event.type === 'pointermove') this.lastPointerMoveImage = image;
