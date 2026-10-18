@@ -70,6 +70,10 @@ import { nativeTextRects } from './reading-collision';
 import { furiganaSettingsForTarget, targetForcesAllFurigana, targetKeepsInFlowReadings } from './furigana-mode-stamp';
 import { syncRubyEdgeOverhang } from './ruby-overhang';
 import { commonFragmentTextHost, scanTargetPaintRoots, scanTargetSourceScope } from './scan-paint-roots';
+import { sliceDisplayOf } from './slice-style-facts';
+import { memoRead, withReadMemo } from './read-memo';
+import { rectMeetsViewport, textNodeOutsideViewport } from './text-node-viewport';
+import { notePaintedInsertion, withPaintedInsertions } from './painted-insertions';
 import { selectedWordColorSourceToken } from '../theme/color-source-classes';
 import { isYouTubeAppHostname } from '../app/youtube-host';
 export { remintRenderedWordPrivateTokens, renderedWordPrivateValue } from './rendered-word-private-state';
@@ -85,6 +89,7 @@ import {
     syncProjectedReadings,
     withProjectedReadingBatch,
     styleDetachedReadingElements,
+    styleDetachedReadingElementsWithin,
     type DetachedReadingProjection,
 } from './detached-reading-overlay';
 export { clearProjectedReadingsWithin, projectedReadingWordAtPoint } from './detached-reading-overlay';
@@ -783,9 +788,12 @@ export function collectFragmentTextTargetsIn(
         shadowDepth: 0,
     };
 
-    visitFragmentNode(root, state, false, true);
-    flushFragmentTextTarget(state);
-    return state.targets;
+    // The walk only reads, so every element's facts hold for all of it.
+    return withReadMemo(() => {
+        visitFragmentNode(root, state, false, true);
+        flushFragmentTextTarget(state);
+        return state.targets;
+    });
 }
 
 export function collectFormControlTextTargetsIn(
@@ -1039,6 +1047,10 @@ function collectFragmentTextNode(
     const text = node.textContent ?? '';
     if (shouldIgnoreFragmentTextNode(text, state.options)) return;
     const parent = node.parentElement;
+    if (state.visibleOnly && parent && textNodeOutsideViewport(node, parent)) {
+        flushFragmentTextTarget(state);
+        return;
+    }
     if (text) state.fragments.push({
         node,
         start: 0,
@@ -1704,7 +1716,11 @@ function isFragmentPassiveInteractionElement(element: Element, options: Fragment
 }
 
 function isLayoutSensitiveScanElement(element: HTMLElement | null): boolean {
-    if (element && isInsideOwnedReaderRoot(element)) return false;
+    return element ? memoRead('layout-sensitive', element, readIsLayoutSensitiveScanElement) : false;
+}
+
+function readIsLayoutSensitiveScanElement(element: HTMLElement): boolean {
+    if (isInsideOwnedReaderRoot(element)) return false;
     let current: HTMLElement | null = element;
     while (current && current !== document.body && current !== document.documentElement) {
         if (isLayoutSensitiveTextBox(current)) return true;
@@ -2144,8 +2160,9 @@ export function applyTokensToTextNode(target: TextTarget, tokens: JPDBToken[], s
 
     const fragment = renderTokenizedTextFragment(target, safeTokens, settings);
     registerDestructivePaintTextNodes(fragment);
+    const inserted = Array.from(fragment.children);
     target.node.replaceWith(fragment);
-    styleDetachedReadingElements(target.parent, target.parent);
+    styleDetachedReadingElementsWithin(inserted, target.parent);
     stabilizeDetachedReadings(target.parent, closestRubyFragileConstrainedRow(target.parent));
     markRenderedScanTarget(target);
 }
@@ -6075,8 +6092,8 @@ function applyTokensToFragmentTarget(target: FragmentTextTarget, tokens: JPDBTok
                 : 'true';
         }
     }
-    applyTokensToIndexedFragmentTarget(renderTarget, safeTokens, furiganaSettingsForTarget(settings, target.parent), sentence);
-    styleDetachedReadingElements(target.parent, target.parent);
+    const inserted = withPaintedInsertions(() => applyTokensToIndexedFragmentTarget(renderTarget, safeTokens, furiganaSettingsForTarget(settings, target.parent), sentence));
+    styleDetachedReadingElementsWithin(inserted, target.parent);
     stabilizeDetachedReadings(target.parent, closestRubyFragileConstrainedRow(target.parent));
     markRenderedScanTarget(target);
 }
@@ -6171,8 +6188,9 @@ function replaceSingleFragmentTokenNode(
 // A raw text child of a flex/grid host is ONE anonymous item; tokenizing it into N spans
 // would create N items and reflow the track. The bare wrapper collapses them back to one
 // item for every render path (incl. passive/suppressed chrome) — do not gate or remove it.
+// The display comes from the apply slice's read phase (slice-style-facts.ts).
 function wrapDirectFlexGridTextRun(replacement: DocumentFragment, parent: HTMLElement | null): DocumentFragment {
-    const display = parent ? safeComputedStyle(parent).display : '';
+    const display = parent ? sliceDisplayOf(parent) : '';
     if (!display.includes('flex') && !display.includes('grid')) return replacement;
     const fragment = document.createDocumentFragment();
     const run = document.createElement('span');
@@ -6573,6 +6591,7 @@ function replaceTextNodeRange(node: Text, start: number, end: number, replacemen
     // them by ownership. Registration happens BEFORE insertion, while a replacement
     // DocumentFragment still holds its children.
     registerDestructivePaintTextNodes(replacement);
+    notePaintedInsertion(replacement);
     const after = node.splitText(end);
     const selected = node.splitText(start);
     selected.replaceWith(replacement);
@@ -6582,12 +6601,15 @@ function replaceTextNodeRange(node: Text, start: number, end: number, replacemen
 
 function insertMultiFragmentToken(range: Range, surface: string, token: JPDBToken, settings: ReaderSettings, options: TokenRenderOptions = {}): void {
     if (shouldRenderRuby(surface, token, settings, options.allowRuby, options.preserveTokenRubies)) {
+        const word = renderToken(surface, token, settings, options);
+        notePaintedInsertion(word);
         range.deleteContents();
-        range.insertNode(renderToken(surface, token, settings, options));
+        range.insertNode(word);
         return;
     }
     const shell = renderTokenShell(token, options);
     shell.append(range.extractContents());
+    notePaintedInsertion(shell);
     range.insertNode(shell);
 }
 
@@ -6842,12 +6864,7 @@ function isVisible(element: HTMLElement): boolean {
 }
 
 function isVisibleRect(rect: DOMRect): boolean {
-    return rect.width > 0
-        && rect.height > 0
-        && rect.bottom >= 0
-        && rect.top <= window.innerHeight
-        && rect.right >= 0
-        && rect.left <= window.innerWidth;
+    return rect.width > 0 && rect.height > 0 && rectMeetsViewport(rect);
 }
 
 function isVisibleStyle(style: CSSStyleDeclaration): boolean {

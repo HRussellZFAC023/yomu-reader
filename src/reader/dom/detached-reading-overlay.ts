@@ -44,7 +44,12 @@ export function projectedReadingWordAtPoint(
 // invisible base wrapper's layout contract inline, and retain the reading's
 // typography as source data for the document-owned projection overlay.
 export function styleDetachedReadingElements(root: HTMLElement, host: HTMLElement): void {
-    const detachedRubies = Array.from(root.querySelectorAll<HTMLElement>('.jpdb-reader-detached-ruby'));
+    styleDetachedReadingElementsWithin([root], host);
+}
+
+/** The same, for the readings inside (or being) any of `roots`. */
+export function styleDetachedReadingElementsWithin(roots: readonly Element[], host: HTMLElement): void {
+    const detachedRubies = elementsWithin<HTMLElement>(roots, '.jpdb-reader-detached-ruby');
     if (!detachedRubies.length) return;
 
     const hostStyle = safeComputedStyle(host);
@@ -62,7 +67,7 @@ export function styleDetachedReadingElements(root: HTMLElement, host: HTMLElemen
         setInlineStyleIfChanged(wrapper, 'white-space', 'nowrap', 'important');
     }
 
-    for (const reading of root.querySelectorAll<HTMLElement>('.jpdb-reader-detached-furi')) {
+    for (const reading of elementsWithin<HTMLElement>(roots, '.jpdb-reader-detached-furi')) {
         setInlineStyleIfChanged(reading, 'display', 'none', 'important');
         setInlineStyleIfChanged(reading, 'font-size', `${readingFontSize}px`);
         setInlineStyleIfChanged(reading, 'font-weight', 'normal');
@@ -77,4 +82,11 @@ export function styleDetachedReadingElements(root: HTMLElement, host: HTMLElemen
         if (reading.style.getPropertyValue('color')) reading.style.removeProperty('color');
         setInlineStyleIfChanged(reading, '-webkit-text-fill-color', 'currentColor', 'important');
     }
+}
+
+function elementsWithin<E extends Element>(roots: readonly Element[], selector: string): E[] {
+    return roots.flatMap(root => [
+        ...(root.matches(selector) ? [root as E] : []),
+        ...Array.from(root.querySelectorAll<E>(selector)),
+    ]);
 }
