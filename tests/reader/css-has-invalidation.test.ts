@@ -20,6 +20,23 @@ describe('CSS :has() invalidation gate', () => {
         expect(blocking('.a:where(.b, html):has(.x) { color: red; }')).toHaveLength(1);
     });
 
+    it('sees a combinator after :has() inside :is(), :where(), :not() and :nth-child(of)', () => {
+        expect(blocking(':is(.a:has(.b) > .c) { color: red; }')).toEqual([expect.objectContaining({ reason: 'followed by a combinator' })]);
+        expect(blocking(':where(.a:has(.b) .c), :not(.a:has(.b) ~ .c) { color: red; }')).toHaveLength(2);
+        expect(blocking(':is(.a:has(.b)) > .c { color: red; }')).toHaveLength(1);
+        expect(blocking('li:nth-child(2n of .a:has(.b) .c) { color: red; }')).toHaveLength(1);
+        expect(blocking(':is(.a :has(.b)) { color: red; }')).toEqual([expect.objectContaining({ reason: 'anchored on the document root' })]);
+        expect(blocking('.a:is(:has(.b)), li:nth-child(2n+1) { color: red; }')).toEqual([]);
+    });
+
+    it('never allows a combinator into a subject with nothing to key on', () => {
+        // Chromium: with a host body:has() rule, this restyled every element under BODY on any insertion.
+        const reviewed = '/* has-invalidation-allow: small subtree */\n:is(.probe:has(.inner) > :not(.exclude)) { color: red; }';
+        expect(blocking(reviewed)).toEqual([expect.objectContaining({ line: 2, reason: expect.stringContaining('cannot be allowed') })]);
+        expect(blocking('/* has-invalidation-allow: small subtree */\n.a:has(.b) > * { color: red; }')).toHaveLength(1);
+        expect(blocking('/* has-invalidation-allow: small subtree */\n.a:has(.b) > rt { color: red; }')).toEqual([]);
+    });
+
     it('reports :has() in nested style rules instead of guessing what `&` resolves to', () => {
         expect(blocking('body {\n  &:has(.x) .y { color: red; }\n}')).toEqual([
             expect.objectContaining({ line: 2, reason: 'nested in a style rule that this check cannot resolve' }),

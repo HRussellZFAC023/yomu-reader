@@ -34,7 +34,8 @@ for (const file of files) {
 if (failures) {
     console.error(`\n${failures} :has() selector(s) can restyle the whole host page on any DOM insertion.`
         + '\nUse a state class set by the code that owns the state, or add'
-        + '\n/* has-invalidation-allow: <reason> */ on the :has( line when the anchor is a small Yomu-owned subtree.');
+        + '\n/* has-invalidation-allow: <reason> */ on the :has( line when the anchor is a small Yomu-owned subtree'
+        + '\nand the selector ends in a type, class, id or attribute.');
     process.exit(1);
 }
 console.log(`CSS :has() invalidation check passed (${files.length} file(s), ${allowed} allowed with a reason).`);

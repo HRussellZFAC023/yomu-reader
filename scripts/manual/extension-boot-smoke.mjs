@@ -145,11 +145,11 @@ try {
         await popup.screenshot({ path: path.join(ART, 'ext-popup.png') });
 
         // 7. Study is a normal packaged page opened from Yomu. It must render
-        // without presenting a misleading new-tab takeover option, and the
-        // first card should land on the recognition-first Word step.
+        // straight away (there is no welcome step) without a misleading new-tab
+        // takeover option, and the first card should land on the Word step.
         const studyPage = await popup.goto(`chrome-extension://${extensionId}/newtab/index.html`, { timeout: 15_000 })
             .then(async () => {
-                await popup.waitForSelector('.jpdb-reader-onboarding', { timeout: 15_000 });
+                await popup.waitForSelector('[data-newtab-study]', { state: 'visible', timeout: 15_000 });
                 await popup.waitForFunction(
                     () => document.querySelector('[data-newtab-study]')?.getAttribute('data-newtab-study-step') === 'word',
                     null, { timeout: 30_000 },
@@ -164,16 +164,7 @@ try {
             .catch(() => ({ rendered: false, hasStudy: false, firstStep: '', hasTakeoverOption: true }));
         step('bundled Study page renders', studyPage.rendered && studyPage.hasStudy);
         step('Study opens on the Word step', studyPage.firstStep === 'word', studyPage.firstStep || 'no active step');
-        step('welcome has no new-tab takeover option', !studyPage.hasTakeoverOption);
-        await popup.screenshot({ path: path.join(ART, 'ext-study-welcome.png') });
-
-        const offline = popup.locator('input[name="onboardingInstallOfflineDictionaries"]');
-        if (await offline.count()) await offline.uncheck();
-        await popup.click('[data-onboarding-action="without-api"]');
-        const studyVisible = await popup.waitForSelector('[data-newtab-study]', { state: 'visible', timeout: 15_000 })
-            .then(() => true)
-            .catch(() => false);
-        step('Study remains available after welcome', studyVisible);
+        step('Study has no new-tab takeover option', !studyPage.hasTakeoverOption);
         await popup.screenshot({ path: path.join(ART, 'ext-study.png') });
     }
 } finally {
