@@ -5,12 +5,14 @@
 //
 //   idle      ja.wikipedia 日本語, defaults, 20 s untouched: no jpdb.io pitch
 //             page, at most 10 jpdb.io word searches, none for a segmenter
-//             guess, no query asked twice (2.1.6: 44 pitch pages, repeats).
+//             guess, no query asked twice (2.1.6: 44 pitch pages, repeats),
+//             and no cloud OCR upload of the page's pictures before a tap.
 //   pitch     the same page with the underline painting pitch: the pitch lane
 //             runs and words carry pitch classes.
 //   hover     defaults, after 15 s idle: hovered words show their reading and
-//             first gloss within 1 s of the dwell at p90, and the popup still
-//             draws a pitch graph.
+//             first gloss, rendered where a learner sees them, within 1 s of the
+//             dwell at p90 (a popover that never shows counts against it), and
+//             the popup still draws a pitch graph.
 //   youtube   the recorded watch page with captions, defaults, 40 s of
 //             playback: no jpdb.io request at all (2.1.6: hundreds).
 //
@@ -36,6 +38,10 @@ const POPOVER_BUDGET_MS = 1_000;
 const HOVER_SAMPLES = 8;
 const MAX_HOVERS = 20;
 const HOVER_WAIT_MS = 5_000;
+// The popup's word lookup, by the function on its request's stack.
+const POPUP_WORD_LOOKUP = 'loadJitenVocabularyInfo';
+const EXAMPLE_SENTENCES = /\/random-example-sentences(?:\?|$)/u;
+const CLOUD_OCR_HOSTS = /^(lensfrontend-pa\.googleapis\.com|lens\.google\.com|vision\.googleapis\.com)$/u;
 const PITCH_CLASS = /\bjpdb-pitch-(heiban|atamadaka|nakadaka|odaka|kifuku)\b/u;
 const args = process.argv.slice(2);
 const option = name => args.find(arg => arg.startsWith(`--${name}=`))?.split('=')[1];
@@ -82,6 +88,8 @@ async function idleWikipedia() {
         check(!guesses.length, `idle ja-wikipedia-nihongo: no jpdb.io query for a segmenter guess ${JSON.stringify(guesses)}`);
         const repeats = queries.length - new Set(queries).size;
         check(!repeats, `idle ja-wikipedia-nihongo: ${new Set(queries).size} distinct jpdb.io quer(ies), ${repeats} asked again`);
+        const ocr = run.ledger.requests({ host: CLOUD_OCR_HOSTS });
+        check(!ocr.length, `idle ja-wikipedia-nihongo: ${ocr.length} cloud OCR request(s) with no tap (want 0) ${JSON.stringify(ocr.map(entry => entry.host))}`);
         const coverage = await kanjiReadingCoverage(run.page, { root: '#mw-content-text' });
         console.log(`INFO ${product.label} idle ja-wikipedia-nihongo: ${coverage.covered}/${coverage.kanjiRuns} visible kanji runs under a painted reading, ${run.ledger.requests({ host: 'api.jiten.moe' }).length} Jiten request(s) ${JSON.stringify(run.productTraffic().served)}`);
     } finally {
@@ -109,16 +117,19 @@ async function hoverWikipedia() {
     try {
         const samples = [];
         for (const word of await hoverTargets(run.page)) {
-            samples.push(await hoverSample(run.page, word));
-            if (samples.filter(sample => sample.shownMs !== null).length >= HOVER_SAMPLES) break;
+            samples.push(await hoverSample(run, word));
+            if (samples.filter(sample => !sample.recordingGap).length >= HOVER_SAMPLES) break;
         }
-        const judged = samples.filter(sample => sample.shownMs !== null);
-        const times = judged.map(sample => sample.shownMs).sort((left, right) => left - right);
+        // A word is set aside only when, during its hover, the product asked Jiten
+        // something the recording never held. A popover that did not show within
+        // HOVER_WAIT_MS for any other reason is the product's failure, and counts.
+        const judged = samples.filter(sample => !sample.recordingGap);
+        const times = judged.map(sample => sample.shownMs ?? Infinity).sort((left, right) => left - right);
         const p90 = times[Math.ceil(times.length * 0.9) - 1];
-        const detail = samples.map(sample => `${sample.text}:${sample.shownMs ?? 'unanswered'}`).join(' ');
-        console.log(`INFO ${product.label} hover: ${judged.length} of ${samples.length} hovered words were answered by the recording; the rest asked Jiten for what it never recorded and are not judged (${detail})`);
+        const detail = samples.map(sample => `${sample.text}:${sample.recordingGap ? 'not-recorded' : sample.shownMs ?? 'never-shown'}`).join(' ');
+        console.log(`INFO ${product.label} hover: ${judged.length} of ${samples.length} hovered words judged; the rest asked Jiten for what the recording never held (${detail})`);
         check(judged.length >= 5, `hover ja-wikipedia-nihongo: ${judged.length} hovered word(s) the recording answered (want ≥ 5)`);
-        if (judged.length >= 5) check(p90 <= DWELL_MS + POPOVER_BUDGET_MS, `hover ja-wikipedia-nihongo: reading and first gloss shown ${p90} ms after the pointer arrived at p90 (want ≤ ${DWELL_MS} ms dwell + ${POPOVER_BUDGET_MS} ms)`);
+        if (judged.length >= 5) check(p90 <= DWELL_MS + POPOVER_BUDGET_MS, `hover ja-wikipedia-nihongo: reading and first gloss visible ${p90} ms after the pointer arrived at p90 (want ≤ ${DWELL_MS} ms dwell + ${POPOVER_BUDGET_MS} ms)`);
         check(judged.some(sample => sample.pitchGraph), `hover ja-wikipedia-nihongo: the popup still draws the hovered word's pitch graph (${judged.filter(sample => sample.pitchGraph).length} of ${judged.length})`);
     } finally {
         await run.close();
@@ -209,8 +220,12 @@ async function hoverTargets(page) {
 }
 
 // Time from the pointer arriving to a popover showing the word's reading and a
-// gloss; null when nothing came in HOVER_WAIT_MS (the recording held no answer).
-async function hoverSample(page, word) {
+// gloss where a learner can see them; null when that never happened within
+// HOVER_WAIT_MS. recordingGap: the popup's own word lookup (its search or word
+// details, not the example sentences or the page's background passes) asked
+// Jiten, during this hover, for something the recording does not hold.
+async function hoverSample(run, word) {
+    const { page, ledger } = run;
     await page.mouse.move(2, 2);
     await page.waitForTimeout(400);
     const box = await page.locator(`[data-background-network-target="${word.index}"]`).boundingBox();
@@ -224,15 +239,30 @@ async function hoverSample(page, word) {
         const popover = document.querySelector('.jpdb-reader-popover');
         const headword = popover?.querySelector('[data-yomu-headword]');
         if (!headword) return false;
+        // Rendered, not merely present: a box with area inside both the popover
+        // and the viewport, not hidden, transparent or uncoloured.
+        const frame = popover.getBoundingClientRect();
+        const visible = element => {
+            if (!element?.textContent.trim()) return false;
+            if (element.checkVisibility && !element.checkVisibility({ opacityProperty: true, visibilityProperty: true })) return false;
+            const style = getComputedStyle(element);
+            if (/^rgba\(.*,\s*0\)$|^transparent$/u.test(style.color)) return false;
+            return [...element.getClientRects()].some(rect => rect.width > 0 && rect.height > 0
+                && rect.right > Math.max(0, frame.left) && rect.left < Math.min(innerWidth, frame.right)
+                && rect.bottom > Math.max(0, frame.top) && rect.top < Math.min(innerHeight, frame.bottom));
+        };
         const base = headword.cloneNode(true);
         base.querySelectorAll('rt, rp, .jpdb-reader-furi').forEach(element => element.remove());
-        const reading = [...headword.querySelectorAll('rt, .jpdb-reader-furi')].some(element => element.textContent.trim());
-        const gloss = popover.querySelector('.jpdb-reader-jiten-meaning, .jpdb-reader-local-glossary, .jpdb-reader-local-glossary-entry')?.textContent.trim();
-        return base.textContent.includes(firstKanji) && reading && Boolean(gloss);
+        const reading = [...headword.querySelectorAll('rt, .jpdb-reader-furi')].some(visible);
+        const gloss = [...popover.querySelectorAll('.jpdb-reader-jiten-meaning, .jpdb-reader-local-glossary, .jpdb-reader-local-glossary-entry')].some(visible);
+        return base.textContent.includes(firstKanji) && visible(headword) && reading && gloss;
     }, kanji, { timeout: HOVER_WAIT_MS, polling: 50 }).catch(() => null);
     const shownMs = handle ? Date.now() - arrivedAt : null;
-    const pitchGraph = Boolean(handle) && await page.waitForSelector('.jpdb-reader-popover .jpdb-reader-pitch svg', { timeout: 2_000 }).then(() => true, () => false);
-    return { text: word.text, shownMs, pitchGraph };
+    const recordingGap = !handle && ledger.requests({ host: 'api.jiten.moe', channel: 'gm', caller: POPUP_WORD_LOOKUP })
+        .some(entry => entry.at >= arrivedAt && entry.served === 'offline' && !EXAMPLE_SENTENCES.test(entry.url));
+    const pitchGraph = Boolean(handle) && await page.waitForFunction(() => [...document.querySelectorAll('.jpdb-reader-popover .jpdb-reader-pitch svg')]
+        .some(svg => [...svg.getClientRects()].some(rect => rect.width > 0 && rect.height > 0)), null, { timeout: 2_000, polling: 50 }).then(() => true, () => false);
+    return { text: word.text, shownMs, recordingGap, pitchGraph };
 }
 
 function queryOf(entry) {
