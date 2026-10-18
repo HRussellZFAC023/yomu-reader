@@ -11,6 +11,7 @@ import {
 import { isTargetLanguageText } from '../lookup/target-text';
 import { isYomuHostedPassivePage, isYomuHostedVideoPlayerPage, isYomuHostedPdfReaderPage } from './pages';
 import { annotationScopeActive, queryWithinAnnotationScope, scanScopeRoots } from './annotation-scope';
+import { queryScopedDescendants, scopedDescendantSelectorText, type ScopedDescendantSelector } from './scoped-descendant-query';
 import { isJitenStudyFrontPrompt } from '../jiten/jiten-page-targets';
 import { isJpdbReviewFrontPrompt } from '../jpdb/jpdb-page-targets';
 import { isYouTubeAppHostname } from './youtube-host';
@@ -245,39 +246,37 @@ const PASSIVE_INTERACTION_ROOTS = [
     '[class*="speaker" i]',
     '[class*="toggle" i]',
 ].join(',');
-const SCOPED_SAFE_UI_CHROME_ROOTS = [
-    ...SAFE_UI_CHROME_SCOPE_SELECTORS,
-    ...SAFE_UI_CHROME_SCOPE_SELECTORS.flatMap(scope => (
-        [...SAFE_UI_CHROME_CONTROL_SELECTORS, ...SAFE_UI_CHROME_PEER_TEXT_SELECTORS]
-            .map(control => `${scope} ${control}`)
-    )),
-];
-const SAFE_UI_CHROME_ROOTS = [
-    ...SCOPED_SAFE_UI_CHROME_ROOTS,
-    'nav a[href]',
-    '[role="navigation"] a[href]',
-    '[class*="breadcrumb" i] a[href]',
-    'header a[href]',
-    'aside a[href]',
-    'main a[href]',
-    '[role="main"] a[href]',
-    'article a[href]',
-    'button',
-    'summary',
-    '[role="checkbox"]',
-    '[role="radio"]',
-    '[role="switch"]',
-    '[role="tab"]',
-    '[role="menuitem"]',
-    '[role="menuitemcheckbox"]',
-    '[role="menuitemradio"]',
-    // Timestamps are compact interactive metadata on feed cards. Keep them in
-    // the reserved chrome slice so long Reddit/YouTube feeds cannot exhaust
-    // the prose budget before relative Japanese times are reached.
-    'time',
-    '[datetime]',
-].join(',');
-const PROFILE_SAFE_UI_CHROME_ROOTS = SAFE_UI_CHROME_ROOTS;
+const SAFE_UI_CHROME_ROOT_QUERY: ScopedDescendantSelector = {
+    scopes: SAFE_UI_CHROME_SCOPE_SELECTORS,
+    inner: [...SAFE_UI_CHROME_CONTROL_SELECTORS, ...SAFE_UI_CHROME_PEER_TEXT_SELECTORS],
+    plain: [
+        'nav a[href]',
+        '[role="navigation"] a[href]',
+        '[class*="breadcrumb" i] a[href]',
+        'header a[href]',
+        'aside a[href]',
+        'main a[href]',
+        '[role="main"] a[href]',
+        'article a[href]',
+        'button',
+        'summary',
+        '[role="checkbox"]',
+        '[role="radio"]',
+        '[role="switch"]',
+        '[role="tab"]',
+        '[role="menuitem"]',
+        '[role="menuitemcheckbox"]',
+        '[role="menuitemradio"]',
+        // Timestamps are compact interactive metadata on feed cards. Keep them in
+        // the reserved chrome slice so long Reddit/YouTube feeds cannot exhaust
+        // the prose budget before relative Japanese times are reached.
+        'time',
+        '[datetime]',
+    ],
+};
+// One selector list for queries confined to declared surfaces; whole-document
+// queries take the staged path (scoped-descendant-query.ts).
+const SAFE_UI_CHROME_ROOTS = scopedDescendantSelectorText(SAFE_UI_CHROME_ROOT_QUERY);
 const SAFE_UI_CHROME_ARIA_MENU_ROOTS = [
     '[role="menuitem"]',
     '[role="menuitemcheckbox"]',
@@ -1930,12 +1929,18 @@ function collectSafeChromeRootTargets(
 }
 
 function safeUiChromeRoots(): HTMLElement[] {
-    return uniqueSpecificVisibleRoots(queryWithinAnnotationScope<HTMLElement>(SAFE_UI_CHROME_ROOTS)
+    return uniqueSpecificVisibleRoots(safeUiChromeRootCandidates()
         .filter(root => isUsefulSafeUiChromeRoot(root)));
 }
 
+function safeUiChromeRootCandidates(): HTMLElement[] {
+    return annotationScopeActive()
+        ? queryWithinAnnotationScope<HTMLElement>(SAFE_UI_CHROME_ROOTS)
+        : queryScopedDescendants<HTMLElement>(SAFE_UI_CHROME_ROOT_QUERY);
+}
+
 function profileSafeUiChromeRoots(extraExclude = ''): HTMLElement[] {
-    const roots = queryWithinAnnotationScope<HTMLElement>(PROFILE_SAFE_UI_CHROME_ROOTS)
+    const roots = safeUiChromeRootCandidates()
         .filter(root => isUsefulSafeUiChromeRoot(root));
     if (!extraExclude) return uniqueSpecificVisibleRoots(roots);
     return uniqueSpecificVisibleRoots(roots.filter(root => !root.closest(extraExclude)));

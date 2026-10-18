@@ -66,10 +66,15 @@ const BUNDLE_EVALUATED_MARK = 'yomu-smoke:bundle-evaluated';
 // finished in 6.9-8.2 s, 7.1-8.4 s of it in long tasks, and paced apply in
 // 7.0-7.3 s (7.2-7.5 s); 2.0.7 took 4.4-4.6 s on a quiet machine. Slices
 // capped near 240 ms, paying a long frame every few lines, took 8.7-10.2 s.
+// Since 2.2 the scan annotates the lines of such a root that meet the
+// viewport, as it does for ordinary paragraphs (dom/text-node-viewport.ts), so
+// the page gates when the visible lines finish, then when the last lines
+// finish after a scroll to the end.
 const ONE_ROOT_PATH = '/one-root-perf-fixture.html';
 const ONE_ROOT_LINES = 150;
 const ONE_ROOT_LINE_TEXT = `${TRY_ME_SENTENCE}学習を始める前に保存した単語の統計を確認して、調べて勉強した本は今日は新しい喫茶店にある。`;
 const ONE_ROOT_COMPLETION_BUDGET_MS = 10_000;
+const ONE_ROOT_SCROLL_COMPLETION_BUDGET_MS = 5_000;
 const ONE_ROOT_LONG_TASK_TOTAL_BUDGET_MS = 10_000;
 // YOMU_JA_DOCS_PERF_CPU_THROTTLE=2.5 on an Apple-silicon Mac reproduces the
 // ubuntu-latest evaluation tasks (CI 337-438/300-343 ms, locally 329-372/
@@ -292,8 +297,8 @@ async function runJaDocsPerfSmoke(browser, fixtureServer) {
             `Navigation chrome outside the declared surfaces was annotated (${audit.navWordCount} words)`, audit);
         assert(audit.contentWordCount >= 120,
             `Content column under-annotated (${audit.contentWordCount} words)`, audit);
-        assert(audit.contentContrastCount === audit.contentWordCount,
-            `Content words missing sampled contrast (${audit.contentContrastCount}/${audit.contentWordCount})`, audit);
+        assert(audit.contentContrastCount === audit.contentPaintingWordCount,
+            `Content words missing sampled contrast (${audit.contentContrastCount}/${audit.contentPaintingWordCount})`, audit);
         assert(audit.tryMeWordCount >= 4, 'Try Me surface did not annotate', audit);
         const overBudget = audit.longTasks.filter(task => task.duration > LONG_TASK_BUDGET_MS);
         assert(overBudget.length === 0,
@@ -315,48 +320,78 @@ async function runOneRootPerfSmoke(browser, fixtureServer) {
     const requests = [];
     const { context, page, injectionStart } = await openAnnotatedPage(browser, fixtureServer, ONE_ROOT_PATH, requests);
     try {
-        const minimumWords = mockJpdbParseFromVocabulary({ text: [ONE_ROOT_LINE_TEXT] }, vocabulary).tokens[0].length * ONE_ROOT_LINES;
-        const completedAt = await page.waitForFunction(({ minimumWords, markers }) => {
-            const root = document.querySelector('.main_text');
-            if (!root) return false;
-            const bareLine = [...root.childNodes].some(node => node.nodeType === Node.TEXT_NODE && node.textContent.includes('喫茶店'));
-            const words = [...root.querySelectorAll('.jpdb-reader-word')];
-            const complete = [
-                !bareLine,
-                words.length >= minimumWords,
-                words.filter(word => word.dataset.expression === '喫茶店').length === markers,
-                words.every(word => word.style.getPropertyValue('--jpdb-reader-highlight-backdrop').trim()),
-            ].every(Boolean);
-            return complete ? performance.now() : false;
-        }, { minimumWords, markers: ONE_ROOT_LINES * 2 }, { polling: 'raf', timeout: 120_000 }).then(handle => handle.jsonValue());
+        const lineMarkers = mockJpdbParseFromVocabulary({ text: [ONE_ROOT_LINE_TEXT] }, vocabulary).tokens[0].length;
+        await page.evaluate(`window.__yomuOneRootCoverage = ${visibleOneRootCoverage}`);
+        const completedAt = await waitForVisibleOneRootLines(page);
+        const lastLine = await page.evaluate(() => {
+            const scrolledAt = performance.now();
+            window.scrollTo(0, document.documentElement.scrollHeight);
+            return scrolledAt;
+        });
+        const scrollCompletedAt = await waitForVisibleOneRootLines(page);
         // Include the scanner's delayed 1500ms geometry sweep and observer
         // delivery rather than closing as soon as the last text node changes.
         await page.waitForTimeout(2000);
         const { longTaskEntries, bundleEvaluatedAt } = await page.evaluate(auditFromDom, { injectionStart, mark: BUNDLE_EVALUATED_MARK });
         const start = bundleEvaluatedAt ?? injectionStart;
         const longTasks = splitLongTasksAt(longTaskEntries, start).after;
-        const coverage = await page.evaluate(() => {
-            const words = [...document.querySelectorAll('.main_text .jpdb-reader-word')];
-            return { words: words.length, contrast: words.filter(word => word.style.getPropertyValue('--jpdb-reader-highlight-backdrop').trim()).length };
-        });
-        assert(coverage.words >= minimumWords && coverage.contrast === coverage.words, 'One-root follow-up lost word coverage or contrast', coverage);
+        const coverage = await page.evaluate(visibleOneRootCoverage);
+        assert(coverage.bareVisibleLines === 0 && coverage.contrast === coverage.words,
+            'One-root follow-up lost visible word coverage or contrast', coverage);
+        assert(coverage.lastLineWords >= lineMarkers, 'The last line was not annotated after scrolling to it', coverage);
         const audit = {
             lines: ONE_ROOT_LINES,
-            wordCount: coverage.words,
+            visibleWordCount: coverage.words,
             contrastCount: coverage.contrast,
             completionMs: Math.round(completedAt - start),
+            scrollCompletionMs: Math.round(scrollCompletedAt - lastLine),
             longTaskTotalMs: Math.round(longTasks.reduce((total, task) => total + task.duration, 0)),
             longTaskCount: longTasks.length,
             requests: requests.length,
         };
         assert(audit.completionMs <= ONE_ROOT_COMPLETION_BUDGET_MS,
-            `One-root page took ${audit.completionMs}ms to annotate (budget ${ONE_ROOT_COMPLETION_BUDGET_MS}ms)`, audit);
+            `One-root page took ${audit.completionMs}ms to annotate its visible lines (budget ${ONE_ROOT_COMPLETION_BUDGET_MS}ms)`, audit);
+        assert(audit.scrollCompletionMs <= ONE_ROOT_SCROLL_COMPLETION_BUDGET_MS,
+            `One-root page took ${audit.scrollCompletionMs}ms to annotate its last lines after a scroll (budget ${ONE_ROOT_SCROLL_COMPLETION_BUDGET_MS}ms)`, audit);
         assert(audit.longTaskTotalMs <= ONE_ROOT_LONG_TASK_TOTAL_BUDGET_MS,
             `One-root page spent ${audit.longTaskTotalMs}ms in long tasks (budget ${ONE_ROOT_LONG_TASK_TOTAL_BUDGET_MS}ms)`, audit);
         return audit;
     } finally {
         await context.close();
     }
+}
+
+// Resolves to performance.now() once every line meeting the viewport is
+// annotated and each of its painting words carries sampled contrast.
+function waitForVisibleOneRootLines(page) {
+    return page.waitForFunction(() => {
+        const { bareVisibleLines, words, contrast } = window.__yomuOneRootCoverage();
+        return bareVisibleLines === 0 && words > 0 && contrast === words ? performance.now() : false;
+    }, undefined, { polling: 'raf', timeout: 120_000 }).then(handle => handle.jsonValue());
+}
+
+function visibleOneRootCoverage() {
+    const root = document.querySelector('.main_text');
+    const range = document.createRange();
+    const meetsViewport = rect => rect.bottom >= 0 && rect.top <= innerHeight && rect.right >= 0 && rect.left <= innerWidth;
+    const visible = node => {
+        range.selectNodeContents(node);
+        return meetsViewport(range.getBoundingClientRect());
+    };
+    const bareVisibleLines = root ? [...root.childNodes]
+        .filter(node => node.nodeType === Node.TEXT_NODE && node.textContent.includes('喫茶店') && visible(node)).length : 0;
+    const words = root ? [...root.querySelectorAll('.jpdb-reader-word')].filter(word => visible(word) && !word.matches('.jpdb-not-in-deck')) : [];
+    const lastLine = root ? [...root.childNodes].reverse().find(node => node.textContent.trim()) : null;
+    let lastLineWords = 0;
+    for (let node = lastLine; node && node.nodeName !== 'BR'; node = node.previousSibling) {
+        if (node.nodeType === Node.ELEMENT_NODE && node.matches('.jpdb-reader-word')) lastLineWords += 1;
+    }
+    return {
+        bareVisibleLines,
+        words: words.length,
+        contrast: words.filter(word => word.style.getPropertyValue('--jpdb-reader-highlight-backdrop').trim()).length,
+        lastLineWords,
+    };
 }
 
 async function readAudit(page, injectionStart) {
@@ -377,11 +412,17 @@ function auditFromDom({ injectionStart, mark }) {
     const contentWords = content ? [...content.querySelectorAll('.jpdb-reader-word')]
         .filter(word => !word.closest('.yomu-try-me-text, [data-jpdb-reader-root]')) : [];
     const withContrast = words => words.filter(word => word.style.getPropertyValue('--jpdb-reader-highlight-backdrop').trim()).length;
+    // With the default channels (no highlight or text colour, the JPDB
+    // underline) a word in no deck and without a reading paints nothing at
+    // rest, so contrast is not sampled for it (dom/word-paint-facts.ts).
+    const paintsAtRest = word => !word.matches('.jpdb-not-in-deck:not(.jpdb-reader-has-furi)');
+    const contentPaintingWords = contentWords.filter(paintsAtRest);
     return {
         totalWordCount: allWords.length,
         tryMeWordCount: document.querySelectorAll('[data-try-me-sentence] .jpdb-reader-word').length,
         contentWordCount: contentWords.length,
-        contentContrastCount: withContrast(contentWords),
+        contentPaintingWordCount: contentPaintingWords.length,
+        contentContrastCount: withContrast(contentPaintingWords),
         linkSummaryWordCount: document.querySelectorAll('.yomu-link-card > span .jpdb-reader-word').length,
         linkSummaryContrastCount: withContrast([...document.querySelectorAll('.yomu-link-card > span .jpdb-reader-word')]),
         heroWordCount: document.querySelectorAll('h1 > span.text .jpdb-reader-word').length,

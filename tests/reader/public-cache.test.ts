@@ -73,3 +73,29 @@ describe('createPublicCache', () => {
         expect(cache.read('k', 'never-written')).toBeUndefined();
     });
 });
+
+describe('createPublicCache parse reuse', () => {
+    it('hands out a copy, so a caller changing what it read never changes the cache', () => {
+        const cache = createPublicCache('test:copy');
+        cache.write('vocab', 'よむ', { readings: ['よむ'] });
+        cache.read<{ readings: string[] }>('vocab', 'よむ')!.readings.push('changed');
+        expect(cache.read('vocab', 'よむ')).toEqual({ readings: ['よむ'] });
+    });
+
+    it('keeps what was written, whatever the writer does to its value afterwards', () => {
+        const cache = createPublicCache('test:written');
+        const value = { id: 1 };
+        cache.write('vocab', 'a', value);
+        value.id = 2;
+        cache.write('vocab', 'b', 'other');
+        expect(cache.read('vocab', 'a')).toEqual({ id: 1 });
+    });
+
+    it('sees a write another tab made to the same key', () => {
+        const cache = createPublicCache('test:other-tab');
+        cache.write('vocab', 'a', 'mine');
+        expect(cache.read('vocab', 'a')).toBe('mine');
+        localStorage.setItem('test:other-tab', JSON.stringify({ 'vocab\na': { t: Date.now(), v: 'theirs' } }));
+        expect(cache.read('vocab', 'a')).toBe('theirs');
+    });
+});

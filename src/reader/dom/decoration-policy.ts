@@ -23,6 +23,8 @@ import { isYouTubeAppHostname } from '../app/youtube-host';
 import { isYouTubeReadableLabel } from '../app/youtube-readable-labels';
 import { isRedditReadableLabel } from '../app/reddit-readable-labels';
 import { composedAncestorElement } from './composed-tree';
+import { boundedCompactText, compactTextLengthAtMost } from './compact-text';
+import { memoRead } from './read-memo';
 export { composedAncestorElement } from './composed-tree';
 import { ANNOTATION_SCOPE_SURFACE_SELECTOR } from '../app/annotation-scope';
 
@@ -241,6 +243,10 @@ function constrainedRowStyleFacts(element: HTMLElement): ConstrainedRowStyleFact
 // clips shave it mid-glyph on healthy engines too, so this fact (not an
 // engine probe) decides protection.
 export function closestRubyFragileConstrainedRow(element: HTMLElement): HTMLElement | null {
+    return memoRead('fragile-row', element, readClosestRubyFragileConstrainedRow);
+}
+
+function readClosestRubyFragileConstrainedRow(element: HTMLElement): HTMLElement | null {
     let current: HTMLElement | null = element;
     // Deep enough to escape inline formatting wrappers: search snippets nest
     // text in span/em/b chains 6+ deep, which a 5-ancestor walk never
@@ -470,7 +476,7 @@ function hasVisibleBorderSide(style: string, width: string): boolean {
 }
 
 function hasShortControlLinkText(link: HTMLElement, text: string): boolean {
-    return compactLength(text) <= 16 && compactLength(link.textContent ?? '') <= 40;
+    return compactLength(text) <= 16 && compactTextLengthAtMost(link, 40) <= 40;
 }
 
 function hasControlLinkWidth(rect: DOMRect): boolean {
@@ -497,6 +503,10 @@ export const PASSIVE_INTERACTION_BOUNDARY_SELECTOR = `${PASSIVE_INTERACTION_SELE
 const COMPACT_PASSIVE_INTERACTION_TEXT_LIMIT = 120;
 
 export function isPassiveInteractionElement(element: Element): boolean {
+    return memoRead('passive-interaction', element, readIsPassiveInteractionElement);
+}
+
+function readIsPassiveInteractionElement(element: Element): boolean {
     if (element.closest(READER_ROOT_SELECTOR)) return false;
     if (element instanceof HTMLElement && isReadableProseContext(element) && !readableContextPassiveChromeElement(element)) return false;
     if (element.closest(PASSIVE_INTERACTION_SELECTOR)) return true;
@@ -506,10 +516,12 @@ export function isPassiveInteractionElement(element: Element): boolean {
     return Boolean(compactChrome && isCompactPassiveChromeElement(compactChrome));
 }
 
+// The child count first: it is free, and it rules out most large containers
+// before any text is read.
 export function isCompactPassiveInteractionElement(element: HTMLElement): boolean {
-    const text = element.textContent?.replace(/\s+/g, '').trim() ?? '';
-    if (!text || text.length > COMPACT_PASSIVE_INTERACTION_TEXT_LIMIT) return false;
-    return element.childElementCount <= 4;
+    if (element.childElementCount > 4) return false;
+    const text = boundedCompactText(element, COMPACT_PASSIVE_INTERACTION_TEXT_LIMIT);
+    return Boolean(text) && text.length <= COMPACT_PASSIVE_INTERACTION_TEXT_LIMIT;
 }
 
 export function isCompactPassiveChromeElement(element: HTMLElement): boolean {
@@ -614,7 +626,7 @@ function compactMetadataChromeElement(parent: HTMLElement): HTMLElement | null {
             || current.hasAttribute('datetime')
             || COMPACT_METADATA_CLASS_RE.test(`${current.id} ${elementClassName(current)}`);
         if (!explicit || isConversationTextClass(current)) continue;
-        const text = current.textContent?.replace(/\s+/g, '').trim() ?? '';
+        const text = compactInteractiveChromeText(current);
         if (!isCompactInteractiveChromeText(text)) continue;
         const rect = current.getBoundingClientRect();
         if (rect.height === 0 || rect.height <= COMPACT_INTERACTIVE_CHROME_MAX_HEIGHT) return current;
@@ -661,8 +673,10 @@ export function compactInteractiveChromeElement(parent: HTMLElement): HTMLElemen
     return isCompactInteractiveChromeControl(chrome, parent) ? chrome : null;
 }
 
+// Read no further than isCompactInteractiveChromeText can accept: a longer
+// result fails that check, which every caller makes first.
 function compactInteractiveChromeText(element: HTMLElement): string {
-    return element.textContent?.replace(/\s+/g, '').trim() ?? '';
+    return boundedCompactText(element, COMPACT_INTERACTIVE_CHROME_TEXT_LIMIT);
 }
 
 export function compactPassiveChromeElement(parent: HTMLElement): HTMLElement | null {
@@ -743,7 +757,7 @@ function hasCompactInteractiveChromeRubyRisk(element: HTMLElement): boolean {
 
 function compactConstrainedNotificationElement(parent: HTMLElement): HTMLElement | null {
     if (parent.closest(READER_ROOT_SELECTOR)) return null;
-    const textLength = compactLength(parent.textContent ?? '');
+    const textLength = compactTextLengthAtMost(parent, CONSTRAINED_NOTIFICATION_TEXT_LIMIT);
     if (textLength < 2 || textLength > CONSTRAINED_NOTIFICATION_TEXT_LIMIT) return null;
 
     let current: HTMLElement | null = parent;
@@ -920,6 +934,10 @@ const CONTENT_CHIP_ROOT_SELECTOR = '.yomu-hosted-overflow-group';
 const NAMED_CONTENT_ROOT_SELECTOR = `${CONTENT_CHIP_ROOT_SELECTOR},.viewer-title-bar,.bookTitleText,#bookDescription`;
 
 export function interactivePassiveControl(element: Element): HTMLElement | null {
+    return memoRead('interactive-control', element, readInteractivePassiveControl);
+}
+
+function readInteractivePassiveControl(element: Element): HTMLElement | null {
     const temporalMetadata = element.closest<HTMLElement>('time,[datetime]');
     if (temporalMetadata && isCompactTemporalMetadata(temporalMetadata)) return temporalMetadata;
     const control = element.closest<HTMLElement>(INTERACTIVE_CONTROL_SELECTOR);
@@ -949,7 +967,7 @@ const SIBLING_CONTROL_ANCESTOR_LIMIT = 3;
 // geometry/context checks keep card titles next to overflow buttons as content.
 function siblingOwnedInteractiveControl(element: Element): HTMLElement | null {
     if (!(element instanceof HTMLElement)) return null;
-    const text = element.textContent?.replace(/\s+/g, '').trim() ?? '';
+    const text = compactInteractiveChromeText(element);
     // Component labels often end in `-text` (which is intentionally a prose
     // hint elsewhere), even though the label is a compact sibling of its real
     // button. A genuine article/prose context still wins; the class suffix
@@ -1005,6 +1023,7 @@ function isLinkedCardMetadataElement(link: HTMLElement, textElement: HTMLElement
 }
 
 function isCompactMetadataElement(element: HTMLElement): boolean {
+    if (compactTextLengthAtMost(element, COMPACT_LINKED_CARD_METADATA_TEXT_LIMIT) > COMPACT_LINKED_CARD_METADATA_TEXT_LIMIT) return false;
     const text = element.textContent?.replace(/\s+/g, ' ').trim() ?? '';
     const height = element.getBoundingClientRect().height;
     return [
@@ -1027,7 +1046,7 @@ function isMediaTextContentControl(control: HTMLElement): boolean {
     // (unmeasured media — lazy-loading, detached probes — keeps content).
     const media = safeQuerySelector(control, 'img,picture,video,canvas');
     if (!media || !(media instanceof HTMLElement)) return false;
-    return mediaElementIsThumbnailSized(media) && compactLength(control.textContent ?? '') > 2;
+    return mediaElementIsThumbnailSized(media) && compactTextLengthAtMost(control, 2) > 2;
 }
 
 // Icon glyphs render 16-24px square; any real thumbnail/avatar has at least
@@ -1054,6 +1073,10 @@ export function setReviewCardFrontPredicate(predicate: ((element: Element) => bo
 // exclusive facts into opaque predicates would make precedence harder to audit.
 // fallow-ignore-next-line complexity
 export function classifyDecoration(element: Element): DecorationState {
+    return memoRead('decoration', element, readDecoration);
+}
+
+function readDecoration(element: Element): DecorationState {
     // Reader-owned surfaces (lookup panel, drawers, previews) manage their own
     // rendering; they are content by definition.
     if (element.closest(READER_ROOT_SELECTOR)) return 'content-ruby';

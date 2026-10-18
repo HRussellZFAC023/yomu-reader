@@ -40,6 +40,7 @@ import { ParkableObserver } from '../platform/page-activity';
 import type { JPDBToken, ReaderSettings } from './types';
 import { isYouTubeAppHostname } from './youtube-host';
 import { scanTargetSourceScope } from '../dom/scan-paint-roots';
+import { withSliceStyleFacts } from '../dom/slice-style-facts';
 
 const log = Logger.scope('VisiblePageScanner');
 const VISIBLE_SCAN_PARSE_BATCH_SIZE = 80;
@@ -85,14 +86,12 @@ const ASB_SCAN_DRAIN_DELAY_MS = 80;
 const MAX_CONSECUTIVE_CONTINUATION_SCANS = 6;
 // Frame budget for cooperative target collection (perf item 4).
 const VISIBLE_SCAN_COLLECTION_FRAME_BUDGET_MS = 12;
-// The same frame budget for each token apply slice, which waitForApplyTurn can
-// lengthen. Under count caps alone, the ja-docs perf fixture's dense batch held
-// the main thread on a slow CPU, so ordinary scans pace their writes.
+// The same frame budget for each token apply slice, measured on the slice's own
+// paint (applySliceStop). Under count caps alone, the ja-docs perf fixture's
+// dense batch held the main thread on a slow CPU, so ordinary scans pace their
+// writes.
 const VISIBLE_SCAN_APPLY_FRAME_BUDGET_MS = VISIBLE_SCAN_COLLECTION_FRAME_BUDGET_MS;
-// Costly rendering between turns justifies larger slices...
-const APPLY_SLICE_TO_YIELD_RATIO = 2;
-// ...until a yield is itself a long frame: then slices end at the count cap.
-const MAX_PACED_APPLY_YIELD_MS = 120;
+const SLICE_MIN_READ_AHEAD = 2;
 // 24 chunked slices (~290ms of budgeted work) cover the heat profile's worst
 // monolithic pass; anything beyond finishes synchronously so a loaded event
 // loop can never starve collection (each setTimeout(0) turn is unbounded).
@@ -198,9 +197,8 @@ export class VisiblePageScanner {
     private lateAnnotationStateRoots = new Set<ParentNode>();
     private lateAnnotationGeometryRoots = new Set<ParentNode>();
     private lateAnnotationRefreshTimer: number | undefined;
-    // What the last apply yield cost in wall time: see waitForApplyTurn.
-    private applyYieldCostMs = 0;
-    private applyFollowupCostMs = 0;
+    // How many targets the last paced slice painted: see sliceReadAheadEnd.
+    private applyLastSliceTargets = 0;
     constructor(private readonly dependencies: VisiblePageScannerDependencies) {}
 
     private makeRoomForRuby(root?: ParentNode): number {
@@ -545,8 +543,7 @@ export class VisiblePageScanner {
 
     private async runVisiblePageScan(silent: boolean, generation: number): Promise<void> {
         if (this.isStaleScan(generation)) return;
-        this.applyYieldCostMs = 0;
-        this.applyFollowupCostMs = 0;
+        this.applyLastSliceTargets = 0;
         removeStaleControlTextMirrors(document);
         const settings = this.dependencies.getSettings();
         const targetCollectionLimit = !isNarrowVisibleScanViewport()
@@ -792,7 +789,7 @@ export class VisiblePageScanner {
             if (this.shouldStopApplyingTokens(pacing.generation)) return [...allChangedRoots];
             const end = Math.min(targets.length, index + applyBatchSize);
             index = this.applyTokenSlice(targets, parsed, index, end, pacing, allChangedRoots);
-            if (index < targets.length) await this.waitForApplyTurn(pacing);
+            if (index < targets.length) await waitForVisibleScanTurn();
         }
         // Reserve ruby room for this parse batch's newly-changed rows once the
         // batch has applied — so early rows never flash cropped during a long
@@ -828,7 +825,10 @@ export class VisiblePageScanner {
         const mustStop = this.applySliceStop(start, pacing);
         const sliceRoots = new Set<ParentNode>();
         let next = start;
-        this.dependencies.pauseMutationObserver(() => withMirrorTokenApply(() => {
+        // Two phases: the slice reads the style facts its writes need for the
+        // targets it is likely to paint, then writes (dom/slice-style-facts.ts).
+        const readAhead = targets.slice(start, this.sliceReadAheadEnd(start, end, pacing));
+        this.dependencies.pauseMutationObserver(() => withSliceStyleFacts(readAhead, () => withMirrorTokenApply(() => {
             // pauseMutationObserver only pauses the app-level auto-scan
             // observer; the PER-HOST text-mirror observers stay live and
             // would fire on our own teardown/rebuild mutations, dispatching
@@ -841,8 +841,8 @@ export class VisiblePageScanner {
                 for (; next < end && !mustStop(next); next += 1) {
                     this.paintScanTarget(targets[next], parsed[next], painted, sliceRoots);
                 }
-            } finally { this.finishApplySlice(painted, sliceRoots, pacing); }
-        }));
+            } finally { this.finishApplySlice(painted, sliceRoots, pacing, next - start); }
+        })));
         sliceRoots.forEach(root => changedRoots.add(root));
         // Always make progress: a pause wrapper that never ran the callback
         // skips the slice, as the fixed-count chunks did (a stopped scan
@@ -850,12 +850,26 @@ export class VisiblePageScanner {
         return next > start ? next : end;
     }
 
-    // The frame budget, or twice the last yield less the last hand-over when
-    // that is longer. One target remains atomic, even when it alone exceeds it.
+    // A paced slice reads ahead for twice the targets the last one painted (at
+    // least SLICE_MIN_READ_AHEAD), not for its whole count cap: when a slow
+    // device paints two targets a slice, reading facts for 48 costs more than
+    // the recalculations it saves. A target past the read-ahead reads its
+    // facts live, once per parent.
+    private sliceReadAheadEnd(start: number, end: number, pacing: TokenApplyPacing): number {
+        if (pacing.frameBudgetMs === undefined || !this.applyLastSliceTargets) return end;
+        return Math.min(end, start + Math.max(SLICE_MIN_READ_AHEAD, 2 * this.applyLastSliceTargets));
+    }
+
+    // A slice ends once its paint has spent the frame budget. Only the slice's
+    // own work counts: slices used to lengthen to twice the last yield, and on
+    // a page whose one huge block is laid out again every frame (an Aozora
+    // Bunko novel) the yields cost 60-600 ms, so slices grew to the count cap
+    // and multi-second tasks. The hand-over after the paint is not taken out
+    // of the budget: much of it is a fixed cost per slice, and shrinking the
+    // paint for it bought more slices that each paid it again. One target
+    // remains atomic, even when it alone exceeds the budget.
     private applySliceStop(start: number, pacing: TokenApplyPacing): (next: number) => boolean {
-        const budgetMs = pacing.frameBudgetMs === undefined || this.applyYieldCostMs > MAX_PACED_APPLY_YIELD_MS
-            ? Number.POSITIVE_INFINITY
-            : Math.max(pacing.frameBudgetMs, APPLY_SLICE_TO_YIELD_RATIO * this.applyYieldCostMs - this.applyFollowupCostMs);
+        const budgetMs = pacing.frameBudgetMs ?? Number.POSITIVE_INFINITY;
         const startedAt = Date.now();
         return next => (next > start && Date.now() - startedAt >= budgetMs)
             || this.shouldStopApplyingTokens(pacing.generation);
@@ -884,31 +898,15 @@ export class VisiblePageScanner {
         this.dependencies.notePaintedWords?.(words);
     }
 
-    // Only a paced page scan records its costs: an ASB cue batch can run while
-    // a page scan yields, and must not resize that scan's next slice.
-    private finishApplySlice(painted: PaintedWordRecorder, roots: Set<ParentNode>, pacing: TokenApplyPacing): void {
-        const startedAt = Date.now();
+    // Only a paced page scan records its size: an ASB cue batch can run while
+    // a page scan yields, and must not resize that scan's next read-ahead.
+    private finishApplySlice(painted: PaintedWordRecorder, roots: Set<ParentNode>, pacing: TokenApplyPacing, targetCount: number): void {
         try {
             roots.forEach(root => normalizeOcrScannerLinesInRoot(root, this.dependencies.getSettings()));
         } finally {
             this.notePaintedWords(painted.take());
-            if (pacing.frameBudgetMs !== undefined) this.applyFollowupCostMs = Date.now() - startedAt;
+            if (pacing.frameBudgetMs !== undefined) this.applyLastSliceTargets = targetCount;
         }
-    }
-
-    // Yields between apply slices and records what the yield cost: the timer
-    // clamp, any frame the browser rendered, other tasks. A yield is a few ms
-    // on most pages, and the frame budget rules. Where one huge block of text
-    // (an Aozora Bunko page) is laid out again every frame it costs 60-600 ms,
-    // growing as the block is annotated, and 1 s in a background tab. Slices
-    // lengthen with it (APPLY_SLICE_TO_YIELD_RATIO), and past
-    // MAX_PACED_APPLY_YIELD_MS end only at the count cap: a 240 ms ceiling made
-    // a 150-line one-root page pay ~19 such frames and finish 1.3-1.5x later
-    // than under count caps alone.
-    private async waitForApplyTurn(pacing: TokenApplyPacing): Promise<void> {
-        const yieldedAt = Date.now();
-        await waitForVisibleScanTurn();
-        if (pacing.frameBudgetMs !== undefined) this.applyYieldCostMs = Date.now() - yieldedAt;
     }
 
     private reserveRubyRoomForNewRoots(roots: Iterable<ParentNode>): void {

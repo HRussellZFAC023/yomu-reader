@@ -33,9 +33,25 @@ export function createPublicCache(
             && Object.prototype.hasOwnProperty.call(entry, 'v');
     }
 
+    // The parsed state of the last stored text. A page scan reads one term at
+    // a time, and parsing the whole stored JSON for each one cost over a
+    // second per 15 s on a long page. Another tab's write changes the stored
+    // text, so the comparison still sees it.
+    let parsed: { raw: string; state: PublicCacheState } | undefined;
+
     function readState(): PublicCacheState {
         try {
-            const value = JSON.parse(storage.getItem(storageKey) ?? '{}');
+            const raw = storage.getItem(storageKey) ?? '{}';
+            if (parsed?.raw !== raw) parsed = { raw, state: parseState(raw) };
+            return parsed.state;
+        } catch {
+            return {};
+        }
+    }
+
+    function parseState(raw: string): PublicCacheState {
+        try {
+            const value = JSON.parse(raw);
             return value && typeof value === 'object' && !Array.isArray(value)
                 ? value as PublicCacheState
                 : {};
@@ -44,7 +60,10 @@ export function createPublicCache(
         }
     }
 
+    // The next read parses what was stored, so a caller that changes a value
+    // after writing it never changes the cache.
     function writeState(state: PublicCacheState): void {
+        parsed = undefined;
         try {
             storage.setItem(storageKey, JSON.stringify(state));
         } catch {
@@ -75,7 +94,8 @@ export function createPublicCache(
                 writeState(state);
                 return undefined;
             }
-            return entry.v as T;
+            // A copy, as a fresh parse gave: callers own what they read.
+            return JSON.parse(JSON.stringify(entry.v)) as T;
         },
         write(kind: string, key: string, value: unknown, now = Date.now()): void {
             const state = readState();

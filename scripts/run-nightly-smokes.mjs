@@ -57,6 +57,10 @@ export const NIGHTLY_SMOKES = [
     'smoke:jiten-keyless-definition',
     'smoke:late-content',
     'smoke:local-dictionary-upgrade',
+    // Chromium + WebKit on the recorded Aozora 『こころ』: the 30 s after load
+    // hold under 3 s of long tasks and no task over 200 ms, and a hover opens
+    // within 300 ms (W1-41, ADR-0032).
+    'smoke:long-page-perf',
     // Asserting operation-count ratchet for the hover lookup hot path. Needs the
     // built userscript + the settings-surface companion, so it is nightly rather
     // than part of the fast push gate.

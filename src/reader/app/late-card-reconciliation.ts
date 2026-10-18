@@ -3,6 +3,7 @@ import { cardKey } from '../cards/utils';
 import { uniqueParentNodes } from '../dom/rendered-word-state';
 import { isParticleCard } from '../dom/token-text-rendering';
 import { getPitchClass } from '../jpdb/jpdb-parser';
+import { isKanjiCharacter } from '../popup/pitch';
 import {
     hydrateYomuLocalSrsCardStates,
     repaintYomuLocalSrsRenderedCards,
@@ -174,4 +175,18 @@ export class LateCardReconciliation {
             log.warnOnce('local-srs-hydration-failed', 'Academy SRS late-card hydration failed', error);
         }
     }
+}
+
+/**
+ * The reading a parsed token knows but its rendered word may lack: a kanji
+ * token whose card has a reading and that came without ruby spans (inflections
+ * are the common case). Null when there is nothing to reconcile.
+ */
+export function renderedTokenFuriganaRepair(token: JPDBToken): { card: JPDBCard; pitchClass: string } | null {
+    if (token.rubies.length) return null;
+    const reading = token.card.reading.trim();
+    if (!reading || reading === token.card.spelling.trim()) return null;
+    const surface = (token.sentence?.slice(token.start, token.end) || token.card.spelling).trim();
+    if (![...surface].some(isKanjiCharacter)) return null;
+    return { card: token.card, pitchClass: token.pitchClass || getPitchClass(token.card.pitchAccent, reading) || 'unknown' };
 }

@@ -13,8 +13,9 @@ import { refreshContrastForReaderWords } from '../../src/reader/dom/word-contras
 // tasks instead of one long one. These tests drive the budget clock directly
 // (Date.now, as the collection-budget tests do): a "paint-paced" clock spends
 // every slice's budget on its first target, a frozen one never spends it.
-// Per-slice follow-up work must scale with the slice, not with its root, and a
-// yield that costs more than the budget must not be paid once per target.
+// Per-slice follow-up work must scale with the slice, not with its root, and
+// only the slice's own paint spends its budget: time other work takes while it
+// yields never lengthens the next slice.
 
 const SETTINGS: ReaderSettings = { ...testEnSettings(), furiganaMode: 'all' };
 // Mixed states so contrast takes both its derived-colour and neutral paths.
@@ -123,42 +124,38 @@ describe('VisiblePageScanner apply slicing', () => {
         expect(painted.every(word => handed.has(word))).toBe(true);
     });
 
-    it('lengthens the next slice to twice a yield that costs more than the frame budget', async () => {
-        document.body.innerHTML = paragraphs(16);
+    it('does not lengthen the next slice after a yield that costs more than the frame budget', async () => {
+        document.body.innerHTML = paragraphs(8);
         const clock = paintPacedClock();
         // A 100 ms turn lands in slice one's yield: a big block laid out again
-        // for the frame.
+        // for the frame. Slices sized from it once grew to multi-second tasks.
         const slices = paintedPerSlice(slice => { if (slice === 1) clock.advance(100); });
         const scanner = makeScanner({ pauseMutationObserver: slices.pause });
 
         await scanner.scanVisiblePage({ silent: true });
 
-        // 200 ms buys ten 20 ms targets; cheap turns restore the frame budget.
-        expect(slices.painted).toEqual([1, 11, 12, 13, 14, 15, 16]);
+        expect(slices.painted).toEqual([1, 2, 3, 4, 5, 6, 7, 8]);
     });
 
-    it('ends slices only at the count cap while each yield is itself a long frame', async () => {
+    it('keeps frame-budget slices while each yield is itself a long frame', async () => {
         // An Aozora Bunko page lays its whole block out again every frame, so
-        // every yield costs 150 ms or more. Capping slices near 240 ms paid
-        // that frame every 12 targets here (and every 5-8 lines on the real
-        // page), finishing later than count caps alone.
-        document.body.innerHTML = paragraphs(96);
+        // every yield costs 150 ms or more. The slices stay one frame of paint.
+        document.body.innerHTML = paragraphs(6);
         const clock = paintPacedClock();
         const slices = paintedPerSlice(() => clock.advance(150));
         const scanner = makeScanner({ pauseMutationObserver: slices.pause });
 
         await scanner.scanVisiblePage({ silent: true });
 
-        // Parse batches of 80 and 16 targets; count-capped chunks of 48.
-        expect(slices.painted).toEqual([1, 49, 80, 96]);
+        expect(slices.painted).toEqual([1, 2, 3, 4, 5, 6]);
     });
 
-    // Every hand-over costs 40 ms and every target 2 ms. After a 50 ms yield a
-    // slice gets twice that less the hand-over: 30 targets. After a free one it
-    // keeps the frame budget, 6 targets, rather than shrinking to one target
-    // that pays the same hand-over and yield.
+    // Every hand-over costs 40 ms and every target 2 ms, so a 12 ms budget
+    // paints six targets. Neither the yield nor the hand-over changes that: a
+    // slice shrunk to make room for its hand-over is one more slice that pays
+    // the same hand-over and yield again.
     it.each([
-        ['reserves the measured hand-over out of a yield-lengthened slice', 40, 50, [6, 36, 40]],
+        ['keeps the frame budget after a costly yield and hand-over', 40, 50, [6, 12, 18, 24, 30, 36, 40]],
         ['never shrinks a slice below the frame budget to make room for its hand-over', 15, 0, [6, 12, 15]],
     ])('%s', async (_case, targets, yieldMs, painted) => {
         document.body.innerHTML = paragraphs(targets);
@@ -210,9 +207,9 @@ describe('VisiblePageScanner apply slicing', () => {
         await scanner.scanVisiblePage({ silent: true });
 
         expect(cueBatches).toBe(1);
-        // The 50 ms yield buys the page a 100 ms slice (the count cap ends it
-        // at 48 targets); the cue batch's hand-over is not the page's.
-        expect(page).toEqual([6, 54, 60]);
+        // The cue batch's 50 ms hand-over lands in the page's yield and changes
+        // none of the page's frame-budget slices.
+        expect(page).toEqual([6, 12, 18, 24, 30, 36, 42, 48, 54, 60]);
     });
 
     it('disconnects the paint observer when a target throws after observation starts', async () => {
