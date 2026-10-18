@@ -61,7 +61,7 @@ export function loadRecording(slug) {
  * settings: stored settings, or null for a fresh install that saved nothing.
  * gmNetwork: what GM_xmlhttpRequest reaches —
  *   'replay'  recorded answers (default); anything else fails like a dropped connection
- *   'offline' nothing answers
+ *   'offline' nothing answers but onGmRequest: no recorded, hosted or live answer
  *   'live'    the real network (APIRequestContext), for canaries
  *   'record'  the real network for recordHosts only, their answers added to recorder
  *             (createHarWriter; the caller writes it); every other host fails

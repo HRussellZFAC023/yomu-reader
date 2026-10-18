@@ -3,6 +3,56 @@
 // the readings into numbers a gate can compare.
 
 /**
+ * In-page: whether any text inside element is painted where a learner could
+ * see it. A text node counts when it has a box at least a pixel each way (in
+ * the viewport, when inViewport), its element passes checkVisibility (display,
+ * visibility, opacity and content-visibility, ancestors included) and its
+ * fill colour is not transparent. A reading kept in the DOM but hidden by the
+ * page or the product (display: none, visibility: hidden, opacity: 0,
+ * font-size: 0, a transparent colour) therefore does not count.
+ */
+function paintsText(element, inViewport) {
+    // Computed colours are rgb(r, g, b), rgba(r, g, b, a) or color(space c c c / a).
+    const alphaOf = color => {
+        if (color === 'transparent') return 0;
+        const slash = color.match(/\/\s*([\d.]+)(%?)\s*\)$/u);
+        if (slash) return Number(slash[1]) / (slash[2] ? 100 : 1);
+        const parts = color.match(/\((.*)\)$/u)?.[1].split(',') ?? [];
+        return parts.length === 4 ? Number(parts[3]) : 1;
+    };
+    const shownByStyle = node => {
+        if (node.checkVisibility) return node.checkVisibility({ opacityProperty: true, visibilityProperty: true, contentVisibilityAuto: true });
+        if (getComputedStyle(node).visibility !== 'visible') return false;
+        for (let ancestor = node; ancestor; ancestor = ancestor.parentElement) {
+            const style = getComputedStyle(ancestor);
+            if (style.display === 'none' || Number(style.opacity) === 0) return false;
+        }
+        return true;
+    };
+    const filled = node => {
+        const style = getComputedStyle(node);
+        return alphaOf(style.webkitTextFillColor || style.color) > 0;
+    };
+    const range = document.createRange();
+    const boxed = node => {
+        range.selectNodeContents(node);
+        return [...range.getClientRects()].some(rect => rect.width >= 1 && rect.height >= 1
+            && (!inViewport || (rect.bottom > 0 && rect.top < innerHeight && rect.right > 0 && rect.left < innerWidth)));
+    };
+    const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT);
+    for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+        if (node.nodeValue.trim() && node.parentElement && boxed(node) && shownByStyle(node.parentElement) && filled(node.parentElement)) return true;
+    }
+    return false;
+}
+
+// Runs an in-page probe with paintsText as its first argument. The probe is
+// sent as one expression, so the helper needs no global and no eval in the page.
+function evaluateWithPaintsText(page, probe, argument) {
+    return page.evaluate(`(${probe})(${paintsText}, ${JSON.stringify(argument)})`);
+}
+
+/**
  * How much of the visible Japanese carries a painted reading. The
  * denominator is the page's own text, not the product's words: the runs of
  * kanji in each block's text with the readings taken out, so it is the same
@@ -11,10 +61,11 @@
  * in a product word that paints a reading (rt or a detached reading). The
  * product's own word counts, and words that only know a reading (data-reading,
  * nothing painted), are reported beside it. visibleOnly limits it to text in
- * the viewport.
+ * the viewport. A reading counts as painted only when a learner could see it
+ * (paintsText): an rt the product or the page hides is not a reading.
  */
 export async function kanjiReadingCoverage(page, { root = 'body', visibleOnly = true } = {}) {
-    return page.evaluate(({ rootSelector, visible }) => {
+    return evaluateWithPaintsText(page, (paintsText, { rootSelector, visible }) => {
         const scope = document.querySelector(rootSelector) ?? document.body;
         const READINGS = 'rt, rp, .jpdb-reader-detached-furi';
         const range = document.createRange();
@@ -23,7 +74,7 @@ export async function kanjiReadingCoverage(page, { root = 'body', visibleOnly = 
             range.selectNodeContents(node);
             return [...range.getClientRects()].some(inView);
         };
-        const paintsReading = word => [...word.querySelectorAll('rt, .jpdb-reader-detached-furi')].some(element => element.textContent.trim());
+        const paintsReading = word => [...word.querySelectorAll('rt, .jpdb-reader-detached-furi')].some(element => paintsText(element, visible));
         const isPageText = node => Boolean(node.parentElement) && !node.parentElement.closest(`${READINGS}, script, style, noscript`) && (!visible || textInView(node));
         const flows = element => /^(inline|ruby|contents)/u.test(getComputedStyle(element).display);
         const blockOf = node => {
@@ -80,26 +131,20 @@ export async function kanjiReadingCoverage(page, { root = 'body', visibleOnly = 
  * painted. readCaptionFrames returns the log; captionFlashFrames reads it.
  */
 export async function startCaptionFrameLog(page) {
-    await page.evaluate(() => {
+    await evaluateWithPaintsText(page, paintsText => {
         const frames = [];
         window.__yomuCaptionFrames = frames;
+        // A line the product keeps in the DOM but hides is a gap, not a line.
         const lineText = selector => {
             const element = document.querySelector(selector);
-            const copy = element ? element.cloneNode(true) : document.createElement('span');
+            if (!element || !paintsText(element, false)) return '';
+            const copy = element.cloneNode(true);
             copy.querySelectorAll('rt, rp, .jpdb-reader-detached-furi').forEach(node => node.remove());
             return copy.textContent.replace(/\s+/gu, ' ').trim();
         };
-        const shown = element => {
-            const style = getComputedStyle(element);
-            return style.display !== 'none' && style.visibility !== 'hidden' && Number(style.opacity) > 0;
-        };
-        const segmentPainted = segment => {
-            const rect = segment.getBoundingClientRect();
-            return rect.width > 0 && segment.textContent.trim() !== '' && shown(segment) && getComputedStyle(segment).color !== 'rgba(0, 0, 0, 0)';
-        };
         const nativePainted = () => {
             const container = document.querySelector('.ytp-caption-window-container');
-            return Boolean(container) && shown(container) && [...container.querySelectorAll('.ytp-caption-segment')].some(segmentPainted);
+            return Boolean(container) && [...container.querySelectorAll('.ytp-caption-segment')].some(segment => paintsText(segment, false));
         };
         const tick = () => {
             if (window.__yomuCaptionFrames !== frames) return;
@@ -113,7 +158,7 @@ export async function startCaptionFrameLog(page) {
             requestAnimationFrame(tick);
         };
         requestAnimationFrame(tick);
-    });
+    }, null);
 }
 
 export async function readCaptionFrames(page) {

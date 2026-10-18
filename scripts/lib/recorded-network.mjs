@@ -9,7 +9,8 @@
 // traffic recorded for this page, the page's HAR (a manager fetching the
 // page's own picture gets the bytes the page got), docs/public, then the
 // network ('live', or 'record' for the hosts being recorded) or a failure like
-// a dropped connection.
+// a dropped connection. With gmNetwork 'offline' only a test's own answer
+// runs: every other GM request fails like a dropped connection.
 import { LEDGER_ID_HEADER, hostMatches, hostOf } from './network-ledger.mjs';
 import { mimeTypeOf } from './recorded-har.mjs';
 import { hostedAnswer, hostedFile } from './recorded-products.mjs';
@@ -86,8 +87,8 @@ function hostedGmAnswer(request, scope) {
 
 const GM_ANSWERERS = [
     overrideAnswer,
-    async (request, scope) => recordedAnswer(request, scope),
-    async (request, scope) => hostedGmAnswer(request, scope),
+    async (request, scope) => (scope.gmNetwork === 'offline' ? null : recordedAnswer(request, scope)),
+    async (request, scope) => (scope.gmNetwork === 'offline' ? null : hostedGmAnswer(request, scope)),
     async (request, scope) => (goesLive(request, scope) ? liveGmAnswer(request, scope) : null),
 ];
 

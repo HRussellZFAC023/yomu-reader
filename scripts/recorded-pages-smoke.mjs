@@ -11,8 +11,12 @@
 //               YouTube's own caption flashing in the gaps between cues. 2.1.6
 //               never changes, so these stay true; a gate built on this harness
 //               that cannot see them could not see anything.
+//   probes      kanjiReadingCoverage counts no reading hidden in place
+//               (display, visibility, opacity, font size, colour) as painted,
+//               in each engine and in WebKit at iPad size, on the readings
+//               2.1.6 paints on ja-wikipedia-nihongo.
 //
-//   node scripts/recorded-pages-smoke.mjs [replay|reproduce] [--engines=chromium,webkit]
+//   node scripts/recorded-pages-smoke.mjs [replay|reproduce|probes] [--engines=chromium,webkit]
 //   node scripts/recorded-pages-smoke.mjs reproduce --product=worktree   # numbers for this build, no assertions
 import { chromium, firefox, webkit } from 'playwright';
 import { captureGeometrySignature, compareGeometrySignatures } from './lib/geometry-signature.mjs';
@@ -36,6 +40,15 @@ const engines = (option('engines') ?? 'chromium,webkit,firefox').split(',');
 const productRef = option('product') ?? 'v2.1.6';
 const failures = [];
 
+// A reading the product keeps in the DOM but hides is not a painted reading:
+// hiding every reading on the loaded page must take the coverage to zero.
+const HIDDEN_READINGS = [['visibility', 'hidden'], ['opacity', '0'], ['display', 'none'], ['font-size', '0'], ['color', 'transparent']];
+
+const PROBE_PROFILES = [
+    ...engines.map(engine => ({ name: engine, engine, contextOptions: {} })),
+    ...(engines.includes('webkit') ? [{ name: 'webkit iPad', engine: 'webkit', contextOptions: { viewport: { width: 1024, height: 1366 }, hasTouch: true } }] : []),
+];
+
 const check = (condition, message) => {
     console.log(`${condition ? 'PASS' : 'FAIL'} ${message}`);
     if (!condition) failures.push(message);
@@ -45,6 +58,7 @@ if (runCase('replay')) {
     for (const engine of engines) await replayEveryRecording(engine);
 }
 if (runCase('reproduce')) await reproduceShippedFailures();
+if (runCase('probes')) await checkReadingProbe();
 
 if (failures.length) {
     console.error(`\n[recorded-pages] ${failures.length} failure(s)`);
@@ -168,6 +182,37 @@ async function checkTrustedInteraction(run) {
     const flags = Object.fromEntries(probes.map(entry => [new URL(entry.url).pathname.slice(1), entry.trustedInteractionBefore && entry.lastInteraction?.type]));
     const expected = { 'before-page': false, 'before-gm': false, 'after-page': 'keydown', 'after-gm': 'keydown' };
     check(JSON.stringify(flags, Object.keys(expected)) === JSON.stringify(expected), `ledger: a real key press makes later page and GM requests count as after a trusted interaction, naming it ${JSON.stringify(flags)}`);
+}
+
+// The 2.1.6 build paints readings on ja-wikipedia-nihongo in every engine
+// (its jiten traffic was recorded in each), so it is the page the probe is checked on.
+async function checkReadingProbe() {
+    for (const profile of PROBE_PROFILES) {
+        const browser = await ENGINES[profile.engine].launch();
+        try {
+            const { run } = await openAnsweredRecordedPage({ browser, slug: 'ja-wikipedia-nihongo', product: releaseProduct('v2.1.6'), contextOptions: profile.contextOptions }, { settleMs: 15_000, attempts: LOAD_ATTEMPTS });
+            if (!run) {
+                check(false, `probe ${profile.name}: no load of ja-wikipedia-nihongo was answered by the recorded jiten traffic`);
+                continue;
+            }
+            await checkHiddenReadingsNotCounted(run, profile.name).finally(() => run.close());
+        } finally {
+            await browser.close();
+        }
+    }
+}
+
+async function checkHiddenReadingsNotCounted(run, name) {
+    const coverage = await kanjiReadingCoverage(run.page, { root: '#mw-content-text' });
+    const left = {};
+    for (const [property, value] of HIDDEN_READINGS) {
+        const styleReadings = set => run.page.evaluate(([name, hidden, apply]) => document.querySelectorAll('rt, .jpdb-reader-detached-furi').forEach(element => (apply ? element.style.setProperty(name, hidden, 'important') : element.style.removeProperty(name))), [property, value, set]);
+        await styleReadings(true);
+        const hidden = await kanjiReadingCoverage(run.page, { root: '#mw-content-text' });
+        await styleReadings(false);
+        left[`${property}: ${value}`] = hidden.covered + hidden.painted;
+    }
+    check(coverage.painted >= 1 && Object.values(left).every(count => count === 0), `probe ${name}: ${coverage.covered}/${coverage.kanjiRuns} kanji runs covered and ${coverage.painted} words painted; with every reading hidden in place, covered + painted is ${JSON.stringify(left)}`);
 }
 
 async function reproduceCaptionFlash(browser, product, report) {

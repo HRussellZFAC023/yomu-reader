@@ -55,9 +55,15 @@ a Mechanism Fixture (see Follow-ups).
   text run, or whose sampled block boxes moved more than 2 px from the live
   page in Chromium. `npm run check` re-runs the text check on every commit
   (`scripts/check-recorded-pages.mjs`). The check reads text nodes, the visible
-  attributes and every other attribute value that reads as copy (non-ASCII
-  letters or several words); one-word ASCII values such as `true` or an id are
-  vocabulary and are not compared. It also fails when `ATTRIBUTION.md` credits
+  attributes, every other attribute value that reads as copy (non-ASCII
+  letters or several words), and the text stylesheets paint: string values of
+  `content`, `quotes`, list markers, `text-overflow` and custom properties in
+  `<style>` elements, `style` attributes and committed `.css` files, escapes
+  decoded and `content: "東" "京"` read joined. One-word ASCII values such as
+  `true`, an id or YouTube's `4K` badge are vocabulary and are not compared.
+  A redacted recording's stylesheets must also paint no copy of their own
+  through `content`, since the redactor replaces document text, not CSS;
+  today's sites paint only icons and punctuation there. It also fails when `ATTRIBUTION.md` credits
   a recording that is not committed, and when a recorded document still holds
   `<script>`, `<noscript>` or an inline `on*` handler, since the text check
   does not read those.
@@ -101,6 +107,10 @@ await run.close();
   from the page's own HAR, then from this build's `docs/public` for
   `yomureader.com`; anything else fails like a dropped connection.
   `'offline'`, `'live'` (canaries) and `'record'` are the alternatives.
+  `'offline'` answers nothing but `onGmRequest`: no recorded, hosted or live
+  answer, so every other GM request fails like a dropped connection.
+  `'live'` still answers the page's own pictures from its HAR and
+  `yomureader.com` from this build's `docs/public`, then goes to the network.
   `'record'` reaches the network only for the target's `productTrafficHosts`;
   every other GM request fails, so recording never uploads a page picture to
   an OCR service.
@@ -180,16 +190,24 @@ the page" take a signature before the product runs and one after.
 
 - `kanjiReadingCoverage(page, { root })`: of the visible kanji runs in the
   page's own text, how many sit wholly in product words that paint a reading.
+  A reading counts only when a learner could see it: a box at least a pixel
+  each way in the viewport, `checkVisibility` (display, visibility and
+  opacity, ancestors included) and a fill colour that is not transparent. A
+  reading kept in the DOM but hidden is not painted; `npm run
+  smoke:recorded-pages:probes` checks this in each engine and in WebKit at
+  iPad size.
   Runs are read from each block's text with the readings taken out, so the
   denominator is the same however a build splits or wraps the words. The product's kanji words, the painted ones and those with only
   `data-reading` are reported beside it.
 - `startCaptionFrameLog` / `readCaptionFrames` / `captionFlashFrames`: a
   per-frame log of the subtitle lines and of whether YouTube's own caption is
-  painted.
+  painted, by the same visibility rule (a product line kept but hidden is a
+  gap).
 
 ## Harness self-test
 
-`npm run smoke:recorded-pages` (nightly) runs two checks:
+`scripts/recorded-pages-smoke.mjs` (nightly: `npm run smoke:recorded-pages`,
+`smoke:recorded-pages:reproduce` and `smoke:recorded-pages:probes`) runs three checks:
 
 - `replay`: every recording, in all three engines, lays out as it did at record
   time (2 px), and each redacted page's block boxes are within 2 px of the live
@@ -210,6 +228,11 @@ the page" take a signature before the product runs and one after.
   case runs on `youtube-watch`, whose caption timings are a Mechanism Fixture
   in the shape of a YouTube auto-generated track (two-row roll-up, pauses);
   2.1.6 hands YouTube's caption back in those gaps.
+
+- `probes`: on the readings 2.1.6 paints on ja-wikipedia-nihongo, in each
+  engine and in WebKit at 1024×1366 with touch, hiding every reading in place
+  (`visibility: hidden`, `opacity: 0`, `display: none`, `font-size: 0`,
+  `color: transparent`) takes covered runs and painted words to zero.
 
 Geometry baselines are per platform. Every recording was made on macOS, so on
 the Linux nightly the replay case only checks that each recording loads and
@@ -303,7 +326,8 @@ the real page has moved on.
 
 - `youtube-watch` was recorded with `--caption-timings=mechanism-fixture`.
   YouTube answered every caption request from the recording machine with 429
-  ("automated queries") on 2026-10-17: the player's own signed requests (with
+  ("automated queries") on 2026-10-17, and again late that day (a plain
+  timedtext GET and the watch page's own player request in Chromium): the player's own signed requests (with
   a proof-of-origin token), in all three Playwright engines, in installed
   Chrome without automation flags, and in an ordinary browser on the same
   network, and the transcript panel's `get_transcript` failed too. The page,

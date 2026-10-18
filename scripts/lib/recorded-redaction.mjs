@@ -59,7 +59,7 @@ export function attributeSelectorIndex(cssTexts) {
     return index;
 }
 
-const SKIPPED_ELEMENTS = new Set(['script', 'style', 'noscript']);
+const SKIPPED_ELEMENTS = new Set(['script', 'noscript']);
 // Written by the recorder from its own target list, never from the page.
 const HARNESS_FILES = new Set(['manifest.json', 'geometry.json', 'redaction-hashes.json']);
 // A run that is only a web address is kept by the redactor.
@@ -96,23 +96,91 @@ export function redactionHashList(originalRuns) {
 
 const runsOf = values => values.map(normalizeTextRun).filter(Boolean);
 const childrenOf = node => [...(node.childNodes ?? []), ...(node.content ? [node.content] : [])];
+const textContentOf = node => (node.childNodes ?? []).map(child => child.value ?? '').join('');
+
+// Properties whose string values the browser paints as text (generated
+// content, list markers, quotes, an ellipsis), and custom properties, which
+// can carry a string into content through var().
+const PAINTED_STRING_PROPERTY = /^(?:content|quotes|list-style(?:-type)?|text-overflow|text-emphasis(?:-style)?|(?:-webkit-)?hyphenate-character|symbols|additive-symbols|prefix|suffix|negative|pad|--[\w-]*)$/iu;
+const CSS_STRING_SOURCE = String.raw`"(?:[^"\\]|\\[\s\S])*"|'(?:[^'\\]|\\[\s\S])*'`;
+const CSS_COMMENT_OR_STRING = new RegExp(`(${CSS_STRING_SOURCE})|/\\*[\\s\\S]*?\\*/`, 'gu');
+const CSS_DECLARATION = new RegExp(`([-\\w]+)\\s*:((?:${CSS_STRING_SOURCE}|[^;{}"'])*)`, 'gu');
+const CSS_STRING = new RegExp(CSS_STRING_SOURCE, 'gu');
+const CSS_ESCAPE = /\\(?:([0-9a-f]{1,6})[ \t\n\r\f]?|(\r\n|[\n\r\f])|([\s\S]))/giu;
+
+function cssUnescape(text) {
+    return text.replace(CSS_ESCAPE, (_, hex, newline, character) => {
+        if (newline) return '';
+        if (!hex) return character;
+        const codePoint = Number.parseInt(hex, 16);
+        return codePoint > 0 && codePoint <= 0x10ffff ? String.fromCodePoint(codePoint) : '\ufffd';
+    });
+}
+
+/**
+ * The strings a stylesheet (or a style attribute) paints, by declaration:
+ * [{ property, strings }], escapes decoded. content: "東" "京" paints 東京, so
+ * a content value's strings are also read joined.
+ */
+function cssPaintedStrings(cssText) {
+    const css = String(cssText ?? '').replace(CSS_COMMENT_OR_STRING, (match, string) => string ?? ' ');
+    return [...css.matchAll(CSS_DECLARATION)]
+        .filter(match => PAINTED_STRING_PROPERTY.test(match[1]))
+        .map(match => ({ property: match[1].toLowerCase(), strings: [...match[2].matchAll(CSS_STRING)].map(string => cssUnescape(string[0].slice(1, -1))) }))
+        .filter(declaration => declaration.strings.length);
+}
+
+/**
+ * Text runs a stylesheet paints through content, quotes, list markers and
+ * custom properties, when they read as copy (isHiddenCopy). One-word ASCII
+ * strings are a site's own vocabulary, as in an attribute: YouTube's player
+ * sheet paints "4K" and "HDR" badges, which a page's badge text also says.
+ */
+export function textRunsFromCss(cssText) {
+    return runsOf(cssPaintedStrings(cssText).flatMap(({ strings }) => (strings.length > 1 ? [...strings, strings.join('')] : strings)).filter(isHiddenCopy));
+}
+
+/**
+ * Generated text that reads as copy (non-ASCII letters or several words) in
+ * a stylesheet's own content declarations. A site's stylesheets are kept as
+ * served, and the redactor replaces document text, not CSS, so a redacted
+ * recording must hold none: today's sites paint only icons and punctuation
+ * there (•, ・, ｜) and one-word ASCII labels (NEW).
+ */
+export function generatedCopyInCss(cssText) {
+    return cssPaintedStrings(cssText)
+        .filter(({ property }) => !property.startsWith('--'))
+        .map(({ strings }) => strings.join(''))
+        .filter(isHiddenCopy)
+        .map(normalizeTextRun);
+}
 
 function htmlNodeRuns(node) {
     if (node.nodeName === '#text') return runsOf([node.value]);
+    if (node.nodeName === 'style') return textRunsFromCss(textContentOf(node));
     if (SKIPPED_ELEMENTS.has(node.nodeName)) return [];
-    const attributes = (node.attrs ?? []).filter(attribute => VISIBLE_ATTRIBUTES.includes(attribute.name) || isHiddenCopy(attribute.value));
-    return [...runsOf(attributes.map(attribute => attribute.value)), ...childrenOf(node).flatMap(htmlNodeRuns)];
+    const attributes = node.attrs ?? [];
+    const isStyle = attribute => attribute.name === 'style';
+    const copy = attributes.filter(attribute => !isStyle(attribute) && (VISIBLE_ATTRIBUTES.includes(attribute.name) || isHiddenCopy(attribute.value)));
+    const styles = attributes.filter(isStyle).flatMap(attribute => textRunsFromCss(attribute.value));
+    return [...runsOf(copy.map(attribute => attribute.value)), ...styles, ...childrenOf(node).flatMap(htmlNodeRuns)];
 }
 
 /**
  * Text runs of an HTML document: text nodes (declarative shadow DOM included),
- * visible attributes and every other attribute value that reads as copy. A
+ * visible attributes, every other attribute value that reads as copy, and the
+ * text its <style> elements and style attributes paint (generated content). A
  * site keeps copy in data-* attributes (a headline in data-realizer-title, a
  * campaign in data-gtm-label), so the check reads all of them. One-word ASCII
  * values ("true", an id, a datetime) are vocabulary, not copy.
  */
 export function textRunsFromHtml(html) {
     return htmlNodeRuns(parse(html, { scriptingEnabled: false }));
+}
+
+function htmlStyleSheets(node) {
+    const own = node.nodeName === 'style' ? [textContentOf(node)] : (node.attrs ?? []).filter(attribute => attribute.name === 'style').map(attribute => attribute.value);
+    return [...own, ...childrenOf(node).flatMap(htmlStyleSheets)];
 }
 
 const SITE_CODE_ELEMENTS = new Set(['script', 'noscript']);
@@ -157,26 +225,68 @@ function jsonFileRuns(text) {
     }
 }
 
-const FILE_READERS = [
-    [/\.html?$/iu, textRunsFromHtml],
-    [/\.(json|json3|har)$/iu, jsonFileRuns],
-    [/\.(css|svg|xml|txt|vtt)$/iu, text => runsOf(text.split(/[\n<>{}]/u))],
-];
+const SPLIT_TEXT = text => runsOf(text.split(/[\n<>{}]/u));
+const READERS = {
+    html: textRunsFromHtml,
+    json: jsonFileRuns,
+    css: textRunsFromCss,
+    svg: text => [...SPLIT_TEXT(text), ...textRunsFromCss(text)],
+    text: SPLIT_TEXT,
+};
+const FILE_KINDS = [[/\.html?$/iu, 'html'], [/\.har$/iu, 'har'], [/\.(json|json3)$/iu, 'json'], [/\.css$/iu, 'css'], [/\.svg$/iu, 'svg'], [/\.(xml|txt|vtt)$/iu, 'text']];
+const MIME_KINDS = [[/html/iu, 'html'], [/css/iu, 'css'], [/svg/iu, 'svg'], [/json/iu, 'json'], [/^text\/|xml|vtt/iu, 'text']];
+
+// A HAR's own fields are read as JSON; a body kept inline (content.text rather
+// than a committed _file) is read as what its MIME type says it is.
+function harRuns(text) {
+    const runs = jsonFileRuns(text);
+    try {
+        for (const entry of JSON.parse(text)?.log?.entries ?? []) {
+            const content = entry.response?.content ?? {};
+            const kind = MIME_KINDS.find(([pattern]) => pattern.test(content.mimeType ?? ''))?.[1];
+            if (!kind || typeof content.text !== 'string') continue;
+            const body = content.encoding === 'base64' ? Buffer.from(content.text, 'base64').toString('utf8') : content.text;
+            runs.push(...READERS[kind](body));
+        }
+    } catch {
+        // not JSON: jsonFileRuns already read it as text
+    }
+    return runs;
+}
 
 function textRunsFromFile(file) {
-    const reader = FILE_READERS.find(([pattern]) => pattern.test(file))?.[1];
-    return reader ? reader(readFileSync(file, 'utf8')) : [];
+    const kind = FILE_KINDS.find(([pattern]) => pattern.test(file))?.[1];
+    if (!kind) return [];
+    const text = readFileSync(file, 'utf8');
+    return kind === 'har' ? harRuns(text) : READERS[kind](text);
+}
+
+function committedFiles(recordingDir) {
+    return filesUnder(recordingDir).filter(file => !HARNESS_FILES.has(path.relative(recordingDir, file)));
 }
 
 /**
  * Committed files of a redacted recording whose text runs match the
- * recorder's hash list of the original page. Empty means clean.
+ * recorder's hash list of the original page: as text, in an attribute, or
+ * painted by a stylesheet (generated content). Empty means clean.
  */
 export function findRedactionLeaks(recordingDir, hashList) {
     const hashes = new Set(hashList.hashes);
-    const files = filesUnder(recordingDir).filter(file => !HARNESS_FILES.has(path.relative(recordingDir, file)));
-    return files.flatMap(file => textRunsFromFile(file)
+    return committedFiles(recordingDir).flatMap(file => textRunsFromFile(file)
         .filter(run => hashes.has(hashTextRun(run)))
+        .map(run => ({ file: path.relative(recordingDir, file), hash: hashTextRun(run), length: [...run].length })));
+}
+
+/**
+ * Stylesheets of a redacted recording (committed .css files, <style> elements
+ * and style attributes) that paint copy through content. Empty means clean.
+ */
+export function findGeneratedCopy(recordingDir) {
+    const sheets = file => {
+        if (/\.css$/iu.test(file)) return [readFileSync(file, 'utf8')];
+        return /\.html?$/iu.test(file) ? htmlStyleSheets(parse(readFileSync(file, 'utf8'), { scriptingEnabled: false })) : [];
+    };
+    return committedFiles(recordingDir).flatMap(file => sheets(file).flatMap(generatedCopyInCss)
         .map(run => ({ file: path.relative(recordingDir, file), hash: hashTextRun(run), length: [...run].length })));
 }
 

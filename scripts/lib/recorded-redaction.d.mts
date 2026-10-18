@@ -11,3 +11,6 @@ export function redactionHashList(originalRuns: string[]): RedactionHashList;
 export function textRunsFromHtml(html: string): string[];
 export function siteCodeInHtml(html: string): string[];
 export function findRedactionLeaks(recordingDir: string, hashList: RedactionHashList): Array<{ file: string; hash: string; length: number }>;
+export function textRunsFromCss(cssText: string): string[];
+export function generatedCopyInCss(cssText: string): string[];
+export function findGeneratedCopy(recordingDir: string): Array<{ file: string; hash: string; length: number }>;

@@ -8,10 +8,11 @@ import { cdpPerSecond, spinSummary } from '../../scripts/lib/main-thread-sampler
 import { assertLedgerCount, assertNoRequestsBeforeInteraction, createNetworkLedger } from '../../scripts/lib/network-ledger.mjs';
 import { createHarWriter, readHarIndex } from '../../scripts/lib/recorded-har.mjs';
 import { json3ToSrv3, json3ToVtt } from '../../scripts/lib/recorded-hosts.mjs';
+import { answerGmRequest } from '../../scripts/lib/recorded-network.mjs';
 import { blankPng, imageSize } from '../../scripts/lib/recorded-media.mjs';
 import { captionFlashFrames } from '../../scripts/lib/recorded-page-probes.mjs';
 import { productTrafficVerdict } from '../../scripts/lib/recorded-product-traffic.mjs';
-import { attributeSelectorIndex, findRedactionLeaks, hashTextRun, isHiddenCopy, normalizeTextRun, redactionHashList, siteCodeInHtml, textRunsFromHtml } from '../../scripts/lib/recorded-redaction.mjs';
+import { attributeSelectorIndex, findGeneratedCopy, findRedactionLeaks, generatedCopyInCss, hashTextRun, isHiddenCopy, normalizeTextRun, redactionHashList, siteCodeInHtml, textRunsFromCss, textRunsFromHtml } from '../../scripts/lib/recorded-redaction.mjs';
 import { aozoraLetterStreams, characterClass, createTextRedactor } from '../../scripts/lib/text-redactor.mjs';
 import { asrCaptionTracksMechanismFixture } from '../../scripts/lib/youtube-caption-mechanism-fixture.mjs';
 
@@ -168,9 +169,39 @@ describe('redaction', () => {
         expect(redactionHashList(['ログイン', 'https://example.com/a', 'ログイン']).hashes).toEqual([hashTextRun('ログイン')]);
     });
 
-    it('reads text runs from text, visible attributes and declarative shadow roots, not from scripts or styles', () => {
-        const runs = textRunsFromHtml('<html><head><title>見出し</title><style>.a{content:"表示"}</style><script>var x = "秘密";</script></head><body><img alt="写真の説明"><p>本文です</p><div><template shadowrootmode="open"><span>影の中</span></template></div></body></html>');
-        expect(runs).toEqual(['見出し', '写真の説明', '本文です', '影の中']);
+    it('reads text runs from text, visible attributes, declarative shadow roots and painted CSS, not from scripts', () => {
+        const runs = textRunsFromHtml('<html><head><title>見出し</title><style>.a{content:"表示";font-family:"游ゴシック"}</style><script>var x = "秘密";</script></head><body><img alt="写真の説明"><p style="--label:\'影付き\'">本文です</p><div><template shadowrootmode="open"><style>b::after{content:"影の注"}</style><span>影の中</span></template></div></body></html>');
+        expect(runs).toEqual(['見出し', '表示', '写真の説明', '影付き', '本文です', '影の注', '影の中']);
+    });
+
+    it('reads the text a stylesheet paints: escapes decoded, concatenation joined, comments and font names skipped', () => {
+        const css = '/* content:"注釈の中" */ body::before{content:"\\6771\\4EAC" "都の"}\n.q{quotes:"「" "」";font-family:"Hiragino Sans", "メイリオ"}.b:after{content:"4K"}.e{text-overflow:"続きは本文で"}';
+        expect(textRunsFromCss(css)).toEqual(['東京', '都の', '東京都の', '続きは本文で']);
+        expect(generatedCopyInCss(css)).toEqual(['東京都の', '続きは本文で']);
+        expect(generatedCopyInCss('.dot:before{content:"•"}.badge:after{content:"NEW"}.x{--font:"YouTube Sans"}')).toEqual([]);
+    });
+
+    it('finds an original run restored through CSS generated content, in a style element, a style attribute or a stylesheet', () => {
+        const hashList = redactionHashList(['元の記事の見出しです']);
+        const cases = {
+            'page.html': '<style>body::before{content:"元の記事の見出しです"}</style><p>私はその人を常に</p>',
+            'inline.html': '<p style="--x:\'元の記事の\' \'見出しです\'">私はその人を常に</p>',
+            'resources/sheet.css': 'body::before{content:"\\5143の記事の見出しです"}',
+            'network.har': JSON.stringify({ log: { entries: [{ response: { content: { mimeType: 'text/css', encoding: 'base64', text: Buffer.from('p::after{content:"元の記事の見出しです"}').toString('base64') } } }] } }),
+        };
+        for (const [file, text] of Object.entries(cases)) {
+            const dir = temporaryDirectory();
+            mkdirSync(join(dir, 'resources'));
+            writeFileSync(join(dir, file), text);
+            expect(findRedactionLeaks(dir, hashList), file).toEqual([{ file: join(...file.split('/')), hash: hashTextRun('元の記事の見出しです'), length: 10 }]);
+        }
+    });
+
+    it('finds copy a stylesheet paints through content, which the redactor does not replace', () => {
+        const dir = temporaryDirectory();
+        writeFileSync(join(dir, 'page.html'), '<style>.more::after{content:"続きを読む"}</style><p class="more">私はその人を常に</p>');
+        writeFileSync(join(dir, 'site.css'), '.dot::before{content:"・"}');
+        expect(findGeneratedCopy(dir)).toEqual([{ file: 'page.html', hash: hashTextRun('続きを読む'), length: 5 }]);
     });
 
     it('reads copy kept in any attribute, and not one-word ASCII vocabulary', () => {
@@ -246,6 +277,23 @@ describe('recorded page plumbing', () => {
         expect(Math.max(...instants.map(shownAt))).toBe(2);
         expect(instants.filter(ms => ms > lines[0].tStartMs && shownAt(ms) === 0).length).toBeGreaterThan(10);
         expect(jaEn.events.map(event => event.tStartMs)).toEqual(lines.map(line => line.tStartMs));
+    });
+
+    it('answers GM requests from the recording on replay, and from nothing but the test offline', async () => {
+        const wordmark = 'https://ja.wikipedia.org/static/images/mobile/copyright/wikipedia-wordmark-ja.svg';
+        const scopeFor = (gmNetwork: string, onGmRequest?: () => unknown) => ({
+            gmNetwork, onGmRequest, hosted: true, product: { hostedRoot: resolve('docs/public') }, productTraffic: null, recorder: null, recordHosts: [],
+            har: readHarIndex(resolve('scripts/fixtures/recorded/ja-wikipedia-nihongo/network.har')),
+            ledger: createNetworkLedger(),
+        });
+        const replay = scopeFor('replay');
+        expect(await answerGmRequest({ method: 'GET', url: wordmark }, replay)).toMatchObject({ status: 200 });
+        expect(await answerGmRequest({ method: 'GET', url: 'https://yomureader.com/favicon.ico' }, replay)).toMatchObject({ status: 200 });
+        const offline = scopeFor('offline');
+        await expect(answerGmRequest({ method: 'GET', url: wordmark }, offline)).rejects.toThrow('no recorded answer');
+        await expect(answerGmRequest({ method: 'GET', url: 'https://yomureader.com/favicon.ico' }, offline)).rejects.toThrow('no recorded answer');
+        const failing = await answerGmRequest({ method: 'GET', url: wordmark }, scopeFor('offline', () => ({ status: 503, body: 'down' })));
+        expect(failing).toMatchObject({ status: 503, responseText: 'down' });
     });
 
     it('makes blank pictures of the size it was asked for', () => {
@@ -336,6 +384,15 @@ describe('check-recorded-pages', () => {
         const result = run(leaking);
         expect(result.code).toBe(1);
         expect(result.output).toContain('page.html holds a 8-character text run from the original page');
+    });
+
+    it('fails a redaction whose stylesheet paints an original run back in', () => {
+        const root = temporaryDirectory();
+        writeRecording(root, '私はその人を常に</p><style>body::before{content:"元の記事の見出し"}</style><p>');
+        const result = run(root);
+        expect(result.code).toBe(1);
+        expect(result.output).toContain('page.html holds a 8-character text run from the original page');
+        expect(result.output).toContain('page.html paints 8 characters of copy through CSS content');
     });
 
     it('fails a recorded document that still carries site code', () => {

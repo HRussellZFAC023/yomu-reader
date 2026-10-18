@@ -7,7 +7,7 @@ import { chromium, firefox, webkit } from 'playwright';
 import { captureGeometrySignature, compareGeometrySignatures } from './geometry-signature.mjs';
 import { STORED_LINES } from './record-live-page.mjs';
 import { openRecordedPage } from './recorded-page.mjs';
-import { findRedactionLeaks, hashTextRun } from './recorded-redaction.mjs';
+import { findGeneratedCopy, findRedactionLeaks, hashTextRun } from './recorded-redaction.mjs';
 import { keepUsedResources, readJson, writeJson } from './recording-writer.mjs';
 
 const FIDELITY_TOLERANCE_PX = 2;
@@ -111,6 +111,8 @@ function refuseUnfaithfulGeometry(target, chromiumResult) {
 }
 
 function refuseLeaks(dir, target, live) {
+    const painted = findGeneratedCopy(dir);
+    if (painted.length) throw new Error(`[record-pages] refusing to write ${target.slug}: ${painted.length} stylesheet string(s) paint copy through CSS content (first in ${painted[0].file}); the redactor replaces document text, not CSS.`);
     const leaks = findRedactionLeaks(dir, live.redacted.hashList);
     if (!leaks.length) return;
     // Shown on this console only, so whoever records can see what slipped through.
