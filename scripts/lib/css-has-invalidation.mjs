@@ -15,11 +15,18 @@
 // directly above it:  /* has-invalidation-allow: <why the anchor stays small> */
 //
 // A combinator inside :is()/:where()/:not() counts too: `:is(.a:has(.b) > .c)`
-// is `.a:has(.b) > .c`. And a combinator into a subject with no type, class, id
-// or attribute (`> *`, `> :not(.x)`) restyles every descendant of the anchor, so
-// no comment can allow it; `:is(*, .x)` and `:where(.x, :hover)` key on nothing
-// either, because one bare alternative is enough to match every element. String
-// and escape contents are masked first, so `[title="("]` cannot open a group.
+// is `.a:has(.b) > .c`. And when the first combinator after the :has() is a
+// child or descendant one and the selector's subject has no type, class, id or
+// attribute of its own (`> *`, `> :not(.x)`), every descendant of the anchor is
+// restyled, so no comment can allow it. `:is(*, .x)` and `:where(.x, :hover)` key
+// on nothing either: one bare alternative is enough to match every element. The
+// subject is the last compound of the outermost selector that has one after the
+// :has(); a compound around an :is() never keys the selector inside it, so
+// `:is(.a:has(.b) > *).key` is as bad as `.a:has(.b) > *` (Chromium, W1-40).
+// A sibling combinator straight after the :has() only reaches the anchor's
+// siblings, and <body>/<html> have none that matter, so it stays allowable.
+// String contents are masked and escapes decoded first, so `[title="("]` cannot
+// open a group and `:h\61 s(` is read as the `:has(` the browser sees.
 // The root test looks inside :is()/:where() (`:is(body):has(.x)`), but not
 // inside :has()/:not(). A :has() in a nested
 // style rule (CSS nesting), or under a parent rule that has one, is reported as is:
@@ -36,21 +43,23 @@ const HAS = /:has\(/i;
  * @returns {{ line: number, selector: string, reason: string, allowed: boolean }[]}
  */
 export function findHasInvalidationRisks(css) {
-    const { clean, shown, allowLines } = stripComments(css);
+    const { clean, map, shown, allowLines } = normalize(css);
     const lineStarts = [0];
-    for (let index = 0; index < clean.length; index++) if (clean[index] === '\n') lineStarts.push(index + 1);
+    for (let index = 0; index < css.length; index++) if (css[index] === '\n') lineStarts.push(index + 1);
     const lineAt = offset => {
+        const source = map[offset];
         let low = 0;
         let high = lineStarts.length - 1;
         while (low < high) {
             const mid = (low + high + 1) >> 1;
-            if (lineStarts[mid] <= offset) low = mid;
+            if (lineStarts[mid] <= source) low = mid;
             else high = mid - 1;
         }
         return low + 1;
     };
-    // Masking keeps every length, so offsets into `clean` read `shown` (strings kept).
-    const original = (offset, text) => shown.slice(offset, offset + text.length).replace(/\s+/g, ' ').trim();
+    // `map` turns an offset into `clean` back into one into the source, so reports
+    // show strings and escapes as written.
+    const original = (offset, text) => shown.slice(map[offset], map[offset + text.length]).replace(/\s+/g, ' ').trim();
     const findings = [];
     for (const { text, offset, parentHas, nested } of stylePreludes(clean)) {
         if (nested && (parentHas || HAS.test(text))) {
@@ -66,7 +75,7 @@ export function findHasInvalidationRisks(css) {
         }
         for (const selector of splitTopLevel(text, ',', offset)) {
             const whole = original(selector.offset, selector.text);
-            for (const risk of complexRisks(selector.text, selector.offset, { followed: false, subjects: [], outer: [] })) {
+            for (const risk of complexRisks(selector.text, selector.offset, { combinator: null, subject: null, outer: [] })) {
                 const line = lineAt(risk.offset);
                 findings.push({
                     line,
@@ -86,25 +95,26 @@ export function findHasInvalidationRisks(css) {
 const LIST_PSEUDO = /^:(?:is|where|not|matches|-webkit-any|nth-child|nth-last-child)\($/i;
 
 // Every :has() in one complex selector, at any :is()/:where()/:not() depth, with
-// why it is a risk. `followed`: a combinator follows an enclosing compound.
-// `subjects`: the elements those combinators lead to, each a group of compounds
-// matched on the same element. `outer`: the enclosing compounds the last compound
-// here is matched together with (same element).
+// why it is a risk. `context` describes the selectors around this one:
+// `combinator`, the first combinator after the enclosing compound (null when
+// none follows); `subject`, the last compound of the outermost selector with a
+// compound after the enclosing one; `outer`, the enclosing compounds the last
+// compound here is matched together with (same element), for the root test.
 function complexRisks(text, offset, context) {
     const risks = [];
     const compounds = splitCompounds(text, offset);
     const last = compounds.length - 1;
     compounds.forEach((compound, index) => {
-        const followed = context.followed || index < last;
-        const subjects = index < last ? [[compounds[last].text, ...context.outer], ...context.subjects] : context.subjects;
+        const combinator = index < last ? compounds[index + 1].combinator : context.combinator;
+        const subject = context.subject ?? (index < last ? compounds[last].text : null);
         const anchor = index === last ? [...context.outer, compound.text] : [compound.text];
         for (const pseudo of topLevelPseudos(compound.text)) {
             if (/^:has\($/i.test(pseudo.name)) {
                 const reasons = [];
                 const rooted = anchor.some(part => ROOT_TYPE.test(withoutArguments(part, /:(?:has|not)\($/i)));
                 if (rooted || !anchor.some(keyedCompound)) reasons.push('anchored on the document root');
-                if (followed) reasons.push('followed by a combinator');
-                const hard = followed && subjects.some(group => !group.some(keyedCompound));
+                if (combinator) reasons.push('followed by a combinator');
+                const hard = (combinator === ' ' || combinator === '>') && !keyedCompound(subject);
                 if (hard) reasons.push('its subject has no type, class, id or attribute, so every descendant is restyled (cannot be allowed)');
                 if (reasons.length) risks.push({ offset: compound.offset + pseudo.start, reasons, hard });
                 continue;
@@ -121,7 +131,7 @@ function complexRisks(text, offset, context) {
             const rest = compound.text.slice(0, pseudo.argStart) + compound.text.slice(pseudo.argEnd);
             const outer = index === last ? [...context.outer, rest] : [rest];
             for (const inner of splitTopLevel(argument, ',', argumentOffset)) {
-                risks.push(...complexRisks(inner.text, inner.offset, { followed, subjects, outer }));
+                risks.push(...complexRisks(inner.text, inner.offset, { combinator, subject, outer }));
             }
         }
     });
@@ -185,15 +195,22 @@ export function readerStylesheetFiles(entry) {
     return files;
 }
 
-// Comments become spaces and the contents of strings and escapes become `_`
-// (newlines kept, so offsets and lines still line up): a brace, bracket, paren,
-// quote or comment marker inside `[title="("]` or `.a\(` is inert to the parser.
-// `shown` is the same text with strings and escapes left as written, for reports.
-function stripComments(css) {
+// Comments become spaces, the contents of strings become `_`, and escapes are
+// decoded: to the character when it can stand in an identifier as written
+// (`:h\61 s(` -> `:has(`, `b\6f dy` -> `body`), else to `_` (`.a\(`, `\2a`), so a
+// brace, bracket, paren, quote or comment marker inside `[title="("]` or `.a\(`
+// is inert to the parser. `map[i]` is the source offset of `clean[i]`; `shown` is
+// the source with comments blanked, for reports.
+function normalize(css) {
     let clean = '';
     let shown = '';
+    const map = [];
     const allowLines = new Set();
     let line = 1;
+    const emit = (char, source) => {
+        clean += char;
+        map.push(source);
+    };
     for (let index = 0; index < css.length; index++) {
         const char = css[index];
         if (char === '/' && css[index + 1] === '*') {
@@ -201,11 +218,11 @@ function stripComments(css) {
             const close = end < 0 ? css.length : end + 2;
             const comment = css.slice(index, close);
             const startLine = line;
-            for (const ch of comment) {
-                if (ch === '\n') line++;
-                clean += ch === '\n' ? '\n' : ' ';
+            for (let at = 0; at < comment.length; at++) {
+                if (comment[at] === '\n') line++;
+                emit(comment[at] === '\n' ? '\n' : ' ', index + at);
             }
-            shown = shown.padEnd(clean.length, ' ');
+            shown += comment.replace(/[^\n]/g, ' ');
             if (ALLOW_PATTERN.test(comment)) for (let at = startLine; at <= line; at++) allowLines.add(at);
             index = close - 1;
             continue;
@@ -213,25 +230,32 @@ function stripComments(css) {
         if (char === '"' || char === "'") {
             let end = index + 1;
             while (end < css.length && css[end] !== char) end += css[end] === '\\' ? 2 : 1;
-            const inner = css.slice(index + 1, Math.min(end, css.length));
-            for (const ch of inner) if (ch === '\n') line++;
-            clean += char + inner.replace(/[^\n]/g, '_') + (end < css.length ? char : '');
-            shown += css.slice(index, end + 1);
+            const quoted = css.slice(index, Math.min(end + 1, css.length));
+            for (let at = 0; at < quoted.length; at++) {
+                if (quoted[at] === '\n') line++;
+                const kept = at === 0 || (at === quoted.length - 1 && end < css.length) || quoted[at] === '\n';
+                emit(kept ? quoted[at] : '_', index + at);
+            }
+            shown += quoted;
             index = end;
             continue;
         }
         if (char === '\\') {
-            const escape = /^\\(?:[\da-f]{1,6}[ \t]?|[^\n\da-f])/i.exec(css.slice(index))?.[0] ?? char;
-            clean += '_'.repeat(escape.length);
-            shown += escape;
-            index += escape.length - 1;
+            const escape = /^\\(?:([\da-f]{1,6})(?:\r\n|[ \t\n\r\f])?|([^\n\r\f\da-f]))/i.exec(css.slice(index));
+            const text = escape?.[0] ?? char;
+            const decoded = escape?.[1] ? String.fromCodePoint(Math.min(Number.parseInt(escape[1], 16), 0x10ffff)) : escape?.[2];
+            for (const ch of text) if (ch === '\n') line++;
+            emit(decoded && /^[-\w]$/.test(decoded) ? decoded : '_', index);
+            shown += text;
+            index += text.length - 1;
             continue;
         }
         if (char === '\n') line++;
-        clean += char;
+        emit(char, index);
         shown += char;
     }
-    return { clean, shown, allowLines };
+    map.push(css.length);
+    return { clean, map, shown, allowLines };
 }
 
 // `:not(body).x:has(.y)` -> `:not().x:has()` for the pseudo-classes `pattern` names.
@@ -288,16 +312,22 @@ function splitTopLevel(text, separator, offset) {
 }
 
 // One complex selector -> its compounds, split at top-level combinators
-// (whitespace, >, +, ~).
+// (whitespace, >, +, ~). Each carries the combinator before it: ' ', '>', '+',
+// '~', or null for the first.
 function splitCompounds(text, offset) {
     const compounds = [];
     let depth = 0;
     let start = -1;
+    let combinator = null;
     for (let index = 0; index <= text.length; index++) {
         const char = text[index];
         const boundary = index === text.length || (depth === 0 && /[\s>+~]/.test(char));
         if (boundary) {
-            if (start >= 0) compounds.push({ text: text.slice(start, index), offset: offset + start });
+            if (start >= 0) {
+                compounds.push({ text: text.slice(start, index), offset: offset + start, combinator });
+                combinator = ' ';
+            }
+            if (compounds.length && /[>+~]/.test(char ?? '')) combinator = char;
             start = -1;
             continue;
         }

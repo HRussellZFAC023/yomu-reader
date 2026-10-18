@@ -1,6 +1,7 @@
 import { readdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
+import { HAS_GATE_PROBES } from '../../scripts/lib/css-has-gate-probes.mjs';
 import { findHasInvalidationRisks, readerStylesheetFiles } from '../../scripts/lib/css-has-invalidation.mjs';
 
 const blocking = (css: string) => findHasInvalidationRisks(css).filter(finding => !finding.allowed);
@@ -40,6 +41,19 @@ describe('CSS :has() invalidation gate', () => {
         expect(blocking('/* has-invalidation-allow: small subtree */\n.a:has(.b) > :where(.c, :hover) { color: red; }')).toHaveLength(1);
         expect(blocking('/* has-invalidation-allow: small subtree */\n.a:has(.b) > :is(rt, .c) { color: red; }')).toEqual([]);
         expect(blocking(':is(:hover, .a):has(.b) { color: red; }')).toEqual([expect.objectContaining({ reason: 'anchored on the document root' })]);
+    });
+
+    it('refuses exactly the probe selectors Chromium restyles all of BODY for (css-has-invalidation-smoke re-measures them)', () => {
+        const allow = '/* has-invalidation-allow: small subtree */\n';
+        const disagreements = HAS_GATE_PROBES.filter(({ selector, wholeSubtree }) => (blocking(`${allow}${selector} { color: red; }`).length > 0) !== wholeSubtree);
+        expect(disagreements).toEqual([]);
+    });
+
+    it('reports the line and source of a decoded escape as written', () => {
+        expect(blocking('.a {}\n.p:h\\61 s(.i)\n  > * { color: red; }')).toEqual([
+            expect.objectContaining({ line: 2, selector: '.p:h\\61 s(.i) > *', reason: expect.stringContaining('cannot be allowed') }),
+        ]);
+        expect(blocking('b\\6f dy:has(.x) { color: red; }')).toEqual([expect.objectContaining({ reason: 'anchored on the document root' })]);
     });
 
     it('does not read brackets, parens or quotes inside strings and escapes as selector syntax', () => {
