@@ -63,7 +63,7 @@ describe('persistent OCR answers (survive a page refresh)', () => {
         expect(loaded.has('https://manga.example/p2.png|800x1200')).toBe(false);
         // The site's own scripts cannot read which images were read, or their text.
         expect(pageKeysContaining('ocr-cache')).toEqual([]);
-        const shards = [...gmValues.keys()].map(decodeURIComponent).filter(key => key.includes('ocr-cache'));
+        const shards = [...gmValues.keys()].map(decodeURIComponent).filter(key => key.includes('ocr-cache') && !key.endsWith(':index'));
         expect(shards).toHaveLength(1);
         expect(shards[0]).not.toContain('manga.example');
     });
@@ -75,6 +75,32 @@ describe('persistent OCR answers (survive a page refresh)', () => {
         await persistNow(new Map([['https://other.example/p1.png|800x1200', result('二')]]));
         stubOrigin('https://manga.example');
         expect([...(await loadPersistedOcrCache(asIs)).keys()]).toEqual(['https://manga.example/p1.png|800x1200']);
+    });
+
+    it('reloads answers oldest first, so the next eviction drops the oldest', async () => {
+        const keys = ['https://manga.example/1.png|1', 'https://manga.example/2.png|1', 'https://manga.example/3.png|1'];
+        await persistNow(new Map(keys.map(key => [key, result(key)])));
+        const loaded = await loadPersistedOcrCache(asIs);
+        expect([...loaded.keys()]).toEqual(keys);
+        // A second round trip keeps the same order.
+        await persistNow(loaded);
+        expect([...(await loadPersistedOcrCache(asIs)).keys()]).toEqual(keys);
+    });
+
+    it('keeps the shards of the 20 sites read most recently', async () => {
+        for (let site = 0; site < 22; site += 1) {
+            stubOrigin(`https://site${site}.example`);
+            persistOcrCacheSoon(new Map([[`https://site${site}.example/p.png|1`, result('読')]]), 10_000 + site);
+            flushPersistedOcrCache();
+            await settled();
+        }
+        const shardCount = [...gmValues.keys()].map(decodeURIComponent)
+            .filter(key => key.includes('ocr-cache') && !key.endsWith(':index')).length;
+        expect(shardCount).toBe(20);
+        stubOrigin('https://site0.example');
+        expect((await loadPersistedOcrCache(asIs)).size).toBe(0);
+        stubOrigin('https://site21.example');
+        expect((await loadPersistedOcrCache(asIs)).size).toBe(1);
     });
 
     it('moves the old page-storage cache in once, keeping only answers with text', async () => {

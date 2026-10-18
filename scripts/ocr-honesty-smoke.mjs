@@ -9,8 +9,9 @@
 // offline and deterministic.
 //
 //   honesty   the first crupload answers 429: tap 1 shows a failed mark within
-//             300 ms, tap 2 reads the lines, 2 Lens requests in total; after a
-//             reload a tap renders from Yomu's private cache with 0 requests.
+//             300 ms, the pointer passing over the photo again sends nothing,
+//             tap 2 reads the lines, 2 Lens requests in total; after a reload
+//             a tap renders from Yomu's private cache with 0 requests.
 //   loading   Lens answers after 2.5 s: a loading mark is over the photo at 300 ms.
 //   decode    the photo is tapped while it loads and its bytes arrive 1.5 s
 //             later: exactly 1 crupload, with the real JPEG (> 20 KB), never a
@@ -53,6 +54,7 @@ const GOOGLE_WEB = /^https?:\/\/(lens\.google\.com|www\.google\.com)\//u;
 // consent wall or a page that needs JavaScript, never OCR data.
 const GOOGLE_CONSENT_PAGE = '<!doctype html><title>Before you continue to Google</title><form action="https://consent.google.com/save"></form>';
 const FAILED_MARK_BUDGET_MS = 300;
+const HOVER_REENTRIES = 6;
 // GM storage lives apart from the page's own keys, as in a real manager.
 const GM_STORAGE_PREFIX = '__yomu-gm-storage__:';
 const ENGINES = { chromium, webkit };
@@ -119,6 +121,11 @@ async function honestyCase(browser, engine) {
         check(`${label}: tap 1 shows the failed mark within ${FAILED_MARK_BUDGET_MS} ms of the 429`,
             failedAt > 0 && refusedAt > 0 && failedAt - refusedAt <= FAILED_MARK_BUDGET_MS,
             { afterRefusalMs: failedAt && refusedAt ? failedAt - refusedAt : null, lines: await lineCount(run.page) });
+        // Only a press or the failed mark reads a failed image again; a hover
+        // per pass would hammer the rate limit that refused it.
+        const beforeHover = lensCalls;
+        await hoverInAndOut(run.page, target, HOVER_REENTRIES);
+        check(`${label}: ${HOVER_REENTRIES} pointer passes over the failed photo send 0 Lens requests`, lensCalls === beforeHover, { newRequests: lensCalls - beforeHover });
         await tapPhoto(run.page, target);
         const lines = await waitForLines(run.page, 10_000);
         check(`${label}: tap 2 reads the photo`, lines === target.lines, { lines });
@@ -279,6 +286,17 @@ function lensRequests(run) {
 async function tapPhoto(page, target) {
     const box = await page.locator(target.photo).boundingBox();
     await page.mouse.click(box.x + box.width * 0.3, box.y + box.height * 0.3);
+}
+
+async function hoverInAndOut(page, target, times) {
+    const box = await page.locator(target.photo).boundingBox();
+    for (let pass = 0; pass < times; pass += 1) {
+        await page.mouse.move(box.x + box.width * 0.5, box.y + box.height * 0.5, { steps: 3 });
+        await page.waitForTimeout(400);
+        await page.mouse.move(Math.max(2, box.x - 40), Math.max(2, box.y - 40), { steps: 3 });
+        await page.waitForTimeout(200);
+    }
+    await page.waitForTimeout(1_000);
 }
 
 async function waitForMark(page, target, status, timeoutMs) {

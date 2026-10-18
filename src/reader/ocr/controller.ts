@@ -158,6 +158,8 @@ interface ImageState {
     overlayRequested: boolean;
     manualRequested: boolean;
     autoSkipped: boolean;
+    /** The last scan of this inline image failed: only a press or the failed mark reads it again. */
+    failed: boolean;
     scan?: symbol;
     /** The image's 'load' listener, removed when the state is torn down so a re-boot doesn't leak it. */
     loadListener?: () => void;
@@ -251,7 +253,7 @@ export { normalizeOcrResult };
 export type { OcrResult };
 
 function shouldSkipOcrRequest(state: ImageState, userRequested: boolean): boolean {
-    return state.autoSkipped && !userRequested;
+    return (state.autoSkipped || state.failed) && !userRequested;
 }
 
 function updateOcrRequestFlags(state: ImageState, image: HTMLImageElement, userRequested: boolean): void {
@@ -265,7 +267,7 @@ function shouldPinOcrLineFromPointer(event: PointerEvent): boolean {
 }
 
 function isOcrImageStateIdle(state: ImageState): boolean {
-    return !state.result && !state.loading && !state.autoSkipped;
+    return !state.result && !state.loading && !state.autoSkipped && !state.failed;
 }
 
 interface OcrScanContext {
@@ -297,6 +299,7 @@ function beginOcrScan(
     manualRequested: boolean,
 ): OcrScanContext {
     const token = claimOcrScan(state);
+    state.failed = false;
     const provider = inlineProviderLabel(settings);
     return {
         provider,
@@ -304,6 +307,9 @@ function beginOcrScan(
         token,
     };
 }
+
+// Spread results with one half failed: rendered, never remembered as the page's answer.
+const partialOcrResults = new WeakSet<OcrResult>();
 
 function renderNoOcrLines(state: ImageState): void {
     state.autoSkipped = true;
@@ -908,7 +914,7 @@ export class ImageOcrController {
 
         this.mountOcrOverlayForImage(overlay, image);
 
-        const state: ImageState = { image, overlay, key: imageCacheKey(image), target: captureOcrTargetContext(), loading: false, overlayRequested: false, manualRequested: false, autoSkipped: false };
+        const state: ImageState = { image, overlay, key: imageCacheKey(image), target: captureOcrTargetContext(), loading: false, overlayRequested: false, manualRequested: false, autoSkipped: false, failed: false };
         const loadListener = (): void => {
             this.resetStateIfImageChanged(state);
             this.schedulePosition();
@@ -967,7 +973,11 @@ export class ImageOcrController {
             else this.lastPointerMoveImage = undefined;
             this.lastPointerMoveReaderSurface = undefined;
             this.lastPointerMoveReaderSurfaceKey = undefined;
-            if (event.type !== 'pointerover' && event.type !== 'pointermove') this.forgetEmptyAnswer(image);
+            const hover = event.type === 'pointerover' || event.type === 'pointermove';
+            // After a failure the pointer passing over the image again is not a new
+            // request: each pass would cost another provider call under a rate limit.
+            if (hover && this.states.get(image)?.failed) return false;
+            if (!hover) this.forgetEmptyAnswer(image);
             this.enqueue(image, true);
             return true;
         }
@@ -1230,7 +1240,7 @@ export class ImageOcrController {
             return;
         }
 
-        this.remember(work.cacheKey, result);
+        if (!partialOcrResults.has(result)) this.remember(work.cacheKey, result);
         this.readerRasterEmptyScans.delete(this.readerRasterEmptyScanKey(state, work));
         this.readerRasterFailedScans.delete(work.workKey);
         this.clearReaderRasterProviderRetry(work.workKey);
@@ -1284,6 +1294,8 @@ export class ImageOcrController {
             this.rememberReaderRasterFailure(work.workKey);
         }
         logOcrFailure(state, provider, manualRequested, error);
+        // Reader pages keep their own retry budget (scheduleReaderRasterProviderRetry).
+        state.failed = !this.isReaderRasterFrame(image);
         this.updateOcrStatus(image, 'failed');
     }
 
@@ -1323,6 +1335,8 @@ export class ImageOcrController {
         // A half that failed is not a half without text: with nothing read, the scan failed.
         const failure = outcomes.find(outcome => outcome.status === 'rejected');
         if (!merged && failure) throw failure.reason;
+        // Shown, but not remembered: the failed half is read again next time.
+        if (merged && failure) partialOcrResults.add(merged);
         return merged;
     }
 
@@ -1707,6 +1721,7 @@ export class ImageOcrController {
         state.overlayRequested = false;
         state.manualRequested = false;
         state.autoSkipped = false;
+        state.failed = false;
         if (!preserveReaderRasterResult) {
             this.discardOcrLineInteractionState(state.overlay.querySelectorAll<HTMLElement>('.jpdb-ocr-line'));
             state.overlay.querySelectorAll('.jpdb-ocr-line').forEach(node => node.remove());

@@ -8,10 +8,12 @@
 // sharded per origin under a key that names no site, and each shard is capped
 // by entry count and serialized size so iOS userscript managers, whose GM
 // storage is one message round trip per value, keep a small value per site.
+// An index of shards keeps only the sites read most recently, because a
+// manager hands the script's whole storage to every page it runs on.
 // Only answers with text are kept. An empty answer is remembered for the page
 // visit only, and a failed scan is never remembered at all.
 import { managedStateWritesSuppressed } from '../app/managed-state-registry';
-import { gmPrivateStorageGet, gmPrivateStorageSet, managedLocalStorage } from '../app/storage';
+import { gmPrivateStorageDelete, gmPrivateStorageGet, gmPrivateStorageSet, managedLocalStorage } from '../app/storage';
 import { sensitiveFingerprint } from '../core/sensitive-fingerprint';
 import type { OcrResult } from './response-shared';
 
@@ -21,6 +23,9 @@ const LEGACY_PAGE_KEY = 'yomu-ocr-cache-v2';
 const LEGACY_PAGE_KEYS = ['yomu-ocr-cache-v1', LEGACY_PAGE_KEY] as const;
 const MAX_ENTRIES = 36;
 const MAX_SHARD_BYTES = 256_000;
+// Shard key -> last write. Lives under the shard prefix so a factory reset clears it.
+const SHARD_INDEX_KEY = `${OCR_CACHE_SHARD_PREFIX}index`;
+const MAX_SHARDS = 20;
 const PERSIST_DELAY_MS = 1200;
 
 interface StoredEntry { r: OcrResult; at: number }
@@ -138,19 +143,22 @@ function installFlushListeners(): void {
     }
 }
 
-/** Newest answers with text first, capped by count and bytes. */
+/** The newest answers with text, capped by count and bytes, stored oldest first. */
 function ocrCacheShard(cache: ReadonlyMap<string, OcrResult | null>, now: number): StoredShard {
-    const out: StoredShard = {};
+    const newestFirst: Array<[string, OcrResult]> = [];
     let bytes = 0;
-    let count = 0;
     for (const key of [...cache.keys()].reverse()) {
         const result = cache.get(key);
         if (!isPersistableKey(key) || !hasLines(result)) continue;
         bytes += key.length + JSON.stringify(result).length + 24;
-        if (bytes > MAX_SHARD_BYTES || count >= MAX_ENTRIES) break;
-        out[key] = { r: result, at: now };
-        count += 1;
+        if (bytes > MAX_SHARD_BYTES || newestFirst.length >= MAX_ENTRIES) break;
+        newestFirst.push([key, result]);
     }
+    // Distinct times keep the order on load: the oldest answer is evicted first.
+    const out: StoredShard = {};
+    newestFirst.reverse().forEach(([key, result], index) => {
+        out[key] = { r: result, at: now - newestFirst.length + 1 + index };
+    });
     return out;
 }
 
@@ -159,8 +167,23 @@ async function writeOcrCache(cache: ReadonlyMap<string, OcrResult | null>, now: 
     // re-create the just-cleared shard.
     if (managedStateWritesSuppressed()) return;
     try {
-        await gmPrivateStorageSet(shardKey(), ocrCacheShard(cache, now));
+        const key = shardKey();
+        const shard = ocrCacheShard(cache, now);
+        const kept = Object.keys(shard).length > 0;
+        if (kept) await gmPrivateStorageSet(key, shard);
+        else await gmPrivateStorageDelete(key);
+        await updateShardIndex(key, kept ? now : undefined);
     } catch {
         // No private storage, quota or reset in progress: best-effort, never throw into OCR.
     }
+}
+
+/** Record this site's write and drop the shards of the sites read longest ago. */
+async function updateShardIndex(key: string, writtenAt: number | undefined): Promise<void> {
+    const index = { ...await gmPrivateStorageGet<Record<string, number>>(SHARD_INDEX_KEY, {}) };
+    if (writtenAt === undefined) delete index[key];
+    else index[key] = writtenAt;
+    const byRecency = Object.entries(index).sort((a, b) => b[1] - a[1]);
+    await gmPrivateStorageSet(SHARD_INDEX_KEY, Object.fromEntries(byRecency.slice(0, MAX_SHARDS)));
+    for (const [stale] of byRecency.slice(MAX_SHARDS)) await gmPrivateStorageDelete(stale);
 }
