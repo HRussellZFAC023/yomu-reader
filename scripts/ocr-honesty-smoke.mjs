@@ -15,10 +15,14 @@
 //   loading   Lens answers after 2.5 s: a loading mark is over the photo at 300 ms.
 //   hover     the pointer only passes over the photo, never presses: no mark
 //             (loading, failed or no text) ever shows, whether Lens is slow and
-//             refuses or answers with no text; a press then reads the photo.
+//             refuses or answers with no text; a press then reads the photo;
+//             and the pointer over a dark photo with no text costs 1 crupload.
 //   decode    the photo is tapped while it loads and its bytes arrive 1.5 s
 //             later: exactly 1 crupload, with the real JPEG (> 20 KB), never a
 //             blank one sent before it decoded, and the tap is not dropped.
+//   autodecode defaults on a recorded Japanese article (ja.wikipedia 東京都),
+//             every thumbnail held 3 s: the automatic scan sends nothing while
+//             they load, then one crupload per image with its decoded pixels.
 //   photo     defaults, one tap on a photo with dark regions opened on its
 //             own: exactly 1 crupload (no inverted second pass) and every
 //             recorded line.
@@ -58,6 +62,9 @@ const GOOGLE_WEB = /^https?:\/\/(lens\.google\.com|www\.google\.com)\//u;
 const GOOGLE_CONSENT_PAGE = '<!doctype html><title>Before you continue to Google</title><form action="https://consent.google.com/save"></form>';
 const FAILED_MARK_BUDGET_MS = 300;
 const HOVER_REENTRIES = 6;
+// ja.wikipedia 東京都: the thumbnails above the fold that automatic OCR reads.
+const AUTO_DECODE_IMAGES = 3;
+const AUTO_DECODE_HOLD_MS = 3_000;
 // GM storage lives apart from the page's own keys, as in a real manager.
 const GM_STORAGE_PREFIX = '__yomu-gm-storage__:';
 const ENGINES = { chromium, webkit };
@@ -89,6 +96,7 @@ for (const engine of engines) {
         if (runCase('loading')) await loadingCase(browser, engine);
         if (runCase('hover')) await hoverCase(browser, engine);
         if (runCase('decode')) await decodeCase(browser, engine);
+        if (runCase('autodecode')) await autoDecodeCase(browser, engine);
         if (runCase('photo')) await photoCase(browser, engine);
     } finally {
         await browser.close();
@@ -221,6 +229,26 @@ async function hoverCase(browser, engine) {
     } finally {
         await noText.close();
     }
+
+    // A dark photo with no text found: only a press earns the inverted second pass.
+    const dark = TARGETS.sushi;
+    const darkRun = await openPhotoPage(browser, dark, {
+        settings: tapOnlySettings(),
+        navigate: false,
+        onGmRequest: request => (LENS.test(request.url)
+            ? { status: 200, contentType: 'application/x-protobuf', body: Buffer.alloc(0) }
+            : googleWebAnswer(request)),
+    });
+    try {
+        await darkRun.page.goto(dark.documentUrl, { waitUntil: 'load' });
+        const standalone = { photo: 'body > img' };
+        await darkRun.page.locator(standalone.photo).waitFor({ state: 'visible' });
+        await hoverInAndOut(darkRun.page, standalone, 1);
+        await darkRun.page.waitForTimeout(3_000);
+        check(`${label}: the pointer over a dark photo with no text costs 1 crupload, no inverted pass`, lensRequests(darkRun).length === 1, { cruploads: lensRequests(darkRun).length });
+    } finally {
+        await darkRun.close();
+    }
 }
 
 /** Every mark status seen over the photo while `action` runs, polled each frame. */
@@ -276,6 +304,45 @@ async function decodeCase(browser, engine) {
         check(`${label}: the crupload carries the decoded photo (> 20 KB)`, uploads.length > 0 && uploads.every(entry => entry.bodyBytes > 20_000), uploads.map(entry => entry.bodyBytes));
         check(`${label}: the tap made while it loaded reads the photo`, lines === target.lines, { lines });
         await checkPrivacy(run, label);
+    } finally {
+        await run.close();
+    }
+}
+
+// The automatic path on a Japanese page: images that are still loading are
+// read once they decode, never sent as a blank frame first.
+async function autoDecodeCase(browser, engine) {
+    const label = `${engine} autodecode`;
+    const { uploads, releasedAt } = await autoScanUploads(browser, AUTO_DECODE_HOLD_MS);
+    const bytes = uploads.map(upload => upload.bytes);
+    check(`${label}: the ${AUTO_DECODE_IMAGES} images above the fold are read once each`, uploads.length === AUTO_DECODE_IMAGES, bytes);
+    check(`${label}: nothing is sent while they load`, uploads.every(upload => upload.at >= releasedAt), uploads.map(upload => ({ bytes: upload.bytes, msBeforeImages: Math.max(0, releasedAt - upload.at) })));
+    check(`${label}: every crupload carries a decoded image (> 5 KB)`, bytes.every(size => size > 5_000), bytes);
+}
+
+async function autoScanUploads(browser, holdMs) {
+    let releasedAt = 0;
+    const run = await openRecordedPage({
+        browser,
+        slug: 'ja-wikipedia-tokyo',
+        product,
+        settings: { onboardingSeen: true },
+        navigate: false,
+        gmStoragePrefix: GM_STORAGE_PREFIX,
+        onGmRequest: request => (LENS.test(request.url)
+            ? { status: 200, contentType: 'application/x-protobuf', body: Buffer.alloc(0) }
+            : googleWebAnswer(request)),
+    });
+    try {
+        await run.page.route(/^https:\/\/thumb\.wikimedia\.org\//u, async route => {
+            await delay(holdMs);
+            releasedAt = Math.max(releasedAt, Date.now());
+            await route.fallback();
+        });
+        await run.page.goto(run.recording.manifest.url, { waitUntil: 'domcontentloaded' });
+        await run.page.waitForTimeout(holdMs + 9_000);
+        await checkPrivacy(run, `${run.engine} autodecode`);
+        return { uploads: lensRequests(run).map(entry => ({ at: entry.at, bytes: entry.bodyBytes })), releasedAt };
     } finally {
         await run.close();
     }
