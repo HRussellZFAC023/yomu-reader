@@ -7,6 +7,7 @@ import path from 'node:path';
 import { chromium } from 'playwright';
 import { closeServer, startLoopbackServer } from '../lib/smoke-harness.mjs';
 import {
+    chromiumExtensionLaunchArgs,
     chromiumExtensionSmokeConfig,
     createChromiumExtensionSmokeScope,
 } from '../lib/chromium-extension-smoke.mjs';
@@ -47,9 +48,7 @@ try {
         // worker visible while suppressing manifest content-script injection.
         ignoreDefaultArgs: ['--disable-extensions'],
         args: [
-            `--disable-extensions-except=${extensionDirectory}`,
-            `--load-extension=${extensionDirectory}`,
-            '--no-first-run',
+            ...chromiumExtensionLaunchArgs(extensionDirectory),
             '--window-size=1280,900',
         ],
     });

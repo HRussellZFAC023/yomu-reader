@@ -6,6 +6,7 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { chromium } from 'playwright';
 import {
+    chromiumExtensionLaunchArgs,
     chromiumExtensionSmokeConfig,
     createChromiumExtensionSmokeScope,
 } from '../lib/chromium-extension-smoke.mjs';
@@ -56,9 +57,7 @@ try {
         viewport: { width: 1_280, height: 800 },
         ignoreDefaultArgs: ['--disable-extensions'],
         args: [
-            `--disable-extensions-except=${extensionDir}`,
-            `--load-extension=${extensionDir}`,
-            '--no-first-run',
+            ...chromiumExtensionLaunchArgs(extensionDir),
             '--window-size=1280,900',
         ],
     });

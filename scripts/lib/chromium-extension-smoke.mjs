@@ -14,6 +14,21 @@ export function chromiumExtensionSmokeConfig(importMetaUrl, artifactDirectoryNam
     };
 }
 
+/**
+ * Chromium flags that load an unpacked extension. Playwright's Chromium now
+ * ignores --load-extension unless DisableLoadExtensionCommandLineSwitch is off:
+ * without it the service worker still appears, but it has no chrome.runtime
+ * and no content script ever runs.
+ */
+export function chromiumExtensionLaunchArgs(extensionDirectory) {
+    return [
+        `--disable-extensions-except=${extensionDirectory}`,
+        `--load-extension=${extensionDirectory}`,
+        '--disable-features=DisableLoadExtensionCommandLineSwitch',
+        '--no-first-run',
+    ];
+}
+
 /** Owns the disposable package extraction and browser profile for a smoke run. */
 export function createChromiumExtensionSmokeScope() {
     const directories = new Set();
