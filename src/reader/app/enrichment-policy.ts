@@ -12,7 +12,7 @@ import type { JPDBCard, ReaderColorSource, ReaderSettings } from './types';
 // learner has not opened. Needed work (a word's reading and identity) runs;
 // merely wanted work (a pitch contour scraped from jpdb.io) runs only when a
 // colour channel paints it. Pitch for an opened popup always runs, through the
-// urgent path, whatever this says (ADR-0027).
+// urgent path, whatever this says (ADR-0034).
 
 export type EnrichmentSurface = 'page' | 'subtitle';
 
