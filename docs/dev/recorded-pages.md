@@ -190,21 +190,26 @@ the page" take a signature before the product runs and one after.
 
 ### Probes (`scripts/lib/recorded-page-probes.mjs`)
 
-- `kanjiReadingCoverage(page, { root })`: of the visible kanji runs in the
-  page's own text, how many sit wholly in product words that paint a reading.
-  A reading counts only when a learner could see it: a box at least a pixel
-  each way in the viewport, `checkVisibility` (display, visibility and
-  opacity, ancestors included) and a fill colour that is not transparent. A
-  reading kept in the DOM but hidden is not painted; `npm run
-  smoke:recorded-pages:probes` checks this in each engine and in WebKit at
-  iPad size.
+- `kanjiReadingCoverage(page, { root })`: of the kanji runs in the viewport
+  in the page's own text, how many sit wholly in product words with a reading
+  a learner sees. A reading counts in two steps. First the style rule: a box
+  at least a pixel each way in the viewport, `checkVisibility` (display,
+  visibility and opacity, ancestors included), a fill colour that is not
+  transparent, and no ancestor clipping or filtering it away (`clip-path` to
+  nothing, `clip`, `filter: opacity(0)`). Then the screen: a viewport
+  screenshot is compared with one taken while an adopted stylesheet hides
+  every reading (no DOM change), and a reading is seen only if its own pixels
+  change. A mask, a partial clip or text the colour of what is behind it
+  therefore does not count either. `styledReadings` and `seenReadings` report
+  both steps. `npm run smoke:recorded-pages:probes` checks this in each
+  engine and in WebKit at iPad size.
   Runs are read from each block's text with the readings taken out, so the
   denominator is the same however a build splits or wraps the words. The product's kanji words, the painted ones and those with only
   `data-reading` are reported beside it.
 - `startCaptionFrameLog` / `readCaptionFrames` / `captionFlashFrames`: a
   per-frame log of the subtitle lines and of whether YouTube's own caption is
-  painted, by the same visibility rule (a product line kept but hidden is a
-  gap).
+  painted, by the style rule alone (a screenshot per frame is too slow; a
+  product line kept but hidden is a gap, unless only a mask hides it).
 
 ## Harness self-test
 
@@ -234,7 +239,12 @@ the page" take a signature before the product runs and one after.
 - `probes`: on the readings 2.1.6 paints on ja-wikipedia-nihongo, in each
   engine and in WebKit at 1024×1366 with touch, hiding every reading in place
   (`visibility: hidden`, `opacity: 0`, `display: none`, `font-size: 0`,
-  `color: transparent`) takes covered runs and painted words to zero.
+  `color: transparent`, `clip-path: inset(100%)`, `clip-path: circle(0)`,
+  `clip-path: polygon(0 0, 0 0, 0 0)`, `filter: opacity(0)`, `mask-image`)
+  takes covered runs and painted words to zero, and the per-frame style rule
+  passes none of them but the polygon and the mask. `transform: scale(0)` is
+  left out: Chromium and Firefox do not transform an `rt`, so the reading stays
+  on screen and the screenshot check rightly counts it.
 
 Geometry baselines are per platform. Every recording was made on macOS, so on
 the Linux nightly the replay case only checks that each recording loads and
