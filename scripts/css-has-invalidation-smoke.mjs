@@ -18,7 +18,10 @@
 //      at most 5 ms/s of style recalculation;
 //   3. the popover sheet at iPhone and iPad sizes carries .jpdb-reader-sheet-has-body
 //      and keeps the handle / scroll body / actions grid that class alone gives it, and with
-//      YOMU_HAS_COMPARE=v2.1.6 its geometry is within 1 px of that release.
+//      YOMU_HAS_COMPARE=v2.1.6 its geometry is within 1 px of that release;
+//   4. the check:css-has gate agrees with Chromium: on the host-has page without
+//      Yomu, every probe rule the gate refuses even with an allow comment causes
+//      whole-BODY invalidation, and every one it lets through causes none.
 //
 // The page is css-has-invalidation-mechanism-fixture: the cost is a property of
 // the injected stylesheet plus any host insertion, not of a site's content, so a
@@ -44,6 +47,7 @@ import {
     YOMU_SETTINGS_KEY,
 } from './lib/smoke-harness.mjs';
 import { cdpMetrics, metricDelta } from './lib/cdp-performance-metrics.mjs';
+import { findHasInvalidationRisks } from './lib/css-has-invalidation.mjs';
 import { addScriptTagWithCspFallback, userscriptCompanionPaths } from './lib/smoke-test-helpers.mjs';
 
 const paths = createSmokePaths(import.meta.dirname);
@@ -55,6 +59,15 @@ const LOOKUP_WORD = '日本語';
 const VOCABULARY = [[LOOKUP_WORD, LOOKUP_WORD, 'にほんご', 'Japanese (language)', ['n'], 400, ['not-in-deck'], ['LHHH']]];
 // Gave 20 whole-BODY invalidations beside the host body:has() rule (W1-40 review).
 const CONTROL_RULE = ':is(.yomu-has-control:has(.yomu-has-control-inner) > :not(.yomu-has-control-skip)) { outline: 0; }';
+// Selectors the gate once misread (W1-40 reviews), beside keyed ones it must keep allowing.
+const GATE_PROBES = [
+    CONTROL_RULE,
+    '.yomu-has-probe[data-label="("]:has(.yomu-has-probe-inner) > :not(.yomu-has-probe-skip) { outline: 0; }',
+    '.yomu-has-probe:has(.yomu-has-probe-inner) > :is(*, .yomu-has-probe-skip) { outline: 0; }',
+    '.yomu-has-probe:has(.yomu-has-probe-inner) > :where(.yomu-has-probe-skip, :hover) { outline: 0; }',
+    '.yomu-has-probe:has(.yomu-has-probe-inner) > :is(rt, .yomu-has-probe-skip) { outline: 0; }',
+    '.yomu-has-probe:has(.yomu-has-probe-inner) > .yomu-has-probe-skip { outline: 0; }',
+];
 const SHEET_VIEWPORTS = { iphone: { width: 390, height: 844 }, ipad: { width: 820, height: 1180 } };
 const SETTINGS = {
     onboardingSeen: true,
@@ -96,8 +109,16 @@ const server = await startLoopbackServer((request, response) => {
 }, 'Could not bind css-has invalidation fixture server');
 
 const browser = await launchSmokeBrowser(chromium, 'chromium', { headless: true });
-const report = { build: build.label, compare: compare?.label ?? null, invalidation: {}, churn: {}, sheet: {} };
+const report = { build: build.label, compare: compare?.label ?? null, invalidation: {}, churn: {}, sheet: {}, gate: [] };
 try {
+    for (const rule of GATE_PROBES) {
+        const refused = findHasInvalidationRisks(`/* has-invalidation-allow: probe */\n${rule}`).some(finding => !finding.allowed);
+        const page = await browser.newPage();
+        await page.setContent(fixtureHtml({ hostHas: true }).replace('</style>', `${rule}\n</style>`));
+        const { rootWholeSubtree } = await bodyInvalidationOnHostInsertion(page);
+        report.gate.push({ rule, refused, rootWholeSubtree });
+        await page.close();
+    }
     for (const variant of ['plain', 'host-has', 'control']) {
         const page = await openPage(build, { width: 1280, height: 800 }, variant !== 'plain', {}, variant === 'control' ? CONTROL_RULE : '');
         await page.locator('.jpdb-reader-fab').first().waitFor({ state: 'visible', timeout: 15_000 });
@@ -118,6 +139,10 @@ try {
 }
 console.log(JSON.stringify(report, null, 2));
 
+for (const probe of report.gate) {
+    assert(probe.refused === probe.rootWholeSubtree > 0,
+        probe.refused ? 'gate refuses a rule Chromium handles without whole-BODY invalidation' : 'gate allows a rule that makes Chromium invalidate all of BODY', probe);
+}
 const { control, ...variants } = report.invalidation;
 assert(control.rootWholeSubtree > 0, 'control: a known-bad rule beside the host body:has() rule caused no whole-BODY invalidation, so this smoke cannot detect one', control);
 for (const [variant, result] of Object.entries(variants)) {

@@ -35,6 +35,21 @@ describe('CSS :has() invalidation gate', () => {
         expect(blocking(reviewed)).toEqual([expect.objectContaining({ line: 2, reason: expect.stringContaining('cannot be allowed') })]);
         expect(blocking('/* has-invalidation-allow: small subtree */\n.a:has(.b) > * { color: red; }')).toHaveLength(1);
         expect(blocking('/* has-invalidation-allow: small subtree */\n.a:has(.b) > rt { color: red; }')).toEqual([]);
+        // One bare alternative matches every element, so the list keys on nothing.
+        expect(blocking('/* has-invalidation-allow: small subtree */\n.probe:has(.inner) > :is(*, .exclude) { color: red; }')).toHaveLength(1);
+        expect(blocking('/* has-invalidation-allow: small subtree */\n.a:has(.b) > :where(.c, :hover) { color: red; }')).toHaveLength(1);
+        expect(blocking('/* has-invalidation-allow: small subtree */\n.a:has(.b) > :is(rt, .c) { color: red; }')).toEqual([]);
+        expect(blocking(':is(:hover, .a):has(.b) { color: red; }')).toEqual([expect.objectContaining({ reason: 'anchored on the document root' })]);
+    });
+
+    it('does not read brackets, parens or quotes inside strings and escapes as selector syntax', () => {
+        // Chromium: with a host body:has() rule, this restyled every element under BODY on any insertion.
+        expect(blocking('.probe[data-label="("]:has(.inner) > :not(.exclude) { color: red; }')).toEqual([
+            expect.objectContaining({ reason: expect.stringContaining('cannot be allowed') }),
+        ]);
+        expect(blocking(".a[title=')]'] :has(.b) { color: red; }")).toHaveLength(1);
+        expect(blocking('.a\\(:has(.b) > * { color: red; }')).toHaveLength(1);
+        expect(blocking('.a[title="{ body:has(.x) .y }"]:has(.b) { color: red; }')).toEqual([]);
     });
 
     it('reports :has() in nested style rules instead of guessing what `&` resolves to', () => {
