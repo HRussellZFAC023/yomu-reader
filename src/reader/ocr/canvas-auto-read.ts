@@ -7,13 +7,9 @@
 // OCR provider is their own local service. A cloud provider (Google Lens, Cloud
 // Vision) never receives such a page in the background; it waits for a tap.
 import type { ReaderSettings } from '../app/types';
+import { ocrRunsOnLearnerService } from './ocr-upload-policy';
 
 const CANVAS_OCR_OPT_IN_SELECTOR = 'canvas[data-yomu-canvas-ocr="on"], [data-yomu-canvas-ocr="on"] canvas';
-
-/** The learner's own OCR service reads the image, so an automatic read uploads it nowhere else. */
-function ocrRunsOnLearnerService(settings: ReaderSettings): boolean {
-    return settings.ocrProvider === 'local-service';
-}
 
 /** A reader canvas OCR may capture without a tap while generic image OCR is suppressed. */
 export function readsReaderCanvasWithoutTap(canvas: HTMLCanvasElement, settings: ReaderSettings): boolean {

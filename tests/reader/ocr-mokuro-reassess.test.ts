@@ -140,7 +140,8 @@ describe('OCR reassessAutoScan (mokuro OCR toggle)', () => {
     it('starts scanning when the native text layer turns off', async () => {
         stubInstantIntersectionObserver();
         let defer = true; // mokuro OCR on → reader idle
-        const controller = makeController(() => !defer);
+        // Only the learner's own OCR service reads a page with no tap (owner decision 4).
+        const controller = makeController(() => !defer, { ocrProvider: 'local-service' });
         document.body.replaceChildren(makeImage('/page-1.png'));
         try {
             controller.init();
