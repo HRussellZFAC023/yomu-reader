@@ -13,7 +13,7 @@
 // Only answers with text are kept. An empty answer is remembered for the page
 // visit only, and a failed scan is never remembered at all.
 import { managedStateWritesSuppressed } from '../app/managed-state-registry';
-import { gmPrivateStorageDelete, gmPrivateStorageGet, gmPrivateStorageSet, managedLocalStorage } from '../app/storage';
+import { gmPrivateStorageDelete, gmPrivateStorageGet, gmPrivateStorageSet, managedLocalStorage, withGmStorageLease } from '../app/storage';
 import { sensitiveFingerprint } from '../core/sensitive-fingerprint';
 import type { OcrResult } from './response-shared';
 
@@ -22,9 +22,12 @@ const OCR_CACHE_SHARD_PREFIX = 'yomu:private:ocr-cache:v3:';
 const LEGACY_PAGE_KEY = 'yomu-ocr-cache-v2';
 const LEGACY_PAGE_KEYS = ['yomu-ocr-cache-v1', LEGACY_PAGE_KEY] as const;
 const MAX_ENTRIES = 36;
-const MAX_SHARD_BYTES = 256_000;
+// Every page the manager runs on is handed all shards: 20 x 64 KB stays near 1.3 MB on an iPad.
+const MAX_SHARD_BYTES = 64_000;
 // Shard key -> last write. Lives under the shard prefix so a factory reset clears it.
 const SHARD_INDEX_KEY = `${OCR_CACHE_SHARD_PREFIX}index`;
+// Tabs on different sites flush at the same moment; the index is read and written under one lease.
+const SHARD_INDEX_LEASE = 'ocr-cache-shard-index';
 const MAX_SHARDS = 20;
 const PERSIST_DELAY_MS = 1200;
 
@@ -172,7 +175,7 @@ async function writeOcrCache(cache: ReadonlyMap<string, OcrResult | null>, now: 
         const kept = Object.keys(shard).length > 0;
         if (kept) await gmPrivateStorageSet(key, shard);
         else await gmPrivateStorageDelete(key);
-        await updateShardIndex(key, kept ? now : undefined);
+        await withGmStorageLease(SHARD_INDEX_LEASE, () => updateShardIndex(key, kept ? now : undefined));
     } catch {
         // No private storage, quota or reset in progress: best-effort, never throw into OCR.
     }

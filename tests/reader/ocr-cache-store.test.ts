@@ -87,6 +87,22 @@ describe('persistent OCR answers (survive a page refresh)', () => {
         expect([...(await loadPersistedOcrCache(asIs)).keys()]).toEqual(keys);
     });
 
+    it('keeps both sites in the index when two tabs flush at the same moment', async () => {
+        // The GM claims that serialize tabs need the manager's value listing.
+        vi.stubGlobal('GM_listValues', () => [...gmValues.keys()]);
+        stubOrigin('https://first.example');
+        persistOcrCacheSoon(new Map([['https://first.example/p.png|1', result('一')]]), 5_000);
+        flushPersistedOcrCache();
+        stubOrigin('https://second.example');
+        persistOcrCacheSoon(new Map([['https://second.example/p.png|1', result('二')]]), 5_001);
+        flushPersistedOcrCache();
+        const indexed = () => {
+            const indexKey = [...gmValues.keys()].find(key => decodeURIComponent(key).endsWith('ocr-cache:v3:index'));
+            return Object.keys((indexKey && gmValues.get(indexKey)) ?? {});
+        };
+        await vi.waitFor(() => expect(indexed()).toHaveLength(2));
+    });
+
     it('keeps the shards of the 20 sites read most recently', async () => {
         for (let site = 0; site < 22; site += 1) {
             stubOrigin(`https://site${site}.example`);
