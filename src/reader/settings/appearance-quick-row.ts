@@ -96,6 +96,12 @@ export function localizeAppearanceQuickRow(form: HTMLFormElement, text: Settings
     });
 }
 
+/** Re-reads the accent input and the channel selects after they were set without events. */
+export function syncAppearanceQuickRow(form: HTMLFormElement): void {
+    syncAccentSwatches(form);
+    syncUnderlineQuick(form);
+}
+
 function setAccessibleName(element: HTMLElement, name: string): void {
     element.setAttribute('aria-label', name);
     element.title = name;

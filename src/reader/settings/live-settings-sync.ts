@@ -1,6 +1,7 @@
 import type { ReaderSettings } from '../app/types';
 import { normalizeReaderSettings } from './index';
 import { subscribeToSettingsChanges, type SettingsChangeDetail } from './settings-change-bus';
+import { syncAppearanceQuickRow } from './appearance-quick-row';
 import {
     syncFontFamilyControls,
     syncSubtitlePreview,
@@ -116,6 +117,7 @@ export function bindLiveSettingsSync(
             const settings = { ...previousSettings, ...detail.settings };
             dependencies.adoptSettings(settings);
             syncFormFromSettings(form, previousSettings, settings);
+            syncAppearanceQuickRow(form);
             syncSubtitlePreview(form);
             syncFontFamilyControls(form);
             adoptedSettings = snapshotDurableSettings(settings);
