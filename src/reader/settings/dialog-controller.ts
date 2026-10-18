@@ -838,6 +838,7 @@ export class SettingsDialogController {
                     this.syncThemeSwitch(form);
                 }
             },
+            previewForm: applyThemePreview,
         }, signal);
         syncSubtitlePreview(form);
         syncFontFamilyControls(form);
