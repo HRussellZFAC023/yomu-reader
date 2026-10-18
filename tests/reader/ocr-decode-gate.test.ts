@@ -32,22 +32,32 @@ describe('OCR decode gate', () => {
         const onDecoded = vi.fn();
         const gate = new OcrDecodeGate(onDecoded);
         const image = loadingImage();
-        gate.hold(image, false);
-        gate.hold(image, true);
-        gate.hold(image, false);
+        gate.hold(image, 'auto');
+        gate.hold(image, 'press');
+        gate.hold(image, 'hover');
         expect(onDecoded).not.toHaveBeenCalled();
         finishLoading(image, 'load');
         expect(onDecoded).toHaveBeenCalledTimes(1);
-        expect(onDecoded).toHaveBeenCalledWith(image, true);
+        expect(onDecoded).toHaveBeenCalledWith(image, 'press');
         image.dispatchEvent(new Event('load'));
         expect(onDecoded).toHaveBeenCalledTimes(1);
+    });
+
+    it('keeps a pointer passing over a loading image apart from a press', () => {
+        const onDecoded = vi.fn();
+        const gate = new OcrDecodeGate(onDecoded);
+        const image = loadingImage();
+        gate.hold(image, 'auto');
+        gate.hold(image, 'hover');
+        finishLoading(image, 'load');
+        expect(onDecoded).toHaveBeenCalledWith(image, 'hover');
     });
 
     it('never reads an image that failed to load', () => {
         const onDecoded = vi.fn();
         const gate = new OcrDecodeGate(onDecoded);
         const image = loadingImage();
-        gate.hold(image, true);
+        gate.hold(image, 'press');
         finishLoading(image, 'error');
         expect(onDecoded).not.toHaveBeenCalled();
     });

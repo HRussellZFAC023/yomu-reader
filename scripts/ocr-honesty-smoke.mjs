@@ -13,6 +13,9 @@
 //             tap 2 reads the lines, 2 Lens requests in total; after a reload
 //             a tap renders from Yomu's private cache with 0 requests.
 //   loading   Lens answers after 2.5 s: a loading mark is over the photo at 300 ms.
+//   hover     the pointer only passes over the photo, never presses: no mark
+//             (loading, failed or no text) ever shows, whether Lens is slow and
+//             refuses or answers with no text; a press then reads the photo.
 //   decode    the photo is tapped while it loads and its bytes arrive 1.5 s
 //             later: exactly 1 crupload, with the real JPEG (> 20 KB), never a
 //             blank one sent before it decoded, and the tap is not dropped.
@@ -84,6 +87,7 @@ for (const engine of engines) {
     try {
         if (runCase('honesty')) await honestyCase(browser, engine);
         if (runCase('loading')) await loadingCase(browser, engine);
+        if (runCase('hover')) await hoverCase(browser, engine);
         if (runCase('decode')) await decodeCase(browser, engine);
         if (runCase('photo')) await photoCase(browser, engine);
     } finally {
@@ -169,6 +173,74 @@ async function loadingCase(browser, engine) {
     } finally {
         await run.close();
     }
+}
+
+// A pointer passing over a photo is not a press: whatever a read it starts
+// does, it stays as quiet as an automatic scan.
+async function hoverCase(browser, engine) {
+    const label = `${engine} hover`;
+    const target = TARGETS.sign;
+    let lensCalls = 0;
+    const slowRefusal = await openPhotoPage(browser, target, {
+        settings: tapOnlySettings(),
+        onGmRequest: async request => {
+            if (!LENS.test(request.url)) return googleWebAnswer(request);
+            lensCalls += 1;
+            if (lensCalls > 1) return lensProtobuf(target);
+            await delay(1_500);
+            return { status: 429, contentType: 'text/plain', body: 'Too Many Requests' };
+        },
+    });
+    try {
+        const box = await slowRefusal.page.locator(target.photo).boundingBox();
+        const seen = await marksSeenWhile(slowRefusal.page, target, async () => {
+            await slowRefusal.page.mouse.move(box.x + box.width * 0.5, box.y + box.height * 0.5, { steps: 3 });
+            await slowRefusal.page.waitForTimeout(2_500);
+            await slowRefusal.page.mouse.move(Math.max(2, box.x - 40), Math.max(2, box.y - 40), { steps: 3 });
+            await slowRefusal.page.waitForTimeout(1_500);
+        });
+        check(`${label}: a slow, refused read started by the pointer shows no mark`, seen.length === 0, { marks: seen, lensCalls });
+        await tapPhoto(slowRefusal.page, target);
+        const lines = await waitForLines(slowRefusal.page, 10_000);
+        check(`${label}: a press then reads the photo`, lines === target.lines, { lines });
+    } finally {
+        await slowRefusal.close();
+    }
+
+    const noText = await openPhotoPage(browser, target, {
+        settings: { onboardingSeen: true, interfaceLanguage: 'en' },
+        onGmRequest: request => (LENS.test(request.url)
+            ? { status: 200, contentType: 'application/x-protobuf', body: Buffer.alloc(0) }
+            : googleWebAnswer(request)),
+    });
+    try {
+        await noText.page.waitForTimeout(2_000);
+        const seen = await marksSeenWhile(noText.page, target, () => hoverInAndOut(noText.page, target, 3));
+        check(`${label}: 3 pointer passes over a photo with no text show no mark (defaults)`, seen.length === 0, { marks: seen });
+        await checkPrivacy(noText, label);
+    } finally {
+        await noText.close();
+    }
+}
+
+/** Every mark status seen over the photo while `action` runs, polled each frame. */
+async function marksSeenWhile(page, target, action) {
+    const seen = new Set();
+    let running = true;
+    const poll = (async () => {
+        while (running) {
+            const mark = await markOverPhoto(page, target).catch(() => null);
+            if (mark?.visible) seen.add(mark.status);
+            await delay(16);
+        }
+    })();
+    try {
+        await action();
+    } finally {
+        running = false;
+        await poll;
+    }
+    return [...seen];
 }
 
 async function decodeCase(browser, engine) {

@@ -697,7 +697,10 @@ describe('reader raster OCR surfaces', { timeout: 20_000 }, () => {
         }
     });
 
-    it('keeps the BookWalker page status visible when OCR returns no text', async () => {
+    it.each([
+        ['en', 'No text found. Scan again'],
+        ['ja', 'テキストが見つかりません。再スキャン'],
+    ] as const)('keeps the BookWalker page status visible when OCR returns no text (%s)', async (interfaceLanguage, retryLabel) => {
         stubLocation('viewer.bookwalker.jp');
         stubReadableCanvas();
         pageCounter('5/13');
@@ -706,7 +709,7 @@ describe('reader raster OCR surfaces', { timeout: 20_000 }, () => {
         viewport.append(pageCanvas(24, 20));
         document.body.append(viewport);
 
-        const controller = createController();
+        const controller = createController({ interfaceLanguage });
         (controller as unknown as { recognizeImage: () => Promise<OcrResult> }).recognizeImage = vi.fn(async () => ({
             width: 1200,
             height: 1600,
@@ -736,7 +739,7 @@ describe('reader raster OCR surfaces', { timeout: 20_000 }, () => {
                 // Empty reader pages retain an accessible retry icon even
                 // though scanning/ready labels no longer occupy the page.
                 expect(status!.dataset.yomuOcrRetry).toBe('true');
-                expect(status!.getAttribute('aria-label')).toBe('No text found. Scan again');
+                expect(status!.getAttribute('aria-label')).toBe(retryLabel);
                 expect(status!.getAttribute('role')).toBe('button');
                 expect(status!.tabIndex).toBe(0);
                 expect(status!.querySelector('svg')).not.toBeNull();

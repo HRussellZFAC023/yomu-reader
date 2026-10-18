@@ -91,7 +91,7 @@ import {
     isSameCanvasReaderPageLocation,
     shouldTrustStableBookwalkerPageCounter,
 } from './canvas-page-signature';
-import { uiText, type UiCopyKey } from '../app/i18n';
+import { resolveUiLanguage, uiText, type UiCopyKey } from '../app/i18n';
 import { waitForIdle } from '../platform/idle';
 import { promiseWithTimeout } from '../core/async-utils';
 import { Logger } from '../app/logger';
@@ -157,6 +157,8 @@ interface ImageState {
     loading: boolean;
     overlayRequested: boolean;
     manualRequested: boolean;
+    /** The learner pressed the image (or its mark, or Scan images); a pointer passing over is not a press. */
+    pressed: boolean;
     autoSkipped: boolean;
     /** The last scan of this inline image failed: only a press or the failed mark reads it again. */
     failed: boolean;
@@ -256,9 +258,10 @@ function shouldSkipOcrRequest(state: ImageState, userRequested: boolean): boolea
     return (state.autoSkipped || state.failed) && !userRequested;
 }
 
-function updateOcrRequestFlags(state: ImageState, image: HTMLImageElement, userRequested: boolean): void {
+function updateOcrRequestFlags(state: ImageState, image: HTMLImageElement, userRequested: boolean, pressed: boolean): void {
     state.overlayRequested ||= userRequested || Boolean(readFallbackOcrResult(image, false));
     state.manualRequested ||= userRequested;
+    state.pressed ||= pressed;
     if (userRequested) state.autoSkipped = false;
 }
 
@@ -479,8 +482,8 @@ export class ImageOcrController {
 
     constructor(private readonly options: OcrControllerOptions) {
         this.answers = new OcrAnswerCache(() => this.options.getSettings().ocrProvider);
-        this.decodeGate = new OcrDecodeGate((image, userRequested) => {
-            if (!this.destroyed) this.enqueue(image, userRequested);
+        this.decodeGate = new OcrDecodeGate((image, ask) => {
+            if (!this.destroyed) this.enqueue(image, ask !== 'auto', ask === 'press');
         });
     }
 
@@ -914,7 +917,7 @@ export class ImageOcrController {
 
         this.mountOcrOverlayForImage(overlay, image);
 
-        const state: ImageState = { image, overlay, key: imageCacheKey(image), target: captureOcrTargetContext(), loading: false, overlayRequested: false, manualRequested: false, autoSkipped: false, failed: false };
+        const state: ImageState = { image, overlay, key: imageCacheKey(image), target: captureOcrTargetContext(), loading: false, overlayRequested: false, manualRequested: false, pressed: false, autoSkipped: false, failed: false };
         const loadListener = (): void => {
             this.resetStateIfImageChanged(state);
             this.schedulePosition();
@@ -936,24 +939,28 @@ export class ImageOcrController {
         appendOcrArtifactToRoot(overlay, video ? videoFrameArtifactRoot(video) : document.body);
     }
 
-    private enqueue(image: HTMLImageElement, userRequested = false): void {
+    /** `pressed` defaults to `userRequested`: only a pointer passing over asks without pressing. */
+    private enqueue(image: HTMLImageElement, userRequested = false, pressed = userRequested): void {
         if (isYouTubeThumbnailImage(image)) return;
         const state = this.states.get(image) ?? this.ensureState(image);
         if (!isDecodedImage(image)) {
-            this.decodeGate.hold(image, userRequested);
+            this.decodeGate.hold(image, pressed ? 'press' : userRequested ? 'hover' : 'auto');
             return;
         }
         this.resetStateIfImageChanged(state);
-        if (!this.shouldQueueOcrRequest(state, image, userRequested)) return;
+        if (!this.shouldQueueOcrRequest(state, image, userRequested, pressed)) return;
         this.queueOcrRequest(image);
     }
 
-    private shouldQueueOcrRequest(state: ImageState, image: HTMLImageElement, userRequested: boolean): boolean {
+    private shouldQueueOcrRequest(state: ImageState, image: HTMLImageElement, userRequested: boolean, pressed: boolean): boolean {
         if (shouldSkipOcrRequest(state, userRequested)) return false;
-        updateOcrRequestFlags(state, image, userRequested);
+        const newPress = pressed && !state.pressed;
+        updateOcrRequestFlags(state, image, userRequested, pressed);
         // A tap activates existing lookup markup; it is not a completed scan.
         // Keep the original nodes and let the result notification finish fading.
         if (state.result) return false;
+        // A press on an image a passing pointer is already reading joins that read and shows it.
+        if (state.loading && newPress) this.updateOcrStatus(image, 'loading');
         return !state.loading && this.startedScans.get(image) !== state.key;
     }
 
@@ -978,7 +985,7 @@ export class ImageOcrController {
             // request: each pass would cost another provider call under a rate limit.
             if (hover && this.states.get(image)?.failed) return false;
             if (!hover) this.forgetEmptyAnswer(image);
-            this.enqueue(image, true);
+            this.enqueue(image, true, !hover);
             return true;
         }
         const surface = ocrReaderSurfaceFromPointerEvent(event, settings, this.isProvenRasterFreePage());
@@ -1149,6 +1156,7 @@ export class ImageOcrController {
             this.renderNoOcrLines(state);
             this.updateOcrStatus(state.image, 'failed');
             state.manualRequested = false;
+            state.pressed = false;
             return true;
         }
         if (!this.answers.has(work.cacheKey)) return false;
@@ -1165,6 +1173,7 @@ export class ImageOcrController {
                     this.renderNoOcrLines(state);
                     this.updateOcrStatus(state.image, 'empty');
                     state.manualRequested = false;
+                    state.pressed = false;
                     return true;
                 }
                 this.forget(work.cacheKey);
@@ -1174,10 +1183,12 @@ export class ImageOcrController {
             this.renderNoOcrLines(state);
             this.updateOcrStatus(state.image, 'empty');
             state.manualRequested = false;
+            state.pressed = false;
             return true;
         }
         await this.renderResult(state, cached, false, work);
         state.manualRequested = false;
+        state.pressed = false;
         return true;
     }
 
@@ -1720,6 +1731,7 @@ export class ImageOcrController {
         state.loading = false;
         state.overlayRequested = false;
         state.manualRequested = false;
+        state.pressed = false;
         state.autoSkipped = false;
         state.failed = false;
         if (!preserveReaderRasterResult) {
@@ -2066,7 +2078,7 @@ export class ImageOcrController {
         // Automatic inline scans stay visually quiet until usable text exists.
         // A scan the learner asked for shows it is reading, and a failure stays
         // as the mark that reads again; reader surfaces always give that feedback.
-        const asked = !isReaderRasterFrame && this.states.get(image)?.manualRequested === true;
+        const asked = !isReaderRasterFrame && this.states.get(image)?.pressed === true;
         if (status !== 'ready' && !isReaderRasterFrame && !asked) {
             this.removeImageStatusCard(image);
             return;
@@ -2167,12 +2179,13 @@ export class ImageOcrController {
             card.replaceChildren();
             return;
         }
-        const retry = uiText(this.options.getSettings().interfaceLanguage, 'ocrRetryScan');
+        const language = this.options.getSettings().interfaceLanguage;
+        const retry = uiText(language, 'ocrRetryScan');
         card.dataset.yomuOcrRetry = 'true';
         card.setAttribute('role', 'button');
         card.tabIndex = 0;
         card.title = retry;
-        card.setAttribute('aria-label', `${this.statusText(status)}. ${retry}`);
+        card.setAttribute('aria-label', `${this.statusText(status)}${resolveUiLanguage(language) === 'ja' ? '。' : '. '}${retry}`);
         if (!card.firstChild) setInnerHtml(card, retryScanIcon());
         if (card.dataset.yomuOcrRetryListener === 'true') return;
         card.dataset.yomuOcrRetryListener = 'true';
