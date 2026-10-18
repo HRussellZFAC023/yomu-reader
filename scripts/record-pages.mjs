@@ -45,13 +45,16 @@ const PRODUCT_RUNS = {
 };
 // The scan order, and so the requests, depend on the engine and the viewport:
 // a Chromium-only recording answered almost nothing in WebKit. Product traffic
-// runs take these profiles in turn. iPad is WebKit at iPad size with touch;
-// iPhone is WebKit at phone width with touch and the meta viewport honoured.
+// runs take these profiles in turn. iPad is WebKit at iPad size with touch
+// (12.9-inch, and the 820x1180 iPad Air the repo's other iPad smokes use, with
+// the meta viewport honoured); iPhone is WebKit at phone width with touch and
+// the meta viewport honoured.
 const PRODUCT_PROFILES = [
     { name: 'chromium', engine: chromium },
     { name: 'webkit', engine: webkit },
     { name: 'firefox', engine: firefox },
     { name: 'webkit-ipad', engine: webkit, contextOptions: { viewport: { width: 1024, height: 1366 }, hasTouch: true } },
+    { name: 'webkit-ipad-air', engine: webkit, contextOptions: { viewport: { width: 820, height: 1180 }, hasTouch: true, isMobile: true } },
     { name: 'webkit-iphone', engine: webkit, contextOptions: { viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true } },
 ];
 
@@ -136,15 +139,18 @@ async function runProductUntilSettled(target, product, recorder) {
 }
 
 // One run of the next profile. A rate-limited run saw fewer answers than the
-// product asked for, so it proves nothing about settling: it is not counted.
+// product asked for, and a run whose page did not load in time (a busy
+// machine) saw less than a whole scan, so neither proves anything about
+// settling: they are not counted.
 async function settleStep({ target, product, recorder, browsers }, state) {
     const profile = PRODUCT_PROFILES[state.runs % PRODUCT_PROFILES.length];
-    const { added, refused } = await productRun(target, product, recorder, await profileBrowser(browsers, profile), profile);
+    const { added, refused, unloaded } = await productRun(target, product, recorder, await profileBrowser(browsers, profile), profile);
     state.runs += 1;
     const refusedNote = refused ? `, ${refused} refused (rate limit), not counted` : '';
-    console.log(`[record-pages]   run ${state.runs} (${profileDescription(profile)}): ${added} new request(s), ${recorder.size()} in all${refusedNote}`);
+    const unloadedNote = unloaded ? `, page did not load (${unloaded}), not counted` : '';
+    console.log(`[record-pages]   run ${state.runs} (${profileDescription(profile)}): ${added} new request(s), ${recorder.size()} in all${refusedNote}${unloadedNote}`);
     if (refused) await new Promise(resolve => setTimeout(resolve, PRODUCT_RUNS.backoffSeconds * 1000));
-    else state.quiet = added ? 0 : state.quiet + 1;
+    else if (!unloaded) state.quiet = added ? 0 : state.quiet + 1;
 }
 
 async function profileBrowser(browsers, { engine }) {
@@ -154,7 +160,13 @@ async function profileBrowser(browsers, { engine }) {
 
 async function productRun(target, product, recorder, browser, profile) {
     const before = recorder.size();
-    const run = await openRecordedPage({ browser, slug: target.slug, product, gmNetwork: 'record', recordHosts: target.productTrafficHosts, recorder, contextOptions: profile.contextOptions });
+    let run;
+    try {
+        run = await openRecordedPage({ browser, slug: target.slug, product, gmNetwork: 'record', recordHosts: target.productTrafficHosts, recorder, contextOptions: profile.contextOptions });
+    } catch (error) {
+        if (error?.name !== 'TimeoutError') throw error;
+        return { added: recorder.size() - before, refused: 0, unloaded: error.message.split('\n')[0] };
+    }
     await run.page.waitForTimeout(PRODUCT_RUNS.seconds * 1000);
     const { refused } = run.productTraffic();
     await run.close();
