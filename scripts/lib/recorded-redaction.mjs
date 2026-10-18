@@ -108,8 +108,11 @@ const CSS_COMMENT_OR_STRING = new RegExp(`(${CSS_STRING_SOURCE})|/\\*[\\s\\S]*?\
 // and, like any CSS identifier, with non-ASCII letters (--見出し).
 const CSS_IDENTIFIER_SOURCE = String.raw`(?:[-\w\u{80}-\u{10FFFF}]|\\[0-9a-f]{1,6}[ \t\n\r\f]?|\\[^\n\r\f0-9a-f])+`;
 const CSS_DECLARATION = new RegExp(`(${CSS_IDENTIFIER_SOURCE})\\s*:((?:${CSS_STRING_SOURCE}|[^;{}"'])*)`, 'giu');
-// A string, or a custom property a value reads through var().
-const CSS_VALUE_STRING = new RegExp(`(${CSS_STRING_SOURCE})|var\\(\\s*(--${CSS_IDENTIFIER_SOURCE})`, 'giu');
+// A string, or a function reading a custom property (var(--name), the function
+// name escaped or not: v\61r is var).
+const CSS_VALUE_STRING = new RegExp(`(${CSS_STRING_SOURCE})|(${CSS_IDENTIFIER_SOURCE})\\(\\s*(--${CSS_IDENTIFIER_SOURCE})`, 'giu');
+// @property --name { initial-value: ... } gives --name a value no declaration sets.
+const CSS_PROPERTY_RULE = new RegExp(`@property\\s+(--${CSS_IDENTIFIER_SOURCE})\\s*\\{((?:${CSS_STRING_SOURCE}|[^{}"'])*)\\}`, 'giu');
 const CSS_ESCAPE = /\\(?:([0-9a-f]{1,6})[ \t\n\r\f]?|(\r\n|[\n\r\f])|([\s\S]))/giu;
 
 function cssUnescape(text) {
@@ -121,27 +124,47 @@ function cssUnescape(text) {
     });
 }
 
+const cssName = raw => {
+    const name = cssUnescape(raw).trim();
+    return name.startsWith('--') ? name : name.toLowerCase();
+};
+
+// An @property rule read as the custom property declaration its initial value is.
+function propertyRuleAsDeclaration(rule, name, body) {
+    const initial = [...body.matchAll(CSS_DECLARATION)].find(match => cssName(match[1]) === 'initial-value');
+    return initial ? `${name}:${initial[2]};` : ' ';
+}
+
 // Every declaration of a stylesheet: { property, value }, the name unescaped
 // (lower-cased unless it is a custom property, whose name is case-sensitive).
 function cssDeclarations(cssText) {
-    const css = String(cssText ?? '').replace(CSS_COMMENT_OR_STRING, (match, string) => string ?? ' ');
-    return [...css.matchAll(CSS_DECLARATION)].map(match => {
-        const property = cssUnescape(match[1]).trim();
-        return { property: property.startsWith('--') ? property : property.toLowerCase(), value: match[2] };
-    });
+    const css = String(cssText ?? '').replace(CSS_COMMENT_OR_STRING, (match, string) => string ?? ' ').replace(CSS_PROPERTY_RULE, propertyRuleAsDeclaration);
+    return [...css.matchAll(CSS_DECLARATION)].map(match => ({ property: cssName(match[1]), value: match[2] }));
 }
 
 /**
- * The strings each custom property holds, by name, over all the stylesheets
+ * The values each custom property is given, by name, over all the stylesheets
  * given: a sheet can set --title that another sheet or a style attribute
  * paints through content: var(--title).
  */
 function cssCustomProperties(cssTexts) {
     const custom = new Map();
     for (const { property, value } of cssTexts.flatMap(cssDeclarations)) {
-        if (property.startsWith('--')) custom.set(property, [...(custom.get(property) ?? []), ...[...value.matchAll(CSS_VALUE_STRING)].filter(match => match[1]).map(match => cssUnescape(match[1].slice(1, -1)))]);
+        if (property.startsWith('--')) custom.set(property, [...(custom.get(property) ?? []), value]);
     }
     return custom;
+}
+
+// The strings a value paints: its own, and through var() those of every value
+// the custom property is given, followed through other custom properties.
+function cssValueStrings(value, customProperties, followed = new Set()) {
+    return [...value.matchAll(CSS_VALUE_STRING)].flatMap(([, string, fn, name]) => {
+        if (string) return [cssUnescape(string.slice(1, -1))];
+        const property = cssName(name);
+        if (cssName(fn) !== 'var' || followed.has(property)) return [];
+        const next = new Set([...followed, property]);
+        return (customProperties.get(property) ?? []).flatMap(given => cssValueStrings(given, customProperties, next));
+    });
 }
 
 /**
@@ -149,15 +172,16 @@ function cssCustomProperties(cssTexts) {
  * [{ property, strings }], escapes decoded in names and strings alike (the
  * browser reads \63 ontent as content), and var(--name) read as the strings
  * the custom property holds (in this sheet, or in customProperties when
- * given). content: "東" "京" paints 東京, so a content value's strings are
- * also read joined.
+ * given), through other custom properties and @property initial values too.
+ * A custom property's own declaration holds only its own strings. content:
+ * "東" "京" paints 東京, so a content value's strings are also read joined.
  */
 function cssPaintedStrings(cssText, customProperties = cssCustomProperties([cssText])) {
     return cssDeclarations(cssText)
         .filter(({ property }) => PAINTED_STRING_PROPERTY.test(property))
         .map(({ property, value }) => ({
             property,
-            strings: [...value.matchAll(CSS_VALUE_STRING)].flatMap(match => (match[1] ? [cssUnescape(match[1].slice(1, -1))] : (property.startsWith('--') ? [] : customProperties.get(cssUnescape(match[2])) ?? []))),
+            strings: property.startsWith('--') ? cssValueStrings(value, new Map()) : cssValueStrings(value, customProperties),
         }))
         .filter(declaration => declaration.strings.length);
 }
