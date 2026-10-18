@@ -5,7 +5,7 @@ import { join, resolve } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import { compareGeometrySignatures, type GeometrySignature } from '../../scripts/lib/geometry-signature.mjs';
 import { cdpPerSecond, spinSummary } from '../../scripts/lib/main-thread-sampler.mjs';
-import { assertLedgerCount, assertNoRequestsBeforeInteraction, createNetworkLedger } from '../../scripts/lib/network-ledger.mjs';
+import { assertLedgerCount, assertNoRequestsBeforeInteraction, createNetworkLedger, LEDGER_ID_HEADER } from '../../scripts/lib/network-ledger.mjs';
 import { createHarWriter, readHarIndex } from '../../scripts/lib/recorded-har.mjs';
 import { json3ToSrv3, json3ToVtt } from '../../scripts/lib/recorded-hosts.mjs';
 import { answerGmRequest } from '../../scripts/lib/recorded-network.mjs';
@@ -301,6 +301,12 @@ describe('recorded page plumbing', () => {
         await expect(answerGmRequest({ method: 'GET', url: 'https://yomureader.com/favicon.ico' }, offline)).rejects.toThrow('no recorded answer');
         const failing = await answerGmRequest({ method: 'GET', url: wordmark }, scopeFor('offline', () => ({ status: 503, body: 'down' })));
         expect(failing).toMatchObject({ status: 503, responseText: 'down' });
+        for (const gmNetwork of ['offline', 'replay']) {
+            const throwing = scopeFor(gmNetwork, () => Promise.reject(new Error('answerer broke')));
+            throwing.ledger.recordRequest({ channel: 'gm', url: wordmark, ledgerId: '7', served: 'pending' });
+            await expect(answerGmRequest({ method: 'GET', url: wordmark, headers: { [LEDGER_ID_HEADER]: '7' } }, throwing)).rejects.toThrow('answerer broke');
+            expect(throwing.ledger.entries().map(entry => entry.served), gmNetwork).toEqual(['failed']);
+        }
     });
 
     it('makes blank pictures of the size it was asked for', () => {

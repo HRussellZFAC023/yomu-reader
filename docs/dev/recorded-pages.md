@@ -160,7 +160,9 @@ recorded page runs no site script, so a `fetch` or XHR the page stamped is the
 product's and always counts, even when the page's HAR answered it (a picture
 fetched for OCR). GM requests always count, whoever answered them:
 `recorded-product` for this page's recorded product traffic, `recording` for
-the page's own HAR, `hosted`, `override`, `live` or `offline`. Each GM request
+the page's own HAR, `hosted`, `override`, `live`, `offline`, or `failed` when
+an answerer threw (a test's `onGmRequest` that rejects, a live fetch that could
+not connect; a page request is marked the same way). Each GM request
 carries a ledger id to the bridge (the `x-yomu-ledger-id` header, removed
 before any answerer sees it), so concurrent identical requests are paired with
 their own answers.
