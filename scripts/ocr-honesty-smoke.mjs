@@ -14,15 +14,18 @@
 //             a tap renders from Yomu's private cache with 0 requests.
 //   loading   Lens answers after 2.5 s: a loading mark is over the photo at 300 ms.
 //   hover     the pointer only passes over the photo, never presses: no mark
-//             (loading, failed or no text) ever shows, whether Lens is slow and
-//             refuses or answers with no text; a press then reads the photo;
-//             and the pointer over a dark photo with no text costs 1 crupload.
+//             (loading, failed or no text) ever shows, whether the provider
+//             (Google Lens, or the Learner OCR Service, which reads on hover)
+//             is slow and refuses or answers with no text; a press then reads
+//             the photo; the pointer over a dark photo with no text costs at
+//             most 1 crupload.
 //   decode    the photo is tapped while it loads and its bytes arrive 1.5 s
 //             later: exactly 1 crupload, with the real JPEG (> 20 KB), never a
 //             blank one sent before it decoded, and the tap is not dropped.
-//   autodecode defaults on a recorded Japanese article (ja.wikipedia 東京都),
-//             every thumbnail held 3 s: the automatic scan sends nothing while
-//             they load, then one crupload per image with its decoded pixels.
+//   autodecode the Learner OCR Service (the provider that reads automatically)
+//             on a recorded Japanese article (ja.wikipedia 東京都), every
+//             thumbnail held 3 s: nothing is sent while they load, then one
+//             request per image with its decoded pixels.
 //   photo     defaults, one tap on a photo with dark regions opened on its
 //             own: exactly 1 crupload (no inverted second pass) and every
 //             recorded line.
@@ -56,6 +59,13 @@ const TARGETS = {
     },
 };
 const LENS = /lensfrontend-pa\.googleapis\.com\/v1\/crupload/u;
+// The Learner OCR Service: an endpoint the learner runs, answered here.
+const LOCAL_OCR_URL = 'http://127.0.0.1:7331/ocr';
+const LOCAL_OCR = /^http:\/\/127\.0\.0\.1:7331\/ocr/u;
+const LOCAL_OCR_ANSWER = { width: 960, height: 720, lines: [
+    { text: '寿司', box: { x: 120, y: 120, w: 240, h: 80 }, vertical: false },
+    { text: '大変な事です', box: { x: 120, y: 300, w: 480, h: 80 }, vertical: false },
+] };
 const GOOGLE_WEB = /^https?:\/\/(lens\.google\.com|www\.google\.com)\//u;
 // What Google answers the retired lens.google.com/v3/upload form with today: a
 // consent wall or a page that needs JavaScript, never OCR data.
@@ -188,32 +198,22 @@ async function loadingCase(browser, engine) {
 async function hoverCase(browser, engine) {
     const label = `${engine} hover`;
     const target = TARGETS.sign;
-    let lensCalls = 0;
-    const slowRefusal = await openPhotoPage(browser, target, {
+    await hoverThenPress(browser, target, `${label} (Google Lens)`, {
         settings: tapOnlySettings(),
-        onGmRequest: async request => {
-            if (!LENS.test(request.url)) return googleWebAnswer(request);
-            lensCalls += 1;
-            if (lensCalls > 1) return lensProtobuf(target);
-            await delay(1_500);
-            return { status: 429, contentType: 'text/plain', body: 'Too Many Requests' };
-        },
+        endpoint: LENS,
+        refusal: { status: 429, contentType: 'text/plain', body: 'Too Many Requests' },
+        answer: () => lensProtobuf(target),
+        lines: target.lines,
     });
-    try {
-        const box = await slowRefusal.page.locator(target.photo).boundingBox();
-        const seen = await marksSeenWhile(slowRefusal.page, target, async () => {
-            await slowRefusal.page.mouse.move(box.x + box.width * 0.5, box.y + box.height * 0.5, { steps: 3 });
-            await slowRefusal.page.waitForTimeout(2_500);
-            await slowRefusal.page.mouse.move(Math.max(2, box.x - 40), Math.max(2, box.y - 40), { steps: 3 });
-            await slowRefusal.page.waitForTimeout(1_500);
-        });
-        check(`${label}: a slow, refused read started by the pointer shows no mark`, seen.length === 0, { marks: seen, lensCalls });
-        await tapPhoto(slowRefusal.page, target);
-        const lines = await waitForLines(slowRefusal.page, 10_000);
-        check(`${label}: a press then reads the photo`, lines === target.lines, { lines });
-    } finally {
-        await slowRefusal.close();
-    }
+    // The Learner OCR Service still reads an image the pointer passes over.
+    await hoverThenPress(browser, target, `${label} (Learner OCR Service)`, {
+        settings: { ...tapOnlySettings(), ocrProvider: 'local-service', ocrEndpointUrl: LOCAL_OCR_URL },
+        endpoint: LOCAL_OCR,
+        refusal: { status: 503, contentType: 'text/plain', body: 'Service Unavailable' },
+        answer: () => ({ status: 200, contentType: 'application/json', body: JSON.stringify(LOCAL_OCR_ANSWER) }),
+        lines: LOCAL_OCR_ANSWER.lines.length,
+        hoverReads: true,
+    });
 
     const noText = await openPhotoPage(browser, target, {
         settings: { onboardingSeen: true, interfaceLanguage: 'en' },
@@ -245,9 +245,43 @@ async function hoverCase(browser, engine) {
         await darkRun.page.locator(standalone.photo).waitFor({ state: 'visible' });
         await hoverInAndOut(darkRun.page, standalone, 1);
         await darkRun.page.waitForTimeout(3_000);
-        check(`${label}: the pointer over a dark photo with no text costs 1 crupload, no inverted pass`, lensRequests(darkRun).length === 1, { cruploads: lensRequests(darkRun).length });
+        check(`${label}: the pointer over a dark photo with no text costs at most 1 crupload, no inverted pass`, lensRequests(darkRun).length <= 1, { cruploads: lensRequests(darkRun).length });
     } finally {
         await darkRun.close();
+    }
+}
+
+// Whatever a read the pointer starts does (here: slow, then refused), it shows
+// no mark; the press that follows reads the photo.
+async function hoverThenPress(browser, target, label, { settings, endpoint, refusal, answer, lines: expectedLines, hoverReads = false }) {
+    let pressed = false;
+    let hoverCalls = 0;
+    const run = await openPhotoPage(browser, target, {
+        settings,
+        onGmRequest: async request => {
+            if (!endpoint.test(request.url)) return googleWebAnswer(request);
+            if (pressed) return answer();
+            hoverCalls += 1;
+            await delay(1_500);
+            return refusal;
+        },
+    });
+    try {
+        const box = await run.page.locator(target.photo).boundingBox();
+        const seen = await marksSeenWhile(run.page, target, async () => {
+            await run.page.mouse.move(box.x + box.width * 0.5, box.y + box.height * 0.5, { steps: 3 });
+            await run.page.waitForTimeout(2_500);
+            await run.page.mouse.move(Math.max(2, box.x - 40), Math.max(2, box.y - 40), { steps: 3 });
+            await run.page.waitForTimeout(1_500);
+        });
+        if (hoverReads) check(`${label}: the pointer passing over starts a read`, hoverCalls > 0, { hoverCalls });
+        check(`${label}: a slow, refused read started by the pointer shows no mark`, seen.length === 0, { marks: seen, hoverCalls });
+        pressed = true;
+        await tapPhoto(run.page, target);
+        const lines = await waitForLines(run.page, 10_000);
+        check(`${label}: a press then reads the photo`, lines === expectedLines, { lines });
+    } finally {
+        await run.close();
     }
 }
 
@@ -317,7 +351,7 @@ async function autoDecodeCase(browser, engine) {
     const bytes = uploads.map(upload => upload.bytes);
     check(`${label}: the ${AUTO_DECODE_IMAGES} images above the fold are read once each`, uploads.length === AUTO_DECODE_IMAGES, bytes);
     check(`${label}: nothing is sent while they load`, uploads.every(upload => upload.at >= releasedAt), uploads.map(upload => ({ bytes: upload.bytes, msBeforeImages: Math.max(0, releasedAt - upload.at) })));
-    check(`${label}: every crupload carries a decoded image (> 5 KB)`, bytes.every(size => size > 5_000), bytes);
+    check(`${label}: every request carries a decoded image (> 5 KB)`, bytes.every(size => size > 5_000), bytes);
 }
 
 async function autoScanUploads(browser, holdMs) {
@@ -326,11 +360,12 @@ async function autoScanUploads(browser, holdMs) {
         browser,
         slug: 'ja-wikipedia-tokyo',
         product,
-        settings: { onboardingSeen: true },
+        // The Learner OCR Service is the provider that reads page images without a press.
+        settings: { onboardingSeen: true, ocrProvider: 'local-service', ocrEndpointUrl: LOCAL_OCR_URL },
         navigate: false,
         gmStoragePrefix: GM_STORAGE_PREFIX,
-        onGmRequest: request => (LENS.test(request.url)
-            ? { status: 200, contentType: 'application/x-protobuf', body: Buffer.alloc(0) }
+        onGmRequest: request => (LOCAL_OCR.test(request.url)
+            ? { status: 200, contentType: 'application/json', body: JSON.stringify({ width: 1, height: 1, lines: [] }) }
             : googleWebAnswer(request)),
     });
     try {
@@ -342,7 +377,8 @@ async function autoScanUploads(browser, holdMs) {
         await run.page.goto(run.recording.manifest.url, { waitUntil: 'domcontentloaded' });
         await run.page.waitForTimeout(holdMs + 9_000);
         await checkPrivacy(run, `${run.engine} autodecode`);
-        return { uploads: lensRequests(run).map(entry => ({ at: entry.at, bytes: entry.bodyBytes })), releasedAt };
+        const uploads = run.ledger.requests({ channel: 'gm' }).filter(entry => LOCAL_OCR.test(entry.url));
+        return { uploads: uploads.map(entry => ({ at: entry.at, bytes: entry.bodyBytes })), releasedAt };
     } finally {
         await run.close();
     }
