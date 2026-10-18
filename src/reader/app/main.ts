@@ -388,7 +388,7 @@ import {
 } from '../dom/shadow-scan-registry';
 import { StudySourceController } from '../study/sources';
 import type { InterfaceLanguage, JPDBCard, JPDBGrade, JPDBToken, ReaderSettings } from './types';
-import { currentAnkiLookupBatch, LateCardReconciliation } from './late-card-reconciliation';
+import { currentAnkiLookupBatch, LateCardReconciliation, renderedTokenFuriganaRepair } from './late-card-reconciliation';
 import { RenderedWordIndex } from './rendered-word-index';
 import { VisiblePageScanner } from './visible-page-scanner';
 import { renderWordPills, updateHeadingWordPills } from '../sources/word-pills';
@@ -8030,7 +8030,7 @@ export class ReaderApp {
         // contextual surface (inflections are the common example). Reconcile
         // that exact evidence onto the connected word before the pitch-complete
         // fast path filters the token out of network work.
-        tokens.forEach(token => this.reconcileRenderedTokenFurigana(token));
+        this.reconcileRenderedTokenFurigana(tokens);
         // Public Jiten /parse deliberately returns sparse cards after its small
         // inline detail budget. Reading-less kanji must not compete with the
         // optional pitch page budget: hydrate them through their exact ids in a
@@ -8167,14 +8167,21 @@ export class ReaderApp {
         );
     }
 
-    private reconcileRenderedTokenFurigana(token: JPDBToken): void {
-        if (!this.settings.showFurigana || this.settings.furiganaMode === 'off' || token.rubies.length) return;
-        const reading = token.card.reading.trim();
-        if (!reading || reading === token.card.spelling.trim()) return;
-        const surface = (token.sentence?.slice(token.start, token.end) || token.card.spelling).trim();
-        if (![...surface].some(isKanjiCharacter)) return;
-        const pitchClass = token.pitchClass || getPitchClass(token.card.pitchAccent, reading) || 'unknown';
-        this.applyPublicVocabularyToRenderedWords(token.card, token.card, pitchClass);
+    // Each repair repaints every rendered word of its card, so only a batch's
+    // last repair per card decides what those words show. One repaint per card
+    // per batch: repainting per occurrence cost occurrences × words on a long
+    // page (half a second a batch on a novel).
+    private reconcileRenderedTokenFurigana(tokens: JPDBToken[]): void {
+        if (!this.settings.showFurigana || this.settings.furiganaMode === 'off') return;
+        const repairs = new Map<string, { card: JPDBCard; pitchClass: string }>();
+        for (const token of tokens) {
+            const repair = renderedTokenFuriganaRepair(token);
+            if (!repair) continue;
+            const key = renderedWordCardKey(token.card.vid, token.card.sid);
+            repairs.delete(key);
+            repairs.set(key, repair);
+        }
+        repairs.forEach(({ card, pitchClass }) => this.applyPublicVocabularyToRenderedWords(card, card, pitchClass));
     }
 
     private resolvePublicFallbackPitchTokens(
