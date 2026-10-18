@@ -19,7 +19,8 @@ const EXT_PACKAGE = smokeConfig.extensionPackage;
 const temporaryDirectories = createChromiumExtensionSmokeScope();
 const ART = smokeConfig.artifactDirectory;
 const CONTENT_WAIT_MS = Number(process.env.CONTENT_WAIT_MS || 5_000);
-const SCAN_WAIT_MS = Number(process.env.SCAN_WAIT_MS || 25_000);
+// A ceiling, not a delay: on a loaded machine the reader took ~25 s to start (W1-40).
+const SCAN_WAIT_MS = Number(process.env.SCAN_WAIT_MS || 60_000);
 const VIEWPORT_WIDTH = Number(process.env.SCREENSHOT_WIDTH || 1_280);
 const VIEWPORT_HEIGHT = Number(process.env.SCREENSHOT_HEIGHT || 800);
 mkdirSync(ART, { recursive: true });
