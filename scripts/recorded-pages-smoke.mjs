@@ -13,7 +13,8 @@
 //               that cannot see them could not see anything.
 //   probes      kanjiReadingCoverage counts no reading hidden in place
 //               (display, visibility, opacity, font size, colour, clip-path,
-//               filter, mask) as painted, in each engine and in
+//               filter, mask, a background or page of the text's colour) as
+//               painted, in each engine and in
 //               WebKit at iPad size, on the readings 2.1.6 paints on
 //               ja-wikipedia-nihongo.
 //
@@ -44,13 +45,15 @@ const failures = [];
 // A reading the product keeps in the DOM but hides is not a painted reading:
 // hiding every reading on the loaded page must take the coverage to zero.
 // The style rule the caption log uses per frame (styledReadings) must see
-// all but a mask and an empty polygon, which only the screen's pixels show.
+// all but a mask, an empty polygon and text the colour of its own background
+// or of the white page behind it, which only the screen's pixels show.
 // (transform: scale(0) is not here: Chromium and Firefox do not transform an
 // rt, so the reading stays on screen and is rightly counted.)
 const HIDDEN_READINGS = [
     ['visibility', 'hidden'], ['opacity', '0'], ['display', 'none'], ['font-size', '0'], ['color', 'transparent'],
     ['clip-path', 'inset(100%)'], ['clip-path', 'circle(0)'], ['filter', 'opacity(0)'],
     ['clip-path', 'polygon(0 0, 0 0, 0 0)', { pixelsOnly: true }], ['mask-image', 'linear-gradient(transparent, transparent)', { pixelsOnly: true }],
+    ['background-color', 'currentColor', { pixelsOnly: true }], ['color', 'rgb(255, 255, 255)', { pixelsOnly: true }],
 ];
 
 const PROBE_PROFILES = [

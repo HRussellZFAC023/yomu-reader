@@ -59,7 +59,9 @@ a Mechanism Fixture (see Follow-ups).
   letters or several words), and the text stylesheets paint: string values of
   `content`, `quotes`, list markers, `text-overflow` and custom properties in
   `<style>` elements, `style` attributes and committed `.css` files, escapes
-  decoded and `content: "東" "京"` read joined. One-word ASCII values such as
+  decoded in names and strings, non-ASCII names such as `--見出し` read,
+  `content: var(--name)` read as the strings that custom property holds in
+  any of the recording's stylesheets, and `content: "東" "京"` read joined. One-word ASCII values such as
   `true`, an id or YouTube's `4K` badge are vocabulary and are not compared.
   A redacted recording's stylesheets must also paint no copy of their own
   through `content`, since the redactor replaces document text, not CSS;
@@ -197,10 +199,12 @@ the page" take a signature before the product runs and one after.
   visibility and opacity, ancestors included), a fill colour that is not
   transparent, and no ancestor clipping or filtering it away (`clip-path` to
   nothing, `clip`, `filter: opacity(0)`). Then the screen: a viewport
-  screenshot is compared with one taken while an adopted stylesheet hides
-  every reading (no DOM change), and a reading is seen only if its own pixels
-  change. A mask, a partial clip or text the colour of what is behind it
-  therefore does not count either. `styledReadings` and `seenReadings` report
+  screenshot is compared with one taken while an adopted stylesheet makes
+  every reading's glyphs transparent (`-webkit-text-fill-color`, so a
+  background drawn in `currentColor` stays; no DOM change), and a reading is
+  seen only if its own pixels change. A mask, a partial clip, or text the
+  colour of the page or of its own background therefore does not count
+  either. `styledReadings` and `seenReadings` report
   both steps. `npm run smoke:recorded-pages:probes` checks this in each
   engine and in WebKit at iPad size.
   Runs are read from each block's text with the readings taken out, so the
@@ -240,9 +244,10 @@ the page" take a signature before the product runs and one after.
   engine and in WebKit at 1024×1366 with touch, hiding every reading in place
   (`visibility: hidden`, `opacity: 0`, `display: none`, `font-size: 0`,
   `color: transparent`, `clip-path: inset(100%)`, `clip-path: circle(0)`,
-  `clip-path: polygon(0 0, 0 0, 0 0)`, `filter: opacity(0)`, `mask-image`)
-  takes covered runs and painted words to zero, and the per-frame style rule
-  passes none of them but the polygon and the mask. `transform: scale(0)` is
+  `clip-path: polygon(0 0, 0 0, 0 0)`, `filter: opacity(0)`, `mask-image`,
+  `background-color: currentColor`, white text on the white page) takes
+  covered runs and painted words to zero, and the per-frame style rule passes
+  none of them but the last four. `transform: scale(0)` is
   left out: Chromium and Firefox do not transform an `rt`, so the reading stays
   on screen and the screenshot check rightly counts it.
 
