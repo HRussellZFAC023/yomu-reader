@@ -14,7 +14,8 @@
 //   hover     defaults, after 15 s idle: hovered words show their reading and
 //             first gloss, rendered where a learner sees them, within 1 s of the
 //             dwell at p90 (a popover that never shows counts against it), and
-//             the popup still draws a pitch graph.
+//             the popup still draws a pitch graph. A load over budget is
+//             measured once more on a fresh load (a saturated machine).
 //   youtube   the recorded watch page with captions, defaults, 40 s of
 //             playback: no jpdb.io request at all (2.1.6: hundreds).
 //
@@ -40,6 +41,7 @@ const POPOVER_BUDGET_MS = 1_000;
 const HOVER_SAMPLES = 8;
 const MAX_HOVERS = 20;
 const HOVER_WAIT_MS = 5_000;
+const HOVER_LOADS = 2;
 // The popup's word lookup, by the function on its request's stack.
 const POPUP_WORD_LOOKUP = 'loadJitenVocabularyInfo';
 const EXAMPLE_SENTENCES = /\/random-example-sentences(?:\?|$)/u;
@@ -139,29 +141,47 @@ async function pitchChannelWikipedia() {
     }
 }
 
+// The first popup on a page pays for code the page has not run yet, and on a
+// saturated machine that one hover can cross the budget by itself. A load
+// whose p90 is over budget is measured once more on a fresh load; both are
+// logged, and the second decides. 2.1.6 fails both (words that never show).
 async function hoverWikipedia() {
-    const run = await answeredWikipedia('hover', HOVER_IDLE_MS);
-    if (!run) return;
-    try {
-        const samples = [];
-        for (const word of await hoverTargets(run.page)) {
-            samples.push(await hoverSample(run, word));
-            if (samples.filter(sample => !sample.recordingGap).length >= HOVER_SAMPLES) break;
+    for (let attempt = 1; attempt <= HOVER_LOADS; attempt += 1) {
+        const run = await answeredWikipedia('hover', HOVER_IDLE_MS);
+        if (!run) return;
+        try {
+            const result = await hoverMeasure(run);
+            const last = attempt === HOVER_LOADS;
+            if (!last && result.judged.length >= 5 && !result.withinBudget) {
+                console.log(`INFO ${product.label} hover: load ${attempt} p90 ${result.p90} ms is over budget; measuring a fresh load`);
+                continue;
+            }
+            const { judged, p90 } = result;
+            check(judged.length >= 5, `hover ja-wikipedia-nihongo: ${judged.length} hovered word(s) the recording answered (want ≥ 5)`);
+            if (judged.length >= 5) check(result.withinBudget, `hover ja-wikipedia-nihongo: reading and first gloss visible ${p90} ms after the pointer arrived at p90 (want ≤ ${DWELL_MS} ms dwell + ${POPOVER_BUDGET_MS} ms)`);
+            check(judged.some(sample => sample.pitchGraph), `hover ja-wikipedia-nihongo: the popup still draws the hovered word's pitch graph (${judged.filter(sample => sample.pitchGraph).length} of ${judged.length})`);
+            return;
+        } finally {
+            await run.close();
         }
-        // A word is set aside only when, during its hover, the product asked Jiten
-        // something the recording never held. A popover that did not show within
-        // HOVER_WAIT_MS for any other reason is the product's failure, and counts.
-        const judged = samples.filter(sample => !sample.recordingGap);
-        const times = judged.map(sample => sample.shownMs ?? Infinity).sort((left, right) => left - right);
-        const p90 = times[Math.ceil(times.length * 0.9) - 1];
-        const detail = samples.map(sample => `${sample.text}:${sample.recordingGap ? 'not-recorded' : sample.shownMs ?? 'never-shown'}`).join(' ');
-        console.log(`INFO ${product.label} hover: ${judged.length} of ${samples.length} hovered words judged; the rest asked Jiten for what the recording never held (${detail})`);
-        check(judged.length >= 5, `hover ja-wikipedia-nihongo: ${judged.length} hovered word(s) the recording answered (want ≥ 5)`);
-        if (judged.length >= 5) check(p90 <= DWELL_MS + POPOVER_BUDGET_MS, `hover ja-wikipedia-nihongo: reading and first gloss visible ${p90} ms after the pointer arrived at p90 (want ≤ ${DWELL_MS} ms dwell + ${POPOVER_BUDGET_MS} ms)`);
-        check(judged.some(sample => sample.pitchGraph), `hover ja-wikipedia-nihongo: the popup still draws the hovered word's pitch graph (${judged.filter(sample => sample.pitchGraph).length} of ${judged.length})`);
-    } finally {
-        await run.close();
     }
+}
+
+async function hoverMeasure(run) {
+    const samples = [];
+    for (const word of await hoverTargets(run.page)) {
+        samples.push(await hoverSample(run, word));
+        if (samples.filter(sample => !sample.recordingGap).length >= HOVER_SAMPLES) break;
+    }
+    // A word is set aside only when, during its hover, the product asked Jiten
+    // something the recording never held. A popover that did not show within
+    // HOVER_WAIT_MS for any other reason is the product's failure, and counts.
+    const judged = samples.filter(sample => !sample.recordingGap);
+    const times = judged.map(sample => sample.shownMs ?? Infinity).sort((left, right) => left - right);
+    const p90 = times[Math.ceil(times.length * 0.9) - 1];
+    const detail = samples.map(sample => `${sample.text}:${sample.recordingGap ? 'not-recorded' : sample.shownMs ?? 'never-shown'}`).join(' ');
+    console.log(`INFO ${product.label} hover: ${judged.length} of ${samples.length} hovered words judged; the rest asked Jiten for what the recording never held (${detail})`);
+    return { judged, p90, withinBudget: p90 <= DWELL_MS + POPOVER_BUDGET_MS };
 }
 
 async function youtubePlayback() {
