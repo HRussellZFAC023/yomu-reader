@@ -128,6 +128,7 @@ export async function openAnsweredRecordedPage(options, { settleMs, attempts = 4
 /**
  * How the GM requests to the recorded product-traffic hosts were answered:
  * { hosts, served: { 'recorded-product': n, offline: n, ... }, dropped, refused, verdict }.
+ * dropped: requests nothing answered (offline) or whose answerer threw (failed).
  * verdict (recorded-product-traffic.mjs) says whether what the load painted
  * can be judged. Gates that judge readings open with openAnsweredRecordedPage
  * and check the verdict, so a replay that answered nothing is never read as
@@ -138,7 +139,8 @@ function productTrafficReport(scope) {
     const hosts = productTrafficHosts(scope);
     const served = {};
     for (const entry of hosts.flatMap(host => scope.ledger.requests({ host, channel: 'gm' }))) served[entry.served] = 1 + (served[entry.served] ?? 0);
-    const { offline: dropped = 0 } = served;
+    const { offline = 0, failed = 0 } = served;
+    const dropped = offline + failed;
     const subject = { recorded: scope.recording.manifest.productTraffic, gmNetwork: scope.gmNetwork, productLabel: scope.product?.label };
     return { hosts, served, dropped, refused: scope.refusedAnswers, verdict: productTrafficVerdict(subject, { served, dropped }) };
 }

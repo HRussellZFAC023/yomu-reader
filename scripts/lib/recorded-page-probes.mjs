@@ -1,15 +1,21 @@
 // Measurements gates take on a Recorded Page with the product running. Each
 // in-page function reads only what a learner would see; the pure helpers turn
 // the readings into numbers a gate can compare.
+import sharp from 'sharp';
+
+const READINGS = 'rt, .jpdb-reader-detached-furi';
 
 /**
  * In-page: whether any text inside element is painted where a learner could
- * see it. A text node counts when it has a box at least a pixel each way (in
- * the viewport, when inViewport), its element passes checkVisibility (display,
- * visibility, opacity and content-visibility, ancestors included) and its
- * fill colour is not transparent. A reading kept in the DOM but hidden by the
- * page or the product (display: none, visibility: hidden, opacity: 0,
- * font-size: 0, a transparent colour) therefore does not count.
+ * see it, judged from styles alone (cheap enough for every animation frame).
+ * A text node counts when it has a box at least a pixel each way (in the
+ * viewport, when inViewport), its element passes checkVisibility (display,
+ * visibility, opacity and content-visibility, ancestors included), its fill
+ * colour is not transparent, and no ancestor clips or filters it away
+ * (clip-path inset to nothing or a zero circle, clip: rect with no area,
+ * filter: opacity(0)). Styles cannot rule out every way to hide text (a mask,
+ * text the colour of what is behind it); kanjiReadingCoverage therefore also
+ * checks the screen's pixels.
  */
 function paintsText(element, inViewport) {
     // Computed colours are rgb(r, g, b), rgba(r, g, b, a) or color(space c c c / a).
@@ -20,12 +26,28 @@ function paintsText(element, inViewport) {
         const parts = color.match(/\((.*)\)$/u)?.[1].split(',') ?? [];
         return parts.length === 4 ? Number(parts[3]) : 1;
     };
+    // inset(t r b l): what is left of the box once the insets are taken off.
+    const insetLeavesNothing = (clipPath, box) => {
+        const inset = clipPath.match(/^inset\(([^)]*?)(?:\s+round\b[^)]*)?\)$/u)?.[1].trim().split(/\s+/u);
+        if (!inset) return false;
+        const [top, right = top, bottom = top, left = right] = inset;
+        const length = (value, size) => (value.endsWith('%') ? (Number.parseFloat(value) / 100) * size : Number.parseFloat(value));
+        return length(top, box.height) + length(bottom, box.height) >= box.height || length(left, box.width) + length(right, box.width) >= box.width;
+    };
+    const clippedAway = node => {
+        const style = getComputedStyle(node);
+        const box = node.getBoundingClientRect();
+        if (/opacity\(\s*0*(?:\.0*)?%?\s*\)/u.test(style.filter)) return true;
+        if (/^(?:circle|ellipse)\(\s*0(?:px|%)?[\s)]/u.test(style.clipPath) || insetLeavesNothing(style.clipPath, box)) return true;
+        const rect = style.position === 'absolute' || style.position === 'fixed' ? style.clip.match(/^rect\(([^)]*)\)$/u)?.[1].split(/[\s,]+/u).map(Number.parseFloat) : null;
+        return Boolean(rect) && (rect[1] <= rect[3] || rect[2] <= rect[0]);
+    };
     const shownByStyle = node => {
-        if (node.checkVisibility) return node.checkVisibility({ opacityProperty: true, visibilityProperty: true, contentVisibilityAuto: true });
-        if (getComputedStyle(node).visibility !== 'visible') return false;
+        if (node.checkVisibility && !node.checkVisibility({ opacityProperty: true, visibilityProperty: true, contentVisibilityAuto: true })) return false;
+        if (!node.checkVisibility && getComputedStyle(node).visibility !== 'visible') return false;
         for (let ancestor = node; ancestor; ancestor = ancestor.parentElement) {
             const style = getComputedStyle(ancestor);
-            if (style.display === 'none' || Number(style.opacity) === 0) return false;
+            if (style.display === 'none' || Number(style.opacity) === 0 || clippedAway(ancestor)) return false;
         }
         return true;
     };
@@ -52,30 +74,105 @@ function evaluateWithPaintsText(page, probe, argument) {
     return page.evaluate(`(${probe})(${paintsText}, ${JSON.stringify(argument)})`);
 }
 
+// A pixel differs when a colour channel moves by at least this much; a
+// reading is seen when at least INK_PIXELS of its pixels do.
+const INK_DIFFERENCE = 32;
+const INK_PIXELS = 3;
+// While the second screenshot is taken, every reading (and anything it
+// generates) paints nothing; layout does not change.
+const HIDE_READINGS = `:is(${READINGS}), :is(${READINGS}) *, :is(${READINGS})::before, :is(${READINGS})::after, :is(${READINGS}) *::before, :is(${READINGS}) *::after { visibility: hidden !important; }`;
+
+async function screenPixels(page) {
+    const png = await page.screenshot({ animations: 'disabled', caret: 'hide', scale: 'css' });
+    const { data, info } = await sharp(png).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
+    return { data, width: info.width, height: info.height };
+}
+
+function inkDiffers(shown, hidden, rects, scale) {
+    let differing = 0;
+    for (const [left, top, right, bottom] of rects) {
+        const [x0, y0] = [Math.max(0, Math.floor((left - 1) * scale)), Math.max(0, Math.floor((top - 1) * scale))];
+        const [x1, y1] = [Math.min(shown.width, Math.ceil((right + 1) * scale)), Math.min(shown.height, Math.ceil((bottom + 1) * scale))];
+        for (let y = y0; y < y1; y += 1) {
+            for (let x = x0; x < x1; x += 1) {
+                const at = (y * shown.width + x) * 4;
+                const moved = Math.max(...[0, 1, 2].map(channel => Math.abs(shown.data[at + channel] - hidden.data[at + channel])));
+                if (moved >= INK_DIFFERENCE && (differing += 1) >= INK_PIXELS) return true;
+            }
+        }
+    }
+    return false;
+}
+
 /**
- * How much of the visible Japanese carries a painted reading. The
- * denominator is the page's own text, not the product's words: the runs of
- * kanji in each block's text with the readings taken out, so it is the same
- * whichever way a build splits or wraps the words (a run the product cut into
- * two words is still one run). A run is covered when every kanji in it sits
- * in a product word that paints a reading (rt or a detached reading). The
- * product's own word counts, and words that only know a reading (data-reading,
- * nothing painted), are reported beside it. visibleOnly limits it to text in
- * the viewport. A reading counts as painted only when a learner could see it
- * (paintsText): an rt the product or the page hides is not a reading.
+ * The readings under root a learner sees on screen: those the style rule
+ * (paintsText) passes whose pixels change when every reading is hidden. Two
+ * viewport screenshots, the second with an adopted stylesheet hiding the
+ * readings (no DOM change, so the product does not react). Readings clipped,
+ * masked, filtered or drawn in the colour behind them change nothing and are
+ * not seen. Leaves the probed elements in window.__yomuReadingProbe;
+ * returns { styled, seen } as indices into it.
  */
-export async function kanjiReadingCoverage(page, { root = 'body', visibleOnly = true } = {}) {
-    return evaluateWithPaintsText(page, (paintsText, { rootSelector, visible }) => {
+async function readingsOnScreen(page, root) {
+    const { candidates, viewportWidth } = await evaluateWithPaintsText(page, (paintsText, { rootSelector, readings }) => {
         const scope = document.querySelector(rootSelector) ?? document.body;
-        const READINGS = 'rt, rp, .jpdb-reader-detached-furi';
+        const elements = [...scope.querySelectorAll(readings)];
+        window.__yomuReadingProbe = elements;
+        const range = document.createRange();
+        const rectsOf = element => {
+            range.selectNodeContents(element);
+            return [...range.getClientRects()].filter(rect => rect.width >= 1 && rect.height >= 1).map(rect => [rect.left, rect.top, rect.right, rect.bottom]);
+        };
+        const candidates = elements.flatMap((element, index) => (paintsText(element, true) ? [{ index, rects: rectsOf(element) }] : []));
+        return { candidates, viewportWidth: innerWidth };
+    }, { rootSelector: root, readings: READINGS });
+    if (!candidates.length) return { styled: [], seen: [] };
+    const shown = await screenPixels(page);
+    await page.evaluate(css => {
+        const sheet = new CSSStyleSheet();
+        sheet.replaceSync(css);
+        window.__yomuReadingProbeSheet = sheet;
+        document.adoptedStyleSheets = [...document.adoptedStyleSheets, sheet];
+    }, HIDE_READINGS);
+    let hidden;
+    try {
+        hidden = await screenPixels(page);
+    } finally {
+        await page.evaluate(() => {
+            document.adoptedStyleSheets = document.adoptedStyleSheets.filter(sheet => sheet !== window.__yomuReadingProbeSheet);
+            delete window.__yomuReadingProbeSheet;
+        });
+    }
+    const scale = shown.width / viewportWidth;
+    return { styled: candidates.map(({ index }) => index), seen: candidates.filter(({ rects }) => inkDiffers(shown, hidden, rects, scale)).map(({ index }) => index) };
+}
+
+/**
+ * How much of the Japanese in the viewport carries a reading a learner sees.
+ * The denominator is the page's own text, not the product's words: the runs
+ * of kanji in each block's text with the readings taken out, so it is the
+ * same whichever way a build splits or wraps the words (a run the product cut
+ * into two words is still one run). A run is covered when every kanji in it
+ * sits in a product word with a reading (rt or a detached reading) seen on
+ * screen (readingsOnScreen: the style rule, then the screen's pixels). The
+ * product's own word counts, and words that only know a reading (data-reading,
+ * nothing seen), are reported beside it, as are the readings the style rule
+ * alone passes (styledReadings) and those seen on screen (seenReadings).
+ */
+export async function kanjiReadingCoverage(page, { root = 'body' } = {}) {
+    const { styled, seen } = await readingsOnScreen(page, root);
+    const coverage = await page.evaluate(({ rootSelector, readings, seenIndices }) => {
+        const scope = document.querySelector(rootSelector) ?? document.body;
+        const seenReadings = new Set(seenIndices.map(index => window.__yomuReadingProbe[index]));
+        delete window.__yomuReadingProbe;
         const range = document.createRange();
         const inView = rect => rect.width > 0 && rect.bottom > 0 && rect.top < innerHeight;
         const textInView = node => {
             range.selectNodeContents(node);
             return [...range.getClientRects()].some(inView);
         };
-        const paintsReading = word => [...word.querySelectorAll('rt, .jpdb-reader-detached-furi')].some(element => paintsText(element, visible));
-        const isPageText = node => Boolean(node.parentElement) && !node.parentElement.closest(`${READINGS}, script, style, noscript`) && (!visible || textInView(node));
+        const paintsReading = word => [...word.querySelectorAll(readings)].some(element => seenReadings.has(element));
+        const isPageText = node => Boolean(node.parentElement) && !node.parentElement.closest(`${readings}, rp, script, style, noscript`) && textInView(node);
         const flows = element => /^(inline|ruby|contents)/u.test(getComputedStyle(element).display);
         const blockOf = node => {
             let element = node.parentElement;
@@ -105,11 +202,10 @@ export async function kanjiReadingCoverage(page, { root = 'body', visibleOnly = 
         const runs = pageTextNodes().reduce(addToBlock, []).flatMap(runCoverage);
         const baseText = word => {
             const copy = word.cloneNode(true);
-            copy.querySelectorAll(READINGS).forEach(element => element.remove());
+            copy.querySelectorAll(`${readings}, rp`).forEach(element => element.remove());
             return copy.textContent;
         };
-        const wordInView = word => !visible || inView(word.getBoundingClientRect());
-        const words = [...scope.querySelectorAll('.jpdb-reader-word')].filter(wordInView);
+        const words = [...scope.querySelectorAll('.jpdb-reader-word')].filter(word => inView(word.getBoundingClientRect()));
         const kanjiWords = words.filter(word => /\p{Script=Han}/u.test(baseText(word)));
         const dataReadingOnly = word => !paintsReading(word) && Boolean(word.dataset.reading?.trim());
         const covered = runs.filter(Boolean).length;
@@ -122,7 +218,8 @@ export async function kanjiReadingCoverage(page, { root = 'body', visibleOnly = 
             painted: kanjiWords.filter(paintsReading).length,
             dataReadingOnly: kanjiWords.filter(dataReadingOnly).length,
         };
-    }, { rootSelector: root, visible: visibleOnly });
+    }, { rootSelector: root, readings: READINGS, seenIndices: seen });
+    return { ...coverage, styledReadings: styled.length, seenReadings: seen.length };
 }
 
 /**

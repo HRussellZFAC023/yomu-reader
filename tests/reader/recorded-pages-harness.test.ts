@@ -5,7 +5,7 @@ import { join, resolve } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import { compareGeometrySignatures, type GeometrySignature } from '../../scripts/lib/geometry-signature.mjs';
 import { cdpPerSecond, spinSummary } from '../../scripts/lib/main-thread-sampler.mjs';
-import { assertLedgerCount, assertNoRequestsBeforeInteraction, createNetworkLedger } from '../../scripts/lib/network-ledger.mjs';
+import { assertLedgerCount, assertNoRequestsBeforeInteraction, createNetworkLedger, LEDGER_ID_HEADER } from '../../scripts/lib/network-ledger.mjs';
 import { createHarWriter, readHarIndex } from '../../scripts/lib/recorded-har.mjs';
 import { json3ToSrv3, json3ToVtt } from '../../scripts/lib/recorded-hosts.mjs';
 import { answerGmRequest } from '../../scripts/lib/recorded-network.mjs';
@@ -181,12 +181,19 @@ describe('redaction', () => {
         expect(generatedCopyInCss('.dot:before{content:"•"}.badge:after{content:"NEW"}.x{--font:"YouTube Sans"}')).toEqual([]);
     });
 
+    it('reads a property name written with CSS escapes as the browser does', () => {
+        const css = 'body::before{\\63 ontent:"今日の注目記事"}p::after{c\\ontent:"見出しの文"}q{\\000043ONTENT:"大文字の名前"}li{list-style-\\74 ype:"二つの印"}.x{fon\\74-family:"游ゴシック"}';
+        expect(textRunsFromCss(css)).toEqual(['今日の注目記事', '見出しの文', '大文字の名前', '二つの印']);
+        expect(generatedCopyInCss(css)).toEqual(['今日の注目記事', '見出しの文', '大文字の名前', '二つの印']);
+    });
+
     it('finds an original run restored through CSS generated content, in a style element, a style attribute or a stylesheet', () => {
         const hashList = redactionHashList(['元の記事の見出しです']);
         const cases = {
             'page.html': '<style>body::before{content:"元の記事の見出しです"}</style><p>私はその人を常に</p>',
             'inline.html': '<p style="--x:\'元の記事の\' \'見出しです\'">私はその人を常に</p>',
             'resources/sheet.css': 'body::before{content:"\\5143の記事の見出しです"}',
+            'escaped.html': '<style>body::before{\\63 ontent:"元の記事の見出しです"}</style><p>私はその人を常に</p>',
             'network.har': JSON.stringify({ log: { entries: [{ response: { content: { mimeType: 'text/css', encoding: 'base64', text: Buffer.from('p::after{content:"元の記事の見出しです"}').toString('base64') } } }] } }),
         };
         for (const [file, text] of Object.entries(cases)) {
@@ -294,6 +301,12 @@ describe('recorded page plumbing', () => {
         await expect(answerGmRequest({ method: 'GET', url: 'https://yomureader.com/favicon.ico' }, offline)).rejects.toThrow('no recorded answer');
         const failing = await answerGmRequest({ method: 'GET', url: wordmark }, scopeFor('offline', () => ({ status: 503, body: 'down' })));
         expect(failing).toMatchObject({ status: 503, responseText: 'down' });
+        for (const gmNetwork of ['offline', 'replay']) {
+            const throwing = scopeFor(gmNetwork, () => Promise.reject(new Error('answerer broke')));
+            throwing.ledger.recordRequest({ channel: 'gm', url: wordmark, ledgerId: '7', served: 'pending' });
+            await expect(answerGmRequest({ method: 'GET', url: wordmark, headers: { [LEDGER_ID_HEADER]: '7' } }, throwing)).rejects.toThrow('answerer broke');
+            expect(throwing.ledger.entries().map(entry => entry.served), gmNetwork).toEqual(['failed']);
+        }
     });
 
     it('makes blank pictures of the size it was asked for', () => {
@@ -386,9 +399,9 @@ describe('check-recorded-pages', () => {
         expect(result.output).toContain('page.html holds a 8-character text run from the original page');
     });
 
-    it('fails a redaction whose stylesheet paints an original run back in', () => {
+    it.each(['content', '\\63 ontent'])('fails a redaction whose stylesheet paints an original run back in through %s', property => {
         const root = temporaryDirectory();
-        writeRecording(root, '私はその人を常に</p><style>body::before{content:"元の記事の見出し"}</style><p>');
+        writeRecording(root, `私はその人を常に</p><style>body::before{${property}:"元の記事の見出し"}</style><p>`);
         const result = run(root);
         expect(result.code).toBe(1);
         expect(result.output).toContain('page.html holds a 8-character text run from the original page');

@@ -42,7 +42,11 @@ const UNFULFILLED = {
 
 export async function routePageRequest(route, scope) {
     const request = route.request();
-    const answer = await firstAnswer(PAGE_ANSWERERS, request, scope) ?? OFFLINE;
+    const answer = await firstAnswer(PAGE_ANSWERERS, request, scope).catch(error => {
+        scope.ledger.recordRequest(pageLedgerEntry(request, 'failed'));
+        route.abort('failed').catch(() => undefined);
+        throw error;
+    }) ?? OFFLINE;
     scope.ledger.recordRequest(pageLedgerEntry(request, answer.served));
     return answer.fulfill ? route.fulfill(answer.fulfill) : UNFULFILLED[answer.served](route);
 }
@@ -103,10 +107,16 @@ function isRecordHost(url, scope) {
     return scope.recordHosts.some(host => hostMatches(hostOf(url), host));
 }
 
+// An answerer that throws (a test's failing onGmRequest, a live fetch that
+// could not connect) leaves the request 'failed' in the ledger, not pending.
 export async function answerGmRequest(raw, scope) {
     const { request, ledgerId } = gmRequest(raw);
-    const answer = await firstAnswer(GM_ANSWERERS, request, scope);
-    scope.ledger.markServed({ channel: 'gm', method: request.method, url: request.url, ledgerId }, answer ? answer.served : 'offline');
+    const markServed = served => scope.ledger.markServed({ channel: 'gm', method: request.method, url: request.url, ledgerId }, served);
+    const answer = await firstAnswer(GM_ANSWERERS, request, scope).catch(error => {
+        markServed('failed');
+        throw error;
+    });
+    markServed(answer ? answer.served : 'offline');
     if (!answer) throw new Error(`Recorded page: no recorded answer for ${request.method} ${request.url}`);
     return bridgeResponse(answer.status, answer.body, answer.contentType);
 }

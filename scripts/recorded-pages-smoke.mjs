@@ -12,9 +12,10 @@
 //               never changes, so these stay true; a gate built on this harness
 //               that cannot see them could not see anything.
 //   probes      kanjiReadingCoverage counts no reading hidden in place
-//               (display, visibility, opacity, font size, colour) as painted,
-//               in each engine and in WebKit at iPad size, on the readings
-//               2.1.6 paints on ja-wikipedia-nihongo.
+//               (display, visibility, opacity, font size, colour, clip-path,
+//               filter, mask) as painted, in each engine and in
+//               WebKit at iPad size, on the readings 2.1.6 paints on
+//               ja-wikipedia-nihongo.
 //
 //   node scripts/recorded-pages-smoke.mjs [replay|reproduce|probes] [--engines=chromium,webkit]
 //   node scripts/recorded-pages-smoke.mjs reproduce --product=worktree   # numbers for this build, no assertions
@@ -42,7 +43,15 @@ const failures = [];
 
 // A reading the product keeps in the DOM but hides is not a painted reading:
 // hiding every reading on the loaded page must take the coverage to zero.
-const HIDDEN_READINGS = [['visibility', 'hidden'], ['opacity', '0'], ['display', 'none'], ['font-size', '0'], ['color', 'transparent']];
+// The style rule the caption log uses per frame (styledReadings) must see
+// all but a mask and an empty polygon, which only the screen's pixels show.
+// (transform: scale(0) is not here: Chromium and Firefox do not transform an
+// rt, so the reading stays on screen and is rightly counted.)
+const HIDDEN_READINGS = [
+    ['visibility', 'hidden'], ['opacity', '0'], ['display', 'none'], ['font-size', '0'], ['color', 'transparent'],
+    ['clip-path', 'inset(100%)'], ['clip-path', 'circle(0)'], ['filter', 'opacity(0)'],
+    ['clip-path', 'polygon(0 0, 0 0, 0 0)', { pixelsOnly: true }], ['mask-image', 'linear-gradient(transparent, transparent)', { pixelsOnly: true }],
+];
 
 const PROBE_PROFILES = [
     ...engines.map(engine => ({ name: engine, engine, contextOptions: {} })),
@@ -205,14 +214,18 @@ async function checkReadingProbe() {
 async function checkHiddenReadingsNotCounted(run, name) {
     const coverage = await kanjiReadingCoverage(run.page, { root: '#mw-content-text' });
     const left = {};
-    for (const [property, value] of HIDDEN_READINGS) {
+    const styledLeft = {};
+    for (const [property, value, { pixelsOnly = false } = {}] of HIDDEN_READINGS) {
         const styleReadings = set => run.page.evaluate(([name, hidden, apply]) => document.querySelectorAll('rt, .jpdb-reader-detached-furi').forEach(element => (apply ? element.style.setProperty(name, hidden, 'important') : element.style.removeProperty(name))), [property, value, set]);
         await styleReadings(true);
         const hidden = await kanjiReadingCoverage(run.page, { root: '#mw-content-text' });
         await styleReadings(false);
         left[`${property}: ${value}`] = hidden.covered + hidden.painted;
+        if (!pixelsOnly) styledLeft[`${property}: ${value}`] = hidden.styledReadings;
     }
-    check(coverage.painted >= 1 && Object.values(left).every(count => count === 0), `probe ${name}: ${coverage.covered}/${coverage.kanjiRuns} kanji runs covered and ${coverage.painted} words painted; with every reading hidden in place, covered + painted is ${JSON.stringify(left)}`);
+    const seenAtRest = coverage.painted >= 1 && coverage.seenReadings >= 1;
+    check(seenAtRest && Object.values(left).every(count => count === 0), `probe ${name}: ${coverage.covered}/${coverage.kanjiRuns} kanji runs covered, ${coverage.painted} words painted (${coverage.seenReadings} of ${coverage.styledReadings} styled readings seen on screen); with every reading hidden in place, covered + painted is ${JSON.stringify(left)}`);
+    check(Object.values(styledLeft).every(count => count === 0), `probe ${name}: the per-frame style rule passes no reading hidden in place ${JSON.stringify(styledLeft)}`);
 }
 
 async function reproduceCaptionFlash(browser, product, report) {
