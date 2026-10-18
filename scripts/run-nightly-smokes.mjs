@@ -39,6 +39,9 @@ export const NIGHTLY_SMOKES = [
     'smoke:anki',
     'smoke:anki-template',
     'smoke:annotation-typography',
+    // WebKit + Chromium, default readings: clamped synopsis cards that open
+    // with kana keep their base lines in view (W1-42).
+    'smoke:clamp-row-heal',
     'smoke:bookwalker-cty2-scroll',
     'smoke:bookwalker-tap-passthrough',
     'smoke:bookwalker-tap-retry',
@@ -71,6 +74,10 @@ export const NIGHTLY_SMOKES = [
     // models.
     'smoke:modal-reading-register',
     'smoke:ocr-provider-matrix',
+    // WebKit + Chromium, horizontal, paged columns and vertical-rl paged: an
+    // author ruby inside a word keeps its line metrics and no paragraph moves
+    // with readings off (W1-42).
+    'smoke:page-ruby-metrics',
     'smoke:ocr-viewport-scroll',
     'smoke:pitch-underline',
     'smoke:pitch-underline:webkit',
