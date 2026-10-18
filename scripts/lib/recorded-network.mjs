@@ -41,9 +41,6 @@ const UNFULFILLED = {
 
 export async function routePageRequest(route, scope) {
     const request = route.request();
-    // WebKit routes the page's own blob: and data: URLs too (an image the product
-    // decodes from bytes it fetched). They never leave the browser: let them load.
-    if (/^(blob|data):/u.test(request.url())) return route.continue();
     const answer = await firstAnswer(PAGE_ANSWERERS, request, scope) ?? OFFLINE;
     scope.ledger.recordRequest(pageLedgerEntry(request, answer.served));
     return answer.fulfill ? route.fulfill(answer.fulfill) : UNFULFILLED[answer.served](route);

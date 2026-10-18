@@ -82,7 +82,9 @@ export async function openRecordedPage(options) {
     await context.exposeFunction(LEDGER_BINDINGS.requestBinding, request => void scope.ledger.recordRequest(request));
     await context.exposeFunction(LEDGER_BINDINGS.interactionBinding, interaction => scope.ledger.recordInteraction(interaction));
     await context.exposeFunction(LEDGER_BINDINGS.pageStampBinding, stamp => scope.ledger.recordPageStamp(stamp));
-    await context.route('**/*', route => routePageRequest(route, scope));
+    // WebKit routes the page's own blob: and data: URLs too (an image the product
+    // decodes from bytes it fetched). They never leave the browser: let them load.
+    await context.route('**/*', route => (/^(blob|data):/u.test(route.request().url()) ? route.continue() : routePageRequest(route, scope)));
     await installProduct(context, scope, settings, gmStoragePrefix);
     const page = await context.newPage();
     const pageErrors = [];
