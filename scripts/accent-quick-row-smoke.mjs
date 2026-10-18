@@ -6,7 +6,9 @@
 // the Underline choice, a tap on 藍 must repaint within one frame, Pitch must
 // paint pitch underlines on page and subtitle words without opening Tuning,
 // Save must persist both, a second open Appearance tab must follow that Save
-// (and still let the learner pick the old choice), and a reload must keep them.
+// (and still let the learner pick the old choice, and keep that unsaved choice
+// selected and painted when the first tab then saves something unrelated), and
+// a reload must keep them.
 // Then the BUILT
 // userscript graph reads those saved values on a reader page and paints the
 // puck, the popup and the word underlines with them. Runs in Chromium at desktop
@@ -208,7 +210,7 @@ async function runStudy(browser, config) {
             } catch { return null; }
         }, { key: YOMU_SETTINGS_KEY, accent: AI }, { timeout: 10_000 })).jsonValue();
 
-        const crossTab = await crossTabState(otherTab, config);
+        const crossTab = await crossTabState(otherTab, page, config);
         await openAppearance(page, true);
         const reloaded = await page.evaluate(() => ({
             accent: getComputedStyle(document.documentElement).getPropertyValue('--jpdb-reader-accent').trim(),
@@ -225,13 +227,15 @@ async function runStudy(browser, config) {
     }
 }
 
-async function crossTabState(page, config) {
+async function crossTabState(page, savingTab, config) {
     await page.bringToFront();
     const selection = () => page.evaluate(() => ({
         accent: getComputedStyle(document.documentElement).getPropertyValue('--jpdb-reader-accent').trim(),
         swatch: document.querySelector('input[name="accentSwatch"]:checked')?.getAttribute('data-accent-swatch') ?? null,
         underline: document.querySelector('input[name="underlineQuick"]:checked')?.getAttribute('value') ?? null,
         channels: ['wordUnderlineColorSource', 'subtitleUnderlineColorSource'].map(name => document.querySelector(`select[name="${name}"]`)?.value),
+        rootUnderline: Array.from(document.documentElement.classList).filter(name => /^jpdb-reader-(word|subtitle)-underline-/.test(name)).sort(),
+        popupMode: document.querySelector('select[name="popupMode"]')?.value ?? null,
     }));
     const synced = await page.waitForFunction(() => document.querySelector('input[name="accentSwatch"]:checked')?.getAttribute('data-accent-swatch') === 'ai'
         && document.querySelector('input[name="underlineQuick"]:checked')?.getAttribute('value') === 'pitch', undefined, { timeout: 5_000 })
@@ -245,8 +249,24 @@ async function crossTabState(page, config) {
     const repicked = await selection();
     assert(repicked.swatch === 'kurenai' && repicked.accent !== AI && repicked.channels.every(channel => channel === 'status'),
         'The other tab cannot pick 紅 and Status again after the remote save', repicked);
+    // An unrelated Save elsewhere must leave that unsaved choice selected AND painted.
+    const popupMode = repicked.popupMode === 'sheet' ? 'popover' : 'sheet';
+    await savingTab.bringToFront();
+    await savingTab.locator('.jpdb-reader-settings select[name="popupMode"]').selectOption(popupMode);
+    await savingTab.locator('.jpdb-reader-settings button[type="submit"]').click();
+    const persisted = await savingTab.waitForFunction(({ key, mode }) => {
+        try { return JSON.parse(localStorage.getItem(key) ?? '{}').popupMode === mode; } catch { return false; }
+    }, { key: YOMU_SETTINGS_KEY, mode: popupMode }, { timeout: 10_000 }).then(() => true, () => false);
+    assert(persisted, 'The unrelated Save did not persist', { popupMode });
+    await page.bringToFront();
+    const followed = await page.waitForFunction(mode => document.querySelector('select[name="popupMode"]')?.value === mode, popupMode, { timeout: 5_000 })
+        .then(() => true, () => false);
+    const unrelated = await selection();
+    assert(followed && unrelated.swatch === 'kurenai' && unrelated.underline === 'status'
+        && unrelated.accent === repicked.accent && unrelated.rootUnderline.join() === repicked.rootUnderline.join(),
+    'An unrelated Save in another tab left the unsaved 紅 and Status selected but painted the saved 藍 and Pitch', { repicked, unrelated });
     await page.close();
-    return { remote, repicked };
+    return { remote, repicked, unrelated };
 }
 
 async function openAppearance(page, reload) {
