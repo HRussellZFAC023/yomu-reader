@@ -86,7 +86,7 @@ To turn it off everywhere, set the よむ button to よむ off.
 
 ## How does it read manga? {#manga}
 
-よむ finds the Japanese in pictures with Google Lens, no key needed. On some sites, tap the page first. Switch to Cloud Vision or a local OCR server under Settings → Media.
+よむ finds the Japanese in pictures with Google Lens, no key needed. Tap a picture to read it. Switch to Cloud Vision or a local OCR server under Settings → Media; a local server also reads pictures as they come into view.
 
 An image gets a small corner mark after よむ finds text. Tap the recognized text to look it up.
 
