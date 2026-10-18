@@ -38,14 +38,14 @@ export interface LuminanceField { size: number; lum: Uint8Array }
 // The inverted pass is a second provider round trip and a second encode. Google
 // Lens and Cloud Vision read light-on-dark text themselves, and on photos and
 // video frames the pass doubled their requests for no extra text. It runs for
-// the Learner OCR Service, or for a scan the learner asked for that found nothing.
+// the Learner OCR Service, or for a scan the learner pressed for that found nothing.
 export function darkPassWanted(
     settings: Pick<ReaderSettings, 'ocrInvertDarkPanels' | 'ocrProvider'>,
-    manualRequested: boolean,
+    pressed: boolean,
     normal: OcrResult | null,
 ): boolean {
     if (!settings.ocrInvertDarkPanels) return false;
-    return settings.ocrProvider === 'local-service' || (manualRequested && !normal?.lines.length);
+    return settings.ocrProvider === 'local-service' || (pressed && !normal?.lines.length);
 }
 
 export function buildLuminanceField(image: HTMLImageElement): LuminanceField | null {

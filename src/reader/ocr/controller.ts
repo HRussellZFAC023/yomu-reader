@@ -1213,8 +1213,9 @@ export class ImageOcrController {
     ): Promise<void> {
         const inlineFallback = readFallbackOcrResult(image, false);
         // Bound canvas encoding plus fallback transports; an HTTP timer alone misses a hung WebKit encode.
+        // Only a press earns the inverted second pass; a pointer passing over costs one request.
         const providerResult = inlineFallback ? null : await promiseWithTimeout(
-            this.recognizeImage(image, settings, manualRequested),
+            this.recognizeImage(image, settings, state.pressed),
             ocrAttemptTimeoutMs(this.options.ocrAttemptTimeoutFloorMs),
             'OCR timed out.',
         );
@@ -1310,11 +1311,11 @@ export class ImageOcrController {
         this.updateOcrStatus(image, 'failed');
     }
 
-    private recognizeImage(image: HTMLImageElement, settings: ReaderSettings, manualRequested: boolean): Promise<OcrResult | null> {
+    private recognizeImage(image: HTMLImageElement, settings: ReaderSettings, pressed: boolean): Promise<OcrResult | null> {
         const recognizer = ocrRecognizer(settings);
         if (!recognizer) return Promise.resolve(null);
-        if (this.shouldSplitBookwalkerSpreadFrame(image)) return this.recognizeBookwalkerSpreadFrame(image, settings, recognizer, manualRequested);
-        return this.recognizeWithDarkPass(image, settings, recognizer, manualRequested);
+        if (this.shouldSplitBookwalkerSpreadFrame(image)) return this.recognizeBookwalkerSpreadFrame(image, settings, recognizer, pressed);
+        return this.recognizeWithDarkPass(image, settings, recognizer, pressed);
     }
 
     private shouldSplitBookwalkerSpreadFrame(image: HTMLImageElement): boolean {
@@ -1332,10 +1333,10 @@ export class ImageOcrController {
         image: HTMLImageElement,
         settings: ReaderSettings,
         recognizer: OcrRecognizer,
-        manualRequested: boolean,
+        pressed: boolean,
     ): Promise<OcrResult | null> {
         const slices = await splitImageIntoPageColumns(image);
-        const outcomes = await Promise.allSettled(slices.map(slice => this.recognizeWithDarkPass(slice.image, settings, recognizer, manualRequested)));
+        const outcomes = await Promise.allSettled(slices.map(slice => this.recognizeWithDarkPass(slice.image, settings, recognizer, pressed)));
         const results = outcomes.map((outcome, index) => {
             const slice = slices[index];
             return outcome.status === 'fulfilled' && outcome.value
@@ -1361,10 +1362,10 @@ export class ImageOcrController {
         image: HTMLImageElement,
         settings: ReaderSettings,
         recognizer: OcrRecognizer,
-        manualRequested: boolean,
+        pressed: boolean,
     ): Promise<OcrResult | null> {
         const normal = await this.runRecognizer(image, settings, recognizer, false);
-        if (!darkPassWanted(settings, manualRequested, normal)) return normal;
+        if (!darkPassWanted(settings, pressed, normal)) return normal;
         const field = buildLuminanceField(image);
         if (!field || luminanceFieldDarkFraction(field) < DARK_REGION_TRIGGER) return normal;
         if ((this.canvasFrameSources.has(image) || this.backgroundFrameSources.has(image)) && normal?.lines.length) return normal;
