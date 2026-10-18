@@ -190,7 +190,9 @@ describe('Stats loading and keyboard continuity', () => {
         await older;
         controller.render(root);
         expect(root.querySelector('.jpdb-reader-stats-bars')).not.toBeNull();
-        const today = new Date().toISOString().slice(0, 10);
+        // Stats bucket reviews by the learner's local day, not the UTC date.
+        const now = new Date();
+        const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
         expect(root.querySelector(`[data-stats-day="${today}"]`)?.getAttribute('aria-label')).toContain('statsActivityReviews: 1');
     });
 
