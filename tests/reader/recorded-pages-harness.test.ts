@@ -187,6 +187,27 @@ describe('redaction', () => {
         expect(generatedCopyInCss(css)).toEqual(['今日の注目記事', '見出しの文', '大文字の名前', '二つの印']);
     });
 
+    it('reads custom properties named with non-ASCII letters and the strings content paints through var()', () => {
+        const css = ':root{--見出し:"今日の注目記事"}body::before{content:var(--見出し)}.a::after{content:var(--\\898B\\51FA\\3057, "代わりの文")}.b{font-family:var(--見出し)}';
+        expect(generatedCopyInCss(css)).toEqual(['今日の注目記事', '今日の注目記事代わりの文']);
+        expect(textRunsFromCss(css)).toContain('今日の注目記事');
+        expect(generatedCopyInCss('.x{--font:"YouTube Sans"}.y{font-family:var(--font)}')).toEqual([]);
+    });
+
+    it('follows var() through other custom properties, @property initial values and an escaped function name', () => {
+        expect(generatedCopyInCss(':root{--b:"今日の注目記事";--a:var(--b)}body::before{content:var(--a)}')).toEqual(['今日の注目記事']);
+        expect(generatedCopyInCss('@property --題 { syntax: "*"; inherits: true; initial-value: "今日の注目記事"; } body::before{content:var(--題)}')).toEqual(['今日の注目記事']);
+        expect(generatedCopyInCss(':root{--a:"今日の";--b:"注目記事"}body::before{content:v\\61r(--a) VAR(--b)}')).toEqual(['今日の注目記事']);
+        expect(generatedCopyInCss(':root{--a:var(--b);--b:var(--a)}body::before{content:var(--a)}')).toEqual([]);
+    });
+
+    it('finds copy a stylesheet paints through a custom property another stylesheet sets', () => {
+        const dir = temporaryDirectory();
+        writeFileSync(join(dir, 'page.html'), '<p style="--題:\'別の記事の題名\'">私はその人を常に</p>');
+        writeFileSync(join(dir, 'site.css'), 'p::before{content:var(--題)}');
+        expect(findGeneratedCopy(dir)).toEqual([{ file: 'site.css', hash: hashTextRun('別の記事の題名'), length: 7 }]);
+    });
+
     it('finds an original run restored through CSS generated content, in a style element, a style attribute or a stylesheet', () => {
         const hashList = redactionHashList(['元の記事の見出しです']);
         const cases = {
@@ -194,6 +215,8 @@ describe('redaction', () => {
             'inline.html': '<p style="--x:\'元の記事の\' \'見出しです\'">私はその人を常に</p>',
             'resources/sheet.css': 'body::before{content:"\\5143の記事の見出しです"}',
             'escaped.html': '<style>body::before{\\63 ontent:"元の記事の見出しです"}</style><p>私はその人を常に</p>',
+            'unicode-var.html': '<style>:root{--見出し:"元の記事の見出しです"}body::before{content:var(--見出し)}</style><p>私はその人を常に</p>',
+            'property-rule.html': '<style>@property --題 { syntax: "*"; inherits: true; initial-value: "元の記事の見出しです"; } body::before{content:var(--題)}</style><p>私はその人を常に</p>',
             'network.har': JSON.stringify({ log: { entries: [{ response: { content: { mimeType: 'text/css', encoding: 'base64', text: Buffer.from('p::after{content:"元の記事の見出しです"}').toString('base64') } } }] } }),
         };
         for (const [file, text] of Object.entries(cases)) {
@@ -399,7 +422,7 @@ describe('check-recorded-pages', () => {
         expect(result.output).toContain('page.html holds a 8-character text run from the original page');
     });
 
-    it.each(['content', '\\63 ontent'])('fails a redaction whose stylesheet paints an original run back in through %s', property => {
+    it.each(['content', '\\63 ontent', '--見出し:"元の記事の見出し"}body::before{content:var(--見出し)}p{content', '--b:"元の記事の見出し"}:root{--a:var(--b)}body::before{content:var(--a)}p{content'])('fails a redaction whose stylesheet paints an original run back in through %s', property => {
         const root = temporaryDirectory();
         writeRecording(root, `私はその人を常に</p><style>body::before{${property}:"元の記事の見出し"}</style><p>`);
         const result = run(root);

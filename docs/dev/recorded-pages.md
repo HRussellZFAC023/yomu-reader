@@ -17,7 +17,7 @@ companions and its `@resource` CSS.
 | `page.html` | The DOM as the reader saw it, with the site's scripts, script preloads, inline handlers and iframe contents removed (inside `<template>` contents too). Open shadow roots are kept as declarative shadow DOM. Rules a CSS-in-JS library inserted through the CSSOM, and adopted stylesheets, are written out as `<style>`. |
 | `network.har` + `resources/` | HAR 1.2 for every stylesheet, picture and font the frozen page asks for. Bodies are plain files (`content._file`), so `context.routeFromHAR` can replay them too. |
 | `geometry.json` | The sample keys, the live page's Geometry Signature at record time, and each engine's replay signature. |
-| `product-traffic.har` | Optional: the product's own GM answers for the hosts a target allows (`api.jiten.moe` for the Wikipedia pages), merged from runs in Chromium, WebKit, Firefox and WebKit at iPad size, so a replay answers them offline. |
+| `product-traffic.har` | Optional: the product's own GM answers for the hosts a target allows (`api.jiten.moe` for the Wikipedia pages), merged from runs in Chromium, WebKit, Firefox and WebKit at iPad and iPhone sizes, so a replay answers them offline. |
 | `redaction-hashes.json` | Redacted pages only: SHA-256 prefixes of every original text run. Never the text. |
 | `host/` | YouTube only: the redacted player response, the json3 caption tracks (timings kept, words replaced) and a blank clip. |
 
@@ -59,7 +59,9 @@ a Mechanism Fixture (see Follow-ups).
   letters or several words), and the text stylesheets paint: string values of
   `content`, `quotes`, list markers, `text-overflow` and custom properties in
   `<style>` elements, `style` attributes and committed `.css` files, escapes
-  decoded and `content: "東" "京"` read joined. One-word ASCII values such as
+  decoded in names and strings, non-ASCII names such as `--見出し` read,
+  `content: var(--name)` read as the strings that custom property holds in
+  any of the recording's stylesheets, and `content: "東" "京"` read joined. One-word ASCII values such as
   `true`, an id or YouTube's `4K` badge are vocabulary and are not compared.
   A redacted recording's stylesheets must also paint no copy of their own
   through `content`, since the redactor replaces document text, not CSS;
@@ -197,12 +199,14 @@ the page" take a signature before the product runs and one after.
   visibility and opacity, ancestors included), a fill colour that is not
   transparent, and no ancestor clipping or filtering it away (`clip-path` to
   nothing, `clip`, `filter: opacity(0)`). Then the screen: a viewport
-  screenshot is compared with one taken while an adopted stylesheet hides
-  every reading (no DOM change), and a reading is seen only if its own pixels
-  change. A mask, a partial clip or text the colour of what is behind it
-  therefore does not count either. `styledReadings` and `seenReadings` report
+  screenshot is compared with one taken while an adopted stylesheet makes
+  every reading's glyphs transparent (`-webkit-text-fill-color`, so a
+  background drawn in `currentColor` stays; no DOM change), and a reading is
+  seen only if its own pixels change. A mask, a partial clip, or text the
+  colour of the page or of its own background therefore does not count
+  either. `styledReadings` and `seenReadings` report
   both steps. `npm run smoke:recorded-pages:probes` checks this in each
-  engine and in WebKit at iPad size.
+  engine and in WebKit at both iPad sizes.
   Runs are read from each block's text with the readings taken out, so the
   denominator is the same however a build splits or wraps the words. The product's kanji words, the painted ones and those with only
   `data-reading` are reported beside it.
@@ -229,21 +233,27 @@ the page" take a signature before the product runs and one after.
   these stay true. It also checks that a real key press turns later page and
   GM requests into requests after a Trusted Interaction. The sparse-readings
   case first checks that the recorded jiten traffic answered the product (at
-  most 2 jiten requests dropped, at least one kanji word painted), so a replay
-  that answered nothing cannot pass as sparse readings. Run with
+  most 2 jiten requests dropped, and at least 20 asked, so the scan had
+  started; a load short of either is loaded again), so a replay that answered
+  nothing cannot pass as sparse readings. In some scan orders 2.1.6 paints no
+  reading in the article at all. Run with
   `--product=worktree` to print the same numbers for your build. The caption
   case runs on `youtube-watch`, whose caption timings are a Mechanism Fixture
   in the shape of a YouTube auto-generated track (two-row roll-up, pauses);
   2.1.6 hands YouTube's caption back in those gaps.
 
-- `probes`: on the readings 2.1.6 paints on ja-wikipedia-nihongo, in each
-  engine and in WebKit at 1024×1366 with touch, hiding every reading in place
+- `probes`: on the readings 2.1.6 paints on ja-wikipedia-nihongo (the whole
+  page, since in some scan orders it paints readings only in the page's
+  navigation; a load with none is loaded again), in each
+  engine and in WebKit at 1024×1366 with touch and at 820×1180 with touch and
+  the mobile viewport, hiding every reading in place
   (`visibility: hidden`, `opacity: 0`, `display: none`, `font-size: 0`,
   `color: transparent`, `clip-path: inset(100%)`, `clip-path: circle(0)`,
-  `clip-path: polygon(0 0, 0 0, 0 0)`, `filter: opacity(0)`, `mask-image`)
-  takes covered runs and painted words to zero, and the per-frame style rule
-  passes none of them but the polygon and the mask. `transform: scale(0)` is
-  left out: Chromium and Firefox do not transform an `rt`, so the reading stays
+  `clip-path: polygon(0 0, 0 0, 0 0)`, `filter: opacity(0)`, `mask-image`,
+  `background-color: currentColor`, text the colour of the background behind
+  it) takes covered runs and painted words to zero, and the per-frame style
+  rule passes none of them but the last four. `transform: scale(0)` is left
+  out: Chromium and Firefox do not transform an `rt`, so the reading stays
   on screen and the screenshot check rightly counts it.
 
 Geometry baselines are per platform. Every recording was made on macOS, so on
@@ -274,11 +284,14 @@ would need a recording run on Linux.
   and WebKit, at the recorded size or at iPad size, dropped all of them. The
   recorder therefore runs the product again and again in fresh contexts,
   taking Chromium, WebKit and Firefox at the recorded viewport, WebKit at
-  1024×1366 with touch (iPad) and WebKit at 390×844 with touch and the mobile
-  viewport (iPhone) in turn, merging new requests, until two whole cycles
+  1024×1366 with touch (iPad), WebKit at 820×1180 with touch and the mobile
+  viewport (iPad Air, the size the repository's other iPad smokes use) and
+  WebKit at 390×844 with touch and the mobile viewport (iPhone) in turn,
+  merging new requests, until two whole cycles
   add nothing (`--product-runs`, `--product-settled-cycles`;
   `manifest.productTraffic` records the runs, the profiles and whether it
-  settled, and `npm run check` fails product traffic that did not settle).
+  settled, and `npm run check` fails product traffic that did not settle; a
+  run whose page did not load in time on a busy machine is not counted).
   After the first run it answers the requests it already holds from the HAR,
   as a replay does, so it also meets the requests that only a replay's timing
   makes (a word's `info` lookup that depends on where a batch was cut). A
@@ -344,11 +357,14 @@ the real page has moved on.
   Chrome without automation flags, and in an ordinary browser on the same
   network, and the transcript panel's `get_transcript` failed too. The page,
   stylesheets and caption track list are recorded; only the json3 timings
-  are hand-made. From a network YouTube answers, run
+  are hand-made. On 2026-10-18 the 429s had stopped, but the player's own
+  caption request came back 200 with an empty body (the recorder now says so
+  rather than failing to parse it) and `yt-dlp` 2025.10.14 could not read the
+  watch page either. From a network YouTube answers, run
   `node scripts/record-pages.mjs youtube-watch` (or pass `--captions-from`
   with the player's two json3 responses) to replace them with recorded
   timings, then drop the two fixture rows from `ATTRIBUTION.md`.
-- Weight: the 12 recordings take about 35 MB in a checkout but about 5.4 MB
+- Weight: the 12 recordings take about 42 MB in a checkout but about 6 MB
   in git, which stores a file shared by two recordings once and compresses
   the rest. Move recordings to Git LFS, or share site stylesheets between
   them, before the checkout passes about 100 MB.

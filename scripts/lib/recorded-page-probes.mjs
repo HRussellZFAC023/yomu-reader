@@ -78,9 +78,13 @@ function evaluateWithPaintsText(page, probe, argument) {
 // reading is seen when at least INK_PIXELS of its pixels do.
 const INK_DIFFERENCE = 32;
 const INK_PIXELS = 3;
-// While the second screenshot is taken, every reading (and anything it
-// generates) paints nothing; layout does not change.
-const HIDE_READINGS = `:is(${READINGS}), :is(${READINGS}) *, :is(${READINGS})::before, :is(${READINGS})::after, :is(${READINGS}) *::before, :is(${READINGS}) *::after { visibility: hidden !important; }`;
+// While the second screenshot is taken, every reading's glyphs (and those it
+// generates) paint nothing and all else stays: layout, backgrounds, borders
+// and decorations. -webkit-text-fill-color, not color, so a background drawn
+// in currentColor keeps its colour; a reading painted over a box of its own
+// colour then changes nothing and is not seen.
+const READING_PARTS = [`:is(${READINGS})`, `:is(${READINGS}) *`].flatMap(selector => [selector, `${selector}::before`, `${selector}::after`]).join(', ');
+const HIDE_READINGS = `${READING_PARTS} { -webkit-text-fill-color: transparent !important; -webkit-text-stroke-color: transparent !important; text-shadow: none !important; }`;
 
 async function screenPixels(page) {
     const png = await page.screenshot({ animations: 'disabled', caret: 'hide', scale: 'css' });
@@ -106,11 +110,12 @@ function inkDiffers(shown, hidden, rects, scale) {
 
 /**
  * The readings under root a learner sees on screen: those the style rule
- * (paintsText) passes whose pixels change when every reading is hidden. Two
- * viewport screenshots, the second with an adopted stylesheet hiding the
- * readings (no DOM change, so the product does not react). Readings clipped,
- * masked, filtered or drawn in the colour behind them change nothing and are
- * not seen. Leaves the probed elements in window.__yomuReadingProbe;
+ * (paintsText) passes whose pixels change when only their glyphs are taken
+ * away. Two viewport screenshots, the second with an adopted stylesheet
+ * making the readings' text transparent (no DOM change, so the product does
+ * not react). Readings clipped, masked, filtered or drawn in the colour
+ * behind them (the page, or their own background) change nothing and are not
+ * seen. Leaves the probed elements in window.__yomuReadingProbe;
  * returns { styled, seen } as indices into it.
  */
 async function readingsOnScreen(page, root) {

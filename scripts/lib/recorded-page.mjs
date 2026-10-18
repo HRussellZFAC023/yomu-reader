@@ -84,7 +84,10 @@ export async function openRecordedPage(options) {
     const page = await context.newPage();
     const pageErrors = [];
     page.on('pageerror', error => pageErrors.push(String(error.message).slice(0, 300)));
-    if (navigate) await page.goto(scope.recording.manifest.url, { waitUntil });
+    if (navigate) await page.goto(scope.recording.manifest.url, { waitUntil }).catch(async error => {
+        await context.close();
+        throw error;
+    });
     return {
         engine: scope.engine,
         recording: scope.recording,
@@ -108,18 +111,20 @@ export async function openRecordedPage(options) {
  * when the load took a scan order the recording does not hold (verdict
  * 'scan-order-gap', an outage rather than the product), closes it and loads
  * again, up to `attempts` loads. onOpen(run) runs right after each load opens
- * (a sampler, a frame log). Resolves to { run, discarded }; run is null when
- * every load dropped (record the product traffic again). Another build asks
- * for other URLs, so its first load is kept; a gate judging it reads
+ * (a sampler, a frame log). accept(run) may refuse an answered load too (one
+ * whose product had barely started its scan by settleMs on a busy machine).
+ * Resolves to { run, discarded }; run is null when every load was dropped or
+ * refused (record the product traffic again). Another build asks for other
+ * URLs, so its first load is kept; a gate judging it reads
  * run.productTraffic().verdict, which is 'other-build-outage' when most of its
  * requests had no recorded answer.
  */
-export async function openAnsweredRecordedPage(options, { settleMs, attempts = 4, onOpen = async () => undefined }) {
+export async function openAnsweredRecordedPage(options, { settleMs, attempts = 4, onOpen = async () => undefined, accept = async () => true }) {
     for (let discarded = 0; discarded < attempts; discarded += 1) {
         const run = await openRecordedPage(options);
         const context = await onOpen(run);
         await run.page.waitForTimeout(settleMs);
-        if (run.productTraffic().verdict !== 'scan-order-gap') return { run, context, discarded };
+        if (run.productTraffic().verdict !== 'scan-order-gap' && await accept(run)) return { run, context, discarded };
         await run.close();
     }
     return { run: null, context: null, discarded: attempts };

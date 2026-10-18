@@ -13,8 +13,9 @@
 //               that cannot see them could not see anything.
 //   probes      kanjiReadingCoverage counts no reading hidden in place
 //               (display, visibility, opacity, font size, colour, clip-path,
-//               filter, mask) as painted, in each engine and in
-//               WebKit at iPad size, on the readings 2.1.6 paints on
+//               filter, mask, a background or page of the text's colour) as
+//               painted, in each engine and in
+//               WebKit at both iPad sizes, on the readings 2.1.6 paints on
 //               ja-wikipedia-nihongo.
 //
 //   node scripts/recorded-pages-smoke.mjs [replay|reproduce|probes] [--engines=chromium,webkit]
@@ -30,8 +31,13 @@ const STORED_LINES = 24;
 // 2.1.6's scan order changes from load to load, and with it its coverage
 // (7.5% to 19.4% of runs on 日本語); the median of three answered loads is judged.
 const COVERAGE_LOADS = 3;
-// A load whose scan order the recording does not hold is discarded and loaded again.
+// A load whose scan order the recording does not hold is discarded and loaded
+// again, as is one whose product had asked jiten fewer than SCAN_REQUESTS
+// times by then (its scan had barely started on a busy machine); 2.1.6 asks
+// about 55 times on 日本語.
 const LOAD_ATTEMPTS = 4;
+const SCAN_REQUESTS = 20;
+const scanned = async run => Object.values(run.productTraffic().served).reduce((sum, count) => sum + count, 0) >= SCAN_REQUESTS;
 const ENGINES = { chromium, webkit, firefox };
 const args = process.argv.slice(2);
 const option = name => args.find(arg => arg.startsWith(`--${name}=`))?.split('=')[1];
@@ -44,18 +50,26 @@ const failures = [];
 // A reading the product keeps in the DOM but hides is not a painted reading:
 // hiding every reading on the loaded page must take the coverage to zero.
 // The style rule the caption log uses per frame (styledReadings) must see
-// all but a mask and an empty polygon, which only the screen's pixels show.
+// all but a mask, an empty polygon and text the colour of its own background
+// or of the background behind it, which only the screen's pixels show.
 // (transform: scale(0) is not here: Chromium and Firefox do not transform an
 // rt, so the reading stays on screen and is rightly counted.)
+// The colour of the nearest background behind a reading (white for the page).
+const BEHIND = 'the colour behind it';
 const HIDDEN_READINGS = [
     ['visibility', 'hidden'], ['opacity', '0'], ['display', 'none'], ['font-size', '0'], ['color', 'transparent'],
     ['clip-path', 'inset(100%)'], ['clip-path', 'circle(0)'], ['filter', 'opacity(0)'],
     ['clip-path', 'polygon(0 0, 0 0, 0 0)', { pixelsOnly: true }], ['mask-image', 'linear-gradient(transparent, transparent)', { pixelsOnly: true }],
+    ['background-color', 'currentColor', { pixelsOnly: true }], ['color', BEHIND, { pixelsOnly: true }],
 ];
 
+const PROBE_ROOT = 'body';
 const PROBE_PROFILES = [
     ...engines.map(engine => ({ name: engine, engine, contextOptions: {} })),
-    ...(engines.includes('webkit') ? [{ name: 'webkit iPad', engine: 'webkit', contextOptions: { viewport: { width: 1024, height: 1366 }, hasTouch: true } }] : []),
+    ...(engines.includes('webkit') ? [
+        { name: 'webkit iPad', engine: 'webkit', contextOptions: { viewport: { width: 1024, height: 1366 }, hasTouch: true } },
+        { name: 'webkit iPad Air', engine: 'webkit', contextOptions: { viewport: { width: 820, height: 1180 }, hasTouch: true, isMobile: true } },
+    ] : []),
 ];
 
 const check = (condition, message) => {
@@ -138,7 +152,7 @@ async function wikipediaLoad(browser, product, report, first) {
     try {
         if (first) await reportFirstLoadCost(run, product, report, sampler);
         const coverage = await kanjiReadingCoverage(run.page, { root: '#mw-content-text' });
-        reportAnswered(run, product, report, coverage);
+        await reportAnswered(run, product, report, coverage);
         if (first) await checkTrustedInteraction(run);
         return coverage;
     } finally {
@@ -146,16 +160,19 @@ async function wikipediaLoad(browser, product, report, first) {
     }
 }
 
-// Sparse readings must come from the product, not from a replay that answered nothing.
-function reportAnswered(run, product, report, coverage) {
+// Sparse readings must come from the product, not from a replay that answered
+// nothing or a scan that had not started: the load was answered (at most 2
+// jiten requests dropped) and the product asked at least SCAN_REQUESTS times.
+// 2.1.6 can paint no reading in the article at all in some scan orders.
+async function reportAnswered(run, product, report, coverage) {
     const { served, verdict } = run.productTraffic();
-    report(verdict === 'answered' && coverage.painted >= 1, `${product.label} ja-wikipedia-nihongo: the recorded jiten traffic answered the product (${verdict} ${JSON.stringify(served)}), ${coverage.painted} kanji word(s) painted`);
+    report(verdict === 'answered' && await scanned(run), `${product.label} ja-wikipedia-nihongo: the recorded jiten traffic answered the product (${verdict} ${JSON.stringify(served)}), ${coverage.painted} kanji word(s) painted`);
 }
 
 async function answeredWikipediaLoad(browser, product, report, first) {
     const onOpen = run => (first ? startMainThreadSampler(run.page, { engine: 'chromium', spin: false }) : null);
-    const { run, context: sampler, discarded } = await openAnsweredRecordedPage({ browser, slug: 'ja-wikipedia-nihongo', product }, { settleMs: 15_000, attempts: LOAD_ATTEMPTS, onOpen });
-    if (discarded) console.log(`INFO ${product.label} ja-wikipedia-nihongo: ${discarded} load(s) took a scan order the recorded jiten traffic does not hold and were loaded again`);
+    const { run, context: sampler, discarded } = await openAnsweredRecordedPage({ browser, slug: 'ja-wikipedia-nihongo', product }, { settleMs: 15_000, attempts: LOAD_ATTEMPTS, onOpen, accept: scanned });
+    if (discarded) console.log(`INFO ${product.label} ja-wikipedia-nihongo: ${discarded} load(s) took a scan order the recorded jiten traffic does not hold, or had not scanned yet, and were loaded again`);
     if (!run) report(false, `${product.label} ja-wikipedia-nihongo: none of ${LOAD_ATTEMPTS} loads was answered by the recorded jiten traffic; record it again (docs/dev/recorded-pages.md, Limits of a replay)`);
     return { run, sampler };
 }
@@ -194,14 +211,21 @@ async function checkTrustedInteraction(run) {
 }
 
 // The 2.1.6 build paints readings on ja-wikipedia-nihongo in every engine
-// (its jiten traffic was recorded in each), so it is the page the probe is checked on.
+// (its jiten traffic was recorded in each), so it is the page the probe is
+// checked on, over the whole page: in some scan orders 2.1.6 paints readings
+// only in the page's own navigation. A load with no reading seen cannot test
+// hiding one and is loaded again.
+async function paintsAReading(run) {
+    return await scanned(run) && (await kanjiReadingCoverage(run.page, { root: PROBE_ROOT })).painted >= 1;
+}
+
 async function checkReadingProbe() {
     for (const profile of PROBE_PROFILES) {
         const browser = await ENGINES[profile.engine].launch();
         try {
-            const { run } = await openAnsweredRecordedPage({ browser, slug: 'ja-wikipedia-nihongo', product: releaseProduct('v2.1.6'), contextOptions: profile.contextOptions }, { settleMs: 15_000, attempts: LOAD_ATTEMPTS });
+            const { run } = await openAnsweredRecordedPage({ browser, slug: 'ja-wikipedia-nihongo', product: releaseProduct('v2.1.6'), contextOptions: profile.contextOptions }, { settleMs: 15_000, attempts: LOAD_ATTEMPTS, accept: paintsAReading });
             if (!run) {
-                check(false, `probe ${profile.name}: no load of ja-wikipedia-nihongo was answered by the recorded jiten traffic`);
+                check(false, `probe ${profile.name}: no load of ja-wikipedia-nihongo was answered by the recorded jiten traffic with a reading painted`);
                 continue;
             }
             await checkHiddenReadingsNotCounted(run, profile.name).finally(() => run.close());
@@ -212,13 +236,22 @@ async function checkReadingProbe() {
 }
 
 async function checkHiddenReadingsNotCounted(run, name) {
-    const coverage = await kanjiReadingCoverage(run.page, { root: '#mw-content-text' });
+    const coverage = await kanjiReadingCoverage(run.page, { root: PROBE_ROOT });
     const left = {};
     const styledLeft = {};
     for (const [property, value, { pixelsOnly = false } = {}] of HIDDEN_READINGS) {
-        const styleReadings = set => run.page.evaluate(([name, hidden, apply]) => document.querySelectorAll('rt, .jpdb-reader-detached-furi').forEach(element => (apply ? element.style.setProperty(name, hidden, 'important') : element.style.removeProperty(name))), [property, value, set]);
+        const styleReadings = set => run.page.evaluate(([name, hidden, apply, behind]) => {
+            const backgroundBehind = element => {
+                for (let node = element.parentElement; node; node = node.parentElement) {
+                    const color = getComputedStyle(node).backgroundColor;
+                    if (color !== 'transparent' && !/^rgba\(.*,\s*0\)$/u.test(color)) return color;
+                }
+                return 'rgb(255, 255, 255)';
+            };
+            document.querySelectorAll('rt, .jpdb-reader-detached-furi').forEach(element => (apply ? element.style.setProperty(name, hidden === behind ? backgroundBehind(element) : hidden, 'important') : element.style.removeProperty(name)));
+        }, [property, value, set, BEHIND]);
         await styleReadings(true);
-        const hidden = await kanjiReadingCoverage(run.page, { root: '#mw-content-text' });
+        const hidden = await kanjiReadingCoverage(run.page, { root: PROBE_ROOT });
         await styleReadings(false);
         left[`${property}: ${value}`] = hidden.covered + hidden.painted;
         if (!pixelsOnly) styledLeft[`${property}: ${value}`] = hidden.styledReadings;
