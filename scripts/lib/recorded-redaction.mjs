@@ -104,7 +104,9 @@ const textContentOf = node => (node.childNodes ?? []).map(child => child.value ?
 const PAINTED_STRING_PROPERTY = /^(?:content|quotes|list-style(?:-type)?|text-overflow|text-emphasis(?:-style)?|(?:-webkit-)?hyphenate-character|symbols|additive-symbols|prefix|suffix|negative|pad|--[\w-]*)$/iu;
 const CSS_STRING_SOURCE = String.raw`"(?:[^"\\]|\\[\s\S])*"|'(?:[^'\\]|\\[\s\S])*'`;
 const CSS_COMMENT_OR_STRING = new RegExp(`(${CSS_STRING_SOURCE})|/\\*[\\s\\S]*?\\*/`, 'gu');
-const CSS_DECLARATION = new RegExp(`([-\\w]+)\\s*:((?:${CSS_STRING_SOURCE}|[^;{}"'])*)`, 'gu');
+// A property name may be written with CSS escapes: \63 ontent and c\ontent are content.
+const CSS_IDENTIFIER_SOURCE = String.raw`(?:[-\w]|\\[0-9a-f]{1,6}[ \t\n\r\f]?|\\[^\n\r\f0-9a-f])+`;
+const CSS_DECLARATION = new RegExp(`(${CSS_IDENTIFIER_SOURCE})\\s*:((?:${CSS_STRING_SOURCE}|[^;{}"'])*)`, 'giu');
 const CSS_STRING = new RegExp(CSS_STRING_SOURCE, 'gu');
 const CSS_ESCAPE = /\\(?:([0-9a-f]{1,6})[ \t\n\r\f]?|(\r\n|[\n\r\f])|([\s\S]))/giu;
 
@@ -119,14 +121,16 @@ function cssUnescape(text) {
 
 /**
  * The strings a stylesheet (or a style attribute) paints, by declaration:
- * [{ property, strings }], escapes decoded. content: "東" "京" paints 東京, so
+ * [{ property, strings }], escapes decoded in names and strings alike (the
+ * browser reads \63 ontent as content). content: "東" "京" paints 東京, so
  * a content value's strings are also read joined.
  */
 function cssPaintedStrings(cssText) {
     const css = String(cssText ?? '').replace(CSS_COMMENT_OR_STRING, (match, string) => string ?? ' ');
     return [...css.matchAll(CSS_DECLARATION)]
-        .filter(match => PAINTED_STRING_PROPERTY.test(match[1]))
-        .map(match => ({ property: match[1].toLowerCase(), strings: [...match[2].matchAll(CSS_STRING)].map(string => cssUnescape(string[0].slice(1, -1))) }))
+        .map(match => ({ property: cssUnescape(match[1]).trim().toLowerCase(), value: match[2] }))
+        .filter(({ property }) => PAINTED_STRING_PROPERTY.test(property))
+        .map(({ property, value }) => ({ property, strings: [...value.matchAll(CSS_STRING)].map(string => cssUnescape(string[0].slice(1, -1))) }))
         .filter(declaration => declaration.strings.length);
 }
 
