@@ -6,7 +6,9 @@
 //   idle      ja.wikipedia 日本語, defaults, 20 s untouched: no jpdb.io pitch
 //             page, at most 10 jpdb.io word searches, none for a segmenter
 //             guess, no query asked twice (2.1.6: 44 pitch pages, repeats),
-//             and no cloud OCR upload of the page's pictures before a tap.
+//             and no cloud OCR upload of the page's pictures before a press
+//             (scrolling to one or resting the mouse on it is not a press);
+//             a press on it does read it.
 //   pitch     the same page with the underline painting pitch: the pitch lane
 //             runs and words carry pitch classes.
 //   hover     defaults, after 15 s idle: hovered words show their reading and
@@ -91,10 +93,36 @@ async function idleWikipedia() {
         const ocr = run.ledger.requests({ host: CLOUD_OCR_HOSTS });
         check(!ocr.length, `idle ja-wikipedia-nihongo: ${ocr.length} cloud OCR request(s) with no tap (want 0) ${JSON.stringify(ocr.map(entry => entry.host))}`);
         const coverage = await kanjiReadingCoverage(run.page, { root: '#mw-content-text' });
-        console.log(`INFO ${product.label} idle ja-wikipedia-nihongo: ${coverage.covered}/${coverage.kanjiRuns} visible kanji runs under a painted reading, ${run.ledger.requests({ host: 'api.jiten.moe' }).length} Jiten request(s) ${JSON.stringify(run.productTraffic().served)}`);
+        console.log(`INFO ${product.label} idle ja-wikipedia-nihongo: ${coverage.covered}/${coverage.kanjiRuns} visible kanji runs under a painted reading, ${run.ledger.requests({ host: 'api.jiten.moe' }).length} Jiten request(s) ${JSON.stringify(run.productTraffic().served)} by path ${JSON.stringify(jitenPaths(run.ledger))}`);
+        await pictureWaitsForPress(run);
     } finally {
         await run.close();
     }
+}
+
+// The page's photo of a Japanese sign (recorded, but not read while idle):
+// scrolling to it and resting the mouse on it upload nothing; a press reads it.
+// The press is released off the picture, because a click opens its file page.
+async function pictureWaitsForPress(run) {
+    const picture = run.page.locator('#mw-content-text img[src*="Welcome_board"]').first();
+    await picture.scrollIntoViewIfNeeded();
+    await run.page.waitForTimeout(2_000);
+    const box = await picture.boundingBox();
+    await run.page.mouse.move(box.x + box.width / 2, box.y + box.height / 2, { steps: 4 });
+    await run.page.waitForTimeout(2_000);
+    const unasked = run.ledger.requests({ host: CLOUD_OCR_HOSTS }).length;
+    check(!unasked, `idle ja-wikipedia-nihongo: ${unasked} cloud OCR request(s) after scrolling to a picture and resting the mouse on it (want 0)`);
+    await run.page.mouse.down();
+    await run.page.mouse.move(2, 2);
+    await run.page.mouse.up();
+    const pressed = await waitFor(() => run.ledger.requests({ host: CLOUD_OCR_HOSTS }).filter(entry => entry.trustedInteractionBefore).length, 8_000);
+    check(pressed > 0, `idle ja-wikipedia-nihongo: a press on the picture asks the cloud OCR provider to read it (${pressed} request(s) after the press)`);
+}
+
+async function waitFor(count, timeoutMs) {
+    const until = Date.now() + timeoutMs;
+    while (Date.now() < until && !count()) await sleep(100);
+    return count();
 }
 
 async function pitchChannelWikipedia() {
@@ -263,6 +291,16 @@ async function hoverSample(run, word) {
     const pitchGraph = Boolean(handle) && await page.waitForFunction(() => [...document.querySelectorAll('.jpdb-reader-popover .jpdb-reader-pitch svg')]
         .some(svg => [...svg.getClientRects()].some(rect => rect.width > 0 && rect.height > 0)), null, { timeout: 2_000, polling: 50 }).then(() => true, () => false);
     return { text: word.text, shownMs, recordingGap, pitchGraph };
+}
+
+// Jiten requests by endpoint (/api/vocabulary/<id>/<n>/info folds to one).
+function jitenPaths(ledger) {
+    const paths = {};
+    for (const entry of ledger.requests({ host: 'api.jiten.moe' })) {
+        const endpoint = new URL(entry.url).pathname.replace(/\/\d+(?=\/|$)/gu, '/:n');
+        paths[endpoint] = 1 + (paths[endpoint] ?? 0);
+    }
+    return paths;
 }
 
 function queryOf(entry) {
