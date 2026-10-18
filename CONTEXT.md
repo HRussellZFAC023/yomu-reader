@@ -192,6 +192,9 @@ _Avoid_: Contact name, display name, nickname
 - Local-substitutable: IndexedDB, DOM, media elements, object URLs, local storage. Use fake-indexeddb, jsdom, or local adapters in tests without exposing extra external Interfaces.
 - Remote but owned: none by default. Yomu has no required backend service.
 - True external: JPDB, YouTube, Immersion Kit, AnkiConnect, OCR providers, Wiktionary, recommended dictionary hosts. Wrap site/network quirks behind small Interfaces and test with fake adapters or deterministic fixtures.
+- Text in View: Text the visible-page scan may annotate now. An element is in view when its box meets the viewport; text directly inside a parent more than twice the viewport is in view only when the text itself meets it (ADR-0032), so a one-div novel is annotated a screen at a time.
+- Apply Slice Pacing (2.2, supersedes the pacing sentence of Annotation Pass): an Apply Slice ends once its own paint has spent the frame budget, whatever the last yield or hand-over cost. Before its first write it reads the facts its targets need, once per element (Read Memo).
+- Read Memo: Inside one read phase (a collection walk, or an Apply Slice's read-ahead and paint), each DOM fact about an element is read once and handed to every later asker (`dom/read-memo.ts`).
 
 ## Clean Code Standard
 
