@@ -90,6 +90,7 @@ describe('appearance quick row', () => {
             getSettings: () => settings,
             adoptSettings: next => { settings = next; },
             applyTheme: () => undefined,
+            previewForm: () => undefined,
         }, sync.signal);
         publishSettingsChange({
             settings: { ...DEFAULT_SETTINGS, accentColor: AI, wordUnderlineColorSource: 'pitch', subtitleUnderlineColorSource: 'pitch' },

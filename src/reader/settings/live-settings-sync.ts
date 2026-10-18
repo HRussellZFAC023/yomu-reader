@@ -12,6 +12,8 @@ interface LiveSettingsSyncDependencies {
     getSettings: () => ReaderSettings;
     adoptSettings: (settings: ReaderSettings) => void;
     applyTheme: (theme: ReaderSettings['theme']) => void;
+    /** Paints the form's current choices, saved or not, over the host. */
+    previewForm: () => void;
 }
 
 interface SettingsPreviewBaselineDependencies {
@@ -103,6 +105,10 @@ export class SettingsPreviewBaseline {
  * page or companion module. Target-dependent controls are re-evaluated only
  * after the incoming settings have been adopted, so their implicit defaults
  * cannot lag behind a cross-site target change.
+ *
+ * A durable change moves only the controls whose saved value changed. The host
+ * has just painted the saved settings, so the form's unsaved choices are then
+ * painted again: what the form selects is always what the page shows.
  */
 export function bindLiveSettingsSync(
     form: HTMLFormElement,
@@ -112,18 +118,22 @@ export function bindLiveSettingsSync(
     let adoptedSettings = snapshotDurableSettings(dependencies.getSettings());
     subscribeToSettingsChanges(detail => {
         if (!dependencies.isActive()) return;
-        if (detail.preview !== true) {
-            const previousSettings = adoptedSettings;
-            const settings = { ...previousSettings, ...detail.settings };
-            dependencies.adoptSettings(settings);
-            syncFormFromSettings(form, previousSettings, settings);
-            syncAppearanceQuickRow(form);
-            syncSubtitlePreview(form);
-            syncFontFamilyControls(form);
-            adoptedSettings = snapshotDurableSettings(settings);
-        }
         const theme = themeFromSettingsChange(detail);
-        if (theme) dependencies.applyTheme(theme);
+        if (detail.preview === true) {
+            if (theme) dependencies.applyTheme(theme);
+            return;
+        }
+        const previousSettings = adoptedSettings;
+        const settings = { ...previousSettings, ...detail.settings };
+        dependencies.adoptSettings(settings);
+        syncFormFromSettings(form, previousSettings, settings);
+        syncAppearanceQuickRow(form);
+        syncSubtitlePreview(form);
+        syncFontFamilyControls(form);
+        adoptedSettings = snapshotDurableSettings(settings);
+        // Another tab's save carries every key; only a theme it changed is news.
+        if (theme && (detail.remote !== true || theme !== previousSettings.theme)) dependencies.applyTheme(theme);
+        dependencies.previewForm();
     }, signal);
 }
 
