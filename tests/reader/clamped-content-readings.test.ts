@@ -186,6 +186,52 @@ describe('clamped content preserves base text and bounded geometry', () => {
         expect(row.dataset.yomuClipConstrained).toBe('true');
     });
 
+    it('heals a kana-first clamp row by measuring the first word that carries a reading', () => {
+        // WebKit (paging-safety probe, 2026-10): a 3-line clamp card opening with
+        // どこで collapsed to a 10 px readings-only row. どこで has no reading and
+        // 見当 is the page's own ruby, so the old verdict measured nothing and
+        // the row never healed. The base glyphs sit below the 10 px row.
+        document.body.innerHTML = `
+            <p id="row" data-yomu-clip-constrained="content" style="display:-webkit-box;-webkit-line-clamp:3;overflow:hidden"><span class="jpdb-reader-word jpdb-reader-scan-word">どこで</span><span class="jpdb-reader-word jpdb-reader-scan-word"><ruby><rb>見当</rb><rt>けんとう</rt></ruby></span><span class="jpdb-reader-word jpdb-reader-scan-word jpdb-reader-has-furi"><ruby class="jpdb-reader-ruby"><span class="jpdb-reader-ruby-base">生</span><rt class="jpdb-reader-furi">うま</rt></ruby>れた</span></p>`;
+        const row = document.getElementById('row')!;
+        const rect = (top: number, height: number) => ({ toJSON: () => ({}), top, bottom: top + height, height, left: 0, right: 15, width: 15 }) as DOMRect;
+        Object.defineProperty(row, 'getBoundingClientRect', { configurable: true, value: () => rect(100, 10) });
+        const base = row.querySelector<HTMLElement>('.jpdb-reader-ruby-base')!;
+        Object.defineProperty(base, 'getBoundingClientRect', { configurable: true, value: () => rect(124, 24) });
+        const rt = row.querySelector<HTMLElement>('rt.jpdb-reader-furi')!;
+        Object.defineProperty(rt, 'getBoundingClientRect', { configurable: true, value: () => rect(100, 9) });
+        const measured: string[] = [];
+        const original = Object.getOwnPropertyDescriptor(Range.prototype, 'getBoundingClientRect');
+        Object.defineProperty(Range.prototype, 'getBoundingClientRect', {
+            configurable: true,
+            value(this: Range) {
+                measured.push(this.toString());
+                return rect(112, 24);
+            },
+        });
+        try {
+            expect(healUngrowableInFlowClampRows(document)).toBe(1);
+        } finally {
+            if (original) Object.defineProperty(Range.prototype, 'getBoundingClientRect', original);
+            else delete (Range.prototype as { getBoundingClientRect?: unknown }).getBoundingClientRect;
+        }
+        // The escape check read the row's first base glyph, not a reading.
+        expect(measured).toEqual(['ど']);
+        expect(row.dataset.yomuClipConstrained).toBe('true');
+        expect(row.getAttribute('data-yomu-clamp-growth')).toBe('failed');
+    });
+
+    it('takes no evidence from a page\'s own ruby in a clamp row', () => {
+        document.body.innerHTML = `
+            <p id="row" data-yomu-clip-constrained="content" style="display:-webkit-box;-webkit-line-clamp:3;overflow:hidden"><span class="jpdb-reader-word jpdb-reader-scan-word"><ruby><rb>見当</rb><rt>けんとう</rt></ruby></span>がつかぬ</p>`;
+        const row = document.getElementById('row')!;
+        Object.defineProperty(row, 'getBoundingClientRect', {
+            configurable: true, value: () => ({ toJSON: () => ({}), top: 100, bottom: 110, height: 10 }) as DOMRect,
+        });
+        expect(healUngrowableInFlowClampRows(document)).toBe(0);
+        expect(row.dataset.yomuClipConstrained).toBe('content');
+    });
+
     it('finds the stamped row when the heal root IS the row (per-root apply pass)', () => {
         document.body.innerHTML = `
             <div id="row" data-yomu-clip-constrained="content" style="display:-webkit-box;-webkit-line-clamp:2;overflow:hidden">

@@ -1,6 +1,7 @@
 import { cardHighlightScopeAttributes, renderCardHighlightedTextHtml, type CardHighlightTarget } from '../cards/highlight';
 import { JPDB_DEFINITION_SOURCE_ID } from '../app/constants';
 import { escapeHtml } from '../dom';
+import { yomuRubyHtml } from '../dom/yomu-ruby';
 import { speakerIcon } from '../ui/icons';
 import { uiText } from '../app/i18n';
 import type { InterfaceLanguage, JPDBCard } from '../app/types';
@@ -198,7 +199,7 @@ function passiveJpdbRelatedClasses(hasFuri: boolean, className = ''): string {
 
 function passiveJpdbRelatedPlainContent(term: string, visibleReading: string): string {
     return visibleReading
-        ? `<ruby><span class="jpdb-reader-ruby-base">${escapeHtml(term)}</span><rp>(</rp><rt class="jpdb-reader-furi">${escapeHtml(visibleReading)}</rt><rp>)</rp></ruby>`
+        ? yomuRubyHtml(escapeHtml(term), escapeHtml(visibleReading))
         : escapeHtml(term);
 }
 

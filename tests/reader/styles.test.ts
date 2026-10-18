@@ -85,7 +85,7 @@ describe('reader stylesheet loading', () => {
         // rule the reading rendered at full body size.
         const css = initialReaderCss('');
 
-        expect(css).toContain('.jpdb-reader-word ruby{');
+        expect(css).toContain('.jpdb-reader-word ruby:where(.jpdb-reader-ruby){');
         expect(css).toContain('ruby-align:center!important');
         expect(css).toContain('ruby-position:over!important');
         expect(css).toContain('.jpdb-reader-furi{font-family:inherit;font-size:max(8px,.5em);font-style:inherit;font-weight:normal;font-feature-settings:normal;font-variant-east-asian:normal;letter-spacing:normal;');
@@ -107,7 +107,7 @@ describe('reader stylesheet loading', () => {
         // exactly one word, so target.closest('.jpdb-reader-word') resolves it.
         const css = initialReaderCss('');
 
-        const rtRule = css.split('\n').find(line => line.startsWith('.jpdb-reader-word rt{'));
+        const rtRule = css.split('\n').find(line => line.startsWith('.jpdb-reader-word :where(.jpdb-reader-ruby)>rt{'));
         expect(rtRule).toBeDefined();
         expect(rtRule).toContain('pointer-events:inherit');
         expect(rtRule).not.toContain('pointer-events:none');
@@ -129,7 +129,7 @@ describe('reader stylesheet loading', () => {
         // this file's own `pointer-events: none` won the cascade and the reading
         // stayed a dead tap target. Two sheets, one contract: assert both.
         const css = readFileSync('src/reader/styles/reader-words-ocr.css', 'utf8');
-        const rtRule = css.match(/\.jpdb-reader-word rt \{[^}]*\}/)?.[0] ?? '';
+        const rtRule = css.match(/\.jpdb-reader-word :where\(\.jpdb-reader-ruby\) > rt \{[^}]*\}/)?.[0] ?? '';
 
         expect(rtRule).toContain('pointer-events: inherit');
         expect(rtRule).not.toContain('pointer-events: none');
@@ -378,9 +378,27 @@ describe('reader stylesheet loading', () => {
     it('keeps annotated words in the host page\'s face against host span and ruby rules', () => {
         // The computed result in real engines: scripts/annotation-typography-smoke.mjs.
         const css = readFileSync('src/reader/styles/reader-words-ocr.css', 'utf8');
-        const rule = css.match(/\.jpdb-reader-word\.jpdb-reader-scan-word,\n\.jpdb-reader-word\.jpdb-reader-scan-word ruby,\n\.jpdb-reader-word\.jpdb-reader-scan-word \.jpdb-reader-ruby-base \{[^}]*\}/)?.[0] ?? '';
+        const rule = css.match(/\.jpdb-reader-word\.jpdb-reader-scan-word,\n\.jpdb-reader-word\.jpdb-reader-scan-word ruby:where\(\.jpdb-reader-ruby\),\n\.jpdb-reader-word\.jpdb-reader-scan-word \.jpdb-reader-ruby-base \{[^}]*\}/)?.[0] ?? '';
         for (const property of ['font-family', 'font-size', 'font-style', 'font-weight', 'font-feature-settings', 'letter-spacing']) {
             expect(rule).toContain(`${property}: inherit;`);
+        }
+    });
+
+    it('restyles only Yomu Ruby, so a page\'s own ruby inside a word keeps its metrics', () => {
+        // paging-safety probe (2026-10): with readings off, an Aozora <ruby> that
+        // a word wrapped went from line-height 32.4 px to 18 px and its rt to
+        // 9 px, moving text between pages. Real engines:
+        // scripts/page-ruby-metrics-smoke.mjs.
+        const sheets = {
+            full: readFileSync('src/reader/styles/reader-words-ocr.css', 'utf8').replace(/\/\*[\s\S]*?\*\//g, ''),
+            critical: initialReaderCss(''),
+        };
+        for (const [name, css] of Object.entries(sheets)) {
+            const selectors = css.match(/[^{}]+(?=\{)/g)?.flatMap(group => group.split(',')).map(selector => selector.trim()) ?? [];
+            const wordScoped = selectors.filter(selector => /\.jpdb-reader-word\b[^]*\s(ruby|rt)\b/.test(selector));
+            expect(wordScoped.length, name).toBeGreaterThan(0);
+            const unscoped = wordScoped.filter(selector => !/ruby(:where\(\.jpdb-reader-ruby\)|\.jpdb-reader-ruby|:is\(\.jpdb-reader-ruby-)|:where\(\.jpdb-reader-ruby\) ?> ?rt|rt\.jpdb-reader-furi/.test(selector));
+            expect(unscoped, name).toEqual([]);
         }
     });
 
