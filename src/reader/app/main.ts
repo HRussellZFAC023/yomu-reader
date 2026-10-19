@@ -500,7 +500,8 @@ export class ReaderApp {
         void this.persistSettings(this.settings, { explicitUserChoiceKeys: ['immersionKitRevealTranslationOnClick'] });
     };
     private jpdb = new JpdbClient(() => effectiveJpdbApiKey(this.settings), () => this.settings.corsProxyUrl);
-    private jiten = new JitenApiClient(() => effectiveJitenApiKey(this.settings), { proxyUrl: () => this.settings.corsProxyUrl });
+    private jitenPublicVocabulary = new JitenPublicVocabularyClient({ proxyUrl: () => this.settings.corsProxyUrl });
+    private jiten = new JitenApiClient(() => effectiveJitenApiKey(this.settings), { proxyUrl: () => this.settings.corsProxyUrl, anonymous: this.jitenPublicVocabulary });
     // The kanji-study companion can register after this app constructs (hosted
     // pages append companion scripts around the core script, so load order is
     // not guaranteed). Every companion-backed collaborator therefore resolves
@@ -521,7 +522,6 @@ export class ReaderApp {
     }
     private jpdbPublicPitch = new JpdbPublicPitchClient(() => this.settings.corsProxyUrl);
     private jpdbVocabulary = new JpdbVocabularyClient(() => this.settings.corsProxyUrl);
-    private jitenPublicVocabulary = new JitenPublicVocabularyClient({ proxyUrl: () => this.settings.corsProxyUrl });
     private kanjiVGInstance: InstanceType<KanjiStudyCompanionSlot['KanjiVGClient']> | null = null;
     private get kanjiVG(): InstanceType<KanjiStudyCompanionSlot['KanjiVGClient']> | null {
         const companion = this.kanjiCompanion;

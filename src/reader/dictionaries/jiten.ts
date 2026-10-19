@@ -43,6 +43,16 @@ export interface JitenApiClientOptions {
     requestImpl?: JitenRequest;
     proxyUrl?: string | (() => string);
     timeoutMs?: number;
+    // Without a key, every request goes through the reader's one anonymous
+    // api.jiten.moe budget (JitenPublicVocabularyClient), so the popup's word
+    // detail is counted with the page's lanes, goes ahead of them, and reads
+    // the copy they already fetched.
+    anonymous?: JitenAnonymousRequests;
+}
+
+export interface JitenAnonymousRequests {
+    wordDetail(wordId: number, readingIndex: number): Promise<unknown>;
+    request(endpoint: string, init?: { method?: 'GET' | 'POST'; data?: string; priority?: 'popup' | 'enrichment' }): Promise<unknown>;
 }
 
 export class JitenApiError extends Error {
@@ -72,6 +82,8 @@ type JitenEndpointMap = {
 interface JitenRequestOptions {
     method?: 'GET' | 'POST';
     query?: Record<string, string | number | boolean | undefined | null>;
+    // Keyless only: example sentences wait for the budget's enrichment share.
+    priority?: 'popup' | 'enrichment';
 }
 
 interface JitenParseRequest {
@@ -467,8 +479,12 @@ export class JitenApiClient {
         // response already carries the frequency rank and definitions the popover
         // needs, so making examples a second serial round trip only widened the
         // window in which the whole lookup overran the card-render timeout.
+        const anonymous = this.getApiKey().trim() ? undefined : this.options.anonymous;
+        const infoPromise = anonymous
+            ? anonymous.wordDetail(reference.wordId, reference.readingIndex)
+            : this.requestEndpoint<unknown>(endpoint, undefined, { method: 'GET' });
         const examplesPromise = this.lookupVocabularyExamples(reference).catch(() => []);
-        const info = await this.requestEndpoint<unknown>(endpoint, undefined, { method: 'GET' });
+        const info = await infoPromise;
         if (!isJsonRecord(info)) return null;
         const normalized = normalizeJitenVocabularyInfo(info);
         if (!normalized) return null;
@@ -543,20 +559,18 @@ export class JitenApiClient {
             }
         }
         if (!tokens.length) {
-            try {
-                const searchCards = await this.searchVocabulary(spelling);
-                tokens = searchCards.map(c => ({
-                    card: c,
-                    start: 0,
-                    end: spelling.length,
-                    length: spelling.length,
-                    rubies: [],
-                    pitchClass: '',
-                    sentence: spelling,
-                }));
-            } catch (error) {
-                // Ignore search failures
-            }
+            // A failed search is not evidence that the word does not exist.
+            // Let the render cache expire it so reopening can ask again.
+            const searchCards = await this.searchVocabulary(spelling);
+            tokens = searchCards.map(c => ({
+                card: c,
+                start: 0,
+                end: spelling.length,
+                length: spelling.length,
+                rubies: [],
+                pitchClass: '',
+                sentence: spelling,
+            }));
         }
         return bestParsedJitenCard(card, spelling, tokens);
     }
@@ -763,7 +777,7 @@ export class JitenApiClient {
 
     private async lookupVocabularyExamples(card: JitenCardReference): Promise<JitenVocabularyExample[]> {
         const endpoint = `vocabulary/${card.wordId}/${card.readingIndex}/random-example-sentences`;
-        const payload = await this.requestEndpoint<unknown>(endpoint, [], { method: 'POST' });
+        const payload = await this.requestEndpoint<unknown>(endpoint, [], { method: 'POST', priority: 'enrichment' });
         return normalizeJitenVocabularyExamples(payload);
     }
 
@@ -781,6 +795,11 @@ export class JitenApiClient {
         const authenticated = requiresAuth && Boolean(apiKey);
         const method = options.method ?? 'POST';
         const data = method === 'GET' ? undefined : body === undefined ? undefined : JSON.stringify(body);
+        if (!apiKey && this.options.anonymous) {
+            const payload = await this.options.anonymous.request(`${endpoint}${endpointQuery(options.query)}`, { method, data, priority: options.priority })
+                .catch(error => { throw normalizeJitenRequestError(error, false); });
+            return parseJitenPayload<T>(payload);
+        }
         const url = endpointUrl(this.options.baseUrl, endpoint, options.query);
 
         if (this.options.fetchImpl) {
@@ -1913,12 +1932,15 @@ function isJsonRecord(value: unknown): value is Record<string, unknown> {
 
 function endpointUrl(baseUrl: string | undefined, endpoint: string, query?: JitenRequestOptions['query']): string {
     const base = (baseUrl?.trim() || JITEN_API_BASE_URL).replace(/\/+$/, '');
-    const url = `${base}/${endpoint}`;
+    return `${base}/${endpoint}${endpointQuery(query)}`;
+}
+
+function endpointQuery(query?: JitenRequestOptions['query']): string {
     const params = new URLSearchParams();
     Object.entries(query ?? {}).forEach(([key, value]) => {
         if (value === undefined || value === null || value === '') return;
         params.set(key, String(value));
     });
     const queryString = params.toString();
-    return queryString ? `${url}?${queryString}` : url;
+    return queryString ? `?${queryString}` : '';
 }

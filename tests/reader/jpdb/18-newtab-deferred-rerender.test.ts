@@ -1393,8 +1393,7 @@ describe('reader helpers', () => {
 
         try {
             internals.renderCompletedCardPopover(popover, lookupCard, token.sentence, 'modal', emptyCardRenderData());
-            expect(popover.querySelector('.jpdb-reader-pitch-missing')).not.toBeNull();
-            expect(popover.querySelector('.jpdb-reader-pitch svg')).toBeNull();
+            expect(popover.querySelector('.jpdb-reader-pronunciation, .jpdb-reader-pitch')).toBeNull();
             expect(popover.querySelector('.jpdb-reader-spelling')?.classList.contains('jpdb-pitch-heiban')).toBe(false);
 
             await internals.enrichPitchToken(token, { publicLookup: true });
@@ -1575,8 +1574,7 @@ describe('reader helpers', () => {
             pitch.resolve(['LHHH']);
             await enrichment;
 
-            expect(oldPopover.querySelector('.jpdb-reader-pitch-missing')).not.toBeNull();
-            expect(oldPopover.querySelector('.jpdb-reader-pitch svg')).toBeNull();
+            expect(oldPopover.querySelector('.jpdb-reader-pronunciation, .jpdb-reader-pitch')).toBeNull();
             expect(replacementPopover.querySelector('.jpdb-reader-pitch')).toBeNull();
         } finally {
             oldPopover.remove();

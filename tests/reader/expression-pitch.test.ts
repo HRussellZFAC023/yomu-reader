@@ -99,61 +99,39 @@ describe('expression component pitch', () => {
         ]));
     });
 
-    it('renders an honest exact-source miss after completed lookup instead of a blank pitch area', () => {
-        const renderer = new CardPopoverRenderer({
-            getSettings: () => ({ ...DEFAULT_SETTINGS, interfaceLanguage: 'en', showPitchAccent: true }),
-            isJpdbBackedCard: () => false,
-            renderWordHistory: () => '',
-            renderWordPills: () => '',
-            renderDefinitionSources: () => '',
-            dictionarySourceAttributes: () => '',
-            dictionaryLabel: name => name,
-        });
-        const exactMiss = expressionCard('ざいます', 'ざいます');
+    // A learner cannot act on "Exact pitch unavailable": an unknown accent
+    // draws nothing, whether the lookup is done or still loading.
+    it.each(['en', 'ja'] as const)('draws no filler or context count while loading or after an unknown accent (%s)', language => {
+        for (const loading of [false, true]) {
+            const renderer = new CardPopoverRenderer({
+                getSettings: () => ({ ...DEFAULT_SETTINGS, interfaceLanguage: language, showPitchAccent: true }),
+                isJpdbBackedCard: () => false,
+                renderWordHistory: () => '',
+                renderWordPills: () => '',
+                renderDefinitionSources: () => '',
+                dictionarySourceAttributes: () => '',
+                dictionaryLabel: name => name,
+            });
+            const exactMiss = expressionCard('ざいます', 'ざいます');
 
-        const html = renderer.render(exactMiss, 'ありがとうございます。', 'modal', {
-            localEntries: [],
-            kanjiEntries: [],
-            metaEntries: [],
-            ankiLookup: { state: 'not-in-deck', notes: [], primary: null },
-            jpdbDecks: [],
-            ankiDecks: [],
-            jpdbVocabularyInfo: null,
-            expressionComponents: [],
-            componentPitches: [],
-            loading: false,
-        });
-        document.body.innerHTML = html;
+            document.body.innerHTML = renderer.render(exactMiss, 'ありがとうございます。', 'modal', {
+                localEntries: [],
+                kanjiEntries: [],
+                metaEntries: [],
+                ankiLookup: { state: 'not-in-deck', notes: [], primary: null },
+                jpdbDecks: [],
+                ankiDecks: [],
+                jpdbVocabularyInfo: null,
+                expressionComponents: [],
+                componentPitches: [],
+                loading,
+            });
 
-        expect(html).toContain('data-pitch-status="no-exact-match"');
-        expect(html).toContain('Exact pitch unavailable');
-        expect(document.querySelector('.jpdb-reader-pitch-missing svg')).toBeNull();
-    });
-
-    it('does not claim an exact pitch miss while lookup data is still loading', () => {
-        const renderer = new CardPopoverRenderer({
-            getSettings: () => ({ ...DEFAULT_SETTINGS, interfaceLanguage: 'en', showPitchAccent: true }),
-            isJpdbBackedCard: () => false,
-            renderWordHistory: () => '',
-            renderWordPills: () => '',
-            renderDefinitionSources: () => '',
-            dictionarySourceAttributes: () => '',
-            dictionaryLabel: name => name,
-        });
-        const exactMiss = expressionCard('ざいます', 'ざいます');
-
-        const html = renderer.render(exactMiss, 'ありがとうございます。', 'modal', {
-            localEntries: [],
-            kanjiEntries: [],
-            metaEntries: [],
-            ankiLookup: { state: 'not-in-deck', notes: [], primary: null },
-            jpdbDecks: [],
-            ankiDecks: [],
-            jpdbVocabularyInfo: null,
-            loading: true,
-        });
-
-        expect(html).not.toContain('data-pitch-status="no-exact-match"');
+            expect(document.querySelector('.jpdb-reader-pronunciation, .jpdb-reader-pitch')).toBeNull();
+            expect(document.querySelector('.jpdb-reader-card-tools')?.textContent?.trim()).toBe('');
+            expect(document.querySelector('[data-frequency-source="context"]')).toBeNull();
+            expect(document.body.textContent).not.toMatch(/In context|文脈内|Exact pitch unavailable|未翻訳/u);
+        }
     });
 
     it('collects per-component pitches for expressions with no pitch of their own', async () => {

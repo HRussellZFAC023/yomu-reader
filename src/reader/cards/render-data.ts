@@ -227,16 +227,17 @@ export class CardRenderDataLoader {
 
         const settings = this.settings();
         const japaneseProviders = usesJapaneseProviders();
+        const onIncomplete = () => {
+            const entry = this.definitionSourceCache.get(key);
+            if (entry?.load === load) entry.expiresAt = Math.min(entry.expiresAt, Date.now() + 1_000);
+        };
         const localEntriesUncapped = this.loadLocalTermEntriesUncapped(card);
         const localEntries = this.loadLocalTermEntries(card, localEntriesUncapped);
         const jpdbVocabularyInfo = japaneseProviders && options.includeJpdbDefinition !== false
-            ? this.loadJpdbVocabularyInfo(card, () => {
-                const entry = this.definitionSourceCache.get(key);
-                if (entry?.load === load) entry.expiresAt = Math.min(entry.expiresAt, Date.now() + 1_000);
-            })
+            ? this.loadJpdbVocabularyInfo(card, onIncomplete)
             : Promise.resolve(null);
         const jitenVocabularyInfo = japaneseProviders && options.includeJitenDefinition !== false && settings.jitenDefinitionsEnabled
-            ? this.loadJitenVocabularyInfo(card, true)
+            ? this.loadJitenVocabularyInfo(card, true, onIncomplete)
             : Promise.resolve(null);
         const bunproDefinitionInfo = japaneseProviders && options.includeBunproDefinition !== false && settings.bunproDefinitionsEnabled
             ? this.lookupBunproDataResult(card, true).then(result => result.info)
@@ -295,7 +296,7 @@ export class CardRenderDataLoader {
         if (japaneseProviders && liveFrequencyEnabled(settings, 'jiten') && cardRanks.jiten) seededFrequencyRanks.jiten = cardRanks.jiten;
         if (japaneseProviders && liveFrequencyEnabled(settings, 'jpdb') && cardRanks.jpdb) seededFrequencyRanks.jpdb = cardRanks.jpdb;
         const jitenVocabularyLookup = japaneseProviders
-            ? this.loadJitenVocabularyInfo(card, settings.jitenDefinitionsEnabled)
+            ? this.loadJitenVocabularyInfo(card, settings.jitenDefinitionsEnabled, onIncomplete)
             : Promise.resolve(null);
         const jitenVocabularyInfo = japaneseProviders && settings.jitenDefinitionsEnabled
             ? this.withFallback(card, CARD_RENDER_JITEN_DETAIL_TIMEOUT_MS, 'Jiten vocabulary details', jitenVocabularyLookup, null as JitenVocabularyInfo | null)
@@ -544,13 +545,16 @@ export class CardRenderDataLoader {
     // the initial full render but ALSO keeps the uncapped promise so a slow result
     // still hydrates the popover instead of being discarded (which left the Jiten
     // frequency pill blank and the Jiten source missing — see the hydration pass).
-    private loadJitenVocabularyInfo(card: JPDBCard, enabled: boolean): Promise<JitenVocabularyInfo | null> {
+    // A lookup Jiten never answered is not kept as the popup's answer: the
+    // next open asks again (onIncomplete shortens the render cache).
+    private loadJitenVocabularyInfo(card: JPDBCard, enabled: boolean, onIncomplete: () => void = () => undefined): Promise<JitenVocabularyInfo | null> {
         if (!enabled || typeof this.dependencies.jiten?.lookupVocabularyInfoForCard !== 'function') return Promise.resolve(null);
         return this.dependencies.jiten.lookupVocabularyInfoForCard(card).then(info => {
             if (!usesJapaneseProviders()) return null;
             enrichCardFromJitenVocabularyInfo(card, info);
             return info;
         }).catch(error => {
+            onIncomplete();
             log.warn('Jiten vocabulary lookup failed', { term: card.spelling }, error);
             return null;
         });

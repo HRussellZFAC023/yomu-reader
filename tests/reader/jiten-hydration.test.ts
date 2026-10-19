@@ -46,6 +46,21 @@ function createLoader(lookupVocabularyInfoForCard: () => Promise<JitenVocabulary
 }
 
 describe('Jiten vocabulary render timeout hydration', () => {
+    it.each(['load', 'loadDefinitionSources'] as const)('retries an unanswered Jiten detail when reopening (%s)', async method => {
+        vi.useFakeTimers();
+        try {
+            const lookup = vi.fn().mockRejectedValueOnce(new Error('Jiten fail (429).')).mockResolvedValue(jitenInfo());
+            const loader = createLoader(lookup);
+            const card = nonJitenCard();
+            expect(await loader[method](card).jitenVocabularyInfo).toBeNull();
+            await vi.advanceTimersByTimeAsync(1_001);
+            expect(await loader[method](card).jitenVocabularyInfo).not.toBeNull();
+            expect(lookup).toHaveBeenCalledTimes(2);
+        } finally {
+            vi.useRealTimers();
+        }
+    });
+
     it('caps the aggregate at the render timeout but still hydrates late results', async () => {
         vi.useFakeTimers();
         try {

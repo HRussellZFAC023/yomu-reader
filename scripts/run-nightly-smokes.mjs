@@ -77,6 +77,11 @@ export const NIGHTLY_SMOKES = [
     'smoke:popover-headword-furigana',
     'smoke:popup-lifecycle',
     'smoke:popup-header-phone',
+    // Chromium hover + WebKit iPad tap on recorded ja.wikipedia 日本語, with Jiten
+    // answering and with Jiten refusing until 6 s after the press: 先生's popup
+    // ends with its pitch graph and Jiten rank, and never says "Exact pitch
+    // unavailable" or "In context ×N".
+    'smoke:popup-word-detail',
     'smoke:recorded-pages',
     'smoke:recorded-pages:reproduce',
     'smoke:recorded-pages:probes',

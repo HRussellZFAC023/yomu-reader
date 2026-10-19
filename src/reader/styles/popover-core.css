@@ -320,14 +320,6 @@
   grid-column: 1 / -1;
   grid-row: 2;
 }
-.jpdb-reader-pitch-missing {
-  align-self: center;
-  color: var(--jpdb-reader-muted);
-  font-size: 10px;
-  font-weight: 700;
-  line-height: 1.15;
-  white-space: nowrap;
-}
 .jpdb-reader-popover .jpdb-reader-icon-btn,
 .jpdb-reader-settings .jpdb-reader-icon-btn,
 .jpdb-reader-icon-btn {

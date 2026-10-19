@@ -8,7 +8,7 @@ import { deckChoices, type DeckChoice } from './deck-choice';
 import { renderCardSpellingWithFurigana, renderHeadwordComponentPitchSpans } from './reading-display';
 import { escapeHtml, renderRuby } from '../dom/index';
 import { renderKanjiDefinitions } from '../sources/definition-render';
-import { cardStateLabel, formatUiText, uiText } from '../app/i18n';
+import { cardStateLabel, uiText } from '../app/i18n';
 import { providerStatusText } from '../app/provider-state-label';
 import { speakerIcon } from '../ui/icons';
 import { loadMiningContext } from '../study/mining-context';
@@ -20,7 +20,7 @@ import { getPitchClass } from '../jpdb/jpdb-parser-pitch';
 import { apiSrsGradingProviderViewForCard, apiSrsProviderViewForCard, apiSrsSwitchableProviderIds, collectionDestinationsForCard, isApiSrsProviderEnabled, type ApiSrsProviderView } from './srs-providers';
 import type { InterfaceLanguage, JPDBCard, JPDBToken, ReaderSettings } from '../app/types';
 import type { JitenVocabularyInfo } from '../dictionaries/jiten';
-import { contextOccurrenceCount, hasFrequencyRankEvidence, type ProviderFrequencyRanks } from './frequency-ranks';
+import type { ProviderFrequencyRanks } from './frequency-ranks';
 import type { BunproDefinitionInfo } from '../bunpro/definition';
 import type { JpdbVocabularyInfo } from '../jpdb/jpdb-vocabulary';
 import { jpdbVocabularyUrl } from '../jpdb/jpdb-vocabulary-url';
@@ -130,7 +130,7 @@ export class CardPopoverRenderer {
             <div class="jpdb-reader-sheet-handle"></div>
             <div class="jpdb-reader-popover-body" data-card-popover${bunproDefinitionStatusAttributes(data.bunproDefinitionStatus)}>
                 ${this.dependencies.renderWordHistory(view.language, trigger)}
-                ${this.renderHeader(card, sentence, data, view, trigger)}
+                ${this.renderHeader(card, data, view, trigger)}
                 ${this.renderPartOfSpeech(view)}
                 ${expressionComponents}
                 ${definitionSources}
@@ -201,13 +201,11 @@ export class CardPopoverRenderer {
         return this.reviewBlockReason(cardStates, language);
     }
 
-    private renderHeader(card: JPDBCard, sentence: string | undefined, data: CardRenderData & { loading: boolean }, view: CardPopoverRenderView, trigger: 'modal' | 'hover'): string {
-        const wordPills = this.dependencies.renderWordPills(card, view.jpdbUrl, data.metaEntries, undefined, trigger, data.ankiLookup, data.frequencyRanks);
-        const pills = appendWordPill(wordPills, this.renderContextFrequencyPill(card, sentence, data, view.language));
+    private renderHeader(card: JPDBCard, data: CardRenderData & { loading: boolean }, view: CardPopoverRenderView, trigger: 'modal' | 'hover'): string {
         return `<div class="jpdb-reader-header">
             <div class="jpdb-reader-heading">
                 ${this.renderTitleRow(card, data, view)}
-                ${pills}
+                ${this.dependencies.renderWordPills(card, view.jpdbUrl, data.metaEntries, undefined, trigger, data.ankiLookup, data.frequencyRanks)}
             </div>
             <div class="jpdb-reader-card-tools">
                 ${renderPronunciation({
@@ -225,19 +223,6 @@ export class CardPopoverRenderer {
                 </div>
             </div>
         </div>`;
-    }
-
-    private renderContextFrequencyPill(
-        card: JPDBCard,
-        sentence: string | undefined,
-        data: CardRenderData & { loading: boolean },
-        language: InterfaceLanguage,
-    ): string {
-        if (data.loading || hasFrequencyRankEvidence(card, data.metaEntries, data.frequencyRanks)) return '';
-        const count = contextOccurrenceCount(card, sentence);
-        if (!count) return '';
-        const label = formatUiText(language, 'contextOccurrences', { count });
-        return `<span class="jpdb-reader-pill jpdb-reader-frequency-pill" data-frequency-source="context" title="${escapeHtml(label)}">${escapeHtml(label)}</span>`;
     }
 
     private renderTitleRow(card: JPDBCard, data: CardRenderData & { loading: boolean }, view: CardPopoverRenderView): string {
@@ -902,16 +887,6 @@ function renderAnkiMeta(lookup: CardRenderData['ankiLookup'], settings: ReaderSe
 
 function renderMeta(metaItems: string[]): string {
     return metaItems.length ? `<div class="jpdb-reader-meta">${metaItems.join('')}</div>` : '';
-}
-
-// The pill joins the row before its "More" menu, which stays the last item.
-function appendWordPill(wordPills: string, pill: string): string {
-    if (!pill) return wordPills;
-    const more = wordPills.indexOf('<details class="jpdb-reader-pill-more"');
-    const closingTag = more >= 0 ? more : wordPills.includes('jpdb-reader-word-pills') ? wordPills.lastIndexOf('</div>') : -1;
-    return closingTag >= 0
-        ? `${wordPills.slice(0, closingTag)}${pill}${wordPills.slice(closingTag)}`
-        : `${wordPills}<div class="jpdb-reader-word-pills">${pill}</div>`;
 }
 
 function uniqueExpressionComponents(components: ExpressionComponentLookup[]): ExpressionComponentLookup[] {

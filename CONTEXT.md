@@ -195,6 +195,7 @@ _Avoid_: Contact name, display name, nickname
 - Text in View: Text the visible-page scan may annotate now. An element is in view when its box meets the viewport; text directly inside a parent more than twice the viewport is in view only when the text itself meets it (ADR-0032), so a one-div novel is annotated a screen at a time.
 - Apply Slice Pacing (2.2, supersedes the pacing sentence of Annotation Pass): an Apply Slice ends once its own paint has spent the frame budget, whatever the last yield or hand-over cost. Before its first write it reads the facts its targets need, once per element (Read Memo).
 - Read Memo: Inside one read phase (a collection walk, or an Apply Slice's read-ahead and paint), each DOM fact about an element is read once and handed to every later asker (`dom/read-memo.ts`).
+- Anonymous Jiten Budget (2.2): one reader realm counts all its keyless Jiten requests together. Enrichment may use 50 requests per minute, annotation 70, hover lookup 105, and the open popup 120. Popup detail shares cached/in-flight `/info` answers with those lanes; after a failed background read it makes its own request, bypassing background backoff and retrying transient failures over a minute. Reading indices remain separate cache identities. Authenticated Jiten requests stay outside this budget (`jiten-public-vocabulary.ts`).
 
 ## Clean Code Standard
 
