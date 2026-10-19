@@ -68,6 +68,8 @@ Hiding the よむ subtitle overlay leaves YouTube’s native captions available.
 
 Words can still be looked up without a coloured underline. Search and comment fields keep their normal typing behavior.
 
+The i+1 wash marks the only unknown word in a sentence; choosing Pitch or Off under Underline hides it without changing the coverage count.
+
 OCR text and corner marks on ordinary page images scroll with the image. Decorative blurred copies do not get a second mark.
 
 The よむ button and its menu keep their screen size during pinch zoom. The menu closes when you pan or change the visible viewport.

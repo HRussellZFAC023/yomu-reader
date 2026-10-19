@@ -1990,7 +1990,7 @@ describe('VisiblePageScanner', () => {
         }
     });
 
-    it('reports page coverage and i+1 guidance for manual scans with Jiten-backed words', async () => {
+    it.each(['status', 'off', 'pitch'] as const)('keeps coverage and i+1 guidance with %s underlines', async wordUnderlineColorSource => {
         const restoreRects = mockVisibleElementRects();
         const sentence = '今日本を読む';
         document.body.innerHTML = `<main><p>${sentence}</p></main>`;
@@ -2003,6 +2003,7 @@ describe('VisiblePageScanner', () => {
         const scanner = createVisiblePageScanner({
             parseJapanese,
             toast,
+            getSettings: () => ({ ...DEFAULT_SETTINGS, wordUnderlineColorSource }),
         });
 
         try {

@@ -301,7 +301,7 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
   }
 }
 
-.jpdb-reader-word.jpdb-reader-i-plus-one {
+:is(.jpdb-reader-word-underline-status, .jpdb-reader-word-underline-jpdb, .jpdb-reader-word-underline-review) .jpdb-reader-word.jpdb-reader-i-plus-one {
   --jpdb-reader-mining-insight-color: color-mix(in srgb, var(--jpdb-reader-state-hard) 42%, transparent);
   background-color: transparent !important;
   background-image: linear-gradient(transparent 58%, var(--jpdb-reader-mining-insight-color) 58%) !important;
