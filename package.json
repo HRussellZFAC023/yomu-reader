@@ -311,6 +311,7 @@
     "smoke:subtitle-highlight": "node scripts/subtitle-highlight-layers-smoke.mjs",
     "smoke:subtitle-furigana-outline": "node scripts/subtitle-furigana-outline-scale-smoke.mjs",
     "smoke:host-css-armour": "node scripts/host-css-armour-smoke.mjs",
+    "smoke:piccoma-host-armour": "node scripts/piccoma-host-armour-smoke.mjs",
     "smoke:ruby-overhang-scope": "node scripts/ruby-overhang-scope-smoke.mjs",
     "smoke:reading-collision": "node scripts/reading-collision-smoke.mjs",
     "smoke:ocr-viewport-scroll": "node scripts/ocr-viewport-scroll-smoke.mjs",

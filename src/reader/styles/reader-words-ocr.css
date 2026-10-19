@@ -1,3 +1,9 @@
+/* One anonymous flex/grid text item stays one item after tokenization. The
+   layered annotation box armour also protects this shell from host span rules. */
+.jpdb-reader-run {
+  display: inline !important;
+}
+
 .jpdb-reader-word {
   --jpdb-reader-word-color-source: currentColor;
   --jpdb-reader-word-decoration-source: transparent;
