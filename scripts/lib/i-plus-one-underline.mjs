@@ -23,6 +23,7 @@ export async function checkIPlusOneUnderline(browser, root, cssPath, scriptPath)
         wordUnderlineColorSource: 'status', wordHighlightColorSource: 'off',
         audioEnabled: false, autoPlayAudio: false, ankiEnabled: false,
         immersionKitEnabled: false, ocrEnabled: false, showFloatingButton: false,
+        lookupOnHover: false,
     };
     const run = await openRecordedPage({
         browser, slug: 'ja-wikipedia-nihongo', product, settings, contextOptions,
@@ -50,6 +51,10 @@ export async function checkIPlusOneUnderline(browser, root, cssPath, scriptPath)
         await page.mouse.move(0, 0);
         const initial = await page.evaluate(measureWash);
         assert(initial.insights === 1 && initial.images[0]?.includes('linear-gradient'), 'Status must keep the single i+1 wash', initial);
+        await page.locator(INSIGHT).hover();
+        const hovered = await page.evaluate(measureWash);
+        assert(hovered.images[0] !== initial.images[0], 'Status wash overrides the existing hover tint', hovered);
+        await page.mouse.move(0, 0);
         const statusCoverage = await coverageToast(page);
 
         const study = await studyContext.newPage();
