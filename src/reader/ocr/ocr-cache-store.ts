@@ -24,6 +24,7 @@ const LEGACY_PAGE_KEYS = ['yomu-ocr-cache-v1', LEGACY_PAGE_KEY] as const;
 const MAX_ENTRIES = 36;
 // Every page the manager runs on is handed all shards: 20 x 64 KB stays near 1.3 MB on an iPad.
 const MAX_SHARD_BYTES = 64_000;
+const encoder = new TextEncoder();
 // Shard key -> last write. Lives under the shard prefix so a factory reset clears it.
 const SHARD_INDEX_KEY = `${OCR_CACHE_SHARD_PREFIX}index`;
 // Tabs on different sites flush at the same moment; the index is read and written under one lease.
@@ -146,23 +147,26 @@ function installFlushListeners(): void {
     }
 }
 
-/** The newest answers with text, capped by count and bytes, stored oldest first. */
+// Count the serialized UTF-8 representation, not JavaScript characters.
+function utf8Bytes(text: string): number {
+    return encoder.encode(text).byteLength;
+}
+
+/** The newest answers with text, capped by count and UTF-8 bytes, stored oldest first. */
 function ocrCacheShard(cache: ReadonlyMap<string, OcrResult | null>, now: number): StoredShard {
-    const newestFirst: Array<[string, OcrResult]> = [];
-    let bytes = 0;
+    const newestFirst: Array<[string, StoredEntry]> = [];
+    let bytes = 2; // The enclosing {}.
     for (const key of [...cache.keys()].reverse()) {
         const result = cache.get(key);
         if (!isPersistableKey(key) || !hasLines(result)) continue;
-        bytes += key.length + JSON.stringify(result).length + 24;
+        const entry = { r: result, at: now - newestFirst.length };
+        // Count the exact stored entry, including escaped keys, timestamp and comma.
+        bytes += utf8Bytes(JSON.stringify({ [key]: entry })) - 2 + (newestFirst.length ? 1 : 0);
         if (bytes > MAX_SHARD_BYTES || newestFirst.length >= MAX_ENTRIES) break;
-        newestFirst.push([key, result]);
+        newestFirst.push([key, entry]);
     }
     // Distinct times keep the order on load: the oldest answer is evicted first.
-    const out: StoredShard = {};
-    newestFirst.reverse().forEach(([key, result], index) => {
-        out[key] = { r: result, at: now - newestFirst.length + 1 + index };
-    });
-    return out;
+    return Object.fromEntries(newestFirst.reverse());
 }
 
 async function writeOcrCache(cache: ReadonlyMap<string, OcrResult | null>, now: number): Promise<void> {

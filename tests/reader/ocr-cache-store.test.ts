@@ -68,6 +68,27 @@ describe('persistent OCR answers (survive a page refresh)', () => {
         expect(shards[0]).not.toContain('manga.example');
     });
 
+    it('caps a shard of Japanese answers at 64 KB of UTF-8, keeping the newest', async () => {
+        const page = (index: number): OcrResult => ({
+            width: 800, height: 1200,
+            lines: Array.from({ length: 45 }, (_, line) => ({
+                text: '日本語を読む'.repeat(12), box: { left: 10, top: line * 20, width: 300, height: 20 }, vertical: false,
+            })).map((line, at) => (at ? line : { ...line, text: `${index}頁` })),
+        });
+        const keys = Array.from({ length: 36 }, (_, index) => `https://manga.example/${index}.png|800x1200`);
+        persistOcrCacheSoon(new Map(keys.map((key, index) => [key, page(index)])), Date.now());
+        flushPersistedOcrCache();
+        await settled();
+
+        const [stored] = [...gmValues.entries()]
+            .filter(([key]) => decodeURIComponent(key).includes('ocr-cache:v3:') && !decodeURIComponent(key).endsWith(':index'))
+            .map(([, value]) => (typeof value === 'string' ? value : JSON.stringify(value)));
+        expect(new TextEncoder().encode(stored).byteLength).toBeLessThanOrEqual(64_000);
+        const loaded = [...(await loadPersistedOcrCache(asIs)).keys()];
+        expect(loaded.length).toBeGreaterThan(0);
+        expect(loaded.at(-1)).toBe(keys.at(-1));
+    });
+
     it('keeps one shard per site', async () => {
         await persistNow(new Map([['https://manga.example/p1.png|800x1200', result('一')]]));
         stubOrigin('https://other.example');
