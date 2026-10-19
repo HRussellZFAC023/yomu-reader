@@ -28,9 +28,12 @@
 // String contents are masked and escapes decoded first, so `[title="("]` cannot
 // open a group and `:h\61 s(` is read as the `:has(` the browser sees.
 // The root test looks inside :is()/:where() (`:is(body):has(.x)`), but not
-// inside :has()/:not(). A :has() in a nested
-// style rule (CSS nesting), or under a parent rule that has one, is reported as is:
-// this reader does not resolve `&`, so such a rule must be flattened or allowed.
+// inside :has()/:not(). A :has() in a nested style rule (CSS nesting), under a
+// parent rule that has one, or in an @scope prelude is refused outright: this
+// reader resolves neither `&` nor scoping roots, and an allow comment cannot show
+// the resolved selector keys its subject. `.p { &:has(.i) > * {} }`,
+// `.p:has(.i) { > * {} }` and `@scope (.p:has(.i)) { * {} }` each invalidate all
+// of BODY in Chromium, so such rules must be flattened.
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 
@@ -61,15 +64,14 @@ export function findHasInvalidationRisks(css) {
     // show strings and escapes as written.
     const original = (offset, text) => shown.slice(map[offset], map[offset + text.length]).replace(/\s+/g, ' ').trim();
     const findings = [];
-    for (const { text, offset, parentHas, nested } of stylePreludes(clean)) {
-        if (nested && (parentHas || HAS.test(text))) {
+    for (const { text, offset, parentHas, nested, scope } of stylePreludes(clean)) {
+        if (scope || (nested && (parentHas || HAS.test(text)))) {
             const at = text.search(HAS);
-            const line = lineAt(offset + (at >= 0 ? at : text.search(/\S/)));
             findings.push({
-                line,
+                line: lineAt(offset + (at >= 0 ? at : text.search(/\S/))),
                 selector: original(offset, text),
-                reason: 'nested in a style rule that this check cannot resolve',
-                allowed: allowLines.has(line) || allowLines.has(line - 1),
+                reason: scope ? 'in an @scope prelude that this check cannot resolve' : 'nested in a style rule that this check cannot resolve',
+                allowed: false,
             });
             continue;
         }
@@ -273,8 +275,9 @@ function withoutArguments(text, pattern) {
 
 // Every style-rule prelude (the selector list before `{`), at any nesting depth,
 // with whether it sits inside another style rule (`nested`) and whether one of
-// those parent rules has a :has() (`parentHas`). At-rule preludes (@media,
-// @container, @supports, ...) are skipped; their blocks are still walked.
+// those parent rules has a :has() (`parentHas`), plus every @scope prelude with
+// a :has() (`scope`). Other at-rule preludes (@media, @container, @supports,
+// ...) select nothing and are skipped; their blocks are still walked.
 function* stylePreludes(clean) {
     const blocks = [];
     let start = 0;
@@ -286,6 +289,7 @@ function* stylePreludes(clean) {
             const style = lead >= 0 && text[lead] !== '@';
             const parents = blocks.filter(block => block.style);
             if (style) yield { text, offset: start, nested: parents.length > 0, parentHas: parents.some(block => block.has) };
+            else if (/^@scope\b/i.test(text.slice(lead)) && HAS.test(text)) yield { text, offset: start, scope: true };
             blocks.push({ style, has: style && HAS.test(text) });
             start = index + 1;
         } else if (char === '}' || char === ';') {
