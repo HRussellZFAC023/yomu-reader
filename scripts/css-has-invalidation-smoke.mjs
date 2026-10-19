@@ -22,7 +22,8 @@
 //   4. the check:css-has gate agrees with Chromium: on the host-has page without
 //      Yomu, each row of scripts/lib/css-has-gate-probes.mjs (and the control rule)
 //      causes whole-BODY invalidation exactly when the row says so, and the gate
-//      refuses it, even with an allow comment, exactly then.
+//      refuses it, even with an allow comment, exactly then (always, for the
+//      nesting and @scope rows it does not resolve).
 //
 // The page is css-has-invalidation-mechanism-fixture: the cost is a property of
 // the injected stylesheet plus any host insertion, not of a site's content, so a
@@ -49,7 +50,7 @@ import {
 } from './lib/smoke-harness.mjs';
 import { cdpMetrics, metricDelta } from './lib/cdp-performance-metrics.mjs';
 import { findHasInvalidationRisks } from './lib/css-has-invalidation.mjs';
-import { HAS_GATE_PROBES } from './lib/css-has-gate-probes.mjs';
+import { HAS_GATE_PROBES, HAS_GATE_RULE_PROBES } from './lib/css-has-gate-probes.mjs';
 import { addScriptTagWithCspFallback, userscriptCompanionPaths } from './lib/smoke-test-helpers.mjs';
 
 const paths = createSmokePaths(import.meta.dirname);
@@ -107,13 +108,19 @@ try {
     const gatePage = await browser.newPage();
     await gatePage.setContent(fixtureHtml({ hostHas: true }));
     const hostRules = await gatePage.evaluate(() => document.styleSheets[0].cssRules.length);
-    for (const { selector, wholeSubtree } of [{ selector: CONTROL_RULE.replace(/\s*\{.*$/, ''), wholeSubtree: true }, ...HAS_GATE_PROBES]) {
-        const rule = `${selector} { outline: 0; }`;
-        const refused = findHasInvalidationRisks(`/* has-invalidation-allow: probe */\n${rule}`).some(finding => !finding.allowed);
-        await gatePage.setContent(fixtureHtml({ hostHas: true }).replace('</style>', `${rule}\n</style>`));
+    // Selector rows must be refused exactly when Chromium invalidates all of BODY;
+    // nesting and @scope rows are always refused (see css-has-gate-probes.mjs).
+    const probes = [
+        { rule: CONTROL_RULE, expected: true, mustRefuse: true },
+        ...HAS_GATE_PROBES.map(({ selector, wholeSubtree }) => ({ rule: `${selector} { outline: 0; }`, expected: wholeSubtree, mustRefuse: wholeSubtree })),
+        ...HAS_GATE_RULE_PROBES.map(({ rule, wholeSubtree }) => ({ rule, expected: wholeSubtree, mustRefuse: true })),
+    ];
+    for (const probe of probes) {
+        const refused = findHasInvalidationRisks(`/* has-invalidation-allow: probe */\n${probe.rule}`).some(finding => !finding.allowed);
+        await gatePage.setContent(fixtureHtml({ hostHas: true }).replace('</style>', `${probe.rule}\n</style>`));
         const parsed = await gatePage.evaluate(count => document.styleSheets[0].cssRules.length > count, hostRules);
         const { rootWholeSubtree } = await bodyInvalidationOnHostInsertion(gatePage);
-        report.gate.push({ selector, expected: wholeSubtree, refused, rootWholeSubtree, parsed });
+        report.gate.push({ ...probe, refused, rootWholeSubtree, parsed });
     }
     await gatePage.close();
     for (const variant of ['plain', 'host-has', 'control']) {
@@ -140,8 +147,8 @@ for (const probe of report.gate) {
     assert(probe.parsed, 'Chromium dropped a probe rule as invalid, so it measures nothing', probe);
     assert((probe.rootWholeSubtree > 0) === probe.expected,
         probe.expected ? 'Chromium no longer invalidates all of BODY for this probe; update css-has-gate-probes.mjs' : 'Chromium invalidates all of BODY for this probe', probe);
-    assert(probe.refused === probe.expected,
-        probe.refused ? 'gate refuses a rule Chromium handles without whole-BODY invalidation' : 'gate allows a rule that makes Chromium invalidate all of BODY', probe);
+    assert(probe.refused === probe.mustRefuse,
+        probe.refused ? 'gate refuses a rule Chromium handles without whole-BODY invalidation' : 'gate allows a rule it must refuse', probe);
 }
 const { control, ...variants } = report.invalidation;
 assert(control.rootWholeSubtree > 0, 'control: a known-bad rule beside the host body:has() rule caused no whole-BODY invalidation, so this smoke cannot detect one', control);

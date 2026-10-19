@@ -1,7 +1,7 @@
 import { readdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { HAS_GATE_PROBES } from '../../scripts/lib/css-has-gate-probes.mjs';
+import { HAS_GATE_PROBES, HAS_GATE_RULE_PROBES } from '../../scripts/lib/css-has-gate-probes.mjs';
 import { findHasInvalidationRisks, readerStylesheetFiles } from '../../scripts/lib/css-has-invalidation.mjs';
 
 const blocking = (css: string) => findHasInvalidationRisks(css).filter(finding => !finding.allowed);
@@ -73,6 +73,31 @@ describe('CSS :has() invalidation gate', () => {
         expect(blocking('.a:has(.b) { .c { color: red; } }')).toHaveLength(1);
         expect(blocking('.a { .b { color: red; } }')).toEqual([]);
         expect(blocking('@media (hover: hover) { .a:has(.b) { color: red; } }')).toEqual([]);
+    });
+
+    it('cannot allow unresolved nesting that invalidates all of BODY beside a host :has() rule', () => {
+        // Chromium: each caused 19 whole-BODY invalidations in 20 host text
+        // replacements, even though the nesting parent is a small class anchor.
+        const allow = '/* has-invalidation-allow: small subtree */';
+        expect(blocking(`.p {\n${allow}\n&:has(.i) > * { color: red; }\n}`)).toEqual([
+            expect.objectContaining({ line: 3, reason: 'nested in a style rule that this check cannot resolve' }),
+        ]);
+        expect(blocking(`.p:has(.i) {\n${allow}\n> * { color: red; }\n}`)).toEqual([
+            expect.objectContaining({ line: 3, reason: 'nested in a style rule that this check cannot resolve' }),
+        ]);
+        for (const { rule } of HAS_GATE_RULE_PROBES) expect(blocking(`${allow}\n${rule}`)).toHaveLength(1);
+    });
+
+    it('cannot allow a :has() in an @scope prelude, whose scoped rules the gate does not resolve', () => {
+        // Chromium: `@scope (.p:has(.i)) { * {} }` caused 19 whole-BODY invalidations
+        // beside a host body:has() rule; before this the gate skipped @scope preludes.
+        const allow = '/* has-invalidation-allow: small subtree */';
+        expect(blocking(`${allow}\n@scope (.p:has(.i)) {\n* { color: red; }\n}`)).toEqual([
+            expect.objectContaining({ line: 2, selector: '@scope (.p:has(.i))', reason: 'in an @scope prelude that this check cannot resolve' }),
+        ]);
+        expect(blocking('@scope (.p) to (.q:h\\61 s(.i)) { * { color: red; } }')).toHaveLength(1);
+        expect(blocking('@scope (.p) { .k { color: red; } }')).toEqual([]);
+        expect(blocking('@supports selector(:has(a)) { .k { color: red; } }')).toEqual([]);
     });
 
     it('keeps subject-position :has() on a Yomu-owned anchor', () => {

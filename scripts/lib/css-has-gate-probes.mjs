@@ -67,3 +67,19 @@ export const HAS_GATE_PROBES = [
     { selector: ':is(.p:has(.i) + *) > *', wholeSubtree: false },
     { selector: '.x:is(.p:has(.i) + *)', wholeSubtree: false },
 ];
+
+// Complete rules, for what one selector prelude cannot hold: CSS nesting and
+// @scope. The gate does not resolve `&` or scoping roots, so it refuses every
+// row here, even with an allow comment; `wholeSubtree` is what Chromium does.
+// The keyed rows show the refusal is stricter than Chromium needs: flattened,
+// `.p:has(.i) .k` is allowed.
+export const HAS_GATE_RULE_PROBES = [
+    { rule: '.p { &:has(.i) > * { outline: 0; } }', wholeSubtree: true },
+    { rule: '.p:has(.i) { > * { outline: 0; } }', wholeSubtree: true },
+    { rule: '@scope (.p:has(.i)) { * { outline: 0; } }', wholeSubtree: true },
+    { rule: '@scope (.p:has(.i)) { :scope > * { outline: 0; } }', wholeSubtree: true },
+    { rule: '@scope (.p) to (.q:has(.i)) { * { outline: 0; } }', wholeSubtree: true },
+    { rule: '@media all { .p { &:has(.i) > * { outline: 0; } } }', wholeSubtree: true },
+    { rule: '.p:has(.i) { .k { outline: 0; } }', wholeSubtree: false },
+    { rule: '@scope (.p:has(.i)) { .k { outline: 0; } }', wholeSubtree: false },
+];
