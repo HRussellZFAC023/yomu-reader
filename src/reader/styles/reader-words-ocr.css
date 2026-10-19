@@ -386,7 +386,6 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
   --jpdb-reader-status-color: var(--jpdb-reader-state-ignored);
   --jpdb-reader-status-readable: var(--jpdb-reader-state-ignored-readable);
   --jpdb-reader-status-soft: var(--jpdb-reader-state-ignored-soft);
-  opacity: 0.82 !important;
 }
 .jpdb-reader-word.jpdb-frequent {
   --jpdb-reader-jpdb-color: var(--jpdb-reader-state-frequent);

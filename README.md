@@ -76,6 +76,8 @@ No account and no setup. [How to learn Japanese with よむ](https://yomureader.
 
 Readings follow the page’s typeface and scale with its text, with stronger contrast for small kana. With a study source, known and due words lose their readings; missed words keep them.
 
+Ignored words keep the page’s text colour and full contrast by default. To show their state markings, untick Ignored under Settings → Appearance → Hide color for.
+
 On another website, the Settings action opens Study settings directly. If a reading would cover nearby text, open that word’s lookup to see it.
 
 ## Privacy

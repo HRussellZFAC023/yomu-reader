@@ -40,6 +40,8 @@ Readings stay visible until a study source tells よむ which words you know. Kn
 
 Readings follow the page’s typeface and scale with its text, with stronger contrast for small kana.
 
+Ignored words keep the page’s text colour and full contrast by default. To show their state markings, untick Ignored under Settings → Appearance → Hide color for.
+
 On another website, the Settings action opens Study settings directly. If a reading would cover nearby text, open that word’s lookup to see it.
 
 ## Where did my saved words go? {#saved-words}
