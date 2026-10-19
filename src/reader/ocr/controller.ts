@@ -466,6 +466,15 @@ export class ImageOcrController {
     private readonly handleDocumentPointerOver = trustedReaderEventHandler((event: Event) => this.requestOcrFromPointerEvent(event));
     private readonly handleDocumentPointerMove = trustedReaderEventHandler((event: Event) => this.requestOcrFromPointerEvent(event));
     private readonly handleDocumentClick = trustedReaderEventHandler((event: Event) => this.unpinOcrLinesFromDocumentEvent(event));
+    private readonly handleDocumentImageLoad = (event: Event) => {
+        const image = event.target;
+        if (!(image instanceof HTMLImageElement)) return;
+        const settings = this.options.getSettings();
+        if (ocrRuntimeActive(settings) && this.canAutoScanImage(settings) && !isIgnoredOcrImage(image)) {
+            // Loading can make an image visible without any DOM mutation.
+            this.scheduleRefresh(120);
+        }
+    };
     private readonly handleDocumentScroll = () => this.handleOcrViewportShift(120);
     private readonly handleWindowScroll = () => this.handleOcrViewportShift(240);
     private readonly handleWindowResize = () => {
@@ -500,6 +509,7 @@ export class ImageOcrController {
             return;
         }
         this.refresh();
+        document.addEventListener('load', this.handleDocumentImageLoad, true);
         document.addEventListener('pointerdown', this.handleDocumentPointerDown, true);
         document.addEventListener('touchstart', this.handleDocumentTouchStart, { capture: true, passive: true });
         document.addEventListener('pointerover', this.handleDocumentPointerOver, true);
@@ -548,6 +558,7 @@ export class ImageOcrController {
         this.clear();
     }
     private removeEventListeners(): void {
+        document.removeEventListener('load', this.handleDocumentImageLoad, true);
         document.removeEventListener('pointerdown', this.handleDocumentPointerDown, true);
         document.removeEventListener('touchstart', this.handleDocumentTouchStart, true);
         document.removeEventListener('pointerover', this.handleDocumentPointerOver, true);
@@ -1214,8 +1225,9 @@ export class ImageOcrController {
         const inlineFallback = readFallbackOcrResult(image, false);
         // Bound canvas encoding plus fallback transports; an HTTP timer alone misses a hung WebKit encode.
         // Only a press earns the inverted second pass; a pointer passing over costs one request.
+        // Asked when the normal pass answers, so a press that joins a hover's read still earns it.
         const providerResult = inlineFallback ? null : await promiseWithTimeout(
-            this.recognizeImage(image, settings, state.pressed),
+            this.recognizeImage(image, settings, () => state.pressed),
             ocrAttemptTimeoutMs(this.options.ocrAttemptTimeoutFloorMs),
             'OCR timed out.',
         );
@@ -1311,7 +1323,7 @@ export class ImageOcrController {
         this.updateOcrStatus(image, 'failed');
     }
 
-    private recognizeImage(image: HTMLImageElement, settings: ReaderSettings, pressed: boolean): Promise<OcrResult | null> {
+    private recognizeImage(image: HTMLImageElement, settings: ReaderSettings, pressed: () => boolean): Promise<OcrResult | null> {
         const recognizer = ocrRecognizer(settings);
         if (!recognizer) return Promise.resolve(null);
         if (this.shouldSplitBookwalkerSpreadFrame(image)) return this.recognizeBookwalkerSpreadFrame(image, settings, recognizer, pressed);
@@ -1333,22 +1345,21 @@ export class ImageOcrController {
         image: HTMLImageElement,
         settings: ReaderSettings,
         recognizer: OcrRecognizer,
-        pressed: boolean,
+        pressed: () => boolean,
     ): Promise<OcrResult | null> {
         const slices = await splitImageIntoPageColumns(image);
         const outcomes = await Promise.allSettled(slices.map(slice => this.recognizeWithDarkPass(slice.image, settings, recognizer, pressed)));
-        const results = outcomes.map((outcome, index) => {
+        const values = outcomes.map(outcome => (outcome.status === 'fulfilled' ? outcome.value : null));
+        const results = values.map((value, index) => {
             const slice = slices[index];
-            return outcome.status === 'fulfilled' && outcome.value
-                ? offsetOcrResult(outcome.value, slice.left, 0, slice.totalWidth, slice.totalHeight)
-                : null;
+            return value ? offsetOcrResult(value, slice.left, 0, slice.totalWidth, slice.totalHeight) : null;
         });
         const merged = mergeOcrResults(slices[0]?.totalWidth ?? 0, slices[0]?.totalHeight ?? 0, results);
         // A half that failed is not a half without text: with nothing read, the scan failed.
         const failure = outcomes.find(outcome => outcome.status === 'rejected');
         if (!merged && failure) throw failure.reason;
-        // Shown, but not remembered: the failed half is read again next time.
-        if (merged && failure) partialOcrResults.add(merged);
+        // Shown, but not remembered: the failed half (or its failed pass) is read again next time.
+        if (merged && (failure || values.some(value => value && partialOcrResults.has(value)))) partialOcrResults.add(merged);
         return merged;
     }
 
@@ -1362,15 +1373,25 @@ export class ImageOcrController {
         image: HTMLImageElement,
         settings: ReaderSettings,
         recognizer: OcrRecognizer,
-        pressed: boolean,
+        pressed: () => boolean,
     ): Promise<OcrResult | null> {
         const normal = await this.runRecognizer(image, settings, recognizer, false);
-        if (!darkPassWanted(settings, pressed, normal)) return normal;
+        if (!darkPassWanted(settings, pressed(), normal)) return normal;
         const field = buildLuminanceField(image);
         if (!field || luminanceFieldDarkFraction(field) < DARK_REGION_TRIGGER) return normal;
         if ((this.canvasFrameSources.has(image) || this.backgroundFrameSources.has(image)) && normal?.lines.length) return normal;
         if (darkAreaIsRead(field, normal)) return normal;
-        const inverted = await this.runRecognizer(image, settings, recognizer, true).catch(() => null);
+        let inverted: OcrResult | null;
+        try {
+            inverted = await this.runRecognizer(image, settings, recognizer, true);
+        } catch (error) {
+            // A failed inverted read is not an inverted read with no text: with
+            // nothing read, the scan failed; otherwise the normal lines show but
+            // are not remembered, so the next visit reads the image again.
+            if (!normal?.lines.length) throw error;
+            partialOcrResults.add(normal);
+            return normal;
+        }
         return mergeDarkPassResult(normal, inverted, field);
     }
 

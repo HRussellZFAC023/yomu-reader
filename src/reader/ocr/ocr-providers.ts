@@ -153,10 +153,16 @@ function requestJson(url: string, data: string, timeout: number): Promise<unknow
         data,
         responseType: 'json',
         timeout,
-    }, response => response.response ?? (response.responseText ? JSON.parse(response.responseText) : null), status => new OcrProviderError('OCR endpoint', status), 'OCR timed out.');
-    if (userscriptRequest) return userscriptRequest;
-    return fetchJsonWithTimeout(url, data, timeout)
-        .then(response => response.ok ? response.json() : Promise.reject(new OcrProviderError('OCR endpoint', response.status)));
+    }, response => response.response ?? JSON.parse(response.responseText ?? ''), status => new OcrProviderError('OCR endpoint', status), 'OCR timed out.');
+    return (userscriptRequest ?? fetchJsonWithTimeout(url, data, timeout)
+        .then(response => response.ok ? response.json() : Promise.reject(new OcrProviderError('OCR endpoint', response.status))))
+        .then(ocrAnswerObject);
+}
+
+// An empty body, an HTML page or a bare JSON value is not an OCR answer: it is an error, not "no text".
+function ocrAnswerObject(value: unknown): object {
+    if (!value || typeof value !== 'object') throw new Error('OCR endpoint did not answer with JSON.');
+    return value;
 }
 
 function fetchJsonWithTimeout(url: string, data: string, timeout: number): Promise<Response> {

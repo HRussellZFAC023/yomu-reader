@@ -81,6 +81,10 @@ that よむ behaves on these page structures.
 `node scripts/ocr-honesty-smoke.mjs --capture-lens=sign|sushi`. They are
 machine-read text and boxes of those photos (CC0 and CC BY 4.0, credited
 above); `scripts/ocr-honesty-smoke.mjs` replays them offline.
+`grey-frame.lens-crupload.pb` is Lens's answer for a plain grey 640×480 JPEG,
+sent with the product's own request (`createGoogleLensRequest`) on 2026-10-18:
+a real answer with no text in it, which the smoke and `tests/reader/gaming-ocr.test.ts`
+use to tell "no text" apart from a broken answer. It holds no image content.
 
 ## Hand-made, not recorded
 

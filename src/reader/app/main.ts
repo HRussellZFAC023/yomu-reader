@@ -1505,9 +1505,17 @@ export class ReaderApp {
     private scheduleLanguageChangeScan(): void {
         window.setTimeout(() => {
             if (this.isDestroyed) return;
-            this.pageHasJapaneseText = documentHasJapaneseText(200000, scanScopeRoots());
+            this.updateDetectedJapaneseText(documentHasJapaneseText(200000, scanScopeRoots()));
             if (this.shouldScanInitialPage()) this.scheduleVisiblePageReparse(0);
         }, 160);
+    }
+
+    private updateDetectedJapaneseText(hasJapanese: boolean): void {
+        const firstDetection = hasJapanese && !this.pageHasJapaneseText;
+        this.pageHasJapaneseText = hasJapanese;
+        // OCR may have refreshed before the page's Japanese text was detected.
+        // Wake it even when those images have already finished loading.
+        if (firstDetection) this.ocr.reassessAutoScan?.();
     }
 
     private async invalidateRuntimeStoresForFactoryReset(): Promise<void> {
@@ -2632,7 +2640,7 @@ export class ReaderApp {
             if (canScanText && scanMutations.some(mutationTouchesAsbPlayer)) this.scheduleAsbPlayerScan(120);
             else if (mutationsOnlyInsideReaderRoot) return;
             else if (mutationHasJapaneseText) {
-                this.pageHasJapaneseText = true;
+                this.updateDetectedJapaneseText(true);
                 this.noteVisibleAutoScanWorkObserved();
                 this.scheduleAutoScan(visibleAutoScanMutationDelay(), {
                     // The observer has just proved fresh Japanese exists,
@@ -2695,7 +2703,7 @@ export class ReaderApp {
         // Refresh only a negative verdict now that discovery is live; the
         // normal initial-scan decision below then covers that pre-hook content.
         if (!this.pageHasJapaneseText) {
-            this.pageHasJapaneseText = detectReaderStartupJapaneseText();
+            this.updateDetectedJapaneseText(detectReaderStartupJapaneseText());
         }
         // capture: true — scroll does not bubble, so a bubble-phase window
         // listener only sees page scrolls. Bottom sheets and side panels

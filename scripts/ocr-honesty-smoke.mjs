@@ -29,6 +29,14 @@
 //   photo     defaults, one tap on a photo with dark regions opened on its
 //             own: exactly 1 crupload (no inverted second pass) and every
 //             recorded line.
+//   unreadable Lens answers 200 with a cut-off protobuf or an HTML page, or
+//             the Learner OCR Service with an HTML page or nothing: the
+//             tap shows the failed mark, not "no text", and a tap on it reads
+//             the photo; Lens's real answer for a grey frame still shows "no
+//             text".
+//   darkfail  a tap on the dark photo: the normal pass finds no text and the
+//             inverted pass is refused (429): the failed mark shows, and the
+//             next tap reads every line.
 //
 // Every case also checks that nothing reached lens.google.com or
 // www.google.com, and that the page's own localStorage holds no OCR cache.
@@ -58,7 +66,10 @@ const TARGETS = {
         lines: 10,
     },
 };
+// Lens's real answer for a plain grey frame: an answer with no text in it.
+const LENS_NO_TEXT = readFileSync(path.join(ANSWERS_DIR, 'grey-frame.lens-crupload.pb'));
 const LENS = /lensfrontend-pa\.googleapis\.com\/v1\/crupload/u;
+const REFUSED = { status: 429, contentType: 'text/plain', body: 'Too Many Requests' };
 // The Learner OCR Service: an endpoint the learner runs, answered here.
 const LOCAL_OCR_URL = 'http://127.0.0.1:7331/ocr';
 const LOCAL_OCR = /^http:\/\/127\.0\.0\.1:7331\/ocr/u;
@@ -72,7 +83,7 @@ const GOOGLE_WEB = /^https?:\/\/(lens\.google\.com|www\.google\.com)\//u;
 const GOOGLE_CONSENT_PAGE = '<!doctype html><title>Before you continue to Google</title><form action="https://consent.google.com/save"></form>';
 const FAILED_MARK_BUDGET_MS = 300;
 const HOVER_REENTRIES = 6;
-// ja.wikipedia 東京都: the thumbnails above the fold that automatic OCR reads.
+// ja.wikipedia 東京都: the thumbnails in automatic OCR's viewport margin.
 const AUTO_DECODE_IMAGES = 3;
 const AUTO_DECODE_HOLD_MS = 3_000;
 // GM storage lives apart from the page's own keys, as in a real manager.
@@ -108,6 +119,8 @@ for (const engine of engines) {
         if (runCase('decode')) await decodeCase(browser, engine);
         if (runCase('autodecode')) await autoDecodeCase(browser, engine);
         if (runCase('photo')) await photoCase(browser, engine);
+        if (runCase('unreadable')) await unreadableCase(browser, engine);
+        if (runCase('darkfail')) await darkFailCase(browser, engine);
     } finally {
         await browser.close();
     }
@@ -134,7 +147,7 @@ async function honestyCase(browser, engine) {
             lensCalls += 1;
             if (lensCalls > 1) return lensProtobuf(target);
             refusedAt = Date.now();
-            return { status: 429, contentType: 'text/plain', body: 'Too Many Requests' };
+            return REFUSED;
         },
     });
     try {
@@ -201,7 +214,7 @@ async function hoverCase(browser, engine) {
     await hoverThenPress(browser, target, `${label} (Google Lens)`, {
         settings: tapOnlySettings(),
         endpoint: LENS,
-        refusal: { status: 429, contentType: 'text/plain', body: 'Too Many Requests' },
+        refusal: REFUSED,
         answer: () => lensProtobuf(target),
         lines: target.lines,
     });
@@ -218,7 +231,7 @@ async function hoverCase(browser, engine) {
     const noText = await openPhotoPage(browser, target, {
         settings: { onboardingSeen: true, interfaceLanguage: 'en' },
         onGmRequest: request => (LENS.test(request.url)
-            ? { status: 200, contentType: 'application/x-protobuf', body: Buffer.alloc(0) }
+            ? lensNoText()
             : googleWebAnswer(request)),
     });
     try {
@@ -236,7 +249,7 @@ async function hoverCase(browser, engine) {
         settings: tapOnlySettings(),
         navigate: false,
         onGmRequest: request => (LENS.test(request.url)
-            ? { status: 200, contentType: 'application/x-protobuf', body: Buffer.alloc(0) }
+            ? lensNoText()
             : googleWebAnswer(request)),
     });
     try {
@@ -349,7 +362,7 @@ async function autoDecodeCase(browser, engine) {
     const label = `${engine} autodecode`;
     const { uploads, releasedAt } = await autoScanUploads(browser, AUTO_DECODE_HOLD_MS);
     const bytes = uploads.map(upload => upload.bytes);
-    check(`${label}: the ${AUTO_DECODE_IMAGES} images above the fold are read once each`, uploads.length === AUTO_DECODE_IMAGES, bytes);
+    check(`${label}: the ${AUTO_DECODE_IMAGES} nearby images are read once each`, uploads.length === AUTO_DECODE_IMAGES, bytes);
     check(`${label}: nothing is sent while they load`, uploads.every(upload => upload.at >= releasedAt), uploads.map(upload => ({ bytes: upload.bytes, msBeforeImages: Math.max(0, releasedAt - upload.at) })));
     check(`${label}: every request carries a decoded image (> 5 KB)`, bytes.every(size => size > 5_000), bytes);
 }
@@ -374,10 +387,14 @@ async function autoScanUploads(browser, holdMs) {
             releasedAt = Math.max(releasedAt, Date.now());
             await route.fallback();
         });
+        const sent = () => run.ledger.requests({ channel: 'gm' }).filter(entry => LOCAL_OCR.test(entry.url));
         await run.page.goto(run.recording.manifest.url, { waitUntil: 'domcontentloaded' });
-        await run.page.waitForTimeout(holdMs + 9_000);
+        // A loaded machine reads late: wait for the reads (up to 25 s), then long enough for any second one.
+        const deadline = Date.now() + holdMs + 25_000;
+        while (sent().length < AUTO_DECODE_IMAGES && Date.now() < deadline) await delay(250);
+        await run.page.waitForTimeout(4_000);
         await checkPrivacy(run, `${run.engine} autodecode`);
-        const uploads = run.ledger.requests({ channel: 'gm' }).filter(entry => LOCAL_OCR.test(entry.url));
+        const uploads = sent();
         return { uploads: uploads.map(entry => ({ at: entry.at, bytes: entry.bodyBytes })), releasedAt };
     } finally {
         await run.close();
@@ -411,14 +428,116 @@ async function photoCase(browser, engine) {
     }
 }
 
+async function unreadableCase(browser, engine) {
+    const target = TARGETS.sign;
+    const html = Buffer.from('<!doctype html><title>Service unavailable</title>');
+    const lens = { name: 'Lens', settings: tapOnlySettings(), endpoint: LENS, answer: () => lensProtobuf(target), lines: target.lines };
+    const local = {
+        name: 'the Learner OCR Service',
+        settings: { ...tapOnlySettings(), ocrProvider: 'local-service', ocrEndpointUrl: LOCAL_OCR_URL },
+        endpoint: LOCAL_OCR,
+        answer: () => ({ status: 200, contentType: 'application/json', body: JSON.stringify(LOCAL_OCR_ANSWER) }),
+        lines: LOCAL_OCR_ANSWER.lines.length,
+    };
+    const unreadable = [
+        [lens, 'a cut-off protobuf', Buffer.from([0x12, 0xff]), 'application/x-protobuf'],
+        [lens, 'an empty body', Buffer.alloc(0), 'application/x-protobuf'],
+        [lens, 'an HTML page', html],
+        [local, 'an HTML page', html],
+        [local, 'an empty body', Buffer.alloc(0)],
+    ];
+    for (const [provider, name, body, contentType = 'text/html'] of unreadable) {
+        const label = `${engine} unreadable: ${provider.name} answers 200 with ${name}`;
+        let calls = 0;
+        const run = await openPhotoPage(browser, target, {
+            settings: provider.settings,
+            onGmRequest: request => {
+                if (!provider.endpoint.test(request.url)) return googleWebAnswer(request);
+                calls += 1;
+                return calls === 1 ? { status: 200, contentType, body } : provider.answer();
+            },
+        });
+        try {
+            await tapPhoto(run.page, target);
+            const status = await settledMark(run.page, target);
+            check(`${label}: the tap shows the failed mark, not "no text"`, status === 'failed', { mark: status });
+            await tapPhoto(run.page, target);
+            const lines = await waitForLines(run.page, 10_000);
+            check(`${label}: the next tap reads the photo with one new request`, lines === provider.lines && calls === 2, { lines, calls });
+            await checkPrivacy(run, label);
+        } finally {
+            await run.close();
+        }
+    }
+    const label = `${engine} unreadable`;
+    const run = await openPhotoPage(browser, target, {
+        settings: tapOnlySettings(),
+        onGmRequest: request => (LENS.test(request.url) ? lensNoText() : googleWebAnswer(request)),
+    });
+    try {
+        await tapPhoto(run.page, target);
+        const status = await settledMark(run.page, target);
+        check(`${label}: Lens's real no-text answer still shows "no text"`, status === 'empty', { mark: status });
+        await checkPrivacy(run, label);
+    } finally {
+        await run.close();
+    }
+}
+
+// The inverted pass is part of the read a tap asked for: when it fails and the
+// normal pass found nothing, the read failed.
+async function darkFailCase(browser, engine) {
+    const label = `${engine} darkfail`;
+    const target = TARGETS.sushi;
+    const answers = [lensNoText(), REFUSED];
+    const run = await openPhotoPage(browser, target, {
+        settings: tapOnlySettings(),
+        navigate: false,
+        onGmRequest: request => (LENS.test(request.url) ? answers.shift() ?? lensProtobuf(target) : googleWebAnswer(request)),
+    });
+    try {
+        await run.page.goto(target.documentUrl, { waitUntil: 'load' });
+        const standalone = { photo: 'body > img' };
+        await run.page.locator(standalone.photo).waitFor({ state: 'visible' });
+        await run.page.waitForTimeout(1_000);
+        await tapPhoto(run.page, standalone);
+        const status = await settledMark(run.page, standalone);
+        check(`${label}: no text, then a refused inverted pass, shows the failed mark`, status === 'failed' && lensRequests(run).length === 2, { mark: status, cruploads: lensRequests(run).length });
+        await tapPhoto(run.page, standalone);
+        const lines = await waitForLines(run.page, 10_000);
+        check(`${label}: the next tap reads all ${target.lines} lines`, lines === target.lines && lensRequests(run).length === 3, { lines, cruploads: lensRequests(run).length });
+        await checkPrivacy(run, label);
+    } finally {
+        await run.close();
+    }
+}
+
 // --- shared ------------------------------------------------------------------
+
+function lensNoText() {
+    return { status: 200, contentType: 'application/x-protobuf', body: LENS_NO_TEXT };
+}
+
+/** The mark's status once the read settles: failed, empty or ready (or null). */
+async function settledMark(page, target) {
+    const deadline = Date.now() + 10_000;
+    while (Date.now() < deadline) {
+        const mark = await markOverPhoto(page, target);
+        if (['failed', 'empty', 'ready'].includes(mark?.status)) return mark.status;
+        await delay(50);
+    }
+    return (await markOverPhoto(page, target))?.status ?? null;
+}
 
 function tapOnlySettings() {
     return { onboardingSeen: true, interfaceLanguage: 'en', ocrAutoScanImages: false };
 }
 
 async function openPhotoPage(browser, target, { settings, onGmRequest, navigate = true }) {
-    const run = await openRecordedPage({ browser, slug: target.slug, product, settings, onGmRequest, navigate: false, gmStoragePrefix: GM_STORAGE_PREFIX });
+    const contextOptions = browser.browserType().name() === 'webkit'
+        ? { viewport: { width: 820, height: 1180 }, isMobile: true, hasTouch: true }
+        : {};
+    const run = await openRecordedPage({ browser, slug: target.slug, product, settings, onGmRequest, contextOptions, navigate: false, gmStoragePrefix: GM_STORAGE_PREFIX });
     // The photo is a link to the full-size file. A tap here reads it and stays
     // on the page, so the link's navigation is cancelled (the product's own
     // pointer handlers still see every event).
@@ -460,7 +579,10 @@ function lensRequests(run) {
 
 async function tapPhoto(page, target) {
     const box = await page.locator(target.photo).boundingBox();
-    await page.mouse.click(box.x + box.width * 0.3, box.y + box.height * 0.3);
+    const x = box.x + box.width * 0.3;
+    const y = box.y + box.height * 0.3;
+    if (await page.evaluate(() => navigator.maxTouchPoints > 0)) await page.touchscreen.tap(x, y);
+    else await page.mouse.click(x, y);
 }
 
 async function hoverInAndOut(page, target, times) {
