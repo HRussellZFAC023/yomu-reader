@@ -144,7 +144,13 @@ try {
     for (const engine of ENGINES) {
         const browser = await launchSmokeBrowser(engine === 'webkit' ? webkit : chromium, engine, { headless: true });
         try {
-            report.runs[`${engine}-i-plus-one`] = await checkIPlusOneUnderline(browser, paths.root, CSS_PATH, SCRIPT_PATH);
+            report.runs[`${engine}-i-plus-one`] = await checkIPlusOneUnderline(browser, paths.root, CSS_PATH, SCRIPT_PATH).catch(error => {
+                fail(`${engine} i+1: ${error.message}`, {});
+                return { failed: true };
+            });
+            if (report.runs[`${engine}-i-plus-one`].coverageError) {
+                fail(`${engine} coverage: ${report.runs[`${engine}-i-plus-one`].coverageError}`, {});
+            }
             if (!process.argv.includes('--i-plus-one-only')) {
                 for (const theme of Object.keys(THEMES)) await checkScenario(browser, engine, theme);
             }
