@@ -18,21 +18,30 @@
 //             measured once more on a fresh load (a saturated machine).
 //   youtube   the recorded watch page with captions, defaults, 40 s of
 //             playback: no jpdb.io request at all (2.1.6: hundreds).
+//   surfaces  pitch painted on one surface fetches nothing for the other,
+//             beyond the first minute: ja.wikipedia with only the subtitle
+//             text painting pitch, 75 s untouched, with Jiten's recorded
+//             answers stripped of pitch (every word then lacks one), sends no
+//             jpdb.io pitch page and searches only words with kanji; the
+//             watch page with only the page underline painting pitch sends
+//             jpdb.io no word shown only in its captions in 75 s.
 //
-//   node scripts/background-network-smoke.mjs [idle|pitch|hover|youtube] [--product=worktree|v2.1.6|/abs/worktree]
+//   node scripts/background-network-smoke.mjs [idle|pitch|hover|youtube|surfaces] [--product=worktree|v2.1.6|/abs/worktree] [--browser=chromium|webkit]
 //
 // jpdb.io was unreachable when the pages were recorded, so its answers are a
 // mechanism fixture: an empty search page for a word with kanji, and one
 // heiban vocabulary result for a kana query (the pitch client's reading
 // query), after 600 ms. Jiten answers come from the recording, after 200 ms.
-import { chromium } from 'playwright';
+import { chromium, webkit } from 'playwright';
 import { kanjiReadingCoverage } from './lib/recorded-page-probes.mjs';
-import { openRecordedPage, releaseProduct, worktreeProduct } from './lib/recorded-page.mjs';
+import { loadRecording, openRecordedPage, releaseProduct, worktreeProduct } from './lib/recorded-page.mjs';
+import { preloadHostedRuntimeAssets } from './lib/recorded-products.mjs';
 
 const IDLE_MS = 20_000;
 const LOAD_ATTEMPTS = 5;
 const HOVER_IDLE_MS = 15_000;
 const YOUTUBE_MS = 40_000;
+const CROSS_SURFACE_MS = 75_000;
 const MAX_IDLE_SEARCHES = 10;
 const SEGMENTER_GUESSES = ['見まする', '見ましる', 'ありがつ'];
 const DWELL_MS = 150;
@@ -46,25 +55,40 @@ const HOVER_LOADS = 2;
 const POPUP_WORD_LOOKUP = 'loadJitenVocabularyInfo';
 const EXAMPLE_SENTENCES = /\/random-example-sentences(?:\?|$)/u;
 const CLOUD_OCR_HOSTS = /^(lensfrontend-pa\.googleapis\.com|lens\.google\.com|vision\.googleapis\.com)$/u;
+// The product's subtitle surfaces (SUBTITLE_SURFACE_SELECTOR in main-helpers.ts).
+const SUBTITLE_SURFACES = '.jpdb-subtitle-player, .jpdb-subtitle-list, .asbplayer-subtitles-container-bottom, .asbplayer-offscreen, .jpdb-reader-subtitle-surface';
+const HAN = /\p{Script=Han}/u;
 const PITCH_CLASS = /\bjpdb-pitch-(heiban|atamadaka|nakadaka|odaka|kifuku)\b/u;
 const args = process.argv.slice(2);
 const option = name => args.find(arg => arg.startsWith(`--${name}=`))?.split('=')[1];
 const cases = args.filter(arg => !arg.startsWith('--'));
 const runCase = name => !cases.length || cases.includes(name);
 const product = productFor(option('product') ?? 'worktree');
+preloadHostedRuntimeAssets(product);
+const engine = option('browser') ?? 'chromium';
+if (!['chromium', 'webkit'].includes(engine)) throw new Error(`Unknown browser: ${engine}`);
+const contextOptions = engine === 'webkit'
+    ? { viewport: { width: 820, height: 1180 }, hasTouch: true }
+    : {};
 const failures = [];
+const recordedTraffic = loadRecording('ja-wikipedia-nihongo').productTraffic();
 
 const check = (condition, message) => {
     console.log(`${condition ? 'PASS' : 'FAIL'} ${product.label} ${message}`);
     if (!condition) failures.push(message);
 };
 
-const browser = await chromium.launch({ args: ['--autoplay-policy=no-user-gesture-required'] });
+const browser = await ({ chromium, webkit })[engine].launch(engine === 'chromium' ? { args: ['--autoplay-policy=no-user-gesture-required'] } : {});
+console.log(`INFO ${product.label} background-network: ${engine}${engine === 'webkit' ? ' 820x1180 touch; hover uses the recorded desktop mouse viewport' : ''}`);
 try {
     if (runCase('idle')) await idleWikipedia();
     if (runCase('pitch')) await pitchChannelWikipedia();
     if (runCase('hover')) await hoverWikipedia();
     if (runCase('youtube')) await youtubePlayback();
+    if (runCase('surfaces')) {
+        await subtitlePitchOnArticle();
+        await pagePitchOnCaptions();
+    }
 } finally {
     await browser.close();
 }
@@ -92,6 +116,8 @@ async function idleWikipedia() {
         check(!guesses.length, `idle ja-wikipedia-nihongo: no jpdb.io query for a segmenter guess ${JSON.stringify(guesses)}`);
         const repeats = queries.length - new Set(queries).size;
         check(!repeats, `idle ja-wikipedia-nihongo: ${new Set(queries).size} distinct jpdb.io quer(ies), ${repeats} asked again`);
+        const kana = search.map(queryOf).filter(query => !HAN.test(query));
+        check(!kana.length, `idle ja-wikipedia-nihongo: jpdb.io word searches only for words with kanji ${JSON.stringify(kana)}`);
         const ocr = run.ledger.requests({ host: CLOUD_OCR_HOSTS });
         check(!ocr.length, `idle ja-wikipedia-nihongo: ${ocr.length} cloud OCR request(s) with no tap (want 0) ${JSON.stringify(ocr.map(entry => entry.host))}`);
         const coverage = await kanjiReadingCoverage(run.page, { root: '#mw-content-text' });
@@ -108,17 +134,28 @@ async function idleWikipedia() {
 async function pictureWaitsForPress(run) {
     const picture = run.page.locator('#mw-content-text img[src*="Welcome_board"]').first();
     await picture.scrollIntoViewIfNeeded();
+    // A real press starts with a picture the learner can see. Lazy image
+    // decoding and the OCR image conversion can be slow on the shared Mac;
+    // this positive check has no OCR latency requirement.
+    await picture.evaluate(image => image.decode());
     await run.page.waitForTimeout(2_000);
-    const box = await picture.boundingBox();
-    await run.page.mouse.move(box.x + box.width / 2, box.y + box.height / 2, { steps: 4 });
+    await picture.hover();
     await run.page.waitForTimeout(2_000);
     const unasked = run.ledger.requests({ host: CLOUD_OCR_HOSTS }).length;
     check(!unasked, `idle ja-wikipedia-nihongo: ${unasked} cloud OCR request(s) after scrolling to a picture and resting the mouse on it (want 0)`);
+    // Late readings can move the image during the hover wait. Press its
+    // current visible position, as a learner does, rather than stale coordinates.
+    await picture.hover();
     await run.page.mouse.down();
     await run.page.mouse.move(2, 2);
     await run.page.mouse.up();
-    const pressed = await waitFor(() => run.ledger.requests({ host: CLOUD_OCR_HOSTS }).filter(entry => entry.trustedInteractionBefore).length, 8_000);
-    check(pressed > 0, `idle ja-wikipedia-nihongo: a press on the picture asks the cloud OCR provider to read it (${pressed} request(s) after the press)`);
+    await waitFor(() => run.ledger.requests({ host: CLOUD_OCR_HOSTS }).filter(entry => entry.trustedInteractionBefore).length, 30_000);
+    await run.page.waitForTimeout(2_000);
+    const pressed = run.ledger.requests({ host: CLOUD_OCR_HOSTS }).filter(entry => entry.trustedInteractionBefore).length;
+    if (!pressed) console.log(`INFO ${product.label} picture press: ${JSON.stringify({ image: await picture.evaluate(image => ({ complete: image.complete, width: image.naturalWidth, height: image.naturalHeight })), interactions: run.ledger.interactions().slice(-4), errors: run.pageErrors, requests: run.ledger.requests().slice(-8).map(entry => ({ url: entry.url, served: entry.served })) })}`);
+    check(pressed === 1, `idle ja-wikipedia-nihongo: a press on the picture asks the cloud OCR provider once (${pressed} request(s) after the press, want 1)`);
+    const retired = run.ledger.requests({ host: 'lens.google.com' }).filter(entry => new URL(entry.url).pathname === '/v3/upload');
+    check(!retired.length, `idle ja-wikipedia-nihongo: ${retired.length} request(s) to the retired Lens web upload endpoint (want 0)`);
 }
 
 async function waitFor(count, timeoutMs) {
@@ -186,7 +223,7 @@ async function hoverMeasure(run) {
 }
 
 async function youtubePlayback() {
-    const run = await openRecordedPage({ browser, slug: 'youtube-watch', product, hostOptions: { captions: true }, onGmRequest: modelledAnswers });
+    const run = await openRecordedPage({ browser, contextOptions, waitUntil: 'domcontentloaded', navigationTimeoutMs: 120_000, slug: 'youtube-watch', product, hostOptions: { captions: true }, onGmRequest: modelledAnswers });
     try {
         await run.page.waitForTimeout(YOUTUBE_MS);
         const jpdb = run.ledger.requests({ host: 'jpdb.io' });
@@ -198,27 +235,94 @@ async function youtubePlayback() {
     }
 }
 
+// Only the subtitle text paints pitch, and an article has no subtitles. Its
+// words still get their identity, but nothing from jpdb.io's pitch pages, for
+// longer than the paced lane's first minute.
+async function subtitlePitchOnArticle() {
+    const run = await answeredWikipedia('surfaces', CROSS_SURFACE_MS, { subtitleTextColorSource: 'pitch' }, withoutJitenPitch);
+    if (!run) return;
+    try {
+        const { pitch, search } = jpdbLanes(run.ledger);
+        check(pitch.length === 0, `surfaces ja-wikipedia-nihongo: subtitles paint pitch, the article does not: ${pitch.length} jpdb.io pitch page(s) in ${CROSS_SURFACE_MS / 1000} s (want 0) ${JSON.stringify(pitch.map(queryOf))}`);
+        const kana = search.map(queryOf).filter(query => !HAN.test(query));
+        check(!kana.length, `surfaces ja-wikipedia-nihongo: jpdb.io word searches only for words with kanji ${JSON.stringify(kana)}`);
+    } finally {
+        await run.close();
+    }
+}
+
+// Only the page underline paints pitch. The watch page's own words (title,
+// description, buttons) may go to jpdb.io; a word shown only in the captions
+// may not. Caption lines change, so their words are collected as they show.
+async function pagePitchOnCaptions() {
+    const traffic = loadRecording('youtube-watch').productTraffic();
+    const run = await openRecordedPage({ browser, contextOptions, waitUntil: 'domcontentloaded', navigationTimeoutMs: 120_000, slug: 'youtube-watch', product, hostOptions: { captions: true }, settings: { wordUnderlineColorSource: 'pitch' }, onGmRequest: request => withoutJitenPitch(request, traffic) });
+    try {
+        const captionWords = new Set();
+        const pageWords = new Set();
+        for (const until = Date.now() + CROSS_SURFACE_MS; Date.now() < until;) {
+            const words = await run.page.evaluate(renderedWordTexts, SUBTITLE_SURFACES);
+            words.forEach(([text, caption]) => (caption ? captionWords : pageWords).add(text));
+            await run.page.waitForTimeout(500);
+        }
+        const captionOnly = [...captionWords].filter(text => !pageWords.has(text));
+        const asked = run.ledger.requests({ host: 'jpdb.io' }).map(queryOf);
+        const forCaptions = asked.filter(query => captionOnly.includes(query));
+        check(captionOnly.length > 0, `surfaces youtube-watch: the product parsed the captions (${captionOnly.length} word(s) shown only in captions, ${pageWords.size} on the page)`);
+        check(!forCaptions.length, `surfaces youtube-watch: the page underline paints pitch, the captions do not: ${forCaptions.length} jpdb.io request(s) for caption words in ${CROSS_SURFACE_MS / 1000} s (want 0; ${asked.length} for the page's own words) ${JSON.stringify(forCaptions)}`);
+    } finally {
+        await run.close();
+    }
+}
+
+// Both the written form and its reading can become a pitch query. Keep their
+// surface so a kana query for caption-only kanji cannot escape this check.
+function renderedWordTexts(subtitleSurfaces) {
+    return [...document.querySelectorAll('.jpdb-reader-word')].flatMap(word => {
+        const copy = word.cloneNode(true);
+        copy.querySelectorAll('rt, rp').forEach(element => element.remove());
+        const caption = Boolean(word.closest(subtitleSurfaces));
+        return [...new Set([copy.textContent.trim(), word.dataset.reading].filter(Boolean))].map(text => [text, caption]);
+    });
+}
+
+// The recorded Jiten word details, without the pitch Jiten knew.
+async function withoutJitenPitch(request, recorded) {
+    const url = new URL(request.url);
+    if (url.hostname !== 'api.jiten.moe' || !url.pathname.endsWith('/info')) return modelledAnswers(request);
+    const answer = recorded.lookup(request.method || 'GET', request.url, request.data);
+    if (!answer) return modelledAnswers(request);
+    const body = JSON.parse(answer.body.toString());
+    await sleep(200);
+    return { status: 200, contentType: 'application/json', body: JSON.stringify({ ...body, pitchAccents: [] }) };
+}
+
 // A load whose Jiten requests the recording mostly could not answer measures
 // a Jiten outage (every word with kanji then rightly asks jpdb.io for its
 // reading, and no hovered word can be answered): load again, up to
 // LOAD_ATTEMPTS times. It happens when a load scans the article before the
 // page chrome, an order the recording does not hold; a busy machine takes it
 // more often (three loads running in a row were seen).
-async function answeredWikipedia(name, settleMs, settings = null) {
+async function answeredWikipedia(name, settleMs, settings = null, answer = modelledAnswers) {
     for (let attempt = 1; attempt <= LOAD_ATTEMPTS; attempt += 1) {
-        const run = await openWikipedia(settings);
+        // A touch-only device has no hover gesture. Measure mouse hover on the
+        // recorded desktop viewport; the remaining WebKit cases use tablet touch.
+        const run = await openWikipedia(settings, answer, name === 'hover' && engine === 'webkit' ? {} : contextOptions);
         await run.page.waitForTimeout(settleMs);
         const { verdict, served } = run.productTraffic();
-        if (verdict === 'answered') return run;
-        console.log(`INFO ${product.label} ${name} ja-wikipedia-nihongo: load ${attempt} was a Jiten outage (${verdict} ${JSON.stringify(served)}), loading again`);
+        const parses = run.ledger.requests({ host: 'api.jiten.moe' }).filter(entry => new URL(entry.url).pathname.endsWith('/parse'));
+        const missedParses = parses.filter(entry => entry.served !== 'recorded-product').length;
+        const parsesAnswered = parses.length > 0 && missedParses === 0;
+        if (verdict === 'answered' && parsesAnswered) return run;
+        console.log(`INFO ${product.label} ${name} ja-wikipedia-nihongo: load ${attempt} was a Jiten outage (${verdict}, ${missedParses}/${parses.length} parse request(s) unanswered, ${JSON.stringify(served)}), loading again`);
         await run.close();
     }
     check(false, `${name} ja-wikipedia-nihongo: none of ${LOAD_ATTEMPTS} loads was answered by the recorded Jiten traffic; record it again (docs/dev/recorded-pages.md)`);
     return null;
 }
 
-function openWikipedia(settings = null) {
-    return openRecordedPage({ browser, slug: 'ja-wikipedia-nihongo', product, settings, onGmRequest: modelledAnswers });
+function openWikipedia(settings = null, answer = modelledAnswers, viewportOptions = contextOptions) {
+    return openRecordedPage({ browser, contextOptions: viewportOptions, waitUntil: 'domcontentloaded', navigationTimeoutMs: 120_000, slug: 'ja-wikipedia-nihongo', product, settings, onGmRequest: request => answer(request, recordedTraffic) });
 }
 
 // The pitch client asks jpdb.io's search from fetchPitch; the identity lane

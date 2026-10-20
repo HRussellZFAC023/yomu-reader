@@ -23,3 +23,49 @@ With no key and the default look, one ja.wikipedia article sent about 59 jpdb.io
 - A learner who turns a pitch colour on gets the old background behaviour for that surface, budgets unchanged.
 - Words inside the popup (example sentences, related words) are nested background work and follow the page channels.
 - Reading Memory writes up to 1,500 entries into each site's page storage. It goes when the shards land.
+
+## Review correction, 19 October 2026
+
+The deferred lane must retain the originating surface too. Enabling subtitle
+pitch previously allowed deferred article words to fetch pitch, even though the
+article did not paint it. Parsed subtitle tokens and tokens recovered from
+rendered subtitle words now retain that provenance through reading hydration.
+Deferred batches are split by surface and use that surface's current channels
+when drained. An article with only subtitle pitch enabled gets no background
+pitch fetches; captions with only page pitch enabled get none either.
+
+The built-product `surfaces` smoke holds both cases for 75 seconds, beyond the
+first paced minute. Its article replay removes pitch from recorded Jiten word
+details to exercise unresolved pitch. `--browser=webkit` runs the gate at iPad
+size with touch enabled. Local `blob:` and `data:` resources remain local during
+offline replay, so WebKit can decode the recorded image before a trusted press
+starts OCR. This routing exception permits no external network requests.
+
+Product-traffic bodies are preloaded before a replay starts. Large page media
+remain on demand. This keeps filesystem stalls out of the deliberately paced
+service answers and the measured popup latency; neither the popup budget nor
+the before-interaction privacy assertions are relaxed. The picture-press
+positive check waits for image decoding and allows preprocessing time, since
+that check asserts consent rather than OCR latency.
+
+The timed gate also caches the current hosted runtime-file bytes before the
+page starts. Lazy modules are still requested and evaluated by the product on
+demand. Only the replay server's local disk reads move out of the measured
+lookup; service delays, popup rendering, and the one-second budget stay intact.
+
+The Wikipedia recording retains the 2.1.6 answers and adds actual public Jiten
+responses from this review build at desktop and 820×1180 touch viewports, with
+the existing JMdict attribution in the recordings directory. Both profiles
+completed two consecutive fresh loads without a new request, dropped answer or
+refusal before the refreshed recording was marked settled. The gate rejects a
+load with any unanswered parse request, including a single failed parse that
+the broader replay verdict previously tolerated. The timed hover pass uses the recorded desktop mouse viewport; tablet network
+and image cases use 820×1180 touch, whose lookup gesture is verified by a tap.
+
+An on-screen trusted press also exposed the inherited Lens website-upload
+fallback. The owner decision retires it entirely, so both reader and desktop
+providers now make only the protobuf request and preserve its failure. The
+multipart website transports were removed. The recorded image-press gate now
+rejects any `/v3/upload` request; the desktop HTTP-failure mechanism fixture
+uses the same recorded image and a loopback 503 response to assert one request
+and an explicit failure. It fails on the 2.1.6 desktop transport's second upload.

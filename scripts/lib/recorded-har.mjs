@@ -29,6 +29,10 @@ const EXTENSIONS = new Map([
     ['text/plain', 'txt'],
 ]);
 
+// Recorded body filenames are content hashes. Share their immutable bytes
+// between fresh replay contexts without sharing request-sequence cursors.
+const PRELOADED_BODIES = new Map();
+
 export function mimeTypeOf(contentType) {
     return String(contentType || '').split(';')[0].trim().toLowerCase();
 }
@@ -126,9 +130,13 @@ function harEntry(entry, dir, resourceDir) {
  * answer in recorded order and then keep answering with the last one, which
  * is how a polling client sees a server that stopped changing.
  */
-export function readHarIndex(harPath) {
+export function readHarIndex(harPath, { preload = false } = {}) {
     const baseDir = path.dirname(harPath);
     const har = JSON.parse(readFileSync(harPath, 'utf8'));
+    // Small product-traffic recordings can be loaded before the page starts.
+    // Their measured answer latency then excludes filesystem stalls. Page HARs
+    // keep their large image/video bodies on demand.
+    const responses = preload ? new Map(har.log.entries.map(entry => [entry, harResponse(entry, baseDir, true)])) : null;
     const byKey = new Map();
     for (const entry of har.log.entries) {
         const key = requestKey(entry.request.method, entry.request.url, entry.request.postData?.text);
@@ -147,19 +155,27 @@ export function readHarIndex(harPath) {
             const index = served.get(key) ?? 0;
             served.set(key, index + 1);
             const entry = list[Math.min(index, list.length - 1)];
-            return harResponse(entry, baseDir);
+            const response = responses?.get(entry);
+            return response
+                ? { ...response, headers: { ...response.headers }, body: Buffer.from(response.body) }
+                : harResponse(entry, baseDir);
         },
     };
 }
 
-function harBody(content, baseDir) {
-    if (content._file) return readFileSync(path.resolve(baseDir, content._file));
+function harBody(content, baseDir, preload) {
+    if (content._file) {
+        const file = path.resolve(baseDir, content._file);
+        if (!preload) return readFileSync(file);
+        if (!PRELOADED_BODIES.has(file)) PRELOADED_BODIES.set(file, readFileSync(file));
+        return PRELOADED_BODIES.get(file);
+    }
     return Buffer.from(content.text ?? '', content.encoding === 'base64' ? 'base64' : 'utf8');
 }
 
-function harResponse({ response }, baseDir) {
+function harResponse({ response }, baseDir, preload = false) {
     const { content = {}, headers: headerList = [] } = response;
     const headers = Object.fromEntries(headerList.map(header => [header.name.toLowerCase(), header.value]));
     const contentType = headers['content-type'] ?? content.mimeType ?? 'application/octet-stream';
-    return { status: response.status, headers, body: harBody(content, baseDir), contentType };
+    return { status: response.status, headers, body: harBody(content, baseDir, preload), contentType };
 }

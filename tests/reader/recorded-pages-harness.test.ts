@@ -1,4 +1,5 @@
 import { execFileSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
@@ -12,6 +13,7 @@ import { answerGmRequest } from '../../scripts/lib/recorded-network.mjs';
 import { blankPng, imageSize } from '../../scripts/lib/recorded-media.mjs';
 import { captionFlashFrames } from '../../scripts/lib/recorded-page-probes.mjs';
 import { productTrafficVerdict } from '../../scripts/lib/recorded-product-traffic.mjs';
+import { hostedAnswer, preloadHostedRuntimeAssets } from '../../scripts/lib/recorded-products.mjs';
 import { attributeSelectorIndex, findGeneratedCopy, findRedactionLeaks, generatedCopyInCss, hashTextRun, isHiddenCopy, normalizeTextRun, redactionHashList, siteCodeInHtml, textRunsFromCss, textRunsFromHtml } from '../../scripts/lib/recorded-redaction.mjs';
 import { aozoraLetterStreams, characterClass, createTextRedactor } from '../../scripts/lib/text-redactor.mjs';
 import { asrCaptionTracksMechanismFixture } from '../../scripts/lib/youtube-caption-mechanism-fixture.mjs';
@@ -326,6 +328,43 @@ describe('recorded page plumbing', () => {
         expect([answer(), answer(), answer()]).toEqual(['{"n":1}', '{"n":2}', '{"n":2}']);
         expect(index.lookup('POST', 'https://api.example/info', '{"id":1}')?.body.toString()).toBe('{"post":true}');
         expect(index.lookup('POST', 'https://api.example/info', '{"id":2}')).toBeNull();
+    });
+
+    it('preloads small product answers before measurement while preserving their recorded order', () => {
+        const dir = temporaryDirectory();
+        const writer = createHarWriter();
+        const url = 'https://api.example/info';
+        writer.add({ url, body: 'first' });
+        writer.add({ url, body: 'second' });
+        writer.write(dir, 'traffic.har');
+        const index = readHarIndex(join(dir, 'traffic.har'), { preload: true });
+        rmSync(join(dir, 'resources'), { recursive: true });
+        const answer = () => index.lookup('GET', url)?.body.toString();
+        expect([answer(), answer(), answer()]).toEqual(['first', 'second', 'second']);
+        expect(index.lookup('GET', 'https://api.example/missing')).toBeNull();
+        const nextLoad = readHarIndex(join(dir, 'traffic.har'), { preload: true });
+        const first = nextLoad.lookup('GET', url)!;
+        expect(first.body.toString()).toBe('first');
+        first.body.fill(0);
+        const isolatedLoad = readHarIndex(join(dir, 'traffic.har'), { preload: true });
+        expect(isolatedLoad.lookup('GET', url)?.body.toString()).toBe('first');
+    });
+
+    it('preloads hosted runtime bytes while keeping module loading in the page on demand', () => {
+        const dir = join(temporaryDirectory(), 'hosted-assets-mechanism-fixture');
+        const scripts = join(dir, 'greasyfork');
+        mkdirSync(scripts, { recursive: true });
+        const file = join(scripts, 'yomu-jiten.user.js');
+        const bytes = 'window.fixtureModule = true;';
+        writeFileSync(file, bytes);
+        const product = { hostedRoot: dir };
+        preloadHostedRuntimeAssets(product);
+        rmSync(file);
+        const hash = createHash('sha256').update(bytes).digest('hex').slice(0, 12);
+        const immutable = join(scripts, `yomu-jiten.${hash}.user.js`);
+        expect(hostedAnswer(immutable, product).body.toString()).toBe(bytes);
+        hostedAnswer(file, product).body.fill(0);
+        expect(hostedAnswer(file, product).body.toString()).toBe(bytes);
     });
 
     it('merges runs into one HAR, keeping and answering the first answer for each request', () => {
