@@ -128,6 +128,9 @@ describe('expression component pitch', () => {
             });
 
             expect(document.querySelector('.jpdb-reader-pronunciation, .jpdb-reader-pitch')).toBeNull();
+            // Keep the same header rows while details load and after an exact
+            // miss: the slot is geometry, never an unavailable-pitch message.
+            expect(document.querySelector('.jpdb-reader-header')?.getAttribute('data-pitch-enabled')).toBe('true');
             expect(document.querySelector('.jpdb-reader-card-tools')?.textContent?.trim()).toBe('');
             expect(document.querySelector('[data-frequency-source="context"]')).toBeNull();
             expect(document.body.textContent).not.toMatch(/In context|文脈内|Exact pitch unavailable|未翻訳/u);

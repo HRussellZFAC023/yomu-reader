@@ -29,6 +29,7 @@ import { chromium, devices, webkit } from 'playwright';
 import { loadRecording, openRecordedPage, releaseProduct, worktreeProduct } from './lib/recorded-page.mjs';
 import { createSmokePaths } from './lib/smoke-harness.mjs';
 import { loadLocalEnv } from './lib/qa-env.mjs';
+import { popupWordDetailLayout } from './lib/popup-word-detail-layout.mjs';
 
 const { root: ROOT, artifacts: ARTIFACTS } = createSmokePaths(import.meta.dirname);
 const ARTIFACT_DIR = path.join(ARTIFACTS, 'popup-word-detail');
@@ -73,8 +74,15 @@ for (const name of engines) {
     if (!profile) throw new Error(`Unknown engine ${name}; use ${Object.keys(PROFILES).join(', ')}.`);
     const browser = await profile.engine.launch({ headless: true });
     try {
-        for (const press of (option('press')?.split(',') ?? profile.presses)) {
-            for (const scenario of scenarios) results.push(await openSensei(browser, name, { ...profile, press }, scenario));
+        if (!args.includes('--layout-only')) {
+            for (const press of (option('press')?.split(',') ?? profile.presses)) {
+                for (const scenario of scenarios) results.push(await openSensei(browser, name, { ...profile, press }, scenario));
+            }
+        }
+        if (!args.includes('--skip-layout')) {
+            for (const width of (option('widths') ?? '390,1280').split(',').map(Number)) {
+                for (const language of (option('languages') ?? 'en,ja').split(',')) results.push(await popupWordDetailLayout({ browser, product, engine: name, width, language, answerJiten }));
+            }
         }
     } finally {
         await browser.close();
@@ -89,7 +97,7 @@ if (recording) {
 }
 const failed = results.filter(result => result.failures.length);
 writeFileSync(path.join(ARTIFACT_DIR, 'report.json'), JSON.stringify({ product: product.label, network: live ? 'live Jiten; injected 429s in refused scenario' : 'recorded/deterministic', results }, null, 2));
-for (const result of results) console.log(`${result.failures.length ? 'FAIL' : 'PASS'} ${result.engine} ${result.press} ${result.scenario}: ${result.failures.join('; ') || `pitch and #330 after ${result.answeredAfterMs} ms, ${result.detailRequests} detail request(s)`}`);
+for (const result of results) console.log(`${result.failures.length ? 'FAIL' : 'PASS'} ${result.engine} ${result.press} ${result.scenario}: ${result.failures.join('; ') || (result.fixture ? `header ${result.headerHeights.join('/')} px, pills at ${result.pillOffsets.join('/')} px` : `pitch and #330 after ${result.answeredAfterMs} ms, ${result.detailRequests} detail request(s)`)}`);
 if (failed.length) process.exitCode = 1;
 
 async function openSensei(browser, engineName, profile, scenario) {
