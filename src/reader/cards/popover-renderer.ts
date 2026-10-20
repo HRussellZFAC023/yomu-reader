@@ -202,7 +202,8 @@ export class CardPopoverRenderer {
     }
 
     private renderHeader(card: JPDBCard, data: CardRenderData & { loading: boolean }, view: CardPopoverRenderView, trigger: 'modal' | 'hover'): string {
-        return `<div class="jpdb-reader-header">
+        const pitchEnabled = cardUsesPitchAccentPronunciation(card) && this.settings().showPitchAccent ? 'true' : 'false';
+        return `<div class="jpdb-reader-header" data-pitch-enabled="${pitchEnabled}">
             <div class="jpdb-reader-heading">
                 ${this.renderTitleRow(card, data, view)}
                 ${this.dependencies.renderWordPills(card, view.jpdbUrl, data.metaEntries, undefined, trigger, data.ankiLookup, data.frequencyRanks)}

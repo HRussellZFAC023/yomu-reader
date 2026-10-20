@@ -269,6 +269,10 @@
   grid-row: 1;
   justify-self: end;
 }
+/* Reserve space for pitch display even during loading, to prevent header jump */
+.jpdb-reader-header[data-pitch-enabled="true"] .jpdb-reader-card-tools {
+  min-height: 36px;
+}
 .jpdb-reader-pronunciation[data-pronunciation-kind="pitch-accent"] {
   display: contents;
 }
