@@ -797,7 +797,7 @@ describe('SubtitlePlayerController — transcript hydration, karaoke & authorita
         }
     });
 
-    it('hands generic native captions back across a cache miss without switching off the host player', async () => {
+    it('keeps the preceding caption across an abutting cache miss without switching off the host player', async () => {
         const secondParse = deferred<JPDBToken[]>();
         const parseJapanese = vi.fn(() => secondParse.promise);
         const firstCue = { start: 0, end: 2, text: '読む', transcriptEligible: true };
@@ -869,9 +869,8 @@ describe('SubtitlePlayerController — transcript hydration, karaoke & authorita
 
             internals.currentCue = secondCue;
             controller.refresh();
-            expect(internals.subtitleEl.querySelector('.jpdb-subtitle-primary')?.textContent).toBe('');
-            expect(nativeTrack.mode).toBe('showing');
-            expect(document.documentElement.classList.contains('jpdb-subtitle-native-captions-suppressed')).toBe(false);
+            expect(internals.subtitleEl.querySelector('.jpdb-subtitle-primary')?.textContent).toBe('読む');
+            expectYomuOwnsNativeCaption();
             expect(toggleCaptions).not.toHaveBeenCalled();
             expect(captionButton.getAttribute('aria-pressed')).toBe('true');
 

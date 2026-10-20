@@ -9,6 +9,7 @@ export interface ReviewedDocsMessage {
 }
 
 const HOSTED_DOCS_JA_COPY: Record<string, string> = {
+    "Subtitles keep a steady baseline as readings appear, with a dark background for the Japanese line, readings and translation. Site dialogs and word lookup stay above them. The subtitle style button changes the font and background.": "字幕はふりがなが表示されても同じ位置を保ち、日本語の行、ふりがな、訳に暗い背景を付けます。サイトのダイアログや単語の検索画面は字幕より手前に表示されます。字幕のスタイルボタンで書体や背景を変更できます。",
     "On desktops with always-visible scrollbars, the よむ button and its menu keep their normal size instead of shrinking as if the page were zoomed.": "スクロールバーが常に表示されるデスクトップでも、よむボタンとメニューがページを拡大したときのように縮まず、通常の大きさで表示されるようにしました。",
     "Middle-button scanning finds words inside web components (shadow DOM), as hover and click already did.": "マウスの中ボタンで単語を調べる機能でも、ホバーやクリックと同じように、Webコンポーネント（シャドウDOM）内の単語を見つけられるようにしました。",
     "Subtitle controls hide when their video is removed. Offline PDF and video menus retain their close behavior, and incoming theme changes work when browser storage is unavailable.": "動画が取り除かれた場合は字幕操作を隠します。PDFと動画のメニューはオフラインでも閉じられ、ブラウザの保存領域を使えない場合も他の画面からのテーマ変更を反映します。",

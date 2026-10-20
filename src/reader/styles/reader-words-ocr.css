@@ -934,13 +934,8 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
   font-feature-settings: normal;
   font-variant-east-asian: normal;
   letter-spacing: normal;
-  /* One quiet reading colour for every word, links included:
-     --jpdb-reader-furi-color is the paragraph's own ink eased toward the
-     sampled backdrop and held at 4.5:1 (dom/word-contrast.ts). Without a
-     sample the reading takes the word's colour. -webkit-text-fill-color is
-     pinned to currentColor so WebKit fills the kana with that same colour
-     instead of inheriting the word's fill channel. */
-  color: var(--jpdb-reader-furi-color, inherit) !important;
+  /* Readings use the annotated word’s ink, including its state colour. */
+  color: inherit !important;
   -webkit-text-fill-color: currentColor !important;
   line-height: 1.08;
   user-select: none;
@@ -1169,7 +1164,7 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
   --jpdb-reader-mirror-status-soft: var(--jpdb-reader-source-review-soft, transparent);
 }
 .jpdb-reader-text-mirror.jpdb-reader-additive-text-mirror .jpdb-reader-detached-furi {
-  color: var(--jpdb-reader-furi-color, inherit) !important;
+  color: inherit !important;
   -webkit-text-fill-color: currentColor !important;
   opacity: 1 !important;
 }

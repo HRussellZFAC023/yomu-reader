@@ -261,7 +261,7 @@ Reads nearby images. Google Lens needs no setup.
 | Subtitle color | — | `#ffffff` | `subtitleTextColor` |
 | Subtitle outline | — | `#000000` | `subtitleOutlineColor` |
 | Subtitle background | — | `#181b20` | `subtitleBackgroundColor` |
-| Subtitle background opacity | — | `0` | `subtitleBackgroundOpacity` |
+| Subtitle background opacity | — | `0.75` | `subtitleBackgroundOpacity` |
 | Subtitle font family | — | System UI (`system-ui, -apple-system, BlinkMacSystemFon…`) | `subtitleFontFamily` |
 | Subtitle font weight | — | `760` | `subtitleFontWeight` |
 | Pause video on subtitle click | — | on | `subtitleMiningPause` |

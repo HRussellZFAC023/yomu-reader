@@ -54,7 +54,7 @@ for (const [engineName, engine] of [['chromium', chromium], ['webkit', webkit]])
         const { page, errors } = await newTouchSmokePage(browser, { width:1024, height:768 }, error => console.error(`${engineName}: ${error.message}`));
         await page.route('**/*', route => route.request().url().startsWith('https://www.youtube.com/watch?')
             ? route.fulfill({ contentType:'text/html', body:html }) : route.abort());
-        await page.goto('https://www.youtube.com/watch?v=fixture123');
+        await page.goto('https://www.youtube.com/watch?v=fixture123', { waitUntil: 'domcontentloaded' });
         await page.addScriptTag({ content:bundle.outputFiles[0].text });
         await page.evaluate(() => {
             const f = window.YomuPlaybackFixture;

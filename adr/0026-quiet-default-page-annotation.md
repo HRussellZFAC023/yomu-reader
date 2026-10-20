@@ -46,3 +46,7 @@ Whichever is chosen, a live-page assertion of readings per kanji word in the no-
 - W3C, Requirements for Japanese Text Layout (ruby size): <https://www.w3.org/TR/jlreq/>
 - WCAG 2.2, Use of Color (1.4.1) and Non-text Contrast (1.4.11): <https://www.w3.org/WAI/WCAG22/Understanding/use-of-color.html>, <https://www.w3.org/WAI/WCAG21/Understanding/non-text-contrast.html>
 - Comparable tools' defaults, read from their source: jpd-breader `src/content/word.css`, Anki JPDB Reader `docs/custom-css.md`, JitenReader PR #21, Lute v3 `lute/static/css/styles.css`, Hachidori issue #520.
+
+## Reading colour update, 19 October 2026 (W1-63)
+
+The owner's instruction that readings match the text they annotate supersedes the paragraph-wide muted colour in decision 4. Page and subtitle readings inherit the base word's ink. The independent reading-colour contrast pass is removed; visibility, page typography and word-state colour channels retain their existing roles. There was no reading-only colour preference to migrate.

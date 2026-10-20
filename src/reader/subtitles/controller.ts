@@ -4,6 +4,7 @@ import { currentFullscreenElement } from '../core/fullscreen';
 import { READER_ROOT_SELECTOR } from '../dom/constants';
 import { escapeHtml, remintRenderedWordPrivateTokens, renderTokensToHtml, setInnerHtml, unwrapReaderWords } from '../dom/index';
 import {
+    SUBTITLE_CUE_BOUNDARY_PADDING_SECONDS,
     cueHasExactWordTimings,
     escapeWithBreaks,
     findActiveSubtitleCue,
@@ -21,6 +22,7 @@ import {
     computeSubtitleDrawerLayout,
     loadSubtitleDragOffsetFraction,
     loadTranscriptPanelSize,
+    measureSubtitleAnchorHeight,
     reachableSubtitleBottomPercent,
     saveSubtitleDragOffsetFraction,
     saveTranscriptPanelSize,
@@ -381,7 +383,7 @@ function youtubeWatchPlayerMeaningfullyVisible(rect: DOMRect): boolean {
 }
 
 function subtitleSecondaryFontSize(target: number): number {
-    return Math.max(13, Math.min(22, Math.round(target * 0.62)));
+    return Math.max(16, Math.round(target * 0.8));
 }
 
 function pointInRect(x: number, y: number, rect: DOMRect): boolean {
@@ -428,7 +430,7 @@ function videoFrameCallbackHost(video: HTMLVideoElement): RequestVideoFrameCallb
 }
 
 function frameHasPlayerControls(frame: HTMLElement): boolean {
-    return Boolean(frame.querySelector([
+    const selector = [
         'button',
         '[role="button"]',
         '[aria-label*="play" i]',
@@ -437,7 +439,11 @@ function frameHasPlayerControls(frame: HTMLElement): boolean {
         '[class*="controls" i]',
         '[class*="play" i]',
         '[class*="pause" i]',
-    ].join(',')));
+    ].join(',');
+    const first = frame.querySelector(selector);
+    if (!first?.closest('[data-jpdb-reader-root]')) return Boolean(first);
+    // Captions now share this frame; their own buttons are not site chrome.
+    return Array.from(frame.querySelectorAll(selector)).some(element => !element.closest('[data-jpdb-reader-root]'));
 }
 
 // Behind matters for the previous-line button: keep enough parsed history
@@ -880,6 +886,8 @@ export class SubtitlePlayerController {
     private pinnedPlayer = new SubtitlePinnedPlayerTracker();
     private lastRenderedPrimaryText = '';
     private lastRenderedPrimaryHtml = '';
+    private lastPaintedPrimaryCue?: SubtitleCue;
+    private holdingPrimaryCue = false;
     private lastRenderedPrimaryKey = '';
     private lastAppliedPrimaryRowHtml = '';
     private parseWarmupSerial = 0;
@@ -1181,6 +1189,9 @@ export class SubtitlePlayerController {
         this.removeAsbPlayerSubtitleMoveHandles();
         this.transcriptPanel?.remove();
         this.root?.remove();
+        this.fullscreenHost.releaseSubtitleLayer();
+        this.lastPaintedPrimaryCue = undefined;
+        this.holdingPrimaryCue = false;
         this.root = undefined;
         this.subtitleEl = undefined;
         this.transcriptPanel = undefined;
@@ -1355,6 +1366,8 @@ export class SubtitlePlayerController {
     }
 
     private bindSubtitleSurface(surface: SubtitlePlayerSurfaceElements): void {
+        surface.root.addEventListener('focusin', () => this.scheduleAlignToVideo(), this.eventOptions());
+        surface.root.addEventListener('focusout', () => this.scheduleAlignToVideo(), this.eventOptions());
         surface.root.addEventListener('click', trustedReaderEventHandler((event: MouseEvent) => this.handleClick(event)));
         surface.root.addEventListener('input', trustedReaderEventHandler((event: Event) => this.handleSubtitleStyleInput(event)), this.eventOptions());
         surface.root.addEventListener('change', trustedReaderEventHandler((event: Event) => this.handleSubtitleStyleInput(event)), this.eventOptions());
@@ -2373,6 +2386,7 @@ export class SubtitlePlayerController {
             this.positionTranscriptPanel();
             return;
         }
+        this.fullscreenHost.syncSubtitleRootParent();
         const layout = subtitleOverlayLayout(rect);
         setClassState(this.root, 'jpdb-subtitle-compact-video', layout.width < 560 || layout.height < 260);
         if (rect.width < 120 || rect.height < 80) {
@@ -2386,7 +2400,7 @@ export class SubtitlePlayerController {
             this.syncSubtitleTextSize();
             return;
         }
-        applyElementLayout(this.root, layout);
+        applyElementLayout(this.root, this.fullscreenHost.subtitleLayerLayout(layout));
         this.positionTranscriptPanel({ realignAfterInset: true });
         this.syncSubtitleTextSize();
         this.syncNativePlayerControlHitProtection();
@@ -2689,6 +2703,7 @@ export class SubtitlePlayerController {
 
     private render(): void {
         if (!this.subtitleEl) return;
+        this.holdingPrimaryCue = false;
         const settings = this.options.getSettings();
         const text = this.currentCue?.text.trim() ?? '';
         if (!text) {
@@ -2697,6 +2712,9 @@ export class SubtitlePlayerController {
             this.renderActiveSubtitle(text, settings);
         }
         this.syncNativeCaptionOwnership(settings);
+        // A wrapped translation can leave the frame before the main line.
+        // Change its stacking context and coordinates in the same paint turn.
+        if (this.fullscreenHost.syncSubtitleRootParent()) this.alignToVideo();
     }
 
     private syncNativeCaptionOwnership(settings: ReaderSettings): void {
@@ -2707,6 +2725,7 @@ export class SubtitlePlayerController {
 
     private renderEmptySubtitle(settings: ReaderSettings): void {
         if (!this.subtitleEl) return;
+        this.lastPaintedPrimaryCue = undefined;
         this.applyPrimaryRow(null);
         this.applySecondaryLine(settings);
         // Ending a cue ends its visual lifetime. A later visit to the same
@@ -2719,9 +2738,21 @@ export class SubtitlePlayerController {
     private renderActiveSubtitle(text: string, settings: ReaderSettings): void {
         if (!this.subtitleEl) return;
         const primary = this.renderPrimarySubtitle(text, settings);
+        // Abutting cues have no empty visual state. Retain the committed pair
+        // while the next parse settles; a real gap still clears in renderEmpty.
+        const previous = this.lastPaintedPrimaryCue;
+        if (!primary.html && primary.shouldRequestParse && previous && this.currentCue
+            && previous.start <= this.currentCue.start && previous.end >= this.currentCue.start - SUBTITLE_CUE_BOUNDARY_PADDING_SECONDS
+            && this.subtitleEl.querySelector('.jpdb-subtitle-primary')?.textContent) {
+            this.holdingPrimaryCue = true;
+            this.syncSubtitleTextSize();
+            this.requestParsedPrimaryIfNeeded(primary, text);
+            return;
+        }
         const changed = this.applyPrimaryRow(primary.html);
         this.applySecondaryLine(settings);
         this.applyRenderedPrimarySubtitle(primary, text, settings);
+        if (primary.html) this.lastPaintedPrimaryCue = this.currentCue;
         // Re-applying state colors only matters when the DOM was rebuilt;
         // re-notifying on identical renders made pitch/state highlights
         // flicker out under time-driven render ticks (user-reported).
@@ -3547,7 +3578,7 @@ export class SubtitlePlayerController {
             positionRect,
             viewportTop,
             viewportHeight: viewport.height,
-            subtitleHeight: root.querySelector<HTMLElement>('.jpdb-subtitle-text')?.getBoundingClientRect().height ?? 0,
+            subtitleHeight: measureSubtitleAnchorHeight(root),
         });
     }
 
@@ -4111,6 +4142,7 @@ export class SubtitlePlayerController {
         if (settings.subtitleBottomOffset === next) return;
         settings.subtitleBottomOffset = next;
         this.applyEffectiveSubtitleBottom();
+        this.scheduleAlignToVideo();
         this.syncSubtitleStyleControls();
         this.options.onSettingsChange(['subtitleBottomOffset']);
     }
@@ -4178,7 +4210,10 @@ export class SubtitlePlayerController {
 
     private syncYomuSubtitleDragOffsetStyle(): void {
         const yomuOffset = `${this.subtitleDragPreviewOffsetYPx ?? 0}px`;
-        if (this.root) setStylePropertyIfChanged(this.root, '--subtitle-drag-offset-y', yomuOffset);
+        if (this.root && this.root.style.getPropertyValue('--subtitle-drag-offset-y') !== yomuOffset) {
+            setStylePropertyIfChanged(this.root, '--subtitle-drag-offset-y', yomuOffset);
+            this.scheduleAlignToVideo();
+        }
     }
 
     private syncAsbSubtitleDragOffsetStyle(): void {
@@ -5160,8 +5195,8 @@ export class SubtitlePlayerController {
             secondaryTrackId: this.secondaryTrackId,
             overlayVisible: settings.subtitleOverlayVisible || this.isTranscriptPanelOpen(),
             // Caption ownership is a visual hand-off: the page/native caption
-            // stays visible until the exact current Yomu cue has a settled
-            // parse (or a final plain fallback) ready to paint.
+            // stays visible until Yomu has a settled parse (or plain fallback).
+            // Holding a preceding abutting pair retains Yomu ownership too.
             suppressNativeCaptions,
             video: this.video,
             hasPrimaryCues: Boolean(this.cues.length),
@@ -5197,7 +5232,7 @@ export class SubtitlePlayerController {
         // With annotations paused (or no parser source), the plain synchronous
         // frame is final and can own captions immediately.
         if (!this.shouldParseSubtitles(settings)) return true;
-        return this.primaryVisualCommitMatches(text, settings);
+        return this.holdingPrimaryCue || this.primaryVisualCommitMatches(text, settings);
     }
 
     private primaryVisualCommitMatches(text: string, settings: ReaderSettings): boolean {

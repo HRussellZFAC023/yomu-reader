@@ -53,7 +53,7 @@ function withExactSubtitleSizeHarness(run: (harness: ExactSubtitleSizeHarness) =
 function expectExactSubtitleSize(root: HTMLElement, { secondary = false } = {}): void {
     expect(root.style.getPropertyValue('--subtitle-font-size-target')).toBe('60px');
     expect(root.style.getPropertyValue('--subtitle-font-size')).toBe('60px');
-    if (secondary) expect(root.style.getPropertyValue('--subtitle-secondary-font-size')).toBe('22px');
+    if (secondary) expect(root.style.getPropertyValue('--subtitle-secondary-font-size')).toBe('48px');
 }
 
 const TRANSCRIPT_DRAWER_CUE = { start: 0, end: 1, text: '今日は読む。', transcriptEligible: true };
@@ -135,6 +135,8 @@ describe('SubtitlePlayerController — styling & transcript panel', () => {
 
             const popover = root.querySelector<HTMLElement>('[data-subtitle-style-popover]')!;
             expect(popover.hidden).toBe(false);
+            expect(root.style.getPropertyValue('--subtitle-background-rgba')).toContain(',0)');
+            expect(popover.querySelector<HTMLInputElement>('[data-subtitle-style-setting="subtitleBackgroundOpacity"]')?.max).toBe('1');
             expect(toggle.getAttribute('aria-expanded')).toBe('true');
             expect(root.classList.contains('jpdb-subtitle-style-open')).toBe(true);
             expect(popover.textContent).toContain('Subtitle font size');
@@ -161,7 +163,7 @@ describe('SubtitlePlayerController — styling & transcript panel', () => {
             expect(settings.subtitleHoverPause).toBe(false);
             expect(root.style.getPropertyValue('--subtitle-font-size-target')).toBe('36px');
             expect(root.style.getPropertyValue('--subtitle-font-size')).toBe('36px');
-            expect(root.style.getPropertyValue('--subtitle-secondary-font-size')).toBe('22px');
+            expect(root.style.getPropertyValue('--subtitle-secondary-font-size')).toBe('29px');
             expect(root.style.getPropertyValue('--subtitle-weight')).toBe('620');
             expect(root.style.getPropertyValue('--subtitle-bottom')).toBe('16%');
             expect(root.style.getPropertyValue('--subtitle-background-rgba')).toContain(',0.35)');
@@ -188,7 +190,7 @@ describe('SubtitlePlayerController — styling & transcript panel', () => {
             expect(root.style.getPropertyValue('--subtitle-font-size')).toBe(`${BASE_DEFAULT_SETTINGS.subtitleFontSize}px`);
             expect(root.style.getPropertyValue('--subtitle-weight')).toBe(String(BASE_DEFAULT_SETTINGS.subtitleFontWeight));
             expect(root.style.getPropertyValue('--subtitle-bottom')).toBe(`${BASE_DEFAULT_SETTINGS.subtitleBottomOffset}%`);
-            expect(popover.querySelector<HTMLOutputElement>('[data-subtitle-style-output="subtitleBackgroundOpacity"]')?.textContent).toBe('0%');
+            expect(popover.querySelector<HTMLOutputElement>('[data-subtitle-style-output="subtitleBackgroundOpacity"]')?.textContent).toBe('75%');
             expect(popover.querySelector<HTMLOutputElement>('[data-subtitle-style-output="subtitleNativeBlurStrength"]')?.textContent).toBe(`${BASE_DEFAULT_SETTINGS.subtitleNativeBlurStrength}px`);
 
             toggle.click();

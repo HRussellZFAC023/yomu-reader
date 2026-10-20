@@ -6,6 +6,7 @@ import {
     type SubtitleCue,
 } from './subtitle-cues';
 import { uiText } from '../app/i18n';
+import { setClassState } from './subtitle-dom-state';
 import { setInnerHtml } from '../dom/html';
 import { remintRenderedWordPrivateTokens } from '../dom/rendered-word-private-state';
 import type { InterfaceLanguage } from '../app/types';
@@ -24,9 +25,8 @@ export interface SubtitlePrimaryRenderInput {
 }
 
 export interface SubtitlePrimaryRenderResult {
-    // An empty string is an intentional no-commit state. Keeping the primary
-    // container stable avoids DOM/layout churn, but no cue words are painted
-    // until async ruby/pitch enrichment settles.
+    // Empty means this cue has no settled markup yet. The controller can
+    // retain an abutting previous cue until the new visual commit is ready.
     html: string;
     karaokeActive: boolean;
     shouldRequestParse: boolean;
@@ -154,6 +154,7 @@ export function reconcileSubtitleSecondaryLine(options: {
     if (!options.host) return;
     const existing = options.host.querySelector<HTMLElement>(`.${SUBTITLE_SECONDARY_CLASS}`);
     const text = visibleSubtitleSecondaryText(options.visible, options.text);
+    setClassState(options.host, 'jpdb-subtitle-has-secondary', Boolean(text));
     if (!text) return removeSubtitleSecondaryLine(existing);
     const line = existingSubtitleSecondaryLine(existing);
     syncSubtitleContentLanguage(line, options.content);
@@ -203,6 +204,7 @@ export interface SubtitlePrimaryRowReconcileResult {
 // cannot accidentally rebuild the secondary button while it is under a finger.
 export function reconcileSubtitlePrimaryRow(input: SubtitlePrimaryRowReconcileInput): SubtitlePrimaryRowReconcileResult {
     if (!input.host) return { changed: false, appliedHtml: input.appliedHtml };
+    setClassState(input.host, 'jpdb-subtitle-has-primary', Boolean(input.html));
     const row = input.host.querySelector<HTMLElement>('.jpdb-subtitle-primary-row');
     if (input.html === null) return clearSubtitlePrimaryRow(row);
     return reconcileVisibleSubtitlePrimaryRow({

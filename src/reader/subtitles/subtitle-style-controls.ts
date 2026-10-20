@@ -126,7 +126,7 @@ const SUBTITLE_STYLE_APPLIERS: Record<SubtitleStyleSetting, SubtitleStyleApplier
     subtitleNativeBlurStrength: numberStyleApplier('subtitleNativeBlurStrength', 4, 20),
     subtitleFontSize: numberStyleApplier('subtitleFontSize', 16, 64),
     subtitleFontWeight: numberStyleApplier('subtitleFontWeight', 300, 900),
-    subtitleBackgroundOpacity: numberStyleApplier('subtitleBackgroundOpacity', 0, 0.7),
+    subtitleBackgroundOpacity: numberStyleApplier('subtitleBackgroundOpacity', 0, 1),
     subtitleFontFamily: (settings, control) => {
         const next = SUBTITLE_STYLE_FONT_FAMILY_VALUES.includes(control.value) ? control.value : settings.subtitleFontFamily;
         if (settings.subtitleFontFamily === next) return undefined;

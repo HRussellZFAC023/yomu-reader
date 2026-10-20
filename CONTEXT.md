@@ -210,3 +210,9 @@ _Avoid_: Contact name, display name, nickname
 - Network Ledger: Every request the product made while a Recorded Page was replayed, from the GM bridge and from the page itself, with host, method, body size, time and whether a Trusted Interaction came first. Privacy rules are asserted on it ("no cloud OCR before a tap" is zero Lens requests before a Trusted Interaction).
 - Trusted Interaction: A browser-trusted activation by the learner — pointerdown, mousedown, touchstart, keydown or click with `isTrusted`. Hovering is not one.
 - Geometry Signature: Scroll extents, sampled block border boxes, each sampled paragraph's line boxes (readings excluded) and the page counts of paged containers. Comparing two within a tolerance shows whether something moved a page: a redaction against the live page, or annotation against the bare page.
+
+- **Caption layer**: the on-video subtitle surface shares the player’s stacking context, above native chrome and below native menus and page sheets. A learner-dragged line outside the player uses the player’s page stacking tier; lookup and transcript sheets keep their own higher layer.
+
+- **Cue boundary pad**: YouTube normalization separates touching cues by 1 ms. The visual commit treats that pad as an adjacent cue boundary, while a source gap such as 50 ms still clears the line.
+
+- **Caption anchor**: one reading lane and fixed translation clearance. Viewport recovery projects this stable footprint; extra cue lines grow upward without changing its baseline.

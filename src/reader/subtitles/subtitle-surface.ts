@@ -246,7 +246,7 @@ function renderSubtitleStyleControls(settings: ReaderSettings, language: Interfa
             ${renderSubtitleStyleRange('subtitleNativeBlurStrength', uiText(language, 'subtitleNativeBlurStrength'), settings.subtitleNativeBlurStrength, 4, 20, 1, 'px', nativeDisplay !== 'blurred')}
             ${renderSubtitleStyleRange('subtitleFontSize', uiText(language, 'subtitleFontSize'), settings.subtitleFontSize, 16, 64, 2, 'px')}
             ${renderSubtitleStyleRange('subtitleFontWeight', uiText(language, 'subtitleFontWeight'), settings.subtitleFontWeight, 300, 900, 20, 'weight')}
-            ${renderSubtitleStyleRange('subtitleBackgroundOpacity', uiText(language, 'subtitleBackgroundOpacity'), settings.subtitleBackgroundOpacity, 0, 0.7, 0.05, '')}
+            ${renderSubtitleStyleRange('subtitleBackgroundOpacity', uiText(language, 'subtitleBackgroundOpacity'), settings.subtitleBackgroundOpacity, 0, 1, 0.05, '')}
             <label class="jpdb-subtitle-style-field jpdb-subtitle-style-select">
                 <span>${escapeHtml(uiText(language, 'subtitleFontFamily'))}</span>
                 <select data-subtitle-style-setting="subtitleFontFamily"${subtitleStyleControlAttributes('subtitleFontFamily')}>

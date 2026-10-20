@@ -48,6 +48,21 @@ export interface SubtitleControlRailPosition {
     y: number;
 }
 
+/** One reading lane plus fixed translation clearance, in viewport pixels. */
+export function measureSubtitleAnchorHeight(root: HTMLElement): number {
+    const text = root.querySelector<HTMLElement>('.jpdb-subtitle-text');
+    const row = text?.querySelector<HTMLElement>('.jpdb-subtitle-primary-row');
+    if (!text || !row) return text?.getBoundingClientRect().height ?? 0;
+    const rowStyle = getComputedStyle(row);
+    const lineHeight = Number.parseFloat(rowStyle.lineHeight);
+    if (!Number.isFinite(lineHeight) || lineHeight <= 0) return text.getBoundingClientRect().height;
+    const textStyle = getComputedStyle(text);
+    const padding = [rowStyle.paddingTop, rowStyle.paddingBottom, textStyle.paddingTop, textStyle.paddingBottom]
+        .reduce((sum, value) => sum + (Number.parseFloat(value) || 0), 0);
+    const scale = root.offsetHeight ? root.getBoundingClientRect().height / root.offsetHeight : 1;
+    return (lineHeight + padding) * scale;
+}
+
 export interface ReachableSubtitlePositionOptions {
     preferredBottomPercent: number;
     positionRect: DOMRect;
@@ -56,10 +71,9 @@ export interface ReachableSubtitlePositionOptions {
     subtitleHeight: number;
 }
 
-// Keep the effective subtitle line and its recovery handle inside the current
-// viewport without overwriting the user's preferred position. Space below a
-// short player remains usable; the same saved position is rebased only when a
-// taller player (such as the next Short) would put it off screen.
+// Keep a stable caption anchor inside the viewport without overwriting the
+// preferred position. Extra cue lines grow upward without rebasing that anchor.
+// Space below a short player remains usable; a taller player may rebase it.
 export function reachableSubtitleBottomPercent(options: ReachableSubtitlePositionOptions): number {
     const { preferredBottomPercent, positionRect, viewportTop, viewportHeight } = options;
     if (!Number.isFinite(preferredBottomPercent)

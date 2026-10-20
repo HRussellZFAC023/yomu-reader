@@ -1,3 +1,5 @@
+import { SubtitleLayer } from './subtitle-layer';
+import type { SubtitleElementLayout } from './subtitle-surface';
 import { currentFullscreenElement } from '../core/fullscreen';
 import { isYouTubePage } from './subtitle-youtube';
 import { subtitleVideoLayoutTarget } from './subtitle-video-inset';
@@ -82,12 +84,11 @@ export interface SubtitleFullscreenHostDeps {
     getTranscriptPanel(): HTMLElement | undefined;
 }
 
-// Fullscreen host resolution extracted from the controller. CSS/inline hosts
-// are geometry signals only; they are not browser top-layer boundaries. DOM
-// reparenting is reserved for a real element-fullscreen ancestor, because
-// moving controls into YouTube's simulated player subtree makes YouTube treat
-// Yomu focus as native-player focus and prevents its chrome from auto-hiding.
+// Fullscreen resolution owns the browser top-layer boundary. SubtitleLayer
+// owns the caption's player-local stacking and the portal for a dragged line;
+// the transcript remains a separate reader sheet inside the fullscreen host.
 export class SubtitleFullscreenHost {
+    private readonly layer = new SubtitleLayer();
     // Event-driven cache for the inline/CSS fullscreen host queries; undefined
     // means dirty (recompute on next read). See queriedFullscreenHost.
     hostQuery?: { host: HTMLElement | null; at: number };
@@ -164,19 +165,24 @@ export class SubtitleFullscreenHost {
             : null;
     }
 
-    syncSubtitleRootParent(fullscreenElement: Element | null = currentFullscreenElement()): void {
+    syncSubtitleRootParent(fullscreenElement: Element | null = currentFullscreenElement()): boolean {
         const root = this.deps.getRoot();
-        if (!root) return;
+        if (!root) return false;
         // When the entire document is the fullscreen element (YouTube's desktop
         // fullscreen promotes <html> to the top layer) reader roots already
         // render inside it through <body>; appending a <div> directly under
         // <html> is unnecessary and a non-standard place for it, so keep it in
         // <body>.
         const parent = this.fullscreenReaderRootParent(fullscreenElement);
-        if (root.parentElement !== parent) parent.appendChild(root);
+        const moved = this.layer.sync(root, this.video, parent, this.subtitleFullscreenHost(fullscreenElement) ?? undefined);
         const transcriptPanel = this.deps.getTranscriptPanel();
         if (transcriptPanel && transcriptPanel.parentElement !== parent) parent.appendChild(transcriptPanel);
+        return moved;
     }
+
+    subtitleLayerLayout(rect: SubtitleElementLayout): SubtitleElementLayout { return this.layer.layout(rect); }
+
+    releaseSubtitleLayer(): void { this.layer.release(); }
 
     private fullscreenReaderRootParent(fullscreenElement: Element | null): HTMLElement {
         return !this.shouldHostSubtitleRootInFullscreenElement(fullscreenElement)

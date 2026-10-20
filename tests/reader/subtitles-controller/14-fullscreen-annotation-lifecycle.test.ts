@@ -123,7 +123,7 @@ describe('SubtitlePlayerController — fullscreen annotation lifecycle', () => {
         document.body.innerHTML = '';
     });
 
-    it('reparents the existing annotated primary through fullscreen entry and exit without rebuilding it', () => {
+    it('keeps the existing annotated primary in its player through fullscreen entry and exit without rebuilding it', () => {
         document.body.innerHTML = `
             <section data-yomu-video-frame>
                 <video controls></video>
@@ -164,7 +164,7 @@ describe('SubtitlePlayerController — fullscreen annotation lifecycle', () => {
             fullscreen.set(null);
             internals.handleFullscreenLayoutChange();
 
-            expect(root.parentElement).toBe(document.body);
+            expect(root.parentElement).toBe(frame);
             expect(internals.subtitleEl.querySelector('.jpdb-subtitle-primary')).toBe(primary);
             expect(primary.innerHTML).toBe(ANNOTATED_HTML);
             expect(primary.querySelector('.jpdb-subtitle-primary-loading')).toBeNull();

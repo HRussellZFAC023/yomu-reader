@@ -26,7 +26,7 @@ export function createDefaultSubtitleSettings(fontFamily: string) {
         subtitleTextColor: OVERLAY_COLOR_TOKENS.text,
         subtitleOutlineColor: OVERLAY_COLOR_TOKENS.outline,
         subtitleBackgroundColor: OVERLAY_COLOR_TOKENS.background,
-        subtitleBackgroundOpacity: 0,
+        subtitleBackgroundOpacity: 0.75,
         subtitleFontFamily: fontFamily,
         subtitleFontWeight: 760,
         subtitleMiningPause: true,
