@@ -167,14 +167,18 @@
   -webkit-user-select: none;
 }
 
-/* Text mirrors preserve the host's inline formatting context. Token spans must
-   inherit its wrapping rules: making them atomic changes CJK line breaks and
-   guarantees that an overlay will drift from the source it annotates. */
+/* Text mirrors and anonymous flex/grid runs preserve the host's wrapping.
+   Normalizing a run's nowrap words would reduce its automatic minimum size,
+   letting the text shrink into the next flex item. */
+.jpdb-reader-run .jpdb-reader-word.jpdb-reader-scan-word,
 .jpdb-reader-text-mirror .jpdb-reader-word.jpdb-reader-scan-word {
   white-space: inherit;
   word-break: inherit;
   overflow-wrap: inherit !important;
   line-break: inherit;
+}
+
+.jpdb-reader-text-mirror .jpdb-reader-word.jpdb-reader-scan-word {
   text-decoration-color: transparent !important;
 }
 .jpdb-reader-text-mirror .jpdb-reader-word.jpdb-reader-scan-word::after {

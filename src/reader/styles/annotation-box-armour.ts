@@ -10,8 +10,10 @@ export const ANNOTATION_BOX_RESETS: Readonly<Record<string, string>> = {
     float: 'none',
     width: 'auto',
     height: 'auto',
-    'min-width': '0',
-    'min-height': '0',
+    // A run replaces an anonymous flex/grid item, whose automatic minimum
+    // keeps its text from shrinking into the following item.
+    'min-width': 'auto',
+    'min-height': 'auto',
     'max-width': 'none',
     'max-height': 'none',
     'background-image': 'none',
@@ -24,6 +26,7 @@ export function isAnnotationBoxProperty(property: string): boolean {
     return property in ANNOTATION_BOX_RESETS || /^(?:padding|margin|border)-/u.test(property);
 }
 
+// Runs inherit the host's first-line indent; only words/bases reset it.
 export const ANNOTATION_BOX_ARMOUR = `${ANNOTATION_BOX_SELECTOR}{${Object.entries(ANNOTATION_BOX_RESETS)
     .map(([property, value]) => `${property}:${value}!important`).join(';')}}
-.jpdb-reader-run{display:inline!important}`;
+.jpdb-reader-run{display:inline!important;text-indent:inherit!important}`;

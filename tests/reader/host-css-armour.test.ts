@@ -21,7 +21,10 @@ describe('host CSS armour', () => {
         for (const [property, value] of Object.entries(ANNOTATION_BOX_RESETS)) {
             expect(sheet).toContain(`${property}:${value}!important`);
         }
-        expect(sheet).toContain('.jpdb-reader-run{display:inline!important}');
+        expect(sheet).toContain('.jpdb-reader-run{display:inline!important;text-indent:inherit!important}');
+        expect(ANNOTATION_BOX_RESETS['min-width']).toBe('auto');
+        expect(ANNOTATION_BOX_RESETS['min-height']).toBe('auto');
+        expect(ANNOTATION_BOX_RESETS['text-indent']).toBe('0');
         expect(ANNOTATION_BOX_RESETS).not.toHaveProperty('display');
         expect(sheet).not.toContain('.jpdb-reader-word{display:');
     });

@@ -4,8 +4,12 @@
 // No Piccoma application code or assets are copied into the implementation.
 // --product=v2.1.6 proves the regression; --live checks the current store with
 // the same probes (page traffic only; product requests remain offline).
+import { readFileSync } from 'node:fs';
 import { chromium, webkit } from 'playwright';
 import { openRecordedPage, releaseProduct, worktreeProduct } from './lib/recorded-page.mjs';
+import { hostedAnswer, hostedFile } from './lib/recorded-products.mjs';
+import { gmStorageBridgeInitProgram, YOMU_SETTINGS_KEY } from './lib/smoke-harness.mjs';
+import { addUserscriptGraphInitScripts } from './lib/smoke-test-helpers.mjs';
 
 const args = process.argv.slice(2);
 const option = name => args.find(arg => arg.startsWith(`--${name}=`))?.split('=')[1];
@@ -17,9 +21,8 @@ const selectors = [
     '.PCM-headerRegister a',
     '.PCM-headerLogin a',
     '.bl_shortCutLink_list a',
-    '.PCM-slot_title a',
-    '.PCM-homeProductSlot_title a',
 ].join(',');
+const moreSelectors = '.PCM-slot_title a,.PCM-homeProductSlot_title a';
 const failures = [];
 const check = (ok, message) => {
     console.log(`${ok ? 'PASS' : 'FAIL'} ${message}`);
@@ -27,7 +30,7 @@ const check = (ok, message) => {
 };
 
 for (const engine of engines) {
-    const browser = await ({ chromium, webkit })[engine].launch();
+    const browser = await ({ chromium, webkit })[engine].launch({ headless: !args.includes('--headed') });
     const contextOptions = engine === 'webkit'
         ? { viewport: { width: 820, height: 1180 }, isMobile: true, hasTouch: true, deviceScaleFactor: 2 }
         : { viewport: { width: 1280, height: 900 } };
@@ -50,11 +53,74 @@ for (const engine of engines) {
         check(annotated.activeBorders === 1, `${prefix}: one active-tab border, got ${annotated.activeBorders}`);
         check(annotated.inlineConflicts.length === 0, `${prefix}: no runtime inline box writes on annotation shells ${JSON.stringify(annotated.inlineConflicts)}`);
         console.log(JSON.stringify({ engine, product: product.label, baseline, annotated, deltas }));
+        const bareRuns = await measureRunMechanisms(browser, null, contextOptions);
+        const armouredRuns = await measureRunMechanisms(browser, product, contextOptions);
+        for (const [id, before] of Object.entries(bareRuns)) {
+            const after = armouredRuns[id];
+            check(after.runs === 1 && after.words > 0, `${prefix}: ${id} mechanism fixture exercises a tokenized run`);
+            const boxDrift = Math.max(...after.box.map((value, axis) => Math.abs(value - before.box[axis])));
+            check(boxDrift <= 1, `${prefix}: ${id} mechanism fixture preserves its box (${boxDrift} px)`);
+            const glyphDrift = after.glyphs.length === before.glyphs.length
+                ? Math.max(0, ...after.glyphs.flatMap((rect, i) => rect.map((value, axis) => Math.abs(value - before.glyphs[i][axis])))) : Infinity;
+            check(glyphDrift <= 1, `${prefix}: ${id} mechanism fixture preserves glyph positions (${glyphDrift} px)`);
+            if (id === 'tight-flex') {
+                check(Math.abs(after.siblingX - before.siblingX) <= 1, `${prefix}: nowrap flex item keeps its content minimum (sibling ${before.siblingX} → ${after.siblingX} px)`);
+            } else {
+                check(before.glyphs[0][0] >= 32, `${prefix}: ${id} mechanism fixture exercises inherited 2em indent`);
+            }
+        }
+        console.log(JSON.stringify({ engine, mechanismFixture: { baseline: bareRuns, annotated: armouredRuns } }));
     } finally {
         await browser.close();
     }
 }
 if (failures.length) process.exitCode = 1;
+
+async function measureRunMechanisms(browser, selectedProduct, contextOptions) {
+    // Deliberately synthetic: real Piccoma recordings do not reach constrained
+    // nowrap rows or inherited indentation. Product parsing and CSS are built.
+    const context = await browser.newContext({ locale: 'ja-JP', timezoneId: 'Asia/Tokyo', ...contextOptions });
+    try {
+        const url = 'https://annotation-box.test/annotation-box-mechanism-fixture';
+        await context.route('**/*', route => {
+            if (route.request().url() === url) return route.fulfill({
+                contentType: 'text/html; charset=utf-8',
+                body: readFileSync(new URL('./fixtures/annotation-box-mechanism-fixture.html', import.meta.url), 'utf8'),
+            });
+            const file = selectedProduct && hostedFile(selectedProduct, route.request().url());
+            return file ? route.fulfill(hostedAnswer(file)) : route.abort('internetdisconnected');
+        });
+        if (selectedProduct) {
+            const binding = '__yomuAnnotationBoxOffline';
+            await context.exposeFunction(binding, () => { throw new Error('Offline mechanism fixture'); });
+            const prefixContent = gmStorageBridgeInitProgram({
+                key: YOMU_SETTINGS_KEY, value: {}, initialize: 'never',
+                css: readFileSync(selectedProduct.cssPath, 'utf8'), requestBridgeName: binding,
+            });
+            await addUserscriptGraphInitScripts(context, selectedProduct.scriptPath, { prefixContent });
+        }
+        const page = await context.newPage();
+        await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 90_000 });
+        if (selectedProduct) {
+            await page.waitForFunction(() => ['tight-flex', 'indent-flex', 'indent-grid'].every(id => document.querySelector(`#${id} .jpdb-reader-word`)), null, { timeout: 60_000 });
+            await page.waitForTimeout(500);
+        }
+        const measurements = {};
+        for (const id of ['tight-flex', 'indent-flex', 'indent-grid']) {
+            measurements[id] = {
+                ...await page.locator(`#${id}`).evaluate(labelMetrics),
+                ...await page.locator(`#${id}`).evaluate(element => ({
+                    runs: element.querySelectorAll(':scope > .jpdb-reader-run').length,
+                    words: element.querySelectorAll('.jpdb-reader-word').length,
+                    siblingX: element.querySelector('b') ? element.querySelector('b').getBoundingClientRect().x - element.getBoundingClientRect().x : null,
+                })),
+            };
+        }
+        return measurements;
+    } finally {
+        await context.close();
+    }
+}
 
 async function measure(browser, selectedProduct, contextOptions) {
     const run = await openRecordedPage({
@@ -67,25 +133,27 @@ async function measure(browser, selectedProduct, contextOptions) {
     try {
         if (live) await run.context.unroute('**/*');
         await run.page.goto(run.recording.manifest.url, {
-            waitUntil: live ? 'domcontentloaded' : 'load', timeout: 90_000,
+            waitUntil: 'domcontentloaded', timeout: 90_000,
         });
+        // Geometry needs the real store stylesheet, not every cover image.
+        await run.page.waitForFunction(() => [...document.querySelectorAll('link[rel=stylesheet]')]
+            .some(link => link.href.includes('pcm_web_v') && link.sheet), null, { timeout: 60_000 });
         await run.page.evaluate(() => {
             // The recording's active tab is the icon-only Home tab. Exercise a
             // text tab's active state too, using the site's own class and CSS.
             document.querySelector('.PCM-headerNavMenu > ul > li.PCM-stt_active')?.classList.remove('PCM-stt_active');
             document.querySelector('.GTM-NavMenu-women')?.parentElement.classList.add('PCM-stt_active');
         });
-        await run.page.waitForTimeout(selectedProduct ? 5_000 : 200);
+        if (selectedProduct) await run.page.waitForFunction(() => document.querySelectorAll('.jpdb-reader-word').length >= 15, null, { timeout: 60_000 });
+        await run.page.waitForTimeout(200);
         const labels = [];
-        // Only the first "more" row needs scrolling. Restrict to the first
-        // instance of each title class; unrelated book listings stay untouched.
-        const targets = run.page.locator(selectors);
-        const count = await targets.count();
-        let moreCount = 0;
-        for (let i = 0; i < count; i++) {
-            const target = targets.nth(i);
-            const isMore = await target.evaluate(element => Boolean(element.closest('.PCM-slot_title,.PCM-homeProductSlot_title')));
-            if (isMore && ++moreCount > 2) continue;
+        // Only the first two "more" links need scrolling; unrelated book
+        // listings stay untouched.
+        const targets = [
+            ...await run.page.locator(selectors).all(),
+            ...(await run.page.locator(moreSelectors).all()).slice(0, 2),
+        ];
+        for (const target of targets) {
             if (!await target.isVisible()) continue;
             await target.scrollIntoViewIfNeeded();
             if (selectedProduct) await run.page.waitForTimeout(250);
