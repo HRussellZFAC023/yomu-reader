@@ -85,6 +85,7 @@ export const NIGHTLY_SMOKES = [
     // channel paints pitch, and the popover of a hovered word is not queued
     // behind background lookups (W1-50).
     'smoke:background-network',
+    'smoke:ocr-upload-failure',
     'smoke:study-personas',
     'smoke:subtitle-network',
     // Live api.tatoeba.org contract. Network-dependent, so it stays out of
