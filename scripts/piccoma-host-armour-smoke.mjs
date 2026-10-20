@@ -66,7 +66,7 @@ for (const engine of engines) {
             if (id === 'tight-flex') {
                 check(Math.abs(after.siblingX - before.siblingX) <= 1, `${prefix}: nowrap flex item keeps its content minimum (sibling ${before.siblingX} → ${after.siblingX} px)`);
             } else {
-                check(before.glyphs[0][0] >= 32, `${prefix}: ${id} mechanism fixture exercises inherited 2em indent`);
+                check(Math.abs(before.glyphs[0][0] - 32) <= 1, `${prefix}: ${id} mechanism fixture exercises inherited 2em indent`);
             }
         }
         console.log(JSON.stringify({ engine, mechanismFixture: { baseline: bareRuns, annotated: armouredRuns } }));
