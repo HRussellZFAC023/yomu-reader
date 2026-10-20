@@ -976,6 +976,9 @@ export class ReaderApp {
     private deferredPublicPitchQueuedKeys = new Set<string>();
     private deferredPublicPitchEnqueuedForUrl = 0;
     private deferredPublicPitchDrain?: Promise<void>;
+    // Words shown in subtitles. The deferred lane fetches pitch for a word only
+    // when a colour channel paints pitch on the surface it was shown on.
+    private subtitleEnrichmentTokens = new WeakSet<JPDBToken>();
     private deferredPublicJitenReadings = new DeferredPublicJitenReadingCoordinator({
         isDestroyed: () => this.isDestroyed,
         shouldEnrich: () => this.shouldRunCanonicalCardEnrichment(),
@@ -994,6 +997,7 @@ export class ReaderApp {
         waitForIdle: timeoutMs => this.waitForIdle(timeoutMs),
         renderedAnnotationRoots: () => this.renderedAnnotationRoots(),
         renderedWordToken: word => this.renderedWordTokenForRecolor(word),
+        markSubtitleTokens: tokens => this.markSubtitleEnrichmentTokens(tokens),
     });
     private backgroundPublicPitchLookupBudgetHref = location.href;
     private backgroundPublicPitchLookupBudgetUsed = 0;
@@ -7742,6 +7746,7 @@ export class ReaderApp {
     }
 
     private afterSubtitleJapaneseParsed(tokens: JPDBToken[], roots: ParentNode[] = []): void {
+        this.markSubtitleEnrichmentTokens(tokens);
         void this.enrichPitchWords(tokens, this.backgroundPitchEnrichmentOptions('subtitle'));
         const targetRoots = roots.length ? roots : this.subtitleAnkiEnrichmentRoots();
         this.queueResolvedWordEffects(tokens, targetRoots.length ? targetRoots : [document]);
@@ -7781,7 +7786,16 @@ export class ReaderApp {
 
     private async enrichSubtitleTokensBeforeRender(tokens: JPDBToken[]): Promise<void> {
         if (!tokens.length) return;
+        this.markSubtitleEnrichmentTokens(tokens);
         await this.enrichPitchWords(tokens, this.subtitleBeforeRenderPitchEnrichmentOptions());
+    }
+
+    private markSubtitleEnrichmentTokens(tokens: readonly JPDBToken[]): void {
+        tokens.forEach(token => this.subtitleEnrichmentTokens.add(token));
+    }
+
+    private enrichmentSurfaceOf(token: JPDBToken): EnrichmentSurface {
+        return this.subtitleEnrichmentTokens.has(token) ? 'subtitle' : 'page';
     }
 
     private ocrBeforeRenderPitchEnrichmentOptions(): PitchEnrichmentOptions {
@@ -7984,7 +7998,7 @@ export class ReaderApp {
         if (!card) return null;
         const surface = readerWordSurfaceText(word);
         const { start, end } = renderedWordSpan(word, surface.length);
-        return {
+        const token: JPDBToken = {
             card,
             start,
             end,
@@ -7993,6 +8007,8 @@ export class ReaderApp {
             pitchClass: word.dataset.pitchClass ?? '',
             sentence: word.dataset.sentence,
         };
+        if (word.closest(SUBTITLE_SURFACE_SELECTOR)) this.subtitleEnrichmentTokens.add(token);
+        return token;
     }
 
     private async enrichPitchWords(tokens: JPDBToken[], options: PitchEnrichmentOptions = {}): Promise<void> {
@@ -8188,7 +8204,7 @@ export class ReaderApp {
     }
 
     private scheduleDeferredPublicPitchEnrichment(tokens: JPDBToken[]): void {
-        const admitted = tokens.filter(token => isDeferredPublicLaneToken(token, this.settings));
+        const admitted = tokens.filter(token => isDeferredPublicLaneToken(token, this.settings, this.enrichmentSurfaceOf(token)));
         if (!admitted.length) return;
         this.queueDeferredPublicPitchTokens(admitted);
         void this.drainDeferredPublicPitchQueue().catch(error => {
@@ -8269,7 +8285,10 @@ export class ReaderApp {
             // retry; without the explicit flag the local-dictionary override
             // would force this call offline again and the lane became a no-op
             // for exactly the users whose local bank missed (class F).
-            await this.enrichPitchWords(batch, deferredPublicLaneOptions(batch.length, this.settings));
+            for (const surface of ['page', 'subtitle'] as const) {
+                const shown = batch.filter(token => this.enrichmentSurfaceOf(token) === surface);
+                if (shown.length) await this.enrichPitchWords(shown, deferredPublicLaneOptions(shown.length, this.settings, surface));
+            }
         }
     }
 

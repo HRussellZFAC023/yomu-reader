@@ -16,6 +16,7 @@ import {
     DEFERRED_PUBLIC_PITCH_HOVER_PAUSE_MS,
     DEFERRED_PUBLIC_PITCH_PER_URL_CAP,
     PITCH_ENRICHMENT_LIMIT,
+    SUBTITLE_SURFACE_SELECTOR,
 } from './main-helpers';
 import { cardHasContextPitch, isHydratablePublicJitenCard } from './main-lookup-helpers';
 import type { CardLookupTargetSnapshot } from './card-lookup-session';
@@ -59,6 +60,7 @@ export interface DeferredPublicJitenReadingDependencies {
     waitForIdle: (timeoutMs?: number) => Promise<void>;
     renderedAnnotationRoots: () => Iterable<ParentNode>;
     renderedWordToken: (word: HTMLElement) => JPDBToken | null;
+    markSubtitleTokens: (tokens: JPDBToken[]) => void;
 }
 
 export interface PublicFallbackPitchResolutionOptions {
@@ -277,6 +279,9 @@ export class DeferredPublicJitenReadingCoordinator {
                 consumed += 1;
                 continue;
             }
+            // A sparse rendered word can outlive the parser's card cache, so
+            // the fallback token above needs the same provenance as parsed cues.
+            if (word.closest(SUBTITLE_SURFACE_SELECTOR)) this.dependencies.markSubtitleTokens([token]);
             const queued = this.queueToken(token);
             if (queued === 'url-budget') {
                 this.stopVisibleRefill();

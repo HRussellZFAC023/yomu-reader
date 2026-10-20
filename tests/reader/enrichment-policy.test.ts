@@ -58,11 +58,43 @@ describe('Enrichment Policy', () => {
         const kanaGuess = { card: card('ありがつ', 'fallback'), sentence: 'ありがと', start: 0, end: 4 };
         const parsed = { card: card('復習', 'jiten'), start: 0, end: 2 };
 
-        expect(isDeferredPublicLaneToken(kanjiGuess, DEFAULT_SETTINGS)).toBe(true);
-        expect(isDeferredPublicLaneToken(kanaGuess, DEFAULT_SETTINGS)).toBe(false);
-        expect(isDeferredPublicLaneToken(parsed, DEFAULT_SETTINGS)).toBe(false);
-        expect(isDeferredPublicLaneToken(parsed, pagePitch)).toBe(true);
-        expect(deferredPublicLaneOptions(4, DEFAULT_SETTINGS)).toEqual({ publicLookupLimit: 4, publicLookup: true, publicPitch: false, jpdbPublicLookup: false });
-        expect(deferredPublicLaneOptions(4, pagePitch)).toEqual({ publicLookupLimit: 4, publicLookup: true });
+        expect(isDeferredPublicLaneToken(kanjiGuess, DEFAULT_SETTINGS, 'page')).toBe(true);
+        expect(isDeferredPublicLaneToken(kanaGuess, DEFAULT_SETTINGS, 'page')).toBe(false);
+        expect(isDeferredPublicLaneToken(parsed, DEFAULT_SETTINGS, 'page')).toBe(false);
+        expect(isDeferredPublicLaneToken(parsed, pagePitch, 'page')).toBe(true);
+        expect(deferredPublicLaneOptions(4, DEFAULT_SETTINGS, 'page')).toEqual({ publicLookupLimit: 4, publicLookup: true, publicPitch: false, jpdbPublicLookup: false });
+        expect(deferredPublicLaneOptions(4, pagePitch, 'page')).toEqual({ publicLookupLimit: 4, publicLookup: true });
+    });
+
+    it('keeps the paced lane to the surface the word was shown on', () => {
+        const kanaPage = { card: card('ウィキペディア', 'jiten'), start: 0, end: 7 };
+        const offJpdb = { publicLookupLimit: 4, publicLookup: true, publicPitch: false, jpdbPublicLookup: false };
+
+        // Subtitles painting pitch fetch nothing for an article's words, and the
+        // page painting pitch fetches nothing for a caption's.
+        expect(isDeferredPublicLaneToken(kanaPage, subtitlePitch, 'page')).toBe(false);
+        expect(deferredPublicLaneOptions(4, subtitlePitch, 'page')).toEqual(offJpdb);
+        expect(isDeferredPublicLaneToken(kanaPage, pagePitch, 'subtitle')).toBe(false);
+        expect(deferredPublicLaneOptions(4, pagePitch, 'subtitle')).toEqual(offJpdb);
+        expect(isDeferredPublicLaneToken(kanaPage, subtitlePitch, 'subtitle')).toBe(true);
+        expect(deferredPublicLaneOptions(4, subtitlePitch, 'subtitle')).toEqual({ publicLookupLimit: 4, publicLookup: true });
+        // Identity hydration stays available even when the other surface is
+        // the only one painting pitch.
+        const kanjiPage = { card: card('復習', 'fallback'), start: 0, end: 2 };
+        expect(isDeferredPublicLaneToken(kanjiPage, subtitlePitch, 'page')).toBe(true);
+    });
+
+    it.each([
+        ['wordHighlightColorSource', 'page', 'subtitle'],
+        ['wordUnderlineColorSource', 'page', 'subtitle'],
+        ['wordTextColorSource', 'page', 'subtitle'],
+        ['subtitleHighlightColorSource', 'subtitle', 'page'],
+        ['subtitleUnderlineColorSource', 'subtitle', 'page'],
+        ['subtitleTextColorSource', 'subtitle', 'page'],
+    ] as const)('keeps deferred %s pitch on its own surface', (channel, shown, other) => {
+        const settings = { ...DEFAULT_SETTINGS, [channel]: 'pitch' as const };
+        expect(deferredPublicLaneOptions(1, settings, shown).publicPitch).toBeUndefined();
+        expect(deferredPublicLaneOptions(1, settings, other).publicPitch).toBe(false);
+        expect(deferredPublicLaneOptions(1, DEFAULT_SETTINGS, shown).publicPitch).toBe(false);
     });
 });

@@ -42,10 +42,6 @@ export function surfacePaintsPitch(settings: Partial<ColorChannelSettings>, surf
     return SURFACE_CHANNELS[surface].some(key => (settings[key] as ReaderColorSource | undefined) === 'pitch');
 }
 
-function anySurfacePaintsPitch(settings: Partial<ColorChannelSettings>): boolean {
-    return surfacePaintsPitch(settings, 'page') || surfacePaintsPitch(settings, 'subtitle');
-}
-
 /**
  * A surface's background options under the policy. Without a pitch channel on
  * that surface no jpdb.io pitch page is fetched. Subtitles, and the rest of a
@@ -90,24 +86,30 @@ export function needsPublicIdentitySearch(surface: string): boolean {
 }
 
 /**
- * The paced deferred lane retries what a visible pass left over. With a pitch
- * channel it finishes pitch for any word; without one it only gives a
- * fallback word with kanji its identity, through Jiten.
+ * The paced deferred lane retries what a visible pass left over, for the
+ * surface the word was shown on. Where a pitch channel paints that surface it
+ * finishes pitch; elsewhere it only gives a fallback word with kanji its
+ * identity, through Jiten. Subtitles painting pitch fetch nothing for the page.
  */
 export function isDeferredPublicLaneToken(
     token: { card: Pick<JPDBCard, 'source' | 'spelling'>; sentence?: string; start: number; end: number },
     settings: Partial<ColorChannelSettings>,
+    surface: EnrichmentSurface,
 ): boolean {
-    if (anySurfacePaintsPitch(settings)) return true;
+    if (surfacePaintsPitch(settings, surface)) return true;
     if (token.card.source !== 'fallback') return false;
     return needsPublicIdentitySearch(token.sentence?.slice(token.start, token.end) || token.card.spelling);
 }
 
-export function deferredPublicLaneOptions(batchLength: number, settings: Partial<ColorChannelSettings>): PitchEnrichmentOptions {
+export function deferredPublicLaneOptions(
+    batchLength: number,
+    settings: Partial<ColorChannelSettings>,
+    surface: EnrichmentSurface,
+): PitchEnrichmentOptions {
     // publicLookup: true — the lane exists to do the paced public retry; the
     // local-dictionary override would otherwise force it offline again.
     const options: PitchEnrichmentOptions = { publicLookupLimit: batchLength, publicLookup: true };
-    return anySurfacePaintsPitch(settings) ? options : { ...options, publicPitch: false, jpdbPublicLookup: false };
+    return surfacePaintsPitch(settings, surface) ? options : { ...options, publicPitch: false, jpdbPublicLookup: false };
 }
 
 const hasApiCredential = (settings: EnrichmentContext['settings']): boolean =>
