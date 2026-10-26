@@ -21,7 +21,7 @@ export function createDefaultSubtitleSettings(fontFamily: string) {
         subtitleAutoCopyLine: false,
         subtitleCopyIncludeTranslation: true,
         subtitleControlsMode: 'auto',
-        subtitleFontSize: 28,
+        subtitleFontSize: 0,
         subtitleBottomOffset: 16,
         subtitleTextColor: OVERLAY_COLOR_TOKENS.text,
         subtitleOutlineColor: OVERLAY_COLOR_TOKENS.outline,

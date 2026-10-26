@@ -24,14 +24,15 @@ describe('caption viewport anchor', () => {
 });
 
 describe('YouTube caption size', () => {
-    it('matches native size at the default and preserves the learner size ratio', () => {
-        expect(youtubeCaptionFontSize(28, 22, 640)).toBe(22);
-        expect(youtubeCaptionFontSize(56, 22, 640)).toBe(44);
+    it('uses native size only for automatic and preserves explicit pixel choices', () => {
+        expect(youtubeCaptionFontSize(0, 22, 640)).toBe(22);
+        expect(youtubeCaptionFontSize(64, 22, 640)).toBe(64);
+        expect(youtubeCaptionFontSize(28, 22, 640)).toBe(28);
     });
     it('scales with the player before native captions exist without shrinking below 16px', () => {
-        expect(youtubeCaptionFontSize(28, NaN, 320)).toBe(16);
-        expect(youtubeCaptionFontSize(28, NaN, 640)).toBe(22);
-        expect(youtubeCaptionFontSize(28, NaN, 1280)).toBe(28);
+        expect(youtubeCaptionFontSize(0, NaN, 320)).toBe(16);
+        expect(youtubeCaptionFontSize(0, NaN, 640)).toBe(22);
+        expect(youtubeCaptionFontSize(0, NaN, 1280)).toBe(28);
     });
 });
 

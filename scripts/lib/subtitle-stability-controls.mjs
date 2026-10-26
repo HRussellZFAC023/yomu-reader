@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import AxeBuilder from '@axe-core/playwright';
+import { writeFileSync } from 'node:fs';
 
 // These controls exercise mechanisms on the recorded watch page, using the
 // built product. The added control uses native fullscreen where available,
@@ -159,4 +160,38 @@ async function assertCaptionFullscreen(page, engine, out) {
     await page.waitForFunction(() => !document.fullscreenElement);
     await page.locator('#caption-fullscreen-mechanism-fixture').evaluate(element => element.remove());
     return fullscreen;
+}
+
+// Trusted interaction with the built product on the recorded watch page.
+export async function assertCaptionFontSize(page, engine, out) {
+    // Re-measure the native caption after the recording's player has settled.
+    const viewport = page.viewportSize();
+    await page.setViewportSize({width:viewport.width-14,height:viewport.height});
+    await page.waitForTimeout(300);
+    await page.setViewportSize(viewport);
+    await page.waitForTimeout(300);
+    await page.locator('.jpdb-subtitle-style-toggle').tap();
+    const input = page.locator('[data-subtitle-style-setting="subtitleFontSize"]');
+    await input.waitFor({state:'visible'});
+    const measure = () => page.evaluate(() => ({
+        input:document.querySelector('[data-subtitle-style-setting="subtitleFontSize"]').value,
+        label:document.querySelector('[data-subtitle-style-output="subtitleFontSize"]').textContent,
+        actual:parseFloat(getComputedStyle(document.querySelector('.jpdb-subtitle-primary')).fontSize),
+    }));
+    const before = await measure();
+    await input.press('End');
+    await page.waitForFunction(() => document.querySelector('[data-subtitle-style-setting="subtitleFontSize"]').value === '64');
+    const explicit = await measure();
+    writeFileSync(`${out}/${engine}-font-setting.json`, JSON.stringify({before,explicit},null,2));
+    assert.equal(explicit.label,'64px');
+    assert.equal(explicit.actual,64,`${engine}: selected pixel size does not match rendered caption`);
+    await input.press('Home');
+    await page.waitForFunction(() => document.querySelector('[data-subtitle-style-output="subtitleFontSize"]').textContent === 'Auto');
+    const automatic = await measure();
+    assert.equal(automatic.actual,before.actual,`${engine}: automatic size did not restore native caption sizing`);
+    writeFileSync(`${out}/${engine}-font-setting.json`, JSON.stringify({before,explicit,automatic},null,2));
+    await page.locator('.jpdb-subtitle-style-toggle').tap();
+    await input.waitFor({state:'hidden'});
+    await page.evaluate(() => document.activeElement?.blur());
+    return {before,explicit,automatic};
 }

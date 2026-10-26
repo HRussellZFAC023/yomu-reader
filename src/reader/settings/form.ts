@@ -883,7 +883,7 @@ function renderVideoSettingsPanel(settings: ReaderSettings): string {
                     ${input('subtitleNativeBlurStrength', text('subtitleNativeBlurStrength'), String(settings.subtitleNativeBlurStrength), 'number')}
                     ${input('subtitleTranscriptAutoScrollResumeSeconds', text('subtitleTranscriptAutoScrollResumeSeconds'), String(settings.subtitleTranscriptAutoScrollResumeSeconds), 'number')}
                     ${select('subtitleControlsMode', text('subtitleControlsMode'), settings.subtitleControlsMode, localizedOptions(text, SUBTITLE_CONTROLS_MODE_OPTIONS))}
-                    ${input('subtitleFontSize', text('subtitleFontSize'), String(settings.subtitleFontSize), 'number')}
+                    ${input('subtitleFontSize', text('subtitleFontSizePixelsAuto'), String(settings.subtitleFontSize), 'number')}
                     ${input('subtitleBottomOffset', text('subtitleBottomOffset'), String(settings.subtitleBottomOffset), 'number')}
                     ${renderColorInputs(SUBTITLE_COLOR_FIELDS, settings)}
                     ${input('subtitleBackgroundOpacity', text('subtitleBackgroundOpacity'), String(settings.subtitleBackgroundOpacity), 'number')}

@@ -389,6 +389,8 @@ const COPY = {
         ocrCloudHelp: 'Paste a Google Cloud Vision API key.',
         ocrLocalHelp: 'Run MangaOCR/Apple Vision locally and enter its URL.',
         ...SUBTITLE_SETTINGS_COPY.en,
+        subtitleFontSizeAutomatic: 'Auto',
+        subtitleFontSizePixelsAuto: 'Subtitle font size (px; 0 = auto)',
         right: 'Right',
         left: 'Left',
         bottom: 'Below',
@@ -2200,6 +2202,8 @@ recommendedBccwj	BCCWJ由来の頻度バッジです。
 recommendedJiten	Jiten由来の頻度バッジです。
 `),
     ...SUBTITLE_SETTINGS_COPY.ja,
+    subtitleFontSizeAutomatic: '自動',
+    subtitleFontSizePixelsAuto: '字幕フォントサイズ（px、0 = 自動）',
     ...APPEARANCE_QUICK_COPY.ja,
     ...REVIEW_SERVICES_COPY.ja,
 };

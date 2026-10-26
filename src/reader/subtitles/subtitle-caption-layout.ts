@@ -3,11 +3,12 @@ import { setStylePropertyIfChanged } from './subtitle-surface';
 import { subtitleVisibleViewportSize } from './subtitle-video-inset';
 import { isYouTubePage } from './subtitle-youtube';
 
-/** Keep the saved size as a scale relative to YouTube's native caption size. */
-export function youtubeCaptionFontSize(target: number, nativeSize: number, playerWidth: number): number {
-    const native = Number.isFinite(nativeSize) && nativeSize > 0
-        ? nativeSize : Math.min(28, Math.max(16, Math.round(playerWidth * .034)));
-    return Math.max(16, Math.min(64, native * target / 28));
+/** Zero selects player-native sizing; positive saved values are CSS pixels. */
+export function youtubeCaptionFontSize(saved: number, nativeSize: number, playerWidth: number): number {
+    if (saved > 0) return Math.max(16, Math.min(64, saved));
+    return Number.isFinite(nativeSize) && nativeSize > 0
+        ? Math.max(16, Math.min(64, nativeSize))
+        : Math.min(28, Math.max(16, Math.round(playerWidth * .034)));
 }
 
 const CAPTION_PARTS = '.jpdb-subtitle-primary-row,.jpdb-subtitle-lines > .jpdb-subtitle-secondary,[data-subtitle-drag-handle]';
@@ -60,8 +61,8 @@ export class SubtitleCaptionSizing {
     private reference = 28;
 
     apply(root: HTMLElement, video: HTMLVideoElement | undefined, savedSize: number, frame: DOMRect): void {
-        const saved = Math.max(16, Math.min(64, savedSize));
-        const target = video && isYouTubePage() ? this.size(video, saved, frame.width, frame.height) : saved;
+        const saved = savedSize === 0 ? 0 : Math.max(16, Math.min(64, savedSize));
+        const target = video && isYouTubePage() ? this.size(video, saved, frame.width, frame.height) : saved || 28;
         setStylePropertyIfChanged(root, '--subtitle-font-size-target', `${target}px`);
         setStylePropertyIfChanged(root, '--subtitle-font-size', `${target}px`);
         setStylePropertyIfChanged(root, '--subtitle-secondary-font-size', `${Math.max(16, Math.round(target * 0.8))}px`);
@@ -73,7 +74,7 @@ export class SubtitleCaptionSizing {
             const native = player?.querySelector<HTMLElement>('.ytp-caption-segment')
                 ?? player?.querySelector<HTMLElement>('.caption-visual-line')
                 ?? player?.querySelector<HTMLElement>('.captions-text');
-            this.reference = youtubeCaptionFontSize(28, native ? Number.parseFloat(getComputedStyle(native).fontSize) : NaN, width);
+            this.reference = youtubeCaptionFontSize(0, native ? Number.parseFloat(getComputedStyle(native).fontSize) : NaN, width);
             this.video = video;
             this.width = width;
             this.height = height;

@@ -72,6 +72,19 @@ async function restore(backup: { settings: Partial<ReaderSettings>; storage?: Re
     return adopted!;
 }
 
+describe('caption pixel-size contract', () => {
+    it('adopts automatic sizing for an unchosen legacy default', async () => {
+        expect((await loadStored({subtitleFontSize:28})).subtitleFontSize).toBe(0);
+    });
+    it('preserves an explicitly selected default pixel size', async () => {
+        const ledger: SettingsIntentLedger = {revision:1, records:{subtitleFontSize:{seq:1,value:28}}};
+        expect((await loadStored({subtitleFontSize:28},ledger)).subtitleFontSize).toBe(28);
+    });
+    it('preserves custom legacy pixel sizes', async () => {
+        expect((await loadStored({subtitleFontSize:64})).subtitleFontSize).toBe(64);
+    });
+});
+
 describe('caption background defaults', () => {
     it('adopts a readable backdrop when transparency was only carried by a whole-object save', async () => {
         expect((await loadStored({ subtitleBackgroundOpacity: 0 })).subtitleBackgroundOpacity).toBe(.75);

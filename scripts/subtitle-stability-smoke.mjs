@@ -4,7 +4,7 @@ import { chromium, webkit, devices } from 'playwright';
 import sharp from 'sharp';
 import { openRecordedPage } from './lib/recorded-page.mjs';
 import { createReaderSmokeSettings, mockJpdbApiRequest, readJsonBody } from './lib/smoke-harness.mjs';
-import { assertCaptionControls } from './lib/subtitle-stability-controls.mjs';
+import { assertCaptionControls, assertCaptionFontSize } from './lib/subtitle-stability-controls.mjs';
 import { assertCaptionGeometry } from './lib/subtitle-caption-geometry.mjs';
 import { assertPendingCaptionPair } from './lib/subtitle-pending-paint.mjs';
 
@@ -96,6 +96,12 @@ for (const [name, engine] of [['webkit', webkit], ['chromium', chromium]]) {
         await page.waitForSelector('video');
         await page.evaluate(() => { const v=document.querySelector('video');v.pause();v.currentTime=1.3; });
         await page.waitForSelector('.jpdb-subtitle-primary .jpdb-reader-furi', { timeout:60_000 });
+        const fontSize = await assertCaptionFontSize(page, name, out);
+        if (process.argv.includes('--font-size-only')) {
+            releasePending();
+            summaries.push({engine:name,fontSize});
+            continue;
+        }
         if (geometryOnly) {
             releasePending();
             const geometry = await assertCaptionGeometry(page, name, out, ja[4], popupMode);

@@ -244,7 +244,7 @@ function renderSubtitleStyleControls(settings: ReaderSettings, language: Interfa
                 </select>
             </label>
             ${renderSubtitleStyleRange('subtitleNativeBlurStrength', uiText(language, 'subtitleNativeBlurStrength'), settings.subtitleNativeBlurStrength, 4, 20, 1, 'px', nativeDisplay !== 'blurred')}
-            ${renderSubtitleStyleRange('subtitleFontSize', uiText(language, 'subtitleFontSize'), settings.subtitleFontSize, 16, 64, 2, 'px')}
+            ${renderSubtitleStyleRange('subtitleFontSize', uiText(language, 'subtitleFontSize'), settings.subtitleFontSize || 14, 14, 64, 2, 'px', false, settings.subtitleFontSize === 0 ? uiText(language, 'subtitleFontSizeAutomatic') : undefined)}
             ${renderSubtitleStyleRange('subtitleFontWeight', uiText(language, 'subtitleFontWeight'), settings.subtitleFontWeight, 300, 900, 20, 'weight')}
             ${renderSubtitleStyleRange('subtitleBackgroundOpacity', uiText(language, 'subtitleBackgroundOpacity'), settings.subtitleBackgroundOpacity, 0, 1, 0.05, '')}
             <label class="jpdb-subtitle-style-field jpdb-subtitle-style-select">
@@ -298,12 +298,13 @@ function renderSubtitleStyleRange(
     step: number,
     suffix: string,
     hidden = false,
+    displayValue?: string,
 ): string {
     return `
         <label class="jpdb-subtitle-style-field" data-subtitle-style-field="${setting}" ${hidden ? 'hidden' : ''}>
             <span>${escapeHtml(label)}</span>
-            <output data-subtitle-style-output="${setting}">${escapeHtml(subtitleStyleDisplayValue(value, suffix))}</output>
-            <input type="range" min="${min}" max="${max}" step="${step}" value="${value}" data-subtitle-style-setting="${setting}"${subtitleStyleControlAttributes(setting)}>
+            <output data-subtitle-style-output="${setting}">${escapeHtml(displayValue ?? subtitleStyleDisplayValue(value, suffix))}</output>
+            <input type="range" min="${min}" max="${max}" step="${step}" value="${value}"${displayValue ? ` aria-valuetext="${escapeHtml(displayValue)}"` : ''} data-subtitle-style-setting="${setting}"${subtitleStyleControlAttributes(setting)}>
         </label>
     `;
 }

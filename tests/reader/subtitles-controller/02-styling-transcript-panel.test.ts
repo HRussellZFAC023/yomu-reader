@@ -186,8 +186,8 @@ describe('SubtitlePlayerController — styling & transcript panel', () => {
             expect(settings.subtitleNativeBlurStrength).toBe(BASE_DEFAULT_SETTINGS.subtitleNativeBlurStrength);
             expect(settings.subtitleFontFamily).toBe(BASE_DEFAULT_SETTINGS.subtitleFontFamily);
             expect(settings.subtitleHoverPause).toBe(BASE_DEFAULT_SETTINGS.subtitleHoverPause);
-            expect(root.style.getPropertyValue('--subtitle-font-size-target')).toBe(`${BASE_DEFAULT_SETTINGS.subtitleFontSize}px`);
-            expect(root.style.getPropertyValue('--subtitle-font-size')).toBe(`${BASE_DEFAULT_SETTINGS.subtitleFontSize}px`);
+            expect(root.style.getPropertyValue('--subtitle-font-size-target')).toBe(`${BASE_DEFAULT_SETTINGS.subtitleFontSize || 28}px`);
+            expect(root.style.getPropertyValue('--subtitle-font-size')).toBe(`${BASE_DEFAULT_SETTINGS.subtitleFontSize || 28}px`);
             expect(root.style.getPropertyValue('--subtitle-weight')).toBe(String(BASE_DEFAULT_SETTINGS.subtitleFontWeight));
             expect(root.style.getPropertyValue('--subtitle-bottom')).toBe(`${BASE_DEFAULT_SETTINGS.subtitleBottomOffset}%`);
             expect(popover.querySelector<HTMLOutputElement>('[data-subtitle-style-output="subtitleBackgroundOpacity"]')?.textContent).toBe('75%');
