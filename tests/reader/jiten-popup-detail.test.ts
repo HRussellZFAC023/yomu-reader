@@ -190,6 +190,20 @@ describe("the popup's Jiten word detail", () => {
         expect(answer).toHaveBeenCalledTimes(2);
     });
 
+    it('keeps dictionary-form pitch on the dictionary-form card for an inflected surface', async () => {
+        const wordId = 1358280;
+        const page = new JitenPublicVocabularyClient({ requestJsonImpl: async url => url.includes('/parse?')
+            ? [{ wordId, readingIndex: 0, originalText: '食べた' }]
+            : { ...SENSEI_INFO, wordId, mainReading: { text: '食[た]べる', readingIndex: 0, frequencyRank: 219 }, pitchAccents: [2] },
+        });
+        const [[token]] = await page.parse(['食べた']);
+        expect(token).toMatchObject({ start: 0, end: 3, card: { spelling: '食べる', reading: 'たべる', pitchAccent: ['LHLL'] } });
+
+        const popup = new JitenApiClient(() => '', { anonymous: page });
+        enrichCardFromJitenVocabularyInfo(token.card, await popup.lookupVocabularyInfoForCard(token.card));
+        expect(token.card).toMatchObject({ spelling: '食べる', reading: 'たべる', pitchAccent: ['LHLL'] });
+    });
+
     it('rechecks the shared budget when concurrent popup requests wake', async () => {
         vi.useFakeTimers();
         const jiten = fakeJiten();
