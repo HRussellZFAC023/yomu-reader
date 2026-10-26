@@ -39,6 +39,7 @@ for (const [engine, type] of Object.entries({ chromium, webkit }).filter(([engin
     const contextOptions = engine === 'webkit' ? { viewport: { width: 820, height: 1180 }, hasTouch: true, bypassCSP: true } : { viewport: { width: 1280, height: 900 }, bypassCSP: true };
     try {
         if (process.argv.includes('--ocr-only')) { await ocrReadings(browser, contextOptions, engine); continue; }
+        if (process.argv.includes('--subtitles-only')) { await subtitleReadings(browser, contextOptions, engine); continue; }
         console.log(`${engine}: Settings`);
         const chosen = await settingsUi(browser, contextOptions, engine);
         const run = await openRecordedPage({ browser, gmNetwork: 'offline', slug: 'ja-wikipedia-nihongo', settings: { ...settings, ...chosen, showFurigana: true, furiganaMode: 'all' }, contextOptions, onGmRequest: answer, storageInitialize: 'ifMissing' });
@@ -48,6 +49,15 @@ for (const [engine, type] of Object.entries({ chromium, webkit }).filter(([engin
             const word = () => page.locator('#mw-content-text p .jpdb-reader-word[data-expression="日本語"]:not(a *)').first();
             await word().waitFor({ timeout: 30000 });
             assert(await page.locator('#mw-content-text rt').count() > 0, 'No initial page readings');
+            await tap(page.locator('.jpdb-reader-fab'));
+            // Power must preserve visible readings too, not only an Off preference.
+            await tap(page.locator('[data-radial-id="power"]'));
+            await stored(page, { furiganaMode: 'all', annotationsPaused: true });
+            await page.keyboard.press('Escape');
+            await tap(page.locator('.jpdb-reader-fab--paused'));
+            await stored(page, { furiganaMode: 'all', annotationsPaused: false });
+            await word().waitFor();
+            await page.locator('#mw-content-text rt.jpdb-reader-furi').first().waitFor();
             await tap(page.locator('.jpdb-reader-fab'));
             await tap(page.locator('[data-radial-id="furigana"]'));
             await stored(page, { furiganaMode: 'off', annotationsPaused: false });
@@ -86,20 +96,26 @@ for (const [engine, type] of Object.entries({ chromium, webkit }).filter(([engin
             reports.push({ engine, page: 'pass', power: 'pass', reload: 'pass', lookup: 'pass' });
         } finally { await run.close(); }
         console.log(`${engine}: page power and lookup passed`);
+        await subtitleReadings(browser, contextOptions, engine);
         await ocrReadings(browser, contextOptions, engine);
         for (const surface of ['ja-wikipedia-nihongo', 'youtube-watch']) {
-            // This saved record is also the old puck's third state: it must load ON.
-            console.log(`${engine}: ${surface} Off`);
-            const run = await openRecordedPage({ browser, gmNetwork: 'offline', slug: surface, settings: { ...settings, ...chosen, annotationsPaused: false, puckFuriganaModeBeforeHide: 'all' }, contextOptions, onGmRequest: answer });
-            try {
-                const { page } = run;
-                await page.locator('.jpdb-reader-fab--on').waitFor({ timeout: 30000 });
-                const selector = surface === 'youtube-watch' ? '.jpdb-subtitle-player' : '#mw-content-text';
-                await page.locator(`${selector} .jpdb-reader-word`).first().waitFor({ timeout: 30000 });
-                await noReadings(page, selector);
-                await page.screenshot({ path: path.join(out, `${engine}-${surface}-off.png`) });
-                reports.push({ engine, surface, settingsOffAndMigration: 'pass' });
-            } finally { await run.close(); }
+            for (const [kind, preference] of Object.entries({
+                settingsOff: chosen,
+                legacyMiddleState: { showFurigana: true, furiganaMode: 'off', puckFuriganaModeBeforeHide: 'all' },
+            })) {
+                console.log(`${engine}: ${surface} ${kind}`);
+                const run = await openRecordedPage({ browser, gmNetwork: 'offline', slug: surface,
+                    settings: { ...settings, ...preference }, contextOptions, onGmRequest: answer });
+                try {
+                    const { page } = run;
+                    await page.locator('.jpdb-reader-fab--on').waitFor({ timeout: 30000 });
+                    const selector = surface === 'youtube-watch' ? '.jpdb-subtitle-player' : '#mw-content-text';
+                    await page.locator(`${selector} .jpdb-reader-word`).first().waitFor({ timeout: 30000 });
+                    await noReadings(page, selector);
+                    await page.screenshot({ path: path.join(out, `${engine}-${surface}-${kind}.png`) });
+                    reports.push({ engine, surface, [kind]: 'pass' });
+                } finally { await run.close(); }
+            }
         }
     } finally { await browser.close(); }
 }
@@ -149,11 +165,57 @@ async function settingsUi(browser, contextOptions, engine) {
         // Relabel the actual Settings UI, then verify the Japanese choice.
         await page.goto('https://yomureader.com/study/#settings=appearance', { waitUntil: 'domcontentloaded' });
         assert(await select.inputValue() === 'off', 'Study lost Furigana Off across reload');
+        // Keep the general dropdown-persistence coverage of the former manual gate.
+        await page.locator('select[name="popupMode"]').selectOption('sheet');
+        await page.locator('button[type="submit"]').filter({ hasText: 'Save' }).click();
+        await page.waitForFunction(key => JSON.parse(localStorage.getItem(key) || '{}').popupMode === 'sheet', YOMU_SETTINGS_KEY);
+        await page.goto('https://yomureader.com/study/#settings=appearance', { waitUntil: 'domcontentloaded' });
+        assert(await page.locator('select[name="popupMode"]').inputValue() === 'sheet', 'Study lost another saved preference');
+        assert(await select.inputValue() === 'off', 'Saving another setting restored readings');
         await page.locator('select[name="interfaceLanguage"]').selectOption('ja');
         assert(await select.locator('option[value="off"]').textContent() === 'オフ', 'Missing Japanese Off');
         assert(!(await page.locator('body').innerText()).includes('未翻訳'), 'Untranslated Japanese Settings');
         return { showFurigana: chosen.showFurigana, furiganaMode: chosen.furiganaMode };
     } finally { await context.close(); }
+}
+
+async function subtitleReadings(browser, contextOptions, engine) {
+    console.log(`${engine}: subtitle reading controls`);
+    const run = await openRecordedPage({ browser, gmNetwork: 'offline', slug: 'youtube-watch', settings,
+        // Hold a recorded cue containing a mocked dictionary word while the
+        // learner uses the puck; later redacted cues have no dictionary reading.
+        hostOptions: { autoplay: false, startSeconds: 0.5 }, contextOptions, onGmRequest: answer });
+    try {
+        const { page } = run;
+        const tap = locator => engine === 'webkit' ? locator.tap() : locator.click();
+        const word = () => page.locator('.jpdb-subtitle-player .jpdb-reader-word[data-reading]').first();
+        await word().waitFor({ timeout: 30000 });
+        await page.locator('.jpdb-subtitle-player rt.jpdb-reader-furi').first().waitFor();
+        console.log(`${engine}: subtitle readings visible`);
+        await tap(page.locator('.jpdb-reader-fab'));
+        await tap(page.locator('[data-radial-id="furigana"]'));
+        await stored(page, { annotationsPaused: false, furiganaMode: 'off' });
+        await noReadings(page, '.jpdb-subtitle-player');
+        console.log(`${engine}: subtitle readings off`);
+        await page.keyboard.press('Escape');
+        await tap(word());
+        await page.locator('.jpdb-reader-popover .jpdb-reader-spelling rt').first().waitFor();
+        console.log(`${engine}: subtitle lookup retained`);
+        await page.keyboard.press('Escape');
+        await tap(page.locator('.jpdb-reader-fab'));
+        await tap(page.locator('[data-radial-id="furigana"]'));
+        await stored(page, { annotationsPaused: false, furiganaMode: 'all' });
+        await page.locator('.jpdb-subtitle-player rt.jpdb-reader-furi').first().waitFor();
+        reports.push({ engine, surface: 'youtube-watch', subtitleOffLookupRestore: 'pass' });
+    } catch (error) {
+        const diagnosis = await run.page.evaluate(() => ({
+            words: [...document.querySelectorAll('.jpdb-subtitle-player .jpdb-reader-word')].map(node => node.outerHTML),
+            subtitles: document.querySelector('.jpdb-subtitle-player')?.outerHTML,
+            popover: document.querySelector('.jpdb-reader-popover')?.outerHTML,
+        }));
+        writeFileSync(path.join(out, `${engine}-subtitle-failure.json`), JSON.stringify({ diagnosis, errors: run.pageErrors }, null, 2));
+        throw error;
+    } finally { await run.close(); }
 }
 
 async function ocrReadings(browser, contextOptions, engine) {
