@@ -188,18 +188,37 @@ describe('OCR answers in memory', () => {
         let provider = 'google-lens';
         const answers = new OcrAnswerCache(() => provider);
         await answers.ready();
-        answers.remember('img|800x1200\n@yomu-target:ja', null);
+        answers.remember('img|800x1200\n@yomu-target:ja', null, provider);
         expect(answers.get('img|800x1200\n@yomu-target:ja')).toBeNull();
         // Lens found nothing; that says nothing about the learner's own OCR server.
         provider = 'local-service';
         expect(answers.has('img|800x1200\n@yomu-target:ja')).toBe(false);
     });
 
+    it.each([null, result('レンズ')])('keeps an in-flight answer under its starting provider: %j', async answer => {
+        let provider = 'google-lens';
+        const answers = new OcrAnswerCache(() => provider);
+        await answers.ready();
+        const scanProvider = provider;
+        provider = 'local-service';
+        answers.remember('https://manga.example/in-flight.png|800x1200', answer, scanProvider);
+        expect(answers.has('https://manga.example/in-flight.png|800x1200')).toBe(false);
+        provider = 'google-lens';
+        expect(answers.get('https://manga.example/in-flight.png|800x1200')).toEqual(answer);
+        flushPersistedOcrCache();
+        await settled();
+        const reloaded = new OcrAnswerCache(() => provider);
+        await reloaded.ready();
+        expect(reloaded.get('https://manga.example/in-flight.png|800x1200')).toEqual(answer ?? undefined);
+        provider = 'local-service';
+        expect(reloaded.has('https://manga.example/in-flight.png|800x1200')).toBe(false);
+    });
+
     it('drops a remembered empty answer for a press, but keeps text', async () => {
         const answers = new OcrAnswerCache(() => 'google-lens');
         await answers.ready();
-        answers.remember('empty', null);
-        answers.remember('text', result('読む'));
+        answers.remember('empty', null, 'google-lens');
+        answers.remember('text', result('読む'), 'google-lens');
         answers.forgetEmpty('empty');
         answers.forgetEmpty('text');
         expect(answers.has('empty')).toBe(false);
@@ -209,7 +228,7 @@ describe('OCR answers in memory', () => {
     it('starts from the answers an earlier visit stored', async () => {
         const first = new OcrAnswerCache(() => 'google-lens');
         await first.ready();
-        first.remember('https://manga.example/p1.png|800x1200', result('前回'));
+        first.remember('https://manga.example/p1.png|800x1200', result('前回'), 'google-lens');
         flushPersistedOcrCache();
         await settled();
 

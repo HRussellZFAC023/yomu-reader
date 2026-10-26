@@ -8,6 +8,8 @@
 // (scripts/fixtures/ocr/, captured with --capture-lens), so every run is
 // offline and deterministic.
 //
+//   provider  a late Lens answer keeps its starting provider after a Settings change.
+//   aria      OCR regions have explicit English/Japanese accessible names.
 //   honesty   the first crupload answers 429: tap 1 shows a failed mark within
 //             300 ms, the pointer passing over the photo again sends nothing,
 //             tap 2 reads the lines, 2 Lens requests in total; after a reload
@@ -113,6 +115,8 @@ for (const target of Object.values(TARGETS)) target.answer = readLensAnswer(targ
 for (const engine of engines) {
     const browser = await ENGINES[engine].launch();
     try {
+        if (runCase('provider')) await providerSwitchCase(browser, engine);
+        if (runCase('aria')) await accessibleNameCase(browser, engine);
         if (runCase('honesty')) await honestyCase(browser, engine);
         if (runCase('loading')) await loadingCase(browser, engine);
         if (runCase('hover')) await hoverCase(browser, engine);
@@ -179,6 +183,82 @@ async function honestyCase(browser, engine) {
         await checkPrivacy(run, label);
     } finally {
         await run.close();
+    }
+}
+
+// Regression: finish Lens after Settings changes to the local service.
+async function providerSwitchCase(browser, engine) {
+    const label = `${engine} provider switch`;
+    const target = TARGETS.sign;
+    let finishLens;
+    const pendingAnswer = new Promise(resolve => { finishLens = resolve; });
+    let started = false;
+    const run = await openPhotoPage(browser, target, {
+        settings: tapOnlySettings(),
+        onGmRequest: async request => {
+            if (!LENS.test(request.url)) return googleWebAnswer(request);
+            started = true;
+            await pendingAnswer;
+            return lensProtobuf(target);
+        },
+    });
+    try {
+        // Observe the real controller at the request boundary. No recognition,
+        // cache, provider or rendering implementation is replaced by this probe.
+        await run.page.evaluate(() => {
+            const prototype = window.__yomuCompanions.ocr.ImageOcrController.prototype;
+            const recognize = prototype.recognizeImage;
+            prototype.recognizeImage = function (...args) {
+                window.__ocrHonestyController = this;
+                return recognize.apply(this, args);
+            };
+        });
+        await tapPhoto(run.page, target);
+        const deadline = Date.now() + 10_000;
+        while (!started && Date.now() < deadline) await delay(20);
+        if (!started) throw new Error('Lens request never started');
+        await run.page.evaluate(() => {
+            const controller = window.__ocrHonestyController;
+            const settings = controller.options.getSettings();
+            settings.ocrProvider = 'local-service';
+            controller.refresh();
+        });
+        finishLens();
+        const lines = await waitForLines(run.page, 10_000);
+        const cached = await run.page.evaluate(() => {
+            const controller = window.__ocrHonestyController;
+            const keys = [...controller.answers.answers.keys()];
+            return { lens: keys.filter(key => key.endsWith('@ocr-provider:google-lens')).length,
+                local: keys.filter(key => key.endsWith('@ocr-provider:local-service')).length };
+        });
+        check(`${label}: the late answer belongs only to Lens`, lines === target.lines && cached.lens === 1 && cached.local === 0,
+            { lines, ...cached });
+        await checkPrivacy(run, label);
+    } finally {
+        finishLens();
+        await run.close();
+    }
+}
+
+async function accessibleNameCase(browser, engine) {
+    const target = TARGETS.sign;
+    for (const [language, name] of [['en', 'よむ image text'], ['ja', 'よむの画像テキスト']]) {
+        const label = `${engine} OCR region ${language}`;
+        const run = await openPhotoPage(browser, target, {
+            settings: { ...tapOnlySettings(), interfaceLanguage: language },
+            onGmRequest: request => LENS.test(request.url) ? lensProtobuf(target) : googleWebAnswer(request),
+        });
+        try {
+            await tapPhoto(run.page, target);
+            const lines = await waitForLines(run.page, 10_000);
+            const regions = await run.page.locator('.jpdb-ocr-layer[role="region"]').evaluateAll(elements =>
+                elements.map(element => ({ name: element.getAttribute('aria-label'), id: element.dataset.ocrLayerId })));
+            check(`${label}: recognized text has a localized accessible name`, lines === target.lines && regions.length > 0
+                && regions.every(region => region.name === `${name} ${region.id}`), { lines, regions });
+            await checkPrivacy(run, label);
+        } finally {
+            await run.close();
+        }
     }
 }
 

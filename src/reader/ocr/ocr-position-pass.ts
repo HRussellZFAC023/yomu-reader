@@ -1,3 +1,5 @@
+import { formatUiText } from '../app/i18n';
+import type { InterfaceLanguage } from '../app/types';
 import { sourceSharesDocumentScroll } from '../dom/composed-tree';
 // Where every OCR layer on the page goes, once per animation frame.
 //
@@ -119,7 +121,7 @@ function ocrLayerPlacement(
     );
 }
 
-export function setOcrOverlayAccessibility(overlay: HTMLElement, visible: boolean): void {
+export function setOcrOverlayAccessibility(overlay: HTMLElement, visible: boolean, language: InterfaceLanguage = 'en'): void {
     overlay.setAttribute('aria-hidden', String(!visible));
     if (!visible) {
         overlay.removeAttribute('role');
@@ -127,7 +129,7 @@ export function setOcrOverlayAccessibility(overlay: HTMLElement, visible: boolea
         return;
     }
     overlay.setAttribute('role', 'region');
-    overlay.setAttribute('aria-label', `Yomu OCR text ${overlay.dataset.ocrLayerId ?? ''}`.trim());
+    overlay.setAttribute('aria-label', formatUiText(language, 'ocrTextRegion', { id: overlay.dataset.ocrLayerId ?? '' }).trim());
 }
 
 // Identical writes still invalidate a compositor layer, so touch the transform only when

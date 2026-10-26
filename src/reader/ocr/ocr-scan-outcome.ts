@@ -20,7 +20,8 @@ export class OcrAnswerCache {
     /** `provider` names the provider whose answers a key reads and writes now. */
     constructor(private readonly provider: () => string) {
         // Answers moved from the old page cache belong to the provider in use now.
-        this.hydrated = loadPersistedOcrCache(key => this.key(key))
+        const migrationProvider = provider();
+        this.hydrated = loadPersistedOcrCache(key => answerKey(key, migrationProvider))
             .then(stored => {
                 // Answers given while storage was loading are newer than stored ones.
                 for (const [key, result] of stored) if (!this.answers.has(key)) this.answers.set(key, result);
@@ -43,19 +44,19 @@ export class OcrAnswerCache {
         return this.answers.get(this.key(cacheKey));
     }
 
-    /** Remember what the provider answered. Call it only with an answer, never after a failure. */
-    remember(cacheKey: string, result: OcrResult | null): void {
+    /** Remember what the provider answered. Use the provider captured before the request, never the current setting. */
+    remember(cacheKey: string, result: OcrResult | null, scanProvider: string): void {
         // Paused-video frames key by their data: URL — far too large to keep.
         if (cacheKey.startsWith('data:')) return;
-        const key = this.key(cacheKey);
+        const key = answerKey(cacheKey, scanProvider);
         this.answers.delete(key);
         this.answers.set(key, result?.lines.length ? result : null);
         this.evict();
         this.persist();
     }
 
-    forget(cacheKey: string): void {
-        if (this.answers.delete(this.key(cacheKey))) this.persist();
+    forget(cacheKey: string, provider = this.provider()): void {
+        if (this.answers.delete(answerKey(cacheKey, provider))) this.persist();
     }
 
     /** A press reads the image again: drop a remembered empty answer, keep text. */

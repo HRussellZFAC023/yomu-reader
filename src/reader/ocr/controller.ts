@@ -1131,12 +1131,13 @@ export class ImageOcrController {
             return;
         }
         const state = existingState ?? this.ensureState(image);
-        const settings = this.options.getSettings();
         const manualRequested = state.manualRequested;
         this.resetStateIfImageChanged(state);
         const work = ocrTargetWork(state.key, target);
         if (await this.tryRenderCachedOcrResult(state, work)) return;
         if (!this.isCurrentContentState(state, work.contentKey)) return;
+        // A provider change while this request is in flight must not relabel its answer.
+        const settings = { ...this.options.getSettings() };
         // Never send a page whose result would be hidden, e.g. one captured for the learner's
         // own OCR service and still queued when they switch to a cloud provider.
         if (this.shouldSuppressAutoRenderedResult(state, Boolean(readFallbackOcrResult(image)), manualRequested)) return;
@@ -1246,12 +1247,12 @@ export class ImageOcrController {
                 : 0;
             if (this.isReaderRasterFrame(image)) {
                 if (!manualRequested && readerRasterEmptyAttempts >= READER_RASTER_MAX_EMPTY_SCAN_ATTEMPTS) {
-                    this.remember(work.cacheKey, null);
+                    this.answers.remember(work.cacheKey, null, settings.ocrProvider);
                 } else {
-                    this.forget(work.cacheKey);
+                    this.answers.forget(work.cacheKey, settings.ocrProvider);
                 }
             } else {
-                this.remember(work.cacheKey, null);
+                this.answers.remember(work.cacheKey, null, settings.ocrProvider);
             }
             this.requireCurrentContentState(state, work.contentKey);
             this.renderNoOcrLines(state);
@@ -1264,7 +1265,7 @@ export class ImageOcrController {
             return;
         }
 
-        if (!partialOcrResults.has(result)) this.remember(work.cacheKey, result);
+        if (!partialOcrResults.has(result)) this.answers.remember(work.cacheKey, result, settings.ocrProvider);
         this.readerRasterEmptyScans.delete(this.readerRasterEmptyScanKey(state, work));
         this.readerRasterFailedScans.delete(work.workKey);
         this.clearReaderRasterProviderRetry(work.workKey);
@@ -1849,11 +1850,6 @@ export class ImageOcrController {
             if (!oldest) break;
             this.readerRasterFailedScans.delete(oldest);
         }
-    }
-
-    // Only provider answers reach here; a failed scan is never remembered.
-    private remember(key: string, result: OcrResult | null): void {
-        this.answers.remember(key, result);
     }
 
     private forget(key: string): void {
@@ -3503,7 +3499,7 @@ export class ImageOcrController {
         for (const [overlay, placement, frame, offset, typeface, documentFlow] of plans) {
             const visible = Boolean(placement && frame);
             overlay.hidden = !visible;
-            setOcrOverlayAccessibility(overlay, visible);
+            setOcrOverlayAccessibility(overlay, visible, this.options.getSettings().interfaceLanguage);
             if (!placement || !frame) continue;
             setOcrArtifactScrollMode(overlay, documentFlow ?? false);
             setOcrArtifactPosition(overlay, placement.left, placement.top, offset);

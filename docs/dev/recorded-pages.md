@@ -118,6 +118,17 @@ await run.close();
 
 Chromium, WebKit and Firefox all replay every recording.
 
+The OCR regression gate is `npm run smoke:ocr-honesty`. It runs the built
+userscript graph on the recorded Commons photos in Chromium and iPad WebKit.
+For a focused rerun, pass case names, for example
+`npm run smoke:ocr-honesty -- provider aria`. The `provider` case finishes a
+Lens request after switching to the local service and refreshing the controller;
+the answer must remain under Lens. The `aria` case checks the OCR text region's
+explicit accessible name in English and Japanese. These replay checks mock the
+GM transport; they do not prove Safari Userscripts' binary request transport,
+which needs a separate candidate-specific check in that manager.
+
+
 `run.productTraffic()` says how the product's requests to the recorded
 product-traffic hosts were answered: `{ hosts, served, dropped }`. When the
 recorded build drops more than 2 answers, `run.close()`
