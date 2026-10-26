@@ -79,6 +79,7 @@ describe('generated settings reference', () => {
         const page = readFileSync(path.join(ROOT, 'docs', 'dev', 'settings-reference.md'), 'utf8');
 
         expect(page).toContain('Yomu reads Japanese immediately after installation.');
+        expect(page).toContain('Settings → Appearance → Furigana → Off');
         expect(page).toContain('| よむ off | — | off | `annotationsPaused` |');
         // A radio group's default is the option the dialog shows chosen, not on/off.
         expect(page).toContain('| Japanese text on webpages | — | Scan Japanese automatically | `manualScanEnabled` |');

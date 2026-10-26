@@ -28,6 +28,11 @@ import {
 import { syncWebsiteRouteLocalization } from '../../docs/.vitepress/theme/website-route-localization';
 
 describe('reviewed website locale contract', () => {
+    it('keeps the furigana FAQ path complete in Japanese', () => {
+        expect(localizeHtmlFragment('<strong>Settings → Appearance → Furigana → Off</strong>', 'ja'))
+            .toBe('<strong>設定 → 外観 → ふりがな → オフ</strong>');
+    });
+
     afterEach(() => {
         document.head.replaceChildren();
         document.body.replaceChildren();

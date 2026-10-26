@@ -14,6 +14,19 @@ export function chromiumExtensionSmokeConfig(importMetaUrl, artifactDirectoryNam
     };
 }
 
+/** A worker target can appear before Chromium exposes its extension APIs. */
+export async function waitForChromiumExtensionWorker(context, timeoutMs = 15000) {
+    const isExtension = worker => worker.url().startsWith('chrome-extension://');
+    const worker = context.serviceWorkers().find(isExtension)
+        ?? await context.waitForEvent('serviceworker', { predicate: isExtension, timeout: timeoutMs });
+    const deadline = Date.now() + timeoutMs;
+    do {
+        if (await worker.evaluate(() => Boolean(globalThis.chrome?.storage?.local && globalThis.chrome?.tabs?.query))) return worker;
+        await new Promise(resolve => setTimeout(resolve, 100));
+    } while (Date.now() < deadline);
+    throw new Error(`Extension worker APIs did not become ready: ${worker.url()}`);
+}
+
 /** Owns the disposable package extraction and browser profile for a smoke run. */
 export function createChromiumExtensionSmokeScope() {
     const directories = new Set();

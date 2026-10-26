@@ -11,7 +11,7 @@ export interface ReviewedDocsMessage {
 const HOSTED_DOCS_JA_COPY: Record<string, string> = {
     "How do I hide furigana or turn よむ back on? {#furigana-power}": "ふりがなを隠したり、よむを再びオンにしたりするには？ {#furigana-power}",
     "Permalink to \"How do I hide furigana or turn よむ back on? {#furigana-power}\"": "「ふりがなを隠したり、よむを再びオンにしたりするには？」への固定リンク",
-    "Settings → Furigana → Off": "設定 → ふりがな → オフ",
+    "Settings → Appearance → Furigana → Off": "設定 → 外観 → ふりがな → オフ",
     ", or use the puck’s furigana button. Readings disappear from pages, subtitles and OCR; word lookup and the popup’s headword reading stay available.": "を選ぶか、よむボタンのメニューにあるふりがなボタンを使います。ページ、字幕、OCRの読みが非表示になります。単語の検索とポップアップの見出し語の読みは引き続き使えます。",
     "The puck’s power button turns よむ on or off without changing your furigana choice. When よむ is off, tap its grey puck once to turn it back on. You can also use the userscript manager’s よむ annotations command or the extension toolbar’s power button.": "メニューの電源ボタンは、ふりがなの設定を変えずによむをオン・オフにします。オフのときは灰色のよむボタンを1回タップするとオンに戻ります。ユーザースクリプト管理アプリの「よむ annotations」コマンドや、拡張機能のツールバーにある電源ボタンからも切り替えられます。",
     "On desktops with always-visible scrollbars, the よむ button and its menu keep their normal size instead of shrinking as if the page were zoomed.": "スクロールバーが常に表示されるデスクトップでも、よむボタンとメニューがページを拡大したときのように縮まず、通常の大きさで表示されるようにしました。",

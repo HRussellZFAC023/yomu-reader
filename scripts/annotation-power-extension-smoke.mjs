@@ -4,7 +4,7 @@
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { chromium } from 'playwright';
-import { createChromiumExtensionSmokeScope } from './lib/chromium-extension-smoke.mjs';
+import { createChromiumExtensionSmokeScope, waitForChromiumExtensionWorker } from './lib/chromium-extension-smoke.mjs';
 import { loadRecording } from './lib/recorded-page.mjs';
 import { assert, mockJpdbParseFromVocabulary, YOMU_SETTINGS_KEY } from './lib/smoke-harness.mjs';
 
@@ -34,6 +34,10 @@ try {
         ignoreDefaultArgs: ['--disable-extensions'],
         args: [`--disable-extensions-except=${directory}`, `--load-extension=${directory}`],
     });
+    // Routing can interrupt extension initialization. Wait for its APIs and seed
+    // storage before intercepting page traffic or opening the recorded page.
+    const worker = await waitForChromiumExtensionWorker(context);
+    await worker.evaluate(({ key, settings }) => chrome.storage.local.set({ [key]: settings }), { key: settingsKey, settings });
     await context.route('**/*', async route => {
         const request = route.request();
         const url = new URL(request.url());
@@ -51,8 +55,6 @@ try {
         if (hit) return route.fulfill({ status: hit.status, contentType: hit.contentType, body: hit.body });
         return route.abort();
     });
-    const worker = context.serviceWorkers()[0] ?? await context.waitForEvent('serviceworker');
-    await worker.evaluate(({ key, settings }) => chrome.storage.local.set({ [key]: settings }), { key: settingsKey, settings });
     const page = await context.newPage();
     await page.goto(recording.manifest.url, { waitUntil: 'domcontentloaded' });
     const word = page.locator('#mw-content-text .jpdb-reader-word[data-expression="日本語"]').first();

@@ -12,7 +12,7 @@ Use the Yomu button on any page. On ordinary websites, Open settings launches th
 
 Yomu reads Japanese immediately after installation. There is no language choice or setup gate; dictionaries and connections are optional.
 
-Settings → Furigana → Off hides Yomu readings on pages, subtitles and OCR while word lookup stays on. The puck has separate power and furigana controls. When Yomu is off, tap its puck once to turn it back on; the userscript menu and extension toolbar can also toggle power. Power changes keep your reading preference.
+Settings → Appearance → Furigana → Off hides Yomu readings on pages, subtitles and OCR while word lookup stays on. The puck has separate power and furigana controls. When Yomu is off, tap its puck once to turn it back on; the userscript menu and extension toolbar can also toggle power. Power changes keep your reading preference.
 
 Each row names the setting, its description, stored default, and exported key.
 

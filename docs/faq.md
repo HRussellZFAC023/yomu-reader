@@ -44,7 +44,7 @@ On another website, the Settings action opens Study settings directly. If a read
 
 ## How do I hide furigana or turn よむ back on? {#furigana-power}
 
-Choose **Settings → Furigana → Off**, or use the puck’s furigana button. Readings disappear from pages, subtitles and OCR; word lookup and the popup’s headword reading stay available.
+Choose **Settings → Appearance → Furigana → Off**, or use the puck’s furigana button. Readings disappear from pages, subtitles and OCR; word lookup and the popup’s headword reading stay available.
 
 The puck’s power button turns よむ on or off without changing your furigana choice. When よむ is off, tap its grey puck once to turn it back on. You can also use the userscript manager’s よむ annotations command or the extension toolbar’s power button.
 
