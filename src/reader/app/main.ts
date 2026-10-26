@@ -2260,6 +2260,7 @@ export class ReaderApp {
             {
                 openSettings: event => this.showSettings(undefined, event),
                 openStudyPage: () => this.openStudyPage(),
+                dismissLookup: () => this.dismiss({ suppressHoverTarget: true }),
                 cyclePowerState: () => this.cyclePowerState(),
                 powerState: () => this.puckPowerState(),
                 toggleFurigana: () => this.toggleFurigana(),
@@ -2554,7 +2555,7 @@ export class ReaderApp {
 
     private setupAutoScan(): void {
         const abortSignal = this.abortController.signal;
-        addViewportChangeListeners(() => this.scheduleActivePopoverViewportChange(), abortSignal);
+        addViewportChangeListeners(event => this.scheduleActivePopoverViewportChange(event), abortSignal);
         this.autoScanObserver?.disconnect();
         this.disposeShadowRootDiscovery?.();
         this.disposeShadowRootDiscovery = installOpenShadowRootDiscovery();
@@ -4895,9 +4896,11 @@ export class ReaderApp {
         });
     }
 
-    private scheduleActivePopoverViewportChange(): void {
+    private scheduleActivePopoverViewportChange(event: Event): void {
         const popover = this.repositionableActivePopover();
-        if (!popover || (overlayViewport().pageScale === 1 && !hasOverlayPageScale(popover))) return;
+        if (!popover) return;
+        // Rotation and browser chrome can shrink an unzoomed viewport too.
+        if (event.type === 'scroll' && overlayViewport().pageScale === 1 && !hasOverlayPageScale(popover)) return;
         this.popoverViewportChangePending = true;
         this.scheduleRepositionActivePopoverFrame();
     }

@@ -1398,9 +1398,9 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
   overflow: visible !important;
 }
 
-/* UT-47: hover-only furigana — ruby is rendered but only visible while the
-   word is hovered (visibility keeps the line height stable). */
-.yomu-furi-hover .jpdb-reader-word:not(:hover) .jpdb-reader-furi {
+/* Interaction-only readings also follow keyboard focus and word navigation.
+   Visibility keeps the line height stable. */
+.yomu-furi-hover .jpdb-reader-word:not(:hover):not(:focus-within):not(.jpdb-reader-keyboard-active) .jpdb-reader-furi {
   visibility: hidden;
 }
 
@@ -2614,7 +2614,7 @@ html.jpdb-reader-suppress-redundant .jpdb-reader-word.jpdb-redundant {
   left: -4px !important;
   transform: translateY(4px) !important;
 }
-.jpdb-reader-fab-radial[data-fan-y="down"] .jpdb-reader-fab-radial-item.is-primary .jpdb-reader-fab-radial-label {
+.jpdb-reader-fab-radial[data-fan-y="up"] .jpdb-reader-fab-radial-item.is-primary .jpdb-reader-fab-radial-label {
   top: calc(100% + 10px) !important;
   bottom: auto !important;
 }
@@ -2637,6 +2637,19 @@ html.jpdb-reader-suppress-redundant .jpdb-reader-word.jpdb-redundant {
 /* has-invalidation-allow: anchored on the radial menu, which exists only while open; the state is the browser's :hover/:focus-visible */
 .jpdb-reader-fab-radial.is-open:has(.jpdb-reader-fab-radial-item:not(.is-primary):is(:hover, :focus-visible)) .jpdb-reader-fab-radial-item.is-primary .jpdb-reader-fab-radial-label {
   opacity: 0 !important;
+}
+
+/* A cramped fan becomes spaced rows, with one label slot below the controls. */
+.jpdb-reader-fab-radial.is-open[data-layout="rows"] .jpdb-reader-fab-radial-item .jpdb-reader-fab-radial-label {
+  left: var(--radial-label-x) !important;
+  top: var(--radial-label-y) !important;
+  right: auto !important;
+  bottom: auto !important;
+  transform: translateX(-50%) !important;
+  inline-size: max-content !important;
+  max-inline-size: var(--radial-label-width) !important;
+  white-space: normal !important;
+  text-align: center !important;
 }
 
 @media (prefers-reduced-motion: reduce) {

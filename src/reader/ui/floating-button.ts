@@ -43,6 +43,7 @@ export type PuckPowerState = AnnotationPowerState;
 
 /** Context actions surfaced by the puck's radial menu. */
 export interface FloatingButtonActions {
+    dismissLookup(): void;
     openSettings(event?: Event): void;
     openStudyPage(): void;
     cyclePowerState(): Promise<void>;
@@ -303,7 +304,10 @@ export class FloatingButtonController {
             event.stopPropagation();
             if (this.actions?.powerState() === 'paused') {
                 void this.actions.cyclePowerState().finally(() => this.syncButtonState());
-            } else this.radial?.toggle();
+            } else {
+                this.actions?.dismissLookup();
+                this.radial?.toggle();
+            }
         });
         this.viewportRoot = mountPuckViewport(button);
         clampRestoredButtonPosition(button, settings);
@@ -539,7 +543,7 @@ function shouldShowFloatingButton(settings: ReaderSettings): boolean {
     return settings.annotationsPaused || settings.showFloatingButton || isCoarsePointerDevice();
 }
 
-function isCoarsePointerDevice(): boolean {
+export function isCoarsePointerDevice(): boolean {
     try {
         const media = window.matchMedia?.('(pointer: coarse)');
         if (media) return media.matches;

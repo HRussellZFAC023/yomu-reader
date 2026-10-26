@@ -151,7 +151,7 @@ Set a hover key. Blank means plain hover.
 | Show settings puck | — | on | `showFloatingButton` |
 | Japanese text on webpages | — | Scan Japanese automatically | `manualScanEnabled` |
 | Enable furigana annotations | — | on | `showFurigana` |
-| Furigana | — | Hide familiar words (`known-status`) | `furiganaMode` |
+| Furigana | — | Hide readings for familiar words (`known-status`) | `furiganaMode` |
 | Readings on clamped rows | — | Show (row grows) (`show`) | `clampedRowReadings` |
 | Not yet described | — | empty | `puckFuriganaModeBeforeHide` |
 | Not yet described | — | 2 entries | `furiganaHiddenStateGroups` |

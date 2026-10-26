@@ -10,7 +10,7 @@ type ReadingMode = Exclude<ReaderSettings['furiganaMode'], 'auto'>;
 
 const READING_MODE_OPTIONS = [
     ['off', 'furiganaOff'],
-    ['known-status', 'furiganaHideKnown'],
+    ['known-status', 'furiganaHideKnownReadings'],
     ['difficult-kanji', 'furiganaDifficultKanji'],
     ['hover', 'furiganaHoverOnly'],
     ['all', 'furiganaAllParsed'],

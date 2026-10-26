@@ -2669,6 +2669,7 @@ export function mockFloatingButtonRects(left = 700, top = 500, width = 52, heigh
 
 export function stubFloatingButtonActions(overrides: Partial<FloatingButtonActions> = {}): FloatingButtonActions {
     return {
+        dismissLookup: vi.fn(),
         openSettings: vi.fn(),
         openStudyPage: vi.fn(),
         cyclePowerState: vi.fn(async () => undefined),

@@ -1085,6 +1085,7 @@ const COPY = {
         puckFuriganaOn: 'Furigana on',
         puckFuriganaOff: 'Furigana off',
         puckResume: `${APP_NAME} off · turn on`,
+        furiganaHideKnownReadings: 'Hide readings for familiar words',
     },
 } as const;
 export type UiCopyKey = keyof typeof COPY.en;
@@ -2212,6 +2213,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     puckFuriganaOn: 'ふりがなオン',
     puckFuriganaOff: 'ふりがなオフ',
     puckResume: `${APP_NAME} オフ・オンにする`,
+    furiganaHideKnownReadings: 'なじみのある語の読みを非表示',
 };
 
 export interface GrammarRuleCopy {

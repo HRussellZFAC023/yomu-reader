@@ -1147,10 +1147,10 @@ describe('settings dialog keyboard dismissal', () => {
         choosePreset('no-colors');
 
         expect(selectValue('wordColorStates')).toBe('all');
-        // Furigana shown or hidden is the puck and toolbar's state, so a preset
-        // keeps the chosen furigana style and the select offers no "off".
+        // Colour-only presets preserve the chosen reading style; Settings can
+        // also hide readings independently of power, like the puck and toolbar.
         expect(selectValue('furiganaMode')).toBe('hover');
-        expect(form.querySelector('select[name="furiganaMode"] option[value="off"]')).toBeNull();
+        expect(form.querySelector('select[name="furiganaMode"] option[value="off"]')?.textContent).toBe('Off');
         expect(selectValue('wordHighlightColorSource')).toBe('off');
         expect(selectValue('wordUnderlineColorSource')).toBe('off');
         expect(selectValue('wordTextColorSource')).toBe('off');

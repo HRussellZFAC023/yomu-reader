@@ -3,7 +3,7 @@
 // Network answers are mocked; this gate never writes to a learner's accounts.
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
-import { chromium, webkit } from 'playwright';
+import { chromium, webkit, devices } from 'playwright';
 import { openRecordedPage } from './lib/recorded-page.mjs';
 import { hostedFile, hostedAnswer, worktreeProduct } from './lib/recorded-products.mjs';
 import { assert, mockJpdbParseFromVocabulary, YOMU_SETTINGS_KEY } from './lib/smoke-harness.mjs';
@@ -36,10 +36,12 @@ const answer = request => {
 const reports = [];
 for (const [engine, type] of Object.entries({ chromium, webkit }).filter(([engine]) => !process.env.YOMU_SMOKE_BROWSER || engine === process.env.YOMU_SMOKE_BROWSER)) {
     const browser = await type.launch();
-    const contextOptions = engine === 'webkit' ? { viewport: { width: 820, height: 1180 }, hasTouch: true, bypassCSP: true } : { viewport: { width: 1280, height: 900 }, bypassCSP: true };
+    const contextOptions = engine === 'webkit' ? { ...devices['iPad Air'], viewport: { width: 820, height: 1180 }, hasTouch: true, bypassCSP: true } : { viewport: { width: 1280, height: 900 }, bypassCSP: true };
     try {
         if (process.argv.includes('--ocr-only')) { await ocrReadings(browser, contextOptions, engine); continue; }
         if (process.argv.includes('--subtitles-only')) { await subtitleReadings(browser, contextOptions, engine); continue; }
+        if (process.argv.includes('--orientation-only')) { await orientationPresentations(browser, contextOptions, engine); continue; }
+        if (process.argv.includes('--hover-only')) { await hoverReadings(browser, contextOptions, engine); continue; }
         console.log(`${engine}: Settings`);
         const chosen = await settingsUi(browser, contextOptions, engine);
         const run = await openRecordedPage({ browser, gmNetwork: 'offline', slug: 'ja-wikipedia-nihongo', settings: { ...settings, ...chosen, showFurigana: true, furiganaMode: 'all' }, contextOptions, onGmRequest: answer, storageInitialize: 'ifMissing' });
@@ -48,6 +50,7 @@ for (const [engine, type] of Object.entries({ chromium, webkit }).filter(([engin
             const tap = locator => engine === 'webkit' ? locator.tap() : locator.click();
             const word = () => page.locator('#mw-content-text p .jpdb-reader-word[data-expression="日本語"]:not(a *)').first();
             await word().waitFor({ timeout: 30000 });
+            assert(await page.evaluate(() => window.__yomuSmokeMenuCommands.has('よむ toggle puck') === !matchMedia('(pointer: coarse)').matches), 'Touch menu offers a no-op puck hide command');
             assert(await page.locator('#mw-content-text rt').count() > 0, 'No initial page readings');
             await tap(page.locator('.jpdb-reader-fab'));
             // Power must preserve visible readings too, not only an Off preference.
@@ -98,6 +101,8 @@ for (const [engine, type] of Object.entries({ chromium, webkit }).filter(([engin
         console.log(`${engine}: page power and lookup passed`);
         await subtitleReadings(browser, contextOptions, engine);
         await ocrReadings(browser, contextOptions, engine);
+        await orientationPresentations(browser, contextOptions, engine);
+        await hoverReadings(browser, contextOptions, engine);
         for (const surface of ['ja-wikipedia-nihongo', 'youtube-watch']) {
             for (const [kind, preference] of Object.entries({
                 settingsOff: chosen,
@@ -134,6 +139,101 @@ async function noReadings(page, selector) {
         return !node.getClientRects().length || style.display === 'none' || style.visibility === 'hidden' || Number(style.opacity) === 0;
     }), selector);
 }
+
+async function orientationPresentations(browser, contextOptions, engine) {
+    for (const popupMode of ['auto', 'sheet', 'popover']) {
+        const run = await openRecordedPage({ browser, gmNetwork: 'offline', slug: 'ja-wikipedia-nihongo',
+            settings: { ...settings, popupMode, stickyBottomSheet: popupMode === 'sheet', furiganaMode: 'off' },
+            contextOptions: { ...contextOptions, viewport: { width: 820, height: 1180 }, hasTouch: true }, onGmRequest: answer });
+        try {
+            const { page } = run;
+            const word = () => page.locator('#mw-content-text p .jpdb-reader-word[data-expression="日本語"]:not(a *)').first();
+            await word().waitFor({ timeout: 30000 });
+            await word().tap();
+            await page.locator('.jpdb-reader-popover .jpdb-reader-spelling rt').first().waitFor();
+            for (const [orientation, viewport] of [
+                ['portrait', { width: 820, height: 1180 }],
+                ['landscape', { width: 1180, height: 820 }],
+                ['portrait-return', { width: 820, height: 1180 }],
+            ]) {
+                // Rotate with the lookup open, then use the visible recovery
+                // controls. Resizing alone must not turn Yomu or readings on.
+                await page.setViewportSize(viewport);
+                console.log(`${engine}: ${popupMode} ${orientation}`);
+                await page.locator('.jpdb-reader-popover .jpdb-reader-spelling rt').first().waitFor();
+                await noReadings(page, '#mw-content-text');
+                await stored(page, { annotationsPaused: false, furiganaMode: 'off' });
+                await page.waitForFunction(() => {
+                    const rect = document.querySelector('.jpdb-reader-popover')?.getBoundingClientRect();
+                    return rect && rect.left >= -1 && rect.top >= -1 && rect.right <= innerWidth + 1 && rect.bottom <= innerHeight + 1;
+                });
+                await page.screenshot({ path: path.join(out, `${engine}-${popupMode}-${orientation}-rotated-open.png`) });
+                // Auto presentation is chosen when opening a lookup; an open
+                // sheet remains readable while rotating. Reopen in each
+                // orientation to verify the orientation's chosen presentation.
+                await page.keyboard.press('Escape');
+                await word().tap();
+                await page.locator('.jpdb-reader-popover .jpdb-reader-spelling rt').first().waitFor();
+                const sheet = popupMode === 'sheet' || (popupMode === 'auto' && orientation !== 'landscape');
+                await page.waitForFunction(sheet => document.querySelector('.jpdb-reader-popover')?.classList.contains('jpdb-reader-sheet') === sheet, sheet);
+                await page.screenshot({ path: path.join(out, `${engine}-${popupMode}-${orientation}.png`) });
+                reports.push({ engine, popupMode, orientation, presentation: sheet ? 'sheet' : 'popover', readingsOffLookup: 'pass' });
+            }
+            await page.keyboard.press('Escape');
+            await page.locator('.jpdb-reader-fab').tap();
+            await page.locator('[data-radial-id="power"]').tap();
+            await stored(page, { annotationsPaused: true, furiganaMode: 'off' });
+            await page.keyboard.press('Escape');
+            await page.locator('.jpdb-reader-fab--paused').tap();
+            await stored(page, { annotationsPaused: false, furiganaMode: 'off' });
+            await word().waitFor();
+            await noReadings(page, '#mw-content-text');
+        } catch (error) {
+            await run.page.screenshot({ path: path.join(out, `${engine}-${popupMode}-orientation-failure.png`) });
+            const layout = await run.page.evaluate(() => ({
+                viewport: { width: innerWidth, height: innerHeight },
+                popup: document.querySelector('.jpdb-reader-popover')?.getBoundingClientRect().toJSON(),
+                classes: document.querySelector('.jpdb-reader-popover')?.className,
+            }));
+            console.error(JSON.stringify({ layout, errors: run.pageErrors, requests: run.ledger.requests({ host: 'jpdb.io', channel: 'gm' }).slice(-5) }));
+            throw error;
+        } finally { await run.close(); }
+    }
+}
+
+async function hoverReadings(browser, contextOptions, engine) {
+    const run = await openRecordedPage({ browser, gmNetwork: 'offline', slug: 'youtube-watch',
+        settings: { ...settings, furiganaMode: 'hover' },
+        hostOptions: { autoplay: false, startSeconds: 0.5 },
+        contextOptions: { ...contextOptions, hasTouch: true }, onGmRequest: answer });
+    try {
+        const { page } = run;
+        await page.locator('.jpdb-subtitle-player rt.jpdb-reader-furi').first().waitFor({ state: 'attached', timeout: 30000 });
+        await page.mouse.move(0, 0);
+        await noReadings(page, '.jpdb-subtitle-player');
+        const word = page.locator('.jpdb-subtitle-player .jpdb-reader-word[tabindex][data-reading]').first();
+        await word.focus();
+        await word.locator('rt.jpdb-reader-furi').first().waitFor();
+        await word.tap();
+        await page.locator('.jpdb-reader-popover .jpdb-reader-spelling rt').first().waitFor();
+        await page.keyboard.press('Escape');
+        await word.tap();
+        await page.locator('.jpdb-reader-popover .jpdb-reader-spelling rt').first().waitFor();
+        await stored(page, { annotationsPaused: false, furiganaMode: 'hover' });
+        reports.push({ engine, hoverReadingsFocusAndTap: 'pass' });
+    } catch (error) {
+        const state = await run.page.evaluate(() => ({
+            active: document.querySelector('.jpdb-reader-keyboard-active')?.outerHTML,
+            hovered: document.querySelector('.jpdb-reader-word:hover')?.outerHTML,
+            words: document.querySelectorAll('.jpdb-reader-word').length,
+            focused: document.activeElement?.outerHTML.slice(0, 1000),
+            root: document.documentElement.className,
+        }));
+        console.error(JSON.stringify({ state, errors: run.pageErrors }));
+        throw error;
+    } finally { await run.close(); }
+}
+
 async function settingsUi(browser, contextOptions, engine) {
     const context = await browser.newContext(contextOptions);
     try {
@@ -158,6 +258,7 @@ async function settingsUi(browser, contextOptions, engine) {
         const select = page.locator('select[name="furiganaMode"]');
         await select.waitFor({ state: 'attached', timeout: 30000 });
         assert(await select.locator('option[value="off"]').count() === 1, 'Settings → Furigana has no Off choice');
+        assert(await select.locator('option[value="known-status"]').textContent() === 'Hide readings for familiar words', 'Furigana copy must name readings, not hidden words');
         await select.selectOption('off');
         await page.locator('button[type="submit"]').filter({ hasText: 'Save' }).click();
         await page.waitForFunction(key => JSON.parse(localStorage.getItem(key) || '{}').furiganaMode === 'off', YOMU_SETTINGS_KEY);
@@ -174,6 +275,7 @@ async function settingsUi(browser, contextOptions, engine) {
         assert(await select.inputValue() === 'off', 'Saving another setting restored readings');
         await page.locator('select[name="interfaceLanguage"]').selectOption('ja');
         assert(await select.locator('option[value="off"]').textContent() === 'オフ', 'Missing Japanese Off');
+        assert(await select.locator('option[value="known-status"]').textContent() === 'なじみのある語の読みを非表示', 'Japanese copy must name readings');
         assert(!(await page.locator('body').innerText()).includes('未翻訳'), 'Untranslated Japanese Settings');
         return { showFurigana: chosen.showFurigana, furiganaMode: chosen.furiganaMode };
     } finally { await context.close(); }
