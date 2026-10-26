@@ -49,7 +49,7 @@ export function loadRecording(slug) {
         manifest,
         documentHtml: () => readFileSync(path.join(dir, manifest.document), 'utf8'),
         har: () => readHarIndex(path.join(dir, manifest.har)),
-        productTraffic: () => (manifest.productTraffic ? readHarIndex(path.join(dir, manifest.productTraffic.har)) : null),
+        productTraffic: () => (manifest.productTraffic ? readHarIndex(path.join(dir, manifest.productTraffic.har), { preload: true }) : null),
         geometry: () => readJson(manifest.geometry),
     };
 }
@@ -71,7 +71,7 @@ export function loadRecording(slug) {
  *   a failing service; return undefined to fall through.
  */
 export async function openRecordedPage(options) {
-    const { settings = null, navigate = true, waitUntil = 'load', contextOptions = {} } = options;
+    const { settings = null, navigate = true, waitUntil = 'load', navigationTimeoutMs = 30_000, contextOptions = {} } = options;
     const scope = recordedPageScope(options);
     const contextSettings = { viewport: scope.recording.manifest.recorder.viewport, locale: 'ja-JP', timezoneId: 'Asia/Tokyo', ...contextOptions };
     scope.viewport = contextSettings.viewport;
@@ -85,7 +85,7 @@ export async function openRecordedPage(options) {
     const page = await context.newPage();
     const pageErrors = [];
     page.on('pageerror', error => pageErrors.push(String(error.message).slice(0, 300)));
-    if (navigate) await page.goto(scope.recording.manifest.url, { waitUntil }).catch(async error => {
+    if (navigate) await page.goto(scope.recording.manifest.url, { waitUntil, timeout: navigationTimeoutMs }).catch(async error => {
         await context.close();
         throw error;
     });

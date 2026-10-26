@@ -12,10 +12,20 @@ import { parseJpdbPublicPitchHtml } from './jpdb-public-pitch-parser';
 const REQUEST_TIMEOUT_MS = 6000;
 const CACHE_TTL_MS = 10 * 60 * 1000;
 const CACHE_LIMIT = 600;
+// Search pages are kept briefly, for the other readings of a word asked in
+// the same pass; the contours they give are what is kept for long.
+const PAGE_TTL_MS = 60_000;
+const PAGE_LIMIT = 24;
 const log = Logger.scope('JpdbPublicPitch');
 
+type CacheEntry<T> = { expiresAt: number; promise: Promise<T> };
+type PitchAnswer = { pitch: string[]; complete: boolean };
+
 export class JpdbPublicPitchClient {
-    private cache = new Map<string, { expiresAt: number; promise: Promise<string[]> }>();
+    private cache = new Map<string, CacheEntry<string[]>>();
+    // One jpdb.io search page per query string: 復習 asked with two readings,
+    // or as one word's spelling and another's reading, is fetched once.
+    private pages = new Map<string, CacheEntry<string | null>>();
     private readonly requestBackoff = new JpdbPublicLookupBackoff();
 
     constructor(private readonly getCorsProxyUrl: () => string = () => '') {}
@@ -35,48 +45,69 @@ export class JpdbPublicPitchClient {
         }
         if (cached) this.cache.delete(key);
 
+        // An answered lookup is kept for a day, an empty one too: jpdb.io
+        // showing no contour today shows none on the next page either.
         const persistent = readPublicJpdbCache<string[]>('pitch', key, now);
-        const promise = persistent
+        const promise = Array.isArray(persistent)
             ? Promise.resolve(persistent)
-            : this.fetchPitch(normalizedSpelling, normalizedReading).then(pitch => {
-                if (pitch.length) writePublicJpdbCache('pitch', key, pitch);
+            : this.fetchPitch(normalizedSpelling, normalizedReading).then(({ pitch, complete }) => {
+                if (complete) writePublicJpdbCache('pitch', key, pitch);
                 return pitch;
             });
         this.cache.set(key, { expiresAt: now + CACHE_TTL_MS, promise });
-        this.pruneCache(now);
+        pruneCache(this.cache, now);
         return promise;
     }
 
-    private pruneCache(now: number): void {
-        for (const [key, entry] of this.cache) {
-            if (entry.expiresAt <= now) this.cache.delete(key);
+    private async fetchPitch(spelling: string, reading: string): Promise<PitchAnswer> {
+        if (this.requestBackoff.isActive()) return { pitch: [], complete: false };
+        let complete = true;
+        for (const query of unique([spelling, reading].filter(Boolean))) {
+            const html = await this.page(query);
+            if (html === null) complete = false;
+            const pitch = html ? parseJpdbPublicPitchHtml(html, spelling, reading) : [];
+            if (pitch.length) return { pitch, complete: true };
+            if (this.requestBackoff.isActive()) return { pitch: [], complete: false };
         }
-        while (this.cache.size > CACHE_LIMIT) {
-            const oldest = this.cache.keys().next().value;
-            if (typeof oldest !== 'string') break;
-            this.cache.delete(oldest);
-        }
+        return { pitch: [], complete };
     }
 
-    private async fetchPitch(spelling: string, reading: string): Promise<string[]> {
-        if (this.requestBackoff.isActive()) return [];
-        for (const query of unique([spelling, reading].filter(Boolean))) {
-            const url = jpdbSearchUrl(query);
-            const html = await requestText(url, this.getCorsProxyUrl()).catch(error => {
+    // The search page for one query, or null when it could not be fetched.
+    private page(query: string): Promise<string | null> {
+        const now = Date.now();
+        const cached = this.pages.get(query);
+        if (cached && cached.expiresAt > now) return cached.promise;
+        const entry: CacheEntry<string | null> = {
+            expiresAt: now + PAGE_TTL_MS,
+            promise: requestText(jpdbSearchUrl(query), this.getCorsProxyUrl()).then(html => {
+                this.requestBackoff.noteSuccess();
+                return html;
+            }, error => {
+                // A failure is not an answer: the next lookup may ask again.
+                entry.expiresAt = 0;
                 this.noteRequestFailure('Public JPDB pitch request failed', { query }, error);
-                return '';
-            });
-            if (html) this.requestBackoff.noteSuccess();
-            const pitch = html ? parseJpdbPublicPitchHtml(html, spelling, reading) : [];
-            if (pitch.length) return pitch;
-            if (this.requestBackoff.isActive()) break;
-        }
-        return [];
+                return null;
+            }),
+        };
+        this.pages.set(query, entry);
+        pruneCache(this.pages, now, PAGE_LIMIT);
+        return entry.promise;
     }
 
     private noteRequestFailure(message: string, context: Record<string, unknown>, error: unknown): void {
         this.requestBackoff.noteFailure(error);
         log.warn(message, context, error);
+    }
+}
+
+function pruneCache<T>(cache: Map<string, CacheEntry<T>>, now: number, limit = CACHE_LIMIT): void {
+    for (const [key, entry] of cache) {
+        if (entry.expiresAt <= now) cache.delete(key);
+    }
+    while (cache.size > limit) {
+        const oldest = cache.keys().next().value;
+        if (typeof oldest !== 'string') break;
+        cache.delete(oldest);
     }
 }
 

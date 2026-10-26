@@ -8,6 +8,7 @@ export interface LedgerRequest {
     trustedInteractionBefore?: boolean;
     resourceType?: string;
     ledgerId?: string;
+    caller?: string;
 }
 export interface LedgerInteraction {
     type: string;
@@ -28,6 +29,8 @@ export interface LedgerEntry {
     lastInteraction: LedgerInteraction | null;
     resourceType?: string;
     ledgerId?: string;
+    /** GM requests: function names on the call stack, innermost first, joined by ' < '. */
+    caller?: string;
     /** A page fetch or XHR the page stamped as it left: the product's own. */
     sentByScript?: boolean;
 }
@@ -40,6 +43,8 @@ export interface LedgerFilter {
     /** Requests with no trusted activation in this many ms before them. */
     noInteractionWithinMs?: number;
     includeRecording?: boolean;
+    /** A function name on the GM request's call stack, or a RegExp tested against the whole stack. */
+    caller?: string | RegExp;
 }
 export interface LedgerSummary {
     requests: number;

@@ -3,7 +3,6 @@ import { createGoogleLensRequest, googleLensAcceptLanguage } from '../reader/ocr
 import {
     normalizeOcrResult,
     parseGoogleLensResponse,
-    parseGoogleLensUploadHtml,
     type OcrResult,
 } from '../reader/ocr/response';
 import type { YomuGamingOcrProvider, YomuGamingOcrRequest, YomuGamingOcrResponse } from './ipc';
@@ -16,7 +15,6 @@ const PROVIDERS = new Set<YomuGamingOcrProvider>(['google-lens', 'cloud-vision',
 interface ImagePayload {
     bytes: Uint8Array;
     base64: string;
-    mimeType: string;
 }
 
 /**
@@ -105,26 +103,12 @@ async function requestLocalOcr(request: YomuGamingOcrRequest): Promise<YomuGamin
 
 async function requestGoogleLensOcr(request: YomuGamingOcrRequest): Promise<YomuGamingOcrResponse> {
     const image = imagePayloadFromDataUrl(request.imageDataUrl);
-    const errors: string[] = [];
-    const protobuf = await requestGoogleLensProtobuf(image, request.width, request.height, request.language).catch(error => {
-        errors.push(errorMessage(error, 'Google Lens protobuf failed.'));
-        return undefined;
-    });
-    if (protobuf?.lines.length) return { ok: true, status: 200, body: protobuf };
-    const upload = await requestGoogleLensUpload(image, request.width, request.height).catch(error => {
-        errors.push(errorMessage(error, 'Google Lens upload failed.'));
-        return undefined;
-    });
-    if (upload?.lines.length) return { ok: true, status: 200, body: upload };
-    if (protobuf !== undefined || upload !== undefined) {
-        return { ok: true, status: 200, body: protobuf ?? upload ?? emptyOcrResult(request.width, request.height) };
+    try {
+        const result = await requestGoogleLensProtobuf(image, request.width, request.height, request.language);
+        return { ok: true, status: 200, body: result ?? emptyOcrResult(request.width, request.height) };
+    } catch (error) {
+        return { ok: false, status: 0, body: null, error: errorMessage(error, 'Google Lens OCR failed.') };
     }
-    return {
-        ok: false,
-        status: 0,
-        body: null,
-        error: errors.filter(Boolean).join(' ') || 'Google Lens OCR failed.',
-    };
 }
 
 async function requestCloudVisionOcr(request: YomuGamingOcrRequest): Promise<YomuGamingOcrResponse> {
@@ -172,26 +156,11 @@ async function requestGoogleLensProtobuf(image: ImagePayload, width: number, hei
     return parseGoogleLensResponse(new Uint8Array(await response.arrayBuffer()), width, height);
 }
 
-async function requestGoogleLensUpload(image: ImagePayload, width: number, height: number): Promise<OcrResult | null> {
-    const data = new FormData();
-    data.append('encoded_image', new Blob([arrayBufferFromBytes(image.bytes)], { type: image.mimeType }), imageFileName(image.mimeType));
-    const response = await fetchWithTimeout(`https://lens.google.com/v3/upload?stcs=${Date.now().toString().slice(0, 10)}`, {
-        method: 'POST',
-        headers: {
-            Origin: 'https://lens.google.com',
-            Referer: 'https://lens.google.com/',
-        },
-        body: data,
-    }, OCR_TIMEOUT_MS, 'Google Lens upload');
-    return parseGoogleLensUploadHtml(await response.text(), width, height);
-}
-
 function imagePayloadFromDataUrl(dataUrl: string): ImagePayload {
     const match = /^data:(image\/[a-z0-9.+-]+);base64,([a-z0-9+/=\s]+)$/iu.exec(dataUrl.trim());
     if (!match) throw new Error('Capture image was not a base64 image data URL.');
-    const mimeType = match[1].toLowerCase();
     const base64 = match[2].replace(/\s+/g, '');
-    return { bytes: new Uint8Array(Buffer.from(base64, 'base64')), base64, mimeType };
+    return { bytes: new Uint8Array(Buffer.from(base64, 'base64')), base64 };
 }
 
 async function fetchWithTimeout(url: string, init: RequestInit, timeoutMs: number, label: string): Promise<Response> {
@@ -230,13 +199,6 @@ function parseJsonOrText(text: string): unknown {
 function emptyOcrResult(width: number, height: number): OcrResult {
     return { width, height, lines: [] };
 }
-
-function imageFileName(mimeType: string): string {
-    if (mimeType === 'image/jpeg' || mimeType === 'image/jpg') return 'image.jpg';
-    if (mimeType === 'image/webp') return 'image.webp';
-    return 'image.png';
-}
-
 function arrayBufferFromBytes(bytes: Uint8Array): ArrayBuffer {
     return bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer;
 }

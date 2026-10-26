@@ -2,9 +2,10 @@
 // null; the first answer wins, and every request lands in the Network Ledger
 // with the name of whoever answered it.
 //
-// Page requests: the recorded document, the host adapter (YouTube's player
-// mechanism fixture), the recording's HAR, this build's docs/public for
-// yomureader.com, then the network ('live') or a dropped connection.
+// Page requests: the page's own blob: and data: URLs, the recorded document,
+// the host adapter (YouTube's player mechanism fixture), the recording's HAR,
+// this build's docs/public for yomureader.com, then the network ('live') or a
+// dropped connection.
 // GM requests: a test's own answer (to model a failing service), the product
 // traffic recorded for this page, the page's HAR (a manager fetching the
 // page's own picture gets the bytes the page got), docs/public, then the
@@ -16,6 +17,9 @@ import { mimeTypeOf } from './recorded-har.mjs';
 import { hostedAnswer, hostedFile } from './recorded-products.mjs';
 
 const PAGE_ANSWERERS = [
+    // A blob: or data: URL is the page's own memory, not the network. WebKit
+    // routes them too, and aborting one breaks a picture the page made itself.
+    async request => (/^(?:blob|data):/u.test(request.url()) ? { served: 'local', fulfill: null } : null),
     async (request, scope) => (request.isNavigationRequest() && sameDocument(request.url(), scope.recording.manifest.url)
         ? { served: 'recording', fulfill: { status: 200, contentType: 'text/html; charset=utf-8', body: scope.host.documentHtml(scope.recording.documentHtml()) } }
         : null),
@@ -29,7 +33,7 @@ const PAGE_ANSWERERS = [
     },
     async (request, scope) => {
         const file = scope.product && scope.hosted ? hostedFile(scope.product, request.url()) : null;
-        return file && { served: 'hosted', fulfill: hostedAnswer(file) };
+        return file && { served: 'hosted', fulfill: hostedAnswer(file, scope.product) };
     },
     async (request, scope) => (scope.pageNetwork === 'live' ? { served: 'live', fulfill: null } : null),
 ];
@@ -37,6 +41,7 @@ const PAGE_ANSWERERS = [
 const OFFLINE = { served: 'offline', fulfill: null };
 const UNFULFILLED = {
     live: route => route.continue(),
+    local: route => route.continue(),
     offline: route => route.abort('internetdisconnected'),
 };
 
@@ -86,7 +91,7 @@ function recordedAnswer(request, scope) {
 
 function hostedGmAnswer(request, scope) {
     const file = scope.hosted ? hostedFile(scope.product, request.url) : null;
-    return file && { served: 'hosted', ...hostedAnswer(file) };
+    return file && { served: 'hosted', ...hostedAnswer(file, scope.product) };
 }
 
 const GM_ANSWERERS = [

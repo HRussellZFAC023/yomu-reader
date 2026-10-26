@@ -197,7 +197,6 @@ import {
     allowsGenericVisibleAutoScan,
     ankiLookupHasDisplayableNotes,
     audioPreloadLimits,
-    backgroundPitchEnrichmentOptionsForHost,
     canSchedulePointerTextHoverLookup,
     cardDisplayTrigger,
     cardSourceLabel,
@@ -216,7 +215,6 @@ import {
     isMousePointerEvent,
     isYouTubeHostname,
     mountedHoverPointerPosition,
-    nestedPitchEnrichmentOptionsForHost,
     pointerOffsetInsideLiveLookup,
     popoverAnchorRect,
     renderedWordAnchor,
@@ -409,10 +407,23 @@ import {
     mergePitchPatterns,
     normalizedNestedParseOptions,
     pitchEnrichmentQueueOptions,
+    type QueuedPitchEnrichmentOptions,
     uniqueTokensByCard,
     waitForHoverCardInitialPaint,
 } from './main-lookup-helpers';
 import { ReaderCardLookupSession, type CardLookupTargetSnapshot } from './card-lookup-session';
+import {
+    allowsPublicPitch,
+    backgroundPassOptions,
+    deferredPublicLaneOptions,
+    isDeferredPublicLaneToken,
+    isPublicPitchCandidate,
+    nestedPassOptions,
+    ocrBeforeRenderOptions,
+    subtitleBeforeRenderOptions,
+    type EnrichmentContext,
+    type EnrichmentSurface,
+} from './enrichment-policy';
 import { HoverWordOwnership } from './hover-word-ownership';
 import {
     DeferredPublicJitenReadingCoordinator,
@@ -958,12 +969,15 @@ export class ReaderApp {
     private pitchEnrichmentQueue: JPDBToken[] = [];
     private pitchEnrichmentQueuedKeys = new Set<string>();
     private pitchEnrichmentUrgentKeys = new Set<string>();
-    private pitchEnrichmentQueuedOptions = new Map<string, Pick<PitchEnrichmentOptions, 'publicLookup' | 'publicLookupTermLimit' | 'jpdbPublicLookup' | 'urgent'>>();
+    private pitchEnrichmentQueuedOptions = new Map<string, QueuedPitchEnrichmentOptions>();
     private pitchEnrichmentDrain?: Promise<void>;
     private deferredPublicPitchQueue: JPDBToken[] = [];
     private deferredPublicPitchQueuedKeys = new Set<string>();
     private deferredPublicPitchEnqueuedForUrl = 0;
     private deferredPublicPitchDrain?: Promise<void>;
+    // Words shown in subtitles. The deferred lane fetches pitch for a word only
+    // when a colour channel paints pitch on the surface it was shown on.
+    private subtitleEnrichmentTokens = new WeakSet<JPDBToken>();
     private deferredPublicJitenReadings = new DeferredPublicJitenReadingCoordinator({
         isDestroyed: () => this.isDestroyed,
         shouldEnrich: () => this.shouldRunCanonicalCardEnrichment(),
@@ -982,6 +996,7 @@ export class ReaderApp {
         waitForIdle: timeoutMs => this.waitForIdle(timeoutMs),
         renderedAnnotationRoots: () => this.renderedAnnotationRoots(),
         renderedWordToken: word => this.renderedWordTokenForRecolor(word),
+        markSubtitleTokens: tokens => this.markSubtitleEnrichmentTokens(tokens),
     });
     private backgroundPublicPitchLookupBudgetHref = location.href;
     private backgroundPublicPitchLookupBudgetUsed = 0;
@@ -4162,26 +4177,18 @@ export class ReaderApp {
             && !isYouTubeRuntimeHost();
     }
 
-    private backgroundPitchEnrichmentOptions(): PitchEnrichmentOptions {
-        const options = backgroundPitchEnrichmentOptionsForHost(location.hostname, isCompactPitchEnrichmentViewport());
-        if (hasJpdbApiCredential(this.settings) || hasJitenApiCredential(this.settings)) return options;
-        const pageBudget = Math.max(0, Math.floor(options.publicLookupPageBudget ?? PITCH_ENRICHMENT_LIMIT));
-        const keylessVisibleLimit = pageBudget || PITCH_ENRICHMENT_LIMIT;
-        // The jpdb.io pitch lane stays ON for keyless users on EVERY host
-        // (within the batch/page/deferred budgets): words outside the local
-        // pitch dict otherwise stay grey 'unknown' forever — jiten backfills
-        // readings but pitch for many words exists only on jpdb.io. Budgets,
-        // pacing, and the deferred per-URL cap are the DOS guard; do not widen
-        // them here.
-        return {
-            ...options,
-            publicLookupLimit: Math.max(Math.floor(options.publicLookupLimit ?? 0), keylessVisibleLimit),
-            publicLookupTotalLimit: Math.max(Math.floor(options.publicLookupTotalLimit ?? 0), keylessVisibleLimit),
-        };
+    // The Enrichment Policy (enrichment-policy.ts) decides what each pass may
+    // fetch: jpdb.io pitch pages only while a colour channel paints pitch.
+    private enrichmentContext(): EnrichmentContext {
+        return { settings: this.settings, hostname: location.hostname, compactViewport: isCompactPitchEnrichmentViewport(), videoPage: isYouTubeRuntimeHost() };
+    }
+
+    private backgroundPitchEnrichmentOptions(surface: EnrichmentSurface = 'page'): PitchEnrichmentOptions {
+        return backgroundPassOptions(this.enrichmentContext(), surface);
     }
 
     private nestedPitchEnrichmentOptions(): PitchEnrichmentOptions {
-        return nestedPitchEnrichmentOptionsForHost(location.hostname);
+        return nestedPassOptions(this.enrichmentContext());
     }
 
     private preloadableReaderWordCard(word: HTMLElement): JPDBCard | null {
@@ -5419,7 +5426,7 @@ export class ReaderApp {
 
     private publicLookupFallbackCards(
         cards: readonly JPDBCard[],
-        options: Pick<PitchEnrichmentOptions, 'publicLookupTermLimit' | 'jpdbPublicLookup'> = {},
+        options: Pick<PitchEnrichmentOptions, 'publicLookupTermLimit' | 'jpdbPublicLookup' | 'publicPitch'> = {},
         scope = this.cardLookup.captureTarget(),
     ): Promise<Map<string, JPDBCard>> {
         return this.cardLookup.publicLookupFallbackCards(cards, options, scope);
@@ -5427,7 +5434,7 @@ export class ReaderApp {
 
     private lookupFallbackApiCard(
         card: JPDBCard,
-        options: Pick<PitchEnrichmentOptions, 'publicLookupTermLimit' | 'jpdbPublicLookup'> = {},
+        options: Pick<PitchEnrichmentOptions, 'publicLookupTermLimit' | 'jpdbPublicLookup' | 'publicPitch'> = {},
         scope = this.cardLookup.captureTarget(),
     ): Promise<JPDBCard | undefined> {
         return this.cardLookup.lookupFallbackApiCard(card, options, scope);
@@ -7724,7 +7731,8 @@ export class ReaderApp {
     }
 
     private afterSubtitleJapaneseParsed(tokens: JPDBToken[], roots: ParentNode[] = []): void {
-        void this.enrichPitchWords(tokens, this.backgroundPitchEnrichmentOptions());
+        this.markSubtitleEnrichmentTokens(tokens);
+        void this.enrichPitchWords(tokens, this.backgroundPitchEnrichmentOptions('subtitle'));
         const targetRoots = roots.length ? roots : this.subtitleAnkiEnrichmentRoots();
         this.queueResolvedWordEffects(tokens, targetRoots.length ? targetRoots : [document]);
     }
@@ -7763,44 +7771,24 @@ export class ReaderApp {
 
     private async enrichSubtitleTokensBeforeRender(tokens: JPDBToken[]): Promise<void> {
         if (!tokens.length) return;
+        this.markSubtitleEnrichmentTokens(tokens);
         await this.enrichPitchWords(tokens, this.subtitleBeforeRenderPitchEnrichmentOptions());
     }
 
+    private markSubtitleEnrichmentTokens(tokens: readonly JPDBToken[]): void {
+        tokens.forEach(token => this.subtitleEnrichmentTokens.add(token));
+    }
+
+    private enrichmentSurfaceOf(token: JPDBToken): EnrichmentSurface {
+        return this.subtitleEnrichmentTokens.has(token) ? 'subtitle' : 'page';
+    }
+
     private ocrBeforeRenderPitchEnrichmentOptions(): PitchEnrichmentOptions {
-        const hasJpdbKey = hasJpdbApiCredential(this.settings);
-        const hasAnyApiKey = hasJpdbKey || hasJitenApiCredential(this.settings);
-        return {
-            urgent: true,
-            ...(hasJpdbKey ? {} : { jpdbPublicLookup: false }),
-            ...(hasAnyApiKey ? {} : { publicLookup: false }),
-        };
+        return ocrBeforeRenderOptions(this.enrichmentContext());
     }
 
     private subtitleBeforeRenderPitchEnrichmentOptions(): PitchEnrichmentOptions {
-        const background = this.backgroundPitchEnrichmentOptions();
-        const noApiCredential = !hasJpdbApiCredential(this.settings) && !hasJitenApiCredential(this.settings);
-        const isolateKeylessYouTubeSubtitleBudget = noApiCredential && isYouTubeRuntimeHost();
-        const urgentPublicLimit = noApiCredential ? PITCH_ENRICHMENT_LIMIT * 4 : 2;
-        const backgroundPublicLimit = isolateKeylessYouTubeSubtitleBudget ? urgentPublicLimit : background.publicLookupLimit;
-        const backgroundPublicTotalLimit = isolateKeylessYouTubeSubtitleBudget ? urgentPublicLimit : background.publicLookupTotalLimit;
-        const publicLookupLimit = Math.min(urgentPublicLimit, Math.max(0, Math.floor(backgroundPublicLimit ?? urgentPublicLimit)));
-        const publicLookupTotalLimit = Math.min(publicLookupLimit, Math.max(0, Math.floor(backgroundPublicTotalLimit ?? publicLookupLimit)));
-        // dictionaryFirstFallbackLookupTerms can put malformed shallow
-        // deinflections before the real lemma (訪れた -> 訪る, 訪れる). Keep the
-        // same bounded three-candidate window as background enrichment so the
-        // exact-match Jiten guard can reject a partial first hit and still reach
-        // the real reading/pitch before authoritative subtitle HTML is painted.
-        const publicLookupTermLimit = Math.max(3, Math.floor(background.publicLookupTermLimit ?? 3));
-        return {
-            ...background,
-            urgent: true,
-            ...(isolateKeylessYouTubeSubtitleBudget ? { jpdbPublicLookup: true } : {}),
-            publicLookupLimit,
-            publicLookupTotalLimit,
-            publicLookupPageBudget: isolateKeylessYouTubeSubtitleBudget ? undefined : background.publicLookupPageBudget,
-            publicLookupTermLimit,
-            deferPublicLookup: false,
-        };
+        return subtitleBeforeRenderOptions(this.enrichmentContext());
     }
 
     private async resolveOcrFallbackTokens(tokens: JPDBToken[]): Promise<void> {
@@ -7995,7 +7983,7 @@ export class ReaderApp {
         if (!card) return null;
         const surface = readerWordSurfaceText(word);
         const { start, end } = renderedWordSpan(word, surface.length);
-        return {
+        const token: JPDBToken = {
             card,
             start,
             end,
@@ -8004,6 +7992,8 @@ export class ReaderApp {
             pitchClass: word.dataset.pitchClass ?? '',
             sentence: word.dataset.sentence,
         };
+        if (word.closest(SUBTITLE_SURFACE_SELECTOR)) this.subtitleEnrichmentTokens.add(token);
+        return token;
     }
 
     private async enrichPitchWords(tokens: JPDBToken[], options: PitchEnrichmentOptions = {}): Promise<void> {
@@ -8171,7 +8161,7 @@ export class ReaderApp {
 
     private resolvePublicFallbackPitchTokens(
         tokens: JPDBToken[],
-        options: Pick<PitchEnrichmentOptions, 'publicLookupTermLimit' | 'jpdbPublicLookup' | 'urgent'> = {},
+        options: Pick<PitchEnrichmentOptions, 'publicLookupTermLimit' | 'jpdbPublicLookup' | 'publicPitch' | 'urgent'> = {},
     ): Promise<JPDBToken[]> {
         return resolvePublicFallbackPitchTokensWithPublicJiten(tokens, options, {
             captureTarget: () => this.cardLookup.captureTarget(),
@@ -8199,8 +8189,9 @@ export class ReaderApp {
     }
 
     private scheduleDeferredPublicPitchEnrichment(tokens: JPDBToken[]): void {
-        if (!tokens.length) return;
-        this.queueDeferredPublicPitchTokens(tokens);
+        const admitted = tokens.filter(token => isDeferredPublicLaneToken(token, this.settings, this.enrichmentSurfaceOf(token)));
+        if (!admitted.length) return;
+        this.queueDeferredPublicPitchTokens(admitted);
         void this.drainDeferredPublicPitchQueue().catch(error => {
             log.warn('Deferred pitch failed', error);
         });
@@ -8279,7 +8270,10 @@ export class ReaderApp {
             // retry; without the explicit flag the local-dictionary override
             // would force this call offline again and the lane became a no-op
             // for exactly the users whose local bank missed (class F).
-            await this.enrichPitchWords(batch, { publicLookupLimit: batch.length, publicLookup: true });
+            for (const surface of ['page', 'subtitle'] as const) {
+                const shown = batch.filter(token => this.enrichmentSurfaceOf(token) === surface);
+                if (shown.length) await this.enrichPitchWords(shown, deferredPublicLaneOptions(shown.length, this.settings, surface));
+            }
         }
     }
 
@@ -8287,7 +8281,7 @@ export class ReaderApp {
         return !options.urgent && this.activePopoverMode === 'hover' && Boolean(this.activePopover?.isConnected);
     }
 
-    private queuePitchEnrichmentTokens(tokens: JPDBToken[], options: Pick<PitchEnrichmentOptions, 'publicLookup' | 'publicLookupTermLimit' | 'jpdbPublicLookup' | 'urgent'> = {}): void {
+    private queuePitchEnrichmentTokens(tokens: JPDBToken[], options: QueuedPitchEnrichmentOptions = {}): void {
         for (const token of tokens) {
             const key = cardKey(token.card);
             if (this.pitchEnrichmentQueuedKeys.has(key)) {
@@ -8320,7 +8314,7 @@ export class ReaderApp {
         return true;
     }
 
-    private promoteQueuedPitchEnrichmentToken(key: string, options: Pick<PitchEnrichmentOptions, 'publicLookup' | 'publicLookupTermLimit' | 'jpdbPublicLookup' | 'urgent'> = {}): void {
+    private promoteQueuedPitchEnrichmentToken(key: string, options: QueuedPitchEnrichmentOptions = {}): void {
         const index = this.pitchEnrichmentQueue.findIndex(token => cardKey(token.card) === key);
         if (index < 0) return;
         this.pitchEnrichmentUrgentKeys.add(key);
@@ -8385,7 +8379,7 @@ export class ReaderApp {
     private async runPitchEnrichmentQueue(): Promise<void> {
         while (!this.isDestroyed && this.shouldRunPitchOrReadingEnrichment() && this.pitchEnrichmentQueue.length) {
             const batch = this.pitchEnrichmentQueue.splice(0, PITCH_ENRICHMENT_LIMIT);
-            const batchOptions = new Map<string, Pick<PitchEnrichmentOptions, 'publicLookup' | 'publicLookupTermLimit' | 'jpdbPublicLookup' | 'urgent'>>();
+            const batchOptions = new Map<string, QueuedPitchEnrichmentOptions>();
             batch.forEach(token => {
                 const key = cardKey(token.card);
                 batchOptions.set(key, this.pitchEnrichmentQueuedOptions.get(key) ?? {});
@@ -8452,7 +8446,7 @@ export class ReaderApp {
         }
     }
 
-    private async enrichPitchToken(token: JPDBToken, options: Pick<PitchEnrichmentOptions, 'publicLookup' | 'publicLookupTermLimit' | 'jpdbPublicLookup' | 'urgent'> = {}): Promise<void> {
+    private async enrichPitchToken(token: JPDBToken, options: QueuedPitchEnrichmentOptions = {}): Promise<void> {
         // Particles render as deliberately accentless — enriching them would
         // only resurrect a homophone noun's pattern as a spurious underline.
         if (isParticleCard(token.card)) return;
@@ -8477,7 +8471,7 @@ export class ReaderApp {
         if (pitchClass && pitchClass !== previousPitchClass) this.queueSubtitleParsedHtmlRefresh(token.sentence);
     }
 
-    private async pitchEnrichedRenderedCard(token: JPDBToken, options: Pick<PitchEnrichmentOptions, 'publicLookup' | 'publicLookupTermLimit' | 'jpdbPublicLookup' | 'urgent'>): Promise<JPDBCard> {
+    private async pitchEnrichedRenderedCard(token: JPDBToken, options: QueuedPitchEnrichmentOptions): Promise<JPDBCard> {
         const fallback = token.card;
         if (!cardUsesPitchAccentPronunciation(fallback)) return fallback;
         await this.fillCardPitchFromLocalDictionary(fallback);
@@ -8487,19 +8481,21 @@ export class ReaderApp {
         return card;
     }
 
-    private async resolvePitchFallbackCard(token: JPDBToken, options: Pick<PitchEnrichmentOptions, 'publicLookup' | 'publicLookupTermLimit' | 'jpdbPublicLookup' | 'urgent'>): Promise<JPDBCard> {
+    private async resolvePitchFallbackCard(token: JPDBToken, options: QueuedPitchEnrichmentOptions): Promise<JPDBCard> {
         const fallback = token.card;
         if (cardHasContextPitch(fallback) || hasResolvedPitchComponents(fallback) || options.publicLookup === false) return fallback;
         return await this.resolveRenderedFallbackVocabulary(token, options) ?? fallback;
     }
 
-    private async ensureCardPitchAccent(card: JPDBCard, options: Pick<PitchEnrichmentOptions, 'publicLookup' | 'jpdbPublicLookup'>): Promise<void> {
+    private async ensureCardPitchAccent(card: JPDBCard, options: Pick<PitchEnrichmentOptions, 'publicLookup' | 'jpdbPublicLookup' | 'publicPitch'>): Promise<void> {
         if (!this.settings.showPitchAccent || !cardUsesPitchAccentPronunciation(card)) return;
         if (cardHasContextPitch(card) || hasResolvedPitchComponents(card)) return;
-        const allowPublicLookup = options.publicLookup !== false && options.jpdbPublicLookup !== false;
+        const allowPublicLookup = options.publicLookup !== false
+            && options.jpdbPublicLookup !== false
+            && allowsPublicPitch(options);
         // Whole-expression evidence always wins. A component accent is never
         // allowed to stand in for a direct exact spelling+reading contour.
-        if (allowPublicLookup) {
+        if (allowPublicLookup && isPublicPitchCandidate(card)) {
             const pitchAccent = await this.jpdbPublicPitch.lookup(card.spelling, card.reading).catch(() => []);
             if (pitchAccent.length) {
                 card.pitchAccent = mergePitchPatterns(pitchAccent, card.pitchAccent);
@@ -8546,7 +8542,7 @@ export class ReaderApp {
                 component.pitchAccent = mergePitchPatterns(localPitch, component.pitchAccent);
                 return;
             }
-            if (!allowPublicLookup) return;
+            if (!allowPublicLookup || !isPublicPitchCandidate({ source: card.source, spelling: component.spelling })) return;
             component.pitchAccent = await this.jpdbPublicPitch.lookup(component.spelling, component.reading).catch(() => []);
         }));
     }
@@ -8691,7 +8687,7 @@ export class ReaderApp {
         evictOldestStringKeysWhileOverLimit(this.pitchEnrichmentLocalCache, PITCH_ENRICHMENT_LOCAL_CACHE_LIMIT);
     }
 
-    private async resolveRenderedFallbackVocabulary(token: JPDBToken, options: Pick<PitchEnrichmentOptions, 'publicLookupTermLimit' | 'jpdbPublicLookup' | 'urgent'> = {}): Promise<JPDBCard | undefined> {
+    private async resolveRenderedFallbackVocabulary(token: JPDBToken, options: Pick<PitchEnrichmentOptions, 'publicLookupTermLimit' | 'jpdbPublicLookup' | 'publicPitch' | 'urgent'> = {}): Promise<JPDBCard | undefined> {
         const card = token.card;
         if (card.source !== 'fallback') return undefined;
         const scope = this.cardLookup.captureTarget();
@@ -8705,7 +8701,9 @@ export class ReaderApp {
         }
         if (cardUsesPitchAccentPronunciation(publicCard)
             && !publicCard.pitchAccent.length
-            && options.jpdbPublicLookup !== false) {
+            && options.jpdbPublicLookup !== false
+            && allowsPublicPitch(options)
+            && isPublicPitchCandidate(publicCard)) {
             const pitchAccent = await this.jpdbPublicPitch.lookup(publicCard.spelling, publicCard.reading).catch(() => []);
             if (!scope.isCurrent()) return undefined;
             publicCard.pitchAccent = pitchAccent;

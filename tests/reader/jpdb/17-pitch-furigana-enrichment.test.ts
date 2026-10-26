@@ -1494,6 +1494,8 @@ describe('reader helpers', () => {
             apiKey: '',
             jitenApiKey: '',
             showPitchAccent: true,
+            // A colour channel paints pitch, so the jpdb.io pitch lane runs (enrichment-policy.ts).
+            subtitleUnderlineColorSource: 'pitch' as const,
             localDictionariesEnabled: false,
             jpdbDefinitionsEnabled: false,
         };
@@ -1724,6 +1726,8 @@ describe('reader helpers', () => {
             localDictionariesEnabled: false,
             jpdbDefinitionsEnabled: false,
             showPitchAccent: true,
+            // A colour channel paints pitch, so the jpdb.io pitch lane runs (enrichment-policy.ts).
+            wordUnderlineColorSource: 'pitch' as const,
         };
         internals.parser = { parse };
         internals.jpdbPublicPitch = { lookup: publicPitch };
@@ -2127,6 +2131,8 @@ describe('reader helpers', () => {
             ...DEFAULT_SETTINGS,
             apiKey: 'test-key',
             showPitchAccent: true,
+            // A colour channel paints pitch, so the jpdb.io pitch lane runs (enrichment-policy.ts).
+            wordUnderlineColorSource: 'pitch' as const,
             localDictionariesEnabled: false,
             jpdbDefinitionsEnabled: false,
         };
@@ -2187,6 +2193,8 @@ describe('reader helpers', () => {
             apiKey: '',
             jitenApiKey: '',
             showPitchAccent: true,
+            // A colour channel paints pitch, so the jpdb.io pitch lane runs (enrichment-policy.ts).
+            wordUnderlineColorSource: 'pitch' as const,
             localDictionariesEnabled: false,
             jpdbDefinitionsEnabled: false,
         };
@@ -2386,6 +2394,8 @@ describe('reader helpers', () => {
             apiKey: '',
             jitenApiKey: '',
             showPitchAccent: true,
+            // A colour channel paints pitch, so the jpdb.io pitch lane runs (enrichment-policy.ts).
+            subtitleUnderlineColorSource: 'pitch' as const,
             localDictionariesEnabled: false,
             jpdbDefinitionsEnabled: false,
         };
@@ -2431,6 +2441,8 @@ describe('reader helpers', () => {
             apiKey: '',
             jitenApiKey: '',
             showPitchAccent: true,
+            // A colour channel paints pitch, so the jpdb.io pitch lane runs (enrichment-policy.ts).
+            subtitleUnderlineColorSource: 'pitch' as const,
             localDictionariesEnabled: false,
             jpdbDefinitionsEnabled: false,
         };
@@ -2456,6 +2468,8 @@ describe('reader helpers', () => {
             jitenApiKey: '',
             parserProvider: 'jpdb' as const,
             showPitchAccent: true,
+            // A colour channel paints pitch, so the jpdb.io pitch lane runs (enrichment-policy.ts).
+            subtitleUnderlineColorSource: 'pitch' as const,
             showFurigana: true,
             furiganaMode: 'all' as const,
             localDictionariesEnabled: false,

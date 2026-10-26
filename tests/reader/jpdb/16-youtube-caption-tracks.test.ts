@@ -1519,7 +1519,9 @@ describe('reader helpers', () => {
         });
         const word = appendRenderedReaderWord(fallbackCard);
 
-        const search = vi.fn(async (term: string) => ({ cards: term === '読む' ? [publicCard] : [], status: 'complete' as const }));
+        // jpdb.io's search reads inflected text itself, so the surface is
+        // asked, never the segmenter's dictionary-form guess.
+        const search = vi.fn(async (term: string) => ({ cards: term === '読みました' ? [publicCard] : [], status: 'complete' as const }));
         const { cacheCards, internals } = configurePublicVocabularyEnrichment(app, {
             search,
             settings: { furiganaMode: 'all', showFurigana: true },
@@ -1530,8 +1532,8 @@ describe('reader helpers', () => {
         try {
             await internals.enrichPitchWords([token]);
 
-            expect(search).toHaveBeenCalledWith('読む', PUBLIC_FALLBACK_SPELLING_SEARCH_LIMIT);
-            expect(search).not.toHaveBeenCalledWith('読みました', PUBLIC_FALLBACK_SPELLING_SEARCH_LIMIT);
+            expect(search).toHaveBeenCalledWith('読みました', PUBLIC_FALLBACK_SPELLING_SEARCH_LIMIT);
+            expect(search).not.toHaveBeenCalledWith('読む', PUBLIC_FALLBACK_SPELLING_SEARCH_LIMIT);
             expect(cacheCards).toHaveBeenCalledWith([publicCard]);
             expect(token.card).toBe(publicCard);
             expect(word.dataset.expression).toBe('読む');
@@ -1623,7 +1625,8 @@ describe('reader helpers', () => {
 
         const search = vi.fn(async () => ({ cards: [], status: 'complete' as const }));
         const pitch = vi.fn(async () => ['HL']);
-        const { internals } = configurePublicVocabularyEnrichment(app, { search, pitch });
+        // Nested words fetch jpdb.io pitch only while a colour channel paints it.
+        const { internals } = configurePublicVocabularyEnrichment(app, { search, pitch, settings: { wordUnderlineColorSource: 'pitch' } });
 
         try {
             internals.enrichJpdbRelatedWords(host);

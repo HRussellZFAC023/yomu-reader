@@ -45,9 +45,9 @@
   },
   "productTraffic": {
     "har": "product-traffic.har",
-    "product": "v2.1.6",
-    "seconds": 25,
-    "runs": 45,
+    "product": "worktree",
+    "seconds": 75,
+    "runs": 55,
     "settled": true,
     "profiles": [
       "chromium recorded viewport",
@@ -55,11 +55,18 @@
       "firefox recorded viewport",
       "webkit-ipad 1024x1366",
       "webkit-ipad-air 820x1180",
-      "webkit-iphone 390x844"
+      "webkit-iphone 390x844",
+      "webkit-ipad 820x1180",
+      "chromium 1280x900, review build, article positioned after 20 s",
+      "webkit-ipad 820x1180, touch, article positioned after 20 s"
     ],
     "hosts": [
       "api.jiten.moe"
     ],
-    "recordedAt": "2026-10-18T11:24:06.859Z"
+    "recordedAt": "2026-10-20T00:20:04.724Z",
+    "sourceProducts": [
+      "v2.1.6",
+      "lane/W1-50"
+    ]
   }
 }

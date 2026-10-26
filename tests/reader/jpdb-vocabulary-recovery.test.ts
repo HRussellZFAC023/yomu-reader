@@ -126,7 +126,8 @@ describe('real JPDB vocabulary client recovery', () => {
         const client = new JpdbVocabularyClient();
         expect(await client.lookup(1456360, '読む', 'よむ')).toEqual({ info: null, status: 'complete' });
         const calls = transport.mock.calls.length;
-        now += 9_999;
+        // "No results" is an answer for the rest of the visit (ten minutes).
+        now += 599_999;
         await client.lookup(1456360, '読む', 'よむ');
         expect(transport).toHaveBeenCalledTimes(calls);
         expect(publicCache.writePublicJpdbCache).not.toHaveBeenCalled();

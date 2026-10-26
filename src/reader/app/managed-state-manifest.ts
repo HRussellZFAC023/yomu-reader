@@ -77,6 +77,7 @@ const MANAGED_STATE_MANIFEST: readonly ManagedStateEntry[] = [
     { owner: 'jpdb/jpdb-public-cache', kind: 'local', key: 'yomu:jpdb-cache:v1' },
     { owner: 'dictionaries/jiten-public-cache (legacy)', kind: 'gm', key: 'yomu:jiten-public-cache:v1' },
     { owner: 'dictionaries/jiten-public-cache', kind: 'local', key: 'yomu:jiten-public-cache:v2' },
+    { owner: 'dictionaries/jiten-reading-memory', kind: 'local', key: 'yomu:jiten-readings:v1' },
     { owner: 'dictionaries/jiten-stats-cache', kind: 'gm', key: 'jpdb-reader-jiten-daily-stats' },
 
     // Dictionary database (Yomitan/Jitendex terms). Cleared by the dictionary

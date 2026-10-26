@@ -271,7 +271,8 @@ describe('JitenPublicVocabularyClient', () => {
             return { wordId: id, mainReading: { text: terms[id - 1] }, definitions: [] };
         });
         const client = new JitenPublicVocabularyClient({ requestJsonImpl: requestJson });
-        const cards = await client.lookupMany(terms, { detailLimit: 40 });
+        // The reading lane's share of the minute holds the parse chunks and 40 details.
+        const cards = await client.lookupMany(terms, { detailLimit: 40, priority: 'reading' });
         expect(requestedGroups.length).toBeGreaterThan(1);
         expect(requestedGroups.flat()).toEqual(terms);
         expect([...cards].map(([term, card]) => [term, card.jitenWordId])).toEqual(terms.slice(0, 40).map((term, index) => [term, index + 1]));
@@ -903,8 +904,12 @@ describe('JitenPublicVocabularyClient', () => {
             const client = new JitenPublicVocabularyClient({ requestJsonImpl: requestJson });
 
             for (let index = 0; index < 100; index++) await client.lookupMany([`語${'あ'.repeat(index)}`]);
-            expect(requestJson).toHaveBeenCalledTimes(50);
+            expect(requestJson).toHaveBeenCalledTimes(40);
             expect(publicJitenBackoffRemainingMs()).toBe(60_000);
+            expect(publicJitenBackoffRemainingMs('reading')).toBe(0);
+            for (let index = 0; index < 100; index++) await client.lookupMany([`読${'え'.repeat(index)}`], { detailLimit: 0, priority: 'reading' });
+            expect(requestJson).toHaveBeenCalledTimes(60);
+            expect(publicJitenBackoffRemainingMs('reading')).toBe(60_000);
             for (let index = 0; index < 100; index++) await client.lookupMany([`頁${'い'.repeat(index)}`], { detailLimit: 0, priority: 'annotation' });
             expect(requestJson).toHaveBeenCalledTimes(70);
 

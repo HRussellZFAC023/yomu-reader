@@ -6,6 +6,7 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { chromium } from 'playwright';
 import {
+    chromiumExtensionLaunchArgs,
     chromiumExtensionSmokeConfig,
     createChromiumExtensionSmokeScope,
 } from '../lib/chromium-extension-smoke.mjs';
@@ -56,9 +57,7 @@ try {
         viewport: { width: 1_280, height: 800 },
         ignoreDefaultArgs: ['--disable-extensions'],
         args: [
-            `--disable-extensions-except=${extensionDir}`,
-            `--load-extension=${extensionDir}`,
-            '--no-first-run',
+            ...chromiumExtensionLaunchArgs(extensionDir),
             '--window-size=1280,900',
         ],
     });
@@ -74,23 +73,21 @@ try {
     recordPageFailures(firstRunPage, report);
     await firstRunPage.goto(TARGET_URL, { waitUntil: 'domcontentloaded', timeout: 70_000 });
     await firstRunPage.waitForSelector('#jpdb-reader-installed-runtime', { state: 'attached', timeout: 20_000 });
-    await firstRunPage.locator('.jpdb-reader-onboarding-trusted-launcher')
-        .waitFor({ state: 'visible', timeout: 35_000 });
+    // A fresh profile reads out of the box: the extension owns the page and no
+    // first-run welcome covers it (onboarding lives only on the Study page).
+    await firstRunPage.waitForSelector('#jpdb-reader-runtime-owner', { state: 'attached', timeout: 35_000 });
+    await firstRunPage.waitForTimeout(2_000);
     report.firstRunState = await firstRunPage.evaluate(() => {
         const installed = document.querySelector('#jpdb-reader-installed-runtime');
         const owner = document.querySelector('#jpdb-reader-runtime-owner');
         const attribute = (element, name) => element ? element.getAttribute(name) || '' : '';
-        const launcher = document.querySelector('.jpdb-reader-onboarding-trusted-launcher');
         return {
             installedKind: attribute(installed, 'data-yomu-installed-runtime-kind'),
             runtimeKind: attribute(owner, 'data-yomu-runtime-kind'),
-            runtimeHealth: attribute(owner, 'data-yomu-runtime-health'),
-            launcherVisible: Boolean(launcher),
-            openActionVisible: Boolean(launcher?.querySelector('[data-onboarding-action="open-trusted-setup"]')),
-            sensitiveControlCount: launcher?.querySelectorAll('form, input, select, textarea, output').length ?? 0,
+            onboardingShown: Boolean(document.querySelector('.jpdb-reader-onboarding, .jpdb-reader-onboarding-trusted-launcher, .jpdb-reader-onboarding-backdrop')),
         };
     });
-    assertPrivateFirstRunLauncher(report.firstRunState);
+    assertFreshProfileReads(report.firstRunState);
     await firstRunPage.screenshot({ path: path.join(ARTIFACT_DIR, 'youtube-extension-first-run.png') });
     await firstRunPage.close();
 
@@ -186,13 +183,10 @@ function recordPageFailures(page, targetReport) {
     page.on('pageerror', error => targetReport.pageErrors.push(error.message.slice(0, 1_000)));
 }
 
-function assertPrivateFirstRunLauncher(state) {
+function assertFreshProfileReads(state) {
     assertSmoke(state.installedKind === 'extension', 'Fresh-profile installed runtime mismatch', state);
     assertSmoke(state.runtimeKind === 'extension', 'Fresh-profile runtime ownership mismatch', state);
-    assertSmoke(state.launcherVisible, 'Fresh-profile Study launcher was unavailable', state);
-    assertSmoke(state.openActionVisible, 'Fresh-profile Study launcher action was unavailable', state);
-    assertSmoke(state.sensitiveControlCount === 0, 'Fresh-profile off-host launcher exposed sensitive controls', state);
-    assertSmoke(!state.runtimeHealth, 'Fresh-profile runtime reported ready before target choice', state);
+    assertSmoke(!state.onboardingShown, 'Fresh-profile first-run welcome covered a content page', state);
 }
 
 function assertSmoke(condition, message, state) {

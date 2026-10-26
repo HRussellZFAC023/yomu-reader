@@ -11,6 +11,7 @@ import {
     batchJitenFallbackCards,
     normalizedJitenLookupKey,
     publicLookupFallbackCards as lookupPublicFallbackCards,
+    publicSearchCardForSurface,
 } from '../lookup/public-fallback-cards';
 import { fallbackLookupTermsForCard, type ReaderParser } from '../lookup/parser';
 import { isMissingProxyTransportError } from '../network/proxy-fetch';
@@ -45,8 +46,9 @@ import type { JPDBCard, JPDBToken, ReaderSettings } from './types';
 import type { YomitanTermEntry } from '../dictionaries/yomitan';
 import { cardKey } from '../cards/utils';
 import { wait } from './dom-helpers';
+import { needsPublicIdentitySearch } from './enrichment-policy';
 
-type PublicLookupOptions = Pick<PitchEnrichmentOptions, 'publicLookupTermLimit' | 'jpdbPublicLookup'>;
+type PublicLookupOptions = Pick<PitchEnrichmentOptions, 'publicLookupTermLimit' | 'jpdbPublicLookup' | 'publicPitch'>;
 
 interface LookupLog {
     time(label: string, ...details: unknown[]): () => void;
@@ -175,13 +177,16 @@ export class ReaderCardLookupSession {
                     { ...lookupOptions, detailTimeoutMs: JITEN_BACKGROUND_DETAIL_TIMEOUT_MS },
                 )
                 : Promise.resolve(new Map()),
-            publicSpellingCard: term => scope.isCurrent()
-                ? this.publicLookupSpellingCard(term)
+            publicSpellingCard: surface => scope.isCurrent()
+                ? this.publicLookupSpellingCard(surface)
                 : Promise.resolve(undefined),
         }, {
             concurrency: BACKGROUND_PITCH_ENRICHMENT_CONCURRENCY,
             termLimit: options.publicLookupTermLimit,
             jpdbPublicLookup: options.jpdbPublicLookup,
+            // Without pitch (enrichment-policy.ts) a kana word needs no
+            // identity from jpdb.io: only a word that needs a reading goes.
+            jpdbSearchSurface: options.publicPitch === false ? needsPublicIdentitySearch : undefined,
             detailLimit: publicJitenDetailLimit,
         });
         return scope.isCurrent() && usesJapaneseProviders() ? resolved : new Map<string, JPDBCard>();
@@ -193,7 +198,7 @@ export class ReaderCardLookupSession {
     ): Promise<Map<string, JPDBCard>> {
         if (!scope.isCurrent() || !usesJapaneseProviders() || !cards.length) return new Map<string, JPDBCard>();
         const resolved = await this.dependencies.jitenPublicVocabulary()
-            .hydrateCards(cards, { detailLimit: publicJitenDetailLimit(cards.length) })
+            .hydrateCards(cards, { detailLimit: publicJitenDetailLimit(cards.length), priority: 'reading' })
             .catch(error => {
                 this.dependencies.log.warn('Jiten parsed-card hydration failed', { cards: cards.length }, error);
                 return new Map<string, JPDBCard>();
@@ -246,13 +251,13 @@ export class ReaderCardLookupSession {
         };
     }
 
-    private async publicLookupSpellingCard(term: string): Promise<JPDBCard | undefined> {
+    private async publicLookupSpellingCard(surface: string): Promise<JPDBCard | undefined> {
         if (!canSearchPublicLookupCard(this.dependencies.getSettings(), {})) return undefined;
-        const cards = await this.dependencies.jpdbVocabulary().search(term, PUBLIC_FALLBACK_SPELLING_SEARCH_LIMIT).then(result => result.cards).catch(error => {
-            this.dependencies.log.warn('Public JPDB fallback search failed', { term }, error);
+        const cards = await this.dependencies.jpdbVocabulary().search(surface, PUBLIC_FALLBACK_SPELLING_SEARCH_LIMIT).then(result => result.cards).catch(error => {
+            this.dependencies.log.warn('Public JPDB fallback search failed', { surface }, error);
             return [];
         });
-        return cards.find(card => card.spelling === term);
+        return publicSearchCardForSurface(surface, cards);
     }
 
     async publicLookupFallbackCard(

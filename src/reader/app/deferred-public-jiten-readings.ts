@@ -16,6 +16,7 @@ import {
     DEFERRED_PUBLIC_PITCH_HOVER_PAUSE_MS,
     DEFERRED_PUBLIC_PITCH_PER_URL_CAP,
     PITCH_ENRICHMENT_LIMIT,
+    SUBTITLE_SURFACE_SELECTOR,
 } from './main-helpers';
 import { cardHasContextPitch, isHydratablePublicJitenCard } from './main-lookup-helpers';
 import type { CardLookupTargetSnapshot } from './card-lookup-session';
@@ -59,11 +60,15 @@ export interface DeferredPublicJitenReadingDependencies {
     waitForIdle: (timeoutMs?: number) => Promise<void>;
     renderedAnnotationRoots: () => Iterable<ParentNode>;
     renderedWordToken: (word: HTMLElement) => JPDBToken | null;
+    markSubtitleTokens: (tokens: JPDBToken[]) => void;
 }
 
 export interface PublicFallbackPitchResolutionOptions {
     publicLookupTermLimit?: number;
     jpdbPublicLookup?: boolean;
+    // false: no jpdb.io pitch page (enrichment-policy.ts), so a word Jiten
+    // resolved, or missed, is not queued for one.
+    publicPitch?: boolean;
     urgent?: boolean;
 }
 
@@ -274,6 +279,9 @@ export class DeferredPublicJitenReadingCoordinator {
                 consumed += 1;
                 continue;
             }
+            // A sparse rendered word can outlive the parser's card cache, so
+            // the fallback token above needs the same provenance as parsed cues.
+            if (word.closest(SUBTITLE_SURFACE_SELECTOR)) this.dependencies.markSubtitleTokens([token]);
             const queued = this.queueToken(token);
             if (queued === 'url-budget') {
                 this.stopVisibleRefill();
@@ -416,7 +424,7 @@ export class DeferredPublicJitenReadingCoordinator {
     }
 
     private backoffReadiness(): QueueReadiness {
-        const backoffMs = publicJitenBackoffRemainingMs();
+        const backoffMs = publicJitenBackoffRemainingMs('reading');
         if (backoffMs <= 0) return 'ready';
         this.scheduleDrain(Math.min(backoffMs, DEFERRED_PUBLIC_PITCH_BACKOFF_WAIT_MS));
         return 'stop';
@@ -477,7 +485,7 @@ export class DeferredPublicJitenReadingCoordinator {
     ): Promise<void> {
         const cardsToCache: JPDBCard[] = [];
         const resolvedPitchTokens: JPDBToken[] = [];
-        const retryAfterBackoff = publicJitenBackoffRemainingMs() > 0;
+        const retryAfterBackoff = publicJitenBackoffRemainingMs('reading') > 0;
         for (const [key, queuedWork] of works) {
             const card = resolved.get(parsedCardHydrationKey(queuedWork.card));
             if (!card?.reading.trim()) {
@@ -622,7 +630,7 @@ export async function resolvePublicFallbackPitchTokens(
         const card = resolved.get(key);
         if (!card || card.source === 'fallback') {
             dependencies.noteFallbackMiss(key, group.tokens);
-            if (dependencies.showPitchAccent() && options.jpdbPublicLookup !== false) {
+            if (dependencies.showPitchAccent() && mayQueuePublicPitch(options)) {
                 queuedTokens.push(...group.tokens);
             } else {
                 localOnlyTokens.push(...group.tokens);
@@ -650,6 +658,10 @@ function addPublicFallbackGroup(
     const group = groups.get(key) ?? { card: token.card, tokens: [] };
     group.tokens.push(token);
     groups.set(key, group);
+}
+
+function mayQueuePublicPitch(options: PublicFallbackPitchResolutionOptions): boolean {
+    return options.jpdbPublicLookup !== false && options.publicPitch !== false;
 }
 
 function fallbackResolutionCacheKey(token: JPDBToken): string {
@@ -705,7 +717,7 @@ function applyResolvedFallbackGroup(
         void dependencies.applyResolvedCard(token, fallback, card, pitchClass);
         // Reading hydration may resolve without pitch; retain that token in the
         // independent public-pitch lane when the caller permits it.
-        if (dependencies.shouldQueueResolvedPublicPitch(card, options.jpdbPublicLookup !== false)) {
+        if (dependencies.shouldQueueResolvedPublicPitch(card, mayQueuePublicPitch(options))) {
             queuedTokens.push(token);
         }
         dependencies.queueSubtitleRefresh(token.sentence);

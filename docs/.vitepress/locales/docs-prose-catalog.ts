@@ -1097,7 +1097,7 @@ const HOSTED_DOCS_JA_COPY: Record<string, string> = {
     'Dashboard → よむ → Settings → User excludes, then add a line such as': 'ダッシュボード → よむ →「設定」→「ユーザー除外」に、次のような行を追加します：',
     'Safari → Settings → Extensions → Edit Websites → Deny.': 'Safari →「設定」→「機能拡張」→「Webサイトを編集」→「拒否」。',
     'To turn it off everywhere, set the よむ button to よむ off.': 'すべてのサイトでオフにするときは、よむボタンを「よむ オフ」にします。',
-    'よむ finds the Japanese in pictures with Google Lens, no key needed. On some sites, tap the page first. Switch to Cloud Vision or a local OCR server under Settings → Media.': 'よむはGoogle Lensで画像の中の日本語を見つけます。キーは不要です。サイトによっては、先にページをタップします。「設定」→「メディア」でCloud VisionやローカルのOCRサーバーに切り替えられます。',
+    'よむ finds the Japanese in pictures with Google Lens, no key needed. Tap a picture to read it. Switch to Cloud Vision or a local OCR server under Settings → Media; a local server also reads pictures as they come into view.': 'よむはGoogle Lensで画像の中の日本語を見つけます。キーは不要です。画像をタップすると読み取ります。「設定」→「メディア」でCloud VisionやローカルのOCRサーバーに切り替えられます。ローカルサーバーなら、画面に入った画像も自動で読み取ります。',
     'Settings → Sources → Popup order. Move it up, then press Save.': '「設定」→「ソース」→「ポップアップの順序」で上に動かし、「保存」を押します。',
     'Audio works out of the box. To add a source, such as': '音声は最初から使えます。ソースを追加するには（たとえば',
     ', use Add audio source under Settings → Media.': '）、「設定」→「メディア」の「音声ソースを追加」を使います。',

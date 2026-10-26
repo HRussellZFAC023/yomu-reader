@@ -22,7 +22,9 @@ interface AppInternals {
 
 function makeApp(overrides: Partial<ReaderSettings> = {}): AppInternals {
     const app = new ReaderApp() as unknown as AppInternals;
-    app.settings = { ...DEFAULT_SETTINGS, showPitchAccent: true, ...overrides };
+    // The underline paints pitch: without a pitch channel the paced lane
+    // fetches no jpdb.io pitch at all (enrichment-policy.ts).
+    app.settings = { ...DEFAULT_SETTINGS, showPitchAccent: true, wordUnderlineColorSource: 'pitch', ...overrides };
     app.toast = vi.fn();
     return app;
 }
@@ -141,6 +143,18 @@ describe('local pitch misses feed the deferred public lane (class F)', () => {
         // The repaint must carry the resolved pattern too — a class with no
         // data-pitch-accent left popups and the underline disagreeing.
         expect(word.dataset.pitchAccent).toBe('LHHH');
+    });
+
+    it('fetches no jpdb.io pitch for a parsed word when no colour channel paints pitch', async () => {
+        const app = makeApp({ localDictionariesEnabled: false, wordUnderlineColorSource: 'status' });
+        app.waitForIdle = async () => undefined;
+        app.jpdbPublicPitch = { lookup: vi.fn(async () => ['LHHH']) };
+
+        app.scheduleDeferredPublicPitchEnrichment([token(card(8, '財源', 'ざいげん'))]);
+        await app.drainDeferredPublicPitchQueue();
+
+        expect(app.deferredPublicPitchQueue).toHaveLength(0);
+        expect(app.jpdbPublicPitch.lookup).not.toHaveBeenCalled();
     });
 
     it('drains the deferred lane publicly even when a local dictionary is installed (the class-F no-op)', async () => {

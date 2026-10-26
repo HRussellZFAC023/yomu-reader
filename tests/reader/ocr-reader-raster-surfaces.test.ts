@@ -136,7 +136,11 @@ function stubCanvasEncoding(): void {
     Object.defineProperty(HTMLCanvasElement.prototype, 'toBlob', {
         configurable: true,
         value(callback: BlobCallback) {
-            callback(new Blob(['image'], { type: 'image/jpeg' }));
+            const bytes = new TextEncoder().encode('image');
+            // JSDOM's Blob lacks the browser API used by the Lens protobuf encoder.
+            callback(Object.assign(new Blob([bytes], { type: 'image/jpeg' }), {
+                arrayBuffer: async () => bytes.slice().buffer,
+            }));
         },
     });
 }
@@ -830,6 +834,12 @@ describe('reader raster OCR surfaces', { timeout: 20_000 }, () => {
             // One bounded retry after the first timeout, then the tappable failure.
             expect(fetchMock.mock.calls.length).toBeGreaterThanOrEqual(1);
             expect(fetchMock.mock.calls.length).toBeLessThanOrEqual(4);
+            for (const [url, init] of fetchMock.mock.calls) {
+                expect(url).toBe('https://lensfrontend-pa.googleapis.com/v1/crupload');
+                expect(init?.method).toBe('POST');
+                expect(init?.headers).toMatchObject({ 'content-type': 'application/x-protobuf' });
+                expect(new Uint8Array(init?.body as ArrayBuffer).byteLength).toBeGreaterThan(0);
+            }
         } finally {
             controller.destroy();
         }

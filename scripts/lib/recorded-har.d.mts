@@ -6,7 +6,7 @@ export function createHarWriter(options?: { creator?: string; unique?: boolean }
     size(): number;
     write(dir: string, harName: string, resourceDir?: string): number;
 };
-export function readHarIndex(harPath: string): {
+export function readHarIndex(harPath: string, options?: { preload?: boolean }): {
     entries: unknown[];
     has(method: string, url: string, body?: string | Buffer | null): boolean;
     lookup(method: string, url: string, body?: string | Buffer | null): HarAnswer | null;

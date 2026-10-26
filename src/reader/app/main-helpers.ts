@@ -520,6 +520,8 @@ export interface PitchEnrichmentOptions {
     urgent?: boolean;
     publicLookup?: boolean;
     jpdbPublicLookup?: boolean;
+    // false: no jpdb.io pitch page for these tokens (enrichment-policy.ts).
+    publicPitch?: boolean;
     publicLookupLimit?: number;
     publicLookupTotalLimit?: number;
     publicLookupPageBudget?: number;

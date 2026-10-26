@@ -4,13 +4,15 @@
 // @require lines name, and dist/yomu.css for @resource — plus the build's
 // docs/public, which answers requests for yomureader.com.
 import { execFileSync } from 'node:child_process';
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { createHash } from 'node:crypto';
+import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { userscriptCompanionPaths } from './smoke-test-helpers.mjs';
 
 const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
+const PRELOADED_RUNTIME = new WeakMap();
 const CONTENT_TYPES = new Map([
     ['.html', 'text/html; charset=utf-8'], ['.js', 'text/javascript; charset=utf-8'], ['.css', 'text/css; charset=utf-8'],
     ['.json', 'application/json'], ['.png', 'image/png'], ['.svg', 'image/svg+xml'], ['.webp', 'image/webp'],
@@ -83,6 +85,24 @@ function hostedPath(product, pathname) {
     return file.startsWith(`${product.hostedRoot}${path.sep}`) && existsSync(file) ? file : null;
 }
 
-export function hostedAnswer(file) {
+/** Cache bytes before a timed replay, without loading/evaluating them in the page. */
+export function preloadHostedRuntimeAssets(product) {
+    const dir = path.join(product.hostedRoot, 'greasyfork');
+    const answers = new Map();
+    if (existsSync(dir)) {
+        for (const name of readdirSync(dir).filter(name => /^yomu-[a-z0-9-]+\.user\.js$/u.test(name))) {
+            const file = path.join(dir, name);
+            const answer = hostedAnswer(file);
+            answers.set(file, answer);
+            const hash = createHash('sha256').update(answer.body).digest('hex').slice(0, 12);
+            answers.set(path.join(dir, name.replace(/\.user\.js$/u, `.${hash}.user.js`)), answer);
+        }
+    }
+    PRELOADED_RUNTIME.set(product, answers);
+}
+
+export function hostedAnswer(file, product) {
+    const cached = product && PRELOADED_RUNTIME.get(product)?.get(file);
+    if (cached) return { ...cached, body: Buffer.from(cached.body) };
     return { status: 200, contentType: CONTENT_TYPES.get(path.extname(file).toLowerCase()) ?? 'application/octet-stream', body: readFileSync(file) };
 }

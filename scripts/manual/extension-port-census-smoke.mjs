@@ -16,6 +16,7 @@ import path from 'node:path';
 import { chromium } from 'playwright';
 import { closeServer, startLoopbackServer } from '../lib/smoke-harness.mjs';
 import {
+    chromiumExtensionLaunchArgs,
     chromiumExtensionSmokeConfig,
     createChromiumExtensionSmokeScope,
 } from '../lib/chromium-extension-smoke.mjs';
@@ -155,7 +156,7 @@ try {
         viewport: { width: 1280, height: 1600 },
         // Playwright's --disable-extensions would suppress the content script.
         ignoreDefaultArgs: ['--disable-extensions'],
-        args: [`--disable-extensions-except=${extensionDirectory}`, `--load-extension=${extensionDirectory}`, '--no-first-run'],
+        args: chromiumExtensionLaunchArgs(extensionDirectory),
     });
     const worker = context.serviceWorkers()[0] ?? await context.waitForEvent('serviceworker', { timeout: 15_000 });
     const popup = await context.newPage();

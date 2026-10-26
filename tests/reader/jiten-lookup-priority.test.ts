@@ -93,7 +93,7 @@ describe('the hovered word within api.jiten.moe anonymous budget', () => {
         const background = requestJson.mock.calls.length;
 
         await expect(hoveredSurface(readerParser(client))).resolves.toBe('移住者');
-        expect(background).toBe(50);
+        expect(background).toBe(40);
     });
 
     // While Jiten refuses, the hover cannot ask. The page's own parse read
@@ -156,10 +156,13 @@ describe('the hovered word within api.jiten.moe anonymous budget', () => {
             return text === null ? jitenAnswer(url) : [{ wordId: 0, readingIndex: 0, originalText: text }];
         });
         const client = new JitenPublicVocabularyClient({ requestJsonImpl: requestJson });
-        await client.hydrateCards(Array.from({ length: 49 }, (_, index) => sparseCard(600_000 + index)), { detailLimit: 49 });
-        expect(requestJson).toHaveBeenCalledTimes(49);
+        await client.hydrateCards(Array.from({ length: 39 }, (_, index) => sparseCard(600_000 + index)), { detailLimit: 39 });
+        expect(requestJson).toHaveBeenCalledTimes(39);
         await client.lookupMany(['あ'.repeat(1900)], { detailLimit: 0 });
-        expect(requestJson).toHaveBeenCalledTimes(50);
+        expect(requestJson).toHaveBeenCalledTimes(40);
+        // Readings of the words on screen have their own share ahead of it.
+        await client.hydrateCards([sparseCard(700_000)], { detailLimit: 1, priority: 'reading' });
+        expect(requestJson).toHaveBeenCalledTimes(41);
     });
 
     // Two minutes of a page that keeps enriching (forty readings and a
