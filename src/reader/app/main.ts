@@ -412,6 +412,7 @@ import {
     waitForHoverCardInitialPaint,
 } from './main-lookup-helpers';
 import { ReaderCardLookupSession, type CardLookupTargetSnapshot } from './card-lookup-session';
+import { HoverPointerIntent } from '../lookup/hover-pointer-intent';
 import { HoverWordOwnership } from './hover-word-ownership';
 import {
     DeferredPublicJitenReadingCoordinator,
@@ -848,6 +849,7 @@ export class ReaderApp {
     private activePopoverResizeObserver?: ResizeObserver;
     private readonly nativeTitleGuard = new NativeTitleGuard();
     private lastPointerPosition?: { x: number; y: number };
+    private readonly hoverPointerIntent = new HoverPointerIntent();
     private readonly hoverWordOwnership = new HoverWordOwnership({
         wordFromPointStack: (x, y) => this.hoverReaderWordFromPointStack(x, y),
         ocrLineWordForPointer: (target, x, y) => this.ocrLineWordForPointer(target, x, y),
@@ -4339,7 +4341,7 @@ export class ReaderApp {
     }
 
     private handleHoverPointer(event: PointerEvent): void {
-        if (this.shouldIgnoreHoverPointer(event)) return;
+        if (this.shouldIgnoreHoverPointer(event) || !this.hoverPointerIntent.accepts(event)) return;
         this.lastPointerPosition = { x: event.clientX, y: event.clientY };
         this.keepPlainSubtitleHoverPause(event.target);
         const insideActivePopover = this.handleActivePopoverHover(event);
@@ -4688,6 +4690,7 @@ export class ReaderApp {
         if (this.isDestroyed || this.hasStickyModalPopover() || !this.canUseHoverLookupPointer(event) || this.shouldSuppressPenHover(event)) return;
         this.lastPointerPosition = { x: event.clientX, y: event.clientY };
         const related = event.relatedTarget as Node | null;
+        if (!related) this.hoverPointerIntent.leave();
         if (this.handlePlainSubtitleHoverPointerOut(event.target, related)) return;
         if (this.handleActivePopoverPointerOut(event, related)) return;
         this.handleReaderWordPointerOut(event, related);
@@ -5186,10 +5189,10 @@ export class ReaderApp {
     }
 
     private hasDirectHoverContext(): boolean {
-        // Firefox can transiently clear CSS :hover while a scroll changes the
-        // descendant under a stationary cursor. Exact hit-testing remains
-        // trustworthy both for the frame itself and for its narrow travel path.
-        return this.hasLatchedHoverPopoverPointer()
+        // Page reflow can replace the hit target without pointer movement.
+        // Keep the connected opening anchor until the learner moves or scrolls.
+        return (Boolean(this.activePopoverAnchor?.isConnected) && this.hoverPointerIntent.isAt(this.hoverPopoverPointerPosition))
+            || this.hasLatchedHoverPopoverPointer()
             || this.isHoverPopoverResizeStickyActive()
             || this.isMiddlePressHoverContextActive()
             || isActiveHoverPopoverPointerContext(this.activeHoverPopoverPointerState());

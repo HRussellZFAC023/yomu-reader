@@ -18,6 +18,10 @@
 // and its Jiten rank badge (#330), and never show "Exact pitch unavailable"
 // or "In context ×N" while it loads.
 //
+// reflow-mechanism-fixture shifts the recorded article underneath an unmoved
+// pointer. The selected word must survive native boundary events until a real
+// pointer move; this is mechanism evidence, not visual acceptance.
+//
 // --live uses live Jiten for ALL vocabulary traffic, with no recorded API
 // answers. The refused scenario still injects 429s until six seconds after
 // opening; it never deliberately floods the public service.
@@ -175,6 +179,11 @@ async function openSensei(browser, engineName, profile, scenario) {
             window.__popupDetailPresses = [];
             window.__popupDetailLookupErrors = [];
             window.__popupDetailPointerMoves = [];
+            window.__popupDetailPointerOvers = [];
+            document.addEventListener('pointerover', event => {
+                const target = event.target instanceof Element ? event.target : null;
+                window.__popupDetailPointerOvers.push({ at: performance.now(), x: event.clientX, y: event.clientY, word: target?.closest('[data-expression]')?.getAttribute('data-expression') });
+            }, { capture: true, passive: true });
             document.addEventListener('pointermove', event => {
                 const target = event.target instanceof Element ? event.target : null;
                 window.__popupDetailPointerMoves.push({ x: event.clientX, y: event.clientY, word: target?.closest('[data-expression]')?.getAttribute('data-expression'), inPopup: Boolean(target?.closest('.jpdb-reader-popover')) });
@@ -224,18 +233,53 @@ async function openSensei(browser, engineName, profile, scenario) {
         }
         else if (profile.press === 'click') await word.click();
         else await word.hover();
+        if (scenario === 'reflow-mechanism-fixture') {
+            await page.waitForFunction(() => document.querySelector('[data-card-popover] .jpdb-reader-header'));
+            // A recording cannot preserve the timing of late page reflow. Move
+            // its real article so a different real word crosses the stationary
+            // pointer; let WebKit generate the boundary events itself.
+            result.reflow = await page.evaluate(() => {
+                const point = window.__popupDetailPointerMoves.at(-1);
+                const article = document.querySelector('#mw-content-text');
+                const other = [...article.querySelectorAll('[data-expression]')].find(node => node.dataset.expression === '連体');
+                if (!point || !other) throw new Error('Missing recorded reflow target.');
+                const box = other.getBoundingClientRect();
+                article.style.transform = `translate(${point.x - box.x - box.width / 2}px, ${point.y - box.y - box.height / 2}px)`;
+                return { word: other.dataset.expression, point };
+            });
+        }
         let header = null;
+        let answeredAt = 0;
         while (Date.now() - pressedAt < ANSWER_WITHIN_MS) {
             header = await page.evaluate(readHeader);
             if (header) result.samples.push({ atMs: Date.now() - pressedAt, ...header, html: undefined });
             if (header && FILLER.test(header.text) && !failures.length) failures.push(`the popup said "${FILLER.exec(header.text)[0]}" at ${Date.now() - pressedAt} ms`);
-            if (header?.pitch === 'nakadaka' && header.pills.some(pill => RANK_BADGE.test(pill))) break;
+            if (header && header.spelling !== WORD) {
+                failures.push(`Stationary lookup changed from ${WORD} to ${header.spelling}.`);
+                break;
+            }
+            if (header?.pitch === 'nakadaka' && header.pills.some(pill => RANK_BADGE.test(pill))) answeredAt ||= Date.now();
+            if (answeredAt && Date.now() - answeredAt >= 4_000) break;
             await page.waitForTimeout(250);
         }
-        result.answeredAfterMs = Date.now() - pressedAt;
+        result.answeredAfterMs = answeredAt ? answeredAt - pressedAt : Date.now() - pressedAt;
+        result.observedForMs = Date.now() - pressedAt;
         result.header = header && { ...header, html: undefined };
         if (header?.pitch !== 'nakadaka') failures.push(`no nakadaka pitch graph for ${WORD} (${header?.pitch || 'none'})`);
         if (!header?.pills.some(pill => RANK_BADGE.test(pill))) failures.push(`no Jiten #330 badge (${header?.pills.join(' | ') ?? 'no popup'})`);
+        if (result.reflow && !failures.length) {
+            result.stationaryPointerMoves = await page.evaluate(() => window.__popupDetailPointerMoves.length);
+            if (result.stationaryPointerMoves !== 1) failures.push('The reflow probe moved the pointer.');
+            // Hydration can move the article again after our imposed reflow.
+            // Aim at its current word, rather than a now-blank old coordinate.
+            await page.locator('.jpdb-reader-word[data-expression="連体"]:visible').first().hover();
+            await page.waitForFunction(() => {
+                const headword = document.querySelector('[data-card-popover] [data-yomu-headword]')?.cloneNode(true);
+                headword?.querySelectorAll('rt, rp').forEach(node => node.remove());
+                return headword && headword.textContent.trim() !== '先生';
+            }, null, { timeout: 15_000 });
+            result.afterDeliberateMove = await page.evaluate(readHeader);
+        }
         await page.screenshot({ path: path.join(ARTIFACT_DIR, `${engineName}-${profile.press}-${scenario}.png`) });
     } catch (error) {
         failures.push(String(error?.message ?? error).split('\n')[0]);
@@ -247,6 +291,7 @@ async function openSensei(browser, engineName, profile, scenario) {
         result.rendererInputs = await page.evaluate(() => window.__popupDetailRenders ?? []);
         result.lookupErrors = await page.evaluate(() => window.__popupDetailLookupErrors ?? []);
         result.pointerMoves = await page.evaluate(() => window.__popupDetailPointerMoves ?? []);
+        result.pointerOvers = await page.evaluate(() => window.__popupDetailPointerOvers ?? []);
         result.pageErrors = run.pageErrors;
         if (scenario.startsWith('refused') && !jitenResponses.some(response => response.status === 429 && response.url.includes('/vocabulary/search?'))) failures.push('The identity search never exercised a 429.');
         if (jpdbKey && (!jpdbParseStatuses.includes(200) || !result.rendererInputs.some(input => input.frequencyRanks?.jpdb?.rank))) failures.push('The JPDB-key path did not supply a successful parse and a JPDB card rank.');
@@ -277,7 +322,10 @@ function readHeader() {
     if (!header) return null;
     const graph = header.querySelector('.jpdb-reader-card-tools .jpdb-reader-pitch svg');
     const polyline = visible(graph) ? graph.querySelector('polyline') : null;
+    const headword = header.querySelector('[data-yomu-headword]')?.cloneNode(true);
+    headword?.querySelectorAll('rt, rp').forEach(node => node.remove());
     return {
+        spelling: headword?.textContent?.trim() ?? '',
         text: header.textContent?.replace(/\s+/gu, ' ').trim() ?? '',
         pitch: polyline?.getAttribute('class') ?? '',
         reading: header.querySelector('.jpdb-reader-pitch')?.textContent?.trim() ?? '',

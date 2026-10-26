@@ -82,6 +82,7 @@ export const NIGHTLY_SMOKES = [
     // ends with its pitch graph and Jiten rank, and never says "Exact pitch
     // unavailable" or "In context ×N".
     'smoke:popup-word-detail',
+    'smoke:popup-word-detail-reflow',
     'smoke:recorded-pages',
     'smoke:recorded-pages:reproduce',
     'smoke:recorded-pages:probes',
