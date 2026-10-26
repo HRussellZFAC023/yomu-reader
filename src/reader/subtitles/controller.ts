@@ -4,7 +4,6 @@ import { currentFullscreenElement } from '../core/fullscreen';
 import { READER_ROOT_SELECTOR } from '../dom/constants';
 import { escapeHtml, remintRenderedWordPrivateTokens, renderTokensToHtml, setInnerHtml, unwrapReaderWords } from '../dom/index';
 import {
-    SUBTITLE_CUE_BOUNDARY_PADDING_SECONDS,
     cueHasExactWordTimings,
     escapeWithBreaks,
     findActiveSubtitleCue,
@@ -118,6 +117,7 @@ import {
     renderSubtitlePrimary,
     syncSubtitleSecondaryBlurState,
 } from './subtitle-rendering';
+import { SubtitlePaintCommit } from './subtitle-paint-commit';
 import {
     isStalePageSubtitleTrack,
     loadedTrackState,
@@ -886,7 +886,7 @@ export class SubtitlePlayerController {
     private pinnedPlayer = new SubtitlePinnedPlayerTracker();
     private lastRenderedPrimaryText = '';
     private lastRenderedPrimaryHtml = '';
-    private lastPaintedPrimaryCue?: SubtitleCue;
+    private readonly paintCommit = new SubtitlePaintCommit();
     private holdingPrimaryCue = false;
     private lastRenderedPrimaryKey = '';
     private lastAppliedPrimaryRowHtml = '';
@@ -1190,7 +1190,7 @@ export class SubtitlePlayerController {
         this.transcriptPanel?.remove();
         this.root?.remove();
         this.fullscreenHost.releaseSubtitleLayer();
-        this.lastPaintedPrimaryCue = undefined;
+        this.paintCommit.clear();
         this.holdingPrimaryCue = false;
         this.root = undefined;
         this.subtitleEl = undefined;
@@ -1990,7 +1990,6 @@ export class SubtitlePlayerController {
                 return;
             }
             this.currentCue = normalizeSubtitleCues([{ start: active.startTime, end: active.endTime, text: getTextTrackCueText(active) }])[0];
-            void this.autoCopyCurrentCue();
         }
     }
 
@@ -2462,7 +2461,6 @@ export class SubtitlePlayerController {
         this.syncPauseTranscriptPanel();
         this.syncControls();
         this.scheduleTranscriptCacheWarmup();
-        void this.autoCopyCurrentCue();
     }
 
     private updateLoadedPrimaryCue(cue: SubtitleCue | undefined, time: number): boolean {
@@ -2698,7 +2696,6 @@ export class SubtitlePlayerController {
         this.renderOpenSubtitlePanel();
         this.syncControls();
         this.refreshNativeFullscreenCueMirror();
-        void this.autoCopyCurrentCue();
     }
 
     private render(): void {
@@ -2725,7 +2722,7 @@ export class SubtitlePlayerController {
 
     private renderEmptySubtitle(settings: ReaderSettings): void {
         if (!this.subtitleEl) return;
-        this.lastPaintedPrimaryCue = undefined;
+        this.paintCommit.clear();
         this.applyPrimaryRow(null);
         this.applySecondaryLine(settings);
         // Ending a cue ends its visual lifetime. A later visit to the same
@@ -2740,9 +2737,8 @@ export class SubtitlePlayerController {
         const primary = this.renderPrimarySubtitle(text, settings);
         // Abutting cues have no empty visual state. Retain the committed pair
         // while the next parse settles; a real gap still clears in renderEmpty.
-        const previous = this.lastPaintedPrimaryCue;
-        if (!primary.html && primary.shouldRequestParse && previous && this.currentCue
-            && previous.start <= this.currentCue.start && previous.end >= this.currentCue.start - SUBTITLE_CUE_BOUNDARY_PADDING_SECONDS
+        const contiguous = this.currentCue && this.paintCommit.advance(this.currentCue);
+        if (!primary.html && primary.shouldRequestParse && contiguous
             && this.subtitleEl.querySelector('.jpdb-subtitle-primary')?.textContent) {
             this.holdingPrimaryCue = true;
             this.syncSubtitleTextSize();
@@ -2752,7 +2748,8 @@ export class SubtitlePlayerController {
         const changed = this.applyPrimaryRow(primary.html);
         this.applySecondaryLine(settings);
         this.applyRenderedPrimarySubtitle(primary, text, settings);
-        if (primary.html) this.lastPaintedPrimaryCue = this.currentCue;
+        this.paintCommit.commit(primary.html ? this.currentCue : undefined, this.secondaryCue);
+        void this.autoCopyCurrentCue();
         // Re-applying state colors only matters when the DOM was rebuilt;
         // re-notifying on identical renders made pitch/state highlights
         // flicker out under time-driven render ticks (user-reported).
@@ -3736,7 +3733,6 @@ export class SubtitlePlayerController {
         this.syncControls();
         this.warmParseAroundActiveCue();
         this.scheduleTranscriptCacheWarmup();
-        void this.autoCopyCurrentCue();
     }
 
     private trackSelectionRole(id: string): SubtitleTrackSelectionRole | undefined {
@@ -4861,8 +4857,8 @@ export class SubtitlePlayerController {
     }
 
     private subtitleCopyText(rowIndex: number | undefined): string {
-        const cue = rowIndex !== undefined ? this.cues[rowIndex] : this.currentCue;
-        const secondary = rowIndex !== undefined && cue ? findAlignedCue(this.secondaryCues, cue) : this.secondaryCue;
+        const cue = rowIndex !== undefined ? this.cues[rowIndex] : this.paintCommit.pair?.primary;
+        const secondary = rowIndex !== undefined && cue ? findAlignedCue(this.secondaryCues, cue) : this.paintCommit.pair?.secondary;
         return subtitleClipboardText(cue, secondary, this.options.getSettings().subtitleCopyIncludeTranslation);
     }
 
@@ -4884,11 +4880,12 @@ export class SubtitlePlayerController {
     }
 
     private async autoCopyCurrentCue(): Promise<void> {
-        if (!this.options.getSettings().subtitleAutoCopyLine || !this.currentCue?.text.trim()) return;
-        const signature = subtitleCueSignature(this.currentCue);
+        const cue = this.paintCommit.pair?.primary;
+        if (!this.options.getSettings().subtitleAutoCopyLine || !cue?.text.trim()) return;
+        const signature = subtitleCueSignature(cue);
         if (signature === this.lastAutoCopiedCueSignature) return;
         this.lastAutoCopiedCueSignature = signature;
-        await navigator.clipboard?.writeText(this.currentCue.text.trim())
+        await navigator.clipboard?.writeText(cue.text.trim())
             .catch(error => log.warn('Subtitle auto-copy failed', error));
     }
 

@@ -3,7 +3,9 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 import { chromium, webkit, devices } from 'playwright';
 import sharp from 'sharp';
 import { openRecordedPage } from './lib/recorded-page.mjs';
-import { createReaderSmokeSettings, mockJpdbApiRequest } from './lib/smoke-harness.mjs';
+import { createReaderSmokeSettings, mockJpdbApiRequest, readJsonBody } from './lib/smoke-harness.mjs';
+import { assertCaptionControls } from './lib/subtitle-stability-controls.mjs';
+import { assertPendingCaptionPair } from './lib/subtitle-pending-paint.mjs';
 
 // Built userscript + its declared @require/@resource graph, on a recorded
 // YouTube page. Caption timings and modal controls are mechanism fixtures.
@@ -11,7 +13,7 @@ import { createReaderSmokeSettings, mockJpdbApiRequest } from './lib/smoke-harne
 const out = 'artifacts/subtitle-stability';
 mkdirSync(out, { recursive: true });
 const vocabulary = [['日本語', '日本語', 'にほんご', 'Japanese', ['noun'], 1, ['new'], [0]]];
-const ja = Array.from({ length: 10 }, (_, index) => index===4||index===9 ? '日本語を毎日読んでいる友達と日本語の本を図書館でゆっくり楽しく読みます。' : index % 2 ? 'かなだけです。' : '日本語です。');
+const ja = Array.from({ length: 10 }, (_, index) => index===4||index===9 ? '日本語を毎日読んでいる友達と日本語の本を図書館でゆっくり楽しく読みます。' : index===2 ? '日本語を読みます。' : index % 2 ? 'かなだけです。' : '日本語です。');
 const track = lang => ({ wireMagic:'pb3', events:ja.map((text, i) => ({ tStartMs:1000+i*2000, dDurationMs:2000,
     segs:[{ utf8:lang === 'en' ? (i===4||i===9 ? 'I read Japanese books slowly and happily at the library with a friend who reads Japanese every day.' : i % 2 ? 'This sentence is written using kana only.' : 'This sentence is written in Japanese.') : text }] })) });
 const response = value => ({ status:200, contentType:'application/json', body:JSON.stringify(value) });
@@ -26,6 +28,8 @@ const summaries = [];
 for (const [name, engine] of [['webkit', webkit], ['chromium', chromium]]) {
     const browser = await engine.launch();
     const calls = [];
+    let releasePending;
+    const pending = new Promise(resolve => { releasePending = resolve; });
     let run;
     try {
         run = await openRecordedPage({ browser, slug:'youtube-watch', navigate:false,
@@ -34,10 +38,15 @@ for (const [name, engine] of [['webkit', webkit], ['chromium', chromium]]) {
             settings:createReaderSmokeSettings({ ...parserSettings, parserProvider:'jpdb', subtitleOverlayVisible:true, subtitleOverlayVisibleChosen:true,
                 subtitleSecondaryVisible:true, subtitleSecondaryVisibleChosen:true, subtitleNativeBlurred:false,
                 subtitleControlsMode:'always', subtitleKaraokeMode:false, subtitleHoverPause:false, subtitleTextColor:'#ffffff',
+                subtitleOutlineColor:'#193655',
                 subtitleTextColorSource:'off', wordTextColorSource:'off', wordUnderlineColorSource:'off', wordHighlightColorSource:'off' }),
             onGmRequest: async request => {
                 if (request.url.includes('/api/timedtext')) return response(track(new URL(request.url).searchParams.get('tlang')));
-                if (request.url.includes('/api/v1/parse')) await new Promise(resolve=>setTimeout(resolve, 200));
+                if (request.url.includes('/api/v1/parse')) {
+                    const text = JSON.stringify(readJsonBody(request.data).text);
+                    if (ja.slice(1).filter(value => value !== ja[0]).some(value => text?.includes(value))) await pending;
+                    await new Promise(resolve=>setTimeout(resolve, 200));
+                }
                 const mock = mockJpdbApiRequest(request, calls, vocabulary);
                 return mock ? { status:mock.status ?? 200, contentType:mock.contentType ?? 'application/json', body:mock.responseText } : undefined;
             },
@@ -47,6 +56,18 @@ for (const [name, engine] of [['webkit', webkit], ['chromium', chromium]]) {
         // The supplied cues are manual fixtures, not ASR rollup snapshots.
         // Feed the same stream and metadata to the native player mechanism.
         await context.addInitScript(nativeTrack => {
+            const readings = new WeakSet();
+            window.captionFirstPaintColors = [];
+            const sample = () => {
+                for (const rt of document.querySelectorAll('.jpdb-subtitle-primary .jpdb-reader-furi')) {
+                    if (readings.has(rt)) continue;
+                    readings.add(rt);
+                    const base = rt.parentElement.querySelector('.jpdb-reader-ruby-base') ?? rt.closest('.jpdb-reader-word');
+                    window.captionFirstPaintColors.push({ reading: getComputedStyle(rt).color, base: getComputedStyle(base).color });
+                }
+                requestAnimationFrame(sample);
+            };
+            requestAnimationFrame(sample);
             let install;
             Object.defineProperty(window, '__yomuRecordedYouTubePlayer', {
                 configurable: true,
@@ -71,6 +92,8 @@ for (const [name, engine] of [['webkit', webkit], ['chromium', chromium]]) {
         await page.waitForSelector('video');
         await page.evaluate(() => { const v=document.querySelector('video');v.pause();v.currentTime=1.3; });
         await page.waitForSelector('.jpdb-subtitle-primary .jpdb-reader-furi', { timeout:60_000 });
+        const pendingPaint = await assertPendingCaptionPair(page, name, releasePending,
+            { primary: ja[0], secondary: 'This sentence is written in Japanese.' });
         const typography=await page.evaluate(()=>{
             const primary=getComputedStyle(document.querySelector('.jpdb-subtitle-primary'));
             const secondary=getComputedStyle(document.querySelector('.jpdb-subtitle-secondary'));
@@ -133,6 +156,8 @@ for (const [name, engine] of [['webkit', webkit], ['chromium', chromium]]) {
         const bottoms = [...new Set(frames.map(frame=>Math.round(frame.bottom*100)/100))];
         assert(Math.max(...bottoms)-Math.min(...bottoms)<=1, `${name}: baseline moved ${JSON.stringify(bottoms)}`);
         assert(frames.flatMap(frame=>frame.colors).every(({reading,base})=>reading===base), `${name}: reading colour differs`);
+        const firstPaintColors = await page.evaluate(() => window.captionFirstPaintColors);
+        assert(firstPaintColors.length > 0 && firstPaintColors.every(({reading,base})=>reading===base), `${name}: reading colour differs on first paint`);
         assert(new Set(frames.map(frame=>Math.floor((frame.time-1)/2))).size===10, `${name}: did not observe ten cue windows`);
         for(let index=0;index<ja.length;index++) assert(frames.some(frame=>frame.time>=1+index*2+.35&&frame.time<3+index*2&&frame.mainText===ja[index]),`${name}: cue ${index+1} did not paint`);
         const lineCounts=[...new Set(frames.map(frame=>frame.lineCount))].sort();
@@ -140,6 +165,8 @@ for (const [name, engine] of [['webkit', webkit], ['chromium', chromium]]) {
         console.log(JSON.stringify({engine:name,frames:frames.length,baseline:bottoms,lineCounts,blankFrames:0}));
         await page.evaluate(()=>{const v=document.querySelector('video');v.currentTime=1.3;});
         await page.waitForFunction(expected=>document.querySelector('.jpdb-subtitle-primary .jpdb-reader-word')?.dataset.sentence===expected,ja[0]);
+        assert.equal(await page.locator('.jpdb-subtitle-player').evaluate(element => element.style.getPropertyValue('--subtitle-outline')), '#193655', `${name}: saved outline colour was replaced`);
+        const controls = await assertCaptionControls(page, name, out);
         const point = await page.locator('.jpdb-subtitle-primary .jpdb-reader-word').first().evaluate(e=>{const r=e.getBoundingClientRect();return{x:r.left+r.width/2,y:r.bottom-4};});
         await page.evaluate(({x,y})=>{
             const dialog=document.createElement('div');dialog.id='caption-test-dialog';dialog.setAttribute('role','dialog');
@@ -147,7 +174,7 @@ for (const [name, engine] of [['webkit', webkit], ['chromium', chromium]]) {
             dialog.textContent='A site dialog over the video';document.body.append(dialog);
         }, point);
         assert(await page.evaluate(({x,y})=>Boolean(document.elementFromPoint(x,y)?.closest('#caption-test-dialog')),point), `${name}: caption above dialog`);
-        await page.screenshot({path:`${out}/${name}-dialog-fixture.png`});
+        await page.screenshot({path:`${out}/${name}-dialog-mechanism-fixture.png`});
         await page.locator('#caption-test-dialog').evaluate(e=>e.remove());
         assert(await page.evaluate(({x,y})=>Boolean(document.elementFromPoint(x,y)?.closest('.jpdb-subtitle-primary')),point), `${name}: caption missing after dialog closes`);
         // Native chrome stays below captions; its settings menu stays above.
@@ -217,7 +244,7 @@ for (const [name, engine] of [['webkit', webkit], ['chromium', chromium]]) {
                 const spot=await page.locator('.jpdb-subtitle-lines').evaluate(e=>{const r=e.getBoundingClientRect();return{x:r.left+r.width/2,y:r.top+r.height/2};});
                 await page.evaluate(({x,y})=>{const dialog=document.createElement('div');dialog.id='caption-drag-dialog';dialog.setAttribute('role','dialog');dialog.style.cssText=`position:fixed;left:${x-100}px;top:${y-50}px;width:200px;height:100px;background:white;z-index:2020`;document.body.append(dialog);},spot);
                 assert(await page.evaluate(({x,y})=>Boolean(document.elementFromPoint(x,y)?.closest('#caption-drag-dialog')),spot),`${name}: dragged caption covers a page dialog`);
-                await page.screenshot({path:`${out}/${name}-dragged-dialog-fixture.png`});
+                await page.screenshot({path:`${out}/${name}-dragged-dialog-mechanism-fixture.png`});
                 await page.locator('#caption-drag-dialog').evaluate(e=>e.remove());
             }
             await page.evaluate(background=>{
@@ -235,7 +262,7 @@ for (const [name, engine] of [['webkit', webkit], ['chromium', chromium]]) {
             const box=await page.locator('.jpdb-subtitle-lines').boundingBox();
             const secondaryPixels=await page.locator('.jpdb-subtitle-secondary').boundingBox();
             const png=await page.screenshot();
-            writeFileSync(`${out}/${name}-${background==='white'?'white':'bright'}-fixture.png`,png);
+            writeFileSync(`${out}/${name}-${background==='white'?'white':'bright'}-mechanism-fixture.png`,png);
             const {data,info}=await sharp(png).ensureAlpha().raw().toBuffer({resolveWithObject:true});
             const scale=info.width/page.viewportSize().width;
             const sample=(x,y)=>{
@@ -256,7 +283,7 @@ for (const [name, engine] of [['webkit', webkit], ['chromium', chromium]]) {
             assert(ratios.every(r=>r>=4.5), `${name}: contrast ${background}: ${JSON.stringify({bg,ink,ratios})}`);
             contrast.push({background,viewport:page.viewportSize(),underlay,bg,translationBg,minimum:Math.min(...ratios)});
         }
-        writeFileSync(`${out}/${name}-captions.json`,JSON.stringify({engine:name,frames:frames.length,bottoms,lineCounts,blankFrames:0,hydration,typography,tiers,popupStack,contrast},null,2));
+        writeFileSync(`${out}/${name}-captions.json`,JSON.stringify({engine:name,frames:frames.length,bottoms,lineCounts,blankFrames:0,pendingPaint,hydration,typography,tiers,popupStack,contrast,controls,firstPaintColors},null,2));
         console.log(JSON.stringify({engine:name,contrast}));
         // Page-reader ink is checked on a real recorded prose page. YouTube's
         // site Adapter intentionally does not scan arbitrary injected prose.
@@ -274,7 +301,7 @@ for (const [name, engine] of [['webkit', webkit], ['chromium', chromium]]) {
         const pageColour=await readerPage.locator('.jpdb-reader-word .jpdb-reader-furi').first().evaluate(rt=>({reading:getComputedStyle(rt).color,base:getComputedStyle(rt.parentElement.querySelector('.jpdb-reader-ruby-base')??rt.closest('.jpdb-reader-word')).color}));
         assert.equal(pageColour.reading,pageColour.base,`${name}: page reading colour differs from word`);
         assert.notEqual(pageColour.reading,'rgba(0, 0, 0, 0)',`${name}: transparent page reading`);
-        summaries.push({engine:name,frames:frames.length,bottoms,lineCounts,blankFrames:0,hydration,pageColour,typography,contrast});
+        summaries.push({engine:name,frames:frames.length,bottoms,lineCounts,blankFrames:0,pendingPaint,hydration,pageColour,typography,contrast,controls,firstPaintColors});
     } catch(error) { console.error(`${name}: ${error.message}`); throw error; }
     finally { await run?.close(); await browser.close(); }
 }

@@ -9,6 +9,31 @@ const youtubeCaptionLayerAdapter = {
         element => Number.parseInt(getComputedStyle(element).zIndex) || 0)) + 1,
 };
 
+function captionLayerTier(host: HTMLElement | undefined, player: HTMLElement | undefined): number {
+    // The YouTube Adapter follows native chrome, below its menus.
+    if (host) return isYouTubePage() ? youtubeCaptionLayerAdapter.chromeTier(host) : 0;
+    // A dragged caption shares the player's outer page tier.
+    let tier = 0;
+    for (let ancestor = player; ancestor && ancestor !== document.body; ancestor = ancestor.parentElement ?? undefined) {
+        const value = Number.parseInt(getComputedStyle(ancestor).zIndex);
+        if (Number.isFinite(value)) tier = value;
+    }
+    return tier;
+}
+
+function mountCaptionLayer(root: HTMLElement, parent: HTMLElement, host: HTMLElement | undefined): boolean {
+    if (root.parentElement === parent) return false;
+    let before = host?.querySelector('.ytp-settings-menu, [role="dialog"], [aria-modal="true"], dialog[open], [role="menu"]') ?? null;
+    while (before?.parentElement && before.parentElement !== parent) before = before.parentElement;
+    const active = root.ownerDocument.activeElement;
+    const focused = active instanceof HTMLElement && root.contains(active) ? active : null;
+    const moveBefore = (parent as HTMLElement & { moveBefore?: (node: Node, child: Node | null) => void }).moveBefore;
+    if (moveBefore && root.isConnected && parent.isConnected && root.getRootNode() === parent.getRootNode()) moveBefore.call(parent, root, before);
+    else parent.insertBefore(root, before);
+    if (focused && root.ownerDocument.activeElement !== focused) focused.focus({ preventScroll: true });
+    return true;
+}
+
 /** Captions share the player's stacking context; page sheets remain outside it. */
 export class SubtitleLayer {
     private host?: HTMLElement;
@@ -38,31 +63,10 @@ export class SubtitleLayer {
         // Native styles can arrive after the caption's first mount (WebKit).
         // Refresh the derived context, but write only when it actually changes.
         this.local = Boolean(host && ['relative', 'absolute', 'fixed', 'sticky'].includes(getComputedStyle(host).position));
-        let tier = 0;
-        if (host) {
-            // The YouTube Adapter follows native chrome, below its menus.
-            tier = isYouTubePage() ? youtubeCaptionLayerAdapter.chromeTier(host) : 0;
-        } else {
-            // A dragged caption shares the player's outer page tier.
-            for (let ancestor: HTMLElement | null = player ?? null; ancestor && ancestor !== document.body; ancestor = ancestor.parentElement) {
-                const value = Number.parseInt(getComputedStyle(ancestor).zIndex);
-                if (Number.isFinite(value)) tier = value;
-            }
-        }
+        const tier = captionLayerTier(host, player);
         if (root.style.getPropertyValue('--subtitle-layer') !== String(tier)) root.style.setProperty('--subtitle-layer', String(tier));
         this.floating = floating;
-        const parent = host ?? fullscreen;
-        const moved = root.parentElement !== parent;
-        if (moved) {
-            let before = host?.querySelector('.ytp-settings-menu, [role="dialog"], [aria-modal="true"], dialog[open], [role="menu"]') ?? null;
-            while (before?.parentElement && before.parentElement !== parent) before = before.parentElement;
-            const active = root.ownerDocument.activeElement;
-            const focused = active instanceof HTMLElement && root.contains(active) ? active : null;
-            const moveBefore = (parent as HTMLElement & { moveBefore?: (node: Node, child: Node | null) => void }).moveBefore;
-            if (moveBefore && root.isConnected && parent.isConnected && root.getRootNode() === parent.getRootNode()) moveBefore.call(parent, root, before);
-            else parent.insertBefore(root, before);
-            if (focused && root.ownerDocument.activeElement !== focused) focused.focus({ preventScroll: true });
-        }
+        const moved = mountCaptionLayer(root, host ?? fullscreen, host);
         if (root.classList.contains('jpdb-subtitle-layer-local') !== this.local) root.classList.toggle('jpdb-subtitle-layer-local', this.local);
         this.popupOcclusion.schedule(root, floating);
         return moved || previousHost !== this.host || previousLocal !== this.local;

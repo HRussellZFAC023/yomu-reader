@@ -388,10 +388,10 @@ describe('SubtitlePlayerController — parse cache, warmup & seek', () => {
             expect(internals.currentCue?.text).toBe('先生');
             video.currentTime = 5;
             internals.updateFromLoadedCues();
-            // The successor is not visually committed until its enrichment
-            // settles; neither stale prior words nor plain successor words are
-            // shown in the meantime.
-            expect(primary?.textContent).toBe('');
+            // An abutting successor retains the enriched preceding line until
+            // it can paint, without flashing plain successor words/readings.
+            expect(primary?.textContent).toContain('先生');
+            expect(primary?.querySelector('.jpdb-reader-furi')?.textContent).toBe('せんせい');
             expect(primary?.textContent).not.toContain('悪口');
             expect(primary?.querySelector('.jpdb-subtitle-primary-loading')).toBeNull();
             releaseSuccessorEnrichment();

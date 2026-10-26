@@ -1359,11 +1359,9 @@ describe('SubtitlePlayerController — idle controls, overlay drag & rail visibi
             const fullscreenState = controllerInternals<{ syncFullscreenState: () => void }>(controller);
             fullscreenState.syncFullscreenState();
 
-            // A CSS fullscreen class changes geometry, not browser top-layer
-            // ancestry. Keeping the reader root at body means YouTube never
-            // sees Yomu's focused control as focus inside its player subtree.
-            expect(root.parentElement).toBe(document.body);
-            expect(player.contains(root)).toBe(false);
+            // At rest captions share the player context, below site sheets.
+            // Focusing the rail portals it out of YouTube's :focus-within.
+            expect(root.parentElement).toBe(player);
 
             railHandle.dispatchEvent(pointerEvent('pointerdown', {
                 clientX: 24,
@@ -1372,8 +1370,10 @@ describe('SubtitlePlayerController — idle controls, overlay drag & rail visibi
                 pointerType: 'touch',
             }));
             railHandle.focus();
+            await vi.advanceTimersByTimeAsync(40);
 
             expect(document.activeElement).toBe(railHandle);
+            expect(root.parentElement).toBe(document.body);
             const focusState = controllerInternals<{ subtitleStylePanelOpen: boolean }>(controller);
             expect(focusState.subtitleStylePanelOpen).toBe(false);
             expect(player.classList.contains('ytp-autohide')).toBe(false);

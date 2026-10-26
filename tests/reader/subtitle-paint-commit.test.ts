@@ -6,11 +6,18 @@ import type { SubtitleCue } from '../../src/reader/subtitles/subtitle-cues';
 
 describe('subtitle visual commits', () => {
     registerSubtitleControllerCleanup();
-    afterEach(() => { document.body.innerHTML = ''; });
+    const clipboardDescriptor = Object.getOwnPropertyDescriptor(navigator, 'clipboard');
+    afterEach(() => {
+        document.body.innerHTML = '';
+        if (clipboardDescriptor) Object.defineProperty(navigator, 'clipboard', clipboardDescriptor);
+        else Reflect.deleteProperty(navigator, 'clipboard');
+    });
     it('keeps an abutting cue and translation until the next pair can paint, but clears real gaps', () => {
-        const { controller } = createInstalledSubtitleController(makeSubtitleSettings({ subtitleOverlayVisible:true, subtitleSecondaryVisible:true }));
+        const writeText = vi.fn(async (_text: string) => {});
+        Object.defineProperty(navigator, 'clipboard', { configurable:true, value:{ writeText } });
+        const { controller } = createInstalledSubtitleController(makeSubtitleSettings({ subtitleOverlayVisible:true, subtitleSecondaryVisible:true, subtitleAutoCopyLine:true }));
         const state = controllerInternals<{
-            currentCue?: SubtitleCue; secondaryCue?: SubtitleCue; render():void;
+            currentCue?: SubtitleCue; secondaryCue?: SubtitleCue; render():void; subtitleCopyText(index?: number): string;
             renderPrimarySubtitle: Mock<[], SubtitlePrimaryRenderResult>;
             requestParsedPrimaryIfNeeded: ReturnType<typeof vi.fn>;
             applyRenderedPrimarySubtitle: ReturnType<typeof vi.fn>;
@@ -27,6 +34,7 @@ describe('subtitle visual commits', () => {
         state.currentCue = firstCue;
         state.secondaryCue = { start:0, end:1, text:'Japanese' };
         state.render();
+        expect(writeText).toHaveBeenLastCalledWith('日本語。');
         const primary = () => document.querySelector('.jpdb-subtitle-primary')?.textContent;
         const secondary = () => document.querySelector('.jpdb-subtitle-secondary')?.textContent;
         state.currentCue = secondCue;
@@ -35,11 +43,15 @@ describe('subtitle visual commits', () => {
         state.render();
         expect(primary()).toBe('日本語。');
         expect(secondary()).toBe('Japanese');
+        expect(state.subtitleCopyText()).toBe('日本語。\nJapanese');
+        expect(writeText).toHaveBeenCalledTimes(1);
         expect(state.requestParsedPrimaryIfNeeded).toHaveBeenCalled();
         state.renderPrimarySubtitle.mockReturnValue({ ...parsed, html:'かな。' });
         state.render();
         expect(primary()).toBe('かな。');
         expect(secondary()).toBe('Kana');
+        expect(writeText).toHaveBeenLastCalledWith('かな。');
+        expect(writeText).toHaveBeenCalledTimes(2);
         state.currentCue = {...secondCue,start:2.05,end:3,text:'次の行。'};
         state.renderPrimarySubtitle.mockReturnValue({...parsed,html:'',shouldRequestParse:true});
         state.render();
@@ -49,5 +61,32 @@ describe('subtitle visual commits', () => {
         state.render();
         expect(primary()).toBeUndefined();
         expect(secondary()).toBeUndefined();
+    });
+
+    it('holds the displayed pair across several contiguous pending cues', () => {
+        const { controller } = createInstalledSubtitleController(makeSubtitleSettings({ subtitleOverlayVisible:true, subtitleSecondaryVisible:true }));
+        const state = controllerInternals<{
+            currentCue?: SubtitleCue; secondaryCue?: SubtitleCue; render():void; subtitleCopyText(index?: number): string;
+            renderPrimarySubtitle: Mock<[], SubtitlePrimaryRenderResult>; requestParsedPrimaryIfNeeded: ReturnType<typeof vi.fn>;
+            applyRenderedPrimarySubtitle: ReturnType<typeof vi.fn>;
+        }>(controller);
+        state.renderPrimarySubtitle = vi.fn((): SubtitlePrimaryRenderResult => ({ html:'日本語。', karaokeActive:false, shouldRequestParse:false }));
+        state.applyRenderedPrimarySubtitle = vi.fn();
+        state.requestParsedPrimaryIfNeeded = vi.fn();
+        state.currentCue = { start:0, end:1, text:'日本語。' };
+        state.secondaryCue = { start:0, end:1, text:'Japanese' };
+        state.render();
+        state.renderPrimarySubtitle.mockReturnValue({html:'',karaokeActive:false,shouldRequestParse:true});
+        for (let start = 1; start <= 3; start++) {
+            state.currentCue = { start, end:start+1, text:`次${start}。` };
+            state.secondaryCue = { start, end:start+1, text:`Next ${start}` };
+            state.render();
+            expect(document.querySelector('.jpdb-subtitle-primary')?.textContent).toBe('日本語。');
+            expect(document.querySelector('.jpdb-subtitle-secondary')?.textContent).toBe('Japanese');
+        }
+        expect(state.subtitleCopyText()).toBe('日本語。\nJapanese');
+        state.renderPrimarySubtitle.mockReturnValue({html:'次3。',karaokeActive:false,shouldRequestParse:false});
+        state.render();
+        expect(state.subtitleCopyText()).toBe('次3。\nNext 3');
     });
 });

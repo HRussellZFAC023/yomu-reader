@@ -19,3 +19,11 @@ Viewport recovery measures a stable one-line caption anchor with its reserved tr
 ## Verification
 
 The built-product stability smoke checks both contexts against page dialogs, native menus and word lookup, plus pointer dragging, cue baselines, reading ink and rendered contrast. Simulator acceptance remains separate from Chromium and Playwright WebKit results.
+
+### Pending cue continuity
+
+`SubtitlePaintCommit` tracks each requested boundary separately from the painted primary/secondary pair. Several contiguous pending cues retain that pair; silence and backward jumps break continuity. Caption Copy and auto-copy read the committed pair, while indexed transcript Copy continues to address its selected row. The recorded-page smoke holds parsing across three boundaries and uses the trusted Copy shortcut to verify this contract.
+
+### Lane verification update (2026-10-26)
+
+Simulator acceptance now passes on the built lane in the specified iPadOS 27 device: 623 observed frames across ten cue windows, one- and two-line cues, no blank primary, one DOM baseline (309.515625 CSS px), and matching first-paint reading/base colours. The screen recording's pixel-row analysis reports one bottom row (758 physical px). Status underlines are disabled for that pixel measurement so decoration is not mistaken for a glyph-baseline change. The dialog screenshot shows the site surface obscuring the caption. These are recorded-page mechanism checks with generated tracks and mocked parsing, not live YouTube or physical-device evidence. Integration acceptance remains separate.
