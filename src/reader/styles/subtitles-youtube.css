@@ -67,12 +67,13 @@
 .jpdb-subtitle-lines {
   min-height: 0;
   position: relative;
-  width: fit-content;
+  width: max-content;
   max-width: 100%;
   box-sizing: border-box;
   align-self: center;
   display: grid;
   grid-template-rows: auto 0;
+  grid-template-columns: minmax(0, 1fr);
   align-content: end;
   overflow: visible;
   pointer-events: none;
@@ -85,7 +86,9 @@
   background: var(--subtitle-background-rgba);
   /* A full reading lane on EVERY line, including plain/loading/kana cues. */
   line-height: 2.2;
+  word-break: normal;
 }
+.jpdb-subtitle-primary-row > .jpdb-subtitle-primary { display: block; }
 .jpdb-subtitle-lines:not(.jpdb-subtitle-has-primary) .jpdb-subtitle-primary-row { display: none; }
 .jpdb-subtitle-lines.jpdb-subtitle-has-secondary .jpdb-subtitle-primary-row { border-radius: .25em .25em 0 0; }
 /* Translation has its own slot below the anchored Japanese baseline. Its
@@ -105,6 +108,7 @@
   white-space: pre-wrap !important;
   overflow-wrap: anywhere;
   overflow: visible !important;
+  pointer-events: none;
 }
 .jpdb-subtitle-primary {
   /* The line box can span the player even where it paints no glyphs. Keep
@@ -112,11 +116,12 @@
      fullscreen/settings controls remain tappable; parsed words opt back in. */
   pointer-events: none;
 }
-.jpdb-subtitle-secondary,
+.jpdb-subtitle-secondary-ink,
 .jpdb-subtitle-primary .jpdb-reader-word,
 .jpdb-subtitle-secondary .jpdb-reader-word {
   pointer-events: auto;
 }
+.jpdb-subtitle-secondary-ink { display: inline; }
 /* Pausing annotations deliberately removes the parsed word spans that normally
    provide the overlay's interactive hit targets. Keep the resulting plain
    caption text selectable (and hover-pausable) without making the transparent
@@ -137,6 +142,9 @@
    click-through so Share/fullscreen/settings still work. Marked by the sweep in
    the controller, which measures every element that opts in, not just words. */
 .jpdb-subtitle-player [data-jpdb-subtitle-native-control-safe-zone="true"] {
+  pointer-events: none !important;
+}
+.jpdb-subtitle-player [data-jpdb-subtitle-native-control-safe-zone="true"] .jpdb-subtitle-secondary-ink {
   pointer-events: none !important;
 }
 .jpdb-subtitle-drag-handle {
@@ -258,7 +266,7 @@ html.jpdb-subtitle-yt-sheet-open .asbplayer-subtitles-container-bottom.jpdb-subt
   line-height: inherit;
   overflow-wrap: anywhere;
   word-break: normal;
-  text-wrap: balance;
+  text-wrap: wrap;
   -webkit-text-stroke: .02em color-mix(in srgb, var(--subtitle-outline, var(--jpdb-reader-video-outline)) 78%, transparent);
   paint-order: stroke fill;
 }
@@ -335,25 +343,6 @@ html.jpdb-subtitle-yt-sheet-open .asbplayer-subtitles-container-bottom.jpdb-subt
   text-shadow: 0 2px 2px var(--jpdb-reader-black), 0 0 7px var(--jpdb-reader-video-shadow-heavy);
   opacity: 1;
 }
-/* A caption line is ~24px tall — under half a fingertip. On touch, grow the
-   control's OWN box: padding takes it to 42px and the matching negative margin
-   hands the space straight back, so the line and its wrapping stay exactly
-   where they are (min-height carries the padding, and the
-   24px content box is unmoved). The growth is 4px up — inside the existing 8px
-   gap, so it can never cover the annotated line and swallow a word lookup —
-   and 14px down into empty subtitle space. Deliberately the element's own box
-   rather than a pseudo-element halo: the native-player safe-zone sweep measures
-   getBoundingClientRect, which a halo is invisible to, and that sweep is what
-   makes the overlay stand down over the seek bar. */
-@media (pointer: coarse) {
-  .jpdb-subtitle-secondary {
-    min-height: 42px;
-    margin-top: 4px;
-    margin-bottom: -14px;
-    padding-top: 4px;
-    padding-bottom: 14px;
-  }
-}
 .jpdb-subtitle-karaoke-word {
   display: inline;
   border-radius: 3px;
@@ -387,6 +376,10 @@ html.jpdb-subtitle-yt-sheet-open .asbplayer-subtitles-container-bottom.jpdb-subt
   text-decoration-color: transparent;
 }
 .jpdb-subtitle-primary .jpdb-reader-word {
+  display: inline-block !important;
+  vertical-align: baseline;
+  line-height: inherit;
+  max-width: 100%;
   --jpdb-reader-subtitle-fallback: var(--subtitle-color);
   --jpdb-reader-subtitle-highlight-default: color-mix(
     in srgb,
@@ -406,7 +399,8 @@ html.jpdb-subtitle-yt-sheet-open .asbplayer-subtitles-container-bottom.jpdb-subt
   text-decoration-color: transparent !important;
   text-decoration-thickness: .08em !important;
   text-underline-offset: .15em !important;
-  white-space: nowrap;
+  white-space: normal;
+  overflow-wrap: anywhere !important;
   text-shadow:
     0 1px 2px var(--subtitle-outline, var(--jpdb-reader-video-outline)),
     0 0 3px var(--subtitle-outline, var(--jpdb-reader-video-outline)),

@@ -243,12 +243,18 @@ function createVisibleSubtitlePrimaryRow(
 }
 
 // Caption text carries newlines, so the children are markup rather than a
-// textContent write. Replacing the button's children leaves the button itself
-// under the finger, which is the node hit testing resolves the tap against.
+// textContent write. The inline child owns the text hit target; the button's
+// backdrop padding stays click-through. Keep both nodes stable during a press.
 function syncSubtitleSecondaryText(button: HTMLElement, text: string): void {
     if (button.dataset.subtitleSecondaryText === text) return;
     button.dataset.subtitleSecondaryText = text;
-    setInnerHtml(button, escapeWithBreaks(text));
+    let ink = button.querySelector<HTMLElement>('.jpdb-subtitle-secondary-ink');
+    if (!ink) {
+        ink = document.createElement('span');
+        ink.className = 'jpdb-subtitle-secondary-ink';
+        button.replaceChildren(ink);
+    }
+    setInnerHtml(ink, escapeWithBreaks(text));
 }
 
 function renderSubtitleKaraokeCue(cue: SubtitleCue | undefined, time: number): string {

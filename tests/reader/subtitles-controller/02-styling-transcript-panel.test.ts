@@ -538,7 +538,7 @@ describe('SubtitlePlayerController — styling & transcript panel', () => {
         internals.secondaryCue = { ...cue, text: 'Read today.' };
 
         const selectText = (element: HTMLElement): void => {
-            const text = element.firstChild;
+            const text = document.createTreeWalker(element, NodeFilter.SHOW_TEXT).nextNode();
             if (!text) throw new Error('Expected selectable caption text.');
             const range = document.createRange();
             range.setStart(text, 0);

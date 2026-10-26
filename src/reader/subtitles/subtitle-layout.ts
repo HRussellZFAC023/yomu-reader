@@ -48,32 +48,18 @@ export interface SubtitleControlRailPosition {
     y: number;
 }
 
-/** One reading lane plus fixed translation clearance, in viewport pixels. */
-export function measureSubtitleAnchorHeight(root: HTMLElement): number {
-    const text = root.querySelector<HTMLElement>('.jpdb-subtitle-text');
-    const row = text?.querySelector<HTMLElement>('.jpdb-subtitle-primary-row');
-    if (!text || !row) return text?.getBoundingClientRect().height ?? 0;
-    const rowStyle = getComputedStyle(row);
-    const lineHeight = Number.parseFloat(rowStyle.lineHeight);
-    if (!Number.isFinite(lineHeight) || lineHeight <= 0) return text.getBoundingClientRect().height;
-    const textStyle = getComputedStyle(text);
-    const padding = [rowStyle.paddingTop, rowStyle.paddingBottom, textStyle.paddingTop, textStyle.paddingBottom]
-        .reduce((sum, value) => sum + (Number.parseFloat(value) || 0), 0);
-    const scale = root.offsetHeight ? root.getBoundingClientRect().height / root.offsetHeight : 1;
-    return (lineHeight + padding) * scale;
-}
-
 export interface ReachableSubtitlePositionOptions {
     preferredBottomPercent: number;
     positionRect: DOMRect;
     viewportTop: number;
     viewportHeight: number;
     subtitleHeight: number;
+    belowAnchor?: number;
 }
 
 // Keep a stable caption anchor inside the viewport without overwriting the
-// preferred position. Extra cue lines grow upward without rebasing that anchor.
-// Space below a short player remains usable; a taller player may rebase it.
+// preferred position. Wrapped cues grow upward until they reach the viewport
+// edge; only then recover the whole caption and handle into the visible area.
 export function reachableSubtitleBottomPercent(options: ReachableSubtitlePositionOptions): number {
     const { preferredBottomPercent, positionRect, viewportTop, viewportHeight } = options;
     if (!Number.isFinite(preferredBottomPercent)
@@ -91,8 +77,8 @@ export function reachableSubtitleBottomPercent(options: ReachableSubtitlePositio
     const viewportBottom = viewportTop + viewportHeight;
     // `bottom` is a percentage of the positioned overlay root, while the
     // permitted painted area is the visible viewport around that root.
-    const minimum = Math.ceil(((positionRect.bottom - viewportBottom + margin) / positionRect.height) * 100);
-    const maximum = Math.floor(((positionRect.bottom - viewportTop - margin - subtitleHeight - 48) / positionRect.height) * 100);
+    const minimum = Math.ceil(((positionRect.bottom - viewportBottom + margin + (options.belowAnchor ?? 0)) / positionRect.height) * 100);
+    const maximum = Math.floor(((positionRect.bottom - viewportTop - margin - subtitleHeight) / positionRect.height) * 100);
     return minimum > maximum
         ? minimum
         : Math.min(maximum, Math.max(minimum, preferredBottomPercent));

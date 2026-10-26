@@ -9,6 +9,7 @@ export interface ReviewedDocsMessage {
 }
 
 const HOSTED_DOCS_JA_COPY: Record<string, string> = {
+    "On YouTube, the default subtitle size follows the native captions. Controls stay clear of both subtitle lines, and taps on the background padding still reach the video. Long captions remain reachable in small windows.": "YouTubeでは、字幕の初期サイズをYouTubeの字幕に合わせます。操作ボタンは日本語の字幕と訳に重ならず、背景の余白をタップすると動画を操作できます。小さなウィンドウでも長い字幕を画面内に表示します。",
     "While the next caption is being prepared, Copy uses the line still on screen.": "次の字幕を準備している間、コピーされるのは画面に表示されている字幕です。",
     "Subtitles keep a steady baseline as readings appear, with a dark background for the Japanese line, readings and translation. Site dialogs and word lookup stay above them. The subtitle style button changes the font and background.": "字幕はふりがなが表示されても同じ位置を保ち、日本語の行、ふりがな、訳に暗い背景を付けます。サイトのダイアログや単語の検索画面は字幕より手前に表示されます。字幕のスタイルボタンで書体や背景を変更できます。",
     "On desktops with always-visible scrollbars, the よむ button and its menu keep their normal size instead of shrinking as if the page were zoomed.": "スクロールバーが常に表示されるデスクトップでも、よむボタンとメニューがページを拡大したときのように縮まず、通常の大きさで表示されるようにしました。",

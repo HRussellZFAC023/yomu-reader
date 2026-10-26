@@ -5,12 +5,16 @@ import sharp from 'sharp';
 import { openRecordedPage } from './lib/recorded-page.mjs';
 import { createReaderSmokeSettings, mockJpdbApiRequest, readJsonBody } from './lib/smoke-harness.mjs';
 import { assertCaptionControls } from './lib/subtitle-stability-controls.mjs';
+import { assertCaptionGeometry } from './lib/subtitle-caption-geometry.mjs';
 import { assertPendingCaptionPair } from './lib/subtitle-pending-paint.mjs';
 
 // Built userscript + its declared @require/@resource graph, on a recorded
 // YouTube page. Caption timings and modal controls are mechanism fixtures.
 // Screenshots here are evidence of behavior/contrast, not product screenshots.
-const out = 'artifacts/subtitle-stability';
+const geometryOnly = process.argv.includes('--geometry-only');
+const popupMode = process.argv.find(arg => arg.startsWith('--popup-mode='))?.split('=')[1] ?? 'auto';
+assert(['auto','sheet','popover'].includes(popupMode));
+const out = geometryOnly ? `artifacts/subtitle-caption-geometry-${popupMode}` : 'artifacts/subtitle-stability';
 mkdirSync(out, { recursive: true });
 const vocabulary = [['日本語', '日本語', 'にほんご', 'Japanese', ['noun'], 1, ['new'], [0]]];
 const ja = Array.from({ length: 10 }, (_, index) => index===4||index===9 ? '日本語を毎日読んでいる友達と日本語の本を図書館でゆっくり楽しく読みます。' : index===2 ? '日本語を読みます。' : index % 2 ? 'かなだけです。' : '日本語です。');
@@ -33,9 +37,9 @@ for (const [name, engine] of [['webkit', webkit], ['chromium', chromium]]) {
     let run;
     try {
         run = await openRecordedPage({ browser, slug:'youtube-watch', navigate:false,
-            contextOptions:{ ...devices['iPad Pro 11'], viewport:{ width:834, height:1194 } },
+            contextOptions:{ ...devices['iPad Pro 11'], viewport:{ width:834, height:1194 }, isMobile:name==='webkit' },
             hostOptions:{ autoplay:false },
-            settings:createReaderSmokeSettings({ ...parserSettings, parserProvider:'jpdb', subtitleOverlayVisible:true, subtitleOverlayVisibleChosen:true,
+            settings:createReaderSmokeSettings({ ...parserSettings, popupMode, stickyBottomSheet:false, parserProvider:'jpdb', subtitleOverlayVisible:true, subtitleOverlayVisibleChosen:true,
                 subtitleSecondaryVisible:true, subtitleSecondaryVisibleChosen:true, subtitleNativeBlurred:false,
                 subtitleControlsMode:'always', subtitleKaraokeMode:false, subtitleHoverPause:false, subtitleTextColor:'#ffffff',
                 subtitleOutlineColor:'#193655',
@@ -92,6 +96,12 @@ for (const [name, engine] of [['webkit', webkit], ['chromium', chromium]]) {
         await page.waitForSelector('video');
         await page.evaluate(() => { const v=document.querySelector('video');v.pause();v.currentTime=1.3; });
         await page.waitForSelector('.jpdb-subtitle-primary .jpdb-reader-furi', { timeout:60_000 });
+        if (geometryOnly) {
+            releasePending();
+            const geometry = await assertCaptionGeometry(page, name, out, ja[4], popupMode);
+            summaries.push({engine:name,popupMode,geometry});
+            continue;
+        }
         const pendingPaint = await assertPendingCaptionPair(page, name, releasePending,
             { primary: ja[0], secondary: 'This sentence is written in Japanese.' });
         const typography=await page.evaluate(()=>{
@@ -138,7 +148,7 @@ for (const [name, engine] of [['webkit', webkit], ['chromium', chromium]]) {
                     const walker=document.createTreeWalker(primary,NodeFilter.SHOW_TEXT,{acceptNode:n=>n.parentElement.closest('rt,.jpdb-reader-furi')?NodeFilter.FILTER_REJECT:NodeFilter.FILTER_ACCEPT});
                     const bottoms=[];let mainText='';
                     while(walker.nextNode()){const r=document.createRange();r.selectNodeContents(walker.currentNode);const rects=[...r.getClientRects()];if(rects.length)mainText+=walker.currentNode.textContent;bottoms.push(...rects.map(r=>r.bottom));}
-                    window.captionFrames.push({ time:video.currentTime, text:primary.textContent,mainText,lineCount:new Set(bottoms.map(bottom=>Math.round(bottom*100)/100)).size,bottom:Math.max(...bottoms),
+                    window.captionFrames.push({ font:getComputedStyle(primary).fontSize, time:video.currentTime, text:primary.textContent,mainText,lineCount:new Set(bottoms.map(bottom=>Math.round(bottom*100)/100)).size,bottom:Math.max(...bottoms),
                         colors:[...primary.querySelectorAll('.jpdb-reader-furi')].map(rt=>({reading:getComputedStyle(rt).color,base:getComputedStyle(rt.parentElement.querySelector('.jpdb-reader-ruby-base')??rt.closest('.jpdb-reader-word')).color})) });
                 } else if(video.currentTime>=1.1 && video.currentTime<20.9) window.captionFrames.push({time:video.currentTime,text:''});
                 window.captionFrame=requestAnimationFrame(sample);
@@ -167,6 +177,7 @@ for (const [name, engine] of [['webkit', webkit], ['chromium', chromium]]) {
         await page.waitForFunction(expected=>document.querySelector('.jpdb-subtitle-primary .jpdb-reader-word')?.dataset.sentence===expected,ja[0]);
         assert.equal(await page.locator('.jpdb-subtitle-player').evaluate(element => element.style.getPropertyValue('--subtitle-outline')), '#193655', `${name}: saved outline colour was replaced`);
         const controls = await assertCaptionControls(page, name, out);
+        const geometry = await assertCaptionGeometry(page, name, out, ja[4]);
         const point = await page.locator('.jpdb-subtitle-primary .jpdb-reader-word').first().evaluate(e=>{const r=e.getBoundingClientRect();return{x:r.left+r.width/2,y:r.bottom-4};});
         await page.evaluate(({x,y})=>{
             const dialog=document.createElement('div');dialog.id='caption-test-dialog';dialog.setAttribute('role','dialog');
@@ -283,7 +294,7 @@ for (const [name, engine] of [['webkit', webkit], ['chromium', chromium]]) {
             assert(ratios.every(r=>r>=4.5), `${name}: contrast ${background}: ${JSON.stringify({bg,ink,ratios})}`);
             contrast.push({background,viewport:page.viewportSize(),underlay,bg,translationBg,minimum:Math.min(...ratios)});
         }
-        writeFileSync(`${out}/${name}-captions.json`,JSON.stringify({engine:name,frames:frames.length,bottoms,lineCounts,blankFrames:0,pendingPaint,hydration,typography,tiers,popupStack,contrast,controls,firstPaintColors},null,2));
+        writeFileSync(`${out}/${name}-captions.json`,JSON.stringify({engine:name,frames:frames.length,bottoms,lineCounts,blankFrames:0,pendingPaint,hydration,typography,tiers,popupStack,contrast,controls,geometry,firstPaintColors},null,2));
         console.log(JSON.stringify({engine:name,contrast}));
         // Page-reader ink is checked on a real recorded prose page. YouTube's
         // site Adapter intentionally does not scan arbitrary injected prose.
@@ -301,7 +312,7 @@ for (const [name, engine] of [['webkit', webkit], ['chromium', chromium]]) {
         const pageColour=await readerPage.locator('.jpdb-reader-word .jpdb-reader-furi').first().evaluate(rt=>({reading:getComputedStyle(rt).color,base:getComputedStyle(rt.parentElement.querySelector('.jpdb-reader-ruby-base')??rt.closest('.jpdb-reader-word')).color}));
         assert.equal(pageColour.reading,pageColour.base,`${name}: page reading colour differs from word`);
         assert.notEqual(pageColour.reading,'rgba(0, 0, 0, 0)',`${name}: transparent page reading`);
-        summaries.push({engine:name,frames:frames.length,bottoms,lineCounts,blankFrames:0,pendingPaint,hydration,pageColour,typography,contrast,controls,firstPaintColors});
+        summaries.push({engine:name,frames:frames.length,bottoms,lineCounts,blankFrames:0,pendingPaint,hydration,pageColour,typography,contrast,controls,geometry,firstPaintColors});
     } catch(error) { console.error(`${name}: ${error.message}`); throw error; }
     finally { await run?.close(); await browser.close(); }
 }

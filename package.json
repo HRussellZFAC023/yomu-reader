@@ -276,6 +276,8 @@
     "manual:youtube": "node scripts/manual/youtube-feature-smoke.mjs",
     "manual:youtube-auto-translation": "node scripts/manual/youtube-auto-translation-smoke.mjs",
     "smoke:youtube-controls-wake": "node scripts/youtube-controls-wake-smoke.mjs",
+    "smoke:subtitle-caption-geometry": "node scripts/subtitle-stability-smoke.mjs --geometry-only",
+    "smoke:subtitle-caption-rotation": "node scripts/subtitle-stability-smoke.mjs --geometry-only --popup-rotation",
     "smoke:subtitle-stability": "node scripts/subtitle-stability-smoke.mjs",
     "smoke:youtube-ipad-playback": "node scripts/youtube-ipad-playback-smoke.mjs",
     "manual:extension-boot": "node scripts/manual/extension-boot-smoke.mjs",

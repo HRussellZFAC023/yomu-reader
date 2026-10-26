@@ -1,7 +1,7 @@
 import { SUBTITLE_SECONDARY_CLASS } from './subtitle-rendering';
 
 const SAFE_ZONE_ATTRIBUTE = 'data-jpdb-subtitle-native-control-safe-zone';
-const OVERLAY_TARGETS = `.jpdb-subtitle-primary,.jpdb-subtitle-primary .jpdb-reader-word,.${SUBTITLE_SECONDARY_CLASS},.${SUBTITLE_SECONDARY_CLASS} .jpdb-reader-word`;
+const OVERLAY_TARGETS = `.jpdb-subtitle-primary,.jpdb-subtitle-primary .jpdb-reader-word,.${SUBTITLE_SECONDARY_CLASS}-ink,.${SUBTITLE_SECONDARY_CLASS} .jpdb-reader-word`;
 const NATIVE_CONTROLS = 'button,[role="button"],a[href],[tabindex]:not([tabindex="-1"])';
 
 function overlaps(first: DOMRect, second: DOMRect): boolean {

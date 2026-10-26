@@ -75,7 +75,8 @@ export class SubtitleLayer {
     private captionLeavesFrame(root: HTMLElement): boolean | undefined {
         const frame = root.getBoundingClientRect();
         if (frame.height <= 0) return undefined;
-        const rows = Array.from(root.querySelectorAll('.jpdb-subtitle-primary-row, .jpdb-subtitle-secondary'))
+        const rows = Array.from(root.querySelectorAll('.jpdb-subtitle-primary-row, .jpdb-subtitle-secondary, .jpdb-subtitle-rail, [data-subtitle-drag-handle]'))
+            .filter(element => getComputedStyle(element).display !== 'none')
             .map(element => element.getBoundingClientRect()).filter(rect => rect.height > 0);
         // Preserve the portal through an empty cue gap. One CSS pixel allows
         // layout rounding at the edge without repeatedly moving the root.

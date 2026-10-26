@@ -1,27 +1,49 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
-import { measureSubtitleAnchorHeight, reachableSubtitleBottomPercent } from '../../src/reader/subtitles/subtitle-layout';
+import { describe, expect, it } from 'vitest';
+import { reachableSubtitleBottomPercent } from '../../src/reader/subtitles/subtitle-layout';
+import { youtubeCaptionFontSize } from '../../src/reader/subtitles/subtitle-caption-layout';
+import { railPositionOutsideReservedRects } from '../../src/reader/subtitles/subtitle-control-rail';
 
-afterEach(() => { document.body.innerHTML = ''; });
+const position = (height: number, belowAnchor = 0) => reachableSubtitleBottomPercent({
+    preferredBottomPercent: 16, positionRect: new DOMRect(0, 68, 320, 180),
+    viewportTop: 0, viewportHeight: 568, subtitleHeight: height, belowAnchor,
+});
 
 describe('caption viewport anchor', () => {
-    it('keeps the baseline projection when a cue grows from one to two lines', () => {
-        document.body.innerHTML = '<div id="root"><div class="jpdb-subtitle-text" style="padding-bottom:40px"><div class="jpdb-subtitle-primary-row" style="line-height:60px;padding-top:5px">日本語</div></div></div>';
-        const root = document.querySelector<HTMLElement>('#root')!;
-        const text = root.firstElementChild!;
-        const rect = vi.spyOn(text, 'getBoundingClientRect').mockReturnValue(new DOMRect(20, 250, 500, 105));
-        const position = () => reachableSubtitleBottomPercent({preferredBottomPercent:16, positionRect:new DOMRect(16, 68, 640, 360), viewportTop:250, viewportHeight:1194, subtitleHeight:measureSubtitleAnchorHeight(root)});
-        const oneLine = position();
-        text.firstElementChild!.textContent = '日本語の長い字幕です。';
-        rect.mockReturnValue(new DOMRect(20, 190, 500, 165));
-        expect(position()).toBe(oneLine);
+    it('keeps a fixed baseline while wrapped cues and their handle still fit', () => {
+        expect(position(100)).toBe(16);
+        expect(position(180)).toBe(16);
     });
+    it('recovers every line and the handle when upward growth would leave the screen', () => {
+        const bottom = position(310);
+        expect(248 - bottom * 1.8 - 310).toBeGreaterThanOrEqual(12);
+    });
+    it('keeps wrapped translation overflow above the viewport bottom', () => {
+        const bottom = position(200, 400);
+        expect(248 - bottom * 1.8 + 400).toBeLessThanOrEqual(556);
+    });
+});
 
-    it('converts its fixed clearance into a transformed player\'s viewport scale', () => {
-        document.body.innerHTML = '<div id="root"><div class="jpdb-subtitle-text" style="padding-bottom:40px"><div class="jpdb-subtitle-primary-row" style="line-height:60px;padding-top:5px"></div></div></div>';
-        const root = document.querySelector<HTMLElement>('#root')!;
-        const unscaled = measureSubtitleAnchorHeight(root);
-        Object.defineProperty(root, 'offsetHeight', {value:360});
-        vi.spyOn(root, 'getBoundingClientRect').mockReturnValue(new DOMRect(0, 0, 320, 180));
-        expect(measureSubtitleAnchorHeight(root)).toBe(unscaled / 2);
+describe('YouTube caption size', () => {
+    it('matches native size at the default and preserves the learner size ratio', () => {
+        expect(youtubeCaptionFontSize(28, 22, 640)).toBe(22);
+        expect(youtubeCaptionFontSize(56, 22, 640)).toBe(44);
+    });
+    it('scales with the player before native captions exist without shrinking below 16px', () => {
+        expect(youtubeCaptionFontSize(28, NaN, 320)).toBe(16);
+        expect(youtubeCaptionFontSize(28, NaN, 640)).toBe(22);
+        expect(youtubeCaptionFontSize(28, NaN, 1280)).toBe(28);
+    });
+});
+
+describe('caption control exclusion', () => {
+    const bounds = { rootRect: new DOMRect(0, 68, 320, 180), railWidth: 300, railHeight: 52,
+        maxLeft: 8, maxTop: 120, fallbackMaxTop: 440 };
+    it('keeps the rail outside both the Japanese and translation rows', () => {
+        const rows = [new DOMRect(8, 130, 304, 80), new DOMRect(8, 210, 304, 45)];
+        expect(railPositionOutsideReservedRects(8, 120, bounds, rows)).toEqual({ left: 8, top: 8 });
+    });
+    it('uses room below a short player when no position inside it clears the caption', () => {
+        expect(railPositionOutsideReservedRects(8, 100, bounds, [new DOMRect(0, 68, 320, 240)]))
+            .toEqual({ left: 8, top: 246 });
     });
 });

@@ -7703,11 +7703,11 @@ function makeRoomForRubyInBox(box: HTMLElement, style: CSSStyleDeclaration, room
 }
 
 function cropCapableBoxes(element: HTMLElement | null, mirror: HTMLElement | null): HTMLElement[] {
+    if (element?.closest(READER_ROOT_SELECTOR)) return [];
     const boxes: HTMLElement[] = [];
     let fallback: HTMLElement | undefined;
     let current: HTMLElement | null = element;
     while (current && current !== document.body && current !== document.documentElement) {
-        if (current.dataset.jpdbReaderRoot) break;
         if (boxStyleIsClipCapable(current) || rubyLayoutOverflowsShortRow(current, mirror)) {
             boxes.push(current);
         } else if (!fallback && isYouTubeRubyRoomTextBox(current) && ownedRubyMirrorFor(current, mirror)) {

@@ -52,6 +52,7 @@ export function bindSubtitleControlRail(
         railTop: number;
         maxLeft: number;
         maxTop: number;
+        fallbackMaxTop: number;
     } | null => {
         const rootRect = root.getBoundingClientRect();
         const railRect = rail.getBoundingClientRect();
@@ -64,6 +65,11 @@ export function bindSubtitleControlRail(
             railTop: railRect.top - rootRect.top,
             maxLeft: Math.max(RAIL_MARGIN_PX, rootRect.width - railRect.width - RAIL_MARGIN_PX),
             maxTop: Math.max(RAIL_MARGIN_PX, rootRect.height - railRect.height - RAIL_MARGIN_PX),
+            // A short player cannot always hold wrapped captions AND controls.
+            // Keep the rail attached to its root, but allow the empty viewport
+            // below that player as a last resort instead of covering the cue.
+            fallbackMaxTop: Math.max(RAIL_MARGIN_PX, (window.visualViewport?.height ?? window.innerHeight)
+                + (window.visualViewport?.offsetTop ?? 0) - rootRect.top - railRect.height - RAIL_MARGIN_PX),
         };
     };
 
@@ -232,9 +238,10 @@ interface RailBounds {
     railHeight: number;
     maxLeft: number;
     maxTop: number;
+    fallbackMaxTop?: number;
 }
 
-function railPositionOutsideReservedRects(
+export function railPositionOutsideReservedRects(
     requestedLeft: number,
     requestedTop: number,
     bounds: RailBounds,
@@ -278,10 +285,16 @@ function railPositionOutsideReservedRects(
             clamp(requested.left, rect.bottom - rootTop + gap),
         );
     }
-    return candidates
+    const inside = candidates
         .filter(candidate => !overlapsReservedRect(candidate))
-        .sort((first, second) => squaredDistance(first, requested) - squaredDistance(second, requested))[0]
-        ?? requested;
+        .sort((first, second) => squaredDistance(first, requested) - squaredDistance(second, requested))[0];
+    if (inside) return inside;
+    // Only use space outside the video when no in-frame position fits. Do not
+    // change maxTop or persist a new preferred position for ordinary playback.
+    return reservedRects.map(rect => ({ left: requested.left, top: rect.bottom - rootTop + gap }))
+        .filter(candidate => candidate.top >= RAIL_MARGIN_PX && candidate.top <= (bounds.fallbackMaxTop ?? bounds.maxTop)
+            && !overlapsReservedRect(candidate))
+        .sort((first, second) => squaredDistance(first, requested) - squaredDistance(second, requested))[0] ?? requested;
 }
 
 function squaredDistance(

@@ -343,7 +343,7 @@ describe('SubtitlePlayerController — idle controls, overlay drag & rail visibi
     // The peek-on-hover reveal must not be what answers a tap: a touch browser
     // latches :hover on first contact, so an unconditional hover rule showed the
     // translation without toggling anything and the line needed tapping again.
-    it('keeps the native-line peek on hovering pointers and its tap target finger-sized', () => {
+    it('keeps the native-line peek on hovering pointers', () => {
         expect(SUBTITLES_YOUTUBE_CSS).toMatch(
             /@media \(hover: hover\) and \(pointer: fine\) \{\s*\.jpdb-subtitle-secondary-blurred:hover/,
         );
@@ -356,20 +356,8 @@ describe('SubtitlePlayerController — idle controls, overlay drag & rail visibi
         );
         // No double-tap-zoom hold-back on a control that is only ever a toggle.
         expect(SUBTITLES_YOUTUBE_CSS).toMatch(/\.jpdb-subtitle-secondary \{[^}]*touch-action: manipulation/);
-        // On touch the ~24px line gets a 42px box of its own, with the padding
-        // handed straight back as negative margin so nothing moves. It has to be
-        // the element's own box, not a pseudo-element halo: the safe-zone sweep
-        // measures getBoundingClientRect, which a halo is invisible to.
-        const coarse = SUBTITLES_YOUTUBE_CSS.match(
-            /@media \(pointer: coarse\) \{\s*\.jpdb-subtitle-secondary \{([^}]*)\}/,
-        );
-        expect(coarse?.[1]).toBeDefined();
-        expect(coarse![1]).toMatch(/min-height: 42px/);
-        expect(coarse![1]).toMatch(/padding-top: 4px/);
-        expect(coarse![1]).toMatch(/padding-bottom: 14px/);
-        expect(coarse![1]).toMatch(/margin-top: 4px/);
-        expect(coarse![1]).toMatch(/margin-bottom: -14px/);
-        expect(SUBTITLES_YOUTUBE_CSS).not.toMatch(/\.jpdb-subtitle-secondary::after/);
+        // Text/padding hit testing is covered by the built-product caption
+        // geometry smoke with trusted taps, rather than a CSS-size assertion.
     });
 
     it('marks the rail away while the player chrome is hidden so it disappears entirely', async () => {
@@ -490,12 +478,14 @@ describe('SubtitlePlayerController — idle controls, overlay drag & rail visibi
                 <span id="fullscreen-word" class="jpdb-reader-word">全画面</span>
                 <span id="clear-word" class="jpdb-reader-word">字幕</span>
             `;
-            // The native caption line is a control too, and on touch its box is
-            // grown to finger size — an invisible strip of overlay that has to
-            // stand down over the player's own controls exactly like a word.
+            // Only translation ink owns hits; backdrop padding must not
+            // disable an otherwise clear text control.
             const nativeLine = document.createElement('button');
             nativeLine.className = 'jpdb-subtitle-secondary';
             nativeLine.dataset.action = 'toggle-native-blur';
+            const nativeInk = document.createElement('span');
+            nativeInk.className = 'jpdb-subtitle-secondary-ink';
+            nativeLine.append(nativeInk);
             document.querySelector('.jpdb-subtitle-lines')!.appendChild(nativeLine);
 
             const share = document.querySelector<HTMLElement>('#shorts-share')!;
@@ -508,8 +498,9 @@ describe('SubtitlePlayerController — idle controls, overlay drag & rail visibi
             mockElementRect(shareWord, new DOMRect(320, 605, 72, 58));
             mockElementRect(fullscreenWord, new DOMRect(320, 675, 72, 58));
             mockElementRect(clearWord, new DOMRect(140, 605, 72, 58));
-            // Its grown box reaches down onto the fullscreen button.
+            // Padding reaches fullscreen while the actual text stays clear.
             mockElementRect(nativeLine, new DOMRect(120, 660, 240, 42));
+            mockElementRect(nativeInk, new DOMRect(120, 660, 140, 20));
 
             const internals = controllerInternals<{ syncNativePlayerControlHitProtection: () => void }>(controller);
             internals.syncNativePlayerControlHitProtection();
@@ -517,7 +508,10 @@ describe('SubtitlePlayerController — idle controls, overlay drag & rail visibi
             expect(shareWord.dataset.jpdbSubtitleNativeControlSafeZone).toBe('true');
             expect(fullscreenWord.dataset.jpdbSubtitleNativeControlSafeZone).toBe('true');
             expect(clearWord.dataset.jpdbSubtitleNativeControlSafeZone).toBeUndefined();
-            expect(nativeLine.dataset.jpdbSubtitleNativeControlSafeZone).toBe('true');
+            expect(nativeInk.dataset.jpdbSubtitleNativeControlSafeZone).toBeUndefined();
+            mockElementRect(nativeInk, new DOMRect(320, 675, 72, 20));
+            internals.syncNativePlayerControlHitProtection();
+            expect(nativeInk.dataset.jpdbSubtitleNativeControlSafeZone).toBe('true');
             const mark = vi.spyOn(shareWord, 'setAttribute');
             const unmark = vi.spyOn(shareWord, 'removeAttribute');
             for (let i = 0; i < 100; i++) internals.syncNativePlayerControlHitProtection();
@@ -536,7 +530,7 @@ describe('SubtitlePlayerController — idle controls, overlay drag & rail visibi
             expect(targetMeasurements).not.toHaveBeenCalled();
             expect(shareWord.dataset.jpdbSubtitleNativeControlSafeZone).toBeUndefined();
             expect(fullscreenWord.dataset.jpdbSubtitleNativeControlSafeZone).toBeUndefined();
-            expect(nativeLine.dataset.jpdbSubtitleNativeControlSafeZone).toBeUndefined();
+            expect(nativeInk.dataset.jpdbSubtitleNativeControlSafeZone).toBeUndefined();
         } finally {
             controller.destroy();
             document.body.innerHTML = '';

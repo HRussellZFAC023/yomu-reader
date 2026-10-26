@@ -1,4 +1,5 @@
 import { nativePlayerControlRects, subtitleRailReservedRects, syncSubtitleNativeControlHitProtection } from './subtitle-native-control-geometry';
+import { subtitleCaptionBottomPercent, subtitleCaptionRects, SubtitleCaptionSizing } from './subtitle-caption-layout';
 import { hasOpenYouTubeMobileBottomSheet } from './youtube-mobile-sheet';
 import { currentFullscreenElement } from '../core/fullscreen';
 import { READER_ROOT_SELECTOR } from '../dom/constants';
@@ -21,8 +22,6 @@ import {
     computeSubtitleDrawerLayout,
     loadSubtitleDragOffsetFraction,
     loadTranscriptPanelSize,
-    measureSubtitleAnchorHeight,
-    reachableSubtitleBottomPercent,
     saveSubtitleDragOffsetFraction,
     saveTranscriptPanelSize,
     shouldUseCompactSubtitleDrawer,
@@ -363,10 +362,6 @@ function videoIsInNativeFullscreen(video: HTMLVideoElement | undefined): boolean
         || (fullscreenVideo.webkitPresentationMode && fullscreenVideo.webkitPresentationMode !== 'inline'));
 }
 
-function subtitleTargetFontSize(settings: ReaderSettings): number {
-    return Math.max(16, Math.min(64, settings.subtitleFontSize));
-}
-
 const DEFAULT_SUBTITLE_BOTTOM_OFFSET = DEFAULT_SETTINGS.subtitleBottomOffset;
 
 function setDocumentStylePropertyIfChanged(element: HTMLElement, property: string, value: string): boolean {
@@ -380,10 +375,6 @@ function youtubeWatchPlayerMeaningfullyVisible(rect: DOMRect): boolean {
     const visibleHeight = Math.max(0, Math.min(rect.bottom, viewportHeight) - Math.max(rect.top, 0));
     const ratio = visibleHeight / Math.max(1, rect.height);
     return visibleHeight >= Math.min(220, rect.height * 0.45) && ratio >= 0.45;
-}
-
-function subtitleSecondaryFontSize(target: number): number {
-    return Math.max(16, Math.round(target * 0.8));
 }
 
 function pointInRect(x: number, y: number, rect: DOMRect): boolean {
@@ -1322,12 +1313,10 @@ export class SubtitlePlayerController {
         this.root.style.setProperty('--subtitle-weight', String(settings.subtitleFontWeight));
     }
 
+    private readonly captionSizing = new SubtitleCaptionSizing();
+
     private syncRootFontSize(settings: ReaderSettings): void {
-        if (!this.root) return;
-        const target = subtitleTargetFontSize(settings);
-        setStylePropertyIfChanged(this.root, '--subtitle-font-size-target', `${target}px`);
-        setStylePropertyIfChanged(this.root, '--subtitle-font-size', `${target}px`);
-        setStylePropertyIfChanged(this.root, '--subtitle-secondary-font-size', `${subtitleSecondaryFontSize(target)}px`);
+        if (this.root) this.captionSizing.apply(this.root, this.video, settings.subtitleFontSize, this.videoLayoutRect());
     }
 
     private openTranscriptPanelFromSettings(settings: ReaderSettings): void {
@@ -3560,36 +3549,13 @@ export class SubtitlePlayerController {
     }
 
     private effectiveSubtitleBottomPercent(preferred = this.options.getSettings().subtitleBottomOffset): number {
-        const root = this.root;
-        if (!root) return preferred;
-        const positionRect = root.getBoundingClientRect();
-        const viewport = subtitleVisibleViewportSize();
-        const visualViewport = window.visualViewport;
-        const viewportTop = visualViewport
-            && Math.round(visualViewport.width) === viewport.width
-            && Math.round(visualViewport.height) === viewport.height
-            ? visualViewport.offsetTop
-            : 0;
-        return reachableSubtitleBottomPercent({
-            preferredBottomPercent: preferred,
-            positionRect,
-            viewportTop,
-            viewportHeight: viewport.height,
-            subtitleHeight: measureSubtitleAnchorHeight(root),
-        });
+        return this.root ? subtitleCaptionBottomPercent(this.root, preferred) : preferred;
     }
 
     private syncSubtitleTextSize(): void {
         if (!this.root) return;
-        // The frame just changed size/orientation (reel swipe, rotate, inset):
-        // recompute the default bottom clearance for portrait/Shorts here too.
-        this.applyEffectiveSubtitleBottom();
-        // The labelled pixel setting is authoritative. Cue changes, late
-        // furigana hydration, fullscreen/zoom transitions and background tabs
-        // may all report different (or temporarily zero) layout measurements;
-        // none of them may silently rewrite the user's saved size. The subtitle
-        // grid wraps and lets residual height extend upward instead.
         this.syncRootFontSize(this.options.getSettings());
+        this.applyEffectiveSubtitleBottom();
     }
 
     private applyKaraokeStateToPrimary(cue: SubtitleCue, time: number): void {
@@ -4547,12 +4513,13 @@ export class SubtitlePlayerController {
         const rect = surfaces.length ? this.videoLayoutRect() : new DOMRect();
         const controls = nativePlayerControlRects(surfaces, rect);
         syncSubtitleNativeControlHitProtection(this.root, controls);
-        this.subtitleControlRail?.syncPosition(subtitleRailReservedRects(surfaces, rect, controls));
+        this.subtitleControlRail?.syncPosition([...subtitleRailReservedRects(surfaces, rect, controls), ...subtitleCaptionRects(this.root)]);
     }
 
     private subtitleRailReservedRects(): DOMRect[] {
-        return this.video && isYouTubePage()
+        const native = this.video && isYouTubePage()
             ? subtitleRailReservedRects(this.youtubeNativeControlSurfaces(), this.videoLayoutRect()) : [];
+        return [...native, ...subtitleCaptionRects(this.root)];
     }
 
     private youtubeNativeControlSurfaces(): HTMLElement[] {
