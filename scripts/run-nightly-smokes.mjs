@@ -83,6 +83,7 @@ export const NIGHTLY_SMOKES = [
     // unavailable" or "In context ×N".
     'smoke:popup-word-detail',
     'smoke:popup-word-detail-reflow',
+    'smoke:popup-word-detail-scroll',
     'smoke:recorded-pages',
     'smoke:recorded-pages:reproduce',
     'smoke:recorded-pages:probes',

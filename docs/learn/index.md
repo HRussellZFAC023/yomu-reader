@@ -25,6 +25,8 @@ Furigana stays readable without changing the page’s font or spacing. Readings 
 
 Word popups and Study word details show available pitch accents and frequency ranks labelled by source, without an account. Pitch and rank details load without moving the header controls. In popups, multiple accents and expression components share a horizontally scrollable pitch row.
 
+Page reflow keeps the selected word. Scrolling away from the word closes its hover popup.
+
 ## Rules {#rules}
 
 - **Pick what you enjoy over what's good for you.** A show you finish teaches more than a textbook you drop.

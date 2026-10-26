@@ -9,6 +9,7 @@ export interface ReviewedDocsMessage {
 }
 
 const HOSTED_DOCS_JA_COPY: Record<string, string> = {
+    "Page reflow keeps the selected word. Scrolling away from the word closes its hover popup.": "ページのレイアウトが変わっても、選択中の単語を保ちます。スクロールして単語から離れると、ホバーで開いたポップアップが閉じます。",
     "Word popups and Study word details show available pitch accents and frequency ranks labelled by source, without an account. Pitch and rank details load without moving the header controls. In popups, multiple accents and expression components share a horizontally scrollable pitch row.": "アカウントなしでも、単語の検索画面とStudyの単語詳細で取得できたピッチアクセントと出典付きの頻度順位を表示します。詳細の読み込み中も、見出しの操作ボタンは動きません。ポップアップでは、複数のアクセントや表現を構成する語のピッチを、横にスクロールできる1行に表示します。",
     "On desktops with always-visible scrollbars, the よむ button and its menu keep their normal size instead of shrinking as if the page were zoomed.": "スクロールバーが常に表示されるデスクトップでも、よむボタンとメニューがページを拡大したときのように縮まず、通常の大きさで表示されるようにしました。",
     "Middle-button scanning finds words inside web components (shadow DOM), as hover and click already did.": "マウスの中ボタンで単語を調べる機能でも、ホバーやクリックと同じように、Webコンポーネント（シャドウDOM）内の単語を見つけられるようにしました。",

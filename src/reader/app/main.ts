@@ -2713,6 +2713,9 @@ export class ReaderApp {
             // Scrolls inside Yomu's own UI (popover bodies, settings sheet,
             // transcript drawer) never change page content — don't rescan.
             if (eventTargetsReaderRoot(event)) return;
+            this.hoverPointerIntent.release();
+            this.hoverPopoverPointerPosition = undefined;
+            this.scheduleHoverClose(this.settings.hoverCloseDelayMs, { ignoreCssHover: true });
             // Always debounce: without it the pending timer fires mid-fling
             // and every ~160ms of scrolling runs a full visible-page scan
             // (collection + residual body walk). Trailing-edge means one

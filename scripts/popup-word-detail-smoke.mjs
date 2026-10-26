@@ -280,6 +280,40 @@ async function openSensei(browser, engineName, profile, scenario) {
             }, null, { timeout: 15_000 });
             result.afterDeliberateMove = await page.evaluate(readHeader);
         }
+        if (scenario === 'scroll' && !failures.length) {
+            // Native scroll input on the recorded article must release the
+            // latch without moving the mouse. Mobile WebKit's automation
+            // cannot send wheel input; use an attached keyboard's PageDown.
+            await page.evaluate(() => {
+                window.__popupScroll = { beforeY: scrollY, moves: window.__popupDetailPointerMoves.length };
+                window.addEventListener('scroll', () => {
+                    const probe = window.__popupScroll;
+                    probe.startedAt ??= performance.now();
+                    probe.afterY = scrollY;
+                }, { capture: true, passive: true });
+                const sample = () => {
+                    const probe = window.__popupScroll;
+                    if (!document.querySelector('[data-card-popover]')) probe.closedAt ??= performance.now();
+                    if (!probe.closedAt) requestAnimationFrame(sample);
+                };
+                requestAnimationFrame(sample);
+            });
+            result.scrollInput = engineName === 'webkit' ? 'PageDown' : 'wheel-350px';
+            if (engineName === 'webkit') await page.keyboard.press('PageDown');
+            else await page.mouse.wheel(0, 350);
+            await page.waitForTimeout(1_000);
+            result.scroll = await page.evaluate(() => {
+                const moves = window.__popupDetailPointerMoves;
+                const origin = moves[window.__popupScroll.moves - 1];
+                return { ...window.__popupScroll, open: Boolean(document.querySelector('[data-card-popover]')),
+                    pointerMoved: moves.slice(window.__popupScroll.moves).some(point => Math.abs(point.x - origin.x) >= 0.01 || Math.abs(point.y - origin.y) >= 0.01) };
+            });
+            const scroll = result.scroll;
+            if (!scroll.startedAt || scroll.afterY === scroll.beforeY) failures.push('Native input did not scroll the recorded article.');
+            if (scroll.open || !scroll.closedAt) failures.push('Hover popup stayed open after user scrolling.');
+            else if (scroll.closedAt - scroll.startedAt > 200) failures.push(`Scroll dismissal took ${Math.round(scroll.closedAt - scroll.startedAt)} ms (limit 200).`);
+            if (scroll.pointerMoved) failures.push('The scroll probe moved the pointer.');
+        }
         await page.screenshot({ path: path.join(ARTIFACT_DIR, `${engineName}-${profile.press}-${scenario}.png`) });
     } catch (error) {
         failures.push(String(error?.message ?? error).split('\n')[0]);

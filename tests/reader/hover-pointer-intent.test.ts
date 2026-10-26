@@ -29,4 +29,20 @@ describe('hover pointer intent', () => {
         expect(intent.isAt({ x: 30, y: 40 })).toBe(false);
         expect(intent.accepts(event)).toBe(true);
     });
+
+    it('releases ownership on scroll until the pointer moves, ignoring scroll boundary events', () => {
+        const intent = new HoverPointerIntent();
+        const event = { type: 'pointerover', clientX: 30, clientY: 40 };
+        intent.accepts(event);
+        intent.release();
+        expect(intent.isAt({ x: 30, y: 40 })).toBe(false);
+        expect(intent.accepts(event)).toBe(false);
+        expect(intent.accepts({ ...event, type: 'mouseover' })).toBe(false);
+        expect(intent.accepts({ ...event, type: 'pointermove' })).toBe(false);
+        expect(intent.isAt({ x: 30, y: 40 })).toBe(false);
+        expect(intent.accepts({ ...event, type: 'pointermove', clientY: 40.00013 })).toBe(false);
+        expect(intent.isAt({ x: 30, y: 40 })).toBe(false);
+        expect(intent.accepts({ ...event, clientY: 41 })).toBe(true);
+        expect(intent.isAt({ x: 30, y: 41 })).toBe(true);
+    });
 });
