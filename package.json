@@ -280,6 +280,7 @@
     "smoke:subtitle-caption-rotation": "node scripts/subtitle-stability-smoke.mjs --geometry-only --popup-rotation",
     "smoke:subtitle-font-size": "node scripts/subtitle-stability-smoke.mjs --font-size-only",
     "smoke:subtitle-stability": "node scripts/subtitle-stability-smoke.mjs",
+    "smoke:subtitle-generic-layer": "node scripts/subtitle-generic-layer-smoke.mjs",
     "smoke:youtube-ipad-playback": "node scripts/youtube-ipad-playback-smoke.mjs",
     "manual:extension-boot": "node scripts/manual/extension-boot-smoke.mjs",
     "manual:extension-port-census": "node scripts/manual/extension-port-census-smoke.mjs",

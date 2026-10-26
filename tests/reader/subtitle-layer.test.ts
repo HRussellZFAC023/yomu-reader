@@ -53,11 +53,16 @@ describe('caption stacking ownership', () => {
     });
 
     it('uses the generic video frame and releases it on a video swap', () => {
-        document.body.innerHTML = '<section><video></video></section><section><video></video></section>';
+        document.body.innerHTML = '<section><video style="position:absolute;z-index:1"></video></section><section><video style="position:absolute;z-index:7"></video></section>';
         const videos = document.querySelectorAll('video');
         const root = document.createElement('div');
         layer.sync(root, videos[0], document.body);
+        expect(root.style.getPropertyValue('--subtitle-layer')).toBe('2');
         layer.sync(root, videos[1], document.body);
+        expect(root.style.getPropertyValue('--subtitle-layer')).toBe('8');
+        videos[1]!.style.zIndex = 'auto';
+        layer.sync(root, videos[1], document.body);
+        expect(root.style.getPropertyValue('--subtitle-layer')).toBe('1');
         expect(root.parentElement).toBe(videos[1].parentElement);
         expect(videos[0].parentElement?.className).toBe('');
         layer.release();

@@ -305,17 +305,28 @@ for (const [name, engine] of [['webkit', webkit], ['chromium', chromium]]) {
         // Page-reader ink is checked on a real recorded prose page. YouTube's
         // site Adapter intentionally does not scan arbitrary injected prose.
         await run.close();
+        const proseCallsStart = calls.length;
         run=await openRecordedPage({browser,slug:'ja-wikipedia-nihongo',waitUntil:'domcontentloaded',
             contextOptions:{...devices['iPad Pro 11'],viewport:{width:834,height:1194}},
             settings:createReaderSmokeSettings({...parserSettings,parserProvider:'jpdb',wordTextColorSource:'off',wordHighlightColorSource:'off',wordUnderlineColorSource:'off'}),
             onGmRequest:request=>{
+                // The JPDB mock owns the reading under test. Answer fallback
+                // segmentation explicitly too: this recording's older Jiten
+                // traffic cannot cover the current build's substring batches.
+                const url = new URL(request.url);
+                if (url.hostname === 'api.jiten.moe' && url.pathname === '/api/vocabulary/parse') {
+                    return response([{wordId:0,readingIndex:0,originalText:url.searchParams.get('text') ?? ''}]);
+                }
                 const mock=mockJpdbApiRequest(request,calls,vocabulary);
                 return mock?{status:mock.status??200,contentType:'application/json',body:mock.responseText}:undefined;
             }});
         const readerPage=run.page;
         await readerPage.locator('.mw-parser-output p').filter({hasText:'日本語'}).first().scrollIntoViewIfNeeded();
-        await readerPage.waitForSelector('.jpdb-reader-word .jpdb-reader-furi',{state:'attached',timeout:60_000});
-        const pageColour=await readerPage.locator('.jpdb-reader-word .jpdb-reader-furi').first().evaluate(rt=>({reading:getComputedStyle(rt).color,base:getComputedStyle(rt.parentElement.querySelector('.jpdb-reader-ruby-base')??rt.closest('.jpdb-reader-word')).color}));
+        const proseReading = readerPage.locator('.mw-parser-output .jpdb-reader-word[data-expression="日本語"] .jpdb-reader-furi').first();
+        await proseReading.waitFor({state:'attached',timeout:60_000});
+        assert(calls.slice(proseCallsStart).some(call=>call.endpoint==='parse'&&JSON.stringify(call.text).includes('日本語')),`${name}: prose JPDB mock was not exercised`);
+        assert.equal(run.productTraffic().dropped,0,`${name}: unanswered prose dictionary traffic`);
+        const pageColour=await proseReading.evaluate(rt=>({reading:getComputedStyle(rt).color,base:getComputedStyle(rt.parentElement.querySelector('.jpdb-reader-ruby-base')??rt.closest('.jpdb-reader-word')).color}));
         assert.equal(pageColour.reading,pageColour.base,`${name}: page reading colour differs from word`);
         assert.notEqual(pageColour.reading,'rgba(0, 0, 0, 0)',`${name}: transparent page reading`);
         summaries.push({engine:name,frames:frames.length,bottoms,lineCounts,blankFrames:0,pendingPaint,hydration,pageColour,typography,contrast,controls,geometry,firstPaintColors});

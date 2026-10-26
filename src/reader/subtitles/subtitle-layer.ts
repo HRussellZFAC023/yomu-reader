@@ -9,16 +9,18 @@ const youtubeCaptionLayerAdapter = {
         element => Number.parseInt(getComputedStyle(element).zIndex) || 0)) + 1,
 };
 
-function captionLayerTier(host: HTMLElement | undefined, player: HTMLElement | undefined): number {
+function captionLayerTier(host: HTMLElement | undefined, player: HTMLElement | undefined, video: HTMLVideoElement | undefined): number {
     // The YouTube Adapter follows native chrome, below its menus.
-    if (host) return isYouTubePage() ? youtubeCaptionLayerAdapter.chromeTier(host) : 0;
-    // A dragged caption shares the player's outer page tier.
+    if (host && isYouTubePage()) return youtubeCaptionLayerAdapter.chromeTier(host);
+    // Inside a generic player, follow the video's outermost local tier.
+    // A dragged caption instead shares the player's outer page tier.
     let tier = 0;
-    for (let ancestor = player; ancestor && ancestor !== document.body; ancestor = ancestor.parentElement ?? undefined) {
+    for (let ancestor: HTMLElement | undefined = host ? video : player;
+        ancestor && ancestor !== (host ?? document.body); ancestor = ancestor.parentElement ?? undefined) {
         const value = Number.parseInt(getComputedStyle(ancestor).zIndex);
         if (Number.isFinite(value)) tier = value;
     }
-    return tier;
+    return host ? Math.max(0, tier) + 1 : tier;
 }
 
 function mountCaptionLayer(root: HTMLElement, parent: HTMLElement, host: HTMLElement | undefined): boolean {
@@ -63,7 +65,7 @@ export class SubtitleLayer {
         // Native styles can arrive after the caption's first mount (WebKit).
         // Refresh the derived context, but write only when it actually changes.
         this.local = Boolean(host && ['relative', 'absolute', 'fixed', 'sticky'].includes(getComputedStyle(host).position));
-        const tier = captionLayerTier(host, player);
+        const tier = captionLayerTier(host, player, video);
         if (root.style.getPropertyValue('--subtitle-layer') !== String(tier)) root.style.setProperty('--subtitle-layer', String(tier));
         this.floating = floating;
         const moved = mountCaptionLayer(root, host ?? fullscreen, host);
