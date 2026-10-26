@@ -128,6 +128,29 @@ explicit accessible name in English and Japanese. These replay checks mock the
 GM transport; they do not prove Safari Userscripts' binary request transport,
 which needs a separate candidate-specific check in that manager.
 
+For the native check, build the lane and run
+`npm run manual:ocr-userscripts-ipad`. This loopback server stages the exact
+core and companion with local dependency/CSS URLs, verifies dependency SRI,
+and serves the attributed Commons sign recording. It never injects the
+product or supplies a GM shim. A passive DOM observer logs trusted clicks,
+OCR text and visible loading/failed/ready marks in the output directory;
+`staging.json` records the source commit and built/staged hashes.
+
+Hold the simulator and screen locks, back up the installed `yomu.user.js`,
+and copy the staged file to the manager's same stable filename. The debug
+Userscripts loader upgrades HTTP dependency downloads to HTTPS. For this
+local check, back up its `Documents/require/yomu.user.js` directory and copy
+the generated `manager-require/yomu.user.js` contents there. Rescan in the
+manager and reload Safari. This tests native manager execution and binary
+OCR transport; it does not test normal HTTPS dependency downloading.
+
+Select manual OCR with the puck before opening a fresh run, then tap the
+sign photo in DeviceHub. Each server start gives images a fresh URL so a
+previous successful cache entry cannot substitute for this read. Keep the
+observer's before/tap/result records and a simulator screenshot; script
+presence alone is insufficient. A later `--run=<previous runId>` reuses that
+image URL for a separate cache check. Restore the script, dependency cache
+and prior OCR mode, close created tabs, stop the server and release locks.
 
 `run.productTraffic()` says how the product's requests to the recorded
 product-traffic hosts were answered: `{ hosts, served, dropped }`. When the
