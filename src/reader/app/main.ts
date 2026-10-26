@@ -140,8 +140,7 @@ import { hasPaintablePitchComponents, hasResolvedPitchComponents, inferredAnnota
 import { publishCardStateSignal, subscribeToCardStateSignals } from './card-state-signal';
 import {
     annotationPowerState,
-    applyAnnotationPowerTransition,
-    planAnnotationPowerTransition,
+    toggleFuriganaSettings,
     PUCK_FURIGANA_INTENT_KEYS,
 } from './annotation-power-policy';
 import { configureLogger, Logger } from './logger';
@@ -2261,8 +2260,10 @@ export class ReaderApp {
             {
                 openSettings: event => this.showSettings(undefined, event),
                 openStudyPage: () => this.openStudyPage(),
+                dismissLookup: () => this.dismiss({ suppressHoverTarget: true }),
                 cyclePowerState: () => this.cyclePowerState(),
                 powerState: () => this.puckPowerState(),
+                toggleFurigana: () => this.toggleFurigana(),
                 isPaused: () => this.settings.annotationsPaused,
                 toggleOcrMode: () => void this.cycleOcrMode(),
                 ocrMode: () => ocrInteractionModeFromSettings(this.settings),
@@ -2344,6 +2345,7 @@ export class ReaderApp {
         // The pause gates OCR too (ocrRuntimeActive): clear its overlays on
         // pause, re-scan per the user's OCR mode on resume.
         this.ocr.refreshForModeChange();
+        if (!this.embeddedFrame) this.installFab();
     }
 
     private scanPageNow(): void {
@@ -2371,42 +2373,22 @@ export class ReaderApp {
         this.toast(autoPlayAudioLabel(this.settings.interfaceLanguage, this.isAutoPlayAudioEnabled()));
     }
 
-    private puckPowerState(): 'on' | 'no-furigana' | 'paused' {
-        return annotationPowerState(this.settings, usesJapaneseProviders());
+    private puckPowerState(): 'on' | 'paused' {
+        return annotationPowerState(this.settings);
     }
 
-    // Puck power cycle — three states, always reachable in order:
-    //   on (annotations + furigana) → on, furigana hidden (reader still active
-    //   for colours, lookups, mining) → paused (annotations off) → on.
-    // Resuming ALWAYS lands in a true furigana-ON state so the cycle offers all
-    // three regardless of the user's saved furigana preference; a furigana-off
-    // user reaches the furigana-on state by cycling, then hides it again next
-    // press.
     private async cyclePowerState(): Promise<void> {
-        await applyAnnotationPowerTransition(
-            planAnnotationPowerTransition(this.settings, usesJapaneseProviders(), DEFAULT_SETTINGS.furiganaMode),
-            {
-                hideFurigana: async rememberedMode => {
-                    this.settings.puckFuriganaModeBeforeHide = rememberedMode;
-                    await this.applyFuriganaMode('off');
-                },
-                pause: () => this.setAnnotationsPaused(true),
-                resume: async furiganaMode => {
-                    this.settings.puckFuriganaModeBeforeHide = '';
-                    if (furiganaMode) await this.applyFuriganaMode(furiganaMode);
-                    await this.setAnnotationsPaused(false);
-                },
-            },
-        );
+        await this.setAnnotationsPaused(!this.settings.annotationsPaused);
     }
 
-    private async applyFuriganaMode(mode: ReaderSettings['furiganaMode']): Promise<void> {
-        this.settings.showFurigana = this.settings.showFurigana || mode !== 'off';
-        this.settings.furiganaMode = mode;
-        await this.persistSettings(this.settings, {
-            explicitUserChoiceKeys: PUCK_FURIGANA_INTENT_KEYS,
-        });
-        this.clearAllAnnotations();
+    private async toggleFurigana(): Promise<void> {
+        Object.assign(this.settings, toggleFuriganaSettings(this.settings));
+        await this.persistSettings(this.settings, { explicitUserChoiceKeys: PUCK_FURIGANA_INTENT_KEYS });
+        this.applyTheme();
+        this.subtitles.refresh();
+        this.ocr.refresh();
+        if (!this.embeddedFrame) this.installFab();
+        this.clearAllAnnotations(true);
         this.scheduleVisiblePageRescan();
     }
 
@@ -2428,12 +2410,13 @@ export class ReaderApp {
         else location.href = NEW_TAB_PAGE_URL;
     }
 
-    private clearAllAnnotations(): void {
+    private clearAllAnnotations(pageOnly = false): void {
         clearProjectedReadingsWithin(document);
         removeNonDestructiveScanMirrors(document);
         releaseRubyRoomGrowth(document);
         const changedParents = new Set<Node>();
         document.querySelectorAll('.jpdb-reader-word, .jpdb-reader-furigana, .jpdb-reader-ruby, .jpdb-reader-number-bind').forEach(el => {
+            if (pageOnly && el.closest('[data-jpdb-reader-root]')) return;
             const parent = el.parentNode;
             if (parent) changedParents.add(parent);
             if (el.classList.contains('jpdb-reader-word')
@@ -2572,7 +2555,7 @@ export class ReaderApp {
 
     private setupAutoScan(): void {
         const abortSignal = this.abortController.signal;
-        addViewportChangeListeners(() => this.scheduleActivePopoverViewportChange(), abortSignal);
+        addViewportChangeListeners(event => this.scheduleActivePopoverViewportChange(event), abortSignal);
         this.autoScanObserver?.disconnect();
         this.disposeShadowRootDiscovery?.();
         this.disposeShadowRootDiscovery = installOpenShadowRootDiscovery();
@@ -4913,9 +4896,11 @@ export class ReaderApp {
         });
     }
 
-    private scheduleActivePopoverViewportChange(): void {
+    private scheduleActivePopoverViewportChange(event: Event): void {
         const popover = this.repositionableActivePopover();
-        if (!popover || (overlayViewport().pageScale === 1 && !hasOverlayPageScale(popover))) return;
+        if (!popover) return;
+        // Rotation and browser chrome can shrink an unzoomed viewport too.
+        if (event.type === 'scroll' && overlayViewport().pageScale === 1 && !hasOverlayPageScale(popover)) return;
         this.popoverViewportChangePending = true;
         this.scheduleRepositionActivePopoverFrame();
     }

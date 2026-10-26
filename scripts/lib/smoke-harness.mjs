@@ -839,7 +839,8 @@ function initGmBridge({
         return style;
     };
     window.GM_getResourceText = name => name === resourceName ? css : '';
-    window.GM_registerMenuCommand = () => undefined;
+    window.__yomuSmokeMenuCommands = new Map();
+    window.GM_registerMenuCommand = (label, run) => { window.__yomuSmokeMenuCommands.set(label, run); };
     installXmlHttpRequestBridge();
     window.GM = storageEnabled ? storageGmApi() : requestOnlyGmApi();
 

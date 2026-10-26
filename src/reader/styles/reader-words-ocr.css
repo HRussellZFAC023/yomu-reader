@@ -1398,9 +1398,9 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
   overflow: visible !important;
 }
 
-/* UT-47: hover-only furigana — ruby is rendered but only visible while the
-   word is hovered (visibility keeps the line height stable). */
-.yomu-furi-hover .jpdb-reader-word:not(:hover) .jpdb-reader-furi {
+/* Interaction-only readings also follow keyboard focus and word navigation.
+   Visibility keeps the line height stable. */
+.yomu-furi-hover .jpdb-reader-word:not(:hover):not(:focus-within):not(.jpdb-reader-keyboard-active) .jpdb-reader-furi {
   visibility: hidden;
 }
 
@@ -2311,9 +2311,8 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
    One quiet disc: the よむ mark, a ring in the state colour and a small badge
    carrying the state's icon from the shared menu set (menu-icons.json), the
    same shapes the radial menu and the extension toolbar draw.
-     on · furigana shown   → green ring, green power badge
-     on · furigana hidden  → amber ring, amber eye-off badge
-     off                   → no ring, grey power badge, receded mark */
+     on  → accent ring and power badge
+     off → grey power badge and receded mark */
 .jpdb-reader-fab {
   --jpdb-reader-fab-tone: var(--jpdb-reader-accent);
   position: fixed !important;
@@ -2403,12 +2402,6 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
 }
 .jpdb-reader-fab:active {
   transform: translate3d(0, 0, 0) scale(0.96) !important;
-}
-.jpdb-reader-fab.jpdb-reader-fab--no-furigana {
-  --jpdb-reader-fab-tone: var(--jpdb-reader-grade-something);
-}
-.jpdb-reader-fab.jpdb-reader-fab--no-furigana .jpdb-reader-fab-state {
-  color: var(--jpdb-reader-theme-light-text) !important;
 }
 .jpdb-reader-fab.jpdb-reader-fab--paused {
   --jpdb-reader-fab-tone: color-mix(in srgb, var(--jpdb-reader-muted) 85%, var(--jpdb-reader-surface));
@@ -2621,7 +2614,7 @@ html.jpdb-reader-suppress-redundant .jpdb-reader-word.jpdb-redundant {
   left: -4px !important;
   transform: translateY(4px) !important;
 }
-.jpdb-reader-fab-radial[data-fan-y="down"] .jpdb-reader-fab-radial-item.is-primary .jpdb-reader-fab-radial-label {
+.jpdb-reader-fab-radial[data-fan-y="up"] .jpdb-reader-fab-radial-item.is-primary .jpdb-reader-fab-radial-label {
   top: calc(100% + 10px) !important;
   bottom: auto !important;
 }
@@ -2644,6 +2637,19 @@ html.jpdb-reader-suppress-redundant .jpdb-reader-word.jpdb-redundant {
 /* has-invalidation-allow: anchored on the radial menu, which exists only while open; the state is the browser's :hover/:focus-visible */
 .jpdb-reader-fab-radial.is-open:has(.jpdb-reader-fab-radial-item:not(.is-primary):is(:hover, :focus-visible)) .jpdb-reader-fab-radial-item.is-primary .jpdb-reader-fab-radial-label {
   opacity: 0 !important;
+}
+
+/* A cramped fan becomes spaced rows, with one label slot below the controls. */
+.jpdb-reader-fab-radial.is-open[data-layout="rows"] .jpdb-reader-fab-radial-item .jpdb-reader-fab-radial-label {
+  left: var(--radial-label-x) !important;
+  top: var(--radial-label-y) !important;
+  right: auto !important;
+  bottom: auto !important;
+  transform: translateX(-50%) !important;
+  inline-size: max-content !important;
+  max-inline-size: var(--radial-label-width) !important;
+  white-space: normal !important;
+  text-align: center !important;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -2711,4 +2717,9 @@ html.jpdb-reader-suppress-redundant .jpdb-reader-word.jpdb-redundant {
 }
 .jpdb-reader-puck-viewport > .jpdb-reader-fab {
   pointer-events: auto !important;
+}
+
+/* Hide cached overlay readings immediately too; lookup headwords keep theirs. */
+.yomu-furi-off :is(rt.jpdb-reader-furi, .jpdb-reader-detached-furi, .jpdb-ocr-furi, [data-yomu-projected-reading]):not(.jpdb-reader-spelling *) {
+  visibility: hidden !important;
 }

@@ -68,10 +68,10 @@ describe('floating button actions', () => {
         const mounted = openFloatingButton({ actions: { hasSubtitleVideo: () => true, isYouTube: () => true } });
         try {
             const puck = document.querySelector<HTMLButtonElement>('.jpdb-reader-fab');
-            expect(puck?.getAttribute('aria-label')).toBe('よむ on · furigana shown');
+            expect(puck?.getAttribute('aria-label')).toBe('よむ on');
             expect(puck?.dataset.targetLanguage).toBeUndefined();
             expect(document.querySelector('[data-radial-id="study"]')?.getAttribute('aria-label')).toBe('Study');
-            expect(document.querySelector('[data-radial-id="power"]')?.getAttribute('aria-label')).toBe('よむ on · furigana shown');
+            expect(document.querySelector('[data-radial-id="power"]')?.getAttribute('aria-label')).toBe('よむ on');
             expect(document.querySelector('[data-radial-id="subtitles"]')?.getAttribute('aria-label')).toBe('Auto-detect subtitles');
             expect(document.querySelector('[data-radial-id="subtitles"] svg')).not.toBeNull();
             expect(document.querySelector('[data-radial-id="youtube"]')?.getAttribute('aria-label')).toBe('Japanese YouTube only');
@@ -91,8 +91,8 @@ describe('floating button actions', () => {
             expect(document.querySelector('[data-radial-id="subtitles"]')?.getAttribute('aria-label')).toBe('字幕を自動検出');
             expect(document.querySelector('[data-radial-id="youtube"]')?.getAttribute('aria-label')).toBe('日本語のYouTubeのみ');
             expect(document.querySelector('[data-radial-id="japanese-site"]')?.getAttribute('aria-label')).toBe('日本語版サイトをリクエスト');
-            expect(document.querySelector('[data-radial-id="power"]')?.getAttribute('aria-label')).toBe('よむ オン・ふりがな表示');
-            expect(document.querySelector('.jpdb-reader-fab')?.getAttribute('aria-label')).toBe('よむ オン・ふりがな表示');
+            expect(document.querySelector('[data-radial-id="power"]')?.getAttribute('aria-label')).toBe('よむ オン');
+            expect(document.querySelector('.jpdb-reader-fab')?.getAttribute('aria-label')).toBe('よむ オン');
         } finally {
             mounted.dispose();
         }
@@ -104,16 +104,18 @@ describe('the open puck menu after a settings echo', () => {
     // write has already landed. The open menu must follow the settings, not
     // keep the label it had when the item was pressed.
     it('relabels the power item when the reader state changes underneath it', () => {
-        let state: 'on' | 'no-furigana' | 'paused' = 'paused';
+        let state: 'on' | 'paused' = 'on';
         const actions = { powerState: () => state, isPaused: () => state === 'paused' };
         const mounted = openFloatingButton({ actions });
+        state = 'paused';
+        mounted.controller.install({ ...DEFAULT_SETTINGS, showFloatingButton: true }, vi.fn(), stubFloatingButtonActions(actions));
         try {
             const power = () => document.querySelector('[data-radial-id="power"]')?.getAttribute('aria-label');
             expect(power()).toBe('よむ off');
             state = 'on';
             mounted.controller.install({ ...DEFAULT_SETTINGS, showFloatingButton: true }, vi.fn(), stubFloatingButtonActions(actions));
-            expect(power()).toBe('よむ on · furigana shown');
-            expect(document.querySelector('.jpdb-reader-fab')?.getAttribute('aria-label')).toBe('よむ on · furigana shown');
+            expect(power()).toBe('よむ on');
+            expect(document.querySelector('.jpdb-reader-fab')?.getAttribute('aria-label')).toBe('よむ on');
         } finally {
             mounted.dispose();
         }
@@ -122,10 +124,12 @@ describe('the open puck menu after a settings echo', () => {
     it('shows the state a press lands in once its save settles, not the state before it', async () => {
         // Resuming from off lands only after its save: the state changes when the
         // press's promise resolves, not when the item is pressed.
-        let state: 'on' | 'no-furigana' | 'paused' = 'paused';
+        let state: 'on' | 'paused' = 'on';
         let finishSave!: () => void;
         const cyclePowerState = vi.fn(() => new Promise<void>(resolve => { finishSave = resolve; }).then(() => { state = 'on'; }));
         const mounted = openFloatingButton({ actions: { cyclePowerState, powerState: () => state, isPaused: () => state === 'paused' } });
+        state = 'paused';
+        mounted.controller.install({ ...DEFAULT_SETTINGS, showFloatingButton: true }, vi.fn(), stubFloatingButtonActions({ cyclePowerState, powerState: () => state }));
         try {
             const power = () => document.querySelector<HTMLButtonElement>('[data-radial-id="power"]')!;
             power().click();
@@ -133,7 +137,7 @@ describe('the open puck menu after a settings echo', () => {
             expect(power().getAttribute('aria-label')).toBe('よむ off');
 
             finishSave();
-            await vi.waitFor(() => expect(power().getAttribute('aria-label')).toBe('よむ on · furigana shown'));
+            await vi.waitFor(() => expect(power().getAttribute('aria-label')).toBe('よむ on'));
             expect(power().classList.contains('is-on')).toBe(true);
             expect(document.querySelector('.jpdb-reader-fab-radial.is-open')).not.toBeNull();
         } finally {

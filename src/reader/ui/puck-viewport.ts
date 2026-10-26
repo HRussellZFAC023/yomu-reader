@@ -6,6 +6,7 @@ export function mountPuckViewport(button: HTMLButtonElement): HTMLElement {
     const root = document.createElement('div');
     root.className = 'jpdb-reader-puck-viewport';
     root.dataset.jpdbReaderRoot = 'true';
+    root.dataset.jpdbReaderInteractionIgnore = 'true';
     root.append(button);
     document.body.append(root);
     syncPuckViewport(root);

@@ -12,6 +12,8 @@ Use the Yomu button on any page. On ordinary websites, Open settings launches th
 
 Yomu reads Japanese immediately after installation. There is no language choice or setup gate; dictionaries and connections are optional.
 
+Settings → Appearance → Furigana → Off hides Yomu readings on pages, subtitles and OCR while word lookup stays on. The puck has separate power and furigana controls. When Yomu is off, tap its puck once to turn it back on; the userscript menu and extension toolbar can also toggle power. Power changes keep your reading preference.
+
 Each row names the setting, its description, stored default, and exported key.
 
 This page is generated from the reader source, so it stays in step with the version you have installed.
@@ -148,8 +150,10 @@ Set a hover key. Blank means plain hover.
 | Show Yomu lookup popup | — | `hover` | `popupActivationMode` |
 | Show settings puck | — | on | `showFloatingButton` |
 | Japanese text on webpages | — | Scan Japanese automatically | `manualScanEnabled` |
-| Furigana | — | Hide familiar words (`known-status`) | `furiganaMode` |
+| Enable furigana annotations | — | on | `showFurigana` |
+| Furigana | — | Hide readings for familiar words (`known-status`) | `furiganaMode` |
 | Readings on clamped rows | — | Show (row grows) (`show`) | `clampedRowReadings` |
+| Not yet described | — | empty | `puckFuriganaModeBeforeHide` |
 | Not yet described | — | 2 entries | `furiganaHiddenStateGroups` |
 | Color words | — | All learning states (`all`) | `wordColorStates` |
 | Not yet described | — | 2 entries | `wordColorHiddenStateGroups` |
@@ -350,8 +354,6 @@ Yomu stores these the same way, and a settings export carries them. Some are wri
 | Not yet described | — | unset | `puckPositionX` |
 | Not yet described | — | unset | `puckPositionY` |
 | よむ off | — | off | `annotationsPaused` |
-| Enable furigana annotations | — | on | `showFurigana` |
-| Not yet described | — | empty | `puckFuriganaModeBeforeHide` |
 | Read text in images | — | on | `ocrEnabled` |
 | Not yet described | — | `#181b20` | `ocrBackgroundColor` |
 | Dictionary result limit | — | `12` | `localDictionaryMaxResults` |

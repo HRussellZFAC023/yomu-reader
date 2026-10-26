@@ -28,7 +28,7 @@ import {
 import { parseReaderSettingsBackup } from '../../src/reader/settings/file-io';
 import { renderSettingsForm } from '../../src/reader/settings/form';
 import { readFormSettings } from '../../src/reader/settings/form-read';
-import { annotationPowerState, planAnnotationPowerTransition } from '../../src/reader/app/annotation-power-policy';
+import { annotationPowerState, toggleFuriganaSettings } from '../../src/reader/app/annotation-power-policy';
 import { restoreReaderSettingsBackup } from '../../src/reader/settings/reader-settings-restore-adapter';
 import { validateCloudSettingsEnvelope } from '../../src/reader/settings/cloud-settings-envelope';
 import {
@@ -468,7 +468,7 @@ describe('settings backup file exported by v1.9.3: f-backup-file-v1.9.3', () => 
         );
         resetManagedStateEpochSessionsForTests();
         const restored = await loadSettings();
-        expect(annotationPowerState(restored, true)).toBe('no-furigana');
+        expect(annotationPowerState(restored)).toBe('on');
         expect(restored.preferJapaneseSiteLanguage).toBe(true);
         expect(effectiveFuriganaMode(restored)).toBe('off');
         expect(restored.furiganaMode).toBe(DEFAULT_SETTINGS.furiganaMode);
@@ -477,33 +477,32 @@ describe('settings backup file exported by v1.9.3: f-backup-file-v1.9.3', () => 
         form.innerHTML = renderSettingsForm(restored, 'https://jpdb.io/settings');
         expect(form.querySelector('[name="preferJapaneseSiteLanguage"]')).toBeNull();
         expect(form.querySelector('input[name="pageScanMode"][value="off"]')).toBeNull();
-        expect(form.querySelector('select[name="furiganaMode"] option[value="off"]')).toBeNull();
-        expect(form.querySelector<HTMLSelectElement>('select[name="furiganaMode"]')!.value).toBe(furiganaStyle(restored));
+        expect(form.querySelector('select[name="furiganaMode"] option[value="off"]')).not.toBeNull();
+        expect(form.querySelector<HTMLSelectElement>('select[name="furiganaMode"]')!.value).toBe('off');
 
         const untouched = readFormSettings(new FormData(form), restored);
-        expect(annotationPowerState(untouched, true)).toBe('no-furigana');
+        expect(annotationPowerState(untouched)).toBe('on');
         expect([untouched.showFurigana, untouched.furiganaMode, untouched.preferJapaneseSiteLanguage, untouched.annotationsPaused])
-            .toEqual([false, restored.furiganaMode, true, false]);
+            .toEqual([false, 'off', true, false]);
         await saveSettings(untouched, { explicitUserChoiceKeys: [] });
         resetManagedStateEpochSessionsForTests();
         const afterSave = await loadSettings();
         expect(effectiveFuriganaMode(afterSave)).toBe('off');
-        expect(annotationPowerState(afterSave, true)).toBe('no-furigana');
+        expect(annotationPowerState(afterSave)).toBe('on');
         expect(afterSave.preferJapaneseSiteLanguage).toBe(true);
 
-        // A new style while furigana is hidden is the style the puck brings back.
+        // Selecting a visible mode in Settings turns readings back on.
         form.querySelector<HTMLSelectElement>('select[name="furiganaMode"]')!.value = 'all';
         const restyled = readFormSettings(new FormData(form), restored);
-        expect(annotationPowerState(restyled, true)).toBe('no-furigana');
-        expect(restyled.puckFuriganaModeBeforeHide).toBe('all');
-        await saveSettings(restyled, { explicitUserChoiceKeys: ['puckFuriganaModeBeforeHide'] });
+        expect(annotationPowerState(restyled)).toBe('on');
+        expect(restyled.puckFuriganaModeBeforeHide).toBe('');
+        await saveSettings(restyled, { explicitUserChoiceKeys: ['showFurigana', 'furiganaMode', 'puckFuriganaModeBeforeHide'] });
         resetManagedStateEpochSessionsForTests();
         const reloaded = await loadSettings();
-        expect(effectiveFuriganaMode(reloaded)).toBe('off');
-        expect(annotationPowerState(reloaded, true)).toBe('no-furigana');
+        expect(effectiveFuriganaMode(reloaded)).toBe('all');
+        expect(annotationPowerState(reloaded)).toBe('on');
         expect(furiganaStyle(reloaded)).toBe('all');
-        expect(planAnnotationPowerTransition({ ...reloaded, annotationsPaused: true }, true, DEFAULT_SETTINGS.furiganaMode))
-            .toEqual({ kind: 'resume', furiganaMode: 'all' });
+        expect(toggleFuriganaSettings(reloaded)).toMatchObject({ furiganaMode: 'off', puckFuriganaModeBeforeHide: 'all' });
         expect(corpusText(fixture.file)).toBe(fileText);
     });
 });

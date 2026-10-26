@@ -107,7 +107,7 @@ export function readFormSettings(data: FormData, current: ReaderSettings): Reade
     const reader = createSettingsFormReader(data, colorSource);
     const { get, has } = reader;
     const audioSources = readAudioSources(data);
-    const furiganaMode = readOption(get('furiganaMode'), ['all', 'difficult-kanji', 'known-status', 'hover'] as const, furiganaStyle(current));
+    const furiganaMode = readOption(get('furiganaMode'), ['off', 'all', 'difficult-kanji', 'known-status', 'hover'] as const, effectiveFuriganaMode(current));
     const apiDefinitionRowsPresent = {
         jpdb: hasSourceRow(has, 'jpdbDefinitions'),
         jiten: hasSourceRow(has, 'jitenDefinitions'),
@@ -361,29 +361,22 @@ function readNewTabFormSettings(reader: SettingsFormReader, current: ReaderSetti
 }
 
 
-/**
- * The furigana select chooses a style, never "off": shown or hidden is the
- * puck and toolbar's state. While hidden, a new style becomes the one those
- * controls bring back, and furigana stays hidden.
- */
+/** Settings and the puck share one reading preference. */
 function readFuriganaFormSettings(
     current: ReaderSettings,
-    style: ReturnType<typeof furiganaStyle>,
+    mode: ReturnType<typeof effectiveFuriganaMode>,
 ): Pick<ReaderSettings, 'showFurigana' | 'furiganaMode' | 'puckFuriganaModeBeforeHide'> {
-    if (effectiveFuriganaMode(current) !== 'off') {
-        return { showFurigana: true, furiganaMode: style, puckFuriganaModeBeforeHide: current.puckFuriganaModeBeforeHide };
-    }
     return {
-        showFurigana: current.showFurigana,
-        furiganaMode: current.furiganaMode,
-        puckFuriganaModeBeforeHide: style === furiganaStyle(current) ? current.puckFuriganaModeBeforeHide : style,
+        showFurigana: mode !== 'off',
+        furiganaMode: mode,
+        puckFuriganaModeBeforeHide: mode === 'off' ? furiganaStyle(current) : '',
     };
 }
 
 function readReadingDisplayFormSettings(
     reader: SettingsFormReader,
     current: ReaderSettings,
-    style: ReturnType<typeof furiganaStyle>,
+    style: ReturnType<typeof effectiveFuriganaMode>,
 ): Partial<ReaderSettings> {
     const { has } = reader;
     const { get } = reader;

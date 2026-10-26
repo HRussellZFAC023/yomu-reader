@@ -1,5 +1,6 @@
 import { APP_NAME, NEW_TAB_PAGE_URL, VIDEO_PLAYER_PAGE_URL } from './constants';
 import type { ReaderSettings } from './types';
+import { isCoarsePointerDevice } from '../ui/floating-button';
 
 type UserscriptMenuCommandRegister = (name: string, fn: () => unknown) => void;
 
@@ -31,11 +32,13 @@ export function registerReaderMenuCommands(handlers: ReaderMenuCommandHandlers):
     register(`${APP_NAME} OCR`, handlers.cycleOcr);
     register(`${APP_NAME} language`, handlers.toggleSiteLanguage);
     register(`${APP_NAME} YouTube`, handlers.toggleYoutube);
-    register(`${APP_NAME} toggle puck`, () => {
-        const settings = handlers.getSettings();
-        settings.showFloatingButton = !settings.showFloatingButton;
-        void handlers.saveSettings(settings, ['showFloatingButton']).then(() => handlers.installFloatingButton());
-    });
+    if (!isCoarsePointerDevice()) {
+        register(`${APP_NAME} toggle puck`, () => {
+            const settings = handlers.getSettings();
+            settings.showFloatingButton = !settings.showFloatingButton;
+            void handlers.saveSettings(settings, ['showFloatingButton']).then(() => handlers.installFloatingButton());
+        });
+    }
     register(`${APP_NAME} Factory Reset`, () => handlers.factoryReset());
 }
 

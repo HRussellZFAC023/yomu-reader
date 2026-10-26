@@ -2,6 +2,7 @@ import { menuIcon, type MenuIconName } from './menu-icons';
 import { applyOverlayPageScale } from './page-scale';
 import { puckRect, puckViewport } from './puck-viewport';
 import { isTrustedReaderInteraction } from './trusted-interaction';
+import { radialMenuLayout } from './radial-menu-layout';
 
 export type RadialActionTone = 'on' | 'off' | 'partial' | 'neutral';
 
@@ -31,14 +32,6 @@ export interface RadialMenuHost {
 }
 
 const ITEM_EXIT_MS = 180;
-const PI = Math.PI;
-const MIN_GAP = 62;
-// Aesthetic reach cap only — the per-item screen-edge clamp in radiusForLayout
-// is the real off-screen guard. Sized so the densest menu (YouTube page with a
-// subtitle video: 8 items) still fans out at the MIN_GAP finger spacing on a
-// roomy screen instead of collapsing items on top of each other.
-const MAX_R = 320;
-const EDGE = 32;
 
 // The page-level copy on <html> lets the toast stack step aside (settings.css)
 // without body:has(), which made Chromium restyle the page on every host insertion.
@@ -153,59 +146,30 @@ export class RadialMenuController {
         const cy = rect.top + rect.height / 2;
         const { width: vw, height: vh } = puckViewport();
 
-        // Fan into the quadrant with the most room: the arc runs from the open
-        // vertical edge (straight up/down) to the open horizontal edge
-        // (straight left/right), so items hug the screen interior.
-        const vAngle = cy > vh / 2 ? -PI / 2 : PI / 2;
-        let hAngle = cx > vw / 2 ? PI : 0;
-        while (hAngle - vAngle > PI) hAngle -= 2 * PI;
-        while (hAngle - vAngle < -PI) hAngle += 2 * PI;
-        // The state label of the primary item stays visible; CSS anchors it on
-        // the side facing the open screen so it never runs off the edge.
-        backdrop.dataset.fanX = cx > vw / 2 ? 'left' : 'right';
-        backdrop.dataset.fanY = cy > vh / 2 ? 'up' : 'down';
-
-        const count = actions.length;
-        const pad = count >= 7 ? 0.01 : count >= 5 ? 0.08 : 0.12; // keep dense menus touch-spaced without throwing items off-screen
-        const radius = this.radiusForLayout(cx, cy, vw, vh, vAngle, hAngle, count, pad);
+        const layout = radialMenuLayout(cx, cy, vw, vh, actions.length);
+        backdrop.dataset.fanX = layout.fanX;
+        backdrop.dataset.fanY = layout.fanY;
+        backdrop.dataset.layout = layout.label ? 'rows' : 'fan';
+        backdrop.style.setProperty('--radial-label-width', `${vw - 24}px`);
 
         actions.forEach((action, index) => {
-            const t = count > 1 ? pad + (1 - 2 * pad) * (index / (count - 1)) : 0.5;
-            const angle = vAngle + (hAngle - vAngle) * t;
-            const x = Math.cos(angle) * radius;
-            const y = Math.sin(angle) * radius;
+            const point = layout.points[index];
             const item = this.createItem(action, index);
             item.style.left = `${cx}px`;
             item.style.top = `${cy}px`;
-            item.style.setProperty('--radial-x', `${x.toFixed(1)}px`);
-            item.style.setProperty('--radial-y', `${y.toFixed(1)}px`);
+            item.style.setProperty('--radial-x', `${(point.x - cx).toFixed(1)}px`);
+            item.style.setProperty('--radial-y', `${(point.y - cy).toFixed(1)}px`);
+            if (layout.label) {
+                const halfSize = action.primary ? 26 : 23;
+                item.style.setProperty('--radial-label-x', `${layout.label.x - point.x + halfSize}px`);
+                item.style.setProperty('--radial-label-y', `${layout.label.y - point.y + halfSize}px`);
+            }
             // Stagger from the hub outward, ordered by distance from the puck so
             // the reveal reads as a single fluid bloom.
             item.style.setProperty('--radial-i', String(index));
             backdrop.appendChild(item);
             this.items.set(action.id, item);
         });
-    }
-
-    private radiusForLayout(cx: number, cy: number, vw: number, vh: number, vAngle: number, hAngle: number, count: number, pad: number): number {
-        const comfortRadius = 116 + count * 11;
-        if (count <= 1) return Math.min(MAX_R, comfortRadius);
-        const usableArc = Math.abs(hAngle - vAngle) * (1 - 2 * pad);
-        const step = usableArc / (count - 1);
-        const targetRadius = Math.max(comfortRadius, Math.min(MAX_R, MIN_GAP / (2 * Math.sin(step / 2))));
-        let maxRadius = MAX_R;
-        for (let index = 0; index < count; index += 1) {
-            const t = count > 1 ? pad + (1 - 2 * pad) * (index / (count - 1)) : 0.5;
-            const angle = vAngle + (hAngle - vAngle) * t;
-            const cos = Math.cos(angle);
-            const sin = Math.sin(angle);
-            maxRadius = Math.min(
-                maxRadius,
-                cos > 0 ? (vw - EDGE - cx) / cos : cos < 0 ? (cx - EDGE) / -cos : Number.POSITIVE_INFINITY,
-                sin > 0 ? (vh - EDGE - cy) / sin : sin < 0 ? (cy - EDGE) / -sin : Number.POSITIVE_INFINITY,
-            );
-        }
-        return Math.max(0, Math.min(maxRadius, targetRadius));
     }
 
     private createItem(action: RadialAction, index: number): HTMLButtonElement {

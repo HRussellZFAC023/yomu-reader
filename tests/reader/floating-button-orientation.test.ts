@@ -287,10 +287,12 @@ function pointerEvent(type: string, clientX: number, clientY: number, pointerId:
 
 function floatingButtonActions(): FloatingButtonActions {
     return {
+        dismissLookup: vi.fn(),
         openSettings: vi.fn(),
         openStudyPage: vi.fn(),
         cyclePowerState: vi.fn(async () => undefined),
         powerState: () => 'on',
+        toggleFurigana: vi.fn(async () => undefined),
         isPaused: () => false,
         toggleOcrMode: vi.fn(),
         ocrMode: () => 'off',

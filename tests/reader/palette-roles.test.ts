@@ -124,18 +124,6 @@ describe('the shared palette', () => {
         }
     }
 
-    // The current puck uses an SVG state badge. Its white glyph on amber was
-    // 2.2:1; the badge needs its own dark ink, independently of the brand accent.
-    it('keeps the furigana-off badge legible on its amber', () => {
-        const badge = '.jpdb-reader-fab.jpdb-reader-fab--no-furigana .jpdb-reader-fab-state {';
-        const tone = '.jpdb-reader-fab.jpdb-reader-fab--no-furigana {';
-        for (const theme of ['light', 'dark'] as const) {
-            const ink = property(CSS.words, badge, 'color', theme);
-            const amber = property(CSS.words, tone, '--jpdb-reader-fab-tone', theme);
-            expect(contrastRatio(ink, amber), `${ink} on ${amber}`).toBeGreaterThanOrEqual(4.5);
-        }
-    });
-
     for (const theme of ['light', 'dark'] as const) {
         for (const canonical of [false, true]) {
             it(`keeps the ${canonical ? 'canonical' : 'ordinary'} kanji source tag readable (${theme})`, () => {

@@ -28,6 +28,13 @@ import {
 import { syncWebsiteRouteLocalization } from '../../docs/.vitepress/theme/website-route-localization';
 
 describe('reviewed website locale contract', () => {
+    it('keeps the furigana FAQ path complete in Japanese', () => {
+        expect(localizeHtmlFragment('<strong>Settings → Appearance → Furigana → Off</strong>', 'ja'))
+            .toBe('<strong>設定 → 外観 → ふりがな → オフ</strong>');
+        const paragraph = localizeHtmlFragment('Choose <strong>Settings → Appearance → Furigana → Off</strong>, or use the puck’s furigana button. Readings disappear from pages, subtitles and OCR; word lookup and the popup’s headword reading stay available.', 'ja');
+        expect(paragraph).toContain('「 <strong>設定 → 外観 → ふりがな → オフ</strong>」を選ぶか');
+    });
+
     afterEach(() => {
         document.head.replaceChildren();
         document.body.replaceChildren();

@@ -2,6 +2,8 @@ import { mountPuckViewport, puckPoint, puckRect, puckViewport, syncPuckViewport 
 import { APP_NAME, APP_PUCK } from '../app/constants';
 import { uiText } from '../app/i18n';
 import type { ReaderSettings } from '../app/types';
+import { effectiveFuriganaMode } from '../settings/index';
+import type { AnnotationPowerState } from '../app/annotation-power-policy';
 import { RadialMenuController, type RadialAction } from './radial-menu';
 import { menuIcon, type MenuIconName } from './menu-icons';
 import type { OcrInteractionMode } from '../ocr/mode';
@@ -37,18 +39,16 @@ export function autoPlayAudioLabel(language: ReaderSettings['interfaceLanguage']
     return uiText(language, enabled ? 'autoplayAudioOn' : 'autoplayAudioOff');
 }
 
-/**
- * The puck power button steps through three states: everything on → furigana
- * hidden (colours, lookups, and mining stay live) → annotations paused → on.
- */
-export type PuckPowerState = 'on' | 'no-furigana' | 'paused';
+export type PuckPowerState = AnnotationPowerState;
 
 /** Context actions surfaced by the puck's radial menu. */
 export interface FloatingButtonActions {
+    dismissLookup(): void;
     openSettings(event?: Event): void;
     openStudyPage(): void;
     cyclePowerState(): Promise<void>;
     powerState(): PuckPowerState;
+    toggleFurigana(): Promise<void>;
     isPaused(): boolean;
     toggleOcrMode(): void;
     ocrMode(): OcrInteractionMode;
@@ -75,14 +75,13 @@ interface PuckPosition {
 
 interface PowerActionPresentation {
     /** Names the current state; pressing steps to the next one. */
-    label: 'puckPowerOnFurigana' | 'puckPowerOnNoFurigana' | 'puckPowerOff';
+    label: 'puckPowerOn' | 'puckPowerOff';
     icon: MenuIconName;
-    tone: 'on' | 'off' | 'partial';
+    tone: 'on' | 'off';
 }
 
 const POWER_ACTION: Readonly<Record<PuckPowerState, PowerActionPresentation>> = Object.freeze({
-    on: { label: 'puckPowerOnFurigana', icon: 'power', tone: 'on' },
-    'no-furigana': { label: 'puckPowerOnNoFurigana', icon: 'furigana-hidden', tone: 'partial' },
+    on: { label: 'puckPowerOn', icon: 'power', tone: 'on' },
     paused: { label: 'puckPowerOff', icon: 'power', tone: 'off' },
 });
 
@@ -93,6 +92,7 @@ function floatingButtonRadialActions(
 ): RadialAction[] {
     const items = [
         powerRadialAction(settings, actions, syncButtonState),
+        furiganaRadialAction(settings, actions),
         audioRadialAction(settings, actions),
         ocrRadialAction(settings, actions),
     ];
@@ -118,6 +118,18 @@ function powerRadialAction(
         primary: true,
         keepOpen: true,
         run: () => actions.cyclePowerState().finally(syncButtonState),
+    };
+}
+
+function furiganaRadialAction(settings: ReaderSettings, actions: FloatingButtonActions): RadialAction {
+    const enabled = effectiveFuriganaMode(settings) !== 'off';
+    return {
+        id: 'furigana',
+        label: uiText(settings.interfaceLanguage, enabled ? 'puckFuriganaOn' : 'puckFuriganaOff'),
+        icon: 'furigana-hidden',
+        tone: enabled ? 'on' : 'off',
+        keepOpen: true,
+        run: () => actions.toggleFurigana(),
     };
 }
 
@@ -290,7 +302,12 @@ export class FloatingButtonController {
             }
             event.preventDefault();
             event.stopPropagation();
-            this.radial?.toggle();
+            if (this.actions?.powerState() === 'paused') {
+                void this.actions.cyclePowerState().finally(() => this.syncButtonState());
+            } else {
+                this.actions?.dismissLookup();
+                this.radial?.toggle();
+            }
         });
         this.viewportRoot = mountPuckViewport(button);
         clampRestoredButtonPosition(button, settings);
@@ -308,14 +325,14 @@ export class FloatingButtonController {
         // raise the FAB above them (mobile UX finding, 2026-06-11).
         button.classList.toggle('jpdb-reader-fab-raised', hostHasBottomActionDock());
         button.classList.toggle('jpdb-reader-fab--on', powerState === 'on');
-        button.classList.toggle('jpdb-reader-fab--no-furigana', powerState === 'no-furigana');
         button.classList.toggle('jpdb-reader-fab--paused', powerState === 'paused');
         const badge = button.querySelector<HTMLElement>('.jpdb-reader-fab-state');
         if (badge && badge.dataset.state !== powerState) {
             badge.dataset.state = powerState;
             badge.replaceChildren(menuIcon(POWER_ACTION[powerState].icon));
         }
-        button.title = puckPowerStateLabel(language, powerState);
+        button.setAttribute('aria-haspopup', powerState === 'paused' ? 'false' : 'menu');
+        button.title = powerState === 'paused' ? uiText(language, 'puckResume') : puckPowerStateLabel(language, powerState);
         button.setAttribute('aria-label', button.title);
     }
 
@@ -523,10 +540,10 @@ function ocrModeLabel(language: ReaderSettings['interfaceLanguage'], mode: OcrIn
 }
 
 function shouldShowFloatingButton(settings: ReaderSettings): boolean {
-    return settings.showFloatingButton || isCoarsePointerDevice();
+    return settings.annotationsPaused || settings.showFloatingButton || isCoarsePointerDevice();
 }
 
-function isCoarsePointerDevice(): boolean {
+export function isCoarsePointerDevice(): boolean {
     try {
         const media = window.matchMedia?.('(pointer: coarse)');
         if (media) return media.matches;
