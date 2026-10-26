@@ -152,6 +152,27 @@ presence alone is insufficient. A later `--run=<previous runId>` reuses that
 image URL for a separate cache check. Restore the script, dependency cache
 and prior OCR mode, close created tabs, stop the server and release locks.
 
+The W1-10 native check passed on 2026-10-26 in portrait on simulator
+`506D5F15-2F4F-4862-8A96-DE7D8F3A42B6`, using Safari and Userscripts-Debug.
+The product source was `4511cf03583bf6d8575955ba2665cf5c7c0b250a`
+(core SHA-256 `51c8e0960d08d423e1dc8a301d486dc20065165c60a54c8a46a6802cd519596c`,
+runtime SHA-256 `18e598a4f2031c2becb9b080a6c45429425996bbe1ee783da2a6393a580f3b70`).
+On a fresh recorded image URL, the observer recorded a trusted image tap
+at 23:05:09.158 UTC, a visible loading mark, then a visible ready mark and
+five OCR lines at 23:05:18.467 UTC. A screenshot records lookup opened from
+the recognized text. Evidence is retained locally in
+`artifacts/quality-programme-2026-10/W1-10-fix3-native-qa/` at the Yomu
+workspace root, with the acceptance summary in `W1-10-fix3-evidence.json`
+beside that directory. The earlier fix2 attempt did not load the candidate
+and does not establish this result.
+
+This check used the real manager and live Lens endpoint, with no GM shim or
+provider mock. The runtime was copied byte-for-byte to the manager's
+dependency cache as described above. It proves native binary OCR transport
+on that simulator; normal HTTPS dependency downloading, physical-device
+acceptance and native request counts were not measured. Exact request
+counts remain covered by the Chromium/WebKit replay gate.
+
 `run.productTraffic()` says how the product's requests to the recorded
 product-traffic hosts were answered: `{ hosts, served, dropped }`. When the
 recorded build drops more than 2 answers, `run.close()`
