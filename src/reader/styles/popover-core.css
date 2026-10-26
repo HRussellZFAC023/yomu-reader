@@ -244,13 +244,13 @@
   background: var(--jpdb-reader-accent);
 }
 
-/* One header layout everywhere: title left, pitch + audio pinned to the top
-   row on the right, and the pill row always spanning the full popup width
-   below. The old flex layout let the pills wrap inside a squeezed left column
-   while pitch placement changed with graph count and container width. */
+/* The title and actions keep their row. Pitch has a bounded, full-width lane
+   from first paint, even before its reading/accents arrive. Multiple accents
+   and expression components scroll sideways instead of moving the pills. */
 .jpdb-reader-header {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-rows: minmax(46px, auto) auto;
   align-items: start;
   gap: 0 10px;
 }
@@ -262,25 +262,33 @@
   grid-row: 1;
 }
 .jpdb-reader-card-tools {
-  display: flex;
-  align-items: flex-start;
-  gap: 8px;
-  grid-column: 2;
-  grid-row: 1;
-  justify-self: end;
+  display: contents;
 }
-/* Reserve space for pitch display even during loading, to prevent header jump */
-.jpdb-reader-header[data-pitch-enabled="true"] .jpdb-reader-card-tools {
-  min-height: 36px;
+.jpdb-reader-header[data-pitch-enabled="true"] {
+  grid-template-rows: minmax(46px, auto) 64px auto;
 }
 .jpdb-reader-pronunciation[data-pronunciation-kind="pitch-accent"] {
-  display: contents;
+  display: flex;
+  align-items: center;
+  grid-column: 1 / -1;
+  grid-row: 2;
+  height: 64px;
+  min-width: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+.jpdb-reader-header .jpdb-reader-pitch {
+  flex: 0 0 auto;
+  flex-wrap: nowrap;
 }
 /* Copy sits beside audio as a quieter icon on the same target size. */
 .jpdb-reader-word-actions {
   display: flex;
   align-items: flex-start;
   gap: 2px;
+  grid-column: 2;
+  grid-row: 1;
+  justify-self: end;
 }
 .jpdb-reader-popover .jpdb-reader-icon-btn.jpdb-reader-copy-control {
   border-color: transparent;
@@ -323,6 +331,9 @@
 .jpdb-reader-header .jpdb-reader-word-pills {
   grid-column: 1 / -1;
   grid-row: 2;
+}
+.jpdb-reader-header[data-pitch-enabled="true"] .jpdb-reader-word-pills {
+  grid-row: 3;
 }
 .jpdb-reader-popover .jpdb-reader-icon-btn,
 .jpdb-reader-settings .jpdb-reader-icon-btn,
@@ -1139,64 +1150,11 @@ span.jpdb-reader-action-pill[aria-disabled="true"] {
   display: none;
 }
 
-/* The header keeps multi-accent/component graphs in the top-right tools area
-   next to the audio button whenever they fit. A block only drops to its own
-   full-width row (pills → row 3) when keeping it top-right would squeeze the
-   headword: expression-component blocks and "wide" variant blocks (3+ graphs or
-   long readings, flagged data-pitch-fit="wide" by renderPitchVariantGraphs) on
-   any narrow-ish popup, and even a "compact" variant block once the popup gets
-   genuinely narrow. A compact two-graph block (e.g. 与党 よとう) therefore stays
-   beside the headword at the default popup width instead of wasting a whole row. */
-@container (max-width: 520px) {
-  .jpdb-reader-card-tools:has(.jpdb-reader-pitch-components, .jpdb-reader-pitch-variants[data-pitch-fit="wide"]) {
-    display: contents;
-  }
-  .jpdb-reader-card-tools :is(.jpdb-reader-pitch-components, .jpdb-reader-pitch-variants[data-pitch-fit="wide"]) {
-    grid-column: 1 / -1;
-    grid-row: 2;
-    width: 100%;
-    margin-block: 4px 0;
-  }
-  /* has-invalidation-allow: anchored on the popover header, whose pitch is drawn with the card */
-  .jpdb-reader-header:has(.jpdb-reader-pitch-components, .jpdb-reader-pitch-variants[data-pitch-fit="wide"]) .jpdb-reader-word-actions {
-    grid-column: 2;
-    grid-row: 1;
-    justify-self: end;
-  }
-  /* has-invalidation-allow: anchored on the popover header, whose pitch is drawn with the card */
-  .jpdb-reader-header:has(.jpdb-reader-pitch-components, .jpdb-reader-pitch-variants[data-pitch-fit="wide"]) .jpdb-reader-word-pills {
-    grid-row: 3;
-  }
-}
-
-@container (max-width: 440px) {
-  .jpdb-reader-card-tools:has(.jpdb-reader-pitch, .jpdb-reader-pitch-variants, .jpdb-reader-pitch-components) {
-    display: contents;
-  }
-  .jpdb-reader-card-tools :is(.jpdb-reader-pitch, .jpdb-reader-pitch-variants, .jpdb-reader-pitch-components) {
-    grid-column: 1 / -1;
-    grid-row: 2;
-    width: 100%;
-    margin-block: 4px 0;
-  }
-  /* has-invalidation-allow: anchored on the popover header, whose pitch is drawn with the card */
-  .jpdb-reader-header:has(.jpdb-reader-pitch, .jpdb-reader-pitch-variants, .jpdb-reader-pitch-components) .jpdb-reader-word-actions {
-    grid-column: 2;
-    grid-row: 1;
-    justify-self: end;
-  }
-  /* has-invalidation-allow: anchored on the popover header, whose pitch is drawn with the card */
-  .jpdb-reader-header:has(.jpdb-reader-pitch, .jpdb-reader-pitch-variants, .jpdb-reader-pitch-components) .jpdb-reader-word-pills {
-    grid-row: 3;
-  }
-}
-
 @container (max-width: 340px) {
   .jpdb-reader-header {
     gap: 0 8px;
   }
   .jpdb-reader-header .jpdb-reader-word-pills {
-    grid-row: 3;
     gap: 4px;
     margin-top: 2px;
     overscroll-behavior-inline: contain;

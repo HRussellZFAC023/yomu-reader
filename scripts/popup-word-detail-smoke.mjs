@@ -29,7 +29,7 @@ import { chromium, devices, webkit } from 'playwright';
 import { loadRecording, openRecordedPage, releaseProduct, worktreeProduct } from './lib/recorded-page.mjs';
 import { createSmokePaths } from './lib/smoke-harness.mjs';
 import { loadLocalEnv } from './lib/qa-env.mjs';
-import { popupWordDetailLayout } from './lib/popup-word-detail-layout.mjs';
+import { popupWordDetailLayout, visibleSensei } from './lib/popup-word-detail-layout.mjs';
 
 const { root: ROOT, artifacts: ARTIFACTS } = createSmokePaths(import.meta.dirname);
 const ARTIFACT_DIR = path.join(ARTIFACTS, 'popup-word-detail');
@@ -50,6 +50,7 @@ const PROFILES = {
 
 const args = process.argv.slice(2);
 const option = name => args.find(arg => arg.startsWith(`--${name}=`))?.slice(name.length + 3);
+const reportName = path.basename(option('report') ?? 'report.json');
 const recording = args.includes('--record');
 const live = args.includes('--live');
 let jpdbKey = '';
@@ -96,13 +97,14 @@ if (recording) {
     console.log(`Recorded ${recorded.length} api.jiten.moe answers to ${path.relative(ROOT, ANSWERS)}.`);
 }
 const failed = results.filter(result => result.failures.length);
-writeFileSync(path.join(ARTIFACT_DIR, 'report.json'), JSON.stringify({ product: product.label, network: live ? 'live Jiten; injected 429s in refused scenario' : 'recorded/deterministic', results }, null, 2));
-for (const result of results) console.log(`${result.failures.length ? 'FAIL' : 'PASS'} ${result.engine} ${result.press} ${result.scenario}: ${result.failures.join('; ') || (result.fixture ? `header ${result.headerHeights.join('/')} px, pills at ${result.pillOffsets.join('/')} px` : `pitch and #330 after ${result.answeredAfterMs} ms, ${result.detailRequests} detail request(s)`)}`);
+writeFileSync(path.join(ARTIFACT_DIR, reportName), JSON.stringify({ product: product.label, network: live ? 'live Jiten; injected 429s in refused scenario' : 'recorded/deterministic', results }, null, 2));
+for (const result of results) console.log(`${result.failures.length ? 'FAIL' : 'PASS'} ${result.engine} ${result.press} ${result.scenario}: ${result.failures.join('; ') || (result.layout ? `header ${result.headerHeights.join('/')} px, pills at ${result.pillOffsets.join('/')} px` : `pitch and #330 after ${result.answeredAfterMs} ms, ${result.detailRequests} detail request(s)`)}`);
 if (failed.length) process.exitCode = 1;
 
 async function openSensei(browser, engineName, profile, scenario) {
     let refusingUntil = scenario === 'refused' ? Infinity : 0;
     const detailResponses = [];
+    const jitenResponses = [];
     const jpdbParseStatuses = [];
     const run = await openRecordedPage({
         browser,
@@ -112,7 +114,14 @@ async function openSensei(browser, engineName, profile, scenario) {
         gmNetwork: 'replay',
         contextOptions: profile.contextOptions,
         onGmRequest: async request => {
-            const response = await answerJiten(request, () => Date.now() < refusingUntil);
+            let response;
+            try {
+                response = await answerJiten(request, () => Date.now() < refusingUntil);
+                if (new URL(request.url).hostname === 'api.jiten.moe') jitenResponses.push({ url: request.url, status: response?.status });
+            } catch (error) {
+                jitenResponses.push({ url: request.url, error: String(error?.message ?? error) });
+                throw error;
+            }
             if (response && request.url === 'https://jpdb.io/api/v1/parse') jpdbParseStatuses.push(response.status);
             if (response && new URL(request.url).pathname.startsWith('/api/vocabulary/1387990/')) {
                 const body = JSON.parse(String(response.body || '{}'));
@@ -123,11 +132,11 @@ async function openSensei(browser, engineName, profile, scenario) {
     });
     const { page } = run;
     const failures = [];
-    const result = { engine: engineName, press: profile.press, scenario, failures, samples: [], detailResponses, jpdbParseStatuses };
+    const result = { engine: engineName, press: profile.press, scenario, failures, samples: [], detailResponses, jitenResponses, jpdbParseStatuses };
     try {
         await page.waitForTimeout(SETTLE_MS);
         if (jpdbKey) result.configuration = await page.evaluate(() => ({ hasJpdbKey: Boolean(window.__yomuRealApp?.settings?.apiKey), parserProvider: window.__yomuRealApp?.settings?.parserProvider }));
-        const word = await visibleWord(page);
+        const word = await visibleSensei(page);
         // Observe the unminified build's actual renderer input, without
         // replacing its data loader, request path or rendered result.
         await page.evaluate(() => {
@@ -204,22 +213,6 @@ async function openSensei(browser, engineName, profile, scenario) {
         await run.close();
     }
     return result;
-}
-
-// The first 先生 in running text, brought into view so the page scan annotates it.
-async function visibleWord(page) {
-    await page.evaluate(word => {
-        const walker = document.createTreeWalker(document.querySelector('#mw-content-text') ?? document.body, NodeFilter.SHOW_TEXT);
-        for (let node = walker.nextNode(); node; node = walker.nextNode()) {
-            if (node.nodeValue?.includes(`${word}に`)) return node.parentElement?.scrollIntoView({ block: 'center' });
-        }
-        return undefined;
-    }, WORD);
-    const selector = `.jpdb-reader-word[data-expression="${WORD}"]`;
-    const word = page.locator(`${selector}:visible`).first();
-    await word.waitFor({ timeout: 60_000 });
-    await word.scrollIntoViewIfNeeded();
-    return word;
 }
 
 function readHeader() {
