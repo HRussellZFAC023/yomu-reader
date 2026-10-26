@@ -2311,9 +2311,8 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
    One quiet disc: the よむ mark, a ring in the state colour and a small badge
    carrying the state's icon from the shared menu set (menu-icons.json), the
    same shapes the radial menu and the extension toolbar draw.
-     on · furigana shown   → green ring, green power badge
-     on · furigana hidden  → amber ring, amber eye-off badge
-     off                   → no ring, grey power badge, receded mark */
+     on  → accent ring and power badge
+     off → grey power badge and receded mark */
 .jpdb-reader-fab {
   --jpdb-reader-fab-tone: var(--jpdb-reader-accent);
   position: fixed !important;
@@ -2403,12 +2402,6 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
 }
 .jpdb-reader-fab:active {
   transform: translate3d(0, 0, 0) scale(0.96) !important;
-}
-.jpdb-reader-fab.jpdb-reader-fab--no-furigana {
-  --jpdb-reader-fab-tone: var(--jpdb-reader-grade-something);
-}
-.jpdb-reader-fab.jpdb-reader-fab--no-furigana .jpdb-reader-fab-state {
-  color: var(--jpdb-reader-theme-light-text) !important;
 }
 .jpdb-reader-fab.jpdb-reader-fab--paused {
   --jpdb-reader-fab-tone: color-mix(in srgb, var(--jpdb-reader-muted) 85%, var(--jpdb-reader-surface));
@@ -2711,4 +2704,9 @@ html.jpdb-reader-suppress-redundant .jpdb-reader-word.jpdb-redundant {
 }
 .jpdb-reader-puck-viewport > .jpdb-reader-fab {
   pointer-events: auto !important;
+}
+
+/* Hide cached overlay readings immediately too; lookup headwords keep theirs. */
+.yomu-furi-off :is(rt.jpdb-reader-furi, .jpdb-reader-detached-furi, .jpdb-ocr-furi, [data-yomu-projected-reading]):not(.jpdb-reader-spelling *) {
+  visibility: hidden !important;
 }

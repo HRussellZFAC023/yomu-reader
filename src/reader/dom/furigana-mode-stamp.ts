@@ -24,7 +24,7 @@ export function targetKeepsInFlowReadings(target: Element): boolean {
 
 /** The settings a word under the stamp renders with: 'all' shows every reading. */
 export function furiganaSettingsForTarget(settings: ReaderSettings, target: Element): ReaderSettings {
-    if (!targetForcesAllFurigana(target)) return settings;
+    if (!settings.showFurigana || settings.furiganaMode === 'off' || !targetForcesAllFurigana(target)) return settings;
     if (settings.showFurigana && settings.furiganaMode === 'all') return settings;
     return { ...settings, showFurigana: true, furiganaMode: 'all' };
 }

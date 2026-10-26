@@ -370,6 +370,7 @@ function pausedVideoSnapshotAreaEligible(rect: DOMRect, settings: ReaderSettings
 
 export class ImageOcrController {
     private states = new Map<HTMLImageElement, ImageState>();
+    private readingDisplayKey?: string;
     private cache = new Map<string, OcrResult | null>();
     private localOcrUnavailable?: { endpointUrl: string; retryAt: number };
     private observer?: IntersectionObserver;
@@ -565,6 +566,17 @@ export class ImageOcrController {
             this.releaseAllVideoFrames();
             this.clear();
             return;
+        }
+        const readingDisplayKey = `${settings.showFurigana}:${settings.furiganaMode}`;
+        if (this.readingDisplayKey !== readingDisplayKey) {
+            this.readingDisplayKey = readingDisplayKey;
+            // Reuse recognized text; a display choice must never upload an image.
+            for (const state of this.states.values()) {
+                if (!state.result) continue;
+                void this.renderResult(state, state.result, false, undefined, true).catch(error => {
+                    if (!isStaleOcrState(error)) log.warn('OCR annotation refresh failed', {}, error);
+                });
+            }
         }
         // Reader rasters have no <img>, so refresh them independently.
         this.refreshCanvasReaderSurfaces(settings, options.userRequested);
@@ -1371,11 +1383,12 @@ export class ImageOcrController {
         result: OcrResult,
         forceOverlay = false,
         work = ocrTargetWork(state.key),
+        repaint = false,
     ): Promise<void> {
         this.requireCurrentContentState(state, work.contentKey);
         work.target.requireCurrent(STALE_OCR_STATE);
         if (
-            this.shouldPreserveReaderRasterResult(state)
+            !repaint && this.shouldPreserveReaderRasterResult(state)
             && state.overlay.querySelector('.jpdb-ocr-line')
             && ocrResultTextKey(state.result) === ocrResultTextKey(result)
         ) {
@@ -1383,9 +1396,6 @@ export class ImageOcrController {
             return;
         }
         state.result = result;
-
-        const settings = this.options.getSettings();
-        const showText = this.shouldShowOcrTextOverlay(state, settings, forceOverlay);
 
         const initialParsed = await this.parseOcrLines(result.lines);
         this.requireCurrentContentState(state, work.contentKey);
@@ -1420,6 +1430,8 @@ export class ImageOcrController {
         await this.options.enrichTokensBeforeRender?.(flatTokens);
         this.requireCurrentContentState(state, work.contentKey);
         work.target.requireCurrent(STALE_OCR_STATE);
+        const settings = this.options.getSettings();
+        const showText = this.shouldShowOcrTextOverlay(state, settings, forceOverlay);
         applyOcrOverlayStyle(state.overlay, settings);
 
         const lineElements = lines.map((line, index) => (

@@ -1080,6 +1080,11 @@ const COPY = {
         ...GRAMMAR_UI_COPY.en,
         ...APPEARANCE_QUICK_COPY.en,
         ...REVIEW_SERVICES_COPY.en,
+        furiganaOff: 'Off',
+        puckPowerOn: `${APP_NAME} on`,
+        puckFuriganaOn: 'Furigana on',
+        puckFuriganaOff: 'Furigana off',
+        puckResume: `${APP_NAME} off · turn on`,
     },
 } as const;
 export type UiCopyKey = keyof typeof COPY.en;
@@ -2202,6 +2207,11 @@ recommendedJiten	Jiten由来の頻度バッジです。
     ...SUBTITLE_SETTINGS_COPY.ja,
     ...APPEARANCE_QUICK_COPY.ja,
     ...REVIEW_SERVICES_COPY.ja,
+    furiganaOff: 'オフ',
+    puckPowerOn: `${APP_NAME} オン`,
+    puckFuriganaOn: 'ふりがなオン',
+    puckFuriganaOff: 'ふりがなオフ',
+    puckResume: `${APP_NAME} オフ・オンにする`,
 };
 
 export interface GrammarRuleCopy {

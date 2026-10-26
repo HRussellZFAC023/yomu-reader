@@ -291,6 +291,7 @@ function floatingButtonActions(): FloatingButtonActions {
         openStudyPage: vi.fn(),
         cyclePowerState: vi.fn(async () => undefined),
         powerState: () => 'on',
+        toggleFurigana: vi.fn(async () => undefined),
         isPaused: () => false,
         toggleOcrMode: vi.fn(),
         ocrMode: () => 'off',

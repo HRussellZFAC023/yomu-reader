@@ -65,6 +65,7 @@ export function loadRecording(slug) {
  *   'live'    the real network (APIRequestContext), for canaries
  *   'record'  the real network for recordHosts only, their answers added to recorder
  *             (createHarWriter; the caller writes it); every other host fails
+ * storageInitialize: 'ifMissing' keeps saved settings across reloads (default: reset each load).
  * pageNetwork: what the page's own unrecorded requests reach ('offline' | 'live').
  * onGmRequest(request) may answer first ({ status, body, contentType }) to model
  *   a failing service; return undefined to fall through.
@@ -169,11 +170,12 @@ function warnOnProductTrafficGap(scope) {
     console.warn(`[recorded-page] WARN ${scope.recording.slug} (${scope.engine} ${width}x${height}): ${dropped} of ${scope.product.label}'s ${recorded.hosts.join(', ')} requests had no recorded answer ${JSON.stringify(served)}. ${describe(recorded, scope.product.label)}, so what it painted is an outage, not the product.`);
 }
 
-function recordedPageScope({ browser, slug, product, gmNetwork = 'replay', pageNetwork = 'offline', hosted = true, onGmRequest, recordHosts = [], recorder, hostOptions = {} }) {
+function recordedPageScope({ browser, slug, product, gmNetwork = 'replay', pageNetwork = 'offline', hosted = true, onGmRequest, recordHosts = [], recorder, hostOptions = {}, storageInitialize }) {
     const recording = loadRecording(slug);
     const engine = browser.browserType().name();
     return {
         recording,
+        storageInitialize,
         engine,
         product: product === undefined ? worktreeProduct() : product,
         ledger: createNetworkLedger(),
@@ -205,7 +207,7 @@ async function installProduct(context, scope, settings) {
     const bridge = gmStorageBridgeInitProgram({
         key: YOMU_SETTINGS_KEY,
         value: settings ?? {},
-        initialize: settings ? 'always' : 'never',
+        initialize: scope.storageInitialize ?? (settings ? 'always' : 'never'),
         css: readFileSync(scope.product.cssPath, 'utf8'),
         requestBridgeName: REQUEST_BINDING,
     });

@@ -2,14 +2,14 @@ import type { ReaderSettings } from '../app/types';
 import { escapeHtml } from '../dom/index';
 import { SETTINGS_LABEL_TEXT_CLASS, select } from './form-controls';
 import { renderReadingHiddenStateGroupControls } from './hide-state-groups';
-import { furiganaModeNeedsDifficultyExplanation, furiganaStyle } from './index';
+import { effectiveFuriganaMode } from './index';
 import { settingsText, type SettingsText } from './settings-text';
 
 type SettingsTextKey = Parameters<SettingsText>[0];
-// No "off": hiding furigana is the puck and toolbar's job, not a Settings default.
-type ReadingMode = Exclude<ReaderSettings['furiganaMode'], 'auto' | 'off'>;
+type ReadingMode = Exclude<ReaderSettings['furiganaMode'], 'auto'>;
 
 const READING_MODE_OPTIONS = [
+    ['off', 'furiganaOff'],
     ['known-status', 'furiganaHideKnown'],
     ['difficult-kanji', 'furiganaDifficultKanji'],
     ['hover', 'furiganaHoverOnly'],
@@ -25,7 +25,7 @@ const CLAMPED_ROW_OPTIONS = [
 export function renderReadingAnnotationControls(settings: ReaderSettings): string {
     const text = settingsText(settings.interfaceLanguage);
     return `<div data-reading-annotation-controls>
-        ${select('furiganaMode', text('furiganaMode'), furiganaStyle(settings), localizedOptions(text, READING_MODE_OPTIONS))}
+        ${select('furiganaMode', text('furiganaMode'), effectiveFuriganaMode(settings), localizedOptions(text, READING_MODE_OPTIONS))}
         ${difficultyNoteHtml(settings, text)}
         ${select('clampedRowReadings', text('clampedRowReadings'), settings.clampedRowReadings, localizedOptions(text, CLAMPED_ROW_OPTIONS))}
         ${renderReadingHiddenStateGroupControls(settings)}
@@ -48,7 +48,7 @@ export function syncReadingAnnotationControls(form: HTMLFormElement, text: Setti
 }
 
 function difficultyNoteHtml(settings: ReaderSettings, text: SettingsText): string {
-    const hidden = furiganaModeNeedsDifficultyExplanation(settings) ? '' : ' hidden';
+    const hidden = effectiveFuriganaMode(settings) === 'difficult-kanji' ? '' : ' hidden';
     return `<div class="jpdb-reader-help" data-furigana-difficulty-note data-help-key="furiganaDifficultKanjiHelp"${hidden}>${escapeHtml(text('furiganaDifficultKanjiHelp'))}</div>`;
 }
 

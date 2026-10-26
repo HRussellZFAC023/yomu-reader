@@ -19,8 +19,8 @@ export const EXTENSION_POPUP_ACTIONS_CHANNEL = 'yomu-popup-actions';
 // The popup opens Study and Settings itself, as packaged pages: a page cannot
 // open a window for a click it never saw, and Settings opens on Study anyway.
 const POPUP_OWNED_ACTIONS = new Set(['study', 'settings']);
-// These labels name the setting, not the state, so the popup marks the state.
-const STATE_TOGGLES = new Set(['japanese-site', 'subtitles', 'youtube']);
+// Expose the independent switches to assistive technology in the toolbar.
+const STATE_TOGGLES = new Set(['power', 'furigana', 'japanese-site', 'subtitles', 'youtube']);
 
 export interface ExtensionPopupAction {
     id: string;

@@ -52,6 +52,7 @@ export function applyReaderTheme(settings: ReaderSettings, root: HTMLElement | n
     }
     toggleClassIfChanged(root, 'jpdb-reader-hide-known', theme.furiganaMode === 'known-status' && hideGroups.has('known'));
     toggleClassIfChanged(root, 'yomu-furi-hover', theme.furiganaMode === 'hover');
+    toggleClassIfChanged(root, 'yomu-furi-off', theme.furiganaMode === 'off');
     toggleClassIfChanged(root, 'yomu-word-color-new-only', settings.wordColorStates === 'new-only');
     // Per-state colour opt-out (e.g. keep known words uncoloured while others
     // stay coloured). CSS-class driven so the settings preview mirrors it live.

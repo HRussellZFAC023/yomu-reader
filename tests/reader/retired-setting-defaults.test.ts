@@ -4,7 +4,7 @@ import type { ReaderSettings } from '../../src/reader/app/types';
 import { DEFAULT_SETTINGS, loadSettings, saveSettings, SETTINGS_STORAGE_KEY } from '../../src/reader/settings';
 import { restoreReaderSettingsBackup } from '../../src/reader/settings/reader-settings-restore-adapter';
 import { RETIRED_DEFAULT_SETTING_KEYS } from '../../src/reader/settings/retired-defaults';
-import { planAnnotationPowerTransition, PUCK_FURIGANA_INTENT_KEYS } from '../../src/reader/app/annotation-power-policy';
+import { toggleFuriganaSettings, PUCK_FURIGANA_INTENT_KEYS } from '../../src/reader/app/annotation-power-policy';
 import { recordSettingsIntent, SETTINGS_INTENT_LEDGER_STORAGE_KEY } from '../../src/reader/settings/intent-ledger';
 import { serializeSettingsPersistencePair } from '../../src/reader/settings/settings-persistence-transaction';
 import type { SettingsIntentLedger } from '../../src/reader/settings/intent-ledger';
@@ -174,8 +174,8 @@ describe('declared reading modes across the old puck lifecycle', () => {
     function explicitAllThenOldPuckHide() {
         const chosen = { ...DEFAULT_SETTINGS, ...PRE_2_1_DEFAULTS, furiganaMode: 'all' as const };
         const chosenLedger = recordSettingsIntent({ revision: 9, records: {} }, ['furiganaMode'], chosen);
-        const hide = planAnnotationPowerTransition(chosen, true, 'all');
-        expect(hide).toEqual({ kind: 'hide-furigana', rememberedMode: 'all' });
+        const hide = toggleFuriganaSettings(chosen);
+        expect(hide).toEqual({ showFurigana: true, furiganaMode: 'off', puckFuriganaModeBeforeHide: 'all' });
         const hidden = { ...chosen, furiganaMode: 'off' as const, puckFuriganaModeBeforeHide: 'all' as const };
         const ledger = recordSettingsIntent(chosenLedger, OLD_PUCK_KEYS, hidden);
         expect(ledger.records.furiganaMode).toEqual({ seq: 12, value: 'off' });
@@ -195,8 +195,8 @@ describe('declared reading modes across the old puck lifecycle', () => {
         await saveSettings({ ...loaded, theme: 'dark' }, { explicitUserChoiceKeys: ['theme'] });
         expect((await storedLedger()).records.puckFuriganaModeBeforeHide).toEqual({ seq: 13, value: 'all' });
         const reloaded = await loadSettings();
-        expect(planAnnotationPowerTransition({ ...reloaded, annotationsPaused: true }, true, DEFAULT_SETTINGS.furiganaMode))
-            .toEqual({ kind: 'resume', furiganaMode: 'all' });
+        expect(toggleFuriganaSettings(reloaded))
+            .toMatchObject({ showFurigana: true, furiganaMode: 'all' });
         await saveSettings({ ...reloaded, furiganaMode: 'all', puckFuriganaModeBeforeHide: '' }, { explicitUserChoiceKeys: PUCK_FURIGANA_INTENT_KEYS });
         expect(await loadSettings()).toMatchObject({ furiganaMode: 'all', theme: 'dark' });
     });
@@ -207,8 +207,8 @@ describe('declared reading modes across the old puck lifecycle', () => {
         const adopted = await restore({ settings: hidden, storage: serializeSettingsPersistencePair(hidden, ledger) });
         expect(adopted).toMatchObject({ furiganaMode: 'off', puckFuriganaModeBeforeHide: 'all' });
         expect(await loadSettings()).toMatchObject({ furiganaMode: 'off', puckFuriganaModeBeforeHide: 'all' });
-        expect(planAnnotationPowerTransition({ ...adopted, annotationsPaused: true }, true, DEFAULT_SETTINGS.furiganaMode))
-            .toEqual({ kind: 'resume', furiganaMode: 'all' });
+        expect(toggleFuriganaSettings(adopted))
+            .toMatchObject({ showFurigana: true, furiganaMode: 'all' });
     });
 
     it('preserves a completed old puck cycle whose original mode provenance is unknowable', async () => {

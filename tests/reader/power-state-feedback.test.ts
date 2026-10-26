@@ -1,5 +1,4 @@
-// The reading-state and audio controls name the state they are in (よむ on ·
-// furigana shown / hidden, よむ off; Auto-play audio on / off) on the puck and in
+// The power and audio controls name their on/off state on the puck and in
 // the toolbar, so pressing them there needs no toast that restates it. The
 // userscript manager's menu commands have no label of their own, so they alone
 // confirm the new state, in the same words.
@@ -48,16 +47,16 @@ afterEach(() => {
 });
 
 describe('feedback for the reading-state and audio controls', () => {
-    it.each(['en', 'ja'] as const)('shows no toast when the %s puck or toolbar steps through the three states', async language => {
+    it.each(['en', 'ja'] as const)('shows no toast when the %s puck or toolbar toggles power', async language => {
         const reader = startReader(language);
         try {
             await reader.init();
             const seen: string[] = [];
-            for (let step = 0; step < 3; step++) {
+            for (let step = 0; step < 2; step++) {
                 const list = await reader.press('power');
                 seen.push(list.actions.find(action => action.id === 'power')!.label);
             }
-            expect(seen).toHaveLength(3);
+            expect(seen).toHaveLength(2);
             expect(toasts()).toEqual([]);
         } finally {
             reader.app.destroy();
@@ -81,8 +80,8 @@ describe('feedback for the reading-state and audio controls', () => {
     });
 
     it.each([
-        ['en', ['よむ off', 'よむ on · furigana shown']],
-        ['ja', ['よむ オフ', 'よむ オン・ふりがな表示']],
+        ['en', ['よむ off', 'よむ on']],
+        ['ja', ['よむ オフ', 'よむ オン']],
     ] as const)('names the new state from the %s userscript menu command', async (language, states) => {
         const reader = startReader(language);
         try {
