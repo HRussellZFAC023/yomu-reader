@@ -8,8 +8,6 @@ import { promiseWithTimeout, runLimited } from '../core/async-utils';
 import { copyText, isEditableEventContext, normalizePressedKey, pauseActiveVideo, positionPopover } from '../ui/browser';
 import {
     applyOverlayPageScale,
-    hasOverlayPageScale,
-    overlayViewport,
     sourceRectToOverlay,
 } from '../ui/page-scale';
 import { installLocalTapActivation as installControlPointerActivation } from '../ui/pointer-activation';
@@ -4915,7 +4913,7 @@ export class ReaderApp {
 
     private scheduleActivePopoverViewportChange(): void {
         const popover = this.repositionableActivePopover();
-        if (!popover || (overlayViewport().pageScale === 1 && !hasOverlayPageScale(popover))) return;
+        if (!popover) return;
         this.popoverViewportChangePending = true;
         this.scheduleRepositionActivePopoverFrame();
     }

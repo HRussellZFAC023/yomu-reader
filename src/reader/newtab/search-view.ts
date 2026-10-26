@@ -5,14 +5,14 @@ import { el } from '../dom/builder';
 import { uiText } from '../app/i18n';
 import { cardKey } from '../cards/utils';
 import { primaryCardState } from '../cards/state';
-import { headwordFuriganaSettings, renderCardSpellingWithFurigana } from '../cards/reading-display';
+import { headwordFuriganaSettings } from '../cards/reading-display';
 import { escapeHtml, htmlToFirstElement, renderTokensToHtml, setInnerHtml } from '../dom';
 import { ANKI_SOURCE_ID, JITEN_DEFINITION_SOURCE_ID, JPDB_DEFINITION_SOURCE_ID } from '../app/constants';
 import { renderAnkiExistingSection } from '../anki/render';
 import { groupTermEntriesByDictionary } from '../dictionaries/groups';
 import { getPitchClass } from '../jpdb/jpdb-parser';
 import { renderJitenDefinitionSource } from '../jiten/jiten-definition-source-render';
-import { renderPitch } from '../popup/render';
+import { cardUsesPitchAccentPronunciation, renderPronunciation } from '../popup/pronunciation';
 import { speakerIcon } from '../ui/icons';
 import { hasJitenApiCredential, hasJpdbApiCredential } from '../settings/api-credential';
 import { KANJI_DICTIONARIES_SOURCE_ID, definitionSourceLabel, orderedDefinitionSourceIds } from '../sources/sections';
@@ -20,7 +20,7 @@ import { kanjiSourceStateKey, renderJpdbDefinitionSource, renderKanjiDefinitions
 import { searchKanjiInlineWordMeta } from './card-selection';
 import { firstCardMeaning } from './index';
 import { ankiReviewSourceLabel, isJitenSrsCard } from './review-targets';
-import { newTabCardOptionalReading, newTabCardReading } from './study-queue';
+import { newTabCardReading } from './study-queue';
 import { SEARCH_CARD_STATE_LABEL_KEYS } from './controller-config';
 import type { CardRenderData } from '../cards/render-data';
 import type { JitenVocabularyInfo } from '../dictionaries/jiten';
@@ -105,7 +105,7 @@ function renderSearchWordResult(card: JPDBCard, context: NewTabSearchViewContext
 
 function renderSearchWordTerm(card: JPDBCard, context: NewTabSearchViewContext): HTMLElement {
     const term = el('span', { class: 'jpdb-reader-newtab-search-term', lang: 'ja', dataset: { yomuHeadword: true } });
-    const html = renderSearchCardRubyHtml(card, context.settings);
+    const html = renderSearchCardWordHtml(card, context.settings);
     if (html) {
         setInnerHtml(term, html);
         if (!(term.textContent ?? '').includes(card.spelling)) {
@@ -126,10 +126,10 @@ export function renderSearchKanjiResults(results: NewTabSearchKanjiResult[], con
     );
 }
 
-function renderSearchCardRubyHtml(card: JPDBCard, settings: ReaderSettings): string {
+function renderSearchCardWordHtml(card: JPDBCard, settings: ReaderSettings): string {
     const spelling = card.spelling.trim();
-    const reading = newTabCardOptionalReading(card);
-    if (!spelling || !reading) return '';
+    const reading = newTabCardReading(card);
+    if (!spelling) return '';
     const token: JPDBToken = {
         card: { ...card, reading },
         start: 0,
@@ -217,21 +217,27 @@ function searchWordHeaderHtml(card: JPDBCard, detail: NewTabSearchWordDetailData
     const settings = context.getSettings();
     const state = primaryCardState(card.cardState);
     const metaItems = searchWordMetaItems(card, state, detail, settings);
-    const pitch = settings.showPitchAccent ? renderPitch(card, detail.metaEntries) : '';
+    const pitchEnabled = settings.showPitchAccent && cardUsesPitchAccentPronunciation(card);
+    const pronunciation = renderPronunciation({ card, settings, metaEntries: detail.metaEntries, loading: detail.loading, dictionaryLabel: context.dictionaryLabel });
+    // This is already a lexical card. Render its lookup token once instead
+    // of sending its authored ruby through the asynchronous nested parser.
+    const headword = renderSearchCardWordHtml(card, settings);
     const pills = searchWordPillsHtml(card, detail, context);
     const audioTitle = uiText(settings.interfaceLanguage, settings.audioEnabled ? 'playAudio' : 'audioPlaybackDisabled');
     const bunproStatusAttributes = bunproDefinitionStatusAttributes(detail.bunproDefinitionStatus);
-    return `<div class="jpdb-reader-header jpdb-reader-newtab-search-detail-header"${bunproStatusAttributes}>
+    return `<div class="jpdb-reader-header jpdb-reader-newtab-search-detail-header" data-pitch-enabled="${pitchEnabled}"${bunproStatusAttributes}>
         <div class="jpdb-reader-heading">
             <div class="jpdb-reader-title-row">
-                <div class="jpdb-reader-spelling jpdb-${state} jpdb-reader-parseable" data-yomu-headword>${renderCardSpellingWithFurigana(card, settings, { enabled: false, label: uiText(settings.interfaceLanguage, 'showKanji') })}</div>
+                <div class="jpdb-reader-spelling jpdb-${state} jpdb-reader-parseable" data-yomu-headword>${headword}</div>
                 ${metaItems.length ? `<div class="jpdb-reader-meta">${metaItems.join('')}</div>` : ''}
             </div>
             ${pills}
         </div>
         <div class="jpdb-reader-card-tools">
-            ${pitch}
-            <button class="jpdb-reader-icon-btn jpdb-reader-audio-control" data-action="search-word-audio" data-newtab-card="${escapeHtml(cardKey(card))}" type="button" aria-label="${escapeHtml(audioTitle)}" title="${escapeHtml(audioTitle)}"${settings.audioEnabled ? '' : ' disabled'}>${speakerIcon()}</button>
+            ${pronunciation}
+            <div class="jpdb-reader-word-actions">
+                <button class="jpdb-reader-icon-btn jpdb-reader-audio-control" data-action="search-word-audio" data-newtab-card="${escapeHtml(cardKey(card))}" type="button" aria-label="${escapeHtml(audioTitle)}" title="${escapeHtml(audioTitle)}"${settings.audioEnabled ? '' : ' disabled'}>${speakerIcon()}</button>
+            </div>
         </div>
     </div>`;
 }

@@ -3,8 +3,9 @@ import { isAppleTouchBrowser } from '../platform/browser';
 const SCALE_EPSILON = 0.05;
 const MAX_PAGE_SCALE = 3;
 /** Safari's selectable full-page zoom steps above 100%. */
-const SAFARI_PAGE_ZOOM_STEPS = [1.15, 1.25, 1.5, 1.75, 2, 2.5, 3];
+const SAFARI_PAGE_ZOOM_STEPS = [1.15, 1.25, 1.5, 1.75, 2, 2.5, 3] as const;
 const ZOOM_STEP_TOLERANCE = 0.025;
+const MIN_PAGE_ZOOM_SIGNAL = SAFARI_PAGE_ZOOM_STEPS[0] * (1 - ZOOM_STEP_TOLERANCE);
 /** Chrome is carved out of the window height before the zoom divides it, so
     the height ratio runs slightly above the width ratio — never far below. */
 const MIN_AXIS_AGREEMENT = 0.97;
@@ -63,7 +64,9 @@ export function overlayPageScale(environment: PageScaleEnvironment): number {
 
     if (positiveFinite(environment.outerWidth)) {
         const surfaceScale = environment.outerWidth / environment.innerWidth;
-        if (Number.isFinite(surfaceScale) && surfaceScale > 1 + SCALE_EPSILON) {
+        // Small width differences can be desktop-page fitting, not zoom.
+        // Keep the same lower zoom-step boundary as the on-device signal.
+        if (Number.isFinite(surfaceScale) && surfaceScale >= MIN_PAGE_ZOOM_SIGNAL) {
             return Math.min(surfaceScale, MAX_PAGE_SCALE);
         }
     }

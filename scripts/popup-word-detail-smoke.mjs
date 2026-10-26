@@ -11,6 +11,8 @@
 //            after the learner opens 先生, as when the page's enrichment or
 //            another tab has spent the address's minute. 2.1.6 asked once and
 //            kept "Exact pitch unavailable" and "In context ×1".
+//   refused-html  The same refusal with an HTML error body, so JSON decoding
+//                 cannot hide the HTTP status from the popup's retry policy.
 //
 // The popup's header must end with 先生's pitch graph (nakadaka, Jiten [3])
 // and its Jiten rank badge (#330), and never show "Exact pitch unavailable"
@@ -22,7 +24,8 @@
 // --jpdb loads a QA key through qa-env.mjs and selects JPDB parsing. It also
 // requires live successful JPDB parses and the JPDB rank in the rendered card.
 // --env-root may name the canonical checkout that owns the local QA key.
-//   node scripts/popup-word-detail-smoke.mjs [--engines=chromium,webkit] [--product=v2.1.6|<build root>] [--record|--live] [--scenarios=quiet,refused] [--press=hover,click]
+//   node scripts/popup-word-detail-smoke.mjs [--engines=chromium,webkit] [--product=v2.1.6|<build root>] [--record|--live] [--scenarios=quiet,refused,refused-html] [--press=hover,click]
+//   --layout-only --sizes=320x568,360x640,390x844,844x390,320x1180,590x820,500x700,1280x600 --ipad-layout
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { chromium, devices, webkit } from 'playwright';
@@ -30,6 +33,7 @@ import { loadRecording, openRecordedPage, releaseProduct, worktreeProduct } from
 import { createSmokePaths } from './lib/smoke-harness.mjs';
 import { loadLocalEnv } from './lib/qa-env.mjs';
 import { popupWordDetailLayout, visibleSensei } from './lib/popup-word-detail-layout.mjs';
+import { studyWordDetailLayout } from './lib/popup-word-detail-study.mjs';
 
 const { root: ROOT, artifacts: ARTIFACTS } = createSmokePaths(import.meta.dirname);
 const ARTIFACT_DIR = path.join(ARTIFACTS, 'popup-word-detail');
@@ -50,7 +54,7 @@ const PROFILES = {
 
 const args = process.argv.slice(2);
 const option = name => args.find(arg => arg.startsWith(`--${name}=`))?.slice(name.length + 3);
-const reportName = path.basename(option('report') ?? 'report.json');
+const reportName = path.basename(option('report') ?? (args.includes('--layout-only') ? 'layout-report.json' : 'report.json'));
 const recording = args.includes('--record');
 const live = args.includes('--live');
 let jpdbKey = '';
@@ -59,7 +63,7 @@ if (args.includes('--jpdb')) {
     jpdbKey = process.env.YOMU_JPDB_API_KEY?.trim() || process.env.JPDB_API_KEY?.trim() || process.env.YOMU_TEST_API_KEY?.trim() || process.env.YOMU_PROFILE_API_KEY?.trim() || '';
     if (!jpdbKey) throw new Error('No JPDB QA key available through qa-env.mjs.');
 }
-const scenarios = (option('scenarios') ?? 'quiet,refused').split(',');
+const scenarios = (option('scenarios') ?? 'quiet,refused,refused-html').split(',');
 const engines = (option('engines') ?? 'chromium,webkit').split(',');
 const productRef = option('product') ?? 'worktree';
 const product = productRef === 'worktree' ? worktreeProduct()
@@ -77,12 +81,23 @@ for (const name of engines) {
     try {
         if (!args.includes('--layout-only')) {
             for (const press of (option('press')?.split(',') ?? profile.presses)) {
-                for (const scenario of scenarios) results.push(await openSensei(browser, name, { ...profile, press }, scenario));
+                for (const scenario of scenarios) recordResult(await openSensei(browser, name, { ...profile, press }, scenario));
             }
         }
         if (!args.includes('--skip-layout')) {
-            for (const width of (option('widths') ?? '390,1280').split(',').map(Number)) {
-                for (const language of (option('languages') ?? 'en,ja').split(',')) results.push(await popupWordDetailLayout({ browser, product, engine: name, width, language, answerJiten }));
+            const sizes = option('sizes')?.split(',').map(value => value.split('x').map(Number))
+                ?? (option('widths') ?? '390,1280').split(',').map(value => [Number(value), 844]);
+            for (const [width, height] of sizes) {
+                for (const language of (option('languages') ?? 'en,ja').split(',')) {
+                    const layout = { browser, product, engine: name, width, height, language, answerJiten, largeText: args.includes('--large-text') };
+                    if (!args.includes('--study-only')) recordResult(await popupWordDetailLayout(layout));
+                    if (!args.includes('--popup-only')) recordResult(await studyWordDetailLayout(layout));
+                }
+            }
+            if (args.includes('--ipad-layout')) {
+                for (const mode of ['sheet', 'popover']) for (const [width, height] of [[820, 1180], [1180, 820]]) {
+                    recordResult(await popupWordDetailLayout({ browser, product, engine: name, width, height, language: 'en', answerJiten, contextOptions: devices['iPad Pro 11'], mode, rotate: true }));
+                }
             }
         }
     } finally {
@@ -98,11 +113,16 @@ if (recording) {
 }
 const failed = results.filter(result => result.failures.length);
 writeFileSync(path.join(ARTIFACT_DIR, reportName), JSON.stringify({ product: product.label, network: live ? 'live Jiten; injected 429s in refused scenario' : 'recorded/deterministic', results }, null, 2));
-for (const result of results) console.log(`${result.failures.length ? 'FAIL' : 'PASS'} ${result.engine} ${result.press} ${result.scenario}: ${result.failures.join('; ') || (result.layout ? `header ${result.headerHeights.join('/')} px, pills at ${result.pillOffsets.join('/')} px` : `pitch and #330 after ${result.answeredAfterMs} ms, ${result.detailRequests} detail request(s)`)}`);
+
 if (failed.length) process.exitCode = 1;
 
+function recordResult(result) {
+    results.push(result);
+    console.log(`${result.failures.length ? 'FAIL' : 'PASS'} ${result.engine} ${result.press} ${result.scenario}: ${result.failures.join('; ') || (result.layout ? `header ${result.headerHeights.join('/')} px, pills at ${result.pillOffsets.join('/')} px` : `pitch and #330 after ${result.answeredAfterMs} ms, ${result.detailRequests} detail request(s)`)}`);
+}
+
 async function openSensei(browser, engineName, profile, scenario) {
-    let refusingUntil = scenario === 'refused' ? Infinity : 0;
+    let refusingUntil = scenario.startsWith('refused') ? Infinity : 0;
     const detailResponses = [];
     const jitenResponses = [];
     const jpdbParseStatuses = [];
@@ -116,16 +136,22 @@ async function openSensei(browser, engineName, profile, scenario) {
         onGmRequest: async request => {
             let response;
             try {
-                response = await answerJiten(request, () => Date.now() < refusingUntil);
-                if (new URL(request.url).hostname === 'api.jiten.moe') jitenResponses.push({ url: request.url, status: response?.status });
+                const htmlRefused = scenario === 'refused-html' && new URL(request.url).hostname === 'api.jiten.moe' && Date.now() < refusingUntil;
+                response = htmlRefused
+                    ? { status: 429, contentType: 'text/html', body: '<html><body>Rate limit exceeded</body></html>' }
+                    : await answerJiten(request, () => Date.now() < refusingUntil && scenario === 'refused');
+                if (new URL(request.url).hostname === 'api.jiten.moe') jitenResponses.push({ at: Date.now(), url: request.url, responseType: request.responseType, status: response?.status, ...(response?.status >= 400 ? { body: String(response.body).slice(0, 240) } : {}) });
             } catch (error) {
                 jitenResponses.push({ url: request.url, error: String(error?.message ?? error) });
                 throw error;
             }
             if (response && request.url === 'https://jpdb.io/api/v1/parse') jpdbParseStatuses.push(response.status);
             if (response && new URL(request.url).pathname.startsWith('/api/vocabulary/1387990/')) {
-                const body = JSON.parse(String(response.body || '{}'));
-                detailResponses.push({ at: Date.now(), url: request.url, status: response.status, mainReading: body.mainReading, pitchAccents: body.pitchAccents });
+                // Observation must never turn an upstream plain-text 429 into
+                // a decoding/network error before the product sees its status.
+                let body = {};
+                try { body = JSON.parse(String(response.body || '{}')); } catch { /* non-JSON error body */ }
+                detailResponses.push({ at: Date.now(), url: request.url, status: response.status, mainReading: body?.mainReading, pitchAccents: body?.pitchAccents });
             }
             return response;
         },
@@ -133,6 +159,10 @@ async function openSensei(browser, engineName, profile, scenario) {
     const { page } = run;
     const failures = [];
     const result = { engine: engineName, press: profile.press, scenario, failures, samples: [], detailResponses, jitenResponses, jpdbParseStatuses };
+    result.providerErrors = [];
+    page.on('console', message => {
+        if (/Jiten.*(?:failed|detail|batch|parse)/iu.test(message.text())) result.providerErrors.push(message.text());
+    });
     try {
         await page.waitForTimeout(SETTLE_MS);
         if (jpdbKey) result.configuration = await page.evaluate(() => ({ hasJpdbKey: Boolean(window.__yomuRealApp?.settings?.apiKey), parserProvider: window.__yomuRealApp?.settings?.parserProvider }));
@@ -143,6 +173,19 @@ async function openSensei(browser, engineName, profile, scenario) {
             const app = window.__yomuRealApp;
             window.__popupDetailRenders = [];
             window.__popupDetailPresses = [];
+            window.__popupDetailLookupErrors = [];
+            window.__popupDetailPointerMoves = [];
+            document.addEventListener('pointermove', event => {
+                const target = event.target instanceof Element ? event.target : null;
+                window.__popupDetailPointerMoves.push({ x: event.clientX, y: event.clientY, word: target?.closest('[data-expression]')?.getAttribute('data-expression'), inPopup: Boolean(target?.closest('.jpdb-reader-popover')) });
+            }, { capture: true, passive: true });
+            const lookup = app.jiten.lookupVocabularyInfoForCard;
+            app.jiten.lookupVocabularyInfoForCard = function (...args) {
+                return lookup.apply(this, args).catch(error => {
+                    window.__popupDetailLookupErrors.push({ name: error?.name, message: error?.message });
+                    throw error;
+                });
+            };
             for (const type of ['pointerdown', 'pointerup', 'touchstart', 'touchend', 'click']) {
                 document.addEventListener(type, event => {
                     const target = event.target instanceof Element ? event.target : null;
@@ -165,7 +208,7 @@ async function openSensei(browser, engineName, profile, scenario) {
             };
         });
         const pressedAt = Date.now();
-        if (scenario === 'refused') refusingUntil = pressedAt + REFUSED_AFTER_PRESS_MS;
+        if (scenario.startsWith('refused')) refusingUntil = pressedAt + REFUSED_AFTER_PRESS_MS;
         if (profile.press === 'tap') {
             // Tap the current visible word with native touch input, as a
             // finger does while page annotation continues. The header
@@ -202,6 +245,10 @@ async function openSensei(browser, engineName, profile, scenario) {
         result.detailNetwork = run.ledger.requests({ host: 'api.jiten.moe' }).filter(request => request.url.includes('/vocabulary/1387990/'));
         result.productTraffic = run.productTraffic();
         result.rendererInputs = await page.evaluate(() => window.__popupDetailRenders ?? []);
+        result.lookupErrors = await page.evaluate(() => window.__popupDetailLookupErrors ?? []);
+        result.pointerMoves = await page.evaluate(() => window.__popupDetailPointerMoves ?? []);
+        result.pageErrors = run.pageErrors;
+        if (scenario.startsWith('refused') && !jitenResponses.some(response => response.status === 429 && response.url.includes('/vocabulary/search?'))) failures.push('The identity search never exercised a 429.');
         if (jpdbKey && (!jpdbParseStatuses.includes(200) || !result.rendererInputs.some(input => input.frequencyRanks?.jpdb?.rank))) failures.push('The JPDB-key path did not supply a successful parse and a JPDB card rank.');
         result.presses = await page.evaluate(() => window.__popupDetailPresses ?? []);
         if (result.tapBox) {

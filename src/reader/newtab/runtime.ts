@@ -2134,6 +2134,9 @@ export class NewTabRuntime {
 
     private unwrapRenderedFallbackWords(card: JPDBCard): void {
         this.renderedWordsForCard(document, card).forEach(word => {
+            // A failed prose lookup must not strip an authored card heading
+            // with the same identity, including its reading and tap target.
+            if (word.closest('[data-yomu-headword]')) return;
             const parent = word.parentNode;
             word.replaceWith(document.createTextNode(readerWordSurfaceText(word)));
             parent?.normalize();

@@ -4,7 +4,7 @@ import type { JPDBCard, JPDBPitchComponent, JPDBToken } from '../app/types';
 import { ConcurrencyGate, delay, mapLimited } from '../core/async-utils';
 import { getPitchClass } from '../jpdb/jpdb-parser';
 import { pitchPatternFromPosition } from '../lookup/pitch-accent';
-import { requestJson } from '../network/http';
+import { requestText, type ReaderHttpOptions } from '../network/http';
 import { readPublicJitenCache, writePublicJitenCache } from './jiten-public-cache';
 
 const JITEN_PUBLIC_API_BASE_URL = 'https://api.jiten.moe/api';
@@ -85,7 +85,7 @@ const sentRequests: number[] = [];
 export interface JitenPublicVocabularyClientOptions {
     baseUrl?: string;
     proxyUrl?: string | (() => string);
-    requestJsonImpl?: (url: string, options?: Parameters<typeof requestJson>[1]) => Promise<unknown>;
+    requestJsonImpl?: (url: string, options?: ReaderHttpOptions) => Promise<unknown>;
 }
 
 export interface JitenPublicLookupManyOptions {
@@ -458,13 +458,13 @@ export class JitenPublicVocabularyClient {
 
     // Every request is counted here, once, whatever its outcome.
     private async requestJson(endpoint: string, timeoutMs = REQUEST_TIMEOUT_MS, init: { method?: 'GET' | 'POST'; data?: string } = {}): Promise<unknown> {
-        const request = this.options.requestJsonImpl ?? requestJson;
+        const request = this.options.requestJsonImpl ?? requestPublicJitenJson;
         const sentAt = Date.now();
         sentRequests.push(sentAt);
         try {
             const payload = await request(endpointUrl(this.options.baseUrl, endpoint), {
                 ...(init.data === undefined ? {} : { method: init.method ?? 'POST', data: init.data, headers: { 'Content-Type': 'application/json', Accept: 'application/json' } }),
-                responseType: 'json',
+                responseType: 'text',
                 timeoutMs,
                 timeoutLabel: 'Jiten timeout.',
                 failureLabel: 'Jiten',
@@ -513,6 +513,13 @@ export class JitenPublicVocabularyClient {
             cache.delete(entryKey);
         }
     }
+}
+
+// Throttling/proxy errors can be HTML or plain text. Asking a manager for JSON
+// lets its decoder fail before requestHttp sees the status, hiding a retryable
+// 429 behind a SyntaxError. Read text, validate HTTP, then decode the answer.
+async function requestPublicJitenJson(url: string, options?: ReaderHttpOptions): Promise<unknown> {
+    return JSON.parse(await requestText(url, options));
 }
 
 function parsedCardsWithinTargetBoundary(result: readonly JPDBToken[][], limit: number): JPDBCard[] {

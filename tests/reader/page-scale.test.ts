@@ -45,6 +45,13 @@ describe('Overlay page-scale isolation', () => {
         expect(overlayPageScale({ ...scaledReddit, innerWidth: 760 })).toBe(1);
     });
 
+    it('does not mistake a fitted desktop page in iPad landscape for page zoom', () => {
+        expect(overlayPageScale({
+            appleTouch: true, innerWidth: 1120, innerHeight: 778,
+            outerWidth: 1180, screenWidth: 834, screenHeight: 1194,
+        })).toBe(1);
+    });
+
     it('rejects invalid metrics and caps implausibly large compensation', () => {
         expect(overlayPageScale({ ...scaledReddit, innerWidth: 0 })).toBe(1);
         expect(overlayPageScale({ ...scaledReddit, outerWidth: Number.NaN })).toBe(1);

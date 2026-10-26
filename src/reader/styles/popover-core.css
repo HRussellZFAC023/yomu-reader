@@ -261,6 +261,22 @@
   grid-column: 1;
   grid-row: 1;
 }
+/* Keep .6em of leading above the base for native ruby metrics, including
+   wrapped headwords and Mobile Safari's page-scale rounding. */
+.jpdb-reader-header .jpdb-reader-title-row .jpdb-reader-spelling {
+  line-height: 2.2;
+}
+.jpdb-reader-header .jpdb-reader-spelling .jpdb-reader-word {
+  line-height: 1 !important;
+}
+/* A border on a plain kanji button adds to its line box, unlike the same
+   button inside ruby. Paint its interaction cue without changing geometry. */
+.jpdb-reader-header .jpdb-reader-kanji-inline {
+  border-bottom: 0 !important;
+}
+.jpdb-reader-header .jpdb-reader-kanji-inline:is(:hover, :focus-visible) {
+  box-shadow: inset 0 -2px currentColor !important;
+}
 .jpdb-reader-card-tools {
   display: contents;
 }
