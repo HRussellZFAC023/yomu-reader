@@ -153,7 +153,11 @@ describe('D43 copy tiers are a property of the string', () => {
         const humanCritical = messages.filter((message) => message.tier === 'human-critical');
         const byIdAlone = humanCritical.filter((message) => copyTierOf(message.id).tier === 'human-critical');
         expect({ total: messages.length, critical: humanCritical.length, byId: byIdAlone.length })
-            .toEqual({ total: 1229, critical: 428, byId: 423 });
+            .toEqual({ total: 1235, critical: 428, byId: 423 });
+        // W1-65 names independent power and reading controls (six supplementary messages).
+        for (const key of ['furiganaOff', 'puckPowerOn', 'puckFuriganaOn', 'puckFuriganaOff', 'puckResume', 'furiganaHideKnownReadings']) {
+            expect(copyTierOf(legacyChromeMessageId(key)).tier, key).toBe('machine-draft-ok');
+        }
         // 2.1.3 adds a supplementary action for native YouTube paging.
         expect(copyTierOf(legacyChromeMessageId('youtubeLoadMore')).tier).toBe('machine-draft-ok');
         // 2.1.1 adds eleven shared website messages and Default deck copy; two new IDs are critical.
