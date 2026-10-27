@@ -396,7 +396,6 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
   --jpdb-reader-status-color: var(--jpdb-reader-state-ignored);
   --jpdb-reader-status-readable: var(--jpdb-reader-state-ignored-readable);
   --jpdb-reader-status-soft: var(--jpdb-reader-state-ignored-soft);
-  opacity: 0.82 !important;
 }
 .jpdb-reader-word.jpdb-frequent {
   --jpdb-reader-jpdb-color: var(--jpdb-reader-state-frequent);
@@ -920,9 +919,6 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
   .jpdb-reader-word:is(:hover, :focus, .jpdb-reader-keyboard-active) {
   color: var(--jpdb-reader-word-accessible-color, var(--jpdb-reader-word-color-source, currentColor)) !important;
   -webkit-text-fill-color: var(--jpdb-reader-word-accessible-color, var(--jpdb-reader-word-color-source, currentColor));
-}
-:is(.jpdb-reader-word-highlight-pitch, .jpdb-reader-word-underline-pitch, .jpdb-reader-word-text-pitch) .jpdb-reader-word {
-  opacity: 1 !important;
 }
 .jpdb-reader-word.jpdb-reader-has-furi {
   line-height: 2.15;

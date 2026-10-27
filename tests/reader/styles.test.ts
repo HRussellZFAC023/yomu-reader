@@ -402,6 +402,15 @@ describe('reader stylesheet loading', () => {
         }
     });
 
+    it('never fades page words because of their study state', () => {
+        const css = readFileSync('src/reader/styles/reader-words-ocr.css', 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
+        const fadedStates = [...css.matchAll(/([^{}]+)\{([^{}]*)\}/g)].filter(([, selector, declarations]) =>
+            /\.jpdb-reader-word\b/.test(selector)
+            && /\.(?:jpdb|jiten|anki)-(?:new|not-in-deck|in-deck|learning|young|known|mature|mastered|never-forget|redundant|due|failed|suspended|blacklisted|locked|frequent|unparsed)\b/.test(selector)
+            && [...declarations.matchAll(/\bopacity:\s*([\d.]+)/g)].some(([, value]) => Number(value) < 1));
+        expect(fadedStates.map(([, selector]) => selector.trim())).toEqual([]);
+    });
+
     it('hides clip-constrained readings at rest and re-shows them once the row has grown', () => {
         const css = readFileSync('src/reader/styles/reader-words-ocr.css', 'utf8');
         // Sweep blocker (2026-07-10): mirror/in-place rt painted outside

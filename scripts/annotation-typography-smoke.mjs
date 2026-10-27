@@ -246,6 +246,7 @@ function judgeWords(id, measured) {
     for (const word of measured.words) {
         if (word.fontDiff.length) fail(`${id}: ${word.text} does not use the host font (${word.fontDiff.join('; ')}).`, word);
         if (word.background !== 'none') fail(`${id}: ${word.text} is painted at rest (${word.background}).`, word);
+        if (word.opacity !== '1') fail(`${id}: ${word.text} is faded (${word.opacity}).`, word);
     }
     if (measured.footnoteWords) fail(`${id}: the footnote marker was annotated.`, measured);
 }
@@ -363,6 +364,7 @@ function measurePage() {
             classes: word.className,
             fontDiff: PROPS.filter(prop => own[prop] !== host[prop]).map(prop => `${prop}: ${host[prop]} -> ${own[prop]}`),
             background: getComputedStyle(word).backgroundImage,
+            opacity: getComputedStyle(word).opacity,
             underline: drawn ? { style: after.borderBottomStyle, color: after.borderBottomColor, width: after.borderBottomWidth } : { style: 'none' },
         };
     });
