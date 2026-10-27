@@ -181,7 +181,8 @@ describe('app shell social metadata', () => {
             .toEqual({ width: manifest.goldenRaster.width, height: manifest.goldenRaster.height });
 
         const scripts = JSON.parse(read('package.json')).scripts as Record<string, string>;
-        expect(scripts['docs:build']).toContain('npm run docs:og-image');
+        expect(scripts['docs:build']).toContain('node scripts/run-docs-build.mjs');
+        expect(read('scripts/run-docs-build.mjs')).toContain("command: 'node scripts/generate-og-image.mjs'");
     });
 
     it('describes the hosted shells as Japanese readers', () => {

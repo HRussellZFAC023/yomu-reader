@@ -17,7 +17,7 @@
     "isolatedModules": true,
     "noEmit": true,
     "incremental": true,
-    "tsBuildInfoFile": "node_modules/.cache/tsconfig.tsbuildinfo",
+    "tsBuildInfoFile": "artifacts/typecheck/tsconfig.tsbuildinfo",
     "types": ["vitest/globals", "node"]
   },
   "include": ["src/**/*.ts", "tests/**/*.ts", "workers/**/*.ts", "config/**/*.ts", "vite.config.ts"]

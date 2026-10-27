@@ -11,26 +11,32 @@ export function git(root, args) {
     return execFileSync('git', args, { cwd: root, encoding: 'utf8', maxBuffer: 128 * 1024 * 1024 });
 }
 
-export function matchesInputs(path, patterns) {
-    return patterns.some(pattern => !pattern.startsWith('!') && matchesGlob(path, pattern))
-        && !patterns.some(pattern => pattern.startsWith('!') && matchesGlob(path, pattern.slice(1)));
+function matchesInputs(path, patterns) {
+    // Node's globstar normally omits dotfiles. These are input declarations,
+    // not a shell expansion: hidden config files must participate too.
+    const visible = value => value.replace(/(^|\/)\./g, '$1__dot__');
+    const candidate = visible(path);
+    return patterns.some(pattern => !pattern.startsWith('!') && matchesGlob(candidate, visible(pattern)))
+        && !patterns.some(pattern => pattern.startsWith('!') && matchesGlob(candidate, visible(pattern.slice(1))));
 }
 
-function fileHash(root, path, algorithm = 'sha256') {
+function fileHash(root, path, algorithm = 'sha256', gitObject = false) {
     if (forbidden(path)) throw new Error(`Refusing to read a secret input: ${path}`);
     const absolute = join(root, path);
     if (!existsSync(absolute)) return null;
     const info = lstatSync(absolute);
     const bytes = info.isSymbolicLink() ? Buffer.from(readlinkSync(absolute)) : readFileSync(absolute);
     const hash = createHash(algorithm);
-    if (algorithm !== 'sha256') hash.update(`blob ${bytes.length}\0`);
+    if (gitObject) hash.update(`blob ${bytes.length}\0`);
     return hash.update(bytes).digest('hex');
 }
 
 export function repositorySnapshot(root) {
     const entries = new Map();
     for (const row of git(root, ['ls-files', '-s', '-z']).split('\0').filter(Boolean)) {
-        const [metadata, path] = row.split('\t');
+        const separator = row.indexOf('\t');
+        const metadata = row.slice(0, separator);
+        const path = row.slice(separator + 1);
         const [mode, oid, stage] = metadata.split(' ');
         if (stage !== '0') throw new Error('Resolve the index conflict before checking.');
         entries.set(path, { mode, oid });
@@ -39,9 +45,13 @@ export function repositorySnapshot(root) {
     const dirty = new Set(git(root, ['ls-files', '-m', '-d', '-o', '--exclude-standard', '-z']).split('\0').filter(Boolean));
     for (const path of dirty) {
         if (forbidden(path)) continue;
-        const oid = fileHash(root, path, format);
+        const oid = fileHash(root, path, format, true);
         if (oid === null) entries.delete(path);
-        else entries.set(path, { mode: entries.get(path)?.mode ?? (lstatSync(join(root, path)).isSymbolicLink() ? '120000' : '100644'), oid });
+        else {
+            const info = lstatSync(join(root, path));
+            const mode = info.isSymbolicLink() ? '120000' : (info.mode & 0o111) ? '100755' : '100644';
+            entries.set(path, { mode, oid });
+        }
     }
     return Object.fromEntries([...entries].sort(([a], [b]) => a.localeCompare(b)));
 }

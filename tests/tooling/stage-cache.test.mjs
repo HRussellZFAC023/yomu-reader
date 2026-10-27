@@ -17,6 +17,7 @@ test('content keys track staged, modified, untracked and deleted inputs; unrelat
     git(['add', 'src/a.ts', 'README.md']);
     const key = () => stageKey({ command: 'test', inputs: selectInputs(repositorySnapshot(root), ['src/**']) });
     const original = key();
+    assert.deepEqual(Object.keys(selectInputs({ 'docs/.vitepress/config.mts': {}, '.fallowrc.jsonc': {} }, ['**'])), ['docs/.vitepress/config.mts', '.fallowrc.jsonc']);
     writeFileSync(join(root, 'README.md'), 'other');
     assert.equal(key(), original);
     writeFileSync(join(root, 'src/a.ts'), 'two');
@@ -61,4 +62,6 @@ test('only successes cache; no-cache executes; writer outputs are verified inclu
     assert.equal(readFileSync(join(root, 'dist/app.js'), 'utf8'), 'built');
     const otherWorktree = new StageCache(root, { directory });
     assert.equal(otherWorktree.hit(stage.name, stage.key, stage.outputs), true);
+    await assert.rejects(forced.run(stage, () => { throw new Error('forced failure'); }));
+    assert.equal(cache.hit(stage.name, stage.key, stage.outputs), false, 'a forced failure retires an older pass');
 });
