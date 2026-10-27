@@ -6,7 +6,7 @@ import { copyFileSync, mkdirSync, mkdtempSync, realpathSync, rmSync, symlinkSync
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 
-test('one local fork budget serves all three isolated projects with independent version defines', t => {
+test('one transform graph preserves all three environment/setup lanes under one fork budget', t => {
     const root = realpathSync(mkdtempSync(join(tmpdir(), 'yomu-local-pools-')));
     t.after(() => rmSync(root, { recursive: true, force: true }));
     const put = (path, bytes) => { mkdirSync(dirname(join(root, path)), { recursive: true }); writeFileSync(join(root, path), bytes); };
@@ -14,14 +14,14 @@ test('one local fork budget serves all three isolated projects with independent 
     put('artifacts/check-logs/affected-tests-reader.json', JSON.stringify({ tests: ['tests/reader/styles.test.ts'] }));
     put('artifacts/check-logs/affected-tests-academy.json', JSON.stringify({ tests: ['tests/academy/kana-sound-map.test.ts'] }));
     put('config/ci/local-contract-tests.json', '{}');
-    put('tests/reader/setup.ts', '');
-    for (const file of ['config/vite/local-gate.config.ts', 'config/vite/local-gate-workspace.ts', 'config/vite/reader-test.ts', 'scripts/lib/test-workers.mjs']) {
+    put('tests/reader/setup.ts', 'globalThis.__g04ReaderSetup = true;');
+    for (const file of ['config/vite/local-gate.config.ts', 'config/vite/local-gate-selection.ts', 'config/vite/reader-test.ts', 'config/vite/local-gate-runner.ts', 'scripts/lib/test-workers.mjs']) {
         mkdirSync(dirname(join(root, file)), { recursive: true });
         copyFileSync(file, join(root, file));
     }
     symlinkSync(resolve('node_modules'), join(root, 'node_modules'));
-    for (const [file, browser] of [['tests/reader/app-version.test.ts', false], ['tests/reader/styles.test.ts', true], ['tests/academy/kana-sound-map.test.ts', true]]) {
-        put(file, `it('project globals',()=>{ expect(__YOMU_VERSION__).toBe('2.2.0'); expect(typeof document !== 'undefined').toBe(${browser}); });`);
+    for (const [file, browser, setup] of [['tests/reader/app-version.test.ts', false, false], ['tests/reader/styles.test.ts', true, true], ['tests/academy/kana-sound-map.test.ts', true, false]]) {
+        put(file, `it('project globals',()=>{ expect(__YOMU_VERSION__).toBe('2.2.0'); expect(typeof document !== 'undefined').toBe(${browser}); expect(Boolean(globalThis.__g04ReaderSetup)).toBe(${setup}); });`);
     }
     const script = `
         import {createVitest} from 'vitest/node';
@@ -30,7 +30,7 @@ test('one local fork budget serves all three isolated projects with independent 
         for(const p of ctx.projects) if(p.getSerializableConfig().defines.__YOMU_VERSION__!=='2.2.0') throw Error('mutated project defines');
         console.log(ctx.projects.length); await ctx.close();`;
     const env = { ...process.env, YOMU_CI_MAX_WORKERS: '2' };
-    assert.equal(execFileSync(process.execPath, ['--input-type=module', '-e', script], { cwd: root, env, encoding: 'utf8' }).trim(), '3');
+    assert.equal(execFileSync(process.execPath, ['--input-type=module', '-e', script], { cwd: root, env, encoding: 'utf8' }).trim(), '1');
     const result = spawnSync(process.execPath, ['node_modules/vitest/vitest.mjs', 'run', '--config', 'config/vite/local-gate.config.ts'], { cwd: root, env, encoding: 'utf8' });
     assert.equal(result.status, 0, result.stdout + result.stderr);
     assert.match(result.stdout, /3 passed \(3\)/);

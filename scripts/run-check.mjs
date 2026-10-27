@@ -100,8 +100,9 @@ const tests = (async () => {
     // Readers inspect shipped bytes through fs. Plan/key them after writers,
     // never against an old snapshot while build/sync replace their inputs.
     await Promise.all([typecheck, build]);
-    const readerPlan = await planTests('reader');
-    const academyPlan = await planTests('academy');
+    const [readerPlan, academyPlan] = localBudget >= 2
+        ? await Promise.all([planTests('reader'), planTests('academy')])
+        : [await planTests('reader'), await planTests('academy')];
     if (!releaseCheck && !readerPlan.full && !academyPlan.full) {
         await run('test-local', 'node scripts/run-local-tests.mjs', testInputs, {
             test: true, extra: { reader: readerPlan, academy: academyPlan }, env: testEnv, diskInputs: ['dist/**', 'docs/public/**'],

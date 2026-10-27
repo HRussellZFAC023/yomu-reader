@@ -1,15 +1,19 @@
 import { defineConfig } from 'vitest/config';
 import { readerTestDefines } from './reader-test';
+import { localNode, localReader, localAcademy } from './local-gate-selection';
 import { createRequire } from 'node:module';
 const { workerBudget } = createRequire(import.meta.url)('../../scripts/lib/test-workers.mjs') as { workerBudget(): number };
 
-// One fork queue for Node, Reader jsdom and Academy. Vitest's separate threads
-// and forks pools each enforce their own cap; using one pool makes the budget
-// global and lets a finishing lane give every spare worker to the others.
+// All lanes share one transform graph and one fork queue. Only Node files use
+// the Node environment; the runner installs Reader setup only in Reader jsdom.
 export default defineConfig({
     define: { ...readerTestDefines },
     test: {
-        workspace: 'config/vite/local-gate-workspace.ts',
+        include: [...new Set([...localNode, ...localReader, ...localAcademy])],
+        environment: 'jsdom',
+        environmentMatchGlobs: localNode.map(file => [file, 'node']),
+        runner: 'config/vite/local-gate-runner.ts',
+        setupFiles: [], globals: true, retry: 0, testTimeout: 30_000,
         minWorkers: 1,
         maxWorkers: Number(process.env.YOMU_CI_MAX_WORKERS ?? process.env.VITEST_MAX_FORKS) || workerBudget(),
         pool: 'forks',

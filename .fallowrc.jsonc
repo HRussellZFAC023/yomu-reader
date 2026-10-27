@@ -6,7 +6,7 @@
     "config/vite/reader-test.ts",
     // Local gate CLI/workspace paths are loaded by Vitest and run-check.
     "config/vite/local-gate.config.ts",
-    "config/vite/local-gate-workspace.ts",
+    "config/vite/local-gate-runner.ts",
     // esbuild namespace entry in scripts/locale-report.mjs; only its live API remains.
     "src/reader/locales/index.ts",
     "config/vite/newtab.config.ts",
