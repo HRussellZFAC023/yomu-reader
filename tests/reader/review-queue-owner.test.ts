@@ -146,7 +146,7 @@ it('returns atomic receipt/revision snapshots and does not increment on duplicat
     expect(snapshot.revisions.toString).toBe(0);
 });
 
-it('bounds completion receipts across thousands of reviews while still deduplicating recent replays', async () => {
+it('bounds completion receipts past the receipt limit while still deduplicating recent replays', async () => {
     let data: ReviewQueueState = { reviews: [], completed: {} };
     // Plain storage: a vi.fn would retain every multi-kilobyte state it was called with.
     const owner = new ReviewQueueOwner({
@@ -154,7 +154,9 @@ it('bounds completion receipts across thousands of reviews while still deduplica
         write: async next => { data = structuredClone(next); },
     }, 200);
     const stored = () => data;
-    for (let index = 0; index < 2_000; index++) {
+    const reviewCount = REVIEW_RECEIPT_LIMIT + 50;
+    const lastReviewId = `review-${reviewCount - 1}`;
+    for (let index = 0; index < reviewCount; index++) {
         const id = `review-${index}`;
         await owner.record(review(id));
         await owner.claim(id, 'account-a');
@@ -162,10 +164,10 @@ it('bounds completion receipts across thousands of reviews while still deduplica
     }
     expect(Object.keys(stored().completed)).toHaveLength(REVIEW_RECEIPT_LIMIT);
     expect(REVIEW_RECEIPT_LIMIT).toBeLessThanOrEqual(500);
-    await owner.record(review('review-1999'));
-    await owner.record(review(`review-${2_000 - REVIEW_RECEIPT_LIMIT}`));
+    await owner.record(review(lastReviewId));
+    await owner.record(review(`review-${reviewCount - REVIEW_RECEIPT_LIMIT}`));
     expect(await owner.list()).toEqual([]);
-    expect((await owner.snapshot(['review-1999'], [])).statuses['review-1999']).toBe('completed');
+    expect((await owner.snapshot([lastReviewId], [])).statuses[lastReviewId]).toBe('completed');
 });
 
 it('releases a certainly-undelivered claim back to pending and discards a held one with a receipt', async () => {
