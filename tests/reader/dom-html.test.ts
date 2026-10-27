@@ -100,7 +100,7 @@ describe('DOM HTML helpers', () => {
         expect(select.options[0]?.value).toBe('one');
         expect(template.content.firstElementChild?.localName).toBe('strong');
         expect(svg.firstElementChild?.namespaceURI).toBe('http://www.w3.org/2000/svg');
-        expect(form.querySelector('input')?.value).toBe('inert');
+        expect(form.elements.namedItem('owned')).toHaveProperty('value', 'inert');
     });
 
     it('defers head appends when the userscript starts before document nodes exist', async () => {
