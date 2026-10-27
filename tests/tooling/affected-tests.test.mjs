@@ -5,8 +5,12 @@ import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { testPlan } from '../../scripts/lib/affected-tests.mjs';
+import { cacheOptions } from '../../scripts/lib/stage-runner.mjs';
 
 test('related passes never replace a full baseline; config/setup/runner/lock changes force full', t => {
+    const ci = process.env.CI;
+    delete process.env.CI;
+    t.after(() => { if (ci === undefined) delete process.env.CI; else process.env.CI = ci; });
     const root = mkdtempSync(join(tmpdir(), 'yomu-related-test-'));
     t.after(() => rmSync(root, { recursive: true, force: true }));
     execFileSync('git', ['init'], { cwd: root, stdio: 'pipe' });
@@ -28,4 +32,7 @@ test('related passes never replace a full baseline; config/setup/runner/lock cha
     mkdirSync(join(root, 'dist'));
     writeFileSync(join(root, 'dist/ignored.js'), 'broken shipped bytes');
     assert.ok(testPlan(root, initial).changed.includes('dist/ignored.js'));
+    process.env.CI = '1';
+    assert.equal(testPlan(root, initial).full, true, 'CI disables selection even with a compatible baseline');
+    assert.equal(cacheOptions().noCache, true, 'CI disables stage caches');
 });

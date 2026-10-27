@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdirSync, mkdtempSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { selectAffectedTests } from '../../scripts/lib/test-selection.mjs';
@@ -40,9 +40,18 @@ test('filesystem readers and their importers always run for CSS, shipped JS and 
     for (const changed of ['style.css', 'hosted-worker.js', 'unreferenced.txt']) {
         assert.deepEqual((await select([changed])).tests, ['fs.test.ts', 'spawn.test.ts']);
     }
+    put('late.test.ts', "it('late', async () => { const name = './a'; await vi.importActual(name); });");
+    assert.ok((await select(['a.ts'])).tests.includes('late.test.ts'));
     rmSync(join(root, 'a.ts'));
     assert.equal((await select(['a.ts'])).full, true);
-    mkdirSync(join(root, 'unused'));
+});
+
+test('filesystem reads installed by setupFiles require every test even for an unreferenced non-module', async t => {
+    const { put, select } = fixture(t);
+    put('shared.ts', "import { readFileSync } from 'node:fs'; export const shared = readFileSync('unreferenced.txt', 'utf8');");
+    const plan = await select(['unreferenced.txt']);
+    assert.equal(plan.full, true);
+    assert.match(plan.reason, /setupFiles has filesystem/);
 });
 
 test('graph discovery errors cannot become empty passing selections', async t => {

@@ -15,6 +15,7 @@ function hasUntrackedReads(source, ts) {
             const dynamic = node.expression.kind === ts.SyntaxKind.ImportKeyword;
             const require = ts.isIdentifier(node.expression) && node.expression.text === 'require';
             if ((dynamic || require) && (!node.arguments[0] || !ts.isStringLiteralLike(node.arguments[0]) || io(node.arguments[0]))) unsafe = true;
+            if (ts.isPropertyAccessExpression(node.expression) && /^(?:importActual|importMock)$/.test(node.expression.name.text)) unsafe = true;
         }
         ts.forEachChild(node, visit);
     }
@@ -34,28 +35,34 @@ export async function selectAffectedTests(root, changed, { config, createContext
         const specs = await ctx.globTestFiles();
         const absoluteChanges = new Set(changed.map(file => join(root, file)));
         const safety = new Map();
+        const opaque = file => {
+            if (!safety.has(file)) safety.set(file, hasUntrackedReads(readFileSync(file, 'utf8'), ts));
+            return safety.get(file);
+        };
         const tests = [];
         let precautionary = 0;
         const projects = [...new Set(specs.map(([project]) => project))];
         for (const project of projects) {
             const shared = new Set(project.server.config.configFileDependencies ?? []);
+            const setupInputs = new Set();
             for (const setup of project.config.setupFiles ?? []) {
                 shared.add(setup);
-                for (const dep of await ctx.getTestDependencies([project, setup])) shared.add(dep);
+                setupInputs.add(setup);
+                for (const dep of await ctx.getTestDependencies([project, setup])) {
+                    shared.add(dep);
+                    setupInputs.add(dep);
+                }
             }
             if ([...shared].some(file => absoluteChanges.has(file))) return { full: true, reason: 'resolved config/setupFiles dependency changed' };
+            if ([...setupInputs].some(opaque)) return { full: true, reason: 'setupFiles has filesystem/subprocess/computed-import reads' };
         }
         // Sequential traversal bounds planning memory on the shared Mac.
         for (const spec of specs) {
             const deps = new Set([spec[1], ...await ctx.getTestDependencies(spec)]);
-            let opaque = false;
-            for (const file of deps) {
-                if (!safety.has(file)) safety.set(file, hasUntrackedReads(readFileSync(file, 'utf8'), ts));
-                if (safety.get(file)) opaque = true;
-            }
-            if (opaque || [...deps].some(file => absoluteChanges.has(file))) {
+            const precaution = [...deps].some(opaque);
+            if (precaution || [...deps].some(file => absoluteChanges.has(file))) {
                 tests.push(relative(root, spec[1]));
-                if (opaque) precautionary++;
+                if (precaution) precautionary++;
             }
         }
         return { full: false, tests: tests.sort(), reason: tests.length
