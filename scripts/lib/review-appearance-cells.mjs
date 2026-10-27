@@ -1,4 +1,20 @@
-#!/usr/bin/env node
+import * as smokeDependencyFiles from 'node:fs';
+import * as smokeDependencyPaths from 'node:path';
+import * as smokeDependencyBrowsers from 'playwright';
+import * as smokeDependencyHarness from './smoke-harness.mjs';
+import * as smokeDependencySmokeHelpers from './smoke-test-helpers.mjs';
+
+// Former accent-quick-row-smoke: the host owns the browser; this cell owns its isolated scenario.
+export async function assertAccentQuickRow(_hostBrowser, _hostEngine) {
+    const existingContexts = new Set(_hostBrowser.contexts());
+    try {
+
+    const _sourceDir = new URL('..', import.meta.url).pathname;
+    const { existsSync, mkdirSync, readFileSync } = smokeDependencyFiles;
+    const { default: path } = smokeDependencyPaths;
+
+    const { addGmStorageBridgeInitScript, assert, assertBuiltArtifacts, closeServer, createSmokePaths, jsonHttpResponse, mockJpdbParseFromVocabulary, readJsonBody, startLoopbackServer, YOMU_SETTINGS_KEY } = smokeDependencyHarness;
+    const { addUserscriptGraphInitScripts, userscriptCompanionPaths } = smokeDependencySmokeHelpers;
 // Accent colour and underline choice, up front (W1-60).
 //
 // Drives the BUILT Study app (dist/newtab, served as https://yomureader.com/study/)
@@ -21,23 +37,6 @@
 //
 // Prove it fails on an older build:
 //   YOMU_ACCENT_SMOKE_STUDY_DIR=/path/to/v2.1.6/docs/public/study node scripts/accent-quick-row-smoke.mjs
-import { existsSync, mkdirSync, readFileSync } from 'node:fs';
-import path from 'node:path';
-import { chromium, webkit } from 'playwright';
-import {
-    addGmStorageBridgeInitScript,
-    assert,
-    assertBuiltArtifacts,
-    closeServer,
-    createSmokePaths,
-    jsonHttpResponse,
-    launchSmokeBrowser,
-    mockJpdbParseFromVocabulary,
-    readJsonBody,
-    startLoopbackServer,
-    YOMU_SETTINGS_KEY,
-} from './lib/smoke-harness.mjs';
-import { addUserscriptGraphInitScripts, userscriptCompanionPaths } from './lib/smoke-test-helpers.mjs';
 
 const {
     root: ROOT,
@@ -45,7 +44,7 @@ const {
     scriptPath: SCRIPT_PATH,
     cssPath: CSS_PATH,
     newTabDir: NEWTAB_DIR,
-} = createSmokePaths(import.meta.dirname);
+} = createSmokePaths(_sourceDir);
 const STUDY_DIR = process.env.YOMU_ACCENT_SMOKE_STUDY_DIR
     ? path.resolve(process.env.YOMU_ACCENT_SMOKE_STUDY_DIR)
     : NEWTAB_DIR;
@@ -89,18 +88,16 @@ const server = await startLoopbackServer((request, response) => {
 }, 'Could not bind accent quick row smoke server');
 const results = [];
 try {
-    for (const engine of ['chromium', 'webkit']) {
+    for (const engine of [_hostEngine]) {
         if (!ENGINES.has(engine)) continue;
-        const browser = await launchSmokeBrowser(engine === 'webkit' ? webkit : chromium, engine, { headless: true });
-        try {
+        const browser = _hostBrowser;
+
             for (const config of CONFIGS.filter(candidate => candidate.engine === engine)) {
                 const study = await runStudy(browser, config);
                 const reader = await runReaderPage(browser, config, study.saved);
                 results.push({ config: config.name, study: study.report, reader });
             }
-        } finally {
-            await browser.close();
-        }
+
     }
     assert(results.length > 0, 'No accent quick row configuration ran', { engines: [...ENGINES] });
     console.log(JSON.stringify({ ok: true, studyDir: path.relative(ROOT, STUDY_DIR) || STUDY_DIR, results }, null, 2));
@@ -464,4 +461,11 @@ function paddedClip(box, viewport, padding = 16) {
         width: Math.min(viewport.width - x, Math.ceil(box.width + padding * 2)),
         height: Math.min(viewport.height - y, Math.ceil(box.height + padding * 2)),
     };
+}
+
+    } finally {
+        for (const context of _hostBrowser.contexts()) {
+            if (!existingContexts.has(context)) await context.close();
+        }
+    }
 }
