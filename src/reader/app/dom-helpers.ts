@@ -224,7 +224,9 @@ export function normalizeOcrScannerLinesInRoot(root: ParentNode, settings: Reade
 }
 
 export function applyPublicVocabularyFurigana(word: HTMLElement, card: JPDBCard, settings: ReaderSettings): boolean {
-    if (word.closest('ruby')) return false;
+    // A scan word may wrap the author's entire ruby, or sit inside its base.
+    // Neither shape belongs to late dictionary-reading replacement.
+    if (word.closest('ruby') || word.querySelector('ruby:not(.jpdb-reader-ruby)')) return false;
     const ocrLine = word.closest<HTMLElement>('.jpdb-ocr-line');
     const surface = readerWordSurfaceText(word).trim() || word.dataset.expression || card.spelling;
     const renderSettings = furiganaSettingsForTarget(settings, word);

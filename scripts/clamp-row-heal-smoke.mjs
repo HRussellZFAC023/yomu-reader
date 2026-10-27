@@ -31,6 +31,8 @@ const SETTINGS = { onboardingSeen: true, apiKey: 'clamp-row-heal-smoke', showFlo
 
 const args = process.argv.slice(2);
 const option = name => args.find(arg => arg.startsWith(`--${name}=`))?.split('=')[1];
+const viewportArg = option('viewport');
+const viewport = viewportArg ? Object.fromEntries(['width', 'height'].map((key, index) => [key, Number(viewportArg.split('x')[index])])) : null;
 const engines = (option('engines') ?? 'webkit,chromium').split(',');
 const productRef = option('product') ?? 'worktree';
 const product = productRef === 'worktree' ? worktreeProduct() : productRef.startsWith('/') ? worktreeProduct(productRef) : releaseProduct(productRef);
@@ -45,13 +47,14 @@ for (const engine of engines) {
     const browser = await ENGINES[engine].launch();
     try {
         const ipad = args.includes('--ipad') && engine === 'webkit';
-        const run = await openRecordedPage({ browser, slug: AOZORA_SLUG, product, settings: SETTINGS, navigate: false, contextOptions: ipad ? { ...devices['iPad Pro 11'], viewport: { width: 820, height: 1180 } } : {}, onGmRequest: request => answerJpdbParseByScriptRuns(request) });
+        const run = await openRecordedPage({ browser, slug: AOZORA_SLUG, product, settings: SETTINGS, navigate: false, contextOptions: ipad ? { ...devices['iPad Pro 11'], viewport: viewport ?? { width: 820, height: 1180 } } : viewport ? { viewport } : {}, onGmRequest: request => answerJpdbParseByScriptRuns(request) });
         try {
             await run.page.route(run.recording.manifest.url, route => route.fulfill(fixture));
             await run.page.goto(run.recording.manifest.url, { waitUntil: 'load' });
+            if (args.includes('--large-text')) await run.page.addStyleTag({ content: '.card{font-size:30px}' });
             await run.page.waitForTimeout(SETTLE_MS);
             // A resize re-runs every post-paint pass; the verdict must hold.
-            await run.page.setViewportSize(ipad ? { width: 800, height: 1180 } : { width: 1260, height: 900 });
+            await run.page.setViewportSize(viewport ?? (ipad ? { width: 800, height: 1180 } : { width: 1260, height: 900 }));
             await run.page.waitForTimeout(2_000);
             const cards = await run.page.evaluate(readClampCards);
             check(run.pageErrors.length === 0, `${product.label} ${engine}: no page errors ${JSON.stringify(run.pageErrors.slice(0, 3))}`);

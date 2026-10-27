@@ -8,15 +8,19 @@ import assert from 'node:assert/strict';
 import { chromium, devices, webkit } from 'playwright';
 import { answerJpdbParseByScriptRuns } from './lib/jpdb-script-run-parse.mjs';
 import { aozoraParagraphsMechanismFixture } from './lib/aozora-mechanism-fixtures.mjs';
-import { openRecordedPage } from './lib/recorded-page.mjs';
+import { openRecordedPage, worktreeProduct } from './lib/recorded-page.mjs';
 
+const productPath = process.argv.find(arg => arg.startsWith('--product='))?.split('=')[1];
+const product = worktreeProduct(productPath);
+const viewportArg = process.argv.find(arg => arg.startsWith('--viewport='))?.split('=')[1];
+const viewport = viewportArg ? Object.fromEntries(['width', 'height'].map((key, index) => [key, Number(viewportArg.split('x')[index])])) : null;
 const engines = process.argv.find(arg => arg.startsWith('--engines='))?.split('=')[1].split(',') ?? ['chromium', 'webkit'];
 for (const engine of engines) {
     const browser = await ({ chromium, webkit })[engine].launch();
     try {
         const run = await openRecordedPage({
-            browser, slug: 'aozora-wagahai', navigate: false,
-            contextOptions: engine === 'webkit' ? { ...devices['iPad Pro 11'], viewport: { width: 820, height: 1180 } } : {},
+            browser, product, slug: 'aozora-wagahai', navigate: false,
+            contextOptions: engine === 'webkit' ? { ...devices['iPad Pro 11'], viewport: viewport ?? { width: 820, height: 1180 } } : viewport ? { viewport } : {},
             settings: { onboardingSeen: true, apiKey: 'page-ruby-lifecycle-smoke', furiganaMode: 'all', wordUnderlineColorSource: 'status', showFloatingButton: true },
             onGmRequest: request => answerJpdbParseByScriptRuns(request),
         });
@@ -49,11 +53,21 @@ for (const engine of engines) {
             console.log(`PASS ${engine}: ${before.census.length} author ruby, ${before.wrapped} wrapped by the product`);
             const activate = locator => engine === 'webkit' ? locator.tap() : locator.click();
             await activate(page.locator('.jpdb-reader-fab'));
-            const power = page.locator('.jpdb-reader-fab-radial.is-open [data-radial-id="power"]');
             for (const state of ['hidden', 'paused', 'shown']) {
-                const previous = await power.getAttribute('aria-label');
-                await activate(power);
-                await page.waitForFunction(label => document.querySelector('[data-radial-id="power"]')?.getAttribute('aria-label') !== label, previous, { timeout: 30_000 });
+                if (state === 'shown') {
+                    // W1-65 restores power directly from the paused puck.
+                    await page.keyboard.press('Escape');
+                    await activate(page.locator('.jpdb-reader-fab--paused'));
+                    await page.waitForFunction(() => !document.querySelector('.jpdb-reader-fab--paused'));
+                    await activate(page.locator('.jpdb-reader-fab'));
+                    await activate(page.locator('[data-radial-id="furigana"]'));
+                } else {
+                    const control = page.locator(`[data-radial-id="${state === 'hidden' ? 'furigana' : 'power'}"]`);
+                    const previous = await control.getAttribute('aria-label');
+                    await activate(control);
+                    await page.waitForFunction(({ id, label }) => document.querySelector(`[data-radial-id="${id}"]`)?.getAttribute('aria-label') !== label,
+                        { id: state === 'hidden' ? 'furigana' : 'power', label: previous }, { timeout: 30_000 });
+                }
                 if (state !== 'paused') {
                     await page.waitForFunction(() => document.querySelector('.jpdb-reader-word ruby:not(.jpdb-reader-ruby)'), null, { timeout: 30_000 });
                 }

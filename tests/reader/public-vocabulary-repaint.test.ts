@@ -214,7 +214,7 @@ describe('public vocabulary repaint', () => {
     it('updates state classes and removes stale furigana when a reviewed word enters a hidden group', () => {
         document.body.innerHTML = `
             <span class="jpdb-reader-word jpdb-learning jpdb-reader-has-furi jpdb-reader-i-plus-one" data-expression="読む" data-mining-insight="i-plus-one">
-                <ruby><span class="jpdb-reader-ruby-base">読</span><rt class="jpdb-reader-furi">よ</rt></ruby>む
+                <ruby class="jpdb-reader-ruby"><span class="jpdb-reader-ruby-base">読</span><rt class="jpdb-reader-furi">よ</rt></ruby>む
             </span>
         `;
         const word = document.querySelector<HTMLElement>('.jpdb-reader-word')!;
@@ -278,7 +278,7 @@ describe('public vocabulary repaint', () => {
     });
 
     it('clears the ruby when a whole-word reading enters a hidden state group', () => {
-        document.body.innerHTML = '<span class="jpdb-reader-word jpdb-reader-has-furi" data-expression="本"><ruby><span class="jpdb-reader-ruby-base">本</span><rt class="jpdb-reader-furi">ほん</rt></ruby></span>';
+        document.body.innerHTML = '<span class="jpdb-reader-word jpdb-reader-has-furi" data-expression="本"><ruby class="jpdb-reader-ruby"><span class="jpdb-reader-ruby-base">本</span><rt class="jpdb-reader-furi">ほん</rt></ruby></span>';
         const word = document.querySelector<HTMLElement>('.jpdb-reader-word')!;
 
         applyPublicVocabularyFurigana(word, card({
@@ -296,7 +296,7 @@ describe('public vocabulary repaint', () => {
     });
 
     it('clears the ruby when furigana is switched off entirely', () => {
-        document.body.innerHTML = '<span class="jpdb-reader-word jpdb-reader-has-furi" data-expression="本"><ruby><span class="jpdb-reader-ruby-base">本</span><rt class="jpdb-reader-furi">ほん</rt></ruby></span>';
+        document.body.innerHTML = '<span class="jpdb-reader-word jpdb-reader-has-furi" data-expression="本"><ruby class="jpdb-reader-ruby"><span class="jpdb-reader-ruby-base">本</span><rt class="jpdb-reader-furi">ほん</rt></ruby></span>';
         const word = document.querySelector<HTMLElement>('.jpdb-reader-word')!;
 
         applyPublicVocabularyFurigana(word, card({
@@ -312,7 +312,7 @@ describe('public vocabulary repaint', () => {
     });
 
     it('preserves split provider rubies when they already spell the whole card reading', () => {
-        document.body.innerHTML = '<span class="jpdb-reader-word jpdb-reader-has-furi" data-expression="年下"><ruby><span class="jpdb-reader-ruby-base">年</span><rt class="jpdb-reader-furi">とし</rt></ruby><ruby><span class="jpdb-reader-ruby-base">下</span><rt class="jpdb-reader-furi">した</rt></ruby></span>';
+        document.body.innerHTML = '<span class="jpdb-reader-word jpdb-reader-has-furi" data-expression="年下"><ruby class="jpdb-reader-ruby"><span class="jpdb-reader-ruby-base">年</span><rt class="jpdb-reader-furi">とし</rt></ruby><ruby class="jpdb-reader-ruby"><span class="jpdb-reader-ruby-base">下</span><rt class="jpdb-reader-furi">した</rt></ruby></span>';
         const word = document.querySelector<HTMLElement>('.jpdb-reader-word')!;
 
         applyPublicVocabularyFurigana(word, card({
@@ -334,7 +334,7 @@ describe('public vocabulary repaint', () => {
             <div class="jpdb-ocr-line">
                 <span class="jpdb-ocr-line-text">
                     <span class="jpdb-reader-word jpdb-reader-has-furi" data-expression="冒険" data-surface="冒険">
-                        <ruby><span class="jpdb-reader-ruby-base">冒険</span><rt class="jpdb-reader-furi">ぼうけん</rt></ruby>
+                        <ruby class="jpdb-reader-ruby"><span class="jpdb-reader-ruby-base">冒険</span><rt class="jpdb-reader-furi">ぼうけん</rt></ruby>
                     </span>
                 </span>
             </div>
@@ -363,7 +363,7 @@ describe('public vocabulary repaint', () => {
     it('keeps existing furigana when the policy still allows it and fresh lookup data cannot add new ruby', () => {
         document.body.innerHTML = `
             <span class="jpdb-reader-word jpdb-learning jpdb-reader-has-furi" data-vid="11" data-sid="22" data-card-state="learning" data-expression="読む">
-                <ruby><span class="jpdb-reader-ruby-base">読</span><rt class="jpdb-reader-furi">よ</rt></ruby>む
+                <ruby class="jpdb-reader-ruby"><span class="jpdb-reader-ruby-base">読</span><rt class="jpdb-reader-furi">よ</rt></ruby>む
             </span>
         `;
         const word = document.querySelector<HTMLElement>('.jpdb-reader-word')!;
