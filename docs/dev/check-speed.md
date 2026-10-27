@@ -48,6 +48,11 @@ older marker. `--no-cache` forces stages and full tests. CI always disables
 stage caches and affected-test selection. TypeScript's own incremental compiler
 state remains under worktree-local ignored `artifacts/typecheck/`.
 
+Sync declares the generated retention manifest as an output and includes Git
+retention history in its key. Its template stamps are idempotent; the marker
+uses the canonical template bytes after sync, rejecting concurrent edits to
+other inputs. Generated retention metadata does not invalidate source builds.
+
 Preflights overlap the test/typecheck/build lanes. Retention captures its small
 working-tree header/inventory inputs before writers start; committed-artifacts
 continues to read Git. Study/core/CSS builds overlap after one initial dist
@@ -77,6 +82,7 @@ passed in 476ms under contention. Settings/mirror cases do substantial DOM or
 catalogue work. Assertions and isolation were retained.
 
 CI `test` / `test-jpdb` still shard every Reader file over eight jobs each;
+each regular matrix VM declares one local shard host for worker budgeting.
 `test-academy` executes every Academy file with its pre-existing explicit
 failure baseline; workers have their own full job. Workflow coverage also
 includes `tests/tooling/*.test.mjs`. The preflights and ratchets are explicit

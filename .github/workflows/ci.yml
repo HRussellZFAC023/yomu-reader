@@ -131,6 +131,9 @@ jobs:
           cache: npm
       - run: npm ci
       - run: node scripts/run-ci-tests.mjs --kind regular --shard=${{ matrix.shard }} --total=8
+        env:
+          # One Vitest host on each matrix VM, not four local shard hosts.
+          YOMU_CI_REGULAR_CONCURRENCY: 1
 
   test-jpdb:
     runs-on: ubuntu-24.04
