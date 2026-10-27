@@ -1,3 +1,4 @@
+import { strToU8 } from 'fflate';
 import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
@@ -7,6 +8,7 @@ import { describe, expect, it, type Mock } from 'vitest';
 import { generatedCompilerStorageSource } from './helpers/compiler-storage-runtime';
 import {
     assertAmoJavaScriptFiles,
+    assertShippedSettingsAuthorityRuntime,
     deterministicExtensionTimestamp,
     EXTENSION_INSTALLED_RUNTIME_PRELUDE,
     extensionStudyStorageRuntimeSource,
@@ -1260,5 +1262,161 @@ describe('compiler storage notification acknowledgements', () => {
                 [1, { name: 'preference', oldValue: 'second', newValue: undefined }],
                 [2, { name: 'preference', oldValue: 'second', newValue: undefined }],
             ]);
+    });
+});
+
+function shippedRuntimeFixture(target: string): Record<string, Uint8Array> {
+    const launcher = [
+        "void 'yomu.openPackagedStudySettings';",
+        "void 'yomu-packaged-study-settings-launcher:v1';",
+    ].join('\n');
+    const durableRuntime = EXTENSION_INSTALLED_RUNTIME_PRELUDE + hardenCompilerDurableStorage(`(() => {
+  const api = globalThis.browser || globalThis.chrome;
+  const values = Object.create(null);
+  const listeners = new Map();
+  const yomuDurableMutationQueues = new Map();
+  let valuesHydrated = false;
+  function gmMessage(type, payload) {
+    return api.runtime.sendMessage({ channel: 'userscript-compiler', type, payload }).then(response => {
+      if (response?.error) throw new Error(response.error);
+      return response;
+    });
+  }
+  function notifyValueListeners(name, oldValue, newValue, remote) {
+    for (const listener of listeners.values()) {
+      if (listener.name === name) listener.callback(name, oldValue, newValue, Boolean(remote));
+    }
+  }
+  function yomuQueueDurableMutation(name, mutation) {
+    const previous = yomuDurableMutationQueues.get(name) || Promise.resolve();
+    const current = previous.then(mutation, mutation);
+    yomuDurableMutationQueues.set(name, current);
+    return current.finally(() => {
+      if (yomuDurableMutationQueues.get(name) === current) yomuDurableMutationQueues.delete(name);
+    });
+  }
+  function GM_getValue(name, defaultValue) {
+    return Object.prototype.hasOwnProperty.call(values, name) ? values[name] : defaultValue;
+  }
+  function GM_listValues() { return Object.keys(values); }
+  function GM_setValue(name, value) {
+    // yomu-extension-durable-storage-runtime:v2
+    return yomuQueueDurableMutation(name, () => gmMessage('GM_setValue', { name, value }).then(() => {
+      const oldValue = values[name];
+      values[name] = value;
+      notifyValueListeners(name, oldValue, value, false);
+    }));
+  }
+  function GM_deleteValue(name) {
+    return yomuQueueDurableMutation(name, () => gmMessage('GM_deleteValue', { name }).then(() => {
+      const oldValue = values[name];
+      delete values[name];
+      notifyValueListeners(name, oldValue, undefined, false);
+    }));
+  }
+  function GM_addValueChangeListener(name, callback) {
+    const id = listeners.size + 1;
+    listeners.set(id, { name, callback });
+    return id;
+  }
+  const GM = {
+    getValue: GM_getValue,
+    listValues: GM_listValues,
+    setValue: GM_setValue,
+    deleteValue: GM_deleteValue,
+  };
+  Object.assign(globalThis, { GM, GM_getValue, GM_setValue, GM_deleteValue, GM_addValueChangeListener });
+  const yomuValuesReady = gmMessage('GM_getAllValues', {}).then(response => {
+    Object.assign(values, response?.values || {});
+    valuesHydrated = true;
+  });
+  globalThis.__USC_READY = yomuValuesReady;
+})();`);
+    const gatedContent = `Promise.resolve(globalThis.__USC_READY).then(() => {
+${launcher}
+});`;
+    const combinedContent = `${durableRuntime}
+${gatedContent}`;
+    return {
+        'manifest.json': strToU8(JSON.stringify({ version: '1.9.3' })),
+        'background.js': strToU8(hardenExtensionBackgroundSource(compilerStorageBackgroundFixture(), { target })),
+        'content.js': strToU8(target === 'firefox' ? gatedContent : combinedContent),
+        [PACKAGED_STUDY_STORAGE_RUNTIME_FILE]: strToU8([
+            '// yomu-extension-study-storage-runtime',
+            'globalThis.__YOMU_EXTENSION_STUDY_STORAGE_RUNTIME__ = true;',
+        ].join('\n')),
+        'newtab/index.html': strToU8('<script src="./study-storage-runtime.js"></script>'),
+        'newtab/version.json': strToU8(JSON.stringify({ buildId: '1.9.3-deadbeef' })),
+        ...(target === 'firefox' ? { 'gm-runtime.js': strToU8(durableRuntime) } : {}),
+    };
+}
+
+
+describe('shipped extension settings authority', () => {
+    it.each(['chrome', 'firefox', 'safari'])('accepts the hardened %s runtime', async target => {
+        await expect(assertShippedSettingsAuthorityRuntime(shippedRuntimeFixture(target), target, '1.9.3')).resolves.toBeUndefined();
+    });
+    it('rejects a packaged read cache even when durable-write markers remain', async () => {
+        const entries = shippedRuntimeFixture('firefox');
+        entries['gm-runtime.js'] = strToU8(new TextDecoder().decode(entries['gm-runtime.js'])
+            .replace('getValue: yomuReadStoredValue,', 'getValue: GM_getValue,'));
+        await expect(assertShippedSettingsAuthorityRuntime(entries, 'firefox', '1.9.3'))
+            .rejects.toThrow(/authoritative read used hydration cache/);
+    });
+
+    it('rejects a packaged acknowledgement coupled to recipient completion', async () => {
+        const entries = shippedRuntimeFixture('firefox');
+        entries['background.js'] = strToU8(new TextDecoder().decode(entries['background.js'])
+            .replace('void Promise.resolve(api.tabs.sendMessage', 'await Promise.resolve(api.tabs.sendMessage'));
+        await expect(assertShippedSettingsAuthorityRuntime(entries, 'firefox', '1.9.3'))
+            .rejects.toThrow(/set acknowledgement waits for a recipient/);
+    });
+
+    it('does not let an earlier set notification stand in for a missing delete notification', async () => {
+        const entries = shippedRuntimeFixture('firefox');
+        entries['background.js'] = strToU8(new TextDecoder().decode(entries['background.js'])
+            .replace('await broadcastValueChange(payload.name, oldValue, undefined, sender);', ''));
+        await expect(assertShippedSettingsAuthorityRuntime(entries, 'firefox', '1.9.3'))
+            .rejects.toThrow(/delete acknowledged before discovery and dispatch|delete notifications were not dispatched/);
+    });
+
+    it('rejects acknowledgement before notification dispatch has started', async () => {
+        const entries = shippedRuntimeFixture('firefox');
+        entries['background.js'] = strToU8(new TextDecoder().decode(entries['background.js'])
+            .replace('await broadcastValueChange(payload.name, oldValue, payload.value, sender);', 'void broadcastValueChange(payload.name, oldValue, payload.value, sender);'));
+        await expect(assertShippedSettingsAuthorityRuntime(entries, 'firefox', '1.9.3'))
+            .rejects.toThrow(/set acknowledged before discovery and dispatch/);
+    });
+
+    it.each(['read', 'enumeration'])('rejects a packaged %s fallback after successful hydration', async kind => {
+        const entries = shippedRuntimeFixture('firefox');
+        const source = new TextDecoder().decode(entries['gm-runtime.js']);
+        entries['gm-runtime.js'] = strToU8(kind === 'read'
+            ? source.replace('return response.value;\n    });', 'return response.value;\n    }).catch(() => values[name]);')
+            : source.replace('return response.keys;\n    });', 'return response.keys;\n    }).catch(() => Object.keys(values));'));
+        await expect(assertShippedSettingsAuthorityRuntime(entries, 'firefox', '1.9.3'))
+            .rejects.toThrow(/failed authoritative .* fell back/);
+    });
+
+    it('accepts generated non-durable GM helpers that intentionally ignore auxiliary failures', async () => {
+        const entries = shippedRuntimeFixture('chrome');
+        const content = new TextDecoder().decode(entries['content.js']);
+        entries['content.js'] = strToU8(content.replace(
+            "  const yomuValuesReady = gmMessage('GM_getAllValues', {}).then(response => {",
+            `  function GM_xmlhttpRequest() {
+    return {
+      abort() {
+        gmMessage('GM_abortRequest', { id: 'generated-request' }).catch(() => {});
+      }
+    };
+  }
+  function GM_notification(details) {
+    return gmMessage('GM_notification', { details }).catch(() => {});
+  }
+  const yomuValuesReady = gmMessage('GM_getAllValues', {}).then(response => {`,
+        ));
+
+        await expect(assertShippedSettingsAuthorityRuntime(entries, 'chrome', '1.9.3'))
+            .resolves.toBeUndefined();
     });
 });

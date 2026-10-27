@@ -29,6 +29,7 @@ export const readerNodeFiles = [
     'tests/reader/dictionary-catalog.test.ts',
     'tests/reader/dictionary-defaults.test.ts',
     'tests/reader/dictionary-preference-upgrade.test.ts',
+    'tests/reader/docs-publication-guard.test.ts',
     'tests/reader/enrichment-policy.test.ts',
     'tests/reader/gaming-settings-import.test.ts',
     'tests/reader/host-css-armour.test.ts',
