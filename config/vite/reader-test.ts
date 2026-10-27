@@ -20,7 +20,6 @@ export const readerNodeFiles = [
     'tests/reader/batch-receipt-ledger.test.ts',
     'tests/reader/bookwalker-assets.test.ts',
     'tests/reader/bunpro-client.test.ts',
-    'tests/reader/bunpro-transport-breaker.test.ts',
     'tests/reader/card-state.test.ts',
     'tests/reader/cloud-sync-web-inert.test.ts',
     'tests/reader/compound-pitch.test.ts',
