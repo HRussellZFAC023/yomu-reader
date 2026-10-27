@@ -19,5 +19,5 @@ export function workerBudget({ cores = availableParallelism(), available, total 
     // Inactive file-backed pages are reclaimable; loadavg on macOS counts I/O
     // and compressor waits and is not a measure of available CPU cores.
     const memoryWorkers = Math.floor(Math.max(0, Math.min(available, total * 0.75) - 1024 * MB) / (768 * MB));
-    return Math.max(1, Math.min(10, cores - 2, memoryWorkers));
+    return Math.max(1, Math.min(cores, memoryWorkers));
 }

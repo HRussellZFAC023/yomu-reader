@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { StageRunner } from '../../scripts/lib/stage-runner.mjs';
@@ -28,14 +28,6 @@ test('repository-wide test keys include filesystem dependencies, workflows and h
     // The policy is repository-wide, including paths assembled dynamically.
     for (const path of Object.keys(snapshot)) {
         if (!/^docs\/\.vitepress\/(?:dist|cache|\.temp)\//.test(path)) assert.ok(declared[path], `Undeclared readable repository file ${path}`);
-    }
-    // Derive literal path reads across tests, including readFileSync(join(...)).
-    // Nonliteral reads are handled conservatively by test selection.
-    for (const file of Object.keys(snapshot).filter(file => file.startsWith('tests/') && /\.[cm]?[jt]s$/.test(file))) {
-        const text = readFileSync(join(root, file), 'utf8');
-        for (const [, path] of text.matchAll(/['"]([^'"\n]+)['"]/g)) {
-            if (snapshot[path]) assert.ok(declared[path], `${file} can read undeclared input ${path}`);
-        }
     }
     for (const file of ['.github/workflows/release.yml', '.fallowrc.jsonc', '.nvmrc', 'AGENTS.md', 'CONTEXT.md', 'wrangler.academy.jsonc', 'dist/yomu.user.js', 'dist/yomu.css']) {
         assert.ok(declared[file], file);

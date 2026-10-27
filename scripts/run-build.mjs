@@ -2,13 +2,14 @@
 import { mkdirSync, readdirSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { StageRunner, buildEnv, cacheOptions } from './lib/stage-runner.mjs';
+import { readerBuildInputs } from './lib/gate-inputs.mjs';
 import { run } from './lib/ci-utils.mjs';
 
 const root = join(import.meta.dirname, '..');
 const runner = new StageRunner(root, { ...cacheOptions(), prefix: 'build' });
 const stage = {
     name: 'userscript', command: 'node scripts/run-build.mjs --execute',
-    inputs: ['src/**', 'public/**', 'config/**', '!config/ci/content-addressed-retention.json', 'vite.config.ts', 'tsconfig*.json', 'scripts/**', '!scripts/fixtures/**'],
+    inputs: readerBuildInputs(root),
     env: buildEnv,
     restoreOutputs: true,
     // The gate's Academy build and Study sync own these namespaces after us.

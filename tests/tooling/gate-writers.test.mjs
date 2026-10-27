@@ -115,6 +115,30 @@ test('tooling cache observes repository and compiler membership plus test bytes'
     writeFileSync(join(root, 'src/new.ts'), 'export const added = 1;');
     const added = key();
     assert.notEqual(added, before);
-    writeFileSync(join(root, 'tests/a.test.ts'), "it('path', () => read('src/new.ts')); ");
+    mkdirSync(join(root, 'tests/tooling'));
+    writeFileSync(join(root, 'tests/tooling/a.test.mjs'), "it('path', () => read('src/new.ts')); ");
     assert.notEqual(key(), added);
+    const withTest = key();
+    writeFileSync(join(root, 'tests/tooling/a.test.mjs'), '// changed tooling test');
+    assert.notEqual(key(), withTest);
+    writeFileSync(join(root, 'src/product.ts'), 'export const value = 3;');
+    const changedProduct = key();
+    writeFileSync(join(root, 'src/product.ts'), 'export const value = 4;');
+    assert.equal(key(), changedProduct);
+});
+
+test('Academy keys its runtime imports and CSS import closure without unrelated Reader source', async t => {
+    const { academyBuildInputs } = await import('../../scripts/lib/gate-inputs.mjs');
+    const { root, runner } = fixture(t);
+    for (const path of ['src/academy', 'src/reader/styles']) mkdirSync(join(root, path), { recursive: true });
+    writeFileSync(join(root, 'src/academy/entrypoint.ts'), "import '../reader/styles.css'; export const academy = 1;");
+    writeFileSync(join(root, 'src/reader/styles.css'), "@import './styles/shared.css';");
+    const css = join(root, 'src/reader/styles/shared.css');
+    writeFileSync(css, 'body { color: red; }');
+    const key = () => { runner.refresh(); return runner.key({ name: 'academy', command: 'true', inputs: academyBuildInputs(root) }); };
+    const before = key();
+    writeFileSync(join(root, 'src/reader/unrelated.ts'), 'export const value = 1;');
+    assert.equal(key(), before);
+    writeFileSync(css, 'body { color: green; }');
+    assert.notEqual(key(), before);
 });
