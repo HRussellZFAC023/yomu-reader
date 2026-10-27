@@ -64,7 +64,6 @@ export const readerNodeFiles = [
     'tests/reader/tadoku-catalog.test.ts',
     'tests/reader/term-span-resolver.test.ts',
     'tests/reader/user-facing-errors.test.ts',
-    'tests/reader/userscript-manager-request.test.ts',
     'tests/reader/wanikani-integration.test.ts',
     'tests/reader/yomu-audio-worker.test.ts',
     'tests/reader/youtube-host.test.ts',
