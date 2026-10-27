@@ -22,9 +22,13 @@ export function targetKeepsInFlowReadings(target: Element): boolean {
     return Boolean(target.closest(KEEPS_IN_FLOW_SELECTOR));
 }
 
-/** The settings a word under the stamp renders with: 'all' shows every reading. */
+/**
+ * The settings a word under the stamp renders with: 'all' shows every reading.
+ * Only Yomu-owned learning surfaces (Academy text, example rows) carry 'all'
+ * when Furigana is Off, and they keep their readings like the popup headword.
+ */
 export function furiganaSettingsForTarget(settings: ReaderSettings, target: Element): ReaderSettings {
-    if (!settings.showFurigana || settings.furiganaMode === 'off' || !targetForcesAllFurigana(target)) return settings;
+    if (!targetForcesAllFurigana(target)) return settings;
     if (settings.showFurigana && settings.furiganaMode === 'all') return settings;
     return { ...settings, showFurigana: true, furiganaMode: 'all' };
 }

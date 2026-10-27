@@ -7,6 +7,7 @@ import { ReaderApp } from '../../src/reader/app/main';
 import { VisiblePageScanner } from '../../src/reader/app/visible-page-scanner';
 import { renderedWordPrivateValue } from '../../src/reader/dom/rendered-word-private-state';
 import { setRenderedWordCardIdentity } from '../../src/reader/dom/rendered-word-state';
+import { yomuRubyHtml } from '../../src/reader/dom/yomu-ruby';
 import type { ImageOcrController } from '../../src/reader/ocr/controller';
 import type { OcrResult } from '../../src/reader/ocr/response-shared';
 import { DEFAULT_SETTINGS } from '../../src/reader/settings/index';
@@ -165,7 +166,7 @@ describe('late canonical card reconciliation', () => {
         });
         const word = appendWord(authoritative, root, '名古屋城を見る。');
         word.classList.add('jpdb-reader-has-furi');
-        word.innerHTML = '<ruby>名古屋城<rt>なごやじょう</rt></ruby>';
+        word.innerHTML = yomuRubyHtml('名古屋城', 'なごやじょう');
         document.body.append(root);
         const provisional = lookupCard(11, '名古屋城', {
             reading: 'なごやじょう',

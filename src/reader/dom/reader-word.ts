@@ -50,7 +50,7 @@ export function unwrapReaderWords(root: ParentNode = document, options: { includ
 /** Strip a word's generated markup without discarding the author's ruby. */
 export function unwrapReaderWord(word: Element): void {
     const doc = word.ownerDocument;
-    if (!word.querySelector(`ruby:not(.${YOMU_RUBY_CLASS})`)) {
+    if (!Array.from(word.querySelectorAll('ruby')).some(ruby => !isYomuRuby(ruby))) {
         word.replaceWith(doc.createTextNode(readerWordSurfaceText(word)));
         return;
     }
@@ -61,7 +61,7 @@ export function unwrapReaderWord(word: Element): void {
         } else if (node.nodeType === Node.ELEMENT_NODE) {
             const element = node as Element;
             if (isSurfaceIgnoredElement(element)) return;
-            if (element.tagName === 'RUBY' && !element.classList.contains(YOMU_RUBY_CLASS)) {
+            if (element.tagName === 'RUBY' && !isYomuRuby(element)) {
                 // Move the original node, including rt/rp and page listeners.
                 surface.append(element);
             } else {
@@ -71,6 +71,12 @@ export function unwrapReaderWord(word: Element): void {
     };
     Array.from(word.childNodes).forEach(appendSurface);
     word.replaceWith(surface);
+}
+
+// Yomu's reading is always rt.jpdb-reader-furi; an author's rt never is, so
+// that marks Yomu ruby even where the ruby element lacks YOMU_RUBY_CLASS.
+function isYomuRuby(ruby: Element): boolean {
+    return ruby.classList.contains(YOMU_RUBY_CLASS) || ruby.querySelector(':scope > rt.jpdb-reader-furi') !== null;
 }
 
 export function readerWordSurfaceText(element: Element): string {
