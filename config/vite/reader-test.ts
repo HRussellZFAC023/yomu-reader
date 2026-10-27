@@ -12,7 +12,6 @@ export const readerTestDefines = {
 // Keep this explicit; a new test starts in the isolated jsdom project.
 export const readerNodeFiles = [
     'tests/reader/academy-build-manifest.test.ts',
-    'tests/reader/account-contract.test.ts',
     'tests/reader/anki-known-interval.test.ts',
     'tests/reader/anki-library-selection.test.ts',
     'tests/reader/anki-review-result.test.ts',
