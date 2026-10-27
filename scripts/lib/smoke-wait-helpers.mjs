@@ -80,3 +80,28 @@ export async function assertPopoverHeadwordMatchesLookup(page, wordLocator, opti
 function normalizeHeadword(value) {
     return (value ?? '').replace(/\s+/gu, '').trim();
 }
+// Wait for fonts, transitions and a stable CSSOM box instead of sleeping after
+// a resize or tap. A quarter-pixel of engine rounding is not layout movement.
+export async function waitForSmokeLayout(page, selector) {
+    await page.waitForFunction(async selector => {
+        await document.fonts.ready;
+        let previous;
+        let stableSince = performance.now();
+        for (let frame = 0; frame < 60; frame++) {
+            await new Promise(requestAnimationFrame);
+            const nodes = [...document.querySelectorAll(selector)];
+            if (!nodes.length) return false;
+            const boxes = nodes.flatMap(node => {
+                const box = node.getBoundingClientRect();
+                return [box.x, box.y, box.width, box.height];
+            });
+            const moving = nodes.some(node => node.getAnimations({ subtree: true })
+                .some(animation => animation.pending || animation.playState === 'running'));
+            if (moving || !previous || boxes.length !== previous.length
+                || boxes.some((value, index) => Math.abs(value - previous[index]) > .25)) stableSince = performance.now();
+            previous = boxes;
+            if (performance.now() - stableSince >= 150) return true;
+        }
+        return false;
+    }, selector, { timeout: 10_000 });
+}

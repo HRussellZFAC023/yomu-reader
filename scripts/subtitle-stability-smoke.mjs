@@ -1,3 +1,4 @@
+import { assertSubtitleFuriganaOutlineScale, assertSubtitleHighlightLayers, assertSubtitleGenericLayer } from './lib/subtitle-render-cells.mjs';
 import assert from 'node:assert/strict';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { chromium, webkit, devices } from 'playwright';
@@ -36,6 +37,9 @@ for (const [name, engine] of [['webkit', webkit], ['chromium', chromium]]) {
     const pending = new Promise(resolve => { releasePending = resolve; });
     let run;
     try {
+        await assertSubtitleFuriganaOutlineScale(browser, name);
+        await assertSubtitleHighlightLayers(browser, name);
+        await assertSubtitleGenericLayer(browser, name);
         run = await openRecordedPage({ browser, slug:'youtube-watch', navigate:false,
             contextOptions:{ ...devices['iPad Pro 11'], viewport:{ width:834, height:1194 }, isMobile:name==='webkit' },
             hostOptions:{ autoplay:false },
