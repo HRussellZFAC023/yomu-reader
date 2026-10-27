@@ -2,7 +2,7 @@
 // Content-addressed local gate. CI always forces the full graph.
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { StageRunner, buildEnv, cacheOptions } from './lib/stage-runner.mjs';
+import { StageRunner, buildEnv, testEnvironment, cacheOptions } from './lib/stage-runner.mjs';
 import { git, stageKey } from './lib/stage-cache.mjs';
 import { testPlan, testInputs } from './lib/affected-tests.mjs';
 import { captureRetentionInputs } from './lib/content-addressed-retention.mjs';
@@ -24,7 +24,7 @@ const run = (...args) => runner.run(stage(...args));
 const all = ['**', '!docs/.vitepress/dist/**', '!docs/.vitepress/cache/**', '!docs/.vitepress/.temp/**'];
 const source = ['src/**', 'tests/**', 'workers/**', 'config/**', 'scripts/**', 'vite.config.ts', 'tsconfig*.json'];
 const buildInputs = ['src/**', 'public/**', 'config/**', 'scripts/**', '!scripts/fixtures/**', 'vite.config.ts', 'tsconfig*.json'];
-const testEnv = ['VITEST_ISOLATE', 'VITEST_MAX_FORKS', 'YOMU_VITEST_FORK_HEAP_MB', 'YOMU_HASH_MEMO', 'YOMU_CHECK_RELEASE', 'YOMU_CI_MAX_WORKERS', 'YOMU_CI_SHARDED', 'YOMU_CI_TEST_TIMEOUT_MS'];
+const testEnv = [...testEnvironment, 'VITEST_MAX_FORKS', 'YOMU_VITEST_FORK_HEAP_MB', 'YOMU_CHECK_RELEASE', 'YOMU_CI_MAX_WORKERS', 'YOMU_CI_SHARDED', 'YOMU_CI_TEST_TIMEOUT_MS'];
 const retention = captureRetentionInputs(ROOT);
 writeFileSync(join(LOG_DIR, 'retention-inputs.json'), JSON.stringify(retention));
 const history = [

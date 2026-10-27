@@ -4,8 +4,16 @@ import { join } from 'node:path';
 import { StageCache, outputHashes, repositorySnapshot, selectInputs, stageKey } from './stage-cache.mjs';
 import { vitestOutputIndicatesFailure } from './check-log-guard.mjs';
 
-export const runtimeEnv = ['CI', 'NODE_OPTIONS', 'TZ', 'LANG', 'LC_ALL'];
-export const buildEnv = ['YOMU_USERSCRIPT_BUNDLE_MODE', 'YOMU_GOOGLE_OAUTH_WEB_CLIENT_ID', 'YOMU_GOOGLE_OAUTH_CLIENT_ID', 'GOOGLE_OAUTH_CLIENT_ID'];
+export const runtimeEnv = ['CI', 'NODE_ENV', 'NODE_OPTIONS', 'TZ', 'LANG', 'LC_ALL'];
+export const buildEnv = ['YOMU_USERSCRIPT_BUNDLE_MODE', 'YOMU_GOOGLE_OAUTH_WEB_CLIENT_ID', 'YOMU_GOOGLE_OAUTH_CLIENT_ID', 'GOOGLE_OAUTH_CLIENT_ID', 'YOMU_READER_CSS_OUT', 'YOMU_NEW_TAB_CSS_OUT'];
+export const testEnvironment = [
+    'VITEST_ISOLATE', 'YOMU_HASH_MEMO', 'ACADEMY_REQUIRE_N3_SOURCE_FIDELITY',
+    'ACADEMY_LIBRARY_ROOT', 'ACADEMY_SOURCE_CORPUS_ROOT', 'ACADEMY_SOYA_ROOT',
+    'YOMU_ACADEMY_TEST_HOSTED_DIR', 'YOMU_JAPANESE_LIBRARY_ROOT', 'YOMU_JAPANESE_ROOT',
+    'YOMU_SOYA_RESEARCH_ROOT', 'YOMU_DOCS_BROWSER', 'YOMU_PLAYWRIGHT_CHANNEL',
+    'YOMU_PRINT_MINING_CORPUS', 'YOMU_PROFILE_BASELINE_DIR', 'YOMU_PROFILE_CANDIDATE_DIR',
+    'YOMU_PROFILE_COMPARISON_OUTPUT', 'YOMU_PROFILE_E2E',
+];
 const cacheImplementation = ['package.json', 'package-lock.json', 'scripts/lib/stage-cache.mjs', 'scripts/lib/stage-runner.mjs'];
 
 export class StageRunner {

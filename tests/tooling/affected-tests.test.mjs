@@ -23,5 +23,6 @@ test('related passes never replace a full baseline; config/setup/runner/lock cha
     }
     assert.equal(testPlan(root, initial, { noCache: true }).full, true);
     assert.equal(testPlan(root, initial, { env: { TZ: 'different' } }).full, true);
+    assert.equal(testPlan(root, initial, { env: { ACADEMY_REQUIRE_N3_SOURCE_FIDELITY: '1' } }).full, true);
     assert.equal(testPlan(root, initial, { suite: 'academy' }).full, true);
 });
