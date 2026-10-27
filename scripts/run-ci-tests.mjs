@@ -21,9 +21,7 @@ const JPDB_TESTS_DIR = join(ROOT, 'tests/reader/jpdb');
 // Every jsdom file is already isolated; ordinary mock/lifecycle suites need no
 // second scheduling pass. Retain only the measured memory outliers here.
 const DEDICATED_PASS_FILES = [
-    join(ROOT, 'tests/reader/dictionary-catalog-browse.test.ts'),
-    join(ROOT, 'tests/reader/catalog-browse-search-and-locale.test.ts'),
-];
+    join(ROOT, 'tests/reader/dictionary-catalog-browse.test.ts'),];
 
 const args = parseArgs(process.argv.slice(2));
 const kind = args.kind ?? 'regular';
