@@ -26,13 +26,14 @@
 // them, which is the normal case rather than the exception: the reader annotates every line
 // it recognizes, and the reader's font setting is a custom property it can move at any time.
 // Neither re-typesets the overlay, so both have to be answered on the next layout pass.
+import { assertOcrTransformRegister, assertGamingOcrHitTarget, assertYoutubePausedFrameRegister, assertOcrViewportScroll } from './lib/ocr-registration-cells.mjs';
 import { execFileSync } from 'node:child_process';
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { buildSync } from 'esbuild';
-import { chromium } from 'playwright';
+import { chromium, webkit } from 'playwright';
 
 const ROOT = path.resolve(fileURLToPath(new URL('..', import.meta.url)));
 
@@ -145,6 +146,10 @@ const browser = await chromium.launch();
 const failures = [];
 const rows = [];
 try {
+        await assertOcrTransformRegister(browser, 'chromium');
+        await assertGamingOcrHitTarget(browser, 'chromium');
+        await assertYoutubePausedFrameRegister(browser, 'chromium');
+        await assertOcrViewportScroll(browser, 'chromium');
     const tab = await browser.newPage({ viewport: { width: 1920, height: 1080 }, deviceScaleFactor: 1 });
     await tab.setContent(page, { waitUntil: 'load' });
     await tab.evaluate(() => document.fonts.ready);
@@ -453,3 +458,6 @@ function measureVertical({ sentence, sourceSize, annotated }) {
         baselineDriftEm: 0,
     };
 }
+
+const webkitBrowser = await webkit.launch({ headless: true });
+try { await assertOcrViewportScroll(webkitBrowser, 'webkit'); } finally { await webkitBrowser.close(); }

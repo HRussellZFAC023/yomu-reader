@@ -235,10 +235,10 @@
     "smoke:ocr-provider-matrix": "node scripts/ocr-provider-matrix.mjs",
     "smoke:ocr-honesty": "node scripts/ocr-honesty-smoke.mjs",
     "smoke:ocr-line-register": "node scripts/ocr-line-register-smoke.mjs",
-    "smoke:gaming-ocr-hit-target": "node scripts/gaming-ocr-hit-target-smoke.mjs",
-    "smoke:ocr-transform-register": "node scripts/ocr-transform-register-smoke.mjs",
+    "smoke:gaming-ocr-hit-target": "npm run smoke:ocr-line-register",
+    "smoke:ocr-transform-register": "npm run smoke:ocr-line-register",
     "smoke:ocr-scroll-perf": "node scripts/ocr-scroll-position-perf-smoke.mjs",
-    "smoke:youtube-paused-frame-register": "node scripts/youtube-paused-frame-register-smoke.mjs",
+    "smoke:youtube-paused-frame-register": "npm run smoke:ocr-line-register",
     "smoke:p0": "npm run smoke:feedback && npm run smoke:pdf-reader && npm run smoke:google-search-reader",
     "manual:youtube-sidebar-layout": "node scripts/manual/youtube-sidebar-layout-matrix.mjs",
     "manual:youtube-sidebar-resize-profile": "node scripts/manual/youtube-sidebar-resize-profile.mjs",
@@ -337,7 +337,7 @@
     "smoke:piccoma-host-armour": "node scripts/piccoma-host-armour-smoke.mjs",
     "smoke:ruby-overhang-scope": "node scripts/ruby-overhang-scope-smoke.mjs",
     "smoke:reading-collision": "npm run smoke:annotation-scroll",
-    "smoke:ocr-viewport-scroll": "node scripts/ocr-viewport-scroll-smoke.mjs",
+    "smoke:ocr-viewport-scroll": "npm run smoke:ocr-line-register",
     "quality:reader-coverage": "vitest run --coverage.enabled --coverage.provider=istanbul --coverage.reporter=json --coverage.include='src/reader/**/*.ts' --coverage.include='docs/public/hosted-reader-worker.js' --coverage.reportsDirectory=artifacts/fallow-coverage tests/reader/reading-media-boundary.test.ts tests/reader/detached-reading-overlay.test.ts tests/reader/reading-lane-layout.test.ts tests/reader/projected-reading-crowding.test.ts tests/reader/projected-reading-scheduling.test.ts tests/reader/additive-mirror-source-projection.test.ts tests/reader/synthetic-mirror-source-ranges.test.ts tests/reader/projection-sibling-realign.test.ts tests/reader/furigana-tap-band.test.ts tests/reader/subtitles-controller tests/reader/subtitle-control-rail.test.ts tests/reader/hover-lookup.test.ts tests/reader/decoration-policy.test.ts tests/reader/mirror-page-reveal.test.ts tests/reader/mirror-observer-leak.test.ts tests/reader/repaint-loop-mirror.test.ts tests/reader/recycled-mirror-projection.test.ts tests/reader/hosted-runtime-graph.test.ts"
   },
   "dependencies": {
