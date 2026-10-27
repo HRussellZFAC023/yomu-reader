@@ -332,6 +332,7 @@ function mockAnkiCardInfo({
     type,
     reps,
     lapses = 0,
+    interval = 30,
 }: {
     cardId: number;
     noteId: number;
@@ -340,6 +341,7 @@ function mockAnkiCardInfo({
     type: number;
     reps: number;
     lapses?: number;
+    interval?: number;
 }) {
     return {
         cardId,
@@ -349,6 +351,7 @@ function mockAnkiCardInfo({
         type,
         reps,
         lapses,
+        interval,
     };
 }
 

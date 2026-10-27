@@ -62,6 +62,8 @@ Words saved without a connected service go to the よむ deck in Study.
 
 No. Study is built in. To use Anki, install the AnkiConnect add-on, keep Anki open, turn on Anki under Settings → Mining and press Check AnkiConnect.
 
+Anki review cards stay Learning until their interval reaches 21 days, like the よむ deck. Due and suspended cards keep their own states. JPDB and Jiten use their server states.
+
 ## Can I add to Anki from my phone? {#anki-on-a-phone}
 
 Yes, while Anki runs on your computer:

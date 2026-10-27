@@ -1,3 +1,4 @@
+import { KNOWN_INTERVAL_DAYS } from './known-interval';
 import { isStorageLeaseLapsed, STORAGE_WORK_LEASE_MS, type GmStorageLeaseOptions } from '../app/gm-storage-lease';
 import { reportSaveWaitingForAnotherTab } from '../app/save-wait';
 import { subscribeToStoredValueChanges, withGmStorageLease } from '../app/storage';
@@ -207,8 +208,8 @@ export class LocalYomuSrsRepository {
             newToday: cards.filter(card => card.createdAt >= today).length,
             levelCounts: {
                 new: cards.filter(card => card.reviews === 0).length,
-                learning: cards.filter(card => card.reviews > 0 && card.intervalDays < 21).length,
-                known: cards.filter(card => card.intervalDays >= 21).length,
+                learning: cards.filter(card => card.reviews > 0 && card.intervalDays < KNOWN_INTERVAL_DAYS).length,
+                known: cards.filter(card => card.intervalDays >= KNOWN_INTERVAL_DAYS).length,
             },
         };
     }
@@ -559,14 +560,14 @@ function localCardState(card: StoredYomuSrsCard, now: number): CardState[] {
     if (card.reviewEnabled === false) return ['in-deck'];
     if (card.reviews === 0) return ['new'];
     if (card.dueAt <= now) return ['due'];
-    if (card.intervalDays >= 21) return ['known'];
+    if (card.intervalDays >= KNOWN_INTERVAL_DAYS) return ['known'];
     return ['learning'];
 }
 
 function localSrsLevel(card: StoredYomuSrsCard): string {
     if (card.reviewEnabled === false) return 'Saved';
     if (card.reviews === 0) return 'New';
-    if (card.intervalDays >= 21) return 'Known';
+    if (card.intervalDays >= KNOWN_INTERVAL_DAYS) return 'Known';
     if (card.intervalDays >= 7) return 'Young';
     return 'Learning';
 }

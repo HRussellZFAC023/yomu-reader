@@ -215,3 +215,5 @@ _Avoid_: Contact name, display name, nickname
 - Network Ledger: Every request the product made while a Recorded Page was replayed, from the GM bridge and from the page itself, with host, method, body size, time and whether a Trusted Interaction came first. Privacy rules are asserted on it ("no cloud OCR before a tap" is zero Lens requests before a Trusted Interaction).
 - Trusted Interaction: A browser-trusted activation by the learner — pointerdown, mousedown, touchstart, keydown or click with `isTrusted`. Hovering is not one.
 - Geometry Signature: Scroll extents, sampled block border boxes, each sampled paragraph's line boxes (readings excluded) and the page counts of paged containers. Comparing two within a tolerance shows whether something moved a page: a redaction against the live page, or annotation against the bare page.
+
+- Known Interval: Anki and the よむ deck count a non-due review card as Known from a 21-day interval. Shorter review intervals stay Learning; JPDB and Jiten retain their server states.

@@ -249,6 +249,7 @@ export interface AnkiStatusIndexCardSets {
     learning: Set<number>;
     new: Set<number>;
     suspended: Set<number>;
+    shortIntervalReview: Set<number>;
 }
 
 export interface AnkiStatusIndexCardData {

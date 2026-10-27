@@ -1080,6 +1080,7 @@ const HOSTED_DOCS_JA_COPY: Record<string, string> = {
     "No. Until you install one, Jiten's free online dictionary splits each page into words. To do that on your device, install the recommended one in": 'いいえ。辞書を入れるまでは、Jitenの無料オンライン辞書がページを単語に分けます。端末の中で分けたいなら、おすすめの辞書を入れてください：',
     'Settings → Sources': '設定 → ソース',
     'To Study → Library. Press Add to review there and they come back for review.': '学習 →「単語帳」に入っています。そこで「復習に追加」を押すと、復習に出てくるようになります。',
+    'Anki review cards stay Learning until their interval reaches 21 days, like the よむ deck. Due and suspended cards keep their own states. JPDB and Jiten use their server states.': 'Ankiの復習カードは、よむデッキと同じく、復習間隔が21日に達するまで「学習中」のままです。復習期限を迎えたカードと停止中のカードは、それぞれの状態を保ちます。JPDBとJitenは各サービスの学習状態を使います。',
     'No. Study is built in. To use Anki, install the AnkiConnect add-on, keep Anki open, turn on Anki under Settings → Mining and press Check AnkiConnect.': 'いいえ。復習は学習ページでできます。Ankiを使うなら、AnkiConnectアドオンを入れてAnkiを開いたままにし、「設定」→「採掘」でAnkiをオンにして「AnkiConnectを確認」を押します。',
     'Yes, while Anki runs on your computer:': 'パソコンでAnkiが動いていればできます：',
     'Install Tailscale': 'Tailscaleを入れます',
