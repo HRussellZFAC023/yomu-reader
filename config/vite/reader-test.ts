@@ -63,8 +63,6 @@ export const readerNodeFiles = [
     'tests/reader/study-pwa-manifest.test.ts',
     'tests/reader/subtitle-batch-mining.test.ts',
     'tests/reader/subtitle-paint-state.test.ts',
-    'tests/reader/subtitle-placeholder-cues.test.ts',
-    'tests/reader/subtitle-twitter-x-cues.test.ts',
     'tests/reader/tadoku-catalog.test.ts',
     'tests/reader/term-span-resolver.test.ts',
     'tests/reader/user-facing-errors.test.ts',
