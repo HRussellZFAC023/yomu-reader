@@ -25,6 +25,10 @@ test('repository-wide test keys include filesystem dependencies, workflows and h
     const root = resolve('.');
     const snapshot = repositorySnapshot(root);
     const declared = selectInputs(snapshot, testInputs);
+    // The policy is repository-wide, including paths assembled dynamically.
+    for (const path of Object.keys(snapshot)) {
+        if (!/^docs\/\.vitepress\/(?:dist|cache|\.temp)\//.test(path)) assert.ok(declared[path], `Undeclared readable repository file ${path}`);
+    }
     // Derive literal path reads across tests, including readFileSync(join(...)).
     // Nonliteral reads are handled conservatively by test selection.
     for (const file of Object.keys(snapshot).filter(file => file.startsWith('tests/') && /\.[cm]?[jt]s$/.test(file))) {
