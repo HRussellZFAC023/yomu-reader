@@ -35353,6 +35353,16 @@ function setInnerHtml(element2, html) {
     element2.textContent = html;
   }
 }
+function setStaticTemplateHtml(element2, html) {
+  try {
+    const template = element2.ownerDocument.createElement("template");
+    template.innerHTML = trustedHtml(html);
+    hydratePrivateElementState(template.content);
+    htmlReplacementTarget(element2).replaceChildren(template.content);
+  } catch {
+    setInnerHtml(element2, html);
+  }
+}
 function parseHtmlDocument(html) {
   const parsed = parseHtmlWithDomParser(html);
   if (parsed) return parsed;
@@ -36503,9 +36513,6 @@ Object.freeze([
     studyTargetReadiness: READING_ONLY_STUDY_TARGET_IDS.includes(language.id) ? "reading-only" : "planned"
   }))
 ]);
-Object.freeze(
-  LEARNER_LANGUAGES.map((language) => canonicalLanguageTag(language.runtimeLocale) ?? language.runtimeLocale)
-);
 function isLearningTargetRosterId(value) {
   return value === SLICE1_TARGET_LANGUAGE || isLearnerLanguageId(value);
 }
@@ -37474,9 +37481,6 @@ const ENGLISH_INTERFACE_LOCALE = (() => {
   if (!english) throw new Error("The interface manifest must always contain English");
   return english;
 })();
-Object.freeze(
-  INTERFACE_LOCALES.filter((locale) => locale.direction === "rtl")
-);
 Object.freeze(
   interfaceLocaleLedger.rtlGate.items.map(
     (item2) => Object.freeze({ ...item2 })
@@ -264772,7 +264776,7 @@ function padClockPart(value) {
 const DEFAULT_ACADEMY_STUDY_DURATION_MS = DEFAULT_STUDY_DURATION_MS;
 class StudyRuntimeLoadFailure extends Error {
 }
-function createCanonicalAcademyStudyModule(loadRuntime = () => import("./runtime-CJodiiEQ.js")) {
+function createCanonicalAcademyStudyModule(loadRuntime = () => import("./runtime-zUBlhInK.js")) {
   return {
     async mount(host2, context2) {
       let runtime;
@@ -271289,21 +271293,22 @@ export {
   PDF_READER_PAGE_URL as f7,
   NEW_TAB_PAGE_URL as f8,
   DONATE_URL as f9,
-  subscribeToSettingsStorageChanges as fA,
-  isHostedYomuOrigin as fB,
-  loadSettings as fC,
-  deinflectJapaneseTerm as fD,
-  termRulesMatch as fE,
-  createYomuLocalSrsAdapter as fF,
-  clearManagedBrowserCaches as fG,
-  unregisterManagedServiceWorkers as fH,
-  setRenderedWordCardIdentity as fI,
-  renderedWordCardKey as fJ,
-  renderedWordsInRoot as fK,
-  renderedWordElementKey as fL,
-  applyInterfaceLocaleToRoot as fM,
-  applyInterfaceLocaleToDocument as fN,
-  ensureManagedWebStorageCurrent as fO,
+  localeDirection as fA,
+  subscribeToSettingsStorageChanges as fB,
+  isHostedYomuOrigin as fC,
+  loadSettings as fD,
+  deinflectJapaneseTerm as fE,
+  termRulesMatch as fF,
+  createYomuLocalSrsAdapter as fG,
+  clearManagedBrowserCaches as fH,
+  unregisterManagedServiceWorkers as fI,
+  setRenderedWordCardIdentity as fJ,
+  renderedWordCardKey as fK,
+  renderedWordsInRoot as fL,
+  renderedWordElementKey as fM,
+  applyInterfaceLocaleToRoot as fN,
+  applyInterfaceLocaleToDocument as fO,
+  ensureManagedWebStorageCurrent as fP,
   SUPPORT_COPY as fa,
   SUPPORT_COPY_EXTRA as fb,
   YOMU_RUBY_CLASS as fc,
@@ -271323,13 +271328,13 @@ export {
   isPrivilegedYomuLocalDevelopmentOrigin as fq,
   settingsPanelFromHash as fr,
   SETTINGS_TITLE as fs,
-  NEW_TAB_VERSION_URL as ft,
-  NO_EXPLICIT_USER_CHOICE as fu,
-  normalizeAudioSubSources as fv,
-  publishSettingsChange as fw,
-  mergeApiCredentialValues as fx,
-  configureLogger as fy,
-  localeDirection as fz,
+  setStaticTemplateHtml as ft,
+  NEW_TAB_VERSION_URL as fu,
+  NO_EXPLICIT_USER_CHOICE as fv,
+  normalizeAudioSubSources as fw,
+  publishSettingsChange as fx,
+  mergeApiCredentialValues as fy,
+  configureLogger as fz,
   getPitchClass as g,
   bridgeEventDetail as h,
   isAppleTouchBrowser as i,
