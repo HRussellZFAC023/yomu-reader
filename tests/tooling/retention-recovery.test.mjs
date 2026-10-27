@@ -33,12 +33,20 @@ function fixture(t) {
 test('undoing a header restores its oldest supported pin after a temporary prune', t => {
     const { root, git, put, revision } = fixture(t);
     const releases = [];
+    const branch = git('symbolic-ref', 'HEAD').toString().trim();
+    let history = '';
     for (let i = 0; i <= 40; i++) {
         const release = revision(i);
-        git('add', '--', 'docs/public/yomu.user.js', release.path);
-        git('commit', '--quiet', '-m', `Revision ${i}`);
+        // Real Git history in one import avoids 41 index/commit-hook startups.
+        const message = `Revision ${i}\n`;
+        history += `commit ${branch}\ncommitter Retention test <retention@example.test> ${1700000000 + i} +0000\n`
+            + `data ${Buffer.byteLength(message)}\n${message}`
+            + `M 100644 inline docs/public/yomu.user.js\ndata ${Buffer.byteLength(release.header)}\n${release.header}`
+            + `M 100644 inline ${release.path}\ndata ${Buffer.byteLength(release.bytes)}\n${release.bytes}\n`;
         releases.push(release);
     }
+    execFileSync('git', ['fast-import', '--quiet'], { cwd: root, input: history, stdio: ['pipe', 'pipe', 'pipe'] });
+    git('read-tree', 'HEAD');
     assert.equal(contentAddressedRetentionReport(root).retained.length, 41);
     revision(41);
     const temporary = contentAddressedRetentionReport(root);

@@ -17,6 +17,10 @@ const HASHED_COMPANION = /^yomu-[a-z0-9-]+\.[0-9a-f]{12}\.user\.js$/;
 const HASHED_READER_CSS = /^yomu\.[0-9a-f]{12}\.css$/;
 const COMPANION_URL = /^https:\/\/yomureader\.com\/greasyfork\/(yomu-[a-z0-9-]+\.[0-9a-f]{12}\.user\.js)(?:#|$)/;
 const CSS_URL = /^https:\/\/yomureader\.com\/(yomu\.[0-9a-f]{12}\.css)(?:#|$)/;
+// Historical object IDs are immutable. Reuse their bytes across the manifest,
+// before/after inventory and rollback checks in this invocation; named refs
+// remain live so a new commit or moved tag cannot reuse stale header bytes.
+const committedHeaders = new Map();
 
 function pinnedArtifactPaths(header) {
     const pinned = new Set();
@@ -289,8 +293,12 @@ function git(root, args) {
 }
 
 function gitShow(root, spec) {
+    const key = /^[0-9a-f]{40,64}:/.test(spec) ? `${root}\0${spec}` : null;
+    if (key && committedHeaders.has(key)) return committedHeaders.get(key);
     const output = git(root, ['show', spec]);
-    return output || null;
+    const code = output || null;
+    if (key) committedHeaders.set(key, code);
+    return code;
 }
 
 function sumBytes(inputs, paths) {
