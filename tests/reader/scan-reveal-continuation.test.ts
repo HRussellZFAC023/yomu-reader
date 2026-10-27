@@ -325,6 +325,8 @@ describe('visible scan continuation after a capped collection (class E)', () => 
     });
 
     it('continues a silent scan when collection hit the cap even if every target is single-pass', async () => {
+        vi.useFakeTimers();
+
         vi.resetModules();
         const collectScanTargets = vi.fn(function* () { yield; return makeTargets(collectionLimit, { singlePassScan: true }); });
         vi.doMock('../../src/reader/app/site-parsers', async importOriginal => ({
@@ -364,6 +366,8 @@ describe('visible scan continuation after a capped collection (class E)', () => 
     }, 15_000);
 
     it('bounds consecutive continuations so an always-capped collection cannot spin forever', async () => {
+        vi.useFakeTimers();
+
         vi.resetModules();
         const collectScanTargets = vi.fn(function* () { yield; return makeTargets(collectionLimit, { singlePassScan: true }); });
         vi.doMock('../../src/reader/app/site-parsers', async importOriginal => ({
@@ -392,7 +396,7 @@ describe('visible scan continuation after a capped collection (class E)', () => 
 
         await scanner.scanVisiblePage({ silent: true });
         // Let any queued continuations drain fully.
-        for (let i = 0; i < 40; i += 1) await new Promise(resolve => setTimeout(resolve, 5));
+        for (let i = 0; i < 40; i += 1) await vi.advanceTimersByTimeAsync(5);
         const calls = collectScanTargets.mock.calls.length;
         expect(calls).toBeGreaterThan(1);
         expect(calls).toBeLessThanOrEqual(12);
@@ -400,6 +404,8 @@ describe('visible scan continuation after a capped collection (class E)', () => 
     }, 15_000);
 
     it('advances non-silent continuations past the mirrored head', async () => {
+        vi.useFakeTimers();
+
         vi.resetModules();
         const targets = makeTargets(collectionLimit + 2, { singlePassScan: false });
         const collectScanTargets = vi.fn(function* (
