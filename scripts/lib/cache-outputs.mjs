@@ -2,6 +2,16 @@
 // where available; copying a passed blob does not trust the destination's mtime.
 import { chmodSync, constants, copyFileSync, existsSync, lstatSync, mkdirSync, readFileSync, readlinkSync, renameSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve, sep } from 'node:path';
+import { execFileSync } from 'node:child_process';
+
+function clone(source, target, size) {
+    // libuv's COPYFILE_FICLONE falls back to copying on macOS. cp -c asks APFS
+    // for clonefile explicitly; amortize process startup over large assets.
+    if (process.platform === 'darwin' && size >= 1024 * 1024) {
+        try { execFileSync('/bin/cp', ['-c', source, target], { stdio: 'pipe' }); return; } catch { /* non-APFS volume */ }
+    }
+    copyFileSync(source, target, constants.COPYFILE_FICLONE);
+}
 
 export class OutputStore {
     constructor(root, directory) { this.root = resolve(root); this.directory = directory; }
@@ -24,7 +34,7 @@ export class OutputStore {
             if (!existing?.isFile() || existing.size !== size || (existing.mode & 0o222)) {
                 const temporary = `${blob}.${process.pid}.${Math.random().toString(16).slice(2)}.tmp`;
                 if (kind === 'symlink') writeFileSync(temporary, readlinkSync(source));
-                else copyFileSync(source, temporary, constants.COPYFILE_FICLONE);
+                else clone(source, temporary, size);
                 chmodSync(temporary, 0o444);
                 renameSync(temporary, blob);
             }
@@ -32,7 +42,7 @@ export class OutputStore {
         }
         return files;
     }
-    restore(hashes, files, currentPaths) {
+    restore(hashes, files, currentPaths, currentHashes = {}) {
         if (!files || Object.keys(hashes).length !== Object.keys(files).length) return false;
         // Validate the complete inventory before changing any destination.
         for (const [path, hash] of Object.entries(hashes)) {
@@ -46,12 +56,16 @@ export class OutputStore {
         for (const path of currentPaths) if (!(path in hashes)) rmSync(this.target(path), { force: true });
         for (const [path, hash] of Object.entries(hashes)) {
             const target = this.target(path);
+            if (currentHashes[path] === hash) {
+                const info = lstatSync(target);
+                if ((info.isSymbolicLink() ? 'symlink' : 'file') === files[path].kind && (info.mode & 0o777) === files[path].mode) continue;
+            }
             mkdirSync(dirname(target), { recursive: true });
             const temporary = `${target}.${process.pid}.restore`;
             rmSync(temporary, { force: true });
             if (files[path].kind === 'symlink') symlinkSync(readFileSync(this.blob(hash), 'utf8'), temporary);
             else {
-                copyFileSync(this.blob(hash), temporary, constants.COPYFILE_FICLONE);
+                clone(this.blob(hash), temporary, files[path].size);
                 chmodSync(temporary, files[path].mode);
             }
             renameSync(temporary, target);

@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { chmodSync, existsSync, mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { chmodSync, existsSync, lstatSync, mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { StageCache } from '../../scripts/lib/stage-cache.mjs';
@@ -12,6 +12,9 @@ test('writer hits restore passed bytes, remove extras and rebuild when immutable
     let calls = 0;
     const build = () => { calls++; mkdirSync(join(root, 'dist'), { recursive: true }); writeFileSync(join(root, 'dist/app.js'), 'passed'); };
     await cache.run(stage, build);
+    const inode = lstatSync(join(root, 'dist/app.js')).ino;
+    assert.equal((await cache.run(stage, build)).cached, true);
+    assert.equal(lstatSync(join(root, 'dist/app.js')).ino, inode, 'verified identical output is not recopied');
     writeFileSync(join(root, 'dist/app.js'), 'corrupt');
     writeFileSync(join(root, 'dist/extra.js'), 'extra');
     assert.equal((await cache.run(stage, build)).cached, true);

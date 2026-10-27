@@ -151,7 +151,8 @@ export class StageCache {
         if (restoreOutputs) {
             const matches = inputMatcher(outputs);
             if (!Object.keys(marker.outputs).every(path => matches(path) && !forbidden(path))) return false;
-            if (!this.outputStore.restore(marker.outputs, marker.files, outputPaths(this.root, outputs))) return false;
+            const current = outputHashes(this.root, outputs);
+            if (!this.outputStore.restore(marker.outputs, marker.files, Object.keys(current), current)) return false;
             for (const [path, hash] of Object.entries(marker.outputs)) {
                 const absolute = join(this.root, path);
                 byteProofs.set(absolute, {
