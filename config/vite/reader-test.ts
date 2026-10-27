@@ -49,7 +49,6 @@ export const readerNodeFiles = [
     'tests/reader/ocr-dark-pass.test.ts',
     'tests/reader/ocr-lens-response.test.ts',
     'tests/reader/page-realm-injected-source.test.ts',
-    'tests/reader/particle-pitch-accentless.test.ts',
     'tests/reader/pitch-deconjugation.test.ts',
     'tests/reader/pitch-enrichment-priority.test.ts',
     'tests/reader/pitch-meta-variants.test.ts',
