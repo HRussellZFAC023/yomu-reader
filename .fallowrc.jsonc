@@ -27,6 +27,13 @@
     // application graph.
     "scripts/check-userscript-weight.cjs",
     "scripts/check-smoke-workflow-coverage.mjs",
+    // Gate/build subprocess entry points are passed to Node by path strings.
+    "scripts/profile-gate.mjs",
+    "scripts/run-affected-tests.mjs",
+    "scripts/build-greasyfork-libraries.mjs",
+    "scripts/annotate-greasyfork-requires.cjs",
+    "scripts/check-public-docs.mjs",
+    "scripts/check-rendered-docs-locales.mts",
     // Standalone, documented Academy operations/authoring CLIs. They are
     // intentionally run directly rather than through the application graph.
     "scripts/academy-account-lifecycle-live-proof.mjs",
@@ -106,6 +113,7 @@
     // Spawned by path from tests/reader/hosted-appearance-module-build.test.ts.
     "tests/reader/helpers/hosted-appearance-module-proof.mjs",
     "tests/reader/**/*.test.ts",
+    "tests/tooling/*.test.mjs",
     "tests/academy/**/*.test.ts"
   ],
   "dynamicallyLoaded": [

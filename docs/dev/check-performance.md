@@ -1,5 +1,8 @@
 # `npm run check` performance
 
+This is the historical 2026-07/08 implementation and its measurements. See
+[current gate/cache measurements](check-speed.md) for the G-01 changes.
+
 Baseline measured 2026-07-18 on a 10-core / 32GB M-series Mac (cold worktree,
 `scripts/measure-check.mjs`), before the speed work in this doc:
 

@@ -106,6 +106,8 @@ jobs:
           node-version-file: '.nvmrc'
       - name: Restore pinned npm for release gates
         run: npm install --global npm@11.9.0
+      # CI also disables stage caching and affected-test selection: every
+      # release runs all stages and the full reader suite on this runner.
       # Releases force byte-level hashing and full academy re-sync (no memo /
       # revision-skip shortcuts) while keeping the parallel stage graph.
       - run: npm run check:release

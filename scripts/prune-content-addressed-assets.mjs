@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { rmSync, writeFileSync } from 'node:fs';
+import { readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
@@ -15,6 +15,9 @@ import {
 const ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
 const write = process.argv.includes('--write');
 const check = process.argv.includes('--check');
+const snapshotPath = process.argv.find(arg => arg.startsWith('--snapshot='))?.slice(11);
+if (snapshotPath && !check) throw new Error('Snapshots are read-only; use --check.');
+const inputs = snapshotPath ? JSON.parse(readFileSync(snapshotPath, 'utf8')) : undefined;
 if (write === check) {
     console.error('Usage: node scripts/prune-content-addressed-assets.mjs --check|--write');
     process.exit(2);
@@ -28,7 +31,7 @@ if (!shallow && write) {
     );
 }
 if (!shallow && check) {
-    const shortfall = retentionManifestShortfall(ROOT);
+    const shortfall = retentionManifestShortfall(ROOT, inputs);
     if (!shortfall.ok) {
         // Only the dangerous direction fails: an artifact history says to keep that
         // the manifest does not list could be pruned by a SHALLOW checkout, which
@@ -52,7 +55,7 @@ if (!shallow && check) {
     }
 }
 
-const before = contentAddressedRetentionReport(ROOT);
+const before = contentAddressedRetentionReport(ROOT, inputs);
 if (before.missing.length > 0) {
     console.error(`[content-retention] ${before.missing.length} supported pinned artifact(s) are missing:`);
     for (const path of before.missing) console.error(`  ${path}`);
