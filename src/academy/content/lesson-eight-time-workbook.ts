@@ -1,12 +1,6 @@
 import lessonPackage from '../../../public/academy/content/lessons/009-l1-l08.json';
 import { ACADEMY_ASSESSED_ANSWER_SUPPORT } from '../domain/activity-runtime';
-import type { SourceVocabularySheetModel } from '../minigames/source-vocabulary-sheet';
-import type {
-    TimeWorkbookModel,
-    TimeWorkbookOpeningRound,
-    TimeWorkbookRangeRound,
-    TimeWorkbookTypedRound,
-} from '../minigames/time-workbook';
+import type { TimeWorkbookModel, TimeWorkbookOpeningRound, TimeWorkbookRangeRound, TimeWorkbookTypedRound } from '../minigames/time-workbook';
 import type { LessonActivityBeat } from '../ui/lesson-activity-chapter';
 
 const PACKAGE_ID = 'l1-l08';
@@ -19,15 +13,7 @@ const GENKI_SHA256 = '6e6c804c56797542057ad96a56ed65dc0de3c90e066e67586e8cf85ce6
 const GENKI_SCRIPT_SHA256 = 'ecbac7a25b6cefdd604afda0ee11c0ac3ff177440487aadb7ebdae650def7c0b';
 const MINNA_SHA256 = '66ee6faa78f08bed1f65db00fb88681b7c7338825b4503af904b24bea4e60229';
 
-export function createLessonEightSourceVocabularyActivities(): readonly SourceVocabularySheetModel[] {
-    assertExactPackageSources();
-    return Object.freeze([
-        ...sourceVocabularyRows(CHAPTER_VOCABULARY_SHA256, 'chapter-4-1-vocabulary', 24),
-        ...sourceVocabularyRows(DAY_VOCABULARY_SHA256, 'time-expression-days', 12),
-    ]);
-}
-
-export function createLessonEightTimeWorkbookModel(): TimeWorkbookModel {
+function createLessonEightTimeWorkbookModel(): TimeWorkbookModel {
     assertExactPackageSources();
     const rangeOptions = [
         option('gogo-1', 'ごご1じ', '1 p.m.'),
@@ -268,84 +254,6 @@ function source(payloadSha256: string, sourceTitle: string, member: string, page
     });
 }
 
-function sourceVocabularyRows(
-    payloadSha256: string,
-    componentId: string,
-    expectedCount: number,
-): readonly SourceVocabularySheetModel[] {
-    const components = array(record(lessonPackage, 'l1-l08 package').components, 'l1-l08 components');
-    const component = components.map((value, index) => record(value, `component ${index}`)).find(value => {
-        const provenance = value.provenance && typeof value.provenance === 'object'
-            ? value.provenance as Record<string, unknown>
-            : null;
-        return provenance?.payloadSha256 === payloadSha256;
-    });
-    if (!component) throw new TypeError(`Missing l1-l08 vocabulary source ${payloadSha256}.`);
-    const provenance = record(component.provenance, `${componentId} provenance`);
-    const sourceId = exactText(provenance.sourceId, `${componentId} sourceId`);
-    const sourceTitle = exactText(provenance.title, `${componentId} title`);
-    const items = array(component.items, `${componentId} items`);
-    if (items.length !== expectedCount || provenance.answerVisibility !== 'after-attempt') {
-        throw new TypeError(`Unexpected ${componentId} source row count or answer policy.`);
-    }
-    return Object.freeze(items.map((value, index) => {
-        const item = record(value, `${componentId} item ${index}`);
-        const itemSource = record(item.source, `${componentId} item ${index} source`);
-        const locus = record(itemSource.locus, `${componentId} item ${index} locus`);
-        const exact = record(itemSource.exact, `${componentId} item ${index} exact`);
-        const fieldProvenance = record(itemSource.fieldProvenance, `${componentId} item ${index} field provenance`);
-        const page = positiveInteger(locus.page, `${componentId} page`);
-        const row = positiveInteger(locus.row, `${componentId} row`);
-        const sourceQuestionId = exactText(itemSource.itemId, `${componentId} item id`);
-        const words = exactText(exact.words, `${componentId} source words`);
-        const supportWords = exactText(item.normalizedStudySurface ?? item.ja, `${componentId} study words`);
-        const reading = exactText(item.reading, `${componentId} reading`);
-        const meaning = exactText(item.en, `${componentId} meaning`);
-        if (itemSource.payloadSha256 !== payloadSha256 || itemSource.title !== sourceTitle
-            || itemSource.answerVisibility !== 'after-attempt') {
-            throw new TypeError(`Unexpected ${componentId} item source identity at row ${row}.`);
-        }
-        if (index > 0) {
-            const previous = record(record(items[index - 1], `${componentId} previous item`).source, `${componentId} previous source`);
-            const previousLocus = record(previous.locus, `${componentId} previous locus`);
-            const previousPage = positiveInteger(previousLocus.page, `${componentId} previous page`);
-            const previousRow = positiveInteger(previousLocus.row, `${componentId} previous row`);
-            if (page < previousPage || (page === previousPage && row <= previousRow)) {
-                throw new TypeError(`${componentId} rows must retain exact increasing source order.`);
-            }
-        }
-        return Object.freeze({
-            id: `authored:${PACKAGE_ID}/${componentId}:p${page}:r${row}`,
-            kind: 'academy-source-vocabulary-sheet' as const,
-            sourceQuestionId,
-            conceptIds: [`concept:${PACKAGE_ID}:${componentId}:p${page}:r${row}`],
-            responseKind: 'source-vocabulary-recall' as const,
-            prompt: {
-                ja: '先生の語彙表の行を、意味を見る前に思い出しましょう。',
-                en: 'Recall the teacher-sheet row before revealing its support.',
-            },
-            answerSupport: ACADEMY_ASSESSED_ANSWER_SUPPORT,
-            provenance: {
-                packageId: PACKAGE_ID, componentId, sourceId, sourceQuestionId,
-                payloadSha256, sourceTitle, locus: { page, row },
-            },
-            payload: {
-                exact: {
-                    words,
-                    pronunciation: nullableText(exact.pronunciation, `${componentId} pronunciation`),
-                    meaning: nullableText(exact.meaning, `${componentId} source meaning`),
-                },
-                support: { words: supportWords, reading, meaning },
-                fieldProvenance: {
-                    words: exactText(fieldProvenance.words, `${componentId} words provenance`),
-                    reading: exactText(fieldProvenance.reading, `${componentId} reading provenance`),
-                    meaning: exactText(fieldProvenance.meaning, `${componentId} meaning provenance`),
-                },
-            },
-        });
-    }));
-}
-
 function assertExactPackageSources(): void {
     const root = record(lessonPackage, 'l1-l08 package');
     const identity = record(root.identity, 'l1-l08 identity');
@@ -391,14 +299,4 @@ function array(value: unknown, label: string): unknown[] {
 function exactText(value: unknown, label: string): string {
     if (typeof value !== 'string' || !value.trim()) throw new TypeError(`${label} must be non-empty text.`);
     return value;
-}
-
-function nullableText(value: unknown, label: string): string | null {
-    if (value === null) return null;
-    return exactText(value, label);
-}
-
-function positiveInteger(value: unknown, label: string): number {
-    if (!Number.isInteger(value) || Number(value) <= 0) throw new TypeError(`${label} must be a positive integer.`);
-    return Number(value);
 }

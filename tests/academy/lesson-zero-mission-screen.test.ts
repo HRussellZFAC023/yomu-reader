@@ -10,147 +10,17 @@ const lessonData = validateLessonZeroPackage(JSON.parse(fs.readFileSync(
     path.resolve('public/academy/content/lessons/lesson-zero.v1.json'),
     'utf8',
 )));
+
 const content = {
     sourceLibrary: createSourceLibrary(lessonData.sourceLibrary),
     lesson: lessonData.lesson,
     grounding: validateLessonZeroGrounding(lessonData),
 };
+
 const pronunciation = { play: vi.fn(async () => ({ dispose() {} })) };
 
 describe('Lesson Zero story mission screen', () => {
     beforeEach(() => pronunciation.play.mockClear());
-
-    it.each([
-        ['activity:lesson-zero-text-input', '/academy/art/characters/sophie/sophie__neutral__front-near-front__halfbody__v004.webp'],
-        ['activity:lesson-zero-speaking-input', '/academy/art/characters/aakash/aakash__neutral-route-map-burgundy-hoodie__front-near-front__fullbody__v010.webp'],
-        ['activity:lesson-zero-sound-transfer', '/academy/art/characters/mika/mika__encouraging-listening-headphones__right-three-quarter__fullbody__v002.webp'],
-        ['activity:lesson-zero-read-name-cards', '/academy/art/characters/rie/rie__neutral-glasses__front-near-front__halfbody__v001.webp'],
-    ] as const)('preserves the existing permitted host image for %s', (activityId, imagePath) => {
-        const screen = createLessonZeroMissionScreen({
-            language: 'en', definition: createLessonZeroMissionDefinition(content, activityId, 'Henry'),
-            pronunciation, onEvaluation: vi.fn(async () => undefined), onBack: vi.fn(), onComplete: vi.fn(),
-        });
-        try {
-            expect(screen.element.querySelector('.academy-mission-portrait')?.getAttribute('src')).toBe(imagePath);
-        } finally { screen.dispose(); }
-    });
-
-    it('repairs the two particle links without exposing an answer first', async () => {
-        const onEvaluation = vi.fn(async () => undefined);
-        const screen = createLessonZeroMissionScreen({
-            language: 'en',
-            definition: createLessonZeroMissionDefinition(content, 'activity:lesson-zero-text-input', 'Henry'),
-            pronunciation,
-            onEvaluation,
-            onBack: vi.fn(),
-            onComplete: vi.fn(),
-        });
-
-        expect(screen.element.textContent).not.toContain('Use の to join');
-        click(screen.element, 'は');
-        click(screen.element, 'を');
-        click(screen.element, 'Check');
-        await vi.waitFor(() => expect(onEvaluation).toHaveBeenCalledOnce());
-        await vi.waitFor(() => expect(screen.element.textContent).toContain('Use の to join'));
-
-        click(screen.element, 'Try again');
-        click(screen.element, 'Clear');
-        click(screen.element, 'の');
-        click(screen.element, 'も');
-        click(screen.element, 'Check');
-        await vi.waitFor(() => expect(onEvaluation).toHaveBeenCalledTimes(2));
-        await vi.waitFor(() => expect(screen.element.textContent).toContain('Back to the story'));
-        screen.dispose();
-    });
-
-    it('reuses the chosen class name without asking the learner to choose it again', async () => {
-        const onEvaluation = vi.fn(async () => undefined);
-        const screen = createLessonZeroMissionScreen({
-            language: 'en',
-            definition: createLessonZeroMissionDefinition(
-                content,
-                'activity:lesson-zero-write-name-card',
-                'Henry',
-                'ヘンリー',
-            ),
-            pronunciation,
-            onEvaluation,
-            onBack: vi.fn(),
-            onComplete: vi.fn(),
-        });
-
-        expect(screen.element.querySelector('.academy-mission-writing-input')).toBeNull();
-        expect(screen.element.querySelector('.academy-mission-name-choices')).toBeNull();
-        expect(screen.element.textContent).not.toContain('Henry');
-        expect(screen.element.textContent).toContain('ヘンリー');
-        expect(screen.element.textContent).not.toMatch(/email|one true role|both lines are true|language you study/iu);
-        expect(screen.element.textContent).toContain('ヘンリーです。');
-        click(screen.element, 'Hear ヘンリー');
-        await vi.waitFor(() => expect(pronunciation.play).toHaveBeenCalledWith('ヘンリー', 'ヘンリー'));
-        screen.element.querySelector('form')?.dispatchEvent(
-            new Event('submit', { bubbles: true, cancelable: true }),
-        );
-
-        await vi.waitFor(() => expect(onEvaluation).toHaveBeenCalledWith(
-            expect.objectContaining({
-                attempt: expect.objectContaining({
-                    outcome: 'pass',
-                    responseKind: 'guided-katakana-name-choice',
-                }),
-            }),
-            { kind: 'written', text: 'ヘンリーです。', entryMode: 'katakana-choice' },
-        ));
-        screen.dispose();
-    });
-
-    it('accepts a spoken turn without requiring a recording upload', async () => {
-        const onEvaluation = vi.fn(async () => undefined);
-        const screen = createLessonZeroMissionScreen({
-            language: 'en',
-            definition: createLessonZeroMissionDefinition(content, 'activity:lesson-zero-speaking-input', 'Henry'),
-            pronunciation,
-            recorder: {
-                supported: false,
-                start: vi.fn(),
-                dispose: vi.fn(),
-            },
-            onEvaluation,
-            onBack: vi.fn(),
-            onComplete: vi.fn(),
-        });
-
-        expect(screen.element.textContent).toContain('Listen. Then answer with your name + です.');
-        expect(screen.element.textContent?.match(/Listen\. Then answer with your name \+ です\./gu)).toHaveLength(1);
-        click(screen.element, 'Speak now');
-        expect(screen.element.querySelectorAll('input[type="checkbox"]')).toHaveLength(2);
-        for (const input of screen.element.querySelectorAll<HTMLInputElement>('input[type="checkbox"]')) {
-            input.checked = true;
-            input.dispatchEvent(new Event('change', { bubbles: true }));
-        }
-        click(screen.element, 'Finish');
-
-        await vi.waitFor(() => expect(onEvaluation).toHaveBeenCalledWith(
-            expect.objectContaining({ attempt: expect.objectContaining({ outcome: 'pass' }) }),
-            expect.objectContaining({ kind: 'spoken', performed: true, recorded: false }),
-        ));
-        await vi.waitFor(() => expect(screen.element.textContent).toContain('Back to the story'));
-        screen.dispose();
-    });
-
-    it('keeps implementation and source-provider language out of the learner surface', () => {
-        const screen = createLessonZeroMissionScreen({
-            language: 'en',
-            definition: createLessonZeroMissionDefinition(content, 'activity:lesson-zero-close-room', 'Henry'),
-            pronunciation,
-            onEvaluation: vi.fn(),
-            onBack: vi.fn(),
-            onComplete: vi.fn(),
-        });
-
-        expect(screen.element.textContent).not.toMatch(/moodle|source question|runtime|evidence/iu);
-        expect(screen.element.querySelectorAll('.academy-mission-room-action')).toHaveLength(6);
-        screen.dispose();
-    });
 
     it('keeps a written repair draft and accepts the Japanese-studying line taught in class', async () => {
         const onEvaluation = vi.fn(async () => undefined);

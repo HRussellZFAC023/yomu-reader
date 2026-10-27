@@ -1,34 +1,7 @@
-import {
-    ACADEMY_ASSESSED_ANSWER_SUPPORT,
-    createActivityRuntime,
-    type ActivityController,
-    type ActivityEvaluation,
-    type ActivityHost,
-    type ActivityPlugin,
-    type GradeResult,
-    type ReviewSeed,
-    type ValidationIssue,
-} from '../../domain/activity-runtime';
-import {
-    assessedJapanese,
-    gradeFromScore,
-    japanese,
-    localized,
-    localizedNodes,
-    setPending,
-    showEvaluation,
-    statusRegion,
-    text,
-    validateFeedback,
-    validatePassScore,
-} from '../../minigames/activity-kit/shared';
+import { ACADEMY_ASSESSED_ANSWER_SUPPORT, type ActivityController, type ActivityEvaluation, type ActivityHost, type ActivityPlugin, type GradeResult, type ReviewSeed, type ValidationIssue } from '../../domain/activity-runtime';
+import { assessedJapanese, gradeFromScore, japanese, localized, localizedNodes, setPending, showEvaluation, statusRegion, text, validateFeedback, validatePassScore } from '../../minigames/activity-kit/shared';
 import { N1_SOUND_DISCRIMINATION_PROVENANCE } from './source';
-import {
-    N1_SOUND_DISCRIMINATION_ACTIVITY_KIND,
-    type N1SoundDiscriminationModel,
-    type N1SoundDiscriminationQuestion,
-    type N1SoundDiscriminationResponse,
-} from './types';
+import { N1_SOUND_DISCRIMINATION_ACTIVITY_KIND, type N1SoundDiscriminationModel, type N1SoundDiscriminationQuestion, type N1SoundDiscriminationResponse } from './types';
 
 export const n1SoundDiscriminationPlugin: ActivityPlugin<N1SoundDiscriminationModel, N1SoundDiscriminationResponse> = {
     kind: N1_SOUND_DISCRIMINATION_ACTIVITY_KIND,
@@ -37,10 +10,6 @@ export const n1SoundDiscriminationPlugin: ActivityPlugin<N1SoundDiscriminationMo
     grade: gradeN1SoundDiscrimination,
     toReviewSeeds: n1SoundDiscriminationReviewSeeds,
 };
-
-export function createN1SoundDiscriminationRuntime() {
-    return createActivityRuntime([n1SoundDiscriminationPlugin]);
-}
 
 export function validateN1SoundDiscrimination(model: N1SoundDiscriminationModel): readonly ValidationIssue[] {
     const issues: ValidationIssue[] = [];

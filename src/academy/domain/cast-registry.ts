@@ -1,11 +1,11 @@
 export type CastCategory = 'teacher' | 'classmate' | 'extended-member' | 'textbook-legend';
-export type VisualEvidenceStatus =
+type VisualEvidenceStatus =
     | 'approved'
     | 'candidate-needs-owner'
     | 'reference-confirmed-neutral-pending'
     | 'missing';
 
-export interface CastEligibility {
+interface CastEligibility {
     readonly story: boolean;
     readonly lessons: boolean;
     readonly likenessRuntime: boolean;
@@ -208,7 +208,7 @@ export function displayAcademyCastName(id: string, language: 'en' | 'ja'): strin
     return `${member.preferredName ?? member.firstName}-san`;
 }
 
-export type AcademyCastPortraitUse = 'story-runtime' | 'journal-review-preview';
+type AcademyCastPortraitUse = 'story-runtime' | 'journal-review-preview';
 
 /**
  * Likeness approval remains a hard story-scene gate. A named journal may show
@@ -220,12 +220,4 @@ export function canRenderAcademyCastPortrait(id: string, use: AcademyCastPortrai
     if (!member.eligibility.story) return false;
     if (use === 'story-runtime') return member.eligibility.likenessRuntime;
     return member.visualEvidence !== 'missing';
-}
-
-export function validateAcademyCastReference(reference: Readonly<{ id: string; firstName: string }>): AcademyCastMember {
-    const member = getAcademyCastMember(reference.id);
-    if (reference.firstName !== member.firstName) {
-        throw new TypeError(`Academy cast name mismatch for ${reference.id}: expected ${member.firstName}.`);
-    }
-    return member;
 }

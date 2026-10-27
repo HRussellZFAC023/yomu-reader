@@ -1,3 +1,7 @@
+import { createLessonFortyThreeMessageHandoffBeat } from '../../src/academy/content/lesson-forty-three-message-handoff';
+import { registeredGradingModels } from './helpers/plugin-grading-models';
+import { passingGradingResponse, missedGradingResponses } from './helpers/grading-response';
+import type { ActivityModel } from '../../src/academy/domain/activity-runtime';
 import fs from 'node:fs';
 import path from 'node:path';
 import { ACADEMY_ASSESSED_ANSWER_SUPPORT, type GradeResult } from '../../src/academy/domain/activity-runtime';
@@ -19,7 +23,7 @@ import {
     LESSON_ACTIVITY_CHAPTER_PACKAGES,
     loadReachableLessonActivityChapter,
 } from '../../src/academy/content/lesson-activity-catalog';
-import { createAcademyActivityRuntime } from '../../src/academy/minigames';
+import { ACADEMY_ACTIVITY_PLUGINS, createAcademyActivityRuntime } from '../../src/academy/minigames';
 import type { KanjiWritingModel, KanjiWritingService } from '../../src/academy/integration/yomu-bridge';
 import { createReachableLessonActivityExtension } from '../../src/academy/ui/lesson-activity-chapter';
 import { createAuthoredWeekScreen } from '../../src/academy/ui/authored-week-screen';
@@ -218,3 +222,68 @@ function evaluation(outcome: GradeResult['outcome']): AuthoredChoiceEvaluation {
 function localized(en: string) {
     return { en, ja: `JA ${en}` };
 }
+
+
+describe('every registered activity plugin preserves grading and SRS policy', () => {
+    let models: readonly ActivityModel[];
+    beforeAll(async () => { models = await registeredGradingModels(); });
+    it.each(ACADEMY_ACTIVITY_PLUGINS)('$kind grades a pass and a miss with its SRS policy', plugin => {
+        const model = models.find(candidate => candidate.kind === plugin.kind);
+        expect(model, `No grading model for registered plugin ${plugin.kind}`).toBeDefined();
+        const runtime = createAcademyActivityRuntime();
+        expect(runtime.validate(model!)).toEqual([]);
+        const response = passingGradingResponse(model!);
+        const pass = runtime.evaluate(model!, response);
+        expect(pass.result, plugin.kind).toMatchObject({ outcome: 'pass', score: 1 });
+        let current = response;
+        let lowestScore = 1;
+        let missed;
+        for (let round = 0; round < 30 && !missed; round += 1) {
+            let improved = false;
+            for (const candidate of missedGradingResponses(model!, current)) {
+                try {
+                    const evaluation = runtime.evaluate(model!, candidate);
+                    if (evaluation.result.outcome === 'lapse'
+                        && (plugin.kind === 'kanji-writing' || evaluation.reviewSeeds.some(seed => seed.reason === 'repair'))) {
+                        missed = evaluation;
+                        break;
+                    }
+                    if (evaluation.result.score < lowestScore) {
+                        current = candidate;
+                        lowestScore = evaluation.result.score;
+                        improved = true;
+                        break;
+                    }
+                } catch (error) {
+                    if (!(error instanceof TypeError)) throw error;
+                }
+            }
+            if (!improved) break;
+        }
+        expect(missed, `No accepted miss for ${plugin.kind}`).toBeDefined();
+        // Handwriting schedules only a completed writing attempt. A failed
+        // stroke must never create a canonical card (the plugin has no repair seed).
+        if (plugin.kind === 'kanji-writing') {
+            expect(pass.reviewSeeds).toHaveLength(1);
+            expect(missed!.reviewSeeds).toEqual([]);
+        } else {
+            expect(missed!.reviewSeeds.some(seed => seed.reason === 'repair'), plugin.kind).toBe(true);
+        }
+    });
+});
+
+
+describe('retired Lesson 43 answer sheet regression (32797b44d)', () => {
+    it('keeps the answer-key image out of the source inspector and offline shell', () => {
+        const activity = createLessonFortyThreeMessageHandoffBeat().activity;
+        const host = document.createElement('main');
+        const controller = createAcademyActivityRuntime().mount(activity, {
+            replace(view) { host.replaceChildren(view); }, announce() {},
+        }, () => {});
+        expect(host.querySelector('.academy-state-inspection-answer-source')).toBeNull();
+        for (const worker of ['public/academy/sw.js', 'docs/public/academy/sw.js']) {
+            expect(fs.readFileSync(worker, 'utf8')).not.toContain('moodle-chapter-30-answer-1.png');
+        }
+        controller.dispose();
+    });
+});

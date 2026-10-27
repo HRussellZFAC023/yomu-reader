@@ -2,7 +2,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { validateLessonZeroGrounding } from '../../src/academy/content/lesson-zero-grounding';
 import { validateLessonZeroPackage } from '../../src/academy/content/lesson-zero-validator';
-import { createLessonOverviewModel } from '../../src/academy/domain/lesson-overview';
+import { createLessonOverviewModel, type LessonOverviewModel } from '../../src/academy/domain/lesson-overview';
+import { renderLessonOverviewScreen } from '../../src/academy/ui/lesson-overview-screen';
 
 function lessonZero() {
     const value = JSON.parse(fs.readFileSync(path.resolve('public/academy/content/lessons/lesson-zero.v1.json'), 'utf8'));
@@ -81,5 +82,87 @@ describe('lesson overview model', () => {
             completedActivityIds: new Set([activityId]),
             needsReviewActivityIds: empty(),
         })).toThrow(/no attempt evidence/i);
+    });
+});
+
+describe('lesson-overview-screen behavior', () => {
+    function overview(boundActivityIds = new Set<string>()): LessonOverviewModel {
+        const value = JSON.parse(fs.readFileSync(path.resolve('public/academy/content/lessons/lesson-zero.v1.json'), 'utf8'));
+        const data = validateLessonZeroPackage(value);
+        return createLessonOverviewModel(data.lesson, validateLessonZeroGrounding(value), {
+            boundActivityIds,
+            attemptedActivityIds: new Set(),
+            completedActivityIds: new Set(),
+            needsReviewActivityIds: new Set(),
+        });
+    }
+
+    describe('lesson overview screen', () => {
+
+        it('uses only approved likeness art for the complete lesson roster', () => {
+            const screen = renderLessonOverviewScreen({
+                language: 'en',
+                model: overview(),
+                onBack: vi.fn(),
+                onOpenActivity: vi.fn(),
+            });
+
+            expect(screen.querySelector('[data-cast-id="rie"] img')?.getAttribute('src'))
+                .toBe('/academy/art/characters/rie/rie__neutral-glasses__front-near-front__halfbody__v001.webp');
+            expect(screen.querySelector('[data-cast-id="rie"] picture.academy-sprite')).not.toBeNull();
+            expect(screen.querySelector('[data-cast-id="rie"]')?.getAttribute('data-portrait-status')).toBe('approved');
+            expect(screen.querySelectorAll('[data-portrait-status="unavailable"]')).toHaveLength(0);
+            expect(screen.querySelector<HTMLImageElement>('[data-cast-id="xingyu"] img')?.src)
+                .toContain('/academy/art/characters/xingyu/xingyu__neutral-short-hair-round-glasses__front-near-front__fullbody__v002.webp');
+            expect(screen.querySelector<HTMLImageElement>('[data-cast-id="mika"] img')?.src)
+                .toContain('/academy/art/characters/mika/mika__neutral-headphones__front-near-front__fullbody__v002.webp');
+            expect(screen.querySelector('[data-cast-id="sophie"] img')).not.toBeNull();
+            expect(screen.querySelector('[data-cast-id="aakash"]')?.getAttribute('data-portrait-status')).toBe('approved');
+            expect(screen.querySelector<HTMLImageElement>('[data-cast-id="aakash"] img')?.src)
+                .toContain('/academy/art/characters/aakash/aakash__neutral-route-map-burgundy-hoodie__front-near-front__fullbody__v010.webp');
+        });
+
+        it('does not expose activity actions while academic grounding remains blocked', () => {
+            const screen = renderLessonOverviewScreen({
+                language: 'en',
+                model: overview(new Set(['activity:lesson-zero-reconstruct-repair'])),
+                onBack: vi.fn(),
+                onOpenActivity: vi.fn(),
+            });
+
+            expect(screen.dataset.releaseStatus).toBe('review-blocked');
+            expect(screen.querySelector('.academy-lesson-overview-section-action')).toBeNull();
+        });
+
+        it('opens the selected authored activity once the complete lesson is playable', () => {
+            const open = vi.fn();
+            const blocked = overview(new Set(['activity:lesson-zero-reconstruct-repair']));
+            const model = { ...blocked, releaseStatus: 'playable' as const, blockerIds: [] };
+            const screen = renderLessonOverviewScreen({
+                language: 'ja',
+                model,
+                onBack: vi.fn(),
+                onOpenActivity: open,
+            });
+            const action = screen.querySelector<HTMLButtonElement>('.academy-lesson-overview-section-action');
+
+            expect(action?.textContent).toBe('始める');
+            expect(action?.dataset.actionPriority).toBe('primary');
+            expect(screen.querySelectorAll('[data-action-priority="primary"]')).toHaveLength(1);
+            action?.click();
+            expect(open).toHaveBeenCalledWith('activity:lesson-zero-reconstruct-repair');
+        });
+
+        it('returns to Class without changing lesson evidence', () => {
+            const back = vi.fn();
+            const screen = renderLessonOverviewScreen({
+                language: 'en',
+                model: overview(),
+                onBack: back,
+                onOpenActivity: vi.fn(),
+            });
+            screen.querySelector<HTMLButtonElement>('.academy-lesson-overview-back')?.click();
+            expect(back).toHaveBeenCalledOnce();
+        });
     });
 });

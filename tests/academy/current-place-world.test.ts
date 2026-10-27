@@ -2,21 +2,10 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { ACADEMY_ASSETS, ACADEMY_LIKENESS_CLEARED_CAST_IDS } from '../../src/academy/assets';
 import { canRenderAcademyCastPortrait } from '../../src/academy/domain/cast-registry';
-import {
-    displayWorldPersonName,
-    markWorldVisit,
-    projectWorldPlace,
-    WORLD_PLACE_IDS,
-    WORLD_TIME_PHASE_LABELS,
-    worldRegions,
-    worldLocationIntroduction,
-    worldStamp,
-    worldTimePhase,
-    worldTimePhaseLabel,
-    type WorldPlaceId,
-} from '../../src/academy/domain/world-locations';
+import { displayWorldPersonName, markWorldVisit, projectWorldPlace, WORLD_PLACE_IDS, WORLD_TIME_PHASE_LABELS, worldRegions, worldLocationIntroduction, worldStamp, worldTimePhase, worldTimePhaseLabel, type WorldPlaceId, type WorldProgress, worldRouteForPlace } from '../../src/academy/domain/world-locations';
 import { renderWorldPlaceScreen } from '../../src/academy/ui/world-screen';
 import { worldChoiceButton, worldChoiceButtonByLabel } from './helpers/world-choice';
+import { themeForRoute } from '../../src/academy/routing/contract';
 
 const ALL_PLACES: readonly WorldPlaceId[] = [
     'courtyard', 'classroom', 'library', 'cafe', 'lab', 'street', 'station', 'konbini', 'ramen', 'japan-centre', 'home', 'park', 'station-platform',
@@ -1789,5 +1778,595 @@ describe('Academy current-place world', () => {
         });
         cafe.querySelector<HTMLButtonElement>('[data-exit-to="return"]')?.click();
         expect(onBack).toHaveBeenCalledOnce();
+    });
+});
+
+describe('ramen-world behavior', () => {
+    const PROGRESS: WorldProgress = {
+        completedScenes: [],
+        completedEncounterIds: [],
+        metCharacterIds: ['rie', 'shin'],
+        seenIntroductions: ['place:ramen'],
+    };
+
+    describe('ramen world', () => {
+        beforeEach(() => document.body.replaceChildren());
+
+        it('provides semantic quantity groups and a transcript fallback when speech fails', async () => {
+            const screen = renderRamen({ onListen: vi.fn(async () => { throw new Error('speech unavailable'); }) });
+            document.body.append(screen);
+            const practice = screen.querySelector<HTMLElement>('[data-ramen-practice="tally-source-order"]')!;
+            const listen = practice.querySelector<HTMLButtonElement>('[data-world-listen]')!;
+            const transcript = practice.querySelector<HTMLElement>('.academy-world-transcript')!;
+
+            expect(practice.getAttribute('aria-labelledby')).toBeTruthy();
+            expect(practice.getAttribute('aria-describedby')).toBeTruthy();
+            expect(practice.hasAttribute('data-jpdb-reader-surface-ignore')).toBe(true);
+            expect(practice.querySelectorAll('fieldset.academy-ramen-order-row')).toHaveLength(3);
+            expect(practice.querySelectorAll('fieldset > legend')).toHaveLength(3);
+            practice.querySelectorAll<HTMLButtonElement>('[data-choice-id]').forEach(button => {
+                expect(button.type).toBe('button');
+                expect(button.getAttribute('aria-pressed')).toBe('false');
+            });
+
+            listen.click();
+            expect(listen.getAttribute('aria-busy')).toBe('true');
+            await vi.waitFor(() => expect(listen.getAttribute('aria-busy')).toBe('false'));
+            expect(listen.disabled).toBe(false);
+            expect(transcript.hidden).toBe(false);
+            expect(practice.textContent).toContain('Audio is unavailable, so the transcript is shown.');
+        });
+    });
+
+    function renderRamen(overrides: Partial<Parameters<typeof renderWorldPlaceScreen>[0]> = {}): HTMLElement {
+        return renderWorldPlaceScreen({
+            language: 'en',
+            place: 'ramen',
+            route: 'ramen',
+            progress: PROGRESS,
+            onTravel: vi.fn(),
+            onActivity: vi.fn(),
+            onClaimStamp: vi.fn(),
+            ...overrides,
+        });
+    }
+});
+
+describe('station-world behavior', () => {
+    const PROGRESS = {
+        completedScenes: [],
+        completedEncounterIds: [],
+        metCharacterIds: ['aakash'],
+        seenIntroductions: ['place:station'],
+        worldVisits: { station: 1 },
+    } as const;
+
+    afterEach(() => {
+        document.body.replaceChildren();
+        vi.restoreAllMocks();
+    });
+
+    describe('Station world presentation', () => {
+        it('presents one departure-board action with phase, character, ticket, music, exits, and Back', () => {
+            const onBack = vi.fn();
+            const onTravel = vi.fn();
+            const onToggleAudio = vi.fn(() => true);
+            const screen = renderWorldPlaceScreen({
+                language: 'en', place: 'station', route: 'station', progress: PROGRESS,
+                onTravel, onActivity: vi.fn(), onClaimStamp: vi.fn(), onBack, onToggleAudio,
+            });
+
+            expect(screen.querySelector('picture source')?.getAttribute('media')).toBe('(max-width: 700px)');
+            expect(screen.querySelector('.academy-world-phase')?.textContent).toMatch(/Day 1/);
+            expect(screen.querySelectorAll('[data-station-primary-action]')).toHaveLength(1);
+            expect(screen.querySelector('[data-station-primary-action]')?.textContent).toBe('Listen to announcement');
+            expect(screen.querySelector('[data-world-character="aakash"]')).not.toBeNull();
+            expect(screen.querySelector('[data-world-character="aakash"] .academy-sprite')).not.toBeNull();
+            expect(screen.querySelector('[data-world-character="aakash"] .academy-world-character-silhouette')).toBeNull();
+            expect(screen.querySelector('[data-item-asset-id="item.station-ticket"] img')).not.toBeNull();
+            expect(screen.querySelectorAll('[data-exit-slot]')).toHaveLength(4);
+            expect(themeForRoute('station')).toBe('world.station');
+
+            const ambience = screen.querySelector<HTMLButtonElement>('[data-world-object="station-platform-sound"]')!;
+            expect(ambience.getAttribute('aria-pressed')).toBe('true');
+            ambience.click();
+            expect(onToggleAudio).toHaveBeenCalledOnce();
+
+            screen.querySelector<HTMLButtonElement>('.academy-world-back')?.click();
+            expect(onBack).toHaveBeenCalledOnce();
+            screen.querySelector<HTMLButtonElement>('[data-location="street"]')?.click();
+            expect(onTravel).toHaveBeenCalledWith('street');
+        });
+
+        it('turns Listen into replay without adding a second primary action', async () => {
+            const onListen = vi.fn(async () => true);
+            const screen = renderWorldPlaceScreen({
+                language: 'en', place: 'station', route: 'station', progress: PROGRESS,
+                onTravel: vi.fn(), onActivity: vi.fn(), onClaimStamp: vi.fn(), onListen,
+            });
+            const practice = screen.querySelector<HTMLElement>('[data-world-practice]')!;
+            const board = screen.querySelector<HTMLElement>('.academy-world-station-board')!;
+            const action = screen.querySelector<HTMLButtonElement>('[data-station-primary-action]')!;
+
+            action.click();
+            await Promise.resolve();
+            expect(board.dataset.listeningStarted).toBe('true');
+            expect(board.dataset.listeningState).toBe('replay');
+            expect(action.dataset.stationPrimaryAction).toBe('replay');
+            expect(action.textContent).toBe('Replay announcement');
+            expect(screen.querySelectorAll('[data-station-primary-action]')).toHaveLength(1);
+            expect(practice.querySelector<HTMLElement>('.academy-world-transcript')?.hidden).toBe(false);
+            expect(practice.querySelector<HTMLElement>('.academy-world-practice-options')?.hidden).toBe(false);
+
+            action.click();
+            await Promise.resolve();
+            expect(onListen).toHaveBeenCalledTimes(2);
+        });
+
+        it('keeps the announcement semantics named and records completion once', async () => {
+            const onPracticeComplete = vi.fn();
+            const screen = renderWorldPlaceScreen({
+                language: 'en', place: 'station', route: 'station', progress: PROGRESS,
+                onTravel: vi.fn(), onActivity: vi.fn(), onClaimStamp: vi.fn(), onPracticeComplete,
+            });
+            document.body.append(screen);
+            const board = screen.querySelector<HTMLElement>('.academy-world-station-board')!;
+            expect(board.getAttribute('aria-label')).toBe('Station announcement');
+            expect(board.querySelector('[role="status"][aria-live="polite"]')).not.toBeNull();
+            expect(board.querySelector('[role="group"][aria-label="Choose an answer"]')).not.toBeNull();
+            board.querySelector<HTMLButtonElement>('[data-station-primary-action]')?.click();
+            await Promise.resolve();
+
+            const correct = worldChoiceButtonByLabel(board, 'コンビニ')!;
+            correct.click();
+            correct.click();
+            expect(onPracticeComplete).toHaveBeenCalledTimes(1);
+            expect(onPracticeComplete).toHaveBeenCalledWith(
+                'station-counter-location',
+                'action:world-stamp:station',
+                expect.objectContaining({
+                    attempt: expect.objectContaining({ responseKind: 'world-listening-choice', outcome: 'pass' }),
+                }),
+            );
+
+            const controls = [...board.querySelectorAll<HTMLButtonElement>('button')];
+            expect(controls.every(button => Boolean(button.getAttribute('aria-label') || button.textContent?.trim()))).toBe(true);
+        });
+    });
+});
+
+describe('stream3-accessibility behavior', () => {
+    const progress = {
+        completedScenes: ['scene:arrival'],
+        completedEncounterIds: ['encounter:arrival'],
+        metCharacterIds: ['rie', 'aakash', 'felix'],
+        worldVisits: { courtyard: 1, classroom: 1 },
+    } as const;
+
+    describe('Stream 3 Academy accessibility', () => {
+        it('keeps the shell as the only main landmark and navigation taps out of lookup', () => {
+            const screen = renderWorldPlaceScreen({
+                language: 'en',
+                place: 'courtyard',
+                route: 'campus',
+                progress,
+                onTravel: vi.fn(),
+                onActivity: vi.fn(),
+                onClaimStamp: vi.fn(),
+            });
+
+            const stage = screen.querySelector<HTMLElement>('.academy-world-stage')!;
+            const exits = [...screen.querySelectorAll<HTMLButtonElement>('.academy-world-exit')];
+            expect(stage.tagName).toBe('DIV');
+            expect(screen.querySelector('main')).toBeNull();
+            expect(exits.length).toBeGreaterThan(0);
+            expect(exits.every(exit => exit.dataset.jpdbReaderSurfaceIgnore === '')).toBe(true);
+        });
+    });
+});
+
+describe('tube-platform-world behavior', () => {
+    const FIRST_VISIT = {
+        completedScenes: [],
+        completedEncounterIds: [],
+        metCharacterIds: ['aakash'],
+        seenIntroductions: [],
+        worldVisits: { 'station-platform': 0 },
+    } as const;
+
+    afterEach(() => {
+        document.body.replaceChildren();
+        vi.restoreAllMocks();
+    });
+
+    describe('Academy Tube platform world', () => {
+        it('projects permitted Moodle material with bounded Minna and Genki support across replay visits', () => {
+            const first = projectWorldPlace('station-platform', FIRST_VISIT);
+            const replay = projectWorldPlace('station-platform', {
+                ...FIRST_VISIT,
+                worldVisits: { 'station-platform': 1 },
+            });
+
+            expect(first.practice).toMatchObject({
+                id: 'tube-platform-usual-thirty',
+                audioLine: 'いつも ちかてつで ３０ぷん だけ です。',
+                correctChoiceId: 'tube-30',
+                source: {
+                    primary: {
+                        corpus: 'moodle',
+                        relation: 'source-sequenced-adaptation',
+                        sourceId: expect.stringContaining('short-dialogues-2:item-1'),
+                    },
+                    supports: [
+                        expect.objectContaining({ corpus: 'minna', relation: 'sequence-only' }),
+                        expect.objectContaining({ corpus: 'genki', relation: 'sequence-only' }),
+                    ],
+                },
+            });
+            expect(replay.practice).toMatchObject({
+                id: 'tube-platform-usual-fifteen',
+                audioLine: 'いつも ちかてつで １５ぷん だけ です。',
+                correctChoiceId: 'tube-15',
+                source: { primary: { sourceId: expect.stringContaining('short-dialogues-2:item-2') } },
+            });
+        });
+
+        it('stages a consent-safe first visit before revealing one auditory route task', async () => {
+            const onIntroductionComplete = vi.fn();
+            const onListen = vi.fn(async () => true);
+            const onPracticeComplete = vi.fn();
+            const screen = renderWorldPlaceScreen({
+                language: 'en', place: 'station-platform', route: 'world', progress: FIRST_VISIT,
+                onTravel: vi.fn(), onActivity: vi.fn(), onClaimStamp: vi.fn(),
+                onIntroductionComplete, onListen, onPracticeComplete,
+            });
+            document.body.append(screen);
+
+            const arrival = screen.querySelector<HTMLElement>('[data-world-arrival-dialogue="place:station-platform"]')!;
+            const purpose = screen.querySelector<HTMLElement>('.academy-tube-route-board')!;
+            const aakash = screen.querySelector<HTMLElement>('[data-world-character="aakash"]')!;
+            expect(arrival.textContent).toContain('usual Tube journey');
+            expect(purpose.hidden).toBe(true);
+            expect(aakash.dataset.presence).toBe('waiting-by-platform-map');
+            expect(aakash.querySelector('.academy-world-character-silhouette')).toBeNull();
+            expect(aakash.querySelector('img')).not.toBeNull();
+            expect(screen.querySelectorAll('[data-tube-primary-action]')).toHaveLength(1);
+            expect(screen.querySelector('.academy-world-curriculum')).toBeNull();
+            expect(screen.querySelector('[data-world-stamp]')).toBeNull();
+
+            arrival.querySelector<HTMLButtonElement>('.academy-world-arrival-continue')!.click();
+            expect(onIntroductionComplete).toHaveBeenCalledWith('place:station-platform');
+            expect(purpose.hidden).toBe(false);
+            expect(purpose.dataset.tubeMusicTheme).toBe('challenge.major');
+            expect(purpose.dataset.tubeSignalCue).toBe('radio.tune');
+            expect(purpose.dataset.sourceCorpus).toBe('moodle');
+
+            const listen = purpose.querySelector<HTMLButtonElement>('[data-tube-primary-action="listen"]')!;
+            listen.click();
+            await Promise.resolve();
+            expect(onListen).toHaveBeenCalledWith('いつも ちかてつで ３０ぷん だけ です。');
+            expect(listen.dataset.tubePrimaryAction).toBe('replay');
+            expect(purpose.querySelector<HTMLElement>('.academy-tube-transcript')?.hidden).toBe(false);
+            expect(purpose.querySelector<HTMLElement>('.academy-tube-route-options')?.hidden).toBe(false);
+
+            worldChoiceButtonByLabel(purpose, 'バス　２時間')!.click();
+            expect(purpose.querySelector('[role="status"]')?.textContent).toContain('usual route');
+            worldChoiceButtonByLabel(purpose, '地下鉄　３０分')!.click();
+            expect(onPracticeComplete).toHaveBeenCalledOnce();
+            expect(onPracticeComplete).toHaveBeenCalledWith(
+                'tube-platform-usual-thirty',
+                'action:world-stamp:station-platform',
+                expect.objectContaining({ attempt: expect.objectContaining({ sourceQuestionId: 'l1-l21/ex-l21-a46-strike-example' }) }),
+            );
+        });
+
+        it('keeps exits, Back, sound, labels, and replay state operable', () => {
+            const onTravel = vi.fn();
+            const onBack = vi.fn();
+            const onToggleAudio = vi.fn(() => true);
+            const screen = renderWorldPlaceScreen({
+                language: 'en', place: 'station-platform', route: 'world',
+                progress: { ...FIRST_VISIT, seenIntroductions: ['place:station-platform'], worldVisits: { 'station-platform': 1 } },
+                onTravel, onActivity: vi.fn(), onClaimStamp: vi.fn(), onBack, onToggleAudio,
+            });
+            document.body.append(screen);
+
+            const purpose = screen.querySelector<HTMLElement>('.academy-tube-route-board')!;
+            expect(purpose.dataset.tubeReplay).toBe('true');
+            expect(purpose.textContent).toContain('Return replay');
+            expect(screen.querySelectorAll('[data-exit-slot]')).toHaveLength(2);
+            screen.querySelector<HTMLButtonElement>('[data-location="station"]')!.click();
+            expect(onTravel).toHaveBeenCalledWith('station');
+            screen.querySelector<HTMLButtonElement>('.academy-world-back')!.click();
+            expect(onBack).toHaveBeenCalledOnce();
+            screen.querySelector<HTMLButtonElement>('[data-world-object="tube-platform-signal"]')!.click();
+            expect(onToggleAudio).toHaveBeenCalledOnce();
+
+            const namedControls = [...screen.querySelectorAll<HTMLButtonElement>('button')].every(button => (
+                Boolean(button.getAttribute('aria-label') || button.textContent?.trim())
+            ));
+            expect(namedControls).toBe(true);
+            expect(purpose.getAttribute('aria-label')).toBe('Tube route announcement');
+            expect(purpose.querySelector('[role="group"][aria-label="Choose the route you heard"]')).not.toBeNull();
+            expect(purpose.querySelector('[role="status"][aria-live="polite"]')).not.toBeNull();
+        });
+    });
+});
+
+describe('world-bookshop behavior', () => {
+    const progress = {
+        completedScenes: [],
+        completedEncounterIds: [],
+        metCharacterIds: ['sophie'],
+    };
+
+    afterEach(() => {
+        document.body.replaceChildren();
+        vi.restoreAllMocks();
+    });
+
+    describe('Bookshop world', () => {
+        it('turns a first visit into a grounded catalogue search and availability question', async () => {
+            const onIntroductionComplete = vi.fn();
+            const onPracticeComplete = vi.fn();
+            const onListen = vi.fn(async () => true);
+            const screen = renderWorldPlaceScreen({
+                language: 'en', place: 'bookshop', route: 'world', progress,
+                onTravel: vi.fn(), onActivity: vi.fn(), onClaimStamp: vi.fn(),
+                onIntroductionComplete, onPracticeComplete, onListen,
+            });
+            document.body.append(screen);
+
+            expect(screen.dataset.plate).toBe('bookshop');
+            expect(screen.querySelector<HTMLImageElement>('.academy-background img')?.src).toContain('bookshop__rain-evening-shelves--wide.webp');
+
+            const arrival = screen.querySelector<HTMLButtonElement>('.academy-world-arrival-continue')!;
+            expect(arrival.parentElement?.textContent).toContain('Are you looking for a dictionary?');
+            arrival.click();
+            expect(onIntroductionComplete).toHaveBeenCalledWith('place:bookshop');
+
+            const catalogue = screen.querySelector<HTMLElement>('[data-bookshop-catalogue]')!;
+            const search = catalogue.querySelector<HTMLInputElement>('input[type="search"]')!;
+            expect(catalogue.dataset.bookshopPhase).toBe('browse');
+            expect(catalogue.querySelector('.academy-bookshop-catalogue-results')?.hasAttribute('role')).toBe(false);
+            expect(catalogue.querySelector('[data-catalogue-entry]')?.hasAttribute('role')).toBe(false);
+            search.value = 'じしょ';
+            search.dispatchEvent(new Event('input', { bubbles: true }));
+            expect(catalogue.querySelector<HTMLButtonElement>('[data-catalogue-entry="dictionary"]')?.hidden).toBe(false);
+            expect(catalogue.querySelector<HTMLButtonElement>('[data-catalogue-entry="novel"]')?.hidden).toBe(true);
+
+            catalogue.querySelector<HTMLButtonElement>('[data-catalogue-entry="dictionary"]')?.click();
+            expect(catalogue.dataset.bookshopPhase).toBe('ask');
+            const listen = catalogue.querySelector<HTMLButtonElement>('[data-bookshop-listen]')!;
+            listen.click();
+            await Promise.resolve();
+            expect(onListen).toHaveBeenCalledWith('じしょが ありますか。');
+            worldChoiceButtonByLabel(catalogue, 'はい、あります。')?.click();
+            expect(onPracticeComplete).toHaveBeenCalledWith(
+                'bookshop-dictionary-available',
+                'action:world-stamp:bookshop',
+                expect.objectContaining({
+                    attempt: expect.objectContaining({ sourceQuestionId: 'moodle:6097314:f7854a77:p2:q2:1' }),
+                    reviewSeeds: [expect.objectContaining({ id: 'review:world:bookshop:dictionary-available' })],
+                }),
+            );
+            const reading = catalogue.querySelector<HTMLElement>('[data-bookshop-reading]')!;
+            expect(reading.hidden).toBe(false);
+            expect(reading.dataset.sourceId).toContain('mega-pack:');
+            expect(reading.textContent).toContain('ばさま 川へ せんたくに いったと');
+            reading.querySelector<HTMLButtonElement>('[data-reading-choice="old-woman"]')?.click();
+            expect(reading.dataset.readingComplete).toBe('true');
+        });
+
+        it('changes the catalogue outcome and Sophie’s recovered presence on return', async () => {
+            const first = renderWorldPlaceScreen({
+                language: 'en', place: 'bookshop', route: 'world', progress,
+                onTravel: vi.fn(), onActivity: vi.fn(), onClaimStamp: vi.fn(),
+            });
+            const returning = renderWorldPlaceScreen({
+                language: 'en', place: 'bookshop', route: 'world',
+                progress: { ...progress, worldVisits: { bookshop: 1 }, seenIntroductions: ['place:bookshop'] },
+                onTravel: vi.fn(), onActivity: vi.fn(), onClaimStamp: vi.fn(),
+            });
+
+            expect(first.querySelector<HTMLElement>('[data-world-character="sophie"]')?.dataset.presence).toBe('cataloguing');
+            expect(first.querySelector('[data-world-character="sophie"] img')).not.toBeNull();
+            expect(first.querySelector('[data-world-character="sophie"] .academy-world-character-silhouette')).toBeNull();
+            expect(returning.querySelector<HTMLElement>('[data-world-character="sophie"]')?.dataset.presence).toBe('reshelving');
+            expect(returning.querySelector('[data-world-character="sophie"] img')).not.toBeNull();
+            expect(returning.querySelector('[data-exit-slot="0"]')?.textContent).toContain('Review the words you found in the library.');
+            expect(returning.querySelector('[data-exit-slot="1"]')?.textContent).toContain('Take the book back out to the street.');
+            const catalogue = returning.querySelector<HTMLElement>('[data-bookshop-catalogue]')!;
+            expect(catalogue.dataset.bookshopCatalogue).toBe('bookshop-small-change-available');
+            expect(catalogue.dataset.bookshopOutcome).toBe('small-change');
+            catalogue.querySelector<HTMLButtonElement>('[data-catalogue-entry="small-change"]')?.click();
+            catalogue.querySelector<HTMLButtonElement>('[data-bookshop-listen]')?.click();
+            await Promise.resolve();
+            worldChoiceButtonByLabel(catalogue, 'はい、たくさん あります。')?.click();
+            expect(catalogue.querySelector<HTMLElement>('[data-bookshop-question]')?.dataset.practiceComplete).toBe('true');
+            const reading = catalogue.querySelector<HTMLElement>('[data-bookshop-reading]')!;
+            expect(reading.textContent).toContain('川から 大きな もも');
+        });
+    });
+});
+
+describe('world-dining-lab behavior', () => {
+    afterEach(() => {
+        document.body.replaceChildren();
+        vi.restoreAllMocks();
+    });
+
+    describe('Student Dining and Language Lab current-place replays', () => {
+        const progress = {
+            completedScenes: ['scene:arrival'],
+            completedEncounterIds: ['encounter:arrival'],
+            metCharacterIds: ['aakash', 'felix', 'xingyu', 'mika'],
+            seenIntroductions: ['place:cafeteria', 'place:lab'],
+            worldVisits: {},
+        } as const;
+
+        it('opens Student Dining with rotating source-backed tray outcomes and canonical review evidence', () => {
+            const first = projectWorldPlace('cafeteria', progress);
+            const returningProgress = { ...progress, worldVisits: markWorldVisit(progress.worldVisits, 'cafeteria') };
+            const returning = projectWorldPlace('cafeteria', returningProgress);
+            const onPracticeComplete = vi.fn();
+            const screen = renderWorldPlaceScreen({
+                language: 'en', place: 'cafeteria', route: 'world', progress,
+                onTravel: vi.fn(), onActivity: vi.fn(), onClaimStamp: vi.fn(), onPracticeComplete,
+            });
+
+            expect(first).toMatchObject({
+                label: { ja: '学生食堂', en: 'Student dining' },
+                availability: { state: 'open' },
+                composition: { motif: 'cafeteria', purposeSurface: 'meal-tray' },
+                activity: { curriculum: { id: 'l1-l19:ordering-food', surface: 'moodle', state: 'grounded' } },
+            });
+            expect(first.practice?.id).toBe('cafeteria-draft-beer-order');
+            expect(returning.practice?.id).toBe('cafeteria-draft-beer-request');
+            expect(worldRouteForPlace('cafeteria')).toBe('world');
+            expect(first.practice?.review?.sourceQuestionId)
+                .toBe('moodle:6223185:chapter-11-2-ordering-food:p2:dialogue:drink-order');
+
+            const practice = screen.querySelector<HTMLElement>('[data-cafeteria-practice="tray-assembly"]')!;
+            const tray = screen.querySelector<HTMLElement>('[data-cafeteria-sensory="tray-assembly"]')!;
+            expect(tray.textContent).toContain('自分のトレー');
+            expect(practice.dataset.worldInteraction).toBe('token-order');
+            expect(screen.querySelector('[data-world-character="aakash"]')?.getAttribute('data-presence'))
+                .toBe('separate-table-choice');
+            expect(screen.querySelector('[data-world-character="felix"] .academy-world-character-presence')?.textContent)
+                .toContain('own tray');
+
+            ['drink', 'object', 'quantity', 'request'].forEach(token => {
+                practice.querySelector<HTMLButtonElement>(`[data-world-token="${token}"]`)?.click();
+            });
+            expect(onPracticeComplete).toHaveBeenCalledWith(
+                'cafeteria-draft-beer-order',
+                'action:world-stamp:cafeteria',
+                expect.objectContaining({
+                    attempt: expect.objectContaining({
+                        responseKind: 'world-token-order',
+                        sourceQuestionId: 'moodle:6223185:chapter-11-2-ordering-food:p2:dialogue:drink-order',
+                    }),
+                    reviewSeeds: [expect.objectContaining({
+                        id: 'review:world:cafeteria:draft-beer-order',
+                        content: expect.objectContaining({ expression: 'なまビールをふたつください。' }),
+                    })],
+                }),
+            );
+        });
+
+        it('keeps Lab shadowing learner-owned and records review evidence only after listen, repeat, and answer', async () => {
+            const onPracticeComplete = vi.fn();
+            const onListen = vi.fn(async () => true);
+            const screen = renderWorldPlaceScreen({
+                language: 'en', place: 'lab', route: 'lab', progress,
+                onTravel: vi.fn(), onActivity: vi.fn(), onClaimStamp: vi.fn(), onListen, onPracticeComplete,
+            });
+            document.body.append(screen);
+
+            const practice = screen.querySelector<HTMLElement>('[data-lab-practice="listen-repeat-answer"]')!;
+            expect(screen.querySelector('[data-world-character="xingyu"]')?.getAttribute('data-presence'))
+                .toBe('separate-booth-practice');
+            expect(screen.querySelector('[data-world-character="mika"] .academy-world-character-presence')?.textContent)
+                .toContain('separate playback lane');
+            expect(projectWorldPlace('lab', progress).practice?.review?.sourceQuestionId)
+                .toBe('source-question:classroom-phrase-09');
+
+            practice.querySelector<HTMLButtonElement>('[data-world-listen]')?.click();
+            await vi.waitFor(() => expect(onListen).toHaveBeenCalledWith(
+                'もう一度お願いします。',
+                'world-practice:lab-classroom-repair',
+            ));
+            practice.querySelector<HTMLButtonElement>('.academy-lab-speaking-button')?.click();
+            worldChoiceButtonByLabel(practice, 'お願いします')?.click();
+
+            expect(onPracticeComplete).toHaveBeenCalledWith(
+                'lab-classroom-repair',
+                'action:world-stamp:lab',
+                expect.objectContaining({
+                    attempt: expect.objectContaining({
+                        responseKind: 'world-listening-choice',
+                        sourceQuestionId: 'source-question:classroom-phrase-09',
+                    }),
+                    reviewSeeds: [expect.objectContaining({
+                        id: 'review:world:lab:classroom-repair',
+                        content: expect.objectContaining({ expression: 'もう一度お願いします。' }),
+                    })],
+                }),
+            );
+        });
+    });
+});
+
+describe('japan-centre-world behavior', () => {
+    const progress = {
+        completedScenes: [],
+        completedEncounterIds: [],
+        metCharacterIds: ['rie', 'aakash', 'sophie', 'felix'],
+    };
+
+    describe('Japan Centre world stream', () => {
+        it('keeps the request and price replays honestly grounded in the permitted course corpus', () => {
+            const first = projectWorldPlace('japan-centre', progress).practice!;
+            const replay = projectWorldPlace('japan-centre', {
+                ...progress,
+                worldVisits: { 'japan-centre': 1 },
+            }).practice!;
+
+            expect(first.source).toEqual({
+                primary: expect.objectContaining({
+                    corpus: 'moodle',
+                    sourceId: 'l1-l07/ex-kudasai',
+                    relation: 'source-sequenced-adaptation',
+                }),
+                supports: [
+                    expect.objectContaining({ corpus: 'minna', sourceId: 'japanese-minna:3-3', relation: 'sequence-only' }),
+                    expect.objectContaining({ corpus: 'genki', sourceId: 'genki-2e:l1-l07:lesson-2-workbook-3', relation: 'shopping-frame-only' }),
+                ],
+            });
+            expect(replay.source?.primary).toEqual(expect.objectContaining({
+                sourceId: 'l1-l07/ex-ikura-cloze',
+                relation: 'source-sequenced-adaptation',
+            }));
+            expect(first.id).not.toBe(replay.id);
+        });
+
+        it('moves focus through the paper counter and never renders an uncleared cast portrait', () => {
+            const practice = projectWorldPlace('japan-centre', progress).practice!;
+            const onIntroductionComplete = vi.fn();
+            const onPracticeComplete = vi.fn();
+            const screen = renderWorldPlaceScreen({
+                language: 'en',
+                place: 'japan-centre',
+                route: 'world',
+                progress,
+                onTravel: vi.fn(),
+                onActivity: vi.fn(),
+                onClaimStamp: vi.fn(),
+                onIntroductionComplete,
+                onPracticeComplete,
+            });
+            document.body.append(screen);
+
+            screen.querySelector<HTMLButtonElement>('.academy-world-arrival-continue')?.click();
+            expect(onIntroductionComplete).toHaveBeenCalledWith('place:japan-centre');
+            expect(document.activeElement).toBe(screen.querySelector('[data-world-listen="japan-centre-bag-request"]'));
+
+            screen.querySelector<HTMLButtonElement>('[data-counter-tag="bag"]')?.click();
+            const correctResponse = worldChoiceButton(screen, practice.choices, practice.correctChoiceId);
+            expect(document.activeElement).toBe(correctResponse);
+            correctResponse?.click();
+            expect(document.activeElement).toBe(screen.querySelector('[role="status"]'));
+            expect(onPracticeComplete).toHaveBeenCalledOnce();
+
+            (['sophie', 'aakash', 'felix'] as const).forEach(personId => {
+                if (!canRenderAcademyCastPortrait(personId, 'story-runtime')) {
+                    expect(screen.querySelector(`[data-world-character="${personId}"] img`)).toBeNull();
+                }
+            });
+            const sources = screen.querySelector<HTMLElement>('[data-japan-centre-source-primary]')!;
+            expect(sources.dataset.japanCentreSourceRelation).toBe('source-sequenced-adaptation');
+            expect(sources.dataset.japanCentreSourceSupport).toBe('minna genki');
+        });
     });
 });

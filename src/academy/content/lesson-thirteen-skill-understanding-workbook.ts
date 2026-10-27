@@ -1,10 +1,6 @@
 import lessonPackage from '../../../public/academy/content/lessons/014-l1-l13.json';
 import { ACADEMY_ASSESSED_ANSWER_SUPPORT } from '../domain/activity-runtime';
-import type {
-    ChoiceRound,
-    SkillUnderstandingRound,
-    SkillUnderstandingWorkbookModel,
-} from '../minigames/skill-understanding-workbook';
+import type { ChoiceRound, SkillUnderstandingRound, SkillUnderstandingWorkbookModel } from '../minigames/skill-understanding-workbook';
 import type { LessonActivityBeat } from '../ui/lesson-activity-chapter';
 
 const PACKAGE_ID = 'l1-l13' as const;
@@ -43,7 +39,7 @@ const GENKI_SOURCES = [
     ['music', 'どんな音楽が好きですか。', '日本の音楽が好きです', 'にほんのおんがくがすきです'],
 ] as const;
 
-export function createLessonThirteenSkillUnderstandingWorkbookModel(): SkillUnderstandingWorkbookModel {
+function createLessonThirteenSkillUnderstandingWorkbookModel(): SkillUnderstandingWorkbookModel {
     assertExactPackageSources();
     const rounds = Object.freeze([
         ...MOODLE_SOURCES.map((item, index) => moodleRound(item, index + 1)),

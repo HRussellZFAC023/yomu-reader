@@ -1,43 +1,7 @@
-import {
-  ACADEMY_ASSESSED_ANSWER_SUPPORT,
-  createActivityRuntime,
-  type ActivityController,
-  type ActivityEvaluation,
-  type ActivityHost,
-  type ActivityPlugin,
-  type GradeResult,
-  type ReviewSeed,
-  type ValidationIssue,
-} from "../../domain/activity-runtime";
-import {
-  assessedJapanese,
-  gradeFromScore,
-  japanese,
-  localized,
-  localizedNodes,
-  setPending,
-  showEvaluation,
-  statusRegion,
-  text,
-  validateFeedback,
-  validatePassScore,
-} from "../../minigames/activity-kit/shared";
-import {
-  N3_SOURCE_OPENING_ECO_READING,
-  N3_SOURCE_OPENING_SOURCE_CATALOG,
-  N3_SOURCE_OPENING_STAGE_PROVENANCE,
-  N3_SOURCE_OPENING_TOBIRA_EVIDENCE,
-  N3_SOURCE_OPENING_TOWN_FLOW_ITEMS,
-} from "./source";
-import {
-  N3_SOURCE_OPENING_ACTIVITY_KIND,
-  type N3SourceOpeningActivityMode,
-  type N3SourceOpeningModel,
-  type N3SourceOpeningQuestion,
-  type N3SourceOpeningResponse,
-  type N3SourceOpeningReviewTarget,
-  type N3SourceOpeningStage,
-} from "./types";
+import { ACADEMY_ASSESSED_ANSWER_SUPPORT, type ActivityController, type ActivityEvaluation, type ActivityHost, type ActivityPlugin, type GradeResult, type ReviewSeed, type ValidationIssue } from "../../domain/activity-runtime";
+import { assessedJapanese, gradeFromScore, japanese, localized, localizedNodes, setPending, showEvaluation, statusRegion, text, validateFeedback, validatePassScore } from "../../minigames/activity-kit/shared";
+import { N3_SOURCE_OPENING_ECO_READING, N3_SOURCE_OPENING_SOURCE_CATALOG, N3_SOURCE_OPENING_STAGE_PROVENANCE, N3_SOURCE_OPENING_TOBIRA_EVIDENCE, N3_SOURCE_OPENING_TOWN_FLOW_ITEMS } from "./source";
+import { N3_SOURCE_OPENING_ACTIVITY_KIND, type N3SourceOpeningActivityMode, type N3SourceOpeningModel, type N3SourceOpeningQuestion, type N3SourceOpeningResponse, type N3SourceOpeningReviewTarget, type N3SourceOpeningStage } from "./types";
 
 export const n3SourceOpeningPlugin: ActivityPlugin<
   N3SourceOpeningModel,
@@ -49,10 +13,6 @@ export const n3SourceOpeningPlugin: ActivityPlugin<
   grade: gradeN3SourceOpening,
   toReviewSeeds: n3SourceOpeningReviewSeeds,
 };
-
-export function createN3SourceOpeningRuntime() {
-  return createActivityRuntime([n3SourceOpeningPlugin]);
-}
 
 function validateN3SourceOpening(
   model: N3SourceOpeningModel,

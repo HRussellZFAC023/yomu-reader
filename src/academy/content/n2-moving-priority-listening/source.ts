@@ -75,27 +75,3 @@ export const N2_MOVING_PRIORITY_LISTENING_PROVENANCE = Object.freeze({
     }),
     combinedSourceLocusSha256: 'ec06a60b51a9fe27b4f4c9f0fdccc96a9ac79bcab94dc46efdd6cd2b161dcaa8',
 }) satisfies N2MovingPriorityListeningProvenance;
-
-export function canonicalN2MovingPriorityPronunciationLocus(): string {
-    const source = N2_MOVING_PRIORITY_LISTENING_PROVENANCE.pronunciationReference;
-    return [source.sourceId, source.sourceDocumentSha256, String(source.sourceDocumentByteLength), source.relativePath,
-        String(source.sourceLocus.pdfPage), String(source.sourceLocus.printedPage), source.sourceLocus.section, source.sourceLocus.item,
-    ].join('\n') + '\n';
-}
-export function canonicalN2MovingPriorityPointLocus(): string {
-    const source = N2_MOVING_PRIORITY_LISTENING_PROVENANCE.pointReference;
-    return [source.sourceId, source.sourceDocumentSha256, String(source.sourceDocumentByteLength), source.relativePath,
-        String(source.sourceLocus.pdfPage), String(source.sourceLocus.printedPage), source.sourceLocus.section, source.sourceLocus.item,
-    ].join('\n') + '\n';
-}
-export function canonicalN2MovingPrioritySoyaLocus(): string {
-    const source = N2_MOVING_PRIORITY_LISTENING_PROVENANCE.sourceItem;
-    return [source.sourceId, source.sourceDocumentSha256, String(source.sourceDocumentByteLength), source.relativePath,
-        source.sourceItemId, source.sourceItemJsonSha256, source.sourceAudio.sha256, String(source.sourceAudio.byteLength),
-        source.sourceImage.sha256, String(source.sourceImage.byteLength),
-    ].join('\n') + '\n';
-}
-export function canonicalN2MovingPriorityCombinedLocus(): string {
-    const source = N2_MOVING_PRIORITY_LISTENING_PROVENANCE;
-    return `${source.pronunciationReference.sourceLocusSha256}\n${source.pointReference.sourceLocusSha256}\n${source.sourceItem.sourceLocusSha256}\n`;
-}

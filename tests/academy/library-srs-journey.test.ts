@@ -1,16 +1,16 @@
-import {
-    createLibraryVocabularySheet,
-    createLibraryVocabularySheetFromPackage,
-    loadLibraryVocabularySheet,
-    libraryStudyVocabulary,
-    libraryVocabularyReviewSeeds,
-} from '../../src/academy/content/library-vocabulary-sheet';
+import { ACADEMY_LESSON_CONTENT_REGISTRY } from '../../src/academy/content/lesson-content-registry';
+import { createLibraryVocabularySheet, createLibraryVocabularySheetFromPackage, loadLibraryVocabularySheet, libraryStudyVocabulary, libraryVocabularyReviewSeeds } from '../../src/academy/content/library-vocabulary-sheet';
 import { createLessonOneSourceVocabularyActivities } from '../../src/academy/content/lesson-one-greeting-worksheet';
 import { createLessonTwoSourceVocabularyActivities } from '../../src/academy/content/lesson-two-profile-board';
 import { createLessonSixSourceVocabularyActivities } from '../../src/academy/content/lesson-six-place-and-owner';
 import { LocalYomuSrsRepository } from '../../src/reader/srs/local-yomu';
 import { canonicalStudyCardIdentity } from '../../src/reader/srs/shared';
 import { readFileSync } from 'node:fs';
+import { attachLibraryReaderVocabulary } from '../../src/academy/integration/library-reader-vocabulary';
+import { applyAuthoredVocabularyOverrides } from '../../src/reader/lookup/authored-vocabulary';
+import { fallbackLookupTermsForCard } from '../../src/reader/lookup/japanese-segments';
+import { publicLookupFallbackCards } from '../../src/reader/lookup/public-fallback-cards';
+import { createNewTabStudySession } from '../../src/reader/newtab/study-session';
 
 describe('Library source sheet to SRS journey', () => {
     beforeEach(() => localStorage.clear());
@@ -333,4 +333,104 @@ describe('Library source sheet to SRS journey', () => {
             `academy:study-syllabus:${first.id}`,
         ]);
     });
+});
+
+describe('library-srs-early-batch-conformance behavior', () => {
+    describe('Library SRS exact linkage for the delivered early source-sheet boundaries', () => {
+        beforeEach(() => localStorage.clear());
+
+        it('carries an l1-l19 owner row through Reader, Jiten fallback, and native review with optional writing', async () => {
+            const sheet = createLibraryVocabularySheetFromPackage(lessonPackage('020-l1-l19.json'), 'l1-l19');
+            const word = sheet.items[24]!;
+            const surface = document.createElement('span');
+            surface.textContent = word.expression;
+            attachLibraryReaderVocabulary(surface, word);
+            const [token] = applyAuthoredVocabularyOverrides({ text: word.expression, parent: surface }, []);
+
+            expect(word).toMatchObject({
+                expression: 'ふなびん',
+                studyExpression: '船便',
+                reading: 'ふなびん',
+                studyMeaning: 'sea mail',
+                studyStatus: 'canonical',
+            });
+            expect(token?.card).toMatchObject({
+                spelling: 'ふなびん',
+                reading: 'ふなびん',
+                source: 'fallback',
+                fallbackLookupTerms: ['船便'],
+            });
+            expect(fallbackLookupTermsForCard(token!.card)).toContain('船便');
+
+            const lookupMany = vi.fn(async (_terms: string[]) => new Map());
+            await publicLookupFallbackCards([token!.card], {
+                jitenApiActive: () => false,
+                parse: async () => [],
+                lookupMany,
+                publicSpellingCard: async () => undefined,
+            }, { concurrency: 1, jpdbPublicLookup: false });
+            expect(lookupMany.mock.calls[0]?.[0]).toContain('船便');
+
+            const options = {
+                revealAnswer: false,
+                renderAsKanji: false,
+                hasRecallCloze: false,
+            };
+            const session = createNewTabStudySession(token!.card, options);
+            expect(session.activity).toBe('review');
+            expect(session.steps).toEqual([
+                { id: 'review-prompt', kind: 'word', gradeable: false },
+                { id: 'final-reveal', kind: 'final-reveal', gradeable: true },
+            ]);
+            expect(session.activeStep).toBe(session.steps[0]);
+            expect(session.practiceSteps).toContainEqual({
+                id: 'type-word', kind: 'type-word', gradeable: false,
+            });
+
+            const revealed = createNewTabStudySession(token!.card, { ...options, revealAnswer: true });
+            expect(revealed.activity).toBe('review');
+            expect(revealed.activeStep).toBe(revealed.gradeStep);
+            expect(revealed.steps).toEqual(session.steps);
+
+            const writing = createNewTabStudySession(token!.card, { ...options, activeStepId: 'type-word' });
+            expect(writing.activity).toBe('practice');
+            expect(writing.activeStep).toEqual({
+                id: 'type-word', kind: 'type-word', gradeable: false,
+            });
+            expect(writing.steps).toEqual(session.steps);
+        });
+    });
+
+    function lessonPackage(filename: string): unknown {
+        return JSON.parse(readFileSync(`public/academy/content/lessons/${filename}`, 'utf8')) as unknown;
+    }
+});
+
+
+describe('registered source-sheet frontiers preserve canonical SRS state', () => {
+    beforeEach(() => localStorage.clear());
+    it.each(ACADEMY_LESSON_CONTENT_REGISTRY.filter(entry => entry.kind === 'authored-week'))(
+        '$packageId retains source-linked readings and existing review schedules', async registration => {
+            const input = JSON.parse(readFileSync(`public/academy/content/lessons/${registration.filename}`, 'utf8'));
+            const sheet = createLibraryVocabularySheetFromPackage(input, registration.packageId);
+            const study = libraryStudyVocabulary(sheet);
+            const seeds = libraryVocabularyReviewSeeds(sheet);
+            expect(seeds).toHaveLength(study.length);
+            for (const seed of seeds) {
+                const item = sheet.items.find(candidate => candidate.source.id === seed.sourceQuestionId);
+                expect(item, seed.id).toBeDefined();
+                expect(seed.content.expression).toBe(item!.studyExpression);
+                expect(seed.content.reading ?? seed.content.expression).toBe(item!.reading);
+                expect(item!.studyStatus).toBe('canonical');
+            }
+            const seed = seeds[0];
+            if (!seed) return; // A registered no-sheet week must not invent a card.
+            const repository = new LocalYomuSrsRepository(() => 1_770_000_000_000);
+            const request = { ...seed.content, provenance: { id: seed.id, kind: 'study-encounter' as const, sourceId: seed.sourceQuestionId! } };
+            const collected = await repository.collectAcademyVocabulary(request);
+            const reviewed = await repository.review({ card: collected.card, grade: 'good' });
+            const revisited = await repository.collectAcademyVocabulary(request);
+            expect(revisited.card).toEqual(reviewed.card);
+        },
+    );
 });

@@ -1,11 +1,11 @@
-export type AcademyLearningStepKind =
+type AcademyLearningStepKind =
     | 'context'
     | 'instruction'
     | 'guided-practice'
     | 'assessed-recognition'
     | 'assessed-production';
 
-export interface AcademyLearningStepContract {
+interface AcademyLearningStepContract {
     readonly id: string;
     readonly kind: AcademyLearningStepKind;
     readonly conceptIds: readonly string[];
@@ -16,16 +16,16 @@ export interface AcademyLearningSequenceContract {
     readonly steps: readonly AcademyLearningStepContract[];
 }
 
-export type ColdProductionRequirement = 'context' | 'explicit-instruction' | 'guided-practice';
+type ColdProductionRequirement = 'context' | 'explicit-instruction' | 'guided-practice';
 
-export interface ColdProductionIssue {
+interface ColdProductionIssue {
     readonly sequenceId: string;
     readonly activityId: string;
     readonly conceptId: string;
     readonly missing: readonly ColdProductionRequirement[];
 }
 
-export interface AuthoredAcademyActivityContract {
+interface AuthoredAcademyActivityContract {
     readonly id: string;
     readonly conceptIds: readonly string[];
     readonly responseKind: string;
@@ -46,7 +46,7 @@ const PRODUCTION_RESPONSE_KINDS = new Set([
  * A production step is ready only when every assessed Concept has already had
  * a meaningful context, explicit teaching, and post-teaching guided practice.
  */
-export function auditColdProductionSequence(
+function auditColdProductionSequence(
     sequence: AcademyLearningSequenceContract,
 ): readonly ColdProductionIssue[] {
     const contextualized = new Set<string>();

@@ -11,7 +11,7 @@ const GENKI_SHA256 = '1bc8b462c5c75728e9e891c35f71e9df13e05c7917b81e5aa4c0749658
 const GENKI_SCRIPT_SHA256 = '4165f6dcecba03b99b8f7124f35d863fa6232585949619633905cc18a93ccd89';
 const GENKI_TASK_ID = 'genki-2e:l1-l17:lesson-4-workbook-2' as const;
 
-export function createLessonSeventeenMuseumLocationWorkbookModel(): MuseumLocationWorkbookModel {
+function createLessonSeventeenMuseumLocationWorkbookModel(): MuseumLocationWorkbookModel {
     const rounds = Object.freeze([
         frame(1, 'moodle-chair-cat', 'いす／ねこ', 'いすの したに ねこが います。', 'した', 'います'),
         frame(2, 'moodle-shop-car', 'みせ／くるま', 'みせの まえに くるまが あります。', 'まえ', 'あります'),

@@ -1,26 +1,7 @@
 import lessonPackage from '../../../public/academy/content/lessons/055-l2-l28.json';
-import {
-    ACADEMY_ASSESSED_ANSWER_SUPPORT,
-    type ActivityController,
-    type ActivityEvaluation,
-    type ActivityHost,
-    type ActivityModel,
-    type ActivityPlugin,
-    type GradeResult,
-    type ReviewSeed,
-    type ValidationIssue,
-} from '../domain/activity-runtime';
+import { ACADEMY_ASSESSED_ANSWER_SUPPORT, type ActivityController, type ActivityEvaluation, type ActivityHost, type ActivityModel, type ActivityPlugin, type GradeResult, type ReviewSeed, type ValidationIssue } from '../domain/activity-runtime';
 import type { LocalizedText } from '../domain/source-library';
-import {
-    localizedNodes,
-    normalizeJapanese,
-    setPending,
-    showEvaluation,
-    statusRegion,
-    text,
-    validateFeedback,
-    type ActivityFeedbackSet,
-} from '../minigames/activity-kit/shared';
+import { localizedNodes, normalizeJapanese, setPending, showEvaluation, statusRegion, text, validateFeedback, type ActivityFeedbackSet } from '../minigames/activity-kit/shared';
 import { renderInspectableSourceVisual } from '../minigames/source-visual';
 import type { LessonActivityBeat } from '../ui/lesson-activity-chapter';
 
@@ -37,7 +18,7 @@ const AUDIO_PAYLOADS = Object.freeze([
     'be296a3de4f5e02e962ddea398aeeca904b60b0e3b8b6fa2745165fc4d7664bb',
 ] as const);
 
-export const L2_L28_SOURCE_VISUALS = Object.freeze([
+const L2_L28_SOURCE_VISUALS = Object.freeze([
     sourceVisual(TOORI_SHA256, 'Chapter 34-1_〜たとおり_のとおり grammar exercise', 1,
         'moodle-chapter-34-1-toori-page-1.png', '00ffd31387ae408c1713a132502a57ed20b23ca75f2882b44e7bd0ffae6d2ceb'),
     sourceVisual(TOORI_SHA256, 'Chapter 34-1_〜たとおり_のとおり grammar exercise', 2,
@@ -58,7 +39,7 @@ interface FollowModelOption {
     readonly label: string;
 }
 
-export interface FollowModelRound {
+interface FollowModelRound {
     readonly id: string;
     readonly sourceOrder: 1 | 2 | 3 | 4 | 5 | 6 | 7;
     readonly sourceTask: FollowModelTask;
@@ -82,7 +63,7 @@ interface FollowModelSourceVisual {
     readonly alt: LocalizedText;
 }
 
-export interface FollowModelWorkshopModel extends ActivityModel {
+interface FollowModelWorkshopModel extends ActivityModel {
     readonly kind: 'academy-follow-the-model-workshop';
     readonly responseKind: 'moodle-chapter-34-toori-atode-workshop';
     readonly curriculumPhase: 'assessed-production';

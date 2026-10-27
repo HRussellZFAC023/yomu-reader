@@ -1,10 +1,10 @@
-export type VocabularyPictographBand =
+type VocabularyPictographBand =
   "foundation" | "n5" | "n4" | "n3" | "n2" | "n1";
-export type VocabularyPictographRequirement =
+type VocabularyPictographRequirement =
   "required" | "scene" | "relationship" | "contrast";
-export type VocabularyPictographStatus = "ready" | "queued" | "prompt-ready";
-export type VocabularyPictographConsumerSurface = "introduction" | "review";
-export type VocabularyConcretenessClass =
+type VocabularyPictographStatus = "ready" | "queued" | "prompt-ready";
+type VocabularyPictographConsumerSurface = "introduction" | "review";
+type VocabularyConcretenessClass =
   | "concrete-object"
   | "person"
   | "place"
@@ -13,7 +13,7 @@ export type VocabularyConcretenessClass =
   | "relationship"
   | "contrast";
 
-export interface VocabularyPictographOccurrence {
+interface VocabularyPictographOccurrence {
   readonly lessonId: string;
   readonly sourceKind:
     | "canonical-vocabulary"
@@ -23,13 +23,13 @@ export interface VocabularyPictographOccurrence {
   readonly sourceIdentity: string;
 }
 
-export interface VocabularyPictographConsumer {
+interface VocabularyPictographConsumer {
   readonly consumerId: string;
   readonly lessonId: string;
   readonly surface: VocabularyPictographConsumerSurface;
 }
 
-export interface VocabularyPictographEntry {
+interface VocabularyPictographEntry {
   readonly id: string;
   readonly identityKey: string;
   readonly lessonIntroductionOrder: number;
@@ -55,7 +55,7 @@ export interface VocabularyPictographEntry {
   readonly sourceOccurrences: readonly VocabularyPictographOccurrence[];
 }
 
-export interface VocabularyPictographManifest {
+interface VocabularyPictographManifest {
   readonly schemaVersion: 1;
   readonly id: "academy-vocabulary-pictographs-v1";
   readonly sourceDigest: string;
@@ -74,7 +74,7 @@ export interface VocabularyPictographManifest {
   readonly entries: readonly VocabularyPictographEntry[];
 }
 
-export interface VocabularyPictographIndex {
+interface VocabularyPictographIndex {
   readonly manifest: VocabularyPictographManifest;
   getById(id: string): VocabularyPictographEntry | undefined;
   findByExpression(
@@ -86,7 +86,7 @@ export interface VocabularyPictographIndex {
   readyForLesson(lessonId: string): readonly VocabularyPictographEntry[];
 }
 
-export interface VocabularyPictographMountOptions {
+interface VocabularyPictographMountOptions {
   readonly ariaLabel?: string;
   readonly className?: string;
   readonly heading?: string;
@@ -94,7 +94,7 @@ export interface VocabularyPictographMountOptions {
   readonly showReading?: boolean;
 }
 
-export interface VocabularyPictographLessonMount {
+interface VocabularyPictographLessonMount {
   readonly element: HTMLElement;
   readonly entries: readonly VocabularyPictographEntry[];
   readonly imagePaths: readonly string[];
@@ -144,7 +144,7 @@ export function loadVocabularyPictographManifest(
   return fetchManifest(fetcher, url);
 }
 
-export function parseVocabularyPictographManifest(
+function parseVocabularyPictographManifest(
   value: unknown,
 ): VocabularyPictographManifest {
   const root = record(value, "vocabulary pictograph manifest");

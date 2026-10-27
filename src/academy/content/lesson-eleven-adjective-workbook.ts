@@ -1,13 +1,6 @@
 import lessonPackage from '../../../public/academy/content/lessons/012-l1-l11.json';
 import { ACADEMY_ASSESSED_ANSWER_SUPPORT } from '../domain/activity-runtime';
-import type {
-    AdjectiveDescriptionConnectorRound,
-    AdjectiveDescriptionModifierRound,
-    AdjectiveDescriptionRound,
-    AdjectiveDescriptionTeachingStep,
-    AdjectiveDescriptionTypedRound,
-    AdjectiveDescriptionWorkbookModel,
-} from '../minigames/adjective-description-workbook';
+import type { AdjectiveDescriptionConnectorRound, AdjectiveDescriptionModifierRound, AdjectiveDescriptionRound, AdjectiveDescriptionTeachingStep, AdjectiveDescriptionTypedRound, AdjectiveDescriptionWorkbookModel } from '../minigames/adjective-description-workbook';
 import type { LessonActivityBeat } from '../ui/lesson-activity-chapter';
 
 const PACKAGE_ID = 'l1-l11';
@@ -119,7 +112,7 @@ const GENKI_PROBLEMS: readonly SourceProblem[] = [
     ]),
 ];
 
-export function createLessonElevenAdjectiveWorkbookModel(): AdjectiveDescriptionWorkbookModel {
+function createLessonElevenAdjectiveWorkbookModel(): AdjectiveDescriptionWorkbookModel {
     assertExactPackageSources();
     const rounds = Object.freeze([
         ...MOODLE_PROBLEMS.map((source, index) => sourceRound(source, index + 1, 'Moodle')),

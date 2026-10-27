@@ -1,7 +1,11 @@
 import { createAudioCatalog, SILENT_AUDIO_CATALOG, trackCanPlay } from '../../src/academy/audio/catalog';
 import { AudioDirector } from '../../src/academy/audio/director';
 import { AUTHORIZED_AUDIO_CATALOG } from '../../src/academy/audio/manifest';
-import type { AudioTrack, MediaBusPlayback, SfxCue, SfxPlayback } from '../../src/academy/audio/types';
+import { type AudioTrack, type MediaBusPlayback, type SfxCue, type SfxPlayback } from '../../src/academy/audio/types';
+import { BrowserMediaBus } from '../../src/academy/audio/browser-media';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { AcademyApp } from '../../src/academy/app';
+import { type PronunciationService } from '../../src/academy/integration/yomu-bridge';
 
 class FakeBus implements MediaBusPlayback {
     readonly calls: string[] = [];
@@ -285,5 +289,92 @@ describe('audio director', () => {
         await director.setTheme(director.theme);
         expect(director.state).toBe('playing');
         expect(music.track).toBe('station');
+    });
+});
+
+describe('browser-media behavior', () => {
+    class StrictMedia {
+        preload = '';
+        crossOrigin = '';
+        loop = false;
+        src = '';
+        currentTime = 0;
+        private volumeValue = 0;
+        readonly played: string[] = [];
+
+        get volume(): number { return this.volumeValue; }
+        set volume(value: number) {
+            if (value < 0 || value > 1) throw new DOMException('volume out of range', 'IndexSizeError');
+            this.volumeValue = value;
+        }
+
+        async play(): Promise<void> { this.played.push(this.src); }
+        pause(): void {}
+        load(): void {}
+        removeAttribute(name: string): void { if (name === 'src') this.src = ''; }
+    }
+
+    const track: AudioTrack = {
+        id: 'authorized',
+        title: 'Authorized track',
+        url: '/academy/media/audio/test.flac',
+        loop: true,
+        gain: 1,
+        rights: {
+            owner: 'Test',
+            licence: 'Test authorization',
+            source: 'Test fixture',
+            reviewed: true,
+            scope: 'release',
+        },
+    };
+
+    describe('BrowserMediaBus', () => {
+        it('clamps a stale animation-frame timestamp instead of throwing on media volume', async () => {
+            const media = new StrictMedia();
+            vi.spyOn(performance, 'now').mockReturnValue(100);
+            let frame = 0;
+            vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback) => {
+                const timestamp = frame++ === 0 ? 99 : 200;
+                queueMicrotask(() => callback(timestamp));
+                return frame;
+            });
+            const bus = new BrowserMediaBus(() => media as unknown as HTMLAudioElement);
+
+            await expect(bus.play(track, 1, 100)).resolves.toBeUndefined();
+            expect(media.volume).toBe(1);
+            expect(media.played).toEqual(['/academy/media/audio/test.flac']);
+        });
+    });
+});
+
+describe('academy-app-pronunciation-lifecycle behavior', () => {
+    afterEach(() => document.body.replaceChildren());
+
+    describe('Academy app pronunciation lifecycle', () => {
+        it('disposes pronunciation before audio and tears the app down only once', () => {
+            const calls: string[] = [];
+            const pronunciation: PronunciationService = {
+                play: vi.fn(async () => ({ dispose: vi.fn() })),
+                dispose: vi.fn(() => { calls.push('pronunciation'); }),
+            };
+            const audio = {
+                settings: {
+                    muted: false,
+                    volumes: { music: 0.7, ambience: 0.6, lesson: 0.65, sfx: 0.8 },
+                },
+                dispose: vi.fn(() => { calls.push('audio'); }),
+            } as unknown as AudioDirector;
+            const host = document.createElement('main');
+            document.body.append(host);
+            const app = new AcademyApp(host, { pronunciation, audio });
+
+            app.dispose();
+            app.dispose();
+
+            expect(calls).toEqual(['pronunciation', 'audio']);
+            expect(pronunciation.dispose).toHaveBeenCalledOnce();
+            expect(audio.dispose).toHaveBeenCalledOnce();
+        });
     });
 });

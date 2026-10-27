@@ -2,45 +2,36 @@ import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
 // @ts-expect-error Production build-manifest helper is plain Node JavaScript.
 import { academyBuildCode, readAcademyBuildCode } from '../../scripts/lib/academy-build-manifest.cjs';
-import { createReadStream, existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
+import fs, { createReadStream, existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import {
-    CUR007_N3_MOCK_LISTENING_AUDIT,
-    validateCur007N3BatchAudit,
-} from '../../src/academy/content/n3-mock-listening/audit';
-import {
-    N3_MOCK_LISTENING_PACKAGES,
-    createN3MockListeningPackage,
-} from '../../src/academy/content/n3-mock-listening/package';
-import {
-    createN3MockListeningRuntime,
-    N3_MOCK_LISTENING_REVIEW_DELAY_MS,
-    n3MockListeningPlugin,
-} from '../../src/academy/content/n3-mock-listening/plugin';
-import {
-    N3_MOCK_LISTENING_PACKAGE_IDS,
-    type N3MockListeningModel,
-    type N3MockListeningResponse,
-} from '../../src/academy/content/n3-mock-listening/types';
+import { CUR007_N3_MOCK_LISTENING_AUDIT, validateCur007N3BatchAudit } from '../../src/academy/content/n3-mock-listening/audit';
+import { N3_MOCK_LISTENING_PACKAGES, createN3MockListeningPackage } from '../../src/academy/content/n3-mock-listening/package';
+import { createN3MockListeningRuntime, N3_MOCK_LISTENING_REVIEW_DELAY_MS, n3MockListeningPlugin } from '../../src/academy/content/n3-mock-listening/plugin';
+import { N3_MOCK_LISTENING_PACKAGE_IDS, type N3MockListeningModel, type N3MockListeningResponse } from '../../src/academy/content/n3-mock-listening/types';
 import { ACADEMY_LISTENING_SOURCE_BANK } from '../../src/academy/content/listening/source-bank/listening-source-bank';
 import { createMemoryLearnerEventRepository, projectLearnerRecord } from '../../src/academy/domain/learner-record';
 import { createLearnerEvidence } from '../../src/academy/evidence/learner-evidence';
-import {
-    ADVANCED_CURRICULUM,
-    advancedCurriculumRailForBand,
-    advancedPackageIdFromLessonId,
-} from '../../src/academy/content/advanced-curriculum';
+import { ADVANCED_CURRICULUM, advancedCurriculumRailForBand, advancedPackageIdFromLessonId, resolveAdvancedCurriculumEntry } from '../../src/academy/content/advanced-curriculum';
 import { createYomuLocalReviewService } from '../../src/academy/integration/yomu-local-review';
 import { LocalYomuSrsRepository } from '../../src/reader/srs/local-yomu';
+import { type AcademyCheckpoint, type AcademyCheckpointUpdate, type AcademyRoute } from '../../src/academy/persistence/indexeddb';
+import { createLessonFlow } from '../../src/academy/routing/lesson-flow';
+import { type AcademyRouteContext } from '../../src/academy/routing/types';
+import { createWorldFlow } from '../../src/academy/routing/world-flow';
+import { type AcademyShell } from '../../src/academy/ui/shell';
 
 const SOYA_ROOT = process.env.YOMU_SOYA_RESEARCH_ROOT
     ?? path.resolve(process.cwd(), '../yomu/references/soya-research');
+
 const SOYA_SOURCE = path.join(SOYA_ROOT, 'extracted-src-all/data/courses/jlpt_n3/mock1_listening.js');
+
 const OFFICIAL_ROOT = process.env.YOMU_JAPANESE_ROOT
     ?? path.resolve(process.cwd(), '../../Japanese');
+
 const OFFICIAL_N3_ROOT = path.join(OFFICIAL_ROOT, 'Official Sources/N3 Opening 2026-07-18/JLPT 2009');
+
 const AUDIT_RECORDS = new Map(CUR007_N3_MOCK_LISTENING_AUDIT.records.map(record => [record.id, record]));
 
 afterEach(() => {
@@ -685,3 +676,133 @@ function sha256File(filePath: string): Promise<string> {
             .on('end', () => resolve(hash.digest('hex')));
     });
 }
+
+describe('n3-mock-listening-route-integration behavior', () => {
+    const PLAN_PATH = path.resolve('public/academy/content/curriculum/class-week-cast.v1.json');
+
+    const LESSON_ROOT = path.resolve('public/academy/content/lessons');
+
+    function shell(): AcademyShell & { current?: HTMLElement } {
+        const value = {
+            screen: document.createElement('main'),
+            current: undefined as HTMLElement | undefined,
+            replace(view: HTMLElement) { value.current = view; },
+            setLanguage() {}, setNavigation() {}, setLearnerActionsVisible() {}, setClassBoardAccess() {},
+            setPresentationMode() {}, setMuted() {}, announce() {}, dispose() {},
+        };
+        return value;
+    }
+
+    describe('N3 mock-listening learner rail integration', () => {
+        beforeEach(() => {
+            vi.stubGlobal('fetch', vi.fn(async input => {
+                const url = String(input);
+                const lessonMatch = url.match(/\/content\/lessons\/([^/]+\.json)$/u);
+                const filePath = url.endsWith('/content/curriculum/class-week-cast.v1.json')
+                    ? PLAN_PATH
+                    : lessonMatch ? path.join(LESSON_ROOT, lessonMatch[1]) : null;
+                if (!filePath) return new Response(null, { status: 404 });
+                return new Response(fs.readFileSync(filePath), {
+                    status: 200,
+                    headers: { 'content-type': 'application/json' },
+                });
+            }));
+        });
+
+        afterEach(() => { vi.unstubAllGlobals(); });
+
+        it('clicks Class into every package intro and exact advanced activity without a Lesson 0 fallback', async () => {
+            const projection = projectLearnerRecord([{
+                schemaVersion: 1,
+                eventId: 'entry:n3',
+                at: 1,
+                kind: 'curriculum-entry-chosen',
+                route: 'manual-band',
+                band: 'n3',
+            }]);
+
+            for (const [index, packageRecord] of N3_MOCK_LISTENING_PACKAGES.entries()) {
+                const classShell = shell();
+                const navigations: Array<readonly [AcademyRoute, AcademyCheckpointUpdate | undefined]> = [];
+                const go: AcademyRouteContext['go'] = async (route, update) => {
+                    navigations.push([route, update]);
+                };
+                await createWorldFlow({
+                    evidence: {
+                        history: vi.fn(async () => []),
+                        dueReviews: vi.fn(async () => []),
+                    } as never,
+                    pronunciation: {} as never,
+                    audio: {} as never,
+                }).render('class', {
+                    language: 'en',
+                    checkpoint: {
+                        schemaVersion: 2,
+                        route: 'class',
+                        routeHistory: [],
+                        presentationMode: 'course',
+                        selectedBand: 'n3',
+                        updatedAt: 1,
+                    },
+                    projection,
+                    shell: classShell,
+                    go,
+                    back: vi.fn(async () => undefined),
+                });
+
+                const stop = classShell.current?.querySelector<HTMLElement>(`[data-package-id="${packageRecord.id}"]`);
+                expect(stop, packageRecord.id).not.toBeNull();
+                expect(stop?.dataset.railState).toBe(index === 0 ? 'recommended' : 'gated');
+                stop?.querySelector<HTMLButtonElement>('button')?.click();
+                const navigation = navigations.at(-1);
+                expect(navigation?.[0]).toBe('source-activity');
+                expect(navigation?.[1]).toMatchObject({
+                    selectedBand: 'n3',
+                    lessonId: `advanced:${packageRecord.id}`,
+                    activityId: packageRecord.activity.id,
+                });
+                expect(navigation?.[1]?.activityId).not.toBeUndefined();
+                expect(navigation?.[1]?.lessonId).not.toBe('lesson:foundation-00');
+                expect(Boolean(navigation?.[1]?.placementOverride)).toBe(index > 0);
+
+                const lessonShell = shell();
+                const checkpoint: AcademyCheckpoint = {
+                    schemaVersion: 2,
+                    route: 'source-activity',
+                    routeHistory: [{ route: 'class', selectedBand: 'n3' }],
+                    presentationMode: 'course',
+                    selectedBand: 'n3',
+                    lessonId: `advanced:${packageRecord.id}`,
+                    activityId: packageRecord.activity.id,
+                    ...(index > 0 ? { placementOverride: true } : {}),
+                    updatedAt: 2,
+                };
+                const context: AcademyRouteContext = {
+                    language: 'en',
+                    checkpoint,
+                    projection,
+                    shell: lessonShell,
+                    go: vi.fn(async () => undefined),
+                    back: vi.fn(async () => undefined),
+                };
+                await createLessonFlow({
+                    evidence: { recordActivity: vi.fn(async () => undefined) } as never,
+                    pronunciation: { async play() { return { dispose() {} }; } },
+                    kanjiWriting: {} as never,
+                }).render('source-activity', context);
+
+                expect(lessonShell.current?.dataset.academyScreen).toBe('advanced-lesson');
+                expect(lessonShell.current?.dataset.advancedPackageId).toBe(packageRecord.id);
+                expect(lessonShell.current?.textContent).toContain(resolveAdvancedCurriculumEntry(packageRecord.id).summary.en);
+                lessonShell.current?.querySelector<HTMLButtonElement>('.academy-activity-chapter-next')?.click();
+                expect(lessonShell.current?.querySelector('[data-activity-stage="teaching"]')).not.toBeNull();
+                expect(lessonShell.current?.querySelector('[data-activity-id]')).toBeNull();
+                lessonShell.current?.querySelector<HTMLButtonElement>('.academy-activity-chapter-next')?.click();
+                expect(lessonShell.current?.querySelector<HTMLElement>('[data-activity-id]')?.dataset.activityId)
+                    .toBe(packageRecord.activity.id);
+            }
+            // Budget comes from the suite default in config/vite/academy.config.ts, which
+            // carries the measurements. A per-file override here would only re-lower it.
+        });
+    });
+});
