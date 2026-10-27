@@ -1212,6 +1212,10 @@ describe('reader helpers', () => {
     });
 
     it('can defer video layout resize events and YouTube setSize while inset updates are still changing', async () => {
+        // Earlier generic-page fixtures queue an 80 ms native resize on clear.
+        // Drain it before installing this case's fake clock and listener; an
+        // already-scheduled native timer is not adopted by useFakeTimers.
+        await new Promise<void>(resolve => window.setTimeout(resolve, 80));
         vi.useFakeTimers();
         const originalLocation = window.location;
         Object.defineProperty(window, 'location', {
