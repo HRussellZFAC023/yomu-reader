@@ -1,5 +1,9 @@
 # `npm run check` performance
 
+Browser gates are separate from the local check: [the smoke sets](./smokes.md)
+describe the seven-entry release gate, the PR layout backstop and nightly
+coverage. The static workflow coverage check remains in `check`.
+
 Baseline measured 2026-07-18 on a 10-core / 32GB M-series Mac (cold worktree,
 `scripts/measure-check.mjs`), before the speed work in this doc:
 
