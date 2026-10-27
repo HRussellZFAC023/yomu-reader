@@ -53,7 +53,7 @@ function makeController(ocrProvider: OcrProvider) {
     return { controller, recognize };
 }
 
-const settle = () => new Promise(resolve => setTimeout(resolve, 1200));
+const settle = () => vi.advanceTimersByTimeAsync(1200);
 
 afterEach(() => {
     allowSyntheticReaderInteractionsForTests(false);
@@ -63,6 +63,8 @@ afterEach(() => {
 
 describe('cloud OCR waits for a tap', () => {
     it('sends nothing to Google Lens on load or hover, and one image on a press', async () => {
+        vi.useFakeTimers();
+
         stubInstantIntersectionObserver();
         const image = makeImage();
         document.body.replaceChildren(image);
@@ -84,6 +86,8 @@ describe('cloud OCR waits for a tap', () => {
     });
 
     it('lets the learner OCR service read on load', async () => {
+        vi.useFakeTimers();
+
         stubInstantIntersectionObserver();
         document.body.replaceChildren(makeImage());
         const { controller, recognize } = makeController('local-service');
