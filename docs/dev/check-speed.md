@@ -12,7 +12,7 @@ The timing cohort used code commit `d6791605e`, Node `v24.16.0`, 10 cores and 32
 | --- | ---: | --- |
 | Fresh origin/main build before merging | 26.87 | PASS |
 | Initial merged build | 11.05 | PASS |
-| Ordinary check with full integration suites | 260.00 | PASS |
+| Final ordinary check with full integration suites | 191.72 | PASS |
 | Current full Reader baseline, with before/after input equality | 120.44 | PASS |
 | Final build then forced release graph, --no-cache | 213.95 | PASS |
 | Seven release smokes | 243.20 | PASS |
