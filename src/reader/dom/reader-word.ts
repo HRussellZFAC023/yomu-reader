@@ -4,6 +4,7 @@ import { clearProjectedReadingsWithin } from './detached-reading-overlay';
 import { coordinateInRange, hasPositiveRectArea } from './rect';
 import { JAPANESE_SENTENCE_PUNCTUATION, KANA, KANJI_LIKE_WITH_COUNTERS } from '../lookup/japanese-script';
 import { activeLearningTarget } from '../languages/target-runtime';
+import { YOMU_RUBY_CLASS } from './yomu-ruby';
 
 const READABLE_IGNORED_TAGS = new Set(['RT', 'RP', 'SCRIPT', 'STYLE']);
 const MAX_CONTEXT_SENTENCE_LENGTH = 180;
@@ -28,7 +29,7 @@ export function unwrapReaderWords(root: ParentNode = document, options: { includ
         const parent = word.parentNode;
         if (!parent) continue;
         parents.add(parent);
-        word.replaceWith(document.createTextNode(readerWordSurfaceText(word)));
+        unwrapReaderWord(word);
     }
 
     for (const bind of numberBinds) {
@@ -44,6 +45,32 @@ export function unwrapReaderWords(root: ParentNode = document, options: { includ
 
     parents.forEach(parent => parent.normalize());
     return words.length;
+}
+
+/** Strip a word's generated markup without discarding the author's ruby. */
+export function unwrapReaderWord(word: Element): void {
+    const doc = word.ownerDocument;
+    if (!word.querySelector(`ruby:not(.${YOMU_RUBY_CLASS})`)) {
+        word.replaceWith(doc.createTextNode(readerWordSurfaceText(word)));
+        return;
+    }
+    const surface = doc.createDocumentFragment();
+    const appendSurface = (node: Node): void => {
+        if (node.nodeType === Node.TEXT_NODE) {
+            surface.append(doc.createTextNode(node.textContent ?? ''));
+        } else if (node.nodeType === Node.ELEMENT_NODE) {
+            const element = node as Element;
+            if (isSurfaceIgnoredElement(element)) return;
+            if (element.tagName === 'RUBY' && !element.classList.contains(YOMU_RUBY_CLASS)) {
+                // Move the original node, including rt/rp and page listeners.
+                surface.append(element);
+            } else {
+                Array.from(element.childNodes).forEach(appendSurface);
+            }
+        }
+    };
+    Array.from(word.childNodes).forEach(appendSurface);
+    word.replaceWith(surface);
 }
 
 export function readerWordSurfaceText(element: Element): string {

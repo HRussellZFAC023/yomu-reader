@@ -78,6 +78,7 @@ export const NIGHTLY_SMOKES = [
     // author ruby inside a word keeps its line metrics and no paragraph moves
     // with readings off (W1-42).
     'smoke:page-ruby-metrics',
+    'smoke:page-ruby-lifecycle',
     'smoke:ocr-viewport-scroll',
     'smoke:pitch-underline',
     'smoke:pitch-underline:webkit',

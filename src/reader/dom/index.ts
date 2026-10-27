@@ -142,6 +142,7 @@ export {
     readerWordAtPointInScope,
     readerWordSurfaceText,
     sentenceAroundRange,
+    unwrapReaderWord,
     unwrapReaderWords,
 } from './reader-word';
 
