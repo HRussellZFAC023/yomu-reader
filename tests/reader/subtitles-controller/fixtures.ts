@@ -15,7 +15,7 @@ import { subtitleCueSignature } from '../../../src/reader/subtitles/subtitle-cue
 import { renderDrawerHead } from '../../../src/reader/subtitles/subtitle-surface';
 import { subtitleDrawerMetaText } from '../../../src/reader/subtitles/subtitle-track-panel';
 import { SUBTITLE_DRAG_OFFSET_KEY } from '../../../src/reader/subtitles/subtitle-layout';
-import { createSubtitleVideoInsetAdapter, subtitleVideoLayoutTarget } from '../../../src/reader/subtitles/subtitle-video-inset';
+
 
 const installedSubtitleControllers = new Set<SubtitlePlayerController>();
 
@@ -309,13 +309,6 @@ export function openSingleCueTranscript(controller: SubtitlePlayerController, te
     internals.openLinesPanel();
 }
 
-export function expectFullscreenPanelDisplayOverride(panel: HTMLElement): void {
-    expect(panel.hidden).toBe(false);
-    expect(panel.classList.contains('jpdb-subtitle-fullscreen')).toBe(true);
-    expect(panel.style.getPropertyValue('display')).toBe('grid');
-    expect(panel.style.getPropertyPriority('display')).toBe('important');
-}
-
 export function setSingleJapaneseSubtitleTrack(controller: SubtitlePlayerController): void {
     controllerInternals<{ tracks: unknown[] }>(controller).tracks = [{
         id: 'youtube-ja',
@@ -450,20 +443,7 @@ export function registerSubtitleControllerCleanup(): void {
     });
 }
 
-export {
-    BASE_DEFAULT_SETTINGS,
-    LOAD_SUBTITLE_FILES_EVENT,
-    OPEN_SUBTITLE_TRACKS_EVENT,
-    readPageCaptionText,
-    requestSubtitleText,
-    subtitleCueSignature,
-    renderDrawerHead,
-    subtitleDrawerMetaText,
-    createSubtitleVideoInsetAdapter,
-    subtitleVideoLayoutTarget,
-    withViewport,
-    SubtitlePlayerController,
-};
+export { BASE_DEFAULT_SETTINGS, LOAD_SUBTITLE_FILES_EVENT, OPEN_SUBTITLE_TRACKS_EVENT, readPageCaptionText, requestSubtitleText, subtitleCueSignature, renderDrawerHead, subtitleDrawerMetaText, withViewport, SubtitlePlayerController };
 export type {
     JPDBToken,
     ReaderSettings,

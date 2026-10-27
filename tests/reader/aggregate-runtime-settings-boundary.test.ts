@@ -1,36 +1,9 @@
-import { existsSync, readFileSync, statSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
 import path from 'node:path';
-import ts from 'typescript';
+
 import { describe, expect, it } from 'vitest';
 
 const repoRoot = path.resolve(import.meta.dirname, '..', '..');
-const sourceRoot = path.join(repoRoot, 'src');
-
-function transpiledRelativeImports(file: string): string[] {
-    // A JSON module (the shared menu icon shapes) has no imports, and
-    // transpileModule cannot emit it.
-    if (!/\.tsx?$/u.test(file)) return [];
-    const output = ts.transpileModule(readFileSync(file, 'utf8'), {
-        compilerOptions: {
-            module: ts.ModuleKind.ESNext,
-            target: ts.ScriptTarget.ES2022,
-        },
-        fileName: file,
-    }).outputText;
-    return staticRelativeImports(output);
-}
-
-function staticRelativeImports(source: string): string[] {
-    return Array.from(source.matchAll(/(?:\bfrom\s*|\bimport\s*)['"](\.[^'"]+)['"]/gu), match => match[1]!);
-}
-
-function resolveSourceImport(importer: string, specifier: string): string | undefined {
-    const candidate = path.resolve(path.dirname(importer), specifier);
-    for (const resolved of [candidate, `${candidate}.ts`, `${candidate}.tsx`, path.join(candidate, 'index.ts')]) {
-        if (existsSync(resolved) && statSync(resolved).isFile()) return resolved;
-    }
-    return undefined;
-}
 
 describe('aggregate runtime Settings launcher boundary', () => {
 
