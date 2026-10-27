@@ -1,3 +1,4 @@
+import { KNOWN_INTERVAL_DAYS } from '../srs/known-interval';
 import { runLimited } from '../core/async-utils';
 import { chunkArray, unique } from '../core/array-utils';
 import { videoFrameDataUrl } from '../dom/video-frame-raster';
@@ -1177,6 +1178,8 @@ export class AnkiConnectClient {
             type: queue === 3 ? 3 : queue === 1 ? 1 : queue === 0 ? 0 : 2,
             reps: 0,
             lapses: 0,
+            // The set proves which side of the threshold this review card is on.
+            interval: sets.shortIntervalReview.has(cardId) ? 0 : KNOWN_INTERVAL_DAYS,
             isDue: sets.due.has(cardId),
         } as AnkiCardInfo;
     }
@@ -1188,14 +1191,15 @@ export class AnkiConnectClient {
 
     private async loadStatusIndexCardSets(allCardIds: number[]): Promise<AnkiStatusIndexCardSets> {
         const all = new Set(unique(allCardIds).map(Number).filter(Number.isFinite));
-        if (!all.size) return { all, due: new Set(), learning: new Set(), new: new Set(), suspended: new Set() };
-        const [due, learning, newCards, suspended] = await Promise.all([
+        if (!all.size) return { all, due: new Set(), learning: new Set(), new: new Set(), suspended: new Set(), shortIntervalReview: new Set() };
+        const [due, learning, newCards, suspended, shortIntervalReview] = await Promise.all([
             this.findCardIdSet('deck:* is:due'),
             this.findCardIdSet('deck:* is:learn'),
             this.findCardIdSet('deck:* is:new'),
             this.findCardIdSet('deck:* is:suspended'),
+            this.findCardIdSet(`deck:* is:review prop:ivl<${KNOWN_INTERVAL_DAYS}`),
         ]);
-        return { all, due, learning, new: newCards, suspended };
+        return { all, due, learning, new: newCards, suspended, shortIntervalReview };
     }
 
     private async findCardIdSet(query: string): Promise<Set<number>> {
@@ -2044,6 +2048,7 @@ function emptyAnkiStatusIndexCardSets(): AnkiStatusIndexCardSets {
         learning: new Set(),
         new: new Set(),
         suspended: new Set(),
+        shortIntervalReview: new Set(),
     };
 }
 

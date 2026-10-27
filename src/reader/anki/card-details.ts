@@ -1,3 +1,4 @@
+import { KNOWN_INTERVAL_DAYS } from '../srs/known-interval';
 import type { CardState, JPDBGrade, ReviewGradeInterval, ReviewGradeIntervals } from '../app/types';
 import { unique } from '../core/array-utils';
 import {
@@ -12,7 +13,7 @@ import { flattenNoteFields } from './field-mapping';
 
 const ANKI_CARD_STATE_PRIORITY: CardState[] = ['failed', 'due', 'learning', 'known', 'new', 'suspended', 'in-deck', 'not-in-deck'];
 
-type AnkiCardStateInfo = Pick<AnkiCardInfo, 'queue' | 'type' | 'due' | 'isDue'>;
+type AnkiCardStateInfo = Pick<AnkiCardInfo, 'queue' | 'type' | 'due' | 'isDue' | 'interval'>;
 type AnkiPrimaryCardInfo = AnkiCardStateInfo & Pick<AnkiCardInfo, 'cardId'>;
 type AnkiReviewGradeCardInfo = AnkiPrimaryCardInfo & Pick<AnkiCardInfo, 'buttons' | 'nextReviews'>;
 
@@ -98,6 +99,7 @@ export function stateFromAnkiCards(cards: AnkiCardStateInfo[]): CardState {
     if (cards.some(card => card.queue === 1 || card.type === 1)) return 'learning';
     if (cards.some(card => card.queue === 0 || card.type === 0)) return 'new';
     if (cards.every(card => card.queue === -1)) return 'suspended';
+    if (cards.some(card => card.queue !== -1 && card.type === 2 && (card.interval ?? 0) < KNOWN_INTERVAL_DAYS)) return 'learning';
     return 'known';
 }
 

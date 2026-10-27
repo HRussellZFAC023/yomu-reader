@@ -1,3 +1,4 @@
+import { KNOWN_INTERVAL_DAYS } from '../srs/known-interval';
 import type { ReaderSettings } from '../app/types';
 import { sensitiveFingerprint } from '../core/sensitive-fingerprint';
 import { ankiFieldMappingsSettingsKey } from './field-mapping';
@@ -97,6 +98,7 @@ export function ankiStatusIndexSettingsKey(settings: ReaderSettings): string {
     const fieldMappings = ankiFieldMappingsSettingsKey(settings.ankiFieldMappings);
     return sensitiveFingerprint(JSON.stringify({
         account: ankiAccountContextKey(settings),
+        knownIntervalDays: KNOWN_INTERVAL_DAYS,
         ...(Object.keys(fieldMappings).length ? { fieldMappings } : {}),
     }));
 }

@@ -490,6 +490,7 @@ function stateFromStatusIndexCardIds(cardIds: number[], cardSets: AnkiStatusInde
     if (cardIds.some(cardId => cardSets.learning.has(cardId))) return 'learning';
     if (cardIds.some(cardId => cardSets.new.has(cardId))) return 'new';
     if (cardIds.every(cardId => cardSets.suspended.has(cardId))) return 'suspended';
+    if (cardIds.some(cardId => !cardSets.suspended.has(cardId) && cardSets.shortIntervalReview.has(cardId))) return 'learning';
     return 'known';
 }
 

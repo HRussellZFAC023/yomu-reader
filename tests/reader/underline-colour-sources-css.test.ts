@@ -219,3 +219,35 @@ describe('state underline style', () => {
         expect(style('pitch', 'jpdb-learning')).toBe('solid');
     });
 });
+
+describe('provider-neutral Anki filters (F171)', () => {
+    afterEach(() => document.body.replaceChildren());
+
+    it.each(['learning', 'known', 'due', 'failed', 'suspended'])('applies Hide %s to the ordinary-page review lane', state => {
+        const group = state === 'suspended' ? 'ignored' : state;
+        const word = mount(`<p class="yomu-word-color-hide-${group}">${wordMarkup(`jpdb-not-in-deck yomu-review-${state}`)}</p>`);
+        expect(winner(word, '--jpdb-reader-word-underline')).toBe('transparent');
+    });
+
+    it.each(['learning', 'known', 'due'])('does not classify review %s as New just because JPDB lacks it', state => {
+        const word = mount(`<p class="yomu-word-color-hide-new">${wordMarkup(`jpdb-not-in-deck yomu-review-${state}`)}</p>`);
+        const hideRules = WORD_CSS.filter(rule => rule.selector.includes('.yomu-word-color-hide-new'));
+        expect(hideRules.some(rule => word.matches(rule.selector))).toBe(false);
+        word.parentElement!.className = 'yomu-word-color-new-only';
+        const onlyNew = WORD_CSS.filter(rule => rule.selector.includes('.yomu-word-color-new-only'));
+        expect(onlyNew.some(rule => word.matches(rule.selector))).toBe(true);
+    });
+
+    it.each(['learning', 'known', 'due', 'failed', 'new'])('hides %s readings over the important ruby display rule', state => {
+        const word = mount(`<p class="yomu-furi-hide-${state}"><span class="jpdb-reader-word yomu-review-${state}"><ruby>語<rt class="jpdb-reader-furi">ご</rt></ruby></span></p>`);
+        const rt = word.querySelector<HTMLElement>('rt')!;
+        expect(winner(rt, 'display', WORD_CSS)).toBe('none !important');
+        word.classList.add('jpdb-reader-example-target');
+        expect(winner(rt, 'display', WORD_CSS)).not.toBe('none !important');
+    });
+
+    it.each(['learning', 'known', 'due'])('preserves review %s on the aggregate status underline', state => {
+        const word = mount(`<p class="jpdb-reader-word-underline-status">${wordMarkup(`jpdb-not-in-deck yomu-review-${state}`)}</p>`);
+        expect(pageUnderline(word)).toBe(state);
+    });
+});

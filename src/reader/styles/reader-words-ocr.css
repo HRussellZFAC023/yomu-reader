@@ -441,7 +441,7 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
   --jpdb-reader-review-readable: var(--jpdb-reader-state-ignored-readable);
   --jpdb-reader-review-soft: var(--jpdb-reader-state-ignored-soft);
 }
-.jpdb-reader-word:is(.jpdb-new, .jpdb-in-deck, .anki-new) {
+.jpdb-reader-word:is(.jpdb-new, .jpdb-in-deck, .anki-new, .yomu-review-new) {
   --jpdb-reader-status-color: var(--jpdb-reader-state-new);
   --jpdb-reader-status-readable: var(--jpdb-reader-state-new-readable);
   --jpdb-reader-status-soft: var(--jpdb-reader-state-new-soft);
@@ -451,27 +451,27 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
   --jpdb-reader-status-readable: var(--jpdb-reader-state-not-in-deck-readable);
   --jpdb-reader-status-soft: var(--jpdb-reader-state-not-in-deck-soft);
 }
-.jpdb-reader-word:is(.jpdb-learning, .jpdb-young, .anki-learning) {
+.jpdb-reader-word:is(.jpdb-learning, .jpdb-young, .anki-learning, .yomu-review-learning) {
   --jpdb-reader-status-color: var(--jpdb-reader-state-learning);
   --jpdb-reader-status-readable: var(--jpdb-reader-state-learning-readable);
   --jpdb-reader-status-soft: var(--jpdb-reader-state-learning-soft);
 }
-.jpdb-reader-word:is(.jpdb-known, .jpdb-mature, .jpdb-mastered, .jpdb-never-forget, .jpdb-redundant, .anki-known) {
+.jpdb-reader-word:is(.jpdb-known, .jpdb-mature, .jpdb-mastered, .jpdb-never-forget, .jpdb-redundant, .anki-known, .yomu-review-known) {
   --jpdb-reader-status-color: var(--jpdb-reader-state-known);
   --jpdb-reader-status-readable: var(--jpdb-reader-state-known-readable);
   --jpdb-reader-status-soft: var(--jpdb-reader-state-known-soft);
 }
-.jpdb-reader-word:is(.jpdb-due, .anki-due) {
+.jpdb-reader-word:is(.jpdb-due, .anki-due, .yomu-review-due) {
   --jpdb-reader-status-color: var(--jpdb-reader-state-due);
   --jpdb-reader-status-readable: var(--jpdb-reader-state-due-readable);
   --jpdb-reader-status-soft: var(--jpdb-reader-state-due-soft);
 }
-.jpdb-reader-word:is(.jpdb-failed, .anki-failed) {
+.jpdb-reader-word:is(.jpdb-failed, .anki-failed, .yomu-review-failed) {
   --jpdb-reader-status-color: var(--jpdb-reader-state-failed);
   --jpdb-reader-status-readable: var(--jpdb-reader-state-failed-readable);
   --jpdb-reader-status-soft: var(--jpdb-reader-state-failed-soft);
 }
-.jpdb-reader-word:is(.jpdb-suspended, .anki-suspended) {
+.jpdb-reader-word:is(.jpdb-suspended, .anki-suspended, .yomu-review-suspended) {
   --jpdb-reader-status-color: var(--jpdb-reader-state-ignored);
   --jpdb-reader-status-readable: var(--jpdb-reader-state-ignored-readable);
   --jpdb-reader-status-soft: var(--jpdb-reader-state-ignored-soft);
@@ -546,12 +546,12 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
   .jpdb-locked,
   .jpdb-frequent,
   .jpdb-unparsed,
-  .anki-new,
-  .anki-suspended,
-  .anki-learning,
-  .anki-known,
-  .anki-due,
-  .anki-failed
+  .anki-new, .yomu-review-new,
+  .anki-suspended, .yomu-review-suspended,
+  .anki-learning, .yomu-review-learning,
+  .anki-known, .yomu-review-known,
+  .anki-due, .yomu-review-due,
+  .anki-failed, .yomu-review-failed
 ) {
   --jpdb-reader-status-highlight: color-mix(
     in srgb,
@@ -806,7 +806,7 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
 .jpdb-reader-word:where(.jiten-not-in-deck, .jpdb-not-in-deck:not(
   .jpdb-learning, .jpdb-young, .jpdb-known, .jpdb-mature, .jpdb-mastered, .jpdb-never-forget, .jpdb-redundant,
   .jpdb-due, .jpdb-failed, .jpdb-suspended,
-  .anki-learning, .anki-known, .anki-due, .anki-failed, .anki-suspended
+  .anki-learning, .yomu-review-learning, .anki-known, .yomu-review-known, .anki-due, .yomu-review-due, .anki-failed, .yomu-review-failed, .anki-suspended, .yomu-review-suspended
 )) {
   --jpdb-reader-status-underline: transparent;
 }
@@ -816,7 +816,7 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
 .jpdb-reader-word:where(.jpdb-not-in-deck:is(.jpdb-blacklisted, .jpdb-locked, .jpdb-frequent, .jpdb-unparsed)) {
   --jpdb-reader-status-underline: var(--jpdb-reader-source-jpdb-decoration, transparent);
 }
-.jpdb-reader-word:where(:is(.jpdb-not-in-deck, .jiten-not-in-deck):is(.anki-new, .anki-learning, .anki-known, .anki-due, .anki-failed, .anki-suspended)) {
+.jpdb-reader-word:where(:is(.jpdb-not-in-deck, .jiten-not-in-deck):is(.anki-new, .yomu-review-new, .anki-learning, .yomu-review-learning, .anki-known, .yomu-review-known, .anki-due, .yomu-review-due, .anki-failed, .yomu-review-failed, .anki-suspended, .yomu-review-suspended)) {
   --jpdb-reader-status-underline: var(--jpdb-reader-source-review-decoration, transparent);
 }
 .jpdb-reader-word:where(.jpdb-not-in-deck:is(.jpdb-new, .jpdb-in-deck)) {
@@ -831,8 +831,8 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
   .jiten-new, .jiten-in-deck, .jiten-learning, .jiten-young, .jiten-known,
   .jiten-mature, .jiten-mastered, .jiten-never-forget, .jiten-redundant, .jiten-due,
   .jiten-failed, .jiten-suspended, .jiten-blacklisted, .jiten-locked, .jiten-frequent,
-  .anki-new, .anki-in-deck, .anki-learning, .anki-known, .anki-due,
-  .anki-failed, .anki-suspended
+  .anki-new, .yomu-review-new, .anki-in-deck, .yomu-review-in-deck, .anki-learning, .yomu-review-learning, .anki-known, .yomu-review-known, .anki-due, .yomu-review-due,
+  .anki-failed, .yomu-review-failed, .anki-suspended, .yomu-review-suspended
 )) {
   --jpdb-reader-jpdb-underline: transparent;
   --jpdb-reader-status-underline: transparent;
@@ -1306,31 +1306,34 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
 }
 /* UT-47: per-group furigana hiding (settings: furiganaHiddenStateGroups).
    The classes apply on the page root AND on the settings preview container,
-   so the preview restyles live. Example targets keep their ruby. */
+   so the preview restyles live. Override the host-armoured ruby display;
+   example targets keep their ruby. A review state outranks JPDB absence
+   when deciding whether a word belongs to New. */
 .yomu-furi-hide-known
-  .jpdb-reader-word:is(.jpdb-known, .jpdb-mature, .jpdb-mastered, .jpdb-never-forget, .jpdb-redundant, .jiten-known, .jiten-mature, .jiten-mastered, .jiten-never-forget, .jiten-redundant, .anki-known):not(.jpdb-reader-example-target)
+  .jpdb-reader-word:is(.jpdb-known, .jpdb-mature, .jpdb-mastered, .jpdb-never-forget, .jpdb-redundant, .jiten-known, .jiten-mature, .jiten-mastered, .jiten-never-forget, .jiten-redundant, .anki-known, .yomu-review-known):not(.jpdb-reader-example-target)
   .jpdb-reader-furi {
-  display: none;
+  display: none !important;
 }
 .yomu-furi-hide-due
-  .jpdb-reader-word:is(.jpdb-due, .jiten-due, .anki-due):not(.jpdb-reader-example-target)
+  .jpdb-reader-word:is(.jpdb-due, .jiten-due, .anki-due, .yomu-review-due):not(.jpdb-reader-example-target)
   .jpdb-reader-furi {
-  display: none;
+  display: none !important;
 }
 .yomu-furi-hide-failed
-  .jpdb-reader-word:is(.jpdb-failed, .jiten-failed, .anki-failed):not(.jpdb-reader-example-target)
+  .jpdb-reader-word:is(.jpdb-failed, .jiten-failed, .anki-failed, .yomu-review-failed):not(.jpdb-reader-example-target)
   .jpdb-reader-furi {
-  display: none;
+  display: none !important;
 }
 .yomu-furi-hide-learning
-  .jpdb-reader-word:is(.jpdb-learning, .jpdb-young, .jiten-learning, .jiten-young, .anki-learning):not(.jpdb-reader-example-target)
+  .jpdb-reader-word:is(.jpdb-learning, .jpdb-young, .jiten-learning, .jiten-young, .anki-learning, .yomu-review-learning):not(.jpdb-reader-example-target)
   .jpdb-reader-furi {
-  display: none;
+  display: none !important;
 }
 .yomu-furi-hide-new
-  .jpdb-reader-word:is(.jpdb-new, .jpdb-not-in-deck, .jpdb-in-deck, .jiten-new, .anki-new):not(.jpdb-reader-example-target)
-  .jpdb-reader-furi {
-  display: none;
+  .jpdb-reader-word:is(.jpdb-new, .jiten-new, .anki-new, .yomu-review-new):not(.jpdb-reader-example-target) .jpdb-reader-furi,
+.yomu-furi-hide-new
+  .jpdb-reader-word:is(.jpdb-not-in-deck, .jpdb-in-deck):not(.anki-learning, .anki-known, .anki-due, .anki-failed, .anki-suspended, .yomu-review-learning, .yomu-review-known, .yomu-review-due, .yomu-review-failed, .yomu-review-suspended, .jpdb-reader-example-target) .jpdb-reader-furi {
+  display: none !important;
 }
 /* Headword exemption (data-yomu-headword): card/search/study headwords are
    dictionary entries whose reading is the content — when the renderer emits
@@ -1407,7 +1410,9 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
 /* UT-47: "only colour new words" — every non-new word inherits the page's
    own colour and loses Yomu underline/highlight marking. */
 .yomu-word-color-new-only
-  .jpdb-reader-word:not(.jpdb-new, .jpdb-not-in-deck, .jpdb-in-deck, .jiten-new, .anki-new, .jpdb-reader-example-target) {
+  .jpdb-reader-word:not(.jpdb-new, .jpdb-not-in-deck, .jpdb-in-deck, .jiten-new, .anki-new, .yomu-review-new, .jpdb-reader-example-target),
+.yomu-word-color-new-only
+  .jpdb-reader-word:is(.jpdb-not-in-deck, .jpdb-in-deck):is(.anki-learning, .anki-known, .anki-due, .anki-failed, .anki-suspended, .yomu-review-learning, .yomu-review-known, .yomu-review-due, .yomu-review-failed, .yomu-review-suspended):not(.jpdb-new, .jiten-new, .anki-new, .yomu-review-new, .jpdb-reader-example-target) {
   --jpdb-reader-word-underline: transparent;
   /* A compound's pitch gradient is an inline var painted by ::after, out of
      reach of the background-image reset below; !important beats inline. */
@@ -1438,17 +1443,19 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
    word carrying two providers' differing states (e.g. jpdb-known + anki-due) is
    hidden if EITHER group is opted out, which matches the aggregate default. */
 .yomu-word-color-hide-known
-  .jpdb-reader-word:is(.jpdb-known, .jpdb-mature, .jpdb-mastered, .jpdb-never-forget, .jpdb-redundant, .jiten-known, .jiten-mature, .jiten-mastered, .jiten-never-forget, .jiten-redundant, .anki-known):not(.jpdb-reader-example-target),
+  .jpdb-reader-word:is(.jpdb-known, .jpdb-mature, .jpdb-mastered, .jpdb-never-forget, .jpdb-redundant, .jiten-known, .jiten-mature, .jiten-mastered, .jiten-never-forget, .jiten-redundant, .anki-known, .yomu-review-known):not(.jpdb-reader-example-target),
 .yomu-word-color-hide-due
-  .jpdb-reader-word:is(.jpdb-due, .jiten-due, .anki-due):not(.jpdb-reader-example-target),
+  .jpdb-reader-word:is(.jpdb-due, .jiten-due, .anki-due, .yomu-review-due):not(.jpdb-reader-example-target),
 .yomu-word-color-hide-failed
-  .jpdb-reader-word:is(.jpdb-failed, .jiten-failed, .anki-failed):not(.jpdb-reader-example-target),
+  .jpdb-reader-word:is(.jpdb-failed, .jiten-failed, .anki-failed, .yomu-review-failed):not(.jpdb-reader-example-target),
 .yomu-word-color-hide-learning
-  .jpdb-reader-word:is(.jpdb-learning, .jpdb-young, .jiten-learning, .jiten-young, .anki-learning):not(.jpdb-reader-example-target),
+  .jpdb-reader-word:is(.jpdb-learning, .jpdb-young, .jiten-learning, .jiten-young, .anki-learning, .yomu-review-learning):not(.jpdb-reader-example-target),
 .yomu-word-color-hide-ignored
-  .jpdb-reader-word:is(.jpdb-suspended, .jpdb-blacklisted, .jpdb-locked, .jiten-suspended, .jiten-blacklisted, .jiten-locked, .anki-suspended):not(.jpdb-reader-example-target),
+  .jpdb-reader-word:is(.jpdb-suspended, .jpdb-blacklisted, .jpdb-locked, .jiten-suspended, .jiten-blacklisted, .jiten-locked, .anki-suspended, .yomu-review-suspended):not(.jpdb-reader-example-target),
 .yomu-word-color-hide-new
-  .jpdb-reader-word:is(.jpdb-new, .jpdb-not-in-deck, .jpdb-in-deck, .jiten-new, .anki-new):not(.jpdb-reader-example-target) {
+  .jpdb-reader-word:is(.jpdb-new, .jiten-new, .anki-new, .yomu-review-new):not(.jpdb-reader-example-target),
+.yomu-word-color-hide-new
+  .jpdb-reader-word:is(.jpdb-not-in-deck, .jpdb-in-deck):not(.anki-learning, .anki-known, .anki-due, .anki-failed, .anki-suspended, .yomu-review-learning, .yomu-review-known, .yomu-review-due, .yomu-review-failed, .yomu-review-suspended, .jpdb-reader-example-target) {
   --jpdb-reader-word-underline: transparent;
   --jpdb-reader-inline-pitch-gradient: none !important;
   color: inherit !important;

@@ -164,6 +164,7 @@ describe('reader helpers', () => {
                     deckName: 'Core',
                     queue: 2,
                     type: 2,
+                    interval: 30,
                     due: 0,
                     reps: 9,
                     lapses: 0,
@@ -1585,7 +1586,7 @@ describe('reader helpers', () => {
                     },
                     cards: [7701],
                 }],
-                cardsInfo: [{ cardId: 7701, note: 55, deckName: 'Mobile Bridge', queue: 2, type: 2, reps: 8, lapses: 0 }],
+                cardsInfo: [{ cardId: 7701, note: 55, deckName: 'Mobile Bridge', queue: 2, type: 2, interval: 30, reps: 8, lapses: 0 }],
                 areDue: [false],
             };
             return resultByAction[request.action] ?? null;
