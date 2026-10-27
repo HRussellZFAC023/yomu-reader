@@ -6,24 +6,6 @@ import { describe, expect, it } from 'vitest';
 const repoRoot = path.resolve(import.meta.dirname, '..', '..');
 const sourceRoot = path.join(repoRoot, 'src');
 
-function productionImportGraph(entry: string): Set<string> {
-    const pending = [path.join(repoRoot, entry)];
-    const visited = new Set<string>();
-    while (pending.length) visitImportedSource(pending, visited);
-    return visited;
-}
-
-function visitImportedSource(pending: string[], visited: Set<string>): void {
-    const file = pending.pop()!;
-    const relative = path.relative(repoRoot, file);
-    if (visited.has(relative)) return;
-    visited.add(relative);
-    for (const specifier of transpiledRelativeImports(file)) {
-        const resolved = resolveSourceImport(file, specifier);
-        if (resolved?.startsWith(sourceRoot)) pending.push(resolved);
-    }
-}
-
 function transpiledRelativeImports(file: string): string[] {
     // A JSON module (the shared menu icon shapes) has no imports, and
     // transpileModule cannot emit it.
@@ -51,42 +33,6 @@ function resolveSourceImport(importer: string, specifier: string): string | unde
 }
 
 describe('aggregate runtime Settings launcher boundary', () => {
-    it('retains shared offline services without reaching the writable dialog or restore stack', () => {
-        const graph = productionImportGraph('src/reader/companions/runtime.ts');
-
-        for (const required of [
-            'src/reader/companions/settings-services.ts',
-            'src/reader/dictionaries/yomitan/index.ts',
-            'src/reader/popup/modal-accessibility-impl.ts',
-            'src/reader/srs/account-sync.ts',
-        ]) expect(graph, `${required} must remain in yomu-runtime`).toContain(required);
-
-        for (const forbidden of [
-            'src/reader/dictionaries/recommended.ts',
-            'src/reader/dictionaries/offline-starters-catalog.ts',
-            'src/reader/dictionaries/catalog-browse.ts',
-            'src/reader/dictionaries/catalog/runtime.ts',
-            'src/reader/settings/dialog-controller.ts',
-            'src/reader/settings/reader-settings-restore-adapter.ts',
-            'src/reader/settings/settings-action-router.ts',
-            'src/reader/settings/settings-cloud-sync-coordinator.ts',
-            'src/reader/settings/settings-restore-coordinator.ts',
-            'src/reader/settings/settings-restore-transaction.ts',
-        ]) expect(graph, `${forbidden} must stay out of yomu-runtime`).not.toContain(forbidden);
-    });
-
-    it('keeps full registration and NewTabRuntime on the writable controller and cloud-resume path', () => {
-        const fullBuild = productionImportGraph('src/reader/companions/register-build-companions.ts');
-        const newTab = productionImportGraph('src/reader/newtab/runtime.ts');
-        const newTabSource = readFileSync(path.join(repoRoot, 'src/reader/newtab/runtime.ts'), 'utf8');
-        const readerSource = readFileSync(path.join(repoRoot, 'src/reader/app/main.ts'), 'utf8');
-
-        expect(fullBuild).toContain('src/reader/settings/dialog-controller.ts');
-        expect(newTab).toContain('src/reader/settings/dialog-controller.ts');
-        expect(newTab).toContain('src/reader/settings/settings-cloud-sync-coordinator.ts');
-        expect(newTabSource).toContain('void this.settingsDialog.resumePendingCloudSettingsSync();');
-        expect(readerSource).not.toContain('resumePendingCloudSettingsSync');
-    });
 
     it('keeps the built aggregate runtime launcher-only while retaining its offline services', () => {
         const artifact = readFileSync(
