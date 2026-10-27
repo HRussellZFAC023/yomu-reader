@@ -16,17 +16,15 @@
 // fixtures for storage behaviour, not visual QA evidence.
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
-import { chromium } from 'playwright';
 import {
     assert,
     assertBuiltArtifacts,
     createSmokePaths,
-    launchSmokeBrowser,
     YOMU_SETTINGS_KEY,
-} from './lib/smoke-harness.mjs';
-import { userscriptCompanionPaths } from './lib/smoke-test-helpers.mjs';
+} from './smoke-harness.mjs';
+import { userscriptCompanionPaths } from './smoke-test-helpers.mjs';
 
-const { root: ROOT, scriptPath: SCRIPT_PATH, cssPath: CSS_PATH, newTabDir: NEWTAB_DIR } = createSmokePaths(import.meta.dirname);
+const { root: ROOT, scriptPath: SCRIPT_PATH, cssPath: CSS_PATH, newTabDir: NEWTAB_DIR } = createSmokePaths(path.resolve(import.meta.dirname, '..'));
 const COMPANION_PATHS = userscriptCompanionPaths(SCRIPT_PATH);
 assertBuiltArtifacts([SCRIPT_PATH, CSS_PATH, ...COMPANION_PATHS, path.join(NEWTAB_DIR, 'index.html'), path.join(NEWTAB_DIR, 'app.js')], ROOT);
 
@@ -38,15 +36,11 @@ const USERSCRIPT_GRAPH = [...COMPANION_PATHS, SCRIPT_PATH].map(file => readFileS
 const CONTENT_TYPES = new Map([['.html', 'text/html; charset=utf-8'], ['.js', 'text/javascript; charset=utf-8'], ['.css', 'text/css; charset=utf-8'], ['.json', 'application/json']]);
 const DEBUG = Boolean(process.env.SMOKE_DEBUG);
 
-const browser = await launchSmokeBrowser(chromium, 'chromium', { headless: true });
-try {
+export async function assertUserscriptsAppStorage(browser) {
     const fresh = await freshInstallSetupInStudy();
     const configured = await configuredReaderBoots();
     console.log(JSON.stringify({ fixture: true, fresh, configured }, null, 2));
     console.log('Userscripts app storage smoke passed');
-} finally {
-    await browser.close().catch(() => undefined);
-}
 
 /** A fresh install: setup completed in Study must reach the installed Reader. */
 async function freshInstallSetupInStudy() {
@@ -116,7 +110,7 @@ async function configuredReaderBoots() {
 async function readerState(page) {
     await page.waitForFunction(() => document.querySelector('.jpdb-reader-onboarding-trusted-launcher')
         || document.querySelector('#jpdb-reader-runtime-owner[data-yomu-runtime-health="ready"]'), null, { timeout: 20_000 });
-    await page.waitForTimeout(500);
+    await page.locator('.jpdb-reader-fab').waitFor({ timeout: 20_000 });
     return page.evaluate(() => ({
         setupPrompt: Boolean(document.querySelector('.jpdb-reader-onboarding-trusted-launcher')),
         health: document.querySelector('#jpdb-reader-runtime-owner')?.getAttribute('data-yomu-runtime-health') ?? '',
@@ -259,3 +253,4 @@ async function waitFor(read, timeoutMs) {
     }
 }
 
+}

@@ -3,7 +3,7 @@
   "version": "2.2.0",
   "private": true,
   "type": "module",
-  "description": "よむ: Japanese pop-up dictionary with furigana, pitch accent, subtitles, OCR, and Study.",
+  "description": "\u3088\u3080: Japanese pop-up dictionary with furigana, pitch accent, subtitles, OCR, and Study.",
   "license": "MIT",
   "repository": {
     "type": "git",
@@ -286,7 +286,7 @@
     "smoke:study-personas": "node scripts/study-personas-smoke.mjs",
     "smoke:study-flow-stability": "node scripts/study-flow-stability-smoke.mjs",
     "smoke:userscript-boot": "node scripts/userscript-boot-smoke.mjs",
-    "smoke:userscripts-app": "node scripts/userscripts-app-storage-smoke.mjs",
+    "smoke:userscripts-app": "npm run smoke:userscript-boot",
     "smoke:userscript-csp": "node scripts/userscript-csp-smoke.mjs",
     "manual:subtitles": "node scripts/manual/subtitle-player-smoke.mjs",
     "smoke:subtitle-network": "node scripts/subtitle-network-resilience-smoke.mjs",

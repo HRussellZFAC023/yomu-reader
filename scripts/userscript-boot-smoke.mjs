@@ -3,6 +3,7 @@
 // built header, then the userscript, on a plain page and a YouTube-shaped URL.
 // These are deterministic fixtures for boot behavior, not visual QA evidence.
 import { chromium } from 'playwright';
+import { assertUserscriptsAppStorage } from './lib/userscripts-app-cells.mjs';
 import {
     YOMU_SETTINGS_KEY,
     addGmStorageBridgeInitScript,
@@ -64,6 +65,7 @@ try {
         await bootScenario('youtube', 'https://www.youtube.com/watch?v=yomu-runtime-boot', 'ko'),
     ];
     console.log(JSON.stringify({ fixture: true, reports }, null, 2));
+    await assertUserscriptsAppStorage(browser);
     console.log('userscript boot smoke passed');
 } finally {
     await closeSmokeBrowserAndServer(browser, fixture.server);
