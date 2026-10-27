@@ -3,8 +3,19 @@ import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, matchesGlob } from 'node:path';
 import { StageCache, repositorySnapshot, selectInputs, stageKey } from '../../scripts/lib/stage-cache.mjs';
+
+test('compiled input declarations preserve glob matching, exclusions and hidden configs', () => {
+    const paths = ['src/a.ts', 'src/nested/a.ts', 'src/.hidden.ts', 'docs/.vitepress/config.mts', 'README.md', 'tsconfig.json', 'src/a.css'];
+    const snapshot = Object.fromEntries(paths.map(path => [path, {}]));
+    const visible = value => value.replace(/(^|\/)\./g, '$1__dot__');
+    for (const patterns of [['src/**'], ['**', '!src/nested/**'], ['docs/**'], ['README.md', 'tsconfig*.json'], ['src/**/*.ts', '!src/.hidden.ts']]) {
+        const expected = paths.filter(path => patterns.some(pattern => !pattern.startsWith('!') && matchesGlob(visible(path), visible(pattern)))
+            && !patterns.some(pattern => pattern.startsWith('!') && matchesGlob(visible(path), visible(pattern.slice(1)))));
+        assert.deepEqual(Object.keys(selectInputs(snapshot, patterns)), expected);
+    }
+});
 
 test('content keys track staged, modified, untracked and deleted inputs; unrelated bytes do not invalidate', t => {
     const root = mkdtempSync(join(tmpdir(), 'yomu-cache-test-'));

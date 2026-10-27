@@ -34,7 +34,7 @@ export class StageRunner {
     }
     async run(stage) {
         const start = performance.now();
-        const key = this.key(stage);
+        const key = stage.uncached ? null : this.key(stage);
         const patterns = [...cacheImplementation, ...stage.inputs];
         const before = stage.canonicalizesOutputs ? selectInputs(this.snapshot, patterns) : null;
         const finalKey = before ? () => {

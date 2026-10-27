@@ -2,6 +2,7 @@
 import { join } from 'node:path';
 import { StageRunner, cacheOptions } from './lib/stage-runner.mjs';
 import { dependencyInputs } from './lib/dependency-inputs.mjs';
+import { git } from './lib/stage-cache.mjs';
 
 const root = join(import.meta.dirname, '..');
 const runner = new StageRunner(root, { ...cacheOptions(), prefix: 'docs' });
@@ -27,6 +28,8 @@ try {
             inputs: renderInputs,
             outputs: ['docs/.vitepress/dist/**'],
             diskInputs: ['docs/public/**'],
+            // VitePress lastUpdated reads commit dates, beyond source bytes.
+            extra: git(root, ['log', '-1', '--format=%H', '--', 'docs']),
             env: ['YOMU_PATREON_ENABLED', 'YOMU_PATREON_URL', 'YOMU_KOFI_URL', 'YOMU_GOOGLE_SITE_VERIFICATION', 'YOMU_BING_SITE_VERIFICATION', 'YOMU_YANDEX_SITE_VERIFICATION', 'YOMU_BAIDU_SITE_VERIFICATION'],
         });
     }

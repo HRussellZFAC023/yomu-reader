@@ -11,13 +11,30 @@ export function git(root, args) {
     return execFileSync('git', args, { cwd: root, encoding: 'utf8', maxBuffer: 128 * 1024 * 1024 });
 }
 
-function matchesInputs(path, patterns) {
-    // Node's globstar normally omits dotfiles. These are input declarations,
-    // not a shell expansion: hidden config files must participate too.
+function compilePatterns(patterns) {
+    const exact = new Set();
+    const predicates = [];
+    const magic = /[?*{[]/;
     const visible = value => value.replace(/(^|\/)\./g, '$1__dot__');
-    const candidate = visible(path);
-    return patterns.some(pattern => !pattern.startsWith('!') && matchesGlob(candidate, visible(pattern)))
-        && !patterns.some(pattern => pattern.startsWith('!') && matchesGlob(candidate, visible(pattern.slice(1))));
+    for (const pattern of patterns) {
+        if (!magic.test(pattern)) exact.add(pattern);
+        else if (pattern === '**') predicates.push(() => true);
+        else if (pattern.endsWith('/**') && !magic.test(pattern.slice(0, -3))) {
+            const prefix = pattern.slice(0, -2);
+            predicates.push(path => path.startsWith(prefix) || path === prefix.slice(0, -1));
+        } else {
+            // Node's globstar omits dotfiles. Input declarations include them.
+            const normalized = visible(pattern);
+            predicates.push(path => matchesGlob(visible(path), normalized));
+        }
+    }
+    return path => exact.has(path) || predicates.some(predicate => predicate(path));
+}
+
+function inputMatcher(patterns) {
+    const included = compilePatterns(patterns.filter(pattern => !pattern.startsWith('!')));
+    const excluded = compilePatterns(patterns.filter(pattern => pattern.startsWith('!')).map(pattern => pattern.slice(1)));
+    return path => included(path) && !excluded(path);
 }
 
 function fileHash(root, path, algorithm = 'sha256', gitObject = false) {
@@ -57,7 +74,8 @@ export function repositorySnapshot(root) {
 }
 
 export function selectInputs(snapshot, patterns) {
-    return Object.fromEntries(Object.entries(snapshot).filter(([path]) => matchesInputs(path, patterns)));
+    const matches = inputMatcher(patterns);
+    return Object.fromEntries(Object.entries(snapshot).filter(([path]) => matches(path)));
 }
 
 export function stageKey({ command, inputs, env = {}, extra = null, node = process.version }) {
@@ -68,11 +86,12 @@ export function stageKey({ command, inputs, env = {}, extra = null, node = proce
 // products. Git's index cannot prove that a previous build is still on disk.
 export function outputHashes(root, patterns) {
     const files = new Set();
+    const matches = inputMatcher(patterns);
     function walk(path) {
         if (forbidden(path) || !existsSync(join(root, path))) return;
         const info = lstatSync(join(root, path));
         if (!info.isDirectory()) {
-            if (matchesInputs(path, patterns)) files.add(path);
+            if (matches(path)) files.add(path);
             return;
         }
         for (const name of readdirSync(join(root, path)).sort()) walk(path === '.' ? name : `${path}/${name}`);
