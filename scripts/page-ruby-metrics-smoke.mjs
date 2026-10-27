@@ -40,6 +40,7 @@
 //   node scripts/page-ruby-metrics-smoke.mjs --product=v2.1.6     # the failures 2.1.6 shipped with
 //   node scripts/page-ruby-metrics-smoke.mjs --layouts=webkit-horizontal
 //   node scripts/page-ruby-metrics-smoke.mjs --ipad   # WebKit iPad portrait
+import { assertClampRowHeal, assertPageRubyLifecycle } from './lib/page-ruby-cells.mjs';
 import { chromium, devices, webkit } from 'playwright';
 import { AOZORA_CSS_URL, AOZORA_SLUG, aozoraParagraphsMechanismFixture } from './lib/aozora-mechanism-fixtures.mjs';
 import { answerJpdbParseByScriptRuns } from './lib/jpdb-script-run-parse.mjs';
@@ -82,18 +83,25 @@ const check = (condition, message) => {
     if (!condition) failures.push(message);
 };
 
+const browsers = new Map();
+try {
 for (const layout of layouts) {
     if (!LAYOUTS[layout]) throw new Error(`Unknown layout ${layout}; one of ${Object.keys(LAYOUTS).join(', ')}`);
-    const browser = await LAYOUTS[layout].engine.launch();
-    try {
+    const type = LAYOUTS[layout].engine;
+    let browser = browsers.get(type);
+    if (!browser) { browser = await type.launch(); browsers.set(type, browser); }
         const bare = await measure(browser, layout, null, null);
         check(bare.paragraphs.length === PARAGRAPHS && bare.pageRuby.length === PAGE_RUBY, `${layout}: the bare page has ${bare.paragraphs.length} paragraphs and ${bare.pageRuby.length} page ruby to compare`);
         for (const name of cases) {
             judge(`${product.label} ${layout} readings ${name}`, CASES[name], bare, await measure(browser, layout, product, CASES[name]));
         }
-    } finally {
-        await browser.close();
+}
+    for (const [type, browser] of browsers) {
+        await assertClampRowHeal(browser, type.name());
+        await assertPageRubyLifecycle(browser, type.name());
     }
+} finally {
+    for (const browser of browsers.values()) await browser.close();
 }
 
 if (failures.length) {
