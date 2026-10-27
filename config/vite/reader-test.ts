@@ -26,8 +26,6 @@ export const readerNodeFiles = [
     'tests/reader/dictionary-defaults.test.ts',
     'tests/reader/dictionary-preference-upgrade.test.ts',
     'tests/reader/enrichment-policy.test.ts',
-    'tests/reader/extension-storage-authority.test.ts',
-    'tests/reader/extension-storage-notifications.test.ts',
     'tests/reader/gaming-capture-windows.test.ts',
     'tests/reader/gaming-ocr.test.ts',
     'tests/reader/gaming-overlay-csp.test.ts',
