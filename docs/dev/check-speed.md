@@ -14,7 +14,7 @@ The timing cohort used code commit `d6791605e`, Node `v24.16.0`, 10 cores and 32
 | Initial merged build | 11.05 | PASS |
 | Ordinary check with full integration suites | 260.00 | PASS |
 | Current full Reader baseline, with before/after input equality | 120.44 | PASS |
-| Final build then forced release graph, --no-cache | Pending final run | Pending final run |
+| Final build then forced release graph, --no-cache | 213.95 | PASS |
 | Seven release smokes | 243.20 | PASS |
 
 `check -- --no-cache` runs the full Reader, strict Academy, worker and tooling suites. The inherited release graph runs full Reader/workers/tooling with `--no-cache`; the full strict Academy suite remains in ordinary check and CI. Its old known-failure mechanism is removed. The final clean-tree check is recorded in `artifacts/g-03/final-clean-check.log`.
