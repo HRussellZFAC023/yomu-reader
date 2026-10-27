@@ -153,7 +153,11 @@ describe('D43 copy tiers are a property of the string', () => {
         const humanCritical = messages.filter((message) => message.tier === 'human-critical');
         const byIdAlone = humanCritical.filter((message) => copyTierOf(message.id).tier === 'human-critical');
         expect({ total: messages.length, critical: humanCritical.length, byId: byIdAlone.length })
-            .toEqual({ total: 1234, critical: 427, byId: 422 });
+            .toEqual({ total: 1236, critical: 427, byId: 422 });
+        // W1-63 names Auto and its pixel-size setting; both are supplementary.
+        for (const key of ['subtitleFontSizeAuto', 'subtitleFontSizePixelsAuto']) {
+            expect(copyTierOf(legacyChromeMessageId(key)).tier, key).toBe('machine-draft-ok');
+        }
         // W1-62 removes the unused context-count and missing-pitch filler messages.
         // W1-10 names each recognized OCR text region for assistive technology.
         expect(copyTierOf(legacyChromeMessageId('ocrTextRegion')).tier).toBe('machine-draft-ok');

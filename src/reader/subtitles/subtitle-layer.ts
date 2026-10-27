@@ -86,7 +86,16 @@ export class SubtitleLayer {
     }
 
     layout(rect: SubtitleElementLayout): SubtitleElementLayout {
-        if (!this.host || !this.local) return rect;
+        if (!this.host || !this.local) {
+            // Fixed portals still inherit CSS page zoom. Their viewport
+            // rectangles must be projected into CSS pixels just like a local
+            // player, or leaving the frame doubles their position and size.
+            const page = document.documentElement;
+            const pageRect = page.getBoundingClientRect();
+            const scaleX = page.offsetWidth && pageRect.width ? pageRect.width / page.offsetWidth : 1;
+            const scaleY = page.offsetHeight && pageRect.height ? pageRect.height / page.offsetHeight : scaleX;
+            return { left: rect.left / scaleX, top: rect.top / scaleY, width: rect.width / scaleX, height: rect.height / scaleY };
+        }
         const hostRect = this.host.getBoundingClientRect();
         const scaleX = hostRect.width && this.host.offsetWidth ? hostRect.width / this.host.offsetWidth : 1;
         const scaleY = hostRect.height && this.host.offsetHeight ? hostRect.height / this.host.offsetHeight : 1;

@@ -14,7 +14,7 @@ export async function assertCaptionGeometry(page, engine, out, longCue, popupMod
     const settle = () => page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
     // Fix rounds cover each reproduced defect once. Independent review can
     // request the complete acceptance matrix without repeating it in lanes.
-    const sizes = process.argv.includes('--full-matrix')
+    const sizes = process.argv.includes('--short-zoom-only') ? [[1280,600,2]] : process.argv.includes('--full-matrix')
         ? [[834,1194],[1194,834],[320,568],[360,640],[390,844],[844,390],
             [320,1180],[590,820],[500,700],[1280,600],[500,700,2],[1280,600,2]]
         : [[834,1194],[320,568]];
@@ -32,7 +32,8 @@ export async function assertCaptionGeometry(page, engine, out, longCue, popupMod
             const walker=document.createTreeWalker(primary,NodeFilter.SHOW_TEXT,{acceptNode:node=>node.parentElement.closest('rt,.jpdb-reader-furi')?NodeFilter.FILTER_REJECT:NodeFilter.FILTER_ACCEPT});
             const textRects=[];while(walker.nextNode()){const range=document.createRange();range.selectNodeContents(walker.currentNode);textRects.push(...[...range.getClientRects()].map(rect=>rect.toJSON()));}
             const styles = ['.jpdb-subtitle-text','.jpdb-subtitle-primary'].map(selector=>({selector,style:document.querySelector(selector).getAttribute('style')}));
-            return {styles,textRects,viewport:{width:visualViewport.width,height:visualViewport.height},
+            const root = document.querySelector('.jpdb-subtitle-player');
+            return {styles,textRects,root:{rect:root.getBoundingClientRect().toJSON(),style:root.style.cssText,offsetWidth:root.offsetWidth,offsetHeight:root.offsetHeight},viewport:{width:visualViewport.width,height:visualViewport.height},
                 primary:rect('.jpdb-subtitle-primary-row'), secondary:rect('.jpdb-subtitle-lines > .jpdb-subtitle-secondary'),
                 rail:rect('.jpdb-subtitle-rail'),handle:rect('[data-subtitle-drag-handle]'),
                 font:parseFloat(getComputedStyle(primary).fontSize), nativeFont:parseFloat(getComputedStyle(native).fontSize) };

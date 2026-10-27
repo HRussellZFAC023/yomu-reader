@@ -285,11 +285,14 @@ function visible(settings: ReaderSettings | Record<string, unknown>, expected: V
     return Object.fromEntries(Object.keys(expected.settings).filter(key => key !== 'learningTargetChosen' && key !== 'onboardingSeen').map(key => [key, record[key]]));
 }
 
-// What 2.1 shows for a v1.9.3 record: the stored bytes are untouched, but the
-// retired green default accent shows as the brand red.
-function shownBy21(expected: Visible): Record<string, unknown> {
+// Preserve captured bytes while comparing current display defaults: brand
+// red replaces the retired accent and Auto replaces the unchosen 28px size.
+// Explicit sizes in these fixtures are 40px and remain exact.
+function shownByCurrent(expected: Visible): Record<string, unknown> {
     const shown = visible(expected.settings, expected);
-    return shown.accentColor === '#5ea780' ? { ...shown, accentColor: '#b8324e' } : shown;
+    if (shown.accentColor === '#5ea780') shown.accentColor = '#b8324e';
+    if (shown.subtitleFontSize === 28) shown.subtitleFontSize = 0;
+    return shown;
 }
 
 /** A pair whose commit ids never match: every strict read and retry rejects it. */
@@ -444,7 +447,7 @@ describe('Study over the stores v1.9.3 left', () => {
         await starting;
         expect(prepend).not.toHaveBeenCalled();
         expect(createRuntime).toHaveBeenCalledOnce();
-        expect(visible(loaded[0], expected)).toEqual(shownBy21(expected));
+        expect(visible(loaded[0], expected)).toEqual(shownByCurrent(expected));
     }
 
     it.each(HOSTED)('%s: website-only hosted Study never sees the wall', async (_name, fixture) => {

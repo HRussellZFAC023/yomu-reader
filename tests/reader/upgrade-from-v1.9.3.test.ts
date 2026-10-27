@@ -259,11 +259,14 @@ function visibleSettings(settings: ReaderSettings | Record<string, unknown>): Re
     return Object.fromEntries(VISIBLE_KEYS.map(key => [key, record[key]]));
 }
 
-// What 2.1 shows for a v1.9.3 record. The stored bytes are untouched, but 2.1
-// retired the green default accent, so a record still carrying it shows the brand red.
-function shownBy21(settings: Record<string, unknown>): Record<string, unknown> {
+// Current display of the recorded defaults: 2.1 retired the green accent;
+// 2.2 makes an unchosen 28px caption default automatic. Explicit sizes in
+// this corpus are 40px and remain exact; historical fixture bytes stay intact.
+function shownByCurrent(settings: Record<string, unknown>): Record<string, unknown> {
     const shown = visibleSettings(settings);
-    return shown.accentColor === '#5ea780' ? { ...shown, accentColor: '#b8324e' } : shown;
+    if (shown.accentColor === '#5ea780') shown.accentColor = '#b8324e';
+    if (shown.subtitleFontSize === 28) shown.subtitleFontSize = 0;
+    return shown;
 }
 
 function targetLanguage(settings: ReaderSettings): string | null {
@@ -274,7 +277,7 @@ function targetLanguage(settings: ReaderSettings): string | null {
 /** Loads settings the way v2 boots and compares with what v1.9.3 showed. */
 async function expectSameAsV193(expected: Visible): Promise<ReaderSettings> {
     const settings = await loadSettings();
-    expect(visibleSettings(settings)).toEqual(shownBy21(expected.settings));
+    expect(visibleSettings(settings)).toEqual(shownByCurrent(expected.settings));
     expect(targetLanguage(settings)).toBe(expected.targetLanguage);
     // Setup was removed in 2.1; retained startup tests exercise fresh and upgraded rendering.
     expect(settings).not.toHaveProperty('onboardingSeen');
@@ -292,7 +295,7 @@ async function expectSaveStillWorks(expected: Visible): Promise<void> {
     await saveSettings({ ...current, subtitleFontSize: 44 }, { explicitUserChoiceKeys: ['subtitleFontSize'] });
     resetManagedStateEpochSessionsForTests();
     const reloaded = await loadSettings();
-    expect(visibleSettings(reloaded)).toEqual({ ...shownBy21(expected.settings), subtitleFontSize: 44 });
+    expect(visibleSettings(reloaded)).toEqual({ ...shownByCurrent(expected.settings), subtitleFontSize: 44 });
 }
 
 // ---------------------------------------------------------------------------

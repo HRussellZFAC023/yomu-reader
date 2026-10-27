@@ -83,7 +83,11 @@ export function bindSubtitleControlRail(
             bounds,
             reservedRects ?? options.getReservedRects?.() ?? [],
         );
-        const styles = { left: `${Math.round(safePosition.left)}px`, right: 'auto', top: `${Math.round(safePosition.top)}px` };
+        // Collision and pointer geometry use viewport pixels; positioned CSS
+        // uses the root's local pixels, including page zoom/player transforms.
+        const scaleX = root.offsetWidth ? bounds.rootRect.width / root.offsetWidth : 1;
+        const scaleY = root.offsetHeight ? bounds.rootRect.height / root.offsetHeight : 1;
+        const styles = { left: `${Math.round(safePosition.left / scaleX)}px`, right: 'auto', top: `${Math.round(safePosition.top / scaleY)}px` };
         let changed = false;
         for (const [property, value] of Object.entries(styles)) {
             if (rail.style.getPropertyValue(property) === value) continue;

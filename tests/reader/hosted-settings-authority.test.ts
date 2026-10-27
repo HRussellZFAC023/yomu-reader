@@ -198,6 +198,8 @@ describe('yomureader.com after a v1.9.x factory reset', () => {
         // The stored bytes stay untouched, but 2.1 shows the retired green
         // default accent as the brand red.
         if (expected.accentColor === '#5ea780') expected.accentColor = '#b8324e';
+        // These demo records never chose a size; 2.2 uses Auto instead of 28px.
+        if (expected.subtitleFontSize === 28) expected.subtitleFontSize = 0;
         return {
             bytes: fixture.webStorage['https://yomureader.com'][SETTINGS_STORAGE_KEY],
             expected,

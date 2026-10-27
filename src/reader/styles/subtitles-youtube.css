@@ -830,6 +830,7 @@ html.jpdb-subtitle-yt-sheet-open .asbplayer-subtitles-container-bottom.jpdb-subt
   align-content: flex-start;
   flex-wrap: wrap;
   gap: 4px;
+  width: max-content;
   max-width: calc(100% - 20px);
   padding: 4px;
   border: 1px solid var(--jpdb-reader-border);

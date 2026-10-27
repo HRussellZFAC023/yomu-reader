@@ -38,7 +38,8 @@ describe('reachable subtitle position', () => {
             positionRect: new DOMRect(0, 64, 390, 756),
             viewportTop: 80,
             viewportHeight: 740,
-            subtitleHeight: 72,
+            // The caller measures the caption AND recovery handle together.
+            subtitleHeight: 120,
         })).toBe(80);
     });
 });

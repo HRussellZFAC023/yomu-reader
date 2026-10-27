@@ -42,9 +42,20 @@ export function subtitleCaptionBottomPercent(root: HTMLElement, preferred: numbe
         && Math.round(visualViewport.height) === viewport.height
         ? visualViewport.offsetTop : 0;
     const extents = subtitleCaptionExtents(root);
+    const frame = root.getBoundingClientRect();
+    // When a magnified caption and its controls cannot share the video frame,
+    // keep a reachable control lane below the translation.
+    // Its fixed footprint does not depend on the current cue's line count.
+    const rail = root.querySelector<HTMLElement>('.jpdb-subtitle-rail');
+    if (rail && getComputedStyle(rail).display !== 'none') {
+        const clearance = rail.getBoundingClientRect().height + 6;
+        if (frame.bottom > viewportTop + viewport.height || extents.above + extents.below + clearance > frame.height) {
+            extents.below += clearance;
+        }
+    }
     return reachableSubtitleBottomPercent({
         preferredBottomPercent: preferred,
-        positionRect: root.getBoundingClientRect(),
+        positionRect: frame,
         viewportTop,
         viewportHeight: viewport.height,
         subtitleHeight: extents.above,
