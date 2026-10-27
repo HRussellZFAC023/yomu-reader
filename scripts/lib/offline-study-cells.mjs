@@ -1,18 +1,29 @@
-#!/usr/bin/env node
+import * as browsers from 'playwright';
+import * as harness from './smoke-harness.mjs';
+import * as studyFixture from './study-fixture.mjs';
+
+// Former offline-study-smoke: the host owns the browser; this cell owns its isolated scenario.
+export async function assertOfflineStudy(_hostBrowser, _hostEngine) {
+    const existingContexts = new Set(_hostBrowser.contexts());
+    try {
+
+    if (_hostEngine !== 'chromium') return;
+const _sourceDir = new URL('..', import.meta.url).pathname;
+
+    const { assert } = harness;
+    const { bootStudySession, createStudyServer, createStudySettings } = studyFixture;
 // Offline-first review smoke: warm the cache online, go offline, then grade every
 // due card. Asserts (1) the session keeps advancing offline, (2) every grade is
 // queued locally (no lost reviews), and (3) ZERO cross-origin network requests are
 // attempted while offline (true offline-first — everything served from cache).
 // Also reloads offline through the service worker to prove the PWA opens with no net.
-import { chromium } from 'playwright';
-import { assert, launchSmokeBrowser } from './lib/smoke-harness.mjs';
-import { bootStudySession, createStudyServer, createStudySettings } from './lib/study-fixture.mjs';
 
 // The fixture reviews Jiten cards, which use Jiten's four grades: Again,
 // Hard, Good and Easy (nothing, hard, okay, easy).
 const GRADES = ['okay', 'easy', 'hard', 'okay', 'nothing'];
 
 async function gradeVisibleCard(page, grade) {
+    const before = await currentWord(page);
     await revealVisibleCard(page);
     await page.waitForSelector('[data-newtab-action="grade"]', { timeout: 8_000 });
     await page.click(`[data-newtab-action="grade"][data-grade="${grade}"]`);
@@ -20,11 +31,21 @@ async function gradeVisibleCard(page, grade) {
     // style); choosing Continue Offline arms silent queueing for the rest of
     // the outage — later grades must NOT prompt again, which the loop's
     // advance assertion enforces.
+    await page.waitForFunction(before => {
+        const prompt = document.querySelector('[data-connection-lost-action="continue"]');
+        const next = document.querySelector('[data-newtab-prompt] .jpdb-reader-newtab-term')?.textContent?.trim();
+        const progress = document.querySelector('[data-newtab-session-progress], .jpdb-reader-newtab-count, .jpdb-reader-newtab-progress')?.textContent ?? '';
+        return prompt?.getClientRects().length || (next && next !== before) || /(?:Due|期限)\D*0\b|(?:Left|残り)\D*0\b/.test(progress);
+    }, before);
     const continueOffline = page.locator('[data-connection-lost-action="continue"]');
     if (await continueOffline.isVisible({ timeout: 1_000 }).catch(() => false)) {
         await continueOffline.click();
     }
-    await page.waitForTimeout(500);
+    await page.waitForFunction(before => {
+        const next = document.querySelector('[data-newtab-prompt] .jpdb-reader-newtab-term')?.textContent?.trim();
+        const progress = document.querySelector('[data-newtab-session-progress], .jpdb-reader-newtab-count, .jpdb-reader-newtab-progress')?.textContent ?? '';
+        return (next && next !== before) || /(?:Due|期限)\D*0\b|(?:Left|残り)\D*0\b/.test(progress);
+    }, before);
 }
 
 async function revealVisibleCard(page) {
@@ -38,7 +59,7 @@ async function revealVisibleCard(page) {
 
 async function run() {
     const server = await createStudyServer();
-    const browser = await launchSmokeBrowser(chromium, 'chromium', { headless: true });
+    const browser = _hostBrowser;
     const requests = [];
     const state = { reviewed: new Set() };
     let online = true;
@@ -52,7 +73,8 @@ async function run() {
         // --- Warm phase (online): reveal the first card so per-card enrichment caches. ---
         await revealVisibleCard(page);
         await page.waitForSelector('[data-newtab-action="grade"]', { timeout: 10_000 });
-        await page.waitForTimeout(2_500); // pitch + immersion + audio + offline warm settle
+        await page.waitForFunction(() => /Cached\s*[1-9]\d*/.test(document.querySelector('.jpdb-reader-newtab-count')?.textContent ?? '')
+            && navigator.serviceWorker?.controller);
         const dueAtStart = await readDue(page);
         assert(dueAtStart >= 3, 'Expected several due cards to warm', { dueAtStart });
         const progressWarm = await readProgress(page); // should show "Cached N"
@@ -99,8 +121,9 @@ async function run() {
         await page.evaluate(() => window.dispatchEvent(new Event('online')));
         await page.waitForFunction(() => {
             const t = document.querySelector('.jpdb-reader-newtab-count')?.textContent || '';
-            return /Synced/.test(t) || !/To sync/.test(t);
-        }, null, { timeout: 8_000 }).catch(() => {});
+            const pending = JSON.parse(localStorage.getItem('jpdb-reader-newtab-grade-queue') || '[]');
+            return /Synced/.test(t) && pending.length === 0;
+        }, null, { timeout: 8_000 });
         const progressSynced = await readProgress(page); // should show "Synced"
         const pendingAfterSync = await page.evaluate(() => {
             const raw = localStorage.getItem('jpdb-reader-newtab-grade-queue');
@@ -142,7 +165,7 @@ async function run() {
         console.log('offline-study smoke passed');
         await context.close();
     } finally {
-        await browser.close();
+
         await server.close();
     }
 }
@@ -166,3 +189,10 @@ function readProgress(page) {
 }
 
 await run();
+
+    } finally {
+        for (const context of _hostBrowser.contexts()) {
+            if (!existingContexts.has(context)) await context.close();
+        }
+    }
+}
