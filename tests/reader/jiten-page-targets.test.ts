@@ -1,5 +1,8 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { currentJitenTermTarget } from '../../src/reader/jiten/jiten-page-targets';
+import { isJitenStudyFrontPrompt } from "../../src/reader/jiten/jiten-page-targets";
+import "../../src/reader/companions/register-build-companions";
+import { ReaderApp } from "../../src/reader/app/main";
 
 function stubStudyLocation(): void {
     vi.stubGlobal('location', {
@@ -150,5 +153,171 @@ describe('jiten study-page addon anchor', () => {
         // entries anywhere on the page would spoil the answer. The refresh
         // loop mounts the addon inside the card right after reveal.
         expect(target).toBeNull();
+    });
+});
+
+describe('jiten study front prompt detection', () => {
+    // On the QUESTION side of a jiten SRS study card the learner should see only the
+    // headword and recall the reading themselves. The scan drops the front headword
+    // (plain prompt) instead of annotating it with furigana + a pitch underline, and
+    // re-annotates once the answer is revealed. This guards the front-detection
+    // predicate wired into src/reader/app/site-parsers.ts
+    // (isReviewCardFrontPromptTarget -> shouldRejectProfileScanTarget).
+
+    function stubLocation(pathname: string): void {
+        vi.stubGlobal('location', {
+            href: `https://jiten.moe${pathname}`,
+            origin: 'https://jiten.moe',
+            hostname: 'jiten.moe',
+            pathname,
+            search: '',
+        });
+    }
+
+    function renderStudyCard(options: { revealed: boolean }): HTMLElement {
+        document.body.innerHTML = `
+            <main>
+                <div class="flex-grow flex flex-col">
+                    ${options.revealed ? '' : '<button type="button">Show Answer</button>'}
+                    <div class="relative touch-pan-y">
+                        <div class="w-full mx-auto">
+                            <div class="relative bg-surface-0 rounded-2xl shadow-lg" data-case="card">
+                                <div class="text-5xl" lang="ja" data-case="headword">友達</div>
+                                ${options.revealed ? '<div role="region" aria-label="Answer"></div>' : ''}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <p lang="ja" data-case="chrome">読み込み中</p>
+            </main>
+        `;
+        return document.querySelector<HTMLElement>('[data-case="headword"]')!;
+    }
+
+
+    it('keeps a write-in prompt plain without a Show Answer button', () => {
+        stubLocation('/srs/study');
+        const headword = renderStudyCard({ revealed: false });
+        document.querySelector('button')!.remove();
+        expect(isJitenStudyFrontPrompt(headword)).toBe(true);
+    });
+
+    afterEach(() => {
+        vi.unstubAllGlobals();
+        document.body.replaceChildren();
+    });
+
+    it('flags the study-card headword while the answer is hidden', () => {
+        stubLocation('/srs/study');
+        const headword = renderStudyCard({ revealed: false });
+        expect(isJitenStudyFrontPrompt(headword)).toBe(true);
+    });
+
+    it('does not flag the headword once the answer is revealed', () => {
+        stubLocation('/srs/study');
+        const headword = renderStudyCard({ revealed: true });
+        expect(isJitenStudyFrontPrompt(headword)).toBe(false);
+    });
+
+    it('does not flag page chrome outside the study card', () => {
+        stubLocation('/srs/study');
+        renderStudyCard({ revealed: false });
+        const chrome = document.querySelector<HTMLElement>('[data-case="chrome"]')!;
+        expect(isJitenStudyFrontPrompt(chrome)).toBe(false);
+    });
+
+    it('does not flag anything on a non-study jiten page', () => {
+        stubLocation('/vocabulary/1234');
+        const headword = renderStudyCard({ revealed: false });
+        expect(isJitenStudyFrontPrompt(headword)).toBe(false);
+    });
+});
+
+describe('jiten study scroll to top on new card', () => {
+    // A jiten SRS study session keeps the same /srs/study URL across cards, so
+    // advancing to the next card must scroll back to the top — but only on a genuine
+    // new card, never on revealing the same card or on the first card.
+
+    interface ReaderAppInternals {
+        maybeScrollJitenStudyToNewCard(): void;
+    }
+
+    function stubStudyLocation(): void {
+        vi.stubGlobal('location', {
+            href: 'https://jiten.moe/srs/study',
+            origin: 'https://jiten.moe',
+            hostname: 'jiten.moe',
+            pathname: '/srs/study',
+            search: '',
+        });
+    }
+
+    function renderHeadword(term: string): void {
+        document.body.innerHTML = `<main><div class="flex-grow flex flex-col"><div class="relative touch-pan-y">
+            <div class="w-full mx-auto"><div class="relative bg-surface-0" data-case="card">
+                <div class="text-5xl" lang="ja" data-case="headword">${term}</div>
+            </div></div></div></main>`;
+    }
+
+
+    afterEach(() => {
+        vi.unstubAllGlobals();
+        vi.restoreAllMocks();
+        document.body.replaceChildren();
+    });
+
+    it('scrolls to top only when the study headword changes to a new card', () => {
+        stubStudyLocation();
+        const scrollTo = vi.fn();
+        vi.stubGlobal('scrollTo', scrollTo);
+        const app = new ReaderApp();
+        const internals = app as unknown as ReaderAppInternals;
+
+        try {
+            // First card: no scroll (the learner is already at the top).
+            renderHeadword('友達');
+            internals.maybeScrollJitenStudyToNewCard();
+            expect(scrollTo).not.toHaveBeenCalled();
+
+            // Revealing the same card leaves the headword unchanged: no scroll.
+            internals.maybeScrollJitenStudyToNewCard();
+            expect(scrollTo).not.toHaveBeenCalled();
+
+            // Grade -> next card: the headword changes, so scroll to the top.
+            renderHeadword('時間');
+            internals.maybeScrollJitenStudyToNewCard();
+            expect(scrollTo).toHaveBeenCalledWith({ top: 0 });
+            expect(scrollTo).toHaveBeenCalledTimes(1);
+
+            // Revealing the second card does not scroll again.
+            internals.maybeScrollJitenStudyToNewCard();
+            expect(scrollTo).toHaveBeenCalledTimes(1);
+        } finally {
+            app.destroy();
+        }
+    });
+
+    it('does not scroll on a jiten page that is not the study session', () => {
+        vi.stubGlobal('location', {
+            href: 'https://jiten.moe/vocabulary/1234',
+            origin: 'https://jiten.moe',
+            hostname: 'jiten.moe',
+            pathname: '/vocabulary/1234',
+            search: '',
+        });
+        const scrollTo = vi.fn();
+        vi.stubGlobal('scrollTo', scrollTo);
+        const app = new ReaderApp();
+        const internals = app as unknown as ReaderAppInternals;
+
+        try {
+            renderHeadword('友達');
+            internals.maybeScrollJitenStudyToNewCard();
+            renderHeadword('時間');
+            internals.maybeScrollJitenStudyToNewCard();
+            expect(scrollTo).not.toHaveBeenCalled();
+        } finally {
+            app.destroy();
+        }
     });
 });
