@@ -27,7 +27,9 @@ async function build() {
     // Empty once before starting parallel writers. Letting Vite wipe dist while
     // Study/companions write beneath it loses files nondeterministically.
     mkdirSync(join(root, 'dist'), { recursive: true });
-    for (const name of readdirSync(join(root, 'dist'))) rmSync(join(root, 'dist', name), { recursive: true, force: true });
+    for (const name of readdirSync(join(root, 'dist'))) {
+        if (name !== 'academy') rmSync(join(root, 'dist', name), { recursive: true, force: true });
+    }
     const step = async (name, args) => {
         const start = performance.now();
         await run(process.execPath, args, { cwd: root });

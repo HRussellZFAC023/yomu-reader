@@ -75,7 +75,7 @@ export function outputHashes(root, patterns) {
             if (matchesInputs(path, patterns)) files.add(path);
             return;
         }
-        for (const name of readdirSync(join(root, path)).sort()) walk(`${path}/${name}`);
+        for (const name of readdirSync(join(root, path)).sort()) walk(path === '.' ? name : `${path}/${name}`);
     }
     const roots = new Set(patterns.filter(pattern => !pattern.startsWith('!')).map(pattern => {
         const prefix = pattern.split(/[?*{[]/)[0];

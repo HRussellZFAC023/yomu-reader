@@ -300,6 +300,10 @@ function readerBuildConfig(mode: string) {
     return {
         outDir: 'dist',
         emptyOutDir: mode !== 'development',
+        // Hosted sync and the extension packager read public/ directly. Copying
+        // its Academy tree here both wastes I/O and overwrites another build's
+        // output namespace, preventing sound output-hash cache reuse.
+        copyPublicDir: false,
         target: 'es2022',
         minify: false,
         cssMinify: false,

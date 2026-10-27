@@ -53,7 +53,7 @@ working-tree header/inventory inputs before writers start; committed-artifacts
 continues to read Git. Study/core/CSS builds overlap after one initial dist
 cleanup; three companion builds run at a time. Formatting, literal validation
 and SRI annotation retain their original order. Academy starts after the
-userscript build has stopped writing its public-directory copy, overlaps the
+userscript build, overlaps the
 test lane, and never overlaps Academy tests. Docs prechecks overlap that work;
 rendering waits for hosted sync/Academy, and verify remains last.
 
@@ -88,5 +88,13 @@ packing, obfuscation or assertion reduction was introduced.
 All 904 dist files from the original build matched after the concurrent build:
 no additions, deletions or SHA-256 differences. Sorted per-file hash lists are
 in `artifacts/check-profile/dist-before.json` and `dist-after.json`.
+
+One subsequent output-layout change is deliberate: the userscript core no
+longer copies the unrelated `public/` tree into dist. Hosted sync and the
+extension packager already read those assets from public directly (verified
+by usage search). The build preserves dist/academy, owned by the Academy
+builder. This removes overlapping writers so that every cached writer can
+verify its own output bytes after a complete gate. The 17 shipped userscript,
+Study, stylesheet and companion outputs must still match their original hashes.
 
 Final direct gate and warm-edit measurements are recorded here after validation.
