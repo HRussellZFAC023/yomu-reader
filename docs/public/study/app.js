@@ -14579,6 +14579,9 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       const fragment2 = element.ownerDocument.createDocumentFragment();
       fragment2.append(...Array.from(parsed.body.childNodes));
       hydratePrivateElementState(fragment2);
+      for (const link of fragment2.querySelectorAll('a[target="_blank"]')) {
+        link.relList.add("noopener", "noreferrer");
+      }
       htmlReplacementTarget(element).replaceChildren(fragment2);
     } catch {
       setInnerHtml(element, html);
@@ -77984,6 +77987,7 @@ ${reading}`);
       return layout.placement === "left" ? viewportWidth2 - (layout.left + layout.width + layout.margin * 2) : layout.left - videoRect.left - layout.margin;
     }
     syncFullscreenState() {
+      if (!document.documentElement) return;
       this.fullscreenHost.invalidateHostCache();
       this.pinnedPlayer.invalidatePinning();
       this.restoreSubtitleDragOffset();

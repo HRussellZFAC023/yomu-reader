@@ -26141,6 +26141,7 @@ class SubtitlePlayerController {
   return layout.placement === "left" ? viewportWidth2 - (layout.left + layout.width + layout.margin * 2) : layout.left - videoRect.left - layout.margin;
   }
   syncFullscreenState() {
+  if (!document.documentElement) return;
   this.fullscreenHost.invalidateHostCache();
   this.pinnedPlayer.invalidatePinning();
   this.restoreSubtitleDragOffset();
