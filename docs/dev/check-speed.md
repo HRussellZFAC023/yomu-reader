@@ -42,11 +42,20 @@ participate. Secrets and `.env` files are never cache inputs. Keep new file
 reads and environment dependencies in the corresponding declaration.
 
 Read-only pass markers can be shared between worktrees. Writer markers include
-SHA-256 output inventories: missing, changed or extra output bytes force a
-rebuild. Failures never write pass markers; a forced failed rerun retires an
+SHA-256 inventories and read-only content-addressed blobs. Hits restore passed
+bytes with filesystem clones where available, replacing corrupt/missing outputs
+and removing extras. Missing or writable blobs force a rebuild. Output modes
+are restored, so generated working files remain writable. Failures never write
+pass markers; a forced failed rerun retires an
 older marker. `--no-cache` forces stages and full tests. CI always disables
 stage caches and affected-test selection. TypeScript's own incremental compiler
 state remains under worktree-local ignored `artifacts/typecheck/`.
+
+Docs prechecks/rendering share the gate runner. Byte proofs are reused only
+inside that invocation, after a read or restoration, and invalidated by file
+identity/size/mode/mtime/ctime changes. These proofs never persist between
+invocations. VitePress's latest docs commit is also keyed because lastUpdated
+depends on Git metadata.
 
 Sync declares the generated retention manifest as an output and includes Git
 retention history in its key. Its template stamps are idempotent; the marker
@@ -105,4 +114,49 @@ builder. This removes overlapping writers so that every cached writer can
 verify its own output bytes after a complete gate. The 17 shipped userscript,
 Study, stylesheet and companion outputs must still match their original hashes.
 
-Final direct gate and warm-edit measurements are recorded here after validation.
+| Command / state | Before reference | Measured after (wall seconds) |
+| --- | ---: | ---: |
+| build, cold | 64s owner build lane | 14.43 PASS |
+| build, unchanged | No stage cache | 1.53 PASS |
+| check, initial full selection | >1,200s test lane alone | 705.28 FAIL; some build/compiler caches were warm |
+| check, unchanged | No stage cache | Not measured: strict Academy remains failing |
+| check, one source edit | No stage cache | Not measured: strict Academy remains failing |
+| check:release, forced full | >1,200s test lane alone | 908.55 PASS |
+| check:release, unchanged | No stage cache | 29.85 PASS |
+| check:release, one source edit | No stage cache | 87.58 PASS |
+
+The forced full run cleared the local TypeScript compiler cache, disabled all
+stage skips, and had no VitePress cache directory. It was measured before the
+last cache-only refinements; it is not a quiet-host cold guarantee. The later
+committed implementation also passed direct release-gate runs. The unchanged
+and edit rows were measured with output restoration enabled. The source edit
+was one appended blank line in src/reader/newtab/speaking-score.ts; its original
+bytes were restored afterward. All 17 shipping output hashes remained equal.
+The edit selected 86 Reader files / 2,055 assertions: all passed, but the test
+stage took 83.39s and concurrent typecheck 48.15s. Isolated incremental typecheck
+after restoring that source passed in 7.65s.
+
+Results are **partial**. The build target is met. The <10s unchanged gate and
+<60s one-source-edit targets are not met here; cold full tests remain minutes
+above target. Before restoration/compiled input matchers, an unchanged release
+run took 43.03s (a subsequent hash-verification run took 47.89s).
+
+Ordinary check executed the full Reader suite successfully, then reproduced
+exactly the eight failures in config/ci/academy-known-failures.json (no extra
+failure keys): cast likeness status, class-path layout and voice provenance.
+The strict local suite was not weakened or replaced by CI's existing baseline.
+No failing Academy pass marker or full-pass baseline is stored, so a passing
+warm check cannot be claimed. Repeating that failed stage was not used as a
+warm-cache measurement.
+
+Verification: nine tooling tests passed normally and with CI=1, including real
+Git input invalidation, forced runs/failures, output restoration, template
+canonicalization and installed-Vitest related selection. Full Reader execution
+remains in CI's regular/JPDB matrix commands (ci.yml lines 133 and 151), Academy
+line 91, workers line 102, tooling/preflights lines 74-78 and retention line 25.
+Workflow coverage assigns 1,103/1,103 files, with no orphans. No remote CI run,
+push, merge, tag or deployment was performed.
+
+Local ignored evidence: artifacts/check-profile/*-final.time and JSON timing
+reports; dist-shipping-sha256.json contains the 17-file hash list;
+academy-failure-comparison.json records the exact baseline comparison.
