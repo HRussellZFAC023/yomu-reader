@@ -109,7 +109,8 @@ function collect(directory) {
 function nightlySmokeNames(source) {
     const list = /export const NIGHTLY_SMOKES = \[([\s\S]*?)\];/.exec(source);
     if (!list) throw new Error('NIGHTLY_SMOKES not found in scripts/run-nightly-smokes.mjs');
-    return [...list[1].matchAll(/'([^']+)'/g)].map(match => match[1]);
+    // Comments may hold apostrophes (先生's popup); only quoted names count.
+    return [...list[1].replace(/\/\/.*$/gm, '').matchAll(/'([^']+)'/g)].map(match => match[1]);
 }
 
 function escapeRegExp(value) {

@@ -38,6 +38,15 @@ export const NIGHTLY_SMOKES = [
     // Study app names no "API" or "Academy", lists one row per service, shows
     // the preferred grading service only with two keys, and pings Anki once.
     'smoke:review-services',
+    // W1-65: the puck's power and furigana controls stay separate (built
+    // userscript, nine actions at awkward sizes, and the Chrome package).
+    'smoke:annotation-power',
+    'smoke:annotation-power:layout',
+    'smoke:annotation-power:extension',
+    // M-03: Anki cards stay Learning below a 21-day interval; revealed Study
+    // answers keep their readings under every state filter.
+    'smoke:anki-known-interval',
+    'smoke:study-headword-furigana',
     'smoke:anki',
     'smoke:anki-template',
     'smoke:annotation-typography',
