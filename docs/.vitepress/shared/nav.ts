@@ -6,4 +6,4 @@
  * documents served outside the VitePress theme. This file stays so the docs
  * config and theme keep their import path.
  */
-export { APPS_NAV_LABEL, OVERFLOW_LABEL, docsNav, hostedOverflowLinks, hostedShellNavMarkup, studyShellNavRoutes, type HostedShellNavLink } from '../../../src/reader/app/site-nav';
+export { APPS_NAV_LABEL, docsNav, hostedOverflowLinks } from '../../../src/reader/app/site-nav';
