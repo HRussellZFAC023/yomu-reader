@@ -10,15 +10,12 @@ import {
   academySetCookieForLocal,
 } from "./academy-cookie-proxy";
 import { academyLocalMedia } from "./academy-local-media";
+import { academyIsolatedFiles } from "./academy-test";
 
 const root = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
   "../..",
 );
-
-const MOCK_ISOLATED_TESTS = [
-  "tests/academy/entrypoint-lifecycle.test.ts",
-];
 
 function academyForkHeapMb(): number {
   const override = Number.parseInt(
@@ -110,7 +107,7 @@ function academyTestIsolation(): boolean {
 function academyTestExclusions(isolate: boolean): string[] {
   return isolate
     ? [...configDefaults.exclude]
-    : [...configDefaults.exclude, ...MOCK_ISOLATED_TESTS];
+    : [...configDefaults.exclude, ...academyIsolatedFiles];
 }
 
 export default defineConfig(({ command, mode }) => {

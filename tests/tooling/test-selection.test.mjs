@@ -62,3 +62,10 @@ test('graph discovery errors cannot become empty passing selections', async t =>
     assert.equal(plan.full, true);
     assert.match(plan.reason, /could not prove/);
 });
+
+test('discovery includes mock-isolated tests that the shared Academy pass excludes', async t => {
+    const { put, select } = fixture(t, false);
+    put('vitest.config.mjs', `export default { test: { include: ['*.test.ts'], exclude: process.env.VITEST_ISOLATE === '1' ? [] : ['isolated.test.ts'] } };`);
+    put('isolated.test.ts', "it('isolated entrypoint', () => expect(true).toBe(true));");
+    assert.deepEqual((await select(['isolated.test.ts'])).tests, ['isolated.test.ts']);
+});

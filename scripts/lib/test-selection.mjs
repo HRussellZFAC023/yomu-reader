@@ -32,7 +32,7 @@ export async function selectAffectedTests(root, changed, { config, createContext
     // Vite mutates NODE_ENV and loads config into Node's module cache. Give
     // discovery its own process, and release its graph memory before testing.
     return new Promise(resolve => {
-        const child = fork(fileURLToPath(import.meta.url), ['--discover'], { cwd: root, execArgv: [], stdio: ['ignore', 'ignore', 'pipe', 'ipc'] });
+        const child = fork(fileURLToPath(import.meta.url), ['--discover'], { cwd: root, env: { ...process.env, VITEST_ISOLATE: '1' }, execArgv: [], stdio: ['ignore', 'ignore', 'pipe', 'ipc'] });
         let result;
         let diagnostic = '';
         const timeout = setTimeout(() => { diagnostic = 'dependency discovery timed out'; child.kill(); }, 60_000);
