@@ -2558,9 +2558,6 @@ const LOCALE_BY_KEY = new Map([
   return english;
 })();
 Object.freeze(
-  INTERFACE_LOCALES.filter((locale) => locale.direction === "rtl")
-);
-Object.freeze(
   interfaceLocaleLedger.rtlGate.items.map(
   (item) => Object.freeze({ ...item })
   )

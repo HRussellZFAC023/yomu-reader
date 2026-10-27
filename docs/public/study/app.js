@@ -4457,9 +4457,6 @@
     return english;
   })();
   Object.freeze(
-    INTERFACE_LOCALES.filter((locale) => locale.direction === "rtl")
-  );
-  Object.freeze(
     interfaceLocaleLedger.rtlGate.items.map(
       (item) => Object.freeze({ ...item })
     )
@@ -12791,9 +12788,6 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       studyTargetReadiness: READING_ONLY_STUDY_TARGET_IDS.includes(language2.id) ? "reading-only" : "planned"
     }))
   ]);
-  Object.freeze(
-    LEARNER_LANGUAGES.map((language2) => canonicalLanguageTag(language2.runtimeLocale) ?? language2.runtimeLocale)
-  );
   function learningTargetRosterIdForTag(value) {
     const canonical = canonicalLanguageTag(value);
     if (languageSubtag(canonical) === SLICE1_TARGET_LANGUAGE) return SLICE1_TARGET_LANGUAGE;
@@ -89566,55 +89560,6 @@ ${reading}`);
   });
   const MESSAGE_NAMESPACES = ["chrome", "setup", "errors", "a11y", "docs"];
   new Set(MESSAGE_NAMESPACES);
-  function matchAvailable(tag) {
-    const locale = interfaceLocaleByTag(tag);
-    if (locale?.available) return locale;
-    const base = tag.split("-")[0].toLowerCase();
-    const byBase = interfaceLocaleByTag(base);
-    if (byBase?.available) return byBase;
-    return INTERFACE_LOCALES.find(
-      (candidate) => candidate.available && candidate.fallbacks.includes(base)
-    );
-  }
-  function resolveInterfaceLocale(requested, options = {}) {
-    const raw = (requested ?? "auto").trim();
-    if (!raw || raw === "auto") {
-      for (const preference of options.browserLocales ?? []) {
-        const match = typeof preference === "string" ? matchAvailable(preference) : void 0;
-        if (match) {
-          return { locale: match, requested: "auto", substituted: false, blockers: [] };
-        }
-      }
-      return {
-        locale: ENGLISH_INTERFACE_LOCALE,
-        requested: "auto",
-        substituted: false,
-        blockers: []
-      };
-    }
-    const exact = interfaceLocaleByTag(raw);
-    if (exact?.available) {
-      return { locale: exact, requested: raw, substituted: false, blockers: [] };
-    }
-    if (exact) {
-      return {
-        locale: matchAvailable(raw) ?? ENGLISH_INTERFACE_LOCALE,
-        requested: raw,
-        substituted: true,
-        blockers: exact.blockers
-      };
-    }
-    const byFallback = matchAvailable(raw);
-    if (byFallback) {
-      return { locale: byFallback, requested: raw, substituted: false, blockers: [] };
-    }
-    return {
-      locale: ENGLISH_INTERFACE_LOCALE,
-      requested: raw,
-      substituted: true,
-      blockers: []
-    };
-  }
   const CATALOG_ENTRY_BY_ID = new Map(
     FROZEN_DICTIONARY_CATALOG.entries.map((entry) => [entry.id, entry])
   );
@@ -111591,6 +111536,8 @@ ${newTabCardReading(card)}`;
       if (location2?.sessionId) await this.resume(location2.sessionId);
       else await this.home();
     }
+    // NewTabController.leavePracticeSessions uses a stable local panel across await.
+    // fallow-ignore-next-line unused-class-member
     async pause() {
       const session = this.session;
       if (session && session.view().status !== "complete" && session.view().status !== "paused") {
@@ -111599,6 +111546,8 @@ ${newTabCardReading(card)}`;
       }
       return true;
     }
+    // Used on that same captured panel only after its durable pause succeeds.
+    // fallow-ignore-next-line unused-class-member
     hide() {
       this.visible = false;
       this.operation += 1;
@@ -123752,6 +123701,55 @@ ${options.version}`;
   }
   function prefersLightMode() {
     return typeof matchMedia === "function" && matchMedia("(prefers-color-scheme: light)").matches;
+  }
+  function matchAvailable(tag) {
+    const locale = interfaceLocaleByTag(tag);
+    if (locale?.available) return locale;
+    const base = tag.split("-")[0].toLowerCase();
+    const byBase = interfaceLocaleByTag(base);
+    if (byBase?.available) return byBase;
+    return INTERFACE_LOCALES.find(
+      (candidate) => candidate.available && candidate.fallbacks.includes(base)
+    );
+  }
+  function resolveInterfaceLocale(requested, options = {}) {
+    const raw = (requested ?? "auto").trim();
+    if (!raw || raw === "auto") {
+      for (const preference of options.browserLocales ?? []) {
+        const match = typeof preference === "string" ? matchAvailable(preference) : void 0;
+        if (match) {
+          return { locale: match, requested: "auto", substituted: false, blockers: [] };
+        }
+      }
+      return {
+        locale: ENGLISH_INTERFACE_LOCALE,
+        requested: "auto",
+        substituted: false,
+        blockers: []
+      };
+    }
+    const exact = interfaceLocaleByTag(raw);
+    if (exact?.available) {
+      return { locale: exact, requested: raw, substituted: false, blockers: [] };
+    }
+    if (exact) {
+      return {
+        locale: matchAvailable(raw) ?? ENGLISH_INTERFACE_LOCALE,
+        requested: raw,
+        substituted: true,
+        blockers: exact.blockers
+      };
+    }
+    const byFallback = matchAvailable(raw);
+    if (byFallback) {
+      return { locale: byFallback, requested: raw, substituted: false, blockers: [] };
+    }
+    return {
+      locale: ENGLISH_INTERFACE_LOCALE,
+      requested: raw,
+      substituted: true,
+      blockers: []
+    };
   }
   const ANKI_STATUS_WARMUP_DELAY_MS = 1e3;
   const ANKI_STATUS_WARMUP_IDLE_TIMEOUT_MS = 5e3;

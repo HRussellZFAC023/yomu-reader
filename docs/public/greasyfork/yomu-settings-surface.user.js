@@ -5471,9 +5471,6 @@ const ENGLISH_INTERFACE_LOCALE = (() => {
   return english;
 })();
 Object.freeze(
-  INTERFACE_LOCALES.filter((locale) => locale.direction === "rtl")
-);
-Object.freeze(
   interfaceLocaleLedger.rtlGate.items.map(
   (item) => Object.freeze({ ...item })
   )
@@ -12081,9 +12078,6 @@ Object.freeze([
   studyTargetReadiness: READING_ONLY_STUDY_TARGET_IDS.includes(language2.id) ? "reading-only" : "planned"
   }))
 ]);
-Object.freeze(
-  LEARNER_LANGUAGES.map((language2) => canonicalLanguageTag(language2.runtimeLocale) ?? language2.runtimeLocale)
-);
 function isLearningTargetRosterId(value) {
   return value === SLICE1_TARGET_LANGUAGE || isLearnerLanguageId(value);
 }

@@ -11,7 +11,7 @@
 // @updateURL https://update.greasyfork.org/scripts/581653/%E3%82%88%E3%82%80.meta.js
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-runtime.8bf7f4254802.user.js#sha256=i/f0JUgCSeAHwSNdyARhUjhYLpV8AwXnoRqESQ6W49A=
+// @require https://yomureader.com/greasyfork/yomu-runtime.62635f9bc361.user.js#sha256=YmNfm8NhQBg33+h0GQqLAOURop28yLWX10aHY79ePqs=
 // @resource yomuCss  https://yomureader.com/yomu.3faa2717e7b5.css#sha256=P6onF+e1QdFf5kOxyk6sxG0y7XbIUmDGUffCm+Mf/6g=
 // @connect api.jiten.moe
 // @connect api.tatoeba.org
@@ -17215,9 +17215,6 @@ JAPANESE_TARGET_ROSTER_ENTRY,
 studyTargetReadiness: READING_ONLY_STUDY_TARGET_IDS.includes(language.id) ? "reading-only" : "planned"
 }))
 ]);
-Object.freeze(
-LEARNER_LANGUAGES.map((language) => canonicalLanguageTag(language.runtimeLocale) ?? language.runtimeLocale)
-);
 const TARGET_LANGUAGE = "ja";
 const OUTPUT_LANGUAGE = "en";
 function apiGradingProviderPreference(settings2) {
