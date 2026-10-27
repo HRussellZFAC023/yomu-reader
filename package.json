@@ -244,7 +244,7 @@
     "manual:youtube-sidebar-resize-profile": "node scripts/manual/youtube-sidebar-resize-profile.mjs",
     "smoke:furigana-tapband": "node scripts/furigana-tapband-smoke.mjs",
     "smoke:annotation-power": "node scripts/annotation-power-smoke.mjs",
-    "smoke:annotation-power:layout": "node scripts/annotation-power-layout-smoke.mjs",
+    "smoke:annotation-power:layout": "npm run smoke:annotation-power",
     "smoke:annotation-power:extension": "node scripts/annotation-power-extension-smoke.mjs",
     "smoke:study-headword-furigana": "node scripts/study-headword-furigana-smoke.mjs",
     "smoke:popover-headword-furigana": "node scripts/popover-headword-furigana-smoke.mjs",

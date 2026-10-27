@@ -4,6 +4,7 @@
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { chromium, webkit, devices } from 'playwright';
+import { assertPuckLayout } from './lib/annotation-power-layout-cells.mjs';
 import { openRecordedPage } from './lib/recorded-page.mjs';
 import { hostedFile, hostedAnswer, worktreeProduct } from './lib/recorded-products.mjs';
 import { assert, mockJpdbParseFromVocabulary, YOMU_SETTINGS_KEY } from './lib/smoke-harness.mjs';
@@ -316,7 +317,7 @@ async function subtitleReadings(browser, contextOptions, engine) {
     const run = await openRecordedPage({ browser, product, gmNetwork: 'offline', slug: 'youtube-watch', settings,
         // Hold a recorded cue containing a mocked dictionary word while the
         // learner uses the puck; later redacted cues have no dictionary reading.
-        hostOptions: { autoplay: false, startSeconds: 0.5 }, contextOptions, onGmRequest: answer });
+        hostOptions: { autoplay: false, startSeconds: 0.5 }, contextOptions: { ...contextOptions, hasTouch: true }, onGmRequest: answer });
     try {
         const { page } = run;
         const tap = locator => engine === 'webkit' ? locator.tap() : locator.click();
@@ -340,6 +341,7 @@ async function subtitleReadings(browser, contextOptions, engine) {
         await stored(page, { annotationsPaused: false, furiganaMode: 'all' });
         await page.locator('.jpdb-subtitle-player rt.jpdb-reader-furi').first().waitFor();
         reports.push({ engine, surface: 'youtube-watch', subtitleOffLookupRestore: 'pass' });
+        reports.push({ engine, layout: await assertPuckLayout(page, engine) });
     } catch (error) {
         const diagnosis = await run.page.evaluate(() => ({
             words: [...document.querySelectorAll('.jpdb-subtitle-player .jpdb-reader-word')].map(node => node.outerHTML),
