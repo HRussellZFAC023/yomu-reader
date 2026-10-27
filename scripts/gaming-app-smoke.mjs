@@ -614,11 +614,22 @@ async function assertInvisibleProviderTargets(overlay, label) {
                 Math.abs(actual.top - (originY + top * imageHeight)), Math.abs(actual.width - (right - left) * imageWidth),
                 Math.abs(actual.height - (bottom - top) * imageHeight)) };
         });
-        const clear = value => value === 'transparent' || /rgba\([^)]*,\s*0\)$/.test(value);
+        const clear = value => value === 'transparent' || /^rgba\([^)]*,\s*0(?:\.0+)?\s*\)$/.test(value)
+            || /\/\s*0(?:\.0+)?\s*\)$/.test(value);
+        const imagePaints = value => {
+            if (value === 'none') return false;
+            // Computed gradients serialize their stops as CSS colour functions.
+            // A hover transition can install the gradient before its stops gain
+            // alpha. That is not reconstructed glyph paint. Unknown images stay
+            // conservative, so a URL or a new colour syntax cannot hide a leak.
+            if (/url\(/i.test(value)) return true;
+            const stops = value.match(/(?:rgba?|hsla?|(?:ok)?l(?:ab|ch)|color)\([^)]*\)|transparent\b/gi);
+            return !stops || stops.some(stop => !clear(stop));
+        };
         const paints = style => {
             if (style.display === 'none' || style.visibility === 'hidden' || Number(style.opacity) === 0) return false;
             return !clear(style.webkitTextFillColor) || style.textShadow !== 'none'
-                || !clear(style.backgroundColor) || style.backgroundImage !== 'none' || style.boxShadow !== 'none'
+                || !clear(style.backgroundColor) || imagePaints(style.backgroundImage) || style.boxShadow !== 'none'
                 || (Number.parseFloat(style.webkitTextStrokeWidth) > 0 && !clear(style.webkitTextStrokeColor))
                 || ['Top', 'Right', 'Bottom', 'Left'].some(side => Number.parseFloat(style[`border${side}Width`]) > 0
                     && style[`border${side}Style`] !== 'none' && !clear(style[`border${side}Color`]));
@@ -633,10 +644,28 @@ async function assertInvisibleProviderTargets(overlay, label) {
             }
             return failures;
         });
-        return { boxes, leaks };
+        // Keep the detector controls outside the app's anti-glyph cascade.
+        const probeHost = document.createElement('div');
+        const probe = document.createElement('span');
+        probeHost.attachShadow({ mode: 'open' }).append(probe);
+        document.body.append(probeHost);
+        const paintChecks = [
+            ['transparent hover', 'color:transparent;background:linear-gradient(rgba(1,2,3,0),rgba(4,5,6,0))', false],
+            ['partial stop', 'color:transparent;background:linear-gradient(rgba(1,2,3,0),rgba(4,5,6,.01))', true],
+            ['opaque stop', 'color:transparent;background:linear-gradient(transparent,red)', true],
+            ['glyph fill', 'color:red', true],
+            ['glyph stroke', 'color:transparent;-webkit-text-stroke:1px red', true],
+            ['glyph shadow', 'color:transparent;text-shadow:0 0 1px red', true],
+        ].map(([name, css, expected]) => {
+            probe.style.cssText = `all:initial;display:block;visibility:visible;opacity:1;${css}`;
+            return { name, expected, actual: paints(getComputedStyle(probe)) };
+        });
+        probeHost.remove();
+        return { boxes, leaks, paintChecks };
     });
     assertSmoke(measured.boxes.length > 0 && measured.boxes.every(box => box.error <= 2 && box.misses === 0), `Desktop ${label} provider geometry drift: ${JSON.stringify(measured.boxes)}`);
     assertSmoke(measured.leaks.length === 0, `Desktop ${label} painted reconstructed OCR glyphs: ${JSON.stringify(measured.leaks)}`);
+    assertSmoke(measured.paintChecks.every(check => check.actual === check.expected), `Desktop paint detector failed: ${JSON.stringify(measured.paintChecks)}`);
     console.log(`[desktop-layer] ${label}: ${measured.boxes.length} provider-aligned targets, no reconstructed glyph paint.`);
 }
 
