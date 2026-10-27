@@ -27,7 +27,7 @@ permissions:
 
 jobs:
   build-extension:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - name: Checkout Yomu
         uses: actions/checkout@v6

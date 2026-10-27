@@ -16,7 +16,7 @@ env:
 
 jobs:
   committed-state:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-node@v6
@@ -26,7 +26,7 @@ jobs:
       - run: npm run check:artifacts
 
   fallow:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v6
         with:
@@ -51,7 +51,7 @@ jobs:
           FALLOW_COVERAGE: artifacts/fallow-coverage/coverage-final.json
 
   typecheck:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-node@v6
@@ -62,7 +62,7 @@ jobs:
       - run: npm run typecheck
 
   test-workflow-coverage:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-node@v6
@@ -74,7 +74,7 @@ jobs:
       - run: node scripts/check-smoke-workflow-coverage.mjs
 
   test-academy:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 12
     steps:
       - uses: actions/checkout@v6
@@ -87,7 +87,7 @@ jobs:
       - run: npm run test:academy:ci
 
   test-workers:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-node@v6
@@ -98,7 +98,7 @@ jobs:
       - run: npm run test:workers
 
   video-typecheck:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     defaults:
       run:
         working-directory: video
@@ -113,7 +113,7 @@ jobs:
       - run: npm run typecheck
 
   test:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 12
     strategy:
       fail-fast: false
@@ -129,7 +129,7 @@ jobs:
       - run: node scripts/run-ci-tests.mjs --kind regular --shard=${{ matrix.shard }} --total=8
 
   test-jpdb:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 12
     strategy:
       fail-fast: false
@@ -145,7 +145,7 @@ jobs:
       - run: node scripts/run-ci-tests.mjs --kind jpdb --shard=${{ matrix.shard }} --total=8
 
   gaming-smoke:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     needs: [typecheck]
     timeout-minutes: 8
     steps:
@@ -160,7 +160,7 @@ jobs:
           YOMU_PLAYWRIGHT_CHANNEL: chrome
 
   layout-smoke:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     needs: [typecheck]
     # npm ci plus the three browsers and their system packages can take six
     # minutes from a cold cache, and the bounded install retries once; the
@@ -180,7 +180,7 @@ jobs:
           YOMU_PLAYWRIGHT_CHANNEL: chrome
 
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     needs: [committed-state, typecheck, test-workflow-coverage, test, test-jpdb, test-academy, test-workers, video-typecheck, gaming-smoke, layout-smoke]
     steps:
       - uses: actions/checkout@v6

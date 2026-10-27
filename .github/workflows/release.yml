@@ -31,7 +31,7 @@ concurrency:
 
 jobs:
   release:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     outputs:
       release_tag: ${{ steps.browser-store-gate.outputs.release_tag }}
       publish_browser_stores: ${{ steps.browser-store-gate.outputs.publish_browser_stores }}
@@ -225,7 +225,7 @@ jobs:
     name: Submit Chrome Web Store update
     needs: release
     if: needs.release.outputs.publish_browser_stores == 'true' && (github.event_name == 'push' || inputs.browser_store_target != 'firefox')
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     concurrency:
       group: chrome-web-store-production
       cancel-in-progress: false
@@ -347,7 +347,7 @@ jobs:
     name: Submit Firefox Add-ons update
     needs: release
     if: needs.release.outputs.publish_browser_stores == 'true' && (github.event_name == 'push' || inputs.browser_store_target != 'chrome')
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     concurrency:
       group: firefox-add-ons-production
       cancel-in-progress: false

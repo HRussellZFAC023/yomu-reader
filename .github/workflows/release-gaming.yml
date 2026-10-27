@@ -19,7 +19,7 @@ jobs:
       matrix:
         include:
           - name: linux-x64-appimage
-            runner: ubuntu-latest
+            runner: ubuntu-24.04
             platform: linux
             arch: x64
             target: AppImage
@@ -87,7 +87,7 @@ jobs:
   checksums:
     name: Checksums and release
     needs: build
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     # Backstop for the publish wait below (45 min) plus the asset uploads, so a
     # main Release that never publishes cannot hold a runner for the 6-hour default.
     timeout-minutes: 60
