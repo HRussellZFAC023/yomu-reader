@@ -31,7 +31,6 @@ export const readerNodeFiles = [
     'tests/reader/immersion-query.test.ts',
     'tests/reader/japanese-input.test.ts',
     'tests/reader/japanese-script.test.ts',
-    'tests/reader/jiten-request-grouping.test.ts',
     'tests/reader/jpdb-live-card.test.ts',
     'tests/reader/kanji-graph-geometry.test.ts',
     'tests/reader/kanji-ruby-split.test.ts',
