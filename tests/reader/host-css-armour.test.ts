@@ -46,6 +46,12 @@ describe('host CSS armour', () => {
         expect(hostCssArmour('.jpdb-reader-word-pills{padding:4px;width:100%}')).toBe('');
     });
 
+    it('keeps the popup example target padding from the shipped sheet', () => {
+        const sheet = readFileSync(path.join(process.cwd(), 'src/reader/styles/immersion-study.css'), 'utf8');
+        expect(hostCssArmour(sheet).replace(/\s+/g, ' '))
+            .toMatch(/\.jpdb-reader-word\.jpdb-reader-example-target:where\([^)]*\)\s*\{[^}]*padding: ?0 0\.08em ?!important/);
+    });
+
     it('restricts grouped box selectors to the annotation shells and leaves pseudos alone', () => {
         const selector = '.jpdb-subtitle-row-text :is(ruby,rt,.jpdb-reader-furi,.jpdb-reader-ruby-base)';
         expect(hostCssArmour(`${selector}{max-width:100%}`))

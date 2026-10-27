@@ -409,7 +409,9 @@
 .jpdb-reader-example-sentence .jpdb-reader-word.jpdb-reader-has-furi {
   line-height: 2;
 }
-.jpdb-reader-example-target {
+/* Naming the word shell lets the host armour keep this padding (W1-46). */
+.jpdb-reader-example-target,
+.jpdb-reader-word.jpdb-reader-example-target {
   padding: 0 0.08em;
   border-radius: 0.22em;
   background: var(
