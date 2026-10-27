@@ -38143,8 +38143,6 @@ const COPY$c = {
     ocrInteractionModeManual: "Tap or hover",
     ocrInteractionModeOff: "Off",
     puckMenuLabel: `${APP_NAME} menu`,
-    puckPowerOnFurigana: `${APP_NAME} on · furigana shown`,
-    puckPowerOnNoFurigana: `${APP_NAME} on · furigana hidden`,
     puckPowerOff: `${APP_NAME} off`,
     puckOcrAuto: "OCR: Auto",
     puckOcrManual: "OCR: Tap/Hover",
@@ -38167,7 +38165,6 @@ const COPY$c = {
     furiganaDifficultKanji: "Hard kanji only",
     furiganaDifficultKanjiHelp: `${APP_NAME} keeps a fixed beginner kanji list and shows readings on everything outside it. A bare kanji means that character sits on the list.`,
     statusColorNoSourceHelp: `Status colors read from a deck. Turn on the ${YOMU_DECK_LABEL} in Reviews, or add a JPDB, Jiten, or Anki source, and words take the color of their learning state.`,
-    furiganaHideKnown: "Hide familiar words",
     furiganaHoverOnly: "Show on hover",
     furiganaAllParsed: "All parsed words",
     clampedRowReadings: "Readings on clamped rows",
@@ -39682,8 +39679,6 @@ ocrInteractionModeAuto	自動
 ocrInteractionModeManual	タップ/ホバー
 ocrInteractionModeOff	オフ
 puckMenuLabel	よむ メニュー
-puckPowerOnFurigana	{APP_NAME} オン・ふりがな表示
-puckPowerOnNoFurigana	{APP_NAME} オン・ふりがな非表示
 puckPowerOff	{APP_NAME} オフ
 puckOcrAuto	OCR: 自動
 puckOcrManual	OCR: タップ/ホバー
@@ -39706,7 +39701,6 @@ hideColorFor	色を隠す対象
 furiganaDifficultKanji	難しい漢字のみ
 furiganaDifficultKanjiHelp	Yomuは初級漢字の固定リストを持ち、その外側の漢字にふりがなを表示します。ふりがなのない漢字は、そのリストに載っています。
 statusColorNoSourceHelp	学習状態の色はデッキから読み取ります。「復習」でよむデッキをオンにするか、JPDB・Jiten・Ankiのいずれかを追加すると、単語が学習状態の色になります。
-furiganaHideKnown	なじみのある語を非表示
 furiganaHoverOnly	ホバー時に表示
 furiganaAllParsed	解析済みの全単語
 clampedRowReadings	省略行の読み
@@ -45347,7 +45341,7 @@ function targetKeepsInFlowReadings(target2) {
   return Boolean(target2.closest(KEEPS_IN_FLOW_SELECTOR));
 }
 function furiganaSettingsForTarget(settings, target2) {
-  if (!settings.showFurigana || settings.furiganaMode === "off" || !targetForcesAllFurigana(target2)) return settings;
+  if (!targetForcesAllFurigana(target2)) return settings;
   if (settings.showFurigana && settings.furiganaMode === "all") return settings;
   return { ...settings, showFurigana: true, furiganaMode: "all" };
 }
@@ -45547,7 +45541,7 @@ function unwrapReaderWords(root = document, options = {}) {
 }
 function unwrapReaderWord(word) {
   const doc = word.ownerDocument;
-  if (!word.querySelector(`ruby:not(.${YOMU_RUBY_CLASS})`)) {
+  if (!Array.from(word.querySelectorAll("ruby")).some((ruby) => !isYomuRuby(ruby))) {
     word.replaceWith(doc.createTextNode(readerWordSurfaceText(word)));
     return;
   }
@@ -45558,7 +45552,7 @@ function unwrapReaderWord(word) {
     } else if (node2.nodeType === Node.ELEMENT_NODE) {
       const element2 = node2;
       if (isSurfaceIgnoredElement$1(element2)) return;
-      if (element2.tagName === "RUBY" && !element2.classList.contains(YOMU_RUBY_CLASS)) {
+      if (element2.tagName === "RUBY" && !isYomuRuby(element2)) {
         surface.append(element2);
       } else {
         Array.from(element2.childNodes).forEach(appendSurface);
@@ -45567,6 +45561,9 @@ function unwrapReaderWord(word) {
   };
   Array.from(word.childNodes).forEach(appendSurface);
   word.replaceWith(surface);
+}
+function isYomuRuby(ruby) {
+  return ruby.classList.contains(YOMU_RUBY_CLASS) || ruby.querySelector(":scope > rt.jpdb-reader-furi") !== null;
 }
 function readerWordSurfaceText(element2) {
   const surface = readerWordChildSurfaceText(element2);
@@ -264775,7 +264772,7 @@ function padClockPart(value) {
 const DEFAULT_ACADEMY_STUDY_DURATION_MS = DEFAULT_STUDY_DURATION_MS;
 class StudyRuntimeLoadFailure extends Error {
 }
-function createCanonicalAcademyStudyModule(loadRuntime = () => import("./runtime-UYsb-kA1.js")) {
+function createCanonicalAcademyStudyModule(loadRuntime = () => import("./runtime-DNJ3WRXQ.js")) {
   return {
     async mount(host2, context2) {
       let runtime;

@@ -4246,8 +4246,6 @@ ocrInteractionModeAuto: "Auto",
 ocrInteractionModeManual: "Tap or hover",
 ocrInteractionModeOff: "Off",
 puckMenuLabel: `${APP_NAME} menu`,
-puckPowerOnFurigana: `${APP_NAME} on · furigana shown`,
-puckPowerOnNoFurigana: `${APP_NAME} on · furigana hidden`,
 puckPowerOff: `${APP_NAME} off`,
 puckOcrAuto: "OCR: Auto",
 puckOcrManual: "OCR: Tap/Hover",
@@ -4270,7 +4268,6 @@ hideColorFor: "Hide color for",
 furiganaDifficultKanji: "Hard kanji only",
 furiganaDifficultKanjiHelp: `${APP_NAME} keeps a fixed beginner kanji list and shows readings on everything outside it. A bare kanji means that character sits on the list.`,
 statusColorNoSourceHelp: `Status colors read from a deck. Turn on the ${YOMU_DECK_LABEL} in Reviews, or add a JPDB, Jiten, or Anki source, and words take the color of their learning state.`,
-furiganaHideKnown: "Hide familiar words",
 furiganaHoverOnly: "Show on hover",
 furiganaAllParsed: "All parsed words",
 clampedRowReadings: "Readings on clamped rows",
@@ -5785,8 +5782,6 @@ ocrInteractionModeAuto	自動
 ocrInteractionModeManual	タップ/ホバー
 ocrInteractionModeOff	オフ
 puckMenuLabel	よむ メニュー
-puckPowerOnFurigana	{APP_NAME} オン・ふりがな表示
-puckPowerOnNoFurigana	{APP_NAME} オン・ふりがな非表示
 puckPowerOff	{APP_NAME} オフ
 puckOcrAuto	OCR: 自動
 puckOcrManual	OCR: タップ/ホバー
@@ -5809,7 +5804,6 @@ hideColorFor	色を隠す対象
 furiganaDifficultKanji	難しい漢字のみ
 furiganaDifficultKanjiHelp	Yomuは初級漢字の固定リストを持ち、その外側の漢字にふりがなを表示します。ふりがなのない漢字は、そのリストに載っています。
 statusColorNoSourceHelp	学習状態の色はデッキから読み取ります。「復習」でよむデッキをオンにするか、JPDB・Jiten・Ankiのいずれかを追加すると、単語が学習状態の色になります。
-furiganaHideKnown	なじみのある語を非表示
 furiganaHoverOnly	ホバー時に表示
 furiganaAllParsed	解析済みの全単語
 clampedRowReadings	省略行の読み
@@ -17085,7 +17079,7 @@ return words.length;
 }
 function unwrapReaderWord(word) {
 const doc = word.ownerDocument;
-if (!word.querySelector(`ruby:not(.${YOMU_RUBY_CLASS})`)) {
+if (!Array.from(word.querySelectorAll("ruby")).some((ruby) => !isYomuRuby(ruby))) {
 word.replaceWith(doc.createTextNode(readerWordSurfaceText(word)));
 return;
 }
@@ -17096,7 +17090,7 @@ surface.append(doc.createTextNode(node.textContent ?? ""));
 } else if (node.nodeType === Node.ELEMENT_NODE) {
 const element = node;
 if (isSurfaceIgnoredElement(element)) return;
-if (element.tagName === "RUBY" && !element.classList.contains(YOMU_RUBY_CLASS)) {
+if (element.tagName === "RUBY" && !isYomuRuby(element)) {
 surface.append(element);
 } else {
 Array.from(element.childNodes).forEach(appendSurface);
@@ -17105,6 +17099,9 @@ Array.from(element.childNodes).forEach(appendSurface);
 };
 Array.from(word.childNodes).forEach(appendSurface);
 word.replaceWith(surface);
+}
+function isYomuRuby(ruby) {
+return ruby.classList.contains(YOMU_RUBY_CLASS) || ruby.querySelector(":scope > rt.jpdb-reader-furi") !== null;
 }
 function readerWordSurfaceText(element) {
 const surface = readerWordChildSurfaceText(element);

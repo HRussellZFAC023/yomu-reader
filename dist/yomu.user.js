@@ -11,7 +11,7 @@
 // @updateURL https://update.greasyfork.org/scripts/581653/%E3%82%88%E3%82%80.meta.js
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-runtime.0fc2de7a9524.user.js#sha256=D8LeepUkH6sxNae8I144cy3XuTU/wL6gwpPsfAymSEA=
+// @require https://yomureader.com/greasyfork/yomu-runtime.8bf7f4254802.user.js#sha256=i/f0JUgCSeAHwSNdyARhUjhYLpV8AwXnoRqESQ6W49A=
 // @resource yomuCss  https://yomureader.com/yomu.42a3f10c1429.css#sha256=QqPxDBQpEe1O3w0UNTfgbxwWjeMFf2yRe6fa1WwmLog=
 // @connect api.jiten.moe
 // @connect api.tatoeba.org
@@ -7139,7 +7139,7 @@ function targetKeepsInFlowReadings(target) {
 return Boolean(target.closest(KEEPS_IN_FLOW_SELECTOR));
 }
 function furiganaSettingsForTarget(settings2, target) {
-if (!settings2.showFurigana || settings2.furiganaMode === "off" || !targetForcesAllFurigana(target)) return settings2;
+if (!targetForcesAllFurigana(target)) return settings2;
 if (settings2.showFurigana && settings2.furiganaMode === "all") return settings2;
 return { ...settings2, showFurigana: true, furiganaMode: "all" };
 }
@@ -7893,7 +7893,7 @@ return words.length;
 }
 function unwrapReaderWord(word) {
 const doc = word.ownerDocument;
-if (!word.querySelector(`ruby:not(.${YOMU_RUBY_CLASS})`)) {
+if (!Array.from(word.querySelectorAll("ruby")).some((ruby) => !isYomuRuby(ruby))) {
 word.replaceWith(doc.createTextNode(readerWordSurfaceText(word)));
 return;
 }
@@ -7904,7 +7904,7 @@ surface.append(doc.createTextNode(node.textContent ?? ""));
 } else if (node.nodeType === Node.ELEMENT_NODE) {
 const element = node;
 if (isSurfaceIgnoredElement$1(element)) return;
-if (element.tagName === "RUBY" && !element.classList.contains(YOMU_RUBY_CLASS)) {
+if (element.tagName === "RUBY" && !isYomuRuby(element)) {
 surface.append(element);
 } else {
 Array.from(element.childNodes).forEach(appendSurface);
@@ -7913,6 +7913,9 @@ Array.from(element.childNodes).forEach(appendSurface);
 };
 Array.from(word.childNodes).forEach(appendSurface);
 word.replaceWith(surface);
+}
+function isYomuRuby(ruby) {
+return ruby.classList.contains(YOMU_RUBY_CLASS) || ruby.querySelector(":scope > rt.jpdb-reader-furi") !== null;
 }
 function readerWordSurfaceText(element) {
 const surface = readerWordChildSurfaceText(element);
@@ -34112,8 +34115,6 @@ ocrInteractionModeAuto	自動
 ocrInteractionModeManual	タップ/ホバー
 ocrInteractionModeOff	オフ
 puckMenuLabel	よむ メニュー
-puckPowerOnFurigana	{APP_NAME} オン・ふりがな表示
-puckPowerOnNoFurigana	{APP_NAME} オン・ふりがな非表示
 puckPowerOff	{APP_NAME} オフ
 puckOcrAuto	OCR: 自動
 puckOcrManual	OCR: タップ/ホバー
@@ -34136,7 +34137,6 @@ hideColorFor	色を隠す対象
 furiganaDifficultKanji	難しい漢字のみ
 furiganaDifficultKanjiHelp	Yomuは初級漢字の固定リストを持ち、その外側の漢字にふりがなを表示します。ふりがなのない漢字は、そのリストに載っています。
 statusColorNoSourceHelp	学習状態の色はデッキから読み取ります。「復習」でよむデッキをオンにするか、JPDB・Jiten・Ankiのいずれかを追加すると、単語が学習状態の色になります。
-furiganaHideKnown	なじみのある語を非表示
 furiganaHoverOnly	ホバー時に表示
 furiganaAllParsed	解析済みの全単語
 clampedRowReadings	省略行の読み
