@@ -152,7 +152,7 @@ warm-cache measurement.
 Verification: nine tooling tests passed normally and with CI=1, including real
 Git input invalidation, forced runs/failures, output restoration, template
 canonicalization and installed-Vitest related selection. Full Reader execution
-remains in CI's regular/JPDB matrix commands (ci.yml lines 133 and 151), Academy
+remains in CI's regular/JPDB matrix commands (ci.yml lines 133 and 152), Academy
 line 91, workers line 102, tooling/preflights lines 74-78 and retention line 25.
 Workflow coverage assigns 1,103/1,103 files, with no orphans. No remote CI run,
 push, merge, tag or deployment was performed.
