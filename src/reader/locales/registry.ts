@@ -29,11 +29,6 @@ export interface RegisteredMessage {
     readonly sourceText: string;
 }
 
-/** `setup.*` — the namespace the 32 machine-draft catalogues already fill. */
-export function setupMessageIds(): readonly MessageId[] {
-    return Object.keys(ENGLISH_FALLBACK_MESSAGES).map((key) => `setup.${key}` as MessageId);
-}
-
 /**
  * The registry for one supplier of English source strings.
  *

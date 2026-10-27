@@ -1,3 +1,4 @@
+import '../../../src/reader/companions/register-build-companions';
 import { describe, expect, it, vi } from 'vitest';
 import { privateCommandAttributes } from '../../../src/reader/dom/private-command-capabilities';
 import { setInnerHtml } from '../../../src/reader/dom/html';

@@ -1,6 +1,3 @@
-// ADR-0003: tests exercise core + companions together, like the
-// self-contained build; populate the companion registry up front.
-import '../../src/reader/companions/register-build-companions';
 import { afterAll, afterEach, beforeEach, vi } from 'vitest';
 import { applyPreferredJapaneseSiteLanguage } from '../../src/reader/app/preferred-site-language-impl';
 import { resetMediaActivationForTests } from '../../src/reader/audio/media-activation';
@@ -20,6 +17,30 @@ import {
     MANAGED_STATE_EPOCH_LEASE_KEY_PREFIX,
     STORAGE_LEASE_KEY_PREFIX,
 } from '../../src/reader/app/gm-storage-lease';
+
+// Core-only tests must not silently exercise the unavailable-companion fallback.
+// Integration files opt in with one import of register-build-companions. Tests
+// of deliberate absence install their own empty/partial registry explicitly.
+const missingCompanions = new Set<string>();
+const buildCompanionSlots = new Set([
+    'annotations', 'anki', 'audio', 'bunpro', 'i18n', 'jiten', 'jpdb',
+    'kanjiStudy', 'learningTargets', 'localDictionaries', 'ocr', 'settings', 'video', 'wanikani',
+]);
+function missingCompanionMessage(): string {
+    return `Missing reader build companions (${[...missingCompanions].join(', ')}). `
+        + 'Import src/reader/companions/register-build-companions in this test file.';
+}
+Object.defineProperty(globalThis, '__yomuCompanions', {
+    configurable: true,
+    writable: true,
+    value: new Proxy({}, {
+        get(_target, slot) {
+            if (typeof slot !== 'string' || !buildCompanionSlots.has(slot)) return undefined;
+            missingCompanions.add(slot);
+            throw new Error(missingCompanionMessage());
+        },
+    }),
+});
 
 // Historical isolate:false runs allowed module/global state to cross file and
 // jsdom boundaries. They exposed location overrides that later surfaced as
@@ -267,4 +288,6 @@ afterEach(() => {
     // Stop a test that left fake timers (or stubbed globals) on from leaking into
     // the next one, which otherwise surfaces as flaky failures in unrelated tests.
     vi.useRealTimers();
+    // An optional feature can catch the first error; the case must still fail.
+    if (missingCompanions.size) throw new Error(missingCompanionMessage());
 });

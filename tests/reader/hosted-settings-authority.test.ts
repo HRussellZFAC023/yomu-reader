@@ -18,6 +18,10 @@ import { saveHostedAppearance } from '../../src/reader/settings/hosted-appearanc
 import { SETTINGS_INTENT_LEDGER_STORAGE_KEY } from '../../src/reader/settings/intent-ledger';
 import { readSettingsPersistenceViewStrictFrom } from '../../src/reader/settings/settings-persistence-transaction';
 import { v193Corpus } from './helpers/upgrade-v193-corpus';
+import { readBackupSettingsPersistenceView, serializeSettingsPersistencePair, SETTINGS_STORAGE_KEY as SETTINGS_STORAGE_KEY2 } from "../../src/reader/settings/settings-persistence-transaction";
+import { HOSTED_STUDY_LOCATION, installGmStorageFixture } from "./helpers/settings-persistence-fixture";
+import { readFileSync } from "node:fs";
+import { persistHostedSharedSettingsPatch } from "../../src/reader/settings/hosted-settings-provenance";
 
 const HOSTED_STUDY = new URL('https://yomureader.com/study/');
 const LOCAL_PROVENANCE_KEY = 'yomu:local-storage-provenance:v1';
@@ -307,5 +311,132 @@ describe('hosted local mirror publication', () => {
 
         expect(storedSettingsBytes()).toBe(beforeBytes);
         expect(localStorage.getItem(LOCAL_PROVENANCE_KEY)).toBe(beforeProvenance);
+    });
+});
+
+describe('standalone appearance transaction', () => {
+    afterEach(() => { vi.unstubAllGlobals(); localStorage.clear(); sessionStorage.clear(); });
+
+
+    it('advances declared intent and preserves unrelated settings', async () => {
+        const initial = serializeSettingsPersistencePair({ ...DEFAULT_SETTINGS, theme: 'light', subtitleFontSize: 48 }, {
+            revision: 7, records: { theme: { seq: 7, value: 'light' } },
+        });
+        const { values } = installGmStorageFixture(new Map(Object.entries(initial)));
+        await saveHostedAppearance({ key: 'theme', value: 'dark' });
+        expect(await readBackupSettingsPersistenceView(Object.fromEntries(values))).toMatchObject({
+            settings: { theme: 'dark', subtitleFontSize: 48 },
+            intentLedger: { revision: 8, records: { theme: { value: 'dark', seq: 8 } } },
+        });
+        expect(values.get(SETTINGS_STORAGE_KEY2)).not.toEqual(initial[SETTINGS_STORAGE_KEY2]);
+    });
+
+    it.each([
+        'e1-hosted-homepage-demo',
+        'e2-hosted-academy-seed',
+        'e3-hosted-appearance-toggles',
+    ])('saves over the page-local record v1.9.3 wrote for a no-install visitor (%s)', async scenario => {
+        const fixture = v193Corpus<{ webStorage: Record<string, Record<string, string>> }>(`${scenario}.json`);
+        resetManagedStateEpochSessionsForTests();
+        resetManagedWebStorageForTests();
+        vi.stubGlobal('location', HOSTED_STUDY_LOCATION);
+        for (const [key, value] of Object.entries(fixture.webStorage['https://yomureader.com'])) localStorage.setItem(key, value);
+        const before = JSON.parse(localStorage.getItem(SETTINGS_STORAGE_KEY2)!) as Record<string, unknown>;
+
+        await saveHostedAppearance({ key: 'theme', value: 'dark' });
+
+        const view = await readBackupSettingsPersistenceView({
+            [SETTINGS_STORAGE_KEY2]: JSON.parse(localStorage.getItem(SETTINGS_STORAGE_KEY2)!),
+            'yomu:settings-intent:v2': JSON.parse(localStorage.getItem('yomu:settings-intent:v2')!),
+        });
+        expect(view?.settings).toEqual({ ...before, theme: 'dark' });
+        expect(view?.intentLedger.records).toMatchObject({ theme: { value: 'dark' } });
+        expect(JSON.parse(localStorage.getItem(SETTINGS_STORAGE_KEY2)!).__yomuSettingsPersistenceCommitV1).toEqual(expect.any(String));
+    });
+
+    it('serializes concurrent theme and language choices into one witnessed authority', async () => {
+        const { values } = installGmStorageFixture();
+        await Promise.all([
+            saveHostedAppearance({ key: 'theme', value: 'dark' }),
+            saveHostedAppearance({ key: 'interfaceLanguage', value: 'ja' }),
+        ]);
+        expect(await readBackupSettingsPersistenceView(Object.fromEntries(values))).toMatchObject({
+            settings: { theme: 'dark', interfaceLanguage: 'ja' },
+            intentLedger: { revision: 2, records: {
+                theme: { value: 'dark' }, interfaceLanguage: { value: 'ja' },
+            } },
+        });
+    });
+
+    it.each([
+        { key: 'apiKey', value: 'unwanted' },
+        { key: 'theme', value: 'blue' },
+        { key: 'interfaceLanguage', value: 'invalid' },
+        { key: 'theme', value: 'dark', apiKey: 'unwanted' },
+        null,
+    ])('rejects an invalid shell request without storage writes (%j)', async choice => {
+        const { setValue } = installGmStorageFixture();
+        await expect(saveHostedAppearance(choice as never)).rejects.toThrow('Invalid appearance choice');
+        expect(setValue).not.toHaveBeenCalled();
+    });
+
+    it('rejects a failed publication and preserves the prior committed choice', async () => {
+        const initial = serializeSettingsPersistencePair({ ...DEFAULT_SETTINGS, theme: 'light' }, {
+            revision: 7, records: { theme: { seq: 7, value: 'light' } },
+        });
+        let failed = false;
+        const failure = new Error('Fixture write refused');
+        const { values } = installGmStorageFixture(new Map(Object.entries(initial)), {
+            beforeSet: (key, value) => {
+                if (!failed && key === SETTINGS_STORAGE_KEY2 && (value as { theme?: unknown }).theme === 'dark') {
+                    failed = true;
+                    throw failure;
+                }
+            },
+        });
+        await expect(saveHostedAppearance({ key: 'theme', value: 'dark' })).rejects.toThrow('Fixture write refused');
+        expect(failed).toBe(true);
+        expect(await readBackupSettingsPersistenceView(Object.fromEntries(values))).toMatchObject({
+            settings: { theme: 'light' }, intentLedger: { revision: 7 },
+        });
+        await saveHostedAppearance({ key: 'theme', value: 'dark' });
+        expect(await readBackupSettingsPersistenceView(Object.fromEntries(values))).toMatchObject({
+            settings: { theme: 'dark' }, intentLedger: { revision: 8 },
+        });
+    });
+});
+
+describe('VitePress hosted settings target provenance', () => {
+    afterEach(() => { vi.unstubAllGlobals(); localStorage.clear(); sessionStorage.clear(); });
+
+
+    it('persists a first explicit appearance choice as the only shared setting', async () => {
+        const { values } = installGmStorageFixture();
+        await persistHostedSharedSettingsPatch({ theme: 'dark' }, true);
+        const view = await readBackupSettingsPersistenceView(Object.fromEntries(values));
+        expect(view?.settings).toEqual({ theme: 'dark' });
+        expect(view?.intentLedger).toMatchObject({ revision: 1, records: { theme: { seq: 1, value: 'dark' } } });
+    });
+
+    it('does not create shared learner settings from passive hosted appearance state', async () => {
+        const { values } = installGmStorageFixture();
+        await persistHostedSharedSettingsPatch({ theme: 'dark' }, false);
+        expect(values.has(SETTINGS_STORAGE_KEY2)).toBe(false);
+    });
+
+    it('preserves existing shared preferences', async () => {
+        const pair = serializeSettingsPersistencePair({ ...DEFAULT_SETTINGS, subtitleFontSize: 48 }, { revision: 0, records: {} });
+        const { values } = installGmStorageFixture(new Map(Object.entries(pair)));
+        await persistHostedSharedSettingsPatch({ theme: 'dark' }, true);
+        expect(values.get(SETTINGS_STORAGE_KEY2)).toMatchObject({ subtitleFontSize: 48, theme: 'dark' });
+    });
+
+    it('serializes the docs shared patch with the canonical settings transaction', () => {
+        const theme = readFileSync('docs/.vitepress/theme/index.ts', 'utf8');
+        expect(theme).toContain('persistHostedSharedSettingsPatch(patch, userChoice)');
+        expect(theme).toContain('writeStoredSettingsPatch({ theme }, { userChoice: true })');
+        expect(theme).not.toContain('gmStorageSet(SETTINGS_STORAGE_KEY');
+        expect(theme).not.toContain('localStorage.setItem(SETTINGS_STORAGE_KEY');
+        expect(theme).not.toContain('prepareHostedDemoVideoSettings');
     });
 });

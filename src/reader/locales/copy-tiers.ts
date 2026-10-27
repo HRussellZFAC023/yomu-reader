@@ -249,7 +249,7 @@ const COPY_TIER_RULES: readonly CopyTierRule[] = /* @__PURE__ */ Object.freeze([
  * tier no matter how its ID reads, so the default rule cannot quietly swallow a
  * confirmation dialog that happens to be named `pruneTail`.
  */
-export const HUMAN_TIER_ESCALATION_PHRASES: readonly string[] = /* @__PURE__ */ Object.freeze([
+const HUMAN_TIER_ESCALATION_PHRASES: readonly string[] = /* @__PURE__ */ Object.freeze([
     'cannot be undone',
     "can't be undone",
     'permanently',
@@ -283,7 +283,7 @@ export const HUMAN_TIER_ESCALATION_PHRASES: readonly string[] = /* @__PURE__ */ 
     'refund',
 ]);
 
-export function escalatesToHumanTier(sourceText: string): boolean {
+function escalatesToHumanTier(sourceText: string): boolean {
     const lowered = sourceText.toLowerCase();
     return HUMAN_TIER_ESCALATION_PHRASES.some((phrase) => lowered.includes(phrase));
 }
@@ -304,7 +304,3 @@ export function copyTierOf(id: MessageId, sourceText?: string): CopyTierDecision
     }
     return { id, tier: matched.tier, category: matched.category, rule: matched.rule };
 }
-
-export const COPY_TIER_RULE_NAMES: readonly string[] = /* @__PURE__ */ Object.freeze(
-    /* @__PURE__ */ COPY_TIER_RULES.map((rule) => rule.rule),
-);

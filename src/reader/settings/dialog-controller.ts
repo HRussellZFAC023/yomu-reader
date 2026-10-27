@@ -9,6 +9,7 @@ import { detectYomuUpdateFlow } from '../app/userscript-update';
 import { createAudioPreviewCard } from '../cards/utils';
 import { FURIGANA_HIDE_STATE_GROUPS, NEW_TAB_VERSION_URL, SETTINGS_TITLE, WORD_COLOR_HIDE_STATE_GROUPS } from '../app/constants';
 import { readerWordSurfaceText, setInnerHtml } from '../dom/index';
+import { setStaticTemplateHtml } from '../dom/html';
 import { JpdbClient } from '../jpdb/jpdb';
 import { configureLogger, Logger } from '../app/logger';
 import { clearNewTabOfflineCache } from '../newtab/cache';
@@ -615,12 +616,11 @@ export class SettingsDialogController {
     }
 
     private runPostCommitSettingsEffect(label: string, effect: () => void | Promise<void>): void {
+        const report = (error: unknown) => log.warn(`Post-persistence ${label} failed`, { error });
         try {
-            void Promise.resolve(effect()).catch(error => {
-                log.warn(`Post-persistence ${label} failed`, { error });
-            });
+            void Promise.resolve(effect()).catch(report);
         } catch (error) {
-            log.warn(`Post-persistence ${label} failed`, { error });
+            report(error);
         }
     }
 
@@ -632,7 +632,7 @@ export class SettingsDialogController {
         form.setAttribute('aria-modal', 'true');
         form.setAttribute('aria-label', SETTINGS_TITLE);
         form.tabIndex = -1;
-        setInnerHtml(form, renderSettingsForm(this.settings, JPDB_SETTINGS_URL, JITEN_SETTINGS_URL, COLLAPSED_CATALOG_BROWSE_RENDER));
+        setStaticTemplateHtml(form, renderSettingsForm(this.settings, JPDB_SETTINGS_URL, JITEN_SETTINGS_URL, COLLAPSED_CATALOG_BROWSE_RENDER));
         localizeSettingsForm(form, this.settings.interfaceLanguage);
         if (panel) activateSettingsPanel(form, panel);
         return form;

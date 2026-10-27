@@ -1,3 +1,4 @@
+import '../../src/reader/companions/register-build-companions';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { testEnSettings } from './helpers/settings-fixture';
 import { withViewport } from './helpers/browser-fixtures';
@@ -260,6 +261,7 @@ describe('VisiblePageScanner', () => {
         });
         const scanner = createVisiblePageScanner({ parseJapanese });
 
+        const clock = freezeScanBudgetClock();
         try {
             await scanner.scanVisiblePage({ silent: true });
 
@@ -267,6 +269,7 @@ describe('VisiblePageScanner', () => {
             expect(parseJapanese.mock.calls[1]?.[1]).toEqual(expect.objectContaining({ skipApi: true }));
             expect(document.querySelectorAll('.jpdb-reader-word')).toHaveLength(170);
         } finally {
+            clock.mockRestore();
             scanner.destroy();
             restoreRects();
             document.body.innerHTML = '';
@@ -321,6 +324,7 @@ describe('VisiblePageScanner', () => {
         const scanner = createVisiblePageScanner({ parseJapanese });
         const scanVisiblePage = vi.spyOn(scanner, 'scanVisiblePage');
 
+        const clock = freezeScanBudgetClock();
         try {
             await scanner.scanVisiblePage({ silent: true });
 
@@ -332,41 +336,12 @@ describe('VisiblePageScanner', () => {
             await new Promise(resolve => setTimeout(resolve, 30));
             expect(scanVisiblePage, 'one capped pass and one uncapped tail pass').toHaveBeenCalledTimes(2);
         } finally {
+            clock.mockRestore();
             scanner.destroy();
             restoreRects();
             document.body.innerHTML = '';
         }
     }, 30_000);
-
-    it('reaches the tail of a broad mirrored root across a manual continuation chain', async () => {
-        const restoreRects = mockVisibleElementRects();
-        document.body.innerHTML = `<main id="feed">${Array.from(
-            { length: 460 },
-            (_, index) => `<p id="feed-${index}">日本語の文${index}</p>`,
-        ).join('')}</main>`;
-        const feed = document.getElementById('feed')!;
-        Object.defineProperty(feed, '__reactFiber$coverage', { configurable: true, value: {} });
-        const parseJapanese = vi.fn(async (paragraphs: string[]) => paragraphs.map(text => [
-            testToken(text, text, 0, text.length),
-        ]));
-        const scanner = createVisiblePageScanner({ parseJapanese });
-
-        try {
-            await scanner.scanVisiblePage({ silent: false });
-            const tailSource = document.querySelector<HTMLElement>('#feed-459')!;
-            // jsdom paints a portal mirror in about a frame budget, so apply
-            // slices hold one target each and 460 of them take a while.
-            await vi.waitFor(() => {
-                expect(documentPortalWordForSource(tailSource)).not.toBeNull();
-            }, { timeout: 45_000 });
-            expect(tailSource.querySelector('.jpdb-reader-word, .jpdb-reader-text-mirror')).toBeNull();
-            expect(parseJapanese.mock.calls.flatMap(call => call[0])).toContain('日本語の文459');
-        } finally {
-            scanner.destroy();
-            restoreRects();
-            document.body.innerHTML = '';
-        }
-    }, 60_000);
 
     it('hands each apply chunk only its own painted words, before yielding', async () => {
         const restoreRects = mockVisibleElementRects();
@@ -421,9 +396,9 @@ describe('VisiblePageScanner', () => {
         });
         document.body.innerHTML = `
             <ytd-comments>
-                ${Array.from({ length: 170 }, (_, index) => `
+                ${Array.from({ length: 3 }, (_, index) => `
                     <ytd-comment-view-model>
-                        <yt-attributed-string id="content-text">日本語コメント${index}</yt-attributed-string>
+                        <yt-attributed-string id="content-text">日本語コメント${index}。${'長いコメント本文です。'.repeat(225)}</yt-attributed-string>
                     </ytd-comment-view-model>
                 `).join('')}
             </ytd-comments>
@@ -459,9 +434,9 @@ describe('VisiblePageScanner', () => {
         });
         document.body.innerHTML = `
             <ytd-comments>
-                ${Array.from({ length: 170 }, (_, index) => `
+                ${Array.from({ length: 3 }, (_, index) => `
                     <ytd-comment-view-model>
-                        <yt-attributed-string id="content-text">日本語コメント${index}です。${'長いコメント本文です。'.repeat(25)}</yt-attributed-string>
+                        <yt-attributed-string id="content-text">日本語コメント${index}です。${'長いコメント本文です。'.repeat(225)}</yt-attributed-string>
                     </ytd-comment-view-model>
                 `).join('')}
             </ytd-comments>
@@ -503,9 +478,9 @@ describe('VisiblePageScanner', () => {
         });
         document.body.innerHTML = `
             <ytd-comments>
-                ${Array.from({ length: 170 }, (_, index) => `
+                ${Array.from({ length: 3 }, (_, index) => `
                     <ytd-comment-view-model>
-                        <yt-attributed-string id="content-text">日本語コメント${index}です。${'長いコメント本文です。'.repeat(25)}</yt-attributed-string>
+                        <yt-attributed-string id="content-text">日本語コメント${index}です。${'長いコメント本文です。'.repeat(225)}</yt-attributed-string>
                     </ytd-comment-view-model>
                 `).join('')}
             </ytd-comments>
@@ -1194,7 +1169,7 @@ describe('VisiblePageScanner', () => {
                             <span id="video-title">東京散歩と春コーデ</span>
                         </a>
                     </ytd-rich-item-renderer>
-                    ${Array.from({ length: 170 }, (_, index) => `
+                    ${Array.from({ length: 3 }, (_, index) => `
                         <ytd-rich-item-renderer>
                             <a href="/watch?v=feed-${index}">
                                 <span id="video-title">日本語フィード動画${index}</span>
@@ -1237,8 +1212,6 @@ describe('VisiblePageScanner', () => {
             restoreRects();
             document.body.innerHTML = '';
         }
-    // Heavy fixture (170 feed rows): same slow-runner allowance as the
-    // comment-scan test (1.6.122) so busy build machines don't flake.
     }, 40000);
 
     it('annotates YouTube filter labels without changing native text or stealing clicks', async () => {

@@ -1,3 +1,4 @@
+import '../../src/reader/companions/register-build-companions';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import {
@@ -384,7 +385,7 @@ async function scannerWithSettleObserver(sweep: () => number): Promise<SettleObs
 }
 
 async function afterSettleDebounce(): Promise<void> {
-    await new Promise(resolve => setTimeout(resolve, 260));
+    await vi.advanceTimersByTimeAsync(260);
 }
 
 function swapDocumentBody(): { previous: HTMLElement; replacement: HTMLElement } {
@@ -396,6 +397,8 @@ function swapDocumentBody(): { previous: HTMLElement; replacement: HTMLElement }
 
 describe('visible page scanner settle observer parking', () => {
     it('parks the body resize observer while hidden and re-observes on wake', async () => {
+        vi.useFakeTimers();
+
         visibility = stubVisibility('visible');
         const sweeps = vi.fn(() => 0);
         observedWidths.set(document.body, 800);
@@ -416,6 +419,8 @@ describe('visible page scanner settle observer parking', () => {
     });
 
     it('does not replay a body the host swapped out while the tab was hidden', async () => {
+        vi.useFakeTimers();
+
         visibility = stubVisibility('visible');
         const sweeps = vi.fn(() => 0);
         observedWidths.set(document.body, 800);
@@ -441,6 +446,8 @@ describe('visible page scanner settle observer parking', () => {
     });
 
     it('re-points the settle observer at a replacement body without spending a sweep on the first measure', async () => {
+        vi.useFakeTimers();
+
         visibility = stubVisibility('visible');
         const sweeps = vi.fn(() => 0);
         observedWidths.set(document.body, 800);

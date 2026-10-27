@@ -44,7 +44,7 @@ function assertEveryFixedOperationRestoredHosts(label, operations) {
     if (failedOperation) throw new Error(`${label}: fixed ambient benchmark did not rehydrate its fixture hosts on every cycle.`);
 }
 
-export function fixedAmbientOperationPlan(cycles) {
+function fixedAmbientOperationPlan(cycles) {
     if (!Number.isInteger(cycles) || cycles <= 0) throw new Error(`Fixed ambient cycle count must be positive: ${cycles}`);
     return Array.from({ length: cycles }, (_, cycle) => ({
         cycle,

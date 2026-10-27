@@ -1,3 +1,4 @@
+import '../../src/reader/companions/register-build-companions';
 import { readFileSync } from 'node:fs';
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -26,6 +27,8 @@ import {
 import { setRenderedWordPitchClass } from '../../src/reader/dom/rendered-word-state';
 import { DEFAULT_SETTINGS } from '../../src/reader/settings';
 import type { JPDBCard, JPDBToken } from '../../src/reader/app/types';
+import { classifyDecoration as classifyDecoration2 } from "../../src/reader/dom/decoration-policy";
+import { DEFAULT_SETTINGS as DEFAULT_SETTINGS2 } from "../../src/reader/settings/index";
 
 function stubYouTube(): void {
     vi.stubGlobal('location', {
@@ -2010,5 +2013,108 @@ describe('Reddit readable control labels', () => {
         const root = document.querySelector('#control')!.attachShadow({ mode: 'open' });
         root.innerHTML = '<span id="label">その他の返信</span>';
         expect(classifyDecoration(root.querySelector('#label')!)).toBe('interactive-passive');
+    });
+});
+
+describe('comments-header sort trigger stays a page control', () => {
+    const LABEL = '並べ替え';
+
+    function commentsHeaderDom(): void {
+        document.body.innerHTML = `
+            <ytd-comments>
+              <ytd-item-section-renderer>
+                <ytd-comments-header-renderer>
+                  <div id="title"><yt-sort-filter-sub-menu-renderer>
+                    <yt-dropdown-menu>
+                      <tp-yt-paper-menu-button>
+                        <div id="trigger">
+                          <tp-yt-paper-button id="label" role="button" aria-haspopup="true">
+                            <yt-icon class="style-scope yt-dropdown-menu"><svg></svg></yt-icon>
+                            <div id="label-text">${LABEL}</div>
+                          </tp-yt-paper-button>
+                        </div>
+                      </tp-yt-paper-menu-button>
+                    </yt-dropdown-menu>
+                  </yt-sort-filter-sub-menu-renderer></div>
+                </ytd-comments-header-renderer>
+              </ytd-item-section-renderer>
+            </ytd-comments>
+        `;
+    }
+
+    function token(): JPDBToken {
+        const card: JPDBCard = {
+            vid: 1, sid: 1, rid: 0, spelling: LABEL, reading: 'ならべかえ', frequencyRank: null,
+            partOfSpeech: [], meanings: [], cardState: ['not-in-deck'], pitchAccent: [], wordWithReading: null, source: 'jpdb',
+        };
+        return {
+            card,
+            start: 0, end: LABEL.length, length: LABEL.length,
+            rubies: [{ text: 'ならべかえ', start: 0, end: LABEL.length, length: LABEL.length }],
+            pitchClass: '', sentence: LABEL,
+        };
+    }
+
+    afterEach(() => {
+        removeNonDestructiveScanMirrors(document);
+        document.body.innerHTML = '';
+    });
+
+    // Stray growth (gate-3 flag): the comments-header sort row kept growing
+    // (ytd-comments-header-renderer DIVs + tp-yt-paper-menu-button min-height)
+    // because the sort trigger's caret ICON made isMediaTextContentControl treat
+    // the role=button trigger as media-text CONTENT — an icon is how controls
+    // decorate themselves, not a thumbnail. Menus/dropdown triggers are page
+    // controls, which the page keeps as drawn; real media cards (img avatar +
+    // name) stay content.
+
+    it('leaves the sort dropdown label alone despite the ytd-comments content root', () => {
+        commentsHeaderDom();
+        const label = document.querySelector<HTMLElement>('#label-text')!;
+        expect(classifyDecoration2(label)).toBe('skip');
+    });
+
+    it('treats a small measured <img> caret exactly like an svg icon (still a control)', () => {
+        document.body.innerHTML = `
+            <ytd-comments>
+                <div role="button" id="row"><img id="caret" src="caret.png"><span id="text">並べ替え</span></div>
+            </ytd-comments>
+        `;
+        const caret = document.getElementById('caret')!;
+        Object.defineProperty(caret, 'getBoundingClientRect', {
+            configurable: true,
+            value: () => ({ x: 0, y: 0, left: 0, top: 0, right: 16, bottom: 16, width: 16, height: 16, toJSON: () => ({}) }) as DOMRect,
+        });
+        expect(classifyDecoration2(document.getElementById('text')!)).toBe('skip');
+    });
+
+    it('keeps a channel avatar link (real media + name) as content', () => {
+        document.body.innerHTML = `
+            <ytd-comments>
+                <a id="channel" href="/@ch"><img src="avatar.jpg" alt=""><span id="name">高橋洋一チャンネル</span></a>
+            </ytd-comments>
+        `;
+        const name = document.querySelector<HTMLElement>('#name')!;
+        expect(classifyDecoration2(name)).toBe('content-ruby');
+    });
+
+    it('never lets ruby-room grow the sort row: interactive-passive words reserve no room', () => {
+        commentsHeaderDom();
+        const label = document.querySelector<HTMLElement>('#label-text')!;
+        const target: FragmentTextTarget = {
+            text: LABEL,
+            parent: label,
+            fragments: [{ node: label.firstChild as Text, start: 0, end: LABEL.length, hasNativeRuby: false }],
+            decoration: classifyDecoration2(label),
+        };
+        applyTokensToScanTarget(target, [token()], { ...DEFAULT_SETTINGS2, furiganaMode: 'all' });
+
+        makeRoomForRubyInCroppedRows(document);
+        makeRoomForRubyInCroppedRows(document);
+
+        for (const box of Array.from(document.querySelectorAll<HTMLElement>('ytd-comments-header-renderer, ytd-comments-header-renderer *'))) {
+            expect(box.dataset.yomuRubyRoom, `${box.tagName} must not be grown`).toBeUndefined();
+            expect(box.style.getPropertyValue('min-height')).not.toMatch(/\d/u);
+        }
     });
 });

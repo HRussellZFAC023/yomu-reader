@@ -1,3 +1,5 @@
+import { vi } from 'vitest';
+
 // Positive-poll helper: returns at the first passing assertion, so a large
 // budget costs nothing when green. CI runners execute four vitest shards on
 // four cores — event-loop starvation there stretches waits that finish in
@@ -14,7 +16,8 @@ export async function waitForExpect(assertion: () => void | Promise<void>, timeo
             return;
         } catch (error) {
             lastError = error;
-            await new Promise(resolve => setTimeout(resolve, 20));
+            if (vi.isFakeTimers()) await vi.advanceTimersByTimeAsync(20);
+            else await new Promise(resolve => setTimeout(resolve, 20));
         }
     }
     if (lastError) throw lastError;

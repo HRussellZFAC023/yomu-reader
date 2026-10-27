@@ -1,7 +1,17 @@
+import '../../src/reader/companions/register-build-companions';
 import fs from 'node:fs';
 import path from 'node:path';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { detectGrammarHints, renderGrammarHints, resetGrammarRuleDataCacheForTests } from '../../src/reader/study/tools';
+import { afterEach } from "vitest";
+import { activeLearningTarget } from "../../src/reader/languages";
+import { DEFAULT_SETTINGS } from "../../src/reader/settings/index";
+import { StudySourceController } from "../../src/reader/study/sources";
+import { renderGrammarHints as renderGrammarHints2 } from "../../src/reader/study/tools-impl";
+import type { ReaderSettings } from "../../src/reader/app/types";
+import { GRAMMAR_PREFERENCES_KEY, readGrammarKnowledge, readGrammarPreferences, setGrammarRuleKnowledge, setGrammarRuleKnown } from "../../src/reader/study/grammar-knowledge";
+import { GRAMMAR_PATTERN_DATA } from "../../src/reader/study/grammar-data";
+import { parseGrammarRegistry, YOMU_GRAMMAR_REGISTRY } from "../../src/reader/study/grammar-registry";
 
 /**
  * The grammar "Details" disclosure must never open onto what is already on screen.
@@ -112,5 +122,131 @@ describe('grammar Details disclosure', () => {
             const revealed = Boolean(disclosure.querySelector('.jpdb-reader-study-detail, .jpdb-reader-grammar-examples'));
             expect(revealed, item.querySelector('.jpdb-reader-study-name')?.textContent?.trim() ?? '').toBe(true);
         }
+    });
+});
+
+describe('grammar availability stays visible', () => {
+    afterEach(() => {
+        document.body.replaceChildren();
+        vi.restoreAllMocks();
+    });
+
+    function grammarController(): StudySourceController {
+        const settings = { ...DEFAULT_SETTINGS, interfaceLanguage: 'en', studyGrammarEnabled: true } as ReaderSettings;
+        return new StudySourceController({
+            getSettings: () => settings,
+            dictionarySourceAttributes: () => '',
+            parseJapanese: async () => [],
+            parsePopoverJapanese: () => undefined,
+            enrichPitchWords: () => undefined,
+            enrichAnkiWords: () => undefined,
+            isCurrentPopoverRoot: () => true,
+        });
+    }
+
+
+    it('replaces the pending state with an honest no-match answer for a target with rules', async () => {
+        const controller = grammarController();
+        document.body.innerHTML = `<div class="popover">${controller.renderGrammarSource('猫。')}</div>`;
+        const popover = document.querySelector<HTMLElement>('.popover')!;
+        const details = popover.querySelector<HTMLDetailsElement>('[data-study-grammar]')!;
+        const panel = details.querySelector<HTMLElement>('[data-study-grammar-panel]')!;
+        details.open = true;
+
+        expect(activeLearningTarget().grammar.rules.length).toBeGreaterThan(0);
+        controller.installLoaders(popover, '猫。');
+
+        await vi.waitFor(() => expect(details.dataset.availability).toBe('empty'));
+        expect(panel.textContent).toContain('No built-in Japanese grammar patterns matched this sentence.');
+        expect(panel.textContent).not.toContain('Finding grammar');
+    });
+
+    it('gives direct empty render callers the same stable no-match answer', async () => {
+        const html = await renderGrammarHints2([], '猫。', undefined, 'en');
+
+        expect(html).toContain('data-grammar-availability="empty"');
+        expect(html).toContain('No built-in Japanese grammar patterns matched this sentence.');
+    });
+});
+
+describe('shared grammar knowledge state', () => {
+    beforeEach(() => {
+        localStorage.clear();
+        vi.stubGlobal('GM_getValue', undefined);
+        vi.stubGlobal('GM_setValue', undefined);
+    });
+
+    afterEach(() => {
+        localStorage.clear();
+        vi.unstubAllGlobals();
+    });
+
+    it('migrates the Reader boolean preference into the canonical knowledge map', () => {
+        localStorage.setItem(GRAMMAR_PREFERENCES_KEY, JSON.stringify({
+            knownRuleIds: ['particle-wa', 'not-a-real-rule'],
+            showKnown: true,
+        }));
+
+        expect(readGrammarKnowledge()).toEqual({
+            entries: {
+                'particle-wa': {
+                    knowledge: 'known',
+                    at: 0,
+                    changeId: 'grammar-known:legacy:particle-wa',
+                },
+            },
+            showKnown: true,
+        });
+        expect(readGrammarPreferences()).toEqual({ knownRuleIds: ['particle-wa'], showKnown: true });
+    });
+
+    it('uses GM storage as the cross-origin source while retaining old-reader compatibility', () => {
+        const values = new Map<string, unknown>();
+        vi.stubGlobal('GM_getValue', vi.fn((key: string, fallback: unknown) => values.get(key) ?? fallback));
+        vi.stubGlobal('GM_setValue', vi.fn((key: string, value: unknown) => { values.set(key, value); }));
+
+        setGrammarRuleKnowledge('particle-wa', 'mastered', { at: 42, changeId: 'grammar:test:42' });
+        localStorage.clear();
+
+        expect(readGrammarKnowledge().entries['particle-wa']).toEqual({
+            knowledge: 'mastered',
+            at: 42,
+            changeId: 'grammar:test:42',
+        });
+        expect(values.get(GRAMMAR_PREFERENCES_KEY)).toMatchObject({
+            version: 2,
+            knownRuleIds: ['particle-wa'],
+        });
+    });
+
+    it('makes the Reader known toggle update the same knowledge entry', () => {
+        expect(setGrammarRuleKnown('particle-wa', true).knownRuleIds).toEqual(['particle-wa']);
+        expect(readGrammarKnowledge().entries['particle-wa']?.knowledge).toBe('known');
+
+        expect(setGrammarRuleKnown('particle-wa', false).knownRuleIds).toEqual([]);
+        expect(readGrammarKnowledge().entries['particle-wa']?.knowledge).toBe('unknown');
+    });
+
+    it('does not rewrite an exact shared grammar fact', () => {
+        const fact = { at: 42, changeId: 'grammar:test:42' };
+        setGrammarRuleKnowledge('particle-wa', 'known', fact);
+        const before = localStorage.getItem(GRAMMAR_PREFERENCES_KEY);
+
+        setGrammarRuleKnowledge('particle-wa', 'known', fact);
+
+        expect(localStorage.getItem(GRAMMAR_PREFERENCES_KEY)).toBe(before);
+        expect(readGrammarKnowledge().entries['particle-wa']).toEqual({ knowledge: 'known', ...fact });
+    });
+});
+
+describe('grammar registry in the compiled extension', () => {
+    // UserScript Compiler indents the whole userscript body by four spaces,
+    // template-literal text included, so the packaged content script sees
+    // every rule row after the first with leading spaces.
+    it('keeps the authored rule ids when the rule table arrives indented', () => {
+        const compiled = GRAMMAR_PATTERN_DATA.split('\n').map(line => `    ${line}`).join('\n');
+        const ids = parseGrammarRegistry(compiled).map(rule => rule.ruleId);
+        expect(ids).toEqual(YOMU_GRAMMAR_REGISTRY.map(rule => rule.ruleId));
+        expect(ids.every(id => id === id.trim())).toBe(true);
     });
 });

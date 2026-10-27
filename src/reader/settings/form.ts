@@ -194,7 +194,7 @@ function settingsCloseButton(language: InterfaceLanguage): string {
     return `<button type="button" class="jpdb-reader-settings-close" data-settings-close aria-label="${label}" title="${label}">${menuIconMarkup('close')}</button>`;
 }
 
-export function renderHelpLinksPanel(language: InterfaceLanguage = 'en'): string {
+function renderHelpLinksPanel(language: InterfaceLanguage = 'en'): string {
     return `
         <div class="jpdb-reader-help-links-card">
             <div class="jpdb-reader-settings-subsection jpdb-reader-help-update-strip" data-help-update-strip>
@@ -613,7 +613,7 @@ export function appearancePreviewContentHtml(): string {
     return `<span class="jpdb-reader-settings-appearance-preview-line">${appearancePreviewHtml()}</span>`;
 }
 
-export function appearancePreviewHtml(): string {
+function appearancePreviewHtml(): string {
     const word = (classes: string, base: string, furi: string, tail = ''): string =>
         `<span class="jpdb-reader-word jpdb-reader-has-furi ${classes}"><ruby class="${YOMU_RUBY_CLASS}"><span class="jpdb-reader-ruby-base">${base}</span><rt class="jpdb-reader-furi">${furi}</rt></ruby>${tail}</span>`;
     return `${word('jpdb-new anki-new jpdb-pitch-heiban', '新', 'あたら', 'しい')}${word('jpdb-learning anki-learning jpdb-pitch-atamadaka', '言葉', 'ことば')}を${word('jpdb-due anki-due jpdb-pitch-nakadaka', '毎日', 'まいにち')}${word('jpdb-failed anki-failed jpdb-pitch-odaka', '勉強', 'べんきょう')}して、${word('jpdb-known anki-known jpdb-pitch-unknown', '日本語', 'にほんご')}が${word('jpdb-never-forget anki-known jpdb-pitch-heiban', '上手', 'じょうず')}になる。`;
@@ -1832,17 +1832,9 @@ const SETTINGS_CONTROL_LABELS: readonly (readonly [string, SettingsTextKey])[] =
 
 type NamedFormControl = HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement;
 
-// A localize pass re-labels ~200 named controls across a ~500-control form.
-// Reading `form.elements` per lookup is O(n) in jsdom (and re-resolves the live
-// collection in browsers), making the whole pass quadratic. Snapshot the
-// controls by name once for the duration of the synchronous pass; localization
-// only re-texts existing labels and never adds or removes named controls, so the
-// snapshot stays valid. Outside an active pass, callers fall back to a single
-// query, which is still far cheaper than repeatedly walking `form.elements`.
-// Both paths enumerate form descendants only, which matches renderSettingsForm
-// (every control lives inside the form). If the form ever gains a control bound
-// via a `form=""` attribute outside its subtree, revisit this: `form.elements`
-// would include it but `querySelectorAll` will not.
+// One index serves each localization pass; labels and option text do not change
+// named controls. Preserve the previous index for nested passes. Controls bound
+// by an external form="" attribute would require expanding this subtree index.
 let activeNamedControls: {
     form: HTMLFormElement;
     byName: Map<string, NamedFormControl[]>;
@@ -1860,7 +1852,7 @@ function withNamedControlIndex<T>(form: HTMLFormElement, run: () => T): T {
 
 function indexNamedControls(form: HTMLFormElement): Map<string, NamedFormControl[]> {
     const byName = new Map<string, NamedFormControl[]>();
-    form.querySelectorAll<NamedFormControl>('input, select, textarea').forEach(control => {
+    form.querySelectorAll<NamedFormControl>('input[name], select[name], textarea[name]').forEach(control => {
         const existing = byName.get(control.name);
         if (existing) existing.push(control);
         else byName.set(control.name, [control]);
@@ -1874,6 +1866,11 @@ function namedFormControls(form: HTMLFormElement, name: string): NamedFormContro
 }
 
 function getNamedControl<T extends NamedFormControl>(form: HTMLFormElement, name: string): T | null {
+    if (activeNamedControls?.form === form) {
+        const named = activeNamedControls.byName.get(name) ?? [];
+        const item = named.length === 1 ? named[0] : named.find(control => control instanceof HTMLInputElement);
+        return (item as T | undefined) ?? null;
+    }
     const item = form.elements.namedItem(name);
     if (item instanceof HTMLInputElement || item instanceof HTMLSelectElement || item instanceof HTMLTextAreaElement) {
         return item as T;

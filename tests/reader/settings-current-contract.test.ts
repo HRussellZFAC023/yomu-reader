@@ -5,6 +5,11 @@ import { exportSettingsBackupSnapshot } from '../../src/reader/settings/settings
 import { RETIRED_SETTINGS_STORAGE_KEYS } from '../../src/reader/settings/settings-authority-storage-keys';
 import { installGmStorageFixture } from './helpers/settings-persistence-fixture';
 import { v193UserscriptStore } from './helpers/upgrade-v193-corpus';
+import { uiText } from "../../src/reader/app/i18n";
+import { effectiveFuriganaMode, effectiveReaderColorSource, effectiveSubtitleColorSource, hasStatusColorSource, statusColorSourceLabel } from "../../src/reader/settings/index";
+import { renderSettingsForm } from "../../src/reader/settings/form";
+import { testEnSettings } from "./helpers/settings-fixture";
+import type { ReaderSettings } from "../../src/reader/app/types";
 
 afterEach(() => { vi.unstubAllGlobals(); });
 
@@ -164,5 +169,118 @@ describe('current settings contract', () => {
         expect(storage.values.get(SETTINGS_STORAGE_KEY)).toEqual(pair[SETTINGS_STORAGE_KEY]);
         expect(storage.setValue.mock.calls.map(([key]) => key)).not.toContain(SETTINGS_STORAGE_KEY);
         expect(storage.deleteValue).not.toHaveBeenCalled();
+    });
+});
+
+describe("settings explainable defaults", () => {
+    function keyless(overrides: Partial<ReaderSettings> = {}): ReaderSettings {
+        return { ...testEnSettings(), apiKey: '', jitenApiKey: '', ankiEnabled: false, ...overrides };
+    }
+
+    function formHtml(settings: ReaderSettings): string {
+        return renderSettingsForm(settings, 'https://jpdb.io/settings');
+    }
+
+    // A11: the shipped default used to hide furigana on every kanji from a fixed
+    // beginner list, so a learner could not tell a "you know this" from a miss.
+    // ADR-0026: readings follow what the learner's own study source knows, so a
+    // missing reading always means "you know this", never a guess from a list.
+    describe('A11 furigana default is explainable', () => {
+        it('ships furigana that follows what the learner knows', () => {
+            expect(DEFAULT_SETTINGS.furiganaMode).toBe('known-status');
+        });
+
+        it('preserves typed automatic mode and resolves it to the default', () => {
+            for (const settings of [
+                keyless({ yomuLocalSrsEnabled: false, furiganaMode: 'auto' }),
+                keyless({ yomuLocalSrsEnabled: true, furiganaMode: 'auto' }),
+                keyless({ apiKey: 'jpdb-key', ankiEnabled: true, furiganaMode: 'auto' }),
+            ]) {
+                expect(effectiveFuriganaMode(settings)).toBe('known-status');
+                expect(normalizeReaderSettings(settings).furiganaMode).toBe('auto');
+            }
+        });
+
+        it('keeps a stored difficulty choice through normalization', () => {
+            const stored = normalizeReaderSettings({ ...keyless(), furiganaMode: 'difficult-kanji' });
+            expect(stored.furiganaMode).toBe('difficult-kanji');
+            expect(effectiveFuriganaMode(stored)).toBe('difficult-kanji');
+        });
+
+        it('explains difficulty hiding only once it is the chosen mode', () => {
+            const off = formHtml(keyless({ furiganaMode: 'all' }));
+            expect(off).toContain('data-furigana-difficulty-note');
+            expect(off).toMatch(/data-furigana-difficulty-note[^>]* hidden/);
+
+            const on = formHtml(keyless({ furiganaMode: 'difficult-kanji' }));
+            expect(on).not.toMatch(/data-furigana-difficulty-note[^>]* hidden/);
+            expect(on).toContain(uiText('en', 'furiganaDifficultKanjiHelp'));
+        });
+    });
+
+    // A20: the state colour channel followed a jpdb/jiten key alone, so a learner
+    // reviewing in Yomu's own deck got flat text with nothing to explain it.
+    describe('A20 status colour has a source or an explanation', () => {
+        it('drives the state channel from the local Yomu deck', () => {
+            const settings = keyless({ yomuLocalSrsEnabled: true });
+            expect(effectiveReaderColorSource(settings, 'jpdb')).toBe('jpdb');
+            expect(effectiveReaderColorSource(settings, 'status')).toBe('jpdb');
+            expect(effectiveSubtitleColorSource(settings, 'jpdb')).toBe('jpdb');
+            expect(hasStatusColorSource(settings)).toBe(true);
+        });
+
+        it('names the local deck rather than JPDB when the local deck is the source', () => {
+            expect(statusColorSourceLabel(keyless({ yomuLocalSrsEnabled: true }))).toBe('よむ deck');
+            expect(statusColorSourceLabel(keyless({ apiKey: 'jpdb-key', yomuLocalSrsEnabled: true }))).toBe('JPDB');
+        });
+
+        it('reports no status source when every deck is off', () => {
+            const settings = keyless({ yomuLocalSrsEnabled: false });
+            expect(hasStatusColorSource(settings)).toBe(false);
+            expect(statusColorSourceLabel(settings)).toBe('');
+            expect(effectiveReaderColorSource(settings, 'jpdb')).toBe('off');
+        });
+
+        it('says so in the form when no deck can supply a status', () => {
+            const sourced = formHtml(keyless({ yomuLocalSrsEnabled: true }));
+            expect(sourced).toMatch(/data-status-color-no-source[^>]* hidden/);
+
+            const sourceless = formHtml(keyless({ yomuLocalSrsEnabled: false }));
+            expect(sourceless).not.toMatch(/data-status-color-no-source[^>]* hidden/);
+            expect(sourceless).toContain(uiText('en', 'statusColorNoSourceHelp'));
+        });
+
+        it('keeps Anki as a status source on its own', () => {
+            const settings = keyless({ ankiEnabled: true, yomuLocalSrsEnabled: false });
+            expect(hasStatusColorSource(settings)).toBe(true);
+            expect(statusColorSourceLabel(settings)).toBe('Anki');
+            expect(effectiveReaderColorSource(settings, 'status')).toBe('anki');
+            expect(effectiveReaderColorSource(settings, 'jpdb')).toBe('anki');
+        });
+    });
+});
+
+describe('unsupported settings and current validation', () => {
+    it('does not infer furiganaMode from hideKnownFurigana', () => {
+        expect(normalizeReaderSettings({ hideKnownFurigana: false }).furiganaMode).toBe(DEFAULT_SETTINGS.furiganaMode);
+    });
+
+    it('does not infer furiganaMode from showFurigana', () => {
+        expect(normalizeReaderSettings({ showFurigana: false }).furiganaMode).toBe(DEFAULT_SETTINGS.furiganaMode);
+    });
+
+    it('coerces junk subtitleControlsMode to auto', () => {
+        expect(normalizeReaderSettings({ subtitleControlsMode: 'bogus' as never }).subtitleControlsMode).toBe('auto');
+    });
+
+    it('passes valid subtitleControlsMode values through', () => {
+        expect(normalizeReaderSettings({ subtitleControlsMode: 'hidden' }).subtitleControlsMode).toBe('hidden');
+    });
+
+    it('defaults and clamps native subtitle concealment strength', () => {
+        expect(normalizeReaderSettings({}).subtitleNativeBlurStrength).toBe(12);
+        expect(normalizeReaderSettings({ subtitleNativeBlurStrength: 2 }).subtitleNativeBlurStrength).toBe(4);
+        expect(normalizeReaderSettings({ subtitleNativeBlurStrength: 99 }).subtitleNativeBlurStrength).toBe(20);
+        expect(normalizeReaderSettings({ subtitleNativeBlurStrength: 17 }).subtitleNativeBlurStrength).toBe(17);
     });
 });

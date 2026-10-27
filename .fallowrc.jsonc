@@ -2,6 +2,10 @@
   "$schema": "https://raw.githubusercontent.com/fallow-rs/fallow/main/schema.json",
   "entry": [
     "vite.config.ts",
+    // Vitest loads this workspace by its configured path; its default is an entry point.
+    "config/vite/reader-test.ts",
+    // esbuild namespace entry in scripts/locale-report.mjs; only its live API remains.
+    "src/reader/locales/index.ts",
     "config/vite/newtab.config.ts",
     "config/vite/greasyfork-library.config.ts",
     "config/vite/gaming.config.ts",
@@ -110,7 +114,7 @@
     "scripts/upgrade-corpus/self-check.mjs",
     "scripts/upgrade-corpus/vitest.capture.config.mjs",
     "scripts/upgrade-corpus/stages/*.capture.ts",
-    // Spawned by path from tests/reader/hosted-appearance-module-build.test.ts.
+    // Spawned by path from tests/reader/hosted-appearance-boot.test.ts.
     "tests/reader/helpers/hosted-appearance-module-proof.mjs",
     "tests/reader/**/*.test.ts",
     "tests/tooling/*.test.mjs",
@@ -175,11 +179,7 @@
     // is a string argument the import graph cannot follow. Both have real
     // consumers, so this is a detector blind spot rather than a suppression:
     //   favicon-ico.cjs      <- scripts/generate-favicons.mjs,
-    //                           tests/reader/technical-seo.test.ts
     //   hosted-install-route <- docs/.vitepress/config.mts,
-    //                           tests/reader/install-link-contract.test.ts
-    // tests/reader/dead-code-config.test.ts checks these paths still exist, so a
-    // deleted file cannot keep an entry here the way bookwalker-canvas-probe did.
     "scripts/lib/favicon-ico.cjs",
     "scripts/lib/hosted-install-route.cjs"
   ],
@@ -256,6 +256,11 @@
     "duplicate-exports": "off"
   },
   "ignoreExports": [
+    // Exact exports read from esbuild-generated modules by operational tooling.
+    { "file": "src/reader/app/i18n.ts", "exports": ["chromeMessageSource", "chromeMessageSourceForLocale"] },
+    { "file": "src/reader/app/site-nav.ts", "exports": ["hostedShellNavMarkup"] },
+    // scripts/layout-neutral-page-scan-smoke.mjs imports this in its browser probe.
+    { "file": "src/reader/app/visible-page-scanner.ts", "exports": ["pageScanHasVisibleAnnotations"] },
     {
       "file": "src/reader/cards/utils.ts",
       "exports": ["*"]

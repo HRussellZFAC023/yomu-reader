@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 describe('DOM HTML helpers', () => {
     afterEach(() => {
+        vi.restoreAllMocks();
         vi.unstubAllGlobals();
         vi.resetModules();
     });
@@ -64,10 +65,11 @@ describe('DOM HTML helpers', () => {
             },
         );
 
-        const { parseHtmlDocument, parseXmlDocument } = await import('../../src/reader/dom/html');
+        const { parseHtmlDocument, parseXmlDocument, setStaticTemplateHtml } = await import('../../src/reader/dom/html');
         expect(parseHtmlDocument('<p>HTML</p>').title).toBe('trusted');
         expect(parseXmlDocument('<root/>').documentElement.localName).toBe('root');
         expect(parseXmlDocument('<svg/>', 'image/svg+xml').documentElement.localName).toBe('svg');
+        setStaticTemplateHtml(document.createElement('form'), '<input name="owned">');
 
         expect(cloneInto).toHaveBeenCalledWith(
             expect.objectContaining({
@@ -77,22 +79,28 @@ describe('DOM HTML helpers', () => {
             { cloneFunctions: true, wrapReflectors: true },
         );
         expect(createPolicy).toHaveBeenCalledWith('yomu-reader', clonedOptions);
-        expect(parseFromString).toHaveBeenCalledTimes(3);
+        expect(parseFromString).toHaveBeenCalledTimes(4);
     });
 
     it('parses contextual HTML without assigning to innerHTML', async () => {
-        const { setInnerHtml } = await import('../../src/reader/dom/html');
+        const { setInnerHtml, setStaticTemplateHtml } = await import('../../src/reader/dom/html');
+        vi.spyOn(Element.prototype, 'innerHTML', 'set').mockImplementation(() => {
+            throw new Error('Direct HTML assignment is forbidden in extension packages');
+        });
         const select = document.createElement('select');
         const template = document.createElement('template');
         const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+        const form = document.createElement('form');
 
         setInnerHtml(select, '<option value="one">One</option>');
         setInnerHtml(template, '<strong>Study</strong>');
         setInnerHtml(svg, '<path d="M0 0h1v1z"></path>');
+        setStaticTemplateHtml(form, '<input name="owned" value="inert">');
 
         expect(select.options[0]?.value).toBe('one');
         expect(template.content.firstElementChild?.localName).toBe('strong');
         expect(svg.firstElementChild?.namespaceURI).toBe('http://www.w3.org/2000/svg');
+        expect(form.elements.namedItem('owned')).toHaveProperty('value', 'inert');
     });
 
     it('defers head appends when the userscript starts before document nodes exist', async () => {

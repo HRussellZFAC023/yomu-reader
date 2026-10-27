@@ -1,3 +1,4 @@
+import '../../src/reader/companions/register-build-companions';
 import { describe, expect, it } from 'vitest';
 
 import { renderTokensToHtml, unwrapReaderWords } from '../../src/reader/dom/index';

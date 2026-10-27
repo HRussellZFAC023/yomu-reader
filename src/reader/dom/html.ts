@@ -33,6 +33,21 @@ export function setInnerHtml(element: Element, html: string): void {
     }
 }
 
+/** Only renderer-owned templates with escaped dynamic values may use this sink. */
+export function setStaticTemplateHtml(element: HTMLElement, html: string): void {
+    try {
+        const parsed = new DOMParser().parseFromString(trustedHtml(html) as string, 'text/html');
+        const fragment = element.ownerDocument.createDocumentFragment();
+        fragment.append(...Array.from(parsed.body.childNodes));
+        // Consume control capabilities while detached, before any page observer
+        // or connected-element callback can see their serialized tokens.
+        hydratePrivateElementState(fragment);
+        htmlReplacementTarget(element).replaceChildren(fragment);
+    } catch {
+        setInnerHtml(element, html);
+    }
+}
+
 export function parseHtmlDocument(html: string): Document {
     const parsed = parseHtmlWithDomParser(html);
     if (parsed) return parsed;

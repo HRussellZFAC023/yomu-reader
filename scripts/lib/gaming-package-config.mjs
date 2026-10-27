@@ -2,7 +2,7 @@
 // scripts/package-gaming-electron.mjs (which builds on import) so the packaging decisions
 // can be tested without running a package build.
 
-export const GAMING_LINUX_EXECUTABLE_NAME = 'yomu-gaming';
+const GAMING_LINUX_EXECUTABLE_NAME = 'yomu-gaming';
 const GAMING_ARTIFACT_NAME = 'yomu-gaming-${version}-${os}-${arch}.${ext}';
 
 /** The package.json the packaged app carries. */

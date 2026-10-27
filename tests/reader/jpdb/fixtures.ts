@@ -18,8 +18,8 @@ import { IMMERSION_KIT_SOURCE_ID, NEW_TAB_PAGE_URL, SETTINGS_CHANGE_EVENT, STUDY
 import { deinflectJapaneseTerm, termRulesMatch } from '../../../src/reader/lookup/deinflect';
 import { definitionSourceStateKey, renderJpdbDefinitionSource, renderLocalDefinitionSourcesSection } from '../../../src/reader/sources/definition-render';
 import { renderDefinitionSourcesStack } from '../../../src/reader/sources/definition-stack';
-import { DictionarySourceStateController } from '../../../src/reader/sources/state';
-import { NON_DESTRUCTIVE_SCAN_MIRROR_STALE_EVENT, applyTokensToScanTarget, applyTokensToTextNode, collectFragmentTextTargetsIn, collectTextTargetsIn, mutationLooksLikeReaderRenderRejection, nearestReadableSentenceForElement, readerRenderRejectionRescanDelay, readerWordAtPointInScope, readerWordSurfaceText, renderTokensToHtml, setInnerHtml, unwrapReaderWords, type ScanTextTarget } from '../../../src/reader/dom/index';
+
+import { applyTokensToScanTarget, applyTokensToTextNode, collectFragmentTextTargetsIn, collectTextTargetsIn, mutationLooksLikeReaderRenderRejection, nearestReadableSentenceForElement, readerRenderRejectionRescanDelay, readerWordAtPointInScope, readerWordSurfaceText, renderTokensToHtml, setInnerHtml, unwrapReaderWords } from '../../../src/reader/dom/index';
 import { FloatingButtonController, type FloatingButtonActions } from '../../../src/reader/ui/floating-button';
 import { ImmersionKitClient, type ImmersionKitExample } from '../../../src/reader/immersion/kit';
 import type { JitenApiClient, JitenKanjiInfo } from '../../../src/reader/dictionaries/jiten';
@@ -36,7 +36,7 @@ import { buildKanjiFacts, buildKanjiOriginGraph, parseKanjiMapInfo } from '../..
 import { parseKanjiVGSvg } from '../../../src/reader/kanji/vg';
 import { formatMetaFrequency, groupTermEntriesByHeadword, summarizeLearnerGlossary } from '../../../src/reader/dictionaries/groups';
 import { Logger } from '../../../src/reader/app/logger';
-import { AUTO_SCAN_OBSERVER_OPTIONS, mutationMayAffectJpdbPageEnhancements, mutationMayContainJapaneseText } from '../../../src/reader/app/mutation-scan';
+
 import { currentPageTermTarget, isCurrentKanjiSurface } from '../../../src/reader/app/page-enhancement-targets';
 import { buildNewTabPalette, isYomuNewTabUrl, resolveNewTabBrandAssets } from '../../../src/reader/newtab/index';
 import { ObjectUrlCache } from '../../../src/reader/core/object-url-cache';
@@ -50,18 +50,7 @@ import { fetchWithCorsFallbacks, proxyUrlCandidates } from '../../../src/reader/
 import { renderJpdbKanjiInfo, renderJpdbKanjiMiningControls, renderKanjiOrigins, renderKanjiPractice, renderPitch, renderRtkInfo, tokensOverlappingSelection } from '../../../src/reader/popup/render';
 import { RECOMMENDED_JAPANESE_DICTIONARIES, findRecommendedDictionary } from '../../../src/reader/dictionaries/recommended';
 import { ReaderApp } from '../../../src/reader/app/main';
-import {
-    BACKGROUND_PITCH_ENRICHMENT_CONCURRENCY,
-    PITCH_ENRICHMENT_LIMIT,
-    PUBLIC_FALLBACK_SPELLING_SEARCH_LIMIT,
-    YOUTUBE_PUBLIC_PITCH_ENRICHMENT_LIMIT,
-    YOUTUBE_PUBLIC_PITCH_ENRICHMENT_PAGE_BUDGET,
-    YOUTUBE_PUBLIC_PITCH_ENRICHMENT_TOTAL_LIMIT,
-    allowsFrequentVisibleAutoScan,
-    allowsGenericVisibleAutoScan,
-    visibleAutoScanInitialDelay,
-    visibleAutoScanMutationDelay,
-} from '../../../src/reader/app/main-helpers';
+import { BACKGROUND_PITCH_ENRICHMENT_CONCURRENCY, PITCH_ENRICHMENT_LIMIT, PUBLIC_FALLBACK_SPELLING_SEARCH_LIMIT, YOUTUBE_PUBLIC_PITCH_ENRICHMENT_LIMIT, YOUTUBE_PUBLIC_PITCH_ENRICHMENT_PAGE_BUDGET, YOUTUBE_PUBLIC_PITCH_ENRICHMENT_TOTAL_LIMIT } from '../../../src/reader/app/main-helpers';
 import { NewTabController } from '../../../src/reader/newtab/controller';
 import { searchWordDetailHtml, type NewTabSearchDetailViewContext } from '../../../src/reader/newtab/search-view';
 import { NewTabRuntime } from '../../../src/reader/newtab/runtime';
@@ -86,7 +75,7 @@ export function currentJapaneseLookupScopeMatcher() {
     });
 }
 import { installSourceRowDrag, localizeSettingsForm, readDictionaryLookupLinks, readFormSettings, renderAudioSourceEditor, renderDictionaryLookupLinkEditor, renderDictionarySourceRows, renderKanjiSourceRows, renderRecommendedDictionaries, renderSettingsForm, syncStickyBottomSheetAvailability, updateDictionaryLookupLinkEditor } from '../../../src/reader/settings/form';
-import { SITE_PARSER_PROFILES, collectScanTargets, collectSiteScanTargets, getMatchingSiteParsers } from '../../../src/reader/app/site-parsers';
+import { collectScanTargets, collectSiteScanTargets } from '../../../src/reader/app/site-parsers';
 import { KANJI_STROKE_SOURCE_ID, definitionSourceRows, kanjiSourceRows, orderedDefinitionSourceIds, orderedKanjiSourceIds } from '../../../src/reader/sources/sections';
 import { renderKanjiSourceMounts } from '../../../src/reader/runtime/kanji-source-mounts';
 import { StudySourceController } from '../../../src/reader/study/sources';
@@ -104,7 +93,7 @@ import { renderSubtitlePrimary } from '../../../src/reader/subtitles/subtitle-re
 import { renderControllerPrimarySubtitle } from '../../../src/reader/subtitles/subtitle-primary-render';
 import { planTranscriptHydrationIndexes } from '../../../src/reader/subtitles/subtitle-transcript-hydration';
 import { getUserscriptHttpRequest, installUserscriptHttpBridge, installUserscriptHttpBridgeWhenReady, uninstallUserscriptHttpBridge } from '../../../src/reader/userscript/index';
-import { renderCopyWordControl, renderWordPills } from '../../../src/reader/sources/word-pills';
+import { renderWordPills } from '../../../src/reader/sources/word-pills';
 import { YomitanDictionaryStore, glossaryToHtml, glossaryToText, renderDictionaryScopedStyles, type YomitanTermEntry } from '../../../src/reader/dictionaries/yomitan';
 import { glossaryValueToSearchText } from '../../../src/reader/dictionaries/yomitan/glossary-text';
 import type { AudioSourceSetting, JPDBCard, JPDBRawToken, JPDBToken, ReaderSettings } from '../../../src/reader/app/types';
@@ -113,10 +102,7 @@ import { mockElementBoundingClientRect, stubInstantIntersectionObserver, testDom
 import { stackedSettingsFixtureDom } from '../helpers/settings-fixture';
 import { expectSettingsDialogStillMounted, expectStackedLookupOverSettings } from '../helpers/stacked-lookup-assertions';
 import { waitForExpect } from '../test-utils';
-import {
-    readerTextMirrorForSource,
-    readerWordsForSource,
-} from '../helpers/text-mirror';
+
 import { yomitanZipBlob } from '../zip-fixture';
 import PublicProxyWorker, { isAllowedPublicProxyTarget } from '../../../workers/jpdb-public-proxy/src/index';
 import { registerYomuCompanion } from '../../../src/reader/companions/registry';
@@ -186,28 +172,6 @@ export function dispatchPenControlTap(target: HTMLElement, pointerId = 91): Poin
     return up;
 }
 
-export function hostedDocsCardToken(sentence: string, spelling: string, reading: string): JPDBToken {
-    const start = sentence.indexOf(spelling);
-    expect(start).toBeGreaterThanOrEqual(0);
-    const end = start + spelling.length;
-    return {
-        card: {
-            ...card,
-            spelling,
-            reading,
-            cardState: ['not-in-deck'],
-            pitchAccent: [],
-            source: 'fallback',
-        },
-        start,
-        end,
-        length: end - start,
-        rubies: [{ text: reading, start, end, length: end - start }],
-        pitchClass: '',
-        sentence,
-    };
-}
-
 export function jitenTestCard(overrides: Partial<JPDBCard> = {}): JPDBCard {
     return {
         ...card,
@@ -264,16 +228,6 @@ export function createJpdbParseFetchMock(
             }),
         };
     });
-}
-
-export function readingTestCard(overrides: Partial<JPDBCard> = {}): JPDBCard {
-    return {
-        ...card,
-        spelling: '読む',
-        reading: 'よむ',
-        meanings: [{ glosses: ['to read'], partOfSpeech: ['v5m'] }],
-        ...overrides,
-    };
 }
 
 export const READER_WORD_CSS = readerCssNeedsFallback(READER_CSS) ? readFileSync('src/reader/styles/reader-words-ocr.css', 'utf8') : READER_CSS;
@@ -563,22 +517,6 @@ export function testCardPopoverRenderer(settings: Partial<ReaderSettings> = {}, 
     });
 }
 
-export function testCardPopoverRendererWithWordPills(settings: ReaderSettings): CardPopoverRenderer {
-    return testCardPopoverRenderer(settings, {
-        renderWordPills: (lookupCard, jpdbUrl, metaEntries, overrideQuery, _trigger, ankiLookup, frequencyRanks) => renderWordPills({
-            card: lookupCard,
-            jpdbUrl,
-            metaEntries,
-            overrideQuery,
-            ankiLookup,
-            frequencyRanks,
-            settings,
-            isJpdbBackedCard: () => true,
-            dictionaryLabel: name => name,
-        }),
-    });
-}
-
 export function renderModalCard(
     renderer: CardPopoverRenderer,
     lookupCard: JPDBCard,
@@ -779,7 +717,7 @@ export function testJitenAudioActionController(options: {
     return { controller, playMediaUrl, playSentenceAudio };
 }
 
-export const TEST_JITEN_AUDIO_URLS = [
+const TEST_JITEN_AUDIO_URLS = [
     'https://audio.example.test/primary.mp3',
     'https://audio.example.test/backup.mp3',
 ] as const;
@@ -1338,8 +1276,6 @@ export function domRectList(rects: Array<{ left: number; top: number; width: num
     })) as DOMRect[];
     return Object.assign(items, { item: (index: number) => items[index] ?? null }) as unknown as DOMRectList;
 }
-
-export const YOUTUBE_WATCH_TEST_URL = 'https://www.youtube.com/watch?v=TAorfFcb8_g';
 export type TestYouTubeCaptionTrack = {
     baseUrl: string;
     languageCode: string;
@@ -1470,38 +1406,6 @@ export function expectActiveYouTubeNativeCaptionSuppression(options: {
             configurable: true,
             value: originalLocation,
         });
-    }
-}
-
-export function collectYouTubeTargets(html: string, url: string, limit: number | undefined) {
-    const rectSpy = mockElementBoundingClientRect({ width: 1000, height: 240 });
-    try {
-        document.body.innerHTML = html;
-        return collectScanTargets(limit, url);
-    } finally {
-        rectSpy.mockRestore();
-    }
-}
-
-export function collectYouTubeWatchTargets(html: string, limit = 10) {
-    return collectYouTubeTargets(html, YOUTUBE_WATCH_TEST_URL, limit);
-}
-
-export function expectBodyTextTargets(html: string, expected: string[]): void {
-    document.body.innerHTML = html;
-    expect(collectTextTargetsIn(document.body, 10, false).map(target => target.text)).toEqual(expected);
-}
-
-// Fragile UI text and short centered headings are collected on the PASSIVE
-// channel (lookupable, no ruby geometry) instead of being rejected outright.
-export function expectBodyPassiveTextTargets(html: string, expectedPassive: string[]): void {
-    document.body.innerHTML = html;
-    const targets = collectTextTargetsIn(document.body, 10, false);
-    for (const text of expectedPassive) {
-        const target = targets.find(candidate => candidate.text === text);
-        expect(target, text).toBeTruthy();
-        expect(target?.decoration, text).toBe('interactive-passive');
-        expect(target?.suppressRuby, text).toBe(true);
     }
 }
 
@@ -2618,25 +2522,6 @@ export function installVisualViewportFixture(init: { height: number; width: numb
     };
 }
 
-export function sourceSummaryClickFixture(detailsHtml: string, installCount = 1): {
-    click: MouseEvent;
-    controller: DictionarySourceStateController;
-    popover: HTMLElement;
-} {
-    const popover = document.createElement('div');
-    popover.innerHTML = detailsHtml;
-    const controller = new DictionarySourceStateController({
-        onStateChange: vi.fn(),
-    });
-    for (let index = 0; index < installCount; index += 1) {
-        controller.installTracking(popover);
-    }
-    const summary = popover.querySelector<HTMLElement>('summary')!;
-    const click = new MouseEvent('click', { bubbles: true, cancelable: true });
-    summary.dispatchEvent(click);
-    return { click, controller, popover };
-}
-
 export function withImmediateAnimationFrame<T>(callback: () => T): T {
     const spy = vi.spyOn(window, 'requestAnimationFrame').mockImplementation(frame => {
         frame(0);
@@ -3079,249 +2964,5 @@ export function stubSharedReaderSettings(overrides: Record<string, unknown>): vo
 }
 
 // Re-exported source symbols so topic files import everything from ./fixtures.
-export {
-    AUTO_SCAN_OBSERVER_OPTIONS,
-    AnkiConnectClient,
-    AnkiDuplicateNoteError,
-    AudioPlayer,
-    BACKGROUND_PITCH_ENRICHMENT_CONCURRENCY,
-    CardActionController,
-    CardPopoverRenderer,
-    CardRenderDataLoader,
-    DEFAULT_AUDIO_SOURCES,
-    DictionarySourceStateController,
-    FloatingButtonController,
-    IMMERSION_KIT_SOURCE_ID,
-    ImageOcrController,
-    ImmersionKitClient,
-    ImmersionPopoverController,
-    JITEN_BACKGROUND_DETAIL_TIMEOUT_MS,
-    JpdbClient,
-    JpdbKanjiClient,
-    JpdbPublicPitchClient,
-    JpdbVocabularyClient,
-    KANJI_STROKE_SOURCE_ID,
-    Logger,
-    NEW_TAB_PAGE_URL,
-    NON_DESTRUCTIVE_SCAN_MIRROR_STALE_EVENT,
-    NewTabController,
-    NewTabRuntime,
-    ObjectUrlCache,
-    PITCH_ENRICHMENT_LIMIT,
-    PUBLIC_FALLBACK_SPELLING_SEARCH_LIMIT,
-    PublicProxyWorker,
-    RECOMMENDED_JAPANESE_DICTIONARIES,
-    ReaderApp,
-    ReaderAudioActions,
-    ReaderParser,
-    SETTINGS_CHANGE_EVENT,
-    SETTINGS_STORAGE_KEY,
-    SITE_PARSER_PROFILES,
-    STUDY_GRAMMAR_SOURCE_ID,
-    STUDY_TRANSLATION_SOURCE_ID,
-    ShuffledAudioDeck,
-    StudySourceController,
-    USERSCRIPT_HTTP_BRIDGE_READY_EVENT,
-    YOMU_MODEL_FIELDS,
-    YOUTUBE_PUBLIC_PITCH_ENRICHMENT_LIMIT,
-    YOUTUBE_PUBLIC_PITCH_ENRICHMENT_PAGE_BUDGET,
-    YOUTUBE_PUBLIC_PITCH_ENRICHMENT_TOTAL_LIMIT,
-    YomitanDictionaryStore,
-    allowsFrequentVisibleAutoScan,
-    allowsGenericVisibleAutoScan,
-    applySubtitleNativeTrackModes,
-    applyTokensToScanTarget,
-    applyTokensToTextNode,
-    applyUrlBootstrapSettings,
-    buildKanjiFacts,
-    buildKanjiOriginGraph,
-    buildNewTabPalette,
-    buildYomuAnkiFields,
-    bindPrivateCommandCapability,
-    collectFragmentTextTargetsIn,
-    collectPageSubtitleSources,
-    collectScanTargets,
-    collectSiteScanTargets,
-    collectTextTargetsIn,
-    compareSubtitleTrackOptions,
-    computeSubtitleDrawerLayout,
-    createAudioPreviewCard,
-    createPageMediaUrl,
-    createPointerEvent,
-    createReaderBackdrop,
-    createReaderPopover,
-    createSubtitleVideoInsetAdapter,
-    currentLocalDictionaryTargets,
-    currentPageTermTarget,
-    decodeJpdbAudioBlob,
-    defaultDictionaryLookupLinks,
-    definitionSourceRows,
-    definitionSourceStateKey,
-    deinflectJapaneseTerm,
-    detectGrammarHints,
-    discoverYouTubeCaptionTracks,
-    effectiveFuriganaMode,
-    effectiveReaderColorSource,
-    effectiveSubtitleColorSource,
-    expectSettingsDialogStillMounted,
-    expectStackedLookupOverSettings,
-    fallbackDictionaryLookupTermsForText,
-    fallbackLookupTermAtOffset,
-    fetchWithCorsFallbacks,
-    findActiveSubtitleCue,
-    findAudioUrl,
-    findAudioUrls,
-    findRecommendedDictionary,
-    formatAudioUrl,
-    formatMetaFrequency,
-    formatPartOfSpeech,
-    getAudioCandidates,
-    getMatchingSiteParsers,
-    getUserscriptHttpRequest,
-    getYouTubeCaptionTracks,
-    getYouTubeVideoId,
-    glossaryToHtml,
-    glossaryToText,
-    glossaryValueToSearchText,
-    groupTermEntriesByHeadword,
-    installMiningDrawerHandle,
-    installSettingsDrawerHandle,
-    installSheetCloseButton,
-    installSheetHandle,
-    installUserscriptHttpBridge,
-    installUserscriptHttpBridgeWhenReady,
-    isAllowedPublicProxyTarget,
-    isCurrentKanjiSurface,
-    isEnglishSubtitleTrack,
-    isTargetLanguageSubtitleTrack,
-    isKanjiReviewBack,
-    isKanjiReviewFront,
-    isUnavailableJapanesePod101Audio,
-    isYomuHostedAppUrl,
-    isYomuHostedPassivePage,
-    isYomuNewTabUrl,
-    jpdbAudioRequest,
-    jpdbFirstParseOptions,
-    jpdbParseResultToTokens,
-    jpdbVocabularyToCards,
-    kanjiSourceRows,
-    loadSettings,
-    loadSubtitleTrackCues,
-    loadYouTubeTrackCues,
-    localDictionaryLookupVariants,
-    localizeSettingsForm,
-    matchesShortcut,
-    mockElementBoundingClientRect,
-    mutationLooksLikeReaderRenderRejection,
-    mutationMayAffectJpdbPageEnhancements,
-    mutationMayContainJapaneseText,
-    nearestReadableSentenceForElement,
-    normalizeAudioSources,
-    normalizeDictionaryLookupLinks,
-    normalizeJpdbAudioIds,
-    normalizeOcrProvider,
-    normalizeOcrResult,
-    normalizeReaderSettings,
-    normalizeSubtitleCues,
-    orderedDefinitionSourceIds,
-    orderedKanjiSourceIds,
-    parseJpdbAudioData,
-    parseJpdbKanjiHtml,
-    parseJpdbPublicPitchHtml,
-    parseJpdbReviewCardValue,
-    parseJpdbSearchHtml,
-    parseJpdbVocabularyHtml,
-    parseKanjiMapInfo,
-    parseKanjiVGSvg,
-    parseRtkSearchIndex,
-    parseSubtitleText,
-    planTranscriptHydrationIndexes,
-    pointerTextLookupFromTextNode,
-    positionPopover,
-    proxyUrlCandidates,
-    readDictionaryLookupLinks,
-    readFallbackOcrResult,
-    readCardCommandCapability,
-    readFileSync,
-    readFormSettings,
-    registerRenderedWordPrivateState,
-    readerRenderRejectionRescanDelay,
-    readerTextMirrorForSource,
-    readerWordAtPointInScope,
-    readerWordsForSource,
-    readerWordSurfaceText,
-    readTokenChoiceCommandCapability,
-    renderAudioSourceEditor,
-    renderDefinitionSourcesStack,
-    renderDictionaryLookupLinkEditor,
-    renderDictionaryScopedStyles,
-    renderDictionarySourceRows,
-    renderGrammarHints,
-    renderJpdbDefinitionSource,
-    renderJpdbKanjiInfo,
-    renderJpdbKanjiMiningControls,
-    renderKanjiOrigins,
-    renderKanjiPractice,
-    renderKanjiSourceMounts,
-    renderKanjiSourceRows,
-    renderLocalDefinitionSourcesSection,
-    renderPitch,
-    renderRecommendedDictionaries,
-    renderRtkInfo,
-    renderSettingsForm,
-    renderControllerPrimarySubtitle,
-    renderSubtitlePrimary,
-    renderTokensToHtml,
-    renderedWordPrivateStateForCard,
-    renderedWordPrivateValue,
-    renderWordPills,
-    renderCopyWordControl,
-    resolveAnkiWordAudio,
-    resolveNewTabBrandAssets,
-    restoreWindowDescriptor,
-    sanitizeAccentColor,
-    NO_EXPLICIT_USER_CHOICE,
-    saveSettings,
-    searchWordDetailHtml,
-    shouldReplaceWaitingNativeTrack,
-    shouldUseSheet,
-    setInnerHtml,
-    splitJapaneseSentences,
-    stubInstantIntersectionObserver,
-    summarizeLearnerGlossary,
-    syncStickyBottomSheetAvailability,
-    termRulesMatch,
-    testDomRect,
-    tokensOverlappingSelection,
-    translateJapaneseSentence,
-    unwrapReaderWords,
-    updateDictionaryLookupLinkEditor,
-    updatePopoverReviewTargetSelection,
-    visibleAutoScanInitialDelay,
-    visibleAutoScanMutationDelay,
-    visibleJpdbKanjiActions,
-    waitForExpect,
-    withBrowserViewport,
-    yomitanZipBlob,
-};
-export type {
-    AnkiExistingNote,
-    AnkiLookupResult,
-    AudioSourceSetting,
-    CardPopoverRendererDependencies,
-    CardRenderData,
-    FloatingButtonActions,
-    ImmersionKitExample,
-    JPDBCard,
-    JPDBRawToken,
-    JPDBToken,
-    JitenApiClient,
-    JitenKanjiInfo,
-    LocalDictionaryTarget,
-    MiningContext,
-    NewTabSearchDetailViewContext,
-    ReaderSettings,
-    ScanTextTarget,
-    SubtitleTrackLoadable,
-    YomitanTermEntry,
-};
+export { AnkiConnectClient, AnkiDuplicateNoteError, AudioPlayer, BACKGROUND_PITCH_ENRICHMENT_CONCURRENCY, CardActionController, CardPopoverRenderer, CardRenderDataLoader, DEFAULT_AUDIO_SOURCES, FloatingButtonController, IMMERSION_KIT_SOURCE_ID, ImageOcrController, ImmersionKitClient, ImmersionPopoverController, JITEN_BACKGROUND_DETAIL_TIMEOUT_MS, JpdbClient, JpdbKanjiClient, JpdbPublicPitchClient, JpdbVocabularyClient, KANJI_STROKE_SOURCE_ID, Logger, NEW_TAB_PAGE_URL, NewTabController, NewTabRuntime, ObjectUrlCache, PITCH_ENRICHMENT_LIMIT, PUBLIC_FALLBACK_SPELLING_SEARCH_LIMIT, PublicProxyWorker, RECOMMENDED_JAPANESE_DICTIONARIES, ReaderApp, ReaderAudioActions, ReaderParser, SETTINGS_CHANGE_EVENT, SETTINGS_STORAGE_KEY, STUDY_GRAMMAR_SOURCE_ID, STUDY_TRANSLATION_SOURCE_ID, ShuffledAudioDeck, StudySourceController, USERSCRIPT_HTTP_BRIDGE_READY_EVENT, YOMU_MODEL_FIELDS, YOUTUBE_PUBLIC_PITCH_ENRICHMENT_LIMIT, YOUTUBE_PUBLIC_PITCH_ENRICHMENT_PAGE_BUDGET, YOUTUBE_PUBLIC_PITCH_ENRICHMENT_TOTAL_LIMIT, YomitanDictionaryStore, applySubtitleNativeTrackModes, applyTokensToScanTarget, applyTokensToTextNode, applyUrlBootstrapSettings, buildKanjiFacts, buildKanjiOriginGraph, buildNewTabPalette, buildYomuAnkiFields, bindPrivateCommandCapability, collectFragmentTextTargetsIn, collectPageSubtitleSources, collectScanTargets, collectSiteScanTargets, collectTextTargetsIn, compareSubtitleTrackOptions, computeSubtitleDrawerLayout, createAudioPreviewCard, createPageMediaUrl, createPointerEvent, createReaderBackdrop, createReaderPopover, createSubtitleVideoInsetAdapter, currentLocalDictionaryTargets, currentPageTermTarget, decodeJpdbAudioBlob, defaultDictionaryLookupLinks, definitionSourceRows, definitionSourceStateKey, deinflectJapaneseTerm, detectGrammarHints, discoverYouTubeCaptionTracks, effectiveFuriganaMode, effectiveReaderColorSource, effectiveSubtitleColorSource, expectSettingsDialogStillMounted, expectStackedLookupOverSettings, fallbackDictionaryLookupTermsForText, fallbackLookupTermAtOffset, fetchWithCorsFallbacks, findActiveSubtitleCue, findAudioUrl, findAudioUrls, findRecommendedDictionary, formatAudioUrl, formatMetaFrequency, formatPartOfSpeech, getAudioCandidates, getUserscriptHttpRequest, getYouTubeCaptionTracks, getYouTubeVideoId, glossaryToHtml, glossaryToText, glossaryValueToSearchText, groupTermEntriesByHeadword, installMiningDrawerHandle, installSettingsDrawerHandle, installSheetCloseButton, installSheetHandle, installUserscriptHttpBridge, installUserscriptHttpBridgeWhenReady, isAllowedPublicProxyTarget, isCurrentKanjiSurface, isEnglishSubtitleTrack, isTargetLanguageSubtitleTrack, isKanjiReviewBack, isKanjiReviewFront, isUnavailableJapanesePod101Audio, isYomuHostedAppUrl, isYomuHostedPassivePage, isYomuNewTabUrl, jpdbAudioRequest, jpdbFirstParseOptions, jpdbParseResultToTokens, jpdbVocabularyToCards, kanjiSourceRows, loadSettings, loadSubtitleTrackCues, loadYouTubeTrackCues, localDictionaryLookupVariants, localizeSettingsForm, matchesShortcut, mockElementBoundingClientRect, mutationLooksLikeReaderRenderRejection, nearestReadableSentenceForElement, normalizeAudioSources, normalizeDictionaryLookupLinks, normalizeJpdbAudioIds, normalizeOcrProvider, normalizeOcrResult, normalizeReaderSettings, normalizeSubtitleCues, orderedDefinitionSourceIds, orderedKanjiSourceIds, parseJpdbAudioData, parseJpdbKanjiHtml, parseJpdbPublicPitchHtml, parseJpdbReviewCardValue, parseJpdbSearchHtml, parseJpdbVocabularyHtml, parseKanjiMapInfo, parseKanjiVGSvg, parseRtkSearchIndex, parseSubtitleText, planTranscriptHydrationIndexes, pointerTextLookupFromTextNode, positionPopover, proxyUrlCandidates, readDictionaryLookupLinks, readFallbackOcrResult, readCardCommandCapability, readFormSettings, registerRenderedWordPrivateState, readerRenderRejectionRescanDelay, readerWordAtPointInScope, readerWordSurfaceText, readTokenChoiceCommandCapability, renderAudioSourceEditor, renderDefinitionSourcesStack, renderDictionaryLookupLinkEditor, renderDictionaryScopedStyles, renderDictionarySourceRows, renderGrammarHints, renderJpdbDefinitionSource, renderJpdbKanjiInfo, renderJpdbKanjiMiningControls, renderKanjiOrigins, renderKanjiPractice, renderKanjiSourceMounts, renderKanjiSourceRows, renderLocalDefinitionSourcesSection, renderPitch, renderRecommendedDictionaries, renderRtkInfo, renderSettingsForm, renderControllerPrimarySubtitle, renderSubtitlePrimary, renderTokensToHtml, renderedWordPrivateStateForCard, renderedWordPrivateValue, renderWordPills, resolveAnkiWordAudio, resolveNewTabBrandAssets, restoreWindowDescriptor, sanitizeAccentColor, NO_EXPLICIT_USER_CHOICE, saveSettings, searchWordDetailHtml, shouldReplaceWaitingNativeTrack, shouldUseSheet, setInnerHtml, splitJapaneseSentences, stubInstantIntersectionObserver, summarizeLearnerGlossary, syncStickyBottomSheetAvailability, termRulesMatch, testDomRect, tokensOverlappingSelection, translateJapaneseSentence, unwrapReaderWords, updateDictionaryLookupLinkEditor, updatePopoverReviewTargetSelection, visibleJpdbKanjiActions, waitForExpect, withBrowserViewport, yomitanZipBlob };
+export type { AnkiExistingNote, AnkiLookupResult, AudioSourceSetting, CardPopoverRendererDependencies, CardRenderData, FloatingButtonActions, ImmersionKitExample, JPDBCard, JPDBRawToken, JPDBToken, JitenApiClient, JitenKanjiInfo, LocalDictionaryTarget, MiningContext, NewTabSearchDetailViewContext, ReaderSettings, SubtitleTrackLoadable, YomitanTermEntry };

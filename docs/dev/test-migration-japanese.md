@@ -10,7 +10,8 @@ This change follows the 19 observations in the first-hour 2.0.12 QA report.
   archive filter, source-hash contract and ratchet. Those depended on the removed
   target registry and language switches. Their historical corpus and archive
   metadata remain in `config/quality/` for provenance.
-- Preserve the Japanese slice as `japanese-lookup-evidence.test.ts`: the original
+- Preserve the Japanese slice in the `Japanese published-dictionary lookup evidence`
+  describe of `yomitan-exact-candidate-lookup.test.ts`: the original
   ten sentences, 54 gold occurrences, 52 matches and two exact misses, with the
   original archive-derived terms, hash, licence and date. It drives the production
   importer and inline matcher. This retains compact replay; it does not claim a
@@ -46,3 +47,8 @@ No broad runtime-saving claim is made: the former full-suite process was already
 running on this shared Mac, and a new full suite would duplicate it. Focused test
 results and compiler output accompany the integration handoff. A recorded-page
 inspection tool and real installed-channel/device acceptance remain separate work.
+
+G-02a (27 October 2026) folded this replay into the exact-candidate host. The
+original JSON and NOTICE remain because the span/provenance checks still use
+them. Other language-roster and copy snapshots were retired; the data-integrity
+and reading cases remain. See [the gate performance report](check-performance.md).

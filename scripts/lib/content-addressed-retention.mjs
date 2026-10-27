@@ -17,7 +17,7 @@ const HASHED_READER_CSS = /^yomu\.[0-9a-f]{12}\.css$/;
 const COMPANION_URL = /^https:\/\/yomureader\.com\/greasyfork\/(yomu-[a-z0-9-]+\.[0-9a-f]{12}\.user\.js)(?:#|$)/;
 const CSS_URL = /^https:\/\/yomureader\.com\/(yomu\.[0-9a-f]{12}\.css)(?:#|$)/;
 
-export function pinnedArtifactPaths(header) {
+function pinnedArtifactPaths(header) {
     const pinned = new Set();
     for (const line of header.split(/\r?\n/)) {
         const requireValue = line.match(/^\/\/ @require\s+(\S+)/)?.[1];
@@ -108,10 +108,6 @@ export function retentionManifestShortfall(root, inputs = captureRetentionInputs
     const missingFromManifest = expected.retainedPaths.filter(path => !listed.has(path));
     const extraInManifest = actual.retainedPaths.filter(path => !required.has(path));
     return { ok: missingFromManifest.length === 0, missingFromManifest, extraInManifest };
-}
-
-export function retentionManifestIsCurrent(root) {
-    return retentionManifestShortfall(root).ok;
 }
 
 export function isShallowRepository(root) {

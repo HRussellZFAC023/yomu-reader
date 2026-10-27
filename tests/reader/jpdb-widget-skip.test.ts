@@ -1,3 +1,4 @@
+import '../../src/reader/companions/register-build-companions';
 import { describe, expect, it, vi } from 'vitest';
 
 import { applyTokensToScanTarget, collectTextTargetsIn, readerWordSurfaceText } from '../../src/reader/dom';

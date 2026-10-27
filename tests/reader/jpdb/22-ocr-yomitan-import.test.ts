@@ -8,6 +8,11 @@ import {
     readFallbackOcrResult,
     yomitanZipBlob,
 } from './fixtures';
+import "../../../src/reader/companions/register-build-companions";
+import { afterEach } from "vitest";
+import { DEFAULT_SETTINGS, applyTokensToScanTarget, card, collectFragmentTextTargetsIn, mutationLooksLikeReaderRenderRejection, readerRenderRejectionRescanDelay } from "./fixtures";
+
+import { collectScanTargets, mockElementBoundingClientRect, readerWordSurfaceText } from "./fixtures";
 
 registerReaderHelpersCleanup();
 
@@ -586,5 +591,225 @@ describe('reader helpers', () => {
             await store.deleteDatabase();
             vi.unstubAllGlobals();
         }
+    });
+});
+
+describe('reader helpers', () => {
+    registerReaderHelpersCleanup();
+    afterEach(() => document.documentElement.removeAttribute('data-yomu-annotation-scope'));
+
+
+
+    it('repairs damaged reader ruby when the host leaves only furigana behind', () => {
+        document.body.innerHTML = '<yt-attributed-string id="content-text">質や正確性にはばらつきがあります。</yt-attributed-string>';
+        const [target] = collectFragmentTextTargetsIn(document.body, 10, false, '', { allowUiText: true });
+        applyTokensToScanTarget(target, [{
+            card: { ...card, cardState: ['known'], spelling: '質', reading: 'しつ' },
+            start: 0,
+            end: 1,
+            length: 1,
+            rubies: [{ text: 'しつ', start: 0, end: 1, length: 1 }],
+            pitchClass: '',
+            sentence: '質や正確性にはばらつきがあります。',
+        }], { ...DEFAULT_SETTINGS, furiganaMode: 'all' });
+
+        const host = document.querySelector<HTMLElement>('#content-text')!;
+        const word = host.querySelector<HTMLElement>('.jpdb-reader-word')!;
+        const rubyBase = word.querySelector<HTMLElement>('.jpdb-reader-ruby-base')!;
+        const removedNodes = [rubyBase.firstChild!];
+        rubyBase.textContent = '';
+        const mutation = {
+            type: 'childList',
+            target: rubyBase,
+            addedNodes: [],
+            removedNodes,
+        } as unknown as MutationRecord;
+
+        expect(mutationLooksLikeReaderRenderRejection(mutation)).toBe(true);
+        expect(readerRenderRejectionRescanDelay(mutation)).toBeGreaterThan(0);
+        expect(host.textContent).toBe('質や正確性にはばらつきがあります。');
+    });
+});
+
+describe('reader helpers', () => {
+    registerReaderHelpersCleanup();
+
+
+
+    it('uses Jisho-specific fragment parsing for result text split across furigana spans', () => {
+        const rectSpy = vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue({
+            left: 0,
+            right: 900,
+            top: 0,
+            bottom: 220,
+            width: 900,
+            height: 220,
+            x: 0,
+            y: 0,
+            toJSON: () => ({}),
+        } as DOMRect);
+        document.body.innerHTML = `
+            <div id="main_results">
+                <div class="concept_light clearfix">
+                    <div class="concept_light-readings japanese japanese_gothic" lang="ja">
+                        <div class="concept_light-representation">
+                            <span class="furigana"><span>きのう</span></span>
+                            <span class="text">昨日</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="sentence_content">
+                    <ul class="japanese_sentence japanese japanese_gothic" lang="ja">
+                        <li style="display:inline"><span class="furigana">きのう</span><span class="unlinked">昨日</span></li>すき焼きを食べました。
+                    </ul>
+                    <div class="english">I ate sukiyaki yesterday.</div>
+                </div>
+            </div>
+        `;
+
+        const targets = collectScanTargets(10, 'https://jisho.org/search/%E6%98%A8%E6%97%A5');
+        rectSpy.mockRestore();
+
+        const normalizedTargets = targets.map(target => target.text.replace(/\s+/g, ''));
+        expect(normalizedTargets).toContain('昨日');
+        expect(normalizedTargets).toContain('昨日すき焼きを食べました。');
+        expect(normalizedTargets.some(text => text.includes('きのう昨日'))).toBe(false);
+    });
+
+    it('renders Jiten highlighted sentence words even when a token crosses inline spans', () => {
+        const rectSpy = mockElementBoundingClientRect({ width: 900, height: 260 });
+        document.body.innerHTML = `
+            <main id="app">
+                <blockquote>
+                    <div lang="ja" class="md:text-lg text-sm transition-filter duration-200 flex-1">
+                        <span class="text-primary-500 font-bold">席</span>へと<span class="text-primary-500 font-bold">受け</span>取る。
+                    </div>
+                </blockquote>
+            </main>
+        `;
+
+        const targets = collectScanTargets(10, 'https://jiten.moe/parse?text=%E5%B8%AD');
+        rectSpy.mockRestore();
+        expect(targets.map(target => target.text)).toContain('席へと受け取る。');
+
+        const target = targets.find(item => item.text === '席へと受け取る。')!;
+        applyTokensToScanTarget(target, [
+            {
+                card: { ...card, cardState: ['known'], spelling: '席', reading: 'せき' },
+                start: 0,
+                end: 1,
+                length: 1,
+                rubies: [{ text: 'せき', start: 0, end: 1, length: 1 }],
+                pitchClass: '',
+                sentence: target.text,
+            },
+            {
+                card: { ...card, cardState: ['known'], spelling: '受け取る', reading: 'うけとる' },
+                start: 3,
+                end: 7,
+                length: 4,
+                rubies: [
+                    { text: 'う', start: 3, end: 4, length: 1 },
+                    { text: 'と', start: 5, end: 6, length: 1 },
+                ],
+                pitchClass: '',
+                sentence: target.text,
+            },
+        ], { ...DEFAULT_SETTINGS, furiganaMode: 'all' });
+
+        const words = Array.from(document.querySelectorAll<HTMLElement>('.jpdb-reader-word'));
+        expect(words.map(word => readerWordSurfaceText(word))).toEqual(['席', '受け取る']);
+        expect(Array.from(document.querySelectorAll('rt.jpdb-reader-furi')).map(rt => rt.textContent)).toEqual(['せき', 'う', 'と']);
+    });
+
+    it('scans JPDB native-ruby primary spellings as one word and skips alternate spellings', () => {
+        const rectSpy = mockElementBoundingClientRect({ width: 900, height: 260 });
+        document.body.innerHTML = `
+            <div class="result vocabulary">
+                <div class="subsection-spelling with-furigana">
+                    <div class="primary-spelling"><ruby class="v">母<rt>はは</rt></ruby></div>
+                    <div>ハハ</div>
+                </div>
+                <div class="subsection-meanings">
+                    <h6 class="subsection-label">Meanings</h6>
+                    <div class="description">かか was used by children</div>
+                </div>
+            </div>
+        `;
+
+        const targets = collectScanTargets(10, 'https://jpdb.io/search?q=HAHA&lang=english#a');
+        rectSpy.mockRestore();
+
+        const texts = targets.map(target => target.text);
+        expect(texts).toContain('かか was used by children');
+        expect(texts).toContain('母');
+        expect(texts).not.toContain('ハハ');
+    });
+
+    it('normalizes structured OCR responses for image overlays', () => {
+        const result = normalizeOcrResult({
+            context_resolution: { width: 800, height: 1200 },
+            results: [{
+                text_lines: [{ content: '学校へ行く' }],
+                is_vertical: true,
+                box: {
+                    top_left: { x: 650, y: 120 },
+                    top_right: { x: 720, y: 120 },
+                    bottom_right: { x: 720, y: 760 },
+                    bottom_left: { x: 650, y: 760 },
+                },
+            }],
+        });
+
+        expect(result?.lines[0]).toMatchObject({
+            text: '学校へ行く',
+            vertical: true,
+            box: { left: 650, top: 120, width: 70, height: 640 },
+        });
+    });
+
+    it('drops separate OCR furigana rows when a larger kanji title row is present', () => {
+        const result = normalizeOcrResult({
+            width: 1000,
+            height: 1200,
+            lines: [
+                { text: 'かがみ', box: { left: 180, top: 110, width: 150, height: 34 } },
+                { text: 'むら', box: { left: 670, top: 104, width: 120, height: 34 } },
+                { text: '鏡のない村', box: { left: 170, top: 145, width: 620, height: 120 } },
+            ],
+        }, 1000, 1200);
+
+        expect(result?.lines.map(line => line.text)).toEqual(['鏡のない村']);
+    });
+
+    it('drops vertical OCR furigana columns next to larger kanji title columns', () => {
+        const result = normalizeOcrResult({
+            width: 1000,
+            height: 1200,
+            lines: [
+                { text: 'かがみ', vertical: true, box: { left: 300, top: 120, width: 28, height: 150 } },
+                { text: '鏡のない村', vertical: true, box: { left: 335, top: 110, width: 90, height: 520 } },
+            ],
+        }, 1000, 1200);
+
+        expect(result?.lines.map(line => line.text)).toEqual(['鏡のない村']);
+    });
+
+    it('keeps a short full-size kana column beside a kanji column (not furigana)', () => {
+        // Reported manga panel: それにしても is a real dialogue column, just shorter
+        // (fewer glyphs) than its neighbour. It must survive — the old height/glyph
+        // -count clause wrongly deleted it as a furigana strip for こんなに若くて可愛い.
+        // Both columns share the same glyph width (~70px), so neither is a thin
+        // half-size reading strip.
+        const result = normalizeOcrResult({
+            width: 1000,
+            height: 1200,
+            lines: [
+                { text: 'それにしても', vertical: true, box: { left: 720, top: 120, width: 70, height: 360 } },
+                { text: 'こんなに若くて可愛い', vertical: true, box: { left: 640, top: 110, width: 70, height: 600 } },
+            ],
+        }, 1000, 1200);
+
+        expect(result?.lines.map(line => line.text)).toEqual(['それにしても', 'こんなに若くて可愛い']);
     });
 });

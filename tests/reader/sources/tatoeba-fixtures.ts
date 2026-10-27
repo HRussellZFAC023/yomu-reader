@@ -106,21 +106,3 @@ export const TATOEBA_THAI_PAYLOAD = {
     ],
     paging: { total: 1, has_next: false },
 };
-
-export const TATOEBA_EMPTY_PAYLOAD = { data: [], paging: { total: 0, has_next: false } };
-
-/** Serbo-Croatian: one row per code, so provenance has to survive the merge. */
-export const TATOEBA_SERBO_CROATIAN_PAYLOADS: Readonly<Record<string, unknown>> = {
-    srp: {
-        data: [{ id: 1, text: 'Voda je dobra.', lang: 'srp', script: null, license: 'CC BY 2.0 FR', owner: 'a', is_unapproved: false, audios: [], translations: [] }],
-        paging: { total: 1, has_next: false },
-    },
-    hrv: {
-        data: [{ id: 2, text: 'Voda je hladna.', lang: 'hrv', script: null, license: 'CC BY 2.0 FR', owner: 'b', is_unapproved: false, audios: [], translations: [] }],
-        paging: { total: 1, has_next: false },
-    },
-    bos: {
-        data: [{ id: 3, text: 'Voda je bistra.', lang: 'bos', script: null, license: 'CC BY 2.0 FR', owner: 'c', is_unapproved: false, audios: [], translations: [] }],
-        paging: { total: 1, has_next: false },
-    },
-};

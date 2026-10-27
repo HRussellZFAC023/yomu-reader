@@ -4457,9 +4457,6 @@
     return english;
   })();
   Object.freeze(
-    INTERFACE_LOCALES.filter((locale) => locale.direction === "rtl")
-  );
-  Object.freeze(
     interfaceLocaleLedger.rtlGate.items.map(
       (item) => Object.freeze({ ...item })
     )
@@ -12791,9 +12788,6 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       studyTargetReadiness: READING_ONLY_STUDY_TARGET_IDS.includes(language2.id) ? "reading-only" : "planned"
     }))
   ]);
-  Object.freeze(
-    LEARNER_LANGUAGES.map((language2) => canonicalLanguageTag(language2.runtimeLocale) ?? language2.runtimeLocale)
-  );
   function learningTargetRosterIdForTag(value) {
     const canonical = canonicalLanguageTag(value);
     if (languageSubtag(canonical) === SLICE1_TARGET_LANGUAGE) return SLICE1_TARGET_LANGUAGE;
@@ -14577,6 +14571,17 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   function setInnerHtml(element, html) {
     if (!replaceWithHtmlFragment(element, html)) {
       element.textContent = html;
+    }
+  }
+  function setStaticTemplateHtml(element, html) {
+    try {
+      const parsed = new DOMParser().parseFromString(trustedHtml(html), "text/html");
+      const fragment2 = element.ownerDocument.createDocumentFragment();
+      fragment2.append(...Array.from(parsed.body.childNodes));
+      hydratePrivateElementState(fragment2);
+      htmlReplacementTarget(element).replaceChildren(fragment2);
+    } catch {
+      setInnerHtml(element, html);
     }
   }
   function parseHtmlDocument(html) {
@@ -89556,55 +89561,6 @@ ${reading}`);
   });
   const MESSAGE_NAMESPACES = ["chrome", "setup", "errors", "a11y", "docs"];
   new Set(MESSAGE_NAMESPACES);
-  function matchAvailable(tag) {
-    const locale = interfaceLocaleByTag(tag);
-    if (locale?.available) return locale;
-    const base = tag.split("-")[0].toLowerCase();
-    const byBase = interfaceLocaleByTag(base);
-    if (byBase?.available) return byBase;
-    return INTERFACE_LOCALES.find(
-      (candidate) => candidate.available && candidate.fallbacks.includes(base)
-    );
-  }
-  function resolveInterfaceLocale(requested, options = {}) {
-    const raw = (requested ?? "auto").trim();
-    if (!raw || raw === "auto") {
-      for (const preference of options.browserLocales ?? []) {
-        const match = typeof preference === "string" ? matchAvailable(preference) : void 0;
-        if (match) {
-          return { locale: match, requested: "auto", substituted: false, blockers: [] };
-        }
-      }
-      return {
-        locale: ENGLISH_INTERFACE_LOCALE,
-        requested: "auto",
-        substituted: false,
-        blockers: []
-      };
-    }
-    const exact = interfaceLocaleByTag(raw);
-    if (exact?.available) {
-      return { locale: exact, requested: raw, substituted: false, blockers: [] };
-    }
-    if (exact) {
-      return {
-        locale: matchAvailable(raw) ?? ENGLISH_INTERFACE_LOCALE,
-        requested: raw,
-        substituted: true,
-        blockers: exact.blockers
-      };
-    }
-    const byFallback = matchAvailable(raw);
-    if (byFallback) {
-      return { locale: byFallback, requested: raw, substituted: false, blockers: [] };
-    }
-    return {
-      locale: ENGLISH_INTERFACE_LOCALE,
-      requested: raw,
-      substituted: true,
-      blockers: []
-    };
-  }
   const CATALOG_ENTRY_BY_ID = new Map(
     FROZEN_DICTIONARY_CATALOG.entries.map((entry) => [entry.id, entry])
   );
@@ -92796,7 +92752,7 @@ ${reading}`);
   }
   function indexNamedControls(form) {
     const byName = /* @__PURE__ */ new Map();
-    form.querySelectorAll("input, select, textarea").forEach((control) => {
+    form.querySelectorAll("input[name], select[name], textarea[name]").forEach((control) => {
       const existing = byName.get(control.name);
       if (existing) existing.push(control);
       else byName.set(control.name, [control]);
@@ -92808,6 +92764,11 @@ ${reading}`);
     return Array.from(form.querySelectorAll("input, select, textarea")).filter((control) => control.name === name);
   }
   function getNamedControl(form, name) {
+    if (activeNamedControls?.form === form) {
+      const named = activeNamedControls.byName.get(name) ?? [];
+      const item2 = named.length === 1 ? named[0] : named.find((control) => control instanceof HTMLInputElement);
+      return item2 ?? null;
+    }
     const item = form.elements.namedItem(name);
     if (item instanceof HTMLInputElement || item instanceof HTMLSelectElement || item instanceof HTMLTextAreaElement) {
       return item;
@@ -95851,12 +95812,11 @@ ${reading}`);
       this.previewBaseline.adoptLive(settings2);
     }
     runPostCommitSettingsEffect(label, effect) {
+      const report = (error) => log$a.warn(`Post-persistence ${label} failed`, { error });
       try {
-        void Promise.resolve(effect()).catch((error) => {
-          log$a.warn(`Post-persistence ${label} failed`, { error });
-        });
+        void Promise.resolve(effect()).catch(report);
       } catch (error) {
-        log$a.warn(`Post-persistence ${label} failed`, { error });
+        report(error);
       }
     }
     createSettingsForm(panel) {
@@ -95867,7 +95827,7 @@ ${reading}`);
       form.setAttribute("aria-modal", "true");
       form.setAttribute("aria-label", SETTINGS_TITLE);
       form.tabIndex = -1;
-      setInnerHtml(form, renderSettingsForm(this.settings, JPDB_SETTINGS_URL, JITEN_SETTINGS_URL, COLLAPSED_CATALOG_BROWSE_RENDER));
+      setStaticTemplateHtml(form, renderSettingsForm(this.settings, JPDB_SETTINGS_URL, JITEN_SETTINGS_URL, COLLAPSED_CATALOG_BROWSE_RENDER));
       localizeSettingsForm(form, this.settings.interfaceLanguage);
       if (panel) activateSettingsPanel(form, panel);
       return form;
@@ -111577,6 +111537,8 @@ ${newTabCardReading(card)}`;
       if (location2?.sessionId) await this.resume(location2.sessionId);
       else await this.home();
     }
+    // NewTabController.leavePracticeSessions uses a stable local panel across await.
+    // fallow-ignore-next-line unused-class-member
     async pause() {
       const session = this.session;
       if (session && session.view().status !== "complete" && session.view().status !== "paused") {
@@ -111585,6 +111547,8 @@ ${newTabCardReading(card)}`;
       }
       return true;
     }
+    // Used on that same captured panel only after its durable pause succeeds.
+    // fallow-ignore-next-line unused-class-member
     hide() {
       this.visible = false;
       this.operation += 1;
@@ -123738,6 +123702,55 @@ ${options.version}`;
   }
   function prefersLightMode() {
     return typeof matchMedia === "function" && matchMedia("(prefers-color-scheme: light)").matches;
+  }
+  function matchAvailable(tag) {
+    const locale = interfaceLocaleByTag(tag);
+    if (locale?.available) return locale;
+    const base = tag.split("-")[0].toLowerCase();
+    const byBase = interfaceLocaleByTag(base);
+    if (byBase?.available) return byBase;
+    return INTERFACE_LOCALES.find(
+      (candidate) => candidate.available && candidate.fallbacks.includes(base)
+    );
+  }
+  function resolveInterfaceLocale(requested, options = {}) {
+    const raw = (requested ?? "auto").trim();
+    if (!raw || raw === "auto") {
+      for (const preference of options.browserLocales ?? []) {
+        const match = typeof preference === "string" ? matchAvailable(preference) : void 0;
+        if (match) {
+          return { locale: match, requested: "auto", substituted: false, blockers: [] };
+        }
+      }
+      return {
+        locale: ENGLISH_INTERFACE_LOCALE,
+        requested: "auto",
+        substituted: false,
+        blockers: []
+      };
+    }
+    const exact = interfaceLocaleByTag(raw);
+    if (exact?.available) {
+      return { locale: exact, requested: raw, substituted: false, blockers: [] };
+    }
+    if (exact) {
+      return {
+        locale: matchAvailable(raw) ?? ENGLISH_INTERFACE_LOCALE,
+        requested: raw,
+        substituted: true,
+        blockers: exact.blockers
+      };
+    }
+    const byFallback = matchAvailable(raw);
+    if (byFallback) {
+      return { locale: byFallback, requested: raw, substituted: false, blockers: [] };
+    }
+    return {
+      locale: ENGLISH_INTERFACE_LOCALE,
+      requested: raw,
+      substituted: true,
+      blockers: []
+    };
   }
   const ANKI_STATUS_WARMUP_DELAY_MS = 1e3;
   const ANKI_STATUS_WARMUP_IDLE_TIMEOUT_MS = 5e3;

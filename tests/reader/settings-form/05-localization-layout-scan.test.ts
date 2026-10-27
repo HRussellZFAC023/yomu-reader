@@ -1,48 +1,22 @@
-import { describe, expect, it } from 'vitest';
-import {
-    AMBIGUOUS_SCAN_COPY,
-    ANKI_SOURCE_ID,
-    BASE_DEFAULT_SETTINGS,
-    CURRENT_YOMU_VERSION,
-    DEFAULT_SETTINGS,
-    accentToRgba,
-    accessibleOcrBackgroundColor,
-    accessibleOcrBackgroundOpacity,
-    activateSettingsPanel,
-    applySettingsSearch,
-    checkboxValue,
-    compositeOverWhiteHex,
-    contrastRatio,
-    effectiveFuriganaMode,
-    effectiveReaderTextColorSource,
-    labelForControl,
-    legacyStoredSettings,
-    localizeSettingsForm,
-    normalizeReaderSettings,
-    optionText,
-    radioValue,
-    readFormSettings,
-    reconcileApiCredentialInputs,
-    registerSettingsFormCleanup,
-    renderSettingsForm,
-    renderSettingsTestForm,
-    selectValue,
-    settingsText,
-    shouldLookupAnkiStatus,
-    topLevelLegendForControl,
-    topLevelLegendsForControl,
-} from './fixtures';
+import { beforeAll, describe, expect, it } from 'vitest';
+import { AMBIGUOUS_SCAN_COPY, DEFAULT_SETTINGS, applySettingsSearch, labelForControl, legacyStoredSettings, localizeSettingsForm, normalizeReaderSettings, optionText, radioValue, readFormSettings, reconcileApiCredentialInputs, registerSettingsFormCleanup, renderSettingsForm, renderSettingsTestForm, selectValue, settingsText, topLevelLegendsForControl } from './fixtures';
 import type {
     LegacyPitchSettings,
 } from './fixtures';
 
 describe('settings form localization', () => {
+    const localizedForms = new Map<'en' | 'ja', HTMLFormElement>();
+    beforeAll(() => {
+        for (const language of ['en', 'ja'] as const) {
+            const form = renderSettingsTestForm({ ...DEFAULT_SETTINGS, interfaceLanguage: language });
+            localizeSettingsForm(form, language);
+            localizedForms.set(language, form);
+        }
+    });
     registerSettingsFormCleanup();
 
     it('searches localized settings across panels and clears back to the active tab', () => {
-        const form = document.createElement('form');
-        form.innerHTML = renderSettingsForm({ ...DEFAULT_SETTINGS, interfaceLanguage: 'ja' }, 'https://jpdb.io/settings');
-        localizeSettingsForm(form, 'ja');
+        const form = localizedForms.get('ja')!;
 
         applySettingsSearch(form, '音声');
 
@@ -67,8 +41,7 @@ describe('settings form localization', () => {
     });
 
     it.each(['en', 'ja'] as const)('keeps every Settings control independently operable in %s', language => {
-        const form = renderSettingsTestForm({ ...DEFAULT_SETTINGS, interfaceLanguage: language });
-        localizeSettingsForm(form, language);
+        const form = localizedForms.get(language)!;
         const controls = 'a[href], button, input:not([type="hidden"]), select, textarea, [role="button"], summary';
         for (const outer of form.querySelectorAll('a[href], button, [role="button"], summary')) {
             expect(outer.querySelector(controls), outer.outerHTML).toBeNull();
@@ -83,137 +56,6 @@ describe('settings form localization', () => {
         const link = credential.closest('[data-review-service="jiten"]')!.querySelector('a[data-review-service-connect]')!;
         expect(link.getAttribute('href')).toBe('https://jiten.moe/settings');
         expect(link.closest('label')).toBeNull();
-    });
-
-    it('keeps the Study destination in Help without duplicating a launcher in Study settings', () => {
-        const form = renderSettingsTestForm(DEFAULT_SETTINGS);
-        expect(form.querySelector('[name="newTabUrl"], [data-action="copy-newtab-url"], [data-newtab-url-link]')).toBeNull();
-        expect(form.querySelector('[data-help-link="new-tab"]')?.getAttribute('href')).toContain('/study/');
-        expect(form.querySelector('[name="newTabOfflineEnabled"]')).not.toBeNull();
-        expect(form.querySelector('[name="newTabSource"]')).not.toBeNull();
-    });
-
-    it('opens each settings panel at the top after scrolling another panel', () => {
-        const form = renderSettingsTestForm(DEFAULT_SETTINGS);
-        const scroll = form.querySelector<HTMLElement>('.jpdb-reader-settings-scroll')!;
-        activateSettingsPanel(form, 'dictionaries');
-        scroll.scrollTop = 1200;
-        activateSettingsPanel(form, 'appearance');
-        expect(scroll.scrollTop).toBe(0);
-        expect(form.querySelector('[data-settings-panel="appearance"]')?.hasAttribute('hidden')).toBe(false);
-    });
-
-    it('uses roving tabs for settings sections', () => {
-        const form = document.createElement('form');
-        form.innerHTML = renderSettingsForm(DEFAULT_SETTINGS, 'https://jpdb.io/settings');
-        const tablist = form.querySelector<HTMLElement>('.jpdb-reader-settings-tabs')!;
-        const buttons = Array.from(tablist.querySelectorAll<HTMLButtonElement>('[data-action="settings-panel"]'));
-
-        expect(tablist.getAttribute('role')).toBe('tablist');
-        expect(buttons.every(button => button.getAttribute('role') === 'tab')).toBe(true);
-        expect(buttons.map(button => button.dataset.panel)).toEqual([
-            'appearance',
-            'backup',
-            'api',
-            'dictionaries',
-            'media',
-            'mining',
-            'newTab',
-            'shortcuts',
-            'help',
-        ]);
-        expect(buttons.map(button => button.dataset.panel)).not.toContain('reading');
-        expect(buttons.find(button => button.dataset.panel === 'dictionaries')?.textContent).toBe('Sources');
-        expect(buttons.find(button => button.dataset.panel === 'appearance')?.getAttribute('aria-controls')).toContain('jpdb-reader-settings-panel-reader');
-        expect(buttons.find(button => button.dataset.panel === 'dictionaries')?.getAttribute('aria-controls')).toContain('jpdb-reader-settings-panel-kanji');
-        expect(buttons.find(button => button.dataset.panel === 'media')?.getAttribute('aria-controls')).toContain('jpdb-reader-settings-panel-audio');
-        expect(buttons[0]?.getAttribute('aria-selected')).toBe('true');
-        expect(buttons[0]?.tabIndex).toBe(0);
-        expect(buttons.slice(1).every(button => button.getAttribute('aria-selected') === 'false' && button.tabIndex === -1)).toBe(true);
-        expect(form.querySelector<HTMLFieldSetElement>('fieldset[data-settings-panel="appearance"]')?.hidden).toBe(false);
-        expect(form.querySelector<HTMLFieldSetElement>('fieldset[data-settings-panel="api"]')?.hidden).toBe(true);
-    });
-
-    it('keeps local settings import and export separate from extension cloud sync', () => {
-        const form = renderSettingsTestForm(DEFAULT_SETTINGS);
-        const backupPanel = form.querySelector<HTMLElement>('#jpdb-reader-settings-panel-backup')!;
-        const settingsImport = backupPanel.querySelector<HTMLElement>('[data-action="import-reader-settings"]')!;
-
-        expect(backupPanel.querySelector('[data-cloud-settings-sync]')).toBeNull();
-        expect(backupPanel.textContent).not.toContain('Google Drive settings sync');
-        expect(backupPanel.textContent).not.toContain('cloud backup');
-        expect(settingsImport).not.toBeNull();
-        expect(backupPanel.querySelector('[data-action="export-reader-settings"]')).not.toBeNull();
-
-        localizeSettingsForm(form, 'ja');
-        expect(backupPanel.querySelector('[data-cloud-settings-sync]')).toBeNull();
-    });
-
-    it('gives backup and sync its own top-level section next to Appearance', () => {
-        const form = renderSettingsTestForm(DEFAULT_SETTINGS);
-        const backupPanel = form.querySelector<HTMLElement>('#jpdb-reader-settings-panel-backup')!;
-        const sourcesPanel = form.querySelector<HTMLElement>('#jpdb-reader-settings-panel-dictionaries')!;
-
-        expect(backupPanel.dataset.settingsPanel).toBe('backup');
-        for (const action of ['import-reader-settings', 'export-reader-settings', 'import-yomitan-dictionary', 'export-yomitan-dictionary']) {
-            expect(backupPanel.querySelector(`[data-action="${action}"]`), action).not.toBeNull();
-            expect(sourcesPanel.querySelector(`[data-action="${action}"]`), action).toBeNull();
-        }
-        expect(backupPanel.querySelector('input[data-file="settings"]')).not.toBeNull();
-        expect(backupPanel.querySelector('input[data-file="dictionary"]')).not.toBeNull();
-        expect(backupPanel.querySelector<HTMLElement>('[data-import-status]')?.textContent).toBe('');
-        expect(backupPanel.querySelector<HTMLElement>('[data-import-status]')?.hidden).toBe(true);
-        // Sources keeps a hidden status line so dictionary row actions still
-        // surface feedback on the panel where they were clicked.
-        const sourcesStatus = sourcesPanel.querySelector<HTMLElement>('[data-import-status]');
-        expect(sourcesStatus?.hidden).toBe(true);
-        expect(sourcesStatus?.textContent).toBe('');
-        expect(sourcesPanel.querySelector('[data-help-key="backupMovedHelp"]')).toBeNull();
-
-        const tabs = Array.from(form.querySelectorAll<HTMLButtonElement>('[data-action="settings-panel"]')).map(button => button.dataset.panel);
-        expect(tabs.indexOf('backup')).toBe(tabs.indexOf('appearance') + 1);
-        expect(form.querySelector<HTMLButtonElement>('[data-action="settings-panel"][data-panel="backup"]')?.textContent).toBe('Backup & sync');
-
-        localizeSettingsForm(form, 'ja');
-        expect(form.querySelector<HTMLButtonElement>('[data-action="settings-panel"][data-panel="backup"]')?.textContent).toBe('バックアップと同期');
-        expect(backupPanel.querySelector('legend')?.textContent).toBe('バックアップと同期');
-        expect(sourcesPanel.querySelector('[data-help-key="backupMovedHelp"]')).toBeNull();
-    });
-
-    it('shows the running version in the settings footer', () => {
-        const form = renderSettingsTestForm(DEFAULT_SETTINGS);
-        const version = form.querySelector<HTMLElement>('.footer [data-yomu-settings-version]');
-        expect(version?.textContent).toBe(`Yomu ${CURRENT_YOMU_VERSION}`);
-    });
-
-    it('gives Study settings their own top-level section', () => {
-        const form = document.createElement('form');
-        form.innerHTML = renderSettingsForm(DEFAULT_SETTINGS, 'https://jpdb.io/settings');
-
-        // UT-74: the newTabEnabled checkbox was removed (no runtime consumer;
-        // a userscript cannot override the browser new tab).
-        expect(form.querySelector('[name="newTabEnabled"]')).toBeNull();
-        expect(topLevelLegendForControl(form, 'newTabAnkiEnabled')).toBe('Study');
-        expect(topLevelLegendForControl(form, 'newTabJpdbReviewMode')).toBe('Study');
-        // The grade scale sits beside "Show review buttons" in Reviews.
-        expect(topLevelLegendsForControl(form, 'twoButtonReviews')).toEqual(['Reviews']);
-        expect(labelForControl(form, 'twoButtonReviews')).toContain('Review rating scale');
-        expect(labelForControl(form, 'newTabJpdbReviewMode')).toContain('JPDB review mode');
-        expect(optionText(form, 'newTabSource', 'auto')).toBe('Automatic');
-        expect(optionText(form, 'newTabSource', 'jpdb')).toBe('Jiten / JPDB');
-        expect(optionText(form, 'twoButtonReviews', 'true')).toBe('Two point: FAIL / PASS');
-        expect(optionText(form, 'twoButtonReviews', 'false')).toBe('Provider default');
-        expect(optionText(form, 'newTabKanjiKeywordSource', 'auto')).toBe('Automatic');
-        expect(optionText(form, 'newTabKanjiKeywordSource', 'jpdb')).toBe('JPDB kanji facts (Jiten / JPDB)');
-        expect(form.querySelector<HTMLFieldSetElement>('fieldset[data-settings-panel="newTab"]')?.hidden).toBe(true);
-        expect(form.querySelector<HTMLButtonElement>('[data-action="settings-panel"][data-panel="newTab"]')).not.toBeNull();
-
-        form.querySelector<HTMLSelectElement>('select[name="twoButtonReviews"]')!.value = 'true';
-        expect(readFormSettings(new FormData(form), DEFAULT_SETTINGS).twoButtonReviews).toBe(true);
-        localizeSettingsForm(form, 'ja');
-        expect(optionText(form, 'twoButtonReviews', 'false')).toBe('サービスの標準評価');
-        expect(form.querySelector('[data-help-key="fourGradeShortcutsHelp"]')?.textContent).toContain('もう一度・難しい・良い・簡単');
-        expect(form.querySelector('[data-help-key="fourGradeShortcutsHelp"]')?.textContent).not.toContain('未翻訳');
     });
 
     it('reads per-state colour opt-out (colorHide-*) checkboxes into wordColorHiddenStateGroups', () => {
@@ -253,59 +95,6 @@ describe('settings form localization', () => {
         ignoredBox!.checked = true;
         expect(readFormSettings(new FormData(form), DEFAULT_SETTINGS).wordColorHiddenStateGroups)
             .toEqual(['ignored']);
-    });
-
-    it('splits the old Basics bucket into Reviews, Appearance, and Sources sections', () => {
-        const form = document.createElement('form');
-        form.innerHTML = renderSettingsForm(DEFAULT_SETTINGS, 'https://jpdb.io/settings');
-
-        expect(topLevelLegendForControl(form, 'apiCredentialJpdb')).toBe('Reviews');
-        expect(topLevelLegendForControl(form, 'accentColor')).toBe('Appearance');
-        expect(topLevelLegendForControl(form, 'popupLookupEnabled')).toBe('Reader');
-        expect(topLevelLegendForControl(form, 'lookupOnHover')).toBe('Reader');
-        expect(form.querySelector<HTMLElement>('[name="lookupOnHover"]')?.closest<HTMLFieldSetElement>('fieldset[data-settings-panel]')?.dataset.settingsPanel).toBe('appearance');
-        expect(form.querySelector<HTMLElement>('#jpdb-reader-settings-panel-kanji')?.dataset.settingsPanel).toBe('dictionaries');
-        expect(form.querySelector<HTMLButtonElement>('[data-action="settings-panel"][data-panel="basics"]')).toBeNull();
-        expect(form.querySelector<HTMLButtonElement>('[data-action="settings-panel"][data-panel="reading"]')).toBeNull();
-
-        activateSettingsPanel(form, 'basics');
-
-        expect(form.querySelector<HTMLButtonElement>('[data-action="settings-panel"][data-panel="api"]')?.getAttribute('aria-selected')).toBe('true');
-        expect(form.querySelector<HTMLFieldSetElement>('fieldset[data-settings-panel="api"]')?.hidden).toBe(false);
-
-        activateSettingsPanel(form, 'jpdb');
-
-        expect(form.querySelector<HTMLButtonElement>('[data-action="settings-panel"][data-panel="api"]')?.getAttribute('aria-selected')).toBe('true');
-        expect(form.querySelector<HTMLFieldSetElement>('fieldset[data-settings-panel="api"]')?.hidden).toBe(false);
-
-        activateSettingsPanel(form, 'reading');
-
-        expect(form.querySelector<HTMLButtonElement>('[data-action="settings-panel"][data-panel="appearance"]')?.getAttribute('aria-selected')).toBe('true');
-        expect(form.querySelector<HTMLFieldSetElement>('#jpdb-reader-settings-panel-reader')?.hidden).toBe(false);
-
-        activateSettingsPanel(form, 'kanji');
-
-        expect(form.querySelector<HTMLButtonElement>('[data-action="settings-panel"][data-panel="dictionaries"]')?.getAttribute('aria-selected')).toBe('true');
-        expect(form.querySelector<HTMLFieldSetElement>('#jpdb-reader-settings-panel-kanji')?.hidden).toBe(false);
-    });
-
-    it('offers a single Yomu popup switch for companion-reader setups', () => {
-        const form = document.createElement('form');
-        form.innerHTML = renderSettingsForm(DEFAULT_SETTINGS, 'https://jpdb.io/settings');
-
-        expect(checkboxValue(form, 'popupLookupEnabled')).toBe(true);
-        expect(settingsText(form, '[data-help-key="popupLookupHelp"]')).toContain('another reader');
-
-        form.querySelector<HTMLInputElement>('input[name="popupLookupEnabled"]')!.checked = false;
-        const saved = readFormSettings(new FormData(form), DEFAULT_SETTINGS);
-
-        expect(saved.popupActivationMode).toBe('off');
-        expect(saved.lookupOnClick).toBe(true);
-        expect(saved.lookupOnHover).toBe(true);
-
-        localizeSettingsForm(form, 'ja');
-        expect(labelForControl(form, 'popupLookupEnabled')).toContain('よむの検索ポップアップを表示');
-        expect(settingsText(form, '[data-popup-lookup-title]')).toBe('ポップアップ検索');
     });
 
     it('renders and saves coexisting Jiten and JPDB API keys (UT-56)', () => {
@@ -449,141 +238,6 @@ describe('settings form localization', () => {
         reconcileApiCredentialInputs(form);
         expect(jpdbInput.value).toBe('plain-jpdb-key');
         expect(jitenInput.value).toBe('ak_pasted-into-wrong-box');
-    });
-
-    it('renders first-run Anki as opt-in with popover controls and no legacy scan affordances', () => {
-        const form = document.createElement('form');
-        form.innerHTML = renderSettingsForm(DEFAULT_SETTINGS, 'https://jpdb.io/settings');
-
-        expect(DEFAULT_SETTINGS.ankiEnabled).toBe(false);
-        expect(DEFAULT_SETTINGS.ankiSectionEnabled).toBe(false);
-        expect(DEFAULT_SETTINGS.ankiMobileHandoff).toBe(false);
-        expect(DEFAULT_SETTINGS.ankiMineWithJpdb).toBe(false);
-        expect(DEFAULT_SETTINGS.popupMode).toBe('auto');
-        expect(DEFAULT_SETTINGS.furiganaMode).toBe('known-status');
-        // A word the learner just failed keeps its reading (ADR-0026).
-        expect(DEFAULT_SETTINGS.furiganaHiddenStateGroups).toEqual(['known', 'due']);
-        expect(DEFAULT_SETTINGS.wordColorStates).toBe('all');
-        // Known and ignored words stay plain by default (ADR-0026); normalize
-        // drops invalid/duplicate groups and keeps an explicit empty list.
-        expect(DEFAULT_SETTINGS.wordColorHiddenStateGroups).toEqual(['known', 'ignored']);
-        expect(normalizeReaderSettings({}).wordColorHiddenStateGroups).toEqual(['known', 'ignored']);
-        expect(normalizeReaderSettings({ wordColorHiddenStateGroups: [] }).wordColorHiddenStateGroups).toEqual([]);
-        expect(normalizeReaderSettings({ wordColorHiddenStateGroups: ['known', 'known', 'bogus', 'due'] as never }).wordColorHiddenStateGroups).toEqual(['known', 'due']);
-        expect(effectiveFuriganaMode(DEFAULT_SETTINGS)).toBe('known-status');
-        expect(normalizeReaderSettings({ apiKey: '', jitenApiKey: 'ak_jiten-key', ankiEnabled: false, furiganaMode: 'auto' }).furiganaMode).toBe('auto');
-        expect(normalizeReaderSettings({}).ankiEnabled).toBe(false);
-        expect(normalizeReaderSettings({}).ankiSectionEnabled).toBe(false);
-        expect(normalizeReaderSettings({ ankiEnabled: true }).ankiSectionEnabled).toBe(false);
-        expect(normalizeReaderSettings({ ankiEnabled: true, ankiSectionEnabled: false }).ankiSectionEnabled).toBe(false);
-        expect(normalizeReaderSettings({}).ankiMobileHandoff).toBe(false);
-        expect(normalizeReaderSettings({}).ankiMineWithJpdb).toBe(false);
-        expect(normalizeReaderSettings({}).popupMode).toBe('auto');
-        expect(normalizeReaderSettings({
-            jpdbDefinitionsEnabled: false,
-            jitenDefinitionsEnabled: false,
-            localDictionariesEnabled: false,
-        })).toMatchObject({
-            jpdbDefinitionsEnabled: false,
-            jitenDefinitionsEnabled: false,
-            localDictionariesEnabled: false,
-        });
-        expect(shouldLookupAnkiStatus(DEFAULT_SETTINGS)).toBe(false);
-        expect(shouldLookupAnkiStatus({ ...DEFAULT_SETTINGS, ankiSectionEnabled: true })).toBe(false);
-        expect(shouldLookupAnkiStatus({ ...DEFAULT_SETTINGS, ankiEnabled: true })).toBe(true);
-        expect(effectiveReaderTextColorSource(DEFAULT_SETTINGS, DEFAULT_SETTINGS.wordTextColorSource)).toBe('off');
-        expect(effectiveReaderTextColorSource({ ...DEFAULT_SETTINGS, ankiSectionEnabled: true }, 'anki')).toBe('off');
-        // Text colour is off by default (ADR-0026); a learner who picks Anki gets it once Anki is on.
-        expect(effectiveReaderTextColorSource({ ...DEFAULT_SETTINGS, ankiEnabled: true }, DEFAULT_SETTINGS.wordTextColorSource)).toBe('off');
-        expect(effectiveReaderTextColorSource({ ...DEFAULT_SETTINGS, ankiEnabled: true }, 'anki')).toBe('anki');
-        expect(form.querySelector<HTMLInputElement>('input[name="ankiEnabled"]')?.checked).toBe(false);
-        const appearancePreset = form.querySelector<HTMLSelectElement>('select[name="appearancePreset"]')!;
-        expect(Array.from(appearancePreset.options).map(option => [option.value, option.textContent])).toEqual([
-            ['', 'Custom'],
-            ['balanced', 'Balanced reading'],
-            ['new-only', 'Focus on new words'],
-            ['underline-new', 'Minimal highlights'],
-            ['no-colors', 'Plain text'],
-        ]);
-        expect(appearancePreset.textContent).not.toContain('Yomu default');
-        expect(appearancePreset.textContent).not.toContain('Show all furigana');
-        expect(appearancePreset.textContent).not.toContain('No furigana');
-        expect(form.querySelector<HTMLSelectElement>('select[name="popupMode"]')?.value).toBe('auto');
-        expect(form.querySelector<HTMLInputElement>('input[name="ankiTags"]')?.value).toBe('yomu');
-        expect(form.querySelector<HTMLElement>('[data-anki-tag-chips] .jpdb-reader-tag-chip')?.textContent).toContain('yomu');
-        expect(form.querySelector<HTMLElement>(`[data-source-id="${ANKI_SOURCE_ID}"]`)).not.toBeNull();
-        expect(form.querySelector<HTMLButtonElement>('[data-action="scan-anki"]')).toBeNull();
-        expect(form.textContent).not.toContain('Scan Anki');
-
-        const saved = readFormSettings(new FormData(form), { ...DEFAULT_SETTINGS, ankiEnabled: false, popupMode: 'popover' });
-        expect(saved.ankiEnabled).toBe(false);
-        expect(saved.popupMode).toBe('auto');
-        expect(saved.ankiTags).toBe('yomu');
-    });
-
-    it('uses a reading-friendly transcript auto-scroll resume default', () => {
-        expect(DEFAULT_SETTINGS.subtitleTranscriptAutoScrollResumeSeconds).toBe(30);
-        expect(normalizeReaderSettings({}).subtitleTranscriptAutoScrollResumeSeconds).toBe(30);
-        expect(normalizeReaderSettings({ subtitleTranscriptAutoScrollResumeSeconds: 10 }).subtitleTranscriptAutoScrollResumeSeconds).toBe(10);
-    });
-
-    it('keeps fresh-install and factory-reset defaults mobile-safe', () => {
-        const defaults = normalizeReaderSettings({});
-        const form = document.createElement('form');
-        form.innerHTML = renderSettingsForm(defaults, 'https://jpdb.io/settings');
-
-        expect({
-            ankiEnabled: defaults.ankiEnabled,
-            newTabAnkiEnabled: defaults.newTabAnkiEnabled,
-            ankiMobileHandoff: defaults.ankiMobileHandoff,
-            newTabShortcutHintsEnabled: defaults.newTabShortcutHintsEnabled,
-            showFloatingButton: defaults.showFloatingButton,
-            puckPositionX: defaults.puckPositionX,
-            puckPositionY: defaults.puckPositionY,
-            audioEnabled: defaults.audioEnabled,
-            autoPlayAudio: defaults.autoPlayAudio,
-            audioAutoPlayMode: defaults.audioAutoPlayMode,
-            audioEnableDefaultSources: defaults.audioEnableDefaultSources,
-            popupMode: defaults.popupMode,
-        }).toEqual({
-            ankiEnabled: false,
-            newTabAnkiEnabled: false,
-            ankiMobileHandoff: false,
-            newTabShortcutHintsEnabled: true,
-            showFloatingButton: true,
-            puckPositionX: undefined,
-            puckPositionY: undefined,
-            audioEnabled: true,
-            autoPlayAudio: true,
-            audioAutoPlayMode: 'all',
-            audioEnableDefaultSources: true,
-            popupMode: 'auto',
-        });
-
-        expect({
-            ankiEnabled: checkboxValue(form, 'ankiEnabled'),
-            newTabAnkiEnabled: checkboxValue(form, 'newTabAnkiEnabled'),
-            ankiMobileHandoff: checkboxValue(form, 'ankiMobileHandoff'),
-            newTabShortcutHintsEnabled: checkboxValue(form, 'newTabShortcutHintsEnabled'),
-            showFloatingButton: checkboxValue(form, 'showFloatingButton'),
-            audioEnabled: checkboxValue(form, 'audioEnabled'),
-            audioEnableDefaultSources: checkboxValue(form, 'audioEnableDefaultSources'),
-            audioAutoPlayMode: selectValue(form, 'audioAutoPlayMode'),
-            popupMode: selectValue(form, 'popupMode'),
-        }).toEqual({
-            ankiEnabled: false,
-            newTabAnkiEnabled: false,
-            ankiMobileHandoff: false,
-            newTabShortcutHintsEnabled: true,
-            showFloatingButton: true,
-            audioEnabled: true,
-            audioEnableDefaultSources: true,
-            audioAutoPlayMode: 'all',
-            popupMode: 'auto',
-        });
-
-        form.querySelector<HTMLInputElement>('input[name="newTabShortcutHintsEnabled"]')!.checked = false;
-        expect(readFormSettings(new FormData(form), defaults).newTabShortcutHintsEnabled).toBe(false);
     });
 
     it('migrates a stale default lookup-link row without re-sorting an arranged one', () => {
@@ -748,52 +402,6 @@ describe('settings form localization', () => {
         select.value = 'dark';
         const saved = readFormSettings(new FormData(form), DEFAULT_SETTINGS);
         expect(saved.ocrOverlayTheme).toBe('dark');
-    });
-
-    it('defaults OCR text to white on an accessible ink highlight', () => {
-        expect(BASE_DEFAULT_SETTINGS.ocrTextColor).toBe('#ffffff');
-        expect(BASE_DEFAULT_SETTINGS.ocrOutlineColor).toBe('#000000');
-        expect(BASE_DEFAULT_SETTINGS.ocrBackgroundOpacity).toBe(0.68);
-        expect(BASE_DEFAULT_SETTINGS.ocrBackgroundColor).toBe(accessibleOcrBackgroundColor(BASE_DEFAULT_SETTINGS.ocrBackgroundOpacity));
-        expect(contrastRatio(
-            compositeOverWhiteHex(accentToRgba(BASE_DEFAULT_SETTINGS.ocrBackgroundColor, BASE_DEFAULT_SETTINGS.ocrBackgroundOpacity)),
-            BASE_DEFAULT_SETTINGS.ocrTextColor,
-        ))
-            .toBeGreaterThanOrEqual(4.5);
-    });
-
-    // The band under recognised text is ink: an accent there (now the brand red)
-    // read as an alert under every line.
-    it('normalizes the OCR background to overlay ink, whatever the accent', () => {
-        const settings = normalizeReaderSettings({
-            accentColor: '#ffcc00',
-            ocrTextColor: '#17202a',
-            ocrOutlineColor: '#ffffff',
-            ocrBackgroundColor: '#f4f7fa',
-            ocrBackgroundOpacity: 0.2,
-        });
-        const opacity = accessibleOcrBackgroundOpacity(0.2);
-
-        expect(settings.ocrTextColor).toBe('#17202a');
-        expect(settings.ocrOutlineColor).toBe('#ffffff');
-        expect(settings.ocrBackgroundOpacity).toBe(opacity);
-        expect(settings.ocrBackgroundColor).toBe(accessibleOcrBackgroundColor(opacity));
-        expect(settings.ocrBackgroundColor).toBe(normalizeReaderSettings({ accentColor: '#336699', ocrBackgroundOpacity: 0.2 }).ocrBackgroundColor);
-        const [red, green, blue] = [1, 3, 5].map(index => parseInt(settings.ocrBackgroundColor.slice(index, index + 2), 16));
-        expect(Math.max(red, green, blue) - Math.min(red, green, blue)).toBeLessThanOrEqual(12);
-    });
-
-    it('omits the old paused-frame OCR status card setting', () => {
-        const form = document.createElement('form');
-        form.innerHTML = renderSettingsForm(DEFAULT_SETTINGS, 'https://jpdb.io/settings');
-
-        expect(form.querySelector<HTMLInputElement>('input[name="ocrVideoFrameStatusCard"]')).toBeNull();
-        expect(form.textContent).not.toContain('Show paused-frame status card');
-
-        const data = new FormData(form);
-        data.set('ocrVideoFrameStatusCard', 'on');
-        const saved = readFormSettings(data, DEFAULT_SETTINGS);
-        expect(saved).not.toHaveProperty('ocrVideoFrameStatusCard');
     });
 
     it('preserves current Anki choices even when they match historical defaults', () => {

@@ -1,3 +1,4 @@
+import '../../src/reader/companions/register-build-companions';
 import { beforeEach, afterEach, describe, expect, it, vi } from 'vitest';
 import { BunproClient } from '../../src/reader/bunpro/bunpro';
 import type { ReaderHttpOptions } from '../../src/reader/network/http-options';
@@ -31,6 +32,7 @@ import {
 } from './jpdb/fixtures';
 import type { JPDBCard, ReaderSettings } from './jpdb/fixtures';
 import { NewTabRuntime, newTabLookupRenderData, newTabTestCard, setupNewTabLookupRuntime } from './new-tab-review/fixtures';
+import { testAnkiExistingNote } from "./jpdb/fixtures";
 
 const SENTENCE = '毎日ご飯を食べる。';
 // "Add to deck…": one dropdown, mounted into this placeholder after a render.
@@ -627,5 +629,53 @@ describe('popup collect action', () => {
             boundary.abort();
             app.destroy();
         }
+    });
+});
+
+describe('the popup grade bar', () => {
+    // Owner decision 2 (2026-10-07): "Some users want to just use our app as a
+    // dictionary." The popup's grade bar is for a learner who reviews with a
+    // connected service; the Yomu deck alone is not one.
+
+
+
+
+
+
+    const WORD: JPDBCard = { ...card, meanings: [{ glosses: ['to eat'], partOfSpeech: ['v1'] }], cardState: ['not-in-deck'] };
+    const KEYLESS: Partial<ReaderSettings> = { interfaceLanguage: 'en', apiKey: '', jitenApiKey: '', bunproFrontendApiToken: '', yomuLocalSrsEnabled: true, ankiEnabled: false, enableReviews: true };
+    const JPDB_LEARNER: Partial<ReaderSettings> = { ...KEYLESS, apiKey: 'jpdb-key', jpdbMiningEnabled: true };
+
+    afterEach(() => document.body.replaceChildren());
+
+    function grades(settings: Partial<ReaderSettings>, trusted: boolean, data = emptyCardRenderData(), word = WORD): HTMLButtonElement[] {
+        const html = testCardPopoverRenderer(settings, { accountDataSurfaceTrusted: () => trusted }).render(word, '毎日ご飯を食べる。', 'modal', data);
+        setInnerHtml(document.body, `<div class="jpdb-reader-popover">${html}</div>`);
+        return [...document.querySelectorAll<HTMLButtonElement>('[data-action="grade"]')];
+    }
+
+
+    it.each([['an ordinary page', false], ['Study', true]])('is absent for a dictionary-only learner on %s', (_surface, trusted) => {
+        expect(grades(KEYLESS, trusted)).toEqual([]);
+        // Not even for a word the learner already keeps in the Yomu deck: it is reviewed in Study.
+        expect(grades(KEYLESS, trusted, emptyCardRenderData(), { ...WORD, reviewSource: 'yomu-local', cardState: ['learning'] })).toEqual([]);
+    });
+
+    it.each([['an ordinary page', false], ['Study', true]])('grades into a connected service on %s', (_surface, trusted) => {
+        expect(grades(JPDB_LEARNER, trusted).map(button => readCardCommandCapability(button)?.grade))
+            .toEqual(['nothing', 'something', 'hard', 'okay', 'easy']);
+    });
+
+    it('grades a word\'s Anki card on Study for a learner whose only service is Anki', () => {
+        const note = testAnkiExistingNote({ primaryCardId: 404 });
+        const buttons = grades({ ...KEYLESS, ankiEnabled: true, ankiSectionEnabled: true }, true, emptyCardRenderData({
+            ankiLookup: testAnkiLookup({ state: 'known', notes: [note], primary: note }),
+        }));
+        expect(buttons.length).toBeGreaterThan(0);
+        expect(buttons.every(button => readCardCommandCapability(button)?.reviewTarget === 'anki')).toBe(true);
+    });
+
+    it('is absent for everyone with reviews turned off', () => {
+        expect(grades({ ...JPDB_LEARNER, enableReviews: false }, false)).toEqual([]);
     });
 });

@@ -15,6 +15,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { ReaderSettings } from '../../src/reader/app/types';
 import type { ImportSummary } from '../../src/reader/dictionaries/yomitan';
 
+
 const settingsDialogTestState = getSettingsDialogTestState();
 
 type SettingsRestoreSaveOptions = {
@@ -691,47 +692,6 @@ describe('settings dialog restore and save interlocks', () => {
         await submitSettingsSaveAndExpect(fixture.form, fixture.saveSettings, 1, { accentColor: '#654321' });
     });
 
-    it('derives changed keys from a current settings-only backup without inventing an intent ledger', async () => {
-        const previousAccent = '#654321';
-        const importedAccent = '#123456';
-        const { form, saveSettings } = createSettingsRestoreFixture({
-            ...DEFAULT_SETTINGS,
-            accentColor: previousAccent,
-        });
-        await beginSettingsFileImport(
-            form,
-            { ...DEFAULT_SETTINGS, accentColor: importedAccent },
-        );
-        await waitForCondition(() => saveSettings.mock.calls.length === 1);
-
-        const options = restoreSaveOptions(saveSettings);
-        expect(options.explicitUserChoiceKeys).toContain('accentColor');
-        expect(options.clearExplicitUserChoiceKeys).toBeUndefined();
-    });
-
-    it('restores a pre-ledger v3 backup and ignores the retired flat pins it carries', async () => {
-        const fixture = createSettingsRestoreFixture({
-            ...DEFAULT_SETTINGS,
-            annotationsPaused: true,
-        });
-        await beginSettingsFileImport(
-            fixture.form,
-            { ...DEFAULT_SETTINGS, annotationsPaused: true },
-            {
-                storage: {
-                    'jpdb-popup-reader-settings': { annotationsPaused: false },
-                    'yomu:explicit-user-settings:v1': { annotationsPaused: false },
-                },
-            },
-        );
-        await waitForCondition(() => fixture.saveSettings.mock.calls.length === 1);
-
-        expect(fixture.saveSettings.mock.calls[0]?.[0]).toMatchObject({ annotationsPaused: false });
-        const options = restoreSaveOptions(fixture.saveSettings);
-        expect(options.explicitUserChoiceKeys).toEqual([]);
-        expect(options.clearExplicitUserChoiceKeys).toBeDefined();
-    });
-
     it('does not roll back durable restore stages when the post-persistence host notification throws', async () => {
         const storedKey = 'jpdb-reader-transcript-panel-size';
         localStorage.setItem(storedKey, JSON.stringify({ width: 240 }));
@@ -1132,29 +1092,136 @@ describe('Google Drive restore of retired annotation defaults', () => {
         await waitForCondition(() => fixture.saveSettings.mock.calls.length === 1);
         return { adopted: fixture.state.settings, options: restoreSaveOptions(fixture.saveSettings) };
     }
-
-    it('reads an undeclared retired default in a snapshot with its ledger as today\'s default', async () => {
-        const commit = 'drive-2-0-commit';
-        const { adopted, options } = await restoreFromDrive({
-            'jpdb-popup-reader-settings': { ...DEFAULT_SETTINGS, ...RETIRED, theme: 'dark', __yomuSettingsPersistenceCommitV1: commit },
-            'yomu:settings-intent:v2': {
-                revision: 1,
-                records: { theme: { seq: 1, value: 'dark' } },
-                __yomuSettingsPersistenceCommitV1: commit,
-            },
-        });
-        expect(adopted).toMatchObject({ ...TODAY, theme: 'dark' });
-        expect(options.explicitUserChoiceKeys).toEqual(['theme']);
-    });
-
-    it('leaves a retired default in a settings-only snapshot as it is, and declares none of them', async () => {
-        const { adopted, options } = await restoreFromDrive(undefined);
-        expect(adopted).toMatchObject({ ...TODAY, theme: 'dark' });
-        expect(options.explicitUserChoiceKeys).toEqual(['theme']);
-    });
+    it.each(['current settings-only file', 'pre-ledger v3 file', 'cloud with ledger', 'settings-only cloud'] as const)(
+        'restores %s without inventing choices', async kind => {
+            if (kind === 'current settings-only file') {
+                const fixture = createSettingsRestoreFixture({ ...DEFAULT_SETTINGS, accentColor: '#654321' });
+                await beginSettingsFileImport(fixture.form, { ...DEFAULT_SETTINGS, accentColor: '#123456' });
+                await waitForCondition(() => fixture.saveSettings.mock.calls.length === 1);
+                const options = restoreSaveOptions(fixture.saveSettings);
+                expect(options.explicitUserChoiceKeys).toContain('accentColor');
+                expect(options.clearExplicitUserChoiceKeys).toBeUndefined();
+                return;
+            }
+            if (kind === 'pre-ledger v3 file') {
+                const fixture = createSettingsRestoreFixture({ ...DEFAULT_SETTINGS, annotationsPaused: true });
+                await beginSettingsFileImport(fixture.form, { ...DEFAULT_SETTINGS, annotationsPaused: true }, {
+                    storage: {
+                        'jpdb-popup-reader-settings': { annotationsPaused: false },
+                        'yomu:explicit-user-settings:v1': { annotationsPaused: false },
+                    },
+                });
+                await waitForCondition(() => fixture.saveSettings.mock.calls.length === 1);
+                expect(fixture.saveSettings.mock.calls[0]?.[0]).toMatchObject({ annotationsPaused: false });
+                const options = restoreSaveOptions(fixture.saveSettings);
+                expect(options.explicitUserChoiceKeys).toEqual([]);
+                expect(options.clearExplicitUserChoiceKeys).toBeDefined();
+                return;
+            }
+            const commit = 'drive-2-0-commit';
+            const storage = kind === 'cloud with ledger' ? {
+                'jpdb-popup-reader-settings': { ...DEFAULT_SETTINGS, ...RETIRED, theme: 'dark', __yomuSettingsPersistenceCommitV1: commit },
+                'yomu:settings-intent:v2': {
+                    revision: 1, records: { theme: { seq: 1, value: 'dark' } },
+                    __yomuSettingsPersistenceCommitV1: commit,
+                },
+            } : undefined;
+            const { adopted, options } = await restoreFromDrive(storage);
+            expect(adopted).toMatchObject({ ...TODAY, theme: 'dark' });
+            expect(options.explicitUserChoiceKeys).toEqual(['theme']);
+        },
+    );
 });
 
 function saveStatusText(form: HTMLFormElement): string {
     const status = form.querySelector<HTMLElement>('[data-settings-save-status]');
     return status && !status.hidden ? status.textContent ?? '' : '';
 }
+
+describe("settings file import save", () => {
+    // Exercise the actual click router, not enqueueDictionaryOperation in isolation:
+    // the outer action used to hold Save even though the inner import did not.
+    afterEach(resetSettingsDialogTestEnvironment);
+
+    async function chooseDictionary(form: HTMLFormElement): Promise<void> {
+        const input = settingsElement<HTMLInputElement>(form, 'input[data-file="dictionary"]');
+        Object.defineProperty(input, 'files', { configurable: true, value: [new File(['zip'], 'words.zip')] });
+        settingsElement<HTMLButtonElement>(form, '[data-action="import-yomitan-dictionary"]').click();
+        await waitForCondition(() => typeof input.onchange === 'function');
+        input.dispatchEvent(new Event('change'));
+    }
+
+    it('lets Save finish during file import, then merges its settings before publishing the dictionary', async () => {
+        const imported = deferred<ImportSummary>();
+        const saving = deferred<void>();
+        const publishingDictionary = deferred<void>();
+        let settings: ReaderSettings = { ...DEFAULT_SETTINGS, audioEnabled: true };
+        const importFile = vi.fn(() => imported.promise);
+        const saveSettings = vi.fn()
+            .mockImplementationOnce(() => saving.promise)
+            .mockImplementationOnce(() => publishingDictionary.promise);
+        const { form } = createSettingsDialog({
+            getSettings: () => settings,
+            setSettings: (next: ReaderSettings) => { settings = next; },
+            saveSettings,
+            dictionaries: {
+                summary: vi.fn().mockResolvedValue({ dictionaries: [], terms: 0, kanji: 0, termMeta: 0 }),
+                importFile,
+            },
+        });
+        await chooseDictionary(form);
+        await waitForCondition(() => importFile.mock.calls.length === 1);
+        const save = settingsElement<HTMLButtonElement>(form, 'button[type="submit"]');
+        expect(save.disabled).toBe(false);
+        settingsElement<HTMLInputElement>(form, 'input[name="audioEnabled"]').checked = false;
+        form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+        await waitForCondition(() => saveSettings.mock.calls.length === 1);
+        expect(saveSettings.mock.calls[0]?.[0]).toMatchObject({ audioEnabled: false });
+
+        imported.resolve(importSummary('Imported words'));
+        await flushPromises();
+        expect(saveSettings).toHaveBeenCalledOnce();
+        saving.resolve();
+        await waitForCondition(() => saveSettings.mock.calls.length === 2);
+        expect(saveSettings.mock.calls[1]?.[0]).toMatchObject({
+            audioEnabled: false,
+            dictionaryPreferences: expect.arrayContaining([expect.objectContaining({ name: 'Imported words' })]),
+        });
+        expect(save.disabled).toBe(true);
+        form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+        await flushPromises();
+        expect(saveSettings).toHaveBeenCalledTimes(2);
+        publishingDictionary.resolve();
+        await waitForCondition(() => !save.disabled);
+        expect(settings.audioEnabled).toBe(false);
+    });
+
+    it('keeps an open dictionary picker inside the restore barrier and cancels its stale selection', async () => {
+        const importFile = vi.fn();
+        const saveSettings = vi.fn().mockResolvedValue(undefined);
+        const { form } = createSettingsDialog({ saveSettings, dictionaries: {
+            summary: vi.fn().mockResolvedValue({ dictionaries: [], terms: 0, kanji: 0, termMeta: 0 }), importFile,
+        } }, 'backup');
+        const dictionary = settingsElement<HTMLInputElement>(form, 'input[data-file="dictionary"]');
+        settingsElement<HTMLButtonElement>(form, '[data-action="import-yomitan-dictionary"]').click();
+        await waitForCondition(() => typeof dictionary.onchange === 'function');
+        expect(settingsElement<HTMLButtonElement>(form, 'button[type="submit"]').disabled).toBe(false);
+
+        const backup = new File(['backup'], 'settings.json');
+        Object.defineProperty(backup, 'text', { value: async () => JSON.stringify({
+            formatName: 'yomu-reader-settings', formatVersion: 3, settings: { ...DEFAULT_SETTINGS, accentColor: '#123456' },
+        }) });
+        const settingsInput = settingsElement<HTMLInputElement>(form, 'input[data-file="settings"]');
+        Object.defineProperty(settingsInput, 'files', { configurable: true, value: [backup] });
+        settingsElement<HTMLButtonElement>(form, '[data-action="import-reader-settings"]').click();
+        await waitForCondition(() => typeof settingsInput.onchange === 'function');
+        settingsInput.dispatchEvent(new Event('change'));
+        await waitForCondition(() => settingsElement<HTMLButtonElement>(form, 'button[type="submit"]').dataset.saveBlocked === 'settings-import');
+        expect(saveSettings).not.toHaveBeenCalled();
+        Object.defineProperty(dictionary, 'files', { configurable: true, value: [new File(['zip'], 'stale.zip')] });
+        dictionary.dispatchEvent(new Event('change'));
+        await waitForCondition(() => saveSettings.mock.calls.length === 1);
+        expect(importFile).not.toHaveBeenCalled();
+        expect(saveSettings.mock.calls[0]?.[0]).toMatchObject({ accentColor: '#123456' });
+    });
+});

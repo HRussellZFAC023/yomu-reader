@@ -72,7 +72,4 @@ function escapeRegExp(value) {
   return value.replace(/[\\^$.*+?()[\]{}|]/g, '\\$&');
 }
 
-module.exports = {
-  BUDGET_RELATIVE_PATH,
-  userscriptWeightReport,
-};
+module.exports = { userscriptWeightReport };

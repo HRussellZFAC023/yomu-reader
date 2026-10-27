@@ -1,3 +1,4 @@
+import '../../src/reader/companions/register-build-companions';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { allowsGenericVisibleAutoScan, shouldAutoScanImageOcr } from '../../src/reader/app/main-helpers';

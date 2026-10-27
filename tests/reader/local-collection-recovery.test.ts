@@ -1,3 +1,4 @@
+import '../../src/reader/companions/register-build-companions';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { JPDBCard } from '../../src/reader/app/types';
 import { resetManagedStateEpochSessionsForTests } from '../../src/reader/app/managed-state-epoch';

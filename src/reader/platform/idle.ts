@@ -6,7 +6,7 @@ export function waitForIdle(timeoutMs = 75, fallbackDelayMs = 0): Promise<void> 
     });
 }
 
-export function scheduleIdleCallback(callback: () => void, timeoutMs = 75): boolean {
+function scheduleIdleCallback(callback: () => void, timeoutMs = 75): boolean {
     const requestIdleCallback = window.requestIdleCallback;
     if (typeof requestIdleCallback !== 'function') return false;
     requestIdleCallback.call(window, callback, { timeout: timeoutMs });

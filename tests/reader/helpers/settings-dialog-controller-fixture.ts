@@ -5,10 +5,7 @@ import type { SettingsDialogController as SettingsDialogControllerInstance } fro
 import { saveSettings } from '../../../src/reader/settings';
 import { testEnSettings } from './settings-fixture';
 
-export {
-    catalogBrowseLanguageSectionsForLearnerLanguage,
-    recommendedDictionariesForLearnerLanguage,
-} from '../../../src/reader/dictionaries/recommended';
+export { recommendedDictionariesForLearnerLanguage } from '../../../src/reader/dictionaries/recommended';
 
 // These tests assert English UI copy; pin the interface language since the
 // shipped default is now 'ja'.
@@ -96,7 +93,7 @@ const { SettingsDialogController } = await import('../../../src/reader/settings/
 // Same module instance the controller above resolved: opening a dialog probes
 // each aggregator audio URL once and memoizes it, so every test must start
 // without another test's cached (or still in-flight) probe.
-const { getAudioCandidates, resetAudioSubSourceDiscoveryForTests } =
+const { resetAudioSubSourceDiscoveryForTests } =
     await import('../../../src/reader/audio/candidates');
 
 type SettingsDialogControllerConstructor = new (
@@ -249,4 +246,4 @@ export function importSummary(dictionary: string) {
     };
 }
 
-export { getAudioCandidates };
+

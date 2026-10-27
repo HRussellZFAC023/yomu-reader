@@ -15,6 +15,8 @@ import {
     statsFromJpdbCards,
 } from '../../src/reader/app/stats';
 import type { JPDBCard } from '../../src/reader/app/types';
+import { renderNewTabStatsContent } from "../../src/reader/newtab/stats-view";
+import { emptyStatsSource, statsFromApiCards, type StatsCardBreakdown, type StatsDailyPoint, type StatsDashboardSnapshot, type StatsSourceSnapshot } from "../../src/reader/app/stats";
 
 function statsCard(overrides: Partial<JPDBCard>): JPDBCard {
     return {
@@ -297,5 +299,108 @@ describe('stats aggregation', () => {
         const forecastQueries = findCardsQueries.filter(query => query.includes('prop:due'));
         expect(forecastQueries).toHaveLength(2);
         expect(forecastQueries.every(query => query.includes('deck:"Core"') && query.includes('deck:"Anime::Subs"') && !query.includes('deck:"Mining"'))).toBe(true);
+    });
+});
+
+describe('Stats data availability', () => {
+    const EMPTY_CARDS: StatsCardBreakdown = {
+        total: 0, new: 0, learning: 0, review: 0, due: 0, failed: 0, known: 0, suspended: 0, ignored: 0,
+    };
+
+    // The chart windows the last 30 days relative to the real clock, so the
+    // fixture days must be derived from today to stay inside it.
+    function localDateKey(daysAgo: number): string {
+        const date = new Date();
+        date.setDate(date.getDate() - daysAgo);
+        const pad = (value: number): string => String(value).padStart(2, '0');
+        return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+    }
+
+    const ACTIVE_DAY = localDateKey(5);
+    const QUIET_DAY = localDateKey(4);
+
+    const DAILY: StatsDailyPoint[] = [
+        { date: ACTIVE_DAY, reviews: 3, correct: 3, failed: 0, newCards: 1, minutes: 5 },
+        { date: QUIET_DAY, reviews: 0, correct: 0, failed: 0, newCards: 0, minutes: 0 },
+    ];
+
+    function statsSource(id: StatsSourceSnapshot['id']): StatsSourceSnapshot {
+        return {
+            id,
+            label: String(id),
+            status: 'ready',
+            message: '',
+            daily: DAILY,
+            cards: { ...EMPTY_CARDS },
+            reviewsToday: 0,
+            totalReviews: 3,
+            retention: null,
+            currentStreak: 0,
+            longestStreak: 0,
+            updatedAt: null,
+        };
+    }
+
+    function snapshot(): StatsDashboardSnapshot {
+        return {
+            jpdb: statsSource('jpdb'),
+            jiten: statsSource('jiten'),
+            bunpro: statsSource('bunpro'),
+            wanikani: statsSource('wanikani'),
+            yomuLocal: statsSource('yomu-local'),
+            anki: statsSource('anki'),
+            combined: { ...statsSource('jpdb'), id: 'combined' },
+        };
+    }
+
+
+    it('keeps event reviews and distinct reviewed cards separate in All and source views', () => {
+        const state = snapshot();
+        const local = { ...statsFromApiCards([], 'Academy', '', 'yomu-local'), status: 'ready' as const, reviewedCardsToday: 1, cards: { ...EMPTY_CARDS, total: 1, learning: 1 } };
+        const remote = { ...statsSource('jpdb'), reviewsToday: 3, daily: [{ date: localDateKey(0), reviews: 3, correct: 2, failed: 1, newCards: 0, minutes: 1 }] };
+        state.yomuLocal = local;
+        state.jpdb = remote;
+        state.combined = combineStatsSources(local, remote);
+        expect(state.combined.reviewsToday).toBe(3);
+        expect(state.combined.reviewedCardsToday).toBe(1);
+        expect(state.combined.reviewHistoryAvailable).toBe(false);
+        const render = (selectedSource: 'combined' | 'jpdb' | 'yomu-local') => renderNewTabStatsContent({ activityMetric: 'reviews', language: 'en', selectedSource, snapshot: state, text: key => String(key) });
+        const all = render('combined');
+        const values = [...all.querySelectorAll('.jpdb-reader-stats-metric')].map(node => [node.querySelector('.jpdb-reader-stats-metric-label')?.textContent, node.querySelector('strong')?.textContent]);
+        expect(values).toEqual(expect.arrayContaining([['statsReviewsToday', '3'], ['statsWordsReviewedToday', '1']]));
+        expect(all.querySelector('.jpdb-reader-stats-activity')).toBeNull();
+        expect(all.textContent).not.toContain('statsRetention');
+        expect(all.textContent).not.toContain('statsCurrentStreak');
+        expect(render('jpdb').querySelector('.jpdb-reader-stats-activity')).not.toBeNull();
+        expect(render('yomu-local').querySelector('.jpdb-reader-stats-activity')).toBeNull();
+    });
+
+    it('does not let an empty or unavailable source suppress another source history', () => {
+        const remote = statsSource('jpdb');
+        const emptyLocal = statsFromApiCards([], 'Academy', '', 'yomu-local');
+        for (const other of [emptyLocal, emptyStatsSource('anki', 'Anki', '', 'setup'), emptyStatsSource('anki', 'Anki', 'Unavailable', 'error')]) {
+            expect(combineStatsSources(remote, other).reviewHistoryAvailable).toBe(true);
+        }
+    });
+
+    it('reads the selected WaniKani snapshot rather than the aggregate', () => {
+        const state = snapshot();
+        state.wanikani.reviewsToday = 7;
+        state.combined.reviewsToday = 2;
+        const root = renderNewTabStatsContent({ activityMetric: 'reviews', language: 'en', selectedSource: 'wanikani', snapshot: state, text: key => String(key) });
+        const today = [...root.querySelectorAll('.jpdb-reader-stats-metric')].find(node => node.querySelector('.jpdb-reader-stats-metric-label')?.textContent === 'statsReviewsToday');
+        expect(today?.querySelector('strong')?.textContent).toBe('7');
+    });
+
+    it('keeps source tabs when unavailable sources leave the aggregate empty', () => {
+        const state = snapshot();
+        for (const key of ['jpdb', 'jiten', 'bunpro', 'wanikani', 'yomuLocal', 'anki'] as const) {
+            state[key] = emptyStatsSource(state[key].id, state[key].label, 'Unavailable', 'error');
+        }
+        state.combined = combineStatsSources(state.jpdb, state.jiten, state.yomuLocal, state.bunpro, state.wanikani, state.anki);
+        const root = renderNewTabStatsContent({ activityMetric: 'reviews', language: 'en', selectedSource: 'wanikani', snapshot: state, text: key => String(key) });
+        expect(root.querySelector('[data-stats-source="combined"]')).not.toBeNull();
+        expect(root.querySelector('[data-stats-source="wanikani"][data-active="true"]')).not.toBeNull();
+        expect(root.querySelector('.jpdb-reader-stats-tabs')?.hasAttribute('hidden')).toBe(false);
     });
 });

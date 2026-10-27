@@ -1,3 +1,4 @@
+import '../../src/reader/companions/register-build-companions';
 // A content-page Reader that cannot read the learner's settings used to leave
 // nothing on the page: boot only console.errored, and the userscript menu was
 // registered after settings loaded, so it never appeared either. These cases

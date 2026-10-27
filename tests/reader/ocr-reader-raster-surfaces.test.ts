@@ -1,3 +1,4 @@
+import '../../src/reader/companions/register-build-companions';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { ImageOcrController } from '../../src/reader/ocr/controller';
@@ -891,6 +892,8 @@ describe('reader raster OCR surfaces', { timeout: 20_000 }, () => {
     });
 
     it('lets a delayed OCR response finish within the scan budget', async () => {
+        vi.useFakeTimers();
+
         stubLocation('viewer.bookwalker.jp');
         stubReadableCanvas();
         pageCounter('5/13');
@@ -964,6 +967,8 @@ describe('reader raster OCR surfaces', { timeout: 20_000 }, () => {
     }, 90_000);
 
     it('does not OCR a newly captured BookWalker frame before it has decoded', async () => {
+        vi.useFakeTimers();
+
         stubLocation('viewer.bookwalker.jp');
         stubTaintedCanvas();
         pageCounter('5/13');
@@ -985,7 +990,7 @@ describe('reader raster OCR surfaces', { timeout: 20_000 }, () => {
         try {
             dispatchCanvasPointer(canvas, 'pointerdown');
             await waitForExpect(() => expect(document.querySelector('.jpdb-ocr-canvas-frame')).not.toBeNull());
-            await new Promise(resolve => setTimeout(resolve, 80));
+            await vi.advanceTimersByTimeAsync(80);
             expect(recognizeImage).not.toHaveBeenCalled();
 
             const frame = document.querySelector<HTMLImageElement>('.jpdb-ocr-canvas-frame')!;
@@ -1561,6 +1566,8 @@ describe('reader raster OCR surfaces', { timeout: 20_000 }, () => {
     });
 
     it('keeps an empty BookWalker page terminal through size changes until manual retry', async () => {
+        vi.useFakeTimers();
+
         stubLocation('viewer.bookwalker.jp');
         stubReadableCanvas();
         pageCounter('6/13');
@@ -1602,7 +1609,7 @@ describe('reader raster OCR surfaces', { timeout: 20_000 }, () => {
             rect = new DOMRect(24, 20, 460, 610);
             controller.refresh();
 
-            await new Promise(resolve => setTimeout(resolve, 60));
+            await vi.advanceTimersByTimeAsync(60);
             expect(document.querySelector<HTMLImageElement>('.jpdb-ocr-canvas-frame')).toBe(terminalFrame);
             expect(recognizeImage).toHaveBeenCalledTimes(3);
             await waitForExpect(() => {
@@ -2186,6 +2193,8 @@ describe('reader raster OCR surfaces', { timeout: 20_000 }, () => {
     });
 
     it('does not scan incidental page images while repositioning BookWalker reader OCR on scroll', async () => {
+        vi.useFakeTimers();
+
         stubLocation('viewer.bookwalker.jp');
         stubTaintedCanvas();
         vi.stubGlobal('innerWidth', 1000);
@@ -2226,7 +2235,7 @@ describe('reader raster OCR surfaces', { timeout: 20_000 }, () => {
 
             imageComplete = true;
             document.dispatchEvent(new Event('scroll'));
-            await new Promise(resolve => setTimeout(resolve, 420));
+            await vi.advanceTimersByTimeAsync(420);
 
             expect(captureCanvasMirror).toHaveBeenCalledTimes(1);
             expect(recognizeImage).toHaveBeenCalledTimes(callsBeforeScroll);
@@ -2236,6 +2245,8 @@ describe('reader raster OCR surfaces', { timeout: 20_000 }, () => {
     });
 
     it('does not auto-scan decoded source images while a reader raster capture owns the page', async () => {
+        vi.useFakeTimers();
+
         stubLocation('viewer.bookwalker.jp');
         stubTaintedCanvas();
         vi.stubGlobal('innerWidth', 1000);
@@ -2278,7 +2289,7 @@ describe('reader raster OCR surfaces', { timeout: 20_000 }, () => {
             await waitForExpect(() => {
                 expect(document.querySelector<HTMLImageElement>('.jpdb-ocr-canvas-frame')).not.toBeNull();
             });
-            await new Promise(resolve => setTimeout(resolve, 1100));
+            await vi.advanceTimersByTimeAsync(1100);
             expect(recognizeImage.mock.calls.some(([image]) => image === incidental)).toBe(false);
             expect(document.querySelectorAll('.jpdb-ocr-video-frame-status')).toHaveLength(1);
         } finally {
@@ -2384,6 +2395,8 @@ describe('reader raster OCR surfaces', { timeout: 20_000 }, () => {
         ['google-lens', {}],
         ['cloud-vision', { ocrCloudVisionApiKey: 'test-key' }],
     ] as const)('never sends an unopted reader canvas to %s in the background, offering the tap hint instead', async (ocrProvider, providerSettings) => {
+        vi.useFakeTimers();
+
         // Image OCR is suppressed on this page, so a cloud provider must not
         // receive the page until the learner taps it; the once-per-site hint says so.
         stubLocation('hrussellzfac023.github.io');
@@ -2398,7 +2411,7 @@ describe('reader raster OCR surfaces', { timeout: 20_000 }, () => {
             await waitForExpect(() => {
                 expect(visibleCanvasTapHint()?.textContent).toContain('Tap or click the page to read it');
             });
-            await new Promise(resolve => setTimeout(resolve, 60));
+            await vi.advanceTimersByTimeAsync(60);
             expect(document.querySelector('.jpdb-ocr-canvas-frame')).toBeNull();
             expect(document.querySelector('.jpdb-ocr-video-frame-status:not(.jpdb-ocr-canvas-tap-hint)')).toBeNull();
             expect(capturePage).not.toHaveBeenCalled();
@@ -2424,17 +2437,19 @@ describe('reader raster OCR surfaces', { timeout: 20_000 }, () => {
         }],
         ['CSS background page', '.jpdb-ocr-background-frame', false, mokuroBackgroundPage],
     ] as const)('waits for a press, not a passing mouse, before sending a %s to the cloud', async (_kind, frame, hinted, mount) => {
+        vi.useFakeTimers();
+
         // The reader page fills the view, so a mouse crossing it is not the learner
         // choosing to upload it. Only a press (a tap or a click) reads it here.
         stubLocation('hrussellzfac023.github.io');
         const surface = mount();
         const controller = createController({ ocrProvider: 'cloud-vision', ocrCloudVisionApiKey: 'test-key' }, undefined, undefined, () => false);
         try {
-            await new Promise(resolve => setTimeout(resolve, 40));
+            await vi.advanceTimersByTimeAsync(40);
             dispatchPointer(surface, 'pointerover');
             dispatchPointer(surface, 'pointermove');
             dispatchPointer(surface, 'pointermove', 'pen');
-            await new Promise(resolve => setTimeout(resolve, 120));
+            await vi.advanceTimersByTimeAsync(120);
             expect(document.querySelector(frame)).toBeNull();
             expect(Boolean(visibleCanvasTapHint())).toBe(hinted);
 
@@ -2447,6 +2462,8 @@ describe('reader raster OCR surfaces', { timeout: 20_000 }, () => {
     });
 
     it('retires the tap hint when the learner reads the page with "Scan images"', async () => {
+        vi.useFakeTimers();
+
         stubLocation('hrussellzfac023.github.io');
         stubReadableCanvas();
         document.body.append(pageCanvas(24, 20));
@@ -2457,7 +2474,7 @@ describe('reader raster OCR surfaces', { timeout: 20_000 }, () => {
             controller.refresh({ userRequested: true });
             await waitForExpect(() => expect(document.querySelector('.jpdb-ocr-canvas-frame')).not.toBeNull());
             window.dispatchEvent(new Event('scroll'));
-            await new Promise(resolve => setTimeout(resolve, 320));
+            await vi.advanceTimersByTimeAsync(320);
 
             expect(document.querySelector('.jpdb-ocr-canvas-tap-hint')).toBeNull();
         } finally {
@@ -2466,13 +2483,15 @@ describe('reader raster OCR surfaces', { timeout: 20_000 }, () => {
     });
 
     it('offers no tap hint when a tap could not read the page', async () => {
+        vi.useFakeTimers();
+
         // Cloud Vision without a key has no recognizer, so the hint would promise nothing.
         stubLocation('hrussellzfac023.github.io');
         stubReadableCanvas();
         document.body.append(pageCanvas(24, 20));
         const controller = createController({ ocrProvider: 'cloud-vision', ocrCloudVisionApiKey: '' }, undefined, undefined, () => false);
         try {
-            await new Promise(resolve => setTimeout(resolve, 60));
+            await vi.advanceTimersByTimeAsync(60);
             expect(document.querySelector('.jpdb-ocr-canvas-tap-hint')).toBeNull();
         } finally {
             controller.destroy();
@@ -2480,6 +2499,8 @@ describe('reader raster OCR surfaces', { timeout: 20_000 }, () => {
     });
 
     it('keeps a dismissed tap hint away without reading the page', async () => {
+        vi.useFakeTimers();
+
         stubLocation('hrussellzfac023.github.io');
         // Yomu's own GM storage, where the hint remembers each site it has shown on.
         installGmStorageFixture();
@@ -2493,7 +2514,7 @@ describe('reader raster OCR surfaces', { timeout: 20_000 }, () => {
             expect(document.querySelector('.jpdb-ocr-canvas-tap-hint')).toBeNull();
 
             window.dispatchEvent(new Event('scroll'));
-            await new Promise(resolve => setTimeout(resolve, 320));
+            await vi.advanceTimersByTimeAsync(320);
             expect(document.querySelector('.jpdb-ocr-canvas-tap-hint')).toBeNull();
             expect(document.querySelector('.jpdb-ocr-canvas-frame')).toBeNull();
         } finally {
@@ -2503,7 +2524,7 @@ describe('reader raster OCR surfaces', { timeout: 20_000 }, () => {
         // A later visit to the same site does not show it again.
         const revisit = createController({}, undefined, undefined, () => false);
         try {
-            await new Promise(resolve => setTimeout(resolve, 60));
+            await vi.advanceTimersByTimeAsync(60);
             expect(document.querySelector('.jpdb-ocr-canvas-tap-hint')).toBeNull();
         } finally {
             revisit.destroy();
@@ -2543,6 +2564,8 @@ describe('reader raster OCR surfaces', { timeout: 20_000 }, () => {
     });
 
     it('never sends a page captured for the learner\'s own OCR service to a cloud provider they switch to', async () => {
+        vi.useFakeTimers();
+
         stubLocation('hrussellzfac023.github.io');
         stubReadableCanvas();
         document.body.append(pageCanvas(24, 20));
@@ -2563,7 +2586,7 @@ describe('reader raster OCR surfaces', { timeout: 20_000 }, () => {
             Object.defineProperty(frame!, 'naturalWidth', { value: 1200, configurable: true });
             Object.defineProperty(frame!, 'naturalHeight', { value: 1600, configurable: true });
             frame!.dispatchEvent(new Event('load'));
-            await new Promise(resolve => setTimeout(resolve, 160));
+            await vi.advanceTimersByTimeAsync(160);
 
             expect(recognizeImage).not.toHaveBeenCalled();
             expect(document.querySelector('.jpdb-ocr-line')).toBeNull();
@@ -2576,11 +2599,13 @@ describe('reader raster OCR surfaces', { timeout: 20_000 }, () => {
         ['local-service', '.jpdb-ocr-canvas-frame'],
         ['google-lens', '.jpdb-ocr-canvas-tap-hint:not([hidden])'],
     ] as const)('answers a reader canvas that mounts after startup on a page image OCR does not auto-scan (%s)', async (ocrProvider, expected) => {
+        vi.useFakeTimers();
+
         stubLocation('hrussellzfac023.github.io');
         stubReadableCanvas();
         const controller = createController({ ocrProvider }, undefined, undefined, () => false);
         try {
-            await new Promise(resolve => setTimeout(resolve, 20));
+            await vi.advanceTimersByTimeAsync(20);
             document.body.append(pageCanvas(24, 20));
 
             await waitForExpect(() => expect(document.querySelector(expected)).not.toBeNull());
@@ -2590,6 +2615,8 @@ describe('reader raster OCR surfaces', { timeout: 20_000 }, () => {
     });
 
     it('keeps a tapped CSS background page while the host loads media on a page image OCR does not auto-scan', async () => {
+        vi.useFakeTimers();
+
         // The tap already sent this page to the cloud provider. Dropping its frame
         // when an unrelated thumbnail loads, or on the next reader poll, discards
         // that result and makes the learner upload the same page again.
@@ -2597,7 +2624,7 @@ describe('reader raster OCR surfaces', { timeout: 20_000 }, () => {
         const page = mokuroBackgroundPage();
         const controller = createController({ ocrProvider: 'google-lens' }, undefined, undefined, () => false);
         try {
-            await new Promise(resolve => setTimeout(resolve, 20));
+            await vi.advanceTimersByTimeAsync(20);
             expect(document.querySelector('.jpdb-ocr-background-frame')).toBeNull();
 
             dispatchPointer(page, 'pointerdown');
@@ -2605,10 +2632,10 @@ describe('reader raster OCR surfaces', { timeout: 20_000 }, () => {
             const frame = document.querySelector('.jpdb-ocr-background-frame');
 
             document.body.append(Object.assign(document.createElement('img'), { src: 'https://example.test/thumb.jpg' }));
-            await new Promise(resolve => setTimeout(resolve, 200));
+            await vi.advanceTimersByTimeAsync(200);
             expect(document.querySelector('.jpdb-ocr-background-frame')).toBe(frame);
 
-            await new Promise(resolve => setTimeout(resolve, 1300));
+            await vi.advanceTimersByTimeAsync(1300);
             expect(document.querySelector('.jpdb-ocr-background-frame')).toBe(frame);
 
             // A page turn retires it; the next page waits for its own tap.
@@ -2620,6 +2647,8 @@ describe('reader raster OCR surfaces', { timeout: 20_000 }, () => {
     });
 
     it('does not auto-capture manual scanned PDF canvases but captures them after a tap', async () => {
+        vi.useFakeTimers();
+
         stubLocation('hrussellzfac023.github.io');
         stubReadableCanvas();
         const page = document.createElement('section');
@@ -2630,7 +2659,7 @@ describe('reader raster OCR surfaces', { timeout: 20_000 }, () => {
         document.body.append(page);
         const controller = createController();
         try {
-            await new Promise(resolve => setTimeout(resolve, 60));
+            await vi.advanceTimersByTimeAsync(60);
             expect(document.querySelector('.jpdb-ocr-canvas-frame')).toBeNull();
 
             dispatchCanvasPointer(canvas, 'pointerdown');
@@ -2691,6 +2720,8 @@ describe('reader raster OCR surfaces', { timeout: 20_000 }, () => {
     });
 
     it('does not OCR scrambled BookWalker source images when the rendered canvas is tainted', async () => {
+        vi.useFakeTimers();
+
         stubLocation('viewer.bookwalker.jp');
         const tainted = () => { throw new Error('The operation is insecure.'); };
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -2705,7 +2736,7 @@ describe('reader raster OCR surfaces', { timeout: 20_000 }, () => {
             const canvas = pageCanvas(20, 20);
             canvas.toDataURL = tainted; // tainted canvas: even toDataURL throws
             document.body.append(canvas);
-            await new Promise(resolve => setTimeout(resolve, 250));
+            await vi.advanceTimersByTimeAsync(250);
             expect(document.querySelector<HTMLImageElement>('.jpdb-ocr-canvas-frame')).toBeNull();
         } finally {
             entriesSpy.mockRestore();
@@ -2931,6 +2962,8 @@ describe('reader raster OCR surfaces', { timeout: 20_000 }, () => {
     });
 
     it('does not replace an automatic BookWalker page capture with a pointer-driven visible crop', async () => {
+        vi.useFakeTimers();
+
         stubLocation('viewer.bookwalker.jp');
         pageCounter('1 / 12');
         stubTaintedCanvas();
@@ -2947,7 +2980,7 @@ describe('reader raster OCR surfaces', { timeout: 20_000 }, () => {
             });
 
             dispatchCanvasPointer(canvas, 'pointermove');
-            await new Promise(resolve => window.setTimeout(resolve, 300));
+            await vi.advanceTimersByTimeAsync(300);
 
             expect(captureCanvasMirror).toHaveBeenCalledTimes(1);
             expect(document.querySelector<HTMLImageElement>('.jpdb-ocr-canvas-frame')?.dataset.ocrContentKey)
@@ -2958,6 +2991,8 @@ describe('reader raster OCR surfaces', { timeout: 20_000 }, () => {
     });
 
     it('does not drop a BookWalker canvas OCR frame before the frame image loads', async () => {
+        vi.useFakeTimers();
+
         stubLocation('viewer.bookwalker.jp');
         document.body.append(Object.assign(document.createElement('span'), {
             id: 'pageSliderCounter',
@@ -2988,7 +3023,7 @@ describe('reader raster OCR surfaces', { timeout: 20_000 }, () => {
             rect = new DOMRect(8000, 40, 400, 520);
             controller.refresh();
 
-            await new Promise(resolve => setTimeout(resolve, 80));
+            await vi.advanceTimersByTimeAsync(80);
             expect(document.querySelector<HTMLImageElement>('.jpdb-ocr-canvas-frame')).not.toBeNull();
         } finally {
             controller.destroy();
@@ -2996,6 +3031,8 @@ describe('reader raster OCR surfaces', { timeout: 20_000 }, () => {
     });
 
     it('keeps a manually requested BookWalker canvas OCR frame when auto-scan is gated off', async () => {
+        vi.useFakeTimers();
+
         stubLocation('viewer.bookwalker.jp');
         document.body.append(Object.assign(document.createElement('span'), {
             id: 'pageSliderCounter',
@@ -3026,7 +3063,7 @@ describe('reader raster OCR surfaces', { timeout: 20_000 }, () => {
 
             controller.refresh();
 
-            await new Promise(resolve => setTimeout(resolve, 80));
+            await vi.advanceTimersByTimeAsync(80);
             expect(document.querySelector<HTMLImageElement>('.jpdb-ocr-canvas-frame')).not.toBeNull();
         } finally {
             controller.destroy();
@@ -3126,6 +3163,8 @@ describe('reader raster OCR surfaces', { timeout: 20_000 }, () => {
     });
 
     it('never OCRs BookWalker raw background assets before its canvas becomes active', async () => {
+        vi.useFakeTimers();
+
         stubLocation('viewer.bookwalker.jp');
         const rawPage = document.createElement('div');
         rawPage.dataset.pageIndex = '6';
@@ -3134,7 +3173,7 @@ describe('reader raster OCR surfaces', { timeout: 20_000 }, () => {
         document.body.append(rawPage);
         const controller = createController();
         try {
-            await new Promise(resolve => window.setTimeout(resolve, 80));
+            await vi.advanceTimersByTimeAsync(80);
             expect(document.querySelector('.jpdb-ocr-background-frame')).toBeNull();
         } finally {
             controller.destroy();
@@ -3142,6 +3181,8 @@ describe('reader raster OCR surfaces', { timeout: 20_000 }, () => {
     });
 
     it('ignores BookWalker loadingImage assets that back the scrambled page canvas', async () => {
+        vi.useFakeTimers();
+
         stubLocation('viewer.bookwalker.jp');
         const image = document.createElement('img');
         image.className = 'loadingImage';
@@ -3158,7 +3199,7 @@ describe('reader raster OCR surfaces', { timeout: 20_000 }, () => {
         document.body.append(image);
         const controller = createController();
         try {
-            await new Promise(resolve => window.setTimeout(resolve, 80));
+            await vi.advanceTimersByTimeAsync(80);
             expect(document.querySelector('.jpdb-ocr-layer')).toBeNull();
         } finally {
             controller.destroy();
@@ -3303,6 +3344,8 @@ describe('reader raster OCR surfaces', { timeout: 20_000 }, () => {
     });
 
     it('commits one real mirror capture when the summary bridge is unavailable', async () => {
+        vi.useFakeTimers();
+
         stubLocation('viewer.bookwalker.jp');
         pageCounter('1 / 12');
         seedCanvasMirror({
@@ -3340,7 +3383,7 @@ describe('reader raster OCR surfaces', { timeout: 20_000 }, () => {
                 expect(document.querySelector('.jpdb-ocr-canvas-frame')).not.toBeNull();
             });
             expect(rebuilt?.dataset.yomuMirrorContentToken).toMatch(/^m:[a-z0-9]+$/);
-            await new Promise(resolve => window.setTimeout(resolve, 1250));
+            await vi.advanceTimersByTimeAsync(1250);
             expect(captureCanvasMirror).toHaveBeenCalledTimes(1);
         } finally {
             controller.destroy();
@@ -3348,6 +3391,8 @@ describe('reader raster OCR surfaces', { timeout: 20_000 }, () => {
     });
 
     it('bounds repeated commit-identity mismatches instead of rescanning forever', async () => {
+        vi.useFakeTimers();
+
         stubLocation('viewer.bookwalker.jp');
         pageCounter('1 / 12');
         stubTaintedCanvas();
@@ -3368,7 +3413,7 @@ describe('reader raster OCR surfaces', { timeout: 20_000 }, () => {
                 expect(document.querySelector<HTMLElement>('.jpdb-ocr-video-frame-status')?.dataset.status).toBe('failed');
             });
 
-            await new Promise(resolve => window.setTimeout(resolve, 1350));
+            await vi.advanceTimersByTimeAsync(1350);
             expect(captureCanvasMirror).toHaveBeenCalledTimes(3);
         } finally {
             controller.destroy();
@@ -3783,6 +3828,8 @@ describe('reader raster OCR surfaces', { timeout: 20_000 }, () => {
     });
 
     it('cancels a late capture when its canvas leaves the active BookWalker set', async () => {
+        vi.useFakeTimers();
+
         stubLocation('viewer.bookwalker.jp');
         pageCounter('15/180');
         stubTaintedCanvas();
@@ -3827,7 +3874,7 @@ describe('reader raster OCR surfaces', { timeout: 20_000 }, () => {
             });
 
             captureResolvers.get(first)?.(mirrorCanvas('LATE_INACTIVE_PAGE'));
-            await new Promise(resolve => window.setTimeout(resolve, 30));
+            await vi.advanceTimersByTimeAsync(30);
             expect(document.querySelector<HTMLImageElement>('.jpdb-ocr-canvas-frame')).toBeNull();
             expect(recognizeImage).not.toHaveBeenCalled();
 
@@ -4008,6 +4055,8 @@ describe('reader raster OCR surfaces', { timeout: 20_000 }, () => {
     // touch, WebKit can target the underlying canvas even with the OCR word on top,
     // so the guard checks the tap POINT (elementFromPoint), not just event.target.
     it('does NOT re-scan a tainted BookWalker canvas when the tap point is over an OCR overlay', async () => {
+        vi.useFakeTimers();
+
         stubLocation('viewer.bookwalker.jp');
         pageCounter('1 / 12');
         stubTaintedCanvas();
@@ -4031,7 +4080,7 @@ describe('reader raster OCR surfaces', { timeout: 20_000 }, () => {
                 button: { value: 0 }, pointerType: { value: 'touch' },
             });
             canvas.dispatchEvent(event);
-            await new Promise(resolve => setTimeout(resolve, 300));
+            await vi.advanceTimersByTimeAsync(300);
             expect(captureCanvasMirror).not.toHaveBeenCalled();
             expect(document.querySelector('.jpdb-ocr-canvas-frame')).toBeNull();
         } finally {

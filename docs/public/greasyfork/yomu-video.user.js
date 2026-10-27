@@ -5354,9 +5354,6 @@ const LEARNING_TARGET_ROSTER = Object.freeze([
   studyTargetReadiness: READING_ONLY_STUDY_TARGET_IDS.includes(language.id) ? "reading-only" : "planned"
   }))
 ]);
-Object.freeze(
-  LEARNER_LANGUAGES.map((language) => canonicalLanguageTag(language.runtimeLocale) ?? language.runtimeLocale)
-);
 function learningTargetRosterIdForTag(value) {
   const canonical = canonicalLanguageTag(value);
   if (languageSubtag(canonical) === SLICE1_TARGET_LANGUAGE) return SLICE1_TARGET_LANGUAGE;
@@ -7006,9 +7003,6 @@ const LOCALE_BY_KEY = new Map([
   if (!english) throw new Error("The interface manifest must always contain English");
   return english;
 })();
-Object.freeze(
-  INTERFACE_LOCALES.filter((locale) => locale.direction === "rtl")
-);
 Object.freeze(
   interfaceLocaleLedger.rtlGate.items.map(
   (item) => Object.freeze({ ...item })

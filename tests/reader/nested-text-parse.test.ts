@@ -1,3 +1,4 @@
+import '../../src/reader/companions/register-build-companions';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { canHoverLookupReaderWordElement, canLookupReaderWordElement } from '../../src/reader/app/dom-helpers';
@@ -5,6 +6,7 @@ import { collectFormControlTextTargetsIn, readerWordSurfaceText } from '../../sr
 import { applyNestedParsePlan, clearNestedParseLoadingKey, clearNestedParseState, nestedParseAlreadyScheduled, nestedTextParsePlan, providerExampleTextParsePlan } from '../../src/reader/lookup/nested-text-parse';
 import { DEFAULT_SETTINGS } from '../../src/reader/settings/index';
 import type { JPDBCard, JPDBToken } from '../../src/reader/app/types';
+import { collectFragmentTextTargetsIn, collectTextTargetsIn } from "../../src/reader/dom";
 
 function renderParseableSection(text: string): HTMLElement {
     document.body.innerHTML = `<section><p class="jpdb-reader-parseable">${text}</p></section>`;
@@ -359,3 +361,29 @@ function card(spelling: string, reading: string): JPDBCard {
         source: 'fallback',
     };
 }
+
+describe('reader interface annotation boundary', () => {
+    afterEach(() => document.body.replaceChildren());
+
+
+
+    it('keeps controls inside an owned shadow host out of both page collectors', () => {
+        const host = document.createElement('section');
+        host.dataset.jpdbReaderRoot = 'true';
+        document.body.append(host);
+        const shadow = host.attachShadow({ mode: 'open' });
+        shadow.innerHTML = '<div><h2>よむ 設定</h2><p>日本語の表示</p></div>';
+        expect(collectTextTargetsIn(shadow, 100, false)).toEqual([]);
+        expect(collectFragmentTextTargetsIn(shadow.querySelector('div')!, 100, false)).toEqual([]);
+    });
+
+    it('still parses dictionary content while leaving its source headings and controls alone', () => {
+        document.body.innerHTML = `<div class="jpdb-reader-popover" data-jpdb-reader-root="true">
+            <h2>よむ</h2><button>保存</button><details open>
+                <summary class="jpdb-reader-local-title" data-jpdb-reader-surface-ignore="true">日本語辞典</summary>
+                <p class="jpdb-reader-parseable">青空の下で本を読みます。</p>
+            </details></div>`;
+        const root = document.body.firstElementChild as HTMLElement;
+        expect(nestedTextParsePlan(root, 100)?.targets.map(target => target.text)).toEqual(['青空の下で本を読みます。']);
+    });
+});

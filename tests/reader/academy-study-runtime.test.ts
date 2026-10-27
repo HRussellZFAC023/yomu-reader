@@ -1,3 +1,4 @@
+import '../../src/reader/companions/register-build-companions';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { NewTabRuntime } from '../../src/reader/newtab/runtime';

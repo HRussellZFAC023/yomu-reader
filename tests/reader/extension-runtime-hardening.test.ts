@@ -22,6 +22,11 @@ import {
     unindentContentScriptBody,
 // @ts-expect-error The packaging hardener is a Node ESM script exercised directly by the build.
 } from '../../scripts/lib/extension-runtime-hardening.mjs';
+import { setImmediate as nextTurn } from "node:timers/promises";
+import { afterEach, vi } from "vitest";
+import { asyncGmGetValue, asyncGmListValues, asyncGmSetValue, asyncGmDeleteValue } from "../../src/reader/app/gm-storage-adapters";
+import { withGmStorageLeaseCore, withManagedStateEpochControlLeaseCore, type GmStorageLeaseBackend } from "../../src/reader/app/gm-storage-lease";
+import { compilerStorageBackgroundFixture } from "./helpers/compiler-storage-background";
 
 type CompilerMessage = { type: string; payload?: Record<string, unknown> };
 type CompilerMutation = { kind: 'set'; value: string } | { kind: 'delete' };
@@ -1083,5 +1088,177 @@ line two\`;
             safariManifest: { chrome_url_overrides: { newtab: 'newtab/index.html' } },
         });
         expect(preserved).toEqual(audit);
+    });
+});
+
+describe('extension authoritative storage reads', () => {
+
+
+    function deferred<T>() {
+        let resolve!: (value: T) => void;
+        const promise = new Promise<T>(done => { resolve = done; });
+        return { promise, resolve };
+    }
+
+    async function realm(values: Map<string, unknown>) {
+        const calls: string[] = [];
+        const root: Record<string, unknown> = { browser: { runtime: { sendMessage: async ({ type, payload }: { type: string; payload: Record<string, unknown> }) => {
+            calls.push(type);
+            const key = String(payload.name ?? '');
+            if (type === 'GM_getAllValues') return { values: Object.fromEntries(values) };
+            if (type === 'GM_getValue') return { value: structuredClone(values.has(key) ? values.get(key) : payload.defaultValue) };
+            if (type === 'GM_listValues') return { keys: [...values.keys()] };
+            if (type === 'GM_setValue') values.set(key, structuredClone(payload.value));
+            if (type === 'GM_deleteValue') values.delete(key);
+            return {};
+        } } } };
+        new Function('globalThis', hardenCompilerDurableStorage(generatedCompilerStorageSource()))(root);
+        await root.__USC_READY;
+        for (const key of ['GM', 'GM_getValue', 'GM_setValue', 'GM_deleteValue', 'GM_listValues']) vi.stubGlobal(key, root[key]);
+        const backend: GmStorageLeaseBackend = { getValue: asyncGmGetValue(), setValue: asyncGmSetValue(), deleteValue: asyncGmDeleteValue(), listValues: asyncGmListValues() };
+        return { root, backend, calls };
+    }
+
+    afterEach(() => { vi.unstubAllGlobals(); });
+
+
+    it('does not treat hydration or missed notifications as durable authority', async () => {
+        const values = new Map<string, unknown>([['preference', 'old']]);
+        const tab = await realm(values);
+        values.set('preference', 'new');
+        values.set('another-tab-claim', 'held');
+        expect(await tab.backend.getValue!('preference', null)).toBe('new');
+        expect(await tab.backend.listValues!()).toContain('another-tab-claim');
+        values.delete('preference');
+        expect(await tab.backend.getValue!('preference', 'absent')).toBe('absent');
+        expect(await tab.backend.listValues!()).not.toContain('preference');
+        expect(tab.calls).toContain('GM_getValue');
+        expect(tab.calls).toContain('GM_listValues');
+    });
+
+    it.each(['settings', 'epoch'] as const)('excludes a second %s lease even with all notifications withheld', async kind => {
+        const values = new Map<string, unknown>();
+        const a = await realm(values);
+        const b = await realm(values);
+        const entered = deferred<void>();
+        const release = deferred<void>();
+        const secondEntered = vi.fn();
+        const lease = (backend: GmStorageLeaseBackend, operation: () => Promise<void>) => kind === 'epoch'
+            ? withManagedStateEpochControlLeaseCore(operation, { backend })
+            : withGmStorageLeaseCore('reader-settings-persistence', operation, { pollMs: 1 }, {
+                backend, captureEpoch: async () => 1, assertMutationFence: async () => undefined, epochToken: String,
+            });
+        const first = lease(a.backend, async () => { entered.resolve(); await release.promise; });
+        await entered.promise;
+        const second = lease(b.backend, async () => { secondEntered(); });
+        await nextTurn();
+        await nextTurn();
+        try { expect(secondEntered).not.toHaveBeenCalled(); }
+        finally { release.resolve(); await Promise.all([first, second]); }
+        expect(secondEntered).toHaveBeenCalledOnce();
+        expect(values.size).toBe(0);
+    });
+});
+
+describe('compiler storage notification acknowledgements', () => {
+
+
+
+    type Listener = (message: unknown, sender: unknown, respond: (response: unknown) => void) => unknown;
+    const KEY = 'usc_storage_test_preference';
+    function deferred<T>() {
+        let resolve!: (value: T) => void;
+        const promise = new Promise<T>(done => { resolve = done; });
+        return { promise, resolve };
+    }
+
+    function background() {
+        const listeners: Listener[] = [];
+        const values: Record<string, unknown> = { [KEY]: 'before' };
+        const storage = {
+            get: vi.fn(async (key: string) => ({ [key]: values[key] })),
+            set: vi.fn(async (next: Record<string, unknown>) => { Object.assign(values, next); }),
+            remove: vi.fn(async (key: string) => { delete values[key]; }),
+        };
+        const tabs = {
+            query: vi.fn(async () => [{ id: 1 }, { id: 2 }]),
+            sendMessage: vi.fn((_id: number, _message: unknown): Promise<unknown> => Promise.resolve()),
+        };
+        const root = { browser: { runtime: { onMessage: { addListener: (listener: Listener) => listeners.push(listener) } }, storage: { local: storage }, tabs } };
+        new Function('globalThis', hardenExtensionBackgroundSource(compilerStorageBackgroundFixture()))(root);
+        const invoke = (type: string, value?: string) => new Promise<unknown>(resolve => {
+            expect(listeners[0]!({ channel: 'userscript-compiler', type, payload: { name: 'preference', value } }, { tab: { id: 1 } }, resolve)).toBe(true);
+        });
+        return { values, storage, tabs, invoke };
+    }
+
+
+    it.each(['GM_setValue', 'GM_deleteValue'])('acknowledges %s after dispatch without waiting for a recipient reply', async type => {
+        const host = background();
+        const stalled = deferred<void>();
+        host.tabs.sendMessage.mockImplementation(id => id === 2 ? stalled.promise : Promise.resolve());
+        const reply = vi.fn();
+        const mutation = host.invoke(type, 'after').then(reply);
+        await nextTurn();
+        try {
+            expect(host.values[KEY]).toBe(type === 'GM_setValue' ? 'after' : undefined);
+            expect(host.tabs.sendMessage.mock.calls.map(([id]) => id)).toEqual([1, 2]);
+            expect(reply).toHaveBeenCalledWith({});
+        } finally {
+            stalled.resolve();
+            await mutation;
+        }
+    });
+
+    it.each(['GM_setValue', 'GM_deleteValue'])('does not turn failed tab discovery into a failed %s', async type => {
+        const host = background();
+        host.tabs.query.mockRejectedValue(new Error('tabs unavailable'));
+        await expect(host.invoke(type, 'after')).resolves.toEqual({});
+        expect(host.values[KEY]).toBe(type === 'GM_setValue' ? 'after' : undefined);
+    });
+
+    it.each(['throw', 'reject'] as const)('continues dispatch after one recipient %ss', async failure => {
+        const host = background();
+        host.tabs.sendMessage.mockImplementation(id => {
+            if (id !== 1) return Promise.resolve();
+            if (failure === 'throw') throw new Error('tab closed');
+            return Promise.reject(new Error('tab closed'));
+        });
+        await expect(host.invoke('GM_setValue', 'after')).resolves.toEqual({});
+        expect(host.tabs.sendMessage.mock.calls.map(([id]) => id)).toEqual([1, 2]);
+    });
+
+    it.each(['GM_setValue', 'GM_deleteValue'])('still rejects a failed physical %s without dispatching a change', async type => {
+        const host = background();
+        if (type === 'GM_setValue') host.storage.set.mockRejectedValue(new Error('storage rejected'));
+        else host.storage.remove.mockRejectedValue(new Error('storage rejected'));
+        await expect(host.invoke(type, 'after')).resolves.toEqual({ error: 'storage rejected' });
+        expect(host.values[KEY]).toBe('before');
+        expect(host.tabs.query).not.toHaveBeenCalled();
+        expect(host.tabs.sendMessage).not.toHaveBeenCalled();
+    });
+
+    it('dispatches each awaited mutation before the next mutation can overtake it', async () => {
+        const host = background();
+        const discovery = deferred<Array<{ id: number }>>();
+        host.tabs.query.mockReturnValueOnce(discovery.promise);
+        const reply = vi.fn();
+        const first = host.invoke('GM_setValue', 'first').then(reply);
+        await nextTurn();
+        expect(reply).not.toHaveBeenCalled();
+        discovery.resolve([{ id: 1 }, { id: 2 }]);
+        await first;
+        expect(host.tabs.sendMessage).toHaveBeenCalledTimes(2);
+        await host.invoke('GM_setValue', 'second');
+        await host.invoke('GM_deleteValue');
+        expect(host.tabs.sendMessage.mock.calls.map(([id, message]) => [id, (message as { payload: unknown }).payload]))
+            .toEqual([
+                [1, { name: 'preference', oldValue: 'before', newValue: 'first' }],
+                [2, { name: 'preference', oldValue: 'before', newValue: 'first' }],
+                [1, { name: 'preference', oldValue: 'first', newValue: 'second' }],
+                [2, { name: 'preference', oldValue: 'first', newValue: 'second' }],
+                [1, { name: 'preference', oldValue: 'second', newValue: undefined }],
+                [2, { name: 'preference', oldValue: 'second', newValue: undefined }],
+            ]);
     });
 });
