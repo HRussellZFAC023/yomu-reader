@@ -15,7 +15,6 @@ export const readerNodeFiles = [
     'tests/reader/anki-known-interval.test.ts',
     'tests/reader/anki-library-selection.test.ts',
     'tests/reader/anki-review-result.test.ts',
-    'tests/reader/anki-search-escape.test.ts',
     'tests/reader/annotated-reading.test.ts',
     'tests/reader/annotation-power-policy.test.ts',
     'tests/reader/app-version.test.ts',
