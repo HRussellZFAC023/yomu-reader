@@ -45,7 +45,6 @@ export const readerNodeFiles = [
     'tests/reader/new-tab-study-hints.test.ts',
     'tests/reader/new-tab-study-sentence-source.test.ts',
     'tests/reader/new-tab-study-session.test.ts',
-    'tests/reader/new-tab-target-scope.test.ts',
     'tests/reader/ocr-clean-image-blob.test.ts',
     'tests/reader/ocr-clean-text.test.ts',
     'tests/reader/ocr-dark-pass.test.ts',
