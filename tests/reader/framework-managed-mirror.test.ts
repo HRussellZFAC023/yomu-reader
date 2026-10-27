@@ -207,6 +207,8 @@ describe('framework-managed chat mirror', () => {
     });
 
     it('drops a stale mirror when the host is recycled with different text', async () => {
+        vi.useFakeTimers();
+
         document.body.innerHTML = `<div data-message-author-role="assistant"><div id="host" class="markdown">${TEXT}</div></div>`;
         const host = document.getElementById('host')!;
         markReactOwned(host);
@@ -217,17 +219,19 @@ describe('framework-managed chat mirror', () => {
         // header became the composer row on iPad): the OLD mirror must not
         // keep painting over the new text once the rescan grace passes.
         host.firstChild!.textContent = '別の日本語テキスト';
-        await new Promise(resolve => setTimeout(resolve, 0));
+        await vi.advanceTimersByTimeAsync(0);
         // Inside the grace window the mirror survives (anti-flicker for
         // routine title re-renders that a rescan refreshes immediately).
         expect(host.querySelector('.jpdb-reader-text-mirror')).toBeTruthy();
 
-        await new Promise(resolve => setTimeout(resolve, STALE_MIRROR_REMOVAL_GRACE_MS + 150));
+        await vi.advanceTimersByTimeAsync(STALE_MIRROR_REMOVAL_GRACE_MS + 150);
         expect(host.querySelector('.jpdb-reader-text-mirror')).toBeNull();
         expect(host.style.getPropertyValue('visibility')).not.toBe('hidden');
     });
 
     it('keeps the mirror through re-renders when the host carries aria-hidden text', async () => {
+        vi.useFakeTimers();
+
         // The staleness baseline and the staleness check must read the host
         // through the same extractor: aria-hidden duplicate labels (YouTube
         // subscribe-button crossfades) are excluded from the check, so a
@@ -241,7 +245,7 @@ describe('framework-managed chat mirror', () => {
 
         // A routine framework re-render that does NOT change the visible text.
         (host.firstChild as Text).data = TEXT;
-        await new Promise(resolve => setTimeout(resolve, STALE_MIRROR_REMOVAL_GRACE_MS + 150));
+        await vi.advanceTimersByTimeAsync(STALE_MIRROR_REMOVAL_GRACE_MS + 150);
         expect(host.querySelector('.jpdb-reader-text-mirror')).toBeTruthy();
         expect(host.style.getPropertyValue('visibility')).not.toBe('hidden');
     });
