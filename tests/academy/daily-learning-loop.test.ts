@@ -1,12 +1,11 @@
-import {
-    projectDailyLearningRoute,
-    type CrossYomuEvidence,
-    type DailyLearningCandidate,
-    type DiegeticIncentive,
-} from '../../src/academy/domain/daily-learning-loop';
-import type { LearnerEvent } from '../../src/academy/domain/learner-record';
+import { projectDailyLearningRoute, type CrossYomuEvidence, type DailyLearningCandidate, type DiegeticIncentive, type DailyLearningRoute, type DailyRouteAction } from '../../src/academy/domain/daily-learning-loop';
+import { type LearnerEvent } from '../../src/academy/domain/learner-record';
+import { describe, expect, it, vi } from 'vitest';
+import { type AcademyLanguage } from '../../src/reader/app/academy-copy';
+import { renderDailyRoutePanel } from '../../src/academy/ui/daily-route-panel';
 
 const DAY = 86_400_000;
+
 const BOUNDARY = { timeZone: 'Europe/London', dayBoundaryHour: 4 } as const;
 
 describe('projectDailyLearningRoute', () => {
@@ -854,3 +853,78 @@ function closedDayEvent(eventId: string, at: number): Extract<LearnerEvent, { ki
         elapsedMs: 0,
     };
 }
+
+describe('daily-route-panel behavior', () => {
+    type IncentiveKind = DiegeticIncentive['kind'];
+    
+    describe('renderDailyRoutePanel', () => {
+    
+        it('delegates the exact clicked action object', () => {
+            const actions = [action('primary', 'source-unlock'), action('supporting', 'place-discovery')];
+            const onOpenAction = vi.fn();
+            const panel = renderPanel(dailyRoute(actions), 'en', onOpenAction);
+    
+            panel.querySelector<HTMLButtonElement>('[data-daily-action-id="supporting"]')!.click();
+    
+            expect(onOpenAction).toHaveBeenCalledOnce();
+            expect(onOpenAction.mock.calls[0]?.[0]).toBe(actions[1]);
+        });
+    });
+    
+    function renderPanel(
+        route: DailyLearningRoute,
+        language: AcademyLanguage = 'en',
+        onOpenAction = vi.fn(),
+    ): HTMLElement {
+        return renderDailyRoutePanel({ language, route, onOpenAction });
+    }
+    
+    function action(id: string, incentiveKind: IncentiveKind): DailyRouteAction {
+        return {
+            kind: 'lesson',
+            reason: 'next-grounded-lesson',
+            id,
+            label: `Continue ${id}`,
+            modeId: 'normal-challenge',
+            skill: 'reading',
+            format: 'reading',
+            conceptIds: [`concept:${id}`],
+            incentive: { kind: incentiveKind, id: `incentive:${id}` },
+            grounding: { sourceId: `source:${id}` },
+        };
+    }
+    
+    function dailyRoute(actions: readonly DailyRouteAction[], welcomeBack = false): DailyLearningRoute {
+        const [primaryAction, ...supportingActions] = actions;
+        if (!primaryAction) throw new Error('Test route needs a primary action.');
+        return {
+            primaryAction,
+            supportingActions,
+            earnedIncentives: [],
+            recovery: welcomeBack
+                ? {
+                      mode: 'welcome-back',
+                      missedDays: 3,
+                      message: 'Welcome back. Continue from where you left off.',
+                      rewardsPreserved: true,
+                      preservedAcademyRewardEventIds: ['journal:before-break'],
+                  }
+                : {
+                      mode: 'continue',
+                      missedDays: 0,
+                      message: 'Continue when you are ready.',
+                      rewardsPreserved: true,
+                      preservedAcademyRewardEventIds: [],
+                  },
+            motivation: {
+                anticipation: { actionId: primaryAction.id, message: 'Begin here.' },
+                competence: {
+                    basis: welcomeBack ? 'welcome-back' : 'ready',
+                    message: welcomeBack ? 'Everything already earned is still here.' : 'One step is enough.',
+                },
+                connection: null,
+                closure: { afterActionId: primaryAction.id, message: 'Close when ready.' },
+            },
+        };
+    }
+});
