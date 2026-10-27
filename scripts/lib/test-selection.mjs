@@ -1,6 +1,8 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import { createRequire } from 'node:module';
+import { fork } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
 
 // Import graphs do not describe filesystem reads, subprocesses or computed
 // imports. Their owning tests participate in EVERY changed-tree selection.
@@ -26,12 +28,32 @@ function hasUntrackedReads(source, ts) {
 export async function selectAffectedTests(root, changed, { config, createContext } = {}) {
     if (!changed.length) return { full: false, tests: [], reason: 'zero tests: no changed inputs since the full pass' };
     if (changed.some(file => !existsSync(join(root, file)))) return { full: true, reason: 'deleted input; previous dependency edges cannot be proved' };
+    if (createContext) return discover(root, changed, { config, createContext });
+    // Vite mutates NODE_ENV and loads config into Node's module cache. Give
+    // discovery its own process, and release its graph memory before testing.
+    return new Promise(resolve => {
+        const child = fork(fileURLToPath(import.meta.url), ['--discover'], { cwd: root, execArgv: [], stdio: ['ignore', 'ignore', 'pipe', 'ipc'] });
+        let result;
+        let diagnostic = '';
+        const timeout = setTimeout(() => { diagnostic = 'dependency discovery timed out'; child.kill(); }, 60_000);
+        child.stderr.on('data', chunk => { diagnostic = (diagnostic + chunk).slice(-4096); });
+        child.on('message', message => { result = message; });
+        child.on('error', error => { diagnostic = error.message; });
+        child.on('close', code => {
+            clearTimeout(timeout);
+            resolve(code === 0 && result ? result : { full: true, reason: `dependency discovery could not prove selection: ${diagnostic || `exit ${code}`}` });
+        });
+        child.send({ root, changed, config });
+    });
+}
+
+async function discover(root, changed, { config, createContext } = {}) {
     let ctx;
     try {
         const require = createRequire(join(root, 'package.json'));
         const ts = require('typescript');
         const create = createContext ?? (await import('vitest/node')).createVitest;
-        ctx = await create('test', { root, config, watch: false, isolate: true }, { envFile: false, server: { hmr: false } });
+        ctx = await create('test', { root, config, watch: false, isolate: true }, { envFile: false, server: { hmr: { port: 0 } } });
         const specs = await ctx.globTestFiles();
         const absoluteChanges = new Set(changed.map(file => join(root, file)));
         const safety = new Map();
@@ -73,4 +95,11 @@ export async function selectAffectedTests(root, changed, { config, createContext
     } finally {
         await ctx?.close();
     }
+}
+
+if (process.argv[2] === '--discover') {
+    process.once('message', async ({ root, changed, config }) => {
+        const result = await discover(root, changed, { config });
+        process.send(result, () => process.disconnect());
+    });
 }

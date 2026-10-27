@@ -23,11 +23,13 @@ function fixture(t, setup = true) {
 
 test('resolved setup aliases are shared inputs; ordinary imports select their test; unreferenced non-modules log zero', async t => {
     const { select } = fixture(t);
+    const nodeEnv = process.env.NODE_ENV;
     assert.equal((await select(['shared.ts'])).full, true);
     assert.deepEqual((await select(['a.ts'])).tests, ['a.test.ts']);
     const empty = await select(['unreferenced.txt']);
     assert.deepEqual(empty.tests, []);
     assert.match(empty.reason, /zero tests: no import dependants/);
+    assert.equal(process.env.NODE_ENV, nodeEnv, 'graph discovery must not mutate the gate environment');
 });
 
 test('filesystem readers and their importers always run for CSS, shipped JS and arbitrary dynamic read paths', async t => {
