@@ -66,6 +66,8 @@ export class PracticeSessionPanel {
         else await this.home();
     }
 
+    // NewTabController.leavePracticeSessions uses a stable local panel across await.
+    // fallow-ignore-next-line unused-class-member
     async pause(): Promise<boolean> {
         const session = this.session;
         if (session && session.view().status !== 'complete' && session.view().status !== 'paused') {
@@ -75,6 +77,8 @@ export class PracticeSessionPanel {
         return true;
     }
 
+    // Used on that same captured panel only after its durable pause succeeds.
+    // fallow-ignore-next-line unused-class-member
     hide(): void {
         this.visible = false;
         this.operation += 1;

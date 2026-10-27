@@ -2,6 +2,10 @@
   "$schema": "https://raw.githubusercontent.com/fallow-rs/fallow/main/schema.json",
   "entry": [
     "vite.config.ts",
+    // Vitest loads this workspace by its configured path; its default is an entry point.
+    "config/vite/reader-test.ts",
+    // esbuild namespace entry in scripts/locale-report.mjs; only its live API remains.
+    "src/reader/locales/index.ts",
     "config/vite/newtab.config.ts",
     "config/vite/greasyfork-library.config.ts",
     "config/vite/gaming.config.ts",
@@ -252,6 +256,11 @@
     "duplicate-exports": "off"
   },
   "ignoreExports": [
+    // Exact exports read from esbuild-generated modules by operational tooling.
+    { "file": "src/reader/app/i18n.ts", "exports": ["chromeMessageSource", "chromeMessageSourceForLocale"] },
+    { "file": "src/reader/app/site-nav.ts", "exports": ["hostedShellNavMarkup"] },
+    // scripts/layout-neutral-page-scan-smoke.mjs imports this in its browser probe.
+    { "file": "src/reader/app/visible-page-scanner.ts", "exports": ["pageScanHasVisibleAnnotations"] },
     {
       "file": "src/reader/cards/utils.ts",
       "exports": ["*"]
