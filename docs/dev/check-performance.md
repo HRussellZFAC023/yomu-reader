@@ -17,9 +17,9 @@ piped to `tail`, and this lane ran one heavy command at a time.
 | Merged G-01 + main baseline | 637.93 | 732 files; 9,679 passing cases |
 | Companion registration removed from shared setup | 414.77 | Same 732 files/cases |
 | Node-project introduction | 496.17 | Same coverage; host contention/batch composition changed |
-| Final pruning, consolidation, and speed-ups | 146.15 | 437 files; 8,343 passing cases |
+| Final pruning, consolidation, and extension-compatible speed-ups | 140.36 | 437 files; 8,343 passing cases; one skipped |
 
-The full run improved by 77.1% against this lane's measured baseline. The Node
+The full run improved by 78.0% against this lane's measured baseline. The Node
 step's full wall time regressed in its sample despite lower CPU time. A matched
 115-file/829-case sample took **25.57 s in jsdom and 11.30 s in Node**. That is
 the narrower evidence for its benefit, not a claim that every full run improved.
@@ -62,15 +62,63 @@ cached full results may be reused; CI disables stage skips and affected
 selection. Ordinary `check` retains its strict Academy stage. No browser smoke
 was added to the ordinary local gate.
 
-Full gate measurements and final validation are recorded below after execution.
+## Gate measurements and remaining work
 
-<!-- G-02a gate results -->
+| Command / state | Wall seconds | Result |
+| --- | ---: | --- |
+| `check:release`, sample before the extension parsing correction | 126.56 | PASS; fresh full Reader stage 121.83 s at eight workers |
+| `check -- --no-cache`, final full baseline preparation | 197.68 | FAIL; only the eight known Academy cases; Reader stage 140.23 s |
+| `check`, warm with no edit | 74.73 | FAIL; same Academy cases; Reader stage 16.58 s |
+| `check`, one Reader source edit | 118.98 | FAIL; same Academy cases; Reader stage 58.17 s |
+| `check`, one Reader test edit | 93.40 | FAIL; same Academy cases; Reader stage 30.40 s |
+
+The **under-60-second local-gate target was not met**. These are failed command
+wall times, not passing warm-gate results. Each failure roster matched
+`config/ci/academy-known-failures.json` exactly, with no additional failure keys:
+cast likeness status, class-path layout, and learning-voice provenance. Ordinary
+`check` remains strict; it does not accept the release/CI Academy baseline.
+Academy source and assertions were outside this Reader slice and were not
+weakened. The earlier G-01 report also had no passing ordinary-gate before
+measurement, so no before/after ordinary-gate speedup is claimed.
+
+The edit samples appended one blank line to
+`src/reader/newtab/speaking-score.ts` and
+`tests/reader/speaking-score.test.ts`, respectively, then restored the exact
+original bytes. The source sample passed all 56 Node files and 71 affected
+jsdom hosts (2,045 assertions); incremental typecheck took 38.78 s alongside
+builds. The Node-test edit selected no jsdom files, but Vitest still collected
+the jsdom graph to establish that result. That collection remains avoidable
+overhead for a future gate slice. Earlier post-prune samples, before the final
+extension parsing correction, were 71.14 / 116.81 / 91.13 s for the same three
+edits. The shared host's load average was 19.41 during that first series;
+comparisons remain sensitive to contention. Both series are retained locally.
+
+All required complexity, file-size, dead-code, smoke-workflow-coverage, and
+repository-hygiene ratchets passed. CI coverage accounts for all 808 test files,
+including all 437 Reader files and four workers. The default `fallow:audit`
+still exits 1: **43 complexity findings and 56 clone groups**, with no dead-code
+finding. That audit is broader than the passing ratchets and includes the
+branch diff from `origin/main`; it was not re-baselined or suppressed to pass.
+Reducing those remaining complexity/duplication findings and repairing the
+strict Academy failures remain undone.
+
+The final full Reader pass includes nine delayed-paint integration opt-ins
+found during gate verification. A missing-import probe also failed after the
+caller caught the original companion error, confirming the setup guard cannot
+silently fall back. Built Academy cache stamps were regenerated after the
+shared Reader API cleanup; no Academy behavior was changed.
 
 ## Settings opening and browser evidence
 
 The product change parses only the app's escaped, owned settings template
-without the general sanitizer passes. It retains Trusted Types conversion and
-private-control hydration while detached. Other HTML sinks keep sanitization.
+without the general sanitizer passes. It uses an inert DOMParser document,
+retains Trusted Types conversion, and hydrates private controls while detached.
+Other HTML sinks keep sanitization. A direct HTML assignment initially failed
+the Firefox package guard; the final parser path passes that guard and all 53
+settings-controller/HTML-helper cases. `npm run build:extension` passes for
+Chrome, Firefox, and Safari with compiler revision
+`52b7fe463ae503c294421752002da568472dfe4a`, installed inside this lane's ignored
+`tools/` directory. Package verification does not establish store/device acceptance.
 Localization reuses its name index for named-item lookup instead of repeatedly
 walking `form.elements`. `src/reader/dom/index.ts` projection was not changed.
 
@@ -84,8 +132,8 @@ real built Study assets routed at their production origin, with external
 services blocked and no user profile. Localhost correctly produced the
 no-input handoff; its trust restriction was retained. Five settings opens
 before and after retained **429 controls**, no serialized private tokens, no
-`未翻訳`, and no page errors. The first after sample's warm median was
-**48.6 ms**, versus **54.1 ms** before; first opens were 75.6 / 99.8 ms.
+`未翻訳`, and no page errors. The final parser path's warm median was
+**44.3 ms**, versus **54.1 ms** before; first opens were 74.3 / 99.8 ms.
 This is a small, load-sensitive DOM-opening sample, not visual acceptance.
 A Japanese-mode real Save showed `設定を保存しました。` and retained zero
 serialized tokens. No screenshots were added, and no production, store, or
@@ -148,13 +196,14 @@ Use Node 24:
 
 ```sh
 export PATH=/Users/heru/.nvm/versions/node/v24.16.0/bin:$PATH
-/usr/bin/time -p env YOMU_CI_MAX_WORKERS=6 npm run test:ci > artifacts/g-02a/reader-final.log 2>&1
+/usr/bin/time -p env YOMU_CI_MAX_WORKERS=6 npm run test:ci > artifacts/g-02a/reader-final-packaged.log 2>&1
 /usr/bin/time -p npm run check > artifacts/g-02a/check-warm.log 2>&1
 /usr/bin/time -p npm run check:release > artifacts/g-02a/check-release.log 2>&1
 ```
 
 Ignored evidence is under `artifacts/g-02a/`: `timings.json`, full/focused logs,
 Node classification, merge-host JSON results, binding audit, case trims,
-baseline subset proof, built-app DOM reports, and the final gate logs. These
+baseline subset proof, built-app DOM reports, and the final gate logs
+(`check-release-final.log` is the clean committed-tree release readback). These
 files are not committed. See `adr/0035-local-reader-gate-and-full-ci.md` for the decision and the
 full-CI backstop.

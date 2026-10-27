@@ -8,7 +8,7 @@ The local gate must give useful feedback within a minute for an ordinary edit.
 Starting a fresh browser environment and the complete companion graph for each
 small unit test made that impossible. A full Reader pass on this shared Mac took
 637.93 seconds at six workers. Consolidation and setup changes brought it to
-146.15 seconds, which remains too long to run on every edit.
+140.36 seconds, which remains too long to run on every edit.
 
 The owner's testing principle is E2E-first: exercise the built product on
 recorded real pages. Unit fixtures are useful for data integrity, authorization,
