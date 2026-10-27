@@ -11,6 +11,8 @@ import {
     registerSettingsFormCleanup,
     renderSettingsTestForm,
 } from './fixtures';
+import { CUSTOM_FONT_FAMILY_VALUE, expectFontFamilyOptions, installShortcutCapture, normalizeReaderSettings as normalizeReaderSettings2, optionText, renderSettingsForm } from "./fixtures";
+import { IMPORTED_ANKI_FIELD_MAPPINGS, ankiFieldRoleValue, parsedAnkiFieldMappingsValue, renderImportedAnkiFieldMappingsForm, savedAnkiFieldMappings } from "./fixtures";
 
 function changedKeys(before: ReaderSettings, after: ReaderSettings): string[] {
     return Object.keys(before).filter(key =>
@@ -211,3 +213,412 @@ function renderedSourceRowIds(settings: ReaderSettings): (string | undefined)[] 
     return Array.from(renderSettingsTestForm(settings).querySelectorAll<HTMLElement>('[data-definition-source-editor] [data-source-row]'))
         .map(row => row.dataset.sourceId);
 }
+
+describe('subtitle overlay visibility choices', () => {
+    registerSettingsFormCleanup();
+
+    it('shows the preferred reveal mode before an automatic native track is available', () => {
+        const form = renderSettingsTestForm({
+            ...DEFAULT_SETTINGS,
+            subtitleSecondaryVisible: false,
+            subtitleSecondaryVisibleChosen: false,
+            subtitleNativeBlurred: true,
+        });
+
+        expect(form.querySelector<HTMLSelectElement>('select[name="subtitleNativeDisplay"]')?.value).toBe('blurred');
+    });
+
+    it('remembers that the user chose "Hide completely" so an automatic track cannot re-enable it', () => {
+        const current = { ...DEFAULT_SETTINGS, subtitleSecondaryVisible: true, subtitleSecondaryVisibleChosen: false };
+        const form = renderSettingsTestForm(current);
+        form.querySelector<HTMLSelectElement>('select[name="subtitleNativeDisplay"]')!.value = 'hidden';
+
+        const saved = readFormSettings(new FormData(form), current);
+
+        expect(saved.subtitleSecondaryVisible).toBe(false);
+        expect(saved.subtitleSecondaryVisibleChosen).toBe(true);
+    });
+
+    it('stores the three native-translation choices without adding a duplicate mode key', () => {
+        const current = { ...DEFAULT_SETTINGS, subtitleSecondaryVisible: true, subtitleNativeBlurred: true };
+        const form = renderSettingsTestForm(current);
+        const mode = form.querySelector<HTMLSelectElement>('select[name="subtitleNativeDisplay"]')!;
+
+        mode.value = 'shown';
+        let saved = readFormSettings(new FormData(form), current);
+        expect(saved.subtitleSecondaryVisible).toBe(true);
+        expect(saved.subtitleNativeBlurred).toBe(false);
+
+        mode.value = 'blurred';
+        saved = readFormSettings(new FormData(form), current);
+        expect(saved.subtitleSecondaryVisible).toBe(true);
+        expect(saved.subtitleNativeBlurred).toBe(true);
+    });
+
+    it('clamps the persisted native subtitle concealment strength', () => {
+        const current = { ...DEFAULT_SETTINGS, subtitleNativeBlurStrength: 12 };
+        const form = renderSettingsTestForm(current);
+        form.querySelector<HTMLInputElement>('input[name="subtitleNativeBlurStrength"]')!.value = '99';
+
+        const saved = readFormSettings(new FormData(form), current);
+
+        expect(saved.subtitleNativeBlurStrength).toBe(20);
+    });
+
+    it('remembers an unchecked subtitle overlay the same way', () => {
+        const current = { ...DEFAULT_SETTINGS, subtitleOverlayVisible: true, subtitleOverlayVisibleChosen: false };
+        const form = renderSettingsTestForm(current);
+        form.querySelector<HTMLInputElement>('input[name="subtitleOverlayVisible"]')!.checked = false;
+
+        const saved = readFormSettings(new FormData(form), current);
+
+        expect(saved.subtitleOverlayVisible).toBe(false);
+        expect(saved.subtitleOverlayVisibleChosen).toBe(true);
+    });
+
+    it('leaves untouched overlay visibilities open to the automatic reveal', () => {
+        const current = { ...DEFAULT_SETTINGS, subtitleOverlayVisible: false, subtitleSecondaryVisible: false };
+        const form = renderSettingsTestForm(current);
+        form.querySelector<HTMLInputElement>('input[name="subtitleKaraokeMode"]')!.checked = false;
+
+        const saved = readFormSettings(new FormData(form), current);
+
+        expect(saved.subtitleKaraokeMode).toBe(false);
+        expect(saved.subtitleOverlayVisibleChosen).toBe(false);
+        expect(saved.subtitleSecondaryVisibleChosen).toBe(false);
+    });
+
+    it('keeps an earlier choice recorded when a later save does not touch the checkbox', () => {
+        const current = { ...DEFAULT_SETTINGS, subtitleSecondaryVisible: false, subtitleSecondaryVisibleChosen: true };
+        const form = renderSettingsTestForm(current);
+
+        const saved = readFormSettings(new FormData(form), current);
+
+        expect(saved.subtitleSecondaryVisible).toBe(false);
+        expect(saved.subtitleSecondaryVisibleChosen).toBe(true);
+    });
+});
+
+describe('settings form localization', () => {
+    const STATUS_COLOR_SOURCE_VALUES = ['status', 'jpdb', 'anki'] as const;
+
+    function statusColorSourceLabels(form: HTMLFormElement, name: string): string[] {
+        return STATUS_COLOR_SOURCE_VALUES.map(value => optionText(form, name, value));
+    }
+
+    function expectDistinctStatusColorSourceLabels(form: HTMLFormElement): void {
+        form.querySelectorAll<HTMLSelectElement>('select[name$="ColorSource"]').forEach(select => {
+            const labels = statusColorSourceLabels(form, select.name);
+            expect(new Set(labels).size, `${select.name} repeats a study-status label`).toBe(labels.length);
+        });
+    }
+
+
+    registerSettingsFormCleanup();
+
+    it('mirrors the hover lookup shortcut between Reader and Shortcuts', () => {
+        const form = document.createElement('form');
+        form.innerHTML = renderSettingsForm(DEFAULT_SETTINGS, 'https://jpdb.io/settings');
+        installShortcutCapture(form);
+
+        const hoverInputs = Array.from(form.querySelectorAll<HTMLInputElement>('input[name="shortcuts.hoverLookup"]'));
+        expect(hoverInputs).toHaveLength(2);
+
+        hoverInputs[1]!.dispatchEvent(new KeyboardEvent('keydown', {
+            key: 'H',
+            shiftKey: true,
+            bubbles: true,
+            cancelable: true,
+        }));
+
+        expect(hoverInputs.map(input => input.value)).toEqual(['Shift+H', 'Shift+H']);
+        expect(readFormSettings(new FormData(form), DEFAULT_SETTINGS).shortcuts.hoverLookup).toBe('Shift+H');
+
+        hoverInputs[0]!.dispatchEvent(new KeyboardEvent('keydown', {
+            key: 'Backspace',
+            bubbles: true,
+            cancelable: true,
+        }));
+
+        expect(hoverInputs.map(input => input.value)).toEqual(['', '']);
+        expect(readFormSettings(new FormData(form), {
+            ...DEFAULT_SETTINGS,
+            shortcuts: { ...DEFAULT_SETTINGS.shortcuts, hoverLookup: 'Shift+H' },
+        }).shortcuts.hoverLookup).toBe('');
+    });
+
+    it('uses one autoplay selector while preserving an old silent profile on Save', () => {
+        const current = { ...DEFAULT_SETTINGS, autoPlayAudio: false, audioAutoPlayMode: 'hover' as const };
+        const form = renderSettingsTestForm(current);
+        const select = form.querySelector<HTMLSelectElement>('select[name="audioAutoPlayMode"]')!;
+
+        expect(form.querySelector('input[name="autoPlayAudio"]')).toBeNull();
+        expect(form.querySelector('input[name="audioTimeoutMs"]')).toBeNull();
+        expect(form.querySelector('select[name="audioSelectionMode"]')).toBeNull();
+        expect(optionText(form, 'audioAutoPlayMode', 'off')).toBe('Off');
+        expect(select.disabled).toBe(false);
+        expect(select.value).toBe('off');
+        expect(readFormSettings(new FormData(form), current)).toMatchObject({ autoPlayAudio: false, audioAutoPlayMode: 'hover' });
+
+        for (const mode of ['all', 'hover', 'tap'] as const) {
+            select.value = mode;
+            expect(readFormSettings(new FormData(form), current)).toMatchObject({ autoPlayAudio: true, audioAutoPlayMode: mode });
+        }
+        select.value = 'off';
+        expect(readFormSettings(new FormData(form), DEFAULT_SETTINGS).autoPlayAudio).toBe(false);
+    });
+
+    it('uses zero to disable the example cap and keeps old capped backups editable', () => {
+        const current = { ...DEFAULT_SETTINGS, immersionKitLimitEnabled: true, immersionKitLimit: 3 };
+        const form = renderSettingsTestForm(current);
+        const count = form.querySelector<HTMLInputElement>('input[name="immersionKitLimit"]')!;
+        expect(form.querySelector('input[name="immersionKitLimitEnabled"]')).toBeNull();
+        expect(count.value).toBe('3');
+        expect(readFormSettings(new FormData(form), current)).toMatchObject({ immersionKitLimitEnabled: true, immersionKitLimit: 3 });
+        count.value = '0';
+        expect(readFormSettings(new FormData(form), current)).toMatchObject({ immersionKitLimitEnabled: false, immersionKitLimit: 3 });
+        count.value = '5';
+        expect(readFormSettings(new FormData(form), current)).toMatchObject({ immersionKitLimitEnabled: true, immersionKitLimit: 5 });
+        const uncapped = renderSettingsTestForm(DEFAULT_SETTINGS);
+        expect(uncapped.querySelector<HTMLInputElement>('input[name="immersionKitLimit"]')?.value).toBe('0');
+    });
+
+    it('removes redundant Kanji detail controls while preserving saved detail settings', () => {
+        const current = {
+            ...DEFAULT_SETTINGS,
+            kanjiOriginKanjiMapEnabled: false,
+            kanjiOriginGraphEnabled: false,
+            kanjiOriginRadicalImagesEnabled: false,
+        };
+        const form = renderSettingsTestForm(current);
+        const kanjiPanel = form.querySelector<HTMLElement>('#jpdb-reader-settings-panel-kanji')!;
+
+        expect(kanjiPanel.dataset.settingsPanel).toBe('dictionaries');
+        expect(kanjiPanel.textContent).not.toContain('Show kanji facts and component graph');
+        expect(kanjiPanel.textContent).not.toContain('Show component graph');
+        expect(kanjiPanel.textContent).not.toContain('Show radical images');
+        expect(kanjiPanel.textContent).not.toContain('Similar word limit');
+        expect(kanjiPanel.querySelector('input[name="similarKanjiWordLimit"]')).toBeNull();
+        expect(readFormSettings(new FormData(form), current)).toMatchObject({
+            kanjiOriginKanjiMapEnabled: false,
+            kanjiOriginGraphEnabled: false,
+            kanjiOriginRadicalImagesEnabled: false,
+        });
+    });
+
+    it('persists font presets, custom font stacks, pause panel, and navigation shortcuts', () => {
+        const form = document.createElement('form');
+        form.innerHTML = renderSettingsForm(DEFAULT_SETTINGS, 'https://jpdb.io/settings');
+        const readerFontFamily = form.querySelector<HTMLSelectElement>('select[name="readerFontFamily"]')!;
+        const customReaderFontFamily = form.querySelector<HTMLInputElement>('input[name="readerFontFamilyCustom"]')!;
+        const fontFamily = form.querySelector<HTMLSelectElement>('select[name="popupFontFamily"]')!;
+        const customFontFamily = form.querySelector<HTMLInputElement>('input[name="popupFontFamilyCustom"]')!;
+        const subtitleFontFamily = form.querySelector<HTMLSelectElement>('select[name="subtitleFontFamily"]')!;
+        const customSubtitleFontFamily = form.querySelector<HTMLInputElement>('input[name="subtitleFontFamilyCustom"]')!;
+        const fontWeight = form.querySelector<HTMLInputElement>('input[name="popupFontWeight"]')!;
+        const pausePanel = form.querySelector<HTMLInputElement>('input[name="subtitlePausePanel"]')!;
+        const shadowAutoPause = form.querySelector<HTMLInputElement>('input[name="subtitleShadowAutoPause"]')!;
+        const previousWord = form.querySelector<HTMLInputElement>('input[name="shortcuts.previousLookupWord"]')!;
+        const nextWord = form.querySelector<HTMLInputElement>('input[name="shortcuts.nextLookupWord"]')!;
+        const previousSubtitle = form.querySelector<HTMLInputElement>('input[name="shortcuts.previousSubtitle"]')!;
+        const nextSubtitle = form.querySelector<HTMLInputElement>('input[name="shortcuts.nextSubtitle"]')!;
+        const toggleSubtitles = form.querySelector<HTMLInputElement>('input[name="shortcuts.toggleSubtitleOverlay"]')!;
+
+        expect(readerFontFamily.value).toBe(DEFAULT_SETTINGS.readerFontFamily);
+        expect(fontFamily.value).toBe(DEFAULT_SETTINGS.popupFontFamily);
+        expectFontFamilyOptions(form, 'readerFontFamily', {
+            defaultLabel: 'Built-in font',
+            systemLabel: 'System UI',
+            customLabel: 'Custom...',
+            historicalLabel: 'Hiragino / Yu Gothic',
+            roundedLabel: 'Japanese rounded',
+        });
+        expectFontFamilyOptions(form, 'popupFontFamily', {
+            defaultLabel: 'Built-in font',
+            systemLabel: 'System UI',
+            customLabel: 'Custom...',
+            historicalLabel: 'Hiragino / Yu Gothic',
+            roundedLabel: 'Japanese rounded',
+        });
+        expectFontFamilyOptions(form, 'subtitleFontFamily', {
+            defaultLabel: 'Built-in font',
+            systemLabel: 'System UI',
+            customLabel: 'Custom...',
+            historicalLabel: 'Hiragino / Yu Gothic',
+            roundedLabel: 'Japanese rounded',
+        });
+        expect(subtitleFontFamily.value).toBe(DEFAULT_SETTINGS.subtitleFontFamily);
+        expect(fontWeight.value).toBe('450');
+        expect(pausePanel.checked).toBe(false);
+        expect(shadowAutoPause.checked).toBe(false);
+        expect(form.querySelector('select[name="subtitleTranscriptPlacement"]')).toBeNull();
+        expect(previousWord.value).toBe('Shift+ArrowLeft');
+        expect(nextWord.value).toBe('Shift+ArrowRight');
+        expect(previousSubtitle.value).toBe('A');
+        expect(nextSubtitle.value).toBe('D');
+        expect(DEFAULT_SETTINGS.shortcuts.toggleSubtitleOverlay).toBe('Shift+H');
+        expect(toggleSubtitles.value).toBe('Shift+H');
+
+        readerFontFamily.value = CUSTOM_FONT_FAMILY_VALUE;
+        customReaderFontFamily.value = '"Inter", system-ui, sans-serif';
+        fontFamily.value = CUSTOM_FONT_FAMILY_VALUE;
+        customFontFamily.value = '"Noto Sans JP", sans-serif';
+        subtitleFontFamily.value = CUSTOM_FONT_FAMILY_VALUE;
+        customSubtitleFontFamily.value = '"Yu Mincho", serif';
+        fontWeight.value = '420';
+        pausePanel.checked = true;
+        shadowAutoPause.checked = true;
+        previousWord.value = 'Alt+H';
+        nextWord.value = 'Alt+L';
+        previousSubtitle.value = 'Shift+A';
+        nextSubtitle.value = 'Shift+D';
+        toggleSubtitles.value = 'Ctrl+H';
+
+        const saved = readFormSettings(new FormData(form), { ...DEFAULT_SETTINGS, subtitleTranscriptPlacement: 'bottom' });
+
+        expect(saved.readerFontFamily).toBe('"Inter", system-ui, sans-serif');
+        expect(saved.popupFontFamily).toBe('"Noto Sans JP", sans-serif');
+        expect(saved.subtitleFontFamily).toBe('"Yu Mincho", serif');
+        expect(saved.popupFontWeight).toBe(420);
+        expect(saved.subtitlePausePanel).toBe(true);
+        expect(saved.subtitleShadowAutoPause).toBe(true);
+        expect(saved.subtitleTranscriptPlacement).toBe('bottom');
+        expect(saved.shortcuts.previousLookupWord).toBe('Alt+H');
+        expect(saved.shortcuts.nextLookupWord).toBe('Alt+L');
+        expect(saved.shortcuts.previousSubtitle).toBe('Shift+A');
+        expect(saved.shortcuts.nextSubtitle).toBe('Shift+D');
+        expect(saved.shortcuts.toggleSubtitleOverlay).toBe('Ctrl+H');
+    });
+
+    // Alt+Arrow was the default before 0.7.36; every record written since holds
+    // A/D or the learner's own keys, so a saved pair is never rewritten (ADR-0012).
+    it('keeps saved subtitle line shortcuts as chosen', () => {
+        const altArrows = normalizeReaderSettings2({
+            ...DEFAULT_SETTINGS,
+            shortcuts: {
+                ...DEFAULT_SETTINGS.shortcuts,
+                previousSubtitle: 'Alt+ArrowLeft',
+                nextSubtitle: 'Alt+ArrowRight',
+            },
+        });
+
+        expect(altArrows.shortcuts.previousSubtitle).toBe('Alt+ArrowLeft');
+        expect(altArrows.shortcuts.nextSubtitle).toBe('Alt+ArrowRight');
+
+        const customized = normalizeReaderSettings2({
+            ...DEFAULT_SETTINGS,
+            shortcuts: {
+                ...DEFAULT_SETTINGS.shortcuts,
+                previousSubtitle: 'Shift+A',
+                nextSubtitle: 'Shift+D',
+            },
+        });
+
+        expect(customized.shortcuts.previousSubtitle).toBe('Shift+A');
+        expect(customized.shortcuts.nextSubtitle).toBe('Shift+D');
+    });
+});
+
+describe('settings form localization', () => {
+    registerSettingsFormCleanup();
+
+    it('shows new-tab word-front sentences by default and persists the toggle', () => {
+        const form = document.createElement('form');
+        form.innerHTML = renderSettingsForm(DEFAULT_SETTINGS, 'https://jpdb.io/settings');
+        const toggle = form.querySelector<HTMLInputElement>('input[name="newTabFrontSentenceEnabled"]');
+
+        expect(DEFAULT_SETTINGS.newTabFrontSentenceEnabled).toBe(true);
+        expect(toggle?.checked).toBe(true);
+
+        toggle!.checked = false;
+
+        expect(readFormSettings(new FormData(form), DEFAULT_SETTINGS).newTabFrontSentenceEnabled).toBe(false);
+    });
+
+    it('keeps Anki new-tab sourcing separate from Anki mining', () => {
+        const form = document.createElement('form');
+        form.innerHTML = renderSettingsForm({ ...DEFAULT_SETTINGS, ankiEnabled: false }, 'https://jpdb.io/settings');
+        const newTabAnkiToggle = form.querySelector<HTMLInputElement>('input[name="newTabAnkiEnabled"]');
+        const ankiMiningToggle = form.querySelector<HTMLInputElement>('input[name="ankiEnabled"]');
+
+        expect(DEFAULT_SETTINGS.newTabAnkiEnabled).toBe(false);
+        expect(newTabAnkiToggle?.checked).toBe(false);
+        expect(ankiMiningToggle?.checked).toBe(false);
+
+        newTabAnkiToggle!.checked = true;
+
+        const saved = readFormSettings(new FormData(form), { ...DEFAULT_SETTINGS, ankiEnabled: false });
+        expect(saved.newTabAnkiEnabled).toBe(true);
+        expect(saved.ankiEnabled).toBe(false);
+    });
+
+    it('turns on the Anki popover source when Anki mining is enabled for the first time', () => {
+        const form = document.createElement('form');
+        form.innerHTML = renderSettingsForm(DEFAULT_SETTINGS, 'https://jpdb.io/settings');
+        const miningToggle = form.querySelector<HTMLInputElement>('input[name="ankiEnabled"]')!;
+        const sourceToggle = form.querySelector<HTMLInputElement>('input[name="ankiSection.enabled"]')!;
+
+        expect(sourceToggle.checked).toBe(false);
+        miningToggle.checked = true;
+
+        const saved = readFormSettings(new FormData(form), DEFAULT_SETTINGS);
+        expect(saved.ankiEnabled).toBe(true);
+        expect(saved.ankiSectionEnabled).toBe(true);
+    });
+
+    it('shows saved Anki new-tab deck skips without adding a second scan action', () => {
+        const form = document.createElement('form');
+        form.innerHTML = renderSettingsForm({
+            ...DEFAULT_SETTINGS,
+            newTabAnkiDisabledDecks: ['Archive', 'Old Mining'],
+        }, 'https://jpdb.io/settings');
+        const hidden = form.querySelector<HTMLInputElement>('input[name="newTabAnkiDisabledDecks"]');
+        const newTabPanel = form.querySelector<HTMLElement>('[data-settings-panel="newTab"]')!;
+        const deckControls = Array.from(newTabPanel.querySelectorAll<HTMLInputElement>('[data-newtab-anki-deck-toggle]'));
+
+        expect(hidden?.type).toBe('hidden');
+        expect(hidden?.value).toBe('Archive, Old Mining');
+        expect(newTabPanel.textContent).toContain('Anki review decks');
+        expect(newTabPanel.textContent).not.toContain('Scan Anki to load deck toggles');
+        expect(newTabPanel.querySelector<HTMLElement>('[data-newtab-anki-decks]')?.hidden).toBe(false);
+        expect(deckControls.map(input => input.dataset.newtabAnkiDeck)).toEqual(['Archive', 'Old Mining']);
+        expect(deckControls.map(input => input.checked)).toEqual([false, false]);
+        expect(newTabPanel.querySelector('[data-action="scan-anki"]')).toBeNull();
+
+        hidden!.value = 'Archive';
+        const saved = readFormSettings(new FormData(form), DEFAULT_SETTINGS);
+
+        expect(saved.newTabAnkiDisabledDecks).toEqual(['Archive']);
+    });
+
+    it('stores parent Anki deck skips without duplicating skipped subdecks', () => {
+        const form = document.createElement('form');
+        form.innerHTML = renderSettingsForm({
+            ...DEFAULT_SETTINGS,
+            newTabAnkiDisabledDecks: ['Japanese::Old', 'Japanese', 'Archive'],
+        }, 'https://jpdb.io/settings');
+        const hidden = form.querySelector<HTMLInputElement>('input[name="newTabAnkiDisabledDecks"]');
+        const deckControls = Array.from(form.querySelectorAll<HTMLInputElement>('[data-newtab-anki-deck-toggle]'));
+
+        expect(hidden?.value).toBe('Japanese, Archive');
+        expect(deckControls.map(input => input.dataset.newtabAnkiDeck)).toEqual(['Japanese', 'Archive']);
+        expect(deckControls.map(input => input.checked)).toEqual([false, false]);
+
+        const saved = readFormSettings(new FormData(form), DEFAULT_SETTINGS);
+        expect(saved.newTabAnkiDisabledDecks).toEqual(['Japanese', 'Archive']);
+    });
+
+    it('round-trips scanned Anki field mappings through the settings form', () => {
+        const form = renderImportedAnkiFieldMappingsForm();
+
+        expect(parsedAnkiFieldMappingsValue(form)).toEqual(IMPORTED_ANKI_FIELD_MAPPINGS);
+        expect(form.querySelector<HTMLElement>('[data-anki-library-adapter]')?.textContent).toContain('Existing library adapter');
+        expect(form.querySelector<HTMLElement>('[data-anki-library-choices-title]')?.textContent).toBe('Deck and note type');
+        expect(form.querySelector<HTMLElement>('[data-anki-template-settings-title]')?.textContent).toBe('Yomu card template');
+        expect(ankiFieldRoleValue(form, 'expression')).toBe('Headword');
+        expect(ankiFieldRoleValue(form, 'reading')).toBe('Kana');
+        expect(ankiFieldRoleValue(form, 'meaning')).toBe('Glossary');
+
+        expect(savedAnkiFieldMappings(form)).toEqual(IMPORTED_ANKI_FIELD_MAPPINGS);
+    });
+});
