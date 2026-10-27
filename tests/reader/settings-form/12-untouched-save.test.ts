@@ -165,21 +165,41 @@ describe('a settings checkbox flipped before Save', () => {
     });
 
     it('saves every boolean setting checkbox in both directions', () => {
-        const defaults = renderSettingsTestForm(DEFAULT_SETTINGS);
-        const keys = [...new Set(Array.from(defaults.querySelectorAll<HTMLInputElement>('input[type="checkbox"][name]'), box => box.name))]
+        const first = renderSettingsTestForm(DEFAULT_SETTINGS);
+        const keys = [...new Set(Array.from(first.querySelectorAll<HTMLInputElement>('input[type="checkbox"][name]'), box => box.name))]
             .filter((name): name is BooleanSettingKey => typeof DEFAULT_SETTINGS[name as keyof ReaderSettings] === 'boolean');
         expect(keys.length).toBeGreaterThan(60);
-
-        const lost = keys.flatMap(key => [DEFAULT_SETTINGS[key], !DEFAULT_SETTINGS[key]].flatMap(stored => {
-            const current = { ...DEFAULT_SETTINGS, [key]: stored };
-            const form = stored === DEFAULT_SETTINGS[key] ? defaults : renderSettingsTestForm(current);
-            const box = form.querySelector<HTMLInputElement>(`input[type="checkbox"][name="${key}"]`)!;
-            box.checked = !stored;
-            const saved = readFormSettings(new FormData(form), current)[key];
-            box.checked = stored;
-            return saved === !stored ? [] : [`${key}: ${stored} -> ${!stored} saved ${saved}`];
-        }));
-
+        const flipped = { ...DEFAULT_SETTINGS };
+        for (const key of keys) flipped[key] = !DEFAULT_SETTINGS[key];
+        const second = renderSettingsTestForm(flipped);
+        const conditional = new Set<BooleanSettingKey>([
+            'jpdbPageWordEnhancementsEnabled', 'jpdbPageKanjiEnhancementsEnabled',
+            'immersionKitRevealTranslationOnClick',
+        ]);
+        const lost: string[] = [];
+        for (const [current, form] of [[DEFAULT_SETTINGS, first], [flipped, second]] as const) {
+            for (const key of keys) {
+                form.querySelector<HTMLInputElement>(`input[type="checkbox"][name="${key}"]`)!.checked = !current[key];
+            }
+            const saved = readFormSettings(new FormData(form), current);
+            for (const key of keys) {
+                if (!conditional.has(key) && saved[key] !== !current[key]) lost.push(`${key}: ${current[key]} -> ${!current[key]} saved ${saved[key]}`);
+            }
+        }
+        // A bulk flip can disable a parent. Check its dependent choices with
+        // the original parent configuration, reusing the first rendered form.
+        for (const key of keys) {
+            first.querySelector<HTMLInputElement>(`input[type="checkbox"][name="${key}"]`)!.checked = DEFAULT_SETTINGS[key];
+        }
+        for (const key of conditional) {
+            const box = first.querySelector<HTMLInputElement>(`input[type="checkbox"][name="${key}"]`)!;
+            for (const stored of [DEFAULT_SETTINGS[key], !DEFAULT_SETTINGS[key]]) {
+                box.checked = !stored;
+                const saved = readFormSettings(new FormData(first), { ...DEFAULT_SETTINGS, [key]: stored });
+                if (saved[key] !== !stored) lost.push(`${key}: ${stored} -> ${!stored} saved ${saved[key]}`);
+            }
+            box.checked = DEFAULT_SETTINGS[key];
+        }
         expect(lost).toEqual([]);
     });
 });
@@ -300,18 +320,6 @@ describe('subtitle overlay visibility choices', () => {
 });
 
 describe('settings form localization', () => {
-    const STATUS_COLOR_SOURCE_VALUES = ['status', 'jpdb', 'anki'] as const;
-
-    function statusColorSourceLabels(form: HTMLFormElement, name: string): string[] {
-        return STATUS_COLOR_SOURCE_VALUES.map(value => optionText(form, name, value));
-    }
-
-    function expectDistinctStatusColorSourceLabels(form: HTMLFormElement): void {
-        form.querySelectorAll<HTMLSelectElement>('select[name$="ColorSource"]').forEach(select => {
-            const labels = statusColorSourceLabels(form, select.name);
-            expect(new Set(labels).size, `${select.name} repeats a study-status label`).toBe(labels.length);
-        });
-    }
 
 
     registerSettingsFormCleanup();
