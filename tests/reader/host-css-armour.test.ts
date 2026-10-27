@@ -76,6 +76,17 @@ describe('host CSS armour', () => {
         expect(conflicts).toEqual([]);
     });
 
+    it('keeps bulk style writes off annotation shells, where the check above cannot see them', () => {
+        // Object.assign(word.style, {...}) hid a width/height write from that check, and
+        // the layered reset silently resized the desktop overlay's provider-pinned words.
+        // An owner that must size a word writes it with `important` priority instead
+        // (gaming/renderer/ocr-lines.ts pinWordBox), which outranks the reset.
+        const bulkWriters = runtimeSources()
+            .filter(({ source }) => /Object\.assign\(\s*(?:word|base|run|span)\.style\b/u.test(source))
+            .map(({ file }) => path.relative(SRC_ROOT, file));
+        expect(bulkWriters).toEqual([]);
+    });
+
     it('mirrors a Yomu paint declaration into a cascade layer as !important', () => {
         const armour = hostCssArmour('.jpdb-reader-fab{border-radius:50%;background:#f4f7fa;color:#17202a;padding:6px}');
         expect(armour).toContain(`@layer ${ARMOUR_STRONG_LAYER},${ARMOUR_LAYER};`);

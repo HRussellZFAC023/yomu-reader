@@ -548,6 +548,48 @@ describe('Yomu Gaming anchors OCR lines to the capture, not to the window', () =
     });
 });
 
+describe('Yomu Gaming pins each looked-up word to the provider box it came from', () => {
+    // One provider word over the whole line; the tokenizer splits it 2 + 3 glyphs.
+    // The word markup is what normalizeOcrRenderedText() leaves when page scanners are
+    // isolated: glyphs live in data-yomu-ocr-visual-text, not in text nodes.
+    function providerWordLayer(): HTMLElement {
+        const host = document.createElement('div');
+        const box = {
+            left: LINE_BOX.left / FRAME.imageWidth,
+            top: LINE_BOX.top / FRAME.imageHeight,
+            width: LINE_BOX.width / FRAME.imageWidth,
+            height: LINE_BOX.height / FRAME.imageHeight,
+        };
+        host.innerHTML = overlayNormalizedOcrLayerHtml([{ text: LINE_TEXT, box, vertical: false, words: [{ text: LINE_TEXT, box }] }]);
+        ocrLineText(host).innerHTML = ['港へ', '行くよ'].map(text => '<span class="jpdb-reader-word">'
+            + `<span class="jpdb-ocr-visual-text" data-yomu-ocr-visual-text="${text}" aria-hidden="true"></span></span>`).join('');
+        return host;
+    }
+
+    it('sizes the hit target with an inline !important the reader’s layered box reset cannot outrank', () => {
+        const host = providerWordLayer();
+        layoutOverlayOcrLines(host, FRAME);
+
+        // annotation-box-armour.ts resets every .jpdb-reader-word to width/height auto
+        // with a layered !important. A plain inline size loses to it, and the desktop
+        // smoke measured 4–7px of drift between the provider box and the target.
+        const glyph = LINE_BOX.width / [...LINE_TEXT].length;
+        const expected = [
+            { left: LINE_BOX.left, top: LINE_BOX.top, width: glyph * 2, height: LINE_BOX.height },
+            { left: LINE_BOX.left + glyph * 2, top: LINE_BOX.top, width: glyph * 3, height: LINE_BOX.height },
+        ];
+        const words = [...host.querySelectorAll<HTMLElement>('.jpdb-reader-word')];
+        expect(words).toHaveLength(expected.length);
+        words.forEach((word, index) => {
+            expect(word.style.position).toBe('absolute');
+            for (const [property, value] of Object.entries(expected[index])) {
+                expect(word.style.getPropertyPriority(property), property).toBe('important');
+                expect(Number.parseFloat(word.style.getPropertyValue(property)), property).toBeCloseTo(value, 6);
+            }
+        });
+    });
+});
+
 describe('OCR line frame', () => {
     it('reserves paint room for pitch underlines in small horizontal line frames', () => {
         const placed = ocrLineFrame({
