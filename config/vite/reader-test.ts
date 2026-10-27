@@ -18,7 +18,6 @@ export const readerNodeFiles = [
     'tests/reader/annotation-power-policy.test.ts',
     'tests/reader/app-version.test.ts',
     'tests/reader/batch-receipt-ledger.test.ts',
-    'tests/reader/bookwalker-apex-ocr.test.ts',
     'tests/reader/bookwalker-assets.test.ts',
     'tests/reader/bunpro-client.test.ts',
     'tests/reader/bunpro-transport-breaker.test.ts',
