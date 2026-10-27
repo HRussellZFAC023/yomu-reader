@@ -1,8 +1,4 @@
-import type {
-  N3SourceOpeningSourceRecord,
-  N3SourceOpeningStage,
-  N3SourceOpeningStageProvenance,
-} from "./types";
+import type { N3SourceOpeningSourceRecord, N3SourceOpeningStage, N3SourceOpeningStageProvenance } from "./types";
 
 const N3_SOURCE_OPENING_TRANCHE_ID = "n3-source-opening-v1" as const;
 const N3_SOURCE_OPENING_SOURCE_RECORD =
@@ -295,7 +291,7 @@ export const N3_SOURCE_OPENING_ECO_READING = Object.freeze({
   ]),
 });
 
-export const N3_SOURCE_OPENING_ITEM_HASHES = Object.freeze({
+const N3_SOURCE_OPENING_ITEM_HASHES = Object.freeze({
   townFlow: "14b864410c6472b054b967c2a275bdd0b80080c7d537c488f97ce167ba63be2e",
   tobiraEvidence:
     "1a34a572bb8fb3e5c387b3bdc3a24a47a207cbae08f91e8fe394ed2dcbc41c46",
@@ -349,18 +345,6 @@ export const N3_SOURCE_OPENING_STAGE_PROVENANCE: Readonly<
     N3_SOURCE_OPENING_ITEM_HASHES.ecoReading,
   ),
 });
-
-export function canonicalN3SourceOpeningTownFlowPayload(): string {
-  return `${JSON.stringify(N3_SOURCE_OPENING_TOWN_FLOW_ITEMS)}\n`;
-}
-
-export function canonicalN3SourceOpeningTobiraEvidencePayload(): string {
-  return `${JSON.stringify({ media: N3_SOURCE_OPENING_TOBIRA_MEDIA, evidence: N3_SOURCE_OPENING_TOBIRA_EVIDENCE })}\n`;
-}
-
-export function canonicalN3SourceOpeningEcoReadingPayload(): string {
-  return `${JSON.stringify(N3_SOURCE_OPENING_ECO_READING)}\n`;
-}
 
 function source(
   record: N3SourceOpeningSourceRecord,

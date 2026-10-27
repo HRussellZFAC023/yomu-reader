@@ -1,40 +1,7 @@
-import {
-    ACADEMY_ASSESSED_ANSWER_SUPPORT,
-    createActivityRuntime,
-    type ActivityController,
-    type ActivityEvaluation,
-    type ActivityHost,
-    type ActivityPlugin,
-    type GradeResult,
-    type ReviewSeed,
-    type ValidationIssue,
-} from '../../domain/activity-runtime';
-import {
-    assessedJapanese,
-    japanese,
-    localized,
-    localizedNodes,
-    setPending,
-    showEvaluation,
-    statusRegion,
-    text,
-    validateFeedback,
-    validatePassScore,
-} from '../../minigames/activity-kit/shared';
-import {
-    N1_OPENING_SEQUENCE_AUTHORED,
-    N1_OPENING_SEQUENCE_DELIVERED_SOURCE,
-    N1_OPENING_SEQUENCE_PROVENANCE,
-} from './source';
-import {
-    N1_OPENING_SEQUENCE_ACTIVITY_KIND,
-    type N1OpeningSequenceModality,
-    type N1OpeningSequenceModel,
-    type N1OpeningSequenceProductionCheckResult,
-    type N1OpeningSequenceQuestion,
-    type N1OpeningSequenceResponse,
-    type N1OpeningSequenceStimulusRole,
-} from './types';
+import { ACADEMY_ASSESSED_ANSWER_SUPPORT, type ActivityController, type ActivityEvaluation, type ActivityHost, type ActivityPlugin, type GradeResult, type ReviewSeed, type ValidationIssue } from '../../domain/activity-runtime';
+import { assessedJapanese, japanese, localized, localizedNodes, setPending, showEvaluation, statusRegion, text, validateFeedback, validatePassScore } from '../../minigames/activity-kit/shared';
+import { N1_OPENING_SEQUENCE_AUTHORED, N1_OPENING_SEQUENCE_DELIVERED_SOURCE, N1_OPENING_SEQUENCE_PROVENANCE } from './source';
+import { N1_OPENING_SEQUENCE_ACTIVITY_KIND, type N1OpeningSequenceModality, type N1OpeningSequenceModel, type N1OpeningSequenceProductionCheckResult, type N1OpeningSequenceQuestion, type N1OpeningSequenceResponse, type N1OpeningSequenceStimulusRole } from './types';
 
 const TOTAL_CHECKS = 15;
 const MODALITY_QUESTION_COUNTS: Readonly<Record<N1OpeningSequenceModality, number>> = Object.freeze({
@@ -60,16 +27,12 @@ export const n1OpeningSequencePlugin: ActivityPlugin<N1OpeningSequenceModel, N1O
     toReviewSeeds: n1OpeningSequenceReviewSeeds,
 };
 
-export function createN1OpeningSequenceRuntime() {
-    return createActivityRuntime([n1OpeningSequencePlugin]);
-}
-
 /**
  * Deterministic constrained production checks. Intentionally NOT
  * normalizeJapanese: length counts NFKC code points minus whitespace only, and
  * marker matching runs on NFKC text with punctuation intact.
  */
-export function evaluateN1OpeningSequenceProduction(
+function evaluateN1OpeningSequenceProduction(
     model: N1OpeningSequenceModel,
     production: string,
 ): readonly N1OpeningSequenceProductionCheckResult[] {

@@ -8,14 +8,6 @@ export const N2_EXTENSIVE_READING_SOURCE_PARAGRAPHS = Object.freeze([
     'もちろん、どのような場面でもスラングを使ってよいというわけではない。ビジネスや公的な場では、相手に敬意を払い、誤解を与えない正確な表現を用いる必要がある。しかし、日常会話の中で新しい言葉が生まれ、コミュニケーションの潤滑油として機能すること自体を否定すべきではない。言葉の変化を「乱れ」として一律に排除するのではなく、その背景にある社会の変化や新しい感性に目を向けることで、私たちは言葉の持つ豊かさや奥深さをより深く理解できるのではないだろうか。',
 ]);
 
-const SOURCE_QUESTION = '言葉の変化について、筆者はどのように考えているか。';
-const SOURCE_ANSWER = '言葉の変化は自然な現象であり、状況に応じて使い分けることが重要だが、新しい言葉が生まれること自体を否定すべきではない。';
-const SOURCE_WRONG_ANSWERS = Object.freeze([
-    '言葉は時代とともに変化していくものなので、若者が日常会話で標準語を使わなくなるのは当然のことだ。',
-    'ビジネスなどの公的な場では正確な表現が求められるため、社会から若者言葉は完全に排除するべきである。',
-    'かつての若者言葉が標準語になることもあるため、現在は誤りとされている言葉も積極的に使うべきだ。',
-]);
-
 export const N2_EXTENSIVE_READING_PROVENANCE = Object.freeze({
     packageId: N2_EXTENSIVE_READING_PACKAGE_ID,
     sourceScope: 'soya-research' as const,
@@ -30,16 +22,3 @@ export const N2_EXTENSIVE_READING_PROVENANCE = Object.freeze({
     answerVisibility: 'after-attempt' as const,
     sourceMediaState: 'none-declared-or-delivered' as const,
 }) satisfies N2ExtensiveReadingModel['provenance'];
-
-export function canonicalN2ExtensiveReadingSourceItem(): string {
-    return [
-        N2_EXTENSIVE_READING_PROVENANCE.sourceItemId,
-        'reading',
-        'READING',
-        '180',
-        N2_EXTENSIVE_READING_SOURCE_PARAGRAPHS.join('\n'),
-        SOURCE_QUESTION,
-        SOURCE_ANSWER,
-        ...SOURCE_WRONG_ANSWERS,
-    ].join('\n') + '\n';
-}

@@ -1,34 +1,7 @@
-import {
-    ACADEMY_ASSESSED_ANSWER_SUPPORT,
-    createActivityRuntime,
-    type ActivityController,
-    type ActivityEvaluation,
-    type ActivityHost,
-    type ActivityPlugin,
-    type GradeResult,
-    type ReviewSeed,
-    type ValidationIssue,
-} from '../../domain/activity-runtime';
-import {
-    assessedJapanese,
-    gradeFromScore,
-    japanese,
-    localized,
-    localizedNodes,
-    setPending,
-    showEvaluation,
-    statusRegion,
-    text,
-    validateFeedback,
-    validatePassScore,
-} from '../activity-kit/shared';
+import { ACADEMY_ASSESSED_ANSWER_SUPPORT, type ActivityController, type ActivityEvaluation, type ActivityHost, type ActivityPlugin, type GradeResult, type ReviewSeed, type ValidationIssue } from '../../domain/activity-runtime';
+import { assessedJapanese, gradeFromScore, japanese, localized, localizedNodes, setPending, showEvaluation, statusRegion, text, validateFeedback, validatePassScore } from '../activity-kit/shared';
 import { N2_EVENT_INFORMATION_PROVENANCE } from './source';
-import {
-    N2_EVENT_INFORMATION_ACTIVITY_KIND,
-    type N2EventInformationModel,
-    type N2EventInformationQuestion,
-    type N2EventInformationResponse,
-} from './types';
+import { N2_EVENT_INFORMATION_ACTIVITY_KIND, type N2EventInformationModel, type N2EventInformationQuestion, type N2EventInformationResponse } from './types';
 
 export const n2EventInformationPlugin: ActivityPlugin<N2EventInformationModel, N2EventInformationResponse> = {
     kind: N2_EVENT_INFORMATION_ACTIVITY_KIND,
@@ -37,10 +10,6 @@ export const n2EventInformationPlugin: ActivityPlugin<N2EventInformationModel, N
     grade: gradeN2EventInformation,
     toReviewSeeds: n2EventInformationReviewSeeds,
 };
-
-export function createN2EventInformationRuntime() {
-    return createActivityRuntime([n2EventInformationPlugin]);
-}
 
 export function validateN2EventInformation(model: N2EventInformationModel): readonly ValidationIssue[] {
     const issues: ValidationIssue[] = [];

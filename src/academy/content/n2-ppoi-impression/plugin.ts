@@ -1,4 +1,4 @@
-import { createActivityRuntime, type ValidationIssue } from '../../domain/activity-runtime';
+import { type ValidationIssue } from '../../domain/activity-runtime';
 import { createN2OpeningPlugin } from '../n2-opening-kit';
 import { N2_PPOI_IMPRESSION_PROVENANCE } from './source';
 import { N2_PPOI_IMPRESSION_ACTIVITY_KIND, N2_PPOI_IMPRESSION_PACKAGE_ID, type N2PpoiImpressionModel } from './types';
@@ -16,4 +16,3 @@ const contract = Object.freeze({
 
 export const n2PpoiImpressionPlugin = createN2OpeningPlugin<N2PpoiImpressionModel>(contract);
 export const validateN2PpoiImpression = n2PpoiImpressionPlugin.validate;
-export function createN2PpoiImpressionRuntime() { return createActivityRuntime([n2PpoiImpressionPlugin]); }

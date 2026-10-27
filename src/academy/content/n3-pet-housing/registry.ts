@@ -9,9 +9,3 @@ if (validationIssues.length) {
 }
 
 export const N3_PET_HOUSING_PACKAGES: readonly N3PetHousingPackage[] = Object.freeze([packageRecord]);
-
-export function resolveN3PetHousingPackage(id: string): N3PetHousingPackage {
-    const found = N3_PET_HOUSING_PACKAGES.find(candidate => candidate.id === id);
-    if (!found) throw new TypeError(`Unknown N3 pet-housing package: ${id}`);
-    return found;
-}

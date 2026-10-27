@@ -36,21 +36,3 @@ export const N2_HOME_LIFE_READER_PROVENANCE = Object.freeze({
     }),
     combinedSourceLocusSha256: '9e42671a88024719ee128da839f71cf2fca9be0bb26fa6b48a45c0e60da6a492',
 }) satisfies N2HomeLifeReaderProvenance;
-
-export function canonicalN2HomeLifeReaderImageLocus(): string {
-    const source = N2_HOME_LIFE_READER_PROVENANCE.readerReference;
-    return [source.sourceId, source.sourceAssetSha256, String(source.sourceAssetByteLength), source.relativePath,
-        source.sourceLocus.imageFile, source.sourceLocus.printedPages, 'にほんご よむよむ文庫 レベル4', '走れメロス opening spread / しかし transition',
-    ].join('\n') + '\n';
-}
-
-export function canonicalN2HomeLifeReaderStrategyLocus(): string {
-    const source = N2_HOME_LIFE_READER_PROVENANCE.strategyReference;
-    return [source.sourceId, source.sourceDocumentSha256, String(source.sourceDocumentByteLength), source.relativePath,
-        String(source.sourceLocus.pdfPage), String(source.sourceLocus.printedPage), source.sourceLocus.section, source.sourceLocus.item,
-    ].join('\n') + '\n';
-}
-
-export function canonicalN2HomeLifeReaderCombinedLocus(): string {
-    return `${N2_HOME_LIFE_READER_PROVENANCE.readerReference.sourceLocusSha256}\n${N2_HOME_LIFE_READER_PROVENANCE.strategyReference.sourceLocusSha256}\n`;
-}

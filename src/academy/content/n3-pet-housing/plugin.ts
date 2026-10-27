@@ -1,34 +1,7 @@
-import {
-    ACADEMY_ASSESSED_ANSWER_SUPPORT,
-    createActivityRuntime,
-    type ActivityController,
-    type ActivityEvaluation,
-    type ActivityHost,
-    type ActivityPlugin,
-    type GradeResult,
-    type ReviewSeed,
-    type ValidationIssue,
-} from '../../domain/activity-runtime';
-import {
-    assessedJapanese,
-    gradeFromScore,
-    japanese,
-    localized,
-    localizedNodes,
-    setPending,
-    showEvaluation,
-    statusRegion,
-    text,
-    validateFeedback,
-    validatePassScore,
-} from '../../minigames/activity-kit/shared';
+import { ACADEMY_ASSESSED_ANSWER_SUPPORT, type ActivityController, type ActivityEvaluation, type ActivityHost, type ActivityPlugin, type GradeResult, type ReviewSeed, type ValidationIssue } from '../../domain/activity-runtime';
+import { assessedJapanese, gradeFromScore, japanese, localized, localizedNodes, setPending, showEvaluation, statusRegion, text, validateFeedback, validatePassScore } from '../../minigames/activity-kit/shared';
 import { N3_PET_HOUSING_PROVENANCE, N3_PET_HOUSING_SOURCE_SEGMENTS } from './source';
-import {
-    N3_PET_HOUSING_ACTIVITY_KIND,
-    type N3PetHousingModel,
-    type N3PetHousingQuestion,
-    type N3PetHousingResponse,
-} from './types';
+import { N3_PET_HOUSING_ACTIVITY_KIND, type N3PetHousingModel, type N3PetHousingQuestion, type N3PetHousingResponse } from './types';
 
 export const n3PetHousingPlugin: ActivityPlugin<N3PetHousingModel, N3PetHousingResponse> = {
     kind: N3_PET_HOUSING_ACTIVITY_KIND,
@@ -37,10 +10,6 @@ export const n3PetHousingPlugin: ActivityPlugin<N3PetHousingModel, N3PetHousingR
     grade: gradeN3PetHousing,
     toReviewSeeds: n3PetHousingReviewSeeds,
 };
-
-export function createN3PetHousingRuntime() {
-    return createActivityRuntime([n3PetHousingPlugin]);
-}
 
 export function validateN3PetHousing(model: N3PetHousingModel): readonly ValidationIssue[] {
     const issues: ValidationIssue[] = [];

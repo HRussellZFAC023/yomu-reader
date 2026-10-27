@@ -21,9 +21,3 @@ export const N3_N4_SLEEP_BRIDGE_SOURCE_SEGMENTS: readonly N3N4SleepBridgeSourceS
         translation: 'People in the past slept at night and woke in the morning. After electricity was invented, more people began staying up late. While life became more convenient, there also seem to be more people tired from insufficient sleep.',
     }),
 ]);
-
-export function canonicalN3N4SleepBridgeSourceItemPayload(
-    segments = N3_N4_SLEEP_BRIDGE_SOURCE_SEGMENTS,
-): string {
-    return `${N3_N4_SLEEP_BRIDGE_PROVENANCE.sourceItemId}\n${segments.map(segment => segment.text).join('\n')}\n`;
-}

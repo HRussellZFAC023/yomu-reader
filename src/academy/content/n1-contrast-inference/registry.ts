@@ -11,13 +11,3 @@ if (validationIssues.length)
 
 export const N1_CONTRAST_INFERENCE_PACKAGES: readonly N1ContrastInferencePackage[] =
   Object.freeze([packageRecord]);
-export function resolveN1ContrastInferencePackage(
-  id: string,
-): N1ContrastInferencePackage {
-  const found = N1_CONTRAST_INFERENCE_PACKAGES.find(
-    (candidate) => candidate.id === id,
-  );
-  if (!found)
-    throw new TypeError(`Unknown N1 contrast-inference package: ${id}`);
-  return found;
-}

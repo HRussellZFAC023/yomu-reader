@@ -1,34 +1,7 @@
-import {
-  ACADEMY_ASSESSED_ANSWER_SUPPORT,
-  createActivityRuntime,
-  type ActivityController,
-  type ActivityEvaluation,
-  type ActivityHost,
-  type ActivityPlugin,
-  type GradeResult,
-  type ReviewSeed,
-  type ValidationIssue,
-} from "../../domain/activity-runtime";
-import {
-  assessedJapanese,
-  gradeFromScore,
-  japanese,
-  localized,
-  localizedNodes,
-  setPending,
-  showEvaluation,
-  statusRegion,
-  text,
-  validateFeedback,
-  validatePassScore,
-} from "../../minigames/activity-kit/shared";
+import { ACADEMY_ASSESSED_ANSWER_SUPPORT, type ActivityController, type ActivityEvaluation, type ActivityHost, type ActivityPlugin, type GradeResult, type ReviewSeed, type ValidationIssue } from "../../domain/activity-runtime";
+import { assessedJapanese, gradeFromScore, japanese, localized, localizedNodes, setPending, showEvaluation, statusRegion, text, validateFeedback, validatePassScore } from "../../minigames/activity-kit/shared";
 import { N1_CONTRAST_INFERENCE_PROVENANCE } from "./source";
-import {
-  N1_CONTRAST_INFERENCE_ACTIVITY_KIND,
-  type N1ContrastInferenceModel,
-  type N1ContrastInferenceQuestion,
-  type N1ContrastInferenceResponse,
-} from "./types";
+import { N1_CONTRAST_INFERENCE_ACTIVITY_KIND, type N1ContrastInferenceModel, type N1ContrastInferenceQuestion, type N1ContrastInferenceResponse } from "./types";
 
 export const n1ContrastInferencePlugin: ActivityPlugin<
   N1ContrastInferenceModel,
@@ -40,10 +13,6 @@ export const n1ContrastInferencePlugin: ActivityPlugin<
   grade: gradeN1ContrastInference,
   toReviewSeeds: n1ContrastInferenceReviewSeeds,
 };
-
-export function createN1ContrastInferenceRuntime() {
-  return createActivityRuntime([n1ContrastInferencePlugin]);
-}
 
 export function validateN1ContrastInference(
   model: N1ContrastInferenceModel,

@@ -26,17 +26,3 @@ export const N2_POLICY_SCOPE_PROVENANCE = Object.freeze({
         learnerActivityText: 'original-yomu-authored' as const,
     }),
 }) satisfies N2PolicyScopeModel['provenance'];
-
-export function canonicalN2PolicyScopeSourceLocus(): string {
-    const { sourceLocus } = N2_POLICY_SCOPE_PROVENANCE;
-    return [
-        N2_POLICY_SCOPE_PROVENANCE.sourceId,
-        N2_POLICY_SCOPE_PROVENANCE.sourceDocumentSha256,
-        String(N2_POLICY_SCOPE_PROVENANCE.sourceDocumentByteLength),
-        N2_POLICY_SCOPE_PROVENANCE.sourcePageImageSha256,
-        String(sourceLocus.pdfPage),
-        String(sourceLocus.printedPage),
-        sourceLocus.section,
-        sourceLocus.item,
-    ].join('\n') + '\n';
-}
