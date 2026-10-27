@@ -1,4 +1,22 @@
-#!/usr/bin/env node
+import { withSmokeContexts } from './smoke-harness.mjs';
+import * as smokeDependencyFiles from 'node:fs';
+import * as smokeDependencyPaths from 'node:path';
+import * as smokeDependencyUrls from 'node:url';
+import * as smokeDependencyBrowsers from 'playwright';
+import * as smokeDependencyColorSources from '../../src/reader/theme/color-source-classes.ts';
+import * as smokeDependencyAssertions from 'node:assert/strict';
+import * as smokeDependencyBundler from 'esbuild';
+import * as smokeDependencySmokeHelpers from './smoke-test-helpers.mjs';
+
+// Former subtitle-furigana-outline-scale-smoke: the host owns the browser; this cell owns its isolated scenario.
+export async function assertSubtitleFuriganaOutlineScale(_hostBrowser, _hostEngine) {
+    return withSmokeContexts(_hostBrowser, async () => {
+
+    const _sourceDir = new URL('..', import.meta.url).pathname;
+    const { readFileSync } = smokeDependencyFiles;
+    const { default: path } = smokeDependencyPaths;
+    const { fileURLToPath } = smokeDependencyUrls;
+    const { chromium, webkit } = smokeDependencyBrowsers;
 // Real-engine regression: the legibility outline on a subtitle reading must be
 // SIZE-INVARIANT in shape, it must stay off the kanji it annotates, AND it must
 // keep the reading legible over bright footage IN EVERY DIRECTION.
@@ -67,30 +85,11 @@
 // (src/reader/styles/index.ts) as host-CSS armour, so a display-based control is
 // silently ignored in Blink and the whole comparison collapses to zero without
 // anything failing. Hence the box check covers the reading's own box too.
-import { execFileSync } from 'node:child_process';
-import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
-import { chromium, webkit } from 'playwright';
 
-const ROOT = path.resolve(fileURLToPath(new URL('..', import.meta.url)));
+const ROOT = path.resolve(fileURLToPath(new URL('../..', import.meta.url)));
 
-// Bundle the reader CSS from SOURCE rather than reading dist/yomu.css, so the
-// smoke fails on a bad stylesheet edit without needing a build first (and never
-// races a build another process is running).
-const workspace = mkdtempSync(path.join(tmpdir(), 'yomu-furi-outline-'));
-let css;
-try {
-    const bundled = path.join(workspace, 'yomu.css');
-    execFileSync(process.execPath, [path.join(ROOT, 'scripts', 'build-reader-css.mjs')], {
-        env: { ...process.env, YOMU_READER_CSS_OUT: bundled, YOMU_NEW_TAB_CSS_OUT: path.join(workspace, 'newtab.css') },
-        stdio: 'pipe',
-    });
-    css = readFileSync(bundled, 'utf8');
-} finally {
-    rmSync(workspace, { recursive: true, force: true });
-}
+// Check the stylesheet shipped with the same build as the host.
+const css = readFileSync(path.join(ROOT, 'dist', 'yomu.css'), 'utf8');
 
 // The product default is --subtitle-font-size-target: 28px; the user's size
 // control moves it either way, so the whole working range is checked.
@@ -244,8 +243,27 @@ async function toPixels([dataUrl]) {
     return { width, height, out };
 }
 
+let outlinePageReady = false;
 async function shoot(page, word, size, backdrop, mode, clip) {
-    await page.setContent(fixture(word, size, backdrop, mode), { waitUntil: 'domcontentloaded' });
+    if (!outlinePageReady) {
+        await page.setContent(fixture(word, size, backdrop, 'paint'), { waitUntil: 'domcontentloaded' });
+        outlinePageReady = true;
+    }
+    await page.evaluate(({ word, size, backdrop, controls }) => {
+        document.documentElement.style.background = backdrop;
+        document.body.style.background = backdrop;
+        document.querySelector('.jpdb-subtitle-player').style.setProperty('--subtitle-font-size-target', `${size}px`);
+        const host = document.getElementById('word');
+        host.dataset.expression = word.label;
+        host.innerHTML = `<ruby class="${word.rubyClass}"><span class="jpdb-reader-ruby-base" id="annotated">${word.base}</span><rp>(</rp><rt class="jpdb-reader-furi" id="reading">${word.reading}</rt><rp>)</rp></ruby>${word.okurigana}<span class="probe" id="probe"></span>`;
+        let style = document.getElementById('outline-variant');
+        if (!style) { style = document.createElement('style'); style.id = 'outline-variant'; document.head.append(style); }
+        style.textContent = controls;
+    }, { word, size, backdrop, controls: [
+        mode === 'control' || mode === 'base-ink' ? HIDE_READING : '',
+        mode === 'ink' || mode === 'base-ink' ? NO_OUTLINE : '',
+        mode === 'reference' ? `.jpdb-subtitle-primary .jpdb-reader-furi { text-shadow: ${OWNER_TUNED_REFERENCE_SHADOW} !important; }` : '',
+    ].join('\n') });
     await page.evaluate(() => document.fonts.ready);
     const geometry = await page.evaluate(() => {
         const rect = box => ({ left: box.left, top: box.top, right: box.right, bottom: box.bottom, width: box.width, height: box.height });
@@ -549,18 +567,17 @@ async function measure(page, word, size, context) {
 }
 
 async function verifyEngine(name, browserType) {
-    const browser = await browserType.launch({ headless: true });
+    if (browserType.name() !== _hostEngine) return;
+    const browser = _hostBrowser;
     const readings = [];
-    try {
+
         const page = await browser.newPage({ viewport: { width: 1200, height: 600 }, deviceScaleFactor: 1 });
         for (const word of WORDS) {
             for (const size of SIZES) {
                 readings.push(await measure(page, word, size, `${name} ${size}px cue on ${word.label}`));
             }
         }
-    } finally {
-        await browser.close();
-    }
+
 
     // Print every cell BEFORE asserting, so a failure hands over the whole
     // measured table rather than only the cell that happened to trip first.
@@ -609,3 +626,294 @@ async function verifyEngine(name, browserType) {
 await verifyEngine('chromium', chromium);
 await verifyEngine('webkit', webkit);
 console.log('subtitle furigana outline scale smoke passed');
+
+
+    });
+}
+
+// Former subtitle-highlight-layers-smoke: the host owns the browser; this cell owns its isolated scenario.
+export async function assertSubtitleHighlightLayers(_hostBrowser, _hostEngine) {
+    return withSmokeContexts(_hostBrowser, async () => {
+
+    const _sourceDir = new URL('..', import.meta.url).pathname;
+    const { readFileSync } = smokeDependencyFiles;
+    const { default: path } = smokeDependencyPaths;
+    const { fileURLToPath } = smokeDependencyUrls;
+    const { chromium, webkit } = smokeDependencyBrowsers;
+    const { colorSourceClassName } = smokeDependencyColorSources;
+// Real-engine regression: a subtitle word must carry exactly ONE painted layer,
+// and that layer must sit on the word itself.
+//
+// A furigana word wraps its kanji run in .jpdb-reader-ruby-base. When both the
+// word and that child painted the translucent highlight gradient, the two
+// composited over the kanji only, so the kanji rendered visibly darker than the
+// okurigana in the same word — reported as "double highlight". The word box and
+// the ruby base are vertically coincident, which is exactly what makes a second
+// layer double the opacity instead of sitting somewhere harmless, so the word is
+// the correct single carrier.
+//
+// The matrix below is the whole product surface, because a rule family that
+// misses one entry reintroduces the bug only there:
+//   * markup — the subtitle renderer emits in-flow <ruby>/<rt> (renderRuby) and
+//     the detached-reading channel (renderDetachedReadings). An earlier version
+//     of this smoke asserted against a bare .jpdb-reader-ruby-base with no
+//     <ruby> and no reading at all, a shape nothing in the product renders, so
+//     it could not see what either real channel does.
+//   * surface — every container class the subtitle channel rules select.
+//   * family — highlight AND underline, since the ::after underline lane is a
+//     second way for a descendant to paint its own decoration.
+// Only a real engine resolves this cascade, and only geometry proves the two
+// boxes coincide.
+
+const ROOT = path.resolve(fileURLToPath(new URL('../..', import.meta.url)));
+const css = readFileSync(path.join(ROOT, 'dist', 'yomu.css'), 'utf8');
+
+// Every container class the subtitle channel rules select: the on-video cue,
+// the transcript drawer rows, the immersion example surface, and the injected
+// asbplayer-style container over YouTube.
+const SURFACES = [
+    'jpdb-subtitle-primary',
+    'jpdb-subtitle-row-text',
+    'jpdb-reader-subtitle-surface',
+    'asbplayer-subtitles-container-bottom',
+];
+
+// Each channel mode paints through its own rule set, so all of them are checked.
+// The class names come from the module the reader sets them with: the "Anki"
+// source's root class is provider-neutral, so a hand-built name drifts.
+const MODES = ['highlight', 'underline'].flatMap(family =>
+    ['status', 'jpdb', 'anki', 'pitch'].map(source => colorSourceClassName('subtitle', family, source)));
+
+const WORD_CLASSES = 'jpdb-reader-word jpdb-reader-has-furi jpdb-reader-known jpdb-pitch-heiban';
+const WORD_ATTRIBUTES = 'data-pitch-class="heiban" data-card-state="known" data-expression="連続" tabindex="-1"';
+
+// Both furigana channels, exactly as renderRuby/renderDetachedReadings emit
+// them: a kanji run carrying the reading, then okurigana in the same word.
+const CHANNELS = {
+    'in-flow ruby': `<span class="${WORD_CLASSES}" ${WORD_ATTRIBUTES}><ruby><span class="jpdb-reader-ruby-base">連続</span><rp>(</rp><rt class="jpdb-reader-furi">れんぞく</rt><rp>)</rp></ruby>する</span>`,
+    'detached reading': `<span class="${WORD_CLASSES} jpdb-reader-detached-reading-word" ${WORD_ATTRIBUTES}><span class="jpdb-reader-detached-ruby" data-yomu-source-start="0" data-yomu-source-end="2"><span class="jpdb-reader-ruby-base">連続</span><span class="jpdb-reader-furi jpdb-reader-detached-furi" aria-hidden="true">れんぞく</span></span>する</span>`,
+};
+
+const PLAIN_WORD = '<span class="jpdb-reader-word jpdb-reader-known jpdb-pitch-heiban" data-pitch-class="heiban" data-card-state="known" data-expression="今日">今日</span>';
+
+const fixture = (mode, surface, word) => `<!doctype html>
+<html><head><meta charset="utf-8"><style>${css}
+  html, body { margin: 0; background: #101010; }
+  .jpdb-subtitle-text { position: absolute; top: 90px; left: 30px; font-size: 44px; }
+</style></head>
+<body class="${mode}">
+  <div class="jpdb-subtitle-player">
+    <div class="jpdb-subtitle-text">
+      <div class="${surface}">${word} ${PLAIN_WORD}</div>
+    </div>
+  </div>
+</body></html>`;
+
+function fail(context, message, detail) {
+    throw new Error(`${context}: ${message}\n${JSON.stringify(detail, null, 2)}`);
+}
+
+// Runs inside the page: report every box in the word's subtree that paints a
+// layer of its own, plus the geometry the single-carrier rule depends on.
+function inspectWord() {
+    const transparent = /^(none|rgba\(0, 0, 0, 0\)|transparent|color\(srgb 0 0 0 \/ 0\))$/;
+    const opaque = value => Boolean(value) && !transparent.test(value);
+    const rect = element => {
+        const box = element.getBoundingClientRect();
+        return { top: box.top, height: box.height, left: box.left, width: box.width };
+    };
+    const layersOf = element => {
+        const style = getComputedStyle(element);
+        const layers = [];
+        if (opaque(style.backgroundImage)) layers.push('background-image');
+        if (opaque(style.backgroundColor)) layers.push('background-color');
+        if (opaque(style.boxShadow)) layers.push('box-shadow');
+        if (style.textDecorationLine !== 'none' && opaque(style.textDecorationColor)) layers.push('text-decoration');
+        for (const pseudo of ['::before', '::after']) {
+            const generated = getComputedStyle(element, pseudo);
+            if (generated.content === 'none') continue;
+            if (opaque(generated.backgroundImage)) layers.push(`${pseudo} background-image`);
+            if (opaque(generated.backgroundColor)) layers.push(`${pseudo} background-color`);
+            const underlined = generated.borderBlockEndStyle !== 'none' && generated.borderBlockEndWidth !== '0px';
+            if (underlined && opaque(generated.borderBlockEndColor)) layers.push(`${pseudo} underline`);
+        }
+        return layers;
+    };
+
+    const word = document.querySelector('.jpdb-reader-word.jpdb-reader-has-furi');
+    const base = word.querySelector('.jpdb-reader-ruby-base');
+    const reading = word.querySelector('.jpdb-reader-furi');
+    const plain = document.querySelector('.jpdb-reader-word:not(.jpdb-reader-has-furi)');
+
+    const descendants = [];
+    const visit = element => {
+        for (const child of element.children) {
+            const layers = layersOf(child);
+            if (layers.length) {
+                const name = String(child.className).trim();
+                descendants.push({
+                    selector: child.tagName.toLowerCase() + (name ? `.${name.split(/\s+/).join('.')}` : ''),
+                    layers,
+                    rect: rect(child),
+                });
+            }
+            visit(child);
+        }
+    };
+    visit(word);
+
+    return {
+        wordLayers: layersOf(word),
+        plainLayers: layersOf(plain),
+        descendants,
+        wordRect: rect(word),
+        baseRect: rect(base),
+        readingRect: rect(reading),
+    };
+}
+
+async function verifyEngine(name, browserType) {
+    if (browserType.name() !== _hostEngine) return;
+    const browser = _hostBrowser;
+
+        const page = await browser.newPage({ viewport: { width: 900, height: 400 } });
+        await page.setContent(fixture(MODES[0], SURFACES[0], CHANNELS['in-flow ruby']));
+        for (const [channel, word] of Object.entries(CHANNELS)) {
+            for (const surface of SURFACES) {
+                for (const mode of MODES) {
+                    const context = `${name} ${channel} .${surface} ${mode}`;
+                    await page.evaluate(({ mode, surface, word, plain }) => {
+                        document.body.className = mode;
+                        document.querySelector('.jpdb-subtitle-text').innerHTML = `<div class="${surface}">${word} ${plain}</div>`;
+                    }, { mode, surface, word, plain: PLAIN_WORD });
+                    const result = await page.evaluate(inspectWord);
+
+                    // The kanji run sits inside the word's painted band, so a
+                    // layer on that child composites over the word's own layer
+                    // and darkens the kanji alone. This is the premise the
+                    // single-carrier rule rests on, so assert it rather than
+                    // assume it. (How much taller the word box is varies by
+                    // surface: the on-video cue keeps the reading in its own
+                    // row above the band, the transcript row does not.)
+                    const contained = result.baseRect.top >= result.wordRect.top - 1
+                        && result.baseRect.top + result.baseRect.height <= result.wordRect.top + result.wordRect.height + 1;
+                    if (!contained) {
+                        fail(context, 'the kanji run left the word\'s painted band, so the single-carrier choice needs rechecking', result);
+                    }
+
+                    if (result.descendants.length) {
+                        fail(context, 'a box inside the word paints its own layer, doubling it over the kanji run', result);
+                    }
+
+                    // A word must still be annotated at rest; the cure for the
+                    // doubling must never be "stop painting".
+                    if (mode.includes('highlight') && (!result.wordLayers.length || !result.plainLayers.length)) {
+                        fail(context, 'the subtitle word lost its highlight entirely', result);
+                    }
+                }
+            }
+            console.log(`${name} ${channel}: one layer per word across ${SURFACES.length} surfaces × ${MODES.length} modes`);
+        }
+
+}
+
+await verifyEngine('chromium', chromium);
+await verifyEngine('webkit', webkit);
+console.log('subtitle highlight layers smoke passed');
+
+
+    });
+}
+
+// Former subtitle-generic-layer-smoke: the host owns the browser; this cell owns its isolated scenario.
+export async function assertSubtitleGenericLayer(_hostBrowser, _hostEngine) {
+    return withSmokeContexts(_hostBrowser, async () => {
+
+    const _sourceDir = new URL('..', import.meta.url).pathname;
+    const { default: assert } = smokeDependencyAssertions;
+    const { mkdirSync, readFileSync, writeFileSync } = smokeDependencyFiles;
+    const { default: path } = smokeDependencyPaths;
+    const { build } = smokeDependencyBundler;
+    const { chromium, webkit, devices } = smokeDependencyBrowsers;
+    const { userscriptCompanionPaths } = smokeDependencySmokeHelpers;
+// Generic stacking contexts cannot be reached through the YouTube recording's
+// site Adapter. This labelled mechanism fixture runs the BUILT video companion
+// and shipped CSS; only settings data is exported from source.
+const productRoot = path.resolve(process.argv.find(arg => arg.startsWith('--product-root='))?.split('=')[1] ?? '.');
+const defaults = await build({
+    stdin: { contents: "export { DEFAULT_SETTINGS } from './src/reader/settings';", resolveDir: process.cwd(), loader: 'ts' },
+    bundle: true, write: false, format: 'iife', globalName: 'CaptionSettingsFixture', logLevel: 'silent',
+    define: { 'import.meta.env': '{}', '__YOMU_VERSION__': '"fixture"', '__YOMU_NEWTAB_BUILD__': 'false', '__YOMU_EXTENSION_BUILD__': 'false' },
+});
+const out = 'artifacts/subtitle-generic-layer';
+mkdirSync(out, { recursive: true });
+const results = [];
+for (const [name, engine] of [[_hostEngine, _hostEngine === 'webkit' ? webkit : chromium]]) {
+    const browser = _hostBrowser;
+
+        const page = await browser.newPage({ ...devices['iPad Pro 11'], viewport: { width: 834, height: 1194 } });
+        await page.route('**/*', route => route.fulfill({ contentType: 'text/html', body: `<!doctype html>
+            <meta name="viewport" content="width=device-width, initial-scale=1">
+            <section style="position:relative;width:700px;height:400px">
+            <video style="position:absolute;inset:0;width:100%;height:100%;z-index:1"></video></section>` }));
+        await page.goto('https://example.com/generic-caption-layer-mechanism-fixture');
+        await page.addStyleTag({ content: readFileSync(path.join(productRoot, 'dist/yomu.css'), 'utf8') });
+        for (const file of userscriptCompanionPaths(path.join(productRoot, 'dist/yomu.user.js'))) {
+            await page.addScriptTag({ content: readFileSync(file, 'utf8') });
+        }
+        await page.addScriptTag({ content: defaults.outputFiles[0].text });
+        await page.evaluate(() => {
+            const settings = { ...window.CaptionSettingsFixture.DEFAULT_SETTINGS, subtitlePlayerEnabled: true,
+                subtitleOverlayVisible: true, subtitleControlsMode: 'off', subtitleSecondaryVisible: false };
+            const card = { vid:1, sid:1, rid:0, spelling:'日本語', reading:'にほんご',
+                meanings:[{glosses:['Japanese'],partOfSpeech:['n']}], frequencyRank:null,
+                partOfSpeech:['n'], cardState:['not-in-deck'], pitchAccent:[], wordWithReading:null };
+            const controller = new window.__yomuCompanions.video.SubtitlePlayerController({
+                getSettings: () => settings,
+                parseJapanese: async text => [{card,start:0,end:3,length:3,rubies:[],pitchClass:'unknown',sentence:text}],
+                onSettingsChange: () => {},
+            });
+            controller.install();
+            controller.video = document.querySelector('video');
+            controller.cues = [{ start: 0, end: 100, text: '日本語です。', transcriptEligible: true }];
+            controller.currentCue = controller.cues[0];
+            controller.refresh();
+            window.captionLayerFixture = controller;
+        });
+        await page.waitForSelector('.jpdb-subtitle-primary .jpdb-reader-word');
+        const tiers = [];
+        for (const videoTier of [1, 7, 'auto']) {
+            await page.evaluate(tier => {
+                document.querySelector('video').style.zIndex = String(tier);
+                window.captionLayerFixture.refresh();
+            }, videoTier);
+            const state = await page.locator('.jpdb-subtitle-primary .jpdb-reader-word').evaluate(element => {
+                const range = document.createRange(); range.selectNodeContents(element);
+                const rect = range.getBoundingClientRect();
+                const x = rect.x + rect.width / 2, y = rect.y + rect.height / 2;
+                const root = element.closest('.jpdb-subtitle-player');
+                const captionHit = Boolean(document.elementFromPoint(x, y)?.closest('.jpdb-subtitle-primary'));
+                const captionTier = Number(getComputedStyle(root).zIndex);
+                const dialog = document.createElement('div'); dialog.setAttribute('role', 'dialog');
+                dialog.style.cssText = `position:absolute;inset:0;background:white;z-index:${captionTier + 1}`;
+                root.parentElement.append(dialog);
+                const dialogHit = document.elementFromPoint(x, y) === dialog;
+                dialog.remove();
+                return { captionTier, captionHit, dialogHit,
+                    restored: Boolean(document.elementFromPoint(x, y)?.closest('.jpdb-subtitle-primary')) };
+            });
+            assert(state.captionHit && state.restored, `${name}: video tier ${videoTier} covers captions: ${JSON.stringify(state)}`);
+            assert(state.dialogHit, `${name}: caption covers a player dialog`);
+            assert.equal(state.captionTier, (Number(videoTier) || 0) + 1, `${name}: caption tier does not follow the video`);
+            tiers.push({ videoTier, ...state });
+        }
+        await page.screenshot({ path: `${out}/${name}-mechanism-fixture.png` });
+        results.push({ engine: name, tiers });
+
+}
+writeFileSync(`${out}/result.json`, JSON.stringify(results, null, 2));
+console.log(JSON.stringify(results));
+
+
+    });
+}

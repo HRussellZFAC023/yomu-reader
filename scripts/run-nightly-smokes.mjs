@@ -1,12 +1,10 @@
 #!/usr/bin/env node
-// Nightly aggregate smoke runner (NB-50).
+// Nightly aggregate smoke runner.
 //
-// Runs every headless-capable regression-guard smoke that is NOT already gated
-// by ci.yml / check / smoke:release / smoke:p0 / smoke:layout-regressions.
-// These guards each reproduce a historical bug against the built userscript in
-// a fixture-served headless browser (no signed-in real sites, no display
-// server). They run once nightly (see .github/workflows/nightly.yml) rather
-// than on every push so the fast CI gate stays fast.
+// Extended browser coverage, outside the local gate and release preflight.
+// Layout hosts also run in PR CI when deleted jsdom geometry tests rely on them.
+// Built products run on recorded pages or labelled mechanism fixtures, without
+// signed-in live sites. See .github/workflows/nightly.yml.
 //
 // Contract: run each script sequentially with a per-script timeout, print a
 // summary table, continue past failures, and exit non-zero if any failed.
@@ -14,130 +12,73 @@
 // Usage:
 //   node scripts/run-nightly-smokes.mjs            # run all
 //   node scripts/run-nightly-smokes.mjs smoke:anki # run a subset (by npm name)
-//   NIGHTLY_SMOKE_TIMEOUT_MS=240000 node scripts/run-nightly-smokes.mjs
+//   NIGHTLY_SMOKE_TIMEOUT_MS=600000 node scripts/run-nightly-smokes.mjs
 
 import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 
-// The (a) set: headless-capable regression guards. Each name is an npm script of
-// the form `node scripts/<name>.mjs`. This list used to cite the NB-50 triage
-// table in docs/nuclear-backlog-2026-07-16.md, a dated one-off report untracked
-// on 2026-08-04; it is still readable at
-// `git show 75644853b:docs/nuclear-backlog-2026-07-16.md` if the provenance of an
-// entry is ever in question.
+// Canonical hosts only. Merged aliases must not restart the same browser suite.
 export const NIGHTLY_SMOKES = [
-    'smoke:youtube-ipad-playback',
-    'smoke:subtitle-stability',
-    'smoke:subtitle-generic-layer',
-    // Chromium desktop + WebKit iPad, light and dark: the accent swatches and
-    // the Underline choice lead Settings → Appearance in the built Study app,
-    // and what they save reaches the puck, popup and underlines of a page.
-    'smoke:accent-quick-row',
-    // Chromium desktop EN/JA + WebKit iPad JA: Settings → Reviews in the built
-    // Study app names no "API" or "Academy", lists one row per service, shows
-    // the preferred grading service only with two keys, and pings Anki once.
-    'smoke:review-services',
-    // W1-65: the puck's power and furigana controls stay separate (built
-    // userscript, nine actions at awkward sizes, and the Chrome package).
-    'smoke:annotation-power',
-    'smoke:annotation-power:layout',
-    'smoke:annotation-power:extension',
-    // M-03: Anki cards stay Learning below a 21-day interval; revealed Study
-    // answers keep their readings under every state filter.
-    'smoke:anki-known-interval',
-    'smoke:study-headword-furigana',
+    'docs:locales:browser',
     'smoke:anki',
+    'smoke:anki-known-interval',
     'smoke:anki-template',
+    'smoke:annotation-power',
+    'smoke:annotation-scroll',
     'smoke:annotation-typography',
-    // WebKit + Chromium, default readings: clamped synopsis cards that open
-    // with kana keep their base lines in view (W1-42).
-    'smoke:clamp-row-heal',
-    'smoke:bookwalker-cty2-scroll',
-    'smoke:bookwalker-tap-passthrough',
-    'smoke:bookwalker-tap-retry',
+    'smoke:background-network',
     'smoke:bookwalker-modes-ocr',
-    // Chromium trace + CDP metrics: host DOM churn must not restyle the whole
-    // page through a body-anchored or descendant-invalidating :has() (W1-40).
+    'smoke:chip-mirror',
     'smoke:css-has-invalidation',
     'smoke:definition-sources',
+    'smoke:drag-handle',
     'smoke:enrichment-concurrency',
-    // Chromium + Firefox: the furigana band is a pure cascade/geometry contract,
-    // so only a real engine can tell a live annotation from a dead one.
+    'smoke:feedback',
+    'smoke:furigana-local-default',
     'smoke:furigana-tapband',
+    'smoke:google-search-reader',
     'smoke:grading-provider',
     'smoke:hosted-settings',
+    'smoke:ignored-words',
     'smoke:ja-docs-perf',
-    'smoke:jiten-keyless-definition',
     'smoke:late-content',
+    'smoke:layout-neutral-scan',
     'smoke:local-dictionary-upgrade',
-    // Chromium + WebKit on the recorded Aozora 『こころ』: the 30 s after load
-    // hold under 3 s of long tasks and no task over 200 ms, and a hover opens
-    // within 300 ms (W1-41, ADR-0032).
     'smoke:long-page-perf',
-    // Asserting operation-count ratchet for the hover lookup hot path. Needs the
-    // built userscript + the settings-surface companion, so it is nightly rather
-    // than part of the fast push gate.
     'smoke:lookup-perf',
     'smoke:mobile-docs',
-    // Chromium + WebKit: whether a reading lands on its word inside a fixed
-    // dialog is decided by real containing-block resolution, which no jsdom test
-    // models.
-    'smoke:modal-reading-register',
-    // Chromium + WebKit on recorded Commons pages: a Lens 429 is a failed mark
-    // that a tap retries, never a cached "no text"; one request per photo.
     'smoke:ocr-honesty',
+    'smoke:ocr-line-register',
     'smoke:ocr-provider-matrix',
-    // WebKit + Chromium, horizontal, paged columns and vertical-rl paged: an
-    // author ruby inside a word keeps its line metrics and no paragraph moves
-    // with readings off (W1-42).
+    'smoke:ocr-upload-failure',
     'smoke:page-ruby-metrics',
-    'smoke:page-ruby-lifecycle',
-    'smoke:ocr-viewport-scroll',
-    'smoke:pitch-underline',
-    'smoke:pitch-underline:webkit',
+    'smoke:parser-glyph-identity',
+    'smoke:pdf-reader',
+    'smoke:piccoma-host-armour',
     'smoke:popover-headword-furigana',
     'smoke:popup-lifecycle',
-    'smoke:popup-header-phone',
-    // W1-46: real recorded Piccoma header/quick-menu boxes and glyph gaps,
-    // Chromium desktop and WebKit iPad, against the page without Yomu.
-    'smoke:piccoma-host-armour',
-    // Chromium hover + WebKit iPad tap on recorded ja.wikipedia 日本語, with Jiten
-    // answering and with Jiten refusing until 6 s after the press: 先生's popup
-    // ends with its pitch graph and Jiten rank, and never says "Exact pitch
-    // unavailable" or "In context ×N".
     'smoke:popup-word-detail',
-    'smoke:popup-word-detail-reflow',
-    'smoke:popup-word-detail-scroll',
+    'smoke:prose-portal',
     'smoke:recorded-pages',
-    'smoke:recorded-pages:reproduce',
     'smoke:recorded-pages:probes',
-    // Recorded ja.wikipedia and YouTube, built product, keyless defaults: no
-    // jpdb.io pitch page or caption-time jpdb.io request unless a colour
-    // channel paints pitch, and the popover of a hovered word is not queued
-    // behind background lookups (W1-50).
-    'smoke:background-network',
-    'smoke:ocr-upload-failure',
+    'smoke:recorded-pages:reproduce',
+    'smoke:reddit-chrome',
+    'smoke:review-services',
     'smoke:study-personas',
     'smoke:subtitle-network',
-    // Live api.tatoeba.org contract. Network-dependent, so it stays out of
-    // check:release; nightly is the lane its own header comment names.
     'smoke:tatoeba-contract',
     'smoke:transcript-drawer',
-    // Chromium + WebKit: an underline is drawn only for information the learner
-    // has a colour for (no grey compound tail, no not-in-deck underline), and
-    // the hide/only-new options reach the inline compound gradient.
-    'smoke:underline-colour-sources',
-    'smoke:underline-colour-sources:webkit',
-    // Chromium + Firefox + WebKit: Yomu boots and local lookups return rows on
-    // strict (script-src self only) and nonce-only CSP pages, with no CSP
-    // bypass (ADR-0022).
+    'smoke:trusted-form-submit-order',
     'smoke:userscript-csp',
+    'smoke:youtube-controls-wake',
     'smoke:youtube-dom-safe',
-    'smoke:youtube-continuation',
+    'smoke:youtube-ruby-proof',
 ];
 
-const TIMEOUT_MS = Number(process.env.NIGHTLY_SMOKE_TIMEOUT_MS || 240000);
+// One timeout covers a whole merged host, including both engines and its
+// extended matrix. Release selects its separate minimal scenarios.
+const TIMEOUT_MS = Number(process.env.NIGHTLY_SMOKE_TIMEOUT_MS || 600000);
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
 function runOne(name) {

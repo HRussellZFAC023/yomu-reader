@@ -1,7 +1,8 @@
 #!/usr/bin/env node
+import { assertYoutubeContinuation, assertYoutubeTitleRecycler } from './lib/youtube-dom-cells.mjs';
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { chromium } from 'playwright';
+import { chromium, webkit } from 'playwright';
 import {
     assert,
     assertBuiltArtifacts,
@@ -45,6 +46,8 @@ context.setDefaultTimeout(15_000);
 context.setDefaultNavigationTimeout(15_000);
 
 try {
+        await assertYoutubeContinuation(browser, 'chromium');
+        await assertYoutubeTitleRecycler(browser, 'chromium');
     console.error('[youtube-dom-safe] installing routes');
     const prefixContent = gmStorageBridgeInitProgram({
         key: YOMU_SETTINGS_KEY,
@@ -123,6 +126,9 @@ try {
 } finally {
     await browser.close();
 }
+
+const webkitBrowser = await webkit.launch({ headless: true });
+try { await assertYoutubeContinuation(webkitBrowser, 'webkit'); } finally { await webkitBrowser.close(); }
 
 function capturePageDiagnostics(page, label) {
     const logs = [];

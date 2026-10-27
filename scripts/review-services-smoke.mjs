@@ -27,6 +27,7 @@
 // through the userscript's request bridge. Prove it fails on an older build:
 //   YOMU_REVIEW_SERVICES_SMOKE_STUDY_DIR=/path/to/v2.1.6/newtab \
 //   YOMU_REVIEW_SERVICES_SMOKE_SCRIPT=/path/to/v2.1.6/yomu.user.js node scripts/review-services-smoke.mjs
+import { assertAccentQuickRow } from './lib/review-appearance-cells.mjs';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { chromium, webkit } from 'playwright';
@@ -82,6 +83,7 @@ for (const engine of ['chromium', 'webkit']) {
     if (!ENGINES.has(engine)) continue;
     const browser = await launchSmokeBrowser(engine === 'webkit' ? webkit : chromium, engine, { headless: true });
     try {
+        await assertAccentQuickRow(browser, engine);
         for (const config of CONFIGS.filter(candidate => candidate.engine === engine)) results.push(await runStudy(browser, config));
     } finally {
         await browser.close();

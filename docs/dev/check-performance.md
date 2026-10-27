@@ -5,6 +5,10 @@ and its earlier measurements remain in [check-speed.md](check-speed.md).
 These samples did not control other host activity; they are not quiet-machine
 guarantees.
 
+Browser gates are separate from the local check: [the smoke sets](./smokes.md)
+describe the seven-entry release gate, the PR layout backstop and nightly
+coverage. The static workflow coverage check remains in `check`.
+
 ## Measured Reader results
 
 Every full-suite row used `YOMU_CI_MAX_WORKERS=6 npm run test:ci`, timed with

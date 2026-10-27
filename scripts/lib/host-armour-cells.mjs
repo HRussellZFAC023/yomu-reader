@@ -1,4 +1,21 @@
-#!/usr/bin/env node
+import { withSmokeContexts } from './smoke-harness.mjs';
+import * as smokeDependencyFiles from 'node:fs';
+import * as smokeDependencyPaths from 'node:path';
+import * as smokeDependencyUrls from 'node:url';
+import * as smokeDependencyBrowsers from 'playwright';
+import * as smokeDependencyHarness from './smoke-harness.mjs';
+
+// Former host-css-armour-smoke: the host owns the browser; this cell owns its isolated scenario.
+export async function assertHostCssArmour(_hostBrowser, _hostEngine) {
+    return withSmokeContexts(_hostBrowser, async () => {
+
+    if (_hostEngine !== 'chromium') return;
+const _sourceDir = new URL('..', import.meta.url).pathname;
+    const { existsSync, readFileSync } = smokeDependencyFiles;
+    const { default: path } = smokeDependencyPaths;
+    const { fileURLToPath } = smokeDependencyUrls;
+
+    const { annotationDefaultsIntentLedger, SETTINGS_INTENT_LEDGER_KEY } = smokeDependencyHarness;
 // Smoke: a hostile host stylesheet must not be able to restyle Yomu's chrome,
 // and Yomu must not restyle the host's.
 //
@@ -11,17 +28,12 @@
 //
 //   node scripts/host-css-armour-smoke.mjs            # synthetic hostile host
 //   node scripts/host-css-armour-smoke.mjs <url>      # a real page instead
-import { existsSync, readFileSync } from 'node:fs';
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
-import { chromium } from 'playwright';
-import { annotationDefaultsIntentLedger, SETTINGS_INTENT_LEDGER_KEY } from './lib/smoke-harness.mjs';
 
-const ROOT = path.resolve(fileURLToPath(new URL('..', import.meta.url)));
+const ROOT = path.resolve(fileURLToPath(new URL('../..', import.meta.url)));
 const USERSCRIPT = path.join(ROOT, 'dist/yomu.user.js');
 const CSS = path.join(ROOT, 'dist/yomu.css');
 const SETTINGS_KEY = 'jpdb-popup-reader-settings';
-const LIVE_URL = process.argv[2];
+const LIVE_URL = process.argv.find(arg => arg.startsWith('--host-css-live='))?.slice('--host-css-live='.length);
 const HOST_ORIGIN = 'https://hostile-host.test';
 
 // Companions come from the userscript's own @require list: loading a subset
@@ -123,8 +135,8 @@ function check(name, actual, predicate, expectation) {
     failures.push(`  FAIL ${name}: got ${actual}, expected ${expectation}`);
 }
 
-const browser = await chromium.launch({ headless: true });
-try {
+const browser = _hostBrowser;
+
     const context = await browser.newContext({ viewport: { width: 1280, height: 900 }, locale: 'ja-JP', bypassCSP: true });
     if (!LIVE_URL) {
         await context.route(`${HOST_ORIGIN}/**`, route => route.fulfill({ status: 200, contentType: 'text/html; charset=utf-8', body: HOST_HTML }));
@@ -208,6 +220,7 @@ try {
     } else {
         console.log('PASS');
     }
-} finally {
-    await browser.close();
+
+
+    });
 }

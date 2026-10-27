@@ -1,46 +1,33 @@
-#!/usr/bin/env node
-// Built product on recorded YouTube: all nine actions and lookup at awkward sizes.
+// Assertions on the host's already-loaded recorded YouTube page.
 import { mkdirSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
-import { chromium, webkit, devices } from 'playwright';
-import { openRecordedPage, worktreeProduct } from './lib/recorded-page.mjs';
-import { assert, mockJpdbParseFromVocabulary } from './lib/smoke-harness.mjs';
+import { assert } from './smoke-harness.mjs';
 
-const out = path.resolve(import.meta.dirname, '../artifacts/annotation-power-layout');
-mkdirSync(out, { recursive: true });
 const sizes = [[320, 568], [360, 640], [390, 844], [844, 390], [320, 1180], [590, 820], [500, 700], [1280, 600], [640, 300]];
-const results = [];
-const product = process.env.YOMU_SMOKE_PRODUCT_ROOT ? worktreeProduct(process.env.YOMU_SMOKE_PRODUCT_ROOT) : worktreeProduct();
-const settings = {
-    onboardingSeen: true, interfaceLanguage: 'en', apiKey: 'mock-jpdb-key', parserProvider: 'jpdb',
-    showFloatingButton: true, furiganaMode: 'off', showFurigana: false, annotationsPaused: false,
-    audioEnabled: false, autoPlayAudio: false, studyTranslationEnabled: false, ocrEnabled: false,
-    jpdbDefinitionsEnabled: false, jitenDefinitionsEnabled: false, immersionKitEnabled: false,
-};
-const answer = request => {
-    if (new URL(request.url).hostname !== 'jpdb.io') return undefined;
-    const body = typeof request.data === 'string' ? JSON.parse(request.data || '{}') : request.data;
-    return { status: 200, contentType: 'application/json', body: JSON.stringify(mockJpdbParseFromVocabulary(body ?? {}, [
-        ['生私', '生私', 'せいし', 'redacted caption', ['n'], 100, ['not-in-deck'], []],
-        ['人常先', '人常先', 'ひとつねさき', 'redacted caption', ['n'], 100, ['not-in-deck'], []],
-    ])) };
-};
-
-for (const [engine, type] of Object.entries({ chromium, webkit })) {
-    if (process.env.YOMU_SMOKE_BROWSER && process.env.YOMU_SMOKE_BROWSER !== engine) continue;
-    const browser = await type.launch();
-    try {
-        for (const { width, height, largeText } of sizes.flatMap(([width, height]) => [false, true].map(largeText => ({ width, height, largeText })))) {
-            const run = await openRecordedPage({ browser, product, slug: 'youtube-watch', gmNetwork: 'offline', settings: { ...settings, interfaceLanguage: largeText ? 'ja' : 'en' },
-                hostOptions: { autoplay: false, startSeconds: 0.5 }, onGmRequest: answer,
-                contextOptions: { ...(engine === 'webkit' ? devices['iPad Air'] : {}), viewport: { width, height }, hasTouch: true } });
-            try {
-                const { page } = run;
+export async function assertPuckLayout(page, engine) {
+    const out = path.resolve('artifacts/annotation-power-layout');
+    mkdirSync(out, { recursive: true });
+    const results = [];
+    await page.keyboard.press('Escape');
+    for (const [width, height] of sizes) for (const largeText of [false, true]) {
+        await page.setViewportSize({ width, height });
+        await page.evaluate(language => {
+            const key = 'jpdb-popup-reader-settings';
+            window.GM_setValue(key, { ...window.GM_getValue(key, {}), interfaceLanguage: language,
+                annotationsPaused: false, showFloatingButton: true, showFurigana: false, furiganaMode: 'off' });
+        }, largeText ? 'ja' : 'en');
                 await page.locator('.jpdb-reader-fab').waitFor();
                 // Large-text rendering is independent of full-page browser zoom,
                 // which the compiled-extension gate verifies with tabs.setZoom.
-                if (largeText) await page.addStyleTag({ content: ':root { font-size: 200% !important; } .jpdb-reader-fab-radial-label { font-size: 24px !important; }' });
-                await page.waitForTimeout(300); // Let the host settle its large-text reflow before opening the transient menu.
+                await page.evaluate(large => {
+                    document.getElementById('smoke-large-text')?.remove();
+                    if (!large) return;
+                    const style = document.createElement('style');
+                    style.id = 'smoke-large-text';
+                    style.textContent = ':root { font-size: 200% !important; } .jpdb-reader-fab-radial-label { font-size: 24px !important; }';
+                    document.head.append(style);
+                }, largeText);
+                await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
                 await page.locator('.jpdb-reader-fab').tap();
                 const menu = page.locator('.jpdb-reader-fab-radial.is-open');
                 await menu.waitFor();
@@ -101,17 +88,6 @@ for (const [engine, type] of Object.entries({ chromium, webkit })) {
                 results.push({ engine, width, height, largeText, minGap, menuAndLookup: 'pass' });
                 writeFileSync(path.join(out, 'results.json'), JSON.stringify(results, null, 2));
                 console.log(`${engine}: ${width}×${height}${largeText ? ' large JA' : ' EN'} passed`);
-            } catch (error) {
-                await run.page.screenshot({ path: path.join(out, `${engine}-${width}x${height}-failure.png`) });
-                writeFileSync(path.join(out, 'failure.json'), JSON.stringify(await run.page.evaluate(() => ({
-                    viewport: { width: innerWidth, height: innerHeight },
-                    active: document.activeElement?.outerHTML,
-                    popup: document.querySelector('.jpdb-reader-popover')?.outerHTML,
-                })), null, 2));
-                throw error;
-            } finally { await run.close(); }
-        }
-    } finally { await browser.close(); }
+    }
+    return results;
 }
-writeFileSync(path.join(out, 'results.json'), JSON.stringify(results, null, 2));
-console.log(`Puck and lookup: ${results.length} viewport/text cases passed`);

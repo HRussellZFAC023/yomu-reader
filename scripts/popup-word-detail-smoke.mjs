@@ -30,6 +30,7 @@
 // --env-root may name the canonical checkout that owns the local QA key.
 //   node scripts/popup-word-detail-smoke.mjs [--engines=chromium,webkit] [--product=v2.1.6|<build root>] [--record|--live] [--scenarios=quiet,refused,refused-html] [--press=hover,click]
 //   --layout-only --sizes=320x568,360x640,390x844,844x390,320x1180,590x820,500x700,1280x600 --ipad-layout
+import { assertJitenKeylessDefinition, assertPopupHeaderPhone } from './lib/popup-detail-cells.mjs';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { chromium, devices, webkit } from 'playwright';
@@ -49,7 +50,6 @@ const DETAIL_PATH = '/api/vocabulary/1387990/0/info';
 const RANK_BADGE = /^Jiten\s*#330$/u;
 const FILLER = /Exact pitch unavailable|完全一致のピッチ|In context|文脈内/u;
 const REFUSED_AFTER_PRESS_MS = 6_000;
-const SETTLE_MS = 8_000;
 const ANSWER_WITHIN_MS = 80_000;
 const PROFILES = {
     chromium: { engine: chromium, presses: ['hover', 'click'], contextOptions: {} },
@@ -67,7 +67,9 @@ if (args.includes('--jpdb')) {
     jpdbKey = process.env.YOMU_JPDB_API_KEY?.trim() || process.env.JPDB_API_KEY?.trim() || process.env.YOMU_TEST_API_KEY?.trim() || process.env.YOMU_PROFILE_API_KEY?.trim() || '';
     if (!jpdbKey) throw new Error('No JPDB QA key available through qa-env.mjs.');
 }
-const scenarios = (option('scenarios') ?? 'quiet,refused,refused-html').split(',');
+const release = args.includes('--release');
+const scenarios = (option('scenarios') ?? (release ? 'quiet' : 'quiet,refused,refused-html,reflow-mechanism-fixture,scroll')).split(',');
+const defaultMatrix = !option('scenarios') && !option('press');
 const engines = (option('engines') ?? 'chromium,webkit').split(',');
 const productRef = option('product') ?? 'worktree';
 const product = productRef === 'worktree' ? worktreeProduct()
@@ -83,12 +85,17 @@ for (const name of engines) {
     if (!profile) throw new Error(`Unknown engine ${name}; use ${Object.keys(PROFILES).join(', ')}.`);
     const browser = await profile.engine.launch({ headless: true });
     try {
+        await assertJitenKeylessDefinition(browser, name);
+        await assertPopupHeaderPhone(browser, name);
         if (!args.includes('--layout-only')) {
-            for (const press of (option('press')?.split(',') ?? profile.presses)) {
-                for (const scenario of scenarios) recordResult(await openSensei(browser, name, { ...profile, press }, scenario));
+            for (const press of (option('press')?.split(',') ?? (release ? [name === 'webkit' ? 'tap' : 'hover'] : profile.presses))) {
+                for (const scenario of scenarios) {
+                    if (defaultMatrix && ['reflow-mechanism-fixture', 'scroll'].includes(scenario) && press !== 'hover') continue;
+                    recordResult(await openSensei(browser, name, { ...profile, press }, scenario));
+                }
             }
         }
-        if (!args.includes('--skip-layout')) {
+        if (!release && !args.includes('--skip-layout')) {
             const sizes = option('sizes')?.split(',').map(value => value.split('x').map(Number))
                 ?? (option('widths') ?? '390,1280').split(',').map(value => [Number(value), 844]);
             for (const [width, height] of sizes) {
@@ -168,7 +175,6 @@ async function openSensei(browser, engineName, profile, scenario) {
         if (/Jiten.*(?:failed|detail|batch|parse)/iu.test(message.text())) result.providerErrors.push(message.text());
     });
     try {
-        await page.waitForTimeout(SETTLE_MS);
         if (jpdbKey) result.configuration = await page.evaluate(() => ({ hasJpdbKey: Boolean(window.__yomuRealApp?.settings?.apiKey), parserProvider: window.__yomuRealApp?.settings?.parserProvider }));
         const word = await visibleSensei(page);
         // Observe the unminified build's actual renderer input, without

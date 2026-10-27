@@ -154,7 +154,7 @@ async function focusActiveSubtitleRail(page) {
         }, { once: true });
     });
     await railControl.tap({ force: true });
-    await page.waitForTimeout(50);
+    await page.waitForFunction(() => document.activeElement === document.querySelector('.jpdb-subtitle-rail [data-action="rail-expand"]'));
     const activation = await railControl.evaluate(readRailActivation, SETTINGS_KEY);
     assert(Object.values(activation).every(Boolean),
         'ipad-focused-rail: trusted touch did not pin and reveal the subtitle rail', activation);
@@ -196,6 +196,7 @@ async function exposeStyleControl(page) {
 
 async function clickStyleSvgTarget(page, styleButton) {
     await styleButton.evaluate(button => {
+        delete window.__yomuStyleTrustedClick;
         // Host pages may make nested SVG geometry independently hit-testable;
         // reproduce that browser target shape explicitly rather than relying
         // on this fixture's incidental SVG pointer-events cascade.
@@ -211,6 +212,11 @@ async function clickStyleSvgTarget(page, styleButton) {
         }, { capture: true, once: true });
     });
     await styleButton.locator('circle').first().click({ force: true });
+    // Touch input can finish before WebKit dispatches the compatibility click.
+    // The record and the opened panel are the observable completion, not a
+    // fixed delay after the pointer event.
+    await page.waitForFunction(() => window.__yomuStyleTrustedClick
+        && document.querySelector('[data-subtitle-style-popover]:not([hidden])'));
 }
 
 async function readSelectionUiProof(page) {

@@ -5,6 +5,7 @@
 //    .currentScreen can be left on an offscreen viewport while the user taps a
 //    later visible page.
 // Both cases use real Playwright touch events and the built userscript bundle.
+import { assertBookwalkerCty2Scroll, assertBookwalkerTapPassthrough, assertBookwalkerTapRetry } from './lib/bookwalker-mode-cells.mjs';
 import { chromium, firefox, webkit } from 'playwright';
 import path from 'node:path';
 import zlib from 'node:zlib';
@@ -218,10 +219,8 @@ async function installYomu(page) {
     await page.waitForTimeout(350);
 }
 
-async function runCase(engineName, mode) {
-    const engine = engineName === 'webkit' ? webkit : engineName === 'firefox' ? firefox : chromium;
+async function runCase(browser, engineName, mode) {
     const label = `${engineName}/${mode}`;
-    const browser = await engine.launch({ headless: true });
     const context = await browser.newContext({
         viewport: { width: 900, height: 1200 },
         hasTouch: true,
@@ -341,7 +340,6 @@ async function runCase(engineName, mode) {
     statusSeen ||= statusCount >= 1;
     frameSeen ||= frameCount >= 1;
     const videoPath = await closeContextWithVideo(context, video, `${engineName}-${mode}.webm`);
-    await browser.close();
     const ok = overlayMs >= 0 && ocrHits === 1 && statusSeen && readyStatusCount >= 1 && frameSeen && lineCount >= 1 && wordHitGeometry.ok && frameSurvived && removals === 0 && settingsChromeClean && firstTapLookup && pressedGlyphSurvived;
     const statusChanges = compressTimeline(timeline);
     console.log(`${ok ? 'PASS' : 'FAIL'}: ${label} — overlay ${overlayMs >= 0 ? overlayMs + 'ms' : 'NEVER'}, ocrHits=${ocrHits}, statusSeen=${statusSeen}, finalReadyStatus=${readyStatusCount}, finalStatus=${statusCount}, frameSeen=${frameSeen}, finalFrames=${frameCount}, lines=${lineCount}, wordGeometry=${wordHitGeometry.ok}, frameSurvived=${frameSurvived}, removals=${removals}, settingsChromeClean=${settingsChromeClean}`);
@@ -388,15 +386,23 @@ function compressTimeline(timeline) {
 }
 
 for (const engineName of ENGINE_NAMES) {
+    const engine = { chromium, firefox, webkit }[engineName];
+    if (!engine) throw new Error(`Unknown engine ${engineName}`);
+    const browser = await engine.launch({ headless: true });
+    try {
+        await assertBookwalkerCty2Scroll(browser, engineName);
+        await assertBookwalkerTapPassthrough(browser, engineName);
+        await assertBookwalkerTapRetry(browser, engineName);
     for (const mode of ['spread', 'continuous']) {
         try {
-            await runCase(engineName, mode);
+            await runCase(browser, engineName, mode);
         } catch (error) {
             const label = `${engineName}/${mode}`;
             console.log(`ERROR ${label}: ${String(error).slice(0, 180)}`);
             failures.push(`${label} crashed`);
         }
     }
+    } finally { await browser.close(); }
 }
 
 console.log('\n================ SUMMARY ================');
