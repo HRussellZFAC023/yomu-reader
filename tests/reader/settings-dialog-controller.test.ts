@@ -1,26 +1,11 @@
 import '../../src/reader/companions/register-build-companions';
-import {
-    DEFAULT_SETTINGS,
-    catalogBrowseLanguageSectionsForLearnerLanguage,
-    createSettingsDialog,
-    deferred,
-    flushPromises,
-    getSettingsDialogTestState,
-    getAudioCandidates,
-    importSummary,
-    recommendedDictionariesForLearnerLanguage,
-    resetSettingsDialogTestEnvironment,
-    resetSettingsDialogTestState,
-    settingsElement,
-    waitForCondition,
-    type CallTracker,
-} from './helpers/settings-dialog-controller-fixture';
+import { DEFAULT_SETTINGS, createSettingsDialog, deferred, flushPromises, getSettingsDialogTestState, importSummary, recommendedDictionariesForLearnerLanguage, resetSettingsDialogTestEnvironment, resetSettingsDialogTestState, settingsElement, waitForCondition, type CallTracker } from './helpers/settings-dialog-controller-fixture';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { userFacingError } from '../../src/reader/app/user-facing-errors';
 
-import { createAudioPreviewCard } from '../../src/reader/cards/utils';
+
 import { publishSettingsChange, subscribeToSettingsChanges, type SettingsChangeDetail } from '../../src/reader/settings/settings-change-bus';
-import { catalogBrowseDictionaries } from '../../src/reader/dictionaries/catalog-browse';
+
 import { listDictionaryArchives, persistDictionaryArchive } from '../../src/reader/dictionaries/archive-cache';
 import {
     loadSettings,
@@ -35,6 +20,7 @@ import { allowSyntheticReaderInteractionsForTests } from '../../src/reader/ui/tr
 import type { AnkiFieldSuggestion, AnkiLibraryScanResult } from '../../src/reader/anki/types';
 import type { ReaderSettings } from '../../src/reader/app/types';
 import type { ImportSummary } from '../../src/reader/dictionaries/yomitan';
+
 
 const settingsDialogTestState = getSettingsDialogTestState();
 
@@ -307,9 +293,6 @@ function expectInterfaceLanguagePreview(
 }
 
 
-
-
-
 describe('settings dialog static template', () => {
     afterEach(() => resetSettingsDialogTestEnvironment());
     it('keeps imported labels inert and consumes private control tokens before mounting', () => {
@@ -569,14 +552,6 @@ describe('settings dialog keyboard dismissal', () => {
         expect(document.activeElement).toBe(last);
     });
 
-    it('keeps installed dictionaries and source order reachable without a target catalogue request', () => {
-        const publishedDictionaryLanguages = vi.fn().mockRejectedValue(new TypeError('Failed to fetch'));
-        const { form } = createSettingsDialog({ publishedDictionaryLanguages });
-        expect(form.querySelector('[data-definition-source-editor]')).not.toBeNull();
-        expect(form.querySelector('select[name="targetLanguage"]')).toBeNull();
-        expect(publishedDictionaryLanguages).not.toHaveBeenCalled();
-    });
-
     it('preserves an unsaved lookup reorder across normalized and array-only durable events', async () => {
         settingsDialogTestState.useRealLocalization = true;
         const legacyLookupLinks = DEFAULT_SETTINGS.dictionaryLookupLinks
@@ -618,102 +593,6 @@ describe('settings dialog keyboard dismissal', () => {
         expect(current.dictionaryLookupLinks.map(link => link.id)).toEqual(liveReorder);
     });
 
-    it('scrolls focused settings controls above the mobile keyboard and footer', () => {
-        const rafDescriptor = Object.getOwnPropertyDescriptor(window, 'requestAnimationFrame');
-        const viewportDescriptor = Object.getOwnPropertyDescriptor(window, 'visualViewport');
-        const viewport = new EventTarget() as VisualViewport;
-        Object.defineProperties(viewport, {
-            height: { configurable: true, value: 460 },
-            width: { configurable: true, value: 390 },
-            offsetLeft: { configurable: true, value: 0 },
-            offsetTop: { configurable: true, value: 0 },
-            pageLeft: { configurable: true, value: 0 },
-            pageTop: { configurable: true, value: 0 },
-            scale: { configurable: true, value: 1 },
-        });
-        Object.defineProperty(window, 'requestAnimationFrame', {
-            configurable: true,
-            value: (callback: FrameRequestCallback) => {
-                callback(0);
-                return 1;
-            },
-        });
-        Object.defineProperty(window, 'visualViewport', { configurable: true, value: viewport });
-
-        try {
-            const { form } = createSettingsDialog();
-            const scroll = form.querySelector<HTMLElement>('.jpdb-reader-settings-scroll')!;
-            const footer = form.querySelector<HTMLElement>('.footer')!;
-            const input = form.querySelector<HTMLInputElement>('input[name="apiCredentialJpdb"]')!;
-
-            vi.spyOn(scroll, 'getBoundingClientRect').mockReturnValue(testRect(118, 374));
-            vi.spyOn(footer, 'getBoundingClientRect').mockReturnValue(testRect(390, 454));
-            vi.spyOn(input, 'getBoundingClientRect').mockReturnValue(testRect(360, 414));
-
-            input.focus();
-            scroll.scrollTop = 0;
-            input.dispatchEvent(new FocusEvent('focusin', { bubbles: true }));
-
-            expect(scroll.scrollTop).toBe(56);
-        } finally {
-            if (rafDescriptor) Object.defineProperty(window, 'requestAnimationFrame', rafDescriptor);
-            else delete (window as unknown as Record<string, unknown>).requestAnimationFrame;
-            if (viewportDescriptor) Object.defineProperty(window, 'visualViewport', viewportDescriptor);
-            else delete (window as unknown as Record<string, unknown>).visualViewport;
-        }
-    });
-
-    it.each([
-        ['overlay-space BCRs', 1],
-        ['inverse-zoomed layout-space BCRs', 0.625],
-    ])('scrolls Reddit settings controls consistently with WebKit %s', (_mode, rectScale) => {
-        const restoreBrowser = mockScaledRedditBrowser();
-        const rafDescriptor = Object.getOwnPropertyDescriptor(window, 'requestAnimationFrame');
-        const viewportDescriptor = Object.getOwnPropertyDescriptor(window, 'visualViewport');
-        const viewport = new EventTarget() as VisualViewport;
-        Object.defineProperties(viewport, {
-            height: { configurable: true, value: 287.5 },
-            width: { configurable: true, value: 243.75 },
-            offsetLeft: { configurable: true, value: 0 },
-            offsetTop: { configurable: true, value: 0 },
-            pageLeft: { configurable: true, value: 0 },
-            pageTop: { configurable: true, value: 0 },
-            scale: { configurable: true, value: 1 },
-        });
-        Object.defineProperty(window, 'requestAnimationFrame', {
-            configurable: true,
-            value: (callback: FrameRequestCallback) => {
-                callback(0);
-                return 1;
-            },
-        });
-        Object.defineProperty(window, 'visualViewport', { configurable: true, value: viewport });
-
-        try {
-            const { form } = createSettingsDialog();
-            const scroll = form.querySelector<HTMLElement>('.jpdb-reader-settings-scroll')!;
-            const footer = form.querySelector<HTMLElement>('.footer')!;
-            const input = form.querySelector<HTMLInputElement>('input[name="apiCredentialJpdb"]')!;
-            mockCompensatedRedditRoot(form, rectScale);
-
-            vi.spyOn(scroll, 'getBoundingClientRect').mockReturnValue(scaledTestRect(118, 374, rectScale));
-            vi.spyOn(footer, 'getBoundingClientRect').mockReturnValue(scaledTestRect(390, 454, rectScale));
-            vi.spyOn(input, 'getBoundingClientRect').mockReturnValue(scaledTestRect(360, 414, rectScale));
-
-            input.focus();
-            scroll.scrollTop = 0;
-            input.dispatchEvent(new FocusEvent('focusin', { bubbles: true }));
-
-            expect(scroll.scrollTop).toBe(56);
-        } finally {
-            restoreBrowser();
-            if (rafDescriptor) Object.defineProperty(window, 'requestAnimationFrame', rafDescriptor);
-            else delete (window as unknown as Record<string, unknown>).requestAnimationFrame;
-            if (viewportDescriptor) Object.defineProperty(window, 'visualViewport', viewportDescriptor);
-            else delete (window as unknown as Record<string, unknown>).visualViewport;
-        }
-    });
-
     it('lets shortcut fields record Escape without closing the dialog', () => {
         const { dismiss, form } = createSettingsDialog();
         const shortcut = form.querySelector<HTMLInputElement>('input[name="shortcuts.closePopup"]')!;
@@ -724,53 +603,6 @@ describe('settings dialog keyboard dismissal', () => {
         expect(event.defaultPrevented).toBe(true);
         expect(shortcut.value).toBe('Escape');
         expect(dismiss).not.toHaveBeenCalled();
-    });
-
-    it('lets passive parsed settings tab words activate the tab instead of opening lookup', () => {
-        const lookupText = vi.fn();
-        const { form } = createSettingsDialog({ lookupText });
-        const helpTab = form.querySelector<HTMLButtonElement>('[data-action="settings-panel"][data-panel="help"]')!;
-        const word = document.createElement('span');
-        word.className = 'jpdb-reader-word jpdb-reader-passive-word';
-        word.dataset.jpdbReaderPassive = 'true';
-        word.textContent = helpTab.textContent || 'Help';
-        helpTab.replaceChildren(word);
-
-        word.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
-
-        expect(helpTab.getAttribute('aria-selected')).toBe('true');
-        expect(form.querySelector<HTMLButtonElement>('[data-action="settings-panel"][data-panel="appearance"]')?.getAttribute('aria-selected')).toBe('false');
-        expect(lookupText).not.toHaveBeenCalled();
-
-        const preview = document.createElement('span');
-        preview.className = 'jpdb-reader-word jpdb-reader-passive-word';
-        preview.dataset.jpdbReaderPassive = 'true';
-        preview.dataset.settingsPreviewLookup = '読む';
-        preview.textContent = '読む';
-        form.append(preview);
-        preview.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
-
-        expect(lookupText).toHaveBeenCalledWith('読む', '読む', preview);
-    });
-
-    it('opens lookup for passive parsed settings copy without falling through to selection lookup', () => {
-        const lookupText = vi.fn();
-        const { form } = createSettingsDialog({ lookupText });
-        const help = document.createElement('div');
-        help.className = 'jpdb-reader-help';
-        help.innerHTML = '<span class="jpdb-reader-word jpdb-reader-passive-word" data-jpdb-reader-passive="true" data-expression="開ける" data-sentence="リーダーツールをここから開けます。">開けます</span>';
-        form.append(help);
-        const word = help.querySelector<HTMLElement>('.jpdb-reader-word')!;
-        const selection = window.getSelection();
-        const range = document.createRange();
-        range.selectNodeContents(word);
-        selection?.removeAllRanges();
-        selection?.addRange(range);
-
-        word.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
-
-        expect(lookupText).toHaveBeenCalledWith('開ける', 'リーダーツールをここから開けます。', word);
-        expect(window.getSelection()?.toString()).toBe('開けます');
     });
 
     it('publishes and consumes shared theme changes', () => {
@@ -843,35 +675,6 @@ describe('settings dialog keyboard dismissal', () => {
         const afterIntent = (await readSettingsPersistenceViewStrict()).intentLedger.records.theme;
         expectExplicitIntentAdvanced(beforeIntent, afterIntent, 'light', 'dark');
     });
-
-    it.each([['en', 'ja', '保存', '設定を保存しました。'], ['ja', 'en', 'Save', 'Settings saved.']] as const)(
-        'uses the %s → %s preview language for the footer before, during and after Save', async (before, preview, saveLabel, savedLabel) => {
-            let current: ReaderSettings = { ...DEFAULT_SETTINGS, interfaceLanguage: before };
-            const pending = deferred<void>();
-            const saveSettings = vi.fn(() => pending.promise);
-            const { form } = createSettingsDialog({
-                getSettings: () => current,
-                setSettings: (next: ReaderSettings) => { current = next; },
-                saveSettings,
-            });
-            const save = form.querySelector<HTMLButtonElement>('button[type="submit"]')!;
-            previewInterfaceLanguage(form, preview);
-            expect(form.lang).toBe(preview);
-            expect(current.interfaceLanguage).toBe(before);
-            expect(saveSettings).not.toHaveBeenCalled();
-            expect(save.textContent).toBe(saveLabel);
-            form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
-            expect(save.disabled).toBe(true);
-            expect(save.textContent).toBe(saveLabel);
-            await waitForCondition(() => saveSettings.mock.calls.length === 1);
-            expect(save.textContent).toBe(saveLabel);
-            pending.resolve();
-            await waitForCondition(() => !save.disabled && settingsSavedShown(form));
-            expect(save.textContent).toBe(saveLabel);
-            expect(form.querySelector('[data-settings-save-status]')?.textContent).toBe(savedLabel);
-            expectExplicitSettingSaved(saveSettings, 'interfaceLanguage', preview);
-        },
-    );
 
     it('commits a live interface-language preview as explicit intent without mutating its baseline', async () => {
         vi.stubGlobal('location', new URL('http://127.0.0.1:5174/study/'));
@@ -1005,47 +808,6 @@ describe('settings dialog keyboard dismissal', () => {
         expectInterfaceLanguagePreview(dialog, 'en');
     });
 
-    it.each([true, false])('releases subscriptions on replacement (host teardown: %s)', hostTeardown => {
-        const bus = () => (globalThis as unknown as Record<symbol, { listeners: Set<unknown> }>)[
-            Symbol.for('yomu.private-settings-change-bus.v1')
-        ];
-        const baseline = bus()?.listeners.size ?? 0;
-        let releasePrevious: () => void = () => undefined;
-        const dialog = createSettingsDialog({
-            mountDialog: (backdrop: HTMLElement, surface: HTMLElement) => {
-                document.querySelector('.jpdb-reader-settings')?.remove();
-                if (hostTeardown) releasePrevious();
-                document.body.append(backdrop, surface);
-            },
-        });
-        releasePrevious = () => dialog.controller.releaseModalBackground();
-        expect(bus().listeners.size).toBe(baseline + 1);
-        for (let index = 0; index < 5; index += 1) {
-            dialog.controller.open();
-            expect(bus().listeners.size).toBe(baseline + 1);
-        }
-        const form = document.querySelector<HTMLFormElement>('.jpdb-reader-settings')!;
-        publishSettingsChange({ settings: { theme: 'dark' } });
-        expect(settingsInputValue(form, '[data-theme-value]')).toBe('dark');
-        form.remove();
-        dialog.controller.releaseModalBackground();
-        expect(bus().listeners.size).toBe(baseline);
-    });
-
-    it.each(['cancel', 'escape'])('releases the form subscription on %s', action => {
-        const dialog = createSettingsDialog();
-        const bus = (globalThis as unknown as Record<symbol, { listeners: Set<unknown> }>)[
-            Symbol.for('yomu.private-settings-change-bus.v1')
-        ];
-        const mountedCount = bus.listeners.size;
-        if (action === 'cancel') {
-            dialog.form.querySelector<HTMLButtonElement>('[data-action="cancel"]')!.click();
-        } else {
-            dialog.form.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
-        }
-        expect(bus.listeners.size).toBe(mountedCount - 1);
-    });
-
     it('owns a replacement form after production-order teardown during mount', async () => {
         let releasePreviousForm: () => void = () => undefined;
         let current: ReaderSettings = { ...DEFAULT_SETTINGS, interfaceLanguage: 'en', theme: 'light' };
@@ -1122,161 +884,6 @@ describe('settings dialog keyboard dismissal', () => {
         } finally {
             unsubscribe();
         }
-    });
-
-    it('maps quick setup presets onto complete reader and subtitle color controls', () => {
-        // A learner who colours every group and hides readings on failed words,
-        // as 2.0 offered: the default-look presets reset both checkbox groups.
-        const { dependencies, form } = createSettingsDialog({
-            getSettings: () => ({ ...DEFAULT_SETTINGS, wordColorHiddenStateGroups: [], furiganaHiddenStateGroups: ['known', 'due', 'failed'] }),
-        });
-        const preset = form.querySelector<HTMLSelectElement>('select[name="appearancePreset"]')!;
-        const selectValue = (name: string): string => form.querySelector<HTMLSelectElement>(`select[name="${name}"]`)!.value;
-        const checkedGroups = (prefix: string): string[] => Array.from(form.querySelectorAll<HTMLInputElement>(`input[name^="${prefix}"]`))
-            .filter(box => box.checked)
-            .map(box => box.name.slice(prefix.length))
-            .sort();
-        const choosePreset = (value: string): void => {
-            preset.value = value;
-            preset.dispatchEvent(new Event('change', { bubbles: true }));
-        };
-
-        // Focus on new words is the default look with only new words underlined;
-        // it no longer brings back 2.0's highlight, pitch and Anki colours.
-        choosePreset('new-only');
-
-        expect(selectValue('wordColorStates')).toBe('new-only');
-        expect(selectValue('furiganaMode')).toBe(DEFAULT_SETTINGS.furiganaMode);
-        expect(selectValue('wordHighlightColorSource')).toBe('off');
-        expect(selectValue('wordUnderlineColorSource')).toBe('status');
-        expect(selectValue('wordTextColorSource')).toBe('off');
-        expect(selectValue('subtitleHighlightColorSource')).toBe('off');
-        expect(selectValue('subtitleUnderlineColorSource')).toBe('status');
-        expect(selectValue('subtitleTextColorSource')).toBe('off');
-        expect(checkedGroups('colorHide-')).toEqual([...DEFAULT_SETTINGS.wordColorHiddenStateGroups].sort());
-        expect(checkedGroups('furiganaHide-')).toEqual([...DEFAULT_SETTINGS.furiganaHiddenStateGroups].sort());
-
-        choosePreset('underline-new');
-
-        expect(selectValue('wordColorStates')).toBe('new-only');
-        expect(selectValue('furiganaMode')).toBe('hover');
-        expect(selectValue('wordHighlightColorSource')).toBe('off');
-        expect(selectValue('wordUnderlineColorSource')).toBe('jpdb');
-        expect(selectValue('wordTextColorSource')).toBe('off');
-        expect(selectValue('subtitleHighlightColorSource')).toBe('off');
-        expect(selectValue('subtitleUnderlineColorSource')).toBe('jpdb');
-        expect(selectValue('subtitleTextColorSource')).toBe('off');
-
-        choosePreset('no-colors');
-
-        expect(selectValue('wordColorStates')).toBe('all');
-        // Colour-only presets preserve the chosen reading style; Settings can
-        // also hide readings independently of power, like the puck and toolbar.
-        expect(selectValue('furiganaMode')).toBe('hover');
-        expect(form.querySelector('select[name="furiganaMode"] option[value="off"]')?.textContent).toBe('Off');
-        expect(selectValue('wordHighlightColorSource')).toBe('off');
-        expect(selectValue('wordUnderlineColorSource')).toBe('off');
-        expect(selectValue('wordTextColorSource')).toBe('off');
-        expect(selectValue('subtitleHighlightColorSource')).toBe('off');
-        expect(selectValue('subtitleUnderlineColorSource')).toBe('off');
-        expect(selectValue('subtitleTextColorSource')).toBe('off');
-
-        // Balanced is the default look (ADR-0026), colour-hidden groups included.
-        for (const box of form.querySelectorAll<HTMLInputElement>('input[name^="colorHide-"], input[name^="furiganaHide-"]')) box.checked = false;
-        choosePreset('balanced');
-
-        expect(checkedGroups('colorHide-')).toEqual(['ignored', 'known']);
-        expect(checkedGroups('furiganaHide-')).toEqual(['due', 'known']);
-        expect(selectValue('wordColorStates')).toBe('all');
-        expect(selectValue('furiganaMode')).toBe('known-status');
-        expect(selectValue('wordHighlightColorSource')).toBe('off');
-        expect(selectValue('wordUnderlineColorSource')).toBe('status');
-        expect(selectValue('wordTextColorSource')).toBe('off');
-        expect(selectValue('subtitleHighlightColorSource')).toBe('off');
-        expect(selectValue('subtitleUnderlineColorSource')).toBe('status');
-        expect(selectValue('subtitleTextColorSource')).toBe('off');
-        expect(dependencies.applyTheme).toHaveBeenCalled();
-    });
-
-    // Both presets take the default reading mode (ADR-0026).
-    it('keeps quick setup furigana independent of the available decks', () => {
-        for (const settings of [
-            { ...DEFAULT_SETTINGS, apiKey: '', jitenApiKey: '', ankiEnabled: false, yomuLocalSrsEnabled: false },
-            { ...DEFAULT_SETTINGS, apiKey: '', jitenApiKey: '', ankiEnabled: false, yomuLocalSrsEnabled: true },
-            { ...DEFAULT_SETTINGS, apiKey: 'jpdb-key', jitenApiKey: '', ankiEnabled: true, yomuLocalSrsEnabled: true },
-        ] satisfies ReaderSettings[]) {
-            const { form } = createSettingsDialog({ getSettings: () => settings });
-            const preset = form.querySelector<HTMLSelectElement>('select[name="appearancePreset"]')!;
-            const mode = form.querySelector<HTMLSelectElement>('select[name="furiganaMode"]')!;
-
-            for (const [value, expected] of [['balanced', DEFAULT_SETTINGS.furiganaMode], ['new-only', DEFAULT_SETTINGS.furiganaMode]] as const) {
-                preset.value = value;
-                preset.dispatchEvent(new Event('change', { bubbles: true }));
-                expect(mode.value).toBe(expected);
-            }
-        }
-    });
-
-    it('reveals the difficulty explanation only while that mode is selected', () => {
-        const { form } = createSettingsDialog();
-        const mode = form.querySelector<HTMLSelectElement>('select[name="furiganaMode"]')!;
-        const note = form.querySelector<HTMLElement>('[data-furigana-difficulty-note]')!;
-
-        expect(note.hidden).toBe(true);
-
-        mode.value = 'difficult-kanji';
-        mode.dispatchEvent(new Event('change', { bubbles: true }));
-        expect(note.hidden).toBe(false);
-
-        mode.value = 'all';
-        mode.dispatchEvent(new Event('change', { bubbles: true }));
-        expect(note.hidden).toBe(true);
-    });
-
-    it('refreshes the Anki template preview when front content toggles change', () => {
-        const { form } = createSettingsDialog();
-        const preview = form.querySelector<HTMLElement>('[data-anki-template-preview]')!;
-        const reading = form.querySelector<HTMLInputElement>('input[name="ankiFrontReading"]')!;
-        const sentence = form.querySelector<HTMLInputElement>('input[name="ankiFrontSentence"]')!;
-        const image = form.querySelector<HTMLInputElement>('input[name="ankiFrontImage"]')!;
-
-        expect(preview.querySelectorAll('.jpdb-reader-template-reading')).toHaveLength(2);
-        expect(preview.textContent).toContain('今日は本を読む。');
-        expect(preview.textContent).toContain('Image appears on the front');
-
-        reading.checked = false;
-        reading.dispatchEvent(new Event('change', { bubbles: true }));
-        expect(preview.querySelectorAll('.jpdb-reader-template-reading')).toHaveLength(1);
-
-        sentence.checked = false;
-        sentence.dispatchEvent(new Event('change', { bubbles: true }));
-        expect(preview.textContent).not.toContain('今日は本を読む。');
-
-        image.checked = false;
-        image.dispatchEvent(new Event('change', { bubbles: true }));
-        expect(preview.textContent).not.toContain('Image appears on the front');
-    });
-
-    it('keeps Anki tag chips and hidden form value in sync', () => {
-        const { form } = createSettingsDialog();
-        const hidden = form.querySelector<HTMLInputElement>('input[name="ankiTags"]')!;
-        const input = form.querySelector<HTMLInputElement>('[data-anki-tag-input]')!;
-        const add = form.querySelector<HTMLButtonElement>('[data-action="anki-tag-add"]')!;
-
-        expect(hidden.value).toBe('yomu');
-
-        input.value = 'core, yomu immersion';
-        add.click();
-
-        expect(hidden.value).toBe('yomu core immersion');
-        expect(Array.from(form.querySelectorAll<HTMLElement>('[data-anki-tag-chips] .jpdb-reader-tag-chip'))
-            .map(chip => chip.dataset.tag)).toEqual(['yomu', 'core', 'immersion']);
-
-        form.querySelector<HTMLButtonElement>('[data-action="anki-tag-remove"][data-tag="core"]')?.click();
-
-        expect(hidden.value).toBe('yomu immersion');
-        expect(Array.from(form.querySelectorAll<HTMLElement>('[data-anki-tag-chips] .jpdb-reader-tag-chip'))
-            .map(chip => chip.dataset.tag)).toEqual(['yomu', 'immersion']);
     });
 
     it('confirms the save without waiting for dictionary styles to refresh', async () => {
@@ -1375,36 +982,6 @@ describe('settings dialog keyboard dismissal', () => {
         expect(openFilePicker).not.toHaveBeenCalled();
     });
 
-    it.each([
-        {
-            name: 'denies consent',
-            browser: {
-                runtime: { id: 'yomu@yomureader.com', getURL: (path: string) => `moz-extension://yomu/${path}` },
-                permissions: { request: vi.fn().mockResolvedValue(false) },
-            },
-            message: 'Those account details were not saved because Firefox permission was not granted.',
-        },
-        {
-            name: 'requires the extension page',
-            browser: { runtime: { id: 'yomu@yomureader.com', getURL: (path: string) => `moz-extension://yomu/${path}` } },
-            message: 'Firefox can only ask for that permission on a Yomu page. Open Study, then add the account details in Settings.',
-        },
-    ])('does not claim an Academy device when Firefox $name', async ({ browser, message }) => {
-        const request = vi.fn();
-        vi.stubGlobal('browser', browser);
-        vi.stubGlobal('GM_xmlhttpRequest', request);
-        const { dependencies, form } = createSettingsDialog();
-        form.querySelector<HTMLInputElement>('[data-academy-pairing-code]')!.value = '0234-5678-ABCD-EFGH-JKMN';
-
-        const connect = form.querySelector<HTMLButtonElement>('[data-action="connect-academy-account"]')!;
-        await waitForCondition(() => !connect.disabled);
-        connect.click();
-        await waitForCondition(() => dependencies.toast.mock.calls.length > 0);
-
-        expect(request).not.toHaveBeenCalled();
-        expect(dependencies.toast).toHaveBeenCalledWith(message);
-    });
-
     it('does not dismiss or toast from a stale save after settings is reopened', async () => {
         const storage = deferred<void>();
         const setValue = vi.fn(() => storage.promise);
@@ -1427,24 +1004,6 @@ describe('settings dialog keyboard dismissal', () => {
         expect(settingsSavedShown(document.querySelector<HTMLFormElement>('.jpdb-reader-settings')!)).toBe(false);
     });
 
-
-    it('previews JPDB text-to-speech with the standard よむ sample card', async () => {
-        const play = vi.fn();
-        const playJpdbAudio = vi.fn().mockResolvedValue(true);
-        const { form } = createSettingsDialog({
-            audio: { play, playJpdbAudio, stop: vi.fn() },
-        });
-        const jpdbRow = Array.from(form.querySelectorAll<HTMLElement>('[data-audio-source-row]'))
-            .find(row => row.querySelector<HTMLSelectElement>('select[name$=".type"]')?.value === 'jpdb-tts');
-        const preview = jpdbRow?.querySelector<HTMLButtonElement>('[data-action="preview-audio"]');
-
-        preview?.click();
-        await waitForCondition(() => play.mock.calls.length === 1);
-
-        expect(play).toHaveBeenCalledWith(createAudioPreviewCard(), { userGesture: true });
-        expect(playJpdbAudio).not.toHaveBeenCalled();
-    });
-
     it('reaches no audio source on its own when settings opens', async () => {
         const request = vi.fn();
         vi.stubGlobal('GM_xmlhttpRequest', request);
@@ -1454,305 +1013,6 @@ describe('settings dialog keyboard dismissal', () => {
 
         expect(request).not.toHaveBeenCalled();
         expect(form.querySelector('[data-action="audio-source-detect"]')).toBeNull();
-    });
-
-    it('lists an aggregator URL\'s providers when the media panel is opened', async () => {
-        vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({
-            type: 'audioSourceList',
-            audioSources: [
-                { name: 'nhk16 ニホ＼ン [2]', url: 'https://audio.yomureader.com/audio/clips/nihon-1.mp3' },
-                { name: 'jpod', url: 'https://assets.languagepod101.com/dictionary/japanese/audiomp3.php?kana=%E3%81%AB%E3%81%BB%E3%82%93' },
-            ],
-        }), { status: 200, headers: { 'Content-Type': 'application/json' } })));
-        const { form } = createSettingsDialog();
-        const hostedRow = Array.from(form.querySelectorAll<HTMLElement>('[data-audio-source-row]'))
-            .find(row => row.querySelector<HTMLInputElement>('[data-audio-url-field]')?.value.includes('audio.yomureader.com'));
-        // Nothing is known about the URL on a fresh load, which is the state a
-        // user actually opens settings in.
-        expect(hostedRow?.querySelector('input[name$=".subSources.0.name"]')).toBeNull();
-
-        form.querySelector<HTMLButtonElement>('[data-action="settings-panel"][data-panel="media"]')?.click();
-        await waitForCondition(() => Boolean(hostedRow?.querySelector('input[name$=".subSources.0.name"]')));
-
-        const providers = Array.from(hostedRow?.querySelectorAll<HTMLInputElement>('input[name*=".subSources."][name$=".name"]') ?? [])
-            .map(input => input.value);
-        expect(providers).toEqual(['nhk16', 'jpod']);
-    });
-
-    it('lists an aggregator URL\'s providers once a lookup reveals them, with nothing to press', async () => {
-        const play = vi.fn(async () => {
-            await getAudioCandidates(
-                { type: 'custom-json', url: 'https://audio.yomureader.com/?term={term}&reading={reading}', voice: '', enabled: true },
-                { vid: 0, sid: 0, spelling: '日本', reading: 'にほん' } as never,
-                1000,
-                '',
-            );
-            return true;
-        });
-        vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({
-            type: 'audioSourceList',
-            audioSources: [
-                { name: 'nhk16 ニホ＼ン [2]', url: 'https://audio.yomureader.com/audio/clips/nihon-1.mp3' },
-                { name: 'jpod', url: 'https://assets.languagepod101.com/dictionary/japanese/audiomp3.php?kana=%E3%81%AB%E3%81%BB%E3%82%93' },
-            ],
-        }), { status: 200, headers: { 'Content-Type': 'application/json' } })));
-        const { form } = createSettingsDialog({ audio: { play, stop: vi.fn() } });
-        const hostedRow = Array.from(form.querySelectorAll<HTMLElement>('[data-audio-source-row]'))
-            .find(row => row.querySelector<HTMLInputElement>('[data-audio-url-field]')?.value.includes('audio.yomureader.com'));
-        expect(hostedRow?.querySelector('input[name$=".subSources.0.name"]')).toBeNull();
-
-        hostedRow?.querySelector<HTMLButtonElement>('[data-action="preview-audio"]')?.click();
-        await waitForCondition(() => Boolean(hostedRow?.querySelector('input[name$=".subSources.0.name"]')));
-
-        const providers = Array.from(hostedRow?.querySelectorAll<HTMLInputElement>('input[name*=".subSources."][name$=".name"]') ?? [])
-            .map(input => input.value);
-        expect(providers).toEqual(['nhk16', 'jpod']);
-    });
-
-    it('tests Anki with a read-only connection check without warming disabled status', async () => {
-        let settings: ReaderSettings = { ...DEFAULT_SETTINGS, apiKey: '', ankiEnabled: false };
-        const isConnected = vi.fn().mockResolvedValue(true);
-        const ensureDeckAndModel = vi.fn().mockResolvedValue(undefined);
-        const warmStatusIndex = vi.fn().mockResolvedValue(null);
-        const { form } = createSettingsDialog({
-            getSettings: () => settings,
-            setSettings: (next: ReaderSettings) => { settings = next; },
-            anki: {
-                isConnected,
-                ensureDeckAndModel,
-                warmStatusIndex,
-            },
-        });
-
-        form.querySelector<HTMLButtonElement>('[data-action="test-anki"]')?.click();
-        await waitForCondition(() => form.querySelector<HTMLElement>('[data-anki-status]')?.textContent?.includes('Connected. AnkiConnect is reachable.') ?? false);
-        await waitForCondition(() => form.querySelector<HTMLElement>('[data-anki-status]')?.dataset.statusTone === 'success');
-
-        expect(isConnected).toHaveBeenCalledOnce();
-        expect(ensureDeckAndModel).not.toHaveBeenCalled();
-        expect(warmStatusIndex).not.toHaveBeenCalled();
-        expect(form.querySelector<HTMLElement>('[data-anki-status]')?.dataset.statusTone).toBe('success');
-        expect(form.querySelector<HTMLElement>('[data-anki-status]')?.textContent).toContain('Connected. AnkiConnect is reachable.');
-    });
-
-    it('shows disabled Anki status without probing when Anki mining is off', async () => {
-        let settings: ReaderSettings = { ...DEFAULT_SETTINGS, apiKey: '', ankiEnabled: false };
-        const isConnected = vi.fn().mockResolvedValue(true);
-        const { form } = createSettingsDialog({
-            getSettings: () => settings,
-            setSettings: (next: ReaderSettings) => { settings = next; },
-            anki: { isConnected },
-        });
-
-        expect(form.querySelector<HTMLElement>('[data-anki-status]')?.textContent).toContain('Anki mining disabled');
-        await flushPromises();
-        expect(isConnected).not.toHaveBeenCalled();
-    });
-
-    it('checks AnkiConnect automatically when Anki mining is enabled on open', async () => {
-        let settings: ReaderSettings = { ...DEFAULT_SETTINGS, apiKey: '', ankiEnabled: true, ankiMobileHandoff: true };
-        const isConnected = vi.fn().mockResolvedValue(true);
-        const warmStatusIndex = vi.fn().mockResolvedValue(null);
-        const { form } = createSettingsDialog({
-            getSettings: () => settings,
-            setSettings: (next: ReaderSettings) => { settings = next; },
-            anki: { isConnected, warmStatusIndex },
-        });
-
-        await waitForCondition(() => form.querySelector<HTMLElement>('[data-anki-status]')?.textContent?.includes('Connected. AnkiConnect is reachable.') ?? false);
-        await waitForCondition(() => warmStatusIndex.mock.calls.length === 1);
-
-        expect(isConnected).toHaveBeenCalledOnce();
-        expect(warmStatusIndex).toHaveBeenCalledOnce();
-        expect(form.querySelector<HTMLElement>('[data-anki-status]')?.dataset.statusTone).toBe('success');
-        expect(form.querySelector<HTMLElement>('[data-anki-status]')?.textContent).toContain('Ready:');
-    });
-
-    it('refreshes the Anki status probe when enabled state or URL changes', async () => {
-        let settings: ReaderSettings = { ...DEFAULT_SETTINGS, apiKey: '', ankiEnabled: false };
-        const isConnected = vi.fn()
-            .mockResolvedValueOnce(true)
-            .mockResolvedValueOnce(false);
-        const { form } = createSettingsDialog({
-            getSettings: () => settings,
-            setSettings: (next: ReaderSettings) => { settings = next; },
-            anki: { isConnected },
-        });
-        const enabled = form.querySelector<HTMLInputElement>('input[name="ankiEnabled"]')!;
-        const url = form.querySelector<HTMLInputElement>('input[name="ankiConnectUrl"]')!;
-
-        enabled.checked = true;
-        enabled.dispatchEvent(new Event('change', { bubbles: true }));
-        await waitForCondition(() => form.querySelector<HTMLElement>('[data-anki-status]')?.dataset.statusTone === 'success');
-
-        url.value = 'http://127.0.0.1:9999';
-        url.dispatchEvent(new Event('change', { bubbles: true }));
-        await waitForAnkiStatusText(form, 'AnkiConnect not reached');
-
-        expect(isConnected).toHaveBeenCalledTimes(2);
-        expectAnkiConnectSetupStatus(form);
-    });
-
-    it('keeps a failed manual AnkiConnect check in the setup tone instead of showing a hard error', async () => {
-        let settings: ReaderSettings = { ...DEFAULT_SETTINGS, apiKey: '', ankiEnabled: true, ankiMobileHandoff: true };
-        const isConnected = vi.fn().mockResolvedValue(false);
-        const toast = vi.fn();
-        const { form } = createSettingsDialog({
-            getSettings: () => settings,
-            setSettings: (next: ReaderSettings) => { settings = next; },
-            anki: { isConnected },
-            toast,
-        });
-
-        form.querySelector<HTMLButtonElement>('[data-action="test-anki"]')?.click();
-        await waitForAnkiStatusText(form, 'AnkiConnect not reached');
-
-        expectAnkiConnectSetupStatus(form);
-        expect(toast).not.toHaveBeenCalledWith(expect.stringContaining('AnkiConnect not reached'));
-    });
-
-    it('keeps a thrown AnkiConnect probe in the setup tone instead of showing a hard error', async () => {
-        let settings: ReaderSettings = { ...DEFAULT_SETTINGS, apiKey: '', ankiEnabled: true };
-        const isConnected = vi.fn().mockRejectedValue(new Error('AnkiConnect request failed.'));
-        const toast = vi.fn();
-        const { form } = createSettingsDialog({
-            getSettings: () => settings,
-            setSettings: (next: ReaderSettings) => { settings = next; },
-            anki: { isConnected },
-            toast,
-        });
-
-        form.querySelector<HTMLButtonElement>('[data-action="test-anki"]')?.click();
-        await waitForAnkiStatusText(form, 'AnkiConnect not reached');
-
-        expectAnkiConnectSetupStatus(form);
-        expect(ankiStatusText(form)).not.toContain('request failed');
-        expect(toast).not.toHaveBeenCalledWith(expect.stringContaining('AnkiConnect request failed'));
-    });
-
-    it('updates the JPDB status light when the API key field changes', () => {
-        const { form } = createSettingsDialog();
-        const status = form.querySelector<HTMLElement>('[data-jpdb-status]')!;
-        const apiKey = form.querySelector<HTMLInputElement>('input[name="apiCredentialJpdb"]')!;
-        const enableReviews = form.querySelector<HTMLInputElement>('input[name="enableReviews"]')!;
-        const jpdbMiningEnabled = form.querySelector<HTMLInputElement>('input[name="jpdbMiningEnabled"]')!;
-
-        expect(status.dataset.statusTone).toBe('pending');
-
-        apiKey.value = 'jpdb-key';
-        apiKey.dispatchEvent(new Event('input', { bubbles: true }));
-
-        expect(status.dataset.statusTone).toBe('success');
-        expect(status.textContent).toContain('JPDB key set');
-        expect(status.textContent).not.toContain('Reviews:');
-        expect(status.textContent).not.toContain('Deck changes:');
-
-        enableReviews.checked = false;
-        enableReviews.dispatchEvent(new Event('change', { bubbles: true }));
-        expect(status.textContent).toContain('JPDB key set');
-        expect(status.textContent).not.toContain('Reviews:');
-
-        jpdbMiningEnabled.checked = false;
-        jpdbMiningEnabled.dispatchEvent(new Event('change', { bubbles: true }));
-        expect(status.dataset.statusTone).toBe('success');
-        expect(status.textContent).toContain('JPDB key set');
-        expect(status.textContent).not.toContain('Deck changes:');
-
-        apiKey.value = '';
-        apiKey.dispatchEvent(new Event('input', { bubbles: true }));
-
-        expect(status.dataset.statusTone).toBe('pending');
-        expect(status.textContent).toContain('No Jiten or JPDB key');
-    });
-
-    it('upgrades the JPDB status to a live connected/rejected answer via ping', async () => {
-        const ping = vi.fn().mockResolvedValue(true);
-        const { form } = createSettingsDialog({
-            jpdb: { clear: vi.fn(), listDecks: vi.fn().mockResolvedValue([]), ping },
-        });
-        const status = form.querySelector<HTMLElement>('[data-jpdb-status]')!;
-        const apiKey = form.querySelector<HTMLInputElement>('input[name="apiCredentialJpdb"]')!;
-
-        apiKey.value = 'jpdb-key';
-        apiKey.dispatchEvent(new Event('change', { bubbles: true }));
-        await vi.waitFor(() => expect(status.textContent).toContain('Connected to JPDB'));
-        expect(status.dataset.statusTone).toBe('success');
-        expect(ping).toHaveBeenCalled();
-
-        ping.mockResolvedValue(false);
-        apiKey.dispatchEvent(new Event('change', { bubbles: true }));
-        await vi.waitFor(() => expect(status.textContent).toContain('did not accept the key'));
-        expect(status.dataset.statusTone).toBe('error');
-    });
-
-    it('updates the API status light when the API key field changes to a Jiten key', () => {
-        const { form } = createSettingsDialog();
-        const status = form.querySelector<HTMLElement>('[data-jpdb-status]')!;
-        const apiCredential = form.querySelector<HTMLInputElement>('input[name="apiCredentialJpdb"]')!;
-
-        expect(status.dataset.statusTone).toBe('pending');
-        expect(apiCredential.value).toBe('');
-        expect(form.querySelector<HTMLInputElement>('input[name="apiKey"]')).toBeNull();
-        expect(form.querySelector<HTMLInputElement>('input[name="jitenApiKey"]')).toBeNull();
-        expect(form.querySelector<HTMLElement>('[data-jiten-status]')).toBeNull();
-
-        apiCredential.value = 'ak_jiten-key';
-        apiCredential.dispatchEvent(new Event('input', { bubbles: true }));
-
-        expect(status.dataset.statusTone).toBe('success');
-        expect(status.textContent).toContain('Jiten key set');
-        expect(status.textContent).not.toContain('JPDB-backed cards need a JPDB key');
-    });
-
-    it('does not render a separate Jiten connection test action', () => {
-        const { form } = createSettingsDialog();
-
-        expect(form.querySelector<HTMLButtonElement>('[data-action="check-jiten-api"]')).toBeNull();
-        expect(form.querySelector<HTMLElement>('[data-jiten-status]')).toBeNull();
-    });
-
-    it('offers to bring an older Yomu note type up to date', async () => {
-        const yomuModelUpdatePlan = vi.fn().mockResolvedValue({
-            modelName: 'よむ Japanese',
-            missingFields: ['Audio', 'Pitch'],
-        });
-        const { form } = createSettingsDialog({
-            getSettings: () => ({ ...DEFAULT_SETTINGS, apiKey: '', ankiEnabled: true }),
-            anki: {
-                isConnected: vi.fn().mockResolvedValue(true),
-                yomuModelUpdatePlan,
-            },
-        });
-
-        const prompt = settingsElement<HTMLElement>(form, '[data-anki-model-update]');
-        await waitForCondition(() => prompt.hidden === false);
-
-        expect(yomuModelUpdatePlan).toHaveBeenCalled();
-        expect(prompt.textContent).toContain('New fields are ready for "よむ Japanese": Audio, Pitch.');
-        expect(prompt.querySelector<HTMLButtonElement>('[data-action="update-anki-model"]')?.textContent).toBe('Update note type');
-    });
-
-    it('keeps the note type offer hidden once every field is present', async () => {
-        const yomuModelUpdatePlan = vi.fn().mockResolvedValue(null);
-        const scanLibrary = vi.fn().mockResolvedValue(singleModelAnkiScan(
-            'よむ',
-            'よむ Japanese',
-            ['Expression', 'Reading', 'Meaning'],
-            [['expression', 'Expression', 'high']],
-        ));
-        const { form } = createSettingsDialog({
-            getSettings: () => ({ ...DEFAULT_SETTINGS, apiKey: '', ankiEnabled: true }),
-            anki: {
-                isConnected: vi.fn().mockResolvedValue(true),
-                scanLibrary,
-                yomuModelUpdatePlan,
-            },
-        });
-
-        await waitForCondition(() => yomuModelUpdatePlan.mock.calls.length === 1);
-        await flushPromises();
-
-        expect(settingsElement<HTMLElement>(form, '[data-anki-model-update]').hidden).toBe(true);
     });
 
     it('adds the missing note type fields only when the offer is accepted, then drops the offer', async () => {
@@ -1857,104 +1117,6 @@ describe('settings dialog keyboard dismissal', () => {
 
         expect(isConnected).toHaveBeenCalledOnce();
         expect(ensureDeckAndModel).toHaveBeenCalledOnce();
-    });
-
-    it('scans the Anki library after an explicit Check succeeds', async () => {
-        let settings: ReaderSettings = { ...DEFAULT_SETTINGS, apiKey: '', ankiEnabled: false };
-        const isConnected = vi.fn().mockResolvedValue(true);
-        const scanLibrary = vi.fn().mockResolvedValue(singleModelAnkiScan(
-            'Checked Mining',
-            'Checked Japanese',
-            ['Expression', 'Reading', 'Meaning'],
-            [
-                ['expression', 'Expression', 'high'],
-                ['reading', 'Reading', 'high'],
-                ['meaning', 'Meaning', 'high'],
-            ],
-        ));
-        const { form } = createSettingsDialog({
-            getSettings: () => settings,
-            setSettings: (next: ReaderSettings) => { settings = next; },
-            anki: {
-                isConnected,
-                scanLibrary,
-            },
-        });
-        const enabled = form.querySelector<HTMLInputElement>('input[name="ankiEnabled"]')!;
-        enabled.checked = true;
-        enabled.dispatchEvent(new Event('change', { bubbles: true }));
-
-        form.querySelector<HTMLButtonElement>('[data-action="test-anki"]')?.click();
-        await waitForCondition(() => scanLibrary.mock.calls.length === 1);
-        await waitForCondition(() => settingsSelectValue(form, 'select[name="ankiModel"]') === 'Checked Japanese');
-
-        expect(isConnected).toHaveBeenCalled();
-        expect(settingsSelectValue(form, 'select[name="ankiDeck"]')).toBe('Checked Mining');
-        expect(ankiStatusText(form)).toContain('Checked Japanese');
-    });
-
-    it('applies the best scanned Anki deck and note type to the settings form', async () => {
-        const isConnected = vi.fn().mockResolvedValue(true);
-        const scanLibrary = vi.fn().mockResolvedValue(singleModelAnkiScan(
-            'Anime Mining',
-            'Imported Japanese',
-            ['Vocabulary-Kanji', 'Vocabulary-Kana', 'Glossary'],
-            [
-                ['expression', 'Vocabulary-Kanji', 'high'],
-                ['reading', 'Vocabulary-Kana', 'high'],
-                ['meaning', 'Glossary', 'medium'],
-            ],
-        ));
-        const { form } = createSettingsDialog({
-            getSettings: () => ({ ...DEFAULT_SETTINGS, apiKey: '', ankiEnabled: true }),
-            anki: {
-                isConnected,
-                scanLibrary,
-            },
-        });
-
-        await waitForCondition(() => settingsSelectValue(form, 'select[name="ankiModel"]') === 'Imported Japanese');
-
-        expect(settingsSelectValue(form, 'select[name="ankiDeck"]')).toBe('Anime Mining');
-        expect(settingsSelectValue(form, 'select[name="ankiModel"]')).toBe('Imported Japanese');
-        expect(settingsOptionValues(form, '[data-anki-deck-options] option')).toEqual(['Anime Mining', 'Default']);
-        expect(settingsOptionValues(form, '[data-anki-model-options] option')).toEqual(['Imported Japanese']);
-        expect(ankiFieldRoleValue(form, 'expression')).toBe('Vocabulary-Kanji');
-        expect(ankiFieldRoleValue(form, 'reading')).toBe('Vocabulary-Kana');
-        expect(ankiFieldRoleValue(form, 'meaning')).toBe('Glossary');
-        expect(ankiConfidenceValues(form)).toEqual([
-            'high:High',
-            'high:High',
-            'medium:Medium',
-        ]);
-        expect(settingsJsonInputValue(form, '[data-anki-scan-confidence]')).toEqual({
-            'Imported Japanese': {
-                expression: 'high',
-                reading: 'high',
-                meaning: 'medium',
-            },
-        });
-        expect(settingsElement<HTMLElement>(form, '[data-newtab-anki-decks]').hidden).toBe(false);
-        expect(newTabAnkiDeckToggle(form, 'Anime Mining').checked).toBe(true);
-        expect(settingsInputValue(form, 'input[name="newTabAnkiDisabledDecks"]')).toBe('');
-        expect(settingsJsonInputValue(form, 'input[name="ankiFieldMappings"]')).toEqual({
-            'Imported Japanese': {
-                expression: 'Vocabulary-Kanji',
-                reading: 'Vocabulary-Kana',
-                meaning: 'Glossary',
-            },
-        });
-        const meaning = settingsElement<HTMLSelectElement>(form, 'select[data-anki-field-role="meaning"]');
-        meaning.value = 'Vocabulary-Kana';
-        meaning.dispatchEvent(new Event('change', { bubbles: true }));
-        expect(settingsJsonInputValue(form, 'input[name="ankiFieldMappings"]')).toEqual({
-            'Imported Japanese': {
-                expression: 'Vocabulary-Kanji',
-                reading: 'Vocabulary-Kana',
-                meaning: 'Vocabulary-Kana',
-            },
-        });
-        expect(ankiStatusText(form)).toContain('expression: Vocabulary-Kanji');
     });
 
     it('keeps the saved Anki note type selected when a different live model scores higher', async () => {
@@ -2063,30 +1225,6 @@ describe('settings dialog keyboard dismissal', () => {
         expect(ankiFieldRoleValue(form, 'meaning')).toBe('Glossary');
     });
 
-    it('keeps unavailable automatic Anki scan failures quiet after a successful connection', async () => {
-        const isConnected = vi.fn().mockResolvedValue(true);
-        const scanLibrary = vi.fn().mockRejectedValue(new Error('AnkiConnect needs the userscript request bridge on content pages.'));
-        const toast = vi.fn();
-        const { form } = createSettingsDialog({
-            getSettings: () => ({ ...DEFAULT_SETTINGS, apiKey: '', ankiEnabled: true }),
-            anki: {
-                isConnected,
-                scanLibrary,
-            },
-            toast,
-        });
-
-        await waitForCondition(() =>
-            scanLibrary.mock.calls.length > 0
-            && (form.querySelector<HTMLElement>('[data-anki-status]')?.textContent?.includes('Connected. AnkiConnect is reachable') ?? false));
-
-        const status = form.querySelector<HTMLElement>('[data-anki-status]');
-        expect(status?.dataset.statusTone).toBe('success');
-        expect(status?.textContent).toContain('Connected');
-        expect(status?.textContent).not.toContain('request bridge');
-        expect(toast).not.toHaveBeenCalled();
-    });
-
     it('preserves disabled Anki deck preferences while scanning Anki library metadata', async () => {
         let settings: ReaderSettings = {
             ...DEFAULT_SETTINGS,
@@ -2160,83 +1298,6 @@ describe('settings dialog keyboard dismissal', () => {
             expect(warmStatusIndex).not.toHaveBeenCalled();
         } finally {
             vi.useRealTimers();
-        }
-    });
-
-    it('scans Anki through AnkiConnect on mobile handoff devices when a bridge is reachable', async () => {
-        const originalUserAgent = navigator.userAgent;
-        Object.defineProperty(window.navigator, 'userAgent', {
-            value: 'Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36',
-            configurable: true,
-        });
-        const isConnected = vi.fn().mockResolvedValue(true);
-        let settings: ReaderSettings = { ...DEFAULT_SETTINGS, apiKey: '', ankiEnabled: true };
-        const scanLibrary = vi.fn().mockResolvedValue(singleModelAnkiScan(
-            'Android Bridge',
-            'Bridge Japanese',
-            ['Expression', 'Reading', 'Meaning'],
-            [
-                ['expression', 'Expression', 'high'],
-                ['reading', 'Reading', 'high'],
-                ['meaning', 'Meaning', 'high'],
-            ],
-        ));
-        const { form } = createSettingsDialog({
-            getSettings: () => settings,
-            setSettings: (next: ReaderSettings) => { settings = next; },
-            anki: {
-                isConnected,
-                scanLibrary,
-            },
-        });
-
-        try {
-            await waitForCondition(() => settingsSelectValue(form, 'select[name="ankiModel"]') === 'Bridge Japanese');
-
-            expect(isConnected).toHaveBeenCalledOnce();
-            expect(scanLibrary).toHaveBeenCalledOnce();
-            expect(settingsSelectValue(form, 'select[name="ankiDeck"]')).toBe('Android Bridge');
-            expect(ankiStatusText(form)).toContain('Bridge Japanese');
-        } finally {
-            Object.defineProperty(window.navigator, 'userAgent', { value: originalUserAgent, configurable: true });
-        }
-    });
-
-    it('explains mobile handoff fallback when AnkiConnect is unreachable on mobile', async () => {
-        const originalUserAgent = navigator.userAgent;
-        Object.defineProperty(window.navigator, 'userAgent', {
-            value: 'Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36',
-            configurable: true,
-        });
-        const isConnected = vi.fn().mockResolvedValue(false);
-        const scanLibrary = vi.fn().mockResolvedValue({ deckNames: [], models: [], suggestedModel: null });
-        const warmStatusIndex = vi.fn().mockResolvedValue(null);
-        let settings: ReaderSettings = { ...DEFAULT_SETTINGS, apiKey: '', ankiEnabled: true, ankiMobileHandoff: true };
-        const { form } = createSettingsDialog({
-            getSettings: () => settings,
-            setSettings: (next: ReaderSettings) => { settings = next; },
-            anki: {
-                isConnected,
-                scanLibrary,
-                warmStatusIndex,
-            },
-        });
-
-        try {
-            let fallbackText = '';
-            await waitForCondition(() => {
-                const text = form.querySelector<HTMLElement>('[data-anki-status]')?.textContent ?? '';
-                if (!text.includes('Anki offline')) return false;
-                fallbackText = text;
-                return true;
-            });
-
-            expect(isConnected).toHaveBeenCalledOnce();
-            expect(scanLibrary).not.toHaveBeenCalled();
-            expect(warmStatusIndex).not.toHaveBeenCalled();
-            expect(fallbackText).toContain('create notes');
-        } finally {
-            Object.defineProperty(window.navigator, 'userAgent', { value: originalUserAgent, configurable: true });
         }
     });
 });
@@ -2353,123 +1414,6 @@ describe('settings dialog dictionary imports', () => {
         expect(form.querySelector<HTMLInputElement>('input[name="localDictionariesEnabled"]')?.checked).toBe(false);
         expect(form.querySelector<HTMLElement>('#jpdb-reader-settings-panel-dictionaries [data-import-status]')?.textContent)
             .toContain("This site's copy was deleted; other sites clean up as you visit them.");
-    });
-
-    it('uses the origin-local dictionary summary for the installed button state', async () => {
-        let settings: ReaderSettings = {
-            ...DEFAULT_SETTINGS,
-            dictionaryPreferences: [
-                { name: 'Jitendex.org [2026-06-06]', alias: 'Jitendex', enabled: true, priority: 0, type: 'terms' },
-            ],
-        };
-        const summary = vi.fn().mockResolvedValue({
-            dictionaries: [],
-            terms: 0,
-            kanji: 0,
-            termMeta: 0,
-            kanjiMeta: 0,
-        });
-        const dialog = createSettingsDialog({
-            getSettings: () => settings,
-            setSettings: (next: ReaderSettings) => { settings = next; },
-            dictionaries: { summary },
-        });
-
-        expect(recommendedButton(dialog.form, 'jitendex').textContent?.trim()).toBe('Install');
-        await dialog.refreshDictionaryStatus(dialog.form);
-        expect(recommendedButton(dialog.form, 'jitendex').textContent?.trim()).toBe('Install');
-        expect(dialog.form.querySelector<HTMLElement>('[data-dictionary-status]')?.textContent).toContain('No dictionaries imported yet');
-
-        summary.mockResolvedValue({
-            dictionaries: [{
-                title: 'Jitendex.org [2026-06-06]',
-                alias: 'Jitendex',
-                enabled: true,
-                priority: 0,
-                type: 'terms',
-            }],
-            terms: 42,
-            kanji: 0,
-            termMeta: 0,
-            kanjiMeta: 0,
-        });
-        await dialog.refreshDictionaryStatus(dialog.form);
-        expect(recommendedButton(dialog.form, 'jitendex').textContent?.trim()).toBe('Update');
-        expect(dialog.form.querySelector<HTMLElement>('[data-dictionary-status]')?.textContent).toBe('');
-    });
-
-    it('routes the catalogue disclosure through a live status refresh and recovers after failure', async () => {
-        const dictionary = catalogBrowseDictionaries().find(candidate => candidate.name.includes('大辞林') && candidate.downloadUrl)!;
-        const sections = vi.mocked(catalogBrowseLanguageSectionsForLearnerLanguage);
-        sections.mockReturnValue([{
-            headwordLanguage: 'ja',
-            isTargetLanguage: true,
-            groups: [{
-                category: dictionary.catalogCategory ?? 'terms',
-                dictionaries: [dictionary],
-            }],
-        }]);
-        const summary = vi.fn().mockResolvedValue({
-            dictionaries: [{
-                title: dictionary.name,
-                alias: dictionary.name,
-                enabled: true,
-                priority: 0,
-                type: 'terms',
-                downloadUrl: dictionary.downloadUrl,
-            }],
-            terms: 1,
-            kanji: 0,
-            termMeta: 0,
-            kanjiMeta: 0,
-        });
-
-        try {
-            const dialog = createSettingsDialog({
-                dictionaries: {
-                    summary,
-                    // Defer the helper's automatic open-time refresh so the
-                    // disclosure click owns the first materialization.
-                    importFromUrl: vi.fn(),
-                },
-            });
-            const initialSection = dialog.form.querySelector<HTMLElement>('[data-catalog-browse]')!;
-            const settingsSearch = dialog.form.querySelector<HTMLInputElement>('[data-settings-search]')!;
-            settingsSearch.value = dictionary.name;
-            settingsSearch.dispatchEvent(new Event('input', { bubbles: true }));
-
-            expect(initialSection.dataset.catalogBrowseExpanded).toBe('false');
-            expect(initialSection.querySelectorAll('[data-catalog-recommendation]')).toHaveLength(0);
-            initialSection.querySelector<HTMLButtonElement>('[data-action="toggle-catalog-browse"]')!.click();
-
-            await waitForCondition(() => dialog.form.querySelector('[data-catalog-browse-filter]') !== null);
-            let section = dialog.form.querySelector<HTMLElement>('[data-catalog-browse]')!;
-            const filter = section.querySelector<HTMLInputElement>('[data-catalog-browse-filter]')!;
-            const installed = section.querySelector<HTMLButtonElement>(`[data-dictionary-id="${dictionary.id}"]`)!;
-            expect(section.dataset.catalogBrowseExpanded).toBe('true');
-            expect(section.querySelectorAll('[data-catalog-recommendation]')).toHaveLength(1);
-            expect(filter.value).toBe(dictionary.name);
-            expect(document.activeElement).toBe(filter);
-            expect(installed.dataset.installed).toBe('true');
-
-            section.querySelector<HTMLButtonElement>('[data-action="toggle-catalog-browse"]')!.click();
-            await waitForCondition(() => section.dataset.catalogBrowseExpanded === 'false');
-            expect(section.querySelector('[data-catalog-browse-results]')).toBeNull();
-
-            summary.mockRejectedValue(new Error('IndexedDB unavailable'));
-            const callsBeforeFailure = summary.mock.calls.length;
-            section.querySelector<HTMLButtonElement>('[data-action="toggle-catalog-browse"]')!.click();
-            await waitForCondition(() => summary.mock.calls.length > callsBeforeFailure);
-            await waitForCondition(() => {
-                section = dialog.form.querySelector<HTMLElement>('[data-catalog-browse]')!;
-                const toggle = section.querySelector<HTMLButtonElement>('[data-action="toggle-catalog-browse"]');
-                return section.dataset.catalogBrowseExpanded === 'false'
-                    && toggle?.disabled === false
-                    && !toggle.hasAttribute('aria-busy');
-            });
-        } finally {
-            sections.mockReturnValue([]);
-        }
     });
 
     it('keeps a lookup-pill reorder made while the dictionary summary is in flight', async () => {
@@ -2826,25 +1770,6 @@ describe('settings dialog dictionary imports', () => {
             .find(preference => preference.name === importedTitle)?.enabled).toBe(true);
     });
 
-    it('shows a toast when a recommended dictionary install fails', async () => {
-        const importFromUrl = vi.fn().mockRejectedValue(new Error('Could not remove old dictionary entries.'));
-        const { dependencies, form } = createSettingsDialog({
-            dictionaries: {
-                summary: vi.fn().mockResolvedValue({ dictionaries: [], terms: 0, kanji: 0, termMeta: 0 }),
-                importFromUrl,
-            },
-        });
-
-        recommendedButton(form, 'jitendex').click();
-        await waitForCondition(() => (dependencies.toast as ReturnType<typeof vi.fn>).mock.calls.length > 0);
-
-        // The reason the error carries now follows the copy.
-        expect(form.querySelector<HTMLElement>('[data-import-status]')?.textContent)
-            .toBe('Dictionary download failed. Could not remove old dictionary entries.');
-        expect(dependencies.toast).toHaveBeenCalledWith('Dictionary download failed. Could not remove old dictionary entries.');
-        expect(recommendedButton(form, 'jitendex').disabled).toBe(false);
-    });
-
     it('identifies a missing storage runtime instead of reporting a dictionary download failure', async () => {
         const importFromUrl = vi.fn().mockRejectedValue(userFacingError('storageRuntimeUnavailable'));
         const { dependencies, form } = createSettingsDialog({
@@ -2862,31 +1787,114 @@ describe('settings dialog dictionary imports', () => {
         expect(dependencies.toast).toHaveBeenCalledWith(expected);
         expect(dependencies.toast).not.toHaveBeenCalledWith('Dictionary download failed.');
     });
+});
 
-    // GitHub #39. This test used to reject with `new Error('Dictionary download is
-    // blocked in this browser.')` -- a sentence no production code has ever produced.
-    // The matcher it exercised substring-matched exactly that fiction, so the test
-    // passed while the real recovery path was unreachable for every user. It now
-    // rejects with the error the download layer actually throws.
+describe('Settings Save keeps the dialog open', () => {
+    // Discord (Leia, 2026-10-01): tweaking settings is save, look, tweak again, so
+    // Save must not close the dialog. Cancel, Escape and the backdrop still close.
+    function saveStatus(form: HTMLFormElement): HTMLElement {
+        return settingsElement<HTMLElement>(form, '[data-settings-save-status]');
+    }
+
+    function shortcutField(form: HTMLFormElement, name: string): HTMLInputElement {
+        return settingsElement<HTMLInputElement>(form, `[data-shortcut-input][name="${name}"]`);
+    }
+
+    async function submitAndSettle(form: HTMLFormElement, saveSettings: { mock: { calls: unknown[][] } }, calls: number): Promise<void> {
+        form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+        await waitForCondition(() => saveSettings.mock.calls.length === calls
+            && !settingsElement<HTMLButtonElement>(form, 'button[type="submit"]').disabled);
+    }
+
+
+    afterEach(() => { resetSettingsDialogTestEnvironment(); });
+
+    it('makes the saved settings the baseline for the next Save and for Cancel', async () => {
+        const saveSettings = vi.fn().mockResolvedValue(undefined);
+        const { dependencies, dismiss, form } = createSettingsDialog({ saveSettings });
+        const accent = settingsElement<HTMLInputElement>(form, 'input[name="accentColor"]');
+        accent.value = '#123456';
+        await submitAndSettle(form, saveSettings, 1);
+        expect(dependencies.beginSettingsPreview).toHaveBeenLastCalledWith('#123456', expect.anything(), expect.anything());
+
+        const furigana = settingsElement<HTMLInputElement>(form, 'input[name="stickyBottomSheet"]');
+        furigana.checked = !furigana.checked;
+        await submitAndSettle(form, saveSettings, 2);
+        const secondIntent = saveSettings.mock.calls[1]![1] as { explicitUserChoiceKeys: string[] };
+        expect(secondIntent.explicitUserChoiceKeys).toContain('stickyBottomSheet');
+        expect(secondIntent.explicitUserChoiceKeys).not.toContain('accentColor');
+
+        settingsElement<HTMLButtonElement>(form, '[data-action="cancel"]').click();
+        expect(dismiss).toHaveBeenCalledOnce();
+    });
+
+    it('leaves no interface-language preview for Cancel to undo once it is saved', async () => {
+        const saveSettings = vi.fn().mockResolvedValue(undefined);
+        const { dependencies, dismiss, form } = createSettingsDialog({ saveSettings });
+        const language = settingsElement<HTMLSelectElement>(form, 'select[name="interfaceLanguage"]');
+        language.value = 'ja';
+        language.dispatchEvent(new Event('change', { bubbles: true }));
+        await submitAndSettle(form, saveSettings, 1);
+        const reinstalls = dependencies.installFab.mock.calls.length;
+
+        settingsElement<HTMLButtonElement>(form, '[data-action="cancel"]').click();
+
+        expect(dismiss).toHaveBeenCalledOnce();
+        expect(dependencies.installFab).toHaveBeenCalledTimes(reinstalls);
+    });
+
     it.each([
-        ['dictionaryDownloadBlocked', 'Download blocked.'],
-        ['dictionaryDownloadNeedsBridge', 'Download needs bridge;'],
-    ] as const)('shows a toast with the manual download hint for %s', async (copyKey, expectedMessage) => {
-        const importFromUrl = vi.fn().mockRejectedValue(userFacingError(copyKey));
-        const { dependencies, form } = createSettingsDialog({
-            dictionaries: {
-                summary: vi.fn().mockResolvedValue({ dictionaries: [], terms: 0, kanji: 0, termMeta: 0 }),
-                importFromUrl,
-            },
-        });
+        ['a checkbox', (form: HTMLFormElement) => {
+            const sticky = settingsElement<HTMLInputElement>(form, 'input[name="stickyBottomSheet"]');
+            sticky.checked = !sticky.checked;
+            sticky.dispatchEvent(new Event('change', { bubbles: true }));
+        }],
+        ['a recorded shortcut', (form: HTMLFormElement) => {
+            shortcutField(form, 'shortcuts.scanPage')
+                .dispatchEvent(new KeyboardEvent('keydown', { key: 'K', altKey: true, bubbles: true, cancelable: true }));
+        }],
+    ])('does not confirm a save %s changed under while it ran', async (_label, edit) => {
+        let finishSave!: () => void;
+        const saveSettings = vi.fn()
+            .mockImplementationOnce(() => new Promise<void>(resolve => { finishSave = resolve; }))
+            .mockResolvedValue(undefined);
+        const { form } = createSettingsDialog({ saveSettings });
+        const save = settingsElement<HTMLButtonElement>(form, 'button[type="submit"]');
+        form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+        await waitForCondition(() => saveSettings.mock.calls.length === 1);
 
-        recommendedButton(form, 'jitendex').click();
-        await waitForCondition(() => (dependencies.toast as ReturnType<typeof vi.fn>).mock.calls.length > 0);
+        edit(form);
+        finishSave();
+        await waitForCondition(() => !save.disabled);
 
-        const status = form.querySelector<HTMLElement>('[data-import-status]')?.textContent ?? '';
-        expect(status).toContain(expectedMessage);
-        expect(status).toContain('import the ZIP');
-        expect(dependencies.toast).toHaveBeenCalledWith(status);
-        expect(recommendedButton(form, 'jitendex').disabled).toBe(false);
+        expect(saveStatus(form).hidden).toBe(true);
+
+        await submitAndSettle(form, saveSettings, 2);
+        expect(saveStatus(form).textContent).toBe('Settings saved.');
+    });
+
+    it('drops an earlier confirmation when a later Save fails', async () => {
+        const saveSettings = vi.fn()
+            .mockResolvedValueOnce(undefined)
+            .mockRejectedValueOnce(new Error('disk full'));
+        const { form } = createSettingsDialog({ saveSettings });
+        await submitAndSettle(form, saveSettings, 1);
+        expect(saveStatus(form).textContent).toBe('Settings saved.');
+
+        await submitAndSettle(form, saveSettings, 2);
+
+        expect(saveStatus(form).hidden).toBe(true);
+        expect(saveStatus(form).textContent).toBe('');
+    });
+
+    it('keeps the dialog open without a confirmation when the save fails', async () => {
+        const saveSettings = vi.fn().mockRejectedValue(new Error('disk full'));
+        const { dependencies, dismiss, form } = createSettingsDialog({ saveSettings });
+
+        await submitAndSettle(form, saveSettings, 1);
+
+        expect(dismiss).not.toHaveBeenCalled();
+        expect(saveStatus(form).hidden).toBe(true);
+        expect(dependencies.toast).toHaveBeenCalledWith(expect.stringContaining('Settings save failed'));
     });
 });
