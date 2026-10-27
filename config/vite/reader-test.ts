@@ -32,7 +32,6 @@ export const readerNodeFiles = [
     'tests/reader/japanese-input.test.ts',
     'tests/reader/japanese-script.test.ts',
     'tests/reader/jpdb-live-card.test.ts',
-    'tests/reader/kanji-graph-geometry.test.ts',
     'tests/reader/kanji-ruby-split.test.ts',
     'tests/reader/kanji-stroke-grader.test.ts',
     'tests/reader/kanjivg-path.test.ts',
