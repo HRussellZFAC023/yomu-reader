@@ -39,6 +39,20 @@ it('keeps hidden subtitle surfaces out of the painted layout', () => {
     expect(readFileSync('src/reader/styles/subtitles-youtube.css', 'utf8')).toMatch(/\.jpdb-subtitle-player\[hidden\]\s*\{\s*display:\s*none\s*!important;/u);
 });
 
+it('lifts subtitle readings clear of the kanji by layout, not by a transform', () => {
+    // A transform left the reading at a fractional pixel and blurred it; flush
+    // against the base it crowded the kanji. smoke:subtitle-furigana-outline
+    // holds the pixel evidence; this pins the mechanism.
+    const css = readFileSync('src/reader/styles/subtitles-youtube.css', 'utf8').replace(/\/\*[\s\S]*?\*\//gu, '');
+    const declarations = [...css.matchAll(/\.jpdb-subtitle-primary \.jpdb-reader-word rt\.jpdb-reader-furi\s*\{([^}]*)\}/gu)]
+        .map(match => match[1])
+        .join(';');
+    expect(declarations).toMatch(/line-height:\s*1;/u);
+    const lift = Number(declarations.match(/margin-top:\s*-(\d*\.?\d+)em;/u)?.[1]);
+    expect(lift).toBeGreaterThan(1);
+    expect(declarations).not.toMatch(/transform:/u);
+});
+
 describe('reader stylesheet loading', () => {
     afterEach(() => {
         vi.unstubAllGlobals();
