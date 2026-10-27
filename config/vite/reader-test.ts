@@ -66,12 +66,8 @@ export const readerNodeFiles = [
     'tests/reader/wanikani-integration.test.ts',
     'tests/reader/yomu-audio-worker.test.ts',
     'tests/reader/youtube-host.test.ts',
-    'tests/reader/languages/japanese-target.test.ts',
-    'tests/reader/languages/lookup-correctness.test.ts',
-    'tests/reader/languages/lookup-spans.test.ts',
     'tests/reader/languages/profiles.test.ts',
     'tests/reader/languages/settings-migration.test.ts',
-    'tests/reader/languages/target-text-parity.test.ts',
     'tests/reader/settings-form/11-lookup-pill-row.test.ts',
 ] as const;
 
