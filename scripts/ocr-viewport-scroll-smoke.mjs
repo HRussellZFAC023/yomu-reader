@@ -41,10 +41,15 @@ for (const [name, type] of [['chromium', chromium], ['webkit', webkit]]) {
             ocr.init();
             const puck = new FloatingButtonController();
             const no = () => {};
-            puck.install(settings, no, { openSettings:no, openStudyPage:no, cyclePowerState:async()=>{}, powerState:()=> 'on', isPaused:()=>false,
-                toggleOcrMode:no, ocrMode:()=> 'auto', toggleAutoPlayAudio:async()=>{}, isAutoPlayAudioEnabled:()=>false,
+            // The whole FloatingButtonActions interface, built once for both mounts. This
+            // plain-JS fixture is not typechecked: when W1-65 (86ca3dbb6) added dismissLookup,
+            // the puck tap threw on the missing member and the menu never opened.
+            window.puckActions = ocrMode => ({ dismissLookup:no, openSettings:no, openStudyPage:no, cyclePowerState:async()=>{},
+                powerState:()=> 'on', toggleFurigana:async()=>{}, isPaused:()=>false,
+                toggleOcrMode:no, ocrMode:()=> ocrMode, toggleAutoPlayAudio:async()=>{}, isAutoPlayAudioEnabled:()=>false,
                 toggleJapaneseSiteLanguage:no, isYouTube:()=>false, toggleYoutubeFilter:no, isYoutubeFilterEnabled:()=>false,
                 toggleAutoSubtitles:no, isAutoSubtitlesEnabled:()=>false, hasSubtitleVideo:()=>false });
+            puck.install(settings, no, window.puckActions('auto'));
             window.fixtureCleanup = () => { ocr.destroy(); puck.destroy(); };
         });
         try { await page.locator('.jpdb-ocr-video-frame-status:not([hidden])').waitFor({timeout:5000}); } catch (error) {
@@ -105,9 +110,8 @@ for (const [name, type] of [['chromium', chromium], ['webkit', webkit]]) {
             // Remount so controller listeners own this fixture's event source.
             window.fixtureCleanup();
             const { FloatingButtonController, DEFAULT_SETTINGS } = window.YomuViewportFixture;
-            const no = () => {};
             const puck = new FloatingButtonController();
-            puck.install({ ...DEFAULT_SETTINGS, showFloatingButton:true }, no, { openSettings:no,openStudyPage:no,cyclePowerState:async()=>{},powerState:()=> 'on',isPaused:()=>false,toggleOcrMode:no,ocrMode:()=> 'off',toggleAutoPlayAudio:async()=>{},isAutoPlayAudioEnabled:()=>false,toggleJapaneseSiteLanguage:no,isYouTube:()=>false,toggleYoutubeFilter:no,isYoutubeFilterEnabled:()=>false,toggleAutoSubtitles:no,isAutoSubtitlesEnabled:()=>false,hasSubtitleVideo:()=>false });
+            puck.install({ ...DEFAULT_SETTINGS, showFloatingButton:true }, () => {}, window.puckActions('off'));
             await new Promise(requestAnimationFrame);
             const read = () => {
                 const button=document.querySelector('.jpdb-reader-fab');
@@ -136,7 +140,9 @@ for (const [name, type] of [['chromium', chromium], ['webkit', webkit]]) {
             assert(Math.abs(rendered-startPixels[key])<=2, `${name}: rendered puck pixels drift for ${key}`);
         }
         await page.mouse.click((pannedPixels.x+pannedPixels.width/2)/fit,(pannedPixels.y+pannedPixels.height/2)/fit);
-        await page.locator('.jpdb-reader-fab-radial.is-open').waitFor();
+        await page.locator('.jpdb-reader-fab-radial.is-open').waitFor({ timeout:10_000 }).catch(error => {
+            throw new Error(`${name}: tapping the panned puck did not open its menu; page errors: ${JSON.stringify(errors)}`, { cause:error });
+        });
         // WebKit can start a staggered transition after the first paint. Wait
         // for the animation lifecycle, then independently assert physical bounds.
         await page.waitForFunction(() => {
