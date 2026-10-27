@@ -28,8 +28,6 @@ export const readerNodeFiles = [
     'tests/reader/enrichment-policy.test.ts',
     'tests/reader/gaming-settings-import.test.ts',
     'tests/reader/host-css-armour.test.ts',
-    'tests/reader/hosted-accent-css.test.ts',
-    'tests/reader/hosted-appearance-module-build.test.ts',
     'tests/reader/hover-pointer-intent.test.ts',
     'tests/reader/i18n-ja-default.test.ts',
     'tests/reader/immersion-query.test.ts',

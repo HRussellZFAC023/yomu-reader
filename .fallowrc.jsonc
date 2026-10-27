@@ -110,7 +110,7 @@
     "scripts/upgrade-corpus/self-check.mjs",
     "scripts/upgrade-corpus/vitest.capture.config.mjs",
     "scripts/upgrade-corpus/stages/*.capture.ts",
-    // Spawned by path from tests/reader/hosted-appearance-module-build.test.ts.
+    // Spawned by path from tests/reader/hosted-appearance-boot.test.ts.
     "tests/reader/helpers/hosted-appearance-module-proof.mjs",
     "tests/reader/**/*.test.ts",
     "tests/tooling/*.test.mjs",
