@@ -27,7 +27,6 @@ export const readerNodeFiles = [
     'tests/reader/dictionary-preference-upgrade.test.ts',
     'tests/reader/enrichment-policy.test.ts',
     'tests/reader/gaming-settings-import.test.ts',
-    'tests/reader/grammar-registry-compiled-indent.test.ts',
     'tests/reader/host-css-armour.test.ts',
     'tests/reader/hosted-accent-css.test.ts',
     'tests/reader/hosted-appearance-module-build.test.ts',
