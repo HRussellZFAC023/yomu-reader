@@ -51,6 +51,12 @@ On filtered YouTube recommendation lists, Load more appears after two automatic 
 
 Hiding the よむ subtitle overlay leaves YouTube’s native captions available. The native Play button resumes from a word lookup, and the seek bar follows the resized player.
 
+Subtitles keep a steady baseline as readings appear, with a dark background for the Japanese line, readings and translation. Site dialogs and word lookup stay above them. The subtitle style button changes the font and background.
+
+On YouTube, Auto follows the native caption size. A chosen font size is in CSS pixels; Settings uses 0 for Auto. Controls stay clear of both subtitle lines, and taps on the background padding still reach the video. Long captions remain reachable in small windows.
+
+While the next caption is being prepared, Copy uses the line still on screen.
+
 Words can still be looked up without a coloured underline. Search and comment fields keep their normal typing behavior.
 
 ## Already use Anki, JPDB or Jiten? {#already-use-anki}

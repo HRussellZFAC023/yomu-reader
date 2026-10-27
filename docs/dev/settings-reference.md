@@ -260,12 +260,12 @@ Reads nearby images. Google Lens needs no setup.
 | Auto-copy subtitle lines | — | off | `subtitleAutoCopyLine` |
 | Copy line translation too | — | on | `subtitleCopyIncludeTranslation` |
 | Subtitle controls | — | Compact controls (`auto`) | `subtitleControlsMode` |
-| Subtitle font size (px) | — | `28` | `subtitleFontSize` |
+| Subtitle font size (px; 0 = auto) | — | `0` | `subtitleFontSize` |
 | Subtitle bottom offset (%) | — | `16` | `subtitleBottomOffset` |
 | Subtitle color | — | `#ffffff` | `subtitleTextColor` |
 | Subtitle outline | — | `#000000` | `subtitleOutlineColor` |
 | Subtitle background | — | `#181b20` | `subtitleBackgroundColor` |
-| Subtitle background opacity | — | `0` | `subtitleBackgroundOpacity` |
+| Subtitle background opacity | — | `0.75` | `subtitleBackgroundOpacity` |
 | Subtitle font family | — | System UI (`system-ui, -apple-system, BlinkMacSystemFon…`) | `subtitleFontFamily` |
 | Subtitle font weight | — | `760` | `subtitleFontWeight` |
 | Pause video on subtitle click | — | on | `subtitleMiningPause` |

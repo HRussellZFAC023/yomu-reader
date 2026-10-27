@@ -54,12 +54,12 @@ export interface ReachableSubtitlePositionOptions {
     viewportTop: number;
     viewportHeight: number;
     subtitleHeight: number;
+    belowAnchor?: number;
 }
 
-// Keep the effective subtitle line and its recovery handle inside the current
-// viewport without overwriting the user's preferred position. Space below a
-// short player remains usable; the same saved position is rebased only when a
-// taller player (such as the next Short) would put it off screen.
+// Keep a stable caption anchor inside the viewport without overwriting the
+// preferred position. Wrapped cues grow upward until they reach the viewport
+// edge; only then recover the whole caption and handle into the visible area.
 export function reachableSubtitleBottomPercent(options: ReachableSubtitlePositionOptions): number {
     const { preferredBottomPercent, positionRect, viewportTop, viewportHeight } = options;
     if (!Number.isFinite(preferredBottomPercent)
@@ -77,8 +77,8 @@ export function reachableSubtitleBottomPercent(options: ReachableSubtitlePositio
     const viewportBottom = viewportTop + viewportHeight;
     // `bottom` is a percentage of the positioned overlay root, while the
     // permitted painted area is the visible viewport around that root.
-    const minimum = Math.ceil(((positionRect.bottom - viewportBottom + margin) / positionRect.height) * 100);
-    const maximum = Math.floor(((positionRect.bottom - viewportTop - margin - subtitleHeight - 48) / positionRect.height) * 100);
+    const minimum = Math.ceil(((positionRect.bottom - viewportBottom + margin + (options.belowAnchor ?? 0)) / positionRect.height) * 100);
+    const maximum = Math.floor(((positionRect.bottom - viewportTop - margin - subtitleHeight) / positionRect.height) * 100);
     return minimum > maximum
         ? minimum
         : Math.min(maximum, Math.max(minimum, preferredBottomPercent));

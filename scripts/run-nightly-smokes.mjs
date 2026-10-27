@@ -28,6 +28,8 @@ import path from 'node:path';
 // entry is ever in question.
 export const NIGHTLY_SMOKES = [
     'smoke:youtube-ipad-playback',
+    'smoke:subtitle-stability',
+    'smoke:subtitle-generic-layer',
     // Chromium desktop + WebKit iPad, light and dark: the accent swatches and
     // the Underline choice lead Settings → Appearance in the built Study app,
     // and what they save reaches the puck, popup and underlines of a page.

@@ -588,7 +588,7 @@ function readSubtitleFormSettings(reader: SettingsFormReader, current: ReaderSet
         subtitleAutoCopyLine: has('subtitleAutoCopyLine'),
         subtitleCopyIncludeTranslation: has('subtitleCopyIncludeTranslation'),
         subtitleControlsMode: readOption(get('subtitleControlsMode'), ['auto', 'always', 'hidden'] as const, current.subtitleControlsMode),
-        subtitleFontSize: clamped('subtitleFontSize', 16, 64, current.subtitleFontSize),
+        subtitleFontSize: get('subtitleFontSize') === '0' ? 0 : clamped('subtitleFontSize', 16, 64, current.subtitleFontSize),
         // The drag gesture may park the line anywhere on screen, which for a short
         // frame near the bottom of a tall viewport is far above 100% of the frame
         // height; only guard against garbage, not against legitimate positions.

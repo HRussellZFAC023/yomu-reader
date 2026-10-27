@@ -67,8 +67,10 @@ function eligibleCompatibilityGuard(event: MouseEvent, target: Document): Compat
     const guard = guards.get(target);
     if (!guard) return null;
     if (!blockable(event)) return null;
-    if (Date.now() <= guard.expiresAt) return guard;
-    guards.delete(target);
+    // A caption repaint can block the main thread longer than the hover guard.
+    // Its trailing click still belongs to the completed tap. Keep that single
+    // click guarded until it arrives or the next physical pointer clears it.
+    if (Date.now() <= guard.expiresAt || event.type === 'click') return guard;
     return null;
 }
 

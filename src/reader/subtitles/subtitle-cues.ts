@@ -46,6 +46,10 @@ interface YouTubeJson3Event {
     tStartMs?: number;
 }
 
+// Normalized YouTube cues leave this separation at a shared boundary.
+// It is a half-open boundary pad, not a pause in the source track.
+export const SUBTITLE_CUE_BOUNDARY_PADDING_SECONDS = 0.001;
+
 const ACTIVE_CUE_START_TOLERANCE_SECONDS = 0.05;
 const ACTIVE_CUE_END_GRACE_SECONDS = 0.12;
 const MIN_SUBTITLE_CUE_DURATION_SECONDS = 0.12;
@@ -613,7 +617,7 @@ function normalizeYouTubeAutoCaptionTiming(cues: SubtitleCue[], knownAutoGenerat
         const next = cues[index + 1];
         const nextStart = next?.start;
         const end = Number.isFinite(nextStart) && nextStart > cue.start
-            ? Math.max(cue.start, Math.min(cue.end, nextStart - 0.001))
+            ? Math.max(cue.start, Math.min(cue.end, nextStart - SUBTITLE_CUE_BOUNDARY_PADDING_SECONDS))
             : cue.end;
         return {
             ...cue,

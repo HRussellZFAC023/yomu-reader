@@ -13,7 +13,7 @@ export function syncSubtitlePreview(form: HTMLFormElement): void {
         const number = Number(value(name, String(fallback)));
         return Number.isFinite(number) ? number : fallback;
     };
-    preview.style.setProperty('--subtitle-font-size', `${Math.max(16, Math.min(64, numberValue('subtitleFontSize', 28)))}px`);
+    preview.style.setProperty('--subtitle-font-size', `${Math.max(16, Math.min(64, (numberValue('subtitleFontSize', 0) || 28)))}px`);
     preview.style.setProperty('--subtitle-color', sanitizeAccentColor(value('subtitleTextColor', DEFAULT_OVERLAY_TEXT_COLOR), DEFAULT_OVERLAY_TEXT_COLOR));
     preview.style.setProperty('--subtitle-outline', sanitizeAccentColor(value('subtitleOutlineColor', DEFAULT_OVERLAY_OUTLINE_COLOR), DEFAULT_OVERLAY_OUTLINE_COLOR));
     preview.style.setProperty(

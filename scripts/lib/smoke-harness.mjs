@@ -693,6 +693,8 @@ export const ANNOTATION_DEFAULT_KEYS_SMOKES_DECLARE = Object.freeze([
     'subtitleUnderlineColorSource',
     'subtitleTextColorSource',
     'wordColorHiddenStateGroups',
+    'subtitleBackgroundOpacity',
+    'subtitleFontSize',
 ]);
 export const SETTINGS_INTENT_LEDGER_KEY = 'yomu:settings-intent:v2';
 

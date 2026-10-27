@@ -72,6 +72,34 @@ async function restore(backup: { settings: Partial<ReaderSettings>; storage?: Re
     return adopted!;
 }
 
+describe('caption pixel-size contract', () => {
+    it('adopts automatic sizing for an unchosen legacy default', async () => {
+        expect((await loadStored({subtitleFontSize:28})).subtitleFontSize).toBe(0);
+    });
+    it('preserves an explicitly selected default pixel size', async () => {
+        const ledger: SettingsIntentLedger = {revision:1, records:{subtitleFontSize:{seq:1,value:28}}};
+        expect((await loadStored({subtitleFontSize:28},ledger)).subtitleFontSize).toBe(28);
+    });
+    it('preserves custom legacy pixel sizes', async () => {
+        expect((await loadStored({subtitleFontSize:64})).subtitleFontSize).toBe(64);
+    });
+});
+
+describe('caption background defaults', () => {
+    it('adopts a readable backdrop when transparency was only carried by a whole-object save', async () => {
+        expect((await loadStored({ subtitleBackgroundOpacity: 0 })).subtitleBackgroundOpacity).toBe(.75);
+    });
+
+    it('keeps explicitly chosen transparency', async () => {
+        const ledger: SettingsIntentLedger = { revision: 1, records: { subtitleBackgroundOpacity: { seq: 1, value: 0 } } };
+        expect((await loadStored({ subtitleBackgroundOpacity: 0 }, ledger)).subtitleBackgroundOpacity).toBe(0);
+    });
+
+    it('keeps a custom opacity even before an intent record existed', async () => {
+        expect((await loadStored({ subtitleBackgroundOpacity: .35 })).subtitleBackgroundOpacity).toBe(.35);
+    });
+});
+
 describe('retired annotation defaults', () => {
     it('are what a fresh install starts with', () => {
         expect(DEFAULT_SETTINGS).toMatchObject(NEW_DEFAULTS);

@@ -124,9 +124,13 @@ function booleanStyleApplier(key: 'subtitleHoverPause' | 'subtitleMiningPause'):
 const SUBTITLE_STYLE_APPLIERS: Record<SubtitleStyleSetting, SubtitleStyleApplier> = {
     subtitleNativeDisplay: (settings, control) => isNativeSubtitleDisplayMode(control.value) && applyNativeSubtitleDisplayMode(settings, control.value) ? NATIVE_DISPLAY_EXPLICIT_KEYS : undefined,
     subtitleNativeBlurStrength: numberStyleApplier('subtitleNativeBlurStrength', 4, 20),
-    subtitleFontSize: numberStyleApplier('subtitleFontSize', 16, 64),
+    subtitleFontSize: (settings, control) => {
+        // The tick before the 16px minimum represents Auto, persisted as zero.
+        const value = Number(control.value);
+        return updateNumberSetting(settings, 'subtitleFontSize', value <= 14 ? '0' : control.value, 0, 64) ? ['subtitleFontSize'] : undefined;
+    },
     subtitleFontWeight: numberStyleApplier('subtitleFontWeight', 300, 900),
-    subtitleBackgroundOpacity: numberStyleApplier('subtitleBackgroundOpacity', 0, 0.7),
+    subtitleBackgroundOpacity: numberStyleApplier('subtitleBackgroundOpacity', 0, 1),
     subtitleFontFamily: (settings, control) => {
         const next = SUBTITLE_STYLE_FONT_FAMILY_VALUES.includes(control.value) ? control.value : settings.subtitleFontFamily;
         if (settings.subtitleFontFamily === next) return undefined;
@@ -226,7 +230,12 @@ export function syncSubtitleStylePopoverControls(
     const nativeBlurStrengthField = popover.querySelector<HTMLElement>('[data-subtitle-style-field="subtitleNativeBlurStrength"]');
     if (nativeBlurStrengthField) nativeBlurStrengthField.hidden = nativeDisplay !== 'blurred';
     syncRangeControl(popover, 'subtitleNativeBlurStrength', settings.subtitleNativeBlurStrength, 'px');
-    syncRangeControl(popover, 'subtitleFontSize', settings.subtitleFontSize, 'px');
+    syncRangeControl(popover, 'subtitleFontSize', settings.subtitleFontSize || 14, 'px');
+    const sizeControl = popover.querySelector<HTMLInputElement>('[data-subtitle-style-setting="subtitleFontSize"]');
+    const sizeOutput = popover.querySelector<HTMLOutputElement>('[data-subtitle-style-output="subtitleFontSize"]');
+    const sizeLabel = settings.subtitleFontSize === 0 ? uiText(settings.interfaceLanguage, 'subtitleFontSizeAutomatic') : `${settings.subtitleFontSize}px`;
+    sizeControl?.setAttribute('aria-valuetext', sizeLabel);
+    if (sizeOutput) sizeOutput.textContent = sizeLabel;
     syncRangeControl(popover, 'subtitleFontWeight', settings.subtitleFontWeight, 'weight');
     syncRangeControl(popover, 'subtitleBackgroundOpacity', settings.subtitleBackgroundOpacity, '');
     const fontSelect = popover.querySelector<HTMLSelectElement>('[data-subtitle-style-setting="subtitleFontFamily"]');

@@ -66,6 +66,8 @@ On filtered YouTube recommendation lists, Load more appears after two automatic 
 
 Hiding the よむ subtitle overlay leaves YouTube’s native captions available. The native Play button resumes from a word lookup, and the seek bar follows the resized player.
 
+Subtitles keep a steady baseline as readings appear, with a dark background for the Japanese line, readings and translation. Site dialogs and word lookup stay above them. The subtitle style button changes the font and background.
+
 Words can still be looked up without a coloured underline. Search and comment fields keep their normal typing behavior.
 
 OCR text and corner marks on ordinary page images scroll with the image. Decorative blurred copies do not get a second mark.
@@ -74,7 +76,7 @@ The よむ button and its menu keep their screen size during pinch zoom. The men
 
 No account and no setup. [How to learn Japanese with よむ](https://yomureader.com/learn/) is one page.
 
-Readings follow the page’s typeface and scale with its text, with stronger contrast for small kana. With a study source, known and due words lose their readings; missed words keep them.
+Readings follow the page’s typeface and scale with its text. Their colour matches the word they annotate. With a study source, known and due words lose their readings; missed words keep them.
 
 On another website, the Settings action opens Study settings directly. If a reading would cover nearby text, open that word’s lookup to see it.
 

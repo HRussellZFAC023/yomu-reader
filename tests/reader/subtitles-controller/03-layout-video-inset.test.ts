@@ -918,7 +918,7 @@ describe('SubtitlePlayerController — player layout & video inset', () => {
                 fullscreen.set(null);
                 internals.syncFullscreenState();
 
-                expect(root.parentElement).toBe(document.body);
+                expect(root.parentElement).toBe(video.parentElement);
                 expect(panel.parentElement).toBe(document.body);
                 expect(panel.classList.contains('jpdb-subtitle-fullscreen')).toBe(false);
                 expect(panel.style.getPropertyPriority('display')).toBe('');
@@ -1013,9 +1013,9 @@ describe('SubtitlePlayerController — player layout & video inset', () => {
                 openSingleCueTranscript(controller);
                 internals.alignToVideo();
 
-                // The overlay already renders inside the fullscreen <html> via
-                // <body>, so it stays in <body> rather than being appended to <html>.
-                expect(root.parentElement).toBe(document.body);
+                // Captions keep their player context within the fullscreen document;
+                // the transcript stays a body-owned sheet.
+                expect(root.parentElement).toBe(video.parentElement);
                 expect(panel.parentElement).toBe(document.body);
                 expectFullscreenPanelDisplayOverride(panel);
                 expect(root.classList.contains('jpdb-subtitle-fullscreen')).toBe(true);
@@ -1127,7 +1127,7 @@ describe('SubtitlePlayerController — player layout & video inset', () => {
             internals.syncFullscreenState();
             openSingleCueTranscript(controller, '動画要素の字幕。');
 
-            expect(root.parentElement).toBe(document.body);
+            expect(root.parentElement).toBe(video.parentElement);
             expect(panel.parentElement).toBe(document.body);
             expectFullscreenPanelDisplayOverride(panel);
             expect(document.documentElement.classList.contains('jpdb-subtitle-fullscreen')).toBe(true);
@@ -1138,7 +1138,7 @@ describe('SubtitlePlayerController — player layout & video inset', () => {
         }
     });
 
-    it('keeps the subtitle overlay body-owned in YouTube CSS fullscreen on iPad-sized viewports', () => {
+    it('keeps captions in the player and the transcript body-owned in YouTube CSS fullscreen on iPad-sized viewports', () => {
         const originalLocation = window.location;
         Object.defineProperty(window, 'location', {
             configurable: true,
@@ -1177,9 +1177,9 @@ describe('SubtitlePlayerController — player layout & video inset', () => {
                     openSingleCueTranscript(controller, 'YouTube全画面の字幕。');
                     internals.alignToVideo();
 
-                    expect(root.parentElement).toBe(document.body);
+                    expect(root.parentElement).toBe(video.parentElement);
                     expect(panel.parentElement).toBe(document.body);
-                    expect(player.contains(root)).toBe(false);
+                    expect(player.contains(root)).toBe(true);
                     expect(player.contains(panel)).toBe(false);
                     expectFullscreenPanelDisplayOverride(panel);
                     expect(document.documentElement.classList.contains('jpdb-subtitle-fullscreen')).toBe(true);
@@ -1204,7 +1204,7 @@ describe('SubtitlePlayerController — player layout & video inset', () => {
         }
     });
 
-    it('keeps the subtitle overlay body-owned in mobile YouTube fullscreen when the video is mounted separately', () => {
+    it('keeps captions in the mobile fullscreen shell when the video is mounted separately', () => {
         const originalLocation = window.location;
         Object.defineProperty(window, 'location', {
             configurable: true,
@@ -1237,9 +1237,9 @@ describe('SubtitlePlayerController — player layout & video inset', () => {
                     openSingleCueTranscript(controller, 'モバイル全画面の字幕。');
                     internals.alignToVideo();
 
-                    expect(root.parentElement).toBe(document.body);
+                    expect(root.parentElement).toBe(player);
                     expect(panel.parentElement).toBe(document.body);
-                    expect(player.contains(root)).toBe(false);
+                    expect(player.contains(root)).toBe(true);
                     expect(player.contains(panel)).toBe(false);
                     expectFullscreenPanelDisplayOverride(panel);
                     expect(root.classList.contains('jpdb-subtitle-fullscreen')).toBe(true);
@@ -1260,7 +1260,7 @@ describe('SubtitlePlayerController — player layout & video inset', () => {
         }
     });
 
-    it('keeps the subtitle overlay body-owned for the iPhone inline fullscreen fallback host', () => {
+    it('keeps captions in the player and the transcript body-owned for the iPhone inline fullscreen fallback host', () => {
         const originalLocation = window.location;
         Object.defineProperty(window, 'location', {
             configurable: true,
@@ -1294,9 +1294,9 @@ describe('SubtitlePlayerController — player layout & video inset', () => {
                     openSingleCueTranscript(controller, 'iPhone全画面の字幕。');
                     internals.alignToVideo();
 
-                    expect(root.parentElement).toBe(document.body);
+                    expect(root.parentElement).toBe(video.parentElement);
                     expect(panel.parentElement).toBe(document.body);
-                    expect(player.contains(root)).toBe(false);
+                    expect(player.contains(root)).toBe(true);
                     expect(player.contains(panel)).toBe(false);
                     expectFullscreenPanelDisplayOverride(panel);
                     expect(root.classList.contains('jpdb-subtitle-fullscreen')).toBe(true);
@@ -1332,7 +1332,7 @@ describe('SubtitlePlayerController — player layout & video inset', () => {
             fullscreen.set(modal);
             internals.syncFullscreenState();
 
-            expect(root.parentElement).toBe(document.body);
+            expect(root.parentElement).toBe(video.parentElement);
             expect(panel.parentElement).toBe(document.body);
             expect(document.documentElement.classList.contains('jpdb-subtitle-fullscreen')).toBe(true);
             expect(root.classList.contains('jpdb-subtitle-fullscreen')).toBe(true);

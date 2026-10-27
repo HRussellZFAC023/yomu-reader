@@ -42,6 +42,10 @@ const RETIRED_SETTING_DEFAULTS: ReadonlyArray<{
     { keys: ['wordHighlightColorSource', 'wordUnderlineColorSource', 'wordTextColorSource'], retired: [['jpdb', 'pitch', 'anki']] },
     { keys: ['subtitleHighlightColorSource', 'subtitleUnderlineColorSource', 'subtitleTextColorSource'], retired: [['jpdb', 'pitch', 'anki']] },
     { keys: ['wordColorHiddenStateGroups'], retired: [[[]]] },
+    // Unchosen legacy pixel defaults now follow the player's caption size.
+    { keys: ['subtitleFontSize'], retired: [[28]] },
+    // Whole-object saves carried transparency even when nobody chose it.
+    { keys: ['subtitleBackgroundOpacity'], retired: [[0]] },
 ];
 
 export const RETIRED_DEFAULT_SETTING_KEYS: readonly (keyof ReaderSettings)[] = RETIRED_SETTING_DEFAULTS.flatMap(group => group.keys);

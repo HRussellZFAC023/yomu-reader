@@ -6,6 +6,7 @@ import {
     type SubtitleCue,
 } from './subtitle-cues';
 import { uiText } from '../app/i18n';
+import { setClassState } from './subtitle-dom-state';
 import { setInnerHtml } from '../dom/html';
 import { remintRenderedWordPrivateTokens } from '../dom/rendered-word-private-state';
 import type { InterfaceLanguage } from '../app/types';
@@ -24,9 +25,8 @@ export interface SubtitlePrimaryRenderInput {
 }
 
 export interface SubtitlePrimaryRenderResult {
-    // An empty string is an intentional no-commit state. Keeping the primary
-    // container stable avoids DOM/layout churn, but no cue words are painted
-    // until async ruby/pitch enrichment settles.
+    // Empty means this cue has no settled markup yet. The controller can
+    // retain an abutting previous cue until the new visual commit is ready.
     html: string;
     karaokeActive: boolean;
     shouldRequestParse: boolean;
@@ -154,6 +154,7 @@ export function reconcileSubtitleSecondaryLine(options: {
     if (!options.host) return;
     const existing = options.host.querySelector<HTMLElement>(`.${SUBTITLE_SECONDARY_CLASS}`);
     const text = visibleSubtitleSecondaryText(options.visible, options.text);
+    setClassState(options.host, 'jpdb-subtitle-has-secondary', Boolean(text));
     if (!text) return removeSubtitleSecondaryLine(existing);
     const line = existingSubtitleSecondaryLine(existing);
     syncSubtitleContentLanguage(line, options.content);
@@ -203,6 +204,7 @@ export interface SubtitlePrimaryRowReconcileResult {
 // cannot accidentally rebuild the secondary button while it is under a finger.
 export function reconcileSubtitlePrimaryRow(input: SubtitlePrimaryRowReconcileInput): SubtitlePrimaryRowReconcileResult {
     if (!input.host) return { changed: false, appliedHtml: input.appliedHtml };
+    setClassState(input.host, 'jpdb-subtitle-has-primary', Boolean(input.html));
     const row = input.host.querySelector<HTMLElement>('.jpdb-subtitle-primary-row');
     if (input.html === null) return clearSubtitlePrimaryRow(row);
     return reconcileVisibleSubtitlePrimaryRow({
@@ -241,12 +243,18 @@ function createVisibleSubtitlePrimaryRow(
 }
 
 // Caption text carries newlines, so the children are markup rather than a
-// textContent write. Replacing the button's children leaves the button itself
-// under the finger, which is the node hit testing resolves the tap against.
+// textContent write. The inline child owns the text hit target; the button's
+// backdrop padding stays click-through. Keep both nodes stable during a press.
 function syncSubtitleSecondaryText(button: HTMLElement, text: string): void {
     if (button.dataset.subtitleSecondaryText === text) return;
     button.dataset.subtitleSecondaryText = text;
-    setInnerHtml(button, escapeWithBreaks(text));
+    let ink = button.querySelector<HTMLElement>('.jpdb-subtitle-secondary-ink');
+    if (!ink) {
+        ink = document.createElement('span');
+        ink.className = 'jpdb-subtitle-secondary-ink';
+        button.replaceChildren(ink);
+    }
+    setInnerHtml(ink, escapeWithBreaks(text));
 }
 
 function renderSubtitleKaraokeCue(cue: SubtitleCue | undefined, time: number): string {
