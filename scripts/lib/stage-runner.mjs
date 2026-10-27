@@ -30,7 +30,7 @@ export class StageRunner {
     refresh() { this.snapshot = repositorySnapshot(this.root); }
     key(stage) {
         const env = Object.fromEntries([...runtimeEnv, ...(stage.env ?? [])].map(name => [name, process.env[name] ?? null]));
-        return stageKey({ command: stage.command, inputs: selectInputs(this.snapshot, [...cacheImplementation, ...stage.inputs]), env, extra: [stage.extra, stage.diskInputs ? outputHashes(this.root, stage.diskInputs) : null] });
+        return stageKey({ command: stage.command, inputs: selectInputs(this.snapshot, [...cacheImplementation, ...stage.inputs]), env, extra: [stage.extra, outputHashes(this.root, ['node_modules/.package-lock.json', ...(stage.diskInputs ?? [])])] });
     }
     async run(stage) {
         const start = performance.now();

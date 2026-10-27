@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { testPlan } from '../../scripts/lib/affected-tests.mjs';
@@ -25,4 +25,7 @@ test('related passes never replace a full baseline; config/setup/runner/lock cha
     assert.equal(testPlan(root, initial, { env: { TZ: 'different' } }).full, true);
     assert.equal(testPlan(root, initial, { env: { ACADEMY_REQUIRE_N3_SOURCE_FIDELITY: '1' } }).full, true);
     assert.equal(testPlan(root, initial, { suite: 'academy' }).full, true);
+    mkdirSync(join(root, 'dist'));
+    writeFileSync(join(root, 'dist/ignored.js'), 'broken shipped bytes');
+    assert.ok(testPlan(root, initial).changed.includes('dist/ignored.js'));
 });
