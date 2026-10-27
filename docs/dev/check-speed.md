@@ -70,9 +70,11 @@ Worker sizing uses cores minus two and a 768 MiB/fork memory budget, reserving
 reclaimable memory; compressed pages do not count as free. Existing worker
 overrides remain. JSON duration reports accompany full Reader batches. The
 first measured 348-file batch passed; the slowest bodies were settings restore
-(38.6s), mirror coverage (33.6s), and OCR raster surfaces (32.5s). Inspection
-found DOM/fixture work and zero-delay polling, not removable fixed sleeps.
-Assertions and isolation were retained.
+(38.6s), mirror coverage (33.6s), and OCR raster surfaces (32.5s). OCR had
+8.8s of fixed sleeps across two retention/fade cases; virtual clocks now
+advance the same durations and preserve every assertion. Those two cases
+passed in 476ms under contention. Settings/mirror cases do substantial DOM or
+catalogue work. Assertions and isolation were retained.
 
 CI `test` / `test-jpdb` still shard every Reader file over eight jobs each;
 `test-academy` executes every Academy file with its pre-existing explicit
