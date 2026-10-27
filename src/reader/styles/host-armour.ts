@@ -1,3 +1,5 @@
+import { ANNOTATION_BOX_ARMOUR, ANNOTATION_BOX_SELECTOR, isAnnotationBoxProperty } from './annotation-box-armour';
+
 /**
  * Host-CSS armour: make Yomu's injected nodes immune to the host page's
  * stylesheet.
@@ -46,7 +48,9 @@
  *    that writes them (mirror fidelity, detached-reading placement, popover
  *    drag). `tests/reader/host-css-armour.test.ts` fails if a source file starts
  *    writing an armoured property inline. `color` is the one scoped exception,
- *    documented at HOST_DERIVED_COLOUR_SELECTOR.
+ *    documented at HOST_DERIVED_COLOUR_SELECTOR. Inline annotation shells have
+ *    a separate box baseline and scoped mirroring (annotation-box-armour.ts),
+ *    since unlike chrome and overlays they never receive runtime box styles.
  *
  * Browsers without `@layer` drop the block wholesale and fall back to today's
  * behaviour, so this can only ever add protection.
@@ -140,7 +144,7 @@ const OWNED_SUBJECT_ATTRIBUTE = /^(?:data-jpdb|data-yomu|aria-|role$|type$|disab
 const FOREIGN_CONTENT_CONTAINER = /jpdb-reader-local-glossary/i;
 // Every armoured property starts with one of these, so a declaration block that
 // mentions none of them can be skipped without being parsed.
-const ARMOURABLE_BLOCK = /border|background|box-shadow|color|content/i;
+const ARMOURABLE_BLOCK = /border|background|box-shadow|color|content|padding|margin|float|width|height|text-indent/i;
 const IMPORTANT_SUFFIX = /!\s*important\s*$/i;
 // A sheet far larger than the real one is a sign of corruption, not of a bigger
 // product; skip rather than spend the main thread on it during boot.
@@ -184,7 +188,11 @@ export function hostCssArmour(css: string): string {
 /** Append the armour layers to a stylesheet, leaving the sheet itself unlayered. */
 export function withHostCssArmour(css: string): string {
     const armour = hostCssArmour(css);
-    return armour ? `${css}\n${armour}` : css;
+    // A baseline before Yomu's own paint, so e.g. its hover shadow survives.
+    // Layered !important still beats the host's unlayered span declarations.
+    const boxes = css.includes('.jpdb-reader-word')
+        ? `@layer ${ARMOUR_STRONG_LAYER},${ARMOUR_LAYER};@layer ${ARMOUR_LAYER}{${ANNOTATION_BOX_ARMOUR}}` : '';
+    return `${css}${boxes ? `\n${boxes}` : ''}${armour ? `\n${armour}` : ''}`;
 }
 
 // Every character that can end a selector prelude. Jumping between these beats
@@ -332,20 +340,35 @@ function appendArmourRule(
 ): void {
     const strongDeclarations: string[] = [];
     const normalDeclarations: string[] = [];
+    const strongBoxes: string[] = [];
+    const normalBoxes: string[] = [];
     for (const declaration of splitDeclarations(block)) {
         const colon = declaration.indexOf(':');
         if (colon <= 0) continue;
         const property = declaration.slice(0, colon).trim().toLowerCase();
-        if (property.startsWith('--') || !ARMOURED_PROPERTIES.has(property)) continue;
+        const boxOnly = !ARMOURED_PROPERTIES.has(property) && isAnnotationBoxProperty(property);
+        if (property.startsWith('--') || (!ARMOURED_PROPERTIES.has(property) && !boxOnly)) continue;
         if (property === 'color' && HOST_DERIVED_COLOUR_SELECTOR.test(selector)) continue;
         const rawValue = declaration.slice(colon + 1).trim();
         const important = IMPORTANT_SUFFIX.test(rawValue);
         const value = important ? rawValue.replace(IMPORTANT_SUFFIX, '').trim() : rawValue;
         if (!value) continue;
-        (important ? strongDeclarations : normalDeclarations).push(`${property}:${value}!important`);
+        const declarations = boxOnly
+            ? (important ? strongBoxes : normalBoxes)
+            : (important ? strongDeclarations : normalDeclarations);
+        declarations.push(`${property}:${value}!important`);
     }
     if (strongDeclarations.length > 0) strong.push(wrapRule(selector, strongDeclarations, conditions));
     if (normalDeclarations.length > 0) normal.push(wrapRule(selector, normalDeclarations, conditions));
+    if (strongBoxes.length === 0 && normalBoxes.length === 0) return;
+    // Keep legitimate caption/Study word padding, but never freeze inline box
+    // styles on chrome, mirrors or readings selected by the same source rule.
+    const boxes = splitTopLevel(selector, ',')
+        .filter(part => /\.jpdb-reader-(?:word|ruby-base|run)(?![-\w])/u.test(part) && !part.includes('::'))
+        .map(part => `${part}:where(${ANNOTATION_BOX_SELECTOR})`).join(',');
+    if (!boxes) return;
+    if (strongBoxes.length > 0) strong.push(wrapRule(boxes, strongBoxes, conditions));
+    if (normalBoxes.length > 0) normal.push(wrapRule(boxes, normalBoxes, conditions));
 }
 
 function wrapRule(selector: string, declarations: readonly string[], conditions: readonly string[]): string {

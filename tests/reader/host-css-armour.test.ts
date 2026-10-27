@@ -1,4 +1,4 @@
-import { readdirSync, readFileSync, statSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 
 import { describe, expect, it } from 'vitest';
@@ -10,10 +10,72 @@ import {
     hostCssArmour,
     withHostCssArmour,
 } from '../../src/reader/styles/host-armour';
+import { ANNOTATION_BOX_RESETS, ANNOTATION_BOX_SELECTOR, isAnnotationBoxProperty } from '../../src/reader/styles/annotation-box-armour';
 
 const SRC_ROOT = path.resolve(__dirname, '../../src');
 
 describe('host CSS armour', () => {
+    it('resets boxes only on annotation shells, including the single flex/grid run', () => {
+        const sheet = withHostCssArmour('.jpdb-reader-word{color:inherit}');
+        expect(sheet).toContain(`@layer ${ARMOUR_LAYER}{${ANNOTATION_BOX_SELECTOR}{`);
+        for (const [property, value] of Object.entries(ANNOTATION_BOX_RESETS)) {
+            expect(sheet).toContain(`${property}:${value}!important`);
+        }
+        expect(sheet).toContain('.jpdb-reader-run{display:inline!important;text-indent:inherit!important}');
+        expect(ANNOTATION_BOX_RESETS['min-width']).toBe('auto');
+        expect(ANNOTATION_BOX_RESETS['min-height']).toBe('auto');
+        expect(ANNOTATION_BOX_RESETS['text-indent']).toBe('0');
+        expect(ANNOTATION_BOX_RESETS).not.toHaveProperty('display');
+        expect(sheet).not.toContain('.jpdb-reader-word{display:');
+    });
+
+    it('keeps the box reset below Yomu paint, including a plain hover shadow', () => {
+        const sheet = withHostCssArmour('.jpdb-reader-word:hover{box-shadow:var(--jpdb-reader-word-highlight-shadow-source,none)}');
+        const reset = sheet.indexOf(`@layer ${ARMOUR_LAYER}{${ANNOTATION_BOX_SELECTOR}{`);
+        const paint = sheet.indexOf(`@layer ${ARMOUR_LAYER}{.jpdb-reader-word:hover{`);
+        expect(reset).toBeGreaterThan(-1);
+        expect(paint).toBeGreaterThan(reset);
+        expect(sheet).toContain('box-shadow:var(--jpdb-reader-word-highlight-shadow-source,none)!important');
+    });
+
+    it('preserves caption and Study word padding without armouring chrome box styles', () => {
+        const armour = hostCssArmour('.jpdb-subtitle-row-text .jpdb-reader-word{padding:0 1px}.jpdb-reader-newtab-sentence .jpdb-reader-word,.jpdb-reader-fab{padding:0 .08em}');
+        expect(armour).toContain(`.jpdb-subtitle-row-text .jpdb-reader-word:where(${ANNOTATION_BOX_SELECTOR}){padding:0 1px!important}`);
+        expect(armour).toContain(`.jpdb-reader-newtab-sentence .jpdb-reader-word:where(${ANNOTATION_BOX_SELECTOR}){padding:0 .08em!important}`);
+        expect(armour).not.toContain('.jpdb-reader-fab');
+        expect(hostCssArmour('.jpdb-reader-word-pills{padding:4px;width:100%}')).toBe('');
+    });
+
+    it('restricts grouped box selectors to the annotation shells and leaves pseudos alone', () => {
+        const selector = '.jpdb-subtitle-row-text :is(ruby,rt,.jpdb-reader-furi,.jpdb-reader-ruby-base)';
+        expect(hostCssArmour(`${selector}{max-width:100%}`))
+            .toContain(`${selector}:where(${ANNOTATION_BOX_SELECTOR}){max-width:100%!important}`);
+        expect(hostCssArmour('.jpdb-reader-word::after{width:30px}')).toBe('');
+    });
+
+    it('keeps annotation box properties out of runtime inline writes', () => {
+        // Word/base/run receivers are used across rendering and repaint paths;
+        // rendered-word-markup also calls its freshly created word `span`.
+        // The built-page gate checks the actual nodes too, including aliases.
+        const conflicts: string[] = [];
+        for (const { file, source } of runtimeSources()) {
+            const writes = [
+                ...[...source.matchAll(/\b(?:word|base|run|span)\.style\.([A-Za-z]+)\s*=(?!=)/gu)]
+                    .map(match => kebabCase(match[1])),
+                ...[...source.matchAll(/\b(?:word|base|run|span)\.style\.setProperty\(\s*['"]([-a-zA-Z]+)['"]/gu)]
+                    .map(match => match[1]),
+            ];
+            for (const property of writes) {
+                // A shorthand reset freezes its longhands too (paddingLeft,
+                // borderBottomWidth, marginInlineStart, ...).
+                if (isAnnotationBoxProperty(property)) {
+                    conflicts.push(`${path.relative(SRC_ROOT, file)}: ${property}`);
+                }
+            }
+        }
+        expect(conflicts).toEqual([]);
+    });
+
     it('mirrors a Yomu paint declaration into a cascade layer as !important', () => {
         const armour = hostCssArmour('.jpdb-reader-fab{border-radius:50%;background:#f4f7fa;color:#17202a;padding:6px}');
         expect(armour).toContain(`@layer ${ARMOUR_STRONG_LAYER},${ARMOUR_LAYER};`);
@@ -139,8 +201,7 @@ describe('host CSS armour', () => {
         // armoured property that some module also sets via element.style would be
         // silently frozen. This test is the guard on that invariant.
         const inlineWrites = new Set<string>();
-        for (const file of typescriptSources(SRC_ROOT)) {
-            const source = readFileSync(file, 'utf8');
+        for (const { source } of runtimeSources()) {
             for (const match of source.matchAll(/\.style\.([A-Za-z]+)\s*=(?!=)/gu)) {
                 inlineWrites.add(kebabCase(match[1]));
             }
@@ -166,12 +227,17 @@ function kebabCase(value: string): string {
     return value.replace(/[A-Z]/gu, letter => `-${letter.toLowerCase()}`);
 }
 
+let cachedSources: Array<{ file: string; source: string }> | undefined;
+function runtimeSources(): Array<{ file: string; source: string }> {
+    return cachedSources ??= typescriptSources(SRC_ROOT).map(file => ({ file, source: readFileSync(file, 'utf8') }));
+}
+
 function typescriptSources(root: string): string[] {
     const files: string[] = [];
     const walk = (directory: string): void => {
-        for (const entry of readdirSync(directory)) {
-            const full = path.join(directory, entry);
-            if (statSync(full).isDirectory()) {
+        for (const entry of readdirSync(directory, { withFileTypes: true })) {
+            const full = path.join(directory, entry.name);
+            if (entry.isDirectory()) {
                 walk(full);
                 continue;
             }

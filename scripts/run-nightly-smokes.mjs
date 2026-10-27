@@ -80,6 +80,9 @@ export const NIGHTLY_SMOKES = [
     'smoke:popover-headword-furigana',
     'smoke:popup-lifecycle',
     'smoke:popup-header-phone',
+    // W1-46: real recorded Piccoma header/quick-menu boxes and glyph gaps,
+    // Chromium desktop and WebKit iPad, against the page without Yomu.
+    'smoke:piccoma-host-armour',
     'smoke:recorded-pages',
     'smoke:recorded-pages:reproduce',
     'smoke:recorded-pages:probes',

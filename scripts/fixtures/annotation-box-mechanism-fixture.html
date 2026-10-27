@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="ja">
+<meta charset="utf-8">
+<title>Annotation box mechanism fixture</title>
+<style>
+  body { font: 16px sans-serif; }
+  main a { display: flex; margin: 40px 0; color: black; white-space: nowrap; }
+  #tight-flex { width: 120px; }
+  #tight-flex b { flex: 0 0 60px; }
+  #indent-flex, #indent-grid { width: 400px; text-indent: 2em; }
+  #indent-grid { display: grid; grid-auto-flow: column; justify-content: start; }
+  /* These target injected shells, never the anonymous text item. */
+  main a span { min-width: 0 !important; min-height: 0 !important; text-indent: 6em !important; }
+</style>
+<main>
+  <a id="tight-flex">日本語のテキスト<b lang="en">NEXT</b></a>
+  <a id="indent-flex">日本語のテキスト</a>
+  <a id="indent-grid">日本語のテキスト</a>
+</main>
+</html>
