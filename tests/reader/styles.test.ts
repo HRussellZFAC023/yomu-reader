@@ -573,3 +573,13 @@ it('keeps the section nav on one scrolling row on a phone held sideways, so Save
     // The scroll the row needs is still there for the same screens.
     expect(css).toMatch(/@media \(pointer: coarse\) and \(max-height: 560px\) \{[^@]*\.jpdb-reader-settings-tabs \{ overflow-x: auto;/);
 });
+
+// Retained G-01b negative probe from settings-css (f42ed7177 parent).
+it('honors reduced motion for interaction transitions and disclosure animations', () => {
+    const css = readFileSync('src/reader/styles/interactions.css', 'utf8');
+    const start = css.indexOf('@media (prefers-reduced-motion: reduce)');
+    expect(start).toBeGreaterThanOrEqual(0);
+    const reduced = css.slice(start);
+    expect(reduced).toContain('transition: none !important;');
+    expect(reduced).toContain('animation: none !important;');
+});

@@ -410,7 +410,10 @@ describe('Japanese inflection lookup boundaries', () => {
         expect(matches.map(match => [match.surface, match.start, match.end])).toEqual([
             ['飛行機', 900, 903],
         ]);
-    });
+        // This is a reachability guard, not a timing budget. The fake IndexedDB
+        // sweep exceeded 5 s under the full ten-worker run; retain the exact
+        // 900-character boundary with the neighboring long-block timeout.
+    }, 30_000);
     describe('long-block dictionary reads', () => {
         let blockStore: YomitanDictionaryStore;
         beforeAll(async () => {
