@@ -99,7 +99,7 @@ npm run check
 ```
 
 `npm ci` installs the committed dependency versions without rewriting the lockfile, as CI does.
-The local check gates reuse passing stages by content and restore or verify cached build outputs. Run `npm run check -- --no-cache` (or `check:release -- --no-cache`) for all stages and the full suite; see [gate timings and cache inputs](docs/dev/check-speed.md).
+The local check reuses passing stages by content and restores or verifies cached build outputs. `npm run check -- --no-cache` runs the full Reader, Academy, worker and tooling suites. `check:release -- --no-cache` retains the release graph with full Reader, worker and tooling tests; strict Academy coverage remains in ordinary check and CI. See [measured gate timings and cache inputs](docs/dev/check-speed.md).
 
 Common commands:
 

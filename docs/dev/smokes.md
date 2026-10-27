@@ -27,8 +27,10 @@ npm run smoke:prepare
 npm run smoke:release
 ```
 
-`smoke:prepare` builds the extension and restores the split core, CSS and local
-companions in a `finally` block, including when packaging fails. It requires the
+`smoke:prepare` first runs hosted sync to assemble the Study shell from a fresh
+build. It then builds the extension and restores the split core, CSS, companions,
+and complete Study and Academy build directories in a `finally` block, including
+when packaging fails. The compiled extension stays available for its smoke. It requires the
 pinned UserScript Compiler described in the
 README. Linux release CI runs the aggregate under Xvfb for Electron. The
 `release:preflight` command prepares these artifacts after its check gate.
@@ -77,7 +79,16 @@ no product assertion; it was removed too.
 Recorded-page DOM assertions and labelled mechanism fixtures establish behavior.
 Their screenshots are diagnostics, not visual acceptance or physical-device proof.
 
-## Validation on 2026-10-27
+## G-03 integration validation
+
+The combined branches passed all seven release smokes in **243.20 s**, excluding
+the separate **32.32 s** preparation step. Preparation was run after a fresh
+build with no Study shell; every one of the 26 shipping files matched its
+original SHA-256 after packaging. Native writer-contract coverage also proves
+restoration after failed packaging. See [the integration report](./check-speed.md)
+for current counts, hashes, gate timings and remaining performance work.
+
+## Earlier G-02c validation on 2026-10-27
 
 Node 24.16.0 on the shared Mac, one heavy command at a time. The compiler was
 `52b7fe463ae503c294421752002da568472dfe4a`, matching release CI.

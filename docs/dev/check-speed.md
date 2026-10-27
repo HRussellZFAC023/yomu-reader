@@ -1,5 +1,242 @@
 # Check and build speed
 
+## G-03 integration, 27 October 2026
+
+The four branches are merged locally on `integrate/g-03-gate` from `aebcec6d1`. Correctness verification passes; the one-minute target remains unmet for the four edit cases. No push, tag, PR or deployment was performed.
+
+The timing cohort used code commit `d6791605e`, Node `v24.16.0`, 10 cores and 32 GiB on this arm64 Mac. One heavy command ran at a time. Load varied on the shared host; each row records one observed run. The later smoke-preparation fix changes packaging assembly and adds one native tooling case; an unused direct dev-dependency declaration was also removed. Neither reduces the local gate.
+
+### Required proof
+
+| Command | Wall seconds | Result |
+| --- | ---: | --- |
+| Fresh origin/main build before merging | 26.87 | PASS |
+| Initial merged build | 11.05 | PASS |
+| Ordinary check with full integration suites | 260.00 | PASS |
+| Current full Reader baseline, with before/after input equality | 120.44 | PASS |
+| Final build then forced release graph, --no-cache | Pending final run | Pending final run |
+| Seven release smokes | 243.20 | PASS |
+
+`check -- --no-cache` runs the full Reader, strict Academy, worker and tooling suites. The inherited release graph runs full Reader/workers/tooling with `--no-cache`; the full strict Academy suite remains in ordinary check and CI. Its old known-failure mechanism is removed. The final clean-tree check is recorded in `artifacts/g-03/final-clean-check.log`.
+
+### Primed-cache measurements
+
+Before each measured edit, an ordinary check primed the unedited base. One comment line was appended to the named file, then the exact original bytes were restored. The docs case edits a prose file with an HTML comment. Wall time includes npm/startup. All five commands returned zero. Cache hits represent prior successful byte-identical states, including incremental typecheck where available.
+
+| Case | Edited file | Wall seconds | Under 60 s |
+| --- | --- | ---: | --- |
+| unchanged | None | 25.31 | Yes |
+| source | `src/reader/newtab/speaking-score.ts` | 171.09 | No |
+| test | `tests/reader/speaking-score.test.ts` | 197.38 | No |
+| css | `src/reader/styles/reader-words-ocr.css` | 227.64 | No |
+| docs | `docs/dev/recorded-pages.md` | 135.63 | No |
+
+Before the integration refinements, unchanged/source measurements passed in 26.64/188.99 seconds. The final cohort above is authoritative. The other edit cases had no passing before-refinement measurement; no speed-up is claimed for them.
+
+### Profile and remaining speed work
+
+The source plan selected 141 Reader files (131 with opaque filesystem/subprocess/computed-import dependencies) and 94 Academy files (84 opaque). The test and docs edits selected 132/84. Those conservative selections alone take more than a minute across the two test lanes. They remain selected until those dependencies can be proved explicitly.
+
+The CSS edit changes generated asset names. Deleted inputs force the complete 438-file Reader and 152-file Academy schedules because the previous dependency edges are unavailable. Undoing CSS also requires a full Reader recovery pass; that priming run passed in 142.55 seconds and is excluded from the measured docs case. Cached docs-output restoration varied from roughly 3 to 17 seconds. Discovery, hashing, restoration and the test-file edit's tooling run add further cost.
+
+Remaining work to reach one minute: declare or enforce concrete filesystem/dynamic-read dependencies; retain previous graph edges across generated-name changes; cache graph discovery without losing setup/config invalidation; and avoid cloning already-proved unchanged output files. Protected guards remain and the debt baselines only shrank.
+
+### Integration fixes
+
+- Retain G-01b's proved explicit selections, failed-run invalidation and child-process discovery. Run the complete 57-file Node project before isolated selected jsdom files; keep the release catalogue schedule.
+- Discover Academy with its isolated entrypoint included, then execute shared and mock-owned files with the same realm policy as its full suite.
+- Key hosted sync from esbuild's rediscovered runtime inputs plus actual built bytes and its templates. Key tooling from implementation/test/configuration bytes, repository membership and the resolved compiler file list.
+- Apply G-02b's leftover patch: live CLI entrypoints, private PDF helper, deleted offline helpers and the removed sprite complexity entry.
+- Restore 25 release-delivery regression cases in the Node project and merge the phone-landscape Save regression into the existing styles host after checking their histories.
+- Fix header undo: a temporary CSS header pruned a still-committed companion that became required on undo. Write-mode pruning now recovers exact HEAD bytes only when they match the immutable filename. Unknown pins, mismatched hashes and path escapes remain rejected; read-only checking remains strict. Real Git-history tests cover the failure and recovery.
+- Assemble hosted Study before extension packaging, then restore core/CSS/companions and the complete Study/Academy namespaces in a finally block. A fresh build deliberately had no Study shell before preparation; all 26 original shipping files matched after preparation. Both successful and failed packaging are covered by a labelled mechanism fixture, followed by the real release smokes.
+
+### File counts and debt
+
+| Scope | Test files before | Test files after | All files before | All files after |
+| --- | ---: | ---: | ---: | ---: |
+| reader | 732 | 438 | 791 | 496 |
+| academy | 360 | 152 | 370 | 163 |
+| workers | 4 | 4 | 4 | 4 |
+
+Reader/Academy/workers fall from 1,096 to 594 test files. Tooling adds 12 native files / 25 cases. The whole tracked tree falls from 8,420 to 7,920 files. Release smokes fall from 34 to 7; all 16 required PR layout hosts remain reachable.
+
+Dead-code debt is 64 findings, down from 94; complexity is 51 entries, down from 52. All 14 file-size entries only decreased or stayed equal. No debt entry was added. Usage search confirmed the direct `axe-core` declaration was unused; it was removed while `@axe-core/playwright` keeps the same transitive 4.11.4 pin. The borrowed installation was not changed. The broader `fallow:audit` diagnostic still exits 1 on 144 complexity findings and 104 clone groups (zero dead-code issues); those remaining findings were not suppressed or re-baselined.
+
+### Full CI suite wiring
+
+Workflow coverage assigns all 606 test files, with zero orphans. These are configured CI paths; no remote CI run was triggered. The regular and JPDB matrices each retain eight shards. Academy and workers retain full jobs; the build requires all of them and the PR layout job.
+
+```yaml
+74: - run: node --test tests/tooling/*.test.mjs
+91: - run: npm run test:academy:ci
+102: - run: npm run test:workers
+125: shard: [1, 2, 3, 4, 5, 6, 7, 8]
+133: - run: node scripts/run-ci-tests.mjs --kind regular --shard=${{ matrix.shard }} --total=8
+144: shard: [1, 2, 3, 4, 5, 6, 7, 8]
+152: - run: node scripts/run-ci-tests.mjs --kind jpdb --shard=${{ matrix.shard }} --total=8
+187: - run: npm run smoke:layout-regressions
+193: needs: [committed-state, typecheck, test-workflow-coverage, test, test-jpdb, test-academy, test-workers, video-typecheck, gaming-smoke, layout-smoke]
+```
+
+### Byte parity
+
+Original-main build tools/configuration were archived under ignored `artifacts/g-03/origin-pipeline`, with the same current `src/` and installed toolchain. Its serial build and Academy build match every one of the 22 compiled Reader/Study/CSS/companion/Academy products. Of all 26 shipping files, 23 match directly. The intentional differences are `newtab/index.html`, `newtab/sw.js`, `newtab/version.json`: hosted sync stamps canonical Study hashes/service-worker metadata; version.json is generated by sync.
+
+G-01 deliberately stops copying unrelated public assets into dist. Hosted sync and extension packaging read public directly; the source-main build inventory had 904 files. Against the original aeb source, the prune changes 14 existing compiled Reader files: `greasyfork/yomu-anki.user.js`, `greasyfork/yomu-audio.user.js`, `greasyfork/yomu-bunpro.user.js`, `greasyfork/yomu-jiten.user.js`, `greasyfork/yomu-jpdb.user.js`, `greasyfork/yomu-kanji-study.user.js`, `greasyfork/yomu-ocr-manga.user.js`, `greasyfork/yomu-runtime.user.js`, `greasyfork/yomu-settings-surface.user.js`, `greasyfork/yomu-ui-copy.user.js`, `greasyfork/yomu-video.user.js`, `greasyfork/yomu-wanikani.user.js`, `newtab/app.js`, `yomu.user.js`. These come from the owned settings DOMParser/name index and removal of unused Reader APIs/metadata, plus their regenerated SRI references. Academy's unused interfaces/metadata were also removed and its hosted build regenerated. These source changes are distinct from the same-source build-pipeline parity above.
+
+Current shipping SHA-256 inventory:
+
+```text
+aa29cb021155c0003382f0de654a7db0a9e303de7bf3d9625defcb3995609d44  academy/app.js
+d748fbe9770e069a011bf69844a74915d2bbc76999be622c0a0fb267b0afb605  academy/assets/entrypoint-C0i13pVq.css
+cec5103fc100e0b1a33c0df0d1827937986593d18fec87c5c064f5d3339837eb  academy/chunks/entrypoint-Df3-RBpt.js
+13b941a9ee99a26896e4f58aca92f2e8108025e5747389495ebbddf1f5f3642a  academy/chunks/runtime-BqzRUN4n.js
+0e95d87897ea7809775364284920ac8f010bbcfa3503f7b0a5983a5b63341a2e  academy/manifest.json
+7daf530593f08276c9e7dffda41f53cd3b566a3185b97ac62b5f8cac14e799cb  greasyfork/yomu-anki.user.js
+91ac396e3afe4723463c85c7158f34f9515586b3ba7194d11d8b555695beebdf  greasyfork/yomu-annotations.user.js
+3767733f7527ca710d039689f9e9f3c1875faf29747cac115ec43ea752782bba  greasyfork/yomu-audio.user.js
+0c4288d3a87cfd843860ce8df547c12bb35ad7cfc3c04d848a097d339ba9ca35  greasyfork/yomu-bunpro.user.js
+2df06ea3b7bfea01eb58aeb3415789f8e612468b16d1a84a72d407d863dc9a82  greasyfork/yomu-jiten.user.js
+b83c91ecf19b5d6c9949f12efa47601a291baa84fdbf7ea3b1037a09bddef367  greasyfork/yomu-jpdb.user.js
+e4870264a917d3e21edb8c061c4a5a7023e3a5f972192bb2c5bcb60c6f5af80b  greasyfork/yomu-kanji-study.user.js
+eff2b8684955c412b6ffca8c1a86452c808bf91fa1b5c5ba861e94d3f78156a8  greasyfork/yomu-ocr-manga.user.js
+62635f9bc361401837dfe874190a8b00e511a29dbcc8b597d7468763bf5e3eab  greasyfork/yomu-runtime.user.js
+d342578aeabef9f25c1dda1474b6ff0b756873595980ce9dafcf7c9d2eaff451  greasyfork/yomu-settings-surface.user.js
+cc99e8fe025d0c5222685ae92ff896ace80cf1274635e56d904e2c434a17aa91  greasyfork/yomu-ui-copy.user.js
+dd2cc7c3e7b13641dc236040681507d143aeccb115e9a7ad870254b7a8ce67ec  greasyfork/yomu-video.user.js
+9e9e68a9606388e16f4ccb0fd70310d9b290f96729e59a13dcd7f4f1bc6ac5a4  greasyfork/yomu-wanikani.user.js
+48e914568ccbcc53f0846cf15d099f4f475ef9c220c5beede438249a0e648123  newtab/app.js
+2f64c36de9764f478c8f2be9fb93d7d3ae6f1a02e641b8e637f185118530a68c  newtab/index.html
+a1a5ed1101b3bfda3eb90cbabc47ce7425f12d64a24b6d441d878e4f7ab123cb  newtab/manifest.webmanifest
+5b04b23c1e646a09ad68d0177186043e11d44a3cce0e961502cd47fdff2e126b  newtab/styles.css
+4964db78a5b976249706618d6364226ad696cd0400e2037039582eebc11342db  newtab/sw.js
+43a48b7d5ecb8e9b8f3bbd876b71f1299c8657497d509054ccf233352f02d306  newtab/version.json
+3faa2717e7b541d15fe643b1ca4eacc46d32ed76c85260c651f7c29be31fffa8  yomu.css
+8cd6d90720722e5dd316ef201f6efe4e643fce4cc6978fc1e58b2699c724c843  yomu.user.js
+```
+
+### Preserved and overturned plan items
+
+All original overturned verdicts and the branch-specific additions are retained below, including overlapping Academy decisions. Protected learner data, SRS grading, authorization/CSP, persistence, segmentation/readings and real regressions take precedence over file-count estimates.
+
+### Plan overrides
+
+| Planned item | Retained protection / reason |
+| --- | --- |
+| `userscript-manager-request-sites` | Merge into request host; call-site deadline regressions would otherwise escape the helper test. |
+| `review-queue-v193-upgrade` | Merge into upgrade host; preserve unsent SRS grades from the shipped v1.9.3 format. |
+| `docs-shared-settings-transaction` | Keep; passive settings must not become choices or patch a mismatched settings pair. |
+| `japanese-script` | Keep in Node; supplementary kanji, code points and UTF-16 offsets define segmentation. |
+| `academy-payment-route-retirement` | Merge into payment ingress; retired checkout/webhook/claim routes remain 404. |
+| `hosted-library-attribution` | Keep; Tadoku licence credit, cover-hotlink and privacy requirements. |
+| `lesson-thirty-nine-state-inspection` | Registry-generated grading row; sibling deletions otherwise leave no grading coverage. |
+| `jpdb/02-sources-mining-drawer-pitch` | Trim; retain provider routing, locked JPDB, Anki trust and raw-field privacy regressions. |
+| `jpdb/20 and jpdb/21` | Merge segmentation, native-ruby, Jiten span, ruby repair and OCR reading cases into jpdb/22. |
+| `settings-form/06 and /07` | Merge persistence round trips into /12; silent autoplay, caps, fonts, shortcuts and Anki mappings survive. |
+| `recorded-pages-harness` | Trim; retain copyrighted-text redaction-leak detection and CLI validation. |
+| `aggregate-runtime-settings-boundary` | Trim; retain the built-artifact boundary proof. |
+
+### Additional Reader decisions
+
+| Planned item | Retained protection / reason |
+| --- | --- |
+| `anki-native-qa-guard` | Merge into anki; refusal of mutations, review reservations and request snapshots. |
+| `japanese-lookup-evidence` | Merge into yomitan-exact-candidate-lookup; exact spans and archive provenance. Retain JSON/NOTICE. |
+| `private-raster-presenter` | Merge into ocr-raster-inert-page; private pixels, URL revocation and teardown. |
+| `gaming-legacy-reader-settings-cleanup` | Merge into gaming-lifecycle; retain current/foreign settings and remove only obsolete keys. |
+| `immersion-audio` | Merge into study-examples; it still ships and stale playback must be invalidated. |
+| `example-sentence-tokens` | Merge into sentence-context; particle targeting and segmentation. |
+| `provider-examples` | Merge into study-examples; translation fallback regression 0d716e868. |
+| `newtab-settings-self-enhancement` | Merge owned-shadow and dictionary-content boundaries into nested-text-parse. |
+| `gaming-settings-file` | Keep separate; native fs mocks protect atomic and overlapping saves. |
+| `factory-reset-ambient-reboot` | Keep bundled multi-realm GM proof; module resets do not prove ambient-only bindings (e52115d40). |
+| `OCR transient-blank regression` | Keep with virtual time; actual blank-canvas behavior remains covered. |
+| `JPDB 04 outside-Reader-Surface hydration` | Keep negative boundary with virtual time; remove three positive docs replay cases. |
+| `locale roster and BCP-47 machinery` | Keep operational locale-report APIs; usage search found real CLI callers. |
+| `practice pause/hide` | Keep; captured aliases in NewTabController.leavePracticeSessions are live. |
+| `release-workflows` | G-03 restores 25 delivery regressions in Node. Histories include e02c2955e, 30890710e, 24da5732f, 6535c7220 and 714237e2a. |
+| `settings-css` | G-03 merges only the landscape Save regression into styles (9cb851694). |
+
+### Academy decisions
+
+| Planned item | Retained protection / reason |
+| --- | --- |
+| `academy-cookie-proxy` | keep/trim; HttpOnly cookie and upstream cookie-name boundary. |
+| `account-lifecycle-live-proof-harness` | keep/trim; Destructive disposable-profile ownership and confinement, credential redaction, immutable deployment proof; b67f3fb3b. |
+| `account-payment-proof-harness` | keep/trim; Secret/cookie/payment-id redaction and provider-blocked proof honesty. |
+| `library-pipeline` | keep/trim; Symlink confinement, aggregate-only publishing and private-source redaction. Its library-fixture helper is still used. |
+| `production-workflow-lifecycle` | keep/trim; Concurrent writer locks, Git-index restoration and journal recovery after crashes; b637f414b and 3db49489d. |
+| `production-workflow-salvage` | keep/trim; Uncommitted-work recovery and tamper-proof source snapshots; 3db49489d. |
+| `production-workflow` | keep/trim; Owner signature, review trust and promotion ownership security boundaries; multiple 4d87b4617 through b637f414b fixes. |
+| `source-pipeline-catalog` | keep/trim; Hash/CRC corruption detection, atomic writes and resumable source extraction. |
+| `source-pipeline-packs` | keep/trim; Lossless donor migration and private-root path confinement. |
+| `listening-source-bank` | keep/trim; Rights approval requires Worker evidence; approved resources use the authenticated router. |
+| `grounded-definition-registry` | keep/trim; Pre-commit answer concealment and tamper-proof renderer evidence protect assessment/SRS grading. |
+| `permitted-source-corpus` | keep/trim; Exact vocabulary/readings and source blanks, answer gates and privacy-safe corpus validation. |
+| `academy-payment-delivery-migration` | keep/trim; Preserves and selectively backfills populated purchase rows; 0a419aa39. Replaying migrations on an empty database is insufficient. |
+| `academy-permanent-donation-migration` | keep/trim; Preserves populated foreign-key rows and indexes; 34ee5016c. |
+| `academy-reader-access-migration` | keep/trim; Preserves recoverable owners without granting access to paid/incomplete accounts. |
+| `character-directory` | keep/trim; Retained pagination and one-shot petal animation regression cases; dd706e9c6/4b96897f1. |
+| `story-recovery-contract` | keep/trim; Retains exact activity completion/evidence gates and canonical story recovery; b39c34612 and 98a9c9a64. |
+| `lesson-zero-desk-language-screen` | keep/trim; Retained the durable pause/resume or written-draft persistence case; removed surrounding walkthrough/copy assertions. |
+| `lesson-zero-greeting-screen` | keep/trim; Retained the durable pause/resume or written-draft persistence case; removed surrounding walkthrough/copy assertions. |
+| `lesson-zero-repeat-request-screen` | keep/trim; Retained the durable pause/resume or written-draft persistence case; removed surrounding walkthrough/copy assertions. |
+| `lesson-zero-sound-screen` | keep/trim; Retained the durable pause/resume or written-draft persistence case; removed surrounding walkthrough/copy assertions. |
+| `lesson-zero-vowel-screen` | keep/trim; Retained the durable pause/resume or written-draft persistence case; removed surrounding walkthrough/copy assertions. |
+| `lesson-zero-vowel-writing-screen` | keep/trim; Retained the durable pause/resume or written-draft persistence case; removed surrounding walkthrough/copy assertions. |
+| `lesson-zero-mission-screen` | keep/trim; Retained the durable pause/resume or written-draft persistence case; removed surrounding walkthrough/copy assertions. |
+| `lesson-zero-pedagogy` | keep/trim; Retained refusal to invent a reading key from kanji. |
+| `lesson-zero-grounding` | keep/trim; Retained source-fidelity validation and digest/reference rejection. |
+| `academy-app-pronunciation-lifecycle` | merge into audio-director; Idempotent teardown and pronunciation-before-audio disposal regression; 31617f97b. |
+| `japan-centre-world` | merge into current-place-world; Pre-commit answer leak and asynchronous success-confirmation regression; 910ac5f24. |
+| `lesson-forty-three-message-handoff` | merge regression into lesson-pedagogy-conformance; Retired answer-key image must stay out of the inspector and offline shell; 32797b44d. Generic plugin grading alone does not cover this. |
+| `academy-payment-route-retirement` | merge into academy-worker-payment-ingress (plan override); Retired checkout, Stripe webhook and claim routes must remain 404. |
+| `hosted-library-attribution` | keep (plan override); Tadoku CC BY-NC-ND attribution, no cover hotlinks and privacy disclosure. |
+| `lesson-thirty-nine-state-inspection` | registry-generated grading row (plan override); Preserve state-inspection grading after sibling lesson files are deleted. |
+| `universal repair-seed assertion for kanji-writing` | preserve the existing handwriting policy; Failed strokes emit no canonical seed; completed writing emits one new-learning seed. No product grading changes were made. |
+
+### Smoke decisions
+
+| Planned item | Retained protection / reason |
+| --- | --- |
+| `anki-template-render` | Keep nightly; real Anki rendering, audio/image and text-visibility regressions. |
+| `enrichment-concurrency` | Keep nightly; concurrent batches must preserve paragraph/segmentation identity. |
+| `ocr-viewport-scroll` | Merge into ocr-line-register in Chromium/WebKit; preserve foreground ownership, scroll, pinch/pan and teardown. |
+
+### Integration retention regression
+
+| Planned item | Retained protection / reason |
+| --- | --- |
+| `content-addressed-retention` | Restore the header-undo regression in native tooling. A CSS probe pruned a still-committed pin that became necessary on undo; recovery verifies HEAD bytes against the immutable name. |
+
+### Commits and local evidence
+
+```text
+46217761e Merge G-01 gate speed and soundness fixes
+2a8e45b9d Merge G-02a reader pruning and test projects; retain proved G-01b selections
+a76db7d59 Merge G-02b Academy pruning and grading regressions
+c4c747b0a Merge G-02c seven release smokes and PR geometry coverage
+e2513761f Remove Academy prune leftovers and stale complexity debt
+fe1dd4eca Regenerate Academy delivery after removing test-only source APIs
+b98dd2a19 Preserve project schedules and include isolated Academy tests in affected selection
+db8c23344 Key hosted sync and tooling against their resolved inputs
+ba94579ea Tighten file-size debt to measured source sizes
+33f4794f9 Retain proven release delivery and landscape Save regressions
+0d592f83e Recover verified retained HEAD assets after undoing a temporary header
+d6791605e Avoid repeated Git startup in retained-history checks and regression setup
+1a363480f Assemble and preserve hosted Study and Academy through smoke packaging
+82f9852c3 Remove unused direct axe-core dependency while preserving the Playwright pin
+```
+
+Ignored operator evidence is under `artifacts/g-03/`: `final/results.json`, per-case logs/plans, `byte-parity.json`, `dist-shipping-sha256.json`, `preparation-shipping-parity.json`, full gate logs and `smoke-release-fixed.log`. Nothing under artifacts belongs in a commit.
+
+The full extended/nightly matrix was not rerun here. G-02c records its existing full-typography contrast and wide-popover failures in [the smoke report](./smokes.md); those assertions remain. Release smokes establish built-product behavior, not deployed/store/physical-device or visual acceptance. No new external data source or licence was introduced.
+
+## Historical G-01/G-01b evidence
+
+Everything below predates the combined prune. Old Academy failure-baseline references and timing targets describe those historical runs, not the current strict Academy result.
+
 G-01 and G-01b, 2026-10-27. Node 24.16.0, 10 cores, 32 GiB macOS. The G-01 session did not
 obtain a quiet host: the initial sample showed load 38, 6.7% CPU idle and
 11 GiB occupied by the compressor. Timings under that contention are not

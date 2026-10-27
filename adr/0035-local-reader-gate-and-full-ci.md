@@ -1,6 +1,6 @@
 # Local Reader gate: typecheck, Node project, affected jsdom; full suites in CI
 
-Status: adopted for G-02a, 27 October 2026.
+Status: adopted for G-02a and integrated with G-01b in G-03, 27 October 2026. The one-minute performance target remains open.
 
 ## Context
 
@@ -20,8 +20,11 @@ geometry or visual acceptance.
 Retain G-01's content-addressed stage cache, verified output restoration,
 affected-test selection, incremental typecheck, and memory-based worker budget.
 For the local Reader test lane, run the complete pure Node project followed by
-only the jsdom files related to inputs changed since the last successful full
-pass. A related pass never becomes a full-pass baseline.
+the proved jsdom dependants of inputs changed since the last successful full
+pass. Filesystem, subprocess and computed-import readers are selected
+conservatively because imports alone cannot prove those edges. Discovery runs
+in a child process and includes resolved setup dependencies and the Academy
+mock owner. A related pass never becomes a full-pass baseline.
 
 The Node project has no setup files, uses threads, and retains its module graph.
 Its explicit whitelist excludes browser-dependent tests and module-mock users.
@@ -53,10 +56,18 @@ Nightly-only execution is insufficient for those deletions.
 
 ## Consequences and limits
 
-A cold or compatibility-changing local run still takes minutes. Filesystem-only
-and generated-data dependencies are not all visible to `vitest related`; full
-CI and full release selection remain necessary. Source changes still build and
-sync shipping assets through the existing cache-verified stages.
+A cold or compatibility-changing local run still takes minutes. The current
+conservative filesystem/dynamic selection also misses the one-minute edit
+target. Deleted generated paths require a full fallback while prior dependency
+edges are unavailable. Full CI and release selection remain necessary.
+
+Hosted sync keys the runtime source closure discovered by its bundler and the
+actual built bytes it reads. Tooling keys its implementation/test/configuration
+bytes, repository membership and the compiler-resolved input list. Cached
+writers retain verified byte restoration. Smoke preparation assembles hosted
+Study and preserves all shipping namespaces while the extension builder replaces
+dist. Header rollback may recover a missing retained artifact only from HEAD
+bytes matching its immutable filename; read-only retention checks remain strict.
 
 This decision changes the Reader lane. It does not remove or weaken the strict
 Academy stage inherited by ordinary `check`. Its verification state is recorded

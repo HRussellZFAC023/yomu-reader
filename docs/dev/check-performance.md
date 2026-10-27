@@ -1,5 +1,7 @@
 # Local gate and Reader test performance
 
+This is the historical G-02a report. [The current G-03 integration results](./check-speed.md) supersede its Academy-failure and gate-status sections: strict Academy now passes, while the one-minute edit target remains unmet.
+
 G-02a, 27 October 2026. Node 24.16.0 on the shared Mac. The G-01 implementation
 and its earlier measurements remain in [check-speed.md](check-speed.md).
 These samples did not control other host activity; they are not quiet-machine
