@@ -333,7 +333,7 @@
     "smoke:trusted-form-submit-order": "node scripts/trusted-form-submit-order-smoke.mjs",
     "smoke:subtitle-highlight": "npm run smoke:subtitle-stability",
     "smoke:subtitle-furigana-outline": "npm run smoke:subtitle-stability",
-    "smoke:host-css-armour": "node scripts/host-css-armour-smoke.mjs",
+    "smoke:host-css-armour": "npm run smoke:piccoma-host-armour",
     "smoke:piccoma-host-armour": "node scripts/piccoma-host-armour-smoke.mjs",
     "smoke:ruby-overhang-scope": "node scripts/ruby-overhang-scope-smoke.mjs",
     "smoke:reading-collision": "npm run smoke:annotation-scroll",

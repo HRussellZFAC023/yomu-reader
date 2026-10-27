@@ -4,6 +4,7 @@
 // No Piccoma application code or assets are copied into the implementation.
 // --product=v2.1.6 proves the regression; --live checks the current store with
 // the same probes (page traffic only; product requests remain offline).
+import { assertHostCssArmour } from './lib/host-armour-cells.mjs';
 import { readFileSync } from 'node:fs';
 import { chromium, webkit } from 'playwright';
 import { openRecordedPage, releaseProduct, worktreeProduct } from './lib/recorded-page.mjs';
@@ -35,6 +36,7 @@ for (const engine of engines) {
         ? { viewport: { width: 820, height: 1180 }, isMobile: true, hasTouch: true, deviceScaleFactor: 2 }
         : { viewport: { width: 1280, height: 900 } };
     try {
+        await assertHostCssArmour(browser, engine);
         const baseline = await measure(browser, null, contextOptions);
         const annotated = await measure(browser, product, contextOptions);
         const prefix = `${product.label} ${engine} ${live ? 'live' : 'recorded'} Piccoma`;
