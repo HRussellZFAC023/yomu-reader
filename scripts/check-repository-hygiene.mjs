@@ -55,7 +55,7 @@ const LARGE_FILE_LIMIT = 2 * 1024 * 1024;
 // Text ledgers over the limit, each read by tests, each named so a new one has to
 // be argued for rather than slipped in.
 const LARGE_FILE_ALLOWLIST = new Map([
-    ['docs/academy/recovery/ASSET-CARRYOVER.json', 'asset recovery ledger; canonical source metadata, never a generated artifact'],
+    ['docs/academy/recovery/ASSET-CARRYOVER.json', 'asset recovery ledger; maintained by scripts/academy-asset-ledger.mjs'],
     ['docs/academy/audio/voice-production-manifest.json', 'learning-voice production manifest; learning-voice-provenance and playback tests read it'],
 ]);
 
