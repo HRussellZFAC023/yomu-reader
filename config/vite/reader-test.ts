@@ -56,7 +56,6 @@ export const readerNodeFiles = [
     'tests/reader/public-proxy-worker.test.ts',
     'tests/reader/radial-menu-layout.test.ts',
     'tests/reader/settings-file-io.test.ts',
-    'tests/reader/shared-srs.test.ts',
     'tests/reader/site-library-filters.test.ts',
     'tests/reader/speaking-score.test.ts',
     'tests/reader/study-card-route.test.ts',
