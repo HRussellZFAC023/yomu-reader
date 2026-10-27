@@ -1,3 +1,4 @@
+import '../../../src/reader/companions/register-build-companions';
 import { AUDIO_REQUEST_TIMEOUT_MS } from '../../../src/reader/audio/request';
 import { describe, expect, it, vi } from 'vitest';
 import {

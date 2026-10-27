@@ -1,3 +1,4 @@
+import '../../src/reader/companions/register-build-companions';
 import { describe, expect, it } from 'vitest';
 import { reviewGradeProfile, reviewGradeScale, type ReviewGradeProfile } from '../../src/reader/cards/grade-scale';
 import { DEFAULT_SETTINGS } from '../../src/reader/settings';

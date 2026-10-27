@@ -1,3 +1,4 @@
+import '../../src/reader/companions/register-build-companions';
 import { describe, expect, it, vi } from 'vitest';
 import { CardRenderDataLoader } from '../../src/reader/cards/render-data';
 import { ImmersionPopoverController, type ImmersionPopoverControllerOptions } from '../../src/reader/immersion/popover-controller';

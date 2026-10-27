@@ -1,3 +1,4 @@
+import '../../src/reader/companions/register-build-companions';
 import { syncFittedReadings as syncProjectedReadings } from './helpers/projected-reading-frame';
 // The furigana dead tap band.
 //

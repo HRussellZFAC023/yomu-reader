@@ -1,3 +1,4 @@
+import '../../../src/reader/companions/register-build-companions';
 import { describe, expect, it, vi } from 'vitest';
 import { hostedAccentCssVariables } from '../../../src/reader/core/hosted-accent-css';
 import { setReaderPopoverHtml } from '../../../src/reader/popup/shell';

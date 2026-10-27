@@ -1,3 +1,4 @@
+import '../../../src/reader/companions/register-build-companions';
 // fallow-ignore-file code-duplication
 import { describe, expect, it, vi } from 'vitest';
 import {

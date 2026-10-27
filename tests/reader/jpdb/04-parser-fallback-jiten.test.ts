@@ -1,3 +1,4 @@
+import '../../../src/reader/companions/register-build-companions';
 import { describe, expect, it, vi } from 'vitest';
 import { privateRasterImageForHost } from '../../../src/reader/ocr/private-raster-presenter';
 import {

@@ -1,3 +1,4 @@
+import '../../src/reader/companions/register-build-companions';
 // Owner decision 2 (2026-10-07): "Some users want to just use our app as a
 // dictionary." The popup's grade bar is for a learner who reviews with a
 // connected service; the Yomu deck alone is not one.

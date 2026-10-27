@@ -1,3 +1,4 @@
+import '../../src/reader/companions/register-build-companions';
 // The keycaps under the popup grade buttons (owner decision 3, 2026-10-07):
 // desktop only, only for a grade that has a shortcut, and only until the
 // learner's first popup grade, by click or by key, retires them for good.

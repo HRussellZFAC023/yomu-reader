@@ -1,3 +1,4 @@
+import '../../src/reader/companions/register-build-companions';
 import {
     DEFAULT_SETTINGS,
     catalogBrowseLanguageSectionsForLearnerLanguage,

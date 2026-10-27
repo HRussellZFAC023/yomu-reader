@@ -1,3 +1,4 @@
+import '../../src/reader/companions/register-build-companions';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const EPOCH_KEY = 'yomu:state-epoch';

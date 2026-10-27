@@ -1,3 +1,4 @@
+import '../../src/reader/companions/register-build-companions';
 // The power and audio controls name their on/off state on the puck and in
 // the toolbar, so pressing them there needs no toast that restates it. The
 // userscript manager's menu commands have no label of their own, so they alone

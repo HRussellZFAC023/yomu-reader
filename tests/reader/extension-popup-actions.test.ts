@@ -1,3 +1,4 @@
+import '../../src/reader/companions/register-build-companions';
 // The extension toolbar popup's "On this page" section (owner decision 4,
 // 2026-10-07): the page answers with the puck's actions and their state, and
 // the popup renders and runs them, with nothing kept in the background.

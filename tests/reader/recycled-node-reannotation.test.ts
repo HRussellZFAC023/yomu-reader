@@ -1,3 +1,4 @@
+import '../../src/reader/companions/register-build-companions';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { collectScanTargets } from '../../src/reader/app/site-parsers';

@@ -1,3 +1,4 @@
+import '../../src/reader/companions/register-build-companions';
 import { Blob as NodeBlob, File as NodeFile } from 'node:buffer';
 import { runInNewContext } from 'node:vm';
 import { webcrypto } from 'node:crypto';

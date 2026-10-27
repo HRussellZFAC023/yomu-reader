@@ -1,3 +1,4 @@
+import '../../src/reader/companions/register-build-companions';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { JITEN_DEFINITION_SOURCE_ID, JPDB_DEFINITION_SOURCE_ID } from '../../src/reader/app/constants';
 import type { JPDBCard, ReaderSettings } from '../../src/reader/app/types';

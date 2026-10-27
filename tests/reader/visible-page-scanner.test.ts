@@ -1,3 +1,4 @@
+import '../../src/reader/companions/register-build-companions';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { testEnSettings } from './helpers/settings-fixture';
 import { withViewport } from './helpers/browser-fixtures';

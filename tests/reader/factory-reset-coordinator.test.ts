@@ -1,3 +1,4 @@
+import '../../src/reader/companions/register-build-companions';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createFactoryResetCoordinator, FactoryResetCoordinator, type FactoryResetDictionaryStore } from '../../src/reader/app/factory-reset-coordinator';
 import { DEFAULT_SETTINGS, endSettingsResetGuard, NO_EXPLICIT_USER_CHOICE, saveSettings } from '../../src/reader/settings/index';

@@ -1,3 +1,4 @@
+import '../../src/reader/companions/register-build-companions';
 import { describe, expect, it, vi } from 'vitest';
 import { ReaderParser } from '../../src/reader/lookup/parser';
 import { DEFAULT_SETTINGS } from '../../src/reader/settings';

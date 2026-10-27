@@ -1,3 +1,4 @@
+import '../../src/reader/companions/register-build-companions';
 import { readFileSync } from 'node:fs';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ReaderApp } from '../../src/reader/app/main';

@@ -1,3 +1,4 @@
+import '../../../src/reader/companions/register-build-companions';
 import { DEFAULT_NEW_TAB_UI_STATE } from '../../../src/reader/newtab/state';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {

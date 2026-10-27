@@ -1,3 +1,4 @@
+import '../../src/reader/companions/register-build-companions';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { openSettingsFromTrustedInteraction } from '../../src/reader/settings/sensitive-settings-surface';
 import { ReaderApp } from '../../src/reader/app/main';

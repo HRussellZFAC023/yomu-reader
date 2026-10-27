@@ -1,3 +1,4 @@
+import '../../src/reader/companions/register-build-companions';
 import { beforeEach, afterEach, describe, expect, it, vi } from 'vitest';
 import { BunproClient } from '../../src/reader/bunpro/bunpro';
 import type { ReaderHttpOptions } from '../../src/reader/network/http-options';

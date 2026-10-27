@@ -1,3 +1,4 @@
+import '../../src/reader/companions/register-build-companions';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { mountNewTabStudySurface, NewTabRuntime } from '../../src/reader/newtab/runtime';
 import { createStudySessionClock } from '../../src/reader/newtab/session-clock';

@@ -1,3 +1,4 @@
+import '../../src/reader/companions/register-build-companions';
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { renderTokenListHtml } from '../../src/reader/main/token-list';

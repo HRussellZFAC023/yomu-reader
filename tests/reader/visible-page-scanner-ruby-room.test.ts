@@ -1,3 +1,4 @@
+import '../../src/reader/companions/register-build-companions';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 // Inject the ruby-room sweep as a scanner dependency instead of mocking

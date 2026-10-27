@@ -1,3 +1,4 @@
+import '../../../src/reader/companions/register-build-companions';
 import { describe, expect, it } from 'vitest';
 import {
     ANKI_SOURCE_ID,

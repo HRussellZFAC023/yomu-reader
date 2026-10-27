@@ -1,3 +1,4 @@
+import '../../../src/reader/companions/register-build-companions';
 import { describe, expect, it, vi } from 'vitest';
 import { LEGACY_DEFAULT_AUDIO_SOURCES_WITHOUT_API_TTS } from '../../../src/reader/settings/audio-source-defaults';
 import {

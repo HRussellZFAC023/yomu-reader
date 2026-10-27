@@ -1,3 +1,4 @@
+import '../../src/reader/companions/register-build-companions';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { mockElementBoundingClientRect } from './helpers/dom-fixtures';
 import { createVisiblePageScannerFixture, tokensForJapaneseFixture } from './helpers/visible-page-scanner-fixtures';
