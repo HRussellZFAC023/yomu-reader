@@ -1,11 +1,12 @@
 #!/usr/bin/env node
 import { spawnSync } from 'node:child_process';
-import { readdirSync, statSync } from 'node:fs';
-import { availableParallelism, loadavg } from 'node:os';
+import { mkdirSync, readdirSync, statSync } from 'node:fs';
+import { availableParallelism } from 'node:os';
 import { dirname, join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { boundedSizeBalancedBatches, firstNonzeroStatus } from './lib/ci-test-batches.mjs';
 import { formatDuration, readPositiveInt } from './lib/ci-utils.mjs';
+import { workerBudget } from './lib/test-workers.mjs';
 
 const ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
 const READER_TESTS_DIR = join(ROOT, 'tests/reader');
@@ -147,7 +148,7 @@ function runAllTests() {
     const mainFiles = allFiles.filter(file => !dedicated.has(file));
     const maxWorkers = readPositiveInt(
         process.env.YOMU_CI_MAX_WORKERS
-            ?? String(Math.min(10, Math.max(2, spareParallelism() - 2))),
+            ?? String(workerBudget()),
         'YOMU_CI_MAX_WORKERS',
     );
     // Keep the measured batch size while changing its correctness boundary. In
@@ -194,7 +195,7 @@ function runAllTests() {
         apiPort: apiPortAtOffset(mainBatches.length),
     };
     const dedicatedResult = spawnVitest(
-        ['run', ...DEDICATED_PASS_FILES.map(file => relative(ROOT, file)), '--minWorkers=1', '--maxWorkers=2'],
+        ['run', ...DEDICATED_PASS_FILES.map(file => relative(ROOT, file)), '--minWorkers=1', `--maxWorkers=${Math.min(maxWorkers, 4)}`],
         { VITEST_ISOLATE: '1' },
         dedicatedContext,
     );
@@ -231,56 +232,9 @@ function runJpdbShard(currentShard, shardTotal) {
 // into thrash and a suite-child timeout under load. Clamp to [2, 4] so a small
 // box still gets intra-shard parallelism and a large box does not over-fan a
 // setup-bound suite. An explicit YOMU_CI_REGULAR_MAX_WORKERS always wins.
-/**
- * Cores this machine can actually spare right now, not cores it has.
- *
- * Worker counts were sized from `availableParallelism()` alone, which is correct on a
- * dedicated CI box and wrong here: this repository is routinely gated while several
- * agent sessions compile and test in their own worktrees on the same cores. The
- * sizing comment below already predicted the failure — "a suite-child timeout under
- * load" — it just had no way to see the load.
- *
- * Measured 2026-07-31 with three agent sessions running: `test:ci` blew the runner's
- * 25-minute wall clock (exit 124) after 2,582 s with ZERO test failures, individual
- * files stretched 3-6x (youtube-filter 16,771 ms against ~4,900 ms quiet), and one
- * test whose body measures 4.80 s exceeded a 30,000 ms budget three runs in a row.
- * A gate that cannot report is worse than a flaky one: it looks like a failure and
- * carries no information (A46).
- *
- * So subtract the 1-minute load average from the core count. Fewer workers on a busy
- * machine finishes slower and finishes HONESTLY, which is the trade worth making —
- * the alternative is a red that means nothing. Floor of 2 keeps some parallelism, and
- * YOMU_CI_MAX_WORKERS / YOMU_CI_REGULAR_MAX_WORKERS still win outright so CI can pin
- * whatever it wants.
- */
-function spareParallelism() {
-    const cores = availableParallelism();
-    // loadavg is unavailable (returns 0) on some platforms; treating that as "idle"
-    // keeps the old behaviour rather than silently throttling to the floor.
-    const busy = Math.max(0, Math.round(loadavg()[0]));
-    const spare = cores - busy;
-    if (busy >= cores) {
-        // Be honest about the limit of this mitigation. Sizing our own workers down
-        // stops the gate ADDING to the thrash, but it cannot rescue a machine that is
-        // already oversubscribed by other work — the suite will still be starved, and
-        // a timeout here will say nothing about the code. Measured 2026-07-31: load
-        // average 36 on 10 cores, with three agent sessions gating in their own
-        // worktrees. That run blew the 25-minute wall clock with zero test failures.
-        console.warn(
-            `[ci-tests] WARNING: load average ${busy} already exceeds ${cores} cores. `
-            + 'This run may time out for reasons unrelated to the code, so a failure here is not evidence. '
-            + 'Re-run on a quiet machine before believing a red.',
-        );
-    } else if (busy > 0 && spare < cores - 1) {
-        console.log(`[ci-tests] load average ${busy} of ${cores} cores already busy; sizing workers to the remainder.`);
-    }
-    return Math.max(2, spare);
-}
-
 function defaultRegularMaxWorkers() {
     const shardConcurrency = regularShardConcurrency();
-    const perShard = Math.floor(spareParallelism() / shardConcurrency);
-    return Math.max(2, Math.min(4, perShard));
+    return Math.max(1, Math.min(4, Math.floor(workerBudget() / shardConcurrency)));
 }
 
 function regularShardConcurrency() {
@@ -365,7 +319,10 @@ function runVitest(vitestArgs, envOverrides = {}, context = {}) {
 function spawnVitest(vitestArgs, envOverrides = {}, context = {}) {
     const selectedApiPort = context.apiPort ?? apiPort;
     const apiArgs = selectedApiPort === undefined ? [] : ['--api', String(selectedApiPort)];
-    const commandArgs = [join(ROOT, 'node_modules/vitest/vitest.mjs'), ...vitestArgs, ...apiArgs];
+    mkdirSync(join(ROOT, 'artifacts/check-profile'), { recursive: true });
+    const report = (context.label ?? 'suite').replace(/[^a-z0-9]+/gi, '-');
+    const commandArgs = [join(ROOT, 'node_modules/vitest/vitest.mjs'), ...vitestArgs, ...apiArgs,
+        '--reporter=default', '--reporter=json', `--outputFile.json=artifacts/check-profile/${report}.json`];
     logVitestRun(context, commandArgs);
     return spawnSync(process.execPath, commandArgs, {
         cwd: ROOT,
