@@ -692,47 +692,6 @@ describe('settings dialog restore and save interlocks', () => {
         await submitSettingsSaveAndExpect(fixture.form, fixture.saveSettings, 1, { accentColor: '#654321' });
     });
 
-    it('derives changed keys from a current settings-only backup without inventing an intent ledger', async () => {
-        const previousAccent = '#654321';
-        const importedAccent = '#123456';
-        const { form, saveSettings } = createSettingsRestoreFixture({
-            ...DEFAULT_SETTINGS,
-            accentColor: previousAccent,
-        });
-        await beginSettingsFileImport(
-            form,
-            { ...DEFAULT_SETTINGS, accentColor: importedAccent },
-        );
-        await waitForCondition(() => saveSettings.mock.calls.length === 1);
-
-        const options = restoreSaveOptions(saveSettings);
-        expect(options.explicitUserChoiceKeys).toContain('accentColor');
-        expect(options.clearExplicitUserChoiceKeys).toBeUndefined();
-    });
-
-    it('restores a pre-ledger v3 backup and ignores the retired flat pins it carries', async () => {
-        const fixture = createSettingsRestoreFixture({
-            ...DEFAULT_SETTINGS,
-            annotationsPaused: true,
-        });
-        await beginSettingsFileImport(
-            fixture.form,
-            { ...DEFAULT_SETTINGS, annotationsPaused: true },
-            {
-                storage: {
-                    'jpdb-popup-reader-settings': { annotationsPaused: false },
-                    'yomu:explicit-user-settings:v1': { annotationsPaused: false },
-                },
-            },
-        );
-        await waitForCondition(() => fixture.saveSettings.mock.calls.length === 1);
-
-        expect(fixture.saveSettings.mock.calls[0]?.[0]).toMatchObject({ annotationsPaused: false });
-        const options = restoreSaveOptions(fixture.saveSettings);
-        expect(options.explicitUserChoiceKeys).toEqual([]);
-        expect(options.clearExplicitUserChoiceKeys).toBeDefined();
-    });
-
     it('does not roll back durable restore stages when the post-persistence host notification throws', async () => {
         const storedKey = 'jpdb-reader-transcript-panel-size';
         localStorage.setItem(storedKey, JSON.stringify({ width: 240 }));
@@ -1133,26 +1092,45 @@ describe('Google Drive restore of retired annotation defaults', () => {
         await waitForCondition(() => fixture.saveSettings.mock.calls.length === 1);
         return { adopted: fixture.state.settings, options: restoreSaveOptions(fixture.saveSettings) };
     }
-
-    it('reads an undeclared retired default in a snapshot with its ledger as today\'s default', async () => {
-        const commit = 'drive-2-0-commit';
-        const { adopted, options } = await restoreFromDrive({
-            'jpdb-popup-reader-settings': { ...DEFAULT_SETTINGS, ...RETIRED, theme: 'dark', __yomuSettingsPersistenceCommitV1: commit },
-            'yomu:settings-intent:v2': {
-                revision: 1,
-                records: { theme: { seq: 1, value: 'dark' } },
-                __yomuSettingsPersistenceCommitV1: commit,
-            },
-        });
-        expect(adopted).toMatchObject({ ...TODAY, theme: 'dark' });
-        expect(options.explicitUserChoiceKeys).toEqual(['theme']);
-    });
-
-    it('leaves a retired default in a settings-only snapshot as it is, and declares none of them', async () => {
-        const { adopted, options } = await restoreFromDrive(undefined);
-        expect(adopted).toMatchObject({ ...TODAY, theme: 'dark' });
-        expect(options.explicitUserChoiceKeys).toEqual(['theme']);
-    });
+    it.each(['current settings-only file', 'pre-ledger v3 file', 'cloud with ledger', 'settings-only cloud'] as const)(
+        'restores %s without inventing choices', async kind => {
+            if (kind === 'current settings-only file') {
+                const fixture = createSettingsRestoreFixture({ ...DEFAULT_SETTINGS, accentColor: '#654321' });
+                await beginSettingsFileImport(fixture.form, { ...DEFAULT_SETTINGS, accentColor: '#123456' });
+                await waitForCondition(() => fixture.saveSettings.mock.calls.length === 1);
+                const options = restoreSaveOptions(fixture.saveSettings);
+                expect(options.explicitUserChoiceKeys).toContain('accentColor');
+                expect(options.clearExplicitUserChoiceKeys).toBeUndefined();
+                return;
+            }
+            if (kind === 'pre-ledger v3 file') {
+                const fixture = createSettingsRestoreFixture({ ...DEFAULT_SETTINGS, annotationsPaused: true });
+                await beginSettingsFileImport(fixture.form, { ...DEFAULT_SETTINGS, annotationsPaused: true }, {
+                    storage: {
+                        'jpdb-popup-reader-settings': { annotationsPaused: false },
+                        'yomu:explicit-user-settings:v1': { annotationsPaused: false },
+                    },
+                });
+                await waitForCondition(() => fixture.saveSettings.mock.calls.length === 1);
+                expect(fixture.saveSettings.mock.calls[0]?.[0]).toMatchObject({ annotationsPaused: false });
+                const options = restoreSaveOptions(fixture.saveSettings);
+                expect(options.explicitUserChoiceKeys).toEqual([]);
+                expect(options.clearExplicitUserChoiceKeys).toBeDefined();
+                return;
+            }
+            const commit = 'drive-2-0-commit';
+            const storage = kind === 'cloud with ledger' ? {
+                'jpdb-popup-reader-settings': { ...DEFAULT_SETTINGS, ...RETIRED, theme: 'dark', __yomuSettingsPersistenceCommitV1: commit },
+                'yomu:settings-intent:v2': {
+                    revision: 1, records: { theme: { seq: 1, value: 'dark' } },
+                    __yomuSettingsPersistenceCommitV1: commit,
+                },
+            } : undefined;
+            const { adopted, options } = await restoreFromDrive(storage);
+            expect(adopted).toMatchObject({ ...TODAY, theme: 'dark' });
+            expect(options.explicitUserChoiceKeys).toEqual(['theme']);
+        },
+    );
 });
 
 function saveStatusText(form: HTMLFormElement): string {
