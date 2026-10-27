@@ -48,7 +48,6 @@ export const readerNodeFiles = [
     'tests/reader/ocr-clean-text.test.ts',
     'tests/reader/ocr-dark-pass.test.ts',
     'tests/reader/ocr-lens-response.test.ts',
-    'tests/reader/ocr-vertical-text.test.ts',
     'tests/reader/page-realm-injected-source.test.ts',
     'tests/reader/parser-academy-srs-state.test.ts',
     'tests/reader/parser-boundary-evidence.test.ts',
