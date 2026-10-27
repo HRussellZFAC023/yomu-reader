@@ -196,7 +196,7 @@ function legacyCensusIsComplete(census, documentRoot) {
         && pageRendersMatch(documentRoot, census.pageCount, census.renderDpi);
 }
 
-export function pageRendersMatch(documentRoot, pageCount, renderDpi) {
+function pageRendersMatch(documentRoot, pageCount, renderDpi) {
     const metadata = readJsonIfPresent(renderMetadataPath(documentRoot));
     return metadata?.schema === PAGE_RENDER_SCHEMA
         && metadata.renderDpi === renderDpi
