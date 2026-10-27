@@ -89,5 +89,8 @@ export class StageRunner {
 }
 
 export function cacheOptions() {
-    return { noCache: process.argv.includes('--no-cache') || process.env.YOMU_CHECK_NO_CACHE === '1' || Boolean(process.env.CI) };
+    return {
+        noCache: process.argv.includes('--no-cache') || process.env.YOMU_CHECK_NO_CACHE === '1' || Boolean(process.env.CI),
+        persistOutputs: !process.env.CI,
+    };
 }

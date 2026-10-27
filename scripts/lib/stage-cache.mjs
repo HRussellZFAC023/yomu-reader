@@ -136,9 +136,10 @@ export function readJson(path) {
 }
 
 export class StageCache {
-    constructor(root, { noCache = false, directory } = {}) {
+    constructor(root, { noCache = false, directory, persistOutputs = true } = {}) {
         this.root = root;
         this.noCache = noCache;
+        this.persistOutputs = persistOutputs;
         this.directory = directory ?? join(resolve(root, git(root, ['rev-parse', '--git-common-dir']).trim()), 'yomu-check-cache', `v${VERSION}`);
         this.outputStore = new OutputStore(root, this.directory);
     }
@@ -170,7 +171,7 @@ export class StageCache {
         const hashes = outputHashes(this.root, outputs);
         if (outputs.length && Object.keys(hashes).length === 0) throw new Error(`${name} produced no declared outputs`);
         const passedKey = finalKey ? finalKey() : key;
-        const files = restoreOutputs && !process.env.CI ? this.outputStore.capture(hashes, path => ({
+        const files = restoreOutputs && this.persistOutputs ? this.outputStore.capture(hashes, path => ({
             sha1: fileHash(this.root, path, 'sha1', true), sha256: fileHash(this.root, path, 'sha256', true),
         })) : undefined;
         writeJson(this.markerPath(name, passedKey), { key: passedKey, outputs: hashes, files });
