@@ -18,7 +18,8 @@
 //
 //   node scripts/clamp-row-heal-smoke.mjs
 //   node scripts/clamp-row-heal-smoke.mjs --product=v2.1.6     # the failure 2.1.6 shipped with
-import { chromium, webkit } from 'playwright';
+//   node scripts/clamp-row-heal-smoke.mjs --ipad              # WebKit iPad portrait
+import { chromium, devices, webkit } from 'playwright';
 import { AOZORA_SLUG, clampCardsMechanismFixture } from './lib/aozora-mechanism-fixtures.mjs';
 import { answerJpdbParseByScriptRuns } from './lib/jpdb-script-run-parse.mjs';
 import { openRecordedPage, releaseProduct, worktreeProduct } from './lib/recorded-page.mjs';
@@ -43,13 +44,14 @@ const check = (condition, message) => {
 for (const engine of engines) {
     const browser = await ENGINES[engine].launch();
     try {
-        const run = await openRecordedPage({ browser, slug: AOZORA_SLUG, product, settings: SETTINGS, navigate: false, onGmRequest: request => answerJpdbParseByScriptRuns(request) });
+        const ipad = args.includes('--ipad') && engine === 'webkit';
+        const run = await openRecordedPage({ browser, slug: AOZORA_SLUG, product, settings: SETTINGS, navigate: false, contextOptions: ipad ? { ...devices['iPad Pro 11'], viewport: { width: 820, height: 1180 } } : {}, onGmRequest: request => answerJpdbParseByScriptRuns(request) });
         try {
             await run.page.route(run.recording.manifest.url, route => route.fulfill(fixture));
             await run.page.goto(run.recording.manifest.url, { waitUntil: 'load' });
             await run.page.waitForTimeout(SETTLE_MS);
             // A resize re-runs every post-paint pass; the verdict must hold.
-            await run.page.setViewportSize({ width: 1260, height: 900 });
+            await run.page.setViewportSize(ipad ? { width: 800, height: 1180 } : { width: 1260, height: 900 });
             await run.page.waitForTimeout(2_000);
             const cards = await run.page.evaluate(readClampCards);
             check(run.pageErrors.length === 0, `${product.label} ${engine}: no page errors ${JSON.stringify(run.pageErrors.slice(0, 3))}`);

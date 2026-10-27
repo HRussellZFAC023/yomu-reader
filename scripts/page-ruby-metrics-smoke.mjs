@@ -39,7 +39,8 @@
 //   node scripts/page-ruby-metrics-smoke.mjs
 //   node scripts/page-ruby-metrics-smoke.mjs --product=v2.1.6     # the failures 2.1.6 shipped with
 //   node scripts/page-ruby-metrics-smoke.mjs --layouts=webkit-horizontal
-import { chromium, webkit } from 'playwright';
+//   node scripts/page-ruby-metrics-smoke.mjs --ipad   # WebKit iPad portrait
+import { chromium, devices, webkit } from 'playwright';
 import { AOZORA_CSS_URL, AOZORA_SLUG, aozoraParagraphsMechanismFixture } from './lib/aozora-mechanism-fixtures.mjs';
 import { answerJpdbParseByScriptRuns } from './lib/jpdb-script-run-parse.mjs';
 import { openRecordedPage, releaseProduct, worktreeProduct } from './lib/recorded-page.mjs';
@@ -145,6 +146,7 @@ async function measure(browser, layout, subject, testCase) {
         slug: AOZORA_SLUG,
         product: subject,
         settings: testCase?.settings ?? null,
+        contextOptions: args.includes('--ipad') && LAYOUTS[layout].engine === webkit ? { ...devices['iPad Pro 11'], viewport: { width: 820, height: 1180 } } : {},
         navigate: false,
         onGmRequest: request => answerJpdbParseByScriptRuns(request, { cardState: testCase?.cardState }),
     });
