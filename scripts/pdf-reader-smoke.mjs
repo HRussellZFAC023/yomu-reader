@@ -1013,7 +1013,9 @@ async function turnToSecondScannedPage(page) {
     await page.waitForFunction(() => document.querySelector('[data-page-input]')?.value === '2', undefined, { timeout: 8000 });
     await page.waitForFunction(() => {
         const rect = document.querySelector('.pdf-page[data-page-number="2"]')?.getBoundingClientRect();
-        return rect && rect.top >= 0 && rect.top <= 180;
+        // Scrolling snaps to whole pixels while the page box can sit on a
+        // fraction, so a settled page may report top -0.16.
+        return rect && rect.top > -1 && rect.top <= 180;
     }, undefined, { timeout: 8000 }).catch(async error => {
         const geometry = await page.evaluate(() => {
             const element = document.querySelector('.pdf-page[data-page-number="2"]');
