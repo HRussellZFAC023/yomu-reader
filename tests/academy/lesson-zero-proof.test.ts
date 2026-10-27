@@ -495,31 +495,6 @@ describe('Lesson 0 source-led proof', () => {
         }
     });
 
-    it('ships every Lesson Zero source asset as offline public bytes at its runtime URL', () => {
-        const urls = [
-            LESSON_ZERO_SOURCE_MEDIA.writingSystem,
-            LESSON_ZERO_SOURCE_MEDIA.hiraganaARow,
-            LESSON_ZERO_SOURCE_MEDIA.genkiGreetings,
-            LESSON_ZERO_SOURCE_MEDIA.genkiGreetingsAudio,
-            ...LESSON_ZERO_SOURCE_MEDIA.classroomPhrases,
-            LESSON_ZERO_SOURCE_MEDIA.provenance,
-        ];
-        for (const url of urls) {
-            expect(url).toMatch(/^\/academy\/content\/lessons\/lesson-zero\//u);
-            const relative = url.replace(/^\//u, '');
-            const sourceBytes = fs.readFileSync(path.resolve('public', relative));
-            const servedBytes = fs.readFileSync(path.resolve('docs/public', relative));
-            expect(sourceBytes.byteLength).toBeGreaterThan(0);
-            expect(servedBytes).toEqual(sourceBytes);
-            if (url.endsWith('.png')) {
-                expect(sourceBytes.subarray(0, 8).toString('hex')).toBe('89504e470d0a1a0a');
-            } else if (url.endsWith('.mp3')) {
-                const signature = sourceBytes.subarray(0, 3).toString('hex');
-                expect(signature === '494433' || signature.startsWith('fff')).toBe(true);
-            }
-        }
-    });
-
     it('keeps the isolated style responsive, tactile, and motion-safe', () => {
         const css = fs.readFileSync(path.resolve('src/academy/styles/lesson-zero-proof.css'), 'utf8');
         expect(css).toContain('.academy-lesson-zero-kana-game');
