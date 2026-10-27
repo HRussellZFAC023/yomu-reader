@@ -11456,10 +11456,11 @@ function setInnerHtml(element, html) {
 }
 function setStaticTemplateHtml(element, html) {
   try {
-  const template = element.ownerDocument.createElement("template");
-  template.innerHTML = trustedHtml(html);
-  hydratePrivateElementState(template.content);
-  htmlReplacementTarget(element).replaceChildren(template.content);
+  const parsed = new DOMParser().parseFromString(trustedHtml(html), "text/html");
+  const fragment = element.ownerDocument.createDocumentFragment();
+  fragment.append(...Array.from(parsed.body.childNodes));
+  hydratePrivateElementState(fragment);
+  htmlReplacementTarget(element).replaceChildren(fragment);
   } catch {
   setInnerHtml(element, html);
   }

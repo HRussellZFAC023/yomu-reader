@@ -14575,10 +14575,11 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   }
   function setStaticTemplateHtml(element, html) {
     try {
-      const template = element.ownerDocument.createElement("template");
-      template.innerHTML = trustedHtml(html);
-      hydratePrivateElementState(template.content);
-      htmlReplacementTarget(element).replaceChildren(template.content);
+      const parsed = new DOMParser().parseFromString(trustedHtml(html), "text/html");
+      const fragment2 = element.ownerDocument.createDocumentFragment();
+      fragment2.append(...Array.from(parsed.body.childNodes));
+      hydratePrivateElementState(fragment2);
+      htmlReplacementTarget(element).replaceChildren(fragment2);
     } catch {
       setInnerHtml(element, html);
     }

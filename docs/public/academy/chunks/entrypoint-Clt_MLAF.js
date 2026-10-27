@@ -35355,10 +35355,11 @@ function setInnerHtml(element2, html) {
 }
 function setStaticTemplateHtml(element2, html) {
   try {
-    const template = element2.ownerDocument.createElement("template");
-    template.innerHTML = trustedHtml(html);
-    hydratePrivateElementState(template.content);
-    htmlReplacementTarget(element2).replaceChildren(template.content);
+    const parsed = new DOMParser().parseFromString(trustedHtml(html), "text/html");
+    const fragment = element2.ownerDocument.createDocumentFragment();
+    fragment.append(...Array.from(parsed.body.childNodes));
+    hydratePrivateElementState(fragment);
+    htmlReplacementTarget(element2).replaceChildren(fragment);
   } catch {
     setInnerHtml(element2, html);
   }
@@ -264776,7 +264777,7 @@ function padClockPart(value) {
 const DEFAULT_ACADEMY_STUDY_DURATION_MS = DEFAULT_STUDY_DURATION_MS;
 class StudyRuntimeLoadFailure extends Error {
 }
-function createCanonicalAcademyStudyModule(loadRuntime = () => import("./runtime-zUBlhInK.js")) {
+function createCanonicalAcademyStudyModule(loadRuntime = () => import("./runtime-7j_GM6zt.js")) {
   return {
     async mount(host2, context2) {
       let runtime;
