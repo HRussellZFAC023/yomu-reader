@@ -194,7 +194,7 @@ function settingsCloseButton(language: InterfaceLanguage): string {
     return `<button type="button" class="jpdb-reader-settings-close" data-settings-close aria-label="${label}" title="${label}">${menuIconMarkup('close')}</button>`;
 }
 
-export function renderHelpLinksPanel(language: InterfaceLanguage = 'en'): string {
+function renderHelpLinksPanel(language: InterfaceLanguage = 'en'): string {
     return `
         <div class="jpdb-reader-help-links-card">
             <div class="jpdb-reader-settings-subsection jpdb-reader-help-update-strip" data-help-update-strip>
@@ -613,7 +613,7 @@ export function appearancePreviewContentHtml(): string {
     return `<span class="jpdb-reader-settings-appearance-preview-line">${appearancePreviewHtml()}</span>`;
 }
 
-export function appearancePreviewHtml(): string {
+function appearancePreviewHtml(): string {
     const word = (classes: string, base: string, furi: string, tail = ''): string =>
         `<span class="jpdb-reader-word jpdb-reader-has-furi ${classes}"><ruby class="${YOMU_RUBY_CLASS}"><span class="jpdb-reader-ruby-base">${base}</span><rt class="jpdb-reader-furi">${furi}</rt></ruby>${tail}</span>`;
     return `${word('jpdb-new anki-new jpdb-pitch-heiban', '新', 'あたら', 'しい')}${word('jpdb-learning anki-learning jpdb-pitch-atamadaka', '言葉', 'ことば')}を${word('jpdb-due anki-due jpdb-pitch-nakadaka', '毎日', 'まいにち')}${word('jpdb-failed anki-failed jpdb-pitch-odaka', '勉強', 'べんきょう')}して、${word('jpdb-known anki-known jpdb-pitch-unknown', '日本語', 'にほんご')}が${word('jpdb-never-forget anki-known jpdb-pitch-heiban', '上手', 'じょうず')}になる。`;

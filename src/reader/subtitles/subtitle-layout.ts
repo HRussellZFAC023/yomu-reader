@@ -18,7 +18,7 @@ export interface TranscriptPanelLayout {
 
 export const TRANSCRIPT_PANEL_MARGIN = 10;
 export const TRANSCRIPT_PANEL_MIN_BOTTOM_HEIGHT = 220;
-export const TRANSCRIPT_PANEL_Z_INDEX = 2147483645;
+const TRANSCRIPT_PANEL_Z_INDEX = 2147483645;
 const TRANSCRIPT_PANEL_SIZE_KEY = 'jpdb-reader-transcript-panel-size';
 export const SUBTITLE_DRAG_OFFSET_KEY = 'jpdb-reader-subtitle-drag-offset';
 export const SUBTITLE_CONTROL_RAIL_POSITION_KEY = 'jpdb-reader-subtitle-control-rail-position';

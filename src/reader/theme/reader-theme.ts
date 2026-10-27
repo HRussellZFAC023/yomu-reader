@@ -279,7 +279,7 @@ function readableThemeColorOnSurface(color: string, root: HTMLElement): string {
     ], 4.5);
 }
 
-export function readableTextOnAccent(accentColor: string): string {
+function readableTextOnAccent(accentColor: string): string {
     return contrastRatio(accentColor, READER_THEME_COLORS.dark.accentText) >= contrastRatio(accentColor, READER_THEME_COLORS.light.accentText)
         ? READER_THEME_COLORS.dark.accentText
         : READER_THEME_COLORS.light.accentText;

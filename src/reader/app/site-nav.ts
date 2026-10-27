@@ -38,7 +38,7 @@
  * the shared labels and route ledger agree.
  */
 
-export interface NavRoute {
+interface NavRoute {
     /** English label. Every label needs a ja entry in the theme's copy map. */
     text: string;
     /** Japanese label, shown by hosted app interface toggles and Japanese docs routes. */
@@ -56,7 +56,7 @@ export interface NavRoute {
  */
 export const APPS_NAV_LABEL = 'Apps';
 
-export const PRIMARY_NAV: readonly NavRoute[] = Object.freeze([
+const PRIMARY_NAV: readonly NavRoute[] = Object.freeze([
     { text: 'Read', ja: '読む', link: '/library/' },
     { text: 'Watch', ja: '観る', link: '/video-player/', target: '_self' },
     { text: 'Study', ja: '学習', link: '/study/', target: '_self' },
@@ -68,7 +68,7 @@ export const PRIMARY_NAV: readonly NavRoute[] = Object.freeze([
  * pages (settings, local audio, API) live in the docs sidebar instead, so this
  * menu stays short enough to read at a glance.
  */
-export const OVERFLOW_NAV: readonly NavRoute[] = Object.freeze([
+const OVERFLOW_NAV: readonly NavRoute[] = Object.freeze([
     { text: 'Guide', ja: 'ガイド', link: '/learn/' },
     { text: 'Desktop app', ja: 'デスクトップアプリ', link: '/desktop' },
     { text: 'PDF Reader', ja: 'PDFリーダー', link: '/pdf-reader/', target: '_self' },
@@ -100,13 +100,13 @@ export const OVERFLOW_NAV: readonly NavRoute[] = Object.freeze([
 // the only thing that acts on a plain press. Every surface renders it with the
 // target for that reason, including the ones VitePress never touches: a hosted
 // shell that dropped it would start breaking the moment its markup was reused.
-export const MEMBERSHIP_NAV: NavRoute = Object.freeze({ text: 'Donate', ja: '寄付', link: '/membership', target: '_self' });
+const MEMBERSHIP_NAV: NavRoute = Object.freeze({ text: 'Donate', ja: '寄付', link: '/membership', target: '_self' });
 
 /** The label of the entry every surface hides the overflow behind. */
 export const OVERFLOW_LABEL = Object.freeze({ text: 'More', ja: 'その他' });
 
 /** Every site route, in the order every surface shows them. */
-export function siteNavRoutes(): readonly NavRoute[] {
+function siteNavRoutes(): readonly NavRoute[] {
     return [...PRIMARY_NAV, ...OVERFLOW_NAV, MEMBERSHIP_NAV];
 }
 
@@ -144,7 +144,7 @@ export interface HostedShellNavLink {
  * Study app, which also runs as a browser extension's new tab where a relative
  * route would resolve against the extension.
  */
-export function hostedShellNavRoutes(base: string): HostedShellNavLink[] {
+function hostedShellNavRoutes(base: string): HostedShellNavLink[] {
     return siteNavRoutes().map(route => ({
         text: route.text,
         ja: route.ja,

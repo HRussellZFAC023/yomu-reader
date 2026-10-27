@@ -187,7 +187,7 @@ export function shouldAutoScanImageOcr(pageHasJapaneseText: boolean): boolean {
  * the injectable default of throttledAutoScanDelay, whose non-frequent branch is
  * exercised as a pure-function contract.
  */
-export function allowsFrequentVisibleAutoScan(): boolean {
+function allowsFrequentVisibleAutoScan(): boolean {
     return true;
 }
 

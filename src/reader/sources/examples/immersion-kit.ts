@@ -73,7 +73,7 @@ export function createImmersionKitExampleSource(searcher: ImmersionKitSearcher):
  * silently delete the Japanese feature. The licence field says what the asset
  * actually is instead of borrowing a Creative Commons label it does not have.
  */
-export function immersionExampleToRecord(example: ImmersionKitExample): ExampleRecord {
+function immersionExampleToRecord(example: ImmersionKitExample): ExampleRecord {
     const provider = example.provider ?? 'immersion-kit';
     const attribution = example.sourceTitle || example.titleSlug || 'Immersion Kit';
     return {

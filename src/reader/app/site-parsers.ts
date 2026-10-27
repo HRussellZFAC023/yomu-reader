@@ -531,7 +531,7 @@ const YOMUYOMU_READER_ROOTS = [
     '#du-lesson-container .lesson-canvas-container canvas[lang*="ja" i]',
     '.lesson-content canvas[lang*="ja" i]',
 ].join(',');
-export const SITE_PARSER_PROFILES: SiteParserProfile[] = [
+const SITE_PARSER_PROFILES: SiteParserProfile[] = [
     {
         id: YOMU_HOSTED_DOCS_PARSER_ID,
         roots: YOMU_HOSTED_DOCS_ROOTS,
