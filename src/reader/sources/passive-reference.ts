@@ -1,4 +1,5 @@
 import { escapeHtml, renderRuby } from '../dom';
+import { yomuRubyHtml } from '../dom/yomu-ruby';
 import type { JPDBCard, JPDBToken } from '../app/types';
 
 // Shared passive dictionary-reference markup. Every definition provider that
@@ -48,7 +49,7 @@ export function renderAnnotatedReadingRuby(value: string): string {
     let match: RegExpExecArray | null;
     while ((match = regex.exec(source)) !== null) {
         html += escapeHtml(source.slice(offset, match.index));
-        html += `<ruby><span class="jpdb-reader-ruby-base">${escapeHtml(match[1] ?? '')}</span><rp>(</rp><rt class="jpdb-reader-furi">${escapeHtml(match[2] ?? '')}</rt><rp>)</rp></ruby>`;
+        html += yomuRubyHtml(escapeHtml(match[1] ?? ''), escapeHtml(match[2] ?? ''));
         offset = match.index + match[0].length;
     }
     html += escapeHtml(source.slice(offset));

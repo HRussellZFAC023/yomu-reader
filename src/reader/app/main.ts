@@ -70,6 +70,7 @@ import {
     scheduleProjectedAnnotationLayoutRefresh,
     setInnerHtml,
     setReviewCardFrontPredicate,
+    unwrapReaderWord,
     unwrapReaderWords,
 } from '../dom/index';
 import { firstComposedEventGeometryMatch } from './pointer-event-geometry';
@@ -2438,17 +2439,14 @@ export class ReaderApp {
         removeNonDestructiveScanMirrors(document);
         releaseRubyRoomGrowth(document);
         const changedParents = new Set<Node>();
-        document.querySelectorAll('.jpdb-reader-word, .jpdb-reader-furigana, .jpdb-reader-ruby, .jpdb-reader-number-bind').forEach(el => {
+        document.querySelectorAll('.jpdb-reader-word, .jpdb-reader-furigana, .jpdb-reader-number-bind').forEach(el => {
             if (pageOnly && el.closest('[data-jpdb-reader-root]')) return;
             const parent = el.parentNode;
             if (parent) changedParents.add(parent);
-            if (el.classList.contains('jpdb-reader-word')
-                || el.classList.contains('jpdb-reader-ruby')
-                || el.classList.contains('jpdb-reader-number-bind')) {
-                const text = document.createTextNode(el.classList.contains('jpdb-reader-word')
-                    ? readerWordSurfaceText(el)
-                    : el.textContent || '');
-                el.replaceWith(text);
+            if (el.classList.contains('jpdb-reader-word')) {
+                unwrapReaderWord(el);
+            } else if (el.classList.contains('jpdb-reader-number-bind')) {
+                el.replaceWith(document.createTextNode(el.textContent || ''));
             } else {
                 el.remove();
             }

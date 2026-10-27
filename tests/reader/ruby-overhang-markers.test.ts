@@ -29,7 +29,11 @@ function token(surface: string, rubies: Array<[base: string, reading: string]>):
 function rubyClasses(surface: string, rubies: Array<[string, string]>): string[] {
     const host = document.createElement('div');
     host.innerHTML = renderRuby(surface, token(surface, rubies));
-    return Array.from(host.querySelectorAll('ruby'), ruby => ruby.className);
+    // Every ruby Yomu writes is Yomu Ruby; the rest of the class list is the overhang marking.
+    return Array.from(host.querySelectorAll('ruby'), ruby => {
+        expect(ruby.classList.contains('jpdb-reader-ruby')).toBe(true);
+        return Array.from(ruby.classList).filter(name => name !== 'jpdb-reader-ruby').join(' ');
+    });
 }
 
 type WordSpec = string | [surface: string, rubies: Array<[string, string]>];

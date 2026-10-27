@@ -1,4 +1,5 @@
 import { escapeHtml } from '../dom';
+import { yomuRubyHtml } from '../dom/yomu-ruby';
 import { privateCommandAttributes } from '../dom/private-command-capabilities';
 import { cardStateLabel, uiText } from '../app/i18n';
 import { renderKanjiKeywordChips } from '../popup/kanji-keyword-line';
@@ -368,7 +369,7 @@ function renderJitenAnnotatedReading(value: string): string {
     let match: RegExpExecArray | null;
     while ((match = regex.exec(source)) !== null) {
         html += escapeHtml(source.slice(offset, match.index));
-        html += `<ruby><span class="jpdb-reader-ruby-base">${escapeHtml(match[1] ?? '')}</span><rp>(</rp><rt class="jpdb-reader-furi">${escapeHtml(match[2] ?? '')}</rt><rp>)</rp></ruby>`;
+        html += yomuRubyHtml(escapeHtml(match[1] ?? ''), escapeHtml(match[2] ?? ''));
         offset = match.index + match[0].length;
     }
     html += escapeHtml(source.slice(offset));

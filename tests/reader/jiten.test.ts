@@ -944,7 +944,7 @@ describe('JitenApiClient', () => {
             reading: 'ご0',
             jitenKanjiWordKey: '語0:ご0',
         });
-        expect(mount.querySelector('.jpdb-reader-jiten-kanji-word-term')?.innerHTML).toContain('<ruby>');
+        expect(mount.querySelector('.jpdb-reader-jiten-kanji-word-term ruby.jpdb-reader-ruby > rt.jpdb-reader-furi')?.textContent).toBe('ご');
         expect(mount.querySelector('.jpdb-reader-jiten-kanji-word-status')?.textContent).toContain('Due');
         expect(mount.querySelector('.jpdb-reader-jiten-kanji-word-pitch')?.textContent).toBe('P1');
         const more = mount.querySelector<HTMLButtonElement>('.jpdb-reader-jiten-kanji-more');
@@ -1049,7 +1049,7 @@ describe('JitenApiClient', () => {
         expect(reference?.classList.contains('jpdb-reader-has-furi')).toBe(true);
         expect(reference?.dataset.dictionary).toBe('Jiten');
         expect(reference?.dataset.reading).toBe('よむ');
-        expect(reference?.innerHTML).toContain('<ruby>');
+        expect(reference?.querySelector('ruby.jpdb-reader-ruby > rt.jpdb-reader-furi')?.textContent).toBe('よ');
     });
 
     it('drops JMdict orthography-form notes (e.g. "uk") from Jiten meanings', () => {
@@ -1146,7 +1146,7 @@ describe('JitenApiClient', () => {
         expect(relatedLink?.dataset.dictionaryReading).toBe('よむ');
         expect(relatedLink?.dataset.dictionary).toBe('Jiten');
         const relatedHead = relatedLink?.querySelector<HTMLElement>('.jpdb-reader-jiten-related-head');
-        expect(relatedHead?.innerHTML).toContain('<ruby>');
+        expect(relatedHead?.querySelector('ruby.jpdb-reader-ruby > rt.jpdb-reader-furi')?.textContent).toBe('よ');
         const relatedWord = relatedHead?.querySelector<HTMLElement>('.jpdb-reader-word.jpdb-reader-passive-word');
         expect(relatedWord).not.toBeNull();
         expect(relatedWord?.classList.contains('jpdb-reader-parseable')).toBe(true);
@@ -1185,7 +1185,7 @@ describe('JitenApiClient', () => {
         expect(target?.dataset.expression).toBe('訓む');
         expect(target?.dataset.reading).toBe('よむ');
         expect(target?.dataset.sentence).toBe('今日は訓むこともある。');
-        expect(target?.innerHTML).toContain('<ruby>');
+        expect(target?.querySelector('ruby.jpdb-reader-ruby > rt.jpdb-reader-furi')?.textContent).toBe('よ');
         expect(target?.querySelector('.jpdb-reader-ruby-base')?.textContent).toBe('訓');
         expect(target?.querySelector('rt')?.textContent).toBe('よ');
         expect(target?.textContent?.replace(/\s+/g, '')).toContain('む');
@@ -1228,7 +1228,7 @@ describe('JitenApiClient', () => {
         const head = row?.querySelector<HTMLElement>('.jpdb-reader-jiten-related-head');
         expect(head?.classList.contains('jpdb-reader-jpdb-compound-head')).toBe(true);
         expect(head?.textContent).toContain(longWord);
-        expect(head?.innerHTML).toContain('<ruby>');
+        expect(head?.querySelector('ruby.jpdb-reader-ruby > rt.jpdb-reader-furi')?.textContent).toBe('ちょうちょうふくごうごいれんせつひょうげん');
 
         const normalizedCss = POPOVER_CORE_CSS.replace(/\s+/g, ' ');
         expect(normalizedCss).toContain('.jpdb-reader-jiten-example-row.has-audio { grid-template-columns: 28px minmax(0, 1fr); gap: 7px; }');

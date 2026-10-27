@@ -68,7 +68,7 @@
    scripts/annotation-typography-smoke.mjs holds this in real engines. */
 .jpdb-reader-number-bind.jpdb-reader-number-bind,
 .jpdb-reader-word.jpdb-reader-scan-word,
-.jpdb-reader-word.jpdb-reader-scan-word ruby,
+.jpdb-reader-word.jpdb-reader-scan-word ruby:where(.jpdb-reader-ruby),
 .jpdb-reader-word.jpdb-reader-scan-word .jpdb-reader-ruby-base {
   font-family: inherit;
   font-size: inherit;
@@ -136,8 +136,8 @@
      native underline. */
 }
 
-.jpdb-reader-word.jpdb-reader-scan-word ruby,
-.jpdb-reader-word.jpdb-reader-scan-word rt {
+.jpdb-reader-word.jpdb-reader-scan-word ruby:where(.jpdb-reader-ruby),
+.jpdb-reader-word.jpdb-reader-scan-word :where(.jpdb-reader-ruby) > rt {
   white-space: normal;
 }
 
@@ -242,10 +242,10 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
   line-height: 1.08;
 }
 
-.jpdb-reader-text-mirror .jpdb-reader-word.jpdb-reader-scan-word ruby,
-.jpdb-reader-text-mirror .jpdb-reader-word.jpdb-reader-scan-word rt,
-.jpdb-reader-control-text-mirror .jpdb-reader-word.jpdb-reader-scan-word ruby,
-.jpdb-reader-control-text-mirror .jpdb-reader-word.jpdb-reader-scan-word rt {
+.jpdb-reader-text-mirror .jpdb-reader-word.jpdb-reader-scan-word ruby:where(.jpdb-reader-ruby),
+.jpdb-reader-text-mirror .jpdb-reader-word.jpdb-reader-scan-word :where(.jpdb-reader-ruby) > rt,
+.jpdb-reader-control-text-mirror .jpdb-reader-word.jpdb-reader-scan-word ruby:where(.jpdb-reader-ruby),
+.jpdb-reader-control-text-mirror .jpdb-reader-word.jpdb-reader-scan-word :where(.jpdb-reader-ruby) > rt {
   white-space: nowrap !important;
   overflow-wrap: normal !important;
   word-break: keep-all !important;
@@ -261,8 +261,8 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
   line-break: auto;
 }
 
-.yomu-link-card .jpdb-reader-word.jpdb-reader-scan-word ruby,
-.yomu-install-step-link .jpdb-reader-word.jpdb-reader-scan-word ruby {
+.yomu-link-card .jpdb-reader-word.jpdb-reader-scan-word ruby:where(.jpdb-reader-ruby),
+.yomu-install-step-link .jpdb-reader-word.jpdb-reader-scan-word ruby:where(.jpdb-reader-ruby) {
   white-space: normal;
   overflow-wrap: anywhere;
 }
@@ -981,7 +981,11 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
   margin-inline-end: -0.5em;
   margin-inline-end: calc(-1 * var(--jpdb-reader-ruby-overhang, 0.5em));
 }
-.jpdb-reader-word ruby {
+/* Yomu Ruby only (class jpdb-reader-ruby, dom/yomu-ruby.ts). A page's own
+   <ruby> that a word wraps keeps the page's metrics: restyling it moved text
+   between pages with readings off. :where() keeps the specificity these rules
+   always had. scripts/page-ruby-metrics-smoke.mjs holds this in real engines. */
+.jpdb-reader-word ruby:where(.jpdb-reader-ruby) {
   position: static !important;
   display: ruby !important;
   /* CSS Ruby's initial ruby-align is space-around, which distributes the base
@@ -1254,7 +1258,7 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
 .jpdb-reader-word rp {
   display: none;
 }
-.jpdb-reader-word rt {
+.jpdb-reader-word :where(.jpdb-reader-ruby) > rt {
   position: static;
   left: auto;
   bottom: auto;
@@ -1305,13 +1309,13 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
    into the thin furigana strokes and makes the reading harder to read. Furigana
    takes a single tight outline instead — enough contrast on busy manga
    backgrounds without the muddy glow. Tunable via --jpdb-reader-furigana-shadow. */
-.jpdb-reader-word rt {
+.jpdb-reader-word :where(.jpdb-reader-ruby) > rt {
   text-shadow: var(
     --jpdb-reader-furigana-shadow,
     0 0 1px color-mix(in srgb, var(--jpdb-reader-black) 55%, transparent)
   );
 }
-:is(.jpdb-reader-theme-light, .yomu-page-theme-light) .jpdb-reader-word rt {
+:is(.jpdb-reader-theme-light, .yomu-page-theme-light) .jpdb-reader-word :where(.jpdb-reader-ruby) > rt {
   text-shadow: var(--jpdb-reader-furigana-shadow, none);
 }
 /* UT-47: per-group furigana hiding (settings: furiganaHiddenStateGroups).

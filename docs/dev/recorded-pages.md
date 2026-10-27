@@ -83,6 +83,20 @@ a Mechanism Fixture (see Follow-ups).
   auto-generated track because YouTube refused the recorder's caption
   requests. The Piccoma viewer, which no recording reaches, will get its own
   when its lane needs it.
+- Two Mechanism Fixtures are built in memory, never on disk, from the
+  `aozora-wagahai` recording by `scripts/lib/aozora-mechanism-fixtures.mjs`.
+  `aozora-paragraphs-mechanism-fixture` makes each line of the novel a `<p>`
+  inside an `<article>`, the Narou and Kakuyomu shape in which a word wraps a
+  whole author `<ruby>` (on the Aozora page itself Yomu reads each text run
+  alone). `clamp-cards-mechanism-fixture` sets the paragraphs as synopsis
+  cards whose text is a 3-line `-webkit-line-clamp`. Both keep the recording's
+  text and ruby; `page-ruby-metrics-smoke.mjs` and `clamp-row-heal-smoke.mjs`
+  serve them in place of the recorded document.
+- `page-ruby-lifecycle-smoke.mjs` uses `aozora-paragraphs-mechanism-fixture`
+  with the recording's original text and ruby. It activates hide, pause and resume in
+  Chromium and touch WebKit at iPad size, checking that every authored ruby
+  keeps its base, reading and fallback punctuation after each transition, and
+  that clearing a word never discards its authored ruby nodes.
 
 ## Using it in a gate
 

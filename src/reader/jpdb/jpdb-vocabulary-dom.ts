@@ -1,4 +1,5 @@
 import { escapeHtml } from '../dom';
+import { yomuRubyHtml } from '../dom/yomu-ruby';
 import { isRubyAnnotation, rubyReadingText } from './jpdb-ruby-text';
 import { cleanText, JAPANESE_RE } from './jpdb-text';
 export { escapeRegExp } from '../core/string-utils';
@@ -84,7 +85,7 @@ function jpdbRubyHtml(element: Element, options: JpdbRichTextOptions): string {
     const flushBase = (reading = '') => {
         if (!baseHtml) return;
         html += reading
-            ? `<ruby><span class="jpdb-reader-ruby-base">${baseHtml}</span><rp>(</rp><rt class="jpdb-reader-furi">${escapeHtml(reading)}</rt><rp>)</rp></ruby>`
+            ? yomuRubyHtml(baseHtml, escapeHtml(reading))
             : baseHtml;
         baseHtml = '';
     };

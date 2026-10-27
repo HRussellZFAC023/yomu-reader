@@ -81,7 +81,7 @@ ${criticalRubyCss()}
 function criticalRubyCss(): string {
     return [
         '.jpdb-reader-word.jpdb-reader-has-furi{line-height:2.15}',
-        '.jpdb-reader-word ruby{position:static!important;display:ruby!important;ruby-align:center!important;ruby-position:over!important;line-height:1;vertical-align:baseline!important}',
+        '.jpdb-reader-word ruby:where(.jpdb-reader-ruby){position:static!important;display:ruby!important;ruby-align:center!important;ruby-position:over!important;line-height:1;vertical-align:baseline!important}',
         '.jpdb-reader-ruby-base{display:inline}',
         '.jpdb-reader-word rp{display:none}',
         // MEASURED 2026-08-02 in Chromium: with pointer-events:none the READING is a
@@ -100,8 +100,9 @@ function criticalRubyCss(): string {
         // that deliberately switch it off on themselves, and those surfaces would
         // start swallowing host-page clicks they are contracted to pass through.
         // Inheriting means the reading is exactly as pressable as its own word.
-        // Scoped inside .jpdb-reader-word, so a host page's own ruby is untouched.
-        '.jpdb-reader-word rt{position:static;display:ruby-text;ruby-align:center;line-height:1;text-align:center;white-space:nowrap;pointer-events:inherit;text-decoration:none!important}',
+        // Scoped to Yomu Ruby (dom/yomu-ruby.ts), not merely to .jpdb-reader-word:
+        // a word can wrap a page's own <ruby>, which keeps the page's metrics.
+        '.jpdb-reader-word :where(.jpdb-reader-ruby)>rt{position:static;display:ruby-text;ruby-align:center;line-height:1;text-align:center;white-space:nowrap;pointer-events:inherit;text-decoration:none!important}',
         '.jpdb-reader-word rt.jpdb-reader-furi{display:ruby-text!important;white-space:nowrap!important;overflow-wrap:normal!important;word-break:keep-all!important}',
         '.jpdb-reader-furi{font-family:inherit;font-size:max(8px,.5em);font-style:inherit;font-weight:normal;font-feature-settings:normal;font-variant-east-asian:normal;letter-spacing:normal;line-height:1.08;color:var(--jpdb-reader-furi-color,inherit)!important;-webkit-text-fill-color:currentColor!important;user-select:none;-webkit-user-select:none}',
     ].join('\n');

@@ -198,6 +198,8 @@ _Avoid_: Contact name, display name, nickname
 - Text in View: Text the visible-page scan may annotate now. An element is in view when its box meets the viewport; text directly inside a parent more than twice the viewport is in view only when the text itself meets it (ADR-0032), so a one-div novel is annotated a screen at a time.
 - Apply Slice Pacing (2.2, supersedes the pacing sentence of Annotation Pass): an Apply Slice ends once its own paint has spent the frame budget, whatever the last yield or hand-over cost. Before its first write it reads the facts its targets need, once per element (Read Memo).
 - Read Memo: Inside one read phase (a collection walk, or an Apply Slice's read-ahead and paint), each DOM fact about an element is read once and handed to every later asker (`dom/read-memo.ts`).
+- Yomu Ruby: A `<ruby>` Yomu writes for a reading. It always carries the class `jpdb-reader-ruby` (`dom/yomu-ruby.ts`), and the word stylesheet's ruby and rt rules select on it.
+- Page-owned Ruby: An author's `<ruby>` that a scan word wraps whole (Aozora, Narou and Kakuyomu novels). It keeps the page's own line metrics: Yomu never restyles it, and the clamp-row heal takes no evidence from its rt. `scripts/page-ruby-metrics-smoke.mjs` holds this.
 
 ## Clean Code Standard
 

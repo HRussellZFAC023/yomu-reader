@@ -40,11 +40,11 @@ const WORD_CLASS = 'jpdb-reader-word';
 type Side = 'before' | 'after';
 type Beside = Element | 'text' | null;
 
-/** The class attribute for a ruby whose reading may overhang (empty when it may not). */
-export function rubyOverhangClassAttribute(surface: string, start: number, end: number, reading: string, readingBeside: boolean): string {
+/** The extra classes, each with a leading space, for a ruby whose reading may overhang (empty when it may not). */
+export function rubyOverhangClasses(surface: string, start: number, end: number, reading: string, readingBeside: boolean): string {
     if (readingBeside || Array.from(reading).length <= 2 * Array.from(surface.slice(start, end)).length) return '';
     const edges = [start === 0 ? ` ${AT_START_CLASS}` : '', end === surface.length ? ` ${AT_END_CLASS}` : ''].join('');
-    return ` class="${OVERHANG_CLASS}${edges}"`;
+    return ` ${OVERHANG_CLASS}${edges}`;
 }
 
 /**

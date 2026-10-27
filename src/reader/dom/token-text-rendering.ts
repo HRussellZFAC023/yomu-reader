@@ -16,7 +16,8 @@ import {
     type KanjiNavigationRenderOptions,
 } from './token-kanji-navigation';
 import { privateCommandAttributes } from './private-command-capabilities';
-import { rubyOverhangClassAttribute } from './ruby-overhang';
+import { rubyOverhangClasses } from './ruby-overhang';
+import { yomuRubyHtml } from './yomu-ruby';
 
 export { kanjiNavigationForElement } from './token-kanji-navigation';
 export type { KanjiNavigationRenderOptions } from './token-kanji-navigation';
@@ -324,7 +325,7 @@ export function renderTokenReadings(
         const readingBeside = (index > 0 && start === localOffset) || rubies[index + 1]?.start === ruby.end;
         html += layout === 'detached'
             ? `<span class="jpdb-reader-detached-ruby" data-yomu-source-start="${ruby.start}" data-yomu-source-end="${ruby.end}"><span class="jpdb-reader-ruby-base">${base}</span><span class="jpdb-reader-furi jpdb-reader-detached-furi" aria-hidden="true">${escapeHtml(ruby.text)}</span></span>`
-            : `<ruby${rubyOverhangClassAttribute(surface, start, end, ruby.text, readingBeside)}><span class="jpdb-reader-ruby-base">${base}</span><rp>(</rp><rt class="jpdb-reader-furi">${escapeHtml(ruby.text)}</rt><rp>)</rp></ruby>`;
+            : yomuRubyHtml(base, escapeHtml(ruby.text), rubyOverhangClasses(surface, start, end, ruby.text, readingBeside));
         localOffset = end;
     });
     html += renderKanjiNavigationText(surface.slice(localOffset), kanjiNavigation);
