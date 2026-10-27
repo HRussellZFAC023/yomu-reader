@@ -175,9 +175,7 @@
     // is a string argument the import graph cannot follow. Both have real
     // consumers, so this is a detector blind spot rather than a suppression:
     //   favicon-ico.cjs      <- scripts/generate-favicons.mjs,
-    //                           tests/reader/technical-seo.test.ts
     //   hosted-install-route <- docs/.vitepress/config.mts,
-    //                           tests/reader/install-link-contract.test.ts
     "scripts/lib/favicon-ico.cjs",
     "scripts/lib/hosted-install-route.cjs"
   ],
