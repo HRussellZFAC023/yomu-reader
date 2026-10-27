@@ -200,6 +200,7 @@ _Avoid_: Contact name, display name, nickname
 - Read Memo: Inside one read phase (a collection walk, or an Apply Slice's read-ahead and paint), each DOM fact about an element is read once and handed to every later asker (`dom/read-memo.ts`).
 - Yomu Ruby: A `<ruby>` Yomu writes for a reading. It always carries the class `jpdb-reader-ruby` (`dom/yomu-ruby.ts`), and the word stylesheet's ruby and rt rules select on it.
 - Page-owned Ruby: An author's `<ruby>` that a scan word wraps whole (Aozora, Narou and Kakuyomu novels). It keeps the page's own line metrics: Yomu never restyles it, and the clamp-row heal takes no evidence from its rt. `scripts/page-ruby-metrics-smoke.mjs` holds this.
+- Anonymous Jiten Budget (2.2): one reader realm counts all its keyless Jiten requests together. Enrichment may use 40 requests per minute, visible readings 60, annotation 70, hover lookup 105, and the open popup 120. Popup detail shares cached/in-flight `/info` answers with those lanes; after a failed background read it makes its own request, bypassing background backoff and retrying transient failures over a minute. Reading indices remain separate cache identities. Authenticated Jiten requests stay outside this budget (`jiten-public-vocabulary.ts`).
 
 ## Clean Code Standard
 

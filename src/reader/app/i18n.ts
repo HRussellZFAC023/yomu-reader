@@ -28,7 +28,6 @@ const COPY = {
         libraryEmpty: 'Save a word while you read and it shows up here.',
         moreLookupLinks: 'More links',
         audioSourcesTitle: 'Audio sources',
-        contextOccurrences: 'In context ×{count}',
         puckAutoDetectSubtitles: 'Auto-detect subtitles',
         loadTargetSubtitles: 'Load Japanese subtitles',
         loadOutputSubtitles: 'Load English subtitles',
@@ -193,7 +192,6 @@ const COPY = {
         pitchColorOdaka: 'Odaka (tail-high)',
         pitchColorUnknown: 'Unknown',
         pronunciation: 'Pronunciation',
-        noExactPitch: 'Exact pitch unavailable',
         colorChannels: 'Color channels',
         wordHighlightColorSource: 'Word highlight color',
         wordUnderlineColorSource: 'Word underline color',
@@ -1234,7 +1232,6 @@ local	ローカル
 dict	辞書
 scanPage	ページをスキャン
 noUnscannedJapaneseText	未スキャンの日本語テキストはありません。
-contextOccurrences	文脈内 ×{count}
 puckAutoDetectSubtitles	字幕を自動検出
 loadTargetSubtitles	日本語字幕を読み込む
 loadOutputSubtitles	英語字幕を読み込む
@@ -1734,7 +1731,6 @@ pitchColorNakadaka	中高
 pitchColorOdaka	尾高
 pitchColorUnknown	不明
 pronunciation	発音
-noExactPitch	完全一致のピッチは利用不可
 colorChannels	色チャンネル
 wordHighlightColorSource	単語ハイライトの色
 wordUnderlineColorSource	単語下線の色

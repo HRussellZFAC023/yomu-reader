@@ -278,13 +278,13 @@ export class NewTabRuntime {
     private settingsPreviewOriginalTheme?: ReaderSettings['theme'];
     private newTab?: NewTabController;
     private jpdb = new JpdbClient(() => effectiveJpdbApiKey(this.settings), () => this.settings.corsProxyUrl);
-    private jiten = new JitenApiClient(() => effectiveJitenApiKey(this.settings), { proxyUrl: () => this.settings.corsProxyUrl });
+    private jitenPublicVocabulary = new JitenPublicVocabularyClient({ proxyUrl: () => this.settings.corsProxyUrl });
+    private jiten = new JitenApiClient(() => effectiveJitenApiKey(this.settings), { proxyUrl: () => this.settings.corsProxyUrl, anonymous: this.jitenPublicVocabulary });
     private kanjiCompanion = yomuKanjiStudyCompanion();
     private jpdbKanji = this.kanjiCompanion ? new this.kanjiCompanion.JpdbKanjiClient(() => this.settings.corsProxyUrl) : createNoopJpdbKanjiClient();
     private kanjiOrigin = this.kanjiCompanion ? new this.kanjiCompanion.KanjiOriginClient() : null;
     private jpdbPublicPitch = new JpdbPublicPitchClient(() => this.settings.corsProxyUrl);
     private jpdbVocabulary = new JpdbVocabularyClient(() => this.settings.corsProxyUrl);
-    private jitenPublicVocabulary = new JitenPublicVocabularyClient({ proxyUrl: () => this.settings.corsProxyUrl });
     private kanjiVG = this.kanjiCompanion ? new this.kanjiCompanion.KanjiVGClient() : createNoopKanjiVGClient();
     private immersionKit = new ImmersionKitClient();
     private audio = new AudioPlayer(() => this.settings);
@@ -2134,6 +2134,9 @@ export class NewTabRuntime {
 
     private unwrapRenderedFallbackWords(card: JPDBCard): void {
         this.renderedWordsForCard(document, card).forEach(word => {
+            // A failed prose lookup must not strip an authored card heading
+            // with the same identity, including its reading and tap target.
+            if (word.closest('[data-yomu-headword]')) return;
             const parent = word.parentNode;
             word.replaceWith(document.createTextNode(readerWordSurfaceText(word)));
             parent?.normalize();

@@ -91,6 +91,13 @@ export const NIGHTLY_SMOKES = [
     // W1-46: real recorded Piccoma header/quick-menu boxes and glyph gaps,
     // Chromium desktop and WebKit iPad, against the page without Yomu.
     'smoke:piccoma-host-armour',
+    // Chromium hover + WebKit iPad tap on recorded ja.wikipedia 日本語, with Jiten
+    // answering and with Jiten refusing until 6 s after the press: 先生's popup
+    // ends with its pitch graph and Jiten rank, and never says "Exact pitch
+    // unavailable" or "In context ×N".
+    'smoke:popup-word-detail',
+    'smoke:popup-word-detail-reflow',
+    'smoke:popup-word-detail-scroll',
     'smoke:recorded-pages',
     'smoke:recorded-pages:reproduce',
     'smoke:recorded-pages:probes',

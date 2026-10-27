@@ -158,7 +158,8 @@ describe('JitenPublicVocabularyClient', () => {
         });
         expect(requestJson).toHaveBeenCalledTimes(2);
 
-        await expect(client.lookup('青空')).resolves.toBe(card);
+        // The shared cache holds the API detail, not a mutable rendered card.
+        await expect(client.lookup('青空')).resolves.toEqual(card);
         expect(requestJson).toHaveBeenCalledTimes(2);
     });
 

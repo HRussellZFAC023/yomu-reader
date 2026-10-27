@@ -1,15 +1,23 @@
 import { isNonNullObject as isRecord } from '../core/object-utils';
 import { Logger } from '../app/logger';
 import type { JPDBCard, JPDBPitchComponent, JPDBToken } from '../app/types';
-import { ConcurrencyGate, mapLimited } from '../core/async-utils';
+import { ConcurrencyGate, delay, mapLimited } from '../core/async-utils';
 import { getPitchClass } from '../jpdb/jpdb-parser';
 import { pitchPatternFromPosition } from '../lookup/pitch-accent';
-import { requestJson } from '../network/http';
+import { requestText, type ReaderHttpOptions } from '../network/http';
 import { readPublicJitenCache, writePublicJitenCache } from './jiten-public-cache';
 import { cardWithRememberedReading, forgetRememberedReadingsForTests, rememberReading } from './jiten-reading-memory';
 
 const JITEN_PUBLIC_API_BASE_URL = 'https://api.jiten.moe/api';
 const REQUEST_TIMEOUT_MS = 1500;
+// The popup's own requests wait longer than a hover's: the learner is looking
+// at the popup, and over a userscript manager's bridge a healthy answer
+// can take seconds.
+const POPUP_REQUEST_TIMEOUT_MS = 10_000;
+// While Jiten refuses or times out, the popup asks again on this schedule,
+// one window in all: by then the requests that filled Jiten's minute have
+// left it.
+const POPUP_RETRY_DELAYS_MS = [4_000, 8_000, 16_000, 32_000];
 // Background hydration (readings/pitch for at-rest page words) tolerates a
 // slower answer than an open popover: over a userscript-manager request
 // bridge (iPad Userscripts, GM_xmlhttpRequest round-trips) a healthy /info
@@ -62,24 +70,24 @@ let sharedRequestBackoffArmedAt = Number.NEGATIVE_INFINITY;
 //
 // Each kind of work may fill the last minute only up to its own ceiling, so
 // the less urgent kinds always leave the more urgent ones room:
-// - lookup: the word the learner hovers or clicks. The 15 it leaves are for
-//   the popup's own Jiten requests (rank badge search, word info), which the
-//   definition client sends.
+// - popup: the open popup's own word (its detail, the search that finds a
+//   word it has no Jiten identity for, its kanji). It may use the whole
+//   minute, and a backoff the other kinds started does not hold it back.
+// - lookup: the word the learner hovers or clicks. The 15 it leaves are the
+//   popup's.
 // - annotation: the word boundaries of the page being read.
-// - reading: the readings of the words on screen, ahead of everything else
-//   the page wants.
-// - enrichment: the rest (fallback words' identity, the popup's example
-//   sentences).
-export type JitenRequestPriority = 'lookup' | 'annotation' | 'reading' | 'enrichment';
-const REQUEST_CEILINGS: Readonly<Record<JitenRequestPriority, number>> = { lookup: 105, annotation: 70, reading: 60, enrichment: 40 };
-const PRIORITY_RANKS: Readonly<Record<JitenRequestPriority, number>> = { lookup: 3, annotation: 2, reading: 1, enrichment: 0 };
+// - reading: visible page readings, ahead of other enrichment.
+// - enrichment: fallback identity and popup examples.
+export type JitenRequestPriority = 'popup' | 'lookup' | 'annotation' | 'reading' | 'enrichment';
+const REQUEST_CEILINGS: Readonly<Record<JitenRequestPriority, number>> = { popup: 120, lookup: 105, annotation: 70, reading: 60, enrichment: 40 };
+const PRIORITY_RANKS: Readonly<Record<JitenRequestPriority, number>> = { popup: 4, lookup: 3, annotation: 2, reading: 1, enrichment: 0 };
 const REQUEST_WINDOW_MS = 60_000;
 const sentRequests: number[] = [];
 
 export interface JitenPublicVocabularyClientOptions {
     baseUrl?: string;
     proxyUrl?: string | (() => string);
-    requestJsonImpl?: (url: string, options?: Parameters<typeof requestJson>[1]) => Promise<unknown>;
+    requestJsonImpl?: (url: string, options?: ReaderHttpOptions) => Promise<unknown>;
 }
 
 export interface JitenPublicLookupManyOptions {
@@ -118,11 +126,12 @@ function ceilingWaitMs(priority: JitenRequestPriority, now: number): number {
 // so its rank badge) while api.jiten.moe is not being asked.
 function mayRequest(priority: JitenRequestPriority): boolean {
     const now = Date.now();
-    return now >= sharedRequestBackoffUntil && ceilingWaitMs(priority, now) === 0;
+    return (priority === 'popup' || now >= sharedRequestBackoffUntil) && ceilingWaitMs(priority, now) === 0;
 }
 
+// A popup request sent while a backoff runs does not lengthen it.
 function noteRequestFailure(error: unknown, sentAt: number): void {
-    if (!isPublicJitenBackoffError(error) || sentAt <= sharedRequestBackoffArmedAt) return;
+    if (!isPublicJitenBackoffError(error) || sentAt <= sharedRequestBackoffArmedAt || sentAt < sharedRequestBackoffUntil) return;
     const now = Date.now();
     sharedRequestBackoffArmedAt = now;
     sharedRequestBackoffUntil = now + sharedRequestBackoffMs;
@@ -171,7 +180,9 @@ export class JitenPublicVocabularyClient {
     // own parse read as one word stays one word for a hover while Jiten is
     // backed off, instead of falling to the segmenter's 移住.
     private readonly seen = new Map<string, CacheEntry<PublicParseWord>>();
-    private readonly details = new Map<string, CacheEntry<Promise<JPDBCard | null>>>();
+    // Jiten's /info answer for each word, whoever asked: the page's lanes, a
+    // hover and the popup read the same copy. undefined: the ask failed.
+    private readonly details = new Map<string, CacheEntry<Promise<unknown>>>();
     private readonly reading = new Map<string, { read: Promise<void>; priority: JitenRequestPriority }>();
 
     constructor(private readonly options: JitenPublicVocabularyClientOptions = {}) {}
@@ -229,8 +240,7 @@ export class JitenPublicVocabularyClient {
             const answered = this.cached(this.words, term, now);
             const word = answered ? answered.value : this.cached(this.seen, term, now)?.value;
             if (!word) return [];
-            const detail = this.cached(this.details, publicWordKey(word), now)?.value;
-            if (detail) return [{ term, card: detail, persist: false }];
+            if (this.cached(this.details, publicWordKey(word), now)) return [{ term, card: this.lookupDetail(word, term), persist: false }];
             if (detailBudget > 0 && mayRequest(priority)) {
                 detailBudget--;
                 // Only Jiten's answer for the term itself is kept across pages.
@@ -389,33 +399,85 @@ export class JitenPublicVocabularyClient {
         return records;
     }
 
-    private lookupDetail(word: PublicParseWord, requestedTerm: string, timeoutMs = REQUEST_TIMEOUT_MS): Promise<JPDBCard | null> {
+    private async lookupDetail(word: PublicParseWord, requestedTerm: string, timeoutMs = REQUEST_TIMEOUT_MS): Promise<JPDBCard | null> {
+        const payload = await this.detailPayload(word, () => this.requestJson(detailEndpoint(word), timeoutMs));
+        return payload === undefined ? null : publicJitenCardFromDetail(payload, requestedTerm, word);
+    }
+
+    /**
+     * The popup's word detail: the copy a page lane or hover already has, or
+     * the popup's own request, which waits for no other lane and is asked
+     * again while Jiten refuses. Rejects when Jiten never answered.
+     */
+    async wordDetail(wordId: number, readingIndex: number): Promise<unknown> {
+        const word = { wordId, readingIndex, originalText: '' };
+        const key = publicWordKey(word);
+        const ask = () => this.popupRequest(detailEndpoint(word));
+        const cached = this.cached(this.details, key, Date.now());
+        if (cached) {
+            const payload = await cached.value;
+            if (payload !== undefined) return payload;
+            // Promote a failed background read to one shared popup request.
+            // Another caller may already have replaced it while we waited.
+            if (this.details.get(key) === cached) this.details.delete(key);
+        }
+        const payload = await this.detailPayload(word, ask);
+        if (payload === undefined) throw new Error('Jiten detail unavailable.');
+        return payload;
+    }
+
+    /**
+     * One more keyless request inside the same budget: the popup's search and
+     * kanji, or with priority 'enrichment' (example sentences), sent only
+     * while that share has room.
+     */
+    request(endpoint: string, init: { method?: 'GET' | 'POST'; data?: string; priority?: 'popup' | 'enrichment' } = {}): Promise<unknown> {
+        if (init.priority === 'enrichment') {
+            return mayRequest('enrichment') ? this.requestJson(endpoint, POPUP_REQUEST_TIMEOUT_MS, init) : Promise.reject(new Error('Jiten budget spent.'));
+        }
+        return this.popupRequest(endpoint, init);
+    }
+
+    private async popupRequest(endpoint: string, init: { method?: 'GET' | 'POST'; data?: string } = {}): Promise<unknown> {
+        for (let attempt = 0; ; attempt++) {
+            // Several popups can wake together when a minute expires. Check
+            // again after waking so they cannot all spend the same last slot.
+            for (let wait = ceilingWaitMs('popup', Date.now()); wait > 0; wait = ceilingWaitMs('popup', Date.now())) await delay(wait);
+            try {
+                return await this.requestJson(endpoint, POPUP_REQUEST_TIMEOUT_MS, init);
+            } catch (error) {
+                if (!isPublicJitenBackoffError(error) || attempt >= POPUP_RETRY_DELAYS_MS.length) throw error;
+                await delay(POPUP_RETRY_DELAYS_MS[attempt]);
+            }
+        }
+    }
+
+    private detailPayload(word: PublicParseWord, ask: () => Promise<unknown>): Promise<unknown> {
         const key = publicWordKey(word);
         const now = Date.now();
         const cached = this.cached(this.details, key, now);
         if (cached) return cached.value;
-        const promise = this.requestJson(`vocabulary/${word.wordId}/${word.readingIndex}/info`, timeoutMs)
-            .then(payload => publicJitenCardFromDetail(payload, requestedTerm, word))
-            .catch(error => {
-                // A failure is not an answer: keep its null only long enough
-                // to absorb a burst, so the paced retry lane can ask again.
-                const entry = this.details.get(key);
-                if (entry) entry.expiresAt = Math.min(entry.expiresAt, Date.now() + TRANSIENT_NULL_TTL_MS);
-                logPublicJitenFailure('Jiten detail', { wordId: word.wordId, readingIndex: word.readingIndex }, error);
-                return null;
-            });
+        const promise = ask().catch(error => {
+            // A failure is not an answer: keep it only long enough to absorb
+            // a burst, so the paced retry lane can ask again.
+            const entry = this.details.get(key);
+            if (entry?.value === promise) entry.expiresAt = Math.min(entry.expiresAt, Date.now() + TRANSIENT_NULL_TTL_MS);
+            logPublicJitenFailure('Jiten detail', { wordId: word.wordId, readingIndex: word.readingIndex }, error);
+            return undefined;
+        });
         this.remember(this.details, key, promise, now);
         return promise;
     }
 
     // Every request is counted here, once, whatever its outcome.
-    private async requestJson(endpoint: string, timeoutMs = REQUEST_TIMEOUT_MS): Promise<unknown> {
-        const request = this.options.requestJsonImpl ?? requestJson;
+    private async requestJson(endpoint: string, timeoutMs = REQUEST_TIMEOUT_MS, init: { method?: 'GET' | 'POST'; data?: string } = {}): Promise<unknown> {
+        const request = this.options.requestJsonImpl ?? requestPublicJitenJson;
         const sentAt = Date.now();
         sentRequests.push(sentAt);
         try {
             const payload = await request(endpointUrl(this.options.baseUrl, endpoint), {
-                responseType: 'json',
+                ...(init.data === undefined ? {} : { method: init.method ?? 'POST', data: init.data, headers: { 'Content-Type': 'application/json', Accept: 'application/json' } }),
+                responseType: 'text',
                 timeoutMs,
                 timeoutLabel: 'Jiten timeout.',
                 failureLabel: 'Jiten',
@@ -425,9 +487,9 @@ export class JitenPublicVocabularyClient {
                 allowDirectCrossOrigin: false,
                 allowConfiguredProxy: true,
                 allowSensitiveConfiguredProxy: false,
-                // Every request here is a keyless GET against the shared-proxy
-                // allowlist (vocabulary/parse + vocabulary/{id}/{idx}/info), so the
-                // built-in Yomu edge proxy may serve it. api.jiten.moe sends no
+                // Every request here is keyless (vocabulary parse, search and
+                // word info, example sentences, kanji), so the built-in Yomu
+                // edge proxy may serve those on its allowlist. api.jiten.moe sends no
                 // Access-Control-Allow-Origin, so on hosted pages with no GM bridge
                 // and no configured proxy this is the ONLY transport — blocking it
                 // killed all keyless public lookups there ("No configured proxy.").
@@ -464,6 +526,13 @@ export class JitenPublicVocabularyClient {
             cache.delete(entryKey);
         }
     }
+}
+
+// Throttling/proxy errors can be HTML or plain text. Asking a manager for JSON
+// lets its decoder fail before requestHttp sees the status, hiding a retryable
+// 429 behind a SyntaxError. Read text, validate HTTP, then decode the answer.
+async function requestPublicJitenJson(url: string, options?: ReaderHttpOptions): Promise<unknown> {
+    return JSON.parse(await requestText(url, options));
 }
 
 function parsedCardsWithinTargetBoundary(result: readonly JPDBToken[][], limit: number): JPDBCard[] {
@@ -758,6 +827,10 @@ export function parsedCardHydrationKey(card: JPDBCard): string {
 
 function publicWordKey(word: PublicParseWord): string {
     return `${word.wordId}:${word.readingIndex}`;
+}
+
+function detailEndpoint(word: PublicParseWord): string {
+    return `vocabulary/${word.wordId}/${word.readingIndex}/info`;
 }
 
 function normalizedDetailLimit(value: number | undefined): number {

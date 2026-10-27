@@ -1,7 +1,5 @@
 import type { JPDBCard, ReaderSettings } from '../app/types';
-import { uiText } from '../app/i18n';
 import type { YomitanMetaEntry } from '../dictionaries/yomitan';
-import { escapeHtml } from '../dom/index';
 import {
     alignedExpressionComponentPitches,
     renderExpressionComponentPitches,
@@ -43,13 +41,8 @@ function renderPitchAccentPronunciation(options: PronunciationRenderOptions): st
         [...(options.componentPitches ?? [])],
     );
     const components = renderExpressionComponentPitches(alignedComponents);
-    if (components) return pronunciationRow('pitch-accent', components);
-    if (options.loading) return '';
-    const label = uiText(options.settings.interfaceLanguage, 'noExactPitch');
-    return pronunciationRow(
-        'pitch-accent',
-        `<div class="jpdb-reader-pitch jpdb-reader-pitch-missing" data-pitch-status="no-exact-match" role="status" title="${escapeHtml(label)}">${escapeHtml(label)}</div>`,
-    );
+    // An unknown accent draws nothing: no row, no words standing in for it.
+    return components ? pronunciationRow('pitch-accent', components) : '';
 }
 
 function pronunciationRow(kind: 'pitch-accent', content: string): string {

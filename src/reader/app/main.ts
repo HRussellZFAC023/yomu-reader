@@ -425,6 +425,7 @@ import {
     type EnrichmentContext,
     type EnrichmentSurface,
 } from './enrichment-policy';
+import { HoverPointerIntent } from '../lookup/hover-pointer-intent';
 import { HoverWordOwnership } from './hover-word-ownership';
 import {
     DeferredPublicJitenReadingCoordinator,
@@ -511,7 +512,8 @@ export class ReaderApp {
         void this.persistSettings(this.settings, { explicitUserChoiceKeys: ['immersionKitRevealTranslationOnClick'] });
     };
     private jpdb = new JpdbClient(() => effectiveJpdbApiKey(this.settings), () => this.settings.corsProxyUrl);
-    private jiten = new JitenApiClient(() => effectiveJitenApiKey(this.settings), { proxyUrl: () => this.settings.corsProxyUrl });
+    private jitenPublicVocabulary = new JitenPublicVocabularyClient({ proxyUrl: () => this.settings.corsProxyUrl });
+    private jiten = new JitenApiClient(() => effectiveJitenApiKey(this.settings), { proxyUrl: () => this.settings.corsProxyUrl, anonymous: this.jitenPublicVocabulary });
     // The kanji-study companion can register after this app constructs (hosted
     // pages append companion scripts around the core script, so load order is
     // not guaranteed). Every companion-backed collaborator therefore resolves
@@ -532,7 +534,6 @@ export class ReaderApp {
     }
     private jpdbPublicPitch = new JpdbPublicPitchClient(() => this.settings.corsProxyUrl);
     private jpdbVocabulary = new JpdbVocabularyClient(() => this.settings.corsProxyUrl);
-    private jitenPublicVocabulary = new JitenPublicVocabularyClient({ proxyUrl: () => this.settings.corsProxyUrl });
     private kanjiVGInstance: InstanceType<KanjiStudyCompanionSlot['KanjiVGClient']> | null = null;
     private get kanjiVG(): InstanceType<KanjiStudyCompanionSlot['KanjiVGClient']> | null {
         const companion = this.kanjiCompanion;
@@ -861,6 +862,7 @@ export class ReaderApp {
     private activePopoverResizeObserver?: ResizeObserver;
     private readonly nativeTitleGuard = new NativeTitleGuard();
     private lastPointerPosition?: { x: number; y: number };
+    private readonly hoverPointerIntent = new HoverPointerIntent();
     private readonly hoverWordOwnership = new HoverWordOwnership({
         wordFromPointStack: (x, y) => this.hoverReaderWordFromPointStack(x, y),
         ocrLineWordForPointer: (target, x, y) => this.ocrLineWordForPointer(target, x, y),
@@ -2717,6 +2719,9 @@ export class ReaderApp {
             // Scrolls inside Yomu's own UI (popover bodies, settings sheet,
             // transcript drawer) never change page content — don't rescan.
             if (eventTargetsReaderRoot(event)) return;
+            this.hoverPointerIntent.release();
+            this.hoverPopoverPointerPosition = undefined;
+            this.scheduleHoverClose(this.settings.hoverCloseDelayMs, { ignoreCssHover: true });
             // Always debounce: without it the pending timer fires mid-fling
             // and every ~160ms of scrolling runs a full visible-page scan
             // (collection + residual body walk). Trailing-edge means one
@@ -4337,7 +4342,7 @@ export class ReaderApp {
     }
 
     private handleHoverPointer(event: PointerEvent): void {
-        if (this.shouldIgnoreHoverPointer(event)) return;
+        if (this.shouldIgnoreHoverPointer(event) || !this.hoverPointerIntent.accepts(event)) return;
         this.lastPointerPosition = { x: event.clientX, y: event.clientY };
         this.keepPlainSubtitleHoverPause(event.target);
         const insideActivePopover = this.handleActivePopoverHover(event);
@@ -4686,6 +4691,7 @@ export class ReaderApp {
         if (this.isDestroyed || this.hasStickyModalPopover() || !this.canUseHoverLookupPointer(event) || this.shouldSuppressPenHover(event)) return;
         this.lastPointerPosition = { x: event.clientX, y: event.clientY };
         const related = event.relatedTarget as Node | null;
+        if (!related) this.hoverPointerIntent.leave();
         if (this.handlePlainSubtitleHoverPointerOut(event.target, related)) return;
         if (this.handleActivePopoverPointerOut(event, related)) return;
         this.handleReaderWordPointerOut(event, related);
@@ -5186,10 +5192,10 @@ export class ReaderApp {
     }
 
     private hasDirectHoverContext(): boolean {
-        // Firefox can transiently clear CSS :hover while a scroll changes the
-        // descendant under a stationary cursor. Exact hit-testing remains
-        // trustworthy both for the frame itself and for its narrow travel path.
-        return this.hasLatchedHoverPopoverPointer()
+        // Page reflow can replace the hit target without pointer movement.
+        // Keep the connected opening anchor until the learner moves or scrolls.
+        return (Boolean(this.activePopoverAnchor?.isConnected) && this.hoverPointerIntent.isAt(this.hoverPopoverPointerPosition))
+            || this.hasLatchedHoverPopoverPointer()
             || this.isHoverPopoverResizeStickyActive()
             || this.isMiddlePressHoverContextActive()
             || isActiveHoverPopoverPointerContext(this.activeHoverPopoverPointerState());

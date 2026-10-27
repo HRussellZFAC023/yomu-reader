@@ -1863,7 +1863,7 @@ describe('new tab review — search mode', () => {
         }
     });
 
-    it('renders detail-header ruby under selective furigana modes and keeps the headword parseable', () => {
+    it('renders detail-header ruby and a ready lookup token without waiting for nested parsing', () => {
         const settings = { ...DEFAULT_SETTINGS, showFurigana: true, furiganaMode: 'difficult-kanji' as const };
         const card = newTabTestCard({
             spelling: '人間',
@@ -1889,10 +1889,11 @@ describe('new tab review — search mode', () => {
         const spelling = document.querySelector<HTMLElement>('.jpdb-reader-spelling')!;
         expect(spelling.classList.contains('jpdb-reader-parseable')).toBe(true);
         expect(spelling.hasAttribute('data-yomu-headword')).toBe(true);
-        // No kanji-nav host on the header: the async nested-parse pass treats
-        // its presence as enabled and wraps each kanji in a button, which then
-        // swallows whole-word taps before parseable lookup. Kanji drilldown
-        // lives in the popover's composed-of chips instead.
+        const word = spelling.querySelector<HTMLElement>('.jpdb-reader-word');
+        expect(word?.dataset.expression).toBe('人間');
+        expect(word?.dataset.reading).toBe('にんげん');
+        // Whole-word taps use this ready token; per-kanji buttons would
+        // swallow them. Drilldown remains in the popover's component chips.
         expect(spelling.hasAttribute('data-jpdb-reader-kanji-nav')).toBe(false);
         expect(spelling.querySelector('rt.jpdb-reader-furi')?.textContent).toBe('にんげん');
         expect(document.querySelector('.jpdb-reader-reading')).toBeNull();
