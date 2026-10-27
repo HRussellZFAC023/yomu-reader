@@ -20,8 +20,15 @@ for (const [name, args] of [
     ...(process.env.YOMU_CHECK_RELEASE === '1' ? [] : [['academy', ['--config', 'config/vite/academy.config.ts']]]),
 ]) {
     if (name !== suite) continue;
-    if (!plan.changed.length) continue;
-    await run(process.execPath, [vitest, 'related', ...plan.changed, '--run', '--passWithNoTests', '--minWorkers=1', `--maxWorkers=${workers}`, ...args], {
-        cwd: root, env: { ...process.env, VITEST_ISOLATE: '1', VITEST_MAX_FORKS: workers },
-    });
+    const selections = name === 'reader'
+        ? [
+            ['run', '--project', 'reader-node'],
+            ...(plan.changed.length ? [['related', ...plan.changed, '--run', '--project', 'reader-jsdom']] : []),
+        ]
+        : plan.changed.length ? [['related', ...plan.changed, '--run']] : [];
+    for (const selection of selections) {
+        await run(process.execPath, [vitest, ...selection, '--passWithNoTests', '--minWorkers=1', `--maxWorkers=${workers}`, ...args], {
+            cwd: root, env: { ...process.env, VITEST_ISOLATE: '1', VITEST_MAX_FORKS: workers },
+        });
+    }
 }

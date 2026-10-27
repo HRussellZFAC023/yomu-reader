@@ -7,9 +7,11 @@ import { fileURLToPath } from 'node:url';
 import { boundedSizeBalancedBatches, firstNonzeroStatus } from './lib/ci-test-batches.mjs';
 import { formatDuration, readPositiveInt } from './lib/ci-utils.mjs';
 import { workerBudget } from './lib/test-workers.mjs';
+import { readerNodeFiles } from '../config/vite/reader-test.ts';
 
 const ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
 const READER_TESTS_DIR = join(ROOT, 'tests/reader');
+const NODE_FILES = new Set(readerNodeFiles.map(file => join(ROOT, file)));
 // The jpdb suite runs on its own CI matrix (serial, its own API-port range) so it
 // is sharded separately from every other reader test. Everything under this dir
 // is the jpdb lane; everything else is "regular".
@@ -145,7 +147,7 @@ function runAllTests() {
     const allFiles = allReaderTestFiles();
     validateDedicatedPass(allFiles);
     const dedicated = new Set(DEDICATED_PASS_FILES);
-    const mainFiles = allFiles.filter(file => !dedicated.has(file));
+    const mainFiles = allFiles.filter(file => !dedicated.has(file) && !NODE_FILES.has(file));
     const maxWorkers = readPositiveInt(
         process.env.YOMU_CI_MAX_WORKERS
             ?? String(workerBudget()),
@@ -175,15 +177,24 @@ function runAllTests() {
         fileSize,
     );
     const statuses = [];
+    // Vitest sizes each pool independently. Run the projects sequentially so
+    // six budgeted workers cannot become six threads plus six jsdom forks.
+    const nodeFiles = allFiles.filter(file => NODE_FILES.has(file));
+    const nodeContext = { label: `reader Node project (${nodeFiles.length} files)`, files: nodeFiles, apiPort: apiPortAtOffset(0) };
+    const nodeResult = spawnVitest(
+        ['run', '--project', 'reader-node', ...nodeFiles.map(file => relative(ROOT, file)), '--minWorkers=1', `--maxWorkers=${maxWorkers}`],
+        {}, nodeContext,
+    );
+    statuses.push(vitestResultStatus(nodeResult, nodeContext));
     for (const [index, files] of mainBatches.entries()) {
         const batchWorkers = Math.min(maxWorkers, files.length);
         const context = {
             label: `reader bounded isolated main batch ${index + 1}/${mainBatches.length} (${files.length} files, ${batchWorkers} workers)`,
             files,
-            apiPort: apiPortAtOffset(index),
+            apiPort: apiPortAtOffset(index + 1),
         };
         const result = spawnVitest(
-            ['run', ...files.map(file => relative(ROOT, file)), '--minWorkers=1', `--maxWorkers=${batchWorkers}`],
+            ['run', '--project', 'reader-jsdom', ...files.map(file => relative(ROOT, file)), '--minWorkers=1', `--maxWorkers=${batchWorkers}`],
             { VITEST_ISOLATE: '1' },
             context,
         );
@@ -192,10 +203,10 @@ function runAllTests() {
     const dedicatedContext = {
         label: `reader dedicated isolated pass (${DEDICATED_PASS_FILES.length} files)`,
         files: DEDICATED_PASS_FILES,
-        apiPort: apiPortAtOffset(mainBatches.length),
+        apiPort: apiPortAtOffset(mainBatches.length + 1),
     };
     const dedicatedResult = spawnVitest(
-        ['run', ...DEDICATED_PASS_FILES.map(file => relative(ROOT, file)), '--minWorkers=1', `--maxWorkers=${Math.min(maxWorkers, 4)}`],
+        ['run', '--project', 'reader-jsdom', ...DEDICATED_PASS_FILES.map(file => relative(ROOT, file)), '--minWorkers=1', `--maxWorkers=${Math.min(maxWorkers, 4)}`],
         { VITEST_ISOLATE: '1' },
         dedicatedContext,
     );
@@ -206,11 +217,18 @@ function runAllTests() {
 function runRegularShard(currentShard, shardTotal) {
     const filesForShard = sizeBalancedBuckets(regularShardSourceFiles(), shardTotal, fileSize)[currentShard - 1] ?? [];
     const maxWorkers = readPositiveInt(process.env.YOMU_CI_REGULAR_MAX_WORKERS ?? String(defaultRegularMaxWorkers()), 'YOMU_CI_REGULAR_MAX_WORKERS');
-    runVitest(
-        ['run', ...filesForShard.map(file => relative(ROOT, file)), '--minWorkers=1', `--maxWorkers=${maxWorkers}`],
-        { VITEST_ISOLATE: '1' },
-        { label: `regular shard ${currentShard}/${shardTotal}`, files: filesForShard },
-    );
+    const statuses = [];
+    for (const project of ['reader-node', 'reader-jsdom']) {
+        const files = filesForShard.filter(file => NODE_FILES.has(file) === (project === 'reader-node'));
+        if (!files.length) continue;
+        const context = { label: `regular shard ${currentShard}/${shardTotal} ${project}`, files };
+        const result = spawnVitest(
+            ['run', '--project', project, ...files.map(file => relative(ROOT, file)), '--minWorkers=1', `--maxWorkers=${maxWorkers}`],
+            { VITEST_ISOLATE: '1' }, context,
+        );
+        statuses.push(vitestResultStatus(result, context));
+    }
+    process.exit(firstNonzeroStatus(statuses));
 }
 
 // jpdb tests share a mock API server + fake-indexeddb, so each shard runs its
@@ -218,7 +236,7 @@ function runRegularShard(currentShard, shardTotal) {
 function runJpdbShard(currentShard, shardTotal) {
     const filesForShard = sizeBalancedBuckets(jpdbShardSourceFiles(), shardTotal, fileSize)[currentShard - 1] ?? [];
     runVitest(
-        ['run', ...filesForShard.map(file => relative(ROOT, file)), '--minWorkers=1', '--maxWorkers=1', '--no-file-parallelism'],
+        ['run', '--project', 'reader-jsdom', ...filesForShard.map(file => relative(ROOT, file)), '--minWorkers=1', '--maxWorkers=1', '--no-file-parallelism'],
         { VITEST_ISOLATE: '1' },
         { label: `JPDB shard ${currentShard}/${shardTotal}`, files: filesForShard },
     );
@@ -252,9 +270,9 @@ function allReaderTestFiles() {
 // timing or memory evidence warrants dedicated scheduling.
 function validateDedicatedPass(allFiles) {
     const all = new Set(allFiles);
-    const missing = DEDICATED_PASS_FILES.filter(file => !all.has(file));
+    const missing = [...DEDICATED_PASS_FILES, ...NODE_FILES].filter(file => !all.has(file));
     if (missing.length) {
-        throw new Error(`Reader dedicated-pass files do not exist:\n${formatFileList(missing)}`);
+        throw new Error(`Reader project/scheduling files do not exist:\n${formatFileList(missing)}`);
     }
 }
 

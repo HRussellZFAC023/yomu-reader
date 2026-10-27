@@ -270,8 +270,8 @@ function reportRuntimeDeath(context) {
     console.error('[ci-suite] above is smaller than the suite and proves nothing about them.');
     console.error('[ci-suite] Compare "Test Files N passed (M)": any M > N are the files that died.');
     console.error('[ci-suite] Re-run those files alone on a quiet machine. The reader gate already');
-    console.error('[ci-suite] isolates every file, so do not quarantine or change a test until the');
-    console.error('[ci-suite] runtime death is classified as a file leak, host load, or runner fault.');
+    console.error('[ci-suite] isolates jsdom files; only pure Node files reuse threads. Classify the');
+    console.error('[ci-suite] runtime death as a file leak, host load, or runner fault before changing a test.');
     console.error('');
 }
 

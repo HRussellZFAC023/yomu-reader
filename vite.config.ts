@@ -5,7 +5,7 @@ import { defineConfig, type Plugin, type PluginOption } from 'vite';
 import monkey, { type MonkeyUserScript } from 'vite-plugin-monkey';
 import pkg from './package.json' with { type: 'json' };
 import { jpdbAudioDevProxyPlugin } from './config/vite/jpdb-audio-proxy';
-import { readerTestConfig } from './config/vite/reader-test';
+import { readerTestConfig, readerTestDefines } from './config/vite/reader-test';
 
 const require = createRequire(import.meta.url);
 const { greasyForkLibraryUrls } = require('./scripts/lib/greasyfork-libraries.cjs') as {
@@ -105,7 +105,7 @@ export default defineConfig(({ command, mode }) => ({
     resolve: readerResolveConfig(command),
     server: readerDevServerConfig,
     build: readerBuildConfig(mode),
-    test: readerTestConfig(),
+    test: { ...readerTestConfig(), workspace: path.join(configRoot, 'config/vite/reader-test.ts') },
 }));
 
 function readerPlugins(command: string): PluginOption[] {
@@ -263,12 +263,7 @@ function shouldUseGreasyForkCompanions(command: string): boolean {
 }
 
 function readerDefines(command: string) {
-    const defines = {
-        __YOMU_VERSION__: JSON.stringify(pkg.version),
-        // Userscript/companion builds are not the new-tab PWA, so the offline-first
-        // network guard dead-code-eliminates out of the size-limited bundle.
-        __YOMU_NEWTAB_BUILD__: JSON.stringify(false),
-    };
+    const defines = readerTestDefines;
     if (command === 'build') {
         return {
             ...defines,
