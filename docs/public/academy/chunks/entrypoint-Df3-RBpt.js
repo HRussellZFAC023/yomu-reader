@@ -17371,15 +17371,6 @@ const HONEN_DAY_ONE_TOPICS = Object.freeze([
     ]
   )
 ]);
-Object.freeze(
-  HONEN_DAY_ONE_TOPICS.flatMap((topicMapping) => Array.from({ length: 5 }, (_, index) => Object.freeze({
-    id: `${topicMapping.flashcardIdStem}${index + 1}`,
-    topicId: topicMapping.topicId,
-    yomuLessonId: topicMapping.yomuLessonId,
-    yomuActivityId: topicMapping.yomuActivityId,
-    stage: topicMapping.stage
-  })))
-);
 const HONEN_DAY_ONE_SOURCE_RECEIPTS = Object.freeze([
   Object.freeze({
     sourceId: "jp-15e7854e24fc99a1",
@@ -26904,147 +26895,147 @@ const ADVANCED_IMMERSION_PACKAGES = Object.freeze([packageRecord$1]);
 const N2_EXTENSIVE_READING_PACKAGE_ID = N2_EXTENSIVE_READING_PROVENANCE.packageId;
 const N3_SOURCE_OPENING_PACKAGES = N3_SOURCE_OPENING_PACKAGE_IDS.map((id2) => createN3SourceOpeningPackage(id2));
 const catalog = [
-  entry$Q("n3", N3_SOURCE_OPENING_PACKAGES[0], "n3-source-opening-01", metadata(
+  entry$P("n3", N3_SOURCE_OPENING_PACKAGES[0], "n3-source-opening-01", metadata(
     ["町の流れ", "Town flow"],
     ["視点・追加・変化を、資料文の流れに沿って追います。", "Track viewpoint, addition, and change through a source passage."],
     ["言語ラボ", "Language lab"],
     "rie",
     ["りえ先生", "Rie-sensei"]
   )),
-  entry$Q("n3", N3_SOURCE_OPENING_PACKAGES[1], "n3-source-opening-02", metadata(
+  entry$P("n3", N3_SOURCE_OPENING_PACKAGES[1], "n3-source-opening-02", metadata(
     ["地理を聞く", "Geography listening"],
     ["場所と対比の手がかりを、長めの聞き取りで保ちます。", "Hold place and contrast cues through a longer listening task."],
     ["駅のホーム", "Station platform"],
     "rie",
     ["りえ先生", "Rie-sensei"]
   )),
-  entry$Q("n3", N3_SOURCE_OPENING_PACKAGES[2], "n3-source-opening-03", metadata(
+  entry$P("n3", N3_SOURCE_OPENING_PACKAGES[2], "n3-source-opening-03", metadata(
     ["根拠を読む", "Evidence reading"],
     ["主張・根拠・控えめな要約を、資料文から取り出します。", "Find claim, evidence, and a bounded summary in a source text."],
     ["図書館", "Library"],
     "rie",
     ["りえ先生", "Rie-sensei"]
   )),
-  entry$Q("n3", N3_MOCK_LISTENING_PACKAGES[0], "n3-mock-listening-01-action", metadata(
+  entry$P("n3", N3_MOCK_LISTENING_PACKAGES[0], "n3-mock-listening-01-action", metadata(
     ["次の一手", "The next action"],
     ["完了した作業を消し、変更後にまずすることを聞き取ります。", "Remove completed work and identify the first action after a change."],
     ["準備室", "Preparation room"],
     "rie",
     ["りえ先生", "Rie-sensei"]
   )),
-  entry$Q("n3", N3_MOCK_LISTENING_PACKAGES[1], "n3-mock-listening-02-point", metadata(
+  entry$P("n3", N3_MOCK_LISTENING_PACKAGES[1], "n3-mock-listening-02-point", metadata(
     ["決め手を聞く", "Hear the deciding point"],
     ["否定と対比を越えて、理由・評価・勧めの中心を取ります。", "Listen through denial and contrast for the central reason, evaluation, or recommendation."],
     ["資料室", "Archive room"],
     "aakash",
     ["アーカッシュ", "Aakash"]
   )),
-  entry$Q("n3", N3_MOCK_LISTENING_PACKAGES[2], "n3-mock-listening-03-overview", metadata(
+  entry$P("n3", N3_MOCK_LISTENING_PACKAGES[2], "n3-mock-listening-03-overview", metadata(
     ["話の全体像", "The whole message"],
     ["目的・現状・結論をまとめ、話し手の意図を捉えます。", "Group purpose, current state, and conclusion to identify the speaker's intent."],
     ["放送室", "Broadcast room"],
     "rie",
     ["りえ先生", "Rie-sensei"]
   )),
-  entry$Q("n3", N3_MOCK_LISTENING_PACKAGES[3], "n3-mock-listening-04-expression", metadata(
+  entry$P("n3", N3_MOCK_LISTENING_PACKAGES[3], "n3-mock-listening-04-expression", metadata(
     ["場面に合う表現", "Language for the moment"],
     ["相手と負担に合う表現を選び、新しい場面で声に出します。", "Choose language that fits the listener and burden, then say it in a new setting."],
     ["案内所", "Information desk"],
     "mika",
     ["ミカ", "Mika"]
   )),
-  entry$Q("n3", N3_MOCK_LISTENING_PACKAGES[4], "n3-mock-listening-05-response", metadata(
+  entry$P("n3", N3_MOCK_LISTENING_PACKAGES[4], "n3-mock-listening-05-response", metadata(
     ["一言で返す", "The next turn"],
     ["短い発話の役割と含みを捉え、自然な返事へつなぎます。", "Identify the function and implication of a short turn, then supply a natural response."],
     ["交流ラウンジ", "Conversation lounge"],
     "sophie",
     ["ソフィー", "Sophie"]
   )),
-  entry$Q("n3", N3_N4_SLEEP_BRIDGE_PACKAGES[0], N3_N4_SLEEP_BRIDGE_PACKAGE_ID, metadata(
+  entry$P("n3", N3_N4_SLEEP_BRIDGE_PACKAGES[0], N3_N4_SLEEP_BRIDGE_PACKAGE_ID, metadata(
     ["夜の図書館", "The late library"],
     ["順序・両面・推測の強さを、聞いた資料文で区別します。", "Separate sequence, trade-offs, and inference strength in a source text."],
     ["夜の図書館", "Late library"],
     "rie",
     ["りえ先生", "Rie-sensei"]
   )),
-  entry$Q("n3", N3_PET_HOUSING_PACKAGES[0], N3_PET_HOUSING_PACKAGE_ID, metadata(
+  entry$P("n3", N3_PET_HOUSING_PACKAGES[0], N3_PET_HOUSING_PACKAGE_ID, metadata(
     ["住まいの相談", "Housing conversation"],
     ["理由・対比・起こりうる結果を、短い資料文から分けます。", "Separate reason, contrast, and possible consequence in a short source text."],
     ["カフェ", "Academy cafe"],
     "aakash",
     ["アーカッシュ", "Aakash"]
   )),
-  entry$Q("n2", N2_HOME_LIFE_OPENING_SEQUENCE[0], N2_APARTMENT_MOVING_PACKAGE_ID, metadata(
+  entry$P("n2", N2_HOME_LIFE_OPENING_SEQUENCE[0], N2_APARTMENT_MOVING_PACKAGE_ID, metadata(
     ["アパート探し", "Apartment search"],
     ["物件の条件と、引っ越しの行動を結び付けます。", "Connect property conditions with practical moving actions."],
     ["住まいのデスク", "Home desk"],
     "rie",
     ["りえ先生", "Rie-sensei"]
   )),
-  entry$Q("n2", N2_HOME_LIFE_OPENING_SEQUENCE[1], N2_PPOI_IMPRESSION_PACKAGE_ID, metadata(
+  entry$P("n2", N2_HOME_LIFE_OPENING_SEQUENCE[1], N2_PPOI_IMPRESSION_PACKAGE_ID, metadata(
     ["見学の印象", "The viewing impression"],
     ["客観的な条件と、見た印象の「〜っぽい」を分けます。", "Separate objective conditions from the impression expressed by -ppoi."],
     ["アパートの内見", "Apartment viewing"],
     "aakash",
     ["アーカッシュ", "Aakash"]
   )),
-  entry$Q("n2", N2_HOME_LIFE_OPENING_SEQUENCE[2], N2_MOVING_COUPON_PACKAGE_ID, metadata(
+  entry$P("n2", N2_HOME_LIFE_OPENING_SEQUENCE[2], N2_MOVING_COUPON_PACKAGE_ID, metadata(
     ["引っ越し用品の券", "Moving-supply coupon"],
     ["期限・対象・例外・使う順番を、実用文から取り出します。", "Retrieve deadlines, eligibility, exceptions, and order from a practical notice."],
     ["青葉生活店", "Aoba Living shop"],
     "mika",
     ["ミカ", "Mika"]
   )),
-  entry$Q("n2", N2_HOME_LIFE_OPENING_SEQUENCE[3], N2_HOME_LIFE_READER_PACKAGE_ID, metadata(
+  entry$P("n2", N2_HOME_LIFE_OPENING_SEQUENCE[3], N2_HOME_LIFE_READER_PACKAGE_ID, metadata(
     ["新しい部屋", "The new room"],
     ["知らない語で止まらず、物語の転換と決め手まで読みます。", "Keep moving through an unfamiliar text to its turn and deciding factor."],
     ["家の廊下", "Home hallway"],
     "rie",
     ["りえ先生", "Rie-sensei"]
   )),
-  entry$Q("n2", N2_HOME_LIFE_OPENING_SEQUENCE[4], N2_MOVING_PRIORITY_LISTENING_PACKAGE_ID, metadata(
+  entry$P("n2", N2_HOME_LIFE_OPENING_SEQUENCE[4], N2_MOVING_PRIORITY_LISTENING_PACKAGE_ID, metadata(
     ["更新された予定", "The updated plan"],
     ["済んだことと変更後の「まずすること」を聞き分けます。", "Distinguish completed tasks from the updated first action."],
     ["引っ越し前の家", "Home before the move"],
     "sophie",
     ["ソフィー", "Sophie"]
   )),
-  entry$Q("n2", N2_EXTENSIVE_READING_PACKAGES[0], N2_EXTENSIVE_READING_PACKAGE_ID, metadata(
+  entry$P("n2", N2_EXTENSIVE_READING_PACKAGES[0], N2_EXTENSIVE_READING_PACKAGE_ID, metadata(
     ["止まらない長文", "Keep moving"],
     ["細部で止まらず、長文の全体と限定までつかみます。", "Keep moving through a longer text and retain its qualification."],
     ["図書館", "Library"],
     "rie",
     ["りえ先生", "Rie-sensei"]
   )),
-  entry$Q("n2", N2_POLICY_SCOPE_PACKAGES[0], N2_POLICY_SCOPE_PACKAGE_ID, metadata(
+  entry$P("n2", N2_POLICY_SCOPE_PACKAGES[0], N2_POLICY_SCOPE_PACKAGE_ID, metadata(
     ["範囲を保つ", "Keep the scope"],
     ["理由・条件・目的を、本文が言う範囲のまま読みます。", "Read reason, condition, and purpose without widening the text’s scope."],
     ["地域センター", "Community centre"],
     "rie",
     ["りえ先生", "Rie-sensei"]
   )),
-  entry$Q("n1", N1_OPENING_SEQUENCE_PACKAGES[0], N1_OPENING_SEQUENCE_PACKAGE_ID, metadata(
+  entry$P("n1", N1_OPENING_SEQUENCE_PACKAGES[0], N1_OPENING_SEQUENCE_PACKAGE_ID, metadata(
     ["冷却センターの記録", "The cooling-centre record"],
     ["読解・文法・聴解をつなぎ、資料から慎重に判断します。", "Join reading, grammar, and listening to reason carefully from sources."],
     ["図書館", "Library"],
     "rie",
     ["りえ先生", "Rie-sensei"]
   )),
-  entry$Q("n1", N1_SOUND_DISCRIMINATION_PACKAGES[0], N1_SOUND_DISCRIMINATION_PACKAGE_ID, metadata(
+  entry$P("n1", N1_SOUND_DISCRIMINATION_PACKAGES[0], N1_SOUND_DISCRIMINATION_PACKAGE_ID, metadata(
     ["音の境界", "Sound boundaries"],
     ["似た音の拍と子音を、文脈の前に聞き分けます。", "Distinguish near-sound morae and consonants before using context."],
     ["音声ラボ", "Language lab"],
     "rie",
     ["りえ先生", "Rie-sensei"]
   )),
-  entry$Q("n1", N1_CONTRAST_INFERENCE_PACKAGES[0], N1_CONTRAST_INFERENCE_PACKAGE_ID, metadata(
+  entry$P("n1", N1_CONTRAST_INFERENCE_PACKAGES[0], N1_CONTRAST_INFERENCE_PACKAGE_ID, metadata(
     ["対比から推論する", "Contrast and inference"],
     ["対比の方向を追い、根拠を超えない要約を書きます。", "Track the contrast and write a summary that stays within the evidence."],
     ["水辺の図書館", "Waterfront library"],
     "rie",
     ["りえ先生", "Rie-sensei"]
   )),
-  entry$Q("n1", ADVANCED_IMMERSION_PACKAGES[0], "advanced-immersion-n3-n1-01", metadata(
+  entry$P("n1", ADVANCED_IMMERSION_PACKAGES[0], "advanced-immersion-n3-n1-01", metadata(
     ["根拠の境界", "The evidence boundary"],
     ["N3資料の聞き取りからN1転移文へ進み、根拠を越えない判断を保ちます。", "Move from N3 source listening into an N1 transfer passage without outrunning the evidence."],
     ["音声ラボ", "Language lab"],
@@ -27109,7 +27100,7 @@ function advancedPackageIdFromLessonId(lessonId) {
 function isAdvancedLessonId(lessonId) {
   return advancedPackageIdFromLessonId(lessonId) !== void 0;
 }
-function entry$Q(band, packageRecord2, packageId, metadata2) {
+function entry$P(band, packageRecord2, packageId, metadata2) {
   if (packageRecord2.id !== packageId) {
     throw new TypeError(`Advanced catalog package mismatch: ${packageRecord2.id} !== ${packageId}`);
   }
@@ -52535,27 +52526,6 @@ function academyRouteKind(route) {
 function isAcademyPresentationMode(value) {
   return value === "story" || value === "course";
 }
-const UNVERIFIED_DELIVERY = Object.freeze({
-  implementation: "unverified",
-  reachability: "unverified",
-  media: "unverified",
-  persistence: "unverified",
-  journeyProof: "unverified"
-});
-const VERIFIED_STANDALONE_ACTIVITY_DELIVERY = Object.freeze({
-  implementation: "verified",
-  reachability: "partial",
-  media: "partial",
-  persistence: "verified",
-  journeyProof: "partial"
-});
-const VERIFIED_DELIVERY = Object.freeze({
-  implementation: "verified",
-  reachability: "verified",
-  media: "verified",
-  persistence: "verified",
-  journeyProof: "verified"
-});
 function academyDayNumber(dayId) {
   const match = /^day:([1-9]\d*)$/.exec(dayId);
   if (!match) return void 0;
@@ -52584,531 +52554,6 @@ function worldPlaceAvailableOnAcademyDay(place2, dayNumber) {
 function worldPracticeAvailableOnAcademyDay(_place, practiceId, dayNumber) {
   return dayNumber > 1 || DAY_ONE_WORLD_PRACTICE_IDS.has(practiceId);
 }
-const DAY_ONE_LESSON_ACTIVITY_IDS = [
-  "activity:lesson-zero-greet-rie",
-  "activity:lesson-zero-vowel-listen",
-  "activity:lesson-zero-hiragana-bootcamp",
-  "activity:lesson-zero-vowel-doodle",
-  "activity:lesson-zero-follow-instructions",
-  "activity:lesson-zero-reconstruct-repair",
-  "activity:lesson-zero-name-card-draft",
-  "activity:lesson-zero-desk-language",
-  "activity:lesson-zero-build-sentence-frames",
-  "activity:lesson-zero-sound-input",
-  "activity:lesson-zero-text-input",
-  "activity:lesson-zero-speaking-input",
-  "activity:lesson-zero-read-name-cards",
-  "activity:lesson-zero-write-name-card",
-  "activity:lesson-zero-sound-transfer",
-  "activity:lesson-zero-text-transfer",
-  "activity:lesson-zero-speaking-transfer",
-  "activity:lesson-zero-written-transfer",
-  "activity:lesson-zero-close-room"
-];
-const DAY_ONE_LESSON_ACTIVITY_TITLES = {
-  "activity:lesson-zero-greet-rie": "Greet Rie and introduce yourself",
-  "activity:lesson-zero-vowel-listen": "Hear and identify the five vowel sounds",
-  "activity:lesson-zero-hiragana-bootcamp": "Read all 46 basic hiragana",
-  "activity:lesson-zero-vowel-doodle": "Write the five vowel kana",
-  "activity:lesson-zero-follow-instructions": "Follow Rie’s classroom instructions",
-  "activity:lesson-zero-reconstruct-repair": "Rebuild a request for repetition",
-  "activity:lesson-zero-desk-language": "Use the first desk-language worksheet",
-  "activity:lesson-zero-build-sentence-frames": "Build the first sentence frames",
-  "activity:lesson-zero-name-card-draft": "Put your name on the class card",
-  "activity:lesson-zero-sound-input": "Find two names by listening",
-  "activity:lesson-zero-text-input": "Repair a phrase by text",
-  "activity:lesson-zero-speaking-input": "Repair a phrase by speaking",
-  "activity:lesson-zero-read-name-cards": "Read the class name cards",
-  "activity:lesson-zero-write-name-card": "Finish your own name card",
-  "activity:lesson-zero-sound-transfer": "Use the sound repair in a new scene",
-  "activity:lesson-zero-text-transfer": "Use the text repair in a new scene",
-  "activity:lesson-zero-speaking-transfer": "Use the spoken repair in a new scene",
-  "activity:lesson-zero-written-transfer": "Use the written repair in a new scene",
-  "activity:lesson-zero-close-room": "Close the first classroom session"
-};
-const DAY_ONE_LESSON_ENTRY_IDS = {
-  "activity:lesson-zero-greet-rie": "day:1:lesson-zero:01",
-  "activity:lesson-zero-vowel-listen": "day:1:lesson-zero:02",
-  "activity:lesson-zero-hiragana-bootcamp": "day:1:lesson-zero:hiragana-bootcamp",
-  "activity:lesson-zero-vowel-doodle": "day:1:lesson-zero:03",
-  "activity:lesson-zero-follow-instructions": "day:1:lesson-zero:04",
-  "activity:lesson-zero-reconstruct-repair": "day:1:lesson-zero:05",
-  "activity:lesson-zero-desk-language": "day:1:lesson-zero:06",
-  "activity:lesson-zero-build-sentence-frames": "day:1:lesson-zero:07",
-  "activity:lesson-zero-name-card-draft": "day:1:lesson-zero:08",
-  "activity:lesson-zero-sound-input": "day:1:lesson-zero:09",
-  "activity:lesson-zero-text-input": "day:1:lesson-zero:10",
-  "activity:lesson-zero-speaking-input": "day:1:lesson-zero:11",
-  "activity:lesson-zero-read-name-cards": "day:1:lesson-zero:12",
-  "activity:lesson-zero-write-name-card": "day:1:lesson-zero:13",
-  "activity:lesson-zero-sound-transfer": "day:1:lesson-zero:14",
-  "activity:lesson-zero-text-transfer": "day:1:lesson-zero:15",
-  "activity:lesson-zero-speaking-transfer": "day:1:lesson-zero:16",
-  "activity:lesson-zero-written-transfer": "day:1:lesson-zero:17",
-  "activity:lesson-zero-close-room": "day:1:lesson-zero:18"
-};
-const DAY_ONE_VERIFIED_ACTIVITY_IDS = /* @__PURE__ */ new Set([
-  "activity:lesson-zero-vowel-listen",
-  "activity:lesson-zero-hiragana-bootcamp",
-  "activity:lesson-zero-vowel-doodle",
-  "activity:lesson-zero-follow-instructions",
-  "activity:lesson-zero-reconstruct-repair",
-  "activity:lesson-zero-name-card-draft",
-  "activity:lesson-zero-desk-language",
-  "activity:lesson-zero-build-sentence-frames",
-  "activity:lesson-zero-sound-input",
-  "activity:lesson-zero-text-input",
-  "activity:lesson-zero-speaking-input",
-  "activity:lesson-zero-read-name-cards",
-  "activity:lesson-zero-write-name-card",
-  "activity:lesson-zero-sound-transfer",
-  "activity:lesson-zero-text-transfer",
-  "activity:lesson-zero-speaking-transfer",
-  "activity:lesson-zero-written-transfer",
-  "activity:lesson-zero-close-room"
-]);
-const DAY_ONE_CLASSROOM_EXPRESSION_IDS = Object.freeze(
-  Array.from({ length: 14 }, (_, index) => `expression:classroom-${String(index + 1).padStart(2, "0")}`)
-);
-function entry$P(id2, title2, category, modes, route, contentIds, media, persistenceEvidence, journeyEvidence, prerequisites2 = [], delivery = UNVERIFIED_DELIVERY) {
-  return Object.freeze({
-    id: id2,
-    dayId: "day:1",
-    title: title2,
-    category,
-    modes: Object.freeze([...modes]),
-    route: Object.freeze({ ...route }),
-    prerequisites: Object.freeze([...prerequisites2]),
-    contentIds: Object.freeze([...contentIds]),
-    media: Object.freeze({ ...media }),
-    persistenceEvidence,
-    journeyEvidence,
-    delivery: Object.freeze({ ...delivery })
-  });
-}
-[
-  entry$P(
-    "day:1:access",
-    "Enter with a class code",
-    "enrollment",
-    ["required", "online"],
-    { route: "access" },
-    ["route:access"],
-    { audio: "none", visual: "ui" },
-    "Invite session survives the route transition.",
-    "Clean browser reaches the profile/account fork.",
-    [],
-    VERIFIED_DELIVERY
-  ),
-  entry$P(
-    "day:1:account-link",
-    "Link or resume an Academy account",
-    "account",
-    ["optional", "online", "revisitable"],
-    { route: "profile-sync" },
-    ["route:profile-sync"],
-    { audio: "none", visual: "ui" },
-    "Linked identity, encrypted profile, devices, and sync status persist.",
-    "Link, refresh, sign-out, resume, export, and delete are browser-proved.",
-    [],
-    VERIFIED_DELIVERY
-  ),
-  entry$P(
-    "day:1:offline-entry",
-    "Resume the downloaded welcome while offline",
-    "offline",
-    ["optional", "offline", "revisitable"],
-    { route: "access" },
-    ["academy-shell", "offline-cache"],
-    { audio: "none", visual: "ui" },
-    "Checkpoint and queued evidence survive an offline restart.",
-    "Installed build opens and explains unavailable network actions without a dead end.",
-    [],
-    VERIFIED_DELIVERY
-  ),
-  entry$P(
-    "day:1:profile",
-    "Create the learner identity",
-    "enrollment",
-    ["required", "one-off"],
-    { route: "profile" },
-    ["route:profile"],
-    { audio: "none", visual: "ui" },
-    "Learner name, language, and reason are recorded.",
-    "Profile continues to the first Rie scene and restores on reload.",
-    [],
-    VERIFIED_DELIVERY
-  ),
-  entry$P(
-    "day:1:rie-introduction",
-    "Meet Rie-sensei",
-    "one-off",
-    ["required", "one-off"],
-    { route: "rie-unlock" },
-    ["route:rie-unlock", "character:rie"],
-    { audio: "voice", visual: "cast" },
-    "First introduction is recorded once.",
-    "Rie appears, speaks, and does not replay after completion unless chosen from the journal.",
-    [],
-    VERIFIED_DELIVERY
-  ),
-  entry$P(
-    "day:1:start-choice",
-    "Choose the starting path",
-    "enrollment",
-    ["required"],
-    { route: "start" },
-    ["route:start"],
-    { audio: "music-ambience-sfx", visual: "ui" },
-    "Curriculum entry choice is recorded.",
-    "Lesson Zero, manual band, and placement branches each return to a valid route.",
-    [],
-    VERIFIED_DELIVERY
-  ),
-  entry$P(
-    "day:1:manual-band",
-    "Choose a known starting level",
-    "enrollment",
-    ["optional", "revisitable"],
-    { route: "manual-band" },
-    ["route:manual-band"],
-    { audio: "music-ambience-sfx", visual: "ui" },
-    "Selected band persists.",
-    "Every band opens its intended arrival bridge without exposing future Day 1 work.",
-    [],
-    VERIFIED_DELIVERY
-  ),
-  entry$P(
-    "day:1:placement",
-    "Try the placement path",
-    "enrollment",
-    ["optional", "revisitable"],
-    { route: "placement-mock" },
-    ["route:placement-mock", "route:placement-result"],
-    { audio: "learning-audio", visual: "interactive" },
-    "Placement draft and accepted result persist.",
-    "Listening, writing, speaking alternative, result, accept, and override paths are proved.",
-    [],
-    VERIFIED_DELIVERY
-  )
-];
-[
-  entry$P(
-    "day:1:arrival",
-    "Arrive at the Academy",
-    "story",
-    ["required", "revisitable"],
-    { route: "arrival-bridge" },
-    ["opening-arrival-bridge"],
-    { audio: "voice", visual: "scene" },
-    "Arrival completion and return cursor persist.",
-    "The route enters the courtyard without a teleport, duplicate onboarding, or lost Back path.",
-    [],
-    VERIFIED_DELIVERY
-  ),
-  entry$P(
-    "day:1:blank-atlas",
-    "Complete Chapter 1: The Blank Atlas",
-    "story",
-    ["required", "revisitable"],
-    { route: "story", context: { sectionId: "s1e01-the-blank-atlas" } },
-    ["s1e01-the-blank-atlas"],
-    { audio: "voice", visual: "scene" },
-    "Scene, encounter, activity, and story cursor evidence persist.",
-    "All story moments, lesson handoffs, choices, repairs, voice, and return routes are proved.",
-    [],
-    VERIFIED_DELIVERY
-  )
-];
-DAY_ONE_LESSON_ACTIVITY_IDS.map((activityId) => entry$P(
-  DAY_ONE_LESSON_ENTRY_IDS[activityId],
-  DAY_ONE_LESSON_ACTIVITY_TITLES[activityId],
-  "lesson",
-  ["required", "revisitable"],
-  { route: "source-activity", context: { lessonId: "lesson:foundation-00", activityId } },
-  [activityId],
-  { audio: "learning-audio", visual: "interactive" },
-  `Attempt, support, and completion evidence persist for ${activityId}.`,
-  `The story handoff, direct resume, repair, and return path are proved for ${activityId}.`,
-  [],
-  DAY_ONE_VERIFIED_ACTIVITY_IDS.has(activityId) ? VERIFIED_DELIVERY : activityId === "activity:lesson-zero-greet-rie" ? VERIFIED_DELIVERY : activityId === "activity:lesson-zero-vowel-doodle" || activityId === "activity:lesson-zero-follow-instructions" || activityId === "activity:lesson-zero-reconstruct-repair" ? VERIFIED_STANDALONE_ACTIVITY_DELIVERY : UNVERIFIED_DELIVERY
-));
-[
-  entry$P(
-    "day:1:classroom-expressions",
-    "Use all fourteen classroom expressions",
-    "lesson",
-    ["required", "revisitable"],
-    { route: "source-activity", context: { lessonId: "lesson:foundation-00", activityId: "activity:lesson-zero-follow-instructions" } },
-    ["session:lesson-zero-classroom-expressions", ...DAY_ONE_CLASSROOM_EXPRESSION_IDS],
-    { audio: "learning-audio", visual: "interactive" },
-    "All seventeen constructed-response probes, repairs, and review seeds persist.",
-    "All fourteen expressions are taught before assessment, passable, resumable, and reachable from story and lesson views."
-  ),
-  entry$P(
-    "day:1:vowel-dictation",
-    "Hear and write the five first vowels",
-    "lesson",
-    ["required", "repeatable"],
-    { route: "source-activity", context: { lessonId: "lesson:foundation-00", activityId: "activity:lesson-zero-vowel-dictation" } },
-    ["activity:lesson-zero-vowel-dictation"],
-    { audio: "learning-audio", visual: "interactive" },
-    "Sound-to-kana attempts and review seeds persist.",
-    "A clean learner can listen, commit, repair, retry, and pass without seeing the answer first."
-  )
-];
-[
-  entry$P(
-    "day:1:game:sound-gate",
-    "First-sound gate",
-    "minigame",
-    ["required", "repeatable"],
-    { route: "source-activity", context: { lessonId: "lesson:foundation-00", activityId: "activity:lesson-zero-first-repair:sound" } },
-    ["activity:lesson-zero-first-repair:sound"],
-    { audio: "learning-audio", visual: "interactive" },
-    "Recognition and repair evidence feed review.",
-    "The gate teaches before testing and supports touch, keyboard, replay, and retry."
-  ),
-  entry$P(
-    "day:1:game:vowel-bingo",
-    "Vowel listening bingo",
-    "minigame",
-    ["optional", "repeatable"],
-    { route: "source-activity", context: { lessonId: "lesson:foundation-00", activityId: "activity:lesson-zero-vowel-listen" } },
-    ["game:lesson-zero-vowel-listening-bingo"],
-    { audio: "learning-audio", visual: "interactive" },
-    "Each heard choice and confusion pair can seed review.",
-    "A full randomized board is playable with deterministic audio and no answer-first cue.",
-    [],
-    VERIFIED_DELIVERY
-  ),
-  entry$P(
-    "day:1:game:kana-trace",
-    "Trace the first kana",
-    "minigame",
-    ["required", "repeatable"],
-    { route: "writing-practice", context: { lessonId: "lesson:foundation-00", activityId: "activity:lesson-zero-kanji-one" } },
-    ["activity:lesson-zero-kanji-one", "cue:kana-trace-one-stroke"],
-    { audio: "music-ambience-sfx", visual: "interactive" },
-    "Stroke attempt and completion evidence persist.",
-    "Pointer, touch, reduced-motion, and non-drawing alternatives are proved."
-  ),
-  entry$P(
-    "day:1:game:name-card",
-    "Make and read a name card",
-    "minigame",
-    ["required", "revisitable"],
-    { route: "source-activity", context: { lessonId: "lesson:foundation-00", activityId: "activity:lesson-zero-name-card-draft" } },
-    ["activity:lesson-zero-name-card-draft", "activity:lesson-zero-read-name-cards", "activity:lesson-zero-write-name-card"],
-    { audio: "voice", visual: "interactive" },
-    "Draft, reading, writing, and learner identity evidence persist.",
-    "The card is made in context, remains legible, enters the story, and can be revisited."
-  ),
-  entry$P(
-    "day:1:game:classroom-command",
-    "Respond to classroom commands",
-    "minigame",
-    ["required", "repeatable"],
-    { route: "source-activity", context: { lessonId: "lesson:foundation-00", activityId: "activity:lesson-zero-follow-instructions" } },
-    ["game:lesson-zero-classroom-command-response"],
-    { audio: "learning-audio", visual: "interactive" },
-    "Command-response accuracy and repair evidence persist.",
-    "Listening, action, repair, SRS consequence, keyboard, and touch paths are proved."
-  ),
-  entry$P(
-    "day:1:game:living-worksheet",
-    "Complete the living worksheet",
-    "minigame",
-    ["required", "revisitable"],
-    { route: "source-activity", context: { lessonId: "lesson:foundation-00", activityId: "activity:lesson-zero-desk-language" } },
-    ["game:lesson-zero-living-worksheet"],
-    { audio: "learning-audio", visual: "interactive" },
-    "Every committed field, correction, and review seed persists.",
-    "The worksheet explains its purpose, fits mobile and desktop, and returns its answers to story and review."
-  )
-];
-[
-  entry$P(
-    "day:1:world:courtyard",
-    "Explore the courtyard and its notice",
-    "world",
-    ["required", "revisitable"],
-    { route: "campus" },
-    ["place:courtyard", "courtyard-notice-look", "courtyard-notice-write"],
-    { audio: "music-ambience-sfx", visual: "scene" },
-    "First arrival, notice practice, prop, and revisit count persist.",
-    "Arrival, two practices, journal entry, travel, Back, audio, and reduced-motion paths are proved."
-  ),
-  entry$P(
-    "day:1:world:classroom",
-    "Enter the classroom",
-    "world",
-    ["required", "revisitable"],
-    { route: "classroom", context: { lessonId: "lesson:foundation-00" } },
-    ["place:classroom", "classroom-board-understanding", "classroom-board-confirmation"],
-    { audio: "music-ambience-sfx", visual: "scene" },
-    "Arrival, board practices, cast presence, prop, and revisit state persist.",
-    "Classroom arrival, lesson launch, two practices, cast, audio, travel, and return are proved."
-  ),
-  entry$P(
-    "day:1:world:library-threshold",
-    "Discover the library and review desk",
-    "exploration",
-    ["optional", "revisitable"],
-    { route: "review", context: { lessonId: "lesson:foundation-00" } },
-    ["place:library", "introduction:library"],
-    { audio: "music-ambience-sfx", visual: "scene" },
-    "First visit and study state persist without exposing later grammar.",
-    "The threshold, explanation, vocabulary sheet, empty/due states, and return path are proved."
-  ),
-  entry$P(
-    "day:1:world:home",
-    "Return home for the first evening",
-    "evening",
-    ["required", "revisitable"],
-    { route: "home" },
-    ["place:home", "day:1:train-home-transition"],
-    { audio: "music-ambience-sfx", visual: "scene" },
-    "Home arrival, evening cursor, journal, and return state persist.",
-    "The transition is narrated, not a teleport, and no later home grammar is exposed."
-  ),
-  entry$P(
-    "day:1:prop:campus-bell",
-    "Listen to the courtyard soundscape",
-    "prop",
-    ["optional", "repeatable", "accessibility"],
-    { route: "campus" },
-    ["courtyard-bell"],
-    { audio: "music-ambience-sfx", visual: "ui" },
-    "Audio preference persists globally.",
-    "The control has a continuing purpose, clear label, keyboard support, and settings parity."
-  ),
-  entry$P(
-    "day:1:prop:blackboard",
-    "Inspect the classroom board",
-    "prop",
-    ["required", "revisitable"],
-    { route: "classroom", context: { lessonId: "lesson:foundation-00" } },
-    ["item.classroom-belongings", "classroom-blackboard"],
-    { audio: "music-ambience-sfx", visual: "interactive" },
-    "Board interaction and earned note persist.",
-    "Board text, paper controls, cast, pitch marks, and launch controls never overlap."
-  )
-];
-[
-  entry$P(
-    "day:1:social:class-ensemble",
-    "Meet the Day 1 class ensemble",
-    "social",
-    ["required", "revisitable"],
-    { route: "story", context: { sectionId: "s1e01-the-blank-atlas" } },
-    ["rie", "xingyu", "mika", "sophie", "ruparna", "aakash", "sam"],
-    { audio: "voice", visual: "cast" },
-    "Encounter and first relationship evidence persist per character.",
-    "Every required person has a portrait, line, action, correct identity, optional talk, and journal revisit."
-  ),
-  entry$P(
-    "day:1:bond:first-conversations",
-    "Choose first optional conversations",
-    "bond",
-    ["optional", "one-off", "revisitable"],
-    { route: "story", context: { sectionId: "s1e01-the-blank-atlas" } },
-    ["bond:day1:rie", "bond:day1:xingyu", "bond:day1:mika", "bond:day1:sophie", "bond:day1:ruparna", "bond:day1:aakash", "bond:day1:sam"],
-    { audio: "voice", visual: "cast" },
-    "Choice, relationship evidence, and replay availability persist.",
-    "Each conversation has a bespoke action, natural dialogue, consequence, and safe replay path."
-  ),
-  entry$P(
-    "day:1:study:seed",
-    "Save today's first review items",
-    "study",
-    ["required"],
-    { route: "review", context: { lessonId: "lesson:foundation-00" } },
-    ["review:day1:lesson-zero"],
-    { audio: "learning-audio", visual: "interactive" },
-    "Every taught item has one canonical review identity and schedule.",
-    "Lesson, story, world, and game errors produce deduplicated review items."
-  ),
-  entry$P(
-    "day:1:review:first-session",
-    "Try the first spaced review",
-    "review",
-    ["optional", "repeatable", "revisitable"],
-    { route: "review", context: { lessonId: "lesson:foundation-00" } },
-    ["study:day1:first-session"],
-    { audio: "learning-audio", visual: "interactive" },
-    "Ratings, due times, vocabulary status, and undo persist and sync.",
-    "New, due, empty, offline, and resumed sessions are proved with pronunciation and keyboard/touch controls."
-  ),
-  entry$P(
-    "day:1:wiki:discoveries",
-    "Open Day 1 discoveries",
-    "wiki",
-    ["optional", "revisitable"],
-    { route: "journal" },
-    ["wiki:rie", "wiki:learner", "wiki:academy", "wiki:courtyard", "wiki:classroom", "wiki:blank-atlas", "wiki:kana", "wiki:mora", "wiki:pitch", "wiki:classroom-phrases"],
-    { audio: "none", visual: "ui" },
-    "Discovery state and spoiler boundary persist.",
-    "Every entry unlocks in context, links back to its scene or lesson, and works in the main app route."
-  )
-];
-[
-  entry$P(
-    "day:1:accessibility:reading",
-    "Control reading support",
-    "accessibility",
-    ["accessibility", "revisitable"],
-    { route: "story", context: { sectionId: "s1e01-the-blank-atlas" } },
-    ["setting:furigana", "setting:reading-support", "setting:english-reveal"],
-    { audio: "none", visual: "ui" },
-    "Learner-controlled support choices persist.",
-    "Furigana, reading, meaning, transcript, and model-answer timing are proved on phone and desktop."
-  ),
-  entry$P(
-    "day:1:accessibility:input",
-    "Use accessible input alternatives",
-    "accessibility",
-    ["accessibility", "revisitable"],
-    { route: "lesson-overview", context: { lessonId: "lesson:foundation-00" } },
-    ["input:keyboard", "input:touch", "input:no-microphone", "input:no-drawing"],
-    { audio: "learning-audio", visual: "interactive" },
-    "Chosen input alternatives and pending work persist.",
-    "All required tasks remain completable without microphone, pointer precision, motion, or sound-only information."
-  ),
-  entry$P(
-    "day:1:accessibility:motion-audio",
-    "Use motion and audio preferences",
-    "accessibility",
-    ["accessibility", "revisitable"],
-    { route: "campus" },
-    ["setting:reduced-motion", "setting:audio", "setting:captions"],
-    { audio: "music-ambience-sfx", visual: "ui" },
-    "Preferences persist across Academy and Reader surfaces.",
-    "Reduced motion, mute, captions, focus order, contrast, and screen-reader names are journey-proved."
-  ),
-  entry$P(
-    "day:1:journal",
-    "Revisit today in the class journal",
-    "evening",
-    ["required", "revisitable"],
-    { route: "journal" },
-    ["route:journal", "replay:rie-opening", "replay:aakash-memory"],
-    { audio: "voice", visual: "interactive" },
-    "People, scenes, lines, discoveries, and replay links persist.",
-    "The journal shows only earned Day 1 material and every replay returns to the same evening state."
-  ),
-  entry$P(
-    "day:1:day-end",
-    "Close the first evening",
-    "evening",
-    ["required", "one-off"],
-    { route: "day-end" },
-    ["day:1:closure"],
-    { audio: "voice", visual: "scene" },
-    "A single day:1 closure event records completed optional activities and elapsed time.",
-    "Clean, returning, online, and offline journeys close without losing any activity evidence."
-  )
-];
 const OPEN = { state: "open" };
 function locked(ja, en) {
   return () => ({ state: "locked", reason: { ja, en } });
@@ -264777,7 +264222,7 @@ function padClockPart(value) {
 const DEFAULT_ACADEMY_STUDY_DURATION_MS = DEFAULT_STUDY_DURATION_MS;
 class StudyRuntimeLoadFailure extends Error {
 }
-function createCanonicalAcademyStudyModule(loadRuntime = () => import("./runtime-7j_GM6zt.js")) {
+function createCanonicalAcademyStudyModule(loadRuntime = () => import("./runtime-BqzRUN4n.js")) {
   return {
     async mount(host2, context2) {
       let runtime;
