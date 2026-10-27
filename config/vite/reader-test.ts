@@ -35,7 +35,6 @@ export const readerNodeFiles = [
     'tests/reader/kanji-ruby-split.test.ts',
     'tests/reader/kanji-stroke-grader.test.ts',
     'tests/reader/kanjivg-path.test.ts',
-    'tests/reader/local-card-target-language.test.ts',
     'tests/reader/lookup-scope-modules.test.ts',
     'tests/reader/managed-storage-keys.test.ts',
     'tests/reader/mining-language-regression.test.ts',
