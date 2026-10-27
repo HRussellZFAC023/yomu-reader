@@ -26,3 +26,15 @@ test('idempotent template writers cache canonical bytes and reject mutations to 
     await assert.rejects(runner.run(bad), /input changed during execution/);
     assert.equal(runner.cache.hit(bad.name, badKey, bad.outputs), false);
 });
+
+test('a successful compiler cannot cache a pass if a concurrent writer changes its inputs', async t => {
+    const root = mkdtempSync(join(tmpdir(), 'yomu-stable-reader-'));
+    t.after(() => rmSync(root, { recursive: true, force: true }));
+    execFileSync('git', ['init'], { cwd: root, stdio: 'pipe' });
+    writeFileSync(join(root, 'source.ts'), 'export const value = 1;');
+    const runner = new StageRunner(root);
+    const stage = { name: 'compiler', command: `node -e "require('node:fs').writeFileSync('source.ts','export const value = 2;')"`, inputs: ['source.ts'], stableInputs: true };
+    const key = runner.key(stage);
+    await assert.rejects(runner.run(stage), /inputs changed during execution/);
+    assert.equal(runner.cache.hit(stage.name, key), false);
+});

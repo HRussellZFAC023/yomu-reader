@@ -35,6 +35,7 @@ export class StageRunner {
     async run(stage) {
         const start = performance.now();
         const key = stage.uncached ? null : this.key(stage);
+        const stableKey = stage.stableInputs ? key ?? this.key(stage) : null;
         const patterns = [...cacheImplementation, ...stage.inputs];
         const before = stage.canonicalizesOutputs ? selectInputs(this.snapshot, patterns) : null;
         const finalKey = before ? () => {
@@ -48,8 +49,15 @@ export class StageRunner {
             // Cache its canonical input/output pair, never edits to other inputs.
             return this.key(stage);
         } : undefined;
-        const result = stage.uncached ? (await this.execute(stage), { cached: false })
-            : await this.cache.run({ ...stage, key, finalKey }, () => this.execute(stage));
+        const execute = async () => {
+            await this.execute(stage);
+            if (stableKey) {
+                this.refresh();
+                if (this.key(stage) !== stableKey) throw new Error(`${stage.name}: inputs changed during execution; no pass cached`);
+            }
+        };
+        const result = stage.uncached ? (await execute(), { cached: false })
+            : await this.cache.run({ ...stage, key, finalKey }, execute);
         const seconds = (performance.now() - start) / 1000;
         this.timings.push({ name: stage.name, seconds, cached: result.cached });
         console.log(`[${this.prefix}] ${result.cached ? 'cached' : 'pass  '} ${stage.name} (${seconds.toFixed(2)}s)`);

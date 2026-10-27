@@ -12,6 +12,7 @@ import { captureRetentionInputs } from './lib/content-addressed-retention.mjs';
 import { buildDocs } from './run-docs-build.mjs';
 import { artifactDrift, describeArtifactDrift, hasUncommittedSourceEdits } from './lib/artifact-drift.mjs';
 import { offLockfilePackages } from './lib/dependency-tree-drift.mjs';
+import { workerBudget } from './lib/test-workers.mjs';
 
 const ROOT = join(import.meta.dirname, '..');
 const LOG_DIR = join(ROOT, 'artifacts/check-logs');
@@ -80,19 +81,25 @@ const build = (async () => {
         env: ['YOMU_CHECK_RELEASE', 'YOMU_SYNC_ACADEMY_FORCE', 'YOMU_ACADEMY_OUTPUT_DIR', 'YOMU_ACADEMY_BUILD_DIR'],
     });
 })();
-// Bound the heavy lanes on the shared Mac and the 4-core/16-GiB release VM.
-// Builds retain their internal parallelism; no compiler/full suite/docs test
-// competes with another heavy gate stage. Keys see finished writer outputs.
+// Five build processes plus four memory slots for tsc's larger heap. Small
+// machines, explicit lower budgets and forced/release checks stay sequential.
+const localBudget = Number(process.env.YOMU_CI_MAX_WORKERS ?? process.env.VITEST_MAX_FORKS) || workerBudget();
+const overlapCompiler = !releaseCheck && !options.noCache && localBudget >= 9;
 const typecheck = (async () => {
-    await build;
+    if (!overlapCompiler) await build;
     runner.refresh();
     const inputs = compilerInputs = typecheckInputs(ROOT);
-    await run('typecheck', 'npm run -s typecheck', inputs, { diskInputs: inputs });
+    await run('typecheck', 'npm run -s typecheck', inputs, {
+        diskInputs: inputs, stableInputs: true, extra: ROOT,
+        // A cache hit must also prime the compiler for the matching source
+        // state, rather than leave incremental state from an undone edit.
+        outputs: ['artifacts/typecheck/tsconfig.tsbuildinfo'], restoreOutputs: true,
+    });
 })();
 const tests = (async () => {
     // Readers inspect shipped bytes through fs. Plan/key them after writers,
     // never against an old snapshot while build/sync replace their inputs.
-    await typecheck;
+    await Promise.all([typecheck, build]);
     const readerPlan = await planTests('reader');
     const academyPlan = await planTests('academy');
     if (!releaseCheck && !readerPlan.full && !academyPlan.full) {
