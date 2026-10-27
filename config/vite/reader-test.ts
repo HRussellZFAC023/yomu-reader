@@ -59,6 +59,7 @@ export const readerNodeFiles = [
     'tests/reader/private-host.test.ts',
     'tests/reader/public-proxy-worker.test.ts',
     'tests/reader/radial-menu-layout.test.ts',
+    'tests/reader/release-workflows.test.ts',
     'tests/reader/settings-file-io.test.ts',
     'tests/reader/site-library-filters.test.ts',
     'tests/reader/speaking-score.test.ts',
