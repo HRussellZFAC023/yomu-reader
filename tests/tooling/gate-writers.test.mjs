@@ -6,6 +6,7 @@ import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'nod
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { StageRunner } from '../../scripts/lib/stage-runner.mjs';
+import { hostedSyncSourceInputs, toolingStageContract } from '../../scripts/lib/gate-inputs.mjs';
 
 const require = createRequire(import.meta.url);
 const ts = require('typescript');
@@ -72,4 +73,48 @@ test('sync restore declarations preserve an edited hand-maintained icon', async 
     await runner.run(stage);
     assert.equal(runner.timings.at(-1).cached, true);
     assert.equal(readFileSync(icon, 'utf8'), 'new icon');
+});
+
+test('hosted sync discovers new runtime edges and keys their bytes without rebuilding for unrelated source', t => {
+    const { root, runner } = fixture(t);
+    for (const dir of ['core', 'settings', 'app']) mkdirSync(join(root, 'src/reader', dir), { recursive: true });
+    const boot = join(root, 'src/reader/core/hosted-appearance-boot.ts');
+    writeFileSync(boot, 'export const boot = 1;');
+    writeFileSync(join(root, 'src/reader/settings/hosted-appearance-settings.ts'), 'export const settings = 1;');
+    writeFileSync(join(root, 'src/reader/app/site-nav.ts'), 'export const nav = 1;');
+    const key = () => {
+        runner.refresh();
+        const inputs = hostedSyncSourceInputs(root);
+        return runner.key({ name: 'sync', command: 'true', inputs, diskInputs: inputs });
+    };
+    const before = key();
+    writeFileSync(join(root, 'src/reader/core/unrelated.ts'), 'export const other = 1;');
+    assert.equal(key(), before);
+    writeFileSync(boot, "export { other } from './unrelated';");
+    assert.ok(hostedSyncSourceInputs(root).includes('src/reader/core/unrelated.ts'));
+    const linked = key();
+    assert.notEqual(linked, before);
+    writeFileSync(join(root, 'src/reader/core/unrelated.ts'), 'export const other = 2;');
+    assert.notEqual(key(), linked);
+});
+
+test('tooling cache observes repository and compiler membership plus test bytes', t => {
+    const { root, runner } = fixture(t);
+    mkdirSync(join(root, 'src'));
+    mkdirSync(join(root, 'tests'));
+    const product = join(root, 'src/product.ts');
+    writeFileSync(product, 'export const value = 1;');
+    const key = (compiler = ['src/product.ts']) => {
+        runner.refresh();
+        return runner.key({ name: 'tooling', command: 'true', ...toolingStageContract(runner.snapshot, compiler) });
+    };
+    const before = key();
+    writeFileSync(product, 'export const value = 2;');
+    assert.equal(key(), before);
+    assert.notEqual(key(['src/product.ts', 'public/data.json']), before);
+    writeFileSync(join(root, 'src/new.ts'), 'export const added = 1;');
+    const added = key();
+    assert.notEqual(added, before);
+    writeFileSync(join(root, 'tests/a.test.ts'), "it('path', () => read('src/new.ts')); ");
+    assert.notEqual(key(), added);
 });

@@ -6,6 +6,7 @@ import { StageRunner, buildEnv, testEnvironment, cacheOptions } from './lib/stag
 import { git, stageKey } from './lib/stage-cache.mjs';
 import { testPlan, testInputs } from './lib/affected-tests.mjs';
 import { typecheckInputs } from './lib/typecheck-inputs.mjs';
+import { hostedSyncSourceInputs, toolingStageContract } from './lib/gate-inputs.mjs';
 import { selectAffectedTests } from './lib/test-selection.mjs';
 import { captureRetentionInputs } from './lib/content-addressed-retention.mjs';
 import { buildDocs } from './run-docs-build.mjs';
@@ -28,6 +29,8 @@ const all = ['**', '!docs/.vitepress/dist/**', '!docs/.vitepress/cache/**', '!do
 const source = ['src/**', 'tests/**', 'workers/**', 'config/**', '!config/ci/content-addressed-retention.json', 'scripts/**', 'vite.config.ts', 'tsconfig*.json'];
 const buildInputs = ['src/**', 'public/**', 'config/**', '!config/ci/content-addressed-retention.json', 'scripts/**', '!scripts/fixtures/**', 'vite.config.ts', 'tsconfig*.json'];
 const testEnv = [...testEnvironment, 'VITEST_MAX_FORKS', 'YOMU_VITEST_FORK_HEAP_MB', 'YOMU_CHECK_RELEASE', 'YOMU_CI_MAX_WORKERS', 'YOMU_CI_SHARDED', 'YOMU_CI_TEST_TIMEOUT_MS'];
+const syncSources = hostedSyncSourceInputs(ROOT);
+let compilerInputs;
 const retention = captureRetentionInputs(ROOT);
 writeFileSync(join(LOG_DIR, 'retention-inputs.json'), JSON.stringify(retention));
 const history = [
@@ -62,11 +65,11 @@ const build = (async () => {
         outputs: ['dist/**', '!dist/academy/**', '!dist/newtab/index.html', '!dist/newtab/sw.js', '!dist/newtab/version.json', '!dist/newtab/manifest.webmanifest'],
     });
     runner.refresh();
-    const sync = run('sync-docs-userscript', 'node scripts/sync-docs-userscript.cjs', [...source, 'docs/public/pdf-reader/**', 'docs/public/video-player/**', 'docs/public/hosted-reader-worker.js'], {
-        extra: [runner.key(stage('build-inputs', 'npm run -s build', buildInputs, { env: buildEnv })), history],
+    const sync = run('sync-docs-userscript', 'node scripts/sync-docs-userscript.cjs', [...syncSources, 'public/newtab/**', 'scripts/**', 'config/**', '!config/ci/content-addressed-retention.json', 'tsconfig*.json', 'docs/public/pdf-reader/**', 'docs/public/video-player/**', 'docs/public/hosted-reader-worker.js'], {
+        extra: history,
         canonicalizesOutputs: true,
         restoreOutputs: true,
-        diskInputs: ['dist/yomu.user.js', 'dist/yomu.css', 'dist/greasyfork/**', 'dist/newtab/app.js', 'dist/newtab/styles.css'],
+        diskInputs: [...syncSources, 'dist/yomu.user.js', 'dist/yomu.css', 'dist/greasyfork/**', 'dist/newtab/app.js', 'dist/newtab/styles.css'],
         outputs: ['config/ci/content-addressed-retention.json', 'dist/newtab/index.html', 'dist/newtab/sw.js', 'dist/newtab/version.json', 'dist/newtab/manifest.webmanifest', 'docs/public/yomu.user.js', 'docs/public/yomu.css', 'docs/public/yomu.*.css', 'docs/public/greasyfork/**', 'docs/public/study/**', 'docs/public/newtab/**', 'docs/public/hosted-runtime-graph.js', 'docs/public/hosted-appearance-settings.js', 'docs/public/pdf-reader/index.html', 'docs/public/pdf-reader/sw.js', 'docs/public/video-player/index.html', 'docs/public/video-player/sw.js'],
     });
     await sync;
@@ -83,7 +86,7 @@ const build = (async () => {
 const typecheck = (async () => {
     await build;
     runner.refresh();
-    const inputs = typecheckInputs(ROOT);
+    const inputs = compilerInputs = typecheckInputs(ROOT);
     await run('typecheck', 'npm run -s typecheck', inputs, { diskInputs: inputs });
 })();
 const tests = (async () => {
@@ -107,7 +110,8 @@ const diagnostics = (async () => {
     await tests;
     runner.refresh();
     await run('test-workers', 'npm run -s test:workers', testInputs, { test: true, env: testEnv, diskInputs: ['dist/**', 'docs/public/**'] });
-    await run('tooling-tests', 'node --test --test-concurrency=1 tests/tooling/*.test.mjs', all, { test: true });
+    const tooling = toolingStageContract(runner.snapshot, compilerInputs);
+    await run('tooling-tests', 'node --test --test-concurrency=1 tests/tooling/*.test.mjs', tooling.inputs, { test: true, extra: tooling.extra });
     await run('complexity-ratchet', 'node scripts/complexity-audit.mjs', source, { env: ['YOMU_COMPLEXITY_MAX'] });
     await run('file-size-ratchet', 'node scripts/file-size-audit.mjs', source, { env: ['YOMU_FILE_SIZE_THRESHOLD'] });
     await run('dead-code-ratchet', 'npm run -s quality:dead-code', all);
