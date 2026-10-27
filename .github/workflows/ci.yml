@@ -175,6 +175,8 @@ jobs:
       - run: npm ci
       - name: Install layout smoke browsers
         uses: ./.github/actions/playwright-browsers
+      # smoke:ignored-words serves the built Study app from dist/newtab.
+      - run: npm run build
       - run: npm run smoke:layout-regressions
         env:
           YOMU_PLAYWRIGHT_CHANNEL: chrome
