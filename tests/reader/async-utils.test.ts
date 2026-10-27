@@ -1,6 +1,10 @@
 import { describe, expect, it, vi } from 'vitest';
 
 import { ConcurrencyGate, mapLimited, promiseWithTimeout, runLimited } from '../../src/reader/core/async-utils';
+import { BoundedMap } from "../../src/reader/core/bounded-map";
+import { pruneOldestCacheEntries } from "../../src/reader/core/cache-utils";
+import { afterEach, beforeEach } from "vitest";
+import { attempt, attemptAsync, attemptVoid, parseJson, setAttemptRecorder } from "../../src/reader/core/attempt";
 
 async function measureMaxConcurrentWorkers<T>(items: T[], concurrency: number): Promise<number> {
     let active = 0;
@@ -135,5 +139,175 @@ describe('promiseWithTimeout', () => {
         await promiseWithTimeout(Promise.resolve('done'), 1000, 'late');
         expect(clearSpy).toHaveBeenCalled();
         clearSpy.mockRestore();
+    });
+});
+
+describe('BoundedMap', () => {
+    it('behaves like a Map below the limit', () => {
+        const map = new BoundedMap<string, number>(3);
+        map.set('a', 1).set('b', 2);
+        expect(map.size).toBe(2);
+        expect(map.get('a')).toBe(1);
+        expect(map.has('b')).toBe(true);
+    });
+
+    it('evicts the oldest inserted key when it exceeds the limit', () => {
+        const map = new BoundedMap<string, number>(2);
+        map.set('a', 1);
+        map.set('b', 2);
+        map.set('c', 3); // pushes past the cap → 'a' (oldest) is dropped
+        expect(map.size).toBe(2);
+        expect(map.has('a')).toBe(false);
+        expect(map.has('b')).toBe(true);
+        expect(map.has('c')).toBe(true);
+    });
+
+    it('re-setting an existing key updates in place without refreshing its age', () => {
+        const map = new BoundedMap<string, number>(2);
+        map.set('a', 1);
+        map.set('b', 2);
+        map.set('a', 10); // update, does NOT make 'a' the newest
+        map.set('c', 3); // 'a' is still the oldest, so it is evicted
+        expect(map.get('a')).toBeUndefined();
+        expect(map.get('b')).toBe(2);
+        expect(map.get('c')).toBe(3);
+    });
+});
+
+describe('cache utilities', () => {
+    it('prunes map entries in insertion order', () => {
+        const cache = new Map<string, number>([['a', 1], ['b', 2], ['c', 3], ['d', 4]]);
+
+        pruneOldestCacheEntries(cache, 2);
+
+        expect([...cache.entries()]).toEqual([['c', 3], ['d', 4]]);
+    });
+
+    it('prunes set entries in insertion order', () => {
+        const cache = new Set(['a', 'b', 'c']);
+
+        pruneOldestCacheEntries(cache, 1);
+
+        expect([...cache.values()]).toEqual(['c']);
+    });
+
+    it('no-ops when cache size is at or below the limit', () => {
+        const cache = new Map<string, number>([['a', 1], ['b', 2]]);
+
+        pruneOldestCacheEntries(cache, 2);
+
+        expect([...cache.entries()]).toEqual([['a', 1], ['b', 2]]);
+    });
+
+    it('supports clearing down to zero', () => {
+        const cache = new Set(['a', 'b']);
+
+        pruneOldestCacheEntries(cache, 0);
+
+        expect(cache.size).toBe(0);
+    });
+
+    it('treats undefined as a valid cache key', () => {
+        const cache = new Map<undefined | string, number>([[undefined, 1], ['a', 2], ['b', 3]]);
+
+        pruneOldestCacheEntries(cache, 1);
+
+        expect([...cache.entries()]).toEqual([['b', 3]]);
+    });
+});
+
+describe('attempt helpers', () => {
+    /**
+     * `attempt`/`attemptVoid`/`attemptAsync`/`parseJson` replace silent-swallow
+     * `catch` blocks. Their whole value is that the fallback is unchanged and the
+     * failure is no longer invisible, so both halves are pinned here.
+     */
+
+
+
+
+    let debug: ReturnType<typeof vi.fn>;
+
+    beforeEach(() => {
+        debug = vi.fn();
+        setAttemptRecorder((label, error) => debug(`${label} failed`, error));
+    });
+
+    afterEach(() => {
+        setAttemptRecorder(() => undefined);
+        vi.restoreAllMocks();
+    });
+
+    it('returns the value and logs nothing on success', () => {
+        expect(attempt(() => 41 + 1, 0, 'sum')).toBe(42);
+        expect(debug).not.toHaveBeenCalled();
+    });
+
+    it('returns the fallback and records the failure', () => {
+        const boom = new Error('nope');
+        expect(attempt<number | null>(() => { throw boom; }, null, 'thrower')).toBeNull();
+        expect(debug).toHaveBeenCalledWith('thrower failed', boom);
+    });
+
+    it('preserves falsy fallbacks exactly', () => {
+        expect(attempt(() => { throw new Error('x'); }, false, 'a')).toBe(false);
+        expect(attempt(() => { throw new Error('x'); }, '', 'b')).toBe('');
+        expect(attempt(() => { throw new Error('x'); }, 0, 'c')).toBe(0);
+        expect(attempt<undefined>(() => { throw new Error('x'); }, undefined, 'd')).toBeUndefined();
+        expect(attempt(() => { throw new Error('x'); }, [], 'e')).toEqual([]);
+    });
+
+    it('never rethrows from attemptVoid', () => {
+        const boom = new Error('effect blew up');
+        expect(() => attemptVoid(() => { throw boom; }, 'effect')).not.toThrow();
+        expect(debug).toHaveBeenCalledWith('effect failed', boom);
+    });
+
+    it('runs the effect when it does not throw', () => {
+        const effect = vi.fn();
+        attemptVoid(effect, 'effect');
+        expect(effect).toHaveBeenCalledTimes(1);
+        expect(debug).not.toHaveBeenCalled();
+    });
+
+    it('resolves the fallback for a rejected promise', async () => {
+        const boom = new Error('rejected');
+        await expect(attemptAsync(() => Promise.reject(boom), 'fallback', 'async')).resolves.toBe('fallback');
+        expect(debug).toHaveBeenCalledWith('async failed', boom);
+    });
+
+    it('resolves the fallback for a synchronous throw inside an async attempt', async () => {
+        await expect(attemptAsync<string>(() => { throw new Error('sync'); }, 'fallback', 'async-sync')).resolves.toBe('fallback');
+        expect(debug).toHaveBeenCalledTimes(1);
+    });
+
+    it('resolves the value when nothing throws', async () => {
+        await expect(attemptAsync(() => Promise.resolve('ok'), 'fallback', 'async-ok')).resolves.toBe('ok');
+        expect(debug).not.toHaveBeenCalled();
+    });
+
+    describe('parseJson', () => {
+        it('parses valid JSON', () => {
+            expect(parseJson<{ a: number }>('{"a":1}', { a: 0 })).toEqual({ a: 1 });
+            expect(debug).not.toHaveBeenCalled();
+        });
+
+        it('returns the fallback for absent input without logging', () => {
+            expect(parseJson(null, 'fallback')).toBe('fallback');
+            expect(parseJson(undefined, 'fallback')).toBe('fallback');
+            expect(parseJson('', 'fallback')).toBe('fallback');
+            expect(debug).not.toHaveBeenCalled();
+        });
+
+        it('returns the fallback and logs for malformed input', () => {
+            expect(parseJson('{not json', 'fallback', 'settings-blob')).toBe('fallback');
+            expect(debug).toHaveBeenCalledTimes(1);
+            expect(debug.mock.calls[0][0]).toBe('settings-blob failed');
+        });
+
+        it('returns a parsed null as-is so it is a drop-in for JSON.parse', () => {
+            expect(parseJson<string | null>('null', 'fallback')).toBeNull();
+            expect(debug).not.toHaveBeenCalled();
+        });
     });
 });
