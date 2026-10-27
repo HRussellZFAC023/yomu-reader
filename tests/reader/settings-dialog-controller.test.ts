@@ -82,13 +82,6 @@ function ankiFieldRoleValue(form: HTMLFormElement, role: AnkiFieldSuggestion['ro
     return settingsSelectValue(form, `select[data-anki-field-role="${role}"]`);
 }
 
-function ankiConfidenceValues(form: HTMLFormElement): string[] {
-    return Array.from(
-        form.querySelectorAll<HTMLElement>('[data-confidence]'),
-        chip => `${chip.dataset.confidence}:${chip.textContent}`,
-    );
-}
-
 function settingsJsonInputValue<T>(form: HTMLFormElement, selector: string): T {
     return JSON.parse(settingsInputValue(form, selector)) as T;
 }
@@ -99,100 +92,6 @@ function ankiStatusText(form: HTMLFormElement): string {
 
 function settlePreviewFrame(): Promise<void> {
     return new Promise(resolve => window.setTimeout(resolve, 20));
-}
-
-function testRect(top: number, bottom: number, width = 320): DOMRect {
-    return {
-        x: 0,
-        y: top,
-        width,
-        height: bottom - top,
-        top,
-        right: width,
-        bottom,
-        left: 0,
-        toJSON: () => ({}),
-    } as DOMRect;
-}
-
-function scaledTestRect(top: number, bottom: number, scale: number, width = 320): DOMRect {
-    return testRect(top * scale, bottom * scale, width * scale);
-}
-
-function mockScaledRedditBrowser(): () => void {
-    const innerWidth = Object.getOwnPropertyDescriptor(window, 'innerWidth');
-    const innerHeight = Object.getOwnPropertyDescriptor(window, 'innerHeight');
-    const outerWidth = Object.getOwnPropertyDescriptor(window, 'outerWidth');
-    const userAgent = Object.getOwnPropertyDescriptor(navigator, 'userAgent');
-    const platform = Object.getOwnPropertyDescriptor(navigator, 'platform');
-    vi.stubGlobal('location', {
-        href: 'https://www.reddit.com/r/LearnJapanese/',
-        hostname: 'www.reddit.com',
-        origin: 'https://www.reddit.com',
-    });
-    Object.defineProperties(window, {
-        innerWidth: { configurable: true, value: 475 },
-        innerHeight: { configurable: true, value: 612.5 },
-        outerWidth: { configurable: true, value: 760 },
-    });
-    Object.defineProperties(navigator, {
-        userAgent: {
-            configurable: true,
-            value: 'Mozilla/5.0 (iPad; CPU OS 17_0 like Mac OS X) AppleWebKit/605.1.15 Version/17.0 Mobile/15E148 Safari/604.1',
-        },
-        platform: { configurable: true, value: 'iPad' },
-    });
-    return () => {
-        restoreProperty(window, 'innerWidth', innerWidth);
-        restoreProperty(window, 'innerHeight', innerHeight);
-        restoreProperty(window, 'outerWidth', outerWidth);
-        restoreProperty(navigator, 'userAgent', userAgent);
-        restoreProperty(navigator, 'platform', platform);
-    };
-}
-
-function restoreProperty(target: object, property: string, descriptor: PropertyDescriptor | undefined): void {
-    if (descriptor) Object.defineProperty(target, property, descriptor);
-    else delete (target as Record<string, unknown>)[property];
-}
-
-function mockCompensatedRedditRoot(root: HTMLElement, rectScale: number): void {
-    root.dataset.jpdbReaderScaleAdapter = 'apple-touch-page-scale';
-    root.dataset.jpdbReaderScaleCompensation = '0.625';
-    Object.defineProperties(root, {
-        offsetWidth: { configurable: true, value: 400 },
-        offsetHeight: { configurable: true, value: 600 },
-    });
-    root.getBoundingClientRect = () => new DOMRect(0, 0, 400 * rectScale, 600 * rectScale);
-}
-
-function ankiStatus(form: HTMLFormElement): HTMLElement {
-    return form.querySelector<HTMLElement>('[data-anki-status]')!;
-}
-
-function ankiStatusMainText(form: HTMLFormElement): string {
-    return form.querySelector<HTMLElement>('[data-anki-status] .jpdb-reader-status-main')!.textContent ?? '';
-}
-
-function ankiStatusLinkText(form: HTMLFormElement, hrefSelector: string): string {
-    return form.querySelector<HTMLAnchorElement>(`[data-anki-status] ${hrefSelector}`)!.textContent ?? '';
-}
-
-async function waitForAnkiStatusText(form: HTMLFormElement, text: string): Promise<void> {
-    await waitForCondition(() => ankiStatusText(form).includes(text));
-}
-
-function expectAnkiConnectSetupStatus(form: HTMLFormElement): void {
-    const text = ankiStatusText(form);
-    expect(ankiStatus(form).dataset.statusTone).toBe('pending');
-    expect(ankiStatusMainText(form)).toContain('Needs setup: AnkiConnect not reached');
-    expect(text).toContain('Open desktop Anki');
-    expect(ankiStatusLinkText(form, 'a[href="https://ankiweb.net/shared/info/2055492159"]')).toContain('Install/enable AnkiConnect');
-    expect(ankiStatusLinkText(form, 'a[href$="learn/your-own-setup#use-desktop-anki-from-a-phone-ipad-or-android"]')).toContain('Mobile setup docs');
-    expect(text).toContain('Use the LAN/Tailscale URL on mobile');
-    expect(text).not.toContain('enable handoff');
-    expect(text).not.toContain('install or enable AnkiConnect, then check again');
-    expect(text).not.toContain('webCorsOriginList');
 }
 
 
