@@ -69,7 +69,7 @@ describe('authored Academy package loader', () => {
 
 describe('grounded-lesson-resolver behavior', () => {
     const LESSON_ZERO = path.resolve('public/academy/content/lessons/lesson-zero.v1.json');
-    
+
     describe('grounded lesson resolver', () => {
         it('re-audits the shipped bytes through the complete lesson registry', async () => {
             const requests: string[] = [];
@@ -80,29 +80,29 @@ describe('grounded-lesson-resolver behavior', () => {
                     headers: { 'content-type': 'application/json' },
                 });
             }) as typeof fetch);
-    
+
             const lesson = await resolver.resolve('lesson:foundation-00');
             expect(lesson).toMatchObject({ lessonId: 'lesson:foundation-00', status: 'review-blocked' });
             expect(requests).toEqual(['/academy/content/lessons/lesson-zero.v1.json']);
             await resolver.resolve('lesson:foundation-00');
             expect(requests).toHaveLength(1);
         });
-    
+
         it('rejects an unregistered caller-named lesson before fetching content', async () => {
             const fetcher = vi.fn(async () => new Response('{}'));
             const resolver = createGroundedLessonResolver(fetcher as typeof fetch);
-    
+
             await expect(resolver.resolve('lesson:forged')).rejects.toThrow(/unregistered complete academy lesson/i);
             expect(fetcher).not.toHaveBeenCalled();
         });
-    
+
         it('rejects changed bytes even when the JSON still looks structurally valid', async () => {
             const value = JSON.parse(fs.readFileSync(LESSON_ZERO, 'utf8')) as Record<string, unknown>;
             const resolver = createGroundedLessonResolver((async () => new Response(JSON.stringify(value), {
                 status: 200,
                 headers: { 'content-type': 'application/json' },
             })) as typeof fetch);
-    
+
             await expect(resolver.resolve('lesson:foundation-00')).rejects.toThrow(/registered bytes/i);
         });
     });
@@ -110,23 +110,23 @@ describe('grounded-lesson-resolver behavior', () => {
 
 describe('lesson-nine-nineteen-materialization behavior', () => {
     const ids = ['l1-l09', 'l1-l19'] as const;
-    
+
     const factories = [
         { id: 'l1-l09', create: createLessonNineWeeklyPlanBeat },
         { id: 'l1-l19', create: createLessonNineteenOrderingFoodBeat },
         { id: 'l1-l19', create: createLessonNineteenListeningGridBeat },
     ];
-    
+
     const loaded = new Map<string, LoadedAuthoredWeekPackage>();
-    
+
     const writing = { lookup: async () => null };
-    
+
     beforeAll(async () => {
         for (const id of [...ids, 'l1-l20']) loaded.set(id, await validateCommittedAuthoredWeek(getAuthoredWeekRegistration(id)));
     });
-    
+
     afterEach(() => { vi.unstubAllGlobals(); document.body.replaceChildren(); });
-    
+
     describe('Lesson 9 and 19 package materialization', () => {
         it.each(ids)('%s reuses supplied data without fetching and standalone loads exactly once', async id => {
             const unavailable = vi.fn(async () => { throw new Error('Offline'); });
@@ -140,7 +140,7 @@ describe('lesson-nine-nineteen-materialization behavior', () => {
             expect(fetcher).toHaveBeenCalledTimes(1);
             expect(supplied?.beats).toHaveLength(id === 'l1-l19' ? 2 : 1);
         });
-    
+
         it.each(factories)('$id factory rejects another package, wrong revision and missing source evidence', ({ id, create }) => {
             const value = loaded.get(id)!;
             expect(() => create(loaded.get('l1-l20')!)).toThrow('validated');
@@ -157,14 +157,14 @@ describe('lesson-nine-nineteen-materialization behavior', () => {
                 expect(() => create({ ...value, value: missingGenki })).toThrow('Genki');
             }
         });
-    
+
         it('keeps ordering-food Minna evidence mandatory', () => {
             const pkg = loaded.get('l1-l19')!;
             const value = structuredClone(pkg.value) as { provenance: { sourceMappings: unknown[] } };
             value.provenance.sourceMappings = [];
             expect(() => createLessonNineteenOrderingFoodBeat({ ...pkg, value })).toThrow('Minna');
         });
-    
+
         it.each(ids)('%s rejects altered bytes and keeps optional failure separate from core lessons', async id => {
             const registration = getAuthoredWeekRegistration(id);
             const bytes = readFileSync(path.resolve('public/academy/content/lessons', registration.filename));

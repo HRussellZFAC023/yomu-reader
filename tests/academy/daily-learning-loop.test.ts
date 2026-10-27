@@ -856,21 +856,21 @@ function closedDayEvent(eventId: string, at: number): Extract<LearnerEvent, { ki
 
 describe('daily-route-panel behavior', () => {
     type IncentiveKind = DiegeticIncentive['kind'];
-    
+
     describe('renderDailyRoutePanel', () => {
-    
+
         it('delegates the exact clicked action object', () => {
             const actions = [action('primary', 'source-unlock'), action('supporting', 'place-discovery')];
             const onOpenAction = vi.fn();
             const panel = renderPanel(dailyRoute(actions), 'en', onOpenAction);
-    
+
             panel.querySelector<HTMLButtonElement>('[data-daily-action-id="supporting"]')!.click();
-    
+
             expect(onOpenAction).toHaveBeenCalledOnce();
             expect(onOpenAction.mock.calls[0]?.[0]).toBe(actions[1]);
         });
     });
-    
+
     function renderPanel(
         route: DailyLearningRoute,
         language: AcademyLanguage = 'en',
@@ -878,7 +878,7 @@ describe('daily-route-panel behavior', () => {
     ): HTMLElement {
         return renderDailyRoutePanel({ language, route, onOpenAction });
     }
-    
+
     function action(id: string, incentiveKind: IncentiveKind): DailyRouteAction {
         return {
             kind: 'lesson',
@@ -893,7 +893,7 @@ describe('daily-route-panel behavior', () => {
             grounding: { sourceId: `source:${id}` },
         };
     }
-    
+
     function dailyRoute(actions: readonly DailyRouteAction[], welcomeBack = false): DailyLearningRoute {
         const [primaryAction, ...supportingActions] = actions;
         if (!primaryAction) throw new Error('Test route needs a primary action.');

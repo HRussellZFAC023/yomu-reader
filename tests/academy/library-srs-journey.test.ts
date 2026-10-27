@@ -338,7 +338,7 @@ describe('Library source sheet to SRS journey', () => {
 describe('library-srs-early-batch-conformance behavior', () => {
     describe('Library SRS exact linkage for the delivered early source-sheet boundaries', () => {
         beforeEach(() => localStorage.clear());
-    
+
         it('carries an l1-l19 owner row through Reader, Jiten fallback, and native review with optional writing', async () => {
             const sheet = createLibraryVocabularySheetFromPackage(lessonPackage('020-l1-l19.json'), 'l1-l19');
             const word = sheet.items[24]!;
@@ -346,7 +346,7 @@ describe('library-srs-early-batch-conformance behavior', () => {
             surface.textContent = word.expression;
             attachLibraryReaderVocabulary(surface, word);
             const [token] = applyAuthoredVocabularyOverrides({ text: word.expression, parent: surface }, []);
-    
+
             expect(word).toMatchObject({
                 expression: 'ふなびん',
                 studyExpression: '船便',
@@ -361,7 +361,7 @@ describe('library-srs-early-batch-conformance behavior', () => {
                 fallbackLookupTerms: ['船便'],
             });
             expect(fallbackLookupTermsForCard(token!.card)).toContain('船便');
-    
+
             const lookupMany = vi.fn(async (_terms: string[]) => new Map());
             await publicLookupFallbackCards([token!.card], {
                 jitenApiActive: () => false,
@@ -370,7 +370,7 @@ describe('library-srs-early-batch-conformance behavior', () => {
                 publicSpellingCard: async () => undefined,
             }, { concurrency: 1, jpdbPublicLookup: false });
             expect(lookupMany.mock.calls[0]?.[0]).toContain('船便');
-    
+
             const options = {
                 revealAnswer: false,
                 renderAsKanji: false,
@@ -386,12 +386,12 @@ describe('library-srs-early-batch-conformance behavior', () => {
             expect(session.practiceSteps).toContainEqual({
                 id: 'type-word', kind: 'type-word', gradeable: false,
             });
-    
+
             const revealed = createNewTabStudySession(token!.card, { ...options, revealAnswer: true });
             expect(revealed.activity).toBe('review');
             expect(revealed.activeStep).toBe(revealed.gradeStep);
             expect(revealed.steps).toEqual(session.steps);
-    
+
             const writing = createNewTabStudySession(token!.card, { ...options, activeStepId: 'type-word' });
             expect(writing.activity).toBe('practice');
             expect(writing.activeStep).toEqual({
@@ -400,7 +400,7 @@ describe('library-srs-early-batch-conformance behavior', () => {
             expect(writing.steps).toEqual(session.steps);
         });
     });
-    
+
     function lessonPackage(filename: string): unknown {
         return JSON.parse(readFileSync(`public/academy/content/lessons/${filename}`, 'utf8')) as unknown;
     }

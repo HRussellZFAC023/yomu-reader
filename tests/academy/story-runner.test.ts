@@ -159,11 +159,11 @@ describe('story-runtime behavior', () => {
         'activity:lesson-zero-written-transfer',
         'activity:lesson-zero-close-room',
     ].sort();
-    
+
     describe('Academy story runtime', () => {
         it('keeps all canonical episode IDs, order, and authored activity hooks beside the opening arc', () => {
             const story = loadStoryRuntime();
-    
+
             expect(story.episodes).toHaveLength(48);
             expect(story.episodes.at(-1)?.id).toBe('s4e12-next-page');
             expect(story.episode('s1e01-the-blank-atlas')?.title).toBe('The Blank Atlas');
@@ -184,10 +184,10 @@ describe('story-runtime behavior', () => {
             expect(story.playableArc('s3e06-two-schedules')?.curriculum.activities[0]?.exerciseId)
                 .toBe('activity:s3e06-two-schedules-sort-claims');
         });
-    
+
         it('compiles the Open Door and Blank Atlas packages into one immutable scene graph', () => {
             const arc = loadStoryRuntime().openingArc;
-    
+
             expect(arc.packages.map(storyPackage => storyPackage.id)).toEqual([
                 'bridge:opening-arrival',
                 's1e01-the-blank-atlas',
@@ -200,21 +200,21 @@ describe('story-runtime behavior', () => {
             expect(Object.isFrozen(arc)).toBe(true);
             expect(Object.isFrozen(arc.scenes[0].nodes)).toBe(true);
         });
-    
+
         it('opens Chapter 1 without replaying the one-time arrival', () => {
             const story = loadStoryRuntime();
             const chapter = story.playableArc('s1e01-the-blank-atlas')!;
-    
+
             expect(chapter.id).toBe('arc:s1e01-the-blank-atlas');
             expect(chapter.firstSceneId).toBe('scene:blank-atlas:arrival-greetings');
             expect(chapter.lastSceneId).toBe('scene:blank-atlas:close');
             expect(chapter.scenes).toHaveLength(11);
             expect(chapter.scenes.some(scene => scene.id.startsWith('scene:opening-arrival:'))).toBe(false);
         });
-    
+
         it('keeps all exact Lesson 0 handoffs in registered section order', () => {
             const curriculum = loadStoryRuntime().openingArc.curriculum;
-    
+
             expect(curriculum.lessonId).toBe('lesson:foundation-00');
             expect(curriculum.sectionSequence).toEqual([
                 'arrival-greetings',
@@ -233,11 +233,11 @@ describe('story-runtime behavior', () => {
                 activity.requiredEvidence.activityId === activity.exerciseId
                 && activity.requiredEvidence.kind === 'activity-passed')).toBe(true);
         });
-    
+
         it('keeps the three mission choices distinct and reconverges after the selected scene', () => {
             const arc = loadStoryRuntime().openingArc;
             const choiceId = 'choice:blank-atlas:mission';
-    
+
             expect(arc.nextScene('scene:blank-atlas:useful-vocabulary')).toBeUndefined();
             expect(arc.nextScene('scene:blank-atlas:useful-vocabulary', {
                 [choiceId]: 'option:blank-atlas:mission-sound',
@@ -255,20 +255,20 @@ describe('story-runtime behavior', () => {
             expect(arc.nextScene('scene:blank-atlas:mission-speaking')?.id)
                 .toBe('scene:blank-atlas:reading-writing');
         });
-    
+
         it('keeps support classmates name-only without turning them into Chapter 1 unlocks', () => {
             const arc = loadStoryRuntime().openingArc;
-    
+
             expect(arc.nameOnlyCast).toEqual(expect.arrayContaining([
                 'aakash', 'mika', 'ruparna', 'sam', 'sophie', 'xingyu',
             ]));
             expect(arc.nameOnlyCast).not.toContain('rie');
             expect(arc.unlocks).toEqual(['rie']);
         });
-    
+
         it('plays one visible node at a time and keeps choices transient to the session', () => {
             const session = createStoryArcSession(loadStoryRuntime().openingArc);
-    
+
             expect(session.frame).toMatchObject({
                 scene: { id: 'scene:opening-arrival:gate' },
                 node: { id: 'node:opening-arrival:gate-lantern', kind: 'stage' },
@@ -284,7 +284,7 @@ describe('story-runtime behavior', () => {
             });
             expect(session.frame.node).toMatchObject({ id: 'node:opening-arrival:door-opens' });
         });
-    
+
         it('makes placement entries chronological replay while foundation and N5 start canonically', () => {
             expect(openingArcModeForEntry({ curriculumEntry: { route: 'lesson-zero' }, completedEncounterIds: [] }))
                 .toBe('canonical');
@@ -299,10 +299,10 @@ describe('story-runtime behavior', () => {
                 completedEncounterIds: ['story:s1e01-the-blank-atlas:scene:blank-atlas:welcome'],
             })).toBe('chronological-replay');
         });
-    
+
         it('exposes seven unbounded non-canonical review templates after the finale', () => {
             const calendar = loadStoryRuntime().reviewCalendar;
-    
+
             expect(calendar.id).toBe(STORY_REVIEW_CALENDAR_SECTION);
             expect(calendar.startsAfterEpisodeId).toBe('s4e12-next-page');
             expect(calendar.canonicalStoryProgression).toBe(false);

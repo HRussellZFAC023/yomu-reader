@@ -206,9 +206,9 @@ describe('Lesson Zero kana sound map', () => {
 
 describe('kana-dictation behavior', () => {
     afterEach(() => document.body.replaceChildren());
-    
+
     describe('Lesson Zero vowel dictation', () => {
-    
+
         it('grades typed sound-to-kana production and emits canonical repair seeds', () => {
             const runtime = createAcademyActivityRuntime();
             const model = createLessonZeroVowelDictation();
@@ -225,7 +225,7 @@ describe('kana-dictation behavior', () => {
             expect(lapse.result).toMatchObject({ outcome: 'lapse', errorTags: ['vowel-dictation-order'] });
             expect(lapse.reviewSeeds.every(seed => seed.reason === 'repair')).toBe(true);
         });
-    
+
         it('plays each authored sound and commits only through the keyboard-accessible form', async () => {
             const host = document.createElement('main');
             const playPronunciation = vi.fn(async () => ({ dispose() {} }));

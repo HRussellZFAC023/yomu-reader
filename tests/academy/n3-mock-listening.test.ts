@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
+// @ts-expect-error Production build-manifest helper is plain Node JavaScript.
 import { academyBuildCode, readAcademyBuildCode } from '../../scripts/lib/academy-build-manifest.cjs';
 import fs, { createReadStream, existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import path from 'node:path';
@@ -678,9 +679,9 @@ function sha256File(filePath: string): Promise<string> {
 
 describe('n3-mock-listening-route-integration behavior', () => {
     const PLAN_PATH = path.resolve('public/academy/content/curriculum/class-week-cast.v1.json');
-    
+
     const LESSON_ROOT = path.resolve('public/academy/content/lessons');
-    
+
     function shell(): AcademyShell & { current?: HTMLElement } {
         const value = {
             screen: document.createElement('main'),
@@ -691,7 +692,7 @@ describe('n3-mock-listening-route-integration behavior', () => {
         };
         return value;
     }
-    
+
     describe('N3 mock-listening learner rail integration', () => {
         beforeEach(() => {
             vi.stubGlobal('fetch', vi.fn(async input => {
@@ -707,9 +708,9 @@ describe('n3-mock-listening-route-integration behavior', () => {
                 });
             }));
         });
-    
+
         afterEach(() => { vi.unstubAllGlobals(); });
-    
+
         it('clicks Class into every package intro and exact advanced activity without a Lesson 0 fallback', async () => {
             const projection = projectLearnerRecord([{
                 schemaVersion: 1,
@@ -719,7 +720,7 @@ describe('n3-mock-listening-route-integration behavior', () => {
                 route: 'manual-band',
                 band: 'n3',
             }]);
-    
+
             for (const [index, packageRecord] of N3_MOCK_LISTENING_PACKAGES.entries()) {
                 const classShell = shell();
                 const navigations: Array<readonly [AcademyRoute, AcademyCheckpointUpdate | undefined]> = [];
@@ -748,7 +749,7 @@ describe('n3-mock-listening-route-integration behavior', () => {
                     go,
                     back: vi.fn(async () => undefined),
                 });
-    
+
                 const stop = classShell.current?.querySelector<HTMLElement>(`[data-package-id="${packageRecord.id}"]`);
                 expect(stop, packageRecord.id).not.toBeNull();
                 expect(stop?.dataset.railState).toBe(index === 0 ? 'recommended' : 'gated');
@@ -763,7 +764,7 @@ describe('n3-mock-listening-route-integration behavior', () => {
                 expect(navigation?.[1]?.activityId).not.toBeUndefined();
                 expect(navigation?.[1]?.lessonId).not.toBe('lesson:foundation-00');
                 expect(Boolean(navigation?.[1]?.placementOverride)).toBe(index > 0);
-    
+
                 const lessonShell = shell();
                 const checkpoint: AcademyCheckpoint = {
                     schemaVersion: 2,
@@ -789,7 +790,7 @@ describe('n3-mock-listening-route-integration behavior', () => {
                     pronunciation: { async play() { return { dispose() {} }; } },
                     kanjiWriting: {} as never,
                 }).render('source-activity', context);
-    
+
                 expect(lessonShell.current?.dataset.academyScreen).toBe('advanced-lesson');
                 expect(lessonShell.current?.dataset.advancedPackageId).toBe(packageRecord.id);
                 expect(lessonShell.current?.textContent).toContain(resolveAdvancedCurriculumEntry(packageRecord.id).summary.en);

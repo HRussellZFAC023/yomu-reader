@@ -190,7 +190,7 @@ describe('audio-manifest-sfx behavior', () => {
         reviewed: true,
         scope: 'release',
     };
-    
+
     const manifestJson = {
         version: 1,
         themes: [
@@ -220,19 +220,19 @@ describe('audio-manifest-sfx behavior', () => {
             { cue: 'page.turn', mediaKey: 'shinday/sfx/page.m4a', gain: 0.6, rights: { ...releaseRights, scope: 'private-prototype' } },
         ],
     };
-    
+
     describe('Academy audio manifest', () => {
-    
+
         it('gates the catalog and SFX map on rights scope in release mode', () => {
             const manifest = parseAudioManifest(manifestJson);
-    
+
             const releaseCatalog = catalogFromManifest(manifest, true);
             expect(releaseCatalog['campus.evening'].music?.id).toBe('persona-evening');
             expect(releaseCatalog['library.quiet'].ambience).toBeUndefined();
-    
+
             const prototypeCatalog = catalogFromManifest(manifest, false);
             expect(prototypeCatalog['library.quiet'].ambience?.id).toBe('prototype-only');
-    
+
             const releaseSfx = sfxSourcesFromManifest(manifest, true);
             expect([...releaseSfx.keys()]).toEqual(['menu.confirm']);
             expect(sfxSourcesFromManifest(manifest, false).size).toBe(2);

@@ -464,7 +464,7 @@ describe('world-story-voice-route behavior', () => {
                 pronunciation: {} as never,
                 audio: audio as never,
             });
-    
+
             await flow.render('story', {
                 language: 'en',
                 checkpoint: {
@@ -481,7 +481,7 @@ describe('world-story-voice-route behavior', () => {
                 go: vi.fn(async () => undefined),
                 back: vi.fn(async () => undefined),
             });
-    
+
             await vi.waitFor(() => expect(fetcher).toHaveBeenCalledWith(
                 '/academy/audio/story-voice-playback.json',
                 { credentials: 'same-origin' },
@@ -489,7 +489,7 @@ describe('world-story-voice-route behavior', () => {
             expect(audio.setTheme).toHaveBeenCalledWith('opening.invitation');
             expect(audioEvents.size).toBe(1);
             expect(current?.querySelector('.academy-vn-voice-replay')).not.toBeNull();
-    
+
             current?.dispatchEvent(new Event('academy:dispose'));
             expect(audioEvents.size).toBe(0);
         });

@@ -251,11 +251,11 @@ describe('Lesson 0 classroom-expression session', () => {
 
 describe('classroom-expression-session-screen behavior', () => {
     const CONTENT_PATH = path.resolve('public/academy/content/lessons/lesson-zero-classroom-expressions.v1.json');
-    
+
     function definition() {
         return validateLessonZeroClassroomExpressions(JSON.parse(fs.readFileSync(CONTENT_PATH, 'utf8')));
     }
-    
+
     describe('Classroom expression session screen', () => {
         it('teaches before commitment, keeps the answer hidden, then earns repair and the model', async () => {
             const content = definition();
@@ -275,7 +275,7 @@ describe('classroom-expression-session-screen behavior', () => {
                 onRestart: vi.fn(),
                 onBack: vi.fn(),
             });
-    
+
             expect(screen.element.textContent).toContain('Notice the pattern');
             expect(screen.element.querySelector('.academy-classroom-expression-overall')?.textContent)
                 .toBe('0 of 8 moments answered');
@@ -289,7 +289,7 @@ describe('classroom-expression-session-screen behavior', () => {
             input.value = 'わかりました';
             screen.element.querySelector<HTMLFormElement>('.academy-classroom-expression-form')!
                 .dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
-    
+
             await vi.waitFor(() => expect(onTransition).toHaveBeenCalledOnce());
             await vi.waitFor(() => expect(screen.element.querySelector('[data-repair-earned="true"]')).not.toBeNull());
             expect(screen.element.textContent).not.toContain('わかりますか');
@@ -298,7 +298,7 @@ describe('classroom-expression-session-screen behavior', () => {
             await vi.waitFor(() => expect(screen.element.textContent).toContain('わかりますか'));
             screen.dispose();
         });
-    
+
         it('offers a full replay after the selected activity is complete', async () => {
             const content = definition();
             const answers = new Map(content.expressions.flatMap(expression =>
@@ -324,7 +324,7 @@ describe('classroom-expression-session-screen behavior', () => {
                 onRestart,
                 onBack: vi.fn(),
             });
-    
+
             expect(screen.element.textContent).toContain('You can read the desk.');
             expect(screen.element.querySelector('.academy-classroom-expression-overall')?.textContent)
                 .toBe('2 of 2 moments answered');
@@ -339,7 +339,7 @@ describe('classroom-expression-session-screen behavior', () => {
             await vi.waitFor(() => expect(screen.element.querySelector('.academy-classroom-expression-form')).not.toBeNull());
             screen.dispose();
         });
-    
+
         it('keeps both desk labels blank until the learner earns each one', async () => {
             const content = definition();
             const initial = classroomStateForActivity(
@@ -357,19 +357,19 @@ describe('classroom-expression-session-screen behavior', () => {
                 onRestart: vi.fn(),
                 onBack: vi.fn(),
             });
-    
+
             const homework = screen.element.querySelector<HTMLElement>('[data-desk-slot="homework"]')!;
             const example = screen.element.querySelector<HTMLElement>('[data-desk-slot="example"]')!;
             expect(homework.dataset.earned).toBe('false');
             expect(example.dataset.earned).toBe('false');
             expect(homework.textContent).not.toContain('しゅくだい');
             expect(example.textContent).not.toContain('れい');
-    
+
             const input = screen.element.querySelector<HTMLInputElement>('.academy-classroom-expression-input')!;
             input.value = 'しゅくだい';
             screen.element.querySelector<HTMLFormElement>('.academy-classroom-expression-form')!
                 .dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
-    
+
             await vi.waitFor(() => expect(
                 screen.element.querySelector<HTMLElement>('[data-desk-slot="homework"]')?.dataset.earned,
             ).toBe('true'));
