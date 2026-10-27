@@ -3,7 +3,7 @@
   "version": "2.2.0",
   "private": true,
   "type": "module",
-  "description": "よむ: Japanese pop-up dictionary with furigana, pitch accent, subtitles, OCR, and Study.",
+  "description": "\u3088\u3080: Japanese pop-up dictionary with furigana, pitch accent, subtitles, OCR, and Study.",
   "license": "MIT",
   "repository": {
     "type": "git",
@@ -309,7 +309,7 @@
     "manual:youtube-homepage-performance": "node scripts/manual/youtube-homepage-performance-profile.mjs",
     "manual:youtube-live-watch-performance": "node scripts/manual/youtube-live-watch-performance-profile.mjs",
     "manual:youtube-real-dom-instability": "node scripts/manual/youtube-real-dom-instability-smoke.mjs",
-    "test": "vitest run",
+    "test": "node scripts/run-ci-suite.mjs",
     "academy:workflow": "node scripts/academy-production-workflow.mjs",
     "academy:workflow:validate": "node scripts/academy-production-workflow.mjs validate",
     "manual:academy-lesson-zero-missions": "node scripts/manual/lesson-zero-missions-browser.mjs",

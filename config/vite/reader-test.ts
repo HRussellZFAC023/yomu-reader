@@ -1,7 +1,11 @@
 import { availableParallelism } from 'node:os';
 import { createRequire } from 'node:module';
 
-const pkg = createRequire(import.meta.url)('../../package.json') as { version: string };
+const require = createRequire(import.meta.url);
+const pkg = require('../../package.json') as { version: string };
+const { workerBudget } = require('../../scripts/lib/test-workers.mjs') as {
+    workerBudget: (options: { cores: number }) => number;
+};
 
 export const readerTestDefines = {
     __YOMU_VERSION__: JSON.stringify(pkg.version),
@@ -116,7 +120,7 @@ function forkHeapMb(env: TestConfigEnv): number {
 function readMaxWorkers(env: TestConfigEnv, parallelism: number): number {
     const override = Number.parseInt(env.VITEST_MAX_FORKS ?? '', 10);
     if (Number.isInteger(override) && override >= 1) return override;
-    return Math.max(2, Math.min(10, parallelism));
+    return workerBudget({ cores: parallelism });
 }
 
 // Vitest 1.6 workspace projects. Neither project inherits the other's setup or
