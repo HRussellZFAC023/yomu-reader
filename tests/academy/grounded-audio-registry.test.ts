@@ -222,7 +222,47 @@ describe('audio-manifest-sfx behavior', () => {
     };
 
     describe('Academy audio manifest', () => {
+        it('parses entries and routes URLs through the protected media endpoint', () => {
+            const manifest = parseAudioManifest(manifestJson);
+            expect(manifest.themes).toHaveLength(2);
+            expect(catalogFromManifest(manifest)['campus.evening'].music?.url).toBe('/academy/media/audio/persona/theme/evening.m4a');
+            expect(catalogFromManifest(AUTHORIZED_AUDIO_MANIFEST)['campus.evening'].music?.url)
+                .toBe('/academy/media/audio/v1/persona/royal-days.opus');
+        });
 
+        it('rejects malformed entries: bad keys, gains, and unreviewed rights', () => {
+            const withTheme = (patch: Record<string, unknown>): unknown => ({
+                version: 1,
+                themes: [{ ...manifestJson.themes[0], ...patch }],
+                sfx: [],
+            });
+            expect(() => parseAudioManifest({ version: 2, themes: [], sfx: [] })).toThrow(/version/);
+            expect(() => parseAudioManifest(withTheme({ mediaKey: '../escape.m4a' }))).toThrow(/media key/);
+            expect(() => parseAudioManifest(withTheme({ gain: 1.5 }))).toThrow(/gain/);
+            expect(() => parseAudioManifest(withTheme({ rights: { ...releaseRights, reviewed: false } }))).toThrow(/rights/);
+            expect(() => parseAudioManifest(withTheme({ rights: { ...releaseRights, owner: ' ' } }))).toThrow(/rights/);
+            expect(() => parseAudioManifest(withTheme({ bus: 'sfx' }))).toThrow(/bus/);
+        });
+
+        it('loads the checked-in owner-approved catalog through protected media routes', () => {
+            const raw = JSON.parse(readFileSync(path.resolve('src/academy/audio/manifest.json'), 'utf8'));
+            const manifest = parseAudioManifest(raw);
+            const tracks = Object.values(catalogFromManifest(manifest, false)).flatMap(profile => [profile.music, profile.ambience]).filter(Boolean);
+            const sources = [...tracks, ...sfxSourcesFromManifest(manifest, false).values()];
+            expect(sources.length).toBe(manifest.themes.length + manifest.sfx.length);
+            for (const source of sources) expect(source?.url).toMatch(/^\/academy\/media\/audio\//);
+            expect(AUTHORIZED_AUDIO_MANIFEST).toEqual(manifest);
+            expect(AUTHORIZED_AUDIO_CATALOG['campus.evening'].music?.id).toBe('persona.royal-days');
+            expect(AUTHORIZED_AUDIO_CATALOG['lab.listening'].music).toBeUndefined();
+
+            const delivery = JSON.parse(readFileSync(path.resolve('workers/yomu-academy/media-manifest.json'), 'utf8')) as {
+                objects: Array<{ key: string; sha256: string }>;
+            };
+            const deliveredKeys = new Set(delivery.objects.map(object => object.key));
+            for (const key of [...manifest.themes.map(entry => entry.mediaKey), ...manifest.sfx.map(entry => entry.mediaKey)]) {
+                expect(deliveredKeys.has(key), key).toBe(true);
+            }
+        });
         it('gates the catalog and SFX map on rights scope in release mode', () => {
             const manifest = parseAudioManifest(manifestJson);
 
