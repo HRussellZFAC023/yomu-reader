@@ -51,7 +51,6 @@ export const readerNodeFiles = [
     'tests/reader/page-realm-injected-source.test.ts',
     'tests/reader/pitch-meta-variants.test.ts',
     'tests/reader/pitch-number-identity.test.ts',
-    'tests/reader/pitch-pairs.test.ts',
     'tests/reader/pitch-srs.test.ts',
     'tests/reader/private-host.test.ts',
     'tests/reader/prose-selection.test.ts',
