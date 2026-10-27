@@ -18,6 +18,24 @@ function manifest() {
 }
 
 describe('Academy emitted asset manifest', () => {
+    it('requires complete runtime payloads even when templates and emitted assets match', () => {
+        const sources = [['public/academy/art', 'art'], ['public/academy/audio/catalog.json', 'audio/catalog.json']];
+        const payloads: Record<string, Buffer> = { 'art/ASSET-USAGE.json': Buffer.from('usage'), 'art/portrait.webp': Buffer.from('image'), 'audio/catalog.json': Buffer.from('catalog') };
+        const entries = function* (source: string) {
+            if (source.endsWith('/art')) {
+                yield [source + '/ASSET-USAGE.json', Buffer.from('usage')];
+                yield [source + '/portrait.webp', Buffer.from('image')];
+            } else yield [source, Buffer.from('catalog')];
+        };
+        const matches = () => academyRevisionModule.academyRuntimeDeliveryMatches(sources, entries, (file: string) => payloads[file] ?? null);
+        expect(matches()).toBe(true);
+        delete payloads['art/portrait.webp'];
+        expect(matches()).toBe(false);
+        payloads['art/portrait.webp'] = Buffer.from('image');
+        payloads['audio/catalog.json'] = Buffer.from('damaged');
+        expect(matches()).toBe(false);
+    });
+
     it('does not trust a stale sync marker when a lazy chunk or stylesheet is missing or truncated', () => {
         const original = Object.fromEntries(['manifest.json', ...academyBuildManifest(manifest()).files].map((file: string) => [file, Buffer.from(`complete:${file}`)]));
         const hosted = { ...original };
