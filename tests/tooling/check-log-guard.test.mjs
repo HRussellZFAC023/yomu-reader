@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import { execFileSync } from 'node:child_process';
 import assert from 'node:assert/strict';
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { runtimeDeathReason, vitestOutputIndicatesFailure } from '../../scripts/lib/check-log-guard.mjs';
@@ -37,5 +37,8 @@ test('StageRunner rejects failed Vitest output even when its child exits zero', 
     t.after(() => rmSync(root, { recursive: true, force: true }));
     execFileSync('git', ['init'], { cwd: root, stdio: 'pipe' });
     const runner = new StageRunner(root, { noCache: true });
+    // The outer gate scans our output too; capture this deliberately red child.
+    t.mock.method(process.stderr, 'write', () => true);
     await assert.rejects(runner.execute({ name: 'lying-child', test: true, command: `node -e "console.log(' Test Files  2 failed | 314 passed (316)')"` }), /vitest summary reports 2 failed/);
+    assert.match(readFileSync(join(root, 'artifacts/check-logs/lying-child.log'), 'utf8'), /Test Files  2 failed/);
 });

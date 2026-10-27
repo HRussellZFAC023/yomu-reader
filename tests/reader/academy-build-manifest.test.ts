@@ -3,7 +3,7 @@ import { spawnSync } from 'node:child_process';
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 // @ts-expect-error Node build helper is exercised directly by sync.
-import { academyBuildManifest, academyBuildSources, academyHostedCounterpart, renderAcademyTemplate, academyBuildCode, academyBuildFile, academyProofTemplate, academyEmittedFilesMatch } from '../../scripts/lib/academy-build-manifest.cjs';
+import { academyBuildManifest, academyBuildSources, academyHostedCounterpart, renderAcademyTemplate, academyBuildCode, academyBuildFile, academyProofTemplate } from '../../scripts/lib/academy-build-manifest.cjs';
 import { join } from "node:path";
 // @ts-expect-error The revision helper is a Node CommonJS module.
 import academyRevisionModule from "../../scripts/lib/academy-revision.cjs";
@@ -39,7 +39,9 @@ describe('Academy emitted asset manifest', () => {
     it('does not trust a stale sync marker when a lazy chunk or stylesheet is missing or truncated', () => {
         const original = Object.fromEntries(['manifest.json', ...academyBuildManifest(manifest()).files].map((file: string) => [file, Buffer.from(`complete:${file}`)]));
         const hosted = { ...original };
-        const matches = () => academyEmittedFilesMatch(manifest(), (file: string) => original[file] ?? null, (file: string) => hosted[file] ?? null);
+        const sources = academyBuildSources(() => manifest());
+        const entries = function* (source: string) { yield [source, original[source.slice('dist/academy/'.length)]]; };
+        const matches = () => academyRevisionModule.academyRuntimeDeliveryMatches(sources, entries, (file: string) => hosted[file] ?? null);
         expect(matches()).toBe(true);
         delete hosted['chunks/study-a.js'];
         expect(matches()).toBe(false);

@@ -151,7 +151,8 @@ function academyRuntimeDeliveryMatches(sources, entries, readHosted) {
     });
 }
 
-module.exports = { academyRuntimeDeliveryMatches,
+module.exports = {
+    academyRuntimeDeliveryMatches,
     HOSTED_DEPENDENCIES,
     REVISION_PATTERN,
     REVISION_TOKEN,

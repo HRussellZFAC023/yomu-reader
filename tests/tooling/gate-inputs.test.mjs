@@ -7,6 +7,7 @@ import { join, resolve } from 'node:path';
 import { StageRunner } from '../../scripts/lib/stage-runner.mjs';
 import { repositorySnapshot, selectInputs } from '../../scripts/lib/stage-cache.mjs';
 import { testInputs } from '../../scripts/lib/affected-tests.mjs';
+import { toolingStageContract } from '../../scripts/lib/gate-inputs.mjs';
 import { typecheckInputs } from '../../scripts/lib/typecheck-inputs.mjs';
 
 test('every compiler-loaded repository file participates in the typecheck key', () => {
@@ -56,4 +57,13 @@ test('installed lock identity invalidates passes even through a shared node_modu
     assert.notEqual(first, absent);
     writeFileSync(join(root, 'node_modules/.package-lock.json'), '{"packages":{"tool":{"version":"2"}}}');
     assert.notEqual(runner.key(stage), first);
+});
+
+test('native tooling keys cover workflow and script-owned manifest bytes', () => {
+    const snapshot = repositorySnapshot(resolve('.'));
+    const { inputs } = toolingStageContract(snapshot, []);
+    const declared = selectInputs(snapshot, inputs);
+    for (const file of ['.github/workflows/release.yml', '.github/workflows/ci.yml', 'src/academy/domain/cast-standardization-manifest.ts']) {
+        assert.ok(declared[file], file);
+    }
 });
