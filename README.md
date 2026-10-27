@@ -89,7 +89,7 @@ Settings, dictionaries and saved words stay on your device. No ads, no analytics
 - Recommended dictionaries come from Yomu's mirror. WTY JA-JA comes from its project on Hugging Face, Kanjium pitch accents from FooSoft's Yomichan repackaging on GitHub, and Jitendex and Jiten from their own projects.
 - Audio sources, OCR (Google Lens by default), translation and any review service you connect get only what that feature needs.
 
-The [privacy policy](https://yomureader.com/privacy/) lists every service.
+External links in Settings open without sending the current page address as a referrer. The [privacy policy](https://yomureader.com/privacy/) lists every service.
 
 ## Development
 

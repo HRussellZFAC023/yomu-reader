@@ -5,7 +5,7 @@ description: What よむ keeps on your device, which services it talks to and wh
 
 # Privacy
 
-Last updated: 7 October 2026
+Last updated: 27 October 2026
 
 Your settings, dictionaries, saved words and reviews stay on your device. よむ talks to a service only when a feature needs it, and this page lists every one. No ads, no analytics, nothing sold.
 
@@ -17,6 +17,8 @@ Your settings, dictionaries, saved words and reviews stay on your device. よむ
 - Image and media data only while the feature you used needs it. None of it is uploaded to a よむ account.
 
 Uninstalling removes this data. To keep a copy, export a backup first from Study → Settings → Backup & sync. Backups can contain API keys, so store them privately.
+
+External links in Settings open without sending the current page address as a referrer.
 
 ## What leaves your device, and when
 

@@ -208,6 +208,12 @@ describe('settings dialog static template', () => {
         expect(labels.some(input => input.value === label)).toBe(true);
         expect(form.querySelector('#x, script, [onerror], [onload]')).toBeNull();
         expect(form.querySelector('[data-yomu-private-token]')).toBeNull();
+        const externalLinks = [...form.querySelectorAll<HTMLAnchorElement>('a[target="_blank"]')];
+        expect(externalLinks.length).toBeGreaterThan(0);
+        for (const link of externalLinks) {
+            expect(link.relList.contains('noopener'), link.href).toBe(true);
+            expect(link.relList.contains('noreferrer'), link.href).toBe(true);
+        }
     });
 });
 
