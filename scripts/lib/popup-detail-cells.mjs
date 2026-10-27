@@ -1,22 +1,22 @@
-import * as files from 'node:fs';
-import * as paths from 'node:path';
-import * as browsers from 'playwright';
-import * as harness from './smoke-harness.mjs';
-import * as smokeHelpers from './smoke-test-helpers.mjs';
+import { withSmokeContexts } from './smoke-harness.mjs';
+import * as smokeDependencyFiles from 'node:fs';
+import * as smokeDependencyPaths from 'node:path';
+import * as smokeDependencyBrowsers from 'playwright';
+import * as smokeDependencyHarness from './smoke-harness.mjs';
+import * as smokeDependencySmokeHelpers from './smoke-test-helpers.mjs';
 import { closeServer as closeCellServer } from './smoke-harness.mjs';
 
 // Former jiten-keyless-definition-smoke: the host owns the browser; this cell owns its isolated scenario.
 export async function assertJitenKeylessDefinition(_hostBrowser, _hostEngine) {
-    const existingContexts = new Set(_hostBrowser.contexts());
-    try {
+    return withSmokeContexts(_hostBrowser, async () => {
 
     if (_hostEngine !== 'chromium') return;
 const _sourceDir = new URL('..', import.meta.url).pathname;
-    const { existsSync, mkdirSync, writeFileSync } = files;
-    const { default: path } = paths;
-    
-    const { addGmStorageBridgeInitScript, assert, assertBuiltArtifacts, corsHeaders, createSmokePaths, jsonHttpResponse, serveFile, startLoopbackServer, YOMU_SETTINGS_KEY } = harness;
-    const { newTabModeButton } = smokeHelpers;
+    const { existsSync, mkdirSync, writeFileSync } = smokeDependencyFiles;
+    const { default: path } = smokeDependencyPaths;
+
+    const { addGmStorageBridgeInitScript, assert, assertBuiltArtifacts, corsHeaders, createSmokePaths, jsonHttpResponse, serveFile, startLoopbackServer, YOMU_SETTINGS_KEY } = smokeDependencyHarness;
+    const { newTabModeButton } = smokeDependencySmokeHelpers;
 const { root: ROOT, dist: DIST, artifacts: ARTIFACTS, newTabDir: NEWTAB_DIR } = createSmokePaths(_sourceDir);
 const ARTIFACT_SUFFIX = (process.env.YOMU_JITEN_KEYLESS_ARTIFACT_SUFFIX || '').replace(/[^a-z0-9._-]+/gi, '-').replace(/^-|-$/g, '');
 const ARTIFACT_DIR = path.join(ARTIFACTS, ['jiten-full-definition', ARTIFACT_SUFFIX].filter(Boolean).join('-'));
@@ -450,25 +450,21 @@ async function seedJitendexDictionary(page) {
     }, { term: TERM, reading: READING });
 }
 
-    } finally {
-        for (const context of _hostBrowser.contexts()) {
-            if (!existingContexts.has(context)) await context.close();
-        }
-    }
+
+    });
 }
 
 // Former popup-header-phone-smoke: the host owns the browser; this cell owns its isolated scenario.
 export async function assertPopupHeaderPhone(_hostBrowser, _hostEngine) {
-    const existingContexts = new Set(_hostBrowser.contexts());
-    try {
+    return withSmokeContexts(_hostBrowser, async () => {
 
     if (_hostEngine !== 'chromium') return;
 const _sourceDir = new URL('..', import.meta.url).pathname;
-    const { mkdirSync, readFileSync, writeFileSync } = files;
-    const { default: path } = paths;
-    
-    const { addGmStorageBridgeInitScript, assert, assertBuiltArtifacts, createSmokePaths, jsonHttpResponse, mockJpdbParseFromVocabulary, readJsonBody, startLoopbackServer, YOMU_SETTINGS_KEY } = harness;
-    const { addScriptTagWithCspFallback, userscriptCompanionPaths } = smokeHelpers;
+    const { mkdirSync, readFileSync, writeFileSync } = smokeDependencyFiles;
+    const { default: path } = smokeDependencyPaths;
+
+    const { addGmStorageBridgeInitScript, assert, assertBuiltArtifacts, createSmokePaths, jsonHttpResponse, mockJpdbParseFromVocabulary, readJsonBody, startLoopbackServer, YOMU_SETTINGS_KEY } = smokeDependencyHarness;
+    const { addScriptTagWithCspFallback, userscriptCompanionPaths } = smokeDependencySmokeHelpers;
 // The word popup's header on a 390px phone, from the built userscript with its
 // default lookup links. Copy is an icon beside audio on a 44px target, and the
 // lookup pills fit one line: the less-used destinations wait behind "More"
@@ -596,9 +592,6 @@ function handleYomuRequest(request) {
     return { status: 404, responseText: '' };
 }
 
-    } finally {
-        for (const context of _hostBrowser.contexts()) {
-            if (!existingContexts.has(context)) await context.close();
-        }
-    }
+
+    });
 }

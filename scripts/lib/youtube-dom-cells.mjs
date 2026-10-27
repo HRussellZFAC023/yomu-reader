@@ -1,3 +1,4 @@
+import { withSmokeContexts } from './smoke-harness.mjs';
 import * as smokeDependencyFiles from 'node:fs';
 import * as smokeDependencyPaths from 'node:path';
 import * as smokeDependencyBundler from 'esbuild';
@@ -9,8 +10,7 @@ function finishCell(code) { if (code) throw new Error('Merged smoke cell failed 
 
 // Former youtube-continuation-smoke: the host owns the browser; this cell owns its isolated scenario.
 export async function assertYoutubeContinuation(_hostBrowser, _hostEngine) {
-    const existingContexts = new Set(_hostBrowser.contexts());
-    try {
+    return withSmokeContexts(_hostBrowser, async () => {
 
     const _sourceDir = new URL('..', import.meta.url).pathname;
     const { readFileSync, mkdirSync, writeFileSync } = smokeDependencyFiles;
@@ -148,17 +148,13 @@ for (const [name, browserType] of [[_hostEngine, _hostEngine === 'webkit' ? webk
 writeFileSync(resolve(output, 'evidence.json'), JSON.stringify(results, null, 2) + '\n');
 console.log(JSON.stringify(results, null, 2));
 
-    } finally {
-        for (const context of _hostBrowser.contexts()) {
-            if (!existingContexts.has(context)) await context.close();
-        }
-    }
+
+    });
 }
 
 // Former youtube-title-recycler-smoke: the host owns the browser; this cell owns its isolated scenario.
 export async function assertYoutubeTitleRecycler(_hostBrowser, _hostEngine) {
-    const existingContexts = new Set(_hostBrowser.contexts());
-    try {
+    return withSmokeContexts(_hostBrowser, async () => {
 
     if (_hostEngine !== 'chromium') return;
 const _sourceDir = new URL('..', import.meta.url).pathname;
@@ -327,9 +323,6 @@ async function assertReadable(label, expected) {
 if (failures.length) { console.error('TITLE_RECYCLER_SMOKE_FAIL'); finishCell(1); }
 console.log('TITLE_RECYCLER_SMOKE_OK');
 
-    } finally {
-        for (const context of _hostBrowser.contexts()) {
-            if (!existingContexts.has(context)) await context.close();
-        }
-    }
+
+    });
 }

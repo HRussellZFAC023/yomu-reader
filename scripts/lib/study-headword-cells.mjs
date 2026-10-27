@@ -1,3 +1,4 @@
+import { withSmokeContexts } from './smoke-harness.mjs';
 import * as smokeDependencyFiles from 'node:fs';
 import * as smokeDependencyPaths from 'node:path';
 import * as smokeDependencyBrowsers from 'playwright';
@@ -6,8 +7,7 @@ import * as smokeDependencyStudyFixture from './study-fixture.mjs';
 
 // Former study-headword-furigana-smoke: the host owns the browser; this cell owns its isolated scenario.
 export async function assertStudyHeadwordFurigana(_hostBrowser, _hostEngine) {
-    const existingContexts = new Set(_hostBrowser.contexts());
-    try {
+    return withSmokeContexts(_hostBrowser, async () => {
 
     const _sourceDir = new URL('..', import.meta.url).pathname;
     const { mkdirSync, writeFileSync } = smokeDependencyFiles;
@@ -84,9 +84,6 @@ for (const engine of [_hostEngine]) {
     }
 }
 
-    } finally {
-        for (const context of _hostBrowser.contexts()) {
-            if (!existingContexts.has(context)) await context.close();
-        }
-    }
+
+    });
 }

@@ -1,3 +1,4 @@
+import { withSmokeContexts } from './smoke-harness.mjs';
 import * as smokeDependencyBrowsers from 'playwright';
 import * as smokeDependencyAozoraMechanismFixtures from './aozora-mechanism-fixtures.mjs';
 import * as smokeDependencyJpdbScriptRunParse from './jpdb-script-run-parse.mjs';
@@ -7,8 +8,7 @@ function finishCell(code) { if (code) throw new Error('Merged smoke cell failed 
 
 // Former clamp-row-heal-smoke: the host owns the browser; this cell owns its isolated scenario.
 export async function assertClampRowHeal(_hostBrowser, _hostEngine) {
-    const existingContexts = new Set(_hostBrowser.contexts());
-    try {
+    return withSmokeContexts(_hostBrowser, async () => {
 
     const _sourceDir = new URL('..', import.meta.url).pathname;
     const { chromium, devices, webkit } = smokeDependencyBrowsers;
@@ -131,17 +131,13 @@ function readClampCards() {
     });
 }
 
-    } finally {
-        for (const context of _hostBrowser.contexts()) {
-            if (!existingContexts.has(context)) await context.close();
-        }
-    }
+
+    });
 }
 
 // Former page-ruby-lifecycle-smoke: the host owns the browser; this cell owns its isolated scenario.
 export async function assertPageRubyLifecycle(_hostBrowser, _hostEngine) {
-    const existingContexts = new Set(_hostBrowser.contexts());
-    try {
+    return withSmokeContexts(_hostBrowser, async () => {
 
     const _sourceDir = new URL('..', import.meta.url).pathname;
     const { default: assert } = smokeDependencyAssertions;
@@ -235,9 +231,6 @@ for (const engine of engines.filter(name => name === _hostEngine)) {
 
 }
 
-    } finally {
-        for (const context of _hostBrowser.contexts()) {
-            if (!existingContexts.has(context)) await context.close();
-        }
-    }
+
+    });
 }

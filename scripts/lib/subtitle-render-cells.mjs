@@ -1,22 +1,22 @@
-import * as files from 'node:fs';
-import * as paths from 'node:path';
-import * as urls from 'node:url';
-import * as browsers from 'playwright';
-import * as colorSources from '../../src/reader/theme/color-source-classes.ts';
-import * as assertions from 'node:assert/strict';
-import * as bundler from 'esbuild';
-import * as smokeHelpers from './smoke-test-helpers.mjs';
+import { withSmokeContexts } from './smoke-harness.mjs';
+import * as smokeDependencyFiles from 'node:fs';
+import * as smokeDependencyPaths from 'node:path';
+import * as smokeDependencyUrls from 'node:url';
+import * as smokeDependencyBrowsers from 'playwright';
+import * as smokeDependencyColorSources from '../../src/reader/theme/color-source-classes.ts';
+import * as smokeDependencyAssertions from 'node:assert/strict';
+import * as smokeDependencyBundler from 'esbuild';
+import * as smokeDependencySmokeHelpers from './smoke-test-helpers.mjs';
 
 // Former subtitle-furigana-outline-scale-smoke: the host owns the browser; this cell owns its isolated scenario.
 export async function assertSubtitleFuriganaOutlineScale(_hostBrowser, _hostEngine) {
-    const existingContexts = new Set(_hostBrowser.contexts());
-    try {
+    return withSmokeContexts(_hostBrowser, async () => {
 
     const _sourceDir = new URL('..', import.meta.url).pathname;
-    const { readFileSync } = files;
-    const { default: path } = paths;
-    const { fileURLToPath } = urls;
-    const { chromium, webkit } = browsers;
+    const { readFileSync } = smokeDependencyFiles;
+    const { default: path } = smokeDependencyPaths;
+    const { fileURLToPath } = smokeDependencyUrls;
+    const { chromium, webkit } = smokeDependencyBrowsers;
 // Real-engine regression: the legibility outline on a subtitle reading must be
 // SIZE-INVARIANT in shape, it must stay off the kanji it annotates, AND it must
 // keep the reading legible over bright footage IN EVERY DIRECTION.
@@ -627,24 +627,20 @@ await verifyEngine('chromium', chromium);
 await verifyEngine('webkit', webkit);
 console.log('subtitle furigana outline scale smoke passed');
 
-    } finally {
-        for (const context of _hostBrowser.contexts()) {
-            if (!existingContexts.has(context)) await context.close();
-        }
-    }
+
+    });
 }
 
 // Former subtitle-highlight-layers-smoke: the host owns the browser; this cell owns its isolated scenario.
 export async function assertSubtitleHighlightLayers(_hostBrowser, _hostEngine) {
-    const existingContexts = new Set(_hostBrowser.contexts());
-    try {
+    return withSmokeContexts(_hostBrowser, async () => {
 
     const _sourceDir = new URL('..', import.meta.url).pathname;
-    const { readFileSync } = files;
-    const { default: path } = paths;
-    const { fileURLToPath } = urls;
-    const { chromium, webkit } = browsers;
-    const { colorSourceClassName } = colorSources;
+    const { readFileSync } = smokeDependencyFiles;
+    const { default: path } = smokeDependencyPaths;
+    const { fileURLToPath } = smokeDependencyUrls;
+    const { chromium, webkit } = smokeDependencyBrowsers;
+    const { colorSourceClassName } = smokeDependencyColorSources;
 // Real-engine regression: a subtitle word must carry exactly ONE painted layer,
 // and that layer must sit on the word itself.
 //
@@ -825,25 +821,21 @@ await verifyEngine('chromium', chromium);
 await verifyEngine('webkit', webkit);
 console.log('subtitle highlight layers smoke passed');
 
-    } finally {
-        for (const context of _hostBrowser.contexts()) {
-            if (!existingContexts.has(context)) await context.close();
-        }
-    }
+
+    });
 }
 
 // Former subtitle-generic-layer-smoke: the host owns the browser; this cell owns its isolated scenario.
 export async function assertSubtitleGenericLayer(_hostBrowser, _hostEngine) {
-    const existingContexts = new Set(_hostBrowser.contexts());
-    try {
+    return withSmokeContexts(_hostBrowser, async () => {
 
     const _sourceDir = new URL('..', import.meta.url).pathname;
-    const { default: assert } = assertions;
-    const { mkdirSync, readFileSync, writeFileSync } = files;
-    const { default: path } = paths;
-    const { build } = bundler;
-    const { chromium, webkit, devices } = browsers;
-    const { userscriptCompanionPaths } = smokeHelpers;
+    const { default: assert } = smokeDependencyAssertions;
+    const { mkdirSync, readFileSync, writeFileSync } = smokeDependencyFiles;
+    const { default: path } = smokeDependencyPaths;
+    const { build } = smokeDependencyBundler;
+    const { chromium, webkit, devices } = smokeDependencyBrowsers;
+    const { userscriptCompanionPaths } = smokeDependencySmokeHelpers;
 // Generic stacking contexts cannot be reached through the YouTube recording's
 // site Adapter. This labelled mechanism fixture runs the BUILT video companion
 // and shipped CSS; only settings data is exported from source.
@@ -922,9 +914,6 @@ for (const [name, engine] of [[_hostEngine, _hostEngine === 'webkit' ? webkit : 
 writeFileSync(`${out}/result.json`, JSON.stringify(results, null, 2));
 console.log(JSON.stringify(results));
 
-    } finally {
-        for (const context of _hostBrowser.contexts()) {
-            if (!existingContexts.has(context)) await context.close();
-        }
-    }
+
+    });
 }

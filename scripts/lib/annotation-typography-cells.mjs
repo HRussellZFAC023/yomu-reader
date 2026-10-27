@@ -1,3 +1,4 @@
+import { withSmokeContexts } from './smoke-harness.mjs';
 import * as smokeDependencyFiles from 'node:fs';
 import * as smokeDependencyPaths from 'node:path';
 import * as smokeDependencyCompression from 'node:zlib';
@@ -9,8 +10,7 @@ import { closeServer as closeCellServer } from './smoke-harness.mjs';
 
 // Former pitch-underline-smoke: the host owns the browser; this cell owns its isolated scenario.
 export async function assertPitchUnderline(_hostBrowser, _hostEngine) {
-    const existingContexts = new Set(_hostBrowser.contexts());
-    try {
+    return withSmokeContexts(_hostBrowser, async () => {
 
     const _sourceDir = new URL('..', import.meta.url).pathname;
     const { mkdirSync, writeFileSync } = smokeDependencyFiles;
@@ -652,17 +652,13 @@ function clamp(value, min, max) {
     return Math.min(max, Math.max(min, value));
 }
 
-    } finally {
-        for (const context of _hostBrowser.contexts()) {
-            if (!existingContexts.has(context)) await context.close();
-        }
-    }
+
+    });
 }
 
 // Former underline-colour-sources-smoke: the host owns the browser; this cell owns its isolated scenario.
 export async function assertUnderlineColourSources(_hostBrowser, _hostEngine) {
-    const existingContexts = new Set(_hostBrowser.contexts());
-    try {
+    return withSmokeContexts(_hostBrowser, async () => {
 
     const _sourceDir = new URL('..', import.meta.url).pathname;
     const { mkdirSync, readFileSync, writeFileSync } = smokeDependencyFiles;
@@ -1152,17 +1148,13 @@ function isTransparent(value) {
     return gradientColours(value).every(colour => /^rgba\([^)]*, 0\)$/.test(colour));
 }
 
-    } finally {
-        for (const context of _hostBrowser.contexts()) {
-            if (!existingContexts.has(context)) await context.close();
-        }
-    }
+
+    });
 }
 
 // Former ruby-overhang-scope-smoke: the host owns the browser; this cell owns its isolated scenario.
 export async function assertRubyOverhangScope(_hostBrowser, _hostEngine) {
-    const existingContexts = new Set(_hostBrowser.contexts());
-    try {
+    return withSmokeContexts(_hostBrowser, async () => {
 
     const _sourceDir = new URL('..', import.meta.url).pathname;
     const { build } = smokeDependencyBundler;
@@ -1251,9 +1243,6 @@ writeFileSync(path.join(out, 'report.json'), `${JSON.stringify(report, null, 2)}
 console.log(JSON.stringify(report, null, 2));
 console.log(`Ruby paragraph-scope smoke passed; source fixture report: ${out}`);
 
-    } finally {
-        for (const context of _hostBrowser.contexts()) {
-            if (!existingContexts.has(context)) await context.close();
-        }
-    }
+
+    });
 }

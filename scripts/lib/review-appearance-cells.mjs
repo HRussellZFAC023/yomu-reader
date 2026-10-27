@@ -1,3 +1,4 @@
+import { withSmokeContexts } from './smoke-harness.mjs';
 import * as smokeDependencyFiles from 'node:fs';
 import * as smokeDependencyPaths from 'node:path';
 import * as smokeDependencyBrowsers from 'playwright';
@@ -6,8 +7,7 @@ import * as smokeDependencySmokeHelpers from './smoke-test-helpers.mjs';
 
 // Former accent-quick-row-smoke: the host owns the browser; this cell owns its isolated scenario.
 export async function assertAccentQuickRow(_hostBrowser, _hostEngine) {
-    const existingContexts = new Set(_hostBrowser.contexts());
-    try {
+    return withSmokeContexts(_hostBrowser, async () => {
 
     const _sourceDir = new URL('..', import.meta.url).pathname;
     const { existsSync, mkdirSync, readFileSync } = smokeDependencyFiles;
@@ -463,9 +463,6 @@ function paddedClip(box, viewport, padding = 16) {
     };
 }
 
-    } finally {
-        for (const context of _hostBrowser.contexts()) {
-            if (!existingContexts.has(context)) await context.close();
-        }
-    }
+
+    });
 }

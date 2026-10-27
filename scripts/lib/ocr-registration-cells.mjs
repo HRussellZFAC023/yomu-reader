@@ -1,3 +1,4 @@
+import { withSmokeContexts } from './smoke-harness.mjs';
 import * as smokeDependencyProcesses from 'node:child_process';
 import * as smokeDependencyFiles from 'node:fs';
 import * as smokeDependencyOperatingSystem from 'node:os';
@@ -11,8 +12,7 @@ function finishCell(code) { if (code) throw new Error('Merged smoke cell failed 
 
 // Former ocr-transform-register-smoke: the host owns the browser; this cell owns its isolated scenario.
 export async function assertOcrTransformRegister(_hostBrowser, _hostEngine) {
-    const existingContexts = new Set(_hostBrowser.contexts());
-    try {
+    return withSmokeContexts(_hostBrowser, async () => {
 
     if (_hostEngine !== 'chromium') return;
 const _sourceDir = new URL('..', import.meta.url).pathname;
@@ -568,17 +568,13 @@ function measureConsumers({ degrees, slack }) {
     return { words: boxes.length, correctHits, pointerHits, ambiguous, maxGrowthX, maxGrowthY };
 }
 
-    } finally {
-        for (const context of _hostBrowser.contexts()) {
-            if (!existingContexts.has(context)) await context.close();
-        }
-    }
+
+    });
 }
 
 // Former gaming-ocr-hit-target-smoke: the host owns the browser; this cell owns its isolated scenario.
 export async function assertGamingOcrHitTarget(_hostBrowser, _hostEngine) {
-    const existingContexts = new Set(_hostBrowser.contexts());
-    try {
+    return withSmokeContexts(_hostBrowser, async () => {
 
     if (_hostEngine !== 'chromium') return;
 const _sourceDir = new URL('..', import.meta.url).pathname;
@@ -714,17 +710,13 @@ function buildFixtureAssets() {
     }
 }
 
-    } finally {
-        for (const context of _hostBrowser.contexts()) {
-            if (!existingContexts.has(context)) await context.close();
-        }
-    }
+
+    });
 }
 
 // Former youtube-paused-frame-register-smoke: the host owns the browser; this cell owns its isolated scenario.
 export async function assertYoutubePausedFrameRegister(_hostBrowser, _hostEngine) {
-    const existingContexts = new Set(_hostBrowser.contexts());
-    try {
+    return withSmokeContexts(_hostBrowser, async () => {
 
     if (_hostEngine !== 'chromium') return;
 const _sourceDir = new URL('..', import.meta.url).pathname;
@@ -992,17 +984,13 @@ console.log(failures.length
     : '\nALL PASS — paused-frame OCR sits on the text it was read from, bottom subtitles included');
 finishCell(failures.length ? 1 : 0);
 
-    } finally {
-        for (const context of _hostBrowser.contexts()) {
-            if (!existingContexts.has(context)) await context.close();
-        }
-    }
+
+    });
 }
 
 // Former ocr-viewport-scroll-smoke: the host owns the browser; this cell owns its isolated scenario.
 export async function assertOcrViewportScroll(_hostBrowser, _hostEngine) {
-    const existingContexts = new Set(_hostBrowser.contexts());
-    try {
+    return withSmokeContexts(_hostBrowser, async () => {
 
     const _sourceDir = new URL('..', import.meta.url).pathname;
     const { default: assert } = smokeDependencyAssertions;
@@ -1226,9 +1214,6 @@ async function paintPuck(page) {
     });
 }
 
-    } finally {
-        for (const context of _hostBrowser.contexts()) {
-            if (!existingContexts.has(context)) await context.close();
-        }
-    }
+
+    });
 }

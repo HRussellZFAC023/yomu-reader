@@ -1,3 +1,4 @@
+import { withSmokeContexts } from './smoke-harness.mjs';
 import * as smokeDependencyPaths from 'node:path';
 import * as smokeDependencyUrls from 'node:url';
 import * as smokeDependencyBrowsers from 'playwright';
@@ -7,8 +8,7 @@ import * as smokeDependencyOperatingSystem from 'node:os';
 
 // Former fractional-projection-idempotence-smoke: the host owns the browser; this cell owns its isolated scenario.
 export async function assertFractionalProjectionIdempotence(_hostBrowser, _hostEngine) {
-    const existingContexts = new Set(_hostBrowser.contexts());
-    try {
+    return withSmokeContexts(_hostBrowser, async () => {
 
     const _sourceDir = new URL('..', import.meta.url).pathname;
     const { default: path } = smokeDependencyPaths;
@@ -126,17 +126,13 @@ await runEngine('chromium', chromium);
 await runEngine('webkit', webkit);
 console.log('fractional projection idempotence smoke passed');
 
-    } finally {
-        for (const context of _hostBrowser.contexts()) {
-            if (!existingContexts.has(context)) await context.close();
-        }
-    }
+
+    });
 }
 
 // Former modal-reading-register-smoke: the host owns the browser; this cell owns its isolated scenario.
 export async function assertModalReadingRegister(_hostBrowser, _hostEngine) {
-    const existingContexts = new Set(_hostBrowser.contexts());
-    try {
+    return withSmokeContexts(_hostBrowser, async () => {
 
     const _sourceDir = new URL('..', import.meta.url).pathname;
     const { mkdtempSync, readFileSync, rmSync, writeFileSync } = smokeDependencyFiles;
@@ -443,17 +439,13 @@ try {
     rmSync(tempDir, { recursive: true, force: true });
 }
 
-    } finally {
-        for (const context of _hostBrowser.contexts()) {
-            if (!existingContexts.has(context)) await context.close();
-        }
-    }
+
+    });
 }
 
 // Former reading-collision-smoke: the host owns the browser; this cell owns its isolated scenario.
 export async function assertReadingCollision(_hostBrowser, _hostEngine) {
-    const existingContexts = new Set(_hostBrowser.contexts());
-    try {
+    return withSmokeContexts(_hostBrowser, async () => {
 
     const _sourceDir = new URL('..', import.meta.url).pathname;
     const { mkdtempSync, writeFileSync, rmSync } = smokeDependencyFiles;
@@ -577,9 +569,6 @@ try {
     }
 } finally { rmSync(temporary, { recursive: true, force: true }); }
 
-    } finally {
-        for (const context of _hostBrowser.contexts()) {
-            if (!existingContexts.has(context)) await context.close();
-        }
-    }
+
+    });
 }

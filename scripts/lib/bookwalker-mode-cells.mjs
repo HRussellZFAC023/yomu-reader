@@ -1,20 +1,20 @@
-import * as browsers from 'playwright';
-import * as paths from 'node:path';
-import * as harness from './smoke-harness.mjs';
-import * as smokeHelpers from './smoke-test-helpers.mjs';
-import * as files from 'node:fs';
+import { withSmokeContexts } from './smoke-harness.mjs';
+import * as smokeDependencyBrowsers from 'playwright';
+import * as smokeDependencyPaths from 'node:path';
+import * as smokeDependencyHarness from './smoke-harness.mjs';
+import * as smokeDependencySmokeHelpers from './smoke-test-helpers.mjs';
+import * as smokeDependencyFiles from 'node:fs';
 function finishCell(code) { if (code) throw new Error('Merged smoke cell failed with exit code ' + code); }
 
 // Former bookwalker-cty2-scroll-smoke: the host owns the browser; this cell owns its isolated scenario.
 export async function assertBookwalkerCty2Scroll(_hostBrowser, _hostEngine) {
-    const existingContexts = new Set(_hostBrowser.contexts());
-    try {
+    return withSmokeContexts(_hostBrowser, async () => {
 
     const _sourceDir = new URL('..', import.meta.url).pathname;
-    const { chromium, webkit, firefox } = browsers;
-    const { default: path } = paths;
-    const { createSmokePaths, addGmStorageBridgeInitScript, makePng, YOMU_SETTINGS_KEY } = harness;
-    const { addScriptTagWithCspFallback, installUserscriptCssResource } = smokeHelpers;
+    const { chromium, webkit, firefox } = smokeDependencyBrowsers;
+    const { default: path } = smokeDependencyPaths;
+    const { createSmokePaths, addGmStorageBridgeInitScript, makePng, YOMU_SETTINGS_KEY } = smokeDependencyHarness;
+    const { addScriptTagWithCspFallback, installUserscriptCssResource } = smokeDependencySmokeHelpers;
 // Regression proof for BookWalker cty=2 OCR (symptoms S1/S2/S3) in the REAL
 // userscript: a single repainting BookWalker viewport + ?cty=2 + a tainted DRM
 // canvas (mirror path) + a tapped partial-page retry region. Before the fix,
@@ -153,24 +153,20 @@ for (const r of results) { const ok = r.page1Ok && r.scrollSurvive && r.turnOk; 
 console.log(fails ? `\nFAILURES: ${fails}` : '\nALL PASS — cty=2 within-page scroll keeps the OCR overlay; real turns still re-OCR.');
 finishCell(fails?1:0);
 
-    } finally {
-        for (const context of _hostBrowser.contexts()) {
-            if (!existingContexts.has(context)) await context.close();
-        }
-    }
+
+    });
 }
 
 // Former bookwalker-tap-passthrough-smoke: the host owns the browser; this cell owns its isolated scenario.
 export async function assertBookwalkerTapPassthrough(_hostBrowser, _hostEngine) {
-    const existingContexts = new Set(_hostBrowser.contexts());
-    try {
+    return withSmokeContexts(_hostBrowser, async () => {
 
     const _sourceDir = new URL('..', import.meta.url).pathname;
-    const { chromium, firefox, webkit } = browsers;
-    const { default: path } = paths;
-    const { mkdirSync, writeFileSync } = files;
-    const { createSmokePaths, addGmStorageBridgeInitScript, makePng, YOMU_SETTINGS_KEY } = harness;
-    const { addScriptTagWithCspFallback, installUserscriptCssResource } = smokeHelpers;
+    const { chromium, firefox, webkit } = smokeDependencyBrowsers;
+    const { default: path } = smokeDependencyPaths;
+    const { mkdirSync, writeFileSync } = smokeDependencyFiles;
+    const { createSmokePaths, addGmStorageBridgeInitScript, makePng, YOMU_SETTINGS_KEY } = smokeDependencyHarness;
+    const { addScriptTagWithCspFallback, installUserscriptCssResource } = smokeDependencySmokeHelpers;
 // Browser proof that tapping OCR text on a BookWalker-style viewer looks the word
 // up instead of turning the page. NFBR turns the page on a touchend/click on its
 // canvas; Yomu's OCR overlay sits on top, but on touch WebKit can target the
@@ -312,24 +308,20 @@ writeFileSync(path.join(ARTIFACT_DIR, 'summary.json'), JSON.stringify(rows, null
 console.log(failures.length ? `\nFAILURES: ${[...new Set(failures)].join(', ')}` : `\nALL PASS — OCR text taps look up the word without turning the page; bare taps still turn. Artifacts: ${ARTIFACT_DIR}`);
 finishCell(failures.length ? 1 : 0);
 
-    } finally {
-        for (const context of _hostBrowser.contexts()) {
-            if (!existingContexts.has(context)) await context.close();
-        }
-    }
+
+    });
 }
 
 // Former bookwalker-tap-retry-smoke: the host owns the browser; this cell owns its isolated scenario.
 export async function assertBookwalkerTapRetry(_hostBrowser, _hostEngine) {
-    const existingContexts = new Set(_hostBrowser.contexts());
-    try {
+    return withSmokeContexts(_hostBrowser, async () => {
 
     if (_hostEngine === 'firefox') return;
 const _sourceDir = new URL('..', import.meta.url).pathname;
-    const { chromium, webkit } = browsers;
-    const { default: path } = paths;
-    const { createSmokePaths, addGmStorageBridgeInitScript, makePng, YOMU_SETTINGS_KEY } = harness;
-    const { addScriptTagWithCspFallback, installUserscriptCssResource } = smokeHelpers;
+    const { chromium, webkit } = smokeDependencyBrowsers;
+    const { default: path } = smokeDependencyPaths;
+    const { createSmokePaths, addGmStorageBridgeInitScript, makePng, YOMU_SETTINGS_KEY } = smokeDependencyHarness;
+    const { addScriptTagWithCspFallback, installUserscriptCssResource } = smokeDependencySmokeHelpers;
 // Browser proof that a BookWalker canvas tap whose page is composited BUT whose OCR
 // capture isn't ready yet still OCRs on its own — without a second tap. In tap/manual
 // mode the background poll never spends an OCR call; only a user tap captures. When
@@ -431,9 +423,6 @@ for (const r of rows) console.log(`${r.label.padEnd(28)} ${r.ok ? 'OCR ok' : 'NO
 console.log(failures.length ? `\nFAILURES (${failures.length}): ${[...new Set(failures)].join('; ')}` : '\nALL PASS — a tap whose capture isn\'t ready yet still OCRs without a second tap');
 finishCell(failures.length ? 1 : 0);
 
-    } finally {
-        for (const context of _hostBrowser.contexts()) {
-            if (!existingContexts.has(context)) await context.close();
-        }
-    }
+
+    });
 }

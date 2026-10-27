@@ -1,17 +1,17 @@
-import * as browsers from 'playwright';
-import * as harness from './smoke-harness.mjs';
-import * as studyFixture from './study-fixture.mjs';
+import { withSmokeContexts } from './smoke-harness.mjs';
+import * as smokeDependencyBrowsers from 'playwright';
+import * as smokeDependencyHarness from './smoke-harness.mjs';
+import * as smokeDependencyStudyFixture from './study-fixture.mjs';
 
 // Former offline-study-smoke: the host owns the browser; this cell owns its isolated scenario.
 export async function assertOfflineStudy(_hostBrowser, _hostEngine) {
-    const existingContexts = new Set(_hostBrowser.contexts());
-    try {
+    return withSmokeContexts(_hostBrowser, async () => {
 
     if (_hostEngine !== 'chromium') return;
 const _sourceDir = new URL('..', import.meta.url).pathname;
 
-    const { assert } = harness;
-    const { bootStudySession, createStudyServer, createStudySettings } = studyFixture;
+    const { assert } = smokeDependencyHarness;
+    const { bootStudySession, createStudyServer, createStudySettings } = smokeDependencyStudyFixture;
 // Offline-first review smoke: warm the cache online, go offline, then grade every
 // due card. Asserts (1) the session keeps advancing offline, (2) every grade is
 // queued locally (no lost reviews), and (3) ZERO cross-origin network requests are
@@ -190,9 +190,6 @@ function readProgress(page) {
 
 await run();
 
-    } finally {
-        for (const context of _hostBrowser.contexts()) {
-            if (!existingContexts.has(context)) await context.close();
-        }
-    }
+
+    });
 }
