@@ -1,15 +1,9 @@
 import { Blob as NodeBlob } from 'node:buffer';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
-import {
-    AUTHORIZED_AUDIO_CATALOG,
-    AUTHORIZED_AUDIO_MANIFEST,
-    AUTHORIZED_AUDIO_PRECACHE_URLS,
-    GROUNDED_LOCATION_THEME_SLOTS,
-    audioPrecacheUrlsFromManifest,
-    parseAudioManifest,
-} from '../../src/academy/audio/manifest';
+import { AUTHORIZED_AUDIO_CATALOG, AUTHORIZED_AUDIO_MANIFEST, AUTHORIZED_AUDIO_PRECACHE_URLS, GROUNDED_LOCATION_THEME_SLOTS, audioPrecacheUrlsFromManifest, parseAudioManifest, catalogFromManifest, sfxSourcesFromManifest } from '../../src/academy/audio/manifest';
 import { WORLD_EXPANSION_AUDIO_PROFILES, WORLD_LOCATION_AUDIO_PROFILES } from '../../src/academy/vn/world-location-audio';
+import { type AudioRights } from '../../src/academy/audio/types';
 
 const serviceWorkers = [
     'public/academy/sw.js',
@@ -185,5 +179,63 @@ describe('grounded Academy audio registry', () => {
         expect(audioPrecacheUrlsFromManifest(manifest, false)).toEqual([
             '/academy/media/audio/prototype/library.flac',
         ]);
+    });
+});
+
+describe('audio-manifest-sfx behavior', () => {
+    const releaseRights: AudioRights = {
+        owner: 'Henry Russell',
+        licence: 'Owner-attested educational use',
+        source: 'private local archive',
+        reviewed: true,
+        scope: 'release',
+    };
+    
+    const manifestJson = {
+        version: 1,
+        themes: [
+            {
+                slot: 'campus.evening',
+                bus: 'music',
+                trackId: 'persona-evening',
+                title: 'Evening Theme',
+                mediaKey: 'persona/theme/evening.m4a',
+                loop: true,
+                gain: 0.8,
+                rights: releaseRights,
+            },
+            {
+                slot: 'library.quiet',
+                bus: 'ambience',
+                trackId: 'prototype-only',
+                title: 'Prototype pad',
+                mediaKey: 'persona/theme/pad.m4a',
+                loop: true,
+                gain: 0.5,
+                rights: { ...releaseRights, scope: 'private-prototype' },
+            },
+        ],
+        sfx: [
+            { cue: 'menu.confirm', mediaKey: 'shinday/sfx/confirm.m4a', gain: 1, rights: releaseRights },
+            { cue: 'page.turn', mediaKey: 'shinday/sfx/page.m4a', gain: 0.6, rights: { ...releaseRights, scope: 'private-prototype' } },
+        ],
+    };
+    
+    describe('Academy audio manifest', () => {
+    
+        it('gates the catalog and SFX map on rights scope in release mode', () => {
+            const manifest = parseAudioManifest(manifestJson);
+    
+            const releaseCatalog = catalogFromManifest(manifest, true);
+            expect(releaseCatalog['campus.evening'].music?.id).toBe('persona-evening');
+            expect(releaseCatalog['library.quiet'].ambience).toBeUndefined();
+    
+            const prototypeCatalog = catalogFromManifest(manifest, false);
+            expect(prototypeCatalog['library.quiet'].ambience?.id).toBe('prototype-only');
+    
+            const releaseSfx = sfxSourcesFromManifest(manifest, true);
+            expect([...releaseSfx.keys()]).toEqual(['menu.confirm']);
+            expect(sfxSourcesFromManifest(manifest, false).size).toBe(2);
+        });
     });
 });
