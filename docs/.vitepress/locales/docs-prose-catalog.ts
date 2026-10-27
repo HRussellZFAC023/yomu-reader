@@ -9,6 +9,20 @@ export interface ReviewedDocsMessage {
 }
 
 const HOSTED_DOCS_JA_COPY: Record<string, string> = {
+    "Choose an accent colour and how words are underlined (status, pitch or off) at the top of Settings → Appearance.": "設定 → 外観の最上部で、アクセントカラーと単語の下線（学習状態・ピッチ・オフ）を選べます。",
+    "Connecting a review service (JPDB, Jiten, Anki or よむ Academy) is one clear step in Settings.": "復習サービス（JPDB・Jiten・Anki・よむアカデミー）との連携が、設定の中で分かりやすい1ステップになりました。",
+    "Turn furigana off in Settings (Furigana → Off) or from the puck while word lookup keeps working. The puck’s power button only turns よむ on or off; when よむ is off, tap the grey puck once to turn it back on.": "設定（ふりがな → オフ）やよむボタンから、単語検索を使ったままふりがなだけをオフにできます。電源ボタンはよむのオン・オフだけを切り替え、オフのときは灰色のよむボタンを1回タップすると再開します。",
+    "Word popups show pitch accent and frequency for common words such as 先生 even while the page is still loading readings. The unexplained “In context” badge and the “Exact pitch unavailable” text are gone, and the popup header no longer jumps while details load.": "先生のようなよく使う単語でも、ページの読みを読み込んでいる間からポップアップにピッチアクセントと頻度が表示されます。意味の分かりにくい「文脈内」バッジと「完全一致のピッチは利用不可」の表示をなくし、詳細の読み込み中にヘッダーが動かなくなりました。",
+    "YouTube subtitles stay on the video: site dialogs and menus cover them, the line no longer jumps between cues, readings use the text colour, and a dark backdrop keeps the line, readings and translation readable on any background.": "YouTubeの字幕は動画の上に留まります。サイトのダイアログやメニューの下に入り、字幕が切り替わっても行が上下せず、ふりがなは本文と同じ色になり、暗い背景で字幕・ふりがな・翻訳がどんな背景でも読みやすくなりました。",
+    "Image OCR shows loading and retry feedback, keeps successful answers private, and no longer saves failures as empty results.": "画像OCRに読み取り中・再試行の表示を追加し、成功した結果を非公開で保存します。失敗を「文字なし」として保存しなくなりました。",
+    "Ignored words keep the page’s text colour and full contrast by default. Showing ignored state markings no longer fades the text.": "初期設定では、無視した単語もページ本来の文字色と濃さを保ちます。無視した単語の学習状態の印を表示しても、文字は薄くなりません。",
+    "Choosing Pitch or Off under Underline now hides the i+1 background wash without changing coverage or Batch Mine counts.": "「下線」で「ピッチ」または「オフ」を選ぶとi+1の背景色が消えます。カバー率や一括保存の件数は変わりません。",
+    "Anki review cards remain Learning below a 21-day interval; Due and Suspended states are preserved. Revealed Study answers keep their readings under every state filter.": "Ankiの復習カードは、間隔が21日未満なら「学習中」と表示され、期限到来・停止中の状態は維持されます。学習ページで表示した答えの読みは、どの状態フィルターでも残ります。",
+    "Piccoma navigation and menu labels keep their spacing and position when よむ annotates them.": "ピッコマのナビゲーションやメニューをよむで注釈しても、文字の間隔や配置が崩れなくなりました。",
+    "Page-authored ruby stays intact when you hide readings or pause annotations, and kana-first clamped rows stay readable.": "ふりがなの非表示や注釈の一時停止でもページ本来のルビを保持し、かなで始まる行数制限付きの文章も読める状態を保ちます。",
+    "Long pages annotate without freezing the page.": "長いページでも、注釈を付けている間にページが固まらなくなりました。",
+    "Pages stay smooth while よむ annotates: its styles no longer force whole-page style recalculation.": "よむが注釈を付けている間もページが滑らかに動きます。よむのスタイルがページ全体の再計算を引き起こさなくなりました。",
+    "Background pitch lookups run only where pitch colours are shown, so readings and the word you opened load first.": "バックグラウンドのピッチ検索はピッチ色を表示する場所だけで行い、読みと開いた単語の検索を優先します。",
     "How do I hide furigana or turn よむ back on? {#furigana-power}": "ふりがなを隠したり、よむを再びオンにしたりするには？ {#furigana-power}",
     "Permalink to \"How do I hide furigana or turn よむ back on? {#furigana-power}\"": "「ふりがなを隠したり、よむを再びオンにしたりするには？」への固定リンク",
     "Settings → Appearance → Furigana → Off": "設定 → 外観 → ふりがな → オフ",

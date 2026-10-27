@@ -2382,6 +2382,7 @@ const MANAGED_STATE_MANIFEST = [
   { owner: "jpdb/jpdb-public-cache", kind: "local", key: "yomu:jpdb-cache:v1" },
   { owner: "dictionaries/jiten-public-cache (legacy)", kind: "gm", key: "yomu:jiten-public-cache:v1" },
   { owner: "dictionaries/jiten-public-cache", kind: "local", key: "yomu:jiten-public-cache:v2" },
+  { owner: "dictionaries/jiten-reading-memory", kind: "local", key: "yomu:jiten-readings:v1" },
   { owner: "dictionaries/jiten-stats-cache", kind: "gm", key: "jpdb-reader-jiten-daily-stats" },
   // Dictionary database (Yomitan/Jitendex terms). Cleared by the dictionary
   // store's own deleteDatabase during reset; registered so the invariant test
@@ -2400,9 +2401,12 @@ const MANAGED_STATE_MANIFEST = [
   { owner: "dictionaries/replication (legacy)", kind: "local", key: "yomu-dictionary-replication-state" },
   { owner: "dictionaries/replica-purge", kind: "gm", key: "yomu:dictionary-replica-purge:v1" },
   { owner: "dictionaries/replica-purge", kind: "local", key: "yomu:dictionary-replica-purged:v1" },
-  // OCR result cache.
-  { owner: "ocr/ocr-cache-store", kind: "local", key: "yomu-ocr-cache-v1" },
-  { owner: "ocr/ocr-cache-store", kind: "local", key: "yomu-ocr-cache-v2" },
+  // OCR answers with text, one private shard per site under a hash of its
+  // origin. 2.1.x kept them in the page's own storage (v1, v2); the first
+  // load moves them across and deletes the page keys.
+  { owner: "ocr/ocr-cache-store", kind: "gm", prefix: "yomu:private:ocr-cache:v3:" },
+  { owner: "ocr/ocr-cache-store (legacy)", kind: "local", key: "yomu-ocr-cache-v1" },
+  { owner: "ocr/ocr-cache-store (legacy)", kind: "local", key: "yomu-ocr-cache-v2" },
   { owner: "ocr/canvas-mirror", kind: "session", key: "yomu:bw:mirror-loadguard" },
   // The one-time reader-canvas tap hint appears once per site. Each site's record
   // is private and keyed by a hash of its origin, so no page can read it.
@@ -2647,7 +2651,8 @@ function storageWriteError(key, message, ...causes) {
 function isRecord$1(value) {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
-const PROVENANCE_KEY = "yomu:local-storage-provenance:v1";
+const LOCAL_MIRROR_PROVENANCE_KEY = "yomu:local-storage-provenance:v1";
+const PROVENANCE_KEY = LOCAL_MIRROR_PROVENANCE_KEY;
 function captureLocalFallbackStoredState(key) {
   try {
   const serializedValue = localStorage.getItem(key);
@@ -6514,7 +6519,7 @@ closeDrawer	ドロワーを閉じる
 copiedWord	単語をコピーしました。
 jpdbKanjiUpdated	JPDB漢字を更新しました。
 jpdbKanjiUpdateFailedRuntime	JPDB漢字を更新できません。
-apiSrsActionsDisabled	設定でAPI採掘操作が無効です。
+apiSrsActionsDisabled	設定でこのサービスの「よむから採点」がオフです。
 addJpdbApiKeyReview	JPDBレビューにはAPIキーが必要です。
 addJitenApiKeyReview	JitenレビューにはAPIキーが必要です。
 addBunproApiKeyReview	Bunproレビューにはfrontend_api_tokenが必要です。
@@ -6572,7 +6577,6 @@ local	ローカル
 dict	辞書
 scanPage	ページをスキャン
 noUnscannedJapaneseText	未スキャンの日本語テキストはありません。
-contextOccurrences	文脈内 ×{count}
 puckAutoDetectSubtitles	字幕を自動検出
 loadTargetSubtitles	日本語字幕を読み込む
 loadOutputSubtitles	英語字幕を読み込む
@@ -6951,24 +6955,13 @@ video	動画
 youTube	YouTube
 anki	Anki
 jpdb	JPDB
-api	API
 apiCredential	APIキー
-apiCredentialJpdb	JPDB APIキー
-apiCredentialJiten	Jiten APIキー
-apiCredentialBunpro	BunproフロントエンドAPIトークン
-apiCredentialWanikani	WaniKaniパーソナルアクセストークン
-wanikaniTokenHelp	WaniKaniでread/write権限のパーソナルアクセストークンを作成し、ここに貼り付けてください。ブラウザ内にのみ保存され、プロキシを経由せずapi.wanikani.comへ直接送信され、ログに残ることはありません。
+wanikaniTokenHelp	read/write権限のパーソナルアクセストークン。送信先はapi.wanikani.comだけです。
 apiCredentialBunproLegacy	Bunpro APIキー
 apiKey	APIキー
 jitenApiKey	Jiten APIキー
-apiAccess	APIアクセス
 storedCredentialPlaceholder	保存済み — 変更する場合のみ入力
 clearStoredCredential	保存済みの認証情報を削除
-apiAccessHelp	各サービスの認証情報を設定します。Bunproに必要なのはフロントエンドトークンだけです。Bunpro設定から取り込み、パスワードと同様に扱ってください。保存時点では未確認です。Academyの復習はアカウントなしでも使えます。
-jpdbSettings	JPDB設定
-jitenSettings	Jiten設定
-bunproSettings	Bunpro設定
-wanikaniSettings	WaniKani設定
 jpdbApiKeyConfigured	JPDBキーあり。
 jpdbConnected	JPDBに接続しました。
 jpdbAndJitenConnected	JitenとJPDBに接続しました。
@@ -6977,11 +6970,8 @@ statusReady	準備完了
 statusAttention	設定が必要
 statusError	エラー
 disabledControlDescription	別設定で制御中。
-jpdbMiningEnabled	APIの復習・デッキ変更を許可
-bunproMiningEnabled	Bunproの復習・採掘を許可
-wanikaniReviewEnabled	WaniKaniの復習を許可(期限が来た課題のみ)
 wanikaniGradeMappingHelp	よむの採点結果はWaniKaniの正誤カウントに変換されます。Okay、Good、Easyは正解として送信します。Okay未満は意味を1回不正解として送信し、ラジカル以外では読みも1回不正解として送信します。
-yomuLocalSrsEnabled	Academyを有効化
+yomuLocalSrsEnabled	よむデッキを有効化
 addToForq	JPDB追加時にforqにもコピー
 enableReviews	復習ボタンを表示
 reviewRatingScale	復習評価の段階
@@ -6991,12 +6981,12 @@ gradeTargetJpdb	JPDBを採点
 gradeTargetJiten	Jitenを採点
 gradeTargetBunpro	Bunproを採点
 gradeTargetWanikani	WaniKaniを採点
-gradeTargetYomuLocal	Academyに記録
+gradeTargetYomuLocal	よむデッキに記録
 gradeTargetAnki	Ankiカードを採点: {target}
 gradeTargetJpdbAndAnki	JPDB + Ankiカードを採点: {target}
 gradeTargetJitenAndAnki	Jiten + Ankiカードを採点: {target}
 gradeTargetBunproAndAnki	Bunpro + Ankiカードを採点: {target}
-gradeTargetYomuLocalAndAnki	Academy + Ankiカードに記録: {target}
+gradeTargetYomuLocalAndAnki	よむデッキ + Ankiカードに記録: {target}
 missingAnkiCardId	AnkiカードIDがありません。
 jpdbPageEnhancements	辞書サイト拡張
 jpdbPageEnhancementsEnabled	JPDB・Jitenのページを拡張
@@ -7041,15 +7031,15 @@ newTabAnkiReviewDecks	Anki復習デッキ
 newTabAnkiReviewDecksHelp	不要なデッキを外します。
 newTabSource	学習の復習ソース
 newTabAuto	自動
-newTabApiSrs	API SRS（Jiten / JPDB）
+newTabApiSrs	Jiten / JPDB
 newTabBunpro	Bunpro
 newTabWanikani	WaniKani
-newTabYomuLocal	Academy
+newTabYomuLocal	よむデッキ
 dictionaryFallback	辞書フォールバック
-newTabJpdbReviewMode	API復習モード
+newTabJpdbReviewMode	JPDB復習モード
 newTabJpdbReviewAuto	自動
 newTabLiveReview	ライブJPDB復習セッション
-newTabApiVocabulary	API語彙のみ（デッキ順）
+newTabApiVocabulary	JPDB語彙のみ（デッキ順）
 corsProxyUrl	クロスオリジンプロキシURL
 newTabKanjiKeywordSource	漢字キーワードのソース
 newTabKanjiKeywordAuto	自動
@@ -7082,7 +7072,6 @@ pitchColorNakadaka	中高
 pitchColorOdaka	尾高
 pitchColorUnknown	不明
 pronunciation	発音
-noExactPitch	完全一致のピッチは利用不可
 colorChannels	色チャンネル
 wordHighlightColorSource	単語ハイライトの色
 wordUnderlineColorSource	単語下線の色
@@ -7135,7 +7124,7 @@ hideFuriganaFor	ふりがなを隠す対象
 hideColorFor	色を隠す対象
 furiganaDifficultKanji	難しい漢字のみ
 furiganaDifficultKanjiHelp	Yomuは初級漢字の固定リストを持ち、その外側の漢字にふりがなを表示します。ふりがなのない漢字は、そのリストに載っています。
-statusColorNoSourceHelp	学習状態の色はデッキから読み取ります。StudyでAcademyを有効にするか、JPDB・Jiten・Ankiのいずれかを追加すると、単語が学習状態の色になります。
+statusColorNoSourceHelp	学習状態の色はデッキから読み取ります。「復習」でよむデッキをオンにするか、JPDB・Jiten・Ankiのいずれかを追加すると、単語が学習状態の色になります。
 furiganaHideKnown	なじみのある語を非表示
 furiganaHoverOnly	ホバー時に表示
 furiganaAllParsed	解析済みの全単語
@@ -7275,7 +7264,7 @@ youtubeHelp	YouTubeを日本語向けに絞ります。
 youtubeToggleToastOn	YouTube没入フィルターをオンにしました。
 youtubeToggleToastOff	YouTube没入フィルターをオフにしました。
 ankiEnabled	Anki採掘を有効にする
-ankiMineWithJpdb	API経由で追加するときAnkiにも追加
+ankiMineWithJpdb	JPDBやJitenに追加するときAnkiにも追加
 ankiCaptureScreenshot	可能なら文脈画像を添付
 ankiConnectUrl	AnkiConnect URL
 ankiDeck	Ankiデッキ
@@ -7350,8 +7339,8 @@ ${Object.entries(LOCAL_DICTIONARY_STORAGE_COPY.jaSettings).map(([key, value]) =>
 localDictionaryMaxResults	辞書結果の上限
 cloudSettingsSync	Google Drive設定同期
 cloudSettingsSyncHelp	Yomuの設定をGoogle Driveのアプリデータに保存します。辞書は端末内に残ります。
-academyAccountSync	Academyアカウント同期
-academyAccountSyncHelp	ReaderのAcademy SRS進捗を、ログイン中のYomuアカウントと端末間で同期します。Webサイトでアカウントを作成または管理し、1回限りのペアリングコードを発行してください。
+academyAccountSync	アカウント同期
+academyAccountSyncHelp	よむデッキを、ログイン中のYomuアカウントと端末間で同期します。Webサイトでアカウントを作成または管理し、1回限りのペアリングコードを発行してください。
 academyAccountManage	アカウントとペアリングコードを管理
 academyPairingCode	1回限りのペアリングコード
 academyPairingCodePlaceholder	XXXX-XXXX-XXXX-XXXX-XXXX
@@ -7362,20 +7351,20 @@ academyRecoveryCodeCreating	1回限りのWebサイト復旧コードを作成中
 academyRecoveryCodeReady	Webサイト復旧コード: {code}。10分以内に「プロフィールと同期」で入力してください。
 academyRecoveryCodeDone	Webサイト復旧コードを作成しました。
 academyAccountDisconnect	接続解除
-academyAccountChecking	Academyアカウントの接続を確認中...
-academyAccountDisconnected	未接続です。アカウントに接続するまで、Academyの復習データはこの端末に保存されます。
+academyAccountChecking	アカウントの接続を確認中...
+academyAccountDisconnected	未接続です。アカウントに接続するまで、よむデッキはこの端末に保存されます。
 academyAccountConnected	{name}として接続中です。
-academyAccountConnectedNoName	Academyアカウントに接続中です。
+academyAccountConnectedNoName	アカウントに接続中です。
 academyAccountLastSynced	最終同期: {time}。
 academyAccountNeverSynced	まだ同期していません。
 academyAccountConnectionProblem	アカウント状態を更新できませんでした: {message}
-academyAccountConnecting	接続してAcademyの進捗を同期中...
-academyAccountSyncing	Academyの進捗を同期中...
+academyAccountConnecting	接続してよむデッキを同期中...
+academyAccountSyncing	よむデッキを同期中...
 academyAccountDisconnecting	このReaderの接続を解除中...
 academyPairingCodeRequired	Yomuアカウントで1回限りのペアリングコードを発行し、入力してください。
-academyAccountConnectedDone	Academyアカウントに接続し、進捗を同期しました。
-academyAccountSyncedDone	Academyの進捗を同期しました。
-academyAccountDisconnectedDone	このReaderの接続を解除しました。Academyの進捗は端末に残ります。
+academyAccountConnectedDone	アカウントに接続し、よむデッキを同期しました。
+academyAccountSyncedDone	よむデッキを同期しました。
+academyAccountDisconnectedDone	このReaderの接続を解除しました。よむデッキは端末に残ります。
 importSettings	設定JSONをインポート
 exportSettings	設定JSONをエクスポート
 importDictionaries	辞書をインポート
@@ -7383,10 +7372,10 @@ exportDictionaries	辞書をエクスポート
 lookupPills	検索ピル
 parserProvider	解析ソース
 parserProviderLocal	ローカル辞書（オフライン）
-parserProviderJiten	Jiten API
-parserProviderJpdb	JPDB API
+parserProviderJiten	Jiten
+parserProviderJpdb	JPDB
 parserProviderAuto	自動（Jiten/JPDB）
-parserProviderHelp	ローカルはインポート済み辞書でオフライン解析します。JitenとJPDBはキー設定時に必ずそのAPIを使います。自動は両方のキーがあれば優先採点サービスを使い、それ以外はJiten、次にJPDBを優先します。
+parserProviderHelp	ローカルはインポート済み辞書でオフライン解析します。JitenとJPDBはキー設定時に必ずそのサービスで解析します。自動は両方のキーがあれば優先採点サービスを使い、それ以外はJiten、次にJPDBを優先します。
 lookupPillsHelp	外部リンクと頻度バッジを同じ順序で表示します。ローカル頻度辞書は一致するJiten/JPDBライブバッジを置き換えます。トークン: {query}、{word}、{reading}。
 copiesCurrentWord	現在の単語をコピーします
 plaintextHttpLink	プレーンテキストHTTPで開きます。
@@ -7768,7 +7757,11 @@ const RETIRED_SETTING_DEFAULTS = [
   { keys: ["furiganaHiddenStateGroups"], retired: [[["known", "due", "failed"]]] },
   { keys: ["wordHighlightColorSource", "wordUnderlineColorSource", "wordTextColorSource"], retired: [["jpdb", "pitch", "anki"]] },
   { keys: ["subtitleHighlightColorSource", "subtitleUnderlineColorSource", "subtitleTextColorSource"], retired: [["jpdb", "pitch", "anki"]] },
-  { keys: ["wordColorHiddenStateGroups"], retired: [[[]]] }
+  { keys: ["wordColorHiddenStateGroups"], retired: [[[]]] },
+  // Unchosen legacy pixel defaults now follow the player's caption size.
+  { keys: ["subtitleFontSize"], retired: [[28]] },
+  // Whole-object saves carried transparency even when nobody chose it.
+  { keys: ["subtitleBackgroundOpacity"], retired: [[0]] }
 ];
 RETIRED_SETTING_DEFAULTS.flatMap((group) => group.keys);
 const AUDIO_SOURCE_TYPE_VALUES = [

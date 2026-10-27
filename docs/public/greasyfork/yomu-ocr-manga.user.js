@@ -56,7 +56,7 @@ function promiseWithTimeout(promise, timeoutMs, message) {
 }
 const FURIGANA_HIDE_STATE_GROUPS = ["known", "due", "failed", "learning", "new"];
 const APP_NAME = "よむ";
-const ACADEMY_SRS_LABEL = "Academy";
+const YOMU_DECK_LABEL = "よむ deck";
 const APP_SLUG = "yomu";
 const APP_REPOSITORY_NAME = `${APP_SLUG}-reader`;
 const GITHUB_OWNER = "HRussellZFAC023";
@@ -65,7 +65,7 @@ const DOCS_ORIGIN = "https://yomureader.com";
 const DOCS_BASE_URL = `${DOCS_ORIGIN}/`;
 const NEW_TAB_PAGE_URL = `${DOCS_BASE_URL}study/`;
 const SUPPORT_COPY = "よむ is free: popup lookup, dictionaries, OCR, subtitles, study and Anki in one place.";
-const SUPPORT_COPY_EXTRA = "Donations are optional and help cover development, devices, services, maintenance, and API costs.";
+const SUPPORT_COPY_EXTRA = "Donations are optional and help cover development, devices, services, and maintenance.";
 const USERSCRIPT_HTTP_BRIDGE_READY_EVENT = "yomu-userscript-http-bridge-ready";
 const USERSCRIPT_STORAGE_BRIDGE_READY_EVENT = "yomu-userscript-storage-bridge-ready";
 const DOCS_PREVIEW_HOST = "yomureader.localhost";
@@ -910,6 +910,7 @@ const MANAGED_STATE_MANIFEST = [
   { owner: "jpdb/jpdb-public-cache", kind: "local", key: "yomu:jpdb-cache:v1" },
   { owner: "dictionaries/jiten-public-cache (legacy)", kind: "gm", key: "yomu:jiten-public-cache:v1" },
   { owner: "dictionaries/jiten-public-cache", kind: "local", key: "yomu:jiten-public-cache:v2" },
+  { owner: "dictionaries/jiten-reading-memory", kind: "local", key: "yomu:jiten-readings:v1" },
   { owner: "dictionaries/jiten-stats-cache", kind: "gm", key: "jpdb-reader-jiten-daily-stats" },
   // Dictionary database (Yomitan/Jitendex terms). Cleared by the dictionary
   // store's own deleteDatabase during reset; registered so the invariant test
@@ -928,9 +929,12 @@ const MANAGED_STATE_MANIFEST = [
   { owner: "dictionaries/replication (legacy)", kind: "local", key: "yomu-dictionary-replication-state" },
   { owner: "dictionaries/replica-purge", kind: "gm", key: "yomu:dictionary-replica-purge:v1" },
   { owner: "dictionaries/replica-purge", kind: "local", key: "yomu:dictionary-replica-purged:v1" },
-  // OCR result cache.
-  { owner: "ocr/ocr-cache-store", kind: "local", key: "yomu-ocr-cache-v1" },
-  { owner: "ocr/ocr-cache-store", kind: "local", key: "yomu-ocr-cache-v2" },
+  // OCR answers with text, one private shard per site under a hash of its
+  // origin. 2.1.x kept them in the page's own storage (v1, v2); the first
+  // load moves them across and deletes the page keys.
+  { owner: "ocr/ocr-cache-store", kind: "gm", prefix: "yomu:private:ocr-cache:v3:" },
+  { owner: "ocr/ocr-cache-store (legacy)", kind: "local", key: "yomu-ocr-cache-v1" },
+  { owner: "ocr/ocr-cache-store (legacy)", kind: "local", key: "yomu-ocr-cache-v2" },
   { owner: "ocr/canvas-mirror", kind: "session", key: "yomu:bw:mirror-loadguard" },
   // The one-time reader-canvas tap hint appears once per site. Each site's record
   // is private and keyed by a hash of its origin, so no page can read it.
@@ -1063,7 +1067,7 @@ function managedStateEpochSessionForRealm(root = globalThis) {
 }
 function parseManagedStateEpoch(value) {
   if (value === void 0 || value === null) return INITIAL_MANAGED_STATE_EPOCH;
-  if (!isPlainRecord(value) || value.version !== 1 || !Number.isSafeInteger(value.generation) || value.generation < 1 || typeof value.resetId !== "string" || !value.resetId.trim() || typeof value.committedAt !== "number" || !Number.isFinite(value.committedAt) || value.committedAt <= 0) {
+  if (!isPlainRecord$1(value) || value.version !== 1 || !Number.isSafeInteger(value.generation) || value.generation < 1 || typeof value.resetId !== "string" || !value.resetId.trim() || typeof value.committedAt !== "number" || !Number.isFinite(value.committedAt) || value.committedAt <= 0) {
   throw new Error("The managed-state epoch is malformed.");
   }
   return {
@@ -1100,12 +1104,12 @@ function assertManagedStateEpoch(expected, actual) {
   if (!sameManagedStateEpoch(expected, actual)) throw new StaleManagedStateEpochError(expected, actual);
 }
 function isManagedStateEnvelope(value) {
-  return isPlainRecord(value) && value.__yomuManagedStateEnvelope === MANAGED_STATE_ENVELOPE_VERSION && typeof value.epoch === "string" && Object.hasOwn(value, "value");
+  return isPlainRecord$1(value) && value.__yomuManagedStateEnvelope === MANAGED_STATE_ENVELOPE_VERSION && typeof value.epoch === "string" && Object.hasOwn(value, "value");
 }
 function isManagedStateEpochSession(value) {
   return Boolean(value && typeof value === "object" && typeof value.current === "function" && typeof value.capture === "function" && typeof value.assertCurrent === "function" && typeof value.resetForTests === "function");
 }
-function isPlainRecord(value) {
+function isPlainRecord$1(value) {
   return Boolean(value && typeof value === "object" && !Array.isArray(value));
 }
 const MISSING = { __yomuStorageValueMissing: true };
@@ -1172,24 +1176,24 @@ const managedSessionStorage = managedStorageFacade("session");
 function managedStorageFacade(area) {
   return {
   getItem(key) {
-    const { storage: storage2, epoch } = certifiedArea();
-    const own = logicalItem(readStorageValue(storage2, physicalStorageKey(key, epoch), `${area}Storage key "${key}"`), epoch);
+    const { storage, epoch } = certifiedArea();
+    const own = logicalItem(readStorageValue(storage, physicalStorageKey(key, epoch), `${area}Storage key "${key}"`), epoch);
     if (own !== null) return own;
     const earlier = earlierLocalRecordKey(area, key, epoch);
-    return earlier ? logicalItem(readStorageValue(storage2, earlier, `localStorage key "${key}"`), epoch) : null;
+    return earlier ? logicalItem(readStorageValue(storage, earlier, `localStorage key "${key}"`), epoch) : null;
   },
   setItem(key, value) {
     assertManagedLogicalKey(key);
-    const { storage: storage2, epoch } = certifiedArea();
+    const { storage, epoch } = certifiedArea();
     const stored = epoch.generation === 0 ? value : JSON.stringify(managedStateStoredValue(value, epoch));
-    writeAndVerify(storage2, physicalStorageKey(key, epoch), stored, `${area}Storage key "${key}"`);
+    writeAndVerify(storage, physicalStorageKey(key, epoch), stored, `${area}Storage key "${key}"`);
     removeEarlierLocalRecord(area, key, epoch);
     assertAreaCertificate(area, epoch);
   },
   removeItem(key) {
     assertManagedLogicalKey(key);
-    const { storage: storage2, epoch } = certifiedArea();
-    removeVerified(storage2, physicalStorageKey(key, epoch), `${area}Storage key "${key}"`, `${area}Storage retained managed key "${key}".`);
+    const { storage, epoch } = certifiedArea();
+    removeVerified(storage, physicalStorageKey(key, epoch), `${area}Storage key "${key}"`, `${area}Storage retained managed key "${key}".`);
     removeEarlierLocalRecord(area, key, epoch);
     assertAreaCertificate(area, epoch);
   }
@@ -1197,17 +1201,17 @@ function managedStorageFacade(area) {
 }
 function earlierLocalRecordKey(area, key, epoch) {
   if (area !== "local" || !selectedOwner || selectedOwner === "standalone") return null;
-  const storage2 = storageArea("local");
-  const marker = readStorageValue(storage2, AREA_MARKER_KEYS.local, "localStorage earlier epoch marker");
+  const storage = storageArea("local");
+  const marker = readStorageValue(storage, AREA_MARKER_KEYS.local, "localStorage earlier epoch marker");
   return marker === managedStateEpochToken(epoch) ? epochSlotKey(key, epoch) : null;
 }
 function removeEarlierLocalRecord(area, key, epoch) {
   const earlier = isHostedYomuOrigin() ? null : earlierLocalRecordKey(area, key, epoch);
   if (earlier) removeVerified(storageArea("local"), earlier, `localStorage key "${key}"`, `localStorage retained earlier managed key "${key}".`);
 }
-function removeVerified(storage2, key, label, retained) {
-  removeStorageValue(storage2, key, label);
-  if (readStorageValue(storage2, key, label) !== null) throw new Error(retained);
+function removeVerified(storage, key, label, retained) {
+  removeStorageValue(storage, key, label);
+  if (readStorageValue(storage, key, label) !== null) throw new Error(retained);
 }
 function logicalItem(raw, epoch) {
   if (raw === null || epoch.generation === 0) return raw;
@@ -1243,41 +1247,407 @@ function assertManagedLogicalKey(key) {
 }
 function storageArea(area) {
   try {
-  const storage2 = area === "local" ? localStorage : sessionStorage;
-  if (!storage2) throw new Error(`${area}Storage is unavailable.`);
-  return storage2;
+  const storage = area === "local" ? localStorage : sessionStorage;
+  if (!storage) throw new Error(`${area}Storage is unavailable.`);
+  return storage;
   } catch (error) {
   throw new Error(`${area}Storage is unavailable.`, { cause: error });
   }
 }
-function readStorageValue(storage2, key, label) {
+function readStorageValue(storage, key, label) {
   try {
-  return storage2.getItem(key);
+  return storage.getItem(key);
   } catch (error) {
   throw new Error(`${label} could not be read.`, { cause: error });
   }
 }
-function writeAndVerify(storage2, key, value, label) {
+function writeAndVerify(storage, key, value, label) {
   try {
-  storage2.setItem(key, value);
+  storage.setItem(key, value);
   } catch (error) {
   throw new Error(`${label} could not be written.`, { cause: error });
   }
-  if (readStorageValue(storage2, key, label) !== value) throw new Error(`${label} failed read-back verification.`);
+  if (readStorageValue(storage, key, label) !== value) throw new Error(`${label} failed read-back verification.`);
 }
-function removeStorageValue(storage2, key, label) {
+function removeStorageValue(storage, key, label) {
   try {
-  storage2.removeItem(key);
+  storage.removeItem(key);
   } catch (error) {
   throw new Error(`${label} could not be removed.`, { cause: error });
+  }
+}
+const STORAGE_LEASE_KEY_PREFIX = "yomu:lease:";
+const DEFAULT_LEASE_MS = 6e4;
+const LEASE_ROUND_TRIPS = 20;
+const WAIT_NOTICE_MS = 1500;
+class StorageLeaseLapsedError extends Error {
+  name = "StorageLeaseLapsedError";
+  constructor(key) {
+  super(`Storage lease lapsed before it was renewed: ${key}`);
   }
 }
 function isStorageLeaseLapsed(error) {
   return error instanceof Error && error.name === "StorageLeaseLapsedError";
 }
 const guardingLeases = /* @__PURE__ */ new Set();
+const realmClaimOwners = /* @__PURE__ */ new Set();
+const realmWebLockRequests = /* @__PURE__ */ new Map();
 function fenceStorageLeaseWrite(key) {
   for (const lease of guardingLeases) if (lease.guards(key)) lease.fenceWrite();
+}
+async function withGmStorageLeaseCore(name, operation, options, environment) {
+  const wait = new StorageLeaseWait(options.onWait);
+  const boundedLockWait = !environment.hostedOrigin && storageLeaseIo(environment.backend);
+  const lockWaitMs = boundedLockWait ? options.leaseMs ?? DEFAULT_LEASE_MS : void 0;
+  try {
+  return await withWebStorageLock(name, () => withSharedStorageLease(name, () => {
+    wait.end();
+    return operation();
+  }, options, environment, wait), wait, lockWaitMs);
+  } finally {
+  wait.end();
+  }
+}
+class StorageLeaseWait {
+  constructor(onWait) {
+  this.onWait = onWait;
+  }
+  state = "running";
+  timer;
+  /** Another tab holds the lease, or is ahead in its queue. */
+  blocked() {
+  if (!this.onWait || this.state !== "running") return;
+  this.state = "blocked";
+  this.timer = setTimeout(() => {
+    this.state = "told";
+    this.onWait?.(true);
+  }, WAIT_NOTICE_MS);
+  }
+  /** The caller got past what blocked it; a wait it was not yet told about starts over. */
+  passed() {
+  if (this.state !== "blocked") return;
+  clearTimeout(this.timer);
+  this.state = "running";
+  }
+  end() {
+  clearTimeout(this.timer);
+  if (this.state === "told") this.onWait?.(false);
+  this.state = "ended";
+  }
+}
+async function withSharedStorageLease(name, operation, options, environment, wait) {
+  const { getValue } = environment.backend;
+  const epoch = await environment.captureEpoch(getValue);
+  await environment.assertMutationFence(getValue, epoch);
+  const io = storageLeaseIo(environment.backend);
+  if (!io) {
+  const result = await operation();
+  await environment.assertMutationFence(getValue, epoch);
+  return result;
+  }
+  const leaseMs = boundedLeaseOption(options.leaseMs, DEFAULT_LEASE_MS, 1e3, 10 * 6e4);
+  return new StorageLeaseClaimant({
+  guards: options.guards,
+  prefix: `${STORAGE_LEASE_KEY_PREFIX}${normalizedStorageLeaseName(name)}:`,
+  epoch: environment.epochToken(epoch),
+  io,
+  fence: () => environment.assertMutationFence(getValue, epoch),
+  leaseMs,
+  pollMs: boundedLeaseOption(options.pollMs, 20, 1, 1e3),
+  timeoutMs: boundedLeaseOption(options.timeoutMs, 9e4, leaseMs, 15 * 6e4),
+  timeoutMessage: `Timed out waiting for storage lease: ${name}`,
+  wait
+  }).run(operation);
+}
+function storageLeaseIo(backend) {
+  const { getValue, setValue, deleteValue, listValues } = backend;
+  return [getValue, setValue, deleteValue, listValues].every(Boolean) ? backend : null;
+}
+class StorageLeaseClaimant {
+  constructor(lease) {
+  this.lease = lease;
+  const owner = createStorageCoordinationId();
+  this.key = `${lease.prefix}${owner}`;
+  this.promptLandingMs = Math.min(1e3, Math.floor(lease.leaseMs / 5));
+  this.claim = {
+    version: 1,
+    claimId: createStorageCoordinationId(),
+    owner,
+    epoch: lease.epoch,
+    choosing: true,
+    ticket: 0,
+    leaseUntil: 0
+  };
+  }
+  key;
+  startedAt = Date.now();
+  // Time for a write to land while the claim it extends is still live, when storage is prompt.
+  promptLandingMs;
+  claim;
+  // The leaseUntil other tabs can already read: a claim counts once its write has landed.
+  liveUntil = 0;
+  // How long storage took to answer one call of the last claim write.
+  roundTripMs = 0;
+  async run(operation) {
+  realmClaimOwners.add(this.claim.owner);
+  try {
+    await this.waitForTurn();
+    return await this.hold(operation);
+  } finally {
+    const { getValue, deleteValue } = this.lease.io;
+    try {
+      await deleteStorageLeaseClaimIfOwned(this.key, this.claim, getValue, deleteValue);
+    } catch (error) {
+      debugStorageLeaseError("GM storage lease release failed", this.key, error);
+    }
+    realmClaimOwners.delete(this.claim.owner);
+  }
+  }
+  /**
+   * A claim must outlast the storage round trips its holder makes before it
+   * renews, so slow storage stretches it by LEASE_ROUND_TRIPS of them, up to
+   * the default lease: slowness delays a save instead of lapsing it.
+   */
+  leaseMs() {
+  const { leaseMs } = this.lease;
+  return Math.min(leaseMs + LEASE_ROUND_TRIPS * this.roundTripMs, Math.max(leaseMs, DEFAULT_LEASE_MS));
+  }
+  // Slow storage takes longer to land a write: allow it two round trips.
+  live() {
+  return Date.now() + Math.max(this.promptLandingMs, 2 * this.roundTripMs) < this.liveUntil;
+  }
+  async waitForTurn() {
+  const { lease } = this;
+  while (true) {
+    await lease.fence();
+    if (Date.now() - this.startedAt >= lease.timeoutMs) throw new Error(lease.timeoutMessage);
+    try {
+      if (!this.live()) await this.queue();
+      else if (this.liveUntil - Date.now() <= this.leaseMs() / 2) await this.writeClaim();
+    } catch (error) {
+      if (error instanceof StorageLeaseLapsedError) continue;
+      throw error;
+    }
+    const ahead = await this.claimsAhead();
+    if (!ahead.length && this.live()) return;
+    if (ahead.some((other) => !realmClaimOwners.has(other.owner))) lease.wait?.blocked();
+    await storageLeaseDelay(lease.pollMs);
+  }
+  }
+  async queue() {
+  const { prefix, epoch, io: { listValues, getValue } } = this.lease;
+  await this.writeClaim({ choosing: true, ticket: 0 }, true);
+  const claims = await readStorageLeaseClaims(prefix, listValues, getValue, epoch, Date.now());
+  const highestTicket = claims.reduce((highest, item) => Math.max(highest, item.ticket), 0);
+  await this.writeClaim({ choosing: false, ticket: highestTicket + 1 });
+  }
+  async claimsAhead() {
+  const { prefix, epoch, io: { listValues, getValue } } = this.lease;
+  const { owner, ticket } = this.claim;
+  const claims = await readStorageLeaseClaims(prefix, listValues, getValue, epoch, Date.now());
+  return claims.filter((other) => other.owner !== owner && (other.choosing || other.ticket < ticket || other.ticket === ticket && other.owner.localeCompare(owner) < 0));
+  }
+  /** `requeue` writes a new place in the queue instead of extending the live claim. */
+  async writeClaim(changes = {}, requeue = false) {
+  const { getValue, setValue } = this.lease.io;
+  if (!requeue && !this.live()) throw new StorageLeaseLapsedError(this.key);
+  const writtenAt = Date.now();
+  const next = { ...this.claim, ...changes, leaseUntil: writtenAt + this.leaseMs() };
+  this.claim = next;
+  try {
+    await setValue(this.key, next);
+    const landedAt = Date.now();
+    this.liveUntil = next.leaseUntil;
+    await assertStorageLeaseClaimOwned(this.key, next, getValue);
+    this.roundTripMs = storageRoundTripMs(landedAt - writtenAt, Date.now() - landedAt, this.lease.leaseMs);
+  } catch (error) {
+    await this.rollBack();
+    throw error;
+  }
+  }
+  /** Deletes the claim this realm wrote, unless another has taken its key. */
+  async rollBack() {
+  const { getValue, deleteValue } = this.lease.io;
+  await deleteStorageLeaseClaimIfOwned(this.key, this.claim, getValue, deleteValue).catch((error) => {
+    debugStorageLeaseError("GM storage lease rollback failed", this.key, error);
+  });
+  }
+  /**
+   * A holder's renewal. A factory reset in another tab deletes every claim,
+   * then checks that none is left while this section may still be running:
+   * a renewal reads the claim first and never writes back one that is gone,
+   * and takes back one the reset deleted while the write was in flight, which
+   * the fence after it reveals. The renewal on entry skips the read: the
+   * waiter's last poll fenced a moment ago, and once storage turns slow it
+   * may enter with little of its claim left.
+   */
+  async renew(due, entry) {
+  if (!entry) await assertStorageLeaseClaimOwned(this.key, this.claim, this.lease.io.getValue);
+  do
+    await this.writeClaim();
+  while (due());
+  await this.lease.fence().catch(async (error) => {
+    await this.rollBack();
+    throw error;
+  });
+  }
+  /**
+   * Runs the operation while a timer renews the claim and, for a lease with
+   * `guards`, while each guarded write renews it too: those writes reach
+   * storage over messaging, so throttled timers cannot starve them.
+   */
+  async hold(operation) {
+  const { lease, key } = this;
+  const { getValue } = lease.io;
+  const renewEveryMs = Math.max(250, Math.floor(lease.leaseMs / 3));
+  let held = true;
+  let lost;
+  let refused = false;
+  let renewal;
+  const due = () => held && this.liveUntil - Date.now() <= this.leaseMs() * 5 / 6;
+  const renewIfDue = (entry = false) => {
+    if (lost || renewal || !due()) return;
+    renewal = this.renew(due, entry).catch((error) => {
+      lost ??= { error };
+      debugStorageLeaseError("GM storage lease renewal failed", key, error);
+    }).finally(() => {
+      renewal = void 0;
+    });
+  };
+  const guarding = lease.guards && {
+    guards: lease.guards,
+    fenceWrite: () => {
+      if (!lost && !this.live()) lost = { error: new StorageLeaseLapsedError(key) };
+      if (lost) {
+        refused = true;
+        throw lost.error;
+      }
+      renewIfDue();
+    }
+  };
+  if (guarding) guardingLeases.add(guarding);
+  const timer = setInterval(() => renewIfDue(), renewEveryMs);
+  renewIfDue(true);
+  let outcome;
+  try {
+    await lease.fence();
+    await assertStorageLeaseClaimOwned(key, this.claim, getValue);
+    const value = await operation();
+    await lease.fence();
+    await assertStorageLeaseClaimOwned(key, this.claim, getValue);
+    outcome = { value };
+  } catch (error) {
+    outcome = { error };
+  } finally {
+    held = false;
+    if (guarding) guardingLeases.delete(guarding);
+    clearInterval(timer);
+    await renewal;
+  }
+  if ("error" in outcome) throw outcome.error;
+  if (lost && (!guarding || refused)) throw lost.error;
+  return outcome.value;
+  }
+}
+async function readStorageLeaseClaims(prefix, listValues, getValue, epochToken, now) {
+  const keys = (await listValues()).filter((key) => key.startsWith(prefix));
+  const values = await Promise.all(keys.map((key) => getValue(key, null)));
+  return values.flatMap((value) => {
+  const claim = parseStorageLeaseClaim(value);
+  return claim && claim.epoch === epochToken && claim.leaseUntil > now ? [claim] : [];
+  });
+}
+function parseStorageLeaseClaim(value) {
+  if (!isPlainRecord(value) || value.version !== 1 || typeof value.owner !== "string" || value.claimId !== void 0 && typeof value.claimId !== "string" || value.epoch !== void 0 && typeof value.epoch !== "string" || typeof value.choosing !== "boolean" || !Number.isSafeInteger(value.ticket) || value.ticket < 0 || !Number.isSafeInteger(value.leaseUntil)) return null;
+  return {
+  version: 1,
+  claimId: value.claimId || value.owner,
+  owner: value.owner,
+  epoch: value.epoch || "0:legacy",
+  choosing: value.choosing,
+  ticket: value.ticket,
+  leaseUntil: value.leaseUntil
+  };
+}
+async function assertStorageLeaseClaimOwned(key, expected, getValue) {
+  const actual = parseStorageLeaseClaim(await getValue(key, null));
+  if (!actual || !sameStorageLeaseClaimIdentity(actual, expected)) {
+  throw new Error(`Storage lease ownership was lost: ${key}`);
+  }
+}
+async function deleteStorageLeaseClaimIfOwned(key, expected, getValue, deleteValue) {
+  const actual = parseStorageLeaseClaim(await getValue(key, null));
+  if (actual && sameStorageLeaseClaimIdentity(actual, expected)) await deleteValue(key);
+}
+function sameStorageLeaseClaimIdentity(left, right) {
+  return left.claimId === right.claimId && left.owner === right.owner && left.epoch === right.epoch;
+}
+function normalizedStorageLeaseName(name) {
+  const normalized = name.trim().replaceAll(/[^a-z0-9._-]+/giu, "-").slice(0, 80);
+  if (!normalized) throw new TypeError("Storage lease name is required.");
+  return normalized;
+}
+function boundedLeaseOption(value, fallback, minimum, maximum) {
+  if (value === void 0) return fallback;
+  if (!Number.isSafeInteger(value) || value < minimum || value > maximum) throw new TypeError("Invalid storage lease option.");
+  return value;
+}
+function storageLeaseDelay(milliseconds) {
+  return new Promise((resolve) => setTimeout(resolve, milliseconds));
+}
+function storageRoundTripMs(writeMs, readMs, leaseMs) {
+  const slower = Math.max(writeMs, readMs);
+  return slower <= leaseMs / 4 ? slower : Math.min(writeMs, readMs);
+}
+function webLockManager() {
+  return typeof navigator === "undefined" ? void 0 : navigator.locks;
+}
+async function withWebStorageLock(name, operation, wait, waitMs) {
+  const lockManager = webLockManager();
+  if (!lockManager) return operation();
+  const lockName = `yomu:${normalizedStorageLeaseName(name)}`;
+  if (!countRealmWebLockRequest(lockName, 1)) wait?.blocked();
+  try {
+  return await requestWebLock(lockManager, lockName, () => {
+    wait?.passed();
+    return operation();
+  }, waitMs);
+  } finally {
+  countRealmWebLockRequest(lockName, -1);
+  }
+}
+function countRealmWebLockRequest(lockName, change) {
+  const before = realmWebLockRequests.get(lockName) ?? 0;
+  if (before + change > 0) realmWebLockRequests.set(lockName, before + change);
+  else realmWebLockRequests.delete(lockName);
+  return before;
+}
+async function requestWebLock(locks, name, operation, waitMs) {
+  if (waitMs === void 0) return locks.request(name, {}, operation);
+  const giveUp = new AbortController();
+  const timer = setTimeout(() => giveUp.abort(), waitMs);
+  let granted = false;
+  try {
+  return await locks.request(name, { signal: giveUp.signal }, () => {
+    granted = true;
+    clearTimeout(timer);
+    return operation();
+  });
+  } catch (error) {
+  if (granted) throw error;
+  return operation();
+  } finally {
+  clearTimeout(timer);
+  }
+}
+function isPlainRecord(value) {
+  return Boolean(value && typeof value === "object" && !Array.isArray(value));
+}
+function createStorageCoordinationId() {
+  return typeof crypto !== "undefined" && typeof crypto.randomUUID === "function" ? crypto.randomUUID() : `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+}
+function debugStorageLeaseError(message, key, error) {
+  if (typeof console !== "undefined") console.debug("[Yomu] Storage", message, { key, error });
 }
 function localStorageGet(key, fallback) {
   try {
@@ -1323,7 +1693,8 @@ function storageWriteError(key, message, ...causes) {
 function isRecord(value) {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
-const PROVENANCE_KEY = "yomu:local-storage-provenance:v1";
+const LOCAL_MIRROR_PROVENANCE_KEY = "yomu:local-storage-provenance:v1";
+const PROVENANCE_KEY = LOCAL_MIRROR_PROVENANCE_KEY;
 function captureLocalFallbackStoredState(key) {
   try {
   const serializedValue = localStorage.getItem(key);
@@ -1507,6 +1878,34 @@ function bridgeGmDeleteValue() {
   const bridge = getUserscriptGmStorage();
   return bridge ? (key) => bridge.deleteValue(key) : null;
 }
+function asyncGmListValues() {
+  if (packagedExtensionStorageAdapterMissing()) return null;
+  const direct = directGmListValues();
+  if (direct) return direct;
+  if (directGmGetValue()) return null;
+  return bridgeGmListValues();
+}
+function directGmListValues() {
+  return modernGmListValues() ?? legacyGmListValues() ?? extensionGmListValues();
+}
+function legacyGmListValues() {
+  if (typeof GM_listValues === "function") return GM_listValues;
+  const directListValues = globalThis.GM_listValues;
+  return typeof directListValues === "function" ? directListValues : null;
+}
+function modernGmListValues() {
+  const gm = userscriptGmApi();
+  return typeof gm?.listValues === "function" ? gm.listValues.bind(gm) : null;
+}
+function extensionGmListValues() {
+  const extension = extensionStorageArea();
+  if (!extension) return null;
+  return async () => extension.getKeys ? extension.getKeys() : Object.keys(await extension.get(null));
+}
+function bridgeGmListValues() {
+  const bridge = getUserscriptGmStorage();
+  return bridge ? () => bridge.listValues() : null;
+}
 function extensionStorageArea() {
   return extensionCapability((extension) => extension.storage?.local);
 }
@@ -1623,6 +2022,23 @@ async function gmPrivateStorageGet(key, fallback) {
   const getValue = directGmGetValue();
   if (!getValue) return fallback;
   return sharedOwnedManagedValue(getValue, key, fallback, "Private GM storage read failed");
+}
+async function withGmStorageLease(name, operation, options = {}) {
+  return withGmStorageLeaseCore(name, operation, options, {
+  backend: gmStorageLeaseBackend(),
+  captureEpoch: assertRealmManagedStateEpoch,
+  assertMutationFence: assertManagedStateMutationFence,
+  epochToken: managedStateEpochToken,
+  hostedOrigin: isHostedYomuOrigin()
+  });
+}
+function gmStorageLeaseBackend() {
+  return {
+  getValue: asyncGmGetValue(),
+  setValue: asyncGmSetValue(),
+  deleteValue: asyncGmDeleteValue(),
+  listValues: asyncGmListValues()
+  };
 }
 function gmStorageGetSync(key, fallback) {
   if (packagedExtensionStorageAdapterMissing()) return fallback;
@@ -1776,6 +2192,25 @@ async function gmStorageDelete(key) {
   removeLocalStorageKey(key);
   removeSessionStorageKey(key);
   removeLocalMirrorProvenance(key);
+}
+async function gmPrivateStorageDelete(key) {
+  assertPrivateStorageKey(key);
+  const getValue = directGmGetValue();
+  const setValue = directGmSetValue();
+  const deleteValue = directGmDeleteValue();
+  if (!getValue || !setValue && !deleteValue) throw new Error("Secure extension storage is unavailable.");
+  if (getValue) {
+  try {
+    const epoch = await assertRealmManagedStateEpoch(getValue);
+    await deleteManagedGmValue(key, epoch, getValue, setValue, deleteValue);
+  } catch (error) {
+    if (isStaleManagedStateEpochError(error)) throw error;
+    debugStorageError("Private GM storage delete failed", key, error);
+    throw new Error("Secure extension storage is unavailable.");
+  }
+  }
+  removeLocalStorageKey(key);
+  removeSessionStorageKey(key);
 }
 function assertPrivateStorageKey(key) {
   if (!isPrivateManagedStorageKey(key)) throw new TypeError("Private storage requires a yomu:private: key.");
@@ -6752,7 +7187,10 @@ const LOCALE_BY_KEY = new Map([
   ...INTERFACE_LOCALES.map((locale) => [locale.id, locale]),
   ...INTERFACE_LOCALES.map((locale) => [locale.tag, locale])
 ]);
-(() => {
+function interfaceLocaleByTag(tag) {
+  return LOCALE_BY_KEY.get(tag);
+}
+const ENGLISH_INTERFACE_LOCALE = (() => {
   const english = LOCALE_BY_KEY.get("en");
   if (!english) throw new Error("The interface manifest must always contain English");
   return english;
@@ -6765,6 +7203,24 @@ Object.freeze(
   (item) => Object.freeze({ ...item })
   )
 );
+const FIRST_STRONG_ISOLATE = "⁨";
+const POP_DIRECTIONAL_ISOLATE = "⁩";
+function interfaceDirectionOf(tag) {
+  return (interfaceLocaleByTag(tag) ?? ENGLISH_INTERFACE_LOCALE).direction;
+}
+function isRtlInterface(tag) {
+  return interfaceDirectionOf(tag) === "rtl";
+}
+function isolate(value) {
+  if (!value) return value;
+  return `${FIRST_STRONG_ISOLATE}${value}${POP_DIRECTIONAL_ISOLATE}`;
+}
+function formatIsolated(message, values) {
+  return Object.entries(values).reduce(
+  (text, [name, value]) => text.replaceAll(`{${name}}`, isolate(String(value))),
+  message
+  );
+}
 const GRAMMAR_UI_COPY = {
   en: {
   findingGrammar: "Finding grammar...",
@@ -7039,7 +7495,6 @@ const GRADING_SERVICE_COPY = {
   }
 };
 const EN = {
-  defaultDeck: "Default",
   collectNoDestination: "None of your decks can take this word. Turn one on in Settings.",
   collectWordNotFound: "Not saved: this word was not found in your preferred grading service.",
   // An ordinary page can read these, so they name no service, deck or Anki state (ADR-0020).
@@ -7055,15 +7510,14 @@ const EN = {
   bunproAddApiKeyRequired: "Add a Bunpro frontend API token, or use Add to Anki.",
   bunproNoMatchingWord: "Bunpro has no entry for this word.",
   addedToBunpro: "Added to Bunpro.",
-  yomuLocalSrsDisabled: `Enable ${ACADEMY_SRS_LABEL} in Settings first.`,
-  yomuLocalSrsStorageFailed: "Your Academy deck could not be saved. Browser storage may be full. Free some site storage, then try again.",
-  yomuLocalSrsSaveInterrupted: "Your Academy deck was not saved because saving was interrupted. Try again.",
-  addedToYomuLocal: "Added to your default deck.",
-  // An Academy word kept without a schedule (Library, Stats and the popups).
+  yomuLocalSrsDisabled: `Enable ${YOMU_DECK_LABEL} in Settings first.`,
+  yomuLocalSrsStorageFailed: `Your ${YOMU_DECK_LABEL} could not be saved. Browser storage may be full. Free some site storage, then try again.`,
+  yomuLocalSrsSaveInterrupted: `Your ${YOMU_DECK_LABEL} was not saved because saving was interrupted. Try again.`,
+  addedToYomuLocal: `Added to your ${YOMU_DECK_LABEL}.`,
+  // A よむ deck word kept without a schedule (Library, Stats and the popups).
   savedWord: "Saved"
 };
 const JA = {
-  defaultDeck: "デフォルト",
   collectNoDestination: "この単語を追加できるデッキがありません。設定でデッキを有効にしてください。",
   collectWordNotFound: "優先採点サービスでこの単語が見つからなかったため、保存していません。",
   collectAlreadySaved: "すでにデッキにあります。編集はStudyで行えます。",
@@ -7077,10 +7531,10 @@ const JA = {
   bunproAddApiKeyRequired: "Bunproのfrontend_api_tokenかAnki追加が必要です。",
   bunproNoMatchingWord: "この単語はBunproに見つかりませんでした。",
   addedToBunpro: "Bunproに追加しました。",
-  yomuLocalSrsDisabled: "先に設定でAcademyを有効にしてください。",
-  yomuLocalSrsStorageFailed: "Academyデッキを保存できませんでした。ブラウザーの保存容量が不足している可能性があります。サイトの保存容量を空けてから、もう一度お試しください。",
-  yomuLocalSrsSaveInterrupted: "保存が中断されたため、Academyデッキに保存されませんでした。もう一度お試しください。",
-  addedToYomuLocal: "デフォルトのデッキに追加しました。",
+  yomuLocalSrsDisabled: "先に設定でよむデッキを有効にしてください。",
+  yomuLocalSrsStorageFailed: "よむデッキを保存できませんでした。ブラウザーの保存容量が不足している可能性があります。サイトの保存容量を空けてから、もう一度お試しください。",
+  yomuLocalSrsSaveInterrupted: "保存が中断されたため、よむデッキに保存されませんでした。もう一度お試しください。",
+  addedToYomuLocal: "よむデッキに追加しました。",
   savedWord: "保存済み"
 };
 const COLLECTION_COPY = { en: EN, ja: JA };
@@ -7110,6 +7564,82 @@ const OCR_STATUS_COPY = {
   en: EN_OCR_STATUS_COPY,
   ja: JA_OCR_STATUS_COPY
 };
+const EN_APPEARANCE_QUICK_COPY = {
+  accentSwatchKurenai: "Kurenai (crimson)",
+  accentSwatchShu: "Shu (vermilion)",
+  accentSwatchAi: "Ai (indigo)",
+  accentSwatchMurasaki: "Murasaki (purple)",
+  accentSwatchYamabuki: "Yamabuki (amber)",
+  accentSwatchSumi: "Sumi (ink)",
+  accentSwatchCustom: "Custom color",
+  underlineQuick: "Underline",
+  underlineQuickStatus: "Status",
+  underlineQuickPitch: "Pitch"
+};
+const JA_APPEARANCE_QUICK_COPY = {
+  accentSwatchKurenai: "紅（くれない）",
+  accentSwatchShu: "朱（しゅ）",
+  accentSwatchAi: "藍（あい）",
+  accentSwatchMurasaki: "紫（むらさき）",
+  accentSwatchYamabuki: "山吹（やまぶき）",
+  accentSwatchSumi: "墨（すみ）",
+  accentSwatchCustom: "カスタムカラー",
+  underlineQuick: "下線",
+  underlineQuickStatus: "学習状態",
+  underlineQuickPitch: "ピッチ"
+};
+const APPEARANCE_QUICK_COPY = {
+  en: EN_APPEARANCE_QUICK_COPY,
+  ja: JA_APPEARANCE_QUICK_COPY
+};
+const EN_REVIEW_SERVICES_COPY = {
+  reviews: "Reviews",
+  yomuDeck: YOMU_DECK_LABEL,
+  gradeFromYomu: "Grade from よむ",
+  reviewServiceKey: "{service} key",
+  reviewServiceToken: "{service} token",
+  reviewServiceConnect: "Connect",
+  reviewServiceConnectTo: "Connect {service}",
+  reviewServiceOn: "On",
+  reviewServiceKeyAdded: "Key added",
+  reviewServiceTokenAdded: "Token added",
+  reviewServiceOff: "Not connected",
+  reviewServiceAvailable: "Ready to connect",
+  reviewServiceError: "Needs a new token",
+  reviewServiceBuiltIn: "Built in",
+  reviewServiceDisabled: "Off",
+  reviewServiceAddsGrades: "Grades",
+  reviewServiceAddsColors: "Word colors",
+  reviewServiceAddsDecks: "Decks",
+  reviewServiceAddsPitch: "Pitch accent",
+  bunproTokenHelp: "Import the frontend token from Bunpro settings and treat it like a password. It is saved before it is verified."
+};
+const JA_REVIEW_SERVICES_COPY = {
+  reviews: "復習",
+  yomuDeck: "よむデッキ",
+  gradeFromYomu: "よむから採点",
+  reviewServiceKey: "{service}のキー",
+  reviewServiceToken: "{service}のトークン",
+  reviewServiceConnect: "接続",
+  reviewServiceConnectTo: "{service}に接続",
+  reviewServiceOn: "オン",
+  reviewServiceKeyAdded: "キー登録済み",
+  reviewServiceTokenAdded: "トークン登録済み",
+  reviewServiceOff: "未接続",
+  reviewServiceAvailable: "接続できます",
+  reviewServiceError: "トークンの再取得が必要",
+  reviewServiceBuiltIn: "内蔵",
+  reviewServiceDisabled: "オフ",
+  reviewServiceAddsGrades: "採点",
+  reviewServiceAddsColors: "単語の色",
+  reviewServiceAddsDecks: "デッキ",
+  reviewServiceAddsPitch: "ピッチアクセント",
+  bunproTokenHelp: "Bunpro設定からフロントエンドトークンを取り込み、パスワードと同様に扱ってください。保存時点では未確認です。"
+};
+const REVIEW_SERVICES_COPY = {
+  en: EN_REVIEW_SERVICES_COPY,
+  ja: JA_REVIEW_SERVICES_COPY
+};
 const COPY = {
   en: {
   ...PRACTICE_SESSION_COPY.en,
@@ -7123,7 +7653,6 @@ const COPY = {
   libraryEmpty: "Save a word while you read and it shows up here.",
   moreLookupLinks: "More links",
   audioSourcesTitle: "Audio sources",
-  contextOccurrences: "In context ×{count}",
   puckAutoDetectSubtitles: "Auto-detect subtitles",
   loadTargetSubtitles: "Load Japanese subtitles",
   loadOutputSubtitles: "Load English subtitles",
@@ -7169,24 +7698,13 @@ const COPY = {
   youTube: "YouTube",
   anki: "Anki",
   jpdb: "JPDB",
-  api: "API",
   apiCredential: "API key",
-  apiCredentialJpdb: "JPDB API key",
-  apiCredentialJiten: "Jiten API key",
-  apiCredentialBunpro: "Bunpro frontend API token",
   apiCredentialBunproLegacy: "Bunpro API key",
-  apiCredentialWanikani: "WaniKani personal access token",
   apiKey: "API key",
   jitenApiKey: "Jiten API key",
-  apiAccess: "API access",
   storedCredentialPlaceholder: "Saved — enter a replacement",
   clearStoredCredential: "Remove saved credential",
-  apiAccessHelp: "Add each service credential here. Bunpro only needs the frontend token: import it from Bunpro settings, treat it like a password, and note that it is saved before it is verified. Academy reviews work locally without an account.",
-  wanikaniTokenHelp: "Create a read/write personal access token on WaniKani and paste it here. It is stored only in your browser, sent directly to api.wanikani.com (never through a proxy), and never logged.",
-  jpdbSettings: "JPDB settings",
-  jitenSettings: "Jiten settings",
-  bunproSettings: "Bunpro settings",
-  wanikaniSettings: "WaniKani settings",
+  wanikaniTokenHelp: "A read/write personal access token. It goes only to api.wanikani.com.",
   jpdbApiKeyConfigured: "JPDB key set.",
   jpdbAndJitenApiKeysConfigured: "Jiten and JPDB keys are set.",
   jpdbConnected: "Connected to JPDB.",
@@ -7196,11 +7714,8 @@ const COPY = {
   statusAttention: "Needs setup",
   statusError: "Error",
   disabledControlDescription: "Controlled by another setting.",
-  jpdbMiningEnabled: "Allow API review/deck changes",
-  bunproMiningEnabled: "Allow Bunpro review/mining",
-  wanikaniReviewEnabled: "Allow WaniKani review (due assignments only)",
   wanikaniGradeMappingHelp: "Yomu maps its grade to WaniKani’s pass/fail answer counts: Okay, Good, and Easy submit a clean pass. Anything below Okay submits one incorrect meaning answer and, unless the subject is a radical, one incorrect reading answer.",
-  yomuLocalSrsEnabled: `Enable ${ACADEMY_SRS_LABEL}`,
+  yomuLocalSrsEnabled: `Enable ${YOMU_DECK_LABEL}`,
   addToForq: "Also copy JPDB adds to forq",
   enableReviews: "Show review buttons",
   reviewRatingScale: "Review rating scale",
@@ -7210,12 +7725,12 @@ const COPY = {
   gradeTargetJiten: "Grades Jiten",
   gradeTargetBunpro: "Grades Bunpro",
   gradeTargetWanikani: "Grades WaniKani",
-  gradeTargetYomuLocal: `Grades ${ACADEMY_SRS_LABEL}`,
+  gradeTargetYomuLocal: `Grades ${YOMU_DECK_LABEL}`,
   gradeTargetAnki: "Grades Anki card: {target}",
   gradeTargetJpdbAndAnki: "Grades JPDB + Anki card: {target}",
   gradeTargetJitenAndAnki: "Grades Jiten + Anki card: {target}",
   gradeTargetBunproAndAnki: "Grades Bunpro + Anki card: {target}",
-  gradeTargetYomuLocalAndAnki: `Grades ${ACADEMY_SRS_LABEL} + Anki card: {target}`,
+  gradeTargetYomuLocalAndAnki: `Grades ${YOMU_DECK_LABEL} + Anki card: {target}`,
   missingAnkiCardId: "Missing Anki card id.",
   jpdbPageEnhancements: "Dictionary site enhancements",
   jpdbPageEnhancementsEnabled: "Enhance JPDB and Jiten pages",
@@ -7265,15 +7780,15 @@ const COPY = {
   newTabAnkiReviewDecksHelp: "Uncheck decks to skip.",
   newTabSource: "Study review source",
   newTabAuto: "Automatic",
-  newTabApiSrs: "API SRS (Jiten / JPDB)",
+  newTabApiSrs: "Jiten / JPDB",
   newTabBunpro: "Bunpro",
   newTabWanikani: "WaniKani",
-  newTabYomuLocal: ACADEMY_SRS_LABEL,
+  newTabYomuLocal: YOMU_DECK_LABEL,
   dictionaryFallback: "Dictionary fallback",
-  newTabJpdbReviewMode: "API review mode",
+  newTabJpdbReviewMode: "JPDB review mode",
   newTabJpdbReviewAuto: "Automatic",
   newTabLiveReview: "Live JPDB review session",
-  newTabApiVocabulary: "API vocabulary only",
+  newTabApiVocabulary: "JPDB vocabulary only",
   corsProxyUrl: "Cross-origin proxy URL",
   newTabKanjiKeywordSource: "Kanji keyword source",
   newTabKanjiKeywordAuto: "Automatic",
@@ -7306,7 +7821,6 @@ const COPY = {
   pitchColorOdaka: "Odaka (tail-high)",
   pitchColorUnknown: "Unknown",
   pronunciation: "Pronunciation",
-  noExactPitch: "Exact pitch unavailable",
   colorChannels: "Color channels",
   wordHighlightColorSource: "Word highlight color",
   wordUnderlineColorSource: "Word underline color",
@@ -7358,7 +7872,7 @@ const COPY = {
   hideColorFor: "Hide color for",
   furiganaDifficultKanji: "Hard kanji only",
   furiganaDifficultKanjiHelp: `${APP_NAME} keeps a fixed beginner kanji list and shows readings on everything outside it. A bare kanji means that character sits on the list.`,
-  statusColorNoSourceHelp: `Status colors read from a deck. Enable ${ACADEMY_SRS_LABEL} in Study, or add a JPDB, Jiten, or Anki source, and words take the color of their learning state.`,
+  statusColorNoSourceHelp: `Status colors read from a deck. Turn on the ${YOMU_DECK_LABEL} in Reviews, or add a JPDB, Jiten, or Anki source, and words take the color of their learning state.`,
   furiganaHideKnown: "Hide familiar words",
   furiganaHoverOnly: "Show on hover",
   furiganaAllParsed: "All parsed words",
@@ -7502,6 +8016,8 @@ const COPY = {
   ocrCloudHelp: "Paste a Google Cloud Vision API key.",
   ocrLocalHelp: "Run MangaOCR/Apple Vision locally and enter its URL.",
   ...SUBTITLE_SETTINGS_COPY.en,
+  subtitleFontSizeAutomatic: "Auto",
+  subtitleFontSizePixelsAuto: "Subtitle font size (px; 0 = auto)",
   right: "Right",
   left: "Left",
   bottom: "Below",
@@ -7517,7 +8033,7 @@ const COPY = {
   youtubeToggleToastOn: "YouTube immersion filter enabled.",
   youtubeToggleToastOff: "YouTube immersion filter disabled.",
   ankiEnabled: "Enable Anki mining",
-  ankiMineWithJpdb: "Also add to Anki when adding via API",
+  ankiMineWithJpdb: "Also add to Anki when adding to JPDB or Jiten",
   ankiCaptureScreenshot: "Attach context image when possible",
   ankiConnectUrl: "AnkiConnect URL",
   ankiDeck: "Anki deck",
@@ -7595,8 +8111,8 @@ const COPY = {
   localDictionaryMaxResults: "Dictionary result limit",
   cloudSettingsSync: "Google Drive settings sync",
   cloudSettingsSyncHelp: "Stores your Yomu settings and local SRS progress in Google Drive app data. Dictionaries stay local.",
-  academyAccountSync: "Academy account sync",
-  academyAccountSyncHelp: "Keep Academy SRS progress in sync across the Reader and your signed-in Yomu account. Create or manage your account on the website, then generate a one-time pairing code.",
+  academyAccountSync: "Account sync",
+  academyAccountSyncHelp: `Keep your ${YOMU_DECK_LABEL} in sync across the Reader and your signed-in Yomu account. Create or manage your account on the website, then generate a one-time pairing code.`,
   academyAccountManage: "Manage account & pairing code",
   academyPairingCode: "One-time pairing code",
   academyPairingCodePlaceholder: "XXXX-XXXX-XXXX-XXXX-XXXX",
@@ -7607,20 +8123,20 @@ const COPY = {
   academyRecoveryCodeReady: "Website recovery code: {code}. Enter it in Profile & sync within 10 minutes.",
   academyRecoveryCodeDone: "Website recovery code created.",
   academyAccountDisconnect: "Disconnect",
-  academyAccountChecking: "Checking Academy account connection...",
-  academyAccountDisconnected: "Not connected. Academy reviews stay on this device until you connect an account.",
+  academyAccountChecking: "Checking account connection...",
+  academyAccountDisconnected: `Not connected. Your ${YOMU_DECK_LABEL} stays on this device until you connect an account.`,
   academyAccountConnected: "Connected as {name}.",
-  academyAccountConnectedNoName: "Academy account connected.",
+  academyAccountConnectedNoName: "Account connected.",
   academyAccountLastSynced: "Last synced {time}.",
   academyAccountNeverSynced: "Not synced yet.",
   academyAccountConnectionProblem: "Could not refresh the account status: {message}",
-  academyAccountConnecting: "Connecting and syncing Academy progress...",
-  academyAccountSyncing: "Syncing Academy progress...",
+  academyAccountConnecting: `Connecting and syncing your ${YOMU_DECK_LABEL}...`,
+  academyAccountSyncing: `Syncing your ${YOMU_DECK_LABEL}...`,
   academyAccountDisconnecting: "Disconnecting this Reader...",
   academyPairingCodeRequired: "Enter the one-time pairing code from your Yomu account.",
-  academyAccountConnectedDone: "Academy account connected and progress synced.",
-  academyAccountSyncedDone: "Academy progress synced.",
-  academyAccountDisconnectedDone: "This Reader is disconnected. Local Academy progress is still available.",
+  academyAccountConnectedDone: `Account connected and ${YOMU_DECK_LABEL} synced.`,
+  academyAccountSyncedDone: `${YOMU_DECK_LABEL} synced.`,
+  academyAccountDisconnectedDone: `This Reader is disconnected. Your ${YOMU_DECK_LABEL} is still on this device.`,
   importSettings: "Import settings JSON",
   exportSettings: "Export settings JSON",
   importDictionaries: "Import dictionaries",
@@ -7629,10 +8145,10 @@ const COPY = {
   lookupPillsHelp: "External links and frequency badges in one order. Local frequency dictionaries replace matching live Jiten/JPDB badges. Tokens: {query}, {word}, {reading}.",
   parserProvider: "Parsing source",
   parserProviderLocal: "Local dictionaries (offline)",
-  parserProviderJiten: "Jiten API",
-  parserProviderJpdb: "JPDB API",
+  parserProviderJiten: "Jiten",
+  parserProviderJpdb: "JPDB",
   parserProviderAuto: "Automatic (Jiten/JPDB)",
-  parserProviderHelp: "Local parses with imported dictionaries, offline. Jiten and JPDB always use that API when its key is set. Automatic uses your preferred grading service when both keys are set, otherwise Jiten, then JPDB.",
+  parserProviderHelp: "Local parses with imported dictionaries, offline. Jiten and JPDB always parse with that service when its key is set. Automatic uses your preferred grading service when both keys are set, otherwise Jiten, then JPDB.",
   copiesCurrentWord: "Copies the current word",
   plaintextHttpLink: "Opens over plaintext HTTP.",
   lookupPillLabelNumber: "Lookup pill {number} label",
@@ -7856,6 +8372,7 @@ const COPY = {
   ankiMappingConfidenceLow: "unmapped",
   ankiMappingStaleField: "saved field missing",
   ...OCR_STATUS_COPY.en,
+  ocrTextRegion: "よむ image text {id}",
   gradeNothing: "Grade NOTHING",
   gradeSomething: "Grade SOMETHING",
   gradeHard: "Grade HARD",
@@ -7907,7 +8424,7 @@ const COPY = {
   ...GRADING_SERVICE_COPY.en,
   jpdbKanjiUpdated: "JPDB kanji updated.",
   jpdbKanjiUpdateFailedRuntime: "Could not update JPDB kanji. Check kanji reviews.",
-  apiSrsActionsDisabled: "API mining actions are disabled in settings.",
+  apiSrsActionsDisabled: "Grade from よむ is off for this service in Settings.",
   addJpdbApiKeyReview: "Add a JPDB API key to review JPDB cards.",
   addJitenApiKeyReview: "Add a Jiten API key to review Jiten cards.",
   addBunproApiKeyReview: "Add a Bunpro frontend API token to review Bunpro cards.",
@@ -8190,7 +8707,15 @@ const COPY = {
   openSectionToTranslate: "Open this section to translate.",
   translationUnavailable: "Translation unavailable.",
   translating: "Translating...",
-  ...GRAMMAR_UI_COPY.en
+  ...GRAMMAR_UI_COPY.en,
+  ...APPEARANCE_QUICK_COPY.en,
+  ...REVIEW_SERVICES_COPY.en,
+  furiganaOff: "Off",
+  puckPowerOn: `${APP_NAME} on`,
+  puckFuriganaOn: "Furigana on",
+  puckFuriganaOff: "Furigana off",
+  puckResume: `${APP_NAME} off · turn on`,
+  furiganaHideKnownReadings: "Hide readings for familiar words"
   }
 };
 function parseUiCopyTable(rows) {
@@ -8251,7 +8776,7 @@ closeDrawer	ドロワーを閉じる
 copiedWord	単語をコピーしました。
 jpdbKanjiUpdated	JPDB漢字を更新しました。
 jpdbKanjiUpdateFailedRuntime	JPDB漢字を更新できません。
-apiSrsActionsDisabled	設定でAPI採掘操作が無効です。
+apiSrsActionsDisabled	設定でこのサービスの「よむから採点」がオフです。
 addJpdbApiKeyReview	JPDBレビューにはAPIキーが必要です。
 addJitenApiKeyReview	JitenレビューにはAPIキーが必要です。
 addBunproApiKeyReview	Bunproレビューにはfrontend_api_tokenが必要です。
@@ -8309,7 +8834,6 @@ local	ローカル
 dict	辞書
 scanPage	ページをスキャン
 noUnscannedJapaneseText	未スキャンの日本語テキストはありません。
-contextOccurrences	文脈内 ×{count}
 puckAutoDetectSubtitles	字幕を自動検出
 loadTargetSubtitles	日本語字幕を読み込む
 loadOutputSubtitles	英語字幕を読み込む
@@ -8658,6 +9182,7 @@ openSectionToTranslate	開くと翻訳します。
 translationUnavailable	翻訳を利用できません。
 translating	翻訳中...
 `),
+  ocrTextRegion: "よむの画像テキスト {id}",
   ...GRAMMAR_UI_COPY.ja,
   ...SETTINGS_RECOVERY_COPY.ja,
   ...PRACTICE_SESSION_COPY.ja,
@@ -8698,24 +9223,13 @@ video	動画
 youTube	YouTube
 anki	Anki
 jpdb	JPDB
-api	API
 apiCredential	APIキー
-apiCredentialJpdb	JPDB APIキー
-apiCredentialJiten	Jiten APIキー
-apiCredentialBunpro	BunproフロントエンドAPIトークン
-apiCredentialWanikani	WaniKaniパーソナルアクセストークン
-wanikaniTokenHelp	WaniKaniでread/write権限のパーソナルアクセストークンを作成し、ここに貼り付けてください。ブラウザ内にのみ保存され、プロキシを経由せずapi.wanikani.comへ直接送信され、ログに残ることはありません。
+wanikaniTokenHelp	read/write権限のパーソナルアクセストークン。送信先はapi.wanikani.comだけです。
 apiCredentialBunproLegacy	Bunpro APIキー
 apiKey	APIキー
 jitenApiKey	Jiten APIキー
-apiAccess	APIアクセス
 storedCredentialPlaceholder	保存済み — 変更する場合のみ入力
 clearStoredCredential	保存済みの認証情報を削除
-apiAccessHelp	各サービスの認証情報を設定します。Bunproに必要なのはフロントエンドトークンだけです。Bunpro設定から取り込み、パスワードと同様に扱ってください。保存時点では未確認です。Academyの復習はアカウントなしでも使えます。
-jpdbSettings	JPDB設定
-jitenSettings	Jiten設定
-bunproSettings	Bunpro設定
-wanikaniSettings	WaniKani設定
 jpdbApiKeyConfigured	JPDBキーあり。
 jpdbConnected	JPDBに接続しました。
 jpdbAndJitenConnected	JitenとJPDBに接続しました。
@@ -8724,11 +9238,8 @@ statusReady	準備完了
 statusAttention	設定が必要
 statusError	エラー
 disabledControlDescription	別設定で制御中。
-jpdbMiningEnabled	APIの復習・デッキ変更を許可
-bunproMiningEnabled	Bunproの復習・採掘を許可
-wanikaniReviewEnabled	WaniKaniの復習を許可(期限が来た課題のみ)
 wanikaniGradeMappingHelp	よむの採点結果はWaniKaniの正誤カウントに変換されます。Okay、Good、Easyは正解として送信します。Okay未満は意味を1回不正解として送信し、ラジカル以外では読みも1回不正解として送信します。
-yomuLocalSrsEnabled	Academyを有効化
+yomuLocalSrsEnabled	よむデッキを有効化
 addToForq	JPDB追加時にforqにもコピー
 enableReviews	復習ボタンを表示
 reviewRatingScale	復習評価の段階
@@ -8738,12 +9249,12 @@ gradeTargetJpdb	JPDBを採点
 gradeTargetJiten	Jitenを採点
 gradeTargetBunpro	Bunproを採点
 gradeTargetWanikani	WaniKaniを採点
-gradeTargetYomuLocal	Academyに記録
+gradeTargetYomuLocal	よむデッキに記録
 gradeTargetAnki	Ankiカードを採点: {target}
 gradeTargetJpdbAndAnki	JPDB + Ankiカードを採点: {target}
 gradeTargetJitenAndAnki	Jiten + Ankiカードを採点: {target}
 gradeTargetBunproAndAnki	Bunpro + Ankiカードを採点: {target}
-gradeTargetYomuLocalAndAnki	Academy + Ankiカードに記録: {target}
+gradeTargetYomuLocalAndAnki	よむデッキ + Ankiカードに記録: {target}
 missingAnkiCardId	AnkiカードIDがありません。
 jpdbPageEnhancements	辞書サイト拡張
 jpdbPageEnhancementsEnabled	JPDB・Jitenのページを拡張
@@ -8788,15 +9299,15 @@ newTabAnkiReviewDecks	Anki復習デッキ
 newTabAnkiReviewDecksHelp	不要なデッキを外します。
 newTabSource	学習の復習ソース
 newTabAuto	自動
-newTabApiSrs	API SRS（Jiten / JPDB）
+newTabApiSrs	Jiten / JPDB
 newTabBunpro	Bunpro
 newTabWanikani	WaniKani
-newTabYomuLocal	Academy
+newTabYomuLocal	よむデッキ
 dictionaryFallback	辞書フォールバック
-newTabJpdbReviewMode	API復習モード
+newTabJpdbReviewMode	JPDB復習モード
 newTabJpdbReviewAuto	自動
 newTabLiveReview	ライブJPDB復習セッション
-newTabApiVocabulary	API語彙のみ（デッキ順）
+newTabApiVocabulary	JPDB語彙のみ（デッキ順）
 corsProxyUrl	クロスオリジンプロキシURL
 newTabKanjiKeywordSource	漢字キーワードのソース
 newTabKanjiKeywordAuto	自動
@@ -8829,7 +9340,6 @@ pitchColorNakadaka	中高
 pitchColorOdaka	尾高
 pitchColorUnknown	不明
 pronunciation	発音
-noExactPitch	完全一致のピッチは利用不可
 colorChannels	色チャンネル
 wordHighlightColorSource	単語ハイライトの色
 wordUnderlineColorSource	単語下線の色
@@ -8882,7 +9392,7 @@ hideFuriganaFor	ふりがなを隠す対象
 hideColorFor	色を隠す対象
 furiganaDifficultKanji	難しい漢字のみ
 furiganaDifficultKanjiHelp	Yomuは初級漢字の固定リストを持ち、その外側の漢字にふりがなを表示します。ふりがなのない漢字は、そのリストに載っています。
-statusColorNoSourceHelp	学習状態の色はデッキから読み取ります。StudyでAcademyを有効にするか、JPDB・Jiten・Ankiのいずれかを追加すると、単語が学習状態の色になります。
+statusColorNoSourceHelp	学習状態の色はデッキから読み取ります。「復習」でよむデッキをオンにするか、JPDB・Jiten・Ankiのいずれかを追加すると、単語が学習状態の色になります。
 furiganaHideKnown	なじみのある語を非表示
 furiganaHoverOnly	ホバー時に表示
 furiganaAllParsed	解析済みの全単語
@@ -9022,7 +9532,7 @@ youtubeHelp	YouTubeを日本語向けに絞ります。
 youtubeToggleToastOn	YouTube没入フィルターをオンにしました。
 youtubeToggleToastOff	YouTube没入フィルターをオフにしました。
 ankiEnabled	Anki採掘を有効にする
-ankiMineWithJpdb	API経由で追加するときAnkiにも追加
+ankiMineWithJpdb	JPDBやJitenに追加するときAnkiにも追加
 ankiCaptureScreenshot	可能なら文脈画像を添付
 ankiConnectUrl	AnkiConnect URL
 ankiDeck	Ankiデッキ
@@ -9097,8 +9607,8 @@ ${Object.entries(LOCAL_DICTIONARY_STORAGE_COPY.jaSettings).map(([key, value]) =>
 localDictionaryMaxResults	辞書結果の上限
 cloudSettingsSync	Google Drive設定同期
 cloudSettingsSyncHelp	Yomuの設定をGoogle Driveのアプリデータに保存します。辞書は端末内に残ります。
-academyAccountSync	Academyアカウント同期
-academyAccountSyncHelp	ReaderのAcademy SRS進捗を、ログイン中のYomuアカウントと端末間で同期します。Webサイトでアカウントを作成または管理し、1回限りのペアリングコードを発行してください。
+academyAccountSync	アカウント同期
+academyAccountSyncHelp	よむデッキを、ログイン中のYomuアカウントと端末間で同期します。Webサイトでアカウントを作成または管理し、1回限りのペアリングコードを発行してください。
 academyAccountManage	アカウントとペアリングコードを管理
 academyPairingCode	1回限りのペアリングコード
 academyPairingCodePlaceholder	XXXX-XXXX-XXXX-XXXX-XXXX
@@ -9109,20 +9619,20 @@ academyRecoveryCodeCreating	1回限りのWebサイト復旧コードを作成中
 academyRecoveryCodeReady	Webサイト復旧コード: {code}。10分以内に「プロフィールと同期」で入力してください。
 academyRecoveryCodeDone	Webサイト復旧コードを作成しました。
 academyAccountDisconnect	接続解除
-academyAccountChecking	Academyアカウントの接続を確認中...
-academyAccountDisconnected	未接続です。アカウントに接続するまで、Academyの復習データはこの端末に保存されます。
+academyAccountChecking	アカウントの接続を確認中...
+academyAccountDisconnected	未接続です。アカウントに接続するまで、よむデッキはこの端末に保存されます。
 academyAccountConnected	{name}として接続中です。
-academyAccountConnectedNoName	Academyアカウントに接続中です。
+academyAccountConnectedNoName	アカウントに接続中です。
 academyAccountLastSynced	最終同期: {time}。
 academyAccountNeverSynced	まだ同期していません。
 academyAccountConnectionProblem	アカウント状態を更新できませんでした: {message}
-academyAccountConnecting	接続してAcademyの進捗を同期中...
-academyAccountSyncing	Academyの進捗を同期中...
+academyAccountConnecting	接続してよむデッキを同期中...
+academyAccountSyncing	よむデッキを同期中...
 academyAccountDisconnecting	このReaderの接続を解除中...
 academyPairingCodeRequired	Yomuアカウントで1回限りのペアリングコードを発行し、入力してください。
-academyAccountConnectedDone	Academyアカウントに接続し、進捗を同期しました。
-academyAccountSyncedDone	Academyの進捗を同期しました。
-academyAccountDisconnectedDone	このReaderの接続を解除しました。Academyの進捗は端末に残ります。
+academyAccountConnectedDone	アカウントに接続し、よむデッキを同期しました。
+academyAccountSyncedDone	よむデッキを同期しました。
+academyAccountDisconnectedDone	このReaderの接続を解除しました。よむデッキは端末に残ります。
 importSettings	設定JSONをインポート
 exportSettings	設定JSONをエクスポート
 importDictionaries	辞書をインポート
@@ -9130,10 +9640,10 @@ exportDictionaries	辞書をエクスポート
 lookupPills	検索ピル
 parserProvider	解析ソース
 parserProviderLocal	ローカル辞書（オフライン）
-parserProviderJiten	Jiten API
-parserProviderJpdb	JPDB API
+parserProviderJiten	Jiten
+parserProviderJpdb	JPDB
 parserProviderAuto	自動（Jiten/JPDB）
-parserProviderHelp	ローカルはインポート済み辞書でオフライン解析します。JitenとJPDBはキー設定時に必ずそのAPIを使います。自動は両方のキーがあれば優先採点サービスを使い、それ以外はJiten、次にJPDBを優先します。
+parserProviderHelp	ローカルはインポート済み辞書でオフライン解析します。JitenとJPDBはキー設定時に必ずそのサービスで解析します。自動は両方のキーがあれば優先採点サービスを使い、それ以外はJiten、次にJPDBを優先します。
 lookupPillsHelp	外部リンクと頻度バッジを同じ順序で表示します。ローカル頻度辞書は一致するJiten/JPDBライブバッジを置き換えます。トークン: {query}、{word}、{reading}。
 copiesCurrentWord	現在の単語をコピーします
 plaintextHttpLink	プレーンテキストHTTPで開きます。
@@ -9302,7 +9812,17 @@ recommendedKanjiumPitch	ピッチアクセント専用です。定義には語�
 recommendedBccwj	BCCWJ由来の頻度バッジです。
 recommendedJiten	Jiten由来の頻度バッジです。
 `),
-  ...SUBTITLE_SETTINGS_COPY.ja
+  ...SUBTITLE_SETTINGS_COPY.ja,
+  subtitleFontSizeAutomatic: "自動",
+  subtitleFontSizePixelsAuto: "字幕フォントサイズ（px、0 = 自動）",
+  ...APPEARANCE_QUICK_COPY.ja,
+  ...REVIEW_SERVICES_COPY.ja,
+  furiganaOff: "オフ",
+  puckPowerOn: `${APP_NAME} オン`,
+  puckFuriganaOn: "ふりがなオン",
+  puckFuriganaOff: "ふりがなオフ",
+  puckResume: `${APP_NAME} オフ・オンにする`,
+  furiganaHideKnownReadings: "なじみのある語の読みを非表示"
 };
 function resolveUiLanguage(language) {
   if (language === "ja" || language === "en") return language;
@@ -9320,6 +9840,13 @@ function isJapaneseLocale(value) {
 }
 function uiText(language, key) {
   return resolveUiLanguage(language) === "ja" ? JA_SETTINGS_COPY[key] ?? JA_COPY[key] ?? COPY.en[key] : COPY.en[key];
+}
+function formatUiText(language, key, values) {
+  const message = uiText(language, key);
+  return isRtlInterface(language) ? formatIsolated(message, values) : Object.entries(values).reduce(
+  (text, [name, value]) => text.replaceAll(`{${name}}`, String(value)),
+  message
+  );
 }
 const IMMERSION_KIT_SEARCH_URL_TEMPLATE = "https://www.immersionkit.com/dictionary?keyword={query}&sort=sentence_length:asc&page=1";
 const NADESHIKO_SEARCH_URL_TEMPLATE = "https://nadeshiko.co/search/{query}";
@@ -9533,7 +10060,11 @@ const RETIRED_SETTING_DEFAULTS = [
   { keys: ["furiganaHiddenStateGroups"], retired: [[["known", "due", "failed"]]] },
   { keys: ["wordHighlightColorSource", "wordUnderlineColorSource", "wordTextColorSource"], retired: [["jpdb", "pitch", "anki"]] },
   { keys: ["subtitleHighlightColorSource", "subtitleUnderlineColorSource", "subtitleTextColorSource"], retired: [["jpdb", "pitch", "anki"]] },
-  { keys: ["wordColorHiddenStateGroups"], retired: [[[]]] }
+  { keys: ["wordColorHiddenStateGroups"], retired: [[[]]] },
+  // Unchosen legacy pixel defaults now follow the player's caption size.
+  { keys: ["subtitleFontSize"], retired: [[28]] },
+  // Whole-object saves carried transparency even when nobody chose it.
+  { keys: ["subtitleBackgroundOpacity"], retired: [[0]] }
 ];
 RETIRED_SETTING_DEFAULTS.flatMap((group) => group.keys);
 const AUDIO_SOURCE_TYPE_VALUES = [
@@ -9587,10 +10118,14 @@ function immutableCommandSnapshot(command) {
 const OVERHANG_CLASS = "jpdb-reader-ruby-overhang";
 const AT_START_CLASS = "jpdb-reader-ruby-at-start";
 const AT_END_CLASS = "jpdb-reader-ruby-at-end";
-function rubyOverhangClassAttribute(surface, start, end, reading, readingBeside) {
+function rubyOverhangClasses(surface, start, end, reading, readingBeside) {
   if (readingBeside || Array.from(reading).length <= 2 * Array.from(surface.slice(start, end)).length) return "";
   const edges = [start === 0 ? ` ${AT_START_CLASS}` : "", end === surface.length ? ` ${AT_END_CLASS}` : ""].join("");
-  return ` class="${OVERHANG_CLASS}${edges}"`;
+  return ` ${OVERHANG_CLASS}${edges}`;
+}
+const YOMU_RUBY_CLASS = "jpdb-reader-ruby";
+function yomuRubyHtml(baseHtml, readingHtml, extraClasses = "") {
+  return `<ruby class="${YOMU_RUBY_CLASS}${extraClasses}"><span class="jpdb-reader-ruby-base">${baseHtml}</span><rp>(</rp><rt class="jpdb-reader-furi">${readingHtml}</rt><rp>)</rp></ruby>`;
 }
 const EASY_FURIGANA_KANJI = new Set(
   "一丁七万三上下不世中主久乗九予事二五井交京人今介仏仕他付代令以休会伝住何作使例供係信借元兄先光入全公六共内円写冬出分切前力加動北十千午半南原友反取口古台同名向君告周味呼命和品員問四回国土在地坂堂場声売夏夕外多夜大天太夫央女好妹姉始子字学安家宿寒寺小少山川工左市帰年広店度庭建引弟強待後心思急息悪手持教文方旅日早明春昼時曜書有朝木本村来東林校森業楽歌止正歩母毎気水池海父物犬王生田町男白百的目知石社私秋空立竹笑答米糸紙終聞肉自花英茶草行西見言話語読買赤走足車近通週道遠里野金長門間雨青音食飲駅高魚鳥黒".split("")
@@ -9743,7 +10278,7 @@ function renderTokenReadings(surface, token, kanjiNavigation, preserveTokenRubie
   html += renderKanjiNavigationText(surface.slice(localOffset, start));
   const base = renderKanjiNavigationText(surface.slice(start, end));
   const readingBeside = index > 0 && start === localOffset || rubies[index + 1]?.start === ruby.end;
-  html += `<ruby${rubyOverhangClassAttribute(surface, start, end, ruby.text, readingBeside)}><span class="jpdb-reader-ruby-base">${base}</span><rp>(</rp><rt class="jpdb-reader-furi">${escapeHtml(ruby.text)}</rt><rp>)</rp></ruby>`;
+  html += yomuRubyHtml(base, escapeHtml(ruby.text), rubyOverhangClasses(surface, start, end, ruby.text, readingBeside));
   localOffset = end;
   });
   html += renderKanjiNavigationText(surface.slice(localOffset));
@@ -10231,6 +10766,7 @@ function releaseOcrScan(owner, token) {
   owner.scan = void 0;
   owner.loading = false;
   owner.manualRequested = false;
+  owner.pressed = false;
 }
 function captureOcrTargetContext() {
   const language = activeLearningTargetLanguage();
@@ -10242,6 +10778,9 @@ function captureOcrTargetContext() {
   isCurrent: () => true,
   requireCurrent: () => void 0
   };
+}
+function ocrTargetCacheKey(contentKey) {
+  return captureOcrTargetContext().cacheKey(contentKey);
 }
 function ocrTargetWorkKey(contentKey) {
   return captureOcrTargetContext().workKey(contentKey);
@@ -10297,6 +10836,10 @@ const DARK_FIELD_SIZE = 48;
 const DARK_LUMINANCE = 90;
 const DARK_REGION_TRIGGER = 0.1;
 const DARK_LINE_MEAN_LUMINANCE = 110;
+function darkPassWanted(settings, pressed, normal) {
+  if (!settings.ocrInvertDarkPanels) return false;
+  return settings.ocrProvider === "local-service" || pressed && !normal?.lines.length;
+}
 function buildLuminanceField(image) {
   try {
   if (!image.naturalWidth || !image.naturalHeight) return null;
@@ -10427,8 +10970,8 @@ function mergeOcrResults(width, height, results) {
   return width && height && lines.length ? { width, height, lines } : null;
 }
 function loadedImageSize(image) {
-  const width = image.naturalWidth || image.width;
-  const height = image.naturalHeight || image.height;
+  const width = image.naturalWidth;
+  const height = image.naturalHeight;
   if (!width || !height) throw new Error("Image is not loaded yet.");
   return { width, height };
 }
@@ -10922,7 +11465,7 @@ function cssAngleRadians(value) {
 }
 let documentScrollModes = /* @__PURE__ */ new WeakMap();
 const positionedLayoutKeys = /* @__PURE__ */ new WeakMap();
-function setOcrOverlayAccessibility(overlay, visible) {
+function setOcrOverlayAccessibility(overlay, visible, language = "en") {
   overlay.setAttribute("aria-hidden", String(!visible));
   if (!visible) {
   overlay.removeAttribute("role");
@@ -10930,7 +11473,7 @@ function setOcrOverlayAccessibility(overlay, visible) {
   return;
   }
   overlay.setAttribute("role", "region");
-  overlay.setAttribute("aria-label", `Yomu OCR text ${overlay.dataset.ocrLayerId ?? ""}`.trim());
+  overlay.setAttribute("aria-label", formatUiText(language, "ocrTextRegion", { id: overlay.dataset.ocrLayerId ?? "" }).trim());
 }
 function setOcrLayerTransform(overlay, transform) {
   if (overlay.style.transform === transform) return;
@@ -11109,227 +11652,23 @@ function normalizeCloudVisionVertices(value, width, height) {
   const top = Math.min(...ys);
   return clampBox({ left, top, width: Math.max(...xs) - left, height: Math.max(...ys) - top }, width, height);
 }
-const SIMPLE_JS_ESCAPE_SEQUENCES = /* @__PURE__ */ new Map([
-  ["n", "\n"],
-  ["r", "\r"],
-  ["t", "	"],
-  ["b", "\b"],
-  ["f", "\f"],
-  ["v", "\v"],
-  ["0", "\0"],
-  ["\n", ""]
-]);
-function googleLensUploadCallbackLiteral(html, key) {
-  const marker = "AF_initDataCallback(";
-  let searchIndex = 0;
-  while (searchIndex < html.length) {
-  const markerIndex = html.indexOf(marker, searchIndex);
-  if (markerIndex < 0) return null;
-  const literalStart = markerIndex + marker.length;
-  const literal = readBalancedLiteral(html, literalStart);
-  if (literal && callbackLiteralHasKey(literal, key)) return literal;
-  searchIndex = literalStart + Math.max(1, literal?.length ?? 1);
-  }
-  return null;
-}
-function callbackLiteralHasKey(literal, key) {
-  return new RegExp(`\\bkey\\s*:\\s*['"]${escapeRegex(key)}['"]`).test(literal);
-}
-function escapeRegex(value) {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
-function readBalancedLiteral(source, startIndex) {
-  const index = balancedLiteralStart(source, startIndex);
-  if (index < 0) return null;
-  const end = balancedLiteralEnd(source, index);
-  return end >= 0 ? source.slice(index, end + 1) : null;
-}
-function balancedLiteralStart(source, startIndex) {
-  let index = startIndex;
-  while (/\s/.test(source[index] ?? "")) index += 1;
-  return source[index] === "{" ? index : -1;
-}
-function balancedLiteralEnd(source, startIndex) {
-  let depth = 0;
-  for (let current = startIndex; current < source.length; current += 1) {
-  const char = source[current];
-  if (isQuote(char)) {
-    current = quotedLiteralEnd(source, current, char);
-    if (current < 0) return -1;
-    continue;
-  }
-  depth += balancedDepthDelta(char);
-  if (depth === 0) return current;
-  }
-  return -1;
-}
-function quotedLiteralEnd(source, startIndex, quote) {
-  for (let current = startIndex + 1; current < source.length; current += 1) {
-  const char = source[current];
-  if (char === "\\") {
-    current += 1;
-  } else if (char === quote) {
-    return current;
-  }
-  }
-  return -1;
-}
-function isQuote(char) {
-  return char === '"' || char === "'";
-}
-function balancedDepthDelta(char) {
-  if (char === "{" || char === "[" || char === "(") return 1;
-  if (char === "}" || char === "]" || char === ")") return -1;
-  return 0;
-}
-function parseJsDataLiteral(source) {
-  let index = 0;
-  const value = parseValue();
-  skipWhitespace();
-  if (index !== source.length) throw new Error("Unexpected trailing data.");
-  return value;
-  function parseValue() {
-  skipWhitespace();
-  const char = source[index];
-  if (char === "{") return parseObject();
-  if (char === "[") return parseArray();
-  if (char === '"' || char === "'") return parseString();
-  if (char === "-" || /\d/.test(char ?? "")) return parseNumber();
-  return parseIdentifierValue();
-  }
-  function parseObject() {
-  const record2 = {};
-  index += 1;
-  skipWhitespace();
-  while (source[index] !== "}") {
-    const key = parseObjectKey();
-    skipWhitespace();
-    expect(":");
-    record2[key] = parseValue();
-    skipWhitespace();
-    if (source[index] === ",") {
-      index += 1;
-      skipWhitespace();
-      continue;
-    }
-    break;
-  }
-  expect("}");
-  return record2;
-  }
-  function parseObjectKey() {
-  skipWhitespace();
-  const char = source[index];
-  if (char === '"' || char === "'") return parseString();
-  return parseIdentifier();
-  }
-  function parseArray() {
-  const values = [];
-  index += 1;
-  skipWhitespace();
-  while (source[index] !== "]") {
-    if (source[index] === ",") {
-      values.push(null);
-      index += 1;
-      skipWhitespace();
-      continue;
-    }
-    values.push(parseValue());
-    skipWhitespace();
-    if (source[index] === ",") {
-      index += 1;
-      skipWhitespace();
-      continue;
-    }
-    break;
-  }
-  expect("]");
-  return values;
-  }
-  function parseString() {
-  const quote = source[index];
-  let value2 = "";
-  index += 1;
-  while (index < source.length) {
-    const char = source[index++];
-    if (char === quote) return value2;
-    if (char !== "\\") {
-      value2 += char;
-      continue;
-    }
-    value2 += parseEscapeSequence();
-  }
-  throw new Error("Unterminated string.");
-  }
-  function parseEscapeSequence() {
-  const escaped = source[index++];
-  const simpleEscape = SIMPLE_JS_ESCAPE_SEQUENCES.get(escaped ?? "");
-  if (typeof simpleEscape === "string") return simpleEscape;
-  if (escaped === "\r") return parseCarriageReturnEscape();
-  return parseNamedEscapeSequence(escaped);
-  }
-  function parseCarriageReturnEscape() {
-  if (source[index] === "\n") index += 1;
-  return "";
-  }
-  function parseNamedEscapeSequence(escaped) {
-  if (escaped === "x") return codePointEscape(2);
-  if (escaped === "u") return parseUnicodeEscape();
-  return escaped ?? "";
-  }
-  function parseUnicodeEscape() {
-  if (source[index] === "{") {
-    const end = source.indexOf("}", index + 1);
-    if (end < 0) throw new Error("Invalid unicode escape.");
-    const value2 = Number.parseInt(source.slice(index + 1, end), 16);
-    index = end + 1;
-    return Number.isFinite(value2) ? String.fromCodePoint(value2) : "";
-  }
-  return codePointEscape(4);
-  }
-  function codePointEscape(length) {
-  const hex = source.slice(index, index + length);
-  if (!new RegExp(`^[0-9a-fA-F]{${length}}$`).test(hex)) throw new Error("Invalid character escape.");
-  index += length;
-  return String.fromCharCode(Number.parseInt(hex, 16));
-  }
-  function parseNumber() {
-  const match = /^-?(?:0|[1-9]\d*)(?:\.\d+)?(?:[eE][+-]?\d+)?/.exec(source.slice(index));
-  if (!match) throw new Error("Invalid number.");
-  index += match[0].length;
-  return Number(match[0]);
-  }
-  function parseIdentifierValue() {
-  const identifier = parseIdentifier();
-  if (identifier === "null" || identifier === "undefined" || identifier === "NaN") return null;
-  if (identifier === "true") return true;
-  if (identifier === "false") return false;
-  if (identifier === "Infinity") return Infinity;
-  return identifier;
-  }
-  function parseIdentifier() {
-  const match = /^[A-Za-z_$][\w$]*/.exec(source.slice(index));
-  if (!match) throw new Error("Expected identifier.");
-  index += match[0].length;
-  return match[0];
-  }
-  function skipWhitespace() {
-  while (/\s/.test(source[index] ?? "")) index += 1;
-  }
-  function expect(char) {
-  if (source[index] !== char) throw new Error(`Expected ${char}.`);
-  index += 1;
-  }
-}
 const LENS_WRITING_TOP_TO_BOTTOM = 2;
 function normalizeOcrResult(value, fallbackWidth = 1, fallbackHeight = 1) {
   if (!value || typeof value !== "object") return null;
   const record2 = value;
+  assertNoAnswerError(record2);
   const cloudVision = normalizeCloudVisionResponse(record2, fallbackWidth, fallbackHeight);
   if (cloudVision) return cloudVision;
   const { width, height } = ocrResultDimensions(record2, fallbackWidth, fallbackHeight);
   const lines = collectGenericOcrLines(record2, width, height);
   return japaneseOcrResult(width, height, lines);
+}
+function assertNoAnswerError(record2) {
+  const answers = Array.isArray(record2.responses) ? [record2, ...record2.responses] : [record2];
+  const failed = answers.map((answer) => asRecord(answer)?.error).find(Boolean);
+  if (!failed) return;
+  const message = typeof failed === "string" ? failed : stringFrom(asRecord(failed)?.message);
+  throw new Error(`OCR answered with an error${message ? `: ${message}` : "."}`);
 }
 function ocrResultDimensions(record2, fallbackWidth, fallbackHeight) {
   const resolution = record2.context_resolution;
@@ -11451,7 +11790,8 @@ function horizontalGap(a, b) {
 function parseGoogleLensResponse(bytes, width, height) {
   const root = decodeProtoMessage(bytes);
   const objectsResponse = protoFirstMessage(root, 2);
-  const text = objectsResponse ? protoFirstMessage(objectsResponse, 3) : null;
+  if (!objectsResponse || protoFirstMessage(root, 1)) throw new Error("Google Lens did not answer with OCR.");
+  const text = protoFirstMessage(objectsResponse, 3);
   const layout = text ? protoFirstMessage(text, 1) : null;
   if (!layout) return null;
   const lines = protoMessages(layout, 1).flatMap((paragraph) => googleLensParagraphLines(paragraph, width, height));
@@ -11492,59 +11832,6 @@ function googleLensWordText(word, index, words) {
 }
 function googleLensLineBox(lineBox, words, paragraphBox) {
   return lineBox ?? unionBoxes(words.map((word) => word.box).filter((item) => Boolean(item))) ?? paragraphBox;
-}
-function parseGoogleLensUploadHtml(html, width, height) {
-  const literal = googleLensUploadCallbackLiteral(html, "ds:1");
-  if (!literal) return null;
-  try {
-  const callback = parseJsDataLiteral(literal);
-  const lines = [];
-  for (const item of googleLensUploadLineItems(callback.data)) {
-    const { text, box } = googleLensUploadLine(item, width, height);
-    pushTargetLanguageOcrLine(lines, text, box);
-  }
-  return lines.length ? { width, height, lines } : null;
-  } catch {
-  return null;
-  }
-}
-function googleLensUploadLineItems(data) {
-  return googleLensUploadBlocks(data).flatMap((block) => googleLensUploadBlockLineItems(block));
-}
-function googleLensUploadBlocks(data) {
-  const blocks = data?.[2]?.[3]?.[0] ?? [];
-  return Array.isArray(blocks) ? blocks : [];
-}
-function googleLensUploadBlockLineItems(block) {
-  const blockData = Array.isArray(block) ? block : [];
-  const rawLines = blockData[2]?.[0]?.[5]?.[3];
-  const lineItems = rawLines?.[0];
-  return Array.isArray(lineItems) ? lineItems : [];
-}
-function googleLensUploadLine(item, width, height) {
-  const lineData = Array.isArray(item) ? item : [];
-  return {
-  text: googleLensUploadLineText(lineData[0]),
-  box: googleLensUploadLineBox(lineData[1], width, height)
-  };
-}
-function googleLensUploadLineText(value) {
-  const words = Array.isArray(value) ? value : [];
-  return cleanOcrText(words.map(googleLensUploadWordText).join(""));
-}
-function googleLensUploadWordText(word) {
-  const wordData = Array.isArray(word) ? word : [];
-  return `${wordData[0] ?? ""}${wordData[3] ?? ""}`;
-}
-function googleLensUploadLineBox(value, width, height) {
-  const boxData = Array.isArray(value) ? value : [];
-  if (boxData.length < 4) return null;
-  return clampBox({
-  top: Number(boxData[0]) * height,
-  left: Number(boxData[1]) * width,
-  width: Number(boxData[2]) * width,
-  height: Number(boxData[3]) * height
-  }, width, height);
 }
 function normalizeSimpleLine(value, width, height) {
   const record2 = asRecord(value);
@@ -11726,42 +12013,43 @@ function decodeProtoMessage(bytes) {
   let offset = 0;
   while (offset < bytes.length) {
   const [tag, nextOffset] = readVarint(bytes, offset);
-  offset = nextOffset;
   const field = Number(tag >> 3n);
   const wire = Number(tag & 7n);
-  if (!field) break;
-  if (wire === 0) {
-    const [value, afterValue] = readVarint(bytes, offset);
-    offset = afterValue;
-    fields.push({ field, wire, value });
-  } else if (wire === 1) {
-    fields.push({ field, wire, value: new DataView(bytes.buffer, bytes.byteOffset + offset, 8).getFloat64(0, true) });
-    offset += 8;
-  } else if (wire === 2) {
-    const [length, afterLength] = readVarint(bytes, offset);
-    offset = afterLength;
-    const end = offset + Number(length);
-    fields.push({ field, wire, value: bytes.slice(offset, end) });
-    offset = end;
-  } else if (wire === 5) {
-    fields.push({ field, wire, value: new DataView(bytes.buffer, bytes.byteOffset + offset, 4).getFloat32(0, true) });
-    offset += 4;
-  } else {
-    break;
-  }
+  if (!field || field > 536870911) throw new Error("Malformed protobuf: invalid field number.");
+  const [value, end] = readProtoValue(bytes, nextOffset, wire);
+  fields.push({ field, wire, value });
+  offset = end;
   }
   return fields;
+}
+function readProtoValue(bytes, offset, wire) {
+  if (wire === 0) return readVarint(bytes, offset);
+  if (wire === 2) {
+  const [length, start] = readVarint(bytes, offset);
+  return [bytes.slice(start, protoEnd(bytes, start, Number(length))), start + Number(length)];
+  }
+  if (wire === 1) return [protoView(bytes, offset, 8).getFloat64(0, true), offset + 8];
+  if (wire === 5) return [protoView(bytes, offset, 4).getFloat32(0, true), offset + 4];
+  throw new Error(`Malformed protobuf: wire type ${wire}.`);
+}
+function protoEnd(bytes, start, length) {
+  if (start + length > bytes.length) throw new Error("Malformed protobuf: truncated field.");
+  return start + length;
+}
+function protoView(bytes, offset, length) {
+  return new DataView(bytes.buffer, bytes.byteOffset + offset, protoEnd(bytes, offset, length) - offset);
 }
 function readVarint(bytes, offset) {
   let shift = 0n;
   let result = 0n;
-  while (offset < bytes.length) {
+  while (offset < bytes.length && shift < 64n) {
   const byte = bytes[offset++];
+  if (shift === 63n && byte > 1) throw new Error("Malformed protobuf: oversized varint.");
   result |= BigInt(byte & 127) << shift;
   if (!(byte & 128)) return [result, offset];
   shift += 7n;
   }
-  return [result, offset];
+  throw new Error("Malformed protobuf: truncated varint.");
 }
 function protoMessages(fields, field) {
   return fields.filter((item) => item.field === field && item.wire === 2 && item.value instanceof Uint8Array).map((item) => decodeProtoMessage(item.value));
@@ -11905,10 +12193,22 @@ const DEFAULT_LOCAL_OCR_ENDPOINT_URL = "http://127.0.0.1:7331/ocr";
 function ocrAttemptTimeoutMs(floorMs = OCR_MIN_ATTEMPT_TIMEOUT_MS) {
   return floorMs;
 }
+class OcrProviderError extends Error {
+  constructor(provider, status) {
+  super(`${provider} returned ${status}.`);
+  this.status = status;
+  this.name = "OcrProviderError";
+  this.retryable = status === 408 || status === 429 || status >= 500;
+  }
+  retryable;
+}
 function imageCacheKey(image) {
   const contentKey = image.dataset?.ocrContentKey;
   if (contentKey) return contentKey;
   return `${image.currentSrc || image.src}|${image.naturalWidth}x${image.naturalHeight}`;
+}
+function imageSourceKey(image) {
+  return image.dataset?.ocrContentKey || image.currentSrc || image.src;
 }
 function localOcrEndpointUrl(settings) {
   return settings.ocrEndpointUrl.trim() || DEFAULT_LOCAL_OCR_ENDPOINT_URL;
@@ -11966,48 +12266,9 @@ async function recognizeViaCloudVision(image, settings, invert = false) {
 }
 async function recognizeViaGoogleLens(image, settings, invert = false) {
   const { canvas, blob } = await imageToBlobPayload(image, settings.ocrMaxImagePixels, "image/jpeg", 0.88, invert);
-  const deadline = Date.now() + ocrAttemptTimeoutMs();
-  let protobufFailure;
-  const protobuf = await recognizeViaGoogleLensProtobuf(
-  blob,
-  canvas,
-  settings,
-  Math.max(1, remainingGoogleLensTimeout(deadline))
-  ).catch((error) => {
-  protobufFailure = error;
-  log$1.warn("Google Lens protobuf failed", error);
-  return void 0;
-  });
-  if (protobuf?.lines.length) return protobuf;
-  const uploadTimeout = remainingGoogleLensTimeout(deadline);
-  if (uploadTimeout <= 0) {
-  if (protobuf === void 0) throw new Error("Google Lens OCR timed out.");
-  return protobuf;
-  }
-  let uploadFailure;
-  const upload = await recognizeViaGoogleLensUpload(blob, canvas.width, canvas.height, uploadTimeout).catch((error) => {
-  uploadFailure = error;
-  log$1.warn("Google Lens upload failed", error);
-  return void 0;
-  });
-  if (upload === void 0 && isOcrRequestTimeout(uploadFailure)) {
-  throw new Error("Google Lens OCR timed out.");
-  }
-  if (protobuf === void 0 && upload === void 0) {
-  if (isOcrRequestTimeout(protobufFailure) || isOcrRequestTimeout(uploadFailure)) {
-    throw new Error("Google Lens OCR timed out.");
-  }
-  throw new Error("Google Lens OCR failed.");
-  }
-  return upload?.lines.length ? upload : upload ?? protobuf ?? null;
-}
-function remainingGoogleLensTimeout(deadline) {
-  return Math.max(0, deadline - Date.now());
-}
-async function recognizeViaGoogleLensProtobuf(blob, canvas, settings, timeout) {
   const bytes = new Uint8Array(await blob.arrayBuffer());
   const body = createGoogleLensRequest(bytes, canvas.width, canvas.height, settings.ocrLanguage);
-  const response = await requestArrayBuffer(GOOGLE_LENS_ENDPOINT, body, timeout, googleLensAcceptLanguage(settings.ocrLanguage));
+  const response = await requestArrayBuffer(GOOGLE_LENS_ENDPOINT, body, ocrAttemptTimeoutMs(), googleLensAcceptLanguage(settings.ocrLanguage));
   return parseGoogleLensResponse(new Uint8Array(response), canvas.width, canvas.height);
 }
 function ocrRecognizer(settings) {
@@ -12029,15 +12290,6 @@ async function imageToBlobPayload(image, maxPixels, type, quality, invertDark = 
   const fallbackCanvas = await imageBlobToCanvas(image, maxPixels, invertDark);
   return { canvas: fallbackCanvas, blob: await canvasToBlob(fallbackCanvas, type, quality) };
   }
-}
-async function recognizeViaGoogleLensUpload(blob, width, height, timeout) {
-  const data = new FormData();
-  data.append("encoded_image", blob, "image.jpg");
-  const response = await requestTextForm(`https://lens.google.com/v3/upload?stcs=${Date.now().toString().slice(0, 10)}`, data, timeout, {
-  Origin: "https://lens.google.com",
-  Referer: "https://lens.google.com/"
-  });
-  return parseGoogleLensUploadHtml(response, width, height);
 }
 async function imageToCanvas(image, maxPixels, invert = false) {
   try {
@@ -12070,9 +12322,12 @@ function requestJson(url, data, timeout) {
   data,
   responseType: "json",
   timeout
-  }, (response) => response.response ?? (response.responseText ? JSON.parse(response.responseText) : null), (status) => `OCR endpoint returned ${status}.`, "OCR timed out.");
-  if (userscriptRequest) return userscriptRequest;
-  return fetchJsonWithTimeout(url, data, timeout).then((response) => response.ok ? response.json() : Promise.reject(new Error(`OCR endpoint returned ${response.status}.`)));
+  }, (response) => response.response ?? JSON.parse(response.responseText ?? ""), (status) => new OcrProviderError("OCR endpoint", status), "OCR timed out.");
+  return (userscriptRequest ?? fetchJsonWithTimeout(url, data, timeout).then((response) => response.ok ? response.json() : Promise.reject(new OcrProviderError("OCR endpoint", response.status)))).then(ocrAnswerObject);
+}
+function ocrAnswerObject(value) {
+  if (!value || typeof value !== "object") throw new Error("OCR endpoint did not answer with JSON.");
+  return value;
 }
 function fetchJsonWithTimeout(url, data, timeout) {
   if (!timeout) return fetch(url, { method: "POST", headers: { "content-type": "application/json" }, body: data });
@@ -12102,25 +12357,13 @@ function requestArrayBuffer(url, data, timeout, acceptLanguage) {
   data: body.buffer,
   responseType: "arraybuffer",
   timeout
-  }, (response) => response.response, (status) => `Google Lens returned ${status}.`, "Google Lens timed out.");
+  }, (response) => response.response, (status) => new OcrProviderError("Google Lens", status), "Google Lens timed out.");
   if (userscriptRequest) return userscriptRequest;
   return fetchWithTimeout(url, {
   method: "POST",
   headers,
   body: body.buffer
-  }, timeout, "Google Lens timed out.").then((response) => response.ok ? response.arrayBuffer() : Promise.reject(new Error(`Google Lens returned ${response.status}.`)));
-}
-function requestTextForm(url, data, timeout, headers) {
-  const userscriptRequest = requestViaUserscript({
-  method: "POST",
-  url,
-  ...headers ? { headers } : {},
-  data,
-  responseType: "text",
-  timeout
-  }, (response) => String(response.responseText ?? response.response ?? ""), (status) => `Google Lens upload returned ${status}.`, "Google Lens upload timed out.");
-  if (userscriptRequest) return userscriptRequest;
-  return fetchWithTimeout(url, { method: "POST", body: data }, timeout, "Google Lens upload timed out.").then((response) => response.ok ? response.text() : Promise.reject(new Error(`Google Lens upload returned ${response.status}.`)));
+  }, timeout, "Google Lens timed out.").then((response) => response.ok ? response.arrayBuffer() : Promise.reject(new OcrProviderError("Google Lens", response.status)));
 }
 function fetchWithTimeout(url, init, timeout, timeoutMessage) {
   if (!timeout) return fetch(url, init);
@@ -12142,7 +12385,7 @@ function requestBlob(url, timeout = 0) {
   url,
   responseType: "arraybuffer",
   timeout
-  }, (response) => blobFromUserscriptResponse(response, fallbackType), (status) => `Image fetch returned ${status}.`, timeout ? "Image fetch timed out." : void 0);
+  }, (response) => blobFromUserscriptResponse(response, fallbackType), (status) => new Error(`Image fetch returned ${status}.`), timeout ? "Image fetch timed out." : void 0);
   if (userscriptRequest) return userscriptRequest;
   if (!timeout) return fetch(url).then((response) => response.ok ? response.blob() : Promise.reject(new Error(`Image fetch returned ${response.status}.`)));
   const controller = new AbortController();
@@ -12188,7 +12431,7 @@ function sniffImageMimeType(bytes) {
   if (bytes.length >= 12 && bytes[0] === 82 && bytes[1] === 73 && bytes[2] === 70 && bytes[3] === 70 && bytes[8] === 87 && bytes[9] === 69 && bytes[10] === 66 && bytes[11] === 80) return "image/webp";
   return void 0;
 }
-function requestViaUserscript(options, readResponse, statusMessage, timeoutMessage) {
+function requestViaUserscript(options, readResponse, statusError, timeoutMessage) {
   const userscriptRequest = getUserscriptHttpRequest();
   if (!userscriptRequest) {
   log$1.warnOnce("no-userscript-http-request", "No userscript HTTP request (GM_xmlhttpRequest / GM.xmlHttpRequest) available — cross-origin OCR/image fetch is blocked. Grant GM.xmlHttpRequest in the userscript manager.");
@@ -12197,7 +12440,7 @@ function requestViaUserscript(options, readResponse, statusMessage, timeoutMessa
   return requestViaUserscriptManager(userscriptRequest, {
   details: options,
   readResponse: (response) => {
-    if (!isSuccessfulHttpStatus(response.status)) throw new Error(statusMessage(response.status));
+    if (!isSuccessfulHttpStatus(response.status)) throw statusError(response.status);
     return readResponse(response);
   },
   onError: (error) => error instanceof Error ? error : new Error(String(error || "Request failed.")),
@@ -12211,6 +12454,33 @@ function canvasToBlob(canvas, type, quality) {
   return new Promise((resolve, reject) => {
   canvas.toBlob((result) => result ? resolve(result) : reject(new Error("Image encoding failed.")), type, quality);
   });
+}
+const ASK_RANK = { auto: 0, hover: 1, press: 2 };
+function isDecodedImage(image) {
+  return image.complete && image.naturalWidth > 0 && image.naturalHeight > 0;
+}
+class OcrDecodeGate {
+  constructor(onDecoded) {
+  this.onDecoded = onDecoded;
+  }
+  // The strongest ask held for the image while it loads.
+  held = /* @__PURE__ */ new WeakMap();
+  /** Hold a request until the image decodes. A broken or empty image is never read. */
+  hold(image, ask) {
+  if (image.complete) return;
+  const waiting = this.held.get(image);
+  this.held.set(image, waiting && ASK_RANK[waiting] > ASK_RANK[ask] ? waiting : ask);
+  if (waiting !== void 0) return;
+  const settle = () => {
+    image.removeEventListener("load", settle);
+    image.removeEventListener("error", settle);
+    const requested = this.held.get(image);
+    this.held.delete(image);
+    if (requested !== void 0 && isDecodedImage(image)) this.onDecoded(image, requested);
+  };
+  image.addEventListener("load", settle);
+  image.addEventListener("error", settle);
+  }
 }
 function normalizeOcrRenderedText(root, isolatePageScanners = false) {
   root.classList.toggle("jpdb-ocr-page-scanner-isolated", isolatePageScanners);
@@ -12283,54 +12553,71 @@ function isolateOcrVisualText(root) {
   textNode.replaceWith(replacement);
   }
 }
-const STORE_KEY = "yomu-ocr-cache-v2";
-const LEGACY_STORE_KEYS = ["yomu-ocr-cache-v1"];
-const MAX_ENTRIES = 300;
-const MAX_BYTES = 15e5;
-const PERSIST_DELAY_MS = 1200;
-function storage() {
-  try {
-  return typeof localStorage !== "undefined" ? managedLocalStorage : null;
-  } catch {
-  return null;
+function sensitiveFingerprint(value) {
+  const secret = value.trim();
+  if (!secret) return "";
+  let first = 2166136261;
+  let second = 2654435769;
+  for (let index = 0; index < secret.length; index += 1) {
+  const code = secret.charCodeAt(index);
+  first = Math.imul(first ^ code, 16777619) >>> 0;
+  second = Math.imul(second ^ code, 2246822507) >>> 0;
   }
+  return `${first.toString(16).padStart(8, "0")}${second.toString(16).padStart(8, "0")}:${secret.length}`;
 }
-function isPersistableOcrCacheKey(key) {
+const OCR_CACHE_SHARD_PREFIX = "yomu:private:ocr-cache:v3:";
+const LEGACY_PAGE_KEY = "yomu-ocr-cache-v2";
+const LEGACY_PAGE_KEYS = ["yomu-ocr-cache-v1", LEGACY_PAGE_KEY];
+const MAX_ENTRIES = 36;
+const MAX_SHARD_BYTES = 64e3;
+const encoder = new TextEncoder();
+const SHARD_INDEX_KEY = `${OCR_CACHE_SHARD_PREFIX}index`;
+const SHARD_INDEX_LEASE = "ocr-cache-shard-index";
+const MAX_SHARDS = 20;
+const PERSIST_DELAY_MS = 1200;
+function shardKey() {
+  return `${OCR_CACHE_SHARD_PREFIX}${sensitiveFingerprint(location.origin)}`;
+}
+function isPersistableKey(key) {
   return !key.startsWith("data:") && !key.startsWith("blob:");
 }
-function isPersistableOcrCacheEntry(key, result) {
-  if (!isPersistableOcrCacheKey(key)) return false;
-  if (result === null && (key.startsWith("cv:") || key.startsWith("src:"))) return false;
-  return true;
+function hasLines(result) {
+  return Boolean(result?.lines?.length);
 }
-function loadPersistedOcrCache() {
+async function loadPersistedOcrCache(legacyKey) {
   const map = /* @__PURE__ */ new Map();
-  const store = storage();
-  if (!store) return map;
+  let stored = {};
   try {
-  for (const key of LEGACY_STORE_KEYS) store.removeItem(key);
-  const raw = store.getItem(STORE_KEY);
-  if (!raw) return map;
-  const parsed = JSON.parse(raw);
-  for (const [key, entry] of Object.entries(parsed).sort((a, b) => (a[1]?.at ?? 0) - (b[1]?.at ?? 0))) {
-    const result = entry?.r ?? null;
-    if (!isPersistableOcrCacheEntry(key, result)) continue;
-    map.set(key, result);
-  }
-  } catch {
-  try {
-    store.removeItem(STORE_KEY);
+  stored = await gmPrivateStorageGet(shardKey(), {}) ?? {};
   } catch {
   }
-  }
+  const legacy = takeLegacyPageCache();
+  const migrated = Object.entries(legacy).map(([key, entry]) => [legacyKey(key), entry]);
+  const entries2 = [...Object.entries(stored), ...migrated].filter(([key, entry]) => isPersistableKey(key) && hasLines(entry?.r)).sort((a, b) => (a[1].at ?? 0) - (b[1].at ?? 0));
+  for (const [key, entry] of entries2) map.set(key, entry.r);
+  if (migrated.some(([, entry]) => hasLines(entry?.r))) persistOcrCacheSoon(map, Date.now());
   return map;
+}
+function takeLegacyPageCache() {
+  let legacy = {};
+  try {
+  const raw = managedLocalStorage.getItem(LEGACY_PAGE_KEY);
+  if (raw) legacy = JSON.parse(raw);
+  } catch {
+  }
+  for (const key of LEGACY_PAGE_KEYS) {
+  try {
+    managedLocalStorage.removeItem(key);
+  } catch {
+  }
+  }
+  return legacy && typeof legacy === "object" ? legacy : {};
 }
 let persistTimer;
 let pendingCache;
 let pendingNow = 0;
 let flushListenersInstalled = false;
 function persistOcrCacheSoon(cache, now) {
-  if (!storage()) return;
   installFlushListeners();
   pendingCache = cache;
   pendingNow = now;
@@ -12349,7 +12636,7 @@ function flushPersistedOcrCache() {
   const now = pendingNow || Date.now();
   pendingCache = void 0;
   pendingNow = 0;
-  writeOcrCache(cache, now);
+  void writeOcrCache(cache, now);
 }
 function installFlushListeners() {
   if (flushListenersInstalled) return;
@@ -12366,24 +12653,98 @@ function installFlushListeners() {
   } catch {
   }
 }
-function writeOcrCache(cache, now) {
-  const store = storage();
-  if (!store) return;
-  try {
-  const keys = [...cache.keys()].filter(isPersistableOcrCacheKey).reverse().slice(0, MAX_ENTRIES);
-  const out = {};
-  let bytes = 0;
-  for (const key of keys) {
-    const result = cache.get(key) ?? null;
-    if (!isPersistableOcrCacheEntry(key, result)) continue;
-    const serialized = JSON.stringify(result);
-    bytes += key.length + serialized.length + 24;
-    if (bytes > MAX_BYTES) break;
-    out[key] = { r: result, at: now };
+function utf8Bytes(text) {
+  return encoder.encode(text).byteLength;
+}
+function ocrCacheShard(cache, now) {
+  const newestFirst = [];
+  let bytes = 2;
+  for (const key of [...cache.keys()].reverse()) {
+  const result = cache.get(key);
+  if (!isPersistableKey(key) || !hasLines(result)) continue;
+  const entry = { r: result, at: now - newestFirst.length };
+  bytes += utf8Bytes(JSON.stringify({ [key]: entry })) - 2 + (newestFirst.length ? 1 : 0);
+  if (bytes > MAX_SHARD_BYTES || newestFirst.length >= MAX_ENTRIES) break;
+  newestFirst.push([key, entry]);
   }
-  store.setItem(STORE_KEY, JSON.stringify(out));
+  return Object.fromEntries(newestFirst.reverse());
+}
+async function writeOcrCache(cache, now) {
+  try {
+  const key = shardKey();
+  const shard = ocrCacheShard(cache, now);
+  const kept = Object.keys(shard).length > 0;
+  if (kept) await gmPrivateStorageSet(key, shard);
+  else await gmPrivateStorageDelete(key);
+  await withGmStorageLease(SHARD_INDEX_LEASE, () => updateShardIndex(key, kept ? now : void 0));
   } catch {
   }
+}
+async function updateShardIndex(key, writtenAt) {
+  const index = { ...await gmPrivateStorageGet(SHARD_INDEX_KEY, {}) };
+  if (writtenAt === void 0) delete index[key];
+  else index[key] = writtenAt;
+  const byRecency = Object.entries(index).sort((a, b) => b[1] - a[1]);
+  await gmPrivateStorageSet(SHARD_INDEX_KEY, Object.fromEntries(byRecency.slice(0, MAX_SHARDS)));
+  for (const [stale] of byRecency.slice(MAX_SHARDS)) await gmPrivateStorageDelete(stale);
+}
+const MAX_ANSWERS = 36;
+class OcrAnswerCache {
+  /** `provider` names the provider whose answers a key reads and writes now. */
+  constructor(provider) {
+  this.provider = provider;
+  const migrationProvider = provider();
+  this.hydrated = loadPersistedOcrCache((key) => answerKey(key, migrationProvider)).then((stored) => {
+    for (const [key, result] of stored) if (!this.answers.has(key)) this.answers.set(key, result);
+    this.evict();
+  }).catch(() => void 0);
+  }
+  answers = /* @__PURE__ */ new Map();
+  hydrated;
+  /** Resolves once answers from earlier visits are in. */
+  ready() {
+  return this.hydrated;
+  }
+  has(cacheKey) {
+  return this.answers.has(this.key(cacheKey));
+  }
+  /** The provider's remembered answer: OcrResult, null for an empty answer, undefined for none. */
+  get(cacheKey) {
+  return this.answers.get(this.key(cacheKey));
+  }
+  /** Remember what the provider answered. Use the provider captured before the request, never the current setting. */
+  remember(cacheKey, result, scanProvider) {
+  if (cacheKey.startsWith("data:")) return;
+  const key = answerKey(cacheKey, scanProvider);
+  this.answers.delete(key);
+  this.answers.set(key, result?.lines.length ? result : null);
+  this.evict();
+  this.persist();
+  }
+  forget(cacheKey, provider = this.provider()) {
+  if (this.answers.delete(answerKey(cacheKey, provider))) this.persist();
+  }
+  /** A press reads the image again: drop a remembered empty answer, keep text. */
+  forgetEmpty(cacheKey) {
+  if (this.get(cacheKey) === null) this.forget(cacheKey);
+  }
+  key(cacheKey) {
+  return answerKey(cacheKey, this.provider());
+  }
+  evict() {
+  while (this.answers.size > MAX_ANSWERS) {
+    const oldest = this.answers.keys().next().value;
+    if (oldest === void 0) break;
+    this.answers.delete(oldest);
+  }
+  }
+  persist() {
+  persistOcrCacheSoon(this.answers, Date.now());
+  }
+}
+function answerKey(cacheKey, provider) {
+  return `${cacheKey}
+@ocr-provider:${provider}`;
 }
 const PAGE_COUNTER_SELECTOR = "#pageSliderCounter";
 const CURRENT_SCREEN_CLASS = "currentScreen";
@@ -13202,10 +13563,16 @@ function loadScreenshotImage(dataUrl) {
   }
   });
 }
-const CANVAS_OCR_OPT_IN_SELECTOR = 'canvas[data-yomu-canvas-ocr="on"], [data-yomu-canvas-ocr="on"] canvas';
 function ocrRunsOnLearnerService(settings) {
   return settings.ocrProvider === "local-service";
 }
+function readsImagesWithoutTap(settings) {
+  return settings.ocrAutoScanImages && ocrRunsOnLearnerService(settings);
+}
+function hoverMayReadImage(settings) {
+  return ocrRunsOnLearnerService(settings);
+}
+const CANVAS_OCR_OPT_IN_SELECTOR = 'canvas[data-yomu-canvas-ocr="on"], [data-yomu-canvas-ocr="on"] canvas';
 function readsReaderCanvasWithoutTap(canvas, settings) {
   return ocrRunsOnLearnerService(settings) || canvas.dataset.yomuCanvasOcr === "on" || Boolean(canvas.closest('[data-yomu-canvas-ocr="on"]'));
 }
@@ -13214,18 +13581,6 @@ function hasCanvasOcrOptInSurface() {
 }
 function canAutoRefreshOcrAfterMutation(settings, shouldAutoScan) {
   return settings.ocrAutoScanImages && (shouldAutoScan?.() !== false || hasCanvasOcrOptInSurface());
-}
-function sensitiveFingerprint(value) {
-  const secret = value.trim();
-  if (!secret) return "";
-  let first = 2166136261;
-  let second = 2654435769;
-  for (let index = 0; index < secret.length; index += 1) {
-  const code = secret.charCodeAt(index);
-  first = Math.imul(first ^ code, 16777619) >>> 0;
-  second = Math.imul(second ^ code, 2246822507) >>> 0;
-  }
-  return `${first.toString(16).padStart(8, "0")}${second.toString(16).padStart(8, "0")}:${secret.length}`;
 }
 const VIDEO_FRAME_MAX_WIDTH = 960;
 const VIDEO_FRAME_JPEG_QUALITY = 0.84;
@@ -14228,18 +14583,19 @@ const OCR_PROVIDER_LABELS = {
   "local-service": localServiceProviderLabel
 };
 function shouldSkipOcrRequest(state2, userRequested) {
-  return state2.autoSkipped && !userRequested;
+  return (state2.autoSkipped || state2.failed) && !userRequested;
 }
-function updateOcrRequestFlags(state2, image, userRequested) {
+function updateOcrRequestFlags(state2, image, userRequested, pressed) {
   state2.overlayRequested ||= userRequested || Boolean(readFallbackOcrResult(image, false));
   state2.manualRequested ||= userRequested;
+  state2.pressed ||= pressed;
   if (userRequested) state2.autoSkipped = false;
 }
 function shouldPinOcrLineFromPointer(event) {
   return event.pointerType === "touch" || event.pointerType === "pen";
 }
 function isOcrImageStateIdle(state2) {
-  return !state2.result && !state2.loading && !state2.autoSkipped;
+  return !state2.result && !state2.loading && !state2.autoSkipped && !state2.failed;
 }
 class LocalOcrUnavailableError extends Error {
   constructor(endpointUrl) {
@@ -14250,6 +14606,7 @@ class LocalOcrUnavailableError extends Error {
 }
 function beginOcrScan(state2, image, settings, manualRequested) {
   const token = claimOcrScan(state2);
+  state2.failed = false;
   const provider = inlineProviderLabel(settings);
   return {
   provider,
@@ -14257,6 +14614,7 @@ function beginOcrScan(state2, image, settings, manualRequested) {
   token
   };
 }
+const partialOcrResults = /* @__PURE__ */ new WeakSet();
 function renderNoOcrLines(state2) {
   state2.autoSkipped = true;
   state2.overlay.querySelectorAll(".jpdb-ocr-line").forEach((node) => node.remove());
@@ -14294,10 +14652,16 @@ function pausedVideoSnapshotAreaEligible(rect, settings, manual) {
 class ImageOcrController {
   constructor(options) {
   this.options = options;
-  for (const [key, result] of loadPersistedOcrCache()) this.cache.set(key, result);
+  this.answers = new OcrAnswerCache(() => this.options.getSettings().ocrProvider);
+  this.decodeGate = new OcrDecodeGate((image, ask) => {
+    if (!this.destroyed) this.enqueue(image, ask !== "auto", ask === "press");
+  });
   }
   states = /* @__PURE__ */ new Map();
-  cache = /* @__PURE__ */ new Map();
+  readingDisplayKey;
+  // Provider answers per image, target language and provider (ocr-scan-outcome.ts).
+  answers;
+  decodeGate;
   localOcrUnavailable;
   observer;
   observerMargin = "";
@@ -14307,6 +14671,9 @@ class ImageOcrController {
   activeScans = 0;
   // Tokens stop a stale scan deleting a newer job's marker.
   inFlightJobs = /* @__PURE__ */ new Map();
+  // The content key each image's started scan reads, so a second request for
+  // the same content waits for that scan's answer instead of sending again.
+  startedScans = /* @__PURE__ */ new Map();
   positionFrame = 0;
   refreshTimer = 0;
   destroyed = false;
@@ -14379,6 +14746,14 @@ class ImageOcrController {
   handleDocumentPointerOver = trustedReaderEventHandler((event) => this.requestOcrFromPointerEvent(event));
   handleDocumentPointerMove = trustedReaderEventHandler((event) => this.requestOcrFromPointerEvent(event));
   handleDocumentClick = trustedReaderEventHandler((event) => this.unpinOcrLinesFromDocumentEvent(event));
+  handleDocumentImageLoad = (event) => {
+  const image = event.target;
+  if (!(image instanceof HTMLImageElement)) return;
+  const settings = this.options.getSettings();
+  if (ocrRuntimeActive(settings) && this.canAutoScanImage(settings) && !isIgnoredOcrImage(image)) {
+    this.scheduleRefresh(120);
+  }
+  };
   handleDocumentScroll = () => this.handleOcrViewportShift(120);
   handleWindowScroll = () => this.handleOcrViewportShift(240);
   handleWindowResize = () => {
@@ -14405,6 +14780,7 @@ class ImageOcrController {
     return;
   }
   this.refresh();
+  document.addEventListener("load", this.handleDocumentImageLoad, true);
   document.addEventListener("pointerdown", this.handleDocumentPointerDown, true);
   document.addEventListener("touchstart", this.handleDocumentTouchStart, { capture: true, passive: true });
   document.addEventListener("pointerover", this.handleDocumentPointerOver, true);
@@ -14450,6 +14826,7 @@ class ImageOcrController {
   this.clear();
   }
   removeEventListeners() {
+  document.removeEventListener("load", this.handleDocumentImageLoad, true);
   document.removeEventListener("pointerdown", this.handleDocumentPointerDown, true);
   document.removeEventListener("touchstart", this.handleDocumentTouchStart, true);
   document.removeEventListener("pointerover", this.handleDocumentPointerOver, true);
@@ -14490,6 +14867,16 @@ class ImageOcrController {
     this.releaseAllVideoFrames();
     this.clear();
     return;
+  }
+  const readingDisplayKey = `${settings.showFurigana}:${settings.furiganaMode}`;
+  if (this.readingDisplayKey !== readingDisplayKey) {
+    this.readingDisplayKey = readingDisplayKey;
+    for (const state2 of this.states.values()) {
+      if (!state2.result) continue;
+      void this.renderResult(state2, state2.result, false, void 0, true).catch((error) => {
+        if (!isStaleOcrState(error)) log.warn("OCR annotation refresh failed", {}, error);
+      });
+    }
   }
   this.refreshCanvasReaderSurfaces(settings, options.userRequested);
   this.refreshBackgroundImageReaderSurfaces(settings, options.userRequested);
@@ -14652,7 +15039,7 @@ class ImageOcrController {
   return (this.canAutoScanImage(settings) || settings.ocrAutoScanImages && hasInlineOcrFallback(image)) && isOcrImageStateIdle(state2) && isNearViewport(image, imagePrefetchMargin(settings));
   }
   canAutoScanImage(settings) {
-  return settings.ocrAutoScanImages && this.options.shouldAutoScan?.() !== false;
+  return readsImagesWithoutTap(settings) && this.options.shouldAutoScan?.() !== false;
   }
   canScanInlineImages(userRequested) {
   if (!userRequested && this.hasActiveReaderRasterOwnership()) return false;
@@ -14677,7 +15064,10 @@ class ImageOcrController {
     }
     return;
   }
-  images.forEach((image) => this.enqueue(image, true));
+  images.forEach((image) => {
+    this.forgetEmptyAnswer(image);
+    this.enqueue(image, true);
+  });
   log.info("Manual OCR scan queued images", { images: images.length });
   }
   captureSourceImageForElement(element) {
@@ -14757,7 +15147,7 @@ class ImageOcrController {
   overlay.hidden = true;
   setOcrOverlayAccessibility(overlay, false);
   this.mountOcrOverlayForImage(overlay, image);
-  const state2 = { image, overlay, key: imageCacheKey(image), target: captureOcrTargetContext(), loading: false, overlayRequested: false, manualRequested: false, autoSkipped: false };
+  const state2 = { image, overlay, key: imageCacheKey(image), target: captureOcrTargetContext(), loading: false, overlayRequested: false, manualRequested: false, pressed: false, autoSkipped: false, failed: false };
   const loadListener = () => {
     this.resetStateIfImageChanged(state2);
     this.schedulePosition();
@@ -14777,18 +15167,26 @@ class ImageOcrController {
   const video = this.videoFrameVideos.get(image);
   appendOcrArtifactToRoot(overlay, video ? videoFrameArtifactRoot(video) : document.body);
   }
-  enqueue(image, userRequested = false) {
+  /** `pressed` defaults to `userRequested`: only a pointer passing over asks without pressing. */
+  enqueue(image, userRequested = false, pressed = userRequested) {
   if (isYouTubeThumbnailImage(image)) return;
+  if (!userRequested && !this.isReaderRasterFrame(image) && !this.videoFrameVideos.has(image) && !readsImagesWithoutTap(this.options.getSettings()) && !hasInlineOcrFallback(image)) return;
   const state2 = this.states.get(image) ?? this.ensureState(image);
+  if (!isDecodedImage(image)) {
+    this.decodeGate.hold(image, pressed ? "press" : userRequested ? "hover" : "auto");
+    return;
+  }
   this.resetStateIfImageChanged(state2);
-  if (!this.shouldQueueOcrRequest(state2, image, userRequested)) return;
+  if (!this.shouldQueueOcrRequest(state2, image, userRequested, pressed)) return;
   this.queueOcrRequest(image);
   }
-  shouldQueueOcrRequest(state2, image, userRequested) {
+  shouldQueueOcrRequest(state2, image, userRequested, pressed) {
   if (shouldSkipOcrRequest(state2, userRequested)) return false;
-  updateOcrRequestFlags(state2, image, userRequested);
+  const newPress = pressed && !state2.pressed;
+  updateOcrRequestFlags(state2, image, userRequested, pressed);
   if (state2.result) return false;
-  return !state2.loading;
+  if (state2.loading && newPress) this.updateOcrStatus(image, "loading");
+  return !state2.loading && this.startedScans.get(image) !== state2.key;
   }
   queueOcrRequest(image) {
   this.queueImageForOcr(image);
@@ -14799,13 +15197,17 @@ class ImageOcrController {
   const settings = this.options.getSettings();
   const image = ocrImageFromPointerEvent(event, settings);
   if (image) {
+    if (event.type !== "pointerdown" && !hoverMayReadImage(settings) && !hasInlineOcrFallback(image)) return false;
     if (!this.canScanInlineImages(true)) return false;
     if (event.type === "pointermove" && image === this.lastPointerMoveImage) return false;
     if (event.type === "pointermove") this.lastPointerMoveImage = image;
     else this.lastPointerMoveImage = void 0;
     this.lastPointerMoveReaderSurface = void 0;
     this.lastPointerMoveReaderSurfaceKey = void 0;
-    this.enqueue(image, true);
+    const hover = event.type === "pointerover" || event.type === "pointermove";
+    if (hover && this.states.get(image)?.failed) return false;
+    if (!hover) this.forgetEmptyAnswer(image);
+    this.enqueue(image, true, !hover);
     return true;
   }
   const surface = ocrReaderSurfaceFromPointerEvent(event, settings, this.isProvenRasterFreePage());
@@ -14876,7 +15278,7 @@ class ImageOcrController {
   takeNextQueuedImage() {
   for (let index = 0; index < this.queue.length; index++) {
     const candidate = this.queue[index];
-    if (this.inFlightJobs.has(ocrTargetWorkKey(imageCacheKey(candidate)))) continue;
+    if (this.inFlightJobs.has(ocrTargetWorkKey(imageSourceKey(candidate)))) continue;
     this.queue.splice(index, 1);
     return candidate;
   }
@@ -14886,19 +15288,22 @@ class ImageOcrController {
   if (this.destroyed) return;
   const target = captureOcrTargetContext();
   const work = ocrTargetWork(imageCacheKey(image), target);
-  const key = work.workKey;
+  const key = target.workKey(imageSourceKey(image));
   const job = Symbol(key);
+  const contentKey = imageCacheKey(image);
   this.activeScans++;
   this.inFlightJobs.set(key, job);
+  this.startedScans.set(image, contentKey);
   const hasFastText = Boolean(readFallbackOcrResult(image, false));
   const isReaderRasterFrame = this.isReaderRasterFrame(image);
-  const delay = this.cache.has(work.cacheKey) || this.states.get(image)?.overlayRequested || hasFastText || isReaderRasterFrame || this.videoFrameVideos.has(image) ? 0 : 900;
+  const delay = this.answers.has(work.cacheKey) || this.states.get(image)?.overlayRequested || hasFastText || isReaderRasterFrame || this.videoFrameVideos.has(image) ? 0 : 900;
   void waitForIdle(delay, delay).then(() => this.scanImage(image, target)).catch((error) => {
     if (isStaleOcrState(error)) return;
     log.warn("OCR scan task failed unexpectedly", {}, error);
   }).finally(() => {
     this.activeScans = Math.max(0, this.activeScans - 1);
     if (this.inFlightJobs.get(key) === job) this.inFlightJobs.delete(key);
+    if (this.startedScans.get(image) === contentKey) this.startedScans.delete(image);
     if (!this.destroyed) this.drainQueue();
   });
   }
@@ -14912,12 +15317,12 @@ class ImageOcrController {
     return;
   }
   const state2 = existingState ?? this.ensureState(image);
-  const settings = this.options.getSettings();
   const manualRequested = state2.manualRequested;
   this.resetStateIfImageChanged(state2);
   const work = ocrTargetWork(state2.key, target);
   if (await this.tryRenderCachedOcrResult(state2, work)) return;
   if (!this.isCurrentContentState(state2, work.contentKey)) return;
+  const settings = { ...this.options.getSettings() };
   if (this.shouldSuppressAutoRenderedResult(state2, Boolean(readFallbackOcrResult(image)), manualRequested)) return;
   this.updateOcrStatus(image, "loading");
   const scan = beginOcrScan(state2, image, settings, manualRequested);
@@ -14943,14 +15348,15 @@ class ImageOcrController {
     this.renderNoOcrLines(state2);
     this.updateOcrStatus(state2.image, "failed");
     state2.manualRequested = false;
+    state2.pressed = false;
     return true;
   }
-  if (!this.cache.has(work.cacheKey)) return false;
+  if (!this.answers.has(work.cacheKey)) return false;
   if (this.shouldSuppressAutoRenderedResult(state2, false)) {
     this.clearAutoScannedOverlays();
     return true;
   }
-  const cached = this.cache.get(work.cacheKey);
+  const cached = this.answers.get(work.cacheKey);
   this.requireCurrentContentState(state2, work.contentKey);
   if (!cached) {
     if (this.isReaderRasterFrame(state2.image)) {
@@ -14959,6 +15365,7 @@ class ImageOcrController {
         this.renderNoOcrLines(state2);
         this.updateOcrStatus(state2.image, "empty");
         state2.manualRequested = false;
+        state2.pressed = false;
         return true;
       }
       this.forget(work.cacheKey);
@@ -14968,14 +15375,17 @@ class ImageOcrController {
     this.renderNoOcrLines(state2);
     this.updateOcrStatus(state2.image, "empty");
     state2.manualRequested = false;
+    state2.pressed = false;
     return true;
   }
   await this.renderResult(state2, cached, false, work);
   state2.manualRequested = false;
+  state2.pressed = false;
   return true;
   }
   async tryRenderCachedOcrResult(state2, work) {
   try {
+    await this.answers.ready();
     return await this.renderCachedOcrResult(state2, work);
   } catch (error) {
     if (isStaleOcrState(error)) return true;
@@ -14985,7 +15395,7 @@ class ImageOcrController {
   async scanUncachedImage(state2, image, work, settings, provider, manualRequested) {
   const inlineFallback = readFallbackOcrResult(image, false);
   const providerResult = inlineFallback ? null : await promiseWithTimeout(
-    this.recognizeImage(image, settings),
+    this.recognizeImage(image, settings, () => state2.pressed),
     ocrAttemptTimeoutMs(this.options.ocrAttemptTimeoutFloorMs),
     "OCR timed out."
   );
@@ -15002,12 +15412,12 @@ class ImageOcrController {
     const readerRasterEmptyAttempts = this.isReaderRasterFrame(image) ? this.recordReaderRasterEmptyScan(state2, work, manualRequested) : 0;
     if (this.isReaderRasterFrame(image)) {
       if (!manualRequested && readerRasterEmptyAttempts >= READER_RASTER_MAX_EMPTY_SCAN_ATTEMPTS) {
-        this.remember(work.cacheKey, null);
+        this.answers.remember(work.cacheKey, null, settings.ocrProvider);
       } else {
-        this.forget(work.cacheKey);
+        this.answers.forget(work.cacheKey, settings.ocrProvider);
       }
     } else {
-      this.remember(work.cacheKey, null);
+      this.answers.remember(work.cacheKey, null, settings.ocrProvider);
     }
     this.requireCurrentContentState(state2, work.contentKey);
     this.renderNoOcrLines(state2);
@@ -15017,7 +15427,7 @@ class ImageOcrController {
     );
     return;
   }
-  this.remember(work.cacheKey, result);
+  if (!partialOcrResults.has(result)) this.answers.remember(work.cacheKey, result, settings.ocrProvider);
   this.readerRasterEmptyScans.delete(this.readerRasterEmptyScanKey(state2, work));
   this.readerRasterFailedScans.delete(work.workKey);
   this.clearReaderRasterProviderRetry(work.workKey);
@@ -15056,13 +15466,14 @@ class ImageOcrController {
     this.rememberReaderRasterFailure(work.workKey);
   }
   logOcrFailure(state2, provider, manualRequested, error);
+  state2.failed = !this.isReaderRasterFrame(image);
   this.updateOcrStatus(image, "failed");
   }
-  recognizeImage(image, settings) {
+  recognizeImage(image, settings, pressed) {
   const recognizer = ocrRecognizer(settings);
   if (!recognizer) return Promise.resolve(null);
-  if (this.shouldSplitBookwalkerSpreadFrame(image)) return this.recognizeBookwalkerSpreadFrame(image, settings, recognizer);
-  return this.recognizeWithDarkPass(image, settings, recognizer);
+  if (this.shouldSplitBookwalkerSpreadFrame(image)) return this.recognizeBookwalkerSpreadFrame(image, settings, recognizer, pressed);
+  return this.recognizeWithDarkPass(image, settings, recognizer, pressed);
   }
   shouldSplitBookwalkerSpreadFrame(image) {
   const canvas = this.canvasFrameSources.get(image);
@@ -15074,28 +15485,41 @@ class ImageOcrController {
     return false;
   }
   }
-  async recognizeBookwalkerSpreadFrame(image, settings, recognizer) {
+  async recognizeBookwalkerSpreadFrame(image, settings, recognizer, pressed) {
   const slices = await splitImageIntoPageColumns(image);
-  const results = await Promise.all(slices.map(async (slice) => {
-    const result = await this.recognizeWithDarkPass(slice.image, settings, recognizer).catch(() => null);
-    return result ? offsetOcrResult(result, slice.left, 0, slice.totalWidth, slice.totalHeight) : null;
-  }));
-  return mergeOcrResults(slices[0]?.totalWidth ?? 0, slices[0]?.totalHeight ?? 0, results);
+  const outcomes = await Promise.allSettled(slices.map((slice) => this.recognizeWithDarkPass(slice.image, settings, recognizer, pressed)));
+  const values = outcomes.map((outcome) => outcome.status === "fulfilled" ? outcome.value : null);
+  const results = values.map((value, index) => {
+    const slice = slices[index];
+    return value ? offsetOcrResult(value, slice.left, 0, slice.totalWidth, slice.totalHeight) : null;
+  });
+  const merged = mergeOcrResults(slices[0]?.totalWidth ?? 0, slices[0]?.totalHeight ?? 0, results);
+  const failure = outcomes.find((outcome) => outcome.status === "rejected");
+  if (!merged && failure) throw failure.reason;
+  if (merged && (failure || values.some((value) => value && partialOcrResults.has(value)))) partialOcrResults.add(merged);
+  return merged;
   }
   // Normal recognition always runs. A second, inverted pass is spent only when
-  // the image has a dark region (where white-on-black text could hide) AND that
-  // region came back unread by the normal pass. Full-page reader canvases are
-  // the latency-sensitive path: if the normal pass found text on a manga page,
-  // don't double the provider round-trip just to search dark art regions. If a
-  // reader page comes back empty, the inverted recovery still gets a chance.
-  async recognizeWithDarkPass(image, settings, recognizer) {
+  // darkPassWanted allows it, the image has a dark region (where white-on-black
+  // text could hide) AND that region came back unread by the normal pass.
+  // Full-page reader canvases are the latency-sensitive path: if the normal pass
+  // found text on a manga page, don't double the provider round-trip just to
+  // search dark art regions.
+  async recognizeWithDarkPass(image, settings, recognizer, pressed) {
   const normal = await this.runRecognizer(image, settings, recognizer, false);
-  if (!settings.ocrInvertDarkPanels) return normal;
+  if (!darkPassWanted(settings, pressed(), normal)) return normal;
   const field = buildLuminanceField(image);
   if (!field || luminanceFieldDarkFraction(field) < DARK_REGION_TRIGGER) return normal;
   if ((this.canvasFrameSources.has(image) || this.backgroundFrameSources.has(image)) && normal?.lines.length) return normal;
   if (darkAreaIsRead(field, normal)) return normal;
-  const inverted = await this.runRecognizer(image, settings, recognizer, true).catch(() => null);
+  let inverted;
+  try {
+    inverted = await this.runRecognizer(image, settings, recognizer, true);
+  } catch (error) {
+    if (!normal?.lines.length) throw error;
+    partialOcrResults.add(normal);
+    return normal;
+  }
   return mergeDarkPassResult(normal, inverted, field);
   }
   runRecognizer(image, settings, recognizer, invert) {
@@ -15127,16 +15551,14 @@ class ImageOcrController {
   clearLocalOcrUnavailable(endpointUrl) {
   if (this.localOcrUnavailable?.endpointUrl === endpointUrl) this.localOcrUnavailable = void 0;
   }
-  async renderResult(state2, result, forceOverlay = false, work = ocrTargetWork(state2.key)) {
+  async renderResult(state2, result, forceOverlay = false, work = ocrTargetWork(state2.key), repaint = false) {
   this.requireCurrentContentState(state2, work.contentKey);
   work.target.requireCurrent(STALE_OCR_STATE);
-  if (this.shouldPreserveReaderRasterResult(state2) && state2.overlay.querySelector(".jpdb-ocr-line") && ocrResultTextKey(state2.result) === ocrResultTextKey(result)) {
+  if (!repaint && this.shouldPreserveReaderRasterResult(state2) && state2.overlay.querySelector(".jpdb-ocr-line") && ocrResultTextKey(state2.result) === ocrResultTextKey(result)) {
     this.updateOcrStatus(state2.image, "ready");
     return;
   }
   state2.result = result;
-  const settings = this.options.getSettings();
-  const showText = this.shouldShowOcrTextOverlay(state2, settings, forceOverlay);
   const initialParsed = await this.parseOcrLines(result.lines);
   this.requireCurrentContentState(state2, work.contentKey);
   work.target.requireCurrent(STALE_OCR_STATE);
@@ -15168,6 +15590,8 @@ class ImageOcrController {
   await this.options.enrichTokensBeforeRender?.(flatTokens);
   this.requireCurrentContentState(state2, work.contentKey);
   work.target.requireCurrent(STALE_OCR_STATE);
+  const settings = this.options.getSettings();
+  const showText = this.shouldShowOcrTextOverlay(state2, settings, forceOverlay);
   applyOcrOverlayStyle(state2.overlay, settings);
   const lineElements = lines.map((line, index) => this.renderOcrLineElement(state2, result, line, renderedTokens[index] ?? [], sentence, showText, settings));
   const staleLines = Array.from(state2.overlay.querySelectorAll(".jpdb-ocr-line"));
@@ -15376,7 +15800,9 @@ class ImageOcrController {
   state2.loading = false;
   state2.overlayRequested = false;
   state2.manualRequested = false;
+  state2.pressed = false;
   state2.autoSkipped = false;
+  state2.failed = false;
   if (!preserveReaderRasterResult) {
     this.discardOcrLineInteractionState(state2.overlay.querySelectorAll(".jpdb-ocr-line"));
     state2.overlay.querySelectorAll(".jpdb-ocr-line").forEach((node) => node.remove());
@@ -15413,6 +15839,7 @@ class ImageOcrController {
   return attemptKey ? work.target.workKey(attemptKey) : work.workKey;
   }
   scheduleReaderRasterProviderRetry(state2, work, userRequested, error) {
+  if (error instanceof OcrProviderError && !error.retryable) return false;
   const attemptCost = isOcrRequestTimeout(error) ? 2 : 1;
   const attempts = (this.readerRasterProviderFailures.get(work.workKey) ?? 0) + attemptCost;
   this.readerRasterProviderFailures.set(work.workKey, attempts);
@@ -15449,19 +15876,12 @@ class ImageOcrController {
     this.readerRasterFailedScans.delete(oldest);
   }
   }
-  remember(key, result) {
-  if (key.startsWith("data:")) return;
-  this.cache.set(key, result);
-  while (this.cache.size > MAX_CACHE_ITEMS) {
-    const oldest = this.cache.keys().next().value;
-    if (!oldest) break;
-    this.cache.delete(oldest);
-  }
-  persistOcrCacheSoon(this.cache, Date.now());
-  }
   forget(key) {
-  if (!this.cache.delete(key)) return;
-  persistOcrCacheSoon(this.cache, Date.now());
+  this.answers.forget(key);
+  }
+  // A press reads the image again rather than settle for a remembered empty answer.
+  forgetEmptyAnswer(image) {
+  this.answers.forgetEmpty(ocrTargetCacheKey(imageCacheKey(image)));
   }
   schedulePosition() {
   if (this.destroyed) return;
@@ -15653,14 +16073,15 @@ class ImageOcrController {
     this.releaseReaderRasterFrameForImage(image);
     return;
   }
-  if (status !== "ready" && !isReaderRasterFrame) {
+  const asked = !isReaderRasterFrame && this.states.get(image)?.pressed === true;
+  if (status !== "ready" && !isReaderRasterFrame && !asked) {
     this.removeImageStatusCard(image);
     return;
   }
   const card = existing ?? this.createVideoFrameStatus(status);
   if (existing) this.setVideoFrameStatus(card, status);
   else this.imageStatuses.set(image, card);
-  const retryable = isReaderRasterFrame && isTerminalOcrStatus(status);
+  const retryable = isReaderRasterFrame && isTerminalOcrStatus(status) || asked && status === "failed";
   this.setStatusRetry(card, status, retryable);
   this.positionImageStatusCard(image, card);
   if (status === "ready" && isReaderRasterFrame) this.releaseTerminalReaderRasterSiblings(image);
@@ -15746,12 +16167,13 @@ class ImageOcrController {
     card.replaceChildren();
     return;
   }
-  const retry = uiText(this.options.getSettings().interfaceLanguage, "ocrRetryScan");
+  const language = this.options.getSettings().interfaceLanguage;
+  const retry = uiText(language, "ocrRetryScan");
   card.dataset.yomuOcrRetry = "true";
   card.setAttribute("role", "button");
   card.tabIndex = 0;
   card.title = retry;
-  card.setAttribute("aria-label", `${this.statusText(status)}. ${retry}`);
+  card.setAttribute("aria-label", `${this.statusText(status)}${resolveUiLanguage(language) === "ja" ? "。" : ". "}${retry}`);
   if (!card.firstChild) setInnerHtml(card, retryScanIcon());
   if (card.dataset.yomuOcrRetryListener === "true") return;
   card.dataset.yomuOcrRetryListener = "true";
@@ -15773,7 +16195,9 @@ class ImageOcrController {
     return;
   }
   const image = [...this.imageStatuses].find(([, candidate]) => candidate === card)?.[0];
-  if (image) this.retryReaderRasterImage(image);
+  if (!image) return;
+  if (this.isReaderRasterFrame(image)) this.retryReaderRasterImage(image);
+  else this.enqueue(image, true);
   }
   refreshVideoFrameAfterSeek(target) {
   if (!(target instanceof HTMLVideoElement) || !target.paused) return;
@@ -16725,7 +17149,7 @@ class ImageOcrController {
   for (const [overlay, placement, frame, offset, typeface, documentFlow] of plans) {
     const visible = Boolean(placement && frame);
     overlay.hidden = !visible;
-    setOcrOverlayAccessibility(overlay, visible);
+    setOcrOverlayAccessibility(overlay, visible, this.options.getSettings().interfaceLanguage);
     if (!placement || !frame) continue;
     setOcrArtifactScrollMode(overlay, documentFlow ?? false);
     setOcrArtifactPosition(overlay, placement.left, placement.top, offset);
@@ -16778,6 +17202,7 @@ class ImageOcrController {
   this.releaseAllBackgroundFrames();
   this.queue = [];
   this.inFlightJobs.clear();
+  this.startedScans.clear();
   for (const timer of this.readerRasterProviderRetryTimers.values()) window.clearTimeout(timer);
   this.readerRasterProviderRetryTimers.clear();
   this.readerRasterProviderFailures.clear();
@@ -16796,7 +17221,7 @@ class ImageOcrController {
   // Drop only the overlays the reader auto-painted, keeping panels the user
   // scanned by hand (those carry overlayRequested/manualRequested). Used when
   // we start deferring to a page's native text layer mid-session. The cached
-  // results stay in `this.cache`, so flipping back re-renders them instantly
+  // results stay in `this.answers`, so flipping back re-renders them instantly
   // without re-OCRing.
   clearAutoScannedOverlays() {
   for (const [image, state2] of [...this.states]) {

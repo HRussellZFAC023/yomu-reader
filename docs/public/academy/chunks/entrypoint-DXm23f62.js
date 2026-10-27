@@ -10500,13 +10500,13 @@ function classroomRuntimeRecords(classroom) {
   )];
   const expressionById2 = new Map(classroom.expressions.map((expression) => [expression.id, expression]));
   for (const binding of LESSON_ZERO_CLASSROOM_ACTIVITY_BINDINGS.filter((candidate2) => candidate2.deterministicAssessment)) {
-    const probes = lessonZeroProbesForBinding(binding, expressionById2);
+    const probes2 = lessonZeroProbesForBinding(binding, expressionById2);
     records2.push(record$16(
       `answer-set:lesson-zero:${suffixOf$1(binding.activityId)}`,
       "answer-set",
       CLASSROOM_CONTENT_ID,
       `expressions[activityId=${binding.activityId}].probes.acceptedAnswers`,
-      probes.map((probe) => ({ id: probe.id, acceptedAnswers: probe.acceptedAnswers })),
+      probes2.map((probe) => ({ id: probe.id, acceptedAnswers: probe.acceptedAnswers })),
       classroom.contentVersion,
       LESSON_ZERO_CLASSROOM_EXPRESSIONS_SHA256
     ));
@@ -12251,11 +12251,11 @@ function createLessonZeroPedagogy(data) {
       };
     },
     repairIds(activityId) {
-      const probes = lessonZeroProbesForBinding(requireBinding(classroomBindings, activityId), expressionById2);
+      const probes2 = lessonZeroProbesForBinding(requireBinding(classroomBindings, activityId), expressionById2);
       return {
-        errorTagIds: probes.map((probe) => lessonZeroErrorId(probe)),
-        feedbackIds: probes.map((probe) => lessonZeroFeedbackId(probe)),
-        nearbyExampleIds: probes.map((probe) => lessonZeroNearbyExampleId(probe))
+        errorTagIds: probes2.map((probe) => lessonZeroErrorId(probe)),
+        feedbackIds: probes2.map((probe) => lessonZeroFeedbackId(probe)),
+        nearbyExampleIds: probes2.map((probe) => lessonZeroNearbyExampleId(probe))
       };
     },
     reviewItems(activityId) {
@@ -27673,7 +27673,7 @@ class ConcurrencyGate {
 const FURIGANA_HIDE_STATE_GROUPS = ["known", "due", "failed", "learning", "new"];
 const WORD_COLOR_HIDE_STATE_GROUPS = [...FURIGANA_HIDE_STATE_GROUPS, "ignored"];
 const APP_NAME = "よむ";
-const ACADEMY_SRS_LABEL = "Academy";
+const YOMU_DECK_LABEL = "よむ deck";
 const APP_SLUG = "yomu";
 const APP_REPOSITORY_NAME = `${APP_SLUG}-reader`;
 const SETTINGS_TITLE = `${APP_NAME} Settings`;
@@ -27698,7 +27698,7 @@ const NEW_TAB_VERSION_URL = `${NEW_TAB_PAGE_URL}version.json`;
 const VIDEO_PLAYER_PAGE_URL = `${DOCS_BASE_URL}video-player/`;
 const PDF_READER_PAGE_URL = `${DOCS_BASE_URL}pdf-reader/`;
 const SUPPORT_COPY = "よむ is free: popup lookup, dictionaries, OCR, subtitles, study and Anki in one place.";
-const SUPPORT_COPY_EXTRA = "Donations are optional and help cover development, devices, services, maintenance, and API costs.";
+const SUPPORT_COPY_EXTRA = "Donations are optional and help cover development, devices, services, and maintenance.";
 const NADESHIKO_URL = "https://nadeshiko.co/";
 const NADESHIKO_DEVELOPER_URL = `${NADESHIKO_URL}user/developer`;
 const USERSCRIPT_HTTP_BRIDGE_READY_EVENT = "yomu-userscript-http-bridge-ready";
@@ -28640,6 +28640,7 @@ const MANAGED_STATE_MANIFEST = [
   { owner: "jpdb/jpdb-public-cache", kind: "local", key: "yomu:jpdb-cache:v1" },
   { owner: "dictionaries/jiten-public-cache (legacy)", kind: "gm", key: "yomu:jiten-public-cache:v1" },
   { owner: "dictionaries/jiten-public-cache", kind: "local", key: "yomu:jiten-public-cache:v2" },
+  { owner: "dictionaries/jiten-reading-memory", kind: "local", key: "yomu:jiten-readings:v1" },
   { owner: "dictionaries/jiten-stats-cache", kind: "gm", key: "jpdb-reader-jiten-daily-stats" },
   // Dictionary database (Yomitan/Jitendex terms). Cleared by the dictionary
   // store's own deleteDatabase during reset; registered so the invariant test
@@ -28658,9 +28659,12 @@ const MANAGED_STATE_MANIFEST = [
   { owner: "dictionaries/replication (legacy)", kind: "local", key: "yomu-dictionary-replication-state" },
   { owner: "dictionaries/replica-purge", kind: "gm", key: "yomu:dictionary-replica-purge:v1" },
   { owner: "dictionaries/replica-purge", kind: "local", key: "yomu:dictionary-replica-purged:v1" },
-  // OCR result cache.
-  { owner: "ocr/ocr-cache-store", kind: "local", key: "yomu-ocr-cache-v1" },
-  { owner: "ocr/ocr-cache-store", kind: "local", key: "yomu-ocr-cache-v2" },
+  // OCR answers with text, one private shard per site under a hash of its
+  // origin. 2.1.x kept them in the page's own storage (v1, v2); the first
+  // load moves them across and deletes the page keys.
+  { owner: "ocr/ocr-cache-store", kind: "gm", prefix: "yomu:private:ocr-cache:v3:" },
+  { owner: "ocr/ocr-cache-store (legacy)", kind: "local", key: "yomu-ocr-cache-v1" },
+  { owner: "ocr/ocr-cache-store (legacy)", kind: "local", key: "yomu-ocr-cache-v2" },
   { owner: "ocr/canvas-mirror", kind: "session", key: "yomu:bw:mirror-loadguard" },
   // The one-time reader-canvas tap hint appears once per site. Each site's record
   // is private and keyed by a hash of its origin, so no page can read it.
@@ -29708,7 +29712,8 @@ function isRecord$6(value) {
 function isNonNullObject(value) {
   return typeof value === "object" && value !== null;
 }
-const PROVENANCE_KEY = "yomu:local-storage-provenance:v1";
+const LOCAL_MIRROR_PROVENANCE_KEY = "yomu:local-storage-provenance:v1";
+const PROVENANCE_KEY = LOCAL_MIRROR_PROVENANCE_KEY;
 const JAPANESE_SITE_LANGUAGE_KEY = "yomu:prefer-japanese-site-language:v1";
 function captureLocalFallbackStoredState(key2) {
   try {
@@ -29922,7 +29927,7 @@ class ConcreteManagedWriteJournal {
     if (existing) return existing;
     const previous = await this.storage.readAuthority(key2);
     const observedLocal = shouldTrackExactLocalFallback(key2) ? captureLocalFallbackStoredState(key2) : void 0;
-    const receipt = {
+    const receipt2 = {
       key: key2,
       previous,
       authorityTarget: previous,
@@ -29934,11 +29939,11 @@ class ConcreteManagedWriteJournal {
       restoreCapturedLocal: true,
       active: false
     };
-    this.receipts.set(key2, receipt);
-    return receipt;
+    this.receipts.set(key2, receipt2);
+    return receipt2;
   }
-  adoptInterrupted(receipt, previous, localPrevious = previous) {
-    const record2 = receipt;
+  adoptInterrupted(receipt2, previous, localPrevious = previous) {
+    const record2 = receipt2;
     record2.authorityTarget = previous;
     record2.localTarget = localPrevious;
     record2.interrupted = true;
@@ -29946,8 +29951,8 @@ class ConcreteManagedWriteJournal {
     if (record2.localBefore) rememberLocalStage(record2, record2.localBefore, record2.previous);
     this.activate(record2);
   }
-  async write(receipt, value) {
-    const record2 = receipt;
+  async write(receipt2, value) {
+    const record2 = receipt2;
     this.activate(record2);
     const attempted = { existed: true, value };
     record2.stagedAuthority.push(value);
@@ -29963,8 +29968,8 @@ class ConcreteManagedWriteJournal {
       }
     }
   }
-  async restore(receipt, message) {
-    const record2 = receipt;
+  async restore(receipt2, message) {
+    const record2 = receipt2;
     this.activate(record2);
     const errors = await rollbackManagedWrite(
       this.storage,
@@ -30002,11 +30007,11 @@ class ConcreteManagedWriteJournal {
       `${message} and ${rollbackErrors.length} rollback operation(s) also failed.`
     );
   }
-  activate(receipt) {
+  activate(receipt2) {
     if (!this.open) throw new Error("Managed storage write journal is already closed.");
-    if (receipt.active) return;
-    receipt.active = true;
-    this.active.push(receipt);
+    if (receipt2.active) return;
+    receipt2.active = true;
+    this.active.push(receipt2);
   }
 }
 function createConcreteManagedWriteJournal(storage, preserveLocalFallbackOnWriteFailure = false) {
@@ -30017,10 +30022,10 @@ async function rollbackManagedWrites(storage, receipts, stopOnError, forceAuthor
   let authorityStopped = false;
   for (let index = receipts.length - 1; index >= 0; index--) {
     if (authorityStopped) {
-      const receipt = receipts[index];
-      if (receipt.restoreCapturedLocal) {
-        const local = captureManagedWriteLocal(receipt, errors);
-        rollbackManagedWriteLocal(storage, receipt, local, errors);
+      const receipt2 = receipts[index];
+      if (receipt2.restoreCapturedLocal) {
+        const local = captureManagedWriteLocal(receipt2, errors);
+        rollbackManagedWriteLocal(storage, receipt2, local, errors);
       }
       continue;
     }
@@ -30030,37 +30035,37 @@ async function rollbackManagedWrites(storage, receipts, stopOnError, forceAuthor
   }
   return errors;
 }
-async function rollbackManagedWrite(storage, receipt, forceAuthorityRestore) {
+async function rollbackManagedWrite(storage, receipt2, forceAuthorityRestore) {
   const errors = [];
-  await rollbackManagedWriteAuthority(storage, receipt, forceAuthorityRestore, errors);
-  const currentLocal = captureManagedWriteLocal(receipt, errors);
-  rollbackManagedWriteLocal(storage, receipt, currentLocal, errors);
+  await rollbackManagedWriteAuthority(storage, receipt2, forceAuthorityRestore, errors);
+  const currentLocal = captureManagedWriteLocal(receipt2, errors);
+  rollbackManagedWriteLocal(storage, receipt2, currentLocal, errors);
   return errors;
 }
-function captureManagedWriteLocal(receipt, errors) {
-  if (!receipt.localBefore) return void 0;
+function captureManagedWriteLocal(receipt2, errors) {
+  if (!receipt2.localBefore) return void 0;
   try {
-    return captureLocalFallbackStoredState(receipt.key);
+    return captureLocalFallbackStoredState(receipt2.key);
   } catch (error) {
     errors.push(error);
     return void 0;
   }
 }
-async function rollbackManagedWriteAuthority(storage, receipt, forceAuthorityRestore, errors) {
-  const current = await readRollbackAuthority(storage, receipt.key, errors);
+async function rollbackManagedWriteAuthority(storage, receipt2, forceAuthorityRestore, errors) {
+  const current = await readRollbackAuthority(storage, receipt2.key, errors);
   if (!current) return;
-  if (!authorityRestoreIsRequired(receipt, current, forceAuthorityRestore)) return;
-  if (!authorityRollbackIsSafe(receipt, current)) {
-    errors.push(managedWriteConflict(receipt.key, "Managed storage value"));
+  if (!authorityRestoreIsRequired(receipt2, current, forceAuthorityRestore)) return;
+  if (!authorityRollbackIsSafe(receipt2, current)) {
+    errors.push(managedWriteConflict(receipt2.key, "Managed storage value"));
     return;
   }
-  await restoreRollbackAuthority(storage, receipt, errors);
+  await restoreRollbackAuthority(storage, receipt2, errors);
 }
-function authorityRestoreIsRequired(receipt, current, forceAuthorityRestore) {
-  return forceAuthorityRestore || !managedStoredValueStatesMatch(current, receipt.authorityTarget);
+function authorityRestoreIsRequired(receipt2, current, forceAuthorityRestore) {
+  return forceAuthorityRestore || !managedStoredValueStatesMatch(current, receipt2.authorityTarget);
 }
-function authorityRollbackIsSafe(receipt, current) {
-  return managedStoredValueStatesMatch(current, receipt.authorityTarget) || authorityWasStaged(receipt, current);
+function authorityRollbackIsSafe(receipt2, current) {
+  return managedStoredValueStatesMatch(current, receipt2.authorityTarget) || authorityWasStaged(receipt2, current);
 }
 async function readRollbackAuthority(storage, key2, errors) {
   try {
@@ -30070,49 +30075,49 @@ async function readRollbackAuthority(storage, key2, errors) {
     return void 0;
   }
 }
-async function restoreRollbackAuthority(storage, receipt, errors) {
+async function restoreRollbackAuthority(storage, receipt2, errors) {
   try {
-    await storage.restoreAuthority(receipt.key, receipt.authorityTarget);
+    await storage.restoreAuthority(receipt2.key, receipt2.authorityTarget);
   } catch (error) {
     errors.push(error);
   }
 }
-function rollbackManagedWriteLocal(storage, receipt, current, errors) {
+function rollbackManagedWriteLocal(storage, receipt2, current, errors) {
   try {
-    restoreManagedWriteLocal(storage, receipt, current);
+    restoreManagedWriteLocal(storage, receipt2, current);
   } catch (error) {
     errors.push(error);
   }
 }
-function restoreManagedWriteLocal(storage, receipt, current) {
-  if (!receipt.localBefore) return restoreUntrackedWriteLocal(storage, receipt);
+function restoreManagedWriteLocal(storage, receipt2, current) {
+  if (!receipt2.localBefore) return restoreUntrackedWriteLocal(storage, receipt2);
   if (!current) return;
-  assertLocalStateCanRollback(storage, receipt, current);
-  if (receipt.restoreCapturedLocal) return restoreLocalFallbackStoredState(receipt.key, receipt.localBefore);
-  storage.restoreLocalTarget(receipt.key, receipt.localTarget);
+  assertLocalStateCanRollback(storage, receipt2, current);
+  if (receipt2.restoreCapturedLocal) return restoreLocalFallbackStoredState(receipt2.key, receipt2.localBefore);
+  storage.restoreLocalTarget(receipt2.key, receipt2.localTarget);
 }
-function restoreUntrackedWriteLocal(storage, receipt) {
-  if (!receipt.interrupted) storage.restoreLocalTarget(receipt.key, receipt.localTarget);
+function restoreUntrackedWriteLocal(storage, receipt2) {
+  if (!receipt2.interrupted) storage.restoreLocalTarget(receipt2.key, receipt2.localTarget);
 }
-function assertLocalStateCanRollback(storage, receipt, current) {
-  if (localStateCanRollback(storage, receipt, current)) return;
-  throw managedWriteConflict(receipt.key, "Local fallback value");
+function assertLocalStateCanRollback(storage, receipt2, current) {
+  if (localStateCanRollback(storage, receipt2, current)) return;
+  throw managedWriteConflict(receipt2.key, "Local fallback value");
 }
-function localStateCanRollback(storage, receipt, current) {
-  if (localStateWasCaptured(receipt, current)) return true;
-  return receipt.interrupted && managedStoredValueStatesMatch(storage.readLocalTarget(receipt.key), receipt.localTarget);
+function localStateCanRollback(storage, receipt2, current) {
+  if (localStateWasCaptured(receipt2, current)) return true;
+  return receipt2.interrupted && managedStoredValueStatesMatch(storage.readLocalTarget(receipt2.key), receipt2.localTarget);
 }
-function localStateWasCaptured(receipt, current) {
-  return Boolean(receipt.localBefore && localFallbackStoredStatesMatch(current, receipt.localBefore)) || receipt.stagedLocal.some((state) => localFallbackStoredStatesMatch(current, state));
+function localStateWasCaptured(receipt2, current) {
+  return Boolean(receipt2.localBefore && localFallbackStoredStatesMatch(current, receipt2.localBefore)) || receipt2.stagedLocal.some((state) => localFallbackStoredStatesMatch(current, state));
 }
-function authorityWasStaged(receipt, current) {
-  if (managedStoredValueStatesMatch(current, receipt.previous)) return true;
-  return current.existed && receipt.stagedAuthority.some((value) => managedStoredValuesMatch(current.value, value));
+function authorityWasStaged(receipt2, current) {
+  if (managedStoredValueStatesMatch(current, receipt2.previous)) return true;
+  return current.existed && receipt2.stagedAuthority.some((value) => managedStoredValuesMatch(current.value, value));
 }
-function rememberLocalStage(receipt, local, authority) {
+function rememberLocalStage(receipt2, local, authority) {
   if (!rawLocalStateRepresentsAuthority(local, authority)) return;
-  if (!receipt.stagedLocal.some((item2) => localFallbackStoredStatesMatch(item2, local))) {
-    receipt.stagedLocal.push(local);
+  if (!receipt2.stagedLocal.some((item2) => localFallbackStoredStatesMatch(item2, local))) {
+    receipt2.stagedLocal.push(local);
   }
 }
 function rawLocalStateRepresentsAuthority(local, authority) {
@@ -30844,8 +30849,8 @@ async function beginStoredValuesImport(values) {
   const journal2 = createManagedWriteJournal();
   try {
     for (const [key2, imported] of entries2) {
-      const receipt = await journal2.capture(key2);
-      await journal2.write(receipt, await prepareStoredValueForImport(key2, imported));
+      const receipt2 = await journal2.capture(key2);
+      await journal2.write(receipt2, await prepareStoredValueForImport(key2, imported));
     }
   } catch (error) {
     await journal2.reject(error, "Managed storage import failed");
@@ -31226,11 +31231,17 @@ function subscribeToStoredValueChanges(key2, onChange) {
       enqueueManagedChange(newValue, { remote, transport: "gm-storage" });
     }, "GM stored value listener failed");
   }
-  addWebStorageCleanup(cleanups, key2, (event) => {
+  let deliveredLocalMirror;
+  const deliverLocalMirror = () => {
     const epoch = managedStateEpochForSynchronousLocalRead();
     if (!epoch || !localMirrorBelongsToEpoch(key2, epoch)) return;
-    onChange(JSON.parse(event.newValue || "null"), { remote: true, transport: "web-storage" });
-  });
+    const serialized = localStorage.getItem(key2);
+    if (serialized === deliveredLocalMirror) return;
+    deliveredLocalMirror = serialized;
+    onChange(JSON.parse(serialized || "null"), { remote: true, transport: "web-storage" });
+  };
+  addWebStorageCleanup(cleanups, key2, deliverLocalMirror);
+  addWebStorageCleanup(cleanups, LOCAL_MIRROR_PROVENANCE_KEY, deliverLocalMirror);
   const extensionChanges = extensionStorageChangedEvent();
   if (extensionChanges) {
     const listener = (changes, areaName) => {
@@ -33635,6 +33646,7 @@ function assertGroundedEvaluation(evaluation, lesson) {
 function sameStrings$1(left, right) {
   return JSON.stringify([...new Set(left)].sort()) === JSON.stringify([...new Set(right)].sort());
 }
+const KNOWN_INTERVAL_DAYS = 21;
 const listeners = /* @__PURE__ */ new Set();
 let waits = 0;
 function reportSaveWaitingForAnotherTab(waiting) {
@@ -33951,7 +33963,7 @@ function isLocalYomuSrsStorageKey(key2) {
 }
 class LocalYomuSrsStorageError extends Error {
   constructor(options) {
-    super(isStorageLeaseLapsed(options?.cause) ? "Your Academy deck was not saved because saving was interrupted. Try again." : "Your Academy deck could not be saved. Browser storage may be full. Free some site storage, then try again.", options);
+    super(isStorageLeaseLapsed(options?.cause) ? "Your よむ deck was not saved because saving was interrupted. Try again." : "Your よむ deck could not be saved. Browser storage may be full. Free some site storage, then try again.", options);
     this.name = "LocalYomuSrsStorageError";
   }
 }
@@ -34174,8 +34186,8 @@ class LocalYomuSrsRepository {
       newToday: cards.filter((card) => card.createdAt >= today).length,
       levelCounts: {
         new: cards.filter((card) => card.reviews === 0).length,
-        learning: cards.filter((card) => card.reviews > 0 && card.intervalDays < 21).length,
-        known: cards.filter((card) => card.intervalDays >= 21).length
+        learning: cards.filter((card) => card.reviews > 0 && card.intervalDays < KNOWN_INTERVAL_DAYS).length,
+        known: cards.filter((card) => card.intervalDays >= KNOWN_INTERVAL_DAYS).length
       }
     };
   }
@@ -34442,7 +34454,7 @@ function createYomuLocalSrsAdapter(repository = new LocalYomuSrsRepository()) {
   return {
     id: "yomu-local",
     // The stored provider id stays yomu-local for migration compatibility.
-    label: ACADEMY_SRS_LABEL,
+    label: YOMU_DECK_LABEL,
     capabilities: { stats: true, queue: true, review: true, mine: true, import: true },
     hasCredential: () => true,
     verify: async () => true,
@@ -34489,13 +34501,13 @@ function localCardState(card, now) {
   if (card.reviewEnabled === false) return ["in-deck"];
   if (card.reviews === 0) return ["new"];
   if (card.dueAt <= now) return ["due"];
-  if (card.intervalDays >= 21) return ["known"];
+  if (card.intervalDays >= KNOWN_INTERVAL_DAYS) return ["known"];
   return ["learning"];
 }
 function localSrsLevel(card) {
   if (card.reviewEnabled === false) return "Saved";
   if (card.reviews === 0) return "New";
-  if (card.intervalDays >= 21) return "Known";
+  if (card.intervalDays >= KNOWN_INTERVAL_DAYS) return "Known";
   if (card.intervalDays >= 7) return "Young";
   return "Learning";
 }
@@ -34650,8 +34662,7 @@ function eligibleCompatibilityGuard(event, target2) {
   const guard = guards.get(target2);
   if (!guard) return null;
   if (!blockable(event)) return null;
-  if (Date.now() <= guard.expiresAt) return guard;
-  guards.delete(target2);
+  if (Date.now() <= guard.expiresAt || event.type === "click") return guard;
   return null;
 }
 function shouldSuppressCompatibilityEvent(event, guard) {
@@ -35242,8 +35253,7 @@ const RENDERED_WORD_CONTRAST_VARS = [
   "--jpdb-reader-word-accessible-highlight",
   "--jpdb-reader-word-accessible-underline",
   "--jpdb-reader-word-highlight-text",
-  "--jpdb-reader-word-contrast-shadow",
-  "--jpdb-reader-furi-color"
+  "--jpdb-reader-word-contrast-shadow"
 ];
 const RENDERED_WORD_CONTRAST_VARS_WITHOUT_SHADOW = RENDERED_WORD_CONTRAST_VARS.filter(
   (name) => name !== "--jpdb-reader-word-contrast-shadow"
@@ -35683,7 +35693,12 @@ function hasJitenApiCredential(settings) {
 }
 function chosenWordGradingService(settings) {
   if (!hasJpdbApiCredential(settings) || !hasJitenApiCredential(settings)) return null;
-  return settings.apiGradingProvider === "jpdb" ? "jpdb" : "jiten";
+  const preferred = settings.apiGradingProvider === "jpdb" ? "jpdb" : "jiten";
+  const other = preferred === "jpdb" ? "jiten" : "jpdb";
+  return !gradesFromYomu(settings, preferred) && gradesFromYomu(settings, other) ? other : preferred;
+}
+function gradesFromYomu(settings, service) {
+  return (service === "jpdb" ? settings.jpdbMiningEnabled : settings.jitenMiningEnabled) !== false;
 }
 function effectiveBunproFrontendApiToken(settings) {
   return settings.bunproFrontendApiToken?.trim() ?? "";
@@ -37774,7 +37789,6 @@ const GRADING_SERVICE_COPY = {
   }
 };
 const EN = {
-  defaultDeck: "Default",
   collectNoDestination: "None of your decks can take this word. Turn one on in Settings.",
   collectWordNotFound: "Not saved: this word was not found in your preferred grading service.",
   // An ordinary page can read these, so they name no service, deck or Anki state (ADR-0020).
@@ -37790,15 +37804,14 @@ const EN = {
   bunproAddApiKeyRequired: "Add a Bunpro frontend API token, or use Add to Anki.",
   bunproNoMatchingWord: "Bunpro has no entry for this word.",
   addedToBunpro: "Added to Bunpro.",
-  yomuLocalSrsDisabled: `Enable ${ACADEMY_SRS_LABEL} in Settings first.`,
-  yomuLocalSrsStorageFailed: "Your Academy deck could not be saved. Browser storage may be full. Free some site storage, then try again.",
-  yomuLocalSrsSaveInterrupted: "Your Academy deck was not saved because saving was interrupted. Try again.",
-  addedToYomuLocal: "Added to your default deck.",
-  // An Academy word kept without a schedule (Library, Stats and the popups).
+  yomuLocalSrsDisabled: `Enable ${YOMU_DECK_LABEL} in Settings first.`,
+  yomuLocalSrsStorageFailed: `Your ${YOMU_DECK_LABEL} could not be saved. Browser storage may be full. Free some site storage, then try again.`,
+  yomuLocalSrsSaveInterrupted: `Your ${YOMU_DECK_LABEL} was not saved because saving was interrupted. Try again.`,
+  addedToYomuLocal: `Added to your ${YOMU_DECK_LABEL}.`,
+  // A よむ deck word kept without a schedule (Library, Stats and the popups).
   savedWord: "Saved"
 };
 const JA = {
-  defaultDeck: "デフォルト",
   collectNoDestination: "この単語を追加できるデッキがありません。設定でデッキを有効にしてください。",
   collectWordNotFound: "優先採点サービスでこの単語が見つからなかったため、保存していません。",
   collectAlreadySaved: "すでにデッキにあります。編集はStudyで行えます。",
@@ -37812,10 +37825,10 @@ const JA = {
   bunproAddApiKeyRequired: "Bunproのfrontend_api_tokenかAnki追加が必要です。",
   bunproNoMatchingWord: "この単語はBunproに見つかりませんでした。",
   addedToBunpro: "Bunproに追加しました。",
-  yomuLocalSrsDisabled: "先に設定でAcademyを有効にしてください。",
-  yomuLocalSrsStorageFailed: "Academyデッキを保存できませんでした。ブラウザーの保存容量が不足している可能性があります。サイトの保存容量を空けてから、もう一度お試しください。",
-  yomuLocalSrsSaveInterrupted: "保存が中断されたため、Academyデッキに保存されませんでした。もう一度お試しください。",
-  addedToYomuLocal: "デフォルトのデッキに追加しました。",
+  yomuLocalSrsDisabled: "先に設定でよむデッキを有効にしてください。",
+  yomuLocalSrsStorageFailed: "よむデッキを保存できませんでした。ブラウザーの保存容量が不足している可能性があります。サイトの保存容量を空けてから、もう一度お試しください。",
+  yomuLocalSrsSaveInterrupted: "保存が中断されたため、よむデッキに保存されませんでした。もう一度お試しください。",
+  addedToYomuLocal: "よむデッキに追加しました。",
   savedWord: "保存済み"
 };
 const COLLECTION_COPY = { en: EN, ja: JA };
@@ -37845,6 +37858,82 @@ const OCR_STATUS_COPY = {
   en: EN_OCR_STATUS_COPY,
   ja: JA_OCR_STATUS_COPY
 };
+const EN_APPEARANCE_QUICK_COPY = {
+  accentSwatchKurenai: "Kurenai (crimson)",
+  accentSwatchShu: "Shu (vermilion)",
+  accentSwatchAi: "Ai (indigo)",
+  accentSwatchMurasaki: "Murasaki (purple)",
+  accentSwatchYamabuki: "Yamabuki (amber)",
+  accentSwatchSumi: "Sumi (ink)",
+  accentSwatchCustom: "Custom color",
+  underlineQuick: "Underline",
+  underlineQuickStatus: "Status",
+  underlineQuickPitch: "Pitch"
+};
+const JA_APPEARANCE_QUICK_COPY = {
+  accentSwatchKurenai: "紅（くれない）",
+  accentSwatchShu: "朱（しゅ）",
+  accentSwatchAi: "藍（あい）",
+  accentSwatchMurasaki: "紫（むらさき）",
+  accentSwatchYamabuki: "山吹（やまぶき）",
+  accentSwatchSumi: "墨（すみ）",
+  accentSwatchCustom: "カスタムカラー",
+  underlineQuick: "下線",
+  underlineQuickStatus: "学習状態",
+  underlineQuickPitch: "ピッチ"
+};
+const APPEARANCE_QUICK_COPY = {
+  en: EN_APPEARANCE_QUICK_COPY,
+  ja: JA_APPEARANCE_QUICK_COPY
+};
+const EN_REVIEW_SERVICES_COPY = {
+  reviews: "Reviews",
+  yomuDeck: YOMU_DECK_LABEL,
+  gradeFromYomu: "Grade from よむ",
+  reviewServiceKey: "{service} key",
+  reviewServiceToken: "{service} token",
+  reviewServiceConnect: "Connect",
+  reviewServiceConnectTo: "Connect {service}",
+  reviewServiceOn: "On",
+  reviewServiceKeyAdded: "Key added",
+  reviewServiceTokenAdded: "Token added",
+  reviewServiceOff: "Not connected",
+  reviewServiceAvailable: "Ready to connect",
+  reviewServiceError: "Needs a new token",
+  reviewServiceBuiltIn: "Built in",
+  reviewServiceDisabled: "Off",
+  reviewServiceAddsGrades: "Grades",
+  reviewServiceAddsColors: "Word colors",
+  reviewServiceAddsDecks: "Decks",
+  reviewServiceAddsPitch: "Pitch accent",
+  bunproTokenHelp: "Import the frontend token from Bunpro settings and treat it like a password. It is saved before it is verified."
+};
+const JA_REVIEW_SERVICES_COPY = {
+  reviews: "復習",
+  yomuDeck: "よむデッキ",
+  gradeFromYomu: "よむから採点",
+  reviewServiceKey: "{service}のキー",
+  reviewServiceToken: "{service}のトークン",
+  reviewServiceConnect: "接続",
+  reviewServiceConnectTo: "{service}に接続",
+  reviewServiceOn: "オン",
+  reviewServiceKeyAdded: "キー登録済み",
+  reviewServiceTokenAdded: "トークン登録済み",
+  reviewServiceOff: "未接続",
+  reviewServiceAvailable: "接続できます",
+  reviewServiceError: "トークンの再取得が必要",
+  reviewServiceBuiltIn: "内蔵",
+  reviewServiceDisabled: "オフ",
+  reviewServiceAddsGrades: "採点",
+  reviewServiceAddsColors: "単語の色",
+  reviewServiceAddsDecks: "デッキ",
+  reviewServiceAddsPitch: "ピッチアクセント",
+  bunproTokenHelp: "Bunpro設定からフロントエンドトークンを取り込み、パスワードと同様に扱ってください。保存時点では未確認です。"
+};
+const REVIEW_SERVICES_COPY = {
+  en: EN_REVIEW_SERVICES_COPY,
+  ja: JA_REVIEW_SERVICES_COPY
+};
 const COPY$c = {
   en: {
     ...PRACTICE_SESSION_COPY.en,
@@ -37858,7 +37947,6 @@ const COPY$c = {
     libraryEmpty: "Save a word while you read and it shows up here.",
     moreLookupLinks: "More links",
     audioSourcesTitle: "Audio sources",
-    contextOccurrences: "In context ×{count}",
     puckAutoDetectSubtitles: "Auto-detect subtitles",
     loadTargetSubtitles: "Load Japanese subtitles",
     loadOutputSubtitles: "Load English subtitles",
@@ -37904,24 +37992,13 @@ const COPY$c = {
     youTube: "YouTube",
     anki: "Anki",
     jpdb: "JPDB",
-    api: "API",
     apiCredential: "API key",
-    apiCredentialJpdb: "JPDB API key",
-    apiCredentialJiten: "Jiten API key",
-    apiCredentialBunpro: "Bunpro frontend API token",
     apiCredentialBunproLegacy: "Bunpro API key",
-    apiCredentialWanikani: "WaniKani personal access token",
     apiKey: "API key",
     jitenApiKey: "Jiten API key",
-    apiAccess: "API access",
     storedCredentialPlaceholder: "Saved — enter a replacement",
     clearStoredCredential: "Remove saved credential",
-    apiAccessHelp: "Add each service credential here. Bunpro only needs the frontend token: import it from Bunpro settings, treat it like a password, and note that it is saved before it is verified. Academy reviews work locally without an account.",
-    wanikaniTokenHelp: "Create a read/write personal access token on WaniKani and paste it here. It is stored only in your browser, sent directly to api.wanikani.com (never through a proxy), and never logged.",
-    jpdbSettings: "JPDB settings",
-    jitenSettings: "Jiten settings",
-    bunproSettings: "Bunpro settings",
-    wanikaniSettings: "WaniKani settings",
+    wanikaniTokenHelp: "A read/write personal access token. It goes only to api.wanikani.com.",
     jpdbApiKeyConfigured: "JPDB key set.",
     jpdbAndJitenApiKeysConfigured: "Jiten and JPDB keys are set.",
     jpdbConnected: "Connected to JPDB.",
@@ -37931,11 +38008,8 @@ const COPY$c = {
     statusAttention: "Needs setup",
     statusError: "Error",
     disabledControlDescription: "Controlled by another setting.",
-    jpdbMiningEnabled: "Allow API review/deck changes",
-    bunproMiningEnabled: "Allow Bunpro review/mining",
-    wanikaniReviewEnabled: "Allow WaniKani review (due assignments only)",
     wanikaniGradeMappingHelp: "Yomu maps its grade to WaniKani’s pass/fail answer counts: Okay, Good, and Easy submit a clean pass. Anything below Okay submits one incorrect meaning answer and, unless the subject is a radical, one incorrect reading answer.",
-    yomuLocalSrsEnabled: `Enable ${ACADEMY_SRS_LABEL}`,
+    yomuLocalSrsEnabled: `Enable ${YOMU_DECK_LABEL}`,
     addToForq: "Also copy JPDB adds to forq",
     enableReviews: "Show review buttons",
     reviewRatingScale: "Review rating scale",
@@ -37945,12 +38019,12 @@ const COPY$c = {
     gradeTargetJiten: "Grades Jiten",
     gradeTargetBunpro: "Grades Bunpro",
     gradeTargetWanikani: "Grades WaniKani",
-    gradeTargetYomuLocal: `Grades ${ACADEMY_SRS_LABEL}`,
+    gradeTargetYomuLocal: `Grades ${YOMU_DECK_LABEL}`,
     gradeTargetAnki: "Grades Anki card: {target}",
     gradeTargetJpdbAndAnki: "Grades JPDB + Anki card: {target}",
     gradeTargetJitenAndAnki: "Grades Jiten + Anki card: {target}",
     gradeTargetBunproAndAnki: "Grades Bunpro + Anki card: {target}",
-    gradeTargetYomuLocalAndAnki: `Grades ${ACADEMY_SRS_LABEL} + Anki card: {target}`,
+    gradeTargetYomuLocalAndAnki: `Grades ${YOMU_DECK_LABEL} + Anki card: {target}`,
     missingAnkiCardId: "Missing Anki card id.",
     jpdbPageEnhancements: "Dictionary site enhancements",
     jpdbPageEnhancementsEnabled: "Enhance JPDB and Jiten pages",
@@ -38000,15 +38074,15 @@ const COPY$c = {
     newTabAnkiReviewDecksHelp: "Uncheck decks to skip.",
     newTabSource: "Study review source",
     newTabAuto: "Automatic",
-    newTabApiSrs: "API SRS (Jiten / JPDB)",
+    newTabApiSrs: "Jiten / JPDB",
     newTabBunpro: "Bunpro",
     newTabWanikani: "WaniKani",
-    newTabYomuLocal: ACADEMY_SRS_LABEL,
+    newTabYomuLocal: YOMU_DECK_LABEL,
     dictionaryFallback: "Dictionary fallback",
-    newTabJpdbReviewMode: "API review mode",
+    newTabJpdbReviewMode: "JPDB review mode",
     newTabJpdbReviewAuto: "Automatic",
     newTabLiveReview: "Live JPDB review session",
-    newTabApiVocabulary: "API vocabulary only",
+    newTabApiVocabulary: "JPDB vocabulary only",
     corsProxyUrl: "Cross-origin proxy URL",
     newTabKanjiKeywordSource: "Kanji keyword source",
     newTabKanjiKeywordAuto: "Automatic",
@@ -38041,7 +38115,6 @@ const COPY$c = {
     pitchColorOdaka: "Odaka (tail-high)",
     pitchColorUnknown: "Unknown",
     pronunciation: "Pronunciation",
-    noExactPitch: "Exact pitch unavailable",
     colorChannels: "Color channels",
     wordHighlightColorSource: "Word highlight color",
     wordUnderlineColorSource: "Word underline color",
@@ -38093,7 +38166,7 @@ const COPY$c = {
     hideColorFor: "Hide color for",
     furiganaDifficultKanji: "Hard kanji only",
     furiganaDifficultKanjiHelp: `${APP_NAME} keeps a fixed beginner kanji list and shows readings on everything outside it. A bare kanji means that character sits on the list.`,
-    statusColorNoSourceHelp: `Status colors read from a deck. Enable ${ACADEMY_SRS_LABEL} in Study, or add a JPDB, Jiten, or Anki source, and words take the color of their learning state.`,
+    statusColorNoSourceHelp: `Status colors read from a deck. Turn on the ${YOMU_DECK_LABEL} in Reviews, or add a JPDB, Jiten, or Anki source, and words take the color of their learning state.`,
     furiganaHideKnown: "Hide familiar words",
     furiganaHoverOnly: "Show on hover",
     furiganaAllParsed: "All parsed words",
@@ -38237,6 +38310,8 @@ const COPY$c = {
     ocrCloudHelp: "Paste a Google Cloud Vision API key.",
     ocrLocalHelp: "Run MangaOCR/Apple Vision locally and enter its URL.",
     ...SUBTITLE_SETTINGS_COPY.en,
+    subtitleFontSizeAutomatic: "Auto",
+    subtitleFontSizePixelsAuto: "Subtitle font size (px; 0 = auto)",
     right: "Right",
     left: "Left",
     bottom: "Below",
@@ -38252,7 +38327,7 @@ const COPY$c = {
     youtubeToggleToastOn: "YouTube immersion filter enabled.",
     youtubeToggleToastOff: "YouTube immersion filter disabled.",
     ankiEnabled: "Enable Anki mining",
-    ankiMineWithJpdb: "Also add to Anki when adding via API",
+    ankiMineWithJpdb: "Also add to Anki when adding to JPDB or Jiten",
     ankiCaptureScreenshot: "Attach context image when possible",
     ankiConnectUrl: "AnkiConnect URL",
     ankiDeck: "Anki deck",
@@ -38330,8 +38405,8 @@ const COPY$c = {
     localDictionaryMaxResults: "Dictionary result limit",
     cloudSettingsSync: "Google Drive settings sync",
     cloudSettingsSyncHelp: "Stores your Yomu settings and local SRS progress in Google Drive app data. Dictionaries stay local.",
-    academyAccountSync: "Academy account sync",
-    academyAccountSyncHelp: "Keep Academy SRS progress in sync across the Reader and your signed-in Yomu account. Create or manage your account on the website, then generate a one-time pairing code.",
+    academyAccountSync: "Account sync",
+    academyAccountSyncHelp: `Keep your ${YOMU_DECK_LABEL} in sync across the Reader and your signed-in Yomu account. Create or manage your account on the website, then generate a one-time pairing code.`,
     academyAccountManage: "Manage account & pairing code",
     academyPairingCode: "One-time pairing code",
     academyPairingCodePlaceholder: "XXXX-XXXX-XXXX-XXXX-XXXX",
@@ -38342,20 +38417,20 @@ const COPY$c = {
     academyRecoveryCodeReady: "Website recovery code: {code}. Enter it in Profile & sync within 10 minutes.",
     academyRecoveryCodeDone: "Website recovery code created.",
     academyAccountDisconnect: "Disconnect",
-    academyAccountChecking: "Checking Academy account connection...",
-    academyAccountDisconnected: "Not connected. Academy reviews stay on this device until you connect an account.",
+    academyAccountChecking: "Checking account connection...",
+    academyAccountDisconnected: `Not connected. Your ${YOMU_DECK_LABEL} stays on this device until you connect an account.`,
     academyAccountConnected: "Connected as {name}.",
-    academyAccountConnectedNoName: "Academy account connected.",
+    academyAccountConnectedNoName: "Account connected.",
     academyAccountLastSynced: "Last synced {time}.",
     academyAccountNeverSynced: "Not synced yet.",
     academyAccountConnectionProblem: "Could not refresh the account status: {message}",
-    academyAccountConnecting: "Connecting and syncing Academy progress...",
-    academyAccountSyncing: "Syncing Academy progress...",
+    academyAccountConnecting: `Connecting and syncing your ${YOMU_DECK_LABEL}...`,
+    academyAccountSyncing: `Syncing your ${YOMU_DECK_LABEL}...`,
     academyAccountDisconnecting: "Disconnecting this Reader...",
     academyPairingCodeRequired: "Enter the one-time pairing code from your Yomu account.",
-    academyAccountConnectedDone: "Academy account connected and progress synced.",
-    academyAccountSyncedDone: "Academy progress synced.",
-    academyAccountDisconnectedDone: "This Reader is disconnected. Local Academy progress is still available.",
+    academyAccountConnectedDone: `Account connected and ${YOMU_DECK_LABEL} synced.`,
+    academyAccountSyncedDone: `${YOMU_DECK_LABEL} synced.`,
+    academyAccountDisconnectedDone: `This Reader is disconnected. Your ${YOMU_DECK_LABEL} is still on this device.`,
     importSettings: "Import settings JSON",
     exportSettings: "Export settings JSON",
     importDictionaries: "Import dictionaries",
@@ -38364,10 +38439,10 @@ const COPY$c = {
     lookupPillsHelp: "External links and frequency badges in one order. Local frequency dictionaries replace matching live Jiten/JPDB badges. Tokens: {query}, {word}, {reading}.",
     parserProvider: "Parsing source",
     parserProviderLocal: "Local dictionaries (offline)",
-    parserProviderJiten: "Jiten API",
-    parserProviderJpdb: "JPDB API",
+    parserProviderJiten: "Jiten",
+    parserProviderJpdb: "JPDB",
     parserProviderAuto: "Automatic (Jiten/JPDB)",
-    parserProviderHelp: "Local parses with imported dictionaries, offline. Jiten and JPDB always use that API when its key is set. Automatic uses your preferred grading service when both keys are set, otherwise Jiten, then JPDB.",
+    parserProviderHelp: "Local parses with imported dictionaries, offline. Jiten and JPDB always parse with that service when its key is set. Automatic uses your preferred grading service when both keys are set, otherwise Jiten, then JPDB.",
     copiesCurrentWord: "Copies the current word",
     plaintextHttpLink: "Opens over plaintext HTTP.",
     lookupPillLabelNumber: "Lookup pill {number} label",
@@ -38591,6 +38666,7 @@ const COPY$c = {
     ankiMappingConfidenceLow: "unmapped",
     ankiMappingStaleField: "saved field missing",
     ...OCR_STATUS_COPY.en,
+    ocrTextRegion: "よむ image text {id}",
     gradeNothing: "Grade NOTHING",
     gradeSomething: "Grade SOMETHING",
     gradeHard: "Grade HARD",
@@ -38642,7 +38718,7 @@ const COPY$c = {
     ...GRADING_SERVICE_COPY.en,
     jpdbKanjiUpdated: "JPDB kanji updated.",
     jpdbKanjiUpdateFailedRuntime: "Could not update JPDB kanji. Check kanji reviews.",
-    apiSrsActionsDisabled: "API mining actions are disabled in settings.",
+    apiSrsActionsDisabled: "Grade from よむ is off for this service in Settings.",
     addJpdbApiKeyReview: "Add a JPDB API key to review JPDB cards.",
     addJitenApiKeyReview: "Add a Jiten API key to review Jiten cards.",
     addBunproApiKeyReview: "Add a Bunpro frontend API token to review Bunpro cards.",
@@ -38925,7 +39001,15 @@ const COPY$c = {
     openSectionToTranslate: "Open this section to translate.",
     translationUnavailable: "Translation unavailable.",
     translating: "Translating...",
-    ...GRAMMAR_UI_COPY.en
+    ...GRAMMAR_UI_COPY.en,
+    ...APPEARANCE_QUICK_COPY.en,
+    ...REVIEW_SERVICES_COPY.en,
+    furiganaOff: "Off",
+    puckPowerOn: `${APP_NAME} on`,
+    puckFuriganaOn: "Furigana on",
+    puckFuriganaOff: "Furigana off",
+    puckResume: `${APP_NAME} off · turn on`,
+    furiganaHideKnownReadings: "Hide readings for familiar words"
   }
 };
 const CARD_STATE_LABEL_KEYS = {
@@ -39005,7 +39089,7 @@ closeDrawer	ドロワーを閉じる
 copiedWord	単語をコピーしました。
 jpdbKanjiUpdated	JPDB漢字を更新しました。
 jpdbKanjiUpdateFailedRuntime	JPDB漢字を更新できません。
-apiSrsActionsDisabled	設定でAPI採掘操作が無効です。
+apiSrsActionsDisabled	設定でこのサービスの「よむから採点」がオフです。
 addJpdbApiKeyReview	JPDBレビューにはAPIキーが必要です。
 addJitenApiKeyReview	JitenレビューにはAPIキーが必要です。
 addBunproApiKeyReview	Bunproレビューにはfrontend_api_tokenが必要です。
@@ -39063,7 +39147,6 @@ local	ローカル
 dict	辞書
 scanPage	ページをスキャン
 noUnscannedJapaneseText	未スキャンの日本語テキストはありません。
-contextOccurrences	文脈内 ×{count}
 puckAutoDetectSubtitles	字幕を自動検出
 loadTargetSubtitles	日本語字幕を読み込む
 loadOutputSubtitles	英語字幕を読み込む
@@ -39412,6 +39495,7 @@ openSectionToTranslate	開くと翻訳します。
 translationUnavailable	翻訳を利用できません。
 translating	翻訳中...
 `),
+  ocrTextRegion: "よむの画像テキスト {id}",
   ...GRAMMAR_UI_COPY.ja,
   ...SETTINGS_RECOVERY_COPY.ja,
   ...PRACTICE_SESSION_COPY.ja,
@@ -39452,24 +39536,13 @@ video	動画
 youTube	YouTube
 anki	Anki
 jpdb	JPDB
-api	API
 apiCredential	APIキー
-apiCredentialJpdb	JPDB APIキー
-apiCredentialJiten	Jiten APIキー
-apiCredentialBunpro	BunproフロントエンドAPIトークン
-apiCredentialWanikani	WaniKaniパーソナルアクセストークン
-wanikaniTokenHelp	WaniKaniでread/write権限のパーソナルアクセストークンを作成し、ここに貼り付けてください。ブラウザ内にのみ保存され、プロキシを経由せずapi.wanikani.comへ直接送信され、ログに残ることはありません。
+wanikaniTokenHelp	read/write権限のパーソナルアクセストークン。送信先はapi.wanikani.comだけです。
 apiCredentialBunproLegacy	Bunpro APIキー
 apiKey	APIキー
 jitenApiKey	Jiten APIキー
-apiAccess	APIアクセス
 storedCredentialPlaceholder	保存済み — 変更する場合のみ入力
 clearStoredCredential	保存済みの認証情報を削除
-apiAccessHelp	各サービスの認証情報を設定します。Bunproに必要なのはフロントエンドトークンだけです。Bunpro設定から取り込み、パスワードと同様に扱ってください。保存時点では未確認です。Academyの復習はアカウントなしでも使えます。
-jpdbSettings	JPDB設定
-jitenSettings	Jiten設定
-bunproSettings	Bunpro設定
-wanikaniSettings	WaniKani設定
 jpdbApiKeyConfigured	JPDBキーあり。
 jpdbConnected	JPDBに接続しました。
 jpdbAndJitenConnected	JitenとJPDBに接続しました。
@@ -39478,11 +39551,8 @@ statusReady	準備完了
 statusAttention	設定が必要
 statusError	エラー
 disabledControlDescription	別設定で制御中。
-jpdbMiningEnabled	APIの復習・デッキ変更を許可
-bunproMiningEnabled	Bunproの復習・採掘を許可
-wanikaniReviewEnabled	WaniKaniの復習を許可(期限が来た課題のみ)
 wanikaniGradeMappingHelp	よむの採点結果はWaniKaniの正誤カウントに変換されます。Okay、Good、Easyは正解として送信します。Okay未満は意味を1回不正解として送信し、ラジカル以外では読みも1回不正解として送信します。
-yomuLocalSrsEnabled	Academyを有効化
+yomuLocalSrsEnabled	よむデッキを有効化
 addToForq	JPDB追加時にforqにもコピー
 enableReviews	復習ボタンを表示
 reviewRatingScale	復習評価の段階
@@ -39492,12 +39562,12 @@ gradeTargetJpdb	JPDBを採点
 gradeTargetJiten	Jitenを採点
 gradeTargetBunpro	Bunproを採点
 gradeTargetWanikani	WaniKaniを採点
-gradeTargetYomuLocal	Academyに記録
+gradeTargetYomuLocal	よむデッキに記録
 gradeTargetAnki	Ankiカードを採点: {target}
 gradeTargetJpdbAndAnki	JPDB + Ankiカードを採点: {target}
 gradeTargetJitenAndAnki	Jiten + Ankiカードを採点: {target}
 gradeTargetBunproAndAnki	Bunpro + Ankiカードを採点: {target}
-gradeTargetYomuLocalAndAnki	Academy + Ankiカードに記録: {target}
+gradeTargetYomuLocalAndAnki	よむデッキ + Ankiカードに記録: {target}
 missingAnkiCardId	AnkiカードIDがありません。
 jpdbPageEnhancements	辞書サイト拡張
 jpdbPageEnhancementsEnabled	JPDB・Jitenのページを拡張
@@ -39542,15 +39612,15 @@ newTabAnkiReviewDecks	Anki復習デッキ
 newTabAnkiReviewDecksHelp	不要なデッキを外します。
 newTabSource	学習の復習ソース
 newTabAuto	自動
-newTabApiSrs	API SRS（Jiten / JPDB）
+newTabApiSrs	Jiten / JPDB
 newTabBunpro	Bunpro
 newTabWanikani	WaniKani
-newTabYomuLocal	Academy
+newTabYomuLocal	よむデッキ
 dictionaryFallback	辞書フォールバック
-newTabJpdbReviewMode	API復習モード
+newTabJpdbReviewMode	JPDB復習モード
 newTabJpdbReviewAuto	自動
 newTabLiveReview	ライブJPDB復習セッション
-newTabApiVocabulary	API語彙のみ（デッキ順）
+newTabApiVocabulary	JPDB語彙のみ（デッキ順）
 corsProxyUrl	クロスオリジンプロキシURL
 newTabKanjiKeywordSource	漢字キーワードのソース
 newTabKanjiKeywordAuto	自動
@@ -39583,7 +39653,6 @@ pitchColorNakadaka	中高
 pitchColorOdaka	尾高
 pitchColorUnknown	不明
 pronunciation	発音
-noExactPitch	完全一致のピッチは利用不可
 colorChannels	色チャンネル
 wordHighlightColorSource	単語ハイライトの色
 wordUnderlineColorSource	単語下線の色
@@ -39636,7 +39705,7 @@ hideFuriganaFor	ふりがなを隠す対象
 hideColorFor	色を隠す対象
 furiganaDifficultKanji	難しい漢字のみ
 furiganaDifficultKanjiHelp	Yomuは初級漢字の固定リストを持ち、その外側の漢字にふりがなを表示します。ふりがなのない漢字は、そのリストに載っています。
-statusColorNoSourceHelp	学習状態の色はデッキから読み取ります。StudyでAcademyを有効にするか、JPDB・Jiten・Ankiのいずれかを追加すると、単語が学習状態の色になります。
+statusColorNoSourceHelp	学習状態の色はデッキから読み取ります。「復習」でよむデッキをオンにするか、JPDB・Jiten・Ankiのいずれかを追加すると、単語が学習状態の色になります。
 furiganaHideKnown	なじみのある語を非表示
 furiganaHoverOnly	ホバー時に表示
 furiganaAllParsed	解析済みの全単語
@@ -39776,7 +39845,7 @@ youtubeHelp	YouTubeを日本語向けに絞ります。
 youtubeToggleToastOn	YouTube没入フィルターをオンにしました。
 youtubeToggleToastOff	YouTube没入フィルターをオフにしました。
 ankiEnabled	Anki採掘を有効にする
-ankiMineWithJpdb	API経由で追加するときAnkiにも追加
+ankiMineWithJpdb	JPDBやJitenに追加するときAnkiにも追加
 ankiCaptureScreenshot	可能なら文脈画像を添付
 ankiConnectUrl	AnkiConnect URL
 ankiDeck	Ankiデッキ
@@ -39851,8 +39920,8 @@ ${Object.entries(LOCAL_DICTIONARY_STORAGE_COPY.jaSettings).map(([key2, value]) =
 localDictionaryMaxResults	辞書結果の上限
 cloudSettingsSync	Google Drive設定同期
 cloudSettingsSyncHelp	Yomuの設定をGoogle Driveのアプリデータに保存します。辞書は端末内に残ります。
-academyAccountSync	Academyアカウント同期
-academyAccountSyncHelp	ReaderのAcademy SRS進捗を、ログイン中のYomuアカウントと端末間で同期します。Webサイトでアカウントを作成または管理し、1回限りのペアリングコードを発行してください。
+academyAccountSync	アカウント同期
+academyAccountSyncHelp	よむデッキを、ログイン中のYomuアカウントと端末間で同期します。Webサイトでアカウントを作成または管理し、1回限りのペアリングコードを発行してください。
 academyAccountManage	アカウントとペアリングコードを管理
 academyPairingCode	1回限りのペアリングコード
 academyPairingCodePlaceholder	XXXX-XXXX-XXXX-XXXX-XXXX
@@ -39863,20 +39932,20 @@ academyRecoveryCodeCreating	1回限りのWebサイト復旧コードを作成中
 academyRecoveryCodeReady	Webサイト復旧コード: {code}。10分以内に「プロフィールと同期」で入力してください。
 academyRecoveryCodeDone	Webサイト復旧コードを作成しました。
 academyAccountDisconnect	接続解除
-academyAccountChecking	Academyアカウントの接続を確認中...
-academyAccountDisconnected	未接続です。アカウントに接続するまで、Academyの復習データはこの端末に保存されます。
+academyAccountChecking	アカウントの接続を確認中...
+academyAccountDisconnected	未接続です。アカウントに接続するまで、よむデッキはこの端末に保存されます。
 academyAccountConnected	{name}として接続中です。
-academyAccountConnectedNoName	Academyアカウントに接続中です。
+academyAccountConnectedNoName	アカウントに接続中です。
 academyAccountLastSynced	最終同期: {time}。
 academyAccountNeverSynced	まだ同期していません。
 academyAccountConnectionProblem	アカウント状態を更新できませんでした: {message}
-academyAccountConnecting	接続してAcademyの進捗を同期中...
-academyAccountSyncing	Academyの進捗を同期中...
+academyAccountConnecting	接続してよむデッキを同期中...
+academyAccountSyncing	よむデッキを同期中...
 academyAccountDisconnecting	このReaderの接続を解除中...
 academyPairingCodeRequired	Yomuアカウントで1回限りのペアリングコードを発行し、入力してください。
-academyAccountConnectedDone	Academyアカウントに接続し、進捗を同期しました。
-academyAccountSyncedDone	Academyの進捗を同期しました。
-academyAccountDisconnectedDone	このReaderの接続を解除しました。Academyの進捗は端末に残ります。
+academyAccountConnectedDone	アカウントに接続し、よむデッキを同期しました。
+academyAccountSyncedDone	よむデッキを同期しました。
+academyAccountDisconnectedDone	このReaderの接続を解除しました。よむデッキは端末に残ります。
 importSettings	設定JSONをインポート
 exportSettings	設定JSONをエクスポート
 importDictionaries	辞書をインポート
@@ -39884,10 +39953,10 @@ exportDictionaries	辞書をエクスポート
 lookupPills	検索ピル
 parserProvider	解析ソース
 parserProviderLocal	ローカル辞書（オフライン）
-parserProviderJiten	Jiten API
-parserProviderJpdb	JPDB API
+parserProviderJiten	Jiten
+parserProviderJpdb	JPDB
 parserProviderAuto	自動（Jiten/JPDB）
-parserProviderHelp	ローカルはインポート済み辞書でオフライン解析します。JitenとJPDBはキー設定時に必ずそのAPIを使います。自動は両方のキーがあれば優先採点サービスを使い、それ以外はJiten、次にJPDBを優先します。
+parserProviderHelp	ローカルはインポート済み辞書でオフライン解析します。JitenとJPDBはキー設定時に必ずそのサービスで解析します。自動は両方のキーがあれば優先採点サービスを使い、それ以外はJiten、次にJPDBを優先します。
 lookupPillsHelp	外部リンクと頻度バッジを同じ順序で表示します。ローカル頻度辞書は一致するJiten/JPDBライブバッジを置き換えます。トークン: {query}、{word}、{reading}。
 copiesCurrentWord	現在の単語をコピーします
 plaintextHttpLink	プレーンテキストHTTPで開きます。
@@ -40056,7 +40125,17 @@ recommendedKanjiumPitch	ピッチアクセント専用です。定義には語�
 recommendedBccwj	BCCWJ由来の頻度バッジです。
 recommendedJiten	Jiten由来の頻度バッジです。
 `),
-  ...SUBTITLE_SETTINGS_COPY.ja
+  ...SUBTITLE_SETTINGS_COPY.ja,
+  subtitleFontSizeAutomatic: "自動",
+  subtitleFontSizePixelsAuto: "字幕フォントサイズ（px、0 = 自動）",
+  ...APPEARANCE_QUICK_COPY.ja,
+  ...REVIEW_SERVICES_COPY.ja,
+  furiganaOff: "オフ",
+  puckPowerOn: `${APP_NAME} オン`,
+  puckFuriganaOn: "ふりがなオン",
+  puckFuriganaOff: "ふりがなオフ",
+  puckResume: `${APP_NAME} オフ・オンにする`,
+  furiganaHideKnownReadings: "なじみのある語の読みを非表示"
 };
 function resolveUiLanguage(language) {
   if (language === "ja" || language === "en") return language;
@@ -40801,12 +40880,12 @@ function createDefaultSubtitleSettings(fontFamily) {
     subtitleAutoCopyLine: false,
     subtitleCopyIncludeTranslation: true,
     subtitleControlsMode: "auto",
-    subtitleFontSize: 28,
+    subtitleFontSize: 0,
     subtitleBottomOffset: 16,
     subtitleTextColor: OVERLAY_COLOR_TOKENS.text,
     subtitleOutlineColor: OVERLAY_COLOR_TOKENS.outline,
     subtitleBackgroundColor: OVERLAY_COLOR_TOKENS.background,
-    subtitleBackgroundOpacity: 0,
+    subtitleBackgroundOpacity: 0.75,
     subtitleFontFamily: fontFamily,
     subtitleFontWeight: 760,
     subtitleMiningPause: true,
@@ -40823,7 +40902,11 @@ const RETIRED_SETTING_DEFAULTS = [
   { keys: ["furiganaHiddenStateGroups"], retired: [[["known", "due", "failed"]]] },
   { keys: ["wordHighlightColorSource", "wordUnderlineColorSource", "wordTextColorSource"], retired: [["jpdb", "pitch", "anki"]] },
   { keys: ["subtitleHighlightColorSource", "subtitleUnderlineColorSource", "subtitleTextColorSource"], retired: [["jpdb", "pitch", "anki"]] },
-  { keys: ["wordColorHiddenStateGroups"], retired: [[[]]] }
+  { keys: ["wordColorHiddenStateGroups"], retired: [[[]]] },
+  // Unchosen legacy pixel defaults now follow the player's caption size.
+  { keys: ["subtitleFontSize"], retired: [[28]] },
+  // Whole-object saves carried transparency even when nobody chose it.
+  { keys: ["subtitleBackgroundOpacity"], retired: [[0]] }
 ];
 RETIRED_SETTING_DEFAULTS.flatMap((group2) => group2.keys);
 function adoptCurrentDefaults(settings, ledger, defaults) {
@@ -41136,10 +41219,10 @@ async function storageSnapshots(journal2) {
   );
   return { settings, intentLedger };
 }
-function storageSnapshot(receipt) {
-  const { existed, value } = receipt.previous;
+function storageSnapshot(receipt2) {
+  const { existed, value } = receipt2.previous;
   return {
-    receipt,
+    receipt: receipt2,
     existed,
     previousValue: value,
     // Raw page storage never enters the privileged crash marker.
@@ -41172,8 +41255,8 @@ function serializeSnapshot(snapshot) {
     localFallbackValue: snapshot.previousValue
   };
 }
-function markerSnapshot(receipt, snapshot) {
-  return { receipt, ...snapshot };
+function markerSnapshot(receipt2, snapshot) {
+  return { receipt: receipt2, ...snapshot };
 }
 function readSettingsStorageValueStrict(key2, fallback) {
   return isHostedYomuOrigin() ? gmStorageGetStrict(key2, fallback) : gmStorageGetSharedStrict(key2, fallback);
@@ -41761,6 +41844,7 @@ const DEFAULT_SETTINGS = {
   popupFontFamily: DEFAULT_POPUP_FONT_FAMILY,
   popupFontWeight: 450,
   jpdbMiningEnabled: true,
+  jitenMiningEnabled: true,
   // JPDB parity: the credential is the real gate, so importing a Bunpro
   // token makes grading work without hunting for a second checkbox.
   bunproMiningEnabled: true,
@@ -42017,7 +42101,10 @@ function normalizeMiningSettings(value) {
     neverForgetDeck: normalizeDeckIdSetting(value?.neverForgetDeck, DEFAULT_SETTINGS.neverForgetDeck),
     blacklistDeck: normalizeDeckIdSetting(value?.blacklistDeck, DEFAULT_SETTINGS.blacklistDeck),
     apiGradingProvider: normalizeApiGradingProvider(value?.apiGradingProvider),
-    ...normalizeBooleanSettingGroup(value, MINING_BOOLEAN_SETTING_KEYS)
+    ...normalizeBooleanSettingGroup(value, MINING_BOOLEAN_SETTING_KEYS),
+    // One stored "Allow API review/deck changes" switch gated JPDB and Jiten
+    // until 2.2, so a record without its own Jiten switch keeps that answer.
+    jitenMiningEnabled: booleanSettingWithFallback(value, "jitenMiningEnabled", booleanSetting(value, "jpdbMiningEnabled"))
   };
 }
 function normalizeApiGradingProvider(value) {
@@ -42324,9 +42411,6 @@ function furiganaStyle(settings) {
   }
   return "all";
 }
-function furiganaModeNeedsDifficultyExplanation(settings) {
-  return furiganaStyle(settings) === "difficult-kanji";
-}
 function isExplicitFuriganaMode(value) {
   return EXPLICIT_FURIGANA_MODES.has(value);
 }
@@ -42354,10 +42438,16 @@ async function loadSettingsFromStorage() {
     void 0
   );
   const view = await readSettingsPersistenceViewStrictFrom(readSettingsOwnedValueStrict);
-  const current = mergeSettings(settingsRecord(view.settings));
+  const record2 = settingsRecord(view.settings);
+  const current = mergeSettings(record2);
   const withSitePreference = applyStoredSitePreference(current, storedSitePreference);
-  const settings = mergeSettings(applySettingsIntent(withSitePreference, view.intentLedger));
+  const intended = applySettingsIntent(withSitePreference, view.intentLedger);
+  const settings = mergeSettings(withLegacyJitenSwitch(intended, record2, view.intentLedger));
   return adoptCurrentDefaults(settings, view.intentLedger, DEFAULT_SETTINGS);
+}
+function withLegacyJitenSwitch(settings, record2, ledger) {
+  if (typeof record2?.jitenMiningEnabled === "boolean" || hasOwn(ledger.records, "jitenMiningEnabled")) return settings;
+  return settings.jitenMiningEnabled === settings.jpdbMiningEnabled ? settings : { ...settings, jitenMiningEnabled: settings.jpdbMiningEnabled };
 }
 function applyStoredSitePreference(settings, storedSitePreference) {
   return {
@@ -42600,10 +42690,10 @@ const OVERHANG_PROPERTY = "--jpdb-reader-ruby-overhang";
 const EDGE_RUBY_SELECTOR = `:scope > ruby.${OVERHANG_CLASS}:is(.${AT_START_CLASS}, .${AT_END_CLASS})`;
 const PAGE_OVERHANG_RUBY_SELECTOR = `.jpdb-reader-scan-word:not(:is(.jpdb-reader-text-mirror, .jpdb-reader-control-text-mirror) *) > ruby.${OVERHANG_CLASS}`;
 const WORD_CLASS = "jpdb-reader-word";
-function rubyOverhangClassAttribute(surface, start, end, reading, readingBeside) {
+function rubyOverhangClasses(surface, start, end, reading, readingBeside) {
   if (readingBeside || Array.from(reading).length <= 2 * Array.from(surface.slice(start, end)).length) return "";
   const edges = [start === 0 ? ` ${AT_START_CLASS}` : "", end === surface.length ? ` ${AT_END_CLASS}` : ""].join("");
-  return ` class="${OVERHANG_CLASS}${edges}"`;
+  return ` ${OVERHANG_CLASS}${edges}`;
 }
 function syncRubyEdgeOverhang(words) {
   const affected = /* @__PURE__ */ new Set();
@@ -42787,6 +42877,10 @@ function plainEdgeFacing(beside, side) {
   if (!beside.classList.contains("jpdb-reader-has-furi")) return true;
   const edge = side === "before" ? beside.lastChild : beside.firstChild;
   return edge?.nodeType === Node.TEXT_NODE && Boolean(edge.textContent?.trim());
+}
+const YOMU_RUBY_CLASS = "jpdb-reader-ruby";
+function yomuRubyHtml(baseHtml, readingHtml, extraClasses = "") {
+  return `<ruby class="${YOMU_RUBY_CLASS}${extraClasses}"><span class="jpdb-reader-ruby-base">${baseHtml}</span><rp>(</rp><rt class="jpdb-reader-furi">${readingHtml}</rt><rp>)</rp></ruby>`;
 }
 function kanjiNavigationForElement(element2) {
   const host2 = element2.closest("[data-jpdb-reader-kanji-nav]");
@@ -42994,7 +43088,7 @@ function renderTokenReadings(surface, token, kanjiNavigation, preserveTokenRubie
     html += renderKanjiNavigationText(surface.slice(localOffset, start), kanjiNavigation);
     const base = renderKanjiNavigationText(surface.slice(start, end), kanjiNavigation);
     const readingBeside = index > 0 && start === localOffset || rubies[index + 1]?.start === ruby.end;
-    html += layout === "detached" ? `<span class="jpdb-reader-detached-ruby" data-yomu-source-start="${ruby.start}" data-yomu-source-end="${ruby.end}"><span class="jpdb-reader-ruby-base">${base}</span><span class="jpdb-reader-furi jpdb-reader-detached-furi" aria-hidden="true">${escapeHtml(ruby.text)}</span></span>` : `<ruby${rubyOverhangClassAttribute(surface, start, end, ruby.text, readingBeside)}><span class="jpdb-reader-ruby-base">${base}</span><rp>(</rp><rt class="jpdb-reader-furi">${escapeHtml(ruby.text)}</rt><rp>)</rp></ruby>`;
+    html += layout === "detached" ? `<span class="jpdb-reader-detached-ruby" data-yomu-source-start="${ruby.start}" data-yomu-source-end="${ruby.end}"><span class="jpdb-reader-ruby-base">${base}</span><span class="jpdb-reader-furi jpdb-reader-detached-furi" aria-hidden="true">${escapeHtml(ruby.text)}</span></span>` : yomuRubyHtml(base, escapeHtml(ruby.text), rubyOverhangClasses(surface, start, end, ruby.text, readingBeside));
     localOffset = end;
   });
   html += renderKanjiNavigationText(surface.slice(localOffset), kanjiNavigation);
@@ -43853,6 +43947,53 @@ function sourceSharesDocumentScroll(source2) {
 function isRedditReadableLabel(element2) {
   return /(^|\.)reddit\.com$/i.test(location.hostname) && Boolean(composedClosestElement(element2, 'button,[role="button"],summary,time,faceplate-timeago'));
 }
+const WHITESPACE = /\s/u;
+function boundedCompactText(root, limit) {
+  let text2 = "";
+  let length = 0;
+  for (let node2 = root.firstChild; node2; node2 = nextInSubtree(node2, root)) {
+    if (node2.nodeType !== Node.TEXT_NODE && node2.nodeType !== Node.CDATA_SECTION_NODE) continue;
+    for (const char of node2.data) {
+      if (WHITESPACE.test(char)) continue;
+      text2 += char;
+      length += 1;
+      if (length > limit) return text2;
+    }
+  }
+  return text2;
+}
+function compactTextLengthAtMost(root, limit) {
+  return Array.from(boundedCompactText(root, limit)).length;
+}
+function nextInSubtree(node2, root) {
+  if (node2.firstChild) return node2.firstChild;
+  for (let current = node2; current && current !== root; current = current.parentNode) {
+    if (current.nextSibling) return current.nextSibling;
+  }
+  return null;
+}
+let memo = null;
+function withReadMemo(run) {
+  if (memo) return run();
+  memo = /* @__PURE__ */ new Map();
+  try {
+    return run();
+  } finally {
+    memo = null;
+  }
+}
+function memoRead(fact2, key2, read) {
+  if (!memo) return read(key2);
+  let answers = memo.get(fact2);
+  if (!answers) {
+    answers = /* @__PURE__ */ new Map();
+    memo.set(fact2, answers);
+  }
+  if (answers.has(key2)) return answers.get(key2);
+  const value = read(key2);
+  answers.set(key2, value);
+  return value;
+}
 const ANNOTATION_SCOPE_SURFACE_ATTRIBUTE = "data-yomu-runtime-surface";
 const ANNOTATION_SCOPE_SURFACE_SELECTOR = `[${ANNOTATION_SCOPE_SURFACE_ATTRIBUTE}], .yomu-try-me-text`;
 const DECORATION_STATE_ATTRIBUTE = "data-yomu-decoration";
@@ -43926,8 +44067,8 @@ function noteConstrainedRowLayoutSettled() {
 }
 function constrainedRowStyleFacts(element2) {
   const now = Date.now();
-  const memo = constrainedRowStyleFactMemo.get(element2);
-  if (memo && memo.gen === constrainedRowStyleGeneration && now - memo.at < CONSTRAINED_ROW_STYLE_MEMO_MAX_AGE_MS) return memo.facts;
+  const memo2 = constrainedRowStyleFactMemo.get(element2);
+  if (memo2 && memo2.gen === constrainedRowStyleGeneration && now - memo2.at < CONSTRAINED_ROW_STYLE_MEMO_MAX_AGE_MS) return memo2.facts;
   const style = safeComputedStyle(element2);
   const clamped = hasLineClamp(style);
   const ellipsisRow = isEllipsisTextRow(style);
@@ -43952,6 +44093,9 @@ function constrainedRowStyleFacts(element2) {
   return facts;
 }
 function closestRubyFragileConstrainedRow(element2) {
+  return memoRead("fragile-row", element2, readClosestRubyFragileConstrainedRow);
+}
+function readClosestRubyFragileConstrainedRow(element2) {
   let current = element2;
   for (let depth = 0; current && depth < 12; depth += 1) {
     const facts = constrainedRowStyleFacts(current);
@@ -44063,7 +44207,7 @@ function hasVisibleBorderSide(style, width) {
   return Boolean(style && style !== "none" && style !== "hidden" && cssPixels(width) > 0);
 }
 function hasShortControlLinkText(link, text2) {
-  return compactLength(text2) <= 16 && compactLength(link.textContent ?? "") <= 40;
+  return compactLength(text2) <= 16 && compactTextLengthAtMost(link, 40) <= 40;
 }
 function hasControlLinkWidth(rect) {
   return rect.width > 0 && rect.width < 360;
@@ -44080,6 +44224,9 @@ const COMPACT_PASSIVE_CHROME_SELECTOR = `time,[datetime],[aria-label*="author" i
 const PASSIVE_INTERACTION_BOUNDARY_SELECTOR = `${PASSIVE_INTERACTION_SELECTOR},${COMPACT_PASSIVE_INTERACTION_SELECTOR},${COMPACT_PASSIVE_CHROME_SELECTOR}`;
 const COMPACT_PASSIVE_INTERACTION_TEXT_LIMIT = 120;
 function isPassiveInteractionElement(element2) {
+  return memoRead("passive-interaction", element2, readIsPassiveInteractionElement);
+}
+function readIsPassiveInteractionElement(element2) {
   if (element2.closest(READER_ROOT_SELECTOR)) return false;
   if (element2 instanceof HTMLElement && isReadableProseContext(element2) && !readableContextPassiveChromeElement(element2)) return false;
   if (element2.closest(PASSIVE_INTERACTION_SELECTOR)) return true;
@@ -44089,9 +44236,9 @@ function isPassiveInteractionElement(element2) {
   return Boolean(compactChrome && isCompactPassiveChromeElement(compactChrome));
 }
 function isCompactPassiveInteractionElement(element2) {
-  const text2 = element2.textContent?.replace(/\s+/g, "").trim() ?? "";
-  if (!text2 || text2.length > COMPACT_PASSIVE_INTERACTION_TEXT_LIMIT) return false;
-  return element2.childElementCount <= 4;
+  if (element2.childElementCount > 4) return false;
+  const text2 = boundedCompactText(element2, COMPACT_PASSIVE_INTERACTION_TEXT_LIMIT);
+  return Boolean(text2) && text2.length <= COMPACT_PASSIVE_INTERACTION_TEXT_LIMIT;
 }
 function isCompactPassiveChromeElement(element2) {
   if (isLikelyProseElement(element2)) return false;
@@ -44150,7 +44297,7 @@ function compactMetadataChromeElement(parent) {
   for (let depth = 0; current && depth < 4; depth += 1, current = current.parentElement) {
     const explicit = current.tagName === "TIME" || current.hasAttribute("datetime") || COMPACT_METADATA_CLASS_RE.test(`${current.id} ${elementClassName(current)}`);
     if (!explicit || isConversationTextClass(current)) continue;
-    const text2 = current.textContent?.replace(/\s+/g, "").trim() ?? "";
+    const text2 = compactInteractiveChromeText(current);
     if (!isCompactInteractiveChromeText(text2)) continue;
     const rect = current.getBoundingClientRect();
     if (rect.height === 0 || rect.height <= COMPACT_INTERACTIVE_CHROME_MAX_HEIGHT) return current;
@@ -44190,7 +44337,7 @@ function compactInteractiveChromeElement(parent) {
   return isCompactInteractiveChromeControl(chrome, parent) ? chrome : null;
 }
 function compactInteractiveChromeText(element2) {
-  return element2.textContent?.replace(/\s+/g, "").trim() ?? "";
+  return boundedCompactText(element2, COMPACT_INTERACTIVE_CHROME_TEXT_LIMIT);
 }
 function compactPassiveChromeElement(parent) {
   if (isReadableProseContext(parent)) return null;
@@ -44251,7 +44398,7 @@ function hasCompactInteractiveChromeRubyRisk(element2) {
 }
 function compactConstrainedNotificationElement(parent) {
   if (parent.closest(READER_ROOT_SELECTOR)) return null;
-  const textLength = compactLength(parent.textContent ?? "");
+  const textLength = compactTextLengthAtMost(parent, CONSTRAINED_NOTIFICATION_TEXT_LIMIT);
   if (textLength < 2 || textLength > CONSTRAINED_NOTIFICATION_TEXT_LIMIT) return null;
   let current = parent;
   for (let depth = 0; current && current !== document.body && current !== document.documentElement && depth < 6; depth++) {
@@ -44315,8 +44462,8 @@ let comboboxOwnedIdMemo = /* @__PURE__ */ new WeakMap();
 const COMBOBOX_OWNED_ID_TTL_MS = 250;
 function comboboxOwnedIds(root) {
   const now = Date.now();
-  const memo = comboboxOwnedIdMemo.get(root);
-  if (memo && now - memo.at < COMBOBOX_OWNED_ID_TTL_MS) return memo.ids;
+  const memo2 = comboboxOwnedIdMemo.get(root);
+  if (memo2 && now - memo2.at < COMBOBOX_OWNED_ID_TTL_MS) return memo2.ids;
   const ids2 = /* @__PURE__ */ new Set();
   if (root instanceof Document || root instanceof ShadowRoot || root instanceof Element) {
     for (const owner of Array.from(root.querySelectorAll(COMBOBOX_OWNER_SELECTOR))) {
@@ -44347,6 +44494,9 @@ const INTERACTIVE_LINK_CONTEXT_SELECTOR = roleSelectors("menu,menubar,toolbar,ta
 const CONTENT_CHIP_ROOT_SELECTOR = ".yomu-hosted-overflow-group";
 const NAMED_CONTENT_ROOT_SELECTOR = `${CONTENT_CHIP_ROOT_SELECTOR},.viewer-title-bar,.bookTitleText,#bookDescription`;
 function interactivePassiveControl(element2) {
+  return memoRead("interactive-control", element2, readInteractivePassiveControl);
+}
+function readInteractivePassiveControl(element2) {
   const temporalMetadata = element2.closest("time,[datetime]");
   if (temporalMetadata && isCompactTemporalMetadata(temporalMetadata)) return temporalMetadata;
   const control2 = element2.closest(INTERACTIVE_CONTROL_SELECTOR);
@@ -44362,7 +44512,7 @@ function interactivePassiveControl(element2) {
 const SIBLING_CONTROL_ANCESTOR_LIMIT = 3;
 function siblingOwnedInteractiveControl(element2) {
   if (!(element2 instanceof HTMLElement)) return null;
-  const text2 = element2.textContent?.replace(/\s+/g, "").trim() ?? "";
+  const text2 = compactInteractiveChromeText(element2);
   const chromeContext = isCompactInteractiveChromeContext(element2);
   if (!isCompactInteractiveChromeText(text2) || isReadableProseContext(element2) && !chromeContext) return null;
   let current = element2.parentElement;
@@ -44399,6 +44549,7 @@ function isLinkedCardMetadataElement(link, textElement2) {
   ].every(Boolean);
 }
 function isCompactMetadataElement(element2) {
+  if (compactTextLengthAtMost(element2, COMPACT_LINKED_CARD_METADATA_TEXT_LIMIT) > COMPACT_LINKED_CARD_METADATA_TEXT_LIMIT) return false;
   const text2 = element2.textContent?.replace(/\s+/g, " ").trim() ?? "";
   const height = element2.getBoundingClientRect().height;
   return [
@@ -44412,7 +44563,7 @@ function isMediaTextContentControl(control2) {
   if (control2.closest(INTERACTIVE_LINK_CONTEXT_SELECTOR)) return false;
   const media = safeQuerySelector(control2, "img,picture,video,canvas");
   if (!media || !(media instanceof HTMLElement)) return false;
-  return mediaElementIsThumbnailSized(media) && compactLength(control2.textContent ?? "") > 2;
+  return mediaElementIsThumbnailSized(media) && compactTextLengthAtMost(control2, 2) > 2;
 }
 const MEDIA_CONTENT_MIN_LONGEST_EDGE_PX = 32;
 function mediaElementIsThumbnailSized(media) {
@@ -44421,6 +44572,9 @@ function mediaElementIsThumbnailSized(media) {
   return Math.max(rect.width, rect.height) >= MEDIA_CONTENT_MIN_LONGEST_EDGE_PX;
 }
 function classifyDecoration(element2) {
+  return memoRead("decoration", element2, readDecoration);
+}
+function readDecoration(element2) {
   if (element2.closest(READER_ROOT_SELECTOR)) return "content-ruby";
   if (decorationMustBeSkipped(element2)) return "skip";
   if (isYouTubeReadableLabel(element2) || isRedditReadableLabel(element2)) return "interactive-passive";
@@ -44573,7 +44727,10 @@ function pruneProjectedReadings(document2) {
   yomuAnnotationsCompanion()?.pruneProjectedReadings(document2);
 }
 function styleDetachedReadingElements(root, host2) {
-  const detachedRubies = Array.from(root.querySelectorAll(".jpdb-reader-detached-ruby"));
+  styleDetachedReadingElementsWithin([root], host2);
+}
+function styleDetachedReadingElementsWithin(roots, host2) {
+  const detachedRubies = elementsWithin(roots, ".jpdb-reader-detached-ruby");
   if (!detachedRubies.length) return;
   const hostStyle = safeComputedStyle(host2);
   const hostFontSize = Number.parseFloat(hostStyle.fontSize) || 16;
@@ -44585,7 +44742,7 @@ function styleDetachedReadingElements(root, host2) {
     setInlineStyleIfChanged(wrapper, "vertical-align", "baseline", "important");
     setInlineStyleIfChanged(wrapper, "white-space", "nowrap", "important");
   }
-  for (const reading of root.querySelectorAll(".jpdb-reader-detached-furi")) {
+  for (const reading of elementsWithin(roots, ".jpdb-reader-detached-furi")) {
     setInlineStyleIfChanged(reading, "display", "none", "important");
     setInlineStyleIfChanged(reading, "font-size", `${readingFontSize}px`);
     setInlineStyleIfChanged(reading, "font-weight", "normal");
@@ -44596,6 +44753,12 @@ function styleDetachedReadingElements(root, host2) {
     if (reading.style.getPropertyValue("color")) reading.style.removeProperty("color");
     setInlineStyleIfChanged(reading, "-webkit-text-fill-color", "currentColor", "important");
   }
+}
+function elementsWithin(roots, selector) {
+  return roots.flatMap((root) => [
+    ...root.matches(selector) ? [root] : [],
+    ...Array.from(root.querySelectorAll(selector))
+  ]);
 }
 const DOCUMENT_ANNOTATION_PORTAL_MIRROR_CLASS = "jpdb-reader-document-annotation-portal";
 const DOCUMENT_ANNOTATION_PORTAL_PAINT_CLASS = "jpdb-reader-document-annotation-paint";
@@ -45184,7 +45347,7 @@ function targetKeepsInFlowReadings(target2) {
   return Boolean(target2.closest(KEEPS_IN_FLOW_SELECTOR));
 }
 function furiganaSettingsForTarget(settings, target2) {
-  if (!targetForcesAllFurigana(target2)) return settings;
+  if (!settings.showFurigana || settings.furiganaMode === "off" || !targetForcesAllFurigana(target2)) return settings;
   if (settings.showFurigana && settings.furiganaMode === "all") return settings;
   return { ...settings, showFurigana: true, furiganaMode: "all" };
 }
@@ -45207,6 +45370,70 @@ function commonFragmentTextHost(elements) {
     candidate2 = candidate2.parentElement;
   }
   return null;
+}
+function sliceDisplayOf(element2) {
+  return memoRead("display", element2, readDisplay);
+}
+function readDisplay(element2) {
+  return safeComputedStyle(element2).display;
+}
+function wrapDirectFlexGridTextRun(replacement, parent) {
+  const display = parent ? sliceDisplayOf(parent) : "";
+  if (!display.includes("flex") && !display.includes("grid")) return replacement;
+  const fragment = document.createDocumentFragment();
+  const run = document.createElement("span");
+  run.className = "jpdb-reader-run";
+  run.append(replacement);
+  fragment.append(run);
+  return fragment;
+}
+const OVERSIZED_PARENT_VIEWPORTS = 2;
+const probes = /* @__PURE__ */ new WeakMap();
+function textNodeOutsideViewport(node2, parent) {
+  if (!memoRead("oversized-text-parent", parent, isOversizedParent)) return false;
+  if (!node2.data.trim()) return false;
+  const probe = probeFor$1(node2.ownerDocument);
+  probe.selectNodeContents(node2);
+  const rect = probe.getBoundingClientRect();
+  if (!rect.width && !rect.height) return false;
+  return !rectMeetsViewport(rect);
+}
+function probeFor$1(document2) {
+  let probe = probes.get(document2);
+  if (!probe) {
+    probe = document2.createRange();
+    probes.set(document2, probe);
+  }
+  return probe;
+}
+function isOversizedParent(parent) {
+  const rect = parent.getBoundingClientRect();
+  return rect.height > OVERSIZED_PARENT_VIEWPORTS * window.innerHeight || rect.width > OVERSIZED_PARENT_VIEWPORTS * window.innerWidth;
+}
+function rectMeetsViewport(rect, width = window.innerWidth, height = window.innerHeight) {
+  return rect.bottom >= 0 && rect.top <= height && rect.right >= 0 && rect.left <= width;
+}
+let receipt = null;
+function notePaintedInsertion(node2) {
+  if (!receipt) return;
+  if (node2.nodeType === Node.DOCUMENT_FRAGMENT_NODE) receipt.push(...Array.from(node2.children));
+  else if (node2.nodeType === Node.ELEMENT_NODE) receipt.push(node2);
+}
+function withPaintedInsertions(paint) {
+  const outer = receipt;
+  const inserted = [];
+  receipt = inserted;
+  try {
+    paint();
+  } finally {
+    receipt = outer;
+    outer?.push(...inserted);
+  }
+  return inserted;
+}
+const CLAMP_GROWTH_ATTRIBUTE = "data-yomu-clamp-growth";
+function clampRowGrowthFailed(clipRow) {
+  return clipRow.getAttribute(CLAMP_GROWTH_ATTRIBUTE) === "failed";
 }
 const COLOR_SOURCE_CLASS_TOKENS = {
   status: "status",
@@ -45306,7 +45533,7 @@ function unwrapReaderWords(root = document, options = {}) {
     const parent = word.parentNode;
     if (!parent) continue;
     parents.add(parent);
-    word.replaceWith(document.createTextNode(readerWordSurfaceText(word)));
+    unwrapReaderWord(word);
   }
   for (const bind of numberBinds) {
     if (bind.nextElementSibling?.classList.contains("jpdb-reader-word")) continue;
@@ -45317,6 +45544,29 @@ function unwrapReaderWords(root = document, options = {}) {
   }
   parents.forEach((parent) => parent.normalize());
   return words.length;
+}
+function unwrapReaderWord(word) {
+  const doc = word.ownerDocument;
+  if (!word.querySelector(`ruby:not(.${YOMU_RUBY_CLASS})`)) {
+    word.replaceWith(doc.createTextNode(readerWordSurfaceText(word)));
+    return;
+  }
+  const surface = doc.createDocumentFragment();
+  const appendSurface = (node2) => {
+    if (node2.nodeType === Node.TEXT_NODE) {
+      surface.append(doc.createTextNode(node2.textContent ?? ""));
+    } else if (node2.nodeType === Node.ELEMENT_NODE) {
+      const element2 = node2;
+      if (isSurfaceIgnoredElement$1(element2)) return;
+      if (element2.tagName === "RUBY" && !element2.classList.contains(YOMU_RUBY_CLASS)) {
+        surface.append(element2);
+      } else {
+        Array.from(element2.childNodes).forEach(appendSurface);
+      }
+    }
+  };
+  Array.from(word.childNodes).forEach(appendSurface);
+  word.replaceWith(surface);
 }
 function readerWordSurfaceText(element2) {
   const surface = readerWordChildSurfaceText(element2);
@@ -45703,9 +45953,11 @@ function collectFragmentTextTargetsIn(root, limit = 40, visibleOnly = true, excl
     options,
     shadowDepth: 0
   };
-  visitFragmentNode(root, state, false, true);
-  flushFragmentTextTarget(state);
-  return state.targets;
+  return withReadMemo(() => {
+    visitFragmentNode(root, state, false, true);
+    flushFragmentTextTarget(state);
+    return state.targets;
+  });
 }
 function collectFormControlTextTargetsIn(root, limit = 40, visibleOnly = true, options = {}) {
   const targets = [];
@@ -45886,6 +46138,10 @@ function collectFragmentTextNode(node2, state, hasNativeRuby) {
   const text2 = node2.textContent ?? "";
   if (shouldIgnoreFragmentTextNode(text2, state.options)) return;
   const parent = node2.parentElement;
+  if (state.visibleOnly && parent && textNodeOutsideViewport(node2, parent)) {
+    flushFragmentTextTarget(state);
+    return;
+  }
   if (text2) state.fragments.push({
     node: node2,
     start: 0,
@@ -46202,7 +46458,10 @@ function isFragmentPassiveInteractionElement(element2, options) {
   return Boolean(options.readerRootPassiveInteractions && element2.closest(READER_ROOT_SELECTOR) && element2.closest(PASSIVE_INTERACTION_SELECTOR));
 }
 function isLayoutSensitiveScanElement(element2) {
-  if (element2 && isInsideOwnedReaderRoot(element2)) return false;
+  return element2 ? memoRead("layout-sensitive", element2, readIsLayoutSensitiveScanElement) : false;
+}
+function readIsLayoutSensitiveScanElement(element2) {
+  if (isInsideOwnedReaderRoot(element2)) return false;
   let current = element2;
   while (current && current !== document.body && current !== document.documentElement) {
     if (isLayoutSensitiveTextBox(current)) return true;
@@ -46483,8 +46742,9 @@ function applyTokensToTextNode(target2, tokens, settings) {
   if (!safeTokens.length) return;
   const fragment = renderTokenizedTextFragment(target2, safeTokens, settings);
   registerDestructivePaintTextNodes(fragment);
+  const inserted = Array.from(fragment.children);
   target2.node.replaceWith(fragment);
-  styleDetachedReadingElements(target2.parent, target2.parent);
+  styleDetachedReadingElementsWithin(inserted, target2.parent);
   stabilizeDetachedReadings(target2.parent, closestRubyFragileConstrainedRow(target2.parent));
   markRenderedScanTarget(target2);
 }
@@ -48452,8 +48712,8 @@ const PAGE_CONCEAL_VERDICT_TTL_MS = 1e3;
 const pageConcealVerdictMemo = /* @__PURE__ */ new WeakMap();
 function pageConcealsTextMirrorHostMemoized(host2) {
   const now = Date.now();
-  const memo = pageConcealVerdictMemo.get(host2);
-  if (memo && now - memo.at < PAGE_CONCEAL_VERDICT_TTL_MS) return memo.concealed;
+  const memo2 = pageConcealVerdictMemo.get(host2);
+  if (memo2 && now - memo2.at < PAGE_CONCEAL_VERDICT_TTL_MS) return memo2.concealed;
   const concealed = pageConcealsTextMirrorHost(host2);
   pageConcealVerdictMemo.set(host2, { at: now, concealed });
   return concealed;
@@ -48562,8 +48822,8 @@ function applyTokensToFragmentTarget(target2, tokens, settings) {
       clipRow.dataset.yomuClipConstrained = contentClipRowShowsRestReadings(renderTarget.decoration, clipRow) || clampRowKeepsInFlowRestRuby(renderTarget.decoration, clipRow) ? "content" : "true";
     }
   }
-  applyTokensToIndexedFragmentTarget(renderTarget, safeTokens, furiganaSettingsForTarget(settings, target2.parent), sentence);
-  styleDetachedReadingElements(target2.parent, target2.parent);
+  const inserted = withPaintedInsertions(() => applyTokensToIndexedFragmentTarget(renderTarget, safeTokens, furiganaSettingsForTarget(settings, target2.parent), sentence));
+  styleDetachedReadingElementsWithin(inserted, target2.parent);
   stabilizeDetachedReadings(target2.parent, closestRubyFragileConstrainedRow(target2.parent));
   markRenderedScanTarget(target2);
 }
@@ -48627,15 +48887,6 @@ function replaceSingleFragmentTokenNode(target2, fragment, plans, settings, mini
   }
   appendPlainTextBeforeToken(replacement, text2, offset, fragment.end);
   replaceTextNodeRange(fragment.node, fragment.start, fragment.end, wrapDirectFlexGridTextRun(replacement, fragment.node.parentElement));
-}
-function wrapDirectFlexGridTextRun(replacement, parent) {
-  const display = parent ? safeComputedStyle(parent).display : "";
-  if (!display.includes("flex") && !display.includes("grid")) return replacement;
-  const fragment = document.createDocumentFragment();
-  const run = document.createElement("span");
-  run.append(replacement);
-  fragment.append(run);
-  return fragment;
 }
 function renderSingleFragmentToken(target2, fragment, plan, settings, miningInsightKeys) {
   const allowRuby = scanFragmentAllowsRuby(fragment.hasNativeRuby);
@@ -48906,6 +49157,7 @@ function isInsideOwnedReaderRoot(element2) {
 function replaceTextNodeRange(node2, start, end, replacement) {
   if (!node2.parentNode || end <= start || start < 0 || end > node2.data.length) return;
   registerDestructivePaintTextNodes(replacement);
+  notePaintedInsertion(replacement);
   const after = node2.splitText(end);
   const selected2 = node2.splitText(start);
   selected2.replaceWith(replacement);
@@ -48914,12 +49166,15 @@ function replaceTextNodeRange(node2, start, end, replacement) {
 }
 function insertMultiFragmentToken(range2, surface, token, settings, options = {}) {
   if (shouldRenderRuby(surface, token, settings, options.allowRuby, options.preserveTokenRubies)) {
+    const word = renderToken(surface, token, settings, options);
+    notePaintedInsertion(word);
     range2.deleteContents();
-    range2.insertNode(renderToken(surface, token, settings, options));
+    range2.insertNode(word);
     return;
   }
   const shell = renderTokenShell(token, options);
   shell.append(range2.extractContents());
+  notePaintedInsertion(shell);
   range2.insertNode(shell);
 }
 function tokenWithReadableSentence(token, text2, fallback) {
@@ -49090,7 +49345,7 @@ function isVisible(element2) {
   return isVisibleStyle(style);
 }
 function isVisibleRect(rect) {
-  return rect.width > 0 && rect.height > 0 && rect.bottom >= 0 && rect.top <= window.innerHeight && rect.right >= 0 && rect.left <= window.innerWidth;
+  return rect.width > 0 && rect.height > 0 && rectMeetsViewport(rect);
 }
 function isVisibleStyle(style) {
   return style.visibility !== "hidden" && style.display !== "none" && Number(style.opacity || "1") > 0;
@@ -49161,10 +49416,6 @@ function isInsideControlLikeLink(element2, text2) {
   if (isLikelyProseLink(link, element2)) return false;
   const iconOnlyMediaLink = linkHasControlMedia(link) && compactLength(text2) <= 2;
   return [isExplicitControlLink(link), iconOnlyMediaLink, linkHasControlShape(link, text2)].some(Boolean);
-}
-const CLAMP_GROWTH_ATTRIBUTE = "data-yomu-clamp-growth";
-function clampRowGrowthFailed(clipRow) {
-  return clipRow.getAttribute(CLAMP_GROWTH_ATTRIBUTE) === "failed";
 }
 const SVG_PATH_TOKEN = /[MmZzLlHhVvCcSsQqTtAa]|[-+]?(?:\d*\.)?\d+(?:e[-+]?\d+)?/gi;
 const CURVE_STEPS = 10;
@@ -49755,14 +50006,14 @@ function feedbackIsValid(value) {
   return isRecord$4(value) && onlyKeys(value, ["explanation", "repairPrompt"]) && localized$l(value.explanation) && (value.repairPrompt === void 0 || localized$l(value.repairPrompt));
 }
 function reconcileMissionReceipt(state, events) {
-  const receipt = state.receipt;
-  if (!receipt) return state;
-  const attempt2 = events.find((event) => event.eventId === receipt.eventId && event.kind === "attempt-recorded");
+  const receipt2 = state.receipt;
+  if (!receipt2) return state;
+  const attempt2 = events.find((event) => event.eventId === receipt2.eventId && event.kind === "attempt-recorded");
   const neutralized = new Set(events.filter((event) => event.kind === "review-schedule-neutralized").map((event) => event.scheduledEventId));
   const schedules = events.filter((event) => event.kind === "review-scheduled" && !neutralized.has(event.eventId));
-  const reviewsSaved = receipt.reviewKeys ? receipt.reviewKeys.every((key2) => schedules.some((event) => event.reviewItemId === key2.canonical || event.reviewItemId === key2.legacy)) : receipt.reviewEventIds.every((id2) => schedules.some((event) => event.eventId === id2));
-  if (attempt2?.activityId === state.activityId && attempt2.outcome === receipt.outcome && reviewsSaved) {
-    return { ...state, receipt: { ...receipt, committed: true }, repairing: receipt.outcome === "lapse" && state.repairing };
+  const reviewsSaved = receipt2.reviewKeys ? receipt2.reviewKeys.every((key2) => schedules.some((event) => event.reviewItemId === key2.canonical || event.reviewItemId === key2.legacy)) : receipt2.reviewEventIds.every((id2) => schedules.some((event) => event.eventId === id2));
+  if (attempt2?.activityId === state.activityId && attempt2.outcome === receipt2.outcome && reviewsSaved) {
+    return { ...state, receipt: { ...receipt2, committed: true }, repairing: receipt2.outcome === "lapse" && state.repairing };
   }
   return { ...state, receipt: void 0, repairing: false };
 }
@@ -126749,6 +127000,7 @@ const SCALE_EPSILON = 0.05;
 const MAX_PAGE_SCALE = 3;
 const SAFARI_PAGE_ZOOM_STEPS = [1.15, 1.25, 1.5, 1.75, 2, 2.5, 3];
 const ZOOM_STEP_TOLERANCE = 0.025;
+const MIN_PAGE_ZOOM_SIGNAL = SAFARI_PAGE_ZOOM_STEPS[0] * (1 - ZOOM_STEP_TOLERANCE);
 const MIN_AXIS_AGREEMENT = 0.97;
 const MAX_AXIS_AGREEMENT = 1.4;
 const APPLE_TOUCH_ADAPTER = "apple-touch-page-scale";
@@ -126758,7 +127010,7 @@ function overlayPageScale(environment) {
   if (!positiveFinite(environment.innerWidth)) return 1;
   if (positiveFinite(environment.outerWidth)) {
     const surfaceScale = environment.outerWidth / environment.innerWidth;
-    if (Number.isFinite(surfaceScale) && surfaceScale > 1 + SCALE_EPSILON) {
+    if (Number.isFinite(surfaceScale) && surfaceScale >= MIN_PAGE_ZOOM_SIGNAL) {
       return Math.min(surfaceScale, MAX_PAGE_SCALE);
     }
   }
@@ -229025,7 +229277,7 @@ function createRounds$1() {
   const meeting = "会議(かいぎ)に 間(ま)に合(あ)うように、タクシーで 会社へ 行きます。";
   const coldCare = "風邪(かぜ)を ひかないように、いろいろと 気(き)を つけています。";
   const mask = "風邪(かぜ)を ひかないように、必(かなら)ず マスクを します。";
-  const memo = "買(か)うものを わすれないように、メモします。";
+  const memo2 = "買(か)うものを わすれないように、メモします。";
   const rush = "ラッシュに 遭(あ)わないように、早(はや)く うちを 出(で)ます。";
   const newspaper = "日本語の 新聞が 読めるように、漢字を 勉強します。";
   const homeworkEndings = Object.freeze([
@@ -229040,8 +229292,8 @@ function createRounds$1() {
     round("japanese-goal", 2, "goal", "pattern-select", "日本語を話す目標の原文を選んでください。", "Select the printed Japanese-speaking goal.", japanese2, [japanese2, newspaper]),
     round("meeting-goal", 3, "goal", "typed-source", "会議の例を原文どおりに入力してください。", "Type the printed meeting example in source wording.", meeting, []),
     round("cold-care", 4, "avoidance", "source-choice", "風邪に気をつける原文を選んでください。", "Choose the printed line about taking care not to catch a cold.", coldCare, [coldCare, mask]),
-    round("mask-avoidance", 5, "avoidance", "pattern-select", "マスクの原文を選んでください。", "Select the printed mask example.", mask, [mask, memo]),
-    round("memo-avoidance", 6, "avoidance", "typed-source", "買うものの例を原文どおりに入力してください。", "Type the printed shopping memo example in source wording.", memo, []),
+    round("mask-avoidance", 5, "avoidance", "pattern-select", "マスクの原文を選んでください。", "Select the printed mask example.", mask, [mask, memo2]),
+    round("memo-avoidance", 6, "avoidance", "typed-source", "買うものの例を原文どおりに入力してください。", "Type the printed shopping memo example in source wording.", memo2, []),
     round("rush-avoidance", 7, "avoidance", "source-choice", "ラッシュを避ける原文を選んでください。", "Choose the printed line about avoiding rush hour.", rush, [rush, meeting]),
     round("newspaper-model", 8, "model", "typed-source", "Task 1 の新聞の見本を原文どおりに入力してください。", "Type Sensei’s newspaper model in source wording.", newspaper, []),
     homeworkRound("hear-clearly", 9, "はっきり 聞(き)こえるように", homeworkEndings[0], homeworkEndings),
@@ -258225,7 +258477,7 @@ function createLessonZeroMissionScreen(options) {
   const recorder2 = options.recorder ?? createPrivatePracticeRecorder();
   const revision2 = options.revision ?? "mission-v1";
   const saved = restoreLessonZeroMissionSession(options.definition.activity.id, revision2, options.initialState);
-  let receipt = saved?.receipt;
+  let receipt2 = saved?.receipt;
   let unassessedFeedback = saved?.unassessedFeedback;
   let closeAction = saved?.closeAction;
   let playback = null;
@@ -258234,11 +258486,11 @@ function createLessonZeroMissionScreen(options) {
   let recording = null;
   let spokeWithoutRecording = saved?.spokeWithoutRecording ?? false;
   let performed = spokeWithoutRecording;
-  let attempted = Boolean(receipt?.committed || unassessedFeedback);
-  let completed = receipt?.committed === true && receipt.outcome === "pass";
+  let attempted = Boolean(receipt2?.committed || unassessedFeedback);
+  let completed = receipt2?.committed === true && receipt2.outcome === "pass";
   let busy = false;
   let disposed = false;
-  let feedback2 = unassessedFeedback ?? (receipt?.committed && (saved?.repairing || completed) ? receipt.feedback : null);
+  let feedback2 = unassessedFeedback ?? (receipt2?.committed && (saved?.repairing || completed) ? receipt2.feedback : null);
   let writtenDraft = saved?.writtenDraft ?? "";
   let particleValues = saved ? [...saved.particles] : ["", ""];
   const selectedChecks = new Set(saved?.checks ?? []);
@@ -258286,8 +258538,8 @@ function createLessonZeroMissionScreen(options) {
       selectedCardName,
       editedKatakana,
       nameEntryMode,
-      repairing: Boolean(feedback2) && !completed || receipt?.committed === false && receipt.outcome === "lapse",
-      ...receipt ? { receipt: structuredClone(receipt) } : {},
+      repairing: Boolean(feedback2) && !completed || receipt2?.committed === false && receipt2.outcome === "lapse",
+      ...receipt2 ? { receipt: structuredClone(receipt2) } : {},
       ...closeAction ? { closeAction } : {},
       ...unassessedFeedback ? { unassessedFeedback: structuredClone(unassessedFeedback) } : {}
     };
@@ -258789,7 +259041,7 @@ function createLessonZeroMissionScreen(options) {
     try {
       const evaluated = evaluateLessonZeroMission(options.definition, response);
       if ("kind" in evaluated) {
-        receipt = void 0;
+        receipt2 = void 0;
         unassessedFeedback = feedback2 = evaluated.feedback;
         attempted = true;
         completed = false;
@@ -258803,7 +259055,7 @@ function createLessonZeroMissionScreen(options) {
       unassessedFeedback = void 0;
       const evaluation = { ...evaluated, attempt: { ...evaluated.attempt, eventId: `attempt:mission:${crypto.randomUUID()}` } };
       closeAction = response.kind === "room-action" ? response.actionId : void 0;
-      receipt = {
+      receipt2 = {
         eventId: evaluation.attempt.eventId,
         at: evaluation.attempt.at ?? Date.now(),
         outcome: evaluation.result.outcome === "pass" ? "pass" : "lapse",
@@ -258820,7 +259072,7 @@ function createLessonZeroMissionScreen(options) {
       };
       await persist();
       await options.onEvaluation(evaluation, response);
-      receipt = { ...receipt, committed: true };
+      receipt2 = { ...receipt2, committed: true };
       attempted = true;
       feedback2 = evaluation.result.feedback;
       completed = evaluation.result.outcome === "pass";
@@ -258831,7 +259083,7 @@ function createLessonZeroMissionScreen(options) {
       if (completed && response.kind === "room-action") await finish();
     } catch (error) {
       if (disposed) return;
-      if (receipt?.committed) {
+      if (receipt2?.committed) {
         render2();
         saveError();
         return;
@@ -263948,7 +264200,7 @@ const NEW_TAB_COPY = {
     gradeTargetJpdb: "Grades JPDB",
     gradeTargetJiten: "Grades Jiten",
     gradeTargetBunpro: "Grades Bunpro",
-    gradeTargetYomuLocal: `Grades ${ACADEMY_SRS_LABEL}`,
+    gradeTargetYomuLocal: `Grades ${YOMU_DECK_LABEL}`,
     gradeTargetAnki: "Grades Anki card: {target}",
     gradeTargetJpdbAndAnki: "Grades JPDB + Anki card: {target}",
     gradeTargetJitenAndAnki: "Grades Jiten + Anki card: {target}",
@@ -264247,7 +264499,7 @@ const JA_NEW_TAB_COPY = {
   gradeTargetJpdb: "JPDBを採点",
   gradeTargetJiten: "Jitenを採点",
   gradeTargetBunpro: "Bunproを採点",
-  gradeTargetYomuLocal: "Academyに記録",
+  gradeTargetYomuLocal: "よむデッキに記録",
   gradeTargetAnki: "Ankiカードを採点: {target}",
   gradeTargetJpdbAndAnki: "JPDB + Ankiカードを採点: {target}",
   gradeTargetJitenAndAnki: "Jiten + Ankiカードを採点: {target}",
@@ -264523,7 +264775,7 @@ function padClockPart(value) {
 const DEFAULT_ACADEMY_STUDY_DURATION_MS = DEFAULT_STUDY_DURATION_MS;
 class StudyRuntimeLoadFailure extends Error {
 }
-function createCanonicalAcademyStudyModule(loadRuntime = () => import("./runtime-YAJBcm83.js")) {
+function createCanonicalAcademyStudyModule(loadRuntime = () => import("./runtime-UYsb-kA1.js")) {
   return {
     async mount(host2, context2) {
       let runtime;
@@ -266772,11 +267024,11 @@ function cafeOrderScene(options) {
   if (!art || itemAssetId !== "item.cafe-order-scene") {
     throw new TypeError("Cafe order practice requires the registered inspectable order scene.");
   }
-  const receipt = element("figure", "academy-cafe-receipt academy-cafe-order-prop");
-  receipt.dataset.worldStamp = options.stamp.id;
-  receipt.dataset.rewardProp = options.stamp.prop;
-  receipt.dataset.itemAssetId = itemAssetId;
-  receipt.dataset.itemPresentation = "inspectable-source-prop";
+  const receipt2 = element("figure", "academy-cafe-receipt academy-cafe-order-prop");
+  receipt2.dataset.worldStamp = options.stamp.id;
+  receipt2.dataset.rewardProp = options.stamp.prop;
+  receipt2.dataset.itemAssetId = itemAssetId;
+  receipt2.dataset.itemPresentation = "inspectable-source-prop";
   const caption2 = element("figcaption", "academy-cafe-order-prop-caption");
   caption2.id = `academy-cafe-order-prop-${options.practice.id}`;
   const trigger = element("button", "academy-cafe-order-prop-trigger");
@@ -266801,7 +267053,7 @@ function cafeOrderScene(options) {
     return artImage;
   };
   const setUnlocked = () => {
-    receipt.dataset.itemState = "claimed";
+    receipt2.dataset.itemState = "claimed";
     trigger.disabled = false;
     trigger.setAttribute("aria-label", options.language === "ja" ? "カフェの注文風景を拡大表示" : "Inspect cafe order scene");
     if (!trigger.querySelector("img")) trigger.replaceChildren(image(true));
@@ -266809,7 +267061,7 @@ function cafeOrderScene(options) {
   };
   if (options.stamp.claimed) setUnlocked();
   else {
-    receipt.dataset.itemState = "pending";
+    receipt2.dataset.itemState = "pending";
     trigger.disabled = true;
     trigger.setAttribute("aria-label", options.language === "ja" ? "注文を終えると注文風景を見られます" : "Complete the order to inspect the scene");
     trigger.textContent = "RECEIPT";
@@ -266837,8 +267089,8 @@ function cafeOrderScene(options) {
     event.preventDefault();
     closeInspector();
   });
-  receipt.append(trigger, caption2, dialog);
-  return { element: receipt, unlock: setUnlocked };
+  receipt2.append(trigger, caption2, dialog);
+  return { element: receipt2, unlock: setUnlocked };
 }
 function renderJapanCentreGiftCounter(options) {
   const plan = options.practice.manipulation;
@@ -266986,7 +267238,7 @@ function renderKonbiniRegister(options) {
   root.dataset.konbiniTransaction = options.practice.id;
   root.dataset.konbiniPhase = "listen";
   root.setAttribute("aria-label", options.language === "ja" ? "レジで値段を数える" : "Count the price at the register");
-  const receipt = element("div", "academy-konbini-receipt");
+  const receipt2 = element("div", "academy-konbini-receipt");
   const registerLabel = element("p", "academy-konbini-register-label");
   registerLabel.textContent = options.practice.sceneLabel?.[options.language] ?? (options.language === "ja" ? "レジ" : "Register");
   const item2 = element("p", "academy-konbini-item");
@@ -267087,8 +267339,8 @@ function renderKonbiniRegister(options) {
   primary.textContent = options.language === "ja" ? "値段を聞く" : "Listen for price";
   setCounterEnabled(false);
   updateCount();
-  receipt.append(registerLabel, item2, prompt2, transcript, counter, primary, request2, status2);
-  root.append(receipt);
+  receipt2.append(registerLabel, item2, prompt2, transcript, counter, primary, request2, status2);
+  root.append(receipt2);
   return root;
 }
 function counterButton(symbol, label) {
@@ -270706,7 +270958,7 @@ export {
   cheapCandidatePreloadAudioSources as Z,
   orderAudioCandidates as _,
   normalizeCardStates as a,
-  applyOverlayPageScale as a$,
+  uiList as a$,
   audioCandidateSelectionMode as a0,
   registerAudioAttempt as a1,
   getJpdbAudioBagKey as a2,
@@ -270717,366 +270969,370 @@ export {
   isApiTextToSpeechSource as a7,
   canonicalLanguageTag as a8,
   languageSubtag as a9,
-  chosenWordGradingService as aA,
-  hasBunproFrontendCredential as aB,
-  isBunproFrontendCredentialExpired as aC,
-  hasWanikaniApiCredential as aD,
-  ACADEMY_SRS_LABEL as aE,
-  isLocalYomuSrsStorageError as aF,
-  isLocalYomuSrsSaveInterrupted as aG,
-  activeLearningTargetLanguage as aH,
-  effectiveWanikaniApiToken as aI,
-  effectiveBunproFrontendApiToken as aJ,
-  effectiveBunproLegacyApiKey as aK,
-  effectiveJpdbApiKey as aL,
-  effectiveJitenApiKey as aM,
-  yomuKanjiStudyCompanion as aN,
-  gmStorageGetSync as aO,
-  gmStorageSetSync as aP,
-  isNonNullObject as aQ,
-  isRecord$6 as aR,
-  ConcurrencyGate as aS,
-  pitchPatternFromPosition as aT,
-  isUnifiedIdeograph as aU,
-  activeLearningTarget as aV,
-  readerWordSurfaceText as aW,
-  readAnkiAudioMergeCapability as aX,
-  formatUiText as aY,
-  uiList as aZ,
-  readReviewTargetCapability as a_,
+  hasJpdbApiCredential as aA,
+  hasJitenApiCredential as aB,
+  chosenWordGradingService as aC,
+  hasBunproFrontendCredential as aD,
+  isBunproFrontendCredentialExpired as aE,
+  hasWanikaniApiCredential as aF,
+  YOMU_DECK_LABEL as aG,
+  isLocalYomuSrsStorageError as aH,
+  isLocalYomuSrsSaveInterrupted as aI,
+  activeLearningTargetLanguage as aJ,
+  effectiveWanikaniApiToken as aK,
+  effectiveBunproFrontendApiToken as aL,
+  effectiveBunproLegacyApiKey as aM,
+  effectiveJpdbApiKey as aN,
+  effectiveJitenApiKey as aO,
+  yomuKanjiStudyCompanion as aP,
+  gmStorageGetSync as aQ,
+  gmStorageSetSync as aR,
+  isNonNullObject as aS,
+  isRecord$6 as aT,
+  ConcurrencyGate as aU,
+  pitchPatternFromPosition as aV,
+  isUnifiedIdeograph as aW,
+  activeLearningTarget as aX,
+  readerWordSurfaceText as aY,
+  readAnkiAudioMergeCapability as aZ,
+  formatUiText as a_,
   hasJitenAudioReference as aa,
   yomuAnkiCompanion as ab,
-  flattenNoteFields as ac,
-  stablePositiveHashId as ad,
-  normalizeAnkiFieldName as ae,
-  HAS_JAPANESE$1 as af,
-  codePointSafePrefix as ag,
-  ANKI_EXPRESSION_FIELD_NAMES as ah,
-  ANKI_READING_FIELD_NAMES as ai,
-  ANKI_MEANING_FIELD_NAMES as aj,
-  ANKI_SENTENCE_FIELD_NAMES as ak,
-  sharedHexToRgb as al,
-  sanitizeAccentColor as am,
-  sharedContrastRatio as an,
-  CORE_COLOR_TOKENS as ao,
-  sharedMixHex as ap,
-  RENDERED_WORD_CONTRAST_VARS as aq,
-  RENDERED_WORD_CONTRAST_VARS_WITHOUT_SHADOW as ar,
-  PAGE_WORD_COLOR_TOKENS as as,
-  renderedWordHasAnkiState as at,
-  PAGE_STATE_UNDERLINE_COLOR_TOKENS as au,
-  DEFAULT_WORD_COLOR_TOKENS as av,
-  canonicalStudyCardIdentity as aw,
-  applyLocalYomuSrsStateToRenderedWord as ax,
-  hasJpdbApiCredential as ay,
-  hasJitenApiCredential as az,
+  KNOWN_INTERVAL_DAYS as ac,
+  flattenNoteFields as ad,
+  stablePositiveHashId as ae,
+  normalizeAnkiFieldName as af,
+  HAS_JAPANESE$1 as ag,
+  codePointSafePrefix as ah,
+  ANKI_EXPRESSION_FIELD_NAMES as ai,
+  ANKI_READING_FIELD_NAMES as aj,
+  ANKI_MEANING_FIELD_NAMES as ak,
+  ANKI_SENTENCE_FIELD_NAMES as al,
+  sharedHexToRgb as am,
+  sanitizeAccentColor as an,
+  sharedContrastRatio as ao,
+  CORE_COLOR_TOKENS as ap,
+  sharedMixHex as aq,
+  selectedWordColorSourceToken as ar,
+  RENDERED_WORD_CONTRAST_VARS as as,
+  RENDERED_WORD_CONTRAST_VARS_WITHOUT_SHADOW as at,
+  PAGE_WORD_COLOR_TOKENS as au,
+  renderedWordHasAnkiState as av,
+  PAGE_STATE_UNDERLINE_COLOR_TOKENS as aw,
+  DEFAULT_WORD_COLOR_TOKENS as ax,
+  canonicalStudyCardIdentity as ay,
+  applyLocalYomuSrsStateToRenderedWord as az,
   KANJI_PATTERN as b,
-  isPopupLookupEnabled as b$,
-  watchSavesWaitingForAnotherTab as b0,
-  renderKanjiNavigationText as b1,
-  escapeHtml as b2,
-  shouldRenderRuby as b3,
-  renderRuby as b4,
-  renderHighlightedTextHtml as b5,
-  cardHighlightTargets as b6,
-  renderedWordPrivateValue as b7,
-  compactCardHighlightValue as b8,
-  cleanCardHighlightValue as b9,
-  normalizeImportedLookupMeta as bA,
-  normalizeGenericLookupText as bB,
-  splitTags as bC,
-  JAPANESE_RE as bD,
-  codePointBoundaryAtOrAfter as bE,
-  yomitanZipDictionaryName as bF,
-  yomitanZipVersion as bG,
-  countYomitanZipBanks as bH,
-  normalizeImportedLookupTerm as bI,
-  yomitanDictionaryReplacementKey as bJ,
-  imageMimeType as bK,
-  bytesToBase64 as bL,
-  renderedWordNumericIdentity as bM,
-  speakerIcon as bN,
-  renderedWordPrivateAttributesForState as bO,
-  cardStateLabel as bP,
-  uniqueNonEmptyStrings$1 as bQ,
-  pitchNumberForReading as bR,
-  KANA as bS,
-  COMBINING_KANA_MARKS as bT,
-  collectPitchVariants as bU,
-  splitMorae as bV,
-  pitchLevelsForDisplay as bW,
-  pitchClassNameForPattern as bX,
-  setRenderedWordPitchClass as bY,
-  furiganaSettingsForTarget as bZ,
-  shouldHideFuriganaForCardState as b_,
-  IMMERSION_KIT_SOURCE_ID as ba,
-  JITEN_DEFINITION_SOURCE_ID as bb,
-  JPDB_DEFINITION_SOURCE_ID as bc,
-  BUNPRO_DEFINITION_SOURCE_ID as bd,
-  WANIKANI_DEFINITION_SOURCE_ID as be,
-  STUDY_TRANSLATION_SOURCE_ID as bf,
-  ANKI_SOURCE_ID as bg,
-  STUDY_GRAMMAR_SOURCE_ID as bh,
-  normalizeDictionaryPreferences as bi,
-  genericLookupTextVariants as bj,
-  yomitanDictionaryIdentity as bk,
-  gmStorageGet as bl,
-  gmStorageSet as bm,
-  gmStorageDelete as bn,
-  assertManagedStateMutationAllowed as bo,
-  managedStateEpochToken as bp,
-  managedStateEpochTokenRelation as bq,
-  assertManagedStateReadAllowed as br,
-  normalizeZipKanjiMetaRow as bs,
-  normalizeZipTermMetaRow as bt,
-  normalizeZipKanjiRow as bu,
-  normalizeZipTermRow as bv,
-  isYomuNewTabUrl as bw,
-  privateCommandAttributes as bx,
-  isJapaneseKanjiCharacter as by,
-  lookupSpansStartingInRange as bz,
+  setRenderedWordPitchClass as b$,
+  readReviewTargetCapability as b0,
+  applyOverlayPageScale as b1,
+  watchSavesWaitingForAnotherTab as b2,
+  renderKanjiNavigationText as b3,
+  escapeHtml as b4,
+  shouldRenderRuby as b5,
+  renderRuby as b6,
+  renderHighlightedTextHtml as b7,
+  cardHighlightTargets as b8,
+  renderedWordPrivateValue as b9,
+  isJapaneseKanjiCharacter as bA,
+  lookupSpansStartingInRange as bB,
+  normalizeImportedLookupMeta as bC,
+  normalizeGenericLookupText as bD,
+  splitTags as bE,
+  JAPANESE_RE as bF,
+  codePointBoundaryAtOrAfter as bG,
+  yomitanZipDictionaryName as bH,
+  yomitanZipVersion as bI,
+  countYomitanZipBanks as bJ,
+  normalizeImportedLookupTerm as bK,
+  yomitanDictionaryReplacementKey as bL,
+  imageMimeType as bM,
+  bytesToBase64 as bN,
+  renderedWordNumericIdentity as bO,
+  speakerIcon as bP,
+  renderedWordPrivateAttributesForState as bQ,
+  yomuRubyHtml as bR,
+  cardStateLabel as bS,
+  uniqueNonEmptyStrings$1 as bT,
+  pitchNumberForReading as bU,
+  KANA as bV,
+  COMBINING_KANA_MARKS as bW,
+  collectPitchVariants as bX,
+  splitMorae as bY,
+  pitchLevelsForDisplay as bZ,
+  pitchClassNameForPattern as b_,
+  compactCardHighlightValue as ba,
+  cleanCardHighlightValue as bb,
+  IMMERSION_KIT_SOURCE_ID as bc,
+  JITEN_DEFINITION_SOURCE_ID as bd,
+  JPDB_DEFINITION_SOURCE_ID as be,
+  BUNPRO_DEFINITION_SOURCE_ID as bf,
+  WANIKANI_DEFINITION_SOURCE_ID as bg,
+  STUDY_TRANSLATION_SOURCE_ID as bh,
+  ANKI_SOURCE_ID as bi,
+  STUDY_GRAMMAR_SOURCE_ID as bj,
+  normalizeDictionaryPreferences as bk,
+  genericLookupTextVariants as bl,
+  yomitanDictionaryIdentity as bm,
+  gmStorageGet as bn,
+  gmStorageSet as bo,
+  gmStorageDelete as bp,
+  assertManagedStateMutationAllowed as bq,
+  managedStateEpochToken as br,
+  managedStateEpochTokenRelation as bs,
+  assertManagedStateReadAllowed as bt,
+  normalizeZipKanjiMetaRow as bu,
+  normalizeZipTermMetaRow as bv,
+  normalizeZipKanjiRow as bw,
+  normalizeZipTermRow as bx,
+  isYomuNewTabUrl as by,
+  privateCommandAttributes as bz,
   attempt as c,
-  parseHtmlDocument as c$,
-  yomuNormalizeOcrRenderedText as c0,
-  inferredInflectedSurfaceRubies as c1,
-  renderedWordSentenceSpan as c2,
-  replaceRenderedWordFurigana as c3,
-  htmlToFirstElement as c4,
-  clearRenderedWordAnkiState as c5,
-  primaryCardState as c6,
-  clearRenderedWordFurigana as c7,
-  updateRenderedWordPrivateState as c8,
-  syncWordReviewLane as c9,
-  publishFactoryResetSignal as cA,
-  delay as cB,
-  clearManagedStoredValues as cC,
-  deleteSettingsStorage as cD,
-  commitManagedStateResetEpoch as cE,
-  clearFactoryResetSignal as cF,
-  managedStateResetEpochMayHaveCommitted as cG,
-  endSettingsResetGuard as cH,
-  managedStoredKeysLeftAfterReset as cI,
-  ManagedStateResetError as cJ,
-  stableHash32 as cK,
-  uniqueTrimmedStrings as cL,
-  stableHashBase36 as cM,
-  isTargetLanguageText as cN,
-  KANJI_LIKE_WITH_COUNTERS as cO,
-  HIRAGANA_WITH_PROLONGED as cP,
-  KATAKANA_WITH_PROLONGED as cQ,
-  KANJI_LIKE_RE as cR,
-  overlayViewportBottomInset as cS,
-  renderImmersionSearchLinksHtml as cT,
-  renderTokensToHtml as cU,
-  readPrivateReviewTarget as cV,
-  runLimited as cW,
-  isManagedStorageKey as cX,
-  managedLocalStorage as cY,
-  readJitenKanjiWordsCommandCapability as cZ,
-  bindPrivateCommandCapability as c_,
-  cardDeckMembershipClassNames as ca,
-  copyIcon as cb,
-  moreIcon as cc,
-  externalLinkIcon as cd,
-  ankiIcon as ce,
-  KANA_ONLY_RUN_RE as cf,
-  ITERATION_MARK as cg,
-  KANA_WITH_PROLONGED as ch,
-  mapLimited as ci,
-  bareFallbackCardFromText as cj,
-  nonOverlappingTokens as ck,
-  READING_KANA_ONLY_RE as cl,
-  HALFWIDTH_KATAKANA as cm,
-  PROLONGED_SOUND_MARK as cn,
-  KATAKANA_MIDDLE_DOT as co,
-  fallbackLookupTermsForCard as cp,
-  yomuBunproCompanion as cq,
-  shouldLookupAnkiStatus as cr,
-  setInnerHtml as cs,
-  resolveUiLanguage as ct,
-  gmStorageDeleteSync as cu,
-  appendToDocumentHead as cv,
-  subscribeToFactoryResetSignals as cw,
-  APP_NAME as cx,
-  createFactoryResetSignal as cy,
-  beginSettingsResetGuard as cz,
+  managedLocalStorage as c$,
+  furiganaSettingsForTarget as c0,
+  shouldHideFuriganaForCardState as c1,
+  isPopupLookupEnabled as c2,
+  yomuNormalizeOcrRenderedText as c3,
+  inferredInflectedSurfaceRubies as c4,
+  renderedWordSentenceSpan as c5,
+  replaceRenderedWordFurigana as c6,
+  htmlToFirstElement as c7,
+  clearRenderedWordAnkiState as c8,
+  primaryCardState as c9,
+  APP_NAME as cA,
+  createFactoryResetSignal as cB,
+  beginSettingsResetGuard as cC,
+  publishFactoryResetSignal as cD,
+  delay as cE,
+  clearManagedStoredValues as cF,
+  deleteSettingsStorage as cG,
+  commitManagedStateResetEpoch as cH,
+  clearFactoryResetSignal as cI,
+  managedStateResetEpochMayHaveCommitted as cJ,
+  endSettingsResetGuard as cK,
+  managedStoredKeysLeftAfterReset as cL,
+  ManagedStateResetError as cM,
+  stableHash32 as cN,
+  uniqueTrimmedStrings as cO,
+  stableHashBase36 as cP,
+  isTargetLanguageText as cQ,
+  KANJI_LIKE_WITH_COUNTERS as cR,
+  HIRAGANA_WITH_PROLONGED as cS,
+  KATAKANA_WITH_PROLONGED as cT,
+  KANJI_LIKE_RE as cU,
+  overlayViewportBottomInset as cV,
+  renderImmersionSearchLinksHtml as cW,
+  renderTokensToHtml as cX,
+  readPrivateReviewTarget as cY,
+  runLimited as cZ,
+  isManagedStorageKey as c_,
+  clearRenderedWordFurigana as ca,
+  updateRenderedWordPrivateState as cb,
+  syncWordReviewLane as cc,
+  cardDeckMembershipClassNames as cd,
+  copyIcon as ce,
+  moreIcon as cf,
+  externalLinkIcon as cg,
+  ankiIcon as ch,
+  KANA_ONLY_RUN_RE as ci,
+  ITERATION_MARK as cj,
+  KANA_WITH_PROLONGED as ck,
+  mapLimited as cl,
+  bareFallbackCardFromText as cm,
+  nonOverlappingTokens as cn,
+  READING_KANA_ONLY_RE as co,
+  HALFWIDTH_KATAKANA as cp,
+  PROLONGED_SOUND_MARK as cq,
+  KATAKANA_MIDDLE_DOT as cr,
+  fallbackLookupTermsForCard as cs,
+  yomuBunproCompanion as ct,
+  shouldLookupAnkiStatus as cu,
+  setInnerHtml as cv,
+  resolveUiLanguage as cw,
+  gmStorageDeleteSync as cx,
+  appendToDocumentHead as cy,
+  subscribeToFactoryResetSignals as cz,
   installedStorageResponderReady as d,
-  retireStaleDictionaryPreferences as d$,
-  unwrapReaderWords as d0,
-  collectFragmentTextTargetsIn as d1,
-  collectFormControlTextTargetsIn as d2,
-  isCurrentScanTarget as d3,
-  applyTokensToScanTarget as d4,
-  DEFAULT_OVERLAY_BACKGROUND_COLOR as d5,
-  newTabText as d6,
-  CARD_STATE_LABEL_KEYS as d7,
-  readKanjiCommandCapability as d8,
-  dispatchPrivateCommand as d9,
-  subscribeAcademyDeckChanges as dA,
-  readJpdbKanjiCommandCapability as dB,
-  isNewTabCopyKey as dC,
-  nextExplicitUiLanguage as dD,
-  GITHUB_REPOSITORY_URL as dE,
-  DISCORD_INVITE_URL as dF,
-  dispatchAuthorizedReaderControlClick as dG,
-  DOCS_BASE_URL as dH,
-  SUPPORT_STATUS_URL as dI,
-  renderedWordHasCardIdentity as dJ,
-  renderedWordTextIdentityMatches as dK,
-  validPitchPositions as dL,
-  mountStudySessionClockControl as dM,
-  combinedApiCredentialLabel as dN,
-  assessKanjiStrokes as dO,
-  renderedWordSourceVisualClass as dP,
-  replaceRenderedWordStateAndPitchClasses as dQ,
-  bindRenderedWordCardIdentity as dR,
-  preserveRenderedWordSentence as dS,
-  SHAPE_PASS_SCORE as dT,
-  readBackupSettingsPersistenceView as dU,
-  beginStoredValuesImport as dV,
-  settingsIntentKeys as dW,
-  adoptCurrentDefaults as dX,
-  normalizeReaderSettings as dY,
-  DEFAULT_SETTINGS as dZ,
-  mergeDictionaryPreferences as d_,
-  claimLocalTapActivation as da,
-  installControlTapActivation as db,
-  enabledReaderControl as dc,
-  effectiveFuriganaMode as dd,
-  KANJI_DOODLE_CLEAR_EVENT as de,
-  installKanjiDoodle as df,
-  rankKanjiStrokeCandidates as dg,
-  promiseWithTimeout as dh,
-  convertRomajiToKana as di,
-  normalizeJapaneseStudyAnswer as dj,
-  isolate as dk,
-  contextPitchPattern as dl,
-  managedStateWritesSuppressed as dm,
-  createStorageCoordinationId as dn,
-  managedSessionStorage as dp,
-  bindAuthorizedReaderFormSubmit as dq,
-  isDirectTrustedReaderInteraction as dr,
-  normalizedJapaneseCardReading as ds,
-  parseManagedStateEpoch as dt,
-  sameManagedStateEpoch as du,
-  gmStorageGetStrict as dv,
-  withGmStorageLease as dw,
-  isStorageLeaseLapsed as dx,
-  renderImmersionSearchLinks as dy,
-  createStudySessionClock as dz,
+  normalizeReaderSettings as d$,
+  readJitenKanjiWordsCommandCapability as d0,
+  bindPrivateCommandCapability as d1,
+  parseHtmlDocument as d2,
+  unwrapReaderWords as d3,
+  collectFragmentTextTargetsIn as d4,
+  collectFormControlTextTargetsIn as d5,
+  isCurrentScanTarget as d6,
+  applyTokensToScanTarget as d7,
+  DEFAULT_OVERLAY_BACKGROUND_COLOR as d8,
+  newTabText as d9,
+  isStorageLeaseLapsed as dA,
+  renderImmersionSearchLinks as dB,
+  createStudySessionClock as dC,
+  subscribeAcademyDeckChanges as dD,
+  readJpdbKanjiCommandCapability as dE,
+  isNewTabCopyKey as dF,
+  nextExplicitUiLanguage as dG,
+  GITHUB_REPOSITORY_URL as dH,
+  DISCORD_INVITE_URL as dI,
+  dispatchAuthorizedReaderControlClick as dJ,
+  DOCS_BASE_URL as dK,
+  SUPPORT_STATUS_URL as dL,
+  renderedWordHasCardIdentity as dM,
+  renderedWordTextIdentityMatches as dN,
+  validPitchPositions as dO,
+  mountStudySessionClockControl as dP,
+  combinedApiCredentialLabel as dQ,
+  assessKanjiStrokes as dR,
+  renderedWordSourceVisualClass as dS,
+  replaceRenderedWordStateAndPitchClasses as dT,
+  bindRenderedWordCardIdentity as dU,
+  preserveRenderedWordSentence as dV,
+  SHAPE_PASS_SCORE as dW,
+  readBackupSettingsPersistenceView as dX,
+  beginStoredValuesImport as dY,
+  settingsIntentKeys as dZ,
+  adoptCurrentDefaults as d_,
+  CARD_STATE_LABEL_KEYS as da,
+  readKanjiCommandCapability as db,
+  dispatchPrivateCommand as dc,
+  claimLocalTapActivation as dd,
+  installControlTapActivation as de,
+  enabledReaderControl as df,
+  effectiveFuriganaMode as dg,
+  KANJI_DOODLE_CLEAR_EVENT as dh,
+  installKanjiDoodle as di,
+  rankKanjiStrokeCandidates as dj,
+  promiseWithTimeout as dk,
+  convertRomajiToKana as dl,
+  normalizeJapaneseStudyAnswer as dm,
+  isolate as dn,
+  contextPitchPattern as dp,
+  managedStateWritesSuppressed as dq,
+  createStorageCoordinationId as dr,
+  managedSessionStorage as ds,
+  bindAuthorizedReaderFormSubmit as dt,
+  isDirectTrustedReaderInteraction as du,
+  normalizedJapaneseCardReading as dv,
+  parseManagedStateEpoch as dw,
+  sameManagedStateEpoch as dx,
+  gmStorageGetStrict as dy,
+  withGmStorageLease as dz,
   expectedBridgeKind as e,
-  storedCredentialClearName as e$,
-  captureActiveLanguageProfileDictionaries as e0,
-  saveSettings as e1,
-  packagedExtensionStorageAdapterMissing as e2,
-  readSettingsPersistenceViewStrict as e3,
-  FURIGANA_HIDE_STATE_GROUPS as e4,
-  WORD_COLOR_HIDE_STATE_GROUPS as e5,
-  setReviewLanePainted as e6,
-  accentToRgba as e7,
-  effectiveReaderTextColorSource as e8,
-  effectiveReaderColorSource as e9,
-  MAX_LOOKUP_LINK_ROWS as eA,
-  normalizeAnkiFieldMappings as eB,
-  COPY_LOOKUP_LINK as eC,
-  exportManagedStoredValues as eD,
-  RETIRED_SETTINGS_STORAGE_KEYS as eE,
-  SETTINGS_STORAGE_KEY as eF,
-  SETTINGS_INTENT_LEDGER_STORAGE_KEY as eG,
-  applySettingsIntent as eH,
-  serializeSettingsPersistencePair as eI,
-  defaultDictionaryLookupLinks as eJ,
-  MAX_EXTRA_LOOKUP_LINKS as eK,
-  AUDIO_SOURCE_UI_TYPE_VALUES as eL,
-  audioSourceLabel as eM,
-  DEFAULT_POPUP_FONT_FAMILY as eN,
-  DEFAULT_READER_FONT_FAMILY as eO,
-  isPromiseLike as eP,
-  dispatchAuthorizedReaderControlEvent as eQ,
-  ANKI_CONNECT_ADDON_URL as eR,
-  redactedApiCredentialsFromForm as eS,
-  languageDisplayName as eT,
-  learnerLanguageById as eU,
-  readTrustedYomuUrl as eV,
-  isLearnerLanguageId as eW,
-  isLearningTargetRosterId as eX,
-  furiganaModeNeedsDifficultyExplanation as eY,
-  DEFAULT_OVERLAY_TEXT_COLOR as eZ,
-  DEFAULT_OVERLAY_OUTLINE_COLOR as e_,
-  effectiveSubtitleTextColorSource as ea,
-  effectiveSubtitleColorSource as eb,
-  accessibleOcrBackgroundOpacity as ec,
-  accessibleOcrBackgroundColor as ed,
-  colorSourceClassName as ee,
-  readableAccentSeed as ef,
-  READER_THEME_COLOR_TOKENS as eg,
-  DEFAULT_COLOR_CHANNELS as eh,
-  ENGLISH_INTERFACE_LOCALE as ei,
-  interfaceLocaleByTag as ej,
-  INTERFACE_LOCALES as ek,
-  EXTENSION_STORE_URLS as el,
-  USERSCRIPT_INSTALL_URL as em,
-  userscriptGmInfo as en,
-  userscriptGmApi as eo,
-  runningAsBrowserExtension as ep,
-  announcedInstalledReaderRuntime as eq,
-  furiganaStyle as er,
-  readApiCredentialsFromFormData as es,
-  DEFAULT_AUDIO_SOURCES as et,
-  normalizeDictionaryLookupLinks as eu,
-  credentialValueFromReader as ev,
-  normalizeOcrProvider as ew,
-  activeLanguageProfile as ex,
-  languageProfileDictionariesFromPreferences as ey,
-  normalizeAudioSource as ez,
+  isLearnerLanguageId as e$,
+  DEFAULT_SETTINGS as e0,
+  mergeDictionaryPreferences as e1,
+  retireStaleDictionaryPreferences as e2,
+  captureActiveLanguageProfileDictionaries as e3,
+  saveSettings as e4,
+  packagedExtensionStorageAdapterMissing as e5,
+  readSettingsPersistenceViewStrict as e6,
+  FURIGANA_HIDE_STATE_GROUPS as e7,
+  WORD_COLOR_HIDE_STATE_GROUPS as e8,
+  setReviewLanePainted as e9,
+  languageProfileDictionariesFromPreferences as eA,
+  normalizeAudioSource as eB,
+  MAX_LOOKUP_LINK_ROWS as eC,
+  normalizeAnkiFieldMappings as eD,
+  furiganaStyle as eE,
+  COPY_LOOKUP_LINK as eF,
+  exportManagedStoredValues as eG,
+  RETIRED_SETTINGS_STORAGE_KEYS as eH,
+  SETTINGS_STORAGE_KEY as eI,
+  SETTINGS_INTENT_LEDGER_STORAGE_KEY as eJ,
+  applySettingsIntent as eK,
+  serializeSettingsPersistencePair as eL,
+  storedCredentialClearName as eM,
+  PROTECTED_CREDENTIAL_INPUT_ATTRIBUTES as eN,
+  defaultDictionaryLookupLinks as eO,
+  MAX_EXTRA_LOOKUP_LINKS as eP,
+  AUDIO_SOURCE_UI_TYPE_VALUES as eQ,
+  audioSourceLabel as eR,
+  DEFAULT_POPUP_FONT_FAMILY as eS,
+  DEFAULT_READER_FONT_FAMILY as eT,
+  isPromiseLike as eU,
+  dispatchAuthorizedReaderControlEvent as eV,
+  ANKI_CONNECT_ADDON_URL as eW,
+  redactedApiCredentialsFromForm as eX,
+  languageDisplayName as eY,
+  learnerLanguageById as eZ,
+  readTrustedYomuUrl as e_,
+  accentToRgba as ea,
+  effectiveReaderTextColorSource as eb,
+  effectiveReaderColorSource as ec,
+  effectiveSubtitleTextColorSource as ed,
+  effectiveSubtitleColorSource as ee,
+  accessibleOcrBackgroundOpacity as ef,
+  accessibleOcrBackgroundColor as eg,
+  colorSourceClassName as eh,
+  readableAccentSeed as ei,
+  READER_THEME_COLOR_TOKENS as ej,
+  DEFAULT_COLOR_CHANNELS as ek,
+  ENGLISH_INTERFACE_LOCALE as el,
+  interfaceLocaleByTag as em,
+  INTERFACE_LOCALES as en,
+  EXTENSION_STORE_URLS as eo,
+  USERSCRIPT_INSTALL_URL as ep,
+  userscriptGmInfo as eq,
+  userscriptGmApi as er,
+  runningAsBrowserExtension as es,
+  announcedInstalledReaderRuntime as et,
+  readApiCredentialsFromFormData as eu,
+  DEFAULT_AUDIO_SOURCES as ev,
+  normalizeDictionaryLookupLinks as ew,
+  credentialValueFromReader as ex,
+  normalizeOcrProvider as ey,
+  activeLanguageProfile as ez,
   addWindowEventListener as f,
-  hasStatusColorSource as f0,
-  AUDIO_GUIDE_URL as f1,
-  NADESHIKO_DEVELOPER_URL as f2,
-  VIDEO_PLAYER_PAGE_URL as f3,
-  PDF_READER_PAGE_URL as f4,
-  NEW_TAB_PAGE_URL as f5,
-  DONATE_URL as f6,
-  SUPPORT_COPY as f7,
-  SUPPORT_COPY_EXTRA as f8,
-  PROTECTED_CREDENTIAL_INPUT_ATTRIBUTES as f9,
-  termRulesMatch as fA,
-  createYomuLocalSrsAdapter as fB,
-  clearManagedBrowserCaches as fC,
-  unregisterManagedServiceWorkers as fD,
-  setRenderedWordCardIdentity as fE,
-  renderedWordCardKey as fF,
-  renderedWordsInRoot as fG,
-  renderedWordElementKey as fH,
-  applyInterfaceLocaleToRoot as fI,
-  applyInterfaceLocaleToDocument as fJ,
-  ensureManagedWebStorageCurrent as fK,
-  gmPrivateStorageDelete as fa,
-  subscribeToSettingsChanges as fb,
-  subscribeLocalYomuSrsMutations as fc,
-  LocalYomuSrsRepository as fd,
-  unwrapProfileKey as fe,
-  parseAcademyPairingTicket as ff,
-  wrapProfileKey as fg,
-  LOCAL_YOMU_SRS_INDEX_KEY as fh,
-  decryptProfileEvent as fi,
-  encryptProfileEvent as fj,
-  mergeStoredYomuSrsDecks as fk,
-  settingsPanelHash as fl,
-  isPrivilegedYomuLocalDevelopmentOrigin as fm,
-  settingsPanelFromHash as fn,
-  SETTINGS_TITLE as fo,
-  NEW_TAB_VERSION_URL as fp,
-  NO_EXPLICIT_USER_CHOICE as fq,
-  normalizeAudioSubSources as fr,
-  publishSettingsChange as fs,
-  mergeApiCredentialValues as ft,
-  configureLogger as fu,
-  localeDirection as fv,
-  subscribeToSettingsStorageChanges as fw,
-  isHostedYomuOrigin as fx,
-  loadSettings as fy,
-  deinflectJapaneseTerm as fz,
+  isLearningTargetRosterId as f0,
+  BRAND_COLOR_TOKENS as f1,
+  DEFAULT_OVERLAY_TEXT_COLOR as f2,
+  DEFAULT_OVERLAY_OUTLINE_COLOR as f3,
+  hasStatusColorSource as f4,
+  AUDIO_GUIDE_URL as f5,
+  VIDEO_PLAYER_PAGE_URL as f6,
+  PDF_READER_PAGE_URL as f7,
+  NEW_TAB_PAGE_URL as f8,
+  DONATE_URL as f9,
+  subscribeToSettingsStorageChanges as fA,
+  isHostedYomuOrigin as fB,
+  loadSettings as fC,
+  deinflectJapaneseTerm as fD,
+  termRulesMatch as fE,
+  createYomuLocalSrsAdapter as fF,
+  clearManagedBrowserCaches as fG,
+  unregisterManagedServiceWorkers as fH,
+  setRenderedWordCardIdentity as fI,
+  renderedWordCardKey as fJ,
+  renderedWordsInRoot as fK,
+  renderedWordElementKey as fL,
+  applyInterfaceLocaleToRoot as fM,
+  applyInterfaceLocaleToDocument as fN,
+  ensureManagedWebStorageCurrent as fO,
+  SUPPORT_COPY as fa,
+  SUPPORT_COPY_EXTRA as fb,
+  YOMU_RUBY_CLASS as fc,
+  NADESHIKO_DEVELOPER_URL as fd,
+  gmPrivateStorageDelete as fe,
+  subscribeToSettingsChanges as ff,
+  subscribeLocalYomuSrsMutations as fg,
+  LocalYomuSrsRepository as fh,
+  unwrapProfileKey as fi,
+  parseAcademyPairingTicket as fj,
+  wrapProfileKey as fk,
+  LOCAL_YOMU_SRS_INDEX_KEY as fl,
+  decryptProfileEvent as fm,
+  encryptProfileEvent as fn,
+  mergeStoredYomuSrsDecks as fo,
+  settingsPanelHash as fp,
+  isPrivilegedYomuLocalDevelopmentOrigin as fq,
+  settingsPanelFromHash as fr,
+  SETTINGS_TITLE as fs,
+  NEW_TAB_VERSION_URL as ft,
+  NO_EXPLICIT_USER_CHOICE as fu,
+  normalizeAudioSubSources as fv,
+  publishSettingsChange as fw,
+  mergeApiCredentialValues as fx,
+  configureLogger as fy,
+  localeDirection as fz,
   getPitchClass as g,
   bridgeEventDetail as h,
   isAppleTouchBrowser as i,

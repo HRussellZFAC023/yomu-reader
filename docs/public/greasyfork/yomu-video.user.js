@@ -2,7 +2,7 @@
 "use strict";
 const FURIGANA_HIDE_STATE_GROUPS = ["known", "due", "failed", "learning", "new"];
 const APP_NAME = "よむ";
-const ACADEMY_SRS_LABEL = "Academy";
+const YOMU_DECK_LABEL = "よむ deck";
 const APP_SLUG = "yomu";
 const APP_REPOSITORY_NAME = `${APP_SLUG}-reader`;
 const GITHUB_OWNER = "HRussellZFAC023";
@@ -12,7 +12,7 @@ const DOCS_BASE_URL = `${DOCS_ORIGIN}/`;
 const YOMU_HOSTED_AUDIO_URL = "https://audio.yomureader.com/?term={term}&reading={reading}";
 const NEW_TAB_PAGE_URL = `${DOCS_BASE_URL}study/`;
 const SUPPORT_COPY = "よむ is free: popup lookup, dictionaries, OCR, subtitles, study and Anki in one place.";
-const SUPPORT_COPY_EXTRA = "Donations are optional and help cover development, devices, services, maintenance, and API costs.";
+const SUPPORT_COPY_EXTRA = "Donations are optional and help cover development, devices, services, and maintenance.";
 const USERSCRIPT_HTTP_BRIDGE_READY_EVENT = "yomu-userscript-http-bridge-ready";
 const USERSCRIPT_STORAGE_BRIDGE_READY_EVENT = "yomu-userscript-storage-bridge-ready";
 const OPEN_SUBTITLE_TRACKS_EVENT = "yomu-open-subtitle-tracks";
@@ -950,6 +950,7 @@ const MANAGED_STATE_MANIFEST = [
   { owner: "jpdb/jpdb-public-cache", kind: "local", key: "yomu:jpdb-cache:v1" },
   { owner: "dictionaries/jiten-public-cache (legacy)", kind: "gm", key: "yomu:jiten-public-cache:v1" },
   { owner: "dictionaries/jiten-public-cache", kind: "local", key: "yomu:jiten-public-cache:v2" },
+  { owner: "dictionaries/jiten-reading-memory", kind: "local", key: "yomu:jiten-readings:v1" },
   { owner: "dictionaries/jiten-stats-cache", kind: "gm", key: "jpdb-reader-jiten-daily-stats" },
   // Dictionary database (Yomitan/Jitendex terms). Cleared by the dictionary
   // store's own deleteDatabase during reset; registered so the invariant test
@@ -968,9 +969,12 @@ const MANAGED_STATE_MANIFEST = [
   { owner: "dictionaries/replication (legacy)", kind: "local", key: "yomu-dictionary-replication-state" },
   { owner: "dictionaries/replica-purge", kind: "gm", key: "yomu:dictionary-replica-purge:v1" },
   { owner: "dictionaries/replica-purge", kind: "local", key: "yomu:dictionary-replica-purged:v1" },
-  // OCR result cache.
-  { owner: "ocr/ocr-cache-store", kind: "local", key: "yomu-ocr-cache-v1" },
-  { owner: "ocr/ocr-cache-store", kind: "local", key: "yomu-ocr-cache-v2" },
+  // OCR answers with text, one private shard per site under a hash of its
+  // origin. 2.1.x kept them in the page's own storage (v1, v2); the first
+  // load moves them across and deletes the page keys.
+  { owner: "ocr/ocr-cache-store", kind: "gm", prefix: "yomu:private:ocr-cache:v3:" },
+  { owner: "ocr/ocr-cache-store (legacy)", kind: "local", key: "yomu-ocr-cache-v1" },
+  { owner: "ocr/ocr-cache-store (legacy)", kind: "local", key: "yomu-ocr-cache-v2" },
   { owner: "ocr/canvas-mirror", kind: "session", key: "yomu:bw:mirror-loadguard" },
   // The one-time reader-canvas tap hint appears once per site. Each site's record
   // is private and keyed by a hash of its origin, so no page can read it.
@@ -1556,7 +1560,8 @@ function isRecord(value) {
 function isNonNullObject(value) {
   return typeof value === "object" && value !== null;
 }
-const PROVENANCE_KEY = "yomu:local-storage-provenance:v1";
+const LOCAL_MIRROR_PROVENANCE_KEY = "yomu:local-storage-provenance:v1";
+const PROVENANCE_KEY = LOCAL_MIRROR_PROVENANCE_KEY;
 const JAPANESE_SITE_LANGUAGE_KEY = "yomu:prefer-japanese-site-language:v1";
 function captureLocalFallbackStoredState(key) {
   try {
@@ -7283,7 +7288,6 @@ const GRADING_SERVICE_COPY = {
   }
 };
 const EN = {
-  defaultDeck: "Default",
   collectNoDestination: "None of your decks can take this word. Turn one on in Settings.",
   collectWordNotFound: "Not saved: this word was not found in your preferred grading service.",
   // An ordinary page can read these, so they name no service, deck or Anki state (ADR-0020).
@@ -7299,15 +7303,14 @@ const EN = {
   bunproAddApiKeyRequired: "Add a Bunpro frontend API token, or use Add to Anki.",
   bunproNoMatchingWord: "Bunpro has no entry for this word.",
   addedToBunpro: "Added to Bunpro.",
-  yomuLocalSrsDisabled: `Enable ${ACADEMY_SRS_LABEL} in Settings first.`,
-  yomuLocalSrsStorageFailed: "Your Academy deck could not be saved. Browser storage may be full. Free some site storage, then try again.",
-  yomuLocalSrsSaveInterrupted: "Your Academy deck was not saved because saving was interrupted. Try again.",
-  addedToYomuLocal: "Added to your default deck.",
-  // An Academy word kept without a schedule (Library, Stats and the popups).
+  yomuLocalSrsDisabled: `Enable ${YOMU_DECK_LABEL} in Settings first.`,
+  yomuLocalSrsStorageFailed: `Your ${YOMU_DECK_LABEL} could not be saved. Browser storage may be full. Free some site storage, then try again.`,
+  yomuLocalSrsSaveInterrupted: `Your ${YOMU_DECK_LABEL} was not saved because saving was interrupted. Try again.`,
+  addedToYomuLocal: `Added to your ${YOMU_DECK_LABEL}.`,
+  // A よむ deck word kept without a schedule (Library, Stats and the popups).
   savedWord: "Saved"
 };
 const JA = {
-  defaultDeck: "デフォルト",
   collectNoDestination: "この単語を追加できるデッキがありません。設定でデッキを有効にしてください。",
   collectWordNotFound: "優先採点サービスでこの単語が見つからなかったため、保存していません。",
   collectAlreadySaved: "すでにデッキにあります。編集はStudyで行えます。",
@@ -7321,10 +7324,10 @@ const JA = {
   bunproAddApiKeyRequired: "Bunproのfrontend_api_tokenかAnki追加が必要です。",
   bunproNoMatchingWord: "この単語はBunproに見つかりませんでした。",
   addedToBunpro: "Bunproに追加しました。",
-  yomuLocalSrsDisabled: "先に設定でAcademyを有効にしてください。",
-  yomuLocalSrsStorageFailed: "Academyデッキを保存できませんでした。ブラウザーの保存容量が不足している可能性があります。サイトの保存容量を空けてから、もう一度お試しください。",
-  yomuLocalSrsSaveInterrupted: "保存が中断されたため、Academyデッキに保存されませんでした。もう一度お試しください。",
-  addedToYomuLocal: "デフォルトのデッキに追加しました。",
+  yomuLocalSrsDisabled: "先に設定でよむデッキを有効にしてください。",
+  yomuLocalSrsStorageFailed: "よむデッキを保存できませんでした。ブラウザーの保存容量が不足している可能性があります。サイトの保存容量を空けてから、もう一度お試しください。",
+  yomuLocalSrsSaveInterrupted: "保存が中断されたため、よむデッキに保存されませんでした。もう一度お試しください。",
+  addedToYomuLocal: "よむデッキに追加しました。",
   savedWord: "保存済み"
 };
 const COLLECTION_COPY = { en: EN, ja: JA };
@@ -7354,6 +7357,82 @@ const OCR_STATUS_COPY = {
   en: EN_OCR_STATUS_COPY,
   ja: JA_OCR_STATUS_COPY
 };
+const EN_APPEARANCE_QUICK_COPY = {
+  accentSwatchKurenai: "Kurenai (crimson)",
+  accentSwatchShu: "Shu (vermilion)",
+  accentSwatchAi: "Ai (indigo)",
+  accentSwatchMurasaki: "Murasaki (purple)",
+  accentSwatchYamabuki: "Yamabuki (amber)",
+  accentSwatchSumi: "Sumi (ink)",
+  accentSwatchCustom: "Custom color",
+  underlineQuick: "Underline",
+  underlineQuickStatus: "Status",
+  underlineQuickPitch: "Pitch"
+};
+const JA_APPEARANCE_QUICK_COPY = {
+  accentSwatchKurenai: "紅（くれない）",
+  accentSwatchShu: "朱（しゅ）",
+  accentSwatchAi: "藍（あい）",
+  accentSwatchMurasaki: "紫（むらさき）",
+  accentSwatchYamabuki: "山吹（やまぶき）",
+  accentSwatchSumi: "墨（すみ）",
+  accentSwatchCustom: "カスタムカラー",
+  underlineQuick: "下線",
+  underlineQuickStatus: "学習状態",
+  underlineQuickPitch: "ピッチ"
+};
+const APPEARANCE_QUICK_COPY = {
+  en: EN_APPEARANCE_QUICK_COPY,
+  ja: JA_APPEARANCE_QUICK_COPY
+};
+const EN_REVIEW_SERVICES_COPY = {
+  reviews: "Reviews",
+  yomuDeck: YOMU_DECK_LABEL,
+  gradeFromYomu: "Grade from よむ",
+  reviewServiceKey: "{service} key",
+  reviewServiceToken: "{service} token",
+  reviewServiceConnect: "Connect",
+  reviewServiceConnectTo: "Connect {service}",
+  reviewServiceOn: "On",
+  reviewServiceKeyAdded: "Key added",
+  reviewServiceTokenAdded: "Token added",
+  reviewServiceOff: "Not connected",
+  reviewServiceAvailable: "Ready to connect",
+  reviewServiceError: "Needs a new token",
+  reviewServiceBuiltIn: "Built in",
+  reviewServiceDisabled: "Off",
+  reviewServiceAddsGrades: "Grades",
+  reviewServiceAddsColors: "Word colors",
+  reviewServiceAddsDecks: "Decks",
+  reviewServiceAddsPitch: "Pitch accent",
+  bunproTokenHelp: "Import the frontend token from Bunpro settings and treat it like a password. It is saved before it is verified."
+};
+const JA_REVIEW_SERVICES_COPY = {
+  reviews: "復習",
+  yomuDeck: "よむデッキ",
+  gradeFromYomu: "よむから採点",
+  reviewServiceKey: "{service}のキー",
+  reviewServiceToken: "{service}のトークン",
+  reviewServiceConnect: "接続",
+  reviewServiceConnectTo: "{service}に接続",
+  reviewServiceOn: "オン",
+  reviewServiceKeyAdded: "キー登録済み",
+  reviewServiceTokenAdded: "トークン登録済み",
+  reviewServiceOff: "未接続",
+  reviewServiceAvailable: "接続できます",
+  reviewServiceError: "トークンの再取得が必要",
+  reviewServiceBuiltIn: "内蔵",
+  reviewServiceDisabled: "オフ",
+  reviewServiceAddsGrades: "採点",
+  reviewServiceAddsColors: "単語の色",
+  reviewServiceAddsDecks: "デッキ",
+  reviewServiceAddsPitch: "ピッチアクセント",
+  bunproTokenHelp: "Bunpro設定からフロントエンドトークンを取り込み、パスワードと同様に扱ってください。保存時点では未確認です。"
+};
+const REVIEW_SERVICES_COPY = {
+  en: EN_REVIEW_SERVICES_COPY,
+  ja: JA_REVIEW_SERVICES_COPY
+};
 const COPY = {
   en: {
   ...PRACTICE_SESSION_COPY.en,
@@ -7367,7 +7446,6 @@ const COPY = {
   libraryEmpty: "Save a word while you read and it shows up here.",
   moreLookupLinks: "More links",
   audioSourcesTitle: "Audio sources",
-  contextOccurrences: "In context ×{count}",
   puckAutoDetectSubtitles: "Auto-detect subtitles",
   loadTargetSubtitles: "Load Japanese subtitles",
   loadOutputSubtitles: "Load English subtitles",
@@ -7413,24 +7491,13 @@ const COPY = {
   youTube: "YouTube",
   anki: "Anki",
   jpdb: "JPDB",
-  api: "API",
   apiCredential: "API key",
-  apiCredentialJpdb: "JPDB API key",
-  apiCredentialJiten: "Jiten API key",
-  apiCredentialBunpro: "Bunpro frontend API token",
   apiCredentialBunproLegacy: "Bunpro API key",
-  apiCredentialWanikani: "WaniKani personal access token",
   apiKey: "API key",
   jitenApiKey: "Jiten API key",
-  apiAccess: "API access",
   storedCredentialPlaceholder: "Saved — enter a replacement",
   clearStoredCredential: "Remove saved credential",
-  apiAccessHelp: "Add each service credential here. Bunpro only needs the frontend token: import it from Bunpro settings, treat it like a password, and note that it is saved before it is verified. Academy reviews work locally without an account.",
-  wanikaniTokenHelp: "Create a read/write personal access token on WaniKani and paste it here. It is stored only in your browser, sent directly to api.wanikani.com (never through a proxy), and never logged.",
-  jpdbSettings: "JPDB settings",
-  jitenSettings: "Jiten settings",
-  bunproSettings: "Bunpro settings",
-  wanikaniSettings: "WaniKani settings",
+  wanikaniTokenHelp: "A read/write personal access token. It goes only to api.wanikani.com.",
   jpdbApiKeyConfigured: "JPDB key set.",
   jpdbAndJitenApiKeysConfigured: "Jiten and JPDB keys are set.",
   jpdbConnected: "Connected to JPDB.",
@@ -7440,11 +7507,8 @@ const COPY = {
   statusAttention: "Needs setup",
   statusError: "Error",
   disabledControlDescription: "Controlled by another setting.",
-  jpdbMiningEnabled: "Allow API review/deck changes",
-  bunproMiningEnabled: "Allow Bunpro review/mining",
-  wanikaniReviewEnabled: "Allow WaniKani review (due assignments only)",
   wanikaniGradeMappingHelp: "Yomu maps its grade to WaniKani’s pass/fail answer counts: Okay, Good, and Easy submit a clean pass. Anything below Okay submits one incorrect meaning answer and, unless the subject is a radical, one incorrect reading answer.",
-  yomuLocalSrsEnabled: `Enable ${ACADEMY_SRS_LABEL}`,
+  yomuLocalSrsEnabled: `Enable ${YOMU_DECK_LABEL}`,
   addToForq: "Also copy JPDB adds to forq",
   enableReviews: "Show review buttons",
   reviewRatingScale: "Review rating scale",
@@ -7454,12 +7518,12 @@ const COPY = {
   gradeTargetJiten: "Grades Jiten",
   gradeTargetBunpro: "Grades Bunpro",
   gradeTargetWanikani: "Grades WaniKani",
-  gradeTargetYomuLocal: `Grades ${ACADEMY_SRS_LABEL}`,
+  gradeTargetYomuLocal: `Grades ${YOMU_DECK_LABEL}`,
   gradeTargetAnki: "Grades Anki card: {target}",
   gradeTargetJpdbAndAnki: "Grades JPDB + Anki card: {target}",
   gradeTargetJitenAndAnki: "Grades Jiten + Anki card: {target}",
   gradeTargetBunproAndAnki: "Grades Bunpro + Anki card: {target}",
-  gradeTargetYomuLocalAndAnki: `Grades ${ACADEMY_SRS_LABEL} + Anki card: {target}`,
+  gradeTargetYomuLocalAndAnki: `Grades ${YOMU_DECK_LABEL} + Anki card: {target}`,
   missingAnkiCardId: "Missing Anki card id.",
   jpdbPageEnhancements: "Dictionary site enhancements",
   jpdbPageEnhancementsEnabled: "Enhance JPDB and Jiten pages",
@@ -7509,15 +7573,15 @@ const COPY = {
   newTabAnkiReviewDecksHelp: "Uncheck decks to skip.",
   newTabSource: "Study review source",
   newTabAuto: "Automatic",
-  newTabApiSrs: "API SRS (Jiten / JPDB)",
+  newTabApiSrs: "Jiten / JPDB",
   newTabBunpro: "Bunpro",
   newTabWanikani: "WaniKani",
-  newTabYomuLocal: ACADEMY_SRS_LABEL,
+  newTabYomuLocal: YOMU_DECK_LABEL,
   dictionaryFallback: "Dictionary fallback",
-  newTabJpdbReviewMode: "API review mode",
+  newTabJpdbReviewMode: "JPDB review mode",
   newTabJpdbReviewAuto: "Automatic",
   newTabLiveReview: "Live JPDB review session",
-  newTabApiVocabulary: "API vocabulary only",
+  newTabApiVocabulary: "JPDB vocabulary only",
   corsProxyUrl: "Cross-origin proxy URL",
   newTabKanjiKeywordSource: "Kanji keyword source",
   newTabKanjiKeywordAuto: "Automatic",
@@ -7550,7 +7614,6 @@ const COPY = {
   pitchColorOdaka: "Odaka (tail-high)",
   pitchColorUnknown: "Unknown",
   pronunciation: "Pronunciation",
-  noExactPitch: "Exact pitch unavailable",
   colorChannels: "Color channels",
   wordHighlightColorSource: "Word highlight color",
   wordUnderlineColorSource: "Word underline color",
@@ -7602,7 +7665,7 @@ const COPY = {
   hideColorFor: "Hide color for",
   furiganaDifficultKanji: "Hard kanji only",
   furiganaDifficultKanjiHelp: `${APP_NAME} keeps a fixed beginner kanji list and shows readings on everything outside it. A bare kanji means that character sits on the list.`,
-  statusColorNoSourceHelp: `Status colors read from a deck. Enable ${ACADEMY_SRS_LABEL} in Study, or add a JPDB, Jiten, or Anki source, and words take the color of their learning state.`,
+  statusColorNoSourceHelp: `Status colors read from a deck. Turn on the ${YOMU_DECK_LABEL} in Reviews, or add a JPDB, Jiten, or Anki source, and words take the color of their learning state.`,
   furiganaHideKnown: "Hide familiar words",
   furiganaHoverOnly: "Show on hover",
   furiganaAllParsed: "All parsed words",
@@ -7746,6 +7809,8 @@ const COPY = {
   ocrCloudHelp: "Paste a Google Cloud Vision API key.",
   ocrLocalHelp: "Run MangaOCR/Apple Vision locally and enter its URL.",
   ...SUBTITLE_SETTINGS_COPY.en,
+  subtitleFontSizeAutomatic: "Auto",
+  subtitleFontSizePixelsAuto: "Subtitle font size (px; 0 = auto)",
   right: "Right",
   left: "Left",
   bottom: "Below",
@@ -7761,7 +7826,7 @@ const COPY = {
   youtubeToggleToastOn: "YouTube immersion filter enabled.",
   youtubeToggleToastOff: "YouTube immersion filter disabled.",
   ankiEnabled: "Enable Anki mining",
-  ankiMineWithJpdb: "Also add to Anki when adding via API",
+  ankiMineWithJpdb: "Also add to Anki when adding to JPDB or Jiten",
   ankiCaptureScreenshot: "Attach context image when possible",
   ankiConnectUrl: "AnkiConnect URL",
   ankiDeck: "Anki deck",
@@ -7839,8 +7904,8 @@ const COPY = {
   localDictionaryMaxResults: "Dictionary result limit",
   cloudSettingsSync: "Google Drive settings sync",
   cloudSettingsSyncHelp: "Stores your Yomu settings and local SRS progress in Google Drive app data. Dictionaries stay local.",
-  academyAccountSync: "Academy account sync",
-  academyAccountSyncHelp: "Keep Academy SRS progress in sync across the Reader and your signed-in Yomu account. Create or manage your account on the website, then generate a one-time pairing code.",
+  academyAccountSync: "Account sync",
+  academyAccountSyncHelp: `Keep your ${YOMU_DECK_LABEL} in sync across the Reader and your signed-in Yomu account. Create or manage your account on the website, then generate a one-time pairing code.`,
   academyAccountManage: "Manage account & pairing code",
   academyPairingCode: "One-time pairing code",
   academyPairingCodePlaceholder: "XXXX-XXXX-XXXX-XXXX-XXXX",
@@ -7851,20 +7916,20 @@ const COPY = {
   academyRecoveryCodeReady: "Website recovery code: {code}. Enter it in Profile & sync within 10 minutes.",
   academyRecoveryCodeDone: "Website recovery code created.",
   academyAccountDisconnect: "Disconnect",
-  academyAccountChecking: "Checking Academy account connection...",
-  academyAccountDisconnected: "Not connected. Academy reviews stay on this device until you connect an account.",
+  academyAccountChecking: "Checking account connection...",
+  academyAccountDisconnected: `Not connected. Your ${YOMU_DECK_LABEL} stays on this device until you connect an account.`,
   academyAccountConnected: "Connected as {name}.",
-  academyAccountConnectedNoName: "Academy account connected.",
+  academyAccountConnectedNoName: "Account connected.",
   academyAccountLastSynced: "Last synced {time}.",
   academyAccountNeverSynced: "Not synced yet.",
   academyAccountConnectionProblem: "Could not refresh the account status: {message}",
-  academyAccountConnecting: "Connecting and syncing Academy progress...",
-  academyAccountSyncing: "Syncing Academy progress...",
+  academyAccountConnecting: `Connecting and syncing your ${YOMU_DECK_LABEL}...`,
+  academyAccountSyncing: `Syncing your ${YOMU_DECK_LABEL}...`,
   academyAccountDisconnecting: "Disconnecting this Reader...",
   academyPairingCodeRequired: "Enter the one-time pairing code from your Yomu account.",
-  academyAccountConnectedDone: "Academy account connected and progress synced.",
-  academyAccountSyncedDone: "Academy progress synced.",
-  academyAccountDisconnectedDone: "This Reader is disconnected. Local Academy progress is still available.",
+  academyAccountConnectedDone: `Account connected and ${YOMU_DECK_LABEL} synced.`,
+  academyAccountSyncedDone: `${YOMU_DECK_LABEL} synced.`,
+  academyAccountDisconnectedDone: `This Reader is disconnected. Your ${YOMU_DECK_LABEL} is still on this device.`,
   importSettings: "Import settings JSON",
   exportSettings: "Export settings JSON",
   importDictionaries: "Import dictionaries",
@@ -7873,10 +7938,10 @@ const COPY = {
   lookupPillsHelp: "External links and frequency badges in one order. Local frequency dictionaries replace matching live Jiten/JPDB badges. Tokens: {query}, {word}, {reading}.",
   parserProvider: "Parsing source",
   parserProviderLocal: "Local dictionaries (offline)",
-  parserProviderJiten: "Jiten API",
-  parserProviderJpdb: "JPDB API",
+  parserProviderJiten: "Jiten",
+  parserProviderJpdb: "JPDB",
   parserProviderAuto: "Automatic (Jiten/JPDB)",
-  parserProviderHelp: "Local parses with imported dictionaries, offline. Jiten and JPDB always use that API when its key is set. Automatic uses your preferred grading service when both keys are set, otherwise Jiten, then JPDB.",
+  parserProviderHelp: "Local parses with imported dictionaries, offline. Jiten and JPDB always parse with that service when its key is set. Automatic uses your preferred grading service when both keys are set, otherwise Jiten, then JPDB.",
   copiesCurrentWord: "Copies the current word",
   plaintextHttpLink: "Opens over plaintext HTTP.",
   lookupPillLabelNumber: "Lookup pill {number} label",
@@ -8100,6 +8165,7 @@ const COPY = {
   ankiMappingConfidenceLow: "unmapped",
   ankiMappingStaleField: "saved field missing",
   ...OCR_STATUS_COPY.en,
+  ocrTextRegion: "よむ image text {id}",
   gradeNothing: "Grade NOTHING",
   gradeSomething: "Grade SOMETHING",
   gradeHard: "Grade HARD",
@@ -8151,7 +8217,7 @@ const COPY = {
   ...GRADING_SERVICE_COPY.en,
   jpdbKanjiUpdated: "JPDB kanji updated.",
   jpdbKanjiUpdateFailedRuntime: "Could not update JPDB kanji. Check kanji reviews.",
-  apiSrsActionsDisabled: "API mining actions are disabled in settings.",
+  apiSrsActionsDisabled: "Grade from よむ is off for this service in Settings.",
   addJpdbApiKeyReview: "Add a JPDB API key to review JPDB cards.",
   addJitenApiKeyReview: "Add a Jiten API key to review Jiten cards.",
   addBunproApiKeyReview: "Add a Bunpro frontend API token to review Bunpro cards.",
@@ -8434,7 +8500,15 @@ const COPY = {
   openSectionToTranslate: "Open this section to translate.",
   translationUnavailable: "Translation unavailable.",
   translating: "Translating...",
-  ...GRAMMAR_UI_COPY.en
+  ...GRAMMAR_UI_COPY.en,
+  ...APPEARANCE_QUICK_COPY.en,
+  ...REVIEW_SERVICES_COPY.en,
+  furiganaOff: "Off",
+  puckPowerOn: `${APP_NAME} on`,
+  puckFuriganaOn: "Furigana on",
+  puckFuriganaOff: "Furigana off",
+  puckResume: `${APP_NAME} off · turn on`,
+  furiganaHideKnownReadings: "Hide readings for familiar words"
   }
 };
 const CARD_STATE_LABEL_KEYS = {
@@ -8514,7 +8588,7 @@ closeDrawer	ドロワーを閉じる
 copiedWord	単語をコピーしました。
 jpdbKanjiUpdated	JPDB漢字を更新しました。
 jpdbKanjiUpdateFailedRuntime	JPDB漢字を更新できません。
-apiSrsActionsDisabled	設定でAPI採掘操作が無効です。
+apiSrsActionsDisabled	設定でこのサービスの「よむから採点」がオフです。
 addJpdbApiKeyReview	JPDBレビューにはAPIキーが必要です。
 addJitenApiKeyReview	JitenレビューにはAPIキーが必要です。
 addBunproApiKeyReview	Bunproレビューにはfrontend_api_tokenが必要です。
@@ -8572,7 +8646,6 @@ local	ローカル
 dict	辞書
 scanPage	ページをスキャン
 noUnscannedJapaneseText	未スキャンの日本語テキストはありません。
-contextOccurrences	文脈内 ×{count}
 puckAutoDetectSubtitles	字幕を自動検出
 loadTargetSubtitles	日本語字幕を読み込む
 loadOutputSubtitles	英語字幕を読み込む
@@ -8921,6 +8994,7 @@ openSectionToTranslate	開くと翻訳します。
 translationUnavailable	翻訳を利用できません。
 translating	翻訳中...
 `),
+  ocrTextRegion: "よむの画像テキスト {id}",
   ...GRAMMAR_UI_COPY.ja,
   ...SETTINGS_RECOVERY_COPY.ja,
   ...PRACTICE_SESSION_COPY.ja,
@@ -8961,24 +9035,13 @@ video	動画
 youTube	YouTube
 anki	Anki
 jpdb	JPDB
-api	API
 apiCredential	APIキー
-apiCredentialJpdb	JPDB APIキー
-apiCredentialJiten	Jiten APIキー
-apiCredentialBunpro	BunproフロントエンドAPIトークン
-apiCredentialWanikani	WaniKaniパーソナルアクセストークン
-wanikaniTokenHelp	WaniKaniでread/write権限のパーソナルアクセストークンを作成し、ここに貼り付けてください。ブラウザ内にのみ保存され、プロキシを経由せずapi.wanikani.comへ直接送信され、ログに残ることはありません。
+wanikaniTokenHelp	read/write権限のパーソナルアクセストークン。送信先はapi.wanikani.comだけです。
 apiCredentialBunproLegacy	Bunpro APIキー
 apiKey	APIキー
 jitenApiKey	Jiten APIキー
-apiAccess	APIアクセス
 storedCredentialPlaceholder	保存済み — 変更する場合のみ入力
 clearStoredCredential	保存済みの認証情報を削除
-apiAccessHelp	各サービスの認証情報を設定します。Bunproに必要なのはフロントエンドトークンだけです。Bunpro設定から取り込み、パスワードと同様に扱ってください。保存時点では未確認です。Academyの復習はアカウントなしでも使えます。
-jpdbSettings	JPDB設定
-jitenSettings	Jiten設定
-bunproSettings	Bunpro設定
-wanikaniSettings	WaniKani設定
 jpdbApiKeyConfigured	JPDBキーあり。
 jpdbConnected	JPDBに接続しました。
 jpdbAndJitenConnected	JitenとJPDBに接続しました。
@@ -8987,11 +9050,8 @@ statusReady	準備完了
 statusAttention	設定が必要
 statusError	エラー
 disabledControlDescription	別設定で制御中。
-jpdbMiningEnabled	APIの復習・デッキ変更を許可
-bunproMiningEnabled	Bunproの復習・採掘を許可
-wanikaniReviewEnabled	WaniKaniの復習を許可(期限が来た課題のみ)
 wanikaniGradeMappingHelp	よむの採点結果はWaniKaniの正誤カウントに変換されます。Okay、Good、Easyは正解として送信します。Okay未満は意味を1回不正解として送信し、ラジカル以外では読みも1回不正解として送信します。
-yomuLocalSrsEnabled	Academyを有効化
+yomuLocalSrsEnabled	よむデッキを有効化
 addToForq	JPDB追加時にforqにもコピー
 enableReviews	復習ボタンを表示
 reviewRatingScale	復習評価の段階
@@ -9001,12 +9061,12 @@ gradeTargetJpdb	JPDBを採点
 gradeTargetJiten	Jitenを採点
 gradeTargetBunpro	Bunproを採点
 gradeTargetWanikani	WaniKaniを採点
-gradeTargetYomuLocal	Academyに記録
+gradeTargetYomuLocal	よむデッキに記録
 gradeTargetAnki	Ankiカードを採点: {target}
 gradeTargetJpdbAndAnki	JPDB + Ankiカードを採点: {target}
 gradeTargetJitenAndAnki	Jiten + Ankiカードを採点: {target}
 gradeTargetBunproAndAnki	Bunpro + Ankiカードを採点: {target}
-gradeTargetYomuLocalAndAnki	Academy + Ankiカードに記録: {target}
+gradeTargetYomuLocalAndAnki	よむデッキ + Ankiカードに記録: {target}
 missingAnkiCardId	AnkiカードIDがありません。
 jpdbPageEnhancements	辞書サイト拡張
 jpdbPageEnhancementsEnabled	JPDB・Jitenのページを拡張
@@ -9051,15 +9111,15 @@ newTabAnkiReviewDecks	Anki復習デッキ
 newTabAnkiReviewDecksHelp	不要なデッキを外します。
 newTabSource	学習の復習ソース
 newTabAuto	自動
-newTabApiSrs	API SRS（Jiten / JPDB）
+newTabApiSrs	Jiten / JPDB
 newTabBunpro	Bunpro
 newTabWanikani	WaniKani
-newTabYomuLocal	Academy
+newTabYomuLocal	よむデッキ
 dictionaryFallback	辞書フォールバック
-newTabJpdbReviewMode	API復習モード
+newTabJpdbReviewMode	JPDB復習モード
 newTabJpdbReviewAuto	自動
 newTabLiveReview	ライブJPDB復習セッション
-newTabApiVocabulary	API語彙のみ（デッキ順）
+newTabApiVocabulary	JPDB語彙のみ（デッキ順）
 corsProxyUrl	クロスオリジンプロキシURL
 newTabKanjiKeywordSource	漢字キーワードのソース
 newTabKanjiKeywordAuto	自動
@@ -9092,7 +9152,6 @@ pitchColorNakadaka	中高
 pitchColorOdaka	尾高
 pitchColorUnknown	不明
 pronunciation	発音
-noExactPitch	完全一致のピッチは利用不可
 colorChannels	色チャンネル
 wordHighlightColorSource	単語ハイライトの色
 wordUnderlineColorSource	単語下線の色
@@ -9145,7 +9204,7 @@ hideFuriganaFor	ふりがなを隠す対象
 hideColorFor	色を隠す対象
 furiganaDifficultKanji	難しい漢字のみ
 furiganaDifficultKanjiHelp	Yomuは初級漢字の固定リストを持ち、その外側の漢字にふりがなを表示します。ふりがなのない漢字は、そのリストに載っています。
-statusColorNoSourceHelp	学習状態の色はデッキから読み取ります。StudyでAcademyを有効にするか、JPDB・Jiten・Ankiのいずれかを追加すると、単語が学習状態の色になります。
+statusColorNoSourceHelp	学習状態の色はデッキから読み取ります。「復習」でよむデッキをオンにするか、JPDB・Jiten・Ankiのいずれかを追加すると、単語が学習状態の色になります。
 furiganaHideKnown	なじみのある語を非表示
 furiganaHoverOnly	ホバー時に表示
 furiganaAllParsed	解析済みの全単語
@@ -9285,7 +9344,7 @@ youtubeHelp	YouTubeを日本語向けに絞ります。
 youtubeToggleToastOn	YouTube没入フィルターをオンにしました。
 youtubeToggleToastOff	YouTube没入フィルターをオフにしました。
 ankiEnabled	Anki採掘を有効にする
-ankiMineWithJpdb	API経由で追加するときAnkiにも追加
+ankiMineWithJpdb	JPDBやJitenに追加するときAnkiにも追加
 ankiCaptureScreenshot	可能なら文脈画像を添付
 ankiConnectUrl	AnkiConnect URL
 ankiDeck	Ankiデッキ
@@ -9360,8 +9419,8 @@ ${Object.entries(LOCAL_DICTIONARY_STORAGE_COPY.jaSettings).map(([key, value]) =>
 localDictionaryMaxResults	辞書結果の上限
 cloudSettingsSync	Google Drive設定同期
 cloudSettingsSyncHelp	Yomuの設定をGoogle Driveのアプリデータに保存します。辞書は端末内に残ります。
-academyAccountSync	Academyアカウント同期
-academyAccountSyncHelp	ReaderのAcademy SRS進捗を、ログイン中のYomuアカウントと端末間で同期します。Webサイトでアカウントを作成または管理し、1回限りのペアリングコードを発行してください。
+academyAccountSync	アカウント同期
+academyAccountSyncHelp	よむデッキを、ログイン中のYomuアカウントと端末間で同期します。Webサイトでアカウントを作成または管理し、1回限りのペアリングコードを発行してください。
 academyAccountManage	アカウントとペアリングコードを管理
 academyPairingCode	1回限りのペアリングコード
 academyPairingCodePlaceholder	XXXX-XXXX-XXXX-XXXX-XXXX
@@ -9372,20 +9431,20 @@ academyRecoveryCodeCreating	1回限りのWebサイト復旧コードを作成中
 academyRecoveryCodeReady	Webサイト復旧コード: {code}。10分以内に「プロフィールと同期」で入力してください。
 academyRecoveryCodeDone	Webサイト復旧コードを作成しました。
 academyAccountDisconnect	接続解除
-academyAccountChecking	Academyアカウントの接続を確認中...
-academyAccountDisconnected	未接続です。アカウントに接続するまで、Academyの復習データはこの端末に保存されます。
+academyAccountChecking	アカウントの接続を確認中...
+academyAccountDisconnected	未接続です。アカウントに接続するまで、よむデッキはこの端末に保存されます。
 academyAccountConnected	{name}として接続中です。
-academyAccountConnectedNoName	Academyアカウントに接続中です。
+academyAccountConnectedNoName	アカウントに接続中です。
 academyAccountLastSynced	最終同期: {time}。
 academyAccountNeverSynced	まだ同期していません。
 academyAccountConnectionProblem	アカウント状態を更新できませんでした: {message}
-academyAccountConnecting	接続してAcademyの進捗を同期中...
-academyAccountSyncing	Academyの進捗を同期中...
+academyAccountConnecting	接続してよむデッキを同期中...
+academyAccountSyncing	よむデッキを同期中...
 academyAccountDisconnecting	このReaderの接続を解除中...
 academyPairingCodeRequired	Yomuアカウントで1回限りのペアリングコードを発行し、入力してください。
-academyAccountConnectedDone	Academyアカウントに接続し、進捗を同期しました。
-academyAccountSyncedDone	Academyの進捗を同期しました。
-academyAccountDisconnectedDone	このReaderの接続を解除しました。Academyの進捗は端末に残ります。
+academyAccountConnectedDone	アカウントに接続し、よむデッキを同期しました。
+academyAccountSyncedDone	よむデッキを同期しました。
+academyAccountDisconnectedDone	このReaderの接続を解除しました。よむデッキは端末に残ります。
 importSettings	設定JSONをインポート
 exportSettings	設定JSONをエクスポート
 importDictionaries	辞書をインポート
@@ -9393,10 +9452,10 @@ exportDictionaries	辞書をエクスポート
 lookupPills	検索ピル
 parserProvider	解析ソース
 parserProviderLocal	ローカル辞書（オフライン）
-parserProviderJiten	Jiten API
-parserProviderJpdb	JPDB API
+parserProviderJiten	Jiten
+parserProviderJpdb	JPDB
 parserProviderAuto	自動（Jiten/JPDB）
-parserProviderHelp	ローカルはインポート済み辞書でオフライン解析します。JitenとJPDBはキー設定時に必ずそのAPIを使います。自動は両方のキーがあれば優先採点サービスを使い、それ以外はJiten、次にJPDBを優先します。
+parserProviderHelp	ローカルはインポート済み辞書でオフライン解析します。JitenとJPDBはキー設定時に必ずそのサービスで解析します。自動は両方のキーがあれば優先採点サービスを使い、それ以外はJiten、次にJPDBを優先します。
 lookupPillsHelp	外部リンクと頻度バッジを同じ順序で表示します。ローカル頻度辞書は一致するJiten/JPDBライブバッジを置き換えます。トークン: {query}、{word}、{reading}。
 copiesCurrentWord	現在の単語をコピーします
 plaintextHttpLink	プレーンテキストHTTPで開きます。
@@ -9565,7 +9624,17 @@ recommendedKanjiumPitch	ピッチアクセント専用です。定義には語�
 recommendedBccwj	BCCWJ由来の頻度バッジです。
 recommendedJiten	Jiten由来の頻度バッジです。
 `),
-  ...SUBTITLE_SETTINGS_COPY.ja
+  ...SUBTITLE_SETTINGS_COPY.ja,
+  subtitleFontSizeAutomatic: "自動",
+  subtitleFontSizePixelsAuto: "字幕フォントサイズ（px、0 = 自動）",
+  ...APPEARANCE_QUICK_COPY.ja,
+  ...REVIEW_SERVICES_COPY.ja,
+  furiganaOff: "オフ",
+  puckPowerOn: `${APP_NAME} オン`,
+  puckFuriganaOn: "ふりがなオン",
+  puckFuriganaOff: "ふりがなオフ",
+  puckResume: `${APP_NAME} オフ・オンにする`,
+  furiganaHideKnownReadings: "なじみのある語の読みを非表示"
 };
 function resolveUiLanguage(language) {
   if (language === "ja" || language === "en") return language;
@@ -9816,12 +9885,12 @@ function createDefaultSubtitleSettings(fontFamily) {
   subtitleAutoCopyLine: false,
   subtitleCopyIncludeTranslation: true,
   subtitleControlsMode: "auto",
-  subtitleFontSize: 28,
+  subtitleFontSize: 0,
   subtitleBottomOffset: 16,
   subtitleTextColor: OVERLAY_COLOR_TOKENS.text,
   subtitleOutlineColor: OVERLAY_COLOR_TOKENS.outline,
   subtitleBackgroundColor: OVERLAY_COLOR_TOKENS.background,
-  subtitleBackgroundOpacity: 0,
+  subtitleBackgroundOpacity: 0.75,
   subtitleFontFamily: fontFamily,
   subtitleFontWeight: 760,
   subtitleMiningPause: true,
@@ -9838,7 +9907,11 @@ const RETIRED_SETTING_DEFAULTS = [
   { keys: ["furiganaHiddenStateGroups"], retired: [[["known", "due", "failed"]]] },
   { keys: ["wordHighlightColorSource", "wordUnderlineColorSource", "wordTextColorSource"], retired: [["jpdb", "pitch", "anki"]] },
   { keys: ["subtitleHighlightColorSource", "subtitleUnderlineColorSource", "subtitleTextColorSource"], retired: [["jpdb", "pitch", "anki"]] },
-  { keys: ["wordColorHiddenStateGroups"], retired: [[[]]] }
+  { keys: ["wordColorHiddenStateGroups"], retired: [[[]]] },
+  // Unchosen legacy pixel defaults now follow the player's caption size.
+  { keys: ["subtitleFontSize"], retired: [[28]] },
+  // Whole-object saves carried transparency even when nobody chose it.
+  { keys: ["subtitleBackgroundOpacity"], retired: [[0]] }
 ];
 RETIRED_SETTING_DEFAULTS.flatMap((group) => group.keys);
 const TRANSACTION_FIELD = "__yomuSettingsPersistenceTransactionV1";
@@ -10187,6 +10260,7 @@ const DEFAULT_SETTINGS = {
   popupFontFamily: DEFAULT_POPUP_FONT_FAMILY,
   popupFontWeight: 450,
   jpdbMiningEnabled: true,
+  jitenMiningEnabled: true,
   // JPDB parity: the credential is the real gate, so importing a Bunpro
   // token makes grading work without hunting for a second checkbox.
   bunproMiningEnabled: true,
@@ -10279,10 +10353,14 @@ function immutableCommandSnapshot(command) {
 const OVERHANG_CLASS = "jpdb-reader-ruby-overhang";
 const AT_START_CLASS = "jpdb-reader-ruby-at-start";
 const AT_END_CLASS = "jpdb-reader-ruby-at-end";
-function rubyOverhangClassAttribute(surface, start, end, reading, readingBeside) {
+function rubyOverhangClasses(surface, start, end, reading, readingBeside) {
   if (readingBeside || Array.from(reading).length <= 2 * Array.from(surface.slice(start, end)).length) return "";
   const edges = [start === 0 ? ` ${AT_START_CLASS}` : "", end === surface.length ? ` ${AT_END_CLASS}` : ""].join("");
-  return ` class="${OVERHANG_CLASS}${edges}"`;
+  return ` ${OVERHANG_CLASS}${edges}`;
+}
+const YOMU_RUBY_CLASS = "jpdb-reader-ruby";
+function yomuRubyHtml(baseHtml, readingHtml, extraClasses = "") {
+  return `<ruby class="${YOMU_RUBY_CLASS}${extraClasses}"><span class="jpdb-reader-ruby-base">${baseHtml}</span><rp>(</rp><rt class="jpdb-reader-furi">${readingHtml}</rt><rp>)</rp></ruby>`;
 }
 const EASY_FURIGANA_KANJI = new Set(
   "一丁七万三上下不世中主久乗九予事二五井交京人今介仏仕他付代令以休会伝住何作使例供係信借元兄先光入全公六共内円写冬出分切前力加動北十千午半南原友反取口古台同名向君告周味呼命和品員問四回国土在地坂堂場声売夏夕外多夜大天太夫央女好妹姉始子字学安家宿寒寺小少山川工左市帰年広店度庭建引弟強待後心思急息悪手持教文方旅日早明春昼時曜書有朝木本村来東林校森業楽歌止正歩母毎気水池海父物犬王生田町男白百的目知石社私秋空立竹笑答米糸紙終聞肉自花英茶草行西見言話語読買赤走足車近通週道遠里野金長門間雨青音食飲駅高魚鳥黒".split("")
@@ -10435,7 +10513,7 @@ function renderTokenReadings(surface, token, kanjiNavigation, preserveTokenRubie
   html += renderKanjiNavigationText(surface.slice(localOffset, start));
   const base = renderKanjiNavigationText(surface.slice(start, end));
   const readingBeside = index > 0 && start === localOffset || rubies[index + 1]?.start === ruby.end;
-  html += `<ruby${rubyOverhangClassAttribute(surface, start, end, ruby.text, readingBeside)}><span class="jpdb-reader-ruby-base">${base}</span><rp>(</rp><rt class="jpdb-reader-furi">${escapeHtml(ruby.text)}</rt><rp>)</rp></ruby>`;
+  html += yomuRubyHtml(base, escapeHtml(ruby.text), rubyOverhangClasses(surface, start, end, ruby.text, readingBeside));
   localOffset = end;
   });
   html += renderKanjiNavigationText(surface.slice(localOffset));
@@ -10813,7 +10891,7 @@ function unwrapReaderWords(root = document, options = {}) {
   const parent = word.parentNode;
   if (!parent) continue;
   parents.add(parent);
-  word.replaceWith(document.createTextNode(readerWordSurfaceText(word)));
+  unwrapReaderWord(word);
   }
   for (const bind of numberBinds) {
   if (bind.nextElementSibling?.classList.contains("jpdb-reader-word")) continue;
@@ -10824,6 +10902,29 @@ function unwrapReaderWords(root = document, options = {}) {
   }
   parents.forEach((parent) => parent.normalize());
   return words.length;
+}
+function unwrapReaderWord(word) {
+  const doc = word.ownerDocument;
+  if (!word.querySelector(`ruby:not(.${YOMU_RUBY_CLASS})`)) {
+  word.replaceWith(doc.createTextNode(readerWordSurfaceText(word)));
+  return;
+  }
+  const surface = doc.createDocumentFragment();
+  const appendSurface = (node) => {
+  if (node.nodeType === Node.TEXT_NODE) {
+    surface.append(doc.createTextNode(node.textContent ?? ""));
+  } else if (node.nodeType === Node.ELEMENT_NODE) {
+    const element = node;
+    if (isSurfaceIgnoredElement(element)) return;
+    if (element.tagName === "RUBY" && !element.classList.contains(YOMU_RUBY_CLASS)) {
+      surface.append(element);
+    } else {
+      Array.from(element.childNodes).forEach(appendSurface);
+    }
+  }
+  };
+  Array.from(word.childNodes).forEach(appendSurface);
+  word.replaceWith(surface);
 }
 function readerWordSurfaceText(element) {
   const surface = readerWordChildSurfaceText(element);
@@ -10931,6 +11032,7 @@ function plainTextBeforeTokenHtml(gap) {
 function clampNumber(value, min, max) {
   return Math.min(Math.max(value, min), Math.max(min, max));
 }
+const SUBTITLE_CUE_BOUNDARY_PADDING_SECONDS = 1e-3;
 const ACTIVE_CUE_START_TOLERANCE_SECONDS = 0.05;
 const ACTIVE_CUE_END_GRACE_SECONDS = 0.12;
 const MIN_SUBTITLE_CUE_DURATION_SECONDS = 0.12;
@@ -11368,7 +11470,7 @@ function normalizeYouTubeAutoCaptionTiming(cues, knownAutoGenerated) {
   return cues.map((cue, index) => {
   const next = cues[index + 1];
   const nextStart = next?.start;
-  const end = Number.isFinite(nextStart) && nextStart > cue.start ? Math.max(cue.start, Math.min(cue.end, nextStart - 1e-3)) : cue.end;
+  const end = Number.isFinite(nextStart) && nextStart > cue.start ? Math.max(cue.start, Math.min(cue.end, nextStart - SUBTITLE_CUE_BOUNDARY_PADDING_SECONDS)) : cue.end;
   return {
     ...cue,
     end,
@@ -11763,6 +11865,27 @@ function escapeWithBreaks(value) {
 }
 function withBreaks(value) {
   return value.replace(/\n/g, "<br>");
+}
+const PLAIN_SUBTITLE_SELECTION_SELECTOR = ".jpdb-subtitle-primary, .jpdb-subtitle-secondary, .jpdb-subtitle-row-text, .jpdb-subtitle-row-secondary";
+function setClassState(element, className, enabled) {
+  if (element.classList.contains(className) !== enabled) element.classList.toggle(className, enabled);
+}
+function shouldPreservePlainSubtitleSelection(eventTarget, annotationsPaused) {
+  if (!annotationsPaused) return false;
+  const surface = eventTarget.closest?.(PLAIN_SUBTITLE_SELECTION_SELECTOR);
+  if (!surface) return false;
+  const selection = window.getSelection?.();
+  if (!selection || selection.isCollapsed || selection.rangeCount === 0 || !selection.toString()) return false;
+  for (let index = 0; index < selection.rangeCount; index += 1) {
+  try {
+    if (selection.getRangeAt(index).intersectsNode(surface)) return true;
+  } catch {
+  }
+  }
+  return surface.contains(selection.anchorNode) || surface.contains(selection.focusNode);
+}
+function shouldHonorExplicitYouTubeSideLayout(layout) {
+  return layout.margin > 0 && layout.viewportWidth >= 900;
 }
 const SUBTITLE_COMPATIBILITY_ALIASES = Object.freeze({
   ja: Object.freeze(["jp", "nihongo", "nihon-go", "日文", "日語", "日本字幕"]),
@@ -13067,6 +13190,7 @@ function reconcileSubtitleSecondaryLine(options) {
   if (!options.host) return;
   const existing = options.host.querySelector(`.${SUBTITLE_SECONDARY_CLASS}`);
   const text = visibleSubtitleSecondaryText(options.visible, options.text);
+  setClassState(options.host, "jpdb-subtitle-has-secondary", Boolean(text));
   if (!text) return removeSubtitleSecondaryLine(existing);
   const line = existingSubtitleSecondaryLine(existing);
   syncSubtitleContentLanguage(line, options.content);
@@ -13096,6 +13220,7 @@ function createSubtitlePrimaryRow(primaryHtml, content) {
 }
 function reconcileSubtitlePrimaryRow(input) {
   if (!input.host) return { changed: false, appliedHtml: input.appliedHtml };
+  setClassState(input.host, "jpdb-subtitle-has-primary", Boolean(input.html));
   const row = input.host.querySelector(".jpdb-subtitle-primary-row");
   if (input.html === null) return clearSubtitlePrimaryRow(row);
   return reconcileVisibleSubtitlePrimaryRow({
@@ -13126,7 +13251,13 @@ function createVisibleSubtitlePrimaryRow(input, row) {
 function syncSubtitleSecondaryText(button, text) {
   if (button.dataset.subtitleSecondaryText === text) return;
   button.dataset.subtitleSecondaryText = text;
-  setInnerHtml(button, escapeWithBreaks(text));
+  let ink = button.querySelector(".jpdb-subtitle-secondary-ink");
+  if (!ink) {
+  ink = document.createElement("span");
+  ink.className = "jpdb-subtitle-secondary-ink";
+  button.replaceChildren(ink);
+  }
+  setInnerHtml(ink, escapeWithBreaks(text));
 }
 function renderSubtitleKaraokeCue(cue, time) {
   if (!cue?.text.trim()) return "";
@@ -13137,7 +13268,7 @@ function renderSubtitleKaraokeCue(cue, time) {
   return renderKaraokeTextParts(cue.text, progress);
 }
 const SAFE_ZONE_ATTRIBUTE = "data-jpdb-subtitle-native-control-safe-zone";
-const OVERLAY_TARGETS = `.jpdb-subtitle-primary,.jpdb-subtitle-primary .jpdb-reader-word,.${SUBTITLE_SECONDARY_CLASS},.${SUBTITLE_SECONDARY_CLASS} .jpdb-reader-word`;
+const OVERLAY_TARGETS = `.jpdb-subtitle-primary,.jpdb-subtitle-primary .jpdb-reader-word,.${SUBTITLE_SECONDARY_CLASS}-ink,.${SUBTITLE_SECONDARY_CLASS} .jpdb-reader-word`;
 const NATIVE_CONTROLS = 'button,[role="button"],a[href],[tabindex]:not([tabindex="-1"])';
 function overlaps(first, second) {
   return first.right > second.left && second.right > first.left && first.bottom > second.top && second.bottom > first.top;
@@ -13171,22 +13302,6 @@ function syncSubtitleNativeControlHitProtection(root, zones) {
 function subtitleRailReservedRects(surfaces, videoRect, controls = nativePlayerControlRects(surfaces, videoRect)) {
   const titles = surfaces.flatMap((surface) => Array.from(surface.querySelectorAll(".ytp-title, .ytp-chrome-top")));
   return [...controls, ...titles.filter((title) => isPainted(title)).map((title) => title.getBoundingClientRect()).filter((rect) => rect.width > 0 && rect.height > 0 && overlaps(rect, videoRect))];
-}
-function hasOpenYouTubeMobileBottomSheet() {
-  return Array.from(document.querySelectorAll(
-  'bottom-sheet-container[aria-modal="true"],ytm-bottom-sheet-renderer[aria-modal="true"],yt-sheet-view-model[aria-modal="true"]'
-  )).some((sheet) => {
-  for (let element = sheet; element; element = composedAncestorElement(element)) {
-    if (element.hidden || element.getAttribute("aria-hidden") === "true") return false;
-    const style = getComputedStyle(element);
-    if (style.display === "none" || style.visibility === "hidden") return false;
-  }
-  return true;
-  });
-}
-function currentFullscreenElement(sourceDocument = document) {
-  const fullscreenDocument = sourceDocument;
-  return sourceDocument.fullscreenElement ?? fullscreenDocument.webkitFullscreenElement ?? fullscreenDocument.mozFullScreenElement ?? fullscreenDocument.msFullscreenElement ?? null;
 }
 const JAPANESE_SANS_FONT_FAMILY = '"Noto Sans JP", "Noto Sans CJK JP", "Hiragino Sans", "Yu Gothic", "Meiryo", sans-serif';
 const HIRAGINO_YU_GOTHIC_FONT_FAMILY = '"Hiragino Sans", "Hiragino Kaku Gothic ProN", "Yu Gothic", Meiryo, sans-serif';
@@ -13547,9 +13662,9 @@ function renderSubtitleStyleControls(settings, language) {
                 </select>
             </label>
             ${renderSubtitleStyleRange("subtitleNativeBlurStrength", uiText(language, "subtitleNativeBlurStrength"), settings.subtitleNativeBlurStrength, 4, 20, 1, "px", nativeDisplay !== "blurred")}
-            ${renderSubtitleStyleRange("subtitleFontSize", uiText(language, "subtitleFontSize"), settings.subtitleFontSize, 16, 64, 2, "px")}
+            ${renderSubtitleStyleRange("subtitleFontSize", uiText(language, "subtitleFontSize"), settings.subtitleFontSize || 14, 14, 64, 2, "px", false, settings.subtitleFontSize === 0 ? uiText(language, "subtitleFontSizeAutomatic") : void 0)}
             ${renderSubtitleStyleRange("subtitleFontWeight", uiText(language, "subtitleFontWeight"), settings.subtitleFontWeight, 300, 900, 20, "weight")}
-            ${renderSubtitleStyleRange("subtitleBackgroundOpacity", uiText(language, "subtitleBackgroundOpacity"), settings.subtitleBackgroundOpacity, 0, 0.7, 0.05, "")}
+            ${renderSubtitleStyleRange("subtitleBackgroundOpacity", uiText(language, "subtitleBackgroundOpacity"), settings.subtitleBackgroundOpacity, 0, 1, 0.05, "")}
             <label class="jpdb-subtitle-style-field jpdb-subtitle-style-select">
                 <span>${escapeHtml(uiText(language, "subtitleFontFamily"))}</span>
                 <select data-subtitle-style-setting="subtitleFontFamily"${subtitleStyleControlAttributes("subtitleFontFamily")}>
@@ -13585,12 +13700,12 @@ function selectedAttribute(selected) {
 function checkedAttribute(checked) {
   return checked ? "checked" : "";
 }
-function renderSubtitleStyleRange(setting, label, value, min, max, step, suffix, hidden = false) {
+function renderSubtitleStyleRange(setting, label, value, min, max, step, suffix, hidden = false, displayValue) {
   return `
         <label class="jpdb-subtitle-style-field" data-subtitle-style-field="${setting}" ${hidden ? "hidden" : ""}>
             <span>${escapeHtml(label)}</span>
-            <output data-subtitle-style-output="${setting}">${escapeHtml(subtitleStyleDisplayValue(value, suffix))}</output>
-            <input type="range" min="${min}" max="${max}" step="${step}" value="${value}" data-subtitle-style-setting="${setting}"${subtitleStyleControlAttributes(setting)}>
+            <output data-subtitle-style-output="${setting}">${escapeHtml(displayValue ?? subtitleStyleDisplayValue(value, suffix))}</output>
+            <input type="range" min="${min}" max="${max}" step="${step}" value="${value}"${displayValue ? ` aria-valuetext="${escapeHtml(displayValue)}"` : ""} data-subtitle-style-setting="${setting}"${subtitleStyleControlAttributes(setting)}>
         </label>
     `;
 }
@@ -13728,8 +13843,8 @@ function reachableSubtitleBottomPercent(options) {
   const margin = 12;
   const subtitleHeight = Math.max(24, Number.isFinite(options.subtitleHeight) ? options.subtitleHeight : 0);
   const viewportBottom = viewportTop + viewportHeight2;
-  const minimum = Math.ceil((positionRect.bottom - viewportBottom + margin) / positionRect.height * 100);
-  const maximum = Math.floor((positionRect.bottom - viewportTop - margin - subtitleHeight - 48) / positionRect.height * 100);
+  const minimum = Math.ceil((positionRect.bottom - viewportBottom + margin + (options.belowAnchor ?? 0)) / positionRect.height * 100);
+  const maximum = Math.floor((positionRect.bottom - viewportTop - margin - subtitleHeight) / positionRect.height * 100);
   return minimum > maximum ? minimum : Math.min(maximum, Math.max(minimum, preferredBottomPercent));
 }
 function computeSubtitleDrawerLayout(options) {
@@ -13842,322 +13957,6 @@ function saveSubtitleControlRailPosition(position) {
 function clampRailFraction(value) {
   if (!Number.isFinite(value)) return 0;
   return Math.min(1, Math.max(0, value));
-}
-const PLAIN_SUBTITLE_SELECTION_SELECTOR = ".jpdb-subtitle-primary, .jpdb-subtitle-secondary, .jpdb-subtitle-row-text, .jpdb-subtitle-row-secondary";
-function setClassState(element, className, enabled) {
-  if (element.classList.contains(className) !== enabled) element.classList.toggle(className, enabled);
-}
-function shouldPreservePlainSubtitleSelection(eventTarget, annotationsPaused) {
-  if (!annotationsPaused) return false;
-  const surface = eventTarget.closest?.(PLAIN_SUBTITLE_SELECTION_SELECTOR);
-  if (!surface) return false;
-  const selection = window.getSelection?.();
-  if (!selection || selection.isCollapsed || selection.rangeCount === 0 || !selection.toString()) return false;
-  for (let index = 0; index < selection.rangeCount; index += 1) {
-  try {
-    if (selection.getRangeAt(index).intersectsNode(surface)) return true;
-  } catch {
-  }
-  }
-  return surface.contains(selection.anchorNode) || surface.contains(selection.focusNode);
-}
-function shouldHonorExplicitYouTubeSideLayout(layout) {
-  return layout.margin > 0 && layout.viewportWidth >= 900;
-}
-function collectPageSubtitleSources(root = document) {
-  const pageTitle = pageSubtitleTitle(root);
-  return dedupeSubtitleSources([
-  ...collectTrackSubtitleSources(root, pageTitle),
-  ...collectLinkSubtitleSources(root, pageTitle),
-  ...collectConfigSubtitleSources(root, pageTitle)
-  ]);
-}
-function collectTrackSubtitleSources(root, pageTitle) {
-  return Array.from(root.querySelectorAll("track[src]")).map((track) => subtitleSourceFromTrack(track, pageTitle)).filter((source) => Boolean(source));
-}
-function subtitleSourceFromTrack(track, pageTitle) {
-  if (!isSubtitleTrackElement(track)) return null;
-  const url = subtitleTrackSourceUrl(track);
-  const rawLabel = firstSubtitleText([track.label, track.srclang, track.getAttribute("aria-label")]);
-  return pageSubtitleSource({
-  url,
-  rawLabel,
-  label: subtitleTrackSourceLabel(track, url, pageTitle),
-  explicitLanguage: track.srclang,
-  sourceKind: "track"
-  });
-}
-function isSubtitleTrackElement(track) {
-  return !track.kind || /subtitles|captions/i.test(track.kind);
-}
-function subtitleTrackSourceUrl(track) {
-  return subtitleSourceUrl(firstSubtitleText([track.src, track.getAttribute("src")]));
-}
-function subtitleTrackSourceLabel(track, url, pageTitle) {
-  return subtitleSourceLabel(firstSubtitleText([track.label, track.srclang, track.getAttribute("aria-label")]), url, {
-  pageTitle,
-  preferPageTitleForGeneric: true
-  });
-}
-function collectLinkSubtitleSources(root, pageTitle) {
-  return Array.from(root.querySelectorAll("a[href]")).map((link) => subtitleSourceFromLink(link, pageTitle)).filter((source) => Boolean(source));
-}
-function subtitleSourceFromLink(link, pageTitle) {
-  const url = subtitleSourceUrl(firstSubtitleText([link.href, link.getAttribute("href")]));
-  const rawLabel = linkSubtitleLabelText(link);
-  return pageSubtitleSource({
-  url,
-  rawLabel,
-  label: subtitleSourceLabel(rawLabel, url, { pageTitle }),
-  explicitLanguage: link.lang,
-  sourceKind: "link"
-  });
-}
-function collectConfigSubtitleSources(root, pageTitle) {
-  return subtitleConfigElements(root).flatMap((element, index) => subtitleSourcesFromConfigElement(element, pageTitle, index));
-}
-function subtitleConfigElements(root) {
-  return Array.from(root.querySelectorAll([
-  "[props]",
-  "[data-props]",
-  "[data-tracks]",
-  "[data-subtitles]",
-  "[data-captions]",
-  "[data-config]",
-  "[data-player]",
-  "[data-setup]",
-  'script[type="application/json"]',
-  'script[type="application/ld+json"]'
-  ].join(",")));
-}
-function subtitleSourcesFromConfigElement(element, pageTitle, elementIndex) {
-  const texts = [
-  ...subtitleConfigAttributeTexts(element),
-  element instanceof HTMLScriptElement ? element.textContent ?? "" : ""
-  ].filter((text) => text && hasSubtitleSourceText(text));
-  return texts.flatMap((text, textIndex) => subtitleSourcesFromConfigText(text, pageTitle, `config-${elementIndex}-${textIndex}`));
-}
-function subtitleConfigAttributeTexts(element) {
-  return Array.from(element.attributes).filter((attribute) => subtitleConfigAttributeName(attribute.name) || hasSubtitleSourceText(attribute.value)).map((attribute) => attribute.value);
-}
-function subtitleConfigAttributeName(name) {
-  return /^(?:props|data-(?:props|tracks|subtitles?|captions?|config|player|setup|sources?))$/i.test(name);
-}
-function hasSubtitleSourceText(text) {
-  return /\.(?:vtt|srt|ass|ssa)(?:$|[?#\s"'\\<>,\])}])/i.test(text);
-}
-function subtitleSourcesFromConfigText(text, pageTitle, keyPrefix) {
-  const parsed = parseSubtitleConfigJson(text);
-  return parsed === void 0 ? [] : subtitleSourcesFromConfigValue(parsed, pageTitle, keyPrefix);
-}
-function parseSubtitleConfigJson(text) {
-  try {
-  return JSON.parse(text);
-  } catch {
-  return void 0;
-  }
-}
-function subtitleSourcesFromConfigValue(value, pageTitle, keyPrefix) {
-  const sources = [];
-  const seenObjects = /* @__PURE__ */ new Set();
-  const collect = { pageTitle, keyPrefix, sources, seenObjects };
-  visitSubtitleConfigValue(value, [], collect);
-  return sources;
-}
-function visitSubtitleConfigValue(current, path, collect) {
-  const decoded = subtitleConfigTaggedValue(current);
-  if (decoded !== current) return visitSubtitleConfigValue(decoded, path, collect);
-  if (Array.isArray(current)) return visitSubtitleConfigArray(current, path, collect);
-  const record2 = subtitleConfigObject(current);
-  if (record2) visitSubtitleConfigRecord(record2, path, collect);
-}
-function visitSubtitleConfigArray(values, path, collect) {
-  values.forEach((value) => visitSubtitleConfigValue(value, path, collect));
-}
-function visitSubtitleConfigRecord(record2, path, collect) {
-  if (collect.seenObjects.has(record2)) return;
-  collect.seenObjects.add(record2);
-  const source = subtitleSourceFromConfigRecord(record2, collect.pageTitle, collect.keyPrefix, collect.sources.length, path);
-  if (source) collect.sources.push(source);
-  Object.entries(record2).forEach(([key, child]) => visitSubtitleConfigValue(child, [...path, key], collect));
-}
-function subtitleConfigObject(value) {
-  return value && typeof value === "object" ? value : void 0;
-}
-function subtitleSourceFromConfigRecord(record2, pageTitle, keyPrefix, index, path) {
-  if (!isSubtitleConfigRecord(record2, path)) return null;
-  const url = subtitleConfigRecordUrl(record2);
-  const rawLabel = subtitleConfigRecordLabel(record2);
-  return pageSubtitleSource({
-  url,
-  rawLabel,
-  label: subtitleConfigSourceLabel(rawLabel, url, pageTitle),
-  explicitLanguage: subtitleConfigRecordLanguage(record2),
-  sourceKind: `${keyPrefix}-${index}`
-  });
-}
-function pageSubtitleSource(descriptor) {
-  if (!descriptor.url) return null;
-  return {
-  url: descriptor.url,
-  label: descriptor.label,
-  language: subtitleSourceLanguage(descriptor),
-  sourceKey: pageSubtitleSourceKey(descriptor.sourceKind, descriptor.url)
-  };
-}
-function subtitleSourceLanguage(descriptor) {
-  const inferred = [
-  descriptor.explicitLanguage,
-  inferSubtitleLanguage(descriptor.rawLabel, descriptor.url),
-  inferSubtitleLanguage(descriptor.label, descriptor.url)
-  ].find((language) => Boolean(language));
-  return normalizeSubtitleLanguage(inferred);
-}
-function subtitleConfigRecordUrl(record2) {
-  for (const key of ["src", "file", "url", "href"]) {
-  const value = subtitleConfigString(record2[key]);
-  const url = value ? subtitleSourceUrl(value) : "";
-  if (url) return url;
-  }
-  return "";
-}
-function subtitleConfigRecordLabel(record2) {
-  return subtitleConfigString(record2.label) || subtitleConfigString(record2.name) || subtitleConfigString(record2.title) || subtitleConfigRecordLanguage(record2);
-}
-function subtitleConfigRecordLanguage(record2) {
-  return subtitleConfigString(record2.language) || subtitleConfigString(record2.lang) || subtitleConfigString(record2.srclang);
-}
-function subtitleConfigSourceLabel(value, url, pageTitle) {
-  const cleaned = cleanSubtitleTitle(value);
-  return cleaned || subtitleSourceLabel("", url, { pageTitle });
-}
-function isSubtitleConfigRecord(record2, path) {
-  const context = `${path.join(" ")} ${Object.keys(record2).join(" ")}`;
-  if (/(?:thumbnail|thumb|preview|poster|image|sprite|chapter|manifest|playlist)/i.test(context)) return false;
-  const type = [
-  subtitleConfigString(record2.kind),
-  subtitleConfigString(record2.type),
-  subtitleConfigString(record2.role),
-  subtitleConfigString(record2.trackKind)
-  ].join(" ");
-  return /(?:subtitles?|captions?|closed.?captions?|text.?tracks?)/i.test(`${context} ${type}`) || Boolean(subtitleConfigRecordLanguage(record2) && subtitleConfigRecordLabel(record2));
-}
-function subtitleConfigString(value) {
-  const decoded = subtitleConfigTaggedValue(value);
-  return typeof decoded === "string" ? decoded.trim() : "";
-}
-function subtitleConfigTaggedValue(value) {
-  if (!Array.isArray(value)) return value;
-  if (value.length !== 2) return value;
-  if (!["number", "string"].includes(typeof value[0])) return value;
-  return value[1];
-}
-function linkSubtitleLabelText(link) {
-  return firstSubtitleText([
-  link.getAttribute("download"),
-  link.getAttribute("aria-label"),
-  link.getAttribute("title"),
-  link.textContent
-  ]);
-}
-function firstSubtitleText(values) {
-  return values.find((value) => Boolean(value)) ?? "";
-}
-function subtitleSourceUrl(value) {
-  const url = resolveSubtitleSourceUrl(value);
-  return url && isSupportedSubtitleSourceUrl(url) ? url : "";
-}
-function dedupeSubtitleSources(sources) {
-  const seen = /* @__PURE__ */ new Set();
-  return sources.filter((source) => {
-  const key = source.sourceKey;
-  if (seen.has(key)) return false;
-  seen.add(key);
-  return true;
-  });
-}
-function pageSubtitleTitle(root) {
-  const doc = root instanceof Document ? root : root.ownerDocument ?? document;
-  return cleanSubtitleTitle(pageSubtitleTitleCandidate(doc));
-}
-function pageSubtitleTitleCandidate(doc) {
-  return openGraphSubtitleTitle(doc) || headingSubtitleTitle(doc) || doc.title || "";
-}
-function openGraphSubtitleTitle(doc) {
-  return doc.querySelector('meta[property="og:title"], meta[name="twitter:title"]')?.content ?? "";
-}
-function headingSubtitleTitle(doc) {
-  return doc.querySelector("h1")?.textContent ?? "";
-}
-function resolveSubtitleSourceUrl(value) {
-  try {
-  const url = new URL(value, document.baseURI);
-  if (!/^(https?|blob|data):$/i.test(url.protocol)) return "";
-  return url.href;
-  } catch {
-  return "";
-  }
-}
-function isSupportedSubtitleSourceUrl(value) {
-  try {
-  const url = new URL(value, document.baseURI);
-  const haystack = [
-    decodeURIComponent(url.pathname),
-    ...Array.from(url.searchParams.values()).map((part) => decodeURIComponent(part))
-  ].join(" ");
-  return /\.(vtt|srt|ass|ssa)(?:$|[?#\s])/i.test(`${haystack} `);
-  } catch {
-  return /\.(vtt|srt|ass|ssa)(?:$|[?#\s])/i.test(value);
-  }
-}
-function subtitleSourceLabel(value, url, options = {}) {
-  const cleaned = cleanSubtitleTitle(value);
-  const filename = subtitleSourceFilenameLabel(url);
-  const specific = specificSubtitleLabel(cleaned, filename);
-  if (specific) return specific;
-  return genericSubtitleLabel(cleaned, filename, options);
-}
-function genericSubtitleLabel(cleaned, filename, options) {
-  if (shouldUsePageTitleForGeneric(cleaned, options)) return options.pageTitle ?? "";
-  return firstSubtitleText([cleaned, filename, "Subtitle file"]);
-}
-function shouldUsePageTitleForGeneric(cleaned, options) {
-  if (!options.pageTitle) return false;
-  return !cleaned || Boolean(options.preferPageTitleForGeneric && cleaned);
-}
-function specificSubtitleLabel(cleaned, filename) {
-  return [cleaned, filename].find(isSpecificSubtitleLabel) ?? "";
-}
-function isSpecificSubtitleLabel(value) {
-  return Boolean(value) && !isGenericSubtitleLabel(value);
-}
-function subtitleSourceFilenameLabel(url) {
-  try {
-  const parsed = new URL(url, document.baseURI);
-  const filename = parsed.searchParams.get("filename") || parsed.pathname.split("/").pop() || "";
-  return cleanSubtitleTitle(decodeURIComponent(filename).replace(/[_-]+/g, " "));
-  } catch {
-  return "";
-  }
-}
-function cleanSubtitleTitle(value) {
-  return value.replace(/\.(vtt|srt|ass|ssa)$/i, "").replace(/\s+/g, " ").trim();
-}
-function pageSubtitleSourceKey(kind, url) {
-  return `${kind}:${normalizedSubtitleUrl(url)}`;
-}
-function normalizedSubtitleUrl(value) {
-  try {
-  const url = new URL(value, document.baseURI);
-  url.searchParams.delete("v");
-  url.hash = "";
-  return url.href;
-  } catch {
-  return value;
-  }
-}
-function sameSubtitleUrl(a, b) {
-  return normalizedSubtitleUrl(a) === normalizedSubtitleUrl(b);
 }
 const YOUTUBE_FLUID_CONTROLS_CLASS = "jpdb-subtitle-youtube-fluid-controls";
 class SubtitleVideoInsetAdapter {
@@ -15037,6 +14836,382 @@ function usableVideoRect(rect) {
 }
 function isYouTubePage() {
   return isYouTubeAppHostname();
+}
+function youtubeCaptionFontSize(saved, nativeSize, playerWidth) {
+  if (saved > 0) return Math.max(16, Math.min(64, saved));
+  return Number.isFinite(nativeSize) && nativeSize > 0 ? Math.max(16, Math.min(64, nativeSize)) : Math.min(28, Math.max(16, Math.round(playerWidth * 0.034)));
+}
+const CAPTION_PARTS = ".jpdb-subtitle-primary-row,.jpdb-subtitle-lines > .jpdb-subtitle-secondary,[data-subtitle-drag-handle]";
+function subtitleCaptionRects(root) {
+  if (!root || root.hidden || root.classList.contains("jpdb-subtitle-hidden")) return [];
+  return Array.from(root.querySelectorAll(CAPTION_PARTS)).filter((element) => getComputedStyle(element).display !== "none").map((element) => element.getBoundingClientRect()).filter((rect) => rect.width > 0 && rect.height > 0);
+}
+function subtitleCaptionExtents(root) {
+  const text = root.querySelector(".jpdb-subtitle-text");
+  if (!text) return { above: 0, below: 0 };
+  const rect = text.getBoundingClientRect();
+  const parts = subtitleCaptionRects(root);
+  return {
+  above: rect.bottom - Math.min(rect.top, ...parts.map((part) => part.top)),
+  below: Math.max(rect.bottom, ...parts.map((part) => part.bottom)) - rect.bottom
+  };
+}
+function subtitleCaptionBottomPercent(root, preferred) {
+  const viewport = subtitleVisibleViewportSize();
+  const visualViewport = window.visualViewport;
+  const viewportTop = visualViewport && Math.round(visualViewport.width) === viewport.width && Math.round(visualViewport.height) === viewport.height ? visualViewport.offsetTop : 0;
+  const extents = subtitleCaptionExtents(root);
+  const frame = root.getBoundingClientRect();
+  const rail = root.querySelector(".jpdb-subtitle-rail");
+  if (rail && getComputedStyle(rail).display !== "none") {
+  const clearance = rail.getBoundingClientRect().height + 6;
+  if (frame.bottom > viewportTop + viewport.height || extents.above + extents.below + clearance > frame.height) {
+    extents.below += clearance;
+  }
+  }
+  return reachableSubtitleBottomPercent({
+  preferredBottomPercent: preferred,
+  positionRect: frame,
+  viewportTop,
+  viewportHeight: viewport.height,
+  subtitleHeight: extents.above,
+  belowAnchor: extents.below
+  });
+}
+class SubtitleCaptionSizing {
+  video;
+  width = 0;
+  height = 0;
+  reference = 28;
+  apply(root, video, savedSize, frame) {
+  const saved = savedSize === 0 ? 0 : Math.max(16, Math.min(64, savedSize));
+  const target = video && isYouTubePage$1() ? this.size(video, saved, frame.width, frame.height) : saved || 28;
+  setStylePropertyIfChanged(root, "--subtitle-font-size-target", `${target}px`);
+  setStylePropertyIfChanged(root, "--subtitle-font-size", `${target}px`);
+  setStylePropertyIfChanged(root, "--subtitle-secondary-font-size", `${Math.max(16, Math.round(target * 0.8))}px`);
+  }
+  size(video, target, width, height) {
+  if (video !== this.video || Math.abs(width - this.width) > 1 || Math.abs(height - this.height) > 1) {
+    const player = video.closest("#movie_player,.html5-video-player,ytm-player");
+    const native = player?.querySelector(".ytp-caption-segment") ?? player?.querySelector(".caption-visual-line") ?? player?.querySelector(".captions-text");
+    this.reference = youtubeCaptionFontSize(0, native ? Number.parseFloat(getComputedStyle(native).fontSize) : NaN, width);
+    this.video = video;
+    this.width = width;
+    this.height = height;
+  }
+  return youtubeCaptionFontSize(target, this.reference, width);
+  }
+}
+function hasOpenYouTubeMobileBottomSheet() {
+  return Array.from(document.querySelectorAll(
+  'bottom-sheet-container[aria-modal="true"],ytm-bottom-sheet-renderer[aria-modal="true"],yt-sheet-view-model[aria-modal="true"]'
+  )).some((sheet) => {
+  for (let element = sheet; element; element = composedAncestorElement(element)) {
+    if (element.hidden || element.getAttribute("aria-hidden") === "true") return false;
+    const style = getComputedStyle(element);
+    if (style.display === "none" || style.visibility === "hidden") return false;
+  }
+  return true;
+  });
+}
+function currentFullscreenElement(sourceDocument = document) {
+  const fullscreenDocument = sourceDocument;
+  return sourceDocument.fullscreenElement ?? fullscreenDocument.webkitFullscreenElement ?? fullscreenDocument.mozFullScreenElement ?? fullscreenDocument.msFullscreenElement ?? null;
+}
+function collectPageSubtitleSources(root = document) {
+  const pageTitle = pageSubtitleTitle(root);
+  return dedupeSubtitleSources([
+  ...collectTrackSubtitleSources(root, pageTitle),
+  ...collectLinkSubtitleSources(root, pageTitle),
+  ...collectConfigSubtitleSources(root, pageTitle)
+  ]);
+}
+function collectTrackSubtitleSources(root, pageTitle) {
+  return Array.from(root.querySelectorAll("track[src]")).map((track) => subtitleSourceFromTrack(track, pageTitle)).filter((source) => Boolean(source));
+}
+function subtitleSourceFromTrack(track, pageTitle) {
+  if (!isSubtitleTrackElement(track)) return null;
+  const url = subtitleTrackSourceUrl(track);
+  const rawLabel = firstSubtitleText([track.label, track.srclang, track.getAttribute("aria-label")]);
+  return pageSubtitleSource({
+  url,
+  rawLabel,
+  label: subtitleTrackSourceLabel(track, url, pageTitle),
+  explicitLanguage: track.srclang,
+  sourceKind: "track"
+  });
+}
+function isSubtitleTrackElement(track) {
+  return !track.kind || /subtitles|captions/i.test(track.kind);
+}
+function subtitleTrackSourceUrl(track) {
+  return subtitleSourceUrl(firstSubtitleText([track.src, track.getAttribute("src")]));
+}
+function subtitleTrackSourceLabel(track, url, pageTitle) {
+  return subtitleSourceLabel(firstSubtitleText([track.label, track.srclang, track.getAttribute("aria-label")]), url, {
+  pageTitle,
+  preferPageTitleForGeneric: true
+  });
+}
+function collectLinkSubtitleSources(root, pageTitle) {
+  return Array.from(root.querySelectorAll("a[href]")).map((link) => subtitleSourceFromLink(link, pageTitle)).filter((source) => Boolean(source));
+}
+function subtitleSourceFromLink(link, pageTitle) {
+  const url = subtitleSourceUrl(firstSubtitleText([link.href, link.getAttribute("href")]));
+  const rawLabel = linkSubtitleLabelText(link);
+  return pageSubtitleSource({
+  url,
+  rawLabel,
+  label: subtitleSourceLabel(rawLabel, url, { pageTitle }),
+  explicitLanguage: link.lang,
+  sourceKind: "link"
+  });
+}
+function collectConfigSubtitleSources(root, pageTitle) {
+  return subtitleConfigElements(root).flatMap((element, index) => subtitleSourcesFromConfigElement(element, pageTitle, index));
+}
+function subtitleConfigElements(root) {
+  return Array.from(root.querySelectorAll([
+  "[props]",
+  "[data-props]",
+  "[data-tracks]",
+  "[data-subtitles]",
+  "[data-captions]",
+  "[data-config]",
+  "[data-player]",
+  "[data-setup]",
+  'script[type="application/json"]',
+  'script[type="application/ld+json"]'
+  ].join(",")));
+}
+function subtitleSourcesFromConfigElement(element, pageTitle, elementIndex) {
+  const texts = [
+  ...subtitleConfigAttributeTexts(element),
+  element instanceof HTMLScriptElement ? element.textContent ?? "" : ""
+  ].filter((text) => text && hasSubtitleSourceText(text));
+  return texts.flatMap((text, textIndex) => subtitleSourcesFromConfigText(text, pageTitle, `config-${elementIndex}-${textIndex}`));
+}
+function subtitleConfigAttributeTexts(element) {
+  return Array.from(element.attributes).filter((attribute) => subtitleConfigAttributeName(attribute.name) || hasSubtitleSourceText(attribute.value)).map((attribute) => attribute.value);
+}
+function subtitleConfigAttributeName(name) {
+  return /^(?:props|data-(?:props|tracks|subtitles?|captions?|config|player|setup|sources?))$/i.test(name);
+}
+function hasSubtitleSourceText(text) {
+  return /\.(?:vtt|srt|ass|ssa)(?:$|[?#\s"'\\<>,\])}])/i.test(text);
+}
+function subtitleSourcesFromConfigText(text, pageTitle, keyPrefix) {
+  const parsed = parseSubtitleConfigJson(text);
+  return parsed === void 0 ? [] : subtitleSourcesFromConfigValue(parsed, pageTitle, keyPrefix);
+}
+function parseSubtitleConfigJson(text) {
+  try {
+  return JSON.parse(text);
+  } catch {
+  return void 0;
+  }
+}
+function subtitleSourcesFromConfigValue(value, pageTitle, keyPrefix) {
+  const sources = [];
+  const seenObjects = /* @__PURE__ */ new Set();
+  const collect = { pageTitle, keyPrefix, sources, seenObjects };
+  visitSubtitleConfigValue(value, [], collect);
+  return sources;
+}
+function visitSubtitleConfigValue(current, path, collect) {
+  const decoded = subtitleConfigTaggedValue(current);
+  if (decoded !== current) return visitSubtitleConfigValue(decoded, path, collect);
+  if (Array.isArray(current)) return visitSubtitleConfigArray(current, path, collect);
+  const record2 = subtitleConfigObject(current);
+  if (record2) visitSubtitleConfigRecord(record2, path, collect);
+}
+function visitSubtitleConfigArray(values, path, collect) {
+  values.forEach((value) => visitSubtitleConfigValue(value, path, collect));
+}
+function visitSubtitleConfigRecord(record2, path, collect) {
+  if (collect.seenObjects.has(record2)) return;
+  collect.seenObjects.add(record2);
+  const source = subtitleSourceFromConfigRecord(record2, collect.pageTitle, collect.keyPrefix, collect.sources.length, path);
+  if (source) collect.sources.push(source);
+  Object.entries(record2).forEach(([key, child]) => visitSubtitleConfigValue(child, [...path, key], collect));
+}
+function subtitleConfigObject(value) {
+  return value && typeof value === "object" ? value : void 0;
+}
+function subtitleSourceFromConfigRecord(record2, pageTitle, keyPrefix, index, path) {
+  if (!isSubtitleConfigRecord(record2, path)) return null;
+  const url = subtitleConfigRecordUrl(record2);
+  const rawLabel = subtitleConfigRecordLabel(record2);
+  return pageSubtitleSource({
+  url,
+  rawLabel,
+  label: subtitleConfigSourceLabel(rawLabel, url, pageTitle),
+  explicitLanguage: subtitleConfigRecordLanguage(record2),
+  sourceKind: `${keyPrefix}-${index}`
+  });
+}
+function pageSubtitleSource(descriptor) {
+  if (!descriptor.url) return null;
+  return {
+  url: descriptor.url,
+  label: descriptor.label,
+  language: subtitleSourceLanguage(descriptor),
+  sourceKey: pageSubtitleSourceKey(descriptor.sourceKind, descriptor.url)
+  };
+}
+function subtitleSourceLanguage(descriptor) {
+  const inferred = [
+  descriptor.explicitLanguage,
+  inferSubtitleLanguage(descriptor.rawLabel, descriptor.url),
+  inferSubtitleLanguage(descriptor.label, descriptor.url)
+  ].find((language) => Boolean(language));
+  return normalizeSubtitleLanguage(inferred);
+}
+function subtitleConfigRecordUrl(record2) {
+  for (const key of ["src", "file", "url", "href"]) {
+  const value = subtitleConfigString(record2[key]);
+  const url = value ? subtitleSourceUrl(value) : "";
+  if (url) return url;
+  }
+  return "";
+}
+function subtitleConfigRecordLabel(record2) {
+  return subtitleConfigString(record2.label) || subtitleConfigString(record2.name) || subtitleConfigString(record2.title) || subtitleConfigRecordLanguage(record2);
+}
+function subtitleConfigRecordLanguage(record2) {
+  return subtitleConfigString(record2.language) || subtitleConfigString(record2.lang) || subtitleConfigString(record2.srclang);
+}
+function subtitleConfigSourceLabel(value, url, pageTitle) {
+  const cleaned = cleanSubtitleTitle(value);
+  return cleaned || subtitleSourceLabel("", url, { pageTitle });
+}
+function isSubtitleConfigRecord(record2, path) {
+  const context = `${path.join(" ")} ${Object.keys(record2).join(" ")}`;
+  if (/(?:thumbnail|thumb|preview|poster|image|sprite|chapter|manifest|playlist)/i.test(context)) return false;
+  const type = [
+  subtitleConfigString(record2.kind),
+  subtitleConfigString(record2.type),
+  subtitleConfigString(record2.role),
+  subtitleConfigString(record2.trackKind)
+  ].join(" ");
+  return /(?:subtitles?|captions?|closed.?captions?|text.?tracks?)/i.test(`${context} ${type}`) || Boolean(subtitleConfigRecordLanguage(record2) && subtitleConfigRecordLabel(record2));
+}
+function subtitleConfigString(value) {
+  const decoded = subtitleConfigTaggedValue(value);
+  return typeof decoded === "string" ? decoded.trim() : "";
+}
+function subtitleConfigTaggedValue(value) {
+  if (!Array.isArray(value)) return value;
+  if (value.length !== 2) return value;
+  if (!["number", "string"].includes(typeof value[0])) return value;
+  return value[1];
+}
+function linkSubtitleLabelText(link) {
+  return firstSubtitleText([
+  link.getAttribute("download"),
+  link.getAttribute("aria-label"),
+  link.getAttribute("title"),
+  link.textContent
+  ]);
+}
+function firstSubtitleText(values) {
+  return values.find((value) => Boolean(value)) ?? "";
+}
+function subtitleSourceUrl(value) {
+  const url = resolveSubtitleSourceUrl(value);
+  return url && isSupportedSubtitleSourceUrl(url) ? url : "";
+}
+function dedupeSubtitleSources(sources) {
+  const seen = /* @__PURE__ */ new Set();
+  return sources.filter((source) => {
+  const key = source.sourceKey;
+  if (seen.has(key)) return false;
+  seen.add(key);
+  return true;
+  });
+}
+function pageSubtitleTitle(root) {
+  const doc = root instanceof Document ? root : root.ownerDocument ?? document;
+  return cleanSubtitleTitle(pageSubtitleTitleCandidate(doc));
+}
+function pageSubtitleTitleCandidate(doc) {
+  return openGraphSubtitleTitle(doc) || headingSubtitleTitle(doc) || doc.title || "";
+}
+function openGraphSubtitleTitle(doc) {
+  return doc.querySelector('meta[property="og:title"], meta[name="twitter:title"]')?.content ?? "";
+}
+function headingSubtitleTitle(doc) {
+  return doc.querySelector("h1")?.textContent ?? "";
+}
+function resolveSubtitleSourceUrl(value) {
+  try {
+  const url = new URL(value, document.baseURI);
+  if (!/^(https?|blob|data):$/i.test(url.protocol)) return "";
+  return url.href;
+  } catch {
+  return "";
+  }
+}
+function isSupportedSubtitleSourceUrl(value) {
+  try {
+  const url = new URL(value, document.baseURI);
+  const haystack = [
+    decodeURIComponent(url.pathname),
+    ...Array.from(url.searchParams.values()).map((part) => decodeURIComponent(part))
+  ].join(" ");
+  return /\.(vtt|srt|ass|ssa)(?:$|[?#\s])/i.test(`${haystack} `);
+  } catch {
+  return /\.(vtt|srt|ass|ssa)(?:$|[?#\s])/i.test(value);
+  }
+}
+function subtitleSourceLabel(value, url, options = {}) {
+  const cleaned = cleanSubtitleTitle(value);
+  const filename = subtitleSourceFilenameLabel(url);
+  const specific = specificSubtitleLabel(cleaned, filename);
+  if (specific) return specific;
+  return genericSubtitleLabel(cleaned, filename, options);
+}
+function genericSubtitleLabel(cleaned, filename, options) {
+  if (shouldUsePageTitleForGeneric(cleaned, options)) return options.pageTitle ?? "";
+  return firstSubtitleText([cleaned, filename, "Subtitle file"]);
+}
+function shouldUsePageTitleForGeneric(cleaned, options) {
+  if (!options.pageTitle) return false;
+  return !cleaned || Boolean(options.preferPageTitleForGeneric && cleaned);
+}
+function specificSubtitleLabel(cleaned, filename) {
+  return [cleaned, filename].find(isSpecificSubtitleLabel) ?? "";
+}
+function isSpecificSubtitleLabel(value) {
+  return Boolean(value) && !isGenericSubtitleLabel(value);
+}
+function subtitleSourceFilenameLabel(url) {
+  try {
+  const parsed = new URL(url, document.baseURI);
+  const filename = parsed.searchParams.get("filename") || parsed.pathname.split("/").pop() || "";
+  return cleanSubtitleTitle(decodeURIComponent(filename).replace(/[_-]+/g, " "));
+  } catch {
+  return "";
+  }
+}
+function cleanSubtitleTitle(value) {
+  return value.replace(/\.(vtt|srt|ass|ssa)$/i, "").replace(/\s+/g, " ").trim();
+}
+function pageSubtitleSourceKey(kind, url) {
+  return `${kind}:${normalizedSubtitleUrl(url)}`;
+}
+function normalizedSubtitleUrl(value) {
+  try {
+  const url = new URL(value, document.baseURI);
+  url.searchParams.delete("v");
+  url.hash = "";
+  return url.href;
+  } catch {
+  return value;
+  }
+}
+function sameSubtitleUrl(a, b) {
+  return normalizedSubtitleUrl(a) === normalizedSubtitleUrl(b);
 }
 const REDIRECT_FLAG = "__yomuSubtitleFullscreenRedirect";
 const STYLE_ID = "yomu-subtitle-fullscreen-redirect-style";
@@ -16418,9 +16593,12 @@ function booleanStyleApplier(key) {
 const SUBTITLE_STYLE_APPLIERS = {
   subtitleNativeDisplay: (settings, control) => isNativeSubtitleDisplayMode(control.value) && applyNativeSubtitleDisplayMode(settings, control.value) ? NATIVE_DISPLAY_EXPLICIT_KEYS : void 0,
   subtitleNativeBlurStrength: numberStyleApplier("subtitleNativeBlurStrength", 4, 20),
-  subtitleFontSize: numberStyleApplier("subtitleFontSize", 16, 64),
+  subtitleFontSize: (settings, control) => {
+  const value = Number(control.value);
+  return updateNumberSetting(settings, "subtitleFontSize", value <= 14 ? "0" : control.value, 0, 64) ? ["subtitleFontSize"] : void 0;
+  },
   subtitleFontWeight: numberStyleApplier("subtitleFontWeight", 300, 900),
-  subtitleBackgroundOpacity: numberStyleApplier("subtitleBackgroundOpacity", 0, 0.7),
+  subtitleBackgroundOpacity: numberStyleApplier("subtitleBackgroundOpacity", 0, 1),
   subtitleFontFamily: (settings, control) => {
   const next = SUBTITLE_STYLE_FONT_FAMILY_VALUES.includes(control.value) ? control.value : settings.subtitleFontFamily;
   if (settings.subtitleFontFamily === next) return void 0;
@@ -16486,7 +16664,12 @@ function syncSubtitleStylePopoverControls(root, settings, requestedOpen) {
   const nativeBlurStrengthField = popover.querySelector('[data-subtitle-style-field="subtitleNativeBlurStrength"]');
   if (nativeBlurStrengthField) nativeBlurStrengthField.hidden = nativeDisplay !== "blurred";
   syncRangeControl(popover, "subtitleNativeBlurStrength", settings.subtitleNativeBlurStrength, "px");
-  syncRangeControl(popover, "subtitleFontSize", settings.subtitleFontSize, "px");
+  syncRangeControl(popover, "subtitleFontSize", settings.subtitleFontSize || 14, "px");
+  const sizeControl = popover.querySelector('[data-subtitle-style-setting="subtitleFontSize"]');
+  const sizeOutput = popover.querySelector('[data-subtitle-style-output="subtitleFontSize"]');
+  const sizeLabel = settings.subtitleFontSize === 0 ? uiText(settings.interfaceLanguage, "subtitleFontSizeAutomatic") : `${settings.subtitleFontSize}px`;
+  sizeControl?.setAttribute("aria-valuetext", sizeLabel);
+  if (sizeOutput) sizeOutput.textContent = sizeLabel;
   syncRangeControl(popover, "subtitleFontWeight", settings.subtitleFontWeight, "weight");
   syncRangeControl(popover, "subtitleBackgroundOpacity", settings.subtitleBackgroundOpacity, "");
   const fontSelect = popover.querySelector('[data-subtitle-style-setting="subtitleFontFamily"]');
@@ -16561,6 +16744,22 @@ function mutationCouldAffectVideoDiscovery(mutation) {
 function nodeContainsVideoElement(node) {
   if (node instanceof HTMLVideoElement) return true;
   return node instanceof Element && Boolean(node.querySelector("video"));
+}
+class SubtitlePaintCommit {
+  requested;
+  pair;
+  advance(cue) {
+  const previous = this.requested;
+  this.requested = cue;
+  return Boolean(this.pair && previous && previous.start <= cue.start && previous.end >= cue.start - SUBTITLE_CUE_BOUNDARY_PADDING_SECONDS);
+  }
+  commit(primary, secondary) {
+  this.pair = primary ? { primary, secondary } : void 0;
+  }
+  clear() {
+  this.requested = void 0;
+  this.pair = void 0;
+  }
 }
 function updatePageSubtitleTrack(track, source) {
   if (track.label === source.label && track.language === source.language && track.sourceKey === source.sourceKey) return false;
@@ -17185,7 +17384,7 @@ new Map(
   Object.entries(DEFAULT_WORD_COLOR_TOKENS).map(([state, seed]) => [seed, state])
 );
 function isApiMiningEnabled(settings) {
-  return settings.jpdbMiningEnabled || settings.bunproMiningEnabled || settings.yomuLocalSrsEnabled;
+  return settings.jpdbMiningEnabled || settings.jitenMiningEnabled || settings.bunproMiningEnabled || settings.yomuLocalSrsEnabled;
 }
 const SUBTITLE_BACKGROUND_PARSE_TIMEOUT_MS = 1200;
 const SUBTITLE_EMPTY_PARSE_RETRY_MS = 2500;
@@ -18225,7 +18424,11 @@ function bindSubtitleControlRail(root, onActivity, options = {}) {
     railLeft: railRect.left - rootRect.left,
     railTop: railRect.top - rootRect.top,
     maxLeft: Math.max(RAIL_MARGIN_PX, rootRect.width - railRect.width - RAIL_MARGIN_PX),
-    maxTop: Math.max(RAIL_MARGIN_PX, rootRect.height - railRect.height - RAIL_MARGIN_PX)
+    maxTop: Math.max(RAIL_MARGIN_PX, rootRect.height - railRect.height - RAIL_MARGIN_PX),
+    // A short player cannot always hold wrapped captions AND controls.
+    // Keep the rail attached to its root, but allow the empty viewport
+    // below that player as a last resort instead of covering the cue.
+    fallbackMaxTop: Math.max(RAIL_MARGIN_PX, (window.visualViewport?.height ?? window.innerHeight) + (window.visualViewport?.offsetTop ?? 0) - rootRect.top - railRect.height - RAIL_MARGIN_PX)
   };
   };
   const setPixels = (left, top, persist = false, bounds = railBounds(), reservedRects) => {
@@ -18238,7 +18441,9 @@ function bindSubtitleControlRail(root, onActivity, options = {}) {
     bounds,
     reservedRects ?? options.getReservedRects?.() ?? []
   );
-  const styles = { left: `${Math.round(safePosition.left)}px`, right: "auto", top: `${Math.round(safePosition.top)}px` };
+  const scaleX = root.offsetWidth ? bounds.rootRect.width / root.offsetWidth : 1;
+  const scaleY = root.offsetHeight ? bounds.rootRect.height / root.offsetHeight : 1;
+  const styles = { left: `${Math.round(safePosition.left / scaleX)}px`, right: "auto", top: `${Math.round(safePosition.top / scaleY)}px` };
   let changed = false;
   for (const [property, value] of Object.entries(styles)) {
     if (rail.style.getPropertyValue(property) === value) continue;
@@ -18410,7 +18615,9 @@ function railPositionOutsideReservedRects(requestedLeft, requestedTop, bounds, r
     clamp(requested.left, rect.bottom - rootTop + gap)
   );
   }
-  return candidates.filter((candidate) => !overlapsReservedRect(candidate)).sort((first, second) => squaredDistance(first, requested) - squaredDistance(second, requested))[0] ?? requested;
+  const inside = candidates.filter((candidate) => !overlapsReservedRect(candidate)).sort((first, second) => squaredDistance(first, requested) - squaredDistance(second, requested))[0];
+  if (inside) return inside;
+  return reservedRects.map((rect) => ({ left: requested.left, top: rect.bottom - rootTop + gap })).filter((candidate) => candidate.top >= RAIL_MARGIN_PX && candidate.top <= (bounds.fallbackMaxTop ?? bounds.maxTop) && !overlapsReservedRect(candidate)).sort((first, second) => squaredDistance(first, requested) - squaredDistance(second, requested))[0] ?? requested;
 }
 function squaredDistance(first, second) {
   return (first.left - second.left) ** 2 + (first.top - second.top) ** 2;
@@ -18936,6 +19143,12 @@ function isFreshStoredParsedCueHtml(value) {
 function isObjectRecord(value) {
   return Boolean(value) && typeof value === "object";
 }
+function syncTranscriptPageState(panel) {
+  const open = Boolean(panel && !panel.hidden);
+  const root = document.documentElement.classList;
+  root.toggle("jpdb-subtitle-transcript-open", open);
+  root.toggle("jpdb-subtitle-transcript-bottom-open", open && Boolean(panel?.classList.contains("jpdb-subtitle-transcript-bottom")));
+}
 class SubtitleTranscriptPanel {
   constructor(deps) {
   this.deps = deps;
@@ -19288,6 +19501,205 @@ async function prewarmSubtitleFirstPaint(options) {
   if (nextText) void options.parse(nextText).catch(() => void 0);
   return true;
 }
+const SITE_POPUPS = '.ytp-popup, .ytp-settings-menu, .ytp-contextmenu, .ytp-tooltip, tp-yt-iron-dropdown, tp-yt-paper-dialog, dialog[open], [role="dialog"], [aria-modal="true"], [role="menu"], [role="tooltip"]';
+class SubtitlePopupOcclusion {
+  root;
+  observer;
+  frame;
+  desired;
+  queued = false;
+  clip = "";
+  schedule(root, enabled) {
+  this.desired = enabled ? root : void 0;
+  if (!enabled) {
+    this.release();
+    return;
+  }
+  if (this.queued) return;
+  this.queued = true;
+  queueMicrotask(() => {
+    this.queued = false;
+    const desired = this.desired;
+    if (!desired) return;
+    if (this.root !== desired) {
+      this.detach();
+      this.root = desired;
+      this.observer = new MutationObserver((mutations) => {
+        if (mutations.some((mutation) => this.concernsPopup(mutation))) this.refresh();
+      });
+      this.observer.observe(desired.ownerDocument.body, {
+        subtree: true,
+        childList: true,
+        attributes: true,
+        attributeFilter: ["style", "class", "hidden", "open", "role", "aria-hidden", "aria-modal"]
+      });
+    }
+    this.refresh();
+  });
+  }
+  concernsPopup(mutation) {
+  const target = mutation.target instanceof Element ? mutation.target : mutation.target.parentElement;
+  if (!target || target.closest("[data-jpdb-reader-root], .jpdb-reader-word")) return false;
+  if (target.matches(SITE_POPUPS) || target.closest(SITE_POPUPS)) return true;
+  if (mutation.type === "attributes") return Boolean(target.querySelector(SITE_POPUPS));
+  return [...mutation.addedNodes, ...mutation.removedNodes].some((node) => node instanceof Element && !node.closest("[data-jpdb-reader-root]") && (node.matches(SITE_POPUPS) || node.querySelector(SITE_POPUPS)));
+  }
+  refresh() {
+  const root = this.root;
+  const view = root?.ownerDocument.defaultView;
+  if (!root || !view) return;
+  const holes = [];
+  let animating = false;
+  for (const popup of root.ownerDocument.querySelectorAll(SITE_POPUPS)) {
+    if (popup.closest("[data-jpdb-reader-root]")) continue;
+    const rect = popup.getBoundingClientRect();
+    if (rect.width <= 0 || rect.height <= 0) continue;
+    if (rect.right <= 0 || rect.bottom <= 0 || rect.left >= view.innerWidth || rect.top >= view.innerHeight) continue;
+    const style = view.getComputedStyle(popup);
+    if (style.visibility !== "visible") continue;
+    animating ||= popup.getAnimations().some((animation) => animation.playState === "running");
+    if (Number(style.opacity) === 0) continue;
+    let merged = rect;
+    for (let index = 0; index < holes.length; ) {
+      const other = holes[index];
+      if (merged.left <= other.right && merged.right >= other.left && merged.top <= other.bottom && merged.bottom >= other.top) {
+        merged = {
+          left: Math.min(merged.left, other.left),
+          top: Math.min(merged.top, other.top),
+          right: Math.max(merged.right, other.right),
+          bottom: Math.max(merged.bottom, other.bottom)
+        };
+        holes.splice(index, 1);
+        index = 0;
+      } else index += 1;
+    }
+    holes.push(merged);
+  }
+  let clip = "";
+  if (holes.length) {
+    const origin = root.getBoundingClientRect();
+    const path = (rect) => `M${rect.left - origin.left} ${rect.top - origin.top}H${rect.right - origin.left}V${rect.bottom - origin.top}H${rect.left - origin.left}Z`;
+    clip = `path(evenodd, "${path({ left: 0, top: 0, right: view.innerWidth, bottom: view.innerHeight })}${holes.map(path).join("")}")`;
+  }
+  if (holes.length || animating) {
+    if (this.frame === void 0) this.frame = view.requestAnimationFrame(() => {
+      this.frame = void 0;
+      this.refresh();
+    });
+  } else if (this.frame !== void 0) {
+    view.cancelAnimationFrame(this.frame);
+    this.frame = void 0;
+  }
+  if (this.clip !== clip) {
+    root.style.clipPath = clip;
+    this.clip = clip;
+  }
+  }
+  release() {
+  this.desired = void 0;
+  this.detach();
+  }
+  detach() {
+  this.observer?.disconnect();
+  this.observer = void 0;
+  if (this.frame !== void 0) this.root?.ownerDocument.defaultView?.cancelAnimationFrame(this.frame);
+  this.frame = void 0;
+  if (this.root?.style.clipPath) this.root.style.removeProperty("clip-path");
+  this.root = void 0;
+  this.clip = "";
+  }
+}
+const HOST_CLASS = "jpdb-subtitle-layer-host";
+const youtubeCaptionLayerAdapter = {
+  host: (video) => video.closest("#movie_player, .html5-video-player, ytm-player, ytd-player"),
+  chromeTier: (host) => Math.max(0, ...Array.from(
+  host.querySelectorAll(".ytp-chrome-top, .ytp-chrome-bottom"),
+  (element) => Number.parseInt(getComputedStyle(element).zIndex) || 0
+  )) + 1
+};
+function captionLayerTier(host, player, video) {
+  if (host && isYouTubePage$1()) return youtubeCaptionLayerAdapter.chromeTier(host);
+  let tier = 0;
+  for (let ancestor = host ? video : player; ancestor && ancestor !== (host ?? document.body); ancestor = ancestor.parentElement ?? void 0) {
+  const value = Number.parseInt(getComputedStyle(ancestor).zIndex);
+  if (Number.isFinite(value)) tier = value;
+  }
+  return host ? Math.max(0, tier) + 1 : tier;
+}
+function mountCaptionLayer(root, parent, host) {
+  if (root.parentElement === parent) return false;
+  let before = host?.querySelector('.ytp-settings-menu, [role="dialog"], [aria-modal="true"], dialog[open], [role="menu"]') ?? null;
+  while (before?.parentElement && before.parentElement !== parent) before = before.parentElement;
+  const active = root.ownerDocument.activeElement;
+  const focused = active instanceof HTMLElement && root.contains(active) ? active : null;
+  const moveBefore = parent.moveBefore;
+  if (moveBefore && root.isConnected && parent.isConnected && root.getRootNode() === parent.getRootNode()) moveBefore.call(parent, root, before);
+  else parent.insertBefore(root, before);
+  if (focused && root.ownerDocument.activeElement !== focused) focused.focus({ preventScroll: true });
+  return true;
+}
+class SubtitleLayer {
+  host;
+  local = false;
+  player;
+  floating = false;
+  popupOcclusion = new SubtitlePopupOcclusion();
+  sync(root, video, fullscreen, fullscreenHost) {
+  const previousHost = this.host;
+  const previousLocal = this.local;
+  const focused = root.contains(root.ownerDocument.activeElement);
+  const floating = focused || (this.captionLeavesFrame(root) ?? this.floating);
+  const fallbackHost = fullscreenHost !== document.body && fullscreenHost !== document.documentElement ? fullscreenHost : void 0;
+  const player = (video && (isYouTubePage$1() ? youtubeCaptionLayerAdapter.host(video) ?? fallbackHost : fallbackHost ?? video.parentElement)) ?? void 0;
+  const host = !floating && player && player !== document.body ? player : void 0;
+  if (host !== this.host || player !== this.player) {
+    this.release();
+    this.host = host;
+    this.player = player;
+    host?.classList.add(HOST_CLASS);
+  }
+  this.local = Boolean(host && ["relative", "absolute", "fixed", "sticky"].includes(getComputedStyle(host).position));
+  const tier = captionLayerTier(host, player, video);
+  if (root.style.getPropertyValue("--subtitle-layer") !== String(tier)) root.style.setProperty("--subtitle-layer", String(tier));
+  this.floating = floating;
+  const moved = mountCaptionLayer(root, host ?? fullscreen, host);
+  if (root.classList.contains("jpdb-subtitle-layer-local") !== this.local) root.classList.toggle("jpdb-subtitle-layer-local", this.local);
+  this.popupOcclusion.schedule(root, floating);
+  return moved || previousHost !== this.host || previousLocal !== this.local;
+  }
+  captionLeavesFrame(root) {
+  const frame = root.getBoundingClientRect();
+  if (frame.height <= 0) return void 0;
+  const rows = Array.from(root.querySelectorAll(".jpdb-subtitle-primary-row, .jpdb-subtitle-secondary, .jpdb-subtitle-rail, [data-subtitle-drag-handle]")).filter((element) => getComputedStyle(element).display !== "none").map((element) => element.getBoundingClientRect()).filter((rect) => rect.height > 0);
+  return rows.length ? rows.some((rect) => rect.top < frame.top - 1 || rect.bottom > frame.bottom + 1) : void 0;
+  }
+  layout(rect) {
+  if (!this.host || !this.local) {
+    const page = document.documentElement;
+    const pageRect = page.getBoundingClientRect();
+    const scaleX2 = page.offsetWidth && pageRect.width ? pageRect.width / page.offsetWidth : 1;
+    const scaleY2 = page.offsetHeight && pageRect.height ? pageRect.height / page.offsetHeight : scaleX2;
+    return { left: rect.left / scaleX2, top: rect.top / scaleY2, width: rect.width / scaleX2, height: rect.height / scaleY2 };
+  }
+  const hostRect = this.host.getBoundingClientRect();
+  const scaleX = hostRect.width && this.host.offsetWidth ? hostRect.width / this.host.offsetWidth : 1;
+  const scaleY = hostRect.height && this.host.offsetHeight ? hostRect.height / this.host.offsetHeight : 1;
+  return {
+    left: (rect.left - hostRect.left) / scaleX - this.host.clientLeft + this.host.scrollLeft,
+    top: (rect.top - hostRect.top) / scaleY - this.host.clientTop + this.host.scrollTop,
+    width: rect.width / scaleX,
+    height: rect.height / scaleY
+  };
+  }
+  release() {
+  this.popupOcclusion.release();
+  this.host?.classList.remove(HOST_CLASS);
+  this.host = void 0;
+  this.local = false;
+  this.player = void 0;
+  this.floating = false;
+  }
+}
 const YOUTUBE_FULLSCREEN_HOST_SELECTOR = [
   '[data-yomu-inline-fullscreen="true"]',
   ".html5-video-player.ytp-fullscreen",
@@ -19335,6 +19747,7 @@ class SubtitleFullscreenHost {
   constructor(deps) {
   this.deps = deps;
   }
+  layer = new SubtitleLayer();
   // Event-driven cache for the inline/CSS fullscreen host queries; undefined
   // means dirty (recompute on next read). See queriedFullscreenHost.
   hostQuery;
@@ -19392,11 +19805,18 @@ class SubtitleFullscreenHost {
   }
   syncSubtitleRootParent(fullscreenElement = currentFullscreenElement()) {
   const root = this.deps.getRoot();
-  if (!root) return;
+  if (!root) return false;
   const parent = this.fullscreenReaderRootParent(fullscreenElement);
-  if (root.parentElement !== parent) parent.appendChild(root);
+  const moved = this.layer.sync(root, this.video, parent, this.subtitleFullscreenHost(fullscreenElement) ?? void 0);
   const transcriptPanel = this.deps.getTranscriptPanel();
   if (transcriptPanel && transcriptPanel.parentElement !== parent) parent.appendChild(transcriptPanel);
+  return moved;
+  }
+  subtitleLayerLayout(rect) {
+  return this.layer.layout(rect);
+  }
+  releaseSubtitleLayer() {
+  this.layer.release();
   }
   fullscreenReaderRootParent(fullscreenElement) {
   return !this.shouldHostSubtitleRootInFullscreenElement(fullscreenElement) || fullscreenElement === document.documentElement ? document.body ?? document.documentElement : fullscreenElement;
@@ -19465,9 +19885,6 @@ function videoIsInNativeFullscreen(video) {
   const fullscreenVideo = video;
   return Boolean(fullscreenVideo.webkitDisplayingFullscreen || fullscreenVideo.webkitPresentationMode && fullscreenVideo.webkitPresentationMode !== "inline");
 }
-function subtitleTargetFontSize(settings) {
-  return Math.max(16, Math.min(64, settings.subtitleFontSize));
-}
 const DEFAULT_SUBTITLE_BOTTOM_OFFSET = DEFAULT_SETTINGS.subtitleBottomOffset;
 function setDocumentStylePropertyIfChanged(element, property, value) {
   if (element.style.getPropertyValue(property) === value) return false;
@@ -19479,9 +19896,6 @@ function youtubeWatchPlayerMeaningfullyVisible(rect) {
   const visibleHeight = Math.max(0, Math.min(rect.bottom, viewportHeight2) - Math.max(rect.top, 0));
   const ratio = visibleHeight / Math.max(1, rect.height);
   return visibleHeight >= Math.min(220, rect.height * 0.45) && ratio >= 0.45;
-}
-function subtitleSecondaryFontSize(target) {
-  return Math.max(13, Math.min(22, Math.round(target * 0.62)));
 }
 function pointInRect(x, y, rect) {
   return x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom;
@@ -19505,7 +19919,7 @@ function videoFrameCallbackHost(video) {
   return typeof candidate.requestVideoFrameCallback === "function" && typeof candidate.cancelVideoFrameCallback === "function" ? candidate : null;
 }
 function frameHasPlayerControls(frame) {
-  return Boolean(frame.querySelector([
+  const selector = [
   "button",
   '[role="button"]',
   '[aria-label*="play" i]',
@@ -19514,7 +19928,10 @@ function frameHasPlayerControls(frame) {
   '[class*="controls" i]',
   '[class*="play" i]',
   '[class*="pause" i]'
-  ].join(",")));
+  ].join(",");
+  const first = frame.querySelector(selector);
+  if (!first?.closest("[data-jpdb-reader-root]")) return Boolean(first);
+  return Array.from(frame.querySelectorAll(selector)).some((element) => !element.closest("[data-jpdb-reader-root]"));
 }
 const SUBTITLE_ACTIVE_PREPARSE_BEHIND = 6;
 const SUBTITLE_ACTIVE_PREPARSE_AHEAD = 10;
@@ -19880,6 +20297,8 @@ class SubtitlePlayerController {
   pinnedPlayer = new SubtitlePinnedPlayerTracker();
   lastRenderedPrimaryText = "";
   lastRenderedPrimaryHtml = "";
+  paintCommit = new SubtitlePaintCommit();
+  holdingPrimaryCue = false;
   lastRenderedPrimaryKey = "";
   lastAppliedPrimaryRowHtml = "";
   parseWarmupSerial = 0;
@@ -20157,9 +20576,13 @@ class SubtitlePlayerController {
   this.removeAsbPlayerSubtitleMoveHandles();
   this.transcriptPanel?.remove();
   this.root?.remove();
+  this.fullscreenHost.releaseSubtitleLayer();
+  this.paintCommit.clear();
+  this.holdingPrimaryCue = false;
   this.root = void 0;
   this.subtitleEl = void 0;
   this.transcriptPanel = void 0;
+  syncTranscriptPageState(void 0);
   this.video = void 0;
   this.fullscreenHost.invalidateHostCache();
   }
@@ -20271,12 +20694,9 @@ class SubtitlePlayerController {
   this.root.style.setProperty("--subtitle-family", settings.subtitleFontFamily);
   this.root.style.setProperty("--subtitle-weight", String(settings.subtitleFontWeight));
   }
+  captionSizing = new SubtitleCaptionSizing();
   syncRootFontSize(settings) {
-  if (!this.root) return;
-  const target = subtitleTargetFontSize(settings);
-  setStylePropertyIfChanged(this.root, "--subtitle-font-size-target", `${target}px`);
-  setStylePropertyIfChanged(this.root, "--subtitle-font-size", `${target}px`);
-  setStylePropertyIfChanged(this.root, "--subtitle-secondary-font-size", `${subtitleSecondaryFontSize(target)}px`);
+  if (this.root) this.captionSizing.apply(this.root, this.video, settings.subtitleFontSize, this.videoLayoutRect());
   }
   openTranscriptPanelFromSettings(settings) {
   if (this.transcriptDefaultOpenApplied) return;
@@ -20305,6 +20725,8 @@ class SubtitlePlayerController {
   if (isYouTubePage$1() || document.querySelector("[data-yomu-video-frame]")) installSubtitleFullscreenRedirect();
   }
   bindSubtitleSurface(surface) {
+  surface.root.addEventListener("focusin", () => this.scheduleAlignToVideo(), this.eventOptions());
+  surface.root.addEventListener("focusout", () => this.scheduleAlignToVideo(), this.eventOptions());
   surface.root.addEventListener("click", trustedReaderEventHandler((event) => this.handleClick(event)));
   surface.root.addEventListener("input", trustedReaderEventHandler((event) => this.handleSubtitleStyleInput(event)), this.eventOptions());
   surface.root.addEventListener("change", trustedReaderEventHandler((event) => this.handleSubtitleStyleInput(event)), this.eventOptions());
@@ -20812,7 +21234,6 @@ class SubtitlePlayerController {
       return;
     }
     this.currentCue = normalizeSubtitleCues([{ start: active.startTime, end: active.endTime, text: getTextTrackCueText(active) }])[0];
-    void this.autoCopyCurrentCue();
   }
   }
   updateSecondaryNativeTrackCue(track, active) {
@@ -21124,6 +21545,7 @@ class SubtitlePlayerController {
     this.positionTranscriptPanel();
     return;
   }
+  this.fullscreenHost.syncSubtitleRootParent();
   const layout = subtitleOverlayLayout(rect);
   setClassState(this.root, "jpdb-subtitle-compact-video", layout.width < 560 || layout.height < 260);
   if (rect.width < 120 || rect.height < 80) {
@@ -21137,7 +21559,7 @@ class SubtitlePlayerController {
     this.syncSubtitleTextSize();
     return;
   }
-  applyElementLayout(this.root, layout);
+  applyElementLayout(this.root, this.fullscreenHost.subtitleLayerLayout(layout));
   this.positionTranscriptPanel({ realignAfterInset: true });
   this.syncSubtitleTextSize();
   this.syncNativePlayerControlHitProtection();
@@ -21178,7 +21600,6 @@ class SubtitlePlayerController {
   this.syncPauseTranscriptPanel();
   this.syncControls();
   this.scheduleTranscriptCacheWarmup();
-  void this.autoCopyCurrentCue();
   }
   updateLoadedPrimaryCue(cue, time) {
   if (shouldReplaceLoadedCue(cue, this.currentCue)) return this.replaceLoadedPrimaryCue(cue);
@@ -21354,10 +21775,10 @@ class SubtitlePlayerController {
   this.renderOpenSubtitlePanel();
   this.syncControls();
   this.refreshNativeFullscreenCueMirror();
-  void this.autoCopyCurrentCue();
   }
   render() {
   if (!this.subtitleEl) return;
+  this.holdingPrimaryCue = false;
   const settings = this.options.getSettings();
   const text = this.currentCue?.text.trim() ?? "";
   if (!text) {
@@ -21366,6 +21787,7 @@ class SubtitlePlayerController {
     this.renderActiveSubtitle(text, settings);
   }
   this.syncNativeCaptionOwnership(settings);
+  if (this.fullscreenHost.syncSubtitleRootParent()) this.alignToVideo();
   }
   syncNativeCaptionOwnership(settings) {
   const next = this.shouldSuppressNativeCaptions(settings);
@@ -21374,6 +21796,7 @@ class SubtitlePlayerController {
   }
   renderEmptySubtitle(settings) {
   if (!this.subtitleEl) return;
+  this.paintCommit.clear();
   this.applyPrimaryRow(null);
   this.applySecondaryLine(settings);
   this.lastRenderedPrimaryKey = "";
@@ -21383,9 +21806,18 @@ class SubtitlePlayerController {
   renderActiveSubtitle(text, settings) {
   if (!this.subtitleEl) return;
   const primary = this.renderPrimarySubtitle(text, settings);
+  const contiguous = this.currentCue && this.paintCommit.advance(this.currentCue);
+  if (!primary.html && primary.shouldRequestParse && contiguous && this.subtitleEl.querySelector(".jpdb-subtitle-primary")?.textContent) {
+    this.holdingPrimaryCue = true;
+    this.syncSubtitleTextSize();
+    this.requestParsedPrimaryIfNeeded(primary, text);
+    return;
+  }
   const changed = this.applyPrimaryRow(primary.html);
   this.applySecondaryLine(settings);
   this.applyRenderedPrimarySubtitle(primary, text, settings);
+  this.paintCommit.commit(primary.html ? this.currentCue : void 0, this.secondaryCue);
+  void this.autoCopyCurrentCue();
   if (changed && primary.html) this.notifyParsedTokensForRenderedPrimary(text, settings, primary.html);
   }
   applyPrimaryRow(html) {
@@ -22010,24 +22442,12 @@ class SubtitlePlayerController {
   this.root.style.setProperty("--subtitle-bottom", `${this.effectiveSubtitleBottomPercent()}%`);
   }
   effectiveSubtitleBottomPercent(preferred = this.options.getSettings().subtitleBottomOffset) {
-  const root = this.root;
-  if (!root) return preferred;
-  const positionRect = root.getBoundingClientRect();
-  const viewport = subtitleVisibleViewportSize();
-  const visualViewport = window.visualViewport;
-  const viewportTop = visualViewport && Math.round(visualViewport.width) === viewport.width && Math.round(visualViewport.height) === viewport.height ? visualViewport.offsetTop : 0;
-  return reachableSubtitleBottomPercent({
-    preferredBottomPercent: preferred,
-    positionRect,
-    viewportTop,
-    viewportHeight: viewport.height,
-    subtitleHeight: root.querySelector(".jpdb-subtitle-text")?.getBoundingClientRect().height ?? 0
-  });
+  return this.root ? subtitleCaptionBottomPercent(this.root, preferred) : preferred;
   }
   syncSubtitleTextSize() {
   if (!this.root) return;
-  this.applyEffectiveSubtitleBottom();
   this.syncRootFontSize(this.options.getSettings());
+  this.applyEffectiveSubtitleBottom();
   }
   applyKaraokeStateToPrimary(cue, time) {
   this.karaokeSampler.applyKaraokeStateToPrimary(cue, time);
@@ -22142,7 +22562,6 @@ class SubtitlePlayerController {
   this.syncControls();
   this.warmParseAroundActiveCue();
   this.scheduleTranscriptCacheWarmup();
-  void this.autoCopyCurrentCue();
   }
   trackSelectionRole(id) {
   if (id === this.selectedTrackId) return "primary";
@@ -22451,6 +22870,7 @@ class SubtitlePlayerController {
   if (settings.subtitleBottomOffset === next) return;
   settings.subtitleBottomOffset = next;
   this.applyEffectiveSubtitleBottom();
+  this.scheduleAlignToVideo();
   this.syncSubtitleStyleControls();
   this.options.onSettingsChange(["subtitleBottomOffset"]);
   }
@@ -22502,7 +22922,10 @@ class SubtitlePlayerController {
   }
   syncYomuSubtitleDragOffsetStyle() {
   const yomuOffset = `${this.subtitleDragPreviewOffsetYPx ?? 0}px`;
-  if (this.root) setStylePropertyIfChanged(this.root, "--subtitle-drag-offset-y", yomuOffset);
+  if (this.root && this.root.style.getPropertyValue("--subtitle-drag-offset-y") !== yomuOffset) {
+    setStylePropertyIfChanged(this.root, "--subtitle-drag-offset-y", yomuOffset);
+    this.scheduleAlignToVideo();
+  }
   }
   syncAsbSubtitleDragOffsetStyle() {
   const offset = `${this.subtitleDragOffsetYPx}px`;
@@ -22762,10 +23185,11 @@ class SubtitlePlayerController {
   const rect = surfaces.length ? this.videoLayoutRect() : new DOMRect();
   const controls = nativePlayerControlRects(surfaces, rect);
   syncSubtitleNativeControlHitProtection(this.root, controls);
-  this.subtitleControlRail?.syncPosition(subtitleRailReservedRects(surfaces, rect, controls));
+  this.subtitleControlRail?.syncPosition([...subtitleRailReservedRects(surfaces, rect, controls), ...subtitleCaptionRects(this.root)]);
   }
   subtitleRailReservedRects() {
-  return this.video && isYouTubePage$1() ? subtitleRailReservedRects(this.youtubeNativeControlSurfaces(), this.videoLayoutRect()) : [];
+  const native = this.video && isYouTubePage$1() ? subtitleRailReservedRects(this.youtubeNativeControlSurfaces(), this.videoLayoutRect()) : [];
+  return [...native, ...subtitleCaptionRects(this.root)];
   }
   youtubeNativeControlSurfaces() {
   if (!this.video) return [];
@@ -23011,8 +23435,8 @@ class SubtitlePlayerController {
   await this.writeSubtitleClipboard(text, "Subtitle clipboard copy failed");
   }
   subtitleCopyText(rowIndex) {
-  const cue = rowIndex !== void 0 ? this.cues[rowIndex] : this.currentCue;
-  const secondary = rowIndex !== void 0 && cue ? findAlignedCue(this.secondaryCues, cue) : this.secondaryCue;
+  const cue = rowIndex !== void 0 ? this.cues[rowIndex] : this.paintCommit.pair?.primary;
+  const secondary = rowIndex !== void 0 && cue ? findAlignedCue(this.secondaryCues, cue) : this.paintCommit.pair?.secondary;
   return subtitleClipboardText(cue, secondary, this.options.getSettings().subtitleCopyIncludeTranslation);
   }
   async copyTranscriptRow(index) {
@@ -23031,11 +23455,12 @@ class SubtitlePlayerController {
   await navigator.clipboard?.writeText(text).catch((error) => log.warn(failureMessage, error));
   }
   async autoCopyCurrentCue() {
-  if (!this.options.getSettings().subtitleAutoCopyLine || !this.currentCue?.text.trim()) return;
-  const signature = subtitleCueSignature(this.currentCue);
+  const cue = this.paintCommit.pair?.primary;
+  if (!this.options.getSettings().subtitleAutoCopyLine || !cue?.text.trim()) return;
+  const signature = subtitleCueSignature(cue);
   if (signature === this.lastAutoCopiedCueSignature) return;
   this.lastAutoCopiedCueSignature = signature;
-  await navigator.clipboard?.writeText(this.currentCue.text.trim()).catch((error) => log.warn("Subtitle auto-copy failed", error));
+  await navigator.clipboard?.writeText(cue.text.trim()).catch((error) => log.warn("Subtitle auto-copy failed", error));
   }
   openSubtitleFilePicker(kind) {
   openDetachedFilePicker(SUBTITLE_FILE_ACCEPT, (files) => {
@@ -23293,8 +23718,8 @@ class SubtitlePlayerController {
     secondaryTrackId: this.secondaryTrackId,
     overlayVisible: settings.subtitleOverlayVisible || this.isTranscriptPanelOpen(),
     // Caption ownership is a visual hand-off: the page/native caption
-    // stays visible until the exact current Yomu cue has a settled
-    // parse (or a final plain fallback) ready to paint.
+    // stays visible until Yomu has a settled parse (or plain fallback).
+    // Holding a preceding abutting pair retains Yomu ownership too.
     suppressNativeCaptions,
     video: this.video,
     hasPrimaryCues: Boolean(this.cues.length),
@@ -23317,7 +23742,7 @@ class SubtitlePlayerController {
   const text = this.currentCue?.text.trim() ?? "";
   if (!text) return false;
   if (!this.shouldParseSubtitles(settings)) return true;
-  return this.primaryVisualCommitMatches(text, settings);
+  return this.holdingPrimaryCue || this.primaryVisualCommitMatches(text, settings);
   }
   primaryVisualCommitMatches(text, settings) {
   return this.lastRenderedPrimaryKey === this.parseCacheKey(text, settings) && this.lastRenderedPrimaryText === text && Boolean(this.lastRenderedPrimaryHtml);
@@ -23607,14 +24032,10 @@ class SubtitlePlayerController {
     setClassState(element, "jpdb-subtitle-transcript-right", this.effectiveTranscriptPlacement === "right");
     setClassState(element, "jpdb-subtitle-transcript-left", this.effectiveTranscriptPlacement === "left");
     setClassState(element, "jpdb-subtitle-transcript-bottom", this.effectiveTranscriptPlacement === "bottom");
-  }
-  if (this.root.dataset.transcriptPlacement !== this.effectiveTranscriptPlacement) {
-    this.root.dataset.transcriptPlacement = this.effectiveTranscriptPlacement;
-  }
-  if (this.transcriptPanel && this.transcriptPanel.dataset.transcriptPlacement !== this.effectiveTranscriptPlacement) {
-    this.transcriptPanel.dataset.transcriptPlacement = this.effectiveTranscriptPlacement;
+    if (element.dataset.transcriptPlacement !== this.effectiveTranscriptPlacement) element.dataset.transcriptPlacement = this.effectiveTranscriptPlacement;
   }
   this.syncPanelPlacementButtons();
+  syncTranscriptPageState(this.transcriptPanel);
   }
   syncPanelPlacementButtons() {
   syncTranscriptPlacementButtons(
@@ -23654,6 +24075,7 @@ class SubtitlePlayerController {
   this.transcriptPanelClosing = false;
   this.prepareTranscriptPanelPlacementForOpen();
   panel.hidden = false;
+  syncTranscriptPageState(panel);
   this.syncTranscriptPanelFullscreenDisplayOverride();
   panel.classList.remove("jpdb-subtitle-panel-entering", "jpdb-subtitle-panel-closing");
   panel.classList.add("jpdb-subtitle-panel-opened");
@@ -23681,6 +24103,7 @@ class SubtitlePlayerController {
   const revealedPageContent = !panel.hidden;
   this.clearTranscriptPanelAnimation();
   panel.hidden = true;
+  syncTranscriptPageState(panel);
   this.syncTranscriptPanelFullscreenDisplayOverride();
   panel.classList.remove("jpdb-subtitle-panel-entering", "jpdb-subtitle-panel-opened", "jpdb-subtitle-panel-closing");
   this.transcriptPanelClosing = false;

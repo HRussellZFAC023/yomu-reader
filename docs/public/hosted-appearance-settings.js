@@ -860,6 +860,7 @@ var MANAGED_STATE_MANIFEST = [
   { owner: "jpdb/jpdb-public-cache", kind: "local", key: "yomu:jpdb-cache:v1" },
   { owner: "dictionaries/jiten-public-cache (legacy)", kind: "gm", key: "yomu:jiten-public-cache:v1" },
   { owner: "dictionaries/jiten-public-cache", kind: "local", key: "yomu:jiten-public-cache:v2" },
+  { owner: "dictionaries/jiten-reading-memory", kind: "local", key: "yomu:jiten-readings:v1" },
   { owner: "dictionaries/jiten-stats-cache", kind: "gm", key: "jpdb-reader-jiten-daily-stats" },
   // Dictionary database (Yomitan/Jitendex terms). Cleared by the dictionary
   // store's own deleteDatabase during reset; registered so the invariant test
@@ -878,9 +879,12 @@ var MANAGED_STATE_MANIFEST = [
   { owner: "dictionaries/replication (legacy)", kind: "local", key: "yomu-dictionary-replication-state" },
   { owner: "dictionaries/replica-purge", kind: "gm", key: "yomu:dictionary-replica-purge:v1" },
   { owner: "dictionaries/replica-purge", kind: "local", key: "yomu:dictionary-replica-purged:v1" },
-  // OCR result cache.
-  { owner: "ocr/ocr-cache-store", kind: "local", key: "yomu-ocr-cache-v1" },
-  { owner: "ocr/ocr-cache-store", kind: "local", key: "yomu-ocr-cache-v2" },
+  // OCR answers with text, one private shard per site under a hash of its
+  // origin. 2.1.x kept them in the page's own storage (v1, v2); the first
+  // load moves them across and deletes the page keys.
+  { owner: "ocr/ocr-cache-store", kind: "gm", prefix: "yomu:private:ocr-cache:v3:" },
+  { owner: "ocr/ocr-cache-store (legacy)", kind: "local", key: "yomu-ocr-cache-v1" },
+  { owner: "ocr/ocr-cache-store (legacy)", kind: "local", key: "yomu-ocr-cache-v2" },
   { owner: "ocr/canvas-mirror", kind: "session", key: "yomu:bw:mirror-loadguard" },
   // The one-time reader-canvas tap hint appears once per site. Each site's record
   // is private and keyed by a hash of its origin, so no page can read it.
@@ -1778,7 +1782,8 @@ function isRecord(value) {
 }
 
 // src/reader/app/local-mirror-provenance.ts
-var PROVENANCE_KEY = "yomu:local-storage-provenance:v1";
+var LOCAL_MIRROR_PROVENANCE_KEY = "yomu:local-storage-provenance:v1";
+var PROVENANCE_KEY = LOCAL_MIRROR_PROVENANCE_KEY;
 var JAPANESE_SITE_LANGUAGE_KEY = "yomu:prefer-japanese-site-language:v1";
 function captureLocalFallbackStoredState(key) {
   try {

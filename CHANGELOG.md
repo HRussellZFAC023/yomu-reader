@@ -1,5 +1,27 @@
 # Changelog
 
+## [2.2.0] - 2026-10-27
+
+### Changed
+
+- Choose an accent colour and how words are underlined (status, pitch or off) at the top of Settings → Appearance.
+- Connecting a review service (JPDB, Jiten, Anki or よむ Academy) is one clear step in Settings.
+- Turn furigana off in Settings (Furigana → Off) or from the puck while word lookup keeps working. The puck’s power button only turns よむ on or off; when よむ is off, tap the grey puck once to turn it back on.
+- Word popups show pitch accent and frequency for common words such as 先生 even while the page is still loading readings. The unexplained “In context” badge and the “Exact pitch unavailable” text are gone, and the popup header no longer jumps while details load.
+- YouTube subtitles stay on the video: site dialogs and menus cover them, the line no longer jumps between cues, readings use the text colour, and a dark backdrop keeps the line, readings and translation readable on any background.
+- Image OCR shows loading and retry feedback, keeps successful answers private, and no longer saves failures as empty results.
+- Ignored words keep the page’s text colour and full contrast by default. Showing ignored state markings no longer fades the text.
+- Choosing Pitch or Off under Underline now hides the i+1 background wash without changing coverage or Batch Mine counts.
+- Anki review cards remain Learning below a 21-day interval; Due and Suspended states are preserved. Revealed Study answers keep their readings under every state filter.
+
+### Fixed
+
+- Piccoma navigation and menu labels keep their spacing and position when よむ annotates them.
+- Page-authored ruby stays intact when you hide readings or pause annotations, and kana-first clamped rows stay readable.
+- Long pages annotate without freezing the page.
+- Pages stay smooth while よむ annotates: its styles no longer force whole-page style recalculation.
+- Background pitch lookups run only where pitch colours are shown, so readings and the word you opened load first.
+
 ## [2.1.6] - 2026-10-13
 
 ### Fixed

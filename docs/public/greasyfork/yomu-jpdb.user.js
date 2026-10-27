@@ -84,7 +84,7 @@ class ConcurrencyGate {
 }
 const FURIGANA_HIDE_STATE_GROUPS = ["known", "due", "failed", "learning", "new"];
 const APP_NAME = "よむ";
-const ACADEMY_SRS_LABEL = "Academy";
+const YOMU_DECK_LABEL = "よむ deck";
 const APP_SLUG = "yomu";
 const APP_REPOSITORY_NAME = `${APP_SLUG}-reader`;
 const GITHUB_OWNER = "HRussellZFAC023";
@@ -93,7 +93,7 @@ const DOCS_ORIGIN = "https://yomureader.com";
 const DOCS_BASE_URL = `${DOCS_ORIGIN}/`;
 const NEW_TAB_PAGE_URL = `${DOCS_BASE_URL}study/`;
 const SUPPORT_COPY = "よむ is free: popup lookup, dictionaries, OCR, subtitles, study and Anki in one place.";
-const SUPPORT_COPY_EXTRA = "Donations are optional and help cover development, devices, services, maintenance, and API costs.";
+const SUPPORT_COPY_EXTRA = "Donations are optional and help cover development, devices, services, and maintenance.";
 const USERSCRIPT_HTTP_BRIDGE_READY_EVENT = "yomu-userscript-http-bridge-ready";
 const USERSCRIPT_STORAGE_BRIDGE_READY_EVENT = "yomu-userscript-storage-bridge-ready";
 const JPDB_DEFINITION_SOURCE_ID = "__jpdb__";
@@ -942,6 +942,7 @@ const MANAGED_STATE_MANIFEST = [
   { owner: "jpdb/jpdb-public-cache", kind: "local", key: "yomu:jpdb-cache:v1" },
   { owner: "dictionaries/jiten-public-cache (legacy)", kind: "gm", key: "yomu:jiten-public-cache:v1" },
   { owner: "dictionaries/jiten-public-cache", kind: "local", key: "yomu:jiten-public-cache:v2" },
+  { owner: "dictionaries/jiten-reading-memory", kind: "local", key: "yomu:jiten-readings:v1" },
   { owner: "dictionaries/jiten-stats-cache", kind: "gm", key: "jpdb-reader-jiten-daily-stats" },
   // Dictionary database (Yomitan/Jitendex terms). Cleared by the dictionary
   // store's own deleteDatabase during reset; registered so the invariant test
@@ -960,9 +961,12 @@ const MANAGED_STATE_MANIFEST = [
   { owner: "dictionaries/replication (legacy)", kind: "local", key: "yomu-dictionary-replication-state" },
   { owner: "dictionaries/replica-purge", kind: "gm", key: "yomu:dictionary-replica-purge:v1" },
   { owner: "dictionaries/replica-purge", kind: "local", key: "yomu:dictionary-replica-purged:v1" },
-  // OCR result cache.
-  { owner: "ocr/ocr-cache-store", kind: "local", key: "yomu-ocr-cache-v1" },
-  { owner: "ocr/ocr-cache-store", kind: "local", key: "yomu-ocr-cache-v2" },
+  // OCR answers with text, one private shard per site under a hash of its
+  // origin. 2.1.x kept them in the page's own storage (v1, v2); the first
+  // load moves them across and deletes the page keys.
+  { owner: "ocr/ocr-cache-store", kind: "gm", prefix: "yomu:private:ocr-cache:v3:" },
+  { owner: "ocr/ocr-cache-store (legacy)", kind: "local", key: "yomu-ocr-cache-v1" },
+  { owner: "ocr/ocr-cache-store (legacy)", kind: "local", key: "yomu-ocr-cache-v2" },
   { owner: "ocr/canvas-mirror", kind: "session", key: "yomu:bw:mirror-loadguard" },
   // The one-time reader-canvas tap hint appears once per site. Each site's record
   // is private and keyed by a hash of its origin, so no page can read it.
@@ -1338,7 +1342,8 @@ function storageWriteError(key, message, ...causes) {
 function isRecord(value) {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
-const PROVENANCE_KEY = "yomu:local-storage-provenance:v1";
+const LOCAL_MIRROR_PROVENANCE_KEY = "yomu:local-storage-provenance:v1";
+const PROVENANCE_KEY = LOCAL_MIRROR_PROVENANCE_KEY;
 function captureLocalFallbackStoredState(key) {
   try {
   const serializedValue = localStorage.getItem(key);
@@ -7340,7 +7345,6 @@ const GRADING_SERVICE_COPY = {
   }
 };
 const EN = {
-  defaultDeck: "Default",
   collectNoDestination: "None of your decks can take this word. Turn one on in Settings.",
   collectWordNotFound: "Not saved: this word was not found in your preferred grading service.",
   // An ordinary page can read these, so they name no service, deck or Anki state (ADR-0020).
@@ -7356,15 +7360,14 @@ const EN = {
   bunproAddApiKeyRequired: "Add a Bunpro frontend API token, or use Add to Anki.",
   bunproNoMatchingWord: "Bunpro has no entry for this word.",
   addedToBunpro: "Added to Bunpro.",
-  yomuLocalSrsDisabled: `Enable ${ACADEMY_SRS_LABEL} in Settings first.`,
-  yomuLocalSrsStorageFailed: "Your Academy deck could not be saved. Browser storage may be full. Free some site storage, then try again.",
-  yomuLocalSrsSaveInterrupted: "Your Academy deck was not saved because saving was interrupted. Try again.",
-  addedToYomuLocal: "Added to your default deck.",
-  // An Academy word kept without a schedule (Library, Stats and the popups).
+  yomuLocalSrsDisabled: `Enable ${YOMU_DECK_LABEL} in Settings first.`,
+  yomuLocalSrsStorageFailed: `Your ${YOMU_DECK_LABEL} could not be saved. Browser storage may be full. Free some site storage, then try again.`,
+  yomuLocalSrsSaveInterrupted: `Your ${YOMU_DECK_LABEL} was not saved because saving was interrupted. Try again.`,
+  addedToYomuLocal: `Added to your ${YOMU_DECK_LABEL}.`,
+  // A よむ deck word kept without a schedule (Library, Stats and the popups).
   savedWord: "Saved"
 };
 const JA = {
-  defaultDeck: "デフォルト",
   collectNoDestination: "この単語を追加できるデッキがありません。設定でデッキを有効にしてください。",
   collectWordNotFound: "優先採点サービスでこの単語が見つからなかったため、保存していません。",
   collectAlreadySaved: "すでにデッキにあります。編集はStudyで行えます。",
@@ -7378,10 +7381,10 @@ const JA = {
   bunproAddApiKeyRequired: "Bunproのfrontend_api_tokenかAnki追加が必要です。",
   bunproNoMatchingWord: "この単語はBunproに見つかりませんでした。",
   addedToBunpro: "Bunproに追加しました。",
-  yomuLocalSrsDisabled: "先に設定でAcademyを有効にしてください。",
-  yomuLocalSrsStorageFailed: "Academyデッキを保存できませんでした。ブラウザーの保存容量が不足している可能性があります。サイトの保存容量を空けてから、もう一度お試しください。",
-  yomuLocalSrsSaveInterrupted: "保存が中断されたため、Academyデッキに保存されませんでした。もう一度お試しください。",
-  addedToYomuLocal: "デフォルトのデッキに追加しました。",
+  yomuLocalSrsDisabled: "先に設定でよむデッキを有効にしてください。",
+  yomuLocalSrsStorageFailed: "よむデッキを保存できませんでした。ブラウザーの保存容量が不足している可能性があります。サイトの保存容量を空けてから、もう一度お試しください。",
+  yomuLocalSrsSaveInterrupted: "保存が中断されたため、よむデッキに保存されませんでした。もう一度お試しください。",
+  addedToYomuLocal: "よむデッキに追加しました。",
   savedWord: "保存済み"
 };
 const COLLECTION_COPY = { en: EN, ja: JA };
@@ -7411,6 +7414,82 @@ const OCR_STATUS_COPY = {
   en: EN_OCR_STATUS_COPY,
   ja: JA_OCR_STATUS_COPY
 };
+const EN_APPEARANCE_QUICK_COPY = {
+  accentSwatchKurenai: "Kurenai (crimson)",
+  accentSwatchShu: "Shu (vermilion)",
+  accentSwatchAi: "Ai (indigo)",
+  accentSwatchMurasaki: "Murasaki (purple)",
+  accentSwatchYamabuki: "Yamabuki (amber)",
+  accentSwatchSumi: "Sumi (ink)",
+  accentSwatchCustom: "Custom color",
+  underlineQuick: "Underline",
+  underlineQuickStatus: "Status",
+  underlineQuickPitch: "Pitch"
+};
+const JA_APPEARANCE_QUICK_COPY = {
+  accentSwatchKurenai: "紅（くれない）",
+  accentSwatchShu: "朱（しゅ）",
+  accentSwatchAi: "藍（あい）",
+  accentSwatchMurasaki: "紫（むらさき）",
+  accentSwatchYamabuki: "山吹（やまぶき）",
+  accentSwatchSumi: "墨（すみ）",
+  accentSwatchCustom: "カスタムカラー",
+  underlineQuick: "下線",
+  underlineQuickStatus: "学習状態",
+  underlineQuickPitch: "ピッチ"
+};
+const APPEARANCE_QUICK_COPY = {
+  en: EN_APPEARANCE_QUICK_COPY,
+  ja: JA_APPEARANCE_QUICK_COPY
+};
+const EN_REVIEW_SERVICES_COPY = {
+  reviews: "Reviews",
+  yomuDeck: YOMU_DECK_LABEL,
+  gradeFromYomu: "Grade from よむ",
+  reviewServiceKey: "{service} key",
+  reviewServiceToken: "{service} token",
+  reviewServiceConnect: "Connect",
+  reviewServiceConnectTo: "Connect {service}",
+  reviewServiceOn: "On",
+  reviewServiceKeyAdded: "Key added",
+  reviewServiceTokenAdded: "Token added",
+  reviewServiceOff: "Not connected",
+  reviewServiceAvailable: "Ready to connect",
+  reviewServiceError: "Needs a new token",
+  reviewServiceBuiltIn: "Built in",
+  reviewServiceDisabled: "Off",
+  reviewServiceAddsGrades: "Grades",
+  reviewServiceAddsColors: "Word colors",
+  reviewServiceAddsDecks: "Decks",
+  reviewServiceAddsPitch: "Pitch accent",
+  bunproTokenHelp: "Import the frontend token from Bunpro settings and treat it like a password. It is saved before it is verified."
+};
+const JA_REVIEW_SERVICES_COPY = {
+  reviews: "復習",
+  yomuDeck: "よむデッキ",
+  gradeFromYomu: "よむから採点",
+  reviewServiceKey: "{service}のキー",
+  reviewServiceToken: "{service}のトークン",
+  reviewServiceConnect: "接続",
+  reviewServiceConnectTo: "{service}に接続",
+  reviewServiceOn: "オン",
+  reviewServiceKeyAdded: "キー登録済み",
+  reviewServiceTokenAdded: "トークン登録済み",
+  reviewServiceOff: "未接続",
+  reviewServiceAvailable: "接続できます",
+  reviewServiceError: "トークンの再取得が必要",
+  reviewServiceBuiltIn: "内蔵",
+  reviewServiceDisabled: "オフ",
+  reviewServiceAddsGrades: "採点",
+  reviewServiceAddsColors: "単語の色",
+  reviewServiceAddsDecks: "デッキ",
+  reviewServiceAddsPitch: "ピッチアクセント",
+  bunproTokenHelp: "Bunpro設定からフロントエンドトークンを取り込み、パスワードと同様に扱ってください。保存時点では未確認です。"
+};
+const REVIEW_SERVICES_COPY = {
+  en: EN_REVIEW_SERVICES_COPY,
+  ja: JA_REVIEW_SERVICES_COPY
+};
 const COPY = {
   en: {
   ...PRACTICE_SESSION_COPY.en,
@@ -7424,7 +7503,6 @@ const COPY = {
   libraryEmpty: "Save a word while you read and it shows up here.",
   moreLookupLinks: "More links",
   audioSourcesTitle: "Audio sources",
-  contextOccurrences: "In context ×{count}",
   puckAutoDetectSubtitles: "Auto-detect subtitles",
   loadTargetSubtitles: "Load Japanese subtitles",
   loadOutputSubtitles: "Load English subtitles",
@@ -7470,24 +7548,13 @@ const COPY = {
   youTube: "YouTube",
   anki: "Anki",
   jpdb: "JPDB",
-  api: "API",
   apiCredential: "API key",
-  apiCredentialJpdb: "JPDB API key",
-  apiCredentialJiten: "Jiten API key",
-  apiCredentialBunpro: "Bunpro frontend API token",
   apiCredentialBunproLegacy: "Bunpro API key",
-  apiCredentialWanikani: "WaniKani personal access token",
   apiKey: "API key",
   jitenApiKey: "Jiten API key",
-  apiAccess: "API access",
   storedCredentialPlaceholder: "Saved — enter a replacement",
   clearStoredCredential: "Remove saved credential",
-  apiAccessHelp: "Add each service credential here. Bunpro only needs the frontend token: import it from Bunpro settings, treat it like a password, and note that it is saved before it is verified. Academy reviews work locally without an account.",
-  wanikaniTokenHelp: "Create a read/write personal access token on WaniKani and paste it here. It is stored only in your browser, sent directly to api.wanikani.com (never through a proxy), and never logged.",
-  jpdbSettings: "JPDB settings",
-  jitenSettings: "Jiten settings",
-  bunproSettings: "Bunpro settings",
-  wanikaniSettings: "WaniKani settings",
+  wanikaniTokenHelp: "A read/write personal access token. It goes only to api.wanikani.com.",
   jpdbApiKeyConfigured: "JPDB key set.",
   jpdbAndJitenApiKeysConfigured: "Jiten and JPDB keys are set.",
   jpdbConnected: "Connected to JPDB.",
@@ -7497,11 +7564,8 @@ const COPY = {
   statusAttention: "Needs setup",
   statusError: "Error",
   disabledControlDescription: "Controlled by another setting.",
-  jpdbMiningEnabled: "Allow API review/deck changes",
-  bunproMiningEnabled: "Allow Bunpro review/mining",
-  wanikaniReviewEnabled: "Allow WaniKani review (due assignments only)",
   wanikaniGradeMappingHelp: "Yomu maps its grade to WaniKani’s pass/fail answer counts: Okay, Good, and Easy submit a clean pass. Anything below Okay submits one incorrect meaning answer and, unless the subject is a radical, one incorrect reading answer.",
-  yomuLocalSrsEnabled: `Enable ${ACADEMY_SRS_LABEL}`,
+  yomuLocalSrsEnabled: `Enable ${YOMU_DECK_LABEL}`,
   addToForq: "Also copy JPDB adds to forq",
   enableReviews: "Show review buttons",
   reviewRatingScale: "Review rating scale",
@@ -7511,12 +7575,12 @@ const COPY = {
   gradeTargetJiten: "Grades Jiten",
   gradeTargetBunpro: "Grades Bunpro",
   gradeTargetWanikani: "Grades WaniKani",
-  gradeTargetYomuLocal: `Grades ${ACADEMY_SRS_LABEL}`,
+  gradeTargetYomuLocal: `Grades ${YOMU_DECK_LABEL}`,
   gradeTargetAnki: "Grades Anki card: {target}",
   gradeTargetJpdbAndAnki: "Grades JPDB + Anki card: {target}",
   gradeTargetJitenAndAnki: "Grades Jiten + Anki card: {target}",
   gradeTargetBunproAndAnki: "Grades Bunpro + Anki card: {target}",
-  gradeTargetYomuLocalAndAnki: `Grades ${ACADEMY_SRS_LABEL} + Anki card: {target}`,
+  gradeTargetYomuLocalAndAnki: `Grades ${YOMU_DECK_LABEL} + Anki card: {target}`,
   missingAnkiCardId: "Missing Anki card id.",
   jpdbPageEnhancements: "Dictionary site enhancements",
   jpdbPageEnhancementsEnabled: "Enhance JPDB and Jiten pages",
@@ -7566,15 +7630,15 @@ const COPY = {
   newTabAnkiReviewDecksHelp: "Uncheck decks to skip.",
   newTabSource: "Study review source",
   newTabAuto: "Automatic",
-  newTabApiSrs: "API SRS (Jiten / JPDB)",
+  newTabApiSrs: "Jiten / JPDB",
   newTabBunpro: "Bunpro",
   newTabWanikani: "WaniKani",
-  newTabYomuLocal: ACADEMY_SRS_LABEL,
+  newTabYomuLocal: YOMU_DECK_LABEL,
   dictionaryFallback: "Dictionary fallback",
-  newTabJpdbReviewMode: "API review mode",
+  newTabJpdbReviewMode: "JPDB review mode",
   newTabJpdbReviewAuto: "Automatic",
   newTabLiveReview: "Live JPDB review session",
-  newTabApiVocabulary: "API vocabulary only",
+  newTabApiVocabulary: "JPDB vocabulary only",
   corsProxyUrl: "Cross-origin proxy URL",
   newTabKanjiKeywordSource: "Kanji keyword source",
   newTabKanjiKeywordAuto: "Automatic",
@@ -7607,7 +7671,6 @@ const COPY = {
   pitchColorOdaka: "Odaka (tail-high)",
   pitchColorUnknown: "Unknown",
   pronunciation: "Pronunciation",
-  noExactPitch: "Exact pitch unavailable",
   colorChannels: "Color channels",
   wordHighlightColorSource: "Word highlight color",
   wordUnderlineColorSource: "Word underline color",
@@ -7659,7 +7722,7 @@ const COPY = {
   hideColorFor: "Hide color for",
   furiganaDifficultKanji: "Hard kanji only",
   furiganaDifficultKanjiHelp: `${APP_NAME} keeps a fixed beginner kanji list and shows readings on everything outside it. A bare kanji means that character sits on the list.`,
-  statusColorNoSourceHelp: `Status colors read from a deck. Enable ${ACADEMY_SRS_LABEL} in Study, or add a JPDB, Jiten, or Anki source, and words take the color of their learning state.`,
+  statusColorNoSourceHelp: `Status colors read from a deck. Turn on the ${YOMU_DECK_LABEL} in Reviews, or add a JPDB, Jiten, or Anki source, and words take the color of their learning state.`,
   furiganaHideKnown: "Hide familiar words",
   furiganaHoverOnly: "Show on hover",
   furiganaAllParsed: "All parsed words",
@@ -7803,6 +7866,8 @@ const COPY = {
   ocrCloudHelp: "Paste a Google Cloud Vision API key.",
   ocrLocalHelp: "Run MangaOCR/Apple Vision locally and enter its URL.",
   ...SUBTITLE_SETTINGS_COPY.en,
+  subtitleFontSizeAutomatic: "Auto",
+  subtitleFontSizePixelsAuto: "Subtitle font size (px; 0 = auto)",
   right: "Right",
   left: "Left",
   bottom: "Below",
@@ -7818,7 +7883,7 @@ const COPY = {
   youtubeToggleToastOn: "YouTube immersion filter enabled.",
   youtubeToggleToastOff: "YouTube immersion filter disabled.",
   ankiEnabled: "Enable Anki mining",
-  ankiMineWithJpdb: "Also add to Anki when adding via API",
+  ankiMineWithJpdb: "Also add to Anki when adding to JPDB or Jiten",
   ankiCaptureScreenshot: "Attach context image when possible",
   ankiConnectUrl: "AnkiConnect URL",
   ankiDeck: "Anki deck",
@@ -7896,8 +7961,8 @@ const COPY = {
   localDictionaryMaxResults: "Dictionary result limit",
   cloudSettingsSync: "Google Drive settings sync",
   cloudSettingsSyncHelp: "Stores your Yomu settings and local SRS progress in Google Drive app data. Dictionaries stay local.",
-  academyAccountSync: "Academy account sync",
-  academyAccountSyncHelp: "Keep Academy SRS progress in sync across the Reader and your signed-in Yomu account. Create or manage your account on the website, then generate a one-time pairing code.",
+  academyAccountSync: "Account sync",
+  academyAccountSyncHelp: `Keep your ${YOMU_DECK_LABEL} in sync across the Reader and your signed-in Yomu account. Create or manage your account on the website, then generate a one-time pairing code.`,
   academyAccountManage: "Manage account & pairing code",
   academyPairingCode: "One-time pairing code",
   academyPairingCodePlaceholder: "XXXX-XXXX-XXXX-XXXX-XXXX",
@@ -7908,20 +7973,20 @@ const COPY = {
   academyRecoveryCodeReady: "Website recovery code: {code}. Enter it in Profile & sync within 10 minutes.",
   academyRecoveryCodeDone: "Website recovery code created.",
   academyAccountDisconnect: "Disconnect",
-  academyAccountChecking: "Checking Academy account connection...",
-  academyAccountDisconnected: "Not connected. Academy reviews stay on this device until you connect an account.",
+  academyAccountChecking: "Checking account connection...",
+  academyAccountDisconnected: `Not connected. Your ${YOMU_DECK_LABEL} stays on this device until you connect an account.`,
   academyAccountConnected: "Connected as {name}.",
-  academyAccountConnectedNoName: "Academy account connected.",
+  academyAccountConnectedNoName: "Account connected.",
   academyAccountLastSynced: "Last synced {time}.",
   academyAccountNeverSynced: "Not synced yet.",
   academyAccountConnectionProblem: "Could not refresh the account status: {message}",
-  academyAccountConnecting: "Connecting and syncing Academy progress...",
-  academyAccountSyncing: "Syncing Academy progress...",
+  academyAccountConnecting: `Connecting and syncing your ${YOMU_DECK_LABEL}...`,
+  academyAccountSyncing: `Syncing your ${YOMU_DECK_LABEL}...`,
   academyAccountDisconnecting: "Disconnecting this Reader...",
   academyPairingCodeRequired: "Enter the one-time pairing code from your Yomu account.",
-  academyAccountConnectedDone: "Academy account connected and progress synced.",
-  academyAccountSyncedDone: "Academy progress synced.",
-  academyAccountDisconnectedDone: "This Reader is disconnected. Local Academy progress is still available.",
+  academyAccountConnectedDone: `Account connected and ${YOMU_DECK_LABEL} synced.`,
+  academyAccountSyncedDone: `${YOMU_DECK_LABEL} synced.`,
+  academyAccountDisconnectedDone: `This Reader is disconnected. Your ${YOMU_DECK_LABEL} is still on this device.`,
   importSettings: "Import settings JSON",
   exportSettings: "Export settings JSON",
   importDictionaries: "Import dictionaries",
@@ -7930,10 +7995,10 @@ const COPY = {
   lookupPillsHelp: "External links and frequency badges in one order. Local frequency dictionaries replace matching live Jiten/JPDB badges. Tokens: {query}, {word}, {reading}.",
   parserProvider: "Parsing source",
   parserProviderLocal: "Local dictionaries (offline)",
-  parserProviderJiten: "Jiten API",
-  parserProviderJpdb: "JPDB API",
+  parserProviderJiten: "Jiten",
+  parserProviderJpdb: "JPDB",
   parserProviderAuto: "Automatic (Jiten/JPDB)",
-  parserProviderHelp: "Local parses with imported dictionaries, offline. Jiten and JPDB always use that API when its key is set. Automatic uses your preferred grading service when both keys are set, otherwise Jiten, then JPDB.",
+  parserProviderHelp: "Local parses with imported dictionaries, offline. Jiten and JPDB always parse with that service when its key is set. Automatic uses your preferred grading service when both keys are set, otherwise Jiten, then JPDB.",
   copiesCurrentWord: "Copies the current word",
   plaintextHttpLink: "Opens over plaintext HTTP.",
   lookupPillLabelNumber: "Lookup pill {number} label",
@@ -8157,6 +8222,7 @@ const COPY = {
   ankiMappingConfidenceLow: "unmapped",
   ankiMappingStaleField: "saved field missing",
   ...OCR_STATUS_COPY.en,
+  ocrTextRegion: "よむ image text {id}",
   gradeNothing: "Grade NOTHING",
   gradeSomething: "Grade SOMETHING",
   gradeHard: "Grade HARD",
@@ -8208,7 +8274,7 @@ const COPY = {
   ...GRADING_SERVICE_COPY.en,
   jpdbKanjiUpdated: "JPDB kanji updated.",
   jpdbKanjiUpdateFailedRuntime: "Could not update JPDB kanji. Check kanji reviews.",
-  apiSrsActionsDisabled: "API mining actions are disabled in settings.",
+  apiSrsActionsDisabled: "Grade from よむ is off for this service in Settings.",
   addJpdbApiKeyReview: "Add a JPDB API key to review JPDB cards.",
   addJitenApiKeyReview: "Add a Jiten API key to review Jiten cards.",
   addBunproApiKeyReview: "Add a Bunpro frontend API token to review Bunpro cards.",
@@ -8491,7 +8557,15 @@ const COPY = {
   openSectionToTranslate: "Open this section to translate.",
   translationUnavailable: "Translation unavailable.",
   translating: "Translating...",
-  ...GRAMMAR_UI_COPY.en
+  ...GRAMMAR_UI_COPY.en,
+  ...APPEARANCE_QUICK_COPY.en,
+  ...REVIEW_SERVICES_COPY.en,
+  furiganaOff: "Off",
+  puckPowerOn: `${APP_NAME} on`,
+  puckFuriganaOn: "Furigana on",
+  puckFuriganaOff: "Furigana off",
+  puckResume: `${APP_NAME} off · turn on`,
+  furiganaHideKnownReadings: "Hide readings for familiar words"
   }
 };
 function parseUiCopyTable(rows) {
@@ -8552,7 +8626,7 @@ closeDrawer	ドロワーを閉じる
 copiedWord	単語をコピーしました。
 jpdbKanjiUpdated	JPDB漢字を更新しました。
 jpdbKanjiUpdateFailedRuntime	JPDB漢字を更新できません。
-apiSrsActionsDisabled	設定でAPI採掘操作が無効です。
+apiSrsActionsDisabled	設定でこのサービスの「よむから採点」がオフです。
 addJpdbApiKeyReview	JPDBレビューにはAPIキーが必要です。
 addJitenApiKeyReview	JitenレビューにはAPIキーが必要です。
 addBunproApiKeyReview	Bunproレビューにはfrontend_api_tokenが必要です。
@@ -8610,7 +8684,6 @@ local	ローカル
 dict	辞書
 scanPage	ページをスキャン
 noUnscannedJapaneseText	未スキャンの日本語テキストはありません。
-contextOccurrences	文脈内 ×{count}
 puckAutoDetectSubtitles	字幕を自動検出
 loadTargetSubtitles	日本語字幕を読み込む
 loadOutputSubtitles	英語字幕を読み込む
@@ -8959,6 +9032,7 @@ openSectionToTranslate	開くと翻訳します。
 translationUnavailable	翻訳を利用できません。
 translating	翻訳中...
 `),
+  ocrTextRegion: "よむの画像テキスト {id}",
   ...GRAMMAR_UI_COPY.ja,
   ...SETTINGS_RECOVERY_COPY.ja,
   ...PRACTICE_SESSION_COPY.ja,
@@ -8999,24 +9073,13 @@ video	動画
 youTube	YouTube
 anki	Anki
 jpdb	JPDB
-api	API
 apiCredential	APIキー
-apiCredentialJpdb	JPDB APIキー
-apiCredentialJiten	Jiten APIキー
-apiCredentialBunpro	BunproフロントエンドAPIトークン
-apiCredentialWanikani	WaniKaniパーソナルアクセストークン
-wanikaniTokenHelp	WaniKaniでread/write権限のパーソナルアクセストークンを作成し、ここに貼り付けてください。ブラウザ内にのみ保存され、プロキシを経由せずapi.wanikani.comへ直接送信され、ログに残ることはありません。
+wanikaniTokenHelp	read/write権限のパーソナルアクセストークン。送信先はapi.wanikani.comだけです。
 apiCredentialBunproLegacy	Bunpro APIキー
 apiKey	APIキー
 jitenApiKey	Jiten APIキー
-apiAccess	APIアクセス
 storedCredentialPlaceholder	保存済み — 変更する場合のみ入力
 clearStoredCredential	保存済みの認証情報を削除
-apiAccessHelp	各サービスの認証情報を設定します。Bunproに必要なのはフロントエンドトークンだけです。Bunpro設定から取り込み、パスワードと同様に扱ってください。保存時点では未確認です。Academyの復習はアカウントなしでも使えます。
-jpdbSettings	JPDB設定
-jitenSettings	Jiten設定
-bunproSettings	Bunpro設定
-wanikaniSettings	WaniKani設定
 jpdbApiKeyConfigured	JPDBキーあり。
 jpdbConnected	JPDBに接続しました。
 jpdbAndJitenConnected	JitenとJPDBに接続しました。
@@ -9025,11 +9088,8 @@ statusReady	準備完了
 statusAttention	設定が必要
 statusError	エラー
 disabledControlDescription	別設定で制御中。
-jpdbMiningEnabled	APIの復習・デッキ変更を許可
-bunproMiningEnabled	Bunproの復習・採掘を許可
-wanikaniReviewEnabled	WaniKaniの復習を許可(期限が来た課題のみ)
 wanikaniGradeMappingHelp	よむの採点結果はWaniKaniの正誤カウントに変換されます。Okay、Good、Easyは正解として送信します。Okay未満は意味を1回不正解として送信し、ラジカル以外では読みも1回不正解として送信します。
-yomuLocalSrsEnabled	Academyを有効化
+yomuLocalSrsEnabled	よむデッキを有効化
 addToForq	JPDB追加時にforqにもコピー
 enableReviews	復習ボタンを表示
 reviewRatingScale	復習評価の段階
@@ -9039,12 +9099,12 @@ gradeTargetJpdb	JPDBを採点
 gradeTargetJiten	Jitenを採点
 gradeTargetBunpro	Bunproを採点
 gradeTargetWanikani	WaniKaniを採点
-gradeTargetYomuLocal	Academyに記録
+gradeTargetYomuLocal	よむデッキに記録
 gradeTargetAnki	Ankiカードを採点: {target}
 gradeTargetJpdbAndAnki	JPDB + Ankiカードを採点: {target}
 gradeTargetJitenAndAnki	Jiten + Ankiカードを採点: {target}
 gradeTargetBunproAndAnki	Bunpro + Ankiカードを採点: {target}
-gradeTargetYomuLocalAndAnki	Academy + Ankiカードに記録: {target}
+gradeTargetYomuLocalAndAnki	よむデッキ + Ankiカードに記録: {target}
 missingAnkiCardId	AnkiカードIDがありません。
 jpdbPageEnhancements	辞書サイト拡張
 jpdbPageEnhancementsEnabled	JPDB・Jitenのページを拡張
@@ -9089,15 +9149,15 @@ newTabAnkiReviewDecks	Anki復習デッキ
 newTabAnkiReviewDecksHelp	不要なデッキを外します。
 newTabSource	学習の復習ソース
 newTabAuto	自動
-newTabApiSrs	API SRS（Jiten / JPDB）
+newTabApiSrs	Jiten / JPDB
 newTabBunpro	Bunpro
 newTabWanikani	WaniKani
-newTabYomuLocal	Academy
+newTabYomuLocal	よむデッキ
 dictionaryFallback	辞書フォールバック
-newTabJpdbReviewMode	API復習モード
+newTabJpdbReviewMode	JPDB復習モード
 newTabJpdbReviewAuto	自動
 newTabLiveReview	ライブJPDB復習セッション
-newTabApiVocabulary	API語彙のみ（デッキ順）
+newTabApiVocabulary	JPDB語彙のみ（デッキ順）
 corsProxyUrl	クロスオリジンプロキシURL
 newTabKanjiKeywordSource	漢字キーワードのソース
 newTabKanjiKeywordAuto	自動
@@ -9130,7 +9190,6 @@ pitchColorNakadaka	中高
 pitchColorOdaka	尾高
 pitchColorUnknown	不明
 pronunciation	発音
-noExactPitch	完全一致のピッチは利用不可
 colorChannels	色チャンネル
 wordHighlightColorSource	単語ハイライトの色
 wordUnderlineColorSource	単語下線の色
@@ -9183,7 +9242,7 @@ hideFuriganaFor	ふりがなを隠す対象
 hideColorFor	色を隠す対象
 furiganaDifficultKanji	難しい漢字のみ
 furiganaDifficultKanjiHelp	Yomuは初級漢字の固定リストを持ち、その外側の漢字にふりがなを表示します。ふりがなのない漢字は、そのリストに載っています。
-statusColorNoSourceHelp	学習状態の色はデッキから読み取ります。StudyでAcademyを有効にするか、JPDB・Jiten・Ankiのいずれかを追加すると、単語が学習状態の色になります。
+statusColorNoSourceHelp	学習状態の色はデッキから読み取ります。「復習」でよむデッキをオンにするか、JPDB・Jiten・Ankiのいずれかを追加すると、単語が学習状態の色になります。
 furiganaHideKnown	なじみのある語を非表示
 furiganaHoverOnly	ホバー時に表示
 furiganaAllParsed	解析済みの全単語
@@ -9323,7 +9382,7 @@ youtubeHelp	YouTubeを日本語向けに絞ります。
 youtubeToggleToastOn	YouTube没入フィルターをオンにしました。
 youtubeToggleToastOff	YouTube没入フィルターをオフにしました。
 ankiEnabled	Anki採掘を有効にする
-ankiMineWithJpdb	API経由で追加するときAnkiにも追加
+ankiMineWithJpdb	JPDBやJitenに追加するときAnkiにも追加
 ankiCaptureScreenshot	可能なら文脈画像を添付
 ankiConnectUrl	AnkiConnect URL
 ankiDeck	Ankiデッキ
@@ -9398,8 +9457,8 @@ ${Object.entries(LOCAL_DICTIONARY_STORAGE_COPY.jaSettings).map(([key, value]) =>
 localDictionaryMaxResults	辞書結果の上限
 cloudSettingsSync	Google Drive設定同期
 cloudSettingsSyncHelp	Yomuの設定をGoogle Driveのアプリデータに保存します。辞書は端末内に残ります。
-academyAccountSync	Academyアカウント同期
-academyAccountSyncHelp	ReaderのAcademy SRS進捗を、ログイン中のYomuアカウントと端末間で同期します。Webサイトでアカウントを作成または管理し、1回限りのペアリングコードを発行してください。
+academyAccountSync	アカウント同期
+academyAccountSyncHelp	よむデッキを、ログイン中のYomuアカウントと端末間で同期します。Webサイトでアカウントを作成または管理し、1回限りのペアリングコードを発行してください。
 academyAccountManage	アカウントとペアリングコードを管理
 academyPairingCode	1回限りのペアリングコード
 academyPairingCodePlaceholder	XXXX-XXXX-XXXX-XXXX-XXXX
@@ -9410,20 +9469,20 @@ academyRecoveryCodeCreating	1回限りのWebサイト復旧コードを作成中
 academyRecoveryCodeReady	Webサイト復旧コード: {code}。10分以内に「プロフィールと同期」で入力してください。
 academyRecoveryCodeDone	Webサイト復旧コードを作成しました。
 academyAccountDisconnect	接続解除
-academyAccountChecking	Academyアカウントの接続を確認中...
-academyAccountDisconnected	未接続です。アカウントに接続するまで、Academyの復習データはこの端末に保存されます。
+academyAccountChecking	アカウントの接続を確認中...
+academyAccountDisconnected	未接続です。アカウントに接続するまで、よむデッキはこの端末に保存されます。
 academyAccountConnected	{name}として接続中です。
-academyAccountConnectedNoName	Academyアカウントに接続中です。
+academyAccountConnectedNoName	アカウントに接続中です。
 academyAccountLastSynced	最終同期: {time}。
 academyAccountNeverSynced	まだ同期していません。
 academyAccountConnectionProblem	アカウント状態を更新できませんでした: {message}
-academyAccountConnecting	接続してAcademyの進捗を同期中...
-academyAccountSyncing	Academyの進捗を同期中...
+academyAccountConnecting	接続してよむデッキを同期中...
+academyAccountSyncing	よむデッキを同期中...
 academyAccountDisconnecting	このReaderの接続を解除中...
 academyPairingCodeRequired	Yomuアカウントで1回限りのペアリングコードを発行し、入力してください。
-academyAccountConnectedDone	Academyアカウントに接続し、進捗を同期しました。
-academyAccountSyncedDone	Academyの進捗を同期しました。
-academyAccountDisconnectedDone	このReaderの接続を解除しました。Academyの進捗は端末に残ります。
+academyAccountConnectedDone	アカウントに接続し、よむデッキを同期しました。
+academyAccountSyncedDone	よむデッキを同期しました。
+academyAccountDisconnectedDone	このReaderの接続を解除しました。よむデッキは端末に残ります。
 importSettings	設定JSONをインポート
 exportSettings	設定JSONをエクスポート
 importDictionaries	辞書をインポート
@@ -9431,10 +9490,10 @@ exportDictionaries	辞書をエクスポート
 lookupPills	検索ピル
 parserProvider	解析ソース
 parserProviderLocal	ローカル辞書（オフライン）
-parserProviderJiten	Jiten API
-parserProviderJpdb	JPDB API
+parserProviderJiten	Jiten
+parserProviderJpdb	JPDB
 parserProviderAuto	自動（Jiten/JPDB）
-parserProviderHelp	ローカルはインポート済み辞書でオフライン解析します。JitenとJPDBはキー設定時に必ずそのAPIを使います。自動は両方のキーがあれば優先採点サービスを使い、それ以外はJiten、次にJPDBを優先します。
+parserProviderHelp	ローカルはインポート済み辞書でオフライン解析します。JitenとJPDBはキー設定時に必ずそのサービスで解析します。自動は両方のキーがあれば優先採点サービスを使い、それ以外はJiten、次にJPDBを優先します。
 lookupPillsHelp	外部リンクと頻度バッジを同じ順序で表示します。ローカル頻度辞書は一致するJiten/JPDBライブバッジを置き換えます。トークン: {query}、{word}、{reading}。
 copiesCurrentWord	現在の単語をコピーします
 plaintextHttpLink	プレーンテキストHTTPで開きます。
@@ -9603,7 +9662,17 @@ recommendedKanjiumPitch	ピッチアクセント専用です。定義には語�
 recommendedBccwj	BCCWJ由来の頻度バッジです。
 recommendedJiten	Jiten由来の頻度バッジです。
 `),
-  ...SUBTITLE_SETTINGS_COPY.ja
+  ...SUBTITLE_SETTINGS_COPY.ja,
+  subtitleFontSizeAutomatic: "自動",
+  subtitleFontSizePixelsAuto: "字幕フォントサイズ（px、0 = 自動）",
+  ...APPEARANCE_QUICK_COPY.ja,
+  ...REVIEW_SERVICES_COPY.ja,
+  furiganaOff: "オフ",
+  puckPowerOn: `${APP_NAME} オン`,
+  puckFuriganaOn: "ふりがなオン",
+  puckFuriganaOff: "ふりがなオフ",
+  puckResume: `${APP_NAME} オフ・オンにする`,
+  furiganaHideKnownReadings: "なじみのある語の読みを非表示"
 };
 function resolveUiLanguage(language) {
   if (language === "ja" || language === "en") return language;
@@ -9841,7 +9910,11 @@ const RETIRED_SETTING_DEFAULTS = [
   { keys: ["furiganaHiddenStateGroups"], retired: [[["known", "due", "failed"]]] },
   { keys: ["wordHighlightColorSource", "wordUnderlineColorSource", "wordTextColorSource"], retired: [["jpdb", "pitch", "anki"]] },
   { keys: ["subtitleHighlightColorSource", "subtitleUnderlineColorSource", "subtitleTextColorSource"], retired: [["jpdb", "pitch", "anki"]] },
-  { keys: ["wordColorHiddenStateGroups"], retired: [[[]]] }
+  { keys: ["wordColorHiddenStateGroups"], retired: [[[]]] },
+  // Unchosen legacy pixel defaults now follow the player's caption size.
+  { keys: ["subtitleFontSize"], retired: [[28]] },
+  // Whole-object saves carried transparency even when nobody chose it.
+  { keys: ["subtitleBackgroundOpacity"], retired: [[0]] }
 ];
 RETIRED_SETTING_DEFAULTS.flatMap((group) => group.keys);
 const AUDIO_SOURCE_TYPE_VALUES = [
@@ -9882,6 +9955,10 @@ function immutableCommandSnapshot(command) {
   return Object.freeze({ ...command, choices: Object.freeze(command.choices.map((choice) => Object.freeze({ ...choice }))) });
   }
   return Object.freeze({ ...command });
+}
+const YOMU_RUBY_CLASS = "jpdb-reader-ruby";
+function yomuRubyHtml(baseHtml, readingHtml, extraClasses = "") {
+  return `<ruby class="${YOMU_RUBY_CLASS}${extraClasses}"><span class="jpdb-reader-ruby-base">${baseHtml}</span><rp>(</rp><rt class="jpdb-reader-furi">${readingHtml}</rt><rp>)</rp></ruby>`;
 }
 new Set(
   "一丁七万三上下不世中主久乗九予事二五井交京人今介仏仕他付代令以休会伝住何作使例供係信借元兄先光入全公六共内円写冬出分切前力加動北十千午半南原友反取口古台同名向君告周味呼命和品員問四回国土在地坂堂場声売夏夕外多夜大天太夫央女好妹姉始子字学安家宿寒寺小少山川工左市帰年広店度庭建引弟強待後心思急息悪手持教文方旅日早明春昼時曜書有朝木本村来東林校森業楽歌止正歩母毎気水池海父物犬王生田町男白百的目知石社私秋空立竹笑答米糸紙終聞肉自花英茶草行西見言話語読買赤走足車近通週道遠里野金長門間雨青音食飲駅高魚鳥黒".split("")
@@ -10151,15 +10228,26 @@ function createPublicCache(storageKey, { ttlMs = DEFAULT_TTL_MS, limit = DEFAULT
   const entry = value;
   return typeof entry.t === "number" && Number.isFinite(entry.t) && Object.prototype.hasOwnProperty.call(entry, "v");
   }
+  let parsed;
   function readState() {
   try {
-    const value = JSON.parse(storage.getItem(storageKey) ?? "{}");
+    const raw = storage.getItem(storageKey) ?? "{}";
+    if (parsed?.raw !== raw) parsed = { raw, state: parseState(raw) };
+    return parsed.state;
+  } catch {
+    return {};
+  }
+  }
+  function parseState(raw) {
+  try {
+    const value = JSON.parse(raw);
     return value && typeof value === "object" && !Array.isArray(value) ? value : {};
   } catch {
     return {};
   }
   }
   function writeState(state) {
+  parsed = void 0;
   try {
     storage.setItem(storageKey, JSON.stringify(state));
   } catch {
@@ -10185,7 +10273,7 @@ ${key}`;
       writeState(state);
       return void 0;
     }
-    return entry.v;
+    return JSON.parse(JSON.stringify(entry.v));
   },
   write(kind, key, value, now = Date.now()) {
     const state = readState();
@@ -10242,12 +10330,17 @@ function pitchSegmentReading(segment) {
 const REQUEST_TIMEOUT_MS = 6e3;
 const CACHE_TTL_MS = 10 * 60 * 1e3;
 const CACHE_LIMIT = 600;
+const PAGE_TTL_MS = 6e4;
+const PAGE_LIMIT = 24;
 const log$1 = Logger.scope("JpdbPublicPitch");
 class JpdbPublicPitchClient {
   constructor(getCorsProxyUrl = () => "") {
   this.getCorsProxyUrl = getCorsProxyUrl;
   }
   cache = /* @__PURE__ */ new Map();
+  // One jpdb.io search page per query string: 復習 asked with two readings,
+  // or as one word's spelling and another's reading, is fetched once.
+  pages = /* @__PURE__ */ new Map();
   requestBackoff = new JpdbPublicLookupBackoff();
   lookup(spelling, reading) {
   const normalizedSpelling = compactJpdbText(spelling);
@@ -10264,42 +10357,59 @@ ${normalizedReading}`;
   }
   if (cached) this.cache.delete(key);
   const persistent = readPublicJpdbCache("pitch", key, now);
-  const promise = persistent ? Promise.resolve(persistent) : this.fetchPitch(normalizedSpelling, normalizedReading).then((pitch) => {
-    if (pitch.length) writePublicJpdbCache("pitch", key, pitch);
+  const promise = Array.isArray(persistent) ? Promise.resolve(persistent) : this.fetchPitch(normalizedSpelling, normalizedReading).then(({ pitch, complete }) => {
+    if (complete) writePublicJpdbCache("pitch", key, pitch);
     return pitch;
   });
   this.cache.set(key, { expiresAt: now + CACHE_TTL_MS, promise });
-  this.pruneCache(now);
+  pruneCache(this.cache, now);
   return promise;
   }
-  pruneCache(now) {
-  for (const [key, entry] of this.cache) {
-    if (entry.expiresAt <= now) this.cache.delete(key);
-  }
-  while (this.cache.size > CACHE_LIMIT) {
-    const oldest = this.cache.keys().next().value;
-    if (typeof oldest !== "string") break;
-    this.cache.delete(oldest);
-  }
-  }
   async fetchPitch(spelling, reading) {
-  if (this.requestBackoff.isActive()) return [];
+  if (this.requestBackoff.isActive()) return { pitch: [], complete: false };
+  let complete = true;
   for (const query of unique([spelling, reading].filter(Boolean))) {
-    const url = jpdbSearchUrl(query);
-    const html = await requestText$1(url, this.getCorsProxyUrl()).catch((error) => {
-      this.noteRequestFailure("Public JPDB pitch request failed", { query }, error);
-      return "";
-    });
-    if (html) this.requestBackoff.noteSuccess();
+    const html = await this.page(query);
+    if (html === null) complete = false;
     const pitch = html ? parseJpdbPublicPitchHtml(html, spelling, reading) : [];
-    if (pitch.length) return pitch;
-    if (this.requestBackoff.isActive()) break;
+    if (pitch.length) return { pitch, complete: true };
+    if (this.requestBackoff.isActive()) return { pitch: [], complete: false };
   }
-  return [];
+  return { pitch: [], complete };
+  }
+  // The search page for one query, or null when it could not be fetched.
+  page(query) {
+  const now = Date.now();
+  const cached = this.pages.get(query);
+  if (cached && cached.expiresAt > now) return cached.promise;
+  const entry = {
+    expiresAt: now + PAGE_TTL_MS,
+    promise: requestText$1(jpdbSearchUrl(query), this.getCorsProxyUrl()).then((html) => {
+      this.requestBackoff.noteSuccess();
+      return html;
+    }, (error) => {
+      entry.expiresAt = 0;
+      this.noteRequestFailure("Public JPDB pitch request failed", { query }, error);
+      return null;
+    })
+  };
+  this.pages.set(query, entry);
+  pruneCache(this.pages, now, PAGE_LIMIT);
+  return entry.promise;
   }
   noteRequestFailure(message, context, error) {
   this.requestBackoff.noteFailure(error);
   log$1.warn(message, context, error);
+  }
+}
+function pruneCache(cache2, now, limit = CACHE_LIMIT) {
+  for (const [key, entry] of cache2) {
+  if (entry.expiresAt <= now) cache2.delete(key);
+  }
+  while (cache2.size > limit) {
+  const oldest = cache2.keys().next().value;
+  if (typeof oldest !== "string") break;
+  cache2.delete(oldest);
   }
 }
 function requestText$1(url, proxyUrl = "") {
@@ -10482,7 +10592,7 @@ function jpdbRubyHtml(element, options) {
   let baseHtml = "";
   const flushBase = (reading = "") => {
   if (!baseHtml) return;
-  html += reading ? `<ruby><span class="jpdb-reader-ruby-base">${baseHtml}</span><rp>(</rp><rt class="jpdb-reader-furi">${escapeHtml(reading)}</rt><rp>)</rp></ruby>` : baseHtml;
+  html += reading ? yomuRubyHtml(baseHtml, escapeHtml(reading)) : baseHtml;
   baseHtml = "";
   };
   element.childNodes.forEach((child) => {
@@ -10603,7 +10713,7 @@ function requestSearchText(url, proxyUrl = "", timeoutMs = 8e3) {
 const log = Logger.scope("JpdbVocabulary");
 const QUERY_CACHE_LIMIT = 160;
 const COMPLETE_QUERY_TTL_MS = 3e5;
-const EMPTY_QUERY_TTL_MS = 1e4;
+const EMPTY_QUERY_TTL_MS = 6e5;
 const INCOMPLETE_QUERY_TTL_MS = 1e3;
 class JpdbVocabularyClient {
   constructor(getCorsProxyUrl = () => "") {
@@ -11705,7 +11815,7 @@ function passiveJpdbRelatedClasses(hasFuri, className = "") {
   return `jpdb-reader-word jpdb-reader-passive-word jpdb-${JPDB_RELATED_WORD_STATE} jpdb-pitch-${JPDB_RELATED_WORD_PITCH_CLASS}${extra ? ` ${escapeHtml(extra)}` : ""}${hasFuri ? " jpdb-reader-has-furi" : ""}`;
 }
 function passiveJpdbRelatedPlainContent(term, visibleReading) {
-  return visibleReading ? `<ruby><span class="jpdb-reader-ruby-base">${escapeHtml(term)}</span><rp>(</rp><rt class="jpdb-reader-furi">${escapeHtml(visibleReading)}</rt><rp>)</rp></ruby>` : escapeHtml(term);
+  return visibleReading ? yomuRubyHtml(escapeHtml(term), escapeHtml(visibleReading)) : escapeHtml(term);
 }
 function jpdbVocabularyVidFromUrl(value) {
   try {

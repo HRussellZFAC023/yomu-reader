@@ -38,7 +38,7 @@ function isPromiseLike$1(value) {
 }
 const FURIGANA_HIDE_STATE_GROUPS = ["known", "due", "failed", "learning", "new"];
 const APP_NAME = "よむ";
-const ACADEMY_SRS_LABEL = "Academy";
+const YOMU_DECK_LABEL = "よむ deck";
 const APP_SLUG = "yomu";
 const APP_REPOSITORY_NAME = `${APP_SLUG}-reader`;
 const GITHUB_OWNER = "HRussellZFAC023";
@@ -47,7 +47,7 @@ const DOCS_ORIGIN = "https://yomureader.com";
 const DOCS_BASE_URL = `${DOCS_ORIGIN}/`;
 const NEW_TAB_PAGE_URL = `${DOCS_BASE_URL}study/`;
 const SUPPORT_COPY = "よむ is free: popup lookup, dictionaries, OCR, subtitles, study and Anki in one place.";
-const SUPPORT_COPY_EXTRA = "Donations are optional and help cover development, devices, services, maintenance, and API costs.";
+const SUPPORT_COPY_EXTRA = "Donations are optional and help cover development, devices, services, and maintenance.";
 const USERSCRIPT_HTTP_BRIDGE_READY_EVENT = "yomu-userscript-http-bridge-ready";
 const USERSCRIPT_STORAGE_BRIDGE_READY_EVENT = "yomu-userscript-storage-bridge-ready";
 const JPDB_DEFINITION_SOURCE_ID = "__jpdb__";
@@ -906,6 +906,7 @@ const MANAGED_STATE_MANIFEST = [
   { owner: "jpdb/jpdb-public-cache", kind: "local", key: "yomu:jpdb-cache:v1" },
   { owner: "dictionaries/jiten-public-cache (legacy)", kind: "gm", key: "yomu:jiten-public-cache:v1" },
   { owner: "dictionaries/jiten-public-cache", kind: "local", key: "yomu:jiten-public-cache:v2" },
+  { owner: "dictionaries/jiten-reading-memory", kind: "local", key: "yomu:jiten-readings:v1" },
   { owner: "dictionaries/jiten-stats-cache", kind: "gm", key: "jpdb-reader-jiten-daily-stats" },
   // Dictionary database (Yomitan/Jitendex terms). Cleared by the dictionary
   // store's own deleteDatabase during reset; registered so the invariant test
@@ -924,9 +925,12 @@ const MANAGED_STATE_MANIFEST = [
   { owner: "dictionaries/replication (legacy)", kind: "local", key: "yomu-dictionary-replication-state" },
   { owner: "dictionaries/replica-purge", kind: "gm", key: "yomu:dictionary-replica-purge:v1" },
   { owner: "dictionaries/replica-purge", kind: "local", key: "yomu:dictionary-replica-purged:v1" },
-  // OCR result cache.
-  { owner: "ocr/ocr-cache-store", kind: "local", key: "yomu-ocr-cache-v1" },
-  { owner: "ocr/ocr-cache-store", kind: "local", key: "yomu-ocr-cache-v2" },
+  // OCR answers with text, one private shard per site under a hash of its
+  // origin. 2.1.x kept them in the page's own storage (v1, v2); the first
+  // load moves them across and deletes the page keys.
+  { owner: "ocr/ocr-cache-store", kind: "gm", prefix: "yomu:private:ocr-cache:v3:" },
+  { owner: "ocr/ocr-cache-store (legacy)", kind: "local", key: "yomu-ocr-cache-v1" },
+  { owner: "ocr/ocr-cache-store (legacy)", kind: "local", key: "yomu-ocr-cache-v2" },
   { owner: "ocr/canvas-mirror", kind: "session", key: "yomu:bw:mirror-loadguard" },
   // The one-time reader-canvas tap hint appears once per site. Each site's record
   // is private and keyed by a hash of its origin, so no page can read it.
@@ -1193,7 +1197,8 @@ function isRecord(value) {
 function isNonNullObject(value) {
   return typeof value === "object" && value !== null;
 }
-const PROVENANCE_KEY = "yomu:local-storage-provenance:v1";
+const LOCAL_MIRROR_PROVENANCE_KEY = "yomu:local-storage-provenance:v1";
+const PROVENANCE_KEY = LOCAL_MIRROR_PROVENANCE_KEY;
 const JAPANESE_SITE_LANGUAGE_KEY = "yomu:prefer-japanese-site-language:v1";
 function captureLocalFallbackStoredState(key) {
   try {
@@ -3030,7 +3035,7 @@ function first$1(values) {
 const KANJI_MAP_KANJI_BASE = "https://raw.githubusercontent.com/gabor-kovacs/the-kanji-map/main/data/kanji";
 const KANJI_ALIVE_PRIMARY_GLOSSES_URL = "https://yomureader.com/data/kanji-alive-primary-glosses.json";
 const JAPANESE_RE$1 = /[\u3040-\u30ff\u3400-\u9fff]/u;
-const log$a = Logger.scope("KanjiOrigin");
+const log$9 = Logger.scope("KanjiOrigin");
 class KanjiOriginClient {
   cache = /* @__PURE__ */ new Map();
   kanjiAliveGlosses;
@@ -3049,14 +3054,14 @@ class KanjiOriginClient {
   return promise;
   }
   async fetchInfo(kanji, settings) {
-  const done = log$a.time("Kanji origin lookup", { kanji });
+  const done = log$9.time("Kanji origin lookup", { kanji });
   const [kanjiMap, kanjiAliveKeyword] = settings.kanjiOriginKanjiMapEnabled ? await Promise.all([
     fetchKanjiMapInfo(kanji).catch((error) => {
-      log$a.warn("Kanji Map origin lookup failed", { kanji, error });
+      log$9.warn("Kanji Map origin lookup failed", { kanji, error });
       return void 0;
     }),
     this.lookupKanjiAliveKeyword(kanji).catch((error) => {
-      log$a.warn("Kanji Alive keyword lookup failed", { kanji, error });
+      log$9.warn("Kanji Alive keyword lookup failed", { kanji, error });
       return void 0;
     })
   ]) : [void 0, void 0];
@@ -3081,7 +3086,7 @@ function kanjiOriginCacheKey(kanji, settings) {
   ].join(":");
 }
 async function fetchKanjiMapInfo(kanji) {
-  const done = log$a.time("Fetch Kanji Map info", { kanji });
+  const done = log$9.time("Fetch Kanji Map info", { kanji });
   const sourceUrl = `${KANJI_MAP_KANJI_BASE}/${encodeURIComponent(kanji)}.json`;
   const raw = parseJson(await requestText$3(sourceUrl));
   const info = raw ? parseKanjiMapInfo(raw, kanji, sourceUrl) : void 0;
@@ -3503,7 +3508,7 @@ function requestText$3(url) {
   failureLabel: "Kanji origin request",
   timeoutLabel: "Kanji origin request timed out."
   }).catch((error) => {
-  log$a.warn("Kanji origin request failed", { host: safeHost(url), error });
+  log$9.warn("Kanji origin request failed", { host: safeHost(url), error });
   throw error;
   });
 }
@@ -7346,7 +7351,6 @@ const GRADING_SERVICE_COPY = {
   }
 };
 const EN = {
-  defaultDeck: "Default",
   collectNoDestination: "None of your decks can take this word. Turn one on in Settings.",
   collectWordNotFound: "Not saved: this word was not found in your preferred grading service.",
   // An ordinary page can read these, so they name no service, deck or Anki state (ADR-0020).
@@ -7362,15 +7366,14 @@ const EN = {
   bunproAddApiKeyRequired: "Add a Bunpro frontend API token, or use Add to Anki.",
   bunproNoMatchingWord: "Bunpro has no entry for this word.",
   addedToBunpro: "Added to Bunpro.",
-  yomuLocalSrsDisabled: `Enable ${ACADEMY_SRS_LABEL} in Settings first.`,
-  yomuLocalSrsStorageFailed: "Your Academy deck could not be saved. Browser storage may be full. Free some site storage, then try again.",
-  yomuLocalSrsSaveInterrupted: "Your Academy deck was not saved because saving was interrupted. Try again.",
-  addedToYomuLocal: "Added to your default deck.",
-  // An Academy word kept without a schedule (Library, Stats and the popups).
+  yomuLocalSrsDisabled: `Enable ${YOMU_DECK_LABEL} in Settings first.`,
+  yomuLocalSrsStorageFailed: `Your ${YOMU_DECK_LABEL} could not be saved. Browser storage may be full. Free some site storage, then try again.`,
+  yomuLocalSrsSaveInterrupted: `Your ${YOMU_DECK_LABEL} was not saved because saving was interrupted. Try again.`,
+  addedToYomuLocal: `Added to your ${YOMU_DECK_LABEL}.`,
+  // A よむ deck word kept without a schedule (Library, Stats and the popups).
   savedWord: "Saved"
 };
 const JA = {
-  defaultDeck: "デフォルト",
   collectNoDestination: "この単語を追加できるデッキがありません。設定でデッキを有効にしてください。",
   collectWordNotFound: "優先採点サービスでこの単語が見つからなかったため、保存していません。",
   collectAlreadySaved: "すでにデッキにあります。編集はStudyで行えます。",
@@ -7384,10 +7387,10 @@ const JA = {
   bunproAddApiKeyRequired: "Bunproのfrontend_api_tokenかAnki追加が必要です。",
   bunproNoMatchingWord: "この単語はBunproに見つかりませんでした。",
   addedToBunpro: "Bunproに追加しました。",
-  yomuLocalSrsDisabled: "先に設定でAcademyを有効にしてください。",
-  yomuLocalSrsStorageFailed: "Academyデッキを保存できませんでした。ブラウザーの保存容量が不足している可能性があります。サイトの保存容量を空けてから、もう一度お試しください。",
-  yomuLocalSrsSaveInterrupted: "保存が中断されたため、Academyデッキに保存されませんでした。もう一度お試しください。",
-  addedToYomuLocal: "デフォルトのデッキに追加しました。",
+  yomuLocalSrsDisabled: "先に設定でよむデッキを有効にしてください。",
+  yomuLocalSrsStorageFailed: "よむデッキを保存できませんでした。ブラウザーの保存容量が不足している可能性があります。サイトの保存容量を空けてから、もう一度お試しください。",
+  yomuLocalSrsSaveInterrupted: "保存が中断されたため、よむデッキに保存されませんでした。もう一度お試しください。",
+  addedToYomuLocal: "よむデッキに追加しました。",
   savedWord: "保存済み"
 };
 const COLLECTION_COPY = { en: EN, ja: JA };
@@ -7417,6 +7420,82 @@ const OCR_STATUS_COPY = {
   en: EN_OCR_STATUS_COPY,
   ja: JA_OCR_STATUS_COPY
 };
+const EN_APPEARANCE_QUICK_COPY = {
+  accentSwatchKurenai: "Kurenai (crimson)",
+  accentSwatchShu: "Shu (vermilion)",
+  accentSwatchAi: "Ai (indigo)",
+  accentSwatchMurasaki: "Murasaki (purple)",
+  accentSwatchYamabuki: "Yamabuki (amber)",
+  accentSwatchSumi: "Sumi (ink)",
+  accentSwatchCustom: "Custom color",
+  underlineQuick: "Underline",
+  underlineQuickStatus: "Status",
+  underlineQuickPitch: "Pitch"
+};
+const JA_APPEARANCE_QUICK_COPY = {
+  accentSwatchKurenai: "紅（くれない）",
+  accentSwatchShu: "朱（しゅ）",
+  accentSwatchAi: "藍（あい）",
+  accentSwatchMurasaki: "紫（むらさき）",
+  accentSwatchYamabuki: "山吹（やまぶき）",
+  accentSwatchSumi: "墨（すみ）",
+  accentSwatchCustom: "カスタムカラー",
+  underlineQuick: "下線",
+  underlineQuickStatus: "学習状態",
+  underlineQuickPitch: "ピッチ"
+};
+const APPEARANCE_QUICK_COPY = {
+  en: EN_APPEARANCE_QUICK_COPY,
+  ja: JA_APPEARANCE_QUICK_COPY
+};
+const EN_REVIEW_SERVICES_COPY = {
+  reviews: "Reviews",
+  yomuDeck: YOMU_DECK_LABEL,
+  gradeFromYomu: "Grade from よむ",
+  reviewServiceKey: "{service} key",
+  reviewServiceToken: "{service} token",
+  reviewServiceConnect: "Connect",
+  reviewServiceConnectTo: "Connect {service}",
+  reviewServiceOn: "On",
+  reviewServiceKeyAdded: "Key added",
+  reviewServiceTokenAdded: "Token added",
+  reviewServiceOff: "Not connected",
+  reviewServiceAvailable: "Ready to connect",
+  reviewServiceError: "Needs a new token",
+  reviewServiceBuiltIn: "Built in",
+  reviewServiceDisabled: "Off",
+  reviewServiceAddsGrades: "Grades",
+  reviewServiceAddsColors: "Word colors",
+  reviewServiceAddsDecks: "Decks",
+  reviewServiceAddsPitch: "Pitch accent",
+  bunproTokenHelp: "Import the frontend token from Bunpro settings and treat it like a password. It is saved before it is verified."
+};
+const JA_REVIEW_SERVICES_COPY = {
+  reviews: "復習",
+  yomuDeck: "よむデッキ",
+  gradeFromYomu: "よむから採点",
+  reviewServiceKey: "{service}のキー",
+  reviewServiceToken: "{service}のトークン",
+  reviewServiceConnect: "接続",
+  reviewServiceConnectTo: "{service}に接続",
+  reviewServiceOn: "オン",
+  reviewServiceKeyAdded: "キー登録済み",
+  reviewServiceTokenAdded: "トークン登録済み",
+  reviewServiceOff: "未接続",
+  reviewServiceAvailable: "接続できます",
+  reviewServiceError: "トークンの再取得が必要",
+  reviewServiceBuiltIn: "内蔵",
+  reviewServiceDisabled: "オフ",
+  reviewServiceAddsGrades: "採点",
+  reviewServiceAddsColors: "単語の色",
+  reviewServiceAddsDecks: "デッキ",
+  reviewServiceAddsPitch: "ピッチアクセント",
+  bunproTokenHelp: "Bunpro設定からフロントエンドトークンを取り込み、パスワードと同様に扱ってください。保存時点では未確認です。"
+};
+const REVIEW_SERVICES_COPY = {
+  en: EN_REVIEW_SERVICES_COPY,
+  ja: JA_REVIEW_SERVICES_COPY
+};
 const COPY = {
   en: {
   ...PRACTICE_SESSION_COPY.en,
@@ -7430,7 +7509,6 @@ const COPY = {
   libraryEmpty: "Save a word while you read and it shows up here.",
   moreLookupLinks: "More links",
   audioSourcesTitle: "Audio sources",
-  contextOccurrences: "In context ×{count}",
   puckAutoDetectSubtitles: "Auto-detect subtitles",
   loadTargetSubtitles: "Load Japanese subtitles",
   loadOutputSubtitles: "Load English subtitles",
@@ -7476,24 +7554,13 @@ const COPY = {
   youTube: "YouTube",
   anki: "Anki",
   jpdb: "JPDB",
-  api: "API",
   apiCredential: "API key",
-  apiCredentialJpdb: "JPDB API key",
-  apiCredentialJiten: "Jiten API key",
-  apiCredentialBunpro: "Bunpro frontend API token",
   apiCredentialBunproLegacy: "Bunpro API key",
-  apiCredentialWanikani: "WaniKani personal access token",
   apiKey: "API key",
   jitenApiKey: "Jiten API key",
-  apiAccess: "API access",
   storedCredentialPlaceholder: "Saved — enter a replacement",
   clearStoredCredential: "Remove saved credential",
-  apiAccessHelp: "Add each service credential here. Bunpro only needs the frontend token: import it from Bunpro settings, treat it like a password, and note that it is saved before it is verified. Academy reviews work locally without an account.",
-  wanikaniTokenHelp: "Create a read/write personal access token on WaniKani and paste it here. It is stored only in your browser, sent directly to api.wanikani.com (never through a proxy), and never logged.",
-  jpdbSettings: "JPDB settings",
-  jitenSettings: "Jiten settings",
-  bunproSettings: "Bunpro settings",
-  wanikaniSettings: "WaniKani settings",
+  wanikaniTokenHelp: "A read/write personal access token. It goes only to api.wanikani.com.",
   jpdbApiKeyConfigured: "JPDB key set.",
   jpdbAndJitenApiKeysConfigured: "Jiten and JPDB keys are set.",
   jpdbConnected: "Connected to JPDB.",
@@ -7503,11 +7570,8 @@ const COPY = {
   statusAttention: "Needs setup",
   statusError: "Error",
   disabledControlDescription: "Controlled by another setting.",
-  jpdbMiningEnabled: "Allow API review/deck changes",
-  bunproMiningEnabled: "Allow Bunpro review/mining",
-  wanikaniReviewEnabled: "Allow WaniKani review (due assignments only)",
   wanikaniGradeMappingHelp: "Yomu maps its grade to WaniKani’s pass/fail answer counts: Okay, Good, and Easy submit a clean pass. Anything below Okay submits one incorrect meaning answer and, unless the subject is a radical, one incorrect reading answer.",
-  yomuLocalSrsEnabled: `Enable ${ACADEMY_SRS_LABEL}`,
+  yomuLocalSrsEnabled: `Enable ${YOMU_DECK_LABEL}`,
   addToForq: "Also copy JPDB adds to forq",
   enableReviews: "Show review buttons",
   reviewRatingScale: "Review rating scale",
@@ -7517,12 +7581,12 @@ const COPY = {
   gradeTargetJiten: "Grades Jiten",
   gradeTargetBunpro: "Grades Bunpro",
   gradeTargetWanikani: "Grades WaniKani",
-  gradeTargetYomuLocal: `Grades ${ACADEMY_SRS_LABEL}`,
+  gradeTargetYomuLocal: `Grades ${YOMU_DECK_LABEL}`,
   gradeTargetAnki: "Grades Anki card: {target}",
   gradeTargetJpdbAndAnki: "Grades JPDB + Anki card: {target}",
   gradeTargetJitenAndAnki: "Grades Jiten + Anki card: {target}",
   gradeTargetBunproAndAnki: "Grades Bunpro + Anki card: {target}",
-  gradeTargetYomuLocalAndAnki: `Grades ${ACADEMY_SRS_LABEL} + Anki card: {target}`,
+  gradeTargetYomuLocalAndAnki: `Grades ${YOMU_DECK_LABEL} + Anki card: {target}`,
   missingAnkiCardId: "Missing Anki card id.",
   jpdbPageEnhancements: "Dictionary site enhancements",
   jpdbPageEnhancementsEnabled: "Enhance JPDB and Jiten pages",
@@ -7572,15 +7636,15 @@ const COPY = {
   newTabAnkiReviewDecksHelp: "Uncheck decks to skip.",
   newTabSource: "Study review source",
   newTabAuto: "Automatic",
-  newTabApiSrs: "API SRS (Jiten / JPDB)",
+  newTabApiSrs: "Jiten / JPDB",
   newTabBunpro: "Bunpro",
   newTabWanikani: "WaniKani",
-  newTabYomuLocal: ACADEMY_SRS_LABEL,
+  newTabYomuLocal: YOMU_DECK_LABEL,
   dictionaryFallback: "Dictionary fallback",
-  newTabJpdbReviewMode: "API review mode",
+  newTabJpdbReviewMode: "JPDB review mode",
   newTabJpdbReviewAuto: "Automatic",
   newTabLiveReview: "Live JPDB review session",
-  newTabApiVocabulary: "API vocabulary only",
+  newTabApiVocabulary: "JPDB vocabulary only",
   corsProxyUrl: "Cross-origin proxy URL",
   newTabKanjiKeywordSource: "Kanji keyword source",
   newTabKanjiKeywordAuto: "Automatic",
@@ -7613,7 +7677,6 @@ const COPY = {
   pitchColorOdaka: "Odaka (tail-high)",
   pitchColorUnknown: "Unknown",
   pronunciation: "Pronunciation",
-  noExactPitch: "Exact pitch unavailable",
   colorChannels: "Color channels",
   wordHighlightColorSource: "Word highlight color",
   wordUnderlineColorSource: "Word underline color",
@@ -7665,7 +7728,7 @@ const COPY = {
   hideColorFor: "Hide color for",
   furiganaDifficultKanji: "Hard kanji only",
   furiganaDifficultKanjiHelp: `${APP_NAME} keeps a fixed beginner kanji list and shows readings on everything outside it. A bare kanji means that character sits on the list.`,
-  statusColorNoSourceHelp: `Status colors read from a deck. Enable ${ACADEMY_SRS_LABEL} in Study, or add a JPDB, Jiten, or Anki source, and words take the color of their learning state.`,
+  statusColorNoSourceHelp: `Status colors read from a deck. Turn on the ${YOMU_DECK_LABEL} in Reviews, or add a JPDB, Jiten, or Anki source, and words take the color of their learning state.`,
   furiganaHideKnown: "Hide familiar words",
   furiganaHoverOnly: "Show on hover",
   furiganaAllParsed: "All parsed words",
@@ -7809,6 +7872,8 @@ const COPY = {
   ocrCloudHelp: "Paste a Google Cloud Vision API key.",
   ocrLocalHelp: "Run MangaOCR/Apple Vision locally and enter its URL.",
   ...SUBTITLE_SETTINGS_COPY.en,
+  subtitleFontSizeAutomatic: "Auto",
+  subtitleFontSizePixelsAuto: "Subtitle font size (px; 0 = auto)",
   right: "Right",
   left: "Left",
   bottom: "Below",
@@ -7824,7 +7889,7 @@ const COPY = {
   youtubeToggleToastOn: "YouTube immersion filter enabled.",
   youtubeToggleToastOff: "YouTube immersion filter disabled.",
   ankiEnabled: "Enable Anki mining",
-  ankiMineWithJpdb: "Also add to Anki when adding via API",
+  ankiMineWithJpdb: "Also add to Anki when adding to JPDB or Jiten",
   ankiCaptureScreenshot: "Attach context image when possible",
   ankiConnectUrl: "AnkiConnect URL",
   ankiDeck: "Anki deck",
@@ -7902,8 +7967,8 @@ const COPY = {
   localDictionaryMaxResults: "Dictionary result limit",
   cloudSettingsSync: "Google Drive settings sync",
   cloudSettingsSyncHelp: "Stores your Yomu settings and local SRS progress in Google Drive app data. Dictionaries stay local.",
-  academyAccountSync: "Academy account sync",
-  academyAccountSyncHelp: "Keep Academy SRS progress in sync across the Reader and your signed-in Yomu account. Create or manage your account on the website, then generate a one-time pairing code.",
+  academyAccountSync: "Account sync",
+  academyAccountSyncHelp: `Keep your ${YOMU_DECK_LABEL} in sync across the Reader and your signed-in Yomu account. Create or manage your account on the website, then generate a one-time pairing code.`,
   academyAccountManage: "Manage account & pairing code",
   academyPairingCode: "One-time pairing code",
   academyPairingCodePlaceholder: "XXXX-XXXX-XXXX-XXXX-XXXX",
@@ -7914,20 +7979,20 @@ const COPY = {
   academyRecoveryCodeReady: "Website recovery code: {code}. Enter it in Profile & sync within 10 minutes.",
   academyRecoveryCodeDone: "Website recovery code created.",
   academyAccountDisconnect: "Disconnect",
-  academyAccountChecking: "Checking Academy account connection...",
-  academyAccountDisconnected: "Not connected. Academy reviews stay on this device until you connect an account.",
+  academyAccountChecking: "Checking account connection...",
+  academyAccountDisconnected: `Not connected. Your ${YOMU_DECK_LABEL} stays on this device until you connect an account.`,
   academyAccountConnected: "Connected as {name}.",
-  academyAccountConnectedNoName: "Academy account connected.",
+  academyAccountConnectedNoName: "Account connected.",
   academyAccountLastSynced: "Last synced {time}.",
   academyAccountNeverSynced: "Not synced yet.",
   academyAccountConnectionProblem: "Could not refresh the account status: {message}",
-  academyAccountConnecting: "Connecting and syncing Academy progress...",
-  academyAccountSyncing: "Syncing Academy progress...",
+  academyAccountConnecting: `Connecting and syncing your ${YOMU_DECK_LABEL}...`,
+  academyAccountSyncing: `Syncing your ${YOMU_DECK_LABEL}...`,
   academyAccountDisconnecting: "Disconnecting this Reader...",
   academyPairingCodeRequired: "Enter the one-time pairing code from your Yomu account.",
-  academyAccountConnectedDone: "Academy account connected and progress synced.",
-  academyAccountSyncedDone: "Academy progress synced.",
-  academyAccountDisconnectedDone: "This Reader is disconnected. Local Academy progress is still available.",
+  academyAccountConnectedDone: `Account connected and ${YOMU_DECK_LABEL} synced.`,
+  academyAccountSyncedDone: `${YOMU_DECK_LABEL} synced.`,
+  academyAccountDisconnectedDone: `This Reader is disconnected. Your ${YOMU_DECK_LABEL} is still on this device.`,
   importSettings: "Import settings JSON",
   exportSettings: "Export settings JSON",
   importDictionaries: "Import dictionaries",
@@ -7936,10 +8001,10 @@ const COPY = {
   lookupPillsHelp: "External links and frequency badges in one order. Local frequency dictionaries replace matching live Jiten/JPDB badges. Tokens: {query}, {word}, {reading}.",
   parserProvider: "Parsing source",
   parserProviderLocal: "Local dictionaries (offline)",
-  parserProviderJiten: "Jiten API",
-  parserProviderJpdb: "JPDB API",
+  parserProviderJiten: "Jiten",
+  parserProviderJpdb: "JPDB",
   parserProviderAuto: "Automatic (Jiten/JPDB)",
-  parserProviderHelp: "Local parses with imported dictionaries, offline. Jiten and JPDB always use that API when its key is set. Automatic uses your preferred grading service when both keys are set, otherwise Jiten, then JPDB.",
+  parserProviderHelp: "Local parses with imported dictionaries, offline. Jiten and JPDB always parse with that service when its key is set. Automatic uses your preferred grading service when both keys are set, otherwise Jiten, then JPDB.",
   copiesCurrentWord: "Copies the current word",
   plaintextHttpLink: "Opens over plaintext HTTP.",
   lookupPillLabelNumber: "Lookup pill {number} label",
@@ -8163,6 +8228,7 @@ const COPY = {
   ankiMappingConfidenceLow: "unmapped",
   ankiMappingStaleField: "saved field missing",
   ...OCR_STATUS_COPY.en,
+  ocrTextRegion: "よむ image text {id}",
   gradeNothing: "Grade NOTHING",
   gradeSomething: "Grade SOMETHING",
   gradeHard: "Grade HARD",
@@ -8214,7 +8280,7 @@ const COPY = {
   ...GRADING_SERVICE_COPY.en,
   jpdbKanjiUpdated: "JPDB kanji updated.",
   jpdbKanjiUpdateFailedRuntime: "Could not update JPDB kanji. Check kanji reviews.",
-  apiSrsActionsDisabled: "API mining actions are disabled in settings.",
+  apiSrsActionsDisabled: "Grade from よむ is off for this service in Settings.",
   addJpdbApiKeyReview: "Add a JPDB API key to review JPDB cards.",
   addJitenApiKeyReview: "Add a Jiten API key to review Jiten cards.",
   addBunproApiKeyReview: "Add a Bunpro frontend API token to review Bunpro cards.",
@@ -8497,7 +8563,15 @@ const COPY = {
   openSectionToTranslate: "Open this section to translate.",
   translationUnavailable: "Translation unavailable.",
   translating: "Translating...",
-  ...GRAMMAR_UI_COPY.en
+  ...GRAMMAR_UI_COPY.en,
+  ...APPEARANCE_QUICK_COPY.en,
+  ...REVIEW_SERVICES_COPY.en,
+  furiganaOff: "Off",
+  puckPowerOn: `${APP_NAME} on`,
+  puckFuriganaOn: "Furigana on",
+  puckFuriganaOff: "Furigana off",
+  puckResume: `${APP_NAME} off · turn on`,
+  furiganaHideKnownReadings: "Hide readings for familiar words"
   }
 };
 const CARD_STATE_LABEL_KEYS = {
@@ -8577,7 +8651,7 @@ closeDrawer	ドロワーを閉じる
 copiedWord	単語をコピーしました。
 jpdbKanjiUpdated	JPDB漢字を更新しました。
 jpdbKanjiUpdateFailedRuntime	JPDB漢字を更新できません。
-apiSrsActionsDisabled	設定でAPI採掘操作が無効です。
+apiSrsActionsDisabled	設定でこのサービスの「よむから採点」がオフです。
 addJpdbApiKeyReview	JPDBレビューにはAPIキーが必要です。
 addJitenApiKeyReview	JitenレビューにはAPIキーが必要です。
 addBunproApiKeyReview	Bunproレビューにはfrontend_api_tokenが必要です。
@@ -8635,7 +8709,6 @@ local	ローカル
 dict	辞書
 scanPage	ページをスキャン
 noUnscannedJapaneseText	未スキャンの日本語テキストはありません。
-contextOccurrences	文脈内 ×{count}
 puckAutoDetectSubtitles	字幕を自動検出
 loadTargetSubtitles	日本語字幕を読み込む
 loadOutputSubtitles	英語字幕を読み込む
@@ -8984,6 +9057,7 @@ openSectionToTranslate	開くと翻訳します。
 translationUnavailable	翻訳を利用できません。
 translating	翻訳中...
 `),
+  ocrTextRegion: "よむの画像テキスト {id}",
   ...GRAMMAR_UI_COPY.ja,
   ...SETTINGS_RECOVERY_COPY.ja,
   ...PRACTICE_SESSION_COPY.ja,
@@ -9024,24 +9098,13 @@ video	動画
 youTube	YouTube
 anki	Anki
 jpdb	JPDB
-api	API
 apiCredential	APIキー
-apiCredentialJpdb	JPDB APIキー
-apiCredentialJiten	Jiten APIキー
-apiCredentialBunpro	BunproフロントエンドAPIトークン
-apiCredentialWanikani	WaniKaniパーソナルアクセストークン
-wanikaniTokenHelp	WaniKaniでread/write権限のパーソナルアクセストークンを作成し、ここに貼り付けてください。ブラウザ内にのみ保存され、プロキシを経由せずapi.wanikani.comへ直接送信され、ログに残ることはありません。
+wanikaniTokenHelp	read/write権限のパーソナルアクセストークン。送信先はapi.wanikani.comだけです。
 apiCredentialBunproLegacy	Bunpro APIキー
 apiKey	APIキー
 jitenApiKey	Jiten APIキー
-apiAccess	APIアクセス
 storedCredentialPlaceholder	保存済み — 変更する場合のみ入力
 clearStoredCredential	保存済みの認証情報を削除
-apiAccessHelp	各サービスの認証情報を設定します。Bunproに必要なのはフロントエンドトークンだけです。Bunpro設定から取り込み、パスワードと同様に扱ってください。保存時点では未確認です。Academyの復習はアカウントなしでも使えます。
-jpdbSettings	JPDB設定
-jitenSettings	Jiten設定
-bunproSettings	Bunpro設定
-wanikaniSettings	WaniKani設定
 jpdbApiKeyConfigured	JPDBキーあり。
 jpdbConnected	JPDBに接続しました。
 jpdbAndJitenConnected	JitenとJPDBに接続しました。
@@ -9050,11 +9113,8 @@ statusReady	準備完了
 statusAttention	設定が必要
 statusError	エラー
 disabledControlDescription	別設定で制御中。
-jpdbMiningEnabled	APIの復習・デッキ変更を許可
-bunproMiningEnabled	Bunproの復習・採掘を許可
-wanikaniReviewEnabled	WaniKaniの復習を許可(期限が来た課題のみ)
 wanikaniGradeMappingHelp	よむの採点結果はWaniKaniの正誤カウントに変換されます。Okay、Good、Easyは正解として送信します。Okay未満は意味を1回不正解として送信し、ラジカル以外では読みも1回不正解として送信します。
-yomuLocalSrsEnabled	Academyを有効化
+yomuLocalSrsEnabled	よむデッキを有効化
 addToForq	JPDB追加時にforqにもコピー
 enableReviews	復習ボタンを表示
 reviewRatingScale	復習評価の段階
@@ -9064,12 +9124,12 @@ gradeTargetJpdb	JPDBを採点
 gradeTargetJiten	Jitenを採点
 gradeTargetBunpro	Bunproを採点
 gradeTargetWanikani	WaniKaniを採点
-gradeTargetYomuLocal	Academyに記録
+gradeTargetYomuLocal	よむデッキに記録
 gradeTargetAnki	Ankiカードを採点: {target}
 gradeTargetJpdbAndAnki	JPDB + Ankiカードを採点: {target}
 gradeTargetJitenAndAnki	Jiten + Ankiカードを採点: {target}
 gradeTargetBunproAndAnki	Bunpro + Ankiカードを採点: {target}
-gradeTargetYomuLocalAndAnki	Academy + Ankiカードに記録: {target}
+gradeTargetYomuLocalAndAnki	よむデッキ + Ankiカードに記録: {target}
 missingAnkiCardId	AnkiカードIDがありません。
 jpdbPageEnhancements	辞書サイト拡張
 jpdbPageEnhancementsEnabled	JPDB・Jitenのページを拡張
@@ -9114,15 +9174,15 @@ newTabAnkiReviewDecks	Anki復習デッキ
 newTabAnkiReviewDecksHelp	不要なデッキを外します。
 newTabSource	学習の復習ソース
 newTabAuto	自動
-newTabApiSrs	API SRS（Jiten / JPDB）
+newTabApiSrs	Jiten / JPDB
 newTabBunpro	Bunpro
 newTabWanikani	WaniKani
-newTabYomuLocal	Academy
+newTabYomuLocal	よむデッキ
 dictionaryFallback	辞書フォールバック
-newTabJpdbReviewMode	API復習モード
+newTabJpdbReviewMode	JPDB復習モード
 newTabJpdbReviewAuto	自動
 newTabLiveReview	ライブJPDB復習セッション
-newTabApiVocabulary	API語彙のみ（デッキ順）
+newTabApiVocabulary	JPDB語彙のみ（デッキ順）
 corsProxyUrl	クロスオリジンプロキシURL
 newTabKanjiKeywordSource	漢字キーワードのソース
 newTabKanjiKeywordAuto	自動
@@ -9155,7 +9215,6 @@ pitchColorNakadaka	中高
 pitchColorOdaka	尾高
 pitchColorUnknown	不明
 pronunciation	発音
-noExactPitch	完全一致のピッチは利用不可
 colorChannels	色チャンネル
 wordHighlightColorSource	単語ハイライトの色
 wordUnderlineColorSource	単語下線の色
@@ -9208,7 +9267,7 @@ hideFuriganaFor	ふりがなを隠す対象
 hideColorFor	色を隠す対象
 furiganaDifficultKanji	難しい漢字のみ
 furiganaDifficultKanjiHelp	Yomuは初級漢字の固定リストを持ち、その外側の漢字にふりがなを表示します。ふりがなのない漢字は、そのリストに載っています。
-statusColorNoSourceHelp	学習状態の色はデッキから読み取ります。StudyでAcademyを有効にするか、JPDB・Jiten・Ankiのいずれかを追加すると、単語が学習状態の色になります。
+statusColorNoSourceHelp	学習状態の色はデッキから読み取ります。「復習」でよむデッキをオンにするか、JPDB・Jiten・Ankiのいずれかを追加すると、単語が学習状態の色になります。
 furiganaHideKnown	なじみのある語を非表示
 furiganaHoverOnly	ホバー時に表示
 furiganaAllParsed	解析済みの全単語
@@ -9348,7 +9407,7 @@ youtubeHelp	YouTubeを日本語向けに絞ります。
 youtubeToggleToastOn	YouTube没入フィルターをオンにしました。
 youtubeToggleToastOff	YouTube没入フィルターをオフにしました。
 ankiEnabled	Anki採掘を有効にする
-ankiMineWithJpdb	API経由で追加するときAnkiにも追加
+ankiMineWithJpdb	JPDBやJitenに追加するときAnkiにも追加
 ankiCaptureScreenshot	可能なら文脈画像を添付
 ankiConnectUrl	AnkiConnect URL
 ankiDeck	Ankiデッキ
@@ -9423,8 +9482,8 @@ ${Object.entries(LOCAL_DICTIONARY_STORAGE_COPY.jaSettings).map(([key, value]) =>
 localDictionaryMaxResults	辞書結果の上限
 cloudSettingsSync	Google Drive設定同期
 cloudSettingsSyncHelp	Yomuの設定をGoogle Driveのアプリデータに保存します。辞書は端末内に残ります。
-academyAccountSync	Academyアカウント同期
-academyAccountSyncHelp	ReaderのAcademy SRS進捗を、ログイン中のYomuアカウントと端末間で同期します。Webサイトでアカウントを作成または管理し、1回限りのペアリングコードを発行してください。
+academyAccountSync	アカウント同期
+academyAccountSyncHelp	よむデッキを、ログイン中のYomuアカウントと端末間で同期します。Webサイトでアカウントを作成または管理し、1回限りのペアリングコードを発行してください。
 academyAccountManage	アカウントとペアリングコードを管理
 academyPairingCode	1回限りのペアリングコード
 academyPairingCodePlaceholder	XXXX-XXXX-XXXX-XXXX-XXXX
@@ -9435,20 +9494,20 @@ academyRecoveryCodeCreating	1回限りのWebサイト復旧コードを作成中
 academyRecoveryCodeReady	Webサイト復旧コード: {code}。10分以内に「プロフィールと同期」で入力してください。
 academyRecoveryCodeDone	Webサイト復旧コードを作成しました。
 academyAccountDisconnect	接続解除
-academyAccountChecking	Academyアカウントの接続を確認中...
-academyAccountDisconnected	未接続です。アカウントに接続するまで、Academyの復習データはこの端末に保存されます。
+academyAccountChecking	アカウントの接続を確認中...
+academyAccountDisconnected	未接続です。アカウントに接続するまで、よむデッキはこの端末に保存されます。
 academyAccountConnected	{name}として接続中です。
-academyAccountConnectedNoName	Academyアカウントに接続中です。
+academyAccountConnectedNoName	アカウントに接続中です。
 academyAccountLastSynced	最終同期: {time}。
 academyAccountNeverSynced	まだ同期していません。
 academyAccountConnectionProblem	アカウント状態を更新できませんでした: {message}
-academyAccountConnecting	接続してAcademyの進捗を同期中...
-academyAccountSyncing	Academyの進捗を同期中...
+academyAccountConnecting	接続してよむデッキを同期中...
+academyAccountSyncing	よむデッキを同期中...
 academyAccountDisconnecting	このReaderの接続を解除中...
 academyPairingCodeRequired	Yomuアカウントで1回限りのペアリングコードを発行し、入力してください。
-academyAccountConnectedDone	Academyアカウントに接続し、進捗を同期しました。
-academyAccountSyncedDone	Academyの進捗を同期しました。
-academyAccountDisconnectedDone	このReaderの接続を解除しました。Academyの進捗は端末に残ります。
+academyAccountConnectedDone	アカウントに接続し、よむデッキを同期しました。
+academyAccountSyncedDone	よむデッキを同期しました。
+academyAccountDisconnectedDone	このReaderの接続を解除しました。よむデッキは端末に残ります。
 importSettings	設定JSONをインポート
 exportSettings	設定JSONをエクスポート
 importDictionaries	辞書をインポート
@@ -9456,10 +9515,10 @@ exportDictionaries	辞書をエクスポート
 lookupPills	検索ピル
 parserProvider	解析ソース
 parserProviderLocal	ローカル辞書（オフライン）
-parserProviderJiten	Jiten API
-parserProviderJpdb	JPDB API
+parserProviderJiten	Jiten
+parserProviderJpdb	JPDB
 parserProviderAuto	自動（Jiten/JPDB）
-parserProviderHelp	ローカルはインポート済み辞書でオフライン解析します。JitenとJPDBはキー設定時に必ずそのAPIを使います。自動は両方のキーがあれば優先採点サービスを使い、それ以外はJiten、次にJPDBを優先します。
+parserProviderHelp	ローカルはインポート済み辞書でオフライン解析します。JitenとJPDBはキー設定時に必ずそのサービスで解析します。自動は両方のキーがあれば優先採点サービスを使い、それ以外はJiten、次にJPDBを優先します。
 lookupPillsHelp	外部リンクと頻度バッジを同じ順序で表示します。ローカル頻度辞書は一致するJiten/JPDBライブバッジを置き換えます。トークン: {query}、{word}、{reading}。
 copiesCurrentWord	現在の単語をコピーします
 plaintextHttpLink	プレーンテキストHTTPで開きます。
@@ -9628,7 +9687,17 @@ recommendedKanjiumPitch	ピッチアクセント専用です。定義には語�
 recommendedBccwj	BCCWJ由来の頻度バッジです。
 recommendedJiten	Jiten由来の頻度バッジです。
 `),
-  ...SUBTITLE_SETTINGS_COPY.ja
+  ...SUBTITLE_SETTINGS_COPY.ja,
+  subtitleFontSizeAutomatic: "自動",
+  subtitleFontSizePixelsAuto: "字幕フォントサイズ（px、0 = 自動）",
+  ...APPEARANCE_QUICK_COPY.ja,
+  ...REVIEW_SERVICES_COPY.ja,
+  furiganaOff: "オフ",
+  puckPowerOn: `${APP_NAME} オン`,
+  puckFuriganaOn: "ふりがなオン",
+  puckFuriganaOff: "ふりがなオフ",
+  puckResume: `${APP_NAME} オフ・オンにする`,
+  furiganaHideKnownReadings: "なじみのある語の読みを非表示"
 };
 function resolveUiLanguage(language) {
   if (language === "ja" || language === "en") return language;
@@ -9914,7 +9983,11 @@ const RETIRED_SETTING_DEFAULTS = [
   { keys: ["furiganaHiddenStateGroups"], retired: [[["known", "due", "failed"]]] },
   { keys: ["wordHighlightColorSource", "wordUnderlineColorSource", "wordTextColorSource"], retired: [["jpdb", "pitch", "anki"]] },
   { keys: ["subtitleHighlightColorSource", "subtitleUnderlineColorSource", "subtitleTextColorSource"], retired: [["jpdb", "pitch", "anki"]] },
-  { keys: ["wordColorHiddenStateGroups"], retired: [[[]]] }
+  { keys: ["wordColorHiddenStateGroups"], retired: [[[]]] },
+  // Unchosen legacy pixel defaults now follow the player's caption size.
+  { keys: ["subtitleFontSize"], retired: [[28]] },
+  // Whole-object saves carried transparency even when nobody chose it.
+  { keys: ["subtitleBackgroundOpacity"], retired: [[0]] }
 ];
 RETIRED_SETTING_DEFAULTS.flatMap((group) => group.keys);
 const AUDIO_SOURCE_TYPE_VALUES = [
@@ -9982,10 +10055,14 @@ function immutableCommandSnapshot(command) {
 const OVERHANG_CLASS = "jpdb-reader-ruby-overhang";
 const AT_START_CLASS = "jpdb-reader-ruby-at-start";
 const AT_END_CLASS = "jpdb-reader-ruby-at-end";
-function rubyOverhangClassAttribute(surface, start, end, reading, readingBeside) {
+function rubyOverhangClasses(surface, start, end, reading, readingBeside) {
   if (readingBeside || Array.from(reading).length <= 2 * Array.from(surface.slice(start, end)).length) return "";
   const edges = [start === 0 ? ` ${AT_START_CLASS}` : "", end === surface.length ? ` ${AT_END_CLASS}` : ""].join("");
-  return ` class="${OVERHANG_CLASS}${edges}"`;
+  return ` ${OVERHANG_CLASS}${edges}`;
+}
+const YOMU_RUBY_CLASS = "jpdb-reader-ruby";
+function yomuRubyHtml(baseHtml, readingHtml, extraClasses = "") {
+  return `<ruby class="${YOMU_RUBY_CLASS}${extraClasses}"><span class="jpdb-reader-ruby-base">${baseHtml}</span><rp>(</rp><rt class="jpdb-reader-furi">${readingHtml}</rt><rp>)</rp></ruby>`;
 }
 const EASY_FURIGANA_KANJI = new Set(
   "一丁七万三上下不世中主久乗九予事二五井交京人今介仏仕他付代令以休会伝住何作使例供係信借元兄先光入全公六共内円写冬出分切前力加動北十千午半南原友反取口古台同名向君告周味呼命和品員問四回国土在地坂堂場声売夏夕外多夜大天太夫央女好妹姉始子字学安家宿寒寺小少山川工左市帰年広店度庭建引弟強待後心思急息悪手持教文方旅日早明春昼時曜書有朝木本村来東林校森業楽歌止正歩母毎気水池海父物犬王生田町男白百的目知石社私秋空立竹笑答米糸紙終聞肉自花英茶草行西見言話語読買赤走足車近通週道遠里野金長門間雨青音食飲駅高魚鳥黒".split("")
@@ -10182,7 +10259,7 @@ function renderTokenReadings(surface, token, kanjiNavigation, preserveTokenRubie
   html += renderKanjiNavigationText(surface.slice(localOffset, start));
   const base = renderKanjiNavigationText(surface.slice(start, end));
   const readingBeside = index > 0 && start === localOffset || rubies[index + 1]?.start === ruby.end;
-  html += `<ruby${rubyOverhangClassAttribute(surface, start, end, ruby.text, readingBeside)}><span class="jpdb-reader-ruby-base">${base}</span><rp>(</rp><rt class="jpdb-reader-furi">${escapeHtml(ruby.text)}</rt><rp>)</rp></ruby>`;
+  html += yomuRubyHtml(base, escapeHtml(ruby.text), rubyOverhangClasses(surface, start, end, ruby.text, readingBeside));
   localOffset = end;
   });
   html += renderKanjiNavigationText(surface.slice(localOffset));
@@ -10884,6 +10961,7 @@ const SCALE_EPSILON = 0.05;
 const MAX_PAGE_SCALE = 3;
 const SAFARI_PAGE_ZOOM_STEPS = [1.15, 1.25, 1.5, 1.75, 2, 2.5, 3];
 const ZOOM_STEP_TOLERANCE = 0.025;
+const MIN_PAGE_ZOOM_SIGNAL = SAFARI_PAGE_ZOOM_STEPS[0] * (1 - ZOOM_STEP_TOLERANCE);
 const MIN_AXIS_AGREEMENT = 0.97;
 const MAX_AXIS_AGREEMENT = 1.4;
 const APPLE_TOUCH_ADAPTER = "apple-touch-page-scale";
@@ -10893,7 +10971,7 @@ function overlayPageScale(environment) {
   if (!positiveFinite(environment.innerWidth)) return 1;
   if (positiveFinite(environment.outerWidth)) {
   const surfaceScale = environment.outerWidth / environment.innerWidth;
-  if (Number.isFinite(surfaceScale) && surfaceScale > 1 + SCALE_EPSILON) {
+  if (Number.isFinite(surfaceScale) && surfaceScale >= MIN_PAGE_ZOOM_SIGNAL) {
     return Math.min(surfaceScale, MAX_PAGE_SCALE);
   }
   }
@@ -11197,7 +11275,7 @@ function parseJpdbVocabularyPath(pathname) {
   };
 }
 const JPDB_KANJI_BASE_URL = "https://jpdb.io/kanji";
-const log$9 = Logger.scope("JpdbKanji");
+const log$8 = Logger.scope("JpdbKanji");
 class JpdbKanjiClient {
   constructor(getCorsProxyUrl = () => "") {
   this.getCorsProxyUrl = getCorsProxyUrl;
@@ -11220,7 +11298,7 @@ class JpdbKanjiClient {
   const action = this.actions.get(actionId);
   if (!action) throw new Error("JPDB kanji action is no longer available.");
   if (!action.enabled) throw new Error("JPDB kanji action is disabled.");
-  log$9.info("Performing JPDB kanji action", { kanji: action.kanji, role: action.role, kind: action.kind });
+  log$8.info("Performing JPDB kanji action", { kanji: action.kanji, role: action.role, kind: action.kind });
   await requestText$2(action.url, "", {
     method: action.method,
     payload: action.payload,
@@ -11239,7 +11317,7 @@ class JpdbKanjiClient {
   }
   async fetchInfo(kanji, generation) {
   const html = await requestText$2(`${JPDB_KANJI_BASE_URL}/${encodeURIComponent(kanji)}`, this.getCorsProxyUrl()).catch((error) => {
-    log$9.warn("Kanji page request failed", { kanji }, error);
+    log$8.warn("Kanji page request failed", { kanji }, error);
     return "";
   });
   const info = html ? parseJpdbKanjiHtml(html, kanji) : null;
@@ -11732,7 +11810,7 @@ const KANJIVG_HORIZONTAL_DOMINANCE = 1.12;
 const KANJIVG_SAFE_PATH_DATA = /^[MmZzLlHhVvCcSsQqTtAa0-9,.\-\s]+$/;
 const KANJIVG_STROKE_LABEL = /^[\d]+$/;
 const KANJIVG_TEXT_TRANSFORM = /^matrix\([0-9,.\-\s]+\)$/;
-const log$8 = Logger.scope("KanjiVG");
+const log$7 = Logger.scope("KanjiVG");
 const KANJIVG_AXIS_POSITIONS = {
   x: { negative: "left", positive: "right" },
   y: { negative: "top", positive: "bottom" }
@@ -11752,7 +11830,7 @@ class KanjiVGClient {
   async fetchSvg(kanji) {
   const url = kanjiVGUrl(kanji);
   const svgText = await requestText$1(url).catch((error) => {
-    log$8.warn("Stroke-order request failed", { kanji }, error);
+    log$7.warn("Stroke-order request failed", { kanji }, error);
     return "";
   });
   if (!svgText) return null;
@@ -12178,7 +12256,7 @@ const NADESHIKO_SEARCH_LIMIT = 25;
 const MIN_LEARNING_SENTENCE_LENGTH = 8;
 const MAX_LEARNING_SENTENCE_LENGTH = 80;
 const DEFAULT_EXAMPLE_SORT = "sentence_length:asc";
-const log$7 = Logger.scope("ImmersionKit");
+const log$6 = Logger.scope("ImmersionKit");
 const IMMERSION_KIT_TITLES = {
   your_lie_in_april: "Your Lie in April",
   princess_mononoke: "Princess Mononoke",
@@ -12297,7 +12375,7 @@ class ImmersionKitClient {
   if (inflight) {
     return options.signal ? raceSharedImmersionSearchAgainstAbort(inflight, options.signal) : inflight;
   }
-  const done = log$7.time("search", { query, source: settings.immersionKitExampleSource });
+  const done = log$6.time("search", { query, source: settings.immersionKitExampleSource });
   const promise = this.searchEnabledSources(query, settings, options).then((outcome) => {
     const result = { ...outcome, examples: applySearchExampleLimit(outcome.examples, settings, options) };
     if (!options.signal?.aborted) {
@@ -12358,11 +12436,11 @@ class ImmersionKitClient {
   async searchSource(source, query, settings, options) {
   return source === "nadeshiko" ? this.searchNadeshiko(query, settings, options).catch((error) => {
     if (isAbortError(error)) throw error;
-    log$7.warn("Nadeshiko examples failed", { query }, error);
+    log$6.warn("Nadeshiko examples failed", { query }, error);
     throw error;
   }) : this.searchImmersionKit(query, settings, options).catch((error) => {
     if (isAbortError(error) || isImmersionKitRateLimitError(error)) throw error;
-    log$7.warn("Immersion Kit examples failed", { query }, error);
+    log$6.warn("Immersion Kit examples failed", { query }, error);
     throw error;
   });
   }
@@ -13114,7 +13192,7 @@ installPageActivationTracking();
 const CONTEXT_PREFIX = "yomu-mining-context:";
 const CONTEXT_MAX_AGE_MS = 1e3 * 60 * 60 * 24 * 21;
 const MINING_SOURCE_KINDS = ["page", "video", "image", "immersion-kit", "jpdb"];
-const log$6 = Logger.scope("MiningContext");
+const log$5 = Logger.scope("MiningContext");
 function normalizeMiningSentence(sentence) {
   return (sentence ?? "").replace(/\s+/g, " ").trim();
 }
@@ -13167,7 +13245,7 @@ async function resolveMiningContext({
   fetchImageDataUrl,
   fetchAudioDataUrl
 }) {
-  const done = log$6.time("Resolve mining context", {
+  const done = log$5.time("Resolve mining context", {
   term,
   hasSentence: Boolean(sentence?.trim()),
   activeKind: activeContext?.sourceKind,
@@ -13244,7 +13322,7 @@ function saveMiningContext(term, context) {
   try {
   gmStorageSetSync(contextStorageKey(stored.term), stored);
   } catch (error) {
-  log$6.warn("Mining context save failed", { term: stored.term, sourceKind: stored.sourceKind, error });
+  log$5.warn("Mining context save failed", { term: stored.term, sourceKind: stored.sourceKind, error });
   }
   return stored;
 }
@@ -13259,7 +13337,7 @@ function loadMiningContext(term) {
   const context = parseStoredMiningContext(stored, normalized);
   return context;
   } catch (error) {
-  log$6.warn("Mining context load failed", { term: normalized, error });
+  log$5.warn("Mining context load failed", { term: normalized, error });
   return null;
   }
 }
@@ -13441,7 +13519,7 @@ const IMMERSION_HOVER_AUDIO_KEY_LIMIT = 240;
 const IMMERSION_CONTEXT_CACHE_LIMIT = 160;
 const IMMERSION_FALLBACK_SEARCH_CONCURRENCY = 2;
 const IMMERSION_PARSED_SENTENCE_CACHE_LIMIT = 160;
-const log$5 = Logger.scope("ImmersionPopover");
+const log$4 = Logger.scope("ImmersionPopover");
 class ImmersionPopoverController {
   constructor(options) {
   this.options = options;
@@ -13518,7 +13596,7 @@ class ImmersionPopoverController {
     this.renderLoadedExamples(container, card, result);
   } catch (error) {
     if (this.shouldIgnoreAbortedExampleLoad(error, controller, container)) return;
-    log$5.warn("Immersion Kit examples failed", { term: card.spelling }, error);
+    log$4.warn("Immersion Kit examples failed", { term: card.spelling }, error);
     this.renderEmptyIfConnected(popover, container);
   } finally {
     if (this.loadAbortControllers.get(popover) === controller) this.loadAbortControllers.delete(popover);
@@ -14128,7 +14206,7 @@ class ImmersionPopoverController {
   }
   }
   handleExampleAudioError(example, quiet, error) {
-  log$5.warn("Immersion example audio failed", { provider: immersionExampleProviderLabel(example, "en"), sourceTitle: example.sourceTitle, quiet }, error);
+  log$4.warn("Immersion example audio failed", { provider: immersionExampleProviderLabel(example, "en"), sourceTitle: example.sourceTitle, quiet }, error);
   if (!quiet) this.options.toast(uiText(this.options.getSettings().interfaceLanguage, "audioSourceReturnedNoAudio"));
   }
   exampleAudioSource(example, quiet) {
@@ -15311,7 +15389,7 @@ function renderKanjiPractice(info, kanji, language, initiallyExpanded = true, so
         </details>
     `;
 }
-const log$4 = Logger.scope("KanjiDoodle");
+const log$3 = Logger.scope("KanjiDoodle");
 const PEN_MIN_DISTANCE = 8e-4;
 const POINTER_MIN_DISTANCE = 16e-4;
 const GHOST_VIEWBOX_UNITS = 109;
@@ -15334,11 +15412,11 @@ function installKanjiDoodle(popover, getLanguage, options = {}) {
   try {
   context = canvas.getContext("2d");
   } catch (error) {
-  log$4.warn("Kanji doodle install failed", { reason: "2d-context-error" }, error);
+  log$3.warn("Kanji doodle install failed", { reason: "2d-context-error" }, error);
   return;
   }
   if (!context) {
-  log$4.warn("Kanji doodle install failed", { reason: "missing-2d-context" });
+  log$3.warn("Kanji doodle install failed", { reason: "missing-2d-context" });
   return;
   }
   let dpr = 1;
@@ -15897,7 +15975,7 @@ function shouldWaitForMorePracticeStrokes(strokes, expectedStrokes) {
 }
 const RTK_BASE_URL = "https://hrussellzfac023.github.io/rtk";
 const RTK_SEARCH_INDEX_URL = `${RTK_BASE_URL}/assets/js/search.js`;
-const log$3 = Logger.scope("RTK");
+const log$2 = Logger.scope("RTK");
 class RtkClient {
   cache = /* @__PURE__ */ new Map();
   keywordIndex;
@@ -15914,7 +15992,7 @@ class RtkClient {
   }
   async fetchInfo(kanji) {
   const html = await requestText(`${RTK_BASE_URL}/${encodeURIComponent(kanji)}/index.html`).catch((error) => {
-    log$3.warn("RTK request failed", { kanji }, error);
+    log$2.warn("RTK request failed", { kanji }, error);
     return "";
   });
   if (!html) return null;
@@ -16363,7 +16441,7 @@ const GOOGLE_TRANSLATION_LANGUAGE_CODES = /* @__PURE__ */ new Set([
   "vi",
   "ja"
 ]);
-const log$2 = Logger.scope("GoogleTranslation");
+const log$1 = Logger.scope("GoogleTranslation");
 const translationCache = /* @__PURE__ */ new Map();
 const translationInFlight = /* @__PURE__ */ new Map();
 function normalizeTranslationLanguage(language, options = {}) {
@@ -16472,7 +16550,7 @@ function requiredGoogleTranslationLanguage(language) {
 }
 async function performTranslation(text2, options) {
   const url = googleTranslationUrl(text2, options);
-  const done = log$2.time("Translate text", {
+  const done = log$1.time("Translate text", {
   sourceLanguage: options.sourceLanguage,
   outputLanguage: options.outputLanguage,
   textLength: text2.length
@@ -16829,63 +16907,6 @@ function requestJson(url, options = {}) {
   failureLabel: options.failureLabel ?? "Translation request",
   timeoutLabel: options.timeoutLabel ?? "Translation timed out."
   });
-}
-const log$1 = Logger.scope("StudyRender");
-async function renderStudyToolResult(button, action, sentence, grammarHints, language = "en", options = {}) {
-  const panel = button.closest(".jpdb-reader-study-tools")?.querySelector("[data-study-panel]");
-  if (!panel || !sentence) return;
-  panel.hidden = false;
-  panel.textContent = studyToolPendingText(action, language);
-  const done = log$1.time("studyTool", { action, sentenceLength: sentence.length });
-  try {
-  if (action === "study-translate") await renderTranslationResult(panel, sentence, language, options.outputLanguage);
-  else await renderGrammarResult(panel, sentence, grammarHints, language, options.audioEnabled);
-  } finally {
-  done();
-  }
-}
-async function renderTranslationResult(panel, sentence, language, outputLanguage) {
-  try {
-  const translation = await translateTargetSentence$1(sentence, outputLanguage ?? "en");
-  if (!translation) {
-    panel.hidden = true;
-    panel.textContent = "";
-    return;
-  }
-  replaceStudyPanelHtml(panel, renderStudyMeaningBlock(translation.text, language, {
-    content: {
-      lang: translation.outputLanguage,
-      dir: localeDirection(translation.outputLanguage)
-    }
-  }));
-  } catch (error) {
-  log$1.warn("Study translation failed", { sentenceLength: sentence.length }, error);
-  replaceStudyPanelHtml(panel, renderStudyEmpty(uiText(language, "translationUnavailable")));
-  }
-}
-async function renderGrammarResult(panel, sentence, grammarHints, language, audioEnabled) {
-  try {
-  const hints = resolvedGrammarHints(sentence, grammarHints);
-  if (!hints.length) {
-    const availability = currentGrammarAvailability(language);
-    panel.dataset.grammarAvailability = availability.state;
-    replaceStudyPanelHtml(panel, renderGrammarAvailability(availability, language));
-    return;
-  }
-  panel.dataset.grammarAvailability = "loaded";
-  replaceStudyPanelHtml(panel, await renderGrammarHints$1(hints, sentence, void 0, language, { audioEnabled }));
-  } catch (error) {
-  log$1.warn("Study grammar check failed", { sentenceLength: sentence.length }, error);
-  const availability = currentGrammarAvailability(language, true);
-  panel.dataset.grammarAvailability = availability.state;
-  replaceStudyPanelHtml(panel, renderGrammarAvailability(availability, language));
-  }
-}
-function studyToolPendingText(action, language) {
-  return action === "study-translate" ? uiText(language, "translating") : uiText(language, "findingGrammar");
-}
-function resolvedGrammarHints(sentence, grammarHints) {
-  return grammarHints ?? detectGrammarHints$1(sentence);
 }
 function handleStudyGrammarAction(button, sentence, language = "en", options = {}) {
   if (!sentence) return false;
@@ -17279,9 +17300,6 @@ class StudySourceController {
   this.preloadStudySources(popover, sentence);
   this.installTranslationLoader(popover, sentence);
   this.installGrammarLoader(popover, sentence);
-  }
-  async detectGrammarHints(sentence) {
-  return detectGrammarHints(sentence);
   }
   preloadStudySources(popover, sentence) {
   if (!sentence) return;
@@ -17749,7 +17767,7 @@ function renderJitenAnnotatedReading(value) {
   let match;
   while ((match = regex.exec(source)) !== null) {
   html += escapeHtml(source.slice(offset, match.index));
-  html += `<ruby><span class="jpdb-reader-ruby-base">${escapeHtml(match[1] ?? "")}</span><rp>(</rp><rt class="jpdb-reader-furi">${escapeHtml(match[2] ?? "")}</rt><rp>)</rp></ruby>`;
+  html += yomuRubyHtml(escapeHtml(match[1] ?? ""), escapeHtml(match[2] ?? ""));
   offset = match.index + match[0].length;
   }
   html += escapeHtml(source.slice(offset));
@@ -17988,7 +18006,6 @@ registerYomuCompanion("kanjiStudy", {
   setKnownGrammarVisible,
   translateTargetSentence: translateTargetSentence$1,
   renderGrammarHints: renderGrammarHints$1,
-  renderStudyToolResult,
   handleStudyGrammarAction,
   toggleMiningControls,
   setMiningControlsExpanded,

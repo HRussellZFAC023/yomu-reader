@@ -6,6 +6,7 @@
   ],
   "retainedPaths": [
     "docs/public/greasyfork/yomu-runtime.03c424534b12.user.js",
+    "docs/public/greasyfork/yomu-runtime.0fc2de7a9524.user.js",
     "docs/public/greasyfork/yomu-runtime.10fd026e774e.user.js",
     "docs/public/greasyfork/yomu-runtime.1da5ece71162.user.js",
     "docs/public/greasyfork/yomu-runtime.2e692f54d841.user.js",
@@ -38,7 +39,6 @@
     "docs/public/greasyfork/yomu-runtime.98b3e1384a19.user.js",
     "docs/public/greasyfork/yomu-runtime.a19ea5d259dc.user.js",
     "docs/public/greasyfork/yomu-runtime.b58b46be9ffe.user.js",
-    "docs/public/greasyfork/yomu-runtime.b657dfe8ce10.user.js",
     "docs/public/greasyfork/yomu-runtime.c1d9ce1c3757.user.js",
     "docs/public/greasyfork/yomu-runtime.c2fee11b6b9e.user.js",
     "docs/public/greasyfork/yomu-runtime.c378e8ee5a78.user.js",
@@ -56,6 +56,7 @@
     "docs/public/yomu.0f710500cc29.css",
     "docs/public/yomu.179c84bc6015.css",
     "docs/public/yomu.3502c5e73d8a.css",
+    "docs/public/yomu.42a3f10c1429.css",
     "docs/public/yomu.487fa83ac3a3.css",
     "docs/public/yomu.4fab884b5334.css",
     "docs/public/yomu.6f1aad3cd06d.css",

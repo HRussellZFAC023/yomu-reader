@@ -7093,6 +7093,13 @@ button.jpdb-reader-newtab-study-hint-btn:active {
   background: color-mix(in srgb, var(--jpdb-reader-state-known) 88%, var(--jpdb-reader-white));
 }
 
+/* One anonymous flex/grid text item stays one item after tokenization. The
+   layered annotation box armour also protects this shell from host span rules. */
+
+.jpdb-reader-run {
+  display: inline !important;
+}
+
 .jpdb-reader-word {
   --jpdb-reader-word-color-source: currentColor;
   --jpdb-reader-word-decoration-source: transparent;
@@ -7158,7 +7165,7 @@ button.jpdb-reader-newtab-study-hint-btn:active {
 
 .jpdb-reader-number-bind.jpdb-reader-number-bind,
 .jpdb-reader-word.jpdb-reader-scan-word,
-.jpdb-reader-word.jpdb-reader-scan-word ruby,
+.jpdb-reader-word.jpdb-reader-scan-word ruby:where(.jpdb-reader-ruby),
 .jpdb-reader-word.jpdb-reader-scan-word .jpdb-reader-ruby-base {
   font-family: inherit;
   font-size: inherit;
@@ -7229,8 +7236,8 @@ button.jpdb-reader-newtab-study-hint-btn:active {
      native underline. */
 }
 
-.jpdb-reader-word.jpdb-reader-scan-word ruby,
-.jpdb-reader-word.jpdb-reader-scan-word rt {
+.jpdb-reader-word.jpdb-reader-scan-word ruby:where(.jpdb-reader-ruby),
+.jpdb-reader-word.jpdb-reader-scan-word :where(.jpdb-reader-ruby) > rt {
   white-space: normal;
 }
 
@@ -7263,15 +7270,19 @@ button.jpdb-reader-newtab-study-hint-btn:active {
   -webkit-user-select: none;
 }
 
-/* Text mirrors preserve the host's inline formatting context. Token spans must
-   inherit its wrapping rules: making them atomic changes CJK line breaks and
-   guarantees that an overlay will drift from the source it annotates. */
+/* Text mirrors and anonymous flex/grid runs preserve the host's wrapping.
+   Normalizing a run's nowrap words would reduce its automatic minimum size,
+   letting the text shrink into the next flex item. */
 
+.jpdb-reader-run .jpdb-reader-word.jpdb-reader-scan-word,
 .jpdb-reader-text-mirror .jpdb-reader-word.jpdb-reader-scan-word {
   white-space: inherit;
   word-break: inherit;
   overflow-wrap: inherit !important;
   line-break: inherit;
+}
+
+.jpdb-reader-text-mirror .jpdb-reader-word.jpdb-reader-scan-word {
   text-decoration-color: transparent !important;
 }
 
@@ -7336,10 +7347,10 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
   line-height: 1.08;
 }
 
-.jpdb-reader-text-mirror .jpdb-reader-word.jpdb-reader-scan-word ruby,
-.jpdb-reader-text-mirror .jpdb-reader-word.jpdb-reader-scan-word rt,
-.jpdb-reader-control-text-mirror .jpdb-reader-word.jpdb-reader-scan-word ruby,
-.jpdb-reader-control-text-mirror .jpdb-reader-word.jpdb-reader-scan-word rt {
+.jpdb-reader-text-mirror .jpdb-reader-word.jpdb-reader-scan-word ruby:where(.jpdb-reader-ruby),
+.jpdb-reader-text-mirror .jpdb-reader-word.jpdb-reader-scan-word :where(.jpdb-reader-ruby) > rt,
+.jpdb-reader-control-text-mirror .jpdb-reader-word.jpdb-reader-scan-word ruby:where(.jpdb-reader-ruby),
+.jpdb-reader-control-text-mirror .jpdb-reader-word.jpdb-reader-scan-word :where(.jpdb-reader-ruby) > rt {
   white-space: nowrap !important;
   overflow-wrap: normal !important;
   word-break: keep-all !important;
@@ -7356,8 +7367,8 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
   line-break: auto;
 }
 
-.yomu-link-card .jpdb-reader-word.jpdb-reader-scan-word ruby,
-.yomu-install-step-link .jpdb-reader-word.jpdb-reader-scan-word ruby {
+.yomu-link-card .jpdb-reader-word.jpdb-reader-scan-word ruby:where(.jpdb-reader-ruby),
+.yomu-install-step-link .jpdb-reader-word.jpdb-reader-scan-word ruby:where(.jpdb-reader-ruby) {
   white-space: normal;
   overflow-wrap: anywhere;
 }
@@ -7408,7 +7419,7 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
   }
 }
 
-.jpdb-reader-word.jpdb-reader-i-plus-one {
+:where(.jpdb-reader-word-underline-status, .jpdb-reader-word-underline-jpdb, .jpdb-reader-word-underline-review) .jpdb-reader-word.jpdb-reader-i-plus-one {
   --jpdb-reader-mining-insight-color: color-mix(in srgb, var(--jpdb-reader-state-hard) 42%, transparent);
   background-color: transparent !important;
   background-image: linear-gradient(transparent 58%, var(--jpdb-reader-mining-insight-color) 58%) !important;
@@ -7500,7 +7511,6 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
   --jpdb-reader-status-color: var(--jpdb-reader-state-ignored);
   --jpdb-reader-status-readable: var(--jpdb-reader-state-ignored-readable);
   --jpdb-reader-status-soft: var(--jpdb-reader-state-ignored-soft);
-  opacity: 0.82 !important;
 }
 
 .jpdb-reader-word.jpdb-frequent {
@@ -7565,7 +7575,7 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
   --jpdb-reader-review-soft: var(--jpdb-reader-state-ignored-soft);
 }
 
-.jpdb-reader-word:is(.jpdb-new, .jpdb-in-deck, .anki-new) {
+.jpdb-reader-word:is(.jpdb-new, .jpdb-in-deck, .anki-new, .yomu-review-new) {
   --jpdb-reader-status-color: var(--jpdb-reader-state-new);
   --jpdb-reader-status-readable: var(--jpdb-reader-state-new-readable);
   --jpdb-reader-status-soft: var(--jpdb-reader-state-new-soft);
@@ -7577,31 +7587,31 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
   --jpdb-reader-status-soft: var(--jpdb-reader-state-not-in-deck-soft);
 }
 
-.jpdb-reader-word:is(.jpdb-learning, .jpdb-young, .anki-learning) {
+.jpdb-reader-word:is(.jpdb-learning, .jpdb-young, .anki-learning, .yomu-review-learning) {
   --jpdb-reader-status-color: var(--jpdb-reader-state-learning);
   --jpdb-reader-status-readable: var(--jpdb-reader-state-learning-readable);
   --jpdb-reader-status-soft: var(--jpdb-reader-state-learning-soft);
 }
 
-.jpdb-reader-word:is(.jpdb-known, .jpdb-mature, .jpdb-mastered, .jpdb-never-forget, .jpdb-redundant, .anki-known) {
+.jpdb-reader-word:is(.jpdb-known, .jpdb-mature, .jpdb-mastered, .jpdb-never-forget, .jpdb-redundant, .anki-known, .yomu-review-known) {
   --jpdb-reader-status-color: var(--jpdb-reader-state-known);
   --jpdb-reader-status-readable: var(--jpdb-reader-state-known-readable);
   --jpdb-reader-status-soft: var(--jpdb-reader-state-known-soft);
 }
 
-.jpdb-reader-word:is(.jpdb-due, .anki-due) {
+.jpdb-reader-word:is(.jpdb-due, .anki-due, .yomu-review-due) {
   --jpdb-reader-status-color: var(--jpdb-reader-state-due);
   --jpdb-reader-status-readable: var(--jpdb-reader-state-due-readable);
   --jpdb-reader-status-soft: var(--jpdb-reader-state-due-soft);
 }
 
-.jpdb-reader-word:is(.jpdb-failed, .anki-failed) {
+.jpdb-reader-word:is(.jpdb-failed, .anki-failed, .yomu-review-failed) {
   --jpdb-reader-status-color: var(--jpdb-reader-state-failed);
   --jpdb-reader-status-readable: var(--jpdb-reader-state-failed-readable);
   --jpdb-reader-status-soft: var(--jpdb-reader-state-failed-soft);
 }
 
-.jpdb-reader-word:is(.jpdb-suspended, .anki-suspended) {
+.jpdb-reader-word:is(.jpdb-suspended, .anki-suspended, .yomu-review-suspended) {
   --jpdb-reader-status-color: var(--jpdb-reader-state-ignored);
   --jpdb-reader-status-readable: var(--jpdb-reader-state-ignored-readable);
   --jpdb-reader-status-soft: var(--jpdb-reader-state-ignored-soft);
@@ -7680,12 +7690,12 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
   .jpdb-locked,
   .jpdb-frequent,
   .jpdb-unparsed,
-  .anki-new,
-  .anki-suspended,
-  .anki-learning,
-  .anki-known,
-  .anki-due,
-  .anki-failed
+  .anki-new, .yomu-review-new,
+  .anki-suspended, .yomu-review-suspended,
+  .anki-learning, .yomu-review-learning,
+  .anki-known, .yomu-review-known,
+  .anki-due, .yomu-review-due,
+  .anki-failed, .yomu-review-failed
 ) {
   --jpdb-reader-status-highlight: color-mix(
     in srgb,
@@ -7976,7 +7986,7 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
 .jpdb-reader-word:where(.jiten-not-in-deck, .jpdb-not-in-deck:not(
   .jpdb-learning, .jpdb-young, .jpdb-known, .jpdb-mature, .jpdb-mastered, .jpdb-never-forget, .jpdb-redundant,
   .jpdb-due, .jpdb-failed, .jpdb-suspended,
-  .anki-learning, .anki-known, .anki-due, .anki-failed, .anki-suspended
+  .anki-learning, .yomu-review-learning, .anki-known, .yomu-review-known, .anki-due, .yomu-review-due, .anki-failed, .yomu-review-failed, .anki-suspended, .yomu-review-suspended
 )) {
   --jpdb-reader-status-underline: transparent;
 }
@@ -7989,7 +7999,7 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
   --jpdb-reader-status-underline: var(--jpdb-reader-source-jpdb-decoration, transparent);
 }
 
-.jpdb-reader-word:where(:is(.jpdb-not-in-deck, .jiten-not-in-deck):is(.anki-new, .anki-learning, .anki-known, .anki-due, .anki-failed, .anki-suspended)) {
+.jpdb-reader-word:where(:is(.jpdb-not-in-deck, .jiten-not-in-deck):is(.anki-new, .yomu-review-new, .anki-learning, .yomu-review-learning, .anki-known, .yomu-review-known, .anki-due, .yomu-review-due, .anki-failed, .yomu-review-failed, .anki-suspended, .yomu-review-suspended)) {
   --jpdb-reader-status-underline: var(--jpdb-reader-source-review-decoration, transparent);
 }
 
@@ -8007,8 +8017,8 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
   .jiten-new, .jiten-in-deck, .jiten-learning, .jiten-young, .jiten-known,
   .jiten-mature, .jiten-mastered, .jiten-never-forget, .jiten-redundant, .jiten-due,
   .jiten-failed, .jiten-suspended, .jiten-blacklisted, .jiten-locked, .jiten-frequent,
-  .anki-new, .anki-in-deck, .anki-learning, .anki-known, .anki-due,
-  .anki-failed, .anki-suspended
+  .anki-new, .yomu-review-new, .anki-in-deck, .yomu-review-in-deck, .anki-learning, .yomu-review-learning, .anki-known, .yomu-review-known, .anki-due, .yomu-review-due,
+  .anki-failed, .yomu-review-failed, .anki-suspended, .yomu-review-suspended
 )) {
   --jpdb-reader-jpdb-underline: transparent;
   --jpdb-reader-status-underline: transparent;
@@ -8105,10 +8115,6 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
   -webkit-text-fill-color: var(--jpdb-reader-word-accessible-color, var(--jpdb-reader-word-color-source, currentColor));
 }
 
-:is(.jpdb-reader-word-highlight-pitch, .jpdb-reader-word-underline-pitch, .jpdb-reader-word-text-pitch) .jpdb-reader-word {
-  opacity: 1 !important;
-}
-
 .jpdb-reader-word.jpdb-reader-has-furi {
   line-height: 2.15;
 }
@@ -8130,13 +8136,8 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
   font-feature-settings: normal;
   font-variant-east-asian: normal;
   letter-spacing: normal;
-  /* One quiet reading colour for every word, links included:
-     --jpdb-reader-furi-color is the paragraph's own ink eased toward the
-     sampled backdrop and held at 4.5:1 (dom/word-contrast.ts). Without a
-     sample the reading takes the word's colour. -webkit-text-fill-color is
-     pinned to currentColor so WebKit fills the kana with that same colour
-     instead of inheriting the word's fill channel. */
-  color: var(--jpdb-reader-furi-color, inherit) !important;
+  /* Readings use the annotated word’s ink, including its state colour. */
+  color: inherit !important;
   -webkit-text-fill-color: currentColor !important;
   line-height: 1.08;
   user-select: none;
@@ -8171,7 +8172,12 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
   margin-inline-end: calc(-1 * var(--jpdb-reader-ruby-overhang, 0.5em));
 }
 
-.jpdb-reader-word ruby {
+/* Yomu Ruby only (class jpdb-reader-ruby, dom/yomu-ruby.ts). A page's own
+   <ruby> that a word wraps keeps the page's metrics: restyling it moved text
+   between pages with readings off. :where() keeps the specificity these rules
+   always had. scripts/page-ruby-metrics-smoke.mjs holds this in real engines. */
+
+.jpdb-reader-word ruby:where(.jpdb-reader-ruby) {
   position: static !important;
   display: ruby !important;
   /* CSS Ruby's initial ruby-align is space-around, which distributes the base
@@ -8393,7 +8399,7 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
 }
 
 .jpdb-reader-text-mirror.jpdb-reader-additive-text-mirror .jpdb-reader-detached-furi {
-  color: var(--jpdb-reader-furi-color, inherit) !important;
+  color: inherit !important;
   -webkit-text-fill-color: currentColor !important;
   opacity: 1 !important;
 }
@@ -8479,7 +8485,7 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
   display: none;
 }
 
-.jpdb-reader-word rt {
+.jpdb-reader-word :where(.jpdb-reader-ruby) > rt {
   position: static;
   left: auto;
   bottom: auto;
@@ -8534,49 +8540,52 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
    takes a single tight outline instead — enough contrast on busy manga
    backgrounds without the muddy glow. Tunable via --jpdb-reader-furigana-shadow. */
 
-.jpdb-reader-word rt {
+.jpdb-reader-word :where(.jpdb-reader-ruby) > rt {
   text-shadow: var(
     --jpdb-reader-furigana-shadow,
     0 0 1px color-mix(in srgb, var(--jpdb-reader-black) 55%, transparent)
   );
 }
 
-:is(.jpdb-reader-theme-light, .yomu-page-theme-light) .jpdb-reader-word rt {
+:is(.jpdb-reader-theme-light, .yomu-page-theme-light) .jpdb-reader-word :where(.jpdb-reader-ruby) > rt {
   text-shadow: var(--jpdb-reader-furigana-shadow, none);
 }
 
 /* UT-47: per-group furigana hiding (settings: furiganaHiddenStateGroups).
    The classes apply on the page root AND on the settings preview container,
-   so the preview restyles live. Example targets keep their ruby. */
+   so the preview restyles live. Override the host-armoured ruby display;
+   example targets and dictionary headwords keep their ruby. A review state outranks JPDB absence
+   when deciding whether a word belongs to New. */
 
 .yomu-furi-hide-known
-  .jpdb-reader-word:is(.jpdb-known, .jpdb-mature, .jpdb-mastered, .jpdb-never-forget, .jpdb-redundant, .jiten-known, .jiten-mature, .jiten-mastered, .jiten-never-forget, .jiten-redundant, .anki-known):not(.jpdb-reader-example-target)
-  .jpdb-reader-furi {
-  display: none;
+  .jpdb-reader-word:is(.jpdb-known, .jpdb-mature, .jpdb-mastered, .jpdb-never-forget, .jpdb-redundant, .jiten-known, .jiten-mature, .jiten-mastered, .jiten-never-forget, .jiten-redundant, .anki-known, .yomu-review-known):not(.jpdb-reader-example-target)
+  .jpdb-reader-furi:not([data-yomu-headword] *) {
+  display: none !important;
 }
 
 .yomu-furi-hide-due
-  .jpdb-reader-word:is(.jpdb-due, .jiten-due, .anki-due):not(.jpdb-reader-example-target)
-  .jpdb-reader-furi {
-  display: none;
+  .jpdb-reader-word:is(.jpdb-due, .jiten-due, .anki-due, .yomu-review-due):not(.jpdb-reader-example-target)
+  .jpdb-reader-furi:not([data-yomu-headword] *) {
+  display: none !important;
 }
 
 .yomu-furi-hide-failed
-  .jpdb-reader-word:is(.jpdb-failed, .jiten-failed, .anki-failed):not(.jpdb-reader-example-target)
-  .jpdb-reader-furi {
-  display: none;
+  .jpdb-reader-word:is(.jpdb-failed, .jiten-failed, .anki-failed, .yomu-review-failed):not(.jpdb-reader-example-target)
+  .jpdb-reader-furi:not([data-yomu-headword] *) {
+  display: none !important;
 }
 
 .yomu-furi-hide-learning
-  .jpdb-reader-word:is(.jpdb-learning, .jpdb-young, .jiten-learning, .jiten-young, .anki-learning):not(.jpdb-reader-example-target)
-  .jpdb-reader-furi {
-  display: none;
+  .jpdb-reader-word:is(.jpdb-learning, .jpdb-young, .jiten-learning, .jiten-young, .anki-learning, .yomu-review-learning):not(.jpdb-reader-example-target)
+  .jpdb-reader-furi:not([data-yomu-headword] *) {
+  display: none !important;
 }
 
 .yomu-furi-hide-new
-  .jpdb-reader-word:is(.jpdb-new, .jpdb-not-in-deck, .jpdb-in-deck, .jiten-new, .anki-new):not(.jpdb-reader-example-target)
-  .jpdb-reader-furi {
-  display: none;
+  .jpdb-reader-word:is(.jpdb-new, .jiten-new, .anki-new, .yomu-review-new):not(.jpdb-reader-example-target) .jpdb-reader-furi:not([data-yomu-headword] *),
+.yomu-furi-hide-new
+  .jpdb-reader-word:is(.jpdb-not-in-deck, .jpdb-in-deck):not(.anki-learning, .anki-known, .anki-due, .anki-failed, .anki-suspended, .yomu-review-learning, .yomu-review-known, .yomu-review-due, .yomu-review-failed, .yomu-review-suspended, .jpdb-reader-example-target) .jpdb-reader-furi:not([data-yomu-headword] *) {
+  display: none !important;
 }
 
 /* Headword exemption (data-yomu-headword): card/search/study headwords are
@@ -8653,10 +8662,10 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
   overflow: visible !important;
 }
 
-/* UT-47: hover-only furigana — ruby is rendered but only visible while the
-   word is hovered (visibility keeps the line height stable). */
+/* Interaction-only readings also follow keyboard focus and word navigation.
+   Visibility keeps the line height stable. */
 
-.yomu-furi-hover .jpdb-reader-word:not(:hover) .jpdb-reader-furi {
+.yomu-furi-hover .jpdb-reader-word:not(:hover):not(:focus-within):not(.jpdb-reader-keyboard-active) .jpdb-reader-furi {
   visibility: hidden;
 }
 
@@ -8664,7 +8673,9 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
    own colour and loses Yomu underline/highlight marking. */
 
 .yomu-word-color-new-only
-  .jpdb-reader-word:not(.jpdb-new, .jpdb-not-in-deck, .jpdb-in-deck, .jiten-new, .anki-new, .jpdb-reader-example-target) {
+  .jpdb-reader-word:not(.jpdb-new, .jpdb-not-in-deck, .jpdb-in-deck, .jiten-new, .anki-new, .yomu-review-new, .jpdb-reader-example-target),
+.yomu-word-color-new-only
+  .jpdb-reader-word:is(.jpdb-not-in-deck, .jpdb-in-deck):is(.anki-learning, .anki-known, .anki-due, .anki-failed, .anki-suspended, .yomu-review-learning, .yomu-review-known, .yomu-review-due, .yomu-review-failed, .yomu-review-suspended):not(.jpdb-new, .jiten-new, .anki-new, .yomu-review-new, .jpdb-reader-example-target) {
   --jpdb-reader-word-underline: transparent;
   /* A compound's pitch gradient is an inline var painted by ::after, out of
      reach of the background-image reset below; !important beats inline. */
@@ -8696,17 +8707,19 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
    hidden if EITHER group is opted out, which matches the aggregate default. */
 
 .yomu-word-color-hide-known
-  .jpdb-reader-word:is(.jpdb-known, .jpdb-mature, .jpdb-mastered, .jpdb-never-forget, .jpdb-redundant, .jiten-known, .jiten-mature, .jiten-mastered, .jiten-never-forget, .jiten-redundant, .anki-known):not(.jpdb-reader-example-target),
+  .jpdb-reader-word:is(.jpdb-known, .jpdb-mature, .jpdb-mastered, .jpdb-never-forget, .jpdb-redundant, .jiten-known, .jiten-mature, .jiten-mastered, .jiten-never-forget, .jiten-redundant, .anki-known, .yomu-review-known):not(.jpdb-reader-example-target),
 .yomu-word-color-hide-due
-  .jpdb-reader-word:is(.jpdb-due, .jiten-due, .anki-due):not(.jpdb-reader-example-target),
+  .jpdb-reader-word:is(.jpdb-due, .jiten-due, .anki-due, .yomu-review-due):not(.jpdb-reader-example-target),
 .yomu-word-color-hide-failed
-  .jpdb-reader-word:is(.jpdb-failed, .jiten-failed, .anki-failed):not(.jpdb-reader-example-target),
+  .jpdb-reader-word:is(.jpdb-failed, .jiten-failed, .anki-failed, .yomu-review-failed):not(.jpdb-reader-example-target),
 .yomu-word-color-hide-learning
-  .jpdb-reader-word:is(.jpdb-learning, .jpdb-young, .jiten-learning, .jiten-young, .anki-learning):not(.jpdb-reader-example-target),
+  .jpdb-reader-word:is(.jpdb-learning, .jpdb-young, .jiten-learning, .jiten-young, .anki-learning, .yomu-review-learning):not(.jpdb-reader-example-target),
 .yomu-word-color-hide-ignored
-  .jpdb-reader-word:is(.jpdb-suspended, .jpdb-blacklisted, .jpdb-locked, .jiten-suspended, .jiten-blacklisted, .jiten-locked, .anki-suspended):not(.jpdb-reader-example-target),
+  .jpdb-reader-word:is(.jpdb-suspended, .jpdb-blacklisted, .jpdb-locked, .jiten-suspended, .jiten-blacklisted, .jiten-locked, .anki-suspended, .yomu-review-suspended):not(.jpdb-reader-example-target),
 .yomu-word-color-hide-new
-  .jpdb-reader-word:is(.jpdb-new, .jpdb-not-in-deck, .jpdb-in-deck, .jiten-new, .anki-new):not(.jpdb-reader-example-target) {
+  .jpdb-reader-word:is(.jpdb-new, .jiten-new, .anki-new, .yomu-review-new):not(.jpdb-reader-example-target),
+.yomu-word-color-hide-new
+  .jpdb-reader-word:is(.jpdb-not-in-deck, .jpdb-in-deck):not(.anki-learning, .anki-known, .anki-due, .anki-failed, .anki-suspended, .yomu-review-learning, .yomu-review-known, .yomu-review-due, .yomu-review-failed, .yomu-review-suspended, .jpdb-reader-example-target) {
   --jpdb-reader-word-underline: transparent;
   --jpdb-reader-inline-pitch-gradient: none !important;
   color: inherit !important;
@@ -9622,9 +9635,8 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
    One quiet disc: the よむ mark, a ring in the state colour and a small badge
    carrying the state's icon from the shared menu set (menu-icons.json), the
    same shapes the radial menu and the extension toolbar draw.
-     on · furigana shown   → green ring, green power badge
-     on · furigana hidden  → amber ring, amber eye-off badge
-     off                   → no ring, grey power badge, receded mark */
+     on  → accent ring and power badge
+     off → grey power badge and receded mark */
 
 .jpdb-reader-fab {
   --jpdb-reader-fab-tone: var(--jpdb-reader-accent);
@@ -9722,14 +9734,6 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
 
 .jpdb-reader-fab:active {
   transform: translate3d(0, 0, 0) scale(0.96) !important;
-}
-
-.jpdb-reader-fab.jpdb-reader-fab--no-furigana {
-  --jpdb-reader-fab-tone: var(--jpdb-reader-grade-something);
-}
-
-.jpdb-reader-fab.jpdb-reader-fab--no-furigana .jpdb-reader-fab-state {
-  color: var(--jpdb-reader-theme-light-text) !important;
 }
 
 .jpdb-reader-fab.jpdb-reader-fab--paused {
@@ -9966,7 +9970,7 @@ html.jpdb-reader-suppress-redundant .jpdb-reader-word.jpdb-redundant {
   transform: translateY(4px) !important;
 }
 
-.jpdb-reader-fab-radial[data-fan-y="down"] .jpdb-reader-fab-radial-item.is-primary .jpdb-reader-fab-radial-label {
+.jpdb-reader-fab-radial[data-fan-y="up"] .jpdb-reader-fab-radial-item.is-primary .jpdb-reader-fab-radial-label {
   top: calc(100% + 10px) !important;
   bottom: auto !important;
 }
@@ -9992,8 +9996,24 @@ html.jpdb-reader-suppress-redundant .jpdb-reader-word.jpdb-redundant {
 /* One label at a time: the power disc's state label steps aside while a
    neighbour shows its own in the same slot above the arc. */
 
+/* has-invalidation-allow: anchored on the radial menu, which exists only while open; the state is the browser's :hover/:focus-visible */
+
 .jpdb-reader-fab-radial.is-open:has(.jpdb-reader-fab-radial-item:not(.is-primary):is(:hover, :focus-visible)) .jpdb-reader-fab-radial-item.is-primary .jpdb-reader-fab-radial-label {
   opacity: 0 !important;
+}
+
+/* A cramped fan becomes spaced rows, with one label slot below the controls. */
+
+.jpdb-reader-fab-radial.is-open[data-layout="rows"] .jpdb-reader-fab-radial-item .jpdb-reader-fab-radial-label {
+  left: var(--radial-label-x) !important;
+  top: var(--radial-label-y) !important;
+  right: auto !important;
+  bottom: auto !important;
+  transform: translateX(-50%) !important;
+  inline-size: max-content !important;
+  max-inline-size: var(--radial-label-width) !important;
+  white-space: normal !important;
+  text-align: center !important;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -10036,6 +10056,7 @@ html.jpdb-reader-suppress-redundant .jpdb-reader-word.jpdb-redundant {
 
 .jpdb-reader-text-mirror[data-yomu-control-mirror="true"]:hover rt.jpdb-reader-furi,
 .jpdb-reader-text-mirror[data-yomu-control-mirror="true"]:focus-within rt.jpdb-reader-furi,
+/* has-invalidation-allow: anchored on one control's text mirror, a few Yomu-owned nodes */
 .jpdb-reader-text-mirror[data-yomu-control-mirror="true"]:has(.jpdb-reader-keyboard-active) rt.jpdb-reader-furi {
   display: ruby-text !important;
   visibility: visible;
@@ -10067,6 +10088,12 @@ html.jpdb-reader-suppress-redundant .jpdb-reader-word.jpdb-redundant {
 
 .jpdb-reader-puck-viewport > .jpdb-reader-fab {
   pointer-events: auto !important;
+}
+
+/* Hide cached overlay readings immediately too; lookup headwords keep theirs. */
+
+.yomu-furi-off :is(rt.jpdb-reader-furi, .jpdb-reader-detached-furi, .jpdb-ocr-furi, [data-yomu-projected-reading]):not(.jpdb-reader-spelling *) {
+  visibility: hidden !important;
 }
 
 .jpdb-reader-backdrop {
@@ -10167,7 +10194,7 @@ html.jpdb-reader-suppress-redundant .jpdb-reader-word.jpdb-redundant {
   user-select: none;
 }
 
-.jpdb-reader-popover.jpdb-reader-sheet:has(.jpdb-reader-popover-body) {
+.jpdb-reader-popover.jpdb-reader-sheet.jpdb-reader-sheet-has-body {
   display: grid;
   grid-template-rows: auto minmax(0, 1fr) auto;
   overflow: hidden;
@@ -10175,7 +10202,7 @@ html.jpdb-reader-suppress-redundant .jpdb-reader-word.jpdb-redundant {
   scrollbar-gutter: auto;
 }
 
-.jpdb-reader-popover.jpdb-reader-sheet:has(.jpdb-reader-popover-body) .jpdb-reader-popover-body {
+.jpdb-reader-popover.jpdb-reader-sheet.jpdb-reader-sheet-has-body .jpdb-reader-popover-body {
   min-height: 0;
   min-width: 0;
   max-width: 100%;
@@ -10188,20 +10215,20 @@ html.jpdb-reader-suppress-redundant .jpdb-reader-word.jpdb-redundant {
   -webkit-overflow-scrolling: touch;
 }
 
-.jpdb-reader-popover.jpdb-reader-sheet:has(.jpdb-reader-popover-body) .jpdb-reader-popover-body > * {
+.jpdb-reader-popover.jpdb-reader-sheet.jpdb-reader-sheet-has-body .jpdb-reader-popover-body > * {
   min-width: 0;
   max-width: 100%;
 }
 
-.jpdb-reader-popover.jpdb-reader-sheet:has(.jpdb-reader-popover-body) .jpdb-reader-actions {
+.jpdb-reader-popover.jpdb-reader-sheet.jpdb-reader-sheet-has-body .jpdb-reader-actions {
   padding: 6px 16px calc(18px + env(safe-area-inset-bottom));
 }
 
-.jpdb-reader-popover.jpdb-reader-sheet:has(.jpdb-reader-popover-body) .jpdb-reader-actions.jpdb-reader-actions-has-mining {
+.jpdb-reader-popover.jpdb-reader-sheet.jpdb-reader-sheet-has-body .jpdb-reader-actions.jpdb-reader-actions-has-mining {
   padding-top: 31px;
 }
 
-.jpdb-reader-popover.jpdb-reader-sheet:has(.jpdb-reader-popover-body) .jpdb-reader-actions.jpdb-reader-actions-quiet {
+.jpdb-reader-popover.jpdb-reader-sheet.jpdb-reader-sheet-has-body .jpdb-reader-actions.jpdb-reader-actions-quiet {
   padding-block: 10px calc(10px + env(safe-area-inset-bottom));
 }
 
@@ -10321,14 +10348,14 @@ html.jpdb-reader-suppress-redundant .jpdb-reader-word.jpdb-redundant {
   background: var(--jpdb-reader-accent);
 }
 
-/* One header layout everywhere: title left, pitch + audio pinned to the top
-   row on the right, and the pill row always spanning the full popup width
-   below. The old flex layout let the pills wrap inside a squeezed left column
-   while pitch placement changed with graph count and container width. */
+/* The title and actions keep their row. Pitch has a bounded, full-width lane
+   from first paint, even before its reading/accents arrive. Multiple accents
+   and expression components scroll sideways instead of moving the pills. */
 
 .jpdb-reader-header {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-rows: minmax(46px, auto) auto;
   align-items: start;
   gap: 0 10px;
 }
@@ -10342,17 +10369,50 @@ html.jpdb-reader-suppress-redundant .jpdb-reader-word.jpdb-redundant {
   grid-row: 1;
 }
 
+/* Keep .6em of leading above the base for native ruby metrics, including
+   wrapped headwords and Mobile Safari's page-scale rounding. */
+
+.jpdb-reader-header .jpdb-reader-title-row .jpdb-reader-spelling {
+  line-height: 2.2;
+}
+
+.jpdb-reader-header .jpdb-reader-spelling .jpdb-reader-word {
+  line-height: 1 !important;
+}
+
+/* A border on a plain kanji button adds to its line box, unlike the same
+   button inside ruby. Paint its interaction cue without changing geometry. */
+
+.jpdb-reader-header .jpdb-reader-kanji-inline {
+  border-bottom: 0 !important;
+}
+
+.jpdb-reader-header .jpdb-reader-kanji-inline:is(:hover, :focus-visible) {
+  box-shadow: inset 0 -2px currentColor !important;
+}
+
 .jpdb-reader-card-tools {
-  display: flex;
-  align-items: flex-start;
-  gap: 8px;
-  grid-column: 2;
-  grid-row: 1;
-  justify-self: end;
+  display: contents;
+}
+
+.jpdb-reader-header[data-pitch-enabled="true"] {
+  grid-template-rows: minmax(46px, auto) 64px auto;
 }
 
 .jpdb-reader-pronunciation[data-pronunciation-kind="pitch-accent"] {
-  display: contents;
+  display: flex;
+  align-items: center;
+  grid-column: 1 / -1;
+  grid-row: 2;
+  height: 64px;
+  min-width: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+.jpdb-reader-header .jpdb-reader-pitch {
+  flex: 0 0 auto;
+  flex-wrap: nowrap;
 }
 
 /* Copy sits beside audio as a quieter icon on the same target size. */
@@ -10361,6 +10421,9 @@ html.jpdb-reader-suppress-redundant .jpdb-reader-word.jpdb-redundant {
   display: flex;
   align-items: flex-start;
   gap: 2px;
+  grid-column: 2;
+  grid-row: 1;
+  justify-self: end;
 }
 
 .jpdb-reader-popover .jpdb-reader-icon-btn.jpdb-reader-copy-control {
@@ -10411,13 +10474,8 @@ html.jpdb-reader-suppress-redundant .jpdb-reader-word.jpdb-redundant {
   grid-row: 2;
 }
 
-.jpdb-reader-pitch-missing {
-  align-self: center;
-  color: var(--jpdb-reader-muted);
-  font-size: 10px;
-  font-weight: 700;
-  line-height: 1.15;
-  white-space: nowrap;
+.jpdb-reader-header[data-pitch-enabled="true"] .jpdb-reader-word-pills {
+  grid-row: 3;
 }
 
 .jpdb-reader-popover .jpdb-reader-icon-btn,
@@ -11333,61 +11391,11 @@ span.jpdb-reader-action-pill[aria-disabled="true"] {
   display: none;
 }
 
-/* The header keeps multi-accent/component graphs in the top-right tools area
-   next to the audio button whenever they fit. A block only drops to its own
-   full-width row (pills → row 3) when keeping it top-right would squeeze the
-   headword: expression-component blocks and "wide" variant blocks (3+ graphs or
-   long readings, flagged data-pitch-fit="wide" by renderPitchVariantGraphs) on
-   any narrow-ish popup, and even a "compact" variant block once the popup gets
-   genuinely narrow. A compact two-graph block (e.g. 与党 よとう) therefore stays
-   beside the headword at the default popup width instead of wasting a whole row. */
-
-@container (max-width: 520px) {
-  .jpdb-reader-card-tools:has(.jpdb-reader-pitch-components, .jpdb-reader-pitch-variants[data-pitch-fit="wide"]) {
-    display: contents;
-  }
-  .jpdb-reader-card-tools :is(.jpdb-reader-pitch-components, .jpdb-reader-pitch-variants[data-pitch-fit="wide"]) {
-    grid-column: 1 / -1;
-    grid-row: 2;
-    width: 100%;
-    margin-block: 4px 0;
-  }
-  .jpdb-reader-header:has(.jpdb-reader-pitch-components, .jpdb-reader-pitch-variants[data-pitch-fit="wide"]) .jpdb-reader-word-actions {
-    grid-column: 2;
-    grid-row: 1;
-    justify-self: end;
-  }
-  .jpdb-reader-header:has(.jpdb-reader-pitch-components, .jpdb-reader-pitch-variants[data-pitch-fit="wide"]) .jpdb-reader-word-pills {
-    grid-row: 3;
-  }
-}
-
-@container (max-width: 440px) {
-  .jpdb-reader-card-tools:has(.jpdb-reader-pitch, .jpdb-reader-pitch-variants, .jpdb-reader-pitch-components) {
-    display: contents;
-  }
-  .jpdb-reader-card-tools :is(.jpdb-reader-pitch, .jpdb-reader-pitch-variants, .jpdb-reader-pitch-components) {
-    grid-column: 1 / -1;
-    grid-row: 2;
-    width: 100%;
-    margin-block: 4px 0;
-  }
-  .jpdb-reader-header:has(.jpdb-reader-pitch, .jpdb-reader-pitch-variants, .jpdb-reader-pitch-components) .jpdb-reader-word-actions {
-    grid-column: 2;
-    grid-row: 1;
-    justify-self: end;
-  }
-  .jpdb-reader-header:has(.jpdb-reader-pitch, .jpdb-reader-pitch-variants, .jpdb-reader-pitch-components) .jpdb-reader-word-pills {
-    grid-row: 3;
-  }
-}
-
 @container (max-width: 340px) {
   .jpdb-reader-header {
     gap: 0 8px;
   }
   .jpdb-reader-header .jpdb-reader-word-pills {
-    grid-row: 3;
     gap: 4px;
     margin-top: 2px;
     overscroll-behavior-inline: contain;
@@ -14026,12 +14034,6 @@ mark.jpdb-reader-example-target {
   }
 }
 
-.jpdb-reader-study-tools {
-  display: grid;
-  gap: 8px;
-  margin: 10px 0;
-}
-
 .jpdb-reader-study-panel {
   display: grid;
   gap: 10px;
@@ -15127,10 +15129,14 @@ mark.jpdb-reader-example-target {
   stroke-dasharray: 1.6 4;
 }
 
+/* has-invalidation-allow: anchored on the kanji origin graph inside the popover; the state is a native checkbox */
+
 .jpdb-reader-origin-graph-wrap:has([data-origin-outbound-toggle]:not(:checked))
   [data-origin-outbound="true"] {
   display: none;
 }
+
+/* has-invalidation-allow: anchored on the kanji origin graph inside the popover; the state is a native checkbox */
 
 .jpdb-reader-origin-graph-wrap:has([data-origin-subcomponent-toggle]:not(:checked))
   [data-origin-subcomponent="true"] {
@@ -16278,10 +16284,6 @@ html.jpdb-reader-doodle-active * {
    than the other legitimate readings. Source order remains visible through
    the first badge colour, while two or three cards wrap as equal siblings. */
 
-/* KEEP IN SYNC with pitchVariantBlockFit in reader/popup/pitch.ts: the 8px gap
-   and the chip's 6px side padding + 1px border feed its top-right/full-width
-   fit estimate. If these change, update the 14/8 constants there. */
-
 .jpdb-reader-pitch.jpdb-reader-pitch-variants {
   justify-content: center;
   gap: 4px 8px;
@@ -16446,7 +16448,7 @@ html.jpdb-reader-doodle-active * {
 }
 
 @media (max-width: 699px) {
-  body:has(.jpdb-reader-fab-radial.is-open) .jpdb-reader-toast-stack {
+  .jpdb-reader-fab-radial-open .jpdb-reader-toast-stack {
     top: calc(72px + env(safe-area-inset-top));
     bottom: auto;
   }
@@ -17766,6 +17768,174 @@ html.jpdb-reader-doodle-active * {
   border-color: var(--jpdb-reader-accent);
   outline: 2px solid var(--jpdb-reader-accent-soft);
   outline-offset: 3px;
+}
+
+/* Appearance's first row: accent swatches, then one underline choice. The
+   swatch paints as a background image, which the shared radio states (ink
+   fill, dot) never set; the checked swatch gets an ink ring like ticked boxes. */
+
+.jpdb-reader-settings .jpdb-reader-appearance-quick {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 12px 28px;
+  margin: 4px 0 14px;
+}
+
+.jpdb-reader-settings .jpdb-reader-quick-field {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+
+.jpdb-reader-settings .jpdb-reader-quick-title {
+  color: var(--jpdb-reader-muted);
+  font: 600 12px/1.2 var(--jpdb-reader-font);
+}
+
+.jpdb-reader-settings .jpdb-reader-swatches,
+.jpdb-reader-settings .jpdb-reader-swatch-set {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.jpdb-reader-settings input.jpdb-reader-swatch {
+  --swatch-size: 30px;
+  width: var(--swatch-size);
+  height: var(--swatch-size);
+  min-width: var(--swatch-size);
+  min-height: var(--swatch-size);
+  margin: 0;
+  padding: 0;
+  border: 0 !important;
+  border-radius: 999px !important;
+  background-image: linear-gradient(var(--swatch), var(--swatch)) !important;
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--jpdb-reader-text) 22%, transparent) !important;
+  cursor: pointer;
+}
+
+.jpdb-reader-settings input.jpdb-reader-swatch::after {
+  display: none !important;
+}
+
+.jpdb-reader-settings input.jpdb-reader-swatch:hover {
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--jpdb-reader-text) 22%, transparent),
+    0 0 0 3px var(--jpdb-reader-hover) !important;
+}
+
+.jpdb-reader-settings input.jpdb-reader-swatch:checked,
+.jpdb-reader-settings input.jpdb-reader-swatch-custom[data-active] {
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--jpdb-reader-text) 22%, transparent),
+    0 0 0 2px var(--jpdb-reader-surface),
+    0 0 0 4px var(--jpdb-reader-text) !important;
+}
+
+.jpdb-reader-settings input.jpdb-reader-swatch:focus-visible {
+  outline: 2px solid var(--jpdb-reader-text);
+  outline-offset: 5px;
+}
+
+/* The custom swatch is the native picker: a colour wheel until it holds a
+   colour none of the presets match, then that colour. */
+
+.jpdb-reader-settings input.jpdb-reader-swatch-custom {
+  background: conic-gradient(#d0463b, #e8a33a, #3d8f5f, #3c6fb6, #8a4fa8, #d0463b) !important;
+}
+
+.jpdb-reader-settings input.jpdb-reader-swatch-custom::-webkit-color-swatch-wrapper {
+  padding: 0;
+}
+
+.jpdb-reader-settings input.jpdb-reader-swatch-custom::-webkit-color-swatch {
+  border: 0;
+  border-radius: 999px;
+  opacity: 0;
+}
+
+.jpdb-reader-settings input.jpdb-reader-swatch-custom::-moz-color-swatch {
+  border: 0;
+  border-radius: 999px;
+  opacity: 0;
+}
+
+.jpdb-reader-settings input.jpdb-reader-swatch-custom[data-active]::-webkit-color-swatch {
+  opacity: 1;
+}
+
+.jpdb-reader-settings input.jpdb-reader-swatch-custom[data-active]::-moz-color-swatch {
+  opacity: 1;
+}
+
+.jpdb-reader-settings .jpdb-reader-segmented {
+  display: inline-flex;
+  width: max-content;
+  max-width: 100%;
+  border: 1px solid var(--jpdb-reader-border);
+  border-radius: 8px;
+  background: var(--jpdb-reader-surface);
+  overflow: hidden;
+}
+
+.jpdb-reader-settings .jpdb-reader-segment {
+  position: relative;
+  display: flex;
+  margin: 0;
+  cursor: pointer;
+}
+
+.jpdb-reader-settings .jpdb-reader-segment > input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.jpdb-reader-settings .jpdb-reader-segment > span {
+  display: flex;
+  align-items: center;
+  min-height: 30px;
+  padding: 0 12px;
+  color: var(--jpdb-reader-muted);
+  font: 600 12px/1 var(--jpdb-reader-font);
+  white-space: nowrap;
+}
+
+.jpdb-reader-settings .jpdb-reader-segment + .jpdb-reader-segment > span {
+  border-inline-start: 1px solid var(--jpdb-reader-border);
+}
+
+.jpdb-reader-settings .jpdb-reader-segment:hover > span {
+  background: var(--jpdb-reader-hover);
+  color: var(--jpdb-reader-text);
+}
+
+.jpdb-reader-settings .jpdb-reader-segment > input:checked + span {
+  background: var(--jpdb-reader-text);
+  color: var(--jpdb-reader-bg);
+}
+
+.jpdb-reader-settings .jpdb-reader-segment > input:focus-visible + span {
+  outline: 2px solid var(--jpdb-reader-accent);
+  outline-offset: -2px;
+}
+
+@media (hover: none), (pointer: coarse) {
+  .jpdb-reader-settings input.jpdb-reader-swatch {
+    --swatch-size: 36px;
+  }
+  .jpdb-reader-settings .jpdb-reader-segment > span {
+    min-height: 40px;
+    padding: 0 14px;
+  }
 }
 
 .jpdb-reader-settings .grid > .jpdb-reader-shortcut-group {
@@ -19421,6 +19591,115 @@ html.jpdb-reader-doodle-active * {
   }
 }
 
+/* Settings → Reviews: one row per service. The dot carries the state (its
+   accessible name says it in words), the icons say what the service adds, and
+   the body holds its key and its own "Grade from よむ" switch. */
+
+.jpdb-reader-settings .jpdb-reader-review-services {
+  display: grid;
+  gap: 8px;
+  margin: 0 0 14px;
+}
+
+.jpdb-reader-settings .jpdb-reader-review-service {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+  padding: 6px 12px 10px;
+  border: 1px solid var(--jpdb-reader-border);
+  border-radius: 10px;
+}
+
+.jpdb-reader-settings .jpdb-reader-review-service-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
+  min-height: 36px;
+}
+
+/* The built-in deck needs no key: one line. */
+
+.jpdb-reader-settings .jpdb-reader-review-service:not(:has(.jpdb-reader-review-service-body)) {
+  padding-bottom: 6px;
+}
+
+.jpdb-reader-settings .jpdb-reader-review-service-dot {
+  flex: none;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: 1.5px solid var(--jpdb-reader-muted);
+}
+
+.jpdb-reader-settings .jpdb-reader-review-service[data-service-state="on"] .jpdb-reader-review-service-dot {
+  border-color: var(--jpdb-reader-success);
+  background: var(--jpdb-reader-success);
+}
+
+.jpdb-reader-settings .jpdb-reader-review-service[data-service-state="available"] .jpdb-reader-review-service-dot {
+  border-color: var(--jpdb-reader-success);
+}
+
+.jpdb-reader-settings .jpdb-reader-review-service[data-service-state="error"] .jpdb-reader-review-service-dot {
+  border-color: var(--jpdb-reader-warning);
+  background: var(--jpdb-reader-warning);
+}
+
+.jpdb-reader-settings .jpdb-reader-review-service-name {
+  font: 600 14px/1.2 var(--jpdb-reader-font);
+}
+
+.jpdb-reader-settings .jpdb-reader-review-service-adds {
+  display: inline-flex;
+  gap: 6px;
+  color: var(--jpdb-reader-muted);
+}
+
+.jpdb-reader-settings .jpdb-reader-review-service-adds-icon,
+.jpdb-reader-settings .jpdb-reader-review-service-adds-icon svg {
+  display: block;
+  width: 16px;
+  height: 16px;
+}
+
+.jpdb-reader-settings .jpdb-reader-review-service-connect {
+  margin-inline-start: auto;
+  min-height: 32px;
+}
+
+.jpdb-reader-settings .jpdb-reader-review-service-connect[hidden] {
+  display: none;
+}
+
+.jpdb-reader-settings .jpdb-reader-review-service-body {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
+  gap: 8px 16px;
+  align-items: end;
+  min-width: 0;
+}
+
+.jpdb-reader-settings .jpdb-reader-review-service-body > .jpdb-reader-help,
+.jpdb-reader-settings .jpdb-reader-review-service-body > .jpdb-reader-status-line,
+.jpdb-reader-settings .jpdb-reader-review-service-body > [data-jpdb-decks] {
+  grid-column: 1 / -1;
+}
+
+/* With no key, the dot already says so; the row's status line is for answers. */
+
+.jpdb-reader-settings .jpdb-reader-review-service[data-service-state="off"] .jpdb-reader-status-line {
+  display: none;
+}
+
+.jpdb-reader-settings .jpdb-reader-review-service-head > label.inline {
+  margin: 0 0 0 auto;
+}
+
+.jpdb-subtitle-layer-host { isolation: isolate; }
+
+.jpdb-subtitle-player.jpdb-subtitle-layer-local { position: absolute; }
+
 .jpdb-subtitle-player {
   position: fixed;
   display: block;
@@ -19428,7 +19707,7 @@ html.jpdb-reader-doodle-active * {
   bottom: 0;
   width: 100%;
   height: 100%;
-  z-index: 2147483644;
+  z-index: var(--subtitle-layer, 0);
   pointer-events: none;
   /* The fixed reader UI must not become part of a page-wide Select All copy.
      Caption text deliberately opts back in while annotations are paused. */
@@ -19436,14 +19715,14 @@ html.jpdb-reader-doodle-active * {
   user-select: none;
   --subtitle-font-size-target: 28px;
   --subtitle-font-size: var(--subtitle-font-size-target);
-  --subtitle-secondary-font-size: 17px;
+  --subtitle-secondary-font-size: 22px;
   --subtitle-native-blur-radius: 12px;
   --subtitle-native-blur-outer-radius: 16px;
   --subtitle-bottom: 16%;
   --subtitle-drag-offset-y: 0px;
   --subtitle-color: var(--jpdb-reader-video-text);
   --subtitle-outline: var(--jpdb-reader-video-outline);
-  --subtitle-background-rgba: transparent;
+  --subtitle-background-rgba: rgba(0, 0, 0, .75);
   --subtitle-family: var(--jpdb-reader-font);
   --subtitle-weight: 760;
 }
@@ -19465,6 +19744,8 @@ html.jpdb-reader-doodle-active * {
   left: 14px;
   right: 14px;
   bottom: var(--subtitle-bottom);
+  /* Reserve translation clearance even before it arrives or is revealed. */
+  padding-bottom: calc(var(--subtitle-secondary-font-size) * 1.25 + .7em);
   color: var(--subtitle-color);
   text-align: center;
   font: var(--subtitle-weight) var(--subtitle-font-size)/1.36 var(--subtitle-family);
@@ -19476,25 +19757,28 @@ html.jpdb-reader-doodle-active * {
   white-space: pre-wrap;
   overflow-wrap: anywhere;
   word-break: keep-all;
-  /* The flex column constrains the grid below to this cap. Its end-aligned
-     tracks then overflow upward, keeping the native secondary row anchored
-     above the player's controls without changing the selected font size. */
-  max-height: min(45%, calc(100% - 24px), 320px);
+  /* Intrinsic height grows upward from bottom; a percentage cap on this
+     column or its grid would move the baseline when a cue wraps. */
   overflow: visible;
   pointer-events: none;
   transform: translateY(var(--subtitle-drag-offset-y));
   -webkit-tap-highlight-color: transparent;
 }
 
-/* Grid with the native secondary line as its own bottom row: the annotated
-   primary can wrap tall without ever consuming the native line's slot, and
-   end-aligned content makes any residual overflow extend UP into the video
-   instead of clipping cue text at the bottom. */
+/* The translation contributes intrinsic width but has a zero-height track.
+   It grows below a fixed Japanese baseline into the wrapper's reserved space;
+   a second Japanese line grows upward from that same baseline. */
 
 .jpdb-subtitle-lines {
-  min-height: 1.36em;
-  max-height: inherit;
+  min-height: 0;
+  position: relative;
+  width: max-content;
+  max-width: 100%;
+  box-sizing: border-box;
+  align-self: center;
   display: grid;
+  grid-template-rows: auto 0;
+  grid-template-columns: minmax(0, 1fr);
   align-content: end;
   overflow: visible;
   pointer-events: none;
@@ -19502,6 +19786,40 @@ html.jpdb-reader-doodle-active * {
 
 .jpdb-subtitle-primary-row {
   min-width: 0;
+  grid-row: 1;
+  padding: .18em .45em 0;
+  border-radius: .25em;
+  background: var(--subtitle-background-rgba);
+  /* A full reading lane on EVERY line, including plain/loading/kana cues. */
+  line-height: 2.2;
+  word-break: normal;
+}
+
+.jpdb-subtitle-primary-row > .jpdb-subtitle-primary { display: block; }
+
+.jpdb-subtitle-lines:not(.jpdb-subtitle-has-primary) .jpdb-subtitle-primary-row { display: none; }
+
+.jpdb-subtitle-lines.jpdb-subtitle-has-secondary .jpdb-subtitle-primary-row { border-radius: .25em .25em 0 0; }
+
+/* Translation has its own slot below the anchored Japanese baseline. Its
+   arrival, reveal or wrapping cannot move the main line. */
+
+.jpdb-subtitle-lines > .jpdb-subtitle-secondary {
+  grid-row: 2;
+  align-self: start;
+  box-sizing: border-box;
+  min-width: 0;
+  width: auto;
+  height: max-content !important;
+  max-height: none !important;
+  margin: 0;
+  padding: .35em .55em;
+  border-radius: 0 0 .3em .3em;
+  background: var(--subtitle-background-rgba) !important;
+  white-space: pre-wrap !important;
+  overflow-wrap: anywhere;
+  overflow: visible !important;
+  pointer-events: none;
 }
 
 .jpdb-subtitle-primary {
@@ -19511,11 +19829,13 @@ html.jpdb-reader-doodle-active * {
   pointer-events: none;
 }
 
-.jpdb-subtitle-secondary,
+.jpdb-subtitle-secondary-ink,
 .jpdb-subtitle-primary .jpdb-reader-word,
 .jpdb-subtitle-secondary .jpdb-reader-word {
   pointer-events: auto;
 }
+
+.jpdb-subtitle-secondary-ink { display: inline; }
 
 /* Pausing annotations deliberately removes the parsed word spans that normally
    provide the overlay's interactive hit targets. Keep the resulting plain
@@ -19541,6 +19861,10 @@ html.jpdb-reader-doodle-active * {
    the controller, which measures every element that opts in, not just words. */
 
 .jpdb-subtitle-player [data-jpdb-subtitle-native-control-safe-zone="true"] {
+  pointer-events: none !important;
+}
+
+.jpdb-subtitle-player [data-jpdb-subtitle-native-control-safe-zone="true"] .jpdb-subtitle-secondary-ink {
   pointer-events: none !important;
 }
 
@@ -19672,14 +19996,14 @@ html.jpdb-subtitle-yt-sheet-open .asbplayer-subtitles-container-bottom.jpdb-subt
   font-size: var(--subtitle-font-size) !important;
   padding: 0 .06em;
   border-radius: 3px;
-  background: var(--subtitle-background-rgba);
+  background: transparent;
   box-shadow: none;
   -webkit-box-decoration-break: clone;
   box-decoration-break: clone;
-  line-height: 1.58;
+  line-height: inherit;
   overflow-wrap: anywhere;
   word-break: normal;
-  text-wrap: balance;
+  text-wrap: wrap;
   -webkit-text-stroke: .02em color-mix(in srgb, var(--subtitle-outline, var(--jpdb-reader-video-outline)) 78%, transparent);
   paint-order: stroke fill;
 }
@@ -19707,7 +20031,7 @@ html.jpdb-subtitle-yt-sheet-open .asbplayer-subtitles-container-bottom.jpdb-subt
 }
 
 .jpdb-subtitle-secondary {
-  --jpdb-subtitle-secondary-color: var(--jpdb-reader-video-text-muted);
+  --jpdb-subtitle-secondary-color: var(--subtitle-color);
   display: block;
   width: fit-content;
   max-width: 100%;
@@ -19766,27 +20090,6 @@ html.jpdb-subtitle-yt-sheet-open .asbplayer-subtitles-container-bottom.jpdb-subt
   opacity: 1;
 }
 
-/* A caption line is ~24px tall — under half a fingertip. On touch, grow the
-   control's OWN box: padding takes it to 42px and the matching negative margin
-   hands the space straight back, so the line and its wrapping stay exactly
-   where they are (min-height carries the padding, and the
-   24px content box is unmoved). The growth is 4px up — inside the existing 8px
-   gap, so it can never cover the annotated line and swallow a word lookup —
-   and 14px down into empty subtitle space. Deliberately the element's own box
-   rather than a pseudo-element halo: the native-player safe-zone sweep measures
-   getBoundingClientRect, which a halo is invisible to, and that sweep is what
-   makes the overlay stand down over the seek bar. */
-
-@media (pointer: coarse) {
-  .jpdb-subtitle-secondary {
-    min-height: 42px;
-    margin-top: 4px;
-    margin-bottom: -14px;
-    padding-top: 4px;
-    padding-bottom: 14px;
-  }
-}
-
 .jpdb-subtitle-karaoke-word {
   display: inline;
   border-radius: 3px;
@@ -19795,7 +20098,7 @@ html.jpdb-subtitle-yt-sheet-open .asbplayer-subtitles-container-bottom.jpdb-subt
 }
 
 .jpdb-subtitle-word-pending {
-  opacity: .42;
+  opacity: 1;
 }
 
 .jpdb-subtitle-word-spoken,
@@ -19826,6 +20129,10 @@ html.jpdb-subtitle-yt-sheet-open .asbplayer-subtitles-container-bottom.jpdb-subt
 }
 
 .jpdb-subtitle-primary .jpdb-reader-word {
+  display: inline-block !important;
+  vertical-align: baseline;
+  line-height: inherit;
+  max-width: 100%;
   --jpdb-reader-subtitle-fallback: var(--subtitle-color);
   --jpdb-reader-subtitle-highlight-default: color-mix(
     in srgb,
@@ -19845,7 +20152,8 @@ html.jpdb-subtitle-yt-sheet-open .asbplayer-subtitles-container-bottom.jpdb-subt
   text-decoration-color: transparent !important;
   text-decoration-thickness: .08em !important;
   text-underline-offset: .15em !important;
-  white-space: nowrap;
+  white-space: normal;
+  overflow-wrap: anywhere !important;
   text-shadow:
     0 1px 2px var(--subtitle-outline, var(--jpdb-reader-video-outline)),
     0 0 3px var(--subtitle-outline, var(--jpdb-reader-video-outline)),
@@ -20065,7 +20373,7 @@ html.jpdb-subtitle-yt-sheet-open .asbplayer-subtitles-container-bottom.jpdb-subt
   );
 }
 
-.jpdb-subtitle-primary .jpdb-reader-word.jpdb-subtitle-word-pending { opacity: .42; }
+.jpdb-subtitle-primary .jpdb-reader-word.jpdb-subtitle-word-pending { opacity: 1; }
 
 .jpdb-subtitle-primary .jpdb-reader-word.jpdb-subtitle-word-spoken {
   opacity: 1;
@@ -20097,7 +20405,26 @@ html.jpdb-subtitle-yt-sheet-open .asbplayer-subtitles-container-bottom.jpdb-subt
 }
 
 :is(.jpdb-subtitle-primary, .jpdb-reader-subtitle-surface) .jpdb-reader-word.jpdb-reader-has-furi {
-  line-height: 1.72;
+  line-height: inherit;
+}
+
+.jpdb-subtitle-primary .jpdb-reader-word ruby {
+  position: relative !important;
+  display: inline-grid !important;
+  line-height: 1;
+  vertical-align: baseline;
+}
+
+.jpdb-subtitle-primary .jpdb-reader-word ruby > .jpdb-reader-ruby-base,
+.jpdb-subtitle-primary .jpdb-reader-word rt.jpdb-reader-furi {
+  grid-area: 1 / 1;
+}
+
+.jpdb-subtitle-primary .jpdb-reader-word rt.jpdb-reader-furi {
+  display: block !important;
+  align-self: start;
+  transform: translateY(-100%);
+  text-align: center;
 }
 
 /* Second selector matches the same element in light mode at higher specificity
@@ -20110,62 +20437,11 @@ html.jpdb-subtitle-yt-sheet-open .asbplayer-subtitles-container-bottom.jpdb-subt
 :is(.jpdb-reader-theme-light, .yomu-page-theme-light) .jpdb-subtitle-primary .jpdb-reader-furi {
   /* Full opacity so the reading is the exact same colour as the caption text it
      annotates; the outline below keeps it legible over video. */
-  color: currentColor;
+  color: inherit !important;
   opacity: 1;
-  /* Every radius and offset is em-relative, so the outline is the same SHAPE at
-     every cue size. It used to be fixed pixels (0 1px 1px / 0 0 3px / 0 0 7px),
-     which is what made kanji carrying a reading render dirtier than the
-     okurigana beside them:
-
-       * The clear space between the reading's ink and the kanji's ink is NOT a
-         constant. It varies with the cue size, with the WORD, and with the
-         engine. Measured across 続ける / 志す / 承る / 見る at 20/28/40/60px:
-         0.185-0.345em in Blink, 0.345-0.489em in WebKit. At one 28px cue in
-         Blink it is 0.246em for 続ける but 0.185em for 志す, because a wide
-         four-kana reading sits lower over its kanji. An earlier version of this
-         comment claimed a size-INVARIANT ~0.25em; that was measured on 続ける
-         alone and is false in both directions. Nothing here may assume a fixed
-         gap — the smoke measures it per word, per size, per engine.
-       * A fixed 7px halo is 0.20em of the reading in a 60px cue but 0.43em in a
-         28px cue and 0.60em in a 20px one. So the same declaration that sits
-         inside the gap on a big cue overshoots it at the product default,
-         painting a dark wash across the top of the kanji's band — and only
-         there, because okurigana carries no reading. Measured reach into that
-         band ran to 2.00x the whole gap in Blink and 1.50x in WebKit (worst on
-         the wide readings, at 20px and 28px): the halo did not merely approach
-         the kanji, it crossed onto it.
-
-     Shrinking the radii alone is not enough, and neither is a plain px->em
-     conversion: em radii calibrated to today's 28px look are 0.43em at EVERY
-     size, which measurably makes 40px and 60px cues worse than they are now.
-
-     The reach has to fit the gap at all sizes, and the ink lost to that has to
-     come back WITHOUT reaching further down. Depth, not width, is the lever: a
-     tight layer repeated stacks alpha in the one or two pixel rows that hug the
-     glyph, where the eye reads the edge, while its reach stays that same tight
-     radius. So the downward half is four short layers (0.022em x2, 0.045em x2)
-     rather than one wide one, and only the upward half — which paints over open
-     video, not over the kanji — is allowed a soft 0.24em atmosphere.
-
-     An interim version of this fix pushed nearly all the mass upward and left a
-     single 0.022em layer pointing down. That cured the wash but spent the
-     reading's own downward legibility, which is the thing this outline exists
-     for: glyph-vs-outline contrast BENEATH the kana over a bright frame fell
-     14.59 -> 4.96 at the 28px default and 11.29 -> 3.31 at 20px in Blink. The
-     stacked downward layers buy that back without buying back the reach.
-
-     Measured, per direction, at 20/28/40/60px in both engines: every direction
-     at every size in both engines is now at or above BOTH the owner-tuned pixel
-     build and that interim version — e.g. Blink 28px down 14.59 (pixel build)
-     / 4.96 (interim) / 17.94 (here); WebKit 20px down 3.25 / 4.23 / 7.33.
-     Downward reach is 0.043-0.172em across those four words. Stated against the
-     room each one actually has, it spends at most 0.67x the clear space — that
-     worst case is 志す at 28px in Blink, where the whole clear band is only
-     THREE device pixel rows and the outline occupies two of them, still leaving
-     a clear row before the kanji's first ink. The wash it lays on the lower half
-     of that space and the top of the kanji's own band is <=0.20 luminance,
-     against <=3.10 for the pixel build. Verified by
-     scripts/subtitle-furigana-outline-scale-smoke.mjs in Blink and WebKit. */
+  /* Keep the outline close to the reading's ink as font size changes.
+     Repeated short downward shadows preserve the edge without washing over
+     the base glyph; the softer upward shadow stays in the reading lane. */
   text-shadow:
     0 .022em .035em var(--subtitle-outline, var(--jpdb-reader-video-outline)),
     0 .022em .035em var(--subtitle-outline, var(--jpdb-reader-video-outline)),
@@ -20378,6 +20654,7 @@ html.jpdb-subtitle-yt-sheet-open .asbplayer-subtitles-container-bottom.jpdb-subt
   align-content: flex-start;
   flex-wrap: wrap;
   gap: 4px;
+  width: max-content;
   max-width: calc(100% - 20px);
   padding: 4px;
   border: 1px solid var(--jpdb-reader-border);
@@ -22249,14 +22526,15 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
   /* A phone sheet owns the bottom of the screen, where a puck resting there
      would sit on its lower rows; it returns when the sheet closes. A puck the
      learner moved up out of the way stays (floating-button.ts puckRest). */
-  body:has(.jpdb-subtitle-list:not([hidden])) .jpdb-reader-fab[data-puck-rest="bottom"] {
+  .jpdb-subtitle-transcript-open .jpdb-reader-fab[data-puck-rest="bottom"] {
     display: none !important;
   }
 }
 
-/* Any bottom sheet, at any width, spans the corner the puck rests in. */
+/* Any bottom sheet, at any width, spans the corner the puck rests in. The
+   <html> state classes come from transcript-panel.ts syncTranscriptPageState. */
 
-body:has(.jpdb-subtitle-list.jpdb-subtitle-transcript-bottom:not([hidden])) .jpdb-reader-fab[data-puck-rest="bottom"] {
+.jpdb-subtitle-transcript-bottom-open .jpdb-reader-fab[data-puck-rest="bottom"] {
   display: none !important;
 }
 

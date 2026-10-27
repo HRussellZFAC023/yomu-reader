@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 2.1.6
+// @version 2.2.0
 // @author Henry Russell
 // @description Japanese pop-up dictionary with furigana, pitch accent, audio, subtitles, OCR and Study.
 // @license MIT
@@ -11,14 +11,13 @@
 // @updateURL https://update.greasyfork.org/scripts/581653/%E3%82%88%E3%82%80.meta.js
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-runtime.c2fee11b6b9e.user.js#sha256=wv7hG2ue3fLFAxCAps2xkfGcEHMSQYQ69FWGoM5zLXg=
-// @resource yomuCss  https://yomureader.com/yomu.f71447acc8ae.css#sha256=9xRHrMiuO8m0p4MjEl8eGjuum9RdgICwQcGxuWYMQw8=
+// @require https://yomureader.com/greasyfork/yomu-runtime.0fc2de7a9524.user.js#sha256=D8LeepUkH6sxNae8I144cy3XuTU/wL6gwpPsfAymSEA=
+// @resource yomuCss  https://yomureader.com/yomu.42a3f10c1429.css#sha256=QqPxDBQpEe1O3w0UNTfgbxwWjeMFf2yRe6fa1WwmLog=
 // @connect api.jiten.moe
 // @connect api.tatoeba.org
 // @connect tatoeba.org
 // @connect jpdb.io
 // @connect api.wanikani.com
-// @connect lens.google.com
 // @connect lensfrontend-pa.googleapis.com
 // @connect www.google.com
 // @connect yomureader.com
@@ -26,6 +25,8 @@
 // @connect viewer.bookwalker.jp
 // @connect c.bookwalker.jp
 // @connect bw-bv-epubs.bookwalker.jp
+// @connect 127.0.0.1
+// @connect localhost
 // @connect *
 // @grant GM.deleteValue
 // @grant GM.getValue
@@ -152,7 +153,7 @@ const FURIGANA_HIDE_STATE_GROUPS = ["known", "due", "failed", "learning", "new"]
 const WORD_COLOR_HIDE_STATE_GROUPS = [...FURIGANA_HIDE_STATE_GROUPS, "ignored"];
 const APP_NAME = "よむ";
 const APP_PUCK = "よむ";
-const ACADEMY_SRS_LABEL = "Academy";
+const YOMU_DECK_LABEL = "よむ deck";
 const APP_SLUG = "yomu";
 const APP_REPOSITORY_NAME = `${APP_SLUG}-reader`;
 const GITHUB_OWNER = "HRussellZFAC023";
@@ -1468,6 +1469,7 @@ const MANAGED_STATE_MANIFEST = [
 { owner: "jpdb/jpdb-public-cache", kind: "local", key: "yomu:jpdb-cache:v1" },
 { owner: "dictionaries/jiten-public-cache (legacy)", kind: "gm", key: "yomu:jiten-public-cache:v1" },
 { owner: "dictionaries/jiten-public-cache", kind: "local", key: "yomu:jiten-public-cache:v2" },
+{ owner: "dictionaries/jiten-reading-memory", kind: "local", key: "yomu:jiten-readings:v1" },
 { owner: "dictionaries/jiten-stats-cache", kind: "gm", key: "jpdb-reader-jiten-daily-stats" },
 { owner: "dictionaries/yomitan", kind: "idb", key: "jpdb-popup-reader-yomitan" },
 { owner: "dictionaries/archive-cache", kind: "gm", key: "yomu-dictionary-archives" },
@@ -1480,8 +1482,9 @@ enumerate: enumerateDictionaryArchiveStorageKeys
 { owner: "dictionaries/replication (legacy)", kind: "local", key: "yomu-dictionary-replication-state" },
 { owner: "dictionaries/replica-purge", kind: "gm", key: "yomu:dictionary-replica-purge:v1" },
 { owner: "dictionaries/replica-purge", kind: "local", key: "yomu:dictionary-replica-purged:v1" },
-{ owner: "ocr/ocr-cache-store", kind: "local", key: "yomu-ocr-cache-v1" },
-{ owner: "ocr/ocr-cache-store", kind: "local", key: "yomu-ocr-cache-v2" },
+{ owner: "ocr/ocr-cache-store", kind: "gm", prefix: "yomu:private:ocr-cache:v3:" },
+{ owner: "ocr/ocr-cache-store (legacy)", kind: "local", key: "yomu-ocr-cache-v1" },
+{ owner: "ocr/ocr-cache-store (legacy)", kind: "local", key: "yomu-ocr-cache-v2" },
 { owner: "ocr/canvas-mirror", kind: "session", key: "yomu:bw:mirror-loadguard" },
 { owner: "ocr/reader-canvas-tap-hint", kind: "gm", prefix: "yomu:private:ocr-canvas-tap-hint-seen:v1:" },
 { owner: "cards/grade-key-hints", kind: "gm", key: "yomu:private:grade-key-hints-retired:v1" },
@@ -2507,7 +2510,8 @@ return typeof value === "object" && value !== null && !Array.isArray(value);
 function isNonNullObject(value) {
 return typeof value === "object" && value !== null;
 }
-const PROVENANCE_KEY = "yomu:local-storage-provenance:v1";
+const LOCAL_MIRROR_PROVENANCE_KEY = "yomu:local-storage-provenance:v1";
+const PROVENANCE_KEY = LOCAL_MIRROR_PROVENANCE_KEY;
 const JAPANESE_SITE_LANGUAGE_KEY = "yomu:prefer-japanese-site-language:v1";
 function captureLocalFallbackStoredState(key) {
 try {
@@ -2721,7 +2725,7 @@ const existing = this.receipts.get(key);
 if (existing) return existing;
 const previous = await this.storage.readAuthority(key);
 const observedLocal = shouldTrackExactLocalFallback(key) ? captureLocalFallbackStoredState(key) : void 0;
-const receipt = {
+const receipt2 = {
 key,
 previous,
 authorityTarget: previous,
@@ -2733,11 +2737,11 @@ interrupted: false,
 restoreCapturedLocal: true,
 active: false
 };
-this.receipts.set(key, receipt);
-return receipt;
+this.receipts.set(key, receipt2);
+return receipt2;
 }
-adoptInterrupted(receipt, previous, localPrevious = previous) {
-const record2 = receipt;
+adoptInterrupted(receipt2, previous, localPrevious = previous) {
+const record2 = receipt2;
 record2.authorityTarget = previous;
 record2.localTarget = localPrevious;
 record2.interrupted = true;
@@ -2745,8 +2749,8 @@ record2.restoreCapturedLocal = Boolean(record2.localBefore && record2.localBefor
 if (record2.localBefore) rememberLocalStage(record2, record2.localBefore, record2.previous);
 this.activate(record2);
 }
-async write(receipt, value) {
-const record2 = receipt;
+async write(receipt2, value) {
+const record2 = receipt2;
 this.activate(record2);
 const attempted = { existed: true, value };
 record2.stagedAuthority.push(value);
@@ -2762,8 +2766,8 @@ rememberLocalStage(record2, captureLocalFallbackStoredState(record2.key), attemp
 }
 }
 }
-async restore(receipt, message) {
-const record2 = receipt;
+async restore(receipt2, message) {
+const record2 = receipt2;
 this.activate(record2);
 const errors = await rollbackManagedWrite(
 this.storage,
@@ -2801,11 +2805,11 @@ throw new AggregateError(
 `${message} and ${rollbackErrors.length} rollback operation(s) also failed.`
 );
 }
-activate(receipt) {
+activate(receipt2) {
 if (!this.open) throw new Error("Managed storage write journal is already closed.");
-if (receipt.active) return;
-receipt.active = true;
-this.active.push(receipt);
+if (receipt2.active) return;
+receipt2.active = true;
+this.active.push(receipt2);
 }
 }
 function createConcreteManagedWriteJournal(storage, preserveLocalFallbackOnWriteFailure = false) {
@@ -2816,10 +2820,10 @@ const errors = [];
 let authorityStopped = false;
 for (let index = receipts.length - 1; index >= 0; index--) {
 if (authorityStopped) {
-const receipt = receipts[index];
-if (receipt.restoreCapturedLocal) {
-const local = captureManagedWriteLocal(receipt, errors);
-rollbackManagedWriteLocal(storage, receipt, local, errors);
+const receipt2 = receipts[index];
+if (receipt2.restoreCapturedLocal) {
+const local = captureManagedWriteLocal(receipt2, errors);
+rollbackManagedWriteLocal(storage, receipt2, local, errors);
 }
 continue;
 }
@@ -2829,37 +2833,37 @@ if (stopOnError && current.length) authorityStopped = true;
 }
 return errors;
 }
-async function rollbackManagedWrite(storage, receipt, forceAuthorityRestore) {
+async function rollbackManagedWrite(storage, receipt2, forceAuthorityRestore) {
 const errors = [];
-await rollbackManagedWriteAuthority(storage, receipt, forceAuthorityRestore, errors);
-const currentLocal = captureManagedWriteLocal(receipt, errors);
-rollbackManagedWriteLocal(storage, receipt, currentLocal, errors);
+await rollbackManagedWriteAuthority(storage, receipt2, forceAuthorityRestore, errors);
+const currentLocal = captureManagedWriteLocal(receipt2, errors);
+rollbackManagedWriteLocal(storage, receipt2, currentLocal, errors);
 return errors;
 }
-function captureManagedWriteLocal(receipt, errors) {
-if (!receipt.localBefore) return void 0;
+function captureManagedWriteLocal(receipt2, errors) {
+if (!receipt2.localBefore) return void 0;
 try {
-return captureLocalFallbackStoredState(receipt.key);
+return captureLocalFallbackStoredState(receipt2.key);
 } catch (error) {
 errors.push(error);
 return void 0;
 }
 }
-async function rollbackManagedWriteAuthority(storage, receipt, forceAuthorityRestore, errors) {
-const current = await readRollbackAuthority(storage, receipt.key, errors);
+async function rollbackManagedWriteAuthority(storage, receipt2, forceAuthorityRestore, errors) {
+const current = await readRollbackAuthority(storage, receipt2.key, errors);
 if (!current) return;
-if (!authorityRestoreIsRequired(receipt, current, forceAuthorityRestore)) return;
-if (!authorityRollbackIsSafe(receipt, current)) {
-errors.push(managedWriteConflict(receipt.key, "Managed storage value"));
+if (!authorityRestoreIsRequired(receipt2, current, forceAuthorityRestore)) return;
+if (!authorityRollbackIsSafe(receipt2, current)) {
+errors.push(managedWriteConflict(receipt2.key, "Managed storage value"));
 return;
 }
-await restoreRollbackAuthority(storage, receipt, errors);
+await restoreRollbackAuthority(storage, receipt2, errors);
 }
-function authorityRestoreIsRequired(receipt, current, forceAuthorityRestore) {
-return forceAuthorityRestore || !managedStoredValueStatesMatch(current, receipt.authorityTarget);
+function authorityRestoreIsRequired(receipt2, current, forceAuthorityRestore) {
+return forceAuthorityRestore || !managedStoredValueStatesMatch(current, receipt2.authorityTarget);
 }
-function authorityRollbackIsSafe(receipt, current) {
-return managedStoredValueStatesMatch(current, receipt.authorityTarget) || authorityWasStaged(receipt, current);
+function authorityRollbackIsSafe(receipt2, current) {
+return managedStoredValueStatesMatch(current, receipt2.authorityTarget) || authorityWasStaged(receipt2, current);
 }
 async function readRollbackAuthority(storage, key, errors) {
 try {
@@ -2869,49 +2873,49 @@ errors.push(error);
 return void 0;
 }
 }
-async function restoreRollbackAuthority(storage, receipt, errors) {
+async function restoreRollbackAuthority(storage, receipt2, errors) {
 try {
-await storage.restoreAuthority(receipt.key, receipt.authorityTarget);
+await storage.restoreAuthority(receipt2.key, receipt2.authorityTarget);
 } catch (error) {
 errors.push(error);
 }
 }
-function rollbackManagedWriteLocal(storage, receipt, current, errors) {
+function rollbackManagedWriteLocal(storage, receipt2, current, errors) {
 try {
-restoreManagedWriteLocal(storage, receipt, current);
+restoreManagedWriteLocal(storage, receipt2, current);
 } catch (error) {
 errors.push(error);
 }
 }
-function restoreManagedWriteLocal(storage, receipt, current) {
-if (!receipt.localBefore) return restoreUntrackedWriteLocal(storage, receipt);
+function restoreManagedWriteLocal(storage, receipt2, current) {
+if (!receipt2.localBefore) return restoreUntrackedWriteLocal(storage, receipt2);
 if (!current) return;
-assertLocalStateCanRollback(storage, receipt, current);
-if (receipt.restoreCapturedLocal) return restoreLocalFallbackStoredState(receipt.key, receipt.localBefore);
-storage.restoreLocalTarget(receipt.key, receipt.localTarget);
+assertLocalStateCanRollback(storage, receipt2, current);
+if (receipt2.restoreCapturedLocal) return restoreLocalFallbackStoredState(receipt2.key, receipt2.localBefore);
+storage.restoreLocalTarget(receipt2.key, receipt2.localTarget);
 }
-function restoreUntrackedWriteLocal(storage, receipt) {
-if (!receipt.interrupted) storage.restoreLocalTarget(receipt.key, receipt.localTarget);
+function restoreUntrackedWriteLocal(storage, receipt2) {
+if (!receipt2.interrupted) storage.restoreLocalTarget(receipt2.key, receipt2.localTarget);
 }
-function assertLocalStateCanRollback(storage, receipt, current) {
-if (localStateCanRollback(storage, receipt, current)) return;
-throw managedWriteConflict(receipt.key, "Local fallback value");
+function assertLocalStateCanRollback(storage, receipt2, current) {
+if (localStateCanRollback(storage, receipt2, current)) return;
+throw managedWriteConflict(receipt2.key, "Local fallback value");
 }
-function localStateCanRollback(storage, receipt, current) {
-if (localStateWasCaptured(receipt, current)) return true;
-return receipt.interrupted && managedStoredValueStatesMatch(storage.readLocalTarget(receipt.key), receipt.localTarget);
+function localStateCanRollback(storage, receipt2, current) {
+if (localStateWasCaptured(receipt2, current)) return true;
+return receipt2.interrupted && managedStoredValueStatesMatch(storage.readLocalTarget(receipt2.key), receipt2.localTarget);
 }
-function localStateWasCaptured(receipt, current) {
-return Boolean(receipt.localBefore && localFallbackStoredStatesMatch(current, receipt.localBefore)) || receipt.stagedLocal.some((state) => localFallbackStoredStatesMatch(current, state));
+function localStateWasCaptured(receipt2, current) {
+return Boolean(receipt2.localBefore && localFallbackStoredStatesMatch(current, receipt2.localBefore)) || receipt2.stagedLocal.some((state) => localFallbackStoredStatesMatch(current, state));
 }
-function authorityWasStaged(receipt, current) {
-if (managedStoredValueStatesMatch(current, receipt.previous)) return true;
-return current.existed && receipt.stagedAuthority.some((value) => managedStoredValuesMatch(current.value, value));
+function authorityWasStaged(receipt2, current) {
+if (managedStoredValueStatesMatch(current, receipt2.previous)) return true;
+return current.existed && receipt2.stagedAuthority.some((value) => managedStoredValuesMatch(current.value, value));
 }
-function rememberLocalStage(receipt, local, authority) {
+function rememberLocalStage(receipt2, local, authority) {
 if (!rawLocalStateRepresentsAuthority(local, authority)) return;
-if (!receipt.stagedLocal.some((item) => localFallbackStoredStatesMatch(item, local))) {
-receipt.stagedLocal.push(local);
+if (!receipt2.stagedLocal.some((item) => localFallbackStoredStatesMatch(item, local))) {
+receipt2.stagedLocal.push(local);
 }
 }
 function rawLocalStateRepresentsAuthority(local, authority) {
@@ -3665,8 +3669,8 @@ const entries2 = orderedManagedStoredValueEntries(values);
 const journal = createManagedWriteJournal();
 try {
 for (const [key, imported] of entries2) {
-const receipt = await journal.capture(key);
-await journal.write(receipt, await prepareStoredValueForImport(key, imported));
+const receipt2 = await journal.capture(key);
+await journal.write(receipt2, await prepareStoredValueForImport(key, imported));
 }
 } catch (error) {
 await journal.reject(error, "Managed storage import failed");
@@ -4047,11 +4051,17 @@ addGmValueChangeCleanup(cleanups, sharedKey, (_key, _oldValue, newValue, remote)
 enqueueManagedChange(newValue, { remote, transport: "gm-storage" });
 }, "GM stored value listener failed");
 }
-addWebStorageCleanup(cleanups, key, (event) => {
+let deliveredLocalMirror;
+const deliverLocalMirror = () => {
 const epoch = managedStateEpochForSynchronousLocalRead();
 if (!epoch || !localMirrorBelongsToEpoch(key, epoch)) return;
-onChange(JSON.parse(event.newValue || "null"), { remote: true, transport: "web-storage" });
-});
+const serialized = localStorage.getItem(key);
+if (serialized === deliveredLocalMirror) return;
+deliveredLocalMirror = serialized;
+onChange(JSON.parse(serialized || "null"), { remote: true, transport: "web-storage" });
+};
+addWebStorageCleanup(cleanups, key, deliverLocalMirror);
+addWebStorageCleanup(cleanups, LOCAL_MIRROR_PROVENANCE_KEY, deliverLocalMirror);
 const extensionChanges = extensionStorageChangedEvent();
 if (extensionChanges) {
 const listener = (changes, areaName) => {
@@ -4525,8 +4535,7 @@ function eligibleCompatibilityGuard(event, target) {
 const guard = guards.get(target);
 if (!guard) return null;
 if (!blockable(event)) return null;
-if (Date.now() <= guard.expiresAt) return guard;
-guards.delete(target);
+if (Date.now() <= guard.expiresAt || event.type === "click") return guard;
 return null;
 }
 function shouldSuppressCompatibilityEvent(event, guard) {
@@ -5286,8 +5295,7 @@ const RENDERED_WORD_CONTRAST_VARS = [
 "--jpdb-reader-word-accessible-highlight",
 "--jpdb-reader-word-accessible-underline",
 "--jpdb-reader-word-highlight-text",
-"--jpdb-reader-word-contrast-shadow",
-"--jpdb-reader-furi-color"
+"--jpdb-reader-word-contrast-shadow"
 ];
 const RENDERED_WORD_CONTRAST_VARS_WITHOUT_SHADOW = RENDERED_WORD_CONTRAST_VARS.filter(
 (name) => name !== "--jpdb-reader-word-contrast-shadow"
@@ -6511,7 +6519,10 @@ function projectedReadingWordAtPoint(document2, x, y, accepts) {
 return yomuAnnotationsCompanion()?.projectedReadingWordAtPoint(document2, x, y, accepts) ?? null;
 }
 function styleDetachedReadingElements(root, host) {
-const detachedRubies = Array.from(root.querySelectorAll(".jpdb-reader-detached-ruby"));
+styleDetachedReadingElementsWithin([root], host);
+}
+function styleDetachedReadingElementsWithin(roots, host) {
+const detachedRubies = elementsWithin(roots, ".jpdb-reader-detached-ruby");
 if (!detachedRubies.length) return;
 const hostStyle = safeComputedStyle(host);
 const hostFontSize = Number.parseFloat(hostStyle.fontSize) || 16;
@@ -6523,7 +6534,7 @@ setInlineStyleIfChanged(wrapper, "line-height", "1", "important");
 setInlineStyleIfChanged(wrapper, "vertical-align", "baseline", "important");
 setInlineStyleIfChanged(wrapper, "white-space", "nowrap", "important");
 }
-for (const reading of root.querySelectorAll(".jpdb-reader-detached-furi")) {
+for (const reading of elementsWithin(roots, ".jpdb-reader-detached-furi")) {
 setInlineStyleIfChanged(reading, "display", "none", "important");
 setInlineStyleIfChanged(reading, "font-size", `${readingFontSize}px`);
 setInlineStyleIfChanged(reading, "font-weight", "normal");
@@ -6534,6 +6545,12 @@ setInlineStyleIfChanged(reading, "-webkit-user-select", "none");
 if (reading.style.getPropertyValue("color")) reading.style.removeProperty("color");
 setInlineStyleIfChanged(reading, "-webkit-text-fill-color", "currentColor", "important");
 }
+}
+function elementsWithin(roots, selector) {
+return roots.flatMap((root) => [
+...root.matches(selector) ? [root] : [],
+...Array.from(root.querySelectorAll(selector))
+]);
 }
 const DOCUMENT_ANNOTATION_PORTAL_MIRROR_CLASS = "jpdb-reader-document-annotation-portal";
 const DOCUMENT_ANNOTATION_PORTAL_PAINT_CLASS = "jpdb-reader-document-annotation-paint";
@@ -7122,7 +7139,7 @@ function targetKeepsInFlowReadings(target) {
 return Boolean(target.closest(KEEPS_IN_FLOW_SELECTOR));
 }
 function furiganaSettingsForTarget(settings2, target) {
-if (!targetForcesAllFurigana(target)) return settings2;
+if (!settings2.showFurigana || settings2.furiganaMode === "off" || !targetForcesAllFurigana(target)) return settings2;
 if (settings2.showFurigana && settings2.furiganaMode === "all") return settings2;
 return { ...settings2, showFurigana: true, furiganaMode: "all" };
 }
@@ -7338,6 +7355,176 @@ if (elements.every((element) => host.contains(element))) return host;
 candidate = candidate.parentElement;
 }
 return null;
+}
+let memo = null;
+function withReadMemo(run) {
+if (memo) return run();
+memo = new Map();
+try {
+return run();
+} finally {
+memo = null;
+}
+}
+function memoRead(fact, key, read) {
+if (!memo) return read(key);
+let answers = memo.get(fact);
+if (!answers) {
+answers = new Map();
+memo.set(fact, answers);
+}
+if (answers.has(key)) return answers.get(key);
+const value = read(key);
+answers.set(key, value);
+return value;
+}
+function withSliceStyleFacts(targets, paint) {
+return withReadMemo(() => {
+for (const target of targets) {
+if (!target) continue;
+readSliceFacts(target.parent);
+target.fragments?.forEach((fragment) => readSliceFacts(fragment.node.parentElement));
+}
+return paint();
+});
+}
+function sliceDisplayOf(element) {
+return memoRead("display", element, readDisplay);
+}
+function readSliceFacts(element) {
+if (!element) return;
+sliceDisplayOf(element);
+classifyDecoration(element);
+closestRubyFragileConstrainedRow(element);
+}
+function readDisplay(element) {
+return safeComputedStyle(element).display;
+}
+function wrapDirectFlexGridTextRun(replacement, parent) {
+const display = parent ? sliceDisplayOf(parent) : "";
+if (!display.includes("flex") && !display.includes("grid")) return replacement;
+const fragment = document.createDocumentFragment();
+const run = document.createElement("span");
+run.className = "jpdb-reader-run";
+run.append(replacement);
+fragment.append(run);
+return fragment;
+}
+const OVERSIZED_PARENT_VIEWPORTS = 2;
+const probes = new WeakMap();
+function textNodeOutsideViewport(node, parent) {
+if (!memoRead("oversized-text-parent", parent, isOversizedParent)) return false;
+if (!node.data.trim()) return false;
+const probe = probeFor(node.ownerDocument);
+probe.selectNodeContents(node);
+const rect = probe.getBoundingClientRect();
+if (!rect.width && !rect.height) return false;
+return !rectMeetsViewport(rect);
+}
+function probeFor(document2) {
+let probe = probes.get(document2);
+if (!probe) {
+probe = document2.createRange();
+probes.set(document2, probe);
+}
+return probe;
+}
+function isOversizedParent(parent) {
+const rect = parent.getBoundingClientRect();
+return rect.height > OVERSIZED_PARENT_VIEWPORTS * window.innerHeight || rect.width > OVERSIZED_PARENT_VIEWPORTS * window.innerWidth;
+}
+function rectMeetsViewport(rect, width = window.innerWidth, height = window.innerHeight) {
+return rect.bottom >= 0 && rect.top <= height && rect.right >= 0 && rect.left <= width;
+}
+let receipt = null;
+function notePaintedInsertion(node) {
+if (!receipt) return;
+if (node.nodeType === Node.DOCUMENT_FRAGMENT_NODE) receipt.push(...Array.from(node.children));
+else if (node.nodeType === Node.ELEMENT_NODE) receipt.push(node);
+}
+function withPaintedInsertions(paint) {
+const outer = receipt;
+const inserted = [];
+receipt = inserted;
+try {
+paint();
+} finally {
+receipt = outer;
+outer?.push(...inserted);
+}
+return inserted;
+}
+const CLAMP_GROWTH_ATTRIBUTE = "data-yomu-clamp-growth";
+const CONTENT_CLIP_ROW_SELECTOR = '[data-yomu-clip-constrained="content"]';
+const FAILED_CLAMP_ROW_SELECTOR = `[${CLAMP_GROWTH_ATTRIBUTE}="failed"]`;
+const CLAMP_ROW_BASE_ESCAPE_PX = 2;
+const CLAMP_ROW_RT_OVERLAP_SLOP_PX = 2;
+const CLAMP_ROW_WIDTH_SLOP_PX = 4;
+function clampRowGrowthFailed(clipRow) {
+return clipRow.getAttribute(CLAMP_GROWTH_ATTRIBUTE) === "failed";
+}
+function measuredClampRowVerdict(row) {
+const rt = row.querySelector(".jpdb-reader-word.jpdb-reader-scan-word rt.jpdb-reader-furi");
+const word = rt?.closest(".jpdb-reader-word");
+if (!word || !rt) return "unmeasurable";
+const rowRect = row.getBoundingClientRect();
+if (!rowRect.height) return "unmeasurable";
+const base = rt.parentElement?.querySelector(".jpdb-reader-ruby-base") ?? word;
+const baseRect = base.getBoundingClientRect();
+if (!baseRect.height) return "unmeasurable";
+const firstGlyph = firstBaseGlyphRect(row) ?? baseRect;
+const rtRect = rt.getBoundingClientRect();
+const baseEscaped = firstGlyph.top >= rowRect.bottom - CLAMP_ROW_BASE_ESCAPE_PX || firstGlyph.bottom <= rowRect.top + CLAMP_ROW_BASE_ESCAPE_PX;
+const rtOverlapsBase = rtRect.height > 0 && rtRect.bottom - baseRect.top > CLAMP_ROW_RT_OVERLAP_SLOP_PX;
+const widthOverflows = row.clientWidth > 0 && row.scrollWidth > row.clientWidth + CLAMP_ROW_WIDTH_SLOP_PX;
+if (baseEscaped || rtOverlapsBase || widthOverflows) return "broken";
+if (rtRect.height > 0 && rtRect.bottom <= baseRect.top + CLAMP_ROW_RT_OVERLAP_SLOP_PX) return "healthy";
+return "unmeasurable";
+}
+function firstBaseGlyphRect(row) {
+const walker = row.ownerDocument.createTreeWalker(row, NodeFilter.SHOW_TEXT, {
+acceptNode: (node) => node.parentElement?.closest("rt, rp, .jpdb-reader-furi") ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT
+});
+for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+const offset = node.data.search(/\S/u);
+if (offset < 0) continue;
+const range = row.ownerDocument.createRange();
+range.setStart(node, offset);
+range.setEnd(node, offset + (node.data.codePointAt(offset) > 65535 ? 2 : 1));
+const rect = range.getBoundingClientRect?.();
+return rect?.height ? rect : null;
+}
+return null;
+}
+function healUngrowableInFlowClampRows(root = document) {
+const rows = new Set();
+if (root instanceof HTMLElement) {
+const selfOrAncestor = root.closest(`${CONTENT_CLIP_ROW_SELECTOR},${FAILED_CLAMP_ROW_SELECTOR}`);
+if (selfOrAncestor) rows.add(selfOrAncestor);
+}
+for (const row of root.querySelectorAll(CONTENT_CLIP_ROW_SELECTOR)) rows.add(row);
+for (const row of root.querySelectorAll(FAILED_CLAMP_ROW_SELECTOR)) rows.add(row);
+if (!rows.size) return 0;
+const demote = [];
+const promote = [];
+for (const row of rows) {
+if (row.classList.contains("jpdb-reader-text-mirror")) continue;
+const verdict = measuredClampRowVerdict(row);
+if (verdict === "broken") {
+if (!clampRowGrowthFailed(row)) demote.push(row);
+} else if (verdict === "healthy" && clampRowGrowthFailed(row)) {
+promote.push(row);
+}
+}
+for (const row of demote) {
+row.setAttribute(CLAMP_GROWTH_ATTRIBUTE, "failed");
+row.dataset.yomuClipConstrained = "true";
+}
+for (const row of promote) {
+row.setAttribute(CLAMP_GROWTH_ATTRIBUTE, "ok");
+row.dataset.yomuClipConstrained = "content";
+}
+return demote.length;
 }
 const COLOR_SOURCE_CLASS_TOKENS = {
 status: "status",
@@ -7680,6 +7867,7 @@ return right > rect.left && bottom > rect.top;
 function coordinateInRange(value, start, end, slack) {
 return value >= start - slack && value <= end + slack;
 }
+const YOMU_RUBY_CLASS = "jpdb-reader-ruby";
 const READABLE_IGNORED_TAGS = new Set(["RT", "RP", "SCRIPT", "STYLE"]);
 const MAX_CONTEXT_SENTENCE_LENGTH = 180;
 function unwrapReaderWords(root = document, options = {}) {
@@ -7691,7 +7879,7 @@ for (const word of words) {
 const parent = word.parentNode;
 if (!parent) continue;
 parents.add(parent);
-word.replaceWith(document.createTextNode(readerWordSurfaceText(word)));
+unwrapReaderWord(word);
 }
 for (const bind of numberBinds) {
 if (bind.nextElementSibling?.classList.contains("jpdb-reader-word")) continue;
@@ -7702,6 +7890,29 @@ bind.replaceWith(document.createTextNode(bind.textContent ?? ""));
 }
 parents.forEach((parent) => parent.normalize());
 return words.length;
+}
+function unwrapReaderWord(word) {
+const doc = word.ownerDocument;
+if (!word.querySelector(`ruby:not(.${YOMU_RUBY_CLASS})`)) {
+word.replaceWith(doc.createTextNode(readerWordSurfaceText(word)));
+return;
+}
+const surface = doc.createDocumentFragment();
+const appendSurface = (node) => {
+if (node.nodeType === Node.TEXT_NODE) {
+surface.append(doc.createTextNode(node.textContent ?? ""));
+} else if (node.nodeType === Node.ELEMENT_NODE) {
+const element = node;
+if (isSurfaceIgnoredElement$1(element)) return;
+if (element.tagName === "RUBY" && !element.classList.contains(YOMU_RUBY_CLASS)) {
+surface.append(element);
+} else {
+Array.from(element.childNodes).forEach(appendSurface);
+}
+}
+};
+Array.from(word.childNodes).forEach(appendSurface);
+word.replaceWith(surface);
 }
 function readerWordSurfaceText(element) {
 const surface = readerWordChildSurfaceText(element);
@@ -8550,9 +8761,11 @@ excludeSelector,
 options,
 shadowDepth: 0
 };
+return withReadMemo(() => {
 visitFragmentNode(root, state, false, true);
 flushFragmentTextTarget(state);
 return state.targets;
+});
 }
 function collectFormControlTextTargetsIn(root, limit = 40, visibleOnly = true, options = {}) {
 const targets = [];
@@ -8733,6 +8946,10 @@ function collectFragmentTextNode(node, state, hasNativeRuby) {
 const text2 = node.textContent ?? "";
 if (shouldIgnoreFragmentTextNode(text2, state.options)) return;
 const parent = node.parentElement;
+if (state.visibleOnly && parent && textNodeOutsideViewport(node, parent)) {
+flushFragmentTextTarget(state);
+return;
+}
 if (text2) state.fragments.push({
 node,
 start: 0,
@@ -9107,7 +9324,10 @@ if (isPassiveInteractionElement(element)) return true;
 return Boolean(options.readerRootPassiveInteractions && element.closest(READER_ROOT_SELECTOR$3) && element.closest(PASSIVE_INTERACTION_SELECTOR));
 }
 function isLayoutSensitiveScanElement(element) {
-if (element && isInsideOwnedReaderRoot(element)) return false;
+return element ? memoRead("layout-sensitive", element, readIsLayoutSensitiveScanElement) : false;
+}
+function readIsLayoutSensitiveScanElement(element) {
+if (isInsideOwnedReaderRoot(element)) return false;
 let current = element;
 while (current && current !== document.body && current !== document.documentElement) {
 if (isLayoutSensitiveTextBox(current)) return true;
@@ -9391,8 +9611,9 @@ const safeTokens = nonOverlappingTokens(tokens, text2);
 if (!safeTokens.length) return;
 const fragment = renderTokenizedTextFragment(target, safeTokens, settings2);
 registerDestructivePaintTextNodes(fragment);
+const inserted = Array.from(fragment.children);
 target.node.replaceWith(fragment);
-styleDetachedReadingElements(target.parent, target.parent);
+styleDetachedReadingElementsWithin(inserted, target.parent);
 stabilizeDetachedReadings(target.parent, closestRubyFragileConstrainedRow(target.parent));
 markRenderedScanTarget(target);
 }
@@ -11503,8 +11724,8 @@ const PAGE_CONCEAL_VERDICT_TTL_MS = 1e3;
 const pageConcealVerdictMemo = new WeakMap();
 function pageConcealsTextMirrorHostMemoized(host) {
 const now = Date.now();
-const memo = pageConcealVerdictMemo.get(host);
-if (memo && now - memo.at < PAGE_CONCEAL_VERDICT_TTL_MS) return memo.concealed;
+const memo2 = pageConcealVerdictMemo.get(host);
+if (memo2 && now - memo2.at < PAGE_CONCEAL_VERDICT_TTL_MS) return memo2.concealed;
 const concealed = pageConcealsTextMirrorHost(host);
 pageConcealVerdictMemo.set(host, { at: now, concealed });
 return concealed;
@@ -11792,8 +12013,8 @@ if (clipRow) {
 clipRow.dataset.yomuClipConstrained = contentClipRowShowsRestReadings(renderTarget.decoration, clipRow) || clampRowKeepsInFlowRestRuby(renderTarget.decoration, clipRow) ? "content" : "true";
 }
 }
-applyTokensToIndexedFragmentTarget(renderTarget, safeTokens, furiganaSettingsForTarget(settings2, target.parent), sentence);
-styleDetachedReadingElements(target.parent, target.parent);
+const inserted = withPaintedInsertions(() => applyTokensToIndexedFragmentTarget(renderTarget, safeTokens, furiganaSettingsForTarget(settings2, target.parent), sentence));
+styleDetachedReadingElementsWithin(inserted, target.parent);
 stabilizeDetachedReadings(target.parent, closestRubyFragileConstrainedRow(target.parent));
 markRenderedScanTarget(target);
 }
@@ -11857,15 +12078,6 @@ offset = plan.localEnd;
 }
 appendPlainTextBeforeToken(replacement, text2, offset, fragment.end);
 replaceTextNodeRange(fragment.node, fragment.start, fragment.end, wrapDirectFlexGridTextRun(replacement, fragment.node.parentElement));
-}
-function wrapDirectFlexGridTextRun(replacement, parent) {
-const display = parent ? safeComputedStyle(parent).display : "";
-if (!display.includes("flex") && !display.includes("grid")) return replacement;
-const fragment = document.createDocumentFragment();
-const run = document.createElement("span");
-run.append(replacement);
-fragment.append(run);
-return fragment;
 }
 function renderSingleFragmentToken(target, fragment, plan, settings2, miningInsightKeys) {
 const allowRuby = scanFragmentAllowsRuby(fragment.hasNativeRuby);
@@ -12136,6 +12348,7 @@ return Boolean(readerRoot && readerRoot !== document.body && readerRoot !== docu
 function replaceTextNodeRange(node, start, end, replacement) {
 if (!node.parentNode || end <= start || start < 0 || end > node.data.length) return;
 registerDestructivePaintTextNodes(replacement);
+notePaintedInsertion(replacement);
 const after = node.splitText(end);
 const selected = node.splitText(start);
 selected.replaceWith(replacement);
@@ -12144,12 +12357,15 @@ if (!after.data) after.remove();
 }
 function insertMultiFragmentToken(range, surface, token, settings2, options = {}) {
 if (shouldRenderRuby(surface, token, settings2, options.allowRuby, options.preserveTokenRubies)) {
+const word = renderToken(surface, token, settings2, options);
+notePaintedInsertion(word);
 range.deleteContents();
-range.insertNode(renderToken(surface, token, settings2, options));
+range.insertNode(word);
 return;
 }
 const shell = renderTokenShell(token, options);
 shell.append(range.extractContents());
+notePaintedInsertion(shell);
 range.insertNode(shell);
 }
 function tokenWithReadableSentence(token, text2, fallback2) {
@@ -12301,7 +12517,7 @@ const style = safeComputedStyle(element);
 return isVisibleStyle(style);
 }
 function isVisibleRect(rect) {
-return rect.width > 0 && rect.height > 0 && rect.bottom >= 0 && rect.top <= window.innerHeight && rect.right >= 0 && rect.left <= window.innerWidth;
+return rect.width > 0 && rect.height > 0 && rectMeetsViewport(rect);
 }
 function isVisibleStyle(style) {
 return style.visibility !== "hidden" && style.display !== "none" && Number(style.opacity || "1") > 0;
@@ -12473,62 +12689,6 @@ const RUBY_ROOM_WRAPPED_MIRROR_MIN_DELTA_PX = 32;
 const RUBY_ROOM_WRAPPED_MIRROR_MIN_HEIGHT_PX = 80;
 const RUBY_ROOM_WRAPPED_MIRROR_SETTLE_BUFFER_PX = 8;
 const RUBY_ROOM_SWEEP_MAX_PASSES = 3;
-const CLAMP_GROWTH_ATTRIBUTE = "data-yomu-clamp-growth";
-const CONTENT_CLIP_ROW_SELECTOR = '[data-yomu-clip-constrained="content"]';
-const FAILED_CLAMP_ROW_SELECTOR = `[${CLAMP_GROWTH_ATTRIBUTE}="failed"]`;
-const CLAMP_ROW_BASE_ESCAPE_PX = 2;
-const CLAMP_ROW_RT_OVERLAP_SLOP_PX = 2;
-const CLAMP_ROW_WIDTH_SLOP_PX = 4;
-function clampRowGrowthFailed(clipRow) {
-return clipRow.getAttribute(CLAMP_GROWTH_ATTRIBUTE) === "failed";
-}
-function measuredClampRowVerdict(row) {
-const word = row.querySelector(".jpdb-reader-word.jpdb-reader-scan-word");
-const rt = word?.querySelector("rt.jpdb-reader-furi");
-if (!word || !rt) return "unmeasurable";
-const rowRect = row.getBoundingClientRect();
-if (!rowRect.height) return "unmeasurable";
-const base = word.querySelector(".jpdb-reader-ruby-base") ?? word;
-const baseRect = base.getBoundingClientRect();
-if (!baseRect.height) return "unmeasurable";
-const rtRect = rt.getBoundingClientRect();
-const baseEscaped = baseRect.top >= rowRect.bottom - CLAMP_ROW_BASE_ESCAPE_PX || baseRect.bottom <= rowRect.top + CLAMP_ROW_BASE_ESCAPE_PX;
-const rtOverlapsBase = rtRect.height > 0 && rtRect.bottom - baseRect.top > CLAMP_ROW_RT_OVERLAP_SLOP_PX;
-const widthOverflows = row.clientWidth > 0 && row.scrollWidth > row.clientWidth + CLAMP_ROW_WIDTH_SLOP_PX;
-if (baseEscaped || rtOverlapsBase || widthOverflows) return "broken";
-if (rtRect.height > 0 && rtRect.bottom <= baseRect.top + CLAMP_ROW_RT_OVERLAP_SLOP_PX) return "healthy";
-return "unmeasurable";
-}
-function healUngrowableInFlowClampRows(root = document) {
-const rows = new Set();
-if (root instanceof HTMLElement) {
-const selfOrAncestor = root.closest(`${CONTENT_CLIP_ROW_SELECTOR},${FAILED_CLAMP_ROW_SELECTOR}`);
-if (selfOrAncestor) rows.add(selfOrAncestor);
-}
-for (const row of root.querySelectorAll(CONTENT_CLIP_ROW_SELECTOR)) rows.add(row);
-for (const row of root.querySelectorAll(FAILED_CLAMP_ROW_SELECTOR)) rows.add(row);
-if (!rows.size) return 0;
-const demote = [];
-const promote = [];
-for (const row of rows) {
-if (row.classList.contains("jpdb-reader-text-mirror")) continue;
-const verdict = measuredClampRowVerdict(row);
-if (verdict === "broken") {
-if (!clampRowGrowthFailed(row)) demote.push(row);
-} else if (verdict === "healthy" && clampRowGrowthFailed(row)) {
-promote.push(row);
-}
-}
-for (const row of demote) {
-row.setAttribute(CLAMP_GROWTH_ATTRIBUTE, "failed");
-row.dataset.yomuClipConstrained = "true";
-}
-for (const row of promote) {
-row.setAttribute(CLAMP_GROWTH_ATTRIBUTE, "ok");
-row.dataset.yomuClipConstrained = "content";
-}
-return demote.length;
-}
 const WRAPPED_SCAN_WORD_ATTRIBUTE = "data-yomu-wrapped";
 function refreshWrappedScanWordUnderlines(root = document) {
 const words = root.querySelectorAll(".jpdb-reader-word.jpdb-reader-scan-word");
@@ -12808,11 +12968,11 @@ box.style.setProperty("max-height", contentHeight, "important");
 }
 }
 function cropCapableBoxes(element, mirror) {
+if (element?.closest(READER_ROOT_SELECTOR$3)) return [];
 const boxes = [];
 let fallback2;
 let current = element;
 while (current && current !== document.body && current !== document.documentElement) {
-if (current.dataset.jpdbReaderRoot) break;
 if (boxStyleIsClipCapable(current) || rubyLayoutOverflowsShortRow(current, mirror)) {
 boxes.push(current);
 } else if (!fallback2 && isYouTubeRubyRoomTextBox(current) && ownedRubyMirrorFor(current, mirror)) {
@@ -12825,8 +12985,8 @@ return boxes.length || !fallback2 ? boxes : [fallback2];
 const shortRowVerdicts = new WeakMap();
 function rubyLayoutOverflowsShortRow(box, mirror) {
 const now = Date.now();
-const memo = shortRowVerdicts.get(box);
-if (memo && now - memo.at < CONSTRAINED_ROW_VERDICT_TTL_MS) return memo.value;
+const memo2 = shortRowVerdicts.get(box);
+if (memo2 && now - memo2.at < CONSTRAINED_ROW_VERDICT_TTL_MS) return memo2.value;
 const value = rubyLayoutOverflowsShortRowUncached(box, mirror);
 shortRowVerdicts.set(box, { at: now, value });
 return value;
@@ -14135,6 +14295,7 @@ const SCALE_EPSILON = 0.05;
 const MAX_PAGE_SCALE = 3;
 const SAFARI_PAGE_ZOOM_STEPS = [1.15, 1.25, 1.5, 1.75, 2, 2.5, 3];
 const ZOOM_STEP_TOLERANCE = 0.025;
+const MIN_PAGE_ZOOM_SIGNAL = SAFARI_PAGE_ZOOM_STEPS[0] * (1 - ZOOM_STEP_TOLERANCE);
 const MIN_AXIS_AGREEMENT = 0.97;
 const MAX_AXIS_AGREEMENT = 1.4;
 const APPLE_TOUCH_ADAPTER = "apple-touch-page-scale";
@@ -14144,7 +14305,7 @@ if (!environment.appleTouch) return 1;
 if (!positiveFinite(environment.innerWidth)) return 1;
 if (positiveFinite(environment.outerWidth)) {
 const surfaceScale = environment.outerWidth / environment.innerWidth;
-if (Number.isFinite(surfaceScale) && surfaceScale > 1 + SCALE_EPSILON) {
+if (Number.isFinite(surfaceScale) && surfaceScale >= MIN_PAGE_ZOOM_SIGNAL) {
 return Math.min(surfaceScale, MAX_PAGE_SCALE);
 }
 }
@@ -14796,7 +14957,12 @@ return Boolean(effectiveJitenApiKey(settings2));
 }
 function chosenWordGradingService(settings2) {
 if (!hasJpdbApiCredential(settings2) || !hasJitenApiCredential(settings2)) return null;
-return settings2.apiGradingProvider === "jpdb" ? "jpdb" : "jiten";
+const preferred = settings2.apiGradingProvider === "jpdb" ? "jpdb" : "jiten";
+const other = preferred === "jpdb" ? "jiten" : "jpdb";
+return !gradesFromYomu(settings2, preferred) && gradesFromYomu(settings2, other) ? other : preferred;
+}
+function gradesFromYomu(settings2, service) {
+return (service === "jpdb" ? settings2.jpdbMiningEnabled : settings2.jitenMiningEnabled) !== false;
 }
 function effectiveBunproFrontendApiToken(settings2) {
 return settings2.bunproFrontendApiToken?.trim() ?? "";
@@ -15227,6 +15393,7 @@ return typeof copyKey === "string" ? copyKey : void 0;
 function userFacingCopyKey(error) {
 return userFacingCopyKeyOf(error);
 }
+const KNOWN_INTERVAL_DAYS = 21;
 const listeners = new Set();
 let waits = 0;
 function reportSaveWaitingForAnotherTab(waiting) {
@@ -15301,7 +15468,7 @@ return key === LEGACY_DECK_KEY || key.startsWith(DECK_KEY_PREFIX);
 }
 class LocalYomuSrsStorageError extends Error {
 constructor(options) {
-super(isStorageLeaseLapsed(options?.cause) ? "Your Academy deck was not saved because saving was interrupted. Try again." : "Your Academy deck could not be saved. Browser storage may be full. Free some site storage, then try again.", options);
+super(isStorageLeaseLapsed(options?.cause) ? "Your よむ deck was not saved because saving was interrupted. Try again." : "Your よむ deck could not be saved. Browser storage may be full. Free some site storage, then try again.", options);
 this.name = "LocalYomuSrsStorageError";
 }
 }
@@ -15510,8 +15677,8 @@ reviewsToday: cards.filter((card) => (card.lastReviewAt ?? 0) >= today).length,
 newToday: cards.filter((card) => card.createdAt >= today).length,
 levelCounts: {
 new: cards.filter((card) => card.reviews === 0).length,
-learning: cards.filter((card) => card.reviews > 0 && card.intervalDays < 21).length,
-known: cards.filter((card) => card.intervalDays >= 21).length
+learning: cards.filter((card) => card.reviews > 0 && card.intervalDays < KNOWN_INTERVAL_DAYS).length,
+known: cards.filter((card) => card.intervalDays >= KNOWN_INTERVAL_DAYS).length
 }
 };
 }
@@ -15771,7 +15938,7 @@ listener(changed);
 function createYomuLocalSrsAdapter(repository = new LocalYomuSrsRepository()) {
 return {
 id: "yomu-local",
-label: ACADEMY_SRS_LABEL,
+label: YOMU_DECK_LABEL,
 capabilities: { stats: true, queue: true, review: true, mine: true, import: true },
 hasCredential: () => true,
 verify: async () => true,
@@ -15818,13 +15985,13 @@ function localCardState(card, now) {
 if (card.reviewEnabled === false) return ["in-deck"];
 if (card.reviews === 0) return ["new"];
 if (card.dueAt <= now) return ["due"];
-if (card.intervalDays >= 21) return ["known"];
+if (card.intervalDays >= KNOWN_INTERVAL_DAYS) return ["known"];
 return ["learning"];
 }
 function localSrsLevel(card) {
 if (card.reviewEnabled === false) return "Saved";
 if (card.reviews === 0) return "New";
-if (card.intervalDays >= 21) return "Known";
+if (card.intervalDays >= KNOWN_INTERVAL_DAYS) return "Known";
 if (card.intervalDays >= 7) return "Young";
 return "Learning";
 }
@@ -16210,16 +16377,35 @@ function pageBackgroundFromRgba(rgba) {
 const hex = rgbaToHex(rgba);
 return { css: `rgb(${rgba.red}, ${rgba.green}, ${rgba.blue})`, hex, rgba };
 }
+const PAINTING_SOURCES = ["status", "jpdb", "anki", "pitch"];
+const NOT_IN_DECK_CLASSES = ["jpdb-not-in-deck", "jiten-not-in-deck"];
+const STATE_CLASS_RE = /^(?:jpdb|jiten|anki|yomu-review)-/u;
+const NON_STATE_CLASS_RE = /^(?:jpdb-reader-|jpdb-pitch-)/u;
+const QUIET_UNDERLINE_SOURCES = new Set(["status", "jpdb"]);
+const READING_WORD_SELECTOR = ".jpdb-reader-has-furi, .jpdb-reader-detached-reading-word";
+const CHANNEL_CLASS_RE = /^jpdb-reader-word-(?:highlight|underline|text)-/u;
+function wordPaintChannels(root = document.documentElement) {
+const source = (channel) => root ? selectedWordColorSourceToken(root, [channel], PAINTING_SOURCES) : null;
+const declared = Boolean(root && [...root.classList].some((className) => CHANNEL_CLASS_RE.test(className)));
+return { declared, highlight: source("highlight"), underline: source("underline"), text: source("text") };
+}
+function wordPaintsNothingAtRest(word, channels) {
+if (!channels.declared || channels.highlight || channels.text) return false;
+if (word.matches(READING_WORD_SELECTOR)) return false;
+if (!channels.underline) return true;
+if (!QUIET_UNDERLINE_SOURCES.has(channels.underline)) return false;
+let notInDeck = false;
+for (const className of word.classList) {
+if (NOT_IN_DECK_CLASSES.includes(className)) notInDeck = true;
+else if (STATE_CLASS_RE.test(className) && !NON_STATE_CLASS_RE.test(className)) return false;
+}
+return notInDeck;
+}
 const PAGE_WORD_SELECTOR = ".jpdb-reader-word";
 const YOMU_SURFACE_SELECTOR = "[data-jpdb-reader-root], .jpdb-ocr-layer, .jpdb-subtitle-player, .jpdb-subtitle-list, .asbplayer-subtitles-container-bottom, .asbplayer-offscreen";
 const TEXT_CONTRAST = 4.5;
 const DECORATION_CONTRAST = 3;
 const HIGHLIGHT_CONTRAST = 1.45;
-const FURIGANA_INK_EASE = 0.12;
-const FURIGANA_CONTRAST = 7;
-const FURIGANA_COLOR_VAR = "--jpdb-reader-furi-color";
-const FURIGANA_WORD_SELECTOR = ".jpdb-reader-has-furi, .jpdb-reader-detached-reading-word";
-const LINK_SELECTOR = "a[href]";
 const PASSIVE_CHROME_SELECTOR = 'button, [role="button"], [role="tab"], summary, label, .jpdb-reader-control-text-mirror, [data-jpdb-reader-passive-chrome="true"]';
 const COLORED_READER_WORD_CLASSES = new Set([
 "jpdb-new",
@@ -16245,7 +16431,7 @@ const COLORED_READER_WORD_CLASSES = new Set([
 "jpdb-pitch-odaka"
 ]);
 const NEUTRAL_CLEARED_CONTRAST_VARS = RENDERED_WORD_CONTRAST_VARS.filter(
-(name) => name !== "--jpdb-reader-highlight-backdrop" && name !== "--jpdb-reader-furi-color"
+(name) => name !== "--jpdb-reader-highlight-backdrop"
 );
 const pendingHoverContrastRefresh = new WeakSet();
 const appliedContrastState = new WeakMap();
@@ -16267,7 +16453,8 @@ unknownBackgrounds: [],
 neutralWords: [],
 neutralPageWords: [],
 neutralPageBackgrounds: [],
-furiganaColor: furiganaColorReader()
+quietWords: [],
+channels: wordPaintChannels()
 };
 const backgroundByParent = new Map();
 const cachedPageBackgroundFor = (word) => {
@@ -16286,12 +16473,17 @@ function classifyReaderWordContrast(plan, word, pageBackgroundFor) {
 const hasAccessibleColor = hasAnkiAccessibleWordColor(word);
 const hasInlineTextColor = Boolean(word.style.getPropertyValue("color"));
 if (preserveExistingAnkiContrast(word, hasAccessibleColor, hasInlineTextColor)) return;
+const surface = readerWordContrastSurface(word);
+if (surface !== "reader" && wordPaintsNothingAtRest(word, plan.channels)) {
+plan.quietWords.push(word);
+return;
+}
 const handlers = {
 reader: () => plan.neutralWords.push(word),
 "neutral-page": () => addNeutralPageWord(plan, word, pageBackgroundFor(word).background),
 "active-page": () => addActivePageWord(plan, word, pageBackgroundFor(word), hasAccessibleColor, hasInlineTextColor)
 };
-handlers[readerWordContrastSurface(word)]();
+handlers[surface]();
 }
 function hasAnkiAccessibleWordColor(word) {
 return [
@@ -16396,9 +16588,12 @@ hovered: word.matches(":hover, :focus")
 }
 function applyReaderWordContrastPlan(plan, savedVars, measurements) {
 plan.neutralWords.forEach((word) => clearContrastVars(word));
+plan.quietWords.forEach((word) => {
+clearContrastVars(word);
+appliedContrastState.delete(word);
+});
 plan.neutralPageWords.forEach((word, index) => {
 applyNeutralPageBackdrop(word, plan.neutralPageBackgrounds[index]);
-applyFuriganaColor(word, plan.neutralPageBackgrounds[index].hex, plan.furiganaColor);
 });
 plan.unknownBackgroundWords.forEach((word, index) => applyUnknownBackgroundFallback(word, plan.unknownBackgrounds[index]));
 plan.activeWords.forEach((word, index) => {
@@ -16406,7 +16601,6 @@ savedVars[index].forEach(({ name, value, priority: priority2 }) => {
 if (value) word.style.setProperty(name, value, priority2);
 });
 applyWordContrastVars(word, plan.activeBackgrounds[index], measurements[index]);
-applyFuriganaColor(word, plan.activeBackgrounds[index].hex, plan.furiganaColor);
 appliedContrastState.set(word, {
 background: plan.activeBackgrounds[index].css,
 className: word.className,
@@ -16552,41 +16746,6 @@ word.style.setProperty("--jpdb-reader-highlight-backdrop", background.css);
 }
 function clearContrastVars(word) {
 RENDERED_WORD_CONTRAST_VARS.forEach((name) => word.style.removeProperty(name));
-}
-function applyFuriganaColor(word, backdropHex, furiganaColor) {
-if (!word.matches(FURIGANA_WORD_SELECTOR)) {
-if (word.style.getPropertyValue(FURIGANA_COLOR_VAR)) word.style.removeProperty(FURIGANA_COLOR_VAR);
-return;
-}
-const color = furiganaColor(word, backdropHex);
-if (word.style.getPropertyValue(FURIGANA_COLOR_VAR) !== color) word.style.setProperty(FURIGANA_COLOR_VAR, color);
-}
-function furiganaColorReader() {
-const inkByProse = new Map();
-const colorByInk = new Map();
-return (word, backdropHex) => {
-const prose = proseElementFor(word);
-let ink = inkByProse.get(prose);
-if (ink === void 0) {
-ink = getComputedStyle(prose).color;
-inkByProse.set(prose, ink);
-}
-const key = `${ink}|${backdropHex}`;
-let color = colorByInk.get(key);
-if (color === void 0) {
-const opaqueInk = cssColorToHex(ink, cssColorToRgba(backdropHex) ?? void 0) ?? bestTextColor(backdropHex);
-color = readableOn(mixHex(opaqueInk, backdropHex, FURIGANA_INK_EASE), backdropHex, FURIGANA_CONTRAST);
-colorByInk.set(key, color);
-}
-return color;
-};
-}
-function proseElementFor(word) {
-let element = word.parentElement ?? word;
-for (let link = element.closest(LINK_SELECTOR); link?.parentElement; link = link.parentElement.closest(LINK_SELECTOR)) {
-element = link.parentElement;
-}
-return element;
 }
 function applyYomuLocalReviewableToCard(card, reviewable) {
 card.cardState = [...reviewable.state];
@@ -17081,7 +17240,7 @@ function apiSrsProviderView(id, settings2) {
 if (id === "yomu-local") {
 return {
 id: "yomu-local",
-label: ACADEMY_SRS_LABEL,
+label: YOMU_DECK_LABEL,
 deckSource: "yomu-local",
 hasApiKey: settings2.yomuLocalSrsEnabled
 };
@@ -17119,10 +17278,7 @@ if (override === "jiten" && jitenUsable) return apiSrsProviderView("jiten", sett
 if (override === "bunpro" && bunproUsable) return apiSrsProviderView("bunpro", settings2);
 if (wanikaniUsable) return apiSrsProviderView("wanikani", settings2);
 if (bunproUsable) return apiSrsProviderView("bunpro", settings2);
-if (jpdbUsable && jitenUsable) {
-const preferred = apiGradingProviderPreference(settings2);
-return apiSrsProviderView(preferred === "jpdb" ? "jpdb" : "jiten", settings2);
-}
+if (jpdbUsable && jitenUsable) return apiSrsProviderView(chosenWordGradingService(settings2) ?? "jiten", settings2);
 if (jpdbUsable) return apiSrsProviderView("jpdb", settings2);
 if (jitenUsable) return apiSrsProviderView("jiten", settings2);
 if (!bunproBacked && !wanikaniBacked && settings2.yomuLocalSrsEnabled) return apiSrsProviderView("yomu-local", settings2);
@@ -17166,11 +17322,12 @@ if (id === "anki") return settings2.ankiEnabled;
 return isApiSrsProviderEnabled(settings2, id) && apiSrsProviderView(id, settings2).hasApiKey && accepts(id);
 }
 function isApiMiningEnabled(settings2) {
-return settings2.jpdbMiningEnabled || settings2.bunproMiningEnabled || settings2.yomuLocalSrsEnabled;
+return settings2.jpdbMiningEnabled || settings2.jitenMiningEnabled || settings2.bunproMiningEnabled || settings2.yomuLocalSrsEnabled;
 }
 function isApiSrsProviderEnabled(settings2, providerId) {
 if (providerId === "yomu-local") return settings2.yomuLocalSrsEnabled;
 if (providerId === "wanikani") return settings2.wanikaniReviewEnabled;
+if (providerId === "jiten") return settings2.jitenMiningEnabled;
 return providerId === "bunpro" ? settings2.bunproMiningEnabled : settings2.jpdbMiningEnabled;
 }
 function shouldMineAnkiAlongsideApi(settings2) {
@@ -17319,7 +17476,7 @@ card.bunproReviewEndpoint = reviewable.reviewSession.endpoint;
 function createYomuLocalSrsProviderAdapter(adapter, settings2) {
 return {
 id: "yomu-local",
-label: ACADEMY_SRS_LABEL,
+label: YOMU_DECK_LABEL,
 deckSource: "yomu-local",
 hasApiKey: settings2.yomuLocalSrsEnabled && adapter.hasCredential(),
 addApiKeyRequiredKey: "yomuLocalSrsDisabled",
@@ -17889,9 +18046,6 @@ return `${JITEN_TTS_API_BASE_URL}/word/${wordId}/${readingIndex}?voice=${encodeU
 function jitenSentenceTtsUrl(sentenceId, voice) {
 return `${JITEN_TTS_API_BASE_URL}/sentence/${sentenceId}?voice=${encodeURIComponent(voice)}`;
 }
-async function renderStudyToolResult(button, action, sentence, grammarHints, language = "en", options = {}) {
-await yomuKanjiStudyCompanion()?.renderStudyToolResult?.(button, action, sentence, grammarHints, language, options);
-}
 function handleStudyGrammarAction(button, sentence, language = "en", options = {}) {
 return yomuKanjiStudyCompanion()?.handleStudyGrammarAction?.(button, sentence, language, options) ?? false;
 }
@@ -18188,8 +18342,10 @@ return this.vocabularyInfoCache.getOrLoad(jitenLookupKey(reference.wordId, refer
 }
 async fetchVocabularyInfo(reference) {
 const endpoint = `vocabulary/${reference.wordId}/${reference.readingIndex}/info`;
+const anonymous = this.getApiKey().trim() ? void 0 : this.options.anonymous;
+const infoPromise = anonymous ? anonymous.wordDetail(reference.wordId, reference.readingIndex) : this.requestEndpoint(endpoint, void 0, { method: "GET" });
 const examplesPromise = this.lookupVocabularyExamples(reference).catch(() => []);
-const info = await this.requestEndpoint(endpoint, void 0, { method: "GET" });
+const info = await infoPromise;
 if (!isJsonRecord(info)) return null;
 const normalized = normalizeJitenVocabularyInfo(info);
 if (!normalized) return null;
@@ -18254,7 +18410,6 @@ tokens = parsed ?? [];
 }
 }
 if (!tokens.length) {
-try {
 const searchCards = await this.searchVocabulary(spelling);
 tokens = searchCards.map((c) => ({
 card: c,
@@ -18265,8 +18420,6 @@ rubies: [],
 pitchClass: "",
 sentence: spelling
 }));
-} catch (error) {
-}
 }
 return bestParsedJitenCard(card, spelling, tokens);
 }
@@ -18435,7 +18588,7 @@ source
 }
 async lookupVocabularyExamples(card) {
 const endpoint = `vocabulary/${card.wordId}/${card.readingIndex}/random-example-sentences`;
-const payload = await this.requestEndpoint(endpoint, [], { method: "POST" });
+const payload = await this.requestEndpoint(endpoint, [], { method: "POST", priority: "enrichment" });
 return normalizeJitenVocabularyExamples(payload);
 }
 async request(endpoint, body) {
@@ -18448,6 +18601,12 @@ if (requiresAuth && !apiKey) throw new JitenApiError(MISSING_API_KEY_MESSAGE);
 const authenticated = requiresAuth && Boolean(apiKey);
 const method = options.method ?? "POST";
 const data = method === "GET" ? void 0 : body === void 0 ? void 0 : JSON.stringify(body);
+if (!apiKey && this.options.anonymous) {
+const payload = await this.options.anonymous.request(`${endpoint}${endpointQuery(options.query)}`, { method, data, priority: options.priority }).catch((error) => {
+throw normalizeJitenRequestError(error, false);
+});
+return parseJitenPayload(payload);
+}
 const url = endpointUrl(this.options.baseUrl, endpoint, options.query);
 if (this.options.fetchImpl) {
 const response = await fetchWithTimeout(
@@ -19384,14 +19543,16 @@ return Boolean(value && typeof value === "object");
 }
 function endpointUrl(baseUrl, endpoint, query) {
 const base = (baseUrl?.trim() || JITEN_API_BASE_URL).replace(/\/+$/, "");
-const url = `${base}/${endpoint}`;
+return `${base}/${endpoint}${endpointQuery(query)}`;
+}
+function endpointQuery(query) {
 const params = new URLSearchParams();
 Object.entries(query ?? {}).forEach(([key, value]) => {
 if (value === void 0 || value === null || value === "") return;
 params.set(key, String(value));
 });
 const queryString = params.toString();
-return queryString ? `${url}?${queryString}` : url;
+return queryString ? `?${queryString}` : "";
 }
 function targetUsesCharacterDictionary() {
 const target = activeLearningTarget();
@@ -19573,8 +19734,6 @@ const action = command.action;
 const handlers = {
 "study-grammar-toggle-known": () => this.performStudyGrammarToggle(button, command, sentence),
 "study-grammar-toggle-known-visibility": () => this.performStudyGrammarToggle(button, command, sentence),
-"study-translate": () => this.performStudyTool(button, action, sentence),
-"study-grammar": () => this.performStudyGrammarTool(button, sentence),
 "study-read-sentence": () => this.performStudyReadSentence(button, command, sentence),
 "jpdb-example-audio": () => this.performJpdbExampleAudio(command),
 "jiten-audio": () => this.performJitenAudio(command, sentence),
@@ -19587,21 +19746,6 @@ return handlers[action];
 performStudyGrammarToggle(button, command, sentence) {
 const settings2 = this.options.getSettings();
 handleStudyGrammarAction(button, sentence, settings2.interfaceLanguage, { audioEnabled: settings2.audioEnabled, command });
-void this.reparsePopoverJapanese(button);
-return false;
-}
-async performStudyTool(button, action, sentence) {
-const settings2 = this.options.getSettings();
-await renderStudyToolResult(button, action, sentence, void 0, settings2.interfaceLanguage, {
-audioEnabled: settings2.audioEnabled,
-outputLanguage: OUTPUT_LANGUAGE
-});
-void this.reparsePopoverJapanese(button);
-return false;
-}
-async performStudyGrammarTool(button, sentence) {
-const settings2 = this.options.getSettings();
-await renderStudyToolResult(button, "study-grammar", sentence, sentence ? await this.options.detectGrammarHints(sentence) : void 0, settings2.interfaceLanguage, { audioEnabled: settings2.audioEnabled });
 void this.reparsePopoverJapanese(button);
 return false;
 }
@@ -19777,7 +19921,8 @@ if (overridden) return overridden;
 const bunpro = external.find((provider) => provider.id === "bunpro");
 if (bunpro) return bunpro;
 if (external.length > 1) {
-const preferred = external.find((provider) => provider.id === apiGradingProviderPreference(settings2));
+const chosen = chosenWordGradingService(settings2) ?? apiGradingProviderPreference(settings2);
+const preferred = external.find((provider) => provider.id === chosen);
 if (preferred) return preferred;
 }
 if (keyed.length) return external[0] ?? keyed[0] ?? null;
@@ -20523,7 +20668,7 @@ for (const deck of lists.ankiDecks) add("anki", deck, `Anki: ${deck}`);
 } else if (destination === "bunpro") {
 add("bunpro", "bunpro", "Bunpro");
 } else if (destination === "yomu-local") {
-add("yomu-local", "yomu-local", uiText(settings2.interfaceLanguage, "defaultDeck"));
+add("yomu-local", "yomu-local", uiText(settings2.interfaceLanguage, "yomuDeck"));
 }
 }
 return choices;
@@ -21620,6 +21765,10 @@ return value ? `<span class="jpdb-reader-pill jpdb-reader-frequency-pill" data-d
 function providerCardStateLabel(providerId, state, language) {
 return providerId === "yomu-local" && state === "in-deck" ? uiText(language, "savedWord") : cardStateLabel(state, language);
 }
+function providerStatusText(provider, state, language) {
+const name = provider.id === "yomu-local" ? uiText(language, "yomuDeck") : provider.label;
+return `${name} ${providerCardStateLabel(provider.id, state, language)}`;
+}
 function externalLinkIcon() {
 return `<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
         <path d="M7 17 17 7"></path>
@@ -21911,15 +22060,7 @@ svg: renderPitchGraphSvg(reading, variant.pattern, { centerContent: true })
 if (!graphs.length) return "";
 if (graphs.length === 1) return `<div class="jpdb-reader-pitch">${graphs[0].svg}</div>`;
 const percentages = pitchVariantDisplayPercentages(graphs.map((entry) => entry.variant));
-const fit = pitchVariantBlockFit(reading, graphs.length);
-return `<div class="jpdb-reader-pitch jpdb-reader-pitch-variants" data-pitch-fit="${fit}">${graphs.map((entry, index) => `<span class="jpdb-reader-pitch-component jpdb-reader-pitch-variant${index === 0 ? " jpdb-reader-pitch-variant-primary" : ""}">${entry.svg}<span class="jpdb-reader-pitch-variant-badge">${percentages[index]}%</span></span>`).join("")}</div>`;
-}
-const PITCH_VARIANT_COMPACT_MAX_WIDTH = 300;
-function pitchVariantBlockFit(reading, graphCount) {
-const graphWidth = splitMorae(reading).length * 24 + 18;
-const chipWidth = graphWidth + 14;
-const blockWidth = graphCount * chipWidth + Math.max(0, graphCount - 1) * 8;
-return blockWidth <= PITCH_VARIANT_COMPACT_MAX_WIDTH ? "compact" : "wide";
+return `<div class="jpdb-reader-pitch jpdb-reader-pitch-variants">${graphs.map((entry, index) => `<span class="jpdb-reader-pitch-component jpdb-reader-pitch-variant${index === 0 ? " jpdb-reader-pitch-variant-primary" : ""}">${entry.svg}<span class="jpdb-reader-pitch-variant-badge">${percentages[index]}%</span></span>`).join("")}</div>`;
 }
 function pitchVariantDisplayPercentages(variants) {
 if (!variants.length) return [];
@@ -22090,130 +22231,10 @@ options.card,
 [...options.componentPitches ?? []]
 );
 const components = renderExpressionComponentPitches(alignedComponents);
-if (components) return pronunciationRow("pitch-accent", components);
-if (options.loading) return "";
-const label = uiText(options.settings.interfaceLanguage, "noExactPitch");
-return pronunciationRow(
-"pitch-accent",
-`<div class="jpdb-reader-pitch jpdb-reader-pitch-missing" data-pitch-status="no-exact-match" role="status" title="${escapeHtml(label)}">${escapeHtml(label)}</div>`
-);
+return components ? pronunciationRow("pitch-accent", components) : "";
 }
 function pronunciationRow(kind, content) {
 return `<div class="jpdb-reader-pronunciation" data-pronunciation-kind="${kind}">${content}</div>`;
-}
-function hasFrequencyRankEvidence(card, metaEntries, providerRanks) {
-return frequencyRank(card.frequencyRank) !== null || metaEntries.some((entry) => entry.mode === "freq" && Boolean(formatMetaFrequency(entry.data))) || Object.values(providerRanks ?? {}).some((evidence) => frequencyRank(evidence?.rank) !== null);
-}
-function contextOccurrenceCount({ spelling }, context = "") {
-const normalize = (value) => activeLearningTarget().normalizeText(value);
-const surface = normalize(spelling);
-const text2 = normalize(context);
-if (!surface) return 0;
-let count = 0;
-for (let offset = text2.indexOf(surface); offset >= 0; offset = text2.indexOf(surface, offset + surface.length)) {
-count++;
-}
-return count;
-}
-function frequencyProviderForLookupId(id) {
-if (id === "jiten-frequency") return "jiten";
-if (id === "jpdb-frequency") return "jpdb";
-if (id === "bunpro-frequency") return "bunpro";
-return null;
-}
-const BUNPRO_PRIMARY_LIST_ORDER = ["general", "dictionary", "netflix", "anime", "novels"];
-function bunproFrequencyRank(card, info) {
-const lists = (info?.frequencies ?? []).filter((entry) => Number.isInteger(entry.rank) && entry.rank > 0);
-if (!info || !lists.length) return null;
-const primary = [...lists].sort((a, b) => listOrderIndex(a.list) - listOrderIndex(b.list))[0];
-return {
-provider: "bunpro",
-rank: primary.rank,
-spelling: normalizeIdentityText(card.spelling || info.expression),
-reading: normalizeIdentityText(card.reading || info.reading),
-source: "live-search",
-lists
-};
-}
-function listOrderIndex(list) {
-const index = BUNPRO_PRIMARY_LIST_ORDER.indexOf(list);
-return index < 0 ? BUNPRO_PRIMARY_LIST_ORDER.length : index;
-}
-function liveFrequencyEnabled(settings2, provider) {
-const frequencyEnabled = settings2.dictionaryLookupLinks.some(
-(link) => link.enabled && frequencyProviderForLookupId(link.id) === provider
-);
-const lookupEnabled = settings2.dictionaryLookupLinks.some((link) => link.enabled && link.id === provider);
-return frequencyEnabled && lookupEnabled;
-}
-function kanjiFrequencyRanks(kanji, jitenKanjiRank, jpdbKanjiFrequency) {
-const ranks = {};
-const jitenRank = frequencyRank(jitenKanjiRank ?? null);
-if (jitenRank) {
-ranks.jiten = { provider: "jiten", rank: jitenRank, spelling: kanji, reading: kanji, source: "kanji" };
-}
-const jpdb = jpdbKanjiFrequencyEvidence(kanji, jpdbKanjiFrequency ?? "");
-if (jpdb) ranks.jpdb = jpdb;
-return ranks;
-}
-function jpdbKanjiFrequencyEvidence(kanji, frequency) {
-const text2 = frequency.trim();
-const match = /([\d,]+)/.exec(text2);
-const rank = match?.[1] ? Number.parseInt(match[1].replace(/,/g, ""), 10) : NaN;
-if (!Number.isInteger(rank) || rank <= 0) return null;
-return {
-provider: "jpdb",
-rank,
-spelling: kanji,
-reading: kanji,
-source: "kanji",
-display: /^top\b/i.test(text2) ? text2 : void 0
-};
-}
-function cardFrequencyRanks(card, isJpdbBackedCard) {
-const rank = frequencyRank(card.frequencyRank);
-if (!rank) return {};
-const provider = card.source === "jiten" || card.reviewSource === "jiten-api" ? "jiten" : isJpdbBackedCard(card) ? "jpdb" : null;
-return provider ? {
-[provider]: rankEvidence(provider, rank, card, "card")
-} : {};
-}
-function jitenFrequencyRankForCard(card, info) {
-const rank = frequencyRank(info?.mainReading?.frequencyRank);
-return rank ? rankEvidence("jiten", rank, card, "live-search") : null;
-}
-function exactJitenFrequencyRank(card, candidates) {
-return exactSearchFrequencyRank("jiten", card, candidates);
-}
-function exactJpdbFrequencyRank(card, candidates) {
-return exactSearchFrequencyRank("jpdb", card, candidates);
-}
-function exactSearchFrequencyRank(provider, card, candidates) {
-const spelling = normalizeIdentityText(card.spelling);
-const reading = normalizeIdentityText(card.reading);
-const match = candidates.find(
-(candidate) => normalizeIdentityText(candidate.spelling) === spelling && normalizeIdentityText(candidate.reading) === reading && frequencyRank(candidate.frequencyRank) !== null
-);
-const rank = frequencyRank(match?.frequencyRank);
-return match && rank ? rankEvidence(provider, rank, match, "live-search") : null;
-}
-function withFrequencyRank(ranks, evidence) {
-return evidence ? { ...ranks, [evidence.provider]: evidence } : ranks;
-}
-function rankEvidence(provider, rank, card, source) {
-return {
-provider,
-rank,
-spelling: normalizeIdentityText(card.spelling),
-reading: normalizeIdentityText(card.reading),
-source
-};
-}
-function frequencyRank(value) {
-return typeof value === "number" && Number.isInteger(value) && value > 0 ? value : null;
-}
-function normalizeIdentityText(value) {
-return value.normalize("NFKC").trim();
 }
 function jpdbVocabularyUrl(card) {
 return `https://jpdb.io/vocabulary/${card.vid}/${encodeURIComponent(card.spelling)}/${encodeURIComponent(card.reading)}`;
@@ -22943,7 +22964,7 @@ if (!normalize) return;
 normalize(lineText, isPopupLookupEnabled(settings2));
 }
 function applyPublicVocabularyFurigana(word, card, settings2) {
-if (word.closest("ruby")) return false;
+if (word.closest("ruby") || word.querySelector("ruby:not(.jpdb-reader-ruby)")) return false;
 const ocrLine = word.closest(".jpdb-ocr-line");
 const surface = readerWordSurfaceText(word).trim() || word.dataset.expression || card.spelling;
 const renderSettings = furiganaSettingsForTarget(settings2, word);
@@ -23057,6 +23078,106 @@ const bottom = rect.bottom || rect.top + rect.height;
 const dx = Math.max(rect.left - x, 0, x - right);
 const dy = Math.max(rect.top - y, 0, y - bottom);
 return Math.hypot(dx, dy);
+}
+function frequencyProviderForLookupId(id) {
+if (id === "jiten-frequency") return "jiten";
+if (id === "jpdb-frequency") return "jpdb";
+if (id === "bunpro-frequency") return "bunpro";
+return null;
+}
+const BUNPRO_PRIMARY_LIST_ORDER = ["general", "dictionary", "netflix", "anime", "novels"];
+function bunproFrequencyRank(card, info) {
+const lists = (info?.frequencies ?? []).filter((entry) => Number.isInteger(entry.rank) && entry.rank > 0);
+if (!info || !lists.length) return null;
+const primary = [...lists].sort((a, b) => listOrderIndex(a.list) - listOrderIndex(b.list))[0];
+return {
+provider: "bunpro",
+rank: primary.rank,
+spelling: normalizeIdentityText(card.spelling || info.expression),
+reading: normalizeIdentityText(card.reading || info.reading),
+source: "live-search",
+lists
+};
+}
+function listOrderIndex(list) {
+const index = BUNPRO_PRIMARY_LIST_ORDER.indexOf(list);
+return index < 0 ? BUNPRO_PRIMARY_LIST_ORDER.length : index;
+}
+function liveFrequencyEnabled(settings2, provider) {
+const frequencyEnabled = settings2.dictionaryLookupLinks.some(
+(link) => link.enabled && frequencyProviderForLookupId(link.id) === provider
+);
+const lookupEnabled = settings2.dictionaryLookupLinks.some((link) => link.enabled && link.id === provider);
+return frequencyEnabled && lookupEnabled;
+}
+function kanjiFrequencyRanks(kanji, jitenKanjiRank, jpdbKanjiFrequency) {
+const ranks = {};
+const jitenRank = frequencyRank(jitenKanjiRank ?? null);
+if (jitenRank) {
+ranks.jiten = { provider: "jiten", rank: jitenRank, spelling: kanji, reading: kanji, source: "kanji" };
+}
+const jpdb = jpdbKanjiFrequencyEvidence(kanji, jpdbKanjiFrequency ?? "");
+if (jpdb) ranks.jpdb = jpdb;
+return ranks;
+}
+function jpdbKanjiFrequencyEvidence(kanji, frequency) {
+const text2 = frequency.trim();
+const match = /([\d,]+)/.exec(text2);
+const rank = match?.[1] ? Number.parseInt(match[1].replace(/,/g, ""), 10) : NaN;
+if (!Number.isInteger(rank) || rank <= 0) return null;
+return {
+provider: "jpdb",
+rank,
+spelling: kanji,
+reading: kanji,
+source: "kanji",
+display: /^top\b/i.test(text2) ? text2 : void 0
+};
+}
+function cardFrequencyRanks(card, isJpdbBackedCard) {
+const rank = frequencyRank(card.frequencyRank);
+if (!rank) return {};
+const provider = card.source === "jiten" || card.reviewSource === "jiten-api" ? "jiten" : isJpdbBackedCard(card) ? "jpdb" : null;
+return provider ? {
+[provider]: rankEvidence(provider, rank, card, "card")
+} : {};
+}
+function jitenFrequencyRankForCard(card, info) {
+const rank = frequencyRank(info?.mainReading?.frequencyRank);
+return rank ? rankEvidence("jiten", rank, card, "live-search") : null;
+}
+function exactJitenFrequencyRank(card, candidates) {
+return exactSearchFrequencyRank("jiten", card, candidates);
+}
+function exactJpdbFrequencyRank(card, candidates) {
+return exactSearchFrequencyRank("jpdb", card, candidates);
+}
+function exactSearchFrequencyRank(provider, card, candidates) {
+const spelling = normalizeIdentityText(card.spelling);
+const reading = normalizeIdentityText(card.reading);
+const match = candidates.find(
+(candidate) => normalizeIdentityText(candidate.spelling) === spelling && normalizeIdentityText(candidate.reading) === reading && frequencyRank(candidate.frequencyRank) !== null
+);
+const rank = frequencyRank(match?.frequencyRank);
+return match && rank ? rankEvidence(provider, rank, match, "live-search") : null;
+}
+function withFrequencyRank(ranks, evidence) {
+return evidence ? { ...ranks, [evidence.provider]: evidence } : ranks;
+}
+function rankEvidence(provider, rank, card, source) {
+return {
+provider,
+rank,
+spelling: normalizeIdentityText(card.spelling),
+reading: normalizeIdentityText(card.reading),
+source
+};
+}
+function frequencyRank(value) {
+return typeof value === "number" && Number.isInteger(value) && value > 0 ? value : null;
+}
+function normalizeIdentityText(value) {
+return value.normalize("NFKC").trim();
 }
 const LEAD_LOOKUP_LINK_IDS = new Set(["jiten", "jpdb"]);
 function renderWordPills(options) {
@@ -23355,7 +23476,7 @@ return `
             <div class="jpdb-reader-sheet-handle"></div>
             <div class="jpdb-reader-popover-body" data-card-popover${bunproDefinitionStatusAttributes(data.bunproDefinitionStatus)}>
                 ${this.dependencies.renderWordHistory(view.language, trigger)}
-                ${this.renderHeader(card, sentence, data, view, trigger)}
+                ${this.renderHeader(card, data, view, trigger)}
                 ${this.renderPartOfSpeech(view)}
                 ${expressionComponents}
                 ${definitionSources}
@@ -23420,13 +23541,12 @@ reviewBlockReasonForView(cardStates, data, language) {
 if (data.ankiLookup.primary?.primaryCardId) return "";
 return this.reviewBlockReason(cardStates, language);
 }
-renderHeader(card, sentence, data, view, trigger) {
-const wordPills = this.dependencies.renderWordPills(card, view.jpdbUrl, data.metaEntries, void 0, trigger, data.ankiLookup, data.frequencyRanks);
-const pills = appendWordPill(wordPills, this.renderContextFrequencyPill(card, sentence, data, view.language));
-return `<div class="jpdb-reader-header">
+renderHeader(card, data, view, trigger) {
+const pitchEnabled = cardUsesPitchAccentPronunciation(card) && this.settings().showPitchAccent ? "true" : "false";
+return `<div class="jpdb-reader-header" data-pitch-enabled="${pitchEnabled}">
             <div class="jpdb-reader-heading">
                 ${this.renderTitleRow(card, data, view)}
-                ${pills}
+                ${this.dependencies.renderWordPills(card, view.jpdbUrl, data.metaEntries, void 0, trigger, data.ankiLookup, data.frequencyRanks)}
             </div>
             <div class="jpdb-reader-card-tools">
                 ${renderPronunciation({
@@ -23443,13 +23563,6 @@ loading: data.loading
                 </div>
             </div>
         </div>`;
-}
-renderContextFrequencyPill(card, sentence, data, language) {
-if (data.loading || hasFrequencyRankEvidence(card, data.metaEntries, data.frequencyRanks)) return "";
-const count = contextOccurrenceCount(card, sentence);
-if (!count) return "";
-const label = formatUiText(language, "contextOccurrences", { count });
-return `<span class="jpdb-reader-pill jpdb-reader-frequency-pill" data-frequency-source="context" title="${escapeHtml(label)}">${escapeHtml(label)}</span>`;
 }
 renderTitleRow(card, data, view) {
 const pitchTarget = cardUsesPitchAccentPronunciation(card);
@@ -23605,7 +23718,7 @@ if (target.kind === "jpdb") return { id: "jpdb", label: "JPDB", deckSource: "jpd
 if (target.kind === "jiten") return { id: "jiten", label: "Jiten", deckSource: "jiten", hasApiKey: true };
 if (target.kind === "bunpro") return { id: "bunpro", label: "Bunpro", deckSource: "bunpro", hasApiKey: true };
 if (target.kind === "wanikani") return { id: "wanikani", label: "WaniKani", deckSource: "wanikani", hasApiKey: true };
-if (target.kind === "yomu-local") return { id: "yomu-local", label: ACADEMY_SRS_LABEL, deckSource: "yomu-local", hasApiKey: true };
+if (target.kind === "yomu-local") return { id: "yomu-local", label: YOMU_DECK_LABEL, deckSource: "yomu-local", hasApiKey: true };
 return fallback2;
 }
 apiReviewTarget(provider, language, card) {
@@ -23756,7 +23869,7 @@ return "";
 }
 function renderPopoverProviderMeta(card, provider, state, settings2, trusted) {
 if (!provider || !popoverProviderStatusIsVisible(card, provider, trusted)) return "";
-return `<span class="jpdb-reader-provider-status"><span class="jpdb-reader-state-dot jpdb-${state}"></span>${escapeHtml(provider.label)} ${escapeHtml(providerCardStateLabel(provider.id, state, settings2.interfaceLanguage))}</span>`;
+return `<span class="jpdb-reader-provider-status"><span class="jpdb-reader-state-dot jpdb-${state}"></span>${escapeHtml(providerStatusText(provider, state, settings2.interfaceLanguage))}</span>`;
 }
 function popoverProviderStatusIsVisible(card, provider, trusted) {
 if (!trusted || !provider.hasApiKey) return false;
@@ -23922,12 +24035,6 @@ return `<span><span class="jpdb-reader-state-dot anki-${lookup.state}"></span>An
 }
 function renderMeta(metaItems) {
 return metaItems.length ? `<div class="jpdb-reader-meta">${metaItems.join("")}</div>` : "";
-}
-function appendWordPill(wordPills, pill) {
-if (!pill) return wordPills;
-const more = wordPills.indexOf('<details class="jpdb-reader-pill-more"');
-const closingTag = more >= 0 ? more : wordPills.includes("jpdb-reader-word-pills") ? wordPills.lastIndexOf("</div>") : -1;
-return closingTag >= 0 ? `${wordPills.slice(0, closingTag)}${pill}${wordPills.slice(closingTag)}` : `${wordPills}<div class="jpdb-reader-word-pills">${pill}</div>`;
 }
 function uniqueExpressionComponents(components) {
 const seen = new Set();
@@ -25724,13 +25831,14 @@ const cached = this.definitionSourceCache.get(key);
 if (cached && cached.expiresAt > now) return cached.load;
 const settings2 = this.settings();
 const japaneseProviders = usesJapaneseProviders();
-const localEntriesUncapped = this.loadLocalTermEntriesUncapped(card);
-const localEntries = this.loadLocalTermEntries(card, localEntriesUncapped);
-const jpdbVocabularyInfo = japaneseProviders && options.includeJpdbDefinition !== false ? this.loadJpdbVocabularyInfo(card, () => {
+const onIncomplete = () => {
 const entry = this.definitionSourceCache.get(key);
 if (entry?.load === load) entry.expiresAt = Math.min(entry.expiresAt, Date.now() + 1e3);
-}) : Promise.resolve(null);
-const jitenVocabularyInfo = japaneseProviders && options.includeJitenDefinition !== false && settings2.jitenDefinitionsEnabled ? this.loadJitenVocabularyInfo(card, true) : Promise.resolve(null);
+};
+const localEntriesUncapped = this.loadLocalTermEntriesUncapped(card);
+const localEntries = this.loadLocalTermEntries(card, localEntriesUncapped);
+const jpdbVocabularyInfo = japaneseProviders && options.includeJpdbDefinition !== false ? this.loadJpdbVocabularyInfo(card, onIncomplete) : Promise.resolve(null);
+const jitenVocabularyInfo = japaneseProviders && options.includeJitenDefinition !== false && settings2.jitenDefinitionsEnabled ? this.loadJitenVocabularyInfo(card, true, onIncomplete) : Promise.resolve(null);
 const bunproDefinitionInfo = japaneseProviders && options.includeBunproDefinition !== false && settings2.bunproDefinitionsEnabled ? this.lookupBunproDataResult(card, true).then((result) => result.info) : Promise.resolve(null);
 const settled = Promise.allSettled([
 localEntriesUncapped,
@@ -25778,7 +25886,7 @@ const cardRanks = cardFrequencyRanks(card, this.dependencies.isJpdbBackedCard);
 const seededFrequencyRanks = {};
 if (japaneseProviders && liveFrequencyEnabled(settings2, "jiten") && cardRanks.jiten) seededFrequencyRanks.jiten = cardRanks.jiten;
 if (japaneseProviders && liveFrequencyEnabled(settings2, "jpdb") && cardRanks.jpdb) seededFrequencyRanks.jpdb = cardRanks.jpdb;
-const jitenVocabularyLookup = japaneseProviders ? this.loadJitenVocabularyInfo(card, settings2.jitenDefinitionsEnabled) : Promise.resolve(null);
+const jitenVocabularyLookup = japaneseProviders ? this.loadJitenVocabularyInfo(card, settings2.jitenDefinitionsEnabled, onIncomplete) : Promise.resolve(null);
 const jitenVocabularyInfo = japaneseProviders && settings2.jitenDefinitionsEnabled ? this.withFallback(card, CARD_RENDER_JITEN_DETAIL_TIMEOUT_MS, "Jiten vocabulary details", jitenVocabularyLookup, null) : Promise.resolve(null);
 const bunproDefinitionRequested = japaneseProviders && options.includeBunproDefinition !== false && settings2.bunproDefinitionsEnabled;
 const bunproDataRequested = japaneseProviders && (bunproDefinitionRequested || liveFrequencyEnabled(settings2, "bunpro"));
@@ -25960,13 +26068,14 @@ if (!result) onIncomplete();
 return result?.info ?? null;
 });
 }
-loadJitenVocabularyInfo(card, enabled) {
+loadJitenVocabularyInfo(card, enabled, onIncomplete = () => void 0) {
 if (!enabled || typeof this.dependencies.jiten?.lookupVocabularyInfoForCard !== "function") return Promise.resolve(null);
 return this.dependencies.jiten.lookupVocabularyInfoForCard(card).then((info) => {
 if (!usesJapaneseProviders()) return null;
 enrichCardFromJitenVocabularyInfo(card, info);
 return info;
 }).catch((error) => {
+onIncomplete();
 log$7.warn("Jiten vocabulary lookup failed", { term: card.spelling }, error);
 return null;
 });
@@ -26058,7 +26167,7 @@ return [];
 }
 loadJitenDecks(card) {
 const settings2 = this.settings();
-if (!settings2.jpdbMiningEnabled || !jitenCanTakeWord(card, settings2, this.dependencies.isJpdbBackedCard) || !hasJitenApiCredential(settings2)) return Promise.resolve(void 0);
+if (!settings2.jitenMiningEnabled || !jitenCanTakeWord(card, settings2, this.dependencies.isJpdbBackedCard) || !hasJitenApiCredential(settings2)) return Promise.resolve(void 0);
 return this.withFallback(card, CARD_RENDER_DECK_TIMEOUT_MS, "Jiten deck list", this.cachedJitenDecks(settings2).catch((error) => {
 log$7.warn("Jiten deck list failed", { term: card.spelling }, error);
 return void 0;
@@ -26275,7 +26384,7 @@ bunpro: liveFrequencyEnabled(settings2, "bunpro")
 },
 bunproDefinitions: settings2.bunproDefinitionsEnabled,
 includeBunproDefinition: options.includeBunproDefinition !== false,
-apiMining: settings2.jpdbMiningEnabled || settings2.bunproMiningEnabled,
+apiMining: settings2.jpdbMiningEnabled || settings2.jitenMiningEnabled || settings2.bunproMiningEnabled,
 hasApiKey: hasJpdbApiCredential(settings2),
 hasJitenApiKey: hasJitenApiCredential(settings2),
 hasBunproToken: hasBunproFrontendCredential(settings2) && !isBunproFrontendCredentialExpired(settings2),
@@ -26739,6 +26848,29 @@ if (result) return result;
 }
 return null;
 }
+function scopedDescendantSelectorText({ plain, scopes, inner }) {
+return [
+...scopes,
+...scopes.flatMap((scope) => inner.map((selector) => `${scope} ${selector}`)),
+...plain
+].join(",");
+}
+function queryScopedDescendants({ plain, scopes, inner }, doc = document) {
+const scopeList = scopes.join(",");
+const found = new Set(doc.querySelectorAll([...scopes, ...plain].join(",")));
+const innerList = inner.join(",");
+let outer = null;
+for (const scope of doc.querySelectorAll(scopeList)) {
+if (outer?.contains(scope)) continue;
+outer = scope;
+scope.querySelectorAll(innerList).forEach((element) => found.add(element));
+}
+return [...found].sort(documentOrder);
+}
+function documentOrder(a, b) {
+if (a === b) return 0;
+return a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING ? -1 : 1;
+}
 const READER_OWNED_SELECTOR$1 = "[data-jpdb-reader-root], [data-yomu-jpdb-addon]";
 const VOCAB_COLUMN_SELECTOR = "div.flex.flex-col.max-w-2xl";
 const HEADWORD_SELECTOR = [
@@ -27191,12 +27323,10 @@ const PASSIVE_INTERACTION_ROOTS = [
 '[class*="speaker" i]',
 '[class*="toggle" i]'
 ].join(",");
-const SCOPED_SAFE_UI_CHROME_ROOTS = [
-...SAFE_UI_CHROME_SCOPE_SELECTORS,
-...SAFE_UI_CHROME_SCOPE_SELECTORS.flatMap((scope) => [...SAFE_UI_CHROME_CONTROL_SELECTORS, ...SAFE_UI_CHROME_PEER_TEXT_SELECTORS].map((control) => `${scope} ${control}`))
-];
-const SAFE_UI_CHROME_ROOTS = [
-...SCOPED_SAFE_UI_CHROME_ROOTS,
+const SAFE_UI_CHROME_ROOT_QUERY = {
+scopes: SAFE_UI_CHROME_SCOPE_SELECTORS,
+inner: [...SAFE_UI_CHROME_CONTROL_SELECTORS, ...SAFE_UI_CHROME_PEER_TEXT_SELECTORS],
+plain: [
 "nav a[href]",
 '[role="navigation"] a[href]',
 '[class*="breadcrumb" i] a[href]',
@@ -27216,8 +27346,9 @@ const SAFE_UI_CHROME_ROOTS = [
 '[role="menuitemradio"]',
 "time",
 "[datetime]"
-].join(",");
-const PROFILE_SAFE_UI_CHROME_ROOTS = SAFE_UI_CHROME_ROOTS;
+]
+};
+const SAFE_UI_CHROME_ROOTS = scopedDescendantSelectorText(SAFE_UI_CHROME_ROOT_QUERY);
 const SAFE_UI_CHROME_ARIA_MENU_ROOTS = [
 '[role="menuitem"]',
 '[role="menuitemcheckbox"]',
@@ -28465,10 +28596,13 @@ if (genericProseCollectionFull(collection)) break;
 }
 }
 function safeUiChromeRoots() {
-return uniqueSpecificVisibleRoots(queryWithinAnnotationScope(SAFE_UI_CHROME_ROOTS).filter((root) => isUsefulSafeUiChromeRoot(root)));
+return uniqueSpecificVisibleRoots(safeUiChromeRootCandidates().filter((root) => isUsefulSafeUiChromeRoot(root)));
+}
+function safeUiChromeRootCandidates() {
+return annotationScopeActive() ? queryWithinAnnotationScope(SAFE_UI_CHROME_ROOTS) : queryScopedDescendants(SAFE_UI_CHROME_ROOT_QUERY);
 }
 function profileSafeUiChromeRoots(extraExclude = "") {
-const roots = queryWithinAnnotationScope(PROFILE_SAFE_UI_CHROME_ROOTS).filter((root) => isUsefulSafeUiChromeRoot(root));
+const roots = safeUiChromeRootCandidates().filter((root) => isUsefulSafeUiChromeRoot(root));
 if (!extraExclude) return uniqueSpecificVisibleRoots(roots);
 return uniqueSpecificVisibleRoots(roots.filter((root) => !root.closest(extraExclude)));
 }
@@ -29655,6 +29789,7 @@ function mountPuckViewport(button) {
 const root = document.createElement("div");
 root.className = "jpdb-reader-puck-viewport";
 root.dataset.jpdbReaderRoot = "true";
+root.dataset.jpdbReaderInteractionIgnore = "true";
 root.append(button);
 document.body.append(root);
 syncPuckViewport(root);
@@ -29954,11 +30089,44 @@ svg.append(shape);
 }
 return svg;
 }
-const ITEM_EXIT_MS = 180;
-const PI = Math.PI;
-const MIN_GAP = 62;
-const MAX_R = 320;
+const GAP = 62;
 const EDGE = 32;
+const MAX_RADIUS = 360;
+function radialMenuLayout(cx, cy, width, height, count) {
+const fanX = cx >= width / 2 ? "left" : "right";
+const fanY = cy >= height / 2 ? "up" : "down";
+const vertical = fanY === "up" ? -Math.PI / 2 : Math.PI / 2;
+let horizontal = fanX === "left" ? Math.PI : 0;
+while (horizontal - vertical > Math.PI) horizontal -= 2 * Math.PI;
+while (horizontal - vertical < -Math.PI) horizontal += 2 * Math.PI;
+const pad = count >= 7 ? 0.01 : count >= 5 ? 0.08 : 0.12;
+const step = Math.abs(horizontal - vertical) * (1 - 2 * pad) / Math.max(1, count - 1);
+let radius = Math.min(MAX_RADIUS, Math.max(116 + count * 11, GAP / (2 * Math.sin(step / 2))));
+const angles = Array.from({ length: count }, (_, index) => vertical + (horizontal - vertical) * (count > 1 ? pad + (1 - 2 * pad) * index / (count - 1) : 0.5));
+for (const angle of angles) {
+const cos = Math.cos(angle);
+const sin = Math.sin(angle);
+radius = Math.min(
+radius,
+cos > 0 ? (width - EDGE - cx) / cos : cos < 0 ? (cx - EDGE) / -cos : Infinity,
+sin > 0 ? (height - EDGE - cy) / sin : sin < 0 ? (cy - EDGE) / -sin : Infinity
+);
+}
+if (count <= 1 || 2 * radius * Math.sin(step / 2) >= GAP - 0.01) {
+return { fanX, fanY, points: angles.map((angle) => ({ x: cx + Math.cos(angle) * radius, y: cy + Math.sin(angle) * radius })) };
+}
+const columns = Math.min(3, count);
+const rows = Math.ceil(count / columns);
+const left = fanX === "left" ? EDGE : width - EDGE - (columns - 1) * GAP;
+const top = fanY === "up" ? EDGE : height - EDGE - (rows - 1) * GAP - 80;
+const points = angles.map((_, index) => ({ x: left + index % columns * GAP, y: top + Math.floor(index / columns) * GAP }));
+return { fanX, fanY, points, label: { x: width / 2, y: top + (rows - 1) * GAP + 38 } };
+}
+const ITEM_EXIT_MS = 180;
+function setRadialOpen(backdrop, open) {
+backdrop.classList.toggle("is-open", open);
+document.documentElement.classList.toggle("jpdb-reader-fab-radial-open", open);
+}
 class RadialMenuController {
 constructor(host) {
 this.host = host;
@@ -30010,7 +30178,7 @@ window.visualViewport?.addEventListener("scroll", this.close, { signal, passive:
 window.visualViewport?.addEventListener("resize", this.close, { signal, passive: true });
 this.state = "open";
 requestAnimationFrame(() => requestAnimationFrame(() => {
-if (this.state === "open") backdrop.classList.add("is-open");
+if (this.state === "open") setRadialOpen(backdrop, true);
 }));
 }
 close = () => {
@@ -30019,7 +30187,7 @@ this.state = "closing";
 this.host.getButton()?.classList.remove("jpdb-reader-fab--menu-open");
 this.listeners?.abort();
 this.listeners = void 0;
-this.backdrop?.classList.remove("is-open");
+if (this.backdrop) setRadialOpen(this.backdrop, false);
 this.backdrop?.classList.add("is-closing");
 this.closeTimer = window.setTimeout(() => this.teardownDom(), ITEM_EXIT_MS + 40);
 };
@@ -30031,6 +30199,7 @@ this.host.getButton()?.classList.remove("jpdb-reader-fab--menu-open");
 this.teardownDom();
 }
 teardownDom() {
+if (this.backdrop) setRadialOpen(this.backdrop, false);
 this.backdrop?.remove();
 this.backdrop = void 0;
 this.items.clear();
@@ -30041,49 +30210,27 @@ const rect = puckRect(button);
 const cx = rect.left + rect.width / 2;
 const cy = rect.top + rect.height / 2;
 const { width: vw, height: vh } = puckViewport();
-const vAngle = cy > vh / 2 ? -PI / 2 : PI / 2;
-let hAngle = cx > vw / 2 ? PI : 0;
-while (hAngle - vAngle > PI) hAngle -= 2 * PI;
-while (hAngle - vAngle < -PI) hAngle += 2 * PI;
-backdrop.dataset.fanX = cx > vw / 2 ? "left" : "right";
-backdrop.dataset.fanY = cy > vh / 2 ? "up" : "down";
-const count = actions.length;
-const pad = count >= 7 ? 0.01 : count >= 5 ? 0.08 : 0.12;
-const radius = this.radiusForLayout(cx, cy, vw, vh, vAngle, hAngle, count, pad);
+const layout = radialMenuLayout(cx, cy, vw, vh, actions.length);
+backdrop.dataset.fanX = layout.fanX;
+backdrop.dataset.fanY = layout.fanY;
+backdrop.dataset.layout = layout.label ? "rows" : "fan";
+backdrop.style.setProperty("--radial-label-width", `${vw - 24}px`);
 actions.forEach((action, index) => {
-const t = count > 1 ? pad + (1 - 2 * pad) * (index / (count - 1)) : 0.5;
-const angle = vAngle + (hAngle - vAngle) * t;
-const x = Math.cos(angle) * radius;
-const y = Math.sin(angle) * radius;
+const point = layout.points[index];
 const item = this.createItem(action, index);
 item.style.left = `${cx}px`;
 item.style.top = `${cy}px`;
-item.style.setProperty("--radial-x", `${x.toFixed(1)}px`);
-item.style.setProperty("--radial-y", `${y.toFixed(1)}px`);
+item.style.setProperty("--radial-x", `${(point.x - cx).toFixed(1)}px`);
+item.style.setProperty("--radial-y", `${(point.y - cy).toFixed(1)}px`);
+if (layout.label) {
+const halfSize = action.primary ? 26 : 23;
+item.style.setProperty("--radial-label-x", `${layout.label.x - point.x + halfSize}px`);
+item.style.setProperty("--radial-label-y", `${layout.label.y - point.y + halfSize}px`);
+}
 item.style.setProperty("--radial-i", String(index));
 backdrop.appendChild(item);
 this.items.set(action.id, item);
 });
-}
-radiusForLayout(cx, cy, vw, vh, vAngle, hAngle, count, pad) {
-const comfortRadius = 116 + count * 11;
-if (count <= 1) return Math.min(MAX_R, comfortRadius);
-const usableArc = Math.abs(hAngle - vAngle) * (1 - 2 * pad);
-const step = usableArc / (count - 1);
-const targetRadius = Math.max(comfortRadius, Math.min(MAX_R, MIN_GAP / (2 * Math.sin(step / 2))));
-let maxRadius = MAX_R;
-for (let index = 0; index < count; index += 1) {
-const t = count > 1 ? pad + (1 - 2 * pad) * (index / (count - 1)) : 0.5;
-const angle = vAngle + (hAngle - vAngle) * t;
-const cos = Math.cos(angle);
-const sin = Math.sin(angle);
-maxRadius = Math.min(
-maxRadius,
-cos > 0 ? (vw - EDGE - cx) / cos : cos < 0 ? (cx - EDGE) / -cos : Number.POSITIVE_INFINITY,
-sin > 0 ? (vh - EDGE - cy) / sin : sin < 0 ? (cy - EDGE) / -sin : Number.POSITIVE_INFINITY
-);
-}
-return Math.max(0, Math.min(maxRadius, targetRadius));
 }
 createItem(action, index) {
 const item = document.createElement("button");
@@ -30171,13 +30318,13 @@ function autoPlayAudioLabel(language, enabled) {
 return uiText(language, enabled ? "autoplayAudioOn" : "autoplayAudioOff");
 }
 const POWER_ACTION = Object.freeze({
-on: { label: "puckPowerOnFurigana", icon: "power", tone: "on" },
-"no-furigana": { label: "puckPowerOnNoFurigana", icon: "furigana-hidden", tone: "partial" },
+on: { label: "puckPowerOn", icon: "power", tone: "on" },
 paused: { label: "puckPowerOff", icon: "power", tone: "off" }
 });
 function floatingButtonRadialActions(settings2, actions, syncButtonState) {
 const items = [
 powerRadialAction(settings2, actions, syncButtonState),
+furiganaRadialAction(settings2, actions),
 audioRadialAction(settings2, actions),
 ocrRadialAction(settings2, actions)
 ];
@@ -30198,6 +30345,17 @@ tone: presentation.tone,
 primary: true,
 keepOpen: true,
 run: () => actions.cyclePowerState().finally(syncButtonState)
+};
+}
+function furiganaRadialAction(settings2, actions) {
+const enabled = effectiveFuriganaMode(settings2) !== "off";
+return {
+id: "furigana",
+label: uiText(settings2.interfaceLanguage, enabled ? "puckFuriganaOn" : "puckFuriganaOff"),
+icon: "furigana-hidden",
+tone: enabled ? "on" : "off",
+keepOpen: true,
+run: () => actions.toggleFurigana()
 };
 }
 function audioRadialAction(settings2, actions) {
@@ -30345,7 +30503,12 @@ return;
 }
 event.preventDefault();
 event.stopPropagation();
+if (this.actions?.powerState() === "paused") {
+void this.actions.cyclePowerState().finally(() => this.syncButtonState());
+} else {
+this.actions?.dismissLookup();
 this.radial?.toggle();
+}
 });
 this.viewportRoot = mountPuckViewport(button);
 clampRestoredButtonPosition(button, settings2);
@@ -30358,14 +30521,14 @@ const powerState = this.actions?.powerState() ?? "on";
 const language = this.settings?.interfaceLanguage ?? "en";
 button.classList.toggle("jpdb-reader-fab-raised", hostHasBottomActionDock());
 button.classList.toggle("jpdb-reader-fab--on", powerState === "on");
-button.classList.toggle("jpdb-reader-fab--no-furigana", powerState === "no-furigana");
 button.classList.toggle("jpdb-reader-fab--paused", powerState === "paused");
 const badge = button.querySelector(".jpdb-reader-fab-state");
 if (badge && badge.dataset.state !== powerState) {
 badge.dataset.state = powerState;
 badge.replaceChildren(menuIcon(POWER_ACTION[powerState].icon));
 }
-button.title = puckPowerStateLabel(language, powerState);
+button.setAttribute("aria-haspopup", powerState === "paused" ? "false" : "menu");
+button.title = powerState === "paused" ? uiText(language, "puckResume") : puckPowerStateLabel(language, powerState);
 button.setAttribute("aria-label", button.title);
 }
 pageActions() {
@@ -30536,7 +30699,7 @@ if (mode === "manual") return uiText(language, "puckOcrManual");
 return uiText(language, "puckOcrOff");
 }
 function shouldShowFloatingButton(settings2) {
-return settings2.showFloatingButton || isCoarsePointerDevice();
+return settings2.annotationsPaused || settings2.showFloatingButton || isCoarsePointerDevice();
 }
 function isCoarsePointerDevice() {
 try {
@@ -30687,7 +30850,7 @@ return Client ? new Client(options) : new DisabledJitenPublicVocabularyClient();
 };
 const JITEN_BACKGROUND_DETAIL_TIMEOUT_MS = 4e3;
 const parsedCardHydrationKey = (card) => yomuJitenCompanion()?.parsedCardHydrationKey?.(card) ?? `${card.vid}:${card.sid}`;
-const publicJitenBackoffRemainingMs = () => yomuJitenCompanion()?.publicJitenBackoffRemainingMs?.() ?? 0;
+const publicJitenBackoffRemainingMs = (priority2) => yomuJitenCompanion()?.publicJitenBackoffRemainingMs?.(priority2) ?? 0;
 const renderJitenKanjiInfo = (...args) => yomuKanjiStudyCompanion()?.renderJitenKanjiInfo?.(...args) ?? "";
 const renderJitenKanjiKeywordLine = (...args) => yomuKanjiStudyCompanion()?.renderJitenKanjiKeywordLine?.(...args) ?? "";
 const jitenKanjiOriginFactLabels = (...args) => yomuKanjiStudyCompanion()?.jitenKanjiOriginFactLabels?.(...args) ?? [];
@@ -30806,42 +30969,18 @@ function updateKanjiMiningControlsMount(popover, controls, setMiningControlsExpa
 yomuKanjiStudyCompanion()?.updateKanjiMiningControlsMount?.(popover, controls, setMiningControlsExpanded2);
 }
 const PUCK_FURIGANA_INTENT_KEYS = ["puckFuriganaModeBeforeHide", "showFurigana", "furiganaMode"];
-function annotationPowerState(settings2, hasFuriganaChannel) {
-if (settings2.annotationsPaused) return "paused";
-return hasFuriganaChannel && !furiganaEnabled(settings2) ? "no-furigana" : "on";
+function annotationPowerState(settings2) {
+return settings2.annotationsPaused ? "paused" : "on";
 }
-function planAnnotationPowerTransition(settings2, hasFuriganaChannel, defaultFuriganaMode) {
-const state = annotationPowerState(settings2, hasFuriganaChannel);
-if (!hasFuriganaChannel) return { kind: state === "paused" ? "resume" : "pause" };
-return JAPANESE_POWER_TRANSITIONS[state](settings2, defaultFuriganaMode);
+function toggleFuriganaSettings(settings2) {
+if (settings2.showFurigana && settings2.furiganaMode !== "off") {
+return { showFurigana: true, furiganaMode: "off", puckFuriganaModeBeforeHide: settings2.furiganaMode };
 }
-function applyAnnotationPowerTransition(transition, effects) {
-const actions = {
-"hide-furigana": () => effects.hideFurigana(
-transition.kind === "hide-furigana" ? transition.rememberedMode : ""
-),
-pause: () => effects.pause(),
-resume: () => effects.resume(transition.kind === "resume" ? transition.furiganaMode : void 0)
+return {
+showFurigana: true,
+furiganaMode: settings2.puckFuriganaModeBeforeHide || (settings2.furiganaMode !== "off" ? settings2.furiganaMode : "known-status"),
+puckFuriganaModeBeforeHide: ""
 };
-return actions[transition.kind]();
-}
-const JAPANESE_POWER_TRANSITIONS = Object.freeze({
-on: (settings2) => ({
-kind: "hide-furigana",
-rememberedMode: settings2.furiganaMode === "off" ? "" : settings2.furiganaMode
-}),
-"no-furigana": () => ({ kind: "pause" }),
-paused: (settings2, defaultMode) => ({
-kind: "resume",
-furiganaMode: restoredFuriganaMode(settings2, defaultMode)
-})
-});
-function furiganaEnabled(settings2) {
-return settings2.showFurigana && settings2.furiganaMode !== "off";
-}
-function restoredFuriganaMode(settings2, defaultMode) {
-if (settings2.puckFuriganaModeBeforeHide) return settings2.puckFuriganaModeBeforeHide;
-return settings2.furiganaMode === "off" ? defaultMode : settings2.furiganaMode;
 }
 function renderedWordLookupText(word) {
 return normalizedLookupText(word.dataset.expression || readerWordSurfaceText(word));
@@ -31243,6 +31382,10 @@ popover.tabIndex = -1;
 if (shouldUseSheet(settings2, trigger)) popover.classList.add("jpdb-reader-sheet");
 else popover.style.width = `${settings2.popoverWidth}px`;
 return popover;
+}
+function setReaderPopoverHtml(popover, html) {
+setInnerHtml(popover, html);
+popover.classList.toggle("jpdb-reader-sheet-has-body", Boolean(popover.querySelector(".jpdb-reader-popover-body")));
 }
 function forceReaderPopoverSurface(popover, settings2) {
 popover.dataset[FORCED_POPOVER_SURFACE_DATA_KEY] = "true";
@@ -33286,11 +33429,13 @@ register(`${APP_NAME} audio`, handlers.toggleAudio);
 register(`${APP_NAME} OCR`, handlers.cycleOcr);
 register(`${APP_NAME} language`, handlers.toggleSiteLanguage);
 register(`${APP_NAME} YouTube`, handlers.toggleYoutube);
+if (!isCoarsePointerDevice()) {
 register(`${APP_NAME} toggle puck`, () => {
 const settings2 = handlers.getSettings();
 settings2.showFloatingButton = !settings2.showFloatingButton;
 void handlers.saveSettings(settings2, ["showFloatingButton"]).then(() => handlers.installFloatingButton());
 });
+}
 register(`${APP_NAME} Factory Reset`, () => handlers.factoryReset());
 }
 function openReaderStudyPage(logInfo) {
@@ -33385,7 +33530,7 @@ closeDrawer	ドロワーを閉じる
 copiedWord	単語をコピーしました。
 jpdbKanjiUpdated	JPDB漢字を更新しました。
 jpdbKanjiUpdateFailedRuntime	JPDB漢字を更新できません。
-apiSrsActionsDisabled	設定でAPI採掘操作が無効です。
+apiSrsActionsDisabled	設定でこのサービスの「よむから採点」がオフです。
 addJpdbApiKeyReview	JPDBレビューにはAPIキーが必要です。
 addJitenApiKeyReview	JitenレビューにはAPIキーが必要です。
 addBunproApiKeyReview	Bunproレビューにはfrontend_api_tokenが必要です。
@@ -33443,7 +33588,6 @@ local	ローカル
 dict	辞書
 scanPage	ページをスキャン
 noUnscannedJapaneseText	未スキャンの日本語テキストはありません。
-contextOccurrences	文脈内 ×{count}
 puckAutoDetectSubtitles	字幕を自動検出
 loadTargetSubtitles	日本語字幕を読み込む
 loadOutputSubtitles	英語字幕を読み込む
@@ -33822,24 +33966,13 @@ video	動画
 youTube	YouTube
 anki	Anki
 jpdb	JPDB
-api	API
 apiCredential	APIキー
-apiCredentialJpdb	JPDB APIキー
-apiCredentialJiten	Jiten APIキー
-apiCredentialBunpro	BunproフロントエンドAPIトークン
-apiCredentialWanikani	WaniKaniパーソナルアクセストークン
-wanikaniTokenHelp	WaniKaniでread/write権限のパーソナルアクセストークンを作成し、ここに貼り付けてください。ブラウザ内にのみ保存され、プロキシを経由せずapi.wanikani.comへ直接送信され、ログに残ることはありません。
+wanikaniTokenHelp	read/write権限のパーソナルアクセストークン。送信先はapi.wanikani.comだけです。
 apiCredentialBunproLegacy	Bunpro APIキー
 apiKey	APIキー
 jitenApiKey	Jiten APIキー
-apiAccess	APIアクセス
 storedCredentialPlaceholder	保存済み — 変更する場合のみ入力
 clearStoredCredential	保存済みの認証情報を削除
-apiAccessHelp	各サービスの認証情報を設定します。Bunproに必要なのはフロントエンドトークンだけです。Bunpro設定から取り込み、パスワードと同様に扱ってください。保存時点では未確認です。Academyの復習はアカウントなしでも使えます。
-jpdbSettings	JPDB設定
-jitenSettings	Jiten設定
-bunproSettings	Bunpro設定
-wanikaniSettings	WaniKani設定
 jpdbApiKeyConfigured	JPDBキーあり。
 jpdbConnected	JPDBに接続しました。
 jpdbAndJitenConnected	JitenとJPDBに接続しました。
@@ -33848,11 +33981,8 @@ statusReady	準備完了
 statusAttention	設定が必要
 statusError	エラー
 disabledControlDescription	別設定で制御中。
-jpdbMiningEnabled	APIの復習・デッキ変更を許可
-bunproMiningEnabled	Bunproの復習・採掘を許可
-wanikaniReviewEnabled	WaniKaniの復習を許可(期限が来た課題のみ)
 wanikaniGradeMappingHelp	よむの採点結果はWaniKaniの正誤カウントに変換されます。Okay、Good、Easyは正解として送信します。Okay未満は意味を1回不正解として送信し、ラジカル以外では読みも1回不正解として送信します。
-yomuLocalSrsEnabled	Academyを有効化
+yomuLocalSrsEnabled	よむデッキを有効化
 addToForq	JPDB追加時にforqにもコピー
 enableReviews	復習ボタンを表示
 reviewRatingScale	復習評価の段階
@@ -33862,12 +33992,12 @@ gradeTargetJpdb	JPDBを採点
 gradeTargetJiten	Jitenを採点
 gradeTargetBunpro	Bunproを採点
 gradeTargetWanikani	WaniKaniを採点
-gradeTargetYomuLocal	Academyに記録
+gradeTargetYomuLocal	よむデッキに記録
 gradeTargetAnki	Ankiカードを採点: {target}
 gradeTargetJpdbAndAnki	JPDB + Ankiカードを採点: {target}
 gradeTargetJitenAndAnki	Jiten + Ankiカードを採点: {target}
 gradeTargetBunproAndAnki	Bunpro + Ankiカードを採点: {target}
-gradeTargetYomuLocalAndAnki	Academy + Ankiカードに記録: {target}
+gradeTargetYomuLocalAndAnki	よむデッキ + Ankiカードに記録: {target}
 missingAnkiCardId	AnkiカードIDがありません。
 jpdbPageEnhancements	辞書サイト拡張
 jpdbPageEnhancementsEnabled	JPDB・Jitenのページを拡張
@@ -33912,15 +34042,15 @@ newTabAnkiReviewDecks	Anki復習デッキ
 newTabAnkiReviewDecksHelp	不要なデッキを外します。
 newTabSource	学習の復習ソース
 newTabAuto	自動
-newTabApiSrs	API SRS（Jiten / JPDB）
+newTabApiSrs	Jiten / JPDB
 newTabBunpro	Bunpro
 newTabWanikani	WaniKani
-newTabYomuLocal	Academy
+newTabYomuLocal	よむデッキ
 dictionaryFallback	辞書フォールバック
-newTabJpdbReviewMode	API復習モード
+newTabJpdbReviewMode	JPDB復習モード
 newTabJpdbReviewAuto	自動
 newTabLiveReview	ライブJPDB復習セッション
-newTabApiVocabulary	API語彙のみ（デッキ順）
+newTabApiVocabulary	JPDB語彙のみ（デッキ順）
 corsProxyUrl	クロスオリジンプロキシURL
 newTabKanjiKeywordSource	漢字キーワードのソース
 newTabKanjiKeywordAuto	自動
@@ -33953,7 +34083,6 @@ pitchColorNakadaka	中高
 pitchColorOdaka	尾高
 pitchColorUnknown	不明
 pronunciation	発音
-noExactPitch	完全一致のピッチは利用不可
 colorChannels	色チャンネル
 wordHighlightColorSource	単語ハイライトの色
 wordUnderlineColorSource	単語下線の色
@@ -34006,7 +34135,7 @@ hideFuriganaFor	ふりがなを隠す対象
 hideColorFor	色を隠す対象
 furiganaDifficultKanji	難しい漢字のみ
 furiganaDifficultKanjiHelp	Yomuは初級漢字の固定リストを持ち、その外側の漢字にふりがなを表示します。ふりがなのない漢字は、そのリストに載っています。
-statusColorNoSourceHelp	学習状態の色はデッキから読み取ります。StudyでAcademyを有効にするか、JPDB・Jiten・Ankiのいずれかを追加すると、単語が学習状態の色になります。
+statusColorNoSourceHelp	学習状態の色はデッキから読み取ります。「復習」でよむデッキをオンにするか、JPDB・Jiten・Ankiのいずれかを追加すると、単語が学習状態の色になります。
 furiganaHideKnown	なじみのある語を非表示
 furiganaHoverOnly	ホバー時に表示
 furiganaAllParsed	解析済みの全単語
@@ -34146,7 +34275,7 @@ youtubeHelp	YouTubeを日本語向けに絞ります。
 youtubeToggleToastOn	YouTube没入フィルターをオンにしました。
 youtubeToggleToastOff	YouTube没入フィルターをオフにしました。
 ankiEnabled	Anki採掘を有効にする
-ankiMineWithJpdb	API経由で追加するときAnkiにも追加
+ankiMineWithJpdb	JPDBやJitenに追加するときAnkiにも追加
 ankiCaptureScreenshot	可能なら文脈画像を添付
 ankiConnectUrl	AnkiConnect URL
 ankiDeck	Ankiデッキ
@@ -34221,8 +34350,8 @@ ${Object.entries(LOCAL_DICTIONARY_STORAGE_COPY.jaSettings).map(([key, value]) =>
 localDictionaryMaxResults	辞書結果の上限
 cloudSettingsSync	Google Drive設定同期
 cloudSettingsSyncHelp	Yomuの設定をGoogle Driveのアプリデータに保存します。辞書は端末内に残ります。
-academyAccountSync	Academyアカウント同期
-academyAccountSyncHelp	ReaderのAcademy SRS進捗を、ログイン中のYomuアカウントと端末間で同期します。Webサイトでアカウントを作成または管理し、1回限りのペアリングコードを発行してください。
+academyAccountSync	アカウント同期
+academyAccountSyncHelp	よむデッキを、ログイン中のYomuアカウントと端末間で同期します。Webサイトでアカウントを作成または管理し、1回限りのペアリングコードを発行してください。
 academyAccountManage	アカウントとペアリングコードを管理
 academyPairingCode	1回限りのペアリングコード
 academyPairingCodePlaceholder	XXXX-XXXX-XXXX-XXXX-XXXX
@@ -34233,20 +34362,20 @@ academyRecoveryCodeCreating	1回限りのWebサイト復旧コードを作成中
 academyRecoveryCodeReady	Webサイト復旧コード: {code}。10分以内に「プロフィールと同期」で入力してください。
 academyRecoveryCodeDone	Webサイト復旧コードを作成しました。
 academyAccountDisconnect	接続解除
-academyAccountChecking	Academyアカウントの接続を確認中...
-academyAccountDisconnected	未接続です。アカウントに接続するまで、Academyの復習データはこの端末に保存されます。
+academyAccountChecking	アカウントの接続を確認中...
+academyAccountDisconnected	未接続です。アカウントに接続するまで、よむデッキはこの端末に保存されます。
 academyAccountConnected	{name}として接続中です。
-academyAccountConnectedNoName	Academyアカウントに接続中です。
+academyAccountConnectedNoName	アカウントに接続中です。
 academyAccountLastSynced	最終同期: {time}。
 academyAccountNeverSynced	まだ同期していません。
 academyAccountConnectionProblem	アカウント状態を更新できませんでした: {message}
-academyAccountConnecting	接続してAcademyの進捗を同期中...
-academyAccountSyncing	Academyの進捗を同期中...
+academyAccountConnecting	接続してよむデッキを同期中...
+academyAccountSyncing	よむデッキを同期中...
 academyAccountDisconnecting	このReaderの接続を解除中...
 academyPairingCodeRequired	Yomuアカウントで1回限りのペアリングコードを発行し、入力してください。
-academyAccountConnectedDone	Academyアカウントに接続し、進捗を同期しました。
-academyAccountSyncedDone	Academyの進捗を同期しました。
-academyAccountDisconnectedDone	このReaderの接続を解除しました。Academyの進捗は端末に残ります。
+academyAccountConnectedDone	アカウントに接続し、よむデッキを同期しました。
+academyAccountSyncedDone	よむデッキを同期しました。
+academyAccountDisconnectedDone	このReaderの接続を解除しました。よむデッキは端末に残ります。
 importSettings	設定JSONをインポート
 exportSettings	設定JSONをエクスポート
 importDictionaries	辞書をインポート
@@ -34254,10 +34383,10 @@ exportDictionaries	辞書をエクスポート
 lookupPills	検索ピル
 parserProvider	解析ソース
 parserProviderLocal	ローカル辞書（オフライン）
-parserProviderJiten	Jiten API
-parserProviderJpdb	JPDB API
+parserProviderJiten	Jiten
+parserProviderJpdb	JPDB
 parserProviderAuto	自動（Jiten/JPDB）
-parserProviderHelp	ローカルはインポート済み辞書でオフライン解析します。JitenとJPDBはキー設定時に必ずそのAPIを使います。自動は両方のキーがあれば優先採点サービスを使い、それ以外はJiten、次にJPDBを優先します。
+parserProviderHelp	ローカルはインポート済み辞書でオフライン解析します。JitenとJPDBはキー設定時に必ずそのサービスで解析します。自動は両方のキーがあれば優先採点サービスを使い、それ以外はJiten、次にJPDBを優先します。
 lookupPillsHelp	外部リンクと頻度バッジを同じ順序で表示します。ローカル頻度辞書は一致するJiten/JPDBライブバッジを置き換えます。トークン: {query}、{word}、{reading}。
 copiesCurrentWord	現在の単語をコピーします
 plaintextHttpLink	プレーンテキストHTTPで開きます。
@@ -34912,6 +35041,7 @@ toggleClassIfChanged(root, `yomu-furi-hide-${group}`, hideGroups.has(group));
 }
 toggleClassIfChanged(root, "jpdb-reader-hide-known", theme.furiganaMode === "known-status" && hideGroups.has("known"));
 toggleClassIfChanged(root, "yomu-furi-hover", theme.furiganaMode === "hover");
+toggleClassIfChanged(root, "yomu-furi-off", theme.furiganaMode === "off");
 toggleClassIfChanged(root, "yomu-word-color-new-only", settings2.wordColorStates === "new-only");
 const colorHideGroups = new Set(settings2.wordColorHiddenStateGroups);
 for (const group of WORD_COLOR_HIDE_STATE_GROUPS) {
@@ -35178,6 +35308,27 @@ return `
         </details>
     `;
 }
+const ANNOTATION_BOX_SELECTOR = ".jpdb-reader-word,.jpdb-reader-ruby-base,.jpdb-reader-run";
+const ANNOTATION_BOX_RESETS = {
+padding: "0",
+margin: "0",
+border: "0",
+float: "none",
+width: "auto",
+height: "auto",
+"min-width": "auto",
+"min-height": "auto",
+"max-width": "none",
+"max-height": "none",
+"background-image": "none",
+"box-shadow": "none",
+"text-indent": "0"
+};
+function isAnnotationBoxProperty(property) {
+return property in ANNOTATION_BOX_RESETS || /^(?:padding|margin|border)-/u.test(property);
+}
+const ANNOTATION_BOX_ARMOUR = `${ANNOTATION_BOX_SELECTOR}{${Object.entries(ANNOTATION_BOX_RESETS).map(([property, value]) => `${property}:${value}!important`).join(";")}}
+.jpdb-reader-run{display:inline!important;text-indent:inherit!important}`;
 const ARMOURED_PROPERTIES = new Set([
 "border-radius",
 "border-top-left-radius",
@@ -35230,7 +35381,7 @@ const CONDITIONAL_AT_RULE = /^@(?:media|supports|container|scope|document)\b/i;
 const YOMU_SELECTOR = /jpdb|yomu/i;
 const OWNED_SUBJECT_ATTRIBUTE = /^(?:data-jpdb|data-yomu|aria-|role$|type$|disabled$|open$|hidden$|checked$|selected$|href$|lang$|dir$|value$|placeholder$|contenteditable$|multiple$|readonly$|required$)/i;
 const FOREIGN_CONTENT_CONTAINER = /jpdb-reader-local-glossary/i;
-const ARMOURABLE_BLOCK = /border|background|box-shadow|color|content/i;
+const ARMOURABLE_BLOCK = /border|background|box-shadow|color|content|padding|margin|float|width|height|text-indent/i;
 const IMPORTANT_SUFFIX = /!\s*important\s*$/i;
 const MAX_INPUT_LENGTH = 4e6;
 let lastArmourInput = "";
@@ -35256,8 +35407,10 @@ return armour;
 }
 function withHostCssArmour(css) {
 const armour = hostCssArmour(css);
-return armour ? `${css}
-${armour}` : css;
+const boxes = css.includes(".jpdb-reader-word") ? `@layer ${ARMOUR_STRONG_LAYER},${ARMOUR_LAYER};@layer ${ARMOUR_LAYER}{${ANNOTATION_BOX_ARMOUR}}` : "";
+return `${css}${boxes ? `
+${boxes}` : ""}${armour ? `
+${armour}` : ""}`;
 }
 const PRELUDE_STOP = /[{};"'/]/gu;
 function collectArmourRules(css, strong, normal) {
@@ -35362,20 +35515,29 @@ return parts;
 function appendArmourRule(selector, block, conditions, strong, normal) {
 const strongDeclarations = [];
 const normalDeclarations = [];
+const strongBoxes = [];
+const normalBoxes = [];
 for (const declaration of splitDeclarations(block)) {
 const colon = declaration.indexOf(":");
 if (colon <= 0) continue;
 const property = declaration.slice(0, colon).trim().toLowerCase();
-if (property.startsWith("--") || !ARMOURED_PROPERTIES.has(property)) continue;
+const boxOnly = !ARMOURED_PROPERTIES.has(property) && isAnnotationBoxProperty(property);
+if (property.startsWith("--") || !ARMOURED_PROPERTIES.has(property) && !boxOnly) continue;
 if (property === "color" && HOST_DERIVED_COLOUR_SELECTOR.test(selector)) continue;
 const rawValue = declaration.slice(colon + 1).trim();
 const important = IMPORTANT_SUFFIX.test(rawValue);
 const value = important ? rawValue.replace(IMPORTANT_SUFFIX, "").trim() : rawValue;
 if (!value) continue;
-(important ? strongDeclarations : normalDeclarations).push(`${property}:${value}!important`);
+const declarations = boxOnly ? important ? strongBoxes : normalBoxes : important ? strongDeclarations : normalDeclarations;
+declarations.push(`${property}:${value}!important`);
 }
 if (strongDeclarations.length > 0) strong.push(wrapRule(selector, strongDeclarations, conditions));
 if (normalDeclarations.length > 0) normal.push(wrapRule(selector, normalDeclarations, conditions));
+if (strongBoxes.length === 0 && normalBoxes.length === 0) return;
+const boxes = splitTopLevel(selector, ",").filter((part) => /\.jpdb-reader-(?:word|ruby-base|run)(?![-\w])/u.test(part) && !part.includes("::")).map((part) => `${part}:where(${ANNOTATION_BOX_SELECTOR})`).join(",");
+if (!boxes) return;
+if (strongBoxes.length > 0) strong.push(wrapRule(boxes, strongBoxes, conditions));
+if (normalBoxes.length > 0) normal.push(wrapRule(boxes, normalBoxes, conditions));
 }
 function wrapRule(selector, declarations, conditions) {
 const rule = `${selector}{${declarations.join(";")}}`;
@@ -35458,8 +35620,8 @@ function collapseWhitespace(value) {
 return value.replace(/\/\*[\s\S]*?\*\//gu, " ").replace(/\s+/gu, " ").trim();
 }
 const READER_CSS_RESOURCE = "yomuCss";
-const READER_CSS_HOSTED_FALLBACK_URL = `https://yomureader.com/yomu.css?v=${"2.1.6"}`;
-const READER_CSS_RAW_FALLBACK_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"2.1.6"}`;
+const READER_CSS_HOSTED_FALLBACK_URL = `https://yomureader.com/yomu.css?v=${"2.2.0"}`;
+const READER_CSS_RAW_FALLBACK_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"2.2.0"}`;
 const READER_CSS_CACHE_KEY = "yomu:reader-css-cache:v3";
 const READER_CSS = resourceReaderCss();
 function criticalWordCss() {
@@ -35494,12 +35656,12 @@ ${criticalRubyCss()}
 function criticalRubyCss() {
 return [
 ".jpdb-reader-word.jpdb-reader-has-furi{line-height:2.15}",
-".jpdb-reader-word ruby{position:static!important;display:ruby!important;ruby-align:center!important;ruby-position:over!important;line-height:1;vertical-align:baseline!important}",
+".jpdb-reader-word ruby:where(.jpdb-reader-ruby){position:static!important;display:ruby!important;ruby-align:center!important;ruby-position:over!important;line-height:1;vertical-align:baseline!important}",
 ".jpdb-reader-ruby-base{display:inline}",
 ".jpdb-reader-word rp{display:none}",
-".jpdb-reader-word rt{position:static;display:ruby-text;ruby-align:center;line-height:1;text-align:center;white-space:nowrap;pointer-events:inherit;text-decoration:none!important}",
+".jpdb-reader-word :where(.jpdb-reader-ruby)>rt{position:static;display:ruby-text;ruby-align:center;line-height:1;text-align:center;white-space:nowrap;pointer-events:inherit;text-decoration:none!important}",
 ".jpdb-reader-word rt.jpdb-reader-furi{display:ruby-text!important;white-space:nowrap!important;overflow-wrap:normal!important;word-break:keep-all!important}",
-".jpdb-reader-furi{font-family:inherit;font-size:max(8px,.5em);font-style:inherit;font-weight:normal;font-feature-settings:normal;font-variant-east-asian:normal;letter-spacing:normal;line-height:1.08;color:var(--jpdb-reader-furi-color,inherit)!important;-webkit-text-fill-color:currentColor!important;user-select:none;-webkit-user-select:none}"
+".jpdb-reader-furi{font-family:inherit;font-size:max(8px,.5em);font-style:inherit;font-weight:normal;font-feature-settings:normal;font-variant-east-asian:normal;letter-spacing:normal;line-height:1.08;color:inherit!important;-webkit-text-fill-color:currentColor!important;user-select:none;-webkit-user-select:none}"
 ].join("\n");
 }
 function initialReaderCss(css = READER_CSS) {
@@ -35602,7 +35764,7 @@ try {
 const url = new URL(href);
 if (!isHostedYomuPage(url)) return null;
 const path = url.hostname === "hrussellzfac023.github.io" ? "/yomu-reader/yomu.css" : "/yomu.css";
-return `${new URL(path, url.origin).href}?v=${"2.1.6"}`;
+return `${new URL(path, url.origin).href}?v=${"2.2.0"}`;
 } catch {
 return null;
 }
@@ -35629,9 +35791,6 @@ renderGrammarSource() {
 return "";
 }
 installLoaders() {
-}
-detectGrammarHints() {
-return Promise.resolve([]);
 }
 }
 const CompanionBackedStudySourceController = class {
@@ -35749,6 +35908,14 @@ this.dependencies.scheduleAnnotationRefresh(changedRoots, geometryRoots);
 log$4.warnOnce("local-srs-hydration-failed", "Academy SRS late-card hydration failed", error);
 }
 }
+}
+function renderedTokenFuriganaRepair(token) {
+if (token.rubies.length) return null;
+const reading = token.card.reading.trim();
+if (!reading || reading === token.card.spelling.trim()) return null;
+const surface = (token.sentence?.slice(token.start, token.end) || token.card.spelling).trim();
+if (![...surface].some(isKanjiCharacter)) return null;
+return { card: token.card, pitchClass: token.pitchClass || getPitchClass(token.card.pitchAccent, reading) || "unknown" };
 }
 const RENDERED_WORD_INDEX_PRUNE_DELAY_MS = 3e4;
 class RenderedWordIndex {
@@ -36070,8 +36237,7 @@ const ASB_SCAN_DRAIN_DELAY_MS = 80;
 const MAX_CONSECUTIVE_CONTINUATION_SCANS = 6;
 const VISIBLE_SCAN_COLLECTION_FRAME_BUDGET_MS = 12;
 const VISIBLE_SCAN_APPLY_FRAME_BUDGET_MS = VISIBLE_SCAN_COLLECTION_FRAME_BUDGET_MS;
-const APPLY_SLICE_TO_YIELD_RATIO = 2;
-const MAX_PACED_APPLY_YIELD_MS = 120;
+const SLICE_MIN_READ_AHEAD = 2;
 const MAX_VISIBLE_SCAN_COLLECTION_YIELDS = 24;
 const FORCE_FURIGANA_MODE_ATTRIBUTE = "data-yomu-furigana-mode";
 const CLAMPED_ROW_READINGS_ATTRIBUTE = "data-yomu-clamped-readings";
@@ -36099,8 +36265,7 @@ lastSettleWidth = -1;
 lateAnnotationStateRoots = new Set();
 lateAnnotationGeometryRoots = new Set();
 lateAnnotationRefreshTimer;
-applyYieldCostMs = 0;
-applyFollowupCostMs = 0;
+applyLastSliceTargets = 0;
 makeRoomForRuby(root) {
 return (this.dependencies.makeRoomForRubyInCroppedRows ?? makeRoomForRubyInCroppedRows)(root);
 }
@@ -36325,8 +36490,7 @@ return true;
 }
 async runVisiblePageScan(silent, generation) {
 if (this.isStaleScan(generation)) return;
-this.applyYieldCostMs = 0;
-this.applyFollowupCostMs = 0;
+this.applyLastSliceTargets = 0;
 removeStaleControlTextMirrors(document);
 const settings2 = this.dependencies.getSettings();
 const targetCollectionLimit = !isNarrowVisibleScanViewport() ? VISIBLE_SCAN_TARGET_COLLECTION_LIMIT : isYouTubeVisibleScanHost() || hasJpdbParseApiKey(settings2) ? VISIBLE_SCAN_MOBILE_TARGET_COLLECTION_LIMIT : VISIBLE_SCAN_MOBILE_FALLBACK_TARGET_COLLECTION_LIMIT;
@@ -36472,7 +36636,7 @@ for (let index = 0; index < targets.length; ) {
 if (this.shouldStopApplyingTokens(pacing.generation)) return [...allChangedRoots];
 const end = Math.min(targets.length, index + applyBatchSize);
 index = this.applyTokenSlice(targets, parsed, index, end, pacing, allChangedRoots);
-if (index < targets.length) await this.waitForApplyTurn(pacing);
+if (index < targets.length) await waitForVisibleScanTurn();
 }
 const roots = compactConnectedRoots(allChangedRoots);
 this.reserveRubyRoomForNewRoots(roots);
@@ -36482,21 +36646,26 @@ applyTokenSlice(targets, parsed, start, end, pacing, changedRoots) {
 const mustStop = this.applySliceStop(start, pacing);
 const sliceRoots = new Set();
 let next = start;
-this.dependencies.pauseMutationObserver(() => withMirrorTokenApply(() => {
+const readAhead = targets.slice(start, this.sliceReadAheadEnd(start, end, pacing));
+this.dependencies.pauseMutationObserver(() => withSliceStyleFacts(readAhead, () => withMirrorTokenApply(() => {
 const painted = new PaintedWordRecorder();
 try {
 for (; next < end && !mustStop(next); next += 1) {
 this.paintScanTarget(targets[next], parsed[next], painted, sliceRoots);
 }
 } finally {
-this.finishApplySlice(painted, sliceRoots, pacing);
+this.finishApplySlice(painted, sliceRoots, pacing, next - start);
 }
-}));
+})));
 sliceRoots.forEach((root) => changedRoots.add(root));
 return next > start ? next : end;
 }
+sliceReadAheadEnd(start, end, pacing) {
+if (pacing.frameBudgetMs === void 0 || !this.applyLastSliceTargets) return end;
+return Math.min(end, start + Math.max(SLICE_MIN_READ_AHEAD, 2 * this.applyLastSliceTargets));
+}
 applySliceStop(start, pacing) {
-const budgetMs = pacing.frameBudgetMs === void 0 || this.applyYieldCostMs > MAX_PACED_APPLY_YIELD_MS ? Number.POSITIVE_INFINITY : Math.max(pacing.frameBudgetMs, APPLY_SLICE_TO_YIELD_RATIO * this.applyYieldCostMs - this.applyFollowupCostMs);
+const budgetMs = pacing.frameBudgetMs ?? Number.POSITIVE_INFINITY;
 const startedAt = Date.now();
 return (next) => next > start && Date.now() - startedAt >= budgetMs || this.shouldStopApplyingTokens(pacing.generation);
 }
@@ -36513,19 +36682,13 @@ if (!words.length) return;
 syncRubyEdgeOverhang(words);
 this.dependencies.notePaintedWords?.(words);
 }
-finishApplySlice(painted, roots, pacing) {
-const startedAt = Date.now();
+finishApplySlice(painted, roots, pacing, targetCount) {
 try {
 roots.forEach((root) => normalizeOcrScannerLinesInRoot(root, this.dependencies.getSettings()));
 } finally {
 this.notePaintedWords(painted.take());
-if (pacing.frameBudgetMs !== void 0) this.applyFollowupCostMs = Date.now() - startedAt;
+if (pacing.frameBudgetMs !== void 0) this.applyLastSliceTargets = targetCount;
 }
-}
-async waitForApplyTurn(pacing) {
-const yieldedAt = Date.now();
-await waitForVisibleScanTurn();
-if (pacing.frameBudgetMs !== void 0) this.applyYieldCostMs = Date.now() - yieldedAt;
 }
 reserveRubyRoomForNewRoots(roots) {
 for (const root of roots) {
@@ -36955,6 +37118,7 @@ return {
 publicLookup: options.publicLookup,
 publicLookupTermLimit: options.publicLookupTermLimit,
 jpdbPublicLookup: options.jpdbPublicLookup,
+publicPitch: options.publicPitch,
 urgent: options.urgent
 };
 }
@@ -37024,10 +37188,16 @@ const translated = prose.flatMap((label) => PROSE_CONJUGATION_RULES.filter(([pat
 const rules = [...codes, ...translated];
 return { rules: rules.join(" "), classUnknown: !rules.length && prose.some((label) => PROSE_VERB_RE.test(label)) };
 }
+function publicSearchCardForSurface(surface, cards) {
+const spelledAs = (term, card) => normalizedJitenLookupKey(card.spelling) === normalizedJitenLookupKey(term);
+return cards.find((card) => spelledAs(surface, card)) ?? cards.find((card) => inflectsTo(surface, card, spelledAs));
+}
 function cardCanAnalyzeSurface(surface, card) {
-if (jitenFallbackCardMatchesTerm(surface, card)) return true;
+return jitenFallbackCardMatchesTerm(surface, card) || inflectsTo(surface, card, jitenFallbackCardMatchesTerm);
+}
+function inflectsTo(surface, card, matches) {
 const { rules, classUnknown } = cardConjugationRules(card);
-return deinflectJapaneseTerm(surface).some((candidate) => candidate.depth > 0 && jitenFallbackCardMatchesTerm(candidate.term, card) && (classUnknown || termRulesMatch(rules, candidate.rules)));
+return deinflectJapaneseTerm(surface).some((candidate) => candidate.depth > 0 && matches(candidate.term, card) && (classUnknown || termRulesMatch(rules, candidate.rules)));
 }
 function uniqueFallbackLookupEntries(cards, termLimit) {
 const seen = new Set();
@@ -37040,8 +37210,7 @@ const surface = normalizedJitenLookupKey(card.spelling);
 const dictionaryTerms = fallbackLookupTermsForCard(card);
 const allTerms = [...new Set([surface, ...dictionaryTerms])].filter(Boolean);
 const terms = typeof termLimit === "number" ? allTerms.slice(0, Math.max(card.spelling.endsWith("ながら") ? 2 : 1, Math.floor(termLimit))) : allTerms;
-const spellingTerms = dictionaryTerms.slice(0, terms.length);
-if (terms.length) entries2.push({ key, surface, terms, spellingTerms });
+if (terms.length) entries2.push({ key, surface, terms });
 }
 return entries2;
 }
@@ -37111,14 +37280,11 @@ resolved ??= card;
 if (resolved) result.set(entry.key, resolved);
 }
 if (options.jpdbPublicLookup === false) return result;
-const unresolved = entries2.filter((entry) => !result.has(entry.key));
+const searchable = options.jpdbSearchSurface ?? (() => true);
+const unresolved = entries2.filter((entry) => !result.has(entry.key) && searchable(entry.surface));
 await runLimited(unresolved, options.concurrency, async (entry) => {
-for (const term of entry.spellingTerms) {
-const publicCard = await deps.publicSpellingCard(term);
-if (!publicCard || !cardCanAnalyzeSurface(entry.surface, publicCard)) continue;
-result.set(entry.key, publicCard);
-return;
-}
+const publicCard = await deps.publicSpellingCard(entry.surface);
+if (publicCard && cardCanAnalyzeSurface(entry.surface, publicCard)) result.set(entry.key, publicCard);
 });
 return result;
 }
@@ -37202,6 +37368,83 @@ return navigation !== "reset" && state.hasActivePopover;
 function lookupResultTokens(tokens = [], isJpdbBackedCard) {
 return tokens.filter((token) => isJpdbBackedCard(token.card) || token.card.source === "jiten" || token.card.source === "local" || token.card.source === "fallback");
 }
+const SURFACE_CHANNELS = {
+page: ["wordHighlightColorSource", "wordUnderlineColorSource", "wordTextColorSource"],
+subtitle: ["subtitleHighlightColorSource", "subtitleUnderlineColorSource", "subtitleTextColorSource"]
+};
+const PUBLIC_PITCH_AUXILIARIES = new Set(["する", "です", "ます", "だ", "である", "でした", "でしょう", "ました", "ません"]);
+function surfacePaintsPitch(settings2, surface) {
+return SURFACE_CHANNELS[surface].some((key) => settings2[key] === "pitch");
+}
+function backgroundEnrichmentOptions(options, settings2, surface, videoPage = false) {
+if (surfacePaintsPitch(settings2, surface)) return options;
+return surface === "subtitle" || videoPage ? { ...options, publicPitch: false, jpdbPublicLookup: false } : { ...options, publicPitch: false };
+}
+function allowsPublicPitch(options) {
+return options.publicPitch !== false;
+}
+function isPublicPitchCandidate(card) {
+if (card.source === "fallback" && card.fallbackLookupTerms?.length) return false;
+return !PUBLIC_PITCH_AUXILIARIES.has(card.spelling.trim());
+}
+function needsPublicIdentitySearch(surface) {
+return [...surface].some(isKanjiCharacter);
+}
+function isDeferredPublicLaneToken(token, settings2, surface) {
+if (surfacePaintsPitch(settings2, surface)) return true;
+if (token.card.source !== "fallback") return false;
+return needsPublicIdentitySearch(token.sentence?.slice(token.start, token.end) || token.card.spelling);
+}
+function deferredPublicLaneOptions(batchLength, settings2, surface) {
+const options = { publicLookupLimit: batchLength, publicLookup: true };
+return surfacePaintsPitch(settings2, surface) ? options : { ...options, publicPitch: false, jpdbPublicLookup: false };
+}
+const hasApiCredential = (settings2) => hasJpdbApiCredential(settings2) || hasJitenApiCredential(settings2);
+function hostBackgroundOptions({ settings: settings2, hostname, compactViewport }) {
+const options = backgroundPitchEnrichmentOptionsForHost(hostname, compactViewport);
+if (hasApiCredential(settings2)) return options;
+const pageBudget = Math.max(0, Math.floor(options.publicLookupPageBudget ?? PITCH_ENRICHMENT_LIMIT));
+const keylessVisibleLimit = pageBudget || PITCH_ENRICHMENT_LIMIT;
+return {
+...options,
+publicLookupLimit: Math.max(Math.floor(options.publicLookupLimit ?? 0), keylessVisibleLimit),
+publicLookupTotalLimit: Math.max(Math.floor(options.publicLookupTotalLimit ?? 0), keylessVisibleLimit)
+};
+}
+function backgroundPassOptions(context, surface = "page") {
+return backgroundEnrichmentOptions(hostBackgroundOptions(context), context.settings, surface, context.videoPage);
+}
+function nestedPassOptions(context) {
+return backgroundEnrichmentOptions(nestedPitchEnrichmentOptionsForHost(context.hostname), context.settings, "page", context.videoPage);
+}
+function subtitleBeforeRenderOptions(context) {
+const background = hostBackgroundOptions(context);
+const noApiCredential = !hasApiCredential(context.settings);
+const isolateKeylessVideoBudget = noApiCredential && context.videoPage;
+const urgentPublicLimit = noApiCredential ? PITCH_ENRICHMENT_LIMIT * 4 : 2;
+const backgroundPublicLimit = isolateKeylessVideoBudget ? urgentPublicLimit : background.publicLookupLimit;
+const backgroundPublicTotalLimit = isolateKeylessVideoBudget ? urgentPublicLimit : background.publicLookupTotalLimit;
+const publicLookupLimit = Math.min(urgentPublicLimit, Math.max(0, Math.floor(backgroundPublicLimit ?? urgentPublicLimit)));
+const publicLookupTotalLimit = Math.min(publicLookupLimit, Math.max(0, Math.floor(backgroundPublicTotalLimit ?? publicLookupLimit)));
+const publicLookupTermLimit = Math.max(3, Math.floor(background.publicLookupTermLimit ?? 3));
+return backgroundEnrichmentOptions({
+...background,
+urgent: true,
+...isolateKeylessVideoBudget ? { jpdbPublicLookup: true } : {},
+publicLookupLimit,
+publicLookupTotalLimit,
+publicLookupPageBudget: isolateKeylessVideoBudget ? void 0 : background.publicLookupPageBudget,
+publicLookupTermLimit,
+deferPublicLookup: false
+}, context.settings, "subtitle");
+}
+function ocrBeforeRenderOptions({ settings: settings2 }) {
+return {
+urgent: true,
+...hasJpdbApiCredential(settings2) ? {} : { jpdbPublicLookup: false },
+...hasApiCredential(settings2) ? {} : { publicLookup: false }
+};
+}
 class ReaderCardLookupSession {
 constructor(dependencies) {
 this.dependencies = dependencies;
@@ -37266,18 +37509,19 @@ lookupMany: (terms, lookupOptions) => scope.isCurrent() ? this.dependencies.jite
 terms,
 { ...lookupOptions, detailTimeoutMs: JITEN_BACKGROUND_DETAIL_TIMEOUT_MS }
 ) : Promise.resolve(new Map()),
-publicSpellingCard: (term) => scope.isCurrent() ? this.publicLookupSpellingCard(term) : Promise.resolve(void 0)
+publicSpellingCard: (surface) => scope.isCurrent() ? this.publicLookupSpellingCard(surface) : Promise.resolve(void 0)
 }, {
 concurrency: BACKGROUND_PITCH_ENRICHMENT_CONCURRENCY,
 termLimit: options.publicLookupTermLimit,
 jpdbPublicLookup: options.jpdbPublicLookup,
+jpdbSearchSurface: options.publicPitch === false ? needsPublicIdentitySearch : void 0,
 detailLimit: publicJitenDetailLimit
 });
 return scope.isCurrent() && usesJapaneseProviders() ? resolved : new Map();
 }
 async publicLookupHydratableJitenCards(cards, scope = this.captureTarget()) {
 if (!scope.isCurrent() || !usesJapaneseProviders() || !cards.length) return new Map();
-const resolved = await this.dependencies.jitenPublicVocabulary().hydrateCards(cards, { detailLimit: publicJitenDetailLimit(cards.length) }).catch((error) => {
+const resolved = await this.dependencies.jitenPublicVocabulary().hydrateCards(cards, { detailLimit: publicJitenDetailLimit(cards.length), priority: "reading" }).catch((error) => {
 this.dependencies.log.warn("Jiten parsed-card hydration failed", { cards: cards.length }, error);
 return new Map();
 });
@@ -37317,13 +37561,13 @@ if (scope.isCurrent()) this.dependencies.showTokenList(tokens, selected, anchor,
 textLookupParseOptions: () => this.textLookupParseOptions()
 };
 }
-async publicLookupSpellingCard(term) {
+async publicLookupSpellingCard(surface) {
 if (!canSearchPublicLookupCard(this.dependencies.getSettings(), {})) return void 0;
-const cards = await this.dependencies.jpdbVocabulary().search(term, PUBLIC_FALLBACK_SPELLING_SEARCH_LIMIT).then((result) => result.cards).catch((error) => {
-this.dependencies.log.warn("Public JPDB fallback search failed", { term }, error);
+const cards = await this.dependencies.jpdbVocabulary().search(surface, PUBLIC_FALLBACK_SPELLING_SEARCH_LIMIT).then((result) => result.cards).catch((error) => {
+this.dependencies.log.warn("Public JPDB fallback search failed", { surface }, error);
 return [];
 });
-return cards.find((card) => card.spelling === term);
+return publicSearchCardForSurface(surface, cards);
 }
 async publicLookupFallbackCard(card, options = {}, scope = this.captureTarget()) {
 return (await this.publicLookupFallbackCards([card], options, scope)).get(cardKey(card));
@@ -37367,6 +37611,30 @@ sentence,
 context.anchor,
 textLookupCardOptions(context)
 );
+}
+}
+class HoverPointerIntent {
+point;
+released = false;
+accepts(event) {
+const point = { x: event.clientX, y: event.clientY };
+const stationary = this.isStationary(point);
+if (!stationary) this.released = false;
+this.point = point;
+return !stationary || !this.released && event.type !== "pointerover" && event.type !== "mouseover";
+}
+isAt(point) {
+return !this.released && this.isStationary(point);
+}
+/** Scrolling releases ownership; boundary events must not acquire it again. */
+release() {
+this.released = true;
+}
+leave() {
+this.point = void 0;
+}
+isStationary(point) {
+return Boolean(point && this.point && Math.abs(this.point.x - point.x) < 0.01 && Math.abs(this.point.y - point.y) < 0.01);
 }
 }
 function currentFullscreenElement(sourceDocument = document) {
@@ -37801,6 +38069,7 @@ if (!token || !this.needsHydration(token)) {
 consumed += 1;
 continue;
 }
+if (word.closest(SUBTITLE_SURFACE_SELECTOR)) this.dependencies.markSubtitleTokens([token]);
 const queued = this.queueToken(token);
 if (queued === "url-budget") {
 this.stopVisibleRefill();
@@ -37914,7 +38183,7 @@ return "stop";
 return this.backoffReadiness();
 }
 backoffReadiness() {
-const backoffMs = publicJitenBackoffRemainingMs();
+const backoffMs = publicJitenBackoffRemainingMs("reading");
 if (backoffMs <= 0) return "ready";
 this.scheduleDrain(Math.min(backoffMs, DEFERRED_PUBLIC_PITCH_BACKOFF_WAIT_MS));
 return "stop";
@@ -37965,7 +38234,7 @@ return "applied";
 async applyResolvedBatch(works, resolved, options) {
 const cardsToCache = [];
 const resolvedPitchTokens = [];
-const retryAfterBackoff = publicJitenBackoffRemainingMs() > 0;
+const retryAfterBackoff = publicJitenBackoffRemainingMs("reading") > 0;
 for (const [key, queuedWork] of works) {
 const card = resolved.get(parsedCardHydrationKey(queuedWork.card));
 if (!card?.reading.trim()) {
@@ -38083,7 +38352,7 @@ for (const [key, group] of [...fallbackGroups, ...jitenGroups]) {
 const card = resolved.get(key);
 if (!card || card.source === "fallback") {
 dependencies.noteFallbackMiss(key, group.tokens);
-if (dependencies.showPitchAccent() && options.jpdbPublicLookup !== false) {
+if (dependencies.showPitchAccent() && mayQueuePublicPitch(options)) {
 queuedTokens.push(...group.tokens);
 } else {
 localOnlyTokens.push(...group.tokens);
@@ -38103,6 +38372,9 @@ if (!options.urgent && dependencies.hasUnresolvedFallback(key)) return;
 const group = groups.get(key) ?? { card: token.card, tokens: [] };
 group.tokens.push(token);
 groups.set(key, group);
+}
+function mayQueuePublicPitch(options) {
+return options.jpdbPublicLookup !== false && options.publicPitch !== false;
 }
 function fallbackResolutionCacheKey(token) {
 return token.card.source === "fallback" ? fallbackVocabularySpanCacheKey(token.card, token) : cardKey(token.card);
@@ -38129,7 +38401,7 @@ const fallback2 = token.card;
 const pitchClass = getPitchClass(card.pitchAccent, card.reading || card.spelling) || "unknown";
 if (fallback2.source === "fallback") dependencies.rememberResolvedFallback(token, fallback2, card);
 void dependencies.applyResolvedCard(token, fallback2, card, pitchClass);
-if (dependencies.shouldQueueResolvedPublicPitch(card, options.jpdbPublicLookup !== false)) {
+if (dependencies.shouldQueueResolvedPublicPitch(card, mayQueuePublicPitch(options))) {
 queuedTokens.push(token);
 }
 dependencies.queueSubtitleRefresh(token.sentence);
@@ -38355,7 +38627,8 @@ input.checked = blurred;
 void this.persistSettings(this.settings, { explicitUserChoiceKeys: ["immersionKitRevealTranslationOnClick"] });
 };
 jpdb = new CompanionBackedJpdbClient(() => effectiveJpdbApiKey(this.settings), () => this.settings.corsProxyUrl);
-jiten = new JitenApiClient(() => effectiveJitenApiKey(this.settings), { proxyUrl: () => this.settings.corsProxyUrl });
+jitenPublicVocabulary = new CompanionBackedJitenPublicVocabularyClient({ proxyUrl: () => this.settings.corsProxyUrl });
+jiten = new JitenApiClient(() => effectiveJitenApiKey(this.settings), { proxyUrl: () => this.settings.corsProxyUrl, anonymous: this.jitenPublicVocabulary });
 get kanjiCompanion() {
 return yomuKanjiStudyCompanion();
 }
@@ -38370,7 +38643,6 @@ this.jpdbKanjiInstance = value;
 }
 jpdbPublicPitch = new CompanionBackedJpdbPublicPitchClient(() => this.settings.corsProxyUrl);
 jpdbVocabulary = new CompanionBackedJpdbVocabularyClient(() => this.settings.corsProxyUrl);
-jitenPublicVocabulary = new CompanionBackedJitenPublicVocabularyClient({ proxyUrl: () => this.settings.corsProxyUrl });
 kanjiVGInstance = null;
 get kanjiVG() {
 const companion = this.kanjiCompanion;
@@ -38495,7 +38767,6 @@ playAudio: (card, options) => this.audioActions.playTermAudio(card, options),
 playMediaUrl: (audioUrl) => this.audioActions.playMediaUrl(audioUrl),
 playSentenceAudio: (sentence) => this.audioActions.playSentenceAudio(sentence),
 playJpdbExampleAudio: (audioIds, fallbackSentence) => this.audioActions.playJpdbExampleAudio(audioIds, fallbackSentence),
-detectGrammarHints: (sentence) => this.studySources.detectGrammarHints(sentence),
 parsePopoverJapanese: (popover) => this.parsePopoverJapanese(popover),
 toast: (message) => this.toast(message),
 invalidateCardData: () => this.cardRenderData.clear(),
@@ -38660,6 +38931,7 @@ activePopoverLockedPosition;
 activePopoverResizeObserver;
 nativeTitleGuard = new NativeTitleGuard();
 lastPointerPosition;
+hoverPointerIntent = new HoverPointerIntent();
 hoverWordOwnership = new HoverWordOwnership({
 wordFromPointStack: (x, y) => this.hoverReaderWordFromPointStack(x, y),
 ocrLineWordForPointer: (target, x, y) => this.ocrLineWordForPointer(target, x, y),
@@ -38760,6 +39032,7 @@ deferredPublicPitchQueue = [];
 deferredPublicPitchQueuedKeys = new Set();
 deferredPublicPitchEnqueuedForUrl = 0;
 deferredPublicPitchDrain;
+subtitleEnrichmentTokens = new WeakSet();
 deferredPublicJitenReadings = new DeferredPublicJitenReadingCoordinator({
 isDestroyed: () => this.isDestroyed,
 shouldEnrich: () => this.shouldRunCanonicalCardEnrichment(),
@@ -38776,7 +39049,8 @@ forgetUnresolvedFallback: (key) => this.unresolvedFallbackVocabularyCache.delete
 shouldPauseBackground: () => this.shouldPauseBackgroundPublicPitchLookup({}),
 waitForIdle: (timeoutMs) => this.waitForIdle(timeoutMs),
 renderedAnnotationRoots: () => this.renderedAnnotationRoots(),
-renderedWordToken: (word) => this.renderedWordTokenForRecolor(word)
+renderedWordToken: (word) => this.renderedWordTokenForRecolor(word),
+markSubtitleTokens: (tokens) => this.markSubtitleEnrichmentTokens(tokens)
 });
 backgroundPublicPitchLookupBudgetHref = location.href;
 backgroundPublicPitchLookupBudgetUsed = 0;
@@ -39202,9 +39476,14 @@ if (count > 0) refreshReaderWordContrast(document);
 scheduleLanguageChangeScan() {
 window.setTimeout(() => {
 if (this.isDestroyed) return;
-this.pageHasJapaneseText = documentHasJapaneseText(2e5, scanScopeRoots());
+this.updateDetectedJapaneseText(documentHasJapaneseText(2e5, scanScopeRoots()));
 if (this.shouldScanInitialPage()) this.scheduleVisiblePageReparse(0);
 }, 160);
+}
+updateDetectedJapaneseText(hasJapanese) {
+const firstDetection = hasJapanese && !this.pageHasJapaneseText;
+this.pageHasJapaneseText = hasJapanese;
+if (firstDetection) this.ocr.reassessAutoScan?.();
 }
 async invalidateRuntimeStoresForFactoryReset() {
 this.dismiss({ suppressHoverTarget: false });
@@ -39793,8 +40072,10 @@ this.settings,
 {
 openSettings: (event) => this.showSettings(void 0, event),
 openStudyPage: () => this.openStudyPage(),
+dismissLookup: () => this.dismiss({ suppressHoverTarget: true }),
 cyclePowerState: () => this.cyclePowerState(),
 powerState: () => this.puckPowerState(),
+toggleFurigana: () => this.toggleFurigana(),
 isPaused: () => this.settings.annotationsPaused,
 toggleOcrMode: () => void this.cycleOcrMode(),
 ocrMode: () => ocrInteractionModeFromSettings(this.settings),
@@ -39853,6 +40134,7 @@ this.clearAllAnnotations();
 } else this.scheduleVisiblePageRescan();
 this.subtitles.refresh();
 this.ocr.refreshForModeChange();
+if (!this.embeddedFrame) this.installFab();
 }
 scanPageNow() {
 if (this.settings.annotationsPaused) return;
@@ -39872,32 +40154,19 @@ await this.toggleAutoPlayAudio();
 this.toast(autoPlayAudioLabel(this.settings.interfaceLanguage, this.isAutoPlayAudioEnabled()));
 }
 puckPowerState() {
-return annotationPowerState(this.settings, usesJapaneseProviders());
+return annotationPowerState(this.settings);
 }
 async cyclePowerState() {
-await applyAnnotationPowerTransition(
-planAnnotationPowerTransition(this.settings, usesJapaneseProviders(), DEFAULT_SETTINGS.furiganaMode),
-{
-hideFurigana: async (rememberedMode) => {
-this.settings.puckFuriganaModeBeforeHide = rememberedMode;
-await this.applyFuriganaMode("off");
-},
-pause: () => this.setAnnotationsPaused(true),
-resume: async (furiganaMode) => {
-this.settings.puckFuriganaModeBeforeHide = "";
-if (furiganaMode) await this.applyFuriganaMode(furiganaMode);
-await this.setAnnotationsPaused(false);
+await this.setAnnotationsPaused(!this.settings.annotationsPaused);
 }
-}
-);
-}
-async applyFuriganaMode(mode) {
-this.settings.showFurigana = this.settings.showFurigana || mode !== "off";
-this.settings.furiganaMode = mode;
-await this.persistSettings(this.settings, {
-explicitUserChoiceKeys: PUCK_FURIGANA_INTENT_KEYS
-});
-this.clearAllAnnotations();
+async toggleFurigana() {
+Object.assign(this.settings, toggleFuriganaSettings(this.settings));
+await this.persistSettings(this.settings, { explicitUserChoiceKeys: PUCK_FURIGANA_INTENT_KEYS });
+this.applyTheme();
+this.subtitles.refresh();
+this.ocr.refresh();
+if (!this.embeddedFrame) this.installFab();
+this.clearAllAnnotations(true);
 this.scheduleVisiblePageRescan();
 }
 scheduleVisiblePageRescan() {
@@ -39915,17 +40184,19 @@ const opened = window.open(NEW_TAB_PAGE_URL, "_blank");
 if (opened) opened.opener = null;
 else location.href = NEW_TAB_PAGE_URL;
 }
-clearAllAnnotations() {
+clearAllAnnotations(pageOnly = false) {
 clearProjectedReadingsWithin(document);
 removeNonDestructiveScanMirrors(document);
 releaseRubyRoomGrowth(document);
 const changedParents = new Set();
-document.querySelectorAll(".jpdb-reader-word, .jpdb-reader-furigana, .jpdb-reader-ruby, .jpdb-reader-number-bind").forEach((el) => {
+document.querySelectorAll(".jpdb-reader-word, .jpdb-reader-furigana, .jpdb-reader-number-bind").forEach((el) => {
+if (pageOnly && el.closest("[data-jpdb-reader-root]")) return;
 const parent = el.parentNode;
 if (parent) changedParents.add(parent);
-if (el.classList.contains("jpdb-reader-word") || el.classList.contains("jpdb-reader-ruby") || el.classList.contains("jpdb-reader-number-bind")) {
-const text2 = document.createTextNode(el.classList.contains("jpdb-reader-word") ? readerWordSurfaceText(el) : el.textContent || "");
-el.replaceWith(text2);
+if (el.classList.contains("jpdb-reader-word")) {
+unwrapReaderWord(el);
+} else if (el.classList.contains("jpdb-reader-number-bind")) {
+el.replaceWith(document.createTextNode(el.textContent || ""));
 } else {
 el.remove();
 }
@@ -40041,7 +40312,7 @@ document.querySelectorAll("[data-jpdb-reader-root]").forEach((el) => el.remove()
 }
 setupAutoScan() {
 const abortSignal = this.abortController.signal;
-addViewportChangeListeners(() => this.scheduleActivePopoverViewportChange(), abortSignal);
+addViewportChangeListeners((event) => this.scheduleActivePopoverViewportChange(event), abortSignal);
 this.autoScanObserver?.disconnect();
 this.disposeShadowRootDiscovery?.();
 this.disposeShadowRootDiscovery = installOpenShadowRootDiscovery();
@@ -40085,7 +40356,7 @@ if (canScanText && renderRejectionDelay !== null) this.scheduleAutoScan(renderRe
 if (canScanText && scanMutations.some(mutationTouchesAsbPlayer)) this.scheduleAsbPlayerScan(120);
 else if (mutationsOnlyInsideReaderRoot) return;
 else if (mutationHasJapaneseText) {
-this.pageHasJapaneseText = true;
+this.updateDetectedJapaneseText(true);
 this.noteVisibleAutoScanWorkObserved();
 this.scheduleAutoScan(visibleAutoScanMutationDelay(), {
 force: true,
@@ -40121,12 +40392,15 @@ this.scheduleAutoScan(visibleAutoScanMutationDelay(), { force: true, debounce: t
 });
 this.observeAutoScanMutations();
 if (!this.pageHasJapaneseText) {
-this.pageHasJapaneseText = detectReaderStartupJapaneseText();
+this.updateDetectedJapaneseText(detectReaderStartupJapaneseText());
 }
 document.addEventListener("visibilitychange", () => this.handleAutoScanVisibilityChange(), { signal: abortSignal });
 window.addEventListener("scroll", (event) => {
 if (document.hidden) return;
 if (eventTargetsReaderRoot(event)) return;
+this.hoverPointerIntent.release();
+this.hoverPopoverPointerPosition = void 0;
+this.scheduleHoverClose(this.settings.hoverCloseDelayMs, { ignoreCssHover: true });
 this.scheduleAutoScan(visibleAutoScanMutationDelay(160), { force: true, debounce: true });
 }, { passive: true, capture: true, signal: abortSignal });
 window.addEventListener("resize", () => {
@@ -40907,6 +41181,10 @@ if (!hasJitenApiCredential(this.settings)) {
 this.toast(uiText(this.settings.interfaceLanguage, "massReviewNoKey"));
 return;
 }
+if (!this.settings.jitenMiningEnabled) {
+this.toast(uiText(this.settings.interfaceLanguage, "apiSrsActionsDisabled"));
+return;
+}
 const words = visibleJitenReviewableWords();
 if (!words.length) {
 this.toast(uiText(this.settings.interfaceLanguage, "massReviewNoWords"));
@@ -41242,19 +41520,14 @@ return this.settings.audioEnabled;
 canPreloadBackgroundReaderAudio() {
 return this.settings.audioEnabled && this.settings.autoPlayAudio && !isYouTubeRuntimeHost();
 }
-backgroundPitchEnrichmentOptions() {
-const options = backgroundPitchEnrichmentOptionsForHost(location.hostname, isCompactPitchEnrichmentViewport());
-if (hasJpdbApiCredential(this.settings) || hasJitenApiCredential(this.settings)) return options;
-const pageBudget = Math.max(0, Math.floor(options.publicLookupPageBudget ?? PITCH_ENRICHMENT_LIMIT));
-const keylessVisibleLimit = pageBudget || PITCH_ENRICHMENT_LIMIT;
-return {
-...options,
-publicLookupLimit: Math.max(Math.floor(options.publicLookupLimit ?? 0), keylessVisibleLimit),
-publicLookupTotalLimit: Math.max(Math.floor(options.publicLookupTotalLimit ?? 0), keylessVisibleLimit)
-};
+enrichmentContext() {
+return { settings: this.settings, hostname: location.hostname, compactViewport: isCompactPitchEnrichmentViewport(), videoPage: isYouTubeRuntimeHost() };
+}
+backgroundPitchEnrichmentOptions(surface = "page") {
+return backgroundPassOptions(this.enrichmentContext(), surface);
 }
 nestedPitchEnrichmentOptions() {
-return nestedPitchEnrichmentOptionsForHost();
+return nestedPassOptions(this.enrichmentContext());
 }
 preloadableReaderWordCard(word) {
 if (word.dataset.jpdbReaderPassive === "true") return null;
@@ -41366,7 +41639,7 @@ if (this.isDestroyed || !this.canUseHoverLookupPointer(event)) return;
 this.lastPointerPosition = { x: event.clientX, y: event.clientY };
 }
 handleHoverPointer(event) {
-if (this.shouldIgnoreHoverPointer(event)) return;
+if (this.shouldIgnoreHoverPointer(event) || !this.hoverPointerIntent.accepts(event)) return;
 this.lastPointerPosition = { x: event.clientX, y: event.clientY };
 this.keepPlainSubtitleHoverPause(event.target);
 const insideActivePopover = this.handleActivePopoverHover(event);
@@ -41616,6 +41889,7 @@ handleHoverPointerOut(event) {
 if (this.isDestroyed || this.hasStickyModalPopover() || !this.canUseHoverLookupPointer(event) || this.shouldSuppressPenHover(event)) return;
 this.lastPointerPosition = { x: event.clientX, y: event.clientY };
 const related = event.relatedTarget;
+if (!related) this.hoverPointerIntent.leave();
 if (this.handlePlainSubtitleHoverPointerOut(event.target, related)) return;
 if (this.handleActivePopoverPointerOut(event, related)) return;
 this.handleReaderWordPointerOut(event, related);
@@ -41794,9 +42068,10 @@ return;
 this.repositionActivePopover();
 });
 }
-scheduleActivePopoverViewportChange() {
+scheduleActivePopoverViewportChange(event) {
 const popover = this.repositionableActivePopover();
-if (!popover || overlayViewport().pageScale === 1 && !hasOverlayPageScale(popover)) return;
+if (!popover) return;
+if (event.type === "scroll" && overlayViewport().pageScale === 1 && !hasOverlayPageScale(popover)) return;
 this.popoverViewportChangePending = true;
 this.scheduleRepositionActivePopoverFrame();
 }
@@ -42011,7 +42286,7 @@ const target = this.currentHoverPointerTarget(options);
 return Boolean(target && this.isInsideActiveHoverContext(target));
 }
 hasDirectHoverContext() {
-return this.hasLatchedHoverPopoverPointer() || this.isHoverPopoverResizeStickyActive() || this.isMiddlePressHoverContextActive() || isActiveHoverPopoverPointerContext(this.activeHoverPopoverPointerState());
+return Boolean(this.activePopoverAnchor?.isConnected) && this.hoverPointerIntent.isAt(this.hoverPopoverPointerPosition) || this.hasLatchedHoverPopoverPointer() || this.isHoverPopoverResizeStickyActive() || this.isMiddlePressHoverContextActive() || isActiveHoverPopoverPointerContext(this.activeHoverPopoverPointerState());
 }
 activeHoverPopoverPointerState() {
 return {
@@ -42603,7 +42878,7 @@ const navigation = options.navigation ?? "reset";
 const previousNavigationEntry = trigger === "modal" ? options.previousNavigationEntry : void 0;
 this.prepareTokenListNavigation(trigger, navigation);
 const popover = this.createPopover(trigger);
-setInnerHtml(popover, this.renderTokenListHtml(tokens, selected, previousNavigationEntry));
+setReaderPopoverHtml(popover, this.renderTokenListHtml(tokens, selected, previousNavigationEntry));
 this.installTokenListHandlers(popover, tokens, anchor, { trigger, navigation, previousNavigationEntry, stackOverSettings: options.stackOverSettings });
 this.mountPopover(popover, anchor, {
 mode: trigger,
@@ -42827,7 +43102,7 @@ async mountInitialCardShell(popover, card, sentence, anchor, context) {
 if (!context.isCurrentHoverCard()) {
 return null;
 }
-setInnerHtml(popover, this.cardPopoverRenderer.render(
+setReaderPopoverHtml(popover, this.cardPopoverRenderer.render(
 card,
 sentence,
 context.trigger,
@@ -43082,7 +43357,7 @@ rerenderCardPopoverHtml(popover, card, sentence, html) {
 const preservedImmersion = this.preserveImmersionMountForRerender(popover);
 const scrollOffset = capturePopoverScrollOffset(popover);
 clearNestedParseState(popover);
-setInnerHtml(popover, html);
+setReaderPopoverHtml(popover, html);
 this.restorePreservedImmersionMount(popover, preservedImmersion);
 this.mountDeckSelects(popover, card, sentence);
 restorePopoverScrollOffsetSoon(scrollOffset);
@@ -43408,7 +43683,7 @@ rtkDetailPromise(kanji) {
 return this.settings.rtkEnabled && this.rtk ? this.rtk.lookup(kanji).catch(() => null) : Promise.resolve(null);
 }
 renderKanjiCardShell(popover, card, kanji, kanjiCharacters, jpdbUrl, language) {
-setInnerHtml(popover, `
+setReaderPopoverHtml(popover, `
             <div class="jpdb-reader-sheet-handle"></div>
             <div class="jpdb-reader-popover-body">
                 ${renderModalNavigation({
@@ -43916,7 +44191,8 @@ void this.enrichPitchWords(tokens, pitchOptions ?? this.nestedPitchEnrichmentOpt
 this.queueAnkiWordEnrichment(tokens, [root]);
 }
 afterSubtitleJapaneseParsed(tokens, roots = []) {
-void this.enrichPitchWords(tokens, this.backgroundPitchEnrichmentOptions());
+this.markSubtitleEnrichmentTokens(tokens);
+void this.enrichPitchWords(tokens, this.backgroundPitchEnrichmentOptions("subtitle"));
 const targetRoots = roots.length ? roots : this.subtitleAnkiEnrichmentRoots();
 this.queueResolvedWordEffects(tokens, targetRoots.length ? targetRoots : [document]);
 }
@@ -43946,37 +44222,20 @@ await this.enrichPitchWords(tokens, this.ocrBeforeRenderPitchEnrichmentOptions()
 }
 async enrichSubtitleTokensBeforeRender(tokens) {
 if (!tokens.length) return;
+this.markSubtitleEnrichmentTokens(tokens);
 await this.enrichPitchWords(tokens, this.subtitleBeforeRenderPitchEnrichmentOptions());
 }
+markSubtitleEnrichmentTokens(tokens) {
+tokens.forEach((token) => this.subtitleEnrichmentTokens.add(token));
+}
+enrichmentSurfaceOf(token) {
+return this.subtitleEnrichmentTokens.has(token) ? "subtitle" : "page";
+}
 ocrBeforeRenderPitchEnrichmentOptions() {
-const hasJpdbKey = hasJpdbApiCredential(this.settings);
-const hasAnyApiKey = hasJpdbKey || hasJitenApiCredential(this.settings);
-return {
-urgent: true,
-...hasJpdbKey ? {} : { jpdbPublicLookup: false },
-...hasAnyApiKey ? {} : { publicLookup: false }
-};
+return ocrBeforeRenderOptions(this.enrichmentContext());
 }
 subtitleBeforeRenderPitchEnrichmentOptions() {
-const background = this.backgroundPitchEnrichmentOptions();
-const noApiCredential = !hasJpdbApiCredential(this.settings) && !hasJitenApiCredential(this.settings);
-const isolateKeylessYouTubeSubtitleBudget = noApiCredential && isYouTubeRuntimeHost();
-const urgentPublicLimit = noApiCredential ? PITCH_ENRICHMENT_LIMIT * 4 : 2;
-const backgroundPublicLimit = isolateKeylessYouTubeSubtitleBudget ? urgentPublicLimit : background.publicLookupLimit;
-const backgroundPublicTotalLimit = isolateKeylessYouTubeSubtitleBudget ? urgentPublicLimit : background.publicLookupTotalLimit;
-const publicLookupLimit = Math.min(urgentPublicLimit, Math.max(0, Math.floor(backgroundPublicLimit ?? urgentPublicLimit)));
-const publicLookupTotalLimit = Math.min(publicLookupLimit, Math.max(0, Math.floor(backgroundPublicTotalLimit ?? publicLookupLimit)));
-const publicLookupTermLimit = Math.max(3, Math.floor(background.publicLookupTermLimit ?? 3));
-return {
-...background,
-urgent: true,
-...isolateKeylessYouTubeSubtitleBudget ? { jpdbPublicLookup: true } : {},
-publicLookupLimit,
-publicLookupTotalLimit,
-publicLookupPageBudget: isolateKeylessYouTubeSubtitleBudget ? void 0 : background.publicLookupPageBudget,
-publicLookupTermLimit,
-deferPublicLookup: false
-};
+return subtitleBeforeRenderOptions(this.enrichmentContext());
 }
 async resolveOcrFallbackTokens(tokens) {
 const fallbackTokens = tokens.filter((token) => token.card.source === "fallback");
@@ -44135,7 +44394,7 @@ const card = this.getCachedCard(identity.vid, identity.sid);
 if (!card) return null;
 const surface = readerWordSurfaceText(word);
 const { start, end } = renderedWordSpan(word, surface.length);
-return {
+const token = {
 card,
 start,
 end,
@@ -44144,12 +44403,14 @@ rubies: [],
 pitchClass: word.dataset.pitchClass ?? "",
 sentence: word.dataset.sentence
 };
+if (word.closest(SUBTITLE_SURFACE_SELECTOR)) this.subtitleEnrichmentTokens.add(token);
+return token;
 }
 async enrichPitchWords(tokens, options = {}) {
 if (this.isDestroyed || !this.shouldRunCanonicalCardEnrichment()) return;
 const enrichmentHref = location.href;
 const enrichmentScope = this.cardLookup.captureTarget();
-tokens.forEach((token) => this.reconcileRenderedTokenFurigana(token));
+this.reconcileRenderedTokenFurigana(tokens);
 this.deferredPublicJitenReadings.resetIfNeeded();
 const readingGeneration = this.deferredPublicJitenReadings.generation;
 await this.deferredPublicJitenReadings.hydrate(tokens, enrichmentScope, enrichmentHref, options.urgent === true);
@@ -44227,14 +44488,17 @@ return usesJapaneseProviders() && (this.settings.showPitchAccent || this.setting
 shouldRunCanonicalCardEnrichment() {
 return usesJapaneseProviders() && (this.shouldRunPitchOrReadingEnrichment() || shouldLookupAnkiStatus(this.settings) || shouldLookupBunproWordStates(this.settings) || this.settings.yomuLocalSrsEnabled || this.canPreloadBackgroundReaderAudio());
 }
-reconcileRenderedTokenFurigana(token) {
-if (!this.settings.showFurigana || this.settings.furiganaMode === "off" || token.rubies.length) return;
-const reading = token.card.reading.trim();
-if (!reading || reading === token.card.spelling.trim()) return;
-const surface = (token.sentence?.slice(token.start, token.end) || token.card.spelling).trim();
-if (![...surface].some(isKanjiCharacter)) return;
-const pitchClass = token.pitchClass || getPitchClass(token.card.pitchAccent, reading) || "unknown";
-this.applyPublicVocabularyToRenderedWords(token.card, token.card, pitchClass);
+reconcileRenderedTokenFurigana(tokens) {
+if (!this.settings.showFurigana || this.settings.furiganaMode === "off") return;
+const repairs = new Map();
+for (const token of tokens) {
+const repair = renderedTokenFuriganaRepair(token);
+if (!repair) continue;
+const key = renderedWordCardKey(token.card.vid, token.card.sid);
+repairs.delete(key);
+repairs.set(key, repair);
+}
+repairs.forEach(({ card, pitchClass }) => this.applyPublicVocabularyToRenderedWords(card, card, pitchClass));
 }
 resolvePublicFallbackPitchTokens(tokens, options = {}) {
 return resolvePublicFallbackPitchTokens(tokens, options, {
@@ -44256,8 +44520,9 @@ shouldQueueResolvedPublicPitch(card, publicLookup) {
 return this.settings.showPitchAccent && !cardHasContextPitch(card) && publicLookup;
 }
 scheduleDeferredPublicPitchEnrichment(tokens) {
-if (!tokens.length) return;
-this.queueDeferredPublicPitchTokens(tokens);
+const admitted = tokens.filter((token) => isDeferredPublicLaneToken(token, this.settings, this.enrichmentSurfaceOf(token)));
+if (!admitted.length) return;
+this.queueDeferredPublicPitchTokens(admitted);
 void this.drainDeferredPublicPitchQueue().catch((error) => {
 log.warn("Deferred pitch failed", error);
 });
@@ -44317,7 +44582,10 @@ continue;
 }
 const batch = this.deferredPublicPitchQueue.splice(0, DEFERRED_PUBLIC_PITCH_ENRICHMENT_CHUNK_SIZE);
 batch.forEach((token) => this.deferredPublicPitchQueuedKeys.delete(cardKey(token.card)));
-await this.enrichPitchWords(batch, { publicLookupLimit: batch.length, publicLookup: true });
+for (const surface of ["page", "subtitle"]) {
+const shown = batch.filter((token) => this.enrichmentSurfaceOf(token) === surface);
+if (shown.length) await this.enrichPitchWords(shown, deferredPublicLaneOptions(shown.length, this.settings, surface));
+}
 }
 }
 shouldPauseBackgroundPublicPitchLookup(options) {
@@ -44479,8 +44747,8 @@ return await this.resolveRenderedFallbackVocabulary(token, options) ?? fallback2
 async ensureCardPitchAccent(card, options) {
 if (!this.settings.showPitchAccent || !cardUsesPitchAccentPronunciation(card)) return;
 if (cardHasContextPitch(card) || hasResolvedPitchComponents(card)) return;
-const allowPublicLookup = options.publicLookup !== false && options.jpdbPublicLookup !== false;
-if (allowPublicLookup) {
+const allowPublicLookup = options.publicLookup !== false && options.jpdbPublicLookup !== false && allowsPublicPitch(options);
+if (allowPublicLookup && isPublicPitchCandidate(card)) {
 const pitchAccent = await this.jpdbPublicPitch.lookup(card.spelling, card.reading).catch(() => []);
 if (pitchAccent.length) {
 card.pitchAccent = mergePitchPatterns(pitchAccent, card.pitchAccent);
@@ -44512,7 +44780,7 @@ if (localPitch.length) {
 component.pitchAccent = mergePitchPatterns(localPitch, component.pitchAccent);
 return;
 }
-if (!allowPublicLookup) return;
+if (!allowPublicLookup || !isPublicPitchCandidate({ source: card.source, spelling: component.spelling })) return;
 component.pitchAccent = await this.jpdbPublicPitch.lookup(component.spelling, component.reading).catch(() => []);
 }));
 }
@@ -44634,7 +44902,7 @@ if (!publicCard) {
 this.noteFallbackVocabularyMiss(key, []);
 return void 0;
 }
-if (cardUsesPitchAccentPronunciation(publicCard) && !publicCard.pitchAccent.length && options.jpdbPublicLookup !== false) {
+if (cardUsesPitchAccentPronunciation(publicCard) && !publicCard.pitchAccent.length && options.jpdbPublicLookup !== false && allowsPublicPitch(options) && isPublicPitchCandidate(publicCard)) {
 const pitchAccent = await this.jpdbPublicPitch.lookup(publicCard.spelling, publicCard.reading).catch(() => []);
 if (!scope.isCurrent()) return void 0;
 publicCard.pitchAccent = pitchAccent;

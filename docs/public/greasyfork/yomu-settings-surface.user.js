@@ -1964,6 +1964,34 @@ function composedClosestElement(element, selector) {
 function isRedditReadableLabel(element) {
   return /(^|\.)reddit\.com$/i.test(location.hostname) && Boolean(composedClosestElement(element, 'button,[role="button"],summary,time,faceplate-timeago'));
 }
+const WHITESPACE$1 = /\s/u;
+function boundedCompactText(root, limit) {
+  let text2 = "";
+  let length = 0;
+  for (let node = root.firstChild; node; node = nextInSubtree(node, root)) {
+  if (node.nodeType !== Node.TEXT_NODE && node.nodeType !== Node.CDATA_SECTION_NODE) continue;
+  for (const char of node.data) {
+    if (WHITESPACE$1.test(char)) continue;
+    text2 += char;
+    length += 1;
+    if (length > limit) return text2;
+  }
+  }
+  return text2;
+}
+function compactTextLengthAtMost(root, limit) {
+  return Array.from(boundedCompactText(root, limit)).length;
+}
+function nextInSubtree(node, root) {
+  if (node.firstChild) return node.firstChild;
+  for (let current = node; current && current !== root; current = current.parentNode) {
+  if (current.nextSibling) return current.nextSibling;
+  }
+  return null;
+}
+function memoRead(fact, key, read) {
+  return read(key);
+}
 const ANNOTATION_SCOPE_SURFACE_ATTRIBUTE = "data-yomu-runtime-surface";
 const ANNOTATION_SCOPE_SURFACE_SELECTOR = `[${ANNOTATION_SCOPE_SURFACE_ATTRIBUTE}], .yomu-try-me-text`;
 const DECORATION_STATE_ATTRIBUTE = "data-yomu-decoration";
@@ -2064,6 +2092,9 @@ function constrainedRowStyleFacts(element) {
   return facts;
 }
 function closestRubyFragileConstrainedRow(element) {
+  return memoRead("fragile-row", element, readClosestRubyFragileConstrainedRow);
+}
+function readClosestRubyFragileConstrainedRow(element) {
   let current = element;
   for (let depth = 0; current && depth < 12; depth += 1) {
   const facts = constrainedRowStyleFacts(current);
@@ -2183,7 +2214,7 @@ function hasVisibleBorderSide(style, width) {
   return Boolean(style && style !== "none" && style !== "hidden" && cssPixels(width) > 0);
 }
 function hasShortControlLinkText(link, text2) {
-  return compactLength(text2) <= 16 && compactLength(link.textContent ?? "") <= 40;
+  return compactLength(text2) <= 16 && compactTextLengthAtMost(link, 40) <= 40;
 }
 function hasControlLinkWidth(rect) {
   return rect.width > 0 && rect.width < 360;
@@ -2200,6 +2231,9 @@ const COMPACT_PASSIVE_CHROME_SELECTOR = `time,[datetime],[aria-label*="author" i
 const PASSIVE_INTERACTION_BOUNDARY_SELECTOR = `${PASSIVE_INTERACTION_SELECTOR},${COMPACT_PASSIVE_INTERACTION_SELECTOR},${COMPACT_PASSIVE_CHROME_SELECTOR}`;
 const COMPACT_PASSIVE_INTERACTION_TEXT_LIMIT = 120;
 function isPassiveInteractionElement(element) {
+  return memoRead("passive-interaction", element, readIsPassiveInteractionElement);
+}
+function readIsPassiveInteractionElement(element) {
   if (element.closest(READER_ROOT_SELECTOR)) return false;
   if (element instanceof HTMLElement && isReadableProseContext(element) && !readableContextPassiveChromeElement(element)) return false;
   if (element.closest(PASSIVE_INTERACTION_SELECTOR)) return true;
@@ -2209,9 +2243,9 @@ function isPassiveInteractionElement(element) {
   return Boolean(compactChrome && isCompactPassiveChromeElement(compactChrome));
 }
 function isCompactPassiveInteractionElement(element) {
-  const text2 = element.textContent?.replace(/\s+/g, "").trim() ?? "";
-  if (!text2 || text2.length > COMPACT_PASSIVE_INTERACTION_TEXT_LIMIT) return false;
-  return element.childElementCount <= 4;
+  if (element.childElementCount > 4) return false;
+  const text2 = boundedCompactText(element, COMPACT_PASSIVE_INTERACTION_TEXT_LIMIT);
+  return Boolean(text2) && text2.length <= COMPACT_PASSIVE_INTERACTION_TEXT_LIMIT;
 }
 function isCompactPassiveChromeElement(element) {
   if (isLikelyProseElement(element)) return false;
@@ -2270,7 +2304,7 @@ function compactMetadataChromeElement(parent) {
   for (let depth = 0; current && depth < 4; depth += 1, current = current.parentElement) {
   const explicit = current.tagName === "TIME" || current.hasAttribute("datetime") || COMPACT_METADATA_CLASS_RE.test(`${current.id} ${elementClassName(current)}`);
   if (!explicit || isConversationTextClass(current)) continue;
-  const text2 = current.textContent?.replace(/\s+/g, "").trim() ?? "";
+  const text2 = compactInteractiveChromeText(current);
   if (!isCompactInteractiveChromeText(text2)) continue;
   const rect = current.getBoundingClientRect();
   if (rect.height === 0 || rect.height <= COMPACT_INTERACTIVE_CHROME_MAX_HEIGHT) return current;
@@ -2310,7 +2344,7 @@ function compactInteractiveChromeElement(parent) {
   return isCompactInteractiveChromeControl(chrome, parent) ? chrome : null;
 }
 function compactInteractiveChromeText(element) {
-  return element.textContent?.replace(/\s+/g, "").trim() ?? "";
+  return boundedCompactText(element, COMPACT_INTERACTIVE_CHROME_TEXT_LIMIT);
 }
 function compactPassiveChromeElement(parent) {
   if (isReadableProseContext(parent)) return null;
@@ -2371,7 +2405,7 @@ function hasCompactInteractiveChromeRubyRisk(element) {
 }
 function compactConstrainedNotificationElement(parent) {
   if (parent.closest(READER_ROOT_SELECTOR)) return null;
-  const textLength = compactLength(parent.textContent ?? "");
+  const textLength = compactTextLengthAtMost(parent, CONSTRAINED_NOTIFICATION_TEXT_LIMIT);
   if (textLength < 2 || textLength > CONSTRAINED_NOTIFICATION_TEXT_LIMIT) return null;
   let current = parent;
   for (let depth = 0; current && current !== document.body && current !== document.documentElement && depth < 6; depth++) {
@@ -2475,6 +2509,9 @@ const INTERACTIVE_LINK_CONTEXT_SELECTOR = roleSelectors("menu,menubar,toolbar,ta
 const CONTENT_CHIP_ROOT_SELECTOR = ".yomu-hosted-overflow-group";
 const NAMED_CONTENT_ROOT_SELECTOR = `${CONTENT_CHIP_ROOT_SELECTOR},.viewer-title-bar,.bookTitleText,#bookDescription`;
 function interactivePassiveControl(element) {
+  return memoRead("interactive-control", element, readInteractivePassiveControl);
+}
+function readInteractivePassiveControl(element) {
   const temporalMetadata = element.closest("time,[datetime]");
   if (temporalMetadata && isCompactTemporalMetadata(temporalMetadata)) return temporalMetadata;
   const control = element.closest(INTERACTIVE_CONTROL_SELECTOR);
@@ -2490,7 +2527,7 @@ function interactivePassiveControl(element) {
 const SIBLING_CONTROL_ANCESTOR_LIMIT = 3;
 function siblingOwnedInteractiveControl(element) {
   if (!(element instanceof HTMLElement)) return null;
-  const text2 = element.textContent?.replace(/\s+/g, "").trim() ?? "";
+  const text2 = compactInteractiveChromeText(element);
   const chromeContext = isCompactInteractiveChromeContext(element);
   if (!isCompactInteractiveChromeText(text2) || isReadableProseContext(element) && !chromeContext) return null;
   let current = element.parentElement;
@@ -2527,6 +2564,7 @@ function isLinkedCardMetadataElement(link, textElement) {
   ].every(Boolean);
 }
 function isCompactMetadataElement(element) {
+  if (compactTextLengthAtMost(element, COMPACT_LINKED_CARD_METADATA_TEXT_LIMIT) > COMPACT_LINKED_CARD_METADATA_TEXT_LIMIT) return false;
   const text2 = element.textContent?.replace(/\s+/g, " ").trim() ?? "";
   const height = element.getBoundingClientRect().height;
   return [
@@ -2540,7 +2578,7 @@ function isMediaTextContentControl(control) {
   if (control.closest(INTERACTIVE_LINK_CONTEXT_SELECTOR)) return false;
   const media = safeQuerySelector(control, "img,picture,video,canvas");
   if (!media || !(media instanceof HTMLElement)) return false;
-  return mediaElementIsThumbnailSized(media) && compactLength(control.textContent ?? "") > 2;
+  return mediaElementIsThumbnailSized(media) && compactTextLengthAtMost(control, 2) > 2;
 }
 const MEDIA_CONTENT_MIN_LONGEST_EDGE_PX = 32;
 function mediaElementIsThumbnailSized(media) {
@@ -2553,6 +2591,9 @@ function setReviewCardFrontPredicate(predicate) {
   reviewCardFrontPredicate = predicate;
 }
 function classifyDecoration(element) {
+  return memoRead("decoration", element, readDecoration);
+}
+function readDecoration(element) {
   if (element.closest(READER_ROOT_SELECTOR)) return "content-ruby";
   if (decorationMustBeSkipped(element)) return "skip";
   if (isYouTubeReadableLabel(element) || isRedditReadableLabel(element)) return "interactive-passive";
@@ -2757,7 +2798,7 @@ const SITE_INTERACTION_COPY = {
 const FURIGANA_HIDE_STATE_GROUPS = ["known", "due", "failed", "learning", "new"];
 const WORD_COLOR_HIDE_STATE_GROUPS = [...FURIGANA_HIDE_STATE_GROUPS, "ignored"];
 const APP_NAME = "よむ";
-const ACADEMY_SRS_LABEL = "Academy";
+const YOMU_DECK_LABEL = "よむ deck";
 const APP_SLUG = "yomu";
 const APP_REPOSITORY_NAME = `${APP_SLUG}-reader`;
 const SETTINGS_TITLE = `${APP_NAME} Settings`;
@@ -2781,7 +2822,7 @@ const NEW_TAB_VERSION_URL = `${NEW_TAB_PAGE_URL}version.json`;
 const VIDEO_PLAYER_PAGE_URL = `${DOCS_BASE_URL}video-player/`;
 const PDF_READER_PAGE_URL = `${DOCS_BASE_URL}pdf-reader/`;
 const SUPPORT_COPY = "よむ is free: popup lookup, dictionaries, OCR, subtitles, study and Anki in one place.";
-const SUPPORT_COPY_EXTRA = "Donations are optional and help cover development, devices, services, maintenance, and API costs.";
+const SUPPORT_COPY_EXTRA = "Donations are optional and help cover development, devices, services, and maintenance.";
 const NADESHIKO_URL = "https://nadeshiko.co/";
 const NADESHIKO_DEVELOPER_URL = `${NADESHIKO_URL}user/developer`;
 const USERSCRIPT_HTTP_BRIDGE_READY_EVENT = "yomu-userscript-http-bridge-ready";
@@ -5729,7 +5770,6 @@ const GRADING_SERVICE_COPY = {
   }
 };
 const EN = {
-  defaultDeck: "Default",
   collectNoDestination: "None of your decks can take this word. Turn one on in Settings.",
   collectWordNotFound: "Not saved: this word was not found in your preferred grading service.",
   // An ordinary page can read these, so they name no service, deck or Anki state (ADR-0020).
@@ -5745,15 +5785,14 @@ const EN = {
   bunproAddApiKeyRequired: "Add a Bunpro frontend API token, or use Add to Anki.",
   bunproNoMatchingWord: "Bunpro has no entry for this word.",
   addedToBunpro: "Added to Bunpro.",
-  yomuLocalSrsDisabled: `Enable ${ACADEMY_SRS_LABEL} in Settings first.`,
-  yomuLocalSrsStorageFailed: "Your Academy deck could not be saved. Browser storage may be full. Free some site storage, then try again.",
-  yomuLocalSrsSaveInterrupted: "Your Academy deck was not saved because saving was interrupted. Try again.",
-  addedToYomuLocal: "Added to your default deck.",
-  // An Academy word kept without a schedule (Library, Stats and the popups).
+  yomuLocalSrsDisabled: `Enable ${YOMU_DECK_LABEL} in Settings first.`,
+  yomuLocalSrsStorageFailed: `Your ${YOMU_DECK_LABEL} could not be saved. Browser storage may be full. Free some site storage, then try again.`,
+  yomuLocalSrsSaveInterrupted: `Your ${YOMU_DECK_LABEL} was not saved because saving was interrupted. Try again.`,
+  addedToYomuLocal: `Added to your ${YOMU_DECK_LABEL}.`,
+  // A よむ deck word kept without a schedule (Library, Stats and the popups).
   savedWord: "Saved"
 };
 const JA = {
-  defaultDeck: "デフォルト",
   collectNoDestination: "この単語を追加できるデッキがありません。設定でデッキを有効にしてください。",
   collectWordNotFound: "優先採点サービスでこの単語が見つからなかったため、保存していません。",
   collectAlreadySaved: "すでにデッキにあります。編集はStudyで行えます。",
@@ -5767,10 +5806,10 @@ const JA = {
   bunproAddApiKeyRequired: "Bunproのfrontend_api_tokenかAnki追加が必要です。",
   bunproNoMatchingWord: "この単語はBunproに見つかりませんでした。",
   addedToBunpro: "Bunproに追加しました。",
-  yomuLocalSrsDisabled: "先に設定でAcademyを有効にしてください。",
-  yomuLocalSrsStorageFailed: "Academyデッキを保存できませんでした。ブラウザーの保存容量が不足している可能性があります。サイトの保存容量を空けてから、もう一度お試しください。",
-  yomuLocalSrsSaveInterrupted: "保存が中断されたため、Academyデッキに保存されませんでした。もう一度お試しください。",
-  addedToYomuLocal: "デフォルトのデッキに追加しました。",
+  yomuLocalSrsDisabled: "先に設定でよむデッキを有効にしてください。",
+  yomuLocalSrsStorageFailed: "よむデッキを保存できませんでした。ブラウザーの保存容量が不足している可能性があります。サイトの保存容量を空けてから、もう一度お試しください。",
+  yomuLocalSrsSaveInterrupted: "保存が中断されたため、よむデッキに保存されませんでした。もう一度お試しください。",
+  addedToYomuLocal: "よむデッキに追加しました。",
   savedWord: "保存済み"
 };
 const COLLECTION_COPY = { en: EN, ja: JA };
@@ -5800,6 +5839,82 @@ const OCR_STATUS_COPY = {
   en: EN_OCR_STATUS_COPY,
   ja: JA_OCR_STATUS_COPY
 };
+const EN_APPEARANCE_QUICK_COPY = {
+  accentSwatchKurenai: "Kurenai (crimson)",
+  accentSwatchShu: "Shu (vermilion)",
+  accentSwatchAi: "Ai (indigo)",
+  accentSwatchMurasaki: "Murasaki (purple)",
+  accentSwatchYamabuki: "Yamabuki (amber)",
+  accentSwatchSumi: "Sumi (ink)",
+  accentSwatchCustom: "Custom color",
+  underlineQuick: "Underline",
+  underlineQuickStatus: "Status",
+  underlineQuickPitch: "Pitch"
+};
+const JA_APPEARANCE_QUICK_COPY = {
+  accentSwatchKurenai: "紅（くれない）",
+  accentSwatchShu: "朱（しゅ）",
+  accentSwatchAi: "藍（あい）",
+  accentSwatchMurasaki: "紫（むらさき）",
+  accentSwatchYamabuki: "山吹（やまぶき）",
+  accentSwatchSumi: "墨（すみ）",
+  accentSwatchCustom: "カスタムカラー",
+  underlineQuick: "下線",
+  underlineQuickStatus: "学習状態",
+  underlineQuickPitch: "ピッチ"
+};
+const APPEARANCE_QUICK_COPY = {
+  en: EN_APPEARANCE_QUICK_COPY,
+  ja: JA_APPEARANCE_QUICK_COPY
+};
+const EN_REVIEW_SERVICES_COPY = {
+  reviews: "Reviews",
+  yomuDeck: YOMU_DECK_LABEL,
+  gradeFromYomu: "Grade from よむ",
+  reviewServiceKey: "{service} key",
+  reviewServiceToken: "{service} token",
+  reviewServiceConnect: "Connect",
+  reviewServiceConnectTo: "Connect {service}",
+  reviewServiceOn: "On",
+  reviewServiceKeyAdded: "Key added",
+  reviewServiceTokenAdded: "Token added",
+  reviewServiceOff: "Not connected",
+  reviewServiceAvailable: "Ready to connect",
+  reviewServiceError: "Needs a new token",
+  reviewServiceBuiltIn: "Built in",
+  reviewServiceDisabled: "Off",
+  reviewServiceAddsGrades: "Grades",
+  reviewServiceAddsColors: "Word colors",
+  reviewServiceAddsDecks: "Decks",
+  reviewServiceAddsPitch: "Pitch accent",
+  bunproTokenHelp: "Import the frontend token from Bunpro settings and treat it like a password. It is saved before it is verified."
+};
+const JA_REVIEW_SERVICES_COPY = {
+  reviews: "復習",
+  yomuDeck: "よむデッキ",
+  gradeFromYomu: "よむから採点",
+  reviewServiceKey: "{service}のキー",
+  reviewServiceToken: "{service}のトークン",
+  reviewServiceConnect: "接続",
+  reviewServiceConnectTo: "{service}に接続",
+  reviewServiceOn: "オン",
+  reviewServiceKeyAdded: "キー登録済み",
+  reviewServiceTokenAdded: "トークン登録済み",
+  reviewServiceOff: "未接続",
+  reviewServiceAvailable: "接続できます",
+  reviewServiceError: "トークンの再取得が必要",
+  reviewServiceBuiltIn: "内蔵",
+  reviewServiceDisabled: "オフ",
+  reviewServiceAddsGrades: "採点",
+  reviewServiceAddsColors: "単語の色",
+  reviewServiceAddsDecks: "デッキ",
+  reviewServiceAddsPitch: "ピッチアクセント",
+  bunproTokenHelp: "Bunpro設定からフロントエンドトークンを取り込み、パスワードと同様に扱ってください。保存時点では未確認です。"
+};
+const REVIEW_SERVICES_COPY = {
+  en: EN_REVIEW_SERVICES_COPY,
+  ja: JA_REVIEW_SERVICES_COPY
+};
 const COPY = {
   en: {
   ...PRACTICE_SESSION_COPY.en,
@@ -5813,7 +5928,6 @@ const COPY = {
   libraryEmpty: "Save a word while you read and it shows up here.",
   moreLookupLinks: "More links",
   audioSourcesTitle: "Audio sources",
-  contextOccurrences: "In context ×{count}",
   puckAutoDetectSubtitles: "Auto-detect subtitles",
   loadTargetSubtitles: "Load Japanese subtitles",
   loadOutputSubtitles: "Load English subtitles",
@@ -5859,24 +5973,13 @@ const COPY = {
   youTube: "YouTube",
   anki: "Anki",
   jpdb: "JPDB",
-  api: "API",
   apiCredential: "API key",
-  apiCredentialJpdb: "JPDB API key",
-  apiCredentialJiten: "Jiten API key",
-  apiCredentialBunpro: "Bunpro frontend API token",
   apiCredentialBunproLegacy: "Bunpro API key",
-  apiCredentialWanikani: "WaniKani personal access token",
   apiKey: "API key",
   jitenApiKey: "Jiten API key",
-  apiAccess: "API access",
   storedCredentialPlaceholder: "Saved — enter a replacement",
   clearStoredCredential: "Remove saved credential",
-  apiAccessHelp: "Add each service credential here. Bunpro only needs the frontend token: import it from Bunpro settings, treat it like a password, and note that it is saved before it is verified. Academy reviews work locally without an account.",
-  wanikaniTokenHelp: "Create a read/write personal access token on WaniKani and paste it here. It is stored only in your browser, sent directly to api.wanikani.com (never through a proxy), and never logged.",
-  jpdbSettings: "JPDB settings",
-  jitenSettings: "Jiten settings",
-  bunproSettings: "Bunpro settings",
-  wanikaniSettings: "WaniKani settings",
+  wanikaniTokenHelp: "A read/write personal access token. It goes only to api.wanikani.com.",
   jpdbApiKeyConfigured: "JPDB key set.",
   jpdbAndJitenApiKeysConfigured: "Jiten and JPDB keys are set.",
   jpdbConnected: "Connected to JPDB.",
@@ -5886,11 +5989,8 @@ const COPY = {
   statusAttention: "Needs setup",
   statusError: "Error",
   disabledControlDescription: "Controlled by another setting.",
-  jpdbMiningEnabled: "Allow API review/deck changes",
-  bunproMiningEnabled: "Allow Bunpro review/mining",
-  wanikaniReviewEnabled: "Allow WaniKani review (due assignments only)",
   wanikaniGradeMappingHelp: "Yomu maps its grade to WaniKani’s pass/fail answer counts: Okay, Good, and Easy submit a clean pass. Anything below Okay submits one incorrect meaning answer and, unless the subject is a radical, one incorrect reading answer.",
-  yomuLocalSrsEnabled: `Enable ${ACADEMY_SRS_LABEL}`,
+  yomuLocalSrsEnabled: `Enable ${YOMU_DECK_LABEL}`,
   addToForq: "Also copy JPDB adds to forq",
   enableReviews: "Show review buttons",
   reviewRatingScale: "Review rating scale",
@@ -5900,12 +6000,12 @@ const COPY = {
   gradeTargetJiten: "Grades Jiten",
   gradeTargetBunpro: "Grades Bunpro",
   gradeTargetWanikani: "Grades WaniKani",
-  gradeTargetYomuLocal: `Grades ${ACADEMY_SRS_LABEL}`,
+  gradeTargetYomuLocal: `Grades ${YOMU_DECK_LABEL}`,
   gradeTargetAnki: "Grades Anki card: {target}",
   gradeTargetJpdbAndAnki: "Grades JPDB + Anki card: {target}",
   gradeTargetJitenAndAnki: "Grades Jiten + Anki card: {target}",
   gradeTargetBunproAndAnki: "Grades Bunpro + Anki card: {target}",
-  gradeTargetYomuLocalAndAnki: `Grades ${ACADEMY_SRS_LABEL} + Anki card: {target}`,
+  gradeTargetYomuLocalAndAnki: `Grades ${YOMU_DECK_LABEL} + Anki card: {target}`,
   missingAnkiCardId: "Missing Anki card id.",
   jpdbPageEnhancements: "Dictionary site enhancements",
   jpdbPageEnhancementsEnabled: "Enhance JPDB and Jiten pages",
@@ -5955,15 +6055,15 @@ const COPY = {
   newTabAnkiReviewDecksHelp: "Uncheck decks to skip.",
   newTabSource: "Study review source",
   newTabAuto: "Automatic",
-  newTabApiSrs: "API SRS (Jiten / JPDB)",
+  newTabApiSrs: "Jiten / JPDB",
   newTabBunpro: "Bunpro",
   newTabWanikani: "WaniKani",
-  newTabYomuLocal: ACADEMY_SRS_LABEL,
+  newTabYomuLocal: YOMU_DECK_LABEL,
   dictionaryFallback: "Dictionary fallback",
-  newTabJpdbReviewMode: "API review mode",
+  newTabJpdbReviewMode: "JPDB review mode",
   newTabJpdbReviewAuto: "Automatic",
   newTabLiveReview: "Live JPDB review session",
-  newTabApiVocabulary: "API vocabulary only",
+  newTabApiVocabulary: "JPDB vocabulary only",
   corsProxyUrl: "Cross-origin proxy URL",
   newTabKanjiKeywordSource: "Kanji keyword source",
   newTabKanjiKeywordAuto: "Automatic",
@@ -5996,7 +6096,6 @@ const COPY = {
   pitchColorOdaka: "Odaka (tail-high)",
   pitchColorUnknown: "Unknown",
   pronunciation: "Pronunciation",
-  noExactPitch: "Exact pitch unavailable",
   colorChannels: "Color channels",
   wordHighlightColorSource: "Word highlight color",
   wordUnderlineColorSource: "Word underline color",
@@ -6048,7 +6147,7 @@ const COPY = {
   hideColorFor: "Hide color for",
   furiganaDifficultKanji: "Hard kanji only",
   furiganaDifficultKanjiHelp: `${APP_NAME} keeps a fixed beginner kanji list and shows readings on everything outside it. A bare kanji means that character sits on the list.`,
-  statusColorNoSourceHelp: `Status colors read from a deck. Enable ${ACADEMY_SRS_LABEL} in Study, or add a JPDB, Jiten, or Anki source, and words take the color of their learning state.`,
+  statusColorNoSourceHelp: `Status colors read from a deck. Turn on the ${YOMU_DECK_LABEL} in Reviews, or add a JPDB, Jiten, or Anki source, and words take the color of their learning state.`,
   furiganaHideKnown: "Hide familiar words",
   furiganaHoverOnly: "Show on hover",
   furiganaAllParsed: "All parsed words",
@@ -6192,6 +6291,8 @@ const COPY = {
   ocrCloudHelp: "Paste a Google Cloud Vision API key.",
   ocrLocalHelp: "Run MangaOCR/Apple Vision locally and enter its URL.",
   ...SUBTITLE_SETTINGS_COPY.en,
+  subtitleFontSizeAutomatic: "Auto",
+  subtitleFontSizePixelsAuto: "Subtitle font size (px; 0 = auto)",
   right: "Right",
   left: "Left",
   bottom: "Below",
@@ -6207,7 +6308,7 @@ const COPY = {
   youtubeToggleToastOn: "YouTube immersion filter enabled.",
   youtubeToggleToastOff: "YouTube immersion filter disabled.",
   ankiEnabled: "Enable Anki mining",
-  ankiMineWithJpdb: "Also add to Anki when adding via API",
+  ankiMineWithJpdb: "Also add to Anki when adding to JPDB or Jiten",
   ankiCaptureScreenshot: "Attach context image when possible",
   ankiConnectUrl: "AnkiConnect URL",
   ankiDeck: "Anki deck",
@@ -6285,8 +6386,8 @@ const COPY = {
   localDictionaryMaxResults: "Dictionary result limit",
   cloudSettingsSync: "Google Drive settings sync",
   cloudSettingsSyncHelp: "Stores your Yomu settings and local SRS progress in Google Drive app data. Dictionaries stay local.",
-  academyAccountSync: "Academy account sync",
-  academyAccountSyncHelp: "Keep Academy SRS progress in sync across the Reader and your signed-in Yomu account. Create or manage your account on the website, then generate a one-time pairing code.",
+  academyAccountSync: "Account sync",
+  academyAccountSyncHelp: `Keep your ${YOMU_DECK_LABEL} in sync across the Reader and your signed-in Yomu account. Create or manage your account on the website, then generate a one-time pairing code.`,
   academyAccountManage: "Manage account & pairing code",
   academyPairingCode: "One-time pairing code",
   academyPairingCodePlaceholder: "XXXX-XXXX-XXXX-XXXX-XXXX",
@@ -6297,20 +6398,20 @@ const COPY = {
   academyRecoveryCodeReady: "Website recovery code: {code}. Enter it in Profile & sync within 10 minutes.",
   academyRecoveryCodeDone: "Website recovery code created.",
   academyAccountDisconnect: "Disconnect",
-  academyAccountChecking: "Checking Academy account connection...",
-  academyAccountDisconnected: "Not connected. Academy reviews stay on this device until you connect an account.",
+  academyAccountChecking: "Checking account connection...",
+  academyAccountDisconnected: `Not connected. Your ${YOMU_DECK_LABEL} stays on this device until you connect an account.`,
   academyAccountConnected: "Connected as {name}.",
-  academyAccountConnectedNoName: "Academy account connected.",
+  academyAccountConnectedNoName: "Account connected.",
   academyAccountLastSynced: "Last synced {time}.",
   academyAccountNeverSynced: "Not synced yet.",
   academyAccountConnectionProblem: "Could not refresh the account status: {message}",
-  academyAccountConnecting: "Connecting and syncing Academy progress...",
-  academyAccountSyncing: "Syncing Academy progress...",
+  academyAccountConnecting: `Connecting and syncing your ${YOMU_DECK_LABEL}...`,
+  academyAccountSyncing: `Syncing your ${YOMU_DECK_LABEL}...`,
   academyAccountDisconnecting: "Disconnecting this Reader...",
   academyPairingCodeRequired: "Enter the one-time pairing code from your Yomu account.",
-  academyAccountConnectedDone: "Academy account connected and progress synced.",
-  academyAccountSyncedDone: "Academy progress synced.",
-  academyAccountDisconnectedDone: "This Reader is disconnected. Local Academy progress is still available.",
+  academyAccountConnectedDone: `Account connected and ${YOMU_DECK_LABEL} synced.`,
+  academyAccountSyncedDone: `${YOMU_DECK_LABEL} synced.`,
+  academyAccountDisconnectedDone: `This Reader is disconnected. Your ${YOMU_DECK_LABEL} is still on this device.`,
   importSettings: "Import settings JSON",
   exportSettings: "Export settings JSON",
   importDictionaries: "Import dictionaries",
@@ -6319,10 +6420,10 @@ const COPY = {
   lookupPillsHelp: "External links and frequency badges in one order. Local frequency dictionaries replace matching live Jiten/JPDB badges. Tokens: {query}, {word}, {reading}.",
   parserProvider: "Parsing source",
   parserProviderLocal: "Local dictionaries (offline)",
-  parserProviderJiten: "Jiten API",
-  parserProviderJpdb: "JPDB API",
+  parserProviderJiten: "Jiten",
+  parserProviderJpdb: "JPDB",
   parserProviderAuto: "Automatic (Jiten/JPDB)",
-  parserProviderHelp: "Local parses with imported dictionaries, offline. Jiten and JPDB always use that API when its key is set. Automatic uses your preferred grading service when both keys are set, otherwise Jiten, then JPDB.",
+  parserProviderHelp: "Local parses with imported dictionaries, offline. Jiten and JPDB always parse with that service when its key is set. Automatic uses your preferred grading service when both keys are set, otherwise Jiten, then JPDB.",
   copiesCurrentWord: "Copies the current word",
   plaintextHttpLink: "Opens over plaintext HTTP.",
   lookupPillLabelNumber: "Lookup pill {number} label",
@@ -6546,6 +6647,7 @@ const COPY = {
   ankiMappingConfidenceLow: "unmapped",
   ankiMappingStaleField: "saved field missing",
   ...OCR_STATUS_COPY.en,
+  ocrTextRegion: "よむ image text {id}",
   gradeNothing: "Grade NOTHING",
   gradeSomething: "Grade SOMETHING",
   gradeHard: "Grade HARD",
@@ -6597,7 +6699,7 @@ const COPY = {
   ...GRADING_SERVICE_COPY.en,
   jpdbKanjiUpdated: "JPDB kanji updated.",
   jpdbKanjiUpdateFailedRuntime: "Could not update JPDB kanji. Check kanji reviews.",
-  apiSrsActionsDisabled: "API mining actions are disabled in settings.",
+  apiSrsActionsDisabled: "Grade from よむ is off for this service in Settings.",
   addJpdbApiKeyReview: "Add a JPDB API key to review JPDB cards.",
   addJitenApiKeyReview: "Add a Jiten API key to review Jiten cards.",
   addBunproApiKeyReview: "Add a Bunpro frontend API token to review Bunpro cards.",
@@ -6880,7 +6982,15 @@ const COPY = {
   openSectionToTranslate: "Open this section to translate.",
   translationUnavailable: "Translation unavailable.",
   translating: "Translating...",
-  ...GRAMMAR_UI_COPY.en
+  ...GRAMMAR_UI_COPY.en,
+  ...APPEARANCE_QUICK_COPY.en,
+  ...REVIEW_SERVICES_COPY.en,
+  furiganaOff: "Off",
+  puckPowerOn: `${APP_NAME} on`,
+  puckFuriganaOn: "Furigana on",
+  puckFuriganaOff: "Furigana off",
+  puckResume: `${APP_NAME} off · turn on`,
+  furiganaHideKnownReadings: "Hide readings for familiar words"
   }
 };
 const CARD_STATE_LABEL_KEYS = {
@@ -6960,7 +7070,7 @@ closeDrawer	ドロワーを閉じる
 copiedWord	単語をコピーしました。
 jpdbKanjiUpdated	JPDB漢字を更新しました。
 jpdbKanjiUpdateFailedRuntime	JPDB漢字を更新できません。
-apiSrsActionsDisabled	設定でAPI採掘操作が無効です。
+apiSrsActionsDisabled	設定でこのサービスの「よむから採点」がオフです。
 addJpdbApiKeyReview	JPDBレビューにはAPIキーが必要です。
 addJitenApiKeyReview	JitenレビューにはAPIキーが必要です。
 addBunproApiKeyReview	Bunproレビューにはfrontend_api_tokenが必要です。
@@ -7018,7 +7128,6 @@ local	ローカル
 dict	辞書
 scanPage	ページをスキャン
 noUnscannedJapaneseText	未スキャンの日本語テキストはありません。
-contextOccurrences	文脈内 ×{count}
 puckAutoDetectSubtitles	字幕を自動検出
 loadTargetSubtitles	日本語字幕を読み込む
 loadOutputSubtitles	英語字幕を読み込む
@@ -7367,6 +7476,7 @@ openSectionToTranslate	開くと翻訳します。
 translationUnavailable	翻訳を利用できません。
 translating	翻訳中...
 `),
+  ocrTextRegion: "よむの画像テキスト {id}",
   ...GRAMMAR_UI_COPY.ja,
   ...SETTINGS_RECOVERY_COPY.ja,
   ...PRACTICE_SESSION_COPY.ja,
@@ -7407,24 +7517,13 @@ video	動画
 youTube	YouTube
 anki	Anki
 jpdb	JPDB
-api	API
 apiCredential	APIキー
-apiCredentialJpdb	JPDB APIキー
-apiCredentialJiten	Jiten APIキー
-apiCredentialBunpro	BunproフロントエンドAPIトークン
-apiCredentialWanikani	WaniKaniパーソナルアクセストークン
-wanikaniTokenHelp	WaniKaniでread/write権限のパーソナルアクセストークンを作成し、ここに貼り付けてください。ブラウザ内にのみ保存され、プロキシを経由せずapi.wanikani.comへ直接送信され、ログに残ることはありません。
+wanikaniTokenHelp	read/write権限のパーソナルアクセストークン。送信先はapi.wanikani.comだけです。
 apiCredentialBunproLegacy	Bunpro APIキー
 apiKey	APIキー
 jitenApiKey	Jiten APIキー
-apiAccess	APIアクセス
 storedCredentialPlaceholder	保存済み — 変更する場合のみ入力
 clearStoredCredential	保存済みの認証情報を削除
-apiAccessHelp	各サービスの認証情報を設定します。Bunproに必要なのはフロントエンドトークンだけです。Bunpro設定から取り込み、パスワードと同様に扱ってください。保存時点では未確認です。Academyの復習はアカウントなしでも使えます。
-jpdbSettings	JPDB設定
-jitenSettings	Jiten設定
-bunproSettings	Bunpro設定
-wanikaniSettings	WaniKani設定
 jpdbApiKeyConfigured	JPDBキーあり。
 jpdbConnected	JPDBに接続しました。
 jpdbAndJitenConnected	JitenとJPDBに接続しました。
@@ -7433,11 +7532,8 @@ statusReady	準備完了
 statusAttention	設定が必要
 statusError	エラー
 disabledControlDescription	別設定で制御中。
-jpdbMiningEnabled	APIの復習・デッキ変更を許可
-bunproMiningEnabled	Bunproの復習・採掘を許可
-wanikaniReviewEnabled	WaniKaniの復習を許可(期限が来た課題のみ)
 wanikaniGradeMappingHelp	よむの採点結果はWaniKaniの正誤カウントに変換されます。Okay、Good、Easyは正解として送信します。Okay未満は意味を1回不正解として送信し、ラジカル以外では読みも1回不正解として送信します。
-yomuLocalSrsEnabled	Academyを有効化
+yomuLocalSrsEnabled	よむデッキを有効化
 addToForq	JPDB追加時にforqにもコピー
 enableReviews	復習ボタンを表示
 reviewRatingScale	復習評価の段階
@@ -7447,12 +7543,12 @@ gradeTargetJpdb	JPDBを採点
 gradeTargetJiten	Jitenを採点
 gradeTargetBunpro	Bunproを採点
 gradeTargetWanikani	WaniKaniを採点
-gradeTargetYomuLocal	Academyに記録
+gradeTargetYomuLocal	よむデッキに記録
 gradeTargetAnki	Ankiカードを採点: {target}
 gradeTargetJpdbAndAnki	JPDB + Ankiカードを採点: {target}
 gradeTargetJitenAndAnki	Jiten + Ankiカードを採点: {target}
 gradeTargetBunproAndAnki	Bunpro + Ankiカードを採点: {target}
-gradeTargetYomuLocalAndAnki	Academy + Ankiカードに記録: {target}
+gradeTargetYomuLocalAndAnki	よむデッキ + Ankiカードに記録: {target}
 missingAnkiCardId	AnkiカードIDがありません。
 jpdbPageEnhancements	辞書サイト拡張
 jpdbPageEnhancementsEnabled	JPDB・Jitenのページを拡張
@@ -7497,15 +7593,15 @@ newTabAnkiReviewDecks	Anki復習デッキ
 newTabAnkiReviewDecksHelp	不要なデッキを外します。
 newTabSource	学習の復習ソース
 newTabAuto	自動
-newTabApiSrs	API SRS（Jiten / JPDB）
+newTabApiSrs	Jiten / JPDB
 newTabBunpro	Bunpro
 newTabWanikani	WaniKani
-newTabYomuLocal	Academy
+newTabYomuLocal	よむデッキ
 dictionaryFallback	辞書フォールバック
-newTabJpdbReviewMode	API復習モード
+newTabJpdbReviewMode	JPDB復習モード
 newTabJpdbReviewAuto	自動
 newTabLiveReview	ライブJPDB復習セッション
-newTabApiVocabulary	API語彙のみ（デッキ順）
+newTabApiVocabulary	JPDB語彙のみ（デッキ順）
 corsProxyUrl	クロスオリジンプロキシURL
 newTabKanjiKeywordSource	漢字キーワードのソース
 newTabKanjiKeywordAuto	自動
@@ -7538,7 +7634,6 @@ pitchColorNakadaka	中高
 pitchColorOdaka	尾高
 pitchColorUnknown	不明
 pronunciation	発音
-noExactPitch	完全一致のピッチは利用不可
 colorChannels	色チャンネル
 wordHighlightColorSource	単語ハイライトの色
 wordUnderlineColorSource	単語下線の色
@@ -7591,7 +7686,7 @@ hideFuriganaFor	ふりがなを隠す対象
 hideColorFor	色を隠す対象
 furiganaDifficultKanji	難しい漢字のみ
 furiganaDifficultKanjiHelp	Yomuは初級漢字の固定リストを持ち、その外側の漢字にふりがなを表示します。ふりがなのない漢字は、そのリストに載っています。
-statusColorNoSourceHelp	学習状態の色はデッキから読み取ります。StudyでAcademyを有効にするか、JPDB・Jiten・Ankiのいずれかを追加すると、単語が学習状態の色になります。
+statusColorNoSourceHelp	学習状態の色はデッキから読み取ります。「復習」でよむデッキをオンにするか、JPDB・Jiten・Ankiのいずれかを追加すると、単語が学習状態の色になります。
 furiganaHideKnown	なじみのある語を非表示
 furiganaHoverOnly	ホバー時に表示
 furiganaAllParsed	解析済みの全単語
@@ -7731,7 +7826,7 @@ youtubeHelp	YouTubeを日本語向けに絞ります。
 youtubeToggleToastOn	YouTube没入フィルターをオンにしました。
 youtubeToggleToastOff	YouTube没入フィルターをオフにしました。
 ankiEnabled	Anki採掘を有効にする
-ankiMineWithJpdb	API経由で追加するときAnkiにも追加
+ankiMineWithJpdb	JPDBやJitenに追加するときAnkiにも追加
 ankiCaptureScreenshot	可能なら文脈画像を添付
 ankiConnectUrl	AnkiConnect URL
 ankiDeck	Ankiデッキ
@@ -7806,8 +7901,8 @@ ${Object.entries(LOCAL_DICTIONARY_STORAGE_COPY.jaSettings).map(([key, value]) =>
 localDictionaryMaxResults	辞書結果の上限
 cloudSettingsSync	Google Drive設定同期
 cloudSettingsSyncHelp	Yomuの設定をGoogle Driveのアプリデータに保存します。辞書は端末内に残ります。
-academyAccountSync	Academyアカウント同期
-academyAccountSyncHelp	ReaderのAcademy SRS進捗を、ログイン中のYomuアカウントと端末間で同期します。Webサイトでアカウントを作成または管理し、1回限りのペアリングコードを発行してください。
+academyAccountSync	アカウント同期
+academyAccountSyncHelp	よむデッキを、ログイン中のYomuアカウントと端末間で同期します。Webサイトでアカウントを作成または管理し、1回限りのペアリングコードを発行してください。
 academyAccountManage	アカウントとペアリングコードを管理
 academyPairingCode	1回限りのペアリングコード
 academyPairingCodePlaceholder	XXXX-XXXX-XXXX-XXXX-XXXX
@@ -7818,20 +7913,20 @@ academyRecoveryCodeCreating	1回限りのWebサイト復旧コードを作成中
 academyRecoveryCodeReady	Webサイト復旧コード: {code}。10分以内に「プロフィールと同期」で入力してください。
 academyRecoveryCodeDone	Webサイト復旧コードを作成しました。
 academyAccountDisconnect	接続解除
-academyAccountChecking	Academyアカウントの接続を確認中...
-academyAccountDisconnected	未接続です。アカウントに接続するまで、Academyの復習データはこの端末に保存されます。
+academyAccountChecking	アカウントの接続を確認中...
+academyAccountDisconnected	未接続です。アカウントに接続するまで、よむデッキはこの端末に保存されます。
 academyAccountConnected	{name}として接続中です。
-academyAccountConnectedNoName	Academyアカウントに接続中です。
+academyAccountConnectedNoName	アカウントに接続中です。
 academyAccountLastSynced	最終同期: {time}。
 academyAccountNeverSynced	まだ同期していません。
 academyAccountConnectionProblem	アカウント状態を更新できませんでした: {message}
-academyAccountConnecting	接続してAcademyの進捗を同期中...
-academyAccountSyncing	Academyの進捗を同期中...
+academyAccountConnecting	接続してよむデッキを同期中...
+academyAccountSyncing	よむデッキを同期中...
 academyAccountDisconnecting	このReaderの接続を解除中...
 academyPairingCodeRequired	Yomuアカウントで1回限りのペアリングコードを発行し、入力してください。
-academyAccountConnectedDone	Academyアカウントに接続し、進捗を同期しました。
-academyAccountSyncedDone	Academyの進捗を同期しました。
-academyAccountDisconnectedDone	このReaderの接続を解除しました。Academyの進捗は端末に残ります。
+academyAccountConnectedDone	アカウントに接続し、よむデッキを同期しました。
+academyAccountSyncedDone	よむデッキを同期しました。
+academyAccountDisconnectedDone	このReaderの接続を解除しました。よむデッキは端末に残ります。
 importSettings	設定JSONをインポート
 exportSettings	設定JSONをエクスポート
 importDictionaries	辞書をインポート
@@ -7839,10 +7934,10 @@ exportDictionaries	辞書をエクスポート
 lookupPills	検索ピル
 parserProvider	解析ソース
 parserProviderLocal	ローカル辞書（オフライン）
-parserProviderJiten	Jiten API
-parserProviderJpdb	JPDB API
+parserProviderJiten	Jiten
+parserProviderJpdb	JPDB
 parserProviderAuto	自動（Jiten/JPDB）
-parserProviderHelp	ローカルはインポート済み辞書でオフライン解析します。JitenとJPDBはキー設定時に必ずそのAPIを使います。自動は両方のキーがあれば優先採点サービスを使い、それ以外はJiten、次にJPDBを優先します。
+parserProviderHelp	ローカルはインポート済み辞書でオフライン解析します。JitenとJPDBはキー設定時に必ずそのサービスで解析します。自動は両方のキーがあれば優先採点サービスを使い、それ以外はJiten、次にJPDBを優先します。
 lookupPillsHelp	外部リンクと頻度バッジを同じ順序で表示します。ローカル頻度辞書は一致するJiten/JPDBライブバッジを置き換えます。トークン: {query}、{word}、{reading}。
 copiesCurrentWord	現在の単語をコピーします
 plaintextHttpLink	プレーンテキストHTTPで開きます。
@@ -8011,7 +8106,17 @@ recommendedKanjiumPitch	ピッチアクセント専用です。定義には語�
 recommendedBccwj	BCCWJ由来の頻度バッジです。
 recommendedJiten	Jiten由来の頻度バッジです。
 `),
-  ...SUBTITLE_SETTINGS_COPY.ja
+  ...SUBTITLE_SETTINGS_COPY.ja,
+  subtitleFontSizeAutomatic: "自動",
+  subtitleFontSizePixelsAuto: "字幕フォントサイズ（px、0 = 自動）",
+  ...APPEARANCE_QUICK_COPY.ja,
+  ...REVIEW_SERVICES_COPY.ja,
+  furiganaOff: "オフ",
+  puckPowerOn: `${APP_NAME} オン`,
+  puckFuriganaOn: "ふりがなオン",
+  puckFuriganaOff: "ふりがなオフ",
+  puckResume: `${APP_NAME} オフ・オンにする`,
+  furiganaHideKnownReadings: "なじみのある語の読みを非表示"
 };
 function resolveUiLanguage(language2) {
   if (language2 === "ja" || language2 === "en") return language2;
@@ -8103,6 +8208,7 @@ const SCALE_EPSILON = 0.05;
 const MAX_PAGE_SCALE = 3;
 const SAFARI_PAGE_ZOOM_STEPS = [1.15, 1.25, 1.5, 1.75, 2, 2.5, 3];
 const ZOOM_STEP_TOLERANCE = 0.025;
+const MIN_PAGE_ZOOM_SIGNAL = SAFARI_PAGE_ZOOM_STEPS[0] * (1 - ZOOM_STEP_TOLERANCE);
 const MIN_AXIS_AGREEMENT = 0.97;
 const MAX_AXIS_AGREEMENT = 1.4;
 const APPLE_TOUCH_ADAPTER = "apple-touch-page-scale";
@@ -8112,7 +8218,7 @@ function overlayPageScale(environment) {
   if (!positiveFinite(environment.innerWidth)) return 1;
   if (positiveFinite(environment.outerWidth)) {
   const surfaceScale = environment.outerWidth / environment.innerWidth;
-  if (Number.isFinite(surfaceScale) && surfaceScale > 1 + SCALE_EPSILON) {
+  if (Number.isFinite(surfaceScale) && surfaceScale >= MIN_PAGE_ZOOM_SIGNAL) {
     return Math.min(surfaceScale, MAX_PAGE_SCALE);
   }
   }
@@ -8642,6 +8748,7 @@ const MANAGED_STATE_MANIFEST = [
   { owner: "jpdb/jpdb-public-cache", kind: "local", key: "yomu:jpdb-cache:v1" },
   { owner: "dictionaries/jiten-public-cache (legacy)", kind: "gm", key: "yomu:jiten-public-cache:v1" },
   { owner: "dictionaries/jiten-public-cache", kind: "local", key: "yomu:jiten-public-cache:v2" },
+  { owner: "dictionaries/jiten-reading-memory", kind: "local", key: "yomu:jiten-readings:v1" },
   { owner: "dictionaries/jiten-stats-cache", kind: "gm", key: "jpdb-reader-jiten-daily-stats" },
   // Dictionary database (Yomitan/Jitendex terms). Cleared by the dictionary
   // store's own deleteDatabase during reset; registered so the invariant test
@@ -8660,9 +8767,12 @@ const MANAGED_STATE_MANIFEST = [
   { owner: "dictionaries/replication (legacy)", kind: "local", key: "yomu-dictionary-replication-state" },
   { owner: "dictionaries/replica-purge", kind: "gm", key: "yomu:dictionary-replica-purge:v1" },
   { owner: "dictionaries/replica-purge", kind: "local", key: "yomu:dictionary-replica-purged:v1" },
-  // OCR result cache.
-  { owner: "ocr/ocr-cache-store", kind: "local", key: "yomu-ocr-cache-v1" },
-  { owner: "ocr/ocr-cache-store", kind: "local", key: "yomu-ocr-cache-v2" },
+  // OCR answers with text, one private shard per site under a hash of its
+  // origin. 2.1.x kept them in the page's own storage (v1, v2); the first
+  // load moves them across and deletes the page keys.
+  { owner: "ocr/ocr-cache-store", kind: "gm", prefix: "yomu:private:ocr-cache:v3:" },
+  { owner: "ocr/ocr-cache-store (legacy)", kind: "local", key: "yomu-ocr-cache-v1" },
+  { owner: "ocr/ocr-cache-store (legacy)", kind: "local", key: "yomu-ocr-cache-v2" },
   { owner: "ocr/canvas-mirror", kind: "session", key: "yomu:bw:mirror-loadguard" },
   // The one-time reader-canvas tap hint appears once per site. Each site's record
   // is private and keyed by a hash of its origin, so no page can read it.
@@ -9672,7 +9782,8 @@ function isHostedAppearanceEntry([key, value]) {
 function isRecord$3(value) {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
-const PROVENANCE_KEY = "yomu:local-storage-provenance:v1";
+const LOCAL_MIRROR_PROVENANCE_KEY = "yomu:local-storage-provenance:v1";
+const PROVENANCE_KEY = LOCAL_MIRROR_PROVENANCE_KEY;
 const JAPANESE_SITE_LANGUAGE_KEY = "yomu:prefer-japanese-site-language:v1";
 function captureLocalFallbackStoredState(key) {
   try {
@@ -10922,11 +11033,17 @@ function subscribeToStoredValueChanges(key, onChange) {
     enqueueManagedChange(newValue, { remote, transport: "gm-storage" });
   }, "GM stored value listener failed");
   }
-  addWebStorageCleanup(cleanups, key, (event) => {
+  let deliveredLocalMirror;
+  const deliverLocalMirror = () => {
   const epoch = managedStateEpochForSynchronousLocalRead();
   if (!epoch || !localMirrorBelongsToEpoch(key, epoch)) return;
-  onChange(JSON.parse(event.newValue || "null"), { remote: true, transport: "web-storage" });
-  });
+  const serialized = localStorage.getItem(key);
+  if (serialized === deliveredLocalMirror) return;
+  deliveredLocalMirror = serialized;
+  onChange(JSON.parse(serialized || "null"), { remote: true, transport: "web-storage" });
+  };
+  addWebStorageCleanup(cleanups, key, deliverLocalMirror);
+  addWebStorageCleanup(cleanups, LOCAL_MIRROR_PROVENANCE_KEY, deliverLocalMirror);
   const extensionChanges = extensionStorageChangedEvent();
   if (extensionChanges) {
   const listener = (changes, areaName) => {
@@ -12988,12 +13105,12 @@ function createDefaultSubtitleSettings(fontFamily) {
   subtitleAutoCopyLine: false,
   subtitleCopyIncludeTranslation: true,
   subtitleControlsMode: "auto",
-  subtitleFontSize: 28,
+  subtitleFontSize: 0,
   subtitleBottomOffset: 16,
   subtitleTextColor: OVERLAY_COLOR_TOKENS.text,
   subtitleOutlineColor: OVERLAY_COLOR_TOKENS.outline,
   subtitleBackgroundColor: OVERLAY_COLOR_TOKENS.background,
-  subtitleBackgroundOpacity: 0,
+  subtitleBackgroundOpacity: 0.75,
   subtitleFontFamily: fontFamily,
   subtitleFontWeight: 760,
   subtitleMiningPause: true,
@@ -13010,7 +13127,11 @@ const RETIRED_SETTING_DEFAULTS = [
   { keys: ["furiganaHiddenStateGroups"], retired: [[["known", "due", "failed"]]] },
   { keys: ["wordHighlightColorSource", "wordUnderlineColorSource", "wordTextColorSource"], retired: [["jpdb", "pitch", "anki"]] },
   { keys: ["subtitleHighlightColorSource", "subtitleUnderlineColorSource", "subtitleTextColorSource"], retired: [["jpdb", "pitch", "anki"]] },
-  { keys: ["wordColorHiddenStateGroups"], retired: [[[]]] }
+  { keys: ["wordColorHiddenStateGroups"], retired: [[[]]] },
+  // Unchosen legacy pixel defaults now follow the player's caption size.
+  { keys: ["subtitleFontSize"], retired: [[28]] },
+  // Whole-object saves carried transparency even when nobody chose it.
+  { keys: ["subtitleBackgroundOpacity"], retired: [[0]] }
 ];
 RETIRED_SETTING_DEFAULTS.flatMap((group) => group.keys);
 function adoptCurrentDefaults(settings2, ledger, defaults) {
@@ -13689,6 +13810,7 @@ const DEFAULT_SETTINGS = {
   popupFontFamily: DEFAULT_POPUP_FONT_FAMILY,
   popupFontWeight: 450,
   jpdbMiningEnabled: true,
+  jitenMiningEnabled: true,
   // JPDB parity: the credential is the real gate, so importing a Bunpro
   // token makes grading work without hunting for a second checkbox.
   bunproMiningEnabled: true,
@@ -13945,7 +14067,10 @@ function normalizeMiningSettings(value) {
   neverForgetDeck: normalizeDeckIdSetting(value?.neverForgetDeck, DEFAULT_SETTINGS.neverForgetDeck),
   blacklistDeck: normalizeDeckIdSetting(value?.blacklistDeck, DEFAULT_SETTINGS.blacklistDeck),
   apiGradingProvider: normalizeApiGradingProvider(value?.apiGradingProvider),
-  ...normalizeBooleanSettingGroup(value, MINING_BOOLEAN_SETTING_KEYS)
+  ...normalizeBooleanSettingGroup(value, MINING_BOOLEAN_SETTING_KEYS),
+  // One stored "Allow API review/deck changes" switch gated JPDB and Jiten
+  // until 2.2, so a record without its own Jiten switch keeps that answer.
+  jitenMiningEnabled: booleanSettingWithFallback(value, "jitenMiningEnabled", booleanSetting(value, "jpdbMiningEnabled"))
   };
 }
 function normalizeApiGradingProvider(value) {
@@ -14219,9 +14344,6 @@ function furiganaStyle(settings2) {
   }
   return "all";
 }
-function furiganaModeNeedsDifficultyExplanation(settings2) {
-  return furiganaStyle(settings2) === "difficult-kanji";
-}
 function isExplicitFuriganaMode(value) {
   return EXPLICIT_FURIGANA_MODES.has(value);
 }
@@ -14293,6 +14415,7 @@ function immutableCommandSnapshot(command) {
   }
   return Object.freeze({ ...command });
 }
+const YOMU_RUBY_CLASS = "jpdb-reader-ruby";
 new Set(
   "一丁七万三上下不世中主久乗九予事二五井交京人今介仏仕他付代令以休会伝住何作使例供係信借元兄先光入全公六共内円写冬出分切前力加動北十千午半南原友反取口古台同名向君告周味呼命和品員問四回国土在地坂堂場声売夏夕外多夜大天太夫央女好妹姉始子字学安家宿寒寺小少山川工左市帰年広店度庭建引弟強待後心思急息悪手持教文方旅日早明春昼時曜書有朝木本村来東林校森業楽歌止正歩母毎気水池海父物犬王生田町男白百的目知石社私秋空立竹笑答米糸紙終聞肉自花英茶草行西見言話語読買赤走足車近通週道遠里野金長門間雨青音食飲駅高魚鳥黒".split("")
 );
@@ -14325,7 +14448,7 @@ function unwrapReaderWords(root = document, options = {}) {
   const parent = word.parentNode;
   if (!parent) continue;
   parents.add(parent);
-  word.replaceWith(document.createTextNode(readerWordSurfaceText(word)));
+  unwrapReaderWord(word);
   }
   for (const bind of numberBinds) {
   if (bind.nextElementSibling?.classList.contains("jpdb-reader-word")) continue;
@@ -14336,6 +14459,29 @@ function unwrapReaderWords(root = document, options = {}) {
   }
   parents.forEach((parent) => parent.normalize());
   return words.length;
+}
+function unwrapReaderWord(word) {
+  const doc = word.ownerDocument;
+  if (!word.querySelector(`ruby:not(.${YOMU_RUBY_CLASS})`)) {
+  word.replaceWith(doc.createTextNode(readerWordSurfaceText(word)));
+  return;
+  }
+  const surface = doc.createDocumentFragment();
+  const appendSurface = (node) => {
+  if (node.nodeType === Node.TEXT_NODE) {
+    surface.append(doc.createTextNode(node.textContent ?? ""));
+  } else if (node.nodeType === Node.ELEMENT_NODE) {
+    const element = node;
+    if (isSurfaceIgnoredElement(element)) return;
+    if (element.tagName === "RUBY" && !element.classList.contains(YOMU_RUBY_CLASS)) {
+      surface.append(element);
+    } else {
+      Array.from(element.childNodes).forEach(appendSurface);
+    }
+  }
+  };
+  Array.from(word.childNodes).forEach(appendSurface);
+  word.replaceWith(surface);
 }
 function readerWordSurfaceText(element) {
   const surface = readerWordChildSurfaceText(element);
@@ -14368,7 +14514,7 @@ const NEW_TAB_CACHE_KEY = "jpdb-reader-newtab-card-cache";
 function clearNewTabOfflineCache() {
   return gmStorageDelete(NEW_TAB_CACHE_KEY);
 }
-const CURRENT_YOMU_VERSION = "2.1.6".trim() ? "2.1.6".trim() : "dev";
+const CURRENT_YOMU_VERSION = "2.2.0".trim() ? "2.2.0".trim() : "dev";
 function latestYomuVersionFromVersionJson(value) {
   if (!value || typeof value !== "object") return null;
   const record2 = value;
@@ -14945,7 +15091,7 @@ function readFormSettings(data, current) {
   const reader = createSettingsFormReader(data, colorSource);
   const { get, has } = reader;
   const audioSources = readAudioSources(data);
-  const furiganaMode = readOption(get("furiganaMode"), ["all", "difficult-kanji", "known-status", "hover"], furiganaStyle(current));
+  const furiganaMode = readOption(get("furiganaMode"), ["off", "all", "difficult-kanji", "known-status", "hover"], effectiveFuriganaMode(current));
   const apiDefinitionRowsPresent = {
   jpdb: hasSourceRow(has, "jpdbDefinitions"),
   jiten: hasSourceRow(has, "jitenDefinitions"),
@@ -15158,14 +15304,11 @@ function readNewTabFormSettings(reader, current) {
   newTabKanjiAutogradeEnabled: has("newTabKanjiAutogradeEnabled")
   };
 }
-function readFuriganaFormSettings(current, style) {
-  if (effectiveFuriganaMode(current) !== "off") {
-  return { showFurigana: true, furiganaMode: style, puckFuriganaModeBeforeHide: current.puckFuriganaModeBeforeHide };
-  }
+function readFuriganaFormSettings(current, mode) {
   return {
-  showFurigana: current.showFurigana,
-  furiganaMode: current.furiganaMode,
-  puckFuriganaModeBeforeHide: style === furiganaStyle(current) ? current.puckFuriganaModeBeforeHide : style
+  showFurigana: mode !== "off",
+  furiganaMode: mode,
+  puckFuriganaModeBeforeHide: mode === "off" ? furiganaStyle(current) : ""
   };
 }
 function readReadingDisplayFormSettings(reader, current, style) {
@@ -15282,6 +15425,7 @@ function readMiningFormSettings(reader, current) {
   const { get, has } = reader;
   return {
   jpdbMiningEnabled: has("jpdbMiningEnabled"),
+  jitenMiningEnabled: has("jitenMiningEnabled"),
   bunproMiningEnabled: has("bunproMiningEnabled"),
   wanikaniReviewEnabled: has("wanikaniReviewEnabled"),
   yomuLocalSrsEnabled: has("yomuLocalSrsEnabled"),
@@ -15356,7 +15500,7 @@ function readSubtitleFormSettings(reader, current) {
   subtitleAutoCopyLine: has("subtitleAutoCopyLine"),
   subtitleCopyIncludeTranslation: has("subtitleCopyIncludeTranslation"),
   subtitleControlsMode: readOption(get("subtitleControlsMode"), ["auto", "always", "hidden"], current.subtitleControlsMode),
-  subtitleFontSize: clamped("subtitleFontSize", 16, 64, current.subtitleFontSize),
+  subtitleFontSize: get("subtitleFontSize") === "0" ? 0 : clamped("subtitleFontSize", 16, 64, current.subtitleFontSize),
   // The drag gesture may park the line anywhere on screen, which for a short
   // frame near the bottom of a tall viewport is far above 100% of the frame
   // height; only guard against garbage, not against legitimate positions.
@@ -16108,6 +16252,18 @@ function attributeHtml(attributes) {
 }
 function booleanAttributeHtml(attributes) {
   return Object.entries(attributes).filter(([, value]) => value).map(([key]) => ` ${key}`).join("");
+}
+function protectedCredentialInput(name, label, storedValue, language2, link) {
+  const configured = Boolean(storedValue.trim());
+  const field = input(name, label, "", "text", {
+  ...PROTECTED_CREDENTIAL_INPUT_ATTRIBUTES,
+  class: "jpdb-reader-masked-input",
+  placeholder: configured ? uiText(language2, "storedCredentialPlaceholder") : "",
+  ...configured ? { "data-stored-credential-placeholder": "true" } : {}
+  });
+  const help = link ? `<a href="${escapeHtml$1(link.url)}" target="_blank" rel="noopener">${escapeHtml$1(link.label)}</a>` : "";
+  const clear = configured ? `<label class="inline"><input name="${escapeHtml$1(storedCredentialClearName(name))}" type="checkbox"><span data-clear-stored-credential>${escapeHtml$1(uiText(language2, "clearStoredCredential"))}</span></label>` : "";
+  return `<div class="jpdb-reader-protected-credential"${configured ? ' data-stored-credential="true"' : ""}>${field}${help}${clear}</div>`;
 }
 function renderReadingHiddenStateGroupControls(settings2) {
   const language2 = settings2.interfaceLanguage;
@@ -17601,6 +17757,7 @@ function escapedUiText$2(language2, key) {
   return escapeHtml$1(uiText(language2, key));
 }
 function renderAnkiMiningSettingsPanel(settings2, ankiStatus) {
+  const apiAdds = settings2.jpdbMiningEnabled || settings2.jitenMiningEnabled;
   return `
             <fieldset id="jpdb-reader-settings-panel-mining" role="tabpanel" data-settings-panel="mining" data-legend-key="anki" aria-describedby="settings-help-anki" hidden>
                 <legend>Anki</legend>
@@ -17611,7 +17768,7 @@ function renderAnkiMiningSettingsPanel(settings2, ankiStatus) {
                     <div class="jpdb-reader-anki-main">
                         <div class="grid jpdb-reader-anki-connection-grid">
                             ${checkbox("ankiEnabled", "Enable Anki mining", settings2.ankiEnabled)}
-                            ${checkbox("ankiMineWithJpdb", "Also add to Anki when adding via API", settings2.jpdbMiningEnabled && settings2.ankiMineWithJpdb, { disabled: !settings2.jpdbMiningEnabled })}
+                            ${checkbox("ankiMineWithJpdb", "Also add to Anki when adding to JPDB or Jiten", apiAdds && settings2.ankiMineWithJpdb, { disabled: !apiAdds })}
                             ${checkbox("ankiCaptureScreenshot", "Attach context image when possible", settings2.ankiCaptureScreenshot)}
                             ${checkbox("ankiMobileHandoff", "Mobile Anki add-note fallback", settings2.ankiMobileHandoff)}
                             ${input("ankiConnectUrl", "AnkiConnect URL", settings2.ankiConnectUrl)}
@@ -23533,7 +23690,8 @@ function renderLocalDictionaryStorageControls(settings2) {
                 </div>`;
 }
 const READING_MODE_OPTIONS = [
-  ["known-status", "furiganaHideKnown"],
+  ["off", "furiganaOff"],
+  ["known-status", "furiganaHideKnownReadings"],
   ["difficult-kanji", "furiganaDifficultKanji"],
   ["hover", "furiganaHoverOnly"],
   ["all", "furiganaAllParsed"]
@@ -23545,7 +23703,7 @@ const CLAMPED_ROW_OPTIONS = [
 function renderReadingAnnotationControls(settings2) {
   const text2 = settingsText(settings2.interfaceLanguage);
   return `<div data-reading-annotation-controls>
-        ${select("furiganaMode", text2("furiganaMode"), furiganaStyle(settings2), localizedOptions$1(text2, READING_MODE_OPTIONS))}
+        ${select("furiganaMode", text2("furiganaMode"), effectiveFuriganaMode(settings2), localizedOptions$1(text2, READING_MODE_OPTIONS))}
         ${difficultyNoteHtml(settings2, text2)}
         ${select("clampedRowReadings", text2("clampedRowReadings"), settings2.clampedRowReadings, localizedOptions$1(text2, CLAMPED_ROW_OPTIONS))}
         ${renderReadingHiddenStateGroupControls(settings2)}
@@ -23565,7 +23723,7 @@ function syncReadingAnnotationControls(form, text2) {
   form.querySelector("[data-furigana-difficulty-note]")?.replaceChildren(text2("furiganaDifficultKanjiHelp"));
 }
 function difficultyNoteHtml(settings2, text2) {
-  const hidden = furiganaModeNeedsDifficultyExplanation(settings2) ? "" : " hidden";
+  const hidden = effectiveFuriganaMode(settings2) === "difficult-kanji" ? "" : " hidden";
   return `<div class="jpdb-reader-help" data-furigana-difficulty-note data-help-key="furiganaDifficultKanjiHelp"${hidden}>${escapeHtml$1(text2("furiganaDifficultKanjiHelp"))}</div>`;
 }
 function localizedOptions$1(text2, options) {
@@ -23648,6 +23806,356 @@ function replaceText(root, selector, value) {
   const element = root.querySelector(selector);
   if (element) element.replaceChildren(value);
 }
+const ACCENT_SWATCHES = [
+  { id: "kurenai", color: BRAND_COLOR_TOKENS.accent, labelKey: "accentSwatchKurenai" },
+  { id: "shu", color: "#bf4a12", labelKey: "accentSwatchShu" },
+  { id: "ai", color: "#1f4f8f", labelKey: "accentSwatchAi" },
+  { id: "murasaki", color: "#884898", labelKey: "accentSwatchMurasaki" },
+  { id: "yamabuki", color: "#f8b500", labelKey: "accentSwatchYamabuki" },
+  { id: "sumi", color: "#595857", labelKey: "accentSwatchSumi" }
+];
+function accentSwatchForColor(color) {
+  const normalized = color.trim().toLowerCase();
+  return ACCENT_SWATCHES.find((swatch) => swatch.color === normalized);
+}
+const UNDERLINE_CHANNELS = ["wordUnderlineColorSource", "subtitleUnderlineColorSource"];
+const UNDERLINE_CHOICES = [
+  ["status", "underlineQuickStatus"],
+  ["pitch", "underlineQuickPitch"],
+  ["off", "off"]
+];
+function renderAppearanceQuickRow(settings2, text2) {
+  const accent = sanitizeAccentColor(settings2.accentColor);
+  const preset = accentSwatchForColor(accent);
+  const underline = underlineChoice(
+  settingsColorSourceValue(settings2, "wordUnderlineColorSource"),
+  settingsColorSourceValue(settings2, "subtitleUnderlineColorSource")
+  );
+  const swatches = ACCENT_SWATCHES.map((swatch) => {
+  const name = escapeHtml$1(text2(swatch.labelKey));
+  return `<input class="jpdb-reader-swatch" type="radio" name="accentSwatch" value="${swatch.color}" style="--swatch: ${swatch.color}" aria-label="${name}" title="${name}" data-accent-swatch="${swatch.id}"${swatch === preset ? " checked" : ""}>`;
+  }).join("");
+  const custom = escapeHtml$1(text2("accentSwatchCustom"));
+  const segments = UNDERLINE_CHOICES.map(
+  ([value, key]) => `<label class="jpdb-reader-segment"><input type="radio" name="underlineQuick" value="${value}"${value === underline ? " checked" : ""}><span data-underline-quick-label="${key}">${escapeHtml$1(text2(key))}</span></label>`
+  ).join("");
+  return `
+                <div class="jpdb-reader-appearance-quick" data-appearance-quick>
+                    <div class="jpdb-reader-quick-field">
+                        <span class="jpdb-reader-quick-title" id="jpdb-reader-accent-title" data-quick-title="accentColor">${escapeHtml$1(text2("accentColor"))}</span>
+                        <span class="jpdb-reader-swatches">
+                            <span class="jpdb-reader-swatch-set" role="radiogroup" aria-labelledby="jpdb-reader-accent-title" data-accent-swatches>${swatches}</span>
+                            <input class="jpdb-reader-swatch jpdb-reader-swatch-custom" type="color" name="accentColor" value="${accent}" aria-label="${custom}" title="${custom}" data-accent-custom${preset ? "" : " data-active"}>
+                        </span>
+                    </div>
+                    <div class="jpdb-reader-quick-field">
+                        <span class="jpdb-reader-quick-title" id="jpdb-reader-underline-title" data-quick-title="underlineQuick">${escapeHtml$1(text2("underlineQuick"))}</span>
+                        <span class="jpdb-reader-segmented" role="radiogroup" aria-labelledby="jpdb-reader-underline-title" data-underline-quick>${segments}</span>
+                    </div>
+                </div>`;
+}
+function bindAppearanceQuickRow(form, actions) {
+  const custom = form.querySelector('input[name="accentColor"][data-accent-custom]');
+  if (!custom) return;
+  form.querySelectorAll('input[name="accentSwatch"]').forEach((swatch) => {
+  swatch.addEventListener("change", () => {
+    if (!swatch.checked) return;
+    custom.value = swatch.value;
+    syncAccentSwatches(form);
+    actions.commitAccent(swatch.value);
+  });
+  });
+  custom.addEventListener("input", () => syncAccentSwatches(form));
+  custom.addEventListener("change", () => syncAccentSwatches(form));
+  form.querySelectorAll('input[name="underlineQuick"]').forEach((choice) => {
+  choice.addEventListener("change", () => {
+    if (choice.checked) setUnderlineChannels(form, choice.value);
+  });
+  });
+  form.addEventListener("change", (event) => {
+  if (UNDERLINE_CHANNELS.some((name) => event.target?.name === name) || event.target?.name === "appearancePreset") syncUnderlineQuick(form);
+  });
+}
+function localizeAppearanceQuickRow(form, text2) {
+  form.querySelectorAll("[data-quick-title]").forEach((title) => {
+  title.textContent = text2(title.dataset.quickTitle);
+  });
+  ACCENT_SWATCHES.forEach((swatch) => {
+  const input2 = form.querySelector(`[data-accent-swatch="${swatch.id}"]`);
+  if (input2) setAccessibleName$1(input2, text2(swatch.labelKey));
+  });
+  const custom = form.querySelector("[data-accent-custom]");
+  if (custom) setAccessibleName$1(custom, text2("accentSwatchCustom"));
+  form.querySelectorAll("[data-underline-quick-label]").forEach((label) => {
+  label.textContent = text2(label.dataset.underlineQuickLabel);
+  });
+}
+function syncAppearanceQuickRow(form) {
+  syncAccentSwatches(form);
+  syncUnderlineQuick(form);
+}
+function setAccessibleName$1(element, name) {
+  element.setAttribute("aria-label", name);
+  element.title = name;
+}
+function syncAccentSwatches(form) {
+  const custom = form.querySelector('input[name="accentColor"][data-accent-custom]');
+  if (!custom) return;
+  const preset = accentSwatchForColor(custom.value);
+  form.querySelectorAll('input[name="accentSwatch"]').forEach((swatch) => {
+  swatch.checked = swatch.dataset.accentSwatch === preset?.id;
+  });
+  custom.toggleAttribute("data-active", !preset);
+}
+function setUnderlineChannels(form, choice) {
+  for (const name of UNDERLINE_CHANNELS) {
+  const select2 = form.querySelector(`select[name="${name}"]`);
+  if (!select2 || select2.value === choice) continue;
+  select2.value = choice;
+  select2.dispatchEvent(new Event("change", { bubbles: true }));
+  }
+}
+function syncUnderlineQuick(form) {
+  const [word, subtitle] = UNDERLINE_CHANNELS.map((name) => form.querySelector(`select[name="${name}"]`)?.value ?? "");
+  const choice = underlineChoice(word, subtitle);
+  form.querySelectorAll('input[name="underlineQuick"]').forEach((input2) => {
+  input2.checked = input2.value === choice;
+  });
+}
+function underlineChoice(word, subtitle) {
+  return word === subtitle ? UNDERLINE_CHOICES.find(([value]) => value === word)?.[0] : void 0;
+}
+const REVIEW_SERVICES = [
+  { id: "yomu", adds: ["grades", "colors", "decks"], gradeSwitch: "yomuLocalSrsEnabled" },
+  { id: "jpdb", brand: "JPDB", adds: ["grades", "colors", "decks", "pitch"], credential: { name: "apiCredentialJpdb", label: "reviewServiceKey" }, gradeSwitch: "jpdbMiningEnabled" },
+  { id: "jiten", brand: "Jiten", adds: ["grades", "colors", "decks", "pitch"], credential: { name: "apiCredentialJiten", label: "reviewServiceKey" }, gradeSwitch: "jitenMiningEnabled" },
+  { id: "anki", brand: "Anki", adds: ["grades", "colors", "decks"] },
+  { id: "wanikani", brand: "WaniKani", adds: ["grades"], credential: { name: "apiCredentialWanikani", label: "reviewServiceToken" }, gradeSwitch: "wanikaniReviewEnabled" },
+  { id: "bunpro", brand: "Bunpro", adds: ["grades", "colors", "decks"], credential: { name: "apiCredentialBunpro", label: "reviewServiceToken" }, gradeSwitch: "bunproMiningEnabled" }
+];
+const FEATURE_TEXT = {
+  grades: "reviewServiceAddsGrades",
+  colors: "reviewServiceAddsColors",
+  decks: "reviewServiceAddsDecks",
+  pitch: "reviewServiceAddsPitch"
+};
+const FEATURE_ICON_SHAPES = {
+  grades: '<path d="m3 8.5 3 3 7-7"/>',
+  colors: '<path d="M5 10.5 8 3l3 7.5"/><path d="M6.2 7.5h3.6"/><path d="M3 13.5h10"/>',
+  decks: '<rect x="2.5" y="5.5" width="9" height="8" rx="1.5"/><path d="M5 3h7.5a1 1 0 0 1 1 1v7"/>',
+  pitch: '<path d="M2 5h4l4 6h4"/><circle cx="2" cy="5" r=".75"/><circle cx="14" cy="11" r=".75"/>'
+};
+const BUNPRO_TOKEN_URL = "https://bunpro.jp/settings/api";
+function reviewServiceState(id, facts) {
+  const { credentials, enabled } = facts;
+  if (id === "yomu") return enabled.yomuLocalSrsEnabled ? "on" : "off";
+  if (id === "anki") return enabled.ankiEnabled ? "on" : facts.ankiAvailable ? "available" : "off";
+  if (id === "jpdb") return hasJpdbApiCredential(credentials) ? "on" : "off";
+  if (id === "jiten") return hasJitenApiCredential(credentials) ? "on" : "off";
+  if (id === "wanikani") return hasWanikaniApiCredential(credentials) ? "on" : "off";
+  if (!hasBunproFrontendCredential(credentials)) return "off";
+  return isBunproFrontendCredentialExpired(credentials) ? "error" : "on";
+}
+function showsPreferredGradingService(facts) {
+  return reviewServiceState("jpdb", facts) === "on" && reviewServiceState("jiten", facts) === "on" && facts.enabled.jpdbMiningEnabled !== false && facts.enabled.jitenMiningEnabled !== false;
+}
+function settingsFacts(settings2) {
+  return { credentials: settings2, enabled: settings2, ankiAvailable: false };
+}
+function renderReviewServicesPanel(settings2, urls, text2, trailing) {
+  const facts = settingsFacts(settings2);
+  const rows = REVIEW_SERVICES.map((service) => renderServiceRow(service, settings2, facts, urls, text2)).join("");
+  return `
+            <fieldset id="jpdb-reader-settings-panel-api" role="tabpanel" data-settings-panel="api" data-legend-key="reviews" hidden>
+                <legend>${escapeHtml$1(text2("reviews"))}</legend>
+                <div class="jpdb-reader-review-services" data-review-services>${rows}</div>
+                <div class="jpdb-reader-settings-subsection">
+                    <div class="grid">
+                        ${checkbox("enableReviews", escapeHtml$1(text2("enableReviews")), settings2.enableReviews)}
+                        <div data-review-config ${settings2.enableReviews ? "" : "hidden"}>
+                            ${select("twoButtonReviews", escapeHtml$1(text2("reviewRatingScale")), settings2.twoButtonReviews ? "true" : "false", [["false", text2("fivePoint")], ["true", text2("twoPoint")]])}
+                        </div>
+                        <div data-preferred-grading-service ${showsPreferredGradingService(facts) ? "" : "hidden"}>
+                            ${select("apiGradingProvider", escapeHtml$1(text2("apiGradingProvider")), settings2.apiGradingProvider === "jpdb" ? "jpdb" : "jiten", [["jiten", "Jiten"], ["jpdb", "JPDB"]])}
+                            <div class="jpdb-reader-help" data-grading-provider-help>${escapeHtml$1(text2("apiGradingProviderHelp"))}</div>
+                        </div>
+                    </div>
+                </div>
+                ${trailing}
+            </fieldset>`;
+}
+function renderServiceRow(service, settings2, facts, urls, text2) {
+  const state = reviewServiceState(service.id, facts);
+  const nameId = `jpdb-reader-review-service-${service.id}`;
+  const adds = service.adds.map((feature) => {
+  const label = escapeHtml$1(text2(FEATURE_TEXT[feature]));
+  return `<span class="jpdb-reader-review-service-adds-icon" role="img" data-review-service-feature="${feature}" aria-label="${label}" title="${label}">${featureIcon(feature)}</span>`;
+  }).join("");
+  const dotLabel = escapeHtml$1(text2(stateTextKey(service.id, state)));
+  const connectUrl = serviceConnectUrl(service.id, urls);
+  const connectName = escapeHtml$1(connectLabel(service.id, text2));
+  const connect = connectUrl ? `<a class="jpdb-reader-btn jpdb-reader-review-service-connect" href="${escapeHtml$1(connectUrl)}" target="_blank" rel="noopener" aria-label="${connectName}" data-review-service-connect${state === "off" || state === "error" ? "" : " hidden"}><span data-review-service-text="reviewServiceConnect">${escapeHtml$1(text2("reviewServiceConnect"))}</span>${externalLinkIcon()}</a>` : "";
+  const enableAnki = service.id === "anki" ? `<button class="jpdb-reader-btn jpdb-reader-review-service-connect" type="button" aria-label="${connectName}" data-review-service-enable="anki"${state === "available" ? "" : " hidden"}><span data-review-service-text="reviewServiceConnect">${escapeHtml$1(text2("reviewServiceConnect"))}</span></button>` : "";
+  return `
+                    <div class="jpdb-reader-review-service" role="group" aria-labelledby="${nameId}" data-review-service="${service.id}" data-service-state="${state}">
+                        <div class="jpdb-reader-review-service-head">
+                            <span class="jpdb-reader-review-service-dot" role="img" data-review-service-dot aria-label="${dotLabel}" title="${dotLabel}"></span>
+                            <span class="jpdb-reader-review-service-name" id="${nameId}"${service.brand ? "" : ' data-review-service-text="yomuDeck"'}>${escapeHtml$1(service.brand ?? text2("yomuDeck"))}</span>
+                            <span class="jpdb-reader-review-service-adds">${adds}</span>
+                            ${connect}${enableAnki}${service.credential ? "" : renderGradeSwitch(service, settings2, text2)}
+                        </div>
+                        ${renderServiceBody(service, settings2, text2)}
+                    </div>`;
+}
+function renderServiceBody(service, settings2, text2) {
+  const language2 = settings2.interfaceLanguage;
+  const credential = service.credential ? protectedCredentialInput(service.credential.name, escapeHtml$1(credentialLabel(service, text2)), storedCredential(service.id, settings2), language2) : "";
+  const gradeSwitch = service.credential ? renderGradeSwitch(service, settings2, text2) : "";
+  const body = `${credential}${gradeSwitch}${serviceExtras(service.id, settings2, text2)}`;
+  return body ? `<div class="jpdb-reader-review-service-body">${body}</div>` : "";
+}
+function renderGradeSwitch(service, settings2, text2) {
+  return service.gradeSwitch ? checkbox(service.gradeSwitch, escapeHtml$1(switchLabel(service, text2)), Boolean(settings2[service.gradeSwitch])) : "";
+}
+function serviceExtras(id, settings2, text2) {
+  if (id === "jpdb") {
+  const hasKey = hasJpdbApiCredential(settings2);
+  return `${checkbox("addToForq", escapeHtml$1(text2("addToForq")), settings2.jpdbMiningEnabled && settings2.addToForq, { disabled: !settings2.jpdbMiningEnabled })}
+                            ${renderJpdbStatusLine(settings2)}
+                            <div data-jpdb-decks${hasKey ? "" : " hidden"}>${renderDeckControls(settings2, [], hasKey, settings2.interfaceLanguage)}</div>`;
+  }
+  if (id === "wanikani") {
+  return `<div class="jpdb-reader-help" data-review-service-text="wanikaniTokenHelp">${escapeHtml$1(text2("wanikaniTokenHelp"))}</div>
+                            ${renderWanikaniStatusLine(settings2)}`;
+  }
+  if (id === "bunpro") {
+  return `<input type="hidden" name="bunproFrontendApiTokenExpiresAt" value="${escapeHtml$1(settings2.bunproFrontendApiTokenExpiresAt)}">
+                            <div class="jpdb-reader-help" data-review-service-text="bunproTokenHelp">${escapeHtml$1(text2("bunproTokenHelp"))}</div>
+                            ${renderBunproStatusLine(settings2)}`;
+  }
+  return "";
+}
+function storedCredential(id, settings2) {
+  if (id === "jpdb") return effectiveJpdbApiKey(settings2);
+  if (id === "jiten") return effectiveJitenApiKey(settings2);
+  if (id === "wanikani") return settings2.wanikaniApiToken;
+  return settings2.bunproFrontendApiToken;
+}
+function serviceConnectUrl(id, urls) {
+  if (id === "jpdb") return urls.jpdb;
+  if (id === "jiten") return urls.jiten;
+  if (id === "wanikani") return WANIKANI_TOKEN_SETTINGS_URL;
+  if (id === "bunpro") return BUNPRO_TOKEN_URL;
+  return id === "anki" ? ANKI_CONNECT_ADDON_URL : "";
+}
+function stateTextKey(id, state) {
+  if (id === "yomu") return state === "on" ? "reviewServiceBuiltIn" : "reviewServiceDisabled";
+  const credential = REVIEW_SERVICES.find((service) => service.id === id)?.credential;
+  if (state === "on" && credential) return credential.label === "reviewServiceKey" ? "reviewServiceKeyAdded" : "reviewServiceTokenAdded";
+  return { on: "reviewServiceOn", off: "reviewServiceOff", available: "reviewServiceAvailable", error: "reviewServiceError" }[state];
+}
+function connectLabel(id, text2) {
+  return text2("reviewServiceConnectTo").replace("{service}", REVIEW_SERVICES.find((service) => service.id === id)?.brand ?? "");
+}
+function credentialLabel(service, text2) {
+  return service.credential ? text2(service.credential.label).replace("{service}", service.brand ?? "") : "";
+}
+function switchLabel(service, text2) {
+  return service.gradeSwitch === "yomuLocalSrsEnabled" ? text2("yomuLocalSrsEnabled") : text2("gradeFromYomu");
+}
+function featureIcon(feature) {
+  return `<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">${FEATURE_ICON_SHAPES[feature]}</svg>`;
+}
+function reviewServiceControlLabels(text2) {
+  return REVIEW_SERVICES.flatMap((service) => [
+  ...service.credential ? [[service.credential.name, credentialLabel(service, text2)]] : [],
+  ...service.gradeSwitch ? [[service.gradeSwitch, switchLabel(service, text2)]] : []
+  ]);
+}
+const WATCHED_CONTROLS = /* @__PURE__ */ new Set([
+  "apiCredentialJpdb",
+  "apiCredentialJiten",
+  "apiCredentialWanikani",
+  "apiCredentialBunpro",
+  "bunproFrontendApiTokenExpiresAt",
+  "jpdbMiningEnabled",
+  "jitenMiningEnabled",
+  "wanikaniReviewEnabled",
+  "bunproMiningEnabled",
+  "yomuLocalSrsEnabled",
+  "ankiEnabled"
+]);
+function formFacts(form) {
+  const checked = (name) => form.querySelector(`input[name="${name}"]`)?.checked;
+  return {
+  credentials: redactedApiCredentialsFromForm(form),
+  enabled: {
+    yomuLocalSrsEnabled: checked("yomuLocalSrsEnabled"),
+    ankiEnabled: checked("ankiEnabled"),
+    jpdbMiningEnabled: checked("jpdbMiningEnabled"),
+    jitenMiningEnabled: checked("jitenMiningEnabled"),
+    wanikaniReviewEnabled: checked("wanikaniReviewEnabled"),
+    bunproMiningEnabled: checked("bunproMiningEnabled")
+  },
+  ankiAvailable: form.dataset.ankiAvailable === "true"
+  };
+}
+function syncReviewServices(form, text2) {
+  const facts = formFacts(form);
+  form.querySelectorAll("[data-review-service]").forEach((row) => {
+  const id = row.dataset.reviewService;
+  const state = reviewServiceState(id, facts);
+  row.dataset.serviceState = state;
+  const dot = row.querySelector("[data-review-service-dot]");
+  if (dot) setAccessibleName(dot, text2(stateTextKey(id, state)));
+  const connect = row.querySelector("[data-review-service-connect]");
+  if (connect) connect.hidden = state === "on" || state === "available";
+  const enable = row.querySelector("[data-review-service-enable]");
+  if (enable) enable.hidden = state !== "available";
+  });
+  const preferred = form.querySelector("[data-preferred-grading-service]");
+  if (preferred) preferred.hidden = !showsPreferredGradingService(facts);
+  const decks = form.querySelector("[data-jpdb-decks]");
+  if (decks) decks.hidden = reviewServiceState("jpdb", facts) !== "on";
+}
+function localizeReviewServices(form, text2) {
+  form.querySelectorAll("[data-review-service-text]").forEach((node) => {
+  node.textContent = text2(node.dataset.reviewServiceText);
+  });
+  form.querySelectorAll("[data-review-service-feature]").forEach((icon) => {
+  setAccessibleName(icon, text2(FEATURE_TEXT[icon.dataset.reviewServiceFeature]));
+  });
+  form.querySelectorAll("[data-review-service-connect], [data-review-service-enable]").forEach((action) => {
+  const id = action.closest("[data-review-service]")?.dataset.reviewService;
+  action.setAttribute("aria-label", connectLabel(id, text2));
+  });
+  syncReviewServices(form, text2);
+}
+function bindReviewServices(form, text2) {
+  const sync = (event) => {
+  const name = event.target?.name;
+  if (name && WATCHED_CONTROLS.has(name.replace(/\.clearStoredCredential$/u, ""))) syncReviewServices(form, text2());
+  };
+  form.addEventListener("input", sync);
+  form.addEventListener("change", sync);
+  form.querySelector('[data-review-service-enable="anki"]')?.addEventListener("click", () => {
+  const anki = form.querySelector('input[name="ankiEnabled"]');
+  if (!anki || anki.checked) return;
+  anki.checked = true;
+  anki.dispatchEvent(new Event("change", { bubbles: true }));
+  });
+}
+async function markAnkiAvailability(form, ping, text2) {
+  if (form.querySelector('input[name="ankiEnabled"]')?.checked) return;
+  const available = await ping().catch(() => false);
+  if (!available || !form.isConnected) return;
+  form.dataset.ankiAvailable = "true";
+  syncReviewServices(form, text2());
+}
+function setAccessibleName(element, name) {
+  element.setAttribute("aria-label", name);
+  element.title = name;
+}
 const COLOR_SOURCE_CLASS_VALUES = ["status", "jpdb", "anki", "pitch"];
 function syncSubtitlePreview(form) {
   const preview = form.querySelector("[data-subtitle-preview]");
@@ -23657,7 +24165,7 @@ function syncSubtitlePreview(form) {
   const number = Number(value(name, String(fallback2)));
   return Number.isFinite(number) ? number : fallback2;
   };
-  preview.style.setProperty("--subtitle-font-size", `${Math.max(16, Math.min(64, numberValue("subtitleFontSize", 28)))}px`);
+  preview.style.setProperty("--subtitle-font-size", `${Math.max(16, Math.min(64, numberValue("subtitleFontSize", 0) || 28))}px`);
   preview.style.setProperty("--subtitle-color", sanitizeAccentColor(value("subtitleTextColor", DEFAULT_OVERLAY_TEXT_COLOR), DEFAULT_OVERLAY_TEXT_COLOR));
   preview.style.setProperty("--subtitle-outline", sanitizeAccentColor(value("subtitleOutlineColor", DEFAULT_OVERLAY_OUTLINE_COLOR), DEFAULT_OVERLAY_OUTLINE_COLOR));
   preview.style.setProperty(
@@ -23705,7 +24213,6 @@ function syncSubtitlePreviewColorClasses(form, preview) {
   });
 }
 const DEFAULT_JITEN_SETTINGS_URL = "https://jiten.moe/settings";
-const DEFAULT_BUNPRO_SETTINGS_URL = "https://bunpro.jp/settings/api";
 const ACADEMY_ACCOUNT_SYNC_URL = "https://yomureader.com/academy/?view=profile-sync";
 const PROXY_WORKER_README_URL = `${GITHUB_REPOSITORY_URL}/tree/main/workers/jpdb-public-proxy`;
 function localizedOptions(text2, table) {
@@ -23761,19 +24268,7 @@ function colorSourceSelectOptions(text2) {
 }
 const DISABLED_SETTINGS_CONTROL_DESCRIPTION_ID = "jpdb-reader-disabled-control-description";
 const AUTOFILL_IGNORE_ATTRIBUTE_HTML = ' data-1p-ignore="true" data-lpignore="true" data-bwignore="true" data-protonpass-ignore="true" data-form-type="other"';
-function protectedCredentialInput(name, label, storedValue, language2, link) {
-  const configured = Boolean(storedValue.trim());
-  const field = input(name, label, "", "text", {
-  ...PROTECTED_CREDENTIAL_INPUT_ATTRIBUTES,
-  class: "jpdb-reader-masked-input",
-  placeholder: configured ? uiText(language2, "storedCredentialPlaceholder") : "",
-  ...configured ? { "data-stored-credential-placeholder": "true" } : {}
-  });
-  const help = link ? `<a href="${escapeHtml$1(link.url)}" target="_blank" rel="noopener">${escapeHtml$1(link.label)}</a>` : "";
-  const clear = configured ? `<label class="inline"><input name="${escapeHtml$1(storedCredentialClearName(name))}" type="checkbox"><span data-clear-stored-credential>${escapedUiText(language2, "clearStoredCredential")}</span></label>` : "";
-  return `<div class="jpdb-reader-protected-credential"${configured ? ' data-stored-credential="true"' : ""}>${field}${help}${clear}</div>`;
-}
-const SETTINGS_TABS = [{ panel: "appearance", active: true }, { panel: "backup", labelKey: "backupSync" }, { panel: "api" }, { panel: "dictionaries", labelKey: "sources" }, { panel: "media" }, { panel: "mining" }, { panel: "newTab" }, { panel: "shortcuts" }, { panel: "help" }];
+const SETTINGS_TABS = [{ panel: "appearance", active: true }, { panel: "backup", labelKey: "backupSync" }, { panel: "api", labelKey: "reviews" }, { panel: "dictionaries", labelKey: "sources" }, { panel: "media" }, { panel: "mining" }, { panel: "newTab" }, { panel: "shortcuts" }, { panel: "help" }];
 const WORD_COLOR_FIELDS = [
   ["wordColorNew", "wordColorNew"],
   ["wordColorLearning", "wordColorLearning"],
@@ -23882,7 +24377,7 @@ function renderSettingsForm(settings2, jpdbSettingsUrl, jitenSettingsUrl = DEFAU
             ${renderSettingsTabs(settings2.interfaceLanguage)}
             ${renderSettingsSearch(settings2.interfaceLanguage)}
             <div class="jpdb-reader-settings-scroll">
-            ${renderApiSettingsPanel(settings2, jpdbSettingsUrl, jitenSettingsUrl)}
+            ${renderReviewServicesPanel(settings2, { jpdb: jpdbSettingsUrl, jiten: jitenSettingsUrl }, settingsText(settings2.interfaceLanguage), renderJpdbPageEnhancementControls(settings2))}
             ${renderInterfaceSettingsPanel(settings2)}
             ${renderNewTabSettingsPanel(settings2)}
             ${renderAudioSettingsPanel(settings2)}
@@ -23930,17 +24425,6 @@ function renderSettingsSearch(language2) {
             <div class="jpdb-reader-settings-search-empty" data-settings-search-empty hidden>${escapedUiText(language2, "settingsSearchNoResults")}</div>
     `;
 }
-function renderApiMiningControls(settings2, text2 = settingsText(settings2.interfaceLanguage)) {
-  return `
-                ${checkbox("jpdbMiningEnabled", text2("jpdbMiningEnabled"), settings2.jpdbMiningEnabled)}
-                ${checkbox("bunproMiningEnabled", text2("bunproMiningEnabled"), settings2.bunproMiningEnabled)}
-                ${checkbox("wanikaniReviewEnabled", text2("wanikaniReviewEnabled"), settings2.wanikaniReviewEnabled)}
-                <div class="jpdb-reader-help" data-wanikani-grade-mapping-help>${escapedUiText(settings2.interfaceLanguage, "wanikaniGradeMappingHelp")}</div>
-                ${checkbox("addToForq", text2("addToForq"), settings2.jpdbMiningEnabled && settings2.addToForq, { disabled: !settings2.jpdbMiningEnabled })}
-                ${checkbox("enableReviews", text2("enableReviews"), settings2.enableReviews)}
-                ${select("apiGradingProvider", text2("apiGradingProvider"), settings2.apiGradingProvider === "bunpro" ? "jiten" : settings2.apiGradingProvider, [["jiten", "Jiten"], ["jpdb", "JPDB"]])}
-                <div class="jpdb-reader-help" data-grading-provider-help>${escapedUiText(settings2.interfaceLanguage, "apiGradingProviderHelp")}</div>`;
-}
 function renderJpdbPageEnhancementControls(settings2, text2 = settingsText(settings2.interfaceLanguage)) {
   return `
                 <div class="jpdb-reader-settings-subsection">
@@ -23952,39 +24436,12 @@ function renderJpdbPageEnhancementControls(settings2, text2 = settingsText(setti
                     </div>
                 </div>`;
 }
-function renderApiSettingsPanel(settings2, jpdbSettingsUrl, jitenSettingsUrl) {
-  const language2 = settings2.interfaceLanguage;
-  return `
-            <fieldset id="jpdb-reader-settings-panel-api" role="tabpanel" data-settings-panel="api" data-legend-key="api" hidden>
-                <legend>${escapedUiText(language2, "api")}</legend>
-                <div class="jpdb-reader-settings-subsection">
-                    <div class="jpdb-reader-local-title">${escapedUiText(language2, "apiAccess")}</div>
-                    <div class="grid">
-                        ${protectedCredentialInput("apiCredentialJiten", escapedUiText(language2, "apiCredentialJiten"), effectiveJitenApiKey(settings2), language2, { url: jitenSettingsUrl, label: uiText(language2, "jitenSettings") })}
-                        ${protectedCredentialInput("apiCredentialJpdb", escapedUiText(language2, "apiCredentialJpdb"), effectiveJpdbApiKey(settings2), language2, { url: jpdbSettingsUrl, label: uiText(language2, "jpdbSettings") })}
-                        ${protectedCredentialInput("apiCredentialBunpro", escapedUiText(language2, "apiCredentialBunpro"), settings2.bunproFrontendApiToken, language2, { url: DEFAULT_BUNPRO_SETTINGS_URL, label: uiText(language2, "bunproSettings") })}
-                        <input type="hidden" name="bunproFrontendApiTokenExpiresAt" value="${escapeHtml$1(settings2.bunproFrontendApiTokenExpiresAt)}">
-                        ${protectedCredentialInput("apiCredentialWanikani", escapedUiText(language2, "apiCredentialWanikani"), settings2.wanikaniApiToken, language2, { url: WANIKANI_TOKEN_SETTINGS_URL, label: uiText(language2, "wanikaniSettings") })}
-                    </div>
-                    <div class="jpdb-reader-help" data-jpdb-api-key-help>${escapedUiText(language2, "apiAccessHelp")}</div>
-                    <div class="jpdb-reader-help" data-wanikani-api-key-help>${escapedUiText(language2, "wanikaniTokenHelp")}</div>
-                </div>
-                ${renderJpdbStatusLine(settings2)}
-                ${renderBunproStatusLine(settings2)}
-                ${renderWanikaniStatusLine(settings2)}
-                <div data-jpdb-decks>
-                    ${renderDeckControls(settings2, [], hasJpdbApiCredential(settings2), settings2.interfaceLanguage)}
-                </div>
-                ${renderApiMiningControls(settings2)}
-                ${renderJpdbPageEnhancementControls(settings2)}
-            </fieldset>
-    `;
-}
 function renderInterfaceSettingsPanel(settings2) {
   const text2 = settingsText(settings2.interfaceLanguage);
   return `
             <fieldset id="jpdb-reader-settings-panel-appearance" role="tabpanel" data-settings-panel="appearance" data-legend-key="appearance">
                 <legend>${escapedUiText(settings2.interfaceLanguage, "appearance")}</legend>
+                ${renderAppearanceQuickRow(settings2, text2)}
                 ${renderInterfaceLanguageControl(settings2)}
                 <div class="grid">
                     ${themeSegmentedControl(settings2.theme, text2)}
@@ -23996,7 +24453,6 @@ function renderInterfaceSettingsPanel(settings2) {
                 ${renderAppearanceTuning(settings2.interfaceLanguage, `<div class="grid">
                     ${fontFamilyControl("readerFontFamily", text2("readerFontFamily"), settings2.readerFontFamily, text2)}
                     ${fontFamilyControl("popupFontFamily", text2("popupFontFamily"), settings2.popupFontFamily, text2)}
-                    ${input("accentColor", text2("accentColor"), sanitizeAccentColor(settings2.accentColor), "color")}
                     ${input("popoverWidth", text2("popoverWidth"), String(settings2.popoverWidth), "number", { min: 280, max: 900, step: 10 })}
                     ${input("popoverHeight", text2("popoverHeight"), String(settings2.popoverHeight), "number", { min: 220, max: 900, step: 10 })}
                     ${select("popoverHeightMode", text2("popoverHeightMode"), settings2.popoverHeightMode, localizedOptions(text2, POPOVER_HEIGHT_MODE_OPTIONS))}
@@ -24032,11 +24488,7 @@ function renderNewTabSettingsSubsection(settings2) {
                         ${checkbox("newTabAnkiEnabled", text2("newTabAnkiEnabled"), settings2.newTabAnkiEnabled)}
                         ${renderNewTabAnkiDeckControls(settings2)}
                         ${select("newTabSource", text2("newTabSource"), settings2.newTabSource, newTabSourceOptions(text2))}
-                        ${checkbox("yomuLocalSrsEnabled", text2("yomuLocalSrsEnabled"), settings2.yomuLocalSrsEnabled)}
                         ${select("newTabJpdbReviewMode", text2("newTabJpdbReviewMode"), settings2.newTabJpdbReviewMode, localizedOptions(text2, NEW_TAB_JPDB_REVIEW_MODE_OPTIONS))}
-                        <div data-review-config ${settings2.enableReviews ? "" : "hidden"}>
-                            ${select("twoButtonReviews", text2("reviewRatingScale"), settings2.twoButtonReviews ? "true" : "false", localizedOptions(text2, TWO_BUTTON_REVIEW_OPTIONS))}
-                        </div>
                         ${select("newTabKanjiKeywordSource", text2("newTabKanjiKeywordSource"), settings2.newTabKanjiKeywordSource, kanjiKeywordSourceOptions(settings2, text2))}
                     </div>
                     <div class="grid jpdb-reader-settings-tgrid jpdb-reader-settings-study-options">
@@ -24208,7 +24660,7 @@ function appearancePreviewContentHtml() {
   return `<span class="jpdb-reader-settings-appearance-preview-line">${appearancePreviewHtml()}</span>`;
 }
 function appearancePreviewHtml() {
-  const word = (classes, base, furi, tail = "") => `<span class="jpdb-reader-word jpdb-reader-has-furi ${classes}"><ruby><span class="jpdb-reader-ruby-base">${base}</span><rt class="jpdb-reader-furi">${furi}</rt></ruby>${tail}</span>`;
+  const word = (classes, base, furi, tail = "") => `<span class="jpdb-reader-word jpdb-reader-has-furi ${classes}"><ruby class="${YOMU_RUBY_CLASS}"><span class="jpdb-reader-ruby-base">${base}</span><rt class="jpdb-reader-furi">${furi}</rt></ruby>${tail}</span>`;
   return `${word("jpdb-new anki-new jpdb-pitch-heiban", "新", "あたら", "しい")}${word("jpdb-learning anki-learning jpdb-pitch-atamadaka", "言葉", "ことば")}を${word("jpdb-due anki-due jpdb-pitch-nakadaka", "毎日", "まいにち")}${word("jpdb-failed anki-failed jpdb-pitch-odaka", "勉強", "べんきょう")}して、${word("jpdb-known anki-known jpdb-pitch-unknown", "日本語", "にほんご")}が${word("jpdb-never-forget anki-known jpdb-pitch-heiban", "上手", "じょうず")}になる。`;
 }
 function renderPitchColorSettingsSubsection(settings2) {
@@ -24457,7 +24909,7 @@ function renderVideoSettingsPanel(settings2) {
                     ${input("subtitleNativeBlurStrength", text2("subtitleNativeBlurStrength"), String(settings2.subtitleNativeBlurStrength), "number")}
                     ${input("subtitleTranscriptAutoScrollResumeSeconds", text2("subtitleTranscriptAutoScrollResumeSeconds"), String(settings2.subtitleTranscriptAutoScrollResumeSeconds), "number")}
                     ${select("subtitleControlsMode", text2("subtitleControlsMode"), settings2.subtitleControlsMode, localizedOptions(text2, SUBTITLE_CONTROLS_MODE_OPTIONS))}
-                    ${input("subtitleFontSize", text2("subtitleFontSize"), String(settings2.subtitleFontSize), "number")}
+                    ${input("subtitleFontSize", text2("subtitleFontSizePixelsAuto"), String(settings2.subtitleFontSize), "number")}
                     ${input("subtitleBottomOffset", text2("subtitleBottomOffset"), String(settings2.subtitleBottomOffset), "number")}
                     ${renderColorInputs(SUBTITLE_COLOR_FIELDS, settings2)}
                     ${input("subtitleBackgroundOpacity", text2("subtitleBackgroundOpacity"), String(settings2.subtitleBackgroundOpacity), "number")}
@@ -24670,13 +25122,13 @@ function fontFamilyOptions(text2) {
 }
 function themeSegmentedControl(value, text2) {
   const isDark = value === "dark";
-  const switchLabel = escapeHtml$1(isDark ? text2("switchToLightTheme") : text2("switchToDarkTheme"));
+  const switchLabel2 = escapeHtml$1(isDark ? text2("switchToLightTheme") : text2("switchToDarkTheme"));
   return `
         <div class="jpdb-reader-theme-field" data-theme-field>
             <span class="jpdb-reader-theme-title" id="jpdb-reader-theme-label" data-theme-title>${escapeHtml$1(text2("theme"))}</span>
             <input type="hidden" name="theme" value="${escapeHtml$1(value)}" data-theme-value>
             <div class="VPNavBarAppearance appearance jpdb-reader-theme-appearance">
-                <button class="VPSwitch VPSwitchAppearance jpdb-reader-theme-switch" type="button" role="switch" data-theme-switch data-newtab-action="theme" aria-label="${switchLabel}" aria-labelledby="jpdb-reader-theme-label" aria-describedby="jpdb-reader-theme-label" aria-checked="${isDark}" title="${switchLabel}">
+                <button class="VPSwitch VPSwitchAppearance jpdb-reader-theme-switch" type="button" role="switch" data-theme-switch data-newtab-action="theme" aria-label="${switchLabel2}" aria-labelledby="jpdb-reader-theme-label" aria-describedby="jpdb-reader-theme-label" aria-checked="${isDark}" title="${switchLabel2}">
                     <span class="check">
                         <span class="icon">
                             <span class="vpi-sun sun" aria-hidden="true"></span>
@@ -24706,6 +25158,8 @@ function localizeSettingsForm(form, language2) {
   localizeSettingsShell(form, language2, text2);
   localizeSettingsDisclosures(form, language2);
   localizeSettingsLabels(form, text2);
+  localizeAppearanceQuickRow(form, text2);
+  localizeReviewServices(form, text2);
   localizeSettingsSectionTitles(form, text2);
   localizeSettingsSelects(form, text2);
   localizeSettingsShortcuts(form, text2);
@@ -24748,7 +25202,6 @@ function removeDescribedBy(control, id) {
   else control.removeAttribute("aria-describedby");
 }
 const LOCAL_TITLE_TEXT_KEYS = [
-  [/API access|APIアクセス/, "apiAccess"],
   [/Version and updates|Version|バージョンと更新|バージョン/, "versionAndUpdates"],
   [/Word colors|単語の色/, "wordColors"],
   [/Pitch accent colors|ピッチアクセント/, "pitchAccentColors"],
@@ -24762,7 +25215,6 @@ const SELECTOR_TEXT_KEYS = [
   ["[data-hover-lookup-title]", "hoverLookupSettings"],
   ["[data-diagnostics-title]", "diagnostics"],
   ["[data-anki-library-adapter-title]", "ankiLibraryAdapter"],
-  ["[data-jpdb-api-key-help]", "apiAccessHelp"],
   ["[data-grading-provider-help]", "apiGradingProviderHelp"],
   ["[data-subtitle-preview] .jpdb-subtitle-secondary", "subtitlePreview"],
   ["[data-settings-preview-title]", "preview"],
@@ -24875,12 +25327,7 @@ function localizeSettingsLegends(form, text2) {
 }
 function localizeSettingsLabels(form, text2) {
   SETTINGS_CONTROL_LABELS.forEach(([name, key]) => setControlLabel(form, name, text2(key)));
-  const jpdbSettings = form.querySelector('.jpdb-reader-protected-credential > a[href*="jpdb.io/settings"]');
-  if (jpdbSettings) jpdbSettings.textContent = text2("jpdbSettings");
-  const jitenSettings = form.querySelector('.jpdb-reader-protected-credential > a[href*="jiten.moe/settings"]');
-  if (jitenSettings) jitenSettings.textContent = text2("jitenSettings");
-  const bunproSettings = form.querySelector('.jpdb-reader-protected-credential > a[href*="bunpro.jp/settings"]');
-  if (bunproSettings) bunproSettings.textContent = text2("bunproSettings");
+  reviewServiceControlLabels(text2).forEach(([name, label]) => setControlLabel(form, name, label));
   const nadeshikoKeyLink = form.querySelector('.jpdb-reader-protected-credential > a[href*="nadeshiko.co/user/developer"]');
   if (nadeshikoKeyLink) nadeshikoKeyLink.textContent = text2("getNadeshikoKey");
   localizeBlockControlLabel(form, "ocrEndpointUrl", text2("ocrEndpointUrl"));
@@ -25236,19 +25683,11 @@ function localizeDictionaryStatus(form, text2) {
 }
 const DIRECT_SETTINGS_CONTROL_LABEL_KEYS = [
   "apiCredential",
-  "apiCredentialJpdb",
-  "apiCredentialJiten",
   "apiCredentialBunproLegacy",
-  "apiCredentialBunpro",
-  "apiCredentialWanikani",
   "miningDeck",
   "newTabJpdbDeck",
   "neverForgetDeck",
   "blacklistDeck",
-  "jpdbMiningEnabled",
-  "bunproMiningEnabled",
-  "wanikaniReviewEnabled",
-  "yomuLocalSrsEnabled",
   "addToForq",
   "enableReviews",
   "apiGradingProvider",
@@ -25690,12 +26129,13 @@ function syncReviewSettingsVisibility(form) {
   });
 }
 function syncJpdbMiningDependentSettings(form) {
-  const jpdbDeckActionsEnabled = form.querySelector('input[name="jpdbMiningEnabled"]')?.checked ?? true;
-  for (const name of ["addToForq", "ankiMineWithJpdb"]) {
+  const grades = (name) => form.querySelector(`input[name="${name}"]`)?.checked ?? true;
+  const jpdb = grades("jpdbMiningEnabled");
+  for (const [name, enabled] of [["addToForq", jpdb], ["ankiMineWithJpdb", jpdb || grades("jitenMiningEnabled")]]) {
   const input2 = form.querySelector(`input[name="${name}"]`);
   if (!input2) continue;
-  input2.disabled = !jpdbDeckActionsEnabled;
-  if (!jpdbDeckActionsEnabled) input2.checked = false;
+  input2.disabled = !enabled;
+  if (!enabled) input2.checked = false;
   }
 }
 function syncStickyBottomSheetAvailability(form) {
@@ -26550,17 +26990,21 @@ function bindLiveSettingsSync(form, dependencies, signal) {
   let adoptedSettings = snapshotDurableSettings(dependencies.getSettings());
   subscribeToSettingsChanges((detail) => {
   if (!dependencies.isActive()) return;
-  if (detail.preview !== true) {
-    const previousSettings = adoptedSettings;
-    const settings2 = { ...previousSettings, ...detail.settings };
-    dependencies.adoptSettings(settings2);
-    syncFormFromSettings(form, previousSettings, settings2);
-    syncSubtitlePreview(form);
-    syncFontFamilyControls(form);
-    adoptedSettings = snapshotDurableSettings(settings2);
-  }
   const theme = themeFromSettingsChange(detail);
-  if (theme) dependencies.applyTheme(theme);
+  if (detail.preview === true) {
+    if (theme) dependencies.applyTheme(theme);
+    return;
+  }
+  const previousSettings = adoptedSettings;
+  const settings2 = { ...previousSettings, ...detail.settings };
+  dependencies.adoptSettings(settings2);
+  syncFormFromSettings(form, previousSettings, settings2);
+  syncAppearanceQuickRow(form);
+  syncSubtitlePreview(form);
+  syncFontFamilyControls(form);
+  adoptedSettings = snapshotDurableSettings(settings2);
+  if (theme && (detail.remote !== true || theme !== previousSettings.theme)) dependencies.applyTheme(theme);
+  dependencies.previewForm();
   }, signal);
 }
 function snapshotDurableSettings(settings2) {
@@ -26844,6 +27288,7 @@ function requestViaUserscript(request, url, init) {
   onTimeout: () => new Error("Reader account request timed out.")
   });
 }
+const KNOWN_INTERVAL_DAYS = 21;
 function canonicalStudyCardIdentity(expression, reading = "", options = {}) {
   const normalizedExpression = expression.normalize("NFKC").trim();
   if (!normalizedExpression) throw new TypeError("Vocabulary expression is required.");
@@ -27164,7 +27609,7 @@ function isLocalYomuSrsStorageKey(key) {
 }
 class LocalYomuSrsStorageError extends Error {
   constructor(options) {
-  super(isStorageLeaseLapsed(options?.cause) ? "Your Academy deck was not saved because saving was interrupted. Try again." : "Your Academy deck could not be saved. Browser storage may be full. Free some site storage, then try again.", options);
+  super(isStorageLeaseLapsed(options?.cause) ? "Your よむ deck was not saved because saving was interrupted. Try again." : "Your よむ deck could not be saved. Browser storage may be full. Free some site storage, then try again.", options);
   this.name = "LocalYomuSrsStorageError";
   }
 }
@@ -27377,8 +27822,8 @@ class LocalYomuSrsRepository {
     newToday: cards.filter((card) => card.createdAt >= today).length,
     levelCounts: {
       new: cards.filter((card) => card.reviews === 0).length,
-      learning: cards.filter((card) => card.reviews > 0 && card.intervalDays < 21).length,
-      known: cards.filter((card) => card.intervalDays >= 21).length
+      learning: cards.filter((card) => card.reviews > 0 && card.intervalDays < KNOWN_INTERVAL_DAYS).length,
+      known: cards.filter((card) => card.intervalDays >= KNOWN_INTERVAL_DAYS).length
     }
   };
   }
@@ -27674,13 +28119,13 @@ function localCardState(card, now) {
   if (card.reviewEnabled === false) return ["in-deck"];
   if (card.reviews === 0) return ["new"];
   if (card.dueAt <= now) return ["due"];
-  if (card.intervalDays >= 21) return ["known"];
+  if (card.intervalDays >= KNOWN_INTERVAL_DAYS) return ["known"];
   return ["learning"];
 }
 function localSrsLevel(card) {
   if (card.reviewEnabled === false) return "Saved";
   if (card.reviews === 0) return "New";
-  if (card.intervalDays >= 21) return "Known";
+  if (card.intervalDays >= KNOWN_INTERVAL_DAYS) return "Known";
   if (card.intervalDays >= 7) return "Young";
   return "Learning";
 }
@@ -29266,6 +29711,8 @@ class SettingsDialogController {
   installCatalogBrowseFilter(form);
   this.bindSettingsTabs(form);
   this.bindEditorControls(form);
+  const formText = () => settingsText(getFormInterfaceLanguage(form, this.settings.interfaceLanguage));
+  bindReviewServices(form, formText);
   this.dependencies.mountDialog(backdrop, form);
   this.currentForm = form;
   this.settingsSyncAbort = new AbortController();
@@ -29278,6 +29725,7 @@ class SettingsDialogController {
   this.syncJpdbStatus(form);
   void this.academyAccountSync.refresh(form, this.settings.interfaceLanguage);
   void this.refreshAnkiConnectionStatus(form);
+  if (this.dependencies.probeAnkiAvailability) void markAnkiAvailability(form, () => this.dependencies.anki.isConnected(), formText);
   runCredentialDependentSettingsRefreshes(firefoxAuthenticationInfoRequiresExtensionPage(), [
     () => void this.refreshJpdbConnectionStatus(form),
     () => void this.refreshWanikaniConnectionStatus(form)
@@ -29576,6 +30024,7 @@ class SettingsDialogController {
     const accentColor = event.currentTarget.value;
     commitAccentPreview(accentColor);
   });
+  bindAppearanceQuickRow(form, { commitAccent: commitAccentPreview });
   let wordColorPreviewFrame;
   const scheduleWordColorPreview = () => {
     if (wordColorPreviewFrame !== void 0) return;
@@ -29610,7 +30059,8 @@ class SettingsDialogController {
         applyThemePreview();
         this.syncThemeSwitch(form);
       }
-    }
+    },
+    previewForm: applyThemePreview
   }, signal);
   syncSubtitlePreview(form);
   syncFontFamilyControls(form);
@@ -29708,11 +30158,11 @@ class SettingsDialogController {
     this.syncJpdbStatus(form);
   });
   form.querySelector('select[name="twoButtonReviews"]')?.addEventListener("change", () => syncReviewSettingsVisibility(form));
-  form.querySelector('input[name="jpdbMiningEnabled"]')?.addEventListener("change", () => {
+  form.querySelectorAll('input[name="jpdbMiningEnabled"], input[name="jitenMiningEnabled"]').forEach((input2) => input2.addEventListener("change", () => {
     syncJpdbMiningDependentSettings(form);
     syncDisabledSettingsControlDescriptions(form, getFormInterfaceLanguage(form, this.settings.interfaceLanguage));
     this.syncJpdbStatus(form);
-  });
+  }));
   syncJpdbMiningDependentSettings(form);
   syncDisabledSettingsControlDescriptions(form, getFormInterfaceLanguage(form, this.settings.interfaceLanguage));
   }
