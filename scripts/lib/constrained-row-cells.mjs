@@ -9,10 +9,9 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { chromium, webkit } from 'playwright';
 import * as esbuild from 'esbuild';
 
-const ROOT = path.resolve(fileURLToPath(new URL('..', import.meta.url)));
+const ROOT = path.resolve(fileURLToPath(new URL('../..', import.meta.url)));
 const CSS_PATH = path.join(ROOT, 'dist', 'yomu.css');
 const tempDir = mkdtempSync(path.join(tmpdir(), 'yomu-constrained-gate-smoke-'));
 const entryPath = path.join(tempDir, 'probe.ts');
@@ -106,6 +105,8 @@ writeFileSync(entryPath, `
 `);
 
 await esbuild.build({ entryPoints: [entryPath], bundle: true, outfile: bundlePath, format: 'iife', platform: 'browser', logLevel: 'silent' });
+const probeSource = readFileSync(bundlePath, 'utf8');
+rmSync(tempDir, { recursive: true, force: true });
 
 const FIXTURE = `<!doctype html><html lang="ja"><head><meta charset="utf-8"><style>
 body { font: 16px/1.4 sans-serif; width: 240px; }
@@ -123,19 +124,18 @@ body { font: 16px/1.4 sans-serif; width: 240px; }
 </body></html>`;
 
 function fail(message, details) {
-    console.error(message, JSON.stringify(details, null, 2));
-    process.exitCode = 1;
+    throw new Error(`${message} ${JSON.stringify(details)}`);
 }
 
-async function runEngine(name, browserType) {
-    const browser = await browserType.launch({ headless: true });
-    try {
-        const page = await browser.newPage();
-        await page.route('https://constrained-gate.example/**', route => route.fulfill({ status: 200, contentType: 'text/html; charset=utf-8', body: FIXTURE }));
-        await page.goto('https://constrained-gate.example/', { waitUntil: 'domcontentloaded' });
-        await page.addStyleTag({ content: readFileSync(CSS_PATH, 'utf8') });
-        await page.addScriptTag({ path: bundlePath });
-
+export async function assertConstrainedRows(page, name) {
+        await page.evaluate(html => {
+            const fixture = new DOMParser().parseFromString(html, 'text/html');
+            document.documentElement.className = fixture.documentElement.className;
+            document.body.className = fixture.body.className;
+            document.body.replaceChildren(...fixture.body.childNodes);
+            document.head.append(...fixture.head.querySelectorAll('style'));
+        }, FIXTURE);
+        await page.addScriptTag({ content: probeSource });
         const natural = await page.evaluate(() => window.runConstrainedGateProbe(null));
         const forced = await page.evaluate(() => window.runConstrainedGateProbe(true));
         const healthy = await page.evaluate(() => window.runConstrainedGateProbe(false));
@@ -169,19 +169,4 @@ async function runEngine(name, browserType) {
         if (/rgba\(0, 0, 0, 0\)|transparent/.test(conceal.svgColor) || !conceal.svgColor) fail(`${name}: host icon inherited the transparent text colour`, conceal);
 
         console.log(`${name}: natural verdict = ${JSON.stringify({ bareMirrored: natural['bare-title'].mirror, pillMirrored: natural.pill.mirror })}, forced + healthy rounds ${process.exitCode ? 'FAILED' : 'passed'}`);
-    } finally {
-        await browser.close();
-    }
-}
-
-try {
-    await runEngine('chromium', chromium);
-    await runEngine('webkit', webkit);
-} finally {
-    rmSync(tempDir, { recursive: true, force: true });
-}
-if (process.exitCode) {
-    console.error('constrained-row mirror gate smoke FAILED');
-} else {
-    console.log('constrained-row mirror gate smoke passed');
 }
