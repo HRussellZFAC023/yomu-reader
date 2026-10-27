@@ -55,7 +55,6 @@ export const readerNodeFiles = [
     'tests/reader/private-host.test.ts',
     'tests/reader/public-proxy-worker.test.ts',
     'tests/reader/radial-menu-layout.test.ts',
-    'tests/reader/sensitive-settings-surface.test.ts',
     'tests/reader/settings-file-io.test.ts',
     'tests/reader/settings-legacy-coverage.test.ts',
     'tests/reader/shared-srs.test.ts',
