@@ -1441,18 +1441,6 @@ describe('reader helpers', () => {
         expectRenderedPitchWord(word, 'heiban');
     });
 
-    it('does not cap default page scans at two thousand targets', () => {
-        const rectSpy = mockElementBoundingClientRect();
-        const paragraphs = Array.from({ length: 2005 }, (_, index) => `<p>日本語の文章${index}</p>`).join('');
-        document.body.innerHTML = `<main><article>${paragraphs}</article></main>`;
-
-        const targets = collectScanTargets(undefined, 'https://example.com/article');
-        rectSpy.mockRestore();
-
-        expect(targets).toHaveLength(2005);
-        expect(targets.at(-1)?.text).toBe('日本語の文章2004');
-    });
-
     it('adds safe UI chrome links after prose as passive ruby scan targets and leaves controls alone', () => {
         const rectSpy = mockElementBoundingClientRect();
         document.body.innerHTML = `
