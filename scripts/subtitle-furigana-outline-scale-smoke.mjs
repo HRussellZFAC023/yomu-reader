@@ -286,6 +286,16 @@ function fail(context, message, detail) {
     throw new Error(`${context}: ${message}\n${JSON.stringify(detail, null, 2)}`);
 }
 
+function assertLayoutIdentical(context, painted, hidden) {
+    for (const part of ['annotated', 'okurigana', 'reading']) {
+        for (const edge of ['left', 'right', 'top', 'bottom']) {
+            if (Math.abs(painted.geometry[part][edge] - hidden.geometry[part][edge]) > 0.01) {
+                fail(context, `hiding the reading moved the ${part} box's ${edge} edge, so the control is not layout-identical and the wash subtraction would be measuring layout, not ink`, { painted: painted.geometry[part], control: hidden.geometry[part] });
+            }
+        }
+    }
+}
+
 async function measure(page, word, size, context) {
     const painted = await shoot(page, word, size, VIDEO_BACKDROP, 'paint');
     // A zero box means the stylesheet hid the cue, not that the reading lost its
@@ -312,15 +322,7 @@ async function measure(page, word, size, context) {
     // stylesheet that collapses an empty rt) leaves the base glyphs in place in
     // Blink, so the box check would pass while every wash and reach number
     // silently collapsed to zero. The reading's own box is the one that moves.
-    for (const hidden of [control, baseInked]) {
-        for (const part of ['annotated', 'okurigana', 'reading']) {
-            for (const edge of ['left', 'right', 'top', 'bottom']) {
-                if (Math.abs(painted.geometry[part][edge] - hidden.geometry[part][edge]) > 0.01) {
-                    fail(context, `hiding the reading moved the ${part} box's ${edge} edge, so the control is not layout-identical and the wash subtraction would be measuring layout, not ink`, { painted: painted.geometry[part], control: hidden.geometry[part] });
-                }
-            }
-        }
-    }
+    for (const hidden of [control, baseInked]) assertLayoutIdentical(context, painted, hidden);
 
     const { width, height } = inked.pixels;
     const readingEm = painted.geometry.readingFontSize;
