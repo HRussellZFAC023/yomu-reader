@@ -68,7 +68,8 @@ if (args.includes('--jpdb')) {
     if (!jpdbKey) throw new Error('No JPDB QA key available through qa-env.mjs.');
 }
 const release = args.includes('--release');
-const scenarios = (option('scenarios') ?? (release ? 'quiet' : 'quiet,refused,refused-html')).split(',');
+const scenarios = (option('scenarios') ?? (release ? 'quiet' : 'quiet,refused,refused-html,reflow-mechanism-fixture,scroll')).split(',');
+const defaultMatrix = !option('scenarios') && !option('press');
 const engines = (option('engines') ?? 'chromium,webkit').split(',');
 const productRef = option('product') ?? 'worktree';
 const product = productRef === 'worktree' ? worktreeProduct()
@@ -88,7 +89,10 @@ for (const name of engines) {
         await assertPopupHeaderPhone(browser, name);
         if (!args.includes('--layout-only')) {
             for (const press of (option('press')?.split(',') ?? (release ? [name === 'webkit' ? 'tap' : 'hover'] : profile.presses))) {
-                for (const scenario of scenarios) recordResult(await openSensei(browser, name, { ...profile, press }, scenario));
+                for (const scenario of scenarios) {
+                    if (defaultMatrix && ['reflow-mechanism-fixture', 'scroll'].includes(scenario) && press !== 'hover') continue;
+                    recordResult(await openSensei(browser, name, { ...profile, press }, scenario));
+                }
             }
         }
         if (!release && !args.includes('--skip-layout')) {
