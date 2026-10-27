@@ -2,19 +2,18 @@
 import { errorResponse } from '../../workers/yomu-academy/src/http';
 import { handleAdminPaymentCode, handlePaymentClaim, handlePaymentIngress } from '../../workers/yomu-academy/src/payment-ingress';
 import { derivePaidInviteCode, sha256Hex } from '../../workers/yomu-academy/src/crypto';
-import {
-    handlePaymentDeliveryClaim,
-    handlePaymentDeliveryComplete,
-    handlePendingPaymentDeliveries,
-} from '../../workers/yomu-academy/src/payment-delivery';
+import { handlePaymentDeliveryClaim, handlePaymentDeliveryComplete, handlePendingPaymentDeliveries } from '../../workers/yomu-academy/src/payment-delivery';
 import { entitlementForAccount, requirePaidSessionEntitlement } from '../../workers/yomu-academy/src/entitlements';
-import type { Env } from '../../workers/yomu-academy/src/env';
+import { type Env } from '../../workers/yomu-academy/src/env';
 import { createSqliteAcademy } from './helpers/sqlite-academy-env';
 import paymentEntrypoint from '../../workers/yomu-academy/src/payment-entrypoint';
-import type { ExecutionContext } from '../../workers/yomu-academy/src/cf';
+import { type ExecutionContext } from '../../workers/yomu-academy/src/cf';
 import { SERVICE_VERSION } from '../../workers/shared/service-revision';
+import worker from '../../workers/yomu-academy/src/index';
+import { createFakeAcademy } from './helpers/fake-academy-env';
 
 const now = 1_770_000_000_000;
+
 const ingressToken = 'private-service-binding-token';
 
 async function call(promise: Promise<Response>): Promise<Response> {
@@ -803,5 +802,28 @@ describe('Academy canonical payment ingress', () => {
             ]);
             expect(academy.db.rows('SELECT * FROM accounts')).toHaveLength(0);
         } finally { academy.close(); }
+    });
+});
+
+describe('academy-payment-route-retirement behavior', () => {
+    const context: ExecutionContext = {
+        waitUntil(promise): void {
+            void promise.catch(() => undefined);
+        },
+    };
+    
+    describe('Academy-owned Stripe route retirement', () => {
+        it.each([
+            ['POST', '/academy/api/checkout'],
+            ['POST', '/academy/api/stripe/webhook'],
+            ['GET', '/academy/api/claim?session_id=cs_test_retired'],
+        ])('returns 404 for the retired %s %s route', async (method, path) => {
+            const academy = createFakeAcademy();
+    
+            const response = await worker.fetch(new Request(`https://yomureader.com${path}`, { method }), academy.env, context);
+    
+            expect(response.status).toBe(404);
+            await expect(response.json()).resolves.toEqual({ error: 'Not found.' });
+        });
     });
 });
