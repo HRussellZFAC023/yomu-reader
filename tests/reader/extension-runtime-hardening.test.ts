@@ -1092,7 +1092,6 @@ line two\`;
 });
 
 describe('extension authoritative storage reads', () => {
-    // @ts-expect-error Production packaging script.
 
 
     function deferred<T>() {
@@ -1162,7 +1161,6 @@ describe('extension authoritative storage reads', () => {
 });
 
 describe('compiler storage notification acknowledgements', () => {
-    // @ts-expect-error Production build script.
 
 
 

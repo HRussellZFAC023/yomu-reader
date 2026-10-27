@@ -5,6 +5,7 @@ import path from 'node:path';
 // @ts-expect-error Node build helper is exercised directly by sync.
 import { academyBuildManifest, academyBuildSources, academyHostedCounterpart, renderAcademyTemplate, academyBuildCode, academyBuildFile, academyProofTemplate, academyEmittedFilesMatch } from '../../scripts/lib/academy-build-manifest.cjs';
 import { join } from "node:path";
+// @ts-expect-error The revision helper is a Node CommonJS module.
 import academyRevisionModule from "../../scripts/lib/academy-revision.cjs";
 
 function manifest() {
@@ -128,9 +129,7 @@ describe("academy revision", () => {
 
 
 
-    // @ts-expect-error plain .cjs script module without type declarations
 
-    // @ts-expect-error plain .cjs script module without type declarations
 
 
     const {

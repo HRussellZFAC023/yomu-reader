@@ -353,17 +353,6 @@ describe('Stats data availability', () => {
         };
     }
 
-    function renderStats(selectedDate?: string): HTMLElement {
-        return renderNewTabStatsContent({
-            activityMetric: 'reviews',
-            language: 'en',
-            selectedDate,
-            selectedSource: 'combined',
-            snapshot: snapshot(),
-            text: key => String(key),
-        });
-    }
-
 
     it('keeps event reviews and distinct reviewed cards separate in All and source views', () => {
         const state = snapshot();

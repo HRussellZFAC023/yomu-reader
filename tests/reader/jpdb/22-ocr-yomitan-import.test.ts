@@ -11,8 +11,8 @@ import {
 import "../../../src/reader/companions/register-build-companions";
 import { afterEach } from "vitest";
 import { DEFAULT_SETTINGS, applyTokensToScanTarget, card, collectFragmentTextTargetsIn, mutationLooksLikeReaderRenderRejection, readerRenderRejectionRescanDelay } from "./fixtures";
-import type { ScanTextTarget } from "./fixtures";
-import { collectScanTargets, expectRenderedPitchWord, mockElementBoundingClientRect, readerWordSurfaceText } from "./fixtures";
+
+import { collectScanTargets, mockElementBoundingClientRect, readerWordSurfaceText } from "./fixtures";
 
 registerReaderHelpersCleanup();
 
@@ -598,26 +598,6 @@ describe('reader helpers', () => {
     registerReaderHelpersCleanup();
     afterEach(() => document.documentElement.removeAttribute('data-yomu-annotation-scope'));
 
-    function isContinuableActiveTarget(target: ScanTextTarget): boolean {
-        return target.passiveInteraction !== true && target.singlePassScan !== true;
-    }
-
-    function hasDirectTextNode(host: HTMLElement, text: string): boolean {
-        return Array.from(host.childNodes).some(node =>
-            node.nodeType === Node.TEXT_NODE && node.textContent === text);
-    }
-
-    function expectActiveNonDestructiveTarget(target: ScanTextTarget): void {
-        expect(target).toMatchObject({ nonDestructive: true });
-        expect(target.passiveInteraction).not.toBe(true);
-        expect(target.forceInlineRender).not.toBe(true);
-        expect(target.suppressRepaintLoopMirror).not.toBe(true);
-    }
-
-    function expectElementText(root: ParentNode, selector: string, text: string): void {
-        expect(root.querySelector(selector)?.textContent).toBe(text);
-    }
-
 
 
     it('repairs damaged reader ruby when the host leaves only furigana behind', () => {
@@ -653,13 +633,6 @@ describe('reader helpers', () => {
 
 describe('reader helpers', () => {
     registerReaderHelpersCleanup();
-
-    function expectTokyoAnnotation(selector: string): void {
-        const word = document.querySelector<HTMLElement>(selector)!;
-        expect(readerWordSurfaceText(word)).toBe('東京');
-        expect(word.querySelector('rt, .jpdb-reader-detached-furi')?.textContent).toBe('とうきょう');
-        expectRenderedPitchWord(word, 'heiban');
-    }
 
 
 
