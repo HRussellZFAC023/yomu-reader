@@ -53,7 +53,6 @@ export const readerNodeFiles = [
     'tests/reader/pitch-number-identity.test.ts',
     'tests/reader/pitch-srs.test.ts',
     'tests/reader/private-host.test.ts',
-    'tests/reader/prose-selection.test.ts',
     'tests/reader/public-proxy-worker.test.ts',
     'tests/reader/radial-menu-layout.test.ts',
     'tests/reader/reading-lane-layout.test.ts',
