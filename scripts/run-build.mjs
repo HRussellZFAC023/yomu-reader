@@ -8,7 +8,7 @@ const root = join(import.meta.dirname, '..');
 const runner = new StageRunner(root, { ...cacheOptions(), prefix: 'build' });
 const stage = {
     name: 'userscript', command: 'node scripts/run-build.mjs --execute',
-    inputs: ['src/**', 'public/**', 'config/**', 'vite.config.ts', 'tsconfig*.json', 'scripts/**', '!scripts/fixtures/**'],
+    inputs: ['src/**', 'public/**', 'config/**', '!config/ci/content-addressed-retention.json', 'vite.config.ts', 'tsconfig*.json', 'scripts/**', '!scripts/fixtures/**'],
     env: buildEnv,
     // The gate's Academy build and Study sync own these namespaces after us.
     outputs: ['dist/**', '!dist/academy/**', '!dist/newtab/index.html', '!dist/newtab/sw.js', '!dist/newtab/version.json', '!dist/newtab/manifest.webmanifest'],

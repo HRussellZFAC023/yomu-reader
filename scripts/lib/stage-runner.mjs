@@ -35,8 +35,21 @@ export class StageRunner {
     async run(stage) {
         const start = performance.now();
         const key = this.key(stage);
+        const patterns = [...cacheImplementation, ...stage.inputs];
+        const before = stage.canonicalizesOutputs ? selectInputs(this.snapshot, patterns) : null;
+        const finalKey = before ? () => {
+            this.refresh();
+            const after = selectInputs(this.snapshot, patterns);
+            const changed = [...new Set([...Object.keys(before), ...Object.keys(after)])]
+                .filter(path => JSON.stringify(before[path]) !== JSON.stringify(after[path]));
+            const outputChanges = selectInputs(Object.fromEntries(changed.map(path => [path, true])), stage.outputs ?? []);
+            if (Object.keys(outputChanges).length !== changed.length) throw new Error(`${stage.name}: input changed during execution`);
+            // Opt-in contract: this writer idempotently stamps its own templates.
+            // Cache its canonical input/output pair, never edits to other inputs.
+            return this.key(stage);
+        } : undefined;
         const result = stage.uncached ? (await this.execute(stage), { cached: false })
-            : await this.cache.run({ ...stage, key }, () => this.execute(stage));
+            : await this.cache.run({ ...stage, key, finalKey }, () => this.execute(stage));
         const seconds = (performance.now() - start) / 1000;
         this.timings.push({ name: stage.name, seconds, cached: result.cached });
         console.log(`[${this.prefix}] ${result.cached ? 'cached' : 'pass  '} ${stage.name} (${seconds.toFixed(2)}s)`);

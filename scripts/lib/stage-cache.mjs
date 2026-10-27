@@ -110,14 +110,15 @@ export class StageCache {
         if (!marker || marker.key !== key) return false;
         return JSON.stringify(marker.outputs) === JSON.stringify(outputHashes(this.root, outputs));
     }
-    async run({ name, key, outputs = [] }, execute) {
+    async run({ name, key, outputs = [], finalKey }, execute) {
         if (this.hit(name, key, outputs)) return { cached: true };
         rmSync(this.markerPath(name, key), { force: true });
         // Throwing/rejecting never reaches the only marker write.
         await execute();
         const hashes = outputHashes(this.root, outputs);
         if (outputs.length && Object.keys(hashes).length === 0) throw new Error(`${name} produced no declared outputs`);
-        writeJson(this.markerPath(name, key), { key, outputs: hashes });
+        const passedKey = finalKey ? finalKey() : key;
+        writeJson(this.markerPath(name, passedKey), { key: passedKey, outputs: hashes });
         return { cached: false };
     }
 }

@@ -22,8 +22,8 @@ const common = ['scripts/run-check.mjs', 'scripts/lib/affected-tests.mjs'];
 const stage = (name, command, inputs, extra = {}) => ({ name, command, inputs: [...common, ...inputs], ...extra });
 const run = (...args) => runner.run(stage(...args));
 const all = ['**', '!docs/.vitepress/dist/**', '!docs/.vitepress/cache/**', '!docs/.vitepress/.temp/**'];
-const source = ['src/**', 'tests/**', 'workers/**', 'config/**', 'scripts/**', 'vite.config.ts', 'tsconfig*.json'];
-const buildInputs = ['src/**', 'public/**', 'config/**', 'scripts/**', '!scripts/fixtures/**', 'vite.config.ts', 'tsconfig*.json'];
+const source = ['src/**', 'tests/**', 'workers/**', 'config/**', '!config/ci/content-addressed-retention.json', 'scripts/**', 'vite.config.ts', 'tsconfig*.json'];
+const buildInputs = ['src/**', 'public/**', 'config/**', '!config/ci/content-addressed-retention.json', 'scripts/**', '!scripts/fixtures/**', 'vite.config.ts', 'tsconfig*.json'];
 const testEnv = [...testEnvironment, 'VITEST_MAX_FORKS', 'YOMU_VITEST_FORK_HEAP_MB', 'YOMU_CHECK_RELEASE', 'YOMU_CI_MAX_WORKERS', 'YOMU_CI_SHARDED', 'YOMU_CI_TEST_TIMEOUT_MS'];
 const retention = captureRetentionInputs(ROOT);
 writeFileSync(join(LOG_DIR, 'retention-inputs.json'), JSON.stringify(retention));
@@ -54,9 +54,10 @@ const build = (async () => {
     });
     runner.refresh();
     const sync = run('sync-docs-userscript', 'node scripts/sync-docs-userscript.cjs', [...source, 'docs/public/pdf-reader/**', 'docs/public/video-player/**', 'docs/public/hosted-reader-worker.js'], {
-        extra: runner.key(stage('build-inputs', 'npm run -s build', buildInputs, { env: buildEnv })),
+        extra: [runner.key(stage('build-inputs', 'npm run -s build', buildInputs, { env: buildEnv })), history],
+        canonicalizesOutputs: true,
         diskInputs: ['dist/yomu.user.js', 'dist/yomu.css', 'dist/greasyfork/**', 'dist/newtab/app.js', 'dist/newtab/styles.css'],
-        outputs: ['dist/newtab/**', 'docs/public/yomu*', 'docs/public/greasyfork/**', 'docs/public/study/**', 'docs/public/newtab/**', 'docs/public/hosted-runtime-graph.js', 'docs/public/hosted-appearance-settings.js', 'docs/public/pdf-reader/index.html', 'docs/public/pdf-reader/sw.js', 'docs/public/video-player/index.html', 'docs/public/video-player/sw.js'],
+        outputs: ['config/ci/content-addressed-retention.json', 'dist/newtab/**', 'docs/public/yomu*', 'docs/public/greasyfork/**', 'docs/public/study/**', 'docs/public/newtab/**', 'docs/public/hosted-runtime-graph.js', 'docs/public/hosted-appearance-settings.js', 'docs/public/pdf-reader/index.html', 'docs/public/pdf-reader/sw.js', 'docs/public/video-player/index.html', 'docs/public/video-player/sw.js'],
     });
     const academy = run('build-academy', 'npm run -s build:academy:prevalidated', buildInputs, {
         outputs: ['dist/academy/**', 'docs/public/academy/**'],
