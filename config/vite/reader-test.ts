@@ -143,10 +143,8 @@ export function readerTestConfig(
         exclude: ['tests/reader/**/.vitest-*-shards/**', ...readerNodeFiles],
         setupFiles: ['tests/reader/setup.ts'],
         globals: true,
-        // A handful of timing-sensitive audio/bridge tests pass in isolation but
-        // can flake when scheduling shifts under the full sequential run; retry
-        // absorbs that without masking a genuine, repeatable failure.
-        retry: 2,
+        // Local failures are immediate; CI retries timing-sensitive flakes.
+        retry: env.CI ? 2 : 0,
         pool: 'forks',
         // Keep the default at the top-level Vitest option. A pool-specific
         // maxForks takes precedence over --maxWorkers, which made the release
@@ -195,7 +193,7 @@ export default [
             environment: 'node',
             setupFiles: [],
             globals: true,
-            retry: 2,
+            retry: process.env.CI ? 2 : 0,
             pool: 'threads',
             minWorkers: 1,
             maxWorkers: readMaxWorkers(process.env, availableParallelism()),
