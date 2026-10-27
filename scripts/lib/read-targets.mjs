@@ -107,11 +107,20 @@ export function readTargets(source, file, root, ts) {
         targets.add(local === '' ? '**' : recursive ? `${local.replace(/\/$/, '')}/**` : local);
     }
     function visit(node) {
+        if (ts.isExportDeclaration(node) && /^(?:node:)?(?:fs(?:\/promises)?|child_process)$/.test(node.moduleSpecifier?.text ?? '')) {
+            unknown.push(`I/O re-export: ${node.getText(ast)}`);
+        }
+        const declaration = node.parent && (ts.isImportSpecifier(node.parent) || ts.isImportClause(node.parent) || ts.isNamespaceImport(node.parent) || ts.isBindingElement(node.parent));
+        if (ts.isIdentifier(node) && fs.has(node.text) && !declaration && !(ts.isCallExpression(node.parent) && node.parent.expression === node)) unknown.push(`escaped filesystem reader: ${node.text}`);
+        if (ts.isPropertyAccessExpression(node) && namespaces.has(node.expression.getText(ast)) && reader.test(node.name.text)
+            && !(ts.isCallExpression(node.parent) && node.parent.expression === node)) unknown.push(`escaped filesystem reader: ${node.getText(ast)}`);
         if (ts.isCallExpression(node)) {
             const expression = node.expression;
             const name = ts.isIdentifier(expression) ? expression.text : ts.isPropertyAccessExpression(expression) ? expression.name.text : '';
             const owner = ts.isPropertyAccessExpression(expression) ? expression.expression.getText(ast) : '';
-            const read = fs.has(name) || ((namespaces.has(owner) || namespaces.has(owner.replace(/\.promises$/, ''))) && reader.test(name));
+            const inlineFs = ts.isPropertyAccessExpression(expression) && ts.isCallExpression(expression.expression)
+                && /^(?:node:)?fs(?:\/promises)?$/.test(expression.expression.arguments[0]?.text ?? '');
+            const read = fs.has(name) || ((inlineFs || namespaces.has(owner) || namespaces.has(owner.replace(/\.promises$/, ''))) && reader.test(name));
             const glob = /^(?:import\.meta)$/.test(owner) && /^(?:glob|globEager)$/.test(name);
             const dynamic = expression.kind === ts.SyntaxKind.ImportKeyword || name === 'require' || /^(?:importActual|importMock|mock|doMock|unmock|doUnmock)$/.test(name) && owner === 'vi';
             if (read || glob || dynamic) {

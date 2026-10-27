@@ -33,3 +33,8 @@ test('literal dynamic modules and subprocess bundle entrypoints declare import c
     assert.deepEqual(reads.modules, ['/repo/src/entry.ts', '/repo/tests/module', '/repo/tests/other']);
     assert.deepEqual(inspect(`vi.importActual(computed);`).unknown, ['vi.importActual(computed)']);
 });
+test('filesystem API escapes and re-exports stay conservative; inline require reads are indexed', () => {
+    assert.ok(inspect("export {readFileSync} from 'node:fs';").unknown.length);
+    assert.ok(inspect("import {readFileSync} from 'node:fs'; export const read = readFileSync;").unknown.length);
+    assert.deepEqual(inspect("require('node:fs').readFileSync('style.css');").targets, ['style.css']);
+});

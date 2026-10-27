@@ -78,43 +78,47 @@ async function discover(root, changed, { config, createContext } = {}) {
             for (const file of new Set([...graph.shared, ...graph.setup])) inspect(file);
             store?.save(graph, modules);
         }
-        const changes = new Set(changed.map(file => join(root, file)));
-        const touches = targets => changed.some(path => Object.keys(selectInputs({ [path]: true }, targets)).length);
-        if (graph.shared.some(file => changes.has(file))) return { full: true, reason: 'resolved config/setupFiles dependency changed' };
-        if (graph.setup.some(file => inspect(file).unknown.length || touches(inspect(file).targets))) return { full: true, reason: 'setupFiles has changed or unbounded filesystem inputs' };
-        const contracts = readJson(join(root, 'config/ci/local-contract-tests.json')) ?? {};
-        const tests = [];
-        const unresolved = {};
-        const readIndex = {};
-        let readSelected = 0;
-        for (const [test, deps] of Object.entries(graph.tests)) {
-            if (contracts[test]) continue;
-            const declared = inspect(join(root, test)).declared;
-            const targets = new Set();
-            let precaution = false;
-            for (const file of deps) {
-                const reads = inspect(file);
-                for (const target of reads.targets) targets.add(target);
-                if (reads.unknown.length && !declared) {
-                    unresolved[relative(root, file)] = reads.unknown;
-                    precaution = true;
-                }
-            }
-            readIndex[test] = [...targets].sort();
-            const read = touches([...targets]);
-            if (precaution || read || deps.some(file => changes.has(file))) {
-                tests.push(test);
-                if (read) readSelected++;
-            }
-        }
-        return { full: false, tests: tests.sort(), unresolved, readIndex, graphReused: reused, contracts: Object.keys(contracts), reason: tests.length
-            ? `${tests.length} selected files; ${readSelected} match filesystem targets; ${Object.keys(unresolved).length} unresolved modules`
-            : 'zero tests: no import dependants or matching filesystem targets' };
+        return { ...selectFromGraph(root, changed, graph, inspect), graphReused: reused };
     } catch (error) {
         return { full: true, reason: `dependency discovery could not prove selection: ${error.message}` };
     } finally {
         await ctx?.close();
     }
+}
+
+function selectFromGraph(root, changed, graph, inspect) {
+    const changes = new Set(changed.map(file => join(root, file)));
+    const touches = targets => changed.some(path => Object.keys(selectInputs({ [path]: true }, targets)).length);
+    if (graph.shared.some(file => changes.has(file))) return { full: true, reason: 'resolved config/setupFiles dependency changed' };
+    if (graph.setup.some(file => inspect(file).unknown.length || touches(inspect(file).targets))) return { full: true, reason: 'setupFiles has changed or unbounded filesystem inputs' };
+    const contracts = readJson(join(root, 'config/ci/local-contract-tests.json')) ?? {};
+    const tests = [];
+    const unresolved = {};
+    const readIndex = {};
+    let readSelected = 0;
+    for (const [test, deps] of Object.entries(graph.tests)) {
+        if (contracts[test]) continue;
+        const declared = inspect(join(root, test)).declared;
+        const targets = new Set();
+        let precaution = false;
+        for (const file of deps) {
+            const reads = inspect(file);
+            for (const target of reads.targets) targets.add(target);
+            if (reads.unknown.length && !declared) {
+                unresolved[relative(root, file)] = reads.unknown;
+                precaution = true;
+            }
+        }
+        readIndex[test] = [...targets].sort();
+        const read = touches([...targets]);
+        if (precaution || read || deps.some(file => changes.has(file))) {
+            tests.push(test);
+            if (read) readSelected++;
+        }
+    }
+    return { full: false, tests: tests.sort(), unresolved, readIndex, contracts: Object.keys(contracts), reason: tests.length
+        ? `${tests.length} selected files; ${readSelected} match filesystem targets; ${Object.keys(unresolved).length} unresolved modules`
+        : 'zero tests: no import dependants or matching filesystem targets' };
 }
 
 if (process.argv[2] === '--discover') {
