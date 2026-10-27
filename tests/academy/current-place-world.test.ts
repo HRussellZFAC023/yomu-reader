@@ -1788,17 +1788,17 @@ describe('ramen-world behavior', () => {
         metCharacterIds: ['rie', 'shin'],
         seenIntroductions: ['place:ramen'],
     };
-    
+
     describe('ramen world', () => {
         beforeEach(() => document.body.replaceChildren());
-    
+
         it('provides semantic quantity groups and a transcript fallback when speech fails', async () => {
             const screen = renderRamen({ onListen: vi.fn(async () => { throw new Error('speech unavailable'); }) });
             document.body.append(screen);
             const practice = screen.querySelector<HTMLElement>('[data-ramen-practice="tally-source-order"]')!;
             const listen = practice.querySelector<HTMLButtonElement>('[data-world-listen]')!;
             const transcript = practice.querySelector<HTMLElement>('.academy-world-transcript')!;
-    
+
             expect(practice.getAttribute('aria-labelledby')).toBeTruthy();
             expect(practice.getAttribute('aria-describedby')).toBeTruthy();
             expect(practice.hasAttribute('data-jpdb-reader-surface-ignore')).toBe(true);
@@ -1808,7 +1808,7 @@ describe('ramen-world behavior', () => {
                 expect(button.type).toBe('button');
                 expect(button.getAttribute('aria-pressed')).toBe('false');
             });
-    
+
             listen.click();
             expect(listen.getAttribute('aria-busy')).toBe('true');
             await vi.waitFor(() => expect(listen.getAttribute('aria-busy')).toBe('false'));
@@ -1817,7 +1817,7 @@ describe('ramen-world behavior', () => {
             expect(practice.textContent).toContain('Audio is unavailable, so the transcript is shown.');
         });
     });
-    
+
     function renderRamen(overrides: Partial<Parameters<typeof renderWorldPlaceScreen>[0]> = {}): HTMLElement {
         return renderWorldPlaceScreen({
             language: 'en',
@@ -1840,12 +1840,12 @@ describe('station-world behavior', () => {
         seenIntroductions: ['place:station'],
         worldVisits: { station: 1 },
     } as const;
-    
+
     afterEach(() => {
         document.body.replaceChildren();
         vi.restoreAllMocks();
     });
-    
+
     describe('Station world presentation', () => {
         it('presents one departure-board action with phase, character, ticket, music, exits, and Back', () => {
             const onBack = vi.fn();
@@ -1855,7 +1855,7 @@ describe('station-world behavior', () => {
                 language: 'en', place: 'station', route: 'station', progress: PROGRESS,
                 onTravel, onActivity: vi.fn(), onClaimStamp: vi.fn(), onBack, onToggleAudio,
             });
-    
+
             expect(screen.querySelector('picture source')?.getAttribute('media')).toBe('(max-width: 700px)');
             expect(screen.querySelector('.academy-world-phase')?.textContent).toMatch(/Day 1/);
             expect(screen.querySelectorAll('[data-station-primary-action]')).toHaveLength(1);
@@ -1866,18 +1866,18 @@ describe('station-world behavior', () => {
             expect(screen.querySelector('[data-item-asset-id="item.station-ticket"] img')).not.toBeNull();
             expect(screen.querySelectorAll('[data-exit-slot]')).toHaveLength(4);
             expect(themeForRoute('station')).toBe('world.station');
-    
+
             const ambience = screen.querySelector<HTMLButtonElement>('[data-world-object="station-platform-sound"]')!;
             expect(ambience.getAttribute('aria-pressed')).toBe('true');
             ambience.click();
             expect(onToggleAudio).toHaveBeenCalledOnce();
-    
+
             screen.querySelector<HTMLButtonElement>('.academy-world-back')?.click();
             expect(onBack).toHaveBeenCalledOnce();
             screen.querySelector<HTMLButtonElement>('[data-location="street"]')?.click();
             expect(onTravel).toHaveBeenCalledWith('street');
         });
-    
+
         it('turns Listen into replay without adding a second primary action', async () => {
             const onListen = vi.fn(async () => true);
             const screen = renderWorldPlaceScreen({
@@ -1887,7 +1887,7 @@ describe('station-world behavior', () => {
             const practice = screen.querySelector<HTMLElement>('[data-world-practice]')!;
             const board = screen.querySelector<HTMLElement>('.academy-world-station-board')!;
             const action = screen.querySelector<HTMLButtonElement>('[data-station-primary-action]')!;
-    
+
             action.click();
             await Promise.resolve();
             expect(board.dataset.listeningStarted).toBe('true');
@@ -1897,12 +1897,12 @@ describe('station-world behavior', () => {
             expect(screen.querySelectorAll('[data-station-primary-action]')).toHaveLength(1);
             expect(practice.querySelector<HTMLElement>('.academy-world-transcript')?.hidden).toBe(false);
             expect(practice.querySelector<HTMLElement>('.academy-world-practice-options')?.hidden).toBe(false);
-    
+
             action.click();
             await Promise.resolve();
             expect(onListen).toHaveBeenCalledTimes(2);
         });
-    
+
         it('keeps the announcement semantics named and records completion once', async () => {
             const onPracticeComplete = vi.fn();
             const screen = renderWorldPlaceScreen({
@@ -1916,7 +1916,7 @@ describe('station-world behavior', () => {
             expect(board.querySelector('[role="group"][aria-label="Choose an answer"]')).not.toBeNull();
             board.querySelector<HTMLButtonElement>('[data-station-primary-action]')?.click();
             await Promise.resolve();
-    
+
             const correct = worldChoiceButtonByLabel(board, 'コンビニ')!;
             correct.click();
             correct.click();
@@ -1928,7 +1928,7 @@ describe('station-world behavior', () => {
                     attempt: expect.objectContaining({ responseKind: 'world-listening-choice', outcome: 'pass' }),
                 }),
             );
-    
+
             const controls = [...board.querySelectorAll<HTMLButtonElement>('button')];
             expect(controls.every(button => Boolean(button.getAttribute('aria-label') || button.textContent?.trim()))).toBe(true);
         });
@@ -1942,7 +1942,7 @@ describe('stream3-accessibility behavior', () => {
         metCharacterIds: ['rie', 'aakash', 'felix'],
         worldVisits: { courtyard: 1, classroom: 1 },
     } as const;
-    
+
     describe('Stream 3 Academy accessibility', () => {
         it('keeps the shell as the only main landmark and navigation taps out of lookup', () => {
             const screen = renderWorldPlaceScreen({
@@ -1954,7 +1954,7 @@ describe('stream3-accessibility behavior', () => {
                 onActivity: vi.fn(),
                 onClaimStamp: vi.fn(),
             });
-    
+
             const stage = screen.querySelector<HTMLElement>('.academy-world-stage')!;
             const exits = [...screen.querySelectorAll<HTMLButtonElement>('.academy-world-exit')];
             expect(stage.tagName).toBe('DIV');
@@ -1973,12 +1973,12 @@ describe('tube-platform-world behavior', () => {
         seenIntroductions: [],
         worldVisits: { 'station-platform': 0 },
     } as const;
-    
+
     afterEach(() => {
         document.body.replaceChildren();
         vi.restoreAllMocks();
     });
-    
+
     describe('Academy Tube platform world', () => {
         it('projects permitted Moodle material with bounded Minna and Genki support across replay visits', () => {
             const first = projectWorldPlace('station-platform', FIRST_VISIT);
@@ -1986,7 +1986,7 @@ describe('tube-platform-world behavior', () => {
                 ...FIRST_VISIT,
                 worldVisits: { 'station-platform': 1 },
             });
-    
+
             expect(first.practice).toMatchObject({
                 id: 'tube-platform-usual-thirty',
                 audioLine: 'いつも ちかてつで ３０ぷん だけ です。',
@@ -2010,7 +2010,7 @@ describe('tube-platform-world behavior', () => {
                 source: { primary: { sourceId: expect.stringContaining('short-dialogues-2:item-2') } },
             });
         });
-    
+
         it('stages a consent-safe first visit before revealing one auditory route task', async () => {
             const onIntroductionComplete = vi.fn();
             const onListen = vi.fn(async () => true);
@@ -2021,7 +2021,7 @@ describe('tube-platform-world behavior', () => {
                 onIntroductionComplete, onListen, onPracticeComplete,
             });
             document.body.append(screen);
-    
+
             const arrival = screen.querySelector<HTMLElement>('[data-world-arrival-dialogue="place:station-platform"]')!;
             const purpose = screen.querySelector<HTMLElement>('.academy-tube-route-board')!;
             const aakash = screen.querySelector<HTMLElement>('[data-world-character="aakash"]')!;
@@ -2033,14 +2033,14 @@ describe('tube-platform-world behavior', () => {
             expect(screen.querySelectorAll('[data-tube-primary-action]')).toHaveLength(1);
             expect(screen.querySelector('.academy-world-curriculum')).toBeNull();
             expect(screen.querySelector('[data-world-stamp]')).toBeNull();
-    
+
             arrival.querySelector<HTMLButtonElement>('.academy-world-arrival-continue')!.click();
             expect(onIntroductionComplete).toHaveBeenCalledWith('place:station-platform');
             expect(purpose.hidden).toBe(false);
             expect(purpose.dataset.tubeMusicTheme).toBe('challenge.major');
             expect(purpose.dataset.tubeSignalCue).toBe('radio.tune');
             expect(purpose.dataset.sourceCorpus).toBe('moodle');
-    
+
             const listen = purpose.querySelector<HTMLButtonElement>('[data-tube-primary-action="listen"]')!;
             listen.click();
             await Promise.resolve();
@@ -2048,7 +2048,7 @@ describe('tube-platform-world behavior', () => {
             expect(listen.dataset.tubePrimaryAction).toBe('replay');
             expect(purpose.querySelector<HTMLElement>('.academy-tube-transcript')?.hidden).toBe(false);
             expect(purpose.querySelector<HTMLElement>('.academy-tube-route-options')?.hidden).toBe(false);
-    
+
             worldChoiceButtonByLabel(purpose, 'バス　２時間')!.click();
             expect(purpose.querySelector('[role="status"]')?.textContent).toContain('usual route');
             worldChoiceButtonByLabel(purpose, '地下鉄　３０分')!.click();
@@ -2059,7 +2059,7 @@ describe('tube-platform-world behavior', () => {
                 expect.objectContaining({ attempt: expect.objectContaining({ sourceQuestionId: 'l1-l21/ex-l21-a46-strike-example' }) }),
             );
         });
-    
+
         it('keeps exits, Back, sound, labels, and replay state operable', () => {
             const onTravel = vi.fn();
             const onBack = vi.fn();
@@ -2070,7 +2070,7 @@ describe('tube-platform-world behavior', () => {
                 onTravel, onActivity: vi.fn(), onClaimStamp: vi.fn(), onBack, onToggleAudio,
             });
             document.body.append(screen);
-    
+
             const purpose = screen.querySelector<HTMLElement>('.academy-tube-route-board')!;
             expect(purpose.dataset.tubeReplay).toBe('true');
             expect(purpose.textContent).toContain('Return replay');
@@ -2081,7 +2081,7 @@ describe('tube-platform-world behavior', () => {
             expect(onBack).toHaveBeenCalledOnce();
             screen.querySelector<HTMLButtonElement>('[data-world-object="tube-platform-signal"]')!.click();
             expect(onToggleAudio).toHaveBeenCalledOnce();
-    
+
             const namedControls = [...screen.querySelectorAll<HTMLButtonElement>('button')].every(button => (
                 Boolean(button.getAttribute('aria-label') || button.textContent?.trim())
             ));
@@ -2099,12 +2099,12 @@ describe('world-bookshop behavior', () => {
         completedEncounterIds: [],
         metCharacterIds: ['sophie'],
     };
-    
+
     afterEach(() => {
         document.body.replaceChildren();
         vi.restoreAllMocks();
     });
-    
+
     describe('Bookshop world', () => {
         it('turns a first visit into a grounded catalogue search and availability question', async () => {
             const onIntroductionComplete = vi.fn();
@@ -2116,15 +2116,15 @@ describe('world-bookshop behavior', () => {
                 onIntroductionComplete, onPracticeComplete, onListen,
             });
             document.body.append(screen);
-    
+
             expect(screen.dataset.plate).toBe('bookshop');
             expect(screen.querySelector<HTMLImageElement>('.academy-background img')?.src).toContain('bookshop__rain-evening-shelves--wide.webp');
-    
+
             const arrival = screen.querySelector<HTMLButtonElement>('.academy-world-arrival-continue')!;
             expect(arrival.parentElement?.textContent).toContain('Are you looking for a dictionary?');
             arrival.click();
             expect(onIntroductionComplete).toHaveBeenCalledWith('place:bookshop');
-    
+
             const catalogue = screen.querySelector<HTMLElement>('[data-bookshop-catalogue]')!;
             const search = catalogue.querySelector<HTMLInputElement>('input[type="search"]')!;
             expect(catalogue.dataset.bookshopPhase).toBe('browse');
@@ -2134,7 +2134,7 @@ describe('world-bookshop behavior', () => {
             search.dispatchEvent(new Event('input', { bubbles: true }));
             expect(catalogue.querySelector<HTMLButtonElement>('[data-catalogue-entry="dictionary"]')?.hidden).toBe(false);
             expect(catalogue.querySelector<HTMLButtonElement>('[data-catalogue-entry="novel"]')?.hidden).toBe(true);
-    
+
             catalogue.querySelector<HTMLButtonElement>('[data-catalogue-entry="dictionary"]')?.click();
             expect(catalogue.dataset.bookshopPhase).toBe('ask');
             const listen = catalogue.querySelector<HTMLButtonElement>('[data-bookshop-listen]')!;
@@ -2157,7 +2157,7 @@ describe('world-bookshop behavior', () => {
             reading.querySelector<HTMLButtonElement>('[data-reading-choice="old-woman"]')?.click();
             expect(reading.dataset.readingComplete).toBe('true');
         });
-    
+
         it('changes the catalogue outcome and Sophie’s recovered presence on return', async () => {
             const first = renderWorldPlaceScreen({
                 language: 'en', place: 'bookshop', route: 'world', progress,
@@ -2168,7 +2168,7 @@ describe('world-bookshop behavior', () => {
                 progress: { ...progress, worldVisits: { bookshop: 1 }, seenIntroductions: ['place:bookshop'] },
                 onTravel: vi.fn(), onActivity: vi.fn(), onClaimStamp: vi.fn(),
             });
-    
+
             expect(first.querySelector<HTMLElement>('[data-world-character="sophie"]')?.dataset.presence).toBe('cataloguing');
             expect(first.querySelector('[data-world-character="sophie"] img')).not.toBeNull();
             expect(first.querySelector('[data-world-character="sophie"] .academy-world-character-silhouette')).toBeNull();
@@ -2195,7 +2195,7 @@ describe('world-dining-lab behavior', () => {
         document.body.replaceChildren();
         vi.restoreAllMocks();
     });
-    
+
     describe('Student Dining and Language Lab current-place replays', () => {
         const progress = {
             completedScenes: ['scene:arrival'],
@@ -2204,7 +2204,7 @@ describe('world-dining-lab behavior', () => {
             seenIntroductions: ['place:cafeteria', 'place:lab'],
             worldVisits: {},
         } as const;
-    
+
         it('opens Student Dining with rotating source-backed tray outcomes and canonical review evidence', () => {
             const first = projectWorldPlace('cafeteria', progress);
             const returningProgress = { ...progress, worldVisits: markWorldVisit(progress.worldVisits, 'cafeteria') };
@@ -2214,7 +2214,7 @@ describe('world-dining-lab behavior', () => {
                 language: 'en', place: 'cafeteria', route: 'world', progress,
                 onTravel: vi.fn(), onActivity: vi.fn(), onClaimStamp: vi.fn(), onPracticeComplete,
             });
-    
+
             expect(first).toMatchObject({
                 label: { ja: '学生食堂', en: 'Student dining' },
                 availability: { state: 'open' },
@@ -2226,7 +2226,7 @@ describe('world-dining-lab behavior', () => {
             expect(worldRouteForPlace('cafeteria')).toBe('world');
             expect(first.practice?.review?.sourceQuestionId)
                 .toBe('moodle:6223185:chapter-11-2-ordering-food:p2:dialogue:drink-order');
-    
+
             const practice = screen.querySelector<HTMLElement>('[data-cafeteria-practice="tray-assembly"]')!;
             const tray = screen.querySelector<HTMLElement>('[data-cafeteria-sensory="tray-assembly"]')!;
             expect(tray.textContent).toContain('自分のトレー');
@@ -2235,7 +2235,7 @@ describe('world-dining-lab behavior', () => {
                 .toBe('separate-table-choice');
             expect(screen.querySelector('[data-world-character="felix"] .academy-world-character-presence')?.textContent)
                 .toContain('own tray');
-    
+
             ['drink', 'object', 'quantity', 'request'].forEach(token => {
                 practice.querySelector<HTMLButtonElement>(`[data-world-token="${token}"]`)?.click();
             });
@@ -2254,7 +2254,7 @@ describe('world-dining-lab behavior', () => {
                 }),
             );
         });
-    
+
         it('keeps Lab shadowing learner-owned and records review evidence only after listen, repeat, and answer', async () => {
             const onPracticeComplete = vi.fn();
             const onListen = vi.fn(async () => true);
@@ -2263,7 +2263,7 @@ describe('world-dining-lab behavior', () => {
                 onTravel: vi.fn(), onActivity: vi.fn(), onClaimStamp: vi.fn(), onListen, onPracticeComplete,
             });
             document.body.append(screen);
-    
+
             const practice = screen.querySelector<HTMLElement>('[data-lab-practice="listen-repeat-answer"]')!;
             expect(screen.querySelector('[data-world-character="xingyu"]')?.getAttribute('data-presence'))
                 .toBe('separate-booth-practice');
@@ -2271,7 +2271,7 @@ describe('world-dining-lab behavior', () => {
                 .toContain('separate playback lane');
             expect(projectWorldPlace('lab', progress).practice?.review?.sourceQuestionId)
                 .toBe('source-question:classroom-phrase-09');
-    
+
             practice.querySelector<HTMLButtonElement>('[data-world-listen]')?.click();
             await vi.waitFor(() => expect(onListen).toHaveBeenCalledWith(
                 'もう一度お願いします。',
@@ -2279,7 +2279,7 @@ describe('world-dining-lab behavior', () => {
             ));
             practice.querySelector<HTMLButtonElement>('.academy-lab-speaking-button')?.click();
             worldChoiceButtonByLabel(practice, 'お願いします')?.click();
-    
+
             expect(onPracticeComplete).toHaveBeenCalledWith(
                 'lab-classroom-repair',
                 'action:world-stamp:lab',
@@ -2294,6 +2294,79 @@ describe('world-dining-lab behavior', () => {
                     })],
                 }),
             );
+        });
+    });
+});
+
+describe('japan-centre-world behavior', () => {
+    const progress = {
+        completedScenes: [],
+        completedEncounterIds: [],
+        metCharacterIds: ['rie', 'aakash', 'sophie', 'felix'],
+    };
+
+    describe('Japan Centre world stream', () => {
+        it('keeps the request and price replays honestly grounded in the permitted course corpus', () => {
+            const first = projectWorldPlace('japan-centre', progress).practice!;
+            const replay = projectWorldPlace('japan-centre', {
+                ...progress,
+                worldVisits: { 'japan-centre': 1 },
+            }).practice!;
+
+            expect(first.source).toEqual({
+                primary: expect.objectContaining({
+                    corpus: 'moodle',
+                    sourceId: 'l1-l07/ex-kudasai',
+                    relation: 'source-sequenced-adaptation',
+                }),
+                supports: [
+                    expect.objectContaining({ corpus: 'minna', sourceId: 'japanese-minna:3-3', relation: 'sequence-only' }),
+                    expect.objectContaining({ corpus: 'genki', sourceId: 'genki-2e:l1-l07:lesson-2-workbook-3', relation: 'shopping-frame-only' }),
+                ],
+            });
+            expect(replay.source?.primary).toEqual(expect.objectContaining({
+                sourceId: 'l1-l07/ex-ikura-cloze',
+                relation: 'source-sequenced-adaptation',
+            }));
+            expect(first.id).not.toBe(replay.id);
+        });
+
+        it('moves focus through the paper counter and never renders an uncleared cast portrait', () => {
+            const practice = projectWorldPlace('japan-centre', progress).practice!;
+            const onIntroductionComplete = vi.fn();
+            const onPracticeComplete = vi.fn();
+            const screen = renderWorldPlaceScreen({
+                language: 'en',
+                place: 'japan-centre',
+                route: 'world',
+                progress,
+                onTravel: vi.fn(),
+                onActivity: vi.fn(),
+                onClaimStamp: vi.fn(),
+                onIntroductionComplete,
+                onPracticeComplete,
+            });
+            document.body.append(screen);
+
+            screen.querySelector<HTMLButtonElement>('.academy-world-arrival-continue')?.click();
+            expect(onIntroductionComplete).toHaveBeenCalledWith('place:japan-centre');
+            expect(document.activeElement).toBe(screen.querySelector('[data-world-listen="japan-centre-bag-request"]'));
+
+            screen.querySelector<HTMLButtonElement>('[data-counter-tag="bag"]')?.click();
+            const correctResponse = worldChoiceButton(screen, practice.choices, practice.correctChoiceId);
+            expect(document.activeElement).toBe(correctResponse);
+            correctResponse?.click();
+            expect(document.activeElement).toBe(screen.querySelector('[role="status"]'));
+            expect(onPracticeComplete).toHaveBeenCalledOnce();
+
+            (['sophie', 'aakash', 'felix'] as const).forEach(personId => {
+                if (!canRenderAcademyCastPortrait(personId, 'story-runtime')) {
+                    expect(screen.querySelector(`[data-world-character="${personId}"] img`)).toBeNull();
+                }
+            });
+            const sources = screen.querySelector<HTMLElement>('[data-japan-centre-source-primary]')!;
+            expect(sources.dataset.japanCentreSourceRelation).toBe('source-sequenced-adaptation');
+            expect(sources.dataset.japanCentreSourceSupport).toBe('minna genki');
         });
     });
 });
