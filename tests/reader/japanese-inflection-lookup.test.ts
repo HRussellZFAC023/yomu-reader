@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import 'fake-indexeddb/auto';
 
 import type { ReaderSettings } from '../../src/reader/app/types';
@@ -411,63 +411,73 @@ describe('Japanese inflection lookup boundaries', () => {
             ['飛行機', 900, 903],
         ]);
     });
+    describe('long-block dictionary reads', () => {
+        let blockStore: YomitanDictionaryStore;
+        beforeAll(async () => {
+            blockStore = await storeWithBlockDictionary(LONG_JAPANESE_BLOCK, 'long-block.json');
+            stores.splice(stores.indexOf(blockStore), 1);
+        });
+        beforeEach(() => blockStore.invalidateCaches());
+        afterAll(() => blockStore.clear());
 
-    // Covering long text is not the same as parsing it: the match budget bounds
-    // the RESULT, so widening the input alone let the longest matches anywhere
-    // in the block spend every slot and starved the head of the readings it had
-    // when only the head was parsed at all.
-    it('annotates every window of a long block as densely as a short parse of its head', async () => {
-        const store = await storeWithBlockDictionary(LONG_JAPANESE_BLOCK, 'long-block.json');
 
-        const headAlone = await store.findTermMatches(LONG_JAPANESE_BLOCK.slice(0, TERM_MATCH_WINDOW), LOCAL_MATCH_LIMIT);
-        const whole = await store.findTermMatches(LONG_JAPANESE_BLOCK, LOCAL_MATCH_LIMIT);
+        // Covering long text is not the same as parsing it: the match budget bounds
+        // the RESULT, so widening the input alone let the longest matches anywhere
+        // in the block spend every slot and starved the head of the readings it had
+        // when only the head was parsed at all.
+        it('annotates every window of a long block as densely as a short parse of its head', async () => {
+            const store = blockStore;
 
-        expect(headAlone.length).toBe(LOCAL_MATCH_LIMIT);
-        expect(matchesStartingIn(whole, 0, TERM_MATCH_WINDOW).length).toBeGreaterThanOrEqual(headAlone.length);
-        const perWindow: number[] = [];
-        for (let start = 0; start < LONG_JAPANESE_BLOCK.length; start += TERM_MATCH_WINDOW) {
-            perWindow.push(matchesStartingIn(whole, start, start + TERM_MATCH_WINDOW).length);
-        }
-        expect(perWindow.length).toBeGreaterThan(4);
-        expect(Math.min(...perWindow)).toBeGreaterThanOrEqual(24);
-        const covered = whole.reduce((total, match) => total + (match.end - match.start), 0);
-        expect(covered / LONG_JAPANESE_BLOCK.length).toBeGreaterThan(0.4);
-        expect(whole.every((match, index) => index === 0 || whole[index - 1].end <= match.start)).toBe(true);
-        // Generous only so that a sweep which stopped windowing gets far enough
-        // to fail on its thin head rather than on the clock: the in-memory
-        // IndexedDB shim is orders slower than a browser.
-    }, 30_000);
+            const headAlone = await store.findTermMatches(LONG_JAPANESE_BLOCK.slice(0, TERM_MATCH_WINDOW), LOCAL_MATCH_LIMIT);
+            const whole = await store.findTermMatches(LONG_JAPANESE_BLOCK, LOCAL_MATCH_LIMIT);
 
-    // The lookup fan-out is two index reads per candidate term, and candidates
-    // grow with the text. Sweeping window by window is what keeps a single
-    // transaction — and the synchronous walk that fills it — the same size for a
-    // long block as for a short one.
-    it('keeps the dictionary fan-out of a long block inside one window per transaction', async () => {
-        const store = await storeWithBlockDictionary(LONG_JAPANESE_BLOCK, 'fan-out.json');
-        const index = IDBIndex.prototype as unknown as { getAll: (...args: unknown[]) => unknown };
-        const original = index.getAll;
-        const perTransaction = new Map<IDBTransaction, number>();
+            expect(headAlone.length).toBe(LOCAL_MATCH_LIMIT);
+            expect(matchesStartingIn(whole, 0, TERM_MATCH_WINDOW).length).toBeGreaterThanOrEqual(headAlone.length);
+            const perWindow: number[] = [];
+            for (let start = 0; start < LONG_JAPANESE_BLOCK.length; start += TERM_MATCH_WINDOW) {
+                perWindow.push(matchesStartingIn(whole, start, start + TERM_MATCH_WINDOW).length);
+            }
+            expect(perWindow.length).toBeGreaterThan(4);
+            expect(Math.min(...perWindow)).toBeGreaterThanOrEqual(24);
+            const covered = whole.reduce((total, match) => total + (match.end - match.start), 0);
+            expect(covered / LONG_JAPANESE_BLOCK.length).toBeGreaterThan(0.4);
+            expect(whole.every((match, index) => index === 0 || whole[index - 1].end <= match.start)).toBe(true);
+            // Generous only so that a sweep which stopped windowing gets far enough
+            // to fail on its thin head rather than on the clock: the in-memory
+            // IndexedDB shim is orders slower than a browser.
+        }, 30_000);
 
-        try {
-            index.getAll = function counted(this: IDBIndex, ...args: unknown[]) {
-                const transaction = this.objectStore.transaction;
-                perTransaction.set(transaction, (perTransaction.get(transaction) ?? 0) + 1);
-                return (original as (...called: unknown[]) => unknown).apply(this, args);
-            } as typeof original;
-            await store.findTermMatches(LONG_JAPANESE_BLOCK, LOCAL_MATCH_LIMIT);
-        } finally {
-            index.getAll = original;
-        }
+        // The lookup fan-out is two index reads per candidate term, and candidates
+        // grow with the text. Sweeping window by window is what keeps a single
+        // transaction — and the synchronous walk that fills it — the same size for a
+        // long block as for a short one.
+        it('keeps the dictionary fan-out of a long block inside one window per transaction', async () => {
+            const store = blockStore;
+            const index = IDBIndex.prototype as unknown as { getAll: (...args: unknown[]) => unknown };
+            const original = index.getAll;
+            const perTransaction = new Map<IDBTransaction, number>();
 
-        const requests = [...perTransaction.values()];
-        const total = requests.reduce((sum, count) => sum + count, 0);
-        expect(requests.length).toBeGreaterThanOrEqual(Math.ceil(LONG_JAPANESE_BLOCK.length / TERM_MATCH_WINDOW));
-        expect(Math.max(...requests)).toBeLessThan(12_000);
-        expect(total / LONG_JAPANESE_BLOCK.length).toBeLessThan(48);
-        // Generous only so that a sweep which stopped windowing gets far enough
-        // to fail on the size of its transaction rather than on the clock: the
-        // in-memory IndexedDB shim is orders slower than a browser.
-    }, 30_000);
+            try {
+                index.getAll = function counted(this: IDBIndex, ...args: unknown[]) {
+                    const transaction = this.objectStore.transaction;
+                    perTransaction.set(transaction, (perTransaction.get(transaction) ?? 0) + 1);
+                    return (original as (...called: unknown[]) => unknown).apply(this, args);
+                } as typeof original;
+                await store.findTermMatches(LONG_JAPANESE_BLOCK, LOCAL_MATCH_LIMIT);
+            } finally {
+                index.getAll = original;
+            }
+
+            const requests = [...perTransaction.values()];
+            const total = requests.reduce((sum, count) => sum + count, 0);
+            expect(requests.length).toBeGreaterThanOrEqual(Math.ceil(LONG_JAPANESE_BLOCK.length / TERM_MATCH_WINDOW));
+            expect(Math.max(...requests)).toBeLessThan(12_000);
+            expect(total / LONG_JAPANESE_BLOCK.length).toBeLessThan(48);
+            // Generous only so that a sweep which stopped windowing gets far enough
+            // to fail on the size of its transaction rather than on the clock: the
+            // in-memory IndexedDB shim is orders slower than a browser.
+        }, 30_000);
+    });
 });
 
 describe('inline term candidates', () => {
