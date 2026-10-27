@@ -227,7 +227,7 @@ function requestLabel(rawUrl) {
 }
 
 function isLensRequest(rawUrl) {
-    return /lensfrontend-pa\.googleapis\.com|lens\.google\.com\/v3\/upload/.test(rawUrl);
+    return /lensfrontend-pa\.googleapis\.com/.test(rawUrl);
 }
 
 function pageNumber(text) {

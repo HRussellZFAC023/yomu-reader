@@ -5,7 +5,6 @@ import {
     glossaryToHtml,
     glossaryToText,
     normalizeOcrResult,
-    parseGoogleLensUploadHtml,
     readFallbackOcrResult,
     yomitanZipBlob,
 } from './fixtures';
@@ -62,26 +61,6 @@ describe('reader helpers', () => {
         expect(result?.lines[0]).toMatchObject({
             text: '学校',
             box: { left: 10, top: 20, width: 60, height: 38 },
-        });
-    });
-
-    it('parses Google Lens upload HTML without evaluating remote code', () => {
-        const lineItems = [[[[['学', null, null, '校']], [0.1, 0.2, 0.3, 0.4]]]];
-        const block = [null, null, [[null, null, null, null, null, [null, null, null, lineItems]]]];
-        const callback = {
-            key: 'ds:1',
-            data: [null, null, [null, null, null, [[block]]]],
-            sideChannel: {},
-        };
-        const literal = JSON.stringify(callback)
-            .replace('"key"', 'key')
-            .replace('"ds:1"', "'ds:1'");
-        const html = `<script>AF_initDataCallback({key:'unused',data:[]});AF_initDataCallback(${literal});</script>`;
-        const result = parseGoogleLensUploadHtml(html, 1000, 800);
-
-        expect(result?.lines[0]).toMatchObject({
-            text: '学校',
-            box: { top: 80, left: 200, width: 300, height: 320 },
         });
     });
 

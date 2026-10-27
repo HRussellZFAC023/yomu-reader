@@ -101,9 +101,11 @@ async function requestLocalOcr(request: YomuGamingOcrRequest): Promise<YomuGamin
     }
 }
 
+// One protobuf call. A failed call is an error the player sees, never an empty
+// answer: the old web-upload fallback only ever turned errors into "no text".
 async function requestGoogleLensOcr(request: YomuGamingOcrRequest): Promise<YomuGamingOcrResponse> {
-    const image = imagePayloadFromDataUrl(request.imageDataUrl);
     try {
+        const image = imagePayloadFromDataUrl(request.imageDataUrl);
         const result = await requestGoogleLensProtobuf(image, request.width, request.height, request.language);
         return { ok: true, status: 200, body: result ?? emptyOcrResult(request.width, request.height) };
     } catch (error) {
@@ -199,6 +201,7 @@ function parseJsonOrText(text: string): unknown {
 function emptyOcrResult(width: number, height: number): OcrResult {
     return { width, height, lines: [] };
 }
+
 function arrayBufferFromBytes(bytes: Uint8Array): ArrayBuffer {
     return bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer;
 }

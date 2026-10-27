@@ -54,6 +54,16 @@ export const RECORDING_TARGETS = Object.freeze([
         viewport: DESKTOP,
     },
     {
+        // A photo with Japanese signage and dark regions: the OCR honesty gate
+        // proves one Google Lens request reads it (no inverted second pass).
+        slug: 'commons-sushi-photo',
+        url: 'https://commons.wikimedia.org/wiki/File:Tachiguisushi-Uogashi-Yamaharu---2025-08-15_017.jpg',
+        content: 'verbatim',
+        licence: 'CC BY 4.0 (photo); page text CC BY-SA 4.0',
+        attribution: 'File:Tachiguisushi-Uogashi-Yamaharu---2025-08-15 017.jpg by RuinDig/Yuki Uchida, Wikimedia Commons, CC BY 4.0. Page text: Wikimedia Commons contributors, CC BY-SA 4.0. MediaWiki stylesheets GPL-2.0-or-later, interface icons MIT/GPL, Wikimedia logos are trademarks of the Wikimedia Foundation (ATTRIBUTION.md, Wikimedia site files).',
+        viewport: DESKTOP,
+    },
+    {
         slug: 'youtube-watch',
         url: 'https://www.youtube.com/watch?v=TAorfFcb8_g',
         content: 'redacted',

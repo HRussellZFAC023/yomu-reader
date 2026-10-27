@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { mergeDarkPassResult, type LuminanceField } from '../../src/reader/ocr/image-preprocess';
+import { darkPassWanted, mergeDarkPassResult, type LuminanceField } from '../../src/reader/ocr/image-preprocess';
 import type { OcrLine, OcrResult } from '../../src/reader/ocr/response';
 
 // The dark-panel second pass must ADD recovered white-on-black text without
@@ -60,5 +60,30 @@ describe('dark-pass merge', () => {
         const inverted = result([line('全暗コマ', 10, 10), line('明部ノイズ', 80, 10)]);
         const merged = mergeDarkPassResult(null, inverted, halfDarkField());
         expect(merged!.lines.map(l => l.text)).toEqual(['全暗コマ']);
+    });
+});
+
+describe('when the inverted pass is spent', () => {
+    const lens = { ocrInvertDarkPanels: true, ocrProvider: 'google-lens' as const };
+    const read = result([line('日本語', 10, 10)]);
+
+    it('never runs for a cloud provider whose normal pass read text', () => {
+        expect(darkPassWanted(lens, false, read)).toBe(false);
+        expect(darkPassWanted(lens, true, read)).toBe(false);
+        expect(darkPassWanted({ ...lens, ocrProvider: 'cloud-vision' }, true, read)).toBe(false);
+    });
+
+    it('does not double an automatic cloud scan that found nothing', () => {
+        expect(darkPassWanted(lens, false, null)).toBe(false);
+    });
+
+    it('runs for a scan the learner asked for that found nothing', () => {
+        expect(darkPassWanted(lens, true, null)).toBe(true);
+        expect(darkPassWanted(lens, true, result([]))).toBe(true);
+    });
+
+    it('runs for the Learner OCR Service, and never when the setting is off', () => {
+        expect(darkPassWanted({ ...lens, ocrProvider: 'local-service' }, false, read)).toBe(true);
+        expect(darkPassWanted({ ocrInvertDarkPanels: false, ocrProvider: 'local-service' }, true, null)).toBe(false);
     });
 });

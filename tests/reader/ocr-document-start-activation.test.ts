@@ -4,8 +4,9 @@ const canvasMocks = vi.hoisted(() => ({
     installCanvasMirrorRecorder: vi.fn(),
 }));
 
-vi.mock('../../src/reader/ocr/canvas-mirror', async importOriginal => ({
-    ...await importOriginal<typeof import('../../src/reader/ocr/canvas-mirror')>(),
+// This test owns registration and activation, not the controller's rendering graph.
+vi.mock('../../src/reader/ocr/controller', () => ({ ImageOcrController: class {} }));
+vi.mock('../../src/reader/ocr/canvas-mirror', () => ({
     installCanvasMirrorRecorder: canvasMocks.installCanvasMirrorRecorder,
 }));
 

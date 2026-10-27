@@ -1,7 +1,6 @@
 import { isTargetLanguageText } from '../lookup/target-text';
 import { normalizeCloudVisionResponse } from './cloud-vision';
-import { googleLensUploadCallbackLiteral, parseJsDataLiteral } from './google-lens-data';
-import { cleanOcrText, clampBox, isVerticalOcrBox, numberFrom, pushJapaneseOcrLine, unionBoxes } from './response-shared';
+import { cleanOcrText, clampBox, isVerticalOcrBox, numberFrom, unionBoxes } from './response-shared';
 import type { OcrLine, OcrRect, OcrResult } from './response-shared';
 import type { JPDBToken } from '../app/types';
 import { KANJI_LIKE_RE as OCR_KANJI_RE, READING_KANA_ONLY_RE as OCR_KANA_ONLY_RE } from '../lookup/japanese-script';
@@ -30,14 +29,28 @@ interface ProtoBoxDimensions {
 
 const LENS_WRITING_TOP_TO_BOTTOM = 2;
 
+/**
+ * A provider's answer as OCR lines, or null when it read no text. An answer
+ * that reports an error, whole or for its one image, is an error: it throws
+ * rather than reading as "no text".
+ */
 export function normalizeOcrResult(value: unknown, fallbackWidth = 1, fallbackHeight = 1): OcrResult | null {
     if (!value || typeof value !== 'object') return null;
     const record = value as Record<string, unknown>;
+    assertNoAnswerError(record);
     const cloudVision = normalizeCloudVisionResponse(record, fallbackWidth, fallbackHeight);
     if (cloudVision) return cloudVision;
     const { width, height } = ocrResultDimensions(record, fallbackWidth, fallbackHeight);
     const lines = collectGenericOcrLines(record, width, height);
     return japaneseOcrResult(width, height, lines);
+}
+
+function assertNoAnswerError(record: Record<string, unknown>): void {
+    const answers = Array.isArray(record.responses) ? [record, ...record.responses] : [record];
+    const failed = answers.map(answer => asRecord(answer)?.error).find(Boolean);
+    if (!failed) return;
+    const message = typeof failed === 'string' ? failed : stringFrom(asRecord(failed)?.message);
+    throw new Error(`OCR answered with an error${message ? `: ${message}` : '.'}`);
 }
 
 function ocrResultDimensions(record: Record<string, unknown>, fallbackWidth: number, fallbackHeight: number): Pick<OcrResult, 'width' | 'height'> {
@@ -202,10 +215,18 @@ function horizontalGap(a: OcrRect, b: OcrRect): number {
     return 0;
 }
 
+/**
+ * Lines from a Lens crupload answer, or null when Lens read no text. Every
+ * Lens answer, one with no text included, carries an objects response (field
+ * 2); a cut-off or non-protobuf body (an HTML error page), one without it or
+ * one with a server error (field 1) throws instead of reading as "no text".
+ * Envelope: chromium's third_party/lens_server_proto/lens_overlay_server.proto.
+ */
 export function parseGoogleLensResponse(bytes: Uint8Array, width: number, height: number): OcrResult | null {
     const root = decodeProtoMessage(bytes);
     const objectsResponse = protoFirstMessage(root, 2);
-    const text = objectsResponse ? protoFirstMessage(objectsResponse, 3) : null;
+    if (!objectsResponse || protoFirstMessage(root, 1)) throw new Error('Google Lens did not answer with OCR.');
+    const text = protoFirstMessage(objectsResponse, 3);
     const layout = text ? protoFirstMessage(text, 1) : null;
     if (!layout) return null;
 
@@ -268,67 +289,6 @@ function googleLensLineBox(lineBox: OcrRect | null, words: LensWord[], paragraph
     return lineBox
         ?? unionBoxes(words.map(word => word.box).filter((item): item is OcrRect => Boolean(item)))
         ?? paragraphBox;
-}
-
-export function parseGoogleLensUploadHtml(html: string, width: number, height: number): OcrResult | null {
-    const literal = googleLensUploadCallbackLiteral(html, 'ds:1');
-    if (!literal) return null;
-    try {
-        const callback = parseJsDataLiteral(literal) as { data?: unknown[] };
-        const lines: OcrLine[] = [];
-        for (const item of googleLensUploadLineItems(callback.data)) {
-            const { text, box } = googleLensUploadLine(item, width, height);
-            pushJapaneseOcrLine(lines, text, box);
-        }
-        return lines.length ? { width, height, lines } : null;
-    } catch {
-        return null;
-    }
-}
-
-function googleLensUploadLineItems(data: unknown[] | undefined): unknown[] {
-    return googleLensUploadBlocks(data).flatMap(block => googleLensUploadBlockLineItems(block));
-}
-
-function googleLensUploadBlocks(data: unknown[] | undefined): unknown[] {
-    const blocks = (((data?.[2] as unknown[])?.[3] as unknown[])?.[0] as unknown[]) ?? [];
-    return Array.isArray(blocks) ? blocks : [];
-}
-
-function googleLensUploadBlockLineItems(block: unknown): unknown[] {
-    const blockData = Array.isArray(block) ? block : [];
-    const rawLines = (((blockData[2] as unknown[])?.[0] as unknown[])?.[5] as unknown[])?.[3] as unknown[] | undefined;
-    const lineItems = rawLines?.[0] as unknown[] | undefined;
-    return Array.isArray(lineItems) ? lineItems : [];
-}
-
-function googleLensUploadLine(item: unknown, width: number, height: number): { text: string; box: OcrRect | null } {
-    const lineData = Array.isArray(item) ? item : [];
-    return {
-        text: googleLensUploadLineText(lineData[0]),
-        box: googleLensUploadLineBox(lineData[1], width, height),
-    };
-}
-
-function googleLensUploadLineText(value: unknown): string {
-    const words = Array.isArray(value) ? value : [];
-    return cleanOcrText(words.map(googleLensUploadWordText).join(''));
-}
-
-function googleLensUploadWordText(word: unknown): string {
-    const wordData = Array.isArray(word) ? word : [];
-    return `${wordData[0] ?? ''}${wordData[3] ?? ''}`;
-}
-
-function googleLensUploadLineBox(value: unknown, width: number, height: number): OcrRect | null {
-    const boxData = Array.isArray(value) ? value : [];
-    if (boxData.length < 4) return null;
-    return clampBox({
-        top: Number(boxData[0]) * height,
-        left: Number(boxData[1]) * width,
-        width: Number(boxData[2]) * width,
-        height: Number(boxData[3]) * height,
-    }, width, height);
 }
 
 function normalizeSimpleLine(value: unknown, width: number, height: number): OcrLine | null {
@@ -563,48 +523,54 @@ function scaleBoxNumber(value: number, dimension: number, scale: { fractional: b
     return scale.fractional ? value / scale.factor * dimension : value;
 }
 
+// Strict: a truncated field or a wire type protobuf does not use throws, so a
+// broken body is never mistaken for a message with nothing in it.
 function decodeProtoMessage(bytes: Uint8Array): ProtoField[] {
     const fields: ProtoField[] = [];
     let offset = 0;
     while (offset < bytes.length) {
         const [tag, nextOffset] = readVarint(bytes, offset);
-        offset = nextOffset;
         const field = Number(tag >> 3n);
         const wire = Number(tag & 7n);
-        if (!field) break;
-        if (wire === 0) {
-            const [value, afterValue] = readVarint(bytes, offset);
-            offset = afterValue;
-            fields.push({ field, wire, value });
-        } else if (wire === 1) {
-            fields.push({ field, wire, value: new DataView(bytes.buffer, bytes.byteOffset + offset, 8).getFloat64(0, true) });
-            offset += 8;
-        } else if (wire === 2) {
-            const [length, afterLength] = readVarint(bytes, offset);
-            offset = afterLength;
-            const end = offset + Number(length);
-            fields.push({ field, wire, value: bytes.slice(offset, end) });
-            offset = end;
-        } else if (wire === 5) {
-            fields.push({ field, wire, value: new DataView(bytes.buffer, bytes.byteOffset + offset, 4).getFloat32(0, true) });
-            offset += 4;
-        } else {
-            break;
-        }
+        if (!field || field > 0x1fffffff) throw new Error('Malformed protobuf: invalid field number.');
+        const [value, end] = readProtoValue(bytes, nextOffset, wire);
+        fields.push({ field, wire, value });
+        offset = end;
     }
     return fields;
+}
+
+function readProtoValue(bytes: Uint8Array, offset: number, wire: number): [ProtoField['value'], number] {
+    if (wire === 0) return readVarint(bytes, offset);
+    if (wire === 2) {
+        const [length, start] = readVarint(bytes, offset);
+        return [bytes.slice(start, protoEnd(bytes, start, Number(length))), start + Number(length)];
+    }
+    if (wire === 1) return [protoView(bytes, offset, 8).getFloat64(0, true), offset + 8];
+    if (wire === 5) return [protoView(bytes, offset, 4).getFloat32(0, true), offset + 4];
+    throw new Error(`Malformed protobuf: wire type ${wire}.`);
+}
+
+function protoEnd(bytes: Uint8Array, start: number, length: number): number {
+    if (start + length > bytes.length) throw new Error('Malformed protobuf: truncated field.');
+    return start + length;
+}
+
+function protoView(bytes: Uint8Array, offset: number, length: number): DataView {
+    return new DataView(bytes.buffer, bytes.byteOffset + offset, protoEnd(bytes, offset, length) - offset);
 }
 
 function readVarint(bytes: Uint8Array, offset: number): [bigint, number] {
     let shift = 0n;
     let result = 0n;
-    while (offset < bytes.length) {
+    while (offset < bytes.length && shift < 64n) {
         const byte = bytes[offset++];
+        if (shift === 63n && byte > 1) throw new Error('Malformed protobuf: oversized varint.');
         result |= BigInt(byte & 0x7f) << shift;
         if (!(byte & 0x80)) return [result, offset];
         shift += 7n;
     }
-    return [result, offset];
+    throw new Error('Malformed protobuf: truncated varint.');
 }
 
 function protoMessages(fields: ProtoField[], field: number): ProtoField[][] {

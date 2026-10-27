@@ -22,7 +22,8 @@ companions and its `@resource` CSS.
 | `host/` | YouTube only: the redacted player response, the json3 caption tracks (timings kept, words replaced) and a blank clip. |
 
 Current set: ja.wikipedia 日本語 and 東京都, Aozora 『こころ』 and 『吾輩は猫である』,
-a Wikimedia Commons photo page, reader.ttsu.app paging 『こころ』 vertically and
+two Wikimedia Commons photo pages (a street sign, and a sushi bar signboard
+whose photo the OCR honesty gate also opens on its own), reader.ttsu.app paging 『こころ』 vertically and
 horizontally, a YouTube watch page and YouTube search results, note.com,
 asahi.com and the piccoma.com web store. The watch page's caption timings are
 a Mechanism Fixture (see Follow-ups).
@@ -118,11 +119,71 @@ await run.close();
   an OCR service.
 - `onGmRequest(request)`: answer first, for example with a 429, to model a
   failing service.
+- `gmStoragePrefix`: the bridge keeps GM storage in the page origin's
+  localStorage; a prefix keeps it apart from the page's own keys, as a real
+  manager's storage is. A gate that reloads and expects private GM values to
+  survive needs it, because the product deletes `yomu:private:*` keys from
+  page storage.
 - `pageNetwork`: `'offline'` (default) or `'live'`.
 - `hostOptions`: for YouTube, `{ captions, autoplay, startSeconds }`.
 - `contextOptions`: viewport, `isMobile`, `hasTouch`, user agent (iPad runs).
 
 Chromium, WebKit and Firefox all replay every recording.
+
+The OCR regression gate is `npm run smoke:ocr-honesty`. It runs the built
+userscript graph on the recorded Commons photos in Chromium and iPad WebKit.
+For a focused rerun, pass case names, for example
+`npm run smoke:ocr-honesty -- provider aria`. The `provider` case finishes a
+Lens request after switching to the local service and refreshing the controller;
+the answer must remain under Lens. The `aria` case checks the OCR text region's
+explicit accessible name in English and Japanese. These replay checks mock the
+GM transport; they do not prove Safari Userscripts' binary request transport,
+which needs a separate candidate-specific check in that manager.
+
+For the native check, build the lane and run
+`npm run manual:ocr-userscripts-ipad`. This loopback server stages the exact
+core and companion with local dependency/CSS URLs, verifies dependency SRI,
+and serves the attributed Commons sign recording. It never injects the
+product or supplies a GM shim. A passive DOM observer logs trusted clicks,
+OCR text and visible loading/failed/ready marks in the output directory;
+`staging.json` records the source commit and built/staged hashes.
+
+Hold the simulator and screen locks, back up the installed `yomu.user.js`,
+and copy the staged file to the manager's same stable filename. The debug
+Userscripts loader upgrades HTTP dependency downloads to HTTPS. For this
+local check, back up its `Documents/require/yomu.user.js` directory and copy
+the generated `manager-require/yomu.user.js` contents there. Rescan in the
+manager and reload Safari. This tests native manager execution and binary
+OCR transport; it does not test normal HTTPS dependency downloading.
+
+Select manual OCR with the puck before opening a fresh run, then tap the
+sign photo in DeviceHub. Each server start gives images a fresh URL so a
+previous successful cache entry cannot substitute for this read. Keep the
+observer's before/tap/result records and a simulator screenshot; script
+presence alone is insufficient. A later `--run=<previous runId>` reuses that
+image URL for a separate cache check. Restore the script, dependency cache
+and prior OCR mode, close created tabs, stop the server and release locks.
+
+The W1-10 native check passed on 2026-10-26 in portrait on simulator
+`506D5F15-2F4F-4862-8A96-DE7D8F3A42B6`, using Safari and Userscripts-Debug.
+The product source was `4511cf03583bf6d8575955ba2665cf5c7c0b250a`
+(core SHA-256 `51c8e0960d08d423e1dc8a301d486dc20065165c60a54c8a46a6802cd519596c`,
+runtime SHA-256 `18e598a4f2031c2becb9b080a6c45429425996bbe1ee783da2a6393a580f3b70`).
+On a fresh recorded image URL, the observer recorded a trusted image tap
+at 23:05:09.158 UTC, a visible loading mark, then a visible ready mark and
+five OCR lines at 23:05:18.467 UTC. A screenshot records lookup opened from
+the recognized text. Evidence is retained locally in
+`artifacts/quality-programme-2026-10/W1-10-fix3-native-qa/` at the Yomu
+workspace root, with the acceptance summary in `W1-10-fix3-evidence.json`
+beside that directory. The earlier fix2 attempt did not load the candidate
+and does not establish this result.
+
+This check used the real manager and live Lens endpoint, with no GM shim or
+provider mock. The runtime was copied byte-for-byte to the manager's
+dependency cache as described above. It proves native binary OCR transport
+on that simulator; normal HTTPS dependency downloading, physical-device
+acceptance and native request counts were not measured. Exact request
+counts remain covered by the Chromium/WebKit replay gate.
 
 `run.productTraffic()` says how the product's requests to the recorded
 product-traffic hosts were answered: `{ hosts, served, dropped }`. When the
@@ -364,7 +425,7 @@ the real page has moved on.
   `node scripts/record-pages.mjs youtube-watch` (or pass `--captions-from`
   with the player's two json3 responses) to replace them with recorded
   timings, then drop the two fixture rows from `ATTRIBUTION.md`.
-- Weight: the 12 recordings take about 42 MB in a checkout but about 6 MB
+- Weight: the 13 recordings take about 46 MB in a checkout but about 6 MB
   in git, which stores a file shared by two recordings once and compresses
   the rest. Move recordings to Git LFS, or share site stylesheets between
   them, before the checkout passes about 100 MB.

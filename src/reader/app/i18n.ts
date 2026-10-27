@@ -743,6 +743,7 @@ const COPY = {
         ankiMappingConfidenceLow: 'unmapped',
         ankiMappingStaleField: 'saved field missing',
         ...OCR_STATUS_COPY.en,
+        ocrTextRegion: 'よむ image text {id}',
         gradeNothing: 'Grade NOTHING',
         gradeSomething: 'Grade SOMETHING',
         gradeHard: 'Grade HARD',
@@ -1582,6 +1583,7 @@ openSectionToTranslate	開くと翻訳します。
 translationUnavailable	翻訳を利用できません。
 translating	翻訳中...
 `),
+    ocrTextRegion: 'よむの画像テキスト {id}',
     ...GRAMMAR_UI_COPY.ja, ...SETTINGS_RECOVERY_COPY.ja, ...PRACTICE_SESSION_COPY.ja, ...SAVE_WAIT_COPY.ja, ...GRADING_SERVICE_COPY.ja, ...COLLECTION_COPY.ja, ...OCR_STATUS_COPY.ja,
 };
 

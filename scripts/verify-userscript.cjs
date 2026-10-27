@@ -83,7 +83,7 @@ if (hasMetadataValue('exclude', 'https://hrussellzfac023.github.io/yomu-reader/*
 if (!hasMetadataValue('grant', 'GM_xmlhttpRequest')) fail('GM_xmlhttpRequest grant is missing.');
 if (!hasMetadataValue('grant', 'GM.xmlHttpRequest')) fail('GM.xmlHttpRequest grant is missing.');
 if (!hasMetadataValue('grant', 'GM_getResourceText')) fail('GM_getResourceText grant is missing.');
-if (!hasMetadataValue('connect', 'www.google.com')) fail('Google Search connect metadata is missing for the Lens fallback.');
+if (!hasMetadataValue('connect', 'www.google.com')) fail('www.google.com connect metadata is missing for kanji handwriting recognition.');
 if (!hasMetadataValue('connect', 'yomureader.com')) fail('hosted Yomu data connect metadata is missing.');
 assertReaderCssResourceMetadata();
 if (!hasMetadataValue('inject-into', 'content')) fail('Violentmonkey content-world injection metadata is missing.');

@@ -21,6 +21,7 @@ interface OcrScanOwner {
     scan?: symbol;
     loading: boolean;
     manualRequested: boolean;
+    pressed: boolean;
 }
 
 export function claimOcrScan(owner: OcrScanOwner): symbol {
@@ -35,6 +36,7 @@ export function releaseOcrScan(owner: OcrScanOwner, token: symbol): void {
     owner.scan = undefined;
     owner.loading = false;
     owner.manualRequested = false;
+    owner.pressed = false;
 }
 
 /** Captures the keys shared by every async stage of one OCR render. */

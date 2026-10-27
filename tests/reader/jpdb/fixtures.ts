@@ -41,7 +41,7 @@ import { currentPageTermTarget, isCurrentKanjiSurface } from '../../../src/reade
 import { buildNewTabPalette, isYomuNewTabUrl, resolveNewTabBrandAssets } from '../../../src/reader/newtab/index';
 import { ObjectUrlCache } from '../../../src/reader/core/object-url-cache';
 import { createPageMediaUrl } from '../../../src/reader/app/page-media-url';
-import { ImageOcrController, normalizeOcrResult, parseGoogleLensUploadHtml, readFallbackOcrResult } from '../../../src/reader/ocr/controller';
+import { ImageOcrController, normalizeOcrResult, readFallbackOcrResult } from '../../../src/reader/ocr/controller';
 import { normalizeOcrRenderedText } from '../../../src/reader/ocr/rendered-text';
 import { createReaderBackdrop, createReaderPopover, installMiningDrawerHandle, installSettingsDrawerHandle, installSheetCloseButton, installSheetHandle, shouldUseSheet } from '../../../src/reader/popup/shell';
 import { pointerTextLookupFromTextNode } from '../../../src/reader/lookup/pointer-text-lookup';
@@ -3225,7 +3225,6 @@ export {
     normalizeSubtitleCues,
     orderedDefinitionSourceIds,
     orderedKanjiSourceIds,
-    parseGoogleLensUploadHtml,
     parseJpdbAudioData,
     parseJpdbKanjiHtml,
     parseJpdbPublicPitchHtml,

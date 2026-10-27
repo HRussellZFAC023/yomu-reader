@@ -46,7 +46,6 @@ const userscriptConnect = [
     'tatoeba.org',
     'jpdb.io',
     'api.wanikani.com',
-    'lens.google.com',
     'lensfrontend-pa.googleapis.com',
     'www.google.com',
     'yomureader.com',

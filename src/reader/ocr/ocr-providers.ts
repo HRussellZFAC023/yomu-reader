@@ -3,18 +3,19 @@
 // low-level request plumbing (userscript GM bridge + fetch fallbacks with timeouts)
 // they all share. This is one cohesive closure family: the recognizers close over the
 // transport helpers, so they move together. The handful of helpers shared with the
-// controller (imageCacheKey, ocrAttemptTimeoutMs, localOcrEndpointUrl) live in the ocr-shared leaf so neither module imports the other.
+// controller (imageCacheKey, ocrAttemptTimeoutMs, localOcrEndpointUrl,
+// OcrProviderError) live in the ocr-shared leaf so neither module imports the other.
+//
+// A recognizer answers with what the provider read (null or no lines is a real
+// empty answer) or throws. It never turns a failed request into "no text": the
+// controller caches answers, and a cached failure would lock the image out.
 import { isAbortError } from '../core/errors';
 import { readBlobAsDataUrl } from '../core/blob-data-url';
 import { getUserscriptHttpRequest, requestViaUserscriptManager } from '../userscript/index';
 import { Logger } from '../app/logger';
 import { targetOcrLanguageHint, targetOcrLanguageTag } from '../languages/resolve';
 import type { ReaderSettings } from '../app/types';
-import {
-    normalizeOcrResult,
-    parseGoogleLensResponse,
-    type OcrResult,
-} from './response';
+import { normalizeOcrResult, parseGoogleLensResponse, type OcrResult } from './response';
 import { createGoogleLensRequest, googleLensAcceptLanguage } from './google-lens-request';
 import {
     assertCanvasReadable,
@@ -25,6 +26,7 @@ import {
 import {
     imageCacheKey,
     localOcrEndpointUrl,
+    OcrProviderError,
     ocrAttemptTimeoutMs,
 } from './ocr-shared';
 
@@ -82,20 +84,15 @@ async function recognizeViaCloudVision(image: HTMLImageElement, settings: Reader
     return normalizeOcrResult(response, payload.width, payload.height);
 }
 
+// The keyless protobuf endpoint is the only Lens transport. Google now answers
+// the old lens.google.com/v3/upload form with a consent wall or a
+// JavaScript-only search page, so that fallback read nothing and only hid
+// errors while sending the image to Google with the learner's cookies.
 async function recognizeViaGoogleLens(image: HTMLImageElement, settings: ReaderSettings, invert = false): Promise<OcrResult | null> {
     const { canvas, blob } = await imageToBlobPayload(image, settings.ocrMaxImagePixels, 'image/jpeg', 0.88, invert);
-    return recognizeViaGoogleLensProtobuf(blob, canvas, settings, ocrAttemptTimeoutMs());
-}
-
-async function recognizeViaGoogleLensProtobuf(
-    blob: Blob,
-    canvas: HTMLCanvasElement,
-    settings: ReaderSettings,
-    timeout: number,
-): Promise<OcrResult | null> {
     const bytes = new Uint8Array(await blob.arrayBuffer());
     const body = createGoogleLensRequest(bytes, canvas.width, canvas.height, settings.ocrLanguage);
-    const response = await requestArrayBuffer(GOOGLE_LENS_ENDPOINT, body, timeout, googleLensAcceptLanguage(settings.ocrLanguage));
+    const response = await requestArrayBuffer(GOOGLE_LENS_ENDPOINT, body, ocrAttemptTimeoutMs(), googleLensAcceptLanguage(settings.ocrLanguage));
     return parseGoogleLensResponse(new Uint8Array(response), canvas.width, canvas.height);
 }
 
@@ -156,10 +153,16 @@ function requestJson(url: string, data: string, timeout: number): Promise<unknow
         data,
         responseType: 'json',
         timeout,
-    }, response => response.response ?? (response.responseText ? JSON.parse(response.responseText) : null), status => `OCR endpoint returned ${status}.`, 'OCR timed out.');
-    if (userscriptRequest) return userscriptRequest;
-    return fetchJsonWithTimeout(url, data, timeout)
-        .then(response => response.ok ? response.json() : Promise.reject(new Error(`OCR endpoint returned ${response.status}.`)));
+    }, response => response.response ?? JSON.parse(response.responseText ?? ''), status => new OcrProviderError('OCR endpoint', status), 'OCR timed out.');
+    return (userscriptRequest ?? fetchJsonWithTimeout(url, data, timeout)
+        .then(response => response.ok ? response.json() : Promise.reject(new OcrProviderError('OCR endpoint', response.status))))
+        .then(ocrAnswerObject);
+}
+
+// An empty body, an HTML page or a bare JSON value is not an OCR answer: it is an error, not "no text".
+function ocrAnswerObject(value: unknown): object {
+    if (!value || typeof value !== 'object') throw new Error('OCR endpoint did not answer with JSON.');
+    return value;
 }
 
 function fetchJsonWithTimeout(url: string, data: string, timeout: number): Promise<Response> {
@@ -193,14 +196,14 @@ function requestArrayBuffer(url: string, data: Uint8Array, timeout: number, acce
         data: body.buffer as ArrayBuffer,
         responseType: 'arraybuffer',
         timeout,
-    }, response => response.response as ArrayBuffer, status => `Google Lens returned ${status}.`, 'Google Lens timed out.');
+    }, response => response.response as ArrayBuffer, status => new OcrProviderError('Google Lens', status), 'Google Lens timed out.');
     if (userscriptRequest) return userscriptRequest;
     return fetchWithTimeout(url, {
         method: 'POST',
         headers,
         body: body.buffer,
     }, timeout, 'Google Lens timed out.')
-        .then(response => response.ok ? response.arrayBuffer() : Promise.reject(new Error(`Google Lens returned ${response.status}.`)));
+        .then(response => response.ok ? response.arrayBuffer() : Promise.reject(new OcrProviderError('Google Lens', response.status)));
 }
 
 function fetchWithTimeout(url: string, init: RequestInit, timeout: number, timeoutMessage: string): Promise<Response> {
@@ -226,7 +229,7 @@ export function requestBlob(url: string, timeout = 0): Promise<Blob> {
         url,
         responseType: 'arraybuffer',
         timeout,
-    }, response => blobFromUserscriptResponse(response, fallbackType), status => `Image fetch returned ${status}.`, timeout ? 'Image fetch timed out.' : undefined);
+    }, response => blobFromUserscriptResponse(response, fallbackType), status => new Error(`Image fetch returned ${status}.`), timeout ? 'Image fetch timed out.' : undefined);
     if (userscriptRequest) return userscriptRequest;
     if (!timeout) return fetch(url).then(response => response.ok ? response.blob() : Promise.reject(new Error(`Image fetch returned ${response.status}.`)));
     const controller = new AbortController();
@@ -285,7 +288,7 @@ export function sniffImageMimeType(bytes: Uint8Array): string | undefined {
 function requestViaUserscript<T>(
     options: Parameters<UserscriptHttpRequest>[0],
     readResponse: (response: UserscriptHttpResponse) => T,
-    statusMessage: (status: number) => string,
+    statusError: (status: number) => Error,
     timeoutMessage?: string,
 ): Promise<T> | null {
     const userscriptRequest = getUserscriptHttpRequest();
@@ -305,7 +308,7 @@ function requestViaUserscript<T>(
     return requestViaUserscriptManager<T>(userscriptRequest, {
         details: options,
         readResponse: response => {
-            if (!isSuccessfulHttpStatus(response.status)) throw new Error(statusMessage(response.status));
+            if (!isSuccessfulHttpStatus(response.status)) throw statusError(response.status);
             return readResponse(response);
         },
         onError: error => error instanceof Error ? error : new Error(String(error || 'Request failed.')),

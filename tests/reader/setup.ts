@@ -99,6 +99,23 @@ const MANAGED_EPOCH_CONTROL_PREFIXES = [
 ] as const;
 let mediaMethodRestorers: Array<() => void> = [];
 
+// jsdom never decodes an <img>, so `complete` stays false for any image with a
+// src. OCR reads only decoded images (ocr-decode-gate.ts). An image whose test
+// gave it a natural size models a decoded one; a test can still define
+// `complete` on the element itself.
+const jsdomImageComplete = typeof HTMLImageElement === 'undefined'
+    ? undefined
+    : Object.getOwnPropertyDescriptor(HTMLImageElement.prototype, 'complete');
+if (jsdomImageComplete?.get) {
+    const jsdomComplete = jsdomImageComplete.get;
+    Object.defineProperty(HTMLImageElement.prototype, 'complete', {
+        configurable: true,
+        get(this: HTMLImageElement) {
+            return (this.naturalWidth > 0 && this.naturalHeight > 0) || jsdomComplete.call(this);
+        },
+    });
+}
+
 // Every Vitest case models a fresh browser realm unless it explicitly builds
 // several realms inside that case. Fork reuse keeps jsdom storage alive across
 // files, so an epoch committed by one reset test otherwise makes the next
