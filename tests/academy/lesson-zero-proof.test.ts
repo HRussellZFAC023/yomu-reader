@@ -6,7 +6,6 @@ import { validateLessonZeroGrounding } from '../../src/academy/content/lesson-ze
 import type { LessonZeroContent } from '../../src/academy/content/lesson-zero';
 import {
     LESSON_ZERO_KANA_SEQUENCE,
-    LESSON_ZERO_SOURCE_MEDIA,
 } from '../../src/academy/content/lesson-zero-source-material';
 import { createLessonZeroProof } from '../../src/academy/ui/lesson-zero-proof';
 import { filesHaveSameContent, sha256File } from './helpers/hash-memo';

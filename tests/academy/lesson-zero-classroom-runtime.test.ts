@@ -168,9 +168,9 @@ describe('lesson-zero-desk-language-session behavior', () => {
     const CLASSROOM_PATH = path.resolve(
         'public/academy/content/lessons/lesson-zero-classroom-expressions.v1.json',
     );
-    
+
     const LESSON_PATH = path.resolve('public/academy/content/lessons/lesson-zero.v1.json');
-    
+
     function fixture() {
         const classroom = validateLessonZeroClassroomExpressions(
             JSON.parse(fs.readFileSync(CLASSROOM_PATH, 'utf8')),
@@ -185,7 +185,7 @@ describe('lesson-zero-desk-language-session behavior', () => {
             definition: createLessonZeroDeskLanguageDefinition(classroom, activity),
         };
     }
-    
+
     function reachPractice() {
         const { definition } = fixture();
         let state = transitionLessonZeroDeskLanguageSession(
@@ -208,7 +208,7 @@ describe('lesson-zero-desk-language-session behavior', () => {
         ).state;
         return { definition, state };
     }
-    
+
     describe('Lesson Zero desk-language session', () => {
         it('grounds exactly two useful desk labels before asking for retrieval', () => {
             const { activity, definition } = fixture();
@@ -242,7 +242,7 @@ describe('lesson-zero-desk-language-session behavior', () => {
                     outcome: 'pass',
                 });
         });
-    
+
         it('introduces each prop before practice and repairs only the confused label', () => {
             const { definition, state: practice } = reachPractice();
             expect(practice).toMatchObject({
@@ -250,7 +250,7 @@ describe('lesson-zero-desk-language-session behavior', () => {
                 stage: 'practice',
                 practiceIndex: 0,
             });
-    
+
             const lapse = transitionLessonZeroDeskLanguageSession(
                 definition,
                 practice,
@@ -268,7 +268,7 @@ describe('lesson-zero-desk-language-session behavior', () => {
                 supportEvents: [{ supportKind: 'hint', choiceId: 'homework' }],
             });
             expect(lapse.evaluation?.reviewSeeds).toEqual([]);
-    
+
             let state = transitionLessonZeroDeskLanguageSession(
                 definition,
                 lapse.state,
@@ -297,7 +297,7 @@ describe('lesson-zero-desk-language-session behavior', () => {
                     reason: 'repair',
                 }),
             ]);
-    
+
             state = transitionLessonZeroDeskLanguageSession(
                 definition,
                 repaired.state,
@@ -310,7 +310,7 @@ describe('lesson-zero-desk-language-session behavior', () => {
                 practicePassedWordIds: ['homework', 'example'],
             });
         });
-    
+
         it('changes the prop order for transfer without scheduling either word twice', () => {
             const { definition, state: initial } = reachPractice();
             let transition = transitionLessonZeroDeskLanguageSession(
@@ -327,7 +327,7 @@ describe('lesson-zero-desk-language-session behavior', () => {
                 5,
             );
             expect(transition.evaluation?.reviewSeeds).toHaveLength(1);
-    
+
             let state = transitionLessonZeroDeskLanguageSession(
                 definition,
                 transition.state,
@@ -361,7 +361,7 @@ describe('lesson-zero-desk-language-session behavior', () => {
                 independent: true,
             });
         });
-    
+
         it('round-trips a pause and rejects impossible progress snapshots', () => {
             const { definition, state } = reachPractice();
             const paused = transitionLessonZeroDeskLanguageSession(
@@ -386,9 +386,9 @@ describe('lesson-zero-desk-language-session behavior', () => {
 
 describe('lesson-zero-follow-instructions behavior', () => {
     const CLASSROOM_PATH = path.resolve('public/academy/content/lessons/lesson-zero-classroom-expressions.v1.json');
-    
+
     const LESSON_PATH = path.resolve('public/academy/content/lessons/lesson-zero.v1.json');
-    
+
     function fixture() {
         const classroom = validateLessonZeroClassroomExpressions(JSON.parse(fs.readFileSync(CLASSROOM_PATH, 'utf8')));
         const lesson = validateLessonZeroPackage(JSON.parse(fs.readFileSync(LESSON_PATH, 'utf8'))).lesson;
@@ -398,7 +398,7 @@ describe('lesson-zero-follow-instructions behavior', () => {
             definition: createLessonZeroFollowInstructionDefinition(classroom, activity),
         };
     }
-    
+
     describe('Lesson Zero follow-instructions runtime', () => {
         it('builds seven source-linked listening cues and registers the child and parent evidence ids', () => {
             const { definition } = fixture();
@@ -418,7 +418,7 @@ describe('lesson-zero-follow-instructions behavior', () => {
                 expect(registration.trustedActivityIds).toContain(activityId);
             }
         });
-    
+
         it('keeps a missed instruction open, earns transcript support, then records repaired listening', () => {
             const { definition } = fixture();
             let state = transitionClassroomInstructionSession(
@@ -452,7 +452,7 @@ describe('lesson-zero-follow-instructions behavior', () => {
                 reviewSeeds: [],
             });
             expect(missed.supportEvents.map(event => event.supportKind)).toEqual(['transcript', 'translation']);
-    
+
             state = transitionClassroomInstructionSession(
                 definition,
                 missed.state,
@@ -469,7 +469,7 @@ describe('lesson-zero-follow-instructions behavior', () => {
                 content: { expression: 'はじめましょう', meanings: ["Let's begin."] },
             });
         });
-    
+
         it('completes only after supported practice and delayed mixed recall of all seven moves', () => {
             const { activity, definition } = fixture();
             let state = transitionClassroomInstructionSession(
@@ -518,7 +518,7 @@ describe('lesson-zero-follow-instructions behavior', () => {
                 outcome: 'pass',
             });
         });
-    
+
         it('migrates an earned legacy completion without discarding learner progress', () => {
             const { definition } = fixture();
             const legacy = {
@@ -538,7 +538,7 @@ describe('lesson-zero-follow-instructions behavior', () => {
             expect(restored).toMatchObject({ status: 'complete', stage: 'complete' });
             expect(restored.recalledCueIds).toHaveLength(7);
         });
-    
+
         it('rejects malformed persisted progress at the storage boundary', () => {
             expect(classroomInstructionSessionSnapshotShapeIsValid({
                 schemaVersion: 1,
@@ -563,7 +563,7 @@ describe('lesson-zero-greeting-session behavior', () => {
             'Henry',
         );
     }
-    
+
     function arrangedState() {
         const content = definition();
         let state = transitionLessonZeroGreetingSession(
@@ -580,9 +580,9 @@ describe('lesson-zero-greeting-session behavior', () => {
             state: transitionLessonZeroGreetingSession(content, state, { kind: 'check-arrangement' }, 3).state,
         };
     }
-    
+
     describe('Lesson Zero first greeting session', () => {
-    
+
         it('keeps arrangement instructional and assesses the independent greeting', () => {
             const content = definition();
             let state = transitionLessonZeroGreetingSession(
@@ -599,7 +599,7 @@ describe('lesson-zero-greeting-session behavior', () => {
             expect(wrong.evaluation).toBeUndefined();
             expect(wrong.state.stage).toBe('arrange');
         });
-    
+
         it('records a transparent lapse, earned supports, repair and four SRS memories', () => {
             const { content, state: arranged } = arrangedState();
             let state = transitionLessonZeroGreetingSession(
@@ -628,7 +628,7 @@ describe('lesson-zero-greeting-session behavior', () => {
                 'model-answer',
             ]);
             expect(lapse.evaluation?.reviewSeeds).toEqual([]);
-    
+
             state = lapse.state;
             const repaired = transitionLessonZeroGreetingSession(
                 content,
@@ -644,7 +644,7 @@ describe('lesson-zero-greeting-session behavior', () => {
             expect(repaired.evaluation?.reviewSeeds.every(seed => seed.reason === 'repair')).toBe(true);
             expect(repaired.adaptive).toMatchObject({ skill: 'writing', action: 'repair', independent: false });
         });
-    
+
         it('accepts a recorded take only after both learner checks are explicit', () => {
             const { content, state: arranged } = arrangedState();
             let state = transitionLessonZeroGreetingSession(
@@ -670,7 +670,7 @@ describe('lesson-zero-greeting-session behavior', () => {
             expect(pass.evaluation?.attempt.responseKind).toBe('spoken-self-check');
             expect(pass.adaptive).toMatchObject({ skill: 'speaking', action: 'repair' });
         });
-    
+
         it('round-trips paused snapshots and rejects impossible complete snapshots', () => {
             const { content, state } = arrangedState();
             const paused = transitionLessonZeroGreetingSession(content, state, { kind: 'pause' }, 4).state;
@@ -683,13 +683,13 @@ describe('lesson-zero-greeting-session behavior', () => {
 
 describe('lesson-zero-hiragana-session behavior', () => {
     describe('Lesson Zero full hiragana route', () => {
-    
+
         it('drills every row, requeues lapses, and schedules all 46 only after cumulative recall', () => {
             const definition = createLessonZeroHiraganaDefinition();
             let state = startLessonZeroHiraganaSession(definition);
             state = step(definition, state, { kind: 'start-guided' });
             state = step(definition, state, { kind: 'begin-row' });
-    
+
             const first = lessonZeroHiraganaCurrentItem(definition, state)!;
             const lapse = transitionLessonZeroHiraganaSession(
                 definition,
@@ -701,7 +701,7 @@ describe('lesson-zero-hiragana-session behavior', () => {
             expect(lapse.state.queue.at(-1)).toBe(first.id);
             expect(lapse.state.repairedItemIds).toContain(first.id);
             state = lapse.state;
-    
+
             while (state.stage !== 'mastery-ready') {
                 if (state.stage === 'row-preview') state = step(definition, state, { kind: 'begin-row' });
                 else if (state.stage === 'row-drill') {
@@ -711,7 +711,7 @@ describe('lesson-zero-hiragana-session behavior', () => {
                 else throw new Error(`Unexpected stage: ${state.stage}`);
             }
             expect(state.guidedPassedItemIds).toHaveLength(46);
-    
+
             state = step(definition, state, { kind: 'begin-mastery' });
             let completion;
             while (state.stage === 'mastery') {
@@ -725,7 +725,7 @@ describe('lesson-zero-hiragana-session behavior', () => {
                 state = transition.state;
                 completion = transition.completionEvaluation ?? completion;
             }
-    
+
             expect(state.status).toBe('complete');
             expect(state.masteryPassedItemIds).toHaveLength(46);
             expect(completion?.reviewSeeds).toHaveLength(46);
@@ -733,20 +733,20 @@ describe('lesson-zero-hiragana-session behavior', () => {
             expect(completion?.reviewSeeds.every(seed => seed.schedule?.dueAfterMs === 86_400_000)).toBe(true);
             expect(lessonZeroHiraganaSessionSnapshotShapeIsValid(state)).toBe(true);
         });
-    
+
         it('lets an experienced learner take the full placement check without repeating guided rows', () => {
             const definition = createLessonZeroHiraganaDefinition();
             let state = startLessonZeroHiraganaSession(definition);
             state = step(definition, state, { kind: 'start-placement' });
             expect(state.stage).toBe('mastery-ready');
             expect(state.guidedPassedItemIds).toEqual([]);
-    
+
             state = step(definition, state, { kind: 'begin-mastery' });
             while (state.stage === 'mastery') {
                 const item = lessonZeroHiraganaCurrentItem(definition, state)!;
                 state = step(definition, state, { kind: 'answer', response: item.romaji });
             }
-    
+
             expect(state).toMatchObject({
                 route: 'placement',
                 status: 'complete',
@@ -754,19 +754,19 @@ describe('lesson-zero-hiragana-session behavior', () => {
             });
             expect(state.masteryPassedItemIds).toHaveLength(46);
         });
-    
+
         it('keeps deterministic, compact row choices and survives pause/resume', () => {
             const definition = createLessonZeroHiraganaDefinition();
             let state = startLessonZeroHiraganaSession(definition);
             state = step(definition, state, { kind: 'start-guided' });
             state = step(definition, state, { kind: 'begin-row' });
             const current = lessonZeroHiraganaCurrentItem(definition, state)!;
-    
+
             expect(lessonZeroHiraganaChoices(definition, current.id)).toHaveLength(4);
             expect(lessonZeroHiraganaChoices(definition, current.id)).toContain(current.romaji);
             expect(lessonZeroHiraganaChoices(definition, current.id))
                 .toEqual(lessonZeroHiraganaChoices(definition, current.id));
-    
+
             state = step(definition, state, { kind: 'pause' });
             expect(state.status).toBe('paused');
             const resumed = startLessonZeroHiraganaSession(definition, state);
@@ -774,7 +774,7 @@ describe('lesson-zero-hiragana-session behavior', () => {
             expect(step(definition, resumed, { kind: 'resume' }).status).toBe('active');
         });
     });
-    
+
     function step(
         definition: ReturnType<typeof createLessonZeroHiraganaDefinition>,
         state: LessonZeroHiraganaSessionState,
@@ -791,7 +791,7 @@ describe('lesson-zero-hiragana-session behavior', () => {
 
 describe('lesson-zero-name-card-session behavior', () => {
     const LESSON_PATH = path.resolve('public/academy/content/lessons/lesson-zero.v1.json');
-    
+
     function definition(): LessonZeroNameCardDefinition {
         const lesson = validateLessonZeroPackage(JSON.parse(fs.readFileSync(LESSON_PATH, 'utf8'))).lesson;
         return createLessonZeroNameCardDefinition(
@@ -799,7 +799,7 @@ describe('lesson-zero-name-card-session behavior', () => {
             'Henry',
         );
     }
-    
+
     describe('Lesson Zero name-card session', () => {
         it('makes the saved name a katakana-first naming moment without copying it into progress', () => {
             const content = definition();
@@ -820,14 +820,14 @@ describe('lesson-zero-name-card-session behavior', () => {
             expect(lessonZeroNameCardLine(content, 'usual')).toBe('Henryです。');
             expect(JSON.stringify(startLessonZeroNameCardSession(content))).not.toMatch(/Henry|ヘンリー/);
         });
-    
+
         it('repairs the name order and changed-person transfer before seeding SRS', () => {
             const content = definition();
             let state = startLessonZeroNameCardSession(content);
             const earlyHelp = transitionLessonZeroNameCardSession(content, state, { kind: 'reveal-model' }, 2);
             expect(earlyHelp.state.modelRevealed).toBe(false);
             expect(earlyHelp.supportEvents).toEqual([]);
-    
+
             state = transitionLessonZeroNameCardSession(content, state, { kind: 'select-token', tokenId: 'desu' }, 3).state;
             state = transitionLessonZeroNameCardSession(content, state, { kind: 'select-token', tokenId: 'learner-name' }, 4).state;
             const buildLapse = transitionLessonZeroNameCardSession(content, state, { kind: 'check' }, 5);
@@ -840,7 +840,7 @@ describe('lesson-zero-name-card-session behavior', () => {
                 },
                 reviewSeeds: [],
             });
-    
+
             const buildSupport = transitionLessonZeroNameCardSession(content, buildLapse.state, { kind: 'reveal-model' }, 6);
             expect(buildSupport.state.modelRevealed).toBe(true);
             expect(buildSupport.supportEvents.map(event => event.supportKind)).toEqual([
@@ -852,7 +852,7 @@ describe('lesson-zero-name-card-session behavior', () => {
             const buildPass = transitionLessonZeroNameCardSession(content, state, { kind: 'check' }, 10);
             expect(buildPass.state).toMatchObject({ status: 'active', stage: 'transfer' });
             expect(buildPass.evaluation?.reviewSeeds).toEqual([]);
-    
+
             state = transitionLessonZeroNameCardSession(
                 content,
                 buildPass.state,
@@ -869,7 +869,7 @@ describe('lesson-zero-name-card-session behavior', () => {
                 },
                 reviewSeeds: [],
             });
-    
+
             const transferSupport = transitionLessonZeroNameCardSession(
                 content,
                 transferLapse.state,
@@ -884,14 +884,14 @@ describe('lesson-zero-name-card-session behavior', () => {
                 15,
             ).state;
             const repaired = transitionLessonZeroNameCardSession(content, state, { kind: 'check' }, 16);
-    
+
             expect(repaired.state).toMatchObject({ status: 'complete', stage: 'complete' });
             expect(repaired.evaluation?.reviewSeeds).toEqual([
                 expect.objectContaining({ id: 'review:lesson-zero:name-card:desu', reason: 'repair' }),
             ]);
             expect(repaired.adaptive).toMatchObject({ skill: 'grammar', action: 'repair', independent: false });
         });
-    
+
         it('records independent production and transfer as separate evidence', () => {
             const content = definition();
             let state = startLessonZeroNameCardSession(content);
@@ -901,7 +901,7 @@ describe('lesson-zero-name-card-session behavior', () => {
             expect(build.evaluation?.attempt).toMatchObject({ outcome: 'pass', score: 1 });
             expect(build.evaluation?.reviewSeeds).toEqual([]);
             expect(build.adaptive).toMatchObject({ action: 'produce', independent: true });
-    
+
             state = transitionLessonZeroNameCardSession(
                 content,
                 build.state,
@@ -918,7 +918,7 @@ describe('lesson-zero-name-card-session behavior', () => {
             ]);
             expect(transfer.adaptive).toMatchObject({ action: 'transfer', independent: true });
         });
-    
+
         it('round-trips a paused choice without storing names and rejects impossible snapshots', () => {
             const content = definition();
             let state = startLessonZeroNameCardSession(content);
@@ -948,9 +948,9 @@ describe('lesson-zero-name-card-session behavior', () => {
 
 describe('lesson-zero-repeat-request-session behavior', () => {
     const CLASSROOM_PATH = path.resolve('public/academy/content/lessons/lesson-zero-classroom-expressions.v1.json');
-    
+
     const LESSON_PATH = path.resolve('public/academy/content/lessons/lesson-zero.v1.json');
-    
+
     function fixture() {
         const classroom = validateLessonZeroClassroomExpressions(JSON.parse(fs.readFileSync(CLASSROOM_PATH, 'utf8')));
         const lesson = validateLessonZeroPackage(JSON.parse(fs.readFileSync(LESSON_PATH, 'utf8'))).lesson;
@@ -961,7 +961,7 @@ describe('lesson-zero-repeat-request-session behavior', () => {
             definition: createLessonZeroRepeatRequestDefinition(classroom, activity),
         };
     }
-    
+
     function begin() {
         const { definition } = fixture();
         const state = transitionLessonZeroRepeatRequestSession(
@@ -972,7 +972,7 @@ describe('lesson-zero-repeat-request-session behavior', () => {
         ).state;
         return { definition, state };
     }
-    
+
     function select(
         definition: ReturnType<typeof fixture>['definition'],
         state: ReturnType<typeof begin>['state'],
@@ -986,7 +986,7 @@ describe('lesson-zero-repeat-request-session behavior', () => {
             at,
         ).state;
     }
-    
+
     describe('Lesson Zero repetition-request session', () => {
         it('requires every source probe after repeat transfer, with repair and persisted resume', () => {
             const { definition } = fixture();
@@ -1050,7 +1050,7 @@ describe('lesson-zero-repeat-request-session behavior', () => {
                 ...state, repairCoverage: { ...state.repairCoverage!, passedProbeIds: ['probe:classroom-12-wrong'] },
             })).toThrow('coverage progress');
         });
-    
+
         it('rejects source wording drift rather than assigning coverage to substitute phrases', () => {
             const classroom = validateLessonZeroClassroomExpressions(JSON.parse(fs.readFileSync(CLASSROOM_PATH, 'utf8')));
             const { activity } = fixture();
@@ -1060,7 +1060,7 @@ describe('lesson-zero-repeat-request-session behavior', () => {
                 expect(() => createLessonZeroRepeatRequestDefinition(altered, activity)).toThrow('drifted');
             }
         });
-    
+
         it('repairs only the slipped chunk and creates one canonical review after guided practice', () => {
             const { definition, state: initial } = begin();
             let state = select(definition, initial, 'please', 2);
@@ -1082,7 +1082,7 @@ describe('lesson-zero-repeat-request-session behavior', () => {
                 supportEvents: [{ supportKind: 'hint', choiceId: 'once-more' }],
             });
             expect(lapse.evaluation?.reviewSeeds).toEqual([]);
-    
+
             state = transitionLessonZeroRepeatRequestSession(
                 definition,
                 lapse.state,
@@ -1119,7 +1119,7 @@ describe('lesson-zero-repeat-request-session behavior', () => {
                 }),
             ]);
         });
-    
+
         it('requires changed-context transfer and does not schedule the same phrase twice', () => {
             const { definition, state: initial } = begin();
             let state = select(definition, initial, 'once-more', 2);
@@ -1132,7 +1132,7 @@ describe('lesson-zero-repeat-request-session behavior', () => {
             );
             expect(practice.state.status).toBe('active');
             expect(practice.evaluation?.reviewSeeds).toHaveLength(1);
-    
+
             state = transitionLessonZeroRepeatRequestSession(
                 definition,
                 practice.state,
@@ -1152,7 +1152,7 @@ describe('lesson-zero-repeat-request-session behavior', () => {
                 errorTag: 'repeat-request-known-pattern-intrusion',
                 slippedChunkId: 'please',
             });
-    
+
             state = transitionLessonZeroRepeatRequestSession(
                 definition,
                 intrusion.state,
@@ -1180,7 +1180,7 @@ describe('lesson-zero-repeat-request-session behavior', () => {
                 independent: false,
             });
         });
-    
+
         it('round-trips a paused build and rejects impossible completion', () => {
             const { definition, state: initial } = begin();
             const selected = select(definition, initial, 'once-more', 2);
@@ -1215,7 +1215,7 @@ describe('lesson-zero-sentence-frame-session behavior', () => {
             lesson.activities.find(activity => activity.id === 'activity:lesson-zero-build-sentence-frames')!,
         );
     }
-    
+
     function started(content = definition()): LessonZeroSentenceFrameSessionState {
         return transitionLessonZeroSentenceFrameSession(
             content,
@@ -1224,7 +1224,7 @@ describe('lesson-zero-sentence-frame-session behavior', () => {
             1,
         ).state;
     }
-    
+
     function selectOrder(
         content: LessonZeroSentenceFrameSessionDefinition,
         state: LessonZeroSentenceFrameSessionState,
@@ -1238,9 +1238,9 @@ describe('lesson-zero-sentence-frame-session behavior', () => {
         }
         return next;
     }
-    
+
     describe('Lesson Zero first-sentence session', () => {
-    
+
         it('records a lapse, earns exact support, then schedules the repaired line', () => {
             const content = definition();
             const frame = content.frames[0]!;
@@ -1255,7 +1255,7 @@ describe('lesson-zero-sentence-frame-session behavior', () => {
                 reviewSeeds: [],
             });
             expect(lapse.supportEvents).toEqual([]);
-    
+
             const support = transitionLessonZeroSentenceFrameSession(
                 content,
                 lapse.state,
@@ -1279,7 +1279,7 @@ describe('lesson-zero-sentence-frame-session behavior', () => {
             expect(repaired.adaptive).toMatchObject({ action: 'repair', independent: false, skill: 'writing' });
             expect(repaired.state.stage).toBe('result');
         });
-    
+
         it('repairs a recall lapse without scheduling a duplicate review card', () => {
             const content = definition();
             let state = started(content);
@@ -1300,7 +1300,7 @@ describe('lesson-zero-sentence-frame-session behavior', () => {
                         100,
                     ).state;
             }
-    
+
             const frame = content.frames[0]!;
             state = selectOrder(content, state, frame.target.bankOrder);
             const lapse = transitionLessonZeroSentenceFrameSession(content, state, { kind: 'check' }, 101);
@@ -1330,7 +1330,7 @@ describe('lesson-zero-sentence-frame-session behavior', () => {
             expect(repaired.adaptive).toMatchObject({ action: 'repair', independent: false, skill: 'writing' });
             expect(repaired.state.stage).toBe('transfer-result');
         });
-    
+
         it('completes only after five guided builds and five unscaffolded recalls', () => {
             const content = definition();
             let state = started(content);
@@ -1355,7 +1355,7 @@ describe('lesson-zero-sentence-frame-session behavior', () => {
                 }
             }
             expect(state).toMatchObject({ stage: 'transfer-build', cursor: 0, status: 'active' });
-    
+
             for (const [index, frame] of content.frames.entries()) {
                 state = selectOrder(content, state, frame.target.correctOrder);
                 const recalled = transitionLessonZeroSentenceFrameSession(content, state, { kind: 'check' }, 40 + index);
@@ -1393,7 +1393,7 @@ describe('lesson-zero-sentence-frame-session behavior', () => {
             expect(state.passedFrameIds).toEqual(['identity', 'correction', 'question', 'noun-link', 'parallel']);
             expect(state.attempts.filter(attempt => attempt.phase === 'transfer')).toHaveLength(5);
         });
-    
+
         it('round-trips a paused build and rejects impossible chronological completion', () => {
             const content = definition();
             let state = transitionLessonZeroSentenceFrameSession(content, started(content), { kind: 'open-build' }, 2).state;
@@ -1410,7 +1410,7 @@ describe('lesson-zero-sentence-frame-session behavior', () => {
                 passedFrameIds: ['correction'],
             })).toThrow(/chronological/i);
         });
-    
+
         it('keeps a completed checkpoint from the pre-recall release valid', () => {
             const content = definition();
             let state = started(content);
@@ -1445,7 +1445,7 @@ describe('lesson-zero-sentence-frame-session behavior', () => {
 
 describe('lesson-zero-sound-session behavior', () => {
     const LESSON_PATH = path.resolve('public/academy/content/lessons/lesson-zero.v1.json');
-    
+
     function definition() {
         const data = validateLessonZeroPackage(JSON.parse(fs.readFileSync(LESSON_PATH, 'utf8')));
         return createLessonZeroSoundDefinition({
@@ -1454,14 +1454,14 @@ describe('lesson-zero-sound-session behavior', () => {
             grounding: {} as never,
         });
     }
-    
+
     describe('Lesson Zero sound session', () => {
-    
+
         it('teaches both exact names before testing them in reversed speaker order', () => {
             const content = definition();
             let state = startLessonZeroSoundSession(content);
             expect(state).toMatchObject({ stage: 'meet', introduced: false });
-    
+
             state = transitionLessonZeroSoundSession(content, state, {
                 kind: 'mark-heard',
                 lineId: 'line:lesson-zero-sound-mika-names-xingyu',
@@ -1469,14 +1469,14 @@ describe('lesson-zero-sound-session behavior', () => {
             expect(state.heardLineIds).toEqual([]);
             expect(transitionLessonZeroSoundSession(content, state, { kind: 'begin-check' }, 2).state.stage)
                 .toBe('meet');
-    
+
             state = meetAndBegin(content, state, 10);
             expect(state).toMatchObject({ stage: 'attempt', introduced: true, heardLineIds: [] });
             expect(checkLines(content).map(line => [line.speakerId, line.targetSpeakerId])).toEqual([
                 ['mika', 'xingyu'],
                 ['xingyu', 'mika'],
             ]);
-    
+
             for (const line of checkLines(content)) {
                 state = transitionLessonZeroSoundSession(content, state, {
                     kind: 'select-speaker',
@@ -1495,7 +1495,7 @@ describe('lesson-zero-sound-session behavior', () => {
                 }, 22).state;
             }
             const passed = transitionLessonZeroSoundSession(content, state, { kind: 'check' }, 23);
-    
+
             expect(passed.state).toMatchObject({ status: 'complete', stage: 'complete' });
             expect(passed.evaluation?.attempt).toMatchObject({
                 outcome: 'pass', score: 1, responseKind: 'audio-name-match',
@@ -1506,7 +1506,7 @@ describe('lesson-zero-sound-session behavior', () => {
             ]);
             expect(passed.adaptive).toMatchObject({ skill: 'listening', action: 'listen', independent: true });
         });
-    
+
         it('repairs only the missed name, then retries only that changed-speaker line', () => {
             const content = definition();
             let state = meetAndBegin(content, startLessonZeroSoundSession(content), 10);
@@ -1526,7 +1526,7 @@ describe('lesson-zero-sound-session behavior', () => {
             expect(lapse.state.stage).toBe('repair');
             expect(lapse.evaluation?.attempt).toMatchObject({ outcome: 'lapse', score: 0.5 });
             expect(lapse.state.attempts[0]?.missedLineIds).toEqual([mikaCheck!.id]);
-    
+
             expect(transitionLessonZeroSoundSession(content, lapse.state, { kind: 'retry' }, 24).state.stage)
                 .toBe('repair');
             const support = transitionLessonZeroSoundSession(content, lapse.state, { kind: 'reveal-model' }, 25);
@@ -1547,7 +1547,7 @@ describe('lesson-zero-sound-session behavior', () => {
                 selections: [],
                 repairedLineIds: [mikaCheck!.id],
             });
-    
+
             state = transitionLessonZeroSoundSession(content, state, {
                 kind: 'mark-heard', lineId: mikaCheck!.id,
             }, 29).state;
@@ -1559,7 +1559,7 @@ describe('lesson-zero-sound-session behavior', () => {
             expect(repaired.evaluation?.reviewSeeds.every(seed => seed.reason === 'repair')).toBe(true);
             expect(repaired.adaptive).toMatchObject({ skill: 'listening', action: 'repair', independent: false });
         });
-    
+
         it('ends after the single repair even if the retry still misses, while scheduling review', () => {
             const content = definition();
             let state = meetAndBegin(content, startLessonZeroSoundSession(content), 10);
@@ -1585,7 +1585,7 @@ describe('lesson-zero-sound-session behavior', () => {
                 kind: 'select-speaker', lineId: missed, speakerId: 'xingyu',
             }, 26).state;
             const assisted = transitionLessonZeroSoundSession(content, state, { kind: 'check' }, 27);
-    
+
             expect(assisted.state).toMatchObject({
                 status: 'complete',
                 stage: 'complete',
@@ -1597,7 +1597,7 @@ describe('lesson-zero-sound-session behavior', () => {
                 'transcript', 'translation', 'model-answer',
             ]);
         });
-    
+
         it('round-trips the exact meet cursor and safely restarts incomplete legacy checkpoints', () => {
             const content = definition();
             let state = startLessonZeroSoundSession(content);
@@ -1606,7 +1606,7 @@ describe('lesson-zero-sound-session behavior', () => {
             }, 1).state;
             const paused = transitionLessonZeroSoundSession(content, state, { kind: 'pause' }, 2).state;
             expect(startLessonZeroSoundSession(content, paused)).toEqual(paused);
-    
+
             const legacy = {
                 ...paused,
                 stage: 'attempt' as const,
@@ -1629,7 +1629,7 @@ describe('lesson-zero-sound-session behavior', () => {
             })).toBe(false);
         });
     });
-    
+
     function meetAndBegin(
         content: LessonZeroSoundDefinition,
         initial: LessonZeroSoundSessionState,
@@ -1643,7 +1643,7 @@ describe('lesson-zero-sound-session behavior', () => {
         }
         return transitionLessonZeroSoundSession(content, state, { kind: 'begin-check' }, at + 1).state;
     }
-    
+
     function checkLines(content: LessonZeroSoundDefinition) {
         return content.lines.filter(line => line.phase === 'check');
     }
@@ -1663,7 +1663,7 @@ describe('lesson-zero-vowel-session behavior', () => {
         }
         return { model, state };
     }
-    
+
     function completeRound(
         model: ReturnType<typeof createLessonZeroVowelSoundMap>,
         input: ReturnType<typeof startLessonZeroVowelSession>,
@@ -1680,7 +1680,7 @@ describe('lesson-zero-vowel-session behavior', () => {
         }
         return state;
     }
-    
+
     describe('Lesson Zero five-vowel session', () => {
         it('teaches all five anchors before a shuffled independent listening round', () => {
             const { model, state: taught } = taughtState();
@@ -1693,7 +1693,7 @@ describe('lesson-zero-vowel-session behavior', () => {
                 { kind: 'select', kanaId: state.roundOrder[0] },
                 4,
             )).toThrow('Listen to the current sound');
-    
+
             state = completeRound(model, state);
             const response = lessonZeroVowelResponse(model, state);
             const evaluation = createAcademyActivityRuntime().evaluate(model, response);
@@ -1702,7 +1702,7 @@ describe('lesson-zero-vowel-session behavior', () => {
             expect(complete.evaluation?.reviewSeeds).toHaveLength(5);
             expect(complete.adaptive).toMatchObject({ skill: 'listening', action: 'listen', independent: true });
         });
-    
+
         it('repairs only missed sounds and then requires the complete five-sound route again', () => {
             const { model, state: taught } = taughtState();
             let state = transitionLessonZeroVowelSession(model, taught, { kind: 'begin-attempt' }, 3).state;
@@ -1711,7 +1711,7 @@ describe('lesson-zero-vowel-session behavior', () => {
             const repair = transitionLessonZeroVowelSession(model, state, { kind: 'record-result', evaluation: lapse }, 20);
             expect(repair.state.stage).toBe('repair');
             expect(repair.state.repairItemIds).toHaveLength(1);
-    
+
             state = transitionLessonZeroVowelSession(model, repair.state, { kind: 'choose-mode', mode: 'visual' }, 21).state;
             state = transitionLessonZeroVowelSession(
                 model,
@@ -1723,7 +1723,7 @@ describe('lesson-zero-vowel-session behavior', () => {
             expect(state).toMatchObject({ stage: 'attempt', mode: 'visual', selections: [] });
             expect(state.roundOrder).toHaveLength(5);
         });
-    
+
         it('keeps bingo optional, repeatable and durable after the base lesson passes', () => {
             const { model, state: taught } = taughtState();
             let state = transitionLessonZeroVowelSession(model, taught, { kind: 'begin-attempt' }, 3).state;
@@ -1755,7 +1755,7 @@ describe('lesson-zero-vowel-writing-content behavior', () => {
     describe('Lesson Zero five-vowel writing content', () => {
         it('keeps the canonical five-kana order and gates the source guide until after an attempt', () => {
             const definition = createLessonZeroVowelWritingDefinition();
-    
+
             expect(definition.id).toBe(LESSON_ZERO_VOWEL_WRITING_ID);
             expect(definition.items.map(item => item.kana)).toEqual(['あ', 'い', 'う', 'え', 'お']);
             expect(definition.items.map(item => item.strokeCount)).toEqual([3, 2, 2, 2, 3]);
@@ -1774,7 +1774,7 @@ describe('lesson-zero-vowel-writing-content behavior', () => {
                 'activity:lesson-zero-vowel-doodle:hira-o',
             ]);
         });
-    
+
         it('records independent draw evidence and schedules the individual kana', () => {
             const definition = createLessonZeroVowelWritingDefinition();
             const item = definition.items[0];
@@ -1789,7 +1789,7 @@ describe('lesson-zero-vowel-writing-content behavior', () => {
                     message: 'Looks right',
                 },
             });
-    
+
             expect(evaluation.result).toMatchObject({ outcome: 'pass', score: 0.91 });
             expect(evaluation.attempt).toMatchObject({
                 activityId: 'activity:lesson-zero-vowel-doodle:hira-a',
@@ -1804,7 +1804,7 @@ describe('lesson-zero-vowel-writing-content behavior', () => {
                 }),
             ]);
         });
-    
+
         it('turns a wrong access-route plan into repair evidence without passing the parent activity', () => {
             const definition = createLessonZeroVowelWritingDefinition();
             const item = definition.items[1];
@@ -1813,7 +1813,7 @@ describe('lesson-zero-vowel-writing-content behavior', () => {
                 mode: 'plan',
                 selectedPlanId: wrongPlan.id,
             });
-    
+
             expect(lapse.result).toMatchObject({ outcome: 'lapse', score: 0 });
             expect(lapse.result.feedback.repairPrompt?.en).toContain('Left down');
             expect(lapse.attempt).toMatchObject({
@@ -1821,7 +1821,7 @@ describe('lesson-zero-vowel-writing-content behavior', () => {
                 responseKind: 'kana-stroke-plan',
             });
             expect(lapse.reviewSeeds[0]).toMatchObject({ reason: 'repair' });
-    
+
             const completion = lessonZeroVowelWritingCompletionEvaluation(definition, 0.88);
             expect(completion.attempt).toMatchObject({
                 activityId: LESSON_ZERO_VOWEL_WRITING_ID,
@@ -1851,12 +1851,12 @@ describe('lesson-zero-vowel-writing-session behavior', () => {
         ).state;
         return { definition, state };
     }
-    
+
     describe('Lesson Zero five-vowel writing session', () => {
         it('requires five writing passes and a mixed-order delayed recall before completing the parent', () => {
             const { definition } = startInPlanMode();
             let { state } = startInPlanMode();
-    
+
             definition.items.forEach((item, index) => {
                 if (index === 0) {
                     state = transitionLessonZeroVowelWritingSession(
@@ -1895,7 +1895,7 @@ describe('lesson-zero-vowel-writing-session behavior', () => {
                     11 + index * 2,
                 );
                 state = transition.state;
-    
+
                 expect(transition.evaluation?.attempt.activityId).toBe(`activity:lesson-zero-vowel-doodle:${item.id}`);
                 expect(state.status).toBe('active');
                 expect(state.completedItemIds).toHaveLength(index + 1);
@@ -1908,13 +1908,13 @@ describe('lesson-zero-vowel-writing-session behavior', () => {
                     ).state;
                 }
             });
-    
+
             expect(state).toMatchObject({
                 stage: 'recall',
                 completedItemIds: ['hira-a', 'hira-i', 'hira-u', 'hira-e', 'hira-o'],
                 recalledItemIds: [],
             });
-    
+
             LESSON_ZERO_VOWEL_WRITING_RECALL_ORDER.forEach((itemId, index) => {
                 const item = definition.items.find(candidate => candidate.id === itemId)!;
                 const evaluation = evaluateLessonZeroVowelWritingRecall(definition, item, { selectedItemId: item.id });
@@ -1932,7 +1932,7 @@ describe('lesson-zero-vowel-writing-session behavior', () => {
                 });
                 expect(state.status).toBe(index === 4 ? 'complete' : 'active');
             });
-    
+
             expect(state).toMatchObject({
                 stage: 'complete',
                 recalledItemIds: ['hira-u', 'hira-a', 'hira-o', 'hira-i', 'hira-e'],
@@ -1940,7 +1940,7 @@ describe('lesson-zero-vowel-writing-session behavior', () => {
             expect(lessonZeroVowelWritingAveragePassScore(state)).toBeCloseTo(0.964);
             expect(lessonZeroVowelWritingSessionSnapshotShapeIsValid(state)).toBe(true);
         });
-    
+
         it('repairs only the missed sound-shape link during delayed recall', () => {
             const { definition } = startInPlanMode();
             let { state } = startInPlanMode();
@@ -1964,7 +1964,7 @@ describe('lesson-zero-vowel-writing-session behavior', () => {
                     11 + index * 2,
                 ).state;
             }
-    
+
             const target = definition.items.find(item => item.id === 'hira-u')!;
             const lapse = transitionLessonZeroVowelWritingSession(
                 definition,
@@ -1977,7 +1977,7 @@ describe('lesson-zero-vowel-writing-session behavior', () => {
             );
             expect(lapse.state).toMatchObject({ stage: 'recall-repair', recalledItemIds: [] });
             expect(lapse.adaptive).toMatchObject({ skill: 'kana', action: 'recall', independent: true });
-    
+
             state = transitionLessonZeroVowelWritingSession(
                 definition,
                 lapse.state,
@@ -1996,7 +1996,7 @@ describe('lesson-zero-vowel-writing-session behavior', () => {
             expect(recovered.state).toMatchObject({ stage: 'recall', recalledItemIds: ['hira-u'] });
             expect(recovered.adaptive).toMatchObject({ skill: 'repair', action: 'repair', independent: true });
         });
-    
+
         it('reveals only the missed kana guide, then marks the retry as repair evidence', () => {
             const definition = createLessonZeroVowelWritingDefinition();
             let state = transitionLessonZeroVowelWritingSession(
@@ -2030,7 +2030,7 @@ describe('lesson-zero-vowel-writing-session behavior', () => {
             );
             expect(repair.state).toMatchObject({ stage: 'repair', guideItemIds: ['hira-a'] });
             expect(repair.adaptive).toMatchObject({ skill: 'writing', action: 'write', independent: true });
-    
+
             state = transitionLessonZeroVowelWritingSession(
                 definition,
                 repair.state,
@@ -2057,7 +2057,7 @@ describe('lesson-zero-vowel-writing-session behavior', () => {
             expect(recovered.state).toMatchObject({ stage: 'learn', completedItemIds: ['hira-a'] });
             expect(recovered.adaptive).toMatchObject({ skill: 'repair', action: 'repair', independent: true });
         });
-    
+
         it('pauses and resumes without losing the exact kana position', () => {
             const { definition, state: started } = startInPlanMode();
             const learned = transitionLessonZeroVowelWritingSession(
@@ -2068,12 +2068,12 @@ describe('lesson-zero-vowel-writing-session behavior', () => {
             ).state;
             const paused = transitionLessonZeroVowelWritingSession(definition, learned, { kind: 'pause' }, 4).state;
             const resumed = transitionLessonZeroVowelWritingSession(definition, paused, { kind: 'resume' }, 5).state;
-    
+
             expect(paused).toMatchObject({ status: 'paused', stage: 'attempt', mode: 'plan', learnedItemIds: ['hira-a'] });
             expect(startLessonZeroVowelWritingSession(definition, paused)).toEqual(paused);
             expect(resumed).toMatchObject({ status: 'active', stage: 'attempt', mode: 'plan', learnedItemIds: ['hira-a'] });
         });
-    
+
         it('rejects malformed or out-of-order durable snapshots', () => {
             const definition = createLessonZeroVowelWritingDefinition();
             const invalid = {
@@ -2081,7 +2081,7 @@ describe('lesson-zero-vowel-writing-session behavior', () => {
                 status: 'active' as const,
                 learnedItemIds: ['hira-i'] as const,
             };
-    
+
             expect(lessonZeroVowelWritingSessionSnapshotShapeIsValid(invalid)).toBe(true);
             expect(() => startLessonZeroVowelWritingSession(definition, invalid)).toThrow('canonical five vowels');
         });
