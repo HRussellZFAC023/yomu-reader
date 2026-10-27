@@ -18,7 +18,6 @@ const root = path.resolve(
 
 const MOCK_ISOLATED_TESTS = [
   "tests/academy/entrypoint-lifecycle.test.ts",
-  "tests/academy/library-srs-early-batch-conformance.test.ts",
 ];
 
 function academyForkHeapMb(): number {
@@ -205,7 +204,7 @@ export default defineConfig(({ command, mode }) => {
       // vi.mock registrations leak across files in a reused fork, so the
       // vi.mock-using files are excluded from the shared-fork pass and run in
       // a second isolated invocation (see test:academy in package.json). The
-      // vi-mock-isolation-conformance test keeps this list honest.
+      // Keep the entrypoint mock isolated; do not add mocks to shared hosts.
       exclude: academyTestExclusions(testIsolation),
       globals: true,
       pool: "forks",
@@ -216,11 +215,11 @@ export default defineConfig(({ command, mode }) => {
           // hard 4 idled most of a 10-core machine. VITEST_MAX_FORKS overrides
           // for hand-tuned (e.g. 4-core CI) runners.
           maxForks: academyMaxForks(),
-          // Reuse forks across files: 265 academy files each re-evaluating the
+          // Reuse forks across files: each file re-evaluating the
           // multi-MB src/academy content graph in a fresh jsdom fork was the
           // dominant fixed cost. VITEST_ISOLATE=1 restores per-file isolation.
           // vi.mock registrations leak across files in a reused fork, so the
-          // two vi.mock-using files run in a separate isolated pass (see
+          // vi.mock-using files run in a separate isolated pass (see
           // test:academy in package.json) — any new vi.mock file must join it.
           isolate: testIsolation,
           execArgv: [`--max-old-space-size=${academyForkHeapMb()}`],
