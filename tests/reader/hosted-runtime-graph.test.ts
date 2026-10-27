@@ -623,7 +623,7 @@ describe('hosted Reader runtime graph browser Module', () => {
         ownerDocument: Document,
         id: string,
         src: string,
-        entry: ReturnType<typeof hostedRuntimeGraph>['scripts'][number],
+        entry: ReturnType<typeof readBrowserRuntimeGraph>['scripts'][number],
     ): HTMLScriptElement {
         const script = ownerDocument.createElement('script');
         script.id = id;
