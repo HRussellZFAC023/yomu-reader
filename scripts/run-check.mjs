@@ -115,7 +115,10 @@ const diagnostics = (async () => {
     runner.refresh();
     await run('test-workers', 'npm run -s test:workers', testInputs, { test: true, env: testEnv, diskInputs: ['dist/**', 'docs/public/**'] });
     const tooling = toolingStageContract(runner.snapshot, compilerInputs);
-    await run('tooling-tests', 'node --test --test-concurrency=1 tests/tooling/*.test.mjs', tooling.inputs, { test: true, extra: tooling.extra });
+    // node:test owns these results, including intentionally failing Vitest
+    // subprocesses in the negative probes. Its nonzero exit still fails here;
+    // interpreting their expected output as a Vitest lane would be a false FAIL.
+    await run('tooling-tests', 'node --test --test-concurrency=1 tests/tooling/*.test.mjs', tooling.inputs, { extra: tooling.extra });
     await run('complexity-ratchet', 'node scripts/complexity-audit.mjs', source, { env: ['YOMU_COMPLEXITY_MAX'] });
     await run('file-size-ratchet', 'node scripts/file-size-audit.mjs', source, { env: ['YOMU_FILE_SIZE_THRESHOLD'] });
     await run('dead-code-ratchet', 'npm run -s quality:dead-code', all);
