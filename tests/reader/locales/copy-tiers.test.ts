@@ -153,7 +153,9 @@ describe('D43 copy tiers are a property of the string', () => {
         const humanCritical = messages.filter((message) => message.tier === 'human-critical');
         const byIdAlone = humanCritical.filter((message) => copyTierOf(message.id).tier === 'human-critical');
         expect({ total: messages.length, critical: humanCritical.length, byId: byIdAlone.length })
-            .toEqual({ total: 1235, critical: 428, byId: 423 });
+            .toEqual({ total: 1236, critical: 428, byId: 423 });
+        // W1-10 names each recognized OCR text region for assistive technology.
+        expect(copyTierOf(legacyChromeMessageId('ocrTextRegion')).tier).toBe('machine-draft-ok');
         // W1-65 names independent power and reading controls (six supplementary messages).
         for (const key of ['furiganaOff', 'puckPowerOn', 'puckFuriganaOn', 'puckFuriganaOff', 'puckResume', 'furiganaHideKnownReadings']) {
             expect(copyTierOf(legacyChromeMessageId(key)).tier, key).toBe('machine-draft-ok');
