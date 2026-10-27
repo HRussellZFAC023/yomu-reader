@@ -149,6 +149,19 @@ async function stored(page, expected) {
         return Object.entries(expected).every(([name, value]) => state[name] === value);
     }, { key: YOMU_SETTINGS_KEY, expected }, { timeout: 15000 });
 }
+// The YouTube recording froze the site's cookie-consent modal open over the
+// player. With the site's scripts gone its buttons do nothing, so close it the
+// way a visitor's choice would: remove the modal and its scrim. A visitor never
+// reaches the captions with that modal up.
+async function dismissRecordedConsent(page) {
+    await page.evaluate(() => document.querySelectorAll('ytd-consent-bump-v2-lightbox, tp-yt-iron-overlay-backdrop').forEach(node => node.remove()));
+}
+// The puck menu's backdrop keeps catching taps for its short exit animation, so
+// the tap that closed it cannot click through to the page (a ghost click on iPad).
+async function closeRadial(page) {
+    await page.keyboard.press('Escape');
+    await page.locator('.jpdb-reader-fab-radial').waitFor({ state: 'detached' });
+}
 async function noReadings(page, selector) {
     await page.waitForFunction(selector => [...document.querySelectorAll(`${selector} rt.jpdb-reader-furi, ${selector} .jpdb-reader-detached-furi, ${selector} .jpdb-ocr-furi, [data-yomu-projected-reading]`)].every(node => {
         const style = getComputedStyle(node);
@@ -224,6 +237,7 @@ async function hoverReadings(browser, contextOptions, engine) {
         contextOptions: { ...contextOptions, hasTouch: true }, onGmRequest: answer });
     try {
         const { page } = run;
+        await dismissRecordedConsent(page);
         await page.locator('.jpdb-subtitle-player rt.jpdb-reader-furi').first().waitFor({ state: 'attached', timeout: 30000 });
         await page.mouse.move(0, 0);
         await noReadings(page, '.jpdb-subtitle-player');
@@ -307,6 +321,7 @@ async function subtitleReadings(browser, contextOptions, engine) {
         const { page } = run;
         const tap = locator => engine === 'webkit' ? locator.tap() : locator.click();
         const word = () => page.locator('.jpdb-subtitle-player .jpdb-reader-word[data-reading]').first();
+        await dismissRecordedConsent(page);
         await word().waitFor({ timeout: 30000 });
         await page.locator('.jpdb-subtitle-player rt.jpdb-reader-furi').first().waitFor();
         console.log(`${engine}: subtitle readings visible`);
@@ -315,7 +330,7 @@ async function subtitleReadings(browser, contextOptions, engine) {
         await stored(page, { annotationsPaused: false, furiganaMode: 'off' });
         await noReadings(page, '.jpdb-subtitle-player');
         console.log(`${engine}: subtitle readings off`);
-        await page.keyboard.press('Escape');
+        await closeRadial(page);
         await tap(word());
         await page.locator('.jpdb-reader-popover .jpdb-reader-spelling rt').first().waitFor();
         console.log(`${engine}: subtitle lookup retained`);
