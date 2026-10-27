@@ -1,6 +1,7 @@
 import { execFileSync } from 'node:child_process';
-import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
-import { join } from 'node:path';
+import { createHash } from 'node:crypto';
+import { existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs';
+import { basename, dirname, join } from 'node:path';
 
 export const RELEASE_RETENTION_COUNT = 40;
 // The versions the browser stores actually serve, so their pinned companions are
@@ -46,6 +47,35 @@ function contentAddressedArtifacts(root) {
         }
     }
     return artifacts.sort();
+}
+
+// A temporary header can age the oldest prior revision out of the window.
+// Undoing that edit makes its pins necessary again. Recover only exact HEAD
+// bytes, verified against the immutable filename; unknown pins still fail.
+export function restoreRetainedArtifactsFromHead(root, paths) {
+    const recovered = new Map();
+    for (const path of paths) {
+        const name = basename(path);
+        const valid = (path === `docs/public/greasyfork/${name}` && HASHED_COMPANION.test(name))
+            || (path === `docs/public/${name}` && HASHED_READER_CSS.test(name));
+        if (!valid) throw new Error(`Refusing to restore a non-content-addressed artifact: ${path}`);
+        let bytes;
+        try {
+            bytes = execFileSync('git', ['show', `HEAD:${path}`], {
+                cwd: root, maxBuffer: 32 * 1024 * 1024, stdio: ['ignore', 'pipe', 'ignore'],
+            });
+        } catch { continue; }
+        const expected = /\.([0-9a-f]{12})\./.exec(name)[1];
+        if (!createHash('sha256').update(bytes).digest('hex').startsWith(expected)) {
+            throw new Error(`Committed artifact does not match its content address: ${path}`);
+        }
+        recovered.set(path, bytes);
+    }
+    for (const [path, bytes] of recovered) {
+        mkdirSync(dirname(join(root, path)), { recursive: true });
+        writeFileSync(join(root, path), bytes);
+    }
+    return [...recovered.keys()];
 }
 
 function retainedArtifactPaths(root, inputs) {

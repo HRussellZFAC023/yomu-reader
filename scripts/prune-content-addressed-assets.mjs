@@ -10,6 +10,7 @@ import {
     contentAddressedRetentionReport,
     isShallowRepository,
     retentionManifestShortfall,
+    restoreRetainedArtifactsFromHead,
 } from './lib/content-addressed-retention.mjs';
 
 const ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
@@ -55,7 +56,12 @@ if (!shallow && check) {
     }
 }
 
-const before = contentAddressedRetentionReport(ROOT, inputs);
+let before = contentAddressedRetentionReport(ROOT, inputs);
+if (write && before.missing.length) {
+    const restored = restoreRetainedArtifactsFromHead(ROOT, before.missing);
+    if (restored.length) console.log(`[content-retention] restored ${restored.length} retained artifact(s) from HEAD.`);
+    before = contentAddressedRetentionReport(ROOT);
+}
 if (before.missing.length > 0) {
     console.error(`[content-retention] ${before.missing.length} supported pinned artifact(s) are missing:`);
     for (const path of before.missing) console.error(`  ${path}`);
