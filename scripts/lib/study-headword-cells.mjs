@@ -1,22 +1,32 @@
-#!/usr/bin/env node
+import * as smokeDependencyFiles from 'node:fs';
+import * as smokeDependencyPaths from 'node:path';
+import * as smokeDependencyBrowsers from 'playwright';
+import * as smokeDependencyHarness from './smoke-harness.mjs';
+import * as smokeDependencyStudyFixture from './study-fixture.mjs';
+
+// Former study-headword-furigana-smoke: the host owns the browser; this cell owns its isolated scenario.
+export async function assertStudyHeadwordFurigana(_hostBrowser, _hostEngine) {
+    const existingContexts = new Set(_hostBrowser.contexts());
+    try {
+
+    const _sourceDir = new URL('..', import.meta.url).pathname;
+    const { mkdirSync, writeFileSync } = smokeDependencyFiles;
+    const { default: path } = smokeDependencyPaths;
+
+    const { assert } = smokeDependencyHarness;
+    const { bootStudySession, createStudyServer, createStudySettings } = smokeDependencyStudyFixture;
 // Built Study PWA with mocked study data, not a hand-made HTML fixture or
 // live-provider/visual acceptance. Real browser cascade and ruby geometry.
-import { mkdirSync, writeFileSync } from 'node:fs';
-import path from 'node:path';
-import { chromium, webkit } from 'playwright';
-import { assert, launchSmokeBrowser } from './lib/smoke-harness.mjs';
-import { bootStudySession, createStudyServer, createStudySettings } from './lib/study-fixture.mjs';
 
 const out = path.resolve('artifacts/study-headword-furigana');
 mkdirSync(out, { recursive: true });
-const requested = process.env.YOMU_STUDY_HEADWORD_ENGINE;
-for (const engine of requested ? [requested] : ['chromium', 'webkit']) {
+for (const engine of [_hostEngine]) {
     assert(['chromium', 'webkit'].includes(engine), `Unknown engine ${engine}`);
     const server = await createStudyServer();
     let browser;
     const report = { engine, product: 'dist/newtab', providerData: 'mock', checks: [] };
     try {
-        browser = await launchSmokeBrowser(engine === 'webkit' ? webkit : chromium, engine, { headless: true });
+        browser = _hostBrowser;
         const { page } = await bootStudySession(browser, {
             server, state: { reviewed: new Set([9001]) },
             settings: createStudySettings({
@@ -69,7 +79,14 @@ for (const engine of requested ? [requested] : ['chromium', 'webkit']) {
         throw error;
     } finally {
         writeFileSync(path.join(out, `${engine}.json`), `${JSON.stringify(report, null, 2)}\n`);
-        await browser?.close();
+
         await new Promise((resolve, reject) => server.server.close(error => error ? reject(error) : resolve()));
+    }
+}
+
+    } finally {
+        for (const context of _hostBrowser.contexts()) {
+            if (!existingContexts.has(context)) await context.close();
+        }
     }
 }

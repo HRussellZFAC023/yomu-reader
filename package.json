@@ -246,7 +246,7 @@
     "smoke:annotation-power": "node scripts/annotation-power-smoke.mjs",
     "smoke:annotation-power:layout": "npm run smoke:annotation-power",
     "smoke:annotation-power:extension": "node scripts/annotation-power-extension-smoke.mjs",
-    "smoke:study-headword-furigana": "node scripts/study-headword-furigana-smoke.mjs",
+    "smoke:study-headword-furigana": "npm run smoke:popover-headword-furigana",
     "smoke:popover-headword-furigana": "node scripts/popover-headword-furigana-smoke.mjs",
     "smoke:popup-header-phone": "npm run smoke:popup-word-detail",
     "smoke:popup-word-detail": "node scripts/popup-word-detail-smoke.mjs",
