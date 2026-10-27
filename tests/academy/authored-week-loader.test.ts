@@ -1,3 +1,5 @@
+// Inputs passed to generic file/hash readers by this test.
+// @yomu-reads public/academy/content/lessons/**
 import fs, { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { getAuthoredWeekRegistration, loadAuthoredWeekPackage, type LoadedAuthoredWeekPackage } from '../../src/academy/content/lesson-content-registry';

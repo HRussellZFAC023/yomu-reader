@@ -1,3 +1,5 @@
+// Inputs passed to generic file/hash readers by this test.
+// @yomu-reads none
 // @vitest-environment node
 import fs from 'node:fs';
 import path from 'node:path';

@@ -38,3 +38,6 @@ test('filesystem API escapes and re-exports stay conservative; inline require re
     assert.ok(inspect("import {readFileSync} from 'node:fs'; export const read = readFileSync;").unknown.length);
     assert.deepEqual(inspect("require('node:fs').readFileSync('style.css');").targets, ['style.css']);
 });
+test('CommonJS subprocess aliases cannot disappear from the opaque-read index', () => {
+    assert.ok(inspect("const {execFileSync: run} = require('node:child_process'); run('node', args);").unknown.length);
+});

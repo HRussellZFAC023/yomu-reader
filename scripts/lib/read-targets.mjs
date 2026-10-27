@@ -128,6 +128,9 @@ export function readTargets(source, file, root, ts) {
                 if (!paths.length) unknown.push(node.getText(ast).slice(0, 160));
                 for (const path of paths) {
                     if (dynamic) {
+                        // require/import can hand a subprocess API to arbitrary
+                        // aliases. Its invocation inputs need an owner declaration.
+                        if (/^(?:node:)?child_process$/.test(path)) unknown.push(`subprocess module load: ${path}`);
                         if (path.startsWith('.')) modules.add(resolve(dirname(file), path));
                         else if (!/^(?:node:)?[\w@]/.test(path)) unknown.push(`computed module ${path}`);
                     } else if (glob) add(resolve(dirname(file), path));

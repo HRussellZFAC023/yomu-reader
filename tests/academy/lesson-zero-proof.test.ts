@@ -1,3 +1,5 @@
+// Inputs passed to generic file/hash readers by this test.
+// @yomu-reads public/academy/** docs/public/academy/art/** docs/public/academy/audio/** docs/public/academy/content/**
 import fs from 'node:fs';
 import path from 'node:path';
 import { createSourceLibrary } from '../../src/academy/domain/source-library';

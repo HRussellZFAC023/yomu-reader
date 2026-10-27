@@ -1,3 +1,5 @@
+// Inputs passed to generic file/hash readers by this test.
+// @yomu-reads public/academy/content/lessons/**
 import fs from 'node:fs';
 import path from 'node:path';
 import { type AuthoredChoiceEvaluation, type AuthoredWeekResponse, type LearnerAuthoredActivity, type LearnerAuthoredCloze, type LearnerAuthoredChoice, type LearnerAuthoredMatching, type LearnerAuthoredOrdering, type LearnerAuthoredWeek, adaptAuthoredWeek } from '../../src/academy/content/authored-week-adapter';
