@@ -6,6 +6,7 @@ import { StageRunner, buildEnv, testEnvironment, cacheOptions } from './lib/stag
 import { git, stageKey } from './lib/stage-cache.mjs';
 import { testPlan, testInputs } from './lib/affected-tests.mjs';
 import { captureRetentionInputs } from './lib/content-addressed-retention.mjs';
+import { buildDocs } from './run-docs-build.mjs';
 import { artifactDrift, describeArtifactDrift, hasUncommittedSourceEdits } from './lib/artifact-drift.mjs';
 import { offLockfilePackages } from './lib/dependency-tree-drift.mjs';
 
@@ -46,20 +47,23 @@ const preflights = [
     run('css-has-invalidation', 'npm run -s check:css-has', ['src/**/*.css', 'scripts/check-css-has-invalidation.mjs', 'scripts/lib/css-has-invalidation.mjs']),
     run('recorded-pages', 'npm run -s check:recorded-pages', ['scripts/fixtures/recorded/**', 'scripts/check-recorded-pages.mjs', 'scripts/lib/recorded-*.mjs']),
 ];
-const docsPre = run('docs-prechecks', 'node scripts/run-docs-build.mjs --precheck-only', [], { uncached: true });
+const docsPre = buildDocs(runner, 'precheck');
 const build = (async () => {
     await run('build', 'npm run -s build', buildInputs, {
         env: buildEnv,
+        restoreOutputs: true,
         outputs: ['dist/**', '!dist/academy/**', '!dist/newtab/index.html', '!dist/newtab/sw.js', '!dist/newtab/version.json', '!dist/newtab/manifest.webmanifest'],
     });
     runner.refresh();
     const sync = run('sync-docs-userscript', 'node scripts/sync-docs-userscript.cjs', [...source, 'docs/public/pdf-reader/**', 'docs/public/video-player/**', 'docs/public/hosted-reader-worker.js'], {
         extra: [runner.key(stage('build-inputs', 'npm run -s build', buildInputs, { env: buildEnv })), history],
         canonicalizesOutputs: true,
+        restoreOutputs: true,
         diskInputs: ['dist/yomu.user.js', 'dist/yomu.css', 'dist/greasyfork/**', 'dist/newtab/app.js', 'dist/newtab/styles.css'],
         outputs: ['config/ci/content-addressed-retention.json', 'dist/newtab/**', 'docs/public/yomu*', 'docs/public/greasyfork/**', 'docs/public/study/**', 'docs/public/newtab/**', 'docs/public/hosted-runtime-graph.js', 'docs/public/hosted-appearance-settings.js', 'docs/public/pdf-reader/index.html', 'docs/public/pdf-reader/sw.js', 'docs/public/video-player/index.html', 'docs/public/video-player/sw.js'],
     });
     const academy = run('build-academy', 'npm run -s build:academy:prevalidated', buildInputs, {
+        restoreOutputs: true,
         outputs: ['dist/academy/**', 'docs/public/academy/**'],
         env: ['YOMU_CHECK_RELEASE', 'YOMU_SYNC_ACADEMY_FORCE', 'YOMU_ACADEMY_OUTPUT_DIR', 'YOMU_ACADEMY_BUILD_DIR'],
     });
@@ -92,7 +96,7 @@ const docs = (async () => {
     runner.refresh();
     await run('userscript-weight', 'node scripts/check-userscript-weight.cjs', ['scripts/check-userscript-weight.cjs', 'scripts/lib/**'], { diskInputs: ['dist/yomu.user.js', 'dist/greasyfork/**'] });
     // docs:build's own cache verifies both pre-checks and the rendered outputs.
-    await run('docs-build', 'node scripts/run-docs-build.mjs --render-only', [], { uncached: true });
+    await buildDocs(runner, 'render');
 })();
 const results = await Promise.allSettled([...preflights, tests, diagnostics, docs]);
 const failures = results.filter(result => result.status === 'rejected');

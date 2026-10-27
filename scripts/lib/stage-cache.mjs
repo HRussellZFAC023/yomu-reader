@@ -3,10 +3,15 @@ import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { existsSync, lstatSync, mkdirSync, readFileSync, readdirSync, readlinkSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join, matchesGlob, resolve } from 'node:path';
+import { OutputStore } from './cache-outputs.mjs';
 
 const VERSION = 1;
 const forbidden = path => /(^|\/)(?:\.env(?:\..*)?|secrets?)(?:\/|$)/i.test(path);
 const digest = value => createHash('sha256').update(value).digest('hex');
+// Invocation-local only: reused bytes were read or restored in this process.
+// No mtime-based hash decisions survive a gate invocation.
+const byteProofs = new Map();
+const fingerprint = info => [info.dev, info.ino, info.size, info.mode, info.mtimeNs, info.ctimeNs].join(':');
 export function git(root, args) {
     return execFileSync('git', args, { cwd: root, encoding: 'utf8', maxBuffer: 128 * 1024 * 1024 });
 }
@@ -41,11 +46,21 @@ function fileHash(root, path, algorithm = 'sha256', gitObject = false) {
     if (forbidden(path)) throw new Error(`Refusing to read a secret input: ${path}`);
     const absolute = join(root, path);
     if (!existsSync(absolute)) return null;
-    const info = lstatSync(absolute);
+    const info = lstatSync(absolute, { bigint: true });
+    const identity = fingerprint(info);
+    const kind = `${gitObject ? 'git' : 'raw'}_${algorithm}`;
+    const previous = byteProofs.get(absolute);
+    if (previous?.identity === identity && previous[kind]) return previous[kind];
     const bytes = info.isSymbolicLink() ? Buffer.from(readlinkSync(absolute)) : readFileSync(absolute);
-    const hash = createHash(algorithm);
-    if (gitObject) hash.update(`blob ${bytes.length}\0`);
-    return hash.update(bytes).digest('hex');
+    const header = `blob ${bytes.length}\0`;
+    const proof = {
+        identity,
+        raw_sha256: createHash('sha256').update(bytes).digest('hex'),
+        git_sha1: createHash('sha1').update(header).update(bytes).digest('hex'),
+        git_sha256: createHash('sha256').update(header).update(bytes).digest('hex'),
+    };
+    byteProofs.set(absolute, proof);
+    return proof[kind];
 }
 
 export function repositorySnapshot(root) {
@@ -84,7 +99,7 @@ export function stageKey({ command, inputs, env = {}, extra = null, node = proce
 
 // Output paths deliberately use the filesystem, including ignored/untracked
 // products. Git's index cannot prove that a previous build is still on disk.
-export function outputHashes(root, patterns) {
+function outputPaths(root, patterns) {
     const files = new Set();
     const matches = inputMatcher(patterns);
     function walk(path) {
@@ -102,7 +117,11 @@ export function outputHashes(root, patterns) {
         return prefix.endsWith('/') ? prefix.slice(0, -1) : dirname(prefix);
     }));
     for (const path of roots) walk(path);
-    return Object.fromEntries([...files].sort().map(path => [path, fileHash(root, path)]));
+    return [...files].sort();
+}
+
+export function outputHashes(root, patterns) {
+    return Object.fromEntries(outputPaths(root, patterns).map(path => [path, fileHash(root, path)]));
 }
 
 export function writeJson(path, value) {
@@ -121,23 +140,40 @@ export class StageCache {
         this.root = root;
         this.noCache = noCache;
         this.directory = directory ?? join(resolve(root, git(root, ['rev-parse', '--git-common-dir']).trim()), 'yomu-check-cache', `v${VERSION}`);
+        this.outputStore = new OutputStore(root, this.directory);
     }
     markerPath(name, key) { return join(this.directory, 'passes', name.replace(/[^\w-]/g, '_'), `${key}.json`); }
-    hit(name, key, outputs = []) {
+    hit(name, key, outputs = [], restoreOutputs = false) {
         if (this.noCache) return false;
         const marker = readJson(this.markerPath(name, key));
         if (!marker || marker.key !== key) return false;
+        if (restoreOutputs) {
+            const matches = inputMatcher(outputs);
+            if (!Object.keys(marker.outputs).every(path => matches(path) && !forbidden(path))) return false;
+            if (!this.outputStore.restore(marker.outputs, marker.files, outputPaths(this.root, outputs))) return false;
+            for (const [path, hash] of Object.entries(marker.outputs)) {
+                const absolute = join(this.root, path);
+                byteProofs.set(absolute, {
+                    identity: fingerprint(lstatSync(absolute, { bigint: true })), raw_sha256: hash,
+                    git_sha1: marker.files[path].git?.sha1, git_sha256: marker.files[path].git?.sha256,
+                });
+            }
+            return true;
+        }
         return JSON.stringify(marker.outputs) === JSON.stringify(outputHashes(this.root, outputs));
     }
-    async run({ name, key, outputs = [], finalKey }, execute) {
-        if (this.hit(name, key, outputs)) return { cached: true };
+    async run({ name, key, outputs = [], finalKey, restoreOutputs = false }, execute) {
+        if (this.hit(name, key, outputs, restoreOutputs)) return { cached: true };
         rmSync(this.markerPath(name, key), { force: true });
         // Throwing/rejecting never reaches the only marker write.
         await execute();
         const hashes = outputHashes(this.root, outputs);
         if (outputs.length && Object.keys(hashes).length === 0) throw new Error(`${name} produced no declared outputs`);
         const passedKey = finalKey ? finalKey() : key;
-        writeJson(this.markerPath(name, passedKey), { key: passedKey, outputs: hashes });
+        const files = restoreOutputs && !process.env.CI ? this.outputStore.capture(hashes, path => ({
+            sha1: fileHash(this.root, path, 'sha1', true), sha256: fileHash(this.root, path, 'sha256', true),
+        })) : undefined;
+        writeJson(this.markerPath(name, passedKey), { key: passedKey, outputs: hashes, files });
         return { cached: false };
     }
 }

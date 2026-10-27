@@ -10,6 +10,7 @@ const stage = {
     name: 'userscript', command: 'node scripts/run-build.mjs --execute',
     inputs: ['src/**', 'public/**', 'config/**', '!config/ci/content-addressed-retention.json', 'vite.config.ts', 'tsconfig*.json', 'scripts/**', '!scripts/fixtures/**'],
     env: buildEnv,
+    restoreOutputs: true,
     // The gate's Academy build and Study sync own these namespaces after us.
     outputs: ['dist/**', '!dist/academy/**', '!dist/newtab/index.html', '!dist/newtab/sw.js', '!dist/newtab/version.json', '!dist/newtab/manifest.webmanifest'],
 };

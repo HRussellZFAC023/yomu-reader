@@ -14,7 +14,7 @@ export const testEnvironment = [
     'YOMU_PRINT_MINING_CORPUS', 'YOMU_PROFILE_BASELINE_DIR', 'YOMU_PROFILE_CANDIDATE_DIR',
     'YOMU_PROFILE_COMPARISON_OUTPUT', 'YOMU_PROFILE_E2E',
 ];
-const cacheImplementation = ['package.json', 'package-lock.json', 'scripts/lib/stage-cache.mjs', 'scripts/lib/stage-runner.mjs'];
+const cacheImplementation = ['package.json', 'package-lock.json', 'scripts/lib/stage-cache.mjs', 'scripts/lib/cache-outputs.mjs', 'scripts/lib/stage-runner.mjs'];
 
 export class StageRunner {
     constructor(root, options = {}) {
