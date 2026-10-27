@@ -242,6 +242,13 @@ describe('provider-neutral Anki filters (F171)', () => {
         const word = mount(`<p class="yomu-furi-hide-${state}"><span class="jpdb-reader-word yomu-review-${state}"><ruby>語<rt class="jpdb-reader-furi">ご</rt></ruby></span></p>`);
         const rt = word.querySelector<HTMLElement>('rt')!;
         expect(winner(rt, 'display', WORD_CSS)).toBe('none !important');
+        // Check selector exclusion directly: winner() intentionally assumes
+        // equal specificity and cannot prove the real headword cascade.
+        word.parentElement!.setAttribute('data-yomu-headword', '');
+        const hidingRules = WORD_CSS.filter(rule => declared(rule, 'display') === 'none !important'
+            && rule.selector.includes('.yomu-furi-hide-'));
+        expect(hidingRules.some(rule => rt.matches(rule.selector))).toBe(false);
+        word.parentElement!.removeAttribute('data-yomu-headword');
         word.classList.add('jpdb-reader-example-target');
         expect(winner(rt, 'display', WORD_CSS)).not.toBe('none !important');
     });

@@ -1307,32 +1307,32 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
 /* UT-47: per-group furigana hiding (settings: furiganaHiddenStateGroups).
    The classes apply on the page root AND on the settings preview container,
    so the preview restyles live. Override the host-armoured ruby display;
-   example targets keep their ruby. A review state outranks JPDB absence
+   example targets and dictionary headwords keep their ruby. A review state outranks JPDB absence
    when deciding whether a word belongs to New. */
 .yomu-furi-hide-known
   .jpdb-reader-word:is(.jpdb-known, .jpdb-mature, .jpdb-mastered, .jpdb-never-forget, .jpdb-redundant, .jiten-known, .jiten-mature, .jiten-mastered, .jiten-never-forget, .jiten-redundant, .anki-known, .yomu-review-known):not(.jpdb-reader-example-target)
-  .jpdb-reader-furi {
+  .jpdb-reader-furi:not([data-yomu-headword] *) {
   display: none !important;
 }
 .yomu-furi-hide-due
   .jpdb-reader-word:is(.jpdb-due, .jiten-due, .anki-due, .yomu-review-due):not(.jpdb-reader-example-target)
-  .jpdb-reader-furi {
+  .jpdb-reader-furi:not([data-yomu-headword] *) {
   display: none !important;
 }
 .yomu-furi-hide-failed
   .jpdb-reader-word:is(.jpdb-failed, .jiten-failed, .anki-failed, .yomu-review-failed):not(.jpdb-reader-example-target)
-  .jpdb-reader-furi {
+  .jpdb-reader-furi:not([data-yomu-headword] *) {
   display: none !important;
 }
 .yomu-furi-hide-learning
   .jpdb-reader-word:is(.jpdb-learning, .jpdb-young, .jiten-learning, .jiten-young, .anki-learning, .yomu-review-learning):not(.jpdb-reader-example-target)
-  .jpdb-reader-furi {
+  .jpdb-reader-furi:not([data-yomu-headword] *) {
   display: none !important;
 }
 .yomu-furi-hide-new
-  .jpdb-reader-word:is(.jpdb-new, .jiten-new, .anki-new, .yomu-review-new):not(.jpdb-reader-example-target) .jpdb-reader-furi,
+  .jpdb-reader-word:is(.jpdb-new, .jiten-new, .anki-new, .yomu-review-new):not(.jpdb-reader-example-target) .jpdb-reader-furi:not([data-yomu-headword] *),
 .yomu-furi-hide-new
-  .jpdb-reader-word:is(.jpdb-not-in-deck, .jpdb-in-deck):not(.anki-learning, .anki-known, .anki-due, .anki-failed, .anki-suspended, .yomu-review-learning, .yomu-review-known, .yomu-review-due, .yomu-review-failed, .yomu-review-suspended, .jpdb-reader-example-target) .jpdb-reader-furi {
+  .jpdb-reader-word:is(.jpdb-not-in-deck, .jpdb-in-deck):not(.anki-learning, .anki-known, .anki-due, .anki-failed, .anki-suspended, .yomu-review-learning, .yomu-review-known, .yomu-review-due, .yomu-review-failed, .yomu-review-suspended, .jpdb-reader-example-target) .jpdb-reader-furi:not([data-yomu-headword] *) {
   display: none !important;
 }
 /* Headword exemption (data-yomu-headword): card/search/study headwords are
