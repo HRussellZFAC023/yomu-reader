@@ -188,20 +188,6 @@ export const ENGLISH_INTERFACE_LOCALE: InterfaceLocale = (() => {
     return english;
 })();
 
-/** Locales a learner may actually select today. */
-export function availableInterfaceLocales(): readonly InterfaceLocale[] {
-    return INTERFACE_LOCALES.filter((locale) => locale.available);
-}
-
-/** Locales in scope but blocked, each with the reason to show. */
-export function blockedInterfaceLocales(): readonly InterfaceLocale[] {
-    return INTERFACE_LOCALES.filter((locale) => !locale.available);
-}
-
-export const RTL_INTERFACE_LOCALES: readonly InterfaceLocale[] = Object.freeze(
-    INTERFACE_LOCALES.filter((locale) => locale.direction === 'rtl'),
-);
-
 export interface RtlGateItem {
     readonly id: string;
     readonly done: boolean;

@@ -108,24 +108,3 @@ export interface MessageLookup {
     /** True when no locale in the chain had it — the ID itself is returned. */
     readonly missing: boolean;
 }
-
-/**
- * Walk `locale → fallbacks → en`. The chain is data from the manifest, so a
- * regional locale, a CLDR alias and a plain language tag all resolve the same
- * way on every surface.
- */
-export function resolveMessage(
-    id: MessageId,
-    locale: InterfaceLocale,
-    packs: Readonly<Record<string, MessagePack | undefined>>,
-): MessageLookup {
-    for (const tag of [locale.tag, ...locale.fallbacks]) {
-        const value = packs[tag]?.[id];
-        if (typeof value === 'string' && value.length > 0) {
-            return { id, value, resolvedFrom: tag, missing: false };
-        }
-    }
-    // Returning the ID is deliberate: it is searchable, it names the gap, and it
-    // is never mistaken for copy the way `未翻訳` was.
-    return { id, value: id, resolvedFrom: 'none', missing: true };
-}
