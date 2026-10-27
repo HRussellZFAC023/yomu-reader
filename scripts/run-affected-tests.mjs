@@ -10,18 +10,16 @@ const plan = readJson(join(root, `artifacts/check-logs/affected-tests-${suite}.j
 if (!plan || !Array.isArray(plan.changed)) throw new Error('Missing affected-test plan');
 const vitest = 'node_modules/vitest/vitest.mjs';
 const workers = process.env.YOMU_CI_MAX_WORKERS ?? process.env.VITEST_MAX_FORKS ?? String(workerBudget());
-console.log(`[affected-tests] ${plan.changed.length} changed inputs since the last full pass; ${workers} workers`);
-// Vitest 1.6 filterTestsBySource selects a file when it is itself in `related`
-// OR its import dependencies intersect `related`. Changed test files therefore
-// run even when they have no imports; no second duplicate invocation is needed.
+if (plan.full || !Array.isArray(plan.tests)) throw new Error('Missing proved test selection');
+console.log(`[affected-tests] ${plan.changed.length} changed inputs since the last full pass; ${workers} workers; ${plan.reason}`);
 for (const [name, args] of [
     ['reader', []],
     ['workers', ['--config', 'config/dictionaries/vitest.config.ts']],
     ...(process.env.YOMU_CHECK_RELEASE === '1' ? [] : [['academy', ['--config', 'config/vite/academy.config.ts']]]),
 ]) {
     if (name !== suite) continue;
-    if (!plan.changed.length) continue;
-    await run(process.execPath, [vitest, 'related', ...plan.changed, '--run', '--passWithNoTests', '--minWorkers=1', `--maxWorkers=${workers}`, ...args], {
+    if (!plan.tests.length) continue;
+    await run(process.execPath, [vitest, 'run', ...plan.tests, '--minWorkers=1', `--maxWorkers=${workers}`, ...args], {
         cwd: root, env: { ...process.env, VITEST_ISOLATE: '1', VITEST_MAX_FORKS: workers },
     });
 }

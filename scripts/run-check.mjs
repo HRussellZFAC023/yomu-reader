@@ -5,6 +5,8 @@ import { join } from 'node:path';
 import { StageRunner, buildEnv, testEnvironment, cacheOptions } from './lib/stage-runner.mjs';
 import { git, stageKey } from './lib/stage-cache.mjs';
 import { testPlan, testInputs } from './lib/affected-tests.mjs';
+import { typecheckInputs } from './lib/typecheck-inputs.mjs';
+import { selectAffectedTests } from './lib/test-selection.mjs';
 import { captureRetentionInputs } from './lib/content-addressed-retention.mjs';
 import { buildDocs } from './run-docs-build.mjs';
 import { artifactDrift, describeArtifactDrift, hasUncommittedSourceEdits } from './lib/artifact-drift.mjs';
@@ -34,8 +36,14 @@ const history = [
     git(ROOT, ['log', '-80', '--format=%H', '--', 'docs/public/yomu.user.js']),
 ];
 const committed = git(ROOT, ['ls-tree', '-r', process.env.YOMU_COMMIT_TO_CHECK ?? 'HEAD', '--', 'package.json', 'dist', 'docs/public', 'public/academy']);
-const readerPlan = testPlan(ROOT, runner.snapshot, { noCache: options.noCache });
-writeFileSync(join(LOG_DIR, 'affected-tests-reader.json'), JSON.stringify(readerPlan));
+async function planTests(suite) {
+    runner.refresh();
+    const plan = testPlan(ROOT, runner.snapshot, { noCache: options.noCache, suite });
+    if (!plan.full) Object.assign(plan, await selectAffectedTests(ROOT, plan.changed, { config: suite === 'academy' ? 'config/vite/academy.config.ts' : undefined }));
+    writeFileSync(join(LOG_DIR, `affected-tests-${suite}.json`), JSON.stringify(plan));
+    console.log(`[check] ${suite}: ${plan.full ? 'full suite' : 'affected selection'}; ${plan.reason}`);
+    return plan;
+}
 
 // Retention receives frozen working-tree headers/inventory; committed-artifacts
 // already reads Git. Neither can race dist's replacement in the build lane.
@@ -43,11 +51,10 @@ const preflights = [
     run('repository-hygiene', 'npm run -s check:repository', all),
     run('content-addressed-retention', 'node scripts/prune-content-addressed-assets.mjs --check --snapshot=artifacts/check-logs/retention-inputs.json', ['scripts/lib/content-addressed-retention.mjs', 'scripts/prune-content-addressed-assets.mjs', 'config/ci/content-addressed-retention.json'], { extra: stageKey({ command: 'retention-inputs', inputs: retention, extra: history }) }),
     run('committed-artifacts', 'npm run -s check:artifacts', ['scripts/check-committed-artifacts.mjs', 'scripts/lib/**'], { extra: committed, env: ['YOMU_COMMIT_TO_CHECK'] }),
-    run('smoke-workflow-coverage', 'node scripts/check-smoke-workflow-coverage.mjs', ['scripts/check-smoke-workflow-coverage.mjs', '.github/workflows/**']),
+    run('smoke-workflow-coverage', 'node scripts/check-smoke-workflow-coverage.mjs', ['scripts/**', '.github/workflows/**']),
     run('css-has-invalidation', 'npm run -s check:css-has', ['src/**/*.css', 'scripts/check-css-has-invalidation.mjs', 'scripts/lib/css-has-invalidation.mjs']),
     run('recorded-pages', 'npm run -s check:recorded-pages', ['scripts/fixtures/recorded/**', 'scripts/check-recorded-pages.mjs', 'scripts/lib/recorded-*.mjs']),
 ];
-const docsPre = buildDocs(runner, 'precheck');
 const build = (async () => {
     await run('build', 'npm run -s build', buildInputs, {
         env: buildEnv,
@@ -60,39 +67,54 @@ const build = (async () => {
         canonicalizesOutputs: true,
         restoreOutputs: true,
         diskInputs: ['dist/yomu.user.js', 'dist/yomu.css', 'dist/greasyfork/**', 'dist/newtab/app.js', 'dist/newtab/styles.css'],
-        outputs: ['config/ci/content-addressed-retention.json', 'dist/newtab/**', 'docs/public/yomu*', 'docs/public/greasyfork/**', 'docs/public/study/**', 'docs/public/newtab/**', 'docs/public/hosted-runtime-graph.js', 'docs/public/hosted-appearance-settings.js', 'docs/public/pdf-reader/index.html', 'docs/public/pdf-reader/sw.js', 'docs/public/video-player/index.html', 'docs/public/video-player/sw.js'],
+        outputs: ['config/ci/content-addressed-retention.json', 'dist/newtab/index.html', 'dist/newtab/sw.js', 'dist/newtab/version.json', 'dist/newtab/manifest.webmanifest', 'docs/public/yomu.user.js', 'docs/public/yomu.css', 'docs/public/yomu.*.css', 'docs/public/greasyfork/**', 'docs/public/study/**', 'docs/public/newtab/**', 'docs/public/hosted-runtime-graph.js', 'docs/public/hosted-appearance-settings.js', 'docs/public/pdf-reader/index.html', 'docs/public/pdf-reader/sw.js', 'docs/public/video-player/index.html', 'docs/public/video-player/sw.js'],
     });
-    const academy = run('build-academy', 'npm run -s build:academy:prevalidated', buildInputs, {
+    await sync;
+    await run('build-academy', 'npm run -s build:academy:prevalidated', buildInputs, {
         restoreOutputs: true,
+        diskInputs: ['docs/public/hosted-runtime-graph.js', 'docs/public/yomu.css'],
         outputs: ['dist/academy/**', 'docs/public/academy/**'],
         env: ['YOMU_CHECK_RELEASE', 'YOMU_SYNC_ACADEMY_FORCE', 'YOMU_ACADEMY_OUTPUT_DIR', 'YOMU_ACADEMY_BUILD_DIR'],
     });
-    await Promise.all([sync, academy]);
+})();
+// Bound the heavy lanes on the shared Mac and the 4-core/16-GiB release VM.
+// Builds retain their internal parallelism; no compiler/full suite/docs test
+// competes with another heavy gate stage. Keys see finished writer outputs.
+const typecheck = (async () => {
+    await build;
+    runner.refresh();
+    const inputs = typecheckInputs(ROOT);
+    await run('typecheck', 'npm run -s typecheck', inputs, { diskInputs: inputs });
 })();
 const tests = (async () => {
+    // Readers inspect shipped bytes through fs. Plan/key them after writers,
+    // never against an old snapshot while build/sync replace their inputs.
+    await typecheck;
+    const readerPlan = await planTests('reader');
     await run('test-reader', readerPlan.full ? 'npm run -s test:ci' : 'node scripts/run-affected-tests.mjs reader', testInputs, {
-        test: true, extra: readerPlan.full ? 'full' : readerPlan, env: testEnv,
+        test: true, extra: readerPlan.full ? 'full' : readerPlan, env: testEnv, diskInputs: ['dist/**', 'docs/public/**'],
     });
     if (readerPlan.full) readerPlan.saveFullPass();
     if (!releaseCheck) {
         await build;
         runner.refresh();
-        const academyPlan = testPlan(ROOT, runner.snapshot, { noCache: options.noCache, suite: 'academy' });
-        writeFileSync(join(LOG_DIR, 'affected-tests-academy.json'), JSON.stringify(academyPlan));
-        await run('test-academy', academyPlan.full ? 'npm run -s test:academy' : 'node scripts/run-affected-tests.mjs academy', [...testInputs], { test: true, env: testEnv, extra: academyPlan.full ? 'full' : academyPlan });
+        const academyPlan = await planTests('academy');
+        await run('test-academy', academyPlan.full ? 'npm run -s test:academy' : 'node scripts/run-affected-tests.mjs academy', [...testInputs], { test: true, env: testEnv, extra: academyPlan.full ? 'full' : academyPlan, diskInputs: ['dist/**', 'docs/public/**'] });
         if (academyPlan.full) academyPlan.saveFullPass();
     }
 })();
 const diagnostics = (async () => {
-    await run('typecheck', 'npm run -s typecheck', source);
-    await run('test-workers', 'npm run -s test:workers', [...source], { test: true, env: testEnv });
-    await run('tooling-tests', 'node --test tests/tooling/*.test.mjs', ['tests/tooling/**', 'scripts/lib/**'], { test: true });
+    await tests;
+    runner.refresh();
+    await run('test-workers', 'npm run -s test:workers', testInputs, { test: true, env: testEnv, diskInputs: ['dist/**', 'docs/public/**'] });
+    await run('tooling-tests', 'node --test --test-concurrency=1 tests/tooling/*.test.mjs', all, { test: true });
     await run('complexity-ratchet', 'node scripts/complexity-audit.mjs', source, { env: ['YOMU_COMPLEXITY_MAX'] });
     await run('file-size-ratchet', 'node scripts/file-size-audit.mjs', source, { env: ['YOMU_FILE_SIZE_THRESHOLD'] });
     await run('dead-code-ratchet', 'npm run -s quality:dead-code', all);
 })();
 const docs = (async () => {
-    await Promise.all([build, docsPre]);
+    await diagnostics;
+    await buildDocs(runner, 'precheck');
     runner.refresh();
     await run('userscript-weight', 'node scripts/check-userscript-weight.cjs', ['scripts/check-userscript-weight.cjs', 'scripts/lib/**'], { diskInputs: ['dist/yomu.user.js', 'dist/greasyfork/**'] });
     // docs:build's own cache verifies both pre-checks and the rendered outputs.

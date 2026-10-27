@@ -12,7 +12,7 @@ const prechecks = [
     { name: 'openapi', command: 'node scripts/build-openapi.mjs', inputs: ['scripts/openapi/**', 'scripts/build-openapi.mjs'], outputs: ['docs/public/api/**'], restoreOutputs: true },
     { name: 'settings-reference', command: 'node scripts/settings-reference.mjs --check', inputs: sourceInputs },
     { name: 'locales', command: 'node node_modules/vite-node/vite-node.mjs scripts/generate-reviewed-docs-locale-routes.mts --check', inputs: sourceInputs },
-    { name: 'locale-coverage', command: 'node node_modules/vitest/vitest.mjs run tests/reader/docs-website-locales.test.ts tests/reader/i18n.test.ts --maxWorkers=2', inputs: [...sourceInputs, 'tests/reader/**', 'vite.config.ts'], test: true },
+    { name: 'locale-coverage', command: 'node node_modules/vitest/vitest.mjs run tests/reader/docs-website-locales.test.ts tests/reader/i18n.test.ts', inputs: [...sourceInputs, 'tests/reader/**', 'vite.config.ts'], env: ['VITEST_MAX_FORKS', 'YOMU_VITEST_FORK_HEAP_MB'], test: true },
 ];
 export async function buildDocs(runner, phase = 'all') {
     const results = phase === 'render' ? [] : await Promise.allSettled(prechecks.map(stage => runner.run(stage)));
