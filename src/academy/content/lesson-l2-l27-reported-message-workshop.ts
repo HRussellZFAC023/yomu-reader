@@ -1,26 +1,7 @@
 import lessonPackage from '../../../public/academy/content/lessons/054-l2-l27.json';
-import {
-    ACADEMY_ASSESSED_ANSWER_SUPPORT,
-    type ActivityController,
-    type ActivityEvaluation,
-    type ActivityHost,
-    type ActivityModel,
-    type ActivityPlugin,
-    type GradeResult,
-    type ReviewSeed,
-    type ValidationIssue,
-} from '../domain/activity-runtime';
+import { ACADEMY_ASSESSED_ANSWER_SUPPORT, type ActivityController, type ActivityEvaluation, type ActivityHost, type ActivityModel, type ActivityPlugin, type GradeResult, type ReviewSeed, type ValidationIssue } from '../domain/activity-runtime';
 import type { LocalizedText } from '../domain/source-library';
-import {
-    localizedNodes,
-    normalizeJapanese,
-    setPending,
-    showEvaluation,
-    statusRegion,
-    text,
-    validateFeedback,
-    type ActivityFeedbackSet,
-} from '../minigames/activity-kit/shared';
+import { localizedNodes, normalizeJapanese, setPending, showEvaluation, statusRegion, text, validateFeedback, type ActivityFeedbackSet } from '../minigames/activity-kit/shared';
 import { renderInspectableSourceVisual } from '../minigames/source-visual';
 import type { LessonActivityBeat } from '../ui/lesson-activity-chapter';
 
@@ -32,7 +13,7 @@ const ARCHIVE_SHA256 = 'abfa64a2063a03e9b61aefd45d76668576750d8e0cb92c9d628087ce
 const MESSAGE_SHA256 = '8c589fc81331f89d5f0d94bfd4914cb9a86c0288b6fad73c330d91337fda4c12';
 const MEANING_SHA256 = '31bf02b4a6685556b4d4daf00f3f25946f7cca5a7ad7e5e45f7a7ff1a88af4bb';
 
-export const L2_L27_SOURCE_VISUALS = Object.freeze([
+const L2_L27_SOURCE_VISUALS = Object.freeze([
     sourceVisual(MESSAGE_SHA256, 'Chapter 33-2 〜と言っていました_〜と伝えていただけませんか exercise', 1,
         'moodle-chapter-33-2-message-page-1.png', 'c55cc9af4848b91412dee34887a45a617f1d0dbfae414f4935be0d58b91e6fb7'),
     sourceVisual(MESSAGE_SHA256, 'Chapter 33-2 〜と言っていました_〜と伝えていただけませんか exercise', 2,
@@ -51,7 +32,7 @@ interface ReportedMessageOption {
     readonly label: string;
 }
 
-export interface ReportedMessageRound {
+interface ReportedMessageRound {
     readonly id: string;
     readonly sourceOrder: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8;
     readonly sourceTask: ReportedMessageTask;
@@ -75,7 +56,7 @@ interface ReportedMessageSourceVisual {
     readonly alt: LocalizedText;
 }
 
-export interface ReportedMessageWorkshopModel extends ActivityModel {
+interface ReportedMessageWorkshopModel extends ActivityModel {
     readonly kind: 'academy-reported-message-workshop';
     readonly responseKind: 'moodle-chapter-33-reported-message-workshop';
     readonly curriculumPhase: 'assessed-production';

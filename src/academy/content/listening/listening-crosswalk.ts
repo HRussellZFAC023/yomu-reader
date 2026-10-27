@@ -1,7 +1,8 @@
 import type { PrivacySafeLibraryResource } from '../../media/library-media-types';
+
 import manifestJson from '../../../../public/academy/content/listening/listening-crosswalk.v1.json';
 
-export interface ListeningSourceEvidence {
+interface ListeningSourceEvidence {
     readonly corpus: 'soya' | 'moodle' | 'minna';
     readonly repositoryRelativePath: string;
     readonly sha256: string;
@@ -14,13 +15,13 @@ export interface ListeningSourceEvidence {
     readonly questionMapRef: string;
 }
 
-export interface WorkerListeningDelivery {
+interface WorkerListeningDelivery {
     readonly assetId: string;
     readonly purpose: 'audio';
     readonly access: 'academy-session-or-signed';
 }
 
-export interface PackagedStaticListeningDelivery {
+interface PackagedStaticListeningDelivery {
     readonly mode: 'packaged-static';
     readonly url: string;
 }
@@ -31,14 +32,14 @@ interface ListeningEntryBase {
     readonly provenance: readonly string[];
 }
 
-export interface SourceVerifiedListeningEntry extends ListeningEntryBase {
+interface SourceVerifiedListeningEntry extends ListeningEntryBase {
     readonly availability: 'source-verified';
     readonly source: ListeningSourceEvidence;
     readonly worker: WorkerListeningDelivery;
     readonly delivery?: PackagedStaticListeningDelivery;
 }
 
-export interface UnavailableListeningEntry extends ListeningEntryBase {
+interface UnavailableListeningEntry extends ListeningEntryBase {
     readonly availability: 'unavailable';
     readonly reason: 'no-recording-matching-authored-script' | 'authored-locator-no-runtime-source';
     readonly authoredScriptSha256?: string;
@@ -52,23 +53,7 @@ interface ListeningCrosswalkManifest {
     readonly entries: readonly ListeningCrosswalkEntry[];
 }
 
-export type ListeningLocatorResolution =
-    | Readonly<{
-        status: 'source-verified';
-        entry: SourceVerifiedListeningEntry;
-        resource: PrivacySafeLibraryResource;
-    }>
-    | Readonly<{
-        status: 'unavailable';
-        entry: UnavailableListeningEntry;
-    }>
-    | Readonly<{
-        status: 'unavailable';
-        locator: string;
-        reason: 'locator-not-authored';
-    }>;
-
-export type PackagedListeningResolution =
+type PackagedListeningResolution =
     | Readonly<{ status: 'ready'; entry: SourceVerifiedListeningEntry; url: string }>
     | Readonly<{ status: 'unavailable'; locator: string }>;
 
@@ -85,12 +70,12 @@ function parseListeningCrosswalk(value: unknown): ListeningCrosswalkManifest {
     return { schema: 'yomu-academy.listening-crosswalk.v1', entries };
 }
 
-export const ACADEMY_LISTENING_CROSSWALK = parseListeningCrosswalk(manifestJson);
+const ACADEMY_LISTENING_CROSSWALK = parseListeningCrosswalk(manifestJson);
 
 const ENTRY_BY_LOCATOR = new Map(ACADEMY_LISTENING_CROSSWALK.entries.map(entry => [entry.locator, entry]));
 
 /** Resolve an authored locator without inventing a URL or silently substituting unrelated audio. */
-export function resolveAcademyListeningLocator(locator: string): ListeningLocatorResolution {
+function resolveAcademyListeningLocator(locator: string): ListeningLocatorResolution {
     const entry = ENTRY_BY_LOCATOR.get(locator);
     if (!entry) return { status: 'unavailable', locator, reason: 'locator-not-authored' };
     if (entry.availability === 'unavailable') return { status: 'unavailable', entry };
@@ -217,3 +202,19 @@ function positiveInteger(value: unknown, label: string): number {
 function isRecord(value: unknown): value is Record<string, unknown> {
     return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
+
+type ListeningLocatorResolution =
+    | Readonly<{
+        status: 'source-verified';
+        entry: SourceVerifiedListeningEntry;
+        resource: PrivacySafeLibraryResource;
+    }>
+    | Readonly<{
+        status: 'unavailable';
+        entry: UnavailableListeningEntry;
+    }>
+    | Readonly<{
+        status: 'unavailable';
+        locator: string;
+        reason: 'locator-not-authored';
+    }>;

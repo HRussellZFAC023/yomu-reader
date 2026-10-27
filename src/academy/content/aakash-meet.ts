@@ -1,10 +1,7 @@
 import type { AuthoredVocabularyAnnotation } from '../../reader/lookup/authored-vocabulary';
 import type { ConstructedResponseActivityModel } from '../activities/constructed-response';
 import { ACADEMY_ASSESSED_ANSWER_SUPPORT } from '../domain/activity-runtime';
-import {
-    assertNoColdProduction,
-    type AcademyLearningSequenceContract,
-} from './cold-production-audit';
+import { assertNoColdProduction, type AcademyLearningSequenceContract } from './cold-production-audit';
 
 export const AAKASH_RAINY_DIRECTIONS_SCENE_ID = 'scene:aakash-rainy-directions';
 const AAKASH_DIRECTIONS_CONCEPT_ID = 'concept:directions-straight-right';
@@ -79,7 +76,7 @@ export const AAKASH_DIRECTIONS_CONTENT = {
     },
 } as const;
 
-export const AAKASH_DIRECTIONS_LEARNING_SEQUENCE = {
+const AAKASH_DIRECTIONS_LEARNING_SEQUENCE = {
     id: 'sequence:aakash-rainy-directions',
     steps: [
         { id: AAKASH_DIRECTIONS_CONTENT.context.id, kind: 'context', conceptIds: [AAKASH_DIRECTIONS_CONCEPT_ID] },
