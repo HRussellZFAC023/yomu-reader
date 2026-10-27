@@ -1,3 +1,6 @@
+// Filesystem/subprocess inputs, including generic helpers called by this test.
+// @yomu-reads public/** docs/.vitepress/config.mts docs/public/hosted-appearance-settings.js scripts/lib/hosted-appearance*.cjs tests/reader/helpers/hosted-appearance-module-proof.mjs
+// @yomu-imports src/reader/core/hosted-appearance-boot.ts src/reader/settings/hosted-appearance-settings.ts
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';

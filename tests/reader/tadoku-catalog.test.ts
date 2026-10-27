@@ -1,3 +1,5 @@
+// Filesystem/subprocess inputs, including generic helpers called by this test.
+// @yomu-reads scripts/library/** public/tadoku/**
 import { describe, expect, it, vi } from 'vitest';
 // @ts-expect-error Node ingestion script has no declaration file.
 import { fetchTadokuCatalog, parseTadokuCatalog as parseSource, validateTadokuRefresh, TADOKU_CATALOG_URL } from '../../scripts/library/tadoku-catalog.mjs';

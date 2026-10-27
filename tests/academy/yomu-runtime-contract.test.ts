@@ -1,3 +1,5 @@
+// Filesystem inputs supplied to generic helpers are confined to these paths or temporary fixtures.
+// @yomu-reads docs/public/academy/** public/academy/**
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 // @ts-expect-error Use the production sync's template renderer.

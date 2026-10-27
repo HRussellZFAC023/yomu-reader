@@ -1,3 +1,5 @@
+// Filesystem/subprocess inputs, including generic helpers called by this test.
+// @yomu-reads scripts/**
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import os from 'node:os';

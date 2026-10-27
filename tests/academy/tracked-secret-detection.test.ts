@@ -1,3 +1,5 @@
+// Filesystem/subprocess inputs, including generic helpers called by this test.
+// @yomu-reads scripts/tracked-secret-scan.mjs
 // @vitest-environment node
 import { execFileSync, spawnSync } from 'node:child_process';
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';

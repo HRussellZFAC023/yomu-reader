@@ -1,3 +1,5 @@
+// Filesystem/subprocess inputs, including generic helpers called by this test.
+// @yomu-reads scripts/** public/academy/art/** docs/academy/**
 import { execFileSync } from 'node:child_process';
 import crypto from 'node:crypto';
 import fs from 'node:fs';

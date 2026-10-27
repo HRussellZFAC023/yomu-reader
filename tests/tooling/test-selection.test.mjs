@@ -32,7 +32,7 @@ test('resolved setup aliases are shared inputs; ordinary imports select their te
     assert.equal(process.env.NODE_ENV, nodeEnv, 'graph discovery must not mutate the gate environment');
 });
 
-test('filesystem readers and their importers always run for CSS, shipped JS and arbitrary dynamic read paths', async t => {
+test('unbounded reads remain conservative until explicitly bounded; deleted imports fail safely', async t => {
     const { root, put, select } = fixture(t, false);
     put('read.ts', "import { readFileSync } from 'node:fs'; export const read = (path: string) => readFileSync(path, 'utf8');");
     put('fs.test.ts', "import { read } from './read'; it('css', () => expect(read('style.css')).toContain('reduce'));");
@@ -53,7 +53,7 @@ test('filesystem reads installed by setupFiles require every test even for an un
     put('shared.ts', "import { readFileSync } from 'node:fs'; export const shared = readFileSync('unreferenced.txt', 'utf8');");
     const plan = await select(['unreferenced.txt']);
     assert.equal(plan.full, true);
-    assert.match(plan.reason, /setupFiles has filesystem/);
+    assert.match(plan.reason, /setupFiles has changed or unbounded filesystem/);
 });
 
 test('graph discovery errors cannot become empty passing selections', async t => {
@@ -68,4 +68,34 @@ test('discovery includes mock-isolated tests that the shared Academy pass exclud
     put('vitest.config.mjs', `export default { test: { include: ['*.test.ts'], exclude: process.env.VITEST_ISOLATE === '1' ? [] : ['isolated.test.ts'] } };`);
     put('isolated.test.ts', "it('isolated entrypoint', () => expect(true).toBe(true));");
     assert.deepEqual((await select(['isolated.test.ts'])).tests, ['isolated.test.ts']);
+});
+
+test('bounded fs readers select only matching CSS, including removal, and an unrelated module cannot taint them', async t => {
+    const { root, put, select } = fixture(t, false);
+    put('read.ts', "// @yomu-reads style.css\nimport {readFileSync} from 'node:fs'; export const read = (file: string) => readFileSync(file, 'utf8');");
+    put('fs.test.ts', "import {read} from './read'; it('css', () => expect(read('style.css')).toContain('reduce'));");
+    put('style.css', '@media (prefers-reduced-motion: reduce) {}');
+    assert.deepEqual((await select(['style.css'])).tests, ['fs.test.ts']);
+    assert.deepEqual((await select(['unreferenced.txt'])).tests, []);
+    rmSync(join(root, 'style.css'));
+    assert.deepEqual((await select(['style.css'])).tests, ['fs.test.ts']);
+});
+
+test('byte-checked discovery cache reuses body edits and rediscovers new import edges and module membership', async t => {
+    const { root, put, select } = fixture(t, false);
+    const { execFileSync } = await import('node:child_process');
+    execFileSync('git', ['init', '--quiet'], { cwd: root });
+    put('.gitignore', 'node_modules\nartifacts\n');
+    assert.equal((await select(['a.ts'])).graphReused, false);
+    put('a.ts', 'export const a = 2; // body changed');
+    const reused = await select(['a.ts']);
+    assert.equal(reused.graphReused, true);
+    assert.deepEqual(reused.tests, ['a.test.ts']);
+    put('c.ts', 'export const c = 3;');
+    put('a.ts', "export {c as a} from './c';");
+    const newEdge = await select(['c.ts']);
+    assert.equal(newEdge.graphReused, false);
+    assert.deepEqual(newEdge.tests, ['a.test.ts']);
+    put('a.ts', 'export const a = 4;');
+    assert.deepEqual((await select(['c.ts'])).tests, []);
 });

@@ -1,3 +1,5 @@
+// Filesystem/subprocess inputs, including generic helpers called by this test.
+// @yomu-reads public/academy/sw.js docs/public/academy/sw.js
 import { createLessonFortyThreeMessageHandoffBeat } from '../../src/academy/content/lesson-forty-three-message-handoff';
 import { registeredGradingModels } from './helpers/plugin-grading-models';
 import { passingGradingResponse, missedGradingResponses } from './helpers/grading-response';

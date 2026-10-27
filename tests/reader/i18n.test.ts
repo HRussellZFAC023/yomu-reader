@@ -1,3 +1,5 @@
+// Filesystem/subprocess inputs, including generic helpers called by this test.
+// @yomu-reads docs/**/*.md docs/.vitepress/** src/reader/app/i18n.ts src/reader/newtab/i18n.ts
 import { readFileSync } from 'node:fs';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { nextExplicitUiLanguage, parseUiCopyTable, resolveUiLanguage } from '../../src/reader/app/i18n';

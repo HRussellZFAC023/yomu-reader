@@ -1,3 +1,6 @@
+// Filesystem/subprocess inputs, including generic helpers called by this test.
+// @yomu-reads scripts/lib/extension-dictionary-background.mjs
+// @yomu-imports src/reader/dictionaries/extension-background-entry.ts src/reader/dictionaries/extension-background-adapters.ts
 import { execFileSync } from 'node:child_process';
 import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';

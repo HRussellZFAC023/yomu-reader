@@ -1,3 +1,5 @@
+// Filesystem/subprocess inputs, including generic helpers called by this test.
+// @yomu-reads scripts/sync-academy.cjs scripts/lib/academy-*.cjs public/academy/** docs/public/academy/** docs/public/hosted-runtime-graph.js docs/public/yomu.css
 import { describe, expect, it } from 'vitest';
 import { spawnSync } from 'node:child_process';
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';

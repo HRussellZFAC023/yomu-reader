@@ -1,3 +1,5 @@
+// Filesystem inputs supplied to generic helpers are confined to these paths or temporary fixtures.
+// @yomu-reads docs/public/academy/** public/academy/**
 import fs from 'node:fs';
 import { runInNewContext } from 'node:vm';
 import { hostedRuntimeGraphFixture } from '../helpers/hosted-runtime-graph';

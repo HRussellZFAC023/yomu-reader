@@ -1,3 +1,5 @@
+// Filesystem/subprocess inputs, including generic helpers called by this test.
+// @yomu-reads scripts/check-recorded-pages.mjs scripts/lib/recorded-*.mjs scripts/fixtures/recorded/**
 import { execFileSync } from 'node:child_process';
 
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';

@@ -1,3 +1,5 @@
+// Filesystem/subprocess inputs, including generic helpers called by this test.
+// @yomu-reads public/academy/** docs/public/academy/** scripts/** docs/academy/**
 import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
 // @ts-expect-error Production build-manifest helper is plain Node JavaScript.

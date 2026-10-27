@@ -1,3 +1,5 @@
+// Filesystem/subprocess inputs, including generic helpers called by this test.
+// @yomu-reads src/reader/**
 import '../../src/reader/companions/register-build-companions';
 import { readFileSync, readdirSync } from 'node:fs';
 import path from 'node:path';

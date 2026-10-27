@@ -1,3 +1,5 @@
+// Filesystem inputs supplied to generic helpers are confined to these paths or temporary fixtures.
+// @yomu-reads scripts/lib/extension-runtime-hardening.mjs
 import '../../src/reader/companions/register-build-companions';
 // The extension toolbar popup's "On this page" section (owner decision 4,
 // 2026-10-07): the page answers with the puck's actions and their state, and

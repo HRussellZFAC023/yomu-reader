@@ -1,3 +1,5 @@
+// Filesystem/subprocess inputs, including generic helpers called by this test.
+// @yomu-reads public/academy/** docs/public/**
 import fs from 'node:fs';
 import path from 'node:path';
 import { runInNewContext } from 'node:vm';

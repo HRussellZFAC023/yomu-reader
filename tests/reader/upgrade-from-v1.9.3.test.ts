@@ -1,3 +1,6 @@
+// Filesystem/subprocess inputs, including generic helpers called by this test.
+// @yomu-reads scripts/lib/hosted-appearance-settings.cjs
+// @yomu-imports src/reader/settings/hosted-appearance-settings.ts
 // Upgrade corpus: v2 against the bytes shipped releases actually persisted.
 //
 // Every fixture in ./fixtures/upgrade-v1.9.3/ was produced by running the

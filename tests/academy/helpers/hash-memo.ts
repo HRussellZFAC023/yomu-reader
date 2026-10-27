@@ -1,3 +1,5 @@
+// Filesystem/subprocess inputs, including generic helpers called by this test.
+// @yomu-reads public/academy/** docs/public/academy/** docs/academy/** tests/academy/**
 // Content-addressed sha256 memo for large fixture files. Keyed on exact file
 // timestamps and size, then persisted so repeated hashing of the same
 // unchanged multi-MB assets (academy art, lesson payloads, docs mirrors) is paid
