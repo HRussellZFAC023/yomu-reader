@@ -1,4 +1,4 @@
-export const GAMING_LINUX_EXECUTABLE_NAME: string;
+
 
 export interface GamingPackageManifest {
     name: string;

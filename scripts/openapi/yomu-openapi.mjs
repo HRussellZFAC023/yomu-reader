@@ -793,7 +793,7 @@ const cursorParameters = [
     query('limit', { type: 'integer', minimum: 1, maximum: 200, default: 200 }, 'Maximum events to return.'),
 ];
 
-export const academyOperations = [
+const academyOperations = [
     { method: 'get', path: '/academy/api/health', operationId: 'getAcademyHealth', tag: 'System', summary: 'Check Academy API health', description: 'Returns deploy metadata for the production Academy Worker.', response: 'Health', errors: false },
     { method: 'post', path: '/academy/api/session', operationId: 'createAcademySession', tag: 'Sessions', summary: 'Exchange an invitation code', description: 'Creates an eight-hour browser session and a fixed 30-day offline-resume window.', request: 'InviteCodeRequest', response: 'Session', sameOrigin: true },
     { method: 'get', path: '/academy/api/session', operationId: 'getAcademySession', tag: 'Sessions', summary: 'Read the active session', description: 'Returns the session bound to the secure host cookie.', security: browser, response: 'Session' },
@@ -916,7 +916,7 @@ const audioSecurity = {
     voiceAdminBearer: { type: 'http', scheme: 'bearer', bearerFormat: 'Yomu voice admin token', description: 'Server-side token for generating and caching story dialogue.' },
 };
 
-export const audioOperations = [
+const audioOperations = [
     { method: 'get', path: '/status', operationId: 'getAudioStatus', tag: 'System', summary: 'Check audio service status', description: 'Reports storage, index, fallback, CORS, cache, and TTS readiness.', response: 'AudioStatus', errors: false },
     { method: 'get', path: '/healthz', operationId: 'getAudioHealth', tag: 'System', summary: 'Check audio service health', description: 'Alias of `/status` for infrastructure health checks.', response: 'AudioStatus', errors: false },
     { method: 'get', path: '/', operationId: 'findJapaneseAudio', tag: 'Lookup', summary: 'Find pronunciation audio', description: 'Looks up hosted audio by expression/reading and falls back to a public pronunciation source when needed.', parameters: [query('term', { type: 'string' }, 'Japanese expression.'), query('reading', { type: 'string' }, 'Kana reading.')], response: 'AudioSourceList', errors: false },
@@ -1119,7 +1119,7 @@ const providerResponse = {
     '503': { description: 'The provider webhook or donation ledger is not configured.', content: { 'text/plain': { schema: { type: 'string' } } } },
 };
 
-export const supportOperations = [
+const supportOperations = [
     { method: 'get', path: '/status', operationId: 'getSupportStatus', tag: 'System', summary: 'Check supporter service status', description: 'Reports checkout, provider, persistence, and Academy-bridge readiness without exposing secrets.', response: 'SupportStatus', errors: false },
     { method: 'get', path: '/healthz', operationId: 'getSupportHealth', tag: 'System', summary: 'Check supporter service health', description: 'Alias of `/status` for infrastructure health checks.', response: 'SupportStatus', errors: false },
     { method: 'get', path: '/goal', operationId: 'getSupportGoal', tag: 'Funding', summary: 'Read the monthly funding goal', description: 'Returns the public GBP operating-cost forecast and effective monthly goal.', response: 'SupportGoal', errors: false },
@@ -1147,7 +1147,7 @@ const edgeSchemas = {
     EdgeStatus: { type: 'object', required: ['service', 'status', 'allowlistVersion', 'allowedMethods', 'allowedHosts', 'policy', 'budget', 'analytics'], properties: { service: { type: 'string', const: 'yomu-jpdb-public-proxy' }, status: { type: 'string', enum: ['ok', 'disabled'] }, allowlistVersion: { type: 'string' }, allowedMethods: { type: 'array', items: { type: 'string', enum: ['GET', 'HEAD'] } }, allowedHosts: { type: 'array', items: { type: 'string' } }, policy: { type: 'object', additionalProperties: { type: 'boolean' } }, budget: { type: 'object', additionalProperties: true }, analytics: { type: 'object', additionalProperties: true } }, additionalProperties: false },
 };
 
-export const edgeOperations = [
+const edgeOperations = [
     { method: 'get', path: '/status', operationId: 'getEdgeStatus', tag: 'System', summary: 'Check edge gateway status', description: 'Reports the public allowlist and privacy policy without logging target queries or forwarding credentials.', response: 'EdgeStatus', errors: false },
     { method: 'get', path: '/healthz', operationId: 'getEdgeHealth', tag: 'System', summary: 'Check edge gateway health', description: 'Alias of `/status` for infrastructure health checks.', response: 'EdgeStatus', errors: false },
     { method: 'get', path: '/', operationId: 'proxyPublicJapaneseResource', tag: 'Gateway', summary: 'Fetch an allowlisted public resource', description: 'CORS-enables an anonymous GET/HEAD to a strictly allowlisted Japanese-learning resource. Private/local targets, credentials, sensitive query parameters, cookies, and arbitrary hosts are rejected.', parameters: [query('url', { type: 'string', format: 'uri' }, 'Absolute HTTPS URL on the public allowlist.', true)], responses: { '200': { description: 'The allowlisted upstream response. Content type is preserved.', content: { '*/*': { schema: { type: 'string', format: 'binary' } } } }, '400': { description: 'The target is absent or not allowed.', content: { 'text/plain': { schema: { type: 'string' } } } }, '429': { description: 'The public daily budget or an upstream cooldown is active.', content: { 'text/plain': { schema: { type: 'string' } } } }, '503': { description: 'The public gateway is disabled.', content: { 'text/plain': { schema: { type: 'string' } } } } }, errors: false },

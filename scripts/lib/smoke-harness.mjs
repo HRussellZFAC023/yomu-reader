@@ -1171,7 +1171,7 @@ export async function launchOptionalBrowser(browserType, browserName, options) {
     }
 }
 
-export function isMissingBrowserExecutable(error) {
+function isMissingBrowserExecutable(error) {
     const message = String(error?.message ?? '');
     return message.includes("Executable doesn't exist");
 }

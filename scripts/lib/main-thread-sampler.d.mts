@@ -14,5 +14,3 @@ export function startMainThreadSampler(
     page: Page,
     options?: { engine?: string; spin?: boolean; cdp?: boolean },
 ): Promise<{ stop(): Promise<{ elapsedMs: number; spin?: SpinSummary | null; cdp?: CdpRates }> }>;
-export function cdpPerSecond(before: Record<string, number>, after: Record<string, number>, seconds: number): CdpRates;
-export function spinSummary(raw: { wallMs: number; spunMs: number; gaps: number[] }, longGapMs?: number): SpinSummary;

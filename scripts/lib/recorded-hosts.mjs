@@ -115,7 +115,7 @@ function srv3Paragraph(event) {
 }
 
 /** YouTube's srv3 XML for the same events, so the product's first format request is answered as on the site. */
-export function json3ToSrv3(json3) {
+function json3ToSrv3(json3) {
     const paragraphs = (json3.events ?? []).filter(event => event.segs || event.aAppend).map(srv3Paragraph);
     return `<?xml version="1.0" encoding="utf-8" ?><timedtext format="3">\n<body>\n${paragraphs.join('\n')}\n</body>\n</timedtext>\n`;
 }
@@ -131,7 +131,7 @@ function vttCue(event) {
     return { start, end: start + (event.dDurationMs ?? 0), text: event.segs.map(seg => seg.utf8 ?? '').join('').trim() };
 }
 
-export function json3ToVtt(json3) {
+function json3ToVtt(json3) {
     const cues = (json3.events ?? []).filter(event => event.segs && !event.aAppend).map(vttCue).filter(cue => cue.text);
     return `WEBVTT\n\n${cues.map(cue => `${vttStamp(cue.start)} --> ${vttStamp(cue.end)}\n${cue.text}`).join('\n\n')}\n`;
 }

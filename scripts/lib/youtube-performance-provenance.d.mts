@@ -3,8 +3,6 @@ export interface ProfileFileDescriptor {
     bytes: number;
     sha256: string;
 }
-
-export function transitiveLocalImportFiles(entryPath: string, repositoryRoot: string): string[];
 export function profileDriverProvenance(
     entryPath: string,
     repositoryRoot: string,

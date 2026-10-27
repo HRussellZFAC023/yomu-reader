@@ -22,25 +22,6 @@ export function assertPublishedObjectsResolvable(
   ledger: MirrorObjectLedgerJson,
 ): { publishedEntries: number; ledgerObjects: number };
 
-export function assertStagedEntriesReachPublished(
-  stagingCatalog: DictionaryCatalogJson,
-  publishedCatalog: DictionaryCatalogJson,
-): { stagedEntries: number; publishedEntries: number };
-
-export function assertUpstreamCoverage(
-  coverage: UpstreamCoverageJson,
-  catalog: DictionaryCatalogJson,
-): { collections: number; artifacts: number; unsurveyedCollections: number };
-
-export function assertUnmirroredEntriesAreExplorable(
-  catalog: DictionaryCatalogJson,
-): { unmirroredEntries: number };
-
-export function assertEntriesAreAcquirable(
-  catalog: DictionaryCatalogJson,
-  acquisition: { sources?: Array<{ id: string }>; collections?: Array<{ id: string }> },
-): { entries: number; sources: number };
-
 export function assertDictionaryCoverage(options?: {
   manifestRoot?: string;
   publishedManifestRoot?: string;
