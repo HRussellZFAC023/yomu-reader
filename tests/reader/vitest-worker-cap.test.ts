@@ -36,7 +36,8 @@ describe('reader Vitest worker limits', () => {
 
         expect(runAllTests, 'runner should contain runAllTests').toBeDefined();
         expect(runAllTests).not.toContain("{ VITEST_ISOLATE: '0' }");
-        expect(runAllTests).toContain('Math.min(10, Math.max(2, spareParallelism() - 2))');
+        expect(runAllTests).toContain('String(workerBudget())');
+        expect(runner).not.toContain('loadavg');
         expect(mainBatch, 'runAllTests should contain the bounded main-batch loop').toBeDefined();
         expect(mainBatch).toContain('reader bounded isolated main batch');
         expect(mainBatch).toContain("{ VITEST_ISOLATE: '1' }");

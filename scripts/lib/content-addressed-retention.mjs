@@ -48,25 +48,23 @@ function contentAddressedArtifacts(root) {
     return artifacts.sort();
 }
 
-function retainedArtifactPaths(root) {
+function retainedArtifactPaths(root, inputs) {
     if (isShallowRepository(root)) {
-        const retained = retainedArtifactPathsFromManifest(root);
-        for (const relativePath of ['dist/yomu.user.js', 'docs/public/yomu.user.js']) {
-            const absolutePath = join(root, relativePath);
-            if (!existsSync(absolutePath)) continue;
-            for (const path of pinnedArtifactPaths(readFileSync(absolutePath, 'utf8'))) retained.add(path);
+        const retained = retainedArtifactPathsFromManifest(root, inputs);
+        for (const code of Object.values(inputs.headers)) {
+            for (const path of pinnedArtifactPaths(code)) retained.add(path);
         }
         return retained;
     }
-    return retainedArtifactPathsFromHistory(root);
+    return retainedArtifactPathsFromHistory(root, inputs);
 }
 
-export function contentAddressedRetentionManifest(root) {
+export function contentAddressedRetentionManifest(root, inputs = captureRetentionInputs(root)) {
     return {
         schemaVersion: 1,
         releaseRetentionCount: RELEASE_RETENTION_COUNT,
         supportedReleaseRefs: SUPPORTED_RELEASE_REFS,
-        retainedPaths: [...retainedArtifactPathsFromHistory(root)].sort(),
+        retainedPaths: [...retainedArtifactPathsFromHistory(root, inputs)].sort(),
     };
 }
 
@@ -94,10 +92,10 @@ export function contentAddressedRetentionManifest(root) {
  * the extras get reclaimed, run when someone wants the space rather than as a
  * mandatory step after every release.
  */
-export function retentionManifestShortfall(root) {
+export function retentionManifestShortfall(root, inputs = captureRetentionInputs(root)) {
     if (isShallowRepository(root)) return { ok: true, missingFromManifest: [], extraInManifest: [] };
-    const actual = readRetentionManifest(root);
-    const expected = contentAddressedRetentionManifest(root);
+    const actual = inputs.manifest;
+    const expected = contentAddressedRetentionManifest(root, inputs);
     const schemaMatches = actual?.schemaVersion === expected.schemaVersion
         && actual.releaseRetentionCount === expected.releaseRetentionCount
         && JSON.stringify(actual.supportedReleaseRefs) === JSON.stringify(expected.supportedReleaseRefs)
@@ -124,16 +122,16 @@ export function isShallowRepository(root) {
     return state === 'true';
 }
 
-function retainedArtifactPathsFromHistory(root) {
+function retainedArtifactPathsFromHistory(root, inputs) {
     const retained = new Set();
-    for (const header of supportedHeaders(root)) {
+    for (const header of supportedHeaders(root, inputs)) {
         for (const path of pinnedArtifactPaths(header.code)) retained.add(path);
     }
     return retained;
 }
 
-function retainedArtifactPathsFromManifest(root) {
-    const manifest = readRetentionManifest(root);
+function retainedArtifactPathsFromManifest(root, inputs) {
+    const manifest = inputs.manifest;
     if (
         manifest?.schemaVersion !== 1
         || manifest.releaseRetentionCount !== RELEASE_RETENTION_COUNT
@@ -157,32 +155,38 @@ function readRetentionManifest(root) {
     }
 }
 
-export function contentAddressedRetentionReport(root) {
-    const artifacts = contentAddressedArtifacts(root);
-    const retained = retainedArtifactPaths(root);
-    const missing = [...retained].filter(path => !existsSync(join(root, path))).sort();
+// Freeze working-tree reads before a concurrent build can replace its header.
+// History still comes from Git; only these small read-only inputs need copying.
+export function captureRetentionInputs(root) {
+    const headers = {};
+    for (const path of ['dist/yomu.user.js', 'docs/public/yomu.user.js']) {
+        if (existsSync(join(root, path))) headers[path] = readFileSync(join(root, path), 'utf8');
+    }
+    return { headers, manifest: readRetentionManifest(root), sizes: Object.fromEntries(contentAddressedArtifacts(root).map(path => [path, statSync(join(root, path)).size])) };
+}
+
+export function contentAddressedRetentionReport(root, inputs = captureRetentionInputs(root)) {
+    const artifacts = Object.keys(inputs.sizes).sort();
+    const retained = retainedArtifactPaths(root, inputs);
+    const missing = [...retained].filter(path => !(path in inputs.sizes)).sort();
     const stale = artifacts.filter(path => !retained.has(path));
     return {
         artifacts,
         retained: artifacts.filter(path => retained.has(path)),
         missing,
         stale,
-        totalBytes: sumBytes(root, artifacts),
-        retainedBytes: sumBytes(root, artifacts.filter(path => retained.has(path))),
-        staleBytes: sumBytes(root, stale),
+        totalBytes: sumBytes(inputs, artifacts),
+        retainedBytes: sumBytes(inputs, artifacts.filter(path => retained.has(path))),
+        staleBytes: sumBytes(inputs, stale),
     };
 }
 
-function supportedHeaders(root) {
+function supportedHeaders(root, inputs) {
     const headers = [];
     const currentHeaderCodes = new Set();
-    for (const relativePath of ['dist/yomu.user.js', 'docs/public/yomu.user.js']) {
-        const absolutePath = join(root, relativePath);
-        if (existsSync(absolutePath)) {
-            const code = readFileSync(absolutePath, 'utf8');
-            headers.push({ label: relativePath, code });
-            currentHeaderCodes.add(code.trim());
-        }
+    for (const [relativePath, code] of Object.entries(inputs.headers)) {
+        headers.push({ label: relativePath, code });
+        currentHeaderCodes.add(code.trim());
     }
 
     const releaseTags = reachableReleaseTags(root).slice(0, RELEASE_RETENTION_COUNT);
@@ -263,6 +267,6 @@ function gitShow(root, spec) {
     return output || null;
 }
 
-function sumBytes(root, paths) {
-    return paths.reduce((sum, path) => sum + statSync(join(root, path)).size, 0);
+function sumBytes(inputs, paths) {
+    return paths.reduce((sum, path) => sum + inputs.sizes[path], 0);
 }

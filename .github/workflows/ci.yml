@@ -5,8 +5,6 @@ on:
   push:
     branches:
       - main
-    paths-ignore:
-      - dist/yomu.user.js
 
 permissions:
   contents: read
@@ -24,6 +22,7 @@ jobs:
           node-version: 24
       - run: npm run check:repository
       - run: npm run check:artifacts
+      - run: node scripts/prune-content-addressed-assets.mjs --check
 
   fallow:
     runs-on: ubuntu-24.04
@@ -72,6 +71,11 @@ jobs:
       - run: npm ci
       - run: npm run check:test-workflows
       - run: node scripts/check-smoke-workflow-coverage.mjs
+      - run: node --test tests/tooling/*.test.mjs
+      - run: node scripts/check-css-has-invalidation.mjs
+      - run: node scripts/check-recorded-pages.mjs
+      - run: node scripts/complexity-audit.mjs
+      - run: node scripts/file-size-audit.mjs
 
   test-academy:
     runs-on: ubuntu-24.04
@@ -127,6 +131,9 @@ jobs:
           cache: npm
       - run: npm ci
       - run: node scripts/run-ci-tests.mjs --kind regular --shard=${{ matrix.shard }} --total=8
+        env:
+          # One Vitest host on each matrix VM, not four local shard hosts.
+          YOMU_CI_REGULAR_CONCURRENCY: 1
 
   test-jpdb:
     runs-on: ubuntu-24.04
