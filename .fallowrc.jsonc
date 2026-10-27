@@ -178,8 +178,6 @@
     //                           tests/reader/technical-seo.test.ts
     //   hosted-install-route <- docs/.vitepress/config.mts,
     //                           tests/reader/install-link-contract.test.ts
-    // tests/reader/dead-code-config.test.ts checks these paths still exist, so a
-    // deleted file cannot keep an entry here the way bookwalker-canvas-probe did.
     "scripts/lib/favicon-ico.cjs",
     "scripts/lib/hosted-install-route.cjs"
   ],
