@@ -69,12 +69,13 @@ export function loadRecording(slug) {
  * pageNetwork: what the page's own unrecorded requests reach ('offline' | 'live').
  * onGmRequest(request) may answer first ({ status, body, contentType }) to model
  *   a failing service; return undefined to fall through.
+ * gmInitProgram: optional mock-manager APIs, after the GM bridge and before the built graph.
  * gmStoragePrefix: the bridge keeps GM values in the page origin's localStorage;
  *   a prefix keeps them apart from the page's own keys, as a real manager's
  *   storage is (the product deletes its private keys from page storage).
  */
 export async function openRecordedPage(options) {
-    const { settings = null, navigate = true, waitUntil = 'load', navigationTimeoutMs = 30_000, contextOptions = {}, gmStoragePrefix = '' } = options;
+    const { settings = null, navigate = true, waitUntil = 'load', navigationTimeoutMs = 30_000, contextOptions = {}, gmStoragePrefix = '', gmInitProgram = '' } = options;
     const scope = recordedPageScope(options);
     const contextSettings = { viewport: scope.recording.manifest.recorder.viewport, locale: 'ja-JP', timezoneId: 'Asia/Tokyo', ...contextOptions };
     scope.viewport = contextSettings.viewport;
@@ -86,7 +87,7 @@ export async function openRecordedPage(options) {
     // WebKit routes the page's own blob: and data: URLs too (an image the product
     // decodes from bytes it fetched). They never leave the browser: let them load.
     await context.route('**/*', route => (/^(blob|data):/u.test(route.request().url()) ? route.continue() : routePageRequest(route, scope)));
-    await installProduct(context, scope, settings, gmStoragePrefix);
+    await installProduct(context, scope, settings, gmStoragePrefix, gmInitProgram);
     const page = await context.newPage();
     const pageErrors = [];
     page.on('pageerror', error => pageErrors.push(String(error.message).slice(0, 300)));
@@ -202,7 +203,7 @@ function recordingWriter(recorder) {
     return recorder;
 }
 
-async function installProduct(context, scope, settings, storagePrefix) {
+async function installProduct(context, scope, settings, storagePrefix, gmInitProgram) {
     const probes = networkLedgerPageProgram(LEDGER_BINDINGS);
     if (!scope.product) {
         await context.addInitScript({ content: probes });
@@ -217,5 +218,5 @@ async function installProduct(context, scope, settings, storagePrefix) {
         requestBridgeName: REQUEST_BINDING,
         storagePrefix,
     });
-    await addUserscriptGraphInitScripts(context, scope.product.scriptPath, { prefixContent: `${bridge}\n;\n${probes}`, sourceUrl: `yomu-${scope.product.label}.user.js` });
+    await addUserscriptGraphInitScripts(context, scope.product.scriptPath, { prefixContent: `${bridge}\n;\n${gmInitProgram}\n;\n${probes}`, sourceUrl: `yomu-${scope.product.label}.user.js` });
 }

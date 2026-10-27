@@ -43,6 +43,7 @@ import {
     YOMU_SETTINGS_KEY,
 } from './lib/smoke-harness.mjs';
 import { addScriptTagWithCspFallback, installUserscriptCssResource } from './lib/smoke-test-helpers.mjs';
+import { checkIPlusOneUnderline } from './lib/i-plus-one-underline.mjs';
 
 const paths = createSmokePaths(import.meta.dirname);
 const DIST = process.env.YOMU_TYPOGRAPHY_DIST ? path.resolve(process.env.YOMU_TYPOGRAPHY_DIST) : paths.dist;
@@ -143,7 +144,18 @@ try {
     for (const engine of ENGINES) {
         const browser = await launchSmokeBrowser(engine === 'webkit' ? webkit : chromium, engine, { headless: true });
         try {
-            for (const theme of Object.keys(THEMES)) await checkScenario(browser, engine, theme);
+            report.runs[`${engine}-i-plus-one`] = await checkIPlusOneUnderline(browser, paths.root, CSS_PATH, SCRIPT_PATH).catch(error => {
+                fail(`${engine} i+1: ${error.message}`, {});
+                return { failed: true };
+            });
+            if (report.runs[`${engine}-i-plus-one`].coverageError) {
+                fail(`${engine} coverage: ${report.runs[`${engine}-i-plus-one`].coverageError}`, {});
+            }
+            if (!process.argv.includes('--i-plus-one-only')) {
+                for (const theme of Object.keys(THEMES)) await checkScenario(browser, engine, theme);
+            }
+        } catch (error) {
+            fail(`${engine}: ${error.message}`, {});
         } finally {
             await browser.close();
         }

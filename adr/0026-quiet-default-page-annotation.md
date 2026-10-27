@@ -24,6 +24,7 @@ What the evidence says, in short:
 
 ## Consequences
 
+- The i+1 wash belongs to the status underline channel (Status, JPDB or review); Pitch and Off hide it without removing the mining insight used by coverage and Batch Mine.
 - The projection infers from values, which ADR-0012 warns against. It is bounded: four groups, only their exact 2.0 values, and only where the ledger holds no declaration. A learner who chose pitch underlines before the ledger existed (before 1.8.37), or through a surface that never declared, gets the new default once and can choose pitch again; that choice is then declared and kept.
 - Smokes that set one of these keys get it declared by the harness (`ANNOTATION_DEFAULT_KEYS_SMOKES_DECLARE`), so they test what they set. `scripts/annotation-typography-smoke.mjs` checks the default look in Chromium and WebKit.
 - The Balanced appearance preset is the default look, its hidden reading and colour groups included; Focus on new words is the default look with only new words underlined.

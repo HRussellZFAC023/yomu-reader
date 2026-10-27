@@ -38,6 +38,8 @@ No. Until you install one, Jiten's free online dictionary splits each page into 
 
 Readings stay visible until a study source tells よむ which words you know. Known and due words lose their readings; missed words keep them. Underlines are solid for new or missed words, dashed while learning, and dotted when due. Known words stay plain.
 
+The i+1 wash marks the only unknown word in a sentence; choosing Pitch or Off under Underline hides it without changing the coverage count.
+
 Readings follow the page’s typeface and scale with its text, with stronger contrast for small kana.
 
 Ignored words keep the page’s text colour and full contrast by default. To show their state markings, untick Ignored under Settings → Appearance → Hide color for.
