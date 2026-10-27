@@ -14579,6 +14579,16 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       element.textContent = html;
     }
   }
+  function setStaticTemplateHtml(element, html) {
+    try {
+      const template = element.ownerDocument.createElement("template");
+      template.innerHTML = trustedHtml(html);
+      hydratePrivateElementState(template.content);
+      htmlReplacementTarget(element).replaceChildren(template.content);
+    } catch {
+      setInnerHtml(element, html);
+    }
+  }
   function parseHtmlDocument(html) {
     const parsed = parseHtmlWithDomParser(html);
     if (parsed) return parsed;
@@ -92796,7 +92806,7 @@ ${reading}`);
   }
   function indexNamedControls(form) {
     const byName = /* @__PURE__ */ new Map();
-    form.querySelectorAll("input, select, textarea").forEach((control) => {
+    form.querySelectorAll("input[name], select[name], textarea[name]").forEach((control) => {
       const existing = byName.get(control.name);
       if (existing) existing.push(control);
       else byName.set(control.name, [control]);
@@ -92808,6 +92818,11 @@ ${reading}`);
     return Array.from(form.querySelectorAll("input, select, textarea")).filter((control) => control.name === name);
   }
   function getNamedControl(form, name) {
+    if (activeNamedControls?.form === form) {
+      const named = activeNamedControls.byName.get(name) ?? [];
+      const item2 = named.length === 1 ? named[0] : named.find((control) => control instanceof HTMLInputElement);
+      return item2 ?? null;
+    }
     const item = form.elements.namedItem(name);
     if (item instanceof HTMLInputElement || item instanceof HTMLSelectElement || item instanceof HTMLTextAreaElement) {
       return item;
@@ -95851,12 +95866,11 @@ ${reading}`);
       this.previewBaseline.adoptLive(settings2);
     }
     runPostCommitSettingsEffect(label, effect) {
+      const report = (error) => log$a.warn(`Post-persistence ${label} failed`, { error });
       try {
-        void Promise.resolve(effect()).catch((error) => {
-          log$a.warn(`Post-persistence ${label} failed`, { error });
-        });
+        void Promise.resolve(effect()).catch(report);
       } catch (error) {
-        log$a.warn(`Post-persistence ${label} failed`, { error });
+        report(error);
       }
     }
     createSettingsForm(panel) {
@@ -95867,7 +95881,7 @@ ${reading}`);
       form.setAttribute("aria-modal", "true");
       form.setAttribute("aria-label", SETTINGS_TITLE);
       form.tabIndex = -1;
-      setInnerHtml(form, renderSettingsForm(this.settings, JPDB_SETTINGS_URL, JITEN_SETTINGS_URL, COLLAPSED_CATALOG_BROWSE_RENDER));
+      setStaticTemplateHtml(form, renderSettingsForm(this.settings, JPDB_SETTINGS_URL, JITEN_SETTINGS_URL, COLLAPSED_CATALOG_BROWSE_RENDER));
       localizeSettingsForm(form, this.settings.interfaceLanguage);
       if (panel) activateSettingsPanel(form, panel);
       return form;

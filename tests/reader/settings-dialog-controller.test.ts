@@ -307,6 +307,28 @@ function expectInterfaceLanguagePreview(
 }
 
 
+
+
+
+describe('settings dialog static template', () => {
+    afterEach(() => resetSettingsDialogTestEnvironment());
+    it('keeps imported labels inert and consumes private control tokens before mounting', () => {
+        const label = '"><img id=x onerror=1>';
+        const configured = {
+            ...DEFAULT_SETTINGS,
+            dictionaryLookupLinks: [...DEFAULT_SETTINGS.dictionaryLookupLinks, {
+                id: 'escaped-label', label, urlTemplate: 'https://example.test/{term}',
+                enabled: true, priority: 100,
+            }],
+        };
+        const { form } = createSettingsDialog({ getSettings: () => configured });
+        const labels = [...form.querySelectorAll<HTMLInputElement>('input[name^="dictionaryLookupLinks."][name$=".label"]')];
+        expect(labels.some(input => input.value === label)).toBe(true);
+        expect(form.querySelector('#x, script, [onerror], [onload]')).toBeNull();
+        expect(form.querySelector('[data-yomu-private-token]')).toBeNull();
+    });
+});
+
 describe('settings dialog sensitive-surface boundary', () => {
     afterEach(() => {
         resetSettingsDialogTestEnvironment();
