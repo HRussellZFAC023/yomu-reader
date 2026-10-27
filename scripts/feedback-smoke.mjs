@@ -1540,9 +1540,10 @@ async function enterHostedInlineFullscreenFallback(page) {
     await page.waitForFunction(() => {
         const stage = document.querySelector('[data-yomu-video-frame]');
         const root = document.querySelector('.jpdb-subtitle-player');
+        // The caption layer belongs to the player (ADR-0033), so the CSS
+        // fullscreen stage hosts the subtitle root, as native fullscreen does.
         return stage?.getAttribute('data-yomu-inline-fullscreen') === 'true'
-            && root?.parentElement === document.body
-            && !stage.contains(root)
+            && root?.parentElement === stage
             && root?.classList.contains('jpdb-subtitle-fullscreen')
             && !root?.classList.contains('jpdb-subtitle-video-out-of-view');
     }, null, { timeout: 6000 });
@@ -1582,9 +1583,6 @@ async function readHostedFullscreenPausedOcrTapState(page) {
         function hasParent(element, parent) {
             return element instanceof Element && element.parentElement === parent;
         }
-        function containsElement(parent, child) {
-            return parent instanceof Element && child instanceof Element && parent.contains(child);
-        }
         function publicRasterSourceExposed(element) {
             return !(element instanceof Element) || /(?:data:|blob:|\bsrc=)/iu.test(element.outerHTML);
         }
@@ -1597,8 +1595,7 @@ async function readHostedFullscreenPausedOcrTapState(page) {
         return {
             stageInline: attribute(stage, 'data-yomu-inline-fullscreen'),
             stageActive: hasAttribute(stage, 'data-fullscreen-active'),
-            rootParentIsBody: hasParent(root, document.body),
-            stageContainsRoot: containsElement(stage, root),
+            rootParentIsStage: hasParent(root, stage),
             rootFullscreenClass: hasClass(root, 'jpdb-subtitle-fullscreen'),
             rootOutOfView: hasClass(root, 'jpdb-subtitle-video-out-of-view', true),
             railActions: [...document.querySelectorAll('.jpdb-subtitle-rail button')].map(button => button.getAttribute('data-action')),
@@ -1620,8 +1617,7 @@ function hostedFullscreenPausedOcrReady(state) {
     return [
         state.stageInline === 'true',
         state.stageActive === true,
-        state.rootParentIsBody,
-        !state.stageContainsRoot,
+        state.rootParentIsStage,
         state.rootFullscreenClass,
         !state.rootOutOfView,
         // The rail is transport-free (no fullscreen/playback buttons); the
@@ -1663,12 +1659,19 @@ async function readHostedFullscreenSubtitleState(page) {
             stageInline: stage?.getAttribute('data-yomu-inline-fullscreen') ?? null,
             stageActive: stage?.hasAttribute('data-fullscreen-active') ?? false,
             rootParentIsStage: Boolean(stage && root?.parentElement === stage),
-            rootParentIsBody: root?.parentElement === document.body,
-            stageContainsRoot: Boolean(stage && root && stage.contains(root)),
             rootFullscreenClass: root?.classList.contains('jpdb-subtitle-fullscreen') ?? false,
             rootOutOfView: root?.classList.contains('jpdb-subtitle-video-out-of-view') ?? true,
             rootRect: rect(root),
             stageRect: rect(stage),
+            lineRect: rect(line),
+            // Hit-test the cue's centre: the caption must paint above the
+            // video, not merely sit inside the stage's box.
+            lineOnTop: (() => {
+                const box = line?.getBoundingClientRect();
+                if (!box?.width || !box.height) return false;
+                const hit = document.elementFromPoint(box.left + box.width / 2, box.top + box.height / 2);
+                return Boolean(hit && root?.contains(hit));
+            })(),
             panelHidden: panel?.hidden ?? null,
             // Base text only: furigana annotations (rt readings and their rp
             // parens) are legitimate in the cue line — the contract is that
@@ -1696,7 +1699,8 @@ function hostedFullscreenSubtitleReady(state) {
         && state.toggleVisible
         && includesText(state.toggleLabel, 'Exit fullscreen')
         && includesText(state.lineText, '猫を見る')
-        && fullscreenRectFillsViewport(state);
+        && fullscreenRectFillsViewport(state)
+        && fullscreenCueVisibleInsideStage(state);
 }
 
 function hostedInlineFullscreenSubtitleReady(state) {
@@ -1704,8 +1708,7 @@ function hostedInlineFullscreenSubtitleReady(state) {
         && state.documentInlineClass
         && state.stageInline === 'true'
         && state.stageActive === true
-        && state.rootParentIsBody
-        && !state.stageContainsRoot
+        && state.rootParentIsStage
         && state.rootFullscreenClass
         && !state.rootOutOfView
         && state.panelHidden === true
@@ -1713,7 +1716,8 @@ function hostedInlineFullscreenSubtitleReady(state) {
         && includesText(state.toggleLabel, 'Exit fullscreen')
         && includesText(state.lineText, '猫を見る')
         && fullscreenStageFillsViewport(state)
-        && fullscreenRootFitsInsideStage(state);
+        && fullscreenRootFitsInsideStage(state)
+        && fullscreenCueVisibleInsideStage(state);
 }
 
 function fullscreenRectFillsViewport(state) {
@@ -1744,6 +1748,17 @@ function fullscreenRootFitsInsideStage(state) {
         && root.top >= stage.top - 1
         && root.right <= stage.right + 1
         && root.bottom <= stage.bottom + 1;
+}
+
+function fullscreenCueVisibleInsideStage(state) {
+    const line = state.lineRect;
+    const stage = state.stageRect;
+    if (!line?.width || !line.height || !stage) return false;
+    return state.lineOnTop
+        && line.left >= Math.max(stage.left, 0) - 1
+        && line.top >= Math.max(stage.top, 0) - 1
+        && line.right <= Math.min(stage.right, state.viewport.width) + 1
+        && line.bottom <= Math.min(stage.bottom, state.viewport.height) + 1;
 }
 
 async function readHostedSubtitleStyleMobileState(page) {

@@ -46,6 +46,12 @@ describe('host CSS armour', () => {
         expect(hostCssArmour('.jpdb-reader-word-pills{padding:4px;width:100%}')).toBe('');
     });
 
+    it('keeps the popup example target padding from the shipped sheet', () => {
+        const sheet = readFileSync(path.join(process.cwd(), 'src/reader/styles/immersion-study.css'), 'utf8');
+        expect(hostCssArmour(sheet).replace(/\s+/g, ' '))
+            .toMatch(/\.jpdb-reader-word\.jpdb-reader-example-target:where\([^)]*\)\s*\{[^}]*padding: ?0 0\.08em ?!important/);
+    });
+
     it('restricts grouped box selectors to the annotation shells and leaves pseudos alone', () => {
         const selector = '.jpdb-subtitle-row-text :is(ruby,rt,.jpdb-reader-furi,.jpdb-reader-ruby-base)';
         expect(hostCssArmour(`${selector}{max-width:100%}`))
@@ -74,6 +80,17 @@ describe('host CSS armour', () => {
             }
         }
         expect(conflicts).toEqual([]);
+    });
+
+    it('keeps bulk style writes off annotation shells, where the check above cannot see them', () => {
+        // Object.assign(word.style, {...}) hid a width/height write from that check, and
+        // the layered reset silently resized the desktop overlay's provider-pinned words.
+        // An owner that must size a word writes it with `important` priority instead
+        // (gaming/renderer/ocr-lines.ts pinWordBox), which outranks the reset.
+        const bulkWriters = runtimeSources()
+            .filter(({ source }) => /Object\.assign\(\s*(?:word|base|run|span)\.style\b/u.test(source))
+            .map(({ file }) => path.relative(SRC_ROOT, file));
+        expect(bulkWriters).toEqual([]);
     });
 
     it('mirrors a Yomu paint declaration into a cascade layer as !important', () => {

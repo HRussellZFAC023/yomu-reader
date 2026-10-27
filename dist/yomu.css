@@ -6456,7 +6456,9 @@ html.jpdb-reader-sheet-close-left .jpdb-reader-sheet-close {
 .jpdb-reader-example-sentence .jpdb-reader-word.jpdb-reader-has-furi {
   line-height: 2;
 }
-.jpdb-reader-example-target {
+/* Naming the word shell lets the host armour keep this padding (W1-46). */
+.jpdb-reader-example-target,
+.jpdb-reader-word.jpdb-reader-example-target {
   padding: 0 0.08em;
   border-radius: 0.22em;
   background: var(
@@ -12283,7 +12285,19 @@ html.jpdb-subtitle-yt-sheet-open .asbplayer-subtitles-container-bottom.jpdb-subt
 .jpdb-subtitle-primary .jpdb-reader-word rt.jpdb-reader-furi {
   display: block !important;
   align-self: start;
-  transform: translateY(-100%);
+  /* The reading shares the base's grid cell and is pulled up by its own height
+     (line-height 1 makes that 1em) plus .3em of clear space. Its margin box is
+     then negative, so it adds no height and the baseline stays put.
+     The .3em matters: flush against the base box, the reading sat one pixel row
+     above the kanji's ink at 20px in WebKit, and its outline darkened the kanji.
+     .3em restores about the room 2.1.6's native ruby left in WebKit.
+     Use a margin, not a transform. translateY leaves the reading at a fraction
+     of a device pixel, where text is not snapped, so the kana and their thin
+     outline blur across rows. In Blink at 20px that cut the contrast under the
+     reading from 17.6 to 4.2. Measured by
+     scripts/subtitle-furigana-outline-scale-smoke.mjs. */
+  line-height: 1;
+  margin-top: -1.3em;
   text-align: center;
 }
 /* Second selector matches the same element in light mode at higher specificity

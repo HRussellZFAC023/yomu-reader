@@ -388,17 +388,25 @@ function placeProviderWords(root: ParentNode, frame: OcrOverlayFrame): void {
             offset = start + text.length;
             const box = providerSpanBox(source, words, start, offset, line.dataset.vertical === 'true');
             if (!box) continue;
-            word.style.position = 'absolute';
+            pinWordBox(word, { position: 'absolute' });
             const origin = (word.offsetParent ?? line).getBoundingClientRect();
-            Object.assign(word.style, {
+            pinWordBox(word, {
                 left: `${frame.imageLeft + box.left * frame.imageWidth - origin.left}px`,
                 top: `${frame.imageTop + box.top * frame.imageHeight - origin.top}px`,
                 width: `${box.width * frame.imageWidth}px`, height: `${box.height * frame.imageHeight}px`,
-                minWidth: '0', minHeight: '0', padding: '0', margin: '0', transform: 'none', overflow: 'hidden' });
-            word.style.setProperty('pointer-events', 'auto', 'important');
+                'min-width': '0', 'min-height': '0', padding: '0', margin: '0', transform: 'none', overflow: 'hidden',
+                'pointer-events': 'auto' });
             for (const visual of word.querySelectorAll<HTMLElement>('*')) visual.style.setProperty('pointer-events', 'none', 'important');
         }
     }
+}
+
+// The reader's annotation-box reset (styles/annotation-box-armour.ts) holds every
+// word at width/height auto with a layered !important, which outranks a plain
+// inline style: an unprioritized size here fell back to the font's own advances.
+// Only an inline !important outranks it, so the provider box stays the hit target.
+function pinWordBox(word: HTMLElement, declarations: Record<string, string>): void {
+    for (const [property, value] of Object.entries(declarations)) word.style.setProperty(property, value, 'important');
 }
 
 /** Reader contrast updates can write inline !important paint; the desktop owns a hit layer. */

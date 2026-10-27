@@ -112,12 +112,23 @@ const WORDS = [
     { base: '志', reading: 'こころざ', okurigana: 'す' },
     { base: '承', reading: 'うけたまわ', okurigana: 'る' },
     { base: '見', reading: 'み', okurigana: 'る' },
-].map(word => ({ ...word, label: `${word.base}${word.okurigana}` }));
+].map(word => ({
+    ...word,
+    label: `${word.base}${word.okurigana}`,
+    // yomuRubyHtml's classes (dom/yomu-ruby.ts, dom/ruby-overhang.ts): a reading
+    // more than twice as long as its base may overhang, and every word here
+    // starts with its annotated kanji.
+    rubyClass: Array.from(word.reading).length > 2 * Array.from(word.base).length
+        ? 'jpdb-reader-ruby jpdb-reader-ruby-overhang jpdb-reader-ruby-at-start'
+        : 'jpdb-reader-ruby',
+}));
 
 // How much of the clear space between the reading's ink and the base glyph's ink
 // the outline may spend, as a fraction of the space THAT word, size and engine
 // actually measured. It has to be per-measurement, because the space is neither
-// size-invariant nor word-invariant. Measured on the shipped stylesheet:
+// size-invariant nor word-invariant. Measured on the 2.1.6 stylesheet, which
+// used native ruby layout (2.2.0's lifted grid reading measures 0.43-0.55em in
+// both engines):
 //
 //   * per word, same 28px cue, Blink: 続ける 0.246em, 承る 0.246em, 見る 0.246em,
 //     志す 0.185em. A wide reading sits lower over its kanji.
@@ -176,21 +187,39 @@ const VIDEO_BACKDROP = '#808080';
 // container chain. The okurigana is deliberately NOT wrapped in a span — its
 // column is located with a Range, so the control column is untouched product
 // markup rather than a probe the stylesheet could style differently.
+//
+// The ruby carries its real class. The generic `:where(.jpdb-reader-ruby) > rt`
+// rule sets the reading's line-height, and that decides how far the reading
+// sits above the kanji. A bare <ruby> measured more clearance than the product
+// has.
+//
+// `jpdb-subtitle-has-primary` is the state class reconcileSubtitlePrimaryRow
+// (src/reader/subtitles/subtitle-rendering.ts) puts on the lines host whenever a
+// cue is showing; without it the stylesheet hides the whole primary row.
+//
+// The cue backdrop is turned off. The product default is a 75% black panel
+// behind the Japanese line, but the learner can set its opacity to 0, and then
+// the outline is all that stands between the reading and the footage. That is
+// the case this smoke protects. Over the default panel every sample would sit
+// on near-black, which would weaken the reach, wash and legibility signals
+// without anything failing.
+const HIDE_READING = '.jpdb-subtitle-primary .jpdb-reader-furi { visibility: hidden !important; }';
+const NO_OUTLINE = '.jpdb-subtitle-text, .jpdb-subtitle-primary .jpdb-reader-word, .jpdb-subtitle-primary .jpdb-reader-furi { text-shadow: none !important; -webkit-text-stroke: 0 !important; }';
 const fixture = (word, size, backdrop, mode) => `<!doctype html>
 <html><head><meta charset="utf-8"><style>${css}
   html, body { margin: 0; padding: 0; background: ${backdrop}; }
-  .jpdb-subtitle-player { --subtitle-font-size-target: ${size}px; }
+  .jpdb-subtitle-player { --subtitle-font-size-target: ${size}px; --subtitle-background-rgba: transparent; }
   .jpdb-subtitle-text { left: 40px; right: auto; bottom: auto; top: 200px; text-align: left; }
   .probe { display: inline-block; width: 0; height: 0; vertical-align: baseline; }
-  ${mode === 'control' ? '.jpdb-subtitle-primary .jpdb-reader-furi { visibility: hidden !important; }' : ''}
-  ${mode === 'ink' ? '.jpdb-subtitle-text, .jpdb-subtitle-primary .jpdb-reader-word, .jpdb-subtitle-primary .jpdb-reader-furi { text-shadow: none !important; -webkit-text-stroke: 0 !important; }' : ''}
+  ${mode === 'control' || mode === 'base-ink' ? HIDE_READING : ''}
+  ${mode === 'ink' || mode === 'base-ink' ? NO_OUTLINE : ''}
   ${mode === 'reference' ? `.jpdb-subtitle-primary .jpdb-reader-furi { text-shadow: ${OWNER_TUNED_REFERENCE_SHADOW} !important; }` : ''}
 </style></head>
 <body>
-  <div class="jpdb-subtitle-player"><div class="jpdb-subtitle-text"><div class="jpdb-subtitle-lines">
+  <div class="jpdb-subtitle-player"><div class="jpdb-subtitle-text"><div class="jpdb-subtitle-lines jpdb-subtitle-has-primary">
     <div class="jpdb-subtitle-primary-row"><div class="jpdb-subtitle-primary"><span
       class="jpdb-reader-word jpdb-reader-has-furi" id="word" data-expression="${word.label}"
-      ><ruby><span class="jpdb-reader-ruby-base" id="annotated">${word.base}</span><rp>(</rp><rt
+      ><ruby class="${word.rubyClass}"><span class="jpdb-reader-ruby-base" id="annotated">${word.base}</span><rp>(</rp><rt
       class="jpdb-reader-furi" id="reading">${word.reading}</rt><rp>)</rp></ruby>${word.okurigana}<span class="probe" id="probe"></span></span></div></div>
   </div></div></div>
 </body></html>`;
@@ -257,27 +286,43 @@ function fail(context, message, detail) {
     throw new Error(`${context}: ${message}\n${JSON.stringify(detail, null, 2)}`);
 }
 
+function assertLayoutIdentical(context, painted, hidden) {
+    for (const part of ['annotated', 'okurigana', 'reading']) {
+        for (const edge of ['left', 'right', 'top', 'bottom']) {
+            if (Math.abs(painted.geometry[part][edge] - hidden.geometry[part][edge]) > 0.01) {
+                fail(context, `hiding the reading moved the ${part} box's ${edge} edge, so the control is not layout-identical and the wash subtraction would be measuring layout, not ink`, { painted: painted.geometry[part], control: hidden.geometry[part] });
+            }
+        }
+    }
+}
+
 async function measure(page, word, size, context) {
     const painted = await shoot(page, word, size, VIDEO_BACKDROP, 'paint');
+    // A zero box means the stylesheet hid the cue, not that the reading lost its
+    // colour. Name that here so the ink check below is not misread.
+    for (const part of ['annotated', 'reading']) {
+        if (!painted.geometry[part].width || !painted.geometry[part].height) {
+            fail(context, `the ${part} box is empty, so the stylesheet is not displaying the cue; the fixture markup has drifted from what subtitle-rendering.ts emits`, painted.geometry[part]);
+        }
+    }
     // Layout-identical control: the reading still occupies its annotation box,
     // it just paints nothing. Everything geometric therefore cancels in the
     // subtraction instead of being modelled.
     const control = await shoot(page, word, size, VIDEO_BACKDROP, 'control', painted.box);
     // Black backdrop with every outline off: only real glyph pixels are bright,
     // which is what defines where the reading ends and each base glyph begins.
+    // The second shot also hides the reading. The subtitle reading's box ends
+    // exactly where the base box starts, so the pixel row on that boundary can
+    // hold base ink; "bright with the reading, dark without it" is the only
+    // exact way to tell the reading's ink from the kanji's.
     const inked = await shoot(page, word, size, '#000000', 'ink', painted.box);
+    const baseInked = await shoot(page, word, size, '#000000', 'base-ink', painted.box);
     // `reading` is in this list on purpose: a control that removed the reading
     // from layout instead of merely un-painting it (display:none, or a future
     // stylesheet that collapses an empty rt) leaves the base glyphs in place in
     // Blink, so the box check would pass while every wash and reach number
     // silently collapsed to zero. The reading's own box is the one that moves.
-    for (const part of ['annotated', 'okurigana', 'reading']) {
-        for (const edge of ['left', 'right', 'top', 'bottom']) {
-            if (Math.abs(painted.geometry[part][edge] - control.geometry[part][edge]) > 0.01) {
-                fail(context, `hiding the reading moved the ${part} box's ${edge} edge, so the control is not layout-identical and the wash subtraction would be measuring layout, not ink`, { painted: painted.geometry[part], control: control.geometry[part] });
-            }
-        }
-    }
+    for (const hidden of [control, baseInked]) assertLayoutIdentical(context, painted, hidden);
 
     const { width, height } = inked.pixels;
     const readingEm = painted.geometry.readingFontSize;
@@ -287,13 +332,15 @@ async function measure(page, word, size, context) {
     ];
     const [kanjiBoxLeft, kanjiBoxRight] = column(painted.geometry.annotated);
     const [okuriBoxLeft, okuriBoxRight] = column(painted.geometry.okurigana);
-    const rowHasInk = (y, from, to) => {
-        for (let x = from; x < to; x += 1) if (inked.pixels.out[y * width + x] > 60) return true;
+    const isBaseInk = (x, y) => baseInked.pixels.out[y * width + x] > 60;
+    const isReadingInk = (x, y, threshold = 60) => inked.pixels.out[y * width + x] > threshold && !isBaseInk(x, y);
+    const rowHas = (isInk, y, from, to) => {
+        for (let x = from; x < to; x += 1) if (isInk(x, y)) return true;
         return false;
     };
     const readingBoxBottom = Math.round(painted.geometry.reading.bottom) - painted.box.y;
     let readingInkBottom = -1;
-    for (let y = 0; y <= readingBoxBottom; y += 1) if (rowHasInk(y, 0, width)) readingInkBottom = y;
+    for (let y = 0; y <= readingBoxBottom; y += 1) if (rowHas(isReadingInk, y, 0, width)) readingInkBottom = y;
     if (readingInkBottom < 0) fail(context, 'the reading painted no ink at all, so the fixture stopped rendering the annotation', {});
 
     // Partition the base line into two columns that share no pixel. Two engine
@@ -314,8 +361,8 @@ async function measure(page, word, size, context) {
         let last = -1;
         for (let x = from; x < to; x += 1) {
             let hasInk = false;
-            for (let y = readingInkBottom + 1; y < height; y += 1) {
-                if (inked.pixels.out[y * width + x] > 60) { hasInk = true; break; }
+            for (let y = 0; y < height; y += 1) {
+                if (isBaseInk(x, y)) { hasInk = true; break; }
             }
             if (hasInk) {
                 if (first < 0) first = x;
@@ -334,12 +381,12 @@ async function measure(page, word, size, context) {
     let kanjiInkBottom = -1;
     let okuriInkTop = -1;
     let okuriInkBottom = -1;
-    for (let y = readingInkBottom + 1; y < height; y += 1) {
-        if (rowHasInk(y, kanjiLeft, kanjiRight)) {
+    for (let y = 0; y < height; y += 1) {
+        if (rowHas(isBaseInk, y, kanjiLeft, kanjiRight)) {
             if (kanjiInkTop < 0) kanjiInkTop = y;
             kanjiInkBottom = y;
         }
-        if (rowHasInk(y, okuriLeft, okuriRight)) {
+        if (rowHas(isBaseInk, y, okuriLeft, okuriRight)) {
             if (okuriInkTop < 0) okuriInkTop = y;
             okuriInkBottom = y;
         }
@@ -461,7 +508,7 @@ async function measure(page, word, size, context) {
         const bottom = Math.min(height - 1, Math.ceil(render.geometry.reading.bottom) - render.box.y + 8);
         const left = Math.max(1, Math.floor(render.geometry.reading.left) - render.box.x - 8);
         const right = Math.min(width - 1, Math.ceil(render.geometry.reading.right) - render.box.x + 8);
-        const isInk = (x, y) => inked.pixels.out[y * width + x] > 140 && y <= readingInkBottom;
+        const isInk = (x, y) => y <= readingInkBottom && isReadingInk(x, y, 140);
         const probeReach = Math.max(2, Math.round(readingEm * 0.28));
         const rays = { up: [], down: [], left: [], right: [] };
         const body = [];
