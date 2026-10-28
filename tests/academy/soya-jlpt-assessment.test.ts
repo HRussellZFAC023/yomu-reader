@@ -1,4 +1,4 @@
-// Inputs passed to generic file/hash readers by this test.
+// Filesystem inputs owned by this test.
 // @vitest-environment node
 import fs from 'node:fs';
 import path from 'node:path';
@@ -25,7 +25,7 @@ import {
     validateSoyaJlptAssessmentCrosswalk,
 } from '../../src/academy/assessment/soya-jlpt-crosswalk';
 import { ORIENTATION_MOCK_ITEMS } from '../../src/academy/placement/orientation';
-import { sha256File } from './helpers/hash-memo';
+import { sha256Bytes } from './helpers/asset-hash';
 
 describe('Soya JLPT assessment package', () => {
     it('registers a complete N5-N1 bank with two items per receptive skill', () => {
@@ -72,7 +72,7 @@ describe('Soya JLPT assessment package', () => {
         if (!present.length) return;
         expect(present).toHaveLength(SOYA_JLPT_SOURCE_CROSSWALK.length);
         for (const record of present) {
-            expect(sha256File(path.join(repositoryParent, record.snapshotRoot, record.relativePath)), record.id).toBe(record.sha256);
+            expect(sha256Bytes(fs.readFileSync(path.join(repositoryParent, record.snapshotRoot, record.relativePath))), record.id).toBe(record.sha256);
         }
     });
 

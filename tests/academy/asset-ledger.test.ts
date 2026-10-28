@@ -1,12 +1,12 @@
 // Filesystem/subprocess inputs, including generic helpers called by this test.
-// @yomu-reads scripts/** public/academy/art/** docs/academy/**
+// @yomu-reads scripts/** public/academy/art/** docs/public/academy/art/** docs/academy/**
 import { execFileSync } from 'node:child_process';
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { ACADEMY_ASSETS, ACADEMY_RUNTIME_ASSET_REGISTRY } from '../../src/academy/assets';
-import { sha256File } from './helpers/hash-memo';
+import { sha256Bytes } from './helpers/asset-hash';
 
 interface AssetDelivery {
     readonly path: string;
@@ -53,7 +53,7 @@ describe('Academy runtime asset ledger', () => {
         for (const delivery of deliveries) {
             const file = path.resolve('public', delivery.path.replace(/^\//, ''));
             expect(fs.existsSync(file), `missing ${delivery.path}`).toBe(true);
-            const digest = sha256File(file);
+            const digest = sha256Bytes(fs.readFileSync(file));
             expect(digest, delivery.path).toBe(delivery.sha256);
         }
     });
@@ -415,7 +415,7 @@ describe('Academy runtime asset ledger', () => {
         for (const root of ['public', 'docs/public']) {
             const file = path.resolve(root, rejectedPath.replace(/^\//, ''));
             if (fs.existsSync(file)) {
-                expect(sha256File(file), `local recovered review evidence ${file}`)
+                expect(sha256Bytes(fs.readFileSync(file)), `local recovered review evidence ${file}`)
                     .toBe(review.rejection.outputSha256);
             }
         }

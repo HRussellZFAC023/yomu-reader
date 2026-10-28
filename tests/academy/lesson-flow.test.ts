@@ -1,4 +1,4 @@
-// Inputs passed to generic file/hash readers by this test.
+// Filesystem inputs owned by this test.
 // @yomu-reads public/academy/content/lessons/**
 import fs from 'node:fs';
 import path from 'node:path';
@@ -23,7 +23,7 @@ import { transitionAcademyRoute } from '../../src/academy/routing/route-history'
 import type { RepeatRequestCoverageState } from '../../src/academy/content/lesson-zero-repeat-request-coverage';
 import type { AcademyRouteContext } from '../../src/academy/routing/types';
 import type { AcademyShell } from '../../src/academy/ui/shell';
-import { sha256File } from './helpers/hash-memo';
+import { sha256Bytes } from './helpers/asset-hash';
 import { getAuthoredWeekRegistration } from '../../src/academy/content/lesson-content-registry';
 import { validateCommittedAuthoredWeek } from './helpers/authored-week-package';
 
@@ -1502,7 +1502,7 @@ describe('Academy lesson flow', () => {
         const saved = {
             authoredWeekProgress: {
                 'l1-l01': {
-                    sourceSha256: sha256File(path.resolve('public/academy/content/lessons/002-l1-l01.json')),
+                    sourceSha256: sha256Bytes(fs.readFileSync(path.resolve('public/academy/content/lessons/002-l1-l01.json'))),
                     savedAt: 1,
                     position: {
                         phase: 'question' as const,
@@ -1577,7 +1577,7 @@ describe('Academy lesson flow', () => {
                     : LESSON_PATH;
             return new Response(fs.readFileSync(sourcePath), { status: 200, headers: { 'content-type': 'application/json' } });
         }));
-        const sourceSha256 = sha256File(path.resolve('public/academy/content/lessons/002-l1-l01.json'));
+        const sourceSha256 = sha256Bytes(fs.readFileSync(path.resolve('public/academy/content/lessons/002-l1-l01.json')));
         const saved = {
             authoredWeekProgress: {
                 'l1-l01': {
@@ -1649,7 +1649,7 @@ describe('Academy lesson flow', () => {
         const route = context('authored-week:l1-l01', {
             authoredWeekProgress: {
                 'l1-l01': {
-                    sourceSha256: sha256File(path.resolve('public/academy/content/lessons/002-l1-l01.json')),
+                    sourceSha256: sha256Bytes(fs.readFileSync(path.resolve('public/academy/content/lessons/002-l1-l01.json'))),
                     savedAt: 3,
                     position: { phase: 'question', activityId },
                 },
@@ -1697,7 +1697,7 @@ describe('Academy lesson flow', () => {
         const route = context('authored-week:l1-l01', {
             authoredWeekProgress: {
                 'l1-l01': {
-                    sourceSha256: sha256File(path.resolve('public/academy/content/lessons/002-l1-l01.json')),
+                    sourceSha256: sha256Bytes(fs.readFileSync(path.resolve('public/academy/content/lessons/002-l1-l01.json'))),
                     savedAt: 1,
                     position: { phase: 'complete' },
                 },

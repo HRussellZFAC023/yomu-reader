@@ -1,4 +1,4 @@
-// Inputs passed to generic file/hash readers by this test.
+// Filesystem inputs owned by this test.
 // @yomu-reads public/academy/** docs/public/academy/art/** docs/public/academy/audio/** docs/public/academy/content/**
 import fs from 'node:fs';
 import path from 'node:path';
@@ -10,7 +10,7 @@ import {
     LESSON_ZERO_KANA_SEQUENCE,
 } from '../../src/academy/content/lesson-zero-source-material';
 import { createLessonZeroProof } from '../../src/academy/ui/lesson-zero-proof';
-import { filesHaveSameContent, sha256File } from './helpers/hash-memo';
+import { sha256Bytes } from './helpers/asset-hash';
 
 const expressions = {
     neutral: { still: '/rie-neutral.png' },
@@ -490,8 +490,8 @@ describe('Lesson 0 source-led proof', () => {
             expect(urls).toHaveLength(hashes.length);
             for (const [index, url] of urls.entries()) {
                 const relative = url.replace(/^\/academy\//u, 'academy/');
-                expect(sha256File(path.resolve('public', relative))).toBe(hashes[index]);
-                expect(filesHaveSameContent(path.resolve('docs/public', relative), path.resolve('public', relative))).toBe(true);
+                expect(sha256Bytes(fs.readFileSync(path.resolve('public', relative)))).toBe(hashes[index]);
+                expect(fs.readFileSync(path.resolve('docs/public', relative)).equals(fs.readFileSync(path.resolve('public', relative)))).toBe(true);
             }
         }
     });

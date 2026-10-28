@@ -1,4 +1,4 @@
-// Inputs passed to generic file/hash readers by this test.
+// Filesystem inputs owned by this test.
 // @yomu-reads public/academy/content/lessons/**
 import fs from 'node:fs';
 import path from 'node:path';
@@ -25,13 +25,13 @@ import {
 } from '../../src/reader/study/grammar-knowledge';
 import { renderGrammarHints, type GrammarHint } from '../../src/reader/study/tools-impl';
 import { YOMU_GRAMMAR_REGISTRY } from '../../src/reader/study/grammar-registry';
-import { sha256File } from './helpers/hash-memo';
+import { sha256Bytes } from './helpers/asset-hash';
 
 function firstWeek() {
     const file = path.resolve('public/academy/content/lessons/002-l1-l01.json');
     const bytes = fs.readFileSync(file);
     return {
-        source: { path: file, sha256: sha256File(file) },
+        source: { path: file, sha256: sha256Bytes(fs.readFileSync(file)) },
         json: JSON.parse(bytes.toString('utf8')) as {
             components: Array<{ exercises?: Array<{ id: string; options?: Array<{ id: string; correct: boolean }> }> }>;
         },

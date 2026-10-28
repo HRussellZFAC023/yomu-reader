@@ -1,4 +1,4 @@
-// Inputs passed to generic file/hash readers by this test.
+// Filesystem inputs owned by this test.
 // @yomu-reads public/academy/content/lessons/**
 import fs from 'node:fs';
 import path from 'node:path';
@@ -7,7 +7,7 @@ import { ACADEMY_ASSESSED_ANSWER_SUPPORT } from '../../src/academy/domain/activi
 import { type AuthoredWeekProgress } from '../../src/academy/domain/authored-week-progress';
 import { type SourceVocabularySheetModel, createAcademyActivityRuntime } from '../../src/academy/minigames';
 import { createAuthoredWeekScreen } from '../../src/academy/ui/authored-week-screen';
-import { sha256File } from './helpers/hash-memo';
+import { sha256Bytes } from './helpers/asset-hash';
 import { loadLessonActivityChapter } from '../../src/academy/content/lesson-activity-catalog';
 import { type KanjiWritingService, type PronunciationService } from '../../src/academy/integration/yomu-bridge';
 import { createLessonActivityExtension } from '../../src/academy/ui/lesson-activity-chapter';
@@ -156,7 +156,7 @@ describe('authored week learner screen', () => {
         const bytes = fs.readFileSync(fixturePath);
         const week = adaptAuthoredWeek(JSON.parse(bytes.toString('utf8')) as unknown, {
             path: fixturePath,
-            sha256: sha256File(fixturePath),
+            sha256: sha256Bytes(bytes),
         });
         const screen = createAuthoredWeekScreen({ language: 'en', week });
         document.body.append(screen.element);
