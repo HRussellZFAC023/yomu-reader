@@ -3,7 +3,7 @@ import { StageCache, outputHashes, selectInputs, readJson, stageKey, writeJson }
 import { runtimeEnv, testEnvironment } from './stage-runner.mjs';
 
 const TEST_INPUTS = ['**', '!docs/.vitepress/dist/**', '!docs/.vitepress/cache/**', '!docs/.vitepress/.temp/**'];
-const FULL_INPUTS = ['package.json', 'package-lock.json', 'vite.config.ts', 'tsconfig*.json', 'config/vite/**', 'config/dictionaries/vitest.config.ts', 'tests/**/setup*', 'scripts/run-ci-*.mjs', 'scripts/lib/ci-*.mjs', 'scripts/lib/test-workers.mjs', 'scripts/lib/affected-tests.mjs', 'scripts/lib/test-selection.mjs', 'scripts/lib/read-targets.mjs', 'scripts/lib/selection-graph.mjs', 'scripts/run-local-tests.mjs', 'config/ci/local-contract-tests.json'];
+const FULL_INPUTS = ['package.json', 'package-lock.json', 'vite.config.ts', 'tsconfig*.json', 'config/vite/**', 'config/dictionaries/vitest.config.ts', 'tests/**/setup*', 'scripts/run-ci-*.mjs', 'scripts/lib/ci-*.mjs', 'scripts/lib/test-workers.mjs', 'scripts/lib/affected-tests.mjs', 'scripts/lib/test-selection.mjs', 'scripts/lib/read-targets.mjs', 'scripts/lib/selection-graph.mjs', 'scripts/run-local-tests.mjs', 'scripts/lib/local-gate-pool.mjs', 'scripts/lib/local-gate-worker.mjs', 'scripts/lib/slot-queue.mjs', 'config/ci/local-contract-tests.json'];
 
 function changedInputs(previous, current) {
     return [...new Set([...Object.keys(previous), ...Object.keys(current)])]

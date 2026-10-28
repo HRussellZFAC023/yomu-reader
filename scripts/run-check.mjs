@@ -1,11 +1,12 @@
 #!/usr/bin/env node
 // Content-addressed local gate. CI always forces the full graph.
+import { randomUUID } from 'node:crypto';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { StageRunner, buildEnv, testEnvironment, cacheOptions } from './lib/stage-runner.mjs';
-import { git, stageKey } from './lib/stage-cache.mjs';
+import { git, stageKey, writeJson } from './lib/stage-cache.mjs';
 import { testPlan, testInputs } from './lib/affected-tests.mjs';
-import { typecheckInputs } from './lib/typecheck-inputs.mjs';
+import { typecheckInputsAsync } from './lib/typecheck-inputs.mjs';
 import { hostedSyncSourceInputs, toolingStageContract, academyBuildInputs, readerBuildInputs } from './lib/gate-inputs.mjs';
 import { selectAffectedTests } from './lib/test-selection.mjs';
 import { captureRetentionInputs } from './lib/content-addressed-retention.mjs';
@@ -23,6 +24,13 @@ let artifactDriftAdvisory = false;
 const startedWithSourceEdits = hasUncommittedSourceEdits(ROOT);
 if (startedWithSourceEdits) console.log('[check] tree has uncommitted edits; artifact drift is advisory. A clean-tree pass is required to prove committed output.');
 const releaseCheck = process.env.YOMU_CHECK_RELEASE === '1';
+const localBudget = Number(process.env.YOMU_CI_MAX_WORKERS ?? process.env.VITEST_MAX_FORKS) || workerBudget();
+const overlapCompiler = !releaseCheck && !options.noCache && localBudget >= 9;
+const parallelAcademy = overlapCompiler && localBudget >= 10;
+const checkSession = randomUUID();
+process.env.YOMU_CHECK_SESSION = checkSession;
+const compilerReservation = reserved => writeJson(join(LOG_DIR, 'compiler-budget.json'), { session: checkSession, reserved });
+compilerReservation(overlapCompiler ? 4 : 0);
 const common = ['scripts/run-check.mjs', 'scripts/lib/affected-tests.mjs'];
 const stage = (name, command, inputs, extra = {}) => ({ name, command, inputs: [...common, ...inputs], ...extra });
 const run = (...args) => runner.run(stage(...args));
@@ -59,12 +67,24 @@ const preflights = [
     run('css-has-invalidation', 'npm run -s check:css-has', ['src/**/*.css', 'scripts/check-css-has-invalidation.mjs', 'scripts/lib/css-has-invalidation.mjs']),
     run('recorded-pages', 'npm run -s check:recorded-pages', ['scripts/fixtures/recorded/**', 'scripts/check-recorded-pages.mjs', 'scripts/lib/recorded-*.mjs']),
 ];
-const build = (async () => {
-    await run('build', 'npm run -s build', buildInputs, {
+const readerBuild = run('build', 'npm run -s build', buildInputs, {
         env: buildEnv,
         restoreOutputs: true, canonicalizesOutputs: true,
         outputs: ['config/dictionaries/published/v1/runtime-catalog.json', 'dist/**', '!dist/academy/**', '!dist/newtab/index.html', '!dist/newtab/sw.js', '!dist/newtab/version.json', '!dist/newtab/manifest.webmanifest'],
+});
+const compileAcademy = async () => {
+    runner.refresh();
+    await run('compile-academy', 'node node_modules/vite/bin/vite.js build --config config/vite/academy.config.ts', academyBuildInputs(ROOT), {
+        restoreOutputs: true, stableInputs: true,
+        outputs: ['dist/academy/**'],
+        env: ['YOMU_CHECK_RELEASE', 'YOMU_ACADEMY_BUILD_DIR'],
     });
+};
+const academyCompilation = parallelAcademy ? compileAcademy() : null;
+// Observe early rejection now; build still awaits and propagates the original.
+if (academyCompilation) academyCompilation.catch(() => {});
+const build = (async () => {
+    await readerBuild;
     runner.refresh();
     const sync = run('sync-docs-userscript', 'node scripts/sync-docs-userscript.cjs', [...syncSources, 'public/newtab/**', 'scripts/**', 'config/**', '!config/ci/content-addressed-retention.json', 'tsconfig*.json', 'docs/public/pdf-reader/**', 'docs/public/video-player/**', 'docs/public/hosted-reader-worker.js'], {
         extra: history,
@@ -74,39 +94,41 @@ const build = (async () => {
         outputs: ['config/ci/content-addressed-retention.json', 'dist/newtab/index.html', 'dist/newtab/sw.js', 'dist/newtab/version.json', 'dist/newtab/manifest.webmanifest', 'docs/public/yomu.user.js', 'docs/public/yomu.css', 'docs/public/yomu.*.css', 'docs/public/greasyfork/**', 'docs/public/study/**', 'docs/public/newtab/**', 'docs/public/hosted-runtime-graph.js', 'docs/public/hosted-appearance-settings.js', 'docs/public/pdf-reader/index.html', 'docs/public/pdf-reader/sw.js', 'docs/public/video-player/index.html', 'docs/public/video-player/sw.js'],
     });
     await sync;
-    await run('build-academy', 'npm run -s build:academy:prevalidated', academyBuildInputs(ROOT), {
+    if (academyCompilation) await academyCompilation;
+    else await compileAcademy();
+    runner.refresh();
+    await run('build-academy', 'node scripts/sync-academy.cjs', ['public/academy/**', 'scripts/sync-academy.cjs', 'scripts/lib/academy-*.cjs'], {
         restoreOutputs: true,
-        diskInputs: ['docs/public/hosted-runtime-graph.js', 'docs/public/yomu.css'],
-        outputs: ['dist/academy/**', 'docs/public/academy/**'],
+        diskInputs: ['docs/public/hosted-runtime-graph.js', 'docs/public/yomu.css', 'dist/academy/**'],
+        outputs: ['docs/public/academy/**'],
         env: ['YOMU_CHECK_RELEASE', 'YOMU_SYNC_ACADEMY_FORCE', 'YOMU_ACADEMY_OUTPUT_DIR', 'YOMU_ACADEMY_BUILD_DIR'],
     });
 })();
-// Five build processes plus four memory slots for tsc's larger heap. Small
-// machines, explicit lower budgets and forced/release checks stay sequential.
-const localBudget = Number(process.env.YOMU_CI_MAX_WORKERS ?? process.env.VITEST_MAX_FORKS) || workerBudget();
-const overlapCompiler = !releaseCheck && !options.noCache && localBudget >= 9;
+// Reader build uses five slots; tsc reserves four. A tenth slot can compile
+// Academy independently. Small/forced/release checks keep the serial graph.
+
 async function sourceRatchets() {
     await run('complexity-ratchet', 'node scripts/complexity-audit.mjs', source, { env: ['YOMU_COMPLEXITY_MAX'] });
     await run('file-size-ratchet', 'node scripts/file-size-audit.mjs', source, { env: ['YOMU_FILE_SIZE_THRESHOLD'] });
     await run('dead-code-ratchet', 'RAYON_NUM_THREADS=1 npm run -s quality:dead-code', all);
 }
-// One remaining memory/CPU slot; tests cannot start until it is released.
-const earlyRatchets = overlapCompiler && localBudget >= 10 ? sourceRatchets() : null;
+// Run source audits after Reader compilation frees its slots.
+const earlyRatchets = parallelAcademy ? readerBuild.then(sourceRatchets) : null;
 const typecheck = (async () => {
-    if (!overlapCompiler) await build;
-    runner.refresh();
-    const inputs = compilerInputs = typecheckInputs(ROOT);
-    await run('typecheck', 'npm run -s typecheck', inputs, {
-        diskInputs: inputs, stableInputs: true, extra: ROOT,
-        // A cache hit must also prime the compiler for the matching source
-        // state, rather than leave incremental state from an undone edit.
-        outputs: ['artifacts/typecheck/tsconfig.tsbuildinfo'], restoreOutputs: true,
-    });
+    try {
+        if (!overlapCompiler) await build;
+        runner.refresh();
+        const inputs = compilerInputs = await typecheckInputsAsync(ROOT);
+        await run('typecheck', 'npm run -s typecheck', inputs, {
+            diskInputs: inputs, stableInputs: true, extra: ROOT,
+            outputs: ['artifacts/typecheck/tsconfig.tsbuildinfo'], restoreOutputs: true,
+        });
+    } finally { compilerReservation(0); }
 })();
 const tests = (async () => {
     // Readers inspect shipped bytes through fs. Plan/key them after writers,
     // never against an old snapshot while build/sync replace their inputs.
-    await Promise.all([typecheck, build, earlyRatchets]);
+    await Promise.all([build, earlyRatchets]);
     const [readerPlan, academyPlan] = localBudget >= 2
         ? await Promise.all([planTests('reader'), planTests('academy')])
         : [await planTests('reader'), await planTests('academy')];
@@ -115,6 +137,7 @@ const tests = (async () => {
             test: true, extra: { reader: readerPlan, academy: academyPlan }, env: testEnv, diskInputs: ['dist/**', 'docs/public/**'],
         });
     } else {
+        await typecheck;
         await run('test-reader', readerPlan.full || releaseCheck ? 'npm run -s test:ci' : 'node scripts/run-affected-tests.mjs reader', testInputs, {
             test: true, extra: readerPlan.full ? 'full' : readerPlan, env: testEnv, diskInputs: ['dist/**', 'docs/public/**'],
         });
@@ -126,7 +149,7 @@ const tests = (async () => {
     }
 })();
 const diagnostics = (async () => {
-    await tests;
+    await Promise.all([tests, typecheck]);
     runner.refresh();
     await run('test-workers', 'npm run -s test:workers', testInputs, { test: true, env: testEnv, diskInputs: ['dist/**', 'docs/public/**'] });
     const tooling = toolingStageContract(runner.snapshot, compilerInputs);
@@ -144,7 +167,7 @@ const docs = (async () => {
     // docs:build's own cache verifies both pre-checks and the rendered outputs.
     await buildDocs(runner, 'render', { materialize: releaseCheck || options.noCache });
 })();
-const results = await Promise.allSettled([...preflights, tests, diagnostics, docs]);
+const results = await Promise.allSettled([...preflights, typecheck, build, tests, diagnostics, docs]);
 const failures = results.filter(result => result.status === 'rejected');
 try {
     if (failures.length) throw new AggregateError(failures.map(result => result.reason), 'check stages failed');

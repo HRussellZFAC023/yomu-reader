@@ -1,5 +1,6 @@
-import { execFileSync } from 'node:child_process';
+import { execFile, execFileSync } from 'node:child_process';
 import { isAbsolute, join, relative } from 'node:path';
+import { promisify } from 'node:util';
 
 // Ask the same compiler/config as typecheck. This includes imported JSON,
 // transitive docs modules and ambient declarations outside tsconfig.include.
@@ -8,6 +9,15 @@ export function typecheckInputs(root) {
     const output = execFileSync(process.execPath, [join(root, 'node_modules/typescript/bin/tsc'), '--listFilesOnly', '--incremental', 'false', '-p', 'tsconfig.json'], {
         cwd: root, encoding: 'utf8', maxBuffer: 32 * 1024 * 1024,
     });
+    return compilerFiles(root, output);
+}
+export async function typecheckInputsAsync(root) {
+    const { stdout } = await promisify(execFile)(process.execPath, [join(root, 'node_modules/typescript/bin/tsc'), '--listFilesOnly', '--incremental', 'false', '-p', 'tsconfig.json'], {
+        cwd: root, encoding: 'utf8', maxBuffer: 32 * 1024 * 1024,
+    });
+    return compilerFiles(root, stdout);
+}
+function compilerFiles(root, output) {
     return [...new Set(['tsconfig*.json', ...output.trim().split(/\r?\n/).filter(Boolean).map(file => {
         const path = relative(root, file);
         if (path.split('/').includes('node_modules')) return null;

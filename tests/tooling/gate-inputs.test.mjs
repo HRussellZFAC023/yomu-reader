@@ -7,11 +7,11 @@ import { join, resolve } from 'node:path';
 import { StageRunner } from '../../scripts/lib/stage-runner.mjs';
 import { repositorySnapshot, selectInputs } from '../../scripts/lib/stage-cache.mjs';
 import { testInputs } from '../../scripts/lib/affected-tests.mjs';
-import { typecheckInputs } from '../../scripts/lib/typecheck-inputs.mjs';
+import { typecheckInputsAsync } from '../../scripts/lib/typecheck-inputs.mjs';
 
-test('every compiler-loaded repository file participates in the typecheck key', () => {
+test('every compiler-loaded repository file participates in the typecheck key', async () => {
     const root = resolve('.');
-    const inputs = typecheckInputs(root);
+    const inputs = await typecheckInputsAsync(root);
     const listed = execFileSync(process.execPath, ['node_modules/typescript/bin/tsc', '--listFilesOnly', '--incremental', 'false', '-p', 'tsconfig.json'], { encoding: 'utf8', maxBuffer: 32 * 1024 * 1024 });
     const declared = selectInputs(repositorySnapshot(root), inputs);
     for (const file of listed.trim().split(/\r?\n/).filter(file => !file.includes('/node_modules/'))) {

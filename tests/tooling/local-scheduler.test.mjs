@@ -15,7 +15,7 @@ test('one transform graph preserves all three environment/setup lanes under one 
     put('artifacts/check-logs/affected-tests-academy.json', JSON.stringify({ tests: ['tests/academy/kana-sound-map.test.ts', 'tests/academy/other.test.ts', 'tests/academy/entrypoint-lifecycle.test.ts'] }));
     put('config/ci/local-contract-tests.json', '{}');
     put('tests/reader/setup.ts', 'globalThis.__g04ReaderSetup = true;');
-    for (const file of ['config/vite/local-gate.config.ts', 'config/vite/local-gate-selection.ts', 'config/vite/reader-test.ts', 'config/vite/local-gate-runner.ts', 'scripts/lib/test-workers.mjs', 'scripts/lib/local-gate-pool.mjs', 'scripts/lib/local-gate-worker.mjs', 'config/vite/academy-test.ts']) {
+    for (const file of ['config/vite/local-gate.config.ts', 'config/vite/local-gate-selection.ts', 'config/vite/reader-test.ts', 'config/vite/local-gate-runner.ts', 'scripts/lib/test-workers.mjs', 'scripts/lib/local-gate-pool.mjs', 'scripts/lib/local-gate-worker.mjs', 'scripts/lib/slot-queue.mjs', 'config/vite/academy-test.ts']) {
         mkdirSync(dirname(join(root, file)), { recursive: true });
         copyFileSync(file, join(root, file));
     }
@@ -33,7 +33,7 @@ test('one transform graph preserves all three environment/setup lanes under one 
         if(ctx.config.maxWorkers!==2 || ctx.config.poolOptions.forks.isolate!==true) throw Error('unbounded shared pool');
         for(const p of ctx.projects) if(p.getSerializableConfig().defines.__YOMU_VERSION__!=='2.2.0') throw Error('mutated project defines');
         console.log(ctx.projects.length); await ctx.close();`;
-    const env = { ...process.env, YOMU_CI_MAX_WORKERS: '2' };
+    const env = { ...process.env, YOMU_CI_MAX_WORKERS: '2', YOMU_CHECK_SESSION: '' };
     assert.equal(execFileSync(process.execPath, ['--input-type=module', '-e', script], { cwd: root, env, encoding: 'utf8' }).trim(), '1');
     const result = spawnSync(process.execPath, ['node_modules/vitest/vitest.mjs', 'run', '--config', 'config/vite/local-gate.config.ts'], { cwd: root, env, encoding: 'utf8' });
     assert.equal(result.status, 0, result.stdout + result.stderr);

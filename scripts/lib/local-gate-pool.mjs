@@ -4,9 +4,10 @@
 import { createRequire } from 'node:module';
 import { EventEmitter } from 'node:events';
 import { readFileSync } from 'node:fs';
-import { relative, matchesGlob } from 'node:path';
+import { relative, matchesGlob, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import v8 from 'node:v8';
+import { runSlotQueue } from './slot-queue.mjs';
 import { createMethodsRPC } from 'vitest/node';
 
 const require = createRequire(import.meta.url);
@@ -76,7 +77,15 @@ export default function localGatePool(ctx, options) {
         async runTests(specs, invalidates = []) {
             const tasks = jobs(specs, budget);
             console.log(`[local-pool] ${specs.length} files; ${tasks.length} jobs; ${budget} total forks`);
-            const results = await Promise.allSettled(tasks.map(async task => {
+            const capacity = () => {
+                if (!process.env.YOMU_CHECK_SESSION) return budget;
+                try {
+                    const state = JSON.parse(readFileSync(join(import.meta.dirname, '..', '..', 'artifacts/check-logs/compiler-budget.json'), 'utf8'));
+                    if (state.session === process.env.YOMU_CHECK_SESSION) return budget - state.reserved;
+                } catch { /* an unknown reservation cannot authorize extra workers */ }
+                return budget - 4;
+            };
+            const results = await runSlotQueue(tasks, capacity, async task => {
                 const { project, files } = task;
                 ctx.state.clearFiles(project, files);
                 const config = project.getSerializableConfig();
@@ -89,7 +98,7 @@ export default function localGatePool(ctx, options) {
                         environment: task.environment, workerIds: ids, projectName: project.getName(), providedContext: project.getProvidedContext(),
                     }, { name: 'run', channel: link.channel });
                 } finally { link.close(); }
-            }));
+            });
             const failures = results.filter(result => result.status === 'rejected').map(result => result.reason);
             if (failures.length) throw new AggregateError(failures, 'Local test jobs did not finish');
         },
