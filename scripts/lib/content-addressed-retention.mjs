@@ -219,19 +219,23 @@ function supportedHeaders(root, inputs) {
         currentHeaderCodes.add(code.trim());
     }
 
-    const releaseTags = reachableReleaseTags(root).slice(0, RELEASE_RETENTION_COUNT);
-    for (const ref of new Set([...releaseTags, ...SUPPORTED_RELEASE_REFS])) {
-        const code = gitShow(root, `${ref}:dist/yomu.user.js`);
+    const releaseRefs = [...new Set([...reachableReleaseTags(root).slice(0, RELEASE_RETENTION_COUNT), ...SUPPORTED_RELEASE_REFS])];
+    const commits = git(root, ['log', `-${RELEASE_RETENTION_COUNT * 2}`, '--format=%H', '--', 'docs/public/yomu.user.js'])
+        .split(/\r?\n/).filter(Boolean);
+    const specs = [...releaseRefs.map(ref => `${ref}:dist/yomu.user.js`), ...commits.map(commit => `${commit}:docs/public/yomu.user.js`)];
+    const codes = readHeaders(root, specs);
+    for (const ref of releaseRefs) {
+        const code = codes.get(`${ref}:dist/yomu.user.js`);
         if (code != null) headers.push({ label: ref, code });
     }
-
-    // Tags identify releases, but generated-asset commits can carry a newer
-    // content hash under the same version (the current Greasy Fork 1.8.43
-    // header differs from tag v1.8.43). Keep the recent committed hosted
-    // headers too so the published listing cannot lose its still-pinned files
-    // during the release/deploy hand-off.
-    for (const header of recentHostedHeaders(root, currentHeaderCodes)) {
-        headers.push(header);
+    // Preserve current + 40 prior hosted revisions, including generated-asset
+    // commits between tags. Batch Git reads avoid 80 process startups per sync.
+    let count = 0;
+    for (const commit of commits) {
+        const code = codes.get(`${commit}:docs/public/yomu.user.js`);
+        if (code == null || currentHeaderCodes.has(code.trim())) continue;
+        headers.push({ label: commit, code });
+        if (++count === RELEASE_RETENTION_COUNT) break;
     }
     return headers;
 }
@@ -247,27 +251,6 @@ function reachableReleaseTags(root) {
         .split(/\r?\n/)
         .filter(tag => /^v\d+\.\d+\.\d+$/.test(tag))
         .sort(compareReleaseTagsDescending);
-}
-
-function recentHostedHeaders(root, currentHeaderCodes) {
-    const commits = git(root, [
-        'log',
-        `-${RELEASE_RETENTION_COUNT * 2}`,
-        '--format=%H',
-        '--',
-        'docs/public/yomu.user.js',
-    ]).split(/\r?\n/).filter(Boolean);
-    const historical = [];
-    for (const commit of commits) {
-        const code = gitShow(root, `${commit}:docs/public/yomu.user.js`);
-        // The working/current header is retained separately. Excluding its
-        // committed twin makes "current + 40 prior revisions" stable across
-        // the commit that publishes that current header.
-        if (code != null && currentHeaderCodes.has(code.trim())) continue;
-        historical.push({ label: commit, code });
-        if (historical.length === RELEASE_RETENTION_COUNT) break;
-    }
-    return historical;
 }
 
 function compareReleaseTagsDescending(left, right) {
@@ -292,13 +275,45 @@ function git(root, args) {
     }
 }
 
-function gitShow(root, spec) {
-    const key = /^[0-9a-f]{40,64}:/.test(spec) ? `${root}\0${spec}` : null;
-    if (key && committedHeaders.has(key)) return committedHeaders.get(key);
-    const output = git(root, ['show', spec]);
-    const code = output || null;
-    if (key) committedHeaders.set(key, code);
-    return code;
+function readHeaders(root, specs) {
+    const codes = new Map();
+    if (!specs.length) return codes;
+    // Resolve named refs afresh, then cache only immutable blob identities.
+    const rows = execFileSync('git', ['cat-file', '--batch-check'], {
+        cwd: root, input: specs.join('\n') + '\n', encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'],
+    }).trimEnd().split('\n');
+    if (rows.length !== specs.length) throw new Error('Incomplete Git header inventory');
+    const pending = new Map();
+    for (const [index, spec] of specs.entries()) {
+        const match = /^([0-9a-f]+) blob (\d+)$/.exec(rows[index]);
+        if (!match) {
+            if (rows[index] !== `${spec} missing`) throw new Error(`Invalid Git header for ${spec}`);
+            codes.set(spec, null);
+            continue;
+        }
+        const oid = match[1];
+        const key = `${root}\0${oid}`;
+        if (committedHeaders.has(key)) codes.set(spec, committedHeaders.get(key));
+        else pending.set(oid, [...pending.get(oid) ?? [], spec]);
+    }
+    if (!pending.size) return codes;
+    const bytes = execFileSync('git', ['cat-file', '--batch'], {
+        cwd: root, input: [...pending.keys()].join('\n') + '\n', maxBuffer: 256 * 1024 * 1024,
+        stdio: ['pipe', 'pipe', 'pipe'],
+    });
+    let offset = 0;
+    for (const [oid, paths] of pending) {
+        const end = bytes.indexOf(10, offset);
+        const match = new RegExp(`^${oid} blob (\\d+)$`).exec(bytes.subarray(offset, end).toString());
+        if (end < offset || !match) throw new Error(`Invalid Git blob header for ${oid}`);
+        const size = Number(match[1]);
+        const code = bytes.subarray(end + 1, end + 1 + size).toString().trim();
+        offset = end + 1 + size + 1;
+        if (offset > bytes.length) throw new Error(`Incomplete Git blob for ${oid}`);
+        committedHeaders.set(`${root}\0${oid}`, code);
+        for (const spec of paths) codes.set(spec, code);
+    }
+    return codes;
 }
 
 function sumBytes(inputs, paths) {
