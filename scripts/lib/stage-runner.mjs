@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import { StageCache, outputHashes, repositorySnapshot, selectInputs, stageKey } from './stage-cache.mjs';
 import { vitestOutputIndicatesFailure } from './check-log-guard.mjs';
 
-export const runtimeEnv = ['CI', 'NODE_ENV', 'NODE_OPTIONS', 'TZ', 'LANG', 'LC_ALL'];
+export const runtimeEnv = ['CI', 'NODE_ENV', 'NODE_OPTIONS', 'TZ', 'LANG', 'LC_ALL', 'YOMU_CHECK_NO_DOTENV'];
 export const buildEnv = ['YOMU_USERSCRIPT_BUNDLE_MODE', 'YOMU_GOOGLE_OAUTH_WEB_CLIENT_ID', 'YOMU_GOOGLE_OAUTH_CLIENT_ID', 'GOOGLE_OAUTH_CLIENT_ID', 'YOMU_READER_CSS_OUT', 'YOMU_NEW_TAB_CSS_OUT'];
 export const testEnvironment = [
     'VITEST_ISOLATE', 'YOMU_HASH_MEMO', 'ACADEMY_REQUIRE_N3_SOURCE_FIDELITY',

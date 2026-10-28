@@ -530,6 +530,7 @@ export default defineConfig({
         },
     },
     vite: {
+        envDir: process.env.YOMU_CHECK_NO_DOTENV === "1" ? new URL("artifacts/no-dotenv", `file://${process.cwd()}/`).pathname : undefined,
         plugins: [jpdbAudioDevProxyPlugin()],
         resolve: {
             // Import the renderer package directly instead of Vue's one-line

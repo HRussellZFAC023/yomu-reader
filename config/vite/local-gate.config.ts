@@ -7,6 +7,7 @@ const { workerBudget } = createRequire(import.meta.url)('../../scripts/lib/test-
 // All lanes share one transform graph and one fork queue. Only Node files use
 // the Node environment; the runner installs Reader setup only in Reader jsdom.
 export default defineConfig({
+    envDir: process.env.YOMU_CHECK_NO_DOTENV === "1" ? new URL("artifacts/no-dotenv", `file://${process.cwd()}/`).pathname : undefined,
     define: { ...readerTestDefines },
     test: {
         include: [...new Set([...localNode, ...localReader, ...localAcademy])],

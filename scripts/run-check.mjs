@@ -13,6 +13,7 @@ import { captureRetentionInputs } from './lib/content-addressed-retention.mjs';
 import { buildDocs } from './run-docs-build.mjs';
 import { artifactDrift, describeArtifactDrift, hasUncommittedSourceEdits } from './lib/artifact-drift.mjs';
 import { offLockfilePackages } from './lib/dependency-tree-drift.mjs';
+import { hostedTemplates, hostedTemplateInputs } from './lib/hosted-template-inputs.mjs';
 import { workerBudget } from './lib/test-workers.mjs';
 
 const ROOT = join(import.meta.dirname, '..');
@@ -29,8 +30,12 @@ const overlapCompiler = !releaseCheck && !options.noCache && localBudget >= 9;
 const parallelAcademy = overlapCompiler && localBudget >= 10;
 const checkSession = randomUUID();
 process.env.YOMU_CHECK_SESSION = checkSession;
-const compilerReservation = reserved => writeJson(join(LOG_DIR, 'compiler-budget.json'), { session: checkSession, reserved });
-compilerReservation(overlapCompiler ? 4 : 0);
+const reservations = { compiler: overlapCompiler ? 4 : 0, tooling: 0, audits: 0 };
+const reserve = (lane, slots) => {
+    reservations[lane] = slots;
+    writeJson(join(LOG_DIR, 'compiler-budget.json'), { session: checkSession, reserved: Object.values(reservations).reduce((sum, value) => sum + value, 0) });
+};
+reserve('compiler', reservations.compiler);
 const common = ['scripts/run-check.mjs', 'scripts/lib/affected-tests.mjs'];
 const stage = (name, command, inputs, extra = {}) => ({ name, command, inputs: [...common, ...inputs], ...extra });
 const run = (...args) => runner.run(stage(...args));
@@ -39,9 +44,7 @@ const source = ['src/**', 'tests/**', 'workers/**', 'config/**', '!config/ci/con
 const buildInputs = readerBuildInputs(ROOT);
 const testEnv = [...testEnvironment, 'VITEST_MAX_FORKS', 'YOMU_VITEST_FORK_HEAP_MB', 'YOMU_CHECK_RELEASE', 'YOMU_CI_MAX_WORKERS', 'YOMU_CI_SHARDED', 'YOMU_CI_TEST_TIMEOUT_MS'];
 const syncSources = hostedSyncSourceInputs(ROOT);
-let compilerInputs;
-const retention = captureRetentionInputs(ROOT);
-writeFileSync(join(LOG_DIR, 'retention-inputs.json'), JSON.stringify(retention));
+const compilerInputList = typecheckInputsAsync(ROOT);
 const history = [
     git(ROOT, ['rev-parse', '--is-shallow-repository']),
     git(ROOT, ['for-each-ref', '--merged=HEAD', '--format=%(refname) %(objectname)', 'refs/tags/v*']),
@@ -60,8 +63,6 @@ async function planTests(suite) {
 // Retention receives frozen working-tree headers/inventory; committed-artifacts
 // already reads Git. Neither can race dist's replacement in the build lane.
 const preflights = [
-    run('repository-hygiene', 'npm run -s check:repository', ['scripts/check-repository-hygiene.mjs', 'scripts/lib/academy-build-manifest.cjs', 'docs/**', '!docs/public/**', '!docs/.vitepress/dist/**', '!docs/.vitepress/cache/**', '!docs/.vitepress/.temp/**', 'docs/public/academy/manifest.json'], { extra: Object.keys(runner.snapshot) }),
-    run('content-addressed-retention', 'node scripts/prune-content-addressed-assets.mjs --check --snapshot=artifacts/check-logs/retention-inputs.json', ['scripts/lib/content-addressed-retention.mjs', 'scripts/prune-content-addressed-assets.mjs', 'config/ci/content-addressed-retention.json'], { extra: stageKey({ command: 'retention-inputs', inputs: retention, extra: history }) }),
     run('committed-artifacts', 'npm run -s check:artifacts', ['scripts/check-committed-artifacts.mjs', 'scripts/lib/**'], { extra: committed, env: ['YOMU_COMMIT_TO_CHECK'] }),
     run('smoke-workflow-coverage', 'node scripts/check-smoke-workflow-coverage.mjs', ['scripts/**', '.github/workflows/**']),
     run('css-has-invalidation', 'npm run -s check:css-has', ['src/**/*.css', 'scripts/check-css-has-invalidation.mjs', 'scripts/lib/css-has-invalidation.mjs']),
@@ -80,15 +81,14 @@ const compileAcademy = async () => {
         env: ['YOMU_CHECK_RELEASE', 'YOMU_ACADEMY_BUILD_DIR'],
     });
 };
-const earlyRatchets = parallelAcademy ? sourceRatchets() : null;
-const academyCompilation = parallelAcademy ? earlyRatchets.then(compileAcademy) : null;
+const academyCompilation = parallelAcademy ? compileAcademy() : null;
 // Observe early rejection now; build still awaits and propagates the original.
 if (academyCompilation) academyCompilation.catch(() => {});
 const build = (async () => {
     await readerBuild;
     runner.refresh();
-    const sync = run('sync-docs-userscript', 'node scripts/sync-docs-userscript.cjs', [...syncSources, 'public/newtab/**', 'scripts/**', 'config/**', '!config/ci/content-addressed-retention.json', 'tsconfig*.json', 'docs/public/pdf-reader/**', 'docs/public/video-player/**', 'docs/public/hosted-reader-worker.js'], {
-        extra: history,
+    const sync = run('sync-docs-userscript', 'node scripts/sync-docs-userscript.cjs', [...syncSources, 'public/newtab/**', 'scripts/**', 'config/**', '!config/ci/content-addressed-retention.json', 'tsconfig*.json', 'docs/public/pdf-reader/**', 'docs/public/video-player/**', 'docs/public/hosted-reader-worker.js', ...hostedTemplates.map(path => `!${path}`)], {
+        extra: [history, hostedTemplateInputs(ROOT)],
         canonicalizesOutputs: true,
         restoreOutputs: true,
         diskInputs: [...syncSources, 'dist/yomu.user.js', 'dist/yomu.css', 'dist/greasyfork/**', 'dist/newtab/app.js', 'dist/newtab/styles.css'],
@@ -113,22 +113,50 @@ async function sourceRatchets() {
     await run('file-size-ratchet', 'node scripts/file-size-audit.mjs', source, { env: ['YOMU_FILE_SIZE_THRESHOLD'] });
     await run('dead-code-ratchet', 'RAYON_NUM_THREADS=1 npm run -s quality:dead-code', all);
 }
-// Source audits and Academy compilation share the tenth slot in that order.
+// Academy owns the spare slot first. Audits then overlap tests and stay within
+// the shared worker budget rather than holding the test lane behind the ratchets.
+const audits = (async () => {
+    await Promise.all([readerBuild, academyCompilation]);
+    reserve('audits', overlapCompiler ? 1 : 0);
+    try { await sourceRatchets(); } finally { reserve('audits', 0); }
+})();
+const inventory = (async () => {
+    await build;
+    runner.refresh();
+    const retention = captureRetentionInputs(ROOT);
+    writeFileSync(join(LOG_DIR, 'retention-inputs.json'), JSON.stringify(retention));
+    await Promise.all([
+    run('repository-hygiene', 'npm run -s check:repository', ['scripts/check-repository-hygiene.mjs', 'scripts/lib/academy-build-manifest.cjs', 'docs/**', '!docs/public/**', '!docs/.vitepress/dist/**', '!docs/.vitepress/cache/**', '!docs/.vitepress/.temp/**', 'docs/public/academy/manifest.json'], { extra: Object.keys(runner.snapshot) }),
+    run('content-addressed-retention', 'node scripts/prune-content-addressed-assets.mjs --check --snapshot=artifacts/check-logs/retention-inputs.json', ['scripts/lib/content-addressed-retention.mjs', 'scripts/prune-content-addressed-assets.mjs', 'config/ci/content-addressed-retention.json'], { extra: stageKey({ command: 'retention-inputs', inputs: retention, extra: history }) }),
+    ]);
+})();
+const tooling = (async () => {
+    if (!overlapCompiler) await build;
+    else await readerBuild;
+    const inputs = await compilerInputList;
+    runner.refresh();
+    const contract = toolingStageContract(runner.snapshot, inputs);
+    reserve('tooling', overlapCompiler ? 2 : 0);
+    try {
+        // node:test owns negative-probe output; its exit status is authoritative.
+        await run('tooling-tests', 'node --test --test-concurrency=2 tests/tooling/*.test.mjs', contract.inputs, { extra: contract.extra });
+    } finally { reserve('tooling', 0); }
+})();
 const typecheck = (async () => {
     try {
         if (!overlapCompiler) await build;
         runner.refresh();
-        const inputs = compilerInputs = await typecheckInputsAsync(ROOT);
+        const inputs = await compilerInputList;
         await run('typecheck', 'npm run -s typecheck', inputs, {
             diskInputs: inputs, stableInputs: true, extra: ROOT,
             outputs: ['artifacts/typecheck/tsconfig.tsbuildinfo'], restoreOutputs: true,
         });
-    } finally { compilerReservation(0); }
+    } finally { reserve('compiler', 0); }
 })();
 const tests = (async () => {
     // Readers inspect shipped bytes through fs. Plan/key them after writers,
     // never against an old snapshot while build/sync replace their inputs.
-    await Promise.all([build, earlyRatchets]);
+    await build;
     const [readerPlan, academyPlan] = localBudget >= 2
         ? await Promise.all([planTests('reader'), planTests('academy')])
         : [await planTests('reader'), await planTests('academy')];
@@ -152,22 +180,18 @@ const diagnostics = (async () => {
     await Promise.all([tests, typecheck]);
     runner.refresh();
     await run('test-workers', 'npm run -s test:workers', workerStageInputs(ROOT, runner.snapshot), { test: true, env: testEnv });
-    const tooling = toolingStageContract(runner.snapshot, compilerInputs);
-    // node:test owns these results, including intentionally failing Vitest
-    // subprocesses in the negative probes. Its nonzero exit still fails here;
-    // interpreting their expected output as a Vitest lane would be a false FAIL.
-    await run('tooling-tests', 'node --test --test-concurrency=1 tests/tooling/*.test.mjs', tooling.inputs, { extra: tooling.extra });
-    if (!earlyRatchets) await sourceRatchets();
+
 })();
+for (const promise of [audits, inventory, tooling]) promise.catch(() => {});
 const docs = (async () => {
-    await diagnostics;
+    await Promise.all([diagnostics, tooling, audits, inventory]);
     await buildDocs(runner, 'precheck');
     runner.refresh();
     await run('userscript-weight', 'node scripts/check-userscript-weight.cjs', ['scripts/check-userscript-weight.cjs', 'scripts/lib/**'], { diskInputs: ['dist/yomu.user.js', 'dist/greasyfork/**'] });
     // docs:build's own cache verifies both pre-checks and the rendered outputs.
     await buildDocs(runner, 'render', { materialize: releaseCheck || options.noCache });
 })();
-const results = await Promise.allSettled([...preflights, typecheck, build, tests, diagnostics, docs]);
+const results = await Promise.allSettled([...preflights, typecheck, build, tests, diagnostics, tooling, audits, inventory, docs]);
 const failures = results.filter(result => result.status === 'rejected');
 try {
     if (failures.length) throw new AggregateError(failures.map(result => result.reason), 'check stages failed');

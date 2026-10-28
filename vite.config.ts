@@ -100,6 +100,7 @@ function faviconDevMiddleware(): Plugin {
 }
 
 export default defineConfig(({ command, mode }) => ({
+    envDir: process.env.YOMU_CHECK_NO_DOTENV === "1" ? new URL("artifacts/no-dotenv", `file://${process.cwd()}/`).pathname : undefined,
     plugins: readerPlugins(command),
     define: readerDefines(command),
     resolve: readerResolveConfig(command),

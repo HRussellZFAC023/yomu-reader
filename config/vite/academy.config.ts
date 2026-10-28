@@ -111,7 +111,7 @@ function academyTestExclusions(isolate: boolean): string[] {
 }
 
 export default defineConfig(({ command, mode }) => {
-  const env = loadEnv(mode, root, "");
+  const env = process.env.YOMU_CHECK_NO_DOTENV === "1" ? {} : loadEnv(mode, root, "");
   const testIsolation = academyTestIsolation();
   const personaAudioRoot = configuredAcademyPath(
     "ACADEMY_PERSONA_AUDIO_ROOT",
@@ -124,6 +124,7 @@ export default defineConfig(({ command, mode }) => {
   return {
     // Dynamic imports and Vite's CSS preload URLs resolve beside the hosted
     // module, including when a native host serves the same asset directory.
+    envDir: process.env.YOMU_CHECK_NO_DOTENV === "1" ? new URL("artifacts/no-dotenv", `file://${process.cwd()}/`).pathname : undefined,
     base: command === 'build' ? './' : '/',
     define: {
       __YOMU_VERSION__: JSON.stringify(pkg.version),

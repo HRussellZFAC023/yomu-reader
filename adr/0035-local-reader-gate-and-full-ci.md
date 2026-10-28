@@ -38,11 +38,13 @@ mock-owner isolation and setup boundaries through the installed Vitest APIs.
 
 On a local budget of at least nine slots, compilation overlaps the build. On a
 ten-slot budget, Academy compilation also starts independently of Reader delivery:
-five slots for Reader builds, four for the compiler, one for Academy. Source audits
-start after Reader compilation releases capacity. Tests wait for completed products
-and audits, while the compiler reserves four slots in the same dynamic queue.
-Those slots are reclaimed when the compiler finishes. Smaller budgets and full
-forced/release checks retain serial execution. Compiler discovery still asks the
+five slots for Reader builds, four for the compiler, one for Academy. Academy
+compilation starts before the source audits. Audits overlap tests and reserve
+one slot; native tooling starts after Reader build, uses two Node hosts and
+reserves two slots. Tests wait for completed products, while the shared dynamic
+queue respects these reservations. Finishing lanes release their slots. Smaller
+budgets and full forced/release checks wait for products before compilation and
+native tooling. Compiler discovery still asks the
 real TypeScript CLI on every invocation, asynchronously rather than blocking the
 coordinator. Typecheck rejects input changes before caching, and restores matching
 worktree-specific incremental state after undo. Final success requires every lane,
@@ -51,8 +53,11 @@ including typecheck, to pass.
 A module's filesystem reads are its own inputs. The read index extracts literal
 paths, joined roots, URL paths, directory scans, glob calls and template prefixes.
 A file change selects import dependants and tests whose read targets match it.
-`// @yomu-reads <glob> ...` bounds opaque reads, including generic helpers called
-by an annotated test. `// @yomu-imports <entry> ...` declares import closures
+`// @yomu-reads <glob> ...` bounds only that module's own opaque reads. Imported helpers must declare their own inputs or keep
+their consumers precautionary. `none` is invalid when that module calls a
+filesystem reader. CI traces every Reader and Academy shard, checking bounded
+consumers against their graph and read targets; unresolved modules remain
+precautionary. `// @yomu-imports <entry> ...` declares import closures
 compiled in subprocesses. These declarations must cover every such input. New
 unresolved reads remain conservative; they cannot silently become zero tests.
 Namespace aliases, computed filesystem members and escaped named subprocess
