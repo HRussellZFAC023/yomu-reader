@@ -1,32 +1,16 @@
 import '../../../src/reader/companions/register-build-companions';
 import { describe, expect, it, vi } from 'vitest';
-import {
-    registerReaderHelpersCleanup,
-    DEFAULT_SETTINGS,
-    JITEN_BACKGROUND_DETAIL_TIMEOUT_MS,
-    READER_WORD_CSS,
-    ReaderApp,
-    applyTokensToScanTarget,
-    applyTokensToTextNode,
-    card,
-    collectFragmentTextTargetsIn,
-    collectScanTargets,
-    collectSiteScanTargets,
-    collectTextTargetsIn,
-    createFallbackShowCardBoundaryFixture,
-    domRectList,
-    expectRenderedPitchWord,
-    mockElementBoundingClientRect,
-    nearestReadableSentenceForElement,
-    readerWordAtPointInScope,
-    readerWordSurfaceText,
-    testSynchronousReaderApp,
-    waitForExpect,
-} from './fixtures';
+import { registerReaderHelpersCleanup, DEFAULT_SETTINGS, JITEN_BACKGROUND_DETAIL_TIMEOUT_MS, ReaderApp, applyTokensToScanTarget, applyTokensToTextNode, card, collectFragmentTextTargetsIn, collectScanTargets, collectSiteScanTargets, collectTextTargetsIn, createFallbackShowCardBoundaryFixture, domRectList, expectRenderedPitchWord, mockElementBoundingClientRect, nearestReadableSentenceForElement, readerWordAtPointInScope, readerWordSurfaceText, testSynchronousReaderApp, waitForExpect } from './fixtures';
 import type {
     JPDBCard,
     JPDBToken,
 } from './fixtures';
+import { readFileSync as readStyleFile } from 'node:fs';
+import { READER_CSS, readerCssNeedsFallback } from '../../../src/reader/styles/index';
+
+// Read only the styles this host actually asserts.
+const READER_WORD_CSS = readerCssNeedsFallback(READER_CSS) ? readStyleFile('src/reader/styles/reader-words-ocr.css', 'utf8') : READER_CSS;
+
 
 registerReaderHelpersCleanup();
 

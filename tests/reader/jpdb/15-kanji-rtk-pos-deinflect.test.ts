@@ -2,56 +2,17 @@ import '../../../src/reader/companions/register-build-companions';
 import { describe, expect, it, vi } from 'vitest';
 import { privateCommandAttributes } from '../../../src/reader/dom/private-command-capabilities';
 import { setInnerHtml } from '../../../src/reader/dom/html';
-import {
-    registerReaderHelpersCleanup,
-    DEFAULT_SETTINGS,
-    JpdbKanjiClient,
-    KANJI_CSS,
-    KANJI_STROKE_SOURCE_ID,
-    ReaderApp,
-    YomitanDictionaryStore,
-    buildKanjiFacts,
-    buildKanjiOriginGraph,
-    card,
-    collectPageSubtitleSources,
-    currentPageTermTarget,
-    deferred,
-    deinflectJapaneseTerm,
-    findActiveSubtitleCue,
-    formatPartOfSpeech,
-    graphNodeDataGeometry,
-    graphNodeDataPosition,
-    graphNodeStylePosition,
-    isCurrentKanjiSurface,
-    isKanjiReviewBack,
-    isKanjiReviewFront,
-    kanjiGraphDistance,
-    kanjiGraphPoint,
-    kanjiGraphPositions,
-    loadSubtitleTrackCues,
-    loadYouTubeTrackCues,
-    normalizeSubtitleCues,
-    parseJpdbKanjiHtml,
-    parseJpdbReviewCardValue,
-    parseKanjiMapInfo,
-    parseKanjiVGSvg,
-    parseRtkSearchIndex,
-    parseSubtitleText,
-    renderJpdbKanjiInfo,
-    renderJpdbKanjiMiningControls,
-    renderKanjiOrigins,
-    renderKanjiPractice,
-    renderKanjiSourceMounts,
-    renderRtkInfo,
-    stubHostedProxyFetch,
-    termRulesMatch,
-    visibleJpdbKanjiActions,
-} from './fixtures';
+import { registerReaderHelpersCleanup, DEFAULT_SETTINGS, JpdbKanjiClient, KANJI_STROKE_SOURCE_ID, ReaderApp, YomitanDictionaryStore, buildKanjiFacts, buildKanjiOriginGraph, card, collectPageSubtitleSources, currentPageTermTarget, deferred, deinflectJapaneseTerm, findActiveSubtitleCue, formatPartOfSpeech, graphNodeDataGeometry, graphNodeDataPosition, graphNodeStylePosition, isCurrentKanjiSurface, isKanjiReviewBack, isKanjiReviewFront, kanjiGraphDistance, kanjiGraphPoint, kanjiGraphPositions, loadSubtitleTrackCues, loadYouTubeTrackCues, normalizeSubtitleCues, parseJpdbKanjiHtml, parseJpdbReviewCardValue, parseKanjiMapInfo, parseKanjiVGSvg, parseRtkSearchIndex, parseSubtitleText, renderJpdbKanjiInfo, renderJpdbKanjiMiningControls, renderKanjiOrigins, renderKanjiPractice, renderKanjiSourceMounts, renderRtkInfo, stubHostedProxyFetch, termRulesMatch, visibleJpdbKanjiActions } from './fixtures';
 import type {
     JPDBCard,
     LocalDictionaryTarget,
     YomitanTermEntry,
 } from './fixtures';
+import { readFileSync as readStyleFile } from 'node:fs';
+
+// Read only the styles this host actually asserts.
+const KANJI_CSS = readStyleFile('src/reader/styles/kanji.css', 'utf8');
+
 
 registerReaderHelpersCleanup();
 

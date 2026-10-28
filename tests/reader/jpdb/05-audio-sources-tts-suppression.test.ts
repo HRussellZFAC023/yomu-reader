@@ -1,56 +1,19 @@
 import '../../../src/reader/companions/register-build-companions';
 import { describe, expect, it, vi } from 'vitest';
 import { LEGACY_DEFAULT_AUDIO_SOURCES_WITHOUT_API_TTS } from '../../../src/reader/settings/audio-source-defaults';
-import {
-    registerReaderHelpersCleanup,
-    AudioPlayer,
-    CardPopoverRenderer,
-    DEFAULT_AUDIO_SOURCES,
-    DEFAULT_SETTINGS,
-    FloatingButtonController,
-    IMMERSION_STUDY_CSS,
-    ImmersionKitClient,
-    ImmersionPopoverController,
-    READER_WORD_CSS,
-    ReaderApp,
-    ReaderAudioActions,
-    StudySourceController,
-    TEST_PROXY_URL,
-    card,
-    createPointerEvent,
-    decodeJpdbAudioBlob,
-    detectGrammarHints,
-    fetchWithCorsFallbacks,
-    getAudioCandidates,
-    immersionExample,
-    jitenTestCard,
-    jpdbAudioRequest,
-    loadSettings,
-    localizeSettingsForm,
-    mockFloatingButtonRects,
-    mockSpeechSynthesis,
-    normalizeAudioSources,
-    normalizeJpdbAudioIds,
-    normalizeReaderSettings,
-    parseJpdbAudioData,
-    readFormSettings,
-    renderGrammarHints,
-    renderSettingsForm,
-    restoreInheritedButtonRectLookup,
-    NO_EXPLICIT_USER_CHOICE,
-    saveSettings,
-    stubFloatingButtonActions,
-    syncStickyBottomSheetAvailability,
-    unproxiedFetchTarget,
-    waitForExpect,
-    withImmediateAnimationFrame,
-    withViewport,
-} from './fixtures';
+import { registerReaderHelpersCleanup, AudioPlayer, CardPopoverRenderer, DEFAULT_AUDIO_SOURCES, DEFAULT_SETTINGS, FloatingButtonController, ImmersionKitClient, ImmersionPopoverController, ReaderApp, ReaderAudioActions, StudySourceController, TEST_PROXY_URL, card, createPointerEvent, decodeJpdbAudioBlob, detectGrammarHints, fetchWithCorsFallbacks, getAudioCandidates, immersionExample, jitenTestCard, jpdbAudioRequest, loadSettings, localizeSettingsForm, mockFloatingButtonRects, mockSpeechSynthesis, normalizeAudioSources, normalizeJpdbAudioIds, normalizeReaderSettings, parseJpdbAudioData, readFormSettings, renderGrammarHints, renderSettingsForm, restoreInheritedButtonRectLookup, NO_EXPLICIT_USER_CHOICE, saveSettings, stubFloatingButtonActions, syncStickyBottomSheetAvailability, unproxiedFetchTarget, waitForExpect, withImmediateAnimationFrame, withViewport } from './fixtures';
 import type {
     ImmersionKitExample,
     JPDBCard,
     ReaderSettings,
 } from './fixtures';
+import { readFileSync as readStyleFile } from 'node:fs';
+import { READER_CSS, readerCssNeedsFallback } from '../../../src/reader/styles/index';
+
+// Read only the styles this host actually asserts.
+const IMMERSION_STUDY_CSS = readStyleFile('src/reader/styles/immersion-study.css', 'utf8');
+const READER_WORD_CSS = readerCssNeedsFallback(READER_CSS) ? readStyleFile('src/reader/styles/reader-words-ocr.css', 'utf8') : READER_CSS;
+
 
 registerReaderHelpersCleanup();
 

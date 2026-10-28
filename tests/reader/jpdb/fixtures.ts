@@ -1,5 +1,4 @@
 import { JAPANESE_LEARNING_TARGET } from '../../../src/reader/languages/japanese';
-import { readFileSync } from 'node:fs';
 import { afterEach, beforeEach, expect, vi } from 'vitest';
 import 'fake-indexeddb/auto';
 import { isYomuHostedAppUrl, isYomuHostedPassivePage } from '../../../src/reader/app/pages';
@@ -80,7 +79,6 @@ import { KANJI_STROKE_SOURCE_ID, definitionSourceRows, kanjiSourceRows, orderedD
 import { renderKanjiSourceMounts } from '../../../src/reader/runtime/kanji-source-mounts';
 import { StudySourceController } from '../../../src/reader/study/sources';
 import { detectGrammarHints, renderGrammarHints, translateJapaneseSentence } from '../../../src/reader/study/tools';
-import { READER_CSS, readerCssNeedsFallback } from '../../../src/reader/styles/index';
 import { findActiveSubtitleCue, normalizeSubtitleCues, parseSubtitleText } from '../../../src/reader/subtitles/subtitle-cues';
 import { computeSubtitleDrawerLayout } from '../../../src/reader/subtitles/subtitle-layout';
 import { collectPageSubtitleSources } from '../../../src/reader/subtitles/subtitle-sources';
@@ -230,16 +228,6 @@ export function createJpdbParseFetchMock(
     });
 }
 
-export const READER_WORD_CSS = readerCssNeedsFallback(READER_CSS) ? readFileSync('src/reader/styles/reader-words-ocr.css', 'utf8') : READER_CSS;
-export const IMMERSION_STUDY_CSS = readFileSync('src/reader/styles/immersion-study.css', 'utf8');
-export const KANJI_CSS = readFileSync('src/reader/styles/kanji.css', 'utf8');
-export const NEW_TAB_CSS = readFileSync('src/reader/styles/new-tab.css', 'utf8');
-export const STATS_CSS = readFileSync('src/reader/styles/stats.css', 'utf8');
-export const POPOVER_CORE_CSS = readFileSync('src/reader/styles/popover-core.css', 'utf8');
-export const SETTINGS_CSS = readFileSync('src/reader/styles/settings.css', 'utf8');
-export const SUBTITLES_YOUTUBE_CSS = readFileSync('src/reader/styles/subtitles-youtube.css', 'utf8');
-export const DOCS_THEME_CSS = readFileSync('docs/.vitepress/theme/custom.css', 'utf8');
-export const DOCS_THEME_TS = readFileSync('docs/.vitepress/theme/index.ts', 'utf8');
 export const SHEET_HEIGHT_STORAGE_KEY = 'jpdb-reader-sheet-height-ratio';
 export const SETTINGS_DRAWER_HEIGHT_STORAGE_KEY = 'jpdb-reader-settings-drawer-height-ratio';
 

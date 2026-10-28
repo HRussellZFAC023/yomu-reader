@@ -2,57 +2,25 @@ import '../../../src/reader/companions/register-build-companions';
 import { describe, expect, it, vi } from 'vitest';
 import { hostedAccentCssVariables } from '../../../src/reader/core/hosted-accent-css';
 import { setReaderPopoverHtml } from '../../../src/reader/popup/shell';
-import {
-    registerReaderHelpersCleanup,
-    DEFAULT_SETTINGS,
-    DOCS_THEME_CSS,
-    DOCS_THEME_TS,
-    IMMERSION_STUDY_CSS,
-    JpdbClient,
-    KANJI_CSS,
-    NEW_TAB_CSS,
-    POPOVER_CORE_CSS,
-    ReaderApp,
-    SETTINGS_CSS,
-    SETTINGS_DRAWER_HEIGHT_STORAGE_KEY,
-    SHEET_HEIGHT_STORAGE_KEY,
-    STATS_CSS,
-    SUBTITLES_YOUTUBE_CSS,
-    card,
-    createFallbackJpdbDeckFetchMock,
-    createJpdbDeckVocabularyFetchMock,
-    createJpdbParseFetchMock,
-    createReaderBackdrop,
-    createReaderPopover,
-    createSheetPopoverFixture,
-    createStackedReaderSettingsFixture,
-    dispatchTouchEvent,
-    expectScheduledDeckCards,
-    expectSettingsDialogStillMounted,
-    expectStackedLookupOverSettings,
-    installSettingsDrawerHandle,
-    installSheetCloseButton,
-    installSheetHandle,
-    installVisualViewportFixture,
-    jpdbDeckVocabularyInfoRow,
-    jpdbJsonResponse,
-    jpdbParseResultToTokens,
-    jpdbVocabularyToCards,
-    renderPitch,
-    renderSettingsForm,
-    renderTokensToHtml,
-    renderedWordPrivateValue,
-    restoreWindowDescriptor,
-    setInnerHtml,
-    shouldUseSheet,
-    waitForExpect,
-    withViewport,
-} from './fixtures';
+import { registerReaderHelpersCleanup, DEFAULT_SETTINGS, JpdbClient, ReaderApp, SETTINGS_DRAWER_HEIGHT_STORAGE_KEY, SHEET_HEIGHT_STORAGE_KEY, card, createFallbackJpdbDeckFetchMock, createJpdbDeckVocabularyFetchMock, createJpdbParseFetchMock, createReaderBackdrop, createReaderPopover, createSheetPopoverFixture, createStackedReaderSettingsFixture, dispatchTouchEvent, expectScheduledDeckCards, expectSettingsDialogStillMounted, expectStackedLookupOverSettings, installSettingsDrawerHandle, installSheetCloseButton, installSheetHandle, installVisualViewportFixture, jpdbDeckVocabularyInfoRow, jpdbJsonResponse, jpdbParseResultToTokens, jpdbVocabularyToCards, renderPitch, renderSettingsForm, renderTokensToHtml, renderedWordPrivateValue, restoreWindowDescriptor, setInnerHtml, shouldUseSheet, waitForExpect, withViewport } from './fixtures';
 import type {
     JPDBCard,
     JPDBRawToken,
     JPDBToken,
 } from './fixtures';
+import { readFileSync as readStyleFile } from 'node:fs';
+
+// Read only the styles this host actually asserts.
+const DOCS_THEME_CSS = readStyleFile('docs/.vitepress/theme/custom.css', 'utf8');
+const DOCS_THEME_TS = readStyleFile('docs/.vitepress/theme/index.ts', 'utf8');
+const IMMERSION_STUDY_CSS = readStyleFile('src/reader/styles/immersion-study.css', 'utf8');
+const KANJI_CSS = readStyleFile('src/reader/styles/kanji.css', 'utf8');
+const NEW_TAB_CSS = readStyleFile('src/reader/styles/new-tab.css', 'utf8');
+const POPOVER_CORE_CSS = readStyleFile('src/reader/styles/popover-core.css', 'utf8');
+const SETTINGS_CSS = readStyleFile('src/reader/styles/settings.css', 'utf8');
+const STATS_CSS = readStyleFile('src/reader/styles/stats.css', 'utf8');
+const SUBTITLES_YOUTUBE_CSS = readStyleFile('src/reader/styles/subtitles-youtube.css', 'utf8');
+
 
 registerReaderHelpersCleanup();
 

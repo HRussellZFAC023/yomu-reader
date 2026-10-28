@@ -1,9 +1,14 @@
 import '../../../src/reader/companions/register-build-companions';
 import { describe, expect, it } from 'vitest';
-import { registerReaderHelpersCleanup, CardPopoverRenderer, DEFAULT_SETTINGS, KANJI_CSS, card, defaultDictionaryLookupLinks, emptyCardRenderData, jitenTestCard, popoverGradeButtons, popoverGradeTargetCurrentText, popoverGradeTargetOptions, popoverGradeTargetText, readerMetaText, renderModalCard, renderWordPills, testAnkiExistingNote, testAnkiLookup, testCardPopoverRenderer, testIsJpdbBackedCard, updatePopoverReviewTargetSelection } from './fixtures';
+import { registerReaderHelpersCleanup, CardPopoverRenderer, DEFAULT_SETTINGS, card, defaultDictionaryLookupLinks, emptyCardRenderData, jitenTestCard, popoverGradeButtons, popoverGradeTargetCurrentText, popoverGradeTargetOptions, popoverGradeTargetText, readerMetaText, renderModalCard, renderWordPills, testAnkiExistingNote, testAnkiLookup, testCardPopoverRenderer, testIsJpdbBackedCard, updatePopoverReviewTargetSelection } from './fixtures';
 import type { JPDBCard } from './fixtures';
 import { setInnerHtml } from '../../../src/reader/dom';
 import { readCardUiCommandCapability } from '../../../src/reader/dom/private-command-capabilities';
+import { readFileSync as readStyleFile } from 'node:fs';
+
+// Read only the styles this host actually asserts.
+const KANJI_CSS = readStyleFile('src/reader/styles/kanji.css', 'utf8');
+
 
 registerReaderHelpersCleanup();
 

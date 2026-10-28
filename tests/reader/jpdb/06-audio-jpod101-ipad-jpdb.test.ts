@@ -1,63 +1,14 @@
 import { describe, expect, it, vi } from 'vitest';
-import {
-    registerReaderHelpersCleanup,
-    AudioPlayer,
-    DEFAULT_SETTINGS,
-    JpdbPublicPitchClient,
-    JpdbVocabularyClient,
-    NEW_TAB_PAGE_URL,
-    SETTINGS_CSS,
-    TEST_PROXY_URL,
-    card,
-    createAudioPreviewCard,
-    currentLocalDictionaryTargets,
-    defaultDictionaryLookupLinks,
-    definitionSourceRows,
-    encodedJpdbOggHeader,
-    findRecommendedDictionary,
-    formatMetaFrequency,
-    groupTermEntriesByHeadword,
-    jpdbParseResultToTokens,
-    jpdbVocabularyToCards,
-    loadSettings,
-    localDictionaryLookupVariants,
-    mockAppleMobileBrowser,
-    mockAudioBlobUserscriptRequest,
-    mockAudioPlaybackEnvironment,
-    mockHtmlAudioPlayback,
-    mockJpdbOggAudioFetch,
-    mockObjectUrls,
-    mockProxyAudioBlobFetch,
-    mockSpeechSynthesis,
-    normalizeDictionaryLookupLinks,
-    parseJpdbPublicPitchHtml,
-    parseJpdbSearchHtml,
-    publicProxyUrlFor,
-    readDictionaryLookupLinks,
-    readFormSettings,
-    renderDictionaryLookupLinkEditor,
-    renderDictionarySourceRows,
-    renderKanjiSourceRows,
-    renderLocalDefinitionSourcesSection,
-    renderPitch,
-    renderRecommendedDictionaries,
-    renderSettingsForm,
-    resolveUserscriptBlobResponse,
-    resolveUserscriptTextResponse,
-    stubHostedNewTabLocation,
-    stubJishoAudioPlayback,
-    stubSharedReaderSettings,
-    summarizeLearnerGlossary,
-    testBlobAudioPlayerForSources,
-    testJpdbSentenceAudioPlayer,
-    unproxiedFetchTarget,
-    updateDictionaryLookupLinkEditor,
-    waitForExpect,
-} from './fixtures';
+import { registerReaderHelpersCleanup, AudioPlayer, DEFAULT_SETTINGS, JpdbPublicPitchClient, JpdbVocabularyClient, NEW_TAB_PAGE_URL, TEST_PROXY_URL, card, createAudioPreviewCard, currentLocalDictionaryTargets, defaultDictionaryLookupLinks, definitionSourceRows, encodedJpdbOggHeader, findRecommendedDictionary, formatMetaFrequency, groupTermEntriesByHeadword, jpdbParseResultToTokens, jpdbVocabularyToCards, loadSettings, localDictionaryLookupVariants, mockAppleMobileBrowser, mockAudioBlobUserscriptRequest, mockAudioPlaybackEnvironment, mockHtmlAudioPlayback, mockJpdbOggAudioFetch, mockObjectUrls, mockProxyAudioBlobFetch, mockSpeechSynthesis, normalizeDictionaryLookupLinks, parseJpdbPublicPitchHtml, parseJpdbSearchHtml, publicProxyUrlFor, readDictionaryLookupLinks, readFormSettings, renderDictionaryLookupLinkEditor, renderDictionarySourceRows, renderKanjiSourceRows, renderLocalDefinitionSourcesSection, renderPitch, renderRecommendedDictionaries, renderSettingsForm, resolveUserscriptBlobResponse, resolveUserscriptTextResponse, stubHostedNewTabLocation, stubJishoAudioPlayback, stubSharedReaderSettings, summarizeLearnerGlossary, testBlobAudioPlayerForSources, testJpdbSentenceAudioPlayer, unproxiedFetchTarget, updateDictionaryLookupLinkEditor, waitForExpect } from './fixtures';
 import type {
     AudioSourceSetting,
     JPDBCard,
 } from './fixtures';
+import { readFileSync as readStyleFile } from 'node:fs';
+
+// Read only the styles this host actually asserts.
+const SETTINGS_CSS = readStyleFile('src/reader/styles/settings.css', 'utf8');
+
 
 registerReaderHelpersCleanup();
 
