@@ -57,6 +57,8 @@ test('nearest bindings never borrow shadowed or mutable path initializers', () =
         "let file='decoy'; file='actual'; readFileSync(file);",
         "const file='decoy'; for (const file of files) readFileSync(file);",
         "const {file} = object; readFileSync(file);",
+        "function load(__dirname: string) { readFileSync(__dirname); }",
+        "function load(__filename: string) { readFileSync(__filename); }",
         "const file='decoy'; function load() { if (flag) {var file='actual';} readFileSync(file); }",
     ]) {
         const reads = inspect("import {readFileSync} from 'node:fs';" + code);
@@ -73,6 +75,8 @@ test('createRequire aliases, promises aliases and root-absolute Vite globs retai
     assert.deepEqual(reads.modules, ['/repo/tests/fixture.json']);
     assert.deepEqual(reads.targets, ['promises.txt', 'tests/fixtures/*.txt']);
     assert.deepEqual(reads.unknown, []);
+    assert.deepEqual(inspect("const {promises: fsp} = require('node:fs'); fsp.readFile('promises.txt');").targets, ['promises.txt']);
+    assert.deepEqual(inspect("import {default as fs} from 'node:fs'; fs.readFileSync('default.txt');").targets, ['default.txt']);
     assert.ok(inspect("import {build} from 'esbuild'; build(options);").unknown.length);
 });
 test('none may only declare a module without filesystem reads', () => {

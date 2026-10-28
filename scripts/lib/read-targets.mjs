@@ -67,7 +67,7 @@ export function readTargets(source, file, root, ts) {
             if (clause?.namedBindings && ts.isNamedImports(clause.namedBindings)) {
                 for (const entry of clause.namedBindings.elements) {
                     if (reader.test(entry.propertyName?.text ?? entry.name.text)) fs.add(entry.name.text);
-                    else if ((entry.propertyName?.text ?? entry.name.text) === 'promises') namespaces.add(entry.name.text);
+                    else if (['promises', 'default'].includes(entry.propertyName?.text ?? entry.name.text)) namespaces.add(entry.name.text);
                 }
             }
         }
@@ -83,7 +83,10 @@ export function readTargets(source, file, root, ts) {
             && (initializer.expression.getText(ast) === 'require' || requireAliases.has(initializer.expression.getText(ast)) || initializer.expression.kind === ts.SyntaxKind.ImportKeyword)
             && /^(?:node:)?fs(?:\/promises)?$/.test(initializer.arguments[0]?.text ?? '')) {
             if (ts.isIdentifier(node.name)) namespaces.add(node.name.text);
-            else for (const entry of node.name.elements) if (reader.test(entry.propertyName?.text ?? entry.name.text)) fs.add(entry.name.text);
+            else for (const entry of node.name.elements) {
+                if (reader.test(entry.propertyName?.text ?? entry.name.text)) fs.add(entry.name.text);
+                else if (['promises', 'default'].includes(entry.propertyName?.text ?? entry.name.text)) namespaces.add(entry.name.text);
+            }
         }
         ts.forEachChild(node, collect);
     }
@@ -97,14 +100,14 @@ export function readTargets(source, file, root, ts) {
         }
         if (ts.isParenthesizedExpression(node) || ts.isAsExpression(node) || ts.isNonNullExpression(node)) return values(node.expression, seen);
         if (ts.isIdentifier(node)) {
-            if (node.text === '__dirname') return [dirname(file)];
-            if (node.text === '__filename') return [file];
             for (let scope = node.parent; scope; scope = scope.parent) {
                 if (!scopes.get(scope)?.has(node.text)) continue;
                 const value = scopes.get(scope).get(node.text);
                 if (!value || seen.has(value)) return [];
                 return values(value, new Set([...seen, value]));
             }
+            if (node.text === '__dirname') return [dirname(file)];
+            if (node.text === '__filename') return [file];
             return [];
         }
         if (ts.isConditionalExpression(node)) {
