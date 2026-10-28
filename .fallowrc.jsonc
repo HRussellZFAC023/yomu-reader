@@ -38,6 +38,8 @@
     "scripts/profile-gate.mjs",
     "scripts/run-affected-tests.mjs",
     "scripts/run-local-tests.mjs",
+    // CI launches the filesystem coverage preload through NODE_OPTIONS.
+    "scripts/lib/test-read-trace.cjs",
     "scripts/lib/local-gate-pool.mjs",
     "scripts/lib/local-gate-worker.mjs",
     "scripts/build-greasyfork-libraries.mjs",

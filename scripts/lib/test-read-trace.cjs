@@ -7,7 +7,7 @@ const { relative, resolve } = require('node:path');
 const { fileURLToPath } = require('node:url');
 const { threadId } = require('node:worker_threads');
 const append = fs.appendFileSync;
-const root = process.cwd();
+const root = process.env.YOMU_READ_TRACE_ROOT ?? process.cwd();
 const directory = process.env.YOMU_READ_TRACE_DIR;
 const seen = new Set();
 if (directory) append(`${directory}/${process.pid}-${threadId}.preload`, 'active\n');
@@ -43,7 +43,8 @@ for (const name of ['spawn', 'spawnSync', 'execFile', 'execFileSync', 'exec', 'e
             const index = args.findIndex((arg, i) => i > 0 && arg && typeof arg === 'object' && !Array.isArray(arg));
             const options = index < 0 ? {} : args[index];
             const traced = { ...options, env: { ...(options.env ?? process.env), YOMU_READ_TRACE_TEST: test,
-                YOMU_READ_TRACE_DIR: directory, NODE_OPTIONS: process.env.NODE_OPTIONS } };
+                YOMU_READ_TRACE_DIR: directory, YOMU_READ_TRACE_ROOT: root,
+                NODE_OPTIONS: [options.env?.NODE_OPTIONS ?? process.env.NODE_OPTIONS, `--require=${JSON.stringify(__filename)}`].filter(Boolean).join(' ') } };
             if (index >= 0) args[index] = traced;
             else args.splice(Array.isArray(args[1]) ? 2 : 1, 0, traced);
         }

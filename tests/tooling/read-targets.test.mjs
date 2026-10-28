@@ -57,6 +57,7 @@ test('nearest bindings never borrow shadowed or mutable path initializers', () =
         "let file='decoy'; file='actual'; readFileSync(file);",
         "const file='decoy'; for (const file of files) readFileSync(file);",
         "const {file} = object; readFileSync(file);",
+        "const file='decoy'; function load() { if (flag) {var file='actual';} readFileSync(file); }",
     ]) {
         const reads = inspect("import {readFileSync} from 'node:fs';" + code);
         assert.deepEqual(reads.targets, []);
@@ -75,6 +76,7 @@ test('createRequire aliases, promises aliases and root-absolute Vite globs retai
     assert.ok(inspect("import {build} from 'esbuild'; build(options);").unknown.length);
 });
 test('none may only declare a module without filesystem reads', () => {
+    assert.throws(() => inspect('// @yomu-reads none actual.txt\nexport const value=1;'), /none must stand alone/);
     assert.throws(() => inspect("// @yomu-reads none\nimport {readFileSync} from 'node:fs'; readFileSync(path);"), /none cannot annotate filesystem reads/);
     assert.deepEqual(inspect('// @yomu-reads none\nexport const value=1;').unknown, []);
 });

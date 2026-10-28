@@ -15,9 +15,10 @@ export function readTargets(source, file, root, ts) {
     const targets = new Set();
     const modules = new Set();
     const unknown = [];
-    const annotations = [...source.matchAll(/^\s*\/\/\s*@yomu-reads\s+(.+)$/gm)]
-        .flatMap(match => match[1].trim().split(/\s+/)).filter(path => path !== 'none');
-    const none = /^\s*\/\/\s*@yomu-reads\s+none\s*$/m.test(source);
+    const declaredPaths = [...source.matchAll(/^\s*\/\/\s*@yomu-reads\s+(.+)$/gm)]
+        .flatMap(match => match[1].trim().split(/\s+/));
+    const annotations = declaredPaths.filter(path => path !== 'none');
+    const none = declaredPaths.includes('none');
     const annotated = /^\s*\/\/\s*@yomu-reads\s+/m.test(source);
     // Subprocess bundlers consume the import closure of their entrypoints.
     for (const match of source.matchAll(/^\s*\/\/\s*@yomu-imports\s+(.+)$/gm)) {
@@ -27,7 +28,11 @@ export function readTargets(source, file, root, ts) {
     const scopeNode = node => ts.isSourceFile(node) || ts.isFunctionLike(node) || ts.isBlock(node)
         || ts.isForStatement(node) || ts.isForOfStatement(node) || ts.isForInStatement(node) || ts.isCatchClause(node);
     function scopeOf(node) {
-        for (let parent = node.parent; parent; parent = parent.parent) if (scopeNode(parent)) return parent;
+        const functionScoped = ts.isVariableDeclaration(node) && ts.isVariableDeclarationList(node.parent)
+            && !(node.parent.flags & (ts.NodeFlags.Const | ts.NodeFlags.Let));
+        for (let parent = node.parent; parent; parent = parent.parent) {
+            if (functionScoped ? ts.isFunctionLike(parent) || ts.isSourceFile(parent) : scopeNode(parent)) return parent;
+        }
         return ast;
     }
     function bind(name, declaration, initializer) {
@@ -194,6 +199,7 @@ export function readTargets(source, file, root, ts) {
     }
     visit(ast);
     for (const path of annotations) add(path);
+    if (none && annotations.length) throw new Error(`${file}: @yomu-reads none must stand alone`);
     if (none && (ownReads || unknown.some(read => /filesystem|I\/O namespace/.test(read)))) throw new Error(`${file}: @yomu-reads none cannot annotate filesystem reads`);
     return { targets: [...targets].sort(), modules: [...modules].sort(), unknown: annotated ? [] : unknown, declared: annotated };
 }
