@@ -705,6 +705,10 @@ function assertSyncedDocsAssets() {
   }
   assertLightweightNewTabAlias('docs/public/newtab');
 
+  if (process.argv.includes('--local-gate')) {
+    console.log('[verify] Local gate: rendered-site copies are checked by docs:build and full CI/release.');
+    return;
+  }
   if (!fileExists(join(ROOT, 'docs/.vitepress/dist/index.html'))) return;
   for (const [sourcePath, targetPath] of [
     ['docs/public/yomu.user.js', 'docs/.vitepress/dist/yomu.user.js'],

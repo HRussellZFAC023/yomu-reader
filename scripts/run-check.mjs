@@ -62,8 +62,8 @@ const preflights = [
 const build = (async () => {
     await run('build', 'npm run -s build', buildInputs, {
         env: buildEnv,
-        restoreOutputs: true,
-        outputs: ['dist/**', '!dist/academy/**', '!dist/newtab/index.html', '!dist/newtab/sw.js', '!dist/newtab/version.json', '!dist/newtab/manifest.webmanifest'],
+        restoreOutputs: true, canonicalizesOutputs: true,
+        outputs: ['config/dictionaries/published/v1/runtime-catalog.json', 'dist/**', '!dist/academy/**', '!dist/newtab/index.html', '!dist/newtab/sw.js', '!dist/newtab/version.json', '!dist/newtab/manifest.webmanifest'],
     });
     runner.refresh();
     const sync = run('sync-docs-userscript', 'node scripts/sync-docs-userscript.cjs', [...syncSources, 'public/newtab/**', 'scripts/**', 'config/**', '!config/ci/content-addressed-retention.json', 'tsconfig*.json', 'docs/public/pdf-reader/**', 'docs/public/video-player/**', 'docs/public/hosted-reader-worker.js'], {
@@ -85,6 +85,13 @@ const build = (async () => {
 // machines, explicit lower budgets and forced/release checks stay sequential.
 const localBudget = Number(process.env.YOMU_CI_MAX_WORKERS ?? process.env.VITEST_MAX_FORKS) || workerBudget();
 const overlapCompiler = !releaseCheck && !options.noCache && localBudget >= 9;
+async function sourceRatchets() {
+    await run('complexity-ratchet', 'node scripts/complexity-audit.mjs', source, { env: ['YOMU_COMPLEXITY_MAX'] });
+    await run('file-size-ratchet', 'node scripts/file-size-audit.mjs', source, { env: ['YOMU_FILE_SIZE_THRESHOLD'] });
+    await run('dead-code-ratchet', 'RAYON_NUM_THREADS=1 npm run -s quality:dead-code', all);
+}
+// One remaining memory/CPU slot; tests cannot start until it is released.
+const earlyRatchets = overlapCompiler && localBudget >= 10 ? sourceRatchets() : null;
 const typecheck = (async () => {
     if (!overlapCompiler) await build;
     runner.refresh();
@@ -99,7 +106,7 @@ const typecheck = (async () => {
 const tests = (async () => {
     // Readers inspect shipped bytes through fs. Plan/key them after writers,
     // never against an old snapshot while build/sync replace their inputs.
-    await Promise.all([typecheck, build]);
+    await Promise.all([typecheck, build, earlyRatchets]);
     const [readerPlan, academyPlan] = localBudget >= 2
         ? await Promise.all([planTests('reader'), planTests('academy')])
         : [await planTests('reader'), await planTests('academy')];
@@ -127,9 +134,7 @@ const diagnostics = (async () => {
     // subprocesses in the negative probes. Its nonzero exit still fails here;
     // interpreting their expected output as a Vitest lane would be a false FAIL.
     await run('tooling-tests', 'node --test --test-concurrency=1 tests/tooling/*.test.mjs', tooling.inputs, { extra: tooling.extra });
-    await run('complexity-ratchet', 'node scripts/complexity-audit.mjs', source, { env: ['YOMU_COMPLEXITY_MAX'] });
-    await run('file-size-ratchet', 'node scripts/file-size-audit.mjs', source, { env: ['YOMU_FILE_SIZE_THRESHOLD'] });
-    await run('dead-code-ratchet', 'npm run -s quality:dead-code', all);
+    if (!earlyRatchets) await sourceRatchets();
 })();
 const docs = (async () => {
     await diagnostics;
@@ -137,7 +142,7 @@ const docs = (async () => {
     runner.refresh();
     await run('userscript-weight', 'node scripts/check-userscript-weight.cjs', ['scripts/check-userscript-weight.cjs', 'scripts/lib/**'], { diskInputs: ['dist/yomu.user.js', 'dist/greasyfork/**'] });
     // docs:build's own cache verifies both pre-checks and the rendered outputs.
-    await buildDocs(runner, 'render', { materialize: false });
+    await buildDocs(runner, 'render', { materialize: releaseCheck || options.noCache });
 })();
 const results = await Promise.allSettled([...preflights, tests, diagnostics, docs]);
 const failures = results.filter(result => result.status === 'rejected');
@@ -145,7 +150,7 @@ try {
     if (failures.length) throw new AggregateError(failures.map(result => result.reason), 'check stages failed');
     runner.refresh();
     // verify always runs last, including its untracked/ignored disk products.
-    await run('verify', 'npm run -s verify', [], { uncached: true });
+    await run('verify', `npm run -s verify${releaseCheck || options.noCache ? '' : ' -- --local-gate'}`, [], { uncached: true });
     if (!reportArtifactDrift()) throw new Error('artifact drift');
     runner.summary(true);
     if (artifactDriftAdvisory) console.log('[check] artifact-drift advisory only, NOT enforced');

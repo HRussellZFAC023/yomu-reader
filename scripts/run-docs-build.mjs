@@ -29,14 +29,15 @@ export async function buildDocs(runner, phase = 'all', { materialize = true } = 
         renderInputs.push(...dependencyInputs(root, Object.keys(runner.snapshot).filter(path => path.startsWith('docs/.vitepress/') && /\.(?:[cm]?[jt]s|vue)$/.test(path))));
         const publishedDocs = Object.keys(selectInputs(runner.snapshot, sourceInputs)).filter(path => path.startsWith('docs/'));
         await runner.run({
-            name: materialize ? 'render' : 'render-validation',
+            name: materialize ? 'render' : 'render-sources',
             command: 'node node_modules/vitepress/bin/vitepress.js build docs && node node_modules/vite-node/vite-node.mjs scripts/check-rendered-docs-locales.mts && node node_modules/vite-node/vite-node.mjs scripts/check-homepage-ssr.mts && node scripts/check-public-docs.mjs',
             inputs: renderInputs,
             outputs: materialize ? ['docs/.vitepress/dist/**'] : [],
             restoreOutputs: true,
-            // Validation consumes the config's graph/core bytes and public-copy
-            // policy text. Only a materialized build consumes the copied assets.
-            diskInputs: materialize ? ['docs/public/**'] : ['docs/public/hosted-runtime-graph.js', 'docs/public/yomu.user.js', 'docs/public/llms.txt'],
+            // Local proof covers page/theme sources. Runtime hashes are data
+            // verified by the product guards, not a claim of materialized HTML.
+            // Full/docs builds key and verify every copied asset byte.
+            diskInputs: materialize ? ['docs/public/**'] : ['docs/public/llms.txt'],
             // VitePress lastUpdated reads commit dates, beyond source bytes.
             extra: git(root, ['log', '-1', '--format=%H', '--', ...publishedDocs]),
             env: ['YOMU_PATREON_ENABLED', 'YOMU_PATREON_URL', 'YOMU_KOFI_URL', 'YOMU_GOOGLE_SITE_VERIFICATION', 'YOMU_BING_SITE_VERIFICATION', 'YOMU_YANDEX_SITE_VERIFICATION', 'YOMU_BAIDU_SITE_VERIFICATION'],
