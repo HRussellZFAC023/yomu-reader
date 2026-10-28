@@ -1,7 +1,7 @@
 const { createHash } = require('node:crypto');
 const { join } = require('node:path');
 const { existsSync } = require('node:fs');
-const { readAcademyBuildCode } = require('./lib/academy-build-manifest.cjs');
+const { readAcademyBuildCode } = require('./lib/academy-build-files.cjs');
 const {
   BUNDLED_DEPENDENCY_NOTICE_MARKER,
   DIST_READER_CSS_PATH,

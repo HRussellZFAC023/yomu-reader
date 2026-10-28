@@ -5,7 +5,9 @@ import { spawnSync } from 'node:child_process';
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 // @ts-expect-error Node build helper is exercised directly by sync.
-import { academyBuildManifest, academyBuildSources, academyHostedCounterpart, renderAcademyTemplate, academyBuildCode, academyBuildFile, academyProofTemplate } from '../../scripts/lib/academy-build-manifest.cjs';
+import { academyBuildManifest, academyBuildSources, academyHostedCounterpart, renderAcademyTemplate, academyBuildCode } from '../../scripts/lib/academy-build-manifest.cjs';
+// @ts-expect-error Node filesystem adapter is exercised with temporary builds.
+import { academyBuildFile, academyProofTemplate } from '../../scripts/lib/academy-build-files.cjs';
 import { join } from "node:path";
 // @ts-expect-error The revision helper is a Node CommonJS module.
 import academyRevisionModule from "../../scripts/lib/academy-revision.cjs";

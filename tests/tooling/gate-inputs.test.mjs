@@ -95,4 +95,9 @@ test('G-03b restored guards remain reachable through their filesystem and import
     const reads = readTargets(readFileSync(audio, 'utf8'), resolve(audio), root, ts);
     for (const file of audioInputs) assert.ok(selectInputs({ [file]: true }, reads.targets)[file], file);
     assert.deepEqual(reads.unknown, []);
+    const central = await selectAffectedTests(root, ['src/reader/app/main.ts'], { config: 'config/vite/academy.config.ts' });
+    assert.equal(central.full, false, central.reason);
+    for (const host of ['asset-ledger', 'lesson-flow', 'learning-voice-playback', 'n3-mock-listening', 'world-class-route']) {
+        assert.ok(!central.tests.includes(`tests/academy/${host}.test.ts`), `${host}: unrelated filesystem work leaked into a central Reader edit`);
+    }
 });

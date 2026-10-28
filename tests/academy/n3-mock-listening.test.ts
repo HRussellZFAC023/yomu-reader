@@ -3,7 +3,7 @@
 import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
 // @ts-expect-error Production build-manifest helper is plain Node JavaScript.
-import { academyBuildCode, readAcademyBuildCode } from '../../scripts/lib/academy-build-manifest.cjs';
+import { academyBuildCode } from '../../scripts/lib/academy-build-manifest.cjs';
 import fs, { createReadStream, existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -287,7 +287,10 @@ describe('CUR-007 N3 mock-listening recovery batch', () => {
             'src/academy/content/n3-mock-listening/registry.ts',
         ].map(file => readFileSync(path.resolve(file), 'utf8')).join('\n');
         const barrel = readFileSync(path.resolve('src/academy/content/n3-mock-listening/index.ts'), 'utf8');
-        const publicBundle = readAcademyBuildCode(path.resolve(process.env.YOMU_ACADEMY_TEST_HOSTED_DIR ?? 'docs/public/academy'));
+        const publicBundle = academyBuildCode((file: string) => {
+            const target = path.resolve(process.env.YOMU_ACADEMY_TEST_HOSTED_DIR ?? 'docs/public/academy', file);
+            return existsSync(target) ? readFileSync(target, 'utf8') : null;
+        });
         const baselineBundle = academyBuildCode((file: string) => {
             try {
                 return execFileSync('git', ['show', `HEAD:docs/public/academy/${file}`], { encoding: 'utf8', maxBuffer: 30 * 1024 * 1024, stdio: ['pipe', 'pipe', 'pipe'] });

@@ -225,3 +225,5 @@ _Avoid_: Contact name, display name, nickname
 - **Caption anchor**: one reading lane and fixed translation clearance. Viewport recovery projects this stable footprint; extra cue lines grow upward without changing its baseline.
 
 The workflow model (`scripts/lib/academy-workflow-model.mjs`) transforms workflow values without filesystem access. Workflow file operations (`scripts/lib/academy-workflow-files.mjs`) own JSON reads, physical reservation paths and confined-file validation. Consumers import those capabilities explicitly.
+
+Academy build manifests are filesystem-free graph transformations; `academy-build-files.cjs` owns build-directory access. Academy integrity hosts read their own inputs and pass bytes to the pure asset hash helper.

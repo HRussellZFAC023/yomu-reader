@@ -2,10 +2,10 @@
 // @yomu-reads docs/public/academy/** scripts/academy-voice/** public/academy/audio/** docs/academy/audio/**
 import { createHash } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
-import { readFileSync, statSync } from 'node:fs';
+import { existsSync, readFileSync, statSync } from 'node:fs';
 import { resolve } from 'node:path';
 // @ts-expect-error Production build-manifest helper is plain Node JavaScript.
-import { readAcademyBuildCode } from '../../scripts/lib/academy-build-manifest.cjs';
+import { academyBuildCode } from '../../scripts/lib/academy-build-manifest.cjs';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { AudioDirector } from '../../src/academy/audio/director';
 import {
@@ -566,7 +566,10 @@ describe('Academy static learning voices', () => {
     });
 
     it('ships the accepted-only v3 parser and academy-character role in the built Academy runtime', () => {
-        const builtRuntime = readAcademyBuildCode(resolve(root, process.env.YOMU_ACADEMY_TEST_HOSTED_DIR ?? 'docs/public/academy'));
+        const builtRuntime = academyBuildCode((file: string) => {
+            const target = resolve(root, process.env.YOMU_ACADEMY_TEST_HOSTED_DIR ?? 'docs/public/academy', file);
+            return existsSync(target) ? readFileSync(target, 'utf8') : null;
+        });
         expect(builtRuntime).toContain('yomu-academy.learning-voice-playback.v3');
         expect(builtRuntime).toContain('value.role === "academy-character"');
         expect(builtRuntime).toContain('options.invalidEntry === "skip"');

@@ -66,7 +66,11 @@ whole app into tests that only need its unrelated helpers: import those product
 APIs in their actual consumer hosts instead. The workflow model is filesystem-free;
 physical path validation and JSON reads live in `academy-workflow-files.mjs`.
 The lifecycle host imports only the pure model and declares the script files it
-copies into temporary repositories. Its full integrity assertions remain in CI.
+copies into temporary repositories. Its full integrity assertions remain in CI. Academy manifest transformations
+also stay separate from build-directory reads. Integrity hosts own their byte
+reads; the asset hash helper takes bytes and has no filesystem dependency. The
+old persistent hash memo and its unused switch are removed, so hashes always
+verify actual bytes.
 
 Whole-source scanners in `config/ci/local-contract-tests.json` are contracts.
 Full CI/release schedules retain them; local affected runs omit them. Their
