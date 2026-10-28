@@ -1,5 +1,130 @@
 # Check and build speed
 
+<!-- G-04b report start -->
+## G-04b, current-main merge, 28 October 2026
+
+Merged `origin/main` at `d2b691ece` into `perf/g-04-gate-minute`, preserving
+G-03b's restored regressions and G-04's target-based local scheduling. The two
+reports below describe their original cohorts; this section records the combined
+branch. Node is `v24.16.0`. Commands run directly into ignored logs under
+`artifacts/g-04b/`; no secret file is read. No push, tag, PR or deployment is
+performed in this lane.
+
+### Input ownership and retained guards
+
+Native tooling retains G-03b's workflow, cast-manifest and test-byte inputs.
+G-04's generated-product/retention membership exclusions remain: those products
+have their own writer proofs and cannot hide a source change. The former
+`tests/tooling/**`-only native key is widened to `tests/**` because Academy mock
+isolation reads test bodies. This is the only G-04 scheduling decision overturned
+by the merge; no prune plan applies.
+
+Filesystem declarations bound recursive docs discovery, PDF/Video appearance
+writer extraction and the audio manifest/delivery ledger. Existing extension
+packaging and Academy-sync declarations remain. A native regression checks these
+real selection/read indexes and the subtitle/settings import inputs. Inputs
+imported by setup still force the full suite. The five G-03b hosts are all kept;
+CI workflow coverage assigns all 614 test files (439 Reader, 152 Academy, four
+workers and 19 native tooling), with zero orphans. Native tooling always runs its
+complete host list when its stage is invalidated.
+
+All twelve G-03b overturned decisions/fixes in the following report remain in
+force: fullscreen ownership/early-document guards; hosted appearance authority;
+publication/privacy guards; layout Study assembly; tagged-SHA CI release wait;
+audio rejections; log failure detection; mock isolation; extension authority
+rejections; cast constants; link privacy; and complete Academy mirroring. None is
+removed or weakened to meet the timing target.
+
+### Post-merge measurements
+
+Each edited case primes the exact unedited base, changes a fresh comment marker,
+runs the complete ordinary check, then restores the original bytes in `finally`.
+These measure byte invalidation and compilation, not new imports or altered test
+outcomes. A process monitor sampled other heavy commands every two seconds. The
+first docs/Academy observations overlapped a newly started external check and
+are discarded; fresh-marker reruns supply those two accepted rows. All seven
+accepted rows have no observed external overlap. Queue and priming time are not
+included.
+
+| Case | Edited file | G-04 seconds | Post-merge seconds |
+| --- | --- | ---: | ---: |
+| Unchanged | None | 8.26 | 10.77 PASS |
+| Leaf Reader | src/reader/newtab/speaking-score.ts | 49.84 | 47.37 PASS |
+| Central Reader | src/reader/app/main.ts | 48.77 | 49.77 PASS |
+| Reader test | tests/reader/speaking-score.test.ts | 17.43 | 58.18 PASS |
+| CSS | src/reader/styles/reader-words-ocr.css | 43.38 | 42.38 PASS |
+| Developer prose | docs/dev/recorded-pages.md | 13.86 | 13.96 PASS |
+| Academy | src/academy/content/learner-name.ts | 33.86 | 35.79 PASS |
+
+The Reader-test row retains the extra native-tooling invalidation from G-03b's
+`tests/**` contract. Its 58.18 seconds passes the same under-60-second limit; the
+other rows retain target-based scheduling. No guard or assertion was dropped for
+these timings.
+
+| Verification | Result |
+| --- | --- |
+| `npm run check:release -- --no-cache` | PASS, 329.49 s including npm, clean tree and artifact drift enforced |
+| Ordinary full-pass cache prime, `npm run check` | PASS, 170.61 s including npm |
+| Native tooling | PASS, all 65 cases in 19 files, 41.67 s |
+| CI assignment | PASS, 614/614 test files, zero orphans; workflow commands unchanged beyond main's fixes |
+| Six real corruptions through the production planner/StageRunner | All FAIL locally; no failed test-stage pass marker saved |
+| Shipping bytes against a fresh `origin/main` pipeline | PASS, all 26 compiled products and all 1,271 inventory files byte-identical; zero missing, added or changed files |
+
+The public-JSON probe deliberately remains a runtime/content rejection: TypeScript
+passes that semantically invalid JSON, then eight test files fail. A transitive
+setup throw forces a full Reader selection and fails during setup. All original
+bytes are restored, and the ordinary full-pass baseline is never replaced by a
+related pass or a failing run.
+
+| Mutation | Reader / Academy selection | Observed rejection |
+| --- | --- | --- |
+| Release heap 2304 to 1024 | 1 / 0 | release-workflows |
+| Reduced-motion CSS query | 3 / 0 | styles reads the actual stylesheet |
+| Correlation threshold 0.55 to 2 | 45 / 14 | speaking-score |
+| Injected failing async-utils case | 1 / 0 | merged Node host |
+| Academy JSON members to memberList | 3 / 39 | Eight content/integrity hosts |
+| Throw in transitive settings/index.ts setup dependency | Full / 19 | Setup error reaches the full Reader runner |
+
+Ignored evidence: `accepted-timings.json` joins the five original uncontended rows
+with the two `timings-uncontended/` reruns; `timings/` keeps every original result.
+`probe-results.json`, `corruption-probes.log` and `artifacts/g04b-negative-logs/`
+record the six failures. `check-release-forced.log` and `check-release-stages.json`
+record the forced proof. `origin-main/` contains the worktree-local baseline copy;
+`origin-main-build.log` and `shipping-parity.json` record its independent build and
+byte comparison. None of these artifacts is committed.
+
+The independent main build ran with `CI=true` to disable its cache, using the
+same Node installation and identical `src/` and `public/` bytes. It completed in
+38.23 seconds. Both compiled products and the complete built/hosted inventory
+match; this includes the regenerated G-03b settings/subtitle assets and Academy
+chunks, rather than the earlier G-03 inventory.
+
+Final report verification is recorded in `docs-build.log` / `docs-build.json`
+for explicit `npm run docs:build`, and `final-clean-check.log` /
+`final-clean-check.json` for `npm run check` after committing the report. The
+clean-tree gate enforces generated-artifact drift. No remote CI run or deployment
+is claimed.
+
+
+### Counts and scope
+
+| Scope | Files before | Files after | Test files before | Test files after |
+| --- | ---: | ---: | ---: | ---: |
+| Reader tests | 496 | 497 | 438 | 439 |
+| Academy tests | 163 | 163 | 152 | 152 |
+| Worker tests | 4 | 4 | 4 | 4 |
+| Native tooling | 15 | 19 | 15 | 19 |
+| Scripts | 1,696 | 1,696 | | |
+| Whole tracked tree | 7,933 | 7,938 | 609 | 614 |
+
+Before is G-04 `68a0bbb96`; after includes the main merge and input declarations.
+No test is deleted. Runtime `src/` and `public/` match `origin/main`; this follow-up
+changes only gate inputs, tests and this report. Remote CI, deployed assets,
+extension-store packages, visual acceptance and physical devices are outside this
+gate-only proof.
+
+<!-- G-04b report end -->
+
 <!-- G-04 report start -->
 ## G-04, 28 October 2026
 
