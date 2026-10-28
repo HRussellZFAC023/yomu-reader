@@ -10,15 +10,22 @@ test('the preload observes real reads and the CI audit rejects an incomplete bou
     const root = realpathSync(mkdtempSync(join(tmpdir(), 'yomu-read-trace-')));
     t.after(() => rmSync(root, { recursive: true, force: true }));
     writeFileSync(join(root, 'actual.txt'), 'real bytes');
-    writeFileSync(join(root, 'host.cjs'), `globalThis.__vitest_worker__={filepath:__filename}; require('node:fs').readFileSync('actual.txt');`);
+    writeFileSync(join(root, 'child.txt'), 'child bytes');
+    writeFileSync(join(root, 'child.cjs'), `require('node:fs').readFileSync('child.txt'); console.log('child stdout');`);
+    writeFileSync(join(root, 'host.cjs'), `globalThis.__vitest_worker__={filepath:__filename}; require('node:fs').readFileSync('actual.txt');
+        require('node:util').promisify(require('node:child_process').execFile)(process.execPath,['child.cjs']).then(result=>{
+            if(result.stdout.trim()!=='child stdout') throw Error('lost promisifier contract');
+        });`);
     execFileSync(process.execPath, ['--require', resolve('scripts/lib/test-read-trace.cjs'), 'host.cjs'], {
         cwd: root, env: { ...process.env, YOMU_READ_TRACE_DIR: root },
     });
     const events = readdirSync(root).filter(file => file.endsWith('.jsonl')).flatMap(file => readFileSync(join(root, file), 'utf8').trim().split('\n').map(line => JSON.parse(line)));
-    assert.deepEqual(events, [{ test: 'host.cjs', path: 'actual.txt' }]);
+    assert.deepEqual(events.sort((a,b)=>a.path.localeCompare(b.path)), [{ test: 'host.cjs', path: 'actual.txt' }, { test: 'host.cjs', path: 'child.txt' }]);
     const graph = { tests: { 'host.cjs': [join(root, 'host.cjs')] } };
-    const modules = { 'host.cjs': { reads: { targets: ['decoy.txt'], unknown: [] } } };
-    assert.equal(testReadCoverage(root, graph, modules, events).failures.length, 1);
+    const modules = { 'host.cjs': { reads: { targets: ['decoy.txt', 'child.txt'], unknown: [] } } };
+    graph.shared = [join(root, 'config.mjs')];
+    modules['config.mjs'] = { reads: { targets: [], unknown: ['Vite config loader'] } };
+    assert.equal(testReadCoverage(root, graph, modules, events).failures.length, 1, 'config loader opacity cannot silence a bounded test');
     modules['host.cjs'].reads.targets.push('actual.txt');
     assert.deepEqual(testReadCoverage(root, graph, modules, events).failures, []);
     modules['host.cjs'].reads.unknown.push('unresolved helper read');

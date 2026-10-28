@@ -35,20 +35,27 @@ for (const api of [fs, fs.promises]) {
 // Subprocess scripts inherit the spawning test's ownership, including when a
 // test supplies a copied environment. Preserve the original call overloads.
 const cp = require('node:child_process');
+const { promisify } = require('node:util');
+function invoke(original, receiver, args) {
+    const test = globalThis.__vitest_worker__?.filepath ?? process.env.YOMU_READ_TRACE_TEST;
+    if (directory && test) {
+        const index = args.findIndex((arg, i) => i > 0 && arg && typeof arg === 'object' && !Array.isArray(arg));
+        const options = index < 0 ? {} : args[index];
+        const traced = { ...options, env: { ...(options.env ?? process.env), YOMU_READ_TRACE_TEST: test,
+            YOMU_READ_TRACE_DIR: directory, YOMU_READ_TRACE_ROOT: root,
+            NODE_OPTIONS: [options.env?.NODE_OPTIONS ?? process.env.NODE_OPTIONS, `--require=${JSON.stringify(__filename)}`].filter(Boolean).join(' ') } };
+        if (index >= 0) args[index] = traced;
+        else args.splice(Array.isArray(args[1]) ? 2 : 1, 0, traced);
+    }
+    return Reflect.apply(original, receiver, args);
+}
 for (const name of ['spawn', 'spawnSync', 'execFile', 'execFileSync', 'exec', 'execSync', 'fork']) {
     const original = cp[name];
-    cp[name] = function (...args) {
-        const test = globalThis.__vitest_worker__?.filepath;
-        if (directory && test) {
-            const index = args.findIndex((arg, i) => i > 0 && arg && typeof arg === 'object' && !Array.isArray(arg));
-            const options = index < 0 ? {} : args[index];
-            const traced = { ...options, env: { ...(options.env ?? process.env), YOMU_READ_TRACE_TEST: test,
-                YOMU_READ_TRACE_DIR: directory, YOMU_READ_TRACE_ROOT: root,
-                NODE_OPTIONS: [options.env?.NODE_OPTIONS ?? process.env.NODE_OPTIONS, `--require=${JSON.stringify(__filename)}`].filter(Boolean).join(' ') } };
-            if (index >= 0) args[index] = traced;
-            else args.splice(Array.isArray(args[1]) ? 2 : 1, 0, traced);
-        }
-        return Reflect.apply(original, this, args);
+    cp[name] = function (...args) { return invoke(original, this, args); };
+    // Node's custom promisifier returns {stdout, stderr} and a child handle.
+    // Preserve that contract while propagating ownership into async children.
+    if (original[promisify.custom]) cp[name][promisify.custom] = function (...args) {
+        return invoke(original[promisify.custom], this, args);
     };
 }
 syncBuiltinESMExports();

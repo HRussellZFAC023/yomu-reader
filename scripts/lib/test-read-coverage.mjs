@@ -7,9 +7,10 @@ export function testReadCoverage(root, graph, modules, events) {
     for (const { test, path } of events) {
         const deps = graph.tests[test];
         if (!deps) throw new Error(`trace test missing from graph: ${test}`);
-        const inputs = deps.map(file => relative(root, file));
+        const consumers = [...deps, ...(graph.setup ?? [])].map(file => relative(root, file));
+        const inputs = [...new Set([...deps, ...(graph.shared ?? []), ...(graph.setup ?? [])])].map(file => relative(root, file));
         // Unknown modules already select their consumers for every edit.
-        if (inputs.some(file => modules[file]?.reads.unknown.length)) { precautionary.add(test); continue; }
+        if (consumers.some(file => modules[file]?.reads.unknown.length)) { precautionary.add(test); continue; }
         const targets = [...inputs, ...inputs.flatMap(file => modules[file]?.reads.targets ?? [])];
         if (!Object.keys(selectInputs({ [path]: true }, targets)).length) failures.add(`${test}: uncovered read ${path}`);
     }
