@@ -27,6 +27,10 @@ function lessonFetcher(): typeof fetch {
 
 describe('complete Lesson 0 content package', () => {
     it('retries after an integrity failure and caches only the verified result', async () => {
+        // This case owns the default-fetch cache. Other shared-realm Academy
+        // files may already have loaded the lesson through the same module.
+        vi.resetModules();
+        const { loadLessonZeroContent } = await import('../../src/academy/content/lesson-zero');
         const bytes = fs.readFileSync(CONTENT_PATH);
         const fetcher = vi.fn()
             .mockResolvedValueOnce(new Response(`${bytes.toString('utf8')}\n`, { status: 200 }))
