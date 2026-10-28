@@ -1,3 +1,5 @@
+// Inputs compared by the generic hash helper below.
+// @yomu-reads public/academy/content/lessons/** docs/public/academy/content/lessons/** public/academy/content/source-pipeline/lesson-source-ownership.v1.json docs/public/academy/content/source-pipeline/lesson-source-ownership.v1.json
 import fs from 'node:fs';
 import path from 'node:path';
 import { ACADEMY_LESSON_CONTENT_REGISTRY } from '../../src/academy/content/lesson-content-registry';
