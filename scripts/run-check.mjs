@@ -7,7 +7,7 @@ import { StageRunner, buildEnv, testEnvironment, cacheOptions } from './lib/stag
 import { git, stageKey, writeJson } from './lib/stage-cache.mjs';
 import { testPlan, testInputs } from './lib/affected-tests.mjs';
 import { typecheckInputsAsync } from './lib/typecheck-inputs.mjs';
-import { hostedSyncSourceInputs, toolingStageContract, academyBuildInputs, readerBuildInputs } from './lib/gate-inputs.mjs';
+import { hostedSyncSourceInputs, toolingStageContract, academyBuildInputs, readerBuildInputs, workerStageInputs } from './lib/gate-inputs.mjs';
 import { selectAffectedTests } from './lib/test-selection.mjs';
 import { captureRetentionInputs } from './lib/content-addressed-retention.mjs';
 import { buildDocs } from './run-docs-build.mjs';
@@ -151,7 +151,7 @@ const tests = (async () => {
 const diagnostics = (async () => {
     await Promise.all([tests, typecheck]);
     runner.refresh();
-    await run('test-workers', 'npm run -s test:workers', testInputs, { test: true, env: testEnv, diskInputs: ['dist/**', 'docs/public/**'] });
+    await run('test-workers', 'npm run -s test:workers', workerStageInputs(ROOT, runner.snapshot), { test: true, env: testEnv });
     const tooling = toolingStageContract(runner.snapshot, compilerInputs);
     // node:test owns these results, including intentionally failing Vitest
     // subprocesses in the negative probes. Its nonzero exit still fails here;

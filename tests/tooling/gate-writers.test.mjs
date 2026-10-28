@@ -172,3 +172,15 @@ test('JavaScript cache excludes independent CSS but retains CSS value dependenci
     writeFileSync(join(root, 'src/style.css'), 'body {color:black}');
     assert.notEqual(input(), unfamiliar);
 });
+
+test('worker stage keys declared source/workflows and new static dependencies, not unrelated Reader bytes', async t => {
+    const {workerStageInputs}=await import('../../scripts/lib/gate-inputs.mjs');
+    const {root,runner}=fixture(t);
+    for(const dir of ['tests/workers','workers/shared','src/reader','.github/workflows'])mkdirSync(join(root,dir),{recursive:true});
+    writeFileSync(join(root,'tests/workers/probe.test.ts'),"import {value} from '../../workers/shared/value';");
+    writeFileSync(join(root,'workers/shared/value.ts'),'export const value=1;');
+    writeFileSync(join(root,'src/reader/unrelated.ts'),'export const other=1;');
+    const key=()=>{runner.refresh();return runner.key({name:'workers',command:'true',inputs:workerStageInputs(root,runner.snapshot)});};
+    const before=key();writeFileSync(join(root,'src/reader/unrelated.ts'),'export const other=2;');assert.equal(key(),before);
+    writeFileSync(join(root,'.github/workflows/production-health.yml'),'changed cron');assert.notEqual(key(),before);
+});

@@ -58,3 +58,10 @@ export function toolingStageContract(snapshot, compilerInputs) {
         extra: { repositoryPaths: Object.keys(snapshot).filter(path => !/^(?:dist\/|docs\/public\/|config\/ci\/content-addressed-retention\.json$)/.test(path)), compilerInputs },
     };
 }
+
+export function workerStageInputs(root, snapshot) {
+    const entries = Object.keys(snapshot).filter(path => /^tests\/workers\/.*\.test\.ts$/.test(path));
+    return ['tests/workers/**', 'workers/**', '.github/workflows/**', 'wrangler*.jsonc',
+        'config/dictionaries/**', 'scripts/**', 'vite.config.ts', 'tsconfig*.json',
+        ...dependencyInputs(root, entries)];
+}
