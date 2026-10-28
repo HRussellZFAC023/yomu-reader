@@ -144,8 +144,14 @@ function sameRubyMetrics(after, before) {
     // Yomu readings on screen may grow the line around the ruby, never the
     // ruby. Where the ruby sits is the paragraph check's business: a word
     // boundary can move a glyph along its line (engines snap text runs).
-    const ownBox = ['rubyBlockSize', 'rtBlockSize', 'rtInlineSize'].every(key => Math.abs(after[key] - before[key]) <= TOLERANCE_PX);
-    return styles && ownBox;
+    const near = key => Math.abs(after[key] - before[key]) <= TOLERANCE_PX;
+    // WebKit breaks a ruby base between its kanji at a line end, on the bare
+    // page too (斑入 at 380 px columns), and lays the rt over the first piece
+    // only. Readings shown move line ends, so a ruby whole on the bare page
+    // can be broken under Yomu: there the rt's inline size follows the line
+    // end, not Yomu. Linux WebKit's fonts broke 這入 that way in CI.
+    const whole = after.lines === 1 && before.lines === 1;
+    return styles && near('rubyBlockSize') && near('rtBlockSize') && (!whole || near('rtInlineSize'));
 }
 
 async function measure(browser, layout, subject, testCase) {
@@ -210,7 +216,9 @@ function readPage({ paragraphs, pageRuby, vertical }) {
         const rt = ruby.querySelector(':scope > rt');
         const rubyStyle = getComputedStyle(ruby);
         const rtStyle = rt ? getComputedStyle(rt) : null;
-        const rubyRect = ruby.getBoundingClientRect();
+        // One rect per line the ruby spans: its block size is a line's, not
+        // the union of the lines a break spreads it over.
+        const pieces = [...(ruby.querySelector(':scope > rb') ?? ruby).getClientRects()];
         const rtRect = rt?.getBoundingClientRect();
         return {
             text: ruby.textContent,
@@ -219,7 +227,8 @@ function readPage({ paragraphs, pageRuby, vertical }) {
             rtLineHeight: rtStyle?.lineHeight ?? '',
             rtFontSize: rtStyle?.fontSize ?? '',
             rtDisplay: rtStyle?.display ?? '',
-            rubyBlockSize: block(rubyRect),
+            lines: pieces.length,
+            rubyBlockSize: Math.max(0, ...[...ruby.getClientRects()].map(block)),
             rtBlockSize: block(rtRect),
             rtInlineSize: inline(rtRect),
         };
