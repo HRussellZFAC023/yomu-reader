@@ -80,7 +80,8 @@ const compileAcademy = async () => {
         env: ['YOMU_CHECK_RELEASE', 'YOMU_ACADEMY_BUILD_DIR'],
     });
 };
-const academyCompilation = parallelAcademy ? compileAcademy() : null;
+const earlyRatchets = parallelAcademy ? sourceRatchets() : null;
+const academyCompilation = parallelAcademy ? earlyRatchets.then(compileAcademy) : null;
 // Observe early rejection now; build still awaits and propagates the original.
 if (academyCompilation) academyCompilation.catch(() => {});
 const build = (async () => {
@@ -112,8 +113,7 @@ async function sourceRatchets() {
     await run('file-size-ratchet', 'node scripts/file-size-audit.mjs', source, { env: ['YOMU_FILE_SIZE_THRESHOLD'] });
     await run('dead-code-ratchet', 'RAYON_NUM_THREADS=1 npm run -s quality:dead-code', all);
 }
-// Run source audits after Reader compilation frees its slots.
-const earlyRatchets = parallelAcademy ? readerBuild.then(sourceRatchets) : null;
+// Source audits and Academy compilation share the tenth slot in that order.
 const typecheck = (async () => {
     try {
         if (!overlapCompiler) await build;
