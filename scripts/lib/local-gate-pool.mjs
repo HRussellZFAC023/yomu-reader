@@ -1,6 +1,6 @@
 // Bounded Vitest 1.6 fork scheduler using its public worker/RPC APIs. Reader
-// files own fresh processes; reviewed Academy files may share modules, with a
-// fresh environment per file, as in test:academy. No worker budget is doubled.
+// jsdom files own fresh processes. Reviewed Node and Academy files retain their
+// full runners' module reuse, with a fresh environment and state per file.
 import { createRequire } from 'node:module';
 import { EventEmitter } from 'node:events';
 import { readFileSync } from 'node:fs';
@@ -15,6 +15,8 @@ const runtimeRequire = createRequire(require.resolve('vitest/package.json'));
 const { default: Tinypool } = runtimeRequire('tinypool');
 const { createBirpc } = runtimeRequire('birpc');
 const { academyIsolatedFiles } = require('../../config/vite/academy-test.ts');
+const { readerNodeFiles } = require('../../config/vite/reader-test.ts');
+const nodeFiles = new Set(readerNodeFiles);
 const worker = fileURLToPath(new URL('./local-gate-worker.mjs', import.meta.url));
 
 function bridge(project) {
@@ -46,7 +48,8 @@ function jobs(specs, budget) {
     for (const [project, file] of specs) {
         const env = environment(project, file);
         const local = relative(project.config.root, file).replaceAll('\\', '/');
-        const reusable = local.startsWith('tests/academy/') && !academyIsolatedFiles.includes(local);
+        const reusable = env.name === 'node' && nodeFiles.has(local)
+            || local.startsWith('tests/academy/') && !academyIsolatedFiles.includes(local);
         if (!reusable) single.push({ project, files: [file], environment: env, shared: false });
         else {
             const key = `${project.getName()}:${JSON.stringify(env)}`;
