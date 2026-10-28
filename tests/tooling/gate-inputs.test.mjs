@@ -91,6 +91,7 @@ test('G-03b restored guards remain reachable through their filesystem and import
     if (academy.full) assert.match(academy.reason, /resolved config\/setupFiles dependency changed/);
     const audio = 'tests/academy/grounded-audio-registry.test.ts';
     assert.ok(academy.full || academy.tests.includes(audio), audio);
+    if (!academy.full) assert.ok(!academy.tests.includes('tests/academy/production-workflow-lifecycle.test.ts'), 'pure workflow consumers must not inherit unrelated filesystem capabilities');
     const reads = readTargets(readFileSync(audio, 'utf8'), resolve(audio), root, ts);
     for (const file of audioInputs) assert.ok(selectInputs({ [file]: true }, reads.targets)[file], file);
     assert.deepEqual(reads.unknown, []);

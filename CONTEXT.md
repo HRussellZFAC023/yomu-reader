@@ -223,3 +223,5 @@ _Avoid_: Contact name, display name, nickname
 - **Cue boundary pad**: YouTube normalization separates touching cues by 1 ms. The visual commit treats that pad as an adjacent cue boundary, while a source gap such as 50 ms still clears the line.
 
 - **Caption anchor**: one reading lane and fixed translation clearance. Viewport recovery projects this stable footprint; extra cue lines grow upward without changing its baseline.
+
+The workflow model (`scripts/lib/academy-workflow-model.mjs`) transforms workflow values without filesystem access. Workflow file operations (`scripts/lib/academy-workflow-files.mjs`) own JSON reads, physical reservation paths and confined-file validation. Consumers import those capabilities explicitly.

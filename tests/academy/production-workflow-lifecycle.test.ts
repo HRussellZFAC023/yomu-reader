@@ -1,5 +1,5 @@
-// Filesystem/subprocess inputs, including generic helpers called by this test.
-// @yomu-reads config/academy-production-workflow.json scripts/academy-production-workflow.mjs scripts/lib/academy-workflow-model.mjs scripts/lib/academy-workflow-salvage.mjs scripts/lib/academy-workflow-store.mjs scripts/lib/academy-workflow-trust.mjs
+// Repository inputs read or copied by this module; fixtures run in temporary clones.
+// @yomu-reads config/academy-production-workflow.json scripts/academy-production-workflow.mjs scripts/lib/academy-workflow-model.mjs scripts/lib/academy-workflow-files.mjs scripts/lib/academy-workflow-salvage.mjs scripts/lib/academy-workflow-store.mjs scripts/lib/academy-workflow-trust.mjs
 import crypto from 'node:crypto';
 import { execFileSync, spawn } from 'node:child_process';
 import fs from 'node:fs';
@@ -41,6 +41,7 @@ function createFixture(options: { userVisible?: boolean } = {}): Fixture {
     for (const relative of [
         'scripts/academy-production-workflow.mjs',
         'scripts/lib/academy-workflow-model.mjs',
+        'scripts/lib/academy-workflow-files.mjs',
         'scripts/lib/academy-workflow-salvage.mjs',
         'scripts/lib/academy-workflow-store.mjs',
         'scripts/lib/academy-workflow-trust.mjs',
