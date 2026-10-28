@@ -93,6 +93,7 @@ jobs:
         env:
           NODE_OPTIONS: --require=${{ github.workspace }}/scripts/lib/test-read-trace.cjs
           YOMU_READ_TRACE_DIR: ${{ github.workspace }}/artifacts/test-read-trace
+          YOMU_READ_TRACE_ROOT: ${{ github.workspace }}
       - run: node scripts/check-test-read-coverage.mjs academy
 
   test-workers:
@@ -140,6 +141,7 @@ jobs:
         env:
           NODE_OPTIONS: --require=${{ github.workspace }}/scripts/lib/test-read-trace.cjs
           YOMU_READ_TRACE_DIR: ${{ github.workspace }}/artifacts/test-read-trace
+          YOMU_READ_TRACE_ROOT: ${{ github.workspace }}
           # One Vitest host on each matrix VM, not four local shard hosts.
           YOMU_CI_REGULAR_CONCURRENCY: 1
       - run: node scripts/check-test-read-coverage.mjs reader
@@ -163,6 +165,7 @@ jobs:
         env:
           NODE_OPTIONS: --require=${{ github.workspace }}/scripts/lib/test-read-trace.cjs
           YOMU_READ_TRACE_DIR: ${{ github.workspace }}/artifacts/test-read-trace
+          YOMU_READ_TRACE_ROOT: ${{ github.workspace }}
       - run: node scripts/check-test-read-coverage.mjs reader
 
   gaming-smoke:

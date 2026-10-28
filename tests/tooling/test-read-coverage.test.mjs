@@ -17,7 +17,7 @@ test('the preload observes real reads and the CI audit rejects an incomplete bou
             if(result.stdout.trim()!=='child stdout') throw Error('lost promisifier contract');
         });`);
     execFileSync(process.execPath, ['--require', resolve('scripts/lib/test-read-trace.cjs'), 'host.cjs'], {
-        cwd: root, env: { ...process.env, YOMU_READ_TRACE_DIR: root },
+        cwd: root, env: { ...process.env, YOMU_READ_TRACE_DIR: root, YOMU_READ_TRACE_ROOT: root },
     });
     const events = readdirSync(root).filter(file => file.endsWith('.jsonl')).flatMap(file => readFileSync(join(root, file), 'utf8').trim().split('\n').map(line => JSON.parse(line)));
     assert.deepEqual(events.sort((a,b)=>a.path.localeCompare(b.path)), [{ test: 'host.cjs', path: 'actual.txt' }, { test: 'host.cjs', path: 'child.txt' }]);

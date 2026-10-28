@@ -21,7 +21,7 @@ test('one transform graph preserves all three environment/setup lanes under one 
     }
     symlinkSync(resolve('node_modules'), join(root, 'node_modules'));
     for (const [file, browser, setup] of [['tests/reader/app-version.test.ts', false, false], ['tests/reader/styles.test.ts', true, true], ['tests/academy/kana-sound-map.test.ts', true, false]]) {
-        put(file, `it('project globals',()=>{ expect(__YOMU_VERSION__).toBe('2.2.0'); expect(typeof document !== 'undefined').toBe(${browser}); expect(Boolean(globalThis.__g04ReaderSetup)).toBe(${setup}); });`);
+        put(file, `it('project globals',()=>{ expect(__YOMU_VERSION__).toBe('2.2.0'); expect(typeof document !== 'undefined').toBe(${browser}); expect(Boolean(globalThis.__g04ReaderSetup)).toBe(${setup}); expect(globalThis.__vitest_worker__?.filepath).toContain('${file}'); });`);
     }
     put('tests/academy/shared.ts', "import {randomUUID} from 'node:crypto'; export const identity = randomUUID();");
     put('tests/reader/shared.ts', "import {randomUUID} from 'node:crypto'; export const identity = randomUUID();");
